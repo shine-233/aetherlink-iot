@@ -1868,7 +1868,6 @@ describe("Coverage harness contract [00_coverage_contract]", function () {
     const audit = coverageContract.getSourceReviewBoundaryAudit();
 
     expect(audit.docs).to.deep.equal([
-      "references/source-file-inventory.md",
       "references/source-quality-review.md",
     ]);
     expect(audit.priorityScopeDifferenceExplained).to.equal(true);

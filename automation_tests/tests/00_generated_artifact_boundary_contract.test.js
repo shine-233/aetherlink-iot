@@ -29,7 +29,10 @@ describe('generated artifact boundary contract [00_generated_artifact_boundary_c
     const result = inspectGeneratedArtifacts();
     expect(result.external.filter(item => item.mode === 'blocked-external')).to.deep.equal([]);
     expect(result.reviewRequired).to.deep.equal([]);
-    expect(result.summary.candidates).to.be.greaterThan(0);
+    // A clean public clone is allowed to contain no ignored runtime output.
+    // The boundary is verified by the candidate classifier and the tracked /
+    // ignored assertions below; it must not require a pre-existing artifact.
+    expect(result.summary.candidates).to.be.a('number').and.at.least(0);
     expect(result.summary.localDefault).to.equal(result.summary.candidates);
     expect(result.ok).to.equal(true);
   });

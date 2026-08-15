@@ -15,16 +15,10 @@ const projectRoot = path.resolve(__dirname, '..', '..');
 const csvRelativePath = 'references/repository-file-inventory.csv';
 const summaryRelativePath = 'references/repository-file-inventory-summary.md';
 const excludedOutputPaths = new Set([csvRelativePath, summaryRelativePath]);
-const reviewedDeletionReasons = new Map([
-  [
-    'automation_tests/e2e/route_smoke.js',
-    'removed weak route-shell helper; API-backed browser assertions now live in the owning E2E specs'
-  ],
-  [
-    'frontend/src/core/SystemInitializer.ts',
-    'removed unused orchestration layer; frontend/src/main.ts is the active direct bootstrap and no source import remains'
-  ]
-]);
+// The public release starts from a clean Git baseline. If a future working
+// tree deletes a tracked file, its release-specific review reason must be
+// added here before the inventory contract can pass.
+const reviewedDeletionReasons = new Map();
 
 function runGit(args) {
   return execFileSync('git', args, {
