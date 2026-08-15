@@ -1,0 +1,6 @@
+{
+  "id": "api-baseline",
+  "description": "Backend health, deployment readiness, and core API smoke checks.",
+  "requiredTargets": ["backendUrl"],
+  "evidence": ["health", "deploymentHealth", "apiLatencySamples", "exitCode"]
+}

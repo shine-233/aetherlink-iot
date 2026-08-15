@@ -1,0 +1,68 @@
+/*
+ * 文件用途：定义 AdminLayout 的 CSS Module 样式。
+ * 核心逻辑：通过布局区域类、占位类、折叠态和移动端遮罩控制整体布局尺寸与层级。
+ * 关键注意事项：类名需要与 index.vue 和 index.module.css.d.ts 保持一致。
+ * 重构建议：可按 header、tab、sider、content、footer 分段整理，并补充 CSS 变量说明。
+ */
+
+.layout-header,
+.layout-header-placement {
+  height: var(--soy-header-height);
+}
+
+.layout-header {
+  z-index: var(--soy-header-z-index);
+}
+
+.layout-tab {
+  top: var(--soy-header-height);
+  height: var(--soy-tab-height);
+  z-index: var(--soy-tab-z-index);
+}
+
+.layout-tab-placement {
+  height: var(--soy-tab-height);
+}
+
+.layout-sider {
+  width: var(--soy-sider-width);
+  z-index: var(--soy-sider-z-index);
+}
+
+.layout-mobile-sider {
+  z-index: var(--soy-sider-z-index);
+}
+
+.layout-mobile-sider-mask {
+  z-index: var(--soy-mobile-sider-z-index);
+}
+
+.layout-sider_collapsed {
+  width: var(--soy-sider-collapsed-width);
+  z-index: var(--soy-sider-z-index);
+}
+
+.layout-footer,
+.layout-footer-placement {
+  height: var(--soy-footer-height);
+}
+
+.layout-footer {
+  z-index: var(--soy-footer-z-index);
+}
+
+.left-gap {
+  padding-left: var(--soy-sider-width);
+}
+
+.left-gap_collapsed {
+  padding-left: var(--soy-sider-collapsed-width);
+}
+
+.sider-padding-top {
+  padding-top: var(--soy-header-height);
+}
+
+.sider-padding-bottom {
+  padding-bottom: var(--soy-footer-height);
+}

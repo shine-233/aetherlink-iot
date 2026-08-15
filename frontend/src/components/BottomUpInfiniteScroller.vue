@@ -1,0 +1,92 @@
+<!--
+  文件用途：提供自底向上的无限滚动容器组件。
+  核心逻辑：使用 Naive UI NScrollbar 包裹列表项，并在滚动边界拦截滚轮事件以减少外层滚动串联。
+  关键注意事项：滚动高度和内容高度依赖模板 ref，调整 DOM 结构时需同步验证边界判断。
+  重构建议：若滚动场景继续增加，可抽出滚轮边界判断 composable 并补充单元测试。
+-->
+<template>
+  <!-- Replace root div with NScrollbar -->
+  <n-scrollbar
+    ref="scrollbarInstRef"
+    :scrollbar-ref="scrollbarRootRef"
+    :style="{ height: height }"
+    class="bottom-up-scroller"
+    content-style="padding: 0;"
+    @wheel.capture="handleWheel"
+  >
+    <!-- Use n-el instead of div for the content wrapper -->
+    <n-el ref="scrollbarContentRef" tag="div" class="infinite-scroller-content">
+      <!-- Use n-el for each item wrapper -->
+      <n-el v-for="(item, index) in list" :key="index" tag="div" class="infinite-scroller-item">
+        <slot :item="item" :index="index">
+          <span>{{ item }}</span>
+        </slot>
+      </n-el>
+    </n-el>
+  </n-scrollbar>
+</template>
+
+<script setup lang="ts">
+import { ref } from 'vue'
+// Import NEl along with NScrollbar
+import { NScrollbar, ScrollbarInst, NEl } from 'naive-ui'
+
+// --- Props remain the same ---
+const props = defineProps({
+  list: {
+    type: Array as () => any[],
+    required: true
+  },
+  height: {
+    type: String,
+    default: '200px'
+  }
+})
+
+// --- Update Ref for NScrollbar instance ---
+const scrollbarInstRef = ref<ScrollbarInst | null>(null)
+// Template ref for the scrollable DOM element
+const scrollbarRootRef = ref<HTMLElement | null>(null)
+// Ref for the content inside (might be needed to get correct scrollHeight)
+const scrollbarContentRef = ref<HTMLElement | null>(null)
+
+// --- Handle Wheel Event to Prevent Scroll Chaining ---
+const handleWheel = (event: WheelEvent) => {
+  // Use the template ref to get the scrollable DOM element
+  const scrollContainer = scrollbarRootRef.value
+  const contentElement = scrollbarContentRef.value // Get content element
+
+  if (!scrollContainer || !contentElement) return
+
+  // Get scroll properties from the container
+  const { scrollTop, clientHeight } = scrollContainer
+  // Get scrollHeight from the content element
+  const scrollHeight = contentElement.scrollHeight
+
+  const deltaY = event.deltaY
+
+  // Prevent scroll up when at top
+  if (scrollTop <= 0 && deltaY < 0) {
+    event.preventDefault()
+    return
+  }
+  // Prevent scroll down when at bottom (with tolerance)
+  // Compare container's scrollTop + clientHeight with content's scrollHeight
+  if (Math.ceil(scrollTop + clientHeight) >= scrollHeight - 1 && deltaY > 0) {
+    event.preventDefault()
+    return
+  }
+}
+
+// --- Removed Lifecycle Hooks & Watchers ---
+</script>
+
+<style scoped>
+/* Remove custom scrollbar styles as NScrollbar handles it */
+.bottom-up-scroller {
+  /* Add any specific styles for the NScrollbar component itself if needed */
+  position: relative; /* Ensure position is relative if needed */
+}
+
+/* Optional: Add padding or margin to items if needed */
+</style>

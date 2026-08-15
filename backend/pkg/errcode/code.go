@@ -1,0 +1,55 @@
+// 文件用途：定义后端统一错误码常量。
+// 核心逻辑：按系统级、业务级和文件上传模块分段维护数字错误码。
+// 关键注意事项：错误码是 API 契约，新增、删除或改值都需要同步消息配置、前端和自动化断言。
+// 重构建议：后续可用生成校验锁定错误码范围和 YAML 文案覆盖率。
+// pkg/errcode/code.go
+package errcode
+
+// 系统级错误码
+const (
+	CodeSuccess      = 200    // 成功
+	CodeSystemError  = 100000 // 系统内部错误
+	CodeParamError   = 100002 // 参数错误
+	CodeDecryptError = 100003 // 解密失败
+	CodeNotFound     = 100404 // 资源不存在
+	CodeDBError      = 101001 // 数据库错误
+	CodeCacheError   = 102001 // 缓存错误
+	// 系统错误 - Token相关 (103xxx)
+	CodeTokenGenerateError = 103001 // token生成失败
+	CodeTokenSaveError     = 103002 // token保存失败
+	CodeTokenDeleteError   = 103003 // token删除失败
+
+	// 文件系统错误码 (104xxx)
+	CodeFilePathGenError = 104001 // 生成文件路径失败
+	CodeFileSaveError    = 104002 // 保存文件失败
+
+)
+
+// 业务级错误码
+const (
+	// 用户模块 (200xxx)
+	CodeUnauthorized    = 200001 // 未授权
+	CodeInvalidAuth     = 200002 // 用户名或密码错误
+	CodeUserLocked      = 200003 // 用户被锁定
+	CodeUserDisabled    = 200005 // 用户已禁用
+	CodeTooManyAttempts = 200006 // 登录尝试次数过多
+	CodePhoneDuplicated = 200007 // 手机号已被使用
+	CodeEmailNotFound   = 200015 // 用户邮箱不存在
+	// 首次初始化（市场联动）错误码
+	CodeMarketServiceUnavailable = 200056 // 市场服务不可达
+	CodeMarketCheckFailed        = 200057 // 市场邮箱校验失败
+	CodeLocalInitCreateUserFail  = 200058 // 本地创建超管失败
+	CodeLocalInitLoginFail       = 200059 // 本地登录态创建失败
+
+	// 权限模块 (201xxx)
+	CodeNoPermission = 201001 // 无权限
+	CodeOpDenied     = 201002 // 操作被拒绝
+	CodeRateLimit    = 201003 // 请求频率限制
+)
+
+const (
+	// 文件上传模块错误码 (202xxx)
+	CodeFileEmpty        = 202001 // 文件不能为空
+	CodeFileTypeMismatch = 202002 // 文件类型不匹配
+	CodeFileTooLarge     = 202003 // 文件大小超限
+)

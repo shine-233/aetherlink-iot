@@ -1,0 +1,10 @@
+# Shared Deployment Doctor performance-tier normalization contract.
+# The literal <empty> represents an empty string.
+# Columns: case_name<TAB>input<TAB>normalized_value<TAB>valid(0|1)
+default-empty	<empty>	light	1
+light	light	light	1
+standard-case	STANDARD	standard	1
+production-mixed-case	Production	production	1
+surrounding-whitespace	 standard 	standard	1
+unknown	fast	fast	0
+whitespace-only	   	<empty>	0

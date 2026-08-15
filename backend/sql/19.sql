@@ -1,0 +1,4 @@
+-- Reserved migration bridge.
+-- Version 19 was previously skipped during static feature work. Keep this file
+-- present so databases below version 20 can upgrade through the numbered SQL
+-- sequence without failing on a missing migration file.

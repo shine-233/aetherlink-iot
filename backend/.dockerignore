@@ -1,0 +1,16 @@
+.git
+tmp
+bin
+dist
+coverage
+_localrun
+reports
+test-results
+*.log
+configs/conf-localdev.yml
+configs/conf-push-test.yml
+configs/.telemetry_state.json
+configs/rsa_key/*.pem
+files/logs
+data/telemetry-spool
+data/attribute-event-spool

@@ -1,0 +1,207 @@
+networks:
+  postgres_net:
+    internal: true
+  redis_net:
+    internal: true
+  core_net:
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    networks:
+      - postgres_net
+    restart: unless-stopped
+    cpus: "${AETHERLINK_POSTGRES_CPUS:-0.40}"
+    mem_limit: "${AETHERLINK_POSTGRES_MEM_LIMIT:-512m}"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-aetherlink_iot}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./backend/sql:/docker-entrypoint-initdb.d/sql:ro
+      - ./deploy/postgres/00-run-migrations.sh:/docker-entrypoint-initdb.d/00-run-migrations.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    networks:
+      - redis_net
+    restart: unless-stopped
+    cpus: "${AETHERLINK_REDIS_CPUS:-0.20}"
+    mem_limit: "${AETHERLINK_REDIS_MEM_LIMIT:-128m}"
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "${AETHERLINK_REDIS_MAXMEMORY:-96mb}", "--maxmemory-policy", "noeviction", "--requirepass", "${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 10
+
+  mqtt-broker:
+    networks:
+      - postgres_net
+      - redis_net
+      - core_net
+    build:
+      context: ./mqtt-broker
+    restart: unless-stopped
+    cpus: "${AETHERLINK_MQTT_CPUS:-0.30}"
+    mem_limit: "${AETHERLINK_MQTT_MEM_LIMIT:-128m}"
+    pids_limit: ${AETHERLINK_MQTT_PIDS_LIMIT:-256}
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      GMQTT_DB_PSQL_PSQLADDR: ${GOTP_DB_PSQL_HOST:-postgres}
+      GMQTT_DB_PSQL_PSQLPORT: ${GOTP_DB_PSQL_PORT:-5432}
+      GMQTT_DB_PSQL_PSQLUSER: ${GOTP_DB_PSQL_USERNAME:-postgres}
+      GMQTT_DB_PSQL_PSQLPASS: ${GOTP_DB_PSQL_PASSWORD:?Set GOTP_DB_PSQL_PASSWORD in .env}
+      GMQTT_DB_PSQL_PSQLDB: ${GOTP_DB_PSQL_DBNAME:-aetherlink_iot}
+      # Local container PostgreSQL has no TLS; external deployments must override this explicitly.
+      GMQTT_DB_PSQL_SSLMODE: ${GOTP_DB_PSQL_SSLMODE:-disable}
+      GMQTT_DB_REDIS_CONN: ${GOTP_DB_REDIS_ADDR:-redis:6379}
+      GMQTT_DB_REDIS_DB_NUM: ${GOTP_DB_REDIS_DB:-1}
+      GMQTT_DB_REDIS_PASSWORD: ${GOTP_DB_REDIS_PASSWORD:?Set GOTP_DB_REDIS_PASSWORD in .env}
+      GMQTT_MQTT_BROKER: tcp://127.0.0.1:1883
+      GMQTT_MQTT_PASSWORD: ${MQTT_ROOT_PASSWORD:?Set MQTT_ROOT_PASSWORD in .env}
+      GMQTT_MQTT_PLUGIN_PASSWORD: ${MQTT_PLUGIN_PASSWORD:?Set MQTT_PLUGIN_PASSWORD in .env}
+      GMQTT_MQTT_SESSION_REVOCATIONS_BROKER_ID: ${MQTT_BROKER_ID:?Set MQTT_BROKER_ID in .env}
+      # Local PostgreSQL resolver; disabled by default to preserve existing uplink behavior.
+      GMQTT_PAYLOAD_SCHEMA_ENABLED: ${AETHERLINK_PAYLOAD_SCHEMA_ENABLED:-false}
+      GMQTT_PAYLOAD_SCHEMA_CACHE_TTL: ${AETHERLINK_PAYLOAD_SCHEMA_CACHE_TTL:-30s}
+    ports:
+      - "${AETHERLINK_BIND_ADDRESS:-127.0.0.1}:${MQTT_PORT:-1883}:1883"
+      - "${AETHERLINK_BIND_ADDRESS:-127.0.0.1}:${BROKER_METRICS_PORT:-8082}:8082"
+    volumes:
+      - ./mqtt-broker/cmd/gmqttd/default_config.yml:/gmqttd/default_config.yml:ro
+      - ./mqtt-broker/cmd/gmqttd/aetherlink.example.yml:/gmqttd/aetherlink.yml:ro
+      - broker-data:/gmqttd/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8082/metrics >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 12
+
+  backend:
+    networks:
+      - postgres_net
+      - redis_net
+      - core_net
+    build:
+      context: ./backend
+    restart: unless-stopped
+    cpus: "${AETHERLINK_BACKEND_CPUS:-0.70}"
+    mem_limit: "${AETHERLINK_BACKEND_MEM_LIMIT:-768m}"
+    pids_limit: ${AETHERLINK_BACKEND_PIDS_LIMIT:-256}
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mqtt-broker:
+        condition: service_healthy
+    environment:
+      GOTP_SERVICE_HTTP_HOST: ${GOTP_SERVICE_HTTP_HOST:-0.0.0.0}
+      GOTP_SERVICE_HTTP_PORT: ${GOTP_SERVICE_HTTP_PORT:-9999}
+      GOTP_JWT_KEY: ${GOTP_JWT_KEY:?Set GOTP_JWT_KEY in .env}
+      GOTP_LOG_LEVEL: ${GOTP_LOG_LEVEL:-info}
+      GOTP_DB_PSQL_HOST: ${GOTP_DB_PSQL_HOST:-postgres}
+      GOTP_DB_PSQL_PORT: ${GOTP_DB_PSQL_PORT:-5432}
+      GOTP_DB_PSQL_DBNAME: ${GOTP_DB_PSQL_DBNAME:-aetherlink_iot}
+      GOTP_DB_PSQL_USERNAME: ${GOTP_DB_PSQL_USERNAME:-postgres}
+      GOTP_DB_PSQL_PASSWORD: ${GOTP_DB_PSQL_PASSWORD:?Set GOTP_DB_PSQL_PASSWORD in .env}
+      GOTP_DB_REDIS_ADDR: ${GOTP_DB_REDIS_ADDR:-redis:6379}
+      GOTP_DB_REDIS_DB: ${GOTP_DB_REDIS_DB:-1}
+      GOTP_DB_REDIS_DB1: ${GOTP_DB_REDIS_DB1:-10}
+      GOTP_DB_REDIS_PASSWORD: ${GOTP_DB_REDIS_PASSWORD:?Set GOTP_DB_REDIS_PASSWORD in .env}
+      GOTP_MQTT_SERVER: ${GOTP_MQTT_SERVER:-gmqtt}
+      GOTP_MQTT_BROKER: ${GOTP_MQTT_BROKER:-mqtt-broker:1883}
+      GOTP_MQTT_USER: ${GOTP_MQTT_USER:-root}
+      GOTP_MQTT_PASS: ${MQTT_ROOT_PASSWORD:?Set MQTT_ROOT_PASSWORD in .env}
+      GOTP_MQTT_SESSION_REVOCATIONS_REQUIRED_BROKER_IDS: ${MQTT_BROKER_ID:?Set MQTT_BROKER_ID in .env}
+      # Deployment-facing AETHERLINK_* values are canonical when injected at
+      # runtime; GOTP_* remains the backwards-compatible .env fallback.
+      GOTP_MQTT_ACCESS_ADDRESS: ${AETHERLINK_MQTT_ACCESS_ADDRESS:-${GOTP_MQTT_ACCESS_ADDRESS:-localhost:1883}}
+      GOTP_OTA_DOWNLOAD_ADDRESS: ${AETHERLINK_PUBLIC_URL:-${GOTP_OTA_DOWNLOAD_ADDRESS:-http://localhost:8080}}
+      AETHERLINK_SERVER_MODE: ${AETHERLINK_SERVER_MODE:-0}
+      GOTP_MARKET_ENABLED: "false"
+      GOTP_TELEMETRY_ENABLED: "false"
+      GOTP_STORAGE_TELEMETRY_SPOOL_ENABLED: "true"
+      GOTP_STORAGE_TELEMETRY_SPOOL_DIRECTORY: /go/src/app/data/telemetry-spool
+      GOTP_STORAGE_TELEMETRY_SPOOL_MAX_BYTES: ${AETHERLINK_TELEMETRY_SPOOL_MAX_BYTES:-536870912}
+      GOTP_STORAGE_TELEMETRY_SPOOL_MAX_RECORDS: ${AETHERLINK_TELEMETRY_SPOOL_MAX_RECORDS:-100000}
+      GOTP_STORAGE_TELEMETRY_SPOOL_MAX_RECORD_BYTES: ${AETHERLINK_TELEMETRY_SPOOL_MAX_RECORD_BYTES:-16777216}
+      GOTP_STORAGE_TELEMETRY_SPOOL_REPLAY_INTERVAL: ${AETHERLINK_TELEMETRY_SPOOL_REPLAY_INTERVAL:-30s}
+      GOTP_STORAGE_TELEMETRY_SPOOL_REPLAY_BATCH_SIZE: ${AETHERLINK_TELEMETRY_SPOOL_REPLAY_BATCH_SIZE:-100}
+      GOTP_STORAGE_TELEMETRY_SPOOL_REPLAY_TIMEOUT: ${AETHERLINK_TELEMETRY_SPOOL_REPLAY_TIMEOUT:-10s}
+      GOTP_STORAGE_ATTRIBUTE_EVENT_SPOOL_ENABLED: "true"
+      GOTP_STORAGE_ATTRIBUTE_EVENT_SPOOL_DIRECTORY: /go/src/app/data/uplink-spool
+      GOTP_STORAGE_ATTRIBUTE_EVENT_SPOOL_MAX_BYTES: ${AETHERLINK_ATTRIBUTE_EVENT_SPOOL_MAX_BYTES:-536870912}
+      GOTP_STORAGE_ATTRIBUTE_EVENT_SPOOL_MAX_RECORDS: ${AETHERLINK_ATTRIBUTE_EVENT_SPOOL_MAX_RECORDS:-100000}
+      GOTP_STORAGE_ATTRIBUTE_EVENT_SPOOL_MAX_RECORD_BYTES: ${AETHERLINK_ATTRIBUTE_EVENT_SPOOL_MAX_RECORD_BYTES:-16777216}
+      GOTP_STORAGE_ATTRIBUTE_EVENT_SPOOL_REPLAY_INTERVAL: ${AETHERLINK_ATTRIBUTE_EVENT_SPOOL_REPLAY_INTERVAL:-30s}
+      GOTP_STORAGE_ATTRIBUTE_EVENT_SPOOL_REPLAY_BATCH_SIZE: ${AETHERLINK_ATTRIBUTE_EVENT_SPOOL_REPLAY_BATCH_SIZE:-100}
+      GOTP_STORAGE_ATTRIBUTE_EVENT_SPOOL_REPLAY_TIMEOUT: ${AETHERLINK_ATTRIBUTE_EVENT_SPOOL_REPLAY_TIMEOUT:-10s}
+    ports:
+      - "${AETHERLINK_BIND_ADDRESS:-127.0.0.1}:${BACKEND_PORT:-9999}:9999"
+    volumes:
+      - backend-files:/go/src/app/files
+      # 独立于postgres-data；卷内是原始遥测值，生产主机需限制访问并按需启用磁盘加密。
+      - backend-telemetry-spool:/go/src/app/data/telemetry-spool
+      # 独立于telemetry卷；envelope可含原始attribute/event，生产主机需持久化、限制访问并按需启用磁盘加密。
+      - backend-uplink-spool:/go/src/app/data/uplink-spool
+    healthcheck:
+      # Compose readiness uses required core dependencies; /health remains process liveness.
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9999/ready >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 12
+
+  frontend:
+    networks:
+      - core_net
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    cpus: "${AETHERLINK_FRONTEND_CPUS:-0.20}"
+    mem_limit: "${AETHERLINK_FRONTEND_MEM_LIMIT:-128m}"
+    pids_limit: ${AETHERLINK_FRONTEND_PIDS_LIMIT:-128}
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${AETHERLINK_BIND_ADDRESS:-127.0.0.1}:${FRONTEND_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/ >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 12
+
+volumes:
+  postgres-data:
+  redis-data:
+  broker-data:
+  backend-files:
+  backend-telemetry-spool:
+  backend-uplink-spool:

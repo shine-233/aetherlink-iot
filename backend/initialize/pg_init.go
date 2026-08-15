@@ -1,0 +1,288 @@
+// 文件用途：初始化 PostgreSQL 连接、数据库版本检查及其关联的权限引擎装配流程。
+// 核心逻辑：加载数据库配置、带重试建立 GORM 连接、设置连接池参数，并在成功后执行版本校验与升级脚本。
+// 关键注意事项：该文件串联数据库、Casbin 和 SQL 升级，是启动链路中的高影响入口，注释必须严格贴合现状。
+// 重构建议：后续可把配置解析、连接建立、版本迁移拆分为更小的服务对象，降低启动函数职责密度。
+
+package initialize
+
+import (
+	"fmt"
+	"log"
+	"os"
+	"time"
+
+	global "aetherlink-iot/backend/pkg/global"
+	utils "aetherlink-iot/backend/pkg/utils"
+
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+	"gorm.io/gorm/schema"
+)
+
+// DbConfig 描述 PostgreSQL 初始化所需的连接与日志参数。
+type DbConfig struct {
+	Host          string
+	Port          int
+	DbName        string
+	Username      string
+	Password      string
+	TimeZone      string
+	LogLevel      int
+	SlowThreshold int
+	IdleConns     int
+	OpenConns     int
+}
+
+// PgInit 负责数据库初始化总入口，包含配置加载、重试连接、Casbin 初始化和版本检查。
+func PgInit() (*gorm.DB, error) {
+	// 初始化配置
+	config, err := LoadDbConfig()
+	if err != nil {
+		logrus.Errorf("加载数据库配置失败: %v", err)
+		return nil, err
+	}
+
+	// 初始化数据库（添加重试逻辑）
+	var db *gorm.DB
+	maxRetries := 10
+	retryInterval := 6 * time.Second
+
+	for retryCount := 0; retryCount < maxRetries; retryCount++ {
+		db, err = PgConnect(config)
+		if err == nil {
+			break
+		}
+
+		logrus.Warnf("连接数据库失败 (尝试 %d/%d): %v", retryCount+1, maxRetries, err)
+
+		if retryCount < maxRetries-1 {
+			logrus.Infof("将在 %v 后重试连接...", retryInterval)
+			time.Sleep(retryInterval)
+		}
+	}
+
+	if err != nil {
+		logrus.Error("连接数据库失败，已达到最大重试次数:", err)
+		return nil, err
+	}
+
+	global.DB = db
+
+	// Apply schema upgrades before any subsystem starts querying the database.
+	if err := CheckVersion(db); err != nil {
+		return nil, fmt.Errorf("database migration failed: %w", err)
+	}
+
+	// casbin 初始化
+	if err := CasbinInit(); err != nil {
+		return nil, fmt.Errorf("casbin initialization failed: %w", err)
+	}
+
+	return db, nil
+}
+
+// LoadDbConfig 从 `viper` 读取数据库配置，并补齐启动所需的默认值。
+func LoadDbConfig() (*DbConfig, error) {
+	config := &DbConfig{
+		Host:          viper.GetString("db.psql.host"),
+		Port:          viper.GetInt("db.psql.port"),
+		DbName:        viper.GetString("db.psql.dbname"),
+		Username:      viper.GetString("db.psql.username"),
+		Password:      viper.GetString("db.psql.password"),
+		TimeZone:      viper.GetString("db.psql.time_zone"),
+		LogLevel:      viper.GetInt("db.psql.log_level"),
+		SlowThreshold: viper.GetInt("db.psql.slow_threshold"),
+		IdleConns:     viper.GetInt("db.psql.idle_conns"),
+		OpenConns:     viper.GetInt("db.psql.open_conns"),
+	}
+
+	// 设置默认值
+	if config.Host == "" {
+		config.Host = "localhost"
+	}
+	if config.Port == 0 {
+		config.Port = 5432
+	}
+	if config.TimeZone == "" {
+		config.TimeZone = "Asia/Shanghai"
+	}
+	if config.LogLevel == 0 {
+		config.LogLevel = 1
+	}
+	if config.SlowThreshold == 0 {
+		config.SlowThreshold = 200
+	}
+	if config.IdleConns == 0 {
+		config.IdleConns = 10
+	}
+	if config.OpenConns == 0 {
+		config.OpenConns = 50
+	}
+
+	// 检查必要的配置
+	if config.DbName == "" || config.Username == "" || config.Password == "" {
+		return nil, fmt.Errorf("database configuration is incomplete")
+	}
+
+	return config, nil
+}
+
+// Writer 重写gorm日志的Writer
+// type Writer struct{}
+
+// func (w Writer) Printf(format string, args ...interface{}) {
+// 	log.Println(args...)
+// }
+
+// PgConnect 根据配置建立 GORM 连接，并设置 SQL 日志与连接池参数。
+func PgConnect(config *DbConfig) (*gorm.DB, error) {
+	dataSource := fmt.Sprintf("host=%s port=%d dbname=%s user=%s password=%s sslmode=disable TimeZone=%s",
+		config.Host, config.Port, config.DbName, config.Username, config.Password, config.TimeZone)
+
+	// 根据配置获取 SQL 日志 Writer（支持文件和控制台输出）
+	sqlLogWriter := GetSQLLogWriter()
+
+	newLogger := logger.New(
+		//Writer{},
+		log.New(sqlLogWriter, "\r\n", log.LstdFlags), // 使用配置的日志输出（文件或控制台）
+		logger.Config{
+			SlowThreshold:             time.Duration(config.SlowThreshold) * time.Millisecond,
+			LogLevel:                  logger.LogLevel(config.LogLevel),
+			IgnoreRecordNotFoundError: true,
+			Colorful:                  true, // 控制台输出时显示颜色，文件输出时会被忽略
+		})
+
+	var err error
+	db, err := gorm.Open(postgres.Open(dataSource), &gorm.Config{
+		Logger:                 newLogger,
+		SkipDefaultTransaction: true,
+		NamingStrategy: schema.NamingStrategy{
+			SingularTable: false, // use singular table name, table for `User` would be `user` with this option enabled
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("连接数据库失败: %v", err)
+	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, fmt.Errorf("获取原生数据库连接失败: %v", err)
+	}
+
+	sqlDB.SetMaxIdleConns(config.IdleConns)
+	sqlDB.SetMaxOpenConns(config.OpenConns)
+	sqlDB.SetConnMaxLifetime(time.Hour)
+
+	log.Println("连接数据库完成...")
+
+	return db, nil
+}
+
+/*
+注意 sql中不要有sys_version表
+1. 检查版本表是否存在: 检查数据库版本，如果没有sys_version表，创建sys_version表，插入版本序号0，版本号0.0.0
+2. 程序版本低于数据版本: 提示升级
+3. 数据版本低于程序版本: 执行sql文件，更新版本号
+*/
+// CheckVersion 校验数据库版本与程序版本关系，并按需执行顺序升级脚本。
+func CheckVersion(db *gorm.DB) error {
+	version := global.VERSION
+	versionNumber := global.VERSION_NUMBER // 当前程序版本号
+	var dataVersionNumber int              // 数据库版本号
+
+	// 判断有没有sys_version的表
+	var exists bool
+	result := db.Raw("SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='sys_version')").Scan(&exists)
+	if result.Error != nil {
+		return result.Error
+	}
+	// 创建事务
+	logrus.Info("----", exists)
+	if !exists { // 如果不存在sys_version表，创建sys_version表
+		logrus.Info("创建sys_version表")
+		dataVersionNumber = 0
+		t := db.Exec("CREATE TABLE sys_version (version_number INT NOT NULL DEFAULT 0, version varchar(255) NOT NULL, PRIMARY KEY (version_number))")
+		if t.Error != nil {
+			return t.Error
+		}
+
+	}
+	tx := db.Begin()
+	// 查询版本号
+	result = db.Table("sys_version").Select("version_number").Scan(&dataVersionNumber)
+	if result.Error != nil {
+		return result.Error
+	}
+	// 如果版本号为空，插入版本号
+	if dataVersionNumber == 0 {
+		t := tx.Exec("INSERT INTO sys_version (version_number, version) VALUES (?, ?)", 0, "0.0.0")
+		if t.Error != nil {
+			// 回滚
+			tx.Rollback()
+			return t.Error
+		}
+	}
+	if dataVersionNumber > global.VERSION_NUMBER {
+		// 回滚
+		tx.Rollback()
+		return fmt.Errorf("当前数据版本高于程序版本，请升级程序")
+	} else if dataVersionNumber < global.VERSION_NUMBER {
+		log.Println("数据版本：", dataVersionNumber)
+		log.Println("程序版本：", global.VERSION_NUMBER)
+		log.Println("开始升级...")
+		// sql文件名为：版本编号.sql，执行所大于当前数据版本小于等于程序版本的sql文件
+		for i := dataVersionNumber + 1; i <= global.VERSION_NUMBER; i++ {
+			fileName := fmt.Sprintf("sql/%d.sql", i)
+			// 检查文件是否存在
+			if !utils.FileExist(fileName) {
+				// 回滚
+				tx.Rollback()
+				return fmt.Errorf("sql文件不存在,可能需要手动升级：%s", fileName)
+			}
+			log.Println("执行sql文件：", fileName)
+			// 读取 SQL 脚本文件
+			sqlFile, err := os.ReadFile(fileName)
+			if err != nil {
+				// 回滚
+				tx.Rollback()
+				return fmt.Errorf("读取sql文件失败 %s: %w", fileName, err)
+			}
+			logrus.Info("执行sql脚本...")
+			// 执行 SQL 脚本
+			t := tx.Exec(string(sqlFile))
+			if t.Error != nil {
+				// 回滚
+				tx.Rollback()
+				return t.Error
+			}
+		}
+		// 更新版本号
+		t := tx.Exec("UPDATE sys_version SET version_number = ?, version = ?", versionNumber, version)
+		if t.Error != nil {
+			// 回滚
+			tx.Rollback()
+			return t.Error
+		}
+		log.Println("升级成功")
+	}
+	return tx.Commit().Error
+}
+
+// ExecuteSQLFile 读取并执行单个 SQL 文件，供升级流程或外部调用复用。
+func ExecuteSQLFile(db *gorm.DB, fileName string) error {
+	// 读取 SQL 脚本文件
+	sqlFile, err := os.ReadFile(fileName)
+	if err != nil {
+		return err
+	}
+	// 执行 SQL 脚本
+	t := db.Exec(string(sqlFile))
+	if t.Error != nil {
+		return t.Error
+	}
+
+	return nil
+}

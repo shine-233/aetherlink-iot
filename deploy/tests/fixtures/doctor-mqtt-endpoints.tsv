@@ -1,0 +1,26 @@
+# Shared Deployment Doctor MQTT endpoint contract.
+# Columns: case_name<TAB>endpoint<TAB>valid(0|1)<TAB>normalized_host(- when invalid)<TAB>normalized_port(- when invalid)<TAB>local_host(0|1; 0 when invalid)
+hostname-case-and-trailing-dot	Broker.Example.COM.:1883	1	broker.example.com	1883	0
+ipv4	192.168.1.10:1883	1	192.168.1.10	1883	0
+ipv4-leading-zero	192.168.001.10:1883	0	-	-	0
+localhost	localhost:1883	1	localhost	1883	1
+localhost-case-trailing-dot	LOCALHOST.:1883	1	localhost	1883	1
+ipv4-loopback	127.0.0.1:1883	1	127.0.0.1	1883	1
+ipv6-loopback	[::1]:1883	1	::1	1883	1
+ipv6-other	[2001:db8::1]:1883	1	2001:db8::1	1883	0
+port-minimum	broker.example:1	1	broker.example	1	0
+port-maximum	broker.example:65535	1	broker.example	65535	0
+port-zero	broker.example:0	0	-	-	0
+port-overflow	broker.example:65536	0	-	-	0
+scheme	mqtt://broker.example:1883	0	-	-	0
+path	broker.example:1883/path	0	-	-	0
+leading-whitespace	 broker.example:1883	0	-	-	0
+embedded-whitespace	broker .example:1883	0	-	-	0
+trailing-whitespace	broker.example:1883 	0	-	-	0
+missing-port	broker.example	0	-	-	0
+unbracketed-ipv6	2001:db8::1:1883	0	-	-	0
+illegal-hostname-leading-hyphen	-broker.example:1883	0	-	-	0
+illegal-hostname-empty-label	broker..example:1883	0	-	-	0
+illegal-hostname-underscore	broker_name.example:1883	0	-	-	0
+invalid-bracketed-ipv4	[127.0.0.1]:1883	0	-	-	0
+invalid-ipv4-range	256.1.1.1:1883	0	-	-	0

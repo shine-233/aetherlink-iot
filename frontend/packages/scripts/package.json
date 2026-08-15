@@ -1,0 +1,26 @@
+{
+  "name": "@aetherlink/scripts",
+  "version": "1.0.0",
+  "bin": {
+    "aetherlink": "./bin.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "typesVersions": {
+    "*": {
+      "*": ["./src/*"]
+    }
+  },
+  "devDependencies": {
+    "@types/prompts": "2.4.9",
+    "bumpp": "9.3.0",
+    "c12": "1.8.0",
+    "cac": "6.7.14",
+    "execa": "8.0.1",
+    "kolorist": "1.8.0",
+    "npm-check-updates": "16.14.15",
+    "prompts": "2.4.2",
+    "rimraf": "5.0.5"
+  }
+}

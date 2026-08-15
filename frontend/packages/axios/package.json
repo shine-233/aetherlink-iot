@@ -1,0 +1,22 @@
+{
+  "name": "@aetherlink/axios",
+  "version": "1.0.0",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "typesVersions": {
+    "*": {
+      "*": ["./src/*"]
+    }
+  },
+  "dependencies": {
+    "@aetherlink/utils": "workspace:*",
+    "axios": "1.18.1",
+    "axios-retry": "4.0.0",
+    "qs": "6.15.3"
+  },
+  "devDependencies": {
+    "@types/qs": "6.9.11"
+  }
+}

@@ -1,0 +1,17 @@
+.git
+node_modules
+dist
+dist-lite
+coverage
+_localrun
+output
+reports
+test-results
+playwright-report
+.playwright-cli
+.turbo
+.vite
+*.log
+.env
+.env.*
+!.env.example
