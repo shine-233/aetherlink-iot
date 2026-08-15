@@ -1887,10 +1887,6 @@ function getUnsafeSourceReviewClosureClaimsFromDocs(docs) {
 function getSourceReviewBoundaryAudit() {
   const docs = [
     {
-      file: 'references/source-file-inventory.md',
-      text: readText(path.join(PROJECT_ROOT, 'references', 'source-file-inventory.md'))
-    },
-    {
       file: 'references/source-quality-review.md',
       text: readText(path.join(PROJECT_ROOT, 'references', 'source-quality-review.md'))
     }
@@ -1920,11 +1916,10 @@ function getSourceReviewBoundaryAudit() {
 
   return {
     docs: docs.map(doc => doc.file),
-    priorityScopeDifferenceExplained: /Total files inventoried in batch 1: 1516/i.test(combined) &&
-      /priority scope is 1808 files: 1516 inventoried files \+12 same-scope\s+additions -5 same-scope removals \+285 expanded-scope files/i.test(combined) &&
-      /mainly `mqtt-broker`, `automation_tests`, and `references`/i.test(combined),
-    sourceInventoryDeclaresStaticBoundary: /(static triage, not proof of a bug|source evidence only)/i.test(combined) &&
-      /not upgrade[\s\S]{0,120}business closure/i.test(combined),
+    priorityScopeDifferenceExplained: /1808 priority scope is not a refreshed full table/i.test(combined) &&
+      /1516-file\s+batch plus \+12 same-scope additions, -5 same-scope removals, and \+285\s+expanded-scope files/i.test(combined) &&
+      /expanded-scope files from `mqtt-broker`, `automation_tests`, and\s+`references`/i.test(combined),
+    sourceInventoryDeclaresStaticBoundary: /evidence does not upgrade boundary, catalog, or page smoke checks into\s+business closure/i.test(combined),
     qualityReviewRejectsRequestWrapperClosure: /Not business closure by itself/i.test(combined) &&
       /frontend API wrapper tests that only assert endpoint\/method wiring/i.test(combined) &&
       /request wrapper\/interceptor tests that only prove request construction,\s+token\/header plumbing, or error-normalization branches/m.test(combined),

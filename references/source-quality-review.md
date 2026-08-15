@@ -3,9 +3,10 @@
 Updated: 2026-07-06 02:15 +08:00
 
 Scope: multi-agent static review of frontend and backend hand-written source,
-tests, tooling, and publication boundaries. The per-file purpose inventory is
-in `references/source-file-inventory.md`; this file records the actionable
-quality findings and what was fixed in the current pass.
+tests, tooling, and publication boundaries. The detailed per-file inventory was
+an internal historical snapshot and is intentionally not part of the public
+source package; this file records the actionable quality findings and what was
+fixed in the current pass.
 
 ## Fixed in this pass
 
@@ -93,8 +94,7 @@ quality findings and what was fixed in the current pass.
 
 ## Current automation/source inventory slice
 
-- Checked `references/source-file-inventory.md`,
-  `references/source-quality-review.md`,
+- Checked `references/source-quality-review.md`,
   `automation_tests/lib/coverage_contract.js`,
   `automation_tests/lib/oracle_contract.js`,
   `automation_tests/tests/00_coverage_contract.test.js`, and
@@ -103,13 +103,16 @@ quality findings and what was fixed in the current pass.
   frontend request-wrapper checks, boundary API smoke, page smoke, catalog
   checks, source inventory, or source-string/AST checks into standalone
   business closure.
+- This published review is static triage, not proof of a bug; its source
+  evidence does not upgrade boundary, catalog, or page smoke checks into
+  business closure.
 - The 1808 priority scope is not a refreshed full table: it is the 1516-file
   batch plus +12 same-scope additions, -5 same-scope removals, and +285
   expanded-scope files from `mqtt-broker`, `automation_tests`, and
   `references`.
 - Added an executable documentation guard:
   `coverageContract.getSourceReviewBoundaryAudit()` plus the focused
-  `00_coverage_contract` case keeps the source inventory boundary, the
+  `00_coverage_contract` case keeps the source-review boundary, the
   route/page smoke non-business rule, and the release gate wording together.
 
 ## Test evidence boundaries

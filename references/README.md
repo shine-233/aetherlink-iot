@@ -23,8 +23,8 @@
 - `mcp-tool-contract.md`：未来 MCP 工具合同草案（design-only，不计为交付或 runtime coverage）。
 - `coverage-criteria.md`：覆盖分层与弱断言判定标准。
 - `repository-file-inventory-summary.md` / `repository-file-inventory.csv`：由 `automation_tests/scripts/generate_repository_inventory.js` 生成的本地全仓文件级台账；默认被 `.gitignore` 排除并保存在仓库外，发布前不纳入 source package。需要审计时可在本地重新生成；它不替代业务运行验证。
-- `source-file-inventory.md`：2026-07-02 源码质量盘点历史快照。**被 `automation_tests` 覆盖合同实际读取，不可移动或删除，也不能作为当前全仓计数。**
-- `source-quality-review.md`：源码质量审阅清单。**同样被覆盖合同读取，不可移动或删除。**
+- `source-file-inventory.md`：内部历史源码盘点快照，因包含过期审阅范围而不随公开 source package 发布；它不属于当前运行或测试输入。
+- `source-quality-review.md`：公开发布的源码质量审阅清单，由覆盖合同读取并保留当前静态证据边界。
 
 ## 历史短状态（保留但不再维护）
 
