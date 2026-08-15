@@ -1,0 +1,64 @@
+// 文件用途：集中定义后端跨模块复用的角色、设备类型、表单类型和状态常量。
+// 核心逻辑：用常量组保存数据库、API、前端和业务逻辑共享的稳定枚举值。
+// 关键注意事项：部分常量属于持久化或接口可见契约，改值会影响历史数据和客户端兼容性。
+// 重构建议：后续可按角色、设备、表单、命令状态拆分文件，并补充契约测试锁定外部可见值。
+package constant
+
+const (
+	SYS_ADMIN    string = "SYS_ADMIN"    // 系统管理员
+	TENANT_USER  string = "TENANT_USER"  // 租户用户
+	TENANT_ADMIN string = "TENANT_ADMIN" // 租户系统管理员
+)
+
+const EMPTY string = ""
+
+const (
+	DIRECT_CONNECTION  int = iota + 1 //1-直连设备
+	GATEWAY_DEVICE                    //2-网关设备
+	GATEWAY_SON_DEVICE                // 3-网关子设备
+)
+
+const (
+	Manual int = iota + 1 // 手动
+	Auto                  // 自动
+)
+
+const (
+	StatusOK              int = iota + 1 // 发送成功
+	StatusFailed                         // 发送失败
+	ResponseStatusOk                     // 设备命令执行成功
+	ResponseSStatusFailed                // 设备命令执行失败
+)
+
+// DeviceModelSource 模型数据源类型
+type DeviceModelSource string
+
+const (
+	TelemetrySource DeviceModelSource = "telemetry"
+	AttributeSource DeviceModelSource = "attributes"
+	EventSource     DeviceModelSource = "event"
+	CommandSource   DeviceModelSource = "command"
+)
+
+// 表单类型
+type FormType string
+
+const (
+	CONFIG_FORM          FormType = "CFG"  // 配置表单
+	VOUCHER_FORM         FormType = "VCR"  // 凭证表单
+	VOUCHER_TYPE_FORM    FormType = "VCRT" // 凭证类型表单
+	SERVICE_VOUCHER_FORM FormType = "SVCR" // 服务凭证表单
+)
+
+// 设备类型
+const (
+	DEVICE_TYPE_1 string = "1" // 直连设备
+	DEVICE_TYPE_2 string = "2" // 网关设备
+	DEVICE_TYPE_3 string = "3" // 网关子设备
+)
+
+// sys_function.enable_flag
+const (
+	EnableFlag  string = "enable"
+	DisableFlag string = "disable"
+)

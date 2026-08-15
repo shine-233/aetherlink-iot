@@ -1,0 +1,20 @@
+{
+  "script.selectTemplate": "Select code template...",
+  "script.editorHint": "JavaScript Code Editor",
+  "script.editorTitle": "Script Editor",
+  "script.readonly": "Read-only Mode",
+  "script.stats.lines": "Lines",
+  "script.stats.chars": "Characters",
+  "script.actions.copy": "Copy Code",
+  "script.actions.clear": "Clear Code",
+  "script.actions.copySuccess": "Code copied to clipboard",
+  "script.actions.clearConfirm": "Are you sure you want to clear the editor content?",
+  "script.template.generateRandomData": "Generate test telemetry",
+  "script.template.generateTimeSeries": "Generate Telemetry Trend",
+  "script.template.dataFiltering": "Filter Abnormal Telemetry",
+  "script.template.dataTransformation": "Convert to Operations Summary",
+  "script.template.mergeAsObject": "Merge Telemetry by Device",
+  "script.template.mergeAsArray": "Merge as Telemetry List",
+  "script.template.fillDeviceRequestParams": "Fill Device Request Parameters",
+  "script.template.buildLatestTelemetryQuery": "Build Latest Telemetry Query"
+}

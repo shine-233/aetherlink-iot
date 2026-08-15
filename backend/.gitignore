@@ -1,0 +1,23 @@
+.devcontainer/
+.vscode/
+.DS_Store
+# go.mod
+# go.sum
+# configs/
+
+.idea/
+
+files/logs/
+files/telemetry-spool/
+data/telemetry-spool/
+data/attribute-event-spool/
+.gocache-*/
+
+# Process markdown artifacts
+.ai/*.md
+docs/architecture/*.md
+docs/architecture/**/*.md
+iteration-log.md
+project-context.md
+configs/.instance_id
+configs/conf-localdev.yml

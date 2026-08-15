@@ -1,0 +1,120 @@
+{
+  "kind": "first-device-closeout",
+  "schema": "aetherlink.first-device.closeout.v1",
+  "timestamp": "",
+  "git_commit": "",
+  "target_url": "",
+  "first_device_url": "",
+  "backend_url": "",
+  "mqtt_access_address": "",
+  "delivery": {
+    "first_device_url": "",
+    "proof_url": "",
+    "generated_from_page": "",
+    "proof_file_hint": ""
+  },
+  "operator": {
+    "role": "",
+    "notes": ""
+  },
+  "startup_verification": {
+    "archive": "",
+    "manifest": "",
+    "ok": false
+  },
+  "first_run": {
+    "super_admin_created": false,
+    "tenant_admin_created": false,
+    "tenant_admin_login_verified": false,
+    "evidence": ""
+  },
+  "first_device": {
+    "product_or_template_created": false,
+    "device_created": false,
+    "device_id": "",
+    "device_name": "",
+    "device_number": "",
+    "protocol": "",
+    "connection_endpoint": "",
+    "report_entry": "",
+    "control_entry": "",
+    "credential_state": "redacted"
+  },
+  "publish_test": {
+    "tester": "Web MQTT/HTTP online tester",
+    "sample_copied": false,
+    "browser_test_sent": false,
+    "browser_test_confirmed": false,
+    "status": "",
+    "message": "",
+    "sent_at": "",
+    "telemetry_key": "",
+    "telemetry_value": "",
+    "raw_evidence": ""
+  },
+  "latest_telemetry": {
+    "available": false,
+    "source": "",
+    "key": "",
+    "value": "",
+    "observed_at": "",
+    "online": false
+  },
+  "runtime_confirmation": {
+    "device_online": false,
+    "latest_telemetry_visible": false,
+    "first_chart_generated": false,
+    "ready_banner_visible": false,
+    "raw_evidence": ""
+  },
+  "success_proof": {
+    "downloaded": false,
+    "file": "",
+    "schema": "aetherlink.first-device.success-proof.v1",
+    "generated_at": "",
+    "ready": false,
+    "conclusion": "",
+    "next_action": "",
+    "handoff_summary": {
+      "ready_to_deliver": false,
+      "passed_proof_items": 0,
+      "total_proof_items": 0,
+      "remaining_proof_items": 0,
+      "first_missing_label": "",
+      "sample_command_state": "",
+      "deployment_failed_count": 0,
+      "first_device_url": "",
+      "proof_url": ""
+    },
+    "proof_items": [],
+    "current_blocker": null
+  },
+  "deployment_health": {
+    "total": 0,
+    "ok": 0,
+    "failed": 0,
+    "rows": []
+  },
+  "api_e2e_playwright": {
+    "archive": "",
+    "api_passed": false,
+    "playwright_passed": false,
+    "required_evidence": [
+      "startup manifest",
+      "first-device page open",
+      "Web MQTT/HTTP tester publish",
+      "online state",
+      "latest telemetry",
+      "first chart",
+      "downloaded success proof"
+    ],
+    "notes": ""
+  },
+  "redaction": {
+    "secrets_removed": true,
+    "raw_passwords_or_tokens_included": false,
+    "notes": ""
+  },
+  "verdict": "unknown",
+  "blocking_gaps": []
+}

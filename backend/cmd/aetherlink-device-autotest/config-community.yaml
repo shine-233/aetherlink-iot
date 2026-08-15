@@ -1,0 +1,36 @@
+# 设备类型: direct(直连设备) 或 gateway(网关设备)
+device_type: "direct"
+
+mqtt:
+  broker: "127.0.0.1:1883"
+  client_id: "mqtt_client_666666"
+  username: "test-666666"
+  password: ""
+  qos: 1
+  clean_session: true
+  keep_alive: 60
+
+device:
+  device_id: "0301b7ce-f0dc-c305-9e85-a0a63284c207"
+  device_number: "666666666"
+
+database:
+  host: "127.0.0.1"
+  port: 5432
+  dbname: "aetherlink_iot"
+  username: "postgres"
+  password: "CHANGE_ME_POSTGRES_PASSWORD"
+  sslmode: "disable"
+  max_open_conns: 10
+  max_idle_conns: 5
+
+api:
+  base_url: "http://127.0.0.1:9999"
+  api_key: "CHANGE_ME_API_KEY"
+  timeout: 30
+
+test:
+  wait_db_sync_seconds: 3
+  wait_mqtt_response_seconds: 5
+  retry_times: 3
+  log_level: "debug"

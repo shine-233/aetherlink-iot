@@ -1,0 +1,35 @@
+# Safe runtime shape for the AetherLink GMQTT plugin.
+# Docker Compose mounts this file as /gmqttd/aetherlink.yml and overrides every
+# environment-specific or secret value through GMQTT_* variables. For a manual
+# deployment, copy it to aetherlink.yml and replace every CHANGE_ME value.
+
+db:
+  psql:
+    psqladdr: postgres
+    psqlport: 5432
+    psqluser: postgres
+    psqlpass: CHANGE_ME_POSTGRES_PASSWORD
+    psqldb: aetherlink_iot
+    # Local Compose uses disable. External deployments should explicitly choose
+    # require, verify-ca, or verify-full according to their PostgreSQL TLS policy.
+    sslmode: disable
+  redis:
+    conn: redis:6379
+    db_num: 1
+    password: CHANGE_ME_REDIS_PASSWORD
+
+mqtt:
+  broker: tcp://127.0.0.1:1883
+  password: CHANGE_ME_MQTT_ROOT_PASSWORD
+  plugin_password: CHANGE_ME_MQTT_PLUGIN_PASSWORD
+
+mqtt_session_revocations:
+  # Stable across restarts and unique per broker replica. Never generate this at runtime.
+  # Compose injects MQTT_BROKER_ID. Manual deployments must set this explicitly.
+  broker_id: ""
+
+payload_schema:
+  # Uses the plugin's existing PostgreSQL connection; no external schema service is required.
+  # Keep disabled until the deployment has migration 46 and has validated reject semantics.
+  enabled: false
+  cache_ttl: 30s

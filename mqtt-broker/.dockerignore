@@ -1,0 +1,10 @@
+.git
+bin
+dist
+coverage
+_localrun
+reports
+test-results
+*.log
+*.exe
+cmd/gmqttd/gmqttd

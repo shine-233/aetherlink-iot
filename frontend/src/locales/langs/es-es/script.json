@@ -1,0 +1,20 @@
+{
+  "script.selectTemplate": "Seleccionar plantilla de código...",
+  "script.editorHint": "Editor de código JavaScript",
+  "script.editorTitle": "Editor de scripts",
+  "script.readonly": "Modo de solo lectura",
+  "script.stats.lines": "Líneas",
+  "script.stats.chars": "Caracteres",
+  "script.actions.copy": "Copiar código",
+  "script.actions.clear": "Borrar código",
+  "script.actions.copySuccess": "Código copiado al portapapeles",
+  "script.actions.clearConfirm": "¿Seguro que desea borrar el contenido del editor?",
+  "script.template.generateRandomData": "Generar telemetría de prueba",
+  "script.template.generateTimeSeries": "Generar tendencia de telemetría",
+  "script.template.dataFiltering": "Filtrar telemetría anómala",
+  "script.template.dataTransformation": "Convertir a resumen operativo",
+  "script.template.mergeAsObject": "Fusionar telemetría por dispositivo",
+  "script.template.mergeAsArray": "Fusionar como lista de telemetría",
+  "script.template.fillDeviceRequestParams": "Completar parámetros de solicitud del dispositivo",
+  "script.template.buildLatestTelemetryQuery": "Crear consulta de telemetría más reciente"
+}

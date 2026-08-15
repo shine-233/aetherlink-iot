@@ -1,0 +1,67 @@
+{
+  "schema_version": "synthetic-rdi-session-v1",
+  "classification": "protocol-emulator",
+  "provenance": "synthetic-rdi",
+  "protocol": "aetherlink-generic-device-contract-v1",
+  "pid": "SYN35CD94670",
+  "device_id": "synthetic-device-35cd94670779",
+  "frames": [
+    {
+      "sequence": 1,
+      "kind": "status",
+      "topic": "devices/status/synthetic-device-35cd94670779",
+      "payload": 1,
+      "device_id": "synthetic-device-35cd94670779",
+      "pid": "SYN35CD94670",
+      "timestamp": 1700000100,
+      "provenance": "synthetic-rdi",
+      "protocol": "aetherlink-generic-device-contract-v1"
+    },
+    {
+      "sequence": 2,
+      "kind": "telemetry",
+      "topic": "devices/telemetry",
+      "payload": {
+        "humidity_1": 45,
+        "temperature_1": 25.5
+      },
+      "device_id": "synthetic-device-35cd94670779",
+      "pid": "SYN35CD94670",
+      "timestamp": 1700000101,
+      "provenance": "synthetic-rdi",
+      "protocol": "aetherlink-generic-device-contract-v1"
+    },
+    {
+      "sequence": 3,
+      "kind": "command",
+      "topic": "devices/command/SYN35CD94670/synthetic-msg-001",
+      "payload": {
+        "method": "identify",
+        "params": {
+          "request": true
+        }
+      },
+      "device_id": "synthetic-device-35cd94670779",
+      "pid": "SYN35CD94670",
+      "timestamp": 1700000102,
+      "provenance": "synthetic-rdi",
+      "protocol": "aetherlink-generic-device-contract-v1"
+    },
+    {
+      "sequence": 4,
+      "kind": "ack",
+      "topic": "devices/command/response/synthetic-msg-001",
+      "payload": {
+        "message": "success",
+        "method": "identify",
+        "result": 0,
+        "ts": 1700000103
+      },
+      "device_id": "synthetic-device-35cd94670779",
+      "pid": "SYN35CD94670",
+      "timestamp": 1700000103,
+      "provenance": "synthetic-rdi",
+      "protocol": "aetherlink-generic-device-contract-v1"
+    }
+  ]
+}

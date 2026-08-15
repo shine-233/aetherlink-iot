@@ -1,0 +1,149 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Build outputs
+dist/
+dist-ssr/
+/build/
+# frontend/build contains required Vite configuration source, not build output.
+!frontend/build/
+!frontend/build/**/
+!frontend/build/**/*.ts
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Coverage and runtime reports
+coverage/
+reports/
+playwright-report/
+test-results/
+*.lcov
+coverage.out
+
+# Logs and temp files
+logs/
+*.log
+*.tmp
+*.temp
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+*.rar
+*.bak
+.cache/
+.gocache/
+backend/.gocache/
+.vite/
+.turbo/
+.eslintcache
+*.tsbuildinfo
+
+# Local environment and editor state
+.env
+.env.*
+*.env
+*.local
+!**/.env.example
+!**/.env.sample
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+
+# Local verification archives are useful evidence but too bulky for a clean public source push.
+# Keep the directory README and explicitly packaged templates public; keep timestamped
+# archives and binary bundles local.
+verification/*
+!verification/README.md
+!verification/templates/
+!verification/templates/**
+
+# Local historical audit material contains old server paths, IPs, and stale pre-rename notes.
+# Keep the directory README public; keep detailed audit history local unless publishing a private bundle.
+audit_reports/*
+!audit_reports/README.md
+
+# Generated dated readiness reports, repository inventories, and migration hash snapshots
+# are local audit artifacts rather than source inputs.
+references/deployment-readiness-*.md
+references/deployment-test-audit-*.md
+references/migration-*-sha256-*.json
+references/repository-file-inventory.*
+
+# Immutable workspace-ledger snapshots stay at their captured absolute paths so
+# their recorded hashes and self-references remain valid, but they are local
+# audit evidence rather than public source inputs.
+/PROJECT_CLEANUP_PLAN.md
+/PROJECT_FOLDER_AUDIT_ALL_*.csv
+/PROJECT_FOLDER_CONTENTS_ALL_*.csv
+/PROJECT_FOLDER_AUDIT_MANAGED_*.md
+/PROJECT_FOLDER_AUDIT_GENERATOR.ps1
+frontend/.ai/
+backend/.cursor/
+backend/cmd/aetherlink-device-autotest/docs/
+
+# Automation runtime state
+automation_tests/reports/
+automation_tests/output/
+automation_tests/.locks/
+automation_tests/e2e/.auth/
+automation_tests/.local/
+.playwright-cli/
+
+# Automation evidence is generated outside the public source package.
+automation_tests/verification/
+
+# Local agent/editor launch state
+.claude/
+
+# Local execution state and generated credentials; keep templates visible above.
+# Module-specific runtime logs, screenshots, caches, and nested test output also
+# belong in each module's ignored _localrun directory, never its source root.
+_localrun/
+backend/_localrun/
+frontend/_localrun/
+automation_tests/_localrun/
+mqtt-broker/_localrun/
+_localrun_instance_b/
+!_localrun_instance_b/
+_localrun_instance_b/*
+!_localrun_instance_b/README.md
+!_localrun_instance_b/instance-b.env.example
+
+# Frontend generated files
+frontend/coverage/
+frontend/dist/
+frontend/dist-lite/
+frontend/output/
+frontend/src/typings/components.d.ts
+
+# Backend/generated runtime state
+backend/.gocache/
+backend/.gocache-*/
+backend/files/logs/
+backend/files/excel/
+backend/files/upgradePackage/
+backend/files/telemetry-spool/
+backend/data/telemetry-spool/
+backend/data/attribute-event-spool/
+backend/configs/.instance_id
+backend/configs/conf-localdev.yml
+
+# GMQTT generated runtime state
+mqtt-broker/build/
+mqtt-broker/.gocache-*/
+mqtt-broker/aetherlink.yml
+mqtt-broker/cmd/gmqttd/aetherlink.yml
+mqtt-broker/cmd/gmqttd/certs/
+
+# Local runtime secrets. Generate fresh keys/certs per environment.
+backend/configs/rsa_key/private_key.pem
+backend/configs/rsa_key/public.pem

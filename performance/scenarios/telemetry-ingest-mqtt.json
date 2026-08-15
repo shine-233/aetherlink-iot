@@ -1,0 +1,6 @@
+{
+  "id": "telemetry-ingest-mqtt",
+  "description": "MQTT publish and telemetry ingest path under resource-limited tiers.",
+  "requiredTargets": ["mqttHost", "mqttPort", "backendUrl"],
+  "evidence": ["publishRate", "apiLatestTelemetryCheck", "brokerMetrics", "exitCode"]
+}

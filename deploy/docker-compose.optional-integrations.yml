@@ -1,0 +1,118 @@
+# Optional integration profile for the upstream ThingsPanel services.
+#
+# The default docker-compose.yml intentionally stays lightweight.  This file
+# adds the real external services required by the ThingsVis and HTTP protocol
+# plugin E2E flows without changing the default startup contract:
+#
+#   docker compose -f docker-compose.yml \
+#     -f deploy/docker-compose.optional-integrations.yml \
+#     --profile optional-integrations up -d
+#
+# The images and service ports follow the public ThingsPanel installer
+# contract.  Keep the image tags overridable so a deployment can pin a tested
+# mirror rather than silently consuming a moving `latest` tag.
+
+networks:
+  thingsvis_net:
+
+services:
+  http_adapter:
+    image: ${AETHERLINK_HTTP_ADAPTER_IMAGE:-registry.cn-hangzhou.aliyuncs.com/thingspanel/thingspanel-adapter-http:v1.1.0}
+    profiles: [optional-integrations]
+    networks:
+      - core_net
+    ports:
+      - "${AETHERLINK_BIND_ADDRESS:-127.0.0.1}:${HTTP_ADAPTER_PORT:-19090}:19090"
+      - "${AETHERLINK_BIND_ADDRESS:-127.0.0.1}:${HTTP_ADAPTER_HTTP_PORT:-19091}:19091"
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      P_SERVER_PORT: "19090"
+      P_SERVER_HTTP_PORT: "19091"
+      P_PLATFORM_URL: http://backend:9999
+      P_PLATFORM_MQTT_BROKER: tcp://mqtt-broker:1883
+    depends_on:
+      backend:
+        condition: service_started
+      mqtt-broker:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:19091/healthz >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  thingsvis-server:
+    image: ${AETHERLINK_THINGSVIS_SERVER_IMAGE:-registry.cn-hangzhou.aliyuncs.com/thingspanel/thingsvis-server:v1.0.17}
+    profiles: [optional-integrations]
+    networks:
+      - postgres_net
+      - thingsvis_net
+    ports:
+      - "${AETHERLINK_BIND_ADDRESS:-127.0.0.1}:${THINGSVIS_SERVER_PORT:-8000}:8000"
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      AUTH_TRUST_HOST: "true"
+      AUTH_SECRET: ${THINGSVIS_AUTH_SECRET:?Set THINGSVIS_AUTH_SECRET in .env to enable ThingsVis}
+      DATABASE_URL: "postgresql://${GOTP_DB_PSQL_USERNAME:-postgres}:${GOTP_DB_PSQL_PASSWORD:?Set GOTP_DB_PSQL_PASSWORD in .env}@postgres:5432/${GOTP_DB_PSQL_DBNAME:-aetherlink_iot}?schema=thingsvis"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- --spider http://127.0.0.1:8000/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  thingsvis-studio:
+    image: ${AETHERLINK_THINGSVIS_STUDIO_IMAGE:-registry.cn-hangzhou.aliyuncs.com/thingspanel/thingsvis-studio:v1.0.17}
+    profiles: [optional-integrations]
+    networks:
+      - thingsvis_net
+    ports:
+      - "${AETHERLINK_BIND_ADDRESS:-127.0.0.1}:${THINGSVIS_STUDIO_PORT:-3000}:3000"
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      STUDIO_PORT: "3000"
+      SERVER_HOST: thingsvis-server
+      SERVER_PORT: "8000"
+    depends_on:
+      thingsvis-server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- --spider http://127.0.0.1:3000/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # Tell the backend that the explicitly selected profile supplied these
+  # integrations. Their backend capability remains blocked until a runtime
+  # probe is available; Compose healthchecks remain the readiness authority.
+  backend:
+    profiles: [optional-integrations]
+    networks:
+      - postgres_net
+      - redis_net
+      - core_net
+    environment:
+      GOTP_INTEGRATIONS_THINGSVIS_ENABLED: "true"
+      GOTP_INTEGRATIONS_THINGSVIS_CONFIGURED: "true"
+      GOTP_INTEGRATIONS_HTTP_ADAPTER_ENABLED: "true"
+      GOTP_INTEGRATIONS_HTTP_ADAPTER_CONFIGURED: "true"
+
+  # Replace the default 503-only gateway once all optional services are ready.
+  frontend:
+    profiles: [optional-integrations]
+    networks:
+      - core_net
+      - thingsvis_net
+    build:
+      args:
+        VITE_ENABLE_THINGSVIS_COMPAT: "Y"
+    volumes:
+      - ./frontend/nginx.thingsvis.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      thingsvis-studio:
+        condition: service_healthy

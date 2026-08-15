@@ -1,0 +1,18 @@
+{
+  "timestamp": "",
+  "git_commit": "",
+  "target_url": "",
+  "backend_url": "",
+  "commands": [],
+  "reports": {
+    "summary_json": "",
+    "endpoint_coverage_json": "",
+    "page_coverage_json": "",
+    "playwright_report": ""
+  },
+  "redaction": {
+    "secrets_removed": true,
+    "notes": ""
+  },
+  "verdict": "unknown"
+}

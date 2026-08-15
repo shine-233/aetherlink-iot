@@ -1,0 +1,463 @@
+/**
+ * 后端全量路由端点清单（从 router/apps/ 和 router_init.go 提取）
+ * 格式: { method, path, module, auth }
+ * - module: 路由所属业务模块
+ * - auth: 是否需要 JWT 鉴权
+ */
+const ALL_ENDPOINTS = [
+  // === 根路由 / 公开接口（router_init.go） ===
+  { method: 'GET',  path: '/health',                                        module: 'system',    auth: false },
+  { method: 'GET',  path: '/ready',                                         module: 'system',    auth: false },
+  { method: 'GET',  path: '/deployment/health',                             module: 'system',    auth: false },
+  { method: 'GET',  path: '/metrics',                                       module: 'system',    auth: false },
+  { method: 'GET',  path: '/metrics-viewer',                                module: 'system',    auth: false },
+  { method: 'GET',  path: '/files/*filepath',                               module: 'system',    auth: false },
+  { method: 'GET',  path: '/swagger/*any',                                  module: 'system',    auth: false },
+  { method: 'POST', path: '/api/v1/plugin/heartbeat',                       module: 'plugin',    auth: false },
+  { method: 'POST', path: '/api/v1/plugin/device/config',                   module: 'plugin',    auth: false },
+  { method: 'POST', path: '/api/v1/plugin/devices',                         module: 'plugin',    auth: false },
+  { method: 'POST', path: '/api/v1/plugin/service/access/list',             module: 'plugin',    auth: false },
+  { method: 'POST', path: '/api/v1/plugin/service/access',                  module: 'plugin',    auth: false },
+  { method: 'POST', path: '/api/v1/login',                                  module: 'auth',      auth: false },
+  { method: 'GET',  path: '/api/v1/verification/code',                      module: 'auth',      auth: false },
+  { method: 'POST', path: '/api/v1/reset/password',                         module: 'auth',      auth: false },
+  { method: 'POST', path: '/api/v1/reset/password/link',                    module: 'auth',      auth: false },
+  { method: 'GET',  path: '/api/v1/logo',                                   module: 'system',    auth: false },
+  { method: 'GET',  path: '/api/v1/deployment/health',                      module: 'system',    auth: false },
+  { method: 'GET',  path: '/api/v1/telemetry/datas/current/ws',             module: 'telemetry', auth: false },
+  { method: 'GET',  path: '/api/v1/device/online/status/ws',                module: 'device',    auth: false },
+  { method: 'GET',  path: '/api/v1/device/online/status/ws/batch',          module: 'device',    auth: false },
+  { method: 'GET',  path: '/api/v1/telemetry/datas/current/keys/ws',        module: 'telemetry', auth: false },
+  { method: 'GET',  path: '/api/v1/ota/download/files/upgradePackage/:path/:file', module: 'ota', auth: false },
+  { method: 'GET',  path: '/api/v1/rdi/shared/:token',                      module: 'rdi',       auth: false },
+  { method: 'GET',  path: '/api/v1/board/shared/:token',                    module: 'board',     auth: false },
+  { method: 'GET',  path: '/api/v1/systime',                                module: 'system',    auth: false },
+  { method: 'GET',  path: '/api/v1/sys_function',                           module: 'system',    auth: false },
+  { method: 'GET',  path: '/api/v1/sys_version',                            module: 'system',    auth: false },
+  { method: 'POST', path: '/api/v1/tenant/email/register',                  module: 'auth',      auth: false },
+  { method: 'GET',  path: '/api/v1/tenant/has-admin',                       module: 'auth',      auth: false },
+  { method: 'GET',  path: '/api/v1/tenant/setup-state',                     module: 'auth',      auth: false },
+  { method: 'POST', path: '/api/v1/tenant/super-admin/init',                module: 'auth',      auth: false },
+  { method: 'POST', path: '/api/v1/tenant/market-register',                 module: 'auth',      auth: false },
+  { method: 'POST', path: '/api/v1/device/gateway-register',                module: 'device',    auth: false },
+  { method: 'POST', path: '/api/v1/device/gateway-sub-register',            module: 'device',    auth: false },
+  { method: 'POST', path: '/api/v1/device/auth',                            module: 'device',    auth: false },
+  { method: 'GET',  path: '/api/v1/devices/:device_id/diagnostics',         module: 'device',    auth: false },
+
+  // === SSE（sse.go） ===
+  { method: 'GET',  path: '/api/v1/events',                                 module: 'system',    auth: true },
+
+  // === 用户管理（sys_user.go） ===
+  { method: 'GET',  path: '/api/v1/user/detail',                            module: 'user',      auth: true },
+  { method: 'PUT',  path: '/api/v1/user/update',                            module: 'user',      auth: true },
+  { method: 'POST', path: '/api/v1/user/change-email',                      module: 'user',      auth: true },
+  { method: 'GET',  path: '/api/v1/user/warning-email',                     module: 'user',      auth: true },
+  { method: 'PUT',  path: '/api/v1/user/warning-email',                     module: 'user',      auth: true },
+  { method: 'POST', path: '/api/v1/user/prefer-lang',                       module: 'user',      auth: true },
+  { method: 'PUT',  path: '/api/v1/user/prefer-lang',                       module: 'user',      auth: true },
+  { method: 'GET',  path: '/api/v1/user/logout',                            module: 'user',      auth: true },
+  { method: 'GET',  path: '/api/v1/user/refresh',                           module: 'user',      auth: true },
+  { method: 'GET',  path: '/api/v1/user',                                   module: 'user',      auth: true },
+  { method: 'POST', path: '/api/v1/user',                                   module: 'user',      auth: true },
+  { method: 'PUT',  path: '/api/v1/user',                                   module: 'user',      auth: true },
+  { method: 'DELETE', path: '/api/v1/user/:id',                             module: 'user',      auth: true },
+  { method: 'GET',  path: '/api/v1/user/:id',                               module: 'user',      auth: true },
+  { method: 'POST', path: '/api/v1/user/transform',                         module: 'user',      auth: true },
+  { method: 'PUT',  path: '/api/v1/user/address/:id',                       module: 'user',      auth: true },
+  { method: 'GET',  path: '/api/v1/user/tenant/id',                         module: 'user',      auth: true },
+  { method: 'GET',  path: '/api/v1/user/selector',                          module: 'user',      auth: true },
+
+  // === 角色管理（role.go） ===
+  { method: 'POST',   path: '/api/v1/role',                                 module: 'role',      auth: true },
+  { method: 'DELETE', path: '/api/v1/role/:id',                             module: 'role',      auth: true },
+  { method: 'PUT',    path: '/api/v1/role',                                 module: 'role',      auth: true },
+  { method: 'GET',    path: '/api/v1/role',                                 module: 'role',      auth: true },
+
+  // === 权限管理（casbin.go） ===
+  { method: 'POST',   path: '/api/v1/casbin/function',                     module: 'casbin',    auth: true },
+  { method: 'DELETE', path: '/api/v1/casbin/function/:id',                 module: 'casbin',    auth: true },
+  { method: 'PUT',    path: '/api/v1/casbin/function',                     module: 'casbin',    auth: true },
+  { method: 'GET',    path: '/api/v1/casbin/function',                     module: 'casbin',    auth: true },
+  { method: 'POST',   path: '/api/v1/casbin/user',                         module: 'casbin',    auth: true },
+  { method: 'DELETE', path: '/api/v1/casbin/user/:id',                     module: 'casbin',    auth: true },
+  { method: 'PUT',    path: '/api/v1/casbin/user',                         module: 'casbin',    auth: true },
+  { method: 'GET',    path: '/api/v1/casbin/user',                         module: 'casbin',    auth: true },
+
+  // === 字典管理（sys_dict.go） ===
+  { method: 'POST',   path: '/api/v1/dict/column',                         module: 'dict',      auth: true },
+  { method: 'POST',   path: '/api/v1/dict/language',                       module: 'dict',      auth: true },
+  { method: 'GET',    path: '/api/v1/dict/enum',                           module: 'dict',      auth: true },
+  { method: 'GET',    path: '/api/v1/dict',                                module: 'dict',      auth: true },
+  { method: 'GET',    path: '/api/v1/dict/language/:id',                   module: 'dict',      auth: true },
+  { method: 'DELETE', path: '/api/v1/dict/column/:id',                     module: 'dict',      auth: true },
+  { method: 'DELETE', path: '/api/v1/dict/language/:id',                   module: 'dict',      auth: true },
+  { method: 'GET',    path: '/api/v1/dict/protocol/service',               module: 'dict',      auth: true },
+
+  // === OTA 升级（ota.go） ===
+  { method: 'POST',   path: '/api/v1/ota/package',                         module: 'ota',       auth: true },
+  { method: 'DELETE', path: '/api/v1/ota/package/:id',                     module: 'ota',       auth: true },
+  { method: 'PUT',    path: '/api/v1/ota/package',                         module: 'ota',       auth: true },
+  { method: 'GET',    path: '/api/v1/ota/package',                         module: 'ota',       auth: true },
+  { method: 'POST',   path: '/api/v1/ota/task',                            module: 'ota',       auth: true },
+  { method: 'POST',   path: '/api/v1/ota/task/preview',                    module: 'ota',       auth: true },
+  { method: 'GET',    path: '/api/v1/ota/task/:id/support-bundle',         module: 'ota',       auth: true },
+  { method: 'GET',    path: '/api/v1/ota/task/:id/governance-preview',     module: 'ota',       auth: true },
+  { method: 'DELETE', path: '/api/v1/ota/task/:id',                        module: 'ota',       auth: true },
+  { method: 'GET',    path: '/api/v1/ota/task',                            module: 'ota',       auth: true },
+  { method: 'GET',    path: '/api/v1/ota/task/detail',                     module: 'ota',       auth: true },
+  { method: 'PUT',    path: '/api/v1/ota/task/detail',                     module: 'ota',       auth: true },
+
+  // === 文件上传（upload.go） ===
+  { method: 'POST',   path: '/api/v1/file/up',                             module: 'upload',    auth: true },
+
+  // === 协议插件（protocol_plugin.go） ===
+  { method: 'GET',    path: '/api/v1/protocol_plugin/config_form',          module: 'plugin',    auth: true },
+
+  // === 设备管理（device.go） ===
+  { method: 'POST',   path: '/api/v1/device',                              module: 'device',    auth: true },
+  { method: 'DELETE', path: '/api/v1/device/:id',                          module: 'device',    auth: true },
+  { method: 'PUT',    path: '/api/v1/device',                              module: 'device',    auth: true },
+  { method: 'PUT',    path: '/api/v1/device/active',                       module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device/detail/:id',                   module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device',                              module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device/twin/:id',                     module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device/twin-drift',                   module: 'device',    auth: true },
+  { method: 'PUT',    path: '/api/v1/device/twin/:id/desired',             module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device/check/:deviceNumber',          module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device/tenant/list',                  module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device/list',                         module: 'device',    auth: true },
+  { method: 'POST',   path: '/api/v1/device/son/add',                      module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device/connect/form',                 module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device/connect/info',                 module: 'device',    auth: true },
+  { method: 'POST',   path: '/api/v1/device/update/voucher',               module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device/sub-list/:id',                 module: 'device',    auth: true },
+  { method: 'PUT',    path: '/api/v1/device/sub-remove',                   module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device/metrics/:id',                  module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device/metrics/menu',                 module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device/metrics/condition/menu',       module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device/map/telemetry/:id',            module: 'device',    auth: true },
+  { method: 'PUT',    path: '/api/v1/device/update/config',                module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device/online/status/:id',            module: 'device',    auth: true },
+  { method: 'POST',   path: '/api/v1/device/:device_id/debug',             module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device/:device_id/debug/status',      module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device/:device_id/debug/logs',        module: 'device',    auth: true },
+  { method: 'POST',   path: '/api/v1/device/:device_id/mqtt-debug/session', module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device/:device_id/mqtt-debug/session/:session_id', module: 'device', auth: true },
+  { method: 'POST',   path: '/api/v1/device/:device_id/mqtt-debug/session/:session_id/command', module: 'device', auth: true },
+  { method: 'DELETE', path: '/api/v1/device/:device_id/mqtt-debug/session/:session_id', module: 'device', auth: true },
+  { method: 'GET',    path: '/api/v1/device/:device_id/connection/diagnostics', module: 'device', auth: true },
+  { method: 'GET',    path: '/api/v1/device/:device_id/onboarding/connection-guide', module: 'device', auth: true },
+  { method: 'POST',   path: '/api/v1/device/service/access/batch',         module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device/metrics/chart',                module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device/selector',                     module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device/telemetry/latest',             module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device/status/history',               module: 'device',    auth: true },
+  { method: 'POST',   path: '/api/v1/device/topic-mappings',               module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device/topic-mappings',               module: 'device',    auth: true },
+  { method: 'PUT',    path: '/api/v1/device/topic-mappings/:id',           module: 'device',    auth: true },
+  { method: 'DELETE', path: '/api/v1/device/topic-mappings/:id',           module: 'device',    auth: true },
+  { method: 'POST',   path: '/api/v1/device/topic-mappings/dry-run',       module: 'device',    auth: true },
+
+  // === 设备模板（device.go 续） ===
+  { method: 'POST',   path: '/api/v1/device/template',                     module: 'template',  auth: true },
+  { method: 'DELETE', path: '/api/v1/device/template/:id',                 module: 'template',  auth: true },
+  { method: 'PUT',    path: '/api/v1/device/template',                     module: 'template',  auth: true },
+  { method: 'GET',    path: '/api/v1/device/template/detail/:id',          module: 'template',  auth: true },
+  { method: 'GET',    path: '/api/v1/device/template',                     module: 'template',  auth: true },
+  { method: 'GET',    path: '/api/v1/device/template/menu',                module: 'template',  auth: true },
+  { method: 'GET',    path: '/api/v1/device/template/stats',               module: 'template',  auth: true },
+  { method: 'GET',    path: '/api/v1/device/template/selector',            module: 'template',  auth: true },
+  { method: 'GET',    path: '/api/v1/device/template/chart',               module: 'template',  auth: true },
+  { method: 'GET',    path: '/api/v1/device/template/chart/select',        module: 'template',  auth: true },
+  { method: 'POST',   path: '/api/v1/device/template/market/login',        module: 'template',  auth: true },
+  { method: 'POST',   path: '/api/v1/device/template/market/publish',      module: 'template',  auth: true },
+  { method: 'GET',    path: '/api/v1/device/template/market/list',         module: 'template',  auth: true },
+  { method: 'GET',    path: '/api/v1/device/template/market/detail/:market_id', module: 'template', auth: true },
+  { method: 'POST',   path: '/api/v1/device/template/market/install',      module: 'template',  auth: true },
+
+  // === 设备分组（device.go 续） ===
+  { method: 'POST',   path: '/api/v1/device/group',                        module: 'group',     auth: true },
+  { method: 'DELETE', path: '/api/v1/device/group/:id',                    module: 'group',     auth: true },
+  { method: 'PUT',    path: '/api/v1/device/group',                        module: 'group',     auth: true },
+  { method: 'GET',    path: '/api/v1/device/group',                        module: 'group',     auth: true },
+  { method: 'GET',    path: '/api/v1/device/group/tree',                   module: 'group',     auth: true },
+  { method: 'GET',    path: '/api/v1/device/group/detail/:id',             module: 'group',     auth: true },
+  { method: 'POST',   path: '/api/v1/device/group/relation',               module: 'group',     auth: true },
+  { method: 'DELETE', path: '/api/v1/device/group/relation',               module: 'group',     auth: true },
+  { method: 'GET',    path: '/api/v1/device/group/relation/list',          module: 'group',     auth: true },
+  { method: 'GET',    path: '/api/v1/device/group/relation',               module: 'group',     auth: true },
+
+  // === 物模型（device.go 续） ===
+  { method: 'GET',    path: '/api/v1/device/model/source/at/list',         module: 'model',     auth: true },
+  { method: 'POST',   path: '/api/v1/device/model/telemetry',              module: 'model',     auth: true },
+  { method: 'DELETE', path: '/api/v1/device/model/telemetry/:id',          module: 'model',     auth: true },
+  { method: 'PUT',    path: '/api/v1/device/model/telemetry',              module: 'model',     auth: true },
+  { method: 'GET',    path: '/api/v1/device/model/telemetry',              module: 'model',     auth: true },
+  { method: 'POST',   path: '/api/v1/device/model/attributes',             module: 'model',     auth: true },
+  { method: 'DELETE', path: '/api/v1/device/model/attributes/:id',         module: 'model',     auth: true },
+  { method: 'PUT',    path: '/api/v1/device/model/attributes',             module: 'model',     auth: true },
+  { method: 'GET',    path: '/api/v1/device/model/attributes',             module: 'model',     auth: true },
+  { method: 'POST',   path: '/api/v1/device/model/events',                 module: 'model',     auth: true },
+  { method: 'DELETE', path: '/api/v1/device/model/events/:id',             module: 'model',     auth: true },
+  { method: 'PUT',    path: '/api/v1/device/model/events',                 module: 'model',     auth: true },
+  { method: 'GET',    path: '/api/v1/device/model/events',                 module: 'model',     auth: true },
+  { method: 'POST',   path: '/api/v1/device/model/commands',               module: 'model',     auth: true },
+  { method: 'DELETE', path: '/api/v1/device/model/commands/:id',           module: 'model',     auth: true },
+  { method: 'PUT',    path: '/api/v1/device/model/commands',               module: 'model',     auth: true },
+  { method: 'GET',    path: '/api/v1/device/model/commands',               module: 'model',     auth: true },
+  { method: 'POST',   path: '/api/v1/device/model/custom/commands',        module: 'model',     auth: true },
+  { method: 'DELETE', path: '/api/v1/device/model/custom/commands/:id',    module: 'model',     auth: true },
+  { method: 'PUT',    path: '/api/v1/device/model/custom/commands',        module: 'model',     auth: true },
+  { method: 'GET',    path: '/api/v1/device/model/custom/commands',        module: 'model',     auth: true },
+  { method: 'GET',    path: '/api/v1/device/model/custom/commands/:deviceId', module: 'model', auth: true },
+  { method: 'POST',   path: '/api/v1/device/model/custom/control',         module: 'model',     auth: true },
+  { method: 'DELETE', path: '/api/v1/device/model/custom/control/:id',     module: 'model',     auth: true },
+  { method: 'PUT',    path: '/api/v1/device/model/custom/control',         module: 'model',     auth: true },
+  { method: 'GET',    path: '/api/v1/device/model/custom/control',         module: 'model',     auth: true },
+
+  // === UI 元素（sys_ui_elements.go） ===
+  { method: 'POST',   path: '/api/v1/ui_elements',                         module: 'ui',        auth: true },
+  { method: 'DELETE', path: '/api/v1/ui_elements/:id',                     module: 'ui',        auth: true },
+  { method: 'PUT',    path: '/api/v1/ui_elements',                         module: 'ui',        auth: true },
+  { method: 'GET',    path: '/api/v1/ui_elements',                         module: 'ui',        auth: true },
+  { method: 'GET',    path: '/api/v1/ui_elements/menu',                    module: 'ui',        auth: true },
+  { method: 'GET',    path: '/api/v1/ui_elements/select/form',             module: 'ui',        auth: true },
+
+  // === 看板（board.go） ===
+  { method: 'POST',   path: '/api/v1/board',                               module: 'board',     auth: true },
+  { method: 'DELETE', path: '/api/v1/board/:id',                           module: 'board',     auth: true },
+  { method: 'PUT',    path: '/api/v1/board',                               module: 'board',     auth: true },
+  { method: 'GET',    path: '/api/v1/board',                               module: 'board',     auth: true },
+  { method: 'GET',    path: '/api/v1/board/:id',                           module: 'board',     auth: true },
+  { method: 'POST',   path: '/api/v1/board/:id/publish',                   module: 'board',     auth: true },
+  { method: 'GET',    path: '/api/v1/board/home',                          module: 'board',     auth: true },
+  { method: 'GET',    path: '/api/v1/board/trend',                         module: 'board',     auth: true },
+  { method: 'GET',    path: '/api/v1/board/device/total',                  module: 'board',     auth: true },
+  { method: 'GET',    path: '/api/v1/board/device',                        module: 'board',     auth: true },
+  { method: 'GET',    path: '/api/v1/board/tenant',                        module: 'board',     auth: true },
+  { method: 'GET',    path: '/api/v1/board/tenant/user/info',              module: 'board',     auth: true },
+  { method: 'GET',    path: '/api/v1/board/tenant/device/info',            module: 'board',     auth: true },
+  { method: 'GET',    path: '/api/v1/board/user/info',                     module: 'board',     auth: true },
+  { method: 'POST',   path: '/api/v1/board/user/update',                   module: 'board',     auth: true },
+  { method: 'POST',   path: '/api/v1/board/user/update/password',          module: 'board',     auth: true },
+
+  // === 仪表盘菜单（dashboard_menu.go） ===
+  { method: 'GET',    path: '/api/v1/dashboard-menu/:dashboardId',         module: 'dashboard', auth: true },
+  { method: 'POST',   path: '/api/v1/dashboard-menu/batch',                module: 'dashboard', auth: true },
+  { method: 'PUT',    path: '/api/v1/dashboard-menu/:dashboardId',         module: 'dashboard', auth: true },
+  { method: 'DELETE', path: '/api/v1/dashboard-menu/:dashboardId',         module: 'dashboard', auth: true },
+
+  // === 事件数据（event_data.go） ===
+  { method: 'GET',    path: '/api/v1/event/datas',                         module: 'event',     auth: true },
+
+  // === 遥测数据（telemetry_data.go） ===
+  { method: 'GET',    path: '/api/v1/telemetry/datas/current/:id',         module: 'telemetry', auth: true },
+  { method: 'GET',    path: '/api/v1/telemetry/datas/current/keys',        module: 'telemetry', auth: true },
+  { method: 'GET',    path: '/api/v1/telemetry/datas/current/detail/:id',  module: 'telemetry', auth: true },
+  { method: 'GET',    path: '/api/v1/telemetry/datas/history',             module: 'telemetry', auth: true },
+  { method: 'GET',    path: '/api/v1/telemetry/datas/history/pagination',  module: 'telemetry', auth: true },
+  { method: 'GET',    path: '/api/v1/telemetry/datas/history/page',        module: 'telemetry', auth: true },
+  { method: 'DELETE', path: '/api/v1/telemetry/datas',                     module: 'telemetry', auth: true },
+  { method: 'GET',    path: '/api/v1/telemetry/datas/statistic',           module: 'telemetry', auth: true },
+  { method: 'GET',    path: '/api/v1/telemetry/datas/statistic/batch',     module: 'telemetry', auth: true },
+  { method: 'GET',    path: '/api/v1/telemetry/datas/set/logs',            module: 'telemetry', auth: true },
+  { method: 'GET',    path: '/api/v1/telemetry/datas/dead-letters',        module: 'telemetry', auth: true },
+  { method: 'POST',   path: '/api/v1/telemetry/datas/dead-letters/drain',  module: 'telemetry', auth: true },
+  { method: 'PATCH',  path: '/api/v1/telemetry/datas/dead-letters/:id/status', module: 'telemetry', auth: true },
+  { method: 'GET',    path: '/api/v1/telemetry/datas/uplink-dead-letters', module: 'telemetry', auth: true },
+  { method: 'POST',   path: '/api/v1/telemetry/datas/uplink-dead-letters/drain', module: 'telemetry', auth: true },
+  { method: 'PATCH',  path: '/api/v1/telemetry/datas/uplink-dead-letters/:id/status', module: 'telemetry', auth: true },
+  { method: 'POST',   path: '/api/v1/telemetry/datas/pub',                 module: 'telemetry', auth: true },
+  { method: 'GET',    path: '/api/v1/telemetry/datas/simulation',          module: 'telemetry', auth: true },
+  { method: 'POST',   path: '/api/v1/telemetry/datas/simulation',          module: 'telemetry', auth: true },
+  { method: 'GET',    path: '/api/v1/telemetry/datas/simulation/init',     module: 'telemetry', auth: true },
+  { method: 'POST',   path: '/api/v1/telemetry/datas/simulation/send',     module: 'telemetry', auth: true },
+  { method: 'GET',    path: '/api/v1/telemetry/datas/msg/count',           module: 'telemetry', auth: true },
+
+  // === 属性数据（attribute_data.go） ===
+  { method: 'GET',    path: '/api/v1/attribute/datas/:id',                 module: 'attribute', auth: true },
+  { method: 'GET',    path: '/api/v1/attribute/datas/set/logs',            module: 'attribute', auth: true },
+  { method: 'DELETE', path: '/api/v1/attribute/datas/:id',                 module: 'attribute', auth: true },
+  { method: 'POST',   path: '/api/v1/attribute/datas/pub',                 module: 'attribute', auth: true },
+  { method: 'GET',    path: '/api/v1/attribute/datas/get',                 module: 'attribute', auth: true },
+  { method: 'GET',    path: '/api/v1/attribute/datas/key',                 module: 'attribute', auth: true },
+
+  // === 命令数据（command_data.go） ===
+  { method: 'GET',    path: '/api/v1/command/datas/set/logs',              module: 'command',   auth: true },
+  { method: 'POST',   path: '/api/v1/command/datas/pub',                   module: 'command',   auth: true },
+  { method: 'POST',   path: '/api/v1/command/datas/direct-method',         module: 'command',   auth: true },
+  { method: 'POST',   path: '/api/v1/command/datas/jobs/preview',          module: 'command',   auth: true },
+  { method: 'POST',   path: '/api/v1/command/datas/jobs/submit',           module: 'command',   auth: true },
+  { method: 'GET',    path: '/api/v1/command/datas/jobs',                  module: 'command',   auth: true },
+  { method: 'GET',    path: '/api/v1/command/datas/jobs/:job_id/support-bundle', module: 'command', auth: true },
+  { method: 'GET',    path: '/api/v1/command/datas/jobs/:job_id',          module: 'command',   auth: true },
+  { method: 'GET',    path: '/api/v1/command/datas/jobs/:job_id/rows',     module: 'command',   auth: true },
+  { method: 'POST',   path: '/api/v1/command/datas/jobs/:job_id/cancel',   module: 'command',   auth: true },
+  { method: 'POST',   path: '/api/v1/command/datas/jobs/:job_id/retry',    module: 'command',   auth: true },
+  { method: 'GET',    path: '/api/v1/command/datas/delivery/diagnostics/:device_id', module: 'command', auth: true },
+  { method: 'GET',    path: '/api/v1/command/datas/:id',                   module: 'command',   auth: true },
+  { method: 'GET',    path: '/api/v1/command/datas/saved-filters',         module: 'command',   auth: true },
+  { method: 'POST',   path: '/api/v1/command/datas/saved-filters',         module: 'command',   auth: true },
+  { method: 'PUT',    path: '/api/v1/command/datas/saved-filters/:filter_id', module: 'command', auth: true },
+  { method: 'DELETE', path: '/api/v1/command/datas/saved-filters/:filter_id', module: 'command', auth: true },
+
+  // === Payload schema ===
+  { method: 'POST',   path: '/api/v1/payload-schema',                      module: 'payload-schema', auth: true },
+  { method: 'POST',   path: '/api/v1/payload-schema/validate',              module: 'payload-schema', auth: true },
+  { method: 'GET',    path: '/api/v1/payload-schema',                      module: 'payload-schema', auth: true },
+  { method: 'PUT',    path: '/api/v1/payload-schema/:schema_id',            module: 'payload-schema', auth: true },
+  { method: 'DELETE', path: '/api/v1/payload-schema/:schema_id',            module: 'payload-schema', auth: true },
+
+  // === 操作日志（operation_logs.go） ===
+  { method: 'GET',    path: '/api/v1/operation_logs',                      module: 'log',       auth: true },
+
+  // === Logo（logo.go） ===
+  { method: 'PUT',    path: '/api/v1/logo',                                module: 'system',    auth: true },
+
+  // === 数据策略（datapolicy.go） ===
+  { method: 'PUT',    path: '/api/v1/datapolicy',                          module: 'datapolicy', auth: true },
+  { method: 'GET',    path: '/api/v1/datapolicy',                          module: 'datapolicy', auth: true },
+
+  // === 设备配置（device_config.go） ===
+  { method: 'POST',   path: '/api/v1/device_config',                       module: 'config',    auth: true },
+  { method: 'DELETE', path: '/api/v1/device_config/:id',                   module: 'config',    auth: true },
+  { method: 'PUT',    path: '/api/v1/device_config',                       module: 'config',    auth: true },
+  { method: 'GET',    path: '/api/v1/device_config',                       module: 'config',    auth: true },
+  { method: 'GET',    path: '/api/v1/device_config/menu',                  module: 'config',    auth: true },
+  { method: 'GET',    path: '/api/v1/device_config/:id',                   module: 'config',    auth: true },
+  { method: 'PUT',    path: '/api/v1/device_config/batch',                 module: 'config',    auth: true },
+  { method: 'GET',    path: '/api/v1/device_config/connect',               module: 'config',    auth: true },
+  { method: 'GET',    path: '/api/v1/device_config/voucher_type',          module: 'config',    auth: true },
+  { method: 'GET',    path: '/api/v1/device_config/metrics/menu',          module: 'config',    auth: true },
+  { method: 'GET',    path: '/api/v1/device_config/metrics/condition/menu', module: 'config',   auth: true },
+
+  // === 数据脚本（data_script.go） ===
+  { method: 'POST',   path: '/api/v1/data_script',                         module: 'script',    auth: true },
+  { method: 'DELETE', path: '/api/v1/data_script/:id',                     module: 'script',    auth: true },
+  { method: 'PUT',    path: '/api/v1/data_script',                         module: 'script',    auth: true },
+  { method: 'GET',    path: '/api/v1/data_script',                         module: 'script',    auth: true },
+  { method: 'POST',   path: '/api/v1/data_script/quiz',                    module: 'script',    auth: true },
+  { method: 'PUT',    path: '/api/v1/data_script/enable',                  module: 'script',    auth: true },
+
+  // === 通知组（notification_groups.go） ===
+  { method: 'POST',   path: '/api/v1/notification_group',                  module: 'notification', auth: true },
+  { method: 'DELETE', path: '/api/v1/notification_group/:id',              module: 'notification', auth: true },
+  { method: 'PUT',    path: '/api/v1/notification_group/:id',              module: 'notification', auth: true },
+  { method: 'GET',    path: '/api/v1/notification_group/list',             module: 'notification', auth: true },
+  { method: 'GET',    path: '/api/v1/notification_group/:id',              module: 'notification', auth: true },
+
+  // === 通知历史（notification_history.go） ===
+  { method: 'GET',    path: '/api/v1/notification_history/list',           module: 'notification', auth: true },
+
+  // === 通知服务配置（notification_services_config.go） ===
+  { method: 'POST',   path: '/api/v1/notification/services/config',        module: 'notification', auth: true },
+  { method: 'GET',    path: '/api/v1/notification/services/config/:type',  module: 'notification', auth: true },
+  { method: 'POST',   path: '/api/v1/notification/services/config/e-mail/test', module: 'notification', auth: true },
+
+  // === 告警邮件模板（email_templates.go） ===
+  { method: 'GET',    path: '/api/v1/notification/e-mail/templates',       module: 'notification', auth: true },
+  { method: 'POST',   path: '/api/v1/notification/e-mail/templates',       module: 'notification', auth: true },
+  { method: 'POST',   path: '/api/v1/notification/e-mail/templates/preview', module: 'notification', auth: true },
+  { method: 'PUT',    path: '/api/v1/notification/e-mail/templates/:id',   module: 'notification', auth: true },
+  { method: 'DELETE', path: '/api/v1/notification/e-mail/templates/:id',   module: 'notification', auth: true },
+  { method: 'POST',   path: '/api/v1/notification/e-mail/templates/:id/default', module: 'notification', auth: true },
+
+  // === 告警（alarm.go） ===
+  { method: 'GET',    path: '/api/v1/alarm/device/counts',                 module: 'alarm',     auth: true },
+  { method: 'POST',   path: '/api/v1/alarm/config',                        module: 'alarm',     auth: true },
+  { method: 'DELETE', path: '/api/v1/alarm/config/:id',                    module: 'alarm',     auth: true },
+  { method: 'PUT',    path: '/api/v1/alarm/config',                        module: 'alarm',     auth: true },
+  { method: 'GET',    path: '/api/v1/alarm/config',                        module: 'alarm',     auth: true },
+  { method: 'PUT',    path: '/api/v1/alarm/info',                          module: 'alarm',     auth: true },
+  { method: 'PUT',    path: '/api/v1/alarm/info/batch',                    module: 'alarm',     auth: true },
+  { method: 'GET',    path: '/api/v1/alarm/info',                          module: 'alarm',     auth: true },
+  { method: 'GET',    path: '/api/v1/alarm/info/history',                  module: 'alarm',     auth: true },
+  { method: 'GET',    path: '/api/v1/alarm/info/history/monthly',          module: 'alarm',     auth: true },
+  { method: 'PUT',    path: '/api/v1/alarm/info/history',                  module: 'alarm',     auth: true },
+  { method: 'PUT',    path: '/api/v1/alarm/info/history/batch-action',     module: 'alarm',     auth: true },
+  { method: 'GET',    path: '/api/v1/alarm/info/history/device',           module: 'alarm',     auth: true },
+  { method: 'GET',    path: '/api/v1/alarm/info/config/device',            module: 'alarm',     auth: true },
+  { method: 'PUT',    path: '/api/v1/alarm/info/history/:id/acknowledge',  module: 'alarm',     auth: true },
+  { method: 'PUT',    path: '/api/v1/alarm/info/history/:id/reset',        module: 'alarm',     auth: true },
+  { method: 'GET',    path: '/api/v1/alarm/info/history/:id',              module: 'alarm',     auth: true },
+  { method: 'DELETE', path: '/api/v1/alarm/info/history/:id',              module: 'alarm',     auth: true },
+
+  // === 场景（scene.go） ===
+  { method: 'POST',   path: '/api/v1/scene',                               module: 'scene',     auth: true },
+  { method: 'DELETE', path: '/api/v1/scene/:id',                           module: 'scene',     auth: true },
+  { method: 'GET',    path: '/api/v1/scene',                               module: 'scene',     auth: true },
+  { method: 'GET',    path: '/api/v1/scene/detail/:id',                    module: 'scene',     auth: true },
+  { method: 'PUT',    path: '/api/v1/scene',                               module: 'scene',     auth: true },
+  { method: 'POST',   path: '/api/v1/scene/active/:id',                    module: 'scene',     auth: true },
+  { method: 'POST',   path: '/api/v1/scene/dry-run',                       module: 'scene',     auth: true },
+  { method: 'GET',    path: '/api/v1/scene/log',                           module: 'scene',     auth: true },
+
+  // === 场景联动（scene_automations.go） ===
+  { method: 'POST',   path: '/api/v1/scene_automations',                   module: 'automation', auth: true },
+  { method: 'DELETE', path: '/api/v1/scene_automations/:id',               module: 'automation', auth: true },
+  { method: 'PUT',    path: '/api/v1/scene_automations',                   module: 'automation', auth: true },
+  { method: 'POST',   path: '/api/v1/scene_automations/dry-run',           module: 'automation', auth: true },
+  { method: 'POST',   path: '/api/v1/scene_automations/switch/:id',        module: 'automation', auth: true },
+  { method: 'GET',    path: '/api/v1/scene_automations/list',              module: 'automation', auth: true },
+  { method: 'GET',    path: '/api/v1/scene_automations/detail/:id',        module: 'automation', auth: true },
+  { method: 'GET',    path: '/api/v1/scene_automations/log',               module: 'automation', auth: true },
+  { method: 'GET',    path: '/api/v1/scene_automations/alarm',             module: 'automation', auth: true },
+
+  // === 系统功能（sys_function.go） ===
+  { method: 'PUT',    path: '/api/v1/sys_function/:id',                    module: 'system',    auth: true },
+
+  // === 服务插件（service_plugin.go） ===
+  { method: 'POST',   path: '/api/v1/service',                             module: 'service',   auth: true },
+  { method: 'GET',    path: '/api/v1/service/list',                        module: 'service',   auth: true },
+  { method: 'GET',    path: '/api/v1/service/detail/:id',                  module: 'service',   auth: true },
+  { method: 'PUT',    path: '/api/v1/service',                             module: 'service',   auth: true },
+  { method: 'DELETE', path: '/api/v1/service/:id',                         module: 'service',   auth: true },
+  { method: 'GET',    path: '/api/v1/service/plugin/select',               module: 'service',   auth: true },
+  { method: 'GET',    path: '/api/v1/service/plugin/info',                 module: 'service',   auth: true },
+  { method: 'POST',   path: '/api/v1/service/access',                      module: 'service',   auth: true },
+  { method: 'GET',    path: '/api/v1/service/access/list',                 module: 'service',   auth: true },
+  { method: 'PUT',    path: '/api/v1/service/access',                      module: 'service',   auth: true },
+  { method: 'DELETE', path: '/api/v1/service/access/:id',                  module: 'service',   auth: true },
+  { method: 'GET',    path: '/api/v1/service/access/voucher/form',         module: 'service',   auth: true },
+  { method: 'GET',    path: '/api/v1/service/access/device/list',          module: 'service',   auth: true },
+
+  // === 期望数据（expected_data.go） ===
+  { method: 'GET',    path: '/api/v1/expected/data/list',                  module: 'expected',  auth: true },
+  { method: 'POST',   path: '/api/v1/expected/data',                       module: 'expected',  auth: true },
+  { method: 'DELETE', path: '/api/v1/expected/data/:id',                   module: 'expected',  auth: true },
+
+  // === Open API Keys（open_api_keys.go） ===
+  { method: 'POST',   path: '/api/v1/open/keys',                           module: 'openapi',   auth: true },
+  { method: 'GET',    path: '/api/v1/open/keys',                           module: 'openapi',   auth: true },
+  { method: 'PUT',    path: '/api/v1/open/keys',                           module: 'openapi',   auth: true },
+  { method: 'DELETE', path: '/api/v1/open/keys/:id',                       module: 'openapi',   auth: true },
+
+  // === 消息推送（message_push.go） ===
+  { method: 'POST',   path: '/api/v1/message_push',                        module: 'message',   auth: true },
+  { method: 'POST',   path: '/api/v1/message_push/logout',                 module: 'message',   auth: true },
+  { method: 'GET',    path: '/api/v1/message_push/config',                 module: 'message',   auth: true },
+  { method: 'POST',   path: '/api/v1/message_push/config',                 module: 'message',   auth: true },
+
+  // === RDI（rdi.go） ===
+  { method: 'GET',    path: '/api/v1/rdi/thing-model',                     module: 'rdi',       auth: true },
+  { method: 'POST',   path: '/api/v1/rdi/devices/activate',                module: 'rdi',       auth: true },
+  { method: 'GET',    path: '/api/v1/rdi/devices/:device_id/config',       module: 'rdi',       auth: true },
+  { method: 'GET',    path: '/api/v1/rdi/devices/:device_id/history',      module: 'rdi',       auth: true },
+  { method: 'GET',    path: '/api/v1/rdi/devices/:device_id/latest-firmware', module: 'rdi',    auth: true },
+  { method: 'PUT',    path: '/api/v1/rdi/devices/:device_id/config',       module: 'rdi',       auth: true },
+  { method: 'POST',   path: '/api/v1/rdi/devices/:device_id/commands',     module: 'rdi',       auth: true },
+  { method: 'POST',   path: '/api/v1/rdi/devices/:device_id/share-token',  module: 'rdi',       auth: true },
+  { method: 'DELETE', path: '/api/v1/rdi/devices/:device_id/share-tokens/:token', module: 'rdi', auth: true },
+  { method: 'DELETE', path: '/api/v1/rdi/devices/:device_id/share-recipients/:user_id', module: 'rdi', auth: true },
+  { method: 'POST',   path: '/api/v1/rdi/share-tokens/:token/accept',     module: 'rdi',       auth: true },
+  { method: 'GET',    path: '/api/v1/rdi/shared-with-me/devices',          module: 'rdi',       auth: true },
+
+  // === 系统监控（system_monitor.go） ===
+  { method: 'GET',    path: '/api/v1/system/metrics/current',              module: 'monitor',   auth: true },
+  { method: 'GET',    path: '/api/v1/system/metrics/history',              module: 'monitor',   auth: true },
+
+  // === 设备认证（device_auth.go） ===
+  { method: 'POST',   path: '/api/v1/device/auth',                         module: 'device',    auth: true }
+];
+
+module.exports = { ALL_ENDPOINTS };

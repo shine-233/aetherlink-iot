@@ -1,0 +1,21 @@
+# frontend/src/views/_builtin/login 目录说明
+
+## 目录职责
+
+本目录存放 `frontend/src/views/_builtin/login` 对应的前端页面、局部组件或页面级支撑文件，属于 `frontend/src/views` 文档化第一分片。
+
+## 内容结构
+
+- 主要文件：`index.vue`
+- 子目录：`__tests__/`、`modules/`
+
+## 维护规则
+
+- 只在本目录内维护与相邻页面直接相关的展示、交互和测试内容。
+- 修改页面行为时，同步检查相邻 `__tests__` 是否需要补充断言。
+- 保持路由名、用户可见文案和测试选择器稳定；必要调整时要同步更新说明和测试。
+
+## 已知缺口
+
+- 本 README 只说明静态职责，不代表已完成真实后端联调或 E2E 业务闭环。
+- 图表、响应式样式和跨页导航仍需要 targeted Vitest、API 自动化或 Playwright 继续补证。
