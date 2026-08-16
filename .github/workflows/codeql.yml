@@ -40,6 +40,10 @@ jobs:
         with:
           go-version-file: backend/go.mod
           cache: true
+          cache-dependency-path: |
+            backend/go.sum
+            mqtt-broker/go.sum
+            backend/cmd/aetherlink-device-autotest/go.sum
       - name: Initialize CodeQL
         uses: github/codeql-action/init@0fa1882f994fbd81a47ab0804f93354f5ea40147 # v3.28.17
         with:

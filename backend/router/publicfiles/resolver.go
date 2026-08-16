@@ -17,7 +17,7 @@ func ResolvePath(rawPath string) (string, error) {
 	if rawPath == "" || rawPath == "/" {
 		return "", errors.New("file path is required")
 	}
-	if strings.Contains(rawPath, `\`) || strings.Contains(rawPath, ":") {
+	if strings.Contains(rawPath, `\`) || strings.Contains(rawPath, ":") || strings.HasPrefix(rawPath, "//") {
 		return "", errors.New("file path must be a URL path")
 	}
 	for _, segment := range strings.Split(rawPath, "/") {

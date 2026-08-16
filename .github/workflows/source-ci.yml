@@ -62,6 +62,7 @@ jobs:
         with:
           go-version-file: backend/go.mod
           cache: true
+          cache-dependency-path: backend/go.sum
       - name: Run backend unit tests
         run: go test ./...
       - name: Build backend binaries
@@ -84,6 +85,7 @@ jobs:
         with:
           go-version-file: mqtt-broker/go.mod
           cache: true
+          cache-dependency-path: mqtt-broker/go.sum
       - name: Run broker unit tests
         run: go test ./...
       - name: Build broker binaries
@@ -106,6 +108,7 @@ jobs:
         with:
           go-version-file: backend/cmd/aetherlink-device-autotest/go.mod
           cache: true
+          cache-dependency-path: backend/cmd/aetherlink-device-autotest/go.sum
       - name: Run device autotest unit tests
         run: go test ./...
       - name: Build device autotest binaries
