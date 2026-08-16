@@ -6,7 +6,7 @@ require (
 	github.com/eclipse/paho.mqtt.golang v1.5.1
 	github.com/lib/pq v1.12.3
 	github.com/stretchr/testify v1.11.1
-	go.uber.org/zap v1.26.0
+	go.uber.org/zap v1.28.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
