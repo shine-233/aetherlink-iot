@@ -46,7 +46,7 @@
 - 清理后生成物候选扫描为 `0`；`check_supply_chain.js` 和 `release_preflight.js` 仍是静态/合同门禁，不等于 Docker、目标服务器、公网 MQTT、HTTPS/TLS 或真实设备验收。
 - r14 后端全量 Go 测试因 `proxy.golang.org` 依赖下载超时未完成，broker 测试按用户要求停止；它们不能标记为通过。已有 r13 的本地证据仍按历史批次引用，并不替代当前目标环境验收。
 
-当前发布标记为：`source_package_boundary=public-source`、`github_upload=executed`、`source_release=published`、`ghcr_release=published`、`real_rdi_status=not-tested`、`target_deployment_status=pending`、`production_signoff=not-ready`。ThingsVis 仍是有源码和合同引用的 optional legacy compatibility provider，不因 Native 可运行而删除；`negative-menu` 是 ownership rejection 测试场景，不是待清理服务。
+当前发布标记为：`source_package_boundary=public-source`、`github_upload=executed`、`source_release=v0.1.2-published-and-verified`、`source_sbom=v0.1.2-source-manifest-only`、`next_source_sbom=declared-and-locked-pending`、`ghcr_release=v0.1.2-published-and-attested`、`real_rdi_status=not-tested`、`target_deployment_status=pending`、`production_signoff=not-ready`。ThingsVis 仍是有源码和合同引用的 optional legacy compatibility provider，不因 Native 可运行而删除；`negative-menu` 是 ownership rejection 测试场景，不是待清理服务。
 
 ## GitHub 托管功能状态
 
@@ -56,9 +56,21 @@
 - Dependabot alerts、security updates、automated security fixes，以及 GitHub Actions、frontend/automation npm、三个 Go module 和三个 Docker 目录的版本更新配置。
 - Secret Scanning、Push Protection、Issues、Discussions、Projects、Wiki、Issue Forms、PR 模板和 CODEOWNERS。
 - `integration` environment；当前没有真实 API、账号、设备凭据或生产 secrets，因此手动/夜间 workflow 默认不会伪造 live 验收。
-- `.github/workflows/release.yml` 和 `.github/workflows/container-release.yml` 只在正式 tag push 时发布；源码 release 附带 checksum、source-manifest SBOM 和各自的 provenance，三个容器镜像要求 BuildKit SBOM、maximum-detail provenance 和 digest attestation。首次 GHCR 发布、包可见性和 attestation 已由托管运行验证，具体证据见下节。
+- `.github/workflows/release.yml` 和 `.github/workflows/container-release.yml` 只在正式 tag push 时发布。`v0.1.2` 的 source/container hosted runs 已成功完成，source release 确实附带 checksum、source SBOM 和 source attestation，三个容器镜像也完成了 BuildKit SBOM、maximum-detail provenance 和 digest attestation；具体资产、digest 和复核命令见下节。注意：`v0.1.2` 的 source SBOM 是本次 Go `go.sum` 深度增强之前生成的 `source-manifest-only` 版本，不能冒充下一版的 `declared-and-locked-components` 输出。
 
-### GHCR 首次发布证据
+### v0.1.2 Source Release 端到端证据
+
+本次复核使用当前 GitHub 公开资产和托管运行，而不是只读 workflow YAML：
+
+- tag `v0.1.2` 指向 `1c76f346e2136442b217ec3501e7231987d569da`；Source release run [31964048006](https://github.com/shine-233/aetherlink-iot/actions/runs/31964048006) 与 Container image release run [31964048070](https://github.com/shine-233/aetherlink-iot/actions/runs/31964048070) 均为 `push` 事件、`success`，且三个 container matrix job 全部成功。
+- [v0.1.2 Release](https://github.com/shine-233/aetherlink-iot/releases/tag/v0.1.2) 的三个资产均可下载：`aetherlink-iot-v0.1.2.tar.gz`、`source-sbom.json`、`SHA256SUMS.txt`。
+- 下载后 SHA-256 已重新计算并与 `SHA256SUMS.txt` 匹配：archive=`d99b67e0a0864ad2a26aafd98fd272f6e578a40fc968ab16eeff02ebb3b240a1`，source SBOM=`a3e9b0dc529af4b3ef324fee20e52c50f0ce13d621624021bb09931fbc6368ea`。
+- archive 目录条目（去掉根目录）为 `4215`，Git tree recursive 结果为 `4215`，两组路径差异为 `0`，且 GitHub tree 未截断。
+- 三个 source 资产的 `gh attestation verify` 均通过，并强制校验仓库 `shine-233/aetherlink-iot`、workflow `.github/workflows/release.yml`、`refs/tags/v0.1.2` 和 source SHA `1c76f346...`；每个结果都有 `1` 个 verified transparency timestamp。
+- 该版本 `source-sbom.json` 的元数据明确为 `completeness=source-manifest-only`，外部 dependency resolution、registry enrichment 和 container attestation 均为 `not-run`；这是真实资产的范围声明，不是缺陷被隐藏。当前分支正在把 Go `go.sum` 校验条目加入下一版的 `declared-and-locked-components` 模式，合并并重新打 tag 后才会产生新的 hosted artifact。
+- GHCR 的 `0.1.2`、`0.1`、`latest` 三个 tag 均存在并解析到同一版本 digest：backend=`sha256:fbdcf639be9c0326f0e020c039ef15fc28710d953031484a63a9a09ccfa461a8`、frontend=`sha256:9871f07ae786abc8b46c7f20bf757c97df58c4fa360b7561de882850fa679afa`、MQTT broker=`sha256:96ab7e85a3d24ade54d2c743a51f962c895fda8d78956813fe01a43ab86e5c09`；三个镜像的 `gh attestation verify` 也均以 `exit code 0` 通过，并指向 `container-release.yml@refs/tags/v0.1.2`。
+
+### GHCR 首次发布证据（历史 v0.1.0 手动运行）
 
 2026-08-16 的托管运行 [31925704773](https://github.com/shine-233/aetherlink-iot/actions/runs/31925704773) 成功发布了三个公开 GHCR package：
 
@@ -72,7 +84,7 @@
 
 历史证据：该次运行来自旧版 workflow，并通过 `workflow_dispatch` 手动指定了 `tag=v0.1.0`；workflow 的 checkout 使用了这个 tag 作为构建源码输入，但是 attestation 证书和 SLSA provenance 的上下文记录为 `refs/heads/main` 与提交 `57c7a40`，而不是 tag-triggered 的 `refs/tags/v0.1.0`。这不代表当前 `.github/workflows/container-release.yml` 仍支持手动 tag 输入；当前发布 workflow 只接受正式的 `v*.*.*` tag push。该历史镜像只应表述为“已发布的 tag-selected source 镜像”，不能宣称它是由 `v0.1.0` tag 事件触发的 provenance。若需要严格的 tag provenance，应使用后续新的 patch tag 触发当前 tag workflow；不可变的 `v0.1.0` Source Release 不回写。
 
-当前尚未完成：真实 API/E2E/设备和目标部署验收。`main` 分支保护、正式 Git tag/Source Release 和 GHCR 首次发布已完成并已验证。Secret Scanning 的 non-provider patterns 与 validity checks 仍以 GitHub 当前设置为准，不能在文档中写成已启用。
+当前尚未完成：真实 API/E2E/设备和目标部署验收；`integration` environment 当前没有任何 secrets 或 variables，因此 workflow 会在配置门禁处 fail-closed。`main` 分支保护、正式 Git tag/Source Release、v0.1.2 source/container 发布及其资产/attestation 已完成并已验证。Secret Scanning 的 non-provider patterns 与 validity checks 当前仍为 `disabled`，不能在文档中写成已启用；其是否为具体计划限制也没有足够证据可断言。
 
 ## 兼容名称
 

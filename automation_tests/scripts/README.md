@@ -17,7 +17,7 @@
 - `verify_preview_login_render.js`：用 Playwright 检查登录页面能渲染。
 - `generate_repository_inventory.js`：从 Git tracked、缺失 tracked 与未忽略 untracked 集合生成稳定的全仓文件台账；不扫描 ignored 依赖/运行产物，敏感候选只读取元数据。
 - `check_supply_chain.js`：离线核对 Go module/lockfile、Docker builder、pnpm 版本和 frozen-lockfile 边界；漏洞数据库、完整 resolved/image SBOM 与托管审查保持外部状态。
-- `generate_local_sbom.js`：不联网、不安装依赖，读取三份 `go.mod` 和 `frontend/pnpm-lock.yaml`，生成 CycloneDX 1.6-like 的 `source-manifest-only` JSON；不代表完整 resolved dependency 或 image SBOM。
+- `generate_local_sbom.js`：不联网、不安装依赖，读取三份 `go.mod`、对应的三份 `go.sum` 和 `frontend/pnpm-lock.yaml`。`--source-only` 生成带完整输入哈希的 `source-manifest-only` JSON；不带该参数时，把仓库内声明与 Go/pnpm 锁定条目生成 `declared-and-locked-components` JSON。两种模式都不代表完整 resolved dependency 或 image SBOM。
 - `check_generated_artifacts.js`：只读核对 `_localrun`、前端构建输出、缓存、验证归档和二进制的 Git tracked/ignored 边界；保留期限与归档内容审查保持外部状态。
 - `visual-page-sweep.js`：在 Playwright 页面上下文中逐页检查页面、控制台错误和失败请求并写入截图；输出目录通过 `VISUAL_OUTPUT_DIR` 注入，默认写入 `verification/visual-page-sweep-<timestamp>/`，不再写入源码目录。
 - `seed_synthetic_rdi_fixture.js`：只在显式允许的隔离 PostgreSQL 中创建、查看或清理 `synthetic-rdi` 预注册 fixture；支持 `--status`、`--seed`、`--cleanup --confirm`。它不是实体 RDI 设备，不能用于宣称真实 PID、固件、设备 MQTT 或真实 ACK 已通过。
@@ -60,7 +60,7 @@ node -c .\scripts\verify_preview_login_render.js
 npm run sbom:local
 ```
 
-`npm run sbom:local` 仅生成本地 source-manifest SBOM，默认写入仓库内的验证/忽略输出路径；可直接调用脚本并用 `--output <仓库内路径>` 指定临时输出。`prepare_local_accounts`、`serve_preview_with_api_proxy` 和预览检查脚本在真实执行时会访问本地服务；只做文档或静态审查时优先使用 `node -c`。
+`npm run sbom:local` 仅生成本地 source-manifest SBOM，默认写入仓库内的验证/忽略输出路径；可直接调用脚本并用 `--output <仓库内路径>` 指定临时输出。若要检查发布 workflow 使用的声明/锁定组件模式，可直接调用脚本而不传 `--source-only`；该模式仍不会联网解析完整 Go module graph 或生成 image SBOM。`prepare_local_accounts`、`serve_preview_with_api_proxy` 和预览检查脚本在真实执行时会访问本地服务；只做文档或静态审查时优先使用 `node -c`。
 
 ## 推荐顺序
 
