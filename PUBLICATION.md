@@ -46,7 +46,7 @@
 - 清理后生成物候选扫描为 `0`；`check_supply_chain.js` 和 `release_preflight.js` 仍是静态/合同门禁，不等于 Docker、目标服务器、公网 MQTT、HTTPS/TLS 或真实设备验收。
 - r14 后端全量 Go 测试因 `proxy.golang.org` 依赖下载超时未完成，broker 测试按用户要求停止；它们不能标记为通过。已有 r13 的本地证据仍按历史批次引用，并不替代当前目标环境验收。
 
-当前发布标记为：`source_package_boundary=public-source`、`github_upload=executed`、`source_release=published`、`ghcr_release=workflow-pending`、`real_rdi_status=not-tested`、`target_deployment_status=pending`、`production_signoff=not-ready`。ThingsVis 仍是有源码和合同引用的 optional legacy compatibility provider，不因 Native 可运行而删除；`negative-menu` 是 ownership rejection 测试场景，不是待清理服务。
+当前发布标记为：`source_package_boundary=public-source`、`github_upload=executed`、`source_release=published`、`ghcr_release=published`、`real_rdi_status=not-tested`、`target_deployment_status=pending`、`production_signoff=not-ready`。ThingsVis 仍是有源码和合同引用的 optional legacy compatibility provider，不因 Native 可运行而删除；`negative-menu` 是 ownership rejection 测试场景，不是待清理服务。
 
 ## GitHub 托管功能状态
 
@@ -56,9 +56,23 @@
 - Dependabot alerts、security updates、automated security fixes，以及 GitHub Actions、frontend/automation npm、三个 Go module 和三个 Docker 目录的版本更新配置。
 - Secret Scanning、Push Protection、Issues、Discussions、Projects、Wiki、Issue Forms、PR 模板和 CODEOWNERS。
 - `integration` environment；当前没有真实 API、账号、设备凭据或生产 secrets，因此手动/夜间 workflow 默认不会伪造 live 验收。
-- `.github/workflows/container-release.yml` 已加入；它只在正式 tag 或手动指定已有 tag 时构建三个源码镜像，并要求 SBOM、provenance 和 digest attestation。首次 GHCR 发布及包可见性仍待托管运行验证。
+- `.github/workflows/container-release.yml` 已加入；它只在正式 tag 或手动指定已有 tag 时构建三个源码镜像，并要求 SBOM、provenance 和 digest attestation。首次 GHCR 发布、包可见性和 attestation 已由托管运行验证，具体证据见下节。
 
-当前尚未完成：GHCR 的首次镜像发布及其 digest/SBOM/attestation 托管验证，以及真实 API/E2E/设备和目标部署验收。`main` 分支保护、正式 Git tag/Source Release 已完成并已验证。Secret Scanning 的 non-provider patterns 与 validity checks 仍以 GitHub 当前设置为准，不能在文档中写成已启用。
+### GHCR 首次发布证据
+
+2026-08-16 的托管运行 [31925704773](https://github.com/shine-233/aetherlink-iot/actions/runs/31925704773) 成功发布了三个公开 GHCR package：
+
+- [aetherlink-iot-backend](https://github.com/users/shine-233/packages/container/package/aetherlink-iot-backend)：`sha256:b7c4cf7dfbfdd717eff369583aa69abb61ffbc7de9311ec652ec231f8041d0ca`
+- [aetherlink-iot-frontend](https://github.com/users/shine-233/packages/container/package/aetherlink-iot-frontend)：`sha256:3f7dfab2e9782ceeab8553c5053dbbff4c2df60cd0e70820d70126cc8fd423e2`
+- [aetherlink-iot-mqtt-broker](https://github.com/users/shine-233/packages/container/package/aetherlink-iot-mqtt-broker)：`sha256:58e906a0218d2574d85291897dae696f9934156ef5a2273e728be5f41552758b`
+
+托管日志确认三个 job 都完成了镜像构建和推送，BuildKit 的 SBOM 与 `provenance: mode=max` 参数生效，并且每个实际镜像 digest 都完成了 registry attestation 创建和上传。GitHub API 也能返回三个 digest 对应的 Sigstore bundle。
+
+本机使用 GitHub API 下载的 bundle 对三个 digest 分别运行了 `gh attestation verify`，并强制校验了仓库 `shine-233/aetherlink-iot`、签名 workflow `.github/workflows/container-release.yml`、源 ref `refs/heads/main` 和源提交 `57c7a40c58ebc65e4da87381a3bc45c02e141539`；三次均通过，且包含 Rekor 时间戳。这是镜像 digest、签名身份和托管构建证据，不是目标服务器、外部 API、Broker 或真实设备验收。
+
+该次运行是用 `workflow_dispatch` 手动指定 `tag=v0.1.0`，workflow 的 checkout 使用了这个 tag 作为构建源码输入；但是 attestation 证书和 SLSA provenance 的上下文记录为 `refs/heads/main` 与提交 `57c7a40`，而不是 tag-triggered 的 `refs/tags/v0.1.0`。因此当前文档只把它表述为“已发布的 tag-selected source 镜像”，不宣称它是由 `v0.1.0` tag 事件触发的 provenance。若需要严格的 tag provenance，应使用后续新的 patch tag 触发 tag workflow，或先修改并验证 workflow 的发布语义；不可变的 `v0.1.0` Source Release 不回写。
+
+当前尚未完成：真实 API/E2E/设备和目标部署验收。`main` 分支保护、正式 Git tag/Source Release 和 GHCR 首次发布已完成并已验证。Secret Scanning 的 non-provider patterns 与 validity checks 仍以 GitHub 当前设置为准，不能在文档中写成已启用。
 
 ## 兼容名称
 
