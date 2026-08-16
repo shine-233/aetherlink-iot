@@ -29,7 +29,7 @@ services:
       retries: 10
 
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     networks:
       - redis_net
     restart: unless-stopped
