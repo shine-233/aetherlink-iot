@@ -19,6 +19,11 @@ const manifestPaths = [
   'mqtt-broker/go.mod',
   'frontend/pnpm-lock.yaml'
 ];
+const lockPaths = [
+  'backend/go.sum',
+  'backend/cmd/aetherlink-device-autotest/go.sum',
+  'mqtt-broker/go.sum'
+];
 
 function sha256(relativePath) {
   return crypto
@@ -27,8 +32,11 @@ function sha256(relativePath) {
     .digest('hex');
 }
 
-function runGenerator(outputArgument) {
-  return spawnSync(process.execPath, [generatorPath, '--source-only', '--output', outputArgument], {
+function runGenerator(outputArgument, { sourceOnly = true } = {}) {
+  const args = [generatorPath];
+  if (sourceOnly) args.push('--source-only');
+  args.push('--output', outputArgument);
+  return spawnSync(process.execPath, args, {
     cwd: projectRoot,
     encoding: 'utf8',
     windowsHide: true
@@ -91,6 +99,33 @@ describe('local source-manifest SBOM [00_local_sbom]', function () {
 
     expect([...componentsByPath.keys()].filter(value => value.endsWith('/go.mod'))).to.have.length(3);
     expect(componentsByPath.has('frontend/pnpm-lock.yaml')).to.equal(true);
+
+    const sourceHashProperty = bom.metadata.properties.find(item => item.name === 'source.files.sha256');
+    expect(sourceHashProperty).to.be.an('object');
+    for (const relativePath of lockPaths) {
+      expect(sourceHashProperty.value).to.include(`${relativePath}=sha256:${sha256(relativePath)}`);
+    }
+  });
+
+  it('adds Go checksum entries to the full declared-and-locked BOM', function () {
+    const outputPath = path.join(temporaryDirectory, 'full-sbom.json');
+    const result = runGenerator(path.relative(projectRoot, outputPath), { sourceOnly: false });
+
+    expect(result.status, result.stderr || result.stdout).to.equal(0);
+    const bom = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
+    expect(bom.metadata.properties).to.deep.include({
+      name: 'completeness',
+      value: 'declared-and-locked-components'
+    });
+
+    const lockedGoComponents = bom.components.filter(component => (
+      component.purl && component.purl.startsWith('pkg:golang/') &&
+      (component.properties || []).some(item => item.name === 'go.sum.integrity')
+    ));
+    expect(lockedGoComponents.length).to.be.greaterThan(0);
+    expect(lockedGoComponents.every(component => (
+      (component.properties || []).find(item => item.name === 'source.files').value.includes('go.sum')
+    ))).to.equal(true);
   });
 
   it('rejects an output path that escapes the repository root', function () {

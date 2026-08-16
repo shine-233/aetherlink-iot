@@ -2,8 +2,9 @@
 /**
  * 离线生成本仓库的本地 SBOM。
  *
- * 本工具只读取固定的 Go 模块清单和前端 pnpm 锁文件，不联网、不安装依赖，
- * 也不遍历 node_modules。结果仅代表源码清单中可见的声明，不声称已解析完整传递依赖。
+ * 本工具只读取固定的 Go 模块清单、Go 校验和文件和前端 pnpm 锁文件，
+ * 不联网、不安装依赖，也不遍历 node_modules。结果覆盖声明与仓库内锁定的
+ * 组件，但不声称已完成 Go module graph 选择、registry enrichment 或部署等价性证明。
  */
 'use strict';
 
@@ -13,14 +14,21 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const TOOL_NAME = 'aetherlink-local-sbom-generator';
-const TOOL_VERSION = '1.0.0';
+const TOOL_VERSION = '1.1.0';
 const REPOSITORY_ROOT = path.resolve(__dirname, '..', '..');
 const PREFERRED_OUTPUT = 'verification/local-sbom.json';
 const IGNORED_OUTPUT = '_localrun/sbom/local-sbom.json';
 const SOURCE_FILES = [
-  { relativePath: 'backend/go.mod', ecosystem: 'go' },
-  { relativePath: 'mqtt-broker/go.mod', ecosystem: 'go' },
-  { relativePath: 'backend/cmd/aetherlink-device-autotest/go.mod', ecosystem: 'go' },
+  { relativePath: 'backend/go.mod', ecosystem: 'go', lockfile: 'backend/go.sum' },
+  { relativePath: 'backend/go.sum', ecosystem: 'go-lock' },
+  { relativePath: 'mqtt-broker/go.mod', ecosystem: 'go', lockfile: 'mqtt-broker/go.sum' },
+  { relativePath: 'mqtt-broker/go.sum', ecosystem: 'go-lock' },
+  {
+    relativePath: 'backend/cmd/aetherlink-device-autotest/go.mod',
+    ecosystem: 'go',
+    lockfile: 'backend/cmd/aetherlink-device-autotest/go.sum'
+  },
+  { relativePath: 'backend/cmd/aetherlink-device-autotest/go.sum', ecosystem: 'go-lock' },
   { relativePath: 'frontend/pnpm-lock.yaml', ecosystem: 'pnpm' }
 ];
 
@@ -233,6 +241,32 @@ function parseGoMod(source) {
   return { moduleName: moduleMatch[1], dependencies };
 }
 
+function parseGoSum(source) {
+  const entries = new Map();
+
+  for (const rawLine of source.text.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('//')) continue;
+
+    const match = line.match(/^(\S+)\s+(\S+)\s+(h1:\S+)$/);
+    if (!match) continue;
+
+    const moduleName = match[1];
+    const isGoModChecksum = match[2].endsWith('/go.mod');
+    const version = isGoModChecksum ? match[2].slice(0, -'/go.mod'.length) : match[2];
+    const key = `${moduleName}@${version}`;
+    const existing = entries.get(key) || {
+      name: moduleName,
+      version,
+      integrities: new Set()
+    };
+    existing.integrities.add(`${isGoModChecksum ? 'go.mod' : 'module'}:${match[3]}`);
+    entries.set(key, existing);
+  }
+
+  return [...entries.values()];
+}
+
 function unquoteYamlKey(value) {
   const trimmed = value.trim();
   if ((trimmed.startsWith("'") && trimmed.endsWith("'")) ||
@@ -344,6 +378,9 @@ function buildComponents(sources, sourceOnly) {
 
   for (const source of sources.filter(item => item.ecosystem === 'go')) {
     const parsed = parseGoMod(source);
+    const lockSource = sources.find(item => item.relativePath === source.lockfile);
+    if (!lockSource) throw new CliError(`${source.relativePath} 缺少对应的 Go 校验和文件。`, 3);
+    const lockEntries = parseGoSum(lockSource);
     components.push(sourceComponent(parsed.moduleName, source, goPurl(parsed.moduleName, '')));
     if (sourceOnly) continue;
 
@@ -351,10 +388,22 @@ function buildComponents(sources, sourceOnly) {
       const purl = goPurl(dependency.name, dependency.version);
       const existing = dependencyMap.get(purl) || {
         type: 'library', name: dependency.name, version: dependency.version, purl,
-        sourceFiles: new Set(), relationships: new Set()
+        sourceFiles: new Set(), relationships: new Set(), integrities: new Set()
       };
       existing.sourceFiles.add(source.relativePath);
       existing.relationships.add(dependency.indirect ? 'indirect-declaration' : 'direct-declaration');
+      dependencyMap.set(purl, existing);
+    }
+
+    for (const dependency of lockEntries) {
+      const purl = goPurl(dependency.name, dependency.version);
+      const existing = dependencyMap.get(purl) || {
+        type: 'library', name: dependency.name, version: dependency.version, purl,
+        sourceFiles: new Set(), relationships: new Set(), integrities: new Set()
+      };
+      existing.sourceFiles.add(lockSource.relativePath);
+      existing.relationships.add('go.sum-entry');
+      for (const integrity of dependency.integrities) existing.integrities.add(integrity);
       dependencyMap.set(purl, existing);
     }
   }
@@ -368,7 +417,7 @@ function buildComponents(sources, sourceOnly) {
       const purl = npmPurl(dependency.name, dependency.version);
       const existing = dependencyMap.get(purl) || {
         type: 'library', name: dependency.name, version: dependency.version, purl,
-        sourceFiles: new Set(), relationships: new Set()
+        sourceFiles: new Set(), relationships: new Set(), integrities: new Set()
       };
       existing.sourceFiles.add(pnpmSource.relativePath);
       const directDeclarations = pnpm.direct.get(dependency.name);
@@ -381,13 +430,19 @@ function buildComponents(sources, sourceOnly) {
     }
 
     for (const item of dependencyMap.values()) {
+      const properties = [
+        property('declaration.relationship', [...item.relationships].sort(stableCompare).join(','))
+      ];
+      if (item.integrities && item.integrities.size > 0) {
+        properties.push(property('go.sum.integrity', [...item.integrities].sort(stableCompare).join(',')));
+      }
       components.push(dependencyComponent(
         item.type,
         item.name,
         item.version,
         item.purl,
         item.sourceFiles,
-        [property('declaration.relationship', [...item.relationships].sort(stableCompare).join(','))]
+        properties
       ));
     }
   }
@@ -402,6 +457,7 @@ function buildBom(sources, sourceOnly) {
     .map(source => `${source.relativePath}=sha256:${source.sha256}`)
     .sort(stableCompare)
     .join(';');
+  const completeness = sourceOnly ? 'source-manifest-only' : 'declared-and-locked-components';
 
   return {
     bomFormat: 'CycloneDX',
@@ -422,14 +478,14 @@ function buildBom(sources, sourceOnly) {
         }]
       },
       properties: [
-        property('aetherlink:sbom:scope', sourceOnly ? 'source-manifest-only' : 'declared-and-locked-components'),
-        property('completeness', 'source-manifest-only'),
+        property('aetherlink:sbom:scope', completeness),
+        property('completeness', completeness),
         property('scope', sourceOnly ? 'source-components-only' : 'declared-and-locked-components'),
         property('external.dependency-resolution', 'not-run'),
         property('external.registry-enrichment', 'not-run'),
         property('external.container-attestation', 'not-run'),
         property('source.files.sha256', sourceSummary),
-        property('limitations', 'No claim of complete transitive dependency resolution or deployed artifact equivalence.')
+        property('limitations', 'No claim of complete Go module graph selection, registry enrichment, or deployed artifact equivalence.')
       ]
     },
     components: buildComponents(sources, sourceOnly)
@@ -461,7 +517,8 @@ function main() {
   const sources = readSourceFiles();
   const bom = buildBom(sources, options.sourceOnly);
   writeBom(output, bom);
-  process.stdout.write(`已生成 ${output.relativePath}（${bom.components.length} 个组件，completeness=source-manifest-only）。\n`);
+  const completeness = bom.metadata.properties.find(item => item.name === 'completeness');
+  process.stdout.write(`已生成 ${output.relativePath}（${bom.components.length} 个组件，completeness=${completeness.value}）。\n`);
 }
 
 try {
