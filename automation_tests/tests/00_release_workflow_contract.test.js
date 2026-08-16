@@ -25,7 +25,10 @@ const protectedChecks = [
   'Dependency review',
   'CodeQL actions',
   'CodeQL go',
-  'CodeQL javascript-typescript'
+  'CodeQL javascript-typescript',
+  'Container build aetherlink-iot-backend',
+  'Container build aetherlink-iot-frontend',
+  'Container build aetherlink-iot-mqtt-broker'
 ];
 
 function read(relativePath) {
@@ -78,5 +81,10 @@ describe('release workflow contract [00_release_workflow_contract]', function ()
     expect(source).to.include("CI_STRICT_INTEGRATION: '1'");
     expect(source).to.include('Run API automation');
     expect(source).to.include('Run Playwright E2E');
+    expect(source).to.include('name: Integration result');
+    expect(source).to.include('if: always()');
+    expect(source).to.include('Live integration is fail-closed');
+    expect(source).to.include('CONFIG_RESULT: ${{ needs.integration-config.result }}');
+    expect(source).to.include('TEST_RESULT: ${{ needs.api-e2e-device.result }}');
   });
 });

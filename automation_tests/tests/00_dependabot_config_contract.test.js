@@ -38,6 +38,31 @@ describe('Dependabot configuration contract [00_dependabot_config_contract]', fu
     }
   });
 
+  it('covers every maintained dependency manifest and keeps device updates regular', function () {
+    const source = readConfig();
+    const expected = [
+      ['github-actions', '/'],
+      ['npm', '/frontend'],
+      ['npm', '/automation_tests'],
+      ['gomod', '/backend'],
+      ['gomod', '/mqtt-broker'],
+      ['gomod', '/backend/cmd/aetherlink-device-autotest'],
+      ['docker', '/backend'],
+      ['docker', '/frontend'],
+      ['docker', '/mqtt-broker'],
+      ['docker-compose', '/'],
+      ['docker-compose', '/deploy'],
+      ['docker-compose', '/backend/test/multidb']
+    ];
+
+    for (const [ecosystem, directory] of expected) {
+      expect(entryFor(source, ecosystem, directory), `${ecosystem} entry ${directory}`).to.equal(true);
+    }
+
+    expect(source).to.include('device-autotest-minor-patch:');
+    expect(source).to.include('device-autotest-security:');
+  });
+
   it('keeps Compose image maintenance grouped and bounded', function () {
     const source = readConfig();
     const composeEntries = source.match(/package-ecosystem: docker-compose/g) || [];
