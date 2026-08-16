@@ -16,7 +16,9 @@ import { FileSystemIconLoader } from 'unplugin-icons/loaders'
 export const localIconPath = path.join(process.cwd(), 'src/assets/svg-icon')
 
 export function setupIconPlugins(viteEnv: Env.ImportMeta): PluginOption[] {
-  const { VITE_ICON_LOCAL_PREFIX: localPrefix } = viteEnv
+  // These prefixes are public build conventions, not deployment secrets.
+  const localPrefix = viteEnv.VITE_ICON_LOCAL_PREFIX || 'local-icon'
+  const iconPrefix = viteEnv.VITE_ICON_PREFIX || 'icon'
 
   return [
     createSvgIconsPlugin({
@@ -29,7 +31,7 @@ export function setupIconPlugins(viteEnv: Env.ImportMeta): PluginOption[] {
     Icons({
       compiler: 'vue3',
       customCollections: {
-        [localPrefix.replace(`${viteEnv.VITE_ICON_PREFIX}-`, '')]: FileSystemIconLoader(localIconPath, svg =>
+        [localPrefix.replace(`${iconPrefix}-`, '')]: FileSystemIconLoader(localIconPath, svg =>
           svg.replace(/^<svg\s/, '<svg width="1em" height="1em" ')
         )
       },

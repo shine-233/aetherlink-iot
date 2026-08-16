@@ -1,0 +1,96 @@
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    groups:
+      github-actions:
+        patterns:
+          - '*'
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    versioning-strategy: increase
+    groups:
+      frontend-minor-patch:
+        update-types:
+          - minor
+          - patch
+        patterns:
+          - '*'
+
+  - package-ecosystem: npm
+    directory: /automation_tests
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    versioning-strategy: increase
+    groups:
+      automation-minor-patch:
+        update-types:
+          - minor
+          - patch
+        patterns:
+          - '*'
+
+  - package-ecosystem: gomod
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    groups:
+      backend-go-minor-patch:
+        update-types:
+          - minor
+          - patch
+        patterns:
+          - '*'
+
+  - package-ecosystem: gomod
+    directory: /mqtt-broker
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    groups:
+      broker-go-minor-patch:
+        update-types:
+          - minor
+          - patch
+        patterns:
+          - '*'
+
+  - package-ecosystem: gomod
+    directory: /backend/cmd/aetherlink-device-autotest
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: docker
+    directory: /backend
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: docker
+    directory: /frontend
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: docker
+    directory: /mqtt-broker
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5

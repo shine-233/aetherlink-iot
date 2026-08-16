@@ -140,6 +140,7 @@ function categoryFor(relativePath) {
   if (/(^|\/)(__tests__|tests?|e2e)(\/|$)/.test(relativePath) || /\.(test|spec)\.[^.]+$/.test(relativePath)) return 'test';
   if (/(^|\/)(docs?|references|verification|audit_reports)(\/|$)/.test(relativePath) || extension === '.md') return 'documentation';
   if (['package-lock.json', 'pnpm-lock.yaml', 'go.sum'].includes(basename)) return 'lockfile';
+  if (basename === 'codeowners') return 'configuration';
   if (
     ['.yml', '.yaml', '.toml', '.ini', '.conf'].includes(extension) ||
     /(^|\/)(dockerfile|makefile)$/i.test(relativePath) ||
