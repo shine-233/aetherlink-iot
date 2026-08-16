@@ -58,6 +58,14 @@
 - `integration` environment；当前没有真实 API、账号、设备凭据或生产 secrets，因此手动/夜间 workflow 默认不会伪造 live 验收。
 - `.github/workflows/release.yml` 和 `.github/workflows/container-release.yml` 只在正式 tag push 时发布。`v0.1.2` 的 source/container hosted runs 已成功完成，source release 确实附带 checksum、source SBOM 和 source attestation，三个容器镜像也完成了 BuildKit SBOM、maximum-detail provenance 和 digest attestation；具体资产、digest 和复核命令见下节。注意：`v0.1.2` 的 source SBOM 是本次 Go `go.sum` 深度增强之前生成的 `source-manifest-only` 版本，不能冒充下一版的 `declared-and-locked-components` 输出。
 
+### 2026-08-17 继续收口记录
+
+- GitHub 当前历史 Dependabot PR 共 38 个：14 个已合并、24 个关闭未合并、0 个 open；不存在当前仍等待逐个合并的“28 个普通 open PR”。逐项分类、当前 manifest/lock 证据和后续动作见 [`references/dependabot-pr-disposition-20260817.md`](references/dependabot-pr-disposition-20260817.md)。
+- 新增 `.github/workflows/container-ci.yml`：PR、`main` push、正式 tag 和手动运行都会对 backend/frontend/MQTT broker 三个生产 Dockerfile 做 `linux/amd64` build-only。该 job 不登录 GHCR、不 push、不申请 `packages: write`；三个 check 也已接入两个 tag release workflow 的 required-check 轮询。它仍不是 Compose 启动、迁移、API/E2E 或真实设备验收。
+- `.github/dependabot.yml` 现在对 `backend/cmd/aetherlink-device-autotest` 同时覆盖普通 minor/patch 和 security updates；合同测试还会防止新增维护 manifest 后没有 Dependabot entry。
+- `integration-nightly.yml` 现在有显式 `Integration result` 汇总 job。缺少 environment 配置时配置门禁失败，下游 live API/E2E/device job 不会被当成通过；任何 skipped、失败或未运行都会以 fail-closed 结果结束。当前 integration environment 仍没有真实变量/secrets，所以本轮没有启动真实 API、账号、MQTT 或设备验收。
+- 对两个 Secret Scanning 高级选项执行了一次真实 GitHub API PATCH：请求返回成功，但回读仍为 `secret_scanning_non_provider_patterns=disabled`、`secret_scanning_validity_checks=disabled`；基础 Secret Scanning、Push Protection、Dependabot security updates 保持 enabled。当前 API 的仓库 `plan` 不公开给本次 token，因此只能确认“写请求没有改变状态”，不能把 disabled 归因到某个具体套餐名称。
+
 ### v0.1.2 Source Release 端到端证据
 
 本次复核使用当前 GitHub 公开资产和托管运行，而不是只读 workflow YAML：

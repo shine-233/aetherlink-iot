@@ -56,6 +56,9 @@ jobs:
             "CodeQL actions"
             "CodeQL go"
             "CodeQL javascript-typescript"
+            "Container build aetherlink-iot-backend"
+            "Container build aetherlink-iot-frontend"
+            "Container build aetherlink-iot-mqtt-broker"
           )
           check_runs_file="$RUNNER_TEMP/release-check-runs.json"
           # Keep the explicit wait below the 45-minute job timeout so a
