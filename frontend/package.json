@@ -96,7 +96,7 @@
     "@unocss/preset-uno": "0.58.5",
     "@unocss/transformer-directives": "0.58.5",
     "@unocss/transformer-variant-group": "0.58.5",
-    "@unocss/vite": "0.58.5",
+    "@unocss/vite": "66.7.5",
     "@vicons/ionicons5": "^0.12.0",
     "@vitejs/plugin-vue": "^5.0.5",
     "@vitejs/plugin-vue-jsx": "3.1.0",
