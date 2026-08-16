@@ -11,6 +11,7 @@ const ALL_ENDPOINTS = [
   { method: 'GET',  path: '/deployment/health',                             module: 'system',    auth: false },
   { method: 'GET',  path: '/metrics',                                       module: 'system',    auth: false },
   { method: 'GET',  path: '/metrics-viewer',                                module: 'system',    auth: false },
+  { method: 'GET',  path: '/metrics-viewer/echarts.min.js',                  module: 'system',    auth: false },
   { method: 'GET',  path: '/files/*filepath',                               module: 'system',    auth: false },
   { method: 'GET',  path: '/swagger/*any',                                  module: 'system',    auth: false },
   { method: 'POST', path: '/api/v1/plugin/heartbeat',                       module: 'plugin',    auth: false },

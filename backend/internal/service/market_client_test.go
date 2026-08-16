@@ -6,7 +6,6 @@ package service
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"io"
 	"net/http"
@@ -282,7 +281,7 @@ func TestMarketClientLoginPostsCredentialsAndReturnsToken(t *testing.T) {
 	}
 }
 
-func TestMarketClientLoginReturnsServerMessageOnRejectedCredentials(t *testing.T) {
+func TestMarketClientLoginRedactsRejectedCredentialDetails(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		_, _ = w.Write([]byte(`{"message":"invalid credentials"}`))
@@ -298,14 +297,16 @@ func TestMarketClientLoginReturnsServerMessageOnRejectedCredentials(t *testing.T
 	if err == nil {
 		t.Fatal("expected rejected login to return an error")
 	}
-	if !strings.Contains(err.Error(), "invalid credentials") {
+	if !strings.Contains(err.Error(), "login status=401") {
 		t.Fatalf("unexpected login error: %v", err)
+	}
+	if strings.Contains(err.Error(), "invalid credentials") {
+		t.Fatalf("login error leaked upstream body: %v", err)
 	}
 }
 
 func TestPublishTemplateSendsHeadersBodyAndParsesResponse(t *testing.T) {
 	var gotAuth string
-	var gotUserID string
 	var gotContentType string
 	var gotBody string
 
@@ -321,7 +322,9 @@ func TestPublishTemplateSendsHeadersBodyAndParsesResponse(t *testing.T) {
 			t.Fatalf("ReadAll(body) error = %v", err)
 		}
 		gotAuth = r.Header.Get("Authorization")
-		gotUserID = r.Header.Get("X-User-Id")
+		if got := r.Header.Get("X-User-Id"); got != "" {
+			t.Fatalf("X-User-Id header = %q, want omitted for opaque bearer token", got)
+		}
 		gotContentType = r.Header.Get("Content-Type")
 		gotBody = string(bodyBytes)
 		_, _ = w.Write([]byte(`{"code":0,"message":"ok","data":{"published":true}}`))
@@ -333,7 +336,7 @@ func TestPublishTemplateSendsHeadersBodyAndParsesResponse(t *testing.T) {
 		httpClient: server.Client(),
 	}
 
-	resp, err := client.PublishTemplate(context.Background(), "market-token", "market-user-1", &model.PublishTemplateReq{
+	resp, err := client.PublishTemplate(context.Background(), "market-token", &model.PublishTemplateReq{
 		Name:        "AetherLink Sensor",
 		Brand:       "AetherLink",
 		Model:       "AL-1",
@@ -359,9 +362,6 @@ func TestPublishTemplateSendsHeadersBodyAndParsesResponse(t *testing.T) {
 	}
 	if gotAuth != "Bearer market-token" {
 		t.Fatalf("Authorization header = %q, want Bearer market-token", gotAuth)
-	}
-	if gotUserID != "market-user-1" {
-		t.Fatalf("X-User-Id header = %q, want market-user-1", gotUserID)
 	}
 	if gotContentType != "application/json" {
 		t.Fatalf("Content-Type header = %q, want application/json", gotContentType)
@@ -390,7 +390,7 @@ func TestPublishTemplateOmitsOptionalUserHeaderAndRejectsBadJSON(t *testing.T) {
 		httpClient: server.Client(),
 	}
 
-	_, err := client.PublishTemplate(context.Background(), "market-token", "", &model.PublishTemplateReq{Name: "test"})
+	_, err := client.PublishTemplate(context.Background(), "market-token", &model.PublishTemplateReq{Name: "test"})
 	if err == nil {
 		t.Fatal("PublishTemplate() should fail on invalid JSON response")
 	}
@@ -477,8 +477,8 @@ func TestDownloadTemplateEncodesVersionAndClassifiesFailureModes(t *testing.T) {
 	})
 }
 
-func TestInstallTemplateSendsHeadersVersionBodyAndAcceptsCreatedOrOK(t *testing.T) {
-	t.Run("created with explicit user and org headers", func(t *testing.T) {
+func TestInstallTemplateSendsBearerOnlyAndAcceptsCreatedOrOK(t *testing.T) {
+	t.Run("created without client supplied identity headers", func(t *testing.T) {
 		var gotBody string
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method != http.MethodPost {
@@ -495,14 +495,10 @@ func TestInstallTemplateSendsHeadersVersionBodyAndAcceptsCreatedOrOK(t *testing.
 			if got := r.Header.Get("Authorization"); got != "Bearer market-token" {
 				t.Fatalf("Authorization header = %q, want Bearer market-token", got)
 			}
-			if got := r.Header.Get("X-User-Id"); got != "market-user-1" {
-				t.Fatalf("X-User-Id header = %q, want market-user-1", got)
-			}
-			if got := r.Header.Get("X-Org-Id"); got != "tenant-1" {
-				t.Fatalf("X-Org-Id header = %q, want tenant-1", got)
-			}
-			if got := r.Header.Get("X-Roles"); got != MarketRoleOrgAdmin+","+MarketRoleSuperAdmin {
-				t.Fatalf("X-Roles header = %q", got)
+			for _, header := range []string{"X-User-Id", "X-Org-Id", "X-Roles"} {
+				if got := r.Header.Get(header); got != "" {
+					t.Fatalf("%s header = %q, want omitted", header, got)
+				}
 			}
 			w.WriteHeader(http.StatusCreated)
 		}))
@@ -513,7 +509,7 @@ func TestInstallTemplateSendsHeadersVersionBodyAndAcceptsCreatedOrOK(t *testing.
 			httpClient: server.Client(),
 		}
 
-		if err := client.InstallTemplate(context.Background(), "market-token", "template-1", "ver-1", "market-user-1", "tenant-1"); err != nil {
+		if err := client.InstallTemplate(context.Background(), "market-token", "template-1", "ver-1"); err != nil {
 			t.Fatalf("InstallTemplate() error = %v", err)
 		}
 		if !strings.Contains(gotBody, `"version_id":"ver-1"`) {
@@ -541,7 +537,7 @@ func TestInstallTemplateSendsHeadersVersionBodyAndAcceptsCreatedOrOK(t *testing.
 			httpClient: server.Client(),
 		}
 
-		if err := client.InstallTemplate(context.Background(), "market-token", "template-1", "", "", ""); err != nil {
+		if err := client.InstallTemplate(context.Background(), "market-token", "template-1", ""); err != nil {
 			t.Fatalf("InstallTemplate() error = %v", err)
 		}
 	})
@@ -558,7 +554,7 @@ func TestInstallTemplateSendsHeadersVersionBodyAndAcceptsCreatedOrOK(t *testing.
 			httpClient: server.Client(),
 		}
 
-		err := client.InstallTemplate(context.Background(), "market-token", "template-1", "ver-1", "market-user-1", "tenant-1")
+		err := client.InstallTemplate(context.Background(), "market-token", "template-1", "ver-1")
 		if err == nil {
 			t.Fatal("InstallTemplate() should fail on non-2xx")
 		}
@@ -701,32 +697,6 @@ func TestGetMarketTemplateDetailMergesTemplateAndVersions(t *testing.T) {
 		}
 		if version["version_id"] != "version-1" || version["version"] != "1.0.0" || version["description"] != "stable" {
 			t.Fatalf("version metadata not preserved: %#v", version)
-		}
-	}
-}
-
-func TestExtractUserIDFromMarketTokenReadsSubjectWithoutVerification(t *testing.T) {
-	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"none","typ":"JWT"}`))
-	payload := base64.RawURLEncoding.EncodeToString([]byte(`{"sub":"market-user-1"}`))
-	token := header + "." + payload + "."
-
-	got, err := (&MarketClient{}).ExtractUserIDFromMarketToken(token)
-	if err != nil {
-		t.Fatalf("ExtractUserIDFromMarketToken() error = %v", err)
-	}
-	if got != "market-user-1" {
-		t.Fatalf("subject = %q", got)
-	}
-}
-
-func TestExtractUserIDFromMarketTokenRejectsEmptyMalformedAndMissingSubject(t *testing.T) {
-	missingSubject := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"none"}`)) + "." +
-		base64.RawURLEncoding.EncodeToString([]byte(`{"email":"fixture@example.com"}`)) + "."
-
-	cases := []string{"", "not-a-token", missingSubject}
-	for _, token := range cases {
-		if _, err := (&MarketClient{}).ExtractUserIDFromMarketToken(token); err == nil {
-			t.Fatalf("expected token %q to fail", token)
 		}
 	}
 }

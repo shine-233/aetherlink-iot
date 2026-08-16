@@ -6,15 +6,11 @@
 package auth
 
 import (
-	"crypto/md5"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"hash"
 	"io"
 	"os"
-	"path"
+	"path/filepath"
 	"sync"
 
 	"go.uber.org/zap"
@@ -62,29 +58,20 @@ type Auth struct {
 	saveFile func() error
 }
 
+func (a *Auth) passwordFilePath() string {
+	if filepath.IsAbs(a.config.PasswordFile) {
+		return a.config.PasswordFile
+	}
+	return filepath.Join(a.pwdDir, a.config.PasswordFile)
+}
+
 // generatePassword generates the hashed password for the plain password.
 func (a *Auth) generatePassword(password string) (hashedPassword string, err error) {
-	var h hash.Hash
-	switch a.config.Hash {
-	case Plain:
-		return password, nil
-	case MD5:
-		h = md5.New()
-	case SHA256:
-		h = sha256.New()
-	case Bcrypt:
-		pwd, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.MinCost)
-		return string(pwd), err
-	default:
-		// just in case.
-		panic("invalid hash type")
-	}
-	_, err = h.Write([]byte(password))
-	if err != nil {
+	if err := validateHashType(a.config.Hash); err != nil {
 		return "", err
 	}
-	rs := h.Sum(nil)
-	return hex.EncodeToString(rs), nil
+	pwd, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	return string(pwd), err
 }
 
 func (a *Auth) mustEmbedUnimplementedAccountServiceServer() {
@@ -101,26 +88,10 @@ func (a *Auth) validate(username, password string) (permitted bool, err error) {
 	}
 	ac := elem.Value.(*Account)
 	hashedPassword = ac.Password
-	var h hash.Hash
-	switch a.config.Hash {
-	case Plain:
-		return hashedPassword == password, nil
-	case MD5:
-		h = md5.New()
-	case SHA256:
-		h = sha256.New()
-	case Bcrypt:
-		return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password)) == nil, nil
-	default:
-		// just in case.
-		panic("invalid hash type")
-	}
-	_, err = h.Write([]byte(password))
-	if err != nil {
+	if err := validateHashType(a.config.Hash); err != nil {
 		return false, err
 	}
-	rs := h.Sum(nil)
-	return hashedPassword == hex.EncodeToString(rs), nil
+	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password)) == nil, nil
 }
 
 var registerAPI = func(service server.Server, a *Auth) error {
@@ -131,15 +102,13 @@ var registerAPI = func(service server.Server, a *Auth) error {
 }
 
 func (a *Auth) Load(service server.Server) error {
+	if err := a.config.Validate(); err != nil {
+		return err
+	}
 	err := registerAPI(service, a)
 	log = server.LoggerWithField(zap.String("plugin", Name))
 
-	var pwdFile string
-	if path.IsAbs(a.config.PasswordFile) {
-		pwdFile = a.config.PasswordFile
-	} else {
-		pwdFile = path.Join(a.pwdDir, a.config.PasswordFile)
-	}
+	pwdFile := a.passwordFilePath()
 	f, err := os.OpenFile(pwdFile, os.O_CREATE|os.O_RDONLY, 0666)
 	if err != nil {
 		return err
@@ -155,9 +124,7 @@ func (a *Auth) Load(service server.Server) error {
 		return err
 	}
 	log.Info("authentication data loaded",
-		zap.String("hash", a.config.Hash),
-		zap.Int("account_nums", len(acts)),
-		zap.String("password_file", pwdFile))
+		zap.Int("account_nums", len(acts)))
 
 	dup := make(map[string]struct{})
 	for _, v := range acts {
@@ -168,6 +135,9 @@ func (a *Auth) Load(service server.Server) error {
 			return fmt.Errorf("detect duplicated username in password file: %s", v.Username)
 		}
 		dup[v.Username] = struct{}{}
+		if _, err := bcrypt.Cost([]byte(v.Password)); err != nil {
+			return fmt.Errorf("password file entry for username %q is not a bcrypt hash; reset or migrate this account before starting the broker", v.Username)
+		}
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()

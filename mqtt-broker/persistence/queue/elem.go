@@ -53,6 +53,24 @@ type Elem struct {
 	MessageWithID
 }
 
+const (
+	elemHeaderSize       = 19
+	elemTimestampSize    = 8
+	elemExpiryOffset     = 9
+	elemIdentifierOffset = 18
+)
+
+func writeInt64(dst []byte, value int64) {
+	buffer := bytes.NewBuffer(dst[:0])
+	_ = binary.Write(buffer, binary.BigEndian, value)
+}
+
+func readInt64(src []byte) (int64, error) {
+	var value int64
+	err := binary.Read(bytes.NewReader(src), binary.BigEndian, &value)
+	return value, err
+}
+
 // Encode encodes the publish structure into bytes and write it to the buffer
 func (p *Publish) Encode(b *bytes.Buffer) {
 	encoding.EncodeMessage(p.Message, b)
@@ -81,16 +99,16 @@ func (p *Pubrel) Decode(b *bytes.Buffer) (err error) {
 // Format: 8 byte timestamp | 1 byte identifier| data
 func (e *Elem) Encode() []byte {
 	b := bytes.NewBuffer(make([]byte, 0, 100))
-	rs := make([]byte, 19)
-	binary.BigEndian.PutUint64(rs[0:9], uint64(e.At.Unix()))
-	binary.BigEndian.PutUint64(rs[9:18], uint64(e.Expiry.Unix()))
+	rs := make([]byte, elemHeaderSize)
+	writeInt64(rs[:elemTimestampSize], e.At.Unix())
+	writeInt64(rs[elemExpiryOffset:elemExpiryOffset+elemTimestampSize], e.Expiry.Unix())
 	switch m := e.MessageWithID.(type) {
 	case *Publish:
-		rs[18] = 0
+		rs[elemIdentifierOffset] = 0
 		b.Write(rs)
 		m.Encode(b)
 	case *Pubrel:
-		rs[18] = 1
+		rs[elemIdentifierOffset] = 1
 		b.Write(rs)
 		m.Encode(b)
 	}
@@ -98,12 +116,20 @@ func (e *Elem) Encode() []byte {
 }
 
 func (e *Elem) Decode(b []byte) (err error) {
-	if len(b) < 19 {
+	if len(b) < elemHeaderSize {
 		return errors.New("invalid input length")
 	}
-	e.At = time.Unix(int64(binary.BigEndian.Uint64(b[0:9])), 0)
-	e.Expiry = time.Unix(int64(binary.BigEndian.Uint64(b[9:19])), 0)
-	switch b[18] {
+	at, err := readInt64(b[:elemTimestampSize])
+	if err != nil {
+		return err
+	}
+	expiry, err := readInt64(b[elemExpiryOffset : elemExpiryOffset+elemTimestampSize])
+	if err != nil {
+		return err
+	}
+	e.At = time.Unix(at, 0)
+	e.Expiry = time.Unix(expiry, 0)
+	switch b[elemIdentifierOffset] {
 	case 0: // publish
 		p := &Publish{}
 		buf := bytes.NewBuffer(b[19:])

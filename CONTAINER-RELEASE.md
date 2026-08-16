@@ -8,9 +8,16 @@ AetherLink IoT publishes three source-built images to GitHub Container Registry:
 
 ## Trigger and tags
 
-`.github/workflows/container-release.yml` runs only for a `vMAJOR.MINOR.PATCH` tag or a manual workflow dispatch that names an existing tag. It checks out the tagged source before building. A stable tag produces semver tags (`0.1.0`, `0.1`) and the metadata action's stable `latest` tag.
+`.github/workflows/container-release.yml` runs only for a `vMAJOR.MINOR.PATCH` tag push. It binds the build to the commit SHA from that tag-push event and rechecks the tag before publication. A stable tag produces semver tags (`0.1.0`, `0.1`) and the metadata action's stable `latest` tag.
 
 The workflow uses the repository `GITHUB_TOKEN` with `packages: write`; it does not require production, API, database, broker, or device credentials. It is a package publication workflow, not a deployment workflow.
+
+The three matrix legs publish independently. The validation gate blocks all
+legs when the tagged source or required checks are invalid, but a build or
+registry failure in one image can leave the other image tags already
+published. A failed workflow must therefore be treated as a partial-publication
+incident and the affected image tags should be retried or reconciled before
+announcing the release.
 
 ## Supply-chain evidence
 

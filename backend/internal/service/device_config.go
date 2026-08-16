@@ -256,7 +256,7 @@ func deviceConfigOtherConfigChanged(reqOtherConfig, oldOtherConfig *string) bool
 // condsMap 是经过 JSON 校验后的更新字段集合。更新成功后会先删除设备配置缓存，再重新查询最新实体返回给调用方。
 // 这里故意采用“删缓存后回读”的顺序，避免上层继续拿到旧的物模型、协议或凭证信息。
 func updateDeviceConfigAndRefreshCache(configID string, condsMap map[string]interface{}) (*model.DeviceConfig, error) {
-	logrus.Debug("condsMap:", condsMap)
+	logrus.Debug("device config update requested")
 	if err := dal.UpdateDeviceConfig(configID, condsMap); err != nil {
 		logrus.Error(err)
 		return nil, wrapDeviceConfigDBError(err)

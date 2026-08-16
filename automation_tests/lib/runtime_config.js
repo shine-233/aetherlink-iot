@@ -45,6 +45,46 @@ function envOrDefault(name, fallback) {
   return process.env[name] || fallback;
 }
 
+const LOCAL_TARGET_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+
+function configuredOriginAllowlist(env = process.env) {
+  return new Set(
+    String(env.AETHERLINK_ALLOWED_ORIGINS || '')
+      .split(',')
+      .map(value => value.trim())
+      .filter(Boolean)
+  );
+}
+
+function validateTrustedURL(rawValue, name, env = process.env) {
+  const value = String(rawValue || '').trim();
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error(`${name} must be an absolute HTTP(S) URL`);
+  }
+
+  if (!['http:', 'https:'].includes(parsed.protocol) || !parsed.hostname) {
+    throw new Error(`${name} must use http or https`);
+  }
+  if (parsed.username || parsed.password) {
+    throw new Error(`${name} must not contain embedded credentials`);
+  }
+
+  const isLocal = LOCAL_TARGET_HOSTS.has(parsed.hostname.toLowerCase());
+  const allowExternal = env.AETHERLINK_ALLOW_EXTERNAL_TARGETS === '1';
+  const allowlisted = configuredOriginAllowlist(env).has(parsed.origin);
+  if (!isLocal && !allowExternal && !allowlisted) {
+    throw new Error(
+      `${name} points to an external origin; set AETHERLINK_ALLOWED_ORIGINS or ` +
+      'AETHERLINK_ALLOW_EXTERNAL_TARGETS=1 explicitly'
+    );
+  }
+
+  return parsed.toString().replace(/\/$/, '');
+}
+
 const ACCOUNT_ENV_OVERRIDES = {
   super_admin: ['SUPER_ADMIN_EMAIL', 'SUPER_ADMIN_PASSWORD'],
   tenant_admin: ['TENANT_ADMIN_EMAIL', 'TENANT_ADMIN_PASSWORD'],
@@ -94,10 +134,11 @@ function accountsWithEnvOverrides(accounts = {}) {
 
 module.exports = withRuntimePaths({
   ...fileConfig,
-  baseURL: envOrDefault('API_BASE_URL', fileConfig.baseURL),
-  healthURL: envOrDefault('HEALTH_URL', fileConfig.healthURL),
-  frontendURL: envOrDefault('FRONTEND_URL', fileConfig.frontendURL),
+  baseURL: validateTrustedURL(envOrDefault('API_BASE_URL', fileConfig.baseURL), 'API_BASE_URL'),
+  healthURL: validateTrustedURL(envOrDefault('HEALTH_URL', fileConfig.healthURL), 'HEALTH_URL'),
+  frontendURL: validateTrustedURL(envOrDefault('FRONTEND_URL', fileConfig.frontendURL), 'FRONTEND_URL'),
   accounts: accountsWithEnvOverrides(fileConfig.accounts),
   accountEnvOverrides: ACCOUNT_ENV_OVERRIDES,
-  releaseRequiredAccounts: RELEASE_REQUIRED_ACCOUNTS
+  releaseRequiredAccounts: RELEASE_REQUIRED_ACCOUNTS,
+  validateTrustedURL
 });

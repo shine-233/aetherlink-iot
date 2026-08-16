@@ -10,3 +10,6 @@ var MetricsViewerHTML []byte
 
 //go:embed metrics-viewer_en.html
 var MetricsViewerEnHTML []byte
+
+//go:embed echarts.min.js
+var MetricsViewerEChartsJS []byte

@@ -11,6 +11,7 @@ describe('ready-check-deep-links', () => {
         source: 'ota',
         tab: 'ready-check',
         empty: '',
+        unexpected: 'drop-me',
         arrayValue: ['first', 'second']
       },
       deviceId: 'device-1',
@@ -23,7 +24,6 @@ describe('ready-check-deep-links', () => {
       query: {
         source: 'ota',
         tab: 'telemetry',
-        arrayValue: 'first',
         d_id: 'device-1'
       }
     })
@@ -58,14 +58,12 @@ describe('ready-check-deep-links', () => {
   it('normalizes route query text before it is copied into evidence links', () => {
     expect(
       normalizeRouteQueryForLink({
-        kept: 'value',
+        source: 'value',
+        unexpected: 'drop-me',
         empty: '',
         nullValue: null,
         arrayValue: ['first', 'second']
       })
-    ).toEqual({
-      kept: 'value',
-      arrayValue: 'first'
-    })
+    ).toEqual({ source: 'value' })
   })
 })

@@ -18,10 +18,23 @@ import (
 	"strings"
 )
 
-// 文件是否存在
-func FileExist(path string) bool {
-	_, err := os.Lstat(path)
-	return !os.IsNotExist(err)
+// FileExist checks a path relative to the current working directory without
+// allowing an absolute path or traversal outside that root.
+func FileExist(relativePath string) bool {
+	return FileExistInRoot(".", relativePath)
+}
+
+// FileExistInRoot checks a file addressed relative to a trusted root.
+func FileExistInRoot(rootDir, relativePath string) bool {
+	cleanPath, err := safeRelativeFilePath(relativePath)
+	if err != nil {
+		return false
+	}
+	file, err := os.OpenInRoot(rootDir, filepath.FromSlash(cleanPath))
+	if err != nil {
+		return false
+	}
+	return file.Close() == nil
 }
 
 // 用户输入组合路径安全校验
@@ -54,11 +67,39 @@ func CheckFilename(param string) error {
 
 // 文件md5计算
 func FileSign(filePath string, sign string) (string, error) {
-	file, err := os.Open(filePath)
+	return FileSignInRoot(".", filePath, sign)
+}
+
+// FileSignInRoot signs a file addressed relative to a trusted root directory.
+// os.OpenInRoot keeps the user-controlled relative name inside that root,
+// including when a path contains traversal segments or a symlink.
+func FileSignInRoot(rootDir, relativePath, sign string) (string, error) {
+	cleanPath, err := safeRelativeFilePath(relativePath)
+	if err != nil {
+		return "", err
+	}
+
+	file, err := os.OpenInRoot(rootDir, filepath.FromSlash(cleanPath))
 	if err != nil {
 		return "", err
 	}
 	defer file.Close()
+	return fileSign(file, sign)
+}
+
+func safeRelativeFilePath(relativePath string) (string, error) {
+	if strings.TrimSpace(relativePath) == "" || filepath.IsAbs(relativePath) {
+		return "", errors.New("file path must be relative to the trusted root")
+	}
+	relativePath = strings.ReplaceAll(relativePath, `\`, "/")
+	cleanPath := path.Clean(relativePath)
+	if cleanPath == "." || cleanPath == ".." || strings.HasPrefix(cleanPath, "../") || strings.Contains(cleanPath, ":") {
+		return "", errors.New("file path escapes root directory")
+	}
+	return cleanPath, nil
+}
+
+func fileSign(file *os.File, sign string) (string, error) {
 	if sign == "MD5" {
 		hash := md5.New()
 		if _, err := io.Copy(hash, file); err != nil {

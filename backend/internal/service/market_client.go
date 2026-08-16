@@ -22,15 +22,8 @@ import (
 
 	"aetherlink-iot/backend/internal/model"
 
-	"github.com/golang-jwt/jwt/v4"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-)
-
-// 市场服务角色常量，用于安装回调时向市场侧传递授权上下文。
-const (
-	MarketRoleOrgAdmin   = "org_admin"
-	MarketRoleSuperAdmin = "super_admin"
 )
 
 // MarketClient handles communication with the external market API.
@@ -164,16 +157,14 @@ func parseExistsFromBody(bodyBytes []byte) (bool, error) {
 }
 
 func compactMarketBody(bodyBytes []byte) string {
-	body := strings.TrimSpace(string(bodyBytes))
-	if body == "" {
+	if len(bytes.TrimSpace(bodyBytes)) == 0 {
 		return "<empty>"
 	}
-
-	const maxBodyLen = 256
-	if len(body) > maxBodyLen {
-		return body[:maxBodyLen] + "..."
-	}
-	return body
+	// Upstream response bodies are untrusted and may contain credentials,
+	// stack traces, control characters, or log-forging content. Keep the
+	// existing diagnostic field name for compatibility, but never propagate
+	// the raw body into errors, API responses, or logs.
+	return "<redacted>"
 }
 
 func isUserNotFoundResponse(statusCode int, bodyBytes []byte) bool {
@@ -295,18 +286,7 @@ func (c *MarketClient) Login(ctx context.Context, username, password string) (st
 	}
 
 	if statusCode != http.StatusOK {
-		var errResp struct {
-			Message string `json:"message"`
-			Error   string `json:"error"`
-		}
-		json.Unmarshal(bodyBytes, &errResp)
-		if errResp.Message != "" {
-			return "", fmt.Errorf("%s", errResp.Message)
-		}
-		if errResp.Error != "" {
-			return "", fmt.Errorf("%s", errResp.Error)
-		}
-		return "", fmt.Errorf("login failed with status: %d", statusCode)
+		return "", fmt.Errorf("%w: login status=%d", ErrMarketRequestRejected, statusCode)
 	}
 
 	var loginResp model.MarketLoginRsp
@@ -318,7 +298,7 @@ func (c *MarketClient) Login(ctx context.Context, username, password string) (st
 }
 
 // PublishTemplate publishes a template to the market.
-func (c *MarketClient) PublishTemplate(ctx context.Context, token string, userID string, req *model.PublishTemplateReq) (*model.MarketPublishApiResponse, error) {
+func (c *MarketClient) PublishTemplate(ctx context.Context, token string, req *model.PublishTemplateReq) (*model.MarketPublishApiResponse, error) {
 	reqBytes, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
@@ -334,9 +314,6 @@ func (c *MarketClient) PublishTemplate(ctx context.Context, token string, userID
 
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+token)
-	if userID != "" {
-		httpReq.Header.Set("X-User-Id", userID)
-	}
 
 	statusCode, bodyBytes, err := c.readMarketResponse(
 		httpReq,
@@ -580,7 +557,7 @@ func (c *MarketClient) DownloadTemplate(ctx context.Context, token string, marke
 	}
 
 	if statusCode != http.StatusOK {
-		return nil, fmt.Errorf("download failed with status %d: %s", statusCode, string(bodyBytes))
+		return nil, fmt.Errorf("download failed with status %d: body=%s", statusCode, compactMarketBody(bodyBytes))
 	}
 
 	var result struct {
@@ -591,35 +568,13 @@ func (c *MarketClient) DownloadTemplate(ctx context.Context, token string, marke
 		return nil, fmt.Errorf("failed to parse download response: %w", err)
 	}
 
-	logrus.Debugf("[MarketClient] DownloadTemplate: MarketTemplateID=%s, VersionID=%s, Version=%s, Name=%s",
-		marketTemplateID, result.Data.VersionID, result.Data.Version, result.Data.Name)
+	logrus.Debug("[MarketClient] DownloadTemplate completed")
 
 	return &result.Data, nil
 }
 
-// ExtractUserIDFromMarketToken parses the market (Keycloak) JWT and returns the subject (user_id).
-// The market credit account is keyed by this ID, not by the IoT platform's user ID.
-func (c *MarketClient) ExtractUserIDFromMarketToken(tokenString string) (string, error) {
-	if tokenString == "" {
-		return "", fmt.Errorf("empty token")
-	}
-	token, _, err := new(jwt.Parser).ParseUnverified(tokenString, jwt.MapClaims{})
-	if err != nil || token == nil {
-		return "", fmt.Errorf("parse market token: %w", err)
-	}
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		return "", fmt.Errorf("invalid token claims")
-	}
-	sub, _ := claims["sub"].(string)
-	if sub == "" {
-		return "", fmt.Errorf("token missing sub claim")
-	}
-	return sub, nil
-}
-
 // InstallTemplate notifies the market service that a template has been installed.
-func (c *MarketClient) InstallTemplate(ctx context.Context, token string, marketTemplateID string, versionID string, userID string, orgID string) error {
+func (c *MarketClient) InstallTemplate(ctx context.Context, token string, marketTemplateID string, versionID string) error {
 	endpoint, err := c.marketEndpoint(marketTemplatePath(marketTemplateID, "/install"))
 	if err != nil {
 		return err
@@ -629,7 +584,7 @@ func (c *MarketClient) InstallTemplate(ctx context.Context, token string, market
 	}
 	reqBytes, _ := json.Marshal(reqBody)
 
-	logrus.Debugf("[MarketClient] InstallTemplate: URL=%s, MarketTemplateID=%s, VersionID=%s, UserID=%s, OrgID=%s", endpoint.String(), marketTemplateID, versionID, userID, orgID)
+	logrus.Debug("[MarketClient] InstallTemplate request prepared")
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint.String(), bytes.NewReader(reqBytes))
 	if err != nil {
@@ -637,12 +592,6 @@ func (c *MarketClient) InstallTemplate(ctx context.Context, token string, market
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+token)
-	if userID != "" {
-		httpReq.Header.Set("X-User-Id", userID)
-		httpReq.Header.Set("X-Org-Id", orgID)
-		// 市场安装通知允许安装者以 org_admin 和 super_admin 角色操作。
-		httpReq.Header.Set("X-Roles", MarketRoleOrgAdmin+","+MarketRoleSuperAdmin)
-	}
 
 	statusCode, bodyBytes, err := c.readMarketResponse(
 		httpReq,
@@ -658,7 +607,7 @@ func (c *MarketClient) InstallTemplate(ctx context.Context, token string, market
 	}
 
 	if statusCode != http.StatusCreated && statusCode != http.StatusOK {
-		return fmt.Errorf("install notification failed with status %d: %s", statusCode, string(bodyBytes))
+		return fmt.Errorf("install notification failed with status %d: body=%s", statusCode, compactMarketBody(bodyBytes))
 	}
 
 	return nil

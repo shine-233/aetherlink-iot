@@ -114,7 +114,7 @@ func prepareDeviceOnlineStatusWS(c *gin.Context) (*websocket.Conn, int, *utils.U
 		return nil, 0, nil, nil, false
 	}
 
-	logrus.WithField("remote_addr", conn.RemoteAddr().String()).Info("device online status websocket connected")
+	logrus.Info("device online status websocket connected")
 
 	msgType, msg, ok := readInitialWSMessage(conn)
 	if !ok {
@@ -123,18 +123,18 @@ func prepareDeviceOnlineStatusWS(c *gin.Context) (*websocket.Conn, int, *utils.U
 
 	initMap, err := parseTelemetryWSMessage(msg)
 	if err != nil {
-		logrus.WithError(err).Error("invalid device online status websocket JSON")
+		logrus.Error("invalid device online status websocket JSON")
 		writeDeviceStatusWSError(conn, msgType, "Invalid initial message format")
 		return conn, msgType, nil, nil, false
 	}
 
 	addDeviceStatusWSHeaderCredentials(c, initMap)
 
-	logrus.Debugf("WS initial message keys: %v", keysOfMap(initMap))
+	logrus.Debug("WS initial message received")
 
 	claims, err := validateAuth(initMap)
 	if err != nil {
-		logrus.WithError(err).Error("device online status websocket authentication failed")
+		logrus.Error("device online status websocket authentication failed")
 		writeDeviceStatusWSError(conn, msgType, err.Error())
 		return conn, msgType, nil, nil, false
 	}
@@ -166,14 +166,14 @@ func loadDeviceStatusWSInitialList(deviceIDs []string, claims *utils.UserClaims)
 	authorizedDeviceIDs := make([]string, 0, len(deviceIDs))
 	statusByDeviceID, err := service.GroupApp.Device.GetDeviceOnlineStatuses(deviceIDs, claims)
 	if err != nil {
-		logrus.WithError(err).Warn("query current device statuses failed")
+		logrus.Warn("query current device statuses failed")
 		return authorizedDeviceIDs, initialList
 	}
 
 	for _, did := range deviceIDs {
 		statusMap, ok := statusByDeviceID[did]
 		if !ok {
-			logrus.WithField("device_id", did).Warn("query current device status skipped")
+			logrus.Warn("query current device status skipped")
 			continue
 		}
 		authorizedDeviceIDs = append(authorizedDeviceIDs, did)
@@ -202,7 +202,7 @@ func sendDeviceStatusWSInitialList(localClient *global.WSClient, initialList []m
 	if data, err := json.Marshal(initialList); err == nil {
 		queueTelemetryWSMessage(localClient, data, "device status initial send buffer full, dropping initial data")
 	} else {
-		logrus.WithError(err).Error("marshal initial device status websocket payload failed")
+		logrus.Error("marshal initial device status websocket payload failed")
 	}
 }
 
@@ -240,7 +240,7 @@ func replaceDeviceStatusWSSubscription(
 ) {
 	initMap, err := parseTelemetryWSMessage(wsMsg)
 	if err != nil {
-		logrus.WithError(err).Debug("ignore invalid device online status websocket message")
+		logrus.Debug("ignore invalid device online status websocket message")
 		return
 	}
 
@@ -278,7 +278,7 @@ func runDeviceStatusWSMessageLoop(
 	for {
 		_, wsMsg, err := conn.ReadMessage()
 		if err != nil {
-			logrus.WithError(err).Info("device online status websocket closed")
+			logrus.Info("device online status websocket closed")
 			writeTelemetryWSClose(localClient, websocket.CloseNormalClosure, "connection closed")
 			cancel()
 			return

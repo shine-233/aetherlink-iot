@@ -151,7 +151,7 @@ func attachDeviceDetailEnrichment(data map[string]interface{}, id string) error 
 func loadDeviceLatestAlarmStatus(id string) string {
 	alarmStatus, err := dal.GetDeviceLatestAlarmStatus(id)
 	if err != nil {
-		logrus.Warnf("[GetDeviceByIDV1] get device alarm status failed, deviceID=%s, err=%v", id, err)
+		logrus.Warn("[GetDeviceByIDV1] get device alarm status failed")
 		alarmStatus = "N"
 	}
 	return alarmStatus
@@ -187,7 +187,7 @@ func deviceConfigHasChartConfig(config *model.DeviceConfig) bool {
 	}
 	template, err := dal.GetDeviceTemplateChartConfigByID(strings.TrimSpace(*config.DeviceTemplateID), config.TenantID)
 	if err != nil {
-		logrus.Warnf("[GetDeviceByIDV1] get thing model chart config failed, templateID=%s, err=%v", strings.TrimSpace(*config.DeviceTemplateID), err)
+		logrus.Warn("[GetDeviceByIDV1] get thing model chart config failed")
 		return false
 	}
 	return deviceTemplateChartConfigHasContent(template.WebChartConfig) || deviceTemplateChartConfigHasContent(template.AppChartConfig)

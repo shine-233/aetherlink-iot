@@ -5,7 +5,11 @@
 
 package admin
 
-import "testing"
+import (
+	"net/http"
+	"net/http/httptest"
+	"testing"
+)
 
 func TestAdminCredentialsMatchRequiresExplicitEnvironment(t *testing.T) {
 	t.Setenv("GMQTT_ADMIN_USERNAME", "")
@@ -23,5 +27,38 @@ func TestAdminCredentialsMatchRequiresExplicitEnvironment(t *testing.T) {
 	}
 	if adminCredentialsMatch("admin", "admin") {
 		t.Fatal("built-in default credentials should remain rejected")
+	}
+}
+
+func TestSessionCookiesUseSecureAttribute(t *testing.T) {
+	tests := []struct {
+		name string
+		set  func(http.ResponseWriter)
+	}{
+		{name: "set", set: setSessionCookie},
+		{name: "clear", set: clearSessionCookie},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			tt.set(recorder)
+			cookies := recorder.Result().Cookies()
+			if len(cookies) != 1 {
+				t.Fatalf("cookies = %d, want 1", len(cookies))
+			}
+			cookie := cookies[0]
+			if !cookie.Secure {
+				t.Fatal("session cookie must set Secure")
+			}
+			if !cookie.HttpOnly {
+				t.Fatal("session cookie must set HttpOnly")
+			}
+			if cookie.SameSite != http.SameSiteLaxMode {
+				t.Fatalf("SameSite = %v, want Lax", cookie.SameSite)
+			}
+			if tt.name == "clear" && cookie.MaxAge != -1 {
+				t.Fatalf("clear cookie MaxAge = %d, want -1", cookie.MaxAge)
+			}
+		})
 	}
 }

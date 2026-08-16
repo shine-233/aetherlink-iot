@@ -11,6 +11,7 @@ export const SINGLE_CLASS_DEVICE_ACTION_TARGET_TYPE = '11'
 export const ACTION_PARAM_TYPES_WITH_INLINE_JSON = new Set(['c_attribute', 'c_telemetry', 'c_command'])
 export const ACTION_PARAM_TYPES_WITH_JSON_VALIDATION = new Set(['command', 'c_attribute', 'c_telemetry', 'c_command'])
 export const ACTION_PARAM_TYPES_WITH_KEY_VALUE_PAYLOAD = new Set(['telemetry', 'attributes'])
+const RESERVED_ACTION_PARAM_KEYS = new Set(['__proto__', 'prototype', 'constructor'])
 
 export interface ActionParamOption {
   key: string
@@ -77,6 +78,12 @@ const tryParseActionValueObject = (actionValue: any) => {
   }
 }
 
+const normalizeActionParamKey = (value: unknown) => {
+  const key = typeof value === 'string' ? value.trim() : ''
+  if (!key || RESERVED_ACTION_PARAM_KEYS.has(key) || key.length > 128) return null
+  return key
+}
+
 export const buildActionValuePayload = (instructItem: SceneInstructionLike) => {
   if (ACTION_PARAM_TYPES_WITH_INLINE_JSON.has(instructItem.action_param_type as string)) {
     // c_* 类型约定直接透传 JSON 字符串，不再重复包装。
@@ -84,9 +91,11 @@ export const buildActionValuePayload = (instructItem: SceneInstructionLike) => {
   }
 
   if (ACTION_PARAM_TYPES_WITH_KEY_VALUE_PAYLOAD.has(instructItem.action_param_type as string)) {
-    return JSON.stringify({
-      [instructItem.action_param as string]: instructItem.actionValue
-    })
+    const key = normalizeActionParamKey(instructItem.action_param)
+    if (!key) return instructItem.action_value
+    const payload = Object.create(null) as Record<string, unknown>
+    payload[key] = instructItem.actionValue
+    return JSON.stringify(payload)
   }
 
   if (instructItem.action_param_type === 'command') {

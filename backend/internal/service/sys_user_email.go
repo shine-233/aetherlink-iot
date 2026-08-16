@@ -107,8 +107,8 @@ func (userService *User) GetVerificationCode(email, isRegister, language string)
 	}
 
 	// 只有 adapter 明确确认投递后才记录“已发送”；生产 SMTP 失败不会降级成本地成功。
-	maskedCode := maskVerificationCode(verificationCode)
-	logrus.Warningf("验证码已发送至 %s, code: %s", email, maskedCode)
+	_ = maskVerificationCode(verificationCode)
+	logrus.Info("verification email sent")
 	return nil
 }
 

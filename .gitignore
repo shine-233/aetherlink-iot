@@ -143,6 +143,7 @@ mqtt-broker/.gocache-*/
 mqtt-broker/aetherlink.yml
 mqtt-broker/cmd/gmqttd/aetherlink.yml
 mqtt-broker/cmd/gmqttd/certs/
+mqtt-broker/plugin/auth/gmqtt_password.yml
 
 # Local runtime secrets. Generate fresh keys/certs per environment.
 backend/configs/rsa_key/private_key.pem

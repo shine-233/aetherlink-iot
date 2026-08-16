@@ -12,7 +12,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/DrmagicE/gmqtt/config"
 	"github.com/DrmagicE/gmqtt/pkg/packets"
 	"github.com/DrmagicE/gmqtt/server"
 )
@@ -22,20 +21,10 @@ func TestAuth_OnBasicAuthWrapper(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	path := "./testdata/gmqtt_password.yml"
-	cfg := DefaultConfig
-	cfg.PasswordFile = path
-	cfg.Hash = Plain
-	auth, err := New(config.Config{
-		Plugins: map[string]config.Configuration{
-			"auth": &cfg,
-		},
-	})
+	auth := newTestAuth(t, testCredential{username: "u1", password: "p1"})
 	mockClient := server.NewMockClient(ctrl)
 	mockClient.EXPECT().Version().Return(packets.Version311).AnyTimes()
-	a.Nil(err)
-	a.Nil(auth.Load(nil))
-	au := auth.(*Auth)
+	au := auth
 	var preCalled bool
 	fn := au.OnBasicAuthWrapper(func(ctx context.Context, client server.Client, req *server.ConnectRequest) (err error) {
 		preCalled = true

@@ -33,10 +33,10 @@ func DeleteNotificationGroup(id string) error {
 		logrus.Error(err)
 	}
 	if res.RowsAffected == 0 {
-		logrus.Error("delete notification group failed: not found ", id)
+		logrus.Error("delete notification group failed: not found")
 		return fmt.Errorf("delete notification group failed: not found %s", id)
 	}
-	logrus.Info("delete notification group success: id ", id)
+	logrus.Info("delete notification group success")
 	return err
 }
 

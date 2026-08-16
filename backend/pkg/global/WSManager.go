@@ -84,11 +84,7 @@ func (m *WSManager) SubscribeDevice(deviceID, connID string, client *WSClient) e
 		logrus.WithError(err).Error("Failed to set Redis expiration")
 	}
 
-	logrus.WithFields(logrus.Fields{
-		"device_id": deviceID,
-		"conn_id":   connID,
-		"keys":      client.Keys,
-	}).Info("WebSocket client subscribed to device")
+	logrus.Info("WebSocket client subscribed to device")
 
 	return nil
 }
@@ -123,10 +119,7 @@ func (m *WSManager) UnsubscribeDevice(deviceID, connID string) error {
 		m.redisClient.Del(ctx, "ws:sub:"+deviceID)
 	}
 
-	logrus.WithFields(logrus.Fields{
-		"device_id": deviceID,
-		"conn_id":   connID,
-	}).Info("WebSocket client unsubscribed from device")
+	logrus.Info("WebSocket client unsubscribed from device")
 
 	// 关闭写队列（如果存在），以结束对应的写入 goroutine
 	if removedClient != nil && removedClient.Send != nil {
@@ -140,7 +133,7 @@ func (m *WSManager) UnsubscribeDevice(deviceID, connID string) error {
 func (m *WSManager) RefreshSubscription(deviceID string) error {
 	ctx := context.Background()
 	if err := m.redisClient.Expire(ctx, "ws:sub:"+deviceID, 5*time.Minute).Err(); err != nil {
-		logrus.WithError(err).WithField("device_id", deviceID).Error("Failed to refresh subscription")
+		logrus.Error("Failed to refresh WebSocket subscription")
 		return err
 	}
 	return nil
@@ -159,7 +152,7 @@ func (m *WSManager) PushToDevice(deviceID string, data map[string]interface{}) {
 	// 添加系统时间
 	data["systime"] = time.Now().UTC()
 
-	for connID, client := range clients {
+	for _, client := range clients {
 		// 过滤字段（如果指定了 keys）
 		filteredData := data
 		if len(client.Keys) > 0 {
@@ -169,7 +162,7 @@ func (m *WSManager) PushToDevice(deviceID string, data map[string]interface{}) {
 		// 序列化
 		jsonData, err := json.Marshal(filteredData)
 		if err != nil {
-			logrus.WithError(err).WithField("conn_id", connID).Error("Failed to marshal WebSocket data")
+			logrus.Error("Failed to marshal WebSocket data")
 			continue
 		}
 
@@ -180,10 +173,7 @@ func (m *WSManager) PushToDevice(deviceID string, data map[string]interface{}) {
 			// queued successfully
 		default:
 			// send queue is full，记录并丢弃消息，避免阻塞
-			logrus.WithFields(logrus.Fields{
-				"device_id": deviceID,
-				"conn_id":   connID,
-			}).Warn("WebSocket send buffer full, dropping message")
+			logrus.Warn("WebSocket send buffer full, dropping message")
 		}
 	}
 }

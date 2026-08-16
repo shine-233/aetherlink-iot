@@ -18,6 +18,10 @@ const mqttRuntime = require('./mqtt_runtime');
 
 const execFileAsync = promisify(execFile);
 
+function randomFixtureToken(prefix) {
+  return `${prefix}-${crypto.randomBytes(16).toString('hex')}`;
+}
+
 function resolveOtaSeedDatabaseOptions(env = process.env) {
   const aetherlinkDatabase = String(env.AETHERLINK_DB_NAME || '').trim();
   const gotpDatabase = String(env.GOTP_DB_PSQL_DBNAME || '').trim();
@@ -740,8 +744,8 @@ async function ensureDevice(accountKey = 'tenant_admin') {
   // 那台设备、又插不进去，seed 会永久硬失败（23505）。所以 voucher 必须唯一，
   // PID 语义由 device_number 承载；没有任何断言要求 voucher 等于 PID。
   const seedVoucher = JSON.stringify({
-    username: 'seed-' + Date.now().toString(36),
-    password: 'seed-' + Math.random().toString(36).slice(2, 12)
+    username: randomFixtureToken('seed'),
+    password: randomFixtureToken('seed-password')
   });
   const createResp = await apiClient.post('/device', {
     name: testData.generateDeviceName('seed-device'),
@@ -762,7 +766,7 @@ async function ensureDevice(accountKey = 'tenant_admin') {
 }
 
 async function createSimulationDevice(accountKey = 'tenant_admin') {
-  const suffix = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const suffix = randomFixtureToken('simulation');
   const voucher = JSON.stringify({
     username: 'simulation-' + suffix,
     password: 'simulation-' + suffix.slice(-10)
@@ -1233,11 +1237,14 @@ async function ensureOpenApiKey(accountKey = 'super_admin', tenantId = '') {
 async function createOtaPackageSeed(accountKey = 'super_admin') {
   const configSeed = await ensureDeviceConfig(accountKey);
   const name = makeRunLabel('seed_ota_package');
-  const filePath = path.join(os.tmpdir(), `${name}.bin`);
-  fs.writeFileSync(filePath, Buffer.from('aetherlink-ota-fixture', 'utf8'));
   let packageId = '';
   try {
-    const uploadResp = await apiClient.upload('/file/up', filePath, { type: 'upgradePackage' }, accountKey);
+    const uploadResp = await apiClient.upload(
+      '/file/up',
+      Buffer.from('aetherlink-ota-fixture', 'utf8'),
+      { type: 'upgradePackage' },
+      accountKey
+    );
     requireSuccess(uploadResp, 'upload OTA fixture package');
     const packageUrl = uploadResp.data && uploadResp.data.path;
     if (!packageUrl) throw new Error('upload OTA fixture package returned no path');
@@ -1266,14 +1273,19 @@ async function createOtaPackageSeed(accountKey = 'super_admin') {
       id: packageId,
       row,
       cleanup: async () => {
-        await apiClient.delete('/ota/package/' + packageId, {}, accountKey);
-        await configSeed.cleanup();
-        try { fs.unlinkSync(filePath); } catch (_) { /* best effort */ }
+        try {
+          await apiClient.delete('/ota/package/' + packageId, {}, accountKey);
+        } finally {
+          await configSeed.cleanup();
+        }
       }
     };
   } catch (error) {
-    await configSeed.cleanup();
-    try { fs.unlinkSync(filePath); } catch (_) { /* best effort */ }
+    try {
+      await configSeed.cleanup();
+    } catch (cleanupError) {
+      error.message += `; OTA fixture config cleanup failed: ${cleanupError.message}`;
+    }
     throw error;
   }
 }

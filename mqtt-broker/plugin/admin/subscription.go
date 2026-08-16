@@ -58,7 +58,7 @@ func (s *subscriptionService) Filter(ctx context.Context, req *FilterSubscriptio
 			if v == "" {
 				continue
 			}
-			i, err := strconv.Atoi(v)
+			i, err := strconv.ParseInt(v, 10, 32)
 
 			if err != nil {
 				return nil, ErrInvalidArgument("filter_type", err.Error())
@@ -135,6 +135,12 @@ func (s *subscriptionService) Subscribe(ctx context.Context, req *SubscribeReque
 	}
 	var subs []*gmqtt.Subscription
 	for k, v := range req.Subscriptions {
+		if v.Qos > uint32(packets.Qos2) {
+			return nil, ErrInvalidArgument(fmt.Sprintf("subIndexer[%d].qos", k), "must be between 0 and 2")
+		}
+		if v.RetainHandling > 2 {
+			return nil, ErrInvalidArgument(fmt.Sprintf("subIndexer[%d].retain_handling", k), "must be between 0 and 2")
+		}
 		shareName, name := subscription.SplitTopic(v.TopicName)
 		sub := &gmqtt.Subscription{
 			ShareName:         shareName,

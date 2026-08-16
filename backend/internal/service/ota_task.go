@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -282,20 +283,30 @@ func stringFromMapValue(value interface{}) string {
 }
 
 func int16FromMapValue(value interface{}) int16 {
+	parse := func(raw string) int16 {
+		parsed, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 16)
+		if err != nil {
+			return 0
+		}
+		return int16(parsed)
+	}
+
 	switch typed := value.(type) {
 	case int16:
 		return typed
 	case int:
-		return int16(typed)
+		return parse(strconv.FormatInt(int64(typed), 10))
 	case int32:
-		return int16(typed)
+		return parse(strconv.FormatInt(int64(typed), 10))
 	case int64:
-		return int16(typed)
+		return parse(strconv.FormatInt(typed, 10))
 	case float64:
-		return int16(typed)
+		if math.IsNaN(typed) || math.IsInf(typed, 0) || math.Trunc(typed) != typed {
+			return 0
+		}
+		return parse(strconv.FormatFloat(typed, 'f', 0, 64))
 	case string:
-		parsed, _ := strconv.Atoi(typed)
-		return int16(parsed)
+		return parse(typed)
 	default:
 		return 0
 	}

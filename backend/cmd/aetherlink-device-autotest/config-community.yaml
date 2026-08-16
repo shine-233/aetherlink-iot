@@ -5,7 +5,7 @@ mqtt:
   broker: "127.0.0.1:1883"
   client_id: "mqtt_client_666666"
   username: "test-666666"
-  password: ""
+  password: "CHANGE_ME_MQTT_PASSWORD"
   qos: 1
   clean_session: true
   keep_alive: 60

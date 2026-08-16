@@ -132,6 +132,18 @@ func otaTaskOwnerUserIDForClaims(claims *utils.UserClaims) (*string, error) {
 }
 
 func otaPackageLocalPathFromURL(packageURL string) (string, error) {
+	cleanRel, err := otaPackageRelativePathFromURL(packageURL)
+	if err != nil {
+		return "", err
+	}
+	base, err := filepath.Abs("./files/upgradePackage")
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(base, filepath.FromSlash(cleanRel)), nil
+}
+
+func otaPackageRelativePathFromURL(packageURL string) (string, error) {
 	rawPath := strings.TrimSpace(packageURL)
 	if rawPath == "" {
 		return "", fmt.Errorf("package_url is required")
@@ -140,6 +152,9 @@ func otaPackageLocalPathFromURL(packageURL string) (string, error) {
 		rawPath = parsed.Path
 	}
 	rawPath = strings.ReplaceAll(rawPath, "\\", "/")
+	if unescaped, err := url.PathUnescape(rawPath); err == nil {
+		rawPath = strings.ReplaceAll(unescaped, "\\", "/")
+	}
 	markers := []string{
 		"/api/v1/ota/download/files/upgradePackage/",
 		"api/v1/ota/download/files/upgradePackage/",
@@ -152,23 +167,27 @@ func otaPackageLocalPathFromURL(packageURL string) (string, error) {
 			break
 		}
 	}
+	for _, segment := range strings.Split(strings.TrimPrefix(rawPath, "/"), "/") {
+		if segment == ".." {
+			return "", fmt.Errorf("invalid ota package path")
+		}
+	}
 	cleanRel := path.Clean(strings.TrimPrefix(rawPath, "/"))
 	if cleanRel == "." || cleanRel == ".." || strings.HasPrefix(cleanRel, "../") {
 		return "", fmt.Errorf("invalid ota package path")
 	}
-	base, err := filepath.Abs("./files/upgradePackage")
-	if err != nil {
-		return "", err
-	}
-	fullPath, err := filepath.Abs(filepath.Join(base, filepath.FromSlash(cleanRel)))
-	if err != nil {
-		return "", err
-	}
-	baseWithSep := base + string(filepath.Separator)
-	if fullPath != base && !strings.HasPrefix(fullPath, baseWithSep) {
+	if strings.Contains(cleanRel, ":") || filepath.IsAbs(filepath.FromSlash(cleanRel)) {
 		return "", fmt.Errorf("invalid ota package path")
 	}
-	return fullPath, nil
+	return cleanRel, nil
+}
+
+func signOTAPackageFromURL(packageURL, signatureType string) (string, error) {
+	cleanRel, err := otaPackageRelativePathFromURL(packageURL)
+	if err != nil {
+		return "", err
+	}
+	return utils.FileSignInRoot("./files/upgradePackage", cleanRel, signatureType)
 }
 
 func (*OTA) CreateOTAUpgradePackage(req *model.CreateOTAUpgradePackageReq, tenantID string) error {
@@ -191,12 +210,8 @@ func (*OTA) CreateOTAUpgradePackage(req *model.CreateOTAUpgradePackageReq, tenan
 	ota.SignatureType = req.SignatureType
 
 	// 生成文件签名
-	fileurl := *req.PackageUrl
-	filePath, err := otaPackageLocalPathFromURL(fileurl)
-	if err != nil {
-		return err
-	}
-	signature, err := utils.FileSign(filePath, *req.SignatureType)
+	fileURL := *req.PackageUrl
+	signature, err := signOTAPackageFromURL(fileURL, *req.SignatureType)
 	if err != nil {
 		return err
 	}
@@ -290,11 +305,7 @@ func refreshOTAUpdateSignatureIfNeeded(ota *model.OtaUpgradePackage, req *model.
 	if packageURL == nil || strings.TrimSpace(*packageURL) == "" {
 		return fmt.Errorf("package_url is required")
 	}
-	filePath, err := otaPackageLocalPathFromURL(*packageURL)
-	if err != nil {
-		return err
-	}
-	signature, err := utils.FileSign(filePath, *signatureType)
+	signature, err := signOTAPackageFromURL(*packageURL, *signatureType)
 	if err != nil {
 		return err
 	}

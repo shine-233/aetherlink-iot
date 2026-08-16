@@ -14,6 +14,31 @@ import (
 
 // ResolvePath maps a URL path from /files/*filepath to a local file under ./files.
 func ResolvePath(rawPath string) (string, error) {
+	relPath, err := ResolveRelativePath(rawPath)
+	if err != nil {
+		return "", err
+	}
+
+	baseDir, err := filepath.Abs("./files")
+	if err != nil {
+		return "", err
+	}
+	fullPath, err := filepath.Abs(filepath.Join(baseDir, filepath.FromSlash(relPath)))
+	if err != nil {
+		return "", err
+	}
+	relativeToBase, err := filepath.Rel(baseDir, fullPath)
+	if err != nil || relativeToBase == ".." || strings.HasPrefix(relativeToBase, ".."+string(os.PathSeparator)) || filepath.IsAbs(relativeToBase) {
+		return "", errors.New("file path escapes public directory")
+	}
+	return fullPath, nil
+}
+
+// ResolveRelativePath validates a URL path and returns the safe path relative
+// to the trusted ./files root. Callers that open the file should use os.Root
+// (or another root-confined API) with this value rather than passing a path
+// derived from the request to a process-wide filesystem API.
+func ResolveRelativePath(rawPath string) (string, error) {
 	if rawPath == "" || rawPath == "/" {
 		return "", errors.New("file path is required")
 	}
@@ -35,18 +60,5 @@ func ResolvePath(rawPath string) (string, error) {
 	if relPath == "." || relPath == "" || strings.HasPrefix(relPath, "../") {
 		return "", errors.New("file path escapes public directory")
 	}
-
-	baseDir, err := filepath.Abs("./files")
-	if err != nil {
-		return "", err
-	}
-	fullPath, err := filepath.Abs(filepath.Join(baseDir, filepath.FromSlash(relPath)))
-	if err != nil {
-		return "", err
-	}
-	relativeToBase, err := filepath.Rel(baseDir, fullPath)
-	if err != nil || relativeToBase == ".." || strings.HasPrefix(relativeToBase, ".."+string(os.PathSeparator)) || filepath.IsAbs(relativeToBase) {
-		return "", errors.New("file path escapes public directory")
-	}
-	return fullPath, nil
+	return relPath, nil
 }

@@ -322,14 +322,7 @@ func (c *CommandData) publishCommand(plan *commandDispatchPlan, messageID, ident
 	}
 	c.downlinkBus.PublishCommand(msg)
 
-	logrus.WithFields(logrus.Fields{
-		"device_id":            plan.sourceDevice.ID,
-		"target_device_id":     plan.targetDevice.ID,
-		"target_device_number": plan.targetDeviceNumber,
-		"device_type":          plan.deviceType,
-		"message_id":           messageID,
-		"identify":             identify,
-	}).Info("Command sent via downlink")
+	logrus.Info("Command sent via downlink")
 	return nil
 }
 
@@ -340,10 +333,7 @@ func (c *CommandData) markCommandPublishFailed(deviceID, messageID string, publi
 
 	log, err := dal.GetCommandSetLogByMessageID(messageID, deviceID)
 	if err != nil {
-		logrus.WithError(err).WithFields(logrus.Fields{
-			"device_id":  deviceID,
-			"message_id": messageID,
-		}).Warn("Failed to find command log after publish failure")
+		logrus.Warn("Failed to find command log after publish failure")
 		return
 	}
 
@@ -353,10 +343,7 @@ func (c *CommandData) markCommandPublishFailed(deviceID, messageID string, publi
 	log.ErrorMessage = &errorMessage
 
 	if err := dal.UpdateCommandSetLog(log); err != nil {
-		logrus.WithError(err).WithFields(logrus.Fields{
-			"device_id":  deviceID,
-			"message_id": messageID,
-		}).Warn("Failed to mark command log as publish failed")
+		logrus.Warn("Failed to mark command log as publish failed")
 	}
 }
 
@@ -439,7 +426,7 @@ func (*CommandData) GetCommonList(ctx context.Context, id string, claims *utils.
 
 	deviceInfo, err := dal.DeviceQuery{}.First(ctx, query.Device.ID.Eq(id))
 	if err != nil {
-		logrus.Error(ctx, "[GetCommonList]device failed:", err)
+		logrus.Error("[GetCommonList] device query failed")
 		return list, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
 		})
@@ -452,7 +439,7 @@ func (*CommandData) GetCommonList(ctx context.Context, id string, claims *utils.
 
 	deviceConfigsInfo, err := dal.DeviceConfigQuery{}.First(ctx, query.DeviceConfig.ID.Eq(*deviceInfo.DeviceConfigID))
 	if err != nil {
-		logrus.Debug(ctx, "[GetCommonList]device_configs failed:", err)
+		logrus.Debug("[GetCommonList] device config query failed")
 		return list, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
 		})
@@ -465,7 +452,7 @@ func (*CommandData) GetCommonList(ctx context.Context, id string, claims *utils.
 
 	commandList, err := dal.DeviceModelCommandsQuery{}.Find(ctx, query.DeviceModelCommand.DeviceTemplateID.Eq(*deviceConfigsInfo.DeviceTemplateID))
 	if err != nil {
-		logrus.Error(ctx, "[GetCommonList]device_model_command failed:", err)
+		logrus.Error("[GetCommonList] device model command query failed")
 		return list, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
 		})

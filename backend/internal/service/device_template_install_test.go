@@ -20,8 +20,6 @@ import (
 type stubMarketInstallClient struct {
 	fullData         *model.MarketTemplateFullData
 	downloadErr      error
-	extractUserID    string
-	extractErr       error
 	installErr       error
 	downloadToken    string
 	downloadID       string
@@ -29,8 +27,6 @@ type stubMarketInstallClient struct {
 	installToken     string
 	installTemplate  string
 	installVersionID string
-	installUserID    string
-	installOrgID     string
 }
 
 func (s *stubMarketInstallClient) DownloadTemplate(_ context.Context, token string, templateID string, version string) (*model.MarketTemplateFullData, error) {
@@ -40,16 +36,10 @@ func (s *stubMarketInstallClient) DownloadTemplate(_ context.Context, token stri
 	return s.fullData, s.downloadErr
 }
 
-func (s *stubMarketInstallClient) ExtractUserIDFromMarketToken(string) (string, error) {
-	return s.extractUserID, s.extractErr
-}
-
-func (s *stubMarketInstallClient) InstallTemplate(_ context.Context, token string, templateID string, versionID string, userID string, orgID string) error {
+func (s *stubMarketInstallClient) InstallTemplate(_ context.Context, token string, templateID string, versionID string) error {
 	s.installToken = token
 	s.installTemplate = templateID
 	s.installVersionID = versionID
-	s.installUserID = userID
-	s.installOrgID = orgID
 	return s.installErr
 }
 
@@ -252,30 +242,23 @@ func TestCheckMissingPluginsUsesInjectedLookup(t *testing.T) {
 	}
 }
 
-func TestNotifyMarketTemplateInstalledFallsBackToClaimsUserAndRunsInstall(t *testing.T) {
+func TestNotifyMarketTemplateInstalledKeepsMarketIdentityOpaqueAndRunsInstall(t *testing.T) {
 	origRunAsync := marketInstallRunAsync
 	t.Cleanup(func() {
 		marketInstallRunAsync = origRunAsync
 	})
 
 	marketInstallRunAsync = func(fn func()) { fn() }
-	client := &stubMarketInstallClient{
-		extractErr: errors.New("bad token"),
-	}
+	client := &stubMarketInstallClient{}
 	req := model.InstallFromMarketReq{
 		MarketTemplateID: "market-template-1",
 		MarketToken:      "market-token",
 	}
 	fullData := &model.MarketTemplateFullData{VersionID: "ver-9"}
-	claims := &utils.UserClaims{ID: "fallback-user", TenantID: "tenant-1"}
-
-	notifyMarketTemplateInstalled(client, req, fullData, claims)
+	notifyMarketTemplateInstalled(client, req, fullData)
 
 	if client.installToken != "market-token" || client.installTemplate != "market-template-1" || client.installVersionID != "ver-9" {
 		t.Fatalf("install notification args = (%q, %q, %q), want token/template/version", client.installToken, client.installTemplate, client.installVersionID)
-	}
-	if client.installUserID != "fallback-user" || client.installOrgID != "tenant-1" {
-		t.Fatalf("install notification user/org = (%q, %q), want fallback-user/tenant-1", client.installUserID, client.installOrgID)
 	}
 }
 
@@ -420,13 +403,13 @@ func TestInstallFromMarketBuildsPlanPersistsAndReturnsInstalledRecords(t *testin
 	marketInstallGetDeviceConfig = func(id string) (*model.DeviceConfig, error) {
 		return &model.DeviceConfig{ID: id, Name: "persisted-config"}, nil
 	}
-	marketInstallNotifyInstalled = func(client marketInstallClient, req model.InstallFromMarketReq, fullData *model.MarketTemplateFullData, claims *utils.UserClaims) {
+	marketInstallNotifyInstalled = func(client marketInstallClient, req model.InstallFromMarketReq, fullData *model.MarketTemplateFullData) {
 		notified = true
 		if client != installClient {
 			t.Fatal("notify received unexpected client instance")
 		}
-		if req.MarketTemplateID != "market-template-1" || fullData.Name != "market-template" || claims.TenantID != "tenant-1" {
-			t.Fatalf("notify args mismatch: req=%#v fullData=%#v claims=%#v", req, fullData, claims)
+		if req.MarketTemplateID != "market-template-1" || fullData.Name != "market-template" {
+			t.Fatalf("notify args mismatch: req=%#v fullData=%#v", req, fullData)
 		}
 	}
 

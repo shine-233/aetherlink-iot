@@ -104,11 +104,7 @@ func GetDeviceConfigByID(id string) (*model.DeviceConfig, error) {
 		err = global.REDIS.Set(context.Background(), cacheKey, jsonData, 0).Err()
 		if err != nil {
 			// 缓存写入失败不影响主流程，只记录日志
-			logrus.WithFields(logrus.Fields{
-				"module":    "dal.device_config",
-				"cache_key": cacheKey,
-				"error":     err.Error(),
-			}).Warn("failed to cache device config")
+			logrus.Warn("failed to cache device config")
 		}
 	}
 

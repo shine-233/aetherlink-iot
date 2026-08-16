@@ -9,31 +9,22 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gopkg.in/yaml.v2"
-
-	"github.com/DrmagicE/gmqtt/config"
 )
 
 func TestAuth_List_Get_Delete(t *testing.T) {
 	a := assert.New(t)
-	path := "./testdata/gmqtt_password.yml"
-	cfg := DefaultConfig
-	cfg.PasswordFile = path
-	cfg.Hash = Plain
-	auth, err := New(config.Config{
-		Plugins: map[string]config.Configuration{
-			"auth": &cfg,
-		},
-	})
-	a.Nil(err)
-	err = auth.Load(nil)
-	a.Nil(err)
-	au := auth.(*Auth)
+	au := newTestAuth(t,
+		testCredential{username: "u1", password: "p1"},
+		testCredential{username: "u2", password: "p2"},
+	)
 	au.saveFile = func() error {
 		return nil
 	}
@@ -46,11 +37,10 @@ func TestAuth_List_Get_Delete(t *testing.T) {
 	a.EqualValues(2, resp.TotalCount)
 	a.Len(resp.Accounts, 2)
 
-	act := make(map[string]string)
-	act["u1"] = "p1"
-	act["u2"] = "p2"
 	for _, v := range resp.Accounts {
-		a.Equal(act[v.Username], v.Password)
+		if ok, err := au.validate(v.Username, map[string]string{"u1": "p1", "u2": "p2"}[v.Username]); !ok || err != nil {
+			t.Fatalf("account %q did not validate: %v", v.Username, err)
+		}
 	}
 
 	getResp, err := au.Get(context.Background(), &GetAccountRequest{
@@ -58,7 +48,9 @@ func TestAuth_List_Get_Delete(t *testing.T) {
 	})
 	a.Nil(err)
 	a.Equal("u1", getResp.Account.Username)
-	a.Equal("p1", getResp.Account.Password)
+	ok, err := au.validate("u1", "p1")
+	a.True(ok)
+	a.Nil(err)
 
 	_, err = au.Delete(context.Background(), &DeleteAccountRequest{
 		Username: "u1",
@@ -76,31 +68,22 @@ func TestAuth_List_Get_Delete(t *testing.T) {
 
 func TestAuth_Update(t *testing.T) {
 	a := assert.New(t)
-	path := "./testdata/gmqtt_password.yml"
-	cfg := DefaultConfig
-	cfg.PasswordFile = path
-	cfg.Hash = Plain
-	auth, err := New(config.Config{
-		Plugins: map[string]config.Configuration{
-			"auth": &cfg,
-		},
-	})
-	a.Nil(err)
-	err = auth.Load(nil)
-	a.Nil(err)
-	au := auth.(*Auth)
+	au := newTestAuth(t,
+		testCredential{username: "u1", password: "p1"},
+		testCredential{username: "u2", password: "p2"},
+	)
 	au.saveFile = func() error {
 		return nil
 	}
-	_, err = au.Update(context.Background(), &UpdateAccountRequest{
+	_, err := au.Update(context.Background(), &UpdateAccountRequest{
 		Username: "u1",
 		Password: "p2",
 	})
 	a.Nil(err)
 
-	l := au.indexer.GetByID("u1")
-	act := l.Value.(*Account)
-	a.Equal("p2", act.Password)
+	ok, err := au.validate("u1", "p2")
+	a.True(ok)
+	a.Nil(err)
 
 	// test rollback
 	au.saveFile = func() error {
@@ -111,10 +94,10 @@ func TestAuth_Update(t *testing.T) {
 		Password: "u3",
 	})
 	a.NotNil(err)
-	l = au.indexer.GetByID("u1")
-	act = l.Value.(*Account)
 	// not change because fails to persist to password file.
-	a.Equal("p2", act.Password)
+	ok, err = au.validate("u1", "p2")
+	a.True(ok)
+	a.Nil(err)
 
 	_, err = au.Update(context.Background(), &UpdateAccountRequest{
 		Username: "u10",
@@ -122,30 +105,21 @@ func TestAuth_Update(t *testing.T) {
 	})
 	a.NotNil(err)
 	// not exists because fails to persist to password file.
-	l = au.indexer.GetByID("u10")
+	l := au.indexer.GetByID("u10")
 	a.Nil(l)
 
 }
 
 func TestAuth_Delete(t *testing.T) {
 	a := assert.New(t)
-	path := "./testdata/gmqtt_password.yml"
-	cfg := DefaultConfig
-	cfg.PasswordFile = path
-	cfg.Hash = Plain
-	auth, err := New(config.Config{
-		Plugins: map[string]config.Configuration{
-			"auth": &cfg,
-		},
-	})
-	a.Nil(err)
-	err = auth.Load(nil)
-	a.Nil(err)
-	au := auth.(*Auth)
+	au := newTestAuth(t,
+		testCredential{username: "u1", password: "p1"},
+		testCredential{username: "u2", password: "p2"},
+	)
 	au.saveFile = func() error {
 		return errors.New("some error")
 	}
-	_, err = au.Delete(context.Background(), &DeleteAccountRequest{
+	_, err := au.Delete(context.Background(), &DeleteAccountRequest{
 		Username: "u1",
 	})
 	a.NotNil(err)
@@ -155,7 +129,9 @@ func TestAuth_Delete(t *testing.T) {
 	})
 	a.Nil(err)
 	a.Equal("u1", resp.Account.Username)
-	a.Equal("p1", resp.Account.Password)
+	ok, err := au.validate("u1", "p1")
+	a.True(ok)
+	a.Nil(err)
 
 	au.saveFile = func() error {
 		return nil
@@ -176,33 +152,20 @@ func TestAuth_Delete(t *testing.T) {
 
 func TestAuth_saveFileHandler(t *testing.T) {
 	a := assert.New(t)
-	path := "./testdata/gmqtt_password_save.yml"
-	originBytes, err := os.ReadFile(path)
+	au := newTestAuth(t,
+		testCredential{username: "u1", password: "p1"},
+		testCredential{username: "u2", password: "p2"},
+	)
+	hashedPassword, err := au.generatePassword("p11")
 	a.Nil(err)
-	defer func() {
-		// restore
-		os.WriteFile(path, originBytes, 0666)
-	}()
-	cfg := DefaultConfig
-	cfg.PasswordFile = path
-	cfg.Hash = Plain
-	auth, err := New(config.Config{
-		Plugins: map[string]config.Configuration{
-			"auth": &cfg,
-		},
-	})
-	a.Nil(err)
-	err = auth.Load(nil)
-	a.Nil(err)
-	au := auth.(*Auth)
 	au.indexer.Set("u1", &Account{
 		Username: "u1",
-		Password: "p11",
+		Password: hashedPassword,
 	})
 	au.indexer.Remove("u2")
 	err = au.saveFileHandler()
 	a.Nil(err)
-	b, err := os.ReadFile(path)
+	b, err := os.ReadFile(filepath.Join(au.pwdDir, au.config.PasswordFile))
 	a.Nil(err)
 
 	var rs []*Account
@@ -210,6 +173,6 @@ func TestAuth_saveFileHandler(t *testing.T) {
 	a.Nil(err)
 	a.Len(rs, 1)
 	a.Equal("u1", rs[0].Username)
-	a.Equal("p11", rs[0].Password)
+	a.Nil(bcrypt.CompareHashAndPassword([]byte(rs[0].Password), []byte("p11")))
 
 }
