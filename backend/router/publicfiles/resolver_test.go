@@ -34,7 +34,7 @@ func TestResolvePathRejectsEscapes(t *testing.T) {
 		"/",
 		"/../secret.txt",
 		"../secret.txt",
-		filepath.Clean(filepath.Join(string(filepath.Separator), "tmp", "secret.txt")),
+		"//tmp/secret.txt",
 		`/tmp\secret.txt`,
 		"/C:/secret.txt",
 	} {

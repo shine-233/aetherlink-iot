@@ -138,7 +138,9 @@ func ValidateFileExtension(filename string, allowedExts []string) bool {
 // sanitizeFilename 清理文件名中的不安全字符
 func SanitizeFilename(filename string) string {
 	// 1. 只获取基本文件名，去除任何路径
-	filename = filepath.Base(filename)
+	// Treat both URL and Windows separators as path boundaries so the result
+	// is deterministic when this shared package runs on Linux CI.
+	filename = path.Base(strings.ReplaceAll(filename, `\`, "/"))
 
 	// 2. 分离文件名和扩展名
 	ext := filepath.Ext(filename)
