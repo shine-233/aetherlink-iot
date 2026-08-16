@@ -7,7 +7,10 @@
 
 const { expect } = require('chai');
 const apiClient = require('../lib/api_client');
-const config = require('../lib/runtime_config');
+// Use the same environment-only account source as the live API client. The
+// file-backed runtime_config module is for offline/preflight fixtures and must
+// not feed credentials from config.json into an outbound request.
+const config = apiClient.getConfig();
 const {
   createTenantAdminAccount,
   createTenantUserAccount,
