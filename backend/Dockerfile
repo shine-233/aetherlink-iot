@@ -6,7 +6,7 @@ ENV GO111MODULE=on
 ENV GOPROXY="https://goproxy.cn,direct"
 RUN go build -o AetherLink-Go .
 
-FROM alpine:3.20
+FROM alpine:3.24
 LABEL description="AetherLink IoT Go Backend"
 WORKDIR /go/src/app
 RUN apk add --no-cache tzdata ca-certificates \
