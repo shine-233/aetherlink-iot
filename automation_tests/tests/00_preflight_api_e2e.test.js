@@ -48,6 +48,8 @@ function makeConfig({ frontendURL = 'http://127.0.0.1:9725', realAccounts = true
 const releaseEnv = {
   PREVIEW_URL: 'http://127.0.0.1:9725',
   API_TARGET: 'http://127.0.0.1:9999',
+  API_BASE_URL: 'http://127.0.0.1:9999/api/v1',
+  HEALTH_URL: 'http://127.0.0.1:9999/health',
   PLAYWRIGHT_USE_PREVIEW_PROXY: '1',
   PLAYWRIGHT_REUSE_EXISTING_SERVER: '0'
 };
@@ -448,15 +450,12 @@ describe('API/E2E preflight gate', function() {
 
     try {
       const result = await evaluateConnectivity({
-        config: {
-          ...makeConfig({ frontendURL: origin }),
-          baseURL: `${origin}/api/v1`,
-          healthURL: `${origin}/health`
-        },
         env: {
           ...releaseEnv,
           PREVIEW_URL: origin,
-          API_TARGET: origin
+          API_TARGET: origin,
+          API_BASE_URL: `${origin}/api/v1`,
+          HEALTH_URL: `${origin}/health`
         },
         timeoutMs: 1000
       });

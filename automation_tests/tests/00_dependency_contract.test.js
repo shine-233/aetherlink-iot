@@ -58,4 +58,39 @@ describe('automation dependency contract', function () {
       expect(source, file).not.to.include("require('../lib/runtime_config')");
     }
   });
+
+  it('keeps shared network clients independent from file-backed config', function () {
+    const apiClientSource = fs.readFileSync(path.join(root, 'lib', 'api_client.js'), 'utf8');
+    const networkRuntimeSource = fs.readFileSync(path.join(root, 'lib', 'network_runtime.js'), 'utf8');
+    const preflightSource = fs.readFileSync(path.join(root, 'scripts', 'preflight_api_e2e.js'), 'utf8');
+    const executableNetworkRuntimeSource = networkRuntimeSource
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '');
+
+    expect(apiClientSource).not.to.include("require('./runtime_config')");
+    expect(executableNetworkRuntimeSource).not.to.match(/require\(['"](?:fs|path)['"]\)/);
+    expect(executableNetworkRuntimeSource).not.to.match(/(?:readFile|existsSync|path\.)/);
+    expect(preflightSource).to.include('env.API_BASE_URL');
+    expect(preflightSource).to.include('env.HEALTH_URL');
+    expect(preflightSource).not.to.include('new URL(config.baseURL)');
+    expect(preflightSource).not.to.include('new URL(config.healthURL');
+  });
+
+  it('keeps browser fixtures on network credentials and static request fixtures', function () {
+    const fixtureSource = fs.readFileSync(path.join(root, 'e2e', 'fixtures.js'), 'utf8');
+    const loginSource = fs.readFileSync(path.join(root, 'e2e', '01_login.spec.js'), 'utf8');
+    const deviceSource = fs.readFileSync(path.join(root, 'e2e', '02_device.spec.js'), 'utf8');
+    const testDataSource = fs.readFileSync(path.join(root, 'lib', 'test_data.js'), 'utf8');
+
+    for (const [file, source] of [
+      ['e2e/fixtures.js', fixtureSource],
+      ['e2e/01_login.spec.js', loginSource],
+      ['e2e/02_device.spec.js', deviceSource]
+    ]) {
+      expect(source, file).to.include("require('../lib/network_runtime')");
+      expect(source, file).not.to.include("require('../lib/runtime_config')");
+    }
+    expect(fixtureSource).to.include("require('../lib/test_data')");
+    expect(testDataSource).not.to.include("require('./runtime_config')");
+  });
 });

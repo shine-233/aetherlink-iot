@@ -5,7 +5,10 @@
  * 重构建议：后续应把环境解析、错误分类和可复用检查步骤抽到共享库，保持脚本入口薄而明确。
  */
 
-const runtimeConfig = require('../lib/runtime_config');
+// Keep local .env.local loading as an explicit bootstrap concern. Runtime
+// network defaults come from network_runtime, never from config.json.
+require('../lib/runtime_config');
+const networkConfig = require('../lib/network_runtime');
 
 const DEFAULT_PREFLIGHT_SETTINGS = Object.freeze({
   profile: 'full',
@@ -136,7 +139,7 @@ function buildNextSteps(result) {
   return steps;
 }
 
-function evaluatePreflight({ config = runtimeConfig, env = process.env, profile, previewPort } = {}) {
+function evaluatePreflight({ config = networkConfig, env = process.env, profile, previewPort } = {}) {
   const settings = resolvePreflightSettings({ env, profile, previewPort });
   const requiredAccounts = config.releaseRequiredAccounts || [];
   const missing = settings.checks.releaseAccounts
@@ -333,11 +336,13 @@ async function checkHTTPResource(check, options) {
   }
 }
 
-function buildConnectivityChecks({ config = runtimeConfig, env = process.env } = {}) {
+function buildConnectivityChecks({ env = process.env } = {}) {
   const previewURL = new URL(env.PREVIEW_URL);
   const apiTarget = new URL(env.API_TARGET);
-  const apiBaseURL = new URL(config.baseURL);
-  const healthURL = new URL(config.healthURL || '/health', apiTarget);
+  const apiBaseURL = new URL(
+    env.API_BASE_URL || 'http://127.0.0.1:9999/api/v1'
+  );
+  const healthURL = new URL(env.HEALTH_URL || '/health', apiTarget);
   const apiHealthPath = `${apiBaseURL.pathname.replace(/\/$/, '')}/deployment/health`;
 
   return [
@@ -347,7 +352,7 @@ function buildConnectivityChecks({ config = runtimeConfig, env = process.env } =
   ];
 }
 
-async function evaluateConnectivity({ config = runtimeConfig, env = process.env, fetchImpl, timeoutMs } = {}) {
+async function evaluateConnectivity({ env = process.env, fetchImpl, timeoutMs } = {}) {
   const resolvedTimeout = timeoutMs === undefined
     ? parseHttpTimeout(env.PREFLIGHT_HTTP_TIMEOUT_MS)
     : parseHttpTimeout(timeoutMs);
@@ -360,7 +365,7 @@ async function evaluateConnectivity({ config = runtimeConfig, env = process.env,
   }
 
   const checks = [];
-  for (const check of buildConnectivityChecks({ config, env })) {
+  for (const check of buildConnectivityChecks({ env })) {
     checks.push(await checkHTTPResource(check, { fetchImpl, timeoutMs: resolvedTimeout }));
   }
 
@@ -454,7 +459,7 @@ function buildPreflightReport({ result, connectivity, env = process.env }) {
 }
 
 async function runPreflightCli({
-  config = runtimeConfig,
+  config = networkConfig,
   env = process.env,
   stdout = process.stdout,
   stderr = process.stderr,
@@ -470,7 +475,7 @@ async function runPreflightCli({
     return report.exitCode;
   }
 
-  const connectivity = await evaluateConnectivity({ config, env, fetchImpl, timeoutMs });
+  const connectivity = await evaluateConnectivity({ env, fetchImpl, timeoutMs });
   const report = buildPreflightReport({ result, connectivity, env });
   if (!connectivity.ok) {
     writeFailure({ ...result, problems: connectivity.problems }, stderr);

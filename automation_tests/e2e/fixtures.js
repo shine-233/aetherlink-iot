@@ -10,8 +10,9 @@ const base = pw.test;
 const expect = pw.expect;
 const path = require('path');
 const fs = require('fs');
-const config = require('../lib/runtime_config');
+const config = require('../lib/network_runtime');
 const apiClient = require('../lib/api_client');
+const testData = require('../lib/test_data');
 const selectors = require('./selectors');
 const pageCoverage = require('../lib/page_coverage');
 
@@ -158,7 +159,7 @@ const test = base.extend({
       /**
        * 获取测试设备 PID
        */
-      device: config.testDevice,
+      device: testData.getConfig().testDevice,
       /**
        * 获取测试账号信息
        */
