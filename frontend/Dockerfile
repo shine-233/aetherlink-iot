@@ -27,7 +27,7 @@ ENV VITE_BASE_URL=${VITE_BASE_URL} \
 COPY . .
 RUN pnpm build
 
-FROM nginx:1.27-alpine
+FROM nginx:1.31-alpine
 
 COPY --from=builder /app/dist /usr/share/nginx/html/
 COPY nginx.conf /etc/nginx/nginx.conf
