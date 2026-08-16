@@ -387,7 +387,7 @@ func TestOTA_otaPackageLocalPathFromURL(t *testing.T) {
 func TestOTA_otaPackageLocalPathFromURL_ValidPath(t *testing.T) {
 	path, err := otaPackageLocalPathFromURL("/api/v1/ota/download/files/upgradePackage/v1/firmware.bin")
 	assert.NoError(t, err)
-	assert.Contains(t, path, "files"+string(rune(92))+"upgradePackage")
+	assert.Contains(t, path, filepath.Join("files", "upgradePackage"))
 	assert.Contains(t, path, "v1")
 	assert.Contains(t, path, "firmware.bin")
 }
