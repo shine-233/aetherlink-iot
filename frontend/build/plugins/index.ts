@@ -36,7 +36,9 @@ const COMPONENT_GLOBS = [
 ]
 
 export function setupVitePlugins(viteEnv: Env.ImportMeta): PluginOption[] {
-  const { VITE_ICON_PREFIX: iconPrefix, VITE_ICON_LOCAL_PREFIX: localPrefix } = viteEnv
+  // Keep a clean checkout buildable without requiring a developer-only .env file.
+  const iconPrefix = viteEnv.VITE_ICON_PREFIX || 'icon'
+  const localPrefix = viteEnv.VITE_ICON_LOCAL_PREFIX || 'local-icon'
 
   return [
     vue(),

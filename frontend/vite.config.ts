@@ -53,7 +53,7 @@ export default defineConfig(function (configEnv) {
   const sharedScssPath = fileURLToPath(new URL('./src/styles/scss/_mixins.scss', import.meta.url)).replace(/\\/g, '/')
 
   return {
-    base: viteEnv.VITE_BASE_URL,
+    base: viteEnv.VITE_BASE_URL || '/',
     resolve: {
       alias: [
         { find: '~', replacement: workspaceRootPath },

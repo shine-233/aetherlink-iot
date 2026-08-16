@@ -6,6 +6,8 @@ AetherLink IoT 会接触本地应用账号、设备凭据、MQTT 运行凭据、
 
 当前阶段请先私下联系项目维护者，再决定是否创建公开 issue。报告中建议包含受影响组件、复现步骤、预期影响和必要日志；提交日志前必须移除 token、密码、证书、私钥、账号口令和可识别的本地环境信息。
 
+公开仓库优先使用 GitHub 的私密漏洞报告入口：[Report a vulnerability](https://github.com/shine-233/aetherlink-iot/security/advisories/new)。如果该入口暂时不可用，请通过维护者的 GitHub 个人资料私下联系，不要在公开 Issue、Discussion、Pull Request 或日志中披露漏洞细节。
+
 ## 本地密钥与敏感文件
 
 - 不要提交 `.env`、`.local`、Playwright auth state、运行时证书、私钥、数据库 dump 或自动化生成的账号文件。

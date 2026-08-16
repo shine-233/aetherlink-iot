@@ -107,6 +107,7 @@ describe('repository inventory contract [00_repository_inventory_contract]', fun
     expect(categoryFor('deploy/docker-compose.optional-integrations.yml')).to.equal('configuration');
     expect(categoryFor('frontend/.env.example')).to.equal('configuration');
     expect(categoryFor('frontend/.gitignore')).to.equal('configuration');
+    expect(categoryFor('.github/CODEOWNERS')).to.equal('configuration');
     expect(categoryFor('mqtt-broker/plugin/admin/protos/client.proto')).to.equal('source');
     expect(categoryFor('start-aetherlink.cmd')).to.equal('source');
     expect(categoryFor('backend/LICENSE')).to.equal('documentation');

@@ -1,5 +1,7 @@
 # AetherLink IoT
 
+[![Minimum quality gate](https://github.com/shine-233/aetherlink-iot/actions/workflows/minimum-quality-gate.yml/badge.svg)](https://github.com/shine-233/aetherlink-iot/actions/workflows/minimum-quality-gate.yml) [![Source CI](https://github.com/shine-233/aetherlink-iot/actions/workflows/source-ci.yml/badge.svg)](https://github.com/shine-233/aetherlink-iot/actions/workflows/source-ci.yml) [![CodeQL](https://github.com/shine-233/aetherlink-iot/actions/workflows/codeql.yml/badge.svg)](https://github.com/shine-233/aetherlink-iot/actions/workflows/codeql.yml) [![License](https://img.shields.io/github/license/shine-233/aetherlink-iot)](LICENSE)
+
 > 只想先把系统部署起来？直接看 [START-HERE.md](START-HERE.md)。它给出 Windows / Linux / macOS 的复制粘贴命令、服务器 IP 填法、启动后访问地址和首台设备闭环路径。
 
 > 想从一台干净机器完整判断“能不能部署、测试失败属于哪一层”？看 [TESTING-AND-DEPLOYMENT.md](TESTING-AND-DEPLOYMENT.md)。它按当前 Docker Compose dev 流程串起 doctor、健康检查、首台设备、源码测试、API/E2E 和逐页浏览器证据。

@@ -1,0 +1,36 @@
+name: Feature request
+description: Propose a focused improvement to AetherLink IoT.
+title: "[Feature]: "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: Which user or operational problem should this address?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the expected workflow and externally visible result.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - Frontend
+        - Backend API
+        - MQTT broker
+        - Docker Compose or deployment
+        - Automation tests
+        - Documentation
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives and compatibility impact
+      description: Mention existing workarounds, API/MQTT compatibility concerns, or migration needs.
