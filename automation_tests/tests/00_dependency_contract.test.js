@@ -51,9 +51,11 @@ describe('automation dependency contract', function () {
   });
 
   it('keeps live auth credentials on the environment-only API client path', function () {
-    const authSource = fs.readFileSync(path.join(root, 'tests', '01_auth.test.js'), 'utf8');
+    for (const file of ['01_auth.test.js', '07_board.test.js', '20_seeded_system_permission.test.js']) {
+      const source = fs.readFileSync(path.join(root, 'tests', file), 'utf8');
 
-    expect(authSource).to.include('const config = apiClient.getConfig();');
-    expect(authSource).not.to.include("require('../lib/runtime_config')");
+      expect(source, file).to.include('apiClient.getConfig()');
+      expect(source, file).not.to.include("require('../lib/runtime_config')");
+    }
   });
 });

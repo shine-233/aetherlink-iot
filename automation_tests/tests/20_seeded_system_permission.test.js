@@ -7,7 +7,9 @@
 
 const { expect } = require('chai');
 const apiClient = require('../lib/api_client');
-const config = require('../lib/runtime_config');
+// The seeded permission suite is a live API suite, so its role assertions must
+// use the same environment-only configuration as the client itself.
+const config = apiClient.getConfig();
 const {
   expectArray,
   expectBusinessError,
