@@ -82,7 +82,10 @@ func fixedDurationWindows(alignedEnd time.Time, count int, size time.Duration) [
 		count = maxDiffTimeWindows
 	}
 
-	windows := make([]telemetryWindow, 0, count)
+	// Do not use request-derived count as an allocation capacity. The loop is
+	// already bounded above, and growing from an empty slice keeps the memory
+	// admission independent of the caller-controlled limit.
+	windows := make([]telemetryWindow, 0)
 	for i := 0; i < count; i++ {
 		windowEnd := alignedEnd.Add(time.Duration(-i) * size)
 		windows = append(windows, newTelemetryWindow(windowEnd.Add(-size), windowEnd))
@@ -98,7 +101,7 @@ func calendarMonthWindows(alignedEnd time.Time, count int) []telemetryWindow {
 		count = maxDiffTimeWindows
 	}
 
-	windows := make([]telemetryWindow, 0, count)
+	windows := make([]telemetryWindow, 0)
 	for i := 0; i < count; i++ {
 		windowEnd := alignedEnd.AddDate(0, -i, 0)
 		windows = append(windows, newTelemetryWindow(windowEnd.AddDate(0, -1, 0), windowEnd))
@@ -114,7 +117,7 @@ func calendarYearWindows(alignedEnd time.Time, count int) []telemetryWindow {
 		count = maxDiffTimeWindows
 	}
 
-	windows := make([]telemetryWindow, 0, count)
+	windows := make([]telemetryWindow, 0)
 	for i := 0; i < count; i++ {
 		windowEnd := alignedEnd.AddDate(-i, 0, 0)
 		windows = append(windows, newTelemetryWindow(windowEnd.AddDate(-1, 0, 0), windowEnd))
@@ -130,7 +133,7 @@ func evenlySplitWindows(startTime, endTime int64, count int) []telemetryWindow {
 		count = maxDiffTimeWindows
 	}
 
-	windows := make([]telemetryWindow, 0, count)
+	windows := make([]telemetryWindow, 0)
 	windowSizeMS := (endTime - startTime) / int64(count)
 	for i := 0; i < count; i++ {
 		windowStart := startTime + int64(i)*windowSizeMS
@@ -214,7 +217,7 @@ func diffTimeWindows(startTime, endTime int64, alignedEndTime time.Time, count i
 		return nil
 	}
 
-	windows := make([]telemetryWindow, 0, count)
+	windows := make([]telemetryWindow, 0)
 	for i := 0; i < count; i++ {
 		window := diffWindowByIndex(alignedEndTime, i, timeType)
 		if window.endMS <= startTime || window.startMS >= endTime {

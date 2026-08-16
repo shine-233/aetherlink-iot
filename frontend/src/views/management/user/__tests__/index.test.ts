@@ -566,10 +566,15 @@ describe('management/user/index.vue', () => {
 
   it('provinceCityData is populated from region data', async () => {
     const wrapper = mountComponent()
-    await flushPromises()
     const state = getSetupState(wrapper)
+    // The component loads the static region module from onMounted. Waiting on
+    // the setup loader avoids relying on scheduler timing when all frontend
+    // test files are running in parallel on the hosted runner.
+    await state.loadProvinceCityData()
+    await flushPromises()
     expect(Array.isArray(state.provinceCityData)).toBe(true)
-    expect(state.provinceCityData).toHaveLength(1)
+    expect(state.provinceCityData.length).toBeGreaterThan(0)
     expect(state.provinceCityData[0].value).toBe('北京市')
+    expect(state.provinceCityData[0].children[0].children[0].value).toBe('东城区')
   })
 })

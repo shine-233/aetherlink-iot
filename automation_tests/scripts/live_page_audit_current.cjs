@@ -83,12 +83,31 @@ function routePath(item) {
   return `${item.route}${resolvedSuffix}`
 }
 
+function reportRequestedPath(item) {
+  // Keep fixture identifiers out of the report. The placeholder form is
+  // enough to identify which route was exercised without persisting API data.
+  const suffix = queryOverrides[item.route]
+  return suffix ? `${item.route}${suffix}` : item.route
+}
+
 function normalizedPath(value) {
   try {
     return new URL(value, baseURL).pathname.replace(/\/+$/, '') || '/'
   } catch {
     return String(value || '/').split('?')[0].replace(/\/+$/, '') || '/'
   }
+}
+
+function reportFinalPath(item, value) {
+  const candidate = normalizedPath(value)
+  const requested = normalizedPath(item.route)
+  if (candidate === requested) return item.route
+
+  // Redirect destinations are intentionally reduced to a fixed vocabulary;
+  // a browser-controlled URL must never become an arbitrary report field.
+  const allowedRedirects = new Set(['/', '/login', '/403', '/404', '/500'])
+  if (allowedRedirects.has(candidate)) return candidate
+  return '<other>'
 }
 
 function isThingsVisRoute(route) {
@@ -212,9 +231,9 @@ async function inspectPage(page, item) {
     name: item.name,
     module: item.module,
     priority: item.priority,
-    requestedPath,
-    finalPath,
-    bodyLength: body.length,
+    requestedPath: reportRequestedPath(item),
+    finalPath: reportFinalPath(item, finalPath),
+    bodyLength: Math.max(0, Math.min(Number(body.length) || 0, 1000000)),
     status: classifyResult(item, finalPath, body, evidence),
     screenshotFile,
     errorCounts: {
@@ -258,7 +277,25 @@ async function main() {
     }
   } finally {
     await browser.close().catch(() => {})
-    await cleanupFixture().catch(error => pages.push({ route: '<fixture>', name: 'fixture cleanup', status: 'runtime-error', body: error.message }))
+    await cleanupFixture().catch(() => pages.push({
+      route: '<fixture>',
+      name: 'fixture cleanup',
+      module: 'fixture',
+      priority: 'P0',
+      requestedPath: '<fixture>',
+      finalPath: '<fixture>',
+      status: 'runtime-error',
+      screenshotFile: '',
+      bodyLength: 0,
+      errorCounts: {
+        console: 0,
+        page: 0,
+        failedRequests: 0,
+        http: 0,
+        navigation: 1,
+        screenshot: 0
+      }
+    }))
   }
 
   const summary = pages.reduce((counts, page) => {
@@ -266,12 +303,10 @@ async function main() {
     return counts
   }, {})
   const report = {
+    schemaVersion: 1,
     generatedAt: new Date().toISOString(),
-    baseURL,
-    authStatePath,
     canonicalPageCount: pageCoverage.getCatalog().pages.length,
     supplementaryRouteCount: extraRoutes.length,
-    fixture: { boardId: runtimeFixture.boardId || null, deviceId: runtimeFixture.deviceId || null },
     summary,
     pages
   }

@@ -385,14 +385,16 @@ function readyCheckDeviceNumber(row) {
   ).trim();
 }
 
-function buildReadyCheckEmulatorConfig(deviceId, deviceNumber, broker, clientId) {
-  // JSON is valid YAML and deliberately keeps the voucher out of the file;
-  // config.go receives it through AUTOTEST_MQTT_USERNAME/PASSWORD instead.
+function buildReadyCheckEmulatorConfig() {
+  // JSON is valid YAML.  The file is a static launcher template: all values
+  // obtained from the API or MQTT discovery are injected through the child
+  // process environment below, so network responses are never persisted in a
+  // local configuration artifact.
   return JSON.stringify({
     device_type: 'direct',
     mqtt: {
-      broker,
-      client_id: clientId,
+      broker: '127.0.0.1:1883',
+      client_id: 'ready-check-runtime',
       username: '',
       password: '',
       qos: 1,
@@ -400,8 +402,8 @@ function buildReadyCheckEmulatorConfig(deviceId, deviceNumber, broker, clientId)
       keep_alive: 60
     },
     device: {
-      device_id: deviceId,
-      device_number: deviceNumber
+      device_id: 'runtime-device-id',
+      device_number: 'runtime-device-number'
     },
     database: {
       host: '127.0.0.1',
@@ -414,7 +416,7 @@ function buildReadyCheckEmulatorConfig(deviceId, deviceNumber, broker, clientId)
       max_idle_conns: 1
     },
     api: {
-      base_url: String(apiClient.getConfig()?.baseURL || '').replace(/\/api\/v1\/?$/, ''),
+      base_url: 'http://127.0.0.1:9999',
       api_key: 'local-ready-check',
       timeout: 30
     },
@@ -465,17 +467,16 @@ async function startReadyCheckEmulator(device, accountKey = 'tenant_admin', opti
   if (binary.blocked) return binary;
 
   const deviceNumber = readyCheckDeviceNumber(detail) || device.id;
-  const safeId = String(device.id).replace(/[^A-Za-z0-9_-]/g, '_');
-  const clientId = `ready-check-${safeId}`.slice(0, 128);
+  // The device id is API data. Keep it in the child environment, but never
+  // derive a local artifact path from it. A locally generated run id also
+  // prevents concurrent Ready Check workers from sharing the same files.
+  const runId = crypto.randomUUID();
+  const clientId = `ready-check-${runId}`.slice(0, 128);
   const reportDir = readyCheckReportDirectory();
-  const configPath = path.join(reportDir, `ready-check-emulator-${safeId}.json`);
-  const stdoutPath = path.join(reportDir, `ready-check-emulator-${safeId}.stdout.log`);
-  const stderrPath = path.join(reportDir, `ready-check-emulator-${safeId}.stderr.log`);
-  fs.writeFileSync(
-    configPath,
-    buildReadyCheckEmulatorConfig(device.id, deviceNumber, `${endpoint.server}:${endpoint.port}`, clientId),
-    'utf8'
-  );
+  const configPath = path.join(reportDir, `ready-check-emulator-${runId}.json`);
+  const stdoutPath = path.join(reportDir, `ready-check-emulator-${runId}.stdout.log`);
+  const stderrPath = path.join(reportDir, `ready-check-emulator-${runId}.stderr.log`);
+  fs.writeFileSync(configPath, buildReadyCheckEmulatorConfig(), 'utf8');
 
   const moduleRoot = path.resolve(__dirname, '..', '..', 'backend', 'cmd', 'aetherlink-device-autotest');
   const stdout = fs.createWriteStream(stdoutPath, { flags: 'a' });
@@ -496,6 +497,8 @@ async function startReadyCheckEmulator(device, accountKey = 'tenant_admin', opti
       AUTOTEST_MQTT_PASSWORD: voucher.password,
       AUTOTEST_DEVICE_ID: device.id,
       AUTOTEST_DEVICE_NUMBER: deviceNumber,
+      AUTOTEST_API_BASE_URL: String(apiClient.getConfig()?.baseURL || '').replace(/\/api\/v1\/?$/, ''),
+      AUTOTEST_API_KEY: 'local-ready-check',
       // The failure lane is still a real MQTT acknowledgement from the
       // emulator.  It is deliberately opt-in so the normal command fixture
       // remains a success fixture and callers cannot accidentally turn a

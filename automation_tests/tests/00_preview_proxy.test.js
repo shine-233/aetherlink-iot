@@ -10,8 +10,15 @@
 
 const http = require('http');
 const net = require('net');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const { expect } = require('chai');
-const { createServer, buildThingsVisTargetURL } = require('../scripts/serve_preview_with_api_proxy');
+const {
+  buildProxyTargetURL,
+  buildThingsVisTargetURL,
+  createServer
+} = require('../scripts/serve_preview_with_api_proxy');
 
 function listen(server) {
   return new Promise((resolve, reject) => {
@@ -42,6 +49,20 @@ function requestJSON(port, path) {
           body: JSON.parse(body)
         });
       });
+    });
+    request.on('error', reject);
+  });
+}
+
+function requestText(port, requestPath) {
+  return new Promise((resolve, reject) => {
+    const request = http.get({ host: '127.0.0.1', port, path: requestPath }, response => {
+      const chunks = [];
+      response.on('data', chunk => chunks.push(chunk));
+      response.on('end', () => resolve({
+        statusCode: response.statusCode,
+        body: Buffer.concat(chunks).toString('utf8')
+      }));
     });
     request.on('error', reject);
   });
@@ -90,6 +111,13 @@ function requestWebSocketUpgrade(port, path) {
 }
 
 describe('release preview ThingsVis proxy', function() {
+  it('copies only routed paths to the configured API origin', function() {
+    expect(buildProxyTargetURL('/api/v1/health?probe=1', 'http://127.0.0.1:9999/base').toString())
+      .to.equal('http://127.0.0.1:9999/api/v1/health?probe=1');
+    expect(() => buildProxyTargetURL('//evil.example/api/v1/health', 'http://127.0.0.1:9999'))
+      .to.throw('local preview origin');
+  });
+
   it('normalizes a target origin to the ThingsVis /api/v1 base path', function() {
     expect(buildThingsVisTargetURL('/thingsvis-api/auth/sso?scope=e2e', 'http://tv.local:8000').toString())
       .to.equal('http://tv.local:8000/api/v1/auth/sso?scope=e2e');
@@ -171,6 +199,34 @@ describe('release preview ThingsVis proxy', function() {
       if (clientSocket && !clientSocket.destroyed) clientSocket.destroy();
       await close(preview);
       await close(upstream);
+    }
+  });
+
+  it('serves an indexed asset and falls back without reading traversal paths', async function() {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'aetherlink-preview-'));
+    const distDir = path.join(tempRoot, 'dist');
+    fs.mkdirSync(path.join(distDir, 'assets'), { recursive: true });
+    fs.writeFileSync(path.join(distDir, 'index.html'), 'INDEX', 'utf8');
+    fs.writeFileSync(path.join(distDir, 'assets', 'app.js'), 'ASSET', 'utf8');
+    fs.writeFileSync(path.join(tempRoot, 'secret.txt'), 'SECRET', 'utf8');
+
+    const preview = createServer({
+      apiTarget: 'http://127.0.0.1:9999',
+      distDir
+    });
+    const previewAddress = await listen(preview);
+
+    try {
+      const asset = await requestText(previewAddress.port, '/assets/app.js?cache=1');
+      expect(asset.statusCode).to.equal(200);
+      expect(asset.body).to.equal('ASSET');
+
+      const traversal = await requestText(previewAddress.port, '/%2e%2e/secret.txt');
+      expect(traversal.statusCode).to.equal(200);
+      expect(traversal.body).to.equal('INDEX');
+    } finally {
+      await close(preview);
+      fs.rmSync(tempRoot, { recursive: true, force: true });
     }
   });
 });
