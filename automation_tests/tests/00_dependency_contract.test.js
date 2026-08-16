@@ -49,4 +49,11 @@ describe('automation dependency contract', function () {
     expect(manifest.scripts['test:automation:api']).to.equal('node run_tests.js');
     expect(manifest.scripts['test:automation:full']).to.equal('node run_tests.js --include-e2e');
   });
+
+  it('keeps live auth credentials on the environment-only API client path', function () {
+    const authSource = fs.readFileSync(path.join(root, 'tests', '01_auth.test.js'), 'utf8');
+
+    expect(authSource).to.include('const config = apiClient.getConfig();');
+    expect(authSource).not.to.include("require('../lib/runtime_config')");
+  });
 });
