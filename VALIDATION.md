@@ -73,7 +73,7 @@ AetherLink IoT 采用多层验证，因为不同层只能证明不同类型的�
 
 ## 发布验证顺序
 
-在对清理后的工作树作出公开发布结论之前，需要重新运行并归档以下流程。可先在 `automation_tests/` 运行 `npm run preflight:release` 作为离线静态/契约门禁；它不启动服务，也不等于 release readiness。该本地入口不运行漏洞数据库、SBOM 生成或托管依赖审查；正式 tag release workflow 另行生成 source-manifest SBOM，容器 workflow 由 BuildKit 生成 image SBOM。真实 frontend/backend/broker build/tests、`preflight:api-e2e` 与 E2E 仍不可省略。
+在对清理后的工作树作出公开发布结论之前，需要重新运行并归档以下流程。可先在 `automation_tests/` 运行 `npm run preflight:release` 作为离线静态/契约门禁；它不启动服务，也不等于 release readiness。该本地入口不运行漏洞数据库、SBOM 生成或托管依赖审查；正式 tag release workflow 调用仓库内生成器（不传 `--source-only`，当前目标输出为 `declared-and-locked-components`，包含 Go `go.sum` 校验条目）并由容器 workflow 生成 image SBOM。发布后仍须下载资产、重算 checksum 并验证 provenance/attestation；真实 frontend/backend/broker build/tests、`preflight:api-e2e` 与 E2E 仍不可省略。
 
 ```powershell
 cd frontend
