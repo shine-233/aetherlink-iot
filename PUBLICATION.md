@@ -32,9 +32,9 @@
 - `backend/cmd/aetherlink-device-autotest/docs/`：更适合作为本地脱敏协议资料，不应默认纳入公开源码范围。
 - `frontend/src/typings/components.d.ts`：前端自动生成文件，不应作为公开源码长期保留。
 
-## 2026-08-15 上传前清理状态
+## 2026-08-15 上传前清理与当前 GitHub 状态
 
-本轮已完成源码工作区的上传边界清理，但没有执行 `git push`，也没有把未完成的 r14 复测写成通过：
+本轮已完成源码工作区的上传边界清理，并已将公开源码推送到 [AetherLink IoT GitHub 仓库](https://github.com/shine-233/aetherlink-iot)；没有把未完成的 r14 复测写成通过：
 
 - 根 `_localrun`、前端构建/coverage、后端和 broker 二进制、运行态配置、认证状态、日志、截图、历史 verification 归档和本地审计台账已移动到仓库外的可恢复 quarantine；清单为本机父目录下的 `_aetherlink-github-cleanup-quarantine-20260815/github-cleanup-manifest-20260815.json`。
 - 前一批 stale r14 运行物也保存在 `_aetherlink-cleanup-quarantine-20260815-r14-pre/quarantine-manifest.json`；两批均为 `permanentDelete=false`，回移前必须重新确认无进程引用并按清单校验。
@@ -46,7 +46,18 @@
 - 清理后生成物候选扫描为 `0`；`check_supply_chain.js` 和 `release_preflight.js` 仍是静态/合同门禁，不等于 Docker、目标服务器、公网 MQTT、HTTPS/TLS 或真实设备验收。
 - r14 后端全量 Go 测试因 `proxy.golang.org` 依赖下载超时未完成，broker 测试按用户要求停止；它们不能标记为通过。已有 r13 的本地证据仍按历史批次引用，并不替代当前目标环境验收。
 
-当前发布标记保持：`source_package_boundary=ready-for-review`、`github_upload=not-executed`、`real_rdi_status=not-tested`、`target_deployment_status=pending`、`production_signoff=not-ready`。ThingsVis 仍是有源码和合同引用的 optional legacy compatibility provider，不因 Native 可运行而删除；`negative-menu` 是 ownership rejection 测试场景，不是待清理服务。
+当前发布标记为：`source_package_boundary=public-source`、`github_upload=executed`、`source_release=pending`、`real_rdi_status=not-tested`、`target_deployment_status=pending`、`production_signoff=not-ready`。ThingsVis 仍是有源码和合同引用的 optional legacy compatibility provider，不因 Native 可运行而删除；`negative-menu` 是 ownership rejection 测试场景，不是待清理服务。
+
+## GitHub 托管功能状态
+
+当前已启用或已接入：
+
+- Actions、SHA pinning required、只读默认 `GITHUB_TOKEN` 权限，以及源码 CI、Minimum quality gate、CodeQL、Dependency Review 和手动/夜间 integration workflow。
+- Dependabot alerts、security updates、automated security fixes，以及 GitHub Actions、frontend/automation npm、三个 Go module 和三个 Docker 目录的版本更新配置。
+- Secret Scanning、Push Protection、Issues、Discussions、Projects、Wiki、Issue Forms、PR 模板和 CODEOWNERS。
+- `integration` environment；当前没有真实 API、账号、设备凭据或生产 secrets，因此手动/夜间 workflow 默认不会伪造 live 验收。
+
+当前尚未完成：`main` 分支保护、正式 Git tag/Source Release、GHCR 镜像发布，以及真实 API/E2E/设备和目标部署验收。Secret Scanning 的 non-provider patterns 与 validity checks 仍以 GitHub 当前设置为准，不能在文档中写成已启用。
 
 ## 兼容名称
 

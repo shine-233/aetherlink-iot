@@ -520,7 +520,7 @@ Native visualization 是 AetherLink 的默认、本地核心 provider；ThingsVi
 
 ## 2026-08-15 上传前清理状态
 
-本轮按用户指示停止重复完整 r14 回归，转为部署前和 GitHub 上传前清理。历史 `_localrun`、verification 归档、构建/coverage、运行态配置、认证状态、日志、截图和二进制已移到仓库外可恢复 quarantine；当前清单为本机父目录下的 `_aetherlink-github-cleanup-quarantine-20260815/github-cleanup-manifest-20260815.json`，r14-pre 清单为 `_aetherlink-cleanup-quarantine-20260815-r14-pre/quarantine-manifest.json`。两者均 `permanentDelete=false`，没有执行 `git push`。
+本轮按用户指示停止重复完整 r14 回归，转为部署前和 GitHub 上传前清理。历史 `_localrun`、verification 归档、构建/coverage、运行态配置、认证状态、日志、截图和二进制已移到仓库外可恢复 quarantine；当前清单为本机父目录下的 `_aetherlink-github-cleanup-quarantine-20260815/github-cleanup-manifest-20260815.json`，r14-pre 清单为 `_aetherlink-cleanup-quarantine-20260815-r14-pre/quarantine-manifest.json`。两者均 `permanentDelete=false`；该清理批次记录的是首次 push 前状态，当前源码已推送到公开 GitHub 仓库。
 
 清理后 generated-artifact 候选为 `0`，tracked 敏感边界扫描未发现明文密码、私钥标记或凭据 URI；`node_modules` 仅保留在本机依 lockfile 重建。r14 后端 Go 测试因依赖下载超时未完成，broker 测试按用户要求停止，均不得标记为通过。真实 RDI、目标环境、HTTPS/TLS、公网 MQTT、目标 backup/restore 和外部 ThingsVis 仍是 `pending`/`external-blocked`。
 
@@ -600,7 +600,7 @@ This final closeout pass did not rerun frontend, backend, broker, database, API,
 
 The offline publication gates were rerun against the current worktree: supply-chain `13/13` checks passed, generated-artifact candidates were `0`, the release preflight had `10/10` local checks pass, and `git diff --check` exited `0` with only existing CRLF normalization warnings. Docker Compose validation, vulnerability/advisory data, SBOM generation, hosted dependency review, and runtime API/E2E remain `not-run` or unavailable by design.
 
-The final secret-boundary scan found `0` exact database-password hits, `0` private-key markers, `0` credential-bearing PostgreSQL URIs, and `0` tracked sensitive paths. No known test/runtime port remains listening. The release markers remain `github_upload=not-executed`, `real_rdi_status=not-tested`, `target_deployment_status=pending`, and `production_signoff=not-ready`.
+The final secret-boundary scan found `0` exact database-password hits, `0` private-key markers, `0` credential-bearing PostgreSQL URIs, and `0` tracked sensitive paths. No known test/runtime port remains listening. The source is now published at `https://github.com/shine-233/aetherlink-iot`; the release markers are `github_upload=executed`, `real_rdi_status=not-tested`, `target_deployment_status=pending`, and `production_signoff=not-ready`.
 
 The incomplete validation run `../_aetherlink-validation-20260815-r16` was not promoted to evidence. Without rerunning any test, build, service, API, browser, or E2E lane, its 2,074 files (78,505,657 bytes) were moved as one recoverable unit to `../_aetherlink-github-cleanup-quarantine-20260815-r3/`; the companion manifest records `allMovedVerified=true` and `permanentDelete=false` after per-file SHA-256 comparison.
 

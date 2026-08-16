@@ -35,7 +35,9 @@ AetherLink IoT 采用多层验证，因为不同层只能证明不同类型的�
 
 清理后生成物扫描为 `0` 个候选；tracked 源码扫描未发现明文数据库密码、私钥标记或带凭据的数据库 URI。`node_modules` 仅保留在本机供依赖重建，依靠 lockfile 安装，不属于 source package。quarantine 均为 `permanentDelete=false`，不能把“已移出仓库”写成“已永久删除”。
 
-本轮没有重新执行完整 r14：后端 Go 测试在依赖下载超时处停止，broker 测试按用户要求停止；这两项均不是通过。此前 r13 的 fresh 本地证据仍可用于方法和历史摘要，但不能替代真实 RDI、目标服务器、Docker/Compose、HTTPS/TLS、公网 MQTT、目标环境 backup/restore 或外部 ThingsVis 验收。当前状态仍为 `real_rdi_status=not-tested`、`target_deployment_status=pending`、`production_signoff=not-ready`、`github_upload=not-executed`。
+本轮没有重新执行完整 r14：后端 Go 测试在依赖下载超时处停止，broker 测试按用户要求停止；这两项均不是通过。此前 r13 的 fresh 本地证据仍可用于方法和历史摘要，但不能替代真实 RDI、目标服务器、Docker/Compose、HTTPS/TLS、公网 MQTT、目标环境 backup/restore 或外部 ThingsVis 验收。当前状态为 `real_rdi_status=not-tested`、`target_deployment_status=pending`、`production_signoff=not-ready`、`github_upload=executed`。
+
+公开源码已推送到 `https://github.com/shine-233/aetherlink-iot`。当前公开基线已由 GitHub Actions 的 Source CI、Minimum quality gate 和 CodeQL（Go、JavaScript/TypeScript）成功检查；这些是源码与离线门禁证据，不等价于完整 r14、本地目标环境、真实 API/E2E 或真实设备验收。
 - 上传前补充清理：7 个 untracked 的一次性历史/生成文件已可恢复移动到 `../_aetherlink-github-cleanup-quarantine-20260815-r2/`，清单回读为 7/7 源路径不存在、SHA-256 一致；首次清单的字节数捕获错误已在同一清单中注明并校正。此次没有重新执行测试、编译或服务启动。
 - 未完成的 `_aetherlink-validation-20260815-r16` 也已在不重跑测试的前提下整体移到 `../_aetherlink-github-cleanup-quarantine-20260815-r3/`；2,074 个文件、78,505,657 bytes 的逐文件 SHA-256 校验通过，清单记录 `allMovedVerified=true`、`permanentDelete=false`。该批次不进入当前验证结论。
 

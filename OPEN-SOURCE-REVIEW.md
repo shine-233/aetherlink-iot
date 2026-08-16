@@ -1,18 +1,19 @@
 # Open-Source Review Package
 
-本文件是当前工作区交给人工开源 review 的入口。它描述公开源码快照的边界和已知限制，不等同于生产部署签字，也不等同于 GitHub 已上传。
+本文件是当前公开源码交给人工开源 review 的入口。它描述公开源码快照的边界和已知限制；源码已经上传到 GitHub，但这不等同于生产部署签字。
 
 ## 本轮状态
 
 - review scope: 当前工作树中的源码、迁移、部署合同、测试代码、模拟器源码和状态文档。
-- source package boundary: `ready-for-review`。
-- Git index: 本轮整理后作为人工 review staging area；不自动创建 commit。
-- GitHub upload: `not-executed`。
+- source package boundary: `public-source`。
+- GitHub repository: `https://github.com/shine-233/aetherlink-iot`。
+- GitHub upload: `executed`；公开 `main` 分支已包含当前源码基线。
+- hosted source evidence: Source CI、Minimum quality gate 和 CodeQL 的 Go / JavaScript/TypeScript 分析已在当前公开基线上成功；这些结果只证明对应 workflow 覆盖的源码/离线门禁。
 - production signoff: `not-ready`。
 - real RDI: `not-tested`；synthetic/emulator 证据不升级为真实设备证据。
 - target deployment: `pending`；Docker/Compose、HTTPS/TLS、反向代理、防火墙、公网 MQTT 和目标机灾备仍需目标环境验收。
 
-本轮整理、扫描和打包没有重新启动服务、编译、测试、浏览器或数据库操作。测试数字只按已有验证文档的历史/当前标记阅读，不在本文件中重新宣称通过。
+本文件不把本机已有依赖树或历史报告当作当前发布证据。公开仓库的源码门禁由 GitHub Actions 重新执行；真实服务、浏览器、数据库、设备和目标环境验收仍按 `VALIDATION.md` 的证据等级单独记录。
 
 ## 保留内容
 
@@ -53,7 +54,7 @@
 - 先前干净环境的 frontend Vite build 曾因缺少 `VITE_ICON_PREFIX` / `VITE_ICON_LOCAL_PREFIX` 默认值在插件初始化阶段失败；该问题属于构建环境/源码默认值审查项，本轮打包没有宣称修复。
 - 已有 coverage、API/E2E、页面和 synthetic RDI 结果必须按验证文档中的批次、证据等级和 skip 原因阅读；它们不能关闭真实 RDI、真实设备 ACK、ThingsVis 外部服务或目标环境门禁。
 - Native visualization 是默认本地实现。ThingsVis 仍是显式 optional compatibility provider，不能因为本地 Native provider 可用就从源码中删除。
-- 当前工作树包含大量未提交修改；本快照是供人工逐文件审查的候选状态，不是经过 commit 历史整理或作者签名的 release。
+- 公开仓库仍是供人工逐文件审查的源码基线，不是经过生产验收或作者签名的 release；未处理的 CodeQL 和 Dependabot 风险不能通过发布文档被默认为已关闭。
 
 ## 复核命令
 
