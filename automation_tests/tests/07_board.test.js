@@ -7,7 +7,9 @@
 
 const { expect } = require('chai');
 const apiClient = require('../lib/api_client');
-const runtimeConfig = require('../lib/runtime_config');
+// Keep live API assertions on the environment-only client configuration;
+// runtime_config is reserved for file-backed offline/preflight fixtures.
+const runtimeConfig = apiClient.getConfig();
 
 function expectOk(resp) {
   expect(resp).to.be.an('object');
