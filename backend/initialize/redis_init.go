@@ -179,7 +179,7 @@ func GetScriptByDeviceAndScriptType(device *model.Device, scriptType string) (*m
 	key := *device.DeviceConfigID + "_" + scriptType + "_script"
 	err := GetRedisForJsondata(key, script)
 	if err != nil {
-		logrus.Debug("Get redis_cache key:"+key+" failed with err:", err.Error())
+		logrus.Debug("get redis cache entry failed")
 		script, err = dal.GetDataScriptByDeviceConfigIdAndScriptType(device.DeviceConfigID, scriptType)
 		if err != nil {
 			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -191,12 +191,12 @@ func GetScriptByDeviceAndScriptType(device *model.Device, scriptType string) (*m
 		}
 		err = SetRedisForJsondata(key, script, 0)
 		if err != nil {
-			logrus.Debug("Set redis_cache key:"+key+" failed with err:", err.Error())
+			logrus.Debug("set redis cache entry failed")
 			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 				"error": err.Error(),
 			})
 		}
-		logrus.Debug("Set redis_cache key:"+key+" successed with ", script)
+		logrus.Debug("set redis cache entry succeeded")
 	}
 	return script, nil
 }
@@ -205,7 +205,7 @@ func GetScriptByDeviceAndScriptType(device *model.Device, scriptType string) (*m
 func DelDeviceCache(deviceId string) error {
 	err := global.REDIS.Del(context.Background(), deviceId).Err()
 	if err != nil {
-		logrus.Warn("del redis_cache key(deviceId):", deviceId, " failed with err:", err.Error())
+		logrus.Warn("delete Redis device cache failed")
 	}
 	return err
 }
@@ -229,7 +229,7 @@ func DelDeviceCaches(deviceIDs []string) error {
 			end = len(keys)
 		}
 		if err := global.REDIS.Del(context.Background(), keys[start:end]...).Err(); err != nil {
-			logrus.Warn("del redis_cache keys(deviceIds):", keys[start:end], " failed with err:", err.Error())
+			logrus.Warn("delete Redis device cache batch failed")
 			if firstErr == nil {
 				firstErr = err
 			}
@@ -259,7 +259,7 @@ func normalizeDeviceCacheKeys(deviceIDs []string) []string {
 func DelDeviceConfigCache(deviceConfigId string) error {
 	err := global.REDIS.Del(context.Background(), deviceConfigId+"_config").Err()
 	if err != nil {
-		logrus.Warn("del redis_cache key(deviceConfigId):", deviceConfigId+"_config", " failed with err:", err.Error())
+		logrus.Warn("delete Redis device config cache failed")
 	}
 	return err
 }
@@ -274,7 +274,7 @@ func DelDeviceDataScriptCache(deviceConfigID string) error {
 
 	err := global.REDIS.Del(context.Background(), key...).Err()
 	if err != nil {
-		logrus.Warn("del redis_cache key:", key, " failed with err:", err.Error())
+		logrus.Warn("delete Redis cache entry failed")
 	}
 	return err
 }

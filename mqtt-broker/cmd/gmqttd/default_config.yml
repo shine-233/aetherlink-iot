@@ -128,8 +128,7 @@ plugins:
     path: "/metrics"
     listen_address: ":8082"
   auth:
-    # Password hash type. (plain | md5 | sha256 | bcrypt) 密码哈希类型。
-    # Default to bcrypt for new public deployments.
+    # Password hash type. Only bcrypt is accepted; legacy plain/md5/sha256 configurations are rejected.
     hash: bcrypt
     # The file to store password. If it is a relative path, it locates in the same directory as the config file. 存储密码的文件，相对路径基于配置文件目录。
     # (e.g: ./gmqtt_password => /etc/gmqtt/gmqtt_password.yml) 示例路径。

@@ -210,12 +210,12 @@ func (*ServicePlugin) GetServiceSelect(req *model.GetServiceSelectReq, claims *u
 				flag = false
 				var serviceAccessConfig model.ProtocolAccessConfig
 				if service.ServiceConfig == nil {
-					logrus.Warn("service plugin config is empty: ", service.ServiceIdentifier)
+					logrus.Warn("service plugin config is empty")
 					continue
 				}
 				err = json.Unmarshal([]byte(*service.ServiceConfig), &serviceAccessConfig)
 				if err != nil {
-					logrus.Warn("service plugin config error: ", err)
+					logrus.Warn("service plugin config is invalid")
 					continue
 				}
 				switch *req.DeviceType {
@@ -224,7 +224,7 @@ func (*ServicePlugin) GetServiceSelect(req *model.GetServiceSelectReq, claims *u
 				case 2, 3:
 					flag = serviceAccessConfig.DeviceType == 2
 				default:
-					logrus.Warn("device type is error: ", *req.DeviceType)
+					logrus.Warn("device type is invalid")
 				}
 			}
 			if flag {

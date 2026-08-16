@@ -138,6 +138,7 @@ func setSessionCookie(w http.ResponseWriter) {
 		Value:    sessionCookieValue,
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
 		Expires:  time.Now().Add(12 * time.Hour),
 	})
@@ -150,6 +151,7 @@ func clearSessionCookie(w http.ResponseWriter) {
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
+		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
 		Expires:  time.Unix(0, 0),
 	})

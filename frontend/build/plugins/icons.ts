@@ -8,9 +8,9 @@
 import path from 'node:path'
 import process from 'node:process'
 import type { PluginOption } from 'vite'
-import { createSvgIconsPlugin } from 'vite-plugin-svg-icons'
 import Icons from 'unplugin-icons/vite'
 import { FileSystemIconLoader } from 'unplugin-icons/loaders'
+import { createLocalSvgIconsPlugin } from './local-svg-icons'
 
 /** 本地 svg 图标目录，同时用于雪碧图与 `local` 自定义集合 */
 export const localIconPath = path.join(process.cwd(), 'src/assets/svg-icon')
@@ -21,7 +21,7 @@ export function setupIconPlugins(viteEnv: Env.ImportMeta): PluginOption[] {
   const iconPrefix = viteEnv.VITE_ICON_PREFIX || 'icon'
 
   return [
-    createSvgIconsPlugin({
+    createLocalSvgIconsPlugin({
       iconDirs: [localIconPath],
       // 与 svg-icon.vue 的 `#${prefix}-${icon}` 保持一致，图标为平铺目录故不含 [dir]
       symbolId: `${localPrefix}-[name]`,

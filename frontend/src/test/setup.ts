@@ -5,7 +5,7 @@
  * 重构建议：可把全局 mock、业务 fixture 和测试工具分层，减少不同测试之间的隐式耦合。
  */
 import { config } from '@vue/test-utils';
-import { vi } from 'vitest';
+import { afterEach, vi } from 'vitest';
 import { testI18n } from './i18n';
 import { dialogMock, messageMock } from './hoisted-mocks';
 
@@ -112,3 +112,11 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: vi.fn()
   }))
 });
+
+// Components under test may start a lazy import while Vue is flushing an
+// update. Wait for that import chain before Vitest tears down the file's
+// environment; otherwise Vitest reports an unhandled EnvironmentTeardownError
+// even when every assertion in the file passed.
+afterEach(async () => {
+  await vi.dynamicImportSettled()
+})

@@ -85,11 +85,13 @@ vi.mock('@/components/thingsvis/ThingsVisWidget.vue', () => ({
   })
 }))
 
-global.ResizeObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn()
-})) as any
+global.ResizeObserver = vi.fn(function ResizeObserverMock() {
+  return {
+    observe: vi.fn(),
+    unobserve: vi.fn(),
+    disconnect: vi.fn()
+  }
+}) as any
 
 import TelemetryChart from '../telemetry-chart.vue'
 import * as normalizer from '../telemetryChartTemplateNormalizer'
@@ -1632,11 +1634,13 @@ describe('telemetry-chart.vue', () => {
 
     it('disconnects ResizeObserver on unmount', async () => {
       const disconnectSpy = vi.fn()
-      global.ResizeObserver = vi.fn().mockImplementation(() => ({
-        observe: vi.fn(),
-        unobserve: vi.fn(),
-        disconnect: disconnectSpy
-      })) as any
+      global.ResizeObserver = vi.fn(function ResizeObserverMock() {
+        return {
+          observe: vi.fn(),
+          unobserve: vi.fn(),
+          disconnect: disconnectSpy
+        }
+      }) as any
 
       const wrapper = mountTelemetryChart({ deviceData: { name: 'Device' } })
       await flushPromises()

@@ -12,7 +12,6 @@ import (
 	"aetherlink-iot/backend/mqtt/publish"
 	"aetherlink-iot/backend/pkg/common"
 	global "aetherlink-iot/backend/pkg/global"
-	utils "aetherlink-iot/backend/pkg/utils"
 
 	"github.com/sirupsen/logrus"
 )
@@ -235,13 +234,7 @@ func otaUpgradePushFailureReason(err error) string {
 }
 
 func logOTAUpgradePushFailure(taskDetail *model.OtaUpgradeTaskDetail, err error) {
-	fields := logrus.Fields{}
-	if taskDetail != nil {
-		fields["task_id"] = taskDetail.OtaUpgradeTaskID
-		fields["detail_id"] = taskDetail.ID
-		fields["device_id"] = taskDetail.DeviceID
-	}
-	logrus.WithFields(fields).WithError(err).Warn("OTA task detail dispatch failed")
+	logrus.Warn("OTA task detail dispatch failed")
 }
 
 func stringPointer(value string) *string {
@@ -521,7 +514,7 @@ func buildOTAUpgradePublishPayload(
 	}
 	payload, jsonErr := buildOTAUpgradeMessagePayload(randNum, params)
 	if jsonErr != nil {
-		logrus.WithError(jsonErr).WithField("task_detail_id", taskDetailID).Error("failed to marshal OTA upgrade payload")
+		logrus.Error("failed to marshal OTA upgrade payload")
 		return nil, jsonErr
 	}
 	return payload, nil
@@ -573,11 +566,7 @@ func verifyOTAPackageIntegrity(otapackage *model.OtaUpgradePackage) error {
 		return fmt.Errorf("ota package signature is required")
 	}
 
-	filePath, err := otaPackageLocalPathFromURL(*otapackage.PackageURL)
-	if err != nil {
-		return fmt.Errorf("resolve ota package for integrity verification: %w", err)
-	}
-	actual, err := utils.FileSign(filePath, signatureType)
+	actual, err := signOTAPackageFromURL(*otapackage.PackageURL, signatureType)
 	if err != nil {
 		return fmt.Errorf("verify ota package integrity: %w", err)
 	}

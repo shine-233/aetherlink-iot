@@ -26,6 +26,7 @@ const {
 } = require('./lib/runner/cli-policy');
 const testMetadata = require('./lib/test_metadata');
 const runtimeConfig = require('./lib/runtime_config');
+const networkConfig = require('./lib/network_runtime');
 
 const reportsDir = path.resolve(__dirname, runtimeConfig.report.outputDir);
 const verificationDir = path.resolve(
@@ -269,7 +270,8 @@ function createModuleRunRecord(mod, result, summary) {
 
 async function frontendHealthCheck(url) {
   try {
-    const resp = await axios.get(url, { timeout: 5000, validateStatus: () => true });
+    const trustedURL = networkConfig.validateTrustedURL(url, 'health check URL');
+    const resp = await axios.get(trustedURL, { timeout: 5000, validateStatus: () => true });
     return resp.status >= 200 && resp.status < 500;
   } catch (err) {
     return false;
@@ -277,7 +279,7 @@ async function frontendHealthCheck(url) {
 }
 
 function printBackendUnavailable(config) {
-  console.error('Backend service unavailable: ' + config.healthURL);
+  console.error('Backend service unavailable: ' + networkConfig.healthURL);
   console.error('Start the AetherLink IoT backend before running API/E2E automation.');
 }
 

@@ -13,22 +13,27 @@ import (
 type hashType = string
 
 const (
+	// Bcrypt is the only password hash accepted by the runtime.
+	Bcrypt hashType = "bcrypt"
+
+	// These names remain available so callers can produce a useful migration
+	// error instead of silently treating an old configuration as bcrypt.
 	Plain  hashType = "plain"
 	MD5             = "md5"
 	SHA256          = "sha256"
-	Bcrypt          = "bcrypt"
 )
 
 var ValidateHashType = []string{
-	Plain, MD5, SHA256, Bcrypt,
+	Bcrypt,
 }
 
 // Config is the configuration for the auth plugin.
 type Config struct {
 	// PasswordFile is the file to store username and password.
 	PasswordFile string `yaml:"password_file"`
-	// Hash is the password hash algorithm.
-	// Possible values: plain | md5 | sha256 | bcrypt
+	// Hash is the password hash algorithm. Only bcrypt is accepted. Existing
+	// plain/md5/sha256 configurations must be migrated or rejected before the
+	// broker starts because those formats cannot be safely upgraded in place.
 	Hash string `yaml:"hash"`
 }
 
@@ -37,17 +42,27 @@ func (c *Config) Validate() error {
 	if c.PasswordFile == "" {
 		return errors.New("password_file must be set")
 	}
+	return validateHashType(c.Hash)
+}
+
+func validateHashType(hash string) error {
+	if hash == Bcrypt {
+		return nil
+	}
+	if hash == Plain || hash == MD5 || hash == SHA256 {
+		return fmt.Errorf("legacy password hash type %q is rejected; set hash: bcrypt and reset or migrate the password file before starting the broker", hash)
+	}
 	for _, v := range ValidateHashType {
-		if v == c.Hash {
+		if v == hash {
 			return nil
 		}
 	}
-	return fmt.Errorf("invalid hash type: %s", c.Hash)
+	return fmt.Errorf("invalid hash type: %s", hash)
 }
 
 // DefaultConfig is the default configuration.
 var DefaultConfig = Config{
-	Hash:         MD5,
+	Hash:         Bcrypt,
 	PasswordFile: "./gmqtt_password.yml",
 }
 

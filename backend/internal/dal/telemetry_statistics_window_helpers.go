@@ -21,6 +21,9 @@ const maxDiffTimeWindows = 100
 // telemetryWindowLimit 统一处理 nil、0 和非法 limit，避免窗口查询退化为空。
 func telemetryWindowLimit(limit *int) int {
 	if limit != nil && *limit > 0 {
+		if *limit > maxDiffTimeWindows {
+			return maxDiffTimeWindows
+		}
 		return *limit
 	}
 	return 1
@@ -75,6 +78,9 @@ func fixedDurationWindows(alignedEnd time.Time, count int, size time.Duration) [
 	if count <= 0 {
 		return nil
 	}
+	if count > maxDiffTimeWindows {
+		count = maxDiffTimeWindows
+	}
 
 	windows := make([]telemetryWindow, 0, count)
 	for i := 0; i < count; i++ {
@@ -87,6 +93,9 @@ func fixedDurationWindows(alignedEnd time.Time, count int, size time.Duration) [
 func calendarMonthWindows(alignedEnd time.Time, count int) []telemetryWindow {
 	if count <= 0 {
 		return nil
+	}
+	if count > maxDiffTimeWindows {
+		count = maxDiffTimeWindows
 	}
 
 	windows := make([]telemetryWindow, 0, count)
@@ -101,6 +110,9 @@ func calendarYearWindows(alignedEnd time.Time, count int) []telemetryWindow {
 	if count <= 0 {
 		return nil
 	}
+	if count > maxDiffTimeWindows {
+		count = maxDiffTimeWindows
+	}
 
 	windows := make([]telemetryWindow, 0, count)
 	for i := 0; i < count; i++ {
@@ -113,6 +125,9 @@ func calendarYearWindows(alignedEnd time.Time, count int) []telemetryWindow {
 func evenlySplitWindows(startTime, endTime int64, count int) []telemetryWindow {
 	if count <= 0 {
 		return nil
+	}
+	if count > maxDiffTimeWindows {
+		count = maxDiffTimeWindows
 	}
 
 	windows := make([]telemetryWindow, 0, count)

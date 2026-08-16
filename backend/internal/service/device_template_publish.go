@@ -2,7 +2,7 @@
 // 核心链路：
 // 1. 从 device_config_id 反查设备配置与关联物模型。
 // 2. 提取协议配置、凭证类型、图表配置与物模型定义。
-// 3. 组装市场发布请求，并根据 market token 解析用户身份。
+// 3. 组装市场发布请求，并将 market token 作为 opaque bearer token 透传。
 // 4. 调用市场 API 执行发布，再把远端错误统一映射为系统错误。
 // 静态审查建议：
 // 1. 当前文件里既做数据回读、默认值兜底，也做远端错误翻译，后续可继续拆成“本地装配”和“远端调用适配”两层。
@@ -20,13 +20,11 @@ import (
 	"aetherlink-iot/backend/internal/query"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/utils"
-
-	"github.com/golang-jwt/jwt/v4"
 )
 
 // marketPublishClient 抽象市场发布调用，便于单测替换真实客户端。
 type marketPublishClient interface {
-	PublishTemplate(ctx context.Context, token string, userID string, req *model.PublishTemplateReq) (*model.MarketPublishApiResponse, error)
+	PublishTemplate(ctx context.Context, token string, req *model.PublishTemplateReq) (*model.MarketPublishApiResponse, error)
 }
 
 var (
@@ -103,7 +101,7 @@ func (*DeviceTemplate) PublishToMarket(req model.PublishToMarketReq, claims *uti
 		PluginDependencies: getPluginDependenciesFromProtocol(dc),
 	}
 
-	apiResp, err := newMarketPublishClient().PublishTemplate(context.Background(), req.MarketToken, extractMarketUserID(req.MarketToken), marketReq)
+	apiResp, err := newMarketPublishClient().PublishTemplate(context.Background(), req.MarketToken, marketReq)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
 			"error": "Market service unreachable or request failed: " + err.Error(),
@@ -242,21 +240,6 @@ func marketPublishDescription(req model.PublishToMarketReq, tpl *model.DeviceTem
 		return req.Description
 	}
 	return ptrStr(tpl.Description)
-}
-
-// extractMarketUserID 从市场 token 中读取 sub 字段，作为远端发布接口的用户标识。
-// 当前仅做无验证解析，适合透传场景，但不应用于安全决策。
-func extractMarketUserID(marketToken string) string {
-	token, _, _ := new(jwt.Parser).ParseUnverified(marketToken, jwt.MapClaims{})
-	if token == nil {
-		return ""
-	}
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		return ""
-	}
-	sub, _ := claims["sub"].(string)
-	return sub
 }
 
 // validateMarketPublishResponse 把市场接口业务错误映射成统一的系统错误语义。

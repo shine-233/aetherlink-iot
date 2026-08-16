@@ -212,7 +212,7 @@ func applyUpdateDevicePostUpdateEffects(req model.UpdateDeviceReq, oldDevice *mo
 	}
 	if disconnectAfterUpdate {
 		if disconnectErr := protocolplugin.DisconnectDeviceByDeviceID(req.Id); disconnectErr != nil {
-			logrus.Error("DisconnectDeviceByDeviceID failed:", disconnectErr)
+			logrus.Error("DisconnectDeviceByDeviceID failed")
 		}
 	}
 }

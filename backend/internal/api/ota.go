@@ -241,14 +241,25 @@ func (*OTAApi) PreviewOTARolloutGovernance(c *gin.Context) {
 // 核心链路：先做路径净化与存在性校验，再根据 Range 头决定走整包输出或分片输出。
 // 静态审查重点：这里是安全敏感入口，应持续审查路径穿越、非法 Range、异常中断和自定义校验头兼容性。
 func (*OTAApi) DownloadOTAUpgradePackage(c *gin.Context) {
-	filePath, err := safeOTAUpgradePackagePath(c.Param("path"), c.Param("file"))
+	relativePath, err := safeOTAUpgradePackageRelativePath(c.Param("path"), c.Param("file"))
 	if err != nil {
 		otaParamError(c, err.Error())
 		return
 	}
 
-	if !utils.FileExist(filePath) {
+	file, err := os.OpenInRoot("./files/upgradePackage", filepath.FromSlash(relativePath))
+	if err != nil {
 		otaParamError(c, "file not exist")
+		return
+	}
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			log.Printf("Error closing OTA package: %v", closeErr)
+		}
+	}()
+	fileInfo, err := file.Stat()
+	if err != nil || !fileInfo.Mode().IsRegular() {
+		otaInternalError(c)
 		return
 	}
 
@@ -256,29 +267,17 @@ func (*OTAApi) DownloadOTAUpgradePackage(c *gin.Context) {
 	crc16Method := c.GetHeader("Crc16-Method")
 
 	if rangeHeader == "" {
-		c.File(filePath)
+		http.ServeContent(c.Writer, c.Request, filepath.Base(relativePath), fileInfo.ModTime(), file)
 		return
 	}
 
 	// Range 请求进入分片下载分支，并在响应头附带当前分片的 CRC16 校验值。
-	serveRangeFile(filePath, rangeHeader, crc16Method, c)
+	serveRangeFile(file, filepath.Base(relativePath), rangeHeader, crc16Method, c)
 }
 
 // serveRangeFile 输出指定字节区间的数据，并补齐 206 所需响应头。
 // 静态审查重点：两次 Seek 分别用于校验和发送，后续若改为流式摘要需确认不会破坏响应长度与读取位置。
-func serveRangeFile(filePath, rangeHeader, crc16Method string, c *gin.Context) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		otaInternalError(c)
-		return
-	}
-	defer func() {
-		closeErr := file.Close()
-		if closeErr != nil {
-			log.Printf("Error closing file: %v", closeErr)
-		}
-	}()
-
+func serveRangeFile(file *os.File, fileName, rangeHeader, crc16Method string, c *gin.Context) {
 	fileInfo, err := file.Stat()
 	if err != nil {
 		otaInternalError(c)
@@ -297,7 +296,7 @@ func serveRangeFile(filePath, rangeHeader, crc16Method string, c *gin.Context) {
 	c.Writer.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, fileSize))
 	c.Writer.Header().Set("Accept-Ranges", "bytes")
 	c.Writer.Header().Set("Content-Length", fmt.Sprintf("%d", contentLength))
-	contentType := mime.TypeByExtension(filepath.Ext(filePath))
+	contentType := mime.TypeByExtension(filepath.Ext(fileName))
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
@@ -408,6 +407,26 @@ func parseByteRange(rangeHeader string, fileSize int64) (int64, int64, error) {
 // safeOTAUpgradePackagePath 将 URL 参数限制在升级包目录下，防止路径穿越。
 // 静态审查重点：后续若变更基础目录或运行目录，需重新确认 filepath.Abs 与前缀比较的安全边界。
 func safeOTAUpgradePackagePath(pathParam, fileParam string) (string, error) {
+	relativePath, err := safeOTAUpgradePackageRelativePath(pathParam, fileParam)
+	if err != nil {
+		return "", err
+	}
+	base, err := filepath.Abs("./files/upgradePackage")
+	if err != nil {
+		return "", err
+	}
+	fullPath, err := filepath.Abs(filepath.Join(base, filepath.FromSlash(relativePath)))
+	if err != nil {
+		return "", err
+	}
+	baseWithSep := base + string(os.PathSeparator)
+	if fullPath != base && !strings.HasPrefix(fullPath, baseWithSep) {
+		return "", errors.New("invalid ota file path")
+	}
+	return fullPath, nil
+}
+
+func safeOTAUpgradePackageRelativePath(pathParam, fileParam string) (string, error) {
 	if strings.TrimSpace(pathParam) == "" || strings.TrimSpace(fileParam) == "" {
 		return "", errors.New("invalid ota file path")
 	}
@@ -422,17 +441,9 @@ func safeOTAUpgradePackagePath(pathParam, fileParam string) (string, error) {
 	if cleanFile != filepath.Base(cleanFile) || cleanFile == "." || cleanFile == ".." {
 		return "", errors.New("invalid ota file name")
 	}
-	base, err := filepath.Abs("./files/upgradePackage")
-	if err != nil {
-		return "", err
-	}
-	fullPath, err := filepath.Abs(filepath.Join(base, cleanPath, cleanFile))
-	if err != nil {
-		return "", err
-	}
-	baseWithSep := base + string(os.PathSeparator)
-	if fullPath != base && !strings.HasPrefix(fullPath, baseWithSep) {
+	relativePath := filepath.ToSlash(filepath.Join(cleanPath, cleanFile))
+	if strings.Contains(relativePath, ":") || strings.HasPrefix(relativePath, "../") || relativePath == ".." {
 		return "", errors.New("invalid ota file path")
 	}
-	return fullPath, nil
+	return relativePath, nil
 }

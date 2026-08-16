@@ -10,6 +10,7 @@ import (
 	"container/list"
 	"context"
 	"os"
+	"path/filepath"
 
 	"github.com/golang/protobuf/ptypes/empty"
 	"go.uber.org/zap"
@@ -54,10 +55,15 @@ func (a *Auth) Get(ctx context.Context, req *GetAccountRequest) (resp *GetAccoun
 
 // saveFileHandler is the default handler for auth.saveFile, must call after auth.mu is locked
 func (a *Auth) saveFileHandler() error {
-	tmpfile, err := os.CreateTemp("./", "gmqtt_password")
+	passwordFilePath := a.passwordFilePath()
+	tmpfile, err := os.CreateTemp(filepath.Dir(passwordFilePath), ".gmqtt_password-*")
 	if err != nil {
 		return err
 	}
+	defer func() {
+		_ = tmpfile.Close()
+		_ = os.Remove(tmpfile.Name())
+	}()
 	w := bufio.NewWriter(tmpfile)
 	// get all accounts
 	var accounts []*Account
@@ -78,9 +84,11 @@ func (a *Auth) saveFileHandler() error {
 	if err != nil {
 		return err
 	}
-	tmpfile.Close()
+	if err := tmpfile.Close(); err != nil {
+		return err
+	}
 	// replace the old password file.
-	return os.Rename(tmpfile.Name(), a.config.PasswordFile)
+	return os.Rename(tmpfile.Name(), passwordFilePath)
 }
 
 // Update updates the password for the account.

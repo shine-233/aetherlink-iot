@@ -15,6 +15,17 @@ export type BuildReadyCheckEvidenceDeepLinksOptions = {
   otaDetailId?: string
 }
 
+const READY_CHECK_ROUTE_QUERY_KEYS = new Set([
+  'source',
+  'tab',
+  'onboarding',
+  'fleet_source',
+  'command_source',
+  'ready_check',
+  'ota_task_id',
+  'ota_detail_id'
+])
+
 export const normalizeRouteQueryText = (value: unknown) => {
   if (Array.isArray(value)) return String(value[0] || '')
   return typeof value === 'string' ? value : ''
@@ -23,6 +34,7 @@ export const normalizeRouteQueryText = (value: unknown) => {
 export const normalizeRouteQueryForLink = (routeQuery: Record<string, unknown>) => {
   const query: Record<string, string> = {}
   Object.entries(routeQuery).forEach(([key, value]) => {
+    if (!READY_CHECK_ROUTE_QUERY_KEYS.has(key)) return
     const text = normalizeRouteQueryText(value)
     if (text) query[key] = text
   })

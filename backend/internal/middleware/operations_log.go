@@ -74,9 +74,7 @@ func OperationLogs() gin.HandlerFunc {
 		requestMessage := requestCapture.Message()
 		responseMessage := writer.Message()
 
-		logrus.Info("operation completed status=", c.Writer.Status(), " latency_ms=", cost, " response_bytes=", writer.body.Len())
-		logrus.Info("operation request body: ", requestMessage)
-		logrus.Info("operation response body: ", responseMessage)
+		logrus.Info("operation completed and request/response bodies captured")
 
 		saveOperationLog(c, start, cost, requestMessage, responseMessage)
 	}

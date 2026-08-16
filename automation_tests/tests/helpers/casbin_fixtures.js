@@ -6,6 +6,7 @@
  */
 
 const { expect } = require('chai');
+const crypto = require('crypto');
 
 function expectOk(resp) {
   expect(resp).to.be.an('object');
@@ -30,7 +31,11 @@ function listFrom(resp) {
 }
 
 function uniqueSuffix() {
-  return Date.now() + '_' + Math.floor(Math.random() * 1000000);
+  return Date.now() + '_' + crypto.randomBytes(8).toString('hex');
+}
+
+function dynamicPassword() {
+  return `Test@${crypto.randomBytes(18).toString('base64url')}`;
 }
 
 function collectUiElementIds(items, result = []) {
@@ -78,13 +83,14 @@ async function createRole(apiClient, prefix = '自动化权限角色', accountKe
 
 async function createUser(apiClient, prefix = '自动化权限用户', roleIds = [], accountKey = 'tenant_admin') {
   const suffix = uniqueSuffix();
+  const password = dynamicPassword();
   const digits = suffix.replace(/\D/g, '').slice(-8).padStart(8, '0');
   const email = 'codex_casbin_' + suffix + '@test.com';
   const resp = await apiClient.post(
     '/user',
     {
       email,
-      password: 'Test@2026',
+      password,
       name: prefix,
       phone_number: '+86 139' + digits,
       userRoles: roleIds

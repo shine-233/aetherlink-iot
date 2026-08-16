@@ -121,7 +121,7 @@ func validateJWTUserStatus(ctx context.Context, claims *utils.UserClaims) (activ
 		First(&user).Error
 	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			logrus.Warnf("jwt user status check failed for user %s: %v", claims.ID, err)
+			logrus.Warn("jwt user status check failed")
 			return false, false
 		}
 		return false, true
@@ -137,7 +137,7 @@ func deleteCurrentRedisToken(ctx context.Context, token string) {
 		return
 	}
 	if err := global.REDIS.Del(ctx, token).Err(); err != nil {
-		logrus.Warnf("delete invalid jwt token from redis failed: %v", err)
+		logrus.Warn("delete invalid jwt token from redis failed")
 	}
 }
 

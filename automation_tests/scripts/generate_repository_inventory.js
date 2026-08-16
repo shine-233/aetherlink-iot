@@ -170,26 +170,30 @@ function recommendationFor(relativePath, category, gitStatus, sensitive) {
 
 function inspectEntry(entry) {
   const absolutePath = path.join(projectRoot, ...entry.path.split('/'));
-  const exists = fs.existsSync(absolutePath);
   const sensitive = isSensitivePath(entry.path);
   let bytes = 0;
   let lines = '';
-  let contentKind = exists ? 'metadata-only' : 'missing';
+  let exists = true;
+  let contentKind = 'metadata-only';
 
-  if (exists) {
-    const stat = fs.statSync(absolutePath);
-    bytes = stat.size;
-    if (!sensitive && stat.isFile()) {
+  try {
+    if (sensitive) {
+      bytes = fs.statSync(absolutePath).size;
+      contentKind = 'sensitive-metadata-only';
+    } else {
       const content = fs.readFileSync(absolutePath);
+      bytes = content.length;
       if (content.includes(0)) {
         contentKind = 'binary';
       } else {
         contentKind = 'text';
         lines = content.length === 0 ? 0 : content.toString('utf8').split(/\r\n|\n|\r/).length;
       }
-    } else if (sensitive) {
-      contentKind = 'sensitive-metadata-only';
     }
+  } catch (error) {
+    exists = false;
+    if (!['ENOENT', 'ENOTDIR'].includes(error.code)) throw error;
+    contentKind = 'missing';
   }
 
   const gitStatus = !exists && entry.tracked

@@ -355,7 +355,12 @@ func otaSupportBundleStatusTotals(statistics []map[string]interface{}) (int64, i
 }
 
 func int16FromSQLValue(value interface{}) int16 {
-	return int16(int64FromSQLValue(value))
+	value64 := int64FromSQLValue(value)
+	parsed, err := strconv.ParseInt(strconv.FormatInt(value64, 10), 10, 16)
+	if err != nil {
+		return 0
+	}
+	return int16(parsed)
 }
 
 func int64FromSQLValue(value interface{}) int64 {

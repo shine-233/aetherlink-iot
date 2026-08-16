@@ -22,11 +22,14 @@ func TestFileExistReportsExistingAndMissingPaths(t *testing.T) {
 		t.Fatalf("write temp file: %v", err)
 	}
 
-	if !FileExist(filePath) {
-		t.Fatalf("FileExist(%q) = false, want true", filePath)
+	if !FileExistInRoot(dir, "upload.csv") {
+		t.Fatalf("FileExistInRoot(%q, %q) = false, want true", dir, "upload.csv")
 	}
-	if FileExist(filepath.Join(dir, "missing.csv")) {
-		t.Fatal("FileExist returned true for a missing file")
+	if FileExistInRoot(dir, "missing.csv") {
+		t.Fatal("FileExistInRoot returned true for a missing file")
+	}
+	if FileExistInRoot(dir, "../upload.csv") {
+		t.Fatal("FileExistInRoot accepted a traversal path")
 	}
 }
 
@@ -136,7 +139,7 @@ func TestFileSignReturnsMD5AndSHA256Digests(t *testing.T) {
 	}
 
 	md5Sum := md5.Sum(content)
-	gotMD5, err := FileSign(filePath, "MD5")
+	gotMD5, err := FileSignInRoot(dir, "payload.txt", "MD5")
 	if err != nil {
 		t.Fatalf("FileSign MD5 returned error: %v", err)
 	}
@@ -145,7 +148,7 @@ func TestFileSignReturnsMD5AndSHA256Digests(t *testing.T) {
 	}
 
 	shaSum := sha256.Sum256(content)
-	gotSHA, err := FileSign(filePath, "SHA256")
+	gotSHA, err := FileSignInRoot(dir, "payload.txt", "SHA256")
 	if err != nil {
 		t.Fatalf("FileSign SHA256 returned error: %v", err)
 	}
@@ -159,7 +162,10 @@ func TestFileSignReturnsMD5AndSHA256Digests(t *testing.T) {
 		t.Fatal("FileSign SHA256 matched MD5 digest, want distinct SHA256 digest")
 	}
 
-	if _, err := FileSign(filepath.Join(dir, "missing.txt"), "MD5"); err == nil {
+	if _, err := FileSignInRoot(dir, "missing.txt", "MD5"); err == nil {
 		t.Fatal("FileSign returned nil error for missing file")
+	}
+	if _, err := FileSignInRoot(dir, "../payload.txt", "MD5"); err == nil {
+		t.Fatal("FileSignInRoot accepted a traversal path")
 	}
 }

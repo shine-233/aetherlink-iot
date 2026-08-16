@@ -173,7 +173,7 @@ func (*DictApi) HandleDictLisyByPage(c *gin.Context) {
 		return
 	}
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
-	logrus.Info("byList", byList)
+	logrus.Info("dictionary list request received")
 	list, err := service.GroupApp.Dict.GetDictListByPage(&byList, userClaims)
 	if err != nil {
 		c.Error(err)

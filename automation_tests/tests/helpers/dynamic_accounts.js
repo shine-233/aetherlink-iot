@@ -6,8 +6,11 @@
  */
 
 const { expect } = require('chai');
+const crypto = require('crypto');
 
-const PASSWORD = 'Test@2026';
+function dynamicPassword() {
+  return `Test@${crypto.randomBytes(18).toString('base64url')}`;
+}
 
 function expectOk(resp) {
   expect(resp).to.be.an('object');
@@ -15,7 +18,7 @@ function expectOk(resp) {
 }
 
 function uniqueSuffix() {
-  return Date.now() + '_' + Math.floor(Math.random() * 1000000);
+  return Date.now() + '_' + crypto.randomBytes(8).toString('hex');
 }
 
 function extractId(entity) {
@@ -30,6 +33,7 @@ function listFrom(resp) {
 
 async function createTenantAdminAccount(apiClient, prefix = 'codex_share_recipient') {
   const suffix = uniqueSuffix();
+  const password = dynamicPassword();
   const digits = suffix.replace(/\D/g, '').slice(-8).padStart(8, '0');
   const email = prefix + '_' + suffix + '@test.com';
 
@@ -38,7 +42,7 @@ async function createTenantAdminAccount(apiClient, prefix = 'codex_share_recipie
     '/user',
     {
       email,
-      password: PASSWORD,
+      password,
       name: '动态收件租户',
       phone_number: '+86 138' + digits
     },
@@ -53,7 +57,7 @@ async function createTenantAdminAccount(apiClient, prefix = 'codex_share_recipie
   const userId = extractId(created);
   expect(userId).to.be.a('string').and.not.equal('');
 
-  const loginResp = await apiClient.postNoAuth('/login', { email, password: PASSWORD });
+  const loginResp = await apiClient.postNoAuth('/login', { email, password });
   expectOk(loginResp);
   expect(loginResp.data).to.be.an('object');
   expect(loginResp.data.token).to.be.a('string').and.not.equal('');
@@ -66,6 +70,7 @@ async function createTenantAdminAccount(apiClient, prefix = 'codex_share_recipie
 
 async function createTenantUserAccount(apiClient, prefix = 'codex_tenant_user') {
   const suffix = uniqueSuffix();
+  const password = dynamicPassword();
   const digits = suffix.replace(/\D/g, '').slice(-8).padStart(8, '0');
   const email = prefix + '_' + suffix + '@test.com';
 
@@ -74,7 +79,7 @@ async function createTenantUserAccount(apiClient, prefix = 'codex_tenant_user') 
     '/user',
     {
       email,
-      password: PASSWORD,
+      password,
       name: '动态租户用户',
       phone_number: '+86 137' + digits
     },
@@ -89,7 +94,7 @@ async function createTenantUserAccount(apiClient, prefix = 'codex_tenant_user') 
   const userId = extractId(created);
   expect(userId).to.be.a('string').and.not.equal('');
 
-  const loginResp = await apiClient.postNoAuth('/login', { email, password: PASSWORD });
+  const loginResp = await apiClient.postNoAuth('/login', { email, password });
   expectOk(loginResp);
   expect(loginResp.data).to.be.an('object');
   expect(loginResp.data.token).to.be.a('string').and.not.equal('');

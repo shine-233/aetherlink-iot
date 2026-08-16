@@ -8,9 +8,13 @@
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
-const config = require('../lib/runtime_config');
+const config = require('../lib/network_runtime');
 
 const AUTH_DIR = path.resolve(__dirname, '..', config.e2e.storageStateDir);
+const AUTH_ROOT = path.resolve(__dirname, '.auth');
+if (AUTH_DIR !== AUTH_ROOT && !AUTH_DIR.startsWith(`${AUTH_ROOT}${path.sep}`)) {
+  throw new Error('E2E_AUTH_DIR must remain under automation_tests/e2e/.auth');
+}
 
 const ROLE_FILES = {
   super_admin: 'super-admin.json',
@@ -64,6 +68,16 @@ function createStorageState(loginToken, userInfo) {
   };
 }
 
+function writePrivateJSON(filePath, value) {
+  const descriptor = fs.openSync(filePath, 'w', 0o600);
+  try {
+    fs.writeFileSync(descriptor, JSON.stringify(value, null, 2), 'utf8');
+  } finally {
+    fs.closeSync(descriptor);
+  }
+  fs.chmodSync(filePath, 0o600);
+}
+
 async function loginAndSave(accountKey) {
   const account = config.accounts[accountKey];
   if (!account) {
@@ -98,10 +112,10 @@ async function loginAndSave(accountKey) {
     }
 
     const filePath = getAuthStatePath(accountKey);
-    fs.writeFileSync(filePath, JSON.stringify(createStorageState(loginToken, userInfo), null, 2), 'utf8');
-    console.log(`  saved auth state: ${accountKey} -> ${filePath}`);
+    writePrivateJSON(filePath, createStorageState(loginToken, userInfo));
+    console.log(`  saved auth state: ${accountKey}`);
   } catch (err) {
-    throw new Error(`${accountKey} (${account.email}): ${err.message}`);
+    throw new Error(`${accountKey}: authentication setup failed`);
   }
 }
 

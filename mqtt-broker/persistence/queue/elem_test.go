@@ -74,6 +74,24 @@ func TestElem_Encode_Pubrel(t *testing.T) {
 	assertElemEqual(a, e, de)
 }
 
+func TestElem_Encode_PreservesSignedTimestamps(t *testing.T) {
+	expected := &Elem{
+		At:            time.Unix(-123, 0),
+		Expiry:        time.Unix(-456, 0),
+		MessageWithID: &Pubrel{PacketID: 9},
+	}
+	actual := &Elem{}
+	if err := actual.Decode(expected.Encode()); err != nil {
+		t.Fatalf("decode encoded element: %v", err)
+	}
+	if actual.At.Unix() != expected.At.Unix() {
+		t.Fatalf("entry timestamp = %d, want %d", actual.At.Unix(), expected.At.Unix())
+	}
+	if actual.Expiry.Unix() != expected.Expiry.Unix() {
+		t.Fatalf("expiry timestamp = %d, want %d", actual.Expiry.Unix(), expected.Expiry.Unix())
+	}
+}
+
 func Benchmark_Encode_Publish(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		e := &Elem{

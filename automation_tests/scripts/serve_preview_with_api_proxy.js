@@ -14,16 +14,54 @@ const rootDir = path.resolve(__dirname, '..', '..');
 const distDir = path.join(rootDir, 'frontend', 'dist');
 const host = process.env.PREVIEW_PROXY_HOST || '127.0.0.1';
 const port = Number(process.env.PREVIEW_PROXY_PORT || 9725);
-const apiTarget = process.env.API_TARGET || 'http://127.0.0.1:9999';
+
+const LOCAL_TARGET_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+
+function validateProxyTarget(rawValue, name) {
+  let target;
+  try {
+    target = new URL(String(rawValue || '').trim());
+  } catch {
+    throw new Error(`${name} must be an absolute HTTP URL`);
+  }
+  if (target.protocol !== 'http:' || !target.hostname) {
+    throw new Error(`${name} must use http and include a hostname`);
+  }
+  if (target.username || target.password) {
+    throw new Error(`${name} must not contain embedded credentials`);
+  }
+
+  const allowedOrigins = new Set(
+    String(process.env.AETHERLINK_ALLOWED_PROXY_ORIGINS || '')
+      .split(',')
+      .map(value => value.trim())
+      .filter(Boolean)
+  );
+  const local = LOCAL_TARGET_HOSTS.has(target.hostname.toLowerCase());
+  if (!local && process.env.AETHERLINK_ALLOW_EXTERNAL_TARGETS !== '1' && !allowedOrigins.has(target.origin)) {
+    throw new Error(
+      `${name} points to an external origin; configure AETHERLINK_ALLOWED_PROXY_ORIGINS explicitly`
+    );
+  }
+  return target.toString().replace(/\/$/, '');
+}
+
+const apiTarget = validateProxyTarget(
+  process.env.API_TARGET || 'http://127.0.0.1:9999',
+  'API_TARGET'
+);
 // Keep the release preview proxy aligned with the Vite development proxy:
 // `/thingsvis-api/*` is a browser-facing prefix and the external service
 // exposes the actual API under `/api/v1/*`.  A failed optional service should
 // become a concrete 502 JSON response, not the SPA index.html (which would
 // make a real integration failure look like an HTML/JSON parsing accident).
 const thingsVisApiTarget =
-  process.env.THINGSVIS_API_TARGET ||
-  process.env.VITE_THINGSVIS_API_URL ||
-  'http://127.0.0.1:8000';
+  validateProxyTarget(
+    process.env.THINGSVIS_API_TARGET ||
+      process.env.VITE_THINGSVIS_API_URL ||
+      'http://127.0.0.1:8000',
+    'THINGSVIS_API_TARGET'
+  );
 const thingsVisProxyPath = '/thingsvis-api';
 
 const contentTypes = {
@@ -46,7 +84,7 @@ function safeJoin(baseDir, requestPath) {
   const normalized = path.normalize(decodedPath).replace(/^([/\\])+/, '');
   const resolved = path.resolve(baseDir, normalized);
 
-  if (!resolved.startsWith(baseDir)) {
+  if (resolved !== baseDir && !resolved.startsWith(`${baseDir}${path.sep}`)) {
     return null;
   }
   return resolved;
@@ -167,8 +205,11 @@ function proxyWebSocket(request, clientSocket, head, targetURL) {
 }
 
 function createServer(options = {}) {
-  const configuredApiTarget = options.apiTarget || apiTarget;
-  const configuredThingsVisApiTarget = options.thingsVisApiTarget || thingsVisApiTarget;
+  const configuredApiTarget = validateProxyTarget(options.apiTarget || apiTarget, 'API_TARGET');
+  const configuredThingsVisApiTarget = validateProxyTarget(
+    options.thingsVisApiTarget || thingsVisApiTarget,
+    'THINGSVIS_API_TARGET'
+  );
   const configuredDistDir = options.distDir || distDir;
 
   const server = http.createServer((request, response) => {

@@ -19,19 +19,14 @@ func PublishMessage(host string, port string, topic string, payload string, user
 	})
 	c := mqtt.NewClient(opts)
 	if token := c.Connect(); token.Wait() && token.Error() != nil {
-		logrus.Error("simulation MQTT Broker 连接失败:", token.Error())
+		logrus.Error("simulation MQTT Broker connection failed")
 		return token.Error()
 	}
 	defer c.Disconnect(250)
-	logrus.Debug("username:", username)
-	logrus.Debug("clientId:", clientId)
-	logrus.Debug("host:", host)
-	logrus.Debug("port:", port)
-	logrus.Debug("Topic:", topic)
-	logrus.Debug("Payload:", payload)
+	logrus.Debug("simulation MQTT publish request prepared")
 	token := c.Publish(topic, 0, false, simulationPayload(payload))
 	if token.Wait() && token.Error() != nil {
-		logrus.Error("simulation MQTT Broker 发布失败:", token.Error())
+		logrus.Error("simulation MQTT Broker publish failed")
 		return token.Error()
 	}
 	return nil

@@ -71,6 +71,10 @@ vi.mock('vue-router', async importOriginal => {
 vi.mock('@aetherlink/hooks', () => {
   const loading = ref(false)
   return {
+    useContext: () => ({
+      setupStore: vi.fn(),
+      useStore: () => ({ menus: ref([]) })
+    }),
     useLoading: () => ({
       loading,
       startLoading: vi.fn(() => {

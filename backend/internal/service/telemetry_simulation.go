@@ -88,7 +88,11 @@ func (*TelemetryData) TelemetryPub(mosquittoCommand string, claims *utils.UserCl
 	}
 
 	// 发送mqtt消息
-	logrus.WithFields(telemetryPublishLogFields(params)).Debug("publishing telemetry simulation command")
+	if params == nil {
+		logrus.Debug("publishing telemetry simulation command without parameters")
+	} else {
+		logrus.WithField("payload_size", len(params.Payload)).Debug("publishing telemetry simulation command")
+	}
 	err = simulationpublish.PublishMessage(params.Host, params.Port, params.Topic, params.Payload, params.Username, params.Password, params.ClientId)
 	if err != nil {
 		return nil, errcode.WithVars(500007, map[string]interface{}{
@@ -236,7 +240,7 @@ func (*TelemetryData) SimulationSend(req *model.SimulationSendReq, claims *utils
 	clientID := "mqtt_" + uuid.New()[0:12]
 
 	// 发送 MQTT 消息
-	logrus.WithFields(simulationSendLogFields(host, port, topic, clientID, req.Data)).Debug("publishing telemetry simulation data")
+	logrus.WithField("payload_size", len(req.Data)).Debug("publishing telemetry simulation data")
 	err = simulationpublish.PublishMessage(host, port, topic, req.Data, username, password, clientID)
 	if err != nil {
 		return errcode.WithVars(500007, map[string]interface{}{

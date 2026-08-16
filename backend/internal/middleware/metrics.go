@@ -36,7 +36,7 @@ func MetricsMiddleware(m *metrics.Metrics) gin.HandlerFunc {
 			if err := recover(); err != nil {
 				m.RecordAPIError("panic")
 				m.RecordCriticalError()
-				logrus.Errorf("请求处理发生 panic: %v, path: %s", err, path)
+				logrus.Error("request panic recovered")
 			}
 		}()
 

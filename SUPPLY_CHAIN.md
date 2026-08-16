@@ -44,11 +44,11 @@ npm run sbom:local
 - CycloneDX/SPDX 发布格式和范围应按所选标准归档；CycloneDX 1.6 区分 build lifecycle 和 required/optional scope，见 [CycloneDX v1.6 JSON Reference](https://cyclonedx.org/docs/1.6/json/)。
 - npm/pnpm advisory 检查：需要当前 registry/advisory 数据，应归档工具版本、时间和退出码。
 
-上述 resolved/image SBOM 与漏洞、许可证、attestation 能力在默认 preflight 中保持 `optional-external / not-run`，不能输出假通过。
+上述 resolved/image SBOM 与漏洞、许可证、attestation 能力在默认本地 preflight 中保持 `optional-external / not-run`，不能输出假通过；正式 tag release 的 source-manifest SBOM、容器 BuildKit image SBOM 和 registry provenance/attestation 属于独立的托管发布证据。
 
 ## GitHub 托管检查（hosted-github）
 
-仓库已经接入 [`.github/workflows/dependency-review.yml`](.github/workflows/dependency-review.yml)。它在 Pull Request 上调用 GitHub 的 Dependency Review action，依赖 GitHub dependency graph 和托管仓库权限，设置为发现 high 或 critical 风险时失败，并把摘要写入 PR。
+仓库已经接入 [`.github/workflows/dependency-review.yml`](.github/workflows/dependency-review.yml)。它在 Pull Request 上调用 GitHub 的 Dependency Review action，依赖 GitHub dependency graph 和托管仓库权限，设置为发现 moderate、high 或 critical 风险时失败，并把摘要写入 PR。
 
 这条 workflow 证明的是“本次 PR 的依赖变更经过 GitHub 托管检查”，不是本地 `preflight:supply-chain` 的替代品，也不等价于完整许可证兼容审计、运行时漏洞验证或镜像 SBOM。官方能力边界见 [GitHub Dependency Review](https://docs.github.com/en/code-security/supply-chain-security/understanding-your-software-supply-chain/about-dependency-review)。
 
@@ -64,4 +64,4 @@ npm run sbom:local
 
 - 修改 module、lockfile、Docker builder 或包管理器版本时，同步运行供应链契约和对应模块全量测试。
 - 新增外部依赖先确认 license、NOTICE、运行必要性和本地替代；同步更新 `THIRD_PARTY_NOTICES.md`（如适用）。
-- 本地 source-manifest SBOM 与完整 resolved/image SBOM 必须分层表述；漏洞扫描、完整 SBOM、attestation 和 hosted review 的 `not-run`/失败状态不得用本地清单快照或静态文档替代。
+- 本地 source-manifest SBOM 与完整 resolved/image SBOM 必须分层表述；漏洞扫描、完整 SBOM、attestation 和 hosted review 的 `not-run`/失败状态不得用本地清单快照或静态文档替代。发布 workflow 已有独立的 source/image SBOM 与 provenance 证据，但它们也不替代运行时部署验收。

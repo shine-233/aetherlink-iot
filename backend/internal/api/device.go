@@ -497,10 +497,10 @@ func (*DeviceApi) GatewayRegister(c *gin.Context) {
 func (*DeviceApi) GatewaySubRegister(c *gin.Context) {
 	var req model.DeviceRegisterReq
 	if !BindAndValidate(c, &req) {
-		logrus.Warningf("GatewaySubRegister:%#v", req)
+		logrus.Warning("GatewaySubRegister validation failed")
 		return
 	}
-	logrus.Warningf("GatewaySubRegister:%#v", req)
+	logrus.Info("GatewaySubRegister request received")
 	if !middleware.OpenAPIKeyAuth(c) {
 		return
 	}

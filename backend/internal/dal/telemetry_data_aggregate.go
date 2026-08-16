@@ -62,78 +62,97 @@ func aggregateQueryArgs(telemetryDatasAggregate TelemetryDatasAggregate) []inter
 	}
 }
 
-// 获取queryString，支持平均值，最大值，最小值，合计
-func GetQueryString1(aggregateFunction string) string {
-	queryString := fmt.Sprintf(
-		`WITH FilteredData AS (
-				SELECT
-					ts / 1000 AS ts_sec,
-					number_v
-				FROM
-					telemetry_datas
-				WHERE
-					ts BETWEEN ? AND ? AND key = ? AND device_id = ?
-					AND number_v IS NOT NULL
-					AND abs(number_v) < 1e15
-			),
-			TimeIntervals AS (
-				SELECT
-					ts_sec - (ts_sec %% ?) AS x,
-					%s(number_v) AS y
-				FROM
-					FilteredData
-				GROUP BY
-					x
-			)
+const telemetryAggregateQueryPrefix = `WITH FilteredData AS (
 			SELECT
-				x * 1000 AS x,
-				(x + ?) * 1000 AS x2,
-				y
+				ts / 1000 AS ts_sec,
+				number_v
 			FROM
-				TimeIntervals
+				telemetry_datas
 			WHERE
-				y IS NOT NULL
-			ORDER BY
-				x ASC;`,
-		aggregateFunction,
-	)
-	return queryString
+				ts BETWEEN ? AND ? AND key = ? AND device_id = ?
+				AND number_v IS NOT NULL
+				AND abs(number_v) < 1e15
+		),
+		TimeIntervals AS (
+			SELECT
+				ts_sec - (ts_sec % ?) AS x,
+				`
+
+const telemetryAggregateQuerySuffix = `
+			FROM
+				FilteredData
+			GROUP BY
+				x
+		)
+		SELECT
+			x * 1000 AS x,
+			(x + ?) * 1000 AS x2,
+			y
+		FROM
+			TimeIntervals
+		WHERE
+			y IS NOT NULL
+		ORDER BY
+			x ASC;`
+
+const (
+	telemetryAggregateAvgQuery = telemetryAggregateQueryPrefix + "AVG(number_v) AS y" + telemetryAggregateQuerySuffix
+	telemetryAggregateMaxQuery = telemetryAggregateQueryPrefix + "MAX(number_v) AS y" + telemetryAggregateQuerySuffix
+	telemetryAggregateMinQuery = telemetryAggregateQueryPrefix + "MIN(number_v) AS y" + telemetryAggregateQuerySuffix
+	telemetryAggregateSumQuery = telemetryAggregateQueryPrefix + "SUM(number_v) AS y" + telemetryAggregateQuerySuffix
+)
+
+const telemetryDiffQuery = `WITH FilteredData AS (
+			SELECT
+				ts / 1000 AS ts_sec,
+				number_v
+			FROM
+				telemetry_datas
+			WHERE
+				ts BETWEEN ? AND ? AND key = ? AND device_id = ?
+				AND number_v IS NOT NULL
+				AND abs(number_v) < 1e15
+		),
+		TimeIntervals AS (
+			SELECT
+				ts_sec - (ts_sec % ?) AS x,
+				MAX(number_v) - MIN(number_v) AS y
+			FROM
+				FilteredData
+			GROUP BY
+				x
+		)
+		SELECT
+			x * 1000 AS x,
+			(x + ?) * 1000 AS x2,
+			y
+		FROM
+			TimeIntervals
+		WHERE
+			y IS NOT NULL
+		ORDER BY
+			x ASC;`
+
+// GetQueryString1 returns one of the fixed aggregate SQL statements. The
+// request value selects a constant expression and is never interpolated into
+// SQL, while the query values themselves remain parameterized by GORM.
+func GetQueryString1(aggregateFunction string) string {
+	switch aggregateFunction {
+	case "avg":
+		return telemetryAggregateAvgQuery
+	case "max":
+		return telemetryAggregateMaxQuery
+	case "min":
+		return telemetryAggregateMinQuery
+	case "sum":
+		return telemetryAggregateSumQuery
+	default:
+		return ""
+	}
 }
 
-// 获取queryString，支持差值计算
+// GetQueryString2 returns the fixed difference query. The argument is kept for
+// API compatibility with the older query builder.
 func GetQueryString2(_ string) string {
-	queryString := fmt.Sprintf(
-		`WITH FilteredData AS (
-				SELECT
-					ts / 1000 AS ts_sec,
-					number_v
-				FROM
-					telemetry_datas
-				WHERE
-					ts BETWEEN ? AND ? AND key = ? AND device_id = ?
-					AND number_v IS NOT NULL
-					AND abs(number_v) < 1e15
-			),
-			TimeIntervals AS (
-				SELECT
-					ts_sec - (ts_sec %% ?) AS x,
-					MAX(number_v) - MIN(number_v) AS y
-				FROM
-					FilteredData
-				GROUP BY
-					x
-			)
-			SELECT
-				x * 1000 AS x,
-				(x + ?) * 1000 AS x2,
-				y
-			FROM
-				TimeIntervals
-			WHERE
-				y IS NOT NULL
-			ORDER BY
-				x ASC;`,
-	)
-
-	return queryString
+	return telemetryDiffQuery
 }

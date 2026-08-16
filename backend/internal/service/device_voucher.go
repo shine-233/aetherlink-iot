@@ -52,7 +52,7 @@ func serializeUpdateDeviceVoucher(ctx context.Context, voucher any) (string, err
 
 	result, err := common.JsonToString(voucher)
 	if err != nil {
-		logrus.Error(ctx, "[Device][UpdateDeviceVoucher]JsonToString failed:", err)
+		logrus.Error("[Device][UpdateDeviceVoucher] JsonToString failed")
 		return "", err
 	}
 	return result, nil
@@ -91,13 +91,13 @@ func persistAndReloadVoucher(
 		Voucher: voucher,
 	}
 	if err := db.Update(ctx, info, device.Voucher); err != nil {
-		logrus.Error(ctx, "[Device][UpdateDeviceVoucher]failed:", err)
+		logrus.Error("[Device][UpdateDeviceVoucher] update failed")
 		return nil, err
 	}
 
 	reloaded, err := db.First(ctx, device.ID.Eq(deviceID))
 	if err != nil {
-		logrus.Error(ctx, "[Device][UpdateDeviceVoucher]first failed:", err)
+		logrus.Error("[Device][UpdateDeviceVoucher] reload failed")
 		return nil, err
 	}
 	return reloaded, nil
@@ -125,7 +125,7 @@ func ensureUpdatedVoucherAvailable(voucher string, deviceID string, changed bool
 // handleUpdatedVoucherSideEffects 在凭证更新后删除旧缓存、刷新设备缓存，并按协议类型决定是否断连。
 func handleUpdatedVoucherSideEffects(ctx context.Context, deviceID string, deviceInfo *model.Device) {
 	if err := global.REDIS.Del(ctx, deviceInfo.Voucher).Err(); err != nil {
-		logrus.WithError(err).WithField("device_id", deviceID).Warn("[Device][UpdateDeviceVoucher]delete old voucher cache failed")
+		logrus.Warn("[Device][UpdateDeviceVoucher] delete old voucher cache failed")
 	}
 	disconnectNonMQTTDeviceAfterVoucherChange(ctx, deviceID, deviceInfo)
 }
@@ -138,14 +138,14 @@ func disconnectNonMQTTDeviceAfterVoucherChange(ctx context.Context, deviceID str
 
 	deviceConfig, err := dal.GetDeviceConfigByID(*deviceInfo.DeviceConfigID)
 	if err != nil {
-		logrus.Error(ctx, "[Device][UpdateDeviceVoucher]GetDeviceConfigByID failed:", err)
+		logrus.Error("[Device][UpdateDeviceVoucher] GetDeviceConfigByID failed")
 		return
 	}
 	if !shouldDisconnectAfterVoucherChange(deviceConfig) {
 		return
 	}
 	if disconnectErr := protocolplugin.DisconnectDeviceByDeviceID(deviceID); disconnectErr != nil {
-		logrus.Error(ctx, "[Device][UpdateDeviceVoucher]DisconnectDeviceByDeviceID failed:", disconnectErr)
+		logrus.Error("[Device][UpdateDeviceVoucher] DisconnectDeviceByDeviceID failed")
 	}
 }
 

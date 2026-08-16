@@ -52,11 +52,11 @@
 
 当前已启用或已接入：
 
-- Actions、SHA pinning required、只读默认 `GITHUB_TOKEN` 权限，以及源码 CI、Minimum quality gate、CodeQL、Dependency Review 和手动/夜间 integration workflow。
+- Actions、SHA pinning required、只读默认 `GITHUB_TOKEN` 权限，以及源码 CI、Minimum quality gate、CodeQL（GitHub Actions、Go、JavaScript/TypeScript）、Dependency Review 和手动/夜间 integration workflow。
 - Dependabot alerts、security updates、automated security fixes，以及 GitHub Actions、frontend/automation npm、三个 Go module 和三个 Docker 目录的版本更新配置。
 - Secret Scanning、Push Protection、Issues、Discussions、Projects、Wiki、Issue Forms、PR 模板和 CODEOWNERS。
 - `integration` environment；当前没有真实 API、账号、设备凭据或生产 secrets，因此手动/夜间 workflow 默认不会伪造 live 验收。
-- `.github/workflows/container-release.yml` 已加入；它只在正式 tag 或手动指定已有 tag 时构建三个源码镜像，并要求 SBOM、provenance 和 digest attestation。首次 GHCR 发布、包可见性和 attestation 已由托管运行验证，具体证据见下节。
+- `.github/workflows/release.yml` 和 `.github/workflows/container-release.yml` 只在正式 tag push 时发布；源码 release 附带 checksum、source-manifest SBOM 和各自的 provenance，三个容器镜像要求 BuildKit SBOM、maximum-detail provenance 和 digest attestation。首次 GHCR 发布、包可见性和 attestation 已由托管运行验证，具体证据见下节。
 
 ### GHCR 首次发布证据
 
@@ -70,7 +70,7 @@
 
 本机使用 GitHub API 下载的 bundle 对三个 digest 分别运行了 `gh attestation verify`，并强制校验了仓库 `shine-233/aetherlink-iot`、签名 workflow `.github/workflows/container-release.yml`、源 ref `refs/heads/main` 和源提交 `57c7a40c58ebc65e4da87381a3bc45c02e141539`；三次均通过，且包含 Rekor 时间戳。这是镜像 digest、签名身份和托管构建证据，不是目标服务器、外部 API、Broker 或真实设备验收。
 
-该次运行是用 `workflow_dispatch` 手动指定 `tag=v0.1.0`，workflow 的 checkout 使用了这个 tag 作为构建源码输入；但是 attestation 证书和 SLSA provenance 的上下文记录为 `refs/heads/main` 与提交 `57c7a40`，而不是 tag-triggered 的 `refs/tags/v0.1.0`。因此当前文档只把它表述为“已发布的 tag-selected source 镜像”，不宣称它是由 `v0.1.0` tag 事件触发的 provenance。若需要严格的 tag provenance，应使用后续新的 patch tag 触发 tag workflow，或先修改并验证 workflow 的发布语义；不可变的 `v0.1.0` Source Release 不回写。
+历史证据：该次运行来自旧版 workflow，并通过 `workflow_dispatch` 手动指定了 `tag=v0.1.0`；workflow 的 checkout 使用了这个 tag 作为构建源码输入，但是 attestation 证书和 SLSA provenance 的上下文记录为 `refs/heads/main` 与提交 `57c7a40`，而不是 tag-triggered 的 `refs/tags/v0.1.0`。这不代表当前 `.github/workflows/container-release.yml` 仍支持手动 tag 输入；当前发布 workflow 只接受正式的 `v*.*.*` tag push。该历史镜像只应表述为“已发布的 tag-selected source 镜像”，不能宣称它是由 `v0.1.0` tag 事件触发的 provenance。若需要严格的 tag provenance，应使用后续新的 patch tag 触发当前 tag workflow；不可变的 `v0.1.0` Source Release 不回写。
 
 当前尚未完成：真实 API/E2E/设备和目标部署验收。`main` 分支保护、正式 Git tag/Source Release 和 GHCR 首次发布已完成并已验证。Secret Scanning 的 non-provider patterns 与 validity checks 仍以 GitHub 当前设置为准，不能在文档中写成已启用。
 
