@@ -148,6 +148,15 @@ func setupTelemetryCurrentUpsertTestDB(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatalf("open sqlite pool: %v", err)
+	}
+	// Keep the migrated in-memory schema on the same connection used by the
+	// asynchronous writer and the test's final readback.
+	sqlDB.SetMaxOpenConns(1)
+	sqlDB.SetMaxIdleConns(1)
+	t.Cleanup(func() { _ = sqlDB.Close() })
 	if err := db.AutoMigrate(&TelemetryData{}, &TelemetryCurrentData{}); err != nil {
 		t.Fatalf("migrate telemetry tables: %v", err)
 	}
