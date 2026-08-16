@@ -198,7 +198,7 @@ func deleteDeviceRecord(tx *query.QueryTx, id, tenantID string) error {
 func finalizeDeviceDelete(id string, deviceInfo *model.Device) {
 	deleteDeviceVoucherCache(id, deviceInfo.Voucher)
 	if disconnectErr := protocolplugin.DisconnectDeviceByDeviceSnapshot(deviceInfo); disconnectErr != nil {
-		logrus.Error("DisconnectDeviceByDeviceID failed:", disconnectErr)
+		logrus.Error("DisconnectDeviceByDeviceID failed")
 	}
 }
 
@@ -207,7 +207,7 @@ func deleteDeviceVoucherCache(deviceID, voucher string) {
 		return
 	}
 	if err := global.REDIS.Del(context.Background(), voucher).Err(); err != nil {
-		logrus.WithError(err).WithField("device_id", deviceID).Warn("delete device voucher cache failed")
+		logrus.Warn("delete device voucher cache failed")
 	}
 }
 
@@ -216,7 +216,7 @@ func deleteDeviceCache(deviceID string) {
 		return
 	}
 	if err := initialize.DelDeviceCache(deviceID); err != nil {
-		logrus.WithError(err).WithField("device_id", deviceID).Warn("delete device cache failed")
+		logrus.Warn("delete device cache failed")
 	}
 }
 

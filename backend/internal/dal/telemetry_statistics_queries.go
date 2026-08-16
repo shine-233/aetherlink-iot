@@ -118,7 +118,7 @@ func getTelemetryStatisticDataForDevice(deviceId, key string, startTime, endTime
 func getTelemetryStatisticCountRow(deviceId, key string, startTime, endTime int64) (map[string]interface{}, bool) {
 	count, err := getDataCount(deviceId, key, startTime, endTime)
 	if err != nil {
-		logrus.Error("query telemetry statistic count failed", err)
+		logrus.Error("query telemetry statistic count failed")
 		return nil, false
 	}
 	return map[string]interface{}{
@@ -185,7 +185,7 @@ func queryTelemetryStatisticBatchCountRows(deviceIds []string, keys []string, st
 func getTelemetryStatisticDiffRow(deviceId, key string, startTime, endTime int64, timeType string) (map[string]interface{}, bool) {
 	diffData, err := getDiffData(deviceId, key, startTime, endTime, timeType)
 	if err != nil {
-		logrus.Error("query telemetry statistic diff data failed", err)
+		logrus.Error("query telemetry statistic diff data failed")
 		return nil, false
 	}
 	return map[string]interface{}{
@@ -198,7 +198,7 @@ func getTelemetryStatisticDiffRow(deviceId, key string, startTime, endTime int64
 func getTelemetryStatisticAggregateRow(deviceId, key string, startTime, endTime int64, aggregateMethod string, limit *int, timeType string) (map[string]interface{}, bool) {
 	aggregatedData, err := getAggregatedDataWithTime(deviceId, key, startTime, endTime, aggregateMethod, limit, timeType)
 	if err != nil {
-		logrus.Error("query telemetry aggregate data failed", err)
+		logrus.Error("query telemetry aggregate data failed")
 		return nil, false
 	}
 	return map[string]interface{}{

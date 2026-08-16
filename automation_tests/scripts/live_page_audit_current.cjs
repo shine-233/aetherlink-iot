@@ -16,15 +16,24 @@ const path = require('path')
 const { chromium } = require('playwright')
 const pageCoverage = require('../lib/page_coverage')
 const apiClient = require('../lib/api_client')
+const networkRuntime = require('../lib/network_runtime')
 
-const baseURL = String(process.env.LIVE_PAGE_BASE_URL || process.env.PREVIEW_URL || 'http://127.0.0.1:9725').replace(/\/$/, '')
-const authStatePath = path.resolve(
-  process.env.E2E_AUTH_STATE || path.join(__dirname, '..', 'e2e', '.auth', 'tenant-admin.json')
+const baseURL = networkRuntime.validateTrustedURL(
+  process.env.LIVE_PAGE_BASE_URL || process.env.PREVIEW_URL || 'http://127.0.0.1:9725',
+  'LIVE_PAGE_BASE_URL'
 )
-const outputDir = path.resolve(
-  process.env.LIVE_PAGE_OUTPUT_DIR ||
-    path.join(__dirname, '..', 'output', 'playwright', `live-page-audit-${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}`)
-)
+const authRoot = path.resolve(__dirname, '..', 'e2e', '.auth')
+const authStatePath = path.resolve(process.env.E2E_AUTH_STATE || path.join(authRoot, 'tenant-admin.json'))
+if (authStatePath !== authRoot && !authStatePath.startsWith(`${authRoot}${path.sep}`)) {
+  throw new Error('E2E_AUTH_STATE must remain under automation_tests/e2e/.auth')
+}
+const outputRoot = path.resolve(__dirname, '..', 'output', 'playwright')
+const configuredOutputDir = process.env.LIVE_PAGE_OUTPUT_DIR ||
+  path.join(outputRoot, `live-page-audit-${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}`)
+const outputDir = path.resolve(configuredOutputDir)
+if (outputDir !== outputRoot && !outputDir.startsWith(`${outputRoot}${path.sep}`)) {
+  throw new Error('LIVE_PAGE_OUTPUT_DIR must remain under automation_tests/output/playwright')
+}
 
 const extraRoutes = [
   { route: '/', module: 'supplementary', name: 'Root redirect', priority: 'P1' },
@@ -114,10 +123,10 @@ function classifyResult(item, finalPath, body, evidence) {
 
 function createHtml(report) {
   const rows = report.pages.map(page => {
-    const errorCount = page.consoleErrors + page.pageErrors + page.failedRequests + page.httpErrors.length
-    return `<tr><td>${page.name}</td><td>${page.requestedPath}</td><td>${page.finalUrl}</td><td>${page.status}</td><td>${errorCount}</td><td>${page.body.slice(0, 220).replace(/[&<>]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[char])}</td><td><a href="screenshots/${page.screenshotFile}">screenshot</a></td></tr>`
+    const errorCount = page.errorCounts.console + page.errorCounts.page + page.errorCounts.failedRequests + page.errorCounts.http
+    return `<tr><td>${page.name}</td><td>${page.requestedPath}</td><td>${page.finalPath}</td><td>${page.status}</td><td>${errorCount}</td><td>${page.bodyLength}</td><td><a href="screenshots/${page.screenshotFile}">screenshot</a></td></tr>`
   }).join('\n')
-  return `<!doctype html><html><head><meta charset="utf-8"><title>Live page audit</title><style>body{font-family:Arial,sans-serif;margin:20px;background:#f5f7fa;color:#222}table{width:100%;border-collapse:collapse;background:#fff}th,td{padding:8px;border-bottom:1px solid #ddd;text-align:left;font-size:12px}th{background:#1f6feb;color:#fff;position:sticky;top:0}.passed{color:#137333}.runtime-error{color:#b3261e}</style></head><body><h1>Live page audit</h1><p>Base URL: ${report.baseURL}</p><p>Canonical pages: ${report.canonicalPageCount}; supplementary routes: ${report.supplementaryRouteCount}; total inspected: ${report.pages.length}</p><p>Summary: ${JSON.stringify(report.summary)}</p><table><thead><tr><th>Page</th><th>Requested</th><th>Final URL</th><th>Status</th><th>Errors</th><th>Body</th><th>Artifact</th></tr></thead><tbody>${rows}</tbody></table></body></html>`
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Live page audit</title><style>body{font-family:Arial,sans-serif;margin:20px;background:#f5f7fa;color:#222}table{width:100%;border-collapse:collapse;background:#fff}th,td{padding:8px;border-bottom:1px solid #ddd;text-align:left;font-size:12px}th{background:#1f6feb;color:#fff;position:sticky;top:0}.passed{color:#137333}.runtime-error{color:#b3261e}</style></head><body><h1>Live page audit</h1><p>Canonical pages: ${report.canonicalPageCount}; supplementary routes: ${report.supplementaryRouteCount}; total inspected: ${report.pages.length}</p><p>Summary: ${JSON.stringify(report.summary)}</p><table><thead><tr><th>Page</th><th>Requested</th><th>Final path</th><th>Status</th><th>Errors</th><th>Body chars</th><th>Artifact</th></tr></thead><tbody>${rows}</tbody></table></body></html>`
 }
 
 const runtimeFixture = { boardId: '', deviceId: '' }
@@ -204,13 +213,18 @@ async function inspectPage(page, item) {
     module: item.module,
     priority: item.priority,
     requestedPath,
-    requestedUrl,
-    finalUrl,
-    title,
-    body,
+    finalPath,
+    bodyLength: body.length,
     status: classifyResult(item, finalPath, body, evidence),
     screenshotFile,
-    ...evidence
+    errorCounts: {
+      console: consoleErrors.length,
+      page: pageErrors.length,
+      failedRequests: failedRequests.length,
+      http: httpErrors.length,
+      navigation: navigationError ? 1 : 0,
+      screenshot: screenshotError ? 1 : 0
+    }
   }
 }
 

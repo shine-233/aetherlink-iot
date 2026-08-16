@@ -360,12 +360,7 @@ ORDER BY h.hour_ts ASC;
 	}
 	err := global.DB.Raw(sql, tenantID, startTimeUTC, endTimeUTC, ownerFilter).Scan(&results).Error
 	if err != nil {
-		logrus.WithError(err).WithFields(logrus.Fields{
-			"tenant_id":     tenantID,
-			"owner_user_id": ownerFilter,
-			"startTime":     startTimeUTC,
-			"endTime":       endTimeUTC,
-		}).Error("GetDeviceTrend query failed")
+		logrus.Error("GetDeviceTrend query failed")
 		return nil, err
 	}
 

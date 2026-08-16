@@ -5,7 +5,10 @@
 package router
 
 import (
+	"mime"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	middleware "aetherlink-iot/backend/internal/middleware"
@@ -61,15 +64,40 @@ func RouterInit() *gin.Engine {
 	router.GET("/metrics-viewer", func(c *gin.Context) {
 		c.Data(http.StatusOK, "text/html; charset=utf-8", static.MetricsViewerHTML)
 	})
+	router.GET("/metrics-viewer/echarts.min.js", func(c *gin.Context) {
+		c.Data(http.StatusOK, "application/javascript; charset=utf-8", static.MetricsViewerEChartsJS)
+	})
 
 	// 处理文件访问请求
 	router.GET("/files/*filepath", func(c *gin.Context) {
-		filePath, err := publicfiles.ResolvePath(c.Param("filepath"))
+		relativePath, err := publicfiles.ResolveRelativePath(c.Param("filepath"))
 		if err != nil {
 			c.AbortWithStatus(http.StatusBadRequest)
 			return
 		}
-		c.File(filePath)
+
+		root, err := os.OpenRoot("./files")
+		if err != nil {
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+		defer root.Close()
+		file, err := root.Open(filepath.FromSlash(relativePath))
+		if err != nil {
+			c.AbortWithStatus(http.StatusNotFound)
+			return
+		}
+		defer file.Close()
+		info, err := file.Stat()
+		if err != nil || !info.Mode().IsRegular() {
+			c.AbortWithStatus(http.StatusNotFound)
+			return
+		}
+		contentType := mime.TypeByExtension(filepath.Ext(relativePath))
+		if contentType == "" {
+			contentType = "application/octet-stream"
+		}
+		c.DataFromReader(http.StatusOK, info.Size(), contentType, file, nil)
 	})
 
 	// router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))

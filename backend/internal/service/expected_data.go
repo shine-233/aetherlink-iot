@@ -188,7 +188,7 @@ func (*ExpectedData) Send(ctx context.Context, deviceID string) error {
 		logrus.WithError(err).Error("query expected data failed")
 		return err
 	}
-	logrus.WithField("deviceID", deviceID).Debug("expected data loaded")
+	logrus.Debug("expected data loaded")
 
 	for _, v := range ed {
 		// 每条期望数据独立判断是否过期或可发送，避免一条失败阻塞其余记录状态推进。
@@ -231,14 +231,14 @@ func sendExpectedDataByType(ctx context.Context, deviceID string, expectedData *
 		message, err := sendCommand(ctx, deviceID, expectedData.Payload)
 		return message, err, true
 	default:
-		logrus.WithField("sendType", expectedData.SendType).Error("unknown expected data send type")
+		logrus.Error("unknown expected data send type")
 		return "", nil, false
 	}
 }
 
 func buildExpectedDataDispatchResult(sendType, message string, err error) *expectedDataDispatchResult {
 	if err != nil {
-		logrus.WithError(err).WithField("sendType", sendType).Error("send expected data failed")
+		logrus.Error("send expected data failed")
 		return &expectedDataDispatchResult{
 			// 现有语义里发送失败直接记为 expired，表示该条待发送任务本轮终止，不再自动重试。
 			status:  expectedDataStatusExpired,
@@ -340,7 +340,7 @@ func updateStatus(ctx context.Context, id string, status string, message *string
 
 	err := dal.ExpectedDataDal{}.UpdateStatus(ctx, id, status, message, &sendTime)
 	if err != nil {
-		logrus.WithError(err).WithField("dataID", id).Error("update expected data status failed")
+		logrus.Error("update expected data status failed")
 	}
 	return err
 }

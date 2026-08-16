@@ -324,7 +324,7 @@ func invalidateUpdatedTopicMappingCaches(ctx context.Context, exist *model.Devic
 	targetIDs := topicMappingCacheDeviceConfigIDs(exist, updateMap)
 	for deviceConfigID := range targetIDs {
 		if err := invalidateTopicMappingCache(ctx, deviceConfigID); err != nil {
-			logrus.Errorf("invalidate topic mapping cache (%s) failed: %v", deviceConfigID, err)
+			logrus.Error("invalidate topic mapping cache failed")
 		}
 	}
 }

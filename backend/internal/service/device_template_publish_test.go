@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"testing"
 
@@ -138,22 +137,6 @@ func TestMarketPublishFieldFallbacksPreferRequestThenTemplateThenDefaults(t *tes
 	}
 }
 
-func TestExtractMarketUserIDReturnsJWTSubjectOrBlank(t *testing.T) {
-	header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"none","typ":"JWT"}`))
-	payload := base64.RawURLEncoding.EncodeToString([]byte(`{"sub":"market-user-42"}`))
-	token := header + "." + payload + "."
-
-	if got := extractMarketUserID(token); got != "market-user-42" {
-		t.Fatalf("extractMarketUserID subject = %q, want market-user-42", got)
-	}
-	if got := extractMarketUserID("not-a-token"); got != "" {
-		t.Fatalf("extractMarketUserID malformed token = %q, want empty string", got)
-	}
-	if got := extractMarketUserID(header + "." + base64.RawURLEncoding.EncodeToString([]byte(`{"email":"fixture@example.com"}`)) + "."); got != "" {
-		t.Fatalf("extractMarketUserID token without sub = %q, want empty string", got)
-	}
-}
-
 func TestValidateMarketPublishResponseClassifiesSuccessConflictAndGenericFailure(t *testing.T) {
 	success := &model.MarketPublishApiResponse{Code: 0, Message: "ok", Data: map[string]interface{}{"id": "tpl-1"}}
 	got, err := validateMarketPublishResponse(success)
@@ -183,13 +166,11 @@ type stubMarketPublishClient struct {
 	resp    *model.MarketPublishApiResponse
 	err     error
 	token   string
-	userID  string
 	request *model.PublishTemplateReq
 }
 
-func (s *stubMarketPublishClient) PublishTemplate(_ context.Context, token string, userID string, req *model.PublishTemplateReq) (*model.MarketPublishApiResponse, error) {
+func (s *stubMarketPublishClient) PublishTemplate(_ context.Context, token string, req *model.PublishTemplateReq) (*model.MarketPublishApiResponse, error) {
 	s.token = token
-	s.userID = userID
 	s.request = req
 	return s.resp, s.err
 }
@@ -300,8 +281,7 @@ func TestPublishToMarketBuildsPayloadFromConfigTemplateAndDeviceModel(t *testing
 	})
 
 	templateID := "tpl-1"
-	token := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"none","typ":"JWT"}`)) + "." +
-		base64.RawURLEncoding.EncodeToString([]byte(`{"sub":"market-user-99"}`)) + "."
+	token := "market-token"
 	dc := &model.DeviceConfig{
 		ID:               "dc-1",
 		Name:             "pump-config",
@@ -382,8 +362,8 @@ func TestPublishToMarketBuildsPayloadFromConfigTemplateAndDeviceModel(t *testing
 	if got != stubClient.resp {
 		t.Fatalf("PublishToMarket() response = %#v, want stub response %#v", got, stubClient.resp)
 	}
-	if stubClient.token != token || stubClient.userID != "market-user-99" {
-		t.Fatalf("market client auth = (%q, %q), want token + extracted user id", stubClient.token, stubClient.userID)
+	if stubClient.token != token {
+		t.Fatalf("market client auth token = %q, want opaque market token", stubClient.token)
 	}
 	if stubClient.request == nil {
 		t.Fatal("PublishToMarket() should send a market publish request")

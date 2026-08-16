@@ -221,7 +221,7 @@ func exportToCSV(req *model.GetTelemetryStatisticReq, data []map[string]interfac
 	}
 	fileClosed = true
 
-	logrus.Info("CSV export completed: ", filePath)
+	logrus.Info("CSV export completed")
 
 	return map[string]interface{}{
 		"file_name": fileName,

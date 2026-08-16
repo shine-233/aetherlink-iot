@@ -28,8 +28,7 @@ import (
 
 type marketInstallClient interface {
 	DownloadTemplate(ctx context.Context, token string, templateID string, version string) (*model.MarketTemplateFullData, error)
-	ExtractUserIDFromMarketToken(token string) (string, error)
-	InstallTemplate(ctx context.Context, token string, templateID string, versionID string, userID string, orgID string) error
+	InstallTemplate(ctx context.Context, token string, templateID string, versionID string) error
 }
 
 var (
@@ -118,7 +117,7 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 		return nil, marketInstallDBError("Failed to commit transaction: ", err)
 	}
 
-	marketInstallNotifyInstalled(client, req, fullData, claims)
+	marketInstallNotifyInstalled(client, req, fullData)
 
 	createdTpl, _ := marketInstallGetDeviceTemplate(plan.templateID)
 	createdDC, _ := marketInstallGetDeviceConfig(plan.deviceCfgID)
@@ -386,27 +385,18 @@ func templateDefinitionList(tplDef *model.TemplateDefinitionPayload, key string)
 	return result
 }
 
-func notifyMarketTemplateInstalled(client marketInstallClient, req model.InstallFromMarketReq, fullData *model.MarketTemplateFullData, claims *utils.UserClaims) {
-	marketUserID, err := client.ExtractUserIDFromMarketToken(req.MarketToken)
-	if err != nil {
-		logrus.Warnf("Could not extract market user_id from token, install notification may fail: %v", err)
-		marketUserID = ""
-	}
-	if marketUserID == "" {
-		marketUserID = claims.ID
-	}
+func notifyMarketTemplateInstalled(client marketInstallClient, req model.InstallFromMarketReq, fullData *model.MarketTemplateFullData) {
 	versionID := ""
 	if fullData.VersionID != "" {
 		versionID = fullData.VersionID
 	}
-	logrus.Infof("Notifying market of installation: TemplateID=%s, VersionID=%s, MarketUserID=%s, OrgID=%s",
-		req.MarketTemplateID, versionID, marketUserID, claims.TenantID)
+	logrus.Info("Notifying market of template installation")
 	marketInstallRunAsync(func() {
-		err := client.InstallTemplate(context.Background(), req.MarketToken, req.MarketTemplateID, versionID, marketUserID, claims.TenantID)
+		err := client.InstallTemplate(context.Background(), req.MarketToken, req.MarketTemplateID, versionID)
 		if err != nil {
-			logrus.Errorf("Failed to notify market service of installation: %v", err)
+			logrus.Error("Failed to notify market service of installation")
 		} else {
-			logrus.Infof("Successfully notified market service of installation for template %s", req.MarketTemplateID)
+			logrus.Info("Successfully notified market service of template installation")
 		}
 	})
 }

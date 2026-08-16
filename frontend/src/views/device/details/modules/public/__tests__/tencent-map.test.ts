@@ -33,13 +33,21 @@ vi.mock('@vueuse/core', () => ({
 }))
 
 globalThis.TMap = {
-  Map: vi.fn().mockImplementation(() => ({
-    on: vi.fn(),
-    setCenter: vi.fn()
-  })),
-  LatLng: vi.fn().mockImplementation((lat: number, lng: number) => ({ lat, lng })),
-  MultiMarker: vi.fn().mockImplementation(() => ({ setMap: vi.fn() })),
-  MarkerStyle: vi.fn().mockImplementation(() => ({}))
+  Map: vi.fn(function MapMock() {
+    return {
+      on: vi.fn(),
+      setCenter: vi.fn()
+    }
+  }),
+  LatLng: vi.fn(function LatLngMock(lat: number, lng: number) {
+    return { lat, lng }
+  }),
+  MultiMarker: vi.fn(function MultiMarkerMock() {
+    return { setMap: vi.fn() }
+  }),
+  MarkerStyle: vi.fn(function MarkerStyleMock() {
+    return {}
+  })
 } as any
 
 import Component from '../tencent-map.vue'

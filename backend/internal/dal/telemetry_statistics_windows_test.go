@@ -30,6 +30,9 @@ func TestTelemetryWindowLimitDefaultsToOne(t *testing.T) {
 
 	two := 2
 	require.Equal(t, 2, telemetryWindowLimit(&two))
+
+	tooLarge := maxDiffTimeWindows + 1
+	require.Equal(t, maxDiffTimeWindows, telemetryWindowLimit(&tooLarge))
 }
 
 func TestAggregateSQLFunctionRejectsUnknownMethod(t *testing.T) {

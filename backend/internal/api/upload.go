@@ -170,12 +170,6 @@ func generateFilePath(fileType, filename string) (string, string, error) {
 		})
 	}
 
-	if err := os.MkdirAll(uploadDir, 0o755); err != nil {
-		return "", "", errcode.WithVars(errcode.CodeFilePathGenError, map[string]interface{}{
-			"error": err.Error(),
-		})
-	}
-
 	randomStr, err := common.GenerateRandomString(16)
 	if err != nil {
 		return "", "", errcode.WithVars(errcode.CodeFilePathGenError, map[string]interface{}{
@@ -199,8 +193,45 @@ func saveFile(c *gin.Context, file *multipart.FileHeader, uploadDir, fileName, f
 		return "", err
 	}
 
-	if err := c.SaveUploadedFile(file, fullPath); err != nil {
+	absBaseDir, err := filepath.Abs(BaseUploadDir)
+	if err != nil {
+		return "", fmt.Errorf("resolve upload base: %w", err)
+	}
+	absFullPath, err := filepath.Abs(fullPath)
+	if err != nil {
+		return "", fmt.Errorf("resolve upload path: %w", err)
+	}
+	relativePath, err := filepath.Rel(absBaseDir, absFullPath)
+	if err != nil || relativePath == ".." || strings.HasPrefix(relativePath, ".."+string(os.PathSeparator)) || filepath.IsAbs(relativePath) {
+		return "", fmt.Errorf("upload path escapes base directory")
+	}
+
+	root, err := os.OpenRoot(absBaseDir)
+	if err != nil {
+		return "", fmt.Errorf("open upload root: %w", err)
+	}
+	defer root.Close()
+	if err := root.MkdirAll(filepath.Dir(relativePath), 0o755); err != nil {
+		return "", fmt.Errorf("create upload directory: %w", err)
+	}
+
+	source, err := file.Open()
+	if err != nil {
+		return "", fmt.Errorf("open uploaded file: %w", err)
+	}
+	defer source.Close()
+	destination, err := root.OpenFile(relativePath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return "", fmt.Errorf("create uploaded file: %w", err)
+	}
+	if _, err := io.Copy(destination, source); err != nil {
+		_ = destination.Close()
+		_ = root.Remove(relativePath)
 		return "", fmt.Errorf("save uploaded file: %w", err)
+	}
+	if err := destination.Close(); err != nil {
+		_ = root.Remove(relativePath)
+		return "", fmt.Errorf("close uploaded file: %w", err)
 	}
 
 	if fileType == "upgradePackage" {

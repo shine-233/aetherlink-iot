@@ -44,7 +44,7 @@ func startTelemetryWSWriter(wsClient *global.WSClient, unsubscribeOnError bool) 
 	go func(c *global.WSClient) {
 		defer func() {
 			if r := recover(); r != nil {
-				logrus.WithField("conn_id", c.ConnID).Warnf("writer goroutine recovered: %v", r)
+				logrus.Warn("telemetry websocket writer recovered")
 			}
 		}()
 		for b := range c.Send {
@@ -53,7 +53,7 @@ func startTelemetryWSWriter(wsClient *global.WSClient, unsubscribeOnError bool) 
 			err := c.Conn.WriteMessage(c.MsgType, b)
 			c.Mu.Unlock()
 			if err != nil {
-				logrus.WithError(err).WithField("conn_id", c.ConnID).Error("writer goroutine write failed")
+				logrus.Error("telemetry websocket writer failed")
 				if unsubscribeOnError {
 					_ = global.TPWSManager.UnsubscribeDevice(c.DeviceID, c.ConnID)
 				}
@@ -66,7 +66,7 @@ func startTelemetryWSWriter(wsClient *global.WSClient, unsubscribeOnError bool) 
 func readInitialWSMessage(conn *websocket.Conn) (int, []byte, bool) {
 	msgType, msg, err := conn.ReadMessage()
 	if err != nil {
-		logrus.WithError(err).Error("read initial websocket message failed")
+		logrus.Error("read initial websocket message failed")
 		_ = conn.WriteMessage(websocket.TextMessage, []byte("Failed to read message"))
 		return 0, nil, false
 	}
@@ -114,13 +114,13 @@ func telemetryWSKeys(msgMap map[string]interface{}) ([]string, error) {
 func queueTelemetryWSMessage(wsClient *global.WSClient, payload []byte, dropLog string) {
 	defer func() {
 		if r := recover(); r != nil {
-			logrus.WithField("conn_id", wsClient.ConnID).Warnf("websocket send queue recovered: %v", r)
+			logrus.Warn("telemetry websocket send queue recovered")
 		}
 	}()
 	select {
 	case wsClient.Send <- payload:
 	default:
-		logrus.WithField("conn_id", wsClient.ConnID).Warn(dropLog)
+		logrus.Warn("telemetry websocket send queue full; dropping message")
 	}
 }
 
@@ -130,7 +130,7 @@ func closeTelemetryWSClientSend(wsClient *global.WSClient) {
 	}
 	defer func() {
 		if r := recover(); r != nil {
-			logrus.WithField("conn_id", wsClient.ConnID).Warnf("websocket send close recovered: %v", r)
+			logrus.Warn("telemetry websocket close recovered")
 		}
 	}()
 	close(wsClient.Send)
@@ -177,20 +177,20 @@ func runTelemetryWSHeartbeatLoop(wsClient *global.WSClient, deviceID string, ref
 				continue
 			}
 
-			logrus.WithError(err).WithField("device_id", deviceID).Error("telemetry websocket read failed")
+			logrus.Error("telemetry websocket read failed")
 			writeTelemetryWSClose(wsClient, websocket.CloseInternalServerErr, "connection closed due to error")
 			return
 		}
 
 		if string(msg) != "ping" {
-			logrus.WithField("device_id", deviceID).Debugf("received non-ping websocket message: %s", string(msg))
+			logrus.Debug("received non-ping websocket message")
 			continue
 		}
 
 		lastPingTime = time.Now()
 		if refreshSubscription {
 			if err := global.TPWSManager.RefreshSubscription(deviceID); err != nil {
-				logrus.WithError(err).WithField("device_id", deviceID).Error("refresh telemetry websocket subscription failed")
+				logrus.Error("refresh telemetry websocket subscription failed")
 			}
 		}
 
@@ -213,7 +213,7 @@ func readTelemetryWSHandshake(conn *websocket.Conn, logContext string, requireKe
 
 	msgMap, err := parseTelemetryWSMessage(msg)
 	if err != nil {
-		logrus.WithError(err).Errorf("invalid %s JSON", logContext)
+		logrus.Error("invalid telemetry websocket JSON")
 		_ = conn.WriteMessage(msgType, []byte("Invalid message format"))
 		return telemetryWSHandshake{}, false
 	}
@@ -235,7 +235,7 @@ func readTelemetryWSHandshake(conn *websocket.Conn, logContext string, requireKe
 
 	claims, err := validateAuth(msgMap)
 	if err != nil {
-		logrus.WithError(err).Errorf("%s authentication failed", logContext)
+		logrus.Error("telemetry websocket authentication failed")
 		_ = conn.WriteMessage(msgType, []byte(err.Error()))
 		return telemetryWSHandshake{}, false
 	}
@@ -253,7 +253,7 @@ func subscribeTelemetryWSStream(conn *websocket.Conn, handshake telemetryWSHands
 	connID := wsClient.ConnID
 
 	if err := global.TPWSManager.SubscribeDevice(handshake.deviceID, connID, wsClient); err != nil {
-		logrus.WithError(err).WithField("device_id", handshake.deviceID).Errorf("subscribe %s failed", logContext)
+		logrus.Error("telemetry websocket subscription failed")
 		_ = conn.WriteMessage(handshake.msgType, []byte("Failed to subscribe to device"))
 		return nil, nil, false
 	}
@@ -271,7 +271,7 @@ func queueInitialTelemetryData(wsClient *global.WSClient, deviceID string, data 
 
 	dataByte, err := json.Marshal(data)
 	if err != nil {
-		logrus.WithError(err).WithField("device_id", deviceID).Errorf("marshal initial %s websocket payload failed", contextName)
+		logrus.Error("marshal initial telemetry websocket payload failed")
 		queueTelemetryWSMessage(wsClient, []byte("Failed to process telemetry data"), fmt.Sprintf("%s marshal error send buffer full", contextName))
 		return false
 	}
@@ -283,7 +283,7 @@ func queueInitialTelemetryData(wsClient *global.WSClient, deviceID string, data 
 func queueInitialCurrentTelemetryData(wsClient *global.WSClient, deviceID string, claims *utils.UserClaims) bool {
 	data, err := service.GroupApp.TelemetryData.GetCurrentTelemetrDataForWs(deviceID, claims)
 	if err != nil {
-		logrus.WithError(err).WithField("device_id", deviceID).Error("get current telemetry for websocket failed")
+		logrus.Error("get current telemetry for websocket failed")
 		queueTelemetryWSMessage(wsClient, []byte("Failed to get telemetry data"), "telemetry error send buffer full")
 		return false
 	}
@@ -311,7 +311,7 @@ func readDeviceStatusWSHandshake(conn *websocket.Conn) (int, string, *utils.User
 func queryDeviceStatusInitialState(conn *websocket.Conn, msgType int, deviceID string, claims *utils.UserClaims) (int, bool) {
 	currentStatusMap, err := service.GroupApp.Device.GetDeviceOnlineStatus(deviceID, claims)
 	if err != nil {
-		logrus.WithError(err).Error("query current device status failed")
+		logrus.Error("query current device status failed")
 		_ = conn.WriteMessage(msgType, []byte("Failed to query device status"))
 		return 0, false
 	}
@@ -328,7 +328,7 @@ func queueInitialDeviceStatus(localClient *global.WSClient, deviceID string, isO
 	if data, err := json.Marshal(map[string]interface{}{"is_online": isOnline}); err == nil {
 		queueTelemetryWSMessage(localClient, data, "status initial send buffer full, dropping initial data")
 	} else {
-		logrus.WithError(err).WithField("device_id", deviceID).Error("marshal initial status websocket payload failed")
+		logrus.Error("marshal initial status websocket payload failed")
 	}
 }
 
@@ -344,12 +344,11 @@ func nextRedisWSPubSubBackoff(current time.Duration) time.Duration {
 }
 
 func logRedisWSPubSubReconnect(logFields logrus.Fields, contextName string, backoff time.Duration) {
-	entry := logrus.WithFields(logFields).WithField("backoff", backoff)
 	if backoff <= redisWSPubSubInitialBackoff {
-		entry.Warnf("%s redis channel closed, resubscribing", contextName)
+		logrus.Warn("Redis WebSocket channel closed; resubscribing")
 		return
 	}
-	entry.Debugf("%s redis channel still unavailable, resubscribing", contextName)
+	logrus.Debug("Redis WebSocket channel still unavailable; resubscribing")
 }
 
 func waitRedisWSPubSubBackoff(ctx context.Context, backoff time.Duration) bool {
@@ -376,7 +375,7 @@ func startRedisWSPubSubForwarder(
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				logrus.WithFields(logFields).Warnf("%s redis forwarder recovered: %v", contextName, r)
+				logrus.Warn("Redis WebSocket forwarder recovered")
 			}
 		}()
 
@@ -441,7 +440,7 @@ func runDeviceStatusWSReadLoop(conn *websocket.Conn, localClient *global.WSClien
 	for {
 		_, wsMsg, err := conn.ReadMessage()
 		if err != nil {
-			logrus.WithError(err).Info("device status websocket closed")
+			logrus.Info("device status websocket closed")
 			writeTelemetryWSClose(localClient, websocket.CloseNormalClosure, "connection closed")
 			cancel()
 			return
@@ -456,7 +455,7 @@ func runDeviceStatusWSReadLoop(conn *websocket.Conn, localClient *global.WSClien
 func fetchInitialTelemetryKeyData(conn *websocket.Conn, handshake telemetryWSHandshake) (interface{}, bool) {
 	data, err := service.GroupApp.TelemetryData.GetCurrentTelemetrDataKeysForWs(handshake.deviceID, handshake.keys, handshake.claims)
 	if err != nil {
-		logrus.WithError(err).WithField("device_id", handshake.deviceID).Error("get current telemetry keys for websocket failed")
+		logrus.Error("get current telemetry keys for websocket failed")
 		_ = conn.WriteMessage(handshake.msgType, []byte("Failed to get telemetry data"))
 		return nil, false
 	}

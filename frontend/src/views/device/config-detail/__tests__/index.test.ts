@@ -31,8 +31,33 @@ vi.mock('vue-router', () => ({
   useRoute: () => ({ query: { id: 'cfg-1' } })
 }))
 
-vi.mock('naive-ui', () => ({
-  NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : []) } })
+  vi.mock('naive-ui', () => ({
+  NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : []) } }),
+  createDiscreteApi: () => ({
+    message: {
+      success: vi.fn(),
+      error: vi.fn(),
+      warning: vi.fn(),
+      info: vi.fn()
+    },
+    notification: {
+      success: vi.fn(),
+      error: vi.fn(),
+      warning: vi.fn(),
+      info: vi.fn()
+    },
+    dialog: {
+      success: vi.fn(),
+      error: vi.fn(),
+      warning: vi.fn(),
+      info: vi.fn()
+    },
+    loadingBar: {
+      start: vi.fn(),
+      finish: vi.fn(),
+      error: vi.fn()
+    }
+  })
 }))
 
 import Component from '../index.vue'

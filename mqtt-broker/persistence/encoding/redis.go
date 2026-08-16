@@ -160,8 +160,9 @@ func EncodeSession(sess *gmqtt.Session, b *bytes.Buffer) {
 	} else {
 		b.WriteByte(0)
 	}
-	time := make([]byte, 8)
-	binary.BigEndian.PutUint64(time, uint64(sess.ConnectedAt.Unix()))
+	if err := binary.Write(b, binary.BigEndian, sess.ConnectedAt.Unix()); err != nil {
+		return
+	}
 	WriteUint32(b, sess.ExpiryInterval)
 }
 
@@ -186,8 +187,11 @@ func DecodeSession(b *bytes.Buffer) (sess *gmqtt.Session, err error) {
 			return
 		}
 	}
-	t := binary.BigEndian.Uint64(b.Next(8))
-	sess.ConnectedAt = time.Unix(int64(t), 0)
+	var connectedAt int64
+	if err = binary.Read(b, binary.BigEndian, &connectedAt); err != nil {
+		return nil, err
+	}
+	sess.ConnectedAt = time.Unix(connectedAt, 0)
 	sess.ExpiryInterval, err = ReadUint32(b)
 	return
 }

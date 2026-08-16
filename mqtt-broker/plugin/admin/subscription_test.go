@@ -7,6 +7,7 @@ package admin
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -324,6 +325,46 @@ func TestSubscriptionService_Subscribe_InvalidArgument(t *testing.T) {
 		})
 	}
 
+}
+
+func TestSubscriptionService_SubscribeRejectsNarrowingValues(t *testing.T) {
+	tests := []struct {
+		name string
+		sub  *Subscription
+		want string
+	}{
+		{
+			name: "qos overflow",
+			sub:  &Subscription{TopicName: "abc", Qos: 3},
+			want: ".qos",
+		},
+		{
+			name: "retain handling overflow",
+			sub:  &Subscription{TopicName: "abc", RetainHandling: 3},
+			want: "retain_handling",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			ss := server.NewMockSubscriptionService(ctrl)
+			admin := &Admin{store: newStore(nil, mockConfig)}
+			subscriptionService := &subscriptionService{a: admin}
+			subscriptionService.a.store.subscriptionService = ss
+
+			_, err := subscriptionService.Subscribe(context.Background(), &SubscribeRequest{
+				ClientId:      "cid",
+				Subscriptions: []*Subscription{tt.sub},
+			})
+			if err == nil {
+				t.Fatal("expected invalid narrowing value to be rejected")
+			}
+			if !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("error = %q, want %q", err.Error(), tt.want)
+			}
+		})
+	}
 }
 
 func TestSubscriptionService_Unsubscribe(t *testing.T) {

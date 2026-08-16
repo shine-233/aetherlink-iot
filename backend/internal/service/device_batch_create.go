@@ -133,7 +133,7 @@ func buildBatchCreateDeviceList(req model.BatchCreateDeviceReq, claims *utils.Us
 			return nil, err
 		}
 		if _, ok := seenDeviceNumbers[item.DeviceNumber]; ok {
-			logrus.WithField("device_number", item.DeviceNumber).Warn("skip duplicate device number in batch create request")
+			logrus.Warn("skip duplicate device number in batch create request")
 			continue
 		}
 		seenDeviceNumbers[item.DeviceNumber] = struct{}{}
@@ -169,11 +169,7 @@ func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.U
 		})
 	}
 	if err := notifyCreateDeviceBatchServicePlugin(ctx.serviceAccess.ServicePluginID, req.ServiceAccessId); err != nil {
-		logrus.WithError(err).WithFields(logrus.Fields{
-			"service_access_id": req.ServiceAccessId,
-			"service_plugin_id": ctx.serviceAccess.ServicePluginID,
-			"created_count":     len(deviceList),
-		}).Warn("batch create devices persisted but service plugin notification failed")
+		logrus.Warn("batch create devices persisted but service plugin notification failed")
 	}
 
 	return deviceList, nil
@@ -200,13 +196,12 @@ func notifyCreateDeviceBatchServicePlugin(servicePluginID string, serviceAccessI
 	}
 	// Notify the service plugin after batch create so related metadata can refresh.
 	logrus.Debug("notify service plugin after batch create")
-	rsp, err := pluginruntime.Current().Notify(host, "1", string(dataBytes))
+	_, err = pluginruntime.Current().Notify(host, "1", string(dataBytes))
 	if err != nil {
 		return errcode.WithVars(105001, map[string]interface{}{
 			"error": "create device success, notification failed" + err.Error(),
 		})
 	}
-	logrus.Debug("service plugin notification response")
-	logrus.Debug(string(rsp))
+	logrus.Debug("service plugin notification completed")
 	return nil
 }

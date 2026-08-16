@@ -37,7 +37,7 @@ AetherLink IoT 采用多层验证，因为不同层只能证明不同类型的�
 
 本轮没有重新执行完整 r14：后端 Go 测试在依赖下载超时处停止，broker 测试按用户要求停止；这两项均不是通过。此前 r13 的 fresh 本地证据仍可用于方法和历史摘要，但不能替代真实 RDI、目标服务器、Docker/Compose、HTTPS/TLS、公网 MQTT、目标环境 backup/restore 或外部 ThingsVis 验收。当前状态为 `real_rdi_status=not-tested`、`target_deployment_status=pending`、`production_signoff=not-ready`、`github_upload=executed`。
 
-公开源码已推送到 `https://github.com/shine-233/aetherlink-iot`。当前公开基线已由 GitHub Actions 的 Source CI、Minimum quality gate 和 CodeQL（Go、JavaScript/TypeScript）成功检查；这些是源码与离线门禁证据，不等价于完整 r14、本地目标环境、真实 API/E2E 或真实设备验收。
+公开源码已推送到 `https://github.com/shine-233/aetherlink-iot`。当前公开基线已由 GitHub Actions 的 Source CI、Minimum quality gate 和 CodeQL（GitHub Actions、Go、JavaScript/TypeScript）成功检查；这些是源码与离线门禁证据，不等价于完整 r14、本地目标环境、真实 API/E2E 或真实设备验收。
 - 上传前补充清理：7 个 untracked 的一次性历史/生成文件已可恢复移动到 `../_aetherlink-github-cleanup-quarantine-20260815-r2/`，清单回读为 7/7 源路径不存在、SHA-256 一致；首次清单的字节数捕获错误已在同一清单中注明并校正。此次没有重新执行测试、编译或服务启动。
 - 未完成的 `_aetherlink-validation-20260815-r16` 也已在不重跑测试的前提下整体移到 `../_aetherlink-github-cleanup-quarantine-20260815-r3/`；2,074 个文件、78,505,657 bytes 的逐文件 SHA-256 校验通过，清单记录 `allMovedVerified=true`、`permanentDelete=false`。该批次不进入当前验证结论。
 
@@ -73,7 +73,7 @@ AetherLink IoT 采用多层验证，因为不同层只能证明不同类型的�
 
 ## 发布验证顺序
 
-在对清理后的工作树作出公开发布结论之前，需要重新运行并归档以下流程。可先在 `automation_tests/` 运行 `npm run preflight:release` 作为离线静态/契约门禁；它不启动服务，也不等于 release readiness。漏洞数据库、SBOM 生成和托管依赖审查仍为 `not-run`，真实 frontend/backend/broker build/tests、`preflight:api-e2e` 与 E2E 仍不可省略。
+在对清理后的工作树作出公开发布结论之前，需要重新运行并归档以下流程。可先在 `automation_tests/` 运行 `npm run preflight:release` 作为离线静态/契约门禁；它不启动服务，也不等于 release readiness。该本地入口不运行漏洞数据库、SBOM 生成或托管依赖审查；正式 tag release workflow 另行生成 source-manifest SBOM，容器 workflow 由 BuildKit 生成 image SBOM。真实 frontend/backend/broker build/tests、`preflight:api-e2e` 与 E2E 仍不可省略。
 
 ```powershell
 cd frontend

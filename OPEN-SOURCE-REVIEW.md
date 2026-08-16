@@ -8,7 +8,7 @@
 - source package boundary: `public-source`。
 - GitHub repository: `https://github.com/shine-233/aetherlink-iot`。
 - GitHub upload: `executed`；公开 `main` 分支已包含当前源码基线。
-- hosted source evidence: Source CI、Minimum quality gate 和 CodeQL 的 Go / JavaScript/TypeScript 分析已在当前公开基线上成功；这些结果只证明对应 workflow 覆盖的源码/离线门禁。
+- hosted source evidence: Source CI、Minimum quality gate 和 CodeQL 的 GitHub Actions / Go / JavaScript/TypeScript 分析已在当前公开基线上成功；这些结果只证明对应 workflow 覆盖的源码/离线门禁。
 - production signoff: `not-ready`。
 - real RDI: `not-tested`；synthetic/emulator 证据不升级为真实设备证据。
 - target deployment: `pending`；Docker/Compose、HTTPS/TLS、反向代理、防火墙、公网 MQTT 和目标机灾备仍需目标环境验收。

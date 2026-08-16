@@ -8,6 +8,7 @@
 const path = require('path');
 const { defineConfig, devices } = require('@playwright/test');
 const config = require('./lib/runtime_config');
+const networkConfig = require('./lib/network_runtime');
 
 const frontendDir = path.resolve(__dirname, '../frontend');
 const browserChannel = process.env.PLAYWRIGHT_BROWSER_CHANNEL || 'msedge';
@@ -63,7 +64,7 @@ module.exports = defineConfig({
     ['list']
   ],
   use: {
-    baseURL: config.frontendURL,
+    baseURL: networkConfig.frontendURL,
     trace: config.e2e.trace,
     screenshot: config.e2e.screenshotOnFailure ? 'only-on-failure' : 'off',
     video: 'retain-on-failure',
@@ -77,7 +78,7 @@ module.exports = defineConfig({
   webServer: {
     command: webServerCommand,
     cwd: webServerCwd,
-    url: config.frontendURL,
+    url: networkConfig.frontendURL,
     reuseExistingServer,
     timeout: 120000
   }

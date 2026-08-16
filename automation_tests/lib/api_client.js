@@ -7,9 +7,15 @@
 
 const axios = require('axios');
 const FormData = require('form-data');
-const fs = require('fs');
 const endpointCoverage = require('./endpoint_coverage');
-const config = require('./runtime_config');
+const config = require('./network_runtime');
+
+function assertRelativeAPIPath(url) {
+  if (typeof url !== 'string' || !url.startsWith('/') || url.startsWith('//')) {
+    throw new Error('Automation API calls must use a relative path beginning with /');
+  }
+  return url;
+}
 
 class ApiClient {
   constructor() {
@@ -110,6 +116,7 @@ class ApiClient {
    * @returns {Promise<object>} 后端响应体或错误对象
    */
   async get(url, params = {}, accountKey = 'tenant_admin') {
+    assertRelativeAPIPath(url);
     const headers = await this.authHeaders(accountKey);
     try {
       const resp = await this.client.get(url, { params, headers });
@@ -130,6 +137,7 @@ class ApiClient {
    * @returns {Promise<object>} 后端响应体或错误对象
    */
   async post(url, data = {}, accountKey = 'tenant_admin') {
+    assertRelativeAPIPath(url);
     const headers = await this.authHeaders(accountKey);
     try {
       const resp = await this.client.post(url, data, { headers });
@@ -141,10 +149,17 @@ class ApiClient {
     }
   }
 
-  async upload(url, filePath, fields = {}, accountKey = 'tenant_admin') {
+  async upload(url, fileContent, fields = {}, accountKey = 'tenant_admin') {
+    assertRelativeAPIPath(url);
+    if (!Buffer.isBuffer(fileContent)) {
+      throw new TypeError('Automation uploads must be generated fixture buffers');
+    }
     const auth = await this.authHeaders(accountKey);
     const form = new FormData();
-    form.append('file', fs.createReadStream(filePath));
+    form.append('file', fileContent, {
+      filename: 'aetherlink-automation-fixture.bin',
+      contentType: 'application/octet-stream'
+    });
     for (const [key, value] of Object.entries(fields)) {
       form.append(key, String(value));
     }
@@ -169,6 +184,7 @@ class ApiClient {
    * @returns {Promise<object>} 后端响应体或错误对象
    */
   async put(url, data = {}, accountKey = 'tenant_admin') {
+    assertRelativeAPIPath(url);
     const headers = await this.authHeaders(accountKey);
     try {
       const resp = await this.client.put(url, data, { headers });
@@ -181,6 +197,7 @@ class ApiClient {
   }
 
   async patch(url, data = {}, accountKey = 'tenant_admin') {
+    assertRelativeAPIPath(url);
     const headers = await this.authHeaders(accountKey);
     try {
       const resp = await this.client.patch(url, data, { headers });
@@ -201,6 +218,7 @@ class ApiClient {
    * @returns {Promise<object>} 后端响应体或错误对象
    */
   async delete(url, data = {}, accountKey = 'tenant_admin') {
+    assertRelativeAPIPath(url);
     const headers = await this.authHeaders(accountKey);
     try {
       const resp = await this.client.delete(url, { headers, data });
@@ -219,6 +237,7 @@ class ApiClient {
    * @returns {Promise<object>} 后端响应体或错误对象
    */
   async getNoAuth(url, params = {}) {
+    assertRelativeAPIPath(url);
     try {
       const resp = await this.client.get(url, { params });
       this.recordEndpointResponse('GET', url);
@@ -230,6 +249,7 @@ class ApiClient {
   }
 
   async getRootNoAuth(url, params = {}) {
+    assertRelativeAPIPath(url);
     const rootURL = this.baseURL.replace(/\/api\/v1\/?$/, '');
     const targetURL = new URL(url, rootURL + '/').toString();
     try {
@@ -252,6 +272,7 @@ class ApiClient {
    * @returns {Promise<object>} 后端响应体或错误对象
    */
   async postNoAuth(url, data = {}) {
+    assertRelativeAPIPath(url);
     try {
       const resp = await this.client.post(url, data);
       this.recordEndpointResponse('POST', url);
@@ -269,6 +290,7 @@ class ApiClient {
    * @returns {Promise<object>} 后端响应体或错误对象
    */
   async putNoAuth(url, data = {}) {
+    assertRelativeAPIPath(url);
     try {
       const resp = await this.client.put(url, data);
       this.recordEndpointResponse('PUT', url);
@@ -286,6 +308,7 @@ class ApiClient {
    * @returns {Promise<object>} 后端响应体或错误对象
    */
   async deleteNoAuth(url, data = {}) {
+    assertRelativeAPIPath(url);
     try {
       const resp = await this.client.delete(url, { data });
       this.recordEndpointResponse('DELETE', url);

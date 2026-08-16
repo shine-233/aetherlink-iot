@@ -836,14 +836,14 @@ func TestCompactMarketBodyTrimsEmptyAndLongBodies(t *testing.T) {
 	if got := compactMarketBody([]byte("  \n ")); got != "<empty>" {
 		t.Fatalf("empty body should be marked, got %q", got)
 	}
-	if got := compactMarketBody([]byte("  ok  ")); got != "ok" {
-		t.Fatalf("body should be trimmed, got %q", got)
+	if got := compactMarketBody([]byte("  ok  ")); got != "<redacted>" {
+		t.Fatalf("non-empty body should be redacted, got %q", got)
 	}
 
 	longBody := strings.Repeat("x", 300)
 	got := compactMarketBody([]byte(longBody))
-	if len(got) != 259 || !strings.HasSuffix(got, "...") {
-		t.Fatalf("long body should be truncated with ellipsis, got len=%d", len(got))
+	if got != "<redacted>" {
+		t.Fatalf("long body should be redacted, got %q", got)
 	}
 }
 
