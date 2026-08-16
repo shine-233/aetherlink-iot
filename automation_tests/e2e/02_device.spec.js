@@ -11,7 +11,7 @@ const {
   storageStateExists,
   instrumentPageCoverage
 } = require('./fixtures');
-const config = require('../lib/runtime_config');
+const config = require('../lib/network_runtime');
 const seedData = require('../lib/seed_data');
 const { skipWhenBlocked } = require('../lib/integration_blocked');
 const fs = require('fs');

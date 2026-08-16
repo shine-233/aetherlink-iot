@@ -58,5 +58,25 @@ describe('release workflow contract [00_release_workflow_contract]', function ()
     expect(source).to.include(
       "comment-summary-in-pr: ${{ github.event_name == 'pull_request' && 'always' || 'never' }}"
     );
+    expect(source).to.include('fail-on-severity: moderate');
+    expect(source).to.include('fail-on-scopes: runtime, development, unknown');
+  });
+
+  it('binds every source release asset and release object to the validated SHA', function () {
+    const source = read('.github/workflows/release.yml');
+
+    expect(source).to.include('sha256sum -c SHA256SUMS.txt');
+    expect(source).to.include('subject-path: aetherlink-iot-${{ github.ref_name }}.tar.gz');
+    expect(source).to.include('subject-path: source-sbom.json');
+    expect(source).to.include('subject-path: SHA256SUMS.txt');
+    expect(source).to.include('--target "$RELEASE_SHA"');
+  });
+
+  it('fails the hosted integration job when runtime tests are skipped', function () {
+    const source = read('.github/workflows/integration-nightly.yml');
+
+    expect(source).to.include("CI_STRICT_INTEGRATION: '1'");
+    expect(source).to.include('Run API automation');
+    expect(source).to.include('Run Playwright E2E');
   });
 });

@@ -24,7 +24,7 @@ function resolveRuntimeTimeout() {
 
 // Keep the request client independent of runtime_config.js. That module reads
 // config.json and is useful for file-backed test fixtures, but network clients
-// must derive destinations only from validated environment values.
+// must derive destinations and credentials only from validated environment values.
 const config = {
   baseURL: resolveRuntimeURL('API_BASE_URL', 'http://127.0.0.1:9999/api/v1'),
   healthURL: resolveRuntimeURL('HEALTH_URL', 'http://127.0.0.1:9999/health'),
@@ -65,14 +65,14 @@ class ApiClient {
    * 登录获取 Token
    * 登录失败时抛出 Error（与 get/post 等返回错误对象的设计不同），
    * 以便 before 钩子或调用方通过 try/catch 明确感知登录失败
-   * @param {string} accountKey - config.accounts 中的 key
+   * @param {string} accountKey - network runtime account key
    * @returns {Promise<string>} 登录成功后的 token
    * @throws {Error} 账号未配置、HTTP 错误、业务码非 200 时抛出
    */
   async login(accountKey = 'tenant_admin') {
     const account = config.accounts[accountKey];
     if (!account) {
-      throw new Error(`测试账号 ${accountKey} 未在 config.json 中配置`);
+      throw new Error(`测试账号 ${accountKey} 未通过运行环境配置`);
     }
     try {
       const resp = await this.client.post('/login', {
@@ -95,7 +95,7 @@ class ApiClient {
   /**
    * 获取指定账号的 Token（如未登录则自动登录）
    * 注意：Token 缓存在内存中，不会自动检测过期；如需强制重新登录请先 clearToken
-   * @param {string} accountKey - config.accounts 中的 key
+   * @param {string} accountKey - network runtime account key
    * @returns {Promise<string>} token
    */
   async getToken(accountKey = 'tenant_admin') {
@@ -107,7 +107,7 @@ class ApiClient {
 
   /**
    * 清除指定账号的 Token（下次请求将触发重新登录）
-   * @param {string} accountKey - config.accounts 中的 key
+   * @param {string} accountKey - network runtime account key
    */
   clearToken(accountKey) {
     delete this.tokens[accountKey];
@@ -122,7 +122,7 @@ class ApiClient {
 
   /**
    * 构造带认证的请求头（自动获取/复用 Token）
-   * @param {string} accountKey - config.accounts 中的 key
+   * @param {string} accountKey - network runtime account key
    * @returns {Promise<object>} 包含 x-token 字段的 headers 对象
    */
   async authHeaders(accountKey = 'tenant_admin') {
@@ -385,8 +385,8 @@ class ApiClient {
   }
 
   /**
-   * 获取配置对象（同步返回）
-   * @returns {object} config.json 解析后的配置
+   * 获取网络运行时配置对象（同步返回）
+   * @returns {object} validated environment-backed network configuration
    */
   getConfig() {
     return config;
@@ -394,7 +394,7 @@ class ApiClient {
 
   /**
    * 探测某个测试账号是否能在当前本地环境成功登录
-   * @param {string} accountKey - config.accounts 中的 key
+   * @param {string} accountKey - network runtime account key
    * @returns {Promise<boolean>} true 表示账号当前可用
    */
   async isAccountAvailable(accountKey) {

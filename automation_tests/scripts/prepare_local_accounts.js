@@ -9,7 +9,10 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const axios = require('axios');
-const runtimeConfig = require('../lib/runtime_config');
+// Preserve the optional .env.local bootstrap used by local account setup, but
+// resolve every URL and timeout through the environment-only network runtime.
+require('../lib/runtime_config');
+const networkConfig = require('../lib/network_runtime');
 
 const rootDir = path.join(__dirname, '..');
 
@@ -96,7 +99,7 @@ class LocalAutomationAccountClient {
     this.tokens = {};
     this.http = axios.create({
       baseURL,
-      timeout: Number(runtimeConfig.timeout || 30000),
+      timeout: Number(networkConfig.timeout || 30000),
       headers: { 'Content-Type': 'application/json' }
     });
   }
@@ -240,7 +243,7 @@ function writeEnvFiles(accounts, urls) {
 }
 
 async function main() {
-  const apiBaseURL = requireHttpURL(process.env.API_BASE_URL || runtimeConfig.baseURL, 'API_BASE_URL');
+  const apiBaseURL = requireHttpURL(process.env.API_BASE_URL || networkConfig.baseURL, 'API_BASE_URL');
   const apiTarget = requireHttpURL(process.env.API_TARGET || new URL(apiBaseURL).origin, 'API_TARGET');
   const frontendURL = requireHttpURL(process.env.FRONTEND_URL || 'http://127.0.0.1:9725', 'FRONTEND_URL');
   const previewURL = requireHttpURL(process.env.PREVIEW_URL || frontendURL, 'PREVIEW_URL');

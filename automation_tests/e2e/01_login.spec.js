@@ -7,7 +7,7 @@
  */
 
 const { test, expect } = require('./fixtures');
-const config = require('../lib/runtime_config');
+const config = require('../lib/network_runtime');
 const selectors = require('./selectors');
 
 const LOGIN_URL = /\/login(?:[/?#]|$)/;

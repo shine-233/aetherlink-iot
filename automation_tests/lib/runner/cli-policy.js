@@ -66,8 +66,43 @@ function shouldArchiveReports(args) {
   return args.archive || (args.includeE2e && args.modules.length === 0);
 }
 
-function getRunnerExitCode(summary) {
-  return summary.failed > 0 ? EXIT_CODES.failed : 0;
+function isStrictIntegrationEnabled(env = process.env) {
+  const value = String(env.CI_STRICT_INTEGRATION || '').trim().toLowerCase();
+  return value === '1' || value === 'true' || value === 'yes';
+}
+
+function getStrictIntegrationGaps(summary = {}) {
+  const gaps = [];
+
+  if (Number(summary.skipped || 0) > 0) {
+    gaps.push('skipped tests are not allowed in strict integration mode');
+  }
+  if (Number(summary.partialSkipped || 0) > 0) {
+    gaps.push('partial-skip module results are not allowed in strict integration mode');
+  }
+  if (Number(summary.allSkipped || 0) > 0) {
+    gaps.push('all-skipped module results are not allowed in strict integration mode');
+  }
+
+  const blockedReasons = Array.isArray(summary.blockedReasons) ? summary.blockedReasons : [];
+  if (blockedReasons.some(item => item && item.category === 'runtime-external')) {
+    gaps.push('runtime-external prerequisites are blocked in strict integration mode');
+  }
+
+  return gaps;
+}
+
+function getRunnerExitCode(summary = {}, options = {}) {
+  if (Number(summary.failed || 0) > 0) {
+    return EXIT_CODES.failed;
+  }
+
+  const strictIntegration = typeof options.strictIntegration === 'boolean'
+    ? options.strictIntegration
+    : isStrictIntegrationEnabled();
+  return strictIntegration && getStrictIntegrationGaps(summary).length > 0
+    ? EXIT_CODES.failed
+    : 0;
 }
 
 module.exports = {
@@ -77,5 +112,7 @@ module.exports = {
   parseCliArgs,
   parseArgs,
   shouldArchiveReports,
+  isStrictIntegrationEnabled,
+  getStrictIntegrationGaps,
   getRunnerExitCode
 };
