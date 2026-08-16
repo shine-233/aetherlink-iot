@@ -46,11 +46,13 @@ npm run sbom:local
 
 上述 resolved/image SBOM 与漏洞、许可证、attestation 能力在默认 preflight 中保持 `optional-external / not-run`，不能输出假通过。
 
-## 外部阻断（blocked-external）
+## GitHub 托管检查（hosted-github）
 
-GitHub Dependency Review 依赖 GitHub dependency graph、仓库权限和托管服务配置。仓库当前没有 `.github` 工作流，因此本地入口只报告该能力未运行，不创建一个无法在本地证明成功的强制门禁。官方能力边界见 [GitHub Dependency Review](https://docs.github.com/en/code-security/supply-chain-security/understanding-your-software-supply-chain/about-dependency-review)。
+仓库已经接入 [`.github/workflows/dependency-review.yml`](.github/workflows/dependency-review.yml)。它在 Pull Request 上调用 GitHub 的 Dependency Review action，依赖 GitHub dependency graph 和托管仓库权限，设置为发现 high 或 critical 风险时失败，并把摘要写入 PR。
 
-如果未来接入 GitHub CI，应在同一工作流中先提交 dependency snapshot，再执行 review，并保持本地 `preflight:supply-chain` 可独立运行。
+这条 workflow 证明的是“本次 PR 的依赖变更经过 GitHub 托管检查”，不是本地 `preflight:supply-chain` 的替代品，也不等价于完整许可证兼容审计、运行时漏洞验证或镜像 SBOM。官方能力边界见 [GitHub Dependency Review](https://docs.github.com/en/code-security/supply-chain-security/understanding-your-software-supply-chain/about-dependency-review)。
+
+本地入口仍保持离线和可复核；GitHub workflow 的排队、权限、dependency graph 或托管服务异常应记录为 hosted check 的失败/未运行，不得改写成本地通过。
 
 ## 工具链说明
 
