@@ -280,6 +280,6 @@ flowchart LR
 
 ## 当前边界说明
 
-- 当前批次按用户要求，只做静态源码审查、中文注释、README 补齐和低风险重构。
-- 当前没有在本轮执行任何测试、编译、lint、build、服务启动或 E2E 验证。
-- 因此，本 README 中的结构说明、重构计划和路线图是当前静态结论，不是运行期验收证明。
+- 本公开源码已推送到 [GitHub](https://github.com/shine-233/aetherlink-iot)，并接入 Source CI、Minimum quality gate 和 CodeQL。
+- GitHub 上的源码/离线门禁通过，只说明对应 workflow 覆盖的构建、单元测试、合同检查和静态分析结果；不代表真实 API、浏览器 E2E、RDI 设备、目标服务器或生产环境已验收。
+- 真实 RDI、目标部署、HTTPS/TLS、公网 MQTT、外部 ThingsVis 和 backup/restore 仍保持 `not-tested`、`pending` 或 `configuration-required`，详见 [VALIDATION.md](VALIDATION.md) 与 [PUBLICATION.md](PUBLICATION.md)。
