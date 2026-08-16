@@ -9,10 +9,14 @@ const { expect } = require('chai');
 const axios = require('axios');
 const apiClient = require('../../lib/api_client');
 const endpointCoverage = require('../../lib/endpoint_coverage');
-const runtimeConfig = require('../../lib/runtime_config');
+// Load the optional local environment file for developer convenience, but keep
+// the request target itself in the network-only runtime module. The public
+// config.json must never become a fallback for an outbound request.
+require('../../lib/runtime_config');
+const networkConfig = require('../../lib/network_runtime');
 
 const ZERO_UUID = '00000000-0000-0000-0000-000000000000';
-const ROOT_URL = process.env.API_TARGET || new URL(runtimeConfig.healthURL).origin;
+const ROOT_URL = process.env.API_TARGET || new URL(networkConfig.healthURL).origin;
 
 function expectOk(resp) {
   expect(resp).to.be.an('object');

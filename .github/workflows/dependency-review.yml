@@ -28,4 +28,7 @@ jobs:
           # the repository's early warning, while Dependabot alerts remain the
           # long-lived inventory that must be remediated independently.
           fail-on-severity: moderate
+          # Apply the same merge-blocking policy to runtime, development, and
+          # unresolved dependency scopes instead of silently ignoring dev/unknown scope.
+          fail-on-scopes: runtime, development, unknown
           comment-summary-in-pr: ${{ github.event_name == 'pull_request' && 'always' || 'never' }}

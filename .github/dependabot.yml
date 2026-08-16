@@ -134,3 +134,36 @@ updates:
         applies-to: security-updates
         patterns:
           - '*'
+
+  # Keep image tags in Compose manifests on the same maintenance path as
+  # Dockerfiles. The root and optional-integration stacks are production
+  # deployment inputs; the multidb stack is a maintained test fixture.
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    groups:
+      root-compose-images:
+        patterns:
+          - '*'
+
+  - package-ecosystem: docker-compose
+    directory: /deploy
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    groups:
+      optional-compose-images:
+        patterns:
+          - '*'
+
+  - package-ecosystem: docker-compose
+    directory: /backend/test/multidb
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    groups:
+      multidb-compose-images:
+        patterns:
+          - '*'

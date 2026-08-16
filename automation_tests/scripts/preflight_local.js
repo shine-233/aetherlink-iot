@@ -8,18 +8,23 @@
 const fs = require('fs');
 const path = require('path');
 
-const runtimeConfig = require('../lib/runtime_config');
+// Load optional local environment values first, then use only the network-only
+// runtime for the target that the preview proxy will contact.
+require('../lib/runtime_config');
+const networkConfig = require('../lib/network_runtime');
 const { runPreflightCli } = require('./preflight_api_e2e');
 const { createServer } = require('./serve_preview_with_api_proxy');
 
 const DEFAULT_PREVIEW_HOST = '127.0.0.1';
 const DEFAULT_PREVIEW_PORT = 9725;
 
-function resolveLocalPreflightOptions({ env = process.env, config = runtimeConfig } = {}) {
+function resolveLocalPreflightOptions({ env = process.env } = {}) {
   const previewPort = Number(env.PREVIEW_PORT || env.PREVIEW_PROXY_PORT || DEFAULT_PREVIEW_PORT);
   const previewHost = env.PREVIEW_PROXY_HOST || DEFAULT_PREVIEW_HOST;
   const previewURL = `http://${previewHost}:${previewPort}`;
-  const baseURL = new URL(config.baseURL);
+  const baseURL = new URL(
+    env.API_BASE_URL || networkConfig.baseURL || 'http://127.0.0.1:9999/api/v1'
+  );
   const apiTarget = env.API_TARGET || baseURL.origin;
 
   return {
@@ -29,7 +34,9 @@ function resolveLocalPreflightOptions({ env = process.env, config = runtimeConfi
     apiTarget,
     distDir: env.PREVIEW_DIST_DIR || path.resolve(__dirname, '..', '..', 'frontend', 'dist'),
     config: {
-      ...config,
+      ...networkConfig,
+      baseURL: env.API_BASE_URL || networkConfig.baseURL,
+      healthURL: env.HEALTH_URL || networkConfig.healthURL,
       frontendURL: previewURL
     },
     env: {
@@ -77,13 +84,12 @@ function close(server) {
 
 async function runLocalPreflight({
   env = process.env,
-  config = runtimeConfig,
   stdout = process.stdout,
   stderr = process.stderr,
   createServerImpl = createServer,
   runPreflightImpl = runPreflightCli
 } = {}) {
-  const options = resolveLocalPreflightOptions({ env, config });
+  const options = resolveLocalPreflightOptions({ env });
   assertPreviewBuild(options.distDir);
   const server = createServerImpl({ apiTarget: options.apiTarget, distDir: options.distDir });
 

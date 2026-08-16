@@ -93,9 +93,22 @@ describe('Automation runner CLI policy contract', function() {
     }
   });
 
-  it('returns a failure code only when summary.failed is positive', function() {
-    expect(cliPolicy.getRunnerExitCode({ failed: 0 })).to.equal(0);
+  it('keeps local partial-skip behavior but fails strict integration gaps', function() {
+    expect(cliPolicy.getRunnerExitCode({ failed: 0, skipped: 1 }, { strictIntegration: false })).to.equal(0);
+    expect(cliPolicy.getRunnerExitCode({ failed: 0, skipped: 1 }, { strictIntegration: true })).to.equal(cliPolicy.EXIT_CODES.failed);
+    expect(cliPolicy.getRunnerExitCode({ failed: 0, partialSkipped: 1 }, { strictIntegration: true })).to.equal(cliPolicy.EXIT_CODES.failed);
+    expect(cliPolicy.getRunnerExitCode({
+      failed: 0,
+      blockedReasons: [{ category: 'runtime-external' }]
+    }, { strictIntegration: true })).to.equal(cliPolicy.EXIT_CODES.failed);
     expect(cliPolicy.getRunnerExitCode({ failed: 2 })).to.equal(cliPolicy.EXIT_CODES.failed);
+  });
+
+  it('recognizes explicit strict integration environment values', function() {
+    expect(cliPolicy.isStrictIntegrationEnabled({ CI_STRICT_INTEGRATION: '1' })).to.equal(true);
+    expect(cliPolicy.isStrictIntegrationEnabled({ CI_STRICT_INTEGRATION: 'true' })).to.equal(true);
+    expect(cliPolicy.isStrictIntegrationEnabled({ CI_STRICT_INTEGRATION: '0' })).to.equal(false);
+    expect(cliPolicy.isStrictIntegrationEnabled({})).to.equal(false);
   });
 
   it('archives only explicit archive or full include-e2e runs', function() {

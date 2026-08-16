@@ -35,6 +35,23 @@ class Reporter {
     const passed = this.results.filter(r => r.passed).length;
     const failed = this.results.filter(r => !r.passed).length;
     const total = this.results.length;
+    const skipped = this.results.reduce((totalSkipped, result) => (
+      totalSkipped + Number(result.skipped || 0)
+    ), 0);
+    const partialSkipped = this.results.filter(r => r.outcome === 'partial-skip').length;
+    const allSkipped = this.results.filter(r => r.outcome === 'all-skipped').length;
+    const blockedReasons = this.results.reduce((reasons, result) => {
+      if (!Array.isArray(result.blockedReasons)) {
+        return reasons;
+      }
+      result.blockedReasons.forEach(reason => {
+        const key = JSON.stringify(reason);
+        if (!reasons.some(existing => JSON.stringify(existing) === key)) {
+          reasons.push(reason);
+        }
+      });
+      return reasons;
+    }, []);
     const passRate = total > 0 ? ((passed / total) * 100).toFixed(2) : '0.00';
 
     console.log('\n' + '='.repeat(70));
@@ -67,7 +84,18 @@ class Reporter {
       });
     }
     console.log('');
-    return { total, passed, failed, passRate, duration, parallel: this.parallel };
+    return {
+      total,
+      passed,
+      failed,
+      skipped,
+      partialSkipped,
+      allSkipped,
+      blockedReasons,
+      passRate,
+      duration,
+      parallel: this.parallel
+    };
   }
 
   record(module, name, passed, reason = '', type = 'api', evidenceKind = type, summary = {}) {
