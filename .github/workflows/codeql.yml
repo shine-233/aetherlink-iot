@@ -35,10 +35,10 @@ jobs:
             build-mode: manual
     steps:
       - name: Check out repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up Go for Go analysis
         if: matrix.language == 'go'
-        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: backend/go.mod
           cache: true
@@ -47,7 +47,7 @@ jobs:
             mqtt-broker/go.sum
             backend/cmd/aetherlink-device-autotest/go.sum
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@0fa1882f994fbd81a47ab0804f93354f5ea40147 # v3.28.17
+        uses: github/codeql-action/init@60168efe1c415ce0f5521ea06d5c2062adbeed1b # v3.28.17
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
@@ -63,6 +63,6 @@ jobs:
           (cd mqtt-broker && go build ./...)
           (cd backend/cmd/aetherlink-device-autotest && go build ./...)
       - name: Analyze with CodeQL
-        uses: github/codeql-action/analyze@0fa1882f994fbd81a47ab0804f93354f5ea40147 # v3.28.17
+        uses: github/codeql-action/analyze@60168efe1c415ce0f5521ea06d5c2062adbeed1b # v3.28.17
         with:
           category: /language:${{ matrix.language }}
