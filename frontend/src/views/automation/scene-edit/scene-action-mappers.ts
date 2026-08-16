@@ -93,9 +93,13 @@ export const buildActionValuePayload = (instructItem: SceneInstructionLike) => {
   if (ACTION_PARAM_TYPES_WITH_KEY_VALUE_PAYLOAD.has(instructItem.action_param_type as string)) {
     const key = normalizeActionParamKey(instructItem.action_param)
     if (!key) return instructItem.action_value
-    const payload = Object.create(null) as Record<string, unknown>
-    payload[key] = instructItem.actionValue
-    return JSON.stringify(payload)
+    // Keep the key validation above, but serialize the one-entry JSON object
+    // directly instead of assigning a remote value to an object property.
+    // JSON.stringify quotes the key and escapes control characters for us.
+    const serializedValue = JSON.stringify(instructItem.actionValue)
+    return serializedValue === undefined
+      ? '{}'
+      : `{${JSON.stringify(key)}:${serializedValue}}`
   }
 
   if (instructItem.action_param_type === 'command') {

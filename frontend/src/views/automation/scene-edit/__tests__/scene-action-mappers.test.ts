@@ -19,6 +19,26 @@ describe('scene-action-mappers', () => {
     ).toBe('{"switch":1}')
   })
 
+  it('rejects prototype keys instead of building an unsafe dynamic property', () => {
+    expect(
+      buildActionValuePayload({
+        action_param_type: 'telemetry',
+        action_param: '__proto__',
+        action_value: 'fallback',
+        actionValue: 'blocked'
+      })
+    ).toBe('fallback')
+
+    expect(
+      buildActionValuePayload({
+        action_param_type: 'attributes',
+        action_param: 'constructor',
+        action_value: 'fallback',
+        actionValue: 'blocked'
+      })
+    ).toBe('fallback')
+  })
+
   it('serializes command-style action values into method plus params payloads', () => {
     expect(
       buildActionValuePayload({

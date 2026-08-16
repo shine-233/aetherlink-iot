@@ -8,7 +8,34 @@
 const axios = require('axios');
 const FormData = require('form-data');
 const endpointCoverage = require('./endpoint_coverage');
-const config = require('./network_runtime');
+const networkRuntime = require('./network_runtime');
+
+function resolveRuntimeURL(name, fallback) {
+  return networkRuntime.validateTrustedURL(
+    process.env[name] || fallback,
+    name
+  );
+}
+
+function resolveRuntimeTimeout() {
+  const timeout = Number(process.env.API_TIMEOUT_MS || '15000');
+  return Number.isFinite(timeout) && timeout > 0 ? timeout : 15000;
+}
+
+// Keep the request client independent of runtime_config.js. That module reads
+// config.json and is useful for file-backed test fixtures, but network clients
+// must derive destinations only from validated environment values.
+const config = {
+  baseURL: resolveRuntimeURL('API_BASE_URL', 'http://127.0.0.1:9999/api/v1'),
+  healthURL: resolveRuntimeURL('HEALTH_URL', 'http://127.0.0.1:9999/health'),
+  frontendURL: resolveRuntimeURL('FRONTEND_URL', 'http://127.0.0.1:5002'),
+  timeout: resolveRuntimeTimeout(),
+  e2e: networkRuntime.e2e,
+  accounts: networkRuntime.accounts,
+  accountEnvOverrides: networkRuntime.accountEnvOverrides,
+  releaseRequiredAccounts: networkRuntime.releaseRequiredAccounts,
+  validateTrustedURL: networkRuntime.validateTrustedURL
+};
 
 function assertRelativeAPIPath(url) {
   if (typeof url !== 'string' || !url.startsWith('/') || url.startsWith('//')) {
@@ -19,11 +46,13 @@ function assertRelativeAPIPath(url) {
 
 class ApiClient {
   constructor() {
-    this.baseURL = config.baseURL;
+    const trustedBaseURL = config.baseURL;
+    this.baseURL = trustedBaseURL;
+    this.healthURL = config.healthURL;
     this.timeout = config.timeout;
     this.tokens = {};
     this.client = axios.create({
-      baseURL: this.baseURL,
+      baseURL: trustedBaseURL,
       timeout: this.timeout,
       // 测试断言统一期望英文验证消息；后端按 Accept-Language 决定中英文（默认中文）。
       // 不设此头会导致 device-config / device-alarm-share 等用例收到中文消息而失败。
@@ -325,7 +354,7 @@ class ApiClient {
    */
   async healthCheck() {
     try {
-      const resp = await axios.get(config.healthURL, { timeout: 5000 });
+      const resp = await axios.get(this.healthURL, { timeout: 5000 });
       return resp.status === 200;
     } catch (err) {
       return false;

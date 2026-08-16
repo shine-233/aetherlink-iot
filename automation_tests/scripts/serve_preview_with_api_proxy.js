@@ -79,19 +79,120 @@ const contentTypes = {
   '.woff2': 'font/woff2'
 };
 
-function safeJoin(baseDir, requestPath) {
-  const decodedPath = decodeURIComponent(requestPath.split('?')[0]);
-  const normalized = path.normalize(decodedPath).replace(/^([/\\])+/, '');
-  const resolved = path.resolve(baseDir, normalized);
+const PREVIEW_ORIGIN = 'http://preview.local';
+const API_PROXY_PREFIXES = ['/api/', '/uploads'];
 
-  if (resolved !== baseDir && !resolved.startsWith(`${baseDir}${path.sep}`)) {
-    return null;
-  }
-  return resolved;
+function pathMatchesPrefix(pathname, prefix) {
+  const normalizedPrefix = prefix.replace(/\/$/, '');
+  return pathname === normalizedPrefix || pathname.startsWith(`${normalizedPrefix}/`);
 }
 
-function serveFile(response, filePath) {
-  fs.readFile(filePath, (error, data) => {
+function requestMatchesPrefix(requestURL, prefix) {
+  const requestPath = String(requestURL || '').split('?')[0];
+  return pathMatchesPrefix(requestPath, prefix);
+}
+
+function parsePreviewRequestURL(requestURL, allowedPrefixes = []) {
+  let request;
+  try {
+    request = new URL(String(requestURL || ''), PREVIEW_ORIGIN);
+  } catch {
+    throw new Error('preview proxy request URL is invalid');
+  }
+
+  // A request such as //attacker.example/path is an absolute URL when it is
+  // resolved against a base.  Reject it before any target URL is constructed.
+  if (request.origin !== PREVIEW_ORIGIN) {
+    throw new Error('preview proxy request must stay on the local preview origin');
+  }
+  if (allowedPrefixes.length > 0 && !allowedPrefixes.some(prefix => pathMatchesPrefix(request.pathname, prefix))) {
+    throw new Error('preview proxy request path is not allowed');
+  }
+  return request;
+}
+
+function buildProxyTargetURL(requestURL, configuredTarget) {
+  const request = parsePreviewRequestURL(requestURL, API_PROXY_PREFIXES);
+  const target = new URL(configuredTarget instanceof URL ? configuredTarget.toString() : configuredTarget);
+
+  // Copy only the already-routed path and query.  Never use request.url as a
+  // URL base, because a network request can otherwise replace the upstream
+  // origin with a scheme-relative URL.
+  target.pathname = request.pathname;
+  target.search = request.search;
+  target.hash = '';
+  return target;
+}
+
+function staticRequestPath(requestURL) {
+  let request;
+  try {
+    request = parsePreviewRequestURL(requestURL);
+  } catch {
+    return null;
+  }
+
+  let decodedPath;
+  try {
+    decodedPath = decodeURIComponent(request.pathname);
+  } catch {
+    return null;
+  }
+
+  // Keep the lookup key URL-shaped and reject traversal rather than
+  // normalizing it into a different file name. Backslashes are separators on
+  // Windows and therefore cannot be accepted as URL path data.
+  if (!decodedPath.startsWith('/') || decodedPath.includes('\0') || decodedPath.includes('\\')) {
+    return null;
+  }
+  const normalized = path.posix.normalize(decodedPath);
+  if (normalized !== decodedPath) return null;
+  return normalized;
+}
+
+function buildStaticFileIndex(distDirectory) {
+  const root = path.resolve(distDirectory);
+  const files = new Map();
+
+  function visit(directory) {
+    let entries;
+    try {
+      entries = fs.readdirSync(directory, { withFileTypes: true });
+    } catch {
+      return;
+    }
+
+    for (const entry of entries) {
+      const filePath = path.resolve(directory, entry.name);
+      if (entry.isDirectory()) {
+        visit(filePath);
+        continue;
+      }
+      if (!entry.isFile() || (filePath !== root && !filePath.startsWith(`${root}${path.sep}`))) {
+        continue;
+      }
+
+      const relativePath = path.relative(root, filePath).split(path.sep).join('/');
+      if (!relativePath || relativePath.startsWith('../')) continue;
+      files.set(`/${relativePath}`, {
+        filePath,
+        contentType: contentTypes[path.extname(filePath).toLowerCase()] || 'application/octet-stream'
+      });
+    }
+  }
+
+  visit(root);
+  return files;
+}
+
+function serveFile(response, fileEntry) {
+  if (!fileEntry) {
+    response.writeHead(404);
+    response.end('Not found');
+    return;
+  }
+
+  fs.readFile(fileEntry.filePath, (error, data) => {
     if (error) {
       response.writeHead(404);
       response.end('Not found');
@@ -99,14 +200,26 @@ function serveFile(response, filePath) {
     }
 
     response.writeHead(200, {
-      'Content-Type': contentTypes[path.extname(filePath).toLowerCase()] || 'application/octet-stream'
+      'Content-Type': fileEntry.contentType
     });
     response.end(data);
   });
 }
 
 function proxyApi(request, response, targetURL) {
-  const target = targetURL instanceof URL ? targetURL : new URL(request.url, targetURL);
+  let target;
+  try {
+    // A URL object is accepted only for the already-validated ThingsVis
+    // rewrite produced by buildThingsVisTargetURL. String targets still have
+    // to pass the normal API-path builder here.
+    target = targetURL instanceof URL
+      ? new URL(targetURL.toString())
+      : buildProxyTargetURL(request.url, targetURL);
+  } catch {
+    response.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+    response.end(JSON.stringify({ code: 400, message: 'invalid preview proxy request' }));
+    return;
+  }
   const upstream = http.request(
     target,
     {
@@ -131,7 +244,7 @@ function proxyApi(request, response, targetURL) {
 }
 
 function buildThingsVisTargetURL(requestURL, configuredTarget = thingsVisApiTarget) {
-  const request = new URL(requestURL, 'http://preview.local');
+  const request = parsePreviewRequestURL(requestURL, [thingsVisProxyPath]);
   const configured = new URL(configuredTarget);
   const configuredPath = configured.pathname.replace(/\/$/, '');
   const apiBasePath = configuredPath.endsWith('/api/v1')
@@ -166,9 +279,9 @@ function formatUpgradeHeaders(headers, target) {
 function proxyWebSocket(request, clientSocket, head, targetURL) {
   let target;
   try {
-    target = targetURL instanceof URL ? new URL(request.url, targetURL) : new URL(request.url, targetURL);
+    target = buildProxyTargetURL(request.url, targetURL);
   } catch (error) {
-    clientSocket.destroy(error);
+    clientSocket.destroy(new Error('invalid preview WebSocket proxy request'));
     return;
   }
 
@@ -211,29 +324,25 @@ function createServer(options = {}) {
     'THINGSVIS_API_TARGET'
   );
   const configuredDistDir = options.distDir || distDir;
+  const staticFiles = buildStaticFileIndex(configuredDistDir);
 
   const server = http.createServer((request, response) => {
-  if (request.url.startsWith('/api/') || request.url.startsWith('/uploads')) {
+  if (API_PROXY_PREFIXES.some(prefix => requestMatchesPrefix(request.url, prefix))) {
     proxyApi(request, response, configuredApiTarget);
     return;
   }
 
-  if (request.url === thingsVisProxyPath || request.url.startsWith(`${thingsVisProxyPath}/`)) {
+  if (requestMatchesPrefix(request.url, thingsVisProxyPath)) {
     proxyThingsVisApi(request, response, configuredThingsVisApiTarget);
     return;
   }
 
-  const requestedFile = safeJoin(configuredDistDir, request.url);
-  if (requestedFile && fs.existsSync(requestedFile) && fs.statSync(requestedFile).isFile()) {
-    serveFile(response, requestedFile);
-    return;
-  }
-
-  serveFile(response, path.join(configuredDistDir, 'index.html'));
+  const requestedFile = staticFiles.get(staticRequestPath(request.url));
+  serveFile(response, requestedFile || staticFiles.get('/index.html'));
   });
 
   server.on('upgrade', (request, socket, head) => {
-    if (request.url.startsWith('/api/') || request.url.startsWith('/uploads')) {
+    if (API_PROXY_PREFIXES.some(prefix => requestMatchesPrefix(request.url, prefix))) {
       proxyWebSocket(request, socket, head, configuredApiTarget);
       return;
     }
@@ -256,6 +365,8 @@ if (require.main === module) {
 }
 
 module.exports = {
+  buildProxyTargetURL,
   buildThingsVisTargetURL,
+  buildStaticFileIndex,
   createServer
 };
