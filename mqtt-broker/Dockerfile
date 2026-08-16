@@ -7,7 +7,7 @@ ENV GOPROXY="https://goproxy.cn,direct"
 WORKDIR $GOPATH/src/app/cmd/gmqttd
 RUN go build
 
-FROM alpine:3.20
+FROM alpine:3.24
 WORKDIR /gmqttd
 RUN apk add --no-cache tzdata ca-certificates \
     && addgroup -S -g 10001 aetherlink \
