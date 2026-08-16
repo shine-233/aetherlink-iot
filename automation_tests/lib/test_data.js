@@ -5,15 +5,22 @@
  * 重构建议：继续按职责拆分深模块，避免把运行配置、业务断言和报告生成耦合在同一入口。
  */
 
-const fs = require('fs');
-const path = require('path');
-
-const config = require('./runtime_config');
+// Keep request fixtures independent from config.json. Values returned by this
+// module are routinely placed in API payloads; loading them through the
+// file-backed runtime config would create a file-to-network data flow.
+const TEST_DEVICE_PIDS = Object.freeze({
+  activated_pid: '0000000001A2',
+  activated_pid_2: '0000000002B3',
+  inactive_pid: '0000000003C4',
+  invalid_pid_short: '0000000001A',
+  invalid_pid_long: '0000000001A23',
+  invalid_pid_special: '0000000001A!'
+});
 
 const testData = {
   /**
    * 获取配置中的测试设备 PID
-   * @param {string} key - config.testDevice 中的 key
+   * @param {string} key - the test device fixture key
    * @returns {string} PID 字符串
    */
   getDevicePID(key = 'activated_pid') {
@@ -31,7 +38,7 @@ const testData = {
       }
       return pid;
     }
-    return config.testDevice[key];
+    return TEST_DEVICE_PIDS[key];
   },
 
   /**
@@ -252,10 +259,10 @@ const testData = {
 
   /**
    * 获取配置对象
-   * @returns {object} config.json 解析后的配置
+   * @returns {object} static request-fixture metadata
    */
   getConfig() {
-    return config;
+    return { testDevice: { ...TEST_DEVICE_PIDS } };
   }
 };
 
