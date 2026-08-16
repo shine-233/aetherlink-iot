@@ -8,6 +8,7 @@ package dal
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -486,10 +487,21 @@ func setupDeviceDALTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 
 	oldDB := global.DB
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	// A plain :memory: SQLite DSN creates one database per pooled connection.
+	// UpdateDeviceStatus can use a different connection on its second call,
+	// which makes the migrated tables disappear intermittently in CI. Give
+	// each test its own shared in-memory database and keep the pool bounded.
+	dbName := fmt.Sprintf("%s_%d", strings.ReplaceAll(t.Name(), "/", "_"), time.Now().UnixNano())
+	db, err := gorm.Open(sqlite.Open("file:"+dbName+"?mode=memory&cache=shared"), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatalf("open sqlite pool: %v", err)
+	}
+	sqlDB.SetMaxOpenConns(1)
+	sqlDB.SetMaxIdleConns(1)
 	if err := db.AutoMigrate(&model.Device{}, &model.DeviceConfig{}, &model.TelemetryCurrentData{}, &model.LatestDeviceAlarm{}, &model.DeviceStatusHistory{}); err != nil {
 		t.Fatalf("migrate test tables: %v", err)
 	}
