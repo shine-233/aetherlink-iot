@@ -96,7 +96,8 @@ const EMBEDDED_RASTER_IMAGE = /^data:image\/(?:png|gif|jpe?g|webp);base64,[A-Za-
 const SVG_ELEMENT_NODE = 1
 const SVG_TEXT_NODE = 3
 const SVG_CDATA_SECTION_NODE = 4
-const svgParser = new Window().DOMParser()
+const svgDomWindow = new Window()
+const svgParser = new svgDomWindow.DOMParser()
 
 interface LocalSvgIconsOptions {
   iconDirs: string[]
