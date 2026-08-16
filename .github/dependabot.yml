@@ -97,6 +97,12 @@ updates:
       day: monday
     open-pull-requests-limit: 10
     groups:
+      device-autotest-minor-patch:
+        update-types:
+          - minor
+          - patch
+        patterns:
+          - '*'
       device-autotest-security:
         applies-to: security-updates
         patterns:

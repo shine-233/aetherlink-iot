@@ -210,3 +210,29 @@ jobs:
           if [[ -f "$RUNNER_TEMP/aetherlink-preview-proxy.pid" ]]; then
             kill "$(cat "$RUNNER_TEMP/aetherlink-preview-proxy.pid")" 2>/dev/null || true
           fi
+
+  integration-result:
+    name: Integration result
+    if: always()
+    needs:
+      - integration-config
+      - api-e2e-device
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fail closed when live integration did not run successfully
+        shell: bash
+        env:
+          CONFIG_RESULT: ${{ needs.integration-config.result }}
+          TEST_RESULT: ${{ needs.api-e2e-device.result }}
+        run: |
+          set -euo pipefail
+          if [[ "$CONFIG_RESULT" != "success" ]]; then
+            echo "Live integration is fail-closed: configuration gate result=$CONFIG_RESULT; API/E2E/device tests were not run." >&2
+            exit 1
+          fi
+          if [[ "$TEST_RESULT" != "success" ]]; then
+            echo "Live integration is fail-closed: hosted API/E2E/device result=$TEST_RESULT." >&2
+            exit 1
+          fi
+          echo "Hosted live integration completed successfully."
