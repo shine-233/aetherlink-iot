@@ -79,15 +79,56 @@ jobs:
       - name: Fail closed when this ref has open CodeQL alerts
         env:
           GH_TOKEN: ${{ github.token }}
-          CODEQL_REF: ${{ github.event_name == 'pull_request' && format('refs/pull/{0}/head', github.event.pull_request.number) || format('refs/heads/{0}', github.ref_name) }}
+          CODEQL_REF: ${{ github.ref }}
+          CODEQL_COMMIT: ${{ github.sha }}
         shell: bash
         run: |
           set -euo pipefail
+          analyses_file="$(mktemp)"
           alerts_file="$(mktemp)"
+          trap 'rm -f "${analyses_file}" "${alerts_file}"' EXIT
+
+          gh api --paginate --slurp --method GET \
+            "repos/${GITHUB_REPOSITORY}/code-scanning/analyses" \
+            -f ref="${CODEQL_REF}" \
+            -f tool_name=CodeQL \
+            -f per_page=100 >"${analyses_file}"
+
+          required_categories=(
+            "/language:actions"
+            "/language:javascript-typescript"
+            "/language:go"
+          )
+          missing_categories="$(jq -r \
+            --arg ref "${CODEQL_REF}" \
+            --arg commit "${CODEQL_COMMIT}" \
+            '
+              ["/language:actions", "/language:javascript-typescript", "/language:go"] as $required
+              | (
+                  map(.) | add |
+                  map(select(
+                    .ref == $ref
+                    and .commit_sha == $commit
+                    and (.tool.name // "") == "CodeQL"
+                    and (.error // "") == ""
+                    and .results_count != null
+                  )) |
+                  map(.category) | unique
+                ) as $found
+              | $required - $found | .[]
+            ' "${analyses_file}")"
+
+          if [[ -n "${missing_categories}" ]]; then
+            echo "::error::CodeQL alert gate failed closed: no successful CodeQL analysis for ${CODEQL_REF} at ${CODEQL_COMMIT} for: ${missing_categories//$'\n'/, }"
+            exit 1
+          fi
+          echo "CodeQL analyses verified for ${CODEQL_REF} at ${CODEQL_COMMIT}: ${required_categories[*]}"
+
           gh api --paginate --slurp --method GET \
             "repos/${GITHUB_REPOSITORY}/code-scanning/alerts" \
             -f state=open \
             -f ref="${CODEQL_REF}" \
+            -f tool_name=CodeQL \
             -f per_page=100 >"${alerts_file}"
 
           alert_count="$(jq 'map(.[]) | length' "${alerts_file}")"

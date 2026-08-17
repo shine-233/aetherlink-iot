@@ -21,9 +21,11 @@ describe('minimum CI quality gate contract [00_minimum_quality_gate_contract]', 
     expect(source).not.to.match(/^\s+[\w-]+: write$/m);
   });
 
-  it('pins checkout and executes the existing offline gate directly', function () {
+  it('pins checkout and the Node runtime before executing the offline gate', function () {
     const source = workflow();
     expect(source).to.match(/uses: actions\/checkout@[0-9a-f]{40}(?:\s+#.*)?$/m);
+    expect(source).to.match(/uses: actions\/setup-node@[0-9a-f]{40}(?:\s+#.*)?$/m);
+    expect(source).to.include('node-version: 22');
     expect(source).to.include('run: node automation_tests/scripts/release_preflight.js');
     expect(source).not.to.include('pull_request_target');
     expect(source).not.to.match(/\bsecrets\./);

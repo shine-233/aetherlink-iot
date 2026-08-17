@@ -20,10 +20,14 @@ jobs:
     timeout-minutes: 10
     env:
       RUN_LIVE_TESTS: ${{ vars.AETHERLINK_RUN_LIVE_TESTS }}
+      DEVICE_VALIDATION_MODE: ${{ vars.AETHERLINK_DEVICE_VALIDATION_MODE }}
       API_BASE_URL: ${{ vars.AETHERLINK_API_BASE_URL }}
       API_TARGET: ${{ vars.AETHERLINK_API_TARGET }}
       ALLOWED_ORIGINS: ${{ vars.AETHERLINK_ALLOWED_ORIGINS }}
       ALLOWED_PROXY_ORIGINS: ${{ vars.AETHERLINK_ALLOWED_PROXY_ORIGINS }}
+      MQTT_ACCESS_ADDRESS: ${{ vars.AETHERLINK_MQTT_ACCESS_ADDRESS }}
+      READY_CHECK_DEVICE_ID: ${{ vars.AUTOMATION_READY_CHECK_DEVICE_ID }}
+      READY_CHECK_AUTO_START: ${{ vars.AUTOMATION_READY_CHECK_AUTO_START }}
       SUPER_ADMIN_EMAIL: ${{ secrets.SUPER_ADMIN_EMAIL }}
       SUPER_ADMIN_PASSWORD: ${{ secrets.SUPER_ADMIN_PASSWORD }}
       TENANT_ADMIN_EMAIL: ${{ secrets.TENANT_ADMIN_EMAIL }}
@@ -37,76 +41,26 @@ jobs:
       EMAIL_CHANGE_TENANT_EMAIL: ${{ secrets.EMAIL_CHANGE_TENANT_EMAIL }}
       EMAIL_CHANGE_TENANT_PASSWORD: ${{ secrets.EMAIL_CHANGE_TENANT_PASSWORD }}
     steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Validate live integration configuration
         shell: bash
         run: |
           set -euo pipefail
-          export ALLOWED_ORIGINS ALLOWED_PROXY_ORIGINS
-          node <<'NODE'
-          const localHosts = new Set(['localhost', '127.0.0.1', '::1']);
-          const required = [
-            ['vars.AETHERLINK_RUN_LIVE_TESTS=true', process.env.RUN_LIVE_TESTS === 'true'],
-            ['vars.AETHERLINK_API_BASE_URL', Boolean(process.env.API_BASE_URL)],
-            ['vars.AETHERLINK_API_TARGET', Boolean(process.env.API_TARGET)],
-            ['secrets.SUPER_ADMIN_EMAIL', Boolean(process.env.SUPER_ADMIN_EMAIL)],
-            ['secrets.SUPER_ADMIN_PASSWORD', Boolean(process.env.SUPER_ADMIN_PASSWORD)],
-            ['secrets.TENANT_ADMIN_EMAIL', Boolean(process.env.TENANT_ADMIN_EMAIL)],
-            ['secrets.TENANT_ADMIN_PASSWORD', Boolean(process.env.TENANT_ADMIN_PASSWORD)],
-            ['secrets.TENANT_ADMIN_B_EMAIL', Boolean(process.env.TENANT_ADMIN_B_EMAIL)],
-            ['secrets.TENANT_ADMIN_B_PASSWORD', Boolean(process.env.TENANT_ADMIN_B_PASSWORD)],
-            ['secrets.TENANT_USER_EMAIL', Boolean(process.env.TENANT_USER_EMAIL)],
-            ['secrets.TENANT_USER_PASSWORD', Boolean(process.env.TENANT_USER_PASSWORD)],
-            ['secrets.READONLY_USER_EMAIL', Boolean(process.env.READONLY_USER_EMAIL)],
-            ['secrets.READONLY_USER_PASSWORD', Boolean(process.env.READONLY_USER_PASSWORD)],
-            ['secrets.EMAIL_CHANGE_TENANT_EMAIL', Boolean(process.env.EMAIL_CHANGE_TENANT_EMAIL)],
-            ['secrets.EMAIL_CHANGE_TENANT_PASSWORD', Boolean(process.env.EMAIL_CHANGE_TENANT_PASSWORD)]
-          ];
-          const missing = required.filter(([, present]) => !present).map(([name]) => name);
-
-          function validateURL(name, raw, allowlistName, allowlist) {
-            let parsed;
-            try {
-              parsed = new URL(raw);
-            } catch {
-              missing.push(`${name} must be an absolute URL`);
-              return;
-            }
-            if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) {
-              missing.push(`${name} must be credential-free HTTP(S)`);
-              return;
-            }
-            if (!localHosts.has(parsed.hostname.toLowerCase()) && !allowlist.has(parsed.origin)) {
-              missing.push(`${allowlistName} must allow ${parsed.origin}`);
-            }
-          }
-
-          if (process.env.API_BASE_URL) {
-            validateURL(
-              'vars.AETHERLINK_API_BASE_URL',
-              process.env.API_BASE_URL,
-              'vars.AETHERLINK_ALLOWED_ORIGINS',
-              new Set(String(process.env.ALLOWED_ORIGINS || '').split(',').map(value => value.trim()).filter(Boolean))
-            );
-          }
-          if (process.env.API_TARGET) {
-            validateURL(
-              'vars.AETHERLINK_API_TARGET',
-              process.env.API_TARGET,
-              'vars.AETHERLINK_ALLOWED_PROXY_ORIGINS',
-              new Set(String(process.env.ALLOWED_PROXY_ORIGINS || '').split(',').map(value => value.trim()).filter(Boolean))
-            );
-          }
-
-          if (missing.length > 0) {
-            console.error('Live integration is fail-closed. Configure the following GitHub environment integration values:');
-            for (const item of [...new Set(missing)]) console.error(`- ${item}`);
-            process.exit(1);
-          }
-          console.log('Live integration configuration gate passed.');
-          NODE
+          RUN_LIVE_TESTS="$RUN_LIVE_TESTS" \
+          AETHERLINK_RUN_LIVE_TESTS="$RUN_LIVE_TESTS" \
+          AETHERLINK_DEVICE_VALIDATION_MODE="$DEVICE_VALIDATION_MODE" \
+          AETHERLINK_API_BASE_URL="$API_BASE_URL" \
+          AETHERLINK_API_TARGET="$API_TARGET" \
+          AETHERLINK_ALLOWED_ORIGINS="$ALLOWED_ORIGINS" \
+          AETHERLINK_ALLOWED_PROXY_ORIGINS="$ALLOWED_PROXY_ORIGINS" \
+          AETHERLINK_MQTT_ACCESS_ADDRESS="$MQTT_ACCESS_ADDRESS" \
+          AUTOMATION_READY_CHECK_DEVICE_ID="$READY_CHECK_DEVICE_ID" \
+          AUTOMATION_READY_CHECK_AUTO_START="$READY_CHECK_AUTO_START" \
+          node automation_tests/scripts/validate_live_integration_config.js
 
   api-e2e-device:
-    name: Hosted API, E2E, and device validation
+    name: Hosted API, E2E, and generic device-emulator validation
     needs: integration-config
     if: needs.integration-config.result == 'success'
     runs-on: ubuntu-latest
@@ -118,9 +72,14 @@ jobs:
     env:
       RUN_LIVE_TESTS: ${{ vars.AETHERLINK_RUN_LIVE_TESTS }}
       AETHERLINK_RUN_LIVE_TESTS: ${{ vars.AETHERLINK_RUN_LIVE_TESTS }}
+      AETHERLINK_DEVICE_VALIDATION_MODE: ${{ vars.AETHERLINK_DEVICE_VALIDATION_MODE }}
       CI_STRICT_INTEGRATION: '1'
       API_BASE_URL: ${{ vars.AETHERLINK_API_BASE_URL }}
       API_TARGET: ${{ vars.AETHERLINK_API_TARGET }}
+      AETHERLINK_MQTT_ACCESS_ADDRESS: ${{ vars.AETHERLINK_MQTT_ACCESS_ADDRESS }}
+      AUTOMATION_READY_CHECK_DEVICE_ID: ${{ vars.AUTOMATION_READY_CHECK_DEVICE_ID }}
+      AUTOMATION_READY_CHECK_AUTO_START: ${{ vars.AUTOMATION_READY_CHECK_AUTO_START }}
+      AUTOMATION_READY_CHECK_BUILD_EMULATOR: '0'
       AETHERLINK_ALLOWED_ORIGINS: ${{ vars.AETHERLINK_ALLOWED_ORIGINS }}
       AETHERLINK_ALLOWED_PROXY_ORIGINS: ${{ vars.AETHERLINK_ALLOWED_PROXY_ORIGINS }}
       FRONTEND_URL: http://127.0.0.1:9725
@@ -144,6 +103,11 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Configure generic device emulator path
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "AUTOMATION_READY_CHECK_EMULATOR_BIN=$RUNNER_TEMP/aetherlink-ready-check-command-emulator" >> "$GITHUB_ENV"
       - name: Set up pnpm
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
@@ -155,6 +119,14 @@ jobs:
           node-version: 22
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Set up Go for the generic device emulator
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: backend/cmd/aetherlink-device-autotest/go.mod
+          cache: false
+      - name: Build generic device emulator
+        working-directory: backend/cmd/aetherlink-device-autotest
+        run: go build -o "$RUNNER_TEMP/aetherlink-ready-check-command-emulator" ./cmd/autotest
       - name: Install frontend dependencies
         working-directory: frontend
         run: pnpm install --frozen-lockfile

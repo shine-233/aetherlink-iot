@@ -80,6 +80,16 @@ describe('release workflow contract [00_release_workflow_contract]', function ()
     const source = read('.github/workflows/integration-nightly.yml');
 
     expect(source).to.include("CI_STRICT_INTEGRATION: '1'");
+    expect(source).to.include('AETHERLINK_DEVICE_VALIDATION_MODE: ${{ vars.AETHERLINK_DEVICE_VALIDATION_MODE }}');
+    expect(source).to.include('AETHERLINK_MQTT_ACCESS_ADDRESS: ${{ vars.AETHERLINK_MQTT_ACCESS_ADDRESS }}');
+    expect(source).to.include('AUTOMATION_READY_CHECK_DEVICE_ID: ${{ vars.AUTOMATION_READY_CHECK_DEVICE_ID }}');
+    expect(source).to.include('Set up Go for the generic device emulator');
+    expect(source).to.include('Build generic device emulator');
+    expect(source).not.to.include('${{ runner.temp }}');
+    expect(source).to.include(
+      'echo "AUTOMATION_READY_CHECK_EMULATOR_BIN=$RUNNER_TEMP/aetherlink-ready-check-command-emulator" >> "$GITHUB_ENV"'
+    );
+    expect(source).to.include('validate_live_integration_config.js');
     expect(source).to.include('Run API automation');
     expect(source).to.include('Run Playwright E2E');
     expect(source).to.include('name: Integration result');

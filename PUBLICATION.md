@@ -54,17 +54,18 @@
 
 - Actions、SHA pinning required、只读默认 `GITHUB_TOKEN` 权限，以及源码 CI、Minimum quality gate、CodeQL（GitHub Actions、Go、JavaScript/TypeScript）、Dependency Review 和手动/夜间 integration workflow。
 - Dependabot alerts、security updates、automated security fixes，以及 GitHub Actions、frontend/automation npm、三个 Go module 和三个 Docker 目录的版本更新配置。
-- Secret Scanning、Push Protection、Issues、Discussions、Projects、Wiki、Issue Forms、PR 模板和 CODEOWNERS。
-- `integration` environment；当前没有真实 API、账号、设备凭据或生产 secrets，因此手动/夜间 workflow 默认不会伪造 live 验收。
+- Secret Scanning、Push Protection、Private vulnerability reporting、Issues、Discussions、Projects、Wiki、Issue Forms、PR 模板和 CODEOWNERS。Issues 当前配置了 Bug/Feature 两个 Issue Form 且禁止空白 Issue；Discussions 已启用并保留 GitHub 默认的 6 个分类；用户项目 [AetherLink IoT Engineering](https://github.com/users/shine-233/projects/1) 已存在并维护 Dependabot/安全/发布条目。
+- `integration` environment；当前没有真实 API、账号、设备凭据或生产 secrets，因此手动/夜间 workflow 默认不会伪造 live 验收。该 environment 现在限制为 protected branches，避免未来配置 secrets 后从未保护分支调用 live workflow。
 - `.github/workflows/release.yml` 和 `.github/workflows/container-release.yml` 只在正式 tag push 时发布。`v0.1.2` 的 source/container hosted runs 已成功完成，source release 确实附带 checksum、source SBOM 和 source attestation，三个容器镜像也完成了 BuildKit SBOM、maximum-detail provenance 和 digest attestation；具体资产、digest 和复核命令见下节。注意：`v0.1.2` 的 source SBOM 是本次 Go `go.sum` 深度增强之前生成的 `source-manifest-only` 版本，不能冒充下一版的 `declared-and-locked-components` 输出。
 
 ### 2026-08-17 继续收口记录
 
-- GitHub 当前历史 Dependabot PR 共 38 个：14 个已合并、24 个关闭未合并、0 个 open；不存在当前仍等待逐个合并的“28 个普通 open PR”。逐项分类、当前 manifest/lock 证据和后续动作见 [`references/dependabot-pr-disposition-20260817.md`](references/dependabot-pr-disposition-20260817.md)。
+- GitHub 当前 API 可回读的 Dependabot PR 共 55 个：21 个已合并、24 个关闭未合并、10 个仍 open（#55、#57、#59、#60、#61、#63、#65、#67、#69、#70）。因此不能把旧的“28 个普通 open PR”或旧的 38/14/0 快照当成当前事实；逐项分类、当前 manifest/lock 证据和后续动作见 [`references/dependabot-pr-disposition-20260817.md`](references/dependabot-pr-disposition-20260817.md)。
 - 新增 `.github/workflows/container-ci.yml`：PR、`main` push、正式 tag 和手动运行都会对 backend/frontend/MQTT broker 三个生产 Dockerfile 做 `linux/amd64` build-only。该 job 不登录 GHCR、不 push、不申请 `packages: write`；三个 check 也已接入两个 tag release workflow 的 required-check 轮询。它仍不是 Compose 启动、迁移、API/E2E 或真实设备验收。
 - `.github/dependabot.yml` 现在对 `backend/cmd/aetherlink-device-autotest` 同时覆盖普通 minor/patch 和 security updates；合同测试还会防止新增维护 manifest 后没有 Dependabot entry。
 - `integration-nightly.yml` 现在有显式 `Integration result` 汇总 job。缺少 environment 配置时配置门禁失败，下游 live API/E2E/device job 不会被当成通过；任何 skipped、失败或未运行都会以 fail-closed 结果结束。当前 integration environment 仍没有真实变量/secrets，所以本轮没有启动真实 API、账号、MQTT 或设备验收。
-- 对两个 Secret Scanning 高级选项执行了一次真实 GitHub API PATCH：请求返回成功，但回读仍为 `secret_scanning_non_provider_patterns=disabled`、`secret_scanning_validity_checks=disabled`；基础 Secret Scanning、Push Protection、Dependabot security updates 保持 enabled。当前 API 的仓库 `plan` 不公开给本次 token，因此只能确认“写请求没有改变状态”，不能把 disabled 归因到某个具体套餐名称。
+- 对两个 Secret Scanning 高级选项执行过真实 GitHub API PATCH，但回读仍为 `secret_scanning_non_provider_patterns=disabled`、`secret_scanning_validity_checks=disabled`；基础 Secret Scanning、Push Protection、Private vulnerability reporting、Dependabot security updates 和 automated security fixes 均为 enabled。当前只能确认“写请求没有改变状态”，不能把 disabled 伪装成已开启，也不在缺少可靠 entitlement 证据时武断归因到具体套餐名称。
+- 2026-08-17 配置审计另发现并修正了两个深度问题：最低质量门禁现在固定 Node 22，而不是依赖 hosted runner 的预装 Node；`integration` environment 已设置 protected-branches deployment policy。完整矩阵见 [`references/github-feature-audit-20260817.md`](references/github-feature-audit-20260817.md)。
 
 ### v0.1.2 Source Release 端到端证据
 
