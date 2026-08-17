@@ -26,6 +26,7 @@ const protectedChecks = [
   'CodeQL actions',
   'CodeQL go',
   'CodeQL javascript-typescript',
+  'CodeQL alert gate',
   'Container build aetherlink-iot-backend',
   'Container build aetherlink-iot-frontend',
   'Container build aetherlink-iot-mqtt-broker'
