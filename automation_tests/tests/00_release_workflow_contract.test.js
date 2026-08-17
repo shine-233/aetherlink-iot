@@ -53,15 +53,15 @@ describe('release workflow contract [00_release_workflow_contract]', function ()
     const source = read('.github/workflows/dependency-review.yml');
 
     expect(source).to.match(/push:\s+branches:\s+- main/);
-    expect(source).to.include(
-      "base-ref: ${{ github.event_name == 'push' && github.event.before || '' }}"
-    );
-    expect(source).to.include(
-      "head-ref: ${{ github.event_name == 'push' && github.sha || '' }}"
-    );
-    expect(source).to.include(
-      "comment-summary-in-pr: ${{ github.event_name == 'pull_request' && 'always' || 'never' }}"
-    );
+    expect(source).to.include('dependency-review-pr:');
+    expect(source).to.include("if: github.event_name == 'pull_request'");
+    expect(source).to.include('pull-requests: write');
+    expect(source).to.include('comment-summary-in-pr: always');
+    expect(source).to.include('dependency-review-main:');
+    expect(source).to.include("if: github.event_name == 'push'");
+    expect(source).to.include('base-ref: ${{ github.event.before }}');
+    expect(source).to.include('head-ref: ${{ github.sha }}');
+    expect(source).to.include('comment-summary-in-pr: never');
     expect(source).to.include('fail-on-severity: moderate');
     expect(source).to.include('fail-on-scopes: runtime, development, unknown');
   });
