@@ -1,6 +1,6 @@
 # Dependabot PR 逐项处置记录（2026-08-17）
 
-这是一份基于 GitHub REST/CLI **2026-08-17 目前回读**和 `origin/main=8f62cf3f86c7006e53714ba72e7414fece8ba2c3` 当前源码/锁文件的处置记录。这里的“已覆盖”只表示当前依赖文件存在等价或更高版本；只有 `merged_at` 非空才计为该 PR 本身已经合并。关闭 PR 不能自动算作修复。
+这是一份基于 GitHub REST/CLI **2026-08-17 目前回读**和 `origin/main=6511f90b1bf4c4219467c0b217d735f8f25e7e30` 当前源码/锁文件的处置记录。这里的“已覆盖”只表示当前依赖文件存在等价或更高版本；只有 `merged_at` 非空才计为该 PR 本身已经合并。关闭 PR 不能自动算作修复。
 
 ## 当前总数
 
@@ -118,4 +118,13 @@
 
 - backend #14/#37、frontend #18/#38 仍需要拆分后的新 PR；不能用“旧 group PR 已 closed”冒充完成。
 - Chai 6、Pinia 3、unplugin-vue-components 32、nanoid 6、Node 26、Go 1.27 RC、Redis 8 和 optional image 更新都需要兼容性或运行时证据，不能仅凭静态 Dependabot check 合并。
-- 已从 `v0.1.2` 顺延创建 `v0.1.3`；它固定在合并 #80/#81/#83 之前的 `a61ff1f...`，所以新的 `v0.1.4` 将从最终 main 顺延创建。v0.1.3 的 source/container release workflow、source asset attestation、三镜像 digest attestation 均成功。真实 API/E2E、外部 MQTT、物理设备/RDI 和目标部署仍 pending；这些不能由 release 成功替代。
+- 已从最终 `main=6511f90b1bf4c4219467c0b217d735f8f25e7e30` 正确顺延创建 `v0.1.6`；v0.1.4 因 immutable tag 历史不能复用，v0.1.5 的预创建 Release 使 source workflow 失败，均不作为正式源发布。v0.1.6 的 source/container release workflow、source asset checksum/SBOM/provenance、三镜像 digest attestation 均成功并已复核。真实 API/E2E、外部 MQTT、物理设备/RDI 和目标部署仍 pending；这些不能由 release 成功替代。
+
+## 最终发布关联快照（2026-08-17）
+
+- 当前 `main`：`6511f90b1bf4c4219467c0b217d735f8f25e7e30`；PR #85（release gate 过滤 skipped duplicate check）已合并。
+- Dependabot alerts：`110 fixed / 0 open`；CodeQL alerts：`113 fixed / 0 open`；Secret Scanning alerts：`0 open`。Dependabot PR 仍为 `55 total = 25 merged + 30 closed-unmerged + 0 open`。
+- v0.1.6 Source release run `32008549565`、Container image release run `32008549465`、Container build run `32008549455`、Minimum quality gate run `32008549458` 均 `success`。
+- v0.1.6 source SBOM 为 CycloneDX 1.6、`1373` components；source archive SHA-256 为 `8ab7fd332230f567ef23bb377bfde1d413935ea5435d41043c3ec4e3531db4c9`，source SBOM SHA-256 为 `520b01e4fb0fab8f1c2ce649bbfa949b407ff6c5a224a24ab54d1ecced570901`。
+- v0.1.6 GHCR manifest digests：backend=`sha256:54c7fad54e1d7e82ecc71aec716c7620fbba8956db597729dde2004af93e7fc0`、frontend=`sha256:23fae3bcd2199c70f10e176add2af82dad47626013149c68b203890a969a9b44`、MQTT broker=`sha256:e1898a3160781e40319b4f108536809fc7538e20aacd2eb0666715996c5fd1e0`。
+- 三个 source asset 和三个 v0.1.6 image digest 的 `gh attestation verify` 均成功；workflow ref 均为 `refs/tags/v0.1.6`。以上只证明 hosted source/container 发布链路，不证明真实业务/API/MQTT/物理设备。
