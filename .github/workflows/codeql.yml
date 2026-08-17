@@ -66,3 +66,34 @@ jobs:
         uses: github/codeql-action/analyze@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
         with:
           category: /language:${{ matrix.language }}
+
+  alert-gate:
+    name: CodeQL alert gate
+    needs: analyze
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: read
+    steps:
+      - name: Fail closed when this ref has open CodeQL alerts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CODEQL_REF: ${{ github.event_name == 'pull_request' && format('refs/pull/{0}/head', github.event.pull_request.number) || format('refs/heads/{0}', github.ref_name) }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          alerts_file="$(mktemp)"
+          gh api --paginate --slurp --method GET \
+            "repos/${GITHUB_REPOSITORY}/code-scanning/alerts" \
+            -f state=open \
+            -f ref="${CODEQL_REF}" \
+            -f per_page=100 >"${alerts_file}"
+
+          alert_count="$(jq 'map(.[]) | length' "${alerts_file}")"
+          echo "CodeQL open alerts for ${CODEQL_REF}: ${alert_count}"
+          if (( alert_count > 0 )); then
+            jq -r 'map(.[])[] | "\(.rule.id) | \(.most_recent_instance.location.path // "unknown"):\(.most_recent_instance.location.start_line // 0)"' "${alerts_file}"
+            echo "::error::CodeQL alert gate failed: this ref has open CodeQL alerts."
+            exit 1
+          fi
