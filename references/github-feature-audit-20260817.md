@@ -1,6 +1,6 @@
 # GitHub 能力与门禁深度审计（2026-08-17）
 
-本记录只描述当前可回读的 GitHub 状态和当前仓库源码；它不把“开关打开”、静态 YAML、历史告警数量或局部绿色检查写成完整产品验收。远端仓库为 [`shine-233/aetherlink-iot`](https://github.com/shine-233/aetherlink-iot)，本次最终审计的 `main` 为 `9501176eb8664469ae621a5a136ce4c404cb92ea`；正式 v0.1.6 tag 固定在更早的发布目标 `6511f90b1bf4c4219467c0b217d735f8f25e7e30`，不把 release tag 的提交冒充为当前 main。
+本记录只描述当前可回读的 GitHub 状态和当前仓库源码；它不把“开关打开”、静态 YAML、历史告警数量或局部绿色检查写成完整产品验收。远端仓库为 [`shine-233/aetherlink-iot`](https://github.com/shine-233/aetherlink-iot)，本次最终审计的 `main` 为 `0330a3cdd10e884966a8d89e5ba94dc44661ce24`；正式 v0.1.6 tag 固定在更早的发布目标 `6511f90b1bf4c4219467c0b217d735f8f25e7e30`，不把 release tag 的提交冒充为当前 main。
 
 ## 结论速览
 
@@ -11,13 +11,13 @@
 | Source CI | frontend lint/typecheck/build/unit、backend/broker/device Go test+build、automation contract tests | 对源码层有效；不等于 Compose 启动、外部 API 或物理设备验收 |
 | Minimum quality gate | 真实执行 supply-chain、generated-artifact 和 deploy contract 脚本；现在固定 Node 22 | 这是离线/静态门禁，不冒充 runtime gate |
 | CodeQL | Actions、JavaScript/TypeScript、Go 三条分析；`security-extended`；当前 open=0，历史 resolved=113 且全部 state=`fixed` | 当前 ref 的 CodeQL 门禁真实检查分析 commit/ref 和 open alerts；历史数量不是当前未修复告警 |
-| Dependency Review | PR 和 main push 都运行，moderate 起步，runtime/development/unknown scope 都阻断；旧 workflow 在同一 SHA 上曾产生同名 success/skipped 两个 check run | 检查本身真实；本分支保留 PR required context `Dependency review`，把 main push 改为 `Dependency review (main)`，并只给 PR job `pull-requests: write`，消除歧义且不扩展 main push 权限 |
+| Dependency Review | PR 和 main push 都运行，moderate 起步，runtime/development/unknown scope 都阻断；PR #87 后 PR context 保留为 `Dependency review`，main context 为 `Dependency review (main)` | 检查本身真实；已消除同一 SHA 上同名 success/skipped check 的歧义，并只给 PR job `pull-requests: write`，不扩展 main push 权限 |
 | Dependabot | 12 个维护输入覆盖 Actions、2 个 npm、3 个 Go module、3 个 Dockerfile、3 个 Compose 输入；安全更新和 automated security fixes enabled | 配置真实；55 个历史 Dependabot PR 当前为 25 merged、30 closed-unmerged、0 open；未来 major 仍需逐项兼容性处置 |
 | Secret Scanning | 基础扫描、Push Protection、Private vulnerability reporting enabled；non-provider patterns 和 validity checks disabled | 基础能力真实；两个高级项不能声称已开启 |
 | Issues | `has_issues=true`；Bug/Feature Issue Form；`blank_issues_enabled=false`；当前公开 Issue 数为 0 | 配置真实，内容为空不是配置假象 |
 | Discussions | `has_discussions=true`；6 个 GitHub 分类；当前讨论数为 0 | 功能真实可用，尚未有内容 |
 | Projects | 用户项目 [AetherLink IoT Engineering](https://github.com/users/shine-233/projects/1) 存在，13 个字段、30 个条目 | 不是只有 `has_projects=true` 开关；该项目是 user-owned，所以 repository GraphQL 的 repo-owned projects 列表为 0 并不矛盾 |
-| Release/GHCR/SBOM | v0.1.6 source/container workflow 成功，资产 checksum、CycloneDX SBOM、source/image provenance 与 attestation 已复核；当前 main 另有只同步证据文档的 #86 | 发布链路真实；v0.1.6 固定在独立发布目标，不等于当前 main，也仍不能冒充目标部署、真实 API、生产 MQTT 或真实设备验收 |
+| Release/GHCR/SBOM | v0.1.6 source/container workflow 成功，资产 checksum、CycloneDX SBOM、source/image provenance 与 attestation 已复核；当前 main 另有 #86 发布证据文档和 #87 门禁修复 | 发布链路真实；v0.1.6 固定在独立发布目标，不等于当前 main，也仍不能冒充目标部署、真实 API、生产 MQTT 或真实设备验收 |
 | 分支保护 | main strict、14 个 required contexts、enforce admins、linear history、conversation resolution、禁止 force push/deletion | 门禁真实；审批数为 0、CODEOWNERS 非 required 是明确的策略弱点，不是隐藏的质量证据 |
 | integration environment | 当前 secrets/variables=0；新增 protected-branches policy；配置为空时 workflow 已实测 fail-closed | 外部 API/账号/设备仍未运行，阻断是诚实的 |
 
@@ -97,7 +97,7 @@ Dependabot PRs: 55 total = 25 merged + 30 closed-unmerged + 0 open
 
 ### 当前正式版本 v0.1.6
 
-正式发布目标为 `6511f90b1bf4c4219467c0b217d735f8f25e7e30`，当前 `main` 为 `9501176eb8664469ae621a5a136ce4c404cb92ea`，后者只追加了发布证据文档。v0.1.6 通过 tag-only 方式触发，让 `release.yml` 自己创建 Release，避免预创建 Release 与 source workflow 的创建步骤冲突。
+正式发布目标为 `6511f90b1bf4c4219467c0b217d735f8f25e7e30`，当前 `main` 为 `0330a3cdd10e884966a8d89e5ba94dc44661ce24`，后者追加了发布证据文档和 #87 门禁修复。v0.1.6 通过 tag-only 方式触发，让 `release.yml` 自己创建 Release，避免预创建 Release 与 source workflow 的创建步骤冲突。
 
 - [v0.1.6 Release](https://github.com/shine-233/aetherlink-iot/releases/tag/v0.1.6) 已创建；[Source release 32008549565](https://github.com/shine-233/aetherlink-iot/actions/runs/32008549565)、[Container image release 32008549465](https://github.com/shine-233/aetherlink-iot/actions/runs/32008549465)、[Container build 32008549455](https://github.com/shine-233/aetherlink-iot/actions/runs/32008549455) 和 [Minimum quality gate 32008549458](https://github.com/shine-233/aetherlink-iot/actions/runs/32008549458) 均为 `success`。
 - Release assets：`aetherlink-iot-v0.1.6.tar.gz` SHA-256=`8ab7fd332230f567ef23bb377bfde1d413935ea5435d41043c3ec4e3531db4c9`；`source-sbom.json` SHA-256=`520b01e4fb0fab8f1c2ce649bbfa949b407ff6c5a224a24ab54d1ecced570901`；`SHA256SUMS.txt` asset SHA-256=`f141fb9e26a375da913660d1cf52e606d0d14e3c6916ab4bb9b7881ae1aa98c7`。
@@ -138,7 +138,7 @@ require_code_owner_reviews=false
 ## 当前不能声称完成的事项
 
 1. Dependabot 当前没有 open PR 或 open alert，但历史 closed-unmerged 记录仍保留，未来大版本不能仅凭开关或绿灯合并。
-2. v0.1.6 已创建并完成 source/container hosted 验证，固定在包含 #80/#81/#83/#85 的发布目标；当前 main 还包含只同步证据的 #86，release 成功也不等于真实环境部署验收。
+2. v0.1.6 已创建并完成 source/container hosted 验证，固定在包含 #80/#81/#83/#85 的发布目标；当前 main 还包含 #86 发布证据文档和 #87 门禁修复，release 成功也不等于真实环境部署验收。
 3. integration environment 为空，所以真实 API/E2E/MQTT/物理设备没有运行。
 4. Secret Scanning 的 non-provider patterns 和 validity checks 仍 disabled；没有可靠权限/计划证据前不能声称已开启。
 5. main 没有要求第二位 reviewer，CODEOWNERS 也不是 required review；这是治理强度不足，不影响已配置的 status gates，但不能称作多人审批门禁。

@@ -65,7 +65,7 @@
 - `.github/dependabot.yml` 现在对 `backend/cmd/aetherlink-device-autotest` 同时覆盖普通 minor/patch 和 security updates；合同测试还会防止新增维护 manifest 后没有 Dependabot entry。
 - `integration-nightly.yml` 现在有显式 `Integration result` 汇总 job。缺少 environment 配置时配置门禁失败，下游 live API/E2E/device job 不会被当成通过；任何 skipped、失败或未运行都会以 fail-closed 结果结束。当前 integration environment 仍没有真实变量/secrets，所以本轮没有启动真实 API、账号、MQTT 或设备验收。
 - 对两个 Secret Scanning 高级选项执行过真实 GitHub API PATCH，但回读仍为 `secret_scanning_non_provider_patterns=disabled`、`secret_scanning_validity_checks=disabled`；基础 Secret Scanning、Push Protection、Private vulnerability reporting、Dependabot security updates 和 automated security fixes 均为 enabled。当前只能确认“写请求没有改变状态”，不能把 disabled 伪装成已开启，也不在缺少可靠 entitlement 证据时武断归因到具体套餐名称。
-- 2026-08-17 配置审计另发现并修正了三个深度问题：最低质量门禁现在固定 Node 22，而不是依赖 hosted runner 的预装 Node；`integration` environment 已设置 protected-branches deployment policy；Dependency Review 的 PR job 与 main push job 现在使用不同的 check 名称，避免同一 SHA 出现一个 success 和一个 skipped 的同名 required context，同时把 `pull-requests: write` 保留在 PR job。随后 #71–#75、#80、#81、#83、#85 的维护者 CI/安全修复合并到了 v0.1.6 的发布目标 `6511f90b1bf4c4219467c0b217d735f8f25e7e30`；其后的 PR #86 只同步发布证据文档，并已合并到当前 `main=9501176eb8664469ae621a5a136ce4c404cb92ea`；本轮修复将通过独立 PR 进入 main；完整矩阵见 [`references/github-feature-audit-20260817.md`](references/github-feature-audit-20260817.md)。
+- 2026-08-17 配置审计另发现并修正了三个深度问题：最低质量门禁现在固定 Node 22，而不是依赖 hosted runner 的预装 Node；`integration` environment 已设置 protected-branches deployment policy；Dependency Review 的 PR job 与 main push job 现在使用不同的 check 名称，避免同一 SHA 出现一个 success 和一个 skipped 的同名 required context，同时把 `pull-requests: write` 保留在 PR job。随后 #71–#75、#80、#81、#83、#85 的维护者 CI/安全修复合并到了 v0.1.6 的发布目标 `6511f90b1bf4c4219467c0b217d735f8f25e7e30`；其后的 PR #86 只同步发布证据文档，PR #87 已把该门禁修复合并到当前 `main=0330a3cdd10e884966a8d89e5ba94dc44661ce24`；PR #87 的 Source CI、Container build、CodeQL、Dependency Review 和 Minimum quality gate 均成功。完整矩阵见 [`references/github-feature-audit-20260817.md`](references/github-feature-audit-20260817.md)。
 
 ### v0.1.3 Source/Container Release 端到端证据
 
@@ -98,7 +98,7 @@ v0.1.6 是从修复后的最终 `main` 顺延创建的正式版本；发布目�
 - 下载后 SHA-256 已重新计算并与 `SHA256SUMS.txt` 匹配：archive=`d99b67e0a0864ad2a26aafd98fd272f6e578a40fc968ab16eeff02ebb3b240a1`，source SBOM=`a3e9b0dc529af4b3ef324fee20e52c50f0ce13d621624021bb09931fbc6368ea`。
 - archive 目录条目（去掉根目录）为 `4215`，Git tree recursive 结果为 `4215`，两组路径差异为 `0`，且 GitHub tree 未截断。
 - 三个 source 资产的 `gh attestation verify` 均通过，并强制校验仓库 `shine-233/aetherlink-iot`、workflow `.github/workflows/release.yml`、`refs/tags/v0.1.2` 和 source SHA `1c76f346...`；每个结果都有 `1` 个 verified transparency timestamp。
-- 该版本 `source-sbom.json` 的元数据明确为 `completeness=source-manifest-only`，外部 dependency resolution、registry enrichment 和 container attestation 均为 `not-run`；这是真实资产的范围声明，不是缺陷被隐藏。当前分支正在把 Go `go.sum` 校验条目加入下一版的 `declared-and-locked-components` 模式，合并并重新打 tag 后才会产生新的 hosted artifact。
+- 该版本 `source-sbom.json` 的元数据明确为 `completeness=source-manifest-only`，外部 dependency resolution、registry enrichment 和 container attestation 均为 `not-run`；这是真实资产的范围声明，不是缺陷被隐藏。后续 v0.1.3/v0.1.6 的 source release 已将 Go `go.sum` 校验条目加入 `declared-and-locked-components` 模式；该历史资产仍按生成时的范围解释，不能回写成完整 resolved/image SBOM。
 - GHCR 的 `0.1.2`、`0.1`、`latest` 三个 tag 均存在并解析到同一版本 digest：backend=`sha256:fbdcf639be9c0326f0e020c039ef15fc28710d953031484a63a9a09ccfa461a8`、frontend=`sha256:9871f07ae786abc8b46c7f20bf757c97df58c4fa360b7561de882850fa679afa`、MQTT broker=`sha256:96ab7e85a3d24ade54d2c743a51f962c895fda8d78956813fe01a43ab86e5c09`；三个镜像的 `gh attestation verify` 也均以 `exit code 0` 通过，并指向 `container-release.yml@refs/tags/v0.1.2`。
 
 ### GHCR 首次发布证据（历史 v0.1.0 手动运行）
@@ -115,7 +115,7 @@ v0.1.6 是从修复后的最终 `main` 顺延创建的正式版本；发布目�
 
 历史证据：该次运行来自旧版 workflow，并通过 `workflow_dispatch` 手动指定了 `tag=v0.1.0`；workflow 的 checkout 使用了这个 tag 作为构建源码输入，但是 attestation 证书和 SLSA provenance 的上下文记录为 `refs/heads/main` 与提交 `57c7a40`，而不是 tag-triggered 的 `refs/tags/v0.1.0`。这不代表当前 `.github/workflows/container-release.yml` 仍支持手动 tag 输入；当前发布 workflow 只接受正式的 `v*.*.*` tag push。该历史镜像只应表述为“已发布的 tag-selected source 镜像”，不能宣称它是由 `v0.1.0` tag 事件触发的 provenance。若需要严格的 tag provenance，应使用后续新的 patch tag 触发当前 tag workflow；不可变的 `v0.1.0` Source Release 不回写。
 
-当前尚未完成：真实 API/E2E/设备和目标部署验收；`integration` environment 当前没有任何 secrets 或 variables，因此 workflow 会在配置门禁处 fail-closed。v0.1.6 的发布目标 `6511f90b1bf4c4219467c0b217d735f8f25e7e30` 已包含 #80、#81、#83、#85；当前 `main=9501176eb8664469ae621a5a136ce4c404cb92ea` 另外包含只同步发布证据的 #86。v0.1.6 source/container 发布及其 checksum、SBOM、provenance 和 attestation 已完成并已验证。Secret Scanning 的 non-provider patterns 与 validity checks 当前仍为 `disabled`，不能在文档中写成已启用；其是否为具体计划限制也没有足够证据可断言。
+当前尚未完成：真实 API/E2E/设备和目标部署验收；`integration` environment 当前没有任何 secrets 或 variables，因此 workflow 会在配置门禁处 fail-closed。v0.1.6 的发布目标 `6511f90b1bf4c4219467c0b217d735f8f25e7e30` 已包含 #80、#81、#83、#85；当前 `main=0330a3cdd10e884966a8d89e5ba94dc44661ce24` 另外包含 #86 发布证据文档和 #87 Dependency Review check-name 修复。v0.1.6 source/container 发布及其 checksum、SBOM、provenance 和 attestation 已完成并已验证。Secret Scanning 的 non-provider patterns 与 validity checks 当前仍为 `disabled`，不能在文档中写成已启用；其是否为具体计划限制也没有足够证据可断言。
 
 ## 兼容名称
 
