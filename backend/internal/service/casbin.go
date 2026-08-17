@@ -26,7 +26,13 @@ func (*Casbin) AddFunctionToRole(role string, functions []string) bool {
 
 // 查询角色的功能
 func (*Casbin) GetFunctionFromRole(role string) ([]string, bool) {
-	policys := global.CasbinEnforcer.GetFilteredPolicy(0, role)
+	if global.CasbinEnforcer == nil {
+		return nil, false
+	}
+	policys, err := global.CasbinEnforcer.GetFilteredPolicy(0, role)
+	if err != nil {
+		return nil, false
+	}
 	functions := make([]string, 0, len(policys))
 	for _, policy := range policys {
 		functions = append(functions, policy[1])
@@ -61,7 +67,13 @@ func (*Casbin) AddRolesToUserWithError(user string, roles []string) (bool, error
 
 // 查询用户的角色
 func (*Casbin) GetRoleFromUser(user string) ([]string, bool) {
-	policys := global.CasbinEnforcer.GetFilteredNamedGroupingPolicy("g", 0, user)
+	if global.CasbinEnforcer == nil {
+		return nil, false
+	}
+	policys, err := global.CasbinEnforcer.GetFilteredNamedGroupingPolicy("g", 0, user)
+	if err != nil {
+		return nil, false
+	}
 	roles := make([]string, 0, len(policys))
 	for _, policy := range policys {
 		roles = append(roles, policy[1])
@@ -84,13 +96,25 @@ func (*Casbin) RemoveUserAndRoleWithError(user string) (bool, error) {
 
 // 查询是否存在某个资源
 func (*Casbin) GetUrl(url string) bool {
-	stringList := global.CasbinEnforcer.GetFilteredNamedGroupingPolicy("g2", 0, url)
+	if global.CasbinEnforcer == nil {
+		return false
+	}
+	stringList, err := global.CasbinEnforcer.GetFilteredNamedGroupingPolicy("g2", 0, url)
+	if err != nil {
+		return false
+	}
 	return len(stringList) != 0
 }
 
 // 查询用户角色中是否存在某个角色
 func (*Casbin) HasRole(role string) bool {
-	stringList := global.CasbinEnforcer.GetFilteredNamedGroupingPolicy("g", 1, role)
+	if global.CasbinEnforcer == nil {
+		return false
+	}
+	stringList, err := global.CasbinEnforcer.GetFilteredNamedGroupingPolicy("g", 1, role)
+	if err != nil {
+		return false
+	}
 	return len(stringList) != 0
 }
 
