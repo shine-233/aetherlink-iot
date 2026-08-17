@@ -36,8 +36,8 @@ func TestOptionalMarketDefaultsDisabled(t *testing.T) {
 // beyond the developer machine.
 func TestDefaultPostgresSupportsOptionalTimescaleDB(t *testing.T) {
 	compose := readDependencyContractFile(t, filepath.Join("..", "..", "..", "docker-compose.yml"))
-	if !strings.Contains(compose, "image: postgres:16-alpine") {
-		t.Error("default deployment must use the pinned PostgreSQL 16 image")
+	if !strings.Contains(compose, "image: postgres:18-alpine") {
+		t.Error("default deployment must use the pinned PostgreSQL 18 image")
 	}
 
 	schema := readDependencyContractFile(t, filepath.Join("..", "..", "sql", "1.sql"))
@@ -55,7 +55,7 @@ func TestMultiDBStackIsExplicitLocalOnly(t *testing.T) {
 	composePath := filepath.Join("..", "..", "test", "multidb", "docker-compose.yml")
 	compose := readDependencyContractFile(t, composePath)
 
-	for _, image := range []string{"mysql:8.4", "postgres:16-alpine", "adminer:4.8.1"} {
+	for _, image := range []string{"mysql:26.7", "postgres:18-alpine", "adminer:5.5.1"} {
 		if !strings.Contains(compose, "image: "+image) {
 			t.Errorf("multidb test stack must pin image %s", image)
 		}
