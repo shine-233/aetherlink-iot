@@ -52,7 +52,7 @@ jobs:
             "MQTT broker Go tests and build"
             "Device autotest Go tests and build"
             "Automation contract tests"
-            "Dependency review"
+            "Dependency review (main)"
             "CodeQL actions"
             "CodeQL go"
             "CodeQL javascript-typescript"
