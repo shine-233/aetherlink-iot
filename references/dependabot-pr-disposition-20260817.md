@@ -1,6 +1,6 @@
 # Dependabot PR 逐项处置记录（2026-08-17）
 
-这是一份基于 GitHub REST/CLI **2026-08-17 目前回读**和 `origin/main=9501176eb8664469ae621a5a136ce4c404cb92ea` 当前源码/锁文件的处置记录。这里的“已覆盖”只表示当前依赖文件存在等价或更高版本；只有 `merged_at` 非空才计为该 PR 本身已经合并。关闭 PR 不能自动算作修复。
+这是一份基于 GitHub REST/CLI **2026-08-17 目前回读**和 `origin/main=0330a3cdd10e884966a8d89e5ba94dc44661ce24` 当前源码/锁文件的处置记录。这里的“已覆盖”只表示当前依赖文件存在等价或更高版本；只有 `merged_at` 非空才计为该 PR 本身已经合并。关闭 PR 不能自动算作修复。
 
 ## 当前总数
 
@@ -118,11 +118,11 @@
 
 - backend #14/#37、frontend #18/#38 仍需要拆分后的新 PR；不能用“旧 group PR 已 closed”冒充完成。
 - Chai 6、Pinia 3、unplugin-vue-components 32、nanoid 6、Node 26、Go 1.27 RC、Redis 8 和 optional image 更新都需要兼容性或运行时证据，不能仅凭静态 Dependabot check 合并。
-- 已从 v0.1.6 的发布目标 `main=6511f90b1bf4c4219467c0b217d735f8f25e7e30` 正确顺延创建 v0.1.6；随后当前 `main=9501176eb8664469ae621a5a136ce4c404cb92ea` 只追加了发布证据文档。v0.1.4 因 immutable tag 历史不能复用，v0.1.5 的预创建 Release 使 source workflow 失败，均不作为正式源发布。v0.1.6 的 source/container release workflow、source asset checksum/SBOM/provenance、三镜像 digest attestation 均成功并已复核。真实 API/E2E、外部 MQTT、物理设备/RDI 和目标部署仍 pending；这些不能由 release 成功替代。
+- 已从 v0.1.6 的发布目标 `main=6511f90b1bf4c4219467c0b217d735f8f25e7e30` 正确顺延创建 v0.1.6；随后当前 `main=0330a3cdd10e884966a8d89e5ba94dc44661ce24` 追加了发布证据文档和 Dependency Review check-name 修复。v0.1.4 因 immutable tag 历史不能复用，v0.1.5 的预创建 Release 使 source workflow 失败，均不作为正式源发布。v0.1.6 的 source/container release workflow、source asset checksum/SBOM/provenance、三镜像 digest attestation 均成功并已复核。真实 API/E2E、外部 MQTT、物理设备/RDI 和目标部署仍 pending；这些不能由 release 成功替代。
 
 ## 最终发布关联快照（2026-08-17）
 
-- 当前 `main`：`9501176eb8664469ae621a5a136ce4c404cb92ea`；PR #85（release gate 过滤 skipped duplicate check）和 PR #86（发布证据文档）已合并。当前审计还发现 Dependency Review 在旧 workflow 中会产生同名的 success/skipped 两个 check run；本分支保留 PR 的既有 required context `Dependency review`，只将 main push job 改为 `Dependency review (main)`，并保留 `pull-requests: write` 只在 PR job 上，避免 required context 歧义和把写权限扩到 main push。
+- 当前 `main`：`0330a3cdd10e884966a8d89e5ba94dc44661ce24`；PR #85（release gate 过滤 skipped duplicate check）、PR #86（发布证据文档）和 PR #87（Dependency Review check-name/权限边界修复）已合并。最新 main push 的 Dependency Review job 为 `Dependency review (main)=success`，PR job 的旧 context `Dependency review` 在 push 事件上为 skipped；两者不再同名，release workflow 已同步使用 main context。
 - Dependabot alerts：`110 fixed / 0 open`；CodeQL alerts：`113 fixed / 0 open`；Secret Scanning alerts：`0 open`。Dependabot PR 仍为 `55 total = 25 merged + 30 closed-unmerged + 0 open`。
 - v0.1.6 Source release run `32008549565`、Container image release run `32008549465`、Container build run `32008549455`、Minimum quality gate run `32008549458` 均 `success`。
 - v0.1.6 source SBOM 为 CycloneDX 1.6、`1373` components；source archive SHA-256 为 `8ab7fd332230f567ef23bb377bfde1d413935ea5435d41043c3ec4e3531db4c9`，source SBOM SHA-256 为 `520b01e4fb0fab8f1c2ce649bbfa949b407ff6c5a224a24ab54d1ecced570901`。
