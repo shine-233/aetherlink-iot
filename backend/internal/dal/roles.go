@@ -95,7 +95,14 @@ func GetRoleListByPage(data *model.GetRoleListByPageReq, tenantID string) (int64
 
 // 查询用户的角色
 func GetRolesByUserId(userId string) ([]string, bool) {
-	policys := global.CasbinEnforcer.GetFilteredNamedGroupingPolicy("g", 0, userId)
+	if global.CasbinEnforcer == nil {
+		return nil, false
+	}
+	policys, err := global.CasbinEnforcer.GetFilteredNamedGroupingPolicy("g", 0, userId)
+	if err != nil {
+		logrus.WithError(err).Error("failed to load roles for user")
+		return nil, false
+	}
 	var roles []string
 	for _, policy := range policys {
 		if len(policy) < 2 {
@@ -108,7 +115,7 @@ func GetRolesByUserId(userId string) ([]string, bool) {
 
 func GetRolesByUserIds(userIds []string) map[string][]string {
 	rolesByUserID := make(map[string][]string, len(userIds))
-	if len(userIds) == 0 {
+	if len(userIds) == 0 || global.CasbinEnforcer == nil {
 		return rolesByUserID
 	}
 
@@ -125,7 +132,11 @@ func GetRolesByUserIds(userIds []string) map[string][]string {
 		return rolesByUserID
 	}
 
-	policys := global.CasbinEnforcer.GetNamedGroupingPolicy("g")
+	policys, err := global.CasbinEnforcer.GetNamedGroupingPolicy("g")
+	if err != nil {
+		logrus.WithError(err).Error("failed to load role policies")
+		return rolesByUserID
+	}
 	for _, policy := range policys {
 		if len(policy) < 2 {
 			continue

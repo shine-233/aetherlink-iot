@@ -73,7 +73,11 @@ func TestAdapterAutoSaveAndReload(t *testing.T) {
 	if err != nil || !allowed {
 		t.Fatalf("reloaded policy allowed=%v err=%v", allowed, err)
 	}
-	if !reloaded.HasNamedGroupingPolicy("g2", "/devices", "device-resource") {
+	hasDevicePolicy, err := reloaded.HasNamedGroupingPolicy("g2", "/devices", "device-resource")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasDevicePolicy {
 		t.Fatal("g2 policy was not reloaded")
 	}
 }
@@ -117,7 +121,11 @@ func TestAdapterLoadsNullTrailingFields(t *testing.T) {
 	if err := enforcer.LoadPolicy(); err != nil {
 		t.Fatal(err)
 	}
-	if !enforcer.HasGroupingPolicy("user", "role") {
+	hasGroupingPolicy, err := enforcer.HasGroupingPolicy("user", "role")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasGroupingPolicy {
 		t.Fatal("historical NULL trailing fields were not loaded")
 	}
 	if err := adapter.RemovePolicy("g", "g", []string{"user", "role"}); err != nil {
