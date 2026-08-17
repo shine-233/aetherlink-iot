@@ -110,7 +110,7 @@
     "eslint-plugin-vue": "9.22.0",
     "happy-dom": "^20.11.2",
     "prettier": "^3.5.3",
-    "rollup-plugin-visualizer": "5.9.2",
+    "rollup-plugin-visualizer": "7.0.1",
     "sass": "1.102.0",
     "tsx": "4.20.5",
     "typescript": "^5.5.2",
