@@ -492,7 +492,7 @@ onMounted(async () => {
                   </NButton>
                 </NFlex>
               </template>
-              <NButton v-if="actionGroupIndex > 0" type="error" @click="deleteActionGroupItem(actionGroupIndex)">
+              <NButton v-if="Number(actionGroupIndex) > 0" type="error" @click="deleteActionGroupItem(Number(actionGroupIndex))">
                 {{ $t('generate.delete-execution-action') }}
               </NButton>
             </NFlex>

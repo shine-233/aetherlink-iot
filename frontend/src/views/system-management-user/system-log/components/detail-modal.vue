@@ -5,7 +5,7 @@
 重构建议: 可逐步把查询、提交和弹窗状态拆成组合函数，让组件更专注于布局与事件编排。
 -->
 <script setup lang="ts">
-import { defineExpose, ref } from 'vue'
+import { ref } from 'vue'
 import dayjs from 'dayjs'
 import { $t } from '@/locales'
 

@@ -439,7 +439,7 @@ getTableData()
           :columns="item.col"
           :data="item.data"
           :loading="loading"
-          :pagination="getPagination(index)"
+           :pagination="getPagination(Number(index))"
           :remote="true"
           class="m-t9 flex-1-hidden"
         />
