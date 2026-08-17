@@ -46,7 +46,7 @@
 - 清理后生成物候选扫描为 `0`；`check_supply_chain.js` 和 `release_preflight.js` 仍是静态/合同门禁，不等于 Docker、目标服务器、公网 MQTT、HTTPS/TLS 或真实设备验收。
 - r14 后端全量 Go 测试因 `proxy.golang.org` 依赖下载超时未完成，broker 测试按用户要求停止；它们不能标记为通过。已有 r13 的本地证据仍按历史批次引用，并不替代当前目标环境验收。
 
-当前发布标记为：`source_package_boundary=public-source`、`github_upload=executed`、`source_release=v0.1.3-published-and-verified`、`source_sbom=v0.1.3-declared-and-locked`、`ghcr_release=v0.1.3-published-and-attested`、`real_rdi_status=not-tested`、`target_deployment_status=pending`、`production_signoff=not-ready`。ThingsVis 仍是有源码和合同引用的 optional legacy compatibility provider，不因 Native 可运行而删除；`negative-menu` 是 ownership rejection 测试场景，不是待清理服务。
+当前发布标记为：`source_package_boundary=public-source`、`github_upload=executed`、`source_release=v0.1.6-published-and-verified`、`source_sbom=v0.1.6-declared-and-locked`、`ghcr_release=v0.1.6-published-and-attested`、`real_rdi_status=not-tested`、`target_deployment_status=pending`、`production_signoff=not-ready`。ThingsVis 仍是有源码和合同引用的 optional legacy compatibility provider，不因 Native 可运行而删除；`negative-menu` 是 ownership rejection 测试场景，不是待清理服务。
 
 ## GitHub 托管功能状态
 
@@ -56,7 +56,7 @@
 - Dependabot alerts、security updates、automated security fixes，以及 GitHub Actions、frontend/automation npm、三个 Go module 和三个 Docker 目录的版本更新配置。
 - Secret Scanning、Push Protection、Private vulnerability reporting、Issues、Discussions、Projects、Wiki、Issue Forms、PR 模板和 CODEOWNERS。Issues 当前配置了 Bug/Feature 两个 Issue Form 且禁止空白 Issue；Discussions 已启用并保留 GitHub 默认的 6 个分类；用户项目 [AetherLink IoT Engineering](https://github.com/users/shine-233/projects/1) 已存在并维护 Dependabot/安全/发布条目。
 - `integration` environment；当前没有真实 API、账号、设备凭据或生产 secrets，因此手动/夜间 workflow 默认不会伪造 live 验收。该 environment 现在限制为 protected branches，避免未来配置 secrets 后从未保护分支调用 live workflow。
-- `.github/workflows/release.yml` 和 `.github/workflows/container-release.yml` 只在正式 tag push 时发布。`v0.1.3` 的 source/container hosted runs 已成功完成，source release 附带 checksum、source SBOM 和 source attestation，三个容器镜像也完成了 BuildKit SBOM、maximum-detail provenance 和 digest attestation；具体资产、digest 和复核命令见下节。`v0.1.2` 仍作为历史版本保留，其 source SBOM 是旧的 `source-manifest-only` 口径，不能冒充当前版本的 `declared-and-locked-components` 输出。
+- `.github/workflows/release.yml` 和 `.github/workflows/container-release.yml` 只在正式 tag push 时发布。最新正式版本 `v0.1.6` 的 source/container hosted runs 已成功完成，source release 附带 checksum、source SBOM 和 source attestation，三个容器镜像也完成了 BuildKit SBOM、maximum-detail provenance 和 digest attestation；具体资产、digest 和复核命令见下节。`v0.1.3`、`v0.1.2` 仍作为历史版本保留；v0.1.2 的 source SBOM 是旧的 `source-manifest-only` 口径，不能冒充当前版本的 `declared-and-locked-components` 输出。
 
 ### 2026-08-17 继续收口记录
 
@@ -65,7 +65,7 @@
 - `.github/dependabot.yml` 现在对 `backend/cmd/aetherlink-device-autotest` 同时覆盖普通 minor/patch 和 security updates；合同测试还会防止新增维护 manifest 后没有 Dependabot entry。
 - `integration-nightly.yml` 现在有显式 `Integration result` 汇总 job。缺少 environment 配置时配置门禁失败，下游 live API/E2E/device job 不会被当成通过；任何 skipped、失败或未运行都会以 fail-closed 结果结束。当前 integration environment 仍没有真实变量/secrets，所以本轮没有启动真实 API、账号、MQTT 或设备验收。
 - 对两个 Secret Scanning 高级选项执行过真实 GitHub API PATCH，但回读仍为 `secret_scanning_non_provider_patterns=disabled`、`secret_scanning_validity_checks=disabled`；基础 Secret Scanning、Push Protection、Private vulnerability reporting、Dependabot security updates 和 automated security fixes 均为 enabled。当前只能确认“写请求没有改变状态”，不能把 disabled 伪装成已开启，也不在缺少可靠 entitlement 证据时武断归因到具体套餐名称。
-- 2026-08-17 配置审计另发现并修正了两个深度问题：最低质量门禁现在固定 Node 22，而不是依赖 hosted runner 的预装 Node；`integration` environment 已设置 protected-branches deployment policy。随后 #71–#75、#80、#81、#83 的维护者 CI/安全修复也已合并到当前 `main=8f62cf3f86c7006e53714ba72e7414fece8ba2c3`；完整矩阵见 [`references/github-feature-audit-20260817.md`](references/github-feature-audit-20260817.md)。
+- 2026-08-17 配置审计另发现并修正了两个深度问题：最低质量门禁现在固定 Node 22，而不是依赖 hosted runner 的预装 Node；`integration` environment 已设置 protected-branches deployment policy。随后 #71–#75、#80、#81、#83、#85 的维护者 CI/安全修复也已合并到当前 `main=6511f90b1bf4c4219467c0b217d735f8f25e7e30`；完整矩阵见 [`references/github-feature-audit-20260817.md`](references/github-feature-audit-20260817.md)。
 
 ### v0.1.3 Source/Container Release 端到端证据
 
@@ -76,6 +76,18 @@
 - `source-sbom.json` 为 CycloneDX 1.6，包含 `1320` 个 components，其中 `1316` 个标记为 `declared-or-locked`；`go.sum` 相关 declaration relationship 为 `533`。这比 v0.1.2 的 source-manifest-only 口径更深，但仍是源码/锁定依赖证据，不是目标部署或真实设备证据。
 - GHCR `0.1.3`、`0.1`、`latest` 标签均解析到本次构建：backend=`sha256:b5fc893a43b0cfec66bd90769d459c7434fab6af0f543b37be1c4dbe5c1dbc80`、frontend=`sha256:7908c4ef70e133a8c3fa66c987af043262ab3eaf0c88b0885cc8419432bff807`、MQTT broker=`sha256:24116f1c10ca1ac7fff123bef53e5abcd1799f0eb99daf5f9345d0510c8dbc29`；三个镜像的 `gh attestation verify` 均以 exit 0 通过。
 - Container run 中 BuildKit SBOM、`provenance: mode=max` 和 digest attestation 均执行成功；Dockerfile 仍有 `JSONArgsRecommended` 与 `SecretsUsedInArgOrEnv` annotations，它们是后续 Dockerfile 深审项，不是本次 release 失败。
+
+### v0.1.6 Source/Container Release 端到端证据（当前正式版本）
+
+v0.1.6 是从修复后的最终 `main` 顺延创建的正式版本；发布目标提交为 `6511f90b1bf4c4219467c0b217d735f8f25e7e30`。由于 GitHub 对已使用过的 immutable release tag 不允许复用，v0.1.4 的失败尝试无法重建；随后一次预先创建 v0.1.5 Release 的尝试又使 source workflow 因“同 tag Release 已存在”失败。因此最终采用了正确的 tag-only 触发方式创建 v0.1.6，让 source workflow 自己创建 Release。
+
+- [v0.1.6 Release](https://github.com/shine-233/aetherlink-iot/releases/tag/v0.1.6) 已创建并为非 draft、非 prerelease；tag `v0.1.6` 指向上述最终 main SHA。
+- [Source release run 32008549565](https://github.com/shine-233/aetherlink-iot/actions/runs/32008549565)、[Container image release run 32008549465](https://github.com/shine-233/aetherlink-iot/actions/runs/32008549465)、[Container build run 32008549455](https://github.com/shine-233/aetherlink-iot/actions/runs/32008549455) 和 [Minimum quality gate run 32008549458](https://github.com/shine-233/aetherlink-iot/actions/runs/32008549458) 均为 `success`。
+- Source assets `aetherlink-iot-v0.1.6.tar.gz`、`source-sbom.json`、`SHA256SUMS.txt` 均为 `uploaded`。重新计算得到 archive=`8ab7fd332230f567ef23bb377bfde1d413935ea5435d41043c3ec4e3531db4c9`、source SBOM=`520b01e4fb0fab8f1c2ce649bbfa949b407ff6c5a224a24ab54d1ecced570901`、checksum asset=`f141fb9e26a375da913660d1cf52e606d0d14e3c6916ab4bb9b7881ae1aa98c7`。
+- `source-sbom.json` 为 CycloneDX 1.6，包含 `1373` 个 components。三个 source asset 的 `gh attestation verify` 均以 exit 0 通过，签名 workflow 为 `Source release`、source ref 为 `refs/tags/v0.1.6`，并各自具有 Rekor transparency timestamp。
+- GHCR 的 `0.1.6`、`0.1`、`latest` 标签均解析到本次构建：backend=`sha256:54c7fad54e1d7e82ecc71aec716c7620fbba8956db597729dde2004af93e7fc0`、frontend=`sha256:23fae3bcd2199c70f10e176add2af82dad47626013149c68b203890a969a9b44`、MQTT broker=`sha256:e1898a3160781e40319b4f108536809fc7538e20aacd2eb0666715996c5fd1e0`。
+- 三个 v0.1.6 镜像的 `gh attestation verify` 均以 exit 0 通过，predicate 为 `https://slsa.dev/provenance/v1`，签名 workflow 为 `Container image release`、workflow ref 为 `refs/tags/v0.1.6`，并指向 run `32008549465` 和最终 SHA。这里的证据是 hosted build、registry digest、SBOM/provenance/attestation，不是目标服务器、外部 API、生产 MQTT 或真实物理 RDI 设备验收。
+- v0.1.5 是一次部分发布尝试：source run [32008139367](https://github.com/shine-233/aetherlink-iot/actions/runs/32008139367) 因预先创建的同名 Release 而失败，Release 没有 source assets；container run [32008139360](https://github.com/shine-233/aetherlink-iot/actions/runs/32008139360) 成功推送了 `0.1.5` 镜像标签。不要把 v0.1.5 当作 source release；正式源代码发布应使用 v0.1.6。
 
 ### v0.1.2 Source Release 端到端证据（历史版本）
 
@@ -103,7 +115,7 @@
 
 历史证据：该次运行来自旧版 workflow，并通过 `workflow_dispatch` 手动指定了 `tag=v0.1.0`；workflow 的 checkout 使用了这个 tag 作为构建源码输入，但是 attestation 证书和 SLSA provenance 的上下文记录为 `refs/heads/main` 与提交 `57c7a40`，而不是 tag-triggered 的 `refs/tags/v0.1.0`。这不代表当前 `.github/workflows/container-release.yml` 仍支持手动 tag 输入；当前发布 workflow 只接受正式的 `v*.*.*` tag push。该历史镜像只应表述为“已发布的 tag-selected source 镜像”，不能宣称它是由 `v0.1.0` tag 事件触发的 provenance。若需要严格的 tag provenance，应使用后续新的 patch tag 触发当前 tag workflow；不可变的 `v0.1.0` Source Release 不回写。
 
-当前尚未完成：真实 API/E2E/设备和目标部署验收；`integration` environment 当前没有任何 secrets 或 variables，因此 workflow 会在配置门禁处 fail-closed。`main=8f62cf3f86c7006e53714ba72e7414fece8ba2c3` 已包含 #80、#81、#83，正式 Git tag/Source Release、v0.1.3 source/container 发布及其资产/attestation 已完成并已验证；后续 v0.1.4 将在最终文档门禁合并后顺延创建。Secret Scanning 的 non-provider patterns 与 validity checks 当前仍为 `disabled`，不能在文档中写成已启用；其是否为具体计划限制也没有足够证据可断言。
+当前尚未完成：真实 API/E2E/设备和目标部署验收；`integration` environment 当前没有任何 secrets 或 variables，因此 workflow 会在配置门禁处 fail-closed。`main=6511f90b1bf4c4219467c0b217d735f8f25e7e30` 已包含 #80、#81、#83、#85，v0.1.6 source/container 发布及其 checksum、SBOM、provenance 和 attestation 已完成并已验证。Secret Scanning 的 non-provider patterns 与 validity checks 当前仍为 `disabled`，不能在文档中写成已启用；其是否为具体计划限制也没有足够证据可断言。
 
 ## 兼容名称
 
