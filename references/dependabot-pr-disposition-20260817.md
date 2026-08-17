@@ -1,18 +1,34 @@
 # Dependabot PR 逐项处置记录（2026-08-17）
 
-这是一份基于 GitHub REST/CLI 当前回读和 `origin/main=57f3c5ccf6cb6dd550951d72c4be6b39e1309fe5` 当前源码/锁文件的处置记录。这里的“已覆盖”只表示当前依赖文件存在等价或更高版本；只有 `merged_at` 非空才计为该 PR 本身已经合并。关闭 PR 不能自动算作修复。
+这是一份基于 GitHub REST/CLI **2026-08-17 目前回读**和 `origin/main=d1d90a9cdff271c2358005a0fdbfefc3a573df08` 当前源码/锁文件的处置记录。这里的“已覆盖”只表示当前依赖文件存在等价或更高版本；只有 `merged_at` 非空才计为该 PR 本身已经合并。关闭 PR 不能自动算作修复。
 
 ## 当前总数
 
-- Dependabot PR 总数：**38**。
-- `closed + merged`：**14**。
+- Dependabot PR 总数：**55**。
+- `closed + merged`：**21**。
 - `closed + 未 merged`：**24**。
-- `open`：**0**。
-- 标题不是 grouped update 的单依赖 PR：**25**；grouped PR：**13**。
-- 因此，“28 个普通 Dependabot PR”不是当前 GitHub API 可复现的数字；当前可复核的事实是 38 个历史 Dependabot PR，且没有待合并的 open PR。
+- `open`：**10**（#55、#57、#59、#60、#61、#63、#65、#67、#69、#70）。
+- 因此，“28 个普通 Dependabot PR”不是当前 GitHub API 可复现的数字；当前可复核的事实是 55 个历史/当前 PR，其中 10 个仍开放。#64 已在本轮合并。
 - 当前 open alerts：Dependabot **0**、CodeQL **0**、Secret Scanning **0**。
 
-## 已合并（14 个）
+## 本轮当前开放 PR 的逐项处置
+
+| PR | 当前证据 | 处置 |
+|---:|---|---|
+| [#55](https://github.com/shine-233/aetherlink-iot/pull/55) | PostgreSQL 16→18、Redis 7→8 的运行时大版本组；已有持有评论 | 保留；等待迁移、持久化和应用兼容性证据 |
+| [#57](https://github.com/shine-233/aetherlink-iot/pull/57) | MySQL 8.4→26.7、PostgreSQL 16→18、Adminer 4.8.1→5.5.1；已有持有评论 | 保留；未知镜像标签和多数据库兼容性不能盲合 |
+| [#59](https://github.com/shine-233/aetherlink-iot/pull/59) | ThingsVis/HTTP adapter 外部镜像组；没有 optional runtime 环境 | 保留；等待 optional profile/protocol 证据 |
+| [#60](https://github.com/shine-233/aetherlink-iot/pull/60) | 21 项 Go 组引入 `quic-go@0.59.0` moderate advisory `GHSA-vvgj-x9jq-8cj9`，且历史检查失败 | 保留；拆小批次并先消除依赖审查阻断 |
+| [#61](https://github.com/shine-233/aetherlink-iot/pull/61) | 27 项前端组；与已合并 #64 在 `frontend/package.json`/`pnpm-lock.yaml` 冲突，GitHub 无法自动 rebase/merge | 保留；从当前 main 重建并保留 #64，再重新检查 |
+| [#63](https://github.com/shine-233/aetherlink-iot/pull/63) | `vue-tsc 3.3.9` 检查出现 TS2440、string/number narrowing 等多处错误 | 保留；修复类型错误后再跑全门禁 |
+| [#65](https://github.com/shine-233/aetherlink-iot/pull/65) | 已更新到当前 main；`@vueuse/core` 10.x→14.4.0，托管检查当时仍在运行 | 保留；即使 CI 绿也需要浏览器/运行时回归 |
+| [#67](https://github.com/shine-233/aetherlink-iot/pull/67) | `eslint-plugin-vue 10.10.0` 检查在前端失败：`Cannot read properties of undefined (reading 'rules')` | 保留；修复 ESLint 配置/API 兼容性 |
+| [#69](https://github.com/shine-233/aetherlink-iot/pull/69) | `bumpp 12.2.1` 与当前 lock 冲突；要求 Node `>=22.18`，影响 release/version/tag 行为 | 保留；隔离 dry-run 后再决定 |
+| [#70](https://github.com/shine-233/aetherlink-iot/pull/70) | `execa 10.0.1` 使 `stdout` 变为联合类型，`packages/scripts/src/shared/index.ts` 出现 TS2339 | 保留；先补类型收窄 |
+
+本轮已为 #61、#63、#65、#67、#69、#70 写入 GitHub 处置评论；#55、#57、#59、#60 已有此前的持有评论。没有为了把开放数量变成 0 而关闭或盲合这些 PR。
+
+## 已合并的早期 PR（历史记录，14 个）
 
 | PR | 更新 | 当前证据 | 处置 |
 |---:|---|---|---|
@@ -30,6 +46,18 @@
 | [#23](https://github.com/shine-233/aetherlink-iot/pull/23) | `vue-eslint-parser 9.4.2 -> 10.4.1` | manifest/lock 为 `10.4.1` | 已完成 |
 | [#24](https://github.com/shine-233/aetherlink-iot/pull/24) | `rimraf 5.0.5 -> 6.1.3` | scripts package/lock 为 `6.1.3` | 已完成 |
 | [#48](https://github.com/shine-233/aetherlink-iot/pull/48) | automation 移除 `uuid` | automation lock 已不再包含该依赖 | 已完成；后续只需复核残留 override |
+
+## 本轮新增合并（7 个）
+
+| PR | 更新 | 合并提交 | 处置 |
+|---:|---|---|---|
+| [#54](https://github.com/shine-233/aetherlink-iot/pull/54) | MQTT broker Go builder `1.26.4-alpine -> 1.26.6-alpine` | 已合并 | 完成 |
+| [#56](https://github.com/shine-233/aetherlink-iot/pull/56) | backend Go builder `1.26.4-alpine -> 1.26.6-alpine` | 已合并 | 完成 |
+| [#58](https://github.com/shine-233/aetherlink-iot/pull/58) | broker Go minor/patch group | 已合并 | 完成 |
+| [#62](https://github.com/shine-233/aetherlink-iot/pull/62) | `@eslint/js 9.27.0 -> 9.39.5` | `032ab8c6e506e0fcf2cbdf2c9348dfa8b60daa78` | 完成 |
+| [#64](https://github.com/shine-233/aetherlink-iot/pull/64) | `rollup-plugin-visualizer 5.9.2 -> 7.0.1` | `d1d90a9cdff271c2358005a0fdbfefc3a573df08` | 重新基于当前 main 验证；VITE_BUNDLE_REPORT build 与全部 hosted checks 通过后合并 |
+| [#66](https://github.com/shine-233/aetherlink-iot/pull/66) | `cross-env 7.0.3 -> 10.1.0` | `3c2bbe4f0a5dbdd759ac8594454c92c98e95ef86` | 完成 |
+| [#68](https://github.com/shine-233/aetherlink-iot/pull/68) | `@types/node 20.11.24 -> 26.2.0` | `17572ac576defe69468a94a573661b2de5314d93` | 完成 |
 
 ## 已关闭但未合并（24 个）
 
@@ -62,11 +90,12 @@
 
 ## 这次实际采取的动作
 
-1. 没有重开或盲目合并历史 PR；当前 GitHub 已经没有 open Dependabot PR，重开旧分支会把已解决/冲突/主版本风险重新混在一起。
+1. 没有重开或盲目合并历史 PR；本轮只合并 #64 这一项，并把仍有冲突、失败或运行时风险的 PR 逐一写明保留原因。
 2. 补上 device-autotest 的普通 `minor/patch` Dependabot group，并用 `automation_tests/tests/00_dependabot_config_contract.test.js` 覆盖三套 Go module、两套 Node、三套 Dockerfile、三套 Compose 和 Actions 配置。
 3. 新增 `.github/workflows/container-ci.yml`：PR、main push 和正式 tag 都对 backend/frontend/broker 做 `linux/amd64` build-only；不登录 GHCR、不 push、不申请 `packages: write`。
 4. 将三个 container build check 接入两个 tag release workflow 的 required-check 轮询，并为未来 release 补充合同测试。
 5. integration workflow 新增 `Integration result` 汇总 job；配置缺失、下游 skipped 或 live 测试失败都会明确以 fail-closed 结果结束。
+6. integration workflow 现在额外要求显式的 MQTT endpoint、`generic-emulator` 模式、Ready Check device id 和 auto-start，并在 hosted job 中构建固定的通用设备 emulator；`real-rdi` 不会被这条 lane 冒充。
 
 ## 尚未关闭的依赖工作
 
