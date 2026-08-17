@@ -118,7 +118,7 @@ describe('device/manage/modules/add-devices-step2.vue', () => {
       username: { required: true, message: 'Username required' },
       clientId: { required: true, message: 'Client ID required' }
     })
-    expect(state.formData).toMatchObject({
+    expect(state.editableFormData).toMatchObject({
       username: 'device-user',
       clientId: 'client-1'
     })
@@ -183,7 +183,7 @@ describe('device/manage/modules/add-devices-step2.vue', () => {
     const wrapper = mountComponent({ formElements, formData: { username: 'test' } })
     await flushPromises()
     const state = getSetupState(wrapper)
-    expect(state.formData.username).toBe('test')
+    expect(state.editableFormData.username).toBe('test')
   })
 
   it('processes formElements with table type', async () => {
@@ -195,6 +195,6 @@ describe('device/manage/modules/add-devices-step2.vue', () => {
     const wrapper = mountComponent({ formElements, formData: { field1: 'value1' } })
     await flushPromises()
     const state = getSetupState(wrapper)
-    expect(state.formData.field1).toBe('value1')
+    expect(state.editableFormData.field1).toBe('value1')
   })
 })

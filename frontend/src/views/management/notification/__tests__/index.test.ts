@@ -14,7 +14,7 @@ vi.mock('~/src/locales', () => ({
 
 vi.mock('../components/email.vue', () => ({
   default: defineComponent({
-    name: 'Email',
+    name: 'EmailNotification',
     setup() {
       return () => h('div', { 'data-test': 'email-stub' })
     }

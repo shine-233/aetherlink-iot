@@ -134,7 +134,7 @@ const mountComponent = () => {
           }
         }),
         NRadio: defineComponent({
-          props: { value: [String, Number], key: [String, Number] },
+          props: { value: [String, Number] },
           setup(_, { slots }) {
             return () => h('div', slots.default ? slots.default() : [])
           }

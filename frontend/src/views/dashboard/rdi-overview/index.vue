@@ -71,6 +71,12 @@ const stats = reactive({
 })
 
 const operationsFocus = computed(() => buildOperationsFocus(stats, alarmDeviceTotal.value))
+type OperationsAlertType = 'default' | 'info' | 'success' | 'warning' | 'error'
+type OperationsTagType = OperationsAlertType | 'primary'
+const operationsFocusAlertType = computed<OperationsAlertType>(() => operationsFocus.value.type as OperationsAlertType)
+const operationsFocusTags = computed(() =>
+  operationsFocus.value.tags.map(tag => ({ ...tag, type: tag.type as OperationsTagType }))
+)
 const systemsCardTitleKey = computed(() =>
   props.activeSystemsOnly ? 'rdi.overview.activeSystems' : 'rdi.overview.allSystems'
 )
@@ -676,7 +682,7 @@ onBeforeUnmount(() => {
         </NCard>
       </div>
 
-      <NAlert :type="operationsFocus.type as 'default' | 'info' | 'success' | 'warning' | 'error'" :show-icon="false">
+      <NAlert :type="operationsFocusAlertType" :show-icon="false">
         <div class="operations-focus">
           <div>
             <strong>{{ $t(operationsFocus.titleKey) }}</strong>
@@ -684,9 +690,9 @@ onBeforeUnmount(() => {
           </div>
           <NSpace>
             <NTag
-              v-for="tag in operationsFocus.tags"
+              v-for="tag in operationsFocusTags"
               :key="tag.labelKey"
-              :type="tag.type as 'default' | 'primary' | 'info' | 'success' | 'warning' | 'error'"
+              :type="tag.type"
             >
               {{ $t(tag.labelKey) }}: {{ tag.value }}
             </NTag>

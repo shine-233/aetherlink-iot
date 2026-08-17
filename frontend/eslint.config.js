@@ -21,8 +21,12 @@ export default [
   // 应用 ESLint 官方推荐的 JavaScript 规则
   js.configs.recommended,
 
-  // eslint-plugin-vue 10 的 flat config 推荐规则（旧版 vue3-recommended 已移除）
-  ...vuePlugin.configs['flat/recommended'],
+  // eslint-plugin-vue 10 的 flat config 推荐规则（旧版 vue3-recommended 已移除）。
+  // v10 将 recommended 的规则对象作为全局 config 导出；把规则段限定到
+  // Vue 文件，避免 Vue 规则误扫 .ts 测试和脚本文件。
+  ...vuePlugin.configs['flat/recommended'].map(config =>
+    config.rules && !config.files ? { ...config, files: ['**/*.vue'] } : config
+  ),
 
   // 专门针对 .vue 文件的 lint 配置
   {
@@ -55,6 +59,9 @@ export default [
       'vue/component-name-in-template-casing': 'off',
       // 关闭变量使用前定义检查（Vue文件中的 script setup 语法需要）
       '@typescript-eslint/no-use-before-define': 'off',
+      // 项目表单模型通过嵌套对象共享给编辑器；保留对顶层 props 重新赋值的检查，
+      // 允许经过父级响应式模型共享的字段更新。
+      'vue/no-mutating-props': ['error', { shallowOnly: true }],
       // 未使用变量改为警告而非错误
       '@typescript-eslint/no-unused-vars': 'off',
       // 未使用变量改为警告而非错误（普通JS规则）
