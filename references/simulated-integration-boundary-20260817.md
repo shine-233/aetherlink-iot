@@ -156,18 +156,28 @@ ghcr.io/shine-233/aetherlink-iot-frontend
 ghcr.io/shine-233/aetherlink-iot-mqtt-broker
 ```
 
-当前本机 `gh` token 没有 `read:packages`，GitHub API 明确返回 403，因此这项不能
-被判定为 public、private 或 internal；匿名 registry 的 401 也不能单独区分 package
-不存在和 package 私有。要独立回读，需要同一轮仍在等待的命令完成：
+本机已经用同一轮 `gh auth refresh` 完成了 `read:packages` 授权，并通过 GitHub
+Packages API 独立回读到以下结果（2026-08-17）：
+
+| package | visibility | repository association | 0.1.6 tags |
+|---|---|---|---|
+| `aetherlink-iot-backend` | `public` | `shine-233/aetherlink-iot` | `0.1.6`, `latest`, `0.1` |
+| `aetherlink-iot-frontend` | `public` | `shine-233/aetherlink-iot` | `0.1.6`, `latest`, `0.1` |
+| `aetherlink-iot-mqtt-broker` | `public` | `shine-233/aetherlink-iot` | `0.1.6`, `latest`, `0.1` |
+
+这证明 GitHub package metadata 的 visibility 是 `public`，不是只根据仓库公开状态
+推测出来的。当前网络对 `ghcr.io/token` 的匿名 probe 仍返回 `403`，所以不把匿名
+registry pull 当作额外通过项；它不覆盖 GitHub Packages API 已回读的 visibility，
+也不应被误写成 image pull 验收。
+
+如果将来需要重新回读，最小权限仍然是 `read:packages`，命令是：
 
 ```powershell
 gh auth refresh --hostname github.com --scopes read:packages
 gh api 'users/shine-233/packages?package_type=container&per_page=100'
 ```
 
-只需要 `read:packages`，不需要为了回读 visibility 申请 `write:packages` 或
-`delete:packages`。如果权限暂时拿不到，应记录为 `not independently verified`，
-不能猜测结果。
+不需要为了回读 visibility 申请 `write:packages` 或 `delete:packages`。
 
 ## source SBOM 的外部 registry enrichment 是什么，是否必须做
 
@@ -226,7 +236,7 @@ not-proven`。这不是模拟 lane 失败，而是对证据范围诚实收口。
 软件模拟链路                  = 可以通过
 GitHub hosted CI              = 已通过既有门禁
 source/release supply chain   = 已验证到 source/发布资产明确范围
-GHCR package visibility       = 当前本机权限不足，未独立回读
+GHCR package visibility       = 三个 package 均已 API 独立回读为 public
 真实 API/broker/device        = 需要真实输入和环境
 生产部署等价性                = 不能由模拟替代
 ```
