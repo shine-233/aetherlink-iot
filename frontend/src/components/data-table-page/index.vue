@@ -6,7 +6,7 @@
 -->
 <script lang="tsx" setup>
 import type { VueElement } from 'vue'
-import { computed, defineAsyncComponent, defineProps, ref, watchEffect, onMounted, onUnmounted } from 'vue'
+import { computed, defineAsyncComponent, ref, watchEffect, onMounted, onUnmounted } from 'vue'
 import { debounce } from 'lodash-es'
 import { useRouter } from 'vue-router'
 import { NButton, NDataTable, NDatePicker, NInput, NSelect, NSpace, NPagination, NSpin } from 'naive-ui'

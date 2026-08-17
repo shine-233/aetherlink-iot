@@ -12,7 +12,7 @@
   - visual 页签与文本页签共同读写 formModel.textValue，后续若继续扩展可考虑拆分“编辑态”和“提交态”。
 -->
 <script setup lang="ts">
-import { computed, defineExpose, getCurrentInstance, onMounted, reactive, ref } from 'vue'
+import { computed, getCurrentInstance, onMounted, reactive, ref } from 'vue'
 import {
   type FormInst,
   type FormRules,
