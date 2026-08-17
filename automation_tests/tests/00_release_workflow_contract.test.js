@@ -85,6 +85,10 @@ describe('release workflow contract [00_release_workflow_contract]', function ()
     expect(source).to.include('AUTOMATION_READY_CHECK_DEVICE_ID: ${{ vars.AUTOMATION_READY_CHECK_DEVICE_ID }}');
     expect(source).to.include('Set up Go for the generic device emulator');
     expect(source).to.include('Build generic device emulator');
+    expect(source).not.to.include('${{ runner.temp }}');
+    expect(source).to.include(
+      'echo "AUTOMATION_READY_CHECK_EMULATOR_BIN=$RUNNER_TEMP/aetherlink-ready-check-command-emulator" >> "$GITHUB_ENV"'
+    );
     expect(source).to.include('validate_live_integration_config.js');
     expect(source).to.include('Run API automation');
     expect(source).to.include('Run Playwright E2E');
