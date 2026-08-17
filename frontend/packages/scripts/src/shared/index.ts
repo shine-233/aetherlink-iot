@@ -6,8 +6,24 @@
  */
 import type { Options } from 'execa'
 
+function normalizeStdout(stdout: unknown): string {
+  if (typeof stdout === 'string') {
+    return stdout.trim()
+  }
+
+  if (stdout instanceof Uint8Array) {
+    return Buffer.from(stdout).toString('utf8').trim()
+  }
+
+  if (Array.isArray(stdout)) {
+    return stdout.filter((part): part is string => typeof part === 'string').join('\n').trim()
+  }
+
+  return ''
+}
+
 export async function execCommand(cmd: string, args: string[], options?: Options) {
   const { execa } = await import('execa')
   const res = await execa(cmd, args, options)
-  return res?.stdout?.trim() || ''
+  return normalizeStdout(res?.stdout)
 }
