@@ -82,7 +82,7 @@
     "@aetherlink/uno-preset": "workspace:*",
     "@amap/amap-jsapi-types": "0.0.13",
     "@elegant-router/vue": "0.3.7",
-    "@eslint/js": "^9.27.0",
+    "@eslint/js": "^9.39.5",
     "@iconify-json/ant-design": "^1.2.0",
     "@iconify-json/ic": "^1.2.2",
     "@iconify-json/material-symbols": "^1.2.21",
