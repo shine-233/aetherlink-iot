@@ -12,11 +12,11 @@
   },
   "dependencies": {
     "@aetherlink/utils": "workspace:*",
-    "axios": "1.18.1",
-    "axios-retry": "4.0.0",
+    "axios": "1.19.0",
+    "axios-retry": "4.5.0",
     "qs": "6.15.3"
   },
   "devDependencies": {
-    "@types/qs": "6.9.11"
+    "@types/qs": "6.15.1"
   }
 }
