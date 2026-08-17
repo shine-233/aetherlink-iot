@@ -33,7 +33,7 @@ jobs:
           comment-summary-in-pr: always
 
   dependency-review-main:
-    name: Dependency review
+    name: Dependency review (main)
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
