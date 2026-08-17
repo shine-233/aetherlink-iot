@@ -1,6 +1,6 @@
 # GitHub 能力与门禁深度审计（2026-08-17）
 
-本记录只描述当前可回读的 GitHub 状态和当前仓库源码；它不把“开关打开”、静态 YAML、历史告警数量或局部绿色检查写成完整产品验收。远端仓库为 [`shine-233/aetherlink-iot`](https://github.com/shine-233/aetherlink-iot)，审计时 `main` 为 `0dc124c89e9acb1d5189678c239bc88937c67b38`，本地工作树 clean。
+本记录只描述当前可回读的 GitHub 状态和当前仓库源码；它不把“开关打开”、静态 YAML、历史告警数量或局部绿色检查写成完整产品验收。远端仓库为 [`shine-233/aetherlink-iot`](https://github.com/shine-233/aetherlink-iot)，本次最终审计的 `main` 为 `8f62cf3f86c7006e53714ba72e7414fece8ba2c3`；v0.1.3 发布仍固定在其祖先 `a61ff1fa5f28533478631f5e4df037ba9fd8eabe`，不把 release tag 的旧提交冒充为当前 main。
 
 ## 结论速览
 
@@ -12,12 +12,12 @@
 | Minimum quality gate | 真实执行 supply-chain、generated-artifact 和 deploy contract 脚本；现在固定 Node 22 | 这是离线/静态门禁，不冒充 runtime gate |
 | CodeQL | Actions、JavaScript/TypeScript、Go 三条分析；`security-extended`；当前 open=0，历史 resolved=113 且全部 state=`fixed` | 当前 ref 的 CodeQL 门禁真实检查分析 commit/ref 和 open alerts；历史数量不是当前未修复告警 |
 | Dependency Review | PR 和 main push 都运行，moderate 起步，runtime/development/unknown scope 都阻断 | 真实检查变更依赖；不替代全量依赖漏洞库存 |
-| Dependabot | 12 个维护输入覆盖 Actions、2 个 npm、3 个 Go module、3 个 Dockerfile、3 个 Compose 输入；安全更新和 automated security fixes enabled | 配置真实；当前仍有 10 个普通更新 PR 需要逐项兼容性处置 |
+| Dependabot | 12 个维护输入覆盖 Actions、2 个 npm、3 个 Go module、3 个 Dockerfile、3 个 Compose 输入；安全更新和 automated security fixes enabled | 配置真实；55 个历史 Dependabot PR 当前为 25 merged、30 closed-unmerged、0 open；未来 major 仍需逐项兼容性处置 |
 | Secret Scanning | 基础扫描、Push Protection、Private vulnerability reporting enabled；non-provider patterns 和 validity checks disabled | 基础能力真实；两个高级项不能声称已开启 |
 | Issues | `has_issues=true`；Bug/Feature Issue Form；`blank_issues_enabled=false`；当前公开 Issue 数为 0 | 配置真实，内容为空不是配置假象 |
 | Discussions | `has_discussions=true`；6 个 GitHub 分类；当前讨论数为 0 | 功能真实可用，尚未有内容 |
 | Projects | 用户项目 [AetherLink IoT Engineering](https://github.com/users/shine-233/projects/1) 存在，13 个字段、30 个条目 | 不是只有 `has_projects=true` 开关；该项目是 user-owned，所以 repository GraphQL 的 repo-owned projects 列表为 0 并不矛盾 |
-| Release/GHCR/SBOM | v0.1.2 source/container workflow 成功，资产 checksum、source attestation、image digest attestation 已复核 | 发布链路真实；v0.1.2 source SBOM 是 source-manifest-only，不能冒充完整依赖解析/部署验收 |
+| Release/GHCR/SBOM | v0.1.3 source/container workflow 成功，资产 checksum、source attestation、image digest attestation 已复核 | 发布链路真实；v0.1.3 source SBOM 已含 declared/locked 依赖证据，但它固定在旧 main，不能冒充当前 main 或部署/真实设备验收 |
 | 分支保护 | main strict、14 个 required contexts、enforce admins、linear history、conversation resolution、禁止 force push/deletion | 门禁真实；审批数为 0、CODEOWNERS 非 required 是明确的策略弱点，不是隐藏的质量证据 |
 | integration environment | 当前 secrets/variables=0；新增 protected-branches policy；配置为空时 workflow 已实测 fail-closed | 外部 API/账号/设备仍未运行，阻断是诚实的 |
 
@@ -79,11 +79,11 @@ Dependabot 当前 API 事实：
 
 ```text
 Dependabot open alerts: 0
-Dependabot fixed alerts: 109
-Dependabot PRs: 55 total = 21 merged + 24 closed-unmerged + 10 open
+Dependabot fixed alerts: 110
+Dependabot PRs: 55 total = 25 merged + 30 closed-unmerged + 0 open
 ```
 
-10 个 open PR 的逐项处置见 [`dependabot-pr-disposition-20260817.md`](dependabot-pr-disposition-20260817.md)。它们不能只因为 CI 绿色就整体合并：其中包含数据库大版本、多数据库镜像、前端 major、lockfile 冲突、Release 工具链和真实业务兼容性风险。
+最后 6 个历史 open PR（#55、#57、#60、#63、#67、#70）的逐项处置见 [`dependabot-pr-disposition-20260817.md`](dependabot-pr-disposition-20260817.md)。它们现在均已关闭：#55/#57 由 #80 替代，#60 由 #79/#82/#83 拆分替代，#63/#67/#70 分别由 #78/#77/#76 替代；关闭不等于盲目合并，原数据库、GORM/Go、前端 major、lockfile 和脚本工具链风险均已通过替代 PR 的具体门禁或明确保留理由处理。
 
 ## Issue、Discussion、Project
 
@@ -95,15 +95,15 @@ Dependabot PRs: 55 total = 21 merged + 24 closed-unmerged + 10 open
 
 ## Release、GHCR、SBOM、provenance
 
-已复核的正式版本为 [v0.1.2](https://github.com/shine-233/aetherlink-iot/releases/tag/v0.1.2)：
+已复核的正式版本为 [v0.1.3](https://github.com/shine-233/aetherlink-iot/releases/tag/v0.1.3)，目标提交为 `a61ff1fa5f28533478631f5e4df037ba9fd8eabe`；当前 `main` 已继续前进到 `8f62cf3f86c7006e53714ba72e7414fece8ba2c3`：
 
-- Source release run [31964048006](https://github.com/shine-233/aetherlink-iot/actions/runs/31964048006) 成功；
-- Container release run [31964048070](https://github.com/shine-233/aetherlink-iot/actions/runs/31964048070) 成功；
-- source archive、`source-sbom.json` 和 `SHA256SUMS.txt` 可下载，checksum 与下载后重算值一致；
-- 三个 source 资产的 `gh attestation verify` 成功；
-- 三个 GHCR image digest 的 attestation 成功。
+- Source release run [31993375439](https://github.com/shine-233/aetherlink-iot/actions/runs/31993375439) 成功；
+- Container release run [31993375430](https://github.com/shine-233/aetherlink-iot/actions/runs/31993375430) 成功；
+- source archive、`source-sbom.json` 和 `SHA256SUMS.txt` 可下载；archive 重算 SHA-256 为 `98b62eea7281258c1a40f0bae6d30718740e24e7db1c3f4a8426785b61ffc0e8`，source SBOM 重算 SHA-256 为 `aa63a6da5dfbb7ee04cd1fa15e59ec14428e23dc138e601f5c5adf65b478b0c7`；
+- 三个 source 资产的 `gh attestation verify` 成功；source SBOM 为 CycloneDX 1.6，共 1320 个 components，其中 1316 个为 declared-or-locked，go.sum declaration relationship 为 533；
+- 三个 GHCR image digest 的 attestation 成功：backend=`sha256:b5fc893a43b0cfec66bd90769d459c7434fab6af0f543b37be1c4dbe5c1dbc80`、frontend=`sha256:7908c4ef70e133a8c3fa66c987af043262ab3eaf0c88b0885cc8419432bff807`、MQTT broker=`sha256:24116f1c10ca1ac7fff123bef53e5abcd1799f0eb99daf5f9345d0510c8dbc29`。
 
-v0.1.2 的 source SBOM 明确标记 `completeness=source-manifest-only`。下一次 tag release 才会生成包含 declared-and-locked Go checksum 条目的新资产；不能修改不可变的 v0.1.2 资产，也不能用 SBOM 证明目标服务器或真实设备已部署。
+v0.1.3 的 source SBOM 已包含 declared/locked 依赖证据，但它不包含随后合并的 #80/#81/#83；v0.1.2 的 source SBOM 仍明确标记 `completeness=source-manifest-only`，作为历史资产保留。两者都不能用来证明目标服务器或真实设备已部署。下一版 `v0.1.4` 将在最终文档门禁合并后从当前 main 顺延创建。
 
 ## 分支保护与环境
 
@@ -126,8 +126,8 @@ require_code_owner_reviews=false
 
 ## 当前不能声称完成的事项
 
-1. 10 个开放 Dependabot 普通升级 PR 尚未全部合并；它们已有处置记录，但高风险项仍需单独兼容性证据。
-2. 没有创建未经用户指定版本号的新 Release；v0.1.2 已验证，但不是当前 main 的新产品版本。
+1. Dependabot 当前没有 open PR 或 open alert，但历史 closed-unmerged 记录仍保留，未来大版本不能仅凭开关或绿灯合并。
+2. v0.1.3 已创建并完成 source/container hosted 验证，但它固定在 #80/#81/#83 之前的祖先；v0.1.4 尚待最终文档门禁合并后创建，release 成功也不等于真实环境部署验收。
 3. integration environment 为空，所以真实 API/E2E/MQTT/物理设备没有运行。
 4. Secret Scanning 的 non-provider patterns 和 validity checks 仍 disabled；没有可靠权限/计划证据前不能声称已开启。
 5. main 没有要求第二位 reviewer，CODEOWNERS 也不是 required review；这是治理强度不足，不影响已配置的 status gates，但不能称作多人审批门禁。
