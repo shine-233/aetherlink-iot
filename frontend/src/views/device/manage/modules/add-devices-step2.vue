@@ -45,11 +45,13 @@ const props = defineProps<{
 
 const formRef = ref<FormInst | null>(null)
 const formRules = ref<FormRules>({})
-const formData = reactive<Record<string, any>>({})
+const editableFormData = reactive<Record<string, any>>({})
 const connectInfo = ref<Record<string, unknown>>({})
 
 const accessGuideDeviceNumber = computed(() => props.deviceNumber || props.device_id)
-const accessGuide = computed(() => buildDeviceAccessGuideState(connectInfo.value, accessGuideDeviceNumber.value, formData))
+const accessGuide = computed(() =>
+  buildDeviceAccessGuideState(connectInfo.value, accessGuideDeviceNumber.value, editableFormData)
+)
 const credentialKeys = computed(() =>
   props.formElements.flatMap((element) =>
     element.type === 'table' && Array.isArray(element.array)
@@ -69,7 +71,7 @@ const normalizeCredentialValue = (value: unknown) => {
 }
 const hasUnsavedCredentialChanges = computed(() =>
   credentialKeys.value.some(
-    (key) => normalizeCredentialValue(formData[key]) !== normalizeCredentialValue(props.formData[key])
+    (key) => normalizeCredentialValue(editableFormData[key]) !== normalizeCredentialValue(props.formData[key])
   )
 )
 
@@ -101,13 +103,13 @@ watchEffect(() => {
     if (element.type === 'table' && Array.isArray(element.array)) {
       element.array.forEach(subElement => {
         formRules.value[subElement.dataKey] = subElement.validate || {}
-        formData[subElement.dataKey] ??= props.formData[subElement.dataKey] || ''
+        editableFormData[subElement.dataKey] ??= props.formData[subElement.dataKey] || ''
       })
       return
     }
 
     formRules.value[element.dataKey] = element.validate || {}
-    formData[element.dataKey] ??= props.formData[element.dataKey] || ''
+    editableFormData[element.dataKey] ??= props.formData[element.dataKey] || ''
   })
 })
 
@@ -116,7 +118,7 @@ const handleSubmit = async () => {
 
   const res = await updateDeviceVoucher({
     device_id: props.device_id,
-    voucher: JSON.stringify(formData) || '{}'
+    voucher: JSON.stringify(editableFormData) || '{}'
   })
 
   props.setIsSuccess(!res.error)
@@ -132,16 +134,19 @@ const handleSubmit = async () => {
     @copy="copyText"
   >
     <template #credential-form>
-      <NForm ref="formRef" :rules="formRules" :model="formData">
+      <NForm ref="formRef" :rules="formRules" :model="editableFormData">
         <template v-for="element in formElements" :key="element.dataKey">
           <div v-if="element.type === 'input'" class="form-item">
             <NFormItem :label="element.label" :path="element.dataKey">
-              <NInput v-model:value="formData[element.dataKey]" :placeholder="element.placeholder" />
+              <NInput v-model:value="editableFormData[element.dataKey]" :placeholder="element.placeholder" />
             </NFormItem>
           </div>
           <div v-if="element.type === 'select'" class="form-item">
             <NFormItem :label="element.label" :path="element.dataKey">
-              <NSelect v-model:value="formData[element.dataKey]" :options="element.options as SelectMixedOption[]" />
+              <NSelect
+                v-model:value="editableFormData[element.dataKey]"
+                :options="element.options as SelectMixedOption[]"
+              />
             </NFormItem>
           </div>
           <div v-if="element.type === 'table'">
@@ -150,13 +155,16 @@ const handleSubmit = async () => {
               <template v-for="subElement in element.array" :key="subElement.dataKey">
                 <div v-if="subElement.type === 'input'" class="table-item">
                   <NFormItem :label="subElement.label" :path="subElement.dataKey">
-                    <NInput v-model:value="formData[subElement.dataKey]" :placeholder="subElement.placeholder" />
+                    <NInput
+                      v-model:value="editableFormData[subElement.dataKey]"
+                      :placeholder="subElement.placeholder"
+                    />
                   </NFormItem>
                 </div>
                 <div v-if="subElement.type === 'select'" class="table-item">
                   <NFormItem :label="subElement.label" :path="subElement.dataKey">
                     <NSelect
-                      v-model:value="formData[subElement.dataKey]"
+                      v-model:value="editableFormData[subElement.dataKey]"
                       :options="subElement.options as SelectMixedOption[]"
                     />
                   </NFormItem>

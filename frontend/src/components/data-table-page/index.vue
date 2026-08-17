@@ -569,7 +569,7 @@ const handleWarningClick = (item: DeviceItem) => {
             :total="total"
           />
           <NGrid x-gap="20px" y-gap="20px" cols="1 s:2 m:3 l:4" responsive="screen">
-            <NGridItem v-for="(item, index) in dataList" :key="item.id">
+            <NGridItem v-for="item in dataList" :key="item.id">
               <DevCardItem
                 :title="item.name || 'N/A'"
                 :status-active="item.is_online === 1"

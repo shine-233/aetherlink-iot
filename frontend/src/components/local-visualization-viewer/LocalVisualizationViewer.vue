@@ -16,18 +16,20 @@ const props = withDefaults(
   }
 )
 
-const normalized = computed(() => normalizeLocalDashboard(props.dashboard))
-const normalizedFields = computed(() => normalizeLocalViewerFields(props.fields))
-const dashboard = computed(() => (normalized.value.ok ? normalized.value.dashboard : null))
-const fields = computed(() => (normalizedFields.value.ok ? normalizedFields.value.fields : null))
-const gridLayout = computed<GridLayoutPlusItem[]>(() =>
-  (dashboard.value?.widgets ?? []).map(widget => ({ ...widget, i: widget.id }))
+const normalizedDashboardResult = computed(() => normalizeLocalDashboard(props.dashboard))
+const normalizedFieldsResult = computed(() => normalizeLocalViewerFields(props.fields))
+const dashboardData = computed(() =>
+  normalizedDashboardResult.value.ok ? normalizedDashboardResult.value.dashboard : null
 )
-const widgetById = computed(() => new Map((dashboard.value?.widgets ?? []).map(widget => [widget.id, widget])))
+const viewerFields = computed(() => (normalizedFieldsResult.value.ok ? normalizedFieldsResult.value.fields : null))
+const gridLayout = computed<GridLayoutPlusItem[]>(() =>
+  (dashboardData.value?.widgets ?? []).map(widget => ({ ...widget, i: widget.id }))
+)
+const widgetById = computed(() => new Map((dashboardData.value?.widgets ?? []).map(widget => [widget.id, widget])))
 const widgetFor = (item: GridLayoutPlusItem): NormalizedLocalWidget | undefined => widgetById.value.get(item.i)
 const gridConfig = computed(() => ({
-  colNum: dashboard.value?.columns ?? 24,
-  rowHeight: dashboard.value?.rowHeight ?? 60,
+  colNum: dashboardData.value?.columns ?? 24,
+  rowHeight: dashboardData.value?.rowHeight ?? 60,
   isDraggable: false,
   isResizable: false,
   staticGrid: true,
@@ -37,10 +39,10 @@ const gridConfig = computed(() => ({
 
 <template>
   <div class="local-visualization-viewer">
-    <div v-if="!dashboard" class="local-viewer-invalid" role="alert">
+    <div v-if="!dashboardData" class="local-viewer-invalid" role="alert">
       Invalid local dashboard
     </div>
-    <div v-else-if="!fields" class="local-viewer-invalid" role="alert">
+    <div v-else-if="!viewerFields" class="local-viewer-invalid" role="alert">
       Invalid local viewer fields
     </div>
     <div v-else-if="gridLayout.length === 0" class="local-viewer-empty" role="status" data-testid="local-viewer-empty">
@@ -59,7 +61,7 @@ const gridConfig = computed(() => ({
       id-key="id"
     >
       <template #default="{ item }">
-        <LocalWidgetRenderer v-if="widgetFor(item)" :widget="widgetFor(item)!" :fields="fields" />
+        <LocalWidgetRenderer v-if="widgetFor(item)" :widget="widgetFor(item)!" :fields="viewerFields" />
       </template>
     </GridLayoutPlus>
   </div>
