@@ -71,7 +71,7 @@ jobs:
             pending=0
             for check_name in "${required_checks[@]}"; do
               latest="$(jq -r --arg name "$check_name" --arg sha "$release_sha" '
-                [ .[] | select(.name == $name and .head_sha == $sha and .app.slug == "github-actions") ]
+                [ .[] | select(.name == $name and .head_sha == $sha and .app.slug == "github-actions" and .conclusion != "skipped") ]
                 | if length == 0 then "missing\tmissing\t"
                   else max_by(.id) | [.status, (.conclusion // ""), (.id | tostring)] | @tsv
                   end

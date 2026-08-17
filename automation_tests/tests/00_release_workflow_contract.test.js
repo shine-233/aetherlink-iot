@@ -49,6 +49,14 @@ describe('release workflow contract [00_release_workflow_contract]', function ()
     }
   });
 
+  it('ignores skipped duplicate contexts when selecting a release check', function () {
+    for (const workflow of releaseWorkflows) {
+      expect(read(workflow), workflow).to.include(
+        'and .conclusion != "skipped"'
+      );
+    }
+  });
+
   it('publishes dependency review on main with an exact push range', function () {
     const source = read('.github/workflows/dependency-review.yml');
 
