@@ -6,7 +6,7 @@ version: '3.9'
 
 services:
   db:
-    image: mysql:8.4
+    image: mysql:26.7
     profiles: [multidb-test]
     restart: "no"
     environment:
@@ -15,7 +15,7 @@ services:
       - "127.0.0.1:3306:3306"
 
   db2:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     profiles: [multidb-test]
     restart: "no"
     shm_size: 128mb
@@ -25,7 +25,7 @@ services:
       - "127.0.0.1:5432:5432"
 
   adminer:
-    image: adminer:4.8.1
+    image: adminer:5.5.1
     profiles: [multidb-test]
     restart: "no"
     environment:
