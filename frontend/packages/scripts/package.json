@@ -14,7 +14,7 @@
   },
   "devDependencies": {
     "@types/prompts": "2.4.9",
-    "bumpp": "9.3.0",
+    "bumpp": "12.2.1",
     "c12": "1.8.0",
     "cac": "6.7.14",
     "execa": "8.0.1",
