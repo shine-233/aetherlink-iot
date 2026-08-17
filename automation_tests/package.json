@@ -38,6 +38,7 @@
     "test:write-flows": "mocha tests/16_write_flows.test.js --timeout 30000 --reporter mochawesome --reporter-options reportDir=reports,reportFilename=write-flows-report,overwrite=true",
     "test:parallel": "node run_tests.js --parallel",
     "test:synthetic-rdi:contract": "node scripts/test_synthetic_rdi_protocol_validation.js",
+    "test:simulated-integration": "node scripts/run_simulated_integration_lane.js --json",
     "inventory:repository": "node scripts/generate_repository_inventory.js"
   },
   "dependencies": {
