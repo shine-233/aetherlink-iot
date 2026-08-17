@@ -21,6 +21,9 @@ export default [
   // 应用 ESLint 官方推荐的 JavaScript 规则
   js.configs.recommended,
 
+  // eslint-plugin-vue 10 的 flat config 推荐规则（旧版 vue3-recommended 已移除）
+  ...vuePlugin.configs['flat/recommended'],
+
   // 专门针对 .vue 文件的 lint 配置
   {
     files: ['**/*.vue'], // 匹配所有 .vue 文件
@@ -40,8 +43,6 @@ export default [
       '@typescript-eslint': tsPlugin // 注册 TypeScript 插件以支持 Vue 文件中的 TS 规则
     },
     rules: {
-      // 应用 Vue 3 推荐规则
-      ...vuePlugin.configs['vue3-recommended'].rules,
       // 关闭 props 解构检查（Vue 3 Composition API 中常用）
       'vue/no-setup-props-destructure': 'off',
       // 模板属性由 Vue/TypeScript 编译链路校验，避免 script setup 与动态属性产生误报
