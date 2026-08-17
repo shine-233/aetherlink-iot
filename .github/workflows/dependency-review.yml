@@ -11,19 +11,18 @@ permissions:
   pull-requests: write
 
 jobs:
-  dependency-review:
+  dependency-review-pr:
     name: Dependency review
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - name: Review dependency changes
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
-          # The PR event supplies its own base/head refs. For a main push,
-          # compare the exact commit range that was published to main so tag
-          # release gates can verify this check on the release SHA.
-          base-ref: ${{ github.event_name == 'push' && github.event.before || '' }}
-          head-ref: ${{ github.event_name == 'push' && github.sha || '' }}
           # Treat moderate advisories as merge-blocking as well; this gate is
           # the repository's early warning, while Dependabot alerts remain the
           # long-lived inventory that must be remediated independently.
@@ -31,4 +30,23 @@ jobs:
           # Apply the same merge-blocking policy to runtime, development, and
           # unresolved dependency scopes instead of silently ignoring dev/unknown scope.
           fail-on-scopes: runtime, development, unknown
-          comment-summary-in-pr: ${{ github.event_name == 'pull_request' && 'always' || 'never' }}
+          comment-summary-in-pr: always
+
+  dependency-review-main:
+    name: Dependency review
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Review dependency changes on main
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          # Compare the exact commit range that was published to main so tag
+          # release gates can verify this check on the release SHA.
+          base-ref: ${{ github.event.before }}
+          head-ref: ${{ github.sha }}
+          fail-on-severity: moderate
+          fail-on-scopes: runtime, development, unknown
+          comment-summary-in-pr: never
