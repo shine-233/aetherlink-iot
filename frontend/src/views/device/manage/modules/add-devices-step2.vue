@@ -1,6 +1,6 @@
 <!-- Newly created device connection step: edit voucher fields and show the same copyable access guide used by device details. -->
 <script setup lang="ts">
-import { computed, defineProps, onMounted, reactive, ref, watchEffect } from 'vue'
+import { computed, onMounted, reactive, ref, watchEffect } from 'vue'
 import type { FormInst, FormRules } from 'naive-ui'
 import { NButton, NForm, NFormItem, NInput, NSelect } from 'naive-ui'
 import type { SelectMixedOption } from 'naive-ui/es/select/src/interface'

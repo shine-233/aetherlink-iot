@@ -766,7 +766,7 @@ const submitCallback = async () => {
             </thead>
             <tbody>
               <tr v-for="(device, index) in infoData.alarm_device_list" :key="index">
-                <td class="min-w-100px">{{ index + 1 }}</td>
+                <td class="min-w-100px">{{ Number(index) + 1 }}</td>
                 <td>{{ device.id }}</td>
                 <td>{{ device['name'] }}</td>
                 <td>

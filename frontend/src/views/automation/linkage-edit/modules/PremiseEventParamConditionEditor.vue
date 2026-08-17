@@ -63,7 +63,7 @@ const emit = defineEmits<{
           />
         </NFormItem>
       </template>
-      <NButton quaternary type="error" @click="emit('deleteCondition', conditionIndex)">
+       <NButton quaternary type="error" @click="emit('deleteCondition', Number(conditionIndex))">
         {{ $t('common.delete') }}
       </NButton>
     </NFlex>
