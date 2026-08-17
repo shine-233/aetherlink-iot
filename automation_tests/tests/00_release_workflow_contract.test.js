@@ -22,7 +22,7 @@ const protectedChecks = [
   'MQTT broker Go tests and build',
   'Device autotest Go tests and build',
   'Automation contract tests',
-  'Dependency review',
+  'Dependency review (main)',
   'CodeQL actions',
   'CodeQL go',
   'CodeQL javascript-typescript',
@@ -62,11 +62,13 @@ describe('release workflow contract [00_release_workflow_contract]', function ()
 
     expect(source).to.match(/push:\s+branches:\s+- main/);
     expect(source).to.include('dependency-review-pr:');
-    expect(source).to.include("if: github.event_name == 'pull_request'");
+    expect(source).to.include('name: Dependency review\n');
+    expect(source).to.include('if: github.event_name == \'pull_request\'');
     expect(source).to.include('pull-requests: write');
     expect(source).to.include('comment-summary-in-pr: always');
     expect(source).to.include('dependency-review-main:');
-    expect(source).to.include("if: github.event_name == 'push'");
+    expect(source).to.include('name: Dependency review (main)');
+    expect(source).to.include('if: github.event_name == \'push\'');
     expect(source).to.include('base-ref: ${{ github.event.before }}');
     expect(source).to.include('head-ref: ${{ github.sha }}');
     expect(source).to.include('comment-summary-in-pr: never');

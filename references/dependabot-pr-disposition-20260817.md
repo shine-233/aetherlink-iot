@@ -1,6 +1,6 @@
 # Dependabot PR 逐项处置记录（2026-08-17）
 
-这是一份基于 GitHub REST/CLI **2026-08-17 目前回读**和 `origin/main=6511f90b1bf4c4219467c0b217d735f8f25e7e30` 当前源码/锁文件的处置记录。这里的“已覆盖”只表示当前依赖文件存在等价或更高版本；只有 `merged_at` 非空才计为该 PR 本身已经合并。关闭 PR 不能自动算作修复。
+这是一份基于 GitHub REST/CLI **2026-08-17 目前回读**和 `origin/main=9501176eb8664469ae621a5a136ce4c404cb92ea` 当前源码/锁文件的处置记录。这里的“已覆盖”只表示当前依赖文件存在等价或更高版本；只有 `merged_at` 非空才计为该 PR 本身已经合并。关闭 PR 不能自动算作修复。
 
 ## 当前总数
 
@@ -43,7 +43,7 @@
 | [#81](https://github.com/shine-233/aetherlink-iot/pull/81) | 将 Dependency Review 的 `pull-requests: write` 限定到 PR 事件 | `a0a36d8792b3bf8a49007147f5103b29fde22b51` | 重基到包含 #80 的 main 后 16 个 required checks 全部成功 |
 | [#83](https://github.com/shine-233/aetherlink-iot/pull/83) | Gin、quic-go 0.59.1、edwards25519 1.1.1 安全/兼容性修复 | `8f62cf3f86c7006e53714ba72e7414fece8ba2c3` | 重基到包含 #80/#81 的 main 后 16 个 required checks 全部成功；Dependabot alert #110 随后 fixed |
 
-以上三个 PR 是维护者修复，不计入 55 个 Dependabot PR；它们合并后的最终 `main` 为 `8f62cf3f86c7006e53714ba72e7414fece8ba2c3`。
+以上三个 PR 是维护者修复，不计入 55 个 Dependabot PR；它们合并后的中间 `main` 为 `8f62cf3f86c7006e53714ba72e7414fece8ba2c3`，随后又合并了后续维护与发布证据提交。
 
 ## 已合并的早期 PR（历史记录，14 个）
 
@@ -118,11 +118,11 @@
 
 - backend #14/#37、frontend #18/#38 仍需要拆分后的新 PR；不能用“旧 group PR 已 closed”冒充完成。
 - Chai 6、Pinia 3、unplugin-vue-components 32、nanoid 6、Node 26、Go 1.27 RC、Redis 8 和 optional image 更新都需要兼容性或运行时证据，不能仅凭静态 Dependabot check 合并。
-- 已从最终 `main=6511f90b1bf4c4219467c0b217d735f8f25e7e30` 正确顺延创建 `v0.1.6`；v0.1.4 因 immutable tag 历史不能复用，v0.1.5 的预创建 Release 使 source workflow 失败，均不作为正式源发布。v0.1.6 的 source/container release workflow、source asset checksum/SBOM/provenance、三镜像 digest attestation 均成功并已复核。真实 API/E2E、外部 MQTT、物理设备/RDI 和目标部署仍 pending；这些不能由 release 成功替代。
+- 已从 v0.1.6 的发布目标 `main=6511f90b1bf4c4219467c0b217d735f8f25e7e30` 正确顺延创建 v0.1.6；随后当前 `main=9501176eb8664469ae621a5a136ce4c404cb92ea` 只追加了发布证据文档。v0.1.4 因 immutable tag 历史不能复用，v0.1.5 的预创建 Release 使 source workflow 失败，均不作为正式源发布。v0.1.6 的 source/container release workflow、source asset checksum/SBOM/provenance、三镜像 digest attestation 均成功并已复核。真实 API/E2E、外部 MQTT、物理设备/RDI 和目标部署仍 pending；这些不能由 release 成功替代。
 
 ## 最终发布关联快照（2026-08-17）
 
-- 当前 `main`：`6511f90b1bf4c4219467c0b217d735f8f25e7e30`；PR #85（release gate 过滤 skipped duplicate check）已合并。
+- 当前 `main`：`9501176eb8664469ae621a5a136ce4c404cb92ea`；PR #85（release gate 过滤 skipped duplicate check）和 PR #86（发布证据文档）已合并。当前审计还发现 Dependency Review 在旧 workflow 中会产生同名的 success/skipped 两个 check run；本分支保留 PR 的既有 required context `Dependency review`，只将 main push job 改为 `Dependency review (main)`，并保留 `pull-requests: write` 只在 PR job 上，避免 required context 歧义和把写权限扩到 main push。
 - Dependabot alerts：`110 fixed / 0 open`；CodeQL alerts：`113 fixed / 0 open`；Secret Scanning alerts：`0 open`。Dependabot PR 仍为 `55 total = 25 merged + 30 closed-unmerged + 0 open`。
 - v0.1.6 Source release run `32008549565`、Container image release run `32008549465`、Container build run `32008549455`、Minimum quality gate run `32008549458` 均 `success`。
 - v0.1.6 source SBOM 为 CycloneDX 1.6、`1373` components；source archive SHA-256 为 `8ab7fd332230f567ef23bb377bfde1d413935ea5435d41043c3ec4e3531db4c9`，source SBOM SHA-256 为 `520b01e4fb0fab8f1c2ce649bbfa949b407ff6c5a224a24ab54d1ecced570901`。
