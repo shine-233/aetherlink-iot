@@ -123,7 +123,11 @@ func RouterInit() *gin.Engine {
 		if isInlineSafeFileContentType(contentType) {
 			disposition = "inline"
 		}
-		c.Header("Content-Disposition", disposition+"; filename=\""+filepath.Base(relativePath)+"\"")
+		if cd := mime.FormatMediaType(disposition, map[string]string{"filename": filepath.Base(relativePath)}); cd != "" {
+			c.Header("Content-Disposition", cd)
+		} else {
+			c.Header("Content-Disposition", disposition)
+		}
 		c.DataFromReader(http.StatusOK, info.Size(), contentType, file, nil)
 	})
 
