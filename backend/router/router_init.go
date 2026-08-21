@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	middleware "aetherlink-iot/backend/internal/middleware"
@@ -35,8 +36,26 @@ import (
 
 // swagger embed files
 
+// isInlineSafeFileContentType 返回允许浏览器内联渲染的内容类型白名单。
+// 明确排除 text/html、application/xhtml+xml 与 image/svg+xml：它们可执行脚本，
+// 一旦落入同源 /files 路径就等于存储型 XSS 落点。
+func isInlineSafeFileContentType(contentType string) bool {
+	base := strings.TrimSpace(strings.Split(contentType, ";")[0])
+	switch {
+	case base == "text/plain", base == "application/pdf":
+		return true
+	case strings.HasPrefix(base, "audio/"), strings.HasPrefix(base, "video/"):
+		return true
+	case strings.HasPrefix(base, "image/"):
+		return base != "image/svg+xml"
+	default:
+		return false
+	}
+}
+
 func RouterInit() *gin.Engine {
-	// gin.SetMode(gin.ReleaseMode) //开启生产模式
+	// 生产默认 Release 模式；测试进程会自行 SetMode(gin.TestMode) 覆盖。
+	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 	// 必须在任何路由注册前挂载，确保 Swagger、metrics、静态文件和 404 都可关联且带基础安全头。
 	router.Use(middleware.RequestID())
@@ -96,6 +115,18 @@ func RouterInit() *gin.Engine {
 		contentType := mime.TypeByExtension(filepath.Ext(relativePath))
 		if contentType == "" {
 			contentType = "application/octet-stream"
+		}
+		// 上传目录内容不可全信：禁止嗅探，且除内联安全类型外一律按附件下发，
+		// 防止 d_plugin 等免签名校验类型被同源渲染成 HTML/SVG 造成存储型 XSS。
+		c.Header("X-Content-Type-Options", "nosniff")
+		disposition := "attachment"
+		if isInlineSafeFileContentType(contentType) {
+			disposition = "inline"
+		}
+		if cd := mime.FormatMediaType(disposition, map[string]string{"filename": filepath.Base(relativePath)}); cd != "" {
+			c.Header("Content-Disposition", cd)
+		} else {
+			c.Header("Content-Disposition", disposition)
 		}
 		c.DataFromReader(http.StatusOK, info.Size(), contentType, file, nil)
 	})

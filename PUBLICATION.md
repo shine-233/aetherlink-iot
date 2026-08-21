@@ -16,7 +16,7 @@
 以下本地材料应被忽略，不应提交：
 
 - `verification/` 证据归档。
-- `audit_reports/` 本地审计和迁移历史。
+- 本地审计台账、客户需求/进度类文档与迁移历史（已整体移出公开仓库，仅保存在维护者私有环境）。
 - 根目录 `PROJECT_CLEANUP_PLAN.md`、`PROJECT_FOLDER_AUDIT_*`、`PROJECT_FOLDER_CONTENTS_*` 等固定工作区台账；它们包含历史绝对路径和自引用哈希，必须原位保留但不进入公开源码。
 - 本地状态文档和带日期的内部笔记。
 - `node_modules/` 等依赖目录。
@@ -38,7 +38,7 @@
 
 - 根 `_localrun`、前端构建/coverage、后端和 broker 二进制、运行态配置、认证状态、日志、截图、历史 verification 归档和本地审计台账已移动到仓库外的可恢复 quarantine；清单为本机父目录下的 `_aetherlink-github-cleanup-quarantine-20260815/github-cleanup-manifest-20260815.json`。
 - 前一批 stale r14 运行物也保存在 `_aetherlink-cleanup-quarantine-20260815-r14-pre/quarantine-manifest.json`；两批均为 `permanentDelete=false`，回移前必须重新确认无进程引用并按清单校验。
-- `node_modules` 没有上传，也没有搬走；它们是由 lockfile 重建的本地依赖树。`_localrun_instance_b/` 只保留公开 README 和 `instance-b.env.example` 模板。
+- `node_modules` 没有上传，也没有搬走；它们是由 lockfile 重建的本地依赖树。`_localrun_instance_b/` 并行实例模板已于 2026-08-21 整体移出公开仓库。
 - 追加清理批次已将 `automation_tests/verification/ready-check-command-draft-20260809.md`、dated deployment readiness/audit、迁移哈希快照和 repository inventory 共 7 个本地历史/生成文件移到 `../_aetherlink-github-cleanup-quarantine-20260815-r2/`；清单为其中的 `github-cleanup-manifest-20260815-r2.json`，逐项确认源路径不存在、哈希一致，`permanentDelete=false`。空的 r15 临时验证目录也已移除。
 本轮未完成的 `_aetherlink-validation-20260815-r16` 未被写入发布证据，已在未重新测试的前提下整体移到仓库外 `../_aetherlink-github-cleanup-quarantine-20260815-r3/`，并通过逐文件 SHA-256 校验；该批次仍为 `permanentDelete=false`，不代表部署或 GitHub 上传已执行。
 - `.gitignore` 现在明确排除 `automation_tests/verification/`、dated readiness/audit、migration hash 和 repository inventory；`verification/templates/`、模拟器源码和测试合同仍保留。
@@ -182,3 +182,9 @@ v0.1.6 是从修复后的最终 `main` 顺延创建的正式版本；发布目�
 - 如果公开候选范围新增目录，应先判断它是源码、文档、测试资产、生成文件还是本地证据，再决定是否纳入。
 - 发布说明中不要写“全部验证通过”，除非 `VALIDATION.md` 中的当前门槛已经基于当前工作树运行并归档。
 - 对于 `backend/configs/rsa_key/*`、`backend/configs/conf-localdev.yml`、前端 `.env*` 和 `backend/cmd/aetherlink-device-autotest/docs/` 这类本地边界材料，优先策略是“保持忽略并留在私有环境”，而不是为了公开仓库一次性硬删导致本地环境失效。
+
+## 2026-08-22 历史清理说明
+
+- 本仓库于 2026-08-22 执行了一次敏感历史清理：从全部分支与 tag 的历史中移除内部需求台账，并抹除个别客户标识字符串（git filter-repo）。
+- 因此 v0.1.x 系列 tag 的目标提交、以及本文与 `VALIDATION.md` 中记录的 release/镜像 SHA 摘要，均指向**清理前**的产物；这些摘要描述当时的归档证据，不再与重写后的 git 提交一一对应。GHCR 镜像本身不受影响。
+- 清理后克隆的仓库不含该台账；清理前的克隆请重新 clone，不要直接 pull 合并旧历史。

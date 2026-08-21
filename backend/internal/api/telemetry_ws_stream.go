@@ -112,28 +112,13 @@ func telemetryWSKeys(msgMap map[string]interface{}) ([]string, error) {
 }
 
 func queueTelemetryWSMessage(wsClient *global.WSClient, payload []byte, dropLog string) {
-	defer func() {
-		if r := recover(); r != nil {
-			logrus.Warn("telemetry websocket send queue recovered")
-		}
-	}()
-	select {
-	case wsClient.Send <- payload:
-	default:
-		logrus.Warn("telemetry websocket send queue full; dropping message")
+	if !wsClient.TryEnqueue(payload) {
+		logrus.Warn(dropLog)
 	}
 }
 
 func closeTelemetryWSClientSend(wsClient *global.WSClient) {
-	if wsClient == nil || wsClient.Send == nil {
-		return
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			logrus.Warn("telemetry websocket close recovered")
-		}
-	}()
-	close(wsClient.Send)
+	wsClient.CloseSend()
 }
 
 func writeTelemetryWSControl(wsClient *global.WSClient, msgType int, payload []byte, deadline time.Time) error {
@@ -153,9 +138,7 @@ func writeTelemetryWSPongControl(wsClient *global.WSClient) {
 }
 
 func queueTelemetryWSPong(wsClient *global.WSClient) {
-	select {
-	case wsClient.Send <- []byte("pong"):
-	default:
+	if !wsClient.TryEnqueue([]byte("pong")) {
 		writeTelemetryWSPongControl(wsClient)
 	}
 }

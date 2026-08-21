@@ -1,6 +1,7 @@
 package service
 
 import (
+	"strconv"
 	"testing"
 
 	"aetherlink-iot/backend/pkg/global"
@@ -33,7 +34,8 @@ func TestCheckDBMigrationsRequiresCurrentMigrationVersion(t *testing.T) {
 
 		require.False(t, got.OK)
 		require.Contains(t, got.Error, "does not match expected version")
-		require.Contains(t, got.NextAction, "48")
+		// 期望版本随 VERSION_NUMBER 走，避免每次迁移升版都改 pin。
+		require.Contains(t, got.NextAction, strconv.Itoa(global.VERSION_NUMBER))
 	})
 
 	t.Run("accepts the current migration version", func(t *testing.T) {
@@ -43,6 +45,6 @@ func TestCheckDBMigrationsRequiresCurrentMigrationVersion(t *testing.T) {
 		got := checkDBMigrations()
 
 		require.True(t, got.OK)
-		require.Contains(t, got.Detail, "48")
+		require.Contains(t, got.Detail, strconv.Itoa(global.VERSION_NUMBER))
 	})
 }

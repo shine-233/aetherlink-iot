@@ -458,8 +458,10 @@ declare namespace Api {
       id: string
       /** 用户名 */
       name: string | null
-      /** key */
+      /** key（列表只返回展示前缀，明文仅在创建响应中出现一次） */
       api_key: string | null
+      /** 密钥展示前缀（sk_ + 8 个十六进制字符） */
+      key_prefix: string | null
       /**
        * 用户状态
        *

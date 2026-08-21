@@ -31,13 +31,14 @@ func (*OpenAPIKeyApi) CreateOpenAPIKey(c *gin.Context) {
 	// claims 用于限定租户、操作者和可授权范围，避免前端自行声明越权字段。
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 
-	err := service.GroupApp.OpenAPIKey.CreateOpenAPIKey(&createReq, userClaims)
+	apikey, err := service.GroupApp.OpenAPIKey.CreateOpenAPIKey(&createReq, userClaims)
 	if err != nil {
 		c.Error(err)
 		return
 	}
 
-	c.Set("data", nil)
+	// 明文 key 仅在此响应中出现一次，前端必须提示用户立即保存。
+	c.Set("data", gin.H{"api_key": apikey, "key_prefix": utils.APIKeyDisplayPrefix(apikey)})
 }
 
 // GetOpenAPIKeyList 获取 OpenAPI 密钥列表。

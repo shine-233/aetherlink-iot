@@ -19,11 +19,12 @@ import (
 
 type OpenAPIKey struct{}
 
-// CreateOpenAPIKey 创建OpenAPI密钥
-func (o *OpenAPIKey) CreateOpenAPIKey(req *model.CreateOpenAPIKeyReq, claims *utils.UserClaims) error {
+// CreateOpenAPIKey 创建OpenAPI密钥。
+// 返回值是明文 key，仅在本次响应中出现一次；数据库只存 SHA-256 摘要。
+func (o *OpenAPIKey) CreateOpenAPIKey(req *model.CreateOpenAPIKeyReq, claims *utils.UserClaims) (string, error) {
 	// 校验用户权限
 	if claims.Authority != "SYS_ADMIN" && claims.Authority != "TENANT_ADMIN" {
-		return errcode.WithVars(errcode.CodeNoPermission, map[string]interface{}{
+		return "", errcode.WithVars(errcode.CodeNoPermission, map[string]interface{}{
 			"required_role": "SYS_ADMIN or TENANT_ADMIN",
 			"current_role":  claims.Authority,
 		})
@@ -31,7 +32,7 @@ func (o *OpenAPIKey) CreateOpenAPIKey(req *model.CreateOpenAPIKeyReq, claims *ut
 
 	// 租户管理员只能创建自己租户的密钥
 	if claims.Authority != "SYS_ADMIN" && claims.TenantID != req.TenantID {
-		return errcode.WithVars(errcode.CodeNoPermission, map[string]interface{}{
+		return "", errcode.WithVars(errcode.CodeNoPermission, map[string]interface{}{
 			"required_tenant": req.TenantID,
 			"current_tenant":  claims.TenantID,
 		})
@@ -41,15 +42,16 @@ func (o *OpenAPIKey) CreateOpenAPIKey(req *model.CreateOpenAPIKeyReq, claims *ut
 	apikey, err := utils.GenerateAPIKey()
 	if err != nil {
 		logrus.Errorf("生成AppSecret失败: %v", err)
-		return errcode.New(errcode.CodeSystemError)
+		return "", errcode.New(errcode.CodeSystemError)
 	}
 
 	status := int16(1) // 默认启用
-	// 创建OpenAPI密钥记录
+	// 创建OpenAPI密钥记录：api_key 列存摘要，key_prefix 供列表辨认。
 	key := &model.OpenAPIKey{
 		ID:        uuid.New(),
 		TenantID:  req.TenantID,
-		APIKey:    apikey,
+		APIKey:    utils.HashAPIKey(apikey),
+		KeyPrefix: utils.APIKeyDisplayPrefix(apikey),
 		Status:    &status,
 		Name:      req.Name,
 		CreatedID: &claims.ID,
@@ -61,12 +63,12 @@ func (o *OpenAPIKey) CreateOpenAPIKey(req *model.CreateOpenAPIKeyReq, claims *ut
 
 	if err := dal.CreateOpenAPIKey(key); err != nil {
 		logrus.Errorf("创建OpenAPI密钥失败: %v", err)
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+		return "", errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"error": err.Error(),
 		})
 	}
 
-	return nil
+	return apikey, nil
 }
 
 // GetOpenAPIKeyList 获取OpenAPI密钥列表
@@ -85,10 +87,20 @@ func (o *OpenAPIKey) GetOpenAPIKeyList(req *model.OpenAPIKeyListReq, claims *uti
 		})
 	}
 
+	// 列表只回显展示前缀；api_key 列存的是摘要，也一律不下发。
+	if rows, ok := list.([]model.OpenAPIKeyListRsp); ok {
+		for i := range rows {
+			rows[i].APIKey = ""
+		}
+		list = rows
+	} else if list != nil {
+		// 断言失败意味着 dal 返回类型被改动而脱敏未同步——宁可显式报警也不能无声漏脱敏。
+		logrus.Errorf("unexpected OpenAPI key list type %T; masking skipped", list)
+	}
+
 	result := make(map[string]interface{})
 	result["total"] = total
 	result["list"] = list
-	logrus.Infof("result: %v", result)
 	return result, nil
 }
 

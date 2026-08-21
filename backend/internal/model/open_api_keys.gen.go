@@ -25,6 +25,8 @@ type OpenAPIKey struct {
 	CreatedAt *time.Time `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt *time.Time `gorm:"column:updated_at" json:"updated_at"`
 	CreatedID *string    `gorm:"column:created_id" json:"created_id"`
+	// KeyPrefix 保存密钥展示前缀（49.sql）；api_key 列自 49 起存 SHA-256 摘要。
+	KeyPrefix string `gorm:"column:key_prefix;not null;default:''" json:"key_prefix"`
 }
 
 // TableName OpenAPIKey's table name

@@ -42,6 +42,9 @@ interface Emits {
 
   /** 点击协议 */
   (e: 'success'): void
+
+  /** 新增成功；payload 是仅此一次返回的明文 key，父页面必须引导用户立即保存。 */
+  (e: 'created', apiKey: string): void
 }
 
 const emit = defineEmits<Emits>()
@@ -118,6 +121,11 @@ async function handleSubmit() {
   }
   if (!data.error) {
     emit('success')
+    // 后端只存摘要；明文 key 仅在创建响应中出现一次，转交父页面做一次性保存引导。
+    const createdKey: string | undefined = data?.data?.api_key
+    if (props.type === 'add' && createdKey) {
+      emit('created', createdKey)
+    }
   }
   // 当前实现无论成功失败都会关闭弹窗；若后续要保留失败现场，可只在成功后关闭。
   closeModal()

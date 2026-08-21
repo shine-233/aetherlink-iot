@@ -52,7 +52,6 @@ describe('repository generated-file boundary [00_repository_boundary_contract]',
   it('keeps heavyweight local runtime artifacts outside the source boundary', function () {
     for (const runtimePath of [
       '_localrun/backend.stdout.log',
-      '_localrun_instance_b/reports/e2e-report.json',
       'verification/runtime-artifacts-archive/runtime-artifacts.zip',
       'automation_tests/reports/test-report.html',
       'frontend/.tsbuildinfo',
@@ -120,17 +119,6 @@ describe('repository generated-file boundary [00_repository_boundary_contract]',
     ]) {
       expect(isGitIgnored(auditPath), `${auditPath} must remain local audit evidence`).to.equal(true);
     }
-  });
-
-  it('keeps the isolated-instance contract public while ignoring runtime output', function () {
-    expect(gitignore).to.include('_localrun_instance_b/*');
-    expect(gitignore).to.include('!_localrun_instance_b/README.md');
-    expect(gitignore).to.include('!_localrun_instance_b/instance-b.env.example');
-
-    const instanceEnvironment = readProjectFile('_localrun_instance_b/instance-b.env.example');
-    expect(instanceEnvironment).not.to.match(/\b[A-Za-z]:[\\/]/);
-    expect(instanceEnvironment).to.include('AUTOMATION_REPORT_DIR=./_localrun_instance_b/reports');
-    expect(instanceEnvironment).to.include('E2E_AUTH_DIR=./_localrun_instance_b/auth');
   });
 
   it('keeps manual administrative SQL outside automatic test discovery', function () {

@@ -46,8 +46,6 @@ describe('generated artifact boundary contract [00_generated_artifact_boundary_c
     expect(isGeneratedCandidate('frontend/.tsbuildinfo')).to.equal(true);
     expect(isGeneratedCandidate('verification/evidence.zip')).to.equal(true);
     expect(isGeneratedCandidate('mqtt-broker/gmqttd.exe')).to.equal(true);
-    expect(isGeneratedCandidate('_localrun_instance_b/README.md')).to.equal(false);
-    expect(isGeneratedCandidate('_localrun_instance_b/instance-b.env.example')).to.equal(false);
     expect(isGeneratedCandidate('backend/internal/service/example.go')).to.equal(false);
   });
 

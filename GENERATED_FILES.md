@@ -20,7 +20,7 @@ AetherLink IoT 当前仍将若干生成产物保留在仓库中，因为仅凭�
 - `frontend/dist/`、`frontend/dist-lite/` 等前端构建输出
 - `.playwright-cli/`、`playwright-report/`、`test-results/` 等浏览器自动化日志、页面快照和报告
 - `automation_tests/reports/` 等自动化运行报告
-- 根目录与各模块的 `_localrun/`、`_localrun_instance_b/` 中的本地日志、截图、缓存快照、临时测试输出和隔离实例运行态；仅保留公开的实例说明与配置模板
+- 根目录与各模块的 `_localrun/` 中的本地日志、截图、缓存快照、临时测试输出和隔离实例运行态
 - `verification/` 中的运行归档和压缩包；仅保留目录说明，选定证据仍由本地发布流程管理
 - `*.exe`、`*.dll`、`*.so`、`*.dylib` 等本地编译二进制，以及 `*.tsbuildinfo` 等增量编译状态
 
