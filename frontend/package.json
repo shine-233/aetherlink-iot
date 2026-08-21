@@ -100,7 +100,7 @@
     "@unocss/transformer-variant-group": "66.7.5",
     "@unocss/vite": "66.7.5",
     "@vicons/ionicons5": "^0.13.0",
-    "@vitejs/plugin-vue": "^5.0.5",
+    "@vitejs/plugin-vue": "^6.0.8",
     "@vitejs/plugin-vue-jsx": "5.1.6",
     "@vitest/coverage-v8": "^4.0.18",
     "@vitest/ui": "^4.0.18",
