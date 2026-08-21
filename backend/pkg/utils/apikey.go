@@ -27,9 +27,11 @@ func GenerateAPIKey() (string, error) {
 // HashAPIKey 返回 API Key 的 SHA-256 十六进制摘要。
 // API Key 是 256bit 高熵随机值，不是人类口令，因此用快速哈希即可；
 // 不要换成 bcrypt 等慢哈希，那会让每次开放接口鉴权平白增加数百毫秒延迟。
+// CodeQL go/weak-sensitive-data-hashing 会按"口令哈希"场景提示 SHA-256 偏弱，
+// 这里属于凭据查找指纹而非口令存储，属已知误报（与 Stripe/GitHub 的 key 存储方案一致）。
 // 数据库只允许存储该摘要，明文仅在创建响应中返回一次。
 func HashAPIKey(apiKey string) string {
-	sum := sha256.Sum256([]byte(apiKey))
+	sum := sha256.Sum256([]byte(apiKey)) // codeql[go/weak-sensitive-data-hashing]
 	return hex.EncodeToString(sum[:])
 }
 
