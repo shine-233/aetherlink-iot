@@ -26,7 +26,7 @@ AetherLink IoT 是面向物联网设备接入、监控和私有部署的平台�
 - 本地 native board 是默认可视化 provider；ThingsVis 与 HTTP adapter 仅通过显式 optional profile/配置启用。
 - Market、SMTP、地图 provider 属于外部可选能力；未配置时不得阻断核心启动，也不得泄露配置值。
 - 外接模块必须保留稳定接口契约；能本地化的核心能力优先使用本地实现，不能本地化的能力返回明确的 optional/external-blocked 状态。
-- 数据库迁移当前最高为 `48.sql` / `VERSION_NUMBER=48`；修改迁移前先核对 `backend/sql/` 与目标数据库的 `sys_version`。
+- 数据库迁移当前最高为 `49.sql` / `VERSION_NUMBER=49`；修改迁移前先核对 `backend/sql/` 与目标数据库的 `sys_version`。
 
 ## 修改约定
 
