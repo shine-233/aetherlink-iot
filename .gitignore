@@ -68,8 +68,6 @@ verification/*
 
 # Local historical audit material contains old server paths, IPs, and stale pre-rename notes.
 # Keep the directory README public; keep detailed audit history local unless publishing a private bundle.
-audit_reports/*
-!audit_reports/README.md
 
 # Generated dated readiness reports, repository inventories, and migration hash snapshots
 # are local audit artifacts rather than source inputs.
@@ -112,11 +110,6 @@ backend/_localrun/
 frontend/_localrun/
 automation_tests/_localrun/
 mqtt-broker/_localrun/
-_localrun_instance_b/
-!_localrun_instance_b/
-_localrun_instance_b/*
-!_localrun_instance_b/README.md
-!_localrun_instance_b/instance-b.env.example
 
 # Frontend generated files
 frontend/coverage/

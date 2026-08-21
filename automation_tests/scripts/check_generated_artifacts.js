@@ -20,14 +20,8 @@ function toRelative(absolutePath) {
 function isGeneratedCandidate(relativePath) {
   const normalized = `/${relativePath}`;
   const extension = path.extname(relativePath).toLowerCase();
-  const publicInstanceFiles = new Set([
-    '/_localrun_instance_b/README.md',
-    '/_localrun_instance_b/instance-b.env.example'
-  ]);
-  if (publicInstanceFiles.has(normalized)) return false;
   return normalized.includes('/_localrun/')
     || normalized.startsWith('/_localrun/')
-    || normalized.startsWith('/_localrun_instance_b/')
     || normalized.startsWith('/.playwright-cli/')
     || normalized.startsWith('/frontend/dist/')
     || normalized.startsWith('/frontend/dist-lite/')
