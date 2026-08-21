@@ -294,6 +294,8 @@
   "page.manage.api.quickstart.copyCurl": "Copiar curl",
   "page.manage.api.quickstart.emptyHint": "Aún no hay clave API. Agregue primero una clave y luego copie una solicitud ejecutable; la API aísla los datos por el inquilino de la clave.",
   "page.manage.api.addApiKey": "Crear una clave de API",
+  "page.manage.api.createdKeyTitle": "Guarda tu nueva clave de API",
+  "page.manage.api.createdKeyDesc": "Esta es la unica vez que se muestra la clave completa. Copiala y guardala ahora; no podra volver a verse tras cerrar.",
   "page.manage.api.apiName": "Nombre",
   "page.manage.api.api_key": "Llave",
   "page.manage.api.apiStatus": "Estado",

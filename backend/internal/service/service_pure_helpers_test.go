@@ -1135,7 +1135,7 @@ func TestAdminOnlyServiceMethodsRejectBeforeExternalWork(t *testing.T) {
 }
 
 func TestCreateOpenAPIKeyRejectsUnsupportedRoleBeforeGeneratingKey(t *testing.T) {
-	err := (&OpenAPIKey{}).CreateOpenAPIKey(nil, &utils.UserClaims{
+	_, err := (&OpenAPIKey{}).CreateOpenAPIKey(nil, &utils.UserClaims{
 		Authority: constant.TENANT_USER,
 		TenantID:  "tenant-1",
 	})
@@ -1155,7 +1155,7 @@ func TestCreateOpenAPIKeyRejectsUnsupportedRoleBeforeGeneratingKey(t *testing.T)
 }
 
 func TestCreateOpenAPIKeyRejectsTenantMismatchBeforeGeneratingKey(t *testing.T) {
-	err := (&OpenAPIKey{}).CreateOpenAPIKey(&model.CreateOpenAPIKeyReq{
+	_, err := (&OpenAPIKey{}).CreateOpenAPIKey(&model.CreateOpenAPIKeyReq{
 		TenantID: "tenant-2",
 	}, &utils.UserClaims{
 		Authority: constant.TENANT_ADMIN,

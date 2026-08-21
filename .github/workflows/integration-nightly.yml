@@ -1,9 +1,12 @@
-name: Manual and nightly integration
+name: Manual external live integration
+
+# External live lane: validates against a real target environment configured
+# in the `integration` environment (vars + secrets). It is dispatch-only; the
+# always-runnable runtime signal lives in compose-stack-e2e.yml, which boots
+# the full stack on the hosted runner without any repository secrets.
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '17 3 * * *'
 
 permissions:
   contents: read

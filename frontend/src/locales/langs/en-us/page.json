@@ -294,6 +294,8 @@
   "page.manage.api.quickstart.copyCurl": "Copy curl",
   "page.manage.api.quickstart.emptyHint": "No API Key yet. Add a key first, then copy a runnable request; the API isolates data by the key's tenant.",
   "page.manage.api.addApiKey": "Create API Key",
+  "page.manage.api.createdKeyTitle": "Save your new API key",
+  "page.manage.api.createdKeyDesc": "This is the only time the full key is shown. Copy and store it now; it cannot be viewed again after closing.",
   "page.manage.api.apiName": "Name",
   "page.manage.api.api_key": "Key",
   "page.manage.api.apiStatus": "Status",

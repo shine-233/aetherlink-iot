@@ -1,0 +1,234 @@
+name: Compose stack API and E2E
+
+# Self-contained integration lane: boots the full Docker Compose stack on the
+# hosted runner, generates throwaway accounts, and runs preflight + API
+# automation + Playwright E2E against it. No repository secrets are required;
+# all credentials are created at job start and destroyed with the runner.
+#
+# The external live lane (integration-nightly.yml) stays dispatch-only until a
+# real target environment is configured; this workflow is the always-runnable
+# runtime signal.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '43 3 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: compose-stack-e2e-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  compose-stack-e2e:
+    name: Self-hosted-stack API, E2E, and device validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+    env:
+      CI_STRICT_INTEGRATION: '1'
+      AETHERLINK_DEVICE_VALIDATION_MODE: generic-emulator
+      # NOTE: do NOT set AETHERLINK_MQTT_ACCESS_ADDRESS or AETHERLINK_PUBLIC_URL
+      # at job level: deploy/init.sh requires them to be set as a pair and would
+      # abort before `docker compose up`. Test steps inject the MQTT address via
+      # their own env blocks below.
+      AUTOMATION_READY_CHECK_AUTO_START: '1'
+      AUTOMATION_READY_CHECK_BUILD_EMULATOR: '0'
+      FRONTEND_URL: http://127.0.0.1:9725
+      PREVIEW_URL: http://127.0.0.1:9725
+      API_TARGET: http://127.0.0.1:9999
+      PLAYWRIGHT_USE_PREVIEW_PROXY: '1'
+      PLAYWRIGHT_REUSE_EXISTING_SERVER: '1'
+      PLAYWRIGHT_BROWSER_CHANNEL: chromium
+      PREFLIGHT_PROFILE: full
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 10.8.0
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Set up Go for the generic device emulator
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: backend/cmd/aetherlink-device-autotest/go.mod
+          cache: false
+
+      - name: Build generic device emulator
+        working-directory: backend/cmd/aetherlink-device-autotest
+        run: go build -o "$RUNNER_TEMP/aetherlink-ready-check-command-emulator" ./cmd/autotest
+
+      - name: Configure generic device emulator path
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "AUTOMATION_READY_CHECK_EMULATOR_BIN=$RUNNER_TEMP/aetherlink-ready-check-command-emulator" >> "$GITHUB_ENV"
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend preview assets
+        working-directory: frontend
+        run: pnpm run build
+
+      - name: Bootstrap the Compose stack with generated secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash deploy/init.sh --performance-tier light --skip-verify
+
+      - name: Wait for backend readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --show-error http://127.0.0.1:9999/ready >/dev/null 2>&1; then
+              echo "backend ready"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "backend did not become ready in time" >&2
+          docker compose ps
+          docker compose logs --tail 100 backend
+          exit 1
+
+      - name: Set up npm cache
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: automation_tests/package-lock.json
+
+      - name: Install automation dependencies
+        working-directory: automation_tests
+        run: npm ci
+
+      - name: Install Playwright browser
+        working-directory: automation_tests
+        run: npx playwright install --with-deps "$PLAYWRIGHT_BROWSER_CHANNEL"
+
+      - name: Generate throwaway test accounts
+        working-directory: automation_tests
+        run: npm run prepare:local-accounts
+
+      - name: Load generated account credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -a
+          # shellcheck disable=SC1091
+          . automation_tests/.env.local
+          set +a
+          {
+            echo "SUPER_ADMIN_EMAIL=$SUPER_ADMIN_EMAIL"
+            echo "TENANT_ADMIN_EMAIL=$TENANT_ADMIN_EMAIL"
+            echo "TENANT_USER_EMAIL=$TENANT_USER_EMAIL"
+            echo "READONLY_USER_EMAIL=$READONLY_USER_EMAIL"
+            echo "EMAIL_CHANGE_TENANT_EMAIL=$EMAIL_CHANGE_TENANT_EMAIL"
+          } >> "$GITHUB_ENV"
+
+      - name: Start preview API proxy
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd automation_tests
+          node scripts/serve_preview_with_api_proxy.js > "$RUNNER_TEMP/aetherlink-preview-proxy.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/aetherlink-preview-proxy.pid"
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error "$PREVIEW_URL/" >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/aetherlink-preview-proxy.log"
+          exit 1
+
+      - name: Run API and E2E preflight
+        working-directory: automation_tests
+        env:
+          PLAYWRIGHT_REUSE_EXISTING_SERVER: '0'
+          AETHERLINK_MQTT_ACCESS_ADDRESS: localhost:1883
+        run: npm run preflight:api-e2e
+
+      - name: Run API automation
+        working-directory: automation_tests
+        env:
+          AETHERLINK_MQTT_ACCESS_ADDRESS: localhost:1883
+        run: npm run test:automation:api
+
+      - name: Run Playwright E2E
+        working-directory: automation_tests
+        env:
+          AETHERLINK_MQTT_ACCESS_ADDRESS: localhost:1883
+        run: npm run test:automation:e2e
+
+      - name: Upload integration reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: compose-stack-integration-reports-${{ github.run_id }}
+          path: |
+            automation_tests/reports/
+            automation_tests/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Dump stack logs on failure
+        if: failure()
+        shell: bash
+        run: |
+          docker compose ps || true
+          for svc in postgres redis mqtt-broker backend frontend; do
+            echo "===== $svc ====="
+            docker compose logs --tail 120 "$svc" || true
+          done
+
+      - name: Stop preview API proxy
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f "$RUNNER_TEMP/aetherlink-preview-proxy.pid" ]]; then
+            kill "$(cat "$RUNNER_TEMP/aetherlink-preview-proxy.pid")" 2>/dev/null || true
+          fi
+
+      - name: Tear down the Compose stack
+        if: always()
+        shell: bash
+        run: |
+          docker compose down -v --remove-orphans || true
+
+  compose-stack-result:
+    name: Compose stack result
+    if: always()
+    needs:
+      - compose-stack-e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fail closed when the self-contained lane did not succeed
+        shell: bash
+        env:
+          TEST_RESULT: ${{ needs.compose-stack-e2e.result }}
+        run: |
+          set -euo pipefail
+          if [[ "$TEST_RESULT" != "success" ]]; then
+            echo "Compose stack integration is fail-closed: result=$TEST_RESULT." >&2
+            exit 1
+          fi
+          echo "Self-contained Compose stack integration completed successfully."

@@ -53,6 +53,68 @@ func TestFilterDataByKeysReturnsOnlyRequestedFieldsWhenSystimeMissing(t *testing
 	}
 }
 
+func TestWSClientTryEnqueueConcurrentWithCloseSendNeverPanics(t *testing.T) {
+	// 回归防线：PushToDevice 与 UnsubscribeDevice 并发时，旧实现在锁外向已 close 的
+	// Send 发送会触发 send on closed channel panic；守卫后的 TryEnqueue 必须安全。
+	for iter := 0; iter < 200; iter++ {
+		client := &WSClient{Send: make(chan []byte, 1)}
+		var wg sync.WaitGroup
+		stop := make(chan struct{})
+		for worker := 0; worker < 4; worker++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for {
+					select {
+					case <-stop:
+						return
+					default:
+						client.TryEnqueue([]byte("payload"))
+					}
+				}
+			}()
+		}
+
+		client.CloseSend()
+		client.CloseSend() // 必须幂等，不允许 double-close panic
+		close(stop)
+		wg.Wait()
+
+		if client.TryEnqueue([]byte("after-close")) {
+			t.Fatalf("iteration %d: enqueue succeeded after CloseSend", iter)
+		}
+	}
+}
+
+func TestWSManagerPushToDeviceSkipsClientRemovedFromManager(t *testing.T) {
+	// 回归防线：PushToDevice 必须基于读锁内的订阅快照遍历，
+	// 且对已移除并关闭写队列的客户端安全跳过（不 panic、不投递）。
+	ch := make(chan []byte, 1)
+	client := &WSClient{DeviceID: "device-a", ConnID: "conn-a", Mu: &sync.Mutex{}, Send: ch}
+	manager := &WSManager{
+		deviceClients: map[string]map[string]*WSClient{
+			"device-a": {"conn-a": client},
+		},
+	}
+
+	manager.PushToDevice("device-a", map[string]interface{}{"temperature": 1})
+	select {
+	case <-ch:
+	default:
+		t.Fatal("expected first push to reach active subscriber")
+	}
+
+	// 模拟 UnsubscribeDevice 的本地副作用（单测环境无 Redis，不直接调用它）：
+	// 从索引移除并关闭写队列。
+	delete(manager.deviceClients["device-a"], "conn-a")
+	client.CloseSend()
+
+	manager.PushToDevice("device-a", map[string]interface{}{"temperature": 2})
+	if len(ch) != 0 {
+		t.Fatalf("removed/closed client received %d extra payload(s)", len(ch))
+	}
+}
+
 func TestWSManagerGetStatsCountsDeviceSubscriptionsAndClients(t *testing.T) {
 	manager := &WSManager{
 		deviceClients: map[string]map[string]*WSClient{

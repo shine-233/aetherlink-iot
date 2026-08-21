@@ -50,7 +50,7 @@ AetherLink IoT 采用多层验证，因为不同层只能证明不同类型的�
 - Page coverage：说明浏览器路由或流程被访问过。
 - Business coverage：要求对产品行为、状态、权限、错误和可见结果进行精确断言。
 
-当前 r11c 隔离 local-core aggregate 中，API 为 `64/64` modules、`372/372` endpoints；浏览器为 `20/20` modules、`0 failed`；页面/route 为 `56/56`。visualization 模块仍有 `3` 个显式 `runtime-external` partial-skip，分别是 ThingsVis project/dashboard 服务不可达、negative-menu 同一外部服务不可达和 mirror ID 未配置。`business evidence kind 28/28` 只表示 runner 的 evidence bucket 分类通过，严格 `businessClosureEvidence.business` 为 `27/27`；不表示全部产品业务或外部集成已经闭环。Frontend 本轮 typecheck、data-architecture typecheck、packages typecheck 和 coverage 通过；完整 production build 发生 Windows `0xC0000005` 访问冲突，低内存诊断 build 单独通过，详见本文件末尾的 r11c 记录。上述数字仍要按证据分类阅读：六个 device route 的命中不自动产生真实 RDI 页面业务证据，synthetic share/link 不自动产生真实设备验收，endpoint/page coverage 也不等于业务状态闭环。
+当前 r11c 隔离 local-core aggregate 中，API 为 `64/64` modules、`372/372` endpoints（r11c 时点口径；当前 endpoint catalog 已增至 `373` 条，引用前需补跑对齐）；浏览器为 `20/20` modules、`0 failed`；页面/route 为 `56/56`。visualization 模块仍有 `3` 个显式 `runtime-external` partial-skip，分别是 ThingsVis project/dashboard 服务不可达、negative-menu 同一外部服务不可达和 mirror ID 未配置。`business evidence kind 28/28` 只表示 runner 的 evidence bucket 分类通过，严格 `businessClosureEvidence.business` 为 `27/27`；不表示全部产品业务或外部集成已经闭环。Frontend 本轮 typecheck、data-architecture typecheck、packages typecheck 和 coverage 通过；完整 production build 发生 Windows `0xC0000005` 访问冲突，低内存诊断 build 单独通过，详见本文件末尾的 r11c 记录。上述数字仍要按证据分类阅读：六个 device route 的命中不自动产生真实 RDI 页面业务证据，synthetic share/link 不自动产生真实设备验收，endpoint/page coverage 也不等于业务状态闭环。
 
 本轮权威 API/E2E aggregate 使用串行 runner（报告中的 `parallel: false`）。并行执行 data-history 时出现的记录竞争属于 runner/fixture 隔离问题：并行 worker 必须使用独立的 fixture 命名空间、清理边界和 report/output 目录，不能把竞争结果解释成产品业务失败，也不能手工拼接不同 runner 的报告。
 

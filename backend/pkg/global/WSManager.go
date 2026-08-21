@@ -43,6 +43,44 @@ type WSClient struct {
 	Keys     []string // 订阅的字段（为空表示订阅全部）
 	// Send 用于写入数据的缓冲管道，避免在多个goroutine中直接写Conn导致阻塞
 	Send chan []byte
+
+	// sendMu 与 closed 保护 Send 的关闭生命周期：
+	// 发送方持读锁入队，关闭方持写锁置位并 close，杜绝 send on closed channel panic。
+	sendMu sync.RWMutex
+	closed bool
+}
+
+// TryEnqueue 非阻塞地把 payload 写入发送队列。
+// 返回 false 表示客户端已关闭或缓冲区满，调用方应丢弃或走降级路径。
+func (c *WSClient) TryEnqueue(payload []byte) bool {
+	if c == nil || c.Send == nil {
+		return false
+	}
+	c.sendMu.RLock()
+	defer c.sendMu.RUnlock()
+	if c.closed {
+		return false
+	}
+	select {
+	case c.Send <- payload:
+		return true
+	default:
+		return false
+	}
+}
+
+// CloseSend 幂等关闭发送队列，用于唤醒写入 goroutine 退出。
+func (c *WSClient) CloseSend() {
+	if c == nil || c.Send == nil {
+		return
+	}
+	c.sendMu.Lock()
+	defer c.sendMu.Unlock()
+	if c.closed {
+		return
+	}
+	c.closed = true
+	close(c.Send)
 }
 
 // WSEvent WebSocket 事件
@@ -106,6 +144,12 @@ func (m *WSManager) UnsubscribeDevice(deviceID, connID string) error {
 		}
 	}
 
+	// 先关闭写队列再处理 Redis：即使 Redis Decr 失败提前返回，
+	// 也不会把写入 goroutine 永久留在 range Send 上泄漏。
+	if removedClient != nil {
+		removedClient.CloseSend()
+	}
+
 	// 更新 Redis 订阅表
 	ctx := context.Background()
 	count, err := m.redisClient.Decr(ctx, "ws:sub:"+deviceID).Result()
@@ -120,11 +164,6 @@ func (m *WSManager) UnsubscribeDevice(deviceID, connID string) error {
 	}
 
 	logrus.Info("WebSocket client unsubscribed from device")
-
-	// 关闭写队列（如果存在），以结束对应的写入 goroutine
-	if removedClient != nil && removedClient.Send != nil {
-		close(removedClient.Send)
-	}
 
 	return nil
 }
@@ -141,8 +180,18 @@ func (m *WSManager) RefreshSubscription(deviceID string) error {
 
 // PushToDevice 推送消息到设备订阅者（本实例）
 func (m *WSManager) PushToDevice(deviceID string, data map[string]interface{}) {
+	// 在读锁内拷贝订阅者快照后再释放锁遍历：
+	// 直接在锁外迭代内层 map 会与 UnsubscribeDevice 的 delete 并发，
+	// 触发 runtime 的 concurrent map read/write 致命错误。
 	m.mutex.RLock()
-	clients, ok := m.deviceClients[deviceID]
+	clientsMap, ok := m.deviceClients[deviceID]
+	var clients []*WSClient
+	if ok {
+		clients = make([]*WSClient, 0, len(clientsMap))
+		for _, client := range clientsMap {
+			clients = append(clients, client)
+		}
+	}
 	m.mutex.RUnlock()
 
 	if !ok || len(clients) == 0 {
@@ -165,15 +214,11 @@ func (m *WSManager) PushToDevice(deviceID string, data map[string]interface{}) {
 			logrus.Error("Failed to marshal WebSocket data")
 			continue
 		}
-
 		// 推送到 WebSocket：优先通过 client.Send 非阻塞发送到写入 goroutine，
 		// 避免在此处直接写 Conn 导致阻塞整个管理器或读处理循环。
-		select {
-		case client.Send <- jsonData:
-			// queued successfully
-		default:
-			// send queue is full，记录并丢弃消息，避免阻塞
-			logrus.Warn("WebSocket send buffer full, dropping message")
+		if !client.TryEnqueue(jsonData) {
+			// 客户端已关闭或 send queue is full，记录并丢弃消息，避免阻塞
+			logrus.Warn("WebSocket send unavailable (closed or buffer full), dropping message")
 		}
 	}
 }
