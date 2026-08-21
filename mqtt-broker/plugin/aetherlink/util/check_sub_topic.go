@@ -30,7 +30,7 @@ var subList = []string{
 	"gateway/attributes/response/{device_number}/+", // 订阅平台收到属性的响应（网关）
 	"gateway/event/response/{device_number}/+",      // 接收平台收到事件的响应（网关）
 
-	"{device_number}/down", // 心智悦喷淋一体机下行数据
+	"{device_number}/down", // 兼容遗留接入方案的单层通配下行主题（历史设备固件使用）
 
 	"devices/register/response/+",    // 网关子设备注册平台回复
 	"devices/config/down/response/+", // 设备配置下载平台回复
