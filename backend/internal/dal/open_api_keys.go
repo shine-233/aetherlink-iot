@@ -12,6 +12,7 @@ import (
 	"aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/internal/query"
 	"aetherlink-iot/backend/pkg/global"
+	"aetherlink-iot/backend/pkg/utils"
 
 	"github.com/sirupsen/logrus"
 	"gorm.io/gen"
@@ -138,7 +139,10 @@ func (OpenAPIKeyQuery) Select(ctx context.Context, option ...gen.Condition) (lis
 	return
 }
 
+// VerifyOpenAPIKey 校验调用方提交的明文 key：先做 SHA-256 摘要，再以摘要查库/缓存。
+// 数据库 api_key 列自迁移 49 起只存摘要，缓存键也统一使用摘要，避免明文落 Redis。
 func VerifyOpenAPIKey(ctx context.Context, appKey string) (string, string, error) {
+	appKey = utils.HashAPIKey(appKey)
 	cacheKey, cacheKeyCreatedID := openAPIKeyCacheKeyPair(appKey)
 	tenantID, err := global.REDIS.Get(ctx, cacheKey).Result()
 	createdID, err1 := global.REDIS.Get(ctx, cacheKeyCreatedID).Result()

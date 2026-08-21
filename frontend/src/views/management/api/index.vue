@@ -1,14 +1,13 @@
 <!--
-文件用途：承载后台管理中的 API 密钥管理页，负责展示租户级 API Key 列表并提供新增、编辑、删除、启停与密钥查看能力。
-核心逻辑：页面通过查询参数、远端分页、表格列渲染与弹窗表单协同完成列表拉取、敏感字段遮罩、状态切换和数据回刷。
+文件用途：承载后台管理中的 API 密钥管理页，负责展示租户级 API Key 列表并提供新增、编辑、删除、启停能力。
+核心逻辑：页面通过查询参数、远端分页、表格列渲染与弹窗表单协同完成列表拉取、敏感字段脱敏、状态切换和数据回刷。
 关键注意事项：
-1. `api_key` 属于敏感字段，默认仅展示掩码，页面只在当前行本地状态上临时切换明文，避免整表默认暴露。
+1. 后端只存 key 摘要：列表仅返回 `key_prefix` 展示前缀；明文只在创建响应中出现一次，必须引导用户当场保存。
 2. 复制逻辑同时兼容 Clipboard API 与 `document.execCommand('copy')` 回退分支，修改时要保留安全上下文提示。
 3. 当前状态切换为“先改本地值再请求后端”的乐观更新写法，请求失败时没有自动回滚，后续若重构需补一致性兜底。
 静态审查建议：
 1. `getTableData` 在接口异常分支没有统一 `endLoading`，后续宜改为 `try/finally` 收口加载态。
-2. 明文查看状态以 `row.show` 混入接口数据对象，后续可拆到独立 UI 状态表，减少视图状态污染业务模型。
-3. 启停、删除、复制等敏感操作仍分散在页面内，后续可抽成更聚焦的组合式逻辑以降低维护成本。
+2. 启停、删除、复制等敏感操作仍分散在页面内，后续可抽成更聚焦的组合式逻辑以降低维护成本。
 -->
 <script setup lang="tsx">
 import { computed, getCurrentInstance, reactive, ref } from 'vue'
@@ -43,6 +42,21 @@ const quickStartEndpoint = '/plugin/service/access/list'
 const quickStartServiceIdentifier = '<SERVICE_IDENTIFIER>'
 const maskedApiKey = '<YOUR_API_KEY>'
 
+// 明文 key 只存在于创建响应中：保存到本地状态，用于一次性展示、复制和示例代码注入。
+const justCreatedKey = ref('')
+const showCreatedKeyModal = ref(false)
+
+function handleCreatedKey(apiKey: string) {
+  justCreatedKey.value = apiKey
+  showCreatedKeyModal.value = true
+}
+
+function dismissCreatedKeyModal() {
+  showCreatedKeyModal.value = false
+  // 关闭即清空内存中的明文，之后页面不再有任何途径取回。
+  justCreatedKey.value = ''
+}
+
 const apiBaseUrl = computed(() => {
   if (typeof window === 'undefined') return '/api/v1'
   return `${window.location.origin}/api/v1`
@@ -53,7 +67,8 @@ const swaggerDocsUrl = computed(() => {
   return `${window.location.origin}/swagger/index.html`
 })
 
-const visibleApiKey = computed(() => tableData.value.find(item => item.show && item.api_key)?.api_key || maskedApiKey)
+// 示例代码中的密钥：优先使用刚创建的一次性明文，否则显示占位符。
+const visibleApiKey = computed(() => justCreatedKey.value || maskedApiKey)
 const quickStartBody = computed(() => JSON.stringify({ service_identifier: quickStartServiceIdentifier }, null, 2))
 
 const quickStartCurl = computed(
@@ -94,12 +109,9 @@ response = requests.post(
 print(response.json())`
 )
 
-// 为每条记录补一个仅前端使用的 `show` 标记，用来控制密钥明文是否短暂可见。
+// 为每条记录保留接口返回的数据；列表不再包含明文 api_key。
 function setTableData(data: UserManagement.UserKey[]) {
   tableData.value = data
-  tableData.value.forEach(item => {
-    item.show = false
-  })
 }
 
 // 列表查询主入口：统一消费分页参数并在成功后刷新表格数据与总数。
@@ -130,29 +142,12 @@ const columns: Ref<DataTableColumns<UserManagement.UserKey>> = ref([
     minWidth: '100px',
     title: () => $t('page.manage.api.api_key'),
     align: 'left',
-    // API Key 默认只展示掩码；只有当前行被显式点开时才临时渲染明文与复制入口。
+    // 后端只存摘要：列表仅展示不可还原的前缀，明文只能在创建时一次性保存。
     render: (row: any) => {
-      if (row.show === false) {
-        return (
-          <NSpace justify="space-between">
-            <NSpace>
-              <span>********</span>
-              <svg-icon local-icon="eye" class="text-20px" onClick={() => handleOpenEye(row.id)} />
-            </NSpace>
-          </NSpace>
-        )
-      } else if (row.show === true) {
-        return (
-          <NSpace justify="space-between">
-            <NSpace>
-              <span>{row.api_key}</span>
-              <svg-icon local-icon="eye-close" class="text-20px" onClick={() => handleCloseEye(row.id)} />
-              <svg-icon local-icon="copy" class="text-20px" onClick={() => handleCopyKey(row.api_key)} />
-            </NSpace>
-          </NSpace>
-        )
+      if (row.key_prefix) {
+        return <span>{`${row.key_prefix}••••••••`}</span>
       }
-      return <span></span>
+      return <span>********</span>
     }
   },
   {
@@ -222,17 +217,6 @@ function setEditData(data: UserManagement.UserKey | null) {
 function handleAddTable() {
   openModal()
   setModalType('add')
-}
-
-// 明文查看只影响当前页面内存态，不应把 `show` 之类的 UI 字段回传后端。
-function handleOpenEye(rowId: string) {
-  const findItem = tableData.value.find(item => item.id === rowId)
-  if (findItem) findItem.show = true
-}
-
-function handleCloseEye(rowId: string) {
-  const findItem = tableData.value.find(item => item.id === rowId)
-  if (findItem) findItem.show = false
 }
 
 // 复制属于敏感字段操作，需要兼顾安全上下文限制并给出可理解的失败提示。
@@ -410,7 +394,18 @@ init()
           :type="modalType"
           :edit-data="editData"
           @success="getTableData"
+          @created="handleCreatedKey"
         />
+        <n-modal v-model:show="showCreatedKeyModal" preset="card" :title="$t('page.manage.api.createdKeyTitle')" class="w-90%" :style="{ maxWidth: '560px' }">
+          <n-alert type="warning" :show-icon="true" class="mb-12px">
+            {{ $t('page.manage.api.createdKeyDesc') }}
+          </n-alert>
+          <n-input :value="justCreatedKey" readonly />
+          <n-space justify="end" class="pt-16px" :size="16">
+            <n-button @click="handleCopyKey(justCreatedKey)">{{ $t('generate.copy') }}</n-button>
+            <n-button type="primary" @click="dismissCreatedKeyModal">{{ $t('common.confirm') }}</n-button>
+          </n-space>
+        </n-modal>
       </div>
     </n-card>
   </div>

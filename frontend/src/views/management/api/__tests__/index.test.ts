@@ -197,21 +197,24 @@ describe('management/api/index.vue', () => {
     expect(state.editData).toBeNull()
   })
 
-  it('handleOpenEye sets show to true for the row', async () => {
+  it('handleCreatedKey stores the one-time key and shows the save dialog', async () => {
     const wrapper = mountComponent()
     await flushPromises()
     const state = getSetupState(wrapper)
-    state.handleOpenEye('k-1')
-    expect(state.tableData[0].show).toBe(true)
+    state.handleCreatedKey('sk_newkey123')
+    expect(state.justCreatedKey).toBe('sk_newkey123')
+    expect(state.showCreatedKeyModal).toBe(true)
   })
 
-  it('handleCloseEye sets show to false for the row', async () => {
+  it('dismissCreatedKeyModal clears the plaintext key from memory', async () => {
     const wrapper = mountComponent()
     await flushPromises()
     const state = getSetupState(wrapper)
-    state.tableData[0].show = true
-    state.handleCloseEye('k-1')
-    expect(state.tableData[0].show).toBe(false)
+    state.handleCreatedKey('sk_newkey123')
+    expect(state.justCreatedKey).toBe('sk_newkey123')
+    state.dismissCreatedKeyModal()
+    expect(state.showCreatedKeyModal).toBe(false)
+    expect(state.justCreatedKey).toBe('')
   })
 
   it('handleSwitchChange toggles status and calls updateKey', async () => {
