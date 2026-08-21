@@ -16,7 +16,7 @@
     "@types/prompts": "2.4.9",
     "bumpp": "12.2.1",
     "c12": "1.8.0",
-    "cac": "6.7.14",
+    "cac": "7.0.0",
     "execa": "10.0.1",
     "kolorist": "1.8.0",
     "npm-check-updates": "23.0.2",
