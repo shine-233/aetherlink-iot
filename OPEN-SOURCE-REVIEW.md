@@ -18,7 +18,7 @@
 ## 保留内容
 
 - `frontend/`、`backend/`、`mqtt-broker/` 的源码、必要生成源码和配置模板。
-- `backend/sql/1.sql` 至 `backend/sql/48.sql` 以及迁移说明。
+- `backend/sql/1.sql` 至 `backend/sql/49.sql` 以及迁移说明。
 - `automation_tests/` 的测试、契约、API/E2E runner 和 synthetic RDI 协议模拟器源码。
 - `deploy/`、Compose、反向代理和备份/恢复脚本合同。
 - Native visualization provider，以及作为 optional compatibility provider 保留的 ThingsVis 源码、配置和合同。
