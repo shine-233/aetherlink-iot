@@ -15,7 +15,7 @@
   "devDependencies": {
     "@types/prompts": "2.4.9",
     "bumpp": "12.2.1",
-    "c12": "1.8.0",
+    "c12": "3.3.4",
     "cac": "6.7.14",
     "execa": "10.0.1",
     "kolorist": "1.8.0",
