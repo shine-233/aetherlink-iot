@@ -1,7 +1,9 @@
 -- OpenAPI key credential hardening: store only a SHA-256 digest in api_key
 -- and keep a short display prefix for list identification.
--- Existing plaintext keys stay readable until rotated; operators should force
--- regeneration so every row ends up holding a digest plus its prefix.
+-- CUTOVER SEMANTICS: verification hashes the presented key before lookup, so
+-- rows still holding legacy plaintext STOP AUTHENTICATING after this migration
+-- takes effect. Operators must regenerate every key as part of rollout; there
+-- is intentionally no dual-read transition window.
 ALTER TABLE public.open_api_keys
     ADD COLUMN IF NOT EXISTS key_prefix varchar(20) NOT NULL DEFAULT '';
 
