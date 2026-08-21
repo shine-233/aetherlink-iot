@@ -63,7 +63,7 @@ function ignoredBoundaryCategory(relativePath) {
   if (parts.includes('node_modules') || parts.includes('vendor')) return 'dependency-tree';
   if (/^project_(cleanup_plan|folder_(audit|contents))/.test(basename)) return 'local-audit-evidence';
   if (
-    parts.some(part => ['_localrun', '_localrun_instance_b', 'reports', 'verification', 'playwright-report', 'test-results', '.playwright-cli'].includes(part))
+    parts.some(part => ['_localrun', 'reports', 'verification', 'playwright-report', 'test-results', '.playwright-cli'].includes(part))
   ) return 'runtime-or-report';
   return 'generated-output';
 }
@@ -120,7 +120,6 @@ function moduleFor(relativePath) {
     'deploy',
     'references',
     'verification',
-    'audit_reports',
     'performance'
   ]);
   return knownModules.has(first) ? first : 'root';
@@ -138,7 +137,7 @@ function categoryFor(relativePath) {
   if (/\.gen\.go$/.test(relativePath) || /\.pb\.go$/.test(relativePath) || /(^|\/)backend\/docs\/(docs\.go|swagger\.(json|yaml))$/.test(relativePath)) return 'generated-source';
   if (/(^|\/)(third_party|vendor)(\/|$)/.test(relativePath)) return 'third-party';
   if (/(^|\/)(__tests__|tests?|e2e)(\/|$)/.test(relativePath) || /\.(test|spec)\.[^.]+$/.test(relativePath)) return 'test';
-  if (/(^|\/)(docs?|references|verification|audit_reports)(\/|$)/.test(relativePath) || extension === '.md') return 'documentation';
+  if (/(^|\/)(docs?|references|verification)(\/|$)/.test(relativePath) || extension === '.md') return 'documentation';
   if (['package-lock.json', 'pnpm-lock.yaml', 'go.sum'].includes(basename)) return 'lockfile';
   if (basename === 'codeowners') return 'configuration';
   if (

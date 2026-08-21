@@ -63,8 +63,8 @@ AetherLink IoT 是面向物联网平台场景的完整源码仓库，包含 5 �
 - [frontend/src/core/interaction-system/QUICK_START.md](frontend/src/core/interaction-system/QUICK_START.md) — 交互系统快速开始
 - [frontend/packages/scripts/README.md](frontend/packages/scripts/README.md) — CLI 工具（gen-route 等）
 
-### 需求与进度（单一权威）
-- [references/客户需求主清单-进度总表.md](references/客户需求主清单-进度总表.md) — REQ-01 ~ REQ-58 全部状态与能力边界
+### 规划与文档索引
+- [ROADMAP.md](ROADMAP.md) — 公开能力规划入口
 - [references/文档地图.md](references/文档地图.md) — 文档定位索引
 
 ### 安全、发布与合规

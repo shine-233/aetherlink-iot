@@ -29,7 +29,7 @@ var pubList = []string{
 	"devices/register",    // 网关子设备注册
 	"devices/config/down", // 设备配置下载
 
-	"+/up", // [REMOVED]一体机上行数据
+	"+/up", // 兼容遗留接入方案的通配上行主题（历史设备固件使用）
 }
 
 // mqttWildcard 是 MQTT 单层通配符。

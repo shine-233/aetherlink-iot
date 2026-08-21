@@ -294,6 +294,8 @@
   "page.manage.api.quickstart.copyCurl": "复制 curl",
   "page.manage.api.quickstart.emptyHint": "当前还没有 API Key。先新增一个密钥，再复制可运行请求；接口会按密钥所属租户隔离数据。",
   "page.manage.api.addApiKey": "创建API key",
+  "page.manage.api.createdKeyTitle": "保存你的新 API Key",
+  "page.manage.api.createdKeyDesc": "这是唯一一次展示完整密钥的机会。请立即复制并妥善保存，关闭后无法再次查看。",
   "page.manage.api.apiName": "名称",
   "page.manage.api.api_key": "key",
   "page.manage.api.apiStatus": "状态",

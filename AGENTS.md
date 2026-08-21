@@ -18,7 +18,7 @@ AetherLink IoT 是面向物联网设备接入、监控和私有部署的平台�
 - `backend/`：Go、Gin、GORM、PostgreSQL。
 - `mqtt-broker/`：Go、GMQTT。
 - `automation_tests/`：Mocha、Playwright 和部署/覆盖契约。
-- `references/` 保存现役基线；`audit_reports/`、`verification/` 仅保存审计或验证证据。
+- `references/` 保存现役基线与文档地图；`verification/` 仅保存验证证据；能力规划入口是根目录 `ROADMAP.md`。
 
 ## 现役边界
 

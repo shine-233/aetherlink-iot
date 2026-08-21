@@ -292,9 +292,7 @@ func runDeviceStatusWSMessageLoop(
 }
 
 func handleDeviceStatusWSPing(localClient *global.WSClient) {
-	select {
-	case localClient.Send <- []byte("pong"):
-	default:
+	if !localClient.TryEnqueue([]byte("pong")) {
 		writeTelemetryWSPongControl(localClient)
 	}
 }

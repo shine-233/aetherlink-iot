@@ -8,6 +8,7 @@ package initialize
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
@@ -37,8 +38,9 @@ func RsaDecryptInit(filePath string) (err error) {
 	return err
 }
 
-// DecryptPassword 对 Base64 编码的密文执行 RSA PKCS1v15 解密。
+// DecryptPassword 对 Base64 编码的密文执行 RSA-OAEP(SHA-256) 解密。
 // 未配置私钥时返回明确错误；默认关闭的前端加密能力不得因空指针导致服务崩溃。
+// 填充必须与前端加密端（node-forge RSA-OAEP + SHA-256）保持一致，禁止回退到 PKCS1v15。
 func DecryptPassword(encryptedPassword string) ([]byte, error) {
 	if RSAPrivateKey == nil {
 		return nil, errors.New("RSA private key is not configured; frontend RSA encryption is unavailable")
@@ -49,7 +51,7 @@ func DecryptPassword(encryptedPassword string) ([]byte, error) {
 		return nil, fmt.Errorf("解码密文失败: %v", err)
 	}
 
-	decrypted, err := rsa.DecryptPKCS1v15(rand.Reader, RSAPrivateKey, ciphertext)
+	decrypted, err := rsa.DecryptOAEP(sha256.New(), rand.Reader, RSAPrivateKey, ciphertext, nil)
 	if err != nil {
 		return nil, fmt.Errorf("解密失败: %v", err)
 	}

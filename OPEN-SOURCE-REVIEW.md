@@ -23,7 +23,7 @@
 - `deploy/`、Compose、反向代理和备份/恢复脚本合同。
 - Native visualization provider，以及作为 optional compatibility provider 保留的 ThingsVis 源码、配置和合同。
 - `README.md`、`START-HERE.md`、`PUBLICATION.md`、`VALIDATION.md`、`DEPLOYMENT-PREFLIGHT-METHOD.md`、`COMPATIBILITY.md`、`GENERATED_FILES.md`、`SECURITY.md` 和公开模板。
-- `verification/templates/`、`audit_reports/README.md`、`_localrun_instance_b/README.md` 和 `instance-b.env.example` 等公开说明/模板。
+- `verification/templates/` 等公开说明/模板。
 
 生成文件的保留或排除依据见 `GENERATED_FILES.md`；不把生成的二进制、运行报告或本地凭据当作源码输入。
 
@@ -35,10 +35,10 @@
 - `node_modules/`、Go/npm 缓存、构建目录、`dist/`、coverage、增量编译状态和本地二进制。
 - Playwright auth/trace/screenshot、`reports/`、`test-results/`、日志和一次性运行目录。
 - `verification/` 中的历史证据归档、压缩包和本地报告；只保留公开模板。
-- `audit_reports/` 中的本地审计历史；只保留目录说明。
+- 客户需求/进度类内部台账与本地审计历史（已移出公开仓库）。
 - `.git/` 及 IDE、Codex、Claude 和其他本地状态。
 
-这些边界由根 `.gitignore` 和各模块的忽略规则共同执行。`_localrun_instance_b/` 只允许公开 README 和环境模板进入快照。
+这些边界由根 `.gitignore` 和各模块的忽略规则共同执行。
 
 ## 人工 review 顺序
 
@@ -72,4 +72,4 @@ git check-ignore -v .env frontend/node_modules frontend/dist automation_tests/re
 
 ## 结论
 
-当前项目可以进入人工开源 review；当前不能据此宣称“已部署”“生产签字完成”或“已上传 GitHub”。人工 review 通过后，仍需由授权者决定 commit、远端仓库、许可证/版权确认以及最终 push。
+当前项目已完成 GitHub 公开源码上传（见上文 `GitHub upload: executed`），并接入 Source CI、Minimum quality gate 与 CodeQL；但这仍不等于"已部署""生产签字完成"。人工 review 通过后，后续发布仍需由授权者决定 tag、容器发布、许可证/版权确认以及验证证据更新。

@@ -32,11 +32,10 @@ AetherLink IoT 是一个面向物联网平台场景的完整源码仓库，包�
 | `backend/` | Go 后端 API、业务服务、DAL、初始化逻辑和部署配置。 |
 | `mqtt-broker/` | 基于 GMQTT 的 Broker 运行时、插件和 MQTT 协议相关实现。 |
 | `automation_tests/` | API 自动化、Playwright E2E、预检脚本与覆盖契约。 |
-| `references/` | 客户需求唯一权威清单、文档地图、工程规则和历史兼容快照。 |
+| `references/` | 文档地图、工程规则和历史兼容快照。 |
 | `verification/` | 本地验证归档目录，仅保存验证证据，不直接代表发布结论。 |
-| `audit_reports/` | 已退役的历史审查目录，仅保留旧入口迁移说明。 |
 
-> 目录与约定：客户需求与进度以 [`references/客户需求主清单-进度总表.md`](references/客户需求主清单-进度总表.md) 为唯一入口，覆盖 REQ-01 ~ REQ-58 全部状态；文档职责以 [`references/文档地图.md`](references/文档地图.md) 为准。`audit_reports/` 不再承载现行状态或验证证据。
+> 目录与约定：能力规划以 [ROADMAP.md](ROADMAP.md) 为公开入口；文档职责以 [`references/文档地图.md`](references/文档地图.md) 为准。
 
 ## 核心功能
 
@@ -211,7 +210,6 @@ flowchart LR
 以下项目在上传 GitHub 前应逐项复核：
 
 - 本地验证归档中的历史大文件：只保留有说明价值的样例，避免堆积无筛选产物。
-- `audit_reports/` 中仅用于临时迁移或一次性核查的资料：需要明确保留原因，否则应移出公开仓库。
 - 任何包含真实环境地址、账号、密钥、证书或脱敏不充分的配置与脚本。
 - 已确认是生成产物且可通过命令再生、但缺乏保留理由的中间文件。删除前请先核对 [GENERATED_FILES.md](GENERATED_FILES.md)。
 - `backend/configs/.instance_id` 与 `frontend/src/typings/components.d.ts` 这类纯运行态或可稳定再生文件应保持未跟踪且被忽略；它们可以在本地工作树中按需生成，但不得进入公开快照。

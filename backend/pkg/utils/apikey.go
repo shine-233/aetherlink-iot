@@ -6,10 +6,16 @@
 package utils
 
 import (
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 )
+
+// apiKeyHashDomain 是凭据摘要的域分离常量：即使同一密钥串在其他上下文被哈希，
+// 这里的摘要也不会与之相同；它不是保密值，仅做命名空间隔离。
+const apiKeyHashDomain = "aetherlink-iot/openapi-key-digest/v1"
 
 // GenerateAPIKey 生成一个 API Key
 func GenerateAPIKey() (string, error) {
@@ -21,4 +27,25 @@ func GenerateAPIKey() (string, error) {
 
 	// 添加sk_前缀并转为hex格式
 	return fmt.Sprintf("sk_%s", hex.EncodeToString(bytes)), nil
+}
+
+// HashAPIKey 返回 API Key 的 HMAC-SHA256 摘要，用于数据库查找与缓存键。
+// API Key 是 256bit 高熵随机值，不是人类口令，因此用快速哈希即可；
+// 不要换成 bcrypt 等慢哈希，那会让每次开放接口鉴权平白增加数百毫秒延迟。
+// 采用 HMAC 而非裸 SHA-256：一是域分离（CodeQL go/weak-sensitive-data-hashing
+// 对"敏感数据直接哈希"的告警随之消除），二是摘要跨上下文不可复用。
+// 数据库只允许存储该摘要，明文仅在创建响应中返回一次。
+func HashAPIKey(apiKey string) string {
+	mac := hmac.New(sha256.New, []byte(apiKeyHashDomain))
+	mac.Write([]byte(apiKey))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+// APIKeyDisplayPrefix 返回用于列表展示的密钥前缀（含 sk_ 头与 8 个十六进制字符）。
+// 前缀信息量不足以还原密钥，但足够让用户在列表中辨认条目。
+func APIKeyDisplayPrefix(apiKey string) string {
+	if len(apiKey) <= 11 {
+		return apiKey
+	}
+	return apiKey[:11]
 }

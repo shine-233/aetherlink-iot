@@ -2,7 +2,10 @@
 setlocal
 
 set "ROOT_DIR=%~dp0"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%ROOT_DIR%start-aetherlink.ps1" -Open %*
+rem 仅在无参数时自动打开浏览器；带参数调用（如 -Doctor）由用户显式控制 -Open。
+set "OPEN_ARG=-Open"
+if not "%~1"=="" set "OPEN_ARG="
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%ROOT_DIR%start-aetherlink.ps1" %OPEN_ARG% %*
 set "EXIT_CODE=%ERRORLEVEL%"
 
 echo.

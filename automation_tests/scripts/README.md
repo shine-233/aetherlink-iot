@@ -107,6 +107,8 @@ ThingsVis 不属于可清理的测试缓存：Native 是默认本地 provider，
 
 当前 full API/E2E 证据必须以 `_localrun/predeploy-retest-20260814-r11c/` 为准：aggregate `84/84`，API `64/64`，E2E `20/20`，`0 failed`，endpoint `372/372`，page/route `56/56`。证据分类为 `business 28/28`，严格 `businessClosureEvidence.business=27/27`；`boundary/catalog/preflight/page` 通过不能升级为业务闭环。
 
+> 口径提示：endpoint catalog 当前为 373 条；本节归档证据生成时为 372 条。引用前先核对当前 catalog 与归档批次的条目差异。
+
 Visualization 保留 3 个结构化 `runtime-external / seedable=false` partial-skip：ThingsVis `127.0.0.1:8000` 不可达、negative-menu 依赖同一 ThingsVis 服务、`THINGSVIS_MIRRORED_DASHBOARD_ID` 未配置。Native 是默认 local provider，不能替代 ThingsVis legacy compatibility provider；`negative-menu` 是 ownership rejection 测试场景，不是服务，不能清理或用 mock 消除 skip。
 
 patched synthetic lane 的原始证据已移到仓库外 quarantine。它通过 synthetic activation、focused share/link、success/failure ACK、遥测、online/offline、SQL readback、offline manifest/session/replay 和敏感扫描；必须继续标记 `fixture_provenance=synthetic-rdi`、`real_rdi_status=not-tested`、`production_signoff=not-ready`。
