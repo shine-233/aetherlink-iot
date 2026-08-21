@@ -93,6 +93,9 @@ func (o *OpenAPIKey) GetOpenAPIKeyList(req *model.OpenAPIKeyListReq, claims *uti
 			rows[i].APIKey = ""
 		}
 		list = rows
+	} else if list != nil {
+		// 断言失败意味着 dal 返回类型被改动而脱敏未同步——宁可显式报警也不能无声漏脱敏。
+		logrus.Errorf("unexpected OpenAPI key list type %T; masking skipped", list)
 	}
 
 	result := make(map[string]interface{})

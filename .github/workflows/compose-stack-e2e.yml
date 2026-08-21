@@ -32,7 +32,10 @@ jobs:
     env:
       CI_STRICT_INTEGRATION: '1'
       AETHERLINK_DEVICE_VALIDATION_MODE: generic-emulator
-      AETHERLINK_MQTT_ACCESS_ADDRESS: localhost:1883
+      # NOTE: do NOT set AETHERLINK_MQTT_ACCESS_ADDRESS or AETHERLINK_PUBLIC_URL
+      # at job level: deploy/init.sh requires them to be set as a pair and would
+      # abort before `docker compose up`. Test steps inject the MQTT address via
+      # their own env blocks below.
       AUTOMATION_READY_CHECK_AUTO_START: '1'
       AUTOMATION_READY_CHECK_BUILD_EMULATOR: '0'
       FRONTEND_URL: http://127.0.0.1:9725
@@ -160,14 +163,19 @@ jobs:
         working-directory: automation_tests
         env:
           PLAYWRIGHT_REUSE_EXISTING_SERVER: '0'
+          AETHERLINK_MQTT_ACCESS_ADDRESS: localhost:1883
         run: npm run preflight:api-e2e
 
       - name: Run API automation
         working-directory: automation_tests
+        env:
+          AETHERLINK_MQTT_ACCESS_ADDRESS: localhost:1883
         run: npm run test:automation:api
 
       - name: Run Playwright E2E
         working-directory: automation_tests
+        env:
+          AETHERLINK_MQTT_ACCESS_ADDRESS: localhost:1883
         run: npm run test:automation:e2e
 
       - name: Upload integration reports

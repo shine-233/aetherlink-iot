@@ -10,7 +10,7 @@
 2. 启停、删除、复制等敏感操作仍分散在页面内，后续可抽成更聚焦的组合式逻辑以降低维护成本。
 -->
 <script setup lang="tsx">
-import { computed, getCurrentInstance, reactive, ref } from 'vue'
+import { computed, getCurrentInstance, reactive, ref, watch } from 'vue'
 import type { Ref } from 'vue'
 import { NAlert, NButton, NPopconfirm, NSpace, NSwitch, NTag } from 'naive-ui'
 import type { DataTableColumns, PaginationProps } from 'naive-ui'
@@ -56,6 +56,14 @@ function dismissCreatedKeyModal() {
   // 关闭即清空内存中的明文，之后页面不再有任何途径取回。
   justCreatedKey.value = ''
 }
+
+// 遮罩点击/ESC 走 v-model 直接置 false，不经过 dismiss：
+// 这里统一兜底，保证明文在任何关闭路径下都立即从内存清除。
+watch(showCreatedKeyModal, visible => {
+  if (!visible && justCreatedKey.value) {
+    justCreatedKey.value = ''
+  }
+})
 
 const apiBaseUrl = computed(() => {
   if (typeof window === 'undefined') return '/api/v1'
