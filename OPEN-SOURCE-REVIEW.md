@@ -72,4 +72,4 @@ git check-ignore -v .env frontend/node_modules frontend/dist automation_tests/re
 
 ## 结论
 
-当前项目可以进入人工开源 review；当前不能据此宣称“已部署”“生产签字完成”或“已上传 GitHub”。人工 review 通过后，仍需由授权者决定 commit、远端仓库、许可证/版权确认以及最终 push。
+当前项目已完成 GitHub 公开源码上传（见上文 `GitHub upload: executed`），并接入 Source CI、Minimum quality gate 与 CodeQL；但这仍不等于"已部署""生产签字完成"。人工 review 通过后，后续发布仍需由授权者决定 tag、容器发布、许可证/版权确认以及验证证据更新。

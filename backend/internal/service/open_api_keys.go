@@ -88,7 +88,7 @@ func (o *OpenAPIKey) GetOpenAPIKeyList(req *model.OpenAPIKeyListReq, claims *uti
 	result := make(map[string]interface{})
 	result["total"] = total
 	result["list"] = list
-	logrus.Infof("result: %v", result)
+	// 注意：list 内含明文 api_key，禁止把 result 整体写入日志。
 	return result, nil
 }
 

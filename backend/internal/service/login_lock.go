@@ -20,6 +20,16 @@ type LoginLock struct {
 	LockDuration      time.Duration
 }
 
+// loginLockShouldLock 判定本次失败后是否需要锁定账号。
+// 配置约定（conf.yml）：login-max-fail-times <= 0 表示不限制登录失败次数，
+// 此时永不锁定；只有正整数阈值才会触发 failedAttempts >= 阈值 的锁定判断。
+func loginLockShouldLock(maxFailedAttempts, failedAttempts int64) bool {
+	if maxFailedAttempts <= 0 {
+		return false
+	}
+	return failedAttempts >= maxFailedAttempts
+}
+
 // 获取登录锁定规则
 func NewLoginLock() *LoginLock {
 	maxFailedAttempts := viper.GetInt64("classified-protect.login-max-fail-times")
@@ -71,7 +81,7 @@ func (l *LoginLock) LoginFail(_ context.Context, username string) error {
 		return errors.Errorf("Error incrementing failed attempts for %s: %v", username, err)
 	}
 
-	if failedAttempts >= l.MaxFailedAttempts {
+	if loginLockShouldLock(l.MaxFailedAttempts, failedAttempts) {
 		lockUntilTime := time.Now().Add(l.LockDuration)
 		global.REDIS.Set(context.Background(), lockKey, lockUntilTime.Format(time.RFC3339), l.LockDuration)
 	}

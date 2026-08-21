@@ -26,11 +26,21 @@ func CasbinRBAC() gin.HandlerFunc {
 			// 判断接口是否需要校验
 			isVerify := service.GroupApp.Casbin.GetUrl(url)
 			if isVerify {
-				userClaims := c.MustGet("claims").(*utils.UserClaims)
+				// claims 由前置 JWT 中间件写入；缺失或类型不符时 fail-closed，
+				// 不允许 MustGet 硬断言把中间件顺序问题放大成 panic。
+				claimsValue, exists := c.Get("claims")
+				if !exists {
+					c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+					return
+				}
+				userClaims, ok := claimsValue.(*utils.UserClaims)
+				if !ok || userClaims == nil {
+					c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+					return
+				}
 				isSuccess := service.GroupApp.Casbin.Verify(userClaims.ID, url)
 				if !isSuccess {
-					c.JSON(http.StatusBadRequest, gin.H{"error": "非法访问"})
-					c.Abort()
+					c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "非法访问"})
 					return
 				}
 			}

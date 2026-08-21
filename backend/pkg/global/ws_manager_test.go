@@ -53,6 +53,39 @@ func TestFilterDataByKeysReturnsOnlyRequestedFieldsWhenSystimeMissing(t *testing
 	}
 }
 
+func TestWSClientTryEnqueueConcurrentWithCloseSendNeverPanics(t *testing.T) {
+	// 回归防线：PushToDevice 与 UnsubscribeDevice 并发时，旧实现在锁外向已 close 的
+	// Send 发送会触发 send on closed channel panic；守卫后的 TryEnqueue 必须安全。
+	for iter := 0; iter < 200; iter++ {
+		client := &WSClient{Send: make(chan []byte, 1)}
+		var wg sync.WaitGroup
+		stop := make(chan struct{})
+		for worker := 0; worker < 4; worker++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for {
+					select {
+					case <-stop:
+						return
+					default:
+						client.TryEnqueue([]byte("payload"))
+					}
+				}
+			}()
+		}
+
+		client.CloseSend()
+		client.CloseSend() // 必须幂等，不允许 double-close panic
+		close(stop)
+		wg.Wait()
+
+		if client.TryEnqueue([]byte("after-close")) {
+			t.Fatalf("iteration %d: enqueue succeeded after CloseSend", iter)
+		}
+	}
+}
+
 func TestWSManagerGetStatsCountsDeviceSubscriptionsAndClients(t *testing.T) {
 	manager := &WSManager{
 		deviceClients: map[string]map[string]*WSClient{
