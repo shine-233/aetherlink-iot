@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -109,4 +110,26 @@ func TestLoginLockShouldLockAtPositiveThresholdBoundary(t *testing.T) {
 			assert.Equal(t, tc.wantLock, loginLockShouldLock(tc.maxFailed, tc.failedAttempts))
 		})
 	}
+}
+
+func TestNewLoginLockNormalizesNegativeDurationAndDisabledState(t *testing.T) {
+	maxKey := "classified-protect.login-max-fail-times"
+	durationKey := "classified-protect.login-fail-locked-seconds"
+	prevMax := viper.Get(maxKey)
+	prevDuration := viper.Get(durationKey)
+	defer func() {
+		viper.Set(maxKey, prevMax)
+		viper.Set(durationKey, prevDuration)
+	}()
+
+	viper.Set(maxKey, -1)
+	viper.Set(durationKey, -1)
+	ll := NewLoginLock()
+	assert.Equal(t, int64(-1), ll.MaxFailedAttempts)
+	assert.Equal(t, time.Duration(0), ll.LockDuration, "negative lock seconds must normalize to 0")
+	assert.False(t, ll.enabled(), "negative threshold must disable lock accounting")
+
+	viper.Set(maxKey, 5)
+	viper.Set(durationKey, 300)
+	assert.True(t, NewLoginLock().enabled())
 }

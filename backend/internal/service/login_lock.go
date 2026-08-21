@@ -34,10 +34,19 @@ func loginLockShouldLock(maxFailedAttempts, failedAttempts int64) bool {
 func NewLoginLock() *LoginLock {
 	maxFailedAttempts := viper.GetInt64("classified-protect.login-max-fail-times")
 	lockDuration := viper.GetDuration("classified-protect.login-fail-locked-seconds")
+	// 负值（如 -1 表示不限制/不锁定）统一归一化为 0，避免生成负 TTL 的 Redis 键。
+	if lockDuration < 0 {
+		lockDuration = 0
+	}
 	return &LoginLock{
 		MaxFailedAttempts: maxFailedAttempts,
 		LockDuration:      lockDuration * time.Second,
 	}
+}
+
+// enabled 返回失败锁定是否生效：需要正数阈值且正的锁定时长。
+func (l *LoginLock) enabled() bool {
+	return l.MaxFailedAttempts > 0 && l.LockDuration > 0
 }
 
 func (*LoginLock) getLockKey(username string) string {
@@ -74,11 +83,22 @@ func (l *LoginLock) LoginSuccess(_ context.Context, username string) error {
 }
 
 func (l *LoginLock) LoginFail(_ context.Context, username string) error {
+	// 锁定被禁用（阈值或时长 <= 0）时不维护计数：
+	// 避免无界递增的 failed_attempts 键在管理员日后启用锁定时立即误锁账号。
+	if !l.enabled() {
+		return nil
+	}
+
 	key := l.getKey(username)
 	lockKey := l.getLockKey(username)
 	failedAttempts, err := global.REDIS.Incr(context.Background(), key).Result()
 	if err != nil {
 		return errors.Errorf("Error incrementing failed attempts for %s: %v", username, err)
+	}
+
+	// 首次失败时给计数键设置 TTL，防止陈旧计数跨窗口累积。
+	if failedAttempts == 1 {
+		global.REDIS.Expire(context.Background(), key, l.LockDuration)
 	}
 
 	if loginLockShouldLock(l.MaxFailedAttempts, failedAttempts) {

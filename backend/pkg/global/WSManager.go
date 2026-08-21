@@ -144,6 +144,12 @@ func (m *WSManager) UnsubscribeDevice(deviceID, connID string) error {
 		}
 	}
 
+	// 先关闭写队列再处理 Redis：即使 Redis Decr 失败提前返回，
+	// 也不会把写入 goroutine 永久留在 range Send 上泄漏。
+	if removedClient != nil {
+		removedClient.CloseSend()
+	}
+
 	// 更新 Redis 订阅表
 	ctx := context.Background()
 	count, err := m.redisClient.Decr(ctx, "ws:sub:"+deviceID).Result()
@@ -158,11 +164,6 @@ func (m *WSManager) UnsubscribeDevice(deviceID, connID string) error {
 	}
 
 	logrus.Info("WebSocket client unsubscribed from device")
-
-	// 关闭写队列（如果存在），以结束对应的写入 goroutine
-	if removedClient != nil {
-		removedClient.CloseSend()
-	}
 
 	return nil
 }
@@ -179,8 +180,18 @@ func (m *WSManager) RefreshSubscription(deviceID string) error {
 
 // PushToDevice 推送消息到设备订阅者（本实例）
 func (m *WSManager) PushToDevice(deviceID string, data map[string]interface{}) {
+	// 在读锁内拷贝订阅者快照后再释放锁遍历：
+	// 直接在锁外迭代内层 map 会与 UnsubscribeDevice 的 delete 并发，
+	// 触发 runtime 的 concurrent map read/write 致命错误。
 	m.mutex.RLock()
-	clients, ok := m.deviceClients[deviceID]
+	clientsMap, ok := m.deviceClients[deviceID]
+	var clients []*WSClient
+	if ok {
+		clients = make([]*WSClient, 0, len(clientsMap))
+		for _, client := range clientsMap {
+			clients = append(clients, client)
+		}
+	}
 	m.mutex.RUnlock()
 
 	if !ok || len(clients) == 0 {
@@ -203,7 +214,6 @@ func (m *WSManager) PushToDevice(deviceID string, data map[string]interface{}) {
 			logrus.Error("Failed to marshal WebSocket data")
 			continue
 		}
-
 		// 推送到 WebSocket：优先通过 client.Send 非阻塞发送到写入 goroutine，
 		// 避免在此处直接写 Conn 导致阻塞整个管理器或读处理循环。
 		if !client.TryEnqueue(jsonData) {
