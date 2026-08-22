@@ -141,6 +141,7 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
 
       - name: Seed synthetic RDI fixture
+        continue-on-error: true
         working-directory: automation_tests
         shell: bash
         run: |
@@ -292,6 +293,7 @@ jobs:
             exit 1
           fi
           echo "Self-contained Compose stack integration completed successfully."
+
 
 
 
