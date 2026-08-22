@@ -158,6 +158,7 @@ jobs:
           export AETHERLINK_SYNTHETIC_RDI_ALLOWED_PORT=5432
           export AETHERLINK_SYNTHETIC_RDI_ALLOWED_DATABASES=aetherlink_iot
           node scripts/seed_synthetic_rdi_fixture.js --seed
+          echo "::warning::synthetic RDI seed failed; RDI-dependent modules will self-block""
       - name: Create psql docker-exec wrapper
         shell: bash
         run: |
@@ -291,6 +292,7 @@ jobs:
             exit 1
           fi
           echo "Self-contained Compose stack integration completed successfully."
+
 
 
 
