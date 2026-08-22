@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 文件用途：用于支撑动态账号测试夹具模块。
  * 核心逻辑：封装 API 边界、Casbin 权限或动态账号夹具，减少测试文件中的重复准备步骤。
  * 关键注意事项：夹具可能修改本地测试状态；调用方仍需显式断言业务结果并处理清理。
@@ -9,7 +9,9 @@ const { expect } = require('chai');
 const crypto = require('crypto');
 
 function dynamicPassword() {
-  return `Test@${crypto.randomBytes(18).toString('base64url')}`;
+  // Backend user creation enforces min=8/max=20 on password
+  // (model/users.http.go). Keep within that window: Test@ + 12 = 17 chars.
+  return `Test@${crypto.randomBytes(9).toString('base64url') + '1'}`;
 }
 
 function expectOk(resp) {
@@ -128,3 +130,4 @@ module.exports = {
   createTenantUserAccount,
   cleanupDynamicAccounts
 };
+

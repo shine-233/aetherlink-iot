@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 文件用途：用于支撑Casbin 权限测试夹具模块。
  * 核心逻辑：封装 API 边界、Casbin 权限或动态账号夹具，减少测试文件中的重复准备步骤。
  * 关键注意事项：夹具可能修改本地测试状态；调用方仍需显式断言业务结果并处理清理。
@@ -35,7 +35,7 @@ function uniqueSuffix() {
 }
 
 function dynamicPassword() {
-  return `Test@${crypto.randomBytes(18).toString('base64url')}`;
+  return `Test@${crypto.randomBytes(9).toString('base64url') + '1'}`;
 }
 
 function collectUiElementIds(items, result = []) {
@@ -175,3 +175,4 @@ module.exports = {
   getUserRoles,
   cleanupCasbinFixtures
 };
+
