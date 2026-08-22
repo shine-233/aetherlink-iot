@@ -1,4 +1,4 @@
-import { extractPlatformFields } from '@/utils/thingsvis/platform-fields'
+﻿import { extractPlatformFields } from '@/utils/thingsvis/platform-fields'
 import type { PlatformField } from '@/utils/thingsvis/types'
 
 export type TemplateEntry = {
@@ -9,23 +9,34 @@ export type TemplateEntry = {
 type FetchTemplateEntryOptions = {
   templateId: string | number
   pageSize: number
-  loadTelemetry: (params: any) => Promise<any>
-  loadAttributes: (params: any) => Promise<any>
-  loadCommands: (params: any) => Promise<any>
-  loadEvents: (params: any) => Promise<any>
-  unwrapList: (payload: any) => any[]
+  loadTelemetry: (params: Record<string, unknown>) => Promise<{ data?: unknown } | null | undefined>
+  loadAttributes: (params: Record<string, unknown>) => Promise<{ data?: unknown } | null | undefined>
+  loadCommands: (params: Record<string, unknown>) => Promise<{ data?: unknown } | null | undefined>
+  loadEvents: (params: Record<string, unknown>) => Promise<{ data?: unknown } | null | undefined>
+  unwrapList: (payload: unknown) => unknown[]
 }
+
+/** 模板详情响应的局部视图（仅读取 data.web_chart_config） */
+type TemplateResponseLike = { data?: { web_chart_config?: unknown } | null } | null | undefined
 
 type FetchTemplatePresetsOptions = {
   templateId: string | number
-  loadTemplate: (templateId: string | number) => Promise<any>
+  loadTemplate: (templateId: string | number) => Promise<TemplateResponseLike>
   onError?: (templateId: string | number, error: unknown) => void
+}
+
+/** 设备模板挂件预设 */
+export type DeviceWidgetPreset = {
+  id: string
+  name: string
+  widget: Record<string, unknown>
+  thumbnail?: string
 }
 
 type DeviceWithTemplateAssets<TField = PlatformField> = {
   templateId?: string
   fields: TField[]
-  presets: any[]
+  presets: DeviceWidgetPreset[]
 }
 
 const TEMPLATE_ASSET_LOAD_CONCURRENCY = 3
@@ -78,7 +89,7 @@ function resolveNodePresetName(node: Record<string, unknown>, index: number) {
   )
 }
 
-export function buildDeviceWidgetPresets(templateId: string, rawConfig: unknown): any[] {
+export function buildDeviceWidgetPresets(templateId: string, rawConfig: unknown): DeviceWidgetPreset[] {
   const config = parseTemplateChartConfig(rawConfig)
   const nodes = Array.isArray(config?.nodes)
     ? config.nodes.filter(
@@ -103,7 +114,7 @@ export function buildDeviceWidgetPresets(templateId: string, rawConfig: unknown)
   const storedPresets = Object.entries(presetMap).flatMap(([presetKey, entries]) => {
     if (!Array.isArray(entries)) return []
 
-    return entries.flatMap((entry: any, index) => {
+    return entries.flatMap((entry, index) => {
       if (!entry?.widget || typeof entry.widget !== 'object' || Array.isArray(entry.widget)) return []
 
       return [
@@ -120,7 +131,7 @@ export function buildDeviceWidgetPresets(templateId: string, rawConfig: unknown)
   return [...nodePresets, ...storedPresets]
 }
 
-export async function fetchTemplatePresets(options: FetchTemplatePresetsOptions): Promise<any[]> {
+export async function fetchTemplatePresets(options: FetchTemplatePresetsOptions): Promise<DeviceWidgetPreset[]> {
   try {
     const response = await options.loadTemplate(options.templateId)
     const template = response?.data || {}
@@ -167,9 +178,9 @@ export async function fetchTemplateEntry(options: FetchTemplateEntryOptions): Pr
 
 export async function loadPlatformDeviceTemplateAssets<TField = PlatformField>(options: {
   devices: Array<{ templateId?: string }>
-  loadTemplatePresets: (templateId: string) => Promise<any[]>
+  loadTemplatePresets: (templateId: string) => Promise<DeviceWidgetPreset[]>
   loadTemplateEntry: (templateId: string) => Promise<{ fields: TField[] }>
-}): Promise<{ fieldsByTemplateId: Map<string, TField[]>; presetsByTemplateId: Map<string, any[]> }> {
+}): Promise<{ fieldsByTemplateId: Map<string, TField[]>; presetsByTemplateId: Map<string, DeviceWidgetPreset[]> }> {
   const templateIds = Array.from(
     new Set(
       options.devices
@@ -177,7 +188,7 @@ export async function loadPlatformDeviceTemplateAssets<TField = PlatformField>(o
         .filter((templateId): templateId is string => Boolean(templateId))
     )
   )
-  const presetsByTemplateId = new Map<string, any[]>()
+  const presetsByTemplateId = new Map<string, DeviceWidgetPreset[]>()
   const fieldsByTemplateId = new Map<string, TField[]>()
 
   await mapWithConcurrency(templateIds, TEMPLATE_ASSET_LOAD_CONCURRENCY, async (templateId) => {
@@ -197,7 +208,7 @@ export function attachPlatformDeviceTemplateAssets<
   TField = PlatformField
 >(
   device: TDevice,
-  assets: { fieldsByTemplateId: Map<string, TField[]>; presetsByTemplateId: Map<string, any[]> }
+  assets: { fieldsByTemplateId: Map<string, TField[]>; presetsByTemplateId: Map<string, DeviceWidgetPreset[]> }
 ): TDevice {
   return {
     ...device,

@@ -24,12 +24,48 @@ type BridgeDataSource = SimpleDataSourceConfig | StandardDataSource
 // 保持这个可选导入处于禁用状态，避免桥接层反向依赖编辑器配置模块并形成循环依赖。
 // import { configurationIntegrationBridge } from '@/components/visual-editor/configuration/ConfigurationIntegrationBridge'
 
+/** 组件数据载荷（与 SimpleDataBridge 缓存结构一致，字段宽松） */
+type ComponentDataPayload = Record<string, unknown>
+
+/** 编辑器保存态配置（历史格式宽松，运行时逐个校验） */
+type EditorComponentConfig = {
+  base?: Record<string, unknown> | null
+  dataSource?: Record<string, unknown> | null
+  componentType?: unknown
+  [key: string]: unknown
+}
+
+/** 编辑器数据源声明（历史格式宽松，字段运行时逐个校验） */
+type EditorDataSourceLike = {
+  type?: unknown
+  enabled?: unknown
+  config?: (Record<string, unknown> & { params?: Record<string, unknown> | null }) | null
+  autoBind?: AutoBindConfig | null
+  componentType?: string
+  deviceId?: unknown
+  metricsList?: unknown
+  filterPath?: string
+  processScript?: string
+  [key: string]: unknown
+}
+
+type ResolvedBridgeConfig = {
+  resolvedConfig: EditorDataSourceLike | null
+  baseConfig: Record<string, unknown> | null
+}
+
+/** 编辑器标准数据项行（sourceId 槽位内的 dataItem） */
+type EditorStandardDataItem = {
+  item?: { type?: unknown; config?: Record<string, unknown> | null } | null
+  processing?: { filterPath?: unknown; customScript?: unknown } | null
+}
+
 /**
  * Visual Editor 专用的数据桥接器
  * 封装 SimpleDataBridge，提供编辑器运行时数据接口
  */
 export class VisualEditorBridge {
-  private dataUpdateCallbacks = new Map<number, (componentId: string, data: any) => void>()
+  private dataUpdateCallbacks = new Map<number, (componentId: string, data: ComponentDataPayload) => void>()
   private nextDataUpdateCallbackId = 1
 
   private normalizeDataSourceType(type: unknown, sourceId: string): SimpleDataSourceConfig['type'] | null {
@@ -54,7 +90,11 @@ export class VisualEditorBridge {
    * @param componentType 组件类型
    * @param config 数据源配置
    */
-  async updateComponentExecutor(componentId: string, componentType: string, config: any): Promise<DataResult> {
+  async updateComponentExecutor(
+    componentId: string,
+    componentType: string,
+    config: EditorComponentConfig | null
+  ): Promise<DataResult> {
     // 将编辑器保存态配置转换为当前数据架构可执行的数据需求。
     const requirement = this.convertConfigToRequirement(componentId, componentType, config)
 
@@ -71,7 +111,7 @@ export class VisualEditorBridge {
    * 返回的退订函数可重复调用，不依赖随机数生成订阅标识。
    * @param callback 数据更新回调函数
    */
-  onDataUpdate(callback: (componentId: string, data: any) => void): () => void {
+  onDataUpdate(callback: (componentId: string, data: ComponentDataPayload) => void): () => void {
     const callbackId = this.nextDataUpdateCallbackId++
     this.dataUpdateCallbacks.set(callbackId, callback)
 
@@ -92,7 +132,7 @@ export class VisualEditorBridge {
    * 获取组件当前数据
    * @param componentId 组件ID
    */
-  getComponentData(componentId: string): Record<string, any> | null {
+  getComponentData(componentId: string): Record<string, unknown> | null {
     return simpleDataBridge.getComponentData(componentId)
   }
 
@@ -109,7 +149,7 @@ export class VisualEditorBridge {
    * @param componentId 组件ID
    * @param data 数据
    */
-  private notifyDataUpdate(componentId: string, data: any): void {
+  private notifyDataUpdate(componentId: string, data: ComponentDataPayload): void {
     this.dataUpdateCallbacks.forEach((callback) => {
       try {
         callback(componentId, data)
@@ -131,7 +171,7 @@ export class VisualEditorBridge {
   private convertConfigToRequirement(
     componentId: string,
     componentType: string,
-    config: any
+    config: EditorComponentConfig | null
   ): ComponentDataRequirement {
     const { resolvedConfig, baseConfig } = this.resolveBridgeConfig(config)
     const dataSources =
@@ -147,7 +187,10 @@ export class VisualEditorBridge {
     }
   }
 
-  private resolveDataSourcesInPriorityOrder(resolvedConfig: any, baseConfig: any): BridgeDataSource[] {
+  private resolveDataSourcesInPriorityOrder(
+    resolvedConfig: EditorDataSourceLike,
+    baseConfig: Record<string, unknown> | null
+  ): BridgeDataSource[] {
     const dataSources: BridgeDataSource[] = []
     const collectors = [
       () => this.collectStandardDataSources(dataSources, resolvedConfig),
@@ -166,9 +209,9 @@ export class VisualEditorBridge {
     return dataSources
   }
 
-  private resolveBridgeConfig(config: any): { resolvedConfig: any; baseConfig: any } {
-    let resolvedConfig = config
-    let baseConfig: any = null
+  private resolveBridgeConfig(config: EditorComponentConfig | null): ResolvedBridgeConfig {
+    let resolvedConfig: EditorDataSourceLike | null = config
+    let baseConfig: Record<string, unknown> | null = null
 
     if (config && typeof config === 'object' && (config.base || config.dataSource)) {
       baseConfig = config.base || {}
@@ -184,25 +227,38 @@ export class VisualEditorBridge {
     return { resolvedConfig, baseConfig }
   }
 
-  private collectStandardDataSources(dataSources: BridgeDataSource[], resolvedConfig: any): void {
+  private injectBaseConfigToDataSource<T>(dataSourceConfig: T, baseConfig: Record<string, unknown> | null): T {
+    if (!baseConfig) {
+      return dataSourceConfig
+    }
+
+    // 绑定替换会原地修改嵌套配置，这里先克隆，避免污染编辑器原始配置对象。
+    const enhanced = JSON.parse(JSON.stringify(dataSourceConfig)) as T
+
+    this.processBindingReplacements(enhanced as Record<string, unknown>, baseConfig)
+
+    return enhanced
+  }
+
+  private collectStandardDataSources(dataSources: BridgeDataSource[], resolvedConfig: EditorDataSourceLike): void {
     if (!resolvedConfig.dataSources || !Array.isArray(resolvedConfig.dataSources)) {
       return
     }
 
-    resolvedConfig.dataSources.forEach((dataSource: any) => {
+    resolvedConfig.dataSources.forEach(dataSource => {
       if (!dataSource.sourceId || !Array.isArray(dataSource.dataItems)) {
         return
       }
 
       dataSources.push({
         sourceId: dataSource.sourceId,
-        dataItems: dataSource.dataItems.map((dataItem: any) => this.convertStandardDataItem(dataItem)).filter(Boolean),
+        dataItems: dataSource.dataItems.map(dataItem => this.convertStandardDataItem(dataItem)).filter(Boolean),
         mergeStrategy: dataSource.mergeStrategy || { type: 'object' }
       })
     })
   }
 
-  private convertStandardDataItem(dataItem: any): any {
+  private convertStandardDataItem(dataItem: EditorStandardDataItem | null | undefined) {
     if (!dataItem || !dataItem.item) {
       return null
     }
@@ -220,12 +276,12 @@ export class VisualEditorBridge {
     }
   }
 
-  private collectRawDataListSources(dataSources: BridgeDataSource[], resolvedConfig: any): void {
+  private collectRawDataListSources(dataSources: BridgeDataSource[], resolvedConfig: EditorDataSourceLike): void {
     if (dataSources.length > 0 || !Array.isArray(resolvedConfig.rawDataList)) {
       return
     }
 
-    resolvedConfig.rawDataList.forEach((item: any, index: number) => {
+    resolvedConfig.rawDataList.forEach((item, index) => {
       if (!item || !item.type || item.enabled === false) {
         return
       }
@@ -246,7 +302,11 @@ export class VisualEditorBridge {
     })
   }
 
-  private collectNamedDataSources(dataSources: BridgeDataSource[], resolvedConfig: any, baseConfig: any): void {
+  private collectNamedDataSources(
+    dataSources: BridgeDataSource[],
+    resolvedConfig: EditorDataSourceLike,
+    baseConfig: Record<string, unknown> | null
+  ): void {
     if (dataSources.length > 0) {
       return
     }
@@ -256,7 +316,7 @@ export class VisualEditorBridge {
         continue
       }
 
-      const enhancedDataSourceConfig = this.injectBaseConfigToDataSource(value as any, baseConfig)
+      const enhancedDataSourceConfig = this.injectBaseConfigToDataSource(value as EditorDataSourceLike, baseConfig)
       if (!enhancedDataSourceConfig.type || enhancedDataSourceConfig.enabled === false) {
         continue
       }
@@ -276,7 +336,11 @@ export class VisualEditorBridge {
     }
   }
 
-  private collectSingleDataSource(dataSources: BridgeDataSource[], resolvedConfig: any, baseConfig: any): void {
+  private collectSingleDataSource(
+    dataSources: BridgeDataSource[],
+    resolvedConfig: EditorDataSourceLike,
+    baseConfig: Record<string, unknown> | null
+  ): void {
     if (dataSources.length > 0 || !resolvedConfig.type || resolvedConfig.enabled === false) {
       return
     }
@@ -302,7 +366,7 @@ export class VisualEditorBridge {
     })
   }
 
-  private collectBindingAliasSources(dataSources: BridgeDataSource[], resolvedConfig: any): void {
+  private collectBindingAliasSources(dataSources: BridgeDataSource[], resolvedConfig: EditorDataSourceLike): void {
     for (const [key, value] of Object.entries(resolvedConfig)) {
       if (!key.startsWith('dataSource') || !value || typeof value !== 'object') {
         continue
@@ -318,24 +382,11 @@ export class VisualEditorBridge {
     }
   }
 
-  private injectBaseConfigToDataSource(dataSourceConfig: any, baseConfig: any): any {
-    if (!baseConfig) {
-      return dataSourceConfig
-    }
-
-    // 绑定替换会原地修改嵌套配置，这里先克隆，避免污染编辑器原始配置对象。
-    const enhanced = JSON.parse(JSON.stringify(dataSourceConfig))
-
-    this.processBindingReplacements(enhanced, baseConfig)
-
-    return enhanced
-  }
-
   /**
    * 在克隆后的数据源配置上替换绑定表达式。
    * 这里允许原地修改，因为调用方已经先做了深拷贝。
    */
-  private processBindingReplacements(config: any, baseConfig: any): void {
+  private processBindingReplacements(config: EditorDataSourceLike, baseConfig: Record<string, unknown>): void {
     const autoBindConfig = this.getAutoBindConfigFromDataSource(config)
 
     if (autoBindConfig && autoBindConfig.enabled) {
@@ -350,7 +401,11 @@ export class VisualEditorBridge {
   /**
    * 将 autoBind 规则落到请求参数中。
    */
-  private processAutoBindParamsSync(config: any, baseConfig: any, autoBindConfig: AutoBindConfig): void {
+  private processAutoBindParamsSync(
+    config: EditorDataSourceLike,
+    baseConfig: Record<string, unknown>,
+    autoBindConfig: AutoBindConfig
+  ): void {
     // 构建完整配置对象
     const fullConfig = {
       base: baseConfig,
@@ -384,7 +439,7 @@ export class VisualEditorBridge {
   /**
    * 传统方式处理参数绑定
    */
-  private processTraditionalBinding(config: any, baseConfig: any): void {
+  private processTraditionalBinding(config: EditorDataSourceLike, baseConfig: Record<string, unknown>): void {
     // 1. 首先处理基础配置注入（原有逻辑，模拟设备ID的硬编码机制）
     if (config.config && typeof config.config === 'object') {
       config.config = {
@@ -408,9 +463,7 @@ export class VisualEditorBridge {
    * @param dataSourceConfig 数据源配置
    * @returns autoBind配置或null
    */
-  private getAutoBindConfigFromDataSource(
-    dataSourceConfig: any
-  ): import('./DataSourceBindingConfig').AutoBindConfig | null {
+  private getAutoBindConfigFromDataSource(dataSourceConfig: EditorDataSourceLike): AutoBindConfig | null {
     // 检查数据源配置中的autoBind设置
     if (dataSourceConfig.autoBind) {
       return dataSourceConfig.autoBind
@@ -428,7 +481,7 @@ export class VisualEditorBridge {
    * 递归替换绑定表达式。
    * 支持 component、base，以及历史遗留 whitelist 持久化别名。
    */
-  private recursivelyReplaceBindings(obj: any): void {
+  private recursivelyReplaceBindings(obj: Record<string, unknown>): void {
     if (!obj || typeof obj !== 'object') {
       return
     }
@@ -478,7 +531,7 @@ export class VisualEditorBridge {
           // 不是绑定表达式的字符串值无需处理
         } else if (typeof val === 'object' && val !== null) {
           // 递归处理嵌套对象
-          this.recursivelyReplaceBindings(val)
+          this.recursivelyReplaceBindings(val as Record<string, unknown>)
         }
       }
     }
@@ -499,7 +552,7 @@ export class VisualEditorBridge {
     })
   }
 
-  private getBaseConfigPropertyValue(componentId: string, propertyName: string): any {
+  private getBaseConfigPropertyValue(componentId: string, propertyName: string): undefined {
     this.logUnsupportedPropertyRead('base', componentId, propertyName)
     return undefined
   }
@@ -509,7 +562,7 @@ export class VisualEditorBridge {
    * 理想优先级应为: 最新配置 > 编辑器节点 > DOM。
    * 当前仍返回 undefined，表示桥接层只保留绑定表达式，不在这里擅自补齐编辑器读路径。
    */
-  private getComponentPropertyValueFixed(componentId: string, propertyName: string): any {
+  private getComponentPropertyValueFixed(componentId: string, propertyName: string): undefined {
     this.logUnsupportedPropertyRead('component', componentId, propertyName)
     return undefined
   }
@@ -517,7 +570,7 @@ export class VisualEditorBridge {
   /**
    * 转换数据项配置，处理字段映射
    */
-  private convertItemConfig(item: any): any {
+  private convertItemConfig(item: NonNullable<EditorStandardDataItem['item']>) {
     const { type, config } = item
 
     switch (type) {

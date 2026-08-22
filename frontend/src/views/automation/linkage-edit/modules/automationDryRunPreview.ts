@@ -1,3 +1,10 @@
+﻿import type {
+  SceneAutomationDryRunConditionGroup,
+  SceneAutomationDryRunNode,
+  SceneAutomationDryRunStats,
+  SceneAutomationDryRunResult
+} from '@/service/api/automation'
+
 export type BackendDryRunStatus = 'waiting' | 'ready' | 'pending' | 'available' | 'unavailable'
 export type AutomationDryRunCustomerStatus = 'unchecked' | 'passed' | 'risk'
 
@@ -90,6 +97,77 @@ export interface AutomationDryRunQuickFixAction {
   disabled?: boolean
 }
 
+/** 预演接口错误形态（兼容 axios 包装错误与后端包装错误） */
+type PreviewErrorLike = {
+  error?: { message?: string } | null
+  message?: string
+  response?: { data?: { message?: string } | null } | null
+}
+
+/** 触发条件行（表单/后端载荷，字段宽松，运行时逐个校验） */
+type TriggerConditionLike = {
+  trigger_conditions_type?: unknown
+  execution_time?: unknown
+  task_type?: unknown
+  params?: unknown
+  trigger_value?: unknown
+  trigger_source?: unknown
+  trigger_param_type?: unknown
+  trigger_param?: unknown
+  trigger_operator?: unknown
+  [key: string]: unknown
+}
+
+/** 动作行（表单/后端载荷，字段宽松） */
+type DryRunActionLike = {
+  action_type?: unknown
+  actionType?: unknown
+  action_target?: unknown
+  action_param_type?: unknown
+  action_param?: unknown
+  action_value?: unknown
+  [key: string]: unknown
+}
+
+/** 联动规则预演载荷（字段宽松） */
+type DryRunPayloadLike = {
+  name?: unknown
+  enabled?: unknown
+  trigger_condition_groups?: SceneAutomationDryRunConditionGroup[] | null
+  actions?: SceneAutomationDryRunNode[] | null
+  [key: string]: unknown
+}
+
+/** 预演 trace 步骤原始结构（snake_case 为主，字段宽松） */
+type DryRunStepSource = {
+  index?: unknown
+  phase?: string
+  status?: string
+  label?: string
+  kind?: string
+  target?: string
+  detail?: string
+  notes?: unknown[]
+  [key: string]: unknown
+}
+
+/** 预演 trace 原始结构（字段宽松） */
+type DryRunTraceSource = {
+  steps?: DryRunStepSource[] | null
+  step_count?: number | null
+  evaluated_at?: string | null
+  evaluatedAt?: string | null
+  explanation?: string | null
+  is_simulation?: boolean | null
+  [key: string]: unknown
+}
+
+/** 预演响应（在既有 API 结果类型上补充 trace 双写法字段） */
+type DryRunResponseLike = SceneAutomationDryRunResult & {
+  execution_trace?: DryRunTraceSource | null
+  executionTrace?: DryRunTraceSource | null
+}
+
 export const getAutomationDryRunStatusText = (status: BackendDryRunStatus) => {
   if (status === 'pending') return '正在请求后端预演...'
   if (status === 'available') return '后端预演已返回结果。'
@@ -114,7 +192,7 @@ export const stringifyDryRunResponse = (response: unknown) => {
   return JSON.stringify(response, null, 2)
 }
 
-export const getPreviewErrorText = (error: any) => {
+export const getPreviewErrorText = (error: PreviewErrorLike | null | undefined) => {
   return error?.error?.message || error?.message || error?.response?.data?.message || '后端预演暂不可用。'
 }
 
@@ -125,7 +203,7 @@ const formatPreviewValue = (value: unknown) => {
   return String(value)
 }
 
-const conditionTypeLabel = (type: any) => {
+const conditionTypeLabel = (type: unknown) => {
   const labels: Record<string, string> = {
     '10': 'Single-device condition',
     '11': 'Thing model condition',
@@ -137,7 +215,7 @@ const conditionTypeLabel = (type: any) => {
   return labels[String(type)] || `Condition type ${formatPreviewValue(type)}`
 }
 
-const actionTypeLabel = (type: any) => {
+const actionTypeLabel = (type: unknown) => {
   const labels: Record<string, string> = {
     '10': 'Single-device action',
     '11': 'Thing model action',
@@ -148,7 +226,7 @@ const actionTypeLabel = (type: any) => {
   return labels[String(type)] || `Action type ${formatPreviewValue(type)}`
 }
 
-const describeCondition = (condition: any) => {
+const describeCondition = (condition: TriggerConditionLike) => {
   const type = conditionTypeLabel(condition.trigger_conditions_type)
   if (condition.trigger_conditions_type === '20') {
     return `${type}: ${formatPreviewValue(condition.execution_time)}`
@@ -168,7 +246,7 @@ const describeCondition = (condition: any) => {
   return `${type}: ${source} / ${param} ${operator} ${value}`
 }
 
-const describeAction = (action: any) => {
+const describeAction = (action: DryRunActionLike) => {
   const type = actionTypeLabel(action.action_type || action.actionType)
   const target = formatPreviewValue(action.action_target)
   if (action.action_type === '10' || action.action_type === '11') {
@@ -179,8 +257,10 @@ const describeAction = (action: any) => {
   return `${type}: ${target}`
 }
 
-export const buildConditionSummaryItems = (conditionGroups: any[]): AutomationConditionSummaryGroup[] =>
-  conditionGroups.map((group: any[], groupIndex: number) => ({
+export const buildConditionSummaryItems = (
+  conditionGroups: TriggerConditionLike[][] | SceneAutomationDryRunConditionGroup[]
+): AutomationConditionSummaryGroup[] =>
+  conditionGroups.map((group, groupIndex) => ({
     key: `condition-group-${groupIndex}`,
     lines: group.map((condition, conditionIndex) => ({
       key: `condition-${groupIndex}-${conditionIndex}`,
@@ -188,8 +268,8 @@ export const buildConditionSummaryItems = (conditionGroups: any[]): AutomationCo
     }))
   }))
 
-export const buildActionSummaryItems = (actions: any[]): AutomationDryRunLine[] =>
-  actions.map((action: any, actionIndex: number) => ({
+export const buildActionSummaryItems = (actions: DryRunActionLike[] | SceneAutomationDryRunNode[]): AutomationDryRunLine[] =>
+  actions.map((action, actionIndex) => ({
     key: `action-${actionIndex}`,
     text: describeAction(action)
   }))
@@ -227,9 +307,11 @@ const buildIssueLines = (prefix: string, values: unknown): AutomationDryRunIssue
     text
   }))
 
-const getResponseDryRun = (response: any) => response?.dry_run || response?.dryRun || {}
+const getResponseDryRun = (
+  response: DryRunResponseLike | null | undefined
+): SceneAutomationDryRunStats => response?.dry_run || response?.dryRun || {}
 
-const getNumericResponseValue = (response: any, keys: string[]) => {
+const getNumericResponseValue = (response: DryRunResponseLike | null, keys: string[]) => {
   for (const key of keys) {
     const value = response?.[key] ?? getResponseDryRun(response)?.[key]
     if (typeof value === 'number') return value
@@ -239,14 +321,14 @@ const getNumericResponseValue = (response: any, keys: string[]) => {
 }
 
 export const buildAutomationOperatorPlan = (
-  payload: any,
+  payload: DryRunPayloadLike | null,
   status: BackendDryRunStatus,
-  response: any,
+  response: DryRunResponseLike | null,
   backendError = ''
 ): AutomationDryRunOperatorPlan => {
   const conditionGroups = Array.isArray(payload?.trigger_condition_groups) ? payload.trigger_condition_groups : []
   const actions = Array.isArray(payload?.actions) ? payload.actions : []
-  const conditionCount = conditionGroups.reduce((count: number, group: any[]) => count + group.length, 0)
+  const conditionCount = conditionGroups.reduce((count, group) => count + group.length, 0)
   const responseDryRun = getResponseDryRun(response)
   const referenceSource =
     response?.reference_counts || response?.referenceCounts || responseDryRun.reference_counts || responseDryRun.target_kinds
@@ -310,11 +392,11 @@ export const buildAutomationOperatorPlan = (
   }
 }
 
-const getBlockingErrorMessages = (response: any) => {
+const getBlockingErrorMessages = (response: DryRunResponseLike | null) => {
   const diagnostics = Array.isArray(response?.diagnostics) ? response.diagnostics : []
   const diagnosticErrors = diagnostics
-    .filter((item: any) => item?.severity === 'error')
-    .map((item: any) => item?.message || String(item))
+    .filter(item => item?.severity === 'error')
+    .map(item => item?.message || String(item))
 
   return [
     ...normalizeStringList(response?.blocking_errors),
@@ -324,7 +406,7 @@ const getBlockingErrorMessages = (response: any) => {
   ]
 }
 
-const getCanSave = (response: any) => {
+const getCanSave = (response: DryRunResponseLike | null) => {
   if (typeof response?.can_save === 'boolean') return response.can_save
   if (typeof response?.canSave === 'boolean') return response.canSave
   if (typeof response?.valid === 'boolean') return response.valid
@@ -332,21 +414,21 @@ const getCanSave = (response: any) => {
   return null
 }
 
-const getWarningMessages = (response: any) => {
+const getWarningMessages = (response: DryRunResponseLike | null) => {
   const diagnostics = Array.isArray(response?.diagnostics) ? response.diagnostics : []
   const diagnosticWarnings = diagnostics
-    .filter((item: any) => item?.severity === 'warning')
-    .map((item: any) => item?.message || String(item))
+    .filter(item => item?.severity === 'warning')
+    .map(item => item?.message || String(item))
 
   return [...normalizeStringList(response?.warnings), ...diagnosticWarnings]
 }
 
-const getSkippedConditionMessages = (response: any) => [
+const getSkippedConditionMessages = (response: DryRunResponseLike | null) => [
   ...normalizeStringList(response?.skipped_conditions),
   ...normalizeStringList(response?.skippedConditions)
 ]
 
-const getUnavailableActionMessages = (response: any) => [
+const getUnavailableActionMessages = (response: DryRunResponseLike | null) => [
   ...normalizeStringList(response?.unavailable_actions),
   ...normalizeStringList(response?.unavailableActions)
 ]
@@ -361,7 +443,7 @@ const firstLine = (...lineGroups: AutomationDryRunLine[][]) => {
 
 export const buildAutomationDryRunBeginnerGuide = (options: {
   status: BackendDryRunStatus
-  response: any
+  response: DryRunResponseLike | null
   backendError: string
   customerView: AutomationDryRunCustomerView
   localBlockingErrors: AutomationDryRunLine[]
@@ -519,14 +601,14 @@ const toTraceStatusType = (status: unknown): AutomationDryRunTraceStep['statusTy
   return 'info'
 }
 
-export const buildTraceView = (response: any): AutomationDryRunTraceView => {
+export const buildTraceView = (response: DryRunResponseLike | null): AutomationDryRunTraceView => {
   const rawTrace = response?.execution_trace || response?.executionTrace
   if (!rawTrace) return emptyTraceView()
 
   const rawSteps = Array.isArray(rawTrace.steps) ? rawTrace.steps : []
 
   return {
-    steps: rawSteps.map((step: any, index: number) => ({
+    steps: rawSteps.map((step, index) => ({
       key: `trace-step-${step?.index ?? index}`,
       index: typeof step?.index === 'number' ? step.index : index + 1,
       phase: step?.phase || 'trigger',
@@ -545,7 +627,7 @@ export const buildTraceView = (response: any): AutomationDryRunTraceView => {
   }
 }
 
-export const buildBackendDryRunView = (response: any): AutomationDryRunBackendView => {
+export const buildBackendDryRunView = (response: DryRunResponseLike | null): AutomationDryRunBackendView => {
   if (!response) {
     return {
       metrics: [],
@@ -588,7 +670,7 @@ export const buildBackendDryRunView = (response: any): AutomationDryRunBackendVi
     conditionTypes: buildCountLines('condition-type', dryRun.condition_types),
     actionTypes: buildCountLines('action-type', dryRun.action_types),
     targetKinds: buildCountLines('target-kind', dryRun.target_kinds),
-    diagnostics: diagnosticSource.map((item: any, index: number) => ({
+    diagnostics: diagnosticSource.map((item, index) => ({
       key: `diagnostic-${index}`,
       type: toDiagnosticType(item.severity),
       scope: item.scope || 'dry-run',
@@ -604,7 +686,7 @@ export const buildBackendDryRunView = (response: any): AutomationDryRunBackendVi
 
 export const buildAutomationDryRunCustomerView = (
   status: BackendDryRunStatus,
-  response: any,
+  response: DryRunResponseLike | null,
   backendError: string
 ): AutomationDryRunCustomerView => {
   const responseAvailable = status === 'available' && !!response

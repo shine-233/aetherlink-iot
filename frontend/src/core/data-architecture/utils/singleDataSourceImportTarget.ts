@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 文件说明：
  * - 单数据源导入时的目标落点处理器。
  * - 负责查找/创建目标 slot、冲突检查、写回 dataSource 配置，并补挂相关交互与 HTTP 绑定。
@@ -6,10 +6,54 @@
  */
 
 import type { SingleDataSourceExport } from './ConfigurationImportExport'
+import type { ConfigurationManagerLike } from './configurationImportProcessing'
+
+/** 编辑器节点视图（导入工具只读取标识字段） */
+interface EditorNodeLike {
+  id?: unknown
+  componentId?: unknown
+  widgetId?: unknown
+  type?: unknown
+  componentType?: unknown
+  [key: string]: unknown
+}
+
+/** 数据源槽位（导入落点，字段宽松） */
+interface DataSourceSlotLike {
+  sourceId?: unknown
+  dataItems?: unknown[]
+  mergeStrategy?: unknown
+  processing?: Record<string, unknown> | null
+  [key: string]: unknown
+}
+
+/** 组件完整配置的局部视图（导入流程只读写这些段） */
+interface ComponentFullConfigLike {
+  dataSource?: DataSourceConfigLike | null
+  interaction?: { importedInteractions?: unknown[]; [key: string]: unknown } | null
+  component?: { httpBindings?: Array<Record<string, unknown>>; [key: string]: unknown } | null
+  [key: string]: unknown
+}
+
+/** 组件 dataSource 配置段 */
+interface DataSourceConfigLike {
+  dataSources?: DataSourceSlotLike[] | null
+  createdAt?: number
+  updatedAt?: number
+  [key: string]: unknown
+}
+
+/** 单数据源导入目标处理所需的配置管理器视图（共享契约 + store/nodes 访问） */
+type SingleDataSourceManagerLike = ConfigurationManagerLike & {
+  store?: { nodes?: EditorNodeLike[] | null } | null
+  nodes?: EditorNodeLike[] | null
+  getNodes?: () => EditorNodeLike[] | null
+  getAllComponents?: () => EditorNodeLike[] | null
+}
 
 interface SingleDataSourceTargetContext {
-  fullConfig: any
-  existingConfig: any
+  fullConfig: ComponentFullConfigLike
+  existingConfig: DataSourceConfigLike
   targetSlotIndex: number
 }
 
@@ -33,7 +77,7 @@ function createEmptySlotPreview(slotIndex: number) {
   }
 }
 
-function getExistingComponentIds(targetComponentId: string, configurationManager: any): Set<string> {
+function getExistingComponentIds(targetComponentId: string, configurationManager: SingleDataSourceManagerLike): Set<string> {
   const ids = new Set<string>([targetComponentId])
   const candidates = [
     configurationManager?.store?.nodes,
@@ -54,9 +98,9 @@ function getExistingComponentIds(targetComponentId: string, configurationManager
   return ids
 }
 
-function getTargetComponentType(targetComponentId: string, configurationManager: any): string | undefined {
+function getTargetComponentType(targetComponentId: string, configurationManager: SingleDataSourceManagerLike): string | undefined {
   const fullConfig = configurationManager?.getConfiguration?.(targetComponentId)
-  const node = configurationManager?.store?.nodes?.find?.((item: any) => item?.id === targetComponentId)
+  const node = configurationManager?.store?.nodes?.find?.(item => item?.id === targetComponentId)
 
   return (
     fullConfig?.metadata?.componentType ||
@@ -67,14 +111,14 @@ function getTargetComponentType(targetComponentId: string, configurationManager:
   )
 }
 
-function ensureDataSourceSlots(dataSourceConfig: any): void {
+function ensureDataSourceSlots(dataSourceConfig: DataSourceConfigLike): void {
   if (!dataSourceConfig.dataSources || !Array.isArray(dataSourceConfig.dataSources)) {
     dataSourceConfig.dataSources = []
   }
 }
 
-function findOrCreateDataSourceSlot(dataSourceConfig: any, targetSlotId: string): number {
-  const existingSlotIndex = dataSourceConfig.dataSources.findIndex((source: any) => source.sourceId === targetSlotId)
+function findOrCreateDataSourceSlot(dataSourceConfig: DataSourceConfigLike, targetSlotId: string): number {
+  const existingSlotIndex = dataSourceConfig.dataSources.findIndex(source => source.sourceId === targetSlotId)
   if (existingSlotIndex !== -1) {
     return existingSlotIndex
   }
@@ -83,7 +127,7 @@ function findOrCreateDataSourceSlot(dataSourceConfig: any, targetSlotId: string)
   return dataSourceConfig.dataSources.length - 1
 }
 
-function isOccupiedDataSourceSlot(slot: any): boolean {
+function isOccupiedDataSourceSlot(slot: DataSourceSlotLike | null | undefined): boolean {
   if (!slot || typeof slot !== 'object') {
     return false
   }
@@ -100,7 +144,7 @@ function isOccupiedDataSourceSlot(slot: any): boolean {
 }
 
 function assertDataSourceSlotWritable(
-  targetSlot: any,
+  targetSlot: DataSourceSlotLike | null | undefined,
   targetSlotId: string,
   options: { overwriteExisting?: boolean }
 ): void {
@@ -109,7 +153,12 @@ function assertDataSourceSlotWritable(
   }
 }
 
-function updateConfigurationSection(configurationManager: any, componentId: string, section: string, data: any): void {
+function updateConfigurationSection(
+  configurationManager: SingleDataSourceManagerLike,
+  componentId: string,
+  section: string,
+  data: unknown
+): void {
   if (typeof configurationManager.updateConfiguration === 'function') {
     configurationManager.updateConfiguration(componentId, section, data)
     return
@@ -121,7 +170,7 @@ function updateConfigurationSection(configurationManager: any, componentId: stri
 function prepareTargetDataSourceContext(
   targetComponentId: string,
   targetSlotId: string,
-  configurationManager: any,
+  configurationManager: SingleDataSourceManagerLike,
   options: { overwriteExisting?: boolean }
 ): SingleDataSourceTargetContext {
   const fullConfig = configurationManager.getConfiguration(targetComponentId)
@@ -164,8 +213,8 @@ function applyDataSourceSlotImport(
 function appendImportedInteractions(
   processedConfig: SingleDataSourceExport,
   targetComponentId: string,
-  configurationManager: any,
-  fullConfig: any
+  configurationManager: SingleDataSourceManagerLike,
+  fullConfig: ComponentFullConfigLike
 ): void {
   if (!processedConfig.relatedConfig?.interactions?.length) {
     return
@@ -174,7 +223,7 @@ function appendImportedInteractions(
   const nextInteractionConfig = {
     ...(fullConfig?.interaction || {}),
     importedInteractions: [
-      ...((fullConfig?.interaction as any)?.importedInteractions || []),
+      ...(fullConfig?.interaction?.importedInteractions || []),
       ...processedConfig.relatedConfig.interactions
     ]
   }
@@ -185,8 +234,8 @@ function appendHttpBindings(
   processedConfig: SingleDataSourceExport,
   targetSlotId: string,
   targetComponentId: string,
-  configurationManager: any,
-  fullConfig: any
+  configurationManager: SingleDataSourceManagerLike,
+  fullConfig: ComponentFullConfigLike
 ): void {
   if (!processedConfig.relatedConfig?.httpBindings?.length) {
     return
@@ -195,8 +244,8 @@ function appendHttpBindings(
   const nextComponentConfig = {
     ...(fullConfig?.component || {}),
     httpBindings: [
-      ...((fullConfig?.component as any)?.httpBindings || []),
-      ...processedConfig.relatedConfig.httpBindings.map((binding: any) => ({
+      ...(fullConfig?.component?.httpBindings || []),
+      ...processedConfig.relatedConfig.httpBindings.map(binding => ({
         ...binding,
         sourceId: targetSlotId
       }))
@@ -205,12 +254,15 @@ function appendHttpBindings(
   updateConfigurationSection(configurationManager, targetComponentId, 'component', nextComponentConfig)
 }
 
-export function getAvailableSingleDataSourceSlots(componentId: string, configurationManager: any) {
+export function getAvailableSingleDataSourceSlots(componentId: string, configurationManager: SingleDataSourceManagerLike) {
   const slots: Array<{
-    slotId: string
+    slotId: unknown
     slotIndex: number
     isEmpty: boolean
-    currentConfig?: any
+    currentConfig?: {
+      dataItemCount: number
+      mergeStrategy: unknown
+    }
   }> = []
 
   try {
@@ -226,7 +278,7 @@ export function getAvailableSingleDataSourceSlots(componentId: string, configura
         slots.push(createEmptySlotPreview(i))
       }
     } else {
-      dataSourceConfig.dataSources.forEach((source: any, index: number) => {
+      dataSourceConfig.dataSources.forEach((source, index) => {
         slots.push({
           slotId: source.sourceId,
           slotIndex: index,
@@ -251,7 +303,7 @@ export function getAvailableSingleDataSourceSlots(componentId: string, configura
 export function checkSingleDataSourceImportConflicts(
   importData: SingleDataSourceExport,
   targetComponentId: string,
-  configurationManager: any
+  configurationManager: SingleDataSourceManagerLike
 ): string[] {
   const conflicts: string[] = []
 
@@ -287,7 +339,7 @@ export function applySingleDataSourceImportTarget(
   processedConfig: SingleDataSourceExport,
   targetComponentId: string,
   targetSlotId: string,
-  configurationManager: any,
+  configurationManager: SingleDataSourceManagerLike,
   options: { overwriteExisting?: boolean } = {}
 ): void {
   // 先写入 dataSource 主配置，再补挂导入附带的交互与 HTTP 绑定。

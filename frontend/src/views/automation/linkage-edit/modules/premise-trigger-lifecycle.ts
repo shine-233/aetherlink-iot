@@ -1,34 +1,39 @@
-import {
+﻿import {
   createSelectedTriggerParamState,
   isTriggerParamPathSelected,
   type TriggerParamSelectionState
 } from './premise-trigger-param-state'
 import { prepareEchoedIfGroups } from './premise-edit-premise-state'
-import { loadTriggerParamOptionsForIfItem } from './premise-trigger-param-options'
+import {
+  loadTriggerParamOptionsForIfItem,
+  type TriggerParamOptionsLoadDeps
+} from './premise-trigger-param-options'
 
-type LoadTriggerParamOptionsDeps = {
-  deviceMetricsConditionMenu: (payload: Record<string, any>) => Promise<{ data?: any[] } | null | undefined>
-  configMetricsConditionMenu: (payload: Record<string, any>) => Promise<{ data?: any[] } | null | undefined>
-  statusOption: any
-  syncSelectedEventParams: (ifItem: any) => void
+type LoadTriggerParamOptionsDeps = Pick<
+  TriggerParamOptionsLoadDeps,
+  'deviceMetricsConditionMenu' | 'configMetricsConditionMenu' | 'statusOption' | 'syncSelectedEventParams'
+> & {
   onError?: (error: unknown) => void
 }
 
-type NormalizeIfItemForEcho = (ifItem: any) => void
+/** 触发条件行（编辑器表单数据，字段宽松） */
+type TriggerIfItemLike = Record<string, unknown>
+
+type NormalizeIfItemForEcho = (ifItem: TriggerIfItemLike) => void
 
 type InitialConditionResult = {
-  judgeItemData: any
+  judgeItemData: Record<string, unknown>
   deviceConfigDisabled: boolean
 }
 
-export const loadPremiseTriggerParamOptions = async (ifItem: any, deps: LoadTriggerParamOptionsDeps) => {
+export const loadPremiseTriggerParamOptions = async (ifItem: TriggerIfItemLike, deps: LoadTriggerParamOptionsDeps) => {
   await loadTriggerParamOptionsForIfItem(ifItem, deps)
 }
 
 export const handleTriggerParamOptionsShow = async (
-  ifItem: any,
+  ifItem: TriggerIfItemLike,
   visible: boolean,
-  loadTriggerParamOptions: (ifItem: any) => Promise<void>
+  loadTriggerParamOptions: (ifItem: TriggerIfItemLike) => Promise<void>
 ) => {
   if (visible) {
     await loadTriggerParamOptions(ifItem)
@@ -36,22 +41,22 @@ export const handleTriggerParamOptionsShow = async (
 }
 
 export const applyTriggerParamSelectionChange = (
-  ifItem: any,
+  ifItem: TriggerIfItemLike,
   data: unknown,
-  commitSelection: (ifItem: any, selectionState?: TriggerParamSelectionState) => void
+  commitSelection: (ifItem: TriggerIfItemLike, selectionState?: TriggerParamSelectionState) => void
 ) => {
   if (!isTriggerParamPathSelected(data)) {
     commitSelection(ifItem)
     return
   }
 
-  commitSelection(ifItem, createSelectedTriggerParamState(data as any[]))
+  commitSelection(ifItem, createSelectedTriggerParamState(data as unknown[]))
 }
 
 export const applyEchoedConditionData = (
-  conditionData: any,
+  conditionData: unknown,
   normalizeIfItemForEcho: NormalizeIfItemForEcho,
-  loadTriggerParamOptions: (ifItem: any) => void | Promise<void>
+  loadTriggerParamOptions: (ifItem: TriggerIfItemLike) => void | Promise<void>
 ) => {
   const ifGroups = prepareEchoedIfGroups(conditionData, normalizeIfItemForEcho)
   if (!ifGroups) {
@@ -70,13 +75,13 @@ export const applyEchoedConditionData = (
 }
 
 export const buildInitialPremiseCondition = (
-  judgeItemTemplate: any,
+  judgeItemTemplate: Record<string, unknown>,
   props: {
     deviceId?: string
     deviceConfigId?: string
   },
   createInitialConditionFromProps: (
-    judgeItemTemplate: any,
+    judgeItemTemplate: Record<string, unknown>,
     props: { deviceId?: string; deviceConfigId?: string }
   ) => InitialConditionResult
 ) => {
@@ -86,8 +91,8 @@ export const buildInitialPremiseCondition = (
 export const applyInitialPremiseCondition = (options: {
   hasConfigId: boolean
   buildInitialCondition: () => InitialConditionResult
-  addIfGroupItem: (data: any) => void
-  emitConditionChose: (data: any) => void
+  addIfGroupItem: (data: Record<string, unknown>) => void
+  emitConditionChose: (data: unknown) => void
   setDeviceConfigDisabled: (value: boolean) => void
 }) => {
   if (options.hasConfigId) return

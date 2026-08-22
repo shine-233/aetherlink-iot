@@ -1,17 +1,40 @@
-import { ref } from 'vue'
+﻿import { ref } from 'vue'
 import { $t } from '@/locales'
+
+/** 动作指令行（编辑器数据，字段宽松） */
+type ActionInstructItem = {
+  action_target?: unknown
+  action_type?: unknown
+  action_param_type?: unknown
+  action_param?: unknown
+  actionValue?: unknown
+  deviceGroupId?: unknown
+  actionParamOptions?: unknown[]
+  actionParamOptionsData?: unknown[]
+  actionParamTypeOptions?: unknown[]
+  [key: string]: unknown
+}
+
+/** 动作组行（编辑器数据，字段宽松） */
+type ActionGroupItem = {
+  actionType?: unknown
+  action_type?: unknown
+  action_target?: unknown
+  actionInstructList?: ActionInstructItem[]
+  [key: string]: unknown
+}
 
 interface LinkageActionGroupStateOptions {
   configFormRef: any
-  getConditionsType: () => any
-  hydrateActionParam: (instructItem: any) => void | Promise<void>
+  getConditionsType: () => unknown
+  hydrateActionParam: (instructItem: ActionInstructItem) => void | Promise<void>
   preloadDevices: () => void | Promise<void>
   preloadDeviceConfigs: () => void | Promise<void>
 }
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value))
 
-const createActionInstructItem = (): any => ({
+const createActionInstructItem = (): ActionInstructItem => ({
   action_target: null,
   action_type: null,
   action_param_type: null,
@@ -23,7 +46,7 @@ const createActionInstructItem = (): any => ({
   actionParamTypeOptions: []
 })
 
-const createActionItem = (): any => ({
+const createActionItem = (): ActionGroupItem => ({
   actionType: '30',
   action_type: null,
   action_target: null,
@@ -73,7 +96,7 @@ export const useLinkageActionGroupState = ({
   ])
 
   const resetActionData = () => {
-    actionForm.value.actionGroups.forEach((item: any) => {
+    actionForm.value.actionGroups.forEach(item => {
       if (item.actionInstructList && item.actionInstructList.length > 0) {
         const instructItem = createActionInstructItem()
         instructItem.action_type = getConditionsType()
@@ -82,12 +105,12 @@ export const useLinkageActionGroupState = ({
     })
   }
 
-  const applyActionData = (actionData: any) => {
+  const applyActionData = (actionData: unknown) => {
     if (!Array.isArray(actionData)) {
       return
     }
     actionForm.value.actionGroups = clone(actionData)
-    actionForm.value.actionGroups.forEach((item: any) => {
+    actionForm.value.actionGroups.forEach(item => {
       if (item.actionType === '1' && Array.isArray(item.actionInstructList)) {
         item.actionInstructList.forEach((instructItem) => {
           // Keep echoed options when the catalog request is unavailable; a later
@@ -107,7 +130,7 @@ export const useLinkageActionGroupState = ({
     })
   }
 
-  const addIfGroupsSubItem = async (actionGroupIndex: any) => {
+  const addIfGroupsSubItem = async (actionGroupIndex: number) => {
     await configFormRef.value?.validate()
     const data = createActionInstructItem()
     if (getConditionsType() === '11') {
@@ -116,7 +139,7 @@ export const useLinkageActionGroupState = ({
     actionForm.value.actionGroups[actionGroupIndex].actionInstructList.push(data)
   }
 
-  const actionChange = (actionGroupItem: any, actionGroupIndex: any, data: any) => {
+  const actionChange = (actionGroupItem: { actionInstructList?: unknown; action_type?: unknown; action_target?: unknown }, actionGroupIndex: number, data: unknown) => {
     actionOptions.value.forEach((item) => {
       item.disabled = false
     })
@@ -129,7 +152,7 @@ export const useLinkageActionGroupState = ({
     }
   }
 
-  const actionTypeChange = (instructItem: any, data: any) => {
+  const actionTypeChange = (instructItem: ActionInstructItem, data: unknown) => {
     instructItem.action_target = null
     instructItem.action_param_type = null
     instructItem.action_param = null
@@ -151,11 +174,11 @@ export const useLinkageActionGroupState = ({
     actionForm.value.actionGroups.push(createActionItem())
   }
 
-  const deleteActionGroupItem = (actionGroupIndex: any) => {
+  const deleteActionGroupItem = (actionGroupIndex: number) => {
     actionForm.value.actionGroups.splice(actionGroupIndex, 1)
   }
 
-  const deleteIfGroupsSubItem = (actionGroupIndex: any, ifIndex: any) => {
+  const deleteIfGroupsSubItem = (actionGroupIndex: number, ifIndex: number) => {
     actionForm.value.actionGroups[actionGroupIndex].actionInstructList.splice(ifIndex, 1)
   }
 

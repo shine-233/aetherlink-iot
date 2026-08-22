@@ -1,10 +1,75 @@
-import dayjs from 'dayjs'
+﻿import dayjs from 'dayjs'
+
+/** dayjs 可接受的输入形态 */
+type DayjsInput = string | number | Date | null | undefined
+
+/** 事件参数条件行（编辑器数据，字段宽松） */
+type EventParamConditionLike = {
+  field?: unknown
+  operator?: unknown
+  value?: unknown
+  minValue?: unknown
+  maxValue?: unknown
+  [key: string]: unknown
+}
+
+/** 事件参数匹配的 trigger_value 结构（字符串 JSON 或已解析对象） */
+type EventParamMatchValue = {
+  match_mode?: unknown
+  conditions?: EventParamConditionLike[] | null
+  [key: string]: unknown
+}
+
+/** 联动规则条件行（编辑器数据，字段宽松，运行时逐个校验） */
+type SubmitConditionItem = {
+  trigger_conditions_type?: unknown
+  trigger_param_type?: unknown
+  trigger_operator?: unknown
+  trigger_value?: string | EventParamMatchValue | null
+  execution_time?: unknown
+  task_type?: unknown
+  params?: unknown
+  eventParamConditions?: EventParamConditionLike[] | null
+  weekChoseValue?: unknown[]
+  startTimeValue?: DayjsInput
+  endTimeValue?: DayjsInput
+  onceTimeValue?: DayjsInput
+  hourTimeValue?: DayjsInput
+  dayTimeValue?: DayjsInput
+  weekTimeValue?: DayjsInput
+  monthTimeValue?: DayjsInput
+  monthChoseValue?: unknown
+  minValue?: unknown
+  maxValue?: unknown
+  field?: unknown
+  operator?: unknown
+  value?: unknown
+  ifType?: unknown
+  [key: string]: unknown
+}
+
+/** 动作指令行（编辑器数据，字段宽松） */
+type SubmitActionItem = {
+  action_param_type?: unknown
+  action_param?: string
+  actionValue?: unknown
+  action_value?: unknown
+  [key: string]: unknown
+}
+
+/** 动作组行（编辑器数据，字段宽松） */
+type SubmitActionGroupItem = {
+  actionType?: unknown
+  actionInstructList?: SubmitActionItem[] | null
+  action_type?: unknown
+  [key: string]: unknown
+}
 
 export function cloneAutomationEditorData<T>(value: T): T {
   return JSON.parse(JSON.stringify(value || []))
 }
 
-export function buildEventParamConditionValue(condition: any) {
+export function buildEventParamConditionValue(condition: EventParamConditionLike) {
   const operator = condition.operator || '='
   const field = typeof condition.field === 'string' ? condition.field.trim() : condition.field
   let value = condition.value
@@ -28,7 +93,7 @@ export function buildEventParamConditionValue(condition: any) {
   }
 }
 
-export function applyEventTriggerValue(ifItem: any) {
+export function applyEventTriggerValue(ifItem: SubmitConditionItem) {
   ifItem.trigger_operator = '='
   ifItem.trigger_value = JSON.stringify({
     match_mode: 'field',
@@ -36,10 +101,10 @@ export function applyEventTriggerValue(ifItem: any) {
   })
 }
 
-export function applyTimeTriggerValue(ifItem: any) {
+export function applyTimeTriggerValue(ifItem: SubmitConditionItem) {
   if (ifItem.trigger_conditions_type === '22') {
     let triggerValue = ''
-    ;(ifItem.weekChoseValue || []).forEach((item: any) => {
+    ;(ifItem.weekChoseValue || []).forEach(item => {
       triggerValue += item
     })
     triggerValue += `|${dayjs(ifItem.startTimeValue).format('HH:mm:ssZ')}`
@@ -58,7 +123,7 @@ export function applyTimeTriggerValue(ifItem: any) {
     }
     if (ifItem.task_type === 'WEEK') {
       let params = ''
-      ;(ifItem.weekChoseValue || []).forEach((item: any) => {
+      ;(ifItem.weekChoseValue || []).forEach(item => {
         params += item
       })
       ifItem.params = `${params}|${dayjs(ifItem.weekTimeValue).format('HH:mm:00Z')}`
@@ -69,7 +134,7 @@ export function applyTimeTriggerValue(ifItem: any) {
   }
 }
 
-export function normalizeSubmitConditionItem(ifItem: any) {
+export function normalizeSubmitConditionItem(ifItem: SubmitConditionItem) {
   if (ifItem.trigger_conditions_type === '10' || ifItem.trigger_conditions_type === '11') {
     if (ifItem.trigger_param_type === 'event') {
       applyEventTriggerValue(ifItem)
@@ -82,15 +147,15 @@ export function normalizeSubmitConditionItem(ifItem: any) {
   return ifItem
 }
 
-export function buildSubmitConditionGroups(ifGroupsData: any[]) {
+export function buildSubmitConditionGroups(ifGroupsData: SubmitConditionItem[][]) {
   const ifGroups = cloneAutomationEditorData(ifGroupsData)
-  ifGroups.forEach((ifGroupItem: any[]) => {
+  ifGroups.forEach(ifGroupItem => {
     ifGroupItem.forEach(normalizeSubmitConditionItem)
   })
   return ifGroups
 }
 
-export function normalizeSubmitActionItem(instructItem: any) {
+export function normalizeSubmitActionItem(instructItem: SubmitActionItem): SubmitActionItem {
   if (
     instructItem.action_param_type === 'c_telemetry' ||
     instructItem.action_param_type === 'c_attribute' ||
@@ -100,7 +165,7 @@ export function normalizeSubmitActionItem(instructItem: any) {
   }
   if (instructItem.action_param_type === 'telemetry' || instructItem.action_param_type === 'attributes') {
     instructItem.action_value = JSON.stringify({
-      [instructItem.action_param]: instructItem.actionValue
+      [String(instructItem.action_param)]: instructItem.actionValue
     })
   }
   if (instructItem.action_param_type === 'command') {
@@ -113,13 +178,13 @@ export function normalizeSubmitActionItem(instructItem: any) {
   return instructItem
 }
 
-export function buildSubmitActions(actionGroupsData: any[]) {
+export function buildSubmitActions(actionGroupsData: SubmitActionGroupItem[]) {
   const actionGroups = cloneAutomationEditorData(actionGroupsData)
-  const actionsData: any[] = []
+  const actionsData: SubmitActionItem[] = []
 
-  actionGroups.forEach((item: any) => {
+  actionGroups.forEach(item => {
     if (item.actionType === '1') {
-      ;(item.actionInstructList || []).forEach((instructItem: any) => {
+      ;(item.actionInstructList || []).forEach(instructItem => {
         actionsData.push(normalizeSubmitActionItem(instructItem))
       })
     } else {
@@ -131,22 +196,25 @@ export function buildSubmitActions(actionGroupsData: any[]) {
   return actionsData
 }
 
-export function hasOnlyTimeRangeConditionGroup(conditionGroups: any[][]) {
-  return conditionGroups.some((group: any[]) =>
-    group.every((condition: any) => condition.trigger_conditions_type === '22')
+export function hasOnlyTimeRangeConditionGroup(conditionGroups: SubmitConditionItem[][]) {
+  return conditionGroups.some(group =>
+    group.every(condition => condition.trigger_conditions_type === '22')
   )
 }
 
-export function hasScheduleConditionWithAlarmAction(conditionGroups: any[][], actions: any[]) {
+export function hasScheduleConditionWithAlarmAction(
+  conditionGroups: SubmitConditionItem[][],
+  actions: SubmitActionItem[]
+) {
   return (
-    conditionGroups.some((group: any[]) => group.some((condition: any) => condition.ifType === '2')) &&
-    actions.some((action: any) => action.actionType === '30' || action.action_type === '30')
+    conditionGroups.some(group => group.some(condition => condition.ifType === '2')) &&
+    actions.some(action => action.actionType === '30' || action.action_type === '30')
   )
 }
 
-export function hasEmptyEventParamMatchCondition(conditionGroups: any[][] = []) {
-  return conditionGroups.some((group: any[]) =>
-    group.some((condition: any) => {
+export function hasEmptyEventParamMatchCondition(conditionGroups: SubmitConditionItem[][] = []) {
+  return conditionGroups.some(group =>
+    group.some(condition => {
       const triggerParamType = String(condition.trigger_param_type || '').toUpperCase()
       if (triggerParamType !== 'EVENT' && triggerParamType !== 'EVT') {
         return false
@@ -161,7 +229,7 @@ export function hasEmptyEventParamMatchCondition(conditionGroups: any[][] = []) 
         if (!Array.isArray(triggerValue.conditions) || triggerValue.conditions.length === 0) {
           return true
         }
-        return triggerValue.conditions.some((eventCondition: any) => !isValidEventParamConditionValue(eventCondition))
+        return triggerValue.conditions.some(eventCondition => !isValidEventParamConditionValue(eventCondition))
       } catch {
         return true
       }
@@ -169,7 +237,7 @@ export function hasEmptyEventParamMatchCondition(conditionGroups: any[][] = []) 
   )
 }
 
-function isValidEventParamConditionValue(condition: any) {
+function isValidEventParamConditionValue(condition: EventParamConditionLike) {
   const field = typeof condition?.field === 'string' ? condition.field.trim() : ''
   const operator = typeof condition?.operator === 'string' && condition.operator ? condition.operator : '='
   const value = condition?.value

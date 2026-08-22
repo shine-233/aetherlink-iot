@@ -1,4 +1,4 @@
-<!--
+﻿<!--
 文件用途：提供 告警消息管理 页面内的 alarm-configuration 子组件。
 核心逻辑：封装局部表单、弹窗、列表或展示模块，通过 props、emit 与父页面协作。
 关键注意事项：保持组件边界清晰，避免在子组件中绕过父页面的数据刷新与权限控制。
@@ -10,10 +10,9 @@ import { NButton, NCard, NFlex, NInput, NTag } from 'naive-ui'
 import type { PaginationProps } from 'naive-ui'
 import dayjs from 'dayjs'
 import { useRouter } from 'vue-router'
-import { alarmHistory, batchActionAlarmHistory } from '@/service/api/alarm'
+import { alarmHistory } from '@/service/api/alarm'
 import { $t } from '@/locales'
 import { deviceAlarmHistoryPut } from '@/service/api'
-import { writeClipboardText } from '@/utils/clipboard'
 import type { FleetRolloutContext } from '../../../device/modules/fleet-rollout-context'
 import {
   alarmActionField,
@@ -38,6 +37,11 @@ import {
 } from './alarmConfigurationColumns'
 import AlarmBatchEvidenceCard from './AlarmBatchEvidenceCard.vue'
 import { useAlarmBatchActions } from './useAlarmBatchActions'
+import {
+  useAlarmSingleActions,
+  type AlarmSingleActionRow
+} from './alarm-configuration.single-actions'
+import { useAlarmClosureEvidenceExport } from './alarm-configuration.evidence-export'
 
 const props = defineProps<{
   initialDeviceId?: string
@@ -243,13 +247,14 @@ const alarmClosureEvidencePacket = computed(() =>
 )
 const detailNeedsAcknowledge = computed(() => infoData.value?.id && !isAcknowledged(infoData.value))
 const detailNeedsReset = computed(() => infoData.value?.id && !isReset(infoData.value))
-const singleActionDialogVisible = ref(false)
-const singleActionLoading = ref(false)
-const singleActionNote = ref('')
-const singleActionRow = ref<any | null>(null)
-const singleActionType = ref<'acknowledge' | 'reset'>('acknowledge')
-const singleActionNoteMaxLength = 500
-const lastSingleClosureEvidence = ref<any | null>(null)
+
+function getInfo(data: any) {
+  infoData.value = data
+  showDialog.value = true
+}
+const closeModal = () => {
+  showDialog.value = false
+}
 
 const alarmEvidenceBoundary = () => $t('custom.alarmPage.evidenceBundleBoundary')
 const alarmEvidenceRow = (row: any) =>
@@ -259,6 +264,35 @@ const alarmEvidenceRow = (row: any) =>
     t: $t,
     formatTime: formatAlarmTime
   })
+
+const {
+  singleActionDialogVisible,
+  singleActionLoading,
+  singleActionNote,
+  singleActionNoteMaxLength,
+  singleActionDialogTitle,
+  singleActionDialogHint,
+  lastSingleClosureEvidence,
+  alarmAuditSummary,
+  closeSingleActionDialog,
+  openSingleAlarmAction,
+  runSingleAlarmAction
+} = useAlarmSingleActions({
+  severityOptions: alarmStatusOptions,
+  evidenceRowOf: row => alarmEvidenceRow(row),
+  evidenceBoundaryLabel: alarmEvidenceBoundary,
+  closeDetailDialog: closeModal,
+  refresh: getAlarmHistory
+})
+
+const acknowledgeAlarm = (row: any) => {
+  openSingleAlarmAction(row as AlarmSingleActionRow, 'acknowledge')
+}
+
+const resetAlarm = (row: any) => {
+  openSingleAlarmAction(row as AlarmSingleActionRow, 'reset')
+}
+
 
 const buildCurrentAlarmClosureEvidenceBundle = () =>
   buildAlarmClosureEvidenceBundle({
@@ -283,136 +317,13 @@ const buildCurrentAlarmClosureEvidenceBundle = () =>
     formatTime: formatAlarmTime
   })
 
-const downloadAlarmClosureEvidenceBundle = () => {
-  try {
-    const bundle = buildCurrentAlarmClosureEvidenceBundle()
-    const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = buildAlarmClosureEvidenceFileName({
-      id: infoData.value?.id || lastSingleClosureEvidence.value?.alarmId,
-      generatedAt: bundle.generatedAt,
-      formatTimestamp: value => dayjs(value).format('YYYYMMDD-HHmmss')
-    })
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-    window.$message?.success($t('custom.alarmPage.evidenceBundleDownloaded'))
-  } catch {
-    window.$message?.warning($t('custom.alarmPage.evidenceBundleDownloadFailed'))
-  }
-}
-
-function getInfo(data: any) {
-  infoData.value = data
-  showDialog.value = true
-}
-const closeModal = () => {
-  showDialog.value = false
-}
-
-const alarmAuditSummary = (row: any) =>
-  [
-    `${$t('generate.alarmConfugName')}: ${row.name || '-'}`,
-    `${$t('common.alarm_level')}: ${alarmSeverityLabel(alarmSeverityValue(row), alarmStatusOptions.value)}`,
-    `${$t('rdi.overview.alarmType')}: ${alarmTypeLabel(row, $t)}`,
-    `${$t('common.alarm_time')}: ${row.create_at ? dayjs(row.create_at).format('YYYY-MM-DD HH:mm:ss') : '-'}`
-  ].join('\n')
-
-const singleActionDialogTitle = computed(() =>
-  singleActionType.value === 'acknowledge'
-    ? $t('rdi.overview.acknowledgeAlarm')
-    : $t('rdi.overview.confirmResetAlarm')
-)
-const singleActionDialogHint = computed(() => {
-  const row = singleActionRow.value
-  if (!row) return ''
-  const hint =
-    singleActionType.value === 'acknowledge'
-      ? $t('rdi.overview.alarmAuditConfirmHint')
-      : $t('rdi.overview.alarmResetAuditHint')
-  return `${alarmAuditSummary(row)}\n\n${hint}`
-})
-
-const closeSingleActionDialog = () => {
-  if (singleActionLoading.value) return
-  singleActionDialogVisible.value = false
-  singleActionRow.value = null
-  singleActionNote.value = ''
-}
-
-const openSingleAlarmAction = (row: any, action: 'acknowledge' | 'reset') => {
-  singleActionRow.value = row
-  singleActionType.value = action
-  singleActionNote.value = ''
-  singleActionDialogVisible.value = true
-}
-
-const runSingleAlarmAction = async () => {
-  const row = singleActionRow.value
-  if (!row?.id) return
-  singleActionLoading.value = true
-  try {
-    const note = singleActionNote.value.trim()
-    const response = await batchActionAlarmHistory({
-      ids: [row.id],
-      action: singleActionType.value,
-      ...(note ? { note } : {})
-    })
-    lastSingleClosureEvidence.value = {
-      action: singleActionType.value,
-      generatedAt: new Date().toISOString(),
-      alarmId: row.id,
-      note: note || '-',
-      row: alarmEvidenceRow(row),
-      response: response?.data || response || null,
-      boundary: alarmEvidenceBoundary()
-    }
-    window.$message?.success(
-      singleActionType.value === 'acknowledge'
-        ? $t('rdi.overview.alarmAcknowledged')
-        : $t('rdi.overview.alarmReset')
-    )
-    singleActionDialogVisible.value = false
-    singleActionRow.value = null
-    singleActionNote.value = ''
-    showDialog.value = false
-    await getAlarmHistory()
-  } catch {
-    window.$message?.error($t('custom.alarmPage.batchActionRequestFailed'))
-  } finally {
-    singleActionLoading.value = false
-  }
-}
-
-const acknowledgeAlarm = (row: any) => {
-  openSingleAlarmAction(row, 'acknowledge')
-}
-
-const resetAlarm = (row: any) => {
-  openSingleAlarmAction(row, 'reset')
-}
-
-const copyAlarmClosureEvidence = async () => {
-  const copied = await writeClipboardText(alarmClosureEvidencePacket.value)
-  if (copied) {
-    window.$message?.success($t('custom.alarmPage.closureEvidenceCopied'))
-  } else {
-    window.$message?.warning($t('custom.alarmPage.closureEvidenceCopyFailed'))
-  }
-}
-
-const copyLastBatchActionEvidence = async () => {
-  if (!lastBatchActionEvidence.value) return
-  const copied = await writeClipboardText(lastBatchActionEvidence.value.copyText)
-  if (copied) {
-    window.$message?.success($t('custom.alarmPage.batchActionEvidenceCopied'))
-  } else {
-    window.$message?.warning($t('custom.alarmPage.batchActionEvidenceCopyFailed'))
-  }
-}
+const { downloadAlarmClosureEvidenceBundle, copyAlarmClosureEvidence, copyLastBatchActionEvidence } =
+  useAlarmClosureEvidenceExport({
+    buildBundle: buildCurrentAlarmClosureEvidenceBundle,
+    resolvePrimaryAlarmId: () => infoData.value?.id || lastSingleClosureEvidence.value?.alarmId,
+    closurePacketText: () => alarmClosureEvidencePacket.value,
+    batchCopyText: () => lastBatchActionEvidence.value?.copyText
+  })
 
 const openAlarmAuditLog = () => {
   const createdAt = infoData.value?.create_at ? dayjs(infoData.value.create_at) : dayjs().subtract(1, 'day')

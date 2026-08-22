@@ -5,15 +5,27 @@
  */
 import { computed, onBeforeUpdate, ref } from 'vue'
 
-type TriggerSelectionResetter = (ifItem: any) => void
+/** 触发条件行（编辑器表单数据，字段宽松） */
+type PremiseIfItemLike = {
+  trigger_source?: unknown
+  trigger_conditions_type?: unknown
+  group_id?: unknown
+  device_name?: unknown
+  [key: string]: unknown
+}
+
+/** 设备分组树响应行（后端返回，仅读取 group 字段） */
+type DeviceGroupTreeRow = { group?: unknown }
+
+type TriggerSelectionResetter = (ifItem: PremiseIfItemLike) => void
 
 type CreatePremiseDeviceConditionStateOptions = {
   t: (key: string) => string
   resetTriggerSelection: TriggerSelectionResetter
-  deviceGroupTreeRequest: (params: Record<string, any>) => Promise<any>
-  deviceListRequest: (params: Record<string, any>) => Promise<any>
-  deviceConfigRequest: (params: Record<string, any>) => Promise<any>
-  emitConditionChose: (value: any) => void
+  deviceGroupTreeRequest: (params: Record<string, unknown>) => Promise<{ data?: DeviceGroupTreeRow[] | null }>
+  deviceListRequest: (params: Record<string, unknown>) => Promise<{ data?: unknown[] | null }>
+  deviceConfigRequest: (params: Record<string, unknown>) => Promise<{ data?: unknown[] | null }>
+  emitConditionChose: (value: unknown) => void
 }
 
 export const createPremiseDeviceConditionState = ({
@@ -37,7 +49,7 @@ export const createPremiseDeviceConditionState = ({
 
   const deviceConfigDisabled = ref(false)
 
-  const triggerConditionsTypeChange = (ifItem: any, data: any) => {
+  const triggerConditionsTypeChange = (ifItem: PremiseIfItemLike, data: unknown) => {
     ifItem.trigger_source = null
     resetTriggerSelection(ifItem)
     deviceConfigDisabled.value = data === '11'
@@ -55,7 +67,7 @@ export const createPremiseDeviceConditionState = ({
   const getGroup = async () => {
     deviceGroupOptions.value = []
     const res = await deviceGroupTreeRequest({})
-    res.data?.forEach((item: any) => {
+    res.data?.forEach(item => {
       deviceGroupOptions.value.push(item.group)
     })
     groupLoaded.value = true
@@ -69,7 +81,7 @@ export const createPremiseDeviceConditionState = ({
   })
   const btnloading = ref(false)
 
-  const selectInstRef = ref<any>({})
+  const selectInstRef = ref<Record<number, boolean>>({})
   const onKeydownEnter = (e: Event) => {
     e.preventDefault()
     return false
@@ -95,7 +107,7 @@ export const createPremiseDeviceConditionState = ({
     deviceLoaded.value = true
   }
 
-  const triggerSourceChange = (ifItem: any, ifIndex: number) => {
+  const triggerSourceChange = (ifItem: PremiseIfItemLike, ifIndex: number) => {
     resetTriggerSelection(ifItem)
     selectInstRef.value[ifIndex] = false
   }
@@ -120,7 +132,7 @@ export const createPremiseDeviceConditionState = ({
     }
   }
 
-  const onTapInput = (item: any, ifIndex: number) => {
+  const onTapInput = (item: PremiseIfItemLike, ifIndex: number) => {
     if (item.group_id || item.device_name) {
       getDevice(item.group_id, item.device_name)
     } else {
