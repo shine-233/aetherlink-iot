@@ -15,6 +15,9 @@ import (
 	"encoding/pem"
 	"errors"
 	"math/big"
+	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"sync"
@@ -24,6 +27,11 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/health"
+	grpc_health_v1 "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 
 	"github.com/DrmagicE/gmqtt/config"
 )
@@ -226,6 +234,92 @@ func TestApiRegistrar_RegisterHTTPHandler(t *testing.T) {
 		a.Equal("127.0.0.1:1234", endpoint)
 		return nil
 	}))
+}
+
+func TestApiRegistrar_SetHTTPMiddleware(t *testing.T) {
+	a := assert.New(t)
+	mux := &runtime.ServeMux{}
+	httpSrv := &http.Server{Handler: mux}
+	reg := &apiRegistrar{
+		httpServers: []*httpServer{
+			{
+				gRPCEndpoint: "tcp://127.0.0.1:1234",
+				mux:          mux,
+				server:       httpSrv,
+			},
+		},
+	}
+
+	reg.SetHTTPMiddleware(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("X-Test-Middleware", "1")
+			next.ServeHTTP(w, r)
+		})
+	})
+
+	a.NotNil(reg.httpServers[0].middleware)
+
+	recorder := httptest.NewRecorder()
+	httpSrv.Handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/anything", nil))
+	a.Equal("1", recorder.Header().Get("X-Test-Middleware"), "root handler should pass through the installed middleware")
+}
+
+func TestApiRegistrar_AddGRPCUnaryInterceptor(t *testing.T) {
+	a := assert.New(t)
+	// 先占用并释放一个临时端口，规避 serve() 在闭包内监听导致端口不可知的问题。
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	a.NoError(err)
+	addr := l.Addr().String()
+	a.NoError(l.Close())
+
+	reg := &apiRegistrar{}
+	gs, err := buildGRPCServer(&config.Endpoint{Address: "tcp://" + addr})
+	a.NoError(err)
+	reg.gRPCServers = append(reg.gRPCServers, gs)
+
+	const (
+		tokenKey   = "x-test-token"
+		tokenValue = "tok"
+	)
+	var mu sync.Mutex
+	var intercepted []string
+	reg.AddGRPCUnaryInterceptor(func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		mu.Lock()
+		intercepted = append(intercepted, info.FullMethod)
+		mu.Unlock()
+		md, ok := metadata.FromIncomingContext(ctx)
+		if ok && len(md.Get(tokenKey)) == 1 && md.Get(tokenKey)[0] == tokenValue {
+			return handler(ctx, req)
+		}
+		return nil, status.Error(codes.Unauthenticated, "unauthorized")
+	})
+	reg.RegisterService(&grpc_health_v1.Health_ServiceDesc, health.NewServer())
+
+	errChan := make(chan error, 1)
+	a.NoError(gs.serve(errChan))
+	defer gs.shutdown()
+
+	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+	a.NoError(err)
+	defer conn.Close()
+	client := grpc_health_v1.NewHealthClient(conn)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// 缺少 token 的请求被插件拦截器拒绝。
+	_, err = client.Check(ctx, &grpc_health_v1.HealthCheckRequest{})
+	a.Equal(codes.Unauthenticated, status.Code(err))
+
+	// 携带正确 token 的请求放行并到达真实服务。
+	resp, err := client.Check(metadata.AppendToOutgoingContext(ctx, tokenKey, tokenValue), &grpc_health_v1.HealthCheckRequest{})
+	a.NoError(err)
+	a.Equal(grpc_health_v1.HealthCheckResponse_SERVING, resp.Status)
+
+	mu.Lock()
+	defer mu.Unlock()
+	a.Equal([]string{"/grpc.health.v1.Health/Check", "/grpc.health.v1.Health/Check"}, intercepted,
+		"both calls should pass through the plugin interceptor installed after grpc.NewServer")
 }
 
 func TestBuildTLSConfig(t *testing.T) {

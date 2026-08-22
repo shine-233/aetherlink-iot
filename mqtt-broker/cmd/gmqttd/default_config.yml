@@ -56,9 +56,14 @@ mqtt:
   # The lifetime of the "inflight" message in seconds. 在途消息存活时间（秒）。
   #	If a "inflight" message is not acknowledged by a client in inflight_expiry time, it will be removed when the message queue is full. 若在途消息未获确认且队列已满，将被移除。
   inflight_expiry: 30s
-  # Bound untrusted packet allocation below the 128 MiB Compose memory limit.
-  # Raise only for a deployment with a validated payload and memory budget. 限制不受信任报文的内存占用；仅在验证载荷与内存预算后调高。
-  max_packet_size: 16777216
+  # Bound untrusted packet allocation to 1 MiB: device uplink payloads are far
+  # below this size, and a smaller ceiling caps per-connection memory under the
+  # 128 MiB Compose limit and shrinks amplification/DoS surface.
+  # Raise only for a deployment with a validated payload and memory budget.
+  # 将不受信任报文上限收紧到 1 MiB：设备上行远小于该值，更小的上限可以在
+  # 128 MiB Compose 内存预算内限制单连接内存占用并缩小放大/拒绝服务攻击面；
+  # 仅在验证载荷与内存预算后按部署需求调高。
+  max_packet_size: 1048576
   # Bound per-client inbound QoS 1/2 concurrency for the default 128 MiB container. 依据默认 128 MiB 容器限制单客户端入站 QoS1/2 并发。
   server_receive_maximum: 100
   # The maximum keep alive time in seconds allows by the server. 服务器允许的最大 Keepalive（秒）。
@@ -127,6 +132,18 @@ plugins:
   prometheus:
     path: "/metrics"
     listen_address: ":8082"
+  admin:
+    # Shared secret for the admin management-plane HTTP APIs (client/subscription
+    # management and arbitrary publish). When set, every request must carry a
+    # matching X-Admin-Secret header (or an authenticated admin UI session).
+    # When empty, behavior is unchanged: protection relies on the api.http/api.grpc
+    # network boundary, and binding a non-loopback address without a secret logs a
+    # startup warning. Keep real secrets in deployment-specific overrides.
+    # admin 管理面 HTTP API（客户端/订阅管理与任意 publish）的共享密钥。
+    # 设置后所有请求必须携带匹配的 X-Admin-Secret 头（或已登录管理页的会话）；
+    # 为空时保持现状，仅依赖 api.http/api.grpc 网络边界保护，
+    # 此时绑定非回环地址会在启动时打印告警。真实密钥请放在部署专属配置中。
+    # http_auth_secret: CHANGE_ME_ADMIN_SECRET
   auth:
     # Password hash type. Only bcrypt is accepted; legacy plain/md5/sha256 configurations are rejected.
     hash: bcrypt

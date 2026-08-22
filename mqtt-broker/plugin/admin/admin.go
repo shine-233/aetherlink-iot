@@ -20,6 +20,7 @@ func init() {
 	if err := server.RegisterPlugin(Name, New); err != nil {
 		panic(err)
 	}
+	config.RegisterDefaultPluginConfig(Name, &DefaultConfig)
 }
 
 func New(config config.Config) (server.Plugin, error) {
@@ -30,10 +31,11 @@ var log *zap.Logger
 
 // Admin providers gRPC and HTTP API that enables the external system to interact with the broker.
 type Admin struct {
-	statsReader   server.StatsReader
-	publisher     server.Publisher
-	clientService server.ClientService
-	store         *store
+	statsReader    server.StatsReader
+	publisher      server.Publisher
+	clientService  server.ClientService
+	store          *store
+	httpAuthSecret string
 }
 
 func (a *Admin) registerHTTP(g server.APIRegistrar) (err error) {
@@ -71,6 +73,8 @@ func (a *Admin) Load(service server.Server) error {
 	a.store.subscriptionService = service.SubscriptionService()
 	a.publisher = service.Publisher()
 	a.clientService = service.ClientService()
+	a.setupHTTPAuth(service.GetConfig(), apiRegistrar)
+	a.setupGRPCAuth(apiRegistrar)
 	return nil
 }
 

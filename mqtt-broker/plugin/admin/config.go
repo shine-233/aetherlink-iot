@@ -14,6 +14,11 @@ import (
 type Config struct {
 	HTTP HTTPConfig `yaml:"http"`
 	GRPC GRPCConfig `yaml:"grpc"`
+	// HTTPAuthSecret 是 admin HTTP API 的可选共享密钥。
+	// 非空时，所有 admin HTTP API 请求必须携带匹配的 X-Admin-Secret 头
+	// （或持有内置管理页登录后的会话 cookie）；为空时保持既有行为，
+	// 仅依赖监听地址的网络边界保护，此时绑定非回环地址会打印启动告警。
+	HTTPAuthSecret string `yaml:"http_auth_secret"`
 }
 
 // HTTPConfig is the configuration for http endpoint.

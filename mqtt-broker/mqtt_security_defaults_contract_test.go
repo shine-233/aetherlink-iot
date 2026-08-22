@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	defaultMaxMQTTPacketSize = 16 * 1024 * 1024
+	defaultMaxMQTTPacketSize = 1024 * 1024
 	defaultReceiveMaximum    = 100
 	defaultMaxQueuedMessages = 10000
 	defaultMaxInflight       = 100
