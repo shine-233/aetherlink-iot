@@ -18,7 +18,12 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      # postgres:18+ 镜像要求数据卷挂在 /var/lib/postgresql（PGDATA 移至
+      # /var/lib/postgresql/18/docker）。从 ≤17 旧部署升级的存量卷内数据位于
+      # <volume>/data，直接换挂载点会让新集群重新 initdb——升级前必须按
+      # TESTING-AND-DEPLOYMENT.md「Postgres 18 卷迁移」小节做数据搬迁或固定
+      # postgres:17-alpine。全新安装无此问题。
+      - postgres-data:/var/lib/postgresql
       - ./backend/sql:/docker-entrypoint-initdb.d/sql:ro
       - ./deploy/postgres/00-run-migrations.sh:/docker-entrypoint-initdb.d/00-run-migrations.sh:ro
     healthcheck:
