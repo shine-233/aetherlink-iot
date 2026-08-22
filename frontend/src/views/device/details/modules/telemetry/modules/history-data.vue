@@ -185,7 +185,13 @@ onMounted(getTelemetryHistoryData)
       <n-alert v-else-if="!loading && tableData.length === 0" type="info" class="mb-3" :show-icon="true">
         {{ $t('custom.device_details.telemetryNoData') }}
       </n-alert>
-      <n-data-table :loading="loading" :columns="columns" :data="tableData" />
+      <n-data-table
+        :loading="loading"
+        :columns="columns"
+        :data="tableData"
+        virtual-scroll
+        :max-height="360"
+      />
       <div class="mt-4 flex justify-end">
         <n-pagination
           v-model:page="pagination.page"

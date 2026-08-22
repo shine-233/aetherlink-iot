@@ -5,15 +5,12 @@
   重构建议：当模板或脚本继续变长时，优先抽出局部组件或组合式函数，再用 focused tests 锁定行为一致性。
 -->
 <script setup lang="ts">
-import { computed, defineAsyncComponent, h, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, h, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import type { DataTableColumns, PaginationProps } from 'naive-ui'
+import type { DataTableColumns } from 'naive-ui'
 import { NButton, NTag } from 'naive-ui'
-import type { TreeSelectOption } from 'naive-ui/es/tree-select/src/interface'
 import dayjs from 'dayjs'
-import { alarmHistory, alarmHistoryMonthlyTrend, acknowledgeAlarmHistory, resetAlarmHistory } from '@/service/api/alarm'
-import { deviceGroupTree } from '@/service/api/device'
-import { getAlarmCount, sumData } from '@/service/api/system-data'
+import { acknowledgeAlarmHistory, resetAlarmHistory } from '@/service/api/alarm'
 import { useAuthStore } from '@/store/modules/auth'
 import { isSysAdminUser } from '@/utils/thingsvis/space'
 import { $t } from '@/locales'
@@ -22,7 +19,6 @@ import {
   alarmStatusLabel as resolveAlarmStatusLabel,
   alarmTagType as resolveAlarmTagType,
   alarmTypeLabel as resolveAlarmTypeLabel,
-  normalizeAlarmMonthlyTrendPoints,
   buildOperationsFocus,
   formatSwitch as resolveSwitchLabel,
   formatTemperature as resolveTemperatureLabel,
@@ -33,10 +29,12 @@ import {
   parseAlarmRemark as resolveAlarmRemark,
   rowText as resolveRowText,
   type AlarmRecord,
-  type AlarmTrendPoint,
   type DeviceSnapshot,
   type TemperatureUnit
 } from './rdiOverviewState'
+import { buildAlarmTrendChartOptions, buildAlarmTrendYearOptions } from './rdiTrendChart'
+import { useRdiOverviewData } from './useRdiOverviewData'
+import { useRdiSnapshotFilters } from './useRdiSnapshotFilters'
 import { useRdiDeviceSnapshots } from './useRdiDeviceSnapshots'
 
 const props = withDefaults(
@@ -52,23 +50,69 @@ const ChartComponent = defineAsyncComponent(() => import('@/components/custom/Ch
 const router = useRouter()
 const authStore = useAuthStore()
 const isMasterAccount = computed(() => isSysAdminUser(authStore.userInfo))
-const loading = ref(false)
-const alarmLoading = ref(false)
-const alarmTrendLoading = ref(false)
-const alarms = ref<AlarmRecord[]>([])
-const alarmTrendPoints = ref<AlarmTrendPoint[]>(normalizeAlarmMonthlyTrendPoints([]))
-const alarmTrendYear = ref(dayjs().year())
-const alarmTrendTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
-const alarmDeviceTotal = ref(0)
 const temperatureUnit = ref<TemperatureUnit>(readTemperatureUnitPreference())
 
-const stats = reactive({
-  totalDevices: 0,
-  onlineDevices: 0,
-  offlineDevices: 0,
-  activeAlarms: 0,
-  alarmHistoryTotal: 0
+const {
+  loading,
+  alarmLoading,
+  alarmTrendLoading,
+  alarms,
+  alarmTrendPoints,
+  alarmTrendYear,
+  alarmDeviceTotal,
+  stats,
+  queryParams,
+  alarmPagination,
+  fetchDevices,
+  fetchCounts,
+  fetchActiveAlarmCounts,
+  refreshAlarmSummaryCounts,
+  fetchAlarms,
+  searchAlarms,
+  fetchAlarmTrend,
+  resetAlarmFilter
+} = useRdiOverviewData({ isMasterAccount })
+
+const {
+  snapshotLoading,
+  deviceSnapshots,
+  snapshotPage,
+  snapshotTotal,
+  fetchDeviceSnapshots,
+  changeSnapshotPage,
+  scheduleDeviceSnapshotsRefresh,
+  cancelScheduledDeviceSnapshots,
+  dispose: disposeDeviceSnapshots
+} = useRdiDeviceSnapshots({
+  activeSystemsOnly: () => props.activeSystemsOnly,
+  isMasterAccount
 })
+
+const {
+  snapshotFilterKeyword,
+  snapshotFilterStatus,
+  snapshotFilterAlarmLevel,
+  snapshotFilterGroupId,
+  snapshotFilterAdvancedVisible,
+  snapshotGroupOptions,
+  snapshotStatusOptions,
+  snapshotAlarmLevelOptions,
+  snapshotHasActiveFilters,
+  snapshotActiveFilterChips,
+  visibleDeviceSnapshots,
+  resetSnapshotFilters,
+  removeSnapshotFilter,
+  toggleSnapshotAdvancedFilters,
+  loadSnapshotGroupOptions
+} = useRdiSnapshotFilters({ deviceSnapshots })
+
+function readTemperatureUnitPreference(): TemperatureUnit {
+  try {
+    return typeof window !== 'undefined' && window.localStorage.getItem('rdi-temperature-unit') === 'F' ? 'F' : 'C'
+  } catch {
+    return 'C'
+  }
+}
 
 const operationsFocus = computed(() => buildOperationsFocus(stats, alarmDeviceTotal.value))
 type OperationsAlertType = 'default' | 'info' | 'success' | 'warning' | 'error'
@@ -86,199 +130,13 @@ const systemsEmptyTitleKey = computed(() =>
 const systemsEmptyDescriptionKey = computed(() =>
   props.activeSystemsOnly ? 'rdi.overview.noActiveSystemsDesc' : 'rdi.overview.noSnapshotDesc'
 )
-const {
-  snapshotLoading,
-  deviceSnapshots,
-  snapshotPage,
-  snapshotTotal,
-  fetchDeviceSnapshots,
-  changeSnapshotPage,
-  scheduleDeviceSnapshotsRefresh,
-  cancelScheduledDeviceSnapshots,
-  dispose: disposeDeviceSnapshots
-} = useRdiDeviceSnapshots({
-  activeSystemsOnly: () => props.activeSystemsOnly,
-  isMasterAccount
-})
-
-const queryParams = reactive({
-  page: 1,
-  page_size: 10,
-  alarm_status: 'ACTIVE'
-})
-
-const snapshotFilterKeyword = ref('')
-const snapshotFilterStatus = ref<'all' | 'online' | 'offline' | 'alarm'>('all')
-const snapshotFilterAlarmLevel = ref<'all' | 'H' | 'M' | 'L' | 'N'>('all')
-const snapshotFilterGroupId = ref<string | null>(null)
-const snapshotFilterAdvancedVisible = ref(false)
-const snapshotGroupOptions = ref<TreeSelectOption[]>([])
-const snapshotGroupNameById = ref<Record<string, string>>({})
-const snapshotStatusOptions = computed(() => [
-  { label: $t('rdi.overview.snapshotStatusAll'), value: 'all' },
-  { label: $t('rdi.overview.snapshotStatusOnline'), value: 'online' },
-  { label: $t('rdi.overview.snapshotStatusOffline'), value: 'offline' },
-  { label: $t('rdi.overview.snapshotStatusAlarm'), value: 'alarm' }
-])
-
-const snapshotAlarmLevelOptions = computed(() => [
-  { label: $t('rdi.overview.snapshotAlarmLevelAll'), value: 'all' },
-  { label: $t('rdi.overview.high'), value: 'H' },
-  { label: $t('rdi.overview.medium'), value: 'M' },
-  { label: $t('rdi.overview.low'), value: 'L' },
-  { label: $t('rdi.overview.normal'), value: 'N' }
-])
-
-// snapshotHasActiveFilters reports whether at least one user-selected filter
-// narrows the visible snapshot list beyond the raw server page.
-const snapshotHasActiveFilters = computed(
-  () =>
-    snapshotFilterKeyword.value.trim() !== '' ||
-    snapshotFilterStatus.value !== 'all' ||
-    snapshotFilterAlarmLevel.value !== 'all' ||
-    !!snapshotFilterGroupId.value
-)
-
-const snapshotActiveFilterChips = computed<Array<{ key: string; label: string }>>(() => {
-  const chips: Array<{ key: string; label: string }> = []
-  const keyword = snapshotFilterKeyword.value.trim()
-  if (keyword) {
-    chips.push({ key: 'keyword', label: `${$t('common.search')}: ${keyword}` })
-  }
-  if (snapshotFilterStatus.value !== 'all') {
-    const status = snapshotFilterStatus.value
-    const statusLabels: Record<string, string> = {
-      online: $t('rdi.overview.snapshotStatusOnline'),
-      offline: $t('rdi.overview.snapshotStatusOffline'),
-      alarm: $t('rdi.overview.snapshotStatusAlarm')
-    }
-    chips.push({ key: 'status', label: statusLabels[status] })
-  }
-  if (snapshotFilterAlarmLevel.value !== 'all') {
-    const alarmLevelLabels: Record<string, string> = {
-      H: $t('rdi.overview.high'),
-      M: $t('rdi.overview.medium'),
-      L: $t('rdi.overview.low'),
-      N: $t('rdi.overview.normal')
-    }
-    chips.push({
-      key: 'alarmLevel',
-      label: `${$t('common.alarm_level')}: ${alarmLevelLabels[snapshotFilterAlarmLevel.value]}`
-    })
-  }
-  if (snapshotFilterGroupId.value) {
-    const groupName =
-      snapshotGroupNameById.value[snapshotFilterGroupId.value] || snapshotFilterGroupId.value
-    chips.push({ key: 'group', label: `${$t('rdi.overview.snapshotFilterGroup')}: ${groupName}` })
-  }
-  return chips
-})
-
-// visibleDeviceSnapshots filters the currently loaded snapshot page client-side.
-// Server-side pagination for the base list stays in fetchDeviceSnapshots so the
-// filter narrows the visible items without hiding pagination controls.
-const visibleDeviceSnapshots = computed(() => {
-  const keyword = snapshotFilterKeyword.value.trim().toLowerCase()
-  const status = snapshotFilterStatus.value
-  const alarmLevel = snapshotFilterAlarmLevel.value
-  const groupId = snapshotFilterGroupId.value
-  return deviceSnapshots.value.filter((device) => {
-    if (status === 'online' && !device.online) return false
-    if (status === 'offline' && device.online) return false
-    if (status === 'alarm' && device.alarm !== true) return false
-    if (alarmLevel !== 'all') {
-      const level = device.alarmLevel || (device.alarm === true ? 'H' : device.alarm === false ? 'N' : '')
-      if (alarmLevel === 'N') {
-        if (level && level !== 'N') return false
-      } else if (level !== alarmLevel) {
-        return false
-      }
-    }
-    if (groupId && device.groupId !== groupId) return false
-    if (!keyword) return true
-    const haystack = [
-      device.name,
-      device.id,
-      device.pid,
-      device.serialNumber,
-      device.installLocation,
-      device.installAddress,
-      device.installerName,
-      device.adminName
-    ]
-      .filter((value) => value && value !== '--')
-      .join(' ')
-      .toLowerCase()
-    return haystack.includes(keyword)
-  })
-})
-
-function resetSnapshotFilters() {
-  snapshotFilterKeyword.value = ''
-  snapshotFilterStatus.value = 'all'
-  snapshotFilterAlarmLevel.value = 'all'
-  snapshotFilterGroupId.value = null
-}
-
-function removeSnapshotFilter(key: string) {
-  if (key === 'keyword') snapshotFilterKeyword.value = ''
-  else if (key === 'status') snapshotFilterStatus.value = 'all'
-  else if (key === 'alarmLevel') snapshotFilterAlarmLevel.value = 'all'
-  else if (key === 'group') snapshotFilterGroupId.value = null
-}
-
-function toggleSnapshotAdvancedFilters() {
-  snapshotFilterAdvancedVisible.value = !snapshotFilterAdvancedVisible.value
-}
-
-// loadSnapshotGroupOptions fetches the device-group tree once and flattens the
-// labels for filter-chip lookup. Missing groups fall back to the raw id so a
-// stale filter still renders meaningfully.
-async function loadSnapshotGroupOptions() {
-  try {
-    const res = await deviceGroupTree({})
-    const rootNodes = Array.isArray(res?.data) ? res.data : []
-    const nameMap: Record<string, string> = {}
-    function convert(node: any): TreeSelectOption {
-      const group = node?.group || {}
-      const children = Array.isArray(node?.children) ? node.children : []
-      const id = String(group.id ?? '')
-      const label = String(group.name ?? id ?? '')
-      if (id) nameMap[id] = label
-      const option: TreeSelectOption = { key: id, label }
-      if (children.length > 0) option.children = children.map(convert)
-      return option
-    }
-    snapshotGroupOptions.value = rootNodes.map(convert)
-    snapshotGroupNameById.value = nameMap
-  } catch {
-    // A missing group tree only degrades the optional filter; keep the rest of
-    // the overview page usable when the backend is unavailable.
-    snapshotGroupOptions.value = []
-    snapshotGroupNameById.value = {}
-  }
-}
 
 const temperatureUnitOptions = computed(() => [
   { label: 'Celsius (C)', value: 'C' },
   { label: 'Fahrenheit (F)', value: 'F' }
 ])
 
-const alarmTrendYearOptions = computed(() => {
-  const currentYear = dayjs().year()
-  return Array.from({ length: currentYear - 1999 }, (_, index) => {
-    const year = currentYear - index
-    return { label: String(year), value: year }
-  })
-})
-
-function readTemperatureUnitPreference(): TemperatureUnit {
-  try {
-    return typeof window !== 'undefined' && window.localStorage.getItem('rdi-temperature-unit') === 'F' ? 'F' : 'C'
-  } catch {
-    return 'C'
-  }
-}
+const alarmTrendYearOptions = computed(() => buildAlarmTrendYearOptions(dayjs().year()))
 
 function parseAlarmRemark(raw: unknown) {
   return resolveAlarmRemark(raw)
@@ -475,135 +333,9 @@ const alarmStatusOptions = computed(() => [
   { label: $t('rdi.overview.normal'), value: 'N' }
 ])
 
-const alarmTrendChartOptions = computed(() => ({
-  tooltip: {
-    trigger: 'axis'
-  },
-  grid: {
-    left: '3%',
-    right: '3%',
-    top: 24,
-    bottom: 24,
-    containLabel: true
-  },
-  xAxis: {
-    type: 'category' as const,
-    boundaryGap: false,
-    data: alarmTrendPoints.value.map((point) => String(point.month).padStart(2, '0'))
-  },
-  yAxis: {
-    type: 'value' as const,
-    minInterval: 1
-  },
-  series: [
-    {
-      name: $t('rdi.overview.alarmTrendSeries'),
-      type: 'line' as const,
-      smooth: true,
-      areaStyle: {},
-      data: alarmTrendPoints.value.map((point) => point.count)
-    }
-  ]
-}))
-
-const alarmPagination: PaginationProps = reactive({
-  page: queryParams.page,
-  pageSize: queryParams.page_size,
-  itemCount: 0,
-  showSizePicker: true,
-  pageSizes: [10, 20, 50],
-  onChange: (page) => {
-    queryParams.page = page
-    alarmPagination.page = page
-    fetchAlarms()
-  },
-  onUpdatePageSize: (pageSize) => {
-    queryParams.page = 1
-    queryParams.page_size = pageSize
-    alarmPagination.page = 1
-    alarmPagination.pageSize = pageSize
-    fetchAlarms()
-  }
-})
-
-async function fetchDevices() {
-  loading.value = true
-  try {
-    const res = isMasterAccount.value ? await sumData({ all_tenants: true }) : await sumData()
-    const data = res?.data || {}
-    stats.totalDevices = Number(data.device_total ?? data.DeviceTotal ?? 0)
-    stats.onlineDevices = Number(data.device_on ?? data.DeviceOn ?? 0)
-    stats.offlineDevices = Number(
-      data.device_offline ?? data.DeviceOffline ?? Math.max(stats.totalDevices - stats.onlineDevices, 0)
-    )
-  } finally {
-    loading.value = false
-  }
-}
-
-async function fetchCounts() {
-  const res = isMasterAccount.value ? await getAlarmCount({ all_tenants: true }) : await getAlarmCount()
-  const data = (res?.data || {}) as any
-  alarmDeviceTotal.value = Number(data.alarm_device_total ?? data.AlarmDeviceTotal ?? 0)
-  stats.alarmHistoryTotal = Number(data.alarm_history_total ?? data.AlarmHistoryTotal ?? 0)
-  const activeAlarmTotal = data.active_alarm_total ?? data.ActiveAlarmTotal
-  if (activeAlarmTotal !== undefined && activeAlarmTotal !== null) {
-    stats.activeAlarms = Number(activeAlarmTotal || 0)
-    return true
-  }
-  return false
-}
-
-async function fetchActiveAlarmCounts() {
-  const res = await alarmHistory({
-    page: 1,
-    page_size: 1,
-    alarm_status: 'ACTIVE',
-    ...(isMasterAccount.value ? { all_tenants: true } : {})
-  })
-  stats.activeAlarms = Number(res?.data?.total || 0)
-}
-
-async function refreshAlarmSummaryCounts() {
-  const hasActiveAlarmTotal = await fetchCounts()
-  if (!hasActiveAlarmTotal) {
-    await fetchActiveAlarmCounts()
-  }
-}
-
-async function fetchAlarms() {
-  alarmLoading.value = true
-  try {
-    const res = await alarmHistory({
-      page: queryParams.page,
-      page_size: queryParams.page_size,
-      alarm_status: queryParams.alarm_status || undefined,
-      ...(isMasterAccount.value ? { all_tenants: true } : {})
-    })
-    alarms.value = res?.data?.list || []
-    alarmPagination.itemCount = res?.data?.total || 0
-  } finally {
-    alarmLoading.value = false
-  }
-}
-
-function searchAlarms() {
-  queryParams.page = 1
-  alarmPagination.page = 1
-  fetchAlarms()
-}
-
-async function fetchAlarmTrend() {
-  alarmTrendLoading.value = true
-  try {
-    const res = isMasterAccount.value
-      ? await alarmHistoryMonthlyTrend(alarmTrendYear.value, alarmTrendTimezone, { all_tenants: true })
-      : await alarmHistoryMonthlyTrend(alarmTrendYear.value, alarmTrendTimezone)
-    alarmTrendPoints.value = normalizeAlarmMonthlyTrendPoints(res?.data?.months || [])
-  } finally {
-    alarmTrendLoading.value = false
-  }
-}
+const alarmTrendChartOptions = computed(() =>
+  buildAlarmTrendChartOptions(alarmTrendPoints.value, $t('rdi.overview.alarmTrendSeries'))
+)
 
 async function refreshAll() {
   // The trend card is an independent panel. A backend failure there (for
@@ -611,13 +343,6 @@ async function refreshAll() {
   // device snapshot request that powers the primary overview content.
   await Promise.allSettled([fetchDevices(), refreshAlarmSummaryCounts(), fetchAlarms(), fetchAlarmTrend()])
   scheduleDeviceSnapshotsRefresh()
-}
-
-function resetAlarmFilter() {
-  queryParams.alarm_status = 'ACTIVE'
-  queryParams.page = 1
-  alarmPagination.page = 1
-  fetchAlarms()
 }
 
 onMounted(() => {

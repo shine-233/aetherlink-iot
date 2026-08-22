@@ -8,6 +8,9 @@
 
 - `index.vue`：设备状态总览、告警历史、设备快照展示，以及可选择年份的 12 个月告警次数趋势。
 - `useRdiDeviceSnapshots.ts`：设备快照分页请求、受限并发补数、竞态隔离、空闲调度与卸载失效处理。
+- `useRdiOverviewData.ts`：总览数据面 composable，聚合设备汇总、告警历史分页、活跃告警计数与年度月度趋势请求及对应状态。
+- `useRdiSnapshotFilters.ts`：快照筛选面板 composable，持有关键词/状态/级别/分组筛选状态、筛选 chips 与客户端可见列表；含纯匹配函数。
+- `rdiTrendChart.ts`：告警趋势 ECharts option 与年份选项的纯装配 helper。
 - `rdiOverviewState.ts`：页面与快照 composable 共用的纯转换、格式化和月度趋势归一化 helper。
 - 子目录：`__tests__/`
 

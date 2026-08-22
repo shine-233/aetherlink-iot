@@ -217,7 +217,8 @@ async function savePassword() {
     let password = passwordForm.password
     if (shouldEncryptPassword()) {
       salt = generateRandomHexString(16)
-      password = encryptDataByRsa(password + salt)
+      // RSA helper 已迁移为 WebCrypto 异步实现（RSA-OAEP/SHA-256）
+      password = await encryptDataByRsa(password + salt)
     }
     const { error } = await passwordModification({
       old_password: passwordForm.old_password,

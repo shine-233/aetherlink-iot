@@ -96,7 +96,8 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
       let salt: string | null = null
       if (isFrontendEncryptionEnabled(enableZcAndYzmRaw)) {
         salt = generateRandomHexString(16)
-        newP = encryptDataByRsa(password + salt)
+        // RSA helper 已迁移为 WebCrypto 异步实现（RSA-OAEP/SHA-256）
+        newP = await encryptDataByRsa(password + salt)
       }
 
       const { data: loginToken } = await fetchLogin(userName, newP, salt ?? null)

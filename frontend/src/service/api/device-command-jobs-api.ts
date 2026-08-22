@@ -383,6 +383,10 @@ export interface FleetCommandJobListAttentionCounts {
 
 export interface FleetCommandJobListResult {
   total: number
+  /** 当前页码，旧后端可能缺省；缺省时按第 1 页处理。 */
+  page?: number
+  /** 当前页大小，旧后端可能缺省。 */
+  page_size?: number
   search?: string
   attention_filter?: string
   attention_counts?: FleetCommandJobListAttentionCounts
