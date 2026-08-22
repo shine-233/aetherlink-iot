@@ -148,11 +148,11 @@ services:
       GOTP_DB_REDIS_PASSWORD: ${GOTP_DB_REDIS_PASSWORD:?Set GOTP_DB_REDIS_PASSWORD in .env}
       GOTP_MQTT_SERVER: ${GOTP_MQTT_SERVER:-gmqtt}
       # Backend always reaches the broker over the compose network (service DNS);
-# never point this at localhost/access address — that breaks in-container dial.
-GOTP_MQTT_BROKER: mqtt-broker:1883
-# Synthetic RDI fixture opt-in for CI lanes (empty keeps production behavior).
-AETHERLINK_SYNTHETIC_RDI_ALLOW: ${AETHERLINK_SYNTHETIC_RDI_ALLOW:-}
-AETHERLINK_SYNTHETIC_RDI_ALLOWED_DATABASES: ${AETHERLINK_SYNTHETIC_RDI_ALLOWED_DATABASES:-}
+      # never point this at localhost/access address — that breaks in-container dial.
+      GOTP_MQTT_BROKER: mqtt-broker:1883
+      # Synthetic RDI fixture opt-in for CI lanes (empty keeps production behavior).
+      AETHERLINK_SYNTHETIC_RDI_ALLOW: ${AETHERLINK_SYNTHETIC_RDI_ALLOW:-}
+      AETHERLINK_SYNTHETIC_RDI_ALLOWED_DATABASES: ${AETHERLINK_SYNTHETIC_RDI_ALLOWED_DATABASES:-}
       GOTP_MQTT_USER: ${GOTP_MQTT_USER:-root}
       GOTP_MQTT_PASS: ${MQTT_ROOT_PASSWORD:?Set MQTT_ROOT_PASSWORD in .env}
       GOTP_MQTT_SESSION_REVOCATIONS_REQUIRED_BROKER_IDS: ${MQTT_BROKER_ID:?Set MQTT_BROKER_ID in .env}
