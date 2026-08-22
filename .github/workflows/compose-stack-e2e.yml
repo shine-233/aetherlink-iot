@@ -131,6 +131,13 @@ jobs:
         working-directory: automation_tests
         run: npx playwright install --with-deps "$PLAYWRIGHT_BROWSER_CHANNEL"
 
+      - name: Debug compose resolution
+        shell: bash
+        run: |
+          echo "COMPOSE_FILE=$COMPOSE_FILE"
+          docker compose config --services
+          docker compose port postgres 5432 || echo "(no published port for postgres/5432)"
+          docker compose ps
       - name: Install psql client
         run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
 
@@ -261,6 +268,7 @@ jobs:
             exit 1
           fi
           echo "Self-contained Compose stack integration completed successfully."
+
 
 
 
