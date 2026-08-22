@@ -45,6 +45,8 @@ jobs:
       PLAYWRIGHT_REUSE_EXISTING_SERVER: '1'
       PLAYWRIGHT_BROWSER_CHANNEL: chromium
       PREFLIGHT_PROFILE: full
+      COMPOSE_FILE: docker-compose.yml:.github/workflows/compose-stack-e2e.override.yml
+      COMPOSE_PATH_SEPARATOR: ':'
       AETHERLINK_RDI_FIXTURE_MODE: synthetic-rdi
       AETHERLINK_RDI_FIXTURE_PID: SYNTHRDI0001
       SYNTHETIC_RDI_PID: SYNTHRDI0001
@@ -96,8 +98,6 @@ jobs:
 
           export AETHERLINK_SYNTHETIC_RDI_ALLOW=1
           export AETHERLINK_SYNTHETIC_RDI_ALLOWED_DATABASES="aetherlink_iot"
-          export COMPOSE_FILE=docker-compose.yml:.github/workflows/compose-stack-e2e.override.yml
-          export COMPOSE_PATH_SEPARATOR=:
           bash deploy/init.sh --performance-tier light --skip-verify
 
       - name: Wait for backend readiness
@@ -261,6 +261,7 @@ jobs:
             exit 1
           fi
           echo "Self-contained Compose stack integration completed successfully."
+
 
 
 
