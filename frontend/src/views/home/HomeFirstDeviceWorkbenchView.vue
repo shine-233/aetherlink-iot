@@ -1,5 +1,5 @@
-Ôªø<script setup lang="ts">
-import { computed, defineAsyncComponent, nextTick, ref, watch } from 'vue'
+<script setup lang="ts">
+import { computed, defineAsyncComponent, nextTick, ref, watch, type ComponentPublicInstance } from 'vue'
 import { $t } from '@/locales'
 import { writeClipboardText } from '@/utils/clipboard'
 import {
@@ -38,6 +38,19 @@ import {
   type FirstDeviceProofDeliveryState
 } from './homeFirstDeviceProofDelivery'
 import { useViewportDeferredMount } from './useViewportDeferredMount'
+import type {
+  FirstDeviceBrowserTestState,
+  FirstDeviceChartState,
+  FirstDeviceDeploymentHealthRow,
+  FirstDeviceOnboardingGuard,
+  FirstDeviceReadyProof,
+  FirstDeviceSummary,
+  SimulationInitState
+} from './homeFirstDeviceWorkbench'
+import type { DeviceAccessGuideState } from '@/views/device/details/modules/device-access-guide-state'
+import type { HomeCustomerGuideProgressStep, HomeCustomerGuideSummary } from './homeCustomerGuide'
+import type { HomeFirstRunQuickCreateResult } from './homeFirstRunWizard'
+import type { NormalizedDeploymentHealthRow } from './homeDeploymentHealth'
 
 const HomeFirstDeviceGuideProgress = defineAsyncComponent(() => import('./HomeFirstDeviceGuideProgress.vue'))
 const HomeFirstDeviceClosedLoopStrip = defineAsyncComponent(() => import('./HomeFirstDeviceClosedLoopStrip.vue'))
@@ -54,31 +67,31 @@ const HomeFirstDeviceVerificationOverview = defineAsyncComponent(
 const HomeFirstDeviceDeferredSections = defineAsyncComponent(() => import('./HomeFirstDeviceDeferredSections.vue'))
 
 interface Props {
-  homeCustomerGuideSummary: any
+  homeCustomerGuideSummary: HomeCustomerGuideSummary
   homeFirstRunResumeText: string
-  homeCustomerGuideProgress: any[]
+  homeCustomerGuideProgress: HomeCustomerGuideProgressStep[]
   firstDeviceFocusMode: boolean
   firstDeviceWorkbenchLoaded: boolean
-  firstDeviceReadyProof: any
-  firstDevice: any
+  firstDeviceReadyProof: FirstDeviceReadyProof
+  firstDevice: FirstDeviceSummary | null
   firstDeviceLoading: boolean
   deploymentHealthLoading: boolean
   automationGuideLoading: boolean
   firstRunCreateLoading: boolean
   firstRunProtocol: HomeFirstRunProtocol
   deploymentHealthOk: boolean
-  firstRunCreateResult: any
+  firstRunCreateResult: HomeFirstRunQuickCreateResult | null
   firstRunCreateTenantRequired: boolean
-  firstRunSetupBlockerStep?: any
-  firstDeviceAccessGuide: any
-  firstDeviceSimulation: any
+  firstRunSetupBlockerStep?: HomeCustomerGuideProgressStep | null
+  firstDeviceAccessGuide: DeviceAccessGuideState | null
+  firstDeviceSimulation: SimulationInitState | null
   firstDevicePublishCommand: string
-  firstDeviceOnboardingGuard: any
+  firstDeviceOnboardingGuard: FirstDeviceOnboardingGuard
   firstDeviceActionLoading: boolean
   firstDeviceTestResult: string
-  firstDeviceBrowserTest: any
-  firstDeviceChart: any
-  deploymentHealthRows: any[]
+  firstDeviceBrowserTest: FirstDeviceBrowserTestState
+  firstDeviceChart: FirstDeviceChartState
+  deploymentHealthRows: NormalizedDeploymentHealthRow[]
   buildFirstDeviceSupportSummary: (options: {
     latestProofText: string
     activeTestCommand?: { label: string } | null
@@ -92,7 +105,7 @@ interface Props {
 
 const props = defineProps<Props>()
 const emit = defineEmits<{
-  openHomeGuideStep: [step: any]
+  openHomeGuideStep: [step: HomeCustomerGuideProgressStep]
   refreshHomeGuideProgress: []
   refreshFirstDeviceWorkbench: []
   updateFirstRunProtocol: [protocol: HomeFirstRunProtocol]
@@ -109,8 +122,10 @@ const emit = defineEmits<{
 
 const firstDeviceCoreGuideSteps = computed(() => filterFirstDeviceCoreGuideSteps(props.homeCustomerGuideProgress))
 const firstDeviceNextGuideSteps = computed(() => filterFirstDeviceNextGuideSteps(props.homeCustomerGuideProgress))
-const firstDeviceNextActiveGuideStep = computed(
-  () => firstDeviceNextGuideSteps.value.find((step: any) => step.status === 'active') || null
+const firstDeviceNextActiveGuideStep = computed<HomeCustomerGuideProgressStep | null>(
+  () =>
+    (firstDeviceNextGuideSteps.value.find(step => step.status === 'active') as HomeCustomerGuideProgressStep) ||
+    null
 )
 const firstDevicePostReadyHandoff = computed(() =>
   buildFirstDevicePostReadyHandoff({
@@ -121,19 +136,19 @@ const firstDevicePostReadyHandoff = computed(() =>
 const firstDeviceReadyNextGuideDescription = computed(() => {
   return (
     firstDevicePostReadyHandoff.value?.description ||
-    'È¶ñÈ°µÂ∑≤ÁªèÁúãÂà∞Âú®Á∫øÁä∂ÊÄÅ„ÄÅÊúÄÊñ∞ÈÅ•ÊµãÂíåÁ¨¨‰∏ÄÂº†ÂõæË°®ÔºõÁé∞Âú®ËøôÂ•óÊé•ÂÖ•ÊñπÂºèÂèØ‰ª•ÁªßÁª≠Â§çÂà∂ÁªôÊõ¥Â§öËÆæÂ§á„ÄÇ'
+    ' ◊“≥“—æ≠ø¥µΩ‘⁄œﬂ◊¥Ã¨°¢◊Ó–¬“£≤‚∫Õµ⁄“ª’≈Õº±Ì£ªœ÷‘⁄’‚Ã◊Ω”»Î∑Ω Ωø…“‘ºÃ–¯∏¥÷∆∏¯∏¸∂‡…Ë±∏°£'
   )
 })
 const firstDeviceCoreGuideSummary = computed(() => buildFirstDeviceCoreGuideSummary(firstDeviceCoreGuideSteps.value))
 const firstRunSetupBlockerStep = computed(
   () =>
-    props.firstRunSetupBlockerStep || props.homeCustomerGuideProgress.find((step: any) => step.id === 'setup') || null
+    props.firstRunSetupBlockerStep || props.homeCustomerGuideProgress.find(step => step.id === 'setup') || null
 )
-const firstRunSetupBlockerTitle = computed(() => firstRunSetupBlockerStep.value?.title || 'ÂÖàÂÆåÊàêÁßüÊà∑ÂàùÂßãÂåñ')
+const firstRunSetupBlockerTitle = computed(() => firstRunSetupBlockerStep.value?.title || 'œ»ÕÍ≥…◊‚ªß≥ı ºªØ')
 const firstRunSetupBlockerDescription = computed(
-  () => firstRunSetupBlockerStep.value?.description || 'ËØ∑ÂÖàÂÆåÊàêÂàùÂßãÂåñÔºåÂÜçÂõûÂà∞ËøôÈáåÁîüÊàêÁ¨¨‰∏ÄÂè∞ËÆæÂ§á„ÄÇ'
+  () => firstRunSetupBlockerStep.value?.description || '«Îœ»ÕÍ≥…≥ı ºªØ£¨‘ŸªÿµΩ’‚¿Ô…˙≥…µ⁄“ªÃ®…Ë±∏°£'
 )
-const firstRunSetupBlockerAction = computed(() => firstRunSetupBlockerStep.value?.action || 'ÂéªÂ§ÑÁêÜÂàùÂßãÂåñ')
+const firstRunSetupBlockerAction = computed(() => firstRunSetupBlockerStep.value?.action || '»•¥¶¿Ì≥ı ºªØ')
 const deviceIdentitySectionRef = ref<HTMLElement | null>(null)
 const connectionTestViewportRef = ref<HTMLElement | null>(null)
 const connectionTestSectionRef = ref<{ connectionEl: HTMLElement | null; testCommandEl: HTMLElement | null } | null>(
@@ -149,20 +164,26 @@ const supportSummarySectionRef = ref<{ openPreview: () => void } | null>(null)
 const setConnectionTestViewportRef = (element: HTMLElement | null) => {
   connectionTestViewportRef.value = element
 }
-const setConnectionTestSectionRef = (instance: typeof connectionTestSectionRef.value) => {
-  connectionTestSectionRef.value = instance
+const setConnectionTestSectionRef = (instance: Element | ComponentPublicInstance | null) => {
+  connectionTestSectionRef.value = instance as {
+    connectionEl: HTMLElement | null
+    testCommandEl: HTMLElement | null
+  } | null
 }
 const setSuccessProofViewportRef = (element: HTMLElement | null) => {
   successProofViewportRef.value = element
 }
-const setSuccessProofSectionRef = (instance: typeof successProofSectionRef.value) => {
-  successProofSectionRef.value = instance
+const setSuccessProofSectionRef = (instance: Element | ComponentPublicInstance | null) => {
+  successProofSectionRef.value = instance as {
+    chartSectionEl: HTMLElement | null
+    proofSectionEl: HTMLElement | null
+  } | null
 }
 const setSupportSummaryViewportRef = (element: HTMLElement | null) => {
   supportSummaryViewportRef.value = element
 }
-const setSupportSummarySectionRef = (instance: typeof supportSummarySectionRef.value) => {
-  supportSummarySectionRef.value = instance
+const setSupportSummarySectionRef = (instance: Element | ComponentPublicInstance | null) => {
+  supportSummarySectionRef.value = instance as { openPreview: () => void } | null
 }
 const { shouldMount: shouldMountConnectionTestSection, mountNow: mountConnectionTestSection } =
   useViewportDeferredMount(connectionTestViewportRef, { rootMargin: '480px 0px', fallbackDelay: 600 })
@@ -176,7 +197,7 @@ const pendingSupportSummaryPreviewOpen = ref(false)
 const deploymentHealthSectionRef = ref<HTMLElement | null>(null)
 const firstFailedDeploymentHealthRow = computed(() => props.deploymentHealthRows.find((row) => !row.ok) || null)
 const firstDeviceCurrentBlocker = computed(
-  () => props.firstDeviceReadyProof.items?.find((item: any) => !item.ok) || null
+  () => props.firstDeviceReadyProof.items?.find(item => !item.ok) || null
 )
 const firstDevicePrimaryAction = computed(
   () =>
@@ -307,10 +328,10 @@ const firstDeviceVerificationAction = computed(() =>
   })
 )
 
-const getFirstDeviceFlowNodeAction = (node: any) => {
+const getFirstDeviceFlowNodeAction = node => {
   if (node.key === 'deployment') {
     return {
-      label: node.ok ? 'ÈáçÊñ∞Ê£ÄÊü•' : 'Ê£ÄÊü•ÈÉ®ÁΩ≤',
+      label: node.ok ? '÷ÿ–¬ºÏ≤È' : 'ºÏ≤È≤ø ',
       disabled: false,
       loading: props.deploymentHealthLoading,
       run: () => emit('refreshDeploymentHealth')
@@ -319,13 +340,13 @@ const getFirstDeviceFlowNodeAction = (node: any) => {
   if (node.key === 'identity') {
     return props.firstDevice
       ? {
-          label: 'ÊâìÂºÄ Ready Check',
+          label: '¥Úø™ Ready Check',
           disabled: false,
           loading: false,
           run: () => emit('openFirstDeviceAccessGuide')
         }
       : {
-          label: 'ÁîüÊàêËÆæÂ§á',
+          label: '…˙≥……Ë±∏',
           disabled: props.firstRunCreateTenantRequired || !props.deploymentHealthOk,
           loading: props.firstRunCreateLoading,
           run: () => emit('createFirstRunFirstDevice')
@@ -334,14 +355,14 @@ const getFirstDeviceFlowNodeAction = (node: any) => {
   if (node.key === 'connection') {
     if (props.firstDeviceOnboardingGuard.canCopyCommand && activeFirstDeviceTestCommand.value?.code) {
       return {
-        label: 'Â§çÂà∂ÊµãËØïÂëΩ‰ª§',
+        label: '∏¥÷∆≤‚ ‘√¸¡Ó',
         disabled: false,
         loading: false,
         run: () => void copyActiveFirstDeviceTestCommand()
       }
     }
     return {
-      label: 'ÊâìÂºÄÊé•ÂÖ•ÊåáÂçó',
+      label: '¥Úø™Ω”»Î÷∏ƒœ',
       disabled: false,
       loading: false,
       run: () => emit('openFirstDeviceFullGuide')
@@ -350,13 +371,13 @@ const getFirstDeviceFlowNodeAction = (node: any) => {
   if (node.key === 'browser_test') {
     return props.firstDeviceOnboardingGuard.canRunBrowserTest
       ? {
-          label: node.ok ? 'ÂÜçÊ¨°ÊµãËØï' : 'ÊµèËßàÂô®ÊµãËØï',
+          label: node.ok ? '‘Ÿ¥Œ≤‚ ‘' : '‰Ø¿¿∆˜≤‚ ‘',
           disabled: false,
           loading: props.firstDeviceActionLoading,
           run: () => emit('simulateFirstDeviceTelemetry')
         }
       : {
-          label: 'ÊâìÂºÄ Ready Check',
+          label: '¥Úø™ Ready Check',
           disabled: false,
           loading: false,
           run: () => emit('openFirstDeviceAccessGuide')
@@ -364,14 +385,14 @@ const getFirstDeviceFlowNodeAction = (node: any) => {
   }
   if (node.key === 'online' || node.key === 'telemetry') {
     return {
-      label: 'Êü•Áúã Ready Check',
+      label: '≤Èø¥ Ready Check',
       disabled: false,
       loading: false,
       run: () => emit('openFirstDeviceAccessGuide')
     }
   }
   return {
-    label: node.ok ? 'Êü•ÁúãÊé•ÂÖ•ÊåáÂçó' : 'ÁªßÁª≠Â§ÑÁêÜ',
+    label: node.ok ? '≤Èø¥Ω”»Î÷∏ƒœ' : 'ºÃ–¯¥¶¿Ì',
     disabled: false,
     loading: false,
     run: () => (node.ok ? emit('openFirstDeviceFullGuide') : runFirstDevicePrimaryAction())
@@ -446,7 +467,7 @@ const firstDeviceTestCommands = computed(() =>
 )
 const activeFirstDeviceTestCommand = computed(
   () =>
-    firstDeviceTestCommands.value.find((command: any) => command.language === selectedFirstDeviceTestCommand.value) ||
+    firstDeviceTestCommands.value.find(command => command.language === selectedFirstDeviceTestCommand.value) ||
     firstDeviceTestCommands.value[0] ||
     null
 )
@@ -461,12 +482,12 @@ const firstDeviceOnlineTesterState = computed(() =>
   })
 )
 const getFirstDeviceClosedLoopState = (key: string, done = false) => {
-  const node = firstDeviceFlowNodes.value.find((item: any) => item.key === key)
+  const node = firstDeviceFlowNodes.value.find(item => item.key === key)
   const state = done || node?.ok ? 'done' : node?.state === 'active' ? 'active' : 'todo'
 
   return {
     state,
-    stateLabel: state === 'done' ? 'Â∑≤ÂÆåÊàê' : state === 'active' ? 'Áé∞Âú®ÂÅö' : 'Á≠âÂæÖ',
+    stateLabel: state === 'done' ? '“—ÕÍ≥…' : state === 'active' ? 'œ÷‘⁄◊ˆ' : 'µ»¥˝',
     stateType: state === 'done' ? 'success' : state === 'active' ? 'warning' : 'default'
   }
 }
@@ -492,9 +513,9 @@ const firstDeviceClosedLoopSteps = computed(() => {
       key: 'deployment',
       section: 'deployment',
       order: '01',
-      title: 'ÈÉ®ÁΩ≤ÂÅ•Â∫∑',
-      detail: props.deploymentHealthOk ? 'ÂâçÁ´Ø„ÄÅAPI„ÄÅDB„ÄÅRedis„ÄÅMQTT ÂèØÁî®' : 'ÂÖàÁ°ÆËÆ§ÈÉ®ÁΩ≤ÁªÑ‰ª∂ÈÉΩÊ≠£Â∏∏',
-      actionLabel: props.deploymentHealthOk ? 'ÈáçÊñ∞Ê£ÄÊü•' : 'Ê£ÄÊü•ÈÉ®ÁΩ≤',
+      title: '≤ø Ω°øµ',
+      detail: props.deploymentHealthOk ? '«∞∂À°¢API°¢DB°¢Redis°¢MQTT ø…”√' : 'œ»»∑»œ≤ø ◊Èº˛∂º’˝≥£',
+      actionLabel: props.deploymentHealthOk ? '÷ÿ–¬ºÏ≤È' : 'ºÏ≤È≤ø ',
       disabled: false,
       loading: props.deploymentHealthLoading,
       ...deployment
@@ -503,11 +524,11 @@ const firstDeviceClosedLoopSteps = computed(() => {
       key: 'identity',
       section: 'device',
       order: '02',
-      title: 'ÂàõÂª∫‰∫ßÂìÅ/ËÆæÂ§á',
+      title: '¥¥Ω®≤˙∆∑/…Ë±∏',
       detail: props.firstDevice
-        ? props.firstDevice.name || props.firstDevice.number || 'Á¨¨‰∏ÄÂè∞ËÆæÂ§áÂ∑≤ÁîüÊàê'
-        : '‰∏ÄÈîÆÁîüÊàêÈªòËÆ§‰∫ßÂìÅ„ÄÅÁâ©Ê®°ÂûãÂíåÁ¨¨‰∏ÄÂè∞ËÆæÂ§á',
-      actionLabel: props.firstDevice ? 'ÂÆö‰ΩçËÆæÂ§á‰ø°ÊÅØ' : '‰∏ÄÈîÆÁîüÊàê',
+        ? props.firstDevice.name || props.firstDevice.number || 'µ⁄“ªÃ®…Ë±∏“—…˙≥…'
+        : '“ªº¸…˙≥…ƒ¨»œ≤˙∆∑°¢ŒÔƒ£–Õ∫Õµ⁄“ªÃ®…Ë±∏',
+      actionLabel: props.firstDevice ? '∂®Œª…Ë±∏–≈œ¢' : '“ªº¸…˙≥…',
       disabled: props.firstRunCreateTenantRequired || !props.deploymentHealthOk,
       loading: props.firstRunCreateLoading,
       ...identity
@@ -516,9 +537,9 @@ const firstDeviceClosedLoopSteps = computed(() => {
       key: 'connection',
       section: 'connection',
       order: '03',
-      title: 'Â§çÂà∂ MQTT/HTTP ÂèÇÊï∞',
-      detail: activeFirstDeviceTestCommand.value?.label || 'Á≠âÂæÖËøûÊé•ÂèÇÊï∞ÂíåÊµãËØïÂëΩ‰ª§',
-      actionLabel: props.firstDeviceOnboardingGuard.canCopyCommand ? 'Â§çÂà∂ÊµãËØïÂëΩ‰ª§' : 'ÁúãÊé•ÂÖ•ÊåáÂçó',
+      title: '∏¥÷∆ MQTT/HTTP ≤Œ ˝',
+      detail: activeFirstDeviceTestCommand.value?.label || 'µ»¥˝¡¨Ω”≤Œ ˝∫Õ≤‚ ‘√¸¡Ó',
+      actionLabel: props.firstDeviceOnboardingGuard.canCopyCommand ? '∏¥÷∆≤‚ ‘√¸¡Ó' : 'ø¥Ω”»Î÷∏ƒœ',
       disabled: !props.firstDevice,
       loading: false,
       ...connection
@@ -527,9 +548,9 @@ const firstDeviceClosedLoopSteps = computed(() => {
       key: 'browser_test',
       section: 'test',
       order: '04',
-      title: 'ÊµèËßàÂô®ÂèëÊµãËØïÊï∞ÊçÆ',
-      detail: props.firstDeviceBrowserTest?.message || '‰∏çÁî®ÁúüÂÆûËÆæÂ§áÔºåÂÖàÂú®ÊµèËßàÂô®ÈáåÊ®°Êãü‰∏äÊä•',
-      actionLabel: props.firstDeviceOnboardingGuard.canRunBrowserTest ? 'ÂèëÈÄÅÊµãËØï' : 'ÊâìÂºÄ Ready Check',
+      title: '‰Ø¿¿∆˜∑¢≤‚ ‘ ˝æ›',
+      detail: props.firstDeviceBrowserTest?.message || '≤ª”√’Ê µ…Ë±∏£¨œ»‘⁄‰Ø¿¿∆˜¿Ôƒ£ƒ‚…œ±®',
+      actionLabel: props.firstDeviceOnboardingGuard.canRunBrowserTest ? '∑¢ÀÕ≤‚ ‘' : '¥Úø™ Ready Check',
       disabled: !props.firstDevice,
       loading: props.firstDeviceActionLoading,
       ...browserTest
@@ -538,9 +559,9 @@ const firstDeviceClosedLoopSteps = computed(() => {
       key: 'telemetry',
       section: 'chart',
       order: '05',
-      title: 'Á°ÆËÆ§Âú®Á∫ø/ÈÅ•Êµã/È¶ñÂõæ',
+      title: '»∑»œ‘⁄œﬂ/“£≤‚/ ◊Õº',
       detail: firstDeviceLatestProofText.value,
-      actionLabel: props.firstDeviceChart.ready ? 'Êü•ÁúãÈ¶ñÂõæ' : 'Âà∑Êñ∞Á°ÆËÆ§',
+      actionLabel: props.firstDeviceChart.ready ? '≤Èø¥ ◊Õº' : 'À¢–¬»∑»œ',
       disabled: !props.firstDevice,
       loading: props.firstDeviceLoading,
       ...telemetry
@@ -549,9 +570,9 @@ const firstDeviceClosedLoopSteps = computed(() => {
       key: 'proof',
       section: 'proof',
       order: '06',
-      title: '‰∏ãËΩΩÊàêÂäüËØÅÊòé',
-      detail: props.firstDeviceReadyProof.ready ? 'ËÆæÂ§áÂ∑≤ÂáÜÂ§áÂ•ΩÔºåÂèØ‰ª•‰∫§‰ªòËØÅÊòé' : 'Á≠âÊâÄÊúâËØÅÊòéÈ°πÂèòÁªøÂêé‰∏ãËΩΩ',
-      actionLabel: props.firstDeviceReadyProof.ready ? '‰∏ãËΩΩËØÅÊòé' : 'Êü•ÁúãÁº∫Âè£',
+      title: 'œ¬‘ÿ≥…π¶÷§√˜',
+      detail: props.firstDeviceReadyProof.ready ? '…Ë±∏“—◊º±∏∫√£¨ø…“‘Ωª∏∂÷§√˜' : 'µ»À˘”–÷§√˜œÓ±‰¬Ã∫Ûœ¬‘ÿ',
+      actionLabel: props.firstDeviceReadyProof.ready ? 'œ¬‘ÿ÷§√˜' : '≤Èø¥»±ø⁄',
       disabled: !props.firstDevice,
       loading: false,
       ...proof
@@ -565,7 +586,7 @@ watch(
       selectedFirstDeviceTestCommand.value = ''
       return
     }
-    if (!commands.some((command: any) => command.language === selectedFirstDeviceTestCommand.value)) {
+    if (!commands.some(command => command.language === selectedFirstDeviceTestCommand.value)) {
       selectedFirstDeviceTestCommand.value = commands[0].language
     }
   },
@@ -616,7 +637,7 @@ const copyActiveFirstDeviceTestCommand = async () => {
     window.$message?.error($t('common.copyFailed'))
   }
 }
-const runFirstDeviceClosedLoopStep = (step: any) => {
+const runFirstDeviceClosedLoopStep = step => {
   if (step.disabled) {
     void focusSection(step.section)
     return
@@ -846,7 +867,7 @@ const runFirstDevicePrimaryAction = () => {
       :first-device-loading="firstDeviceLoading"
       :deployment-health-loading="deploymentHealthLoading"
       :automation-guide-loading="automationGuideLoading"
-      @open-home-guide-step="emit('openHomeGuideStep', $event)"
+      @open-home-guide-step="emit('openHomeGuideStep', $event as HomeCustomerGuideProgressStep)"
       @refresh-home-guide-progress="emit('refreshHomeGuideProgress')"
     />
 
@@ -874,7 +895,7 @@ const runFirstDevicePrimaryAction = () => {
           @focus-current-focused-quickstart-section="focusCurrentFocusedQuickstartSection"
           @open-first-device-support-summary-preview="openFirstDeviceSupportSummaryPreview"
           @download-success-proof="downloadFirstDeviceSuccessProof"
-          @open-home-guide-step="emit('openHomeGuideStep', $event)"
+          @open-home-guide-step="emit('openHomeGuideStep', $event as HomeCustomerGuideProgressStep)"
           @focus-first-device-section="focusFirstDeviceSection"
         />
 
@@ -899,7 +920,7 @@ const runFirstDevicePrimaryAction = () => {
             @create-first-run-first-device="emit('createFirstRunFirstDevice')"
             @open-manual-device-add="emit('openManualDeviceAdd')"
             @open-things-model="emit('openThingsModel')"
-            @open-home-guide-step="emit('openHomeGuideStep', $event)"
+            @open-home-guide-step="emit('openHomeGuideStep', $event as HomeCustomerGuideProgressStep)"
           />
         </div>
 
@@ -956,7 +977,7 @@ const runFirstDevicePrimaryAction = () => {
           @simulate-first-device-telemetry="emit('simulateFirstDeviceTelemetry')"
           @open-first-device-full-guide="emit('openFirstDeviceFullGuide')"
           @open-first-device-access-guide="emit('openFirstDeviceAccessGuide')"
-          @open-home-guide-step="emit('openHomeGuideStep', $event)"
+          @open-home-guide-step="emit('openHomeGuideStep', $event as HomeCustomerGuideProgressStep)"
           @focus-proof="focusSection('proof')"
           @focus-connection="focusSection('connection')"
           @open-support-summary-preview="openFirstDeviceSupportSummaryPreview"

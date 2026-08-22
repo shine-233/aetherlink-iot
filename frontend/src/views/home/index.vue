@@ -5,24 +5,14 @@
 重构建议：后续可继续拆分数据编排、列配置和弹窗流程，降低页面级组件复杂度。
 -->
 <script setup lang="ts">
-import { computed, defineAsyncComponent, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { router } from '@/router'
-import { normalizeLocalDashboard } from '@/components/local-visualization-viewer'
-import { fetchCompatHomeConfig } from '@/service/api'
 import { sceneAutomationsGet } from '@/service/api/automation'
 import { fetchTenantSetupState } from '@/service/api/auth'
-import {
-  loadVisualizationHomeDashboard,
-  probeVisualizationHomeDashboard,
-  type VisualizationHomeDashboard,
-  type VisualizationHomeLoadResult
-} from '@/service/visualization-provider/home-dashboard'
 import { $t } from '@/locales'
 import { useAuthStore } from '@/store/modules/auth'
-import { clearThingsVisHomeCache, readThingsVisHomeCache, writeThingsVisHomeCache } from '@/utils/thingsvis/home-cache'
 import { isSysAdminUser } from '@/utils/thingsvis/space'
-import { NATIVE_BOARD_PROVIDER_ID } from '@/service/visualization-provider/provider-ids'
 import { readNativeBoardTenantContext } from '@/service/visualization-provider/native-tenant-context'
 import {
   buildHomeCustomerGuideProgress,
@@ -48,16 +38,11 @@ import {
 } from './homeFirstRunStorage'
 import { createHomeGuideRefreshCoordinator } from './homeGuideRefreshCoordinator'
 import { useHomeFirstDeviceWorkbench } from './useHomeFirstDeviceWorkbench'
-import { useViewportDeferredMount } from './useViewportDeferredMount'
+import { isCompleteThingsVisDashboard, isNativeHomeProvider, useHomeLayoutResolver } from './useHomeLayoutResolver'
+import { useFirstDeviceFocusRouter, type HomeFirstDeviceWorkbenchViewExpose } from './useFirstDeviceFocusRouter'
 
 const HomeSecondaryPanel = defineAsyncComponent(() => import('./HomeSecondaryPanel.vue'))
 const HomeFirstDeviceWorkbenchView = defineAsyncComponent(() => import('./HomeFirstDeviceWorkbenchView.vue'))
-
-
-type HomeFirstDeviceWorkbenchViewExpose = {
-  focusDeploymentHealth: () => Promise<void>
-  focusSection: (key: string) => Promise<void>
-}
 
 type TenantSetupNextStep = 'create_super_admin' | 'create_tenant_admin' | 'login'
 
@@ -80,12 +65,7 @@ const defaultTenantSetupState = (): TenantSetupState => ({
 })
 
 const firstDeviceWorkbenchViewRef = ref<HomeFirstDeviceWorkbenchViewExpose | null>(null)
-const layoutFetched = ref(false)
-const hasCompatHomeConfig = ref(false)
-const compatHomeConfigCount = ref(0)
-const isError = ref<boolean>(false)
 const active = ref<boolean>(true)
-const showSysAdminSetup = ref(false)
 const authStore = useAuthStore()
 const route = useRoute()
 const isSysAdmin = computed(() => isSysAdminUser(authStore.userInfo))
@@ -93,53 +73,23 @@ const isFirstDeviceOnboardingRoute = computed(() => {
   const routeHash = String(route.hash || '').replace(/^#/, '')
   return route.query.onboarding === 'first-device' || routeHash.startsWith('first-device')
 })
+const homeFirstRunTenantId = computed(() => getHomeFirstRunTenantId(authStore.userInfo))
+const nativeHomeTenantId = computed(() => homeFirstRunTenantId.value || readNativeBoardTenantContext(authStore.userInfo))
+const hasHomeFirstRunTenantContext = computed(() => Boolean(homeFirstRunTenantId.value))
+const hasNativeHomeTenantContext = computed(() => Boolean(nativeHomeTenantId.value))
 
-// ThingsVis 首页相关
-const thingsVisHome = ref<VisualizationHomeDashboard | null>(null)
-const useThingsVis = ref(false)
-const isThingsVisLoading = ref(false)
-const homeThingsVisSectionRef = ref<HTMLElement | null>(null)
-const homeThingsVisFrameMount = useViewportDeferredMount(homeThingsVisSectionRef, {
-  rootMargin: '360px 0px',
-  fallbackDelay: 600
-})
-const shouldMountHomeThingsVisFrame = homeThingsVisFrameMount.shouldMount
-const showCompatHomeNotice = computed(() => !useThingsVis.value && layoutFetched.value && hasCompatHomeConfig.value)
-const isHomeResolving = computed(() => !layoutFetched.value || isThingsVisLoading.value)
-const isNativeHomeProvider = import.meta.env.VITE_ENABLE_THINGSVIS_COMPAT !== 'Y'
-const homeVisualizationPath = computed(() =>
-  isNativeHomeProvider ? '/visualization/native-boards' : '/visualization/thingsvis'
-)
-const showHomeResolvingGate = computed(
-  () => isSysAdmin.value && isHomeResolving.value && !isFirstDeviceOnboardingRoute.value
-)
-const nativeTenantContextRequired = ref(false)
-const homeDashboardUnavailable = ref(false)
-const sysAdminSetupTitle = computed(() => {
-  if (nativeTenantContextRequired.value) return $t('custom.home.sysAdminSetup.nativeTenantContextTitle')
-  if (homeDashboardUnavailable.value) {
-    return $t(
-      isNativeHomeProvider
-        ? 'custom.home.sysAdminSetup.nativeUnavailableTitle'
-        : 'custom.home.sysAdminSetup.unavailableTitle'
-    )
+const scheduleIdleHomeTask = (task: () => void, fallbackDelay = 100) => {
+  if (typeof window === 'undefined') {
+    task()
+    return
   }
-  return $t('custom.home.sysAdminSetup.missingDashboardTitle')
-})
-const sysAdminSetupDescription = computed(() => {
-  if (nativeTenantContextRequired.value) return $t('custom.home.sysAdminSetup.nativeTenantContextDescription')
-  if (homeDashboardUnavailable.value) {
-    return $t(
-      isNativeHomeProvider
-        ? 'custom.home.sysAdminSetup.nativeUnavailableDescription'
-        : 'custom.home.sysAdminSetup.unavailableDescription'
-    )
+  if ('requestIdleCallback' in window) {
+    window.requestIdleCallback(task, { timeout: 2000 })
+    return
   }
-  return $t('custom.home.sysAdminSetup.missingDashboardDescription')
-})
-const sysAdminSetupAction = computed(() =>
-  isNativeHomeProvider ? $t('custom.home.actions.openNativeBoards') : $t('custom.home.actions.openThingsVis')
-)
+  ;(window as Window).setTimeout(task, fallbackDelay)
+}
+
 const deploymentHealthLoading = ref(false)
 const deploymentHealth = ref<DeploymentHealthReport | null>(null)
 const deploymentHealthRows = computed(() => normalizeDeploymentHealth(deploymentHealth.value, $t))
@@ -156,10 +106,6 @@ const firstRunProtocol = ref<HomeFirstRunProtocol>('MQTT')
 const firstRunCreateResult = ref<HomeFirstRunQuickCreateResult | null>(null)
 const firstRunCreateTenantRequired = ref(false)
 const tenantSetupState = ref<TenantSetupState>(defaultTenantSetupState())
-const homeFirstRunTenantId = computed(() => getHomeFirstRunTenantId(authStore.userInfo))
-const nativeHomeTenantId = computed(() => homeFirstRunTenantId.value || readNativeBoardTenantContext(authStore.userInfo))
-const hasHomeFirstRunTenantContext = computed(() => Boolean(homeFirstRunTenantId.value))
-const hasNativeHomeTenantContext = computed(() => Boolean(nativeHomeTenantId.value))
 const tenantSetupNextStep = computed<TenantSetupNextStep>(() => {
   if (!tenantSetupState.value?.has_admin) return 'create_super_admin'
   return tenantSetupState.value?.next_step || 'login'
@@ -235,11 +181,49 @@ const copyFirstDevicePublishCommand = firstDeviceWorkbench.copyPublishCommand
 const simulateFirstDeviceTelemetry = firstDeviceWorkbench.simulateTelemetry
 const firstDeviceWorkbenchLoaded = ref(false)
 let firstDeviceWorkbenchLoadPromise: Promise<void> | null = null
-const skipNextDefaultFirstDeviceFocus = ref(false)
-const FIRST_DEVICE_FOCUS_REF_RETRY_LIMIT = 40
-const FIRST_DEVICE_FOCUS_REF_RETRY_DELAY_MS = 50
 const firstRunGuideState = ref<HomeFirstRunGuideState | null>(
   loadHomeFirstRunGuideState(typeof window === 'undefined' ? null : window.localStorage)
+)
+const shouldShowHomeSecondarySections = computed(
+  () => !isFirstDeviceOnboardingRoute.value || Boolean(firstDeviceReadyProof.value.ready)
+)
+const {
+  layoutFetched,
+  hasCompatHomeConfig,
+  compatHomeConfigCount,
+  isError,
+  showSysAdminSetup,
+  thingsVisHome,
+  useThingsVis,
+  nativeTenantContextRequired,
+  homeDashboardUnavailable,
+  showCompatHomeNotice,
+  isHomeResolving,
+  sysAdminSetupTitle,
+  sysAdminSetupDescription,
+  homeResolvingDescription,
+  homeThingsVisSectionRef,
+  shouldMountHomeThingsVisFrame,
+  mountHomeThingsVisFrame,
+  resetHomeThingsVisFrame,
+  observeHomeThingsVisFrame,
+  refreshThingsVisHomeDashboardInBackground,
+  getLayout
+} = useHomeLayoutResolver({
+  isSysAdmin,
+  nativeTenantId: nativeHomeTenantId,
+  hasNativeHomeTenantContext,
+  shouldShowSecondarySections: shouldShowHomeSecondarySections,
+  scheduleIdleTask: scheduleIdleHomeTask
+})
+const sysAdminSetupAction = computed(() =>
+  isNativeHomeProvider ? $t('custom.home.actions.openNativeBoards') : $t('custom.home.actions.openThingsVis')
+)
+const homeVisualizationPath = computed(() =>
+  isNativeHomeProvider ? '/visualization/native-boards' : '/visualization/thingsvis'
+)
+const showHomeResolvingGate = computed(
+  () => isSysAdmin.value && isHomeResolving.value && !isFirstDeviceOnboardingRoute.value
 )
 const homeCustomerGuideProgress = computed(() =>
   buildHomeCustomerGuideProgress({
@@ -270,285 +254,6 @@ const homeFirstRunResumeText = computed(() => {
     lastAction: state.lastAction || $t('custom.home.resume.nextAction')
   })
 })
-const shouldShowHomeSecondarySections = computed(
-  () => !isFirstDeviceOnboardingRoute.value || Boolean(firstDeviceReadyProof.value.ready)
-)
-
-function isCompleteThingsVisDashboard(dashboard?: VisualizationHomeDashboard | null): boolean {
-  if (!dashboard || !dashboard.canvasConfig || typeof dashboard.canvasConfig !== 'object') return false
-
-  if (dashboard.providerId === NATIVE_BOARD_PROVIDER_ID) {
-    return normalizeLocalDashboard(dashboard.rendererData).ok
-  }
-
-  if (!Array.isArray(dashboard.nodes) || dashboard.nodes.length === 0) return false
-  if (!Array.isArray(dashboard.dataSources) || dashboard.dataSources.length === 0) return false
-  return true
-}
-
-// ThingsVis 请求失败时的重试状态（针对超管首次登录场景）
-const thingsVisRetryCount = ref(0)
-const MAX_THINGSVIS_RETRY = 5 // 增加到 5 次重试
-const THINGSVIS_HOME_DASHBOARD_BUDGET_MS = 1800
-
-const homeResolvingDescription = computed(() => {
-  if (thingsVisRetryCount.value > 0) {
-    return $t('custom.home.resolvingRetryDescription', { count: thingsVisRetryCount.value })
-  }
-
-  if (isThingsVisLoading.value) {
-    return $t('custom.home.resolvingThingsVisDescription')
-  }
-
-  return $t('custom.home.resolvingDescription')
-})
-
-const parseCompatHomeConfigCount = (config: unknown): number => {
-  if (Array.isArray(config)) return config.length
-  if (config && typeof config === 'object' && Array.isArray((config as { layout?: unknown[] }).layout)) {
-    return (config as { layout: unknown[] }).layout.length
-  }
-  return 0
-}
-
-const loadCompatHomeState = async () => {
-  const { data, error } = await fetchCompatHomeConfig({})
-
-  if (error || !data?.config) {
-    isError.value = Boolean(error)
-    hasCompatHomeConfig.value = false
-    compatHomeConfigCount.value = 0
-    layoutFetched.value = true
-    return
-  }
-
-  try {
-    const configJson = JSON.parse(data.config)
-    compatHomeConfigCount.value = parseCompatHomeConfigCount(configJson)
-    hasCompatHomeConfig.value = compatHomeConfigCount.value > 0
-    isError.value = false
-  } catch {
-    isError.value = true
-    hasCompatHomeConfig.value = false
-    compatHomeConfigCount.value = 0
-  }
-  layoutFetched.value = true
-}
-
-const loadThingsVisHomeDashboardWithBudget = async (
-  fallbackDashboard: VisualizationHomeDashboard | null,
-  budgetMs = THINGSVIS_HOME_DASHBOARD_BUDGET_MS,
-  tenantId?: string
-) : Promise<VisualizationHomeLoadResult & { timedOut?: boolean }> => {
-  if (fallbackDashboard) {
-    return { ok: true, data: fallbackDashboard, timedOut: false }
-  }
-
-  let timeoutId: ReturnType<typeof setTimeout> | undefined
-  const dashboardRequest = loadVisualizationHomeDashboard(tenantId ? { tenantId } : undefined)
-  const timeoutRequest = new Promise<{ result: VisualizationHomeLoadResult; timedOut: true }>((resolve) => {
-    timeoutId = setTimeout(() => resolve({ result: { ok: true, data: null }, timedOut: true }), budgetMs)
-  })
-
-  const result = await Promise.race([
-    dashboardRequest.then((result) => ({ result, timedOut: false as const })),
-    timeoutRequest
-  ])
-  if (timeoutId) clearTimeout(timeoutId)
-  if (result.timedOut && !isSysAdmin.value) {
-    void dashboardRequest
-      .then((lateResult) => {
-        const dashboard = lateResult.ok ? lateResult.data : null
-        if (lateResult.ok && isCompleteThingsVisDashboard(dashboard)) {
-          writeThingsVisHomeCache('thingsvis', dashboard)
-        }
-      })
-      .catch(() => {})
-  }
-  return { ...result.result, timedOut: result.timedOut }
-}
-
-const refreshThingsVisHomeDashboardInBackground = async () => {
-  if (isSysAdmin.value) return
-  try {
-    const probe = await probeVisualizationHomeDashboard()
-    if (!probe.reachable) return
-    const result = probe.dashboard
-      ? { ok: true as const, data: probe.dashboard }
-      : await loadThingsVisHomeDashboardWithBudget(null, THINGSVIS_HOME_DASHBOARD_BUDGET_MS)
-    if ('timedOut' in result && result.timedOut) return
-
-    const dashboard = result.ok ? result.data : null
-    if (result.ok && isCompleteThingsVisDashboard(dashboard)) {
-      thingsVisHome.value = dashboard
-      useThingsVis.value = true
-      thingsVisRetryCount.value = 0
-      writeThingsVisHomeCache('thingsvis', dashboard)
-      return
-    }
-
-    const resultStatus = result.ok === false ? result.error.status : undefined
-    if (!dashboard && (result.ok || resultStatus === 404)) {
-      writeThingsVisHomeCache('classic')
-    }
-  } catch {
-    // Keep the current homepage fallback usable when ThingsVis is slow or unavailable.
-  }
-}
-
-let layoutLoadPromise: Promise<void> | null = null
-
-const resolveHomeLayout = async (retryCount = 0): Promise<void> => {
-  isError.value = false
-  showSysAdminSetup.value = false
-  useThingsVis.value = false
-  thingsVisHome.value = null
-  nativeTenantContextRequired.value = false
-  homeDashboardUnavailable.value = false
-  layoutFetched.value = false
-  hasCompatHomeConfig.value = false
-  compatHomeConfigCount.value = 0
-
-  // Native home boards are tenant-scoped. SYS_ADMIN must select the target
-  // tenant from Native boards before this page can read or modify a board;
-  // never infer a tenant from the first available record.
-  if (isNativeHomeProvider && isSysAdmin.value && !hasNativeHomeTenantContext.value) {
-    nativeTenantContextRequired.value = true
-    showSysAdminSetup.value = true
-    layoutFetched.value = true
-    return
-  }
-
-  const cachedHome = readThingsVisHomeCache()
-  if (!isNativeHomeProvider && cachedHome?.state === 'thingsvis' && isCompleteThingsVisDashboard(cachedHome.dashboard)) {
-    thingsVisHome.value = cachedHome.dashboard ?? null
-    useThingsVis.value = true
-    layoutFetched.value = true
-    return
-  }
-  if (cachedHome?.state === 'thingsvis') {
-    clearThingsVisHomeCache()
-  }
-
-  if (cachedHome?.state === 'sysadmin-setup' && isSysAdmin.value) {
-    showSysAdminSetup.value = true
-    layoutFetched.value = true
-    return
-  }
-
-  if (cachedHome?.state === 'classic' && !isSysAdmin.value) {
-    await loadCompatHomeState()
-    scheduleIdleHomeTask(() => {
-      void refreshThingsVisHomeDashboardInBackground()
-    }, 300)
-    return
-  }
-
-  if (!isSysAdmin.value) {
-    await loadCompatHomeState()
-    scheduleIdleHomeTask(() => {
-      void refreshThingsVisHomeDashboardInBackground()
-    }, 300)
-    return
-  }
-
-  const thingsVisProbe = await probeVisualizationHomeDashboard(
-    nativeHomeTenantId.value ? { tenantId: nativeHomeTenantId.value } : undefined
-  )
-  if (!thingsVisProbe.reachable) {
-    homeDashboardUnavailable.value = true
-
-    if (isSysAdmin.value) {
-      showSysAdminSetup.value = true
-      layoutFetched.value = true
-      return
-    }
-
-    if (isSysAdmin.value) {
-      writeThingsVisHomeCache('classic')
-    }
-    await loadCompatHomeState()
-    return
-  }
-
-  // 先检查 ThingsVis 是否有首页的仪表盘
-  try {
-    isThingsVisLoading.value = true
-    const thingsVisResult = thingsVisProbe.dashboard
-      ? { ok: true as const, data: thingsVisProbe.dashboard }
-      : await loadThingsVisHomeDashboardWithBudget(null, THINGSVIS_HOME_DASHBOARD_BUDGET_MS, nativeHomeTenantId.value)
-    isThingsVisLoading.value = false
-    if ('timedOut' in thingsVisResult && thingsVisResult.timedOut) {
-      if (isSysAdmin.value) {
-        showSysAdminSetup.value = true
-        layoutFetched.value = true
-        return
-      }
-      await loadCompatHomeState()
-      return
-    }
-    const homeNotConfigured = thingsVisResult.ok ? !thingsVisResult.data : thingsVisResult.error.status === 404
-    const dashboard = thingsVisResult.ok ? thingsVisResult.data : null
-    if (thingsVisResult.ok && dashboard) {
-      thingsVisHome.value = dashboard
-      useThingsVis.value = true
-      layoutFetched.value = true
-      thingsVisRetryCount.value = 0
-      writeThingsVisHomeCache('thingsvis', dashboard)
-      return
-    }
-
-    // ThingsVis 请求成功但没有数据，可能是首次登录看板尚未创建
-    // 等待一下再重试
-    if (homeNotConfigured && isSysAdmin.value && retryCount < MAX_THINGSVIS_RETRY) {
-      thingsVisRetryCount.value = retryCount + 1
-      await new Promise((resolve) => setTimeout(resolve, 500 * (retryCount + 1)))
-      return resolveHomeLayout(retryCount + 1)
-    }
-
-    if (isSysAdmin.value) {
-      if (!homeNotConfigured && !thingsVisResult.ok) {
-        isError.value = true
-        layoutFetched.value = true
-        return
-      }
-
-      showSysAdminSetup.value = true
-      layoutFetched.value = true
-      thingsVisRetryCount.value = 0
-      writeThingsVisHomeCache('sysadmin-setup')
-      return
-    }
-
-    if (homeNotConfigured) {
-      writeThingsVisHomeCache('classic')
-    }
-  } catch (e) {
-    // ThingsVis 服务不可用，继续使用现有首页兜底
-    isThingsVisLoading.value = false
-    homeDashboardUnavailable.value = true
-    if (isSysAdmin.value) {
-      showSysAdminSetup.value = true
-      layoutFetched.value = true
-      return
-    }
-  }
-
-  // 使用轻量兼容首页提示，避免再走已退场的 classic card 渲染链
-  await loadCompatHomeState()
-}
-
-const getLayout = async () => {
-  if (layoutLoadPromise) return layoutLoadPromise
-
-  const currentLoad = resolveHomeLayout().finally(() => {
-    if (layoutLoadPromise === currentLoad) {
-      layoutLoadPromise = null
-    }
-  })
-  layoutLoadPromise = currentLoad
-  return currentLoad
-}
 
 const saveFirstRunGuideStep = (
   step: HomeCustomerGuideProgressStep,
@@ -590,69 +295,13 @@ const runFirstDeviceWorkbenchRefresh = async (force = false) => {
 const ensureFirstDeviceWorkbenchLoaded = () => runFirstDeviceWorkbenchRefresh(false)
 const refreshFirstDeviceWorkbench = () => runFirstDeviceWorkbenchRefresh(true)
 
-const waitForFirstDeviceWorkbenchView = async () => {
-  if (firstDeviceWorkbenchViewRef.value) return firstDeviceWorkbenchViewRef.value
-
-  for (let attempt = 0; attempt < FIRST_DEVICE_FOCUS_REF_RETRY_LIMIT; attempt += 1) {
-    await nextTick()
-    if (firstDeviceWorkbenchViewRef.value) return firstDeviceWorkbenchViewRef.value
-    await new Promise((resolve) => window.setTimeout(resolve, FIRST_DEVICE_FOCUS_REF_RETRY_DELAY_MS))
-    if (firstDeviceWorkbenchViewRef.value) return firstDeviceWorkbenchViewRef.value
-  }
-
-  return firstDeviceWorkbenchViewRef.value
-}
-
-const focusHomeWorkbenchSection = async (key: string) => {
-  await ensureFirstDeviceWorkbenchLoaded()
-  const workbenchView = await waitForFirstDeviceWorkbenchView()
-  await (workbenchView?.focusSection(key) || Promise.resolve())
-}
-
-const consumeFirstDeviceFocusQuery = () => {
-  const routeHash = String(route.hash || '').replace(/^#/, '')
-  if (route.query.onboarding !== 'first-device' && !routeHash.startsWith('first-device')) return
-  const queryFocus = Array.isArray(route.query.focus) ? route.query.focus[0] : route.query.focus
-  if (!queryFocus && !routeHash && skipNextDefaultFirstDeviceFocus.value) {
-    skipNextDefaultFirstDeviceFocus.value = false
-    return
-  }
-  const focus = queryFocus || routeHash || 'quickstart'
-  const focusMap: Record<string, string> = {
-    deployment: 'deployment',
-    health: 'deployment',
-    device: 'device',
-    identity: 'device',
-    connection: 'connection',
-    command: 'connection',
-    test: 'test',
-    sample: 'test',
-    tester: 'test',
-    browser_test: 'test',
-    online: 'proof',
-    telemetry: 'chart',
-    chart: 'chart',
-    proof: 'proof',
-    support: 'support',
-    quickstart: 'quickstart',
-    'first-device-proof': 'proof',
-    'first-device-chart': 'chart'
-  }
-  const section = focusMap[String(focus || 'quickstart')] || 'quickstart'
-
-  window.setTimeout(() => {
-    void focusHomeWorkbenchSection(section)
-  }, 0)
-  const shouldClearFocus = Boolean(queryFocus || routeHash)
-  if (!shouldClearFocus) return
-  skipNextDefaultFirstDeviceFocus.value = true
-  const { focus: _focus, ...query } = route.query
-  router.replace({
-    path: route.path,
-    query,
-    hash: ''
-  })
-}
+const { focusHomeWorkbenchSection, consumeFirstDeviceFocusQuery } = useFirstDeviceFocusRouter({
+  workbenchViewRef: firstDeviceWorkbenchViewRef,
+  ensureWorkbenchLoaded: async () => {
+    await ensureFirstDeviceWorkbenchLoaded()
+  },
+  route
+})
 
 const buildFirstAutomationStarterQuery = () => {
   const query: Record<string, string> = {
@@ -855,18 +504,6 @@ const refreshAutomationGuideState = () => {
   return automationGuideRefreshPromise
 }
 
-const scheduleIdleHomeTask = (task: () => void, fallbackDelay = 100) => {
-  if (typeof window === 'undefined') {
-    task()
-    return
-  }
-  if ('requestIdleCallback' in window) {
-    window.requestIdleCallback(task, { timeout: 2000 })
-    return
-  }
-  ;(window as Window).setTimeout(task, fallbackDelay)
-}
-
 const homeGuideRefreshCoordinator = createHomeGuideRefreshCoordinator({
   schedule: scheduleIdleHomeTask,
   refreshTenantSetup: refreshTenantSetupGuideState,
@@ -901,20 +538,6 @@ const scheduleInitialHomeGuideProgress = (retryCount = 0) => {
   }, 100)
 }
 
-const mountHomeThingsVisFrame = () => {
-  if (!useThingsVis.value || !thingsVisHome.value) return
-  homeThingsVisFrameMount.mountNow()
-}
-
-const observeHomeThingsVisFrame = async () => {
-  if (!shouldShowHomeSecondarySections.value || !useThingsVis.value || !thingsVisHome.value) {
-    homeThingsVisFrameMount.reset()
-    return
-  }
-
-  if (shouldMountHomeThingsVisFrame.value) return
-  await homeThingsVisFrameMount.observe()
-}
 onMounted(() => {
   consumeFirstDeviceFocusQuery()
   if (shouldShowHomeSecondarySections.value) {
@@ -946,7 +569,7 @@ watch(
 
 watch(shouldShowHomeSecondarySections, (shouldShow) => {
   if (!shouldShow) {
-    homeThingsVisFrameMount.reset()
+    resetHomeThingsVisFrame()
     return
   }
 

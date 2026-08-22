@@ -1,6 +1,16 @@
 <script setup lang="ts">
 import { defineAsyncComponent, type ComponentPublicInstance } from 'vue'
 import { $t } from '@/locales'
+import type {
+  FirstDeviceChartState,
+  FirstDeviceOnboardingGuard,
+  FirstDeviceReadyProof,
+  FirstDeviceSummary,
+  SimulationInitState
+} from './homeFirstDeviceWorkbench'
+import type { DeviceAccessGuideState } from '@/views/device/details/modules/device-access-guide-state'
+import type { HomeCustomerGuideProgressStep } from './homeCustomerGuide'
+import type { HomeFirstDeviceGuideStep } from './homeFirstDeviceView'
 
 const HomeFirstDeviceConnectionTestSection = defineAsyncComponent(
   () => import('./HomeFirstDeviceConnectionTestSection.vue')
@@ -12,32 +22,32 @@ const FirstDeviceSupportSummarySection = defineAsyncComponent(() => import('./Fi
 
 const props = defineProps<{
   setConnectionTestViewportRef: (element: HTMLElement | null) => void
-  setConnectionTestSectionRef: (instance: any) => void
+  setConnectionTestSectionRef: (instance: Element | ComponentPublicInstance | null) => void
   shouldMountConnectionTestSection: boolean
   selectedTestCommand: string
-  firstDevice: any
-  firstDeviceAccessGuide: any
-  firstDeviceSimulation: any
-  firstDeviceOnboardingGuard: any
-  operationChecklist: any[]
-  testCommands: any[]
-  activeTestCommand: any
+  firstDevice: FirstDeviceSummary | null
+  firstDeviceAccessGuide: DeviceAccessGuideState | null
+  firstDeviceSimulation: SimulationInitState | null
+  firstDeviceOnboardingGuard: FirstDeviceOnboardingGuard
+  operationChecklist: unknown[]
+  testCommands: unknown[]
+  activeTestCommand: unknown
   firstDevicePublishCommand: string
   firstDeviceActionLoading: boolean
-  firstDeviceOnlineTesterState: any
+  firstDeviceOnlineTesterState: unknown
   firstDeviceTestResult: string
-  firstDevicePostTestGuidance: any
-  firstDeviceReadyProof: any
-  firstDeviceNextActiveGuideStep: any
+  firstDevicePostTestGuidance: unknown
+  firstDeviceReadyProof: FirstDeviceReadyProof
+  firstDeviceNextActiveGuideStep: HomeFirstDeviceGuideStep | null
   setSuccessProofViewportRef: (element: HTMLElement | null) => void
-  setSuccessProofSectionRef: (instance: any) => void
+  setSuccessProofSectionRef: (instance: Element | ComponentPublicInstance | null) => void
   shouldMountSuccessProofSection: boolean
   firstDeviceSuccessProofTitle: string
   firstDeviceSuccessProofDescription: string
-  firstDeviceSuccessFacts: any[]
-  firstDeviceChart: any
+  firstDeviceSuccessFacts: unknown[]
+  firstDeviceChart: FirstDeviceChartState
   setSupportSummaryViewportRef: (element: HTMLElement | null) => void
-  setSupportSummarySectionRef: (instance: any) => void
+  setSupportSummarySectionRef: (instance: Element | ComponentPublicInstance | null) => void
   shouldMountSupportSummarySection: boolean
   buildFirstDeviceSupportSummaryForCopy: () => string
 }>()
@@ -50,7 +60,7 @@ const emit = defineEmits<{
   simulateFirstDeviceTelemetry: []
   openFirstDeviceFullGuide: []
   openFirstDeviceAccessGuide: []
-  openHomeGuideStep: [step: any]
+  openHomeGuideStep: [step: HomeCustomerGuideProgressStep]
   focusProof: []
   focusConnection: []
   openSupportSummaryPreview: []
@@ -62,7 +72,7 @@ const bindConnectionViewportRef = (element: Element | ComponentPublicInstance | 
   props.setConnectionTestViewportRef(element instanceof HTMLElement ? element : null)
 }
 
-const bindConnectionSectionRef = (instance: any) => {
+const bindConnectionSectionRef = (instance: Element | ComponentPublicInstance | null) => {
   props.setConnectionTestSectionRef(instance)
 }
 
@@ -70,7 +80,7 @@ const bindSuccessProofViewportRef = (element: Element | ComponentPublicInstance 
   props.setSuccessProofViewportRef(element instanceof HTMLElement ? element : null)
 }
 
-const bindSuccessProofSectionRef = (instance: any) => {
+const bindSuccessProofSectionRef = (instance: Element | ComponentPublicInstance | null) => {
   props.setSuccessProofSectionRef(instance)
 }
 
@@ -78,7 +88,7 @@ const bindSupportSummaryViewportRef = (element: Element | ComponentPublicInstanc
   props.setSupportSummaryViewportRef(element instanceof HTMLElement ? element : null)
 }
 
-const bindSupportSummarySectionRef = (instance: any) => {
+const bindSupportSummarySectionRef = (instance: Element | ComponentPublicInstance | null) => {
   props.setSupportSummarySectionRef(instance)
 }
 </script>

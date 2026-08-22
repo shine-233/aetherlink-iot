@@ -6,26 +6,34 @@
 -->
 <script setup lang="ts">
 import { ref } from 'vue'
+import type { FormInst, FormRules, SelectOption } from 'naive-ui'
 import { $t } from '@/locales'
 import { putRegisterService } from '@/service/api/plugin'
-const serviceType = ref<any>($t('card.accessProtocol'))
+
+type PluginServiceRow = {
+  service_type?: number
+  service_config?: string
+  [key: string]: unknown
+}
+
+const serviceType = ref($t('card.accessProtocol'))
 // 是否为“接入协议”类型由后端 service_type 数值决定，不能依赖已翻译的展示文案做判断。
 const isAccessProtocol = ref(true)
 const emit = defineEmits(['getList'])
-const serviceModal = ref<any>(false)
-const formRef = ref<any>(null)
-const details = ref<any>({})
+const serviceModal = ref(false)
+const formRef = ref<FormInst | null>(null)
+const details = ref<PluginServiceRow>({})
 
-const loading = ref<any>(false)
+const loading = ref(false)
 const defaultForm = {
   http_address: '',
   device_type: 1,
   sub_topic_prefix: '',
   access_address: ''
 }
-const form = ref<any>({ ...defaultForm })
+const form = ref({ ...defaultForm })
 
-const rules = ref<any>({
+const rules = ref<FormRules>({
   http_address: {
     required: true,
     trigger: ['blur', 'input'],
@@ -41,7 +49,7 @@ const rules = ref<any>({
     message: $t('card.subscribeSubjectPrefix')
   }
 })
-const options = ref<any>([
+const options = ref<SelectOption[]>([
   {
     label: $t('card.directConnectDevice'),
     value: 1
@@ -56,13 +64,13 @@ const options = ref<any>([
   }
 ])
 
-const openModal: (row: any) => void = row => {
+const openModal = (row: PluginServiceRow | null | undefined) => {
   if (row) {
     isAccessProtocol.value = row.service_type === 1
     serviceType.value = row.service_type === 1 ? $t('card.accessProtocol') : $t('card.accessService')
     details.value = { ...row }
     if (details.value.service_config === '') return
-    Object.assign(form.value, JSON.parse(row.service_config))
+    Object.assign(form.value, JSON.parse(row.service_config!))
   }
   serviceModal.value = true
 }
@@ -78,7 +86,7 @@ const submitSevice: () => void = () => {
     loading.value = true
     const params = details.value
     params.service_config = JSON.stringify(form.value)
-    const data: any = await putRegisterService(params)
+    const data = await putRegisterService(params)
     if (data.data) {
       emit('getList')
       close()

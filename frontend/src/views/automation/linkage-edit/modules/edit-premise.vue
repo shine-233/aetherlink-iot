@@ -39,12 +39,15 @@ import {
   syncSelectedEventParams
 } from './premise-event-param-conditions'
 import { createPremiseLocalizedConditionOptions } from './premise-localized-condition-options'
-import { createPremiseConditionGroupsState } from './premise-condition-groups-state'
+import { createPremiseConditionGroupsState, type PremiseFormModel } from './premise-condition-groups-state'
+import type { MetricMenuFetcher } from './premise-trigger-param-options'
 import PremiseEventParamConditionEditor from './PremiseEventParamConditionEditor.vue'
 import PremiseScheduleConditionEditor from './PremiseScheduleConditionEditor.vue'
 
+type PremiseIfItem = Record<string, unknown>
+
 interface Emits {
-  (e: 'conditionChose', data: any): void
+  (e: 'conditionChose', data: unknown): void
 }
 
 const route = useRoute()
@@ -52,7 +55,7 @@ const emit = defineEmits<Emits>()
 const { locale } = useI18n()
 
 const premiseFormRef = ref<FormInst | null>(null)
-const premiseForm = ref<any>({
+const premiseForm = ref<PremiseFormModel>({
   ifGroups: []
 })
 // Premise form validation rules.
@@ -159,14 +162,14 @@ const getIfTypeOptions = (ifGroup, ifIndex) => {
     }
   ]
 }
-const ifTypeChange = (ifItem: any, data: any) => {
+const ifTypeChange = (ifItem: PremiseIfItem, data: unknown) => {
   ifItem.trigger_conditions_type = null
   ifItem = judgeItem.value
   ifItem.ifType = data
 }
 
 // Reset derived device trigger state when type or source changes.
-const resetDeviceTriggerSelection = (ifItem: any) => {
+const resetDeviceTriggerSelection = (ifItem: PremiseIfItem) => {
   applyTriggerParamSelectionState(ifItem, {}, { resetComparatorState: true })
 }
 
@@ -200,10 +203,10 @@ const {
 })
 
 // Device source search/switching lives in helpers; parameter options load on demand.
-const loadTriggerParamOptions = async (ifItem: any) => {
+const loadTriggerParamOptions = async (ifItem: PremiseIfItem) => {
   await loadPremiseTriggerParamOptions(ifItem, {
-    deviceMetricsConditionMenu: deviceMetricsConditionMenu as (payload: Record<string, any>) => Promise<{ data?: any[] } | null | undefined>,
-    configMetricsConditionMenu: configMetricsConditionMenu as (payload: Record<string, any>) => Promise<{ data?: any[] } | null | undefined>,
+    deviceMetricsConditionMenu: deviceMetricsConditionMenu as MetricMenuFetcher,
+    configMetricsConditionMenu: configMetricsConditionMenu as MetricMenuFetcher,
     statusOption: statusData.value,
     syncSelectedEventParams,
     onError: (error) => {
@@ -212,7 +215,7 @@ const loadTriggerParamOptions = async (ifItem: any) => {
   })
 }
 
-const actionParamShow = async (ifItem: any, data: any) => {
+const actionParamShow = async (ifItem: PremiseIfItem, data: unknown) => {
   await handleTriggerParamOptionsShow(ifItem, data === true, loadTriggerParamOptions)
 }
 
@@ -229,7 +232,7 @@ const {
 const message = useMessage()
 
 // Validate event-condition JSON immediately so users see errors before submit.
-const actionValueChange = (ifItem: any) => {
+const actionValueChange = (ifItem: PremiseIfItem) => {
   if (ifItem.trigger_param_type === 'event') {
     try {
       if (validateEventTriggerJsonValue(ifItem.trigger_value)) {
@@ -248,16 +251,16 @@ const actionValueChange = (ifItem: any) => {
 
 const eventExistsOptions = computed(() => buildEventExistsOptions())
 
-const getEventOperatorOptions = (ifItem: any, condition: any) => {
+const getEventOperatorOptions = (ifItem: PremiseIfItem, condition: unknown) => {
   return resolveEventOperatorOptions(ifItem, condition, determineOptions.value)
 }
 
-const triggerParamChange = (ifItem: any, data: any) => {
+const triggerParamChange = (ifItem: PremiseIfItem, data: unknown) => {
   applyTriggerParamSelectionChange(ifItem, data, commitSelectedTriggerParam)
 }
 
 interface Props {
-  conditionData?: any[]
+  conditionData?: unknown[]
   device_id?: string
   device_config_id?: string
 }

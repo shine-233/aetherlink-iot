@@ -1,5 +1,5 @@
 import { onMounted, ref, watch, type Ref } from 'vue'
-import type { FormInst } from 'naive-ui'
+import type { FormInst, CascaderOption } from 'naive-ui'
 import {
   applyEchoedConditionData,
   applyInitialPremiseCondition,
@@ -11,26 +11,41 @@ import {
 } from './premise-edit-premise-state'
 import { createScheduleConditionFields } from './premise-schedule-condition-state'
 
+export type PremiseIfItem = {
+  ifType?: string | number | null
+  trigger_conditions_type?: string | number | null
+  trigger_source?: string | number | null
+  trigger_param_key?: string | number | null
+  trigger_param_type?: string | null
+  trigger_operator?: string | number | null
+  trigger_value?: string | [string, string] | null
+  minValue?: string | [string, string] | null
+  maxValue?: string | [string, string] | null
+  triggerParamOptions?: CascaderOption[]
+  [key: string]: unknown
+}
+export type PremiseFormModel = { ifGroups: PremiseIfItem[][] }
+
 type CreatePremiseConditionGroupsStateOptions = {
-  premiseForm: Ref<any>
+  premiseForm: Ref<PremiseFormModel>
   premiseFormRef: Ref<FormInst | null>
   props: {
-    conditionData?: any[]
+    conditionData?: unknown[]
     device_id?: string
     device_config_id?: string
   }
   hasConfigId: boolean
-  locale: Ref<any>
+  locale: Ref<string>
   deviceConfigDisabled: Ref<boolean>
-  statusData: Ref<any> | { value: any }
+  statusData: { value: unknown }
   ensureDevicesLoaded: () => void | Promise<void>
   ensureDeviceConfigsLoaded: () => void | Promise<void>
-  loadTriggerParamOptions: (ifItem: any) => void | Promise<void>
-  normalizeIfItemForEcho: (ifItem: any) => void
-  emitConditionChose: (data: any) => void
+  loadTriggerParamOptions: (ifItem: PremiseIfItem) => void | Promise<void>
+  normalizeIfItemForEcho: (ifItem: PremiseIfItem) => void
+  emitConditionChose: (data: unknown) => void
 }
 
-const cloneJudgeItem = (judgeItem: any) => JSON.parse(JSON.stringify(judgeItem))
+const cloneJudgeItem = <T>(judgeItem: T): T => JSON.parse(JSON.stringify(judgeItem)) as T
 
 export const createPremiseConditionGroupsState = ({
   premiseForm,
@@ -65,21 +80,21 @@ export const createPremiseConditionGroupsState = ({
     eventParamConditions: []
   })
 
-  const addIfGroupsSubItem = async (ifGroupIndex: any) => {
+  const addIfGroupsSubItem = async (ifGroupIndex: number) => {
     await premiseFormRef.value?.validate?.()
     premiseForm.value.ifGroups[ifGroupIndex].push(cloneJudgeItem(judgeItem.value))
   }
 
-  const deleteIfGroupsSubItem = (ifGroupIndex: any, ifIndex: any) => {
+  const deleteIfGroupsSubItem = (ifGroupIndex: number, ifIndex: number) => {
     premiseForm.value.ifGroups[ifGroupIndex].splice(ifIndex, 1)
   }
 
-  const deleteIfGroupsItem = (ifIndex: any) => {
+  const deleteIfGroupsItem = (ifIndex: number) => {
     premiseForm.value.ifGroups.splice(ifIndex, 1)
   }
 
-  const addIfGroupItem = (data: any) => {
-    const groupObj: any[] = []
+  const addIfGroupItem = (data: PremiseIfItem | null) => {
+    const groupObj: PremiseIfItem[] = []
     if (!data) {
       groupObj.push(cloneJudgeItem(judgeItem.value))
       premiseForm.value.ifGroups.push(groupObj)
@@ -94,7 +109,7 @@ export const createPremiseConditionGroupsState = ({
   const ifGroupsData = () => premiseForm.value.ifGroups
   const premiseFormRefReturn = () => premiseFormRef.value
 
-  const loadSourceCatalogsForConditions = (conditionData: any) => {
+  const loadSourceCatalogsForConditions = (conditionData: unknown) => {
     if (!conditionData || !Array.isArray(conditionData)) return
 
     conditionData.forEach((ifGroup) => {
