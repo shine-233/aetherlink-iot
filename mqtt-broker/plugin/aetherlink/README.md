@@ -36,6 +36,8 @@ broker 默认配置按名称启用 `aetherlink` 插件。插件名称、配置 k
 
 - 设备订阅标准下行 Topic 时，授权不能只校验 Topic 形状；Topic 中的 `{device_number}` 必须与当前连接已认证并加载的 active device 的 `DeviceNumber` 完全一致。空设备编号、通配符或其它设备编号必须拒绝，防止跨设备订阅。
 - `devices/register/response/+`、`devices/config/down/response/+` 等没有可与当前认证设备明确绑定的 identity slot 的宽泛 gateway response Topic 必须 fail-closed；在协议提供可验证的设备身份绑定前，不得仅凭形状匹配放行。
+- 设备上行发布与订阅侧对称绑定身份（`util.ValidatePubTopicForDevice`）：`devices/status/{device_id}` 的槽位承载平台设备 ID 且后端从 Topic 解析并信任该身份，因此必须等于发布者自身设备 ID；`{device_number}/up` 首层与下行 `{device_number}/down` 平行，必须等于发布者设备编号。跨设备身份主题一律拒绝，防止伪造其它设备的上下线状态或向其它设备注入消息。
+- 上行 Topic 中的 message_id 类槽位（如 `devices/attributes/{message_id}`、`devices/command/response/{message_id}`）不是设备身份，不做绑定；这些共享主题的消息归因由 payload 重包（`device_id`=发布者自身）保证。网关代发子设备数据走 `gateway/*` 与 `devices/register`，归因仍为网关自身，属于合法场景不受影响。
 - `root`、`plugin` 等系统用户继续沿用既有授权旁路，不受上述设备身份绑定规则影响。
 - 自定义 Topic mapping 继续沿用既有匹配与授权合同；标准 Topic 的形状匹配不得成为绕过自定义 mapping 授权路径的放行条件。
 - 该边界落实 OASIS MQTT 5.0 对认证、授权与安全通信的建议，以及 NISTIR 8259A 关于设备身份和逻辑接口访问控制的基线：[MQTT Version 5.0](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html)、[NISTIR 8259A](https://csrc.nist.gov/pubs/ir/8259/a/final)。这些来源支持按认证身份授权，但不替代本仓库的 Topic 级负向测试。

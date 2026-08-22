@@ -10,8 +10,8 @@
 
 ## File Relationships
 
-- `check_pub_topic.go` owns the publish allowlist and `ValidateTopic`.
-- `check_sub_topic.go` owns the subscribe allowlist and `ValidateSubTopic`.
+- `check_pub_topic.go` owns the publish allowlist, `ValidateTopic` shape matching, and `ValidatePubTopicForDevice`, which binds device identity slots (`devices/status` carries the publisher's own platform device ID; `+/up` mirrors `{device_number}/down`) to the authenticated device.
+- `check_sub_topic.go` owns the subscribe allowlist and `ValidateSubTopicForDevice`.
 - `check_pub_topic_test.go` and `check_sub_topic_test.go` pin accepted and rejected examples for authorization-sensitive topic rules.
 - Both validators currently implement their own pattern matching logic; behavior should stay aligned when wildcard policy changes.
 

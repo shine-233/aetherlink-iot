@@ -31,6 +31,7 @@
       class="thingsvis-frame"
       :style="frameInlineStyle"
       frameborder="0"
+      referrerpolicy="no-referrer"
       :allow="thingsVisIframeAllow"
       allowfullscreen
       @load="handleIframeLoad"

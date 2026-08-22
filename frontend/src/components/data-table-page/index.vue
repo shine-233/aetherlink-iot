@@ -640,6 +640,8 @@ const handleWarningClick = (item: DeviceItem) => {
           :data="dataList"
           :checked-row-keys="selectedRowKeys"
           class="w-full"
+          virtual-scroll
+          :max-height="'calc(100vh - 442px)'"
           @update:checked-row-keys="handleCheckedRowKeysUpdate"
         />
       </n-scrollbar>

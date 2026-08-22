@@ -440,7 +440,8 @@ const submitPass = async () => {
   let password1 = formData.value.password
   if (data.find((v) => v.name === 'frontend_res')?.enable_flag === 'enable') {
     salt = generateRandomHexString(16)
-    password1 = encryptDataByRsa(password1 + salt)
+    // RSA helper 已迁移为 WebCrypto 异步实现（RSA-OAEP/SHA-256）
+    password1 = await encryptDataByRsa(password1 + salt)
   }
   const param = {
     old_password: formData.value.old_password,

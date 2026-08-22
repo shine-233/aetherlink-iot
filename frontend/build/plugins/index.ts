@@ -27,8 +27,6 @@ const COMPONENT_GLOBS = [
   'src/components/**/*.vue',
   '!src/components/DeviceSelectSingle.vue',
   '!src/components/common/grid/**',
-  '!src/components/common/gridv2/**',
-  '!src/components/common/gridv2_backup_*/**',
   '!src/components/**/backup/**',
   '!src/components/**/examples/**',
   '!src/components/**/__tests__/**',

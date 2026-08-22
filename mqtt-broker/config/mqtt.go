@@ -28,8 +28,10 @@ var (
 		MessageExpiry:              2 * time.Hour,
 		InflightExpiry:             30 * time.Second,
 		// Keep allocation and QoS concurrency defaults safe for a small local
-		// deployment. Operators may raise them only with a measured memory budget.
-		MaxPacketSize:              16 * 1024 * 1024,
+		// deployment. 1 MiB covers normal IoT telemetry/command payloads while
+		// bounding single-packet memory under the default Compose budget.
+		// Operators may raise them only with a measured memory budget.
+		MaxPacketSize:              1024 * 1024,
 		ReceiveMax:                 100,
 		MaxKeepAlive:               300,
 		TopicAliasMax:              10,

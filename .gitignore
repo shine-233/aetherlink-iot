@@ -141,3 +141,6 @@ mqtt-broker/plugin/auth/gmqtt_password.yml
 # Local runtime secrets. Generate fresh keys/certs per environment.
 backend/configs/rsa_key/private_key.pem
 backend/configs/rsa_key/public.pem
+
+# Runtime-generated RSA keypair (per-install); never ship keys
+backend/configs/rsa_key/*.pem

@@ -161,5 +161,13 @@ export default [
       // 允许未使用的表达式（脚本文件中常见）
       'no-unused-expressions': 'off'
     }
+  },
+
+  // any 治理基线：仅对 src/** 将显式 any 记为 warning（保持 warn 防止存量爆 CI，后续批次按此清零）
+  {
+    files: ['src/**/*.ts', 'src/**/*.vue'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'warn'
+    }
   }
 ]

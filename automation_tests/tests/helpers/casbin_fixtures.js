@@ -35,7 +35,7 @@ function uniqueSuffix() {
 }
 
 function dynamicPassword() {
-  return `Test@${crypto.randomBytes(18).toString('base64url')}`;
+  return `Test@${crypto.randomBytes(9).toString('base64url') + '1'}`;
 }
 
 function collectUiElementIds(items, result = []) {
@@ -175,3 +175,4 @@ module.exports = {
   getUserRoles,
   cleanupCasbinFixtures
 };
+

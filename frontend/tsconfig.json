@@ -56,8 +56,6 @@
     "src/core/interaction-system/**/*",
     "src/core/script-engine/**/*",
     "src/components/common/grid",
-    "src/components/common/gridv2",
-    "src/components/common/gridv2_backup_*",
     "src/store/modules/visual-editor/**/*"
   ]
 }

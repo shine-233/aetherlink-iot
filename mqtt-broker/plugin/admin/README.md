@@ -31,27 +31,30 @@
 
 ## 示例
 
+管理面支持可选共享密钥认证：在 `plugins.admin.http_auth_secret` 配置非空密钥后，所有 admin HTTP API 请求必须携带匹配的 `X-Admin-Secret` 头（内置管理页登录后的会话 cookie 也可访问，保证 dashboard 可用）；密钥为空时保持既有行为，仅依赖 `api.http`/`api.grpc` 网络边界保护，此时绑定非回环地址会在启动时打印告警。
+
 列出客户端：
 
 ```bash
-curl 127.0.0.1:8083/v1/clients
+curl -H "X-Admin-Secret: <secret>" 127.0.0.1:8083/v1/clients
 ```
 
 按 topic 过滤订阅：
 
 ```bash
-curl '127.0.0.1:8083/v1/filter_subscriptions?filter_type=1,2,3&match_type=1&topic_name=/a'
+curl -H "X-Admin-Secret: <secret>" '127.0.0.1:8083/v1/filter_subscriptions?filter_type=1,2,3&match_type=1&topic_name=/a'
 ```
 
 通过管理 API 发布消息：
 
 ```bash
-curl -X POST 127.0.0.1:8083/v1/publish -d '{"topic_name":"a","payload":"test","qos":1}'
+curl -X POST -H "X-Admin-Secret: <secret>" 127.0.0.1:8083/v1/publish -d '{"topic_name":"a","payload":"test","qos":1}'
 ```
 
 ## 维护注意事项
 
 - 该插件是高权限管理面，任何默认监听地址、认证、session、CORS 或发布 API 变更都需要安全审查。
+- `http_auth_secret` 是管理面的应用层共享密钥边界；修改其语义（请求头名、会话回退、告警条件）必须同步 `config.go`、`http_auth.go` 与部署文档。
 - `Indexer` 本身不做内部同步，调用方必须保证并发访问安全。
 - 修改 topic、QoS、session 或订阅语义前，要确认不会破坏 MQTT 协议行为。
 - 修改 `.proto` 后必须重新生成 Go gateway 文件和 Swagger，不要手工改生成物。

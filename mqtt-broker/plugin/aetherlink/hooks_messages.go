@@ -38,6 +38,7 @@ type mqttArrivedPayload struct {
 
 type mqttDeviceRoute struct {
 	deviceID       string
+	deviceNumber   string
 	deviceConfigID string
 }
 
@@ -126,6 +127,7 @@ func resolveMQTTDeviceRoute(client server.Client) (mqttDeviceRoute, error) {
 
 	return mqttDeviceRoute{
 		deviceID:       device.ID,
+		deviceNumber:   device.DeviceNumber,
 		deviceConfigID: mqttDeviceConfigID(device),
 	}, nil
 }
@@ -152,7 +154,7 @@ func (route mqttDeviceRoute) dispatchMQTTUplink(ctx context.Context, client serv
 		Log.Debug("mqtt uplink did not match custom mapping", zap.String("topic", msg.publishTopic), zap.String("client_id", client.ClientOptions().ClientID))
 	}
 
-	return handleStandardMQTTUplink(client, req, msg, username, route.deviceID)
+	return handleStandardMQTTUplink(client, req, msg, username, route.deviceID, route.deviceNumber)
 }
 
 func (route mqttDeviceRoute) tryMappedMQTTUplink(ctx context.Context, client server.Client, msg mqttArrivedPayload, username string) (bool, error) {
@@ -177,8 +179,11 @@ func (route mqttDeviceRoute) tryMappedMQTTUplink(ctx context.Context, client ser
 	return true, errMQTTMessageDiscarded
 }
 
-func handleStandardMQTTUplink(client server.Client, req *server.MsgArrivedRequest, msg mqttArrivedPayload, username string, deviceID string) error {
-	if !util.ValidateTopic(msg.publishTopic) {
+func handleStandardMQTTUplink(client server.Client, req *server.MsgArrivedRequest, msg mqttArrivedPayload, username string, deviceID string, deviceNumber string) error {
+	// 发布校验与订阅侧 ValidateSubTopicForDevice 对称：
+	// 形状匹配之外，topic 中携带设备身份的槽位（devices/status 的设备 ID、
+	// '+/up' 首层的设备编号）必须等于发布者自身身份，防止跨设备注入。
+	if !util.ValidatePubTopicForDevice(msg.publishTopic, deviceID, deviceNumber) {
 		return handleMQTTPublishPermissionDenied(client, username, deviceID, msg)
 	}
 

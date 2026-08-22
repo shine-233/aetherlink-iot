@@ -9,7 +9,9 @@ const { expect } = require('chai');
 const crypto = require('crypto');
 
 function dynamicPassword() {
-  return `Test@${crypto.randomBytes(18).toString('base64url')}`;
+  // Backend user creation enforces min=8/max=20 on password
+  // (model/users.http.go). Keep within that window: Test@ + 12 = 17 chars.
+  return `Test@${crypto.randomBytes(9).toString('base64url') + '1'}`;
 }
 
 function expectOk(resp) {
@@ -128,3 +130,4 @@ module.exports = {
   createTenantUserAccount,
   cleanupDynamicAccounts
 };
+

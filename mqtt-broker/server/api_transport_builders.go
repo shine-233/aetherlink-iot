@@ -66,6 +66,9 @@ func buildGRPCServer(endpoint *config.Endpoint) (*gRPCServer, error) {
 		}
 		cred = credentials.NewTLS(tlsCfg)
 	}
+	gs := &gRPCServer{
+		endpoint: endpoint.Address,
+	}
 	server := grpc.NewServer(
 		grpc.Creds(cred),
 		grpc.ChainUnaryInterceptor(
@@ -75,7 +78,10 @@ func buildGRPCServer(endpoint *config.Endpoint) (*gRPCServer, error) {
 				}
 				return grpc_zap.DefaultClientCodeToLevel(code)
 			})),
-			grpc_prometheus.UnaryServerInterceptor),
+			grpc_prometheus.UnaryServerInterceptor,
+			// 插件后置注册的一元拦截器统一经该分发器进入执行链，详见 dispatchUnary。
+			gs.dispatchUnary,
+		),
 	)
 	grpc_prometheus.Register(server)
 	shutdown := func() {
@@ -96,12 +102,10 @@ func buildGRPCServer(endpoint *config.Endpoint) (*gRPCServer, error) {
 		return nil
 	}
 
-	return &gRPCServer{
-		server:   server,
-		serve:    serve,
-		shutdown: shutdown,
-		endpoint: endpoint.Address,
-	}, nil
+	gs.server = server
+	gs.serve = serve
+	gs.shutdown = shutdown
+	return gs, nil
 }
 
 func buildHTTPServer(endpoint *config.Endpoint) (*httpServer, error) {
@@ -141,6 +145,7 @@ func buildHTTPServer(endpoint *config.Endpoint) (*httpServer, error) {
 	return &httpServer{
 		gRPCEndpoint: endpoint.Map,
 		mux:          mux,
+		server:       server,
 		serve:        serve,
 		shutdown:     shutdown,
 		endpoint:     endpoint.Address,

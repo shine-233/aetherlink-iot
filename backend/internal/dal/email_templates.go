@@ -14,6 +14,9 @@ import (
 	"gorm.io/gorm"
 )
 
+// maxEmailTemplateListLimit 邮件模板列表单次返回的行数上限，防止无界查询。
+const maxEmailTemplateListLimit = 500
+
 func ListEmailTemplates(tenantID string, page, pageSize int) (int64, []*model.EmailTemplate, error) {
 	query := global.DB.WithContext(context.Background()).
 		Model(&model.EmailTemplate{}).
@@ -23,11 +26,22 @@ func ListEmailTemplates(tenantID string, page, pageSize int) (int64, []*model.Em
 		return 0, nil, err
 	}
 	if page > 0 && pageSize > 0 {
-		query = query.Limit(pageSize).Offset((page - 1) * pageSize)
+		query = query.Limit(clampEmailTemplateListLimit(pageSize)).Offset((page - 1) * pageSize)
+	} else {
+		// 未分页的调用同样强制封顶，避免一次性拉取全表。
+		query = query.Limit(maxEmailTemplateListLimit)
 	}
 	list := make([]*model.EmailTemplate, 0)
 	err := query.Order("is_default DESC, updated_at DESC, id ASC").Find(&list).Error
 	return total, list, err
+}
+
+// clampEmailTemplateListLimit 把分页大小收敛到具名上限内。
+func clampEmailTemplateListLimit(pageSize int) int {
+	if pageSize > maxEmailTemplateListLimit {
+		return maxEmailTemplateListLimit
+	}
+	return pageSize
 }
 
 func GetEmailTemplateByIDForScope(id, tenantID string) (*model.EmailTemplate, error) {

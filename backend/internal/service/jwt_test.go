@@ -132,8 +132,8 @@ func TestJWTTokenContainsExpectedExpiry(t *testing.T) {
 	parsedClaims, err := jwtInstance.ParseToken(token)
 	require.NoError(t, err)
 
-	// Token should expire roughly 30 days from now
-	expectedExpiry := beforeGenerate.Add(time.Hour * 24 * 30).Unix()
+	// Token should expire roughly 24 hours from now (default, override via GOTP_JWT_EXPIRE_HOURS)
+	expectedExpiry := beforeGenerate.Add(utils.DefaultJWTExpireHours * time.Hour).Unix()
 	actualExpiry := parsedClaims.ExpiresAt
 	// Allow 60 seconds of tolerance for test execution time
 	assert.InDelta(t, expectedExpiry, actualExpiry, 60)

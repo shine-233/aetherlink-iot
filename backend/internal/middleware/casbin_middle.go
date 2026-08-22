@@ -20,29 +20,26 @@ import (
 
 func CasbinRBAC() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		//需要验证的url:*api*
-		if strings.Contains(c.Request.URL.Path, "api") {
-			url := strings.TrimLeft(c.Request.URL.Path, "/")
-			// 判断接口是否需要校验
-			isVerify := service.GroupApp.Casbin.GetUrl(url)
-			if isVerify {
-				// claims 由前置 JWT 中间件写入；缺失或类型不符时 fail-closed，
-				// 不允许 MustGet 硬断言把中间件顺序问题放大成 panic。
-				claimsValue, exists := c.Get("claims")
-				if !exists {
-					c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-					return
-				}
-				userClaims, ok := claimsValue.(*utils.UserClaims)
-				if !ok || userClaims == nil {
-					c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-					return
-				}
-				isSuccess := service.GroupApp.Casbin.Verify(userClaims.ID, url)
-				if !isSuccess {
-					c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "非法访问"})
-					return
-				}
+		url := strings.TrimLeft(c.Request.URL.Path, "/")
+		// 判断接口是否注册进 casbin 资源表（GetUrl 未注册返回 false，未注册的接口不做校验）
+		isVerify := service.GroupApp.Casbin.GetUrl(url)
+		if isVerify {
+			// claims 由前置 JWT 中间件写入；缺失或类型不符时 fail-closed，
+			// 避免像 MustGet 硬断言那样让中间件顺序错乱时直接 panic。
+			claimsValue, exists := c.Get("claims")
+			if !exists {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+				return
+			}
+			userClaims, ok := claimsValue.(*utils.UserClaims)
+			if !ok || userClaims == nil {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+				return
+			}
+			isSuccess := service.GroupApp.Casbin.Verify(userClaims.ID, url)
+			if !isSuccess {
+				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "非法访问"})
+				return
 			}
 		}
 	}

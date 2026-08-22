@@ -135,12 +135,24 @@ func ensureLoadedAlarmHistoryReadAccess(history *model.AlarmHistory, claims *uti
 	return errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query alarm history")
 }
 
+// alarmDeviceListLogPreview 截取设备列表原始 JSON 的前 64 字节，用于日志定位脏数据。
+func alarmDeviceListLogPreview(raw string) string {
+	if len(raw) > 64 {
+		return raw[:64]
+	}
+	return raw
+}
+
 func alarmHistoryDeviceIDsForAccess(raw string) []string {
 	var ids []string
 	if strings.TrimSpace(raw) == "" {
 		return ids
 	}
-	_ = json.Unmarshal([]byte(raw), &ids)
+	if err := json.Unmarshal([]byte(raw), &ids); err != nil {
+		// 解析失败会得到空设备列表并按无权限处理（fail-closed），
+		// 这里记录错误和原始片段，便于定位无法授权的历史记录。
+		logrus.Warnf("alarm history device list 解析失败: err=%v raw_prefix=%q", err, alarmDeviceListLogPreview(raw))
+	}
 	return ids
 }
 

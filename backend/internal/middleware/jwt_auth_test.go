@@ -64,10 +64,10 @@ func TestValidateJWTUserStatusRequiresExistingNormalUser(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			active, invalidateToken := validateJWTUserStatus(context.Background(), tc.claims)
+			active, invalidateToken := ValidateJWTUserStatus(context.Background(), tc.claims)
 
 			if active != tc.wantActive || invalidateToken != tc.wantInvalidateToken {
-				t.Fatalf("validateJWTUserStatus() = (%v, %v), want (%v, %v)",
+				t.Fatalf("ValidateJWTUserStatus() = (%v, %v), want (%v, %v)",
 					active, invalidateToken, tc.wantActive, tc.wantInvalidateToken)
 			}
 		})
@@ -81,9 +81,9 @@ func TestValidateJWTUserStatusFailsClosedWithoutDeletingTokenWhenDBUnavailable(t
 		global.DB = oldDB
 	})
 
-	active, invalidateToken := validateJWTUserStatus(context.Background(), &utils.UserClaims{ID: "user-1"})
+	active, invalidateToken := ValidateJWTUserStatus(context.Background(), &utils.UserClaims{ID: "user-1"})
 	if active || invalidateToken {
-		t.Fatalf("validateJWTUserStatus() = (%v, %v), want (false, false)", active, invalidateToken)
+		t.Fatalf("ValidateJWTUserStatus() = (%v, %v), want (false, false)", active, invalidateToken)
 	}
 }
 

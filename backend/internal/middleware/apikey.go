@@ -5,9 +5,6 @@ import (
 	"errors"
 
 	"aetherlink-iot/backend/internal/dal"
-
-	"github.com/redis/go-redis/v9"
-	"gorm.io/gorm"
 )
 
 var (
@@ -28,7 +25,7 @@ type APIKeyValidator struct {
 	ctx context.Context
 }
 
-func NewAPIKeyValidator(_ *gorm.DB, _ *redis.Client) *APIKeyValidator {
+func NewAPIKeyValidator() *APIKeyValidator {
 	return &APIKeyValidator{ctx: context.Background()}
 }
 

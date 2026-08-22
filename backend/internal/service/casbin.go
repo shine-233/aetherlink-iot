@@ -8,6 +8,8 @@ import (
 	"fmt"
 
 	global "aetherlink-iot/backend/pkg/global"
+
+	"github.com/sirupsen/logrus"
 )
 
 type Casbin struct {
@@ -120,6 +122,13 @@ func (*Casbin) HasRole(role string) bool {
 
 // 校验
 func (*Casbin) Verify(user string, url string) bool {
-	isTrue, _ := global.CasbinEnforcer.Enforce(user, url, "allow")
+	isTrue, err := global.CasbinEnforcer.Enforce(user, url, "allow")
+	if err != nil {
+		// Enforce 内部错误（存储/模型异常）时拒绝并记录：fail-closed 保护所有接口。
+		// user/url 来自请求属污染数据，禁止写入日志（防日志注入），仅记录错误详情；
+		// 需要定位时可在 DB 审计层按时间与 err 关联查询。
+		logrus.Errorf("casbin enforce failed, deny by default: err=%v", err)
+		return false
+	}
 	return isTrue
 }

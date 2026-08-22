@@ -127,7 +127,9 @@ func (*DeviceConfig) CreateDeviceConfig(req *model.CreateDeviceConfigReq, claims
 	deviceconfig.CreatedAt = t
 	deviceconfig.UpdatedAt = t
 	deviceconfig.TenantID = claims.TenantID
-	deviceconfig.TemplateSecret = StringPtr(uuid.New())
+	// 设备密钥明文只在创建响应中回显一次，落库保存 SHA-256 摘要，避免拖库后批量伪造设备。
+	authTemplateSecret := uuid.New()
+	deviceconfig.TemplateSecret = StringPtr(dal.HashTemplateSecret(authTemplateSecret))
 
 	err = dal.CreateDeviceConfig(&deviceconfig)
 	if err != nil {
@@ -137,6 +139,8 @@ func (*DeviceConfig) CreateDeviceConfig(req *model.CreateDeviceConfigReq, claims
 		})
 	}
 
+	// 回显一次明文供设备端完成首次接入配置；数据库中保存的仍是摘要。
+	deviceconfig.TemplateSecret = StringPtr(authTemplateSecret)
 	return deviceconfig, err
 }
 
@@ -213,10 +217,26 @@ func prepareDeviceConfigUpdate(req model.UpdateDeviceConfigReq, oldOtherConfig *
 	if err != nil {
 		return nil, err
 	}
+	hashTemplateSecretInUpdateMap(condsMap)
 	if err := validateDeviceConfigOtherConfigChange(req.OtherConfig, oldOtherConfig); err != nil {
 		return nil, err
 	}
 	return condsMap, nil
+}
+
+// hashTemplateSecretInUpdateMap 将更新映射中的 template_secret 明文改写为 SHA-256 摘要后再落库。
+// 空字符串沿用历史“清空禁用”语义原样写入，不做哈希。
+func hashTemplateSecretInUpdateMap(condsMap map[string]interface{}) {
+	switch value := condsMap["template_secret"].(type) {
+	case string:
+		if value != "" {
+			condsMap["template_secret"] = dal.HashTemplateSecret(value)
+		}
+	case *string:
+		if value != nil && *value != "" {
+			condsMap["template_secret"] = StringPtr(dal.HashTemplateSecret(*value))
+		}
+	}
 }
 
 // buildDeviceConfigUpdateMap 将更新请求转换为 DAL 可消费的字段映射。

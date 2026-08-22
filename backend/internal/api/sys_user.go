@@ -16,6 +16,7 @@
 package api
 
 import (
+	middleware "aetherlink-iot/backend/internal/middleware"
 	model "aetherlink-iot/backend/internal/model"
 	service "aetherlink-iot/backend/internal/service"
 	"aetherlink-iot/backend/pkg/errcode"
@@ -81,6 +82,7 @@ func (*UserApi) Login(c *gin.Context) {
 		return
 	}
 	_ = loginLock.LoginSuccess(c, loginReq.Email)
+	setAuthCookieForLoginResponse(c, loginRsp)
 	c.Set("data", loginRsp)
 }
 
@@ -98,6 +100,7 @@ func (*UserApi) Logout(c *gin.Context) {
 }
 
 // RefreshToken 刷新当前登录态。
+// 双模式：token 来源支持认证 cookie（优先）或 x-token 头（存量客户端兼容），见 middleware.selectJWTAuthToken。
 // 审查重点：确认 claims 来源可信，且刷新不会绕过封禁、租户停用或权限变更。
 func (*UserApi) RefreshToken(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
@@ -106,7 +109,18 @@ func (*UserApi) RefreshToken(c *gin.Context) {
 		c.Error(err)
 		return
 	}
+	setAuthCookieForLoginResponse(c, loginRsp)
 	c.Set("data", loginRsp)
+}
+
+// setAuthCookieForLoginResponse 在登录/刷新成功响应上追加 HttpOnly 认证 cookie。
+// cookie 开关与 Secure 标志由 GOTP_AUTH_COOKIE_ENABLED / GOTP_AUTH_COOKIE_SECURE 控制，
+// 未启用时保持纯 x-token 头 + 响应体 token 的既有行为。
+func setAuthCookieForLoginResponse(c *gin.Context, loginRsp *model.LoginRsp) {
+	if loginRsp == nil || loginRsp.Token == nil {
+		return
+	}
+	middleware.SetAuthCookie(c, *loginRsp.Token, int(loginRsp.ExpiresIn))
 }
 
 // HandleVerificationCode 发送验证码。
