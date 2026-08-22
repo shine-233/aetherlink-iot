@@ -331,7 +331,7 @@ func GetUserListByPageWithAddress(userListReq *model.UserListReq, claims *utils.
 	var count int64
 	var userList []map[string]interface{}
 
-	queryBuilder := q.WithContext(context.Background()).LeftJoin(qa, q.ID.EqCol(qa.UserID))
+	queryBuilder := q.WithContext(context.Background()).Debug().LeftJoin(qa, q.ID.EqCol(qa.UserID))
 
 	// 权限过滤
 	if claims.Authority == TENANT_ADMIN || claims.Authority == TENANT_USER {
