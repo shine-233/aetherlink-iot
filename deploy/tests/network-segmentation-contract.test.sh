@@ -59,7 +59,7 @@ for endpoint in \
 do
   assert_contains "$OPTIONAL_COMPOSE" "$endpoint"
 done
-assert_contains "$DEFAULT_COMPOSE" 'GOTP_MQTT_BROKER: ${GOTP_MQTT_BROKER:-mqtt-broker:1883}'
+assert_contains "$DEFAULT_COMPOSE" 'GOTP_MQTT_BROKER: mqtt-broker:1883'
 assert_contains "$DEFAULT_COMPOSE" 'GOTP_DB_REDIS_ADDR: ${GOTP_DB_REDIS_ADDR:-redis:6379}'
 
 # Exact membership above is also the negative isolation contract: frontend and

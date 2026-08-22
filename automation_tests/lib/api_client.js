@@ -44,6 +44,22 @@ function assertRelativeAPIPath(url) {
   return url;
 }
 
+// 后端防护性限流的业务码（backend/pkg/errcode/code.go CodeRateLimit）。
+// 命中时测试侧仅做一次退避后重试以容忍防护性限流，不构成绕过。
+const RATE_LIMIT_CODE = 201003;
+const RATE_LIMIT_BACKOFF_MS = 1200;
+
+// MQTT debug 会话创建（backend OpenCooldown 默认 2s，按 device+user scope 冷却）。
+// 套件连跑间隔过短时会命中重开冷却返回 201003，属防护性限流而非业务失败。
+const MQTT_DEBUG_SESSION_CREATE_PATH_RE = /^\/device\/[^/]+\/mqtt-debug\/session$/;
+
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// 区分「业务码非 200 的主动抛出」与 axios 网络错误，避免被 catch 二次包装或误判重试。
+class LoginRetrySignal extends Error {}
+
 class ApiClient {
   constructor() {
     const trustedBaseURL = config.baseURL;
@@ -65,11 +81,13 @@ class ApiClient {
    * 登录获取 Token
    * 登录失败时抛出 Error（与 get/post 等返回错误对象的设计不同），
    * 以便 before 钩子或调用方通过 try/catch 明确感知登录失败
+   * 对业务码 201003（CodeRateLimit）做一次退避重试：这是测试侧对后端
+   * 防护性限流的容忍而非绕过；仅作用于登录接口，最多重试 1 次。
    * @param {string} accountKey - network runtime account key
    * @returns {Promise<string>} 登录成功后的 token
    * @throws {Error} 账号未配置、HTTP 错误、业务码非 200 时抛出
    */
-  async login(accountKey = 'tenant_admin') {
+  async login(accountKey = 'tenant_admin', options = {}) {
     const account = config.accounts[accountKey];
     if (!account) {
       throw new Error(`测试账号 ${accountKey} 未通过运行环境配置`);
@@ -83,9 +101,26 @@ class ApiClient {
         this.tokens[accountKey] = resp.data.data.token;
         return resp.data.data.token;
       }
-      throw new Error(`登录失败: ${JSON.stringify(resp.data)}`);
+      // 命中 201003（CodeRateLimit）时退避重试 1 次：测试侧对防护性限流的容忍而非绕过，
+      // 仅作用于登录接口，最多重试 1 次。
+      if (resp.data && resp.data.code === RATE_LIMIT_CODE && !options.rateLimitRetried) {
+        await wait(RATE_LIMIT_BACKOFF_MS);
+        return this.login(accountKey, { ...options, rateLimitRetried: true });
+      }
+      throw new LoginRetrySignal(`登录失败: ${JSON.stringify(resp.data)}`);
     } catch (err) {
+      if (err instanceof LoginRetrySignal) {
+        throw err;
+      }
       if (err.response) {
+        if (
+          err.response.data &&
+          err.response.data.code === RATE_LIMIT_CODE &&
+          !options.rateLimitRetried
+        ) {
+          await wait(RATE_LIMIT_BACKOFF_MS);
+          return this.login(accountKey, { ...options, rateLimitRetried: true });
+        }
         throw new Error(`登录请求失败 [${err.response.status}]: ${JSON.stringify(err.response.data)}`);
       }
       throw new Error(`登录请求异常: ${err.message}`);
@@ -165,12 +200,23 @@ class ApiClient {
    * @param {string} accountKey - 使用的账号
    * @returns {Promise<object>} 后端响应体或错误对象
    */
-  async post(url, data = {}, accountKey = 'tenant_admin') {
+  async post(url, data = {}, accountKey = 'tenant_admin', options = {}) {
     assertRelativeAPIPath(url);
     const headers = await this.authHeaders(accountKey);
     try {
       const resp = await this.client.post(url, data, { headers });
       this.recordEndpointResponse('POST', url);
+      // MQTT debug 会话创建命中 201003（会话重开冷却）时退避重试 1 次：
+      // 测试侧对防护性限流的容忍而非绕过，与 login 的限流容忍模式一致，仅限该接口。
+      if (
+        MQTT_DEBUG_SESSION_CREATE_PATH_RE.test(url) &&
+        resp.data &&
+        resp.data.code === RATE_LIMIT_CODE &&
+        !options.rateLimitRetried
+      ) {
+        await wait(RATE_LIMIT_BACKOFF_MS);
+        return this.post(url, data, accountKey, { ...options, rateLimitRetried: true });
+      }
       return resp.data;
     } catch (err) {
       this.recordEndpointResponse('POST', url, err);

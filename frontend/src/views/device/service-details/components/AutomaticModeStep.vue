@@ -27,7 +27,10 @@ import { deviceConfig } from '@/service/api/device'
 const message = useMessage()
 const route = useRoute()
 
-const pageData = ref({
+const pageData = ref<{
+  loading: boolean
+  tableData: DeviceManagement.ConfigData[]
+}>({
   loading: false,
   tableData: []
 })

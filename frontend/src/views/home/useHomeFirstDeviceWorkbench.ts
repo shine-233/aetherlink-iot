@@ -205,7 +205,7 @@ export function useHomeFirstDeviceWorkbench(options: UseHomeFirstDeviceWorkbench
       if (!currentDevice) return
 
       const [telemetryResult, simulationResult, guideLoaded] = await Promise.all([
-        telemetryDataCurrent(currentDevice.id, { silentError: true } as any),
+        telemetryDataCurrent(currentDevice.id, { silentError: true }),
         getSimulationInit({ device_id: currentDevice.id }),
         loadConnectionGuide(currentDevice)
       ])

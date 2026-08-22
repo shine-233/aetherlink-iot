@@ -38,7 +38,12 @@ const configId = ref<string>(typeof route.query.id === 'string' ? route.query.id
 
 // `configForm` 既服务头部摘要，也会作为多个 tab 的共享输入对象。
 // 这里先给一份稳定空壳，避免子模块在首屏渲染时直接访问 undefined。
-const configForm = ref({
+type ConfigFormModel = Partial<{
+  [K in keyof DeviceManagement.ConfigData]: DeviceManagement.ConfigData[K] | null
+}> & {
+  device_template_name?: string
+}
+const configForm = ref<ConfigFormModel>({
   id: typeof route.query.id === 'string' ? route.query.id : '',
   additional_info: null,
   description: null,
@@ -70,6 +75,7 @@ const getTemplateDetail = async (templateId: string) => {
 // 后续所有子模块刷新动作基本都要回到这里重新同步共享配置对象。
 const getConfig = async () => {
   const res = await deviceConfigInfo({ id: configId.value })
+  if (!res.data) return
   configForm.value = res.data
   if (configForm.value.device_template_id) {
     configForm.value.device_template_name = ''

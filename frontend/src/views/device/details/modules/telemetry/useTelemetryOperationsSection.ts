@@ -16,7 +16,7 @@ import { deleteTelemetryItem, loadTelemetryControlList } from './telemetryDevice
 import { useTelemetryLogState } from './useTelemetryLogState'
 
 type RequestResult<T> = {
-  data: T
+  data: T | null
   error?: unknown
 }
 

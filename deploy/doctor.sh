@@ -871,11 +871,15 @@ if [ "$mqtt_endpoint_valid" = "1" ]; then
 fi
 
 if command -v docker >/dev/null 2>&1 && [ -f .env ]; then
-  if docker compose config >/dev/null 2>&1; then
+  compose_config_err="$(mktemp)"
+  if docker compose config >/dev/null 2>"$compose_config_err"; then
     add_check error 1 compose-config "docker compose config succeeded."
   else
     add_check error 0 compose-config "docker compose config failed." "Fix docker-compose.yml or .env, then rerun doctor."
+    # Fail-closed 必须带证据：把 compose 的真实报错原样输出，避免黑盒排查。
+    sed 's/^/      compose: /' "$compose_config_err" >&2
   fi
+  rm -f "$compose_config_err"
 fi
 
 disk_kb="$(df -Pk . 2>/dev/null | awk 'NR==2 {print $4}' || true)"

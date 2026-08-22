@@ -114,14 +114,18 @@ const queryTemplate = ref({
   page_size: 20,
   total: 0
 })
-const deviceTemplateOptions = ref([{ name: () => $t('generate.unbind'), id: '' }])
+// 下拉项 name 兼容字符串与渲染函数（首项“解绑物模型”用渲染函数保证 i18n 响应）。
+const deviceTemplateOptions = ref<Array<{ id: string | number; name: string | ((option: unknown) => string) }>>([
+  { name: () => $t('generate.unbind'), id: '' }
+])
 
 // 物模型下拉支持滚动分页，避免一次性加载全部物模型导致编辑页初始化过重。
 const getDeviceTemplate = () => {
   deviceTemplate({ ...queryTemplate.value })
     .then(res => {
-      deviceTemplateOptions.value = deviceTemplateOptions.value.concat(res.data.list)
-      queryTemplate.value.total = res.data.total
+      const list = res.data?.list ?? []
+      deviceTemplateOptions.value = deviceTemplateOptions.value.concat(list)
+      queryTemplate.value.total = res.data?.total ?? queryTemplate.value.total
     })
     .catch(error => {
       console.error('Failed to get thing models:', error)
@@ -188,13 +192,17 @@ const handleSubmit = async () => {
 // 编辑模式先拉详情，再把字符串或对象形态的 protocol_config 统一回填成对象。
 const getConfig = async () => {
   try {
-    const res = await deviceConfigInfo({ id: configId.value })
+    const res = await deviceConfigInfo({ id: configId.value as string })
+    if (!res.data) {
+      protocol_config.value = {}
+      return
+    }
     configForm.value = { ...res.data }
 
     try {
       if (typeof res.data.protocol_config === 'string') {
         protocol_config.value = JSON.parse(res.data.protocol_config)
-      } else if (typeof res.data.protocol_config === 'object' && res.data.protocol_config !== null) {
+      } else if (res.data.protocol_config !== null && typeof res.data.protocol_config === 'object') {
         protocol_config.value = res.data.protocol_config
       } else {
         protocol_config.value = {}

@@ -204,7 +204,7 @@ const renderSourceList: TransferRenderSourceList = ({ pattern }) => {
 // 3. 外层通过 change 事件感知配置切换后需要联动刷新的详情区域。
 const initData = async () => {
   const result = await deviceDetail(query.d_id as string)
-  device_coding.value = result?.data?.device_number
+  device_coding.value = result?.data?.device_number || ''
   selectedValues.value = result?.data?.device_config_id || ''
   getTreeData()
   getTreeRelationData()

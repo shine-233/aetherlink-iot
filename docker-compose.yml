@@ -1,4 +1,4 @@
-networks:
+﻿networks:
   postgres_net:
     internal: true
   redis_net:
@@ -18,9 +18,18 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      # postgres:18+ 镜像要求数据卷挂在 /var/lib/postgresql（PGDATA 移至
+      # /var/lib/postgresql/18/docker）。从 ≤17 旧部署升级的存量卷内数据位于
+      # <volume>/data，直接换挂载点会让新集群重新 initdb——升级前必须按
+      # TESTING-AND-DEPLOYMENT.md「Postgres 18 卷迁移」小节做数据搬迁或固定
+      # postgres:17-alpine。全新安装无此问题。
+      - postgres-data:/var/lib/postgresql
       - ./backend/sql:/docker-entrypoint-initdb.d/sql:ro
       - ./deploy/postgres/00-run-migrations.sh:/docker-entrypoint-initdb.d/00-run-migrations.sh:ro
+    # Loopback-only: lets local tools and CI seed scripts reach PG directly.
+    # Never change 127.0.0.1 to 0.0.0.0 — the DB must not be exposed externally.
+    ports:
+      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 10s
@@ -142,7 +151,12 @@ services:
       GOTP_DB_REDIS_DB1: ${GOTP_DB_REDIS_DB1:-10}
       GOTP_DB_REDIS_PASSWORD: ${GOTP_DB_REDIS_PASSWORD:?Set GOTP_DB_REDIS_PASSWORD in .env}
       GOTP_MQTT_SERVER: ${GOTP_MQTT_SERVER:-gmqtt}
-      GOTP_MQTT_BROKER: ${GOTP_MQTT_BROKER:-mqtt-broker:1883}
+      # Backend always reaches the broker over the compose network (service DNS);
+      # never point this at localhost/access address — that breaks in-container dial.
+      GOTP_MQTT_BROKER: mqtt-broker:1883
+      # Synthetic RDI fixture opt-in for CI lanes (empty keeps production behavior).
+      AETHERLINK_SYNTHETIC_RDI_ALLOW: ${AETHERLINK_SYNTHETIC_RDI_ALLOW:-}
+      AETHERLINK_SYNTHETIC_RDI_ALLOWED_DATABASES: ${AETHERLINK_SYNTHETIC_RDI_ALLOWED_DATABASES:-}
       GOTP_MQTT_USER: ${GOTP_MQTT_USER:-root}
       GOTP_MQTT_PASS: ${MQTT_ROOT_PASSWORD:?Set MQTT_ROOT_PASSWORD in .env}
       GOTP_MQTT_SESSION_REVOCATIONS_REQUIRED_BROKER_IDS: ${MQTT_BROKER_ID:?Set MQTT_BROKER_ID in .env}
@@ -215,3 +229,4 @@ volumes:
   backend-files:
   backend-telemetry-spool:
   backend-uplink-spool:
+

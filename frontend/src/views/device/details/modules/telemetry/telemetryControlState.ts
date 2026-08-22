@@ -60,4 +60,4 @@ export const buildControlPublishPayload = (deviceId: string, value: string) => (
   value
 }) satisfies TelemetryControlPublishPayload
 
-export const normalizeControlList = (data?: TelemetryControlListResponse) => data?.list || []
+export const normalizeControlList = (data?: TelemetryControlListResponse | null) => data?.list || []

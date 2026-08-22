@@ -255,9 +255,8 @@ const queryDataScriptList = async () => {
   }
 
   // 接口返回结构容错：优先使用后端 total，缺失时退回当前 list 长度，保证分页区至少可正常渲染。
-  const payload = data as { list?: DataScriptItem[]; total?: number }
-  dataScriptList.value = Array.isArray(payload.list) ? payload.list : []
-  dataScriptTotal.value = typeof payload.total === 'number' ? payload.total : dataScriptList.value.length
+  dataScriptList.value = Array.isArray(data.list) ? data.list : []
+  dataScriptTotal.value = typeof data.total === 'number' ? data.total : dataScriptList.value.length
 }
 const searchDataScript = () => {
   // 主动搜索时重置到第一页，避免切换筛选条件后仍停留在旧页码导致“看起来没数据”。
