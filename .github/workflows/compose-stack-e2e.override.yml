@@ -1,0 +1,7 @@
+# Lane-only override: exposes Postgres on the runner loopback so the
+# synthetic-RDI seed script (which shells out to psql) can reach it.
+# Never used by production compose deployments.
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:5432:5432"

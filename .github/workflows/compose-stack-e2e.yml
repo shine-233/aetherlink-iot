@@ -1,4 +1,4 @@
-name: Compose stack API and E2E
+﻿name: Compose stack API and E2E
 
 # Self-contained integration lane: boots the full Docker Compose stack on the
 # hosted runner, generates throwaway accounts, and runs preflight + API
@@ -45,6 +45,10 @@ jobs:
       PLAYWRIGHT_REUSE_EXISTING_SERVER: '1'
       PLAYWRIGHT_BROWSER_CHANNEL: chromium
       PREFLIGHT_PROFILE: full
+      AETHERLINK_RDI_FIXTURE_MODE: synthetic-rdi
+      AETHERLINK_RDI_FIXTURE_PID: SYNTHRDI0001
+      SYNTHETIC_RDI_PID: SYNTHRDI0001
+      SYNTHETIC_RDI_PID: SYNTHRDI0001
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -90,6 +94,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
+          export AETHERLINK_SYNTHETIC_RDI_ALLOW=1
+          export AETHERLINK_SYNTHETIC_RDI_ALLOWED_DATABASES="aetherlink_iot"
+          export COMPOSE_FILE=docker-compose.yml:.github/workflows/compose-stack-e2e.override.yml
+          export COMPOSE_PATH_SEPARATOR=:
           bash deploy/init.sh --performance-tier light --skip-verify
 
       - name: Wait for backend readiness
@@ -123,6 +132,27 @@ jobs:
         working-directory: automation_tests
         run: npx playwright install --with-deps "$PLAYWRIGHT_BROWSER_CHANNEL"
 
+      - name: Install psql client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      - name: Seed synthetic RDI fixture
+        working-directory: automation_tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -a
+          # shellcheck disable=SC1091
+          . ../.env
+          set +a
+          export PGPASSWORD="$POSTGRES_PASSWORD"
+          export AETHERLINK_DB_HOST=127.0.0.1
+          export AETHERLINK_DB_PORT=5432
+          export AETHERLINK_DB_USER=postgres
+          export AETHERLINK_DB_NAME=aetherlink_iot
+          export AETHERLINK_SYNTHETIC_RDI_ALLOW=1
+          export AETHERLINK_SYNTHETIC_RDI_ALLOWED_PORT=5432
+          export AETHERLINK_SYNTHETIC_RDI_ALLOWED_DATABASES=aetherlink_iot
+          node scripts/seed_synthetic_rdi_fixture.js --seed
       - name: Generate throwaway test accounts
         working-directory: automation_tests
         run: npm run prepare:local-accounts
@@ -232,3 +262,8 @@ jobs:
             exit 1
           fi
           echo "Self-contained Compose stack integration completed successfully."
+
+
+
+
+
