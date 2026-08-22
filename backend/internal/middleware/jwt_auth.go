@@ -1,6 +1,6 @@
 // 文件用途：提供 HTTP 请求链路中的 jwt auth 中间件能力。
-// 核心逻辑：在 Gin 请求处理前后执行认证、鉴权、跨域、指标、响应包装或操作日志处理，主要围绕 type ErrorResponse、func JWTAuth、func isValidJWT、func validateJWTUserStatus 等声明展开。
-// 关键注意事项：中间件位于安全与兼容边界，修改需保持状态码、上下文键和响应格式稳定。
+// 核心逻辑：在 Gin 请求处理前后执行认证、鉴权、跨域、指标、响应包装或操作日志处理，主要围绕 type ErrorResponse、func JWTAuth、func isValidJWT、func ValidateJWTUserStatus 等声明展开。
+// 关键注意事项：中间件位于安全与兼容边界，修改需保持状态码、上下文键和响应格式稳定；ValidateJWTUserStatus 同时被 WebSocket 链路复用，语义变更需同步两端。
 // 重构建议：后续可将外部依赖抽成接口，便于独立测试和不同部署模式复用。
 
 package middleware
@@ -9,10 +9,12 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/global"
 	utils "aetherlink-iot/backend/pkg/utils"
 
@@ -39,7 +41,7 @@ type ErrorResponse struct {
 // JWTAuth checks JWT tokens first and falls back to OpenAPI key auth.
 func JWTAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		token := c.Request.Header.Get("x-token")
+		token := selectJWTAuthToken(c, c.Request.Header.Get("x-token"))
 		if token != "" {
 			if isValidJWT(c, token) {
 				c.Next()
@@ -83,10 +85,10 @@ func isValidJWT(c *gin.Context, token string) bool {
 		return false
 	}
 
-	active, invalidateToken := validateJWTUserStatus(ctx, claims)
+	active, invalidateToken := ValidateJWTUserStatus(ctx, claims)
 	if !active {
 		if invalidateToken {
-			deleteCurrentRedisToken(ctx, token)
+			DeleteInvalidJWTToken(ctx, token)
 		}
 		c.JSON(http.StatusUnauthorized, ErrorResponse{
 			Code:      ErrCodeInvalidToken,
@@ -105,7 +107,9 @@ func isValidJWT(c *gin.Context, token string) bool {
 	return true
 }
 
-func validateJWTUserStatus(ctx context.Context, claims *utils.UserClaims) (active bool, invalidateToken bool) {
+// ValidateJWTUserStatus 校验 token 声明对应用户是否处于正常状态，HTTP 与 WebSocket 认证链路共用。
+// 返回 active 表示用户可用；invalidateToken 表示该 token 已失效，应从 Redis 中清除。
+func ValidateJWTUserStatus(ctx context.Context, claims *utils.UserClaims) (active bool, invalidateToken bool) {
 	if claims == nil || claims.ID == "" {
 		return false, true
 	}
@@ -132,7 +136,8 @@ func validateJWTUserStatus(ctx context.Context, claims *utils.UserClaims) (activ
 	return true, false
 }
 
-func deleteCurrentRedisToken(ctx context.Context, token string) {
+// DeleteInvalidJWTToken 删除 Redis 中已失效的 JWT token，供 HTTP 与 WebSocket 认证链路复用。
+func DeleteInvalidJWTToken(ctx context.Context, token string) {
 	if global.REDIS == nil {
 		return
 	}
@@ -174,7 +179,18 @@ func OpenAPIKeyAuth(c *gin.Context) bool {
 func openAPIKeyClaims(tenantID string, createdID string) *utils.UserClaims {
 	return &utils.UserClaims{
 		TenantID:  tenantID,
-		Authority: "TENANT_ADMIN",
+		Authority: openAPIKeyAuthority(),
 		ID:        createdID,
 	}
+}
+
+// openAPIKeyAuthority 读取 OpenAPI Key 等效 claims 的权限。
+// open_api_keys 表没有独立的权限/scope 字段，因此统一取环境变量
+// GOTP_OPENAPI_KEY_AUTHORITY（viper 键 openapi.key.authority），
+// 未配置时保持默认 TENANT_ADMIN 以兼容存量部署，运维可下调为 TENANT_USER 等。
+func openAPIKeyAuthority() string {
+	if authority := strings.TrimSpace(viper.GetString("openapi.key.authority")); authority != "" {
+		return authority
+	}
+	return constant.TENANT_ADMIN
 }

@@ -130,8 +130,8 @@ func (CommandSetLogApi) SubmitFleetCommandJob(c *gin.Context) {
 // @Tags CommandJobs
 // @Accept json
 // @Produce json
-// @Param page query int false "Page number (1-based)"
-// @Param page_size query int false "Page size"
+// @Param page query int false "Page number (1-based, default 1)"
+// @Param page_size query int false "Page size (default 10, max 50)"
 // @Param status query string false "Filter by job status"
 // @Param attention_filter query string false "Filter by attention state"
 // @Param search query string false "Free-text search across job metadata"

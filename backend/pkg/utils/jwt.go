@@ -11,10 +11,14 @@ import (
 
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 // ErrInvalidToken 表示 token 校验失败
 var ErrInvalidToken = errors.New("invalid token")
+
+// DefaultJWTExpireHours 默认 token 有效期（小时），可通过 GOTP_JWT_EXPIRE_HOURS 覆盖
+const DefaultJWTExpireHours = 24
 
 // JWT 封装 JWT 的签名与解析逻辑
 type JWT struct {
@@ -38,9 +42,20 @@ func NewJWT(key interface{}) *JWT {
 	}
 }
 
-// GenerateToken 生成 token，有效期 30 天
+// jwtExpireDuration 读取 token 有效期配置（viper 键 jwt.expire_hours，
+// 环境变量 GOTP_JWT_EXPIRE_HOURS），未配置或非法时回落到 24 小时默认值。
+// 登录与刷新链路存在 RefreshToken 续签，短有效期不会把用户提前踢出会话。
+func jwtExpireDuration() time.Duration {
+	hours := viper.GetInt("jwt.expire_hours")
+	if hours <= 0 {
+		hours = DefaultJWTExpireHours
+	}
+	return time.Duration(hours) * time.Hour
+}
+
+// GenerateToken 生成 token，默认有效期 24 小时，可通过 GOTP_JWT_EXPIRE_HOURS 覆盖
 func (j *JWT) GenerateToken(claims UserClaims) (string, error) {
-	claims.ExpiresAt = time.Now().Add(time.Hour * 24 * 30).Unix()
+	claims.ExpiresAt = time.Now().Add(jwtExpireDuration()).Unix()
 	tokenClaims := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
 	// 生成token

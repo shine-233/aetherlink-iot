@@ -1,14 +1,17 @@
 // 文件用途：覆盖 API key claims 映射等仍在当前请求链中使用的中间件辅助逻辑。
-// 核心逻辑：验证 openAPIKeyClaims 是否把租户、创建者和权限映射到统一 claims 结构。
-// 关键注意事项：这里不再覆盖已移除的历史 APIKeyValidator middleware 壳层，避免测试继续锁定非生产链路。
-// 重构建议：如果后续新增真实生产使用的 API key helper，再按当前实现补聚焦测试，而不是恢复旧壳测试。
+// 核心逻辑：验证 openAPIKeyClaims 是否把租户、创建者和权限映射到统一 claims 结构，并覆盖 GOTP_OPENAPI_KEY_AUTHORITY 下调能力。
+// 关键注意事项：open_api_keys 表没有独立权限字段，权限来自全局配置；测试需在结束后恢复环境变量，避免污染其他用例。
+// 重构建议：如果后续为 API Key 增加独立 scope 字段，应改为按字段授权并删除全局配置回退。
 
 package middleware
 
 import (
+	"strings"
 	"testing"
 
 	"aetherlink-iot/backend/pkg/constant"
+
+	"github.com/spf13/viper"
 )
 
 func TestOpenAPIKeyClaimsPreservesTenantCreatorAndTenantAdminAuthority(t *testing.T) {
@@ -26,4 +29,41 @@ func TestOpenAPIKeyClaimsPreservesTenantCreatorAndTenantAdminAuthority(t *testin
 	if claims.Authority != constant.TENANT_ADMIN {
 		t.Fatalf("Authority = %q, want %q", claims.Authority, constant.TENANT_ADMIN)
 	}
+}
+
+func TestOpenAPIKeyAuthorityDefaultsToTenantAdminWithoutConfig(t *testing.T) {
+	if got := openAPIKeyAuthority(); got != constant.TENANT_ADMIN {
+		t.Fatalf("openAPIKeyAuthority() = %q, want default %q", got, constant.TENANT_ADMIN)
+	}
+}
+
+func TestOpenAPIKeyAuthorityHonorsEnvOverride(t *testing.T) {
+	setupOpenAPIKeyAuthorityEnv(t)
+	t.Setenv("GOTP_OPENAPI_KEY_AUTHORITY", "TENANT_USER")
+
+	if got := openAPIKeyAuthority(); got != "TENANT_USER" {
+		t.Fatalf("openAPIKeyAuthority() = %q, want TENANT_USER from GOTP_OPENAPI_KEY_AUTHORITY", got)
+	}
+
+	claims := openAPIKeyClaims("tenant-env", "creator-env")
+	if claims.Authority != "TENANT_USER" {
+		t.Fatalf("openAPIKeyClaims Authority = %q, want TENANT_USER", claims.Authority)
+	}
+}
+
+func TestOpenAPIKeyAuthorityFallsBackWhenOverrideIsBlank(t *testing.T) {
+	setupOpenAPIKeyAuthorityEnv(t)
+	t.Setenv("GOTP_OPENAPI_KEY_AUTHORITY", "   ")
+
+	if got := openAPIKeyAuthority(); got != constant.TENANT_ADMIN {
+		t.Fatalf("openAPIKeyAuthority() = %q, want fallback %q for blank override", got, constant.TENANT_ADMIN)
+	}
+}
+
+func setupOpenAPIKeyAuthorityEnv(t *testing.T) {
+	t.Helper()
+
+	viper.SetEnvPrefix("GOTP")
+	viper.AutomaticEnv()
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 }

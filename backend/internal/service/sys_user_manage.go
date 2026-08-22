@@ -247,6 +247,11 @@ func (*User) GetUserListByPage(userListReq *model.UserListReq, claims *utils.Use
 	}
 	userListRspMap := make(map[string]interface{})
 	userListRspMap["total"] = total
+	// 空页显式返回 [] 而非 nil：nil 经 JSON 序列化会变成 null，破坏前端与
+	// 自动化断言的分页契约（与 GetDeviceConfigListByPage 的处理保持一致）。
+	if list == nil {
+		list = make([]map[string]interface{}, 0)
+	}
 	userListRspMap["list"] = list
 	return userListRspMap, nil
 }

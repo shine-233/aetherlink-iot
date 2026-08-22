@@ -360,6 +360,8 @@ type FleetCommandJobListAttentionCounts struct {
 
 type FleetCommandJobListResult struct {
 	Total           int64                              `json:"total"`
+	Page            int                                `json:"page"`
+	PageSize        int                                `json:"page_size"`
 	Search          string                             `json:"search,omitempty"`
 	AttentionFilter string                             `json:"attention_filter,omitempty"`
 	AttentionCounts FleetCommandJobListAttentionCounts `json:"attention_counts"`

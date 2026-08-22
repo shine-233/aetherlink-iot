@@ -46,6 +46,8 @@ func commandJobListResultFromPersistence(
 ) *model.FleetCommandJobListResult {
 	return &model.FleetCommandJobListResult{
 		Total:           total,
+		Page:            req.Page,
+		PageSize:        req.PageSize,
 		Search:          req.Search,
 		AttentionFilter: req.AttentionFilter,
 		AttentionCounts: commandJobListAttentionCountsFromMetrics(attentionSummary),

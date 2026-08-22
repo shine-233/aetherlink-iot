@@ -685,7 +685,18 @@ func countFirstDeviceRows() (configCount int64, deviceCount int64, configErr err
 	return configCount, deviceCount, configErr, deviceErr
 }
 
+// deploymentHealthRowCountTables 是 countTableRows 允许统计行数的表白名单。
+// 表名会拼接进 Raw SQL，必须收敛为硬编码集合，防止注入面扩大。
+var deploymentHealthRowCountTables = map[string]struct{}{
+	"users":          {},
+	"device_configs": {},
+	"devices":        {},
+}
+
 func countTableRows(table string) (int64, error) {
+	if _, allowed := deploymentHealthRowCountTables[table]; !allowed {
+		return 0, fmt.Errorf("deployment health 不允许统计表 %q 的行数：表名不在白名单内", table)
+	}
 	if global.DB == nil {
 		return 0, errors.New("数据库连接还没有初始化")
 	}

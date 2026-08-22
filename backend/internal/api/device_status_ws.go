@@ -298,7 +298,10 @@ func handleDeviceStatusWSPing(localClient *global.WSClient) {
 }
 
 func writeDeviceStatusWSError(conn *websocket.Conn, msgType int, message string) {
-	_ = conn.WriteMessage(msgType, []byte(message))
+	if err := conn.WriteMessage(msgType, []byte(message)); err != nil {
+		// 写失败通常说明客户端已经断开，只记录告警便于排查，不改变握手失败的处理流程。
+		logrus.Warn("device online status websocket error frame write failed: ", err)
+	}
 }
 
 func deviceStatusWSForwardPayload(channel string, payload string) []byte {

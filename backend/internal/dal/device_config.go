@@ -54,7 +54,10 @@ func UpdateDeviceConfig(id string, condsMap map[string]interface{}) error {
 	p := query.DeviceConfig
 	t := time.Now().UTC()
 	condsMap["updated_at"] = &t
-	info, err := query.DeviceConfig.Where(p.ID.Eq(id)).Updates(condsMap)
+	// 主键不允许通过更新映射修改：剥离 id，避免 SET/WHERE 携带过期主键值
+	// （历史事故：conds 中残留的旧 id 会叠加进 WHERE 导致 0 行受影响）。
+	delete(condsMap, "id")
+	info, err := p.WithContext(context.Background()).Where(p.ID.Eq(id)).Updates(condsMap)
 	if err != nil {
 		logrus.Error(err)
 		return err
@@ -66,7 +69,7 @@ func UpdateDeviceConfig(id string, condsMap map[string]interface{}) error {
 }
 
 func DeleteDeviceConfig(id string) error {
-	_, err := query.DeviceConfig.Where(query.DeviceConfig.ID.Eq(id)).Delete()
+	_, err := query.DeviceConfig.WithContext(context.Background()).Where(query.DeviceConfig.ID.Eq(id)).Delete()
 	if err != nil {
 		logrus.Error(err)
 	}

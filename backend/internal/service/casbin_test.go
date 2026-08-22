@@ -301,3 +301,36 @@ func TestCasbinGetUrl(t *testing.T) {
 	assert.True(t, c.GetUrl("/api/resource-1"), "GetUrl should return true for registered URL")
 	assert.False(t, c.GetUrl("/api/not-registered"), "GetUrl should return false for unregistered URL")
 }
+
+func TestCasbinVerifyFailsClosedWhenEnforceErrors(t *testing.T) {
+	// 请求定义含 4 个 token 的模型会让三参 Enforce 直接报错（invalid request size），
+	// 用于验证 Verify 在 Enforce 出错时按拒绝处理，而不是吞掉错误后放行。
+	modelStr := `
+[request_definition]
+r = sub, obj, act, ctx
+
+[policy_definition]
+p = sub, obj, act
+
+[role_definition]
+g = _, _
+
+[policy_effect]
+e = some(where (p.eft == allow))
+
+[matchers]
+m = g(r.sub, p.sub) && r.obj == p.obj && r.act == p.act
+`
+	casbinModel, err := model.NewModelFromString(modelStr)
+	require.NoError(t, err)
+	e, err := casbin.NewEnforcer(casbinModel)
+	require.NoError(t, err)
+
+	oldEnforcer := global.CasbinEnforcer
+	t.Cleanup(func() { global.CasbinEnforcer = oldEnforcer })
+	global.CasbinEnforcer = e
+
+	c := &Casbin{}
+	assert.False(t, c.Verify("user-fail-closed", "/api/verify"),
+		"Enforce 返回错误时必须 fail-closed 拒绝")
+}

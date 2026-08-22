@@ -16,6 +16,22 @@ import (
 
 var ErrAmbiguousCommandJobDetailResponse = errors.New("ambiguous command job detail response match")
 
+// maxInternalCommandJobScanLimit 内部调度/恢复辅助查询的单次扫描上限。
+// 仅约束后台 worker 的批量扫描，防止调用方误传超大 limit 造成无界查询；
+// 公开分页列表与详情接口不使用该上限（它们应做真分页）。
+const maxInternalCommandJobScanLimit = 500
+
+// clampInternalCommandJobScanLimit 收敛内部扫描的 limit：非正数回退默认 100，超过上限截断。
+func clampInternalCommandJobScanLimit(limit int) int {
+	if limit <= 0 {
+		return 100
+	}
+	if limit > maxInternalCommandJobScanLimit {
+		return maxInternalCommandJobScanLimit
+	}
+	return limit
+}
+
 func CreateCommandJobWithDetails(job *model.CommandJob, details []*model.CommandJobDetail) error {
 	return global.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(job).Error; err != nil {
@@ -40,7 +56,30 @@ func GetCommandJobByID(jobID, tenantID string) (*model.CommandJob, error) {
 	return &job, err
 }
 
+const (
+	// defaultCommandJobListPageSize 公开列表缺省页大小，与 service 层分页契约保持一致。
+	defaultCommandJobListPageSize = 10
+	// maxCommandJobListPageSize 公开列表单页上限，防止超大 page_size 造成无界查询。
+	maxCommandJobListPageSize = 50
+)
+
+// clampCommandJobListPage 收敛公开列表分页参数：非正数回退默认值，超过上限截断。
+// DAL 边界兜底，保证即使调用方漏做归一化也不会产生无界 Offset/Limit。
+func clampCommandJobListPage(page, pageSize int) (int, int) {
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = defaultCommandJobListPageSize
+	}
+	if pageSize > maxCommandJobListPageSize {
+		pageSize = maxCommandJobListPageSize
+	}
+	return page, pageSize
+}
+
 func ListCommandJobs(tenantID, status, search, attentionFilter string, page, pageSize int, maxAttempts int, now time.Time) (int64, []*model.CommandJob, error) {
+	page, pageSize = clampCommandJobListPage(page, pageSize)
 	var total int64
 	var jobs []*model.CommandJob
 	query := commandJobListBaseQuery(tenantID, status, search, attentionFilter, maxAttempts, now)
@@ -78,9 +117,7 @@ func ListTimedOutRunningCommandJobsForTenant(tenantID string, now time.Time, lim
 }
 
 func ListRunnableCommandJobs(now time.Time, detailStatuses []string, limit int) ([]*model.CommandJob, error) {
-	if limit <= 0 {
-		limit = 100
-	}
+	limit = clampInternalCommandJobScanLimit(limit)
 	if len(detailStatuses) == 0 {
 		return []*model.CommandJob{}, nil
 	}
@@ -106,9 +143,7 @@ func ListRunnableCommandJobs(now time.Time, detailStatuses []string, limit int) 
 }
 
 func listTimedOutRunningCommandJobs(tenantID string, now time.Time, limit int) ([]*model.CommandJob, error) {
-	if limit <= 0 {
-		limit = 100
-	}
+	limit = clampInternalCommandJobScanLimit(limit)
 	var jobs []*model.CommandJob
 	query := global.DB.
 		Where("status IN ? AND timeout_at IS NOT NULL AND timeout_at <= ?", []string{"running", "scheduled"}, now).

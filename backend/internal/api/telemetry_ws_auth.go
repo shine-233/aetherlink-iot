@@ -16,15 +16,10 @@ import (
 )
 
 func validateToken(token string) (*utils.UserClaims, error) {
-	if global.REDIS.Get(context.Background(), token).Val() != "1" {
+	ctx := context.Background()
+	if global.REDIS.Get(ctx, token).Val() != "1" {
 		return nil, errors.New("token is expired")
 	}
-
-	timeout := viper.GetInt("session.timeout")
-	if timeout == 0 {
-		timeout = 60
-	}
-	global.REDIS.Set(context.Background(), token, "1", time.Duration(timeout)*time.Minute)
 
 	key := viper.GetString("jwt.key")
 	j := utils.NewJWT([]byte(key))
@@ -32,14 +27,34 @@ func validateToken(token string) (*utils.UserClaims, error) {
 	if err != nil {
 		return nil, errors.New("invalid token")
 	}
+	if err := checkTelemetryJWTUserStatus(ctx, token, claims); err != nil {
+		return nil, err
+	}
+
+	timeout := viper.GetInt("session.timeout")
+	if timeout == 0 {
+		timeout = 60
+	}
+	global.REDIS.Set(ctx, token, "1", time.Duration(timeout)*time.Minute)
 
 	return claims, nil
 }
 
-func validateAPIKey(apiKey string) (*utils.UserClaims, error) {
-	validator := middleware.NewAPIKeyValidator(global.DB, global.REDIS)
+// checkTelemetryJWTUserStatus 复用 HTTP 链路的用户状态校验：
+// 被禁用或已删除的账号即使 token 未过期，也不允许访问遥测 WebSocket。
+func checkTelemetryJWTUserStatus(ctx context.Context, token string, claims *utils.UserClaims) error {
+	active, invalidateToken := middleware.ValidateJWTUserStatus(ctx, claims)
+	if active {
+		return nil
+	}
+	if invalidateToken {
+		middleware.DeleteInvalidJWTToken(ctx, token)
+	}
+	return errors.New("no permission")
+}
 
-	info, err := validator.ValidateAPIKey(apiKey)
+func validateAPIKey(apiKey string) (*utils.UserClaims, error) {
+	info, err := middleware.NewAPIKeyValidator().ValidateAPIKey(apiKey)
 	if err != nil {
 		return nil, err
 	}

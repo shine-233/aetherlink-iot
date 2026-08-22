@@ -464,8 +464,19 @@ func alarmHistoryDeviceIDs(raw string) []string {
 	if strings.TrimSpace(raw) == "" {
 		return ids
 	}
-	_ = json.Unmarshal([]byte(raw), &ids)
+	if err := json.Unmarshal([]byte(raw), &ids); err != nil {
+		// 解析失败按空设备列表继续，不影响列表渲染；记录片段便于定位脏数据。
+		logrus.Warnf("alarm history alarm_device_list 解析失败: err=%v raw_prefix=%q", err, alarmHistoryRawLogPreview(raw))
+	}
 	return ids
+}
+
+// alarmHistoryRawLogPreview 截取原始 JSON 的前 64 字节用于日志输出。
+func alarmHistoryRawLogPreview(raw string) string {
+	if len(raw) > 64 {
+		return raw[:64]
+	}
+	return raw
 }
 
 // alarmHistoryDeviceConditions 拼装“租户 + 设备命中”的告警历史查询条件。
@@ -564,7 +575,11 @@ func GetDeviceIdsByAlarmConfigId(alarmConfigId string) ([]string, error) {
 	for _, h := range histories {
 		var deviceIds []string
 		if h.AlarmDeviceList != "" {
-			_ = json.Unmarshal([]byte(h.AlarmDeviceList), &deviceIds)
+			if err := json.Unmarshal([]byte(h.AlarmDeviceList), &deviceIds); err != nil {
+				// 解析失败按空列表继续去重流程；带上配置与记录 ID 便于定位脏数据行。
+				logrus.Warnf("alarm history alarm_device_list 解析失败: err=%v alarm_config_id=%s history_id=%s",
+					err, h.AlarmConfigID, h.ID)
+			}
 		}
 		for _, did := range deviceIds {
 			deviceSet[did] = struct{}{}
