@@ -16,7 +16,7 @@ type TelemetryLogListResponse = {
 }
 
 type TelemetryLogListRequestResult = {
-  data: TelemetryLogListResponse
+  data: TelemetryLogListResponse | null
   error?: unknown
 }
 
@@ -91,7 +91,7 @@ export const useTelemetryLogState = ({ getDeviceId, loadTelemetryLogList, transl
     const requestPromise = (async () => {
       try {
         const { data, error } = await loadTelemetryLogList(buildTelemetryLogQuery(snapshot))
-        if (!error && logRequestStillMatches(snapshot, requestId)) {
+        if (!error && data && logRequestStillMatches(snapshot, requestId)) {
           updateLogTable(data)
         }
       } finally {

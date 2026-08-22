@@ -170,7 +170,7 @@ const handleInitialLoadDevices = () => {
   getDeviceOptions(true)
 }
 
-const configDevice = ref([])
+const configDevice = ref<DeviceManagement.DeviceData[]>([])
 const configDeviceTotal = ref(0)
 // 查询链路: 根据当前配置 ID 与分页参数拉取关联设备列表，并补充在线状态展示字段。
 const getDeviceList = async () => {

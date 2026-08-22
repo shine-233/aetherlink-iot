@@ -126,6 +126,7 @@ export const useDeviceManageServiceAccessFilters = ({
     const { data } = await deviceDictProtocolServiceFirstLevel({
       language_code: localStg.get('lang')
     })
+    if (!data) return
 
     serviceIds.value = []
     const protocolOptions = data.protocol.map((item) => ({
@@ -185,6 +186,7 @@ export const useDeviceManageServiceAccessFilters = ({
       }
     })
 
+    if (!data) return
     const { list, total } = data
     if (requestId !== secondLevelRequestId || selectedFirstLevel.value !== firstLevelValue) return
 

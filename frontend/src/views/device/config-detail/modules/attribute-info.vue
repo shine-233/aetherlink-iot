@@ -67,7 +67,7 @@ const toTemplate = () => {
 onMounted(async () => {
   await getTableData('')
   const res = await deviceConfigInfo({ id: props.configInfo.id })
-  selectValue.value = res.data.device_template_id
+  selectValue.value = res.data?.device_template_id
 })
 </script>
 

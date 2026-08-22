@@ -68,6 +68,7 @@ declare namespace DeviceManagement {
     device_type: number
     group_id: string
     is_enabled: string
+    is_online?: number
     label: string
     name: string
     product_id: string
@@ -106,6 +107,8 @@ declare namespace DeviceManagement {
     batch_number: string // 批次号
     activate_at: string // 激活时间
     is_online: number // 是否在线
+    ts?: number
+    device_config?: Partial<ConfigData>
   }
 
   interface telemetryData {
@@ -119,9 +122,8 @@ declare namespace DeviceManagement {
     name: string
   }
 
-  interface telemetryCurrent {
-    data: telemetryData[]
-  }
+  /** GET /telemetry/datas/current/{id} 返回遥测行数组（与后端 buildTelemetryCurrentRows 对齐） */
+  type telemetryCurrent = telemetryData[]
 
   interface ConfigData {
     id: string
@@ -146,14 +148,18 @@ declare namespace DeviceManagement {
     total: number
   }
 
-  interface ProtocolAndServiceData {
+  interface ProtocolAndServiceItem {
     name: string
     service_identifier: string
   }
 
+  interface ServiceSelectServiceItem extends ProtocolAndServiceItem {
+    service_plugin_id: string
+  }
+
   interface ProtocolAndService {
-    protocal: ProtocolAndServiceData[]
-    service: ProtocolAndServiceData[]
+    protocol: ProtocolAndServiceItem[]
+    service: ServiceSelectServiceItem[]
   }
 
   interface ServiceData {
@@ -171,6 +177,36 @@ declare namespace DeviceManagement {
 
   interface ServiceList {
     list: ServiceData[]
+    total: number
+  }
+
+  /** type alias（而非 interface）：调用方常把这些对象赋给带索引签名的本地类型 */
+  type TemplateData = {
+    id: string
+    name: string
+    app_chart_config?: string
+    web_chart_config?: string
+  }
+
+  interface TemplateDatas {
+    list: TemplateData[]
+    total: number
+  }
+
+  interface TemplateDetailData extends TemplateData {}
+
+  interface DataScriptItem {
+    id: string
+    name: string
+    content: string
+    description: string
+    device_config_id: string
+    enable_flag: string
+    script_type: string
+  }
+
+  interface DataScriptDatas {
+    list: DataScriptItem[]
     total: number
   }
 }

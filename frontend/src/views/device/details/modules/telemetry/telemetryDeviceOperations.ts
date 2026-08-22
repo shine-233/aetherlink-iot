@@ -12,7 +12,7 @@ import {
 } from './telemetryControlState'
 
 type RequestResult<T> = {
-  data: T
+  data: T | null
   error?: unknown
 }
 

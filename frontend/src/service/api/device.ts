@@ -4,6 +4,7 @@
  * 关键注意事项: 参数名、响应 envelope、RDI 设备激活和共享相关接口是前后端契约面，变更前需核对后端路由与自动化测试。
  * 重构建议: 按设备列表、配置、接入、共享/RDI 分域拆分大文件，并保留 index 兼容导出与契约测试。
  */
+import type { CustomAxiosRequestConfig } from '@aetherlink/axios'
 import { request } from '../request'
 export {
   cancelFleetCommandJob,
@@ -96,26 +97,26 @@ export type {
 } from './device-telemetry-twin-api'
 
 /** 获取设备分组 */
-export const getDeviceGroup = async (params: any) => {
-  return await request.get<any>('/device/group', { params })
+export const getDeviceGroup = async (params: object) => {
+  return await request.get('/device/group', { params })
 }
 
 /** 接入方式下拉菜单：原始协议服务字典接口 */
-export const deviceDictProtocolService = async (params: any) => {
-  return await request.get<DeviceManagement.TreeStructure | any>('/dict/protocol/service', params)
+export const deviceDictProtocolService = async (params: CustomAxiosRequestConfig & Record<string, unknown>) => {
+  return await request.get<DeviceManagement.TreeStructure>('/dict/protocol/service', params)
 }
 /** 接入方式下拉一级菜单 */
-export const deviceDictProtocolServiceFirstLevel = async (params: any) => {
-  return await request.get<DeviceManagement.ProtocolAndService | any>('/service/plugin/select', params)
+export const deviceDictProtocolServiceFirstLevel = async (params: CustomAxiosRequestConfig & Record<string, unknown>) => {
+  return await request.get<DeviceManagement.ProtocolAndService>('/service/plugin/select', params)
 }
 /** 接入方式下拉二级菜单 */
-export const deviceDictProtocolServiceSecondLevel = async (params: any) => {
-  return await request.get<DeviceManagement.ServiceList | any>('/service/access/list', params)
+export const deviceDictProtocolServiceSecondLevel = async (params: CustomAxiosRequestConfig & Record<string, unknown>) => {
+  return await request.get<DeviceManagement.ServiceList>('/service/access/list', params)
 }
 
 /** 获取设备分组树 */
-export const deviceGroupTree = async (params: any) => {
-  return await request.get<DeviceManagement.TreeStructure | any>('/device/group/tree', params)
+export const deviceGroupTree = async (params: CustomAxiosRequestConfig & Record<string, unknown>) => {
+  return await request.get<DeviceManagement.TreeStructure>('/device/group/tree', params)
 }
 /** 新增设备分组 */
 export const deviceGroup = async (params: { id: string; parent_id: string; name: string; description: string }) => {
@@ -128,7 +129,7 @@ export const putDeviceGroup = async (params: { id: string; parent_id: string; na
 }
 
 /** 激活设备 */
-export const putDeviceActive = async (params: any) => {
+export const putDeviceActive = async (params: object) => {
   return await request.put<Api.BaseApi.Data>('/device/active', params)
 }
 
@@ -138,28 +139,28 @@ export const deleteDeviceGroup = async (params: { id: string }) => {
 }
 
 /** 获取设备分详情 */
-export const deviceGroupDetail = async (params: any) => {
+export const deviceGroupDetail = async (params: { id: string }) => {
   return await request.get<DeviceManagement.DetailData>(`/device/group/detail/${params.id}`)
 }
 
 /** 获取设备列表 */
-export const deviceList = async (params: any) => {
-  return await request.get<DeviceManagement.DeviceDatas | any>(`/device`, {
+export const deviceList = async (params: object) => {
+  return await request.get<DeviceManagement.DeviceDatas>(`/device`, {
     params
   })
 }
 
-const updateDeviceConfigBinding = async (params: any) => {
-  return await request.put<DeviceManagement.DeviceDatas | any>(`/device/update/config`, params)
+const updateDeviceConfigBinding = async (params: object) => {
+  return await request.put<DeviceManagement.DeviceDatas>(`/device/update/config`, params)
 }
 
 /** Unbind a device from its device configuration. */
-export const detachDeviceFromConfig = async (params: any) => {
+export const detachDeviceFromConfig = async (params: object) => {
   return await updateDeviceConfigBinding(params)
 }
 /** 获取设备列表 */
-export const deviceListByGroup = async (params: any) => {
-  return await request.get<DeviceManagement.DeviceDatas | any>(`/device/group/relation/list`, {
+export const deviceListByGroup = async (params: object) => {
+  return await request.get<DeviceManagement.DeviceDatas>(`/device/group/relation/list`, {
     params
   })
 }
@@ -167,223 +168,225 @@ export const deviceListByGroup = async (params: any) => {
 /** 获取设备详情 */
 export const deviceDetail = async (id: string) => {
   const url = `/device/detail/${id}`
-  return await request.get<DeviceManagement.DeviceDetail | any>(url)
+  return await request.get<DeviceManagement.DeviceDetail>(url)
 }
 
 /** 获取设备分组关系 */
-export const deviceGroupRelation = async (params: any) => {
+export const deviceGroupRelation = async (params: object) => {
   return await request.post<Api.BaseApi.Data>(`/device/group/relation`, params)
 }
 
-export const getDeviceGroupRelation = async (params: any) => {
-  return await request.get<any>(`/device/group/relation`, { params })
+export const getDeviceGroupRelation = async (params: object) => {
+  return await request.get(`/device/group/relation`, { params })
 }
 
 /** 获取设备告警状态 */
-export const deviceAlarmStatus = async (params: any) => {
-  return await request.get<any>(`/alarm/info/history/device`, { params })
+export const deviceAlarmStatus = async (params: object) => {
+  return await request.get(`/alarm/info/history/device`, { params })
 }
 
 /** 获取设备告警历史 */
-export const deviceAlarmHistory = async (params: any) => {
-  return await request.get<any>(`/alarm/info/history`, { params })
+export const deviceAlarmHistory = async (params: object) => {
+  return await request.get(`/alarm/info/history`, { params })
 }
 
 /** 获取设备告警配置列表 */
-export const deviceAlarmList = async (params: any) => {
-  return await request.get<any>(`/scene_automations/alarm`, { params })
+export const deviceAlarmList = async (params: object) => {
+  return await request.get(`/scene_automations/alarm`, { params })
 }
 
 /** 修改设备告警描述 */
-export const deviceAlarmHistoryPut = async (params: any) => {
-  return await request.put<any>(`/alarm/info/history`, params)
+export const deviceAlarmHistoryPut = async (params: object) => {
+  return await request.put(`/alarm/info/history`, params)
 }
 
 /** 获取设备物模型列表 */
-export const deviceTemplate = async (params: any) => {
-  return await request.get<Api.BaseApi.Data | any>(`/device/template`, {
+export const deviceTemplate = async (params: object) => {
+  return await request.get<DeviceManagement.TemplateDatas>(`/device/template`, {
     params
   })
 }
 
 /** 创建设备物模型 */
-export const deviceTemplateAdd = async (params: any) => {
-  return await request.post<Api.BaseApi.Data | any>(`/device/template`, params)
+export const deviceTemplateAdd = async (params: object) => {
+  return await request.post<Api.BaseApi.Data>(`/device/template`, params)
 }
 
 /** 获取服务列表 */
-export const getServiceList = async (params: any) => {
-  return await request.get<Api.BaseApi.Data | any>(`/service/list`, {
+export const getServiceList = async (params: object) => {
+  return await request.get<DeviceManagement.ServiceList>(`/service/list`, {
     params
   })
 }
 
 /** 获取设备物模型列表 */
-export const deviceTemplateDetail = async (params: any) => {
-  return await request.get<Api.BaseApi.Data | any>(`/device/template/detail/${params.id}`)
+export const deviceTemplateDetail = async (params: { id: string }) => {
+  return await request.get<DeviceManagement.TemplateDetailData>(`/device/template/detail/${params.id}`)
 }
 
 /** 获取设备配置列表 */
-export const deviceConfig = async (params: any) => {
-  return await request.get<Api.BaseApi.Data | any>(`/device_config`, {
+export const deviceConfig = async (params: object) => {
+  return await request.get<DeviceManagement.ConfigDatas>(`/device_config`, {
     params
   })
 }
 
 /** 创建设备配置 */
-export const deviceConfigAdd = async (params: any) => {
-  return await request.post<Api.BaseApi.Data | any>(`/device_config`, params)
+export const deviceConfigAdd = async (params: object) => {
+  return await request.post<Api.BaseApi.Data>(`/device_config`, params)
 }
 
 /** 更新设备配置 */
-export const deviceConfigEdit = async (params: any) => {
-  return await request.put<Api.BaseApi.Data | any>(`/device_config`, params)
+export const deviceConfigEdit = async (params: object) => {
+  return await request.put<Api.BaseApi.Data>(`/device_config`, params)
 }
 
 /** 获取设备配置 */
-export const deviceConfigInfo = async (params: any) => {
-  return await request.get<Api.BaseApi.Data | any>(`/device_config/${params.id}`)
+export const deviceConfigInfo = async (params: { id: string }) => {
+  return await request.get<DeviceManagement.ConfigData>(`/device_config/${params.id}`)
 }
 /** 删除设备配置 */
-export const deviceConfigDel = async (params: any) => {
-  return await request.delete<Api.BaseApi.Data | any>(`/device_config/${params.id}`)
+export const deviceConfigDel = async (params: { id: string }) => {
+  return await request.delete<Api.BaseApi.Data>(`/device_config/${params.id}`)
 }
 /** 设备配置-凭证类型下拉 */
-export const deviceConfigVoucherType = async (params: any) => {
-  return await request.get<Api.BaseApi.Data | any>(`/device_config/voucher_type`, { params })
+export const deviceConfigVoucherType = async (params: object) => {
+  return await request.get<Api.BaseApi.Data>(`/device_config/voucher_type`, { params })
 }
 /** 设备配置-获取设备配置表单 */
-export const protocolPluginConfigForm = async (params: any) => {
-  return await request.get<any>(`/protocol_plugin/config_form`, { params })
+export const protocolPluginConfigForm = async (params: object) => {
+  return await request.get(`/protocol_plugin/config_form`, { params })
 }
 /** 批量新设备配置关联的设备 */
-export const deviceConfigBatch = async (params: any) => {
-  return await request.put<Api.BaseApi.Data | any>(`/device_config/batch`, params)
+export const deviceConfigBatch = async (params: object) => {
+  return await request.put<Api.BaseApi.Data>(`/device_config/batch`, params)
 }
 
 /** 获取设备列表 */
-export const deleteDeviceGroupRelation = async (params: any) => {
+export const deleteDeviceGroupRelation = async (params: object) => {
   return await request.delete2<Api.BaseApi.Data>(`/device/group/relation`, params)
 }
 
 /** 获取设备连接信息 */
-export const getDeviceConnectInfo = async (params: any) => {
-  return await request.get<Api.BaseApi.Data | any>(`/device/connect/info`, {
+export const getDeviceConnectInfo = async (params: object) => {
+  return await request.get<Record<string, unknown>>(`/device/connect/info`, {
     params
   })
 }
 
 /** 获取设备连接信息 */
-export const getPlugininfoByService = async (params: any) => {
-  return await request.get<Api.BaseApi.Data | any>(`/service/plugin/info`, {
+export const getPlugininfoByService = async (params: object) => {
+  return await request.get<Api.BaseApi.Data>(`/service/plugin/info`, {
     params
   })
 }
 
 /** 获取设备配置列表 */
-export const getDeviceConfigList = async (params: any) => {
+export const getDeviceConfigList = async (params: object) => {
   return await request.get<DeviceManagement.ConfigDatas>(`/device_config`, {
     params
   })
 }
 
 /** 更新设备凭证 */
-export const updateDeviceVoucher = async (params: any) => {
-  return await request.post<any>(`/device/update/voucher`, params)
+export const updateDeviceVoucher = async (params: object) => {
+  return await request.post(`/device/update/voucher`, params)
 }
-export const deviceAdd = async (params: any) => {
-  return await request.post<any>(`/device`, params)
+export const deviceAdd = async (params: object) => {
+  return await request.post(`/device`, params)
 }
 
-export const deviceConnectForm = async (params: any) => {
-  return await request.get<any>(`/device/connect/form`, { params })
+export const deviceConnectForm = async (params: object) => {
+  return await request.get(`/device/connect/form`, { params })
 }
 
 export const checkDevice = async (deviceNumber: string) => {
   const url = `/device/check/${encodeURIComponent(deviceNumber)}`
-  return await request.get<any>(url)
+  return await request.get(url)
 }
-export const deleteDevice = async (params: any) => {
-  return await request.delete<Api.BaseApi.Data | any>(`/device/${params.id}`)
+export const deleteDevice = async (params: { id: string }) => {
+  return await request.delete<Api.BaseApi.Data>(`/device/${params.id}`)
 }
 
-export const setDeviceScriptEnable = async (params: any) => {
-  return await request.put<any>(`/data_script/enable`, params)
+export const setDeviceScriptEnable = async (params: object) => {
+  return await request.put(`/data_script/enable`, params)
 }
 
 /** 获取数据处理列表 */
-export const getDataScriptList = async (params: any) => {
-  return await request.get<DeviceManagement.ConfigDatas | any>(`/data_script`, {
+export const getDataScriptList = async (params: object) => {
+  return await request.get<DeviceManagement.DataScriptDatas>(`/data_script`, {
     params
   })
 }
 
 /** 创建数据处理 */
-export const dataScriptAdd = async (params: any) => {
-  return await request.post<Api.BaseApi.Data | any>(`/data_script`, params)
+export const dataScriptAdd = async (params: object) => {
+  return await request.post<Api.BaseApi.Data>(`/data_script`, params)
 }
 
 /** 更新数据处理 */
-export const dataScriptEdit = async (params: any) => {
-  return await request.put<Api.BaseApi.Data | any>(`/data_script`, params)
+export const dataScriptEdit = async (params: object) => {
+  return await request.put<Api.BaseApi.Data>(`/data_script`, params)
 }
 
 /** 调试数据处理 */
-export const dataScriptQuiz = async (params: any) => {
-  return await request.post<Api.BaseApi.Data | any>(`/data_script/quiz`, params, { needMessage: true } as any)
+export const dataScriptQuiz = async (params: object) => {
+  return await request.post<Api.BaseApi.Data>(`/data_script/quiz`, params, { needMessage: true })
 }
 /** 删除数据处理 */
-export const dataScriptDel = async (params: any) => {
-  return await request.delete<Api.BaseApi.Data | any>(`/data_script/${params.id}`)
+export const dataScriptDel = async (params: { id: string }) => {
+  return await request.delete<Api.BaseApi.Data>(`/data_script/${params.id}`)
 }
 
 /** 新增期望消息 */
-export const expectMessageAdd = async (params: any) => {
-  return await request.post<any>(`/expected/data`, params)
+export const expectMessageAdd = async (params: object) => {
+  return await request.post(`/expected/data`, params)
 }
 /** 期望消息列表 */
-export const expectMessageList = async (params: any) => {
-  return await request.get<any>(`/expected/data/list`, { params })
+export const expectMessageList = async (params: object) => {
+  return await request.get(`/expected/data/list`, { params })
 }
 
 /** 期望消息删除 */
-export const expectMessageDelete = async (params: any) => {
-  return await request.delete<any>(`/expected/data/${params}`)
+export const expectMessageDelete = async (params: string | number) => {
+  return await request.delete(`/expected/data/${params}`)
 }
-export const getAttributeDataSet = async (params: any, requestConfig: Record<string, unknown> = {}) => {
-  return await request.get<any>(`/attribute/datas/${params.device_id}`, requestConfig as any)
+// FIXME(no-explicit-any): distribution-and-table.vue 传的是裸字符串 id，而本接口契约是 { device_id }；
+// 强类型化会暴露该调用点潜在 bug（当前实际请求 /attribute/datas/undefined），修复属运行时行为变更，留待业务确认。
+export const getAttributeDataSet = async (params: any, requestConfig: CustomAxiosRequestConfig = {}) => {
+  return await request.get(`/attribute/datas/${params.device_id}`, requestConfig)
 }
 
-export const deleteAttributeDataSet = async (params: any) => {
-  return await request.delete<any>(`/attribute/datas/${params}`)
+export const deleteAttributeDataSet = async (params: string | number) => {
+  return await request.delete(`/attribute/datas/${params}`)
 }
 
 /** 属性下发记录查询（分页） */
-export const getAttributeDataSetLogs = async (params: any) => {
-  return await request.get<any>(`/attribute/datas/set/logs`, { params })
+export const getAttributeDataSetLogs = async (params: object) => {
+  return await request.get(`/attribute/datas/set/logs`, { params })
 }
 
 /** 下发属性 */
-export const attributeDataPub = async (params: any) => {
-  return await request.post<any>(`/attribute/datas/pub`, params)
+export const attributeDataPub = async (params: object) => {
+  return await request.post(`/attribute/datas/pub`, params)
 }
 
 /**
  * @param params {device_id:string,key:string}
  * @returns
  */
-export const getAttributeDatasKey = async (params: any) => {
-  return await request.get<any>('/attribute/datas/key', { params })
+export const getAttributeDatasKey = async (params: { device_id: string; key: string }) => {
+  return await request.get('/attribute/datas/key', { params })
 }
 
 /** 属性下发记录查询（分页） */
-export const getEventDataSet = async (params: any) => {
-  return await request.get<any>(`/event/datas`, { params })
+export const getEventDataSet = async (params: object) => {
+  return await request.get(`/event/datas`, { params })
 }
 
 /** 属性下发记录查询（分页） */
-export const getCommandDataSetLogs = async (params: any) => {
-  return await request.get<any>(`/command/datas/set/logs`, { params })
+export const getCommandDataSetLogs = async (params: object) => {
+  return await request.get(`/command/datas/set/logs`, { params })
 }
 
 export type CommandDeliveryDiagnostics = {
@@ -431,8 +434,8 @@ export const getCommandDeliveryDiagnostics = async (deviceId: string, params?: {
 }
 
 /** 下发命令 */
-export const commandDataPub = async (params: any) => {
-  return await request.post<any>(`/command/datas/pub`, params)
+export const commandDataPub = async (params: object) => {
+  return await request.post(`/command/datas/pub`, params)
 }
 
 export type DirectMethodCommandRequest = {
@@ -467,56 +470,56 @@ export const invokeDirectMethod = async (params: DirectMethodCommandRequest) => 
 /** 命令标识符下拉菜单 */
 export const commandDataById = async (id: string) => {
   const url = `/command/datas/${id}`
-  return await request.get<DeviceManagement.telemetryCurrent | any>(url)
+  return await request.get<DeviceManagement.telemetryCurrent>(url)
 }
 
 /** 有图表的设备list */
 export const deviceTemplateSelect = async () => {
   const url = `/device/template/chart/select`
-  return await request.get<any>(url)
+  return await request.get(url)
 }
 
-export const deviceUpdateConfig = async (params: any) => {
+export const deviceUpdateConfig = async (params: object) => {
   return await updateDeviceConfigBinding(params)
 }
 
-export const deviceConfigMenu = async (params: any) => {
-  return await request.get<any>(`/device/template/menu`, { params })
+export const deviceConfigMenu = async (params: object) => {
+  return await request.get(`/device/template/menu`, { params })
 }
 
 // 保存设备位置
-export const deviceLocation = async (params: any) => {
-  return await request.put<any>(`/device`, params)
+export const deviceLocation = async (params: object) => {
+  return await request.put(`/device`, params)
 }
 /** 修改设备名称 */
-export const deviceUpdate = async (params: any) => {
+export const deviceUpdate = async (params: object) => {
   return await request.put<Api.BaseApi.Data>('/device', params)
 }
 /** 网关下子设备列表 */
-export const childDeviceTableList = async (params: any) => {
-  return await request.get<any>(`/device/sub-list/${params.id}`, {
+export const childDeviceTableList = async (params: { id: string; page?: number; page_size?: number }) => {
+  return await request.get(`/device/sub-list/${params.id}`, {
     params
   })
 }
 /** 添加子设备选择列表 */
 export const childDeviceSelectList = async () => {
-  return await request.get<any>(`/device/list`, {})
+  return await request.get(`/device/list`, {})
 }
 /** 添加子设备 */
-export const addChildDevice = async (params: any) => {
-  return await request.post<any>(`/device/son/add`, params)
+export const addChildDevice = async (params: object) => {
+  return await request.post(`/device/son/add`, params)
 }
 /** 移除子设备 */
-export const removeChildDevice = async (params: any) => {
-  return await request.put<any>(`/device/sub-remove`, params)
+export const removeChildDevice = async (params: object) => {
+  return await request.put(`/device/sub-remove`, params)
 }
 // 根据设备id查自定义命令列表
 export const deviceCustomCommandsIdList = async (paramsId: string) => {
-  return await request.get<any>(`/device/model/custom/commands/${paramsId}`)
+  return await request.get(`/device/model/custom/commands/${paramsId}`)
 }
 
-export const deviceProtocolServiceList = async (params: any) => {
-  return await request.get<any>(`/service/plugin/select`, { params })
+export const deviceProtocolServiceList = async (params: object) => {
+  return await request.get(`/service/plugin/select`, { params })
 }
 
 /** 获取设备状态历史记录 */
@@ -528,12 +531,12 @@ export const deviceStatusHistory = async (params: {
   end_time?: number
   status?: number
 }) => {
-  return await request.get<any>(`/device/status/history`, { params })
+  return await request.get(`/device/status/history`, { params })
 }
 
 /** 获取设备诊断信息 */
 export const deviceDiagnostics = async (deviceId: string) => {
-  return await request.get<any>(`/devices/${deviceId}/diagnostics`)
+  return await request.get(`/devices/${deviceId}/diagnostics`)
 }
 
 /** 获取设备接入向导使用的只读连接诊断聚合 */
@@ -579,32 +582,30 @@ export interface TopicMappingDryRunResult {
 }
 
 export const getTopicMappingList = async (params: { device_config_id: string; page?: number; page_size?: number }) => {
-  return await request.get<any>(`/device/topic-mappings`, { params })
+  return await request.get(`/device/topic-mappings`, { params })
 }
 
 export const createTopicMapping = async (data: TopicMappingPayload) => {
-  return await request.post<any>(`/device/topic-mappings`, data)
+  return await request.post(`/device/topic-mappings`, data)
 }
 
 export const dryRunTopicMapping = async (data: TopicMappingDryRunPayload) => {
-  return await request.post<TopicMappingDryRunResult>(`/device/topic-mappings/dry-run`, data, {
-    silentError: true
-  } as any)
+  return await request.post<TopicMappingDryRunResult>(`/device/topic-mappings/dry-run`, data, { silentError: true })
 }
 
 export const updateTopicMapping = async (id: string | number, data: Partial<TopicMappingPayload>) => {
-  return await request.put<any>(`/device/topic-mappings/${id}`, data)
+  return await request.put(`/device/topic-mappings/${id}`, data)
 }
 
 export const deleteTopicMapping = async (id: string | number) => {
-  return await request.delete<any>(`/device/topic-mappings/${id}`)
+  return await request.delete(`/device/topic-mappings/${id}`)
 }
 
 /** 设备调试日志开关状态查询 */
 
 /** 设备在线状态查询 */
 export const getDeviceOnlineStatus = async (deviceId: string) => {
-  return await request.get<any>(`/device/online/status/${deviceId}`)
+  return await request.get(`/device/online/status/${deviceId}`)
 }
 
 /** 设备调试日志开关 */

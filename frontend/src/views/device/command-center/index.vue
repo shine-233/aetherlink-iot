@@ -5,15 +5,10 @@ import { NButton } from 'naive-ui'
 import { useRoute, useRouter } from 'vue-router'
 import { $t } from '@/locales'
 import { useViewportDeferredMount } from '@/hooks/common/useViewportDeferredMount'
-import { writeClipboardText } from '@/utils/clipboard'
 import type { FleetCommandJobListItem } from '@/service/api/device'
-import {
-  buildCommandJobEligibilityImpactSummaryText,
-  buildCommandCenterFilterSummaryItems,
-  normalizeQueryValue,
-  parseCommandCenterScopeContext
-} from './commandCenterState'
-import type { QueryValue } from './commandCenterState'
+import { useCommandCenterRouteScope } from './useCommandCenterRouteScope'
+import { useCommandCenterRouteDraftSync } from './useCommandCenterRouteDraftSync'
+import { useCommandCenterJobFollowUpActions } from './useCommandCenterJobFollowUpActions'
 import { useCommandCenterJobWorkbench } from './useCommandCenterJobWorkbench'
 import { useCommandCenterSubmitEvidenceView } from './useCommandCenterSubmitEvidenceView'
 import { useCommandCenterDraft } from './useCommandCenterDraft'
@@ -21,16 +16,13 @@ import { useCommandCenterCommandTemplates } from './useCommandCenterCommandTempl
 import { useCommandCenterTemplateActions } from './useCommandCenterTemplateActions'
 import { useCommandCenterNavigation } from './useCommandCenterNavigation'
 import { useCommandCenterSavedFleetFilters } from './useCommandCenterSavedFleetFilters'
-import { buildCommandJobLink } from './commandCenterPageView'
-import { buildCommandJobCloseoutPacket, buildCommandJobHistoryAttentionAggregateRows } from './commandCenterJobView'
+import { buildCommandJobHistoryAttentionAggregateRows } from './commandCenterJobView'
 import { buildCommandScopeSafety } from './commandCenterScopeSafety'
 import { useCommandCenterPageView } from './useCommandCenterPageView'
 import { useCommandCenterJobSession } from './useCommandCenterJobSession'
 import { buildCommandJobResultViewModel } from './commandCenterJobResultViewModel'
 import type { CommandJobResultActions } from './commandCenterJobResultViewModel'
-import { parseCommandCenterRouteDraft } from './commandCenterRouteDraft'
 import {
-  buildActiveCommandJobQuery,
   buildClearedSavedFilterQuery,
   buildRenamedSavedFilterQuery
 } from './commandCenterRouteQuery'
@@ -47,32 +39,24 @@ const CommandCenterSavedFilterChooser = defineAsyncComponent(() => import('./Com
 const route = useRoute()
 const router = useRouter()
 
-const scopeContext = computed(() => parseCommandCenterScopeContext(route.query as Record<string, any>))
-const selectedDeviceIds = computed(() => scopeContext.value.deviceIds)
-
-const selectedCount = computed(() => selectedDeviceIds.value.length)
-const requestedTotal = computed(() => scopeContext.value.requestedTotal)
-const currentPageCount = computed(() => scopeContext.value.currentPageCount)
-const scope = computed(() => scopeContext.value.scopeType)
-const routeScope = computed(() => scopeContext.value.routeScope)
-const deviceFilter = computed(() => scopeContext.value.deviceFilter)
-const filterSummaryItems = computed(() => buildCommandCenterFilterSummaryItems(deviceFilter.value))
-const hasDeviceFilter = computed(() => filterSummaryItems.value.length > 0)
-const isDeviceFilterScope = computed(() => scope.value === 'device_filter')
-const hasSelectedDevices = computed(() => selectedCount.value > 0)
-const hasCommandJobScope = computed(() =>
-  isDeviceFilterScope.value ? hasDeviceFilter.value : hasSelectedDevices.value
-)
-const activeCommandJobId = computed(
-  () =>
-    normalizeQueryValue(route.query.command_job_id as QueryValue) ||
-    normalizeQueryValue(route.query.job_id as QueryValue)
-)
-const routeCommandDraft = computed(() => parseCommandCenterRouteDraft(route.query))
-
-const setActiveCommandJobQuery = async (jobId: string) => {
-  await router.replace({ query: buildActiveCommandJobQuery(route.query, jobId) })
-}
+const {
+  activeCommandJobId,
+  currentPageCount,
+  deviceFilter,
+  filterSummaryItems,
+  hasCommandJobScope,
+  hasDeviceFilter,
+  hasSelectedDevices,
+  isDeviceFilterScope,
+  requestedTotal,
+  routeCommandDraft,
+  routeScope,
+  scope,
+  scopeContext,
+  selectedCount,
+  selectedDeviceIds,
+  setActiveCommandJobQuery
+} = useCommandCenterRouteScope()
 
 let setCommandJobError: (message: string) => void = () => undefined
 
@@ -192,9 +176,19 @@ const {
   getRouteSavedFilterId: () => scopeContext.value.savedFilterId
 })
 
-const reusedCommandJobDraft = ref<{ jobId: string; identify: string } | null>(null)
-const routeCommandDraftNotice = ref<{ identify: string; source: string } | null>(null)
-const appliedRouteCommandDraftSignature = ref('')
+const {
+  applyRouteCommandDraft,
+  clearReusedCommandJobDraft,
+  clearRouteCommandDraftNotice,
+  reusedCommandJobDraft,
+  routeCommandDraftNotice
+} = useCommandCenterRouteDraftSync({
+  routeCommandDraft,
+  commandIdentify,
+  commandValue,
+  timeoutSeconds,
+  resetCommandJobDraft
+})
 const jobHistoryInitialLoadQueued = ref(false)
 const jobHistoryViewportRef = ref<HTMLElement | null>(null)
 const setJobHistoryViewportRef = (element: HTMLElement | null) => {
@@ -226,32 +220,6 @@ const {
   saveCommandTemplate,
   savedCommandTemplates
 } = useCommandCenterCommandTemplates()
-
-const clearReusedCommandJobDraft = () => {
-  reusedCommandJobDraft.value = null
-}
-
-const clearRouteCommandDraftNotice = () => {
-  routeCommandDraftNotice.value = null
-}
-
-const applyRouteCommandDraft = () => {
-  const draft = routeCommandDraft.value
-  if (!draft.hasDraft || draft.signature === appliedRouteCommandDraftSignature.value) return
-
-  commandIdentify.value = draft.identify
-  commandValue.value = draft.value
-  if (draft.timeoutSeconds) {
-    timeoutSeconds.value = draft.timeoutSeconds
-  }
-  reusedCommandJobDraft.value = null
-  routeCommandDraftNotice.value = {
-    identify: draft.identify,
-    source: draft.source
-  }
-  appliedRouteCommandDraftSignature.value = draft.signature
-  resetCommandJobDraft()
-}
 
 const {
   applyBuiltInCommandTemplate,
@@ -375,71 +343,21 @@ const {
   t: $t
 })
 
-const copyCommandJobLink = async () => {
-  if (!submitResult.value?.job_id) return
-  const ok = await writeClipboardText(buildCommandJobLink(window.location.href, submitResult.value.job_id))
-  if (ok) {
-    window.$message?.success($t('custom.commandCenter.copyJobLinkSuccess'))
-  } else {
-    window.$message?.warning($t('common.copyFailed'))
-  }
-}
-
-const copyCommandJobHandoffSummary = async () => {
-  if (!submitResult.value?.job_id) return
-  const summary = `${jobHandoffSummary.value}\n${buildCommandJobLink(window.location.href, submitResult.value.job_id)}`
-  const ok = await writeClipboardText(summary)
-  if (ok) {
-    window.$message?.success($t('custom.commandCenter.copyHandoffSummarySuccess'))
-  } else {
-    window.$message?.warning($t('common.copyFailed'))
-  }
-}
-
-const copyCommandJobCloseoutPacket = async () => {
-  if (!submitResult.value?.job_id) return
-  if (!supportBundle.value) {
-    await loadCommandJobSupportBundle()
-  }
-  const packet = buildCommandJobCloseoutPacket(
-    submitResult.value,
-    buildCommandJobLink(window.location.href, submitResult.value.job_id),
-    supportBundle.value
-  )
-  const ok = await writeClipboardText(packet)
-  if (ok) {
-    window.$message?.success($t('custom.commandCenter.copyCloseoutPacketSuccess'))
-  } else {
-    window.$message?.warning($t('common.copyFailed'))
-  }
-}
-
-const copyCommandJobEligibilityImpactSummary = async () => {
-  const summary = buildCommandJobEligibilityImpactSummaryText(commandJobEligibilityImpactPreview.value, $t)
-  if (!summary) return
-  const ok = await writeClipboardText(summary)
-  if (ok) {
-    window.$message?.success($t('custom.commandCenter.copyImpactPreviewSuccess'))
-  } else {
-    window.$message?.warning($t('common.copyFailed'))
-  }
-}
-
-const openCommandJobDeviceDiagnosis = (deviceId: string) => {
-  if (!deviceId) {
-    window.$message?.warning($t('custom.commandCenter.openDeviceDiagnosisMissing'))
-    return
-  }
-  router.push({
-    path: '/device/details',
-    query: {
-      d_id: deviceId,
-      tab: 'ready-check',
-      command_job_id: submitResult.value?.job_id || undefined,
-      source: 'command_job_diagnosis'
-    }
-  })
-}
+const {
+  copyCommandJobLink,
+  copyCommandJobHandoffSummary,
+  copyCommandJobCloseoutPacket,
+  copyCommandJobEligibilityImpactSummary,
+  openCommandJobDeviceDiagnosis
+} = useCommandCenterJobFollowUpActions({
+  router,
+  t: $t,
+  submitResult,
+  supportBundle,
+  loadCommandJobSupportBundle,
+  jobHandoffSummary,
+  commandJobEligibilityImpactPreview
+})
 
 function reuseCommandJobDraft(job: FleetCommandJobListItem) {
   commandIdentify.value = job.identify || ''
@@ -492,15 +410,6 @@ const {
   refreshCommandJob,
   openCommandJobDetail,
   submitResult
-})
-
-watch(commandIdentify, (identify) => {
-  if (reusedCommandJobDraft.value && identify !== reusedCommandJobDraft.value.identify) {
-    clearReusedCommandJobDraft()
-  }
-  if (routeCommandDraftNotice.value && identify !== routeCommandDraftNotice.value.identify) {
-    clearRouteCommandDraftNotice()
-  }
 })
 
 const commandJobResult = computed(() =>
@@ -612,11 +521,6 @@ watch(shouldMountJobHistoryPanel, (shouldMount) => {
     queueInitialCommandJobHistoryLoad()
   }
 })
-
-watch(routeCommandDraft, () => {
-  applyRouteCommandDraft()
-})
-
 
 watch(
   () => scopeContext.value.savedFilterId,

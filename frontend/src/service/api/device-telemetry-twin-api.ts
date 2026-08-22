@@ -4,17 +4,18 @@
  * Keep these exports stable through `device.ts` re-exports; many pages still
  * import from the historical device API facade.
  */
+import type { CustomAxiosRequestConfig, FlatResponseData } from '@aetherlink/axios'
 import { request } from '../request'
 
 /** 获取设备地图遥测 */
 export const deviceMapTelemetry = async (id: string) => {
-  return await request.get<any>(`/device/map/telemetry/${id}`)
+  return await request.get(`/device/map/telemetry/${id}`)
 }
 
 /** 设备遥测当前值查询 * */
-export const telemetryDataCurrent = async (id: string, requestConfig: Record<string, unknown> = {}) => {
+export const telemetryDataCurrent = async (id: string, requestConfig: CustomAxiosRequestConfig = {}) => {
   const url = `/telemetry/datas/current/${id}`
-  return await request.get<DeviceManagement.telemetryCurrent | any>(url, requestConfig as any)
+  return await request.get<DeviceManagement.telemetryCurrent>(url, requestConfig)
 }
 
 export type DeviceTwinSource = 'telemetry' | 'attribute' | 'command'
@@ -54,7 +55,7 @@ export type DeviceTwinState = {
 
 /** 设备 Twin Lite 聚合 */
 export const getDeviceTwin = async (id: string, requestConfig: Record<string, unknown> = {}) => {
-  return await request.get<DeviceTwinState>(`/device/twin/${id}`, requestConfig as any)
+  return await request.get<DeviceTwinState>(`/device/twin/${id}`, requestConfig)
 }
 
 export type DeviceTwinDesiredPayload = {
@@ -66,15 +67,15 @@ export type DeviceTwinDesiredPayload = {
 
 /** 写入/更新设备 Twin Lite desired 条目 */
 export const setDeviceTwinDesired = async (id: string, params: DeviceTwinDesiredPayload) => {
-  return await request.put<any>(`/device/twin/${id}/desired`, params)
+  return await request.put(`/device/twin/${id}/desired`, params)
 }
 
 /**
  * @param params {device_id:string,keys:string}
  * @returns
  */
-export const telemetryDataCurrentKeys = async (params: any) => {
-  return await request.get<any>('/telemetry/datas/current/keys', { params })
+export const telemetryDataCurrentKeys = async (params: object) => {
+  return await request.get('/telemetry/datas/current/keys', { params })
 }
 
 const TELEMETRY_TIME_RANGE_MS: Record<string, number> = {
@@ -116,12 +117,29 @@ function toFiniteNumber(value: unknown, fallback: number | null = null) {
   return Number.isFinite(numericValue) ? numericValue : null
 }
 
-function shouldFallbackTelemetryHistory(error: any) {
-  const message = error?.error?.message || error?.message || ''
+function pickUnknown(source: Record<string, unknown>, keys: string[]): unknown {
+  for (const k of keys) {
+    if (source[k] !== undefined && source[k] !== null) return source[k]
+  }
+  return undefined
+}
+
+function shouldFallbackTelemetryHistory(error: unknown) {
+  const err = error as { error?: { message?: unknown }; message?: unknown } | undefined
+  const rawMessage = err?.error?.message ?? err?.message ?? ''
+  const message = typeof rawMessage === 'string' ? rawMessage : ''
   return typeof message === 'string' && message.includes('failed to encode args[2]') && message.includes('OID 25')
 }
 
-function resolveTelemetryHistoryRange(params: any): TelemetryHistoryRange | null {
+type TelemetryHistoryQuery = {
+  device_id?: string
+  key?: string
+  time_range?: string
+  start_time?: number | string
+  end_time?: number | string
+}
+
+function resolveTelemetryHistoryRange(params: TelemetryHistoryQuery): TelemetryHistoryRange | null {
   const startTime = toFiniteNumber(params?.start_time)
   const endTime = toFiniteNumber(params?.end_time)
 
@@ -139,26 +157,29 @@ function resolveTelemetryHistoryRange(params: any): TelemetryHistoryRange | null
   }
 }
 
-function normalizeTelemetryHistoryPageData(payload: any): TelemetryHistoryPoint[] {
-  const list = Array.isArray(payload?.list) ? payload.list : []
+function asRecordOrNull(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null
+  }
 
-  return list
-    .map((item: any) => {
-      const x = toFiniteNumber(item?.ts ?? item?.time ?? item?.x, 0)
-      const y = toFiniteNumber(item?.value ?? item?.y ?? item?.avg, 0)
+  function normalizeTelemetryHistoryPageData(payload: FlatResponseData): TelemetryHistoryPoint[] {
+  const payloadRecord = asRecordOrNull(payload.data)
+  const listValue = payloadRecord ? payloadRecord.list : undefined
+  const rawList: unknown[] = Array.isArray(listValue) ? listValue : []
 
-      return {
-        key: item?.key,
-        x,
-        y
-      }
-    })
-    .filter((item: any): item is TelemetryHistoryPoint => item.x !== null && item.y !== null)
+  const points: Array<TelemetryHistoryPoint | null> = rawList.map(entry => {
+    const item = (entry ?? {}) as Record<string, unknown>
+    const x = toFiniteNumber(pickUnknown(item, ['ts', 'time', 'x']), 0)
+    const y = toFiniteNumber(pickUnknown(item, ['value', 'y', 'avg']), 0)
+    if (x === null || y === null) return null
+    return typeof item.key === 'string' ? { key: item.key, x, y } : { x, y }
+  })
+
+  return points.filter((point): point is TelemetryHistoryPoint => point !== null)
 }
 
-export const telemetryHistoryData = async (params: any, requestConfig: Record<string, unknown> = {}) => {
-  return await request.get<any>(`/telemetry/datas/history/page`, {
-    ...(requestConfig as any),
+export const telemetryHistoryData = async (params: TelemetryHistoryQuery, requestConfig: CustomAxiosRequestConfig = {}) => {
+  return await request.get(`/telemetry/datas/history/page`, {
+    ...requestConfig,
     params
   })
 }
@@ -168,16 +189,17 @@ export const telemetryHistoryData = async (params: any, requestConfig: Record<st
  *   aggregate_function: string, time_range: string }
  * @returns
  */
-export const telemetryDataHistoryList = async (params: any, requestConfig: Record<string, unknown> = {}) => {
+export const telemetryDataHistoryList = async (params: TelemetryHistoryQuery, requestConfig: CustomAxiosRequestConfig = {}) => {
   const normalized = { ...params }
-  let statisticResponse: any
+  // 兼容历史行为：请求层抛错时把原始 error 当响应对象继续走探测逻辑。
+  let statisticResponse: FlatResponseData
   try {
-    statisticResponse = await request.get<any>('/telemetry/datas/statistic', {
-      ...(requestConfig as any),
+    statisticResponse = await request.get('/telemetry/datas/statistic', {
+      ...requestConfig,
       params: normalized
     })
   } catch (error) {
-    statisticResponse = error
+    statisticResponse = error as FlatResponseData
   }
 
   if (!statisticResponse?.error || !shouldFallbackTelemetryHistory(statisticResponse)) {
@@ -191,7 +213,7 @@ export const telemetryDataHistoryList = async (params: any, requestConfig: Recor
     return statisticResponse
   }
 
-  let historyResponse: any
+  let historyResponse: FlatResponseData
   try {
     historyResponse = await telemetryHistoryData(
       {
@@ -210,37 +232,37 @@ export const telemetryDataHistoryList = async (params: any, requestConfig: Recor
   }
 
   return {
-    data: normalizeTelemetryHistoryPageData(historyResponse?.data),
+    data: normalizeTelemetryHistoryPageData(historyResponse),
     error: null
   }
 }
 
 /** 遥测删除数据处理 */
-export const telemetryDataDel = async (params: any) => {
-  return await request.delete2<Api.BaseApi.Data | any>(`/telemetry/datas`, params)
+export const telemetryDataDel = async (params: object) => {
+  return await request.delete2<Api.BaseApi.Data>(`/telemetry/datas`, params)
 }
 
-export const getTelemetryLogList = async (params: any) => {
-  return await request.get<any>(`/telemetry/datas/set/logs`, { params })
+export const getTelemetryLogList = async (params: object) => {
+  return await request.get(`/telemetry/datas/set/logs`, { params })
 }
 
-export const telemetryDataPub = async (params: any) => {
-  return await request.post<any>(`/telemetry/datas/pub`, params)
+export const telemetryDataPub = async (params: object) => {
+  return await request.post(`/telemetry/datas/pub`, params)
 }
 
 /** 获取设备获取遥测数据命令 */
-export const getSimulation = async (params: any) => {
-  return await request.get<any>(`/telemetry/datas/simulation`, { params })
+export const getSimulation = async (params: Record<string, unknown>) => {
+  return await request.get(`/telemetry/datas/simulation`, { params })
 }
 
 /** 获取设备发送遥测数据命令 */
-export const sendSimulation = async (params: any) => {
-  return await request.post<any>(`/telemetry/datas/simulation`, params)
+export const sendSimulation = async (params: object) => {
+  return await request.post(`/telemetry/datas/simulation`, params)
 }
 
 /** 获取模拟表单初始值 */
 export const getSimulationInit = async (params: { device_id: string }) => {
-  return await request.get<any>(`/telemetry/datas/simulation/init`, { params })
+  return await request.get(`/telemetry/datas/simulation/init`, { params })
 }
 
 /** 发送模拟数据 */
@@ -251,5 +273,5 @@ export const sendSimulationData = async (params: {
   port?: number
   topic?: string
 }) => {
-  return await request.post<any>(`/telemetry/datas/simulation/send`, params)
+  return await request.post(`/telemetry/datas/simulation/send`, params)
 }
