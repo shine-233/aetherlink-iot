@@ -1,4 +1,4 @@
-/*
+﻿/*
  * 文件用途：提供前端 Logger 类和日志级别控制。
  * 核心逻辑：按配置过滤日志级别，并封装 debug/info/warn/error 等输出入口。
  * 关键注意事项：日志不能泄露 token、用户信息或设备敏感数据。
@@ -69,7 +69,7 @@ export default class Logger {
   /**
    * Debug级别日志 - 只在开发环境显示
    */
-  debug(...args: any[]): void {
+  debug(...args: unknown[]): void {
     if (this.isLevelEnabled(LogLevel.DEBUG)) {
       console.log(this.formatPrefix('DEBUG'), ...args)
     }
@@ -78,7 +78,7 @@ export default class Logger {
   /**
    * Info级别日志
    */
-  info(...args: any[]): void {
+  info(...args: unknown[]): void {
     if (this.isLevelEnabled(LogLevel.INFO)) {
       console.info(this.formatPrefix('INFO'), ...args)
     }
@@ -87,7 +87,7 @@ export default class Logger {
   /**
    * Warning级别日志
    */
-  warn(...args: any[]): void {
+  warn(...args: unknown[]): void {
     if (this.isLevelEnabled(LogLevel.WARN)) {
       console.warn(this.formatPrefix('WARN'), ...args)
     }
@@ -96,7 +96,7 @@ export default class Logger {
   /**
    * Error级别日志
    */
-  error(...args: any[]): void {
+  error(...args: unknown[]): void {
     if (this.isLevelEnabled(LogLevel.ERROR)) {
       console.error(this.formatPrefix('ERROR'), ...args)
     }
@@ -105,7 +105,7 @@ export default class Logger {
   /**
    * 条件日志 - 只有当条件为true时才输出
    */
-  debugIf(condition: boolean, ...args: any[]): void {
+  debugIf(condition: boolean, ...args: unknown[]): void {
     if (condition) this.debug(...args)
   }
 

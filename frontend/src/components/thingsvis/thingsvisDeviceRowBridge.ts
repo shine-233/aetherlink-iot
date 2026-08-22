@@ -1,4 +1,4 @@
-export type NormalizedPlatformDeviceRow = {
+﻿export type NormalizedPlatformDeviceRow = {
   deviceId: string
   deviceName: string
   groupId: string
@@ -21,6 +21,27 @@ export type PlatformDeviceRowContext = {
   configTemplateMap: Map<string, string>
 }
 
+/** 设备嵌套对象（后端返回，字段宽松） */
+type DeviceRecordLike = {
+  id?: unknown
+  name?: unknown
+  group?: { id?: unknown; name?: unknown } | null
+  device_config?: { id?: unknown; name?: unknown; device_template_id?: unknown; deviceTemplateId?: unknown } | null
+  [key: string]: unknown
+}
+
+/** 平台设备行（后端返回，字段宽松，snake_case/camelCase 双写法兼容） */
+type DeviceRowLike = {
+  device?: unknown
+  device_info?: unknown
+  deviceInfo?: unknown
+  device_data?: unknown
+  deviceData?: unknown
+  device_config?: DeviceRecordLike['device_config']
+  group?: DeviceRecordLike['group']
+  [key: string]: unknown
+}
+
 function firstString(...values: unknown[]): string | undefined {
   for (const value of values) {
     if (value === undefined || value === null) continue
@@ -41,15 +62,15 @@ function firstNumber(...values: unknown[]): number | undefined {
   return undefined
 }
 
-function asRecord(value: unknown): Record<string, any> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, any>) : {}
+function asRecord(value: unknown): DeviceRecordLike {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as DeviceRecordLike) : {}
 }
 
-function unwrapDeviceRow(row: any): Record<string, any> {
+function unwrapDeviceRow(row: DeviceRowLike | null | undefined): DeviceRecordLike {
   return asRecord(row?.device || row?.device_info || row?.deviceInfo || row?.device_data || row?.deviceData || row)
 }
 
-function resolveDeviceId(row: any): string | undefined {
+function resolveDeviceId(row: DeviceRowLike | null | undefined): string | undefined {
   const nestedDevice = row?.device || row?.device_info || row?.deviceInfo || row?.device_data || row?.deviceData
   if (nestedDevice && typeof nestedDevice === 'object') {
     const device = asRecord(nestedDevice)
@@ -59,7 +80,7 @@ function resolveDeviceId(row: any): string | undefined {
   return firstString(row?.device_id, row?.deviceId, row?.id)
 }
 
-function resolveDeviceName(row: any, deviceId: string): string {
+function resolveDeviceName(row: DeviceRowLike | null | undefined, deviceId: string): string {
   const device = unwrapDeviceRow(row)
   return firstString(
     device.device_name,
@@ -76,7 +97,7 @@ function resolveDeviceName(row: any, deviceId: string): string {
   ) as string
 }
 
-function resolveDeviceConfigId(row: any): string | undefined {
+function resolveDeviceConfigId(row: DeviceRowLike | null | undefined): string | undefined {
   const device = unwrapDeviceRow(row)
   return firstString(
     device.device_config_id,
@@ -88,7 +109,7 @@ function resolveDeviceConfigId(row: any): string | undefined {
   )
 }
 
-function resolveDeviceConfigDisplayName(row: any): string | undefined {
+function resolveDeviceConfigDisplayName(row: DeviceRowLike | null | undefined): string | undefined {
   const device = unwrapDeviceRow(row)
   return firstString(
     device.device_config_name,
@@ -100,7 +121,7 @@ function resolveDeviceConfigDisplayName(row: any): string | undefined {
   )
 }
 
-function resolveDeviceOnlineStatus(row: any): number | string | boolean | undefined {
+function resolveDeviceOnlineStatus(row: DeviceRowLike | null | undefined): number | string | boolean | undefined {
   const device = unwrapDeviceRow(row)
   return (
     firstNumber(device.is_online, device.isOnline, row?.is_online, row?.isOnline) ??
@@ -109,27 +130,27 @@ function resolveDeviceOnlineStatus(row: any): number | string | boolean | undefi
   )
 }
 
-function resolveDeviceWarnStatus(row: any): string | undefined {
+function resolveDeviceWarnStatus(row: DeviceRowLike | null | undefined): string | undefined {
   const device = unwrapDeviceRow(row)
   return firstString(device.warn_status, device.warnStatus, row?.warn_status, row?.warnStatus)
 }
 
-function resolveDeviceType(row: any): string | undefined {
+function resolveDeviceType(row: DeviceRowLike | null | undefined): string | undefined {
   const device = unwrapDeviceRow(row)
   return firstString(device.device_type, device.deviceType, row?.device_type, row?.deviceType)
 }
 
-function resolveDeviceAccessWay(row: any): string | undefined {
+function resolveDeviceAccessWay(row: DeviceRowLike | null | undefined): string | undefined {
   const device = unwrapDeviceRow(row)
   return firstString(device.access_way, device.accessWay, row?.access_way, row?.accessWay)
 }
 
-function resolveDeviceProtocolType(row: any): string | undefined {
+function resolveDeviceProtocolType(row: DeviceRowLike | null | undefined): string | undefined {
   const device = unwrapDeviceRow(row)
   return firstString(device.protocol_type, device.protocolType, row?.protocol_type, row?.protocolType)
 }
 
-function resolveDeviceLastPushTime(row: any): string | undefined {
+function resolveDeviceLastPushTime(row: DeviceRowLike | null | undefined): string | undefined {
   const device = unwrapDeviceRow(row)
   return firstString(
     device.ts,
@@ -141,7 +162,7 @@ function resolveDeviceLastPushTime(row: any): string | undefined {
   )
 }
 
-function resolveDeviceTemplateId(row: any, configTemplateMap: Map<string, string> = new Map()): string | undefined {
+function resolveDeviceTemplateId(row: DeviceRowLike | null | undefined, configTemplateMap: Map<string, string> = new Map()): string | undefined {
   const device = unwrapDeviceRow(row)
   const configId = resolveDeviceConfigId(row)
   const configName = resolveDeviceConfigDisplayName(row)
@@ -159,7 +180,7 @@ function resolveDeviceTemplateId(row: any, configTemplateMap: Map<string, string
   )
 }
 
-function resolveDeviceGroupId(row: any): string | undefined {
+function resolveDeviceGroupId(row: DeviceRowLike | null | undefined): string | undefined {
   const device = unwrapDeviceRow(row)
   return firstString(
     device.group_id,
@@ -175,7 +196,7 @@ function resolveDeviceGroupId(row: any): string | undefined {
   )
 }
 
-function resolveDeviceGroupName(row: any): string | undefined {
+function resolveDeviceGroupName(row: DeviceRowLike | null | undefined): string | undefined {
   const device = unwrapDeviceRow(row)
   return firstString(
     device.group_name,
@@ -192,7 +213,7 @@ function resolveDeviceGroupName(row: any): string | undefined {
 }
 
 function resolvePlatformDeviceGroupName(
-  row: any,
+  row: DeviceRowLike | null | undefined,
   groupId: string,
   fallbackGroupName: string,
   groupNameById: Map<string, string>
@@ -201,7 +222,7 @@ function resolvePlatformDeviceGroupName(
 }
 
 export function normalizePlatformDeviceRow(
-  row: any,
+  row: DeviceRowLike | null | undefined,
   { fallbackGroupId, fallbackGroupName, groupNameById, configTemplateMap }: PlatformDeviceRowContext
 ): NormalizedPlatformDeviceRow | null {
   const deviceId = resolveDeviceId(row)

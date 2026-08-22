@@ -32,6 +32,63 @@ type ChartFontSizeConfig = Partial<{
   pieLabel: number
 }>
 
+/** 小部件事件动作（JSON 配置，字段宽松） */
+type ThingsVisNodeEventAction = {
+  __thingsvisAutoWrite?: string
+  __thingsvisAutoWriteValueType?: string
+  [key: string]: unknown
+}
+
+/** 小部件节点事件处理器（JSON 配置，字段宽松） */
+type ThingsVisNodeEventHandler = {
+  event?: unknown
+  actions?: ThingsVisNodeEventAction[]
+}
+
+/** 字段绑定表达式条目（JSON 配置，字段宽松） */
+type ThingsVisFieldBinding = {
+  targetProp?: unknown
+  expression?: unknown
+}
+
+/** 数据源声明（JSON 配置，字段宽松） */
+type ThingsVisDataSourceLike = {
+  id?: unknown
+  type?: unknown
+  config?: Record<string, unknown> | null
+  [key: string]: unknown
+}
+
+/** 画布配置（JSON 配置，字段宽松） */
+type ThingsVisCanvasLike = {
+  mode?: unknown
+  scaleMode?: unknown
+  width?: number | null
+  height?: number | null
+  [key: string]: unknown
+}
+
+/** 小部件节点（JSON 配置，字段宽松，运行时逐个校验） */
+type ThingsVisNodeLike = {
+  type?: unknown
+  data?: ThingsVisFieldBinding[] | null
+  props?: Record<string, unknown> | null
+  events?: ThingsVisNodeEventHandler[] | null
+  x?: unknown
+  y?: unknown
+  width?: unknown
+  height?: unknown
+}
+
+/** 小部件页面配置（JSON 配置，字段宽松） */
+type ThingsVisWidgetConfigLike = {
+  nodes?: ThingsVisNodeLike[] | null
+  dataSources?: ThingsVisDataSourceLike[] | null
+  canvas?: ThingsVisCanvasLike | null
+  canvasConfig?: ThingsVisCanvasLike | null
+  [key: string]: unknown
+}
+
 const CARTESIAN_CHART_TYPES = new Set(THINGSVIS_WIDGET_CARTESIAN_CHART_TYPES)
 const PIE_CHART_TYPES = new Set(THINGSVIS_WIDGET_PIE_CHART_TYPES)
 const GAUGE_CHART_TYPES = new Set(THINGSVIS_WIDGET_GAUGE_CHART_TYPES)
@@ -104,13 +161,14 @@ const getEzuikitPlaybackDefaults = () => {
   }
 }
 
-const isPlatformFieldDataSource = (dataSource: any) => {
-  const type = typeof dataSource?.type === 'string' ? dataSource.type.toUpperCase() : ''
+const isPlatformFieldDataSource = (dataSource: ThingsVisDataSourceLike) => {
+  const rawType = dataSource?.type
+  const type = typeof rawType === 'string' ? rawType.toUpperCase() : ''
   return type === 'PLATFORM_FIELD' || type === 'PLATFORM'
 }
 
 const normalizeViewerPlatformDataSources = (
-  config: any,
+  config: ThingsVisWidgetConfigLike,
   options: NormalizeThingsVisWidgetLoadConfigOptions
 ) => {
   if (!config || options.mode !== 'viewer' || !Array.isArray(config.dataSources)) return config
@@ -120,7 +178,7 @@ const normalizeViewerPlatformDataSources = (
 
   return {
     ...config,
-    dataSources: config.dataSources.map((dataSource: any) => {
+    dataSources: config.dataSources.map((dataSource) => {
       if (!isPlatformFieldDataSource(dataSource)) return dataSource
       if (dataSource?.config?.deviceId) return dataSource
 
@@ -136,11 +194,11 @@ const normalizeViewerPlatformDataSources = (
 }
 
 const resolveInteractiveWriteBinding = (
-  node: any,
+  node: ThingsVisNodeLike,
   options: NormalizeThingsVisWidgetLoadConfigOptions
 ) => {
   const bindings = Array.isArray(node?.data) ? node.data : []
-  const valueBinding = bindings.find((binding: any) => binding?.targetProp === 'value')
+  const valueBinding = bindings.find((binding) => binding?.targetProp === 'value')
   const parsed =
     parseThingsVisFieldBindingExpression(valueBinding?.expression) ||
     parseThingsVisFieldBindingExpression(node?.props?.value)
@@ -166,7 +224,11 @@ const buildInteractiveAutoWriteAction = (dataSourceId: string, fieldId: string, 
     : {})
 })
 
-const upsertNodeEventActions = (events: any[], eventName: string, resolveActions: (actions: any[]) => any[] | null) => {
+const upsertNodeEventActions = (
+  events: ThingsVisNodeEventHandler[],
+  eventName: string,
+  resolveActions: (actions: ThingsVisNodeEventAction[]) => ThingsVisNodeEventAction[] | null
+) => {
   const nextEvents = [...events]
   const index = nextEvents.findIndex((handler) => handler?.event === eventName)
 
@@ -195,20 +257,21 @@ const upsertNodeEventActions = (events: any[], eventName: string, resolveActions
 }
 
 const upsertInteractiveAutoWriteEvent = (
-  events: any[],
+  events: ThingsVisNodeEventHandler[],
   eventName: string,
   autoAction: ReturnType<typeof buildInteractiveAutoWriteAction>
 ) =>
-  upsertNodeEventActions(events, eventName, (actions: any[]) => {
-    const manualActions = actions.filter((action: any) => action?.__thingsvisAutoWrite !== AUTO_WRITE_MARKER)
+  upsertNodeEventActions(events, eventName, (actions) => {
+    const manualActions = actions.filter((action) => action?.__thingsvisAutoWrite !== AUTO_WRITE_MARKER)
     return [...manualActions, autoAction]
   })
 
 const normalizeInteractiveWriteNode = (
-  node: any,
+  node: ThingsVisNodeLike,
   options: NormalizeThingsVisWidgetLoadConfigOptions
 ) => {
-  const eventName = DEFAULT_WRITE_EVENT_BY_COMPONENT[node?.type]
+  const rawNodeType = node?.type
+  const eventName = typeof rawNodeType === 'string' ? DEFAULT_WRITE_EVENT_BY_COMPONENT[rawNodeType] : undefined
   if (!eventName) return node
 
   const binding = resolveInteractiveWriteBinding(node, options)
@@ -223,18 +286,21 @@ const normalizeInteractiveWriteNode = (
   }
 }
 
-const ensureInteractiveWriteEvents = (config: any, options: NormalizeThingsVisWidgetLoadConfigOptions) => {
+const ensureInteractiveWriteEvents = (
+  config: ThingsVisWidgetConfigLike,
+  options: NormalizeThingsVisWidgetLoadConfigOptions
+) => {
   if (!config || !Array.isArray(config.nodes)) return config
 
   return {
     ...config,
-    nodes: config.nodes.map((node: any) => normalizeInteractiveWriteNode(node, options))
+    nodes: config.nodes.map((node) => normalizeInteractiveWriteNode(node, options))
   }
 }
 
-const resolvePlatformDataSourceId = (config: any): string | undefined => {
+const resolvePlatformDataSourceId = (config: ThingsVisWidgetConfigLike): string | undefined => {
   const dataSources = Array.isArray(config?.dataSources) ? config.dataSources : []
-  const platformDs = dataSources.find((dataSource: any) => isPlatformFieldDataSource(dataSource))
+  const platformDs = dataSources.find((dataSource) => isPlatformFieldDataSource(dataSource))
   return typeof platformDs?.id === 'string' ? platformDs.id : undefined
 }
 
@@ -245,16 +311,16 @@ const buildEzuikitWriteAction = (dataSourceId: string, payload: string) => ({
 })
 
 const upsertEzuikitWriteEvent = (
-  events: any[],
+  events: ThingsVisNodeEventHandler[],
   eventName: string,
   action: ReturnType<typeof buildEzuikitWriteAction>
 ) =>
-  upsertNodeEventActions(events, eventName, (actions: any[]) => {
+  upsertNodeEventActions(events, eventName, (actions) => {
     if (actions.length === 0) return [action]
     return null
   })
 
-const ensureEzuikitNodeEvents = (node: any, dataSourceId: string) => {
+const ensureEzuikitNodeEvents = (node: ThingsVisNodeLike, dataSourceId: string) => {
   const events = Array.isArray(node?.events) ? node.events : []
   const playbackAction = buildEzuikitWriteAction(
     dataSourceId,
@@ -272,8 +338,8 @@ const ensureEzuikitNodeEvents = (node: any, dataSourceId: string) => {
   )
 }
 
-const normalizeEzuikitNodeProps = (nodeProps: any) => {
-  const nextProps = { ...(nodeProps || {}) }
+const normalizeEzuikitNodeProps = (nodeProps: Record<string, unknown> | null | undefined) => {
+  const nextProps: Record<string, unknown> = { ...(nodeProps || {}) }
   delete nextProps.ezopenUrl
   delete nextProps.playbackBegin
   delete nextProps.playbackEnd
@@ -296,14 +362,19 @@ const buildEzuikitBinding = (dataSourceId: string, targetProp: string, fieldId: 
   expression: `{{ ds.${dataSourceId}.data.${fieldId} }}`
 })
 
-const ensureEzuikitBinding = (bindings: any[], dataSourceId: string, targetProp: string, fieldId: string) => {
-  if (bindings.some((binding: any) => binding?.targetProp === targetProp)) return bindings
+const ensureEzuikitBinding = (
+  bindings: ThingsVisFieldBinding[],
+  dataSourceId: string,
+  targetProp: string,
+  fieldId: string
+) => {
+  if (bindings.some((binding) => binding?.targetProp === targetProp)) return bindings
   return [...bindings, buildEzuikitBinding(dataSourceId, targetProp, fieldId)]
 }
 
-const normalizeEzuikitNodeDataBindings = (node: any, dataSourceId: string) => {
+const normalizeEzuikitNodeDataBindings = (node: ThingsVisNodeLike, dataSourceId: string) => {
   const data = (Array.isArray(node?.data) ? node.data : []).filter(
-    (binding: any) => !['ezopenUrl', 'playbackParamsUrl', 'spaceId', 'busType'].includes(binding?.targetProp)
+    (binding) => !['ezopenUrl', 'playbackParamsUrl', 'spaceId', 'busType'].includes(String(binding?.targetProp))
   )
   const defaultBindings: Array<[string, string]> = [
     ['accessToken', 'ys7_playback_access_token'],
@@ -316,7 +387,7 @@ const normalizeEzuikitNodeDataBindings = (node: any, dataSourceId: string) => {
   }, data)
 }
 
-const normalizeEzuikitPlaybackNode = (node: any, dataSourceId: string) => {
+const normalizeEzuikitPlaybackNode = (node: ThingsVisNodeLike, dataSourceId: string) => {
   if (node?.type !== 'media/ezuikit-player') return node
 
   return {
@@ -327,7 +398,7 @@ const normalizeEzuikitPlaybackNode = (node: any, dataSourceId: string) => {
   }
 }
 
-const ensureEzuikitPlaybackEvents = (config: any) => {
+const ensureEzuikitPlaybackEvents = (config: ThingsVisWidgetConfigLike) => {
   if (!config || !Array.isArray(config.nodes)) return config
 
   const dataSourceId = resolvePlatformDataSourceId(config)
@@ -335,7 +406,7 @@ const ensureEzuikitPlaybackEvents = (config: any) => {
 
   return {
     ...config,
-    nodes: config.nodes.map((node: any) => normalizeEzuikitPlaybackNode(node, dataSourceId))
+    nodes: config.nodes.map((node) => normalizeEzuikitPlaybackNode(node, dataSourceId))
   }
 }
 
@@ -347,7 +418,7 @@ const chartFontSizeDefaultsForType = (nodeType: unknown): ChartFontSizeConfig | 
   return null
 }
 
-const normalizeChartFontSizeNode = (node: any) => {
+const normalizeChartFontSizeNode = (node: ThingsVisNodeLike) => {
   const defaults = chartFontSizeDefaultsForType(node?.type)
   if (!defaults) return node
 
@@ -369,7 +440,7 @@ const normalizeChartFontSizeNode = (node: any) => {
   }
 }
 
-const normalizeModel3DNode = (node: any) => {
+const normalizeModel3DNode = (node: ThingsVisNodeLike) => {
   if (typeof node?.type !== 'string' || !MODEL_3D_TYPES.has(node.type)) return node
 
   const props = node?.props && typeof node.props === 'object' ? node.props : {}
@@ -392,29 +463,37 @@ const normalizeModel3DNode = (node: any) => {
   }
 }
 
-const normalizeThingsVisRuntimeDefaultNode = (node: any) => normalizeModel3DNode(normalizeChartFontSizeNode(node))
+const normalizeThingsVisRuntimeDefaultNode = (node: ThingsVisNodeLike) =>
+  normalizeModel3DNode(normalizeChartFontSizeNode(node))
 
-const ensureChartFontSizeDefaults = (config: any) => {
+const ensureChartFontSizeDefaults = (config: ThingsVisWidgetConfigLike) => {
   if (!config || !Array.isArray(config.nodes)) return config
 
   return {
     ...config,
-    nodes: config.nodes.map((node: any) => normalizeThingsVisRuntimeDefaultNode(node))
+    nodes: config.nodes.map((node) => normalizeThingsVisRuntimeDefaultNode(node))
   }
 }
 
-const hasPositionedNodeBounds = (node: any) => {
+type PositionedThingsVisNode = ThingsVisNodeLike & {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+const hasPositionedNodeBounds = (node: ThingsVisNodeLike): node is PositionedThingsVisNode => {
   return [node?.x, node?.y, node?.width, node?.height].every((value) => typeof value === 'number')
 }
 
-const getPositionedNodeBounds = (nodes: any[]) => {
+const getPositionedNodeBounds = (nodes: ThingsVisNodeLike[]) => {
   const positionedNodes = nodes.filter(hasPositionedNodeBounds)
   if (positionedNodes.length === 0) return null
 
-  const minX = Math.min(...positionedNodes.map((node: any) => node.x))
-  const minY = Math.min(...positionedNodes.map((node: any) => node.y))
-  const maxX = Math.max(...positionedNodes.map((node: any) => node.x + node.width))
-  const maxY = Math.max(...positionedNodes.map((node: any) => node.y + node.height))
+  const minX = Math.min(...positionedNodes.map((node) => node.x))
+  const minY = Math.min(...positionedNodes.map((node) => node.y))
+  const maxX = Math.max(...positionedNodes.map((node) => node.x + node.width))
+  const maxY = Math.max(...positionedNodes.map((node) => node.y + node.height))
 
   return {
     minX,
@@ -424,20 +503,20 @@ const getPositionedNodeBounds = (nodes: any[]) => {
   }
 }
 
-const offsetPositionedNodes = (nodes: any[], offsetX: number, offsetY: number) => {
-  return nodes.map((node: any) => {
+const offsetPositionedNodes = (nodes: ThingsVisNodeLike[], offsetX: number, offsetY: number) => {
+  return nodes.map((node) => {
     if ([node?.x, node?.y].every((value) => typeof value === 'number')) {
       return {
         ...node,
-        x: node.x + offsetX,
-        y: node.y + offsetY
+        x: (node.x as number) + offsetX,
+        y: (node.y as number) + offsetY
       }
     }
     return node
   })
 }
 
-const normalizeInfiniteCanvasConfig = (config: any) => {
+const normalizeInfiniteCanvasConfig = (config: ThingsVisWidgetConfigLike) => {
   const canvas = config.canvas || config.canvasConfig
   if (!canvas || canvas.mode !== 'infinite') return config
 
@@ -469,7 +548,7 @@ const normalizeInfiniteCanvasConfig = (config: any) => {
   }
 }
 
-function normalizeViewerConfig(config: any, options: NormalizeThingsVisWidgetLoadConfigOptions) {
+function normalizeViewerConfig(config: ThingsVisWidgetConfigLike, options: NormalizeThingsVisWidgetLoadConfigOptions) {
   if (!config || options.mode !== 'viewer') return config
 
   const platformNormalizedConfig = normalizeViewerPlatformDataSources(
@@ -480,12 +559,9 @@ function normalizeViewerConfig(config: any, options: NormalizeThingsVisWidgetLoa
   return normalizeInfiniteCanvasConfig(platformNormalizedConfig)
 }
 
-export function normalizeThingsVisWidgetLoadConfig(
-  config: any,
-  options: NormalizeThingsVisWidgetLoadConfigOptions
-) {
+export function normalizeThingsVisWidgetLoadConfig<T>(config: T, options: NormalizeThingsVisWidgetLoadConfigOptions): T {
   const writeNormalizedConfig = ensureChartFontSizeDefaults(
-    ensureInteractiveWriteEvents(ensureEzuikitPlaybackEvents(config), options)
+    ensureInteractiveWriteEvents(ensureEzuikitPlaybackEvents(config as ThingsVisWidgetConfigLike), options)
   )
-  return normalizeViewerConfig(writeNormalizedConfig, options)
+  return normalizeViewerConfig(writeNormalizedConfig, options) as T
 }

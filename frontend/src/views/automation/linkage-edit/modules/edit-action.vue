@@ -1,4 +1,4 @@
-<!--
+﻿<!--
   文件用途: 自动化联动动作编辑模块。
   核心逻辑: 根据条件类型维护动作组，加载设备/配置指标、场景和告警消息，并向父页面输出 actions payload。
   关键注意事项: 条件类型变化会重置动作数据，动作 payload 字段必须与后端自动化执行语义一致。
@@ -240,7 +240,7 @@ onMounted(async () => {
                 v-model:value="actionGroupItem.actionType"
                 :options="actionOptions"
                 class="max-w-40"
-                @update:value="(data) => actionChange(actionGroupItem, actionGroupIndex, data)"
+                @update:value="(data) => actionChange(actionGroupItem, Number(actionGroupIndex), data)"
               />
               <template v-if="actionGroupItem.actionType === '1'">
                 <!--          执行动作是操作设备->添加指令--->
@@ -424,7 +424,7 @@ onMounted(async () => {
                       v-if="instructIndex === 0"
                       type="primary"
                       class="absolute right-5"
-                      @click="addIfGroupsSubItem(actionGroupIndex)"
+                      @click="addIfGroupsSubItem(Number(actionGroupIndex))"
                     >
                       {{ $t('generate.add-operation') }}
                     </NButton>
@@ -432,7 +432,7 @@ onMounted(async () => {
                       v-if="instructIndex !== 0"
                       type="error"
                       class="absolute right-5"
-                      @click="deleteIfGroupsSubItem(actionGroupIndex, instructIndex)"
+                      @click="deleteIfGroupsSubItem(Number(actionGroupIndex), Number(instructIndex))"
                     >
                       {{ $t('generate.delete-operation') }}
                     </NButton>
