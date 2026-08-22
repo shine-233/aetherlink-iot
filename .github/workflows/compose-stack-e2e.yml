@@ -48,6 +48,7 @@ jobs:
       AETHERLINK_RDI_FIXTURE_MODE: synthetic-rdi
       AETHERLINK_RDI_FIXTURE_PID: SYNTHRDI0001
       SYNTHETIC_RDI_PID: SYNTHRDI0001
+      AETHERLINK_PSQL_PATH: /usr/bin/psql
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
