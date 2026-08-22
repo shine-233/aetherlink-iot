@@ -6,6 +6,7 @@ package service
 
 import (
 	"fmt"
+	"strings"
 
 	global "aetherlink-iot/backend/pkg/global"
 
@@ -124,9 +125,21 @@ func (*Casbin) HasRole(role string) bool {
 func (*Casbin) Verify(user string, url string) bool {
 	isTrue, err := global.CasbinEnforcer.Enforce(user, url, "allow")
 	if err != nil {
-		// Enforce 出错（策略/模型异常）时按拒绝处理，fail-closed 不放行敏感接口。
-		logrus.Errorf("casbin enforce failed, deny by default: user=%s url=%s err=%v", user, url, err)
+		// Enforce 内部错误（存储/模型异常）时拒绝并记录：fail-closed 保护所有接口。
+		// user/url 来自请求，写入日志前剥离控制字符，避免日志注入（CodeQL go/log-injection）。
+		logrus.Errorf("casbin enforce failed, deny by default: user=%s url=%s err=%v",
+			sanitizeLogField(user), sanitizeLogField(url), err)
 		return false
 	}
 	return isTrue
+}
+
+// sanitizeLogField 去除控制字符与换行，防止伪造日志行。
+func sanitizeLogField(value string) string {
+	return strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f {
+			return -1
+		}
+		return r
+	}, value)
 }
