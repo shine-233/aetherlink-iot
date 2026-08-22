@@ -6,16 +6,32 @@
  */
 import { request } from '../request'
 
-export const getOtaTaskList = (params: any): Promise<any> => request.get('/ota/task', { params })
-export const getDeviceList = (params: any): Promise<any> => request.get('/device', { params })
-export const addOtaPackage = (data: any): Promise<any> => request.post('/ota/package', data)
-export const editOtaPackage = (data: any): Promise<any> => request.put('/ota/package', data)
-export const deleteOtaPackage = (id: number): Promise<any> => request.delete(`/ota/package/${id}`)
+export const getOtaTaskList = async (params: object) => {
+  return await request.get('/ota/task', { params })
+}
+export const getDeviceList = async (params: object) => {
+  return await request.get('/device', { params })
+}
+export const addOtaPackage = async (data: object) => {
+  return await request.post('/ota/package', data)
+}
+export const editOtaPackage = async (data: object) => {
+  return await request.put('/ota/package', data)
+}
+export const deleteOtaPackage = (id: number) => request.delete(`/ota/package/${id}`)
 // /ota/task
-export const addOtaTask = (data: any): Promise<any> => request.post('/ota/task', data)
-export const previewOtaTask = (data: any): Promise<any> => request.post('/ota/task/preview', data)
-export const getOtaTaskSupportBundle = (taskId: string): Promise<any> =>
+export const addOtaTask = async (data: object) => {
+  return await request.post('/ota/task', data)
+}
+export const previewOtaTask = async (data: object) => {
+  return await request.post('/ota/task/preview', data)
+}
+export const getOtaTaskSupportBundle = (taskId: string) =>
   request.get(`/ota/task/${encodeURIComponent(taskId)}/support-bundle`, { silentError: true })
 // /ota/task/detail
-export const getOtaTaskDetail = (params): Promise<any> => request.get(`/ota/task/detail`, { params })
-export const editOtaTaskDetail = (params): Promise<any> => request.put(`/ota/task/detail`, params)
+export const getOtaTaskDetail = async (params: object) => {
+  return await request.get(`/ota/task/detail`, { params })
+}
+export const editOtaTaskDetail = async (params: object) => {
+  return await request.put(`/ota/task/detail`, params)
+}

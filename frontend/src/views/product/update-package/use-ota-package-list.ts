@@ -6,16 +6,20 @@ import type { DeviceConfigOption, OtaPackageRecord } from './ota-package-types'
 
 const DEVICE_CONFIG_SELECT_PAGE_SIZE = 20
 
-function extractList(payload: any): any[] {
+function extractList(payload: unknown): unknown[] {
   if (Array.isArray(payload)) return payload
-  if (Array.isArray(payload?.list)) return payload.list
-  if (Array.isArray(payload?.data?.list)) return payload.data.list
-  if (Array.isArray(payload?.records)) return payload.records
+  const record = payload as Record<string, unknown> | null | undefined
+  if (Array.isArray(record?.list)) return record.list
+  const nested = record?.data as Record<string, unknown> | undefined
+  if (Array.isArray(nested?.list)) return nested.list
+  if (Array.isArray(record?.records)) return record.records
   return []
 }
 
-function extractTotal(payload: any) {
-  return Number(payload?.total || payload?.data?.total || 0)
+function extractTotal(payload: unknown) {
+  const record = payload as Record<string, unknown> | null | undefined
+  const data = record?.data as Record<string, unknown> | undefined
+  return Number(record?.total || data?.total || 0)
 }
 
 export function useOtaPackageList() {
@@ -34,11 +38,14 @@ export function useOtaPackageList() {
     device_config_id: null as string | null
   })
 
-  function normalizeDeviceConfigOptions(rows: any[]): DeviceConfigOption[] {
-    return rows.map((item: any) => ({
-      label: item.name || item.device_config_name || item.id,
-      value: item.id
-    }))
+  function normalizeDeviceConfigOptions(rows: unknown[]): DeviceConfigOption[] {
+    return rows.map(item => {
+      const fields = item as { name?: string; device_config_name?: string; id?: string }
+      return {
+        label: fields.name || fields.device_config_name || (fields.id as string),
+        value: fields.id as string
+      }
+    })
   }
 
   function ensureDeviceConfigOption(option: DeviceConfigOption | null | undefined) {

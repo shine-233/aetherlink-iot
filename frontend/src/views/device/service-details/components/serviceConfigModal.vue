@@ -8,36 +8,56 @@
 <script setup lang="tsx">
 import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { NAlert, NInput, NSelect } from 'naive-ui'
+import { NAlert, NInput, NSelect, type DataTableColumns, type DataTableRowKey } from 'naive-ui'
 import { batchAddServiceMenuList, getSelectServiceMenuList, getServiceListDrop } from '@/service/api/plugin'
 import { deviceConfigMenu } from '@/service/api/device'
 import { $t } from '@/locales'
 
 const emit = defineEmits(['getList', 'go-back'])
 
+type DeviceRow = {
+  device_number: string
+  device_name?: string
+  device_config_id?: string | number | null
+  description?: string
+  protocol_config?: string
+  additional_info?: string
+  is_bind: boolean
+  options?: unknown[]
+  id?: string | number
+  [key: string]: unknown
+}
+
+type AccessPointRow = {
+  id?: string | number
+  name?: string
+  voucher?: string
+  [key: string]: unknown
+}
+
 const router = useRoute()
-const service_identifier = ref<any>(router.query.service_identifier)
-const serviceModal = ref<any>(false)
-const isEdit = ref<any>(false)
-const checkedRowKeys = ref<any>([])
-const selectedDeviceDrafts = ref<Map<string, any>>(new Map())
+const service_identifier = ref(router.query.service_identifier)
+const serviceModal = ref(false)
+const isEdit = ref(false)
+const checkedRowKeys = ref<DataTableRowKey[]>([])
+const selectedDeviceDrafts = ref<Map<string, DeviceRow>>(new Map())
 const boundDeviceKeys = ref<Set<string>>(new Set())
-const device_config_id = ref<any>('')
-const NTableRef = ref<any>(null)
+const device_config_id = ref<unknown>('')
+const NTableRef = ref<unknown>(null)
 const accessPointContext = ref<{
-  voucher: string
-  row: any
+  voucher: unknown
+  row: AccessPointRow | null
   edit: boolean
 } | null>(null)
 
-const pageData = ref<any>({
+const pageData = ref<{ loading: boolean; tableData: DeviceRow[] }>({
   loading: false,
   tableData: []
 })
 
 const normalizeTemplateOptions = (options: unknown) => {
   if (!Array.isArray(options)) return []
-  return options.filter((option: any) => option && typeof option === 'object' && option.id && option.name)
+  return options.filter(option => option && typeof option === 'object' && option.id && option.name)
 }
 
 const modalTitle = computed(() => {
@@ -48,7 +68,21 @@ const modalTitle = computed(() => {
   return $t('custom.serviceAccess.configAccessPointDevices')
 })
 
-const queryInfo = ref<any>({
+type ServiceConfigQueryInfo = {
+  voucher: unknown
+  service_type: unknown
+  page: number
+  pageSize: number
+  total: number
+  itemCount: number
+  pageSizes: number[]
+  showSizePicker: boolean
+  prefix: (info: { itemCount?: number }) => string
+  onUpdatePage: (page: number) => void
+  onUpdatePageSize: (pageSize: number) => void
+}
+
+const queryInfo = ref<ServiceConfigQueryInfo>({
   voucher: '',
   service_type: router.query.service_type,
   page: 1,
@@ -104,10 +138,10 @@ const getLists: () => void = async () => {
       })()
     ])
 
-    const list: any[] = Array.isArray(data?.list) ? data.list : []
+    const list = Array.isArray(data?.list) ? (data!.list as DeviceRow[]) : []
     const options = normalizeTemplateOptions(res)
 
-    list.forEach((item: any) => {
+    list.forEach(item => {
       item.options = options
       // Auto-fill device_name from device_number when empty so the user always
       // sees a meaningful default and can still edit it inline.
@@ -137,7 +171,7 @@ const getLists: () => void = async () => {
     )
     queryInfo.value.itemCount = Number(data?.total || 0)
     queryInfo.value.total = Number(data?.total || 0)
-  } catch (error: any) {
+  } catch (error) {
     pageData.value.tableData = []
     queryInfo.value.itemCount = 0
     queryInfo.value.total = 0
@@ -149,10 +183,10 @@ const getLists: () => void = async () => {
   }
 }
 
-const columns: any = ref([
+const columns = ref<DataTableColumns<DeviceRow>>([
   {
     type: 'selection',
-    disabled(row: any) {
+    disabled(row) {
       return row.is_bind
     }
   },
@@ -160,7 +194,7 @@ const columns: any = ref([
     title: $t('generate.device-name'),
     key: 'device_name',
     minWidth: '200px',
-    render: (row: any) => {
+    render: row => {
       return (
         <NInput
           value={row.device_name}
@@ -236,7 +270,8 @@ const submitSevice: () => void = async () => {
 
   // 3. Build device_list payload, attempting to include name and config_id if available on current page
   const deviceListPayload = selectedDeviceNumbers.map(deviceNumber => {
-    const rowData = checkedDevicesOnCurrentPageMap.get(deviceNumber) || selectedDeviceDrafts.value.get(deviceNumber)
+    const rowData =
+      checkedDevicesOnCurrentPageMap.get(deviceNumber) || selectedDeviceDrafts.value.get(deviceNumber as string)
     if (rowData) {
       // Device is on the current page, include all details
       return {
@@ -265,7 +300,7 @@ const submitSevice: () => void = async () => {
 
   // 4. Call API and handle result/error
   try {
-    const result: any = await batchAddServiceMenuList(params)
+    const result = (await batchAddServiceMenuList(params)) as { data?: unknown; message?: string } | null | undefined
     if (result && result.data) {
       window.$message?.success($t('common.operationSuccess'))
       serviceModal.value = false
@@ -277,7 +312,7 @@ const submitSevice: () => void = async () => {
       }
       // If no specific message, do nothing (suppress common.operationFailed)
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error submitting service config:', error) // Keep this log
 
     // Attempt to get a specific error message
@@ -302,14 +337,15 @@ const submitSevice: () => void = async () => {
     // If errorMessage is still empty, do nothing (suppress common.operationFailed)
   }
 }
-const openModal = async (val: any, row: any, edit: any) => {
+const openModal = async (val: unknown, row: unknown, edit?: boolean) => {
   selectedDeviceDrafts.value = new Map()
   boundDeviceKeys.value = new Set()
   checkedRowKeys.value = []
   queryInfo.value.page = 1
+  const accessPointRow = row as AccessPointRow | null
   accessPointContext.value = {
     voucher: val,
-    row,
+    row: accessPointRow,
     edit: !!edit
   }
   if (edit) {
@@ -317,12 +353,12 @@ const openModal = async (val: any, row: any, edit: any) => {
     queryInfo.value.voucher = val
     serviceModal.value = true
     getLists()
-    device_config_id.value = row?.id || row
+    device_config_id.value = accessPointRow?.id || accessPointRow
   } else {
     queryInfo.value.voucher = val
     serviceModal.value = true
     getLists()
-    device_config_id.value = row?.id || row
+    device_config_id.value = accessPointRow?.id || accessPointRow
   }
 }
 
@@ -346,9 +382,9 @@ const backToAccessPointConfig = () => {
   })
 }
 
-const handleCheck = (rowKeys: any /*, rows: any, meta: any */) => {
+const handleCheck = (rowKeys /*, rows, meta */) => {
   const selected = new Set<string>(Array.isArray(rowKeys) ? rowKeys : [])
-  pageData.value.tableData.forEach((row: any) => {
+  pageData.value.tableData.forEach(row => {
     if (row.is_bind) {
       boundDeviceKeys.value.add(row.device_number)
       selectedDeviceDrafts.value.set(row.device_number, { ...row })
@@ -365,7 +401,7 @@ const handleCheck = (rowKeys: any /*, rows: any, meta: any */) => {
 
 defineExpose({ openModal })
 
-const safeParseJSON = (value: any) => {
+const safeParseJSON = (value: unknown) => {
   if (!value || typeof value !== 'string') return undefined
   try {
     return JSON.parse(value)

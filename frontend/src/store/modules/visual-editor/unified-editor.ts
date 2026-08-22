@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 文件用途: Pinia 统一 Visual Editor 状态 store，集中保存画布、组件注册、配置、运行时数据和系统状态。
  * 核心逻辑: 以单一数据源替代分散状态，提供节点操作、组件注册、分层配置、Card 2.1 状态和运行时数据更新。
  * 关键注意事项: 该 store 是 visual-editor 其他服务的状态基础，配置分层和 selectedIds 需要与视图交互保持一致。
@@ -49,7 +49,7 @@ export interface UnifiedEditorState {
   dataBindings: Map<string, ReactiveDataBinding>
 
   // 运行时数据
-  runtimeData: Map<string, any>
+  runtimeData: Map<string, unknown>
 
   // 系统状态
   isLoading: boolean
@@ -68,25 +68,25 @@ export interface BaseConfiguration {
 
 // 组件配置接口
 export interface ComponentConfiguration {
-  properties: Record<string, any>
-  style?: Record<string, any>
-  events?: Record<string, any>
+  properties: Record<string, unknown>
+  style?: Record<string, unknown>
+  events?: Record<string, unknown>
 }
 
 // 数据源配置接口
 export interface DataSourceConfiguration {
   type: 'static' | 'api' | 'websocket' | 'device' | 'script'
-  config: Record<string, any>
-  bindings: Record<string, any>
-  metadata?: Record<string, any>
+  config: Record<string, unknown>
+  bindings: Record<string, unknown>
+  metadata?: Record<string, unknown>
 }
 
 // 交互配置接口
 export interface InteractionConfiguration {
-  click?: any
-  hover?: any
-  focus?: any
-  custom?: Record<string, any>
+  click?: unknown
+  hover?: unknown
+  focus?: unknown
+  custom?: Record<string, unknown>
 }
 
 /**
@@ -271,7 +271,7 @@ export const useUnifiedEditorStore = defineStore('unified-visual-editor', {
     /**
      * 更新运行时数据
      */
-    setRuntimeData(widgetId: string, data: any): void {
+    setRuntimeData(widgetId: string, data: unknown): void {
       this.runtimeData.set(widgetId, data)
     },
 
@@ -452,12 +452,12 @@ function resolveCard2Definition(
 function createCard2DataRequirement(
   definition: ComponentDefinition,
   dataSourceConfig: DataSourceConfiguration
-): Record<string, any> {
-  const requirement: Record<string, any> = {}
+): Record<string, unknown> {
+  const requirement: Record<string, unknown> = {}
   const bindings = dataSourceConfig.bindings || {}
   const declaredSources = Array.isArray(definition.dataSources) ? definition.dataSources : []
 
-  declaredSources.forEach((source: any) => {
+  declaredSources.forEach(source => {
     const key = source?.key
     if (!key || bindings[key] === undefined) return
 
@@ -488,7 +488,7 @@ function createCard2DataRequirement(
 /**
  * 生成配置元数据
  */
-function generateConfigurationMetadata(widgetId: string, state: UnifiedEditorState): Record<string, any> {
+function generateConfigurationMetadata(widgetId: string, state: UnifiedEditorState): Record<string, unknown> {
   return {
     id: widgetId,
     createdAt: new Date().toISOString(),

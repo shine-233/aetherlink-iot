@@ -18,29 +18,91 @@ import { isValidCoordinate } from '@/utils/common/map-validator'
 const logger = createLogger('GaodeMap')
 defineOptions({ name: 'TencentMap' })
 
-const props = defineProps<{ devices: any[] }>()
+type MapPosition = { lat: number; lng: number }
+
+type NormalizedTelemetryItem = {
+  label: string
+  key: string
+  value: string
+  unit: string
+}
+
+type TelemetryItemInput = {
+  label?: unknown
+  key?: unknown
+  value?: unknown
+  unit?: unknown
+}
+
+type MapDevice = {
+  id: string | number
+  name: string
+  ts?: string | number | null
+  is_online: 0 | 1
+  location?: string | null
+}
+
+type DeviceMarker = {
+  position: MapPosition
+  id: string | number
+  data: MapDevice
+  telemetryItems?: NormalizedTelemetryItem[]
+}
+
+type MarkerGeometry = {
+  position: MapPosition
+  data: MapDevice
+  telemetryItems?: NormalizedTelemetryItem[]
+}
+
+type MarkerEvent = {
+  geometry: MarkerGeometry
+  originalEvent: {
+    stopPropagation: () => void
+  }
+}
+
+type LatLngBoundsLike = {
+  extend: (position: MapPosition) => void
+  isEmpty: () => boolean
+  contains: (position: MapPosition) => boolean
+}
+
+type MapInstanceLike = {
+  setCenter: (center: MapPosition) => void
+  setZoom: (zoom: number) => void
+  fitBounds: (bounds: LatLngBoundsLike, options: { padding: number }) => void
+  on: (event: string, handler: () => void) => void
+}
+
+type MultiMarkerInstanceLike = {
+  setMap: (map: null) => void
+  on: (event: string, handler: (evt: MarkerEvent) => void) => void
+}
+
+type InfoWindowInstanceLike = {
+  close: () => void
+  open: () => void
+  setPosition: (position: MapPosition) => void
+  setContent: (content: string) => void
+}
+
+const props = defineProps<{ devices: MapDevice[] }>()
 
 const { load } = useScriptTag(TENCENT_MAP_SDK_URL)
 
 const domRef = ref<HTMLDivElement | null>(null)
 const mapUnavailable = ref(false)
-let map: any = null
-let multiMarker: any = null
-let infoWindow: any = null
+let map: MapInstanceLike | null = null
+let multiMarker: MultiMarkerInstanceLike | null = null
+let infoWindow: InfoWindowInstanceLike | null = null
 let ignoreMapClick = false
 
 const DEFAULT_CENTER = { lat: 39.98412, lng: 116.307484 }
 const DEFAULT_ZOOM = 11
 const VIEWPORT_PADDING = 100
 
-type DeviceMarker = {
-  position: any
-  id: any
-  data: any
-  telemetryItems?: any[]
-}
-
-const renderInfoWindow = (evt: any, _res: any) => {
+const renderInfoWindow = (evt: MarkerEvent, _res: unknown) => {
   const statusText = {
     1: $t('custom.devicePage.online'),
     0: $t('custom.devicePage.offline')
@@ -58,7 +120,7 @@ const renderInfoWindow = (evt: any, _res: any) => {
         {evt.geometry.data.ts ? dayjs(evt.geometry.data.ts).format('YYYY-MM-DD HH:mm:ss') : '-'}
       </div>
       <div>
-        {telemetryItems.map((item: any) => {
+        {telemetryItems.map(item => {
           const label = item.label ? `${item.label}(${item.key})` : item.key
 
           return (
@@ -77,11 +139,11 @@ const renderInfoWindow = (evt: any, _res: any) => {
 
 const createLatLng = ({ lat, lng }: { lat: number; lng: number }) => new TMap.LatLng(lat, lng)
 
-const resetToDefaultViewport = (bounds: any) => {
+const resetToDefaultViewport = (bounds: LatLngBoundsLike) => {
   const defaultCenter = createLatLng(DEFAULT_CENTER)
   bounds.extend(defaultCenter)
-  map.setCenter(defaultCenter)
-  map.setZoom(DEFAULT_ZOOM)
+  map!.setCenter(defaultCenter)
+  map!.setZoom(DEFAULT_ZOOM)
 }
 
 const isValidMarker = (marker: DeviceMarker) => {
@@ -109,7 +171,7 @@ const updateViewport = (markers: DeviceMarker[]) => {
     }
   })
 
-  map.fitBounds(bounds, {
+  map!.fitBounds(bounds, {
     padding: VIEWPORT_PADDING
   })
 }
@@ -128,14 +190,15 @@ const handleMapClick = () => {
 const initializeMap = () => {
   if (map || !domRef.value) return
 
-  map = new TMap.Map(domRef.value, {
+  const mapInstance: MapInstanceLike = new TMap.Map(domRef.value, {
     center: createLatLng(DEFAULT_CENTER),
     zoom: DEFAULT_ZOOM,
     maxZoom: 13,
     minZoom: 3,
     viewMode: '3D'
   })
-  map.on('click', handleMapClick)
+  map = mapInstance
+  mapInstance.on('click', handleMapClick)
 }
 
 const clearMarkerLayer = () => {
@@ -145,7 +208,7 @@ const clearMarkerLayer = () => {
   multiMarker = null
 }
 
-const createDeviceMarker = (device: any): DeviceMarker | null => {
+const createDeviceMarker = (device: MapDevice): DeviceMarker | null => {
   if (!device?.location) return null
 
   const locations = String(device.location).split(',')
@@ -161,7 +224,7 @@ const createDeviceMarker = (device: any): DeviceMarker | null => {
   }
 }
 
-const createDeviceMarkers = (devices: any[] = []) =>
+const createDeviceMarkers = (devices: MapDevice[] = []) =>
   devices.reduce<DeviceMarker[]>((markers, device) => {
     const marker = createDeviceMarker(device)
     if (marker) {
@@ -171,15 +234,17 @@ const createDeviceMarkers = (devices: any[] = []) =>
     return markers
   }, [])
 
-const normalizeTelemetryItems = (items: any[]) =>
+const normalizeTelemetryItems = (items: TelemetryItemInput[]) =>
   items
-    .filter((item: any) => item.label || item.key)
-    .map((item: any) => ({
-      label: item?.label == null ? '' : String(item.label),
-      key: item?.key == null ? '' : String(item.key),
-      value: item?.value == null ? '' : String(item.value),
-      unit: item?.unit == null ? '' : String(item.unit)
-    }))
+    .filter(item => item.label || item.key)
+    .map(
+      (item): NormalizedTelemetryItem => ({
+        label: item?.label == null ? '' : String(item.label),
+        key: item?.key == null ? '' : String(item.key),
+        value: item?.value == null ? '' : String(item.value),
+        unit: item?.unit == null ? '' : String(item.unit)
+      })
+    )
 
 const ignoreNextMapClick = () => {
   ignoreMapClick = true
@@ -188,20 +253,23 @@ const ignoreNextMapClick = () => {
   }, 10)
 }
 
-const ensureInfoWindow = () => {
-  if (!infoWindow) {
-    infoWindow = new TMap.InfoWindow({
+const ensureInfoWindow = (): InfoWindowInstanceLike => {
+  let instance = infoWindow
+  if (!instance) {
+    const created: InfoWindowInstanceLike = new TMap.InfoWindow({
       map,
       position: new TMap.LatLng(39.984104, 116.307503),
       offset: { x: 0, y: -32 },
       enableCustom: true
     })
+    instance = created
+    infoWindow = created
   }
 
-  return infoWindow
+  return instance
 }
 
-const renderInfoWindowHtml = (evt: any, res: any) => {
+const renderInfoWindowHtml = (evt: MarkerEvent, res: unknown) => {
   const app = createApp({
     setup() {
       return () => renderInfoWindow(evt, res)
@@ -211,7 +279,7 @@ const renderInfoWindowHtml = (evt: any, res: any) => {
   return app.mount(document.createElement('div')).$el.outerHTML
 }
 
-const openMarkerInfoWindow = (evt: any, res: any) => {
+const openMarkerInfoWindow = (evt: MarkerEvent, res: unknown) => {
   const markerInfoWindow = ensureInfoWindow()
   const html = renderInfoWindowHtml(evt, res)
 
@@ -221,13 +289,13 @@ const openMarkerInfoWindow = (evt: any, res: any) => {
   evt.originalEvent.stopPropagation()
 }
 
-const handleMarkerClick = (evt: any) => {
+const handleMarkerClick = (evt: MarkerEvent) => {
   if (!evt?.geometry?.data?.id) return
 
-  telemetryLatestApi(evt.geometry.data.id).then((res: any) => {
+  telemetryLatestApi(evt.geometry.data.id).then(res => {
     if (!Array.isArray(res?.data)) return
 
-    evt.geometry.telemetryItems = normalizeTelemetryItems(res.data)
+    evt.geometry.telemetryItems = normalizeTelemetryItems(res.data as TelemetryItemInput[])
     ignoreNextMapClick()
     openMarkerInfoWindow(evt, res)
   })
@@ -236,7 +304,7 @@ const handleMarkerClick = (evt: any) => {
 const createMarkerLayer = (markers: DeviceMarker[]) => {
   if (markers.length === 0) return
 
-  multiMarker = new TMap.MultiMarker({
+  const markerLayer: MultiMarkerInstanceLike = new TMap.MultiMarker({
     map,
     styles: {
       marker: new TMap.MarkerStyle({
@@ -248,8 +316,9 @@ const createMarkerLayer = (markers: DeviceMarker[]) => {
     },
     geometries: markers
   })
+  multiMarker = markerLayer
 
-  multiMarker.on('click', handleMarkerClick)
+  markerLayer.on('click', handleMarkerClick)
 }
 
 async function renderMap() {

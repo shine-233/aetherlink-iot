@@ -1,4 +1,4 @@
-<!--
+﻿<!--
 文件用途: 物模型定义步骤。
 核心逻辑: 汇总管理遥测、属性、事件、命令和自定义控制等模型定义。
 关键注意事项: 该步骤是模板能力的核心入口，删除或编辑模型项会影响设备详情和自动化配置。
@@ -6,6 +6,7 @@
 -->
 <script setup lang="tsx">
 import { computed, defineAsyncComponent, reactive, ref } from 'vue'
+import type { Component } from 'vue'
 import type { PaginationProps } from 'naive-ui'
 import { NButton, NPopconfirm, NSpace } from 'naive-ui'
 import { useLoading } from '@aetherlink/hooks'
@@ -65,28 +66,28 @@ const loadedTabs = reactive<Record<ModelDefinitionTabName, boolean>>({
 })
 const addAndEditModalVisible = ref<boolean>(false)
 const presetModalVisible = ref<boolean>(false)
-const presetProperty = ref<any>({})
+const presetProperty = ref<Record<string, unknown>>({})
 const presetType = ref<'telemetry' | 'attributes'>('telemetry')
 const addAndEditTitle = ref<string>($t('device_template.addAndEditTelemetry'))
 
-const comList: { id: string; components: any; title: string }[] = [
+const comList: { id: string; components: Component; title: string }[] = [
   { id: 'telemetry', components: AddEditTest, title: $t('device_template.addAndEditTelemetry') },
   { id: 'attributes', components: AddEditAttributes, title: $t('device_template.addAndEditAttributes') },
   { id: 'events', components: AddEditEvents, title: $t('device_template.addAndEditEvents') },
   { id: 'command', components: AddEditCommands, title: $t('device_template.addAndEditCommand') }
 ]
-const SwitchCom = computed<any>(() => {
+const SwitchCom = computed<Component | undefined>(() => {
   // eslint-disable-next-line array-callback-return,consistent-return
   return comList.find(item => {
     if (item.id === tabsCurrent.value) {
-      const objItem: any = item
+      const objItem = item
       addAndEditTitle.value = objItem.title
       return objItem
     }
   })?.components
 })
 
-const queryParams: any = reactive([
+const queryParams = reactive([
   {
     page: 1,
     page_size: 10,
@@ -137,14 +138,14 @@ const getPagination = (index: number) => {
 }
 
 // 编辑
-let objItem = reactive<any>({})
-const edit: (row: any) => void = row => {
+let objItem: Record<string, unknown> = reactive({})
+const edit = (row: Record<string, unknown>) => {
   addAndEditModalVisible.value = true
   objItem = row
 }
 
 // 预设配置
-const configPreset = (row: any, type: 'telemetry' | 'attributes') => {
+const configPreset = (row: Record<string, unknown>, type: 'telemetry' | 'attributes') => {
   presetProperty.value = {
     id: row.id,
     name: row.data_name,
@@ -191,13 +192,13 @@ const cancellation: () => void = () => {
 const cloneaddAndEditVisible: () => void = () => {
   objItem = {}
 }
-const columnsList: any = reactive([
+const columnsList = reactive([
   {
     addBtn: () => {
       addAndEditModalVisible.value = true
     },
     total: 0,
-    data: [{ data_name: $t('common.test') }],
+    data: [{ data_name: $t('common.test') }] as Array<Record<string, unknown>>,
     name: 'telemetry',
     text: $t('device_template.telemetry'),
     col: [
@@ -206,7 +207,7 @@ const columnsList: any = reactive([
         key: 'actions',
         width: 350,
         title: () => $t('common.actions'),
-        align: 'center',
+        align: 'center' as const,
         render: row => {
           return (
             <NSpace justify={'center'}>
@@ -234,7 +235,7 @@ const columnsList: any = reactive([
       addAndEditModalVisible.value = true
     },
     total: 0,
-    data: [],
+    data: [] as Array<Record<string, unknown>>,
     name: 'attributes',
     text: $t('device_template.attributes'),
     col: [
@@ -243,7 +244,7 @@ const columnsList: any = reactive([
         key: 'actions',
         width: 350,
         title: () => $t('common.actions'),
-        align: 'center',
+        align: 'center' as const,
         render: row => {
           return (
             <NSpace justify={'center'}>
@@ -271,7 +272,7 @@ const columnsList: any = reactive([
       addAndEditModalVisible.value = true
     },
     total: 0,
-    data: [],
+    data: [] as Array<Record<string, unknown>>,
     name: 'events',
     text: $t('device_template.events'),
     col: [
@@ -280,7 +281,7 @@ const columnsList: any = reactive([
         key: 'actions',
         width: 350,
         title: () => $t('common.actions'),
-        align: 'center',
+        align: 'center' as const,
         render: row => {
           return (
             <NSpace justify={'center'}>
@@ -308,7 +309,7 @@ const columnsList: any = reactive([
       addAndEditModalVisible.value = true
     },
     total: 0,
-    data: [],
+    data: [] as Array<Record<string, unknown>>,
     name: 'command',
     text: $t('device_template.command'),
     col: [
@@ -317,7 +318,7 @@ const columnsList: any = reactive([
         key: 'actions',
         width: 350,
         title: () => $t('common.actions'),
-        align: 'center',
+        align: 'center' as const,
         render: row => {
           return (
             <NSpace justify={'center'}>
@@ -344,11 +345,12 @@ const columnsList: any = reactive([
   }
 ])
 
-const updateAttributesData = (data: any) => {
-  columnsList[1].data = data?.list ?? []
-  columnsList[1].total = data?.total || 0
-  columnsList[1].data?.forEach((item: any) => {
-    item.read_write_flag = formatReadWriteFlag(item.read_write_flag)
+const updateAttributesData = (data: unknown) => {
+  const payload = data as { list?: Array<Record<string, unknown>>; total?: number } | null | undefined
+  columnsList[1].data = payload?.list ?? []
+  columnsList[1].total = payload?.total || 0
+  columnsList[1].data?.forEach(item => {
+    item.read_write_flag = formatReadWriteFlag(item.read_write_flag as string)
   })
 }
 
@@ -380,38 +382,41 @@ const handleParamsOfEventsAndcommands = data => {
 }
 
 // Helper functions to update data
-const updateTelemetryData = (data: any) => {
-  columnsList[0].data = data?.list ?? []
-  columnsList[0].total = data?.total || 0
-  columnsList[0].data.forEach((item: any) => {
-    item.read_write_flag = formatReadWriteFlag(item.read_write_flag)
+const updateTelemetryData = (data: unknown) => {
+  const payload = data as { list?: Array<Record<string, unknown>>; total?: number } | null | undefined
+  columnsList[0].data = payload?.list ?? []
+  columnsList[0].total = payload?.total || 0
+  columnsList[0].data.forEach(item => {
+    item.read_write_flag = formatReadWriteFlag(item.read_write_flag as string)
   })
 }
 
-const updateEventsData = (data: any) => {
-  columnsList[2].data = handleParamsOfEventsAndcommands(data?.list ?? [])
-  columnsList[2].total = data?.total || 0
+const updateEventsData = (data: unknown) => {
+  const payload = data as { list?: Array<Record<string, unknown>>; total?: number } | null | undefined
+  columnsList[2].data = handleParamsOfEventsAndcommands(payload?.list ?? [])
+  columnsList[2].total = payload?.total || 0
 }
 
-const updateCommandsData = (data: any) => {
-  columnsList[3].data = handleParamsOfEventsAndcommands(data?.list ?? [])
-  columnsList[3].total = data?.total || 0
+const updateCommandsData = (data: unknown) => {
+  const payload = data as { list?: Array<Record<string, unknown>>; total?: number } | null | undefined
+  columnsList[3].data = handleParamsOfEventsAndcommands(payload?.list ?? [])
+  columnsList[3].total = payload?.total || 0
 }
 const getTableData: (value?: string) => Promise<void> = async value => {
   const tabName = (value || tabsCurrent.value) as ModelDefinitionTabName
   startLoading()
   try {
     if (tabName === 'telemetry') {
-      const { data: data0 }: any = await telemetryApi(queryParams[0])
+      const { data: data0 } = await telemetryApi(queryParams[0])
       updateTelemetryData(data0)
     } else if (tabName === 'attributes') {
-      const { data: data1 }: any = await attributesApi(queryParams[1])
+      const { data: data1 } = await attributesApi(queryParams[1])
       updateAttributesData(data1)
     } else if (tabName === 'events') {
-      const { data: data2 }: any = await eventsApi(queryParams[2])
+      const { data: data2 } = await eventsApi(queryParams[2])
       updateEventsData(data2)
     } else {
-      const { data: data3 }: any = await commandsApi(queryParams[3])
+      const { data: data3 } = await commandsApi(queryParams[3])
       updateCommandsData(data3)
     }
     loadedTabs[tabName] = true
@@ -477,7 +482,7 @@ getTableData()
     v-if="presetModalVisible"
     v-model:presetModalVisible="presetModalVisible"
     :device-template-id="deviceTemplateId"
-    :property="presetProperty"
+    :property="(presetProperty as { id: string; name: string; identifier: string; dataType: string; unit?: string })"
     :property-type="presetType"
   />
 </template>

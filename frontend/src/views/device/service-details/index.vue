@@ -8,24 +8,44 @@
 <script setup lang="tsx">
 import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { NButton, NPopconfirm, NSpace } from 'naive-ui'
+import { NButton, NPopconfirm, NSpace, type DataTableColumns } from 'naive-ui'
 import dayjs from 'dayjs'
 import { delServiceAccess, getServiceAccess } from '@/service/api/plugin'
 import { $t } from '@/locales'
 import serviceModal from './components/serviceModal.vue'
 import serviceConfigModal from './components/serviceConfigModal.vue'
 
-const route: any = useRoute()
-const router: any = useRouter()
-const serviceModalRef = ref<any>(null)
-const serviceConfigModalRef = ref<any>(null)
-const service_plugin_id = ref<any>(route.query.id)
-const pageData = ref<any>({
+type ServiceRow = {
+  id?: string | number
+  name?: string
+  create_at?: string
+  auth_type?: string
+  [key: string]: unknown
+}
+
+type ServiceAccessQueryInfo = {
+  service_plugin_id: unknown
+  page: number
+  page_size: number
+  total: number
+  pageSizes: number[]
+  itemCount?: number
+  service_type?: unknown
+  onChange: (page: number) => void
+  onUpdatePageSize: (pageSize: number) => void
+}
+
+const route = useRoute()
+const router = useRouter()
+const serviceModalRef = ref<InstanceType<typeof serviceModal> | null>(null)
+const serviceConfigModalRef = ref<InstanceType<typeof serviceConfigModal> | null>(null)
+const service_plugin_id = ref(route.query.id)
+const pageData = ref<{ loading: boolean; tableData: ServiceRow[] }>({
   loading: false,
   tableData: []
 })
 
-const queryInfo = ref<any>({
+const queryInfo = ref<ServiceAccessQueryInfo>({
   service_plugin_id: service_plugin_id.value,
   page: 1,
   page_size: 10,
@@ -43,24 +63,24 @@ const queryInfo = ref<any>({
 })
 
 const getList: () => void = async () => {
-  const { data }: { data: any } = await getServiceAccess(queryInfo.value)
-  pageData.value.tableData = data.list
-  queryInfo.value.itemCount = data.total
+  const { data } = await getServiceAccess(queryInfo.value)
+  pageData.value.tableData = data!.list as ServiceRow[]
+  queryInfo.value.itemCount = data!.total
 }
 
-const see: (row: any) => void = row => {
+const see = (row: ServiceRow) => {
   router.push(
     `/device/manage?service_identifier=${route.query.service_identifier}&device_name=${row.name}&service_access_id=${row.id}`
   )
 }
-const del: (row: any) => void = async row => {
+const del = async row => {
   await delServiceAccess(row)
   getList()
 }
-const config: (row: any) => void = async row => {
-  serviceModalRef.value.openModal(service_plugin_id.value, row)
+const config = async (row: ServiceRow) => {
+  serviceModalRef.value!.openModal(service_plugin_id.value, row)
 }
-const columns: any = ref([
+const columns = ref<DataTableColumns<ServiceRow>>([
   {
     title: $t('card.accessPointName'),
     key: 'name',
@@ -121,23 +141,23 @@ const columns: any = ref([
 ])
 
 const addData: () => void = () => {
-  serviceModalRef.value.openModal(service_plugin_id.value)
+  serviceModalRef.value!.openModal(service_plugin_id.value)
 }
 
-const isEdit: (val: any, row: any, edit: any) => void = (val, row, edit) => {
+const isEdit = (val: string, row: ServiceRow, edit: boolean) => {
   if (edit) {
     if (row && row.auth_type === 'auto') {
       const adaptedRow = {
         ...row,
         mode: 'automatic'
       }
-      serviceConfigModalRef.value.openModal(val, adaptedRow, edit)
+      serviceConfigModalRef.value!.openModal(val, adaptedRow, edit)
     } else {
-      serviceConfigModalRef.value.openModal(val, row, edit)
+      serviceConfigModalRef.value!.openModal(val, row, edit)
     }
     getList()
   } else {
-    serviceConfigModalRef.value.openModal(val, row)
+    serviceConfigModalRef.value!.openModal(val, row)
     getList()
   }
 }
@@ -154,7 +174,7 @@ getList()
 
 <template>
   <div>
-    <NCard :bordered="false" class="h-full rounded-8px shadow-sm" :title="route.query.service_name || '--'">
+    <NCard :bordered="false" class="h-full rounded-8px shadow-sm" :title="(route.query.service_name as string) || '--'">
       <div class="header">
         <NButton type="primary" @click="addData">{{ $t('card.newAccess') }}</NButton>
       </div>

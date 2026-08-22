@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 文件说明：
  * - 封装 ThingsVis AppFrame 的平台设备目录编排逻辑，包括设备配置到物模型映射、分组缓存、按组加载、分页搜索和字段加载。
  * - 对 AppFrame 暴露小接口，让 iframe 消息处理只关心“加载什么”，不再关心平台 API、物模型资产和缓存细节。
@@ -35,24 +35,29 @@ import {
   type SearchDevicesPagedRequest
 } from '@/components/thingsvis/searchDevicesPagedBridge'
 import type { PlatformDeviceField } from '@/components/thingsvis/thingsvisDeviceWsBridge'
+import type { DeviceWidgetPreset } from '@/components/thingsvis/thingsvisDeviceTemplateBridge'
 
 type CatalogLogger = {
-  error: (...args: any[]) => void
+  error: (...args: unknown[]) => void
+}
+
+type PlatformDependencyResult = {
+  data?: unknown
 }
 
 type DeviceListParams = Record<string, unknown>
 
 type PlatformDeviceCatalogDependencies = {
-  loadDeviceConfigs: (params: DeviceListParams) => Promise<any>
-  loadServiceCatalog: (params: DeviceListParams) => Promise<any>
-  loadGroupTree: (params: DeviceListParams) => Promise<any>
-  listDevices: (params: DeviceListParams) => Promise<any>
-  listDevicesByGroup: (params: DeviceListParams) => Promise<any>
-  loadTemplate: (templateId: string | number) => Promise<any>
-  loadTelemetry: (params: DeviceListParams) => Promise<any>
-  loadAttributes: (params: DeviceListParams) => Promise<any>
-  loadCommands: (params: DeviceListParams) => Promise<any>
-  loadEvents: (params: DeviceListParams) => Promise<any>
+  loadDeviceConfigs: (params: DeviceListParams) => Promise<PlatformDependencyResult>
+  loadServiceCatalog: (params: DeviceListParams) => Promise<PlatformDependencyResult>
+  loadGroupTree: (params: DeviceListParams) => Promise<PlatformDependencyResult>
+  listDevices: (params: DeviceListParams) => Promise<PlatformDependencyResult>
+  listDevicesByGroup: (params: DeviceListParams) => Promise<PlatformDependencyResult>
+  loadTemplate: (templateId: string | number) => Promise<PlatformDependencyResult>
+  loadTelemetry: (params: DeviceListParams) => Promise<PlatformDependencyResult>
+  loadAttributes: (params: DeviceListParams) => Promise<PlatformDependencyResult>
+  loadCommands: (params: DeviceListParams) => Promise<PlatformDependencyResult>
+  loadEvents: (params: DeviceListParams) => Promise<PlatformDependencyResult>
 }
 
 type PlatformDeviceCatalogLabels = {
@@ -82,7 +87,7 @@ export type PlatformDeviceEntry = {
   lastPushTime?: string
   templateId?: string
   fields: PlatformDeviceField[]
-  presets: any[]
+  presets: DeviceWidgetPreset[]
 }
 
 export type SearchDevicesPagedResponse = {
@@ -123,10 +128,11 @@ export function createThingsVisPlatformDeviceCatalogOrchestrator(options: {
   const platformDevicesByGroupCache = new Map<string, PlatformDeviceEntry[]>()
   const platformDevicesByGroupPromise = new Map<string, Promise<PlatformDeviceEntry[]>>()
 
-  function unwrapList(payload: any): any[] {
-    if (Array.isArray(payload?.list)) return payload.list
+  function unwrapList(payload: unknown): unknown[] {
+    const record = payload as { list?: unknown[]; data?: unknown[] } | null | undefined
+    if (Array.isArray(record?.list)) return record.list
     if (Array.isArray(payload)) return payload
-    if (Array.isArray(payload?.data)) return payload.data
+    if (Array.isArray(record?.data)) return record.data
     return []
   }
 
@@ -201,13 +207,13 @@ export function createThingsVisPlatformDeviceCatalogOrchestrator(options: {
   }
 
   function mapPlatformDeviceRowForGroup(
-    row: any,
+    row: unknown,
     fallbackGroupId: string,
     fallbackGroupName: string,
     groupNameById: Map<string, string>,
     configTemplateMap: Map<string, string>
   ): PlatformDeviceEntry | null {
-    const normalized = normalizePlatformDeviceRow(row, {
+    const normalized = normalizePlatformDeviceRow(row as Record<string, unknown> | null | undefined, {
       fallbackGroupId,
       fallbackGroupName,
       groupNameById,
@@ -221,7 +227,7 @@ export function createThingsVisPlatformDeviceCatalogOrchestrator(options: {
   }
 
   async function mapPlatformDevicesForGroup(
-    rawDevices: any[],
+    rawDevices: unknown[],
     fallbackGroupId = '',
     fallbackGroupName = '',
     groups: PlatformDeviceGroupEntry[] = []
@@ -229,9 +235,7 @@ export function createThingsVisPlatformDeviceCatalogOrchestrator(options: {
     const groupNameById = new Map(groups.map((group) => [group.groupId, group.groupName]))
     const configTemplateMap = await deviceConfigTemplateMapCache.load()
     const devices = rawDevices
-      .map((row: any) =>
-        mapPlatformDeviceRowForGroup(row, fallbackGroupId, fallbackGroupName, groupNameById, configTemplateMap)
-      )
+      .map(row => mapPlatformDeviceRowForGroup(row, fallbackGroupId, fallbackGroupName, groupNameById, configTemplateMap))
       .filter((item): item is PlatformDeviceEntry => Boolean(item))
 
     const templateAssets = await buildPlatformDeviceTemplateAssets(devices)
@@ -323,7 +327,7 @@ export function createThingsVisPlatformDeviceCatalogOrchestrator(options: {
 
     return {
       devices,
-      total: res?.data?.total
+      total: (res?.data as { total?: unknown } | undefined)?.total
     }
   }
 

@@ -6,8 +6,16 @@
  */
 import { request } from '../request'
 
-export const getOtaPackageList = (params: any): Promise<any> => request.get('/ota/package', { params })
-export const getDeviceList = (params: any): Promise<any> => request.get('/device', { params })
-export const addOtaPackage = (data: any): Promise<any> => request.post('/ota/package', data)
-export const editOtaPackage = (data: any): Promise<any> => request.put('/ota/package', data)
-export const deleteOtaPackage = (id: string): Promise<any> => request.delete(`/ota/package/${id}`)
+export const getOtaPackageList = async (params: object) => {
+  return await request.get('/ota/package', { params })
+}
+export const getDeviceList = async (params: object) => {
+  return await request.get('/device', { params })
+}
+export const addOtaPackage = async (data: object) => {
+  return await request.post('/ota/package', data)
+}
+export const editOtaPackage = async (data: object) => {
+  return await request.put('/ota/package', data)
+}
+export const deleteOtaPackage = (id: string) => request.delete(`/ota/package/${id}`)

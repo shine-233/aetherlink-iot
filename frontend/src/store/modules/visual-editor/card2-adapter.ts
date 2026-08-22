@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 文件用途: Card 2.1 与 Visual Editor 的适配器，负责组件定义转换、注册和运行时桥接。
  * 核心逻辑: 将 Card 2.1 组件定义转换为 Visual Editor widget 定义，并通过 unified-editor 与 data-flow-manager 完成注册。
  * 关键注意事项: 动态加载 Card 2.1 系统可能产生循环依赖，组件分类、默认布局和数据源映射需要稳定兼容。
@@ -19,7 +19,7 @@ export interface ComponentDefinition {
   name: string
   description: string
   version: string
-  component: any
+  component: Component
   category: string
   mainCategory: string
   subCategory: string
@@ -45,14 +45,14 @@ export interface FieldMapping {
   type: string
   required: boolean
   description: string
-  defaultValue?: any
+  defaultValue?: unknown
 }
 
 export interface ComponentConfig {
   width?: number
   height?: number
-  style?: Record<string, any>
-  properties?: Record<string, any>
+  style?: Record<string, unknown>
+  properties?: Record<string, unknown>
 }
 
 export interface ReactiveDataBinding {
@@ -64,7 +64,7 @@ export interface ReactiveDataBinding {
 }
 
 export interface ComponentRequirement {
-  [key: string]: any
+  [key: string]: unknown
 }
 
 interface ComponentTreeCompat {
@@ -94,7 +94,7 @@ function createEmptyComponentTree(): ComponentTreeCompat {
 export class Card2VisualEditorAdapter {
   private editorStore = useUnifiedEditorStore()
   private dataFlowManager = useDataFlowManager()
-  private card2System: any = null // Card 2.1 系统实例
+  private card2System: ComponentTreeCompat | null = null // Card 2.1 系统实例
 
   constructor() {
     this.initializeCard2Integration()
@@ -185,7 +185,7 @@ export class Card2VisualEditorAdapter {
   /**
    * 创建标准化的默认布局
    */
-  private createStandardLayout(card2Def: ComponentDefinition): Record<string, any> {
+  private createStandardLayout(card2Def: ComponentDefinition): Record<string, unknown> {
     const config = card2Def.config || {}
     const defaultWidth = config.width || 300
     const defaultHeight = config.height || 200
@@ -209,7 +209,7 @@ export class Card2VisualEditorAdapter {
     }
   }
 
-  private createGridLayout(width: number, height: number): Record<string, any> {
+  private createGridLayout(width: number, height: number): Record<string, unknown> {
     return {
       w: Math.ceil(width / 150),
       h: Math.ceil(height / 150),
@@ -356,7 +356,7 @@ export class Card2VisualEditorAdapter {
   /**
    * 提取默认值
    */
-  private extractDefaultValue(dataSource: DataSourceDefinition): any {
+  private extractDefaultValue(dataSource: DataSourceDefinition): unknown {
     if (dataSource.fieldMappings) {
       const firstMapping = Object.values(dataSource.fieldMappings)[0]
       return firstMapping?.defaultValue ?? null
@@ -369,7 +369,7 @@ export class Card2VisualEditorAdapter {
   /**
    * 处理Card2.1组件的运行时数据更新
    */
-  handleRuntimeDataUpdate(widgetId: string, data: any): void {
+  handleRuntimeDataUpdate(widgetId: string, data: unknown): void {
     // 通过数据流管理器更新运行时数据
     this.dataFlowManager.handleUserAction({
       type: 'SET_RUNTIME_DATA',
@@ -381,7 +381,7 @@ export class Card2VisualEditorAdapter {
   /**
    * 获取Card2.1组件的当前数据
    */
-  getComponentCurrentData(widgetId: string): any {
+  getComponentCurrentData(widgetId: string): unknown {
     const runtimeData = this.editorStore.getRuntimeData(widgetId)
 
     return runtimeData
@@ -432,8 +432,8 @@ export class Card2VisualEditorAdapter {
   /**
    * 创建默认的数据绑定
    */
-  private createDefaultBindings(dataSources: DataSourceDefinition[]): Record<string, any> {
-    const bindings: Record<string, any> = {}
+  private createDefaultBindings(dataSources: DataSourceDefinition[]): Record<string, unknown> {
+    const bindings: Record<string, unknown> = {}
 
     dataSources.forEach(ds => {
       if (ds.fieldMappings) {
@@ -498,7 +498,7 @@ export class Card2VisualEditorAdapter {
    * 获取Card2.1组件实例
    * 🔥 委托给Card2.1系统的getComponent方法
    */
-  async getComponent(componentType: string): Promise<any> {
+  async getComponent(componentType: string): Promise<unknown> {
     // 等待初始化完成
     await this.ensureInitialized()
 
@@ -517,7 +517,7 @@ export class Card2VisualEditorAdapter {
    * 获取Card2.1组件定义
    * 🔥 委托给Card2.1系统的getComponentDefinition方法
    */
-  getComponentDefinition(componentType: string): any {
+  getComponentDefinition(componentType: string): unknown {
     if (!this.card2System) {
       return null
     }
@@ -532,7 +532,7 @@ export class Card2VisualEditorAdapter {
   /**
    * 获取Card2.1系统实例
    */
-  getCard2System(): any {
+  getCard2System(): ComponentTreeCompat | null {
     return this.card2System
   }
 }
