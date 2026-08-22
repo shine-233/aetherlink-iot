@@ -7,6 +7,7 @@ package middleware
 
 import (
 	"net/http"
+	"strings"
 
 	service "aetherlink-iot/backend/internal/service"
 	utils "aetherlink-iot/backend/pkg/utils"
