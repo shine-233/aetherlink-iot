@@ -114,7 +114,21 @@ cp .env.example .env
 | 浏览器/OTA 地址 | AETHERLINK_PUBLIC_URL、GOTP_OTA_DOWNLOAD_ADDRESS | 指向同一地址 |
 | 设备 MQTT 地址 | AETHERLINK_MQTT_ACCESS_ADDRESS、GOTP_MQTT_ACCESS_ADDRESS | 指向同一 host:port |
 
+可选安全加固项（留空/保持默认即维持历史行为）：
+
+| 配置 | 作用 | 建议 |
+| --- | --- | --- |
+| MQTT_ADMIN_HTTP_AUTH_SECRET | broker admin HTTP API 的应用层共享密钥；设置后所有 admin HTTP 调用必须携带 `X-Admin-Secret` 头（compose 内默认只绑回环，风险低） | 二进制直跑或把 admin 端口暴露出回环时必须设置 |
+| GOTP_JWT_EXPIRE_HOURS | 后端访问 token 有效期（小时），默认 24；登录/刷新会续签，调小不挤掉活跃用户 | 保持默认或按合规要求缩短 |
+| GOTP_OPENAPI_KEY_AUTHORITY | OpenAPI x-api-key 等效权限（默认 TENANT_ADMIN 保持兼容）；open_api_keys 表无独立权限字段，所有 Key 共用该值 | 不需要 OpenAPI 写能力时下调为 TENANT_USER |
+
 真实密码、JWT secret、第三方 token 和公网配置不能提交到 Git。env.example 只能保留占位符。
+
+### 存量 template_secret 明文行哈希回填（可选）
+
+设备配置密钥现在落库为 SHA-256 摘要（明文旧行在首次成功鉴权时自动惰性升级）。
+如需一次性回填存量明文（拖库防护立即生效），在停止相关写入的低峰期对业务库执行
+`deploy/maintenance/backfill_template_secret_sha256.sql`，前提与幂等说明见该文件头注释。
 
 ### 直接使用 Compose（适合排查）
 
