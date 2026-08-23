@@ -17,7 +17,7 @@ export async function fetchGetUserRoutes() {
 }
 
 /** 获取路由列表 */
-export const fetchElementList = async (params: any = {}) => {
+export const fetchElementList = async (params: Record<string, unknown> = {}) => {
   const data = await request.get<Api.Route.Data>('/ui_elements', {
     params
   })
@@ -28,12 +28,12 @@ export const fetchElementList = async (params: any = {}) => {
 }
 
 /** 添加路由 */
-export const addElement = async (params: any) => {
+export const addElement = async (params: Record<string, unknown>) => {
   const data = await request.post<Api.BaseApi.Data>('/ui_elements', params)
   return data
 }
 /** 编辑路由 */
-export const editElement = async (params: any) => {
+export const editElement = async (params: Record<string, unknown>) => {
   const data = await request.put<Api.BaseApi.Data>('/ui_elements', params)
   return data
 }

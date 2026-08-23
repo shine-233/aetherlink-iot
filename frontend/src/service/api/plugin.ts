@@ -13,67 +13,67 @@ type ServiceApiData = {
 }
 
 // 获取服务列表数据
-export const getServices = async (params: any) => {
+export const getServices = async (params: Record<string, unknown>) => {
   return await request.get<ServiceApiData>('/service/list', { params })
 }
 
 // 注册服务
-export const registerService = async (params: any) => {
+export const registerService = async (params: Record<string, unknown>) => {
   return await request.post<ServiceApiData>('/service', params)
 }
 
 // 更新服务
-export const putRegisterService = async (params: any) => {
+export const putRegisterService = async (params: Record<string, unknown>) => {
   return await request.put<ServiceApiData>('/service', params)
 }
 
 // 删除服务
-export const delRegisterService = async (id: any) => {
+export const delRegisterService = async (id: string) => {
   return await request.delete<ServiceApiData>(`/service/${id}`)
 }
 
 // 获取租户三方接入点列表
-export const getServiceAccess = async (params: any) => {
+export const getServiceAccess = async (params: Record<string, unknown>) => {
   return await request.get<ServiceApiData>('/service/access/list', { params })
 }
 
 // 获取租户三方接入点表单
-export const getServiceAccessForm = async (params: any) => {
+export const getServiceAccessForm = async (params: Record<string, unknown>) => {
   return await request.get<ServiceApiData>('/service/access/voucher/form', {
     params
   })
 }
 
 // 删除租户三方接入点
-export const delServiceAccess = async (id: any) => {
+export const delServiceAccess = async (id: string) => {
   return await request.delete<ServiceApiData>(`/service/access/${id}`)
 }
 
 // 创建三方接入点
-export const createServiceDrop = async (params: any) => {
+export const createServiceDrop = async (params: Record<string, unknown>) => {
   return await request.post<ServiceApiData>('/service/access', params)
 }
 
 // 更新三方接入点
-export const putServiceDrop = async (params: any) => {
+export const putServiceDrop = async (params: Record<string, unknown>) => {
   return await request.put<ServiceApiData>('/service/access', params)
 }
 
 // 三方服务设备列表查询
-export const getServiceListDrop = async (params: any) => {
+export const getServiceListDrop = async (params: Record<string, unknown>) => {
   return await request.get<ServiceApiData>('/service/access/device/list', {
     params
   })
 }
 
 // 设备配置下拉菜单✅
-export const getSelectServiceMenuList = async (params: any) => {
+export const getSelectServiceMenuList = async (params: Record<string, unknown>) => {
   return await request.get<ServiceApiData>('/device_config/menu', {
     params
   })
 }
 
 // 批量添加服务
-export const batchAddServiceMenuList = async (params: any) => {
+export const batchAddServiceMenuList = async (params: Record<string, unknown>) => {
   return await request.post<ServiceApiData>('/device/service/access/batch', params)
 }

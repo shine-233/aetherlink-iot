@@ -396,14 +396,14 @@ export interface FleetCommandJobListResult {
 export const previewFleetCommandJob = async (params: FleetCommandJobPayload) => {
   return await request.post<FleetCommandJobPreviewResult>(`/command/datas/jobs/preview`, params, {
     silentError: true
-  } as any)
+  })
 }
 
 export const submitFleetCommandJob = async (params: FleetCommandJobPayload, query?: { include_rows?: boolean }) => {
   return await request.post<FleetCommandJobSubmitResult>(`/command/datas/jobs/submit`, params, {
     ...(query ? { params: query } : {}),
     silentError: true
-  } as any)
+  })
 }
 
 export const listFleetCommandJobs = async (params?: {
@@ -416,21 +416,21 @@ export const listFleetCommandJobs = async (params?: {
   return await request.get<FleetCommandJobListResult>(`/command/datas/jobs`, {
     params,
     silentError: true
-  } as any)
+  })
 }
 
 export const getFleetCommandJob = async (jobId: string) => {
   return await request.get<FleetCommandJobSubmitResult>(`/command/datas/jobs/${jobId}`, {
     params: { include_rows: true },
     silentError: true
-  } as any)
+  })
 }
 
 export const getFleetCommandJobSummary = async (jobId: string) => {
   return await request.get<FleetCommandJobSubmitResult>(`/command/datas/jobs/${jobId}`, {
     params: { include_rows: false },
     silentError: true
-  } as any)
+  })
 }
 
 export const getFleetCommandJobRows = async (
@@ -440,49 +440,49 @@ export const getFleetCommandJobRows = async (
   return await request.get<FleetCommandJobRowsResult>(`/command/datas/jobs/${jobId}/rows`, {
     params,
     silentError: true
-  } as any)
+  })
 }
 
 export const getFleetCommandJobSupportBundle = async (jobId: string) => {
   return await request.get<FleetCommandJobSupportBundle>(`/command/datas/jobs/${jobId}/support-bundle`, {
     silentError: true
-  } as any)
+  })
 }
 
 export const cancelFleetCommandJob = async (jobId: string, params?: { include_rows?: boolean }) => {
   return await request.post<FleetCommandJobSubmitResult>(`/command/datas/jobs/${jobId}/cancel`, {}, {
     ...(params ? { params } : {}),
     silentError: true
-  } as any)
+  })
 }
 
 export const retryFleetCommandJob = async (jobId: string, params?: { include_rows?: boolean }) => {
   return await request.post<FleetCommandJobSubmitResult>(`/command/datas/jobs/${jobId}/retry`, {}, {
     ...(params ? { params } : {}),
     silentError: true
-  } as any)
+  })
 }
 
 export const listFleetSavedFilters = async () => {
   return await request.get<FleetSavedFilterListResult>(`/command/datas/saved-filters`, {
     silentError: true
-  } as any)
+  })
 }
 
 export const createFleetSavedFilter = async (params: FleetSavedFilterPayload) => {
   return await request.post<FleetSavedFilterItem>(`/command/datas/saved-filters`, params, {
     silentError: true
-  } as any)
+  })
 }
 
 export const updateFleetSavedFilter = async (id: string, params: FleetSavedFilterPayload) => {
   return await request.put<FleetSavedFilterItem>(`/command/datas/saved-filters/${id}`, params, {
     silentError: true
-  } as any)
+  })
 }
 
 export const deleteFleetSavedFilter = async (id: string) => {
   return await request.delete(`/command/datas/saved-filters/${id}`, {
     silentError: true
-  } as any)
+  })
 }

@@ -7,7 +7,7 @@
 import { request } from '../request'
 
 /** 获取协议服务插件列表 */
-export const fetchProtocolPluginList = async (params: any) => {
+export const fetchProtocolPluginList = async (params: Record<string, unknown>) => {
   const data = await request.get<Api.ApiApplyManagement.Data | null>('/service/list', {
     params
   })
@@ -15,13 +15,13 @@ export const fetchProtocolPluginList = async (params: any) => {
 }
 
 /** 创建协议服务插件 */
-export const addProtocolPlugin = async (params: any) => {
+export const addProtocolPlugin = async (params: Record<string, unknown>) => {
   const data = await request.post<Api.BaseApi.Data>('/service', params)
   return data
 }
 
 /** 编辑协议服务插件 */
-export const editProtocolPlugin = async (params: any) => {
+export const editProtocolPlugin = async (params: Record<string, unknown>) => {
   const data = await request.put<Api.BaseApi.Data>('/service', params)
   return data
 }

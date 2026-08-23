@@ -13,13 +13,13 @@ export const fetchThemeSetting = async () => {
 }
 
 /** 获取常规设置 - 主题编辑 */
-export const editThemeSetting = async (params: any) => {
+export const editThemeSetting = async (params: Record<string, unknown>) => {
   const data = await request.put<Api.BaseApi.Data>('/logo', params)
   return data
 }
 
 /** 获取常规设置 - 数据清理设置列表 */
-export const fetchDataClearList = async (params: any) => {
+export const fetchDataClearList = async (params: Record<string, unknown>) => {
   const data = await request.get<Api.GeneralSetting.DataClear | null>('/datapolicy', {
     params
   })
@@ -27,13 +27,13 @@ export const fetchDataClearList = async (params: any) => {
 }
 
 /** 编辑清理设置 */
-export const editDataClear = async (params: any) => {
+export const editDataClear = async (params: { list?: unknown } | Record<string, unknown>) => {
   const data = await request.put<Api.BaseApi.Data>('/datapolicy', params)
   return data
 }
 
 /** 编辑清理设置 */
-export const dictQuery = async (params: any) => {
+export const dictQuery = async (params: Record<string, unknown>) => {
   return await request.get<Api.BaseApi.Data | any>('/dict/enum', { params })
 }
 /** 编辑清理设置 */
