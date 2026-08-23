@@ -187,7 +187,12 @@ func (*Automate) CheckSceneAutomationHasClose(sceneAutomationId string) bool {
 // @params info initialize.AutomateExecteParams
 // @return error
 func (a *Automate) SceneAutomateExecute(sceneAutomationId string, deviceIds []string, actions []model.ActionInfo) error {
-	tenantID := dal.GetSceneAutomationTenantID(context.Background(), sceneAutomationId)
+	tenantID, err := dal.GetSceneAutomationTenantID(context.Background(), sceneAutomationId)
+	if err != nil {
+		// 租户归属未知时不得以空租户执行动作，避免执行日志与设备归属校验串租户。
+		logrus.WithError(err).WithField("scene_automation_id", sceneAutomationId).Error("scene automation execution aborted: tenant lookup failed")
+		return err
+	}
 	// 自动化执行日志要以场景自动化租户为准，避免后续设备归属变化导致日志串租户。
 	outcome := a.executeSceneActionFlow(sceneAutomationId, deviceIds, actions, tenantID)
 	_ = a.sceneExecuteLogSave(sceneAutomationId, tenantID, outcome)

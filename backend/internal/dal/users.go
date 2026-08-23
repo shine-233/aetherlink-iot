@@ -596,7 +596,7 @@ func (UserQuery) CountByWhere(ctx context.Context, option ...gen.Condition) (cou
 	return
 }
 
-func (UserQuery) GroupByMonthCount(ctx context.Context, email *string, authorityFilter bool) (list []*model.GetBoardUserListMonth) {
+func (UserQuery) GroupByMonthCount(ctx context.Context, email *string, authorityFilter bool) (list []*model.GetBoardUserListMonth, err error) {
 	var (
 		db = global.DB.WithContext(ctx)
 	)
@@ -612,7 +612,10 @@ func (UserQuery) GroupByMonthCount(ctx context.Context, email *string, authority
 		conn = conn.Where("authority = ?", "TENANT_ADMIN")
 	}
 
-	conn.Scan(&list)
+	err = conn.Scan(&list).Error
+	if err != nil {
+		logrus.Error(ctx, err)
+	}
 
 	return
 }

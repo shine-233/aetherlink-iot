@@ -254,7 +254,9 @@ func GetIdentifierNameTelemetry() func(device_template_id, identifier string) st
 	return func(device_template_id, identifier string) string {
 		q := query.DeviceModelTelemetry
 		var result model.DeviceModelTelemetry
-		q.Where(q.DeviceTemplateID.Eq(device_template_id), q.DataIdentifier.Eq(identifier)).Select(q.DataName).Scan(&result)
+		if err := q.Where(q.DeviceTemplateID.Eq(device_template_id), q.DataIdentifier.Eq(identifier)).Select(q.DataName).Scan(&result); err != nil {
+			logrus.WithError(err).WithFields(logrus.Fields{"kind": "telemetry", "device_template_id": device_template_id, "identifier": identifier}).Warn("resolve identifier display name failed")
+		}
 		if result.DataName == nil {
 			return identifier
 		}
@@ -266,7 +268,9 @@ func GetIdentifierNameAttribute() func(device_template_id, identifier string) st
 	return func(device_template_id, identifier string) string {
 		q := query.DeviceModelAttribute
 		var result model.DeviceModelAttribute
-		q.Where(q.DeviceTemplateID.Eq(device_template_id), q.DataIdentifier.Eq(identifier)).Select(q.DataName).Scan(&result)
+		if err := q.Where(q.DeviceTemplateID.Eq(device_template_id), q.DataIdentifier.Eq(identifier)).Select(q.DataName).Scan(&result); err != nil {
+			logrus.WithError(err).WithFields(logrus.Fields{"kind": "attribute", "device_template_id": device_template_id, "identifier": identifier}).Warn("resolve identifier display name failed")
+		}
 		if result.DataName == nil {
 			return identifier
 		}
@@ -277,7 +281,9 @@ func GetIdentifierNameEvent() func(device_template_id, identifier string) string
 	return func(device_template_id, identifier string) string {
 		q := query.DeviceModelEvent
 		var result model.DeviceModelEvent
-		q.Where(q.DeviceTemplateID.Eq(device_template_id), q.DataIdentifier.Eq(identifier)).Select(q.DataName).Scan(&result)
+		if err := q.Where(q.DeviceTemplateID.Eq(device_template_id), q.DataIdentifier.Eq(identifier)).Select(q.DataName).Scan(&result); err != nil {
+			logrus.WithError(err).WithFields(logrus.Fields{"kind": "event", "device_template_id": device_template_id, "identifier": identifier}).Warn("resolve identifier display name failed")
+		}
 		if result.DataName == nil {
 			return identifier
 		}

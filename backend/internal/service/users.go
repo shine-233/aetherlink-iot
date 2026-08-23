@@ -69,7 +69,13 @@ func (*UsersService) GetTenant(ctx context.Context) (model.GetTenantRes, error) 
 		})
 	}
 	// 历史数据 —— 仅统计 TENANT_ADMIN
-	list = db.GroupByMonthCount(ctx, nil, true)
+	list, monthErr := db.GroupByMonthCount(ctx, nil, true)
+	if monthErr != nil {
+		logrus.Error(ctx, "[GetTenant]Users data failed:", monthErr)
+		err = errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": monthErr.Error(),
+		})
+	}
 
 	if err != nil {
 		logrus.Error(ctx, "[GetTenant]Users data failed:", err)
@@ -126,7 +132,13 @@ func (*UsersService) GetTenantUserInfo(ctx context.Context, email string) (model
 		})
 	}
 	// 历史数据
-	list = db.GroupByMonthCount(ctx, &email, false)
+	list, monthErr := db.GroupByMonthCount(ctx, &email, false)
+	if monthErr != nil {
+		logrus.Error(ctx, "[GetTenant]Users data failed:", monthErr)
+		err = errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": monthErr.Error(),
+		})
+	}
 
 	if err != nil {
 		logrus.Error(ctx, "[GetTenant]Users data failed:", err)
