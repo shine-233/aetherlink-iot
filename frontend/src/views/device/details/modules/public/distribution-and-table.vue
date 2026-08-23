@@ -148,7 +148,7 @@ const fetchDataFunction = async () => {
 const loadAttributeList = async () => {
   attributeLoading.value = true
   try {
-    const { data, error } = await getAttributeDataSet(props.id)
+    const { data, error } = await getAttributeDataSet({ device_id: props.id })
     if (!error && Array.isArray(data)) {
       attributeList.value = data.map((item: any) => ({
         ...normalizeAttributeItem(item),

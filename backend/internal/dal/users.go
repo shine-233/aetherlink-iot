@@ -321,39 +321,42 @@ func GetUserByIdWithAddress(uid string) (map[string]interface{}, error) {
 	return buildUserWithAddressMap(result, roles), nil
 }
 
+// GetUsersByEmail 登录热路径用户选择器。
+// P1 修复（2026-08-23，见 VALIDATION.md）：登录高频路径改走 raw global.DB 链
+// （clone==1 根，每次链式起点均为全新 Statement），与 UpdateLastVisitTime 同理，
+// 杜绝 gen 继承链在高并发下残留 Model/Dest 导致的陈旧条件注入。
 func GetUsersByEmail(email string) (*model.User, error) {
-	q := query.User
-	user, err := q.Where(q.Email.Eq(email)).First()
-	if err != nil {
+	if strings.TrimSpace(email) == "" {
+		return nil, gorm.ErrRecordNotFound
+	}
+	var user model.User
+	if err := global.DB.Where("email = ?", email).First(&user).Error; err != nil {
 		return nil, err
 	}
-	return user, err
+	return &user, nil
 }
 
 // 通过手机号获取用户
 // 支持国际手机号匹配：
 // - 如果输入带区号(+XX NNNN)：精确匹配
 // - 如果输入不带区号(纯数字)：模糊匹配数字后缀(LIKE '%digits')
+// GetUsersByPhoneNumber 通过手机号获取用户；支持带区号精确匹配与无区号后缀模糊匹配。
+// P1 修复（2026-08-23）：同 GetUsersByEmail，改走 raw global.DB 链规避继承链竞态。
 func GetUsersByPhoneNumber(phoneNumber string) (*model.User, error) {
 	if phoneNumber == "" {
 		return nil, errors.New("phone number is empty")
 	}
-
-	q := query.User
-
-	// 判断输入是否带区号
-	hasCountryCode := strings.HasPrefix(phoneNumber, "+")
-
-	if hasCountryCode {
-		// 输入带区号：直接精确匹配（输入格式规范：+86 13100000000）
-		user, err := q.Where(q.PhoneNumber.Eq(phoneNumber)).First()
-		return user, err
+	var user model.User
+	var err error
+	if strings.HasPrefix(phoneNumber, "+") {
+		err = global.DB.Where("phone_number = ?", phoneNumber).First(&user).Error
 	} else {
-		// 输入不带区号：使用 LIKE 匹配数字后缀
-		// 例如：输入 13100000000，可匹配 +86 13100000000 或 13100000000
-		user, err := q.Where(q.PhoneNumber.Like("%" + phoneNumber)).First()
-		return user, err
+		err = global.DB.Where("phone_number LIKE ?", "%"+phoneNumber).First(&user).Error
 	}
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
 }
 
 func GetUserListByPage(userListReq *model.UserListReq, claims *utils.UserClaims) (int64, interface{}, error) {

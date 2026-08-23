@@ -9,6 +9,9 @@ import type { ElegantConstRoute } from '@elegant-router/vue'
 import { layouts, views } from '@/router/elegant/imports'
 import { getRouteName } from '@/router/elegant/transform'
 
+/** 后端菜单行节点：MenuRoute 已携带 element_code 等后端字段，children 递归同构。 */
+type RawMenuNode = Api.Route.MenuRoute & { children?: RawMenuNode[] }
+
 /**
  * 递归处理菜单树数据
  *
@@ -219,17 +222,22 @@ function createHomeDefaultChild(item: Api.Route.MenuRoute): ElegantRoute {
 }
 
 /** 递归转换后端菜单数据为前端路由 */
-function replaceKeys(data: any[]): ElegantRoute[] {
-  return data.flatMap((item: any): ElegantRoute[] => {
+function replaceKeys(data: RawMenuNode[]): ElegantRoute[] {
+  return data.flatMap((item): ElegantRoute[] => {
     const component = getRouteComponent(item)
     const children = item.children?.length ? replaceKeys(item.children) : []
     const elementCode = item.element_code.trim().replace(/\s/g, '_')
     const path = ROUTE_DISPLAY_PATH_MAP[elementCode] ?? normalizePath(item.param1)
 
-    const route: any = {
+    // home 根节点带子菜单时强制挂 base 布局，并把默认首页视图插到首位。
+    const isHomeWithChildren = item.element_code === 'home' && children.length > 0
+    const resolvedComponent = isHomeWithChildren ? 'layout.base' : component
+    const routeChildren = isHomeWithChildren ? [createHomeDefaultChild(item), ...children] : children
+
+    const route = {
       name: elementCode,
       path,
-      ...(component && { component }),
+      ...(resolvedComponent && { component: resolvedComponent }),
       meta: {
         title: item.description,
         i18nKey: item.multilingual,
@@ -241,16 +249,11 @@ function replaceKeys(data: any[]): ElegantRoute[] {
         hideInMenu: item.param3 === '1',
         remark: item.remark || ''
       },
-      children
-    }
+      children: routeChildren
+    } as unknown as ElegantRoute
 
-    if (item.element_code === 'home' && children.length) {
-      route.component = 'layout.base'
-      route.children = [createHomeDefaultChild(item), ...children]
-    }
-
-    const hasChildren = Boolean(route.children?.length)
-    const hasComponent = Boolean(route.component)
+    const hasChildren = Boolean(routeChildren.length)
+    const hasComponent = Boolean(resolvedComponent)
 
     if (!hasChildren && !hasComponent) {
       console.warn('[route-adapter] skip invalid menu route:', {
@@ -261,17 +264,21 @@ function replaceKeys(data: any[]): ElegantRoute[] {
       return []
     }
 
-    return [route as ElegantRoute]
+    return [route]
   })
 }
 
 export function adapterOfFetchUserRouterList(data: ElegantConstRoute[] | null | undefined): ElegantConstRoute[] {
   if (!data?.length) return []
 
-  return replaceKeys(data).map((item: any): ElegantConstRoute => {
-    if (!item.children || !item.children.length) {
+  // 历史类型误标：/ui_elements/menu 的行结构与 MenuRoute 同源（含 element_code 等字段），
+  // 这里在边界显式还原原始行契约后再进入转换。
+  return replaceKeys(data as unknown as RawMenuNode[]).map((item): ElegantConstRoute => {
+    // ElegantRoute 联合类型的部分成员不暴露 children，这里按运行时结构窄化读取。
+    const children = (item as { children?: unknown[] }).children
+    if (!children || !children.length) {
       if (!item.meta) return item
-      item.meta.singleLayout = 'base'
+      ;(item.meta as { singleLayout?: string }).singleLayout = 'base'
     }
 
     return item as unknown as ElegantConstRoute

@@ -133,7 +133,8 @@ func (*DeviceConfig) CreateDeviceConfig(req *model.CreateDeviceConfigReq, claims
 
 	err = dal.CreateDeviceConfig(&deviceconfig)
 	if err != nil {
-		logrus.Error(err)
+		// err 可能内插用户可控的配置名/ID（log-injection 面），日志只记固定语义。
+		logrus.Error("create device config failed")
 		return deviceconfig, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
 		})
@@ -278,7 +279,8 @@ func deviceConfigOtherConfigChanged(reqOtherConfig, oldOtherConfig *string) bool
 func updateDeviceConfigAndRefreshCache(configID string, condsMap map[string]interface{}) (*model.DeviceConfig, error) {
 	logrus.Debug("device config update requested")
 	if err := dal.UpdateDeviceConfig(configID, condsMap); err != nil {
-		logrus.Error(err)
+		// err 可能携带用户可控的 configID（log-injection 面），日志只记固定语义。
+		logrus.Error("update device config failed")
 		return nil, wrapDeviceConfigDBError(err)
 	}
 
@@ -381,7 +383,8 @@ func (*DeviceConfig) DeleteDeviceConfig(id string, claims *utils.UserClaims) err
 
 	err = dal.DeleteDeviceConfig(id)
 	if err != nil {
-		logrus.Error(err)
+		// dal 层错误内插用户可控的 id（log-injection 面），日志只记固定语义。
+		logrus.Error("delete device config failed")
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
 		})
