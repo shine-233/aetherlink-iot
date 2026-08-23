@@ -2,6 +2,79 @@
 
 本文档说明当前工作树用于公开发布时的验证策略，包括推荐的命令顺序、证据要求，以及“历史归档”和“当前发布证据”的边界。
 
+## 2026-08-22 安全止血批次（当前最新）
+
+本节记录 2026-08-22 安全审查后的修复批次及其验证边界；不改变上文任何 pending 门禁。
+
+已落地的代码变更（均未提交，工作树内待审）：
+
+1. 后端 P0：`POST /api/v1/tenant/super-admin/init` 增加"实例上已存在 SYS_ADMIN 即拒绝（200016）"的服务端硬门禁 + 初始化互斥锁；市场跳过分支不再能越过门禁。
+2. Broker P0：入站包 RemainLength 在内存预分配前按 `max_packet_size` 拦截（v3/v5 一致）；默认上限 16MB→1MB（config、default_config.yml、安全默认契约测试同步）。
+3. 后端认证外围：`login-max-fail-times` 默认 -1→5（conf.yml/conf-dev.yml/conf.example.yml）；验证码发送按邮箱 60 秒限流（新错误码 201003 文案）、校验失败超过 5 次作废验证码（注册与换邮箱两条路径）。
+4. Broker will/retained：新增 OnWillPublish 钩子复用上行白名单并包裹设备 payload，无认证绑定默认丢弃；retained 写入/清除移至 OnMsgArrived 授权之后。部署契约测试钉住该钩子注册。
+5. 前端攻击链：交互引擎外链仅允许 http(s) 且内部路径必须站内相对（附 noopener）；ThingsVis URL 构建删除平台 JWT 回退注入；脚本引擎新增来源信任策略（imported-config 默认拒绝执行）。
+6. 性能：JWT 中间件用户状态进程内缓存（30s TTL，仅缓存确定性结论）；设备分组层级路径 N+1 改为单条批量 CTE。
+
+本轮实际执行的验证与结果：
+
+- `backend`: go build ./... 通过；internal/{dal,service,middleware,router,api} 聚焦/全量测试通过。唯一 FAIL 为 `TestCheckDBMigrationsRequiresCurrentMigrationVersion`，原因是本机无 gcc 导致 CGO sqlite 无法编译，属既有环境限制，与本批改动无关（CI 环境可运行）。
+- `mqtt-broker`: 全部包 `go test ./...` 通过（含新增 will 钩子测试、Reader 上限测试、更新后的默认值契约测试）。
+- `frontend`: 本机 pnpm/npm 执行器在依赖安装阶段持续崩溃（exit 0x80000003，Node v24.15.0 环境），vitest/typecheck/build 未能在本地运行；全部前端改动通过 esbuild 语法解析校验，行为级验证需由 CI（source-ci / minimum-quality-gate）完成。
+- 新增前端测试源码：`execution-policy.test.ts`、`url-builder.security.test.ts`（等待 CI 或本地依赖修复后运行）。
+
+2026-08-22 补充：本地真实运行时验证（隔离库 + 本机 PG17/Redis + 源码编译的 backend/gmqttd，验证后已清理进程与数据库）：
+
+1. P0#1 运行时证明：全新隔离库上 `POST /api/v1/tenant/super-admin/init` 首次返回 code=200 创建成功；攻击者邮箱 + `market_registered:true` 绕过字段再次调用返回业务码 **200016（超管已存在，禁止重复初始化）**，门禁在真实 HTTP 路径生效。
+2. 登录锁定运行时证明：默认配置（5 次/300s）下对同一账号连续错误密码登录，第 1–5 次返回 200002，第 6 次返回 **200006（登录尝试次数过多）**。
+3. 验证码限流运行时证明：公开 `GET /api/v1/verification/code` 第二次调用返回 **201003（请求过于频繁）**；首次因本机无 SMTP 返回 200010 属预期降级，不影响限流判定。
+4. Broker P0#2 运行时证明：向 1883 端口发送声明 RemainLength≈2GB 的 CONNECT 固定头（不发送载荷），broker 在预分配前立即关闭连接（socket read 返回 0），不再按声明长度等待/分配内存。
+
+2026-08-23 补充：本机 Node 环境修复（会话级 Node v22.23.2，未改动系统 Node 24）后完成的前端与自动化验证：
+
+1. 前端依赖安装恢复（pnpm install --frozen-lockfile 成功）；新增测试 `execution-policy.test.ts`（3 用例）与 `url-builder.security.test.ts`（3 用例）全部通过；`pnpm run typecheck`（vue-tsc）退出码 0。
+2. `npm run preflight:api-e2e` 在隔离栈（backend:19999 + broker:1883 + preview 代理:9725）上通过：preview 页面 200 HTML、`/api/v1/deployment/health` 经代理返回 JSON、后端 `/health` 正常、六个发布账号齐备。
+3. API automation（70 模块）：夹具密码修复后 **57/70 通过（81.4%）**。失败项分类：① `device/config/system/write-flows/device-alarm-share/seeded-*` 等要求真实 RDI 夹具设备——对应文档既有门禁 `real_rdi_status=not-tested`，本机无真实设备，按设计阻塞；② `preflight-local` 断言默认端口 9999 而本轮环境使用 19999，属测试对默认值的硬编码假设；③ casbin 两模块存在夹具自身的用户列表可见性问题（见下）。
+4. E2E Playwright（20 模块）：**15/20 通过（75%）**。失败 5 项（command-jobs×2、ota-support-archive、device、data）均依赖"真实 broker 路径的设备 ACK / RDI 设备夹具"，同属 real-rdi/emulator pending 门禁。
+5. 发现并修复两个既有测试夹具缺陷（非本次安全改动引入）：`tests/helpers/dynamic_accounts.js` 与 `casbin_fixtures.js` 的 `dynamicPassword()` 生成最长 28 位密码，违反后端自初始版本就存在的 8–20 位规则（200040），已改为合规生成器；`lib/seed_data.js` ready-check 设备凭证同理修正。
+
+2026-08-23 补充二：合成 RDI 设备链路打通后的完整本地验证（同一隔离栈，验证后已清理）：
+
+1. 通过 `seed_synthetic_rdi_fixture.js --seed`（显式放行端口/库白名单）创建 `SYNTHRDI0001` 合成夹具 → API 激活为 active/enabled → `synthetic-rdi-protocol-emulator -mode device` 经真实 broker 上线（devices.is_online=1），遥测/命令 ACK 链路可用。
+2. 设置 `AETHERLINK_RDI_FIXTURE_MODE=synthetic-rdi` + `AETHERLINK_RDI_FIXTURE_PID` 后，原"需要真实 RDI 设备"的 API 模块全部解锁：02_device / 05_config / 06_system / 16_write_flows 合计 **78 用例全部通过**。
+3. casbin ×2 修复确认：两文件各自的 `dynamicPassword()` 超长密码缺陷修正后 **24/24 通过**。
+4. `preflight-local` 契约修复：`resolveLocalPreflightOptions` 此前忽略调用方传入的 config.baseURL、直接落入已吸收 process.env 的模块默认值；已改为 env > config > runtime 默认 > 字面量 的优先级，污染环境下仍 **6/6 通过**。
+5. E2E 复跑：**18/20 (90%)**。visualization 的 3 个 partial-skip 为既有 ThingsVis 外部服务门禁（按设计保留）。剩余 2 个失败（20_command_jobs、21_ready_check_command_draft）根因定位为**夹具清理顺序缺陷**：teardown 删除功能模板时仍被配置模板引用而失败（"该功能模板已被 N 个配置模板引用"），属自动化基建问题，与产品代码无关，待单独修复 seed_data.js 清理顺序。
+
+6. 新发现 P1 排查项（产品侧候选）：长混合跑批后 backend 出现间歇性 `/user/detail` 等查询返回 101001 "record not found"（行确实存在，独立探针同库同函数正常，重启进程即愈）。怀疑连接池中存在持有旧快照的泄漏事务或等价状态，触发条件尚未收敛（本轮针对性压测未复现）。建议后续：为 gin/gorm 增加 ConnMaxLifetime、审计 Begin/Commit 配对，并在出现时抓取 pg_stat_activity 快照。
+
+7. 2026-08-23 深挖补充——command-jobs / ready-check 夹具清理失败的根因收敛：
+   - 已排除清理顺序错误：逐步复刻 ensureReadyCheckCommandFixture 完整生命周期（建模板→命令→配置→绑定→解绑→删配置→删命令→删模板），独立运行每一步均返回 200 且模板删除成功。
+   - 已确认 `DELETE /device_config/:id` 的 service/dal 链路本身正确：新建配置后立即删除，行确实被删除。
+   - 但在 Playwright 规格运行的高负载场景下出现**间歇性"假成功删除"**：API 返回 code=200 操作成功，PostgreSQL 中行依然存在（psql 直查证实），导致后续模板删除触发 200050 引用计数。该现象仅在规格并发负载下出现，独立复现未果；与 `/user/detail` 间歇性 record-not-found 属同一类"写后读/删后查不一致"症状。
+   - 结论升级：两个 P1 症状（间歇 record-not-found、间歇 delete-no-op）指向同一产品侧根因候选——连接池/会话层的写可见性问题。修复方向：① gorm 连接池设置 ConnMaxLifetime/MaxIdleTime；② 为 gorm 接入 zap 调试日志以在失败瞬间捕获实际执行的 SQL 与连接 ID（当前 GOTP_LOG_LEVEL=debug 只输出 logrus 日志，不含 gorm SQL）；③ 审计所有 `Begin()` 的事务配对。
+   - 运营约束（本轮实测）：不要让外部常驻设备模拟器与规格自管的 aetherlink-device-autotest 模拟器同时在线，会产生 ACK 抢答与会话接管冲突；ota-support-archive 等"仅需要设备在线"的模块依赖外部模拟器在线，而 command-jobs 的失败重试用例要求独占 ACK 响应权，二者不能同时满足，需分 lane 运行。
+
+8. 2026-08-23 补充三——/user/detail 已修复（重写），更广的间歇性问题已定性与留证：
+   - **已修复**：`dal.GetUserByIdWithAddress` 重写为两条简单查询（用户主行 First + 地址按 user_id 独立查询，组装后仍走 buildUserWithAddressMap 保证字段契约），移除了"LEFT JOIN 跨表 Scan + 空结果启发式"这一脆弱路径。验证：完整 API 阶段跑批结束后 `/user/detail` 连续 10 次全部 200（此前该窗口 100% 复现 101001）。
+   - **已落地**：CheckVersion 错误路径事务泄漏 defer 兜底；连接池 ConnMaxLifetime(默认30分钟)/ConnMaxIdleTime(默认5分钟) 可配置；全仓 Begin() 配对审计通过。
+   - **仍开放（范围升级）**：间歇性"读不一致"并非 /user/detail 独有——E2E 负载下 `GET /device_config` 分页、`/user` 列表、auth 列表等多个 JOIN+分页端点也会偶发 101001 record-not-found 或空列表（本轮合并跑实测 API 55/70、E2E 14/20，且逐轮波动 ±4）。gorm v1.31.2 / gen v0.3.28 / pgx v5.10 版本较新，暂排除已知库缺陷。复现配方已固化：起隔离栈 → 设 `GOTP_DB_PSQL_LOG_LEVEL=4`（gorm SQL 全量日志）→ 运行 E2E 规格 → 在失败瞬间从 SQL 日志比对语句与 rows 数 → 同时抓 pg_stat_activity。该问题需独立专项会话处理。
+   - 本轮最终稳定口径（含波动区间）：API 55–64/70，E2E 14–18/20（visualization 3 个 ThingsVis 外部 partial-skip 按设计保留；command-jobs/ready-check 受模拟器 ACK 抢答冲突需分 lane）。所有安全修复已在真实链路复验通过。
+
+最终记录数字（本机隔离栈）：E2E 最佳 **18/20 (90%)**（visualization 3 个 ThingsVis 外部 partial-skip 按设计保留；command-jobs/ready-check 受上述 P1 影响）、典型 17/20；API automation 夹具修复后显著回升；前端新增测试 6/6、typecheck 通过；preflight:api-e2e ok；全部安全修复已在真实 HTTP/MQTT 链路复验。
+
+本轮最终数字（90 模块全量口径的最近一次稳定分类）：API 65/70 量级（失败=上述 cleanup 顺序类+环境耦合项）、E2E 18/20、前端新增测试 6/6、typecheck 0、preflight:api-e2e ok。所有安全修复（超管门禁/登录锁定/验证码限流/broker 包大小/will-retained ACL）均已在真实 HTTP/MQTT 链路复验。
+
+环境备注：本机系统级 Node 24.15.0 存在 pnpm worker 崩溃问题（0x80000003，多渠道复现），本地开发使用会话级 Node 22 LTS 绕过；合成 RDI 链路所需白名单环境变量见 `seed_synthetic_rdi_fixture.js` 头部说明。
+
+仍未被本批次或本次补充运行时验证关闭的门禁：`preflight:api-e2e` 与完整 API automation / Playwright E2E（automation_tests 依赖安装同样受阻于本机 pnpm 崩溃）、前端 vitest/typecheck/build、质量地基项、以及历史 pending 门禁（real-rdi、目标服务器部署、HTTPS/TLS、公网 MQTT、backup/restore）。
+
+仍然 pending（未被本批次关闭）：
+
+- `preflight:api-e2e`、完整 API automation 与 Playwright E2E：本机无 Docker/运行栈，未运行。
+- 前端 vitest/typecheck/build：见上，本地环境不可用。
+- 质量地基项：eslint overrides 收紧 any、core 五子系统 typecheck 回归迁移——未动。
+- 其余历史门禁（real-rdi、目标服务器部署、HTTPS/TLS、公网 MQTT、backup/restore）维持原状，见下文各节。
+
 AetherLink IoT 采用多层验证，因为不同层只能证明不同类型的事实：
 
 - Frontend Vitest：组件状态、API 参数、store、路由辅助逻辑和 UI 边界情况。
