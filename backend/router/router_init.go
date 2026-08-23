@@ -159,11 +159,16 @@ func RouterInit() *gin.Engine {
 		v1 := api.Group("v1")
 		{
 			// v1.GET("notice/test", controllers.NoticeTest)
-			v1.POST("plugin/heartbeat", controllers.Heartbeat)
-			v1.POST("plugin/device/config", controllers.HandleDeviceConfigForProtocolPlugin)
-			v1.POST("plugin/devices", controllers.HandleDeviceConfigForProtocolPluginByProtocolType)
-			v1.POST("plugin/service/access/list", controllers.HandlePluginServiceAccessList)
-			v1.POST("plugin/service/access", controllers.HandlePluginServiceAccess)
+			// 协议插件接入端点：边界认证见 middleware.PluginAuth
+			// （配置 plugin.service.key 后全来源严格校验 X-Plugin-Key；未配置仅放行回环/私网）。
+			plugin := v1.Group("", middleware.PluginAuth())
+			{
+				plugin.POST("plugin/heartbeat", controllers.Heartbeat)
+				plugin.POST("plugin/device/config", controllers.HandleDeviceConfigForProtocolPlugin)
+				plugin.POST("plugin/devices", controllers.HandleDeviceConfigForProtocolPluginByProtocolType)
+				plugin.POST("plugin/service/access/list", controllers.HandlePluginServiceAccessList)
+				plugin.POST("plugin/service/access", controllers.HandlePluginServiceAccess)
+			}
 			v1.POST("login", controllers.Login)
 			v1.GET("verification/code", controllers.HandleVerificationCode)
 			v1.POST("reset/password/link", controllers.RequestPasswordResetLink)

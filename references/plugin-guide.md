@@ -47,6 +47,17 @@
 - 保留 `apply/plugin` 是保留真实业务入口。
 - 保留 Broker 插件目录是保留 MQTT 接入和扩展能力。
 - Topic Mapping dry-run 已新增 `test_topic` 语义别名；Broker/插件侧仍要兼容旧 `sample_topic` 合同字段。
+
+## 后端协议插件接入边界（2026-08-23）
+
+- `/api/v1/plugin/*` 五个端点（heartbeat、device/config、devices、service/access×2）由
+  `middleware.PluginAuth` 保护：配置 `plugin.service.key`（env `GOTP_PLUGIN_SERVICE_KEY`）后，
+  所有来源必须携带等值 `X-Plugin-Key` 头（常量时间比较）。
+- 密钥留空时的默认策略：仅放行回环与 RFC1918/ULA 私网来源；公网来源返回 401。
+  判定只看 TCP 对端 RemoteAddr，不信任代理头。经 Nginx/容器代理的内部链路不受影响；
+  直接暴露公网的部署必须配置共享密钥。
+- 外部协议插件升级路径：部署侧生成随机密钥注入后端，插件侧在请求头附带该密钥即可。
+
 ## 2026-07-08 Latest Verification Note
 
 - No plugin surface contract changed this round.

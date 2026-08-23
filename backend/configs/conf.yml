@@ -263,3 +263,10 @@ mqtt_session_revocations:
     interval: "10s"                # 到期撤销事件扫描间隔
     limit: 20                      # 单轮最多 claim 条数，最大 100
     shutdown_timeout: "3s"         # 停机等待当前 worker 退出的时间预算
+
+# 协议插件接入端点(/api/v1/plugin/*)共享密钥；环境变量 GOTP_PLUGIN_SERVICE_KEY 可覆盖。
+# 留空时仅放行回环/私网来源（本地开发与容器内网不受影响，公网来源一律 401）；
+# 配置后所有来源必须携带 X-Plugin-Key 请求头。生产部署建议由 init 脚本生成随机值。
+plugin:
+  service:
+    key: ""
