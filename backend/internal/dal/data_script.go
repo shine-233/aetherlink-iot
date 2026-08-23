@@ -22,15 +22,42 @@ func CreateDataScript(data *model.DataScript) error {
 	return query.DataScript.Create(data)
 }
 
+// UpdateDataScript 按主键更新数据处理脚本。
+// P1 修复（2026-08-23，见 VALIDATION.md）：更新改走 raw global.DB 链（clone==1 根，
+// 无 gen 继承链残留 Model/Dest 的陈旧条件注入风险），显式列赋值并检查 RowsAffected，
+// 杜绝"更新命中错误行/未命中仍返回成功"导致的更新后读旧值。
 func UpdateDataScript(data *model.UpdateDataScriptReq) error {
-	p := query.DataScript
 	t := time.Now().UTC()
 	data.UpdatedAt = &t
-	_, err := query.DataScript.Where(p.ID.Eq(data.Id)).Updates(data)
-	if err != nil {
-		logrus.Error(err)
+	updates := map[string]interface{}{
+		"name":             data.Name,
+		"device_config_id": data.DeviceConfigId,
+		"script_type":      data.ScriptType,
+		"updated_at":       t,
 	}
-	return err
+	if data.Content != nil {
+		updates["content"] = *data.Content
+	}
+	if data.LastAnalogInput != nil {
+		updates["last_analog_input"] = *data.LastAnalogInput
+	}
+	if data.Description != nil {
+		updates["description"] = *data.Description
+	}
+	if data.Remark != nil {
+		updates["remark"] = *data.Remark
+	}
+	result := global.DB.Model(&model.DataScript{}).
+		Where("id = ?", data.Id).
+		Updates(updates)
+	if result.Error != nil {
+		logrus.Error(result.Error)
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		logrus.Warnf("UpdateDataScript affected 0 rows for id=%s", data.Id)
+	}
+	return nil
 }
 
 func DeleteDataScript(id string) error {
