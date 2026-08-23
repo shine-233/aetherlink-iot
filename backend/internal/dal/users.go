@@ -404,8 +404,9 @@ func GetUserListByPageWithAddress(userListReq *model.UserListReq, claims *utils.
 		qa.Latitude.As("address_latitude"), qa.AdditionalInfo.As("address_additional_info"),
 		qa.CreatedTime.As("address_created_time"), qa.UpdatedTime.As("address_updated_time"),
 	).Order(q.CreatedAt.Desc()).Scan(&usersWithAddress)
-	if err != nil {
-		return count, nil, err
+	if scanDB := queryBuilder.UnderlyingDB().Error; scanDB != nil {
+		logrus.Errorf("GetUserListByPageWithAddress scan error: %v", scanDB)
+		return count, nil, scanDB
 	}
 
 	userIDs := make([]string, 0, len(usersWithAddress))
