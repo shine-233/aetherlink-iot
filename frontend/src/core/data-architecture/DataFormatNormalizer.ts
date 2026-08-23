@@ -18,12 +18,12 @@ import {
 export interface StandardDataItem {
   item: {
     type: 'static' | 'http' | 'json' | 'websocket' | 'file' | 'data-source-bindings'
-    config: Record<string, any>
+    config: Record<string, unknown>
   }
   processing: {
     filterPath: string
     customScript?: string
-    defaultValue?: any
+    defaultValue?: unknown
   }
 }
 
@@ -41,12 +41,19 @@ export interface StandardDataSourceConfig {
 type StandardDataSource = StandardDataSourceConfig['dataSources'][number]
 type StandardProcessing = StandardDataItem['processing']
 
+/** 历史配置输入（自由 JSON，字段运行时逐个校验） */
+type UnknownRecord = Record<string, unknown>
+
+function isRecord(value: unknown): value is UnknownRecord {
+  return typeof value === 'object' && value !== null
+}
+
 const DEFAULT_FILTER_PATH = '$'
 const DEFAULT_SOURCE_ID = 'main'
 const DEFAULT_MERGE_STRATEGY: StandardDataSource['mergeStrategy'] = { type: 'object' }
 
 export class DataFormatNormalizer {
-  static normalizeToStandard(data: any, componentId: string): StandardDataSourceConfig {
+  static normalizeToStandard(data: unknown, componentId: string): StandardDataSourceConfig {
     if (this.isStandardFormat(data)) {
       return data as StandardDataSourceConfig
     }
@@ -74,7 +81,7 @@ export class DataFormatNormalizer {
   static convertFromStandard(
     standardData: StandardDataSourceConfig,
     targetFormat: 'simpleConfigEditor' | 'importExport' | 'card2Executor'
-  ): any {
+  ): unknown {
     switch (targetFormat) {
       case 'simpleConfigEditor':
         return this.convertToSimpleConfigEditor(standardData)
@@ -87,67 +94,74 @@ export class DataFormatNormalizer {
     }
   }
 
-  private static isStandardFormat(data: any): boolean {
+  private static isStandardFormat(data: unknown): boolean {
     return !!(
-      data &&
-      typeof data === 'object' &&
+      isRecord(data) &&
       'componentId' in data &&
       'dataSources' in data &&
       Array.isArray(data.dataSources) &&
-      data.dataSources.every(
-        (ds: any) =>
-          ds &&
-          'sourceId' in ds &&
-          'dataItems' in ds &&
-          Array.isArray(ds.dataItems) &&
-          ds.dataItems.every((item: any) => isStandardDataItem(item))
-      )
+      data.dataSources.every((ds) => {
+        const dsRecord = ds as UnknownRecord | null | undefined
+        return !!(
+          dsRecord &&
+          typeof dsRecord === 'object' &&
+          'sourceId' in dsRecord &&
+          'dataItems' in dsRecord &&
+          Array.isArray(dsRecord.dataItems) &&
+          (dsRecord.dataItems as unknown[]).every((item) => isStandardDataItem(item))
+        )
+      })
     )
   }
 
-  private static isCard2ExecutorFormat(data: any): boolean {
-    return !!(
-      data &&
-      typeof data === 'object' &&
-      Object.keys(data).some(
-        key =>
-          data[key] &&
-          typeof data[key] === 'object' &&
-          'type' in data[key] &&
-          'data' in data[key] &&
-          'metadata' in data[key]
+  private static isCard2ExecutorFormat(data: unknown): boolean {
+    if (!isRecord(data)) {
+      return false
+    }
+    return Object.keys(data).some((key) => {
+      const value = data[key] as UnknownRecord | null | undefined
+      return !!(
+        value &&
+        typeof value === 'object' &&
+        'type' in value &&
+        'data' in value &&
+        'metadata' in value
       )
-    )
+    })
   }
 
-  private static isEditorManagerFormat(data: any): boolean {
+  private static isEditorManagerFormat(data: unknown): boolean {
     return !!(
-      data &&
-      typeof data === 'object' &&
+      isRecord(data) &&
       'type' in data &&
       'config' in data &&
       !('item' in data && 'processing' in data)
     )
   }
 
-  private static convertFromSimpleConfigEditor(data: any, componentId: string): StandardDataSourceConfig {
-    const dataSources = (data.dataSources || []).map((ds: any) =>
-      this.createStandardDataSource(
-        normalizePersistedSourceId(ds, 'default'),
-        (ds.dataItems || []).map((item: any): StandardDataItem => normalizePersistedDataItem(item)),
-        normalizePersistedMergeStrategy(ds.mergeStrategy)
+  private static convertFromSimpleConfigEditor(data: unknown, componentId: string): StandardDataSourceConfig {
+    const record = (data ?? {}) as UnknownRecord
+    const rawSources = (record.dataSources || []) as Array<UnknownRecord | null | undefined>
+    const dataSources = rawSources.map((ds) => {
+      const dsRecord = (ds ?? {}) as UnknownRecord
+      const rawItems = (dsRecord.dataItems || []) as unknown[]
+      return this.createStandardDataSource(
+        normalizePersistedSourceId(dsRecord, 'default'),
+        rawItems.map((item): StandardDataItem => normalizePersistedDataItem(item)),
+        normalizePersistedMergeStrategy(dsRecord.mergeStrategy)
       )
-    )
+    })
 
-    return this.createStandardConfig(componentId, dataSources, data.createdAt)
+    return this.createStandardConfig(componentId, dataSources, record.createdAt as number | undefined)
   }
 
-  private static convertFromImportExport(data: any, componentId: string): StandardDataSourceConfig {
-    const dataSourceConfig = data.dataSourceConfig || {}
+  private static convertFromImportExport(data: unknown, componentId: string): StandardDataSourceConfig {
+    const record = (data ?? {}) as UnknownRecord
     // 导入导出格式是单数据源壳结构，这里补成标准 dataSources 数组。
-    const dataItems = (dataSourceConfig.dataItems || []).map(
-      (rawItem: any): StandardDataItem => normalizePersistedDataItem(rawItem)
-    )
+    const dataSourceConfig = (record.dataSourceConfig || {}) as UnknownRecord
+    // 保持与原实现一致：非数组 truthy 值会在 .map 处抛出 TypeError。
+    const rawItems = (dataSourceConfig.dataItems || []) as unknown[]
+    const dataItems = rawItems.map((rawItem): StandardDataItem => normalizePersistedDataItem(rawItem))
 
     return this.createStandardConfig(componentId, [
       this.createStandardDataSource(
@@ -158,34 +172,37 @@ export class DataFormatNormalizer {
     ])
   }
 
-  private static convertFromCard2Executor(data: any, componentId: string): StandardDataSourceConfig {
-    const dataSources = Object.entries(data).map(([sourceId, sourceData]: [string, any]) =>
-      this.createStandardDataSource(sourceId, [
-        this.createStandardItem(sourceData.type || 'static', sourceData.data || sourceData)
+  private static convertFromCard2Executor(data: unknown, componentId: string): StandardDataSourceConfig {
+    const entries = Object.entries((data ?? {}) as UnknownRecord)
+    const dataSources = entries.map(([sourceId, sourceData]) => {
+      const sourceRecord = (sourceData ?? {}) as UnknownRecord
+      return this.createStandardDataSource(sourceId, [
+        this.createStandardItem(sourceRecord.type || 'static', (sourceRecord.data || sourceRecord) as UnknownRecord)
       ])
-    )
+    })
 
     return this.createStandardConfig(componentId, dataSources)
   }
 
-  private static convertFromEditorManager(data: any, componentId: string): StandardDataSourceConfig {
+  private static convertFromEditorManager(data: unknown, componentId: string): StandardDataSourceConfig {
+    const record = (data ?? {}) as UnknownRecord
     return this.createStandardConfig(componentId, [
       this.createStandardDataSource(DEFAULT_SOURCE_ID, [
-        this.createStandardItem(data.type || 'static', data.config || data, {
-          filterPath: data.filterPath || DEFAULT_FILTER_PATH,
-          customScript: data.processScript
+        this.createStandardItem(record.type || 'static', (record.config || record) as UnknownRecord, {
+          filterPath: (record.filterPath || DEFAULT_FILTER_PATH) as string,
+          customScript: record.processScript as string | undefined
         })
       ])
     ])
   }
 
-  private static convertFromGenericObject(data: any, componentId: string): StandardDataSourceConfig {
+  private static convertFromGenericObject(data: unknown, componentId: string): StandardDataSourceConfig {
     return this.createStandardConfig(componentId, [
-      this.createStandardDataSource(DEFAULT_SOURCE_ID, [this.createStandardItem('static', data)])
+      this.createStandardDataSource(DEFAULT_SOURCE_ID, [this.createStandardItem('static', data as UnknownRecord)])
     ])
   }
 
-  private static convertToSimpleConfigEditor(standardData: StandardDataSourceConfig): any {
+  private static convertToSimpleConfigEditor(standardData: StandardDataSourceConfig): unknown {
     return {
       dataSources: standardData.dataSources.map(ds => ({
         sourceId: ds.sourceId,
@@ -197,7 +214,7 @@ export class DataFormatNormalizer {
     }
   }
 
-  private static convertToImportExport(standardData: StandardDataSourceConfig): any {
+  private static convertToImportExport(standardData: StandardDataSourceConfig): unknown {
     const dataItems = standardData.dataSources.flatMap(ds => ds.dataItems.map(item => item.item))
 
     return {
@@ -208,8 +225,8 @@ export class DataFormatNormalizer {
     }
   }
 
-  private static convertToCard2Executor(standardData: StandardDataSourceConfig): any {
-    const result: Record<string, any> = {}
+  private static convertToCard2Executor(standardData: StandardDataSourceConfig): unknown {
+    const result: Record<string, unknown> = {}
 
     standardData.dataSources.forEach(ds => {
       ds.dataItems.forEach((item, index) => {
@@ -229,7 +246,7 @@ export class DataFormatNormalizer {
     return result
   }
 
-  static normalizeMultiple(dataList: Array<{ data: any; componentId: string }>): StandardDataSourceConfig[] {
+  static normalizeMultiple(dataList: Array<{ data: unknown; componentId: string }>): StandardDataSourceConfig[] {
     return dataList.map(({ data, componentId }) => this.normalizeToStandard(data, componentId))
   }
 
@@ -294,7 +311,7 @@ export class DataFormatNormalizer {
 
   private static createStandardItem(
     type: unknown,
-    config: Record<string, any>,
+    config: Record<string, unknown>,
     processing: Partial<StandardProcessing> = {}
   ): StandardDataItem {
     return {

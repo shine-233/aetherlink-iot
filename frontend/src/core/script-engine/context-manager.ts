@@ -23,7 +23,7 @@ export class ScriptContextManager implements IScriptContextManager {
   /**
    * 创建执行上下文
    */
-  createContext(name: string, variables: Record<string, any> = {}): ScriptExecutionContext {
+  createContext(name: string, variables: Record<string, unknown> = {}): ScriptExecutionContext {
     const now = Date.now()
     const context: ScriptExecutionContext = {
       id: nanoid(),
@@ -147,7 +147,7 @@ export class ScriptContextManager implements IScriptContextManager {
   /**
    * 添加变量到上下文
    */
-  addVariable(contextId: string, name: string, value: any): boolean {
+  addVariable(contextId: string, name: string, value: unknown): boolean {
     const context = this.contexts.get(contextId)
     if (!context) {
       return false
@@ -236,13 +236,13 @@ export class ScriptContextManager implements IScriptContextManager {
 
       // 类型检查函数
       isArray: Array.isArray,
-      isString: (value: any) => typeof value === 'string',
-      isNumber: (value: any) => typeof value === 'number',
-      isBoolean: (value: any) => typeof value === 'boolean',
-      isObject: (value: any) => typeof value === 'object' && value !== null,
-      isFunction: (value: any) => typeof value === 'function',
-      isUndefined: (value: any) => value === undefined,
-      isNull: (value: any) => value === null,
+      isString: (value: unknown) => typeof value === 'string',
+      isNumber: (value: unknown) => typeof value === 'number',
+      isBoolean: (value: unknown) => typeof value === 'boolean',
+      isObject: (value: unknown) => typeof value === 'object' && value !== null,
+      isFunction: (value: unknown) => typeof value === 'function',
+      isUndefined: (value: unknown) => value === undefined,
+      isNull: (value: unknown) => value === null,
 
       // 转换函数
       toString: String,

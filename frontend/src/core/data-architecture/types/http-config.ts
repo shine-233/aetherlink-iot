@@ -151,7 +151,7 @@ export interface HttpConfig {
 /**
  * 类型转换器 - 将值转换为指定数据类型
  */
-export function convertValue(value: any, dataType: string): any {
+export function convertValue(value: unknown, dataType: string): unknown {
   if (value === null || value === undefined) return value
 
   switch (dataType) {

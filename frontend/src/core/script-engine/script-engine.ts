@@ -12,7 +12,10 @@ import type {
   IScriptTemplateManager,
   IScriptContextManager,
   ScriptEngineConfig,
+  ScriptEngineStateSnapshot,
   ScriptExecutionResult,
+  ScriptExecutionContext,
+  ScriptTemplate,
   ScriptConfig
 } from './types'
 import { ScriptExecutor, defaultScriptConfig } from '@/core/script-engine/executor'
@@ -55,7 +58,7 @@ export class ScriptEngine implements IScriptEngine {
   /**
    * 快速执行脚本
    */
-  async execute<T = any>(code: string, context?: Record<string, any>): Promise<ScriptExecutionResult<T>> {
+  async execute<T = unknown>(code: string, context?: Record<string, unknown>): Promise<ScriptExecutionResult<T>> {
     // 创建脚本配置
     const scriptConfig: ScriptConfig = {
       ...this.config.defaultScriptConfig,
@@ -88,9 +91,9 @@ export class ScriptEngine implements IScriptEngine {
   /**
    * 使用模板执行
    */
-  async executeTemplate<T = any>(
+  async executeTemplate<T = unknown>(
     templateId: string,
-    parameters: Record<string, any>
+    parameters: Record<string, unknown>
   ): Promise<ScriptExecutionResult<T>> {
     // 根据模板生成代码
     const code = this.templateManager.generateCode(templateId, parameters)
@@ -102,8 +105,8 @@ export class ScriptEngine implements IScriptEngine {
   /**
    * 批量执行脚本
    */
-  async executeBatch<T = any>(
-    scripts: Array<{ code: string; context?: Record<string, any> }>
+  async executeBatch<T = unknown>(
+    scripts: Array<{ code: string; context?: Record<string, unknown> }>
   ): Promise<ScriptExecutionResult<T>[]> {
     const promises = scripts.map(script => this.execute<T>(script.code, script.context))
     return await Promise.all(promises)
@@ -112,9 +115,9 @@ export class ScriptEngine implements IScriptEngine {
   /**
    * 执行脚本并返回流式结果
    */
-  async executeStream<T = any>(
+  async executeStream<T = unknown>(
     code: string,
-    context?: Record<string, any>,
+    context?: Record<string, unknown>,
     onUpdate?: (result: Partial<ScriptExecutionResult<T>>) => void
   ): Promise<ScriptExecutionResult<T>> {
     // 创建脚本配置
@@ -270,7 +273,7 @@ export class ScriptEngine implements IScriptEngine {
   /**
    * 导出引擎状态
    */
-  exportState(): any {
+  exportState(): ScriptEngineStateSnapshot {
     return {
       config: this.config,
       stats: this.getExecutionStats(),
@@ -283,31 +286,42 @@ export class ScriptEngine implements IScriptEngine {
   /**
    * 导入引擎状态
    */
-  importState(state: any): boolean {
+  importState(state: unknown): boolean {
     try {
+      if (typeof state !== 'object' || state === null) {
+        return false
+      }
+      const stateRecord = state as Record<string, unknown>
+
       // 导入配置
-      if (state.config) {
-        this.updateConfig(state.config)
+      if (stateRecord.config) {
+        this.updateConfig(stateRecord.config as Partial<ScriptEngineConfig>)
       }
 
       // 导入模板
-      if (state.templates && Array.isArray(state.templates)) {
-        state.templates.forEach((template: any) => {
-          if (!template.isSystem) {
+      if (stateRecord.templates && Array.isArray(stateRecord.templates)) {
+        for (const template of stateRecord.templates) {
+          if (!template || typeof template !== 'object') continue
+          if (!(template as { isSystem?: unknown }).isSystem) {
             // 只导入非系统模板
-            this.templateManager.createTemplate(template)
+            this.templateManager.createTemplate(template as Omit<ScriptTemplate, 'id' | 'createdAt' | 'updatedAt'>)
           }
-        })
+        }
       }
 
       // 导入上下文
-      if (state.contexts && Array.isArray(state.contexts)) {
-        state.contexts.forEach((context: any) => {
-          this.contextManager.createContext(context.name, context.variables)
-        })
+      if (stateRecord.contexts && Array.isArray(stateRecord.contexts)) {
+        for (const context of stateRecord.contexts) {
+          if (!context || typeof context !== 'object') continue
+          const contextRecord = context as { name?: unknown; variables?: unknown }
+          this.contextManager.createContext(
+            contextRecord.name as string,
+            contextRecord.variables as Record<string, unknown>
+          )
+        }
       }
       return true
-    } catch (error) {
+    } catch {
       return false
     }
   }

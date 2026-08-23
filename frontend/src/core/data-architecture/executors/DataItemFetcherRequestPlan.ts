@@ -17,7 +17,7 @@ export interface CollectedHttpParameter {
 }
 
 export interface ResolvedHttpParameter extends CollectedHttpParameter {
-  resolvedValue: any
+  resolvedValue: unknown
 }
 
 export interface HttpRequestPlan {
@@ -26,9 +26,9 @@ export interface HttpRequestPlan {
   requestConfig: {
     timeout: number
     headers?: Record<string, string>
-    params?: Record<string, any>
+    params?: Record<string, unknown>
   }
-  requestBody: any
+  requestBody: unknown
   keyMaterial: string
 }
 
@@ -73,7 +73,7 @@ export function buildHttpRequestPlan(
   resolvedParameters: ResolvedHttpParameter[]
 ): HttpRequestPlan {
   const requestConfig = createBaseHttpRequestConfig(config)
-  const queryParams: Record<string, any> = {}
+  const queryParams: Record<string, unknown> = {}
   const currentFinalUrl = applyCurrentPathParameters(config.url, resolvedParameters)
 
   applyCurrentQueryParameters(queryParams, resolvedParameters)
@@ -171,7 +171,7 @@ function applyCurrentPathParameters(initialUrl: string, resolvedParameters: Reso
 }
 
 function applyCurrentQueryParameters(
-  queryParams: Record<string, any>,
+  queryParams: Record<string, unknown>,
   resolvedParameters: ResolvedHttpParameter[]
 ): void {
   for (const { param, resolvedValue } of resolvedParameters.filter(({ source }) => source === 'params')) {
@@ -184,7 +184,7 @@ function applyCurrentQueryParameters(
 function applyCompatibilityParameters(
   config: HttpDataItemConfig,
   initialUrl: string,
-  queryParams: Record<string, any>,
+  queryParams: Record<string, unknown>,
   requestConfig: HttpRequestConfig,
   resolvedParameters: ResolvedHttpParameter[]
 ): string {
@@ -217,7 +217,7 @@ function applyCompatibilityPathParameter(
   config: HttpDataItemConfig,
   finalUrl: string,
   param: HttpParameter,
-  resolvedValue: any
+  resolvedValue: unknown
 ): string {
   if (hasCurrentPathParameters(config) || !hasResolvedPathValue(resolvedValue)) {
     return finalUrl
@@ -233,10 +233,10 @@ function applyCompatibilityPathParameter(
 }
 
 function applyCompatibilityQueryParameter(
-  queryParams: Record<string, any>,
+  queryParams: Record<string, unknown>,
   currentQueryKeys: Set<string>,
   param: HttpParameter,
-  resolvedValue: any
+  resolvedValue: unknown
 ): void {
   if (!currentQueryKeys.has(param.key)) {
     queryParams[param.key] = resolvedValue
@@ -247,7 +247,7 @@ function applyCompatibilityHeaderParameter(
   requestConfig: HttpRequestConfig,
   currentHeaderKeys: Set<string>,
   param: HttpParameter,
-  resolvedValue: any
+  resolvedValue: unknown
 ): void {
   requestConfig.headers = requestConfig.headers || {}
   if (!currentHeaderKeys.has(param.key)) {
@@ -267,7 +267,7 @@ function currentHeaderKeysForConfig(config: HttpDataItemConfig): Set<string> {
   return new Set(Object.keys(config.headers ?? {}))
 }
 
-function replacePathPlaceholder(url: string, param: HttpParameter, resolvedValue: any): string {
+function replacePathPlaceholder(url: string, param: HttpParameter, resolvedValue: unknown): string {
   let placeholder = param.key ? `{${param.key}}` : null
 
   if (!placeholder || placeholder === '{}') {
@@ -277,7 +277,7 @@ function replacePathPlaceholder(url: string, param: HttpParameter, resolvedValue
   return placeholder && url.includes(placeholder) ? url.replace(placeholder, String(resolvedValue)) : url
 }
 
-function hasResolvedPathValue(resolvedValue: any): boolean {
+function hasResolvedPathValue(resolvedValue: unknown): boolean {
   return resolvedValue !== null && String(resolvedValue).trim() !== ''
 }
 
@@ -285,7 +285,7 @@ function normalizeHttpMethod(config: HttpDataItemConfig): string {
   return config.method.toUpperCase()
 }
 
-function buildHttpRequestBody(config: HttpDataItemConfig): any {
+function buildHttpRequestBody(config: HttpDataItemConfig): unknown {
   if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(config.method) || !config.body) {
     return undefined
   }
@@ -301,7 +301,7 @@ function createRequestKeyMaterial(
   method: string,
   finalUrl: string,
   requestConfig: HttpRequestPlan['requestConfig'],
-  requestBody: any
+  requestBody: unknown
 ): string {
   return stableStringify({
     method,
@@ -313,15 +313,16 @@ function createRequestKeyMaterial(
   })
 }
 
-function stableStringify(value: any): string {
+function stableStringify(value: unknown): string {
   if (Array.isArray(value)) {
     return `[${value.map(item => stableStringify(item)).join(',')}]`
   }
 
   if (value && typeof value === 'object') {
-    return `{${Object.keys(value)
+    const record = value as Record<string, unknown>
+    return `{${Object.keys(record)
       .sort()
-      .map(key => `${JSON.stringify(key)}:${stableStringify(value[key])}`)
+      .map(key => `${JSON.stringify(key)}:${stableStringify(record[key])}`)
       .join(',')}}`
   }
 

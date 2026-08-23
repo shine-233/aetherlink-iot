@@ -25,10 +25,17 @@ import type { DataSourceConfiguration as BaseDataSourceConfiguration } from '../
 // ==================== 泛型化数据项配置 ====================
 
 /**
+ * 判定输入是否为可在其上读取属性的对象（不含 null 与数组语义约束）。
+ */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+/**
  * 泛型化数据项配置基础接口
  * 支持任意类型的配置结构扩展
  */
-export interface DataItemConfig<T = any> {
+export interface DataItemConfig<T = unknown> {
   /** 数据项类型标识 */
   type: string
 
@@ -86,7 +93,7 @@ export interface EnhancedJsonDataItemConfig {
     /** 是否启用数据结构验证 */
     enableStructure: boolean
     /** JSON Schema（可选） */
-    schema?: any
+    schema?: unknown
   }
 
   /** 数据预处理选项 */
@@ -198,7 +205,7 @@ export interface HttpBody {
   type: 'json' | 'form' | 'text' | 'binary'
 
   /** 请求体内容 */
-  content: any
+  content: unknown
 
   /** 内容类型 */
   contentType?: string
@@ -218,10 +225,10 @@ export interface DynamicParam {
   type: 'string' | 'number' | 'boolean' | 'object'
 
   /** 当前参数值 */
-  currentValue: any
+  currentValue: unknown
 
   /** 种子值 */
-  exampleValue?: any
+  exampleValue?: unknown
 
   /** 参数描述 */
   description?: string
@@ -238,7 +245,7 @@ export interface DynamicParam {
     /** 正则表达式 */
     pattern?: string
     /** 枚举值 */
-    enum?: any[]
+    enum?: unknown[]
   }
 }
 
@@ -251,7 +258,7 @@ export interface PlaceholderConfig {
   name: string
 
   /** 占位符当前值 */
-  value: any
+  value: unknown
 
   /** 数据类型 */
   dataType: 'string' | 'number' | 'boolean' | 'json'
@@ -263,7 +270,7 @@ export interface PlaceholderConfig {
   description?: string
 
   /** 默认值 */
-  defaultValue?: any
+  defaultValue?: unknown
 
   /** 验证规则 */
   validation?: PlaceholderValidationRule
@@ -283,7 +290,7 @@ export interface PlaceholderValidationRule {
   pattern?: string
 
   /** 枚举值列表 */
-  enum?: any[]
+  enum?: unknown[]
 
   /** 自定义验证函数名称 */
   customValidator?: string
@@ -423,7 +430,7 @@ export interface ComponentProperty {
   dataType: 'string' | 'number' | 'boolean' | 'object' | 'array'
 
   /** 属性当前值 */
-  currentValue?: any
+  currentValue?: unknown
 
   /** 属性描述 */
   description?: string
@@ -498,7 +505,7 @@ export interface DataTransformationConfig {
   type: 'format' | 'calculate' | 'lookup' | 'script'
 
   /** 转换参数 */
-  parameters: Record<string, any>
+  parameters: Record<string, unknown>
 
   /** 转换脚本（type为script时使用） */
   script?: string
@@ -512,13 +519,13 @@ export interface ConditionalMappingConfig {
   condition: string
 
   /** 条件成立时的值 */
-  trueValue: any
+  trueValue: unknown
 
   /** 条件不成立时的值 */
-  falseValue: any
+  falseValue: unknown
 
   /** 条件评估上下文 */
-  context?: Record<string, any>
+  context?: Record<string, unknown>
 }
 
 // ==================== 增强版配置系统 ====================
@@ -574,14 +581,14 @@ export interface EnhancedConfigurationManager {
    * @param config 配置对象
    * @returns 依赖分析结果
    */
-  analyzePlaceholderDependencies(config: any): PlaceholderDependencyAnalysis
+  analyzePlaceholderDependencies(config: unknown): PlaceholderDependencyAnalysis
 
   /**
    * 提取配置中的所有占位符
    * @param config 配置对象
    * @returns 占位符名称列表
    */
-  extractPlaceholders(config: any): string[]
+  extractPlaceholders(config: unknown): string[]
 
   /**
    * 替换配置中的占位符值
@@ -589,7 +596,7 @@ export interface EnhancedConfigurationManager {
    * @param placeholderValues 占位符值映射
    * @returns 替换后的配置
    */
-  replacePlaceholders(config: any, placeholderValues: Map<string, any>): any
+  replacePlaceholders(config: unknown, placeholderValues: Map<string, unknown>): unknown
 
   /**
    * 验证占位符配置
@@ -597,7 +604,7 @@ export interface EnhancedConfigurationManager {
    * @param placeholderConfigs 占位符配置映射
    * @returns 验证结果
    */
-  validatePlaceholders(config: any, placeholderConfigs: Map<string, PlaceholderConfig>): PlaceholderValidationResult
+  validatePlaceholders(config: unknown, placeholderConfigs: Map<string, PlaceholderConfig>): PlaceholderValidationResult
 
   /**
    * 检测循环依赖
@@ -765,7 +772,7 @@ export interface ConfigurationAdapter {
    * @param config 配置对象
    * @returns 版本标识
    */
-  detectVersion(config: any): 'v1.0' | 'v2.0'
+  detectVersion(config: unknown): 'v1.0' | 'v2.0'
 
   /**
    * 适配配置到指定版本
@@ -773,7 +780,7 @@ export interface ConfigurationAdapter {
    * @param targetVersion 目标版本
    * @returns 适配后的配置
    */
-  adaptToVersion(config: any, targetVersion: 'v1.0' | 'v2.0'): any
+  adaptToVersion(config: unknown, targetVersion: 'v1.0' | 'v2.0'): unknown
 
   /**
    * v1升级到v2。
@@ -804,7 +811,7 @@ export class DataTypeConverter {
    * @param dataType 目标数据类型
    * @returns 转换后的值
    */
-  static convertValue(value: string, dataType: 'string' | 'number' | 'boolean' | 'json'): any {
+  static convertValue(value: string, dataType: 'string' | 'number' | 'boolean' | 'json'): unknown {
     if (value === null || value === undefined || value === '') {
       return value
     }
@@ -852,7 +859,7 @@ export class DataTypeConverter {
    * @param dataType 期望的数据类型
    * @returns 验证结果
    */
-  static validateType(value: any, dataType: 'string' | 'number' | 'boolean' | 'json'): boolean {
+  static validateType(value: unknown, dataType: 'string' | 'number' | 'boolean' | 'json'): boolean {
     switch (dataType) {
       case 'string':
         return typeof value === 'string'
@@ -886,7 +893,7 @@ export class DataTypeConverter {
    * @param value 要检查的值
    * @returns 数据类型字符串
    */
-  static getActualType(value: any): 'string' | 'number' | 'boolean' | 'json' | 'unknown' {
+  static getActualType(value: unknown): 'string' | 'number' | 'boolean' | 'json' | 'unknown' {
     if (typeof value === 'string') {
       return 'string'
     }
@@ -943,7 +950,7 @@ export class PlaceholderUtils {
    * @param values 占位符值映射
    * @returns 替换后的文本
    */
-  static replacePlaceholders(text: string, values: Map<string, any>): string {
+  static replacePlaceholders(text: string, values: Map<string, unknown>): string {
     if (typeof text !== 'string') {
       return text
     }
@@ -951,7 +958,7 @@ export class PlaceholderUtils {
     return text.replace(this.PLACEHOLDER_REGEX, (match, placeholderName) => {
       const trimmedName = placeholderName.trim()
       if (values.has(trimmedName)) {
-        const value = values.get(trimmedName)
+        const value: unknown = values.get(trimmedName)
         return value !== null && value !== undefined ? String(value) : match
       }
       return match // 保持原占位符如果没有找到值
@@ -1000,30 +1007,30 @@ export class PlaceholderUtils {
 /**
  * 类型守卫：检查是否为增强版配置
  */
-export function isEnhancedConfiguration(config: any): config is EnhancedDataSourceConfiguration {
-  return config && typeof config.version === 'string' && config.version.startsWith('2.')
+export function isEnhancedConfiguration(config: unknown): config is EnhancedDataSourceConfiguration {
+  return isRecord(config) && typeof config.version === 'string' && (config.version as string).startsWith('2.')
 }
 
 /**
  * 类型守卫：检查是否为泛型数据项配置
  */
-export function isGenericDataItemConfig(item: any): item is DataItemConfig {
-  return item && typeof item.type === 'string' && typeof item.id === 'string' && item.config
+export function isGenericDataItemConfig(item: unknown): item is DataItemConfig {
+  return isRecord(item) && typeof item.type === 'string' && typeof item.id === 'string' && Boolean(item.config)
 }
 
 /**
  * 类型守卫：检查是否为增强版HTTP配置
  */
-export function isEnhancedHttpConfig(config: any): config is EnhancedHttpDataItemConfig {
-  return config && Array.isArray(config.headers) && Array.isArray(config.params)
+export function isEnhancedHttpConfig(config: unknown): config is EnhancedHttpDataItemConfig {
+  return isRecord(config) && Array.isArray(config.headers) && Array.isArray(config.params)
 }
 
 /**
  * 类型守卫：检查是否为EnhancedHttpConfig（用于UnifiedDataConfig）
  */
-export function isUnifiedHttpConfig(config: any): config is EnhancedHttpConfig {
+export function isUnifiedHttpConfig(config: unknown): config is EnhancedHttpConfig {
   return (
-    config &&
+    isRecord(config) &&
     typeof config.url === 'string' &&
     typeof config.method === 'string' &&
     (config.headers === undefined || Array.isArray(config.headers)) &&
@@ -1034,14 +1041,14 @@ export function isUnifiedHttpConfig(config: any): config is EnhancedHttpConfig {
 /**
  * 类型守卫：检查是否为有效的HttpHeader
  */
-export function isValidHttpHeader(header: any): header is HttpHeader {
+export function isValidHttpHeader(header: unknown): header is HttpHeader {
   return (
-    header &&
+    isRecord(header) &&
     typeof header.key === 'string' &&
     typeof header.value === 'string' &&
     typeof header.enabled === 'boolean' &&
     typeof header.isDynamic === 'boolean' &&
-    ['string', 'number', 'boolean', 'json'].includes(header.dataType) &&
+    ['string', 'number', 'boolean', 'json'].includes(header.dataType as string) &&
     typeof header.variableName === 'string'
   )
 }
@@ -1049,14 +1056,14 @@ export function isValidHttpHeader(header: any): header is HttpHeader {
 /**
  * 类型守卫：检查是否为有效的HttpParam
  */
-export function isValidHttpParam(param: any): param is HttpParam {
+export function isValidHttpParam(param: unknown): param is HttpParam {
   return (
-    param &&
+    isRecord(param) &&
     typeof param.key === 'string' &&
     typeof param.value === 'string' &&
     typeof param.enabled === 'boolean' &&
     typeof param.isDynamic === 'boolean' &&
-    ['string', 'number', 'boolean', 'json'].includes(param.dataType) &&
+    ['string', 'number', 'boolean', 'json'].includes(param.dataType as string) &&
     typeof param.variableName === 'string'
   )
 }
@@ -1064,12 +1071,12 @@ export function isValidHttpParam(param: any): param is HttpParam {
 /**
  * 类型守卫：检查是否为有效的PlaceholderConfig
  */
-export function isValidPlaceholderConfig(config: any): config is PlaceholderConfig {
+export function isValidPlaceholderConfig(config: unknown): config is PlaceholderConfig {
   return (
-    config &&
+    isRecord(config) &&
     typeof config.name === 'string' &&
     config.value !== undefined &&
-    ['string', 'number', 'boolean', 'json'].includes(config.dataType) &&
+    ['string', 'number', 'boolean', 'json'].includes(config.dataType as string) &&
     typeof config.required === 'boolean'
   )
 }
@@ -1077,15 +1084,15 @@ export function isValidPlaceholderConfig(config: any): config is PlaceholderConf
 /**
  * 类型守卫：检查是否为有效的ComponentMappingConfig
  */
-export function isValidComponentMappingConfig(config: any): config is ComponentMappingConfig {
+export function isValidComponentMappingConfig(config: unknown): config is ComponentMappingConfig {
   return (
-    config &&
+    isRecord(config) &&
     typeof config.id === 'string' &&
     typeof config.name === 'string' &&
-    config.sourceComponent &&
-    config.targetHttpConfig &&
+    Boolean(config.sourceComponent) &&
+    Boolean(config.targetHttpConfig) &&
     Array.isArray(config.mappings) &&
-    ['active', 'inactive', 'error'].includes(config.status)
+    ['active', 'inactive', 'error'].includes(config.status as string)
   )
 }
 

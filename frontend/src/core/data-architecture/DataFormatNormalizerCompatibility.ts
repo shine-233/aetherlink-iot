@@ -32,46 +32,57 @@ export function normalizePersistedDataSourceType(type: unknown): StandardDataSou
   throw new Error(`UNSUPPORTED_DATA_SOURCE_TYPE:${String(type)}`)
 }
 
-export function isStandardDataItem(item: any): item is StandardDataItem {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+export function isStandardDataItem(item: unknown): item is StandardDataItem {
+  const record = item as Record<string, unknown> | null | undefined
   return !!(
-    item &&
-    typeof item === 'object' &&
-    item.item &&
-    typeof item.item === 'object' &&
-    ALLOWED_DATA_SOURCE_TYPES.includes(item.item.type) &&
-    item.item.config &&
-    typeof item.item.config === 'object' &&
-    item.processing &&
-    typeof item.processing === 'object' &&
-    typeof item.processing.filterPath === 'string'
+    record &&
+    typeof record === 'object' &&
+    record.item &&
+    typeof record.item === 'object' &&
+    ALLOWED_DATA_SOURCE_TYPES.includes((record.item as Record<string, unknown>).type as StandardDataSourceType) &&
+    (record.item as Record<string, unknown>).config &&
+    typeof (record.item as Record<string, unknown>).config === 'object' &&
+    record.processing &&
+    typeof record.processing === 'object' &&
+    typeof (record.processing as Record<string, unknown>).filterPath === 'string'
   )
 }
 
-export function isSimpleConfigEditorFormat(data: any): boolean {
+export function isSimpleConfigEditorFormat(data: unknown): boolean {
+  const record = data as Record<string, unknown> | null | undefined
   return !!(
-    data &&
-    typeof data === 'object' &&
-    'dataSources' in data &&
-    Array.isArray(data.dataSources) &&
-    data.dataSources.some((ds: any) => ds && ('sourceId' in ds || 'id' in ds) && Array.isArray(ds.dataItems))
+    record &&
+    typeof record === 'object' &&
+    'dataSources' in record &&
+    Array.isArray(record.dataSources) &&
+    (record.dataSources as unknown[]).some((ds) => {
+      const dsRecord = ds as Record<string, unknown> | null | undefined
+      return !!(dsRecord && ('sourceId' in dsRecord || 'id' in dsRecord) && Array.isArray(dsRecord.dataItems))
+    })
   )
 }
 
-export function isImportExportFormat(data: any): boolean {
+export function isImportExportFormat(data: unknown): boolean {
+  const record = data as Record<string, unknown> | null | undefined
   return !!(
-    data &&
-    typeof data === 'object' &&
-    'dataSourceConfig' in data &&
-    data.dataSourceConfig?.dataItems &&
-    Array.isArray(data.dataSourceConfig.dataItems)
+    record &&
+    typeof record === 'object' &&
+    'dataSourceConfig' in record &&
+    (record.dataSourceConfig as Record<string, unknown> | null | undefined)?.dataItems &&
+    Array.isArray((record.dataSourceConfig as Record<string, unknown>).dataItems)
   )
 }
 
-export function normalizePersistedSourceId(source: any, fallback: string): string {
-  return source?.sourceId || source?.id || fallback
+export function normalizePersistedSourceId(source: unknown, fallback: string): string {
+  const sourceRecord = source as { sourceId?: unknown; id?: unknown } | null | undefined
+  return (sourceRecord?.sourceId || sourceRecord?.id || fallback) as string
 }
 
-export function normalizePersistedMergeStrategy(strategy: any): StandardMergeStrategy {
+export function normalizePersistedMergeStrategy(strategy: unknown): StandardMergeStrategy {
   if (
     typeof strategy === 'string' &&
     ALLOWED_MERGE_STRATEGY_TYPES.includes(strategy as StandardMergeStrategy['type'])
@@ -79,30 +90,39 @@ export function normalizePersistedMergeStrategy(strategy: any): StandardMergeStr
     return { type: strategy as StandardMergeStrategy['type'] }
   }
 
-  if (strategy && typeof strategy === 'object' && ALLOWED_MERGE_STRATEGY_TYPES.includes(strategy.type)) {
+  if (
+    strategy &&
+    typeof strategy === 'object' &&
+    ALLOWED_MERGE_STRATEGY_TYPES.includes(
+      ((strategy as Record<string, unknown>).type ?? null) as StandardMergeStrategy['type']
+    )
+  ) {
     return strategy as StandardMergeStrategy
   }
 
   return { type: 'object' }
 }
 
-export function normalizePersistedDataItem(rawItem: any): StandardDataItem {
+export function normalizePersistedDataItem(rawItem: unknown): StandardDataItem {
   if (isStandardDataItem(rawItem)) {
     return rawItem
   }
 
-  const wrappedItem = rawItem?.item && typeof rawItem.item === 'object' ? rawItem.item : rawItem ?? {}
-  const processing = rawItem?.processing ?? {}
+  const raw = rawItem as Record<string, unknown> | null | undefined
+  const wrappedItem = (raw?.item && typeof raw.item === 'object'
+    ? raw.item
+    : rawItem ?? {}) as Record<string, unknown>
+  const processing = (raw?.processing ?? {}) as Record<string, unknown>
 
   return {
     item: {
       type: normalizePersistedDataSourceType(wrappedItem.type ?? 'static'),
-      config: wrappedItem.config ?? wrappedItem.data ?? wrappedItem
+      config: (wrappedItem.config ?? wrappedItem.data ?? wrappedItem) as Record<string, unknown>
     },
     processing: {
-      filterPath: processing.filterPath ?? rawItem?.filterPath ?? '$',
-      customScript: processing.customScript ?? rawItem?.customScript ?? rawItem?.processScript,
-      defaultValue: processing.defaultValue ?? rawItem?.defaultValue
+      filterPath: (processing.filterPath ?? raw?.filterPath ?? '$') as string,
+      customScript: (processing.customScript ?? raw?.customScript ?? raw?.processScript) as string | undefined,
+      defaultValue: processing.defaultValue ?? raw?.defaultValue
     }
   }
 }
