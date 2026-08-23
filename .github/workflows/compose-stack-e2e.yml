@@ -99,7 +99,9 @@ jobs:
 
           export AETHERLINK_SYNTHETIC_RDI_ALLOW=1
           export AETHERLINK_SYNTHETIC_RDI_ALLOWED_DATABASES="aetherlink_iot"
-          bash deploy/init.sh --performance-tier light --skip-verify
+          AETHERLINK_NO_BUILD= bash deploy/init.sh --performance-tier light --skip-verify
+          # Ensure fresh binary: no Docker cache for backend image
+          docker compose build --no-cache backend
 
       - name: Wait for backend readiness
         shell: bash
@@ -317,6 +319,7 @@ jobs:
             exit 1
           fi
           echo "Self-contained Compose stack integration completed successfully."
+
 
 
 
