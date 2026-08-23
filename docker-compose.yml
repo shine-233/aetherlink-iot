@@ -141,6 +141,9 @@ services:
       # Authority granted to OpenAPI x-api-key calls. TENANT_ADMIN keeps the
       # historical behavior; lower it to a restricted role once policies exist.
       GOTP_OPENAPI_KEY_AUTHORITY: ${GOTP_OPENAPI_KEY_AUTHORITY:-TENANT_ADMIN}
+      # Shared secret for the public /api/v1/plugin/* endpoints. Empty keeps the
+      # loopback/private-network default; when set, callers must send X-Plugin-Key.
+      GOTP_PLUGIN_SERVICE_KEY: ${GOTP_PLUGIN_SERVICE_KEY:-}
       GOTP_DB_PSQL_HOST: ${GOTP_DB_PSQL_HOST:-postgres}
       GOTP_DB_PSQL_PORT: ${GOTP_DB_PSQL_PORT:-5432}
       GOTP_DB_PSQL_DBNAME: ${GOTP_DB_PSQL_DBNAME:-aetherlink_iot}

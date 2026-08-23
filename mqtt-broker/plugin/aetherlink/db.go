@@ -6,6 +6,8 @@
 package aetherlink
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -175,10 +177,17 @@ func GetRedisForJsondata(key string, dest interface{}) error {
 	return json.Unmarshal([]byte(val), dest)
 }
 
+// voucherCacheKey 返回设备凭证缓存键。缓存键由完整 voucher 的 SHA-256 摘要构成，
+// 避免把携带明文 MQTT 口令的 voucher JSON 直接作为 Redis key 落地。
+func voucherCacheKey(voucher string) string {
+	sum := sha256.Sum256([]byte(voucher))
+	return hex.EncodeToString(sum[:])
+}
+
 func GetDeviceByVoucher(voucher string) (*Device, error) {
 	var device Device
 
-	deviceID, _ := GetStr(voucher)
+	deviceID, _ := GetStr(voucherCacheKey(voucher))
 	if deviceID == "" {
 		Log.Debug("device voucher cache miss")
 		var lookupErr error
@@ -198,7 +207,7 @@ func GetDeviceByVoucher(voucher string) (*Device, error) {
 			return nil, lookupErr
 		}
 
-		if err := SetStr(voucher, device.ID, defaultCacheTTL); err != nil {
+		if err := SetStr(voucherCacheKey(voucher), device.ID, defaultCacheTTL); err != nil {
 			return nil, err
 		}
 		if err := SetRedisForJsondata(device.ID, device, defaultCacheTTL); err != nil {

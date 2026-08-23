@@ -299,3 +299,20 @@ ThingsVis 清理决策：不清理。Native board 是默认本地核心 provider
 Visualization 的 3 个 `runtime-external / seedable=false` partial-skip 在 r12 仍然保留：ThingsVis `127.0.0.1:8000` 不可达、negative-menu 依赖同一 ThingsVis 服务、`THINGSVIS_MIRRORED_DASHBOARD_ID` 未配置。Native 已通过不能关闭这些门禁。
 
 本轮只做了两项可恢复移动：此前后端不可达、尚未启动浏览器的 focused 尝试，以及无当前引用且已被新鲜质量证据取代的旧 frontend local 日志目录；对应清单随项目外历史 quarantine 保留。没有永久删除、没有删除 ThingsVis/Native 源码、没有删除依赖树、没有删除当前 r12 成功证据，也没有修改默认数据库。
+
+## 2026-08-23 第二批：插件接入边界认证 + voucher 缓存键哈希化
+
+1. 后端 /api/v1/plugin/* 五端点新增 middleware.PluginAuth：配置 plugin.service.key
+   （env GOTP_PLUGIN_SERVICE_KEY）后全来源严格校验 X-Plugin-Key（常量时间比较）；
+   未配置时仅放行回环/私网来源，公网 401。判定仅基于 RemoteAddr，不读代理头。
+   focused 测试覆盖环回/私网/公网/严格模式四类路径。
+2. Broker 设备凭证缓存键哈希化：voucher→deviceID 的 Redis key 由明文 voucher JSON
+   改为 SHA-256 十六进制摘要（db.go voucherCacheKey），认证失败清理路径同步
+   （hooks_auth.go forgetMQTTDeviceLookup）。契约测试锁定"稳定摘要+不含明文片段"。
+3. 配置面：conf.yml / conf-dev.yml / conf.example.yml 新增 plugin.service.key 段；
+   .env.example 与 docker-compose.yml 透传 GOTP_PLUGIN_SERVICE_KEY（默认空=内网放行策略）。
+4. 文档：references/plugin-guide.md 新增接入边界小节。
+
+验证边界：backend go build + middleware/router/dal/uplink/service 全量测试通过；
+broker go build + plugin/aetherlink 全量测试通过。本批未运行 Docker/Compose/E2E
+运行时链路；plugin 端点的真实 HTTP 行为变更以 CI source-ci 与 nightly lane 为准。

@@ -234,7 +234,7 @@ func forgetMQTTAuthenticatedDevice(clientID string) {
 
 func forgetMQTTDeviceLookup(voucher string, device *Device) {
 	if strings.TrimSpace(voucher) != "" {
-		_ = DelKey(voucher)
+		_ = DelKey(voucherCacheKey(voucher))
 	}
 	if device != nil && strings.TrimSpace(device.ID) != "" {
 		_ = DelKey(device.ID)
