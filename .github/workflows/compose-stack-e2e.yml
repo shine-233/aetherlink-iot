@@ -49,6 +49,8 @@ jobs:
       AETHERLINK_RDI_FIXTURE_PID: SYNTHRDI0001
       SYNTHETIC_RDI_PID: SYNTHRDI0001
       AETHERLINK_PSQL_PATH: /usr/local/bin/psl-compose
+      # seed_synthetic_rdi_fixture.js reads PSQL_PATH (not AETHERLINK_PSQL_PATH)
+      PSQL_PATH: /usr/local/bin/psl-compose
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -130,18 +132,39 @@ jobs:
         working-directory: automation_tests
         run: npx playwright install --with-deps "$PLAYWRIGHT_BROWSER_CHANNEL"
 
-      - name: Debug compose resolution
-        shell: bash
-        run: |
-          echo "COMPOSE_FILE=$COMPOSE_FILE"
-          docker compose config --services
-          docker compose port postgres 5432 || echo "(no published port for postgres/5432)"
-          docker compose ps
       - name: Install psql client
         run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
 
+      # Must run BEFORE any step that spawns psql: the compose stack intentionally
+      # does not publish 5432 to the host (network-segmentation contract), so the
+      # only reachable route is `docker exec` into the postgres container.
+      - name: Create psql docker-exec wrapper
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /usr/local/bin/psl-compose <<'WRAPPER'
+          #!/bin/bash
+          # Route psql through docker exec into the compose postgres container.
+          # Drops -h/-p args (container-local unix socket is always reachable).
+          args=()
+          skip_next=false
+          for arg in "$@"; do
+            if $skip_next; then skip_next=false; continue; fi
+            case "$arg" in
+              -h|-p) skip_next=true ;;
+              *) args+=("$arg") ;;
+            esac
+          done
+          exec docker exec -i -e PGPASSWORD="${PGPASSWORD:-}" \
+            aetherlink-iot-postgres-1 psql -U postgres "${args[@]}"
+          WRAPPER
+          chmod +x /usr/local/bin/psl-compose
+          postgres_password="$(grep -E '^POSTGRES_PASSWORD=' ./.env | head -n1 | cut -d= -f2-)"
+          PGPASSWORD="$postgres_password" \
+            /usr/local/bin/psl-compose -d aetherlink_iot -tAc 'SELECT 1;'
+          echo 'wrapper OK'
+
       - name: Seed synthetic RDI fixture
-        continue-on-error: true
         working-directory: automation_tests
         shell: bash
         run: |
@@ -158,32 +181,9 @@ jobs:
           export AETHERLINK_SYNTHETIC_RDI_ALLOW=1
           export AETHERLINK_SYNTHETIC_RDI_ALLOWED_PORT=5432
           export AETHERLINK_SYNTHETIC_RDI_ALLOWED_DATABASES=aetherlink_iot
-          node scripts/seed_synthetic_rdi_fixture.js --seed
-          echo "::warning::synthetic RDI seed failed; RDI-dependent modules will self-block""
-      - name: Create psql docker-exec wrapper
-        shell: bash
-        run: |
-          set -euo pipefail
-          cat > /usr/local/bin/psl-compose <<'WRAPPER'
-          #!/bin/bash
-          # Route psql through docker exec into the compose postgres container.
-          # Drops -h/-p args (container-local unix socket is faster and always reachable).
-          args=()
-          skip_next=false
-          for arg in "$@"; do
-            if $skip_next; then skip_next=false; continue; fi
-            case "$arg" in
-              -h|-p) skip_next=true ;;
-              *) args+=("$arg") ;;
-            esac
-          done
-          exec docker exec -i -e PGPASSWORD="${PGPASSWORD:-}" \
-            aetherlink-iot-postgres-1 psql -U postgres "${args[@]}"
-          WRAPPER
-          chmod +x /usr/local/bin/psl-compose
-          # Verify wrapper can reach the DB through the container.
-          echo "SELECT 1" | PGPASSWORD="$(grep '^POSTGRES_PASSWORD=' ../../.env | cut -d= -f2)" \
-            /usr/local/bin/psl-compose -d aetherlink_iot -tAc "SELECT 1" && echo "wrapper OK"
+          if ! node scripts/seed_synthetic_rdi_fixture.js --seed; then
+            echo "::warning::synthetic RDI seed failed; RDI-dependent modules will self-block"
+          fi
       - name: Generate throwaway test accounts
         working-directory: automation_tests
         run: npm run prepare:local-accounts
@@ -293,6 +293,8 @@ jobs:
             exit 1
           fi
           echo "Self-contained Compose stack integration completed successfully."
+
+
 
 
 
