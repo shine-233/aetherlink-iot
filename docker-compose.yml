@@ -155,6 +155,7 @@ services:
       # never point this at localhost/access address — that breaks in-container dial.
       GOTP_MQTT_BROKER: mqtt-broker:1883
       # Synthetic RDI fixture opt-in for CI lanes (empty keeps production behavior).
+      AETHERLINK_MQTT_INNER_BROKER: mqtt-broker
       AETHERLINK_SYNTHETIC_RDI_ALLOW: ${AETHERLINK_SYNTHETIC_RDI_ALLOW:-}
       AETHERLINK_SYNTHETIC_RDI_ALLOWED_DATABASES: ${AETHERLINK_SYNTHETIC_RDI_ALLOWED_DATABASES:-}
       GOTP_MQTT_USER: ${GOTP_MQTT_USER:-root}
@@ -229,4 +230,5 @@ volumes:
   backend-files:
   backend-telemetry-spool:
   backend-uplink-spool:
+
 
