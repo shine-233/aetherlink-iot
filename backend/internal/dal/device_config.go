@@ -69,11 +69,18 @@ func UpdateDeviceConfig(id string, condsMap map[string]interface{}) error {
 }
 
 func DeleteDeviceConfig(id string) error {
-	_, err := query.DeviceConfig.WithContext(context.Background()).Where(query.DeviceConfig.ID.Eq(id)).Delete()
+	// P1 修复（2026-08-23，见 VALIDATION.md）：RowsAffected 不得忽略。
+	// 删除未命中行时必须显式报错，杜绝"API 返回成功但行仍在"的假成功删除；
+	// 上层 service 依赖该错误把 200050 引用计数问题留给真实残留数据。
+	info, err := query.DeviceConfig.WithContext(context.Background()).Where(query.DeviceConfig.ID.Eq(id)).Delete()
 	if err != nil {
 		logrus.Error(err)
+		return err
 	}
-	return err
+	if info.RowsAffected == 0 {
+		return fmt.Errorf("delete deviceconfig failed, no rows affected: id=%s", id)
+	}
+	return nil
 }
 
 func GetDeviceConfigByID(id string) (*model.DeviceConfig, error) {

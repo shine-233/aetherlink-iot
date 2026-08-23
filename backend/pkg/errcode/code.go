@@ -28,13 +28,14 @@ const (
 // 业务级错误码
 const (
 	// 用户模块 (200xxx)
-	CodeUnauthorized    = 200001 // 未授权
-	CodeInvalidAuth     = 200002 // 用户名或密码错误
-	CodeUserLocked      = 200003 // 用户被锁定
-	CodeUserDisabled    = 200005 // 用户已禁用
-	CodeTooManyAttempts = 200006 // 登录尝试次数过多
-	CodePhoneDuplicated = 200007 // 手机号已被使用
-	CodeEmailNotFound   = 200015 // 用户邮箱不存在
+	CodeUnauthorized     = 200001 // 未授权
+	CodeInvalidAuth      = 200002 // 用户名或密码错误
+	CodeUserLocked       = 200003 // 用户被锁定
+	CodeUserDisabled     = 200005 // 用户已禁用
+	CodeTooManyAttempts  = 200006 // 登录尝试次数过多
+	CodePhoneDuplicated  = 200007 // 手机号已被使用
+	CodeEmailNotFound    = 200015 // 用户邮箱不存在
+	CodeSuperAdminExists = 200016 // 超管已存在，禁止重复初始化
 	// 首次初始化（市场联动）错误码
 	CodeMarketServiceUnavailable = 200056 // 市场服务不可达
 	CodeMarketCheckFailed        = 200057 // 市场邮箱校验失败

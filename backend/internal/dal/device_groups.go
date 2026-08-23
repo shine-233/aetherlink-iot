@@ -271,6 +271,41 @@ func GetDeviceGroupTierById(id string) (map[string]interface{}, error) {
 	return r, nil
 }
 
+// GetDeviceGroupTierByIds 批量解析分组层级路径，返回 groupID -> group_path。
+// 用单条递归 CTE（带 root_id 分组）替代逐分组查询，消除列表构建时的 N+1。
+// 查不到的分组不出现在结果中，与单条版返回空 map 的语义一致。
+func GetDeviceGroupTierByIds(ids []string) (map[string]interface{}, error) {
+	result := make(map[string]interface{}, len(ids))
+	if len(ids) == 0 {
+		return result, nil
+	}
+	var rows []struct {
+		RootID    string `gorm:"column:root_id"`
+		GroupPath string `gorm:"column:group_path"`
+	}
+	sql := `
+	WITH RECURSIVE group_chain AS (
+		SELECT id, parent_id, name, 1 as level, id as root_id
+		FROM groups
+		WHERE id IN (?)
+		UNION ALL
+		SELECT g.id, g.parent_id, g.name, gc.level + 1, gc.root_id
+		FROM groups g
+		INNER JOIN group_chain gc ON gc.parent_id = g.id
+	  )
+	  SELECT root_id, string_agg(name, '/' ORDER BY level DESC) AS group_path
+	  FROM group_chain
+	  GROUP BY root_id;
+	`
+	if err := global.DB.Raw(sql, ids).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		result[row.RootID] = row.GroupPath
+	}
+	return result, nil
+}
+
 // 获取目标分组的所有子分组id
 func GetGroupChildrenIds(id string) ([]string, error) {
 	var ids []string

@@ -87,6 +87,69 @@ func TestValidateJWTUserStatusFailsClosedWithoutDeletingTokenWhenDBUnavailable(t
 	}
 }
 
+func resetJWTUserStatusCache() {
+	jwtUserStatusCache.Range(func(key, _ interface{}) bool {
+		jwtUserStatusCache.Delete(key)
+		return true
+	})
+}
+
+func TestCachedJWTUserStatusServesRepeatRequestsFromProcessCache(t *testing.T) {
+	db := setupJWTAuthUserStatusDB(t)
+	seedJWTAuthUser(t, db, "cache-active-user", stringPtr("N"))
+	t.Cleanup(resetJWTUserStatusCache)
+
+	claims := &utils.UserClaims{ID: "cache-active-user"}
+
+	active, invalidateToken := cachedJWTUserStatus(context.Background(), claims)
+	if !active || invalidateToken {
+		t.Fatalf("first lookup = (%v, %v), want (true, false)", active, invalidateToken)
+	}
+
+	// 移除数据库后再次查询：命中进程内缓存，热路径不再依赖 DB。
+	oldDB := global.DB
+	global.DB = nil
+	t.Cleanup(func() { global.DB = oldDB })
+
+	active, invalidateToken = cachedJWTUserStatus(context.Background(), claims)
+	if !active || invalidateToken {
+		t.Fatalf("cached lookup = (%v, %v), want (true, false)", active, invalidateToken)
+	}
+}
+
+func TestCachedJWTUserStatusDoesNotCacheTransientDBFailures(t *testing.T) {
+	setupJWTAuthUserStatusDB(t)
+	resetJWTUserStatusCache()
+	t.Cleanup(resetJWTUserStatusCache)
+
+	oldDB := global.DB
+	global.DB = nil
+	active, invalidateToken := cachedJWTUserStatus(context.Background(), &utils.UserClaims{ID: "transient-user"})
+	global.DB = oldDB
+
+	if active || invalidateToken {
+		t.Fatalf("db failure = (%v, %v), want (false, false)", active, invalidateToken)
+	}
+	if _, cached := jwtUserStatusCache.Load("transient-user"); cached {
+		t.Fatal("transient DB failure must not be cached")
+	}
+
+	// 数据库恢复后同一用户应立即按真实状态放行（未被失败结果污染）。
+	seedJWTAuthUser(t, dbOf(t), "transient-user", stringPtr("N"))
+	active, invalidateToken = cachedJWTUserStatus(context.Background(), &utils.UserClaims{ID: "transient-user"})
+	if !active || invalidateToken {
+		t.Fatalf("post-recovery lookup = (%v, %v), want (true, false)", active, invalidateToken)
+	}
+}
+
+func dbOf(t *testing.T) *gorm.DB {
+	t.Helper()
+	if global.DB == nil {
+		t.Fatal("global.DB is not initialized for test")
+	}
+	return global.DB
+}
+
 func setupJWTAuthUserStatusDB(t *testing.T) *gorm.DB {
 	t.Helper()
 

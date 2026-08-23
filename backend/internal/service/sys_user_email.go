@@ -37,6 +37,21 @@ import (
 
 const userWarningEmailsKey = "warning_emails"
 
+// 验证码防滥用参数：发送频率按邮箱维度限流，校验失败次数有上限以防 6 位数字码被暴力枚举。
+const (
+	verificationCodeMaxAttempts  = 5
+	verificationCodeSendInterval = 60 * time.Second
+	verificationCodeValidityTTL  = 5 * time.Minute
+)
+
+func verificationCodeSendLimitKey(email string) string {
+	return "email:" + email + ":code_send_limit"
+}
+
+func verificationCodeAttemptsKey(email string) string {
+	return "email:" + email + ":code_attempts"
+}
+
 func verificationCodeEmailBody(code, language string) string {
 	lang := "en-US"
 	if normalized, err := normalizePreferredLanguage(language); err == nil {
@@ -65,6 +80,19 @@ func maskVerificationCode(code string) string {
 
 // @description 发送验证码
 func (userService *User) GetVerificationCode(email, isRegister, language string) error {
+	// 按邮箱维度限制发送频率：防止公开接口被刷发真实邮件（邮箱轰炸成本转移给部署者）。
+	sent, err := global.REDIS.SetNX(context.Background(), verificationCodeSendLimitKey(email), 1, verificationCodeSendInterval).Result()
+	if err != nil {
+		return errcode.WithData(errcode.CodeCacheError, map[string]interface{}{
+			"operation": "check_verification_send_limit",
+			"email":     email,
+			"error":     err.Error(),
+		})
+	}
+	if !sent {
+		return errcode.New(errcode.CodeRateLimit)
+	}
+
 	user, err := dal.GetUsersByEmail(email)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		logrus.Error(err)
@@ -90,7 +118,7 @@ func (userService *User) GetVerificationCode(email, isRegister, language string)
 		})
 	}
 
-	err = global.REDIS.Set(context.Background(), email+"_code", verificationCode, 5*time.Minute).Err()
+	err = global.REDIS.Set(context.Background(), email+"_code", verificationCode, verificationCodeValidityTTL).Err()
 	if err != nil {
 		return errcode.WithData(errcode.CodeCacheError, map[string]interface{}{
 			"operation": "save_verification_code",
@@ -98,6 +126,8 @@ func (userService *User) GetVerificationCode(email, isRegister, language string)
 			"error":     err.Error(),
 		})
 	}
+	// 新码生成后重置该邮箱的校验失败计数，避免旧计数误伤新验证码。
+	global.REDIS.Del(context.Background(), verificationCodeAttemptsKey(email))
 
 	if err := userService.deliverVerificationCodeEmail(context.Background(), email, verificationCode, language); err != nil {
 		return errcode.WithData(200010, map[string]interface{}{ // 新增: 验证码邮件发送失败
@@ -199,6 +229,9 @@ func verifyChangeEmailCode(ctx context.Context, newEmail, currentEmail, provided
 	codeFound := false
 	normalizedCode := strings.TrimSpace(providedCode)
 	for _, email := range changeEmailCodeCandidateEmails(newEmail, currentEmail) {
+		if err := ensureVerificationCodeAttemptsAllowed(ctx, email); err != nil {
+			return "", err
+		}
 		verificationCode, codeErr := global.REDIS.Get(ctx, changeEmailVerificationCodeKey(email)).Result()
 		if codeErr != nil {
 			continue
@@ -207,6 +240,7 @@ func verifyChangeEmailCode(ctx context.Context, newEmail, currentEmail, provided
 		if subtle.ConstantTimeCompare([]byte(verificationCode), []byte(normalizedCode)) == 1 {
 			return email, nil
 		}
+		registerVerificationCodeFailure(ctx, email)
 	}
 	if codeFound {
 		return "", errcode.New(200012)
@@ -226,6 +260,31 @@ func changeEmailCodeCandidateEmails(newEmail, currentEmail string) []string {
 
 func changeEmailVerificationCodeKey(email string) string {
 	return email + "_code"
+}
+
+// ensureVerificationCodeAttemptsAllowed 在比对验证码前检查失败次数；超过上限视为验证码已失效。
+func ensureVerificationCodeAttemptsAllowed(ctx context.Context, email string) error {
+	attempts, err := global.REDIS.Get(ctx, verificationCodeAttemptsKey(email)).Int()
+	if err != nil {
+		// 计数不存在或不可解析时按"无失败记录"处理，不阻断正常校验。
+		return nil
+	}
+	if attempts >= verificationCodeMaxAttempts {
+		return errcode.New(200011)
+	}
+	return nil
+}
+
+// registerVerificationCodeFailure 记录一次验证码校验失败；达到上限时立即作废该验证码。
+func registerVerificationCodeFailure(ctx context.Context, email string) {
+	attemptsKey := verificationCodeAttemptsKey(email)
+	attempts := global.REDIS.Incr(ctx, attemptsKey).Val()
+	if attempts == 1 {
+		global.REDIS.Expire(ctx, attemptsKey, verificationCodeValidityTTL)
+	}
+	if attempts >= verificationCodeMaxAttempts {
+		global.REDIS.Del(ctx, changeEmailVerificationCodeKey(email))
+	}
 }
 
 func updateUserEmail(ctx context.Context, user *model.User, newEmail string) error {
