@@ -6,7 +6,7 @@
  */
 
 // 脚本执行结果
-export interface ScriptExecutionResult<T = any> {
+export interface ScriptExecutionResult<T = unknown> {
   /** 执行是否成功 */
   success: boolean
   /** 执行结果数据 */
@@ -16,7 +16,7 @@ export interface ScriptExecutionResult<T = any> {
   /** 执行时间（毫秒） */
   executionTime: number
   /** 执行上下文快照 */
-  contextSnapshot?: Record<string, any>
+  contextSnapshot?: Record<string, unknown>
   /** 日志输出 */
   logs: ScriptLog[]
 }
@@ -26,7 +26,7 @@ export interface ScriptLog {
   level: 'log' | 'warn' | 'error' | 'info' | 'debug'
   message: string
   timestamp: number
-  args?: any[]
+  args?: unknown[]
 }
 
 // 脚本配置
@@ -42,14 +42,19 @@ export interface ScriptConfig {
   /** 保留契约：同线程沙箱无法可靠施加内存上限（字节） */
   maxMemory?: number
   /** 自定义全局变量 */
-  globals?: Record<string, any>
+  globals?: Record<string, unknown>
   /** 保留契约：网络仍需可取消、可审计的宿主适配器，布尔值不会直接放行 */
   allowNetworkAccess?: boolean
   /** 保留契约：浏览器本地执行不提供文件系统访问 */
   allowFileSystemAccess?: boolean
 }
 
-export type ScriptFunction = (...args: any[]) => any
+/**
+ * 脚本函数契约。
+ * 参数使用 never 以保持逆变安全：任何具体签名的函数都可赋值，
+ * 但引擎本身不直接调用这些函数（它们由用户脚本在沙箱内动态调用）。
+ */
+export type ScriptFunction = (...args: never[]) => unknown
 
 // 脚本执行上下文
 export interface ScriptExecutionContext {
@@ -58,7 +63,7 @@ export interface ScriptExecutionContext {
   /** 上下文名称 */
   name: string
   /** 上下文变量 */
-  variables: Record<string, any>
+  variables: Record<string, unknown>
   /** 内置函数 */
   functions: Record<string, ScriptFunction>
   /** 上下文创建时间 */
@@ -102,13 +107,13 @@ export interface ScriptTemplateParameter {
   /** 是否必需 */
   required: boolean
   /** 默认值 */
-  defaultValue?: any
+  defaultValue?: unknown
   /** 参数验证规则 */
   validation?: {
     min?: number
     max?: number
     pattern?: string
-    enum?: any[]
+    enum?: unknown[]
   }
 }
 
@@ -146,10 +151,26 @@ export interface ScriptEngineConfig {
   enablePerformanceMonitoring: boolean
 }
 
+/**
+ * 沙箱内部定时器记录
+ */
+export interface ScriptSandboxTimerRecord {
+  type: 'timeout' | 'interval'
+  id: ReturnType<typeof setTimeout> | ReturnType<typeof setInterval>
+}
+
+/**
+ * 脚本沙箱实例。
+ * `with` 作用域使用的自由键值对象；`_timers`/`_utils` 由宿主维护，其余键由脚本自由读写。
+ */
+export type ScriptSandboxInstance = Record<string, unknown> & {
+  _timers?: ScriptSandboxTimerRecord[]
+}
+
 // 脚本执行器接口
 export interface IScriptExecutor {
   /** 执行脚本 */
-  execute<T = any>(config: ScriptConfig, context?: ScriptExecutionContext): Promise<ScriptExecutionResult<T>>
+  execute<T = unknown>(config: ScriptConfig, context?: ScriptExecutionContext): Promise<ScriptExecutionResult<T>>
   /** 验证脚本语法 */
   validateSyntax(code: string): { valid: boolean; error?: string }
   /** 获取执行统计 */
@@ -159,11 +180,11 @@ export interface IScriptExecutor {
 // 脚本沙箱接口
 export interface IScriptSandbox {
   /** 创建沙箱环境 */
-  createSandbox(config: SandboxConfig): any
+  createSandbox(config: SandboxConfig): ScriptSandboxInstance
   /** 执行沙箱代码 */
-  executeInSandbox(code: string, sandbox: any, timeout?: number): Promise<any>
+  executeInSandbox(code: string, sandbox: ScriptSandboxInstance, timeout?: number): Promise<unknown>
   /** 销毁沙箱 */
-  destroySandbox(sandbox: any): void
+  destroySandbox(sandbox: ScriptSandboxInstance): void
   /** 检查代码安全性 */
   checkCodeSecurity(code: string): { safe: boolean; issues: string[] }
 }
@@ -183,13 +204,13 @@ export interface IScriptTemplateManager {
   /** 删除模板 */
   deleteTemplate(id: string): boolean
   /** 根据模板生成代码 */
-  generateCode(templateId: string, parameters: Record<string, any>): string
+  generateCode(templateId: string, parameters: Record<string, unknown>): string
 }
 
 // 上下文管理器接口
 export interface IScriptContextManager {
   /** 创建执行上下文 */
-  createContext(name: string, variables?: Record<string, any>): ScriptExecutionContext
+  createContext(name: string, variables?: Record<string, unknown>): ScriptExecutionContext
   /** 获取上下文 */
   getContext(id: string): ScriptExecutionContext | null
   /** 更新上下文 */
@@ -214,9 +235,12 @@ export interface IScriptEngine {
   contextManager: IScriptContextManager
 
   /** 快速执行脚本 */
-  execute<T = any>(code: string, context?: Record<string, any>): Promise<ScriptExecutionResult<T>>
+  execute<T = unknown>(code: string, context?: Record<string, unknown>): Promise<ScriptExecutionResult<T>>
   /** 使用模板执行 */
-  executeTemplate<T = any>(templateId: string, parameters: Record<string, any>): Promise<ScriptExecutionResult<T>>
+  executeTemplate<T = unknown>(
+    templateId: string,
+    parameters: Record<string, unknown>
+  ): Promise<ScriptExecutionResult<T>>
   /** 获取引擎配置 */
   getConfig(): ScriptEngineConfig
   /** 更新引擎配置 */
@@ -241,6 +265,28 @@ export interface ExecutionStats {
   currentConcurrentExecutions: number
 }
 
+// 引擎统计快照
+export interface ScriptEngineStatsSnapshot {
+  executor: ExecutionStats
+  templates: {
+    total: number
+    byCategory: Record<string, number>
+  }
+  contexts: {
+    total: number
+    active: number
+  }
+}
+
+// 引擎状态导出快照
+export interface ScriptEngineStateSnapshot {
+  config: ScriptEngineConfig
+  stats: ScriptEngineStatsSnapshot
+  templates: ScriptTemplate[]
+  contexts: ScriptExecutionContext[]
+  timestamp: string
+}
+
 // 内置工具函数类型
 export interface BuiltinUtilities {
   /** 数据生成工具 */
@@ -250,17 +296,17 @@ export interface BuiltinUtilities {
     randomBoolean: () => boolean
     randomDate: (start?: Date, end?: Date) => Date
     randomArray: <T>(items: T[], count?: number) => T[]
-    randomObject: (template: Record<string, any>) => any
+    randomObject: (template: Record<string, unknown>) => Record<string, unknown>
   }
 
   /** 数据处理工具 */
   dataUtils: {
     deepClone: <T>(obj: T) => T
-    merge: (...objects: any[]) => any
-    pick: <T extends Record<string, any>>(obj: T, keys: (keyof T)[]) => Partial<T>
-    omit: <T extends Record<string, any>>(obj: T, keys: (keyof T)[]) => Partial<T>
-    groupBy: <T>(array: T[], key: keyof T | ((item: T) => any)) => Record<string, T[]>
-    sortBy: <T>(array: T[], key: keyof T | ((item: T) => any)) => T[]
+    merge: (...objects: unknown[]) => Record<string, unknown>
+    pick: <T extends Record<string, unknown>>(obj: T, keys: (keyof T)[]) => Partial<T>
+    omit: <T extends Record<string, unknown>>(obj: T, keys: (keyof T)[]) => Partial<T>
+    groupBy: <T>(array: T[], key: keyof T | ((item: T) => unknown)) => Record<string, T[]>
+    sortBy: <T>(array: T[], key: keyof T | ((item: T) => unknown)) => T[]
   }
 
   /** 时间工具 */
@@ -275,19 +321,19 @@ export interface BuiltinUtilities {
 
   /** 网络工具 */
   networkUtils: {
-    httpGet: (url: string, options?: RequestInit) => Promise<any>
-    httpPost: (url: string, data: any, options?: RequestInit) => Promise<any>
-    httpPut: (url: string, data: any, options?: RequestInit) => Promise<any>
-    httpDelete: (url: string, options?: RequestInit) => Promise<any>
+    httpGet: (url: string, options?: RequestInit) => Promise<unknown>
+    httpPost: (url: string, data: unknown, options?: RequestInit) => Promise<unknown>
+    httpPut: (url: string, data: unknown, options?: RequestInit) => Promise<unknown>
+    httpDelete: (url: string, options?: RequestInit) => Promise<unknown>
   }
 
   /** 日志工具 */
   logger: {
-    log: (...args: any[]) => void
-    warn: (...args: any[]) => void
-    error: (...args: any[]) => void
-    info: (...args: any[]) => void
-    debug: (...args: any[]) => void
+    log: (...args: unknown[]) => void
+    warn: (...args: unknown[]) => void
+    error: (...args: unknown[]) => void
+    info: (...args: unknown[]) => void
+    debug: (...args: unknown[]) => void
   }
 }
 

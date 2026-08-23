@@ -25,7 +25,24 @@ type HttpExecutionContext = {
   requestPlan: HttpRequestPlan
 }
 
-type HttpRequestDispatcher = () => Promise<any>
+type HttpRequestDispatcher = () => Promise<unknown>
+
+/** 组件绑定读取时使用的可视化编辑器节点形状（仅依赖 id 与 properties 字段） */
+type EditorStoreNodeLike = {
+  id: string
+  properties?: unknown
+}
+
+/** 配置集成桥的只读视图：DataItemFetcher 仅消费 getConfiguration 结果 */
+type ConfigurationBridgeView = {
+  getConfiguration(componentId: string): WidgetConfigurationView | null
+}
+
+/** 组件配置的最小结构视图（base/component 双轨兼容） */
+type WidgetConfigurationView = {
+  base?: unknown
+  component?: unknown
+}
 
 export type DataItem =
   | {
@@ -54,7 +71,7 @@ export interface HttpDataItemConfig {
   url: string
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
   headers?: Record<string, string>
-  body?: any
+  body?: unknown
   timeout?: number
 
   addressType?: 'internal' | 'external'
@@ -80,7 +97,7 @@ export interface WebSocketDataItemConfig {
 
 export interface ScriptDataItemConfig {
   script: string
-  context?: Record<string, any>
+  context?: Record<string, unknown>
 }
 
 export interface UnsupportedDataSourceResult {
@@ -94,19 +111,19 @@ export interface UnsupportedDataSourceResult {
 }
 
 export interface IDataItemFetcher {
-  fetchData(item: DataItem): Promise<any>
+  fetchData(item: DataItem): Promise<unknown>
   setCurrentComponentId(componentId: string): void
 }
 
 export class DataItemFetcher implements IDataItemFetcher {
-  private requestCache = new Map<string, Promise<any>>()
+  private requestCache = new Map<string, Promise<unknown>>()
   private currentComponentId?: string
 
   setCurrentComponentId(componentId: string): void {
     this.currentComponentId = componentId
   }
 
-  private async getComponentPropertyValue(bindingPath: string): Promise<any> {
+  private async getComponentPropertyValue(bindingPath: string): Promise<unknown> {
     try {
       const resolvedBinding = this.resolveComponentBinding(bindingPath)
       if (!resolvedBinding) {
@@ -149,11 +166,10 @@ export class DataItemFetcher implements IDataItemFetcher {
     return this.currentComponentId
   }
 
-  private async readComponentValueFromConfiguration(componentId: string, propertyPath: string): Promise<any> {
+  private async readComponentValueFromConfiguration(componentId: string, propertyPath: string): Promise<unknown> {
     try {
-      const { configurationIntegrationBridge } = await import(
-        '@/components/visual-editor/configuration/ConfigurationIntegrationBridge'
-      )
+      const { configurationIntegrationBridge } =
+        await import('@/components/visual-editor/configuration/ConfigurationIntegrationBridge')
       const latestConfig = this.getPreferredConfiguration(componentId, configurationIntegrationBridge)
       if (!latestConfig) {
         return undefined
@@ -164,7 +180,10 @@ export class DataItemFetcher implements IDataItemFetcher {
     }
   }
 
-  private getPreferredConfiguration(componentId: string, configurationIntegrationBridge: any): any {
+  private getPreferredConfiguration(
+    componentId: string,
+    configurationIntegrationBridge: ConfigurationBridgeView
+  ): WidgetConfigurationView | null {
     const directConfig = configurationIntegrationBridge.getConfiguration(componentId)
     if (directConfig || !this.currentComponentId || this.currentComponentId === componentId) {
       return directConfig
@@ -172,7 +191,7 @@ export class DataItemFetcher implements IDataItemFetcher {
     return configurationIntegrationBridge.getConfiguration(this.currentComponentId)
   }
 
-  private findEditorStoreComponent(componentId: string): any {
+  private findEditorStoreComponent(componentId: string): EditorStoreNodeLike | undefined {
     const editorStore = useEditorStore()
     const exactMatch = editorStore.nodes?.find((node) => node.id === componentId)
     if (exactMatch) {
@@ -190,7 +209,7 @@ export class DataItemFetcher implements IDataItemFetcher {
     return editorStore.nodes?.find((node) => node.id === this.currentComponentId)
   }
 
-  private resolveFromConfiguration(latestConfig: any, propertyPath: string): any {
+  private resolveFromConfiguration(latestConfig: WidgetConfigurationView, propertyPath: string): unknown {
     if (propertyPath.startsWith('customize.')) {
       const actualPath = propertyPath.replace('customize.', '')
       return this.firstDefined(
@@ -221,7 +240,7 @@ export class DataItemFetcher implements IDataItemFetcher {
     )
   }
 
-  private firstDefined(...values: any[]): any {
+  private firstDefined(...values: unknown[]): unknown {
     return values.find(
       (value) => value !== undefined && value !== null && !(typeof value === 'string' && value.trim() === '')
     )
@@ -239,15 +258,15 @@ export class DataItemFetcher implements IDataItemFetcher {
     console.error(`[DataItemFetcher] ${scope}:`, details)
   }
 
-  private getNestedProperty(obj: any, path: string): any {
+  private getNestedProperty(obj: unknown, path: string): unknown {
     if (!obj || !path) return undefined
 
     const keys = path.split('.')
-    let current = obj
+    let current: unknown = obj
 
     for (const key of keys) {
       if (current && typeof current === 'object' && key in current) {
-        current = current[key]
+        current = (current as Record<string, unknown>)[key]
       } else {
         return undefined
       }
@@ -256,11 +275,11 @@ export class DataItemFetcher implements IDataItemFetcher {
     return current
   }
 
-  private async resolveParameterValue(param: HttpParameter): Promise<any> {
+  private async resolveParameterValue(param: HttpParameter): Promise<unknown> {
     return resolveHttpParameterValue(param, (bindingPath) => this.getComponentPropertyValue(bindingPath))
   }
 
-  async fetchData(item: DataItem): Promise<any> {
+  async fetchData(item: DataItem): Promise<unknown> {
     try {
       return await this.fetchByDataItemType(item)
     } catch (error) {
@@ -272,7 +291,7 @@ export class DataItemFetcher implements IDataItemFetcher {
     }
   }
 
-  private async fetchByDataItemType(item: DataItem): Promise<any> {
+  private async fetchByDataItemType(item: DataItem): Promise<unknown> {
     switch (item.type) {
       case 'json':
         return await this.fetchJsonData(item.config)
@@ -287,7 +306,7 @@ export class DataItemFetcher implements IDataItemFetcher {
     }
   }
 
-  private async fetchJsonData(config: JsonDataItemConfig): Promise<any> {
+  private async fetchJsonData(config: JsonDataItemConfig): Promise<unknown> {
     try {
       return JSON.parse(config.jsonString)
     } catch (error) {
@@ -298,7 +317,7 @@ export class DataItemFetcher implements IDataItemFetcher {
     }
   }
 
-  private async fetchHttpData(config: HttpDataItemConfig): Promise<any> {
+  private async fetchHttpData(config: HttpDataItemConfig): Promise<unknown> {
     const executionContext = await this.buildExecutionContext(config)
     return await this.fetchHttpDataWithCache(executionContext)
   }
@@ -313,13 +332,13 @@ export class DataItemFetcher implements IDataItemFetcher {
     }
   }
 
-  private async fetchHttpDataWithCache(executionContext: HttpExecutionContext): Promise<any> {
+  private async fetchHttpDataWithCache(executionContext: HttpExecutionContext): Promise<unknown> {
     const { preparedConfig, requestPlan } = executionContext
     const requestPromise = this.getOrCreateHttpRequestPromise(executionContext)
     return await this.normalizeHttpResponse(preparedConfig, await requestPromise)
   }
 
-  private getOrCreateHttpRequestPromise(executionContext: HttpExecutionContext): Promise<any> {
+  private getOrCreateHttpRequestPromise(executionContext: HttpExecutionContext): Promise<unknown> {
     // requestCache only de-duplicates in-flight requests; it is not a durable response cache.
     // The key must stay aligned with the fully resolved request plan after compatibility aliases and scripts run.
     const requestKey = this.generateRequestKey(executionContext.requestPlan)
@@ -379,7 +398,7 @@ export class DataItemFetcher implements IDataItemFetcher {
     }
   }
 
-  private async executeHttpRequest(config: HttpDataItemConfig, requestPlan: HttpRequestPlan): Promise<any> {
+  private async executeHttpRequest(config: HttpDataItemConfig, requestPlan: HttpRequestPlan): Promise<unknown> {
     try {
       logHttpParametersLifecycle(config, 'before send')
       return await this.dispatchHttpRequest(config, requestPlan)
@@ -393,15 +412,12 @@ export class DataItemFetcher implements IDataItemFetcher {
     }
   }
 
-  private async dispatchHttpRequest(config: HttpDataItemConfig, requestPlan: HttpRequestPlan): Promise<any> {
+  private async dispatchHttpRequest(config: HttpDataItemConfig, requestPlan: HttpRequestPlan): Promise<unknown> {
     const dispatcher = this.getHttpRequestDispatcher(config, requestPlan)
     return await dispatcher()
   }
 
-  private getHttpRequestDispatcher(
-    config: HttpDataItemConfig,
-    requestPlan: HttpRequestPlan
-  ): HttpRequestDispatcher {
+  private getHttpRequestDispatcher(config: HttpDataItemConfig, requestPlan: HttpRequestPlan): HttpRequestDispatcher {
     const dispatchers: Record<HttpRequestPlan['method'], HttpRequestDispatcher> = {
       GET: () => request.get(requestPlan.finalUrl, requestPlan.requestConfig),
       POST: () => request.post(requestPlan.finalUrl, requestPlan.requestBody, requestPlan.requestConfig),
@@ -418,11 +434,11 @@ export class DataItemFetcher implements IDataItemFetcher {
     return dispatcher
   }
 
-  private async normalizeHttpResponse(config: HttpDataItemConfig, response: any): Promise<any> {
+  private async normalizeHttpResponse(config: HttpDataItemConfig, response: unknown): Promise<unknown> {
     return await this.applyPostResponseScript(config, response)
   }
 
-  private async applyPostResponseScript(config: HttpDataItemConfig, response: any): Promise<any> {
+  private async applyPostResponseScript(config: HttpDataItemConfig, response: unknown): Promise<unknown> {
     if (!config.postResponseScript) {
       return response
     }
@@ -453,10 +469,7 @@ export class DataItemFetcher implements IDataItemFetcher {
     return this.buildUnsupportedDataSourceResult('websocket', message)
   }
 
-  private buildUnsupportedDataSourceResult(
-    type: DataItem['type'],
-    message: string
-  ): UnsupportedDataSourceResult {
+  private buildUnsupportedDataSourceResult(type: DataItem['type'], message: string): UnsupportedDataSourceResult {
     return {
       success: false,
       unsupported: true,
@@ -468,7 +481,7 @@ export class DataItemFetcher implements IDataItemFetcher {
     }
   }
 
-  private async fetchScriptData(config: ScriptDataItemConfig): Promise<any> {
+  private async fetchScriptData(config: ScriptDataItemConfig): Promise<unknown> {
     try {
       const result = await defaultScriptEngine.execute(config.script, config.context || {})
       if (!result.success) {

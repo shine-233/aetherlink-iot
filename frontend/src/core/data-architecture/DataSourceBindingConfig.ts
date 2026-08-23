@@ -14,7 +14,7 @@ export interface BindingRule {
   /** HTTP参数名 */
   paramName: string
   /** 数据转换函数（可选） */
-  transform?: (value: any) => any
+  transform?: (value: unknown) => unknown
   /** 兼容必填元数据；当前参数构建不会据此强制校验缺失值 */
   required?: boolean
   /** 参数说明 */
@@ -94,21 +94,21 @@ export class DataSourceBindingConfig {
     this.registerBindingRule({
       propertyPath: 'base.metricsList',
       paramName: 'metrics',
-      transform: (value: any[]) => (Array.isArray(value) ? value.join(',') : value),
+      transform: (value: unknown) => (Array.isArray(value) ? value.join(',') : value),
       description: '指标列表 - 默认规则，可修改或删除'
     })
 
     this.registerBindingRule({
       propertyPath: 'component.startTime',
       paramName: 'startTime',
-      transform: (value: any) => (value instanceof Date ? value.toISOString() : value),
+      transform: (value: unknown) => (value instanceof Date ? value.toISOString() : value),
       description: '开始时间 - 默认规则，可修改或删除'
     })
 
     this.registerBindingRule({
       propertyPath: 'component.endTime',
       paramName: 'endTime',
-      transform: (value: any) => (value instanceof Date ? value.toISOString() : value),
+      transform: (value: unknown) => (value instanceof Date ? value.toISOString() : value),
       description: '结束时间 - 默认规则，可修改或删除'
     })
 
@@ -121,7 +121,7 @@ export class DataSourceBindingConfig {
     this.registerBindingRule({
       propertyPath: 'component.refreshInterval',
       paramName: 'refreshInterval',
-      transform: (value: any) => parseInt(value) || 30,
+      transform: (value: unknown) => parseInt(String(value)) || 30,
       description: '刷新间隔 - 默认规则，可修改或删除'
     })
 
@@ -251,7 +251,7 @@ export class DataSourceBindingConfig {
       }
     }
 
-    return rules.filter(rule => rule.enabled)
+    return rules.filter((rule) => rule.enabled)
   }
 
   /**
@@ -259,7 +259,7 @@ export class DataSourceBindingConfig {
    */
   getBindingRule(propertyPath: string, componentType?: string): BindingRule | undefined {
     const allRules = this.getAllBindingRules(componentType)
-    return allRules.find(rule => rule.propertyPath === propertyPath)
+    return allRules.find((rule) => rule.propertyPath === propertyPath)
   }
 
   /**
@@ -267,7 +267,7 @@ export class DataSourceBindingConfig {
    */
   getTriggerRule(propertyPath: string, componentType?: string): TriggerRule | undefined {
     const allRules = this.getAllTriggerRules(componentType)
-    return allRules.find(rule => rule.propertyPath === propertyPath)
+    return allRules.find((rule) => rule.propertyPath === propertyPath)
   }
 
   /**
@@ -278,8 +278,8 @@ export class DataSourceBindingConfig {
     return triggerRule?.enabled === true
   }
 
-  private buildParamsFromRules(componentConfig: any, bindingRules: BindingRule[]): Record<string, any> {
-    const httpParams: Record<string, any> = {}
+  private buildParamsFromRules(componentConfig: unknown, bindingRules: BindingRule[]): Record<string, unknown> {
+    const httpParams: Record<string, unknown> = {}
 
     for (const rule of bindingRules) {
       const propertyValue = this.readPropertyValue(componentConfig, rule.propertyPath)
@@ -294,22 +294,22 @@ export class DataSourceBindingConfig {
     return httpParams
   }
 
-  private readPropertyValue(componentConfig: any, propertyPath: string): { exists: boolean; value?: any } {
+  private readPropertyValue(componentConfig: unknown, propertyPath: string): { exists: boolean; value?: unknown } {
     const pathParts = propertyPath.split('.').filter(Boolean)
-    let currentValue = componentConfig
+    let currentValue: unknown = componentConfig
 
     for (const part of pathParts) {
-      if (currentValue == null || !Object.prototype.hasOwnProperty.call(currentValue, part)) {
+      if (currentValue == null || !Object.prototype.hasOwnProperty.call(currentValue as object, part)) {
         return { exists: false }
       }
 
-      currentValue = currentValue[part]
+      currentValue = (currentValue as Record<string, unknown>)[part]
     }
 
     return { exists: true, value: currentValue }
   }
 
-  private transformRuleValue(rule: BindingRule, value: any): any {
+  private transformRuleValue(rule: BindingRule, value: unknown): unknown {
     if (!rule.transform || typeof rule.transform !== 'function') {
       return value
     }
@@ -330,7 +330,7 @@ export class DataSourceBindingConfig {
   /**
    * 构建HTTP参数对象
    */
-  buildHttpParams(componentConfig: any, componentType?: string): Record<string, any> {
+  buildHttpParams(componentConfig: unknown, componentType?: string): Record<string, unknown> {
     const bindingRules = this.getAllBindingRules(componentType)
     return this.buildParamsFromRules(componentConfig, bindingRules)
   }
@@ -343,10 +343,10 @@ export class DataSourceBindingConfig {
    * @returns 自动绑定的HTTP参数
    */
   buildAutoBindParams(
-    componentConfig: any,
+    componentConfig: unknown,
     autoBindConfig: AutoBindConfig,
     componentType?: string
-  ): Record<string, any> {
+  ): Record<string, unknown> {
     if (!autoBindConfig.enabled) {
       return this.buildHttpParams(componentConfig, componentType)
     }
@@ -373,14 +373,14 @@ export class DataSourceBindingConfig {
    * 构建严格模式参数
    */
   private buildStrictModeParams(
-    componentConfig: any,
+    componentConfig: unknown,
     autoBindConfig: AutoBindConfig,
     componentType?: string
-  ): Record<string, any> {
+  ): Record<string, unknown> {
     const includeProperties = autoBindConfig.includeProperties || []
 
     // 只处理指定的属性
-    const bindingRules = this.getAllBindingRules(componentType).filter(rule =>
+    const bindingRules = this.getAllBindingRules(componentType).filter((rule) =>
       includeProperties.includes(rule.propertyPath)
     )
 
@@ -391,15 +391,15 @@ export class DataSourceBindingConfig {
    * 构建宽松模式参数
    */
   private buildLooseModeParams(
-    componentConfig: any,
+    componentConfig: unknown,
     autoBindConfig: AutoBindConfig,
     componentType?: string
-  ): Record<string, any> {
+  ): Record<string, unknown> {
     const excludeProperties = autoBindConfig.excludeProperties || []
 
     // 处理所有属性，排除指定属性
     const bindingRules = this.getAllBindingRules(componentType).filter(
-      rule => !excludeProperties.includes(rule.propertyPath)
+      (rule) => !excludeProperties.includes(rule.propertyPath)
     )
 
     return this.buildParamsFromRules(componentConfig, bindingRules)
@@ -409,10 +409,10 @@ export class DataSourceBindingConfig {
    * 构建自定义模式参数
    */
   private buildCustomModeParams(
-    componentConfig: any,
+    componentConfig: unknown,
     autoBindConfig: AutoBindConfig,
     componentType?: string
-  ): Record<string, any> {
+  ): Record<string, unknown> {
     const customRules = autoBindConfig.customRules || []
     return this.buildParamsFromRules(componentConfig, customRules)
   }
@@ -422,7 +422,7 @@ export class DataSourceBindingConfig {
    */
   addCustomBindingRule(rule: BindingRule): void {
     // 检查是否已存在相同的属性路径
-    const existingIndex = this.customBindingRules.findIndex(r => r.propertyPath === rule.propertyPath)
+    const existingIndex = this.customBindingRules.findIndex((r) => r.propertyPath === rule.propertyPath)
     if (existingIndex >= 0) {
       this.customBindingRules[existingIndex] = rule
     } else {
@@ -435,7 +435,7 @@ export class DataSourceBindingConfig {
    */
   addCustomTriggerRule(rule: TriggerRule): void {
     // 检查是否已存在相同的属性路径
-    const existingIndex = this.customTriggerRules.findIndex(r => r.propertyPath === rule.propertyPath)
+    const existingIndex = this.customTriggerRules.findIndex((r) => r.propertyPath === rule.propertyPath)
     if (existingIndex >= 0) {
       this.customTriggerRules[existingIndex] = rule
     } else {
@@ -461,7 +461,7 @@ export class DataSourceBindingConfig {
    * 移除自定义规则
    */
   removeCustomBindingRule(propertyPath: string): boolean {
-    const index = this.customBindingRules.findIndex(r => r.propertyPath === propertyPath)
+    const index = this.customBindingRules.findIndex((r) => r.propertyPath === propertyPath)
     if (index >= 0) {
       this.customBindingRules.splice(index, 1)
       return true
@@ -473,7 +473,7 @@ export class DataSourceBindingConfig {
    * 移除自定义触发规则
    */
   removeCustomTriggerRule(propertyPath: string): boolean {
-    const index = this.customTriggerRules.findIndex(r => r.propertyPath === propertyPath)
+    const index = this.customTriggerRules.findIndex((r) => r.propertyPath === propertyPath)
     if (index >= 0) {
       this.customTriggerRules.splice(index, 1)
       return true
@@ -484,7 +484,7 @@ export class DataSourceBindingConfig {
   /**
    * 获取调试信息
    */
-  getDebugInfo(componentType?: string): any {
+  getDebugInfo(componentType?: string) {
     const currentBindingRules = this.getAllBindingRules(componentType)
     const currentTriggerRules = this.getAllTriggerRules(componentType)
 
@@ -498,12 +498,12 @@ export class DataSourceBindingConfig {
       effectiveBindingRules: currentBindingRules.length,
       effectiveTriggerRules: currentTriggerRules.length,
       componentConfigs: Array.from(this.componentConfigs.keys()),
-      currentBindingRules: currentBindingRules.map(r => ({
+      currentBindingRules: currentBindingRules.map((r) => ({
         propertyPath: r.propertyPath,
         paramName: r.paramName,
         required: r.required
       })),
-      currentTriggerRules: currentTriggerRules.map(r => ({
+      currentTriggerRules: currentTriggerRules.map((r) => ({
         propertyPath: r.propertyPath,
         enabled: r.enabled,
         debounceMs: r.debounceMs
@@ -520,7 +520,7 @@ export const dataSourceBindingConfig = new DataSourceBindingConfig()
  * 清理时不会覆盖宿主在安装后写入的新值。
  */
 export function installDataSourceBindingConfigDebugGlobal(
-  target: Record<string, any> = globalThis as Record<string, any>
+  target: Record<string, unknown> = globalThis as Record<string, unknown>
 ): () => void {
   const key = '__dataSourceBindingConfig'
   const hadOwnValue = Object.prototype.hasOwnProperty.call(target, key)

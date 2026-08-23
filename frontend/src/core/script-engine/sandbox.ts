@@ -5,7 +5,13 @@
  * 重构建议：可补充更系统的策略对象和审计日志，便于按场景配置安全级别。
  */
 
-import type { BuiltinUtilities, IScriptSandbox, SandboxConfig } from '@/core/script-engine/types'
+import type {
+  BuiltinUtilities,
+  IScriptSandbox,
+  SandboxConfig,
+  ScriptSandboxInstance,
+  ScriptSandboxTimerRecord
+} from '@/core/script-engine/types'
 import { smartDeepClone } from '@/utils/deep-clone'
 
 type SandboxTimerId = ReturnType<typeof setTimeout> | ReturnType<typeof setInterval>
@@ -23,8 +29,8 @@ export class ScriptSandbox implements IScriptSandbox {
   /**
    * 创建沙箱环境
    */
-  createSandbox(config: SandboxConfig): any {
-    const sandbox: any = {}
+  createSandbox(config: SandboxConfig): ScriptSandboxInstance {
+    const sandbox: ScriptSandboxInstance = {}
     const blockedNetworkFetch = this.createBlockedNetworkFetch()
     const blockedNetworkConstructor = function (): never {
       throw new Error('SCRIPT_NETWORK_EXTERNAL_BLOCKED: script network access requires an audited adapter')
@@ -108,7 +114,7 @@ export class ScriptSandbox implements IScriptSandbox {
         default:
           // 其他安全的全局对象
           if (typeof window !== 'undefined' && global in window) {
-            const value = (window as any)[global]
+            const value: unknown = Reflect.get(window, global)
             if (typeof value !== 'function' || this.isSafeFunction(global)) {
               sandbox[global] = value
             }
@@ -125,7 +131,7 @@ export class ScriptSandbox implements IScriptSandbox {
   /**
    * 在沙箱中执行代码
    */
-  async executeInSandbox(code: string, sandbox: any, timeout: number = 5000): Promise<any> {
+  async executeInSandbox(code: string, sandbox: ScriptSandboxInstance, timeout: number = 5000): Promise<unknown> {
     // 检查代码安全性
     const securityCheck = this.checkCodeSecurity(code)
     if (!securityCheck.safe) {
@@ -178,10 +184,10 @@ export class ScriptSandbox implements IScriptSandbox {
   /**
    * 销毁沙箱
    */
-  destroySandbox(sandbox: any): void {
+  destroySandbox(sandbox: ScriptSandboxInstance): void {
     // 清理沙箱中的定时器
     if (sandbox._timers) {
-      sandbox._timers.forEach((timer: any) => {
+      sandbox._timers.forEach((timer) => {
         if (timer.type === 'timeout') {
           clearTimeout(timer.id)
         } else if (timer.type === 'interval') {
@@ -292,23 +298,25 @@ export class ScriptSandbox implements IScriptSandbox {
   /**
    * 创建安全的console实现
    */
-  private createSafeConsole() {
-    const logs: any[] = []
+  private createSafeConsole(): BuiltinUtilities['logger'] & {
+    _getLogs: () => Array<{ level: string; args: unknown[]; timestamp: number }>
+  } {
+    const logs: Array<{ level: string; args: unknown[]; timestamp: number }> = []
 
     return {
-      log: (...args: any[]) => {
+      log: (...args: unknown[]) => {
         logs.push({ level: 'log', args, timestamp: Date.now() })
       },
-      warn: (...args: any[]) => {
+      warn: (...args: unknown[]) => {
         logs.push({ level: 'warn', args, timestamp: Date.now() })
       },
-      error: (...args: any[]) => {
+      error: (...args: unknown[]) => {
         logs.push({ level: 'error', args, timestamp: Date.now() })
       },
-      info: (...args: any[]) => {
+      info: (...args: unknown[]) => {
         logs.push({ level: 'info', args, timestamp: Date.now() })
       },
-      debug: (...args: any[]) => {
+      debug: (...args: unknown[]) => {
         logs.push({ level: 'debug', args, timestamp: Date.now() })
       },
       _getLogs: () => logs
@@ -321,44 +329,44 @@ export class ScriptSandbox implements IScriptSandbox {
     }
   }
 
-  private ensureTimerStore(sandbox: any): Array<{ type: 'timeout' | 'interval'; id: SandboxTimerId }> {
+  private ensureTimerStore(sandbox: ScriptSandboxInstance): ScriptSandboxTimerRecord[] {
     if (!sandbox._timers) {
       sandbox._timers = []
     }
     return sandbox._timers
   }
 
-  private removeTimer(sandbox: any, id: SandboxTimerId): void {
+  private removeTimer(sandbox: ScriptSandboxInstance, id: SandboxTimerId): void {
     if (!sandbox._timers) {
       return
     }
-    sandbox._timers = sandbox._timers.filter((timer: any) => timer.id !== id)
+    sandbox._timers = sandbox._timers.filter((timer) => timer.id !== id)
   }
 
-  private createSafeSetTimeout(sandbox: any) {
-    return (handler: TimerHandler, timeout?: number, ...args: any[]) => {
+  private createSafeSetTimeout(sandbox: ScriptSandboxInstance) {
+    return (handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
       const timerId = setTimeout(handler, timeout, ...args)
       this.ensureTimerStore(sandbox).push({ type: 'timeout', id: timerId })
       return timerId
     }
   }
 
-  private createSafeClearTimeout(sandbox: any) {
+  private createSafeClearTimeout(sandbox: ScriptSandboxInstance) {
     return (timerId: SandboxTimerId) => {
       clearTimeout(timerId)
       this.removeTimer(sandbox, timerId)
     }
   }
 
-  private createSafeSetInterval(sandbox: any) {
-    return (handler: TimerHandler, timeout?: number, ...args: any[]) => {
+  private createSafeSetInterval(sandbox: ScriptSandboxInstance) {
+    return (handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
       const timerId = setInterval(handler, timeout, ...args)
       this.ensureTimerStore(sandbox).push({ type: 'interval', id: timerId })
       return timerId
     }
   }
 
-  private createSafeClearInterval(sandbox: any) {
+  private createSafeClearInterval(sandbox: ScriptSandboxInstance) {
     return (timerId: SandboxTimerId) => {
       clearInterval(timerId)
       this.removeTimer(sandbox, timerId)
@@ -391,8 +399,8 @@ export class ScriptSandbox implements IScriptSandbox {
           }
           return result
         },
-        randomObject: (template: Record<string, any>) => {
-          const result: any = {}
+        randomObject: (template: Record<string, unknown>) => {
+          const result: Record<string, unknown> = {}
           Object.keys(template).forEach((key) => {
             const value = template[key]
             if (typeof value === 'function') {
@@ -408,8 +416,12 @@ export class ScriptSandbox implements IScriptSandbox {
       // 数据处理工具
       dataUtils: {
         deepClone: <T>(obj: T): T => smartDeepClone(obj),
-        merge: (...objects: any[]) => Object.assign({}, ...objects),
-        pick: <T extends Record<string, any>>(obj: T, keys: (keyof T)[]): Partial<T> => {
+        merge: (...objects: unknown[]) => {
+          const merged: Record<string, unknown> = {}
+          objects.forEach((obj) => Object.assign(merged, obj))
+          return merged
+        },
+        pick: <T extends Record<string, unknown>>(obj: T, keys: (keyof T)[]): Partial<T> => {
           const result: Partial<T> = {}
           keys.forEach((key) => {
             if (key in obj) {
@@ -418,7 +430,7 @@ export class ScriptSandbox implements IScriptSandbox {
           })
           return result
         },
-        omit: <T extends Record<string, any>>(obj: T, keys: (keyof T)[]): Partial<T> => {
+        omit: <T extends Record<string, unknown>>(obj: T, keys: (keyof T)[]): Partial<T> => {
           const result: Partial<T> = {}
           Object.keys(obj).forEach((key) => {
             if (!keys.includes(key as keyof T)) {
@@ -427,7 +439,7 @@ export class ScriptSandbox implements IScriptSandbox {
           })
           return result
         },
-        groupBy: <T>(array: T[], key: keyof T | ((item: T) => any)): Record<string, T[]> => {
+        groupBy: <T>(array: T[], key: keyof T | ((item: T) => unknown)): Record<string, T[]> => {
           const result: Record<string, T[]> = {}
           array.forEach((item) => {
             const groupKey = typeof key === 'function' ? key(item) : item[key]
@@ -439,10 +451,10 @@ export class ScriptSandbox implements IScriptSandbox {
           })
           return result
         },
-        sortBy: <T>(array: T[], key: keyof T | ((item: T) => any)): T[] => {
+        sortBy: <T>(array: T[], key: keyof T | ((item: T) => unknown)): T[] => {
           return [...array].sort((a, b) => {
-            const aVal = typeof key === 'function' ? key(a) : a[key]
-            const bVal = typeof key === 'function' ? key(b) : b[key]
+            const aVal = (typeof key === 'function' ? key(a) : a[key]) as string | number
+            const bVal = (typeof key === 'function' ? key(b) : b[key]) as string | number
             if (aVal < bVal) return -1
             if (aVal > bVal) return 1
             return 0
@@ -494,8 +506,8 @@ export class ScriptSandbox implements IScriptSandbox {
       // 保留网络工具接口；未接入可取消、可审计的适配器前明确阻断外联。
       networkUtils: {
         httpGet: (url: string, options?: RequestInit) => this.rejectExternalNetwork(url, options),
-        httpPost: (url: string, data: any, options?: RequestInit) => this.rejectExternalNetwork(url, data, options),
-        httpPut: (url: string, data: any, options?: RequestInit) => this.rejectExternalNetwork(url, data, options),
+        httpPost: (url: string, data: unknown, options?: RequestInit) => this.rejectExternalNetwork(url, data, options),
+        httpPut: (url: string, data: unknown, options?: RequestInit) => this.rejectExternalNetwork(url, data, options),
         httpDelete: (url: string, options?: RequestInit) => this.rejectExternalNetwork(url, options)
       },
 
@@ -504,7 +516,7 @@ export class ScriptSandbox implements IScriptSandbox {
     }
   }
 
-  private rejectExternalNetwork(..._args: any[]): Promise<never> {
+  private rejectExternalNetwork(..._args: unknown[]): Promise<never> {
     return Promise.reject(new Error('SCRIPT_NETWORK_EXTERNAL_BLOCKED: script network access requires an audited adapter'))
   }
 

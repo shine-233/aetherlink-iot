@@ -39,7 +39,7 @@ export interface StaticParamRequirement {
   /** 参数描述 */
   description: string
   /** 默认值 */
-  defaultValue?: any
+  defaultValue?: unknown
   /** 是否必填 */
   required?: boolean
   /** 参数验证规则 */
@@ -47,7 +47,7 @@ export interface StaticParamRequirement {
     min?: number
     max?: number
     pattern?: string
-    options?: Array<{ label: string; value: any }>
+    options?: Array<{ label: string; value: unknown }>
   }
   /** UI 渲染提示 */
   ui?: {
@@ -81,7 +81,7 @@ export interface DataSourceRequirement {
       /** 是否必填 */
       required: boolean
       /** 默认值 */
-      defaultValue?: any
+      defaultValue?: unknown
       /** 数据转换函数 */
       transform?: string
     }
@@ -113,9 +113,9 @@ export interface FieldRequirement {
   /** 字段描述 */
   description: string
   /** 种子值 */
-  example?: any
+  example?: unknown
   /** 默认值 - 与Card2.1 StaticParamRequirement兼容 */
-  defaultValue?: any
+  defaultValue?: unknown
   /** 嵌套结构定义 - 支持复杂对象和数组 */
   structure?: DataSourceRequirement
   /** 验证规则 - 与Card2.1兼容的验证配置 */
@@ -123,7 +123,7 @@ export interface FieldRequirement {
     min?: number
     max?: number
     pattern?: string
-    options?: Array<{ label: string; value: any }>
+    options?: Array<{ label: string; value: unknown }>
   }
   /** UI渲染提示 - 支持Card2.1的UI配置 */
   ui?: {
@@ -162,7 +162,7 @@ export interface DataSourceDefinition {
   /** 数据源类型 */
   type: 'static' | 'api' | 'websocket' | 'script'
   /** 数据源配置 */
-  config: any
+  config: Record<string, unknown>
   /** 字段映射 - 参考 visual-editor 的映射机制 */
   fieldMapping?: { [targetField: string]: string }
 }
@@ -205,11 +205,11 @@ export interface ComponentData {
     /** 数据源类型 */
     type: string
     /** 解析后的数据 */
-    data: any
+    data: unknown
     /** 最后更新时间 */
     lastUpdated?: number
     /** 元数据 */
-    metadata?: any
+    metadata?: unknown
   }
 }
 
@@ -250,7 +250,7 @@ export type DataSourceUserConfig =
  */
 export interface StaticDataSourceConfig {
   /** 静态数据 - JSON字符串或对象 */
-  data: any
+  data: unknown
 }
 
 /**
@@ -264,7 +264,7 @@ export interface ApiDataSourceConfig {
   /** 请求头 */
   headers?: Record<string, string>
   /** 请求体 */
-  body?: any
+  body?: unknown
   /** 超时时间 */
   timeout?: number
 }
@@ -288,7 +288,7 @@ export interface ScriptDataSourceConfig {
   /** JavaScript脚本代码 */
   script: string
   /** 脚本上下文 */
-  context?: Record<string, any>
+  context?: Record<string, unknown>
 }
 
 // ========== 执行结果类型 ==========
@@ -318,7 +318,7 @@ export interface MappingPreviewResult {
   /** 源路径 */
   sourcePath: string
   /** 映射后的值 */
-  mappedValue: any
+  mappedValue: unknown
   /** 是否成功 */
   success: boolean
   /** 错误信息 */
@@ -404,9 +404,9 @@ export type ComponentType = 'visual-editor' | 'card2.1' | 'standard'
  */
 export interface Card2ComponentRequirement {
   /** 静态参数需求声明 */
-  staticParams?: any[]
+  staticParams?: unknown[]
   /** 数据源需求声明 */
-  dataSources?: any[]
+  dataSources?: unknown[]
 }
 
 // ========== 常量定义 ==========
@@ -437,12 +437,12 @@ export interface Card2StaticParamCompatibility {
   /**
    * 将Card2.1 StaticParamRequirement转换为数据源系统StaticParamRequirement
    */
-  fromCard2StaticParam(card2Param: any): StaticParamRequirement
+  fromCard2StaticParam(card2Param: unknown): StaticParamRequirement
 
   /**
    * 将数据源系统StaticParamRequirement转换为Card2.1格式
    */
-  toCard2StaticParam(staticParam: StaticParamRequirement): any
+  toCard2StaticParam(staticParam: StaticParamRequirement): unknown
 }
 
 /**
@@ -452,12 +452,12 @@ export interface Card2DataSourceCompatibility {
   /**
    * 将Card2.1 DataSourceRequirement转换为数据源系统格式
    */
-  fromCard2DataSource(card2DataSource: any): DataSourceRequirement
+  fromCard2DataSource(card2DataSource: unknown): DataSourceRequirement
 
   /**
    * 将数据源系统格式转换为Card2.1 DataSourceRequirement
    */
-  toCard2DataSource(dataSource: DataSourceRequirement): any
+  toCard2DataSource(dataSource: DataSourceRequirement): unknown
 }
 
 /**
@@ -467,14 +467,14 @@ export interface ComponentRequirementCompatibility {
   /**
    * 从Card2.1 ComponentDefinition提取数据需求
    */
-  extractFromCard2Component(componentDef: any): ComponentDataRequirement
+  extractFromCard2Component(componentDef: unknown): ComponentDataRequirement
 
   /**
    * 将ComponentDataRequirement转换为Card2.1兼容格式
    */
   adaptToCard2Component(requirement: ComponentDataRequirement): {
-    staticParams?: any[]
-    dataSources?: any[]
+    staticParams?: unknown[]
+    dataSources?: unknown[]
   }
 }
 

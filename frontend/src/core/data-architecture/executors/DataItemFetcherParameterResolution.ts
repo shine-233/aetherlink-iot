@@ -18,10 +18,10 @@ import { collectHttpParameters } from './DataItemFetcherRequestPlan'
 
 interface ComponentBoundParameterValue {
   invalidBinding: boolean
-  value: any
+  value: unknown
 }
 
-export type ComponentPropertyReader = (bindingPath: string) => Promise<any>
+export type ComponentPropertyReader = (bindingPath: string) => Promise<unknown>
 
 export function logHttpParametersLifecycle(config: HttpDataItemConfig, stage: string): void {
   collectHttpParameters(config).forEach(({ source, param, index }) => {
@@ -58,9 +58,9 @@ export function validateParameterBindingPaths(config: HttpDataItemConfig): void 
 export async function resolveHttpParameterValue(
   param: HttpParameter,
   readComponentProperty: ComponentPropertyReader
-): Promise<any> {
+): Promise<unknown> {
   const runtimeParam = normalizeRuntimeParameter(param)
-  let resolvedValue = runtimeParam.value
+  let resolvedValue: unknown = runtimeParam.value
 
   if (shouldResolveComponentBinding(runtimeParam)) {
     const componentBoundValue = await resolveComponentBoundParameterValue(runtimeParam, readComponentProperty)
@@ -110,7 +110,7 @@ function shouldResolveComponentBinding(param: HttpParameter): boolean {
   )
 }
 
-function normalizeComponentBindingPath(param: HttpParameter): any {
+function normalizeComponentBindingPath(param: HttpParameter): string {
   let bindingPath = param.value
 
   if (isDamagedComponentBindingPath(bindingPath, param.variableName)) {
@@ -145,7 +145,7 @@ async function resolveComponentBoundParameterValue(
   }
 }
 
-function resolveEmptyParameterFallback(param: HttpParameter): any {
+function resolveEmptyParameterFallback(param: HttpParameter): unknown {
   if (param.defaultValue !== undefined && param.defaultValue !== null) {
     return param.defaultValue
   }
@@ -153,6 +153,6 @@ function resolveEmptyParameterFallback(param: HttpParameter): any {
   return null
 }
 
-function isEmptyParameterValue(value: any): boolean {
+function isEmptyParameterValue(value: unknown): boolean {
   return value === null || value === undefined || value === '' || (typeof value === 'string' && value.trim() === '')
 }

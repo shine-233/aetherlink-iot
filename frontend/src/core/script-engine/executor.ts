@@ -12,7 +12,8 @@ import type {
   ScriptExecutionResult,
   ExecutionStats,
   ScriptLog,
-  SandboxConfig
+  SandboxConfig,
+  ScriptSandboxInstance
 } from './types'
 import { ScriptSandbox, defaultSandboxConfig } from '@/core/script-engine/sandbox'
 
@@ -41,10 +42,13 @@ export class ScriptExecutor implements IScriptExecutor {
   /**
    * 执行脚本
    */
-  async execute<T = any>(config: ScriptConfig, context?: ScriptExecutionContext): Promise<ScriptExecutionResult<T>> {
+  async execute<T = unknown>(
+    config: ScriptConfig,
+    context?: ScriptExecutionContext
+  ): Promise<ScriptExecutionResult<T>> {
     const startTime = Date.now()
     const logs: ScriptLog[] = []
-    let sandboxEnv: any
+    let sandboxEnv: ScriptSandboxInstance | undefined
 
     // 增加并发计数
     this.currentExecutions++
@@ -87,7 +91,7 @@ export class ScriptExecutor implements IScriptExecutor {
 
       return {
         success: true,
-        data: result,
+        data: result as T,
         executionTime,
         contextSnapshot: context ? { ...context.variables } : undefined,
         logs
@@ -143,7 +147,7 @@ export class ScriptExecutor implements IScriptExecutor {
   private createLoggingConsole(logs: ScriptLog[]) {
     const createLogMethod =
       (level: ScriptLog['level']) =>
-      (...args: any[]) => {
+      (...args: unknown[]) => {
         const log: ScriptLog = {
           level,
           message: args.map(arg => (typeof arg === 'object' ? JSON.stringify(arg) : String(arg))).join(' '),
@@ -153,9 +157,10 @@ export class ScriptExecutor implements IScriptExecutor {
         logs.push(log)
 
         // 同时输出到真实console（带前缀）
-        const realConsole = console as any
-        if (realConsole[level]) {
-          realConsole[level](`[ScriptEngine:${level.toUpperCase()}]`, ...args)
+        const realConsole = console as Console & Record<string, ((...args: unknown[]) => void) | undefined>
+        const loggerFn = realConsole[level]
+        if (loggerFn) {
+          loggerFn(`[ScriptEngine:${level.toUpperCase()}]`, ...args)
         }
       }
 

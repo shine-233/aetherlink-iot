@@ -7,34 +7,38 @@
 
 import type { ComponentDataRequirement, SimpleDataSourceConfig } from '@/core/data-architecture/SimpleDataBridge'
 
-type DataSourceBindingMap = Record<string, any>
+type LooseRecord = Record<string, unknown>
+type DataSourceBindingMap = LooseRecord
 type BindingMapDescriptor = { bindings: DataSourceBindingMap; parseErrorMessage: string }
 
-function hasConvertibleInput(config: any): boolean {
+function hasConvertibleInput(config: unknown): boolean {
   return Boolean(config)
 }
 
-function hasOwnField(value: any, field: string): boolean {
+function hasOwnField(value: unknown, field: string): boolean {
   return Boolean(value && typeof value === 'object' && Object.prototype.hasOwnProperty.call(value, field))
 }
 
-function hasRawDataBindingMap(value: any): value is DataSourceBindingMap {
+function hasRawDataBindingMap(value: unknown): value is DataSourceBindingMap {
   return Boolean(
     value &&
-      typeof value === 'object' &&
-      !Array.isArray(value) &&
-      Object.values(value).some((binding) => hasOwnField(binding, 'rawData'))
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    Object.values(value as LooseRecord).some((binding) => hasOwnField(binding, 'rawData'))
   )
 }
 
-function hasConvertibleRawDataList(value: any): value is any[] {
+function hasConvertibleRawDataList(value: unknown): value is unknown[] {
   return (
     Array.isArray(value) &&
-    value.some((item) => item && item.enabled !== false && (hasOwnField(item, 'rawData') || item.type))
+    value.some((item) => {
+      const record = item as LooseRecord | null | undefined
+      return Boolean(record && record.enabled !== false && (hasOwnField(record, 'rawData') || record.type))
+    })
   )
 }
 
-function createStaticDataSource(id: string, data: any): SimpleDataSourceConfig {
+function createStaticDataSource(id: string, data: unknown): SimpleDataSourceConfig {
   return {
     id,
     type: 'static',
@@ -44,7 +48,7 @@ function createStaticDataSource(id: string, data: any): SimpleDataSourceConfig {
   }
 }
 
-function parseRawDataValue(rawData: any, sourceId: string, parseErrorMessage: string): any | null {
+function parseRawDataValue(rawData: unknown, sourceId: string, parseErrorMessage: string): unknown | null {
   if (typeof rawData !== 'string') {
     return rawData
   }
@@ -57,7 +61,11 @@ function parseRawDataValue(rawData: any, sourceId: string, parseErrorMessage: st
   }
 }
 
-function mapStaticRawDataSource(rawData: any, sourceId: string, parseErrorMessage: string): SimpleDataSourceConfig | null {
+function mapStaticRawDataSource(
+  rawData: unknown,
+  sourceId: string,
+  parseErrorMessage: string
+): SimpleDataSourceConfig | null {
   const parsedData = parseRawDataValue(rawData, sourceId, parseErrorMessage)
 
   if (parsedData === null) {
@@ -84,12 +92,12 @@ function collectMappedDataSources<T>(
   return dataSources
 }
 
-function mapRawDataBinding(key: string, binding: any, parseErrorMessage: string): SimpleDataSourceConfig | null {
+function mapRawDataBinding(key: string, binding: unknown, parseErrorMessage: string): SimpleDataSourceConfig | null {
   if (!hasOwnField(binding, 'rawData')) {
     return null
   }
 
-  return mapStaticRawDataSource(binding.rawData, key, parseErrorMessage)
+  return mapStaticRawDataSource((binding as LooseRecord).rawData, key, parseErrorMessage)
 }
 
 function normalizeDataSourceType(type: unknown): SimpleDataSourceConfig['type'] | null {
@@ -104,55 +112,58 @@ function normalizeDataSourceType(type: unknown): SimpleDataSourceConfig['type'] 
   return null
 }
 
-function mapRawDataListItem(item: any, index: number, parseErrorMessage: string): SimpleDataSourceConfig | null {
-  if (!item || item.enabled === false) {
+function mapRawDataListItem(item: unknown, index: number, parseErrorMessage: string): SimpleDataSourceConfig | null {
+  const record = item as LooseRecord | null | undefined
+  if (!record || record.enabled === false) {
     return null
   }
 
-  const sourceId = item.id || item.sourceId || `dataSource${index + 1}`
+  const sourceId = (record.id || record.sourceId || `dataSource${index + 1}`) as string
 
-  if (hasOwnField(item, 'rawData')) {
-    return mapStaticRawDataSource(item.rawData, sourceId, parseErrorMessage)
+  if (hasOwnField(record, 'rawData')) {
+    return mapStaticRawDataSource(record.rawData, sourceId, parseErrorMessage)
   }
 
-  const normalizedType = normalizeDataSourceType(item.type)
+  const normalizedType = normalizeDataSourceType(record.type)
   if (!normalizedType) {
-    console.error(`[ConfigAdapter] UNSUPPORTED_DATA_SOURCE_TYPE: ${sourceId} (${String(item.type)})`)
+    console.error(`[ConfigAdapter] UNSUPPORTED_DATA_SOURCE_TYPE: ${sourceId} (${String(record.type)})`)
     return null
   }
 
   return {
     id: sourceId,
     type: normalizedType,
-    config: item.config || {},
-    filterPath: item.filterPath,
-    processScript: item.processScript
+    config: (record.config || {}) as LooseRecord,
+    filterPath: record.filterPath as string | undefined,
+    processScript: record.processScript as string | undefined
   }
 }
 
 function mapDataSourceBindings(bindings: DataSourceBindingMap, parseErrorMessage: string): SimpleDataSourceConfig[] {
-  return collectMappedDataSources(Object.entries(bindings), ([key, binding]: [string, any]) =>
+  return collectMappedDataSources(Object.entries(bindings), ([key, binding]) =>
     mapRawDataBinding(key, binding, parseErrorMessage)
   )
 }
 
-function mapRawDataList(rawDataList: any[], parseErrorMessage: string): SimpleDataSourceConfig[] {
+function mapRawDataList(rawDataList: unknown[], parseErrorMessage: string): SimpleDataSourceConfig[] {
   return collectMappedDataSources(rawDataList, (item, index) => mapRawDataListItem(item, index, parseErrorMessage))
 }
 
-function collectBindingMaps(config: any): BindingMapDescriptor[] {
+function collectBindingMaps(config: unknown): BindingMapDescriptor[] {
   const bindingMaps: BindingMapDescriptor[] = []
+  const record = (config ?? {}) as LooseRecord
+  const rawDataSources = record.rawDataSources as LooseRecord | null | undefined
 
-  if (hasRawDataBindingMap(config.rawDataSources?.dataSourceBindings)) {
+  if (hasRawDataBindingMap(rawDataSources?.dataSourceBindings)) {
     bindingMaps.push({
-      bindings: config.rawDataSources.dataSourceBindings,
+      bindings: rawDataSources.dataSourceBindings as DataSourceBindingMap,
       parseErrorMessage: '[ConfigAdapter] Failed to parse rawDataSources rawData'
     })
   }
 
-  if (hasRawDataBindingMap(config.bindings)) {
+  if (hasRawDataBindingMap(record.bindings)) {
     bindingMaps.push({
-      bindings: config.bindings,
+      bindings: record.bindings as DataSourceBindingMap,
       parseErrorMessage: '[ConfigAdapter] Failed to parse bindings rawData'
     })
   }
@@ -160,16 +171,23 @@ function collectBindingMaps(config: any): BindingMapDescriptor[] {
   return bindingMaps
 }
 
-function mapConfiguredDataSources(config: any): SimpleDataSourceConfig[] {
+function mapConfiguredDataSources(config: unknown): SimpleDataSourceConfig[] {
   const dataSources: SimpleDataSourceConfig[] = []
+  const record = (config ?? {}) as LooseRecord
+  const nested = record.config as LooseRecord | null | undefined
 
-  if (config.dataSourceBindings) {
-    dataSources.push(...mapDataSourceBindings(config.dataSourceBindings, '❌ [ConfigAdapter] 解析rawData失败'))
+  if (record.dataSourceBindings) {
+    dataSources.push(
+      ...mapDataSourceBindings(record.dataSourceBindings as DataSourceBindingMap, '❌ [ConfigAdapter] 解析rawData失败')
+    )
   }
 
-  if (config.config?.dataSourceBindings) {
+  if (nested?.dataSourceBindings) {
     dataSources.push(
-      ...mapDataSourceBindings(config.config.dataSourceBindings, '❌ [ConfigAdapter] 解析嵌套rawData失败')
+      ...mapDataSourceBindings(
+        nested.dataSourceBindings as DataSourceBindingMap,
+        '❌ [ConfigAdapter] 解析嵌套rawData失败'
+      )
     )
   }
 
@@ -177,37 +195,38 @@ function mapConfiguredDataSources(config: any): SimpleDataSourceConfig[] {
     dataSources.push(...mapDataSourceBindings(bindings, parseErrorMessage))
   })
 
-  collectBindingMaps(config.config || {}).forEach(({ bindings, parseErrorMessage }) => {
+  collectBindingMaps(nested || {}).forEach(({ bindings, parseErrorMessage }) => {
     dataSources.push(...mapDataSourceBindings(bindings, parseErrorMessage))
   })
 
-  if (hasConvertibleRawDataList(config.rawDataList)) {
-    dataSources.push(...mapRawDataList(config.rawDataList, '[ConfigAdapter] Failed to parse rawDataList rawData'))
+  if (hasConvertibleRawDataList(record.rawDataList)) {
+    dataSources.push(...mapRawDataList(record.rawDataList, '[ConfigAdapter] Failed to parse rawDataList rawData'))
   }
 
-  if (hasConvertibleRawDataList(config.config?.rawDataList)) {
+  if (hasConvertibleRawDataList(nested?.rawDataList)) {
     dataSources.push(
-      ...mapRawDataList(config.config.rawDataList, '[ConfigAdapter] Failed to parse nested rawDataList rawData')
+      ...mapRawDataList(nested.rawDataList, '[ConfigAdapter] Failed to parse nested rawDataList rawData')
     )
   }
 
   return dataSources
 }
 
-function isSimpleObjectConfig(config: any): boolean {
+function isSimpleObjectConfig(config: unknown): boolean {
+  const record = config as LooseRecord
   return (
-    typeof config === 'object' &&
-    !Array.isArray(config) &&
-    !config.type &&
-    !config.dataSourceBindings &&
-    !config.rawDataSources &&
-    !config.rawDataList &&
-    !hasRawDataBindingMap(config.bindings) &&
-    !config.config
+    typeof record === 'object' &&
+    !Array.isArray(record) &&
+    !record.type &&
+    !record.dataSourceBindings &&
+    !record.rawDataSources &&
+    !record.rawDataList &&
+    !hasRawDataBindingMap(record.bindings) &&
+    !record.config
   )
 }
 
-function mapDefaultCompatibleDataSource(config: any): SimpleDataSourceConfig[] {
+function mapDefaultCompatibleDataSource(config: unknown): SimpleDataSourceConfig[] {
   if (!isSimpleObjectConfig(config)) {
     return []
   }
@@ -236,7 +255,7 @@ function assembleRequirement(
  * @param config 原始配置对象
  * @returns 简化的组件数据需求
  */
-export function convertToSimpleDataRequirement(componentId: string, config: any): ComponentDataRequirement | null {
+export function convertToSimpleDataRequirement(componentId: string, config: unknown): ComponentDataRequirement | null {
   if (!hasConvertibleInput(config)) {
     return null
   }
@@ -251,25 +270,30 @@ export function convertToSimpleDataRequirement(componentId: string, config: any)
  * @param config 配置对象
  * @returns 是否需要转换
  */
-export function shouldConvertConfig(config: any): boolean {
+export function shouldConvertConfig(config: unknown): boolean {
   if (!config || typeof config !== 'object') {
     return false
   }
 
+  const record = config as LooseRecord
+  const nested = record.config as LooseRecord | null | undefined
+  const rawDataSources = record.rawDataSources as LooseRecord | null | undefined
+  const nestedRawDataSources = nested?.rawDataSources as LooseRecord | null | undefined
+
   if (
-    config.dataSourceBindings ||
-    config.config?.dataSourceBindings ||
-    hasRawDataBindingMap(config.rawDataSources?.dataSourceBindings) ||
-    hasRawDataBindingMap(config.bindings) ||
-    hasRawDataBindingMap(config.config?.rawDataSources?.dataSourceBindings) ||
-    hasRawDataBindingMap(config.config?.bindings) ||
-    Array.isArray(config.rawDataList) ||
-    Array.isArray(config.config?.rawDataList)
+    record.dataSourceBindings ||
+    nested?.dataSourceBindings ||
+    hasRawDataBindingMap(rawDataSources?.dataSourceBindings) ||
+    hasRawDataBindingMap(record.bindings) ||
+    hasRawDataBindingMap(nestedRawDataSources?.dataSourceBindings) ||
+    hasRawDataBindingMap(nested?.bindings) ||
+    Array.isArray(record.rawDataList) ||
+    Array.isArray(nested?.rawDataList)
   ) {
     return true
   }
 
-  return !Array.isArray(config) && !config.type && !config.enabled && !config.metadata
+  return !Array.isArray(config) && !record.type && !record.enabled && !record.metadata
 }
 
 /**
@@ -277,8 +301,10 @@ export function shouldConvertConfig(config: any): boolean {
  * @param config 配置对象
  * @returns 组件类型
  */
-export function extractComponentType(config: any): string {
-  return config?.metadata?.componentType || 'unknown'
+export function extractComponentType(config: unknown): string {
+  const record = config as LooseRecord | null | undefined
+  const metadata = record?.metadata as LooseRecord | null | undefined
+  return (metadata?.componentType || 'unknown') as string
 }
 
 /**
@@ -286,7 +312,7 @@ export function extractComponentType(config: any): string {
  * @param configs 配置映射 {componentId: config}
  * @returns 转换结果映射
  */
-export function batchConvertConfigs(configs: Record<string, any>): Record<string, ComponentDataRequirement> {
+export function batchConvertConfigs(configs: Record<string, unknown>): Record<string, ComponentDataRequirement> {
   const results: Record<string, ComponentDataRequirement> = {}
 
   Object.entries(configs).forEach(([componentId, config]) => {

@@ -96,7 +96,7 @@ export class ScriptTemplateManager implements IScriptTemplateManager {
   /**
    * 根据模板生成代码
    */
-  generateCode(templateId: string, parameters: Record<string, any>): string {
+  generateCode(templateId: string, parameters: Record<string, unknown>): string {
     const template = this.templates.get(templateId)
     if (!template) {
       throw new Error(`模板不存在: ${templateId}`)
@@ -128,7 +128,7 @@ export class ScriptTemplateManager implements IScriptTemplateManager {
   /**
    * 验证参数值
    */
-  private validateParameter(param: ScriptTemplateParameter, value: any): void {
+  private validateParameter(param: ScriptTemplateParameter, value: unknown): void {
     if (value === undefined && !param.required) {
       return
     }
@@ -199,7 +199,7 @@ export class ScriptTemplateManager implements IScriptTemplateManager {
   /**
    * 格式化参数值
    */
-  private formatParameterValue(value: any, type: ScriptTemplateParameter['type']): string {
+  private formatParameterValue(value: unknown, type: ScriptTemplateParameter['type']): string {
     switch (type) {
       case 'string':
         return JSON.stringify(value)

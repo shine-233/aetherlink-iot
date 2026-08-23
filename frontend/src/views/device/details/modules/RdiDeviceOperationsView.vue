@@ -3,13 +3,14 @@
   1. 鎸傝浇鏃跺苟琛屽惎鍔ㄩ厤缃鍙栥€佸疄鏃剁姸鎬佸埛鏂板拰閬ユ祴杞锛孫TA 鍖呭垪琛ㄧ瓑鍒扮敤鎴疯繘鍏?OTA 鎿嶄綔鍖哄啀鎸夐渶鍔犺浇銆?  2. 鐢ㄦ埛鍦ㄥ悇 tab 涓慨鏀归厤缃€佹墽琛屽懡浠ゃ€佸鍑哄巻鍙叉垨鐢熸垚鍒嗕韩閾炬帴鏃讹紝缁熶竴澶嶇敤 composable 鏆撮湶鐨勫姩浣滃嚱鏁般€?  3. 璁惧 ID 鍙樺寲鏃堕噸缃垎浜€併€佹竻绌哄湪绾跨紦瀛橈紝骞堕噸鏂拌Е鍙戞暣濂?RDI 鏁版嵁瑁呰浇銆?  鍏抽敭娉ㄦ剰浜嬮」: 瀛楁鍚嶃€佸懡浠?payload銆佸垎浜涔夈€佸湪绾挎€侀檺鍒跺拰娓╁害鍗曚綅鍒囨崲蹇呴』涓?backend RDI API 淇濇寔涓€鑷淬€?  闈欐€佸鏌ュ缓璁?
   - 褰撳墠椤甸潰鑱氬悎浜嗛厤缃€侀仴娴嬨€佸巻鍙层€佸懡浠ゃ€佸垎浜簲绫婚珮鍓綔鐢ㄨ兘鍔涳紝鍚庣画鏂板閫昏緫鏃惰浼樺厛鍒ゆ柇鏄惁杩樿兘缁х画涓嬫矇鍒?composable銆?  - 璁惧鍒囨崲鍚庝細閲嶅鍚姩杞涓庡姞杞介摼璺紝寤鸿鍚庣画閲嶇偣瀹℃煡杞娓呯悊銆侀噸澶嶈姹備笌鏃х姸鎬佹畫鐣欓闄┿€?-->
 <script setup lang="ts">
-import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
-import dayjs from 'dayjs'
+import { computed, defineAsyncComponent } from 'vue'
 import { useRdiConfig } from './rdi/composables/useRdiConfig'
 import { useRdiTelemetry } from './rdi/composables/useRdiTelemetry'
 import { useRdiHistory } from './rdi/composables/useRdiHistory'
 import { useRdiCommands } from './rdi/composables/useRdiCommands'
 import { useRdiShare } from './rdi/composables/useRdiShare'
+import { useRdiDeviceBasicInfo } from './rdi/composables/useRdiDeviceBasicInfo'
+import { useRdiOnDemandLoads } from './rdi/composables/useRdiOnDemandLoads'
 import RdiTelemetrySummary from './rdi/RdiTelemetrySummary.vue'
 import RdiOperationsView from './RdiOperationsView.vue'
 
@@ -128,60 +129,16 @@ const levelOptions = computed(() => [
   { label: t('low'), value: 'low' }
 ])
 
-function toDisplayText(value: unknown) {
-  if (value === null || value === undefined) return '--'
-  const text = String(value).trim()
-  return text || '--'
-}
-
-function formatDeviceMetaTime(value: unknown) {
-  const text = toDisplayText(value)
-  if (text === '--') return text
-  const isoLikeMatch = text.match(/^(\d{4}-\d{2}-\d{2})[T\s](\d{2}:\d{2}:\d{2})/)
-  if (isoLikeMatch) return `${isoLikeMatch[1]} ${isoLikeMatch[2]}`
-  const parsed = dayjs(text)
-  return parsed.isValid() ? parsed.format('YYYY-MM-DD HH:mm:ss') : text
-}
-
-const deviceNameText = computed(() => toDisplayText(props.deviceData?.name || props.deviceData?.device_name))
-const deviceIdentifierText = computed(() => toDisplayText(props.deviceData?.device_number || props.id))
-const deviceAddedAtText = computed(() =>
-  formatDeviceMetaTime(props.deviceData?.created_at || props.deviceData?.create_time || props.deviceData?.createdAt)
-)
-const deviceLastHeartbeatText = computed(() =>
-  formatDeviceMetaTime(
-    props.onlineUpdatedAt ||
-      props.deviceData?.last_heartbeat ||
-      props.deviceData?.lastHeartbeat ||
-      props.deviceData?.update_at ||
-      props.deviceData?.updated_at
-  )
-)
-const isDeviceOnline = computed(() => {
-  const status = props.online ?? props.deviceData?.is_online ?? liveOnlineStatus.value
-  return status === 1 || status === true
+const { isDeviceOnline, basicInfoColumns } = useRdiDeviceBasicInfo({
+  deviceId,
+  online: () => props.online,
+  onlineUpdatedAt: () => props.onlineUpdatedAt,
+  deviceData: () => props.deviceData,
+  liveOnlineStatus,
+  deviceOnlineText,
+  deviceDescriptionText,
+  t
 })
-
-type BasicInfoItem = {
-  key: string
-  label: string
-  value: string
-  kind?: 'status' | 'chip'
-}
-
-const basicInfoColumns = computed<BasicInfoItem[][]>(() => [
-  [
-    { key: 'status', label: t('statusLabel'), value: deviceOnlineText.value, kind: 'status' },
-    { key: 'deviceId', label: t('deviceId'), value: deviceIdentifierText.value, kind: 'chip' },
-    { key: 'description', label: t('description'), value: deviceDescriptionText.value },
-    { key: 'addedAt', label: t('addedAt'), value: deviceAddedAtText.value }
-  ],
-  [
-    { key: 'deviceName', label: t('deviceName'), value: deviceNameText.value },
-    { key: 'firmware', label: t('firmware'), value: toDisplayText(props.deviceData?.current_version) },
-    { key: 'lastHeartbeat', label: t('lastHeartbeat'), value: deviceLastHeartbeatText.value }
-  ]
-])
 
 const dryContactHasDistinctRecoveryDelay = computed(
   () => config.dry_contact_alarm_delay !== config.dry_contact_normal_delay
@@ -195,48 +152,23 @@ const dryContactTriggerEffectiveTime = computed({
   }
 })
 
-const hasLoadedEnergyStatistics = ref(false)
-const hasRequestedOtaPackages = ref(false)
-
-async function loadEnergyStatisticsOnDemand() {
-  hasLoadedEnergyStatistics.value = true
-  await loadEnergyStatistics()
-}
-
-async function ensureOtaPackagesLoaded() {
-  if (hasRequestedOtaPackages.value || otaPackageLoading.value) return
-
-  hasRequestedOtaPackages.value = true
-  await loadOtaPackages()
-}
-
-async function reloadOtaPackages() {
-  hasRequestedOtaPackages.value = true
-  await loadOtaPackages()
-}
-
-async function loadConfigAndRefresh() {
-  await loadConfig()
-  await loadRealtimeState()
-  hasLoadedEnergyStatistics.value = true
-  await loadEnergyStatistics()
-}
-
-onMounted(() => {
-  loadConfigAndRefresh()
-  startTelemetryRefresh()
+const {
+  hasLoadedEnergyStatistics,
+  loadEnergyStatisticsOnDemand,
+  ensureOtaPackagesLoaded,
+  reloadOtaPackages,
+  loadConfigAndRefresh
+} = useRdiOnDemandLoads({
+  deviceId,
+  loadConfig,
+  loadRealtimeState,
+  loadEnergyStatistics,
+  loadOtaPackages,
+  otaPackageLoading,
+  resetShareState,
+  liveOnlineStatus,
+  startTelemetryRefresh
 })
-
-watch(
-  () => props.id,
-  () => {
-    resetShareState()
-    liveOnlineStatus.value = null
-    hasLoadedEnergyStatistics.value = false
-    loadConfigAndRefresh()
-    startTelemetryRefresh()
-  }
-)
 </script>
 
 <template>

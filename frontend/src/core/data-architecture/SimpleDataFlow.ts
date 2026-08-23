@@ -6,10 +6,23 @@
  */
 
 import { simpleDataBridge } from './SimpleDataBridge'
-import { dataSourceBindingConfig, type ComponentBindingConfig } from './DataSourceBindingConfig'
+import { dataSourceBindingConfig, type AutoBindConfig, type ComponentBindingConfig } from './DataSourceBindingConfig'
 import { createLogger } from '@/utils/logger'
 
 const logger = createLogger('SimpleDataFlow')
+
+/**
+ * 组件配置的运行时视图（历史格式宽松，具体字段运行时逐个校验）
+ */
+type SimpleFlowComponentConfig = {
+  componentType?: string
+  base?: Record<string, unknown> | null
+  dataSource?: { autoBind?: unknown; [key: string]: unknown } | null
+  component?: Record<string, unknown> | null
+  interaction?: Record<string, unknown> | null
+  autoBind?: AutoBindConfig | null
+  [key: string]: unknown
+}
 
 /**
  * 属性变更事件接口
@@ -17,8 +30,8 @@ const logger = createLogger('SimpleDataFlow')
 export interface PropertyChangeEvent {
   componentId: string
   propertyPath: string // 如 'base.deviceId' 或 'component.startTime'
-  oldValue: any
-  newValue: any
+  oldValue: unknown
+  newValue: unknown
   timestamp: number
 }
 
@@ -28,7 +41,7 @@ export interface PropertyChangeEvent {
 export interface DataSourceExecutionConfig {
   componentId: string
   componentType: string
-  httpParams: Record<string, any>
+  httpParams: Record<string, unknown>
   forceRefresh?: boolean
 }
 
@@ -39,7 +52,7 @@ export class SimpleDataFlow {
   private static instance: SimpleDataFlow | null = null
 
   // 组件配置仅通过显式 API 更新，不需要 Vue 响应式代理。
-  private componentConfigs = new Map<string, any>()
+  private componentConfigs = new Map<string, SimpleFlowComponentConfig>()
 
   // 属性变更监听器
   private propertyWatchers = new Map<string, Set<(event: PropertyChangeEvent) => void>>()
@@ -68,7 +81,7 @@ export class SimpleDataFlow {
    * @param componentId 组件ID
    * @param config 组件完整配置
    */
-  registerComponent(componentId: string, config: any): void {
+  registerComponent(componentId: string, config: SimpleFlowComponentConfig): void {
     logger.debug(`[SimpleDataFlow] 注册组件:`, { componentId, hasConfig: !!config })
     this.componentConfigs.set(componentId, config)
   }
@@ -79,9 +92,9 @@ export class SimpleDataFlow {
    * @param section 配置节 (base, component, dataSource, interaction)
    * @param newConfig 新配置内容
    */
-  updateComponentConfig(componentId: string, section: string, newConfig: any): void {
+  updateComponentConfig(componentId: string, section: string, newConfig: Record<string, unknown>): void {
     const currentConfig = this.componentConfigs.get(componentId) || {}
-    const oldSectionConfig = currentConfig[section] || {}
+    const oldSectionConfig = (currentConfig[section] || {}) as Record<string, unknown>
 
     // 更新配置
     currentConfig[section] = { ...oldSectionConfig, ...newConfig }
@@ -101,7 +114,12 @@ export class SimpleDataFlow {
   /**
    * 检查属性变更并触发数据源（如果需要）
    */
-  private checkAndTriggerDataSource(componentId: string, section: string, oldConfig: any, newConfig: any): void {
+  private checkAndTriggerDataSource(
+    componentId: string,
+    section: string,
+    oldConfig: Record<string, unknown>,
+    newConfig: Record<string, unknown>
+  ): void {
     const changedProperties: PropertyChangeEvent[] = []
 
     // 检测具体的属性变更
@@ -259,7 +277,7 @@ export class SimpleDataFlow {
    * 构建HTTP参数
    * 根据自动绑定规则将组件属性映射到HTTP参数
    */
-  private buildHttpParams(componentId: string, config: any): Record<string, any> {
+  private buildHttpParams(componentId: string, config: SimpleFlowComponentConfig): Record<string, unknown> {
     const componentType = config.componentType
 
     // 🚀 新增：检查是否有autoBind配置
@@ -276,13 +294,13 @@ export class SimpleDataFlow {
    * 按数据源、组件实例、组件类型的优先级解析 autoBind 配置。
    * 组件类型配置只保存启用状态，启用时使用兼容的 loose 模式。
    */
-  private getAutoBindConfig(config: any): import('./DataSourceBindingConfig').AutoBindConfig | null {
+  private getAutoBindConfig(config: SimpleFlowComponentConfig): AutoBindConfig | null {
     if (config.dataSource?.autoBind) {
-      return config.dataSource.autoBind
+      return config.dataSource.autoBind as AutoBindConfig
     }
 
     if (config.autoBind) {
-      return config.autoBind
+      return config.autoBind as AutoBindConfig
     }
 
     const componentConfig = dataSourceBindingConfig.getComponentConfig(config.componentType)
@@ -404,7 +422,12 @@ export class SimpleDataFlow {
   /**
    * 动态添加自动绑定规则
    */
-  addBindingRule(propertyPath: string, paramName: string, transform?: (value: any) => any, required?: boolean): void {
+  addBindingRule(
+    propertyPath: string,
+    paramName: string,
+    transform?: (value: unknown) => unknown,
+    required?: boolean
+  ): void {
     dataSourceBindingConfig.addCustomBindingRule({
       propertyPath,
       paramName,
@@ -424,7 +447,7 @@ export class SimpleDataFlow {
   /**
    * 获取绑定配置的调试信息
    */
-  getBindingDebugInfo(componentType?: string): any {
+  getBindingDebugInfo(componentType?: string) {
     return dataSourceBindingConfig.getDebugInfo(componentType)
   }
 }
