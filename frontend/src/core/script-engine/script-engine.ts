@@ -23,6 +23,7 @@ import { ScriptSandbox, defaultSandboxConfig } from '@/core/script-engine/sandbo
 import { ScriptTemplateManager } from '@/core/script-engine/template-manager'
 import { ScriptContextManager } from '@/core/script-engine/context-manager'
 import { initializeBuiltInTemplates } from '@/core/script-engine/templates/built-in-templates'
+import { assertScriptExecutionAllowed, type ScriptExecutionSource } from './execution-policy'
 
 /**
  * 主脚本引擎实现类
@@ -56,9 +57,17 @@ export class ScriptEngine implements IScriptEngine {
   }
 
   /**
-   * 快速执行脚本
+   * 快速执行脚本。
+   * 安全边界：source 标识脚本来源；'imported-config'（外部导入的看板配置）默认被
+   * execution-policy 拒绝，防止导入配置触发任意脚本执行。编辑器内建脚本不受影响。
    */
-  async execute<T = unknown>(code: string, context?: Record<string, unknown>): Promise<ScriptExecutionResult<T>> {
+  async execute<T = unknown>(
+    code: string,
+    context?: Record<string, unknown>,
+    source: ScriptExecutionSource = 'editor'
+  ): Promise<ScriptExecutionResult<T>> {
+    assertScriptExecutionAllowed(source)
+
     // 创建脚本配置
     const scriptConfig: ScriptConfig = {
       ...this.config.defaultScriptConfig,

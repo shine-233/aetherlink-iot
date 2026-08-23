@@ -10,7 +10,6 @@
  */
 
 import type { PlatformField, ThingsVisProject } from './types'
-import { localStg } from '@/utils/storage'
 import { createLogger } from '@/utils/logger'
 import { getPlatformApiBase, getThingsVisApiBase, getThingsVisStudioBaseUrl } from './constants'
 
@@ -69,6 +68,9 @@ function createThingsVisUrlParams(options: ThingsVisUrlOptions, integration: str
 }
 
 async function attachThingsVisToken(params: URLSearchParams) {
+  // 安全边界：SSO 失败时绝不回退为把平台 JWT 塞进 iframe URL hash——
+  // 该 URL 会进入浏览器历史/引用页并交给第三方页面承载，等价于泄露长期凭据。
+  // SSO 失败属于显式配置/服务故障，由上层生命周期逻辑报告 disabled / configuration-required。
   try {
     const { getThingsVisToken } = await import('./thingsvis-auth')
     const thingsvisToken = await getThingsVisToken()
@@ -76,18 +78,10 @@ async function attachThingsVisToken(params: URLSearchParams) {
       params.set('token', thingsvisToken)
       return
     }
-    attachFallbackPlatformToken(params, 'SSO failed, using AetherLink IoT token')
+    logger.warn('SSO token exchange returned no token; generating ThingsVis URL without token')
   } catch (error) {
     logger.error('SSO token exchange failed:', error)
-    attachFallbackPlatformToken(params, 'Using AetherLink IoT token fallback')
   }
-}
-
-function attachFallbackPlatformToken(params: URLSearchParams, warning: string) {
-  const tpToken = localStg.get('token')
-  if (!tpToken) return
-  params.set('token', tpToken)
-  logger.warn(warning)
 }
 
 function applyThingsVisDisplayOptions(params: URLSearchParams, options: ThingsVisUrlOptions, integration: string) {

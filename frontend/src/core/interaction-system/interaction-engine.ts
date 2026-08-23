@@ -65,24 +65,57 @@ function findComponentElement(componentId: string): VueComponentElement | null {
   return document.querySelector(`[data-component-id="${componentId}"]`) as VueComponentElement | null
 }
 
+/**
+ * 外链协议白名单：仅放行 http(s)。
+ * 交互跳转的 URL 来自可导入导出的看板配置，若不限制协议，
+ * 恶意配置可用 javascript:/data: 等伪协议在宿主页面执行任意脚本。
+ */
+function isSafeExternalUrl(rawUrl: string): boolean {
+  try {
+    const parsed = new URL(rawUrl, window.location.origin)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+/** 内部路由必须是站内相对路径，防止以内部跳转为名注入伪协议 URL。 */
+function isSafeInternalPath(internalPath: string): boolean {
+  return internalPath.startsWith('/')
+}
+
 function executeJumpAction(action: InteractionAction, message: MessageApi) {
   try {
     if (action.jumpConfig) {
       const { jumpType, url, internalPath, target = '_self' } = action.jumpConfig
 
       if (jumpType === 'external' && url) {
-        window.open(url, target)
+        if (!isSafeExternalUrl(url)) {
+          message.error(`跳转被拒绝：不允许的外链地址 ${url}`)
+          logger.warn('[InteractionEngine] 已拒绝非 http(s) 外链:', url)
+          return
+        }
+        window.open(url, target, 'noopener,noreferrer')
       } else if (jumpType === 'internal' && internalPath) {
+        if (!isSafeInternalPath(internalPath)) {
+          message.error('跳转被拒绝：内部路径必须以 / 开头')
+          logger.warn('[InteractionEngine] 已拒绝非法内部路径:', internalPath)
+          return
+        }
         if (target === '_blank') {
-          window.open(`${window.location.origin}${internalPath}`, '_blank')
+          window.open(`${window.location.origin}${internalPath}`, '_blank', 'noopener,noreferrer')
         } else {
           window.location.href = internalPath
         }
       }
     } else {
       const url = action.updateValue || ''
-      const target = action.targetProperty || '_blank'
-      window.open(url, target)
+      if (!isSafeExternalUrl(url)) {
+        message.error('跳转被拒绝：目标地址不是合法的 http(s) 链接')
+        logger.warn('[InteractionEngine] 已拒绝兜底跳转的非 http(s) 地址:', url)
+        return
+      }
+      window.open(url, action.targetProperty || '_blank', 'noopener,noreferrer')
     }
   } catch (error) {
     logger.error('[InteractionEngine] 跳转执行失败:', error)
