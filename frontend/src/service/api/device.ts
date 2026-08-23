@@ -351,9 +351,11 @@ export const expectMessageList = async (params: object) => {
 export const expectMessageDelete = async (params: string | number) => {
   return await request.delete(`/expected/data/${params}`)
 }
-// FIXME(no-explicit-any): distribution-and-table.vue 传的是裸字符串 id，而本接口契约是 { device_id }；
-// 强类型化会暴露该调用点潜在 bug（当前实际请求 /attribute/datas/undefined），修复属运行时行为变更，留待业务确认。
-export const getAttributeDataSet = async (params: any, requestConfig: CustomAxiosRequestConfig = {}) => {
+/** 属性集查询：载荷契约固定为 { device_id }；历史上曾因裸字符串调用实际请求 /attribute/datas/undefined。 */
+export const getAttributeDataSet = async (
+  params: { device_id: string | number },
+  requestConfig: CustomAxiosRequestConfig = {}
+) => {
   return await request.get(`/attribute/datas/${params.device_id}`, requestConfig)
 }
 

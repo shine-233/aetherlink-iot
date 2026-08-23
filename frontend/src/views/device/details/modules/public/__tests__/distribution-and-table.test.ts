@@ -155,6 +155,21 @@ describe('device/details/modules/public/distribution-and-table.vue', () => {
     })
   })
 
+  it('attribute dispatch dialog loads attribute set with the device_id payload contract', async () => {
+    const wrapper = mountComponent({ isCommand: false })
+    await flushPromises()
+    const state = getSetupState(wrapper)
+    vi.clearAllMocks()
+    hoisted.getAttributeDataSet.mockResolvedValue({ data: [], error: null })
+
+    await state.openDialog()
+    await flushPromises()
+
+    // 回归锚点：历史上这里误传裸字符串 id，实际请求 /attribute/datas/undefined。
+    expect(hoisted.getAttributeDataSet).toHaveBeenCalledWith({ device_id: 'device-1' })
+    expect(state.showDialog).toBe(true)
+  })
+
   it('refresh resets page and fetches data', async () => {
     const wrapper = mountComponent()
     await flushPromises()

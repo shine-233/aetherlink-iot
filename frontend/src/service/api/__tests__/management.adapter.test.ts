@@ -85,4 +85,52 @@ describe('management route adapter', () => {
       routePath: 'view.unknown broken-page'
     })
   })
+
+  it('forces layout.base on the home root and prepends the default home overview child', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+    const routes = adapterOfFetchUserRouterList([
+      {
+        ...baseMenu,
+        element_code: 'home',
+        parent_id: '0',
+        element_type: 1,
+        children: [
+          {
+            ...baseMenu,
+            id: 'menu-home-child',
+            parent_id: 'home',
+            element_code: 'management setting',
+            param1: '/management/setting',
+            route_path: 'view.management_setting'
+          } as any
+        ]
+      } as any
+    ])
+
+    expect(routes).toHaveLength(1)
+    const homeRoute = routes[0]
+    expect(homeRoute.component).toBe('layout.base')
+    const children = (homeRoute as { children?: Array<{ name?: string; component?: string }> }).children ?? []
+    expect(children[0]?.name).toBe('home_overview')
+    expect(children[0]?.component).toBe('view.home')
+    expect(children[1]?.name).toBe('management_setting')
+  })
+
+  it('marks leaf routes coming from the user router list with singleLayout base', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+
+    const routes = adapterOfFetchUserRouterList([
+      {
+        ...baseMenu,
+        element_code: 'automation space-management',
+        param1: '/automation/space-management',
+        route_path: 'view.automation space-management'
+      } as any
+    ])
+
+    expect(routes).toHaveLength(1)
+    const meta = (routes[0] as { meta?: { singleLayout?: string; hideInMenu?: boolean } }).meta
+    expect(meta?.singleLayout).toBe('base')
+  })
 })
