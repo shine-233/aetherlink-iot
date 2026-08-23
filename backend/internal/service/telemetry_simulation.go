@@ -55,7 +55,7 @@ func (*TelemetryData) ServeEchoData(req *model.ServeEchoDataReq, clientIP string
 		return nil, err
 	}
 
-	accessAddress := viper.GetString("mqtt.access_address")
+	accessAddress := viper.GetString("mqtt.broker")
 	host, port, err = parseMQTTAccessAddress(accessAddress)
 	if err != nil {
 		return nil, err
@@ -134,7 +134,7 @@ func (*TelemetryData) GetSimulationInit(deviceId string, claims *utils.UserClaim
 	}
 
 	// 获取 MQTT 服务器配置
-	accessAddress := viper.GetString("mqtt.access_address")
+	accessAddress := viper.GetString("mqtt.broker")
 	host, portText, err := parseMQTTAccessAddress(accessAddress)
 	if err != nil {
 		return nil, err
@@ -220,7 +220,7 @@ func (*TelemetryData) SimulationSend(req *model.SimulationSendReq, claims *utils
 	}
 
 	// 确定 MQTT 参数
-	accessAddress := viper.GetString("mqtt.access_address")
+	accessAddress := viper.GetString("mqtt.broker")
 	host, port, err := parseMQTTAccessAddress(accessAddress)
 	if err != nil {
 		return err
