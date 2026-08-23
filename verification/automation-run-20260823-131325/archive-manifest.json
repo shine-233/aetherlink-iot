@@ -1,0 +1,11 @@
+{
+  "archivedAt": "2026-08-23T13:13:25.345Z",
+  "command": [
+    "node",
+    "run_tests.js",
+    "--include-e2e",
+    "--workers=1"
+  ],
+  "reportSource": "C:\\Users\\Zz\\Documents\\projects\\aetherlink-iot\\automation_tests\\reports-p1iso",
+  "note": "Copied after runner completion to avoid shared reports being mistaken for durable evidence."
+}
