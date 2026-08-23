@@ -10,11 +10,15 @@ import (
 
 	"aetherlink-iot/backend/internal/query"
 	"aetherlink-iot/backend/pkg/global"
+
+	"gorm.io/gorm"
 )
 
 // StartTransaction 开启一个数据库事务，返回可用于 query 链式调用的 QueryTx
 func StartTransaction(opts ...*sql.TxOptions) (*query.QueryTx, error) {
-	tx := query.Use(global.DB).Begin(opts...)
+	// 与 application.go 的 gen 装配保持一致：事务侧同样从全新语句会话根出发，
+	// 避免 Statement.Model/Dest 跨请求继承导致 gorm 注入陈旧主键条件（P1 修复）。
+	tx := query.Use(global.DB.Session(&gorm.Session{NewDB: true})).Begin(opts...)
 	if tx.Error != nil {
 		return nil, tx.Error
 	}

@@ -67,10 +67,12 @@ func CheckSceneAutomationHasClose(id string) bool {
 	return activeCount != 1
 }
 
-func GetSceneAutomationTenantID(ctx context.Context, scene_id string) string {
+func GetSceneAutomationTenantID(ctx context.Context, scene_id string) (string, error) {
 	// Keep this query uncached so tenant ownership changes are visible immediately.
 	var tenantID string
-	query.SceneAutomation.WithContext(ctx).Where(query.SceneAutomation.ID.Eq(scene_id)).Select(query.SceneAutomation.TenantID).Scan(&tenantID)
-	return tenantID
-
+	if err := query.SceneAutomation.WithContext(ctx).Where(query.SceneAutomation.ID.Eq(scene_id)).Select(query.SceneAutomation.TenantID).Scan(&tenantID); err != nil {
+		logrus.WithError(err).WithField("scene_automation_id", scene_id).Warn("resolve scene automation tenant failed")
+		return "", err
+	}
+	return tenantID, nil
 }

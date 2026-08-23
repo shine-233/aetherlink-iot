@@ -213,6 +213,9 @@ func (srv *server) newClient(c net.Conn) (*client, error) {
 		},
 	}
 	client.packetReader = packets.NewReader(client.bufr)
+	// 连接建立的第一字节起就按服务端配置限制入站包大小，防止未认证连接用超大
+	// RemainLength 触发内存预分配；认证协商后可在 applyConnectOptions 中按需更新。
+	client.packetReader.SetMaxPacketSize(cfg.MQTT.MaxPacketSize)
 	client.packetWriter = packets.NewWriter(client.bufw)
 	client.queueNotifier = &queueNotifier{
 		dropHook: srv.hooks.OnMsgDropped,

@@ -553,7 +553,8 @@ async function createReadyCheckEmulatorDevice(accountKey = 'tenant_admin') {
   const suffix = `${Date.now().toString(36)}${crypto.randomBytes(3).toString('hex')}`;
   const voucher = JSON.stringify({
     username: `ready-check-${suffix}`.slice(0, 64),
-    password: `ready-check-${crypto.randomBytes(12).toString('hex')}`
+    // 设备凭证密码同样受 8-20 位规则约束；固定尾段保证字符类别齐全。
+    password: `ready-check-${crypto.randomBytes(2).toString('hex')}Aa1`
   });
   const createResp = await apiClient.post('/device', {
     name: makeRunLabel('ready-check-node-emulator'),
@@ -1046,6 +1047,10 @@ async function ensureReadyCheckCommandFixture(accountKey = 'tenant_admin', optio
     }
     if (templateId) {
       const deleteTemplateResp = await apiClient.delete('/device/template/' + templateId, {}, accountKey);
+      // TEMP-DIAG: 失败时输出模板 ID 以便直查数据库中残留的引用行及其租户。
+      if (!deleteTemplateResp || deleteTemplateResp.code !== 200) {
+        console.error(`[fixture-cleanup] TEMPLATE_DELETE_FAIL id=${templateId} code=${deleteTemplateResp && deleteTemplateResp.code} msg=${String(deleteTemplateResp && deleteTemplateResp.message || '').slice(0, 120)}`);
+      }
       requireSuccess(deleteTemplateResp, 'delete Ready Check fixture template');
       templateId = '';
     }

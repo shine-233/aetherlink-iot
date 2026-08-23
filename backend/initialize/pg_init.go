@@ -24,16 +24,18 @@ import (
 
 // DbConfig 描述 PostgreSQL 初始化所需的连接与日志参数。
 type DbConfig struct {
-	Host          string
-	Port          int
-	DbName        string
-	Username      string
-	Password      string
-	TimeZone      string
-	LogLevel      int
-	SlowThreshold int
-	IdleConns     int
-	OpenConns     int
+	Host            string
+	Port            int
+	DbName          string
+	Username        string
+	Password        string
+	TimeZone        string
+	LogLevel        int
+	SlowThreshold   int
+	IdleConns       int
+	OpenConns       int
+	ConnMaxLifetime time.Duration
+	ConnMaxIdleTime time.Duration
 }
 
 // PgInit 负责数据库初始化总入口，包含配置加载、重试连接、Casbin 初始化和版本检查。
@@ -122,6 +124,20 @@ func LoadDbConfig() (*DbConfig, error) {
 		config.OpenConns = 50
 	}
 
+	// 连接生命周期：限制长驻连接可规避"连接级状态污染导致旧快照读"一类问题
+	// （症状为偶发 record-not-found / delete 假成功，重启即愈）。默认 30 分钟上限、
+	// 空闲 5 分钟回收；可用 db.psql.conn_max_lifetime_seconds / conn_max_idle_time_seconds 覆盖。
+	if lifetimeSeconds := viper.GetInt("db.psql.conn_max_lifetime_seconds"); lifetimeSeconds > 0 {
+		config.ConnMaxLifetime = time.Duration(lifetimeSeconds) * time.Second
+	} else {
+		config.ConnMaxLifetime = 30 * time.Minute
+	}
+	if idleSeconds := viper.GetInt("db.psql.conn_max_idle_time_seconds"); idleSeconds > 0 {
+		config.ConnMaxIdleTime = time.Duration(idleSeconds) * time.Second
+	} else {
+		config.ConnMaxIdleTime = 5 * time.Minute
+	}
+
 	// 检查必要的配置
 	if config.DbName == "" || config.Username == "" || config.Password == "" {
 		return nil, fmt.Errorf("database configuration is incomplete")
@@ -174,7 +190,8 @@ func PgConnect(config *DbConfig) (*gorm.DB, error) {
 
 	sqlDB.SetMaxIdleConns(config.IdleConns)
 	sqlDB.SetMaxOpenConns(config.OpenConns)
-	sqlDB.SetConnMaxLifetime(time.Hour)
+	sqlDB.SetConnMaxLifetime(config.ConnMaxLifetime)
+	sqlDB.SetConnMaxIdleTime(config.ConnMaxIdleTime)
 
 	log.Println("连接数据库完成...")
 
@@ -211,6 +228,13 @@ func CheckVersion(db *gorm.DB) error {
 
 	}
 	tx := db.Begin()
+	// 关键注意事项：以下任何 return 都必须先 Rollback，否则连接池会残留
+	// 一个长期持有旧快照的 "idle in transaction" 连接，造成后续查询读到过期数据。
+	defer func() {
+		if tx != nil && tx.Statement != nil {
+			tx.Rollback()
+		}
+	}()
 	// 查询版本号
 	result = db.Table("sys_version").Select("version_number").Scan(&dataVersionNumber)
 	if result.Error != nil {

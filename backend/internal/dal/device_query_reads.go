@@ -224,6 +224,7 @@ func GetDeviceTemplateChartSelect(tenantId string) (any, error) {
 		Select(d.ID.As("device_id"), d.Name.As("device_name"), dm.WebChartConfig).Scan(&data)
 	if err != nil {
 		logrus.Error(err)
+		return nil, err
 	}
 	return data, nil
 }

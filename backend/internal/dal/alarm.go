@@ -565,25 +565,41 @@ func DeleteAlarmHistoryByConfigId(alarmConfigId string) error {
 	return err
 }
 
+// alarmHistoryScanBatchSize 控制 GetDeviceIdsByAlarmConfigId 的分批扫描窗口，
+// 避免历史表无限增长时一次性把全表载入内存。
+const alarmHistoryScanBatchSize = 1000
+
 // GetDeviceIdsByAlarmConfigId 返回触发过指定告警配置的设备 ID 去重列表。
 func GetDeviceIdsByAlarmConfigId(alarmConfigId string) ([]string, error) {
-	histories, err := query.AlarmHistory.Where(query.AlarmHistory.AlarmConfigID.Eq(alarmConfigId)).Find()
-	if err != nil {
-		return nil, err
-	}
+	hq := query.AlarmHistory
 	deviceSet := make(map[string]struct{})
-	for _, h := range histories {
-		var deviceIds []string
-		if h.AlarmDeviceList != "" {
-			if err := json.Unmarshal([]byte(h.AlarmDeviceList), &deviceIds); err != nil {
-				// 解析失败按空列表继续去重流程；带上配置与记录 ID 便于定位脏数据行。
-				logrus.Warnf("alarm history alarm_device_list 解析失败: err=%v alarm_config_id=%s history_id=%s",
-					err, h.AlarmConfigID, h.ID)
+	lastID := ""
+	for {
+		q := hq.Where(hq.AlarmConfigID.Eq(alarmConfigId))
+		if lastID != "" {
+			q = q.Where(hq.ID.Gt(lastID))
+		}
+		batch, err := q.Select(hq.ID, hq.AlarmDeviceList).Order(hq.ID).Limit(alarmHistoryScanBatchSize).Find()
+		if err != nil {
+			return nil, err
+		}
+		for _, h := range batch {
+			var deviceIds []string
+			if h.AlarmDeviceList != "" {
+				if err := json.Unmarshal([]byte(h.AlarmDeviceList), &deviceIds); err != nil {
+					// 解析失败按空列表继续去重流程；带上配置与记录 ID 便于定位脏数据行。
+					logrus.Warnf("alarm history alarm_device_list 解析失败: err=%v alarm_config_id=%s history_id=%s",
+						err, h.AlarmConfigID, h.ID)
+				}
+			}
+			for _, did := range deviceIds {
+				deviceSet[did] = struct{}{}
 			}
 		}
-		for _, did := range deviceIds {
-			deviceSet[did] = struct{}{}
+		if len(batch) < alarmHistoryScanBatchSize {
+			break
 		}
+		lastID = batch[len(batch)-1].ID
 	}
 	result := make([]string, 0, len(deviceSet))
 	for did := range deviceSet {

@@ -376,17 +376,24 @@ func (*DeviceGroup) GetDeviceGroupByDeviceId(device_id string, claims *utils.Use
 	}
 	var rspData = []map[string]interface{}{}
 	data, err := dal.GetRGroupDeviceByDeviceId(device_id)
-	// 分组名称处理成 parent/child/current 这种层级路径。
+	if err != nil {
+		return nil, err
+	}
+	// 分组名称处理成 parent/child/current 这种层级路径；批量一次查询避免 N+1。
+	groupIDs := make([]string, 0, len(data))
 	for i := range data {
-		tier, err := dal.GetDeviceGroupTierById(data[i].GroupID)
-		if err != nil {
-			return nil, err
-		}
+		groupIDs = append(groupIDs, data[i].GroupID)
+	}
+	tiers, err := dal.GetDeviceGroupTierByIds(groupIDs)
+	if err != nil {
+		return nil, err
+	}
+	for i := range data {
 		rspData = append(rspData, map[string]interface{}{
 			"group_id": data[i].GroupID,
-			"tier":     tier["group_path"],
+			"tier":     tiers[data[i].GroupID],
 		})
 	}
 
-	return rspData, err
+	return rspData, nil
 }

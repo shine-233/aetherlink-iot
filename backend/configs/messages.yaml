@@ -110,6 +110,9 @@ messages:
   200015:
     zh_CN: "用户邮箱不存在"
     en_US: "User email not found"
+  200016:
+    zh_CN: "超级管理员已存在，无需重复初始化"
+    en_US: "Super admin already exists. Initialization is no longer allowed"
 
   # 密码相关错误 (200040-200049)
   200040:
@@ -229,6 +232,9 @@ messages:
   201002:
     zh_CN: "操作权限不足"
     en_US: "Insufficient Permissions"
+  201003:
+    zh_CN: "请求过于频繁，请稍后再试"
+    en_US: "Too many requests. Please try again later"
 
   # 文件上传模块错误 (202xxx)
   202001:

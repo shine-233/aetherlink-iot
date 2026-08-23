@@ -226,7 +226,8 @@ func (client *client) write(packets packets.Packet) {
 }
 
 func (client *client) validateIncomingPacketSize(packet packets.Packet) *codes.Error {
-	if client.version != packets.Version5 || client.opts.ServerMaxPacketSize == 0 {
+	// v3 与 v5 统一执行后置校验；预分配阶段的上限已在 packetReader 中生效。
+	if client.opts.ServerMaxPacketSize == 0 {
 		return nil
 	}
 	if packets.TotalBytes(packet) <= client.opts.ServerMaxPacketSize {

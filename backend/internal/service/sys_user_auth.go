@@ -480,11 +480,17 @@ func buildOptionalEmailRegisterPhoneNumber(phonePrefix, phoneNumber string) stri
 }
 
 func verifyEmailRegisterCode(email, verifyCode string) error {
-	verificationCode, err := global.REDIS.Get(context.Background(), email+"_code").Result()
+	ctx := context.Background()
+	// 失败次数达到上限的验证码立即作废，防止 6 位数字码在有效期内被暴力枚举。
+	if err := ensureVerificationCodeAttemptsAllowed(ctx, email); err != nil {
+		return err
+	}
+	verificationCode, err := global.REDIS.Get(ctx, email+"_code").Result()
 	if err != nil {
 		return errcode.New(200011)
 	}
 	if subtle.ConstantTimeCompare([]byte(verificationCode), []byte(verifyCode)) != 1 {
+		registerVerificationCodeFailure(ctx, email)
 		return errcode.New(200012)
 	}
 	return nil

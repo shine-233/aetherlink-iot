@@ -94,7 +94,12 @@ automation_tests/output/
 automation_tests/.locks/
 automation_tests/e2e/.auth/
 automation_tests/.local/
+automation_tests/.local-*/
+automation_tests/reports-*/
 .playwright-cli/
+
+# Temporary diagnostic probe tests may embed real local DSNs; keep them local.
+*_probe_test.go
 
 # Automation evidence is generated outside the public source package.
 automation_tests/verification/

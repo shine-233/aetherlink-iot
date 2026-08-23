@@ -7,6 +7,7 @@ package packets
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"testing"
 )
 
@@ -242,5 +243,57 @@ func TestTopicMatch(t *testing.T) {
 		if isMatch := TopicMatch([]byte(v.topic), []byte(v.subTopic)); isMatch != v.isMatch {
 			t.Fatalf("TopicMatch(%s,%s) error,want %t, but %t", v.topic, v.subTopic, v.isMatch, isMatch)
 		}
+	}
+}
+
+func TestReadPacketRejectsOversizedRemainLengthBeforeAllocation(t *testing.T) {
+	// PUBLISH 首字节 0x30 + varint(2048)=0x80,0x10，声明 2048 字节但不提供任何 payload。
+	// 若在预分配前没有上限拦截，Unpack 会先 make(2048) 再等待/耗尽输入。
+	raw := []byte{0x30, 0x80, 0x10}
+	r := NewReader(bufio.NewReader(bytes.NewReader(raw)))
+	r.SetMaxPacketSize(1024)
+
+	p, err := r.ReadPacket()
+	if !errors.Is(err, ErrPacketTooLarge) {
+		t.Fatalf("ReadPacket error = %v, want ErrPacketTooLarge", err)
+	}
+	if p != nil {
+		t.Fatalf("ReadPacket packet = %v, want nil", p)
+	}
+}
+
+func TestReadPacketSizeLimitAppliesToDefaultV3Reader(t *testing.T) {
+	// 默认 Reader 即 v3 客户端语义，必须同样受预分配上限约束（历史缺陷：仅 v5 后置校验）。
+	raw := []byte{0x30, 0x80, 0x80, 0x01} // 声明 RemainLength=16384
+	r := NewReader(bufio.NewReader(bytes.NewReader(raw)))
+	r.SetMaxPacketSize(1024)
+
+	if _, err := r.ReadPacket(); !errors.Is(err, ErrPacketTooLarge) {
+		t.Fatalf("v3 reader ReadPacket error = %v, want ErrPacketTooLarge", err)
+	}
+}
+
+func TestReadPacketAllowsPacketWithinLimit(t *testing.T) {
+	raw := appendPacket(0xC0) // PINGREQ, remain length 0
+	r := NewReader(bufio.NewReader(bytes.NewReader(raw)))
+	r.SetMaxPacketSize(1024)
+
+	p, err := r.ReadPacket()
+	if err != nil {
+		t.Fatalf("ReadPacket error = %v, want nil", err)
+	}
+	if _, ok := p.(*Pingreq); !ok {
+		t.Fatalf("packet type = %T, want *Pingreq", p)
+	}
+}
+
+func TestReadPacketZeroLimitKeepsUnlimitedBehavior(t *testing.T) {
+	// maxPacketSize=0 保持"不限制"语义：超限报文不再被预检拒绝，
+	// 而是因 payload 缺失以读取错误失败（与历史行为一致）。
+	raw := []byte{0x30, 0x80, 0x10}
+	r := NewReader(bufio.NewReader(bytes.NewReader(raw)))
+
+	if _, err := r.ReadPacket(); errors.Is(err, ErrPacketTooLarge) {
+		t.Fatalf("zero limit should not trigger ErrPacketTooLarge, got %v", err)
 	}
 }

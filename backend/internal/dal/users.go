@@ -249,39 +249,74 @@ func GetUsersById(uid string) (*model.User, error) {
 	return user, err
 }
 
+// GetUserByIdWithAddress 返回用户资料、可选地址与角色列表。
+// 实现说明（2026-08-23 重写）：历史上这里用单条 LEFT JOIN + 跨表 Scan 组装，
+// 高负载下曾出现"行存在却扫描为空"的间歇性 record-not-found（详见
+// VALIDATION.md 2026-08-23 P1 记录：合并跑批后 /user/detail 假报 101001，重启即愈）。
+// 现拆为两条简单查询：用户主行使用与 JWT 中间件一致的 First 模式，地址按 user_id
+// 独立查询；无地址行时 address=nil。响应字段契约仍由 buildUserWithAddressMap 统一保证。
 func GetUserByIdWithAddress(uid string) (map[string]interface{}, error) {
+	uid = strings.TrimSpace(uid)
+	if uid == "" {
+		return nil, gorm.ErrRecordNotFound
+	}
+
 	q := query.User
-	qa := query.UserAddress
-
-	var result userWithAddressRow
-	err := q.WithContext(context.Background()).
-		LeftJoin(qa, q.ID.EqCol(qa.UserID)).
-		Where(q.ID.Eq(uid)).
-		Select(
-			q.ID, q.Name, q.PhoneNumber, q.Email, q.Status, q.Authority, q.TenantID, q.Remark,
-			q.AdditionalInfo, q.Organization, q.Timezone, q.DefaultLanguage,
-			q.CreatedAt, q.UpdatedAt, q.PasswordLastUpdated, q.LastVisitTime, q.LastVisitIP, q.LastVisitDevice, q.PasswordFailCount, q.AvatarURL,
-			qa.ID.As("address_id"),
-			qa.Country.As("address_country"), qa.Province.As("address_province"), qa.City.As("address_city"),
-			qa.District.As("address_district"), qa.Street.As("address_street"),
-			qa.DetailedAddress.As("address_detailed_address"), qa.PostalCode.As("address_postal_code"),
-			qa.AddressLabel.As("address_label"), qa.Longitude.As("address_longitude"),
-			qa.Latitude.As("address_latitude"), qa.AdditionalInfo.As("address_additional_info"),
-			qa.CreatedTime.As("address_created_time"), qa.UpdatedTime.As("address_updated_time"),
-		).
-		Scan(&result)
-
+	user, err := q.Where(q.ID.Eq(uid)).First()
 	if err != nil {
 		return nil, err
 	}
 
-	// 如果没有找到用户记录（ID为空），返回记录不存在错误
-	if result.ID == "" {
-		return nil, gorm.ErrRecordNotFound
+	qa := query.UserAddress
+	var addresses []model.UserAddress
+	if err := qa.Where(qa.UserID.Eq(uid)).Order(qa.ID).Limit(1).Scan(&addresses); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	var addressRow *model.UserAddress
+	if len(addresses) > 0 {
+		addressRow = &addresses[0]
 	}
 
-	// 获取用户角色
-	roles, _ := GetRolesByUserId(result.ID)
+	result := userWithAddressRow{
+		ID:                  user.ID,
+		Name:                user.Name,
+		PhoneNumber:         user.PhoneNumber,
+		Email:               user.Email,
+		Status:              user.Status,
+		Authority:           user.Authority,
+		TenantID:            user.TenantID,
+		Remark:              user.Remark,
+		AdditionalInfo:      user.AdditionalInfo,
+		Organization:        user.Organization,
+		Timezone:            user.Timezone,
+		DefaultLanguage:     user.DefaultLanguage,
+		CreatedAt:           user.CreatedAt,
+		UpdatedAt:           user.UpdatedAt,
+		PasswordLastUpdated: user.PasswordLastUpdated,
+		LastVisitTime:       user.LastVisitTime,
+		LastVisitIP:         user.LastVisitIP,
+		LastVisitDevice:     user.LastVisitDevice,
+		PasswordFailCount:   user.PasswordFailCount,
+		AvatarURL:           user.AvatarURL,
+	}
+	if addressRow != nil {
+		result.AddressID = &addressRow.ID
+		result.Country = addressRow.Country
+		result.Province = addressRow.Province
+		result.City = addressRow.City
+		result.District = addressRow.District
+		result.Street = addressRow.Street
+		result.DetailedAddress = addressRow.DetailedAddress
+		result.PostalCode = addressRow.PostalCode
+		result.AddressLabel = addressRow.AddressLabel
+		result.Longitude = addressRow.Longitude
+		result.Latitude = addressRow.Latitude
+		result.AddressAdditionalInfo = addressRow.AdditionalInfo
+		result.AddressCreatedTime = addressRow.CreatedTime
+		result.AddressUpdatedTime = addressRow.UpdatedTime
+	}
+
+	roles, _ := GetRolesByUserId(user.ID)
 
 	return buildUserWithAddressMap(result, roles), nil
 }
@@ -561,7 +596,7 @@ func (UserQuery) CountByWhere(ctx context.Context, option ...gen.Condition) (cou
 	return
 }
 
-func (UserQuery) GroupByMonthCount(ctx context.Context, email *string, authorityFilter bool) (list []*model.GetBoardUserListMonth) {
+func (UserQuery) GroupByMonthCount(ctx context.Context, email *string, authorityFilter bool) (list []*model.GetBoardUserListMonth, err error) {
 	var (
 		db = global.DB.WithContext(ctx)
 	)
@@ -577,7 +612,10 @@ func (UserQuery) GroupByMonthCount(ctx context.Context, email *string, authority
 		conn = conn.Where("authority = ?", "TENANT_ADMIN")
 	}
 
-	conn.Scan(&list)
+	err = conn.Scan(&list).Error
+	if err != nil {
+		logrus.Error(ctx, err)
+	}
 
 	return
 }

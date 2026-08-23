@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"aetherlink-iot/backend/pkg/constant"
@@ -617,10 +618,30 @@ func shouldSkipMarketCheck(req *model.SuperAdminInitReq) bool {
 	return strings.EqualFold(requestEmail, marketEmail)
 }
 
+// superAdminInitMu 串行化超管初始化，覆盖单实例部署下的并发初始化竞态。
+var superAdminInitMu sync.Mutex
+
 func (u *User) InitSuperAdmin(ctx context.Context, req *model.SuperAdminInitReq) (*model.LoginRsp, error) {
 	if req == nil {
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "super admin init request is required")
 	}
+	// 服务端硬门禁：只要实例上已存在任意 SYS_ADMIN，一律拒绝再次初始化。
+	// 该检查只依赖数据库状态，不依赖任何客户端可控字段；市场跳过分支仅影响
+	// "谁有资格成为第一个超管"，不能越过本门禁。
+	superAdminInitMu.Lock()
+	defer superAdminInitMu.Unlock()
+
+	hasAdmin, err := u.CheckSysAdminExists()
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"operation": "check_sys_admin_exists",
+			"error":     err.Error(),
+		})
+	}
+	if hasAdmin {
+		return nil, errcode.New(errcode.CodeSuperAdminExists)
+	}
+
 	requestEmail := strings.TrimSpace(req.Email)
 	marketEmail := strings.TrimSpace(req.MarketEmail)
 	if err := validateSuperAdminMarketEmail(req, requestEmail, marketEmail); err != nil {

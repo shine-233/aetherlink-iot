@@ -43,6 +43,9 @@ func TestOptionalHeavyPluginsRemainCompiledButDisabledByDefault(t *testing.T) {
 // TestDefaultMQTTListenerUsesAetherLinkAuthentication locks the deployed path:
 // Compose mounts the checked-in daemon config, which enables AetherLink's
 // OnBasicAuth hook while keeping anonymous fallback and admin disabled.
+// OnWillPublishWrapper 也属于默认安全边界：will message 必须经过同一插件授权，
+// 该契约防止后续重构把遗嘱钩子从 HookWrapper 中悄悄移除。
+// Go 源码标记使用空白归一化匹配，gofmt 对齐调整不再破坏契约检查。
 func TestDefaultMQTTListenerUsesAetherLinkAuthentication(t *testing.T) {
 	read := func(path string) string {
 		t.Helper()
@@ -52,12 +55,15 @@ func TestDefaultMQTTListenerUsesAetherLinkAuthentication(t *testing.T) {
 		}
 		return strings.ReplaceAll(string(content), "\r\n", "\n")
 	}
+	normalizeWhitespace := func(source string) string {
+		return strings.Join(strings.Fields(source), " ")
+	}
 
 	config := read("cmd/gmqttd/default_config.yml")
 	compose := read("../docker-compose.yml")
-	hooks := read("plugin/aetherlink/hooks.go")
-	mqttConfig := read("config/mqtt.go")
-	clientConnect := read("server/client_connect.go")
+	hooks := normalizeWhitespace(read("plugin/aetherlink/hooks.go"))
+	mqttConfig := normalizeWhitespace(read("config/mqtt.go"))
+	clientConnect := normalizeWhitespace(read("server/client_connect.go"))
 
 	for marker, source := range map[string]string{
 		`- address: ":1883"`:     config,
@@ -66,8 +72,9 @@ func TestDefaultMQTTListenerUsesAetherLinkAuthentication(t *testing.T) {
 		"\n  #- auth #":  config,
 		"\n  #- admin #": config,
 		"./mqtt-broker/cmd/gmqttd/default_config.yml:/gmqttd/default_config.yml:ro": compose,
-		`OnBasicAuthWrapper:  t.OnBasicAuthWrapper`:                                 hooks,
-		`AllowAnonymous:             false`:                                         mqttConfig,
+		`OnBasicAuthWrapper: t.OnBasicAuthWrapper`:                                  hooks,
+		`OnWillPublishWrapper: t.OnWillPublishWrapper`:                              hooks,
+		`AllowAnonymous: false`:                                                     mqttConfig,
 		`if client.config.MQTT.AllowAnonymous {`:                                    clientConnect,
 		`Code: codes.NotAuthorized`:                                                 clientConnect,
 	} {

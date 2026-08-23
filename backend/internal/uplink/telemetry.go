@@ -27,6 +27,8 @@ import (
 const (
 	defaultTelemetryWSPublishQueueSize = 4096
 	defaultTelemetryWSPublishWorkers   = 4
+	// 遥测自动化副作用的最大并发数；与 wsPublish 消费者规模同量级，防止 goroutine 无界。
+	defaultTelemetryAutomationMaxConcurrency = 64
 )
 
 // TelemetryUplink 负责消费遥测上行消息并写入存储链路。
@@ -39,6 +41,9 @@ type TelemetryUplink struct {
 	wsPublishQueue   chan telemetryWSPublishTask
 	wsPublishWorkers int
 	wsPublishDropped uint64
+	// 自动化副作用并发闸门：防止突发洪峰下每条遥测裸起 goroutine 导致无界增长。
+	automationSem     chan struct{}
+	automationDropped uint64
 
 	// ctx/cancel 控制后台消费协程生命周期。
 	ctx    context.Context
@@ -54,6 +59,8 @@ type TelemetryUplinkConfig struct {
 	Logger             *logrus.Logger
 	WSPublishQueueSize int
 	WSPublishWorkers   int
+	// AutomationMaxConcurrency 限制同时执行的遥测自动化副作用数量；超限时丢弃并计数。
+	AutomationMaxConcurrency int
 }
 
 type telemetryWSPublishTask struct {
@@ -75,6 +82,9 @@ func NewTelemetryUplink(config TelemetryUplinkConfig) *TelemetryUplink {
 	if config.WSPublishWorkers <= 0 {
 		config.WSPublishWorkers = defaultTelemetryWSPublishWorkers
 	}
+	if config.AutomationMaxConcurrency <= 0 {
+		config.AutomationMaxConcurrency = defaultTelemetryAutomationMaxConcurrency
+	}
 
 	return &TelemetryUplink{
 		processor:        config.Processor,
@@ -83,6 +93,7 @@ func NewTelemetryUplink(config TelemetryUplinkConfig) *TelemetryUplink {
 		logger:           config.Logger,
 		wsPublishQueue:   make(chan telemetryWSPublishTask, config.WSPublishQueueSize),
 		wsPublishWorkers: config.WSPublishWorkers,
+		automationSem:    make(chan struct{}, config.AutomationMaxConcurrency),
 		ctx:              ctx,
 		cancel:           cancel,
 		done:             make(chan struct{}),
@@ -431,7 +442,29 @@ func (f *TelemetryUplink) publishTelemetryWebSocket(device *model.Device, trigge
 }
 
 func (f *TelemetryUplink) executeTelemetryAutomation(device *model.Device, triggerParam []string, triggerValues map[string]interface{}) {
+	select {
+	case <-f.ctx.Done():
+		return
+	default:
+	}
+	select {
+	case f.automationSem <- struct{}{}:
+	case <-f.ctx.Done():
+		return
+	default:
+		dropped := atomic.AddUint64(&f.automationDropped, 1)
+		if dropped == 1 || dropped%1000 == 0 {
+			f.logger.WithFields(logrus.Fields{
+				"device_id":    device.ID,
+				"dropped":      dropped,
+				"max_inflight": cap(f.automationSem),
+			}).Warn("Telemetry automation concurrency limit reached, dropping automation execution")
+		}
+		return
+	}
+
 	go func() {
+		defer func() { <-f.automationSem }()
 		err := service.GroupApp.Execute(device, service.AutomateFromExt{
 			TriggerParamType: model.TRIGGER_PARAM_TYPE_TEL,
 			TriggerParam:     triggerParam,

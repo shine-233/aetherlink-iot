@@ -43,7 +43,12 @@ func NewApplication(options ...Option) (*Application, error) {
 	}
 
 	if app.DB != nil {
-		query.SetDefault(app.DB)
+		// P1 修复（2026-08-23，见 VALIDATION.md）：gen 单例链必须从"全新语句"会话根出发。
+		// gorm 的 Statement.clone() 只清空 Clauses/Preloads，其余字段（含 Model/Dest）按值继承；
+		// 一旦某次执行的 Model 残留非零主键，后续并发请求的 UPDATE/DELETE 会被 gorm 以
+		// Dest != Model 为条件注入陈旧主键 WHERE（症状：间歇 record-not-found / 假成功删除）。
+		// Session{NewDB:true} 使每个链式起点都拿到从未被写入的全新 Statement，切断跨请求继承。
+		query.SetDefault(app.DB.Session(&gorm.Session{NewDB: true}))
 	}
 
 	return app, nil

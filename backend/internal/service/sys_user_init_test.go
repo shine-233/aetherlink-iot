@@ -205,3 +205,53 @@ func TestEnsureSuperAdminMarketAccountSkipsConfirmedMarketReturn(t *testing.T) {
 		t.Fatalf("ensureSuperAdminMarketAccount() error = %v, want nil", err)
 	}
 }
+
+func TestInitSuperAdminRejectsWhenSysAdminExistsEvenWithMarketSkipFields(t *testing.T) {
+	db := setupSysUserAuthorizationTestDB(t)
+	seedSysUserAuthorizationUser(t, db, "first-sys-admin", "", "SYS_ADMIN")
+
+	req := &model.SuperAdminInitReq{
+		Email:            "attacker@example.com",
+		Password:         "Str0ng!Passw0rd",
+		MarketRegistered: true,
+		MarketEmail:      "attacker@example.com",
+	}
+
+	rsp, err := (&User{}).InitSuperAdmin(context.Background(), req)
+
+	assertErrcodeError(t, err, "init super admin when sys admin exists", errcode.CodeSuperAdminExists, "")
+	if rsp != nil {
+		t.Fatalf("InitSuperAdmin rsp = %+v, want nil", rsp)
+	}
+
+	var count int64
+	if err := db.Model(&model.User{}).Where("authority = ?", "SYS_ADMIN").Count(&count).Error; err != nil {
+		t.Fatalf("count sys admin users: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("sys admin user count = %d, want 1 (no second admin may be created)", count)
+	}
+}
+
+func TestInitSuperAdminGateRunsBeforeAnyWriteOrLoginSideEffects(t *testing.T) {
+	db := setupSysUserAuthorizationTestDB(t)
+	seedSysUserAuthorizationUser(t, db, "first-sys-admin", "", "SYS_ADMIN")
+
+	req := &model.SuperAdminInitReq{
+		Email:            "second@example.com",
+		Password:         "not-even-validated!",
+		MarketRegistered: false,
+	}
+
+	if _, err := (&User{}).InitSuperAdmin(context.Background(), req); err == nil {
+		t.Fatalf("InitSuperAdmin should fail when a SYS_ADMIN already exists")
+	}
+
+	var count int64
+	if err := db.Model(&model.User{}).Where("email = ?", "second@example.com").Count(&count).Error; err != nil {
+		t.Fatalf("count new user rows: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("new user rows = %d, want 0 (gate must run before any write)", count)
+	}
+}

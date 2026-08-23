@@ -18,12 +18,18 @@ const { createServer } = require('./serve_preview_with_api_proxy');
 const DEFAULT_PREVIEW_HOST = '127.0.0.1';
 const DEFAULT_PREVIEW_PORT = 9725;
 
-function resolveLocalPreflightOptions({ env = process.env } = {}) {
+function resolveLocalPreflightOptions({ env = process.env, config = {} } = {}) {
   const previewPort = Number(env.PREVIEW_PORT || env.PREVIEW_PROXY_PORT || DEFAULT_PREVIEW_PORT);
   const previewHost = env.PREVIEW_PROXY_HOST || DEFAULT_PREVIEW_HOST;
   const previewURL = `http://${previewHost}:${previewPort}`;
+  // 目标解析优先级：调用方 env > 调用方 config > 进程级 runtime 默认 > 字面默认。
+  // 不能直接落到 networkConfig（它在模块加载时已吸收真实 process.env），
+  // 否则纯函数在带环境变量的宿主进程里无法得到可预测的默认值（00_preflight_local 契约）。
   const baseURL = new URL(
-    env.API_BASE_URL || networkConfig.baseURL || 'http://127.0.0.1:9999/api/v1'
+    env.API_BASE_URL ||
+      config.baseURL ||
+      networkConfig.baseURL ||
+      'http://127.0.0.1:9999/api/v1'
   );
   const apiTarget = env.API_TARGET || baseURL.origin;
 
@@ -35,7 +41,7 @@ function resolveLocalPreflightOptions({ env = process.env } = {}) {
     distDir: env.PREVIEW_DIST_DIR || path.resolve(__dirname, '..', '..', 'frontend', 'dist'),
     config: {
       ...networkConfig,
-      baseURL: env.API_BASE_URL || networkConfig.baseURL,
+      baseURL: env.API_BASE_URL || config.baseURL || networkConfig.baseURL,
       healthURL: env.HEALTH_URL || networkConfig.healthURL,
       frontendURL: previewURL
     },

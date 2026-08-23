@@ -11,6 +11,7 @@ import (
 
 // publishHandler 处理客户端入站 PUBLISH：能力校验、topic alias 解析、QoS2 去重、retained 存储、订阅投递和 PUBACK/PUBREC。
 // 审查建议：这是 client.go 中风险最高的拆分点之一；后续应只先搬移纯 helper，并保留 ack code 与 hook 顺序。
+// 安全边界：retained 存储必须在 OnMsgArrived 授权之后执行，被插件拒绝的消息不得写入或清除 retained trie。
 func (client *client) publishHandler(pub *packets.Publish) *codes.Error {
 	msg, codeErr := client.validatePublish(pub)
 	if codeErr != nil {
@@ -22,9 +23,11 @@ func (client *client) publishHandler(pub *packets.Publish) *codes.Error {
 		return codeErr
 	}
 
-	client.storeRetainedPublish(pub, msg)
-
 	topicMatched, hookErr := client.deliverPublish(pub, msg, dup)
+
+	if codeErr := client.storeRetainedAfterAuthorization(pub, msg, dup, hookErr); codeErr != nil {
+		return codeErr
+	}
 	return client.writePublishAck(pub, topicMatched, hookErr)
 }
 
@@ -90,16 +93,23 @@ func (client *client) trackQoS2Publish(pub *packets.Publish) (bool, *codes.Error
 	return exist, nil
 }
 
-func (client *client) storeRetainedPublish(pub *packets.Publish, msg *gmqtt.Message) {
+// storeRetainedAfterAuthorization 在投递授权（OnMsgArrived）之后处理 retained 存储。
+// 安全语义：msg 为 nil（钩子丢弃）或 hookErr 非空（插件拒绝）时，既不写入也不清除
+// retained trie，防止设备向未授权主题注入/删除保留消息；QoS2 重复包不再重复存储。
+func (client *client) storeRetainedAfterAuthorization(pub *packets.Publish, msg *gmqtt.Message, dup bool, hookErr error) *codes.Error {
 	if !pub.Retain {
-		return
+		return nil
+	}
+	if dup || msg == nil || hookErr != nil {
+		return nil
 	}
 
 	if len(pub.Payload) == 0 {
 		client.server.retainedDB.Remove(string(pub.TopicName))
-		return
+		return nil
 	}
 	client.server.retainedDB.AddOrReplace(msg.Copy())
+	return nil
 }
 
 // deliverPublish 调用 OnMsgArrived hook 后执行订阅匹配投递。
