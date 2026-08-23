@@ -173,7 +173,8 @@ describe('设备配置与OpenAPI密钥模块 [15_device_config_openapi]', functi
       expect(list.length).to.be.at.least(1);
       const seeded = list.find((item) => item.id === openApiKeyId);
       expect(seeded, 'seeded open api key must be visible in the list').to.be.an('object');
-      expect(seeded.api_key).to.be.a('string').and.not.equal('');
+      // 密钥脱敏契约：列表行不再携带明文 api_key（迁移 49 后仅存摘要）。
+      expect(seeded.api_key == null || seeded.api_key === '').to.be.true;
     });
   });
 
@@ -189,7 +190,14 @@ describe('设备配置与OpenAPI密钥模块 [15_device_config_openapi]', functi
       const created = await findOpenApiKeyByName(name);
       expect(created).to.be.an('object');
       expect(created.tenant_id).to.equal(tenantId);
-      expect(created.api_key).to.be.a('string').and.not.equal('');
+      // 密钥脱敏契约（迁移 49 + c739086）：列表/详情不再返回明文 api_key，
+      // 仅存储与查询摘要；明文只在创建响应中出现一次（如后端提供）。
+      const rawKeyFromCreate = resp.data && resp.data.data && resp.data.data.api_key;
+      if (typeof rawKeyFromCreate === 'string' && rawKeyFromCreate !== '') {
+        expect(created.api_key).to.not.equal(rawKeyFromCreate);
+      } else {
+        expect(created.api_key == null || created.api_key === '').to.be.true;
+      }
       expect(created.status).to.equal(1);
       openApiKeyId = created.id;
     });
