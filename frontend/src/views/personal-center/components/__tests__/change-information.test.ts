@@ -8,6 +8,16 @@ import { defineComponent, h } from 'vue'
 import { flushPromises, shallowMount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+interface ChangeInformationVm {
+  title: string
+  estimate: string
+  formData: { name: string; old_password: string; password: string; passwords: string }
+  closeModal: () => void
+  editName: () => Promise<unknown>
+  password: () => Promise<unknown>
+  submit: () => Promise<unknown>
+}
+
 const hoisted = vi.hoisted(() => ({
   changeInformation: vi.fn(),
   passwordModification: vi.fn()
@@ -112,7 +122,7 @@ const mountComponent = (propsOverrides = {}) => {
   return wrapper
 }
 
-const getState = (wrapper: ReturnType<typeof shallowMount>) => wrapper.vm.$.setupState as Record<string, any>
+const getState = (wrapper: ReturnType<typeof shallowMount>) => wrapper.vm.$.setupState as Record<string, unknown>
 
 describe('ChangeInformation', () => {
   beforeEach(() => {
@@ -126,7 +136,7 @@ describe('ChangeInformation', () => {
 
   it('should mount with default state', () => {
     const wrapper = mountComponent()
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as ChangeInformationVm
     expect(vm.formData.name).toBe('')
     expect(vm.formData.old_password).toBe('')
     expect(vm.formData.password).toBe('')
@@ -135,31 +145,31 @@ describe('ChangeInformation', () => {
 
   it('should compute title for amend type', () => {
     const wrapper = mountComponent({ type: 'amend' })
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as ChangeInformationVm
     expect(vm.title).toBe('custom.personalCenter.modifyBasicInfo')
   })
 
   it('should compute title for changePassword type', () => {
     const wrapper = mountComponent({ type: 'changePassword' })
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as ChangeInformationVm
     expect(vm.title).toBe('custom.personalCenter.changePassword')
   })
 
   it('should compute estimate for amend type', () => {
     const wrapper = mountComponent({ type: 'amend' })
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as ChangeInformationVm
     expect(vm.estimate).toBe('amend')
   })
 
   it('should compute estimate for changePassword type', () => {
     const wrapper = mountComponent({ type: 'changePassword' })
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as ChangeInformationVm
     expect(vm.estimate).toBe('changePassword')
   })
 
   it('should close modal and reset name', () => {
     const wrapper = mountComponent({ visible: true })
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as ChangeInformationVm
     vm.formData.name = 'Test'
     vm.closeModal()
     expect(vm.formData.name).toBe('')
@@ -167,7 +177,7 @@ describe('ChangeInformation', () => {
 
   it('should emit update:visible when closing modal', () => {
     const wrapper = mountComponent({ visible: true })
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as ChangeInformationVm
     vm.closeModal()
     expect(wrapper.emitted('update:visible')).toEqual([[false]])
   })
@@ -175,7 +185,7 @@ describe('ChangeInformation', () => {
   it('should submit name change for amend type', async () => {
     hoisted.changeInformation.mockResolvedValue({ error: null })
     const wrapper = mountComponent({ type: 'amend', visible: true })
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as ChangeInformationVm
     vm.formData.name = 'NewName'
     await vm.editName()
     await flushPromises()
@@ -185,7 +195,7 @@ describe('ChangeInformation', () => {
   it('should emit modification with name after successful name change', async () => {
     hoisted.changeInformation.mockResolvedValue({ error: null })
     const wrapper = mountComponent({ type: 'amend', visible: true })
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as ChangeInformationVm
     vm.formData.name = 'NewName'
     await vm.editName()
     await flushPromises()
@@ -195,7 +205,7 @@ describe('ChangeInformation', () => {
   it('should submit password change for changePassword type', async () => {
     hoisted.passwordModification.mockResolvedValue({ error: null })
     const wrapper = mountComponent({ type: 'changePassword', visible: true })
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as ChangeInformationVm
     vm.formData.old_password = 'old'
     vm.formData.password = 'newpassword1'
     await vm.password()
@@ -211,7 +221,7 @@ describe('ChangeInformation', () => {
   it('should emit modification after successful password change', async () => {
     hoisted.passwordModification.mockResolvedValue({ error: null })
     const wrapper = mountComponent({ type: 'changePassword', visible: true })
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as ChangeInformationVm
     vm.formData.old_password = 'old'
     vm.formData.password = 'newpassword1'
     await vm.password()
@@ -222,7 +232,7 @@ describe('ChangeInformation', () => {
   it('should call editName when submit with amend estimate', async () => {
     hoisted.changeInformation.mockResolvedValue({ error: null })
     const wrapper = mountComponent({ type: 'amend', visible: true })
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as ChangeInformationVm
     vm.formData.name = 'NewName'
     await vm.submit()
     await flushPromises()
@@ -233,7 +243,7 @@ describe('ChangeInformation', () => {
   it('should call password when submit with changePassword estimate', async () => {
     hoisted.passwordModification.mockResolvedValue({ error: null })
     const wrapper = mountComponent({ type: 'changePassword', visible: true })
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as ChangeInformationVm
     vm.formData.old_password = 'old'
     vm.formData.password = 'newpassword1'
     await vm.submit()
@@ -251,7 +261,7 @@ describe('ChangeInformation', () => {
     // Set the localStorage value that the component reads
     localStorage.setItem('enableZcAndYzm', JSON.stringify([{ name: 'frontend_res', enable_flag: 'enable' }]))
     const wrapper = mountComponent({ type: 'changePassword', visible: true })
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as ChangeInformationVm
     vm.formData.old_password = 'old'
     vm.formData.password = 'newpassword1'
     await vm.password()

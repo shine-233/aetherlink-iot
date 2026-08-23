@@ -4,7 +4,14 @@
  * 关键注意事项：测试数据和 mock 必须贴近真实契约，避免只证明代码能运行而没有业务断言。
  * 重构建议：可沉淀共享 fixture 与挂载工具，并补充异常、空数据和权限边界用例。
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
+
+type TestWindow = Omit<Window, '$message'> & {
+  $message: {
+    destroyAll: Mock
+    error: Mock
+  }
+}
 
 const hoisted = vi.hoisted(() => {
   const createFlatRequest = vi.fn((_config, options) => options as never)
@@ -61,7 +68,7 @@ describe('service/request/request.ts', () => {
     hoisted.localStg.remove.mockReset()
     hoisted.t.mockClear()
 
-    ;(window as any).$message = {
+    ;(window as TestWindow).$message = {
       destroyAll: vi.fn(),
       error: vi.fn()
     }
@@ -85,7 +92,7 @@ describe('service/request/request.ts', () => {
         keepFalse: false,
         keepText: 'abc'
       }
-    } as any
+    }
 
     const originalParams = config.params
     const result = await requestOptions.onRequest(config)
@@ -120,11 +127,11 @@ describe('service/request/request.ts', () => {
         data: { id: 'device-1' },
         message: 'ok'
       }
-    } as any
+    }
 
     const result = requestOptions.transformBackendResponse(response)
 
-    expect((window as any).$message.destroyAll).toHaveBeenCalledTimes(1)
+    expect((window as TestWindow).$message.destroyAll).toHaveBeenCalledTimes(1)
     expect(result).toEqual({ id: 'device-1' })
   })
 
@@ -139,11 +146,11 @@ describe('service/request/request.ts', () => {
         data: { id: 'device-1' },
         message: 'ok'
       }
-    } as any
+    }
 
     const result = requestOptions.transformBackendResponse(response)
 
-    expect((window as any).$message.destroyAll).toHaveBeenCalledTimes(0)
+    expect((window as TestWindow).$message.destroyAll).toHaveBeenCalledTimes(0)
     expect(result).toEqual({
       code: 200,
       data: { id: 'device-1' },
@@ -156,10 +163,10 @@ describe('service/request/request.ts', () => {
 
     await requestOptions.onError({
       response: { status: 401 }
-    } as any)
+    })
 
-    expect((window as any).$message.destroyAll).toHaveBeenCalledTimes(1)
-    expect((window as any).$message.error).toHaveBeenCalledWith('common.loginExpired')
+    expect((window as TestWindow).$message.destroyAll).toHaveBeenCalledTimes(1)
+    expect((window as TestWindow).$message.error).toHaveBeenCalledWith('common.loginExpired')
     expect(hoisted.localStg.remove).toHaveBeenCalledTimes(0)
 
     vi.advanceTimersByTime(1000)
@@ -176,10 +183,10 @@ describe('service/request/request.ts', () => {
       config: {
         silentError: true
       }
-    } as any)
+    })
 
     expect(result).toBeUndefined()
-    expect((window as any).$message.error).toHaveBeenCalledTimes(0)
+    expect((window as TestWindow).$message.error).toHaveBeenCalledTimes(0)
   })
 
   it('onError maps 404 to the localized resource-not-found message', async () => {
@@ -188,20 +195,20 @@ describe('service/request/request.ts', () => {
       response: {
         status: 404
       }
-    } as any)
+    })
 
-    expect((window as any).$message.destroyAll).toHaveBeenCalledTimes(1)
-    expect((window as any).$message.error).toHaveBeenCalledWith('common.resourceNotFound')
+    expect((window as TestWindow).$message.destroyAll).toHaveBeenCalledTimes(1)
+    expect((window as TestWindow).$message.error).toHaveBeenCalledWith('common.resourceNotFound')
   })
 
   it('onError maps Axios network failures without a response to the localized network message', async () => {
     await requestOptions.onError({
       message: 'Network Error',
       code: 'ERR_NETWORK'
-    } as any)
+    })
 
-    expect((window as any).$message.destroyAll).toHaveBeenCalledTimes(1)
-    expect((window as any).$message.error).toHaveBeenCalledWith('common.networkError')
+    expect((window as TestWindow).$message.destroyAll).toHaveBeenCalledTimes(1)
+    expect((window as TestWindow).$message.error).toHaveBeenCalledWith('common.networkError')
   })
 
   it('onError does not classify an HTTP response as an offline network failure', async () => {
@@ -211,10 +218,10 @@ describe('service/request/request.ts', () => {
       response: {
         status: 503
       }
-    } as any)
+    })
 
-    expect((window as any).$message.destroyAll).toHaveBeenCalledTimes(1)
-    expect((window as any).$message.error).toHaveBeenCalledWith('Gateway unavailable')
+    expect((window as TestWindow).$message.destroyAll).toHaveBeenCalledTimes(1)
+    expect((window as TestWindow).$message.error).toHaveBeenCalledWith('Gateway unavailable')
   })
 
   it('onError prefers backend message text for backend errors', async () => {
@@ -226,9 +233,9 @@ describe('service/request/request.ts', () => {
           message: 'backend says no'
         }
       }
-    } as any)
+    })
 
-    expect((window as any).$message.destroyAll).toHaveBeenCalledTimes(1)
-    expect((window as any).$message.error).toHaveBeenCalledWith('backend says no')
+    expect((window as TestWindow).$message.destroyAll).toHaveBeenCalledTimes(1)
+    expect((window as TestWindow).$message.error).toHaveBeenCalledWith('backend says no')
   })
 })

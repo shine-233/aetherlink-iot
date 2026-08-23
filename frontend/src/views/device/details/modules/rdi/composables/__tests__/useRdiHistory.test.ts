@@ -4,7 +4,7 @@
  * 关键注意事项: 测试应聚焦 composable 契约，避免依赖 RDI 操作视图 DOM 细节。
  * 重构建议: 继续补成功、失败、空数据和清理生命周期用例，提升组合函数边界可信度。
  */
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, type Mock } from 'vitest';
 import { ref } from 'vue';
 
 /**
@@ -44,12 +44,49 @@ vi.mock('@/utils/common/tool', () => ({
 import { useRdiHistory } from '../useRdiHistory';
 import { rdiDeviceHistory } from '@/service/api';
 
+/** 测试局部类型：rdiDeviceHistory 的最小契约(避免耦合生产类型)。 */
+interface HistoryQueryParams {
+  key?: string;
+  page?: number;
+  page_size?: number;
+}
+
+interface HistoryPointFixture {
+  ts: number | string | null;
+  value: unknown;
+}
+
+interface HistoryResultFixture {
+  error: Error | null;
+  data: { total?: number; list?: HistoryPointFixture[] } | null;
+}
+
+type RdiHistoryMock = Mock<(deviceId: string, params: HistoryQueryParams) => Promise<HistoryResultFixture>>;
+
+function useHistoryMock() {
+  return rdiDeviceHistory as unknown as RdiHistoryMock;
+}
+
+/** 测试局部类型：historyChartOptions 中被断言的最小字段。 */
+interface ChartSeriesStub {
+  name: string;
+  data: Array<[number, number | null]>;
+  lineStyle: { color: string };
+  itemStyle: { color: string };
+  connectNulls?: boolean;
+}
+
+interface ChartOptionsStub {
+  series: ChartSeriesStub[];
+  color: string[];
+}
+
 // 创建 composable 实例的辅助函数
 function createComposable(unit: 'C' | 'F' = 'C') {
   return useRdiHistory(
     () => 'dev-1',
     () => unit,
-    (key: any) => String(key)
+    (key: string) => String(key)
   );
 }
 
@@ -156,7 +193,7 @@ describe('useRdiHistory - 纯函数与格式化', () => {
       composable.historyChartData.value = {
         temperature_1: [{ ts: 1000, value: 25 }]
       };
-      const options: any = composable.historyChartOptions.value;
+      const options = composable.historyChartOptions.value as unknown as ChartOptionsStub;
       // temperature_1 是 series[0]
       const tempSeries = options.series[0];
       expect(tempSeries.data[0]).toEqual([1000, 25]);
@@ -167,7 +204,7 @@ describe('useRdiHistory - 纯函数与格式化', () => {
       composable.historyChartData.value = {
         temperature_1: [{ ts: 1000, value: 0 }]
       };
-      const options: any = composable.historyChartOptions.value;
+      const options = composable.historyChartOptions.value as unknown as ChartOptionsStub;
       const tempSeries = options.series[0];
       expect(tempSeries.data[0]).toEqual([1000, 32]);
     });
@@ -177,7 +214,7 @@ describe('useRdiHistory - 纯函数与格式化', () => {
       composable.historyChartData.value = {
         temperature_1: [{ ts: 2000, value: 100 }]
       };
-      const options: any = composable.historyChartOptions.value;
+      const options = composable.historyChartOptions.value as unknown as ChartOptionsStub;
       const tempSeries = options.series[0];
       expect(tempSeries.data[0]).toEqual([2000, 212]);
     });
@@ -187,7 +224,7 @@ describe('useRdiHistory - 纯函数与格式化', () => {
       composable.historyChartData.value = {
         temperature_2: [{ ts: 3000, value: 10 }]
       };
-      const options: any = composable.historyChartOptions.value;
+      const options = composable.historyChartOptions.value as unknown as ChartOptionsStub;
       const tempSeries = options.series[0];
       expect(tempSeries.data[0]).toEqual([3000, 50]);
     });
@@ -197,7 +234,7 @@ describe('useRdiHistory - 纯函数与格式化', () => {
       composable.historyChartData.value = {
         switch_1: [{ ts: 1000, value: 1 }]
       };
-      const options: any = composable.historyChartOptions.value;
+      const options = composable.historyChartOptions.value as unknown as ChartOptionsStub;
       const switchSeries = options.series[0];
       expect(switchSeries.data[0]).toEqual([1000, 1]);
     });
@@ -206,7 +243,7 @@ describe('useRdiHistory - 纯函数与格式化', () => {
   describe('历史曲线选择', () => {
     beforeEach(() => {
       vi.clearAllMocks();
-      (rdiDeviceHistory as any).mockResolvedValue({ error: null, data: { list: [] } });
+      (rdiDeviceHistory as unknown as Mock).mockResolvedValue({ error: null, data: { list: [] } });
     });
 
     it('空选择时回退到默认全部序列', async () => {
@@ -215,8 +252,8 @@ describe('useRdiHistory - 纯函数与格式化', () => {
 
       await composable.loadEnergyStatistics();
 
-      const requestedKeys = (rdiDeviceHistory as any).mock.calls.map(
-        ([, params]: [string, any]) => params.key
+      const requestedKeys = (rdiDeviceHistory as unknown as Mock).mock.calls.map(
+        ([, params]) => params.key
       );
       expect(requestedKeys).toEqual([
         'temperature_1',
@@ -235,13 +272,13 @@ describe('useRdiHistory - 纯函数与格式化', () => {
 
       await composable.loadEnergyStatistics();
 
-      const requestedKeys = (rdiDeviceHistory as any).mock.calls.map(
-        ([, params]: [string, any]) => params.key
+      const requestedKeys = (rdiDeviceHistory as unknown as Mock).mock.calls.map(
+        ([, params]) => params.key
       );
       expect(requestedKeys).toEqual(['temperature_1', 'switch_2']);
       expect(composable.historyChartSeriesKeys.value).toEqual(['temperature_1', 'switch_2']);
       expect(Object.keys(composable.historyChartData.value)).toEqual(['temperature_1', 'switch_2']);
-      expect((composable.historyChartOptions.value as any).series.map((series: any) => series.name)).toEqual([
+      expect((composable.historyChartOptions.value as unknown as ChartOptionsStub).series.map((series) => series.name)).toEqual([
         'T1',
         'SW2'
       ]);
@@ -258,9 +295,9 @@ describe('useRdiHistory - 纯函数与格式化', () => {
         electricity_consumption: [{ ts: 1, value: 12.5 }]
       };
 
-      const options = composable.historyChartOptions.value as any;
+      const options = composable.historyChartOptions.value as unknown as ChartOptionsStub;
       const seriesColors = Object.fromEntries(
-        options.series.map((series: any) => [series.name, series.lineStyle.color])
+        options.series.map((series) => [series.name, series.lineStyle.color])
       );
 
       expect(seriesColors).toEqual({
@@ -273,7 +310,7 @@ describe('useRdiHistory - 纯函数与格式化', () => {
       });
       expect(new Set(Object.values(seriesColors)).size).toBe(6);
       expect(options.color).toEqual(Object.values(seriesColors));
-      expect(options.series.every((series: any) => series.itemStyle.color === series.lineStyle.color)).toBe(true);
+      expect(options.series.every((series) => series.itemStyle.color === series.lineStyle.color)).toBe(true);
     });
   });
 
@@ -283,11 +320,11 @@ describe('useRdiHistory - 纯函数与格式化', () => {
     });
 
     it('loads every page reported by total for a 30-day series sampled every 45 seconds', async () => {
-      const mockedRdiHistory = rdiDeviceHistory as any;
+      const mockedRdiHistory = useHistoryMock();
       const total = (30 * 24 * 60 * 60) / 45;
       const baseTs = 1_700_000_000_000;
 
-      mockedRdiHistory.mockImplementation((_: string, params: any) => {
+      mockedRdiHistory.mockImplementation((_, params) => {
         const firstIndex = (params.page - 1) * params.page_size;
         const itemCount = Math.max(0, Math.min(params.page_size, total - firstIndex));
         return Promise.resolve({
@@ -308,16 +345,16 @@ describe('useRdiHistory - 纯函数与格式化', () => {
 
       await composable.loadEnergyStatistics();
 
-      const requests = mockedRdiHistory.mock.calls.map(([, params]: [string, any]) => params);
+      const requests = mockedRdiHistory.mock.calls.map(([, params]) => params);
       expect(requests).toHaveLength(12);
-      expect(requests.map((params: any) => params.page)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
-      expect(requests.every((params: any) => params.page_size === 5000)).toBe(true);
+      expect(requests.map((params) => params.page)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+      expect(requests.every((params) => params.page_size === 5000)).toBe(true);
       expect(composable.historyChartData.value.temperature_1).toHaveLength(total);
     });
 
     it('continues from total across short pages and removes duplicate boundary points', async () => {
-      const mockedRdiHistory = rdiDeviceHistory as any;
-      mockedRdiHistory.mockImplementation((_: string, params: any) => {
+      const mockedRdiHistory = useHistoryMock();
+      mockedRdiHistory.mockImplementation((_, params) => {
         if (params.page === 1) {
           return Promise.resolve({
             error: null,
@@ -347,7 +384,7 @@ describe('useRdiHistory - 纯函数与格式化', () => {
 
       await composable.loadEnergyStatistics();
 
-      expect(mockedRdiHistory.mock.calls.map(([, params]: [string, any]) => params.page)).toEqual([1, 2]);
+      expect(mockedRdiHistory.mock.calls.map(([, params]) => params.page)).toEqual([1, 2]);
       // 本用例只验证跨页去重后的数据点，null 值为断线 gap 标记（由 line 480 用例专门覆盖），此处过滤。
       const dataPoints = composable.historyChartData.value.temperature_1.filter((point) => point.value !== null);
       expect(dataPoints).toEqual([
@@ -358,7 +395,7 @@ describe('useRdiHistory - 纯函数与格式化', () => {
     });
 
     it('stops when a backend repeats a page without adding any new point', async () => {
-      const mockedRdiHistory = rdiDeviceHistory as any;
+      const mockedRdiHistory = useHistoryMock();
       mockedRdiHistory.mockResolvedValue({
         error: null,
         data: {
@@ -388,7 +425,7 @@ describe('useRdiHistory - 纯函数与格式化', () => {
     });
 
     it('marks a first-page API error as failed instead of treating it as a successful empty series', async () => {
-      (rdiDeviceHistory as any).mockResolvedValue({
+      (rdiDeviceHistory as unknown as Mock).mockResolvedValue({
         error: new Error('history request failed'),
         data: null
       });
@@ -406,7 +443,7 @@ describe('useRdiHistory - 纯函数与格式化', () => {
     });
 
     it('marks a thrown request exception as failed instead of treating it as a successful empty series', async () => {
-      (rdiDeviceHistory as any).mockRejectedValue(new Error('network unavailable'));
+      useHistoryMock().mockRejectedValue(new Error('network unavailable'));
 
       const composable = createComposable('C');
       composable.historyChartSeriesKeys.value = ['temperature_1'];
@@ -419,7 +456,7 @@ describe('useRdiHistory - 纯函数与格式化', () => {
     });
 
     it('keeps successful empty energy data distinct from a failed energy request', async () => {
-      const mockedRdiHistory = rdiDeviceHistory as any;
+      const mockedRdiHistory = useHistoryMock();
       const composable = createComposable('C');
       composable.historyChartSeriesKeys.value = ['electricity_consumption'];
 
@@ -440,9 +477,9 @@ describe('useRdiHistory - 纯函数与格式化', () => {
     });
 
     it('preserves points from completed pages when a later page fails and exposes partial-series evidence', async () => {
-      const mockedRdiHistory = rdiDeviceHistory as any;
+      const mockedRdiHistory = useHistoryMock();
       const baseTs = 1_700_000_000_000;
-      mockedRdiHistory.mockImplementation((_: string, params: any) => {
+      mockedRdiHistory.mockImplementation((_, params) => {
         if (params.page === 1) {
           return Promise.resolve({
             error: null,
@@ -463,7 +500,7 @@ describe('useRdiHistory - 纯函数与格式化', () => {
 
       await composable.loadEnergyStatistics();
 
-      expect(mockedRdiHistory.mock.calls.map(([, params]: [string, any]) => params.page)).toEqual([1, 2]);
+      expect(mockedRdiHistory.mock.calls.map(([, params]) => params.page)).toEqual([1, 2]);
       expect(composable.historyChartData.value.temperature_1).toEqual([
         { ts: baseTs, value: 20 },
         { ts: baseTs + 45_000, value: 21 }
@@ -475,7 +512,7 @@ describe('useRdiHistory - 纯函数与格式化', () => {
 
     it('inserts a null marker for a sampling interval over 90 seconds and configures the chart not to bridge it', async () => {
       const baseTs = 1_700_000_000_000;
-      (rdiDeviceHistory as any).mockResolvedValue({
+      (rdiDeviceHistory as unknown as Mock).mockResolvedValue({
         error: null,
         data: {
           total: 2,
@@ -498,7 +535,7 @@ describe('useRdiHistory - 纯函数与格式化', () => {
       ]);
       expect(composable.gappedHistorySeriesLabels.value).toEqual(['T1']);
 
-      const temperatureSeries = (composable.historyChartOptions.value as any).series[0];
+      const temperatureSeries = (composable.historyChartOptions.value as unknown as ChartOptionsStub).series[0];
       expect(temperatureSeries.connectNulls).toBe(false);
       expect(temperatureSeries.data).toEqual([
         [baseTs, 20],
@@ -509,14 +546,14 @@ describe('useRdiHistory - 纯函数与格式化', () => {
 
     it('clears failed, partial and gap labels synchronously when the device changes', async () => {
       const currentDeviceId = ref('device-1');
-      (rdiDeviceHistory as any).mockResolvedValue({
+      (rdiDeviceHistory as unknown as Mock).mockResolvedValue({
         error: new Error('history request failed'),
         data: null
       });
       const composable = useRdiHistory(
         () => currentDeviceId.value,
         () => 'C',
-        (key: any) => String(key)
+        (key: string) => String(key)
       );
       composable.historyChartSeriesKeys.value = ['temperature_1'];
 
@@ -540,8 +577,8 @@ describe('useRdiHistory - 纯函数与格式化', () => {
 
     it('秒级时间戳被转换为毫秒级', async () => {
       // 秒级时间戳 1700000000 -> 毫秒 1700000000000
-      const mockedRdiHistory = rdiDeviceHistory as any;
-      mockedRdiHistory.mockImplementation((_: string, params: any) => {
+      const mockedRdiHistory = useHistoryMock();
+      mockedRdiHistory.mockImplementation((_, params) => {
         if (params.key === 'electricity_consumption') {
           return Promise.resolve({
             error: null,
@@ -560,8 +597,8 @@ describe('useRdiHistory - 纯函数与格式化', () => {
     });
 
     it('毫秒级时间戳保持不变', async () => {
-      const mockedRdiHistory = rdiDeviceHistory as any;
-      mockedRdiHistory.mockImplementation((_: string, params: any) => {
+      const mockedRdiHistory = useHistoryMock();
+      mockedRdiHistory.mockImplementation((_, params) => {
         if (params.key === 'electricity_consumption') {
           return Promise.resolve({
             error: null,
@@ -579,8 +616,8 @@ describe('useRdiHistory - 纯函数与格式化', () => {
     });
 
     it('布尔值 true 被归一化为 1', async () => {
-      const mockedRdiHistory = rdiDeviceHistory as any;
-      mockedRdiHistory.mockImplementation((_: string, params: any) => {
+      const mockedRdiHistory = useHistoryMock();
+      mockedRdiHistory.mockImplementation((_, params) => {
         if (params.key === 'switch_1') {
           return Promise.resolve({
             error: null,
@@ -598,8 +635,8 @@ describe('useRdiHistory - 纯函数与格式化', () => {
     });
 
     it('字符串 "on"/"off" 被归一化为 1/0', async () => {
-      const mockedRdiHistory = rdiDeviceHistory as any;
-      mockedRdiHistory.mockImplementation((_: string, params: any) => {
+      const mockedRdiHistory = useHistoryMock();
+      mockedRdiHistory.mockImplementation((_, params) => {
         if (params.key === 'switch_1') {
           return Promise.resolve({
             error: null,
@@ -623,8 +660,8 @@ describe('useRdiHistory - 纯函数与格式化', () => {
     });
 
     it('数据点按时间戳升序排序', async () => {
-      const mockedRdiHistory = rdiDeviceHistory as any;
-      mockedRdiHistory.mockImplementation((_: string, params: any) => {
+      const mockedRdiHistory = useHistoryMock();
+      mockedRdiHistory.mockImplementation((_, params) => {
         if (params.key === 'electricity_consumption') {
           return Promise.resolve({
             error: null,
@@ -647,8 +684,8 @@ describe('useRdiHistory - 纯函数与格式化', () => {
     });
 
     it('无效时间戳的数据点被过滤', async () => {
-      const mockedRdiHistory = rdiDeviceHistory as any;
-      mockedRdiHistory.mockImplementation((_: string, params: any) => {
+      const mockedRdiHistory = useHistoryMock();
+      mockedRdiHistory.mockImplementation((_, params) => {
         if (params.key === 'electricity_consumption') {
           return Promise.resolve({
             error: null,
@@ -678,8 +715,8 @@ describe('useRdiHistory - 纯函数与格式化', () => {
     });
 
     it('正确计算数据点数、最新值、最小值、最大值、增量', async () => {
-      const mockedRdiHistory = rdiDeviceHistory as any;
-      mockedRdiHistory.mockImplementation((_: string, params: any) => {
+      const mockedRdiHistory = useHistoryMock();
+      mockedRdiHistory.mockImplementation((_, params) => {
         if (params.key === 'electricity_consumption') {
           return Promise.resolve({
             error: null,
@@ -706,7 +743,7 @@ describe('useRdiHistory - 纯函数与格式化', () => {
     });
 
     it('空数据时统计值归零', async () => {
-      const mockedRdiHistory = rdiDeviceHistory as any;
+      const mockedRdiHistory = useHistoryMock();
       mockedRdiHistory.mockResolvedValue({ error: null, data: { list: [] } });
 
       const composable = createComposable('C');

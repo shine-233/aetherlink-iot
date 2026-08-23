@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import type { SceneInstructionLike } from '../scene-action-mappers'
 import {
   ACTION_PARAM_PLACEHOLDERS,
   applyActionParamOptionsData,
@@ -54,7 +55,7 @@ describe('scene-action-form-state', () => {
       actionParamOptions: [{}]
     }
 
-    resetInstructionTargetDependentState(instructItem as any)
+    resetInstructionTargetDependentState(instructItem as unknown as SceneInstructionLike)
 
     expect(instructItem).toMatchObject({
       action_target: 'device-1',
@@ -76,7 +77,7 @@ describe('scene-action-form-state', () => {
       action_value: '{"speed":1}'
     }
 
-    resetInstructionSelection(instructItem as any)
+    resetInstructionSelection(instructItem as unknown as SceneInstructionLike)
 
     expect(instructItem).toMatchObject({
       action_target: null,
@@ -104,7 +105,7 @@ describe('scene-action-form-state', () => {
       placeholder: ''
     }
 
-    applyActionParamTypeChange(instructItem as any, 'command')
+    applyActionParamTypeChange(instructItem as unknown as SceneInstructionLike, 'command')
 
     expect(instructItem.action_param).toBeNull()
     expect(instructItem.actionParamData).toBeNull()
@@ -128,7 +129,7 @@ describe('scene-action-form-state', () => {
     }
 
     applyActionParamOptionsData(
-      instructItem as any,
+      instructItem as unknown as SceneInstructionLike,
       normalizeActionParamOptionsData([
         {
           data_source_type: 'telemetry',
@@ -153,7 +154,7 @@ describe('scene-action-form-state', () => {
       actionParamData: null
     }
 
-    applyActionParamSelection(instructItem as any, 'mode')
+    applyActionParamSelection(instructItem as unknown as SceneInstructionLike, 'mode')
 
     expect(instructItem.actionValue).toBeNull()
     expect(instructItem.actionParamData).toEqual({ key: 'mode', data_type: 'string' })
@@ -177,7 +178,7 @@ describe('scene-action-form-state', () => {
     const issues = validateSceneActionJsonValues([
       {
         actionType: '1',
-        actionInstructList: [invalidInstruction as any]
+        actionInstructList: [invalidInstruction as unknown as SceneInstructionLike]
       }
     ])
 
@@ -203,7 +204,7 @@ describe('scene-action-form-state', () => {
     const issues = validateSceneActionJsonValues([
       {
         actionType: '1',
-        actionInstructList: [validInstruction as any]
+        actionInstructList: [validInstruction as unknown as SceneInstructionLike]
       }
     ])
 
@@ -223,7 +224,7 @@ describe('scene-action-form-state', () => {
     expect(validateSceneActionJsonValues([
       {
         actionType: '1',
-        actionInstructList: [telemetryInstruction as any]
+        actionInstructList: [telemetryInstruction as unknown as SceneInstructionLike]
       }
     ])).toEqual([])
     expect(telemetryInstruction.inputValidationStatus).toBeUndefined()
@@ -235,13 +236,13 @@ describe('scene-action-form-state', () => {
       inputValidationStatus: undefined
     }
 
-    markInvalidJsonActionValue(instructItem as any, 'Invalid JSON')
+    markInvalidJsonActionValue(instructItem as unknown as SceneInstructionLike, 'Invalid JSON')
     expect(instructItem).toMatchObject({
       inputFeedback: 'Invalid JSON',
       inputValidationStatus: 'error'
     })
 
-    clearActionValueValidationState(instructItem as any)
+    clearActionValueValidationState(instructItem as unknown as SceneInstructionLike)
     expect(instructItem.inputFeedback).toBe('')
     expect(instructItem.inputValidationStatus).toBeUndefined()
   })

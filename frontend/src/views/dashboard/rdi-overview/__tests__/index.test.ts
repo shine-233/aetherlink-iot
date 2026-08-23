@@ -71,6 +71,107 @@ vi.mock('@/locales', () => ({
 import { normalizeAlarmMonthlyTrendPoints } from '../rdiOverviewState'
 import RdiOverview from '../index.vue'
 
+interface AlarmCellVNode {
+  props: {
+    text?: unknown
+    type?: unknown
+    class?: unknown
+    size?: unknown
+    disabled?: unknown
+    onClick: () => unknown
+  }
+  children: Array<AlarmCellVNode> & { default: () => unknown }
+}
+
+interface AlarmColumn {
+  key: string
+  title: () => unknown
+  render: (row: Record<string, unknown>) => AlarmCellVNode
+}
+
+interface DeviceSnapshot {
+  id: string
+  name: string
+  pid: string
+  firmware: string
+  online: boolean | null
+  alarm: boolean | null
+  serialNumber: string
+  tenantId: string
+  telemetry: Record<string, unknown>
+}
+
+interface RdiOverviewSetupState {
+  systemsCardTitleKey: unknown
+  systemsEmptyTitleKey: unknown
+  systemsEmptyDescriptionKey: unknown
+  fetchDeviceSnapshots: () => Promise<unknown>
+  changeSnapshotPage: (page: number) => void
+  parseAlarmRemark: (value: unknown) => unknown
+  isAcknowledged: (alarm: { remark?: unknown }) => boolean
+  formatTime: (value?: unknown) => unknown
+  alarmStatusLabel: (status?: unknown) => unknown
+  alarmTagType: (status?: unknown) => unknown
+  alarmTypeLabel: (alarm: Record<string, unknown>) => unknown
+  goDevice: (deviceId?: string) => void
+  goBack: () => void
+  normalizeDeviceRows: (payload: unknown) => unknown[]
+  normalizeTelemetry: (payload: unknown) => Record<string, unknown>
+  rowText: (row: Record<string, unknown>, keys: string[], fallback?: string) => unknown
+  isRowOnline: (row: Record<string, unknown>) => boolean
+  formatTemperature: (value?: unknown) => unknown
+  formatSwitch: (value?: unknown) => unknown
+  temperatureUnit: string
+  stats: {
+    totalDevices: number
+    onlineDevices: number
+    offlineDevices: number
+    alarmHistoryTotal: number
+    activeAlarms: number
+  }
+  loading: boolean
+  fetchDevices: () => Promise<unknown>
+  alarmDeviceTotal: number
+  fetchCounts: () => Promise<unknown>
+  alarmPagination: {
+    itemCount: number
+    page: number
+    pageSize: number
+    onChange: (page: number) => void
+    onUpdatePageSize: (size: number) => void
+  }
+  queryParams: {
+    alarm_status?: string
+    page: number
+    page_size: number
+  }
+  searchAlarms: () => void
+  alarmColumns: AlarmColumn[]
+  deviceSnapshots: DeviceSnapshot[]
+  snapshotTotal: number
+  snapshotLoading: boolean
+  snapshotPage: number
+  hasInstallationInfo: (snapshot: DeviceSnapshot) => boolean
+  snapshotStatusLabel: (snapshot: DeviceSnapshot) => unknown
+  snapshotStatusTagType: (snapshot: DeviceSnapshot) => unknown
+  alarms: Array<{ id: string }>
+  acknowledgeAlarm: (alarm: { id: string }) => Promise<unknown>
+  resetAlarm: (alarm: { id?: string; name?: string; content?: string }) => void
+  resetAlarmFilter: () => void
+  refreshAll: () => Promise<unknown>
+  fetchActiveAlarmCounts: () => Promise<unknown>
+  fetchAlarms: () => Promise<unknown>
+  fetchAlarmTrend: () => Promise<unknown>
+  alarmTrendYear: number
+  alarmTrendLoading: boolean
+  alarmTrendPoints: Array<{ month: unknown; count: unknown }>
+  alarmTrendChartOptions: {
+    xAxis: { data: unknown }
+    series: Array<{ data: unknown; name: unknown }>
+  }
+  alarmStatusOptions: Array<{ label: unknown; value: unknown }>
+}
+
 const mountedWrappers: Array<ReturnType<typeof shallowMount>> = []
 
 const mountComponent = (props: { activeSystemsOnly?: boolean } = {}) => {
@@ -98,7 +199,7 @@ const mountComponent = (props: { activeSystemsOnly?: boolean } = {}) => {
   return wrapper
 }
 
-const getSetupState = (wrapper: ReturnType<typeof shallowMount>) => wrapper.vm.$.setupState as Record<string, any>
+const getSetupState = (wrapper: ReturnType<typeof shallowMount>) => wrapper.vm.$.setupState as RdiOverviewSetupState
 
 describe('rdi-overview/index.vue', () => {
   beforeEach(() => {
@@ -130,15 +231,15 @@ describe('rdi-overview/index.vue', () => {
     hoisted.rdiDeviceConfig.mockResolvedValue({ error: null, data: { system_info: {} } })
     hoisted.acknowledgeAlarmHistory.mockResolvedValue({ error: null })
     hoisted.resetAlarmHistory.mockResolvedValue({ error: null })
-    ;(window as any).$message = {
+    window.$message = {
       success: hoisted.messageSuccess,
       error: vi.fn(),
       warning: vi.fn(),
       info: vi.fn()
-    }
-    ;(window as any).$dialog = {
+    } as unknown as Window['$message']
+    window.$dialog = {
       warning: hoisted.dialogWarning
-    }
+    } as unknown as Window['$dialog']
   })
 
   afterEach(() => {
@@ -783,7 +884,7 @@ describe('rdi-overview/index.vue', () => {
         expect.any(String),
         { all_tenants: true }
       )
-      const deviceColumn = setupState.alarmColumns.find((column: any) => column.key === 'devices')
+      const deviceColumn = setupState.alarmColumns.find((column) => column.key === 'devices')
       const deviceLink = deviceColumn.render({
         tenant_id: 'tenant-b',
         alarm_device_list: [{ id: 'cross-tenant-device', name: 'Remote System' }]
@@ -964,10 +1065,10 @@ describe('rdi-overview/index.vue', () => {
       expect(setupState.alarmTrendLoading).toBe(false)
       expect(setupState.alarmTrendPoints).toHaveLength(12)
       expect(setupState.alarmTrendChartOptions.xAxis.data).toEqual(
-        setupState.alarmTrendPoints.map((point: any) => String(point.month).padStart(2, '0'))
+        setupState.alarmTrendPoints.map((point) => String(point.month).padStart(2, '0'))
       )
       expect(setupState.alarmTrendChartOptions.series[0].data).toEqual(
-        setupState.alarmTrendPoints.map((point: any) => point.count)
+        setupState.alarmTrendPoints.map((point) => point.count)
       )
       expect(setupState.alarmTrendChartOptions.series[0].name).toBe('rdi.overview.alarmTrendSeries')
     })
@@ -1475,7 +1576,7 @@ describe('rdi-overview/index.vue', () => {
       const options = setupState.alarmStatusOptions
       expect(options).toHaveLength(6)
       expect(options[0]).toEqual({ label: 'rdi.overview.active', value: 'ACTIVE' })
-      const values = options.map((o: any) => o.value)
+      const values = options.map((o) => o.value)
       expect(values).toEqual(['ACTIVE', '', 'H', 'M', 'L', 'N'])
     })
   })
@@ -1510,7 +1611,7 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      const col = setupState.alarmColumns.find((c: any) => c.key === 'create_at')
+      const col = setupState.alarmColumns.find((c) => c.key === 'create_at')
       expect(col.render({ create_at: '2024-01-15T10:30:00Z' })).toBe(
         dayjs('2024-01-15T10:30:00Z').format('YYYY-MM-DD HH:mm:ss')
       )
@@ -1522,7 +1623,7 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      const col = setupState.alarmColumns.find((c: any) => c.key === 'name')
+      const col = setupState.alarmColumns.find((c) => c.key === 'name')
       expect(col.render({ name: 'Test' })).toBe('Test')
       expect(col.render({ content: 'Content' })).toBe('Content')
       expect(col.render({})).toBe('-')
@@ -1533,7 +1634,7 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      const col = setupState.alarmColumns.find((c: any) => c.key === 'description')
+      const col = setupState.alarmColumns.find((c) => c.key === 'description')
       expect(col.render({ description: 'desc' })).toBe('desc')
       expect(col.render({})).toBe('-')
     })
@@ -1545,7 +1646,7 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      const col = setupState.alarmColumns.find((c: any) => c.key === 'create_at')
+      const col = setupState.alarmColumns.find((c) => c.key === 'create_at')
       expect(col.title()).toBe('common.time')
     })
 
@@ -1554,7 +1655,7 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      const col = setupState.alarmColumns.find((c: any) => c.key === 'name')
+      const col = setupState.alarmColumns.find((c) => c.key === 'name')
       expect(col.title()).toBe('rdi.overview.alarm')
     })
 
@@ -1563,7 +1664,7 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      const col = setupState.alarmColumns.find((c: any) => c.key === 'alarm_status')
+      const col = setupState.alarmColumns.find((c) => c.key === 'alarm_status')
       expect(col.title()).toBe('common.alarm_level')
       const high = col.render({ alarm_status: 'H' })
       const medium = col.render({ alarm_status: 'M' })
@@ -1584,7 +1685,7 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      const col = setupState.alarmColumns.find((c: any) => c.key === 'alarm_type')
+      const col = setupState.alarmColumns.find((c) => c.key === 'alarm_type')
       expect(col.title()).toBe('rdi.overview.alarmType')
       expect(col.render({ remark: '{"event_type":"temperature_alarm"}' })).toBe('rdi.overview.temperatureAlarm')
       expect(col.render({ remark: '{"event_type":"switch_alarm"}' })).toBe('rdi.overview.switchAlarm')
@@ -1601,7 +1702,7 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      const col = setupState.alarmColumns.find((c: any) => c.key === 'devices')
+      const col = setupState.alarmColumns.find((c) => c.key === 'devices')
       expect(col.title()).toBe('rdi.overview.device')
       const vnode = col.render({ alarm_device_list: [{ id: 'dev-1', name: 'Device 1' }] })
       expect(vnode.props.text).toBe(true)
@@ -1619,7 +1720,7 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      const col = setupState.alarmColumns.find((c: any) => c.key === 'devices')
+      const col = setupState.alarmColumns.find((c) => c.key === 'devices')
       expect(col.render({ alarm_device_list: [] })).toBe('-')
       expect(col.render({})).toBe('-')
     })
@@ -1629,7 +1730,7 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      const col = setupState.alarmColumns.find((c: any) => c.key === 'devices')
+      const col = setupState.alarmColumns.find((c) => c.key === 'devices')
       const vnode = col.render({ alarm_device_list: [{ id: 'dev-1' }] })
       expect(vnode.children.default()).toBe('dev-1')
       expect(vnode.props.type).toBe('primary')
@@ -1640,7 +1741,7 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      const col = setupState.alarmColumns.find((c: any) => c.key === 'actions')
+      const col = setupState.alarmColumns.find((c) => c.key === 'actions')
       expect(col.title()).toBe('common.actions')
       const vnode = col.render({ id: 'a1', alarm_status: 'H', remark: '{}' })
       expect(vnode.props.class).toBe('action-row')
@@ -1660,7 +1761,7 @@ describe('rdi-overview/index.vue', () => {
       hoisted.acknowledgeAlarmHistory.mockResolvedValue({ error: null })
       hoisted.alarmHistory.mockResolvedValue({ data: { list: [], total: 0 } })
 
-      const col = setupState.alarmColumns.find((c: any) => c.key === 'actions')
+      const col = setupState.alarmColumns.find((c) => c.key === 'actions')
       const vnode = col.render({ id: 'a1', alarm_status: 'H', remark: '{}' })
       const ackBtn = vnode.children[0]
       await ackBtn.props.onClick()
@@ -1676,7 +1777,7 @@ describe('rdi-overview/index.vue', () => {
 
       vi.clearAllMocks()
 
-      const col = setupState.alarmColumns.find((c: any) => c.key === 'actions')
+      const col = setupState.alarmColumns.find((c) => c.key === 'actions')
       const vnode = col.render({ id: 'a1', alarm_status: 'H', remark: '{}' })
       const resetBtn = vnode.children[1]
       resetBtn.props.onClick()
@@ -1689,7 +1790,7 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      const col = setupState.alarmColumns.find((c: any) => c.key === 'actions')
+      const col = setupState.alarmColumns.find((c) => c.key === 'actions')
       const vnode = col.render({ id: 'a1', alarm_status: 'H', remark: { acknowledged: true } })
       const ackBtn = vnode.children[0]
       expect(ackBtn.props.disabled).toBe(true)
@@ -1700,7 +1801,7 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      const col = setupState.alarmColumns.find((c: any) => c.key === 'actions')
+      const col = setupState.alarmColumns.find((c) => c.key === 'actions')
       const vnode = col.render({ id: 'a1', alarm_status: 'N', remark: '{}' })
       const resetBtn = vnode.children[1]
       expect(resetBtn.props.disabled).toBe(true)
@@ -1711,7 +1812,7 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      const col = setupState.alarmColumns.find((c: any) => c.key === 'description')
+      const col = setupState.alarmColumns.find((c) => c.key === 'description')
       expect(col.title()).toBe('rdi.overview.description')
     })
   })
@@ -2259,7 +2360,7 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      const col = setupState.alarmColumns.find((c: any) => c.key === 'name')
+      const col = setupState.alarmColumns.find((c) => c.key === 'name')
       expect(col.render({ content: 'AlarmContent' })).toBe('AlarmContent')
     })
   })
@@ -2270,7 +2371,7 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      const col = setupState.alarmColumns.find((c: any) => c.key === 'actions')
+      const col = setupState.alarmColumns.find((c) => c.key === 'actions')
       const vnode = col.render({ id: 'a1', alarm_status: 'H', remark: '{}' })
       const resetBtn = vnode.children[1]
       expect(resetBtn.props.disabled).toBe(false)

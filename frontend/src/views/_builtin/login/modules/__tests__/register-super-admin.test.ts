@@ -4,7 +4,14 @@
  * 关键注意事项：维护时优先断言用户可见结果和对外调用，不要让 mock 细节掩盖真实行为变化。
  * 重构建议：当准备逻辑继续膨胀时，抽出本测试文件内的工厂函数，保持每个用例只表达一个行为目标。
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
+
+interface RegisterSuperAdminVm {
+  model: { email: string; pwd: string }
+  emailLocked: boolean
+  canSubmit: boolean
+  handleSubmit: () => Promise<unknown>
+}
 import { mount } from '@vue/test-utils'
 import RegisterSuperAdmin from '../register-super-admin.vue'
 
@@ -42,10 +49,10 @@ vi.mock('@/hooks/common/form', () => ({
 
 const mockFetchSuperAdminInit = vi.fn()
 vi.mock('@/service/api/auth', () => ({
-  fetchSuperAdminInit: (...args: any[]) => mockFetchSuperAdminInit(...args)
+  fetchSuperAdminInit: (...args: unknown[]) => mockFetchSuperAdminInit(...args)
 }))
 
-function withNaiveAliases(stubs: Record<string, any>) {
+function withNaiveAliases(stubs: Record<string, unknown>) {
   const aliases = { ...stubs }
   const pairs: Array<[string, string[]]> = [
     ['NForm', ['Form', 'n-form']],
@@ -111,7 +118,7 @@ describe('RegisterSuperAdmin', () => {
     const wrapper = mount(RegisterSuperAdmin, {
       global: { stubs: commonStubs }
     })
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as RegisterSuperAdminVm
     expect(vm.model.email).toBe('')
     expect(vm.model.pwd).toBe('')
 
@@ -129,7 +136,7 @@ describe('RegisterSuperAdmin', () => {
       props: { marketEmail: 'admin@test.com' },
       global: { stubs: commonStubs }
     })
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as RegisterSuperAdminVm
     expect(vm.emailLocked).toBe(true)
     expect(vm.model.email).toBe('admin@test.com')
   })
@@ -139,7 +146,7 @@ describe('RegisterSuperAdmin', () => {
       props: { marketEmail: '' },
       global: { stubs: commonStubs }
     })
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as RegisterSuperAdminVm
     expect(vm.emailLocked).toBe(false)
     expect(vm.model.email).toBe('')
   })
@@ -148,7 +155,7 @@ describe('RegisterSuperAdmin', () => {
     const wrapper = mount(RegisterSuperAdmin, {
       global: { stubs: commonStubs }
     })
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as RegisterSuperAdminVm
     expect(vm.canSubmit).toBe(false)
   })
 
@@ -158,7 +165,7 @@ describe('RegisterSuperAdmin', () => {
       global: { stubs: commonStubs }
     })
 
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as RegisterSuperAdminVm
     vm.model.pwd = 'InitPass1'
     await vm.handleSubmit()
 
@@ -183,7 +190,7 @@ describe('RegisterSuperAdmin', () => {
       global: { stubs: commonStubs }
     })
 
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as RegisterSuperAdminVm
     await vm.handleSubmit()
 
     expect(mockLoginByToken).toHaveBeenCalledWith({
@@ -203,11 +210,11 @@ describe('RegisterSuperAdmin', () => {
       global: { stubs: commonStubs }
     })
 
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as RegisterSuperAdminVm
     await vm.handleSubmit()
 
-    expect((globalThis as any).$message.warning).toHaveBeenCalledTimes(1)
-    expect((globalThis as any).$message.warning).toHaveBeenCalledWith('custom.login.registerSuperAdmin.marketRegistrationRequired')
+    expect((globalThis as unknown as { $message: { warning: Mock } }).$message.warning).toHaveBeenCalledTimes(1)
+    expect((globalThis as unknown as { $message: { warning: Mock } }).$message.warning).toHaveBeenCalledWith('custom.login.registerSuperAdmin.marketRegistrationRequired')
   })
 
   it('should prefill email from marketEmail prop on mount', () => {
@@ -216,7 +223,7 @@ describe('RegisterSuperAdmin', () => {
       global: { stubs: commonStubs }
     })
 
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as RegisterSuperAdminVm
     expect(vm.model.email).toBe('prefilled@test.com')
   })
 })

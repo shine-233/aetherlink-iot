@@ -6,8 +6,31 @@
  */
 import { defineComponent, h } from 'vue'
 import { flushPromises, shallowMount } from '@vue/test-utils'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import dayjs from 'dayjs'
+
+interface DialogOptionsStub {
+  onPositiveClick: () => Promise<unknown> | void
+  title?: unknown
+  content?: unknown
+}
+
+interface AlarmRecordFixture {
+  id: string
+  name?: string
+  alarm_status?: string
+  description?: string
+  remark?: string | null
+  alarm_config_name?: string
+  create_at?: string
+  content?: string
+  alarm_device_list?: Array<{ id: string; name?: string }>
+}
+
+type TestWindow = Window & {
+  $message: { success: Mock; error: Mock; warning: Mock; info: Mock }
+  $dialog: { warning: Mock }
+}
 
 const hoisted = vi.hoisted(() => ({
   deviceAlarmHistory: vi.fn(),
@@ -50,7 +73,7 @@ import GiveAnAlarm from '../give-an-alarm.vue'
 
 const mountedWrappers: Array<ReturnType<typeof shallowMount>> = []
 
-let dialogOptions: any = null
+let dialogOptions: DialogOptionsStub | null = null
 
 const mountComponent = () => {
   const wrapper = shallowMount(GiveAnAlarm, {
@@ -89,7 +112,38 @@ const mountComponent = () => {
   return wrapper
 }
 
-const getSetupState = (wrapper: ReturnType<typeof shallowMount>) => wrapper.vm.$.setupState as Record<string, any>
+interface GiveAnAlarmSetupState {
+  acknowledgeAlarm: (alarm: { id: string }) => Promise<unknown>
+  alarmActionField: (alarm: unknown, field: string) => unknown
+  alarmAdd: () => void
+  alarmHistory: Array<{ id: string; alarm_status?: unknown; description?: unknown; remark?: unknown }>
+  alarmHistoryTotal: number
+  cancelCallback: () => void
+  choseTab: (tab: number) => void
+  closeModal: () => void
+  description: string
+  getAlarmHistory: () => Promise<unknown>
+  getInfo: (alarm: AlarmRecordFixture) => void
+  handleDelete: unknown
+  handleLoad: () => Promise<unknown>
+  infoData: Partial<AlarmRecordFixture>
+  isAcknowledged: (alarm: { remark?: unknown }) => boolean
+  loading: boolean
+  noMore: boolean
+  parseAlarmRemark: (value: unknown) => unknown
+  queryParams: { page: number; alarm_status?: string; selected_time?: [number, number] | null }
+  refresh: () => Promise<unknown>
+  resetAlarm: (alarm: { id: string; name?: string; content?: string }) => void
+  resetQuery: () => void
+  showDescModal: (item: AlarmRecordFixture) => void
+  showDialog: boolean
+  showModal: boolean
+  submitCallback: () => Promise<unknown>
+  tabValue: number
+}
+
+const getSetupState = (wrapper: ReturnType<typeof shallowMount>) =>
+  wrapper.vm.$.setupState as GiveAnAlarmSetupState
 
 describe('give-an-alarm.vue', () => {
   beforeEach(() => {
@@ -113,14 +167,14 @@ describe('give-an-alarm.vue', () => {
     hoisted.deviceAlarmHistoryPut.mockResolvedValue({ error: null })
     hoisted.acknowledgeAlarmHistory.mockResolvedValue({ error: null })
     hoisted.resetAlarmHistory.mockResolvedValue({ error: null })
-    ;(window as any).$message = {
+    ;(window as TestWindow).$message = {
       success: vi.fn(),
       error: vi.fn(),
       warning: vi.fn(),
       info: vi.fn()
     }
-    ;(window as any).$dialog = {
-      warning: vi.fn((opts: any) => {
+    ;(window as TestWindow).$dialog = {
+      warning: vi.fn((opts: DialogOptionsStub) => {
         dialogOptions = opts
       })
     }
@@ -316,7 +370,7 @@ describe('give-an-alarm.vue', () => {
     setupState.description = ''
     await setupState.submitCallback()
 
-    expect((window as any).$message.error).toHaveBeenCalledWith('common.enterAlarmDesc')
+    expect((window as TestWindow).$message.error).toHaveBeenCalledWith('common.enterAlarmDesc')
     expect(hoisted.deviceAlarmHistoryPut).toHaveBeenCalledTimes(0)
     expect(setupState.showModal).toBe(true)
   })
@@ -358,7 +412,7 @@ describe('give-an-alarm.vue', () => {
     await flushPromises()
 
     expect(hoisted.acknowledgeAlarmHistory).toHaveBeenCalledWith('a1')
-    expect((window as any).$message.success).toHaveBeenCalledWith('rdi.overview.alarmAcknowledged')
+    expect((window as TestWindow).$message.success).toHaveBeenCalledWith('rdi.overview.alarmAcknowledged')
     expect(hoisted.deviceAlarmHistory).toHaveBeenCalledTimes(1)
   })
 
@@ -370,11 +424,11 @@ describe('give-an-alarm.vue', () => {
     const setupState = getSetupState(wrapper)
     setupState.resetAlarm({ id: 'a1', name: 'alarm 1' })
     expect(dialogOptions).not.toBeNull()
-    await dialogOptions.onPositiveClick()
+    await dialogOptions!.onPositiveClick()
     await flushPromises()
 
     expect(hoisted.resetAlarmHistory).toHaveBeenCalledWith('a1')
-    expect((window as any).$message.success).toHaveBeenCalledWith('rdi.overview.alarmReset')
+    expect((window as TestWindow).$message.success).toHaveBeenCalledWith('rdi.overview.alarmReset')
     expect(hoisted.deviceAlarmHistory).toHaveBeenCalledTimes(1)
   })
 
@@ -652,7 +706,7 @@ describe('give-an-alarm.vue', () => {
     await flushPromises()
 
     expect(hoisted.acknowledgeAlarmHistory).toHaveBeenCalledWith('a1')
-    expect((window as any).$message.success).toHaveBeenCalledWith('rdi.overview.alarmAcknowledged')
+    expect((window as TestWindow).$message.success).toHaveBeenCalledWith('rdi.overview.alarmAcknowledged')
     expect(hoisted.deviceAlarmHistory).toHaveBeenCalledTimes(1)
   })
 
@@ -685,11 +739,11 @@ describe('give-an-alarm.vue', () => {
     expect(dialogOptions.title).toBe('rdi.overview.confirmResetAlarm')
     expect(dialogOptions.content).toBe('alarm 1')
 
-    await dialogOptions.onPositiveClick()
+    await dialogOptions!.onPositiveClick()
     await flushPromises()
 
     expect(hoisted.resetAlarmHistory).toHaveBeenCalledWith('a1')
-    expect((window as any).$message.success).toHaveBeenCalledWith('rdi.overview.alarmReset')
+    expect((window as TestWindow).$message.success).toHaveBeenCalledWith('rdi.overview.alarmReset')
     expect(hoisted.deviceAlarmHistory).toHaveBeenCalledTimes(1)
   })
 
@@ -979,7 +1033,7 @@ describe('give-an-alarm.vue', () => {
     setupState.description = ''
     await setupState.submitCallback()
 
-    expect((window as any).$message.error).toHaveBeenCalledWith('common.enterAlarmDesc')
+    expect((window as TestWindow).$message.error).toHaveBeenCalledWith('common.enterAlarmDesc')
     expect(hoisted.deviceAlarmHistoryPut).toHaveBeenCalledTimes(0)
     expect(setupState.showModal).toBe(true)
   })
