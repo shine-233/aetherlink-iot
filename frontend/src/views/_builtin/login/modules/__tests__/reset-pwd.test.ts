@@ -4,9 +4,19 @@
  * 关键注意事项：维护时优先断言用户可见结果和对外调用，不要让 mock 细节掩盖真实行为变化。
  * 重构建议：当准备逻辑继续膨胀时，抽出本测试文件内的工厂函数，保持每个用例只表达一个行为目标。
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { mount } from '@vue/test-utils'
 import ResetPwd from '../reset-pwd.vue'
+
+interface ResetPwdVm {
+  model: { email: string; verify_code?: string; password?: string }
+  canSubmit: boolean
+  handleSmsCode: () => Promise<unknown>
+  handleSubmit: () => Promise<unknown>
+  handleResetLink: () => Promise<unknown>
+  toggleLoginModule: (module: string) => void
+  emailOptions: string[]
+}
 
 const mockToggleLoginModule = vi.fn()
 const mockValidate = vi.fn().mockResolvedValue(undefined)
@@ -71,12 +81,12 @@ const mockEditUserPassWord = vi.fn().mockResolvedValue({ error: null })
 const mockRequestPasswordResetLink = vi.fn().mockResolvedValue({ error: null })
 
 vi.mock('@/service/api/auth', () => ({
-  fetchEmailCodeByEmail: (...args: any[]) => mockFetchEmailCodeByEmail(...args),
-  editUserPassWord: (...args: any[]) => mockEditUserPassWord(...args),
-  requestPasswordResetLink: (...args: any[]) => mockRequestPasswordResetLink(...args)
+  fetchEmailCodeByEmail: (...args: unknown[]) => mockFetchEmailCodeByEmail(...args),
+  editUserPassWord: (...args: unknown[]) => mockEditUserPassWord(...args),
+  requestPasswordResetLink: (...args: unknown[]) => mockRequestPasswordResetLink(...args)
 }))
 
-function withNaiveAliases(stubs: Record<string, any>) {
+function withNaiveAliases(stubs: Record<string, unknown>) {
   const aliases = { ...stubs }
   const pairs: Array<[string, string[]]> = [
     ['NForm', ['Form', 'n-form']],
@@ -138,7 +148,7 @@ describe('ResetPwd', () => {
     const wrapper = mount(ResetPwd, {
       global: { stubs: commonStubs }
     })
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as ResetPwdVm
     expect(vm.model.email).toBe('')
     expect(vm.model.verify_code).toBe('')
     expect(vm.model.password).toBe('')
@@ -165,7 +175,7 @@ describe('ResetPwd', () => {
     const wrapper = mount(ResetPwd, {
       global: { stubs: commonStubs }
     })
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as ResetPwdVm
     expect(vm.canSubmit).toBe(false)
   })
 
@@ -174,7 +184,7 @@ describe('ResetPwd', () => {
       global: { stubs: commonStubs }
     })
 
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as ResetPwdVm
     vm.model.email = 'test@example.com'
     await vm.handleSmsCode()
 
@@ -187,12 +197,12 @@ describe('ResetPwd', () => {
       global: { stubs: commonStubs }
     })
 
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as ResetPwdVm
     vm.model.email = ''
     await vm.handleSmsCode()
 
-    expect((globalThis as any).$message.error).toHaveBeenCalledTimes(1)
-    expect((globalThis as any).$message.error).toHaveBeenCalledWith('form.email.required')
+    expect((globalThis as unknown as { $message: { error: Mock } }).$message.error).toHaveBeenCalledTimes(1)
+    expect((globalThis as unknown as { $message: { error: Mock } }).$message.error).toHaveBeenCalledWith('form.email.required')
   })
 
   it('should call editUserPassWord on valid form submit', async () => {
@@ -200,7 +210,7 @@ describe('ResetPwd', () => {
       global: { stubs: commonStubs }
     })
 
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as ResetPwdVm
     vm.model.email = 'test@example.com'
     vm.model.verify_code = '123456'
     vm.model.password = 'NewPassword1'
@@ -221,7 +231,7 @@ describe('ResetPwd', () => {
       global: { stubs: commonStubs }
     })
 
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as ResetPwdVm
     vm.model.email = 'test@example.com'
     vm.model.verify_code = '123456'
 
@@ -243,7 +253,7 @@ describe('ResetPwd', () => {
       global: { stubs: commonStubs }
     })
 
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as ResetPwdVm
     vm.model.password = 'NewPassword1'
 
     await vm.handleSubmit()
@@ -268,7 +278,7 @@ describe('ResetPwd', () => {
       global: { stubs: commonStubs }
     })
 
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as ResetPwdVm
     vm.model.email = 'test@example.com'
     vm.model.verify_code = '123456'
     vm.model.password = 'NewPassword1'
@@ -283,7 +293,7 @@ describe('ResetPwd', () => {
       global: { stubs: commonStubs }
     })
 
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as ResetPwdVm
     vm.model.email = 'user@gm'
     expect(vm.emailOptions).toEqual(expect.arrayContaining(['user@gmail.com']))
     expect(vm.emailOptions.every((item: string) => item.startsWith('user@'))).toBe(true)
@@ -294,7 +304,7 @@ describe('ResetPwd', () => {
       global: { stubs: commonStubs }
     })
 
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as unknown as ResetPwdVm
     vm.toggleLoginModule('pwd-login')
 
     expect(mockToggleLoginModule).toHaveBeenCalledWith('pwd-login')

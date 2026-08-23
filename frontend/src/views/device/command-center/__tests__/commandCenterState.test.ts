@@ -208,9 +208,9 @@ describe('commandCenterState', () => {
   it('summarizes preview route decisions and telemetry evidence', () => {
     expect(
       buildRouteDecisionSummary([
-        { recommended_path: 'immediate', telemetry_current_count: 2 } as any,
-        { recommended_path: 'jobs', telemetry_current_count: 0 } as any,
-        { recommended_path: 'blocked', telemetry_current_count: 1 } as any
+        { recommended_path: 'immediate', telemetry_current_count: 2 } as unknown as FleetCommandJobPreviewRow,
+        { recommended_path: 'jobs', telemetry_current_count: 0 } as unknown as FleetCommandJobPreviewRow,
+        { recommended_path: 'blocked', telemetry_current_count: 1 } as unknown as FleetCommandJobPreviewRow
       ])
     ).toEqual({
       immediate: 1,
@@ -245,9 +245,9 @@ describe('commandCenterState', () => {
     const plan = buildCommandJobPreviewActionPlan({
       previewResult: {
         rows: [
-          { eligible: true, recommended_path: 'immediate', telemetry_current_count: 2 } as any,
-          { eligible: false, recommended_path: 'blocked', reason: 'no permission', advice: 'ask admin' } as any,
-          { eligible: false, recommended_path: 'blocked', reason: 'no permission', advice: 'ask admin' } as any
+          { eligible: true, recommended_path: 'immediate', telemetry_current_count: 2 } as unknown as FleetCommandJobPreviewRow,
+          { eligible: false, recommended_path: 'blocked', reason: 'no permission', advice: 'ask admin' } as unknown as FleetCommandJobPreviewRow,
+          { eligible: false, recommended_path: 'blocked', reason: 'no permission', advice: 'ask admin' } as unknown as FleetCommandJobPreviewRow
         ]
       },
       fallbackNextAction: 'Preview before submitting'
@@ -277,7 +277,7 @@ describe('commandCenterState', () => {
             recommended_path: 'immediate',
             status: 'ready',
             advice: 'Send now'
-          } as any,
+          } as unknown as FleetCommandJobPreviewRow,
           {
             device_id: 'dev-2',
             device_number: 'pump-2',
@@ -286,7 +286,7 @@ describe('commandCenterState', () => {
             status: 'queued',
             reason: 'offline but job-capable',
             advice: 'Track in job history'
-          } as any,
+          } as unknown as FleetCommandJobPreviewRow,
           {
             device_id: 'dev-3',
             device_number: 'pump-3',
@@ -295,7 +295,7 @@ describe('commandCenterState', () => {
             status: 'blocked',
             reason: 'missing command permission',
             advice: 'Fix permission'
-          } as any
+          } as unknown as FleetCommandJobPreviewRow
         ]
       },
       fallbackNextAction: 'Preview before submitting'
@@ -329,7 +329,7 @@ describe('commandCenterState', () => {
       { device_id: 'dev-1', device_number: 'pump-1', eligible: true, recommended_path: 'immediate' },
       { device_id: 'dev-2', device_number: 'pump-2', eligible: true, recommended_path: 'jobs' },
       { device_id: 'dev-3', device_number: 'pump-3', eligible: false, recommended_path: 'blocked', reason: 'missing key' }
-    ] as any[]
+    ] as unknown as FleetCommandJobPreviewRow[]
     const preview = buildCommandJobEligibilityImpactPreview({
       isDeviceFilterScope: false,
       previewResult: {
@@ -363,8 +363,8 @@ describe('commandCenterState', () => {
         total_matched: 42,
         requested_count: 42,
         rows: [
-          { eligible: true, recommended_path: 'immediate', telemetry_current_count: 1 } as any,
-          { eligible: false, recommended_path: 'blocked', telemetry_current_count: 0 } as any
+          { eligible: true, recommended_path: 'immediate', telemetry_current_count: 1 } as unknown as FleetCommandJobPreviewRow,
+          { eligible: false, recommended_path: 'blocked', telemetry_current_count: 0 } as unknown as FleetCommandJobPreviewRow
         ]
       }
     })
@@ -390,14 +390,14 @@ describe('commandCenterState', () => {
       isDeviceFilterScope: false,
       previewResult: {
         requested_count: 10,
-        rows: [{ eligible: true, recommended_path: 'jobs', telemetry_current_count: 0 } as any]
+        rows: [{ eligible: true, recommended_path: 'jobs', telemetry_current_count: 0 }] as unknown as FleetCommandJobPreviewRow
       }
     })
     const fullFilterPreview = buildFilteredFleetEligibilityPreview({
       isDeviceFilterScope: true,
       previewResult: {
         requested_count: 1,
-        rows: [{ eligible: true, recommended_path: 'jobs', telemetry_current_count: 0 } as any]
+        rows: [{ eligible: true, recommended_path: 'jobs', telemetry_current_count: 0 }] as unknown as FleetCommandJobPreviewRow
       }
     })
 

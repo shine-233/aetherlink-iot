@@ -68,10 +68,10 @@ vi.mock('../modules/tab/shared', () => ({
 
 import { useTabStore } from '../modules/tab'
 
-const mockTab = (id: string, overrides: Record<string, any> = {}): App.Global.Tab => ({
+const mockTab = (id: string, overrides: Partial<App.Global.Tab> = {}): App.Global.Tab => ({
   id,
   label: `Tab ${id}`,
-  routeKey: id as any,
+  routeKey: id as App.Global.Tab['routeKey'],
   routePath: `/${id}`,
   fullPath: `/${id}`,
   ...overrides
@@ -86,11 +86,11 @@ describe('tab store', () => {
 
     hoisted.getDefaultHomeTab.mockReturnValue(mockTab('home'))
     hoisted.getAllTabs.mockImplementation((tabs, homeTab) => homeTab ? [homeTab, ...tabs] : [])
-    hoisted.getTabByRoute.mockImplementation((route: any) => mockTab(route.name || route.path || 'unknown'))
-    hoisted.isTabInTabs.mockImplementation((id, tabs) => tabs.some((t: any) => t.id === id))
-    hoisted.filterTabsById.mockImplementation((id, tabs) => tabs.filter((t: any) => t.id !== id))
-    hoisted.filterTabsByIds.mockImplementation((ids, tabs) => tabs.filter((t: any) => !ids.includes(t.id)))
-    hoisted.getFixedTabIds.mockImplementation((tabs) => tabs.filter((t: any) => t.fixedIndex !== undefined).map((t: any) => t.id))
+    hoisted.getTabByRoute.mockImplementation((route) => mockTab(route.name || route.path || 'unknown'))
+    hoisted.isTabInTabs.mockImplementation((id, tabs) => tabs.some((t) => t.id === id))
+    hoisted.filterTabsById.mockImplementation((id, tabs) => tabs.filter((t) => t.id !== id))
+    hoisted.filterTabsByIds.mockImplementation((ids, tabs) => tabs.filter((t) => !ids.includes(t.id)))
+    hoisted.getFixedTabIds.mockImplementation((tabs) => tabs.filter((t) => t.fixedIndex !== undefined).map((t) => t.id))
     hoisted.findTabByRouteName.mockReturnValue(undefined)
     hoisted.updateTabByI18nKey.mockImplementation(tab => tab)
     hoisted.updateTabsByI18nKey.mockImplementation(tabs => tabs)
@@ -121,7 +121,7 @@ describe('tab store', () => {
       const store = useTabStore(pinia)
       store.initHomeTab()
 
-      const route = { name: 'dashboard', path: '/dashboard', meta: {}, query: {} } as any
+      const route = { name: 'dashboard', path: '/dashboard', meta: {}, query: {} } as unknown as App.Global.TabRoute
       store.addTab(route)
 
       expect(hoisted.getTabByRoute).toHaveBeenCalledWith(route)
@@ -132,7 +132,7 @@ describe('tab store', () => {
       const store = useTabStore(pinia)
       store.initHomeTab()
 
-      const route = { name: 'dashboard', path: '/dashboard', meta: {}, query: {} } as any
+      const route = { name: 'dashboard', path: '/dashboard', meta: {}, query: {} } as unknown as App.Global.TabRoute
       store.addTab(route)
 
       hoisted.isTabInTabs.mockReturnValue(true)
@@ -145,7 +145,7 @@ describe('tab store', () => {
       const store = useTabStore(pinia)
       store.initHomeTab()
 
-      const homeRoute = { name: 'home', path: '/home', meta: {}, query: {} } as any
+      const homeRoute = { name: 'home', path: '/home', meta: {}, query: {} } as unknown as App.Global.TabRoute
       hoisted.getTabByRoute.mockReturnValue(mockTab('home'))
       store.addTab(homeRoute)
 
@@ -157,7 +157,7 @@ describe('tab store', () => {
       store.initHomeTab()
       store.activeTabId = 'existing-tab'
 
-      const route = { name: 'new-tab', path: '/new-tab', meta: {}, query: {} } as any
+      const route = { name: 'new-tab', path: '/new-tab', meta: {}, query: {} } as unknown as App.Global.TabRoute
       hoisted.getTabByRoute.mockReturnValue(mockTab('new-tab'))
       store.addTab(route, false)
 
