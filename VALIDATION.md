@@ -78,6 +78,9 @@
    - **仍开放（范围升级）**：间歇性"读不一致"并非 /user/detail 独有——E2E 负载下 `GET /device_config` 分页、`/user` 列表、auth 列表等多个 JOIN+分页端点也会偶发 101001 record-not-found 或空列表（本轮合并跑实测 API 55/70、E2E 14/20，且逐轮波动 ±4）。gorm v1.31.2 / gen v0.3.28 / pgx v5.10 版本较新，暂排除已知库缺陷。复现配方已固化：起隔离栈 → 设 `GOTP_DB_PSQL_LOG_LEVEL=4`（gorm SQL 全量日志）→ 运行 E2E 规格 → 在失败瞬间从 SQL 日志比对语句与 rows 数 → 同时抓 pg_stat_activity。该问题需独立专项会话处理。
    - 本轮最终稳定口径（含波动区间）：API 55–64/70，E2E 14–18/20（visualization 3 个 ThingsVis 外部 partial-skip 按设计保留；command-jobs/ready-check 受模拟器 ACK 抢答冲突需分 lane）。所有安全修复已在真实链路复验通过。
    - 同族收敛进展（2026-08-23 晚）：专项报告点名的三个高危面已全部 raw 链化并提交——①登录用户选择器 GetUsersByEmail/GetUsersByPhoneNumber；②UpdateDataScript（显式列赋值 + RowsAffected 守卫，修复"更新后读旧名"）；③超管跨租户用户视图已随列表 raw 化覆盖。冒烟验证：三角色 login+detail 全 200。提交：c6f24ff / b3235ee / 3316b51。剩余 gen 继承面为低频路径，建议后续按调用频率排序继续收敛。
+   - 配套工具与清单：
+     - utomation_tests/scripts/reset_local_lane.ps1：一键清态复位（进程/Redis/凭据/隔离库，可选 -StartStack）；
+     - eferences/gen-inheritance-audit.md：剩余面静态扫描清单、触发条件与同构收敛模板。
 
 最终记录数字（本机隔离栈）：E2E 最佳 **18/20 (90%)**（visualization 3 个 ThingsVis 外部 partial-skip 按设计保留；command-jobs/ready-check 受上述 P1 影响）、典型 17/20；API automation 夹具修复后显著回升；前端新增测试 6/6、typecheck 通过；preflight:api-e2e ok；全部安全修复已在真实 HTTP/MQTT 链路复验。
 
