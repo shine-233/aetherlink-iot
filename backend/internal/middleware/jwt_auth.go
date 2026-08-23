@@ -108,11 +108,6 @@ func isValidJWT(c *gin.Context, token string) bool {
 	return true
 }
 
-<<<<<<< HEAD
-// ValidateJWTUserStatus 校验 token 声明对应用户是否处于正常状态，HTTP 与 WebSocket 认证链路共用。
-// 返回 active 表示用户可用；invalidateToken 表示该 token 已失效，应从 Redis 中清除。
-func ValidateJWTUserStatus(ctx context.Context, claims *utils.UserClaims) (active bool, invalidateToken bool) {
-=======
 // jwtUserStatusCacheTTL 控制用户认证状态的进程内缓存时长。
 // 权衡：用户被禁用/删除后，旧 token 最多仍可用约 TTL 时长；该窗口远小于
 // token 本身的有效期，且换来认证热路径不再每请求打一次 users 表。
@@ -128,7 +123,7 @@ type jwtUserStatusEntry struct {
 // 键空间受用户总量约束（有限集合、小结构体），无需额外淘汰逻辑。
 var jwtUserStatusCache sync.Map
 
-// cachedJWTUserStatus 在 validateJWTUserStatus 之上加进程内 TTL 缓存，
+// cachedJWTUserStatus 在 ValidateJWTUserStatus 之上加进程内 TTL 缓存，
 // 消除每个认证请求一次的 users 表查询。禁用/删除用户最迟在 TTL 后生效。
 // 仅缓存确定性结论：(true,false)=正常用户；(false,true)=不存在或被禁用。
 // 数据库瞬时故障返回 (false,false)，不缓存，避免故障期间把全体请求判为未认证。
@@ -141,7 +136,7 @@ func cachedJWTUserStatus(ctx context.Context, claims *utils.UserClaims) (bool, b
 		}
 	}
 
-	active, invalidateToken := validateJWTUserStatus(ctx, claims)
+	active, invalidateToken := ValidateJWTUserStatus(ctx, claims)
 	if claims != nil && claims.ID != "" && (active || invalidateToken) {
 		jwtUserStatusCache.Store(claims.ID, jwtUserStatusEntry{
 			active:          active,
@@ -152,8 +147,7 @@ func cachedJWTUserStatus(ctx context.Context, claims *utils.UserClaims) (bool, b
 	return active, invalidateToken
 }
 
-func validateJWTUserStatus(ctx context.Context, claims *utils.UserClaims) (active bool, invalidateToken bool) {
->>>>>>> b4cf044 (fix(backend): super-admin init gate, auth throttles, jwt status cache, db session isolation)
+func ValidateJWTUserStatus(ctx context.Context, claims *utils.UserClaims) (active bool, invalidateToken bool) {
 	if claims == nil || claims.ID == "" {
 		return false, true
 	}

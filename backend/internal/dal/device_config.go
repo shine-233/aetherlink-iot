@@ -26,18 +26,27 @@ import (
 	utils "aetherlink-iot/backend/pkg/utils"
 
 	"gorm.io/gen"
+	"gorm.io/gorm"
 
 	"github.com/sirupsen/logrus"
 )
 
+// isolatedDeviceConfig 返回从全新 gorm Statement 出发的 device_config 链起点。
+// P1 修复（2026-08-23，见 VALIDATION.md）：高负载下 gorm 会依据执行语句上残留的
+// Statement.Model 注入陈旧主键 WHERE（间歇 record-not-found / 假成功删除）。
+// Session{NewDB:true} 强制每次操作都使用零起点的全新语句，切断跨请求状态继承。
+func isolatedDeviceConfig() query.IDeviceConfigDo {
+	return query.DeviceConfig.Session(&gorm.Session{NewDB: true})
+}
+
 func CreateDeviceConfig(deviceconfig *model.DeviceConfig) error {
-	return query.DeviceConfig.Create(deviceconfig)
+	return isolatedDeviceConfig().Create(deviceconfig)
 }
 
 // 修改配置物模型 id
 func UpdateDeviceConfigTemplateID(id string, templateID *string) error {
 	// nil值也要更新
-	_, err := query.DeviceConfig.Where(query.DeviceConfig.ID.Eq(id)).Update(query.DeviceConfig.DeviceTemplateID, templateID)
+	_, err := isolatedDeviceConfig().Where(query.DeviceConfig.ID.Eq(id)).Update(query.DeviceConfig.DeviceTemplateID, templateID)
 	if err != nil {
 		logrus.Error(err)
 	}
@@ -54,10 +63,8 @@ func UpdateDeviceConfig(id string, condsMap map[string]interface{}) error {
 	p := query.DeviceConfig
 	t := time.Now().UTC()
 	condsMap["updated_at"] = &t
-	// 主键不允许通过更新映射修改：剥离 id，避免 SET/WHERE 携带过期主键值
-	// （历史事故：conds 中残留的旧 id 会叠加进 WHERE 导致 0 行受影响）。
 	delete(condsMap, "id")
-	info, err := p.WithContext(context.Background()).Where(p.ID.Eq(id)).Updates(condsMap)
+	info, err := isolatedDeviceConfig().WithContext(context.Background()).Where(p.ID.Eq(id)).Updates(condsMap)
 	if err != nil {
 		logrus.Error(err)
 		return err
@@ -72,7 +79,7 @@ func DeleteDeviceConfig(id string) error {
 	// P1 修复（2026-08-23，见 VALIDATION.md）：RowsAffected 不得忽略。
 	// 删除未命中行时必须显式报错，杜绝"API 返回成功但行仍在"的假成功删除；
 	// 上层 service 依赖该错误把 200050 引用计数问题留给真实残留数据。
-	info, err := query.DeviceConfig.WithContext(context.Background()).Where(query.DeviceConfig.ID.Eq(id)).Delete()
+	info, err := isolatedDeviceConfig().WithContext(context.Background()).Where(query.DeviceConfig.ID.Eq(id)).Delete()
 	if err != nil {
 		logrus.Error(err)
 		return err
@@ -99,7 +106,7 @@ func GetDeviceConfigByID(id string) (*model.DeviceConfig, error) {
 	}
 
 	// 2. 缓存未命中，从数据库加载
-	deviceconfig, err := query.DeviceConfig.Where(query.DeviceConfig.ID.Eq(id)).First()
+	deviceconfig, err := isolatedDeviceConfig().Where(query.DeviceConfig.ID.Eq(id)).First()
 	if err != nil {
 		logrus.Error(err)
 		return nil, err
@@ -126,7 +133,7 @@ func GetDeviceConfigByID(id string) (*model.DeviceConfig, error) {
 // cache so a cached row can never widen the tenant boundary.
 func GetDeviceConfigForTenant(id, tenantID string) (*model.DeviceConfig, error) {
 	q := query.DeviceConfig
-	deviceConfig, err := q.Where(q.ID.Eq(id), q.TenantID.Eq(tenantID)).First()
+	deviceConfig, err := isolatedDeviceConfig().Where(q.ID.Eq(id), q.TenantID.Eq(tenantID)).First()
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +148,7 @@ func GetDeviceConfigListByPage(deviceconfig *model.GetDeviceConfigListByPageReq,
 	var count int64
 	var data []model.DeviceConfigRsp
 	var deviceconfigList []*model.DeviceConfig
-	queryBuilder := q.WithContext(context.Background())
+	queryBuilder := isolatedDeviceConfig().WithContext(context.Background())
 	queryBuilder = queryBuilder.Where(q.TenantID.Eq(claims.TenantID))
 
 	if deviceconfig.DeviceTemplateId != nil && *deviceconfig.DeviceTemplateId != "" {
@@ -226,7 +233,7 @@ func countActiveDevicesByConfigIDs(deviceConfigIDs []string) (map[string]int64, 
 // 获取设备配置下拉菜单
 func GetDeviceConfigSelectList(deviceConfigName *string, tenantID string, deviceType *string, protocolType *string) (any, error) {
 	q := query.DeviceConfig
-	queryBuilder := q.WithContext(context.Background())
+	queryBuilder := isolatedDeviceConfig().WithContext(context.Background())
 	queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenantID))
 	if deviceConfigName != nil {
 		queryBuilder = queryBuilder.Where(q.Name.Like(fmt.Sprintf("%%%s%%", *deviceConfigName)))
@@ -249,7 +256,7 @@ func GetDeviceConfigSelectList(deviceConfigName *string, tenantID string, device
 type DeviceConfigQuery struct{}
 
 func (DeviceConfigQuery) First(ctx context.Context, option ...gen.Condition) (info *model.DeviceConfig, err error) {
-	info, err = query.DeviceConfig.WithContext(ctx).Where(option...).First()
+	info, err = isolatedDeviceConfig().WithContext(ctx).Where(option...).First()
 	if err != nil {
 		logrus.Error(ctx, err)
 	}
@@ -257,7 +264,7 @@ func (DeviceConfigQuery) First(ctx context.Context, option ...gen.Condition) (in
 }
 
 func (DeviceConfigQuery) Find(ctx context.Context, option ...gen.Condition) (list []*model.DeviceConfig, err error) {
-	list, err = query.DeviceConfig.WithContext(ctx).Where(option...).Find()
+	list, err = isolatedDeviceConfig().WithContext(ctx).Where(option...).Find()
 	if err != nil {
 		logrus.Error(ctx, err)
 	}
@@ -379,7 +386,7 @@ func (DeviceConfigVo) PoToVo(deviceConfigInfo *model.DeviceConfig) (info *model.
 // 修改凭证类型
 func UpdateDeviceConfigVoucherType(id string, voucherType *string) error {
 	// nil值也要更新
-	_, err := query.DeviceConfig.Where(query.DeviceConfig.ID.Eq(id)).Update(query.DeviceConfig.VoucherType, voucherType)
+	_, err := isolatedDeviceConfig().Where(query.DeviceConfig.ID.Eq(id)).Update(query.DeviceConfig.VoucherType, voucherType)
 	if err != nil {
 		logrus.Error(err)
 	}
@@ -388,7 +395,7 @@ func UpdateDeviceConfigVoucherType(id string, voucherType *string) error {
 
 func GetDeviceConfigIdByName(name string) *string {
 	var configId string
-	err := query.DeviceConfig.Where(query.DeviceConfig.Name.Eq(name)).Select(query.DeviceConfig.ID).Limit(1).Scan(&configId)
+	err := isolatedDeviceConfig().Where(query.DeviceConfig.Name.Eq(name)).Select(query.DeviceConfig.ID).Limit(1).Scan(&configId)
 	if err != nil {
 		return nil
 	}
@@ -397,7 +404,7 @@ func GetDeviceConfigIdByName(name string) *string {
 
 // 根据功能物模型 ID 查询关联的配置数量
 func GetDeviceConfigCountByFuncTemplateId(id string) (int64, error) {
-	count, err := query.DeviceConfig.Where(query.DeviceConfig.DeviceTemplateID.Eq(id)).Count()
+	count, err := isolatedDeviceConfig().Where(query.DeviceConfig.DeviceTemplateID.Eq(id)).Count()
 	if err != nil {
 		logrus.Error(err)
 	}
