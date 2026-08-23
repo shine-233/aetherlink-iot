@@ -437,6 +437,10 @@ function getBackendSourceEndpointKeys() {
       for (const match of text.matchAll(/\bv1\.(GET|POST|PUT|DELETE|PATCH)\(\s*"([^"]+)"/g)) {
         endpoints.add(`${match[1]} ${joinRouteParts('/api/v1', match[2])}`);
       }
+      // plugin 组（middleware.PluginAuth 保护）沿用 /api/v1 前缀。
+      for (const match of text.matchAll(/\bplugin\.(GET|POST|PUT|DELETE|PATCH)\(\s*"([^"]+)"/g)) {
+        endpoints.add(`${match[1]} ${joinRouteParts('/api/v1', match[2])}`);
+      }
       continue;
     }
 
