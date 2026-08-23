@@ -154,6 +154,18 @@ type SubOptions struct {
 type Reader struct {
 	bufr    *bufio.Reader
 	version Version
+	// maxPacketSize 在分配任何报文内存前对 RemainLength 做的硬上限（字节）；0 表示不限制。
+	// 该检查必须在 Unpack 预分配之前执行，且对 v3/v5 所有客户端生效，否则未认证连接
+	// 可以用超大 RemainLength 诱发最大约 256MB 的内存预分配。
+	maxPacketSize uint32
+}
+
+// ErrPacketTooLarge 表示入站包超过服务端配置的最大包限制，应立即断开连接。
+var ErrPacketTooLarge = errors.New("packet size exceeds server max packet size limit")
+
+// SetMaxPacketSize 设置读取不受信任报文时的内存预分配上限；必须在首个 ReadPacket 前调用。
+func (r *Reader) SetMaxPacketSize(size uint32) {
+	r.maxPacketSize = size
 }
 
 // Writer is used to encode MQTT packet into bytes and write it to bufio.Writer.
@@ -203,6 +215,10 @@ func (r *Reader) ReadPacket() (Packet, error) {
 	length, err := EncodeRemainLength(r.bufr)
 	if err != nil {
 		return nil, err
+	}
+	// 在 Unpack 按 RemainLength 预分配内存之前拒绝超限报文（含 v3 客户端）。
+	if r.maxPacketSize != 0 && length > int(r.maxPacketSize) {
+		return nil, ErrPacketTooLarge
 	}
 	fh.RemainLength = length
 	packet, err := NewPacket(fh, r.version, r.bufr)

@@ -37,6 +37,13 @@ func (t *AetherLinkPlugin) OnBasicAuthWrapper(pre server.OnBasicAuth) server.OnB
 		password := string(req.Connect.Password)
 		clientID := string(req.Connect.ClientID)
 		if handled, err := authenticateMQTTSystemUser(username, password); handled {
+			if err == nil {
+				// 系统账号认证成功也记录 clientID→username 绑定，供 will 钩子区分系统与设备。
+				if bindErr := rememberMQTTClientUsername(clientID, username); bindErr != nil {
+					Log.Warn("failed to remember mqtt system user binding",
+						zap.String("client_id", clientID), zap.Error(bindErr))
+				}
+			}
 			return err
 		}
 
@@ -58,6 +65,10 @@ func (t *AetherLinkPlugin) OnBasicAuthWrapper(pre server.OnBasicAuth) server.OnB
 		}
 
 		handleMQTTAuthSuccess(device, username, clientID)
+		if bindErr := rememberMQTTClientUsername(clientID, username); bindErr != nil {
+			Log.Warn("failed to remember mqtt device user binding",
+				zap.String("client_id", clientID), zap.Error(bindErr))
+		}
 		err = rememberMQTTAuthenticatedDevice(client, clientID, device)
 		if err != nil {
 			Log.Error(err.Error())

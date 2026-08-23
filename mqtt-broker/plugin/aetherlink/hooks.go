@@ -11,10 +11,11 @@ func (t *AetherLinkPlugin) HookWrapper() server.HookWrapper {
 
 func (t *AetherLinkPlugin) coreHookWrapper() server.HookWrapper {
 	return server.HookWrapper{
-		OnBasicAuthWrapper:  t.OnBasicAuthWrapper,
-		OnSubscribeWrapper:  t.OnSubscribeWrapper,
-		OnMsgArrivedWrapper: t.OnMsgArrivedWrapper,
-		OnConnectedWrapper:  t.OnConnectedWrapper,
-		OnClosedWrapper:     t.OnClosedWrapper,
+		OnBasicAuthWrapper:   t.OnBasicAuthWrapper,
+		OnSubscribeWrapper:   t.OnSubscribeWrapper,
+		OnMsgArrivedWrapper:  t.OnMsgArrivedWrapper,
+		OnWillPublishWrapper: t.OnWillPublishWrapper,
+		OnConnectedWrapper:   t.OnConnectedWrapper,
+		OnClosedWrapper:      t.OnClosedWrapper,
 	}
 }

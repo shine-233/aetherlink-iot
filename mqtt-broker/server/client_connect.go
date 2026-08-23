@@ -232,6 +232,10 @@ func (client *client) applyConnectOptions(conn *packets.Connect, authOpts *AuthO
 	client.opts.ReceiveMax = authOpts.ReceiveMax
 	client.opts.ClientMaxPacketSize = math.MaxUint32 // unlimited
 	client.opts.ServerMaxPacketSize = authOpts.MaxPacketSize
+	// 认证协商完成后同步 reader 的预分配上限，保持与 v5 协商选项一致。
+	if client.packetReader != nil {
+		client.packetReader.SetMaxPacketSize(client.opts.ServerMaxPacketSize)
+	}
 	client.opts.ServerTopicAliasMax = authOpts.TopicAliasMax
 	client.opts.Username = string(conn.Username)
 
