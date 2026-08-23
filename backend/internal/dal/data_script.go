@@ -56,7 +56,8 @@ func UpdateDataScript(data *model.UpdateDataScriptReq) error {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		logrus.Warnf("UpdateDataScript affected 0 rows for id=%s", data.Id)
+		// id 为用户可控值，不进日志（log-injection 面）；定位时经请求上下文关联。
+		logrus.Warn("UpdateDataScript affected 0 rows")
 	}
 	return nil
 }
