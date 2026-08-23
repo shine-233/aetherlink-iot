@@ -13,6 +13,7 @@ import (
 
 	model "aetherlink-iot/backend/internal/model"
 	query "aetherlink-iot/backend/internal/query"
+	global "aetherlink-iot/backend/pkg/global"
 
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
