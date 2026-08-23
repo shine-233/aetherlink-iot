@@ -132,6 +132,30 @@ jobs:
         working-directory: automation_tests
         run: npx playwright install --with-deps "$PLAYWRIGHT_BROWSER_CHANNEL"
 
+      - name: Debug MQTT broker connectivity from inside backend container
+        shell: bash
+        run: |
+          set -x
+          echo "=== 1. Backend container env: GOTP_MQTT_BROKER ==="
+          docker exec aetherlink-iot-backend-1 env | grep -i "GOTP_MQTT" || echo "(not found)"
+          echo "=== 2. DNS resolution of mqtt-broker from inside backend ==="
+          docker exec aetherlink-iot-backend-1 sh -c "nslookup mqtt-broker 2>&1 || getent hosts mqtt-broker 2>&1 || echo 'DNS tools not available'"
+          echo "=== 3. Network connectivity from backend to broker ==="
+          docker exec aetherlink-iot-backend-1 sh -c "wget -qO- --timeout=3 mqtt-broker:1883 2>&1 || echo 'wget failed (expected for raw TCP)'; echo exit=$?"
+          echo "=== 4. Force recreate backend with no-cache build ==="
+          docker compose build --no-cache backend
+          docker compose up -d --force-recreate backend
+          echo "=== waiting for backend ready ==="
+          sleep 10
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:9999/ready > /dev/null 2>&1; then echo "backend ready"; break; fi
+            sleep 3
+          done
+          echo "=== 5. Verify: try simulated telemetry publish ==="
+          curl -sf http://127.0.0.1:9999/api/v1/device/telemetry/simulation/init/test-device-123 \
+            -H "x-token: $(curl -sf http://127.0.0.1:9999/api/v1/login -d '{"email":"admin@test.com","password":"test"}' -H 'Content-Type: application/json' | jq -r '.data.token // empty')" \
+            2>&1 || echo "(sim init probe done — check response above)"
+
       - name: Install psql client
         run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
 
@@ -293,6 +317,7 @@ jobs:
             exit 1
           fi
           echo "Self-contained Compose stack integration completed successfully."
+
 
 
 
