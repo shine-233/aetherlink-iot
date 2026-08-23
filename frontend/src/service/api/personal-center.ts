@@ -16,24 +16,24 @@ import { request } from '../request'
 
 /** Get personal information */
 export const fetchUserInfo = async () => {
-  return await request.get<Api.BaseApi.Data | any>('/board/user/info', {})
+  return await request.get<Api.BaseApi.Data>('/board/user/info', {})
 }
 /** Update personal basic information */
-export const changeInformation = async (params: any): Promise<any> => {
+export const changeInformation = async (params: Record<string, unknown>) => {
   const data = await request.post<Api.BaseApi.Data>('/board/user/update', params)
   return data
 }
 /** Change account email and keep device ownership */
-export const changeAccountEmail = async (params: { new_email: string; verify_code: string }): Promise<any> => {
-  const data = await request.post<Api.BaseApi.Data>('/user/change-email', params)
+export const changeAccountEmail = async (params: { new_email: string; verify_code: string }) => {
+  const data = await request.post<{ new_email: string; devices_migrated: number }>('/user/change-email', params)
   return data
 }
 /** Global warning email recipients are stored against the current tenant warning-email endpoint. */
-export const fetchWarningEmails = async (): Promise<any> => {
+export const fetchWarningEmails = async () => {
   const data = await request.get<string[]>('/user/warning-email')
   return data
 }
-export const updateWarningEmails = async (params: { emails: string[] }): Promise<any> => {
+export const updateWarningEmails = async (params: { emails: string[] }) => {
   const data = await request.put<string[]>('/user/warning-email', params)
   return data
 }
@@ -41,17 +41,17 @@ export const updateWarningEmails = async (params: { emails: string[] }): Promise
 export const savePreferredLanguage = async (params: {
   prefer_lang?: string
   default_language?: string
-}): Promise<any> => {
+}) => {
   const data = await request.post<Api.BaseApi.Data>('/user/prefer-lang', params)
   return data
 }
 /** Change password */
-export const passwordModification = async (params: any): Promise<any> => {
+export const passwordModification = async (params: Record<string, unknown>) => {
   const data = await request.post('/board/user/update/password', params)
   return data
 }
 /** Upload file */
-export const uploadFile = async (params: any): Promise<any> => {
-  const data = await request.post<Api.BaseApi.Data>('/file/up', params)
+export const uploadFile = async (params: FormData) => {
+  const data = await request.post<{ path?: string }>('/file/up', params)
   return data
 }

@@ -48,13 +48,13 @@ export const fetchNotificationServicesSms = async () => {
 }
 
 /** 修改通知服务配置 */
-export const editNotificationServices = async (params: any) => {
+export const editNotificationServices = async (params: Record<string, unknown>) => {
   const data = await request.post<Api.BaseApi.Data>('/notification/services/config', params)
   return data
 }
 
 /** 发送测试邮件 */
-export const sendTestEmail = async (params: any) => {
+export const sendTestEmail = async (params: Record<string, unknown>) => {
   const data = await request.post<Api.BaseApi.Data>('/notification/services/config/e-mail/test', params)
   return data
 }
@@ -90,7 +90,7 @@ export const fetchPushNotificationServices = async () => {
 }
 
 /** 修改推送服务配置 */
-export const editPushNotificationServices = async (params: any) => {
+export const editPushNotificationServices = async (params: Record<string, unknown>) => {
   const data = await request.post<Api.BaseApi.Data>('/message_push/config', params)
   return data
 }

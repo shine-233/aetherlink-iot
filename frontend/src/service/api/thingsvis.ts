@@ -372,9 +372,9 @@ export function unsetHomeThingsVisDashboard(id: string) {
 export interface ThingsVisHomeDashboard {
   id: string
   name: string
-  canvasConfig: any
-  nodes: any[]
-  dataSources: any[]
+  canvasConfig: Pick<ThingsVisDashboard['canvasConfig'], 'mode' | 'width' | 'height' | 'background'>
+  nodes: ThingsVisDashboardNode[]
+  dataSources: unknown[]
   isPublished: boolean
   shareToken?: string
   project?: { id: string; name: string }

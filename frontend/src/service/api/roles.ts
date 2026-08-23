@@ -6,19 +6,19 @@
  */
 import { request } from '../request'
 
-export const listRoles = async (params: any) => {
+export const listRoles = async (params: object) => {
   const data = await request.get<Api.UserManagement.Data | null>('/role', {
     params
   })
   return data
 }
 
-export const createRole = async (params: any) => {
+export const createRole = async (params: Record<string, unknown>) => {
   const data = await request.post<Api.BaseApi.Data>('/role', params)
   return data
 }
 
-export const updateRole = async (params: any) => {
+export const updateRole = async (params: Record<string, unknown>) => {
   const data = await request.put<Api.BaseApi.Data>('/role', params)
   return data
 }
@@ -29,7 +29,7 @@ export const deleteRole = async (id: string) => {
 }
 
 export const getRolePermissions = async (id: string): Promise<string[]> => {
-  const response = await request.get<any>(`/casbin/function?role_id=${id}`)
+  const response = await request.get<string[]>(`/casbin/function?role_id=${id}`)
   return response?.data || []
 }
 

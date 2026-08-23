@@ -4,6 +4,7 @@
  * 关键注意事项: 分享 token、命令 payload、温度/告警字段和配置字段是高风险兼容契约，需与后端 RDI service 同步验证。
  * 重构建议: 按配置、遥测历史、命令、分享拆分函数组，并补失败分支与权限边界测试。
  */
+import type { CustomAxiosRequestConfig } from '@aetherlink/axios'
 import { request } from '../request'
 
 export interface RDIThingModelItem {
@@ -215,17 +216,17 @@ export const activateRdiDevice = async (params: { pid_number: string; name?: str
   return await request.post<RDIDeviceConfigResponse>('/rdi/devices/activate', params)
 }
 
-export const rdiDeviceConfig = async (deviceId: string, requestConfig: Record<string, unknown> = {}) => {
-  return await request.get<RDIDeviceConfigResponse>(`/rdi/devices/${encodeURIComponent(deviceId)}/config`, requestConfig as any)
+export const rdiDeviceConfig = async (deviceId: string, requestConfig: CustomAxiosRequestConfig = {}) => {
+  return await request.get<RDIDeviceConfigResponse>(`/rdi/devices/${encodeURIComponent(deviceId)}/config`, requestConfig)
 }
 
 export const rdiDeviceHistory = async (
   deviceId: string,
   params: RDIHistoryParams,
-  requestConfig: Record<string, unknown> = {}
+  requestConfig: CustomAxiosRequestConfig = {}
 ) => {
   return await request.get<RDIHistoryResponse>(`/rdi/devices/${encodeURIComponent(deviceId)}/history`, {
-    ...(requestConfig as any),
+    ...requestConfig,
     params
   })
 }

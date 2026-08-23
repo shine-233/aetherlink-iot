@@ -46,7 +46,7 @@ export function fetchEmailCodeByEmail(email: string) {
   })
 }
 /** 获取用户列表 */
-export const fetchUserList = async (params: any) => {
+export const fetchUserList = async (params: object) => {
   const data = await request.get<Api.UserManagement.Data | null>('/user', {
     params
   })
@@ -54,13 +54,13 @@ export const fetchUserList = async (params: any) => {
 }
 
 /** 添加用户 */
-export const addUser = async (params: any) => {
+export const addUser = async (params: object) => {
   const data = await request.post<Api.BaseApi.Data>('/user', params)
   return data
 }
 
 /** 编辑用户 */
-export const editUser = async (params: any) => {
+export const editUser = async (params: object) => {
   // delete params.password;
   const data = await request.put<Api.BaseApi.Data>('/user', params)
   return data
@@ -73,12 +73,12 @@ export const delUser = async (id: string) => {
 }
 
 /** 切换用户 */
-export const transformUser = async (params: any) => {
+export const transformUser = async (params: { become_user_id: string }) => {
   const data = await request.post<Api.Auth.LoginToken>(`/user/transform`, params)
   return data
 }
 /** 修改密码 */
-export const editUserPassWord = async (params: any) => {
+export const editUserPassWord = async (params: Record<string, unknown>) => {
   const data = await request.post<Api.BaseApi.Data>(`/reset/password`, params)
   return data
 }
@@ -89,7 +89,7 @@ export const requestPasswordResetLink = async (params: { email: string; verify_c
   return data
 }
 
-export const fetchCompatHomeConfig = async (params: any) => {
+export const fetchCompatHomeConfig = async (params: Record<string, unknown>) => {
   const data = await request.get<{ config: string } | null>('/board/home', {
     params
   })
@@ -144,9 +144,11 @@ export async function fetchSuperAdminInit(data: SuperAdminInitPayload) {
         'Content-Type': 'application/json'
       }
     })
-  } catch (error: any) {
-    const status = error?.response?.status
-    const code = error?.response?.data?.code
+  } catch (error: unknown) {
+    // 请求层抛出的错误按 axios 响应结构鸭子类型判定（测试以普通对象模拟）。
+    const response = (error as { response?: { status?: number; data?: { code?: number } } } | null)?.response
+    const status = response?.status
+    const code = response?.data?.code
     if (status === 404 || code === 100404) {
       return request.post('/tenant/market-register', data, {
         headers: {

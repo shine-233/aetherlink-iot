@@ -279,7 +279,8 @@ function normalizeFetchedUserInfo(data: Record<string, any>): typeof userInfoDat
 
 async function refreshUserInfo() {
   const { data } = await fetchUserInfo()
-  userInfoData.value = normalizeFetchedUserInfo(data)
+  // 后端可能返回空 data；空对象兜底避免 null/undefined 进入字段归一化。
+  userInfoData.value = normalizeFetchedUserInfo(data ?? {})
   applyAvatarPreview(userInfoData.value)
   syncAuthUserInfo({
     name: userInfoData.value.name || authStore.userInfo.name,

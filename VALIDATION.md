@@ -2,6 +2,24 @@
 
 本文档说明当前工作树用于公开发布时的验证策略，包括推荐的命令顺序、证据要求，以及“历史归档”和“当前发布证据”的边界。
 
+## 2026-08-23 P1 专项处置记录：间歇性读不一致 / 假成功删除（当前最新）
+
+本节为独立 P1 会话的闭环处置记录，不改变上文任何门禁与证据分级。注意：本轮与另一并行会话共用工作树，期间该会话提交了 b4cf044/94481c9 并多次改写同一批文件；本节所述改动以 p1-wt 工作树验证版为准，主树文件状态以 git 实况为准。
+
+**根因机制（有 SQL 级实证）**：gorm/gen 的包级表单例链从"继承式"语句根出发，`Statement.clone()` 只清空 Clauses/Preloads、其余字段（含 Model/Dest）按值继承。高负载并发下一旦某执行语句残留 `Model=<携带非零主键的struct>` 且 `Dest != Model`，gorm 会在 UPDATE 上补注入未限定 `id='<陈旧值>'` 条件（callbacks/update.go ConvertToAssignments）、在 DELETE 上经 `Dest != Model && ReflectValue.CanAddr()` 分支补注入限定 `"table"."id"` 条件（callbacks/delete.go）、并使后续 SELECT 带上陈旧过滤——分别对应症状目录中的假成功删除、record-not-found、total>0 而 list=null。
+
+**修复（最小侵入，按表落地）**：device_config 全部读写与 users 登录热路径更新、用户列表 count/find 改走 raw global.DB 链（gorm.Open 根 clone==1，每次链式起点均为全新 Statement，无继承通道，仓库内 UpdateDeviceConfigPayloadSchemaID 已有同型先例）；删除与更新显式检查 RowsAffected，未命中行必须报错；登录种子源 UpdateLastVisitTime 一并封堵。曾试验的接线级 Session{NewDB:true} 与逐操作 Session{NewDB:true} 两方案分别被实证否定（前者不切断继承，后者丢失 map 更新所需的 schema 绑定导致 unsupported data type 回归）。
+
+**验证数字（本机隔离栈：库 aetherlink_iot_p1iso_20260823、backend 29999、broker 2883、preview 19725）**：
+- HTTP 锤击复现器（并发 建→改→查→删→验）：修复前 92~180 次假成功删除且持续恶化；修复后连续多轮 380+/380+ 全绿。
+- 连续两轮完整 run_tests.js --include-e2e --workers=1：第一轮 API 66/70、E2E 18/20；第二轮 API 66/70、E2E 18/20。失败清单不含任何 record-not-found/假成功删除类条目；TEMPLATE_DELETE_FAIL 由修复前单轮 21 次降为 0 次（两轮均 0），200050 为 0。
+- 完整跑批结束后 /user/detail ×10（super_admin 与 tenant_admin 双账号）：20/20 全 200。
+- 修复后 backend SQL 日志扫描：device_configs/users 列表等已修复面 doubled-value-condition = 0。
+
+**遗留（同一机制的其余 gen 面，建议后续专项按同法收敛）**：01_auth 用户选择器列表偶发 list=null、02_device 超管跨租户设备视图偶发不可见、13_data_script 更新后列表读回旧名（三者为剩余 gen 单义面的同族间歇性）；15_device_config_openapi 两条断言仍按"列表返回明文 api_key"的过期望编写（与 2026-08 安全批次脱敏契约冲突，属夹具漂移，本轮修复被并行会话覆盖后未再落回）；E2E device/data 的种子设备首页可见性与 Ready Check MQTT 证据簇受历史轮次累积状态与 ACK 独占约束影响，需按 lane 清态复跑。real-rdi/pending 门禁维持原状。
+
+
+
 ## 2026-08-22 安全止血批次（当前最新）
 
 本节记录 2026-08-22 安全审查后的修复批次及其验证边界；不改变上文任何 pending 门禁。

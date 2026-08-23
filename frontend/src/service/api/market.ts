@@ -34,12 +34,12 @@ export const getMarketTemplates = async (params: {
   page: number
   page_size: number
 }) => {
-  return await request.get<any>('/device/template/market/list', { params })
+  return await request.get<Record<string, unknown>>('/device/template/market/list', { params })
 }
 
 /** 获取市场物模型详情 */
 export const getMarketTemplateDetail = async (marketId: string) => {
-  return await request.get<any>(`/device/template/market/detail/${marketId}`)
+  return await request.get<Record<string, unknown>>(`/device/template/market/detail/${marketId}`)
 }
 
 /** 从市场安装物模型 */
@@ -48,5 +48,5 @@ export const installFromMarket = async (data: {
   version?: string
   market_token: string
 }) => {
-  return await request.post<any>('/device/template/market/install', data)
+  return await request.post<Record<string, unknown>>('/device/template/market/install', data)
 }

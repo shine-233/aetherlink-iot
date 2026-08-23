@@ -39,14 +39,19 @@ func isolatedDeviceConfig() query.IDeviceConfigDo {
 	return query.DeviceConfig.Session(&gorm.Session{NewDB: true})
 }
 
+// 写路径统一走 raw global.DB 链（gorm.Open 根 clone==1，每次链式起点都是全新
+// Statement，无跨请求 Model/Dest 继承通道），从根上消除高负载下被注入陈旧主键
+// WHERE 的间歇性读写不一致（P1 修复，见 VALIDATION.md）。
 func CreateDeviceConfig(deviceconfig *model.DeviceConfig) error {
-	return isolatedDeviceConfig().Create(deviceconfig)
+	return global.DB.Create(deviceconfig).Error
 }
 
 // 修改配置物模型 id
 func UpdateDeviceConfigTemplateID(id string, templateID *string) error {
 	// nil值也要更新
-	_, err := isolatedDeviceConfig().Where(query.DeviceConfig.ID.Eq(id)).Update(query.DeviceConfig.DeviceTemplateID, templateID)
+	err := global.DB.Model(&model.DeviceConfig{}).
+		Where("id = ?", id).
+		Update("device_template_id", templateID).Error
 	if err != nil {
 		logrus.Error(err)
 	}
@@ -60,11 +65,13 @@ func UpdateDeviceConfigPayloadSchemaID(id string, schemaID *string) error {
 }
 
 func UpdateDeviceConfig(id string, condsMap map[string]interface{}) error {
-	p := query.DeviceConfig
 	t := time.Now().UTC()
 	condsMap["updated_at"] = &t
 	delete(condsMap, "id")
-	info, err := isolatedDeviceConfig().WithContext(context.Background()).Where(p.ID.Eq(id)).Updates(condsMap)
+	info := global.DB.Model(&model.DeviceConfig{}).
+		Where("id = ?", id).
+		Updates(condsMap)
+	err := info.Error
 	if err != nil {
 		logrus.Error(err)
 		return err
@@ -79,7 +86,8 @@ func DeleteDeviceConfig(id string) error {
 	// P1 修复（2026-08-23，见 VALIDATION.md）：RowsAffected 不得忽略。
 	// 删除未命中行时必须显式报错，杜绝"API 返回成功但行仍在"的假成功删除；
 	// 上层 service 依赖该错误把 200050 引用计数问题留给真实残留数据。
-	info, err := isolatedDeviceConfig().WithContext(context.Background()).Where(query.DeviceConfig.ID.Eq(id)).Delete()
+	info := global.DB.Where("id = ?", id).Delete(&model.DeviceConfig{})
+	err := info.Error
 	if err != nil {
 		logrus.Error(err)
 		return err
@@ -386,7 +394,9 @@ func (DeviceConfigVo) PoToVo(deviceConfigInfo *model.DeviceConfig) (info *model.
 // 修改凭证类型
 func UpdateDeviceConfigVoucherType(id string, voucherType *string) error {
 	// nil值也要更新
-	_, err := isolatedDeviceConfig().Where(query.DeviceConfig.ID.Eq(id)).Update(query.DeviceConfig.VoucherType, voucherType)
+	err := global.DB.Model(&model.DeviceConfig{}).
+		Where("id = ?", id).
+		Update("voucher_type", voucherType).Error
 	if err != nil {
 		logrus.Error(err)
 	}
@@ -395,7 +405,9 @@ func UpdateDeviceConfigVoucherType(id string, voucherType *string) error {
 
 func GetDeviceConfigIdByName(name string) *string {
 	var configId string
-	err := isolatedDeviceConfig().Where(query.DeviceConfig.Name.Eq(name)).Select(query.DeviceConfig.ID).Limit(1).Scan(&configId)
+	err := global.DB.Model(&model.DeviceConfig{}).
+		Where("name = ?", name).
+		Select("id").Limit(1).Scan(&configId).Error
 	if err != nil {
 		return nil
 	}
@@ -403,8 +415,14 @@ func GetDeviceConfigIdByName(name string) *string {
 }
 
 // 根据功能物模型 ID 查询关联的配置数量
+func countBy(q *gorm.DB) (int64, error) {
+	var n int64
+	err := q.Count(&n).Error
+	return n, err
+}
+
 func GetDeviceConfigCountByFuncTemplateId(id string) (int64, error) {
-	count, err := isolatedDeviceConfig().Where(query.DeviceConfig.DeviceTemplateID.Eq(id)).Count()
+	count, err := countBy(global.DB.Model(&model.DeviceConfig{}).Where("device_template_id = ?", id))
 	if err != nil {
 		logrus.Error(err)
 	}

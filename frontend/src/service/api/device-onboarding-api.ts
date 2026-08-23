@@ -12,7 +12,7 @@ export const getDeviceConnectionDiagnostics = async (
     debug_log_limit?: number
   }
 ) => {
-  return await request.get<any>(`/device/${deviceId}/connection/diagnostics`, { params })
+  return await request.get<Record<string, unknown>>(`/device/${deviceId}/connection/diagnostics`, { params })
 }
 
 export interface DeviceConnectionGuideQuery {
