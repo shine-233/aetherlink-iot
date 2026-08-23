@@ -57,6 +57,13 @@ func (*TelemetryData) ServeEchoData(req *model.ServeEchoDataReq, clientIP string
 	}
 
 	accessAddress := viper.GetString("mqtt.broker")
+	// viper 环境覆盖可能未传播到容器内所有代码路径。
+	// 当结果为回环地址时直接读取 GOTP_MQTT_BROKER 进程环境变量（已在 docker exec 中确认正确）。
+	if strings.Contains(accessAddress, "127.0.0.1") || strings.Contains(accessAddress, "localhost") {
+		if envBroker := os.Getenv("GOTP_MQTT_BROKER"); envBroker != "" {
+			accessAddress = envBroker
+		}
+	}
 	host, port, err = parseMQTTAccessAddress(accessAddress)
 	if err != nil {
 		return nil, err
@@ -145,6 +152,11 @@ func (*TelemetryData) GetSimulationInit(deviceId string, claims *utils.UserClaim
 
 	// 获取 MQTT 服务器配置
 	accessAddress := viper.GetString("mqtt.broker")
+	if strings.Contains(accessAddress, "127.0.0.1") || strings.Contains(accessAddress, "localhost") {
+		if envBroker := os.Getenv("GOTP_MQTT_BROKER"); envBroker != "" {
+			accessAddress = envBroker
+		}
+	}
 	host, portText, err := parseMQTTAccessAddress(accessAddress)
 	if err != nil {
 		return nil, err
@@ -237,6 +249,11 @@ func (*TelemetryData) SimulationSend(req *model.SimulationSendReq, claims *utils
 
 	// 确定 MQTT 参数
 	accessAddress := viper.GetString("mqtt.broker")
+	if strings.Contains(accessAddress, "127.0.0.1") || strings.Contains(accessAddress, "localhost") {
+		if envBroker := os.Getenv("GOTP_MQTT_BROKER"); envBroker != "" {
+			accessAddress = envBroker
+		}
+	}
 	host, port, err := parseMQTTAccessAddress(accessAddress)
 	if err != nil {
 		return err
