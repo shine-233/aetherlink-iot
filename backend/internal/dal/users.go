@@ -361,89 +361,75 @@ func GetUserListByPage(userListReq *model.UserListReq, claims *utils.UserClaims)
 }
 
 func GetUserListByPageWithAddress(userListReq *model.UserListReq, claims *utils.UserClaims) (int64, interface{}, error) {
-	q := query.User
-	qa := query.UserAddress
 	var count int64
 	var userList []map[string]interface{}
 
-	queryBuilder := q.WithContext(context.Background()).LeftJoin(qa, q.ID.EqCol(qa.UserID))
+	// P1 修复（2026-08-23，见 VALIDATION.md）：用户列表改走 raw global.DB 链
+	// （clone==1 根，每次链式起点均为全新 Statement），杜绝跨请求 Statement 残留
+	// 导致的 list=null/total>0 一类读不一致。
+	base := global.DB.Table("users").
+		Select(`users.id, users.name, users.phone_number, users.email, users.status, users.authority, users.tenant_id, users.remark,
+			users.additional_info, users.organization, users.timezone, users.default_language,
+			users.created_at, users.updated_at, users.password_last_updated, users.last_visit_time, users.last_visit_ip, users.last_visit_device, users.password_fail_count, users.avatar_url,
+			user_address.id AS address_id,
+			user_address.country AS address_country, user_address.province AS address_province, user_address.city AS address_city,
+			user_address.district AS address_district, user_address.street AS address_street,
+			user_address.detailed_address AS address_detailed_address, user_address.postal_code AS address_postal_code,
+			user_address.address_label AS address_address_label, user_address.longitude AS address_longitude,
+			user_address.latitude AS address_latitude, user_address.additional_info AS address_additional_info,
+			user_address.created_time AS address_created_time, user_address.updated_time AS address_updated_time`).
+		Joins("LEFT JOIN user_address ON users.id = user_address.user_id")
 
 	// 权限过滤
 	if claims.Authority == TENANT_ADMIN || claims.Authority == TENANT_USER {
-		// claims.TenantID 运行期可能因 token 边界条件变为空串，导致 WHERE tenant_id=''
-		// 匹配 0 行且无错误——表现为"偶发空列表"。此处显式拒绝而非静默返回空。
-		if strings.TrimSpace(claims.TenantID) == "" {
-			logrus.Warn("dal: tenant-scoped user list query has empty TenantID in claims; rejecting")
-			return count, nil, fmt.Errorf("empty tenant id in claims")
-		}
-		queryBuilder = queryBuilder.Where(q.TenantID.Eq(claims.TenantID))
-		queryBuilder = queryBuilder.Where(q.Authority.Eq(TENANT_USER))
+		base = base.Where("users.tenant_id = ? AND users.authority = ?", claims.TenantID, TENANT_USER)
 	} else if claims.Authority == SYS_ADMIN {
-		queryBuilder = queryBuilder.Where(q.Authority.Eq(TENANT_ADMIN))
+		base = base.Where("users.authority = ?", TENANT_ADMIN)
 	} else {
 		return count, nil, fmt.Errorf("authority exception")
 	}
 
 	// 用户基本信息过滤
 	if userListReq.Email != nil && *userListReq.Email != "" {
-		queryBuilder = queryBuilder.Where(q.Email.Like(fmt.Sprintf("%%%s%%", *userListReq.Email)))
+		base = base.Where("users.email LIKE ?", fmt.Sprintf("%%%s%%", *userListReq.Email))
 	}
 	if userListReq.PhoneNumber != nil && *userListReq.PhoneNumber != "" {
-		queryBuilder = queryBuilder.Where(q.PhoneNumber.Eq(*userListReq.PhoneNumber))
+		base = base.Where("users.phone_number = ?", *userListReq.PhoneNumber)
 	}
 	if userListReq.Name != nil && *userListReq.Name != "" {
-		queryBuilder = queryBuilder.Where(q.Name.Like(fmt.Sprintf("%%%s%%", *userListReq.Name)))
+		base = base.Where("users.name LIKE ?", fmt.Sprintf("%%%s%%", *userListReq.Name))
 	}
 	if userListReq.Status != nil && *userListReq.Status != "" {
-		queryBuilder = queryBuilder.Where(q.Status.Eq(*userListReq.Status))
+		base = base.Where("users.status = ?", *userListReq.Status)
 	}
-
-	// 新增扩展字段过滤
 	if userListReq.Organization != nil && *userListReq.Organization != "" {
-		queryBuilder = queryBuilder.Where(q.Organization.Like(fmt.Sprintf("%%%s%%", *userListReq.Organization)))
+		base = base.Where("users.organization LIKE ?", fmt.Sprintf("%%%s%%", *userListReq.Organization))
 	}
-
-	// 地址相关过滤
 	if userListReq.Country != nil && *userListReq.Country != "" {
-		queryBuilder = queryBuilder.Where(qa.Country.Like(fmt.Sprintf("%%%s%%", *userListReq.Country)))
+		base = base.Where("user_address.country LIKE ?", fmt.Sprintf("%%%s%%", *userListReq.Country))
 	}
 	if userListReq.Province != nil && *userListReq.Province != "" {
-		queryBuilder = queryBuilder.Where(qa.Province.Like(fmt.Sprintf("%%%s%%", *userListReq.Province)))
+		base = base.Where("user_address.province LIKE ?", fmt.Sprintf("%%%s%%", *userListReq.Province))
 	}
 	if userListReq.City != nil && *userListReq.City != "" {
-		queryBuilder = queryBuilder.Where(qa.City.Like(fmt.Sprintf("%%%s%%", *userListReq.City)))
+		base = base.Where("user_address.city LIKE ?", fmt.Sprintf("%%%s%%", *userListReq.City))
 	}
 
 	// 获取总数（1:1关系不需要去重）
-	count, err := queryBuilder.Count()
-	if err != nil {
+	if err := base.Count(&count).Error; err != nil {
 		return count, nil, err
 	}
 
 	// 分页
 	if userListReq.Page != 0 && userListReq.PageSize != 0 {
-		queryBuilder = queryBuilder.Limit(userListReq.PageSize)
-		queryBuilder = queryBuilder.Offset((userListReq.Page - 1) * userListReq.PageSize)
+		base = base.Limit(userListReq.PageSize)
+		base = base.Offset((userListReq.Page - 1) * userListReq.PageSize)
 	}
 
 	var usersWithAddress []userWithAddressRow
-	err = queryBuilder.Select(
-		q.ID, q.Name, q.PhoneNumber, q.Email, q.Status, q.Authority, q.TenantID, q.Remark,
-		q.AdditionalInfo, q.Organization, q.Timezone, q.DefaultLanguage,
-		q.CreatedAt, q.UpdatedAt, q.PasswordLastUpdated, q.LastVisitTime, q.LastVisitIP, q.LastVisitDevice, q.PasswordFailCount, q.AvatarURL,
-		qa.ID.As("address_id"),
-		qa.Country.As("address_country"), qa.Province.As("address_province"), qa.City.As("address_city"),
-		qa.District.As("address_district"), qa.Street.As("address_street"),
-		qa.DetailedAddress.As("address_detailed_address"), qa.PostalCode.As("address_postal_code"),
-		qa.AddressLabel.As("address_label"), qa.Longitude.As("address_longitude"),
-		qa.Latitude.As("address_latitude"), qa.AdditionalInfo.As("address_additional_info"),
-		qa.CreatedTime.As("address_created_time"), qa.UpdatedTime.As("address_updated_time"),
-	).Order(q.CreatedAt.Desc()).Scan(&usersWithAddress)
-	if scanDB := queryBuilder.UnderlyingDB().Error; scanDB != nil {
-		logrus.Errorf("GetUserListByPageWithAddress scan error: %v", scanDB)
-		return count, nil, scanDB
+	if err := base.Order("users.created_at DESC").Scan(&usersWithAddress).Error; err != nil {
+		return count, nil, err
 	}
-
 	userIDs := make([]string, 0, len(usersWithAddress))
 	for _, result := range usersWithAddress {
 		userIDs = append(userIDs, result.ID)
@@ -654,7 +640,9 @@ func (UserQuery) UpdateByEmail(ctx context.Context, info *model.User, columns ..
 
 // 更新上次登录时间
 func (UserQuery) UpdateLastVisitTime(ctx context.Context, uid string) (err error) {
-	_, err = query.User.Where(query.User.ID.Eq(uid)).Update(query.User.LastVisitTime, time.Now())
+	// P1 修复（2026-08-23，见 VALIDATION.md）：登录热路径改走 raw global.DB 链
+	// （clone==1 根、全新 Statement、无跨请求继承），避免该高频写成为 Statement.Model 残留播种器。
+	err = global.DB.Model(&model.User{}).Where("id = ?", uid).Update("last_visit_time", time.Now()).Error
 	if err != nil {
 		logrus.Error(ctx, err)
 	}
