@@ -2,6 +2,8 @@
 // 核心逻辑: 组合 GORM Gen query、事务句柄和模型转换，向 service 层暴露稳定的持久化操作边界。
 // 关键注意事项: 新增或修改查询时必须保持租户隔离、权限前置校验结果、事务原子性和缓存一致性，避免跨租户泄漏或半提交。
 // 重构建议: 将复杂筛选、分页和事务步骤拆成可测试 helper，补齐 focused DAL 测试后再调整查询组合。
+// 收敛说明: 设备写路径与身份预检已按 gen 继承面收敛批次一改为 raw global.DB / Session NewDB 起点（clone==1 根），
+// 杜绝高并发下跨请求 Statement 残留注入陈旧条件（见 references/gen-inheritance-audit.md）。
 
 package dal
 
@@ -18,6 +20,7 @@ import (
 
 	"gorm.io/gen"
 	"gorm.io/gen/field"
+	"gorm.io/gorm"
 
 	"github.com/sirupsen/logrus"
 )
@@ -49,31 +52,52 @@ func createDevicesWithDefaultRootGroup(devices []*model.Device) error {
 	})
 }
 
+// isolatedDevice 返回从全新 gorm Statement 出发的 devices 链起点。
+// 与 isolatedDeviceConfig 同理：Session{NewDB:true} 强制每次操作都使用零起点的
+// 全新语句，切断 gen 包级单例在高负载下的跨请求 Model/Dest 状态继承。
+// 仅用于必须保留 gen 类型化字段表达式的链路；其余写路径统一走 raw global.DB。
+func isolatedDevice() query.IDeviceDo {
+	return query.Device.Session(&gorm.Session{NewDB: true})
+}
+
+// UpdateDevice 更新设备非零字段。批次一收敛（2026-08-24，见
+// references/gen-inheritance-audit.md）：改走 raw global.DB 链（clone==1 根，
+// 每次起点全新 Statement），杜绝继承链残留 Model/Dest 注入陈旧主键 WHERE；
+// struct 非零更新语义与"未命中行报错"契约保持不变。
 func UpdateDevice(device *model.Device) (*model.Device, error) {
-	info, err := query.Device.Where(query.Device.ID.Eq(device.ID)).Updates(device)
-	if err != nil {
+	info := global.DB.Model(&model.Device{}).
+		Where("id = ?", device.ID).
+		Updates(device)
+	if err := info.Error; err != nil {
 		logrus.Error(err)
 		return nil, err
 	} else if info.RowsAffected == 0 {
 		return nil, fmt.Errorf("update device failed, no rows affected")
 	}
-	return device, err
+	return device, nil
 }
 
 func UpdateDeviceByMap(deviceID string, deviceMap map[string]interface{}) (*model.Device, error) {
-	info, err := query.Device.Where(query.Device.ID.Eq(deviceID)).Updates(deviceMap)
-	if err != nil {
+	// 批次一收敛（2026-08-24）：写与回读均改走 raw global.DB 链，杜绝 UPDATE 后
+	// SELECT 继承残留 Statement 读到旧快照（CI 实锤根因）；RowsAffected 契约不变。
+	info := global.DB.Model(&model.Device{}).
+		Where("id = ?", deviceID).
+		Updates(deviceMap)
+	if err := info.Error; err != nil {
 		logrus.Error(err)
 		return nil, err
 	} else if info.RowsAffected == 0 {
 		return nil, fmt.Errorf("update device failed, no rows affected")
 	}
 	// Return the row after the update so callers see DB-side changes.
-	device, err := query.Device.Where(query.Device.ID.Eq(deviceID)).First()
-	if err != nil {
+	device := &model.Device{}
+	if err := global.DB.Model(&model.Device{}).
+		Where("id = ?", deviceID).
+		First(device).Error; err != nil {
 		logrus.Error(err)
+		return nil, err
 	}
-	return device, err
+	return device, nil
 }
 
 // UpdateDeviceStatus updates the latest online status synchronously and returns
@@ -98,9 +122,14 @@ func UpdateDeviceStatus(deviceId string, status int16) (bool, error) {
 	return true, nil
 }
 
+// getDeviceTenantID 查询设备归属租户。批次一收敛（2026-08-24）：模拟器上下线
+// 心跳热路径读侧改走 raw global.DB 链（clone==1 根），杜绝继承链残留导致
+// INSERT 后 SELECT 读到旧快照（CI 实锤根因）。
 func getDeviceTenantID(deviceId string) (string, error) {
-	device, err := query.Device.Where(query.Device.ID.Eq(deviceId)).First()
-	if err != nil {
+	device := &model.Device{}
+	if err := global.DB.Model(&model.Device{}).
+		Where("id = ?", deviceId).
+		First(device).Error; err != nil {
 		logrus.WithError(err).WithField("device_id", deviceId).Error("Failed to get device info")
 		return "", err
 	}
@@ -139,23 +168,36 @@ func saveDeviceStatusHistoryAsync(tenantID string, deviceId string, status int16
 	}()
 }
 
+// updateDeviceOnlineStatusColumns 更新在线状态列。批次一收敛（2026-08-24）：
+// 心跳热路径写侧改走 raw global.DB 链（clone==1 根），杜绝继承链残留注入陈旧
+// 主键条件；is_online <> status 幂等守卫、UpdateColumns/Update 分支与
+// RowsAffected 语义（未命中行静默成功）保持完全一致。
 func updateDeviceOnlineStatusColumns(deviceId string, status int16) (gen.ResultInfo, error) {
 	if status == 0 {
 		now := time.Now().UTC()
-		return query.Device.Where(query.Device.ID.Eq(deviceId), query.Device.IsOnline.Neq(status)).
+		info := global.DB.Model(&model.Device{}).
+			Where("id = ?", deviceId).
+			Where("is_online <> ?", status).
 			UpdateColumns(map[string]interface{}{
 				"is_online":         status,
 				"last_offline_time": now,
 			})
+		return gen.ResultInfo{RowsAffected: info.RowsAffected}, info.Error
 	}
 
-	return query.Device.Where(query.Device.ID.Eq(deviceId), query.Device.IsOnline.Neq(status)).
-		Update(query.Device.IsOnline, status)
+	info := global.DB.Model(&model.Device{}).
+		Where("id = ?", deviceId).
+		Where("is_online <> ?", status).
+		Update("is_online", status)
+	return gen.ResultInfo{RowsAffected: info.RowsAffected}, info.Error
 }
 
+// DeleteDevice 删除设备。批次一收敛（2026-08-24）：改走 raw global.DB 链
+// （clone==1 根），杜绝继承链残留注入陈旧主键 WHERE 导致假成功删除；
+// "必须恰好命中 1 行"的契约保持不变。
 func DeleteDevice(id string, tenantID string) error {
-	info, err := query.Device.Where(query.Device.ID.Eq(id), query.Device.TenantID.Eq(tenantID)).Delete()
-	if err != nil {
+	info := global.DB.Where("id = ? AND tenant_id = ?", id, tenantID).Delete(&model.Device{})
+	if err := info.Error; err != nil {
 		logrus.Error(err)
 		return err
 	}
@@ -179,13 +221,16 @@ func DeleteDeviceWithTx(id string, tenantID string, tx *query.QueryTx) error {
 }
 
 // GetParentDeviceBySubDeviceID returns the parent/gateway record for a child device ID.
+// 批次一收敛（2026-08-24）：直链读起点改走 raw global.DB 链，杜绝继承链残留。
 func GetParentDeviceBySubDeviceID(subDeviceID string) (info *model.Device, err error) {
-	device := query.Device
-	info, err = device.Where(device.ID.Eq(subDeviceID)).First()
-	if err != nil {
+	device := &model.Device{}
+	if err = global.DB.Model(&model.Device{}).
+		Where("id = ?", subDeviceID).
+		First(device).Error; err != nil {
 		logrus.Error(err)
+		return nil, err
 	}
-	return
+	return device, nil
 }
 
 // GetDeviceByIDForUpdate locks the device row inside a transaction for
@@ -259,22 +304,34 @@ func UpdateDeviceOnlineStatus(deviceId string, status int16) error {
 }
 
 // 移除子设备：将设备的parent_id置为空
+// 批次一收敛（2026-08-24）：改走 raw global.DB 链（clone==1 根）；置 NULL 语义
+// 与 RowsAffected 契约保持不变。
 func RemoveSubDevice(deviceId string, tenant_id string) error {
-	info, err := query.Device.Where(query.Device.ID.Eq(deviceId), query.Device.TenantID.Eq(tenant_id)).UpdateSimple(query.Device.ParentID.Null(), query.Device.SubDeviceAddr.Null())
-	if err != nil {
+	info := global.DB.Model(&model.Device{}).
+		Where("id = ? AND tenant_id = ?", deviceId, tenant_id).
+		UpdateColumns(map[string]interface{}{
+			"parent_id":       nil,
+			"sub_device_addr": nil,
+		})
+	if err := info.Error; err != nil {
 		logrus.Error(err)
+		return err
 	} else if info.RowsAffected == 0 {
 		return fmt.Errorf("remove sub device failed, device not found")
 	}
-	return err
+	return nil
 }
 
 type DeviceQuery struct{}
 
 // 更新指定字段
 func (DeviceQuery) Update(ctx context.Context, info *model.Device, option ...field.Expr) error {
-	device := query.Device
-	_, err := query.Device.WithContext(ctx).Where(device.ID.Eq(info.ID)).Select(option...).UpdateColumns(info)
+	// 批次一收敛（2026-08-24）：需保留类型化 Select(field.Expr)，改走 Session NewDB
+	// 起点，切断跨请求 Statement 继承。
+	_, err := isolatedDevice().WithContext(ctx).
+		Where(query.Device.ID.Eq(info.ID)).
+		Select(option...).
+		UpdateColumns(info)
 	if err != nil {
 		logrus.Error(ctx, err)
 	}
@@ -283,14 +340,16 @@ func (DeviceQuery) Update(ctx context.Context, info *model.Device, option ...fie
 
 // 更新设备配置
 func (DeviceQuery) ChangeDeviceConfig(deviceID string, deviceConfigID *string) error {
-	device := query.Device
-	info, err := device.Where(device.ID.Eq(deviceID)).Update(device.DeviceConfigID, deviceConfigID)
-	if err != nil {
+	// 批次一收敛（2026-08-24）：改走 raw global.DB 链（clone==1 根）。
+	info := global.DB.Model(&model.Device{}).
+		Where("id = ?", deviceID).
+		Update("device_config_id", deviceConfigID)
+	if err := info.Error; err != nil {
 		logrus.Error(err)
 		return err
 	}
 	if info.RowsAffected == 0 {
 		return fmt.Errorf("update device config failed, no rows affected")
 	}
-	return err
+	return nil
 }

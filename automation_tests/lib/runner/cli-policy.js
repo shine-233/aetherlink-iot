@@ -1,3 +1,5 @@
+const { partitionBlockedReasons } = require('./optional-externals');
+
 const EXIT_CODES = {
   failed: 1,
   serviceUnavailable: 2
@@ -74,18 +76,27 @@ function isStrictIntegrationEnabled(env = process.env) {
 function getStrictIntegrationGaps(summary = {}) {
   const gaps = [];
 
-  if (Number(summary.skipped || 0) > 0) {
+  // 已声明的可选外部能力（如 ThingsVis）的 skip/blocked 可豁免，其余保持 fail-closed；
+  // 豁免计数缺失时减法自然回退为原始计数，仍判 gap。
+  const skipped = Number(summary.skipped || 0) - Number(summary.optionalExternalSkipped || 0);
+  if (skipped > 0) {
     gaps.push('skipped tests are not allowed in strict integration mode');
   }
-  if (Number(summary.partialSkipped || 0) > 0) {
+  const partialSkipped = Number(summary.partialSkipped || 0) -
+    Number(summary.partialSkippedOptionalExternal || 0);
+  if (partialSkipped > 0) {
     gaps.push('partial-skip module results are not allowed in strict integration mode');
   }
-  if (Number(summary.allSkipped || 0) > 0) {
+  const allSkipped = Number(summary.allSkipped || 0) -
+    Number(summary.allSkippedOptionalExternal || 0);
+  if (allSkipped > 0) {
     gaps.push('all-skipped module results are not allowed in strict integration mode');
   }
 
-  const blockedReasons = Array.isArray(summary.blockedReasons) ? summary.blockedReasons : [];
-  if (blockedReasons.some(item => item && item.category === 'runtime-external')) {
+  const { blocking } = partitionBlockedReasons(
+    Array.isArray(summary.blockedReasons) ? summary.blockedReasons : []
+  );
+  if (blocking.some(item => item && item.category === 'runtime-external')) {
     gaps.push('runtime-external prerequisites are blocked in strict integration mode');
   }
 

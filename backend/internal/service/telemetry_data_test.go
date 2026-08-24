@@ -548,6 +548,21 @@ func TestEnsureTelemetryDeviceWriteAccessNilClaims(t *testing.T) {
 	assertTelemetryErrcode(t, err, "ensureTelemetryDeviceWriteAccess nil claims", errcode.CodeNoPermission, "no permission to modify device telemetry")
 }
 
+func TestEnsureTelemetryDeviceReadAccessCrossTenantStaysPermissionShaped(t *testing.T) {
+	// 对照守卫：库内存在但越租户的设备走 permission-shaped 无权限分支，防泄漏语义不变。
+	db := setupDeviceServiceTestDB(t)
+	now := time.Now().UTC()
+	configID := createDeviceServiceConfig(t, db, "telemetry-notfound-config", "tenant-a", "1")
+	createDeviceServiceOwnedDevice(t, db, "existing-device", "existing-number", "tenant-a", "user-a", configID, now)
+
+	_, err := ensureTelemetryDeviceReadAccess("existing-device", &utils.UserClaims{
+		ID:        "user-other",
+		TenantID:  "tenant-other",
+		Authority: constant.TENANT_USER,
+	})
+	assertTelemetryErrcode(t, err, "cross-tenant device read", errcode.CodeNoPermission, telemetryReadPermissionMessage)
+}
+
 func TestEnsureTelemetryDeviceWriteAccessRejectsBlankDeviceIDBeforeDAL(t *testing.T) {
 	claims := &utils.UserClaims{TenantID: "tenant-1"}
 	for _, deviceID := range []string{"", "   "} {
