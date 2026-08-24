@@ -155,44 +155,41 @@ func saveUserLoginToken(token, email string, timeout int) error {
 }
 
 func replaceExclusiveLoginToken(ctx context.Context, token, email string, ttl time.Duration) error {
-	oldToken, err := loadPreviousLoginToken(ctx, email)
+	// P0 加固（2026-08-24）：`{email}_token` 指针键改存上一个会话 token 的摘要而非明文 JWT，
+	// 且 TTL 与允许列表条目对齐（此前为永不过期）。Redis 被攻破时不再直接泄露可用凭证；
+	// 旧的明文指针键会在下一次登录/过期后被自然淘汰，无需迁移。
+	oldDigest, err := loadPreviousLoginTokenDigest(ctx, email)
 	if err != nil {
 		return err
 	}
-	if oldToken != "" {
-		if err := deleteLoginToken(ctx, oldToken, email); err != nil {
-			return err
+	if oldDigest != "" {
+		if err := global.REDIS.Del(ctx, oldDigest).Err(); err != nil && !errors.Is(err, redis.Nil) {
+			return tokenSaveError(email, err)
 		}
 	}
 	if err := setLoginToken(ctx, token, email, ttl); err != nil {
 		return err
 	}
-	if err := global.REDIS.Set(ctx, loginEmailTokenKey(email), token, 0).Err(); err != nil {
+	if err := global.REDIS.Set(ctx, loginEmailTokenKey(email), utils.TokenDigest(token), ttl).Err(); err != nil {
 		_ = global.REDIS.Del(ctx, utils.TokenDigest(token)).Err()
 		return tokenSaveError(email, err)
 	}
 	return nil
 }
 
-func loadPreviousLoginToken(ctx context.Context, email string) (string, error) {
-	oldToken, err := global.REDIS.Get(ctx, loginEmailTokenKey(email)).Result()
+// loadPreviousLoginTokenDigest 读取指针键中保存的上一个会话 token 摘要。
+func loadPreviousLoginTokenDigest(ctx context.Context, email string) (string, error) {
+	oldDigest, err := global.REDIS.Get(ctx, loginEmailTokenKey(email)).Result()
 	if err != nil && !errors.Is(err, redis.Nil) {
 		return "", tokenSaveError(email, err)
 	}
-	return oldToken, nil
+	return oldDigest, nil
 }
 
 func setLoginToken(ctx context.Context, token, email string, ttl time.Duration) error {
 	// P3 修复（2026-08-24，见 VALIDATION.md）：Redis 键统一使用 token 摘要（utils.TokenDigest），
 	// 与 middleware/jwt_auth.go、api/telemetry_ws_auth.go 共用同一键空间。
 	if err := global.REDIS.Set(ctx, utils.TokenDigest(token), "1", ttl).Err(); err != nil {
-		return tokenSaveError(email, err)
-	}
-	return nil
-}
-
-func deleteLoginToken(ctx context.Context, token, email string) error {
-	if err := global.REDIS.Del(ctx, utils.TokenDigest(token)).Err(); err != nil && !errors.Is(err, redis.Nil) {
 		return tokenSaveError(email, err)
 	}
 	return nil
