@@ -3,10 +3,10 @@
 // API 层的职责是完成 DTO 绑定、claims 提取、当前用户身份透传，并把实际的渠道配置、第三方状态维护和业务校验交给 service 层。
 // 由于消息推送经常涉及个人身份、通知渠道令牌和租户配置，这一层虽然很薄，但必须把“谁在操作谁的配置”交代清楚。
 // 静态审查建议：
-// 1. 几个 handler 都是相似的“BindAndValidate -> 取 claims -> 调 service -> c.Set”模板，后续如果推送接口继续增加，
-//    可以考虑抽统一辅助函数减少样板代码和遗漏风险。
-// 2. MessagePushMangeLogout 存在历史拼写问题，后续若统一命名，需要同时核对前端调用、路由注册和接口文档。
-// 3. 当前 handler 默认使用 c.MustGet("claims")，意味着路由层必须保证鉴权中间件先行；若后续有匿名推送场景，需要重新梳理中间件边界。
+//  1. 几个 handler 都是相似的“BindAndValidate -> 取 claims -> 调 service -> c.Set”模板，后续如果推送接口继续增加，
+//     可以考虑抽统一辅助函数减少样板代码和遗漏风险。
+//  2. MessagePushMangeLogout 存在历史拼写问题，后续若统一命名，需要同时核对前端调用、路由注册和接口文档。
+//  3. 当前 handler 默认使用 c.MustGet("claims")，意味着路由层必须保证鉴权中间件先行；若后续有匿名推送场景，需要重新梳理中间件边界。
 package api
 
 import (

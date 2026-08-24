@@ -137,13 +137,14 @@ func loadProtocolPluginDeviceConfig(device *model.Device) (*model.DeviceConfig, 
 // buildProtocolPluginBaseResponse 组装协议插件的设备配置回执。
 // 凭证哈希 Phase 2a 决策（references/backend-hardening-plan.md 车道1）：此处保留明文 voucher，
 // 不做掩码。依据：
-// 1. 该回执是机器对机器的凭证分发契约，不是人读展示面。voucher 即设备 MQTT 凭证
-//   （{"username","password"}），外部协议插件桥接非 MQTT 物理设备时，必须用该凭证以设备身份
-//   连接 broker 上行遥测/接收命令——与后端 telemetry_simulation.go 直读 DB 构造发布命令、
-//   broker 按 voucher 认证是同一依赖链，插件侧没有任何替代凭证签发通道。
-// 2. 仓库内不存在可证明"掩码不影响功能"的插件消费方实现；贸然掩码会静默破坏全部协议插件接入。
-// 3. 加固计划将"插件回执"列入 Phase 2 展示面产品决策清单（哈希化后需改为一次性展示+轮换语义），
-//    需要先设计替代凭证分发方案，属 Phase 2b 产品决策，本批不动。
+//  1. 该回执是机器对机器的凭证分发契约，不是人读展示面。voucher 即设备 MQTT 凭证
+//     （{"username","password"}），外部协议插件桥接非 MQTT 物理设备时，必须用该凭证以设备身份
+//     连接 broker 上行遥测/接收命令——与后端 telemetry_simulation.go 直读 DB 构造发布命令、
+//     broker 按 voucher 认证是同一依赖链，插件侧没有任何替代凭证签发通道。
+//  2. 仓库内不存在可证明"掩码不影响功能"的插件消费方实现；贸然掩码会静默破坏全部协议插件接入。
+//  3. 加固计划将"插件回执"列入 Phase 2 展示面产品决策清单（哈希化后需改为一次性展示+轮换语义），
+//     需要先设计替代凭证分发方案，属 Phase 2b 产品决策，本批不动。
+//
 // 边界控制：该入口经 OpenAPIKeyAuth 鉴权 + voucher/device_number 限流（api/protocol_plugin.go）。
 func buildProtocolPluginBaseResponse(device *model.Device, deviceConfig *model.DeviceConfig) (model.DeviceConfigForProtocolPlugin, error) {
 	rsp := model.DeviceConfigForProtocolPlugin{

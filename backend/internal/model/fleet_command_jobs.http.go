@@ -278,36 +278,36 @@ type FleetCommandJobSupportDiagnostic struct {
 }
 
 type FleetCommandJobSupportBundle struct {
-	JobID               string                            `json:"job_id"`
-	JobType             string                            `json:"job_type"`
-	ScopeType           string                            `json:"scope_type"`
-	Identify            string                            `json:"identify"`
-	Status              string                            `json:"status"`
-	ScheduledAt         *time.Time                        `json:"scheduled_at,omitempty"`
-	NextDispatchAt      *time.Time                        `json:"next_dispatch_at,omitempty"`
-	AuditRemark         *string                           `json:"audit_remark,omitempty"`
-	RequestedCount      int                               `json:"requested_count"`
-	EligibleCount       int                               `json:"eligible_count"`
-	BlockedCount        int                               `json:"blocked_count"`
-	SubmittedCount      int                               `json:"submitted_count"`
-	FailedCount         int                               `json:"failed_count"`
-	RetryableCount      int                               `json:"retryable_count"`
-	RetryReadyCount     int                               `json:"retry_ready_count"`
-	RetryWaitingCount   int                               `json:"retry_waiting_count"`
-	RetryExhaustedCount int                               `json:"retry_exhausted_count"`
-	LogMissingCount     int                               `json:"log_missing_count"`
-	StatusCounts        map[string]int                    `json:"status_counts,omitempty"`
-	RetryableDeviceIDs  []string                          `json:"retryable_device_ids,omitempty"`
-	MissingLogDeviceIDs []string                          `json:"missing_log_device_ids,omitempty"`
-	FailedDevices       []FleetCommandJobSupportDevice    `json:"failed_devices,omitempty"`
+	JobID               string                         `json:"job_id"`
+	JobType             string                         `json:"job_type"`
+	ScopeType           string                         `json:"scope_type"`
+	Identify            string                         `json:"identify"`
+	Status              string                         `json:"status"`
+	ScheduledAt         *time.Time                     `json:"scheduled_at,omitempty"`
+	NextDispatchAt      *time.Time                     `json:"next_dispatch_at,omitempty"`
+	AuditRemark         *string                        `json:"audit_remark,omitempty"`
+	RequestedCount      int                            `json:"requested_count"`
+	EligibleCount       int                            `json:"eligible_count"`
+	BlockedCount        int                            `json:"blocked_count"`
+	SubmittedCount      int                            `json:"submitted_count"`
+	FailedCount         int                            `json:"failed_count"`
+	RetryableCount      int                            `json:"retryable_count"`
+	RetryReadyCount     int                            `json:"retry_ready_count"`
+	RetryWaitingCount   int                            `json:"retry_waiting_count"`
+	RetryExhaustedCount int                            `json:"retry_exhausted_count"`
+	LogMissingCount     int                            `json:"log_missing_count"`
+	StatusCounts        map[string]int                 `json:"status_counts,omitempty"`
+	RetryableDeviceIDs  []string                       `json:"retryable_device_ids,omitempty"`
+	MissingLogDeviceIDs []string                       `json:"missing_log_device_ids,omitempty"`
+	FailedDevices       []FleetCommandJobSupportDevice `json:"failed_devices,omitempty"`
 	// RowsTruncated 表示证据行触达单次内联上限，支持包可能缺少部分设备行。
-	RowsTruncated    bool                             `json:"rows_truncated,omitempty"`
-	Events           []FleetCommandJobEvent           `json:"events,omitempty"`
-	ExecutionSummary *FleetCommandJobExecutionSummary `json:"execution_summary,omitempty"`
+	RowsTruncated    bool                              `json:"rows_truncated,omitempty"`
+	Events           []FleetCommandJobEvent            `json:"events,omitempty"`
+	ExecutionSummary *FleetCommandJobExecutionSummary  `json:"execution_summary,omitempty"`
 	Governance       *FleetCommandJobGovernanceSummary `json:"governance_summary,omitempty"`
-	NextActions      []string                         `json:"next_actions"`
-	GeneratedAt      time.Time                        `json:"generated_at"`
-	ShareHint        string                           `json:"share_hint"`
+	NextActions      []string                          `json:"next_actions"`
+	GeneratedAt      time.Time                         `json:"generated_at"`
+	ShareHint        string                            `json:"share_hint"`
 }
 
 type FleetCommandJobListReq struct {
