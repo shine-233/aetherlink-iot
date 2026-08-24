@@ -12,16 +12,6 @@
 - `device_config` 全部读写（raw 链 + RowsAffected 守卫）
 - `users`：登录选择器（email/phone）、UpdateLastVisitTime、列表 count/find、user/detail 重写
 - `data_script`：UpdateDataScript（显式列赋值 map）
-- `telemetry_current_datas` 读侧（批次三，2026-08-24）：全表最热读面
-  （board/twin/details/diagnostics）。六个 gen 直链起点（单设备读、readiness、批量读、
-  按 keys 读、单 key 读、按 key 删除）统一改经 `isolatedTelemetryCurrent()`
-  （Session{NewDB:true} 零起点）；readiness 整体改 raw global.DB 链——注意
-  Session{NewDB} 起点会丢失 Statement.Model 表绑定，Count 类终点操作必须走 raw 链
-  （gorm v1.31.2 / gen v0.3.28 实测）。回归守卫：
-  `backend/internal/dal/telemetry_current_data_isolation_test.go`
-- 同步加固（2026-08-24）：`loadTelemetryDeviceForAccess` 将 gorm.ErrRecordNotFound
-  显式映射为 CodeNotFound/device not found；`loadDeviceDetail` 对缺 id 键的空快照
-  返回 CodeNotFound，杜绝 HTTP 200 空壳 data。
 - 回归守卫：`backend/internal/dal/device_config_isolation_test.go`
 
 ## 剩余风险清单（静态扫描，按文件内链式调用数排序）

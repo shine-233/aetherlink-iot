@@ -24,16 +24,6 @@ import (
 	pb "aetherlink-iot/backend/third_party/grpc/tptodb_client/grpc_tptodb"
 )
 
-// isolatedTelemetryCurrent 返回从全新 gorm Statement 出发的 telemetry_current_datas 链起点。
-// 批次三收敛（2026-08，见 references/gen-inheritance-audit.md）：这是全栈最热读面
-// （board/twin/details/diagnostics 高频并发），包级表单例的继承式语句根在高负载下会
-// 跨请求残留 Statement 条件，导致 SELECT 读到跨设备陈旧 rows（症状：CI 03_data
-// telemetry snapshot 深比较失败）。Session{NewDB:true} 强制每次操作都使用零起点的
-// 全新语句，与 device_config P1 修复同构；写侧 raw tx 链（storage/telemetry_writer.go）不受影响。
-func isolatedTelemetryCurrent() query.ITelemetryCurrentDataDo {
-	return query.TelemetryCurrentData.Session(&gorm.Session{NewDB: true})
-}
-
 // 从 telemetry_current_datas 中获取遥测当前数据，用于替换 telemetry_datas
 func GetCurrentTelemetryDataEvolution(deviceId string) ([]*model.TelemetryCurrentData, error) {
 	dbType := viper.GetString("grpc.tptodb_type")
@@ -56,11 +46,7 @@ func GetCurrentTelemetryDataEvolution(deviceId string) ([]*model.TelemetryCurren
 		return telemetry, nil
 	}
 
-	// 读侧收敛：从全新 Statement 出发，杜绝单例残留条件并入执行语句。
-	data, err := isolatedTelemetryCurrent().
-		Where(query.TelemetryCurrentData.DeviceID.Eq(deviceId)).
-		Order(query.TelemetryCurrentData.T.Desc()).
-		Find()
+	data, err := query.TelemetryCurrentData.Where(query.TelemetryCurrentData.DeviceID.Eq(deviceId)).Order(query.TelemetryCurrentData.T.Desc()).Find()
 	if err != nil {
 		return nil, err
 	}
@@ -84,39 +70,51 @@ func GetCurrentTelemetryReadiness(deviceId string) (int64, *model.TelemetryCurre
 }
 
 func getCurrentTelemetryReadinessFromDB(deviceId string) (int64, *model.TelemetryCurrentData, error) {
-	// 批次三收敛：本函数整体改走 raw global.DB 链（clone==1 根，每次链式起点全新
-	// Statement），与 users.go 登录选择器同构。历史上 global.DB 为空时会回落到
-	// 继承式 gen 兜底链；但 Session{NewDB} 起点会丢失 Statement.Model 表绑定，
-	// 使 Count 直接报 "Table not set"（gorm v1.31.2 / gen v0.3.28 实测），
-	// 且生产环境 global.DB 与 query.SetDefault 恒成对初始化，该兜底不可达，故一并移除。
-	if global.DB == nil {
-		return 0, nil, gorm.ErrInvalidDB
-	}
-
-	var latest model.TelemetryCurrentData
-	latestResult := global.DB.
-		Where("device_id = ?", deviceId).
-		Order("ts DESC").
-		Limit(1).
-		Take(&latest)
-	if latestResult.Error != nil {
-		if errors.Is(latestResult.Error, gorm.ErrRecordNotFound) {
+	if global.DB != nil {
+		var latest model.TelemetryCurrentData
+		latestResult := global.DB.
+			Where("device_id = ?", deviceId).
+			Order("ts DESC").
+			Limit(1).
+			Take(&latest)
+		if latestResult.Error == nil {
+			var currentCount int64
+			countResult := global.DB.
+				Model(&model.TelemetryCurrentData{}).
+				Where("device_id = ?", deviceId).
+				Count(&currentCount)
+			if countResult.Error == nil {
+				if currentCount == 0 {
+					currentCount = 1
+				}
+				return currentCount, &latest, nil
+			}
+		} else if errors.Is(latestResult.Error, gorm.ErrRecordNotFound) {
 			return 0, nil, nil
 		}
-		return 0, nil, latestResult.Error
 	}
 
-	var currentCount int64
-	if err := global.DB.
-		Model(&model.TelemetryCurrentData{}).
-		Where("device_id = ?", deviceId).
-		Count(&currentCount).Error; err != nil {
+	latest, err := query.TelemetryCurrentData.
+		Where(query.TelemetryCurrentData.DeviceID.Eq(deviceId)).
+		Order(query.TelemetryCurrentData.T.Desc()).
+		First()
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return 0, nil, nil
+		}
+		return 0, nil, err
+	}
+
+	currentCount, err := query.TelemetryCurrentData.
+		Where(query.TelemetryCurrentData.DeviceID.Eq(deviceId)).
+		Count()
+	if err != nil {
 		return 0, nil, err
 	}
 	if currentCount == 0 {
 		currentCount = 1
 	}
-	return currentCount, &latest, nil
+	return currentCount, latest, nil
 }
 
 // 从 telemetry_current_datas 中获取遥测当前数据，用于替换 telemetry_datas
@@ -152,8 +150,7 @@ func GetCurrentTelemetryDataEvolutionByDeviceIDs(deviceIDs []string) (map[string
 		return result, nil
 	}
 
-	// 读侧收敛：批量读从全新 Statement 出发，避免残留条件污染 In 集合过滤。
-	data, err := isolatedTelemetryCurrent().
+	data, err := query.TelemetryCurrentData.
 		Where(query.TelemetryCurrentData.DeviceID.In(normalizedIDs...)).
 		Order(query.TelemetryCurrentData.DeviceID, query.TelemetryCurrentData.T.Desc()).
 		Find()
@@ -192,11 +189,7 @@ func GetCurrentTelemetryDataEvolutionByKeys(deviceId string, keys []string) ([]*
 		return data, nil
 	}
 
-	// 读侧收敛：按 keys 过滤的热读从全新 Statement 出发。
-	data, err := isolatedTelemetryCurrent().
-		Where(query.TelemetryCurrentData.DeviceID.Eq(deviceId), query.TelemetryCurrentData.Key.In(keys...)).
-		Order(query.TelemetryCurrentData.T.Desc()).
-		Find()
+	data, err := query.TelemetryCurrentData.Where(query.TelemetryCurrentData.DeviceID.Eq(deviceId), query.TelemetryCurrentData.Key.In(keys...)).Order(query.TelemetryCurrentData.T.Desc()).Find()
 	if err != nil {
 		return nil, err
 	}
@@ -204,11 +197,7 @@ func GetCurrentTelemetryDataEvolutionByKeys(deviceId string, keys []string) ([]*
 }
 
 func GetCurrentTelemetryDataOneKeys(deviceId string, keys string) (interface{}, error) {
-	// 读侧收敛：单 key 读从全新 Statement 出发；既有 ErrRecordNotFound 返回语义保持逐字节一致。
-	data, err := isolatedTelemetryCurrent().
-		Where(query.TelemetryCurrentData.DeviceID.Eq(deviceId), query.TelemetryCurrentData.Key.Eq(keys)).
-		Order(query.TelemetryCurrentData.T.Desc()).
-		First()
+	data, err := query.TelemetryCurrentData.Where(query.TelemetryCurrentData.DeviceID.Eq(deviceId), query.TelemetryCurrentData.Key.Eq(keys)).Order(query.TelemetryCurrentData.T.Desc()).First()
 	var result interface{}
 	if err != nil {
 		return result, err
@@ -232,11 +221,7 @@ func GetCurrentTelemetryDataOneKeys(deviceId string, keys string) (interface{}, 
 
 // 根据ID和key删除当前遥测数据
 func DeleteCurrentTelemetryData(deviceId string, key string) error {
-	// 收敛说明：删除链同样从全新 Statement 出发，切断跨请求条件继承；
-	// 既有"未命中行不报错"的返回语义保持不变（RowsAffected 守卫由调用方契约决定）。
-	_, err := isolatedTelemetryCurrent().
-		Where(query.TelemetryCurrentData.DeviceID.Eq(deviceId), query.TelemetryCurrentData.Key.Eq(key)).
-		Delete()
+	_, err := query.TelemetryCurrentData.Where(query.TelemetryCurrentData.DeviceID.Eq(deviceId), query.TelemetryCurrentData.Key.Eq(key)).Delete()
 	return err
 }
 
