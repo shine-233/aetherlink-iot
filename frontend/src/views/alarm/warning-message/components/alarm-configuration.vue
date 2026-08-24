@@ -527,7 +527,7 @@ const submitCallback = async () => {
     <!--      <NButton @click="handleBatch">{{ $t('generate.batch-process') }}</NButton>-->
     <!--      <NButton @click="handleIgnore">{{ $t('generate.batch-ignore') }}</NButton>-->
     <!--    </div>-->
-    <n-modal v-model:show="batchActionDialogVisible" class="max-w-[600px]" :mask-closable="!batchActionLoading">
+    <n-modal aria-label="dialog" v-model:show="batchActionDialogVisible" class="max-w-[600px]" :mask-closable="!batchActionLoading">
       <NCard :title="batchActionDialogTitle" class="alarm-action-modal-card">
         <div class="batch-action-hint">
           <div class="whitespace-pre-line">{{ batchActionDialogHint }}</div>
