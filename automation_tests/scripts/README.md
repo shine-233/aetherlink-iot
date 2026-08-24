@@ -139,6 +139,12 @@ ThingsVis 不清理：Native 是默认本地 provider，ThingsVis 是可选 lega
 
 本轮只将阻断的 focused 中间物和无当前引用的旧 frontend local 日志可恢复移动到项目外 quarantine。ThingsVis 源码、optional compose/nginx、simulation/emulator 源码、frontend build/coverage/dist、node_modules、验证归档和成功报告均保留。
 
+## 视觉基线采集
+
+- 采集：`npm run visual:baseline`（需 preview/后端与账号 env 就绪；输出到被忽略的 `automation_tests/visual-baseline/<timestamp>/`，含 `manifest.json`；设 `DEVICE_ID` 才会采集 `/device/details`）。
+- 对比：`npm run visual:compare -- visual-baseline\<旧timestamp> [新timestamp目录]`；同名 PNG 做 PNG 尺寸+字节粗判，有任何差异退出码 1；像素级 diff 后续可换 pixelmatch，当前不引依赖。
+- 认证：优先复用 globalSetup 产物 `e2e/.auth/super-admin.json`（origin 匹配时），否则用 `SUPER_ADMIN_EMAIL/PASSWORD` 走 API 登录注入 localStorage；两者皆无则只截 `/login` 未认证态并以退出码 1 标记不完整。
+
 ## 重构/清理建议
 
 - 保持账号准备、预检、预览代理、报告归档四个步骤清晰分离。
