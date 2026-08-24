@@ -174,7 +174,12 @@ export const buildDeviceAccessGuideSupportSummary = (input: {
     `endpoint=${accessGuide.endpoint}`,
     `clientId=${accessGuide.clientId}`,
     `username=${accessGuide.username}`,
-    accessGuide.password ? 'password=<provided>' : 'password=<empty>',
+    // 凭证哈希 Phase 2a：详情凭证已脱敏时明确标记来源掩码，避免被误读为"设备未配置密码"。
+    accessGuide.credentialsUnavailable
+      ? 'password=<masked-after-creation>'
+      : accessGuide.password
+        ? 'password=<provided>'
+        : 'password=<empty>',
     accessGuide.endpointKind === 'mqtt' ? `reportTopic=${accessGuide.reportTopic}` : '',
     accessGuide.endpointKind === 'mqtt' ? `controlTopic=${accessGuide.controlTopic}` : '',
     `tlsHint=${accessGuide.tlsHintKey}`,
@@ -248,7 +253,10 @@ export const buildDeviceAccessGuideAccessPacket = (input: {
     credentialPolicy: {
       secretsRedacted: true,
       shareRawCredentialsSeparately: true,
-      redactedFields
+      // 脱敏态下 password 字段在源头即为掩码，仍列入 redactedFields 让消费方知道无明文可分享。
+      redactedFields: accessGuide.credentialsUnavailable
+        ? [...new Set([...redactedFields, 'connection.password'])]
+        : redactedFields
     },
     connection: {
       protocol: accessGuide.protocol,
@@ -257,7 +265,9 @@ export const buildDeviceAccessGuideAccessPacket = (input: {
       endpointKind: accessGuide.endpointKind,
       clientId: accessGuide.clientId,
       username: redactedCredential(accessGuide.username, usernameIsSecret),
-      password: redactedCredential(accessGuide.password, true),
+      password: accessGuide.credentialsUnavailable
+        ? '<masked-after-creation>'
+        : redactedCredential(accessGuide.password, true),
       reportTopic: accessGuide.endpointKind === 'mqtt' ? accessGuide.reportTopic : '',
       controlTopic: accessGuide.endpointKind === 'mqtt' ? accessGuide.controlTopic : '',
       tlsHintKey: accessGuide.tlsHintKey,

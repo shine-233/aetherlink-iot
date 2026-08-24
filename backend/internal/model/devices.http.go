@@ -350,6 +350,11 @@ type GatewayRegisterRes struct {
 	MqttUsername string `json:"mqtt_username"`
 	MqttPassword string `json:"mqtt_password"`
 	MqttClientId string `json:"mqtt_client_id"`
+	// CredentialsRotatedHint 凭证轮换提示（凭证哈希 Phase 2a，references/backend-hardening-plan.md 车道1）：
+	// true  = 本次请求签发了新凭证，mqtt_username/mqtt_password 为完整明文（仅首次注册）；
+	// false = 本次请求未轮换凭证，重复注册复用既有身份，mqtt_username/mqtt_password 为
+	//         MaskVoucher 掩码形态；调用方需要明文时应执行凭证轮换并从轮换响应获取一次性回显。
+	CredentialsRotatedHint bool `json:"credentials_rotated_hint"`
 }
 
 type DeviceVoucher struct {

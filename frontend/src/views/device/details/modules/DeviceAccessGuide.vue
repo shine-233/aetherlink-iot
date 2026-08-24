@@ -19,6 +19,7 @@ const props = defineProps<{
   deviceId?: string
   accessGuide: DeviceAccessGuideState
   connectInfo: Record<string, unknown>
+  credentialsMasked?: boolean
   debugStatus?: DeviceDebugStatus
   debugLogs?: DeviceDebugLogEntry[]
   debugLoading?: boolean
@@ -68,6 +69,18 @@ const firstBlockerCard = computed(() => {
 const commandTestCodeVisible = ref(false)
 const visibleCommands = computed(() =>
   commandTestCodeVisible.value ? props.accessGuide.commands : props.accessGuide.commands.slice(0, 1)
+)
+// 凭证已脱敏态（Phase 2a）：密码瓦片不再提供复制入口，展示固定占位；
+// 快速开始的"使用这些凭证"步骤同样去掉复制按钮（凭证不可见即不可复制）。
+const passwordDisplayVisible = computed(() => !props.credentialsMasked && Boolean(props.accessGuide.password))
+const visibleQuickstartSteps = computed(() =>
+  props.credentialsMasked
+    ? props.accessGuide.quickstartSteps.map((step) =>
+        step.titleKey === 'custom.device_details.accessGuideQuickstartCredential'
+          ? { ...step, copyText: undefined, copyLabelKey: undefined }
+          : step
+      )
+    : props.accessGuide.quickstartSteps
 )
 const hiddenCommandCount = computed(() => Math.max(props.accessGuide.commands.length - visibleCommands.value.length, 0))
 const hiddenCommandCountText = computed(() =>
@@ -181,7 +194,7 @@ const downloadAccessPacket = () => {
 
       <div class="access-guide-section-title">{{ $t('custom.device_details.accessGuideQuickstartTitle') }}</div>
       <ConnectionProofSteps
-        :steps="accessGuide.quickstartSteps"
+        :steps="visibleQuickstartSteps"
         :copy-disabled="hasUnsavedCredentials"
         :debug-enabled="triageView.debugEnabled"
         :debug-evidence="triageView.latestDebugEvidence"
@@ -222,8 +235,10 @@ const downloadAccessPacket = () => {
         </div>
         <div class="access-guide-metric">
           <span class="access-guide-label">{{ $t('custom.device_details.accessGuidePassword') }}</span>
+          <!-- 脱敏态固定展示占位符，不提供明文/复制按钮（Phase 2a）。 -->
+          <strong v-if="credentialsMasked">******</strong>
           <button
-            v-if="accessGuide.password"
+            v-else-if="passwordDisplayVisible"
             type="button"
             class="access-guide-copy"
             @click="emit('copy', accessGuide.password)"

@@ -29,7 +29,18 @@
 - 测试：backend dal 层 dual-mode 单测（sqlite 内存库默认运行；PG 用例按 `AETHERLINK_TEST_PSQL_DSN` 门控照 devices_isolation_test.go 风格）；broker `plugin/aetherlink/db_test.go` 增补 DSN 门控 dual-mode 三用例（canonical JSON 命中 hash 列 / 键序不同候选命中明文兜底 / 双未命中 NotFound）。
 - 明文列与全部展示/API 响应字段保持原样（phase2 处理）。
 
-### Phase 2 待办（展示面改造 + 停写明文）
+### Phase 2a 已落地（本批 2026-08-24：展示面/API/导出曝光面收缩）
+
+- 掩码工具：`backend/pkg/utils/mask.go` `MaskVoucher`（>12 字符取前 10 字符+…；≤12 整体替换 `******`），单测锁定三分支。
+- 详情掩码：`service/device_detail.go GetDeviceByIDV1` 组装时把 voucher 替换为掩码并新增响应字段 `voucher_masked=true`；共享只读视图 allowlist 本就不含 voucher，不受影响。
+- 导出脱敏：`service/device_preregister_export.go` Excel 列值改掩码，表头备注"已脱敏，完整凭证仅创建时可见"。
+- 网关注册重复回显：`device_gateway_register.go buildExistingGatewayRegisterRes` 的 MqttUsername/MqttPassword 改掩码；`GatewayRegisterRes` 新增 `credentials_rotated_hint`（首次注册 true=明文一次性回显；重复注册 false=掩码）。
+- 插件回执决策：**保留明文**（protocol_plugin.go 单设备/子设备回执 + dal/device_protocol_plugin.go 列表）。依据：插件回执是机器对机器凭证分发契约，外部协议插件需以设备身份连 broker 上行（与 telemetry_simulation 直读 DB 同一依赖链），仓库内无可证明掩码安全的消费方；列入 Phase 2b 产品决策。
+- 一次性回显面保持不变：POST /device、批量创建、device/auth 领取、更新凭证响应仍返回完整凭证。
+- 前端降级：join.vue 以 `voucher_masked` 或"…"结尾判定脱敏态→隐藏凭证表单与保存按钮、显示轮换指引（i18n `custom.device.accessGuide.maskedNotice` 四语言）；device-access-guide-state 新增 parseDeviceVoucherPayload/isMaskedVoucherText 与 credentialsUnavailable 分支（mosquitto 占位提示命令）；DeviceAccessGuide 密码瓦片/快速开始复制入口脱敏态关闭；triage 支持包标记 password=<masked-after-creation>。useHomeFirstDeviceWorkbench 核对结论：其凭证来源是连接指南 profile（无密码）+ 服务端模拟接口，不读详情 voucher，无需改动。
+- oracle 同步：seed_data.js Ready Check 模拟器优先从创建响应取凭证（detail 掩码时明确 blocked 原因）；synthetic-rdi 运行器按 lib/synthetic_rdi_contract.js 确定性契约重建夹具凭证（seed 与 runner 共用），不再读详情明文。
+
+### Phase 2 待办（Phase 2b：停写明文 + 展示面产品语义）
 
 - 兼容期收尾：观测双模式下明文兜底命中，归零后由后续迁移置空并 DROP 明文列。不可照搬 49.sql open_api_keys 的硬切先例（API key 可重生成，设备凭证烧在固件里）。
 - 停写明文：写入点（device_create.go、device_batch_create.go、device_voucher.go、device_auth.go、device_gateway_register.go）改为只落 voucher_hash。

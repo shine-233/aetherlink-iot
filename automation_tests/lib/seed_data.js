@@ -447,11 +447,15 @@ async function startReadyCheckEmulator(device, accountKey = 'tenant_admin', opti
   const detailResp = await apiClient.get('/device/detail/' + device.id, {}, accountKey);
   requireSuccess(detailResp, 'read Ready Check emulator device detail');
   const detail = detailResp.data || {};
-  const voucher = parseReadyCheckVoucher(detail);
+  // 凭证哈希 Phase 2a：/device/detail 只返回脱敏 voucher（voucher_masked=true / … 结尾），
+  // 明文仅存在于创建响应（POST /device 的一次性回显）。自动创建的设备优先取
+  // device.row（创建响应）里的完整凭证；只有历史运行遗留的外部设备才可能两侧皆掩码。
+  const voucher = parseReadyCheckVoucher(device.row) || parseReadyCheckVoucher(detail);
   if (!voucher) {
     return {
       blocked: true,
-      reason: `Ready Check device ${device.id} does not expose a JSON MQTT voucher with a username`
+      reason: `Ready Check device ${device.id} does not expose a usable JSON MQTT voucher: ` +
+        'detail responses mask the voucher since credential-hash phase 2a; create the emulator device in this run so the one-time create-response plaintext is available'
     };
   }
 
