@@ -99,7 +99,10 @@ describe('Automation runner CLI policy contract', function() {
     expect(cliPolicy.getRunnerExitCode({ failed: 0, partialSkipped: 1 }, { strictIntegration: true })).to.equal(cliPolicy.EXIT_CODES.failed);
     expect(cliPolicy.getRunnerExitCode({
       failed: 0,
-      blockedReasons: [{ category: 'runtime-external' }]
+      blockedReasons: [{
+        reason: 'requires runtime fixture or external dependency: preview proxy is not configured',
+        category: 'runtime-external'
+      }]
     }, { strictIntegration: true })).to.equal(cliPolicy.EXIT_CODES.failed);
     expect(cliPolicy.getRunnerExitCode({ failed: 2 })).to.equal(cliPolicy.EXIT_CODES.failed);
   });
