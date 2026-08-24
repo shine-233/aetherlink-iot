@@ -300,12 +300,14 @@ type FleetCommandJobSupportBundle struct {
 	RetryableDeviceIDs  []string                          `json:"retryable_device_ids,omitempty"`
 	MissingLogDeviceIDs []string                          `json:"missing_log_device_ids,omitempty"`
 	FailedDevices       []FleetCommandJobSupportDevice    `json:"failed_devices,omitempty"`
-	Events              []FleetCommandJobEvent            `json:"events,omitempty"`
-	ExecutionSummary    *FleetCommandJobExecutionSummary  `json:"execution_summary,omitempty"`
-	Governance          *FleetCommandJobGovernanceSummary `json:"governance_summary,omitempty"`
-	NextActions         []string                          `json:"next_actions"`
-	GeneratedAt         time.Time                         `json:"generated_at"`
-	ShareHint           string                            `json:"share_hint"`
+	// RowsTruncated 表示证据行触达单次内联上限，支持包可能缺少部分设备行。
+	RowsTruncated    bool                             `json:"rows_truncated,omitempty"`
+	Events           []FleetCommandJobEvent           `json:"events,omitempty"`
+	ExecutionSummary *FleetCommandJobExecutionSummary `json:"execution_summary,omitempty"`
+	Governance       *FleetCommandJobGovernanceSummary `json:"governance_summary,omitempty"`
+	NextActions      []string                         `json:"next_actions"`
+	GeneratedAt      time.Time                        `json:"generated_at"`
+	ShareHint        string                           `json:"share_hint"`
 }
 
 type FleetCommandJobListReq struct {

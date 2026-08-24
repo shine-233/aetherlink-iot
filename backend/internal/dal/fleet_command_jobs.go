@@ -32,6 +32,22 @@ func clampInternalCommandJobScanLimit(limit int) int {
 	return limit
 }
 
+// commandJobDetailInlineLimit 任务详情/支持包内联读取 detail 行的单次上限，
+// 与 maxInternalCommandJobScanLimit 保持一致；超大任务的完整行集应走分页 rows 接口。
+const commandJobDetailInlineLimit = 500
+
+// clampCommandJobDetailInlineLimit 收敛详情/支持包内联读取的 limit：
+// 非正数回退到内联上限本身（调用方未显式给量时按完整上限读取），超过上限截断。
+func clampCommandJobDetailInlineLimit(limit int) int {
+	if limit <= 0 {
+		return commandJobDetailInlineLimit
+	}
+	if limit > commandJobDetailInlineLimit {
+		return commandJobDetailInlineLimit
+	}
+	return limit
+}
+
 func CreateCommandJobWithDetails(job *model.CommandJob, details []*model.CommandJobDetail) error {
 	return global.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(job).Error; err != nil {
@@ -175,11 +191,12 @@ func ActivateScheduledCommandJob(jobID, tenantID string, now time.Time) (bool, e
 	return result.RowsAffected == 1, result.Error
 }
 
-func GetCommandJobDetails(jobID, tenantID string) ([]*model.CommandJobDetail, error) {
+func GetCommandJobDetails(jobID, tenantID string, limit int) ([]*model.CommandJobDetail, error) {
 	var details []*model.CommandJobDetail
 	err := global.DB.
 		Where("command_job_id = ? AND tenant_id = ?", jobID, tenantID).
 		Order("created_at ASC, id ASC").
+		Limit(clampCommandJobDetailInlineLimit(limit)).
 		Find(&details).Error
 	return details, err
 }
@@ -338,7 +355,7 @@ func commandJobDetailAttentionPredicate(alias, attentionFilter string) (string, 
 	}
 }
 
-func FindCommandJobSupportDetails(jobID, tenantID string, includeInFlight bool) ([]*model.CommandJobDetail, error) {
+func FindCommandJobSupportDetails(jobID, tenantID string, includeInFlight bool, limit int) ([]*model.CommandJobDetail, error) {
 	var details []*model.CommandJobDetail
 	supportStatuses := []string{"failed", "blocked", "canceled"}
 	if includeInFlight {
@@ -356,6 +373,7 @@ func FindCommandJobSupportDetails(jobID, tenantID string, includeInFlight bool) 
 			strconv.Itoa(constant.ResponseSStatusFailed),
 		).
 		Order("updated_at ASC, created_at ASC").
+		Limit(clampCommandJobDetailInlineLimit(limit)).
 		Find(&details).Error
 	return details, err
 }
