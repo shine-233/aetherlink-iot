@@ -66,19 +66,36 @@ vi.mock('vue-i18n', () => ({
   createI18n: () => ({ global: { t: (key: string) => key, locale: { value: 'zh-CN' } } })
 }))
 
+// 组件 setup 暴露成员的受控视图：只声明测试实际触达的字段。
+interface RegisterEmailVm {
+  model: {
+    country_code?: string
+    email?: string
+    code?: string
+    pwd?: string
+    confirmPwd?: string
+    [key: string]: unknown
+  }
+  canSubmit: boolean
+  emailOptions: unknown
+  handleSmsCode: () => void
+  handleSubmit: () => void | Promise<void>
+  toggleLoginModule: () => void
+}
+
 const mockFetchEmailCode = vi.fn().mockResolvedValue({ error: null })
 const mockRegisterByEmail = vi.fn().mockResolvedValue({ error: null, data: { token: 'test-token', expires_in: 3600 } })
 
 vi.mock('@/service/api/auth', () => ({
-  fetchEmailCode: (...args: any[]) => mockFetchEmailCode(...args),
-  registerByEmail: (...args: any[]) => mockRegisterByEmail(...args)
+  fetchEmailCode: (...args: unknown[]) => mockFetchEmailCode(...args),
+  registerByEmail: (...args: unknown[]) => mockRegisterByEmail(...args)
 }))
 
 vi.mock('@/utils/form/rule', () => ({
   getConfirmPwdRule: () => [{ required: true, message: 'confirm pwd required' }]
 }))
 
-function withNaiveAliases(stubs: Record<string, any>) {
+function withNaiveAliases(stubs: Record<string, unknown>) {
   const aliases = { ...stubs }
   const pairs: Array<[string, string[]]> = [
     ['NForm', ['Form', 'n-form']],
@@ -144,7 +161,7 @@ describe('RegisterEmail', () => {
     const wrapper = mount(RegisterEmail, {
       global: { stubs: commonStubs }
     })
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as RegisterEmailVm
     expect(vm.model.country_code).toBe('+86')
     expect(vm.canSubmit).toBe(false)
 
@@ -172,7 +189,7 @@ describe('RegisterEmail', () => {
     const wrapper = mount(RegisterEmail, {
       global: { stubs: commonStubs }
     })
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as RegisterEmailVm
     expect(vm.canSubmit).toBe(false)
   })
 
@@ -181,7 +198,7 @@ describe('RegisterEmail', () => {
       global: { stubs: commonStubs }
     })
 
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as RegisterEmailVm
     vm.model.email = 'test@example.com'
     await wrapper.vm.$nextTick()
 
@@ -194,7 +211,7 @@ describe('RegisterEmail', () => {
       global: { stubs: commonStubs }
     })
 
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as RegisterEmailVm
     vm.model.email = 'test@example.com'
     vm.model.code = '123456'
     vm.model.pwd = 'Password1!'
@@ -223,7 +240,7 @@ describe('RegisterEmail', () => {
       global: { stubs: commonStubs }
     })
 
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as RegisterEmailVm
     vm.model.email = 'test@example.com'
     vm.model.code = '123456'
     vm.model.pwd = 'Password1!'
@@ -242,7 +259,7 @@ describe('RegisterEmail', () => {
       global: { stubs: commonStubs }
     })
 
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as RegisterEmailVm
     vm.toggleLoginModule('pwd-login')
 
     expect(mockToggleLoginModule).toHaveBeenCalledWith('pwd-login')
@@ -253,7 +270,7 @@ describe('RegisterEmail', () => {
       global: { stubs: commonStubs }
     })
 
-    const vm = wrapper.vm as any
+    const vm = wrapper.vm as RegisterEmailVm
     vm.model.email = 'test@q'
     expect(vm.emailOptions).toEqual(expect.arrayContaining(['test@qq.com']))
     expect(vm.emailOptions.every((item: string) => item.startsWith('test@'))).toBe(true)
