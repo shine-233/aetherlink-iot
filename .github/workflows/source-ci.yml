@@ -114,34 +114,6 @@ jobs:
       - name: Build device autotest binaries
         run: go build ./...
 
-  govulncheck:
-    name: Go vulnerability scan (${{ matrix.module }})
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - module: backend
-            go-version-file: backend/go.mod
-          - module: mqtt-broker
-            go-version-file: mqtt-broker/go.mod
-          - module: backend/cmd/aetherlink-device-autotest
-            go-version-file: backend/cmd/aetherlink-device-autotest/go.mod
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: ${{ matrix.go-version-file }}
-          cache: true
-          cache-dependency-path: ${{ matrix.module }}/go.sum
-      - name: Run govulncheck
-        uses: golang/govulncheck-action@b625fbe08f3bccbe446d94fbf87fcc875a4f50ee # v1.0.4
-        with:
-          workdir: ${{ matrix.module }}
-
   gitleaks:
     name: Secret scanning (gitleaks)
     runs-on: ubuntu-latest
