@@ -385,6 +385,12 @@ func GetUserListByPageWithAddress(userListReq *model.UserListReq, claims *utils.
 
 	// 权限过滤
 	if claims.Authority == TENANT_ADMIN || claims.Authority == TENANT_USER {
+		// claims.TenantID 运行期可能因 token 边界条件变为空串，导致 WHERE 匹配 0 行
+		// 且无错误——表现为"偶发空列表"。此处显式拒绝而非静默返回空。
+		if strings.TrimSpace(claims.TenantID) == "" {
+			logrus.Warn("dal: tenant-scoped user list query has empty TenantID in claims; rejecting")
+			return count, nil, fmt.Errorf("empty tenant id in claims")
+		}
 		base = base.Where("users.tenant_id = ? AND users.authority = ?", claims.TenantID, TENANT_USER)
 	} else if claims.Authority == SYS_ADMIN {
 		base = base.Where("users.authority = ?", TENANT_ADMIN)
