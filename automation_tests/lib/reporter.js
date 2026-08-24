@@ -7,6 +7,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { isOptionalExternalBlockedReason } = require('./runner/optional-externals');
 
 class Reporter {
   constructor() {
@@ -40,6 +41,20 @@ class Reporter {
     ), 0);
     const partialSkipped = this.results.filter(r => r.outcome === 'partial-skip').length;
     const allSkipped = this.results.filter(r => r.outcome === 'all-skipped').length;
+    // 仅当 result 的全部 blockedReasons 都属可选外部能力时才计入豁免侧；
+    // 混合 allowlist 与非 allowlist 原因的 result 仍留在阻断侧。
+    const optionalExternalResults = this.results.filter(result => (
+      Array.isArray(result.blockedReasons) &&
+      result.blockedReasons.length > 0 &&
+      result.blockedReasons.every(isOptionalExternalBlockedReason)
+    ));
+    const optionalExternalSkipped = optionalExternalResults.reduce((total, result) => (
+      total + Number(result.skipped || 0)
+    ), 0);
+    const partialSkippedOptionalExternal =
+      optionalExternalResults.filter(r => r.outcome === 'partial-skip').length;
+    const allSkippedOptionalExternal =
+      optionalExternalResults.filter(r => r.outcome === 'all-skipped').length;
     const blockedReasons = this.results.reduce((reasons, result) => {
       if (!Array.isArray(result.blockedReasons)) {
         return reasons;
@@ -73,6 +88,7 @@ class Reporter {
     console.log('  Total cases: ' + total);
     console.log('  Passed: ' + passed + ' Failed: ' + failed);
     console.log('  Pass rate: ' + passRate + '%');
+    console.log('  Optional-external skipped (allowlisted): ' + optionalExternalSkipped);
     console.log('='.repeat(70));
 
     if (failed > 0) {
@@ -91,6 +107,9 @@ class Reporter {
       skipped,
       partialSkipped,
       allSkipped,
+      optionalExternalSkipped,
+      partialSkippedOptionalExternal,
+      allSkippedOptionalExternal,
       blockedReasons,
       passRate,
       duration,

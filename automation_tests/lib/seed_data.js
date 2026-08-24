@@ -783,7 +783,8 @@ async function createSimulationDevice(accountKey = 'tenant_admin') {
   requireSuccess(createResp, 'create simulation device');
   const id = pickId(createResp.data);
   if (!id) throw new Error('create simulation device returned no id');
-  return {
+
+  const seeded = {
     id,
     row: createResp.data,
     created: true,
@@ -792,6 +793,19 @@ async function createSimulationDevice(accountKey = 'tenant_admin') {
       requireSuccess(deleteResp, 'delete simulation device');
     }
   };
+
+  // 可见性 oracle：写后轮询 /device/detail 直到读到本设备（先验做法同
+  // ensureReadyCheckCommandFixture 的绑定校验），把主从读不一致暴露在 setup
+  // 阶段，而不是让 E2E 把空壳页误报成 waitForResponse 超时。
+  const visibleDeadline = Date.now() + 10000;
+  while (Date.now() < visibleDeadline) {
+    const detailResp = await apiClient.get('/device/detail/' + id, {}, accountKey);
+    if (detailResp && detailResp.code === 200 && String(pickId(detailResp.data)) === String(id)) {
+      return seeded;
+    }
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+  throw new Error('simulation device ' + id + ' not visible via /device/detail within 10s (read-consistency gap)');
 }
 
 async function ensureDeviceWithTelemetry(accountKey = 'tenant_admin') {

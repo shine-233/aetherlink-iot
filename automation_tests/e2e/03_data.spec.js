@@ -57,7 +57,8 @@ function listFromResponse(response) {
 }
 
 async function waitForTwinDesired(api, deviceId, twinKey) {
-  const deadline = Date.now() + 5000;
+  // 10s 窗口：给主从读复制留出收敛时间，避免把可见性延迟误判为写丢失。
+  const deadline = Date.now() + 10000;
   let lastResponse = null;
   while (Date.now() < deadline) {
     lastResponse = await api.get('/device/twin/' + deviceId, {}, 'tenant_admin');
@@ -83,6 +84,14 @@ function isDeviceDetailResponse(response, deviceId) {
   } catch {
     return false;
   }
+}
+
+// 区分两类快照失败：读到他人设备遥测（data 非空）vs 端点非 200。
+function snapshotFailureSummary(body) {
+  if (!body || body.code !== 200) {
+    return 'non-200 telemetry snapshot: ' + JSON.stringify(body).slice(0, 300);
+  }
+  return 'received rows for this device: ' + JSON.stringify(body.data).slice(0, 300);
 }
 
 function requiredNumericField(payload, keys) {
@@ -126,7 +135,8 @@ test.describe('data and RDI visibility module', () => {
         {},
         'tenant_admin'
       );
-      expect(telemetryBefore).toEqual(expect.objectContaining({ code: 200, data: [] }));
+      expect(telemetryBefore, snapshotFailureSummary(telemetryBefore))
+        .toEqual(expect.objectContaining({ code: 200, data: [] }));
 
       const browserDetailPromise = rolePage.waitForResponse(
         response => isDeviceDetailResponse(response, seed.id),
@@ -168,7 +178,9 @@ test.describe('data and RDI visibility module', () => {
       await telemetryTab.click();
       const telemetryResponse = await telemetryResponsePromise;
       expect(telemetryResponse.status()).toBe(200);
-      expect(await telemetryResponse.json()).toEqual(expect.objectContaining({ code: 200, data: [] }));
+      const telemetryBody = await telemetryResponse.json();
+      expect(telemetryBody, snapshotFailureSummary(telemetryBody))
+        .toEqual(expect.objectContaining({ code: 200, data: [] }));
       // Naive UI marks the active tab with its class/data-name rather than
       // aria-selected; assert the rendered state that the user actually sees.
       await expect(telemetryTab).toHaveClass(/n-tabs-tab--active/);

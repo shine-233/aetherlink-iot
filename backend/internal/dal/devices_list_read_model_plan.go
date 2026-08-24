@@ -1,3 +1,16 @@
+// 文件用途: 设备列表读模型（GetDeviceListByPage）的执行计划：基础查询、过滤装配与 count/scan 两段执行。
+// 核心逻辑: plan.builder 全程持有 raw global.DB 链（clone==1 根，每次请求全新 Statement），
+// 各过滤器以 clause.Expression / 纯 field 表达式挂载条件；count 与 scan 在同一链上顺序执行，
+// 与 users.go GetUserListByPageWithAddress 的权威写法一致。
+// 关键注意事项: 批次二收敛（2026-08-24，见 references/gen-inheritance-audit.md）——
+//   - baseQuery 从 query.Device.WithContext 改为 global.DB.Model(&model.Device{}) + 显式
+//     LEFT JOIN device_configs 的 raw 链重建；activate_flag='active' + 租户条件保持等价；
+//   - applySearchFilter / applyWarnStatusFilter 两个嵌套条件构造器去单例化：
+//     不再经 query.Device.Where(...).Or(...) 的 Do 链包装，改用 field.Or 纯表达式组合，
+//     并发下互不播种；
+//   - JOIN 形态（含 latest_device_alarms 复合 ON）、WHERE 组合顺序与投影别名均与收敛前对齐。
+// 重构建议: 若后续引入读库分离或查询超时控制，在 baseQuery 单点接入即可覆盖全部列表读路径。
+
 package dal
 
 import (
@@ -8,8 +21,10 @@ import (
 
 	model "aetherlink-iot/backend/internal/model"
 	query "aetherlink-iot/backend/internal/query"
+	global "aetherlink-iot/backend/pkg/global"
 
 	"gorm.io/gen/field"
+	"gorm.io/gorm"
 )
 
 // deviceListPageReadModel keeps the GetDeviceListByPage planning and execution
@@ -21,7 +36,7 @@ type deviceListPageReadModel struct {
 
 type deviceListPagePlan struct {
 	req                   *model.GetDeviceListByPageReq
-	builder               query.IDeviceDo
+	builder               *gorm.DB
 	empty                 bool
 	latestTelemetryJoined bool
 }
@@ -70,14 +85,17 @@ func (rm deviceListPageReadModel) plan() (deviceListPagePlan, error) {
 	return plan, nil
 }
 
-func (rm deviceListPageReadModel) baseQuery() query.IDeviceDo {
+// baseQuery 返回设备列表读模型的 raw 链起点。
+// 批次二收敛（见 references/gen-inheritance-audit.md）：从 query.Device.WithContext 改为
+// global.DB.Model(&model.Device{}) + 显式 LEFT JOIN device_configs；clone==1 根保证每次
+// 链式起点都是全新 Statement。JOIN 条件与旧 gen 版 LeftJoin(c, c.ID.EqCol(q.DeviceConfigID))
+// 渲染结果一致；生命周期筛选默认只返回已激活设备，仅当显式传入 lifecycle_status 时放宽，
+// 保证既有调用方响应逐字节不变。
+func (rm deviceListPageReadModel) baseQuery() *gorm.DB {
 	q := query.Device
-	c := query.DeviceConfig
 
-	builder := q.WithContext(context.Background()).
-		LeftJoin(c, c.ID.EqCol(q.DeviceConfigID))
-	// 生命周期筛选默认保持历史行为：只返回已激活设备。
-	// 只有显式传入 lifecycle_status 时才放宽，保证既有调用方响应逐字节不变。
+	builder := global.DB.WithContext(context.Background()).Model(&model.Device{}).
+		Joins("LEFT JOIN device_configs ON device_configs.id = devices.device_config_id")
 	if cond, applies := deviceListLifecycleCondition(rm.req); applies {
 		if cond != nil {
 			builder = builder.Where(cond)
@@ -172,6 +190,9 @@ func (plan *deviceListPagePlan) applyCoreFieldFilters() {
 	})
 }
 
+// applySearchFilter 对名称/编号/固件/描述做小写模糊匹配。
+// 批次二去单例化：不再用 query.Device.Where(...).Or(...) 的 Do 链包装四条 LIKE，
+// 改为 field.Or 纯表达式组合，产出的 OR 组与旧版逐项等价。
 func (plan *deviceListPagePlan) applySearchFilter(searchValue *string) {
 	if !hasDeviceListValue(searchValue) {
 		return
@@ -179,12 +200,12 @@ func (plan *deviceListPagePlan) applySearchFilter(searchValue *string) {
 
 	q := query.Device
 	search := strings.ToLower(strings.TrimSpace(*searchValue))
-	plan.builder = plan.builder.Where(
-		query.Device.Where(q.Name.Lower().Like(fmt.Sprintf("%%%s%%", search))).
-			Or(q.DeviceNumber.Lower().Like(fmt.Sprintf("%%%s%%", search))).
-			Or(q.CurrentVersion.Lower().Like(fmt.Sprintf("%%%s%%", search))).
-			Or(q.Description.Lower().Like(fmt.Sprintf("%%%s%%", search))),
-	)
+	plan.builder = plan.builder.Where(field.Or(
+		q.Name.Lower().Like(fmt.Sprintf("%%%s%%", search)),
+		q.DeviceNumber.Lower().Like(fmt.Sprintf("%%%s%%", search)),
+		q.CurrentVersion.Lower().Like(fmt.Sprintf("%%%s%%", search)),
+		q.Description.Lower().Like(fmt.Sprintf("%%%s%%", search)),
+	))
 }
 
 func (plan *deviceListPagePlan) applyDescriptorFieldFilters() {
@@ -320,25 +341,24 @@ func (plan *deviceListPagePlan) applyLastReportedFilters() error {
 	return nil
 }
 
+// applyWarnStatusFilter 按最新告警状态过滤设备。
+// 批次二收敛：告警表联接改为显式 raw JOIN 字符串（复合 ON：device_id + tenant_id，
+// 与旧 gen 版 LeftJoin(lda, DeviceID.EqCol(ID), TenantID.EqCol(TenantID)) 渲染等价）；
+// "N" 分支的去单例化同 applySearchFilter——field.Or 替代 query.Device.Where(...).Or(...)。
 func (plan *deviceListPagePlan) applyWarnStatusFilter(warnStatus *string) error {
 	if !hasDeviceListValue(warnStatus) {
 		return nil
 	}
 
-	q := query.Device
 	lda := query.LatestDeviceAlarm
 
 	// Join the alarm table only when the request filters by alarm status.
-	plan.builder = plan.builder.LeftJoin(
-		lda,
-		lda.DeviceID.EqCol(q.ID),
-		lda.TenantID.EqCol(q.TenantID),
+	plan.builder = plan.builder.Joins(
+		"LEFT JOIN latest_device_alarms ON latest_device_alarms.device_id = devices.id AND latest_device_alarms.tenant_id = devices.tenant_id",
 	)
 	switch strings.ToUpper(strings.TrimSpace(*warnStatus)) {
 	case "N":
-		plan.builder = plan.builder.Where(
-			query.Device.Where(lda.AlarmStatus.Eq("N")).Or(lda.AlarmStatus.IsNull()),
-		)
+		plan.builder = plan.builder.Where(field.Or(lda.AlarmStatus.Eq("N"), lda.AlarmStatus.IsNull()))
 		return nil
 	case "Y":
 		plan.builder = plan.builder.Where(lda.AlarmStatus.In("H", "M", "L"))
@@ -348,8 +368,16 @@ func (plan *deviceListPagePlan) applyWarnStatusFilter(warnStatus *string) error 
 	}
 }
 
+// isolatedBuilder 返回链语句的克隆会话：count/scan 多段执行各自从快照出发，
+// 执行期子句写回不再污染共享链（与旧 gen 终结操作的 Session 隔离语义对齐）。
+func (plan deviceListPagePlan) isolatedBuilder() *gorm.DB {
+	return plan.builder.Session(&gorm.Session{})
+}
+
 func (plan deviceListPagePlan) count() (int64, error) {
-	return plan.builder.Count()
+	var total int64
+	err := plan.isolatedBuilder().Count(&total).Error
+	return total, err
 }
 
 func (plan deviceListPagePlan) execute() (int64, []model.GetDeviceListByPageRsp, error) {
@@ -372,18 +400,20 @@ func (plan deviceListPagePlan) countIDs(ids []string) (int64, error) {
 		return 0, nil
 	}
 
-	return plan.builder.Where(query.Device.ID.In(normalizedIDs...)).Count()
+	var total int64
+	err := plan.builder.Where(query.Device.ID.In(normalizedIDs...)).Session(&gorm.Session{}).Count(&total).Error
+	return total, err
 }
 
 func (plan deviceListPagePlan) scanIDs(limit int) ([]string, error) {
 	rows := []struct {
 		ID string `gorm:"column:id"`
 	}{}
-	builder := plan.builder.Select(query.Device.ID).Order(query.Device.CreatedAt.Desc())
+	builder := plan.isolatedBuilder().Select(`"devices"."id"`).Order(`"devices"."created_at" DESC`)
 	if limit > 0 {
 		builder = builder.Limit(limit)
 	}
-	if err := builder.Scan(&rows); err != nil {
+	if err := builder.Scan(&rows).Error; err != nil {
 		return nil, err
 	}
 
@@ -402,7 +432,7 @@ func (plan deviceListPagePlan) scanByIDs(ids []string) ([]model.GetDeviceListByP
 
 	deviceList := emptyDeviceListPage()
 	builder := plan.builder.Where(query.Device.ID.In(normalizedIDs...))
-	err := buildDeviceListPageScanQuery(builder).Scan(&deviceList)
+	err := buildDeviceListPageScanQuery(builder).Session(&gorm.Session{}).Scan(&deviceList).Error
 	if err != nil {
 		return deviceList, err
 	}
@@ -418,7 +448,7 @@ func (plan deviceListPagePlan) scan() ([]model.GetDeviceListByPageRsp, error) {
 	}
 
 	deviceList := emptyDeviceListPage()
-	err := buildDeviceListPageScanQuery(plan.paginatedBuilder()).Scan(&deviceList)
+	err := buildDeviceListPageScanQuery(plan.paginatedBuilder()).Session(&gorm.Session{}).Scan(&deviceList).Error
 	if err != nil {
 		return deviceList, err
 	}
@@ -440,7 +470,10 @@ func (plan deviceListPagePlan) scanPageIDs() ([]string, error) {
 	rows := []struct {
 		ID string `gorm:"column:id"`
 	}{}
-	if err := plan.paginatedBuilder().Select(query.Device.ID).Order(query.Device.CreatedAt.Desc()).Scan(&rows); err != nil {
+	builder := plan.paginatedBuilder().Session(&gorm.Session{}).
+		Select(`"devices"."id"`).Order(`"devices"."created_at" DESC`)
+	err := builder.Scan(&rows).Error
+	if err != nil {
 		return nil, err
 	}
 
@@ -451,7 +484,7 @@ func (plan deviceListPagePlan) scanPageIDs() ([]string, error) {
 	return ids, nil
 }
 
-func (plan deviceListPagePlan) paginatedBuilder() query.IDeviceDo {
+func (plan deviceListPagePlan) paginatedBuilder() *gorm.DB {
 	if plan.req.Page == 0 || plan.req.PageSize == 0 {
 		return plan.builder
 	}
