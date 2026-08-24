@@ -34,17 +34,25 @@ import (
 //
 // 凭证哈希存储 Phase 2b（references/backend-hardening-plan.md 车道1）：devices.voucher 列
 // 停写明文后，模拟器三处读侧统一改走创建/轮换时写入的 24h 测试缓存（dal 层收口写入）。
+// 兼容窗口兜底：SQL 直插的存量/夹具行（synthetic-rdi seed 等绕过 API 写路径的来源）没有
+// 缓存条目，但 dual-mode 观测期内其明文列仍有值——此时回读 DB 行明文，行为与 2b 之前
+// 一致；明文列也为空（2b 后经 API 新建的行）才返回轮换指引错误，不泄露额外信息。
 // 产品语义：设备创建后 24h 内可直接在网页上做连通性测试；缓存过期后需轮换凭证
 // （重新生成测试凭证）才能再次使用网页测试。缓存过期不代表设备凭证失效，
 // 设备真实认证链路走 voucher_hash 不受影响。缓存是 UX 增强，不是一致性依赖：
 // Redis 故障按 miss 处理（fail-closed），不向调用面区分"过期"与"故障"。
 func loadSimulationVoucher(deviceID string) (string, error) {
 	voucher, err := dal.LoadDeviceCredentialTestCache(deviceID)
-	if err != nil || strings.TrimSpace(voucher) == "" {
-		return "", errcode.NewWithMessage(errcode.CodeNotFound,
-			"device credential test cache expired or absent; rotate the voucher to regenerate test credentials")
+	if err == nil && strings.TrimSpace(voucher) != "" {
+		return voucher, nil
 	}
-	return voucher, nil
+	// 兼容窗口兜底：仅当 DB 行明文列仍有值（存量/SQL 夹具行）时放行。
+	if deviceInfo, dbErr := dal.GetDeviceByID(deviceID); dbErr == nil && deviceInfo != nil &&
+		strings.TrimSpace(deviceInfo.Voucher) != "" {
+		return deviceInfo.Voucher, nil
+	}
+	return "", errcode.NewWithMessage(errcode.CodeNotFound,
+		"device credential test cache expired or absent; rotate the voucher to regenerate test credentials")
 }
 
 // 获取模拟设备发送遥测数据的回显数据
