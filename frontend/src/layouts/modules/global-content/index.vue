@@ -29,13 +29,15 @@ const routeStore = useRouteStore()
   <RouterView v-slot="{ Component, route }">
     <!-- KeepAlive stays directly under RouterView because route transitions previously caused blank automation pages. -->
     <KeepAlive :include="routeStore.cacheRoutes">
-      <component
-        :is="Component"
-        v-if="appStore.reloadFlag"
-        :key="route.path"
-        :class="{ 'p-16px': showPadding }"
-        class="flex-grow bg-layout transition-300"
-      />
+      <Transition name="fade-slide" mode="out-in">
+        <component
+          :is="Component"
+          v-if="appStore.reloadFlag"
+          :key="route.path"
+          :class="{ 'p-16px': showPadding }"
+          class="flex-grow bg-layout transition-300"
+        />
+      </Transition>
     </KeepAlive>
   </RouterView>
 </template>
