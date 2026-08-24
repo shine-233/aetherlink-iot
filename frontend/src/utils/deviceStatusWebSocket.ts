@@ -7,6 +7,7 @@
 import { ref, type Ref } from 'vue'
 import { useWebSocket } from '@vueuse/core'
 import { localStg } from '@/utils/storage'
+import { AUTH_TOKEN_REFRESHED_EVENT } from '@/service/request/auth-refresh'
 import { getWebsocketServerUrl } from '@/utils/common/tool'
 
 interface DeviceStatusMessage {
@@ -36,6 +37,28 @@ export class DeviceStatusWebSocket {
   constructor() {
     // 动态获取 WebSocket 服务器地址
     this.wsUrl = `${getWebsocketServerUrl()}/device/online/status/ws/batch`
+    // 静默续签成功后重建连接，确保订阅消息携带最新 token
+    window.addEventListener(AUTH_TOKEN_REFRESHED_EVENT, this.handleTokenRefreshed)
+  }
+
+  /**
+   * token 刷新事件处理：仅在有活跃订阅时，用最新 localStg token 断开重连一次
+   */
+  private readonly handleTokenRefreshed = (): void => {
+    if (!this.currentDeviceIds.length) return
+
+    const deviceIds = [...this.currentDeviceIds]
+    const callback = this.onStatusChangeCallback
+    this.disconnect()
+    this.connect(deviceIds, callback)
+  }
+
+  /**
+   * 移除 token 刷新监听并断开连接（可选清理入口）
+   */
+  destroy() {
+    window.removeEventListener(AUTH_TOKEN_REFRESHED_EVENT, this.handleTokenRefreshed)
+    this.disconnect()
   }
 
   /**
