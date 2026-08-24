@@ -680,7 +680,7 @@ const isEmbeddedHost = computed(() => {
   </div>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
 .device-details-page {
   padding: 12px;
 }
@@ -809,5 +809,39 @@ const isEmbeddedHost = computed(() => {
 
 :deep(.device-details-tabs .n-tab-pane) {
   padding-top: 0;
+}
+
+/* ≤640px 现场手机查设备详情最小保障；断点统一取 _mixins.scss 的 mobile mixin（=--breakpoint-sm=640px）。 */
+@include mobile {
+  .device-details-page {
+    padding: 8px;
+  }
+
+  .device-details-header {
+    padding: 12px 14px 6px;
+  }
+
+  /* 头部信息栅格降级单列：meta 纵向堆叠，状态时间戳允许换行不再截断 */
+  .device-details-meta {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .device-details-status-time {
+    max-width: none;
+    white-space: normal;
+  }
+
+  /* tab 导航横向滑动（隐藏滚动条），避免多 tab 在窄屏溢出 */
+  :deep(.device-details-tabs .n-tabs-nav) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
 }
 </style>

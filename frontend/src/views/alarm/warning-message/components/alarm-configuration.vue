@@ -413,7 +413,13 @@ const submitCallback = async () => {
         </NFlex>
       </div>
     </NAlert>
-    <NForm ref="queryFormRef" :inline="!getPlatform" label-placement="left" :model="queryData">
+    <NForm
+      ref="queryFormRef"
+      class="alarm-query-form"
+      :inline="!getPlatform"
+      label-placement="left"
+      :model="queryData"
+    >
       <NFormItem path="status">
         <n-date-picker v-model:value="range" type="datetimerange" :clearable="false" separator="-" />
       </NFormItem>
@@ -505,22 +511,24 @@ const submitCallback = async () => {
         </div>
       </div>
     </NCard>
-    <n-data-table
-      remote
-      :loading="loading"
-      :columns="columns"
-      :data="tableData"
-      :pagination="pagination"
-      :row-key="rowKey"
-      v-model:checked-row-keys="selectedAlarmRowKeys"
-      class="w-100% flex-1-hidden"
-    />
+    <div class="w-100% flex-1-hidden alarm-table-scroll">
+      <n-data-table
+        remote
+        :loading="loading"
+        :columns="columns"
+        :data="tableData"
+        :pagination="pagination"
+        :row-key="rowKey"
+        v-model:checked-row-keys="selectedAlarmRowKeys"
+        class="w-100%"
+      />
+    </div>
     <!--    <div class="flex gap-20px">-->
     <!--      <NButton @click="handleBatch">{{ $t('generate.batch-process') }}</NButton>-->
     <!--      <NButton @click="handleIgnore">{{ $t('generate.batch-ignore') }}</NButton>-->
     <!--    </div>-->
     <n-modal v-model:show="batchActionDialogVisible" class="max-w-[600px]" :mask-closable="!batchActionLoading">
-      <NCard :title="batchActionDialogTitle">
+      <NCard :title="batchActionDialogTitle" class="alarm-action-modal-card">
         <div class="batch-action-hint">
           <div class="whitespace-pre-line">{{ batchActionDialogHint }}</div>
         </div>
@@ -543,7 +551,7 @@ const submitCallback = async () => {
       </NCard>
     </n-modal>
     <n-modal v-model:show="singleActionDialogVisible" class="max-w-[600px]" :mask-closable="!singleActionLoading">
-      <NCard :title="singleActionDialogTitle">
+      <NCard :title="singleActionDialogTitle" class="alarm-action-modal-card">
         <div class="batch-action-hint">
           <div class="whitespace-pre-line">{{ singleActionDialogHint }}</div>
         </div>
@@ -566,7 +574,7 @@ const submitCallback = async () => {
       </NCard>
     </n-modal>
     <n-modal v-model:show="showDialog" :title="$t('generate.alarm-info')" class="max-w-[800px]">
-      <NCard>
+      <NCard class="alarm-detail-modal-card">
         <div>
           <NH3>{{ $t('generate.alarm-info') }}</NH3>
         </div>
@@ -702,7 +710,7 @@ const submitCallback = async () => {
       </NCard>
     </n-modal>
     <n-modal v-model:show="showModal" class="max-w-[600px]">
-      <NCard>
+      <NCard class="alarm-action-modal-card">
         <NCard embedded size="small" class="mb-4 whitespace-pre-line">
           {{ alarmAuditSummary(infoData) }}
         </NCard>
@@ -942,6 +950,43 @@ const submitCallback = async () => {
   }
 
   .alarm-resolution-item {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 弹窗宽度收敛：min(96vw, 原宽)，桌面端取原宽、手机端不溢出。 */
+.alarm-action-modal-card {
+  width: min(96vw, 600px);
+}
+
+.alarm-detail-modal-card {
+  width: min(96vw, 800px);
+}
+
+/* ≤640px 现场手机查告警最小保障；断点统一取 _mixins.scss 的 mobile mixin（=--breakpoint-sm=640px）。 */
+@include mobile {
+  /* 查询表单控件换行铺满，按钮组随表单流式换行不溢出 */
+  .alarm-query-form :deep(.n-form-item) {
+    width: 100%;
+    margin-right: 0;
+  }
+
+  .alarm-query-form :deep(.n-date-picker) {
+    width: 100%;
+  }
+
+  /* 表格横向滚动容器化：外层容器横向滑动，表格给足最小宽度 */
+  .alarm-table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+
+    > .n-data-table {
+      min-width: 720px;
+    }
+  }
+
+  .alarm-triage-cards,
+  .alarm-empty-guide__items {
     grid-template-columns: 1fr;
   }
 }
