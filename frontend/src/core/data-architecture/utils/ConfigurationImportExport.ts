@@ -6,6 +6,7 @@
  */
 import type { DataSourceConfiguration } from '@/core/data-architecture/index'
 import type { configurationIntegrationBridge } from '@/components/visual-editor/configuration/ConfigurationIntegrationBridge'
+import type { EditorNodeLike } from './singleDataSourceImportTarget'
 import type { ConfigurationManagerLike } from './configurationImportProcessing'
 import { smartDeepClone } from '@/utils/deep-clone'
 import {
@@ -24,12 +25,10 @@ import { executeConfigurationImport, generateConfigurationImportPreview } from '
 import { processSingleDataSourceImportPayload } from './singleDataSourceImportProcessing'
 
 export interface ConfigurationImportRuntimeManager extends ConfigurationManagerLike {
-  store?: {
-    nodes?: unknown[]
-  }
-  nodes?: unknown[]
-  getNodes?: () => unknown[]
-  getAllComponents?: () => unknown[]
+  store?: { nodes?: EditorNodeLike[] | null } | null
+  nodes?: EditorNodeLike[] | null
+  getNodes?: () => EditorNodeLike[] | null
+  getAllComponents?: () => EditorNodeLike[] | null
 }
 
 /**
@@ -59,11 +58,11 @@ export interface ExportedConfiguration {
   /** Configuration import/export field. */
   data: {
     /** Configuration import/export field. */
-    dataSourceConfiguration?: any
+    dataSourceConfiguration?: DataSourceConfiguration
     /** 缂佸嫪娆㈤柊宥囩枂 */
-    componentConfiguration?: any
+    componentConfiguration?: Record<string, unknown>
     /** 娴溿倓绨伴柊宥囩枂 */
-    interactionConfiguration?: any
+    interactionConfiguration?: Record<string, unknown>
   }
   /** Configuration import/export field. */
   mapping: {
@@ -91,7 +90,7 @@ export interface ImportResult {
   /** Configuration import/export field. */
   warnings: string[]
   /** Configuration import/export field. */
-  importedData?: any
+  importedData?: Record<string, unknown>
   /** Configuration import/export field. */
   dependencyValidation?: {
     missing: string[]
@@ -146,18 +145,18 @@ export interface SingleDataSourceExport {
   /** Configuration import/export field. */
   dataSourceConfig: {
     /** Configuration import/export field. */
-    dataItems: any[]
+    dataItems: Array<DataSourceConfiguration['dataSources'][number]['dataItems'][number]>
     /** Configuration import/export field. */
-    mergeStrategy: any
+    mergeStrategy: DataSourceConfiguration['dataSources'][number]['mergeStrategy']
     /** Configuration import/export field. */
-    processing?: any
+    processing?: DataSourceConfiguration['dataSources'][number]['dataItems'][number]['processing']
   }
   /** Configuration import/export field. */
   relatedConfig: {
     /** Configuration import/export field. */
-    interactions: any[]
+    interactions: Array<Record<string, unknown>>
     /** Configuration import/export field. */
-    httpBindings: any[]
+    httpBindings: Array<Record<string, unknown>>
   }
   /** Configuration import/export field. */
   mapping: {
@@ -200,13 +199,19 @@ export interface SingleDataSourceImportPreview {
     slotId: string
     slotIndex: number
     isEmpty: boolean
-    currentConfig?: any
+    currentConfig?: Record<string, unknown>
   }>
 }
 
 /**
  * Configuration import/export note.
  */
+function requireGetConfiguration(m: ConfigurationManagerLike): NonNullable<ConfigurationManagerLike['getConfiguration']> {
+  const fn = m.getConfiguration
+  if (!fn) throw new Error('configurationManager.getConfiguration is unavailable')
+  return fn
+}
+
 export class ConfigurationExporter {
   private readonly CURRENT_COMPONENT_PLACEHOLDER = '__CURRENT_COMPONENT__'
   private readonly EXPORT_VERSION = '1.0.0'
@@ -223,7 +228,7 @@ export class ConfigurationExporter {
     componentType?: string
   ): Promise<ExportedConfiguration> {
     // Configuration import/export step.
-    const fullConfig = configurationManager.getConfiguration(componentId)
+    const fullConfig = requireGetConfiguration(configurationManager)(componentId)
     if (!fullConfig) {
       throw new Error(`组件 ${componentId} 的配置不存在`)
     }
@@ -273,7 +278,7 @@ export class ConfigurationImporter {
     configJson: string | ExportedConfiguration,
     targetComponentId: string,
     configurationManager: ConfigurationImportRuntimeManager,
-    availableComponents?: any[]
+    availableComponents?: Array<Record<string, unknown>>
   ): ImportPreview {
     return generateConfigurationImportPreview(
       configJson,
@@ -327,7 +332,7 @@ export class SingleDataSourceExporter {
     }
 
     try {
-      const fullConfig = configurationManager.getConfiguration(componentId)
+      const fullConfig = requireGetConfiguration(configurationManager)(componentId)
 
       const dataSourceConfig = fullConfig?.dataSource
       if (!dataSourceConfig || !dataSourceConfig.dataSources) {
@@ -335,7 +340,7 @@ export class SingleDataSourceExporter {
       }
 
       // Configuration import/export step.
-      const targetSourceIndex = dataSourceConfig.dataSources.findIndex((source: any) => source.sourceId === sourceId)
+      const targetSourceIndex = dataSourceConfig.dataSources.findIndex((source) => source.sourceId === sourceId)
       if (targetSourceIndex === -1) {
         throw new Error(`Data source not found: ${sourceId}`)
       }
@@ -403,13 +408,13 @@ export class SingleDataSourceExporter {
     dataItemCount: number
   }> {
     try {
-      const fullConfig = configurationManager.getConfiguration(componentId)
+      const fullConfig = requireGetConfiguration(configurationManager)(componentId)
       const dataSourceConfig = fullConfig?.dataSource
       if (!dataSourceConfig || !dataSourceConfig.dataSources) {
         return []
       }
 
-      return dataSourceConfig.dataSources.map((source: any, index: number) => ({
+      return dataSourceConfig.dataSources.map((source, index) => ({
         sourceId: source.sourceId,
         sourceIndex: index,
         hasData: !!(source.dataItems && source.dataItems.length > 0),

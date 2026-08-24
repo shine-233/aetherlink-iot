@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 文件说明：
  * - 单数据源导入时的目标落点处理器。
  * - 负责查找/创建目标 slot、冲突检查、写回 dataSource 配置，并补挂相关交互与 HTTP 绑定。
@@ -6,10 +6,11 @@
  */
 
 import type { SingleDataSourceExport } from './ConfigurationImportExport'
-import type { ConfigurationManagerLike } from './configurationImportProcessing'
+import type { DataSourceConfiguration } from '@/core/data-architecture/executors/MultiLayerExecutorChain'
+import type { ConfigurationManagerLike, ConfigurationSection } from './configurationImportProcessing'
 
 /** 编辑器节点视图（导入工具只读取标识字段） */
-interface EditorNodeLike {
+export interface EditorNodeLike {
   id?: unknown
   componentId?: unknown
   widgetId?: unknown
@@ -23,7 +24,7 @@ interface DataSourceSlotLike {
   sourceId?: unknown
   dataItems?: unknown[]
   mergeStrategy?: unknown
-  processing?: Record<string, unknown> | null
+  processing?: unknown
   [key: string]: unknown
 }
 
@@ -118,12 +119,12 @@ function ensureDataSourceSlots(dataSourceConfig: DataSourceConfigLike): void {
 }
 
 function findOrCreateDataSourceSlot(dataSourceConfig: DataSourceConfigLike, targetSlotId: string): number {
-  const existingSlotIndex = dataSourceConfig.dataSources.findIndex(source => source.sourceId === targetSlotId)
+  const existingSlotIndex = (dataSourceConfig.dataSources ?? []).findIndex(source => source.sourceId === targetSlotId)
   if (existingSlotIndex !== -1) {
     return existingSlotIndex
   }
 
-  dataSourceConfig.dataSources.push(createEmptyDataSourceSlot(targetSlotId))
+  ;(dataSourceConfig.dataSources ??= []).push(createEmptyDataSourceSlot(targetSlotId))
   return dataSourceConfig.dataSources.length - 1
 }
 
@@ -156,7 +157,7 @@ function assertDataSourceSlotWritable(
 function updateConfigurationSection(
   configurationManager: SingleDataSourceManagerLike,
   componentId: string,
-  section: string,
+  section: ConfigurationSection,
   data: unknown
 ): void {
   if (typeof configurationManager.updateConfiguration === 'function') {
@@ -164,7 +165,9 @@ function updateConfigurationSection(
     return
   }
 
-  configurationManager.updateConfigurationSection(componentId, section, data)
+  const updateSection = configurationManager.updateConfigurationSection
+  if (!updateSection) throw new Error('configurationManager.updateConfigurationSection is unavailable')
+  updateSection(componentId, section, data)
 }
 
 function prepareTargetDataSourceContext(
@@ -173,7 +176,9 @@ function prepareTargetDataSourceContext(
   configurationManager: SingleDataSourceManagerLike,
   options: { overwriteExisting?: boolean }
 ): SingleDataSourceTargetContext {
-  const fullConfig = configurationManager.getConfiguration(targetComponentId)
+  const getConfiguration = configurationManager.getConfiguration
+  if (!getConfiguration) throw new Error('configurationManager.getConfiguration is unavailable')
+  const fullConfig = getConfiguration(targetComponentId)
   const existingConfig = fullConfig?.dataSource || {
     componentId: targetComponentId,
     dataSources: [],
@@ -198,7 +203,7 @@ function applyDataSourceSlotImport(
   targetSlotId: string,
   targetContext: SingleDataSourceTargetContext
 ): void {
-  targetContext.existingConfig.dataSources[targetContext.targetSlotIndex] = {
+  ;(targetContext.existingConfig.dataSources ??= [])[targetContext.targetSlotIndex] = {
     sourceId: targetSlotId,
     dataItems: processedConfig.dataSourceConfig?.dataItems || [],
     mergeStrategy: processedConfig.dataSourceConfig?.mergeStrategy || createDefaultMergeStrategy(),
@@ -256,12 +261,12 @@ function appendHttpBindings(
 
 export function getAvailableSingleDataSourceSlots(componentId: string, configurationManager: SingleDataSourceManagerLike) {
   const slots: Array<{
-    slotId: unknown
+    slotId: string
     slotIndex: number
     isEmpty: boolean
     currentConfig?: {
       dataItemCount: number
-      mergeStrategy: unknown
+      mergeStrategy: DataSourceConfiguration['dataSources'][number]['mergeStrategy']
     }
   }> = []
 

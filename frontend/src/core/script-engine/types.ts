@@ -221,6 +221,8 @@ export interface IScriptContextManager {
   cloneContext(id: string, newName: string): ScriptExecutionContext | null
   /** 合并上下文 */
   mergeContexts(sourceId: string, targetId: string): boolean
+  /** 获取全部上下文元数据列表 */
+  getAllContexts(): ScriptExecutionContext[]
 }
 
 // 脚本引擎主接口

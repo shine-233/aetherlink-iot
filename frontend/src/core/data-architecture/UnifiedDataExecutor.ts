@@ -94,6 +94,10 @@ export interface UnifiedDataResult {
     dataSize?: number
     /** 原始响应(调试用) */
     rawResponse?: any
+    /** 数据类型(执行器回填) */
+    dataType?: string
+    /** 绑定键列表(执行器回填) */
+    bindingKeys?: string[]
   }
 }
 
@@ -195,7 +199,7 @@ class HttpExecutor implements DataSourceExecutor {
       const response = await request({
         url,
         method: method.toLowerCase() as any,
-        headers,
+        headers: Object.fromEntries((headers ?? []).filter(h => h.enabled).map(h => [h.key, h.value])),
         params,
         data: body,
         timeout

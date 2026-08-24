@@ -11,7 +11,7 @@
 
 import { describe, test, expect } from 'vitest'
 import {
-  ConfigurationAdapter,
+  ConfigurationAdapterInfo,
   createConfigurationAdapter,
   detectConfigVersion,
   upgradeToV2,

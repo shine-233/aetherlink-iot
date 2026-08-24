@@ -422,7 +422,7 @@ export class DataItemFetcher implements IDataItemFetcher {
       GET: () => request.get(requestPlan.finalUrl, requestPlan.requestConfig),
       POST: () => request.post(requestPlan.finalUrl, requestPlan.requestBody, requestPlan.requestConfig),
       PUT: () => request.put(requestPlan.finalUrl, requestPlan.requestBody, requestPlan.requestConfig),
-      PATCH: () => request.patch(requestPlan.finalUrl, requestPlan.requestBody, requestPlan.requestConfig),
+      PATCH: () => (request as unknown as { patch: typeof request.post }).patch(requestPlan.finalUrl, requestPlan.requestBody, requestPlan.requestConfig),
       DELETE: () => request.delete(requestPlan.finalUrl, requestPlan.requestConfig)
     }
 

@@ -100,7 +100,7 @@ export class SimpleConfigGenerator {
       const dataSourceDef: DataSourceDefinition = {
         id: userInput.dataSourceId,
         type: userInput.type,
-        config: smartDeepClone(userInput.config),
+        config: smartDeepClone(userInput.config) as unknown as Record<string, unknown>,
         fieldMapping
       }
 
@@ -169,7 +169,7 @@ export class SimpleConfigGenerator {
           type: 'websocket',
           config: {
             url: wsInput.config.url,
-            protocols: smartDeepClone(wsInput.config.protocols)
+            protocols: smartDeepClone(('protocols' in wsInput.config ? wsInput.config.protocols : undefined) as string[] | undefined)
           }
         })
       }

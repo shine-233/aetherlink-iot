@@ -183,7 +183,7 @@ export function buildConfigurationImportPreview(
     basicInfo: {
       version: config.version,
       exportTime: config.exportTime,
-      componentType: config.componentType || config.metadata?.componentType || '',
+      componentType: config.componentType || '',
       exportSource: config.metadata?.exportSource || 'AetherLink IoT'
     },
     statistics: {

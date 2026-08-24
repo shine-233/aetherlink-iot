@@ -29,3 +29,38 @@ input:-moz-autofill:active {
   box-shadow: 0 0 0 1000px white inset !important;
   text-fill-color: #495057 !important;
 }
+
+
+/* ===== 视觉升级 Phase1：统一断点 / 交错入场 / 可达性 ===== */
+/* 断点三档与设计系统对齐：--bp-sm 640 / --bp-md 960 / --bp-lg 1280。
+   媒体查询无法直接使用 CSS 变量，此变量供组件级宽度/间距计算；
+   SCSS 侧请引用 styles/scss/_breakpoints.scss 的同名变量。 */
+:root {
+  --bp-sm: 640px;
+  --bp-md: 960px;
+  --bp-lg: 1280px;
+}
+
+/* 列表/卡片网格交错入场：容器加 .stagger，子元素按序浮现 */
+@keyframes stagger-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+.stagger > * { animation: stagger-in 0.28s cubic-bezier(0.4, 0, 0.2, 1) both; }
+.stagger > *:nth-child(1) { animation-delay: calc(var(--stagger-step, 40ms) * 0); }
+.stagger > *:nth-child(2) { animation-delay: calc(var(--stagger-step, 40ms) * 1); }
+.stagger > *:nth-child(3) { animation-delay: calc(var(--stagger-step, 40ms) * 2); }
+.stagger > *:nth-child(4) { animation-delay: calc(var(--stagger-step, 40ms) * 3); }
+.stagger > *:nth-child(5) { animation-delay: calc(var(--stagger-step, 40ms) * 4); }
+.stagger > *:nth-child(6) { animation-delay: calc(var(--stagger-step, 40ms) * 5); }
+.stagger > *:nth-child(n + 7) { animation-delay: calc(var(--stagger-step, 40ms) * 6); }
+
+/* 可达性硬要求：偏好减少动效时全部禁用 */
+@media (prefers-reduced-motion: reduce) {
+  .stagger > *,
+  .fade-slide-enter-active,
+  .fade-slide-leave-active {
+    animation: none !important;
+    transition: none !important;
+  }
+}

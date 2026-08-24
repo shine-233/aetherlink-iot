@@ -7,7 +7,7 @@
 
 export * from '@/core/data-architecture/executors'
 export * from '@/core/data-architecture/types'
-export * from '@/core/data-architecture/adapters'
+export * from '@/core/data-architecture/adapters/ConfigurationAdapter'
 export * from '@/core/data-architecture/config-generation'
 
 export {

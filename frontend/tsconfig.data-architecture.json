@@ -9,7 +9,8 @@
     "./src/typings/**/*.d.ts",
     "./src/core/data-architecture/DataFormatNormalizer.ts",
     "./src/core/data-architecture/DataFormatNormalizerCompatibility.ts",
-    "./src/core/data-architecture/executors/MultiSourceIntegrator.ts"
+    "./src/core/data-architecture/executors/MultiSourceIntegrator.ts",
+    "./src/core/data-architecture/utils/ConfigurationImportExport.ts"
   ],
   "exclude": [
     "node_modules",

@@ -766,7 +766,7 @@ export interface ConfigurationVersion {
  * 配置版本适配器
  * 处理新旧配置格式的自动转换
  */
-export interface ConfigurationAdapter {
+export interface ConfigurationAdapterInfo {
   /**
    * 检测配置版本
    * @param config 配置对象

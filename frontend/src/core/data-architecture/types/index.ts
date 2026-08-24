@@ -61,7 +61,7 @@ export type {
   ConfigurationMetadata,
 
   // 适配器系统
-  ConfigurationAdapter
+  ConfigurationAdapterInfo
 } from './enhanced-types'
 
 // ==================== 简化数据源系统类型导出 ====================
