@@ -13,7 +13,19 @@ import (
 	"github.com/sirupsen/logrus"
 	"gorm.io/gen"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
+
+// genConditionExpr 把调用方传入的 gen.Condition 归一为 clause.Expression，
+// 供 raw global.DB 链直接消费。兼容两类来源：纯 field 表达式（本身实现
+// clause.Expression）与 DO 组合条件（经 BeCond 导出底层 WHERE 表达式），
+// 保证 variadic 入参契约与调用方写法不变。
+func genConditionExpr(cond gen.Condition) clause.Expression {
+	if expr, ok := cond.(clause.Expression); ok {
+		return expr
+	}
+	return cond.BeCond().(clause.Expression)
+}
 
 func (DeviceQuery) Count(ctx context.Context) (count int64, err error) {
 	count, err = query.Device.Count()
@@ -136,16 +148,29 @@ func GetBoardDeviceCounts(ctx context.Context, tenantID string, excludeInactiveF
 	}, nil
 }
 
+// First 按 variadic 条件读取单条设备。批次二收敛（见 references/gen-inheritance-audit.md）：
+// 条件经 genConditionExpr 归一后挂到 raw global.DB 链，签名与调用方不变。
 func (DeviceQuery) First(ctx context.Context, option ...gen.Condition) (info *model.Device, err error) {
-	info, err = query.Device.WithContext(ctx).Where(option...).First()
-	if err != nil {
-		logrus.Error(ctx, err)
+	db := global.DB.WithContext(ctx)
+	for _, cond := range option {
+		db = db.Where(genConditionExpr(cond))
 	}
-	return
+	var device model.Device
+	if err = db.First(&device).Error; err != nil {
+		logrus.Error(ctx, err)
+		return nil, err
+	}
+	return &device, nil
 }
 
+// Find 按 variadic 条件批量读取设备。批次二收敛（见 references/gen-inheritance-audit.md）：
+// 条件经 genConditionExpr 归一后挂到 raw global.DB 链，签名与调用方不变。
 func (DeviceQuery) Find(ctx context.Context, option ...gen.Condition) (list []*model.Device, err error) {
-	list, err = query.Device.WithContext(ctx).Where(option...).Find()
+	db := global.DB.WithContext(ctx)
+	for _, cond := range option {
+		db = db.Where(genConditionExpr(cond))
+	}
+	err = db.Find(&list).Error
 	if err != nil {
 		logrus.Error(ctx, err)
 	}
@@ -256,15 +281,17 @@ func GetSubDeviceExists(deviceId, subAddr string) bool {
 	return false
 }
 
+// GetDeviceByID 按 id 精确读取设备，diagnostics/guide/twin/detail 的权限守卫共用此入口。
+// 批次二收敛（2026-08-24，见 references/gen-inheritance-audit.md）：改走 raw global.DB 链
+// （clone==1 根，每次链式起点均为全新 Statement），切断包级 query.Device 继承式语句根；
+// gorm.ErrRecordNotFound 等错误逐字节透传，调用方 errors.Is 判定行为不变。
 func GetDeviceByID(id string) (*model.Device, error) {
-	device, err := query.Device.Where(query.Device.ID.Eq(id)).First()
+	var device model.Device
+	err := global.DB.Where("id = ?", id).First(&device).Error
 	if err != nil {
 		return nil, err
 	}
-	if device == nil {
-		return nil, fmt.Errorf("device is nil for id: %s", id)
-	}
-	return device, nil
+	return &device, nil
 }
 
 func GetDevicesByIDsForTenant(deviceIDs []string, tenantID string) (map[string]*model.Device, error) {
@@ -327,16 +354,20 @@ func indexDevicesByID(devices []*model.Device, result map[string]*model.Device) 
 }
 
 // GetDeviceDetail returns a device with its config name and latest telemetry timestamp.
+// 批次二收敛（2026-08-24，见 references/gen-inheritance-audit.md）：raw global.DB 链重建等价
+// JOIN（device_configs + 最新遥测子查询），不再从包级单例起 Do 链；Scan 无行返回空 map 的
+// 既有行为保留（上游加固另行处理）。
 func GetDeviceDetail(id string) (map[string]interface{}, error) {
-	device := query.Device
-	deviceConfig := query.DeviceConfig
-	t := query.TelemetryCurrentData
-	t2 := query.TelemetryCurrentData.As("t2")
 	data := make(map[string]interface{})
-	err := device.LeftJoin(deviceConfig, deviceConfig.ID.EqCol(device.DeviceConfigID)).
-		LeftJoin(t.Select(t.T.Max().As("ts"), t.DeviceID).Group(t.DeviceID).As("t2"), t2.DeviceID.EqCol(device.ID)).
-		Where(device.ID.Eq(id)).
-		Select(device.ALL, deviceConfig.Name.As("device_config_name"), t2.T).Scan(&data)
+	latestTelemetry := global.DB.Table("telemetry_current_datas").
+		Select(`MAX("ts") AS "ts", device_id`).
+		Group("device_id")
+	err := global.DB.Model(&model.Device{}).
+		Joins("LEFT JOIN device_configs ON device_configs.id = devices.device_config_id").
+		Joins(`LEFT JOIN (?) AS t2 ON "t2"."device_id" = "devices"."id"`, latestTelemetry).
+		Where("devices.id = ?", id).
+		Select(`"devices".*, "device_configs"."name" AS "device_config_name", "t2"."ts"`).
+		Scan(&data).Error
 	if err != nil {
 		logrus.Error(err)
 		return nil, err
@@ -353,34 +384,40 @@ func GetDeviceDetail(id string) (map[string]interface{}, error) {
 }
 
 // GetDeviceByVoucher looks up a device by provisioning voucher.
+// 批次二收敛（见 references/gen-inheritance-audit.md）：raw global.DB 链起点。
 func GetDeviceByVoucher(voucher string) (*model.Device, error) {
-	device, err := query.Device.Where(query.Device.Voucher.Eq(voucher)).First()
+	var device model.Device
+	err := global.DB.Where("voucher = ?", voucher).First(&device).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, deviceVoucherNotFoundError(err)
 		}
 		return nil, err
 	}
-	return device, err
+	return &device, err
 }
 
 func deviceVoucherNotFoundError(err error) error {
 	return fmt.Errorf("get device by voucher failed: %w", err)
 }
 
-// 通过设备编号获取设备信息
+// 通过设备编号获取设备信息（批次二收敛：raw global.DB 链起点）。
 func GetDeviceByDeviceNumber(deviceNumber string) (*model.Device, error) {
-	device, err := query.Device.Where(query.Device.DeviceNumber.Eq(deviceNumber)).First()
+	var device model.Device
+	err := global.DB.Where("device_number = ?", deviceNumber).First(&device).Error
 	if err != nil {
 		logrus.Error(err)
+		return nil, err
 	}
-	return device, err
+	return &device, err
 }
 
 func GetDeviceBySubDeviceAddress(deviceAddress []string, parentId string) (map[string]*model.Device, error) {
-	devices, err := query.Device.Where(query.Device.SubDeviceAddr.In(deviceAddress...)).
+	devices := []*model.Device{}
+	err := global.DB.
+		Where(query.Device.SubDeviceAddr.In(deviceAddress...)).
 		Where(query.Device.ParentID.Eq(parentId)).
-		Find()
+		Find(&devices).Error
 	if err != nil {
 		return nil, err
 	}
@@ -402,20 +439,24 @@ func GetDevicesCount() int64 {
 	return count
 }
 
-// 通过设备id获取设备信息
+// 通过设备id获取设备信息（批次二收敛：raw global.DB 链起点）。
 func GetDeviceCacheById(deviceId string) (*model.Device, error) {
-	device, err := query.Device.Where(query.Device.ID.Eq(deviceId)).First()
+	var device model.Device
+	err := global.DB.Where("id = ?", deviceId).First(&device).Error
 	if err != nil {
 		logrus.Error(err)
 		return nil, err
 	}
-	return device, nil
+	return &device, nil
 }
 
 // GetDeviceCurrentStatus maps the stored online flag to the automation status
 // strings used by rule evaluation. Missing devices are treated as OFF-LINE.
+// 批次二收敛（见 references/gen-inheritance-audit.md）：raw global.DB 链起点，
+// gorm.ErrRecordNotFound 仍归一为 OFF-LINE 且不报错。
 func GetDeviceCurrentStatus(deviceId string) (string, error) {
-	data, err := query.Device.Where(query.Device.ID.Eq(deviceId)).First()
+	var device model.Device
+	err := global.DB.Where("id = ?", deviceId).First(&device).Error
 	var result string = "OFF-LINE"
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -423,7 +464,7 @@ func GetDeviceCurrentStatus(deviceId string) (string, error) {
 		}
 		return result, err
 	}
-	if data.IsOnline == 1 {
+	if device.IsOnline == 1 {
 		result = "ON-LINE"
 	}
 	return result, nil
@@ -431,12 +472,15 @@ func GetDeviceCurrentStatus(deviceId string) (string, error) {
 
 // GetDeviceTemplateIdByDeviceId returns the template attached through the
 // device's current config, or an empty string when no template is configured.
+// 批次二收敛（见 references/gen-inheritance-audit.md）：raw global.DB 链重建等价 LEFT JOIN，
+// 以 Model(&model.Device{}) 锚定主表，投影与别名保持不变。
 func GetDeviceTemplateIdByDeviceId(deviceId string) (string, error) {
 	var result model.DeviceConfig
-	err := query.Device.LeftJoin(query.DeviceConfig, query.Device.DeviceConfigID.EqCol(query.DeviceConfig.ID)).
-		Where(query.Device.ID.Eq(deviceId)).
-		Select(query.DeviceConfig.DeviceTemplateID).
-		Scan(&result)
+	err := global.DB.Model(&model.Device{}).
+		Joins("LEFT JOIN device_configs ON device_configs.id = devices.device_config_id").
+		Where("devices.id = ?", deviceId).
+		Select(`"device_configs"."device_template_id"`).
+		Scan(&result).Error
 	if err != nil {
 		logrus.Error(err)
 		return "", err
