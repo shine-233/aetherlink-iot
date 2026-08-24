@@ -10,44 +10,42 @@ import (
 
 	model "aetherlink-iot/backend/internal/model"
 	query "aetherlink-iot/backend/internal/query"
+	global "aetherlink-iot/backend/pkg/global"
 
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 func GetTelemetrySetLogsListByPage(req *model.GetTelemetrySetLogsListByPageReq) (int64, []map[string]interface{}, error) {
 
 	var count int64
-	q := query.TelemetrySetLog
-	queryBuilder := q.WithContext(context.Background())
-
-	queryBuilder = queryBuilder.Where(q.DeviceID.Eq(req.DeviceId))
+	// P1 修复（2026-08-24，见 VALIDATION.md）：遥测下发日志列表改走 raw global.DB 链，
+	// 杜绝包级单例 TelemetrySetLog LeftJoin(User)+ALL+Scan 在高并发下跨请求残留
+	// Statement 读到空/旧数据；JOIN 形态、投影列名、排序与分页语义与收敛前逐条一致。
+	base := global.DB.Table("telemetry_set_logs").
+		Joins("LEFT JOIN users ON users.id = telemetry_set_logs.user_id").
+		Where("telemetry_set_logs.device_id = ?", req.DeviceId)
 
 	if req.Status != nil {
-		queryBuilder = queryBuilder.Where(q.Status.Eq(*req.Status))
+		base = base.Where("telemetry_set_logs.status = ?", *req.Status)
 	}
 	if req.OperationType != nil {
-		queryBuilder = queryBuilder.Where(q.OperationType.Eq(*req.OperationType))
+		base = base.Where("telemetry_set_logs.operation_type = ?", *req.OperationType)
 	}
 
-	count, err := queryBuilder.Count()
-	if err != nil {
+	if err := base.Session(&gorm.Session{}).Count(&count).Error; err != nil {
 		logrus.Error(err)
 		return count, nil, err
 	}
 
+	listBuilder := base.Session(&gorm.Session{}).
+		Select("telemetry_set_logs.*, users.name AS username").
+		Order("telemetry_set_logs.created_at DESC")
 	if req.Page != 0 && req.PageSize != 0 {
-		queryBuilder = queryBuilder.Limit(req.PageSize)
-		queryBuilder = queryBuilder.Offset((req.Page - 1) * req.PageSize)
+		listBuilder = listBuilder.Limit(req.PageSize).Offset((req.Page - 1) * req.PageSize)
 	}
-
-	queryBuilder = queryBuilder.LeftJoin(query.User, q.UserID.EqCol(query.User.ID))
-
-	queryBuilder = queryBuilder.Order(q.CreatedAt.Desc())
-
 	list := make([]map[string]interface{}, 0)
-
-	err = queryBuilder.Select(q.ALL, query.User.Name.As("username")).Scan(&list)
-	if err != nil {
+	if err := listBuilder.Scan(&list).Error; err != nil {
 		logrus.Error(err)
 		return count, list, err
 	}

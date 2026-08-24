@@ -15,51 +15,48 @@ import (
 
 	model "aetherlink-iot/backend/internal/model"
 	query "aetherlink-iot/backend/internal/query"
+	global "aetherlink-iot/backend/pkg/global"
 
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 func GetCommandSetLogsDataListByPage(req model.GetCommandSetLogsListByPageReq) (int64, any, error) {
 
 	var count int64
-	q := query.CommandSetLog
-	d := query.Device
-	dc := query.DeviceConfig
-	dmc := query.DeviceModelCommand
-	u := query.User
-
-	queryBuilder := q.WithContext(context.Background())
-	queryBuilder = queryBuilder.LeftJoin(d, d.ID.EqCol(q.DeviceID))
-	queryBuilder = queryBuilder.LeftJoin(dc, dc.ID.EqCol(d.DeviceConfigID))
-	queryBuilder = queryBuilder.LeftJoin(dmc, dmc.DeviceTemplateID.EqCol(dc.DeviceTemplateID), dmc.DataIdentifier.EqCol(q.Identify))
-	queryBuilder = queryBuilder.LeftJoin(u, u.ID.EqCol(q.UserID))
-
-	queryBuilder = queryBuilder.Where(q.DeviceID.Eq(req.DeviceId))
+	// P1 修复（2026-08-24，见 VALIDATION.md）：命令下发日志列表改走 raw global.DB 链，
+	// 杜绝包级单例 CommandSetLog 四级 LeftJoin(devices→device_configs→device_model_commands→users)
+	// 在高并发下跨请求残留 Statement 读到空/旧数据；JOIN 形态、投影列名、排序与分页语义与收敛前逐条一致。
+	base := global.DB.Table("command_set_logs").
+		Joins("LEFT JOIN devices ON devices.id = command_set_logs.device_id").
+		Joins("LEFT JOIN device_configs ON device_configs.id = devices.device_config_id").
+		Joins("LEFT JOIN device_model_commands ON device_model_commands.device_template_id = device_configs.device_template_id AND device_model_commands.data_identifier = command_set_logs.identify").
+		Joins("LEFT JOIN users ON users.id = command_set_logs.user_id").
+		Where("command_set_logs.device_id = ?", req.DeviceId)
 
 	if req.Status != nil {
-		queryBuilder = queryBuilder.Where(q.Status.Eq(*req.Status))
+		base = base.Where("command_set_logs.status = ?", *req.Status)
 	}
 	if req.OperationType != nil {
-		queryBuilder = queryBuilder.Where(q.OperationType.Eq(*req.OperationType))
+		base = base.Where("command_set_logs.operation_type = ?", *req.OperationType)
 	}
 	if req.IdentifyName != nil {
-		queryBuilder = queryBuilder.Where(dmc.DataName.Like("%" + *req.IdentifyName + "%"))
+		base = base.Where("device_model_commands.data_name LIKE ?", "%"+*req.IdentifyName+"%")
 	}
-	count, err := queryBuilder.Count()
-	if err != nil {
+
+	if err := base.Session(&gorm.Session{}).Count(&count).Error; err != nil {
 		logrus.Error(err)
 		return count, nil, err
 	}
 
+	listBuilder := base.Session(&gorm.Session{}).
+		Select("command_set_logs.*, device_model_commands.data_name AS identify_name, users.name AS username").
+		Order("command_set_logs.created_at DESC")
 	if req.Page != 0 && req.PageSize != 0 {
-		queryBuilder = queryBuilder.Limit(req.PageSize)
-		queryBuilder = queryBuilder.Offset((req.Page - 1) * req.PageSize)
+		listBuilder = listBuilder.Limit(req.PageSize).Offset((req.Page - 1) * req.PageSize)
 	}
-	queryBuilder = queryBuilder.Order(q.CreatedAt.Desc())
-	var list []map[string]interface{}
-
-	err = queryBuilder.Select(q.ALL, dmc.DataName.As("identify_name"), u.Name.As("username")).Scan(&list)
-	if err != nil {
+	list := make([]map[string]interface{}, 0)
+	if err := listBuilder.Scan(&list).Error; err != nil {
 		logrus.Error(err)
 		return count, list, err
 	}

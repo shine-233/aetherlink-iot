@@ -391,6 +391,7 @@ getData()
     </NFlex>
   </NCard>
   <n-modal
+    aria-label="dialog"
     v-model:show="showLog"
     :style="bodyStyle"
     preset="card"

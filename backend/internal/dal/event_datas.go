@@ -6,11 +6,11 @@
 package dal
 
 import (
-	"context"
 	"errors"
 
 	model "aetherlink-iot/backend/internal/model"
 	query "aetherlink-iot/backend/internal/query"
+	global "aetherlink-iot/backend/pkg/global"
 
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
@@ -19,36 +19,33 @@ import (
 func GetEventDatasListByPage(req *model.GetEventDatasListByPageReq) (int64, []map[string]interface{}, error) {
 
 	var count int64
-	q := query.EventData
-	d := query.Device
-	dc := query.DeviceConfig
-	dme := query.DeviceModelEvent
-
-	queryBuilder := q.WithContext(context.Background())
-
-	queryBuilder = queryBuilder.LeftJoin(d, q.DeviceID.EqCol(d.ID)).
-		LeftJoin(dc, d.DeviceConfigID.EqCol(dc.ID)).
-		LeftJoin(dme, dc.DeviceTemplateID.EqCol(dme.DeviceTemplateID), dme.DataIdentifier.EqCol(q.Identify)).
-		Where(q.DeviceID.Eq(req.DeviceId))
+	// P1 修复（2026-08-24，见 VALIDATION.md）：事件数据列表改走 raw global.DB 链，
+	// 杜绝包级单例 EventData 三级 LeftJoin(devices→device_configs→device_model_events)
+	// 在高并发下跨请求残留 Statement 读到空/旧数据；JOIN 形态、投影列名、
+	// 排序与分页语义与收敛前逐条一致。
+	base := global.DB.Table("event_datas").
+		Joins("LEFT JOIN devices ON devices.id = event_datas.device_id").
+		Joins("LEFT JOIN device_configs ON devices.device_config_id = device_configs.id").
+		Joins("LEFT JOIN device_model_events ON device_configs.device_template_id = device_model_events.device_template_id AND device_model_events.data_identifier = event_datas.identify").
+		Where("event_datas.device_id = ?", req.DeviceId)
 
 	if req.Identify != nil && *req.Identify != "" {
-		queryBuilder = queryBuilder.Where(q.Identify.Eq(*req.Identify))
+		base = base.Where("event_datas.identify = ?", *req.Identify)
 	}
 
-	count, err := queryBuilder.Count()
-	if err != nil {
+	if err := base.Session(&gorm.Session{}).Count(&count).Error; err != nil {
 		logrus.Error(err)
 		return count, nil, err
 	}
 
+	listBuilder := base.Session(&gorm.Session{}).
+		Select("event_datas.*, device_model_events.data_name").
+		Order("event_datas.ts DESC")
 	if req.Page != 0 && req.PageSize != 0 {
-		queryBuilder = queryBuilder.Limit(req.PageSize)
-		queryBuilder = queryBuilder.Offset((req.Page - 1) * req.PageSize)
+		listBuilder = listBuilder.Limit(req.PageSize).Offset((req.Page - 1) * req.PageSize)
 	}
-	queryBuilder = queryBuilder.Order(q.T.Desc())
-	var list []map[string]interface{}
-	err = queryBuilder.Select(q.ALL, dme.DataName).Scan(&list)
-	if err != nil {
+	list := make([]map[string]interface{}, 0)
+	if err := listBuilder.Scan(&list).Error; err != nil {
 		logrus.Error(err)
 		return count, list, err
 	}
