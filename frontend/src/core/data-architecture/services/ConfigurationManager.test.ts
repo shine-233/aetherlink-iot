@@ -8,8 +8,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ConfigurationManager } from './ConfigurationManager'
+import type { DataSourceConfiguration } from '@/core/data-architecture/executors/MultiLayerExecutorChain'
 
-const validConfig = (componentId = 'card-a') => ({
+const validConfig = (componentId = 'card-a'): DataSourceConfiguration => ({
   componentId,
   dataSources: [
     {
@@ -80,7 +81,7 @@ describe('ConfigurationManager', () => {
   it('validates complete configs and reports data-source, item, processing, and merge defects', () => {
     const manager = new ConfigurationManager()
 
-    expect(manager.validateConfiguration(validConfig() as any)).toEqual({ valid: true, errors: [], warnings: [] })
+    expect(manager.validateConfiguration(validConfig())).toEqual({ valid: true, errors: [], warnings: [] })
 
     const result = manager.validateConfiguration({
       componentId: '',
@@ -121,7 +122,7 @@ describe('ConfigurationManager', () => {
           mergeStrategy: { type: 'object' }
         }
       ]
-    } as any)
+    } as unknown as DataSourceConfiguration)
 
     expect(result.valid).toBe(false)
     expect(result.errors).toHaveLength(6)
@@ -140,7 +141,7 @@ describe('ConfigurationManager', () => {
   it('imports and exports JSON configuration while refreshing timestamps', () => {
     const manager = new ConfigurationManager()
     const config = validConfig('imported-card')
-    const json = manager.exportConfiguration(config as any)
+    const json = manager.exportConfiguration(config)
 
     expect(JSON.parse(json)).toMatchObject({ componentId: 'imported-card' })
     expect(manager.importConfiguration(json)).toMatchObject({
@@ -162,7 +163,7 @@ describe('ConfigurationManager', () => {
 
   it('imports configuration from File objects', async () => {
     const manager = new ConfigurationManager()
-    const file = new File([manager.exportConfiguration(validConfig('file-card') as any)], 'file-card.json', {
+    const file = new File([manager.exportConfiguration(validConfig('file-card'))], 'file-card.json', {
       type: 'application/json'
     })
 
@@ -184,7 +185,7 @@ describe('ConfigurationManager', () => {
     const createObjectURLSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:config')
     const revokeObjectURLSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
 
-    manager.exportConfigurationAsFile(validConfig('download-card') as any)
+    manager.exportConfigurationAsFile(validConfig('download-card'))
 
     expect(createElementSpy).toHaveBeenCalledWith('a')
     expect(anchor.href).toBe('blob:config')
@@ -192,7 +193,7 @@ describe('ConfigurationManager', () => {
     expect(click).toHaveBeenCalledTimes(1)
     expect(revokeObjectURLSpy).toHaveBeenCalledWith('blob:config')
 
-    manager.exportConfigurationAsFile(validConfig('download-card') as any, 'custom.json')
+    manager.exportConfigurationAsFile(validConfig('download-card'), 'custom.json')
     expect(anchor.download).toBe('custom.json')
   })
 
@@ -210,7 +211,7 @@ describe('ConfigurationManager', () => {
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:failed-config')
     const revokeObjectURLSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
 
-    expect(() => manager.exportConfigurationAsFile(validConfig('download-card') as any)).toThrow(downloadError)
+    expect(() => manager.exportConfigurationAsFile(validConfig('download-card'))).toThrow(downloadError)
     expect(revokeObjectURLSpy).toHaveBeenCalledTimes(1)
     expect(revokeObjectURLSpy).toHaveBeenCalledWith('blob:failed-config')
   })
@@ -229,8 +230,8 @@ describe('ConfigurationManager', () => {
     const nextStarter = manager.generateStarterConfiguration('next-starter-card')
     expect(nextStarter.dataSources[0].sourceId).toBe('device_telemetry_json')
 
-    const original = validConfig('source-card') as any
-    const cloned = manager.cloneConfiguration(original, 'clone-card') as any
+    const original = validConfig('source-card')
+    const cloned = manager.cloneConfiguration(original, 'clone-card')
     cloned.dataSources[0].dataItems[0].item.config.jsonString = '{"temperature":99}'
 
     expect(cloned.componentId).toBe('clone-card')
@@ -238,7 +239,7 @@ describe('ConfigurationManager', () => {
     expect(original.dataSources[0].dataItems[0].item.config.jsonString).toBe('{"temperature":26}')
 
     const extraConfig = validConfig('extra-card')
-    const merged = manager.mergeConfigurations(validConfig('base-card') as any, extraConfig as any)
+    const merged = manager.mergeConfigurations(validConfig('base-card'), extraConfig)
     expect(merged.componentId).toBe('base-card')
     expect(merged.dataSources).toHaveLength(2)
     expect(merged.updatedAt).toBe(1710000000000)
@@ -249,7 +250,7 @@ describe('ConfigurationManager', () => {
 
   it('falls back to a simple generated starter config when built-in templates are unavailable', () => {
     const manager = new ConfigurationManager()
-    ;(manager as any).templates = []
+    ;(manager as unknown as { templates: unknown[] }).templates = []
 
     const starter = manager.generateStarterConfiguration('fallback-card')
 
