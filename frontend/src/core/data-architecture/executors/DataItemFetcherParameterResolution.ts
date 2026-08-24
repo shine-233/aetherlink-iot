@@ -111,7 +111,7 @@ function shouldResolveComponentBinding(param: HttpParameter): boolean {
 }
 
 function normalizeComponentBindingPath(param: HttpParameter): string {
-  let bindingPath = param.value
+  let bindingPath = typeof param.value === 'string' ? param.value : String(param.value ?? '')
 
   if (isDamagedComponentBindingPath(bindingPath, param.variableName)) {
     console.error('[DataItemFetcher] Damaged binding path detected:', {

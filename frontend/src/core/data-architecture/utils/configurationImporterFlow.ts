@@ -22,7 +22,7 @@ import {
 } from './configurationImportPlan'
 
 type GenerateConfigurationImportPreviewOptions = {
-  availableComponents?: any[]
+  availableComponents?: Array<Record<string, unknown>>
 }
 
 type ConfigurationImporterFlowOptions = {

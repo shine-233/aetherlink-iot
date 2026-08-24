@@ -25,7 +25,7 @@ import type {
   EnhancedHttpDataItemConfig,
   HttpHeader,
   HttpParam,
-  ConfigurationAdapter as IConfigurationAdapter
+  ConfigurationAdapterInfo as IConfigurationAdapter
 } from '../types/enhanced-types'
 
 import { DEFAULT_ENHANCED_FEATURES } from '@/core/data-architecture/types/enhanced-types'
@@ -205,9 +205,9 @@ export class ConfigurationAdapter implements IConfigurationAdapter {
         ...dataSource,
         dataItems: dataSource.dataItems.map((dataItemWrapper, index) => ({
           ...dataItemWrapper,
-          item: this.upgradeDataItemToV2(dataItemWrapper.item, `${dataSource.sourceId}_item_${index}`)
+          item: this.upgradeDataItemToV2(dataItemWrapper.item as unknown as V1DataItem, `${dataSource.sourceId}_item_${index}`)
         }))
-      }))
+      })) as unknown as EnhancedDataSourceConfiguration['dataSources']
     }
 
     return enhancedConfig
@@ -222,16 +222,16 @@ export class ConfigurationAdapter implements IConfigurationAdapter {
       dataSources: v2Config.dataSources.map((dataSource) => ({
         sourceId: dataSource.sourceId,
         dataItems: dataSource.dataItems.map((dataItemWrapper) => ({
-          item: this.downgradeDataItemToV1(dataItemWrapper.item),
+          item: this.downgradeDataItemToV1(dataItemWrapper.item as unknown as DataItemConfig),
           processing: dataItemWrapper.processing
         })),
         mergeStrategy: dataSource.mergeStrategy
-      })),
+      })) as unknown as V1DataSourceConfiguration['dataSources'],
       createdAt: v2Config.createdAt,
       updatedAt: Date.now() // 更新时间戳
     }
 
-    return v1Config
+    return v1Config as unknown as V1DataSourceConfiguration
   }
 
   /**
@@ -348,13 +348,13 @@ export class ConfigurationAdapter implements IConfigurationAdapter {
       case 'websocket':
         return {
           type: 'websocket',
-          config: v2Item.config // WebSocket配置保持不变
+          config: v2Item.config as unknown as import('@/core/data-architecture/types').WebSocketDataItemConfig // WebSocket配置保持不变
         }
 
       case 'script':
         return {
           type: 'script',
-          config: v2Item.config // Script配置保持不变
+          config: v2Item.config as unknown as import('@/core/data-architecture/types').ScriptDataItemConfig // Script配置保持不变
         }
 
       default:
@@ -374,7 +374,7 @@ export class ConfigurationAdapter implements IConfigurationAdapter {
         value,
         enabled: true,
         isDynamic: false
-      }))
+      }) as HttpHeader)
   }
 
   /**
@@ -468,4 +468,3 @@ export function downgradeToV1(v2Config: EnhancedDataSourceConfiguration): V1Data
 }
 
 // ==================== 导出 ====================
-export type { ConversionResult }

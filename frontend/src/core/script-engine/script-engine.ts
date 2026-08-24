@@ -75,7 +75,7 @@ export class ScriptEngine implements IScriptEngine {
     }
 
     // 创建或获取执行上下文
-    let executionContext = undefined
+    let executionContext: ScriptExecutionContext | undefined = undefined
     if (context) {
       executionContext = this.contextManager.createContext('临时上下文', context)
     }
@@ -136,7 +136,7 @@ export class ScriptEngine implements IScriptEngine {
     }
 
     // 创建执行上下文
-    let executionContext = undefined
+    let executionContext: ScriptExecutionContext | undefined = undefined
     if (context) {
       executionContext = this.contextManager.createContext('流式上下文', context)
     }

@@ -346,14 +346,14 @@ export class ScriptSandbox implements IScriptSandbox {
   private createSafeSetTimeout(sandbox: ScriptSandboxInstance) {
     return (handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
       const timerId = setTimeout(handler, timeout, ...args)
-      this.ensureTimerStore(sandbox).push({ type: 'timeout', id: timerId })
+      this.ensureTimerStore(sandbox).push({ type: 'timeout', id: timerId as unknown as SandboxTimerId })
       return timerId
     }
   }
 
   private createSafeClearTimeout(sandbox: ScriptSandboxInstance) {
     return (timerId: SandboxTimerId) => {
-      clearTimeout(timerId)
+      clearTimeout(timerId as unknown as NodeJS.Timeout)
       this.removeTimer(sandbox, timerId)
     }
   }
@@ -361,14 +361,14 @@ export class ScriptSandbox implements IScriptSandbox {
   private createSafeSetInterval(sandbox: ScriptSandboxInstance) {
     return (handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
       const timerId = setInterval(handler, timeout, ...args)
-      this.ensureTimerStore(sandbox).push({ type: 'interval', id: timerId })
+      this.ensureTimerStore(sandbox).push({ type: 'interval', id: timerId as unknown as SandboxTimerId })
       return timerId
     }
   }
 
   private createSafeClearInterval(sandbox: ScriptSandboxInstance) {
     return (timerId: SandboxTimerId) => {
-      clearInterval(timerId)
+      clearInterval(timerId as unknown as NodeJS.Timeout)
       this.removeTimer(sandbox, timerId)
     }
   }
