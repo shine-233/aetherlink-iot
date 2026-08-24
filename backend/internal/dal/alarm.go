@@ -677,30 +677,14 @@ func newAlarmHistoryTenantQuery(tenantID string) query.IAlarmHistoryDo {
 		Where(query.AlarmHistory.TenantID.Eq(tenantID))
 }
 
-func applyAlarmHistoryListFilters(builder query.IAlarmHistoryDo, req *model.GetAlarmHisttoryListByPage) query.IAlarmHistoryDo {
-	builder = applyAlarmHistoryTimeFilter(builder, req)
-	builder = applyAlarmHistoryStatusFilter(builder, req)
-	builder = applyAlarmHistoryTypeFilter(builder, req)
-	return applyAlarmHistoryDeviceFilter(builder, req)
-}
-
-func applyAlarmHistoryTimeFilter(builder query.IAlarmHistoryDo, req *model.GetAlarmHisttoryListByPage) query.IAlarmHistoryDo {
-	if req.StartTime == nil || req.EndTime == nil || req.StartTime.IsZero() || req.EndTime.IsZero() {
-		return builder
-	}
-	return builder.Where(query.AlarmHistory.CreateAt.Between(*req.StartTime, *req.EndTime))
-}
-
-func applyAlarmHistoryStatusFilter(builder query.IAlarmHistoryDo, req *model.GetAlarmHisttoryListByPage) query.IAlarmHistoryDo {
-	statusValues := alarmHistoryStatusFilterValues(req.AlarmStatus)
-	if len(statusValues) == 0 {
-		return builder
-	}
-	if len(statusValues) == 1 {
-		return builder.Where(query.AlarmHistory.AlarmStatus.Eq(statusValues[0]))
-	}
-	return builder.Where(query.AlarmHistory.AlarmStatus.In(statusValues...))
-}
+// P1 修复（2026-08-24，见 VALIDATION.md）：gen LeftJoin 收敛——告警历史列表的
+// AlarmHistory ← AlarmConfig 关联已由 GetAlarmHistoryListByPage 以 raw global.DB 链
+// （`LEFT JOIN alarm_config ac ON ac.id = ah.alarm_config_id`）承接，
+// 原 gen 版 helper 簇（applyAlarmHistoryListFilters / applyAlarmHistoryTimeFilter /
+// applyAlarmHistoryStatusFilter / applyAlarmHistoryTypeFilter / applyAlarmHistoryDeviceFilter /
+// withAlarmHistoryListJoins / applyAlarmHistoryListPage / scanAlarmHistoryList）无任何调用方，
+// 一并移除，消除包级 query.AlarmHistory/AlarmConfig 单例跨请求残留 Statement 的风险。
+// alarmHistoryStatusFilterValues 与 isAlarmHistoryActiveStatusFilter 仍被 raw 链使用，予以保留。
 
 func alarmHistoryStatusFilterValues(alarmStatus *string) []string {
 	if alarmStatus == nil {
@@ -718,40 +702,6 @@ func alarmHistoryStatusFilterValues(alarmStatus *string) []string {
 
 func isAlarmHistoryActiveStatusFilter(alarmStatus *string) bool {
 	return alarmStatus != nil && strings.TrimSpace(*alarmStatus) == model.AlarmHistoryQueryStatusActive
-}
-
-func applyAlarmHistoryTypeFilter(builder query.IAlarmHistoryDo, req *model.GetAlarmHisttoryListByPage) query.IAlarmHistoryDo {
-	if req.AlarmType == nil || *req.AlarmType == "" {
-		return builder
-	}
-	q := query.AlarmHistory
-	if *req.AlarmType == "PT" || *req.AlarmType == "pressure_alarm" {
-		return builder.Where(
-			query.AlarmHistory.Where(q.Remark.Like("%\"event_type\":\"PT\"%")).
-				Or(q.Remark.Like("%\"event_type\":\"pressure_alarm\"%")),
-		)
-	}
-	return builder.Where(q.Remark.Like(fmt.Sprintf("%%\"event_type\":\"%s\"%%", *req.AlarmType)))
-}
-
-func applyAlarmHistoryDeviceFilter(builder query.IAlarmHistoryDo, req *model.GetAlarmHisttoryListByPage) query.IAlarmHistoryDo {
-	if req.DeviceId == nil || *req.DeviceId == "" {
-		return builder
-	}
-	return builder.Where(gen.Cond(datatypes.JSONQuery("alarm_device_list").HasKey(*req.DeviceId))...)
-}
-
-func withAlarmHistoryListJoins(builder query.IAlarmHistoryDo) query.IAlarmHistoryDo {
-	q := query.AlarmHistory
-	return builder.LeftJoin(query.AlarmConfig, q.AlarmConfigID.EqCol(query.AlarmConfig.ID)).
-		Order(q.CreateAt.Desc())
-}
-
-func applyAlarmHistoryListPage(builder query.IAlarmHistoryDo, page, pageSize int) query.IAlarmHistoryDo {
-	if page == 0 || pageSize == 0 {
-		return builder
-	}
-	return builder.Offset((page - 1) * pageSize).Limit(pageSize)
 }
 
 func CountActiveAlarmHistoryByTenant(tenantID string, ownerUserID *string) (int64, error) {
@@ -777,16 +727,6 @@ func CountAlarmHistoryByScope(tenantID string, ownerUserID *string, allTenants b
 	var count int64
 	err := newAlarmHistoryScopedDB(tenantID, ownerUserID, allTenants).Count(&count).Error
 	return count, err
-}
-
-func scanAlarmHistoryList(builder query.IAlarmHistoryDo) ([]map[string]interface{}, error) {
-	list := make([]map[string]interface{}, 0)
-	err := builder.Select(
-		query.AlarmHistory.ALL,
-		query.AlarmConfig.Name.As("alarm_config_name"),
-		query.AlarmConfig.AlarmLevel.As("alarm_level"),
-	).Scan(&list)
-	return list, err
 }
 
 func getAlarmHistoryForAction(id, tenantID string) (*model.AlarmHistory, error) {

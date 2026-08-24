@@ -33,36 +33,32 @@ func GetOpenAPIKeyByAppKey(appKey string) (*model.OpenAPIKey, error) {
 }
 
 func GetOpenAPIKeyListByPage(listReq *model.OpenAPIKeyListReq, tenantID string) (int64, interface{}, error) {
-	q := query.OpenAPIKey
-	u := query.User
 	keysList := make([]model.OpenAPIKeyListRsp, 0)
 
-	queryBuilder := q.WithContext(context.Background())
+	// P1 修复（2026-08-24，见 VALIDATION.md）：gen LeftJoin 改走 raw global.DB 链
+	base := global.DB.Table("open_api_keys").
+		Joins("LEFT JOIN users ON users.id = open_api_keys.created_id")
 	if tenantID != "" {
-		queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenantID))
+		base = base.Where("open_api_keys.tenant_id = ?", tenantID)
 	}
 	if listReq.Status != nil {
-		queryBuilder = queryBuilder.Where(q.Status.Eq(*listReq.Status))
+		base = base.Where("open_api_keys.status = ?", *listReq.Status)
 	}
 
-	queryBuilder = queryBuilder.LeftJoin(u, u.ID.EqCol(q.CreatedID))
-
-	count, err := queryBuilder.Count()
+	var count int64
+	err := base.Session(&gorm.Session{}).Count(&count).Error
 	if err != nil {
 		return 0, nil, err
 	}
 
 	if listReq.Page != 0 && listReq.PageSize != 0 {
-		queryBuilder = queryBuilder.Limit(listReq.PageSize)
-		queryBuilder = queryBuilder.Offset((listReq.Page - 1) * listReq.PageSize)
+		base = base.Limit(listReq.PageSize)
+		base = base.Offset((listReq.Page - 1) * listReq.PageSize)
 	}
 
-	err = queryBuilder.Select(
-		q.ALL,
-		u.ID.As("user_id"),
-		u.Email.As("email"),
-		u.Name.As("user_name"),
-	).Order(q.CreatedAt.Desc()).Scan(&keysList)
+	err = base.Select(
+		"open_api_keys.*, users.id AS user_id, users.email AS email, users.name AS user_name",
+	).Order("open_api_keys.created_at DESC").Scan(&keysList).Error
 	if err != nil {
 		return 0, nil, err
 	}

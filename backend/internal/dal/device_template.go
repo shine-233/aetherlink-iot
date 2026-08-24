@@ -11,6 +11,7 @@ import (
 
 	model "aetherlink-iot/backend/internal/model"
 	query "aetherlink-iot/backend/internal/query"
+	global "aetherlink-iot/backend/pkg/global"
 	utils "aetherlink-iot/backend/pkg/utils"
 
 	"github.com/sirupsen/logrus"
@@ -65,11 +66,13 @@ func GetDeviceTemplateChartConfigByID(id, tenantID string) (*model.DeviceTemplat
 
 // GetDeviceTemplateByDeviceId 根据设备ID获取物模型
 func GetDeviceTemplateByDeviceId(deviceId string) (any, error) {
-	var d = query.Device
-	var t = query.DeviceTemplate
-	var dc = query.DeviceConfig
 	var rsp map[string]interface{}
-	err := d.LeftJoin(dc, dc.ID.EqCol(d.DeviceConfigID)).LeftJoin(t, t.ID.EqCol(dc.DeviceTemplateID)).Where(d.ID.Eq(deviceId)).Select(t.ALL).Scan(&rsp)
+	// P1 修复（2026-08-24，见 VALIDATION.md）：gen LeftJoin 改走 raw global.DB 链
+	err := global.DB.Table("devices").
+		Joins("LEFT JOIN device_configs ON device_configs.id = devices.device_config_id").
+		Joins("LEFT JOIN device_templates ON device_templates.id = device_configs.device_template_id").
+		Where("devices.id = ?", deviceId).
+		Select("device_templates.*").Scan(&rsp).Error
 	if err != nil {
 		return nil, err
 	}

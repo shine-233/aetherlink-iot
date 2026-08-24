@@ -7,6 +7,7 @@ package dal
 
 import (
 	"aetherlink-iot/backend/pkg/constant"
+	"aetherlink-iot/backend/pkg/global"
 	"context"
 	"encoding/json"
 	"strconv"
@@ -15,34 +16,36 @@ import (
 	query "aetherlink-iot/backend/internal/query"
 
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 func GetAttributeSetLogsDataListByPage(req model.GetAttributeSetLogsListByPageReq) (int64, []*model.AttributeSetLog, error) {
 
 	var count int64
-	q := query.AttributeSetLog
-	u := query.User
-	queryBuilder := q.WithContext(context.Background())
-	queryBuilder = queryBuilder.Where(q.DeviceID.Eq(req.DeviceId))
+	// P1 修复（2026-08-24，见 VALIDATION.md）：gen LeftJoin 改走 raw global.DB 链
+	base := global.DB.Table("attribute_set_logs")
+	base = base.Where("attribute_set_logs.device_id = ?", req.DeviceId)
 	if req.Status != nil {
-		queryBuilder = queryBuilder.Where(q.Status.Eq(*req.Status))
+		base = base.Where("attribute_set_logs.status = ?", *req.Status)
 	}
 	if req.OperationType != nil {
-		queryBuilder = queryBuilder.Where(q.OperationType.Eq(*req.OperationType))
+		base = base.Where("attribute_set_logs.operation_type = ?", *req.OperationType)
 	}
-	count, err := queryBuilder.Count()
+	err := base.Session(&gorm.Session{}).Count(&count).Error
 	if err != nil {
 		logrus.Error(err)
-		return count, nil, err
+		return 0, nil, err
 	}
 
+	listBase := base.Session(&gorm.Session{}).
+		Select("attribute_set_logs.*, users.name AS username").
+		Joins("LEFT JOIN users ON users.id = attribute_set_logs.user_id").
+		Order("attribute_set_logs.created_at DESC")
 	if req.Page != 0 && req.PageSize != 0 {
-		queryBuilder = queryBuilder.Limit(req.PageSize)
-		queryBuilder = queryBuilder.Offset((req.Page - 1) * req.PageSize)
+		listBase = listBase.Limit(req.PageSize).Offset((req.Page - 1) * req.PageSize)
 	}
-	queryBuilder = queryBuilder.Order(q.CreatedAt.Desc())
-	queryBuilder = queryBuilder.LeftJoin(u, u.ID.EqCol(q.UserID))
-	list, err := queryBuilder.Select(q.ALL, u.Name.As("username")).Find()
+	list := make([]*model.AttributeSetLog, 0)
+	err = listBase.Find(&list).Error
 	if err != nil {
 		logrus.Error(err)
 		return count, list, err

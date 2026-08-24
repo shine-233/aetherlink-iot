@@ -237,17 +237,16 @@ func GetSubDeviceListByParentID(parentId string) ([]*model.Device, error) {
 
 func GetDeviceTemplateChartSelect(tenantId string) (any, error) {
 	data := []map[string]interface{}{}
-	d := query.Device
-	dc := query.DeviceConfig
-	dm := query.DeviceTemplate
-	err := d.LeftJoin(dc, dc.ID.EqCol(d.DeviceConfigID)).
-		LeftJoin(dm, dm.ID.EqCol(dc.DeviceTemplateID)).
-		Where(d.TenantID.Eq(tenantId)).
-		Where(d.ActivateFlag.Eq("active")).
-		Where(d.DeviceConfigID.IsNotNull()).
-		Where(dc.DeviceTemplateID.IsNotNull()).
-		Where(dm.WebChartConfig.IsNotNull()).
-		Select(d.ID.As("device_id"), d.Name.As("device_name"), dm.WebChartConfig).Scan(&data)
+	// P1 修复（2026-08-24，见 VALIDATION.md）：gen LeftJoin 改走 raw global.DB 链
+	err := global.DB.Table("devices").
+		Joins("LEFT JOIN device_configs ON device_configs.id = devices.device_config_id").
+		Joins("LEFT JOIN device_templates ON device_templates.id = device_configs.device_template_id").
+		Where("devices.tenant_id = ?", tenantId).
+		Where("devices.activate_flag = ?", "active").
+		Where("devices.device_config_id IS NOT NULL").
+		Where("device_configs.device_template_id IS NOT NULL").
+		Where("device_templates.web_chart_config IS NOT NULL").
+		Select("devices.id AS device_id, devices.name AS device_name, device_templates.web_chart_config").Scan(&data).Error
 	if err != nil {
 		logrus.Error(err)
 		return nil, err
