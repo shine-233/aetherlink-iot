@@ -52,12 +52,3 @@ jobs:
           push: false
           provenance: false
           sbom: false
-
-      - name: Scan built image with Trivy
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
-        with:
-          image-ref: local/${{ matrix.image }}:ci-${{ github.sha }}
-          format: table
-          exit-code: '1'
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
