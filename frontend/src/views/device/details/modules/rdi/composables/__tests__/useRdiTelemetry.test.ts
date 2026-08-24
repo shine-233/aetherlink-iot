@@ -14,8 +14,8 @@ const { mockTelemetryDataCurrentKeys, mockGetDeviceOnlineStatus } = vi.hoisted((
 }))
 
 vi.mock('@/service/api', () => ({
-  telemetryDataCurrentKeys: (...args: any[]) => mockTelemetryDataCurrentKeys(...args),
-  getDeviceOnlineStatus: (...args: any[]) => mockGetDeviceOnlineStatus(...args)
+  telemetryDataCurrentKeys: (...args: unknown[]) => mockTelemetryDataCurrentKeys(...args),
+  getDeviceOnlineStatus: (...args: unknown[]) => mockGetDeviceOnlineStatus(...args)
 }))
 
 vi.mock('@/store/modules/app', () => ({
@@ -43,7 +43,28 @@ const Harness = defineComponent({
   }
 })
 
-function mountHarness(props?: { id?: string; online?: number; deviceData?: Record<string, any> }) {
+// 挂载组件暴露的 setup 返回值的受控视图：只声明测试实际触达的成员。
+interface RdiTelemetryHarnessVm {
+  temperatureUnit: string
+  formatTemperatureValue: (value?: unknown) => string
+  loadRealtimeState: () => Promise<void>
+  loadTelemetry: () => Promise<void>
+  telemetry: unknown
+  liveOnlineStatus: unknown
+  deviceOnlineText: unknown
+  deviceDescriptionText: unknown
+  telemetryRows: unknown
+  formatSwitch: (value?: unknown) => string
+  formatLedStatus: (value?: unknown) => string
+  formatValue: (value?: unknown) => string
+  toAxisValue: (value?: unknown) => unknown
+  startTelemetryRefresh: () => void
+  stopTelemetryRefresh: () => void
+}
+
+const harnessVm = (wrapper: { vm: unknown }) => wrapper.vm as RdiTelemetryHarnessVm
+
+function mountHarness(props?: { id?: string; online?: number; deviceData?: Record<string, unknown> }) {
   return mount(Harness, {
     props: {
       id: props?.id ?? 'dev-1',
@@ -66,7 +87,7 @@ describe('useRdiTelemetry', () => {
     window.localStorage.setItem('rdi-temperature-unit', 'F')
 
     const wrapper = mountHarness()
-    const vm = wrapper.vm as any
+    const vm = harnessVm(wrapper)
 
     expect(vm.temperatureUnit).toBe('F')
     expect(vm.formatTemperatureValue(0)).toBe('32.00')
@@ -97,7 +118,7 @@ describe('useRdiTelemetry', () => {
     const wrapper = mountHarness({
       deviceData: { description: 'Cold room' }
     })
-    const vm = wrapper.vm as any
+    const vm = harnessVm(wrapper)
 
     await vm.loadRealtimeState()
 
@@ -141,7 +162,7 @@ describe('useRdiTelemetry', () => {
       online: 1,
       deviceData: { description: 'RDI cabinet' }
     })
-    const vm = wrapper.vm as any
+    const vm = harnessVm(wrapper)
 
     await vm.loadRealtimeState()
 
@@ -169,7 +190,7 @@ describe('useRdiTelemetry', () => {
       })
 
     const wrapper = mountHarness({ online: 1 })
-    const vm = wrapper.vm as any
+    const vm = harnessVm(wrapper)
     const firstLoad = vm.loadTelemetry()
 
     await wrapper.setProps({ id: 'dev-2' })
@@ -196,7 +217,7 @@ describe('useRdiTelemetry', () => {
     const wrapper = mountHarness({
       deviceData: { Description: '   ' }
     })
-    const vm = wrapper.vm as any
+    const vm = harnessVm(wrapper)
 
     expect(vm.formatSwitch('unexpected')).toBe('unexpected')
     expect(vm.formatLedStatus('mystery')).toBe('mystery')
@@ -219,7 +240,7 @@ describe('useRdiTelemetry', () => {
     })
 
     const wrapper = mountHarness()
-    const vm = wrapper.vm as any
+    const vm = harnessVm(wrapper)
 
     vm.startTelemetryRefresh()
     await vi.advanceTimersByTimeAsync(10_000)

@@ -150,7 +150,23 @@ const mountComponent = () => {
   return wrapper
 }
 
-const getSetupState = (wrapper: ReturnType<typeof shallowMount>) => wrapper.vm.$.setupState as Record<string, any>
+// setupState 的受控视图：只声明测试实际触达的成员，其余成员走 unknown 兜底。
+interface UserManageSetupOption {
+  value: unknown
+}
+
+interface UserManageSetupColumn {
+  key: string
+}
+
+interface UserManageSetupState {
+  columns: UserManageSetupColumn[]
+  timezoneOptions: UserManageSetupOption[]
+  languageOptions: UserManageSetupOption[]
+  [key: string]: unknown
+}
+
+const getSetupState = (wrapper: ReturnType<typeof shallowMount>) => wrapper.vm.$.setupState as UserManageSetupState
 
 const mockUser = (overrides: Record<string, any> = {}) => ({
   id: 'u-1',
@@ -172,7 +188,7 @@ describe('management/user/index.vue', () => {
     })
     hoisted.delUser.mockResolvedValue({ error: null })
     hoisted.enter.mockResolvedValue(undefined)
-    ;(globalThis as any).$message = { success: hoisted.messageSuccess }
+    ;(globalThis as unknown as { $message: Record<string, (...args: unknown[]) => void> }).$message = { success: hoisted.messageSuccess }
   })
 
   afterEach(() => {
@@ -504,7 +520,7 @@ describe('management/user/index.vue', () => {
     await flushPromises()
     const state = getSetupState(wrapper)
     expect(Array.isArray(state.columns)).toBe(true)
-    expect(state.columns.map((column: any) => column.key)).toEqual([
+    expect(state.columns.map(column => column.key)).toEqual([
       'email',
       'name',
       'phone_number',
@@ -520,7 +536,7 @@ describe('management/user/index.vue', () => {
     const wrapper = mountComponent()
     await flushPromises()
     const state = getSetupState(wrapper)
-    const columnKeys = state.columns.map((c: any) => c.key)
+    const columnKeys = state.columns.map(c => c.key)
     expect(columnKeys).toContain('email')
     expect(columnKeys).toContain('name')
     expect(columnKeys).toContain('status')
@@ -546,8 +562,8 @@ describe('management/user/index.vue', () => {
     await flushPromises()
     const state = getSetupState(wrapper)
     expect(state.timezoneOptions).toHaveLength(20)
-    expect(state.timezoneOptions.some((o: any) => o.value === 'Asia/Shanghai')).toBe(true)
-    expect(state.timezoneOptions.some((o: any) => o.value === 'UTC')).toBe(true)
+    expect(state.timezoneOptions.some(o => o.value === 'Asia/Shanghai')).toBe(true)
+    expect(state.timezoneOptions.some(o => o.value === 'UTC')).toBe(true)
   })
 
   it('languageOptions contains expected languages', async () => {
@@ -560,8 +576,8 @@ describe('management/user/index.vue', () => {
       { label: 'Francais', value: 'fr-FR' },
       { label: 'Espanol', value: 'es-ES' }
     ])
-    expect(state.languageOptions.some((o: any) => o.value === 'zh-CN')).toBe(true)
-    expect(state.languageOptions.some((o: any) => o.value === 'en-US')).toBe(true)
+    expect(state.languageOptions.some(o => o.value === 'zh-CN')).toBe(true)
+    expect(state.languageOptions.some(o => o.value === 'en-US')).toBe(true)
   })
 
   it('provinceCityData is populated from region data', async () => {

@@ -56,9 +56,9 @@ vi.mock('vue-router', async (importOriginal) => {
 })
 
 vi.mock('lodash-es', () => ({
-  debounce: (fn: (...args: any[]) => any) => {
-    const wrapped = (...args: any[]) => fn(...args)
-    ;(wrapped as any).cancel = vi.fn()
+  debounce: (fn: (...args: unknown[]) => unknown) => {
+    const wrapped = (...args: unknown[]) => fn(...args)
+    ;(wrapped as unknown as { cancel: () => void }).cancel = vi.fn()
     return wrapped
   }
 }))
@@ -196,7 +196,7 @@ const DataTablePageStub = defineComponent({
       forceChangeParamsByKey
     })
 
-    void (props.fetchData as any)({ page: 1, page_size: 10 })
+    void (props.fetchData as unknown as (query: Record<string, number>) => Promise<unknown>)({ page: 1, page_size: 10 })
 
     return () =>
       h('div', { class: 'data-table-page-stub' }, [
@@ -231,7 +231,7 @@ const DropdownStub = defineComponent({
         h(
           'div',
           { class: 'dropdown-options' },
-          props.options.map((option: any) =>
+          props.options.map((option: Record<string, unknown>) =>
             h(
               'button',
               {

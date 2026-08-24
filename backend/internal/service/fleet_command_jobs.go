@@ -17,6 +17,11 @@ const defaultFleetCommandJobListPageSize = 10
 const maxFleetCommandJobListPageSize = 50
 const defaultFleetCommandJobRowsPageSize = 200
 const maxFleetCommandJobRowsPageSize = 500
+
+// commandJobInlineRowLimit 详情/取消/重试/支持包接口内联返回的逐设备行数上限，
+// 与 dal 层 commandJobDetailInlineLimit 及分页 rows 接口单页上限对齐；
+// 更大的任务应使用分页 rows 接口获取完整行集。
+const commandJobInlineRowLimit = 500
 const defaultFleetCommandJobEventLimit = 100
 const maxFleetCommandScheduleAhead = 365 * 24 * time.Hour
 const fleetCommandScopeSelectedDevices = "selected_devices"

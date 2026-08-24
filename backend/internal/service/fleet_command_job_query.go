@@ -40,7 +40,7 @@ func (FleetCommandJobQueryService) GetFleetCommandJob(jobID string, claims *util
 	if err != nil {
 		return nil, err
 	}
-	details, err := dal.GetCommandJobDetails(job.ID, claims.TenantID)
+	details, err := dal.GetCommandJobDetails(job.ID, claims.TenantID, commandJobInlineRowLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +176,7 @@ func (FleetCommandJobQueryService) GetFleetCommandJobSupportBundle(jobID string,
 	if err != nil {
 		return nil, err
 	}
-	details, err := dal.FindCommandJobSupportDetails(job.ID, claims.TenantID, job.Status == commandJobStatusCanceled)
+	details, err := dal.FindCommandJobSupportDetails(job.ID, claims.TenantID, job.Status == commandJobStatusCanceled, commandJobInlineRowLimit)
 	if err != nil {
 		return nil, err
 	}

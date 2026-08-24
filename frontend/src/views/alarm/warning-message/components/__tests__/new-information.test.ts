@@ -89,8 +89,27 @@ const mountComponent = () => {
   return wrapper
 }
 
+// setupState 的受控视图：只声明测试实际触达的成员，其余成员走 unknown 兜底。
+interface NewInformationTableRow {
+  name?: unknown
+  enabled: string
+  operatorBtn: Array<{ type: string; btnName?: string }>
+}
+
+interface NewInformationTableColumn {
+  key: string
+  render: (row: Record<string, unknown>) => string
+}
+
+interface NewInformationSetupState {
+  tableData: NewInformationTableRow[]
+  columns: NewInformationTableColumn[]
+  loading: boolean
+  [key: string]: unknown
+}
+
 const getSetupState = (wrapper: ReturnType<typeof shallowMount>) =>
-  wrapper.vm.$.setupState as Record<string, any>
+  wrapper.vm.$.setupState as NewInformationSetupState
 
 describe('new-information.vue', () => {
   beforeEach(() => {
@@ -138,7 +157,7 @@ describe('new-information.vue', () => {
     })
 
     it('sets loading to true during fetch and false after setTimeout', async () => {
-      let resolveList: (value: any) => void = () => undefined
+      let resolveList: (value: unknown) => void = () => undefined
       hoisted.warningMessageList.mockImplementationOnce(
         () =>
           new Promise(resolve => {
@@ -163,14 +182,14 @@ describe('new-information.vue', () => {
       await flushPromises()
 
       const setupState = getSetupState(wrapper)
-      const enabledItem = setupState.tableData.find((item: any) => item.enabled === 'Y')
+      const enabledItem = setupState.tableData.find(item => item.enabled === 'Y')
       expect(enabledItem.operatorBtn).toHaveLength(3)
-      const types = enabledItem.operatorBtn.map((b: any) => b.type)
+      const types = enabledItem.operatorBtn.map(b => b.type)
       expect(types).toContain('edit')
       expect(types).toContain('enable')
       expect(types).toContain('delete')
       // For enabled=Y, the enable button should say "disable"
-      const enableBtn = enabledItem.operatorBtn.find((b: any) => b.type === 'enable')
+      const enableBtn = enabledItem.operatorBtn.find(b => b.type === 'enable')
       expect(enableBtn.btnName).toBe('page.manage.common.status.disable')
     })
 
@@ -181,8 +200,8 @@ describe('new-information.vue', () => {
       await flushPromises()
 
       const setupState = getSetupState(wrapper)
-      const disabledItem = setupState.tableData.find((item: any) => item.enabled === 'N')
-      const enableBtn = disabledItem.operatorBtn.find((b: any) => b.type === 'enable')
+      const disabledItem = setupState.tableData.find(item => item.enabled === 'N')
+      const enableBtn = disabledItem.operatorBtn.find(b => b.type === 'enable')
       expect(enableBtn.btnName).toBe('page.manage.common.status.enable')
     })
 
@@ -534,7 +553,7 @@ describe('new-information.vue', () => {
       const setupState = getSetupState(wrapper)
 
       expect(setupState.columns).toHaveLength(6)
-      const keys = setupState.columns.map((c: any) => c.key)
+      const keys = setupState.columns.map(c => c.key)
       expect(keys).toEqual(['name', 'description', 'alarm_level', 'notification_group_name', 'enabled', 'actions'])
     })
 
@@ -543,7 +562,7 @@ describe('new-information.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      const alarmLevelCol = setupState.columns.find((c: any) => c.key === 'alarm_level')
+      const alarmLevelCol = setupState.columns.find(c => c.key === 'alarm_level')
       expect(alarmLevelCol.render({ alarm_level: 'H' })).toBe('common.high')
       expect(alarmLevelCol.render({ alarm_level: 'M' })).toBe('common.middle')
       expect(alarmLevelCol.render({ alarm_level: 'L' })).toBe('common.low')
@@ -555,7 +574,7 @@ describe('new-information.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      const enabledCol = setupState.columns.find((c: any) => c.key === 'enabled')
+      const enabledCol = setupState.columns.find(c => c.key === 'enabled')
       expect(enabledCol.render({ enabled: 'Y' })).toBe('page.manage.common.status.enable')
       expect(enabledCol.render({ enabled: 'N' })).toBe('page.manage.common.status.disable')
     })

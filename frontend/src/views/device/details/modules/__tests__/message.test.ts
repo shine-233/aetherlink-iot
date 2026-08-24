@@ -5,7 +5,7 @@
  * 重构建议: 补齐失败、空数据和权限边界用例。
  */
 import { defineComponent, h } from 'vue'
-import { flushPromises, shallowMount } from '@vue/test-utils'
+import { flushPromises, shallowMount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const hoisted = vi.hoisted(() => ({
@@ -15,7 +15,7 @@ const hoisted = vi.hoisted(() => ({
   messageSuccess: vi.fn(),
   messageError: vi.fn(),
   windowMessageError: vi.fn(),
-  route: { query: { d_id: 'route-device-1' } } as any
+  route: { query: { d_id: 'route-device-1' } }
 }))
 
 vi.mock('vue-router', () => ({
@@ -54,7 +54,7 @@ vi.mock('../public/tencent-map.vue', () => ({
 
 import MessagePage from '../message.vue'
 
-const mountedWrappers: any[] = []
+const mountedWrappers: VueWrapper[] = []
 
 const SlotPassThroughCard = defineComponent({
   name: 'NCard',
@@ -116,7 +116,26 @@ const ModalStub = defineComponent({
   }
 })
 
-const mountMessagePage = (props: Record<string, any> = {}, options: Record<string, any> = {}) => {
+// setupState 的受控视图：只声明测试实际触达的成员，其余成员走 unknown 兜底。
+interface MessageSetupState {
+  additionInfo: Array<{ enable?: boolean; value?: unknown; name?: unknown }>
+  isShow: boolean
+  latitude: unknown
+  longitude: unknown
+  safeParseJSON: (...args: unknown[]) => unknown
+  normalizeExtendedInfo: (...args: unknown[]) => unknown
+  coerceValueByType: (...args: unknown[]) => unknown
+  getBooleanValue: (...args: unknown[]) => unknown
+  getNumberValue: (...args: unknown[]) => unknown
+  getTextValue: (...args: unknown[]) => unknown
+  handleSave: (...args: unknown[]) => unknown
+  setItemValue: (...args: unknown[]) => void
+  onPositionSelected: (...args: unknown[]) => void
+  openMapAndGetPosition: () => void
+  [key: string]: unknown
+}
+
+const mountMessagePage = (props: Record<string, unknown> = {}, options: Record<string, unknown> = {}) => {
   const wrapper = shallowMount(MessagePage, {
     props: {
       id: 'device-1',
@@ -150,13 +169,22 @@ const mountMessagePage = (props: Record<string, any> = {}, options: Record<strin
   return wrapper
 }
 
-const getSetupState = (wrapper: ReturnType<typeof shallowMount>) => wrapper.vm.$.setupState as Record<string, any>
+const getSetupState = (wrapper: ReturnType<typeof shallowMount>) => wrapper.vm.$.setupState as MessageSetupState
+
+interface VNodeLike {
+  props?: Record<string, unknown>
+  children?: unknown
+  component?: { subTree?: VNodeLike }
+  dynamicChildren?: VNodeLike[] | null
+}
+
+type CollectedHandler = (...args: unknown[]) => unknown
 
 const collectVNodeHandlers = (
-  vnode: any,
+  vnode: VNodeLike | null | undefined,
   eventName: string,
-  handlers: Array<(...args: any[]) => unknown> = [],
-  seen = new Set<any>()
+  handlers: CollectedHandler[] = [],
+  seen = new Set<unknown>()
 ) => {
   if (!vnode || seen.has(vnode)) return handlers
   seen.add(vnode)
@@ -171,7 +199,7 @@ const collectVNodeHandlers = (
   if (Array.isArray(vnode.children)) {
     vnode.children.forEach(child => collectVNodeHandlers(child, eventName, handlers, seen))
   } else if (vnode.children && typeof vnode.children === 'object') {
-    Object.values(vnode.children).forEach((child: any) => {
+    Object.values(vnode.children).forEach((child: unknown) => {
       if (typeof child === 'function') {
         const rendered = child()
         if (Array.isArray(rendered)) {
@@ -212,7 +240,7 @@ describe('message.vue', () => {
       error: null
     })
     hoisted.deviceLocation.mockResolvedValue({ error: null })
-    ;(window as any).$message = {
+    ;(window as unknown as { $message: Record<string, (...args: unknown[]) => void> }).$message = {
       success: vi.fn(),
       error: hoisted.windowMessageError,
       warning: vi.fn(),
@@ -697,7 +725,7 @@ describe('message.vue', () => {
 
       const setupState = getSetupState(wrapper)
       // All items have enable: false, so the v-else branch should render
-      expect(setupState.additionInfo.filter((item: any) => item.enable === true).length).toBe(0)
+      expect(setupState.additionInfo.filter(item => item.enable === true).length).toBe(0)
     })
 
     it('renders Boolean type field (NSwitch branch)', async () => {
@@ -886,7 +914,7 @@ describe('message.vue', () => {
       expect([setupState.longitude, setupState.latitude]).toEqual(
         expect.arrayContaining([expect.stringMatching(/^value-\d+$/), expect.stringMatching(/^value-\d+$/)])
       )
-      expect(setupState.additionInfo.filter((item: any) => String(item.value).startsWith('value-')).length).toBeGreaterThanOrEqual(3)
+      expect(setupState.additionInfo.filter(item => String(item.value).startsWith('value-')).length).toBeGreaterThanOrEqual(3)
 
       setupState.isShow = true
       expect(showHandlers.length).toBeGreaterThanOrEqual(1)

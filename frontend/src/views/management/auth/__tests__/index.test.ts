@@ -60,7 +60,7 @@ vi.mock('@/constants/business', () => ({
 }))
 
 vi.mock('@/utils/common/tool', () => ({
-  deepClone: (obj: any) => JSON.parse(JSON.stringify(obj))
+  deepClone: (obj: unknown) => JSON.parse(JSON.stringify(obj))
 }))
 
 vi.mock('../components/table-action-modal.vue', () => ({
@@ -95,9 +95,20 @@ const mountComponent = () => {
   return wrapper
 }
 
-const getSetupState = (wrapper: ReturnType<typeof shallowMount>) => wrapper.vm.$.setupState as Record<string, any>
+// setupState 的受控视图：只声明测试实际触达的成员，其余成员走 unknown 兜底。
+interface AuthManageSetupColumn {
+  key: string
+}
 
-const mockRoute = (overrides: Record<string, any> = {}) => ({
+interface AuthManageSetupState {
+  columns: AuthManageSetupColumn[]
+  rowKey: (row: Record<string, unknown>) => unknown
+  [key: string]: unknown
+}
+
+const getSetupState = (wrapper: ReturnType<typeof shallowMount>) => wrapper.vm.$.setupState as AuthManageSetupState
+
+const mockRoute = (overrides: Record<string, unknown> = {}) => ({
   id: 'm-1',
   description: 'User Management',
   element_code: 'user',
@@ -117,7 +128,7 @@ describe('management/auth/index.vue', () => {
       data: { list: [mockRoute()], total: 1 }
     })
     hoisted.delElement.mockResolvedValue({ error: null })
-    ;(globalThis as any).$message = { success: hoisted.messageSuccess }
+    ;(globalThis as unknown as { $message: Record<string, (...args: unknown[]) => void> }).$message = { success: hoisted.messageSuccess }
   })
 
   afterEach(() => {
@@ -242,7 +253,7 @@ describe('management/auth/index.vue', () => {
     const wrapper = mountComponent()
     await flushPromises()
     const state = getSetupState(wrapper)
-    expect(state.rowKey({ id: 'test-id' } as any)).toBe('test-id')
+    expect(state.rowKey({ id: 'test-id' })).toBe('test-id')
   })
 
   it('columns are defined', async () => {
@@ -250,7 +261,7 @@ describe('management/auth/index.vue', () => {
     await flushPromises()
     const state = getSetupState(wrapper)
     expect(Array.isArray(state.columns)).toBe(true)
-    expect(state.columns.map((column: any) => column.key)).toEqual([
+    expect(state.columns.map(column => column.key)).toEqual([
       'description',
       'param2',
       'element_code',

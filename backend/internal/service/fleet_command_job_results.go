@@ -12,7 +12,7 @@ import (
 )
 
 func commandJobResultFromPersistenceWithFreshDetails(job *model.CommandJob, claims *utils.UserClaims) (*model.FleetCommandJobSubmitResult, error) {
-	details, err := dal.GetCommandJobDetails(job.ID, claims.TenantID)
+	details, err := dal.GetCommandJobDetails(job.ID, claims.TenantID, commandJobInlineRowLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -41,6 +41,9 @@ func commandJobSupportBundleFromPersistence(
 	commandLogs := commandSetLogsByDeviceMessageIDForJobDetails(supportDetails)
 	progressHealth := buildFleetCommandJobProgressHealth(job, time.Now().UTC())
 	auditSummary := buildFleetCommandJobAuditSummary(events)
+	// 支持包证据行同样受内联上限约束；达到上限时显式标记并提示，
+	// 避免把部分证据当成完整证据集交给支持人员复核。
+	supportRowsTruncated := len(supportDetails) >= commandJobInlineRowLimit
 	retryCounts := commandJobRetryPolicyCounts{
 		Retryable: retryableCount,
 		Ready:     retryReadyCount,
@@ -67,6 +70,7 @@ func commandJobSupportBundleFromPersistence(
 		RetryExhaustedCount: retryExhaustedCount,
 		LogMissingCount:     logMissingCount,
 		StatusCounts:        counts,
+		RowsTruncated:       supportRowsTruncated,
 		Events:              fleetCommandJobEventsFromPersistence(events),
 		ExecutionSummary:    buildFleetCommandJobExecutionSummary(job, progressHealth, retryCounts, logMissingCount, auditSummary),
 		Governance:          buildFleetCommandJobGovernanceSummary(job, progressHealth, retryCounts, logMissingCount, auditSummary),
@@ -87,6 +91,9 @@ func commandJobSupportBundleFromPersistence(
 		}
 	}
 	bundle.NextActions = commandJobSupportNextActions(bundle)
+	if supportRowsTruncated {
+		bundle.NextActions = append(bundle.NextActions, "支持包证据行数已达到单次内联上限，可能缺少部分设备行；请结合分页 rows 接口复核完整结果。")
+	}
 	return bundle
 }
 
@@ -303,6 +310,10 @@ func commandJobResultFromPersistence(job *model.CommandJob, details []*model.Com
 		}
 	}
 	rows := commandJobRowsFromDetails(details)
+	// 内联行集受 commandJobInlineRowLimit 约束；真实总数以状态计数为准，
+	// 截断时必须显式标记，避免把“前 N 行”当成全量结果。
+	rowsTotal := commandJobStatusCountsTotal(counts)
+	rowsTruncated := len(rows) < rowsTotal
 	createdAt := job.CreatedAt
 	updatedAt := job.UpdatedAt
 	scopeLimits := fleetCommandJobScopeLimits
@@ -338,7 +349,8 @@ func commandJobResultFromPersistence(job *model.CommandJob, details []*model.Com
 		NextDispatchAt:      job.NextDispatchAt,
 		TimeoutAt:           job.TimeoutAt,
 		Rows:                rows,
-		RowsTotal:           len(rows),
+		RowsTotal:           rowsTotal,
+		RowsTruncated:       rowsTruncated,
 		Events:              fleetCommandJobEventsFromPersistence(events),
 		StatusCounts:        counts,
 		ProgressHealth:      progressHealth,
@@ -347,11 +359,30 @@ func commandJobResultFromPersistence(job *model.CommandJob, details []*model.Com
 		ExecutionSummary:    executionSummary,
 		Governance:          buildFleetCommandJobGovernanceSummary(job, progressHealth, retryCounts, logMissingCount, auditSummary),
 		ScopeLimits:         scopeLimits,
-		Warnings: []string{
-			"任务和逐设备提交结果已持久化，可用于刷新、重试、取消和审计复查。",
-			"设备侧业务完成仍需结合命令响应、遥测或设备影子证据判断。",
-		},
+		Warnings:            fleetCommandJobSubmitResultWarnings(rowsTruncated),
 	}
+}
+
+// fleetCommandJobSubmitResultWarnings 生成提交结果响应的基础提示；
+// 内联行集被截断时追加显式截断说明，引导调用方改用分页 rows 接口。
+func fleetCommandJobSubmitResultWarnings(rowsTruncated bool) []string {
+	warnings := []string{
+		"任务和逐设备提交结果已持久化，可用于刷新、重试、取消和审计复查。",
+		"设备侧业务完成仍需结合命令响应、遥测或设备影子证据判断。",
+	}
+	if rowsTruncated {
+		warnings = append(warnings, "逐设备行数超过单次内联上限，当前仅返回部分行；完整结果请使用分页 rows 接口查询。")
+	}
+	return warnings
+}
+
+// commandJobStatusCountsTotal 汇总各状态计数，得到 detail 行真实总数。
+func commandJobStatusCountsTotal(counts map[string]int) int {
+	total := 0
+	for _, count := range counts {
+		total += count
+	}
+	return total
 }
 
 // commandJobCanRetryFailed is derived from the same fresh retry policy counts

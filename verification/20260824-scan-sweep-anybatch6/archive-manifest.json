@@ -1,0 +1,53 @@
+{
+  "archivedAt": "2026-08-24T13:20:00Z",
+  "lane": "local verification (Windows 11 native PG17/Redis, no Docker) + PR CI",
+  "runId": null,
+  "runUrl": "https://github.com/shine-233/aetherlink-iot/pull/135/checks",
+  "ref": "fix/scan-sweep-detail-pagination",
+  "prUrl": "https://github.com/shine-233/aetherlink-iot/pull/135",
+  "trigger": "next-session brief: scan sweep detail pagination + any batch six",
+  "milestone": "DAL Scan 审计闭环（0 处需修，AST 全量证明）+ fleet command job 内联详情限幅 + 测试层 any 批次六 -116",
+  "results": {
+    "backend_go_build_vet": "passed",
+    "backend_dal_service_tests": "passed（本地跳过 CGO sqlite 用例 TestCheckDBMigrationsRequiresCurrentMigrationVersion：本机无 gcc；CI Linux 正常覆盖）",
+    "frontend_vue_tsc": "passed",
+    "frontend_vitest": "408 files / 3598 tests passed",
+    "eslint_no_explicit_any": "2314 -> 2198 (-116)"
+  },
+  "commitsUnderTest": [
+    "7c467c8 feat: cap fleet command job inline detail reads with explicit limit",
+    "5a37509 test(thingsvis): 结构化类型替换显式 any",
+    "ac19ff3 test(device-details): onboarding-ready-check 受控接口",
+    "cfacb4a test(device-details): message 移除显式 any",
+    "a9326cd test(data-architecture): ConfigurationManager fixture 对齐 DataSourceConfiguration",
+    "388108a test(device-details): telemetry-chart 移除显式 any",
+    "b0de853 test(rdi): useRdiTelemetry 受控接口",
+    "f7a942d test(device-details): stats 受控接口",
+    "c2af615 test(login): register-email 受控接口",
+    "2ef6ebc test(alarm): new-information 受控接口",
+    "718922e test(device-details): telemetry 受控接口",
+    "7e0016f test(management,device): 用户/设备管理列表移除显式 any",
+    "08be7f2 test(management): auth 列表移除显式 any"
+  ],
+  "taskOutcomes": {
+    "task1_scan_sweep": "go/ast 检查器扫描 internal/dal 全部 112 处 .Scan()：74 赋值检查 / 18 if-init / 4 return 传播 / 16 初筛标记逐一复核均为误报（return rows, err 直传）。简报的『50 处』清单源于 PS5.1 ANSI 解码吞换行导致的行号错位启发式；真实缺陷已在此前会话修复。结论：无需代码改动。",
+    "task2_detail_pagination": "dal GetCommandJobDetails/FindCommandJobSupportDetails 增加 limit 参数（clampCommandJobDetailInlineLimit：非正数回退上限、超限截断 500，与 maxInternalCommandJobScanLimit 对齐）；service 统一传 commandJobInlineRowLimit=500；提交结果以状态计数总和为真实行数基准并置 rows_truncated；支持包新增 rows_truncated 字段与 NextActions 提示。新增 dal/service 分页正确性测试。",
+    "task3_any_batch6": "13 个测试文件移除显式 any 共 -116（2314→2198），全部替换为具名结构类型或一次受控 unknown 断言。",
+    "task4_pkcs1v15": "评估结论：前端无 jsencrypt 残留，后端仅 rsa.DecryptOAEP(sha256) 主路径（#108 已移除回退），无可移除项。"
+  },
+  "incidents": [
+    {
+      "time": "2026-08-24T20:44+08:00",
+      "what": "工作目录（Temp 盘）发生存储级损坏：.git 元数据（HEAD/config/index/refs/reflogs）被清空，随后整个工作树被清空至 2 个文件；恢复期间 ThingsVisWidget.test.ts 再次被零字节化，node_modules/.bin 链接丢失",
+      "recovery": [
+        "git init + remote add origin + fetch origin（对象库与 pack 幸存）",
+        "用幸存的松散对象重建未推送提交 f9401e8 并 rebase 到最新 origin/main(2a590c2) 得 7c467c8",
+        "git checkout -- . 恢复全部 3796 个工作树文件",
+        "pnpm install 重建 node_modules/.bin（717 包复用缓存）",
+        "任务三改动按既有编辑记录重做并改为逐文件 commit+push 策略"
+      ],
+      "lesson": "Temp 盘环境不可靠；本分支起每个逻辑批次立即 push 到 origin 作为灾备"
+    }
+  ],
+  "boundary": "local-only software evidence（无 Docker，compose E2E 不在本批范围且按简报禁改 workflow）；PR CI 为最终门禁。Not production sign-off."
+}
