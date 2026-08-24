@@ -133,7 +133,7 @@ watch(
 </script>
 
 <template>
-  <n-modal v-model:show="modalVisible" preset="card" :title="title">
+  <n-modal v-model:show="modalVisible" preset="card" :title="title" :aria-label="title">
     <n-form ref="formRef" label-placement="left" :label-width="80" :model="formModel" :rules="rules">
       <n-form-item :label="$t('page.manage.role.roleName')" path="name">
         <n-input v-model:value="formModel.name" />
