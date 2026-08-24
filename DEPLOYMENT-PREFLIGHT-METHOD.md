@@ -2,6 +2,8 @@
 
 本文是 AetherLink IoT 的部署前复测 runbook。它记录的是可重复的检查方法、证据边界和清理边界，不把一次本地 green 结果扩大解释为真实 RDI 或生产环境验收。
 
+> 权威指向：验证分层与证据分级的当前口径以 [`VALIDATION.md`](VALIDATION.md) 为准；部署启动步骤以 [`START-HERE.md`](START-HERE.md) 为准。本文只维护 runbook 方法本身，不重复维护门槛定义。
+
 ## 1. 结论口径
 
 每一轮结果必须把下面几类分开记录：

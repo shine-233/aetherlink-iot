@@ -18,8 +18,13 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// InitSSEManager 初始化全局 SSE 管理器并开始监听 Redis Pub/Sub 事件
+// InitSSEManager 初始化全局 SSE 管理器并开始监听 Redis Pub/Sub 事件。
+// 重复调用会先停止旧实例的监听循环再重建，避免旧监听协程成为无法回收的孤儿。
+// 注意：ListenForEvents 会阻塞到停止为止，调用方需以 go 关键字拉起。
 func InitSSEManager() {
+	if TPSSEManager != nil {
+		TPSSEManager.StopListen()
+	}
 	TPSSEManager = NewSSEManager()
 	TPSSEManager.ListenForEvents()
 }
@@ -29,6 +34,15 @@ type SSEManager struct {
 	redisClient *redis.Client
 	clients     map[string]map[string]*SSEClient // map[tenantID]map[userID]*SSEClient
 	mutex       sync.RWMutex
+
+	// 监听循环生命周期：listenMu 保护以下字段，listening 为 true 表示循环在运行。
+	listenMu   sync.Mutex
+	listening  bool
+	stopListen context.CancelFunc
+	listenDone chan struct{}
+
+	// pubSubFactory 默认基于 redisClient；测试可注入假实现以验证启停语义。
+	pubSubFactory wsPubSubFactory
 }
 
 // SSEClient 表示一个 SSE 长连接客户端
@@ -49,10 +63,14 @@ type SSEEvent struct {
 
 // NewSSEManager 创建 SSE 管理器
 func NewSSEManager() *SSEManager {
-	return &SSEManager{
+	manager := &SSEManager{
 		redisClient: REDIS,
 		clients:     make(map[string]map[string]*SSEClient),
 	}
+	manager.pubSubFactory = func(ctx context.Context, pattern string) wsPubSubReceiver {
+		return manager.redisClient.PSubscribe(ctx, pattern)
+	}
+	return manager
 }
 
 // AddClient 注册一个 SSE 客户端，返回 clientID 用于后续移除
@@ -144,8 +162,43 @@ func BroadcastSSEEventToTenant(tenantID string, event SSEEvent) error {
 	return TPSSEManager.BroadcastEventToTenant(tenantID, event)
 }
 
-// ListenForEvents 监听 Redis Pub/Sub 的 SSE 事件并分发给本实例的客户端，使用指数退避重连
+// ListenForEvents 阻塞运行 Redis Pub/Sub 的 SSE 事件监听循环并分发给本实例客户端，
+// 使用指数退避重连。幂等守卫：已在运行时直接返回，避免重复初始化叠加第二个监听协程。
 func (m *SSEManager) ListenForEvents() {
+	m.listenMu.Lock()
+	if m.listening {
+		m.listenMu.Unlock()
+		return
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	m.listening = true
+	m.stopListen = cancel
+	m.listenDone = done
+	factory := m.pubSubFactory
+	m.listenMu.Unlock()
+
+	defer func() {
+		cancel()
+		m.listenMu.Lock()
+		m.listening = false
+		m.stopListen = nil
+		m.listenDone = nil
+		m.listenMu.Unlock()
+		close(done)
+	}()
+
+	if factory == nil && m.redisClient != nil {
+		factory = func(ctx context.Context, pattern string) wsPubSubReceiver {
+			return m.redisClient.PSubscribe(ctx, pattern)
+		}
+	}
+	if factory == nil {
+		logrus.Error("SSE manager cannot listen: redis client is not initialized")
+		return
+	}
+
+	logrus.Info("SSE manager started listening for Redis Pub/Sub events")
 	const (
 		initialBackoff = 1 * time.Second
 		maxBackoff     = 30 * time.Second
@@ -153,12 +206,18 @@ func (m *SSEManager) ListenForEvents() {
 	backoff := initialBackoff
 
 	for {
-		pubsub := m.redisClient.PSubscribe(context.Background(), "sse:tenant:*")
+		pubsub := factory(ctx, "sse:tenant:*")
 		for {
-			msg, err := pubsub.ReceiveMessage(context.Background())
+			msg, err := pubsub.ReceiveMessage(ctx)
 			if err != nil {
+				_ = pubsub.Close()
+				if ctx.Err() != nil {
+					return
+				}
 				logrus.WithError(err).Warnf("SSE: Redis pubsub error, reconnecting in %v", backoff)
-				time.Sleep(backoff)
+				if !waitPubSubBackoff(ctx, backoff) {
+					return
+				}
 				backoff = min(backoff*2, maxBackoff)
 				break
 			}
@@ -172,6 +231,40 @@ func (m *SSEManager) ListenForEvents() {
 
 			m.dispatchEvent(event)
 		}
-		pubsub.Close()
+	}
+}
+
+// StopListen 取消监听循环并等待其退出；未启动或已停止时为幂等空操作。
+// 有界等待防止异常阻塞拖垮停机序列（与既有 worker 的停止语义一致）。
+func (m *SSEManager) StopListen() {
+	m.listenMu.Lock()
+	cancel := m.stopListen
+	done := m.listenDone
+	m.stopListen = nil
+	m.listenDone = nil
+	m.listening = false
+	m.listenMu.Unlock()
+
+	if cancel == nil || done == nil {
+		return
+	}
+	cancel()
+
+	timer := time.NewTimer(managerListenStopTimeout)
+	defer timer.Stop()
+	select {
+	case <-done:
+		logrus.Info("SSE manager listener stopped")
+	case <-timer.C:
+		logrus.Warn("SSE manager listener stop timed out")
+	}
+}
+
+// StopSSEManagerListener 停止全局 SSE 管理器的监听循环；未初始化时空操作。
+// 供应用优雅停机序列调用：该监听协程不经 ServiceManager 托管，
+// 必须在关闭 Redis 客户端之前显式停止。
+func StopSSEManagerListener() {
+	if TPSSEManager != nil {
+		TPSSEManager.StopListen()
 	}
 }

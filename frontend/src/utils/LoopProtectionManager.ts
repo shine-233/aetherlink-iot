@@ -51,6 +51,10 @@ class LoopProtectionManager {
   private blacklistedFunctions = new Set<string>()
   private blacklistTimeouts = new Map<string, NodeJS.Timeout>()
 
+  // 全局监听与定时器句柄（dispose 时必须成对清理）
+  private globalErrorHandler: ((event: ErrorEvent) => void) | null = null
+  private monitoringInterval: ReturnType<typeof setInterval> | null = null
+
   // 性能统计
   private performanceStats = {
     totalCallsBlocked: 0,
@@ -252,8 +256,8 @@ class LoopProtectionManager {
    */
   private setupGlobalErrorHandling(): void {
     // 监听未捕获的异常，可能是循环调用导致的栈溢出
-    if (typeof window !== 'undefined') {
-      window.addEventListener('error', event => {
+    if (typeof window !== 'undefined' && !this.globalErrorHandler) {
+      this.globalErrorHandler = (event: ErrorEvent) => {
         if (event.error && event.error.message.includes('Maximum call stack size exceeded')) {
           console.error('🚫 [LoopProtection] 检测到栈溢出，可能存在无限递归')
           this.performanceStats.totalLoopsDetected++
@@ -262,7 +266,8 @@ class LoopProtectionManager {
           this.activeCallCounts.clear()
           this.callStacks.clear()
         }
-      })
+      }
+      window.addEventListener('error', this.globalErrorHandler)
     }
   }
 
@@ -270,7 +275,10 @@ class LoopProtectionManager {
    * 🔥 启动性能监控
    */
   private startPerformanceMonitoring(): void {
-    setInterval(() => {
+    if (this.monitoringInterval !== null) {
+      return
+    }
+    this.monitoringInterval = setInterval(() => {
       const now = Date.now()
       const timeDiff = now - this.performanceStats.lastResetTime
       const totalCalls = Array.from(this.callHistory.values()).reduce((sum, history) => sum + history.length, 0)
@@ -285,6 +293,21 @@ class LoopProtectionManager {
       // 清理过期的历史记录
       this.cleanupExpiredHistory()
     }, 30000) // 每30秒统计一次
+  }
+
+  /**
+   * 🔥 释放全局监听器与定时器（测试或热重载时调用）
+   */
+  public dispose(): void {
+    if (typeof window !== 'undefined' && this.globalErrorHandler) {
+      window.removeEventListener('error', this.globalErrorHandler)
+      this.globalErrorHandler = null
+    }
+    if (this.monitoringInterval !== null) {
+      clearInterval(this.monitoringInterval)
+      this.monitoringInterval = null
+    }
+    this.reset()
   }
 
   /**

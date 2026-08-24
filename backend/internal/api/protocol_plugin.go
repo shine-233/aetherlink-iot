@@ -5,7 +5,7 @@
 // 3. 对插件访问入口额外叠加 OpenAPIKey 鉴权和限流保护。
 // 静态审查建议：
 // 1. 该文件同时服务后台配置页和插件接入面，后续若接口继续增加，建议按“后台管理 / 插件接入”拆分。
-// 2. 设备配置插件入口里的限流键构造直接绑定 voucher/device_number，调整鉴权策略时要同步检查这里。
+// 2. 设备配置插件入口里的限流键构造直接绑定哈希后的 voucher/明文 device_number，调整鉴权策略时要同步检查这里。
 // 3. 插件侧接口都依赖 claims 注入与 OpenAPIKeyAuth，中间件约定变化会直接影响接入侧可用性。
 package api
 
@@ -55,7 +55,8 @@ func (*ProtocolPluginApi) HandleDeviceConfigForProtocolPlugin(c *gin.Context) {
 
 	var limitKey string
 	if req.Voucher != "" {
-		limitKey = "device_auth_voucher:" + req.Voucher
+		// 限流键使用 sha256 摘要，避免明文 voucher 落入 Redis keyspace；空值分支保持原判断顺序。
+		limitKey = "device_auth_voucher:" + utils.VoucherCacheKey(req.Voucher)
 	} else if req.DeviceNumber != "" {
 		limitKey = "device_auth_device_number:" + req.DeviceNumber
 	}

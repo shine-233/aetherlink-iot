@@ -17,14 +17,23 @@ assert_contains() {
   grep -F -- "$text" "$file" >/dev/null || fail "$file must contain: $text"
 }
 
+assert_not_contains() {
+  file="$1"
+  text="$2"
+  grep -F -- "$text" "$file" >/dev/null && fail "$file must NOT contain: $text" || return 0
+}
+
 for mapping in \
   '${AETHERLINK_BIND_ADDRESS:-127.0.0.1}:${MQTT_PORT:-1883}:1883' \
-  '${AETHERLINK_BIND_ADDRESS:-127.0.0.1}:${BROKER_METRICS_PORT:-8082}:8082' \
+  '127.0.0.1:${BROKER_METRICS_PORT:-8082}:8082' \
   '${AETHERLINK_BIND_ADDRESS:-127.0.0.1}:${BACKEND_PORT:-9999}:9999' \
   '${AETHERLINK_BIND_ADDRESS:-127.0.0.1}:${FRONTEND_PORT:-8080}:8080'
 do
   assert_contains "$COMPOSE_FILE" "$mapping"
 done
+
+# 指标端口完全无认证：发布地址必须钉死 loopback，禁止跟随 AETHERLINK_BIND_ADDRESS 外暴。
+assert_not_contains "$COMPOSE_FILE" '${AETHERLINK_BIND_ADDRESS:-127.0.0.1}:${BROKER_METRICS_PORT'
 
 assert_contains "$ENV_EXAMPLE" 'AETHERLINK_BIND_ADDRESS=127.0.0.1'
 assert_contains "$ROOT_DIR/deploy/init.sh" 'replace_env_value AETHERLINK_BIND_ADDRESS "0.0.0.0" .env'
@@ -53,5 +62,5 @@ if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; 
   done
   echo "Host port binding contract: static and Compose validation passed"
 else
-  echo "Host port binding contract: 7 static assertions passed; Compose validation skipped"
+  echo "Host port binding contract: 8 static assertions passed; Compose validation skipped"
 fi

@@ -11,9 +11,11 @@ import (
 	"time"
 
 	service "aetherlink-iot/backend/internal/service"
+	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/global"
 	"aetherlink-iot/backend/pkg/utils"
 
+	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/sirupsen/logrus"
 )
@@ -22,6 +24,32 @@ const (
 	redisWSPubSubInitialBackoff = 500 * time.Millisecond
 	redisWSPubSubMaxBackoff     = 15 * time.Second
 )
+
+// upgradeTelemetryWSSession 统一各 WebSocket 端点的升级样板：
+// 升级失败时记录 gin 错误并返回 ok=false；成功时打印连接日志，
+// 并返回幂等的连接关闭函数，作为该会话唯一的连接级关闭入口。
+func upgradeTelemetryWSSession(c *gin.Context, connectedLog string) (*websocket.Conn, func(), bool) {
+	conn, err := Wsupgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		c.Error(errcode.WithData(errcode.CodeSystemError, "WebSocket upgrade failed"))
+		return nil, nil, false
+	}
+
+	logrus.WithField("remote_addr", conn.RemoteAddr().String()).Info(connectedLog)
+	return conn, newWSConnCloser(conn), true
+}
+
+// newWSConnCloser 返回幂等的一次性关闭函数。会话关闭可能从多条路径触发
+// （handler defer、读循环失败、心跳超时、订阅清理），once 保证底层连接只会被
+// 真正关闭一次；关闭顺序约定为“先关写队列（WSClient.CloseSend），最后关连接”。
+func newWSConnCloser(conn *websocket.Conn) func() {
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			_ = conn.Close()
+		})
+	}
+}
 
 func newTelemetryWSClient(conn *websocket.Conn, msgType int, deviceID string, claims *utils.UserClaims, keys []string) *global.WSClient {
 	var mu sync.Mutex

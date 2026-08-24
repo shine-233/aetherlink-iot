@@ -75,6 +75,7 @@ func configureRuntimeEnvironment() error {
 		"mqtt_session_revocations.broker_id",
 		"payload_schema.enabled",
 		"payload_schema.cache_ttl",
+		"auth_ratelimit.max_failures_per_minute",
 	} {
 		if err := viper.BindEnv(key); err != nil {
 			return fmt.Errorf("aetherlink-gmqtt: bind runtime environment key %s: %w", key, err)

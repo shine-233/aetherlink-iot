@@ -7,6 +7,7 @@ import (
 	"time"
 
 	config "aetherlink-iot/backend/mqtt"
+	"aetherlink-iot/backend/pkg/utils"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/sirupsen/logrus"
@@ -52,7 +53,8 @@ func configurePublisherClientCallbacks(opts *mqtt.ClientOptions) {
 
 func buildPublishClientOptions(clientID string) *mqtt.ClientOptions {
 	return config.NewPahoClientOptions(config.PahoClientOptionsConfig{
-		Broker:               config.MqttConfig.Broker,
+		// 共享发布客户端的拨号地址统一经助手归一化：回环配置回退 env，并把 localhost 固定为 127.0.0.1 防 ::1 偏好。
+		Broker:               utils.ResolveMQTTBrokerDialAddress(config.MqttConfig.Broker),
 		Username:             config.MqttConfig.User,
 		Password:             config.MqttConfig.Pass,
 		ClientID:             clientID,

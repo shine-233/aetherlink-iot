@@ -15,7 +15,6 @@ import (
 	service "aetherlink-iot/backend/internal/service"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 )
 
 type TelemetryDataApi struct{}
@@ -274,14 +273,11 @@ func (*TelemetryDataApi) SimulationSend(c *gin.Context) {
 
 // ServeCurrentDataByWS upgrades the request and streams current telemetry.
 func (*TelemetryDataApi) ServeCurrentDataByWS(c *gin.Context) {
-	conn, err := Wsupgrader.Upgrade(c.Writer, c.Request, nil)
-	if err != nil {
-		c.Error(errcode.WithData(errcode.CodeSystemError, "WebSocket upgrade failed"))
+	conn, closeConn, ok := upgradeTelemetryWSSession(c, "telemetry websocket connected")
+	if !ok {
 		return
 	}
-	defer conn.Close()
-
-	logrus.WithField("remote_addr", conn.RemoteAddr().String()).Info("telemetry websocket connected")
+	defer closeConn()
 
 	handshake, ok := readTelemetryCurrentWSHandshake(conn)
 	if !ok {
@@ -293,6 +289,9 @@ func (*TelemetryDataApi) ServeCurrentDataByWS(c *gin.Context) {
 		return
 	}
 	defer cleanup()
+	// 与 device status 端点对称：显式声明 handler 对写队列的关闭权；
+	// CloseSend 自身幂等，与 cleanup→UnsubscribeDevice 的隐式关闭互不冲突。
+	defer closeTelemetryWSClientSend(wsClient)
 
 	if !queueInitialCurrentTelemetryData(wsClient, handshake.deviceID, handshake.claims) {
 		return
@@ -303,14 +302,11 @@ func (*TelemetryDataApi) ServeCurrentDataByWS(c *gin.Context) {
 
 // ServeDeviceStatusByWS streams device online/offline status changes.
 func (*TelemetryDataApi) ServeDeviceStatusByWS(c *gin.Context) {
-	conn, err := Wsupgrader.Upgrade(c.Writer, c.Request, nil)
-	if err != nil {
-		c.Error(errcode.WithData(errcode.CodeSystemError, "WebSocket upgrade failed"))
+	conn, closeConn, ok := upgradeTelemetryWSSession(c, "device status websocket connected")
+	if !ok {
 		return
 	}
-	defer conn.Close()
-
-	logrus.WithField("remote_addr", conn.RemoteAddr().String()).Info("device status websocket connected")
+	defer closeConn()
 
 	msgType, deviceID, claims, ok := readDeviceStatusWSHandshake(conn)
 	if !ok {
@@ -339,14 +335,11 @@ func (*TelemetryDataApi) ServeDeviceStatusByWS(c *gin.Context) {
 
 // ServeCurrentDataByKey streams selected telemetry keys over WebSocket.
 func (*TelemetryDataApi) ServeCurrentDataByKey(c *gin.Context) {
-	conn, err := Wsupgrader.Upgrade(c.Writer, c.Request, nil)
-	if err != nil {
-		c.Error(errcode.WithData(errcode.CodeSystemError, "WebSocket upgrade failed"))
+	conn, closeConn, ok := upgradeTelemetryWSSession(c, "telemetry key websocket connected")
+	if !ok {
 		return
 	}
-	defer conn.Close()
-
-	logrus.WithField("remote_addr", conn.RemoteAddr().String()).Info("telemetry key websocket connected")
+	defer closeConn()
 
 	handshake, ok := readTelemetryKeyCurrentWSHandshake(conn)
 	if !ok {
@@ -363,6 +356,9 @@ func (*TelemetryDataApi) ServeCurrentDataByKey(c *gin.Context) {
 		return
 	}
 	defer cleanup()
+	// 与 device status 端点对称：显式声明 handler 对写队列的关闭权；
+	// CloseSend 自身幂等，与 cleanup→UnsubscribeDevice 的隐式关闭互不冲突。
+	defer closeTelemetryWSClientSend(wsClient)
 
 	if !queueInitialTelemetryData(wsClient, handshake.deviceID, data, "telemetry key") {
 		return

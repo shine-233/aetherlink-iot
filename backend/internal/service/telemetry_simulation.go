@@ -14,7 +14,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
-	"os"
 	"strconv"
 	"strings"
 
@@ -56,26 +55,11 @@ func (*TelemetryData) ServeEchoData(req *model.ServeEchoDataReq, clientIP string
 		return nil, err
 	}
 
-	accessAddress := viper.GetString("mqtt.broker")
-	// viper 环境覆盖可能未传播到容器内所有代码路径。
-	// 当结果为回环地址时直接读取 GOTP_MQTT_BROKER 进程环境变量（已在 docker exec 中确认正确）。
-	if strings.Contains(accessAddress, "127.0.0.1") || strings.Contains(accessAddress, "localhost") {
-		if envBroker := os.Getenv("GOTP_MQTT_BROKER"); envBroker != "" {
-			accessAddress = envBroker
-		}
-	}
+	// 拨号地址统一经助手归一化：回环时依次回退 GOTP_MQTT_BROKER、AETHERLINK_MQTT_INNER_BROKER，并把 localhost 固定为 127.0.0.1 防 ::1 偏好。
+	accessAddress := utils.ResolveMQTTBrokerDialAddress(viper.GetString("mqtt.broker"))
 	host, port, err = parseMQTTAccessAddress(accessAddress)
 	if err != nil {
 		return nil, err
-	}
-
-	// Docker Compose 内 localhost 指向后端容器自身而非 broker。
-	// 当 AETHERLINK_MQTT_INNER_BROKER 存在时用它替换回环地址。
-	if innerBroker := os.Getenv("AETHERLINK_MQTT_INNER_BROKER"); innerBroker != "" {
-		switch host {
-		case "localhost", "127.0.0.1", "::1":
-			host = innerBroker
-		}
 	}
 
 	// 如果配置的 host 为占位符 "{MQTT_HOST}"，则使用传入的 clientIP（如果有），否则使用配置的 host
@@ -150,22 +134,11 @@ func (*TelemetryData) GetSimulationInit(deviceId string, claims *utils.UserClaim
 		return nil, err
 	}
 
-	// 获取 MQTT 服务器配置
-	accessAddress := viper.GetString("mqtt.broker")
-	if strings.Contains(accessAddress, "127.0.0.1") || strings.Contains(accessAddress, "localhost") {
-		if envBroker := os.Getenv("GOTP_MQTT_BROKER"); envBroker != "" {
-			accessAddress = envBroker
-		}
-	}
+	// 获取 MQTT 服务器配置；拨号地址统一经助手归一化，规则同 ServeEchoData。
+	accessAddress := utils.ResolveMQTTBrokerDialAddress(viper.GetString("mqtt.broker"))
 	host, portText, err := parseMQTTAccessAddress(accessAddress)
 	if err != nil {
 		return nil, err
-	}
-	if innerBroker := os.Getenv("AETHERLINK_MQTT_INNER_BROKER"); innerBroker != "" {
-		switch host {
-		case "localhost", "127.0.0.1", "::1":
-			host = innerBroker
-		}
 	}
 	port, err := strconv.Atoi(portText)
 	if err != nil {
@@ -247,22 +220,11 @@ func (*TelemetryData) SimulationSend(req *model.SimulationSendReq, claims *utils
 		return err
 	}
 
-	// 确定 MQTT 参数
-	accessAddress := viper.GetString("mqtt.broker")
-	if strings.Contains(accessAddress, "127.0.0.1") || strings.Contains(accessAddress, "localhost") {
-		if envBroker := os.Getenv("GOTP_MQTT_BROKER"); envBroker != "" {
-			accessAddress = envBroker
-		}
-	}
+	// 确定 MQTT 参数；拨号地址统一经助手归一化，规则同 ServeEchoData。
+	accessAddress := utils.ResolveMQTTBrokerDialAddress(viper.GetString("mqtt.broker"))
 	host, port, err := parseMQTTAccessAddress(accessAddress)
 	if err != nil {
 		return err
-	}
-	if innerBroker := os.Getenv("AETHERLINK_MQTT_INNER_BROKER"); innerBroker != "" {
-		switch host {
-		case "localhost", "127.0.0.1", "::1":
-			host = innerBroker
-		}
 	}
 	if err := validateSimulationPublishTarget(viper.GetBool("mqtt.enabled"), config.MqttConfig.Telemetry.SubscribeTopic); err != nil {
 		return errcode.WithVars(500007, map[string]interface{}{

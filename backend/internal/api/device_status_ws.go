@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"aetherlink-iot/backend/internal/service"
-	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/global"
 	"aetherlink-iot/backend/pkg/utils"
 
@@ -75,9 +74,9 @@ func deviceStatusWSDeviceIDs(initMap map[string]interface{}) []string {
 // and ping handling do not write concurrently to the same connection.
 // @Router       /api/v1/device/online/status/ws/batch [get]
 func (*TelemetryDataApi) ServeDeviceOnlineStatusWS(c *gin.Context) {
-	conn, msgType, claims, deviceIDs, ok := prepareDeviceOnlineStatusWS(c)
-	if conn != nil {
-		defer conn.Close()
+	conn, closeConn, msgType, claims, deviceIDs, ok := prepareDeviceOnlineStatusWS(c)
+	if closeConn != nil {
+		defer closeConn()
 	}
 	if !ok {
 		return
@@ -107,25 +106,25 @@ func (*TelemetryDataApi) ServeDeviceOnlineStatusWS(c *gin.Context) {
 	runDeviceStatusWSMessageLoop(ctx, conn, localClient, claims, &closeSubscription, cancel)
 }
 
-func prepareDeviceOnlineStatusWS(c *gin.Context) (*websocket.Conn, int, *utils.UserClaims, []string, bool) {
-	conn, err := Wsupgrader.Upgrade(c.Writer, c.Request, nil)
-	if err != nil {
-		c.Error(errcode.WithData(errcode.CodeSystemError, "WebSocket upgrade failed"))
-		return nil, 0, nil, nil, false
+// prepareDeviceOnlineStatusWS 升级连接并完成首帧认证握手。
+// 返回的 closeConn 是幂等的连接级关闭入口，升级成功后必非 nil；
+// 握手失败时也返回 conn/closeConn，调用方仍可写出错误帧后再统一关闭。
+func prepareDeviceOnlineStatusWS(c *gin.Context) (*websocket.Conn, func(), int, *utils.UserClaims, []string, bool) {
+	conn, closeConn, ok := upgradeTelemetryWSSession(c, "device online status websocket connected")
+	if !ok {
+		return nil, nil, 0, nil, nil, false
 	}
-
-	logrus.Info("device online status websocket connected")
 
 	msgType, msg, ok := readInitialWSMessage(conn)
 	if !ok {
-		return conn, 0, nil, nil, false
+		return conn, closeConn, 0, nil, nil, false
 	}
 
 	initMap, err := parseTelemetryWSMessage(msg)
 	if err != nil {
 		logrus.Error("invalid device online status websocket JSON")
 		writeDeviceStatusWSError(conn, msgType, "Invalid initial message format")
-		return conn, msgType, nil, nil, false
+		return conn, closeConn, msgType, nil, nil, false
 	}
 
 	addDeviceStatusWSHeaderCredentials(c, initMap)
@@ -136,16 +135,16 @@ func prepareDeviceOnlineStatusWS(c *gin.Context) (*websocket.Conn, int, *utils.U
 	if err != nil {
 		logrus.Error("device online status websocket authentication failed")
 		writeDeviceStatusWSError(conn, msgType, err.Error())
-		return conn, msgType, nil, nil, false
+		return conn, closeConn, msgType, nil, nil, false
 	}
 
 	deviceIDs := deviceStatusWSDeviceIDs(initMap)
 	if len(deviceIDs) == 0 {
 		writeDeviceStatusWSError(conn, msgType, "device_ids is required")
-		return conn, msgType, nil, nil, false
+		return conn, closeConn, msgType, nil, nil, false
 	}
 
-	return conn, msgType, claims, deviceIDs, true
+	return conn, closeConn, msgType, claims, deviceIDs, true
 }
 
 func addDeviceStatusWSHeaderCredentials(c *gin.Context, initMap map[string]interface{}) {
