@@ -303,7 +303,9 @@ export class SimpleDataFlow {
       return config.autoBind as AutoBindConfig
     }
 
-    const componentConfig = dataSourceBindingConfig.getComponentConfig(config.componentType)
+    const componentConfig = config.componentType
+      ? dataSourceBindingConfig.getComponentConfig(config.componentType)
+      : undefined
     if (componentConfig?.autoBindEnabled) {
       return {
         enabled: true,

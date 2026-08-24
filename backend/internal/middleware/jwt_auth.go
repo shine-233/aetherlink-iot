@@ -199,8 +199,22 @@ func OpenAPIKeyAuth(c *gin.Context) bool {
 		return false
 	}
 
+	// P1 修复（2026-08-24，见 VALIDATION.md）：认证失败限流——先查 IP 失败窗口，
+	// 超限直接拒绝，不再触发 key 校验链路。
+	clientIP := c.ClientIP()
+	if openAPIKeyAuthRateLimited(clientIP) {
+		c.JSON(http.StatusTooManyRequests, ErrorResponse{
+			Code:      ErrCodeAPIKeyRateLimited,
+			Message:   "too many failed api key attempts, retry later",
+			RequestID: requestID,
+		})
+		c.Abort()
+		return false
+	}
+
 	tenantID, createdID, err := dal.VerifyOpenAPIKey(context.Background(), appKey)
 	if err != nil {
+		recordOpenAPIKeyAuthFailure(clientIP)
 		c.JSON(http.StatusUnauthorized, ErrorResponse{
 			Code:      ErrCodeInvalidAPIKey,
 			Message:   "api key verification failed",
