@@ -2123,5 +2123,21 @@
   "custom.home.firstDevice.proofSection.stepRange": "第 4-5 步",
   "custom.home.firstDevice.workbench.afterOnboarding": "接入完成后",
   "custom.home.firstDevice.workbench.minimalLoop": "最小闭环",
-  "custom.home.firstDevice.workbench.minimalLoopDesc": "物模型字段清晰、设备在线、遥测有值、告警可追踪、看板能分享。先跑通一台，再复制到批量设备。"
+  "custom.home.firstDevice.workbench.minimalLoopDesc": "物模型字段清晰、设备在线、遥测有值、告警可追踪、看板能分享。先跑通一台，再复制到批量设备。",
+  "custom.home.firstDevice.readyHandoff.fallbackDescription": "首页已经看到在线状态、最新遥测和第一张图表；现在这套接入方式可以继续复制给更多设备。",
+  "custom.home.firstDevice.setupBlocker.title": "先完成租户初始化",
+  "custom.home.firstDevice.setupBlocker.description": "请先完成初始化，再回到这里生成第一台设备。",
+  "custom.home.firstDevice.setupBlocker.action": "去处理初始化",
+  "custom.home.firstDevice.canvas.action.recheckDeployment": "重新检查",
+  "custom.home.firstDevice.canvas.action.checkDeployment": "检查部署",
+  "custom.home.firstDevice.canvas.action.generateDevice": "生成设备",
+  "custom.home.firstDevice.canvas.action.copyTestCommand": "复制测试命令",
+  "custom.home.firstDevice.canvas.action.openAccessGuide": "打开接入指南",
+  "custom.home.firstDevice.canvas.action.rerunBrowserTest": "再次测试",
+  "custom.home.firstDevice.canvas.action.browserTest": "浏览器测试",
+  "custom.home.firstDevice.canvas.action.viewReadyCheck": "查看 Ready Check",
+  "custom.home.firstDevice.canvas.action.viewAccessGuide": "查看接入指南",
+  "custom.home.firstDevice.canvas.state.done": "已完成",
+  "custom.home.firstDevice.canvas.state.active": "现在做",
+  "custom.home.firstDevice.canvas.state.todo": "等待"
 }

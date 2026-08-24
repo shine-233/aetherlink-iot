@@ -123,7 +123,11 @@ onMounted(getDeviceList)
     :checked-row-keys="checkedRowKeysRef"
     class="h-auto"
     @update:checked-row-keys="handleCheck"
-  />
+  >
+    <template #empty>
+      <n-empty :description="$t('common.noData')" class="py-8" />
+    </template>
+  </NDataTable>
   <NFlex justify="end" class="mt-4">
     <NPagination
       v-model:page="pagination.page"

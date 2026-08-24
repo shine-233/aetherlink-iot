@@ -2123,5 +2123,21 @@
   "custom.home.firstDevice.workbench.afterOnboarding": "Après le raccordement",
   "custom.home.firstDevice.workbench.minimalLoop": "Boucle minimale",
   "custom.home.firstDevice.workbench.minimalLoopDesc": "Des champs de modèle clairs, l appareil en ligne, une télémétrie avec valeurs, des alarmes traçables et un tableau partageable. Faites fonctionner un appareil, puis repliquez en masse.",
-  "custom.devicePage.savedFleetFilterOwnedBadge": "Propriétaire"
+  "custom.devicePage.savedFleetFilterOwnedBadge": "Propriétaire",
+  "custom.home.firstDevice.readyHandoff.fallbackDescription": "La page d'accueil affiche déjà l'état en ligne, la télémétrie la plus récente et le premier graphique ; vous pouvez désormais reproduire cette méthode d'accès sur d'autres appareils.",
+  "custom.home.firstDevice.setupBlocker.title": "Terminez d'abord l'initialisation du locataire",
+  "custom.home.firstDevice.setupBlocker.description": "Terminez d'abord l'initialisation, puis revenez ici pour générer votre premier appareil.",
+  "custom.home.firstDevice.setupBlocker.action": "Résoudre l'initialisation",
+  "custom.home.firstDevice.canvas.action.recheckDeployment": "Revérifier",
+  "custom.home.firstDevice.canvas.action.checkDeployment": "Vérifier le déploiement",
+  "custom.home.firstDevice.canvas.action.generateDevice": "Générer l'appareil",
+  "custom.home.firstDevice.canvas.action.copyTestCommand": "Copier la commande de test",
+  "custom.home.firstDevice.canvas.action.openAccessGuide": "Ouvrir le guide d'accès",
+  "custom.home.firstDevice.canvas.action.rerunBrowserTest": "Retester",
+  "custom.home.firstDevice.canvas.action.browserTest": "Test navigateur",
+  "custom.home.firstDevice.canvas.action.viewReadyCheck": "Voir Ready Check",
+  "custom.home.firstDevice.canvas.action.viewAccessGuide": "Voir le guide d'accès",
+  "custom.home.firstDevice.canvas.state.done": "Terminé",
+  "custom.home.firstDevice.canvas.state.active": "À faire maintenant",
+  "custom.home.firstDevice.canvas.state.todo": "En attente"
 }

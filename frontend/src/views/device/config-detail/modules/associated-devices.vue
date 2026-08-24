@@ -291,7 +291,11 @@ onMounted(async () => {
       :row-key="item => item.id"
       class="table-class"
       :row-props="rowProps"
-    />
+    >
+      <template #empty>
+        <n-empty :description="$t('common.noData')" class="py-8" />
+      </template>
+    </n-data-table>
 
     <div class="pagination-box">
       <NPagination

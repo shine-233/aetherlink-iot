@@ -2123,5 +2123,21 @@
   "custom.home.firstDevice.workbench.afterOnboarding": "After onboarding",
   "custom.home.firstDevice.workbench.minimalLoop": "Minimal loop",
   "custom.home.firstDevice.workbench.minimalLoopDesc": "Clear things-model fields, the device online, telemetry with values, traceable alarms, and a shareable dashboard. Get one device working, then replicate it in bulk.",
-  "custom.devicePage.savedFleetFilterOwnedBadge": "Owned"
+  "custom.devicePage.savedFleetFilterOwnedBadge": "Owned",
+  "custom.home.firstDevice.readyHandoff.fallbackDescription": "The home page already shows online status, latest telemetry and the first chart; you can now replicate this onboarding flow for more devices.",
+  "custom.home.firstDevice.setupBlocker.title": "Finish tenant initialization first",
+  "custom.home.firstDevice.setupBlocker.description": "Finish initialization first, then come back here to generate your first device.",
+  "custom.home.firstDevice.setupBlocker.action": "Resolve initialization",
+  "custom.home.firstDevice.canvas.action.recheckDeployment": "Recheck",
+  "custom.home.firstDevice.canvas.action.checkDeployment": "Check deployment",
+  "custom.home.firstDevice.canvas.action.generateDevice": "Generate device",
+  "custom.home.firstDevice.canvas.action.copyTestCommand": "Copy test command",
+  "custom.home.firstDevice.canvas.action.openAccessGuide": "Open access guide",
+  "custom.home.firstDevice.canvas.action.rerunBrowserTest": "Test again",
+  "custom.home.firstDevice.canvas.action.browserTest": "Browser test",
+  "custom.home.firstDevice.canvas.action.viewReadyCheck": "View Ready Check",
+  "custom.home.firstDevice.canvas.action.viewAccessGuide": "View access guide",
+  "custom.home.firstDevice.canvas.state.done": "Done",
+  "custom.home.firstDevice.canvas.state.active": "Do now",
+  "custom.home.firstDevice.canvas.state.todo": "Waiting"
 }

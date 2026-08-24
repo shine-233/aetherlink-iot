@@ -447,7 +447,11 @@ getTableData()
            :pagination="getPagination(Number(index))"
           :remote="true"
           class="m-t9 flex-1-hidden"
-        />
+        >
+          <template #empty>
+            <n-empty :description="$t('common.noData')" class="py-8" />
+          </template>
+        </n-data-table>
 
         <CustomControls
           v-if="item.name === 'telemetry' && tabsCurrent === 'telemetry'"

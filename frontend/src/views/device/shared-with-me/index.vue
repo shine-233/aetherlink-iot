@@ -223,7 +223,11 @@ onMounted(() => {
           :loading="loading"
           :pagination="pagination"
           :scroll-x="900"
-        />
+        >
+          <template #empty>
+            <n-empty :description="$t('common.noData')" class="py-8" />
+          </template>
+        </NDataTable>
       </NSpace>
     </NCard>
 

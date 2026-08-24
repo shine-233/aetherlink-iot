@@ -2123,5 +2123,21 @@
   "custom.home.firstDevice.workbench.afterOnboarding": "Después de la conexión",
   "custom.home.firstDevice.workbench.minimalLoop": "Ciclo mínimo",
   "custom.home.firstDevice.workbench.minimalLoopDesc": "Campos del modelo claros, el dispositivo en línea, telemetría con valores, alarmas rastreables y un panel compartible. Haga funcionar uno y luego replique en lote.",
-  "custom.devicePage.savedFleetFilterOwnedBadge": "Propio"
+  "custom.devicePage.savedFleetFilterOwnedBadge": "Propio",
+  "custom.home.firstDevice.readyHandoff.fallbackDescription": "La página de inicio ya muestra el estado en línea, la telemetría más reciente y la primera gráfica; ahora puede replicar este método de acceso en más dispositivos.",
+  "custom.home.firstDevice.setupBlocker.title": "Complete primero la inicialización del tenant",
+  "custom.home.firstDevice.setupBlocker.description": "Complete primero la inicialización y vuelva aquí para generar su primer dispositivo.",
+  "custom.home.firstDevice.setupBlocker.action": "Ir a la inicialización",
+  "custom.home.firstDevice.canvas.action.recheckDeployment": "Volver a comprobar",
+  "custom.home.firstDevice.canvas.action.checkDeployment": "Comprobar el despliegue",
+  "custom.home.firstDevice.canvas.action.generateDevice": "Generar dispositivo",
+  "custom.home.firstDevice.canvas.action.copyTestCommand": "Copiar comando de prueba",
+  "custom.home.firstDevice.canvas.action.openAccessGuide": "Abrir la guía de acceso",
+  "custom.home.firstDevice.canvas.action.rerunBrowserTest": "Probar de nuevo",
+  "custom.home.firstDevice.canvas.action.browserTest": "Prueba de navegador",
+  "custom.home.firstDevice.canvas.action.viewReadyCheck": "Ver Ready Check",
+  "custom.home.firstDevice.canvas.action.viewAccessGuide": "Ver la guía de acceso",
+  "custom.home.firstDevice.canvas.state.done": "Completado",
+  "custom.home.firstDevice.canvas.state.active": "Hacer ahora",
+  "custom.home.firstDevice.canvas.state.todo": "En espera"
 }

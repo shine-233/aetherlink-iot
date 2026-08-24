@@ -136,7 +136,7 @@ const firstDevicePostReadyHandoff = computed(() =>
 const firstDeviceReadyNextGuideDescription = computed(() => {
   return (
     firstDevicePostReadyHandoff.value?.description ||
-    '首页已经看到在线状态、最新遥测和第一张图表；现在这套接入方式可以继续复制给更多设备。'
+    $t('custom.home.firstDevice.readyHandoff.fallbackDescription')
   )
 })
 const firstDeviceCoreGuideSummary = computed(() => buildFirstDeviceCoreGuideSummary(firstDeviceCoreGuideSteps.value))
@@ -144,11 +144,11 @@ const firstRunSetupBlockerStep = computed(
   () =>
     props.firstRunSetupBlockerStep || props.homeCustomerGuideProgress.find(step => step.id === 'setup') || null
 )
-const firstRunSetupBlockerTitle = computed(() => firstRunSetupBlockerStep.value?.title || '先完成租户初始化')
+const firstRunSetupBlockerTitle = computed(() => firstRunSetupBlockerStep.value?.title || $t('custom.home.firstDevice.setupBlocker.title'))
 const firstRunSetupBlockerDescription = computed(
-  () => firstRunSetupBlockerStep.value?.description || '请先完成初始化，再回到这里生成第一台设备。'
+  () => firstRunSetupBlockerStep.value?.description || $t('custom.home.firstDevice.setupBlocker.description')
 )
-const firstRunSetupBlockerAction = computed(() => firstRunSetupBlockerStep.value?.action || '去处理初始化')
+const firstRunSetupBlockerAction = computed(() => firstRunSetupBlockerStep.value?.action || $t('custom.home.firstDevice.setupBlocker.action'))
 const deviceIdentitySectionRef = ref<HTMLElement | null>(null)
 const connectionTestViewportRef = ref<HTMLElement | null>(null)
 const connectionTestSectionRef = ref<{ connectionEl: HTMLElement | null; testCommandEl: HTMLElement | null } | null>(
@@ -331,7 +331,7 @@ const firstDeviceVerificationAction = computed(() =>
 const getFirstDeviceFlowNodeAction = node => {
   if (node.key === 'deployment') {
     return {
-      label: node.ok ? '重新检查' : '检查部署',
+      label: node.ok ? $t('custom.home.firstDevice.canvas.action.recheckDeployment') : $t('custom.home.firstDevice.canvas.action.checkDeployment'),
       disabled: false,
       loading: props.deploymentHealthLoading,
       run: () => emit('refreshDeploymentHealth')
@@ -340,13 +340,13 @@ const getFirstDeviceFlowNodeAction = node => {
   if (node.key === 'identity') {
     return props.firstDevice
       ? {
-          label: '打开 Ready Check',
+          label: $t('custom.home.firstDevice.common.openReadyCheck'),
           disabled: false,
           loading: false,
           run: () => emit('openFirstDeviceAccessGuide')
         }
       : {
-          label: '生成设备',
+          label: $t('custom.home.firstDevice.canvas.action.generateDevice'),
           disabled: props.firstRunCreateTenantRequired || !props.deploymentHealthOk,
           loading: props.firstRunCreateLoading,
           run: () => emit('createFirstRunFirstDevice')
@@ -355,14 +355,14 @@ const getFirstDeviceFlowNodeAction = node => {
   if (node.key === 'connection') {
     if (props.firstDeviceOnboardingGuard.canCopyCommand && activeFirstDeviceTestCommand.value?.code) {
       return {
-        label: '复制测试命令',
+        label: $t('custom.home.firstDevice.canvas.action.copyTestCommand'),
         disabled: false,
         loading: false,
         run: () => void copyActiveFirstDeviceTestCommand()
       }
     }
     return {
-      label: '打开接入指南',
+      label: $t('custom.home.firstDevice.canvas.action.openAccessGuide'),
       disabled: false,
       loading: false,
       run: () => emit('openFirstDeviceFullGuide')
@@ -371,13 +371,13 @@ const getFirstDeviceFlowNodeAction = node => {
   if (node.key === 'browser_test') {
     return props.firstDeviceOnboardingGuard.canRunBrowserTest
       ? {
-          label: node.ok ? '再次测试' : '浏览器测试',
+          label: node.ok ? $t('custom.home.firstDevice.canvas.action.rerunBrowserTest') : $t('custom.home.firstDevice.canvas.action.browserTest'),
           disabled: false,
           loading: props.firstDeviceActionLoading,
           run: () => emit('simulateFirstDeviceTelemetry')
         }
       : {
-          label: '打开 Ready Check',
+          label: $t('custom.home.firstDevice.common.openReadyCheck'),
           disabled: false,
           loading: false,
           run: () => emit('openFirstDeviceAccessGuide')
@@ -385,14 +385,14 @@ const getFirstDeviceFlowNodeAction = node => {
   }
   if (node.key === 'online' || node.key === 'telemetry') {
     return {
-      label: '查看 Ready Check',
+      label: $t('custom.home.firstDevice.canvas.action.viewReadyCheck'),
       disabled: false,
       loading: false,
       run: () => emit('openFirstDeviceAccessGuide')
     }
   }
   return {
-    label: node.ok ? '查看接入指南' : '继续处理',
+    label: node.ok ? $t('custom.home.firstDevice.canvas.action.viewAccessGuide') : $t('custom.home.firstDevice.proof.keepGoing'),
     disabled: false,
     loading: false,
     run: () => (node.ok ? emit('openFirstDeviceFullGuide') : runFirstDevicePrimaryAction())
@@ -487,7 +487,12 @@ const getFirstDeviceClosedLoopState = (key: string, done = false) => {
 
   return {
     state,
-    stateLabel: state === 'done' ? '已完成' : state === 'active' ? '现在做' : '等待',
+    stateLabel:
+      state === 'done'
+        ? $t('custom.home.firstDevice.canvas.state.done')
+        : state === 'active'
+          ? $t('custom.home.firstDevice.canvas.state.active')
+          : $t('custom.home.firstDevice.canvas.state.todo'),
     stateType: state === 'done' ? 'success' : state === 'active' ? 'warning' : 'default'
   }
 }
