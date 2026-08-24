@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strings"
 
 	"aetherlink-iot/backend/initialize"
 	dal "aetherlink-iot/backend/internal/dal"
@@ -26,6 +27,10 @@ func (*Device) UpdateDeviceVoucher(ctx context.Context, param *model.UpdateDevic
 		return "", nil
 	}
 
+	// Phase 2b：旧明文必须在持久化之前解析（持久化会用新凭证覆盖网页测试缓存，
+	// 之后旧 broker 缓存键将不可恢复）。存量行走行内明文，2b 新行走测试缓存。
+	oldCredential := resolveInvalidationCredential(param.DeviceID, deviceInfo)
+
 	info, err := persistAndReloadVoucher(ctx, param.DeviceID, voucher)
 	if err != nil {
 		return voucher, err
@@ -34,10 +39,24 @@ func (*Device) UpdateDeviceVoucher(ctx context.Context, param *model.UpdateDevic
 	// 设备配置或凭证变化后清理设备缓存，避免连接信息继续使用旧配置。
 	initialize.DelDeviceCache(param.DeviceID)
 	if voucherChanged {
-		handleUpdatedVoucherSideEffects(ctx, param.DeviceID, deviceInfo)
+		handleUpdatedVoucherSideEffects(ctx, param.DeviceID, deviceInfo, oldCredential)
 	}
 
 	return info.Voucher, nil
+}
+
+// resolveInvalidationCredential 返回用于失效 broker 旧缓存键的明文凭证。
+// 取值顺序：行内明文（Phase 2b 前的存量行）→ 24h 网页测试缓存（2b 行在轮换前的
+// 当前有效凭证，此时尚未被新值覆盖）。两者皆空返回空串，调用方跳过删键并接受
+// backend-hardening-plan.md 遗留清单第 3 条所述的 ≤1h broker 缓存残窗。
+func resolveInvalidationCredential(deviceID string, deviceInfo *model.Device) string {
+	if deviceInfo != nil && strings.TrimSpace(deviceInfo.Voucher) != "" {
+		return deviceInfo.Voucher
+	}
+	if cached, err := dal.LoadDeviceCredentialTestCache(deviceID); err == nil {
+		return cached
+	}
+	return ""
 }
 
 // serializeUpdateDeviceVoucher 将凭证请求统一序列化为字符串，兼容字符串和结构化凭证。
@@ -80,24 +99,29 @@ func persistAndReloadVoucher(
 	deviceID string,
 	voucher string,
 ) (*model.Device, error) {
-	// info.Voucher 仅作为 voucher_hash 与网页测试缓存的计算输入驻留内存，不落库。
+	device := query.Device
 	info := &model.Device{
 		ID:      deviceID,
 		Voucher: voucher,
 	}
-	// 凭证哈希存储 Phase 1/2b（references/backend-hardening-plan.md 车道1）：gen 模型无
-	// VoucherHash 字段；Phase 2b 停写明文后不再经 gen Select(voucher) 回写列（避免明文
-	// 出现在任何落库语句里），改由同事务内单条 raw UPDATE 写 voucher_hash 并把 voucher
-	// 列置空串、逐设备写入网页测试缓存（dal.WriteVoucherHashInQueryTx 收口）。
-	// 设备行不存在时 UPDATE 零命中静默通过，随后 reload First 报 NotFound，语义与原
-	// gen 更新路径一致。
+	// 凭证哈希存储 Phase 1（references/backend-hardening-plan.md 车道1）：gen 模型无
+	// VoucherHash 字段，二段式写入——凭证更新原样走 gen（Select 仅 voucher 列，语义
+	// 与 DeviceQuery.Update 一致），同事务内 raw 补 UPDATE voucher_hash；
+	// phase2 停写明文后此列成为唯一匹配依据。
 	if err := query.Q.Transaction(func(tx *query.Query) error {
+		if _, err := tx.Device.WithContext(ctx).
+			Where(device.ID.Eq(deviceID)).
+			Select(device.Voucher).
+			UpdateColumns(info); err != nil {
+			logrus.Error("[Device][UpdateDeviceVoucher] update failed")
+			return err
+		}
 		return dal.WriteVoucherHashInQueryTx(tx, []*model.Device{info})
 	}); err != nil {
 		return nil, err
 	}
 
-	reloaded, err := dal.DeviceQuery{}.First(ctx, query.Device.ID.Eq(deviceID))
+	reloaded, err := dal.DeviceQuery{}.First(ctx, device.ID.Eq(deviceID))
 	if err != nil {
 		logrus.Error("[Device][UpdateDeviceVoucher] reload failed")
 		return nil, err
@@ -125,9 +149,14 @@ func ensureUpdatedVoucherAvailable(voucher string, deviceID string, changed bool
 }
 
 // handleUpdatedVoucherSideEffects 在凭证更新后删除旧缓存、刷新设备缓存，并按协议类型决定是否断连。
-func handleUpdatedVoucherSideEffects(ctx context.Context, deviceID string, deviceInfo *model.Device) {
-	// broker 侧缓存键为 sha256(voucher) 十六进制摘要，删键必须走同一哈希构造，否则旧凭证缓存无法失效。
-	if err := global.REDIS.Del(ctx, utils.VoucherCacheKey(deviceInfo.Voucher)).Err(); err != nil {
+// oldCredential 是持久化之前解析出的旧明文（resolveInvalidationCredential），2b 行来自网页测试缓存。
+func handleUpdatedVoucherSideEffects(ctx context.Context, deviceID string, deviceInfo *model.Device, oldCredential string) {
+	// broker 侧缓存键为 HMAC-SHA256(voucher) 摘要，删键必须走同一哈希构造，否则旧凭证缓存无法失效。
+	if strings.TrimSpace(oldCredential) == "" {
+		// 2b 行且轮换前无测试缓存条目（如 SQL 直插夹具）：接受 ≤1h broker 缓存残窗，
+		// 见 backend-hardening-plan.md 遗留清单第 3 条。
+		logrus.Warn("[Device][UpdateDeviceVoucher] old credential unavailable; broker cache entry may persist up to its TTL")
+	} else if err := global.REDIS.Del(ctx, utils.VoucherCacheKey(oldCredential)).Err(); err != nil {
 		logrus.Warn("[Device][UpdateDeviceVoucher] delete old voucher cache failed")
 	}
 	disconnectNonMQTTDeviceAfterVoucherChange(ctx, deviceID, deviceInfo)
