@@ -12,6 +12,8 @@
 
 // ==================== 核心基础类型 ====================
 
+import type { EnhancedParameter } from '@/core/data-architecture/types/parameter-editor'
+
 /**
  * 参数值模式枚举 - 统一所有参数配置的编辑模式
  */

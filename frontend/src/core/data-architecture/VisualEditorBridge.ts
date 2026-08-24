@@ -184,7 +184,7 @@ export class VisualEditorBridge {
       componentType,
       dataSources,
       enabled: true
-    }
+    } as ComponentDataRequirement
   }
 
   private resolveDataSourcesInPriorityOrder(
@@ -210,7 +210,7 @@ export class VisualEditorBridge {
   }
 
   private resolveBridgeConfig(config: EditorComponentConfig | null): ResolvedBridgeConfig {
-    let resolvedConfig: EditorDataSourceLike | null = config
+    let resolvedConfig: EditorDataSourceLike | null = config as EditorDataSourceLike | null
     let baseConfig: Record<string, unknown> | null = null
 
     if (config && typeof config === 'object' && (config.base || config.dataSource)) {
@@ -442,11 +442,13 @@ export class VisualEditorBridge {
   private processTraditionalBinding(config: EditorDataSourceLike, baseConfig: Record<string, unknown>): void {
     // 1. 首先处理基础配置注入（原有逻辑，模拟设备ID的硬编码机制）
     if (config.config && typeof config.config === 'object') {
+      const deviceId = baseConfig.deviceId
+      const metricsList = baseConfig.metricsList
       config.config = {
         ...config.config,
         // 注入基础配置中的设备属性（模拟设备ID硬编码逻辑）
-        ...(baseConfig.deviceId && { deviceId: baseConfig.deviceId }),
-        ...(baseConfig.metricsList && { metricsList: baseConfig.metricsList })
+        ...(deviceId ? { deviceId } : {}),
+        ...(metricsList ? { metricsList } : {})
       }
     } else {
       // 如果没有 config 对象，直接在顶层注入
@@ -471,7 +473,7 @@ export class VisualEditorBridge {
 
     // 检查config层级的autoBind设置
     if (dataSourceConfig.config?.autoBind) {
-      return dataSourceConfig.config.autoBind
+      return dataSourceConfig.config.autoBind as AutoBindConfig
     }
 
     return null
@@ -571,7 +573,7 @@ export class VisualEditorBridge {
    * 转换数据项配置，处理字段映射
    */
   private convertItemConfig(item: NonNullable<EditorStandardDataItem['item']>) {
-    const { type, config } = item
+    const { type, config } = item as { type: unknown; config: Record<string, unknown> }
 
     switch (type) {
       case 'json':

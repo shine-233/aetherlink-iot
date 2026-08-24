@@ -17,6 +17,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"gorm.io/gen"
+	"gorm.io/gorm"
 )
 
 func CreateOpenAPIKey(key *model.OpenAPIKey) error {
@@ -81,6 +82,10 @@ func UpdateOpenAPIKey(id string, updates map[string]interface{}) error {
 		return err
 	}
 
+	// P1 修复（2026-08-24，见 VALIDATION.md）：吊销广播——status 变更是吊销/恢复操作，
+	// 必须主动清除该 api_key 的两组缓存键，防止已禁用 key 在 TTL 窗口内继续通过校验；
+	// 失效同时会清掉可能的负缓存哨兵，恢复后的 key 下次校验即可回源重建正向缓存。
+	// 其余字段变更沿用原有无条件失效行为，保持缓存与库一致。
 	InvalidateOpenAPIKeyCache(context.Background(), key.APIKey)
 	return nil
 }
@@ -150,10 +155,21 @@ func VerifyOpenAPIKey(ctx context.Context, appKey string) (string, string, error
 	cacheKey, cacheKeyCreatedID := openAPIKeyCacheKeyPair(appKey)
 	tenantID, err := global.REDIS.Get(ctx, cacheKey).Result()
 	createdID, err1 := global.REDIS.Get(ctx, cacheKeyCreatedID).Result()
+
+	// P1 修复（2026-08-24，见 VALIDATION.md）：负缓存——命中哨兵直接判 not-found，
+	// 吸收无效/已吊销 key 的重复穿透打库；哨兵 TTL 60s，吊销广播（UpdateOpenAPIKey/
+	// DeleteOpenAPIKey）会主动清除。
+	if tenantID == openAPIKeyNegativeSentinel || createdID == openAPIKeyNegativeSentinel {
+		return "", "", gorm.ErrRecordNotFound
+	}
+
 	if err != nil || err1 != nil {
-		apiKey, err := query.OpenAPIKey.WithContext(ctx).Where(query.OpenAPIKey.APIKey.Eq(appKey), query.OpenAPIKey.Status.Eq(1)).First()
-		if err != nil {
-			return "", "", err
+		apiKey, dbErr := query.OpenAPIKey.WithContext(ctx).Where(query.OpenAPIKey.APIKey.Eq(appKey), query.OpenAPIKey.Status.Eq(1)).First()
+		if dbErr != nil {
+			// P1 修复（2026-08-24，见 VALIDATION.md）：负缓存——DB miss 写入短 TTL
+			// 哨兵值而非留空，避免无效 key 高频重放时每次都打到数据库。
+			setOpenAPIKeyNegativeCache(ctx, cacheKey, cacheKeyCreatedID)
+			return "", "", dbErr
 		}
 
 		tenantID = apiKey.TenantID
@@ -166,4 +182,22 @@ func VerifyOpenAPIKey(ctx context.Context, appKey string) (string, string, error
 		}
 	}
 	return tenantID, createdID, nil
+}
+
+const (
+	// openAPIKeyNegativeSentinel 是负缓存哨兵值：命中即视为 key 不存在或被禁用。
+	openAPIKeyNegativeSentinel = "__neg__"
+	// openAPIKeyNegativeTTL 控制负缓存窗口：60s 内重复 miss 不再回源，
+	// 窗口过后允许再次查库以兼容"先错后对"的极端时序。
+	openAPIKeyNegativeTTL = 60 * time.Second
+)
+
+// setOpenAPIKeyNegativeCache 为 miss 的 api_key 写入负缓存哨兵；
+// Redis 写失败只降级为不缓存，不影响本次校验结果。
+func setOpenAPIKeyNegativeCache(ctx context.Context, keys ...string) {
+	for _, key := range keys {
+		if err := global.REDIS.Set(ctx, key, openAPIKeyNegativeSentinel, openAPIKeyNegativeTTL).Err(); err != nil {
+			logrus.Warnf("failed to set OpenAPI key negative cache: %v", err)
+		}
+	}
 }

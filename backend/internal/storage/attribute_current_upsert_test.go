@@ -253,7 +253,7 @@ func TestAttributeCurrentWritersOnlyCountStoredRows(t *testing.T) {
 func setupAttributeCurrentUpsertTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	dbName := strings.NewReplacer("/", "_", " ", "_").Replace(t.Name())
-	db, err := gorm.Open(sqlite.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared", dbName)), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(fmt.Sprintf("file:%s?mode=memory", dbName)), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}

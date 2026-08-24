@@ -12,6 +12,8 @@ import {
   type ExecutionResult
 } from './executors/MultiLayerExecutorChain'
 
+import type { DataItem } from './executors/DataItemFetcher'
+
 import { dataWarehouse, type EnhancedDataWarehouse } from '@/core/data-architecture/DataWarehouse'
 
 type ConfigurationSnapshot = { config: any; timestamp: number }
@@ -176,13 +178,15 @@ export class SimpleDataBridge {
       if (isDataSourceConfigFormat) {
         dataSourceConfig = requirement as any
       } else {
-        if (requirement.dataSources?.[0]?.dataSources) {
-          const innerConfig = requirement.dataSources[0] as any
+        const nestedSource = requirement.dataSources?.[0] as
+          | { dataSources?: DataSourceConfiguration['dataSources']; createdAt?: number; updatedAt?: number }
+          | undefined
+        if (nestedSource?.dataSources) {
           dataSourceConfig = {
             componentId: requirement.componentId,
-            dataSources: innerConfig.dataSources,
-            createdAt: innerConfig.createdAt || this.now(),
-            updatedAt: innerConfig.updatedAt || this.now()
+            dataSources: nestedSource.dataSources,
+            createdAt: nestedSource.createdAt || this.now(),
+            updatedAt: nestedSource.updatedAt || this.now()
           }
         } else {
           dataSourceConfig = this.convertToDataSourceConfiguration(requirement)
@@ -287,10 +291,12 @@ export class SimpleDataBridge {
       sourceId: dataSource.id,
       dataItems: [
         {
+          // SimpleDataSourceConfig 的 type/config 是宽松的运行时契约，
+          // 执行链对未知类型有兜底分支，此处按执行器入口契约收窄。
           item: {
             type: dataSource.type,
             config: dataSource.config
-          },
+          } as unknown as DataItem,
           processing: {
             filterPath: dataSource.filterPath || '$',
             customScript: dataSource.processScript,
@@ -298,7 +304,7 @@ export class SimpleDataBridge {
           }
         }
       ],
-      mergeStrategy: 'object' as const // 默认使用对象合并策略
+      mergeStrategy: { type: 'object' } as const // 默认使用对象合并策略
     }))
 
     return {

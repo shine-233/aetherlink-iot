@@ -106,20 +106,26 @@ func GetAlarmInfoHistoryByID(id string, ownerUserID *string) (map[string]interfa
 
 // GetAlarmConfigListByPage 分页查询告警配置，支持租户、名称、等级和启用状态过滤。
 func GetAlarmConfigListByPage(d *model.GetAlarmConfigListByPageReq) (int64, interface{}, error) {
-	queryBuilder := applyAlarmConfigListFilters(query.AlarmConfig.WithContext(context.Background()), d)
-	count, err := queryBuilder.Count()
-	if err != nil {
+	// P1 修复（2026-08-24，见 VALIDATION.md）：告警配置列表改走 raw global.DB 链
+	// （clone==1 根，每次链式起点均为全新 Statement），杜绝包级单例
+	// LeftJoin(NotificationGroup)+ALL+Scan 在高并发下跨请求残留 Statement 读到空/旧数据；
+	// JOIN 形态、投影列名、排序与分页语义与收敛前逐条一致。
+	base := newAlarmConfigListScopedDB(d)
+	var count int64
+	if err := base.Session(&gorm.Session{}).Count(&count).Error; err != nil {
 		logrus.Error(err)
 		return count, nil, err
 	}
-	list, err := scanAlarmConfigList(
-		applyAlarmConfigListPage(
-			withAlarmConfigListJoins(queryBuilder),
-			d.Page,
-			d.PageSize,
-		),
-	)
-	if err != nil {
+
+	listBuilder := base.Session(&gorm.Session{}).
+		Select("ac.*, ng.name AS notification_group_name").
+		Joins("LEFT JOIN notification_groups ng ON ng.id = ac.notification_group_id").
+		Order("ac.created_at DESC")
+	if d.Page != 0 && d.PageSize != 0 {
+		listBuilder = listBuilder.Offset((d.Page - 1) * d.PageSize).Limit(d.PageSize)
+	}
+	list := make([]map[string]interface{}, 0)
+	if err := listBuilder.Scan(&list).Error; err != nil {
 		return 0, nil, err
 	}
 	return count, list, nil
@@ -168,20 +174,27 @@ func UpdateAlarmInfoBatch(req *model.UpdateAlarmInfoBatchReq, userid string, ten
 
 // GetAlarmInfoListByPage 分页查询告警信息，支持按租户、时间、处理结果和等级过滤。
 func GetAlarmInfoListByPage(d *model.GetAlarmInfoListByPageReq) (int64, interface{}, error) {
-	queryBuilder := applyAlarmInfoListFilters(query.AlarmInfo.WithContext(context.Background()), d)
-	count, err := queryBuilder.Count()
-	if err != nil {
+	// P1 修复（2026-08-24，见 VALIDATION.md）：告警信息列表改走 raw global.DB 链
+	// （clone==1 根，每次链式起点均为全新 Statement），杜绝包级单例
+	// LeftJoin(AlarmConfig,User)+ALL+Scan 在高并发下跨请求残留 Statement 读到空/旧数据；
+	// JOIN 形态、投影列名、排序与分页语义与收敛前逐条一致。
+	base := newAlarmInfoListScopedDB(d)
+	var count int64
+	if err := base.Session(&gorm.Session{}).Count(&count).Error; err != nil {
 		logrus.Error(err)
 		return count, nil, err
 	}
-	list, err := scanAlarmInfoList(
-		applyAlarmInfoListPage(
-			withAlarmInfoListJoins(queryBuilder),
-			d.Page,
-			d.PageSize,
-		),
-	)
-	if err != nil {
+
+	listBuilder := base.Session(&gorm.Session{}).
+		Select("ai.*, ac.name AS alarm_config_name, ac.alarm_level AS alarm_level, u.name AS processor_name").
+		Joins("LEFT JOIN alarm_config ac ON ac.id = ai.alarm_config_id").
+		Joins("LEFT JOIN users u ON ai.processor = u.id").
+		Order("ai.alarm_time DESC")
+	if d.Page != 0 && d.PageSize != 0 {
+		listBuilder = listBuilder.Offset((d.Page - 1) * d.PageSize).Limit(d.PageSize)
+	}
+	list := make([]map[string]interface{}, 0)
+	if err := listBuilder.Scan(&list).Error; err != nil {
 		return 0, nil, err
 	}
 	return count, list, nil
@@ -615,85 +628,48 @@ func DeleteAlarmNameCache(alarmId string) error {
 	return redis.Del(context.Background(), cacheKey).Err()
 }
 
-func applyAlarmConfigListFilters(builder query.IAlarmConfigDo, req *model.GetAlarmConfigListByPageReq) query.IAlarmConfigDo {
-	q := query.AlarmConfig
+// newAlarmConfigListScopedDB 构造告警配置列表的 raw 语句根与过滤条件，
+// 条件语义与收敛前的 applyAlarmConfigListFilters 逐条对齐。
+func newAlarmConfigListScopedDB(req *model.GetAlarmConfigListByPageReq) *gorm.DB {
+	builder := global.DB.Table("alarm_config AS ac")
+	if req == nil {
+		return builder
+	}
 	if strings.TrimSpace(req.TenantID) != "" {
-		builder = builder.Where(q.TenantID.Eq(req.TenantID))
+		builder = builder.Where("ac.tenant_id = ?", req.TenantID)
 	}
 	if req.Name != nil && *req.Name != "" {
-		builder = builder.Where(q.Name.Like(fmt.Sprintf("%%%s%%", *req.Name)))
+		builder = builder.Where("ac.name LIKE ?", fmt.Sprintf("%%%s%%", *req.Name))
 	}
 	if req.AlarmLevel != nil && *req.AlarmLevel != "" {
-		builder = builder.Where(q.AlarmLevel.Eq(*req.AlarmLevel))
+		builder = builder.Where("ac.alarm_level = ?", *req.AlarmLevel)
 	}
 	if req.Enabled != "" {
-		builder = builder.Where(q.Enabled.Eq(req.Enabled))
+		builder = builder.Where("ac.enabled = ?", req.Enabled)
 	}
 	return builder
 }
 
-func withAlarmConfigListJoins(builder query.IAlarmConfigDo) query.IAlarmConfigDo {
-	q := query.AlarmConfig
-	return builder.Order(q.CreatedAt.Desc()).
-		LeftJoin(query.NotificationGroup, q.NotificationGroupID.EqCol(query.NotificationGroup.ID))
-}
-
-func applyAlarmConfigListPage(builder query.IAlarmConfigDo, page, pageSize int) query.IAlarmConfigDo {
-	if page == 0 || pageSize == 0 {
+// newAlarmInfoListScopedDB 构造告警信息列表的 raw 语句根与过滤条件，
+// 条件语义与收敛前的 applyAlarmInfoListFilters 逐条对齐。
+func newAlarmInfoListScopedDB(req *model.GetAlarmInfoListByPageReq) *gorm.DB {
+	builder := global.DB.Table("alarm_info AS ai")
+	if req == nil {
 		return builder
 	}
-	return builder.Offset((page - 1) * pageSize).Limit(pageSize)
-}
-
-func scanAlarmConfigList(builder query.IAlarmConfigDo) ([]map[string]interface{}, error) {
-	list := make([]map[string]interface{}, 0)
-	err := builder.Select(
-		query.AlarmConfig.ALL,
-		query.NotificationGroup.Name.As("notification_group_name"),
-	).Scan(&list)
-	return list, err
-}
-
-func applyAlarmInfoListFilters(builder query.IAlarmInfoDo, req *model.GetAlarmInfoListByPageReq) query.IAlarmInfoDo {
-	q := query.AlarmInfo
 	if strings.TrimSpace(req.TenantID) != "" {
-		builder = builder.Where(q.TenantID.Eq(req.TenantID))
+		builder = builder.Where("ai.tenant_id = ?", req.TenantID)
 	}
 	if req.StartTime != nil && req.EndTime != nil {
-		builder = builder.Where(q.AlarmTime.Between(*req.StartTime, *req.EndTime))
+		builder = builder.Where("ai.alarm_time BETWEEN ? AND ?", *req.StartTime, *req.EndTime)
 	}
 	if req.ProcessingResult != nil && *req.ProcessingResult != "" {
-		builder = builder.Where(q.ProcessingResult.Eq(*req.ProcessingResult))
+		builder = builder.Where("ai.processing_result = ?", *req.ProcessingResult)
 	}
 	if req.AlarmLevel != nil && *req.AlarmLevel != "" {
-		builder = builder.Where(q.AlarmLevel.Eq(*req.AlarmLevel))
+		builder = builder.Where("ai.alarm_level = ?", *req.AlarmLevel)
 	}
 	return builder
-}
-
-func withAlarmInfoListJoins(builder query.IAlarmInfoDo) query.IAlarmInfoDo {
-	q := query.AlarmInfo
-	return builder.LeftJoin(query.AlarmConfig, q.AlarmConfigID.EqCol(query.AlarmConfig.ID)).
-		LeftJoin(query.User, q.Processor.EqCol(query.User.ID)).
-		Order(q.AlarmTime.Desc())
-}
-
-func applyAlarmInfoListPage(builder query.IAlarmInfoDo, page, pageSize int) query.IAlarmInfoDo {
-	if page == 0 || pageSize == 0 {
-		return builder
-	}
-	return builder.Offset((page - 1) * pageSize).Limit(pageSize)
-}
-
-func scanAlarmInfoList(builder query.IAlarmInfoDo) ([]map[string]interface{}, error) {
-	list := make([]map[string]interface{}, 0)
-	err := builder.Select(
-		query.AlarmInfo.ALL,
-		query.AlarmConfig.Name.As("alarm_config_name"),
-		query.AlarmConfig.AlarmLevel.As("alarm_level"),
-		query.User.Name.As("processor_name"),
-	).Scan(&list)
-	return list, err
 }
 
 func newAlarmHistoryTenantQuery(tenantID string) query.IAlarmHistoryDo {
