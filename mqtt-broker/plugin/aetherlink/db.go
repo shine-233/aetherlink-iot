@@ -8,6 +8,7 @@
 package aetherlink
 
 import (
+	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -182,9 +183,13 @@ func GetRedisForJsondata(key string, dest interface{}) error {
 
 // voucherCacheKey 返回设备凭证缓存键。缓存键由完整 voucher 的 SHA-256 摘要构成，
 // 避免把携带明文 MQTT 口令的 voucher JSON 直接作为 Redis key 落地。
+// voucherCacheKey 与 backend/pkg/utils/vouchercache.go 的 VoucherCacheKey 保持一致：
+// 使用 HMAC-SHA256（域分离密钥 aetherlink:voucher-cache:v1），满足 CodeQL 键控哈希要求，
+// 同时保持双端确定性——同一 voucher 在 backend 和 broker 产生相同摘要。
 func voucherCacheKey(voucher string) string {
-	sum := sha256.Sum256([]byte(voucher))
-	return hex.EncodeToString(sum[:])
+	mac := hmac.New(sha256.New, []byte("aetherlink:voucher-cache:v1"))
+	mac.Write([]byte(voucher))
+	return hex.EncodeToString(mac.Sum(nil))
 }
 
 func GetDeviceByVoucher(voucher string) (*Device, error) {

@@ -1,24 +1,22 @@
 package aetherlink
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"strings"
 	"testing"
 )
 
-// TestVoucherCacheKeyIsStableHash 锁定 voucher 缓存键契约：
-// 键必须是完整 voucher 的 SHA-256 十六进制摘要，且不得包含明文 voucher 片段，
-// 防止携带 MQTT 明文口令的凭证 JSON 作为 Redis key 落地。
+// TestVoucherCacheKeyIsStableHash 锁定 voucher 缓存键契约。
+// 期望值：与 backend/pkg/utils/vouchercache_test.go 使用同一向量，保证双端字面一致。
+// 算法：HMAC-SHA256（域分离密钥 aetherlink:voucher-cache:v1），满足 CodeQL 键控哈希要求。
 func TestVoucherCacheKeyIsStableHash(t *testing.T) {
 	voucher := `{"username":"dev-1","password":"s3cret-pass"}`
 
-	want := sha256.Sum256([]byte(voucher))
-	expected := hex.EncodeToString(want[:])
+	const expected = "f5aafa8b1e2369a8281b4aa74a844433e04852bf3193fdf2efc6593fad8a4a7a"
+
 	got := voucherCacheKey(voucher)
 
 	if got != expected {
-		t.Fatalf("voucherCacheKey = %q, want stable sha256 hex %q", got, expected)
+		t.Fatalf("voucherCacheKey = %q, want stable hmac-sha256 hex %q", got, expected)
 	}
 	if strings.Contains(got, "s3cret") || strings.Contains(got, "dev-1") {
 		t.Fatal("cache key must not embed plaintext voucher material")
