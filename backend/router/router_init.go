@@ -179,7 +179,9 @@ func RouterInit() *gin.Engine {
 				plugin.POST("plugin/service/access/list", controllers.HandlePluginServiceAccessList)
 				plugin.POST("plugin/service/access", controllers.HandlePluginServiceAccess)
 			}
-			v1.POST("login", controllers.Login)
+			// 登录入口按来源 IP 做失败限流（默认 10 次失败/分钟/IP），
+			// 与按账号的 LoginLock 互补；见 middleware/login_ratelimit.go。
+			v1.POST("login", middleware.LoginRateLimit(), controllers.Login)
 			v1.GET("verification/code", controllers.HandleVerificationCode)
 			v1.POST("reset/password/link", controllers.RequestPasswordResetLink)
 			v1.POST("reset/password", controllers.ResetPassword)

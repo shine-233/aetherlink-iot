@@ -78,10 +78,12 @@ func (*UserApi) Login(c *gin.Context) {
 	loginRsp, err := service.GroupApp.User.Login(c, &loginReq)
 	if err != nil {
 		_ = loginLock.LoginFail(c, loginReq.Email)
+		middleware.RecordLoginFailure(c.ClientIP())
 		c.Error(err)
 		return
 	}
 	_ = loginLock.LoginSuccess(c, loginReq.Email)
+	middleware.ResetLoginFailures(c.ClientIP())
 	setAuthCookieForLoginResponse(c, loginRsp)
 	c.Set("data", loginRsp)
 }
