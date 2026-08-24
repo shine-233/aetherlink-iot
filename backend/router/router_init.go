@@ -60,8 +60,14 @@ func RouterInit() *gin.Engine {
 	// 必须在任何路由注册前挂载，确保 Swagger、metrics、静态文件和 404 都可关联且带基础安全头。
 	router.Use(middleware.RequestID())
 	router.Use(middleware.SecurityHeaders())
-	// Swagger文档路由
-	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	// 运维暴露面收敛（P3，2026-08-24，见 VALIDATION.md）：/swagger、/metrics、/metrics-viewer
+	// 均无业务认证，生产部署（GOTP_ENV=production）下跳过注册，避免接口契约与指标数据对外暴露；
+	// 非生产环境保持原样，供开发调试与自动化验证使用。
+	opsEndpointsEnabled := os.Getenv("GOTP_ENV") != "production"
+	if opsEndpointsEnabled {
+		// Swagger文档路由
+		router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	}
 
 	// 创建 metrics 收集器
 	m := metrics.NewMetrics("AetherLinkIoT")
@@ -73,19 +79,23 @@ func RouterInit() *gin.Engine {
 	m.StartMetricsCollection(15 * time.Second)
 	// 注册 metrics 中间件
 	router.Use(middleware.MetricsMiddleware(m))
-	// 注册 prometheus metrics 接口
-	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
+	if opsEndpointsEnabled {
+		// 注册 prometheus metrics 接口
+		router.GET("/metrics", gin.WrapH(promhttp.Handler()))
+	}
 
 	// 设置metrics管理器到系统监控服务
 	service.SetMetricsManager(m)
 
 	// 添加静态文件路由（嵌入二进制，不依赖运行时工作目录）
-	router.GET("/metrics-viewer", func(c *gin.Context) {
-		c.Data(http.StatusOK, "text/html; charset=utf-8", static.MetricsViewerHTML)
-	})
-	router.GET("/metrics-viewer/echarts.min.js", func(c *gin.Context) {
-		c.Data(http.StatusOK, "application/javascript; charset=utf-8", static.MetricsViewerEChartsJS)
-	})
+	if opsEndpointsEnabled {
+		router.GET("/metrics-viewer", func(c *gin.Context) {
+			c.Data(http.StatusOK, "text/html; charset=utf-8", static.MetricsViewerHTML)
+		})
+		router.GET("/metrics-viewer/echarts.min.js", func(c *gin.Context) {
+			c.Data(http.StatusOK, "application/javascript; charset=utf-8", static.MetricsViewerEChartsJS)
+		})
+	}
 
 	// 处理文件访问请求
 	router.GET("/files/*filepath", func(c *gin.Context) {
