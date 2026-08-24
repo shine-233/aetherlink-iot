@@ -263,13 +263,15 @@ configEventBus.addEventFilter({
 // 事件处理逻辑保持简单直接，不过度分析配置内容。
 
 // 监听基础配置变更事件，自动触发数据源重新执行。
-let dataExecutionTriggerCallback: ((event: ConfigChangeEvent) => void) | null = null
+let dataExecutionTriggerCallback: ((event: ConfigChangeEvent) => void | Promise<unknown>) | null = null
 
 /**
  * 注册数据执行触发器。
  * 允许外部系统注册一个回调函数，在配置变更时触发数据重新执行
  */
-export function registerDataExecutionTrigger(callback: (event: ConfigChangeEvent) => void): () => void {
+export function registerDataExecutionTrigger(
+  callback: (event: ConfigChangeEvent) => void | Promise<unknown>
+): () => void {
   dataExecutionTriggerCallback = callback
 
   return () => {

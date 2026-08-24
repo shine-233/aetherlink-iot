@@ -298,7 +298,11 @@ export class TypeCompatibilityChecker {
         }
       }
       if (config.pathParams) {
-        const pathParamsCheck = this.checkHttpParametersCompatibility(config.pathParams, 'path', 'pathParams')
+        const pathParamsCheck = this.checkHttpParametersCompatibility(
+          config.pathParams as unknown as HttpParameter[],
+          'path',
+          'pathParams'
+        )
         this.mergeCompatibilityResult(diagnostics, pathParamsCheck)
       }
 

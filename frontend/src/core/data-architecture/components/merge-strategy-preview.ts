@@ -41,7 +41,11 @@ export async function previewMergeStrategy(
 
         const result = await defaultScriptEngine.execute(strategy.script, { items })
         if (!result.success) {
-          return { success: false, error: result.error || '脚本预览执行失败' }
+          const failure = result.error
+          return {
+            success: false,
+            error: typeof failure === 'string' ? failure : failure instanceof Error ? failure.message : '脚本预览执行失败'
+          }
         }
 
         return { success: true, data: result.data }
