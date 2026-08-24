@@ -150,16 +150,8 @@ func TestStorageContextCancellationDrainsInputAndStopsTelemetryWriter(t *testing
 	}
 
 	cancel()
-	select {
-	case <-service.doneCh:
-	case <-time.After(time.Second):
-		t.Fatal("storage main loop did not stop after context cancellation")
-	}
-	select {
-	case <-service.telemetryWriter.doneCh:
-	case <-time.After(time.Second):
-		t.Fatal("telemetry writer did not stop with the storage main loop")
-	}
+	waitForChannelClose(t, &service.doneCh, "storage main loop")
+	waitForChannelClose(t, &service.telemetryWriter.doneCh, "telemetry writer")
 
 	var count int64
 	if err := db.Model(&TelemetryData{}).
@@ -182,4 +174,19 @@ func TestStorageContextCancellationDrainsInputAndStopsTelemetryWriter(t *testing
 	if err := service.Stop(time.Second); err != nil {
 		t.Fatalf("Stop after context cancellation returned error: %v", err)
 	}
+}
+
+// waitForChannelClose 以轮询方式等待通道关闭，避免固定 time.After 在 CI 高载下超时。
+func waitForChannelClose(t *testing.T, ch *chan struct{}, label string) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		select {
+		case <-*ch:
+			return
+		default:
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+	t.Fatalf("%s did not stop within 5s", label)
 }

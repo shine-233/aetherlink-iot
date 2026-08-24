@@ -82,11 +82,11 @@ API、E2E 和 synthetic-rdi 运行必须使用独立的 report/output 目录，�
 ## 外部合约变更
 
 兼容名称与三类外部合约（broker plugin 面 / ThingsVis embed-SSO / telemetry gRPC symbols）的变更规则以 `COMPATIBILITY.md` 为唯一权威；任何一侧变化按 breaking migration 处理并在同一轮重跑聚焦的 broker/frontend/backend/API/E2E 验证。
-
-## 当前 pending 门禁快照（2026-08）
-
-- **compose lane 首轮全绿归档**：`continue-on-error` 已移除、::1 拨号根因已在源码层收敛（统一拨号助手），但尚未产生一轮全绿归档——需 CI dispatch 或有 Docker 的主机执行后归档到 `verification/`。
-- 真实环境验收：目标服务器部署、HTTPS/TLS 反向代理、公网 MQTT、backup/restore、ThingsVis 外部集成、real-rdi 全部维持 pending/blocked，不得用 simulation 冒充。
+- **compose lane 首轮全绿归档已存在**：`verification/automation-run-20260824-compose-first-green/archive-manifest.json`（PR #123 提交集，run 32692782323）；`continue-on-error` 已移除。后续合并需维持全绿或注明降级原因。
+- 真实环境门禁（目标服务器部署、HTTPS/TLS 终止、公网 MQTT、backup/restore、ThingsVis 外部集成、real-rdi）全部维持 pending/blocked，不允许 simulation 冒充。
+- 性能层：`performance/` 仅有结构化框架与目录占位，尚无实测 benchmark 数据。
+- 前端类型收敛：全局 `any` 长尾约 **1183 处**（排除测试；集中在 core/data-architecture 约 304 处）。视觉升级 Phase1 路由转场、断点令牌、.stagger 工具类、prefers-reduced-motion 守卫已落地（#125）；骨架屏替换 / ECharts 品牌 theme / motion-v 微交互尚未开始。
+- 设备凭证哈希存储：voucher hash phase 1 已落地（commit 6a97089 + vouchercache.go + 双端契约测试）；脚本沙箱 Worker 化仍在计划中（`references/backend-hardening-plan.md`）。
 - 性能层：`performance/` 只有脚手架与意图目录，无任何实测 benchmark 数据。
 - 前端质量地基：全局 `any` 长尾清理（约 1300 处，集中在 core/data-architecture）、视觉升级 Phase 1–4、移动端关键路径响应式——均为独立车道，未完成。
 - 设备凭证哈希存储、脚本沙箱 Worker 化、service_access.voucher 哈希化：设计与计划见 `references/backend-hardening-plan.md`。
