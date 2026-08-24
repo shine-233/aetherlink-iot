@@ -39,7 +39,9 @@
     "test:parallel": "node run_tests.js --parallel",
     "test:synthetic-rdi:contract": "node scripts/test_synthetic_rdi_protocol_validation.js",
     "test:simulated-integration": "node scripts/run_simulated_integration_lane.js --json",
-    "inventory:repository": "node scripts/generate_repository_inventory.js"
+    "inventory:repository": "node scripts/generate_repository_inventory.js",
+    "visual:baseline": "node scripts/capture_visual_baseline.js",
+    "visual:compare": "node scripts/capture_visual_baseline.js --compare"
   },
   "dependencies": {
     "axios": "^1.19.0",
