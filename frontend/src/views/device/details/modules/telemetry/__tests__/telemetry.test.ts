@@ -13,7 +13,7 @@ const hoisted = vi.hoisted(() => ({
   sendSimulationData: vi.fn(),
   expectMessageAdd: vi.fn(),
   deviceCustomControlList: vi.fn(),
-  useWebSocketOptions: null as any
+  useWebSocketOptions: null as unknown as Record<string, unknown> | null
 }))
 
 vi.mock('@vueuse/core', () => ({
@@ -313,7 +313,27 @@ const mountTelemetryPage = (
   return wrapper
 }
 
-const getSetupState = (wrapper: ReturnType<typeof mountTelemetryPage>) => wrapper.vm.$.setupState as Record<string, any>
+// setupState 的受控视图：只声明测试实际触达的成员，其余成员走 unknown 兜底。
+interface TelemetrySetupRow {
+  key: unknown
+  value: unknown
+  ts: unknown
+  [key: string]: unknown
+}
+
+interface TelemetrySetupColumn {
+  key: string
+  render: (row: Record<string, unknown>) => string
+}
+
+interface TelemetrySetupState {
+  telemetryData: TelemetrySetupRow[]
+  columns: TelemetrySetupColumn[]
+  formValue: Record<string, unknown>
+  [key: string]: unknown
+}
+
+const getSetupState = (wrapper: ReturnType<typeof mountTelemetryPage>) => wrapper.vm.$.setupState as TelemetrySetupState
 
 const getOperationsHeader = (wrapper: ReturnType<typeof mountTelemetryPage>) => wrapper.getComponent(TelemetryOperationsHeaderStub)
 
@@ -364,7 +384,7 @@ describe('telemetry.vue', () => {
     })
     hoisted.sendSimulationData.mockResolvedValue({ error: null })
     hoisted.expectMessageAdd.mockResolvedValue({ error: null })
-    ;(window as any).$message = {
+    ;(window as unknown as { $message: Record<string, (...args: unknown[]) => void> }).$message = {
       success: vi.fn(),
       error: vi.fn(),
       warning: vi.fn(),
@@ -590,7 +610,7 @@ describe('telemetry.vue', () => {
     await flushPromises()
 
     expect(setupState.telemetryData.length).toBe(before + 1)
-    const added = setupState.telemetryData.find((telemetry: any) => telemetry.key === 'new_sensor')
+    const added = setupState.telemetryData.find(telemetry => telemetry.key === 'new_sensor')
     expect(added).toMatchObject({
       key: 'new_sensor',
       value: 99,
@@ -914,7 +934,7 @@ describe('telemetry.vue', () => {
     await flushPromises()
 
     const setupState = getSetupState(wrapper)
-    const statusColumn = setupState.columns.find((column: any) => column.key === 'status')
+    const statusColumn = setupState.columns.find(column => column.key === 'status')
 
     expect(statusColumn.render({ status: '1' })).toBe('custom.devicePage.success')
     expect(statusColumn.render({ status: '2' })).toBe('custom.devicePage.fail')
