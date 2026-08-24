@@ -9,7 +9,7 @@ import { mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const hoisted = vi.hoisted(() => ({
-  clientInstances: [] as any[],
+  clientInstances: [] as MockThingsVisClientInstance[],
   getThingsVisToken: vi.fn(),
   attributeDataPub: vi.fn(),
   commandDataPub: vi.fn(),
@@ -19,13 +19,38 @@ const hoisted = vi.hoisted(() => ({
   localStgGet: vi.fn()
 }))
 
+type MockClientHandler = (payload?: unknown) => void
+
+interface MockThingsVisClientOptions {
+  mode?: string
+  url?: string
+  style?: Record<string, unknown>
+  [key: string]: unknown
+}
+
+interface MockThingsVisClientInstance {
+  ready: boolean
+  trustedSource: { postMessage: ReturnType<typeof vi.fn> }
+  trustedOrigin: string
+  handlers: Map<string, MockClientHandler>
+  on: ReturnType<typeof vi.fn>
+  postMessageToGuest: ReturnType<typeof vi.fn>
+  loadWidgetConfig: ReturnType<typeof vi.fn>
+  updateSchema: ReturnType<typeof vi.fn>
+  pushPlatformFieldData: ReturnType<typeof vi.fn>
+  pushPlatformFieldHistory: ReturnType<typeof vi.fn>
+  requestSave: ReturnType<typeof vi.fn>
+  destroy: ReturnType<typeof vi.fn>
+  options: MockThingsVisClientOptions
+}
+
 vi.mock('@/utils/thingsvis/sdk/client', () => ({
-  ThingsVisClient: class MockThingsVisClient {
+  ThingsVisClient: class MockThingsVisClient implements MockThingsVisClientInstance {
     ready = false
     trustedSource = { postMessage: vi.fn() }
     trustedOrigin = 'https://studio.test'
-    handlers = new Map<string, (payload?: any) => void>()
-    on = vi.fn((event: string, handler: (payload?: any) => void) => {
+    handlers = new Map<string, MockClientHandler>()
+    on = vi.fn((event: string, handler: MockClientHandler) => {
       this.handlers.set(event, handler)
     })
     isTrustedMessageEvent = vi.fn(
@@ -39,7 +64,7 @@ vi.mock('@/utils/thingsvis/sdk/client', () => ({
     requestSave = vi.fn()
     destroy = vi.fn()
 
-    constructor(public options: any) {
+    constructor(public options: MockThingsVisClientOptions) {
       hoisted.clientInstances.push(this)
     }
   }
@@ -76,6 +101,17 @@ vi.mock('@/utils/storage', () => ({
 
 import ThingsVisWidget from './ThingsVisWidget.vue'
 import { THINGSVIS_COMPAT_ALIAS } from '@/utils/thingsvis/constants'
+
+// 归一化后节点在断言里只用到这些字段；用一个受控结构类型替代散落的显式 any。
+interface NormalizedWidgetNode {
+  id: string
+  props: Record<string, unknown>
+  data?: Array<{ targetProp: string }>
+  events?: Array<Record<string, unknown>>
+}
+
+const findNormalizedNode = (config: { nodes: unknown }, id: string): NormalizedWidgetNode | undefined =>
+  (config.nodes as NormalizedWidgetNode[]).find(node => node.id === id)
 
 const mountedWrappers: VueWrapper[] = []
 
@@ -196,10 +232,14 @@ const markClientReady = async (client = latestClient()) => {
 
 const dispatchWindowMessage = async (
   data: Record<string, unknown>,
-  source: any = latestClient()?.trustedSource,
+  source: { postMessage: (...args: unknown[]) => unknown } | null = latestClient()?.trustedSource ?? null,
   origin = 'https://studio.test'
 ) => {
-  window.dispatchEvent(new MessageEvent('message', { data, source, origin }))
+  // MessageEventInit.source 只收 DOM 自带的来源类型；测试里的 mock iframe 来源
+  // 结构兼容，这里做一次受控断言，避免给参数标 any。
+  window.dispatchEvent(
+    new MessageEvent('message', { data, source: source as unknown as MessageEventSource, origin })
+  )
   await flushAsync()
   return latestClient()?.postMessageToGuest as ReturnType<typeof vi.fn>
 }
@@ -291,7 +331,7 @@ describe('ThingsVisWidget.vue', () => {
       width: 616,
       height: 446
     })
-    expect(normalizedConfig.nodes.find((node: any) => node.id === 'history-chart').props.fontSizes).toMatchObject({
+    expect(findNormalizedNode(normalizedConfig, 'history-chart')?.props.fontSizes).toMatchObject({
       title: 16,
       legend: 12,
       axisLabel: 12,
@@ -299,7 +339,7 @@ describe('ThingsVisWidget.vue', () => {
       seriesLabel: 12,
       tooltip: 12
     })
-    expect(normalizedConfig.nodes.find((node: any) => node.id === 'model-3d-1').props).toMatchObject({
+    expect(findNormalizedNode(normalizedConfig, 'model-3d-1')?.props).toMatchObject({
       modelUrl: '/uploads/rdi-panel.glb',
       acceptedExtensions: ['.glb', '.gltf', '.obj', '.fbx', '.stl'],
       maxUploadSizeMb: 1000,
@@ -307,7 +347,7 @@ describe('ThingsVisWidget.vue', () => {
       autoRotate: true,
       backgroundColor: 'transparent'
     })
-    expect(normalizedConfig.nodes.find((node: any) => node.id === 'switch-1').events[0].actions).toEqual(
+    expect(findNormalizedNode(normalizedConfig, 'switch-1')?.events?.[0]?.actions).toEqual(
       expect.arrayContaining([
         { type: 'manualAction' },
         expect.objectContaining({
@@ -318,11 +358,11 @@ describe('ThingsVisWidget.vue', () => {
         })
       ])
     )
-    const camera = normalizedConfig.nodes.find((node: any) => node.id === 'camera-1')
-    expect(camera.props.spaceId).toBeUndefined()
-    expect(camera.props.busType).toBeUndefined()
-    expect(camera.props.ezopenUrl).toBeUndefined()
-    expect(camera.data.map((item: any) => item.targetProp)).toEqual(['accessToken', 'deviceSerial', 'channelNo'])
+    const camera = findNormalizedNode(normalizedConfig, 'camera-1')
+    expect(camera?.props.spaceId).toBeUndefined()
+    expect(camera?.props.busType).toBeUndefined()
+    expect(camera?.props.ezopenUrl).toBeUndefined()
+    expect(camera?.data?.map(item => item.targetProp)).toEqual(['accessToken', 'deviceSerial', 'channelNo'])
     expect(camera.events).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ event: 'playbackRequest' }),
@@ -335,7 +375,8 @@ describe('ThingsVisWidget.vue', () => {
 
   it('keeps existing chart font size overrides while filling missing defaults', async () => {
     const config = widgetConfig()
-    const chart = config.nodes.find((node: any) => node.id === 'history-chart') as any
+    const chart = findNormalizedNode(config, 'history-chart')
+    if (!chart) throw new Error('history-chart node missing from fixture')
     chart.props.fontSizes = { legend: 18, tooltip: 14 }
 
     await mountWidget({ config })
@@ -343,7 +384,7 @@ describe('ThingsVisWidget.vue', () => {
     await markClientReady(client)
 
     const [normalizedConfig] = client.loadWidgetConfig.mock.calls[0]
-    expect(normalizedConfig.nodes.find((node: any) => node.id === 'history-chart').props.fontSizes).toMatchObject({
+    expect(findNormalizedNode(normalizedConfig, 'history-chart')?.props.fontSizes).toMatchObject({
       title: 16,
       legend: 18,
       axisLabel: 12,
@@ -355,7 +396,8 @@ describe('ThingsVisWidget.vue', () => {
 
   it('keeps saved 3D model options while filling upload and viewer defaults', async () => {
     const config = widgetConfig()
-    const model = config.nodes.find((node: any) => node.id === 'model-3d-1') as any
+    const model = findNormalizedNode(config, 'model-3d-1')
+    if (!model) throw new Error('model-3d-1 node missing from fixture')
     model.props.acceptedExtensions = ['.glb']
     model.props.maxUploadSizeMb = 200
     model.props.cameraControls = false
@@ -366,7 +408,7 @@ describe('ThingsVisWidget.vue', () => {
     await markClientReady(client)
 
     const [normalizedConfig] = client.loadWidgetConfig.mock.calls[0]
-    expect(normalizedConfig.nodes.find((node: any) => node.id === 'model-3d-1').props).toMatchObject({
+    expect(findNormalizedNode(normalizedConfig, 'model-3d-1')?.props).toMatchObject({
       modelUrl: '/uploads/rdi-panel.glb',
       acceptedExtensions: ['.glb'],
       maxUploadSizeMb: 200,
@@ -416,8 +458,8 @@ describe('ThingsVisWidget.vue', () => {
     await markClientReady(client)
 
     const [normalizedConfig] = client.loadWidgetConfig.mock.calls[0]
-    const camera = normalizedConfig.nodes.find((node: any) => node.id === 'camera-1')
-    expect(camera.props).toMatchObject({ spaceId: 'tenant-space', busType: 'tenant-bus' })
+    const camera = findNormalizedNode(normalizedConfig, 'camera-1')
+    expect(camera?.props).toMatchObject({ spaceId: 'tenant-space', busType: 'tenant-bus' })
   })
 
   it('keeps compatibility EZUIKit playback defaults behind an explicit env switch', async () => {
@@ -428,15 +470,16 @@ describe('ThingsVisWidget.vue', () => {
     await markClientReady(client)
 
     const [normalizedConfig] = client.loadWidgetConfig.mock.calls[0]
-    const camera = normalizedConfig.nodes.find((node: any) => node.id === 'camera-1')
-    expect(camera.props).toMatchObject({ spaceId: '361254', busType: '7' })
+    const camera = findNormalizedNode(normalizedConfig, 'camera-1')
+    expect(camera?.props).toMatchObject({ spaceId: '361254', busType: '7' })
   })
 
   it('does not overwrite saved EZUIKit playback props', async () => {
     vi.stubEnv('VITE_EZUIKIT_DEFAULT_SPACE_ID', 'tenant-space')
     vi.stubEnv('VITE_EZUIKIT_DEFAULT_BUS_TYPE', 'tenant-bus')
     const config = widgetConfig()
-    const camera = config.nodes.find((node: any) => node.id === 'camera-1')
+    const camera = findNormalizedNode(config, 'camera-1')
+    if (!camera) throw new Error('camera-1 node missing from fixture')
     camera.props.spaceId = 'saved-space'
     camera.props.busType = 'saved-bus'
     await mountWidget({ config })
@@ -445,8 +488,8 @@ describe('ThingsVisWidget.vue', () => {
     await markClientReady(client)
 
     const [normalizedConfig] = client.loadWidgetConfig.mock.calls[0]
-    const normalizedCamera = normalizedConfig.nodes.find((node: any) => node.id === 'camera-1')
-    expect(normalizedCamera.props).toMatchObject({ spaceId: 'saved-space', busType: 'saved-bus' })
+    const normalizedCamera = findNormalizedNode(normalizedConfig, 'camera-1')
+    expect(normalizedCamera?.props).toMatchObject({ spaceId: 'saved-space', busType: 'saved-bus' })
   })
 
   it('keeps configured platform data source device ids when viewer context has a preview device', async () => {
