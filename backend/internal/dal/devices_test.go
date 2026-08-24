@@ -505,6 +505,12 @@ func setupDeviceDALTestDB(t *testing.T) *gorm.DB {
 	if err := db.AutoMigrate(&model.Device{}, &model.DeviceConfig{}, &model.TelemetryCurrentData{}, &model.LatestDeviceAlarm{}, &model.DeviceStatusHistory{}); err != nil {
 		t.Fatalf("migrate test tables: %v", err)
 	}
+	// 凭证哈希存储 Phase 1（references/backend-hardening-plan.md 车道1）：voucher_hash 列由
+	// 50.sql 迁移负责且 gen 模型无该字段，内存库按生产 schema 手工补列，否则双模式匹配与
+	// 二段式写入（dal.GetDeviceByVoucher/CheckVoucherExists/writeVoucherHashWithTx）会因缺列失败。
+	if err := db.Exec(`ALTER TABLE devices ADD COLUMN voucher_hash varchar(64)`).Error; err != nil {
+		t.Fatalf("add voucher_hash column: %v", err)
+	}
 	global.DB = db
 	query.SetDefault(db)
 	t.Cleanup(func() {

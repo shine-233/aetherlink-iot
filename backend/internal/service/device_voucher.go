@@ -18,10 +18,6 @@ import (
 
 // UpdateDeviceVoucher 更新设备凭证，校验唯一性后清理旧凭证缓存并按协议类型决定是否断连。
 func (*Device) UpdateDeviceVoucher(ctx context.Context, param *model.UpdateDeviceVoucherReq, claims *utils.UserClaims) (string, error) {
-	var (
-		db = dal.DeviceQuery{}
-	)
-
 	deviceInfo, voucher, voucherChanged, err := prepareVoucherUpdate(ctx, param, claims)
 	if err != nil {
 		return "", err
@@ -30,7 +26,7 @@ func (*Device) UpdateDeviceVoucher(ctx context.Context, param *model.UpdateDevic
 		return "", nil
 	}
 
-	info, err := persistAndReloadVoucher(ctx, db, param.DeviceID, voucher)
+	info, err := persistAndReloadVoucher(ctx, param.DeviceID, voucher)
 	if err != nil {
 		return voucher, err
 	}
@@ -81,7 +77,6 @@ func prepareVoucherUpdate(ctx context.Context, param *model.UpdateDeviceVoucherR
 // persistAndReloadVoucher 封装凭证更新后的数据库写入和回读。
 func persistAndReloadVoucher(
 	ctx context.Context,
-	db dal.DeviceQuery,
 	deviceID string,
 	voucher string,
 ) (*model.Device, error) {
@@ -90,12 +85,24 @@ func persistAndReloadVoucher(
 		ID:      deviceID,
 		Voucher: voucher,
 	}
-	if err := db.Update(ctx, info, device.Voucher); err != nil {
-		logrus.Error("[Device][UpdateDeviceVoucher] update failed")
+	// 凭证哈希存储 Phase 1（references/backend-hardening-plan.md 车道1）：gen 模型无
+	// VoucherHash 字段，二段式写入——凭证更新原样走 gen（Select 仅 voucher 列，语义
+	// 与 DeviceQuery.Update 一致），同事务内 raw 补 UPDATE voucher_hash；
+	// phase2 停写明文后此列成为唯一匹配依据。
+	if err := query.Q.Transaction(func(tx *query.Query) error {
+		if _, err := tx.Device.WithContext(ctx).
+			Where(device.ID.Eq(deviceID)).
+			Select(device.Voucher).
+			UpdateColumns(info); err != nil {
+			logrus.Error("[Device][UpdateDeviceVoucher] update failed")
+			return err
+		}
+		return dal.WriteVoucherHashInQueryTx(tx, []*model.Device{info})
+	}); err != nil {
 		return nil, err
 	}
 
-	reloaded, err := db.First(ctx, device.ID.Eq(deviceID))
+	reloaded, err := dal.DeviceQuery{}.First(ctx, device.ID.Eq(deviceID))
 	if err != nil {
 		logrus.Error("[Device][UpdateDeviceVoucher] reload failed")
 		return nil, err

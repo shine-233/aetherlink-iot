@@ -12,6 +12,7 @@ package dal
 import (
 	model "aetherlink-iot/backend/internal/model"
 	global "aetherlink-iot/backend/pkg/global"
+	utils "aetherlink-iot/backend/pkg/utils"
 
 	"github.com/sirupsen/logrus"
 )
@@ -64,9 +65,24 @@ func CheckDeviceNumbersExists(deviceNumbers []string) (map[string]bool, error) {
 }
 
 // CheckVoucherExists checks whether a voucher belongs to another device.
+// 凭证哈希存储 Phase 1（references/backend-hardening-plan.md 车道1）：双模式预检——
+// 先按 voucher_hash 计数（索引路径），未命中回落 voucher=? 明文计数；两列在写入侧
+// 二段式与回填下保持同值，命中任一即判定冲突，Phase 2 停写明文后移除兜底分支。
 func CheckVoucherExists(voucher string, excludeDeviceID string) (bool, error) {
 	var count int64
 	err := global.DB.Model(&model.Device{}).
+		Where("voucher_hash = ?", utils.VoucherStorageHash(voucher)).
+		Where("id <> ?", excludeDeviceID).
+		Count(&count).Error
+	if err != nil {
+		logrus.Error(err)
+		return false, err
+	}
+	if count > 0 {
+		return true, nil
+	}
+
+	err = global.DB.Model(&model.Device{}).
 		Where("voucher = ?", voucher).
 		Where("id <> ?", excludeDeviceID).
 		Count(&count).Error

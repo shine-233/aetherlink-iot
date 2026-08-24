@@ -14,6 +14,8 @@ import (
 	global "aetherlink-iot/backend/pkg/global"
 	utils "aetherlink-iot/backend/pkg/utils"
 
+	dal "aetherlink-iot/backend/internal/dal"
+
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"gorm.io/driver/postgres"
@@ -76,6 +78,14 @@ func PgInit() (*gorm.DB, error) {
 	// Apply schema upgrades before any subsystem starts querying the database.
 	if err := CheckVersion(db); err != nil {
 		return nil, fmt.Errorf("database migration failed: %w", err)
+	}
+
+	// 凭证哈希存储 Phase 1（references/backend-hardening-plan.md 车道1）：50.sql 只建
+	// devices.voucher_hash 列+索引，存量明文行的摘要由 Go 侧补齐（broker 多候选键序
+	// 兼容无法用纯 SQL 复刻）。回填幂等可重入；失败不阻断启动——双模式下明文列仍是
+	// 有效匹配兜底，下次启动自动续跑。
+	if err := dal.BackfillDeviceVoucherHash(db); err != nil {
+		logrus.Warnf("backfill devices.voucher_hash failed (will retry on next start): %v", err)
 	}
 
 	// casbin 初始化
