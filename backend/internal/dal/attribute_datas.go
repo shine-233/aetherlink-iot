@@ -8,6 +8,7 @@ package dal
 import (
 	model "aetherlink-iot/backend/internal/model"
 	query "aetherlink-iot/backend/internal/query"
+	"aetherlink-iot/backend/pkg/global"
 
 	"github.com/go-basic/uuid"
 	"gorm.io/gorm"
@@ -32,13 +33,18 @@ where devices.id = 'ca33926c-5ee5-3e9f-147e-94e188fde65b'
 // 根据设备ID获取设备属性数据列表并关联查到数据名称如以上sql
 func GetAttributeDataListWithDeviceName(deviceId string) ([]map[string]interface{}, error) {
 	var data []map[string]interface{}
-	err := query.AttributeData.
-		Select(query.AttributeData.ALL, query.DeviceModelAttribute.DataName, query.DeviceModelAttribute.Unit, query.DeviceModelAttribute.ReadWriteFlag, query.DeviceModelAttribute.DataType, query.DeviceModelAttribute.AdditionalInfo.As("enum")).
-		LeftJoin(query.Device, query.AttributeData.DeviceID.EqCol(query.Device.ID)).
-		LeftJoin(query.DeviceConfig, query.Device.DeviceConfigID.EqCol(query.DeviceConfig.ID)).
-		LeftJoin(query.DeviceTemplate, query.DeviceConfig.DeviceTemplateID.EqCol(query.DeviceTemplate.ID)).
-		LeftJoin(query.DeviceModelAttribute, query.DeviceTemplate.ID.EqCol(query.DeviceModelAttribute.DeviceTemplateID), query.AttributeData.Key.EqCol(query.DeviceModelAttribute.DataIdentifier)).
-		Where(query.Device.ID.Eq(deviceId)).Scan(&data)
+	// P1 修复（2026-08-24，见 VALIDATION.md）：五级链（attribute_datas→devices→
+	// device_configs→device_templates→device_model_attributes）列表改走 raw global.DB
+	// 链（clone==1 根，每次链式起点均为全新 Statement），杜绝包级单例 JOIN+Scan 在
+	// 高并发下跨请求残留 Statement 读到空/旧数据；JOIN 形态、投影列名与收敛前逐条一致。
+	err := global.DB.Table("attribute_datas AS ad").
+		Select("ad.*, dma.data_name, dma.unit, dma.read_write_flag, dma.data_type, dma.additional_info AS enum").
+		Joins("LEFT JOIN devices ON ad.device_id = devices.id").
+		Joins("LEFT JOIN device_configs dc ON devices.device_config_id = dc.id").
+		Joins("LEFT JOIN device_templates dt ON dt.id = dc.device_template_id").
+		Joins(`LEFT JOIN device_model_attributes dma ON dt.id = dma.device_template_id AND ad."key" = dma.data_identifier`).
+		Where("devices.id = ?", deviceId).
+		Scan(&data).Error
 	if err != nil {
 		return nil, err
 	}
