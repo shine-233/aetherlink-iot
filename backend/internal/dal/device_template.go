@@ -11,6 +11,7 @@ import (
 
 	model "aetherlink-iot/backend/internal/model"
 	query "aetherlink-iot/backend/internal/query"
+	global "aetherlink-iot/backend/pkg/global"
 	utils "aetherlink-iot/backend/pkg/utils"
 
 	"github.com/sirupsen/logrus"
@@ -63,13 +64,19 @@ func GetDeviceTemplateChartConfigByID(id, tenantID string) (*model.DeviceTemplat
 	return template, nil
 }
 
-// GetDeviceTemplateByDeviceId 根据设备ID获取物模型
+// GetDeviceTemplateByDeviceId 根据设备ID获取物模型。
+// gen 继承面收敛（2026-08-24）：原 query.Device/DeviceConfig/DeviceTemplate 三单例链在
+// 并发下继承残留 Statement（同 devices 列表读旧快照家族，CI 实证 /device/template/chart
+// 间歇 101001），改为 global.DB raw 链重建等价三表 LEFT JOIN；Scan 空行/nil id 的
+// 兼容分支逐字节保留。
 func GetDeviceTemplateByDeviceId(deviceId string) (any, error) {
-	var d = query.Device
-	var t = query.DeviceTemplate
-	var dc = query.DeviceConfig
 	var rsp map[string]interface{}
-	err := d.LeftJoin(dc, dc.ID.EqCol(d.DeviceConfigID)).LeftJoin(t, t.ID.EqCol(dc.DeviceTemplateID)).Where(d.ID.Eq(deviceId)).Select(t.ALL).Scan(&rsp)
+	err := global.DB.Table("devices").
+		Joins("LEFT JOIN device_configs ON device_configs.id = devices.device_config_id").
+		Joins("LEFT JOIN device_templates ON device_templates.id = device_configs.device_template_id").
+		Where("devices.id = ?", deviceId).
+		Select("device_templates.*").
+		Scan(&rsp).Error
 	if err != nil {
 		return nil, err
 	}
