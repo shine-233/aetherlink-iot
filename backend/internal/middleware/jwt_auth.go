@@ -63,7 +63,10 @@ func isValidJWT(c *gin.Context, token string) bool {
 	requestID := c.GetString("X-Request-ID")
 	ctx := context.Background()
 
-	if global.REDIS == nil || global.REDIS.Get(ctx, token).Val() != "1" {
+	// P3 修复（2026-08-24，见 VALIDATION.md）：Redis 键统一使用 token 摘要（utils.TokenDigest），
+	// 不再把完整明文 JWT 落地为 Redis key。与 service 登录/登出/刷新和 WS 认证共用同一键空间。
+	tokenKey := utils.TokenDigest(token)
+	if global.REDIS == nil || global.REDIS.Get(ctx, tokenKey).Val() != "1" {
 		c.JSON(http.StatusUnauthorized, ErrorResponse{
 			Code:      ErrCodeTokenExpired,
 			Message:   "token has expired",
@@ -102,7 +105,7 @@ func isValidJWT(c *gin.Context, token string) bool {
 
 	timeout := viper.GetInt("session.timeout")
 	logrus.Debugf("refresh token expiration: %d minutes", timeout)
-	global.REDIS.Set(ctx, token, "1", time.Duration(timeout)*time.Minute)
+	global.REDIS.Set(ctx, tokenKey, "1", time.Duration(timeout)*time.Minute)
 
 	c.Set("claims", claims)
 	return true
@@ -175,11 +178,12 @@ func ValidateJWTUserStatus(ctx context.Context, claims *utils.UserClaims) (activ
 }
 
 // DeleteInvalidJWTToken 删除 Redis 中已失效的 JWT token，供 HTTP 与 WebSocket 认证链路复用。
+// 键必须与 isValidJWT 的写入侧一致：使用 utils.TokenDigest 摘要。
 func DeleteInvalidJWTToken(ctx context.Context, token string) {
 	if global.REDIS == nil {
 		return
 	}
-	if err := global.REDIS.Del(ctx, token).Err(); err != nil {
+	if err := global.REDIS.Del(ctx, utils.TokenDigest(token)).Err(); err != nil {
 		logrus.Warn("delete invalid jwt token from redis failed")
 	}
 }

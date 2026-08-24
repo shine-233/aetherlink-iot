@@ -188,7 +188,7 @@ watch(
 </script>
 
 <template>
-  <NModal v-model:show="modalVisible" preset="card" :title="title" class="w-700px">
+  <NModal v-model:show="modalVisible" preset="card" :title="title" :aria-label="title" class="w-700px">
     <NForm ref="formRef" label-placement="left" :label-width="120" :model="formModel" :rules="rules">
       <NGrid :cols="24" :x-gap="18">
         <NFormItemGridItem :span="24" :label="$t('page.apply.service.form.serviceName')" path="name">

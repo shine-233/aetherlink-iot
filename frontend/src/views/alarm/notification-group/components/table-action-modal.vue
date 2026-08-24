@@ -167,7 +167,7 @@ const handleAddMember = () => {
 </script>
 
 <template>
-  <NModal v-model:show="modalVisible" preset="card" :title="title" @on-after-leave="closeModal">
+  <NModal v-model:show="modalVisible" preset="card" :title="title" :aria-label="title" @on-after-leave="closeModal">
     <NForm ref="formRef" label-placement="left" :label-width="120" :model="formModel" :rules="rules">
       <NFormItem path="name" :label="$t('generate.notification-group-name')">
         <NInput v-model:value="formModel.name" />

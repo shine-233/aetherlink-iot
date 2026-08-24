@@ -98,6 +98,7 @@
   "device_template.table_header.PleaseEeventIdentifier": "请输入事件标识符",
   "device_template.table_header.setEnum": "设置枚举项",
   "device_template.table_header.addEnum": "添加枚举项",
+  "device_template.table_header.pleaseAddEnumItem": "请添加枚举项！",
   "device_template.table_header.enumDataType": "枚举数据类型",
   "device_template.table_header.enumDataValue": "枚举值",
   "device_template.table_header.enumDescription": "枚举描述",
