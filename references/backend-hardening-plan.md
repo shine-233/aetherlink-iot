@@ -16,7 +16,7 @@
 | TLS 开发路径 | deploy/gen-mqtt-certs.ps1/.sh + deploy/README.md 启用小节 + .gitignore certs | 默认仍关闭；三步启用 8883（gen → 配置取消注释+挂载 → doctor） |
 | /files 路径穿越回归锁定 | backend/router/files_traversal_test.go | 判定**不可穿越**：resolver 拒绝 `..`/`\`/`:`/`//` + os.OpenRoot 系统调用级限制 + 仅常规文件下发；14 向量 httptest + AST 契约钉死 handler 不得退化为 c.File/ServeFile |
 
-## 车道 1：设备凭证哈希存储（Phase 1 已落地【本批 2026-08-24】；Phase 2 待办）
+## 车道 1：设备凭证哈希存储（Phase 1 + Phase 2b 已落地【本批 2026-08-24】；展示面收尾待办）
 
 目标：devices.voucher 列从明文 JSON 改为哈希存储。当前为审查确认的高危面（DB/备份泄露=全部设备可冒充）。
 
@@ -29,10 +29,38 @@
 - 测试：backend dal 层 dual-mode 单测（sqlite 内存库默认运行；PG 用例按 `AETHERLINK_TEST_PSQL_DSN` 门控照 devices_isolation_test.go 风格）；broker `plugin/aetherlink/db_test.go` 增补 DSN 门控 dual-mode 三用例（canonical JSON 命中 hash 列 / 键序不同候选命中明文兜底 / 双未命中 NotFound）。
 - 明文列与全部展示/API 响应字段保持原样（phase2 处理）。
 
-### Phase 2 待办（展示面改造 + 停写明文）
+### Phase 2a 已落地（本批 2026-08-24：展示面/API/导出曝光面收缩）
+
+- 掩码工具：`backend/pkg/utils/mask.go` `MaskVoucher`（>12 字符取前 10 字符+…；≤12 整体替换 `******`），单测锁定三分支。
+- 详情掩码：`service/device_detail.go GetDeviceByIDV1` 组装时把 voucher 替换为掩码并新增响应字段 `voucher_masked=true`；共享只读视图 allowlist 本就不含 voucher，不受影响。
+- 导出脱敏：`service/device_preregister_export.go` Excel 列值改掩码，表头备注"已脱敏，完整凭证仅创建时可见"。
+- 网关注册重复回显：`device_gateway_register.go buildExistingGatewayRegisterRes` 的 MqttUsername/MqttPassword 改掩码；`GatewayRegisterRes` 新增 `credentials_rotated_hint`（首次注册 true=明文一次性回显；重复注册 false=掩码）。
+- 插件回执决策：**保留明文**（protocol_plugin.go 单设备/子设备回执 + dal/device_protocol_plugin.go 列表）。依据见下方遗留清单第 2 条；列入长期数据源专项。
+- 一次性回显面保持不变：POST /device、批量创建、device/auth 领取、更新凭证响应仍返回完整凭证。
+- 前端降级：join.vue 以 `voucher_masked` 或"…"结尾判定脱敏态→隐藏凭证表单与保存按钮、显示轮换指引（i18n `custom.device.accessGuide.maskedNotice` 四语言）；device-access-guide-state 新增 parseDeviceVoucherPayload/isMaskedVoucherText 与 credentialsUnavailable 分支（mosquitto 占位提示命令）；DeviceAccessGuide 密码瓦片/快速开始复制入口脱敏态关闭；triage 支持包标记 password=<masked-after-creation>。useHomeFirstDeviceWorkbench 核对结论：其凭证来源是连接指南 profile（无密码）+ 服务端模拟接口，不读详情 voucher，无需改动。
+- oracle 同步：seed_data.js Ready Check 模拟器优先从创建响应取凭证（detail 掩码时明确 blocked 原因）；synthetic-rdi 运行器按 lib/synthetic_rdi_contract.js 确定性契约重建夹具凭证（seed 与 runner 共用），不再读详情明文。
+
+### Phase 2b 已落地（同日第二批次：停写明文 + 网页测试缓存）
+
+- **写侧停明文**（收口点 `dal/device_voucher_hash.go writeVoucherHashWithTx`）：六处写路径提交后的行状态 voucher 列一律空串（列 NOT NULL DEFAULT ''），voucher_hash 照旧写入。具体形态：
+  - 创建类五路径（device_create、device_batch_create、device_auth、gateway_register 网关注册与子设备注册，全部经 `dal/devices.go createDevicesWithDefaultRootGroup`）：gen INSERT 前克隆行置 Voucher=""，明文不进任何落库语句；
+  - 凭证轮换路径（device_voucher.go persistAndReloadVoucher）：删除原 gen Select(voucher) 回写，同事务内由收口点单条 raw UPDATE 完成"写 hash + voucher 列置空"，明文不出现在落库语句中。
+  - struct 内存明文保留：device_auth / gateway_register 首次响应的一次性明文不受影响；单建/批量创建 API 响应仍回生成时明文（一次性展示语义）。
+- **读侧 dual-mode 不动**：GetDeviceByVoucher / CheckVoucherExists / broker lookupDeviceByVoucher 仍 hash 优先、明文兜底；新行明文列为空自然走 hash 命中。BackfillDeviceVoucherHash 只补 hash，不动存量明文列。
+- **网页测试缓存**（`dal/device_credential_cache.go`）：键 `aetherlink:device_cred_test_cache:<deviceID>`，TTL 24h（`DeviceCredentialTestCacheTTL`）。`StoreDeviceCredentialTestCache` 在六写路径的 hash 收口点逐设备调用；失败仅 Warn 不阻断——缓存是 UX 增强，不是一致性依赖。`LoadDeviceCredentialTestCache` 对 miss/Redis 故障统一 fail-closed 归一 `ErrCredentialCacheMiss`。包级 seam `dal.DeviceCredentialCacheStore` 供单测注入假实现。
+- **模拟器读侧切换**（telemetry_simulation.go ×3：ServeEchoData / GetSimulationInit / SimulationSend）：从 deviceInfo.Voucher 改为 LoadDeviceCredentialTestCache；miss → `CodeNotFound(100404)` + message `"device credential test cache expired or absent; rotate the voucher to regenerate test credentials"`。IsJSON 及后续解析逻辑保持。**模拟器 24h 产品语义**：设备创建/轮换后 24h 内可直接网页连通性测试；缓存过期不代表凭证失效（真实认证走 voucher_hash），仅网页测试入口需轮换凭证重新获取。存量行（列有明文但无缓存条目）同样返回该错误——需轮换一次凭证以重建测试窗口。
+- 测试：dual-mode 创建用例改为断言"明文列为空 + hash 已写 + 批量逐设备缓存写入"；新增 cache helper 键/TTL/fail-closed 单测与模拟器 miss/hit 单测（service 层）。
+
+#### 遗留明文消费方清单（rg `.Voucher` 全量复核，本批未改动，待确认后处理）
+
+1. **网关重复注册回显**（service/device_gateway_register.go buildExistingGatewayRegisterRes）：从 DB 行 voucher 解析 MQTT 凭证。存量行继续可用；2b 后新建网关重复注册将报"解析网关凭证失败"。建议切测试缓存 helper（受同样 24h 窗口约束），需产品确认。
+2. **插件回执保留明文的永久性依据**（service/protocol_plugin.go GetDeviceConfig/SubDevices 的 Voucher 字段、dal/device_protocol_plugin.go 直连列表投影）：非 MQTT 协议插件的凭证消费面无法哈希化/掩码——(a) 插件是经 API Key 认证的可信内部扩展面，需要真实凭证建立并校验设备连接；(b) 存储哈希不可逆，无法从 voucher_hash 还原供给插件；(c) 测试缓存仅 24h，无法支撑长生命周期插件的运行期取用。因此该面永久性依赖明文数据源，当前实现为读 voucher 列（存量行=明文，2b 新行=""），专项数据源决策挂账。
+3. **轮换/删除时的 broker 缓存键失效**（device_voucher.go handleUpdatedVoucherSideEffects、device_delete.go deleteDeviceVoucherCache，rdi.go 物理解绑复用）：按旧明文计算 VoucherCacheKey 删键。存量行照旧有效；2b 新行拿不到旧明文 → 换凭证/删设备后旧凭证最长可在 broker 缓存 TTL（1h）内继续认证。建议后续优先从测试缓存取旧明文删键（miss 时接受 ≤1h 残窗并告警），或 broker 增加按 device_id 的失效通道。
+4. **展示面收尾**：Phase 2a 已随本批重新落地（MaskVoucher/详情掩码/导出脱敏/网关注册重复回显掩码 + 前端四语言降级）；注意 2b 后新建行 detail.voucher 为空串、掩码函数对空串输出 `******`，与 `voucher_masked` 标记并存不冲突。
+
+### Phase 2 待办（展示面收尾 + 兼容期观测）
 
 - 兼容期收尾：观测双模式下明文兜底命中，归零后由后续迁移置空并 DROP 明文列。不可照搬 49.sql open_api_keys 的硬切先例（API key 可重生成，设备凭证烧在固件里）。
-- 停写明文：写入点（device_create.go、device_batch_create.go、device_voucher.go、device_auth.go、device_gateway_register.go）改为只落 voucher_hash。
 - 展示面产品决策清单（哈希化后无法回显，需改为"仅创建时一次性展示+轮换"语义）：
   - frontend/src/views/device/details/modules/join.vue:262-291（详情回显/编辑流）
   - frontend/src/views/device/details/modules/DeviceAccessGuide.vue:224-233（密码展示+复制）

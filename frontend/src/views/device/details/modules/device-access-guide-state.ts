@@ -1,4 +1,4 @@
-import { buildHttpCommands, buildMqttCommands } from './device-access-guide-command-test-code'
+import { buildHttpCommands, buildMaskedCredentialMqttCommand, buildMqttCommands } from './device-access-guide-command-test-code'
 import {
   findConnectInfoValue,
   inferProtocol,
@@ -8,6 +8,36 @@ import {
 } from './device-access-guide-endpoint-state'
 
 export { splitMqttEndpoint } from './device-access-guide-endpoint-state'
+
+// 凭证哈希 Phase 2a（references/backend-hardening-plan.md 车道1）：设备详情响应自本批次起
+// 只返回 MaskVoucher 掩码（前 10 字符 + …）。前端以「voucher_masked 标记」或「值以 … 结尾」
+// 判定脱敏态，凭证解析进入显式 unavailable 分支而不是抛错/静默空对象。
+export const MASKED_VOUCHER_SUFFIX = '…'
+
+export const isMaskedVoucherText = (value: unknown): boolean =>
+  typeof value === 'string' && value.trimEnd().endsWith(MASKED_VOUCHER_SUFFIX)
+
+export type DeviceCredentialAvailability =
+  | { status: 'ok'; credentials: Record<string, unknown> }
+  | { status: 'unavailable'; reason: 'masked' }
+
+// parseDeviceVoucherPayload 解析详情响应里的 voucher 字符串：
+//   - 掩码形态（以 … 结尾）→ 显式 unavailable/masked，调用方进入"凭证已脱敏"降级 UI；
+//   - 合法/非法 JSON → 沿用既有宽松语义返回 credentials（解析失败为空对象，不抛错）。
+export const parseDeviceVoucherPayload = (raw: string | undefined | null): DeviceCredentialAvailability => {
+  const text = String(raw || '')
+  if (isMaskedVoucherText(text)) {
+    return { status: 'unavailable', reason: 'masked' }
+  }
+  try {
+    const parsed = JSON.parse(text || '{}') as Record<string, unknown>
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? { status: 'ok', credentials: parsed }
+      : { status: 'ok', credentials: {} }
+  } catch {
+    return { status: 'ok', credentials: {} }
+  }
+}
 
 export type DeviceAccessGuideCommand = {
   titleKey: string
@@ -89,6 +119,9 @@ export type DeviceAccessGuideState = {
   controlTopic: string
   payload: string
   lastError: string
+  // credentialsUnavailable=true 表示凭证在服务端已脱敏（Phase 2a）：
+  // state 不携带任何可用明文，测试命令为占位提示命令。
+  credentialsUnavailable: boolean
   diagnostics: DeviceAccessGuideDiagnosticItem[]
   tlsHintKey: string
   quickstartSteps: DeviceAccessGuideQuickstartStep[]
@@ -613,12 +646,22 @@ const summarizeConnectionGuideDiagnostics = (
   }
 }
 
+export type DeviceAccessGuideStateOptions = {
+  // credentialsUnavailable：详情响应的凭证为掩码形态（voucher_masked / … 结尾）。
+  // true 时测试命令降级为占位提示命令，authMode 标记 UNAVAILABLE，不再生成可执行凭证明文。
+  credentialsUnavailable?: boolean
+}
+
+const MASKED_AUTH_MODE = 'UNAVAILABLE (MASKED)'
+
 export const buildDeviceAccessGuideState = (
   connectInfo: Record<string, unknown>,
   deviceNumber: string,
   credentials: Record<string, unknown> = {},
-  diagnosticsInput: DeviceAccessGuideDiagnosticsSummary | string = ''
+  diagnosticsInput: DeviceAccessGuideDiagnosticsSummary | string = '',
+  options: DeviceAccessGuideStateOptions = {}
 ): DeviceAccessGuideState => {
+  const credentialsUnavailable = options.credentialsUnavailable === true
   const diagnostics = normalizeDiagnosticsInput(diagnosticsInput)
   const endpoint = findConnectInfoValue(connectInfo, [
     (key, value) =>
@@ -666,12 +709,23 @@ export const buildDeviceAccessGuideState = (
   const safeReportTopic = reportTopic || 'devices/telemetry'
   const safeControlTopic = controlTopic || `devices/telemetry/control/${safeDeviceNumber}`
   const safeUsername = username || (endpointKind === 'http' ? '<access-token>' : '<mqtt-username>')
-  const safePassword = password || ''
+  // 脱敏态下 state 一律不携带明文口令（credentials 里即便混入也强制丢弃）。
+  const safePassword = credentialsUnavailable ? '' : password || ''
   const safeClientId = clientId || safeUsername || safeDeviceNumber
   const safeEndpoint = endpoint || (endpointKind === 'http' ? '<http-endpoint>' : `${mqtt.host}:${mqtt.port}`)
-  const authMode = safePassword ? 'BASIC' : 'ACCESS TOKEN / USERNAME'
-  const commands =
-    endpointKind === 'http'
+  const authMode = credentialsUnavailable ? MASKED_AUTH_MODE : safePassword ? 'BASIC' : 'ACCESS TOKEN / USERNAME'
+  const commands = credentialsUnavailable
+    ? [
+        buildMaskedCredentialMqttCommand({
+          host: mqtt.host,
+          port: mqtt.port,
+          clientId: safeClientId,
+          username: safeUsername,
+          reportTopic: safeReportTopic,
+          payload
+        })
+      ]
+    : endpointKind === 'http'
       ? buildHttpCommands(isHttpEndpoint(safeEndpoint) ? safeEndpoint : '<http-endpoint>', safeUsername, payload)
       : buildMqttCommands({
           endpoint: safeEndpoint,
@@ -701,6 +755,7 @@ export const buildDeviceAccessGuideState = (
     controlTopic: safeControlTopic,
     payload,
     lastError,
+    credentialsUnavailable,
     diagnostics: buildDiagnosticItems(diagnostics, lastError),
     tlsHintKey,
     quickstartSteps: buildQuickstartSteps({
@@ -710,7 +765,12 @@ export const buildDeviceAccessGuideState = (
       username: safeUsername,
       password: safePassword,
       commands
-    }),
+    }).map((step) =>
+      // 脱敏态不提供"复制凭证"入口：凭证不可见也不可复制，仅保留步骤说明。
+      credentialsUnavailable && step.titleKey === 'custom.device_details.accessGuideQuickstartCredential'
+        ? { ...step, copyText: undefined, copyLabelKey: undefined }
+        : step
+    ),
     commands,
     checks: [
       {
@@ -749,7 +809,8 @@ export const buildDeviceAccessGuideStateFromConnectionGuide = (
   deviceNumber: string,
   credentials: Record<string, unknown> = {},
   fallbackConnectInfo: Record<string, unknown> = {},
-  fallbackDiagnosticsInput: DeviceAccessGuideDiagnosticsSummary | string = ''
+  fallbackDiagnosticsInput: DeviceAccessGuideDiagnosticsSummary | string = '',
+  options: DeviceAccessGuideStateOptions = {}
 ): DeviceAccessGuideState => {
   const profileConnectInfo = connectInfoFromConnectionProfile(guide?.access?.connection_profile)
   const guideConnectInfo = normalizeRecord(guide?.access?.connection_info)
@@ -762,7 +823,8 @@ export const buildDeviceAccessGuideStateFromConnectionGuide = (
         : fallbackConnectInfo,
     deviceNumber,
     credentials,
-    guide ? summarizeConnectionGuideDiagnostics(guide, fallbackDiagnostics) : fallbackDiagnostics
+    guide ? summarizeConnectionGuideDiagnostics(guide, fallbackDiagnostics) : fallbackDiagnostics,
+    options
   )
   const tlsHintKey =
     guide?.access?.tls?.enabled === true

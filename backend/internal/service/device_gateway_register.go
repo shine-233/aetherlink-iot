@@ -98,6 +98,10 @@ func (*Device) GatewayRegister(req model.GatewayRegisterReq, claims *utils.UserC
 	return result, dal.CreateDevice(device)
 }
 
+// buildExistingGatewayRegisterRes 组装重复注册（网关已存在）的响应。
+// 凭证哈希 Phase 2a：重复注册属于"凭证已签发后的人读回显"，明文不再下发——
+// MqttUsername/MqttPassword 统一输出 MaskVoucher 掩码，credentials_rotated_hint=false
+// 明示本次未轮换；首次注册（buildNewGatewayRegisterDevice）仍一次性返回完整明文。
 func buildExistingGatewayRegisterRes(device *model.Device) (model.GatewayRegisterRes, error) {
 	var voucher model.DeviceVoucher
 	if err := json.Unmarshal([]byte(device.Voucher), &voucher); err != nil {
@@ -108,9 +112,12 @@ func buildExistingGatewayRegisterRes(device *model.Device) (model.GatewayRegiste
 	}
 
 	return model.GatewayRegisterRes{
-		MqttUsername: voucher.Username,
-		MqttPassword: voucher.Password,
+		MqttUsername: utils.MaskVoucher(voucher.Username),
+		MqttPassword: utils.MaskVoucher(voucher.Password),
 		MqttClientId: device.ID,
+		// false = 本次为重复注册，未发生凭证轮换，响应不含可用明文；
+		// 调用方应以 hint 字段而非掩码形态判断凭证可用性。
+		CredentialsRotatedHint: false,
 	}, nil
 }
 
@@ -119,6 +126,8 @@ func buildNewGatewayRegisterDevice(req model.GatewayRegisterReq, claims *utils.U
 		MqttUsername: uuid.New()[0:22],
 		MqttPassword: uuid.New()[0:7],
 		MqttClientId: uuid.New(),
+		// true = 首次注册即本轮换，username/password 为刚签发的完整明文（一次性回显）。
+		CredentialsRotatedHint: true,
 	}
 	t := time.Now().UTC()
 

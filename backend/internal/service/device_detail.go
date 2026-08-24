@@ -14,6 +14,10 @@ import (
 )
 
 // GetDeviceByIDV1 returns the API detail view for one device.
+// 凭证哈希 Phase 2a（references/backend-hardening-plan.md 车道1）：详情响应不再回传明文
+// voucher——组装时统一替换为 MaskVoucher 掩码并附带 voucher_masked=true；完整凭证仅在
+// 创建/轮换响应中一次性回显。共享只读视图（minimizeSharedDeviceDetail）本就按 allowlist
+// 丢弃 voucher，掩码键同样不会进入共享视图。
 func (*Device) GetDeviceByIDV1(id string, claims *utils.UserClaims) (map[string]interface{}, error) {
 	device, err := ensureTelemetryDeviceReadAccess(id, claims)
 	if err != nil {
@@ -25,6 +29,8 @@ func (*Device) GetDeviceByIDV1(id string, claims *utils.UserClaims) (map[string]
 		return nil, err
 	}
 
+	maskDeviceDetailVoucher(data)
+
 	if err := attachDeviceDetailEnrichment(data, id); err != nil {
 		return nil, err
 	}
@@ -33,6 +39,18 @@ func (*Device) GetDeviceByIDV1(id string, claims *utils.UserClaims) (map[string]
 	}
 
 	return data, nil
+}
+
+// maskDeviceDetailVoucher 就地把详情快照中的明文 voucher 替换为掩码形态，
+// 并标记 voucher_masked=true 供前端进入"凭证已脱敏"降级态。
+// 无 voucher 键或空值时不添加掩码键，保持无凭证设备的既有响应形状。
+func maskDeviceDetailVoucher(data map[string]interface{}) {
+	raw, ok := data["voucher"].(string)
+	if !ok || raw == "" {
+		return
+	}
+	data["voucher"] = utils.MaskVoucher(raw)
+	data["voucher_masked"] = true
 }
 
 var sharedDeviceDetailFields = map[string]struct{}{

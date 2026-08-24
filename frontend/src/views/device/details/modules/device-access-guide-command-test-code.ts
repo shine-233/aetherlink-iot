@@ -71,8 +71,33 @@ MQTTClient_publish(client, "${cString(options.reportTopic)}", ${options.payload.
   ]
 }
 
-export const buildHttpCommands = (endpoint: string, username: string, payload: string): DeviceAccessGuideCommand[] => {
-  const authHeader = username && !username.startsWith('<') ? ` -H "Authorization: Bearer ${username}"` : ''
+const MASKED_CREDENTIAL_PLACEHOLDER_PASSWORD = '<your-mqtt-password>'
+
+// buildMaskedCredentialMqttCommand 生成凭证脱敏态（credentialsUnavailable）的占位提示命令：
+// 平台自凭证哈希 Phase 2a 起不再回显明文凭证，测试命令只能以占位口令提示运维者
+// "先完成凭证轮换、再填入口令执行"。占位值以 <> 包裹，复制后无法直接认证成功。
+export const buildMaskedCredentialMqttCommand = (options: {
+  host: string
+  port: string
+  clientId: string
+  username: string
+  reportTopic: string
+  payload: string
+}): DeviceAccessGuideCommand => {
+  const clientIdOption = options.clientId ? ` -i "${options.clientId}"` : ''
+  const usernameOption = options.username ? ` -u "${options.username}"` : ''
+  return {
+    titleKey: 'custom.device_details.accessGuideMosquitto',
+    language: 'bash',
+    code: [
+      '# Credentials are masked after creation (one-time display at create/rotate only).',
+      '# Rotate the voucher first, then replace <your-mqtt-password> below.',
+      `mosquitto_pub -h ${options.host} -p ${options.port}${clientIdOption}${usernameOption} -P "${MASKED_CREDENTIAL_PLACEHOLDER_PASSWORD}" -t "${options.reportTopic}" -m '${shellQuote(options.payload)}'`
+    ].join('\n')
+  }
+}
+
+export const buildHttpCommands = (endpoint: string, username: string, payload: string): DeviceAccessGuideCommand[] => {  const authHeader = username && !username.startsWith('<') ? ` -H "Authorization: Bearer ${username}"` : ''
   const nodeAuthHeader = username && !username.startsWith('<') ? `,\n    authorization: 'Bearer ${username}'` : ''
   const pythonAuthHeader =
     username && !username.startsWith('<') ? `\nheaders['authorization'] = 'Bearer ${username}'` : ''

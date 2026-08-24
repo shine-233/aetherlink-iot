@@ -18,6 +18,10 @@ const (
 	preRegisterExportBatchSize = 5000
 	preRegisterExportMaxRows   = 200000
 	preRegisterExportSheetName = "Sheet1"
+	// preRegisterVoucherColumnHeader 凭证哈希 Phase 2a（references/backend-hardening-plan.md 车道1）：
+	// 预注册导出属于批量人读面，明文 voucher 不再落表；列值统一 MaskVoucher 掩码，
+	// 表头备注向使用者声明完整凭证仅创建时一次性可见。
+	preRegisterVoucherColumnHeader = "voucher(已脱敏，完整凭证仅创建时可见)"
 )
 
 // ExportDevicePreRegister writes pre-registered device rows to an Excel file.
@@ -76,7 +80,7 @@ func writePreRegisterExportFile(req model.ExportPreRegisterReq, tenantID string)
 	if err != nil {
 		return "", err
 	}
-	if err := streamWriter.SetRow("A1", []interface{}{"batchNumber", "voucher", "deviceNumber"}); err != nil {
+	if err := streamWriter.SetRow("A1", []interface{}{"batchNumber", preRegisterVoucherColumnHeader, "deviceNumber"}); err != nil {
 		return "", err
 	}
 
@@ -95,11 +99,7 @@ func writePreRegisterExportFile(req model.ExportPreRegisterReq, tenantID string)
 			if err != nil {
 				return "", err
 			}
-			if err := streamWriter.SetRow(cell, []interface{}{
-				preRegisterExportString(v.BatchNumber),
-				v.Voucher,
-				v.DeviceNumber,
-			}); err != nil {
+			if err := streamWriter.SetRow(cell, buildPreRegisterExportRow(v)); err != nil {
 				return "", err
 			}
 			rowNumber++
@@ -127,4 +127,14 @@ func preRegisterExportString(value *string) string {
 		return ""
 	}
 	return *value
+}
+
+// buildPreRegisterExportRow 组装单行导出单元格；voucher 列输出 MaskVoucher 掩码，
+// 保证任何导出批次（最大 20 万行）都不携带明文凭证。
+func buildPreRegisterExportRow(device *model.Device) []interface{} {
+	return []interface{}{
+		preRegisterExportString(device.BatchNumber),
+		utils.MaskVoucher(device.Voucher),
+		device.DeviceNumber,
+	}
 }

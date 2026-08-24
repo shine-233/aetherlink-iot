@@ -109,7 +109,10 @@ func protocolPluginDeviceSelectFields() []field.Expr {
 
 func buildProtocolPluginDeviceConfig(row protocolPluginDeviceRow) model.DeviceConfigForProtocolPlugin {
 	return model.DeviceConfigForProtocolPlugin{
-		ID:                     row.ID,
+		ID: row.ID,
+		// Voucher 明文保留：/plugin/devices 列表与 /plugin/device/config 回执同属机器对机器
+		// 凭证分发契约，插件以设备身份桥接上行依赖此 MQTT 凭证；掩码决策见
+		// service/protocol_plugin.go buildProtocolPluginBaseResponse（Phase 2b 产品决策另行处理）。
 		Voucher:                row.Voucher,
 		DeviceNumber:           row.DeviceNumber,
 		DeviceType:             row.DeviceType,

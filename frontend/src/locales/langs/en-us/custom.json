@@ -659,6 +659,7 @@
   "custom.device_details.accessGuideQuickstartCopyCredential": "Copy credentials",
   "custom.device_details.accessGuideQuickstartCopyTestCommand": "Copy test command",
   "custom.device_details.accessGuideUnsavedVoucherCopyBlocked": "Save credential changes before copying connection parameters or test commands.",
+  "custom.device.accessGuide.maskedNotice": "Credentials are masked: for security, the full credentials are shown only once at creation or rotation. To re-provision this device, rotate the voucher (update credential) and use the one-time value returned by that action.",
   "custom.device_details.accessGuideProtocol": "Protocol",
   "custom.device_details.accessGuideAuthMode": "Auth mode",
   "custom.device_details.accessGuideEndpoint": "Endpoint",

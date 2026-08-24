@@ -14,6 +14,8 @@ const crypto = require('crypto');
 const fs = require('fs');
 const { spawn } = require('child_process');
 
+const { syntheticRdiFixtureVoucher } = require('../lib/synthetic_rdi_contract');
+
 const ALLOWED_HOST = '127.0.0.1';
 const DEFAULT_ALLOWED_PORT = '55432';
 const DEFAULT_DATABASE = 'aetherlink_iot_local';
@@ -316,10 +318,9 @@ async function seed(options, pid) {
   const fixtureId = `${pid}-${crypto.randomBytes(4).toString('hex')}`;
   const now = new Date().toISOString();
   const additionalInfo = fixtureInfo(pid, fixtureId);
-  const voucher = JSON.stringify({
-    username: `synthetic-rdi-${fixtureId}`,
-    password: 'not-a-device-secret'
-  });
+  // 凭证哈希 Phase 2a：voucher 走 lib/synthetic_rdi_contract.js 的确定性契约，
+  // 运行器（run_synthetic_rdi_protocol_validation.js）按同一契约重建，不再读详情接口。
+  const voucher = JSON.stringify(syntheticRdiFixtureVoucher(fixtureId));
   const sql = [
     'INSERT INTO public.devices (',
     'id, name, voucher, tenant_id, is_enabled, owner_user_id, activate_flag,',

@@ -676,6 +676,7 @@
   "custom.device_details.accessGuideQuickstartCopyCredential": "Copier identifiants",
   "custom.device_details.accessGuideQuickstartCopyTestCommand": "Copier commande de test",
   "custom.device_details.accessGuideUnsavedVoucherCopyBlocked": "Enregistrez les changements d'identifiants avant de copier les paramètres de connexion ou les commandes de test.",
+  "custom.device.accessGuide.maskedNotice": "Identifiants masqués : pour des raisons de sécurité, les identifiants complets ne sont affichés qu'une seule fois lors de la création ou de la rotation. Pour reconfigurer cet appareil, effectuez une rotation du voucher (mise à jour des identifiants) et utilisez la valeur unique renvoyée par cette action.",
   "custom.device_details.accessGuideProtocol": "Protocole",
   "custom.device_details.accessGuideAuthMode": "Mode d'authentification",
   "custom.device_details.accessGuideEndpoint": "Endpoint",
