@@ -99,7 +99,7 @@ defineExpose({ openModal })
 </script>
 
 <template>
-  <n-modal
+  <n-modal aria-label="dialog"
     v-model:show="serviceModal"
     preset="dialog"
     :title="`${$t('common.pluginConfig')}(${serviceType})`"

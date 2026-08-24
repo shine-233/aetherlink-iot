@@ -630,7 +630,7 @@ const handleWarningClick = (item: DeviceItem) => {
           :search-criteria="searchCriteria"
           :total="total"
         />
-        <NDataTable
+        <NDataTable aria-label="data table"
           v-else
           size="small"
           :row-props="rowProps"
