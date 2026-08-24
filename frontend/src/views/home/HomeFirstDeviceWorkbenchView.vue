@@ -136,7 +136,7 @@ const firstDevicePostReadyHandoff = computed(() =>
 const firstDeviceReadyNextGuideDescription = computed(() => {
   return (
     firstDevicePostReadyHandoff.value?.description ||
-    'Ê×Ò³ÒÑ¾­¿´µ½ÔÚÏß×´Ì¬¡¢×îĞÂÒ£²âºÍµÚÒ»ÕÅÍ¼±í£»ÏÖÔÚÕâÌ×½ÓÈë·½Ê½¿ÉÒÔ¼ÌĞø¸´ÖÆ¸ø¸ü¶àÉè±¸¡£'
+    'é¦–é¡µå·²ç»çœ‹åˆ°åœ¨çº¿çŠ¶æ€ã€æœ€æ–°é¥æµ‹å’Œç¬¬ä¸€å¼ å›¾è¡¨ï¼›ç°åœ¨è¿™å¥—æ¥å…¥æ–¹å¼å¯ä»¥ç»§ç»­å¤åˆ¶ç»™æ›´å¤šè®¾å¤‡ã€‚'
   )
 })
 const firstDeviceCoreGuideSummary = computed(() => buildFirstDeviceCoreGuideSummary(firstDeviceCoreGuideSteps.value))
@@ -144,11 +144,11 @@ const firstRunSetupBlockerStep = computed(
   () =>
     props.firstRunSetupBlockerStep || props.homeCustomerGuideProgress.find(step => step.id === 'setup') || null
 )
-const firstRunSetupBlockerTitle = computed(() => firstRunSetupBlockerStep.value?.title || 'ÏÈÍê³É×â»§³õÊ¼»¯')
+const firstRunSetupBlockerTitle = computed(() => firstRunSetupBlockerStep.value?.title || 'å…ˆå®Œæˆç§Ÿæˆ·åˆå§‹åŒ–')
 const firstRunSetupBlockerDescription = computed(
-  () => firstRunSetupBlockerStep.value?.description || 'ÇëÏÈÍê³É³õÊ¼»¯£¬ÔÙ»Øµ½ÕâÀïÉú³ÉµÚÒ»Ì¨Éè±¸¡£'
+  () => firstRunSetupBlockerStep.value?.description || 'è¯·å…ˆå®Œæˆåˆå§‹åŒ–ï¼Œå†å›åˆ°è¿™é‡Œç”Ÿæˆç¬¬ä¸€å°è®¾å¤‡ã€‚'
 )
-const firstRunSetupBlockerAction = computed(() => firstRunSetupBlockerStep.value?.action || 'È¥´¦Àí³õÊ¼»¯')
+const firstRunSetupBlockerAction = computed(() => firstRunSetupBlockerStep.value?.action || 'å»å¤„ç†åˆå§‹åŒ–')
 const deviceIdentitySectionRef = ref<HTMLElement | null>(null)
 const connectionTestViewportRef = ref<HTMLElement | null>(null)
 const connectionTestSectionRef = ref<{ connectionEl: HTMLElement | null; testCommandEl: HTMLElement | null } | null>(
@@ -331,7 +331,7 @@ const firstDeviceVerificationAction = computed(() =>
 const getFirstDeviceFlowNodeAction = node => {
   if (node.key === 'deployment') {
     return {
-      label: node.ok ? 'ÖØĞÂ¼ì²é' : '¼ì²é²¿Êğ',
+      label: node.ok ? 'é‡æ–°æ£€æŸ¥' : 'æ£€æŸ¥éƒ¨ç½²',
       disabled: false,
       loading: props.deploymentHealthLoading,
       run: () => emit('refreshDeploymentHealth')
@@ -340,13 +340,13 @@ const getFirstDeviceFlowNodeAction = node => {
   if (node.key === 'identity') {
     return props.firstDevice
       ? {
-          label: '´ò¿ª Ready Check',
+          label: 'æ‰“å¼€ Ready Check',
           disabled: false,
           loading: false,
           run: () => emit('openFirstDeviceAccessGuide')
         }
       : {
-          label: 'Éú³ÉÉè±¸',
+          label: 'ç”Ÿæˆè®¾å¤‡',
           disabled: props.firstRunCreateTenantRequired || !props.deploymentHealthOk,
           loading: props.firstRunCreateLoading,
           run: () => emit('createFirstRunFirstDevice')
@@ -355,14 +355,14 @@ const getFirstDeviceFlowNodeAction = node => {
   if (node.key === 'connection') {
     if (props.firstDeviceOnboardingGuard.canCopyCommand && activeFirstDeviceTestCommand.value?.code) {
       return {
-        label: '¸´ÖÆ²âÊÔÃüÁî',
+        label: 'å¤åˆ¶æµ‹è¯•å‘½ä»¤',
         disabled: false,
         loading: false,
         run: () => void copyActiveFirstDeviceTestCommand()
       }
     }
     return {
-      label: '´ò¿ª½ÓÈëÖ¸ÄÏ',
+      label: 'æ‰“å¼€æ¥å…¥æŒ‡å—',
       disabled: false,
       loading: false,
       run: () => emit('openFirstDeviceFullGuide')
@@ -371,13 +371,13 @@ const getFirstDeviceFlowNodeAction = node => {
   if (node.key === 'browser_test') {
     return props.firstDeviceOnboardingGuard.canRunBrowserTest
       ? {
-          label: node.ok ? 'ÔÙ´Î²âÊÔ' : 'ä¯ÀÀÆ÷²âÊÔ',
+          label: node.ok ? 'å†æ¬¡æµ‹è¯•' : 'æµè§ˆå™¨æµ‹è¯•',
           disabled: false,
           loading: props.firstDeviceActionLoading,
           run: () => emit('simulateFirstDeviceTelemetry')
         }
       : {
-          label: '´ò¿ª Ready Check',
+          label: 'æ‰“å¼€ Ready Check',
           disabled: false,
           loading: false,
           run: () => emit('openFirstDeviceAccessGuide')
@@ -385,14 +385,14 @@ const getFirstDeviceFlowNodeAction = node => {
   }
   if (node.key === 'online' || node.key === 'telemetry') {
     return {
-      label: '²é¿´ Ready Check',
+      label: 'æŸ¥çœ‹ Ready Check',
       disabled: false,
       loading: false,
       run: () => emit('openFirstDeviceAccessGuide')
     }
   }
   return {
-    label: node.ok ? '²é¿´½ÓÈëÖ¸ÄÏ' : '¼ÌĞø´¦Àí',
+    label: node.ok ? 'æŸ¥çœ‹æ¥å…¥æŒ‡å—' : 'ç»§ç»­å¤„ç†',
     disabled: false,
     loading: false,
     run: () => (node.ok ? emit('openFirstDeviceFullGuide') : runFirstDevicePrimaryAction())
@@ -487,7 +487,7 @@ const getFirstDeviceClosedLoopState = (key: string, done = false) => {
 
   return {
     state,
-    stateLabel: state === 'done' ? 'ÒÑÍê³É' : state === 'active' ? 'ÏÖÔÚ×ö' : 'µÈ´ı',
+    stateLabel: state === 'done' ? 'å·²å®Œæˆ' : state === 'active' ? 'ç°åœ¨åš' : 'ç­‰å¾…',
     stateType: state === 'done' ? 'success' : state === 'active' ? 'warning' : 'default'
   }
 }
@@ -513,9 +513,9 @@ const firstDeviceClosedLoopSteps = computed(() => {
       key: 'deployment',
       section: 'deployment',
       order: '01',
-      title: '²¿Êğ½¡¿µ',
-      detail: props.deploymentHealthOk ? 'Ç°¶Ë¡¢API¡¢DB¡¢Redis¡¢MQTT ¿ÉÓÃ' : 'ÏÈÈ·ÈÏ²¿Êğ×é¼ş¶¼Õı³£',
-      actionLabel: props.deploymentHealthOk ? 'ÖØĞÂ¼ì²é' : '¼ì²é²¿Êğ',
+      title: 'éƒ¨ç½²å¥åº·',
+      detail: props.deploymentHealthOk ? 'å‰ç«¯ã€APIã€DBã€Redisã€MQTT å¯ç”¨' : 'å…ˆç¡®è®¤éƒ¨ç½²ç»„ä»¶éƒ½æ­£å¸¸',
+      actionLabel: props.deploymentHealthOk ? 'é‡æ–°æ£€æŸ¥' : 'æ£€æŸ¥éƒ¨ç½²',
       disabled: false,
       loading: props.deploymentHealthLoading,
       ...deployment
@@ -524,11 +524,11 @@ const firstDeviceClosedLoopSteps = computed(() => {
       key: 'identity',
       section: 'device',
       order: '02',
-      title: '´´½¨²úÆ·/Éè±¸',
+      title: 'åˆ›å»ºäº§å“/è®¾å¤‡',
       detail: props.firstDevice
-        ? props.firstDevice.name || props.firstDevice.number || 'µÚÒ»Ì¨Éè±¸ÒÑÉú³É'
-        : 'Ò»¼üÉú³ÉÄ¬ÈÏ²úÆ·¡¢ÎïÄ£ĞÍºÍµÚÒ»Ì¨Éè±¸',
-      actionLabel: props.firstDevice ? '¶¨Î»Éè±¸ĞÅÏ¢' : 'Ò»¼üÉú³É',
+        ? props.firstDevice.name || props.firstDevice.number || 'ç¬¬ä¸€å°è®¾å¤‡å·²ç”Ÿæˆ'
+        : 'ä¸€é”®ç”Ÿæˆé»˜è®¤äº§å“ã€ç‰©æ¨¡å‹å’Œç¬¬ä¸€å°è®¾å¤‡',
+      actionLabel: props.firstDevice ? 'å®šä½è®¾å¤‡ä¿¡æ¯' : 'ä¸€é”®ç”Ÿæˆ',
       disabled: props.firstRunCreateTenantRequired || !props.deploymentHealthOk,
       loading: props.firstRunCreateLoading,
       ...identity
@@ -537,9 +537,9 @@ const firstDeviceClosedLoopSteps = computed(() => {
       key: 'connection',
       section: 'connection',
       order: '03',
-      title: '¸´ÖÆ MQTT/HTTP ²ÎÊı',
-      detail: activeFirstDeviceTestCommand.value?.label || 'µÈ´ıÁ¬½Ó²ÎÊıºÍ²âÊÔÃüÁî',
-      actionLabel: props.firstDeviceOnboardingGuard.canCopyCommand ? '¸´ÖÆ²âÊÔÃüÁî' : '¿´½ÓÈëÖ¸ÄÏ',
+      title: 'å¤åˆ¶ MQTT/HTTP å‚æ•°',
+      detail: activeFirstDeviceTestCommand.value?.label || 'ç­‰å¾…è¿æ¥å‚æ•°å’Œæµ‹è¯•å‘½ä»¤',
+      actionLabel: props.firstDeviceOnboardingGuard.canCopyCommand ? 'å¤åˆ¶æµ‹è¯•å‘½ä»¤' : 'çœ‹æ¥å…¥æŒ‡å—',
       disabled: !props.firstDevice,
       loading: false,
       ...connection
@@ -548,9 +548,9 @@ const firstDeviceClosedLoopSteps = computed(() => {
       key: 'browser_test',
       section: 'test',
       order: '04',
-      title: 'ä¯ÀÀÆ÷·¢²âÊÔÊı¾İ',
-      detail: props.firstDeviceBrowserTest?.message || '²»ÓÃÕæÊµÉè±¸£¬ÏÈÔÚä¯ÀÀÆ÷ÀïÄ£ÄâÉÏ±¨',
-      actionLabel: props.firstDeviceOnboardingGuard.canRunBrowserTest ? '·¢ËÍ²âÊÔ' : '´ò¿ª Ready Check',
+      title: 'æµè§ˆå™¨å‘æµ‹è¯•æ•°æ®',
+      detail: props.firstDeviceBrowserTest?.message || 'ä¸ç”¨çœŸå®è®¾å¤‡ï¼Œå…ˆåœ¨æµè§ˆå™¨é‡Œæ¨¡æ‹Ÿä¸ŠæŠ¥',
+      actionLabel: props.firstDeviceOnboardingGuard.canRunBrowserTest ? 'å‘é€æµ‹è¯•' : 'æ‰“å¼€ Ready Check',
       disabled: !props.firstDevice,
       loading: props.firstDeviceActionLoading,
       ...browserTest
@@ -559,9 +559,9 @@ const firstDeviceClosedLoopSteps = computed(() => {
       key: 'telemetry',
       section: 'chart',
       order: '05',
-      title: 'È·ÈÏÔÚÏß/Ò£²â/Ê×Í¼',
+      title: 'ç¡®è®¤åœ¨çº¿/é¥æµ‹/é¦–å›¾',
       detail: firstDeviceLatestProofText.value,
-      actionLabel: props.firstDeviceChart.ready ? '²é¿´Ê×Í¼' : 'Ë¢ĞÂÈ·ÈÏ',
+      actionLabel: props.firstDeviceChart.ready ? 'æŸ¥çœ‹é¦–å›¾' : 'åˆ·æ–°ç¡®è®¤',
       disabled: !props.firstDevice,
       loading: props.firstDeviceLoading,
       ...telemetry
@@ -570,9 +570,9 @@ const firstDeviceClosedLoopSteps = computed(() => {
       key: 'proof',
       section: 'proof',
       order: '06',
-      title: 'ÏÂÔØ³É¹¦Ö¤Ã÷',
-      detail: props.firstDeviceReadyProof.ready ? 'Éè±¸ÒÑ×¼±¸ºÃ£¬¿ÉÒÔ½»¸¶Ö¤Ã÷' : 'µÈËùÓĞÖ¤Ã÷Ïî±äÂÌºóÏÂÔØ',
-      actionLabel: props.firstDeviceReadyProof.ready ? 'ÏÂÔØÖ¤Ã÷' : '²é¿´È±¿Ú',
+      title: 'ä¸‹è½½æˆåŠŸè¯æ˜',
+      detail: props.firstDeviceReadyProof.ready ? 'è®¾å¤‡å·²å‡†å¤‡å¥½ï¼Œå¯ä»¥äº¤ä»˜è¯æ˜' : 'ç­‰æ‰€æœ‰è¯æ˜é¡¹å˜ç»¿åä¸‹è½½',
+      actionLabel: props.firstDeviceReadyProof.ready ? 'ä¸‹è½½è¯æ˜' : 'æŸ¥çœ‹ç¼ºå£',
       disabled: !props.firstDevice,
       loading: false,
       ...proof
