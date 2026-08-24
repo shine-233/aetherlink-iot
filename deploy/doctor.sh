@@ -315,7 +315,7 @@ check_weak_secret() {
   lower="$(printf '%s' "$value" | tr '[:upper:]' '[:lower:]')"
   weak=0
   case "$lower" in
-    ""|password|postgres|redis|admin|root|123456|aetherlink)
+    ""|password|postgres|redis|admin|root|123456|aetherlink|change_me*)
       weak=1
       ;;
   esac
@@ -333,9 +333,9 @@ check_weak_secret() {
   fi
 
   if [ "$weak" -eq 1 ]; then
-    add_check warning 0 "env-$name-weak-value" "$name looks like a weak/default value." "Use a unique random value, not password/postgres/redis/admin/root/123456 or a repeated character."
+    add_check error 0 "env-$name-weak-value" "$name looks like a weak/default value." "Use a unique random value, not password/postgres/redis/admin/root/123456, a repeated character, or a change_me placeholder."
   else
-    add_check warning 1 "env-$name-weak-value" "$name weak/default value check passed."
+    add_check error 1 "env-$name-weak-value" "$name weak/default value check passed."
   fi
 }
 

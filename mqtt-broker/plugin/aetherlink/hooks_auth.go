@@ -27,8 +27,21 @@ type mqttAuthenticatedClientBinding struct {
 
 func (t *AetherLinkPlugin) OnBasicAuthWrapper(pre server.OnBasicAuth) server.OnBasicAuth {
 	return func(ctx context.Context, client server.Client, req *server.ConnectRequest) (err error) {
+		remoteIP := mqttAuthRemoteIP(client)
+		// 入口检查：窗口内失败已达上限的来源 IP 在进入认证链路前直接拒绝，
+		// 拒绝本身不再计数，避免持续轰炸把封禁时间无限延长。
+		if !mqttAuthRateLimiter.allow(remoteIP) {
+			Log.Debug(
+				"mqtt auth rate limited",
+				zap.String("remote_ip", remoteIP),
+				zap.String("client_id", string(req.Connect.ClientID)),
+			)
+			return errMQTTAuthRateLimited
+		}
+
 		err = pre(ctx, client, req)
 		if err != nil {
+			mqttAuthRateLimiter.record(remoteIP)
 			Log.Error(err.Error())
 			return err
 		}
@@ -43,6 +56,9 @@ func (t *AetherLinkPlugin) OnBasicAuthWrapper(pre server.OnBasicAuth) server.OnB
 					Log.Warn("failed to remember mqtt system user binding",
 						zap.String("client_id", clientID), zap.Error(bindErr))
 				}
+			} else {
+				// 系统账号（root/plugin）密码错误同样计入来源 IP 失败次数。
+				mqttAuthRateLimiter.record(remoteIP)
 			}
 			return err
 		}
@@ -51,15 +67,18 @@ func (t *AetherLinkPlugin) OnBasicAuthWrapper(pre server.OnBasicAuth) server.OnB
 
 		voucher, err := buildMQTTVoucher(username, password)
 		if err != nil {
+			mqttAuthRateLimiter.record(remoteIP)
 			return err
 		}
 		device, err := GetDeviceByVoucher(voucher)
 		if err != nil {
+			mqttAuthRateLimiter.record(remoteIP)
 			handleMQTTAuthFailure(username, password, clientID, err)
 			return err
 		}
 		if err := ensureMQTTDeviceActive(device); err != nil {
 			forgetMQTTDeviceLookup(voucher, device)
+			mqttAuthRateLimiter.record(remoteIP)
 			handleMQTTAuthFailure(username, password, clientID, err)
 			return err
 		}

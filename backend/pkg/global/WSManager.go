@@ -1,6 +1,7 @@
 // 文件用途：实现设备维度 WebSocket 订阅管理、字段过滤和本实例推送。
 // 核心逻辑：维护 deviceID 到连接的内存索引，在 Redis 中记录订阅计数，并通过客户端发送队列非阻塞推送数据。
 // 关键注意事项：Send 缓冲区满时会丢弃消息以避免阻塞；Redis 订阅计数失败会影响多实例感知。
+// 生命周期：Redis Pub/Sub 监听循环支持 context 取消与幂等启停（StopListen），由应用停机序列显式调用。
 // 重构建议：后续可把 Redis 操作和连接写入抽象为接口，并补充连接关闭和订阅续期的统一生命周期管理。
 package global
 
@@ -17,10 +18,39 @@ import (
 
 var TPWSManager *WSManager
 
-// InitWSManager 初始化 WebSocket 管理器
+// InitWSManager 初始化 WebSocket 管理器。
+// 重复调用会先停止旧实例的监听循环再重建，避免旧监听协程成为无法回收的孤儿。
 func InitWSManager() {
+	if TPWSManager != nil {
+		TPWSManager.StopListen()
+	}
 	TPWSManager = NewWSManager()
 	go TPWSManager.ListenForEvents()
+}
+
+// managerListenStopTimeout 等待监听协程退出的停机预算，超时只告警不阻断停机序列。
+const managerListenStopTimeout = 5 * time.Second
+
+// wsPubSubReceiver 抽象监听循环对 Pub/Sub 的最小依赖，供生命周期测试注入假实现。
+type wsPubSubReceiver interface {
+	ReceiveMessage(ctx context.Context) (*redis.Message, error)
+	Close() error
+}
+
+// wsPubSubFactory 按订阅模式创建一个 Pub/Sub 接收器。
+type wsPubSubFactory func(ctx context.Context, pattern string) wsPubSubReceiver
+
+// waitPubSubBackoff 等待重连退避时间；ctx 取消时提前返回 false 以便立即退出循环。
+func waitPubSubBackoff(ctx context.Context, backoff time.Duration) bool {
+	timer := time.NewTimer(backoff)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return true
+	}
 }
 
 // WSManager WebSocket 管理器
@@ -29,6 +59,15 @@ type WSManager struct {
 	// 设备订阅: map[deviceID][connID]*WSClient
 	deviceClients map[string]map[string]*WSClient
 	mutex         sync.RWMutex
+
+	// 监听循环生命周期：listenMu 保护以下字段，listening 为 true 表示循环在运行。
+	listenMu   sync.Mutex
+	listening  bool
+	stopListen context.CancelFunc
+	listenDone chan struct{}
+
+	// pubSubFactory 默认基于 redisClient；测试可注入假实现以验证启停语义。
+	pubSubFactory wsPubSubFactory
 }
 
 // WSClient WebSocket 客户端
@@ -93,10 +132,14 @@ type WSEvent struct {
 
 // NewWSManager 创建 WebSocket 管理器
 func NewWSManager() *WSManager {
-	return &WSManager{
+	manager := &WSManager{
 		redisClient:   REDIS,
 		deviceClients: make(map[string]map[string]*WSClient),
 	}
+	manager.pubSubFactory = func(ctx context.Context, pattern string) wsPubSubReceiver {
+		return manager.redisClient.PSubscribe(ctx, pattern)
+	}
+	return manager
 }
 
 // SubscribeDevice 订阅设备
@@ -223,24 +266,69 @@ func (m *WSManager) PushToDevice(deviceID string, data map[string]interface{}) {
 	}
 }
 
-// ListenForEvents 监听 Redis Pub/Sub，使用指数退避重连
+// ListenForEvents 阻塞运行 Redis Pub/Sub 监听循环，直到 StopListen 被调用或
+// Redis 客户端不可用。幂等守卫：已在运行时直接返回，避免重复初始化叠加第二个
+// 监听协程导致事件重复投递。
 func (m *WSManager) ListenForEvents() {
+	m.listenMu.Lock()
+	if m.listening {
+		m.listenMu.Unlock()
+		return
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	m.listening = true
+	m.stopListen = cancel
+	m.listenDone = done
+	factory := m.pubSubFactory
+	m.listenMu.Unlock()
+
+	defer func() {
+		cancel()
+		m.listenMu.Lock()
+		m.listening = false
+		m.stopListen = nil
+		m.listenDone = nil
+		m.listenMu.Unlock()
+		close(done)
+	}()
+
+	if factory == nil && m.redisClient != nil {
+		factory = func(ctx context.Context, pattern string) wsPubSubReceiver {
+			return m.redisClient.PSubscribe(ctx, pattern)
+		}
+	}
+	if factory == nil {
+		logrus.Error("WebSocketManager cannot listen: redis client is not initialized")
+		return
+	}
+
+	logrus.Info("WebSocketManager started listening for Redis Pub/Sub events")
+	m.listenLoop(ctx, factory)
+}
+
+// listenLoop 是带指数退避重连的监听主体：ctx 取消后不再重连并立即返回，
+// 退避等待也从 time.Sleep 改为可取消的定时器，保证 StopListen 能及时生效。
+func (m *WSManager) listenLoop(ctx context.Context, factory wsPubSubFactory) {
 	const (
 		initialBackoff = 1 * time.Second
 		maxBackoff     = 30 * time.Second
 	)
 	backoff := initialBackoff
-	ctx := context.Background()
-
-	logrus.Info("WebSocketManager started listening for Redis Pub/Sub events")
 
 	for {
-		pubsub := m.redisClient.PSubscribe(ctx, "ws:device:*")
+		pubsub := factory(ctx, "ws:device:*")
 		for {
 			msg, err := pubsub.ReceiveMessage(ctx)
 			if err != nil {
+				_ = pubsub.Close()
+				if ctx.Err() != nil {
+					return
+				}
 				logrus.WithError(err).Warnf("WS: Redis pubsub error, reconnecting in %v", backoff)
-				time.Sleep(backoff)
+				if !waitPubSubBackoff(ctx, backoff) {
+					return
+				}
 				backoff = min(backoff*2, maxBackoff)
 				break
 			}
@@ -254,7 +342,41 @@ func (m *WSManager) ListenForEvents() {
 
 			m.PushToDevice(event.DeviceID, event.Data)
 		}
-		pubsub.Close()
+	}
+}
+
+// StopListen 取消监听循环并等待其退出；未启动或已停止时为幂等空操作。
+// 有界等待防止异常阻塞拖垮停机序列（与既有 worker 的停止语义一致）。
+func (m *WSManager) StopListen() {
+	m.listenMu.Lock()
+	cancel := m.stopListen
+	done := m.listenDone
+	m.stopListen = nil
+	m.listenDone = nil
+	m.listening = false
+	m.listenMu.Unlock()
+
+	if cancel == nil || done == nil {
+		return
+	}
+	cancel()
+
+	timer := time.NewTimer(managerListenStopTimeout)
+	defer timer.Stop()
+	select {
+	case <-done:
+		logrus.Info("WebSocketManager listener stopped")
+	case <-timer.C:
+		logrus.Warn("WebSocketManager listener stop timed out")
+	}
+}
+
+// StopWSManagerListener 停止全局 WS 管理器的监听循环；未初始化时空操作。
+// 供应用优雅停机序列调用：该监听协程不经 ServiceManager 托管，
+// 必须在关闭 Redis 客户端之前显式停止。
+func StopWSManagerListener() {
+	if TPWSManager != nil {
+		TPWSManager.StopListen()
 	}
 }
 

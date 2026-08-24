@@ -33,3 +33,12 @@ payload_schema:
   # Keep disabled until the deployment has migration 46 and has validated reject semantics.
   enabled: false
   cache_ttl: 30s
+
+auth_ratelimit:
+  # Per-IP sliding-window cap on authentication failures per minute. Successful
+  # auth never counts; once the cap is hit, further CONNECTs from that source IP
+  # are rejected before authentication until old failures age out of the window.
+  # Default is 30 when unset or invalid. In-memory only: limits reset on restart.
+  # 每来源 IP 每分钟认证失败上限的滑动窗口限速；成功不计数，超限后该 IP 的后续
+  # CONNECT 在认证前直接拒绝，旧失败滑出窗口后自动恢复。未配置或非法值时默认 30。
+  max_failures_per_minute: 30

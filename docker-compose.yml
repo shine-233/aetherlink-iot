@@ -98,7 +98,10 @@ services:
       GMQTT_PAYLOAD_SCHEMA_CACHE_TTL: ${AETHERLINK_PAYLOAD_SCHEMA_CACHE_TTL:-30s}
     ports:
       - "${AETHERLINK_BIND_ADDRESS:-127.0.0.1}:${MQTT_PORT:-1883}:1883"
-      - "${AETHERLINK_BIND_ADDRESS:-127.0.0.1}:${BROKER_METRICS_PORT:-8082}:8082"
+      # 指标端口完全无认证，永不外暴：发布地址硬编码 127.0.0.1，
+      # 即使 AETHERLINK_BIND_ADDRESS=0.0.0.0（server 模式）也不会把 8082 暴露公网。
+      # broker 容器内 healthcheck 走容器网络（wget 本机 127.0.0.1:8082），不受宿主机发布地址影响。
+      - "127.0.0.1:${BROKER_METRICS_PORT:-8082}:8082"
     volumes:
       - ./mqtt-broker/cmd/gmqttd/default_config.yml:/gmqttd/default_config.yml:ro
       - ./mqtt-broker/cmd/gmqttd/aetherlink.example.yml:/gmqttd/aetherlink.yml:ro

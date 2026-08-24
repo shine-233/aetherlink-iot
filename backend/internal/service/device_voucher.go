@@ -124,7 +124,8 @@ func ensureUpdatedVoucherAvailable(voucher string, deviceID string, changed bool
 
 // handleUpdatedVoucherSideEffects 在凭证更新后删除旧缓存、刷新设备缓存，并按协议类型决定是否断连。
 func handleUpdatedVoucherSideEffects(ctx context.Context, deviceID string, deviceInfo *model.Device) {
-	if err := global.REDIS.Del(ctx, deviceInfo.Voucher).Err(); err != nil {
+	// broker 侧缓存键为 sha256(voucher) 十六进制摘要，删键必须走同一哈希构造，否则旧凭证缓存无法失效。
+	if err := global.REDIS.Del(ctx, utils.VoucherCacheKey(deviceInfo.Voucher)).Err(); err != nil {
 		logrus.Warn("[Device][UpdateDeviceVoucher] delete old voucher cache failed")
 	}
 	disconnectNonMQTTDeviceAfterVoucherChange(ctx, deviceID, deviceInfo)

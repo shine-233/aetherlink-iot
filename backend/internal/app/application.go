@@ -7,6 +7,7 @@ import (
 	"aetherlink-iot/backend/internal/query"
 	"aetherlink-iot/backend/internal/storage"
 	"aetherlink-iot/backend/internal/uplink"
+	"aetherlink-iot/backend/pkg/global"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
@@ -67,6 +68,12 @@ func (app *Application) Shutdown() {
 		logrus.Info("application shutdown started")
 
 		app.ServiceManager.StopAll()
+
+		// WS/SSE 的 Redis Pub/Sub 监听协程由 initialize.RedisInit 直接拉起，
+		// 不经 ServiceManager 托管，必须在关闭 Redis 客户端之前显式取消，
+		// 否则会带着已关闭的客户端继续重连。
+		global.StopWSManagerListener()
+		global.StopSSEManagerListener()
 
 		if app.RedisClient != nil {
 			if err := app.RedisClient.Close(); err != nil {

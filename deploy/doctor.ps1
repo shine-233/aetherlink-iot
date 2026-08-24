@@ -341,8 +341,8 @@ function Test-AetherLinkWeakSecret {
   $safeValue = if ($null -eq $Value) { "" } else { $Value }
   $lower = $safeValue.ToLowerInvariant()
   $weakValues = @("password", "postgres", "redis", "admin", "root", "123456", "aetherlink")
-  $weak = -not $Value -or $weakValues -contains $lower -or $lower -match "^(.)\1{5,}$"
-  Add-AetherLinkDoctorResult "env-$Name-weak-value" "warning" (-not $weak) "$Name weak/default value check passed: $(-not $weak)." "Use a unique random value, not password/postgres/redis/admin/root/123456."
+  $weak = -not $Value -or $weakValues -contains $lower -or $lower -match "^(.)\1{5,}$" -or $lower -match "^change_me"
+  Add-AetherLinkDoctorResult "env-$Name-weak-value" "error" (-not $weak) "$Name weak/default value check passed: $(-not $weak)." "Use a unique random value, not password/postgres/redis/admin/root/123456, a repeated character, or a change_me placeholder."
 }
 
 function Test-AetherLinkPath {

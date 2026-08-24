@@ -206,7 +206,8 @@ func deleteDeviceVoucherCache(deviceID, voucher string) {
 	if global.REDIS == nil || strings.TrimSpace(voucher) == "" {
 		return
 	}
-	if err := global.REDIS.Del(context.Background(), voucher).Err(); err != nil {
+	// broker 侧缓存键为 sha256(voucher) 十六进制摘要，rdi.go 的物理解绑流程复用本函数删键。
+	if err := global.REDIS.Del(context.Background(), utils.VoucherCacheKey(voucher)).Err(); err != nil {
 		logrus.Warn("delete device voucher cache failed")
 	}
 }
