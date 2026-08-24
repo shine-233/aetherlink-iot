@@ -870,6 +870,11 @@ func setupDeviceServiceTestDB(t *testing.T) *gorm.DB {
 	); err != nil {
 		t.Fatalf("migrate test tables: %v", err)
 	}
+	// 凭证哈希存储 Phase 1：voucher_hash 列由 50.sql 迁移负责，gen 模型无该字段，
+	// 内存库手工补列以匹配生产 schema（CreateDevice 二段式写入需要）。
+	if err := db.Exec(`ALTER TABLE devices ADD COLUMN voucher_hash varchar(64)`).Error; err != nil {
+		t.Fatalf("add voucher_hash column: %v", err)
+	}
 	global.DB = db
 	query.SetDefault(db)
 	t.Cleanup(func() {

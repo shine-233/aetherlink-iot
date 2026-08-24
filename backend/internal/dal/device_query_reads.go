@@ -9,6 +9,7 @@ import (
 	model "aetherlink-iot/backend/internal/model"
 	query "aetherlink-iot/backend/internal/query"
 	global "aetherlink-iot/backend/pkg/global"
+	utils "aetherlink-iot/backend/pkg/utils"
 
 	"github.com/sirupsen/logrus"
 	"gorm.io/gen"
@@ -385,9 +386,16 @@ func GetDeviceDetail(id string) (map[string]interface{}, error) {
 
 // GetDeviceByVoucher looks up a device by provisioning voucher.
 // 批次二收敛（见 references/gen-inheritance-audit.md）：raw global.DB 链起点。
+// 凭证哈希存储 Phase 1（references/backend-hardening-plan.md 车道1）：双模式匹配——
+// 先按 voucher_hash=sha256hex(voucher) 走 idx_devices_voucher_hash 索引，未命中再
+// 回落 voucher=? 明文兜底（覆盖尚未回填的存量行）；Phase 2 停写明文后移除兜底分支。
 func GetDeviceByVoucher(voucher string) (*model.Device, error) {
 	var device model.Device
-	err := global.DB.Where("voucher = ?", voucher).First(&device).Error
+	err := global.DB.Where("voucher_hash = ?", utils.VoucherStorageHash(voucher)).
+		First(&device).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		err = global.DB.Where("voucher = ?", voucher).First(&device).Error
+	}
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, deviceVoucherNotFoundError(err)

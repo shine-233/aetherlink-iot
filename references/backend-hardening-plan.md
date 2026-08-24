@@ -16,25 +16,33 @@
 | TLS 开发路径 | deploy/gen-mqtt-certs.ps1/.sh + deploy/README.md 启用小节 + .gitignore certs | 默认仍关闭；三步启用 8883（gen → 配置取消注释+挂载 → doctor） |
 | /files 路径穿越回归锁定 | backend/router/files_traversal_test.go | 判定**不可穿越**：resolver 拒绝 `..`/`\`/`:`/`//` + os.OpenRoot 系统调用级限制 + 仅常规文件下发；14 向量 httptest + AST 契约钉死 handler 不得退化为 c.File/ServeFile |
 
-## 车道 1：设备凭证哈希存储（设计就绪，待排期）
+## 车道 1：设备凭证哈希存储（Phase 1 已落地【本批 2026-08-24】；Phase 2 待办）
 
 目标：devices.voucher 列从明文 JSON 改为哈希存储。当前为审查确认的高危面（DB/备份泄露=全部设备可冒充）。
 
-关键决策点：
-- 迁移：50.sql 加 `voucher_hash varchar(64)` 列 + 索引；**回填建议走 Go 迁移而非 pgcrypto**——broker 存在多候选键序兼容匹配（mqtt-broker/plugin/aetherlink/db.go:227-265 deviceVoucherLookupCandidates），纯 SQL 无法复刻语义等价展开。
-- 兼容期：**双模式匹配窗口**（哈希优先、明文列只读兜底 + 观测计数），归零后后续迁移置空并 DROP 明文列。不可照搬 49.sql open_api_keys 的硬切先例（API key 可重生成，设备凭证烧在固件里）。
+### Phase 1 已落地（本批 2026-08-24：基础设施 + dual-mode 匹配）
+
+- 迁移：`backend/sql/50.sql` 仅新增 `devices.voucher_hash varchar(64)` 列 + `idx_devices_voucher_hash` 索引（头部注明边界）；`VERSION_NUMBER` 49→50。
+- 回填走 Go 而非 pgcrypto：broker 多候选键序兼容匹配（mqtt-broker/plugin/aetherlink/db.go `deviceVoucherLookupCandidates`）纯 SQL 无法语义等价复刻。实现为 `backend/internal/dal/device_voucher_hash.go BackfillDeviceVoucherHash`，在 `initialize/pg_init.go PgInit` 的 CheckVersion 之后调用；分批 500 行、以 `voucher_hash IS NULL` 为进度游标幂等可重入，失败告警不阻断启动（dual-mode 下明文列仍是有效兜底，下次启动续跑）。
+- 读侧 dual-mode：broker `GetDeviceByVoucher`→`lookupDeviceByVoucherFromDB`（候选→逐个查 voucher_hash=sha256hex(candidate)，全部未命中再回落 voucher=? 明文），backend `dal.GetDeviceByVoucher` 与 `CheckVoucherExists` 同为 hash-first、明文兜底。
+- 写侧二段式（gen 模型无 VoucherHash 字段，不改生成文件）：插入/更新原样走 gen 事务后，同事务内 raw 补 `UPDATE devices SET voucher_hash=? WHERE id=?`——`createDevicesWithDefaultRootGroup`（覆盖 device_create.go、device_batch_create.go、device_auth.go、device_gateway_register.go 网关与子设备注册全部创建路径）与 `persistAndReloadVoucher`（device_voucher.go 凭证更新）。存储哈希=缓存键算法跨服务契约已在 `pkg/utils/vouchercache.go` 以导出别名 `VoucherStorageHash` 固化并补注释。
+- 测试：backend dal 层 dual-mode 单测（sqlite 内存库默认运行；PG 用例按 `AETHERLINK_TEST_PSQL_DSN` 门控照 devices_isolation_test.go 风格）；broker `plugin/aetherlink/db_test.go` 增补 DSN 门控 dual-mode 三用例（canonical JSON 命中 hash 列 / 键序不同候选命中明文兜底 / 双未命中 NotFound）。
+- 明文列与全部展示/API 响应字段保持原样（phase2 处理）。
+
+### Phase 2 待办（展示面改造 + 停写明文）
+
+- 兼容期收尾：观测双模式下明文兜底命中，归零后由后续迁移置空并 DROP 明文列。不可照搬 49.sql open_api_keys 的硬切先例（API key 可重生成，设备凭证烧在固件里）。
+- 停写明文：写入点（device_create.go、device_batch_create.go、device_voucher.go、device_auth.go、device_gateway_register.go）改为只落 voucher_hash。
 - 展示面产品决策清单（哈希化后无法回显，需改为"仅创建时一次性展示+轮换"语义）：
   - frontend/src/views/device/details/modules/join.vue:262-291（详情回显/编辑流）
   - frontend/src/views/device/details/modules/DeviceAccessGuide.vue:224-233（密码展示+复制）
   - frontend/src/views/device/details/modules/device-access-guide-state.ts:638-686（测试命令嵌入密码）
   - frontend/src/views/device/manage/modules/add-devices-step2.vue:119-121
   - frontend/src/views/home/useHomeFirstDeviceWorkbench.ts:286（首台设备工作台）
-  - backend 详情响应 device.ALL 全列扫描（dal/device_query_reads.go:339 需改投影）
+  - backend 详情响应 device.ALL 全列扫描（dal/device_query_reads.go GetDeviceDetail 需改投影）
   - 更新凭证响应回显（api/device.go:327-339）、网关注册重复回显（device_gateway_register.go:110-114）、插件回执（protocol_plugin.go:137-143）、预注册 Excel 全量导出（device_preregister_export.go:58,79,100）
-- 写入点改造：device_create.go:123-141、device_batch_create.go:106、device_voucher.go:93、device_auth.go:169-181、device_gateway_register.go:37-43,60,129。
-- 匹配点改造：broker GetDeviceByVoucher（候选→哈希→voucher_hash 查询）、backend dal.GetDeviceByVoucher（device_query_reads.go:355-368）、CheckVoucherExists（device_identity_queries.go:56-58）。
 - 附带清理：死字段 UpdateDeviceReq.Voucher（model/devices.http.go:48，被绑定但从不落库，应显式移除或报错）。
-- 生成文件：model/devices.gen.go、query/devices.gen.go 需重新生成以纳入新列。
+- 生成文件：停写明文/删列前需重新生成 model/devices.gen.go、query/devices.gen.go 以纳入新列（Phase 1 的 raw 二段式不依赖 gen 字段）。
 - 关联审计来源：backend/internal/service 各文件行号见上；完整影响面清单以 2026-08 审计报告为准。
 
 ## 车道 2：脚本沙箱 Worker 化

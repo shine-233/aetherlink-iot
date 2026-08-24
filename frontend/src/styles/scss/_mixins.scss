@@ -1,3 +1,24 @@
+// ============================================================
+// 响应式断点约定（移动端断点统一从这里取）
+// - 本文件经 vite.config.ts additionalData 注入所有 <style lang="scss">，
+//   因此 $breakpoint-* 与下方 mixin 在任意组件内直接可用。
+// - CSS 自定义属性(--breakpoint-*)定义在 styles/scss/global.scss 的 :root，
+//   仅供运行时读取/文档对齐；@media 条件不支持 var()，
+//   媒体查询一律使用本文件的 SCSS 变量或 @include mobile。
+// - 当前生效档位：sm=640px（手机）。md=960 / lg=1280 预留给后续统一
+//   640/960/1280 三档体系，替换散落的 640/900/1100 魔法数。
+// ============================================================
+$breakpoint-sm: 640px;
+$breakpoint-md: 960px;
+$breakpoint-lg: 1280px;
+
+// ≤640px 手机档：现场查告警/设备详情等高频移动端路径使用。
+@mixin mobile {
+  @media (max-width: $breakpoint-sm) {
+    @content;
+  }
+}
+
 @mixin scrollbar($size: 7px, $color: rgba(0, 0, 0, 0.5)) {
   scrollbar-width: thin;
   scrollbar-color: $color transparent;
