@@ -22,6 +22,11 @@ playwright-report/
 test-results/
 *.lcov
 coverage.out
+# Root-level lint/typecheck artifacts (regenerable, multi-MB)
+/eslint-report*.json
+/eslint-core*.json
+/eslint-final.json
+/tsc-errors.txt
 
 # Logs and temp files
 logs/
@@ -145,6 +150,8 @@ mqtt-broker/.gocache-*/
 mqtt-broker/aetherlink.yml
 mqtt-broker/cmd/gmqttd/aetherlink.yml
 mqtt-broker/cmd/gmqttd/certs/
+# 部署侧自签名开发证书（deploy/gen-mqtt-certs.* 生成），私钥永不入库。
+deploy/certs/
 mqtt-broker/plugin/auth/gmqtt_password.yml
 
 # Local runtime secrets. Generate fresh keys/certs per environment.

@@ -27,10 +27,15 @@ AetherLink IoT 是面向物联网设备接入、监控和私有部署的平台�
 - Market、SMTP、地图 provider 属于外部可选能力；未配置时不得阻断核心启动，也不得泄露配置值。
 - 外接模块必须保留稳定接口契约；能本地化的核心能力优先使用本地实现，不能本地化的能力返回明确的 optional/external-blocked 状态。
 - 数据库迁移当前最高为 `49.sql` / `VERSION_NUMBER=49`；修改迁移前先核对 `backend/sql/` 与目标数据库的 `sys_version`。
+- Broker 认证失败限速为插件配置面：`auth_ratelimit.max_failures_per_minute`（默认 30/分钟/IP）。
+- devices.voucher 的 Redis 缓存键是跨服务 SHA-256 契约：`backend/pkg/utils/vouchercache.go` 必须与 `mqtt-broker/plugin/aetherlink/db.go` 的 `voucherCacheKey` 保持一致，任一侧变更需双端同步并更新两侧契约测试。
+- 后端内部拨号 MQTT broker 一律经 `backend/pkg/utils/mqtt_broker_address.go` 的统一助手解析，禁止在业务代码里直连 localhost/127.0.0.1。
+- 8082 指标端口无认证且永久 loopback 绑定（docker-compose.yml 契约测试锁定），不得改为跟随对外绑定地址。
+- `deploy/gen-mqtt-certs.*` 仅生成开发/内网自签名证书；生产 TLS 必须使用正规 CA。
 
 ## 修改约定
 
-- 当前工作树有大量既有未提交改动；禁止回退、覆盖、批量格式化或顺手重构无关文件。
-- 不直接删除生成文件、第三方契约、审计底表或运行残留；先核对 `GENERATED_FILES.md`，删除候选在最终汇报后另行确认。
+- 改动状态以 `git status` 实时为准；批量修改前先确认工作树基线。禁止回退、覆盖、批量格式化或顺手重构无关文件。
+- 不直接删除生成文件、第三方契约、审计底表或运行残留；先核对 `GENERATED_FILES.md`，删除候选在最终汇报后另行确认。根目录 `eslint-report*.json`、`tsc-errors.txt` 等可再生产物已于 2026-08 清理出库并加入 `.gitignore`，勿再提交同类产物。
 - 接口、配置或行为变化必须同步注释、目标测试和权威文档。
 - 静态契约或局部测试通过不等于发布就绪；未运行的 Docker、API、E2E 或真实运行验证必须标为 pending。

@@ -64,7 +64,9 @@ Server install:
   are blocking doctor errors, not warnings.
 - In server mode, init also changes an untouched loopback
   `AETHERLINK_BIND_ADDRESS` to `0.0.0.0` so the published frontend, backend,
-  and MQTT ports can accept remote traffic. Prefer a trusted host interface
+  and MQTT ports can accept remote traffic. The broker metrics port (8082) is
+  exempt: it is unauthenticated and always published on `127.0.0.1` only.
+  Prefer a trusted host interface
   with `-BindAddress` / `--bind-address` when possible, and apply the host
   firewall policy before starting a public deployment.
 
@@ -472,6 +474,46 @@ Package boundary:
 - Server browser console: `.env` value `AETHERLINK_PUBLIC_URL`
 - Server device MQTT address: `.env` value `AETHERLINK_MQTT_ACCESS_ADDRESS`
 - PostgreSQL and Redis are internal by default.
+
+## Enabling MQTT TLS (8883)
+
+MQTT TLS is **off by default**. The default broker config only publishes
+plaintext `:1883`; the `:8883` TLS listener ships commented out in
+`mqtt-broker/cmd/gmqttd/default_config.yml`, and enabling it without mounted
+certificate files stops the broker at startup by design. To turn it on:
+
+1. Generate a development certificate:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File deploy\gen-mqtt-certs.ps1 -SubjectAltName 192.168.1.10
+   ```
+
+   ```sh
+   sh deploy/gen-mqtt-certs.sh 192.168.1.10
+   ```
+
+   This writes `deploy/certs/server.crt` / `server.key` (git-ignored). Pass the
+   server's IP or DNS name so devices can verify the hostname; `localhost` and
+   `127.0.0.1` are always included. The generated material is self-signed and
+   for development/intranet use only — production must use certificates from a
+   proper CA.
+
+2. Enable the listener and mount the certificates:
+
+   - In `mqtt-broker/cmd/gmqttd/default_config.yml`, uncomment the `:8883`
+     listener block and point it at the in-container paths:
+     `cert: "./certs/server.crt"`, `key: "./certs/server.key"` (the `cacert`
+     entry stays optional; only set it together with client-certificate
+     verification for mTLS).
+   - In `docker-compose.yml` (or an override file), add to the `mqtt-broker`
+     service: volume `- ./deploy/certs:/gmqttd/certs:ro` and port
+     `- "127.0.0.1:${MQTT_TLS_PORT:-8883}:8883"` (replace `127.0.0.1` with your
+     access interface only when remote devices need MQTTS), then restart the
+     stack.
+
+3. Re-run the doctor (`start-aetherlink.ps1 -Doctor` /
+   `start-aetherlink.sh --doctor`) and confirm the stack comes up healthy;
+   then point devices at `mqtts://<host>:8883`.
 
 ## Durable Spool Monitoring
 
