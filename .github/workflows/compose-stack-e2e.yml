@@ -246,18 +246,27 @@ jobs:
         env:
           PLAYWRIGHT_REUSE_EXISTING_SERVER: '0'
           AETHERLINK_MQTT_ACCESS_ADDRESS: localhost:1883
+          # Compose stack database target: seeded fixtures (e.g. OTA support
+          # bundle) resolve their psql target from these names; without them
+          # the helper falls back to the local-dev aetherlink_iot_local db.
+          AETHERLINK_DB_NAME: aetherlink_iot
+          GOTP_DB_PSQL_DBNAME: aetherlink_iot
         run: npm run preflight:api-e2e
 
       - name: Run API automation
         working-directory: automation_tests
         env:
           AETHERLINK_MQTT_ACCESS_ADDRESS: localhost:1883
+          AETHERLINK_DB_NAME: aetherlink_iot
+          GOTP_DB_PSQL_DBNAME: aetherlink_iot
         run: npm run test:automation:api
 
       - name: Run Playwright E2E
         working-directory: automation_tests
         env:
           AETHERLINK_MQTT_ACCESS_ADDRESS: localhost:1883
+          AETHERLINK_DB_NAME: aetherlink_iot
+          GOTP_DB_PSQL_DBNAME: aetherlink_iot
         run: npm run test:automation:e2e
 
       - name: Upload integration reports
