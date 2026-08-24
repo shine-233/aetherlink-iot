@@ -441,6 +441,17 @@ test.describe('device module', () => {
         })
       ]);
 
+      // 观察者必须在导航前注册（tab 挂载才发请求）；等待顺序对齐组件挂载
+      // 顺序：先 /device/detail 门禁，再 ready-check tab 可见，最后证据响应。
+      const browserDetailPromise = rolePage.waitForResponse(response => {
+        try {
+          const url = new URL(response.url());
+          return response.request().method() === 'GET'
+            && url.pathname.endsWith('/device/detail/' + seed.id);
+        } catch {
+          return false;
+        }
+      }, { timeout: 20000 });
       const evidenceResponses = Promise.all([
         rolePage.waitForResponse(
           response => response.url().includes('/device/' + seed.id + '/connection/diagnostics') && response.status() === 200,
@@ -456,10 +467,28 @@ test.describe('device module', () => {
         '/device/details?d_id=' + encodeURIComponent(seed.id) + '&tab=ready-check&onboarding=first-device',
         { waitUntil: 'domcontentloaded' }
       );
-      await evidenceResponses;
+
+      // detail 业务失败时 visibleDetailComponents 为空、tab 不渲染，后续请求
+      // 会等成超时；在此显式区分"读不一致空壳页"与"端点没回 200"。
+      await test.step('device detail gate precedes ready-check mount', async () => {
+        let browserDetail;
+        try {
+          browserDetail = await browserDetailPromise;
+        } catch (error) {
+          throw new Error('detail gate blocked (read-consistency): no /device/detail/' +
+            seed.id + ' response; ' + String(error && error.message || error).split('\n')[0]);
+        }
+        const body = await browserDetail.json().catch(() => null);
+        const receivedId = body && body.data && (body.data.id || body.data.ID);
+        if (!body || body.code !== 200 || String(receivedId) !== String(seed.id)) {
+          throw new Error('detail gate blocked (read-consistency): HTTP ' + browserDetail.status() +
+            ' body=' + JSON.stringify(body).slice(0, 300) + ' device=' + seed.id);
+        }
+      });
 
       await expect(rolePage).toHaveURL(/\/device\/details\?d_id=.*tab=ready-check/);
       await expect(rolePage.getByTestId('device-ready-check')).toBeVisible({ timeout: 15000 });
+      await evidenceResponses;
       const evidenceCenter = rolePage.getByTestId('device-ready-check-evidence-center');
       const loadEvidenceCenter = rolePage.getByTestId('device-ready-check-load-evidence-center');
       await expect
