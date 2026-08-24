@@ -1,5 +1,6 @@
-// 文件用途：提供设备凭证（voucher）Redis 缓存键的统一构造能力。
-// 核心逻辑：VoucherCacheKey 返回完整 voucher 的 SHA-256 十六进制摘要，作为设备凭证缓存统一使用的 Redis 键。
+// 文件用途：提供设备凭证（voucher）Redis 缓存键与 devices.voucher_hash 存储哈希的统一构造能力。
+// 核心逻辑：VoucherCacheKey 返回完整 voucher 的 SHA-256 十六进制摘要，作为设备凭证缓存统一使用的 Redis 键；
+// VoucherStorageHash 为同一算法的存储哈希导出别名（存储哈希=缓存键算法，跨服务契约）。
 // 关键注意事项（跨服务契约）：此算法必须与 mqtt-broker/plugin/aetherlink/db.go 的 voucherCacheKey 保持一致，
 // 任一侧变更需双端同步修改并同步更新契约测试（backend/pkg/utils/vouchercache_test.go 与
 // mqtt-broker/plugin/aetherlink/voucher_cache_key_test.go），否则换凭证/删设备后将无法正确失效 broker 侧缓存，
@@ -20,4 +21,13 @@ import (
 func VoucherCacheKey(voucher string) string {
 	sum := sha256.Sum256([]byte(voucher))
 	return hex.EncodeToString(sum[:])
+}
+
+// VoucherStorageHash 返回 devices.voucher_hash 列使用的存储哈希（sha256hex）。
+// 存储哈希=缓存键算法，跨服务契约：与 VoucherCacheKey 同源同值——backend 写入/匹配
+// （dal/device_voucher_hash.go、device_query_reads.go、device_identity_queries.go）与
+// broker 双模式匹配（mqtt-broker/plugin/aetherlink/db.go）必须使用同一摘要；
+// 算法变更需双端同步并更新两侧契约测试。
+func VoucherStorageHash(voucher string) string {
+	return VoucherCacheKey(voucher)
 }

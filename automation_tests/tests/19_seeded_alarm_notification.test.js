@@ -235,7 +235,9 @@ describe('Seeded alarm and notification business coverage [19_seeded_alarm_notif
     if (deviceConfigResp.code === 200) {
       expectNullableObject(deviceConfigResp.data);
     } else {
-      expectBusinessError(deviceConfigResp, 100000);
+      // 迁移依据：告警配置探测经 GetConfigByDevice→ensureTelemetryDeviceReadAccess 守卫查询
+      // 不存在的设备（ZERO_UUID），2026-08 起显式迁移为业务码 100404（device not found）。
+      expectBusinessError(deviceConfigResp, 100404);
     }
   });
 

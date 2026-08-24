@@ -1,6 +1,8 @@
 // 文件用途：维护 plugin\aetherlink\db.go 所属 broker 包的手写 Go 代码。
 // 核心逻辑：承载 MQTT broker 的领域模型、接口定义或测试支撑。
-// 关键注意事项：本次仅补文件头不改变运行逻辑，后续修改需按所在包补充验证。
+// 关键注意事项：GetDeviceByVoucher 为凭证哈希双模式匹配入口（hash 优先、明文兜底，
+// 见 lookupDeviceByVoucherFromDB）；voucherCacheKey 与 backend/pkg/utils/vouchercache.go
+// 是跨服务契约（存储哈希=缓存键算法），任一侧变更需双端同步并更新契约测试。
 // 重构建议：后续可按职责拆分深模块，并为关键边界补齐契约测试。
 
 package aetherlink
@@ -31,6 +33,7 @@ type Device struct {
 	Name            *string    `gorm:"column:name" json:"name"`
 	DeviceType      int16      `gorm:"column:device_type" json:"device_type"`
 	Voucher         string     `gorm:"column:voucher" json:"voucher"`
+	VoucherHash     *string    `gorm:"column:voucher_hash" json:"voucher_hash"`
 	TenantID        string     `gorm:"column:tenant_id" json:"tenant_id"`
 	IsEnabled       string     `gorm:"column:is_enabled" json:"is_enabled"`
 	ActivateFlag    string     `gorm:"column:activate_flag" json:"activate_flag"`
@@ -190,22 +193,12 @@ func GetDeviceByVoucher(voucher string) (*Device, error) {
 	deviceID, _ := GetStr(voucherCacheKey(voucher))
 	if deviceID == "" {
 		Log.Debug("device voucher cache miss")
-		var lookupErr error
-		for _, candidate := range deviceVoucherLookupCandidates(voucher) {
-			result := db.Model(&Device{}).Where("voucher = ?", candidate).First(&device)
-			if result.Error == nil {
-				lookupErr = nil
-				break
-			}
-			lookupErr = result.Error
-			if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
-				break
-			}
+		dev, err := lookupDeviceByVoucherFromDB(voucher)
+		if err != nil {
+			Log.Info("load device by voucher failed", zap.Error(err))
+			return nil, err
 		}
-		if lookupErr != nil {
-			Log.Info("load device by voucher failed", zap.Error(lookupErr))
-			return nil, lookupErr
-		}
+		device = *dev
 
 		if err := SetStr(voucherCacheKey(voucher), device.ID, defaultCacheTTL); err != nil {
 			return nil, err
@@ -222,6 +215,43 @@ func GetDeviceByVoucher(voucher string) (*Device, error) {
 	}
 
 	return &device, nil
+}
+
+// lookupDeviceByVoucherFromDB 在数据库中按双模式解析设备凭证（凭证哈希存储 Phase 1，
+// 见 references/backend-hardening-plan.md 车道1）：先对 deviceVoucherLookupCandidates
+// 的每个候选查 voucher_hash=sha256hex(candidate)（走 idx_devices_voucher_hash 索引），
+// 全部未命中再回落现有 voucher=? 明文匹配（兼容尚未回填的存量行）。缓存键不受影响，
+// 仍取原始 presented voucher 的 sha256（见 GetDeviceByVoucher）。
+// Phase 2 停写明文并观测归零后，明文兜底分支随列删除一并移除。
+func lookupDeviceByVoucherFromDB(voucher string) (*Device, error) {
+	candidates := deviceVoucherLookupCandidates(voucher)
+
+	var device Device
+	for _, candidate := range candidates {
+		result := db.Model(&Device{}).
+			Where("voucher_hash = ?", voucherCacheKey(candidate)).
+			First(&device)
+		if result.Error == nil {
+			return &device, nil
+		}
+		if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, result.Error
+		}
+	}
+
+	var lookupErr error
+	for _, candidate := range candidates {
+		result := db.Model(&Device{}).Where("voucher = ?", candidate).First(&device)
+		if result.Error == nil {
+			return &device, nil
+		}
+		lookupErr = result.Error
+		if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, result.Error
+		}
+	}
+	// candidates 恒非空（至少含原始 voucher），故 lookupErr 必为最后一条 NotFound。
+	return nil, lookupErr
 }
 
 // deviceVoucherLookupCandidates keeps MQTT authentication compatible with

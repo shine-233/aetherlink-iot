@@ -1,2 +1,27 @@
+/*
+ * 全局样式入口（由 src/plugins/assets.ts 引入，全站仅执行一次）。
+ *
+ * 响应式断点约定（移动端断点统一从这里取）：
+ * - 下面的 --breakpoint-* 是断点的唯一权威取值（sm=640 / md=960 / lg=1280）。
+ * - 注意 @media 条件本身不支持 var()，组件内媒体查询请使用
+ *   styles/scss/_mixins.scss 提供的 $breakpoint-sm 等变量与 @include mobile
+ *   （该文件已被 vite additionalData 自动注入所有 scss 块）。
+ */
+:root {
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 960px;
+  --breakpoint-lg: 1280px;
+}
+
+/* 可达性硬要求（references/frontend-visual-upgrade-plan.md）：用户偏好减少动效时压平所有动画与过渡。 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 @import './scrollbar.scss';
 @import './grid-background.scss';
