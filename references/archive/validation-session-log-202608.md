@@ -134,3 +134,16 @@ r8 fresh API/E2E 报告为 API `64/64`、E2E `20/20`、`0` failed，business evi
 4. 文档：references/plugin-guide.md 新增接入边界小节。
 
 验证边界：backend go build + middleware/router/dal/uplink/service 全量测试通过；broker go build + plugin/aetherlink 全量测试通过。本批未运行 Docker/Compose/E2E 运行时链路。
+
+
+---
+
+## 2026-08-24 P0 安全加固批次（fix/p0-security-hardening）
+
+1. 登录 IP 失败限流（S1）：新增 internal/middleware/login_ratelimit.go——按客户端 IP 固定窗口计数（默认 10 次失败/分钟/IP），超限返回 HTTP 429 + 错误码 40106；失败/成功计数由 Login handler 回写，成功清零。与按账号的 LoginLock（classified-protect 配置）互补，本层无配置开关默认生效。多副本部署各副本独立计数。
+2. 独占会话指针键去明文化（S2）：replaceExclusiveLoginToken 在 {email}_token 指针键改存上一个会话 token 的 HMAC-SHA256 摘要（utils.TokenDigest），TTL 与允许列表条目对齐（此前永不过期）；删除旧会话直接用摘要键。部署说明：存量明文指针键无需迁移——旧键在新登录时被读作"摘要"删不到目标允许列表条目，该条目按自身 TTL 自然过期（最长 24h），期间旧 token 仍受 JWTAuth 摘要键正常校验。本条取代上文 P2/P3 批次中"value 仍存明文 token"的表述。
+3. CI 扫描三件套（S4）：source-ci 新增 govulncheck（backend / mqtt-broker / device-autotest 三模块矩阵）与 gitleaks job；container-ci 构建后对本地镜像跑 Trivy（HIGH/CRITICAL、ignore-unfixed、exit-code 1）。首轮运行如暴露历史镜像 CVE 或历史提交密钥误报，需以 .trivyignore / gitleaks allowlist 收敛而非降门槛。
+4. 路由认证层级合约测试（S5）：新增 internal/router/router_auth_tier_contract_test.go——AST 解析 router_init.go，锁定 根公开面(8)/插件鉴权(5)/匿名 v1(24)/JWT-only(1) 四层路由清单；新增匿名端点必须显式分类入白名单并附理由，删除路由需同步清理陈旧条目。casbin g2 策略本身为部署态数据，代码侧覆盖校验仍待集中式路由表方案。
+5. gofmt 清扫：main 上 7 个文件格式回归（注释编号缩进、结构体对齐、文件尾行）已统一修复。
+
+验证边界：go build/vet/test 全绿（middleware 限流三用例、router 合约测试通过）；真实爆破场景限流行为、Redis 存量键自愈路径、CI 首轮扫描结果均为 pending，待 PR CI 与后续 compose lane 验证。

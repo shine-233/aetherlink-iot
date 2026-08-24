@@ -97,7 +97,7 @@ API、E2E 和 synthetic-rdi 运行必须使用独立的 report/output 目录，�
 
 **后端**
 - 运维暴露面门禁（P3）：`backend/router/router_init.go` 的 `/swagger/*any`、`/metrics`、`/metrics-viewer(/echarts.min.js)` 在 `GOTP_ENV=production` 时跳过注册；非生产环境保持原样。router contract 测试仍锁定字面量存在性。
-- JWT Redis 键哈希（P3）：新增 `pkg/utils.TokenDigest`（HMAC-SHA256hex，域分离密钥独立于 voucher），`middleware/jwt_auth.go`、`api/telemetry_ws_auth.go`、`service/sys_user_auth.go`（login/logout/refresh/transform）全部改为摘要作键。**部署注意：上线后旧明文 token 键立即失效，全体用户需重新登录（一次性会话失效）；如需平滑迁移需另行设计双读。** `loginEmailTokenKey(<email>)` 的 value 仍存原 token（email→token 映射语义未变）。
+- JWT Redis 键哈希（P3）：新增 `pkg/utils.TokenDigest`（HMAC-SHA256hex，域分离密钥独立于 voucher），`middleware/jwt_auth.go`、`api/telemetry_ws_auth.go`、`service/sys_user_auth.go`（login/logout/refresh/transform）全部改为摘要作键。**部署注意：上线后旧明文 token 键立即失效，全体用户需重新登录（一次性会话失效）；如需平滑迁移需另行设计双读。** `loginEmailTokenKey(<email>)` 的 value 已在 P0 批次（2026-08-24）改存 token 摘要并带 TTL，取代本条原先"仍存原 token"的表述；详见 `references/archive/validation-session-log-202608.md`。
 - DAL 测试盲区收敛（P2）：79 个 DAL 源文件中本轮补齐 3 个核心文件——`device_auth_test.go`（摘要/明文双读与惰性升级）、`alarm_test.go`（告警配置/信息列表租户 scope SQL + JOIN 投影 + trigger_duration 零值显式写）、`users_test.go`（GetUsersByEmail raw 链 + GetUsersByPhoneNumber 双模式）。剩余 DAL 文件的测试补齐为后续批次目标。
 
 **前端**
