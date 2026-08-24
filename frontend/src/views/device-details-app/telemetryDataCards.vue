@@ -121,7 +121,7 @@ onMounted(() => {
       </n-card>
     </n-gi>
   </n-grid>
-  <n-modal v-model:show="showHistory" :title="$t('generate.telemetry-history-data')" class="w-90%">
+  <n-modal aria-label="dialog" v-model:show="showHistory" :title="$t('generate.telemetry-history-data')" class="w-90%">
     <NCard>
       <HistoryData
         v-if="modelType === $t('custom.device_details.history')"

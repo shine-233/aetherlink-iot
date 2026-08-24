@@ -79,7 +79,7 @@ defineExpose({ openModal })
 </script>
 
 <template>
-  <n-modal v-model:show="serviceModal" preset="dialog" :title="$t('common.serviceConfi')">
+  <n-modal aria-label="dialog" v-model:show="serviceModal" preset="dialog" :title="$t('common.serviceConfi')">
     <n-space vertical>
       <n-spin :show="loading">
         <n-form

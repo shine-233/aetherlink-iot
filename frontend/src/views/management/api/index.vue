@@ -404,7 +404,7 @@ init()
           @success="getTableData"
           @created="handleCreatedKey"
         />
-        <n-modal v-model:show="showCreatedKeyModal" preset="card" :title="$t('page.manage.api.createdKeyTitle')" class="w-90%" :style="{ maxWidth: '560px' }">
+        <n-modal aria-label="dialog" v-model:show="showCreatedKeyModal" preset="card" :title="$t('page.manage.api.createdKeyTitle')" class="w-90%" :style="{ maxWidth: '560px' }">
           <n-alert type="warning" :show-icon="true" class="mb-12px">
             {{ $t('page.manage.api.createdKeyDesc') }}
           </n-alert>

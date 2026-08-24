@@ -10,6 +10,7 @@ import (
 
 	model "aetherlink-iot/backend/internal/model"
 	query "aetherlink-iot/backend/internal/query"
+	global "aetherlink-iot/backend/pkg/global"
 	utils "aetherlink-iot/backend/pkg/utils"
 
 	"gorm.io/gen/field"
@@ -84,9 +85,15 @@ func GetDictListByPage(dictListReq *model.GetDictLisyByPageReq, claims *utils.Us
 // 根据字典标识符和多语言标识符获取字典
 func GetDictLanguageByDictCodeAndLanguageCode(dictCode, languageCode string) ([]map[string]interface{}, error) {
 	var data []map[string]interface{}
-	sd := query.SysDict
-	sdl := query.SysDictLanguage
-	err := sd.Select(sd.DictValue, sdl.Translation).LeftJoin(sdl, sdl.DictID.EqCol(sd.ID)).Where(sd.DictCode.Eq(dictCode), sdl.LanguageCode.Eq(languageCode)).Scan(&data)
+	// P1 修复（2026-08-24，见 VALIDATION.md）：字典多语言翻译改走 raw global.DB 链，
+	// 消除包级单例 SysDict LeftJoin(SysDictLanguage)+Scan 在高并发下跨请求残留 Statement
+	// 读到空/旧翻译的风险；协议菜单等 i18n 每请求路径直接受益。
+	err := global.DB.Table("sys_dict").
+		Select("sys_dict.dict_value, sys_dict_language.translation").
+		Joins("LEFT JOIN sys_dict_language ON sys_dict_language.dict_id = sys_dict.id").
+		Where("sys_dict.dict_code = ?", dictCode).
+		Where("sys_dict_language.language_code = ?", languageCode).
+		Scan(&data).Error
 	if err != nil {
 		return nil, err
 	}
