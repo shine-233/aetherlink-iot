@@ -107,6 +107,12 @@ func loadDeviceDetail(id string) (map[string]interface{}, error) {
 			"message":   "get device failed",
 		})
 	}
+	// 错误映射加固（2026-08）：GetDeviceDetail 的 Scan 对零行结果不报错，而是返回缺
+	// id 键的空 map（gen 继承链读到陈旧快照时同样触发）。若放行会形成 HTTP 200 空壳
+	// data，被前端渲染成空白详情页；这里显式映射为资源不存在业务错误。
+	if _, ok := data["id"]; !ok {
+		return nil, errcode.NewWithMessage(errcode.CodeNotFound, "device not found")
+	}
 	return data, nil
 }
 
