@@ -4,6 +4,7 @@
 package service
 
 import (
+	"errors"
 	"strings"
 
 	dal "aetherlink-iot/backend/internal/dal"
@@ -12,6 +13,8 @@ import (
 	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/utils"
+
+	"gorm.io/gorm"
 )
 
 const (
@@ -59,6 +62,13 @@ func loadTelemetryDeviceForAccess(deviceID string, claims *utils.UserClaims, per
 
 	deviceInfo, err := dal.GetDeviceByID(normalizedDeviceID)
 	if err != nil {
+		// 错误映射加固（2026-08）：ErrRecordNotFound 表示该设备主行在库中根本不存在，
+		// 与租户/共享可见性无关，可以安全地映射为明确的"资源不存在"业务码 100404；
+		// 裸 error 若继续透传会被响应中间件兜底成 100000 系统内部错误。
+		// deviceInfo == nil 的防泄漏分支保持 permission-shaped，语义不变。
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errcode.NewWithMessage(errcode.CodeNotFound, "device not found")
+		}
 		return nil, err
 	}
 	if deviceInfo == nil {

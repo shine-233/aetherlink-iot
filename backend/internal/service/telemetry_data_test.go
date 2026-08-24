@@ -548,6 +548,31 @@ func TestEnsureTelemetryDeviceWriteAccessNilClaims(t *testing.T) {
 	assertTelemetryErrcode(t, err, "ensureTelemetryDeviceWriteAccess nil claims", errcode.CodeNoPermission, "no permission to modify device telemetry")
 }
 
+func TestLoadTelemetryDeviceForAccessMapsMissingDeviceToNotFound(t *testing.T) {
+	// 错误码迁移批次（2026-08，承接 PR #123 回滚后的正式迁移）：设备主行不存在时，
+	// 裸 gorm.ErrRecordNotFound 不再透传（否则会被响应中间件兜底成 100000 系统内部错误），
+	// 而是显式映射为 100404 资源不存在业务码。
+	db := setupDeviceServiceTestDB(t)
+	now := time.Now().UTC()
+	configID := createDeviceServiceConfig(t, db, "telemetry-notfound-config", "tenant-a", "1")
+	createDeviceServiceOwnedDevice(t, db, "existing-device", "existing-number", "tenant-a", "user-a", configID, now)
+
+	claims := &utils.UserClaims{ID: "user-a", TenantID: "tenant-a", Authority: constant.TENANT_USER}
+
+	_, err := loadTelemetryDeviceForAccess("missing-device", claims, telemetryReadPermissionMessage)
+	assertTelemetryErrcode(t, err, "missing device read access", errcode.CodeNotFound, "device not found")
+
+	_, err = loadTelemetryDeviceForAccess("missing-device", claims, telemetryWritePermissionMessage)
+	assertTelemetryErrcode(t, err, "missing device write access", errcode.CodeNotFound, "device not found")
+
+	// 完整访问守卫链对不存在的设备同样返回明确的资源不存在业务码。
+	_, err = ensureTelemetryDeviceReadAccess("missing-device", claims)
+	assertTelemetryErrcode(t, err, "ensure read access missing device", errcode.CodeNotFound, "device not found")
+
+	_, err = ensureTelemetryDeviceWriteAccess("missing-device", claims)
+	assertTelemetryErrcode(t, err, "ensure write access missing device", errcode.CodeNotFound, "device not found")
+}
+
 func TestEnsureTelemetryDeviceReadAccessCrossTenantStaysPermissionShaped(t *testing.T) {
 	// 对照守卫：库内存在但越租户的设备走 permission-shaped 无权限分支，防泄漏语义不变。
 	db := setupDeviceServiceTestDB(t)

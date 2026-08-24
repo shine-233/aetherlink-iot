@@ -48,6 +48,15 @@ func createDevicesWithDefaultRootGroup(devices []*model.Device) error {
 			return err
 		}
 
+		// 凭证哈希存储 Phase 1（references/backend-hardening-plan.md 车道1）：gen 模型无
+		// VoucherHash 字段，二段式写入——插入原样走 gen 事务后，同事务内 raw 补 UPDATE
+		// voucher_hash。此写点覆盖全部创建路径（device_create.go、device_batch_create.go、
+		// device_auth.go、device_gateway_register.go 网关与子设备注册）；
+		// phase2 停写明文后此列成为唯一匹配依据。
+		if err := WriteVoucherHashInQueryTx(tx, devices); err != nil {
+			return err
+		}
+
 		return autoBindDevicesToDefaultRootGroup(tx, tenantID, devices)
 	})
 }

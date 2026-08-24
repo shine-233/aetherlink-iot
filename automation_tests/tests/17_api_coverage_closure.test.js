@@ -71,7 +71,9 @@ describe('API domain boundary evidence [17_api_coverage_closure]', function () {
       }
 
       const detailResp = await apiClient.get('/device/model/custom/commands/' + ZERO_UUID, {}, 'super_admin');
-      expectCode(detailResp, 100000, 'record not found');
+      // 迁移依据：自定义命令详情经 ensureTelemetryDeviceReadAccess 守卫查询不存在的设备，
+      // 2026-08 起"资源不存在"从裸 error 兜底的 100000 显式迁移为业务码 100404（device not found）。
+      expectCode(detailResp, 100404, 'device not found');
     });
   });
 
