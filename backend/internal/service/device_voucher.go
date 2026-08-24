@@ -80,29 +80,24 @@ func persistAndReloadVoucher(
 	deviceID string,
 	voucher string,
 ) (*model.Device, error) {
-	device := query.Device
+	// info.Voucher 仅作为 voucher_hash 与网页测试缓存的计算输入驻留内存，不落库。
 	info := &model.Device{
 		ID:      deviceID,
 		Voucher: voucher,
 	}
-	// 凭证哈希存储 Phase 1（references/backend-hardening-plan.md 车道1）：gen 模型无
-	// VoucherHash 字段，二段式写入——凭证更新原样走 gen（Select 仅 voucher 列，语义
-	// 与 DeviceQuery.Update 一致），同事务内 raw 补 UPDATE voucher_hash；
-	// phase2 停写明文后此列成为唯一匹配依据。
+	// 凭证哈希存储 Phase 1/2b（references/backend-hardening-plan.md 车道1）：gen 模型无
+	// VoucherHash 字段；Phase 2b 停写明文后不再经 gen Select(voucher) 回写列（避免明文
+	// 出现在任何落库语句里），改由同事务内单条 raw UPDATE 写 voucher_hash 并把 voucher
+	// 列置空串、逐设备写入网页测试缓存（dal.WriteVoucherHashInQueryTx 收口）。
+	// 设备行不存在时 UPDATE 零命中静默通过，随后 reload First 报 NotFound，语义与原
+	// gen 更新路径一致。
 	if err := query.Q.Transaction(func(tx *query.Query) error {
-		if _, err := tx.Device.WithContext(ctx).
-			Where(device.ID.Eq(deviceID)).
-			Select(device.Voucher).
-			UpdateColumns(info); err != nil {
-			logrus.Error("[Device][UpdateDeviceVoucher] update failed")
-			return err
-		}
 		return dal.WriteVoucherHashInQueryTx(tx, []*model.Device{info})
 	}); err != nil {
 		return nil, err
 	}
 
-	reloaded, err := dal.DeviceQuery{}.First(ctx, device.ID.Eq(deviceID))
+	reloaded, err := dal.DeviceQuery{}.First(ctx, query.Device.ID.Eq(deviceID))
 	if err != nil {
 		logrus.Error("[Device][UpdateDeviceVoucher] reload failed")
 		return nil, err

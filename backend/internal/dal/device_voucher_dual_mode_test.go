@@ -8,6 +8,7 @@
 package dal
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -96,10 +97,54 @@ func storedVoucherHash(t *testing.T, deviceID string) *string {
 	return got
 }
 
-// TestCreateDevicesPersistVoucherHash 锁定写入侧二段式契约：
-// 单个与批量创建都必须在同事务内补齐 voucher_hash。
-func TestCreateDevicesPersistVoucherHash(t *testing.T) {
+func storedVoucherPlaintext(t *testing.T, deviceID string) *string {
+	t.Helper()
+
+	var got *string
+	if err := global.DB.Raw(`SELECT voucher FROM devices WHERE id = ?`, deviceID).Scan(&got).Error; err != nil {
+		t.Fatalf("read voucher for %s: %v", deviceID, err)
+	}
+	return got
+}
+
+// recordingCredentialCacheStore 测试缓存 seam 的假实现：记录逐设备写入供断言。
+type recordingCredentialCacheStore struct {
+	values map[string]string
+}
+
+func newRecordingCredentialCacheStore() *recordingCredentialCacheStore {
+	return &recordingCredentialCacheStore{values: map[string]string{}}
+}
+
+func (s *recordingCredentialCacheStore) Set(_ context.Context, key, value string, _ time.Duration) error {
+	s.values[key] = value
+	return nil
+}
+
+func (s *recordingCredentialCacheStore) Get(_ context.Context, key string) (string, error) {
+	value, ok := s.values[key]
+	if !ok {
+		return "", ErrCredentialCacheMiss
+	}
+	return value, nil
+}
+
+func useRecordingCredentialCacheStore(t *testing.T) *recordingCredentialCacheStore {
+	t.Helper()
+
+	fake := newRecordingCredentialCacheStore()
+	old := DeviceCredentialCacheStore
+	DeviceCredentialCacheStore = fake
+	t.Cleanup(func() { DeviceCredentialCacheStore = old })
+	return fake
+}
+
+// TestCreateDevicesStopPlaintextAndPersistVoucherHash 锁定 Phase 2b 写入侧契约：
+// 单个与批量创建都必须在同事务内补齐 voucher_hash，且 voucher 明文列停写为空串；
+// 网页测试缓存按设备逐台写入（批量创建不得只写第一台）。
+func TestCreateDevicesStopPlaintextAndPersistVoucherHash(t *testing.T) {
 	setupDeviceVoucherDualModeTestDB(t)
+	cache := useRecordingCredentialCacheStore(t)
 
 	single := &model.Device{
 		ID:           "vh-create-single",
@@ -116,6 +161,12 @@ func TestCreateDevicesPersistVoucherHash(t *testing.T) {
 	if got := storedVoucherHash(t, single.ID); got == nil || *got != wantSingle {
 		t.Fatalf("single create voucher_hash = %v, want %q", got, wantSingle)
 	}
+	if got := storedVoucherPlaintext(t, single.ID); got == nil || *got != "" {
+		t.Fatalf("single create must stop persisting plaintext voucher, got %v", got)
+	}
+	if got := cache.values[deviceCredentialTestCacheKey(single.ID)]; got != single.Voucher {
+		t.Fatalf("single create test cache = %q, want %q", got, single.Voucher)
+	}
 
 	batch := []*model.Device{
 		{ID: "vh-create-batch-a", Voucher: `{"username":"batch-a"}`, TenantID: "tenant-voucher-dual", DeviceNumber: "vh-batch-a", IsEnabled: "enabled", ActivateFlag: "active"},
@@ -128,6 +179,12 @@ func TestCreateDevicesPersistVoucherHash(t *testing.T) {
 		want := utils.VoucherStorageHash(device.Voucher)
 		if got := storedVoucherHash(t, device.ID); got == nil || *got != want {
 			t.Fatalf("batch create %s voucher_hash = %v, want %q", device.ID, got, want)
+		}
+		if got := storedVoucherPlaintext(t, device.ID); got == nil || *got != "" {
+			t.Fatalf("batch create %s must stop persisting plaintext voucher, got %v", device.ID, got)
+		}
+		if got := cache.values[deviceCredentialTestCacheKey(device.ID)]; got != device.Voucher {
+			t.Fatalf("batch create %s test cache = %q, want %q", device.ID, got, device.Voucher)
 		}
 	}
 }

@@ -44,15 +44,29 @@ func createDevicesWithDefaultRootGroup(devices []*model.Device) error {
 
 	tenantID := devices[0].TenantID
 	return query.Q.Transaction(func(tx *query.Query) error {
-		if err := tx.Device.Create(devices...); err != nil {
+		// 凭证哈希存储 Phase 2b（references/backend-hardening-plan.md 车道1）：devices.voucher
+		// 列停写明文——插入行以空串落列（列 NOT NULL DEFAULT ''），调用方入参 struct 保持原值，
+		// 让创建方（device_auth.go / gateway_register 等一次性响应）仍能拿到生成时明文。
+		rows := make([]*model.Device, len(devices))
+		for i, device := range devices {
+			if device == nil {
+				rows[i] = device
+				continue
+			}
+			blanked := *device
+			blanked.Voucher = ""
+			rows[i] = &blanked
+		}
+		if err := tx.Device.Create(rows...); err != nil {
 			return err
 		}
 
-		// 凭证哈希存储 Phase 1（references/backend-hardening-plan.md 车道1）：gen 模型无
-		// VoucherHash 字段，二段式写入——插入原样走 gen 事务后，同事务内 raw 补 UPDATE
-		// voucher_hash。此写点覆盖全部创建路径（device_create.go、device_batch_create.go、
+		// 凭证哈希存储 Phase 1/2b（references/backend-hardening-plan.md 车道1）：gen 模型无
+		// VoucherHash 字段，raw UPDATE 收口——同事务内按入参 struct 的明文计算并补写
+		// voucher_hash，同时把 voucher 列置空串兜底、逐设备写入网页测试缓存。
+		// 此写点覆盖全部创建路径（device_create.go、device_batch_create.go、
 		// device_auth.go、device_gateway_register.go 网关与子设备注册）；
-		// phase2 停写明文后此列成为唯一匹配依据。
+		// 停写明文后 voucher_hash 列是唯一匹配依据。
 		if err := WriteVoucherHashInQueryTx(tx, devices); err != nil {
 			return err
 		}
