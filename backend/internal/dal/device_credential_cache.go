@@ -74,7 +74,9 @@ func StoreDeviceCredentialTestCache(deviceID, voucherJSON string) {
 	if err := DeviceCredentialCacheStore.Set(
 		context.Background(), deviceCredentialTestCacheKey(deviceID), voucherJSON, DeviceCredentialTestCacheTTL,
 	); err != nil {
-		logrus.WithError(err).WithField("device_id", deviceID).
+		// 日志静态化（go/log-injection 整改，同 #121 模式）：device_id 来自请求链路，
+		// 不进入日志字段；设备维度定位由调用方的业务日志承担。
+		logrus.WithError(err).
 			Warn("store device credential test cache failed; web simulator test window unavailable for this device")
 	}
 }
@@ -89,7 +91,8 @@ func LoadDeviceCredentialTestCache(deviceID string) (string, error) {
 	if err != nil {
 		if !errors.Is(err, redis.Nil) && !errors.Is(err, ErrCredentialCacheMiss) {
 			// Redis 故障按过期处理（fail-closed），日志保留定位线索但不向调用面区分。
-			logrus.WithError(err).WithField("device_id", deviceID).Warn("load device credential test cache failed")
+			// 日志静态化（go/log-injection 整改）：不输出用户可控的 device_id。
+			logrus.WithError(err).Warn("load device credential test cache failed")
 		}
 		return "", ErrCredentialCacheMiss
 	}
