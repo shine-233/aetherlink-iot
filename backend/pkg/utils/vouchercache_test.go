@@ -17,12 +17,12 @@ func TestVoucherCacheKeyContract(t *testing.T) {
 	// 已知向量与 broker 侧契约测试使用同一字符串，保证双端字面一致。
 	voucher := `{"username":"dev-1","password":"s3cret-pass"}`
 
-	// 该值为上述向量的 SHA-256 十六进制摘要，独立计算后写死，防止实现自证。
-	const expected = "6f39cd40d4b612553fc9ffd925cf1e90ca1a86102af5fcc1de63fa818cd017d3"
+	// 该值为上述向量的 HMAC-SHA256 十六进制摘要，独立计算后写死，防止实现自证。
+	const expected = "f5aafa8b1e2369a8281b4aa74a844433e04852bf3193fdf2efc6593fad8a4a7a"
 
 	got := VoucherCacheKey(voucher)
 	if got != expected {
-		t.Fatalf("VoucherCacheKey = %q, want contract sha256 hex %q", got, expected)
+		t.Fatalf("VoucherCacheKey = %q, want contract hmac-sha256 hex %q", got, expected)
 	}
 	if strings.ContainsAny(got, "{}\":, ") || strings.Contains(got, "s3cret") {
 		t.Fatal("cache key must not embed plaintext voucher material")
