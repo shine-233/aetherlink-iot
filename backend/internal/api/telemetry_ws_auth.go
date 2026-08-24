@@ -17,7 +17,9 @@ import (
 
 func validateToken(token string) (*utils.UserClaims, error) {
 	ctx := context.Background()
-	if global.REDIS.Get(ctx, token).Val() != "1" {
+	// P3 修复（2026-08-24，见 VALIDATION.md）：与 HTTP 中间件一致，Redis 键使用 token 摘要。
+	tokenKey := utils.TokenDigest(token)
+	if global.REDIS.Get(ctx, tokenKey).Val() != "1" {
 		return nil, errors.New("token is expired")
 	}
 
@@ -35,7 +37,7 @@ func validateToken(token string) (*utils.UserClaims, error) {
 	if timeout == 0 {
 		timeout = 60
 	}
-	global.REDIS.Set(ctx, token, "1", time.Duration(timeout)*time.Minute)
+	global.REDIS.Set(ctx, tokenKey, "1", time.Duration(timeout)*time.Minute)
 
 	return claims, nil
 }

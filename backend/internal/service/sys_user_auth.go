@@ -168,7 +168,7 @@ func replaceExclusiveLoginToken(ctx context.Context, token, email string, ttl ti
 		return err
 	}
 	if err := global.REDIS.Set(ctx, loginEmailTokenKey(email), token, 0).Err(); err != nil {
-		_ = global.REDIS.Del(ctx, token).Err()
+		_ = global.REDIS.Del(ctx, utils.TokenDigest(token)).Err()
 		return tokenSaveError(email, err)
 	}
 	return nil
@@ -183,14 +183,16 @@ func loadPreviousLoginToken(ctx context.Context, email string) (string, error) {
 }
 
 func setLoginToken(ctx context.Context, token, email string, ttl time.Duration) error {
-	if err := global.REDIS.Set(ctx, token, "1", ttl).Err(); err != nil {
+	// P3 修复（2026-08-24，见 VALIDATION.md）：Redis 键统一使用 token 摘要（utils.TokenDigest），
+	// 与 middleware/jwt_auth.go、api/telemetry_ws_auth.go 共用同一键空间。
+	if err := global.REDIS.Set(ctx, utils.TokenDigest(token), "1", ttl).Err(); err != nil {
 		return tokenSaveError(email, err)
 	}
 	return nil
 }
 
 func deleteLoginToken(ctx context.Context, token, email string) error {
-	if err := global.REDIS.Del(ctx, token).Err(); err != nil && !errors.Is(err, redis.Nil) {
+	if err := global.REDIS.Del(ctx, utils.TokenDigest(token)).Err(); err != nil && !errors.Is(err, redis.Nil) {
 		return tokenSaveError(email, err)
 	}
 	return nil
@@ -209,7 +211,7 @@ func tokenSaveError(email string, err error) error {
 
 // @description 退出登录
 func (*User) Logout(token string) error {
-	if err := global.REDIS.Del(context.Background(), token).Err(); err != nil {
+	if err := global.REDIS.Del(context.Background(), utils.TokenDigest(token)).Err(); err != nil {
 		return errcode.New(errcode.CodeTokenDeleteError)
 	}
 	return nil
@@ -292,7 +294,7 @@ func saveRefreshToken(token, email string, timeout int) error {
 			"email": email,
 		})
 	}
-	if err := global.REDIS.Set(context.Background(), token, "1", time.Duration(timeout)*time.Minute).Err(); err != nil {
+	if err := global.REDIS.Set(context.Background(), utils.TokenDigest(token), "1", time.Duration(timeout)*time.Minute).Err(); err != nil {
 		return errcode.WithData(errcode.CodeTokenSaveError, map[string]interface{}{
 			"error": err.Error(),
 			"email": email,
@@ -387,7 +389,7 @@ func saveTransformUserToken(token, userID string, ttl time.Duration) error {
 			"user_id": userID,
 		})
 	}
-	if err := global.REDIS.Set(context.Background(), token, "1", ttl).Err(); err != nil {
+	if err := global.REDIS.Set(context.Background(), utils.TokenDigest(token), "1", ttl).Err(); err != nil {
 		return errcode.WithData(errcode.CodeTokenSaveError, map[string]interface{}{
 			"error":   err.Error(),
 			"user_id": userID,
