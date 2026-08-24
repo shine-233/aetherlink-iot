@@ -25,9 +25,10 @@ jobs:
   compose-stack-e2e:
     name: Self-hosted-stack API, E2E, and device validation
     runs-on: ubuntu-latest
-    # KNOWN ISSUE: MQTT dial goes to ::1 instead of mqtt-broker DNS in some
-    # code paths. Root cause under investigation; all other CI lanes green.
-    continue-on-error: true
+    # Fail-closed since 2026-08: backend MQTT dial addresses now resolve through
+    # the shared loopback-safe helper (backend/pkg/utils/mqtt_broker_address.go),
+    # which replaces localhost with 127.0.0.1 and honors GOTP_MQTT_BROKER /
+    # AETHERLINK_MQTT_INNER_BROKER, removing the historic "::1 dial" failure mode.
     timeout-minutes: 60
     defaults:
       run:
@@ -147,16 +148,7 @@ jobs:
           docker exec aetherlink-iot-backend-1 sh -c "nslookup mqtt-broker 2>&1 || getent hosts mqtt-broker 2>&1 || echo 'DNS tools not available'"
           echo "=== 3. Network connectivity from backend to broker ==="
           docker exec aetherlink-iot-backend-1 sh -c "wget -qO- --timeout=3 mqtt-broker:1883 2>&1 || echo 'wget failed (expected for raw TCP)'; echo exit=$?"
-          echo "=== 4. Force recreate backend with no-cache build ==="
-          docker compose build --no-cache backend
-          docker compose up -d --force-recreate backend
-          echo "=== waiting for backend ready ==="
-          sleep 10
-          for i in $(seq 1 30); do
-            if curl -sf http://127.0.0.1:9999/ready > /dev/null 2>&1; then echo "backend ready"; break; fi
-            sleep 3
-          done
-          echo "=== 5. Verify: try simulated telemetry publish ==="
+          echo "=== 4. Verify: try simulated telemetry publish ==="
           curl -sf http://127.0.0.1:9999/api/v1/device/telemetry/simulation/init/test-device-123 \
             -H "x-token: $(curl -sf http://127.0.0.1:9999/api/v1/login -d '{"email":"admin@test.com","password":"test"}' -H 'Content-Type: application/json' | jq -r '.data.token // empty')" \
             2>&1 || echo "(sim init probe done — check response above)"
@@ -309,9 +301,6 @@ jobs:
     needs:
       - compose-stack-e2e
     runs-on: ubuntu-latest
-    # KNOWN ISSUE: MQTT dial goes to ::1 instead of mqtt-broker DNS in some
-    # code paths. Root cause under investigation; all other CI lanes green.
-    continue-on-error: true
     timeout-minutes: 5
     steps:
       - name: Fail closed when the self-contained lane did not succeed

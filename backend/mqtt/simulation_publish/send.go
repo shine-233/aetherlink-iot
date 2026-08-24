@@ -7,12 +7,23 @@ package simulationpublish
 import (
 	"net"
 
+	"aetherlink-iot/backend/pkg/utils"
+
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/sirupsen/logrus"
 )
 
 // 发布一次消息
 func PublishMessage(host string, port string, topic string, payload string, username string, password string, clientId string) error {
+	// 拨号前统一归一化回环地址：仅空/回环 host 触发 env 回退与 localhost→127.0.0.1，非回环原样放行以兼容宿主机场景。
+	// 助手返回值带端口（来自 env）时一并采纳；仅归一化 host 时保留调用方传入的端口。
+	if resolved := utils.ResolveMQTTBrokerDialAddress(host); resolved != "" {
+		if resolvedHost, resolvedPort, splitErr := net.SplitHostPort(resolved); splitErr == nil && resolvedPort != "" {
+			host, port = resolvedHost, resolvedPort
+		} else {
+			host = resolved
+		}
+	}
 	opts := buildSimulationClientOptions(host, port, username, password, clientId)
 	opts.SetOnConnectHandler(func(_ mqtt.Client) {
 		logrus.Println("simulation mqtt connect success")

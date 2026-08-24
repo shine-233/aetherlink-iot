@@ -13,6 +13,7 @@ import (
 	"aetherlink-iot/backend/internal/mqttdebug"
 	service "aetherlink-iot/backend/internal/service"
 	"aetherlink-iot/backend/mqtt"
+	"aetherlink-iot/backend/pkg/utils"
 
 	mqtt_client "github.com/eclipse/paho.mqtt.golang"
 	"github.com/sirupsen/logrus"
@@ -104,7 +105,8 @@ func (s *MQTTService) initMQTTAdapter() error {
 	}
 
 	// 2. 创建 Adapter 专用的 MQTT 客户端（不依赖 mqtt/publish/）
-	broker := viper.GetString("mqtt.broker")
+	// 拨号地址统一经助手归一化：回环配置回退 env，并把 localhost 固定为 127.0.0.1 防 ::1 偏好；debug 会话客户端复用同一地址。
+	broker := utils.ResolveMQTTBrokerDialAddress(viper.GetString("mqtt.broker"))
 	username := viper.GetString("mqtt.user")
 	password := viper.GetString("mqtt.pass")
 	clientID := viper.GetString("mqtt.client_id")
