@@ -32,6 +32,27 @@ vi.mock('@/locales', () => ({
 
 import OnboardingReadyCheck from '../onboarding-ready-check.vue'
 
+interface ReadyCheckEvidenceCard {
+  key: string
+}
+
+interface ReadyCheckDeepLink {
+  key: string
+}
+
+// setupState 的受控视图：只声明测试实际触达的成员，其余成员走 unknown 兜底。
+interface ReadyCheckSetupState {
+  primaryReadyAction: { titleKey?: string }
+  evidenceCards: ReadyCheckEvidenceCard[]
+  evidenceDeepLinks: ReadyCheckDeepLink[]
+  openEvidenceDeepLink: (link: ReadyCheckDeepLink) => void
+  runEvidenceCardAction: (card: ReadyCheckEvidenceCard) => void
+  readyCheckDiagnosticSummary: string
+  openCommandCenter: () => void
+  copyAllEvidenceDeepLinks: () => Promise<void>
+  [key: string]: unknown
+}
+
 const mountComponent = () =>
   shallowMount(OnboardingReadyCheck, {
     props: {
@@ -109,7 +130,7 @@ describe('onboarding-ready-check.vue', () => {
     hoisted.routeQuery = { onboarding: 'first-device' }
     const wrapper = mountComponent()
     await flushPromises()
-    const state = wrapper.vm.$.setupState as Record<string, any>
+    const state = wrapper.vm.$.setupState as ReadyCheckSetupState
 
     expect(state.primaryReadyAction.actionKey).toBe('custom.automation.createFirstTelemetryRule')
     state.primaryReadyAction.action()
@@ -135,10 +156,10 @@ describe('onboarding-ready-check.vue', () => {
     })
     const wrapper = mountComponent()
     await flushPromises()
-    const state = wrapper.vm.$.setupState as Record<string, any>
+    const state = wrapper.vm.$.setupState as ReadyCheckSetupState
 
     expect(state.primaryReadyAction.titleKey).toBe('custom.device_details.readyCheckTwinTitle')
-    expect(state.evidenceCards.find((card: any) => card.key === 'twin')).toEqual(
+    expect(state.evidenceCards.find((card: ReadyCheckEvidenceCard) => card.key === 'twin')).toEqual(
       expect.objectContaining({
         boundaryKey: 'custom.device_details.readyCheckTwinBoundary'
       })
@@ -165,8 +186,8 @@ describe('onboarding-ready-check.vue', () => {
     })
     const wrapper = mountComponent()
     await flushPromises()
-    const state = wrapper.vm.$.setupState as Record<string, any>
-    const commandCard = state.evidenceCards.find((card: any) => card.key === 'command')
+    const state = wrapper.vm.$.setupState as ReadyCheckSetupState
+    const commandCard = state.evidenceCards.find((card: ReadyCheckEvidenceCard) => card.key === 'command')
 
     expect(commandCard).toEqual(
       expect.objectContaining({
@@ -193,7 +214,7 @@ describe('onboarding-ready-check.vue', () => {
     }
     const wrapper = mountComponent()
     await flushPromises()
-    const state = wrapper.vm.$.setupState as Record<string, any>
+    const state = wrapper.vm.$.setupState as ReadyCheckSetupState
 
     expect(state.evidenceCenterItems).toEqual(expect.arrayContaining([
       expect.objectContaining({
@@ -246,9 +267,9 @@ describe('onboarding-ready-check.vue', () => {
     }
     const wrapper = mountComponent()
     await flushPromises()
-    const state = wrapper.vm.$.setupState as Record<string, any>
+    const state = wrapper.vm.$.setupState as ReadyCheckSetupState
 
-    expect(state.evidenceDeepLinks.map((link: any) => link.key)).toEqual([
+    expect(state.evidenceDeepLinks.map((link: ReadyCheckDeepLink) => link.key)).toEqual([
       'telemetry',
       'device-twin',
       'command-delivery',
@@ -287,7 +308,7 @@ describe('onboarding-ready-check.vue', () => {
       })
     ]))
 
-    state.openEvidenceDeepLink(state.evidenceDeepLinks.find((link: any) => link.key === 'ota'))
+    state.openEvidenceDeepLink(state.evidenceDeepLinks.find((link: ReadyCheckDeepLink) => link.key === 'ota'))
 
     expect(hoisted.routerPush).toHaveBeenCalledWith({
       path: '/product/update-ota',
@@ -304,7 +325,7 @@ describe('onboarding-ready-check.vue', () => {
   it('uses the recommended command collector to prefill Command Center drafts', async () => {
     const wrapper = mountComponent()
     await flushPromises()
-    const state = wrapper.vm.$.setupState as Record<string, any>
+    const state = wrapper.vm.$.setupState as ReadyCheckSetupState
 
     expect(state.recommendedCommandDraft).toEqual({
       identify: 'reboot',
@@ -329,7 +350,7 @@ describe('onboarding-ready-check.vue', () => {
     hoisted.commandDataById.mockRejectedValueOnce(new Error('command catalog unavailable'))
     const wrapper = mountComponent()
     await flushPromises()
-    const state = wrapper.vm.$.setupState as Record<string, any>
+    const state = wrapper.vm.$.setupState as ReadyCheckSetupState
 
     expect(state.collectionFailures).toEqual([
       {
@@ -353,7 +374,7 @@ describe('onboarding-ready-check.vue', () => {
     hoisted.writeClipboardText.mockResolvedValueOnce(true)
     const wrapper = mountComponent()
     await flushPromises()
-    const state = wrapper.vm.$.setupState as Record<string, any>
+    const state = wrapper.vm.$.setupState as ReadyCheckSetupState
 
     await state.copyAllEvidenceDeepLinks()
 
