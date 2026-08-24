@@ -133,7 +133,7 @@ const submit: () => void = async () => {
       emit('update:objItem', {})
       emit('update:addAndEditModalVisible', false)
       emit('determine')
-      window.$message?.success('新增成功')
+      window.$message?.success($t('common.addSuccess'))
     }
   }
 }

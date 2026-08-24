@@ -252,7 +252,7 @@ const parameterSubmit: () => void = async () => {
   if (addParameterFrom.param_type === 'Enum') {
     const enum_config = addParameterFrom.enum_config.filter(v => v.value && v.desc)
     if (enum_config.length < 1) {
-      window.$message?.error('请添加枚举项！')
+      window.$message?.error($t('device_template.table_header.pleaseAddEnumItem'))
       return
     }
     addParameterFrom.enum_config = enum_config
@@ -261,7 +261,7 @@ const parameterSubmit: () => void = async () => {
     if (addParameterFrom.param_type === 'Enum') {
       const enum_config = addParameterFrom.enum_config.filter(v => v.value && v.desc)
       if (enum_config.length < 1) {
-        window.$message?.error('请添加枚举项！')
+        window.$message?.error($t('device_template.table_header.pleaseAddEnumItem'))
         return
       }
       addParameterFrom.enum_config = enum_config
