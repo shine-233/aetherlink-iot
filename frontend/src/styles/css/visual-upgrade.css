@@ -1,10 +1,9 @@
 /* ============================================================
- * AetherLink IoT 视觉升级 — 全局交互增强
- * 卡片悬浮 · 按钮微交互 · 数字滚动 · 骨架屏 · 页面转场
- * 全部遵循 prefers-reduced-motion 可达性要求
- * ============================================================ */
+ * AetherLink IoT 瑙嗚鍗囩骇 鈥?鍏ㄥ眬浜や簰澧炲己
+ * 鍗＄墖鎮诞 路 鎸夐挳寰氦浜?路 鏁板瓧婊氬姩 路 楠ㄦ灦灞?路 椤甸潰杞満
+ * 鍏ㄩ儴閬靛惊 prefers-reduced-motion 鍙揪鎬ц姹? * ============================================================ */
 
-/* ---- 卡片悬浮效果：所有 n-card 和 .stat-card 通用 ---- */
+/* ---- 鍗＄墖鎮诞鏁堟灉锛氭墍鏈?n-card 鍜?.stat-card 閫氱敤 ---- */
 .n-card {
   transition: transform 0.25s cubic-bezier(0.4,0,0.2,1), box-shadow 0.25s cubic-bezier(0.4,0,0.2,1);
 }
@@ -13,13 +12,13 @@
   box-shadow: 0 8px 24px rgba(32,128,240,0.10), 0 2px 8px rgba(0,0,0,0.06);
 }
 
-/* ---- 统计卡片数字区域 ---- */
+/* ---- 缁熻鍗＄墖鏁板瓧鍖哄煙 ---- */
 .stat-card-value {
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.5px;
 }
 
-/* ---- 按钮按压回弹 ---- */
+/* ---- 鎸夐挳鎸夊帇鍥炲脊 ---- */
 .n-button:not(.n-button--disabled):active {
   transform: scale(0.97);
   transition: transform 0.08s ease;
@@ -28,12 +27,12 @@
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-/* ---- 表格行 hover 高亮 ---- */
+/* ---- 琛ㄦ牸琛?hover 楂樹寒 ---- */
 .n-data-table-tr:hover {
   background-color: rgba(32,128,240,0.03) !important;
 }
 
-/* ---- 页面内容进场动画（配合 global-content Transition）---- */
+/* ---- 椤甸潰鍐呭杩涘満鍔ㄧ敾锛堥厤鍚?global-content Transition锛?--- */
 .fade-slide-enter-active {
   animation: page-enter 0.22s cubic-bezier(0.4,0,0.2,1);
 }
@@ -42,7 +41,7 @@
   to   { opacity: 1; transform: none; }
 }
 
-/* ---- 在线状态脉冲指示器 ---- */
+/* ---- 鍦ㄧ嚎鐘舵€佽剦鍐叉寚绀哄櫒 ---- */
 .status-dot-online {
   width: 8px; height: 8px; border-radius: 50%;
   background: #18a058;
@@ -61,12 +60,12 @@
   100% { transform: scale(1.6); opacity: 0; }
 }
 
-/* ---- 进度条流光效果 ---- */
+/* ---- 杩涘害鏉℃祦鍏夋晥鏋?---- */
 .n-progress .n-progress-graph-line-fill {
   transition: width 0.6s cubic-bezier(0.4,0,0.2,1) !important;
 }
 
-/* ---- 可达性硬要求 ---- */
+/* ---- 鍙揪鎬х‖瑕佹眰 ---- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

@@ -1,8 +1,5 @@
 /**
- * 文件用途：注册 AetherLink IoT 品牌 ECharts 主题，全局生效。
- * 核心逻辑：定义品牌色板、渐变面积图、圆角柱状图、柔和网格线与坐标轴样式。
- * 关键注意事项：主题在 echarts/core 初始化后通过 registerTheme 注册一次即可。
- */
+ * 鏂囦欢鐢ㄩ€旓細娉ㄥ唽 AetherLink IoT 鍝佺墝 ECharts 涓婚锛屽叏灞€鐢熸晥銆? * 鏍稿績閫昏緫锛氬畾涔夊搧鐗岃壊鏉裤€佹笎鍙橀潰绉浘銆佸渾瑙掓煴鐘跺浘銆佹煍鍜岀綉鏍肩嚎涓庡潗鏍囪酱鏍峰紡銆? * 鍏抽敭娉ㄦ剰浜嬮」锛氫富棰樺湪 echarts/core 鍒濆鍖栧悗閫氳繃 registerTheme 娉ㄥ唽涓€娆″嵆鍙€? */
 import type { EChartsOption } from 'echarts'
 
 const BRAND = {
@@ -58,7 +55,7 @@ export const aetherLinkTheme: EChartsOption = {
   },
 } as any
 
-/** 面积图 series 默认样式（渐变+平滑） */
+/** 闈㈢Н鍥?series 榛樿鏍峰紡锛堟笎鍙?骞虫粦锛?*/
 export function areaSeriesStyle(color = BRAND.primary) {
   return {
     smooth: true,
@@ -75,7 +72,7 @@ export function areaSeriesStyle(color = BRAND.primary) {
   }
 }
 
-/** 柱状图 series 默认样式（圆角+渐变） */
+/** 鏌辩姸鍥?series 榛樿鏍峰紡锛堝渾瑙?娓愬彉锛?*/
 export function barSeriesStyle() {
   return {
     barMaxWidth: 28,
