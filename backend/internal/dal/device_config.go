@@ -23,6 +23,7 @@ import (
 
 	model "aetherlink-iot/backend/internal/model"
 	query "aetherlink-iot/backend/internal/query"
+	"aetherlink-iot/backend/pkg/constant"
 	global "aetherlink-iot/backend/pkg/global"
 	utils "aetherlink-iot/backend/pkg/utils"
 
@@ -153,9 +154,12 @@ func GetDeviceConfigForTenant(id, tenantID string) (*model.DeviceConfig, error) 
 }
 
 func GetDeviceConfigListByPage(deviceconfig *model.GetDeviceConfigListByPageReq, claims *utils.UserClaims) (int64, interface{}, error) {
-	// 空租户守卫（ROADMAP A1）：claims.TenantID 运行期可能因 token 边界条件变为空串，
-	// WHERE tenant_id='' 会静默匹配 0 行——显式拒绝而非返回"偶发空列表"（users 收敛模式）。
-	if claims == nil || strings.TrimSpace(claims.TenantID) == "" {
+	// 空租户守卫（ROADMAP A1）：仅约束租户作用域角色——super_admin 的 TenantID 合法为空，
+	// 走全量视图；tenant 角色空租户会静默匹配 0 行，显式拒绝而非返回"偶发空列表"。
+	if claims == nil {
+		return 0, nil, fmt.Errorf("nil claims in device config list query")
+	}
+	if claims.Authority != constant.SYS_ADMIN && strings.TrimSpace(claims.TenantID) == "" {
 		logrus.Warn("dal: device config list query has empty TenantID in claims; rejecting")
 		return 0, nil, fmt.Errorf("empty tenant id in claims")
 	}
@@ -164,7 +168,9 @@ func GetDeviceConfigListByPage(deviceconfig *model.GetDeviceConfigListByPageReq,
 	var data []model.DeviceConfigRsp
 	var deviceconfigList []*model.DeviceConfig
 	queryBuilder := isolatedDeviceConfig().WithContext(context.Background())
-	queryBuilder = queryBuilder.Where(q.TenantID.Eq(claims.TenantID))
+	if claims.Authority != constant.SYS_ADMIN {
+		queryBuilder = queryBuilder.Where(q.TenantID.Eq(claims.TenantID))
+	}
 
 	if deviceconfig.DeviceTemplateId != nil && *deviceconfig.DeviceTemplateId != "" {
 		queryBuilder = queryBuilder.Where(q.DeviceTemplateID.Eq(*deviceconfig.DeviceTemplateId))
