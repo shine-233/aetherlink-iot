@@ -6,13 +6,21 @@
 package utils
 
 import (
+	"fmt"
+
 	"golang.org/x/crypto/bcrypt"
 )
 
-// BcryptHash 使用 bcrypt 对密码进行加密
-func BcryptHash(password string) string {
-	bytes, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	return string(bytes)
+// BcryptHash 使用 bcrypt 对密码进行加密。
+// 关键注意事项：生成失败必须返回错误。旧实现吞掉错误并静默返回空字符串哈希，
+// 一旦触发（如超过 72 字节的输入会返回 bcrypt.ErrPasswordTooLong），
+// 账号将带着空哈希入库且永久无法登录、无任何日志痕迹。
+func BcryptHash(password string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return "", fmt.Errorf("hash password: %w", err)
+	}
+	return string(bytes), nil
 }
 
 // BcryptCheck 对比明文密码和数据库的哈希值

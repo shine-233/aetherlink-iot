@@ -126,7 +126,7 @@ cd mqtt-broker && go run ./cmd/gmqttd
 
 - 源码离线门禁持续保持绿色，但**这不等于**真实 API、浏览器 E2E、真机 RDI 或生产环境已验收。
 - 真实 RDI 设备、目标服务器部署、HTTPS/TLS、公网 MQTT 与 backup/restore 目前为 `not-tested` / `pending` / `configuration-required`，逐项状态见 [VALIDATION.md](VALIDATION.md)。
-- 数据库迁移链当前到 `52.sql`；升级 OpenAPI 密钥为哈希存储后，旧明文密钥需重新生成方可继续使用。
+- 数据库迁移链当前到 `53.sql`；升级 OpenAPI 密钥为哈希存储后，旧明文密钥需重新生成方可继续使用。
 
 ## 贡献
 

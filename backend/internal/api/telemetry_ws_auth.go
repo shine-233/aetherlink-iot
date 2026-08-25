@@ -61,7 +61,10 @@ func validateAPIKey(apiKey string) (*utils.UserClaims, error) {
 		return nil, err
 	}
 
-	return telemetryTenantAdminReadClaims(info.TenantID, info.CreatedID), nil
+	// 与 HTTP 侧 jwt_auth.openAPIKeyAuthority 同源：同一把 OpenAPI Key 在 WS 上
+	// 不再单独授予 TENANT_ADMIN；默认最小权限 TENANT_USER，需要提升的部署通过
+	// GOTP_OPENAPI_KEY_AUTHORITY 显式配置。
+	return telemetryAPIKeyClaims(middleware.OpenAPIKeyAuthority(), info.TenantID, info.CreatedID), nil
 }
 
 var (
@@ -152,10 +155,12 @@ func validateTelemetryAPIKeyAuth(req telemetryAuthRequest) (*utils.UserClaims, e
 	return nil, apiKeyErr, apiKeyProvided
 }
 
-func telemetryTenantAdminReadClaims(tenantID string, userID string) *utils.UserClaims {
+// telemetryAPIKeyClaims 构造 OpenAPI Key 的 WS 会话 claims；authority 由
+// middleware.OpenAPIKeyAuthority 统一提供（HTTP/WS 同口径）。
+func telemetryAPIKeyClaims(authority string, tenantID string, userID string) *utils.UserClaims {
 	return &utils.UserClaims{
 		TenantID:  tenantID,
-		Authority: "TENANT_ADMIN",
+		Authority: authority,
 		ID:        userID,
 	}
 }
