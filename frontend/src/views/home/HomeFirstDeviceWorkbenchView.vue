@@ -6,28 +6,13 @@ import {
   buildFirstDeviceChartProofSummary,
   buildFirstDeviceClosureSummary,
   buildFirstDeviceFlowNodes,
-  buildFirstDeviceLatestProofText,
-  buildFirstDeviceOnlineTesterState,
-  buildFirstDevicePostReadyHandoff,
-  buildFirstDevicePostTestGuidance,
-  buildFirstDeviceSuccessFacts,
-  buildFirstDeviceVerificationAction,
-  resolveFirstDeviceFocusedSectionKey
+  buildFirstDeviceOnlineTesterState
 } from './homeFirstDeviceWorkbench'
 import {
-  buildFirstDeviceCoreGuideSummary,
-  buildFirstDeviceMissionControl,
   buildFirstDeviceOperationChecklist,
-  buildFirstDeviceOperatorCue,
   buildFirstDeviceTestCommands,
-  buildFirstDeviceStatusHeroCopy,
-  buildFirstDeviceSuccessProofCopy,
   buildFirstRunWizardSteps,
-  buildFocusedQuickstartCopy,
-  filterFirstDeviceCoreGuideSteps,
-  filterFirstDeviceNextGuideSteps,
-  getFirstDeviceTestCommandLabel,
-  getFocusedQuickstartActionLoading
+  getFirstDeviceTestCommandLabel
 } from './homeFirstDeviceView'
 import type { HomeFirstRunProtocol } from './homeFirstRunWizard'
 import {
@@ -37,6 +22,7 @@ import {
   downloadFirstDeviceSuccessProofPacket,
   type FirstDeviceProofDeliveryState
 } from './homeFirstDeviceProofDelivery'
+import { useFirstDeviceQuickstartCopy } from './useFirstDeviceQuickstartCopy'
 import { useViewportDeferredMount } from './useViewportDeferredMount'
 import type {
   FirstDeviceBrowserTestState,
@@ -120,35 +106,52 @@ const emit = defineEmits<{
   refreshDeploymentHealth: []
 }>()
 
-const firstDeviceCoreGuideSteps = computed(() => filterFirstDeviceCoreGuideSteps(props.homeCustomerGuideProgress))
-const firstDeviceNextGuideSteps = computed(() => filterFirstDeviceNextGuideSteps(props.homeCustomerGuideProgress))
-const firstDeviceNextActiveGuideStep = computed<HomeCustomerGuideProgressStep | null>(
-  () =>
-    (firstDeviceNextGuideSteps.value.find(step => step.status === 'active') as HomeCustomerGuideProgressStep) ||
-    null
-)
-const firstDevicePostReadyHandoff = computed(() =>
-  buildFirstDevicePostReadyHandoff({
-    ready: props.firstDeviceReadyProof.ready,
-    nextStep: firstDeviceNextActiveGuideStep.value
-  })
-)
-const firstDeviceReadyNextGuideDescription = computed(() => {
-  return (
-    firstDevicePostReadyHandoff.value?.description ||
-    '首台设备已就绪，暂无待执行的下一步引导。'
-  )
-})
-const firstDeviceCoreGuideSummary = computed(() => buildFirstDeviceCoreGuideSummary(firstDeviceCoreGuideSteps.value))
-const firstRunSetupBlockerStep = computed(
-  () =>
-    props.firstRunSetupBlockerStep || props.homeCustomerGuideProgress.find(step => step.id === 'setup') || null
-)
-const firstRunSetupBlockerTitle = computed(() => firstRunSetupBlockerStep.value?.title || '先完成租户初始化')
-const firstRunSetupBlockerDescription = computed(
-  () => firstRunSetupBlockerStep.value?.description || '当前存在未完成的初始化步骤，请先按引导完成租户与部署检查',
-)
-const firstRunSetupBlockerAction = computed(() => firstRunSetupBlockerStep.value?.action || '去处理初始化')
+const quickstartCopyInputs = computed(() => ({
+  homeCustomerGuideProgress: props.homeCustomerGuideProgress,
+  firstRunSetupBlockerStep: props.firstRunSetupBlockerStep,
+  deploymentHealthRows: props.deploymentHealthRows,
+  readyProof: props.firstDeviceReadyProof,
+  onboardingGuard: props.firstDeviceOnboardingGuard,
+  chart: props.firstDeviceChart,
+  testResult: props.firstDeviceTestResult,
+  firstDevice: props.firstDevice,
+  deploymentHealthOk: props.deploymentHealthOk,
+  deploymentHealthLoading: props.deploymentHealthLoading,
+  firstDeviceActionLoading: props.firstDeviceActionLoading,
+  firstRunCreateLoading: props.firstRunCreateLoading
+}))
+const {
+  firstDeviceCoreGuideSteps,
+  firstDeviceCoreGuideSummary,
+  firstDeviceNextGuideSteps,
+  firstDeviceNextActiveGuideStep,
+  firstDevicePostReadyHandoff,
+  firstDeviceReadyNextGuideDescription,
+  firstRunSetupBlockerTitle,
+  firstRunSetupBlockerDescription,
+  firstRunSetupBlockerAction,
+  firstFailedDeploymentHealthRow,
+  firstDeviceCurrentBlocker,
+  firstDevicePrimaryAction,
+  firstDeviceLatestProofText,
+  currentFocusedQuickstartStep,
+  currentFocusedQuickstartSectionKey,
+  currentFocusedQuickstartTitle,
+  currentFocusedQuickstartDescription,
+  currentFocusedQuickstartSuccessSignal,
+  currentFocusedQuickstartActionLabel,
+  currentFocusedQuickstartActionDisabled,
+  currentFocusedQuickstartActionLoading,
+  firstDeviceOperatorCue,
+  firstDeviceMissionControl,
+  firstDeviceStatusHeroTitle,
+  firstDeviceStatusHeroDescription,
+  firstDeviceSuccessProofTitle,
+  firstDeviceSuccessProofDescription,
+  firstDeviceSuccessFacts,
+  firstDevicePostTestGuidance,
+  firstDeviceVerificationAction
+} = useFirstDeviceQuickstartCopy(quickstartCopyInputs)
 const deviceIdentitySectionRef = ref<HTMLElement | null>(null)
 const connectionTestViewportRef = ref<HTMLElement | null>(null)
 const connectionTestSectionRef = ref<{ connectionEl: HTMLElement | null; testCommandEl: HTMLElement | null } | null>(
@@ -195,22 +198,6 @@ const { shouldMount: shouldMountSupportSummarySection, mountNow: mountSupportSum
   useViewportDeferredMount(supportSummaryViewportRef, { rootMargin: '480px 0px', fallbackDelay: 600 })
 const pendingSupportSummaryPreviewOpen = ref(false)
 const deploymentHealthSectionRef = ref<HTMLElement | null>(null)
-const firstFailedDeploymentHealthRow = computed(() => props.deploymentHealthRows.find((row) => !row.ok) || null)
-const firstDeviceCurrentBlocker = computed(
-  () => props.firstDeviceReadyProof.items?.find(item => !item.ok) || null
-)
-const firstDevicePrimaryAction = computed(
-  () =>
-    props.firstDeviceOnboardingGuard.activeStep?.action ||
-    (props.firstDeviceReadyProof.ready ? 'ready-check' : 'health')
-)
-const firstDeviceLatestProofText = computed(() =>
-  buildFirstDeviceLatestProofText({
-    device: props.firstDevice,
-    chart: props.firstDeviceChart,
-    testResult: props.firstDeviceTestResult
-  })
-)
 const firstDeviceFlowNodes = computed(() => buildFirstDeviceFlowNodes(props.firstDeviceReadyProof.items || []))
 const firstDeviceClosureSummary = computed(() => buildFirstDeviceClosureSummary(firstDeviceFlowNodes.value))
 
@@ -223,108 +210,6 @@ const firstRunWizardSteps = computed(() =>
     firstRunProtocol: props.firstRunProtocol,
     firstDeviceChart: props.firstDeviceChart,
     firstDeviceTestResult: props.firstDeviceTestResult
-  })
-)
-const currentFocusedQuickstartStep = computed(() => props.firstDeviceOnboardingGuard.activeStep || null)
-const currentFocusedQuickstartSectionKey = computed(() =>
-  resolveFirstDeviceFocusedSectionKey({
-    activeStep: currentFocusedQuickstartStep.value,
-    ready: props.firstDeviceReadyProof.ready,
-    readyProofItems: props.firstDeviceReadyProof.items || [],
-    chartReady: props.firstDeviceChart.ready
-  })
-)
-const currentFocusedQuickstartCopy = computed(() =>
-  buildFocusedQuickstartCopy({
-    ready: props.firstDeviceReadyProof.ready,
-    activeStep: currentFocusedQuickstartStep.value,
-    readyDescription: firstDeviceReadyNextGuideDescription.value,
-    guardSummary: props.firstDeviceOnboardingGuard.summary,
-    nextAction: props.firstDeviceOnboardingGuard.nextAction,
-    postReadyHandoff: firstDevicePostReadyHandoff.value
-  })
-)
-const currentFocusedQuickstartTitle = computed(() => currentFocusedQuickstartCopy.value.title)
-const currentFocusedQuickstartDescription = computed(() => currentFocusedQuickstartCopy.value.description)
-const currentFocusedQuickstartSuccessSignal = computed(() => currentFocusedQuickstartCopy.value.successSignal)
-const currentFocusedQuickstartActionLabel = computed(() => currentFocusedQuickstartCopy.value.actionLabel)
-const currentFocusedQuickstartActionDisabled = computed(() => currentFocusedQuickstartCopy.value.actionDisabled)
-const firstDeviceOperatorCue = computed(() =>
-  buildFirstDeviceOperatorCue({
-    ready: props.firstDeviceReadyProof.ready,
-    activeStep: currentFocusedQuickstartStep.value,
-    actionLabel: currentFocusedQuickstartActionLabel.value,
-    successSignal: currentFocusedQuickstartSuccessSignal.value,
-    readyDescription: firstDeviceReadyNextGuideDescription.value,
-    currentBlocker: firstDeviceCurrentBlocker.value
-  })
-)
-const firstDeviceMissionControl = computed(() =>
-  buildFirstDeviceMissionControl({
-    ready: props.firstDeviceReadyProof.ready,
-    activeStep: currentFocusedQuickstartStep.value,
-    actionLabel: currentFocusedQuickstartActionLabel.value,
-    successSignal: currentFocusedQuickstartSuccessSignal.value,
-    readyDescription: firstDeviceReadyNextGuideDescription.value,
-    currentBlocker: firstDeviceCurrentBlocker.value
-  })
-)
-const currentFocusedQuickstartActionLoading = computed(() =>
-  getFocusedQuickstartActionLoading({
-    ready: props.firstDeviceReadyProof.ready,
-    activeStep: currentFocusedQuickstartStep.value,
-    firstDeviceActionLoading: props.firstDeviceActionLoading,
-    deploymentHealthLoading: props.deploymentHealthLoading,
-    firstRunCreateLoading: props.firstRunCreateLoading
-  })
-)
-const firstDeviceStatusHeroCopy = computed(() =>
-  buildFirstDeviceStatusHeroCopy({
-    ready: props.firstDeviceReadyProof.ready,
-    currentBlocker: firstDeviceCurrentBlocker.value,
-    activeStep: currentFocusedQuickstartStep.value,
-    guardSummary: props.firstDeviceOnboardingGuard.summary
-  })
-)
-const firstDeviceStatusHeroTitle = computed(() => firstDeviceStatusHeroCopy.value.title)
-const firstDeviceStatusHeroDescription = computed(() => firstDeviceStatusHeroCopy.value.description)
-const firstDeviceSuccessProofCopy = computed(() =>
-  buildFirstDeviceSuccessProofCopy({
-    ready: props.firstDeviceReadyProof.ready,
-    chartReady: props.firstDeviceChart.ready,
-    testResult: props.firstDeviceTestResult
-  })
-)
-const firstDeviceSuccessProofTitle = computed(() => firstDeviceSuccessProofCopy.value.title)
-const firstDeviceSuccessProofDescription = computed(() => firstDeviceSuccessProofCopy.value.description)
-const firstDeviceSuccessFacts = computed(() =>
-  buildFirstDeviceSuccessFacts({
-    device: props.firstDevice,
-    chart: props.firstDeviceChart,
-    latestProofText: firstDeviceLatestProofText.value
-  })
-)
-const firstDevicePostTestGuidance = computed(() =>
-  buildFirstDevicePostTestGuidance({
-    testResult: props.firstDeviceTestResult,
-    ready: props.firstDeviceReadyProof.ready,
-    readyDescription: firstDeviceReadyNextGuideDescription.value,
-    chartReady: props.firstDeviceChart.ready,
-    currentBlocker: firstDeviceCurrentBlocker.value
-  })
-)
-
-const firstDeviceVerificationAction = computed(() =>
-  buildFirstDeviceVerificationAction({
-    hasDevice: Boolean(props.firstDevice),
-    ready: props.firstDeviceReadyProof.ready,
-    postReadyHandoff: firstDevicePostReadyHandoff.value,
-    readyDescription: firstDeviceReadyNextGuideDescription.value,
-    chartReady: props.firstDeviceChart.ready,
-    canRunBrowserTest: props.firstDeviceOnboardingGuard.canRunBrowserTest,
-    testResult: props.firstDeviceTestResult,
-    actionLoading: props.firstDeviceActionLoading,
-    currentBlocker: firstDeviceCurrentBlocker.value
   })
 )
 
