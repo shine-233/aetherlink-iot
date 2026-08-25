@@ -96,6 +96,14 @@ services:
       # Local PostgreSQL resolver; disabled by default to preserve existing uplink behavior.
       GMQTT_PAYLOAD_SCHEMA_ENABLED: ${AETHERLINK_PAYLOAD_SCHEMA_ENABLED:-false}
       GMQTT_PAYLOAD_SCHEMA_CACHE_TTL: ${AETHERLINK_PAYLOAD_SCHEMA_CACHE_TTL:-30s}
+      # Durable broker persistence: sessions, subscriptions, and QoS queues survive
+      # broker restarts via the shared Redis. Set MQTT_PERSISTENCE_TYPE=memory to
+      # opt out (restarts then drop offline sessions and queued messages).
+      GMQTT_PERSISTENCE_TYPE: ${MQTT_PERSISTENCE_TYPE:-redis}
+      GMQTT_PERSISTENCE_REDIS_ADDR: ${GOTP_DB_REDIS_ADDR:-redis:6379}
+      GMQTT_PERSISTENCE_REDIS_PASSWORD: ${GOTP_DB_REDIS_PASSWORD:?Set GOTP_DB_REDIS_PASSWORD in .env}
+      # Broker persistence uses its own Redis database (plugin voucher cache uses DB 1).
+      GMQTT_PERSISTENCE_REDIS_DB: ${MQTT_PERSISTENCE_REDIS_DB:-2}
     ports:
       - "${AETHERLINK_BIND_ADDRESS:-127.0.0.1}:${MQTT_PORT:-1883}:1883"
       # 指标端口完全无认证，永不外暴：发布地址硬编码 127.0.0.1，
@@ -141,9 +149,10 @@ services:
       # Access-token lifetime in hours (default 24). Refresh flow issues new
       # tokens, so lowering this does not log active users out early.
       GOTP_JWT_EXPIRE_HOURS: ${GOTP_JWT_EXPIRE_HOURS:-24}
-      # Authority granted to OpenAPI x-api-key calls. TENANT_ADMIN keeps the
-      # historical behavior; lower it to a restricted role once policies exist.
-      GOTP_OPENAPI_KEY_AUTHORITY: ${GOTP_OPENAPI_KEY_AUTHORITY:-TENANT_ADMIN}
+      # Authority granted to OpenAPI x-api-key calls. Defaults to TENANT_USER
+      # (least privilege); set explicitly to a higher role only when API keys
+      # need write capabilities.
+      GOTP_OPENAPI_KEY_AUTHORITY: ${GOTP_OPENAPI_KEY_AUTHORITY:-TENANT_USER}
       # Shared secret for the public /api/v1/plugin/* endpoints. Empty keeps the
       # loopback/private-network default; when set, callers must send X-Plugin-Key.
       GOTP_PLUGIN_SERVICE_KEY: ${GOTP_PLUGIN_SERVICE_KEY:-}
