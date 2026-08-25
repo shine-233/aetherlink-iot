@@ -1,223 +1,173 @@
-# 功能路线图（Roadmap）
+# 产品路线图（Roadmap）
 
-> 基于 ThingsBoard CE/PE 与 ThingsPanel 最新功能对比分析，结合 AetherLink IoT 现有架构设计的分阶段演进计划。
-> 每阶段完成后在 VALIDATION.md 中记录验证结果。
-
----
-
-## 当前功能覆盖度
-
-| 能力 | AetherLink | ThingsBoard(CE) | ThingsPanel |
-|---|---|---|---|
-| 设备管理 | ████████ | ██████████ | ████████ |
-| MQTT 接入 | ████████ | ██████████ | ████████ |
-| HTTP 接入 | ████████ | ██████████ | ████████ |
-| Telemetry + WS | ████████ | ██████████ | ████████ |
-| 告警系统 | ████████ | ██████████ | ██████████ |
-| OTA | ████████ | ██████████ | ████████ |
-| 多租户 RBAC | ████████ | ██████████ | ██████████ |
-| 自动化场景 | ███████ | ██████████ | █████████ |
-| 看板 | ███████ | ██████████ | █████████ |
-| 脚本引擎 | ███████ | ██████████ | ███████ |
-| 通知服务 | ███████ | ██████████ | ████████ |
-| Modbus | ░░░░░░░░ | ████████ | █████████ |
-| 可视化规则链编辑器 | ███░░░░░ | ██████████ | ███████ |
-| 设备影子 | ░░░░░░░░ | █████████ | █████████ |
-| 资产管理层级 | ░░░░░░░░ | █████████ | ░░░░░░░░ |
-| CoAP/LwM2M/SNMP | ░░░░░░░░ | █████████ | ░░░░░░░░ |
-| OPC UA | ░░░░░░░░ | ░░░░░░░░ | █████████ |
-| 3D/SCADA | ██░░░░░░ | ████████ | █████████ |
-| 移动端 App | ░░░░░░░░ | ░░░░░░░░ | █████████ |
-| AI/LLM 集成 | ░░░░░░░░ | ░░░░░░░░ | ████████ |
-| TimescaleDB/TDengine | ░░░░░░░░ | █████████ | █████████ |
-| 白标定制 | ░░░░░░░░ | █████████(PE) | ░░░░░░░░ |
-| 行业模板 | ░░░░░░░░ | █████████(PE) | ░░░░░░░░ |
-| API 限流(per-tenant) | ███░░░░░ | █████████(PE) | ░░░░░░░░ |
-| 边缘计算 | ░░░░░░░░ | █████████(PE) | ░░░░░░░░ |
+> 对标 ThingsBoard 4.3 CE 与 ThingsPanel 最新版，按竞争力差距排序。
+> 每个阶段完成后在下方追加实际交付记录。
 
 ---
 
-## Phase A — 短期 · 安全收口 + 核心差异化（1–2 个迭代）
+## Phase A — 短期（1-2 个迭代）
 
-### A1. 空 TenantID 守卫扩展到所有 raw 链
+### A1. 空租户守卫移植到所有 raw 链
+- [x] `dal/users.go` GetUserListByPageWithAddress — 已有守卫 ✓
+- [ ] `dal/alarm.go` GetAlarmConfigListByPage / GetAlarmInfoListByPage — 加空租户拒绝
+- [ ] `dal/alarm.go` GetAlarmHistoryListByPage — 同上
+- [ ] `dal/device_config.go` GetDeviceConfigListByPage — 同上
+- [ ] 其余含 `claims.TenantID` 过滤的 raw 链函数逐一排查
 
-**状态**：进行中
-
-**背景**：PR #105 发现用户列表查询在 `claims.TenantID` 为空时返回全量数据。#126 已修复 users.go 列表，但其他 raw 链尚未加守卫。
-
-**涉及文件**：
-- `dal/alarm.go` — GetAlarmConfigListByPage / GetAlarmInfoListByPage
-- `dal/device_config.go` — GetDeviceConfigListByPage
-- `dal/device_query_reads.go` — GetDeviceTemplateChartSelect
-- `dal/open_api_keys.go` — GetOpenAPIKeyListByPage
-- `dal/operation_logs.go` — GetListByPage
-- `dal/message_push.go` — GetUserMessagePushId
-
-**改动模式**：在每个使用 `claims.TenantID` 的 raw 链函数入口添加：
-```go
-if strings.TrimSpace(tenantID) == "" {
-    return 0, nil, fmt.Errorf("empty tenant id in claims")
-}
-```
+每处约 +5 行：检查 `claims.TenantID == ""` 时返回错误或空结果，防止跨租户泄漏。
 
 ### A2. message_push gen LeftJoin raw 化
+- [x] `dal/message_push.go` GetUserMessagePushId — 已完成 ✓
 
-**状态**：✅ 已完成（#130）
+### A3. 设备影子（离线命令缓存）
+核心差异化功能：设备离线时下发命令不再失败，改为缓存；设备重新上线后自动投递。
 
-### A3. 设备影子（Device Shadow / 离线命令缓存）
-
-**状态**：设计中
-
-**痛点**：设备离线时下发命令会失败且无缓存重试机制。ThingsBoard 和 ThingsPanel 都支持离线命令缓存，设备重新上线后自动下发。
-
-**设计**：
+设计要点：
 ```
-┌─────────────┐     command      ┌──────────────┐
-│   平台       │ ──────────────→ │   设备在线    │ ─→ 直接下发
-│             │                  └──────────────┘
-│             │     command      ┌──────────────┐
-│             │ ──────────────→ │   设备离线    │ ─→ 写入 device_shadows
-│             │                  └──────────────┘         │
-│             │                                    设备上线时
-│             │                                    ← 重放 pending 命令
-└─────────────┘
+┌─────────┐    命令下发     ┌──────────────┐
+│ 用户/API │ ──────────────→│ 设备在线？    │
+└─────────┘                │  Y → 直接下发 │
+                           │  N → 写入影子 │
+                           └──────┬───────┘
+                                  │
+                    设备上线事件触发
+                                  │
+                           ┌──────▼───────┐
+                           │ 投递缓存命令  │──→ 设备 ACK → 标记已投递
+                           └──────────────┘         │ 超时/过期 → 标记过期
 ```
 
-**数据库表**（新增迁移 50.sql）：
+新增表 `device_shadow_messages`：
 ```sql
-CREATE TABLE IF NOT EXISTS device_shadows (
+CREATE TABLE device_shadow_messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     device_id VARCHAR(36) NOT NULL REFERENCES devices(id),
-    shadow_type VARCHAR(20) NOT NULL DEFAULT 'command', -- command | property
-    payload JSONB NOT NULL DEFAULT '{}',
-    status VARCHAR(20) NOT NULL DEFAULT 'pending',      -- pending | delivered | expired
-    expires_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    message_type VARCHAR(20) NOT NULL DEFAULT 'command', -- command | property | notification
+    payload JSONB NOT NULL,
+    ttl_seconds INT NOT NULL DEFAULT 86400,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',       -- pending | delivered | expired | canceled
+    created_by UUID,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     delivered_at TIMESTAMPTZ,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    expires_at TIMESTAMPTZ NOT NULL
 );
-CREATE INDEX idx_device_shadows_device_status ON device_shadows(device_id, status) WHERE status = 'pending';
+CREATE INDEX idx_dsm_device_pending ON device_shadow_messages(device_id, status) WHERE status = 'pending';
 ```
 
-**后端 API**：
-- `GET /api/v1/device/{id}/shadow` — 查询设备影子状态
-- `PUT /api/v1/device/{id}/shadow` — 更新期望状态（desired）
-- `DELETE /api/v1/device/{id}/shadow/{shadowId}` — 删除待下发命令
-- Broker OnConnected 钩子触发重放逻辑
+实现步骤：
+- [ ] 新增迁移 `50.sql`：建表 + 索引
+- [ ] 新增 `dal/device_shadow.go`：CRUD + 查询待投递列表 + 过期清理
+- [ ] 新增 `service/device_shadow.go`：设置/查询/取消影子消息 API
+- [ ] 修改命令下发路径：设备离线时写入影子而非报错
+- [ ] 修改设备上线路径（telemetry uplink 首条消息）：查询并投递 pending 影子
+- [ ] 前端：设备详情页新增"影子消息"标签页（查看/编辑/删除待发消息）
+- [ ] 测试：离线→上线投递、TTL 过期、取消
 
-**前端**：
-- 设备详情页新增"影子状态"标签页，展示 pending/delivered 命令列表
-
-### A4. 空 TenantID 守卫 — DAL 测试补充
-
-为每个新增守卫编写对应单元测试，验证空租户时返回空结果而非报错。
+### A4. 空态覆盖率提升
+- [x] 6 个列表视图补 n-empty ✓（PR #134）
+- [ ] 继续扫描剩余 ~230 个视图文件中缺失空态的列表组件
 
 ---
 
-## Phase B — 中期 · 协议扩展 + 规则引擎升级（3–5 个迭代）
+## Phase B — 中期（3-5 个迭代）
 
 ### B1. Modbus TCP 插件
+参考 ThingsPanel modbus-protocol-plugin 架构，Go 独立进程通过 gRPC 与主平台对接。
 
-参考 ThingsPanel `modbus-protocol-plugin` 架构：Go 独立进程通过 gRPC 与主平台对接。
-
-**架构**：
+架构：
 ```
-┌──────────────┐     gRPC      ┌───────────────────┐     Modbus TCP      ┌────────┐
-│  AetherLink   │ ◄──────────→ │  modbus-plugin     │ ──────────────────→ │  PLC   │
-│  (MQTT Broker │               │  (独立 Go 进程)     │                     │ 变频器  │
-│   + Backend)  │               └───────────────────┘                     └────────┘
-└──────────────┘
+AetherLink Backend ←──gRPC──→ Modbus TCP Plugin ←──Modbus TCP──→ PLC/RTU
+     │                            │
+     └── 设备注册/配置 API          └── 寄存器映射配置（保持寄存器/输入寄存器/线圈）
 ```
 
-**插件接口**：
-- 订阅 `devices/modbus/{device_id}/command` 接收平台命令
-- 发布 `devices/telemetry` 上报采集数据
-- 配置文件定义寄存器映射（地址/功能码/数据类型/缩放因子）
+实现步骤：
+- [ ] 定义协议插件 gRPC 接口 proto 文件（连接管理、数据采集、命令下发）
+- [ ] 实现 Modbus TCP 连接池与轮询采集器
+- [ ] 实现寄存器地址映射配置（JSON/YAML）
+- [ ] 数据上报走现有 telemetry uplink 管道
+- [ ] 前端：Modbus 寄存器映射配置界面
+- [ ] 打包为 Docker 容器，通过 docker-compose 可选启用
 
-**交付物**：
-- `cmd/modbus-plugin/main.go` — 独立进程入口
-- `internal/modbus/client.go` — Modbus TCP 客户端封装
-- `configs/modbus-mapping.yaml` — 寄存器映射配置模板
-- Docker Compose profile `modbus` 加入编排
+参考仓库：
+- https://github.com/ThingsPanel/modbus-protocol-plugin
+- https://github.com/grid-x/modbus（Go Modbus 库）
 
 ### B2. 可视化规则链编辑器
-
 基于 Vue Flow（Vue 版 ReactFlow）实现拖拽式节点连线。
 
-**节点类型**：
-| 类型 | 说明 | 对应现有能力 |
-|---|---|---|
-| Trigger | 设备遥测/属性/事件/生命周期 | scene automation trigger |
-| Filter | 条件过滤（阈值/范围/表达式） | scene condition |
-| Transform | 数据转换（脚本/JSONPath） | script engine |
-| Enrichment | 元数据丰富（查设备详情/资产） | telemetry enrich |
-| Action | 下发命令/告警/通知/webhook | notification + command |
+节点类型：
+- 触发器节点：遥测到达 / 属性变更 / 设备上线 / 定时器
+- 过滤节点：阈值比较 / 正则匹配 / JSON Path 提取
+- 转换节点：字段映射 / 脚本计算 / 单位换算
+- 动作节点：告警 / 控制设备 / 发送通知 / Webhook
 
-**前端组件**：
-- 基于 `@vue-flow/core` 实现画布
-- 左侧节点面板拖拽 → 画布放置 → 连线
-- 节点属性面板（右侧抽屉）
-- 保存/加载 JSON 规则链定义
-
-**后端**：
-- 新增 `rule_chains` 表存储链定义（JSONB nodes + edges）
-- 执行引擎复用现有 uplink pipeline 的分发点
+实现步骤：
+- [ ] 安装 `@vue-flow/core` 依赖
+- [ ] 定义规则链数据模型（DAG 有向无环图）
+- [ ] 后端 CRUD API + 执行引擎（拓扑排序遍历 DAG）
+- [ ] 前端画布组件（拖拽节点、连线、属性面板）
+- [ ] 内置节点类型注册机制
+- [ ] 与现有 scene automation 共存（规则链是更底层的通用能力）
 
 ### B3. 计算字段（Calculated Fields）
-
 在遥测写入管道中增加表达式计算步骤。
 
-**场景**：从 V 和 I 计算 P = V × I；从 CO2 和温度计算 AQI 等。
+```sql
+ALTER TABLE device_calculated_fields (
+    id UUID PRIMARY KEY,
+    device_config_id VARCHAR(36),
+    output_key VARCHAR(64),        -- 输出字段名如 'power'
+    expression TEXT,               -- 表达式如 '{voltage} * {current}'
+    enabled BOOLEAN DEFAULT true
+);
+```
 
-**实现**：
-- 在 `storage/telemetry_writer.go` 批量写入前插入计算步骤
-- 表达式使用现有脚本引擎（sandbox.ts 后端等价物，Go eval 或 expr-lang）
-- 规则存储在 device_config 或独立表中
+- [ ] 迁移 SQL
+- [ ] 表达式求值器（复用 script-engine 或引入 expr-lang/expr）
+- [ ] 遥测管道钩子：原始遥测到达后查关联计算字段 → 计算 → 合并进输出
+- [ ] 前端：计算字段配置界面
 
-### B4. OpenAPI Key 吊销广播 + 负缓存 + 限流
-
-**状态**：✅ 已完成（fix/five-action-items 分支）
+### B4. 空态覆盖率继续扩展
+- [ ] 扫描剩余 ~220 个视图文件，补齐缺失的 n-empty
+- 目标覆盖率 ≥ 50%
 
 ---
 
-## Phase C — 远期 · 差异化竞争力（规划中）
+## Phase C — 远期
 
 ### C1. TimescaleDB 可选存储后端
-- 遥测历史表迁移到 TimescaleDB hypertable
-- 自动分区 + 压缩策略
-- 通过配置开关切换 PostgreSQL / TimescaleDB
+- [ ] 时序表迁移为 hypertable
+- [ ] 配置开关切换普通 PG vs TimescaleDB
+- [ ] 压缩策略自动配置
 
 ### C2. 租户客户层级
-- Tenant → Customer → Sub-Customer 三级层级
-- 支持客户下子客户分组管理设备
-- RBAC 沿层级继承
+- [ ] tenants 表增加 parent_tenant_id 自引用
+- [ ] RBAC 支持层级继承
+- [ ] 数据隔离按层级级联过滤
 
 ### C3. TresJS 3D 可视化面板
-- 设备详情页新增 "3D 视图" 页签
-- TresCanvas + useGLTF 加载设备模型（glb）
-- 实时遥测驱动材质颜色/旋转/数据标签
-- WebGL 不可用时回落 2D 视图
+- [ ] 安装 @tresjs/core + @tresjs/cientos + three
+- [ ] 设备详情页"3D 视图"标签页
+- [ ] GLB 模型加载 + 遥测数据驱动材质颜色/旋转
+- [ ] WebGL 不支持时降级为 2D
 
-### C4. AI 集成（自然语言查询遥测数据）
-- MCP 协议接入 DeepSeek/Qwen/ChatGLM
-- 自然语言 → 结构化查询 → 返回图表
-- AI 辅助告警分析和根因定位
+### C4. AI 集成
+- [ ] 自然语言查询遥测数据（NL→SQL 或 NL→API 调用）
+- [ ] AI 告警分析（异常模式识别+根因建议）
 
-### C5. 白标定制（White-labeling）
-- 每租户自定义 logo / favicon / 登录页标题 / 主题色
-- 存储在租户配置表中
+### C5. 白标定制
+- [ ] 租户级 logo/favicon/主题色配置
+- [ ] 登录页自定义
 
-### C6. Edge 边缘计算节点
-- 离线环境下本地运行规则链
-- 恢复连接后同步数据和状态到云端
+### C6. CoAP / LwM2M 协议支持
+- [ ] CoAP 服务端（Go get RFC7252 库）
+- [ ] LwM2M 客户端注册/上报流程
 
 ---
 
-## 不做的事情（明确排除）
+## 交付记录
 
-| 项目 | 原因 |
-|---|---|
-| LoRaWAN Network Server | 通过 ChirpStack/The Things Stack 外部集成，不做原生 LNS |
-| Kubernetes Operator | 社区需求不足，Docker Compose 已覆盖绝大多数部署场景 |
-| 微服务拆分 | 单体+模块化已满足目标规模（万级设备），拆分增加运维复杂度 |
-| GraphQL API | REST + WebSocket 已够用，GraphQL 增加 learning curve 但收益有限 |
+| 日期 | 阶段 | 交付内容 | PR |
+|---|---|---|---|
+| | | | |
