@@ -252,3 +252,9 @@ func openAPIKeyAuthority() string {
 	}
 	return constant.TENANT_USER
 }
+
+// OpenAPIKeyAuthority 供 WS 等其他认证面复用同一份 OpenAPI Key 等效权限解析，
+// 保证 HTTP 与 WebSocket 对同一把 key 的授权口径一致（默认最小权限 TENANT_USER）。
+func OpenAPIKeyAuthority() string {
+	return openAPIKeyAuthority()
+}
