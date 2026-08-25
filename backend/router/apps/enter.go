@@ -38,6 +38,7 @@ type apps struct {
 	SystemMonitor
 	DeviceAuth
 	DashboardMenu
+	DeviceShadow
 	RDI
 	PayloadSchema
 }

@@ -170,5 +170,6 @@ func (f *StatusUplink) dispatchStatusChangedSideEffects(ctx *statusMessageContex
 
 	if ctx.status == 1 {
 		go f.sendExpectedData(ctx.device)
+		go f.sendPendingShadowMessages(ctx.device)
 	}
 }
