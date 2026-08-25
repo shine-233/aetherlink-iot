@@ -104,6 +104,27 @@ func (f *StatusUplink) sendExpectedData(device *model.Device) {
 	}
 }
 
+// sendPendingShadowMessages 设备经状态上报路径上线后投递影子队列（ROADMAP A3）。
+func (f *StatusUplink) sendPendingShadowMessages(device *model.Device) {
+	defer func() {
+		if r := recover(); r != nil {
+			f.logger.WithFields(logrus.Fields{
+				"device_id": device.ID,
+				"panic":     r,
+			}).Error("sendPendingShadowMessages goroutine panic")
+		}
+	}()
+
+	time.Sleep(3 * time.Second)
+
+	delivered, err := service.GroupApp.DeviceShadow.DeliverPendingShadowMessages(device.ID)
+	if err != nil {
+		f.logger.WithError(err).WithField("device_id", device.ID).Debug("Failed to deliver shadow messages")
+	} else if delivered > 0 {
+		f.logger.WithFields(logrus.Fields{"device_id": device.ID, "delivered": delivered}).Info("Pending shadow messages delivered after online")
+	}
+}
+
 func (f *StatusUplink) publishToRedis(device *model.Device, status int16, metadata map[string]interface{}) {
 	defer func() {
 		if r := recover(); r != nil {

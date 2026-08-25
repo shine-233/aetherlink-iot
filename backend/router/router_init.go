@@ -290,6 +290,8 @@ func RouterInit() *gin.Engine {
 
 			apps.Model.ExpectedData.InitExpectedData(v1)
 
+			apps.Model.DeviceShadow.InitDeviceShadow(v1) // 设备影子（离线命令缓存）
+
 			apps.Model.OpenAPIKey.InitOpenAPIKey(v1)
 
 			apps.Model.MessagePush.Init(v1)

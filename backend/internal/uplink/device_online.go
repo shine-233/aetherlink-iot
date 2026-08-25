@@ -36,6 +36,7 @@ func notifyDeviceOnlineAndExpectedData(logger *logrus.Logger, device *model.Devi
 	broadcastDeviceOnline(logger, device)
 	triggerOnlineAutomation(logger, device)
 	sendExpectedDataAfterOnlineDelay(logger, device)
+	deliverShadowMessagesAfterOnlineDelay(logger, device)
 }
 
 func onlineDeviceSnapshot(device *model.Device) *model.Device {
@@ -89,4 +90,23 @@ func sendExpectedDataAfterOnlineDelay(logger *logrus.Logger, device *model.Devic
 	if err != nil {
 		logger.WithError(err).WithField("device_id", device.ID).Debug("Failed to send expected data")
 	}
+}
+
+// deliverShadowMessagesAfterOnlineDelay 设备上线后延时投递影子队列中的待发命令（ROADMAP A3）。
+// 与 expected data 相同的 3 秒延迟，给设备完成会话建立留出窗口。
+func deliverShadowMessagesAfterOnlineDelay(logger *logrus.Logger, device *model.Device) {
+	if device == nil {
+		return
+	}
+	go func() {
+		time.Sleep(expectedDataOnlineDelay)
+		delivered, err := service.GroupApp.DeviceShadow.DeliverPendingShadowMessages(device.ID)
+		if err != nil {
+			logger.WithError(err).WithField("device_id", device.ID).Debug("Shadow message delivery failed")
+			return
+		}
+		if delivered > 0 {
+			logger.WithFields(logrus.Fields{"device_id": device.ID, "delivered": delivered}).Info("Pending shadow messages delivered after online")
+		}
+	}()
 }
