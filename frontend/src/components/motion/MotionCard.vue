@@ -4,6 +4,8 @@
   关键注意事项：包裹在 n-card 外层使用；delay 控制交错入场。
 -->
 <script setup lang="ts">
+import { motion } from 'motion-v'
+
 defineOptions({ name: 'MotionCard' })
 
 interface Props {
