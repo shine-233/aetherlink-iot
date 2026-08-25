@@ -18,7 +18,7 @@ const percent = computed(() =>
 
 <template>
   <div class="first-device-closed-loop-strip">
-    <div class="flex flex-col gap-10px lg:flex-row lg:items-center lg:justify-between">
+    <div class="flex flex-col gap-10px lg:flex-row lg:items-center lg:justify-between stagger-auto">
       <div class="min-w-0">
         <div class="text-12px font-600 uppercase text-blue-700">/first-device</div>
         <div class="mt-3px text-18px font-700">{{ $t('custom.home.firstDevice.common.onboardFirstDevice') }}</div>
