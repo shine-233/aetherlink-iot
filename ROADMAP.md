@@ -134,7 +134,7 @@ AetherLink Backend ←──gRPC──→ Modbus TCP Plugin ←──Modbus TCP�
 - [x] Dockerfile + docker-compose 可选 profile（`--profile modbus`），点表含凭证只读挂载 ✓
 - [x] 单元测试：内嵌 MBAP 从站闭环验证 FC3/FC4 读值缩放、f32 写读回环、只读拒绝 ✓
 - [-] 自定义 gRPC 插件接口暂缓：当前平台插件运行时为 HTTP 边界（pluginruntime）、数据面为 MQTT；待平台暴露插件 gRPC 网关后再评估，避免引入无消费方的私有通道
-- [ ] 前端：Modbus 寄存器映射配置界面
+- [x] 前端：设备详情页「Modbus 点表」标签页（从站目标表单 + 点位行内编辑表格），保存后由插件经 OpenAPI Key 拉取生效 ✓
 
 参考仓库：
 - https://github.com/ThingsPanel/modbus-protocol-plugin
@@ -223,4 +223,4 @@ ALTER TABLE device_calculated_fields (
 | 2026-08-25 | C4 | AI 自然语言查询遥测 MVP：意图抽取式 NL 查询服务 + `/ai/telemetry/query` 端点 + 单测 | #160 |
 | 2026-08-23/24 | — | users 列表 raw 链收敛 + 空租户守卫；alarm raw 链 P1 修复 | VALIDATION.md |
 | 2026-08-25 | 质量 | 全库 GBK 乱码修复（17 文件，含 echarts-manager 被困代码释放）+ 源码编码契约测试绊线 + 影子离线投递 method/params 语义修复 | feat/phase-a-completion |
-| 2026-08-25 | B1 | Modbus TCP 插件（独立模块 modbus-plugin）：JSON 点表采集/缩放、MQTT 上报、命令下行写入、内嵌从站单测、compose `--profile modbus`；gRPC 通道暂缓（见 B1 备注） | feat/modbus-b1 |
+| 2026-08-25 | B1 | Modbus TCP 插件（独立模块 modbus-plugin）：JSON 点表采集/缩放、MQTT 上报、命令下行写入、内嵌从站单测、compose `--profile modbus`；平台点表存储 + 前端「Modbus 点表」界面 + 插件 OpenAPI Key 拉取闭环；gRPC 通道暂缓（见 B1 备注） | #162 |
