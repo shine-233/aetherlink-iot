@@ -443,7 +443,7 @@ test.describe('ThingsVis visualization business routes [11_visualization]', () =
         response => isApiResponse(response, 'PUT', '/dashboard-menu/' + boardId),
         { timeout: 20000 }
       );
-      await modal.getByRole('button', { name: /Save menu|淇濆瓨鑿滃崟/i }).click();
+      await modal.getByRole('button', { name: /Save menu|保存菜单/i }).click();
       const saveResponse = await savePromise;
       expect(saveResponse.status()).toBe(200);
       expect(await saveResponse.json()).toEqual(expect.objectContaining({

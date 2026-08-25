@@ -622,7 +622,7 @@ onMounted(async () => {
               <n-divider style="margin: 12px 0" />
             </div>
 
-            <!-- 缂栬緫妯″紡 -->
+            <!-- 编辑模式 -->
             <div v-if="editType" class="mb-32px">
               <NForm
                 class="bg-#f8fafc p-18px pb-0 dark:bg-[#1E293B]"

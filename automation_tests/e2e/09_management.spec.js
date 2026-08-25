@@ -285,7 +285,7 @@ test.describe('management module', () => {
     );
     expect(formProbe.code, 'HTTP SVCR form is a local platform contract').toBe(200);
     expect(Array.isArray(formProbe.data), 'voucher form response data must be an array').toBe(true);
-    const addAccessButton = rolePage.getByRole('button', { name: /New Access|鏂板缓鎺ュ叆|鏂板鎺ュ叆/i }).first();
+    const addAccessButton = rolePage.getByRole('button', { name: /New Access|新建接入|新增接入/i }).first();
     await expect(addAccessButton).toBeVisible();
     await addAccessButton.click();
     await expect(rolePage.locator('.n-modal').last()).toBeVisible({ timeout: 15000 });

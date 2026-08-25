@@ -46,7 +46,7 @@ export const generateConfigurationImportPreview = (
 
     return buildConfigurationImportPreviewFromPlan(config, plan)
   } catch (error) {
-    console.error('[ConfigurationImporter] 妫板嫯顫嶆径杈Е:', error)
+    console.error('[ConfigurationImporter] 预览失败:', error)
     throw new Error(`Failed to generate import preview: ${formatImportExportError(error)}`)
   }
 }

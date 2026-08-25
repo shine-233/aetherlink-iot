@@ -1,7 +1,7 @@
 /*
- * 鏂囦欢鐢ㄩ€旓細绠＄悊 ECharts 瀹炰緥闆嗗悎锛屾彁渚涚粺涓€娉ㄥ唽銆佽幏鍙栧拰閲婃斁鑳藉姏銆? * 鏍稿績閫昏緫锛氬洿缁?chart id 鎴?DOM 缁存姢瀹炰緥寮曠敤锛岄伩鍏嶉噸澶嶅垵濮嬪寲銆? * 鍏抽敭娉ㄦ剰浜嬮」锛氬繀椤诲湪缁勪欢閿€姣佹椂閲婃斁瀹炰緥锛岄槻姝㈠唴瀛樻硠婕忓拰 resize 鐩戝惉娈嬬暀銆? * 閲嶆瀯寤鸿锛氬悗缁彲涓庡浘琛?Hook 鍚堝苟鐢熷懡鍛ㄦ湡杈圭晫銆? */
-/**
- * ECharts 鍏ㄥ眬绠＄悊鍣? * 瑙ｅ喅 ECharts 缁勪欢閲嶅娉ㄥ唽闂
+ * ECharts 实例管理器：
+ * 按 chart id 或 DOM 元素持有实例，统一处理 resize 与销毁；
+ * 业务组件通过 Hook 消费，不直接接触 echarts/core 单例状态。
  */
 
 import * as echarts from 'echarts/core'
@@ -18,14 +18,16 @@ import { aetherLinkTheme } from './aetherlink-theme'
 import { LabelLayout, UniversalTransition } from 'echarts/features'
 import { CanvasRenderer } from 'echarts/renderers'
 
-// 鍏ㄥ眬鏍囪瘑锛岀‘淇濆彧娉ㄥ唽涓€娆?let isEChartsRegistered = false
+// 全局标识，确保只注册一次
+let isEChartsRegistered = false
 
-// 鍩虹蹇呴渶缁勪欢 - 棣栨鍔犺浇鏃舵敞鍐?const BASIC_COMPONENTS = [
-  // 鏈€甯哥敤鐨勫浘琛ㄧ被鍨?  BarChart,
+// 基础必需组件 - 首次加载时注册
+const BASIC_COMPONENTS = [
+  BarChart,
   LineChart,
   PieChart,
 
-  // 鍩虹缁勪欢
+  // 渲染组件
   TitleComponent,
   LegendComponent,
   TooltipComponent,
@@ -33,16 +35,18 @@ import { CanvasRenderer } from 'echarts/renderers'
   DatasetComponent,
   TransformComponent,
 
-  // 鍩虹鍔熻兘
+  // 布局与过渡
   LabelLayout,
   UniversalTransition,
 
-  // 娓叉煋鍣?  CanvasRenderer
+  // 渲染器
+  CanvasRenderer
 ]
 
 type EChartsExtensionLoader = () => Promise<any[]>
 
-// 鎵╁睍缁勪欢鏄犲皠琛?- 鐪熸鎸夐渶鍔犺浇锛岄伩鍏嶆櫘閫氬浘琛ㄥ叆鍙ｉ潤鎬佸紩鍏ュ叏閮ㄦ墿灞曘€?const EXTENDED_COMPONENT_LOADERS: Record<string, EChartsExtensionLoader> = {
+// 扩展组件 - 首次用到对应图表类型时按需动态加载
+const EXTENDED_COMPONENT_LOADERS: Record<string, EChartsExtensionLoader> = {
   scatter: async () => {
     const { ScatterChart } = await import('echarts/charts')
     return [ScatterChart]
@@ -177,13 +181,13 @@ type EChartsExtensionLoader = () => Promise<any[]>
   }
 }
 
-// 宸叉敞鍐岀殑鎵╁睍缁勪欢
+// 已注册的扩展组件
 const registeredExtensions = new Set<string>()
 const pendingExtensionRegistrations = new Map<string, Promise<void>>()
 
 /**
- * 鍒濆鍖?ECharts 鍩虹缁勪欢娉ㄥ唽
- * 鍙敞鍐屾渶甯哥敤鐨勭粍浠讹紝鍑忓皯鍒濆鍐呭瓨鍗犵敤
+ * 鍒濆鍖?ECharts 基础组件注册
+ * 只注册最常用的组件，减少初始内存占用
  */
 export function initEChartsComponents() {
   if (isEChartsRegistered) {
@@ -195,7 +199,8 @@ export function initEChartsComponents() {
     echarts.registerTheme('aetherlink', aetherLinkTheme as any)
     isEChartsRegistered = true
   } catch (error) {
-    // 鎹曡幏閲嶅娉ㄥ唽閿欒锛屼絾涓嶅奖鍝嶇▼搴忔墽琛?    if (error instanceof Error && error.message.includes('exists')) {
+    // 重复注册同一主题时 echarts 会抛 already exists 错误，这里视为已注册
+    if (error instanceof Error && error.message.includes('exists')) {
       isEChartsRegistered = true
     } else {
       throw error
@@ -204,8 +209,8 @@ export function initEChartsComponents() {
 }
 
 /**
- * 鎸夐渶娉ㄥ唽鎵╁睍缁勪欢
- * @param componentTypes 闇€瑕佹敞鍐岀殑缁勪欢绫诲瀷鏁扮粍
+ * 按需注册扩展组件
+ * @param componentTypes 需要注册的组件类型数组
  */
 export async function registerEChartsExtensions(componentTypes: string[]) {
   const registrationTasks = componentTypes
@@ -229,7 +234,7 @@ export async function registerEChartsExtensions(componentTypes: string[]) {
           }
         })
         .catch(error => {
-          console.error('鈿狅笍 ECharts 鎵╁睍缁勪欢娉ㄥ唽璀﹀憡:', error)
+          console.error('鈿狅笍 ECharts 扩展组件注册警告:', error)
         })
         .finally(() => {
           pendingExtensionRegistrations.delete(type)
@@ -244,14 +249,15 @@ export async function registerEChartsExtensions(componentTypes: string[]) {
     try {
       await Promise.all(registrationTasks)
     } catch (error) {
-      console.error('鈿狅笍 ECharts 鎵╁睍缁勪欢娉ㄥ唽璀﹀憡:', error)
+      console.error('鈿狅笍 ECharts 扩展组件注册警告:', error)
     }
   }
 }
 
 /**
- * 鑾峰彇 ECharts 瀹炰緥
- * 纭繚缁勪欢宸叉敞鍐屽悗鍐嶅垱寤哄疄渚? */
+ * 获取 ECharts 实例
+ * 默认使用 AetherLink 品牌主题，可传自定义主题与初始化参数。
+ */
 export function createEChartsInstance(
   dom: HTMLElement,
   theme?: string | object,
@@ -267,17 +273,20 @@ export function createEChartsInstance(
     locale?: string
   }
 ): echarts.ECharts {
-  // 纭繚缁勪欢宸叉敞鍐?  initEChartsComponents()
+  // 确保基础组件已注册（幂等）
+  initEChartsComponents()
 
-  // 鍒涘缓瀹炰緥锛堥粯璁や娇鐢?AetherLink 鍝佺墝涓婚锛?  return echarts.init(dom, theme || 'aetherlink', opts)
+  // 未指定主题时回退到 AetherLink 品牌主题
+  return echarts.init(dom, theme || 'aetherlink', opts)
 }
 
 /**
  * 瀹夊叏鍦颁娇鐢?ECharts
- * 鎻愪緵缁熶竴鐨?ECharts 璁块棶鎺ュ彛
+ * 鎻愪緵缁熶竴鐨?ECharts 访问接口
  */
 export function useEChartsInstance() {
-  // 纭繚缁勪欢宸叉敞鍐?  initEChartsComponents()
+  // 确保基础组件已注册（幂等）
+  initEChartsComponents()
 
   return {
     echarts,
@@ -287,7 +296,7 @@ export function useEChartsInstance() {
 }
 
 /**
- * 閲嶇疆娉ㄥ唽鐘舵€侊紙浠呯敤浜庢祴璇曪級
+ * 重置注册状态（仅用于测试）
  */
 export function resetEChartsRegistration() {
   isEChartsRegistered = false
