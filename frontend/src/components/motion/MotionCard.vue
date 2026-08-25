@@ -1,17 +1,12 @@
 <!--
-  文件用途：带弹簧物理入场动画的卡片包装器（基于 motion-v）。
-  核心逻辑：使用 motion-v 的 AnimatePresence + motion.div 实现进出场弹簧效果。
-  关键注意事项：包裹在 n-card 外层使用；delay 控制交错入场。
--->
+  鏂囦欢鐢ㄩ€旓細甯﹀脊绨х墿鐞嗗叆鍦哄姩鐢荤殑鍗＄墖鍖呰鍣紙鍩轰簬 motion-v锛夈€?  鏍稿績閫昏緫锛氫娇鐢?motion-v 鐨?AnimatePresence + motion.div 瀹炵幇杩涘嚭鍦哄脊绨ф晥鏋溿€?  鍏抽敭娉ㄦ剰浜嬮」锛氬寘瑁瑰湪 n-card 澶栧眰浣跨敤锛沝elay 鎺у埗浜ら敊鍏ュ満銆?-->
 <script setup lang="ts">
-import { motion } from 'motion-v'
-
 defineOptions({ name: 'MotionCard' })
 
 interface Props {
-  /** 交错入场延迟（毫秒） */
+  /** 浜ら敊鍏ュ満寤惰繜锛堟绉掞級 */
   delay?: number
-  /** 是否启用悬浮上移 */
+  /** 鏄惁鍚敤鎮诞涓婄Щ */
   hover?: boolean
 }
 

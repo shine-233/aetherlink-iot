@@ -1,7 +1,5 @@
 /**
- * 文件用途：数字滚动动画 hook，用于看板统计卡的数值补间展示。
- * 核心逻辑：requestAnimationFrame 从起始值缓动到目标值，支持小数精度。
- */
+ * 鏂囦欢鐢ㄩ€旓細鏁板瓧婊氬姩鍔ㄧ敾 hook锛岀敤浜庣湅鏉跨粺璁″崱鐨勬暟鍊艰ˉ闂村睍绀恒€? * 鏍稿績閫昏緫锛歳equestAnimationFrame 浠庤捣濮嬪€肩紦鍔ㄥ埌鐩爣鍊硷紝鏀寔灏忔暟绮惧害銆? */
 import { ref, watch, type Ref } from 'vue'
 
 export function useCountUp(target: Ref<number>, duration = 800, decimals = 0) {
