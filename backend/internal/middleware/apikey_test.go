@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func TestOpenAPIKeyClaimsPreservesTenantCreatorAndTenantAdminAuthority(t *testing.T) {
+func TestOpenAPIKeyClaimsPreservesTenantCreatorAndLeastPrivilegeAuthority(t *testing.T) {
 	claims := openAPIKeyClaims("tenant-from-key", "creator-from-key")
 
 	if claims == nil {
@@ -26,14 +26,14 @@ func TestOpenAPIKeyClaimsPreservesTenantCreatorAndTenantAdminAuthority(t *testin
 	if claims.ID != "creator-from-key" {
 		t.Fatalf("ID = %q, want creator-from-key", claims.ID)
 	}
-	if claims.Authority != constant.TENANT_ADMIN {
-		t.Fatalf("Authority = %q, want %q", claims.Authority, constant.TENANT_ADMIN)
+	if claims.Authority != constant.TENANT_USER {
+		t.Fatalf("Authority = %q, want least-privilege default %q", claims.Authority, constant.TENANT_USER)
 	}
 }
 
-func TestOpenAPIKeyAuthorityDefaultsToTenantAdminWithoutConfig(t *testing.T) {
-	if got := openAPIKeyAuthority(); got != constant.TENANT_ADMIN {
-		t.Fatalf("openAPIKeyAuthority() = %q, want default %q", got, constant.TENANT_ADMIN)
+func TestOpenAPIKeyAuthorityDefaultsToTenantUserWithoutConfig(t *testing.T) {
+	if got := openAPIKeyAuthority(); got != constant.TENANT_USER {
+		t.Fatalf("openAPIKeyAuthority() = %q, want least-privilege default %q", got, constant.TENANT_USER)
 	}
 }
 
@@ -55,8 +55,8 @@ func TestOpenAPIKeyAuthorityFallsBackWhenOverrideIsBlank(t *testing.T) {
 	setupOpenAPIKeyAuthorityEnv(t)
 	t.Setenv("GOTP_OPENAPI_KEY_AUTHORITY", "   ")
 
-	if got := openAPIKeyAuthority(); got != constant.TENANT_ADMIN {
-		t.Fatalf("openAPIKeyAuthority() = %q, want fallback %q for blank override", got, constant.TENANT_ADMIN)
+	if got := openAPIKeyAuthority(); got != constant.TENANT_USER {
+		t.Fatalf("openAPIKeyAuthority() = %q, want fallback %q for blank override", got, constant.TENANT_USER)
 	}
 }
 

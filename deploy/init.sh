@@ -334,7 +334,50 @@ initialize_env_file() {
     replace_env_value AETHERLINK_BIND_ADDRESS "0.0.0.0" .env
   fi
 
+  sync_auth_cookie_secure_env_file
+
   echo "Created .env with generated local secrets."
+}
+
+# GOTP_AUTH_COOKIE_SECURE 必须跟随公网入口协议：HTTPS 部署不允许下发非 Secure 认证 cookie。
+# 仅在检测到 https:// 公网地址时强制 true；HTTP 本地/联调保留运维显式配置。
+sync_auth_cookie_secure_env_file() {
+  [ -f .env ] || return
+  effective_public_url="${AETHERLINK_PUBLIC_URL:-$(read_env_value AETHERLINK_PUBLIC_URL || true)}"
+  case "$effective_public_url" in
+    https://*) replace_env_value GOTP_AUTH_COOKIE_SECURE "true" .env ;;
+  esac
+}
+
+# server 模式把端口发布到 loopback 之外；当整条链路仍是明文（公网入口非 HTTPS）时
+# 打印醒目告警，要求运维显式选择 TLS 终结方案。AETHERLINK_SKIP_TLS_WARNING=1 表示已知悉并静默。
+warn_plaintext_server_exposure() {
+  [ "$SERVER_MODE" = "1" ] || return
+  [ "${AETHERLINK_SKIP_TLS_WARNING:-}" = "1" ] && return
+  effective_bind_address="${AETHERLINK_BIND_ADDRESS:-$(read_env_value AETHERLINK_BIND_ADDRESS || true)}"
+  effective_public_url="${AETHERLINK_PUBLIC_URL:-$(read_env_value AETHERLINK_PUBLIC_URL || true)}"
+  case "$effective_bind_address" in
+    ""|localhost|127.0.0.1|::1|\[::1\]) return ;;
+  esac
+  case "$effective_public_url" in
+    https://*) return ;;
+  esac
+  cat >&2 <<'WARN_EOF'
+====================================================================
+WARNING: server mode exposes plaintext services beyond loopback.
+- Web/API (8080/9999) and device MQTT (1883) currently have no TLS.
+- Device vouchers and JWT tokens travel unencrypted on these ports.
+Recommended hardening:
+- Terminate TLS for the web entry with a reverse proxy and keep
+  AETHERLINK_PUBLIC_URL on https:// (this also flips the auth cookie
+  to Secure automatically on the next start).
+- For MQTTS, mount real CA-signed certificates, enable the :8883
+  listener in mqtt-broker/cmd/gmqttd/default_config.yml, then publish
+  8883 via a Compose override. deploy/gen-mqtt-certs.* issues
+  self-signed certificates for intranet/testing only.
+Set AETHERLINK_SKIP_TLS_WARNING=1 to acknowledge and silence this warning.
+====================================================================
+WARN_EOF
 }
 
 sync_address_env_file() {
@@ -369,6 +412,8 @@ sync_address_env_file() {
     replace_env_value AETHERLINK_SERVER_MODE "1" .env
   fi
 
+  sync_auth_cookie_secure_env_file
+
   echo "Updated .env from explicit startup arguments."
 }
 
@@ -379,6 +424,9 @@ if [ ! -f .env ]; then
 else
   sync_address_env_file
 fi
+
+sync_auth_cookie_secure_env_file
+warn_plaintext_server_exposure
 
 doctor_args=""
 if [ "$SERVER_MODE" = "1" ]; then

@@ -119,7 +119,7 @@ export default defineConfig(function (configEnv) {
       port: 9725
     },
     build: {
-      chunkSizeWarningLimit: 1500,
+      chunkSizeWarningLimit: 1000,
       minify: isLightBuild ? false : 'esbuild',
       sourcemap: false,
       reportCompressedSize: false,

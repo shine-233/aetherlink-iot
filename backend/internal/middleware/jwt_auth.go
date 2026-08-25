@@ -242,11 +242,13 @@ func openAPIKeyClaims(tenantID string, createdID string) *utils.UserClaims {
 
 // openAPIKeyAuthority 读取 OpenAPI Key 等效 claims 的权限。
 // open_api_keys 表没有独立的权限/scope 字段，因此统一取环境变量
-// GOTP_OPENAPI_KEY_AUTHORITY（viper 键 openapi.key.authority），
-// 未配置时保持默认 TENANT_ADMIN 以兼容存量部署，运维可下调为 TENANT_USER 等。
+// GOTP_OPENAPI_KEY_AUTHORITY（viper 键 openapi.key.authority）。
+// P1 修复（2026-08-25）：默认从 TENANT_ADMIN 降为 TENANT_USER（最小权限）——
+// 泄露一把机器 key 不再等价于租户管理员沦陷；需要写能力的部署必须显式配置提升，
+// 后续应为 key 增加独立 scope 字段并按字段授权（见 apikey_test.go 头注释）。
 func openAPIKeyAuthority() string {
 	if authority := strings.TrimSpace(viper.GetString("openapi.key.authority")); authority != "" {
 		return authority
 	}
-	return constant.TENANT_ADMIN
+	return constant.TENANT_USER
 }
