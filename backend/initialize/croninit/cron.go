@@ -57,6 +57,14 @@ func CronInit() {
 	if err != nil {
 		logrus.Error("【定时任务】消息推送清理任务启动失败")
 	}
+	// 每 30 分钟清理设备影子消息：到期 pending → expired，7 天前终态物理删除（ROADMAP A3）
+	c.AddFunc("*/30 * * * *", func() {
+		expired, deleted := service.GroupApp.DeviceShadow.CleanupExpiredShadowMessages()
+		if expired > 0 || deleted > 0 {
+			logrus.Infof("【定时任务】影子消息清理完成: expired=%d deleted=%d", expired, deleted)
+		}
+	})
+
 	c.Start()
 }
 

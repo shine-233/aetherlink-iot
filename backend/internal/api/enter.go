@@ -59,6 +59,7 @@ type Controller struct {
 	FleetSavedFilterApi
 	DashboardMenuApi
 	DeviceTwinApi
+	DeviceShadowApi
 	RDIApi
 	PayloadSchemaApi
 }

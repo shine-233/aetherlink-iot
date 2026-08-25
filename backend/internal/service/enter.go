@@ -56,6 +56,7 @@ type ServiceGroup struct {
 	FleetSavedFilter
 	DashboardMenu
 	DeviceTwin
+	DeviceShadow
 	RDI
 	PayloadSchema
 }
