@@ -98,6 +98,7 @@
   "device_template.table_header.PleaseEeventIdentifier": "Please enter event identifier",
   "device_template.table_header.setEnum": "Set Enum Item",
   "device_template.table_header.addEnum": "Add Enum Item",
+  "device_template.table_header.pleaseAddEnumItem": "Please add at least one enum item.",
   "device_template.table_header.enumDataType": "Enum Data Type",
   "device_template.table_header.enumDataValue": "Enum Value",
   "device_template.table_header.enumDescription": "Enum Description",

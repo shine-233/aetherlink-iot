@@ -10,7 +10,7 @@
 import { computed, onMounted, reactive, ref, watch, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { FormInst, FormRules } from 'naive-ui'
-import { NButton, NDescriptions, NDescriptionsItem, NForm, NFormItem, NInput, NSelect } from 'naive-ui'
+import { NAlert, NButton, NDescriptions, NDescriptionsItem, NForm, NFormItem, NInput, NSelect } from 'naive-ui'
 import type { SelectMixedOption } from 'naive-ui/es/select/src/interface'
 import {
   deviceConnectForm,
@@ -29,7 +29,11 @@ import { $t } from '@/locales'
 import { writeClipboardText } from '@/utils/clipboard'
 import DeviceAccessGuide from './DeviceAccessGuide.vue'
 import { summarizeDeviceConnectionDiagnostics } from './device-connection-diagnostics-state'
-import { buildDeviceAccessGuideStateFromConnectionGuide } from './device-access-guide-state'
+import {
+  buildDeviceAccessGuideStateFromConnectionGuide,
+  isMaskedVoucherText,
+  parseDeviceVoucherPayload
+} from './device-access-guide-state'
 import type { DeviceAccessGuideDiagnosticsSummary, DeviceConnectionGuideStateInput } from './device-access-guide-state'
 
 type FormElementType = 'input' | 'table' | 'select'
@@ -91,16 +95,25 @@ const accessGuide = computed(() =>
     String(deviceDataStore?.deviceData?.device_number || ''),
     formData,
     connectInfo.value,
-    connectionDiagnostics.value
+    connectionDiagnostics.value,
+    // 凭证哈希 Phase 2a：详情 voucher 已脱敏时，测试命令降级为占位提示命令。
+    { credentialsUnavailable: voucherMasked.value }
   )
 )
 
+// voucherMasked：详情响应的凭证为掩码形态。
+// 判定依据（Phase 2a 契约）：响应含 voucher_masked=true，或 voucher 值以"…"结尾。
+const voucherMasked = computed(() => {
+  const deviceData = deviceDataStore?.deviceData
+  if (deviceData?.voucher_masked === true) return true
+  return isMaskedVoucherText(deviceData?.voucher)
+})
+
+// parseVoucher 兼容脱敏输入：掩码形态返回显式 unavailable 而不是空对象，
+// 这里只取 credentials 部分；脱敏态下表单保持空白且不可保存（见 handleSubmit 守卫）。
 const parseVoucher = (raw: string | undefined) => {
-  try {
-    return JSON.parse(raw || '{}') as Record<string, unknown>
-  } catch {
-    return {}
-  }
+  const availability = parseDeviceVoucherPayload(raw)
+  return availability.status === 'ok' ? availability.credentials : {}
 }
 
 const credentialKeys = computed(() =>
@@ -283,6 +296,11 @@ watchEffect(() => {
 })
 
 const handleSubmit = async () => {
+  // 脱敏态守卫：表单已隐藏且字段为空，提交会用空凭证覆盖真实凭证，必须拦截。
+  if (voucherMasked.value) {
+    window.$message?.warning($t('custom.device.accessGuide.maskedNotice'))
+    return
+  }
   await formRef.value?.validate()
   await updateDeviceVoucher({
     device_id: props.id,
@@ -353,6 +371,7 @@ const toServiceClick = () => {
       :device-id="props.id"
       :access-guide="accessGuide"
       :connect-info="connectInfo"
+      :credentials-masked="voucherMasked"
       :debug-status="debugStatus"
       :debug-logs="debugLogs"
       :debug-loading="debugEvidenceLoading"
@@ -366,7 +385,11 @@ const toServiceClick = () => {
       @refresh-debug-evidence="refreshDebugEvidence"
     >
       <template #credential-form>
-        <NForm ref="formRef" :rules="formRules" :model="formData">
+        <!-- 凭证已脱敏态：隐藏密码输入与复制入口，展示轮换指引文案（Phase 2a 降级）。 -->
+        <NAlert v-if="voucherMasked" type="warning" data-testid="device-access-guide-masked-notice">
+          {{ $t('custom.device.accessGuide.maskedNotice') }}
+        </NAlert>
+        <NForm v-else ref="formRef" :rules="formRules" :model="formData">
           <template v-for="element in formElements" :key="element.dataKey">
             <div v-if="element.type === 'input'" class="form-item">
               <NFormItem :label="element.label" :path="element.dataKey" style="height: 50px">
@@ -402,7 +425,7 @@ const toServiceClick = () => {
       </template>
     </DeviceAccessGuide>
 
-    <div v-if="deviceDataStore?.deviceData?.access_way !== 'B'" class="mt-4 w-full flex-center">
+    <div v-if="deviceDataStore?.deviceData?.access_way !== 'B' && !voucherMasked" class="mt-4 w-full flex-center">
       <NButton type="primary" data-testid="device-access-guide-save-credentials" @click="handleSubmit">
         {{ $t('common.save') }}
       </NButton>

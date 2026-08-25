@@ -82,7 +82,10 @@ const statusOptions = [
 ]
 
 // 历史列表走远程分页，翻页或切换每页条数都会重新请求服务端历史接口。
-const pagination = reactive<PaginationProps>({
+// 历史列表走远程分页，翻页或切换每页条数都会重新请求服务端历史接口。
+// 变量注解 : PaginationProps = reactive({...}) 与 management/user 同型：
+// 上下文类型先行校验字面量，规避 naive-ui 升级后泛型 reactive 的签名失配。
+const pagination: PaginationProps = reactive({
   page: 1,
   pageSize: 20,
   showSizePicker: true,

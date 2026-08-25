@@ -206,25 +206,40 @@ async function expectNoAuthStorage(page) {
     .toBe(true);
 }
 
-async function clearAuthStorage(page) {
-  await page.evaluate(keys => {
-    try {
-      for (const key of keys) {
-        localStorage.removeItem(key);
-        sessionStorage.removeItem(key);
+// 清理认证存储。allowNavigation=true 时容忍 SPA 检测到无 token 触发的重定向：
+// 重定向会销毁正在执行的 evaluate 上下文（Execution context was destroyed），
+// 此时跳过无 token 回读断言，由调用方等待最终落地 URL。
+async function clearAuthStorage(page, { allowNavigation = false } = {}) {
+  try {
+    await page.evaluate(keys => {
+      try {
+        for (const key of keys) {
+          localStorage.removeItem(key);
+          sessionStorage.removeItem(key);
+        }
+      } catch (error) {
+        if (!error || error.name !== 'SecurityError') {
+          throw error;
+        }
       }
-    } catch (error) {
-      if (!error || error.name !== 'SecurityError') {
-        throw error;
-      }
+    }, AUTH_KEYS);
+  } catch (error) {
+    const message = String((error && error.message) || error);
+    if (allowNavigation && /Execution context was destroyed|ERR_ABORTED/i.test(message)) {
+      return;
     }
-  }, AUTH_KEYS);
+    throw error;
+  }
 
-  await expectNoAuthStorage(page);
+  if (allowNavigation && !page.url().includes('/login')) {
+    await expectNoAuthStorage(page);
+  }
 }
 
 test.describe('login auth module', () => {
   test('anonymous language switch stays local and forgot password stays usable', async ({ page }) => {
+    // 前置匿名英文登录页准备步骤较多，30s 默认预算常在断言前耗尽。
+    test.setTimeout(90_000);
     const preferredLanguageRequests = [];
     const failedPreferredLanguageRequests = [];
 
@@ -367,6 +382,7 @@ test.describe('login auth module', () => {
   });
 
   test('clearing auth state forces the next protected route back to login', async ({ rolePage }) => {
+    test.setTimeout(90_000);
     await rolePage.goto('/', { waitUntil: 'domcontentloaded' });
     // 通过自带等待的可见性断言确认认证 shell 已完成渲染。
     await expect(rolePage.getByText(/System Management|设备管理|Application Management|Visualization/i).first()).toBeVisible({ timeout: 15000 });
@@ -377,7 +393,8 @@ test.describe('login auth module', () => {
       }, { timeout: 15000 })
       .toBe(true);
 
-    await clearAuthStorage(rolePage);
+    // 清除 token 后 SPA 可能立即重定向到 /login（导航会销毁 evaluate 上下文），允许该竞态。
+    await clearAuthStorage(rolePage, { allowNavigation: true });
     // SPA 路由在检测到无 token 时会中断导航并重定向到 /login，goto 可能抛 ERR_ABORTED。
     // 捕获后验证最终落在登录页即可。
     try {

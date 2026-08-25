@@ -123,7 +123,9 @@ const deploymentHealthOverview = computed(() => {
         </strong>
       </div>
     </div>
-    <div v-else class="mt-4px text-gray-500">{{ $t('custom.home.firstDevice.health.noResult') }}</div>
+    <n-empty v-else size="small" class="mt-8px justify-center">
+      {{ $t('custom.home.firstDevice.health.noResult') }}
+    </n-empty>
   </div>
 </template>
 

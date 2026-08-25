@@ -1,0 +1,203 @@
+name: Visual baseline capture
+
+# Evidence-collection lane: boots the same self-contained Docker Compose stack
+# as compose-stack-e2e.yml (identical checkout -> pnpm/node -> frontend build ->
+# deploy/init.sh bootstrap -> backend readiness -> automation npm ci bootstrap
+# pattern, with every action pinned to the same SHAs) and then captures the
+# FIRST REAL RUN of the visual-baseline screenshot scaffold
+# (automation_tests/scripts/capture_visual_baseline.js, landed by
+# lanes/phase2a-any-slice-visual-baseline / commit 2b9e437).
+#
+# Unlike compose-stack-e2e.yml this lane performs no pass/fail test verdicts:
+# the artifact IS the evidence (visual baseline screenshots + manifest.json)
+# consumed by later visual-comparison lanes. Fail-closed on purpose: red means
+# environment/bootstrap problems to fix, never a soft-skipped capture.
+#
+# Dispatch-only: run manually against a ref that contains the visual-baseline
+# scaffold. A fast-fail guard below names the required ref otherwise.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: visual-baseline-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  visual-baseline:
+    name: Capture visual baseline screenshots on the Compose stack
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+    env:
+      CI_STRICT_INTEGRATION: '1'
+      # Preview proxy serves the built frontend and forwards /api to API_TARGET;
+      # the capture script browses FRONTEND_URL (= PREVIEW_URL origin) and logs
+      # in directly against API_BASE_URL (lib/network_runtime default backend).
+      FRONTEND_URL: http://127.0.0.1:9725
+      PREVIEW_URL: http://127.0.0.1:9725
+      API_TARGET: http://127.0.0.1:9999
+      PLAYWRIGHT_BROWSER_CHANNEL: chromium
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Fail fast (before spending ~10min of Docker bootstrap) when dispatched
+      # on a ref that predates the visual-baseline scaffold.
+      - name: Guard - require visual-baseline scaffold on this ref
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! test -f automation_tests/scripts/capture_visual_baseline.js; then
+            echo "::error::automation_tests/scripts/capture_visual_baseline.js is absent on ref $(git rev-parse --abbrev-ref HEAD) ($(git rev-parse --short HEAD))." >&2
+            echo "The visual-baseline scaffold lands via lanes/phase2a-any-slice-visual-baseline (commit 2b9e437); dispatch this workflow on a ref containing it." >&2
+            exit 1
+          fi
+          if ! grep -q '"visual:baseline"' automation_tests/package.json; then
+            echo "::error::automation_tests/package.json has no visual:baseline script on this ref; expected from the same scaffold commit (2b9e437)." >&2
+            exit 1
+          fi
+          echo "visual-baseline scaffold present"
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 10.8.0
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend preview assets
+        working-directory: frontend
+        run: pnpm run build
+
+      - name: Bootstrap the Compose stack with generated secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          export AETHERLINK_SYNTHETIC_RDI_ALLOW=1
+          export AETHERLINK_SYNTHETIC_RDI_ALLOWED_DATABASES="aetherlink_iot"
+          AETHERLINK_NO_BUILD= bash deploy/init.sh --performance-tier light --skip-verify
+          # Ensure fresh binary: no Docker cache for backend image
+          docker compose build --no-cache backend
+
+      - name: Wait for backend readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --show-error http://127.0.0.1:9999/ready >/dev/null 2>&1; then
+              echo "backend ready"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "backend did not become ready in time" >&2
+          docker compose ps
+          docker compose logs --tail 100 backend
+          exit 1
+
+      - name: Set up npm cache
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: automation_tests/package-lock.json
+
+      - name: Install automation dependencies
+        working-directory: automation_tests
+        run: npm ci
+
+      - name: Install Playwright browser
+        working-directory: automation_tests
+        run: npx playwright install --with-deps "$PLAYWRIGHT_BROWSER_CHANNEL"
+
+      - name: Generate throwaway test accounts
+        working-directory: automation_tests
+        run: npm run prepare:local-accounts
+
+      # Same GITHUB_ENV pattern as compose-stack-e2e.yml. This lane additionally
+      # exports SUPER_ADMIN_PASSWORD: the capture script authenticates purely
+      # from process env (API-login fallback; no Playwright globalSetup runs
+      # here, so there is no reusable storageState), whereas the compose lane's
+      # mocha/playwright suites read passwords from .env.local themselves.
+      - name: Load generated account credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -a
+          # shellcheck disable=SC1091
+          . automation_tests/.env.local
+          set +a
+          {
+            echo "SUPER_ADMIN_EMAIL=$SUPER_ADMIN_EMAIL"
+            echo "SUPER_ADMIN_PASSWORD=$SUPER_ADMIN_PASSWORD"
+            echo "TENANT_ADMIN_EMAIL=$TENANT_ADMIN_EMAIL"
+            echo "TENANT_USER_EMAIL=$TENANT_USER_EMAIL"
+            echo "READONLY_USER_EMAIL=$READONLY_USER_EMAIL"
+            echo "EMAIL_CHANGE_TENANT_EMAIL=$EMAIL_CHANGE_TENANT_EMAIL"
+          } >> "$GITHUB_ENV"
+
+      - name: Start preview API proxy
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd automation_tests
+          node scripts/serve_preview_with_api_proxy.js > "$RUNNER_TEMP/aetherlink-preview-proxy.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/aetherlink-preview-proxy.pid"
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error "$PREVIEW_URL/" >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/aetherlink-preview-proxy.log"
+          exit 1
+
+      # DEVICE_ID intentionally empty: /device/details is skipped until a real
+      # device id is wired in a follow-up lane. API_BASE_URL feeds the capture
+      # script's direct axios login (config.baseURL in lib/network_runtime).
+      - name: Run visual baseline capture
+        working-directory: automation_tests
+        env:
+          API_BASE_URL: http://127.0.0.1:9999/api/v1
+          DEVICE_ID: ''
+        run: npm run visual:baseline
+
+      - name: Upload visual baseline screenshots
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: visual-baseline-${{ github.run_id }}
+          path: automation_tests/visual-baseline/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Stop preview API proxy
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f "$RUNNER_TEMP/aetherlink-preview-proxy.pid" ]]; then
+            kill "$(cat "$RUNNER_TEMP/aetherlink-preview-proxy.pid")" 2>/dev/null || true
+          fi
+
+      - name: Tear down the Compose stack
+        if: always()
+        shell: bash
+        run: |
+          docker compose down -v --remove-orphans || true

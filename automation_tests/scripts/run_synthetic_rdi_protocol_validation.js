@@ -13,6 +13,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 
 const apiClient = require('../lib/api_client');
+const { syntheticRdiFixtureVoucher } = require('../lib/synthetic_rdi_contract');
 
 const PROVENANCE = 'synthetic-rdi';
 const EVIDENCE_CLASS = 'protocol-emulator';
@@ -145,15 +146,27 @@ function timestampSeconds(value) {
   return NaN;
 }
 
-function parseVoucher(detail) {
+// resolveSyntheticFixtureVoucher 按确定性契约重建夹具凭证（凭证哈希 Phase 2a）：
+// /device/detail 自 Phase 2a 起只回掩码 voucher，因此运行器不再从详情读取明文，
+// 而是用 fixture_id 契约（synthetic-rdi-<fixtureId> / 固定占位口令）重建。
+// 兼容护栏：若详情仍暴露未掩码的 JSON voucher（旧后端），必须与契约一致，否则拒绝运行，
+// 防止把真实设备凭证当作 synthetic 夹具。
+function resolveSyntheticFixtureVoucher(detail, fixtureId) {
+  const expected = syntheticRdiFixtureVoucher(fixtureId);
   const parsed = parseObject(detail && detail.voucher);
   if (!parsed || !parsed.username) {
-    throw new Error('synthetic fixture detail did not expose a JSON MQTT voucher username');
+    // 掩码形态或缺失：直接采用契约值（夹具由 seed 脚本以同一契约写入 DB）。
+    return expected;
   }
-  return {
-    username: String(parsed.username).trim(),
-    password: parsed.password === undefined || parsed.password === null ? '' : String(parsed.password)
-  };
+  const username = String(parsed.username).trim();
+  if (!/^synthetic-rdi-/.test(username) || username !== expected.username) {
+    throw new Error('voucher username must be scoped to the synthetic fixture');
+  }
+  const password = parsed.password === undefined || parsed.password === null ? '' : String(parsed.password);
+  if (!password) {
+    throw new Error('synthetic fixture voucher password is empty; refusing to run live emulator');
+  }
+  return { username, password };
 }
 
 function fixtureProvenance(detail) {
@@ -195,10 +208,7 @@ function validateSyntheticFixtureDetail(detail, expectedPid, expectedDeviceId) {
     throw new Error('synthetic fixture hardware identity must explicitly declare kind=synthetic and a SYNTH-HW serial');
   }
 
-  const voucher = parseVoucher(detail);
-  if (!/^synthetic-rdi-/.test(voucher.username)) {
-    throw new Error('voucher username must be scoped to the synthetic fixture');
-  }
+  const voucher = resolveSyntheticFixtureVoucher(detail, String(additional.fixture_id));
   if (!voucher.password) {
     throw new Error('synthetic fixture voucher password is empty; refusing to run live emulator');
   }
@@ -213,7 +223,8 @@ function validateSyntheticFixtureDetail(detail, expectedPid, expectedDeviceId) {
     fixtureId: String(additional.fixture_id),
     hardware: { kind: hardware.kind, serial: String(hardware.serial) },
     activation: { activateFlag, isEnabled, action: 'not-executed' },
-    voucherUsername: voucher.username
+    voucherUsername: voucher.username,
+    voucherPassword: voucher.password
   };
 }
 
@@ -433,8 +444,9 @@ async function main() {
   if (!healthy) throw new Error('configured isolated backend health endpoint is unavailable');
 
   const detail = await readDetail(deviceId);
+  // 凭证哈希 Phase 2a：凭证从夹具确定性契约重建（详情只回掩码），fixture 校验内含一致性护栏。
   const fixture = validateSyntheticFixtureDetail(detail, pid, deviceId);
-  const voucher = parseVoucher(detail);
+  const voucher = { username: fixture.voucherUsername, password: fixture.voucherPassword };
 
   const manifest = evidenceFields({
     schema: 'aetherlink.synthetic-rdi.protocol-validation.v1',

@@ -98,6 +98,7 @@
   "device_template.table_header.PleaseEeventIdentifier": "Veuillez saisir l'identifiant de l'événement",
   "device_template.table_header.setEnum": "Définir un Élément d'énumération",
   "device_template.table_header.addEnum": "Ajouter un Élément d'énumération",
+  "device_template.table_header.pleaseAddEnumItem": "Veuillez ajouter au moins un élément d'énumération.",
   "device_template.table_header.enumDataType": "Type de donnée d'énumération",
   "device_template.table_header.enumDataValue": "Valeur d'énumération",
   "device_template.table_header.enumDescription": "Description de l'Énumération",

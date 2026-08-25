@@ -660,6 +660,7 @@
   "custom.device_details.accessGuideQuickstartCopyCredential": "复制凭证",
   "custom.device_details.accessGuideQuickstartCopyTestCommand": "复制测试命令",
   "custom.device_details.accessGuideUnsavedVoucherCopyBlocked": "复制连接参数或测试命令前，请先保存凭证变更。",
+  "custom.device.accessGuide.maskedNotice": "凭证已脱敏：出于安全考虑，完整凭证仅在创建或轮换时一次性展示。如需重新配置设备，请先执行凭证轮换（更新凭证），并使用该操作一次性返回的新凭证。",
   "custom.device_details.accessGuideProtocol": "协议",
   "custom.device_details.accessGuideAuthMode": "认证方式",
   "custom.device_details.accessGuideEndpoint": "端点",

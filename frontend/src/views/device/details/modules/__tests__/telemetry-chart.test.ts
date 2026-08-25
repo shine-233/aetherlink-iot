@@ -42,14 +42,18 @@ vi.mock('@/utils/thingsvis/template-detail-cache', () => ({
 
 // telemetry-chart.vue 同时导入 extractPlatformFields 和 mergePlatformFieldsById。
 // mock 工厂必须补齐后者，否则它在组件里是 undefined，平台字段合并会静默拿到空数组。
+// 平台字段在 mock 里只需要满足合并逻辑用到的形状。
+type PlatformFieldLike = { id?: unknown; [key: string]: unknown }
+
 vi.mock('@/utils/thingsvis/platform-fields', () => ({
   extractPlatformFields: hoisted.extractPlatformFields,
-  mergePlatformFieldsById: (primary: any[], fallback: any[]) => {
+  mergePlatformFieldsById: (primary: PlatformFieldLike[], fallback: PlatformFieldLike[]) => {
     const seen = new Set<string>()
-    const merged: any[] = []
+    const merged: PlatformFieldLike[] = []
     for (const field of [...(primary ?? []), ...(fallback ?? [])]) {
-      if (!field?.id || seen.has(field.id)) continue
-      seen.add(field.id)
+      const fieldId = typeof field?.id === 'string' ? field.id : String(field?.id)
+      if (!fieldId || seen.has(fieldId)) continue
+      seen.add(fieldId)
       merged.push(field)
     }
     return merged
@@ -85,13 +89,18 @@ vi.mock('@/components/thingsvis/ThingsVisWidget.vue', () => ({
   })
 }))
 
-global.ResizeObserver = vi.fn(function ResizeObserverMock() {
-  return {
-    observe: vi.fn(),
-    unobserve: vi.fn(),
-    disconnect: vi.fn()
-  }
-}) as any
+// ResizeObserver 在测试环境不存在；保留 vi.fn 构造器以便断言实例化次数，
+// 并做一次受控类型断言替代显式 any。
+const createResizeObserverStub = (disconnect: ReturnType<typeof vi.fn> = vi.fn()) =>
+  vi.fn(function ResizeObserverMock() {
+    return {
+      observe: vi.fn(),
+      unobserve: vi.fn(),
+      disconnect
+    }
+  })
+
+global.ResizeObserver = createResizeObserverStub() as unknown as typeof ResizeObserver
 
 import TelemetryChart from '../telemetry-chart.vue'
 import * as normalizer from '../telemetryChartTemplateNormalizer'
@@ -1183,7 +1192,7 @@ describe('telemetry-chart.vue', () => {
         { id: '', name: 'Empty', type: 'number', dataType: 'telemetry' },
         { id: 123, name: 'Numeric', type: 'number', dataType: 'telemetry' },
         { name: 'NoId', type: 'number', dataType: 'telemetry' }
-      ] as any)
+      ])
       hoisted.telemetryDataCurrent.mockResolvedValue({ data: [] })
 
       const wrapper = mountTelemetryChart({
@@ -1634,13 +1643,7 @@ describe('telemetry-chart.vue', () => {
 
     it('disconnects ResizeObserver on unmount', async () => {
       const disconnectSpy = vi.fn()
-      global.ResizeObserver = vi.fn(function ResizeObserverMock() {
-        return {
-          observe: vi.fn(),
-          unobserve: vi.fn(),
-          disconnect: disconnectSpy
-        }
-      }) as any
+      global.ResizeObserver = createResizeObserverStub(disconnectSpy) as unknown as typeof ResizeObserver
 
       const wrapper = mountTelemetryChart({ deviceData: { name: 'Device' } })
       await flushPromises()

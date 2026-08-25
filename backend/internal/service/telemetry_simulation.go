@@ -21,6 +21,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 
+	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
 	config "aetherlink-iot/backend/mqtt"
 	simulationpublish "aetherlink-iot/backend/mqtt/simulation_publish"
@@ -29,17 +30,44 @@ import (
 	"aetherlink-iot/backend/pkg/utils"
 )
 
+// loadSimulationVoucher 从设备凭证网页测试缓存读取明文 voucher。
+//
+// 凭证哈希存储 Phase 2b（references/backend-hardening-plan.md 车道1）：devices.voucher 列
+// 停写明文后，模拟器三处读侧统一改走创建/轮换时写入的 24h 测试缓存（dal 层收口写入）。
+// 兼容窗口兜底：SQL 直插的存量/夹具行（synthetic-rdi seed 等绕过 API 写路径的来源）没有
+// 缓存条目，但 dual-mode 观测期内其明文列仍有值——此时回读 DB 行明文，行为与 2b 之前
+// 一致；明文列也为空（2b 后经 API 新建的行）才返回轮换指引错误，不泄露额外信息。
+// 产品语义：设备创建后 24h 内可直接在网页上做连通性测试；缓存过期后需轮换凭证
+// （重新生成测试凭证）才能再次使用网页测试。缓存过期不代表设备凭证失效，
+// 设备真实认证链路走 voucher_hash 不受影响。缓存是 UX 增强，不是一致性依赖：
+// Redis 故障按 miss 处理（fail-closed），不向调用面区分"过期"与"故障"。
+func loadSimulationVoucher(deviceID string) (string, error) {
+	voucher, err := dal.LoadDeviceCredentialTestCache(deviceID)
+	if err == nil && strings.TrimSpace(voucher) != "" {
+		return voucher, nil
+	}
+	// 兼容窗口兜底：仅当 DB 行明文列仍有值（存量/SQL 夹具行）时放行。
+	if deviceInfo, dbErr := dal.GetDeviceByID(deviceID); dbErr == nil && deviceInfo != nil &&
+		strings.TrimSpace(deviceInfo.Voucher) != "" {
+		return deviceInfo.Voucher, nil
+	}
+	return "", errcode.NewWithMessage(errcode.CodeNotFound,
+		"device credential test cache expired or absent; rotate the voucher to regenerate test credentials")
+}
+
 // 获取模拟设备发送遥测数据的回显数据
 func (*TelemetryData) ServeEchoData(req *model.ServeEchoDataReq, clientIP string, claims *utils.UserClaims) (interface{}, error) {
 	if req == nil {
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "请求不能为空")
 	}
-	// 获取设备信息
-	deviceInfo, err := ensureTelemetryDeviceWriteAccess(req.DeviceId, claims)
+	// 获取设备信息（权限守卫；明文凭证 Phase 2b 后改从测试缓存读取，不再使用 DB 行的 Voucher 列）
+	if _, err := ensureTelemetryDeviceWriteAccess(req.DeviceId, claims); err != nil {
+		return nil, err
+	}
+	voucher, err := loadSimulationVoucher(req.DeviceId)
 	if err != nil {
 		return nil, err
 	}
-	voucher := deviceInfo.Voucher
 	// 校验voucher是否json
 	if !IsJSON(voucher) {
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "设备凭证不是 JSON 格式")
@@ -105,19 +133,14 @@ func (*TelemetryData) TelemetryPub(mosquittoCommand string, claims *utils.UserCl
 
 // GetSimulationInit 获取模拟表单初始值
 func (*TelemetryData) GetSimulationInit(deviceId string, claims *utils.UserClaims) (*model.SimulationInitResp, error) {
-	// 获取设备信息
-	deviceInfo, err := ensureTelemetryDeviceWriteAccess(deviceId, claims)
-	if err != nil {
+	// 权限守卫；明文凭证 Phase 2b 后改从测试缓存读取（语义见 loadSimulationVoucher）
+	if _, err := ensureTelemetryDeviceWriteAccess(deviceId, claims); err != nil {
 		return nil, err
 	}
-	if deviceInfo == nil {
-		return nil, errcode.New(204003) // 设备不存在
-	}
 
-	// 解析 voucher（设备凭证，JSON 格式）
-	voucher := deviceInfo.Voucher
-	if voucher == "" {
-		return nil, errcode.NewWithMessage(errcode.CodeParamError, "设备凭证为空")
+	voucher, err := loadSimulationVoucher(deviceId)
+	if err != nil {
+		return nil, err
 	}
 	if !IsJSON(voucher) {
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "设备凭证不是有效 JSON")
@@ -194,18 +217,16 @@ func (*TelemetryData) SimulationSend(req *model.SimulationSendReq, claims *utils
 		return errcode.NewWithMessage(errcode.CodeParamError, "data 必须是有效 JSON")
 	}
 
-	// 获取设备信息
-	deviceInfo, err := ensureTelemetryDeviceWriteAccess(req.DeviceID, claims)
+	// 权限守卫；明文凭证 Phase 2b 后改从测试缓存读取（语义见 loadSimulationVoucher）
+	if _, err := ensureTelemetryDeviceWriteAccess(req.DeviceID, claims); err != nil {
+		return err
+	}
+
+	voucher, err := loadSimulationVoucher(req.DeviceID)
 	if err != nil {
 		return err
 	}
-	if deviceInfo == nil {
-		return errcode.New(204003)
-	}
-
-	// 解析 voucher
-	voucher := deviceInfo.Voucher
-	if voucher == "" || !IsJSON(voucher) {
+	if !IsJSON(voucher) {
 		return errcode.NewWithMessage(errcode.CodeParamError, "设备凭证无效")
 	}
 	var voucherMap map[string]interface{}

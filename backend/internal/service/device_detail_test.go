@@ -1,18 +1,24 @@
-// 文件用途：锁定设备详情读面的空快照错误映射行为。
+// 文件用途：锁定设备详情读面的空快照错误映射与凭证掩码契约。
 // 核心逻辑：dal.GetDeviceDetail 的 Scan 对零行结果不报错、返回缺 id 键的空 map；
 // loadDeviceDetail 必须把这种空快照显式映射为资源不存在业务错误，
 // 杜绝"HTTP 200 空壳 data"被前端渲染成空白详情页（gen 继承链读到陈旧快照时同样触发）。
+// 凭证哈希 Phase 2a（references/backend-hardening-plan.md 车道1）：GetDeviceByIDV1 组装时
+// 必须把明文 voucher 替换为 MaskVoucher 掩码并附带 voucher_masked=true。
 // 关键注意事项：错误码迁移批次（2026-08，承接 PR #123 回滚后的正式迁移）；
 // 业务码契约与遥测访问守卫保持一致（100404 device not found）。
 // 重构建议：若 GetDeviceDetail 后续改为显式返回 not-found 错误，可移除本处的空 map 判断。
 package service
 
 import (
+	"strings"
 	"testing"
 	"time"
 
 	dal "aetherlink-iot/backend/internal/dal"
+	"aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
+	utils "aetherlink-iot/backend/pkg/utils"
 )
 
 func TestLoadDeviceDetailMapsEmptySnapshotToRecordNotFound(t *testing.T) {
@@ -56,5 +62,46 @@ func TestLoadDeviceDetailKeepsExistingSnapshotUnchanged(t *testing.T) {
 	}
 	if data == nil || data["id"] != "detail-existing" {
 		t.Fatalf("loadDeviceDetail snapshot broken: %#v", data)
+	}
+}
+
+func TestGetDeviceByIDV1MasksVoucherInDetail(t *testing.T) {
+	db := setupDeviceServiceTestDB(t)
+
+	// 播种带明文 voucher 的自有设备；owner 匹配 claims 以通过遥测读守卫。
+	const (
+		deviceID     = "detail-masked-voucher"
+		deviceNumber = "detail-masked-number"
+		tenantID     = "tenant-a"
+		ownerUserID  = "owner-1"
+	)
+	createDeviceServiceOwnedDevice(t, db, deviceID, deviceNumber, tenantID, ownerUserID, "", time.Now().UTC())
+	if err := db.Model(&model.Device{}).Where("id = ?", deviceID).
+		Update("voucher", `{"username":"mqtt_device_001","password":"top-secret"}`).Error; err != nil {
+		t.Fatalf("seed plaintext voucher: %v", err)
+	}
+
+	data, err := (&Device{}).GetDeviceByIDV1(deviceID, &utils.UserClaims{
+		ID:        ownerUserID,
+		TenantID:  tenantID,
+		Authority: constant.TENANT_ADMIN,
+	})
+	if err != nil {
+		t.Fatalf("GetDeviceByIDV1 returned error: %v", err)
+	}
+
+	const plaintext = `{"username":"mqtt_device_001","password":"top-secret"}`
+	masked, ok := data["voucher"].(string)
+	if !ok {
+		t.Fatalf("detail voucher missing or not string: %#v", data["voucher"])
+	}
+	if masked != utils.MaskVoucher(plaintext) {
+		t.Fatalf("detail voucher = %q, want mask %q", masked, utils.MaskVoucher(plaintext))
+	}
+	if maskedFlag, ok := data["voucher_masked"].(bool); !ok || !maskedFlag {
+		t.Fatalf("detail must set voucher_masked=true, got %#v", data["voucher_masked"])
+	}
+	if strings.Contains(masked, "mqtt_device_001") || strings.Contains(masked, "top-secret") {
+		t.Fatalf("masked detail leaked plaintext fragment: %q", masked)
 	}
 }

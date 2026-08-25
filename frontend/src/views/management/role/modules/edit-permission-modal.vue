@@ -123,6 +123,7 @@ async function handleSubmit() {
 
 <template>
   <n-modal
+    aria-label="dialog"
     v-model:show="modalVisible"
     preset="card"
     :title="title"

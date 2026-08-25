@@ -676,6 +676,7 @@
   "custom.device_details.accessGuideQuickstartCopyCredential": "Copiar credenciales",
   "custom.device_details.accessGuideQuickstartCopyTestCommand": "Copiar comando de prueba",
   "custom.device_details.accessGuideUnsavedVoucherCopyBlocked": "Guarde los cambios de credenciales antes de copiar parámetros de conexión o comandos de prueba.",
+  "custom.device.accessGuide.maskedNotice": "Credenciales enmascaradas: por seguridad, las credenciales completas se muestran una sola vez al crearlas o rotarlas. Para reconfigurar este dispositivo, rote el voucher (actualización de credenciales) y use el valor único que devuelva esa acción.",
   "custom.device_details.accessGuideProtocol": "Protocolo",
   "custom.device_details.accessGuideAuthMode": "Modo de autenticación",
   "custom.device_details.accessGuideEndpoint": "Endpoint",

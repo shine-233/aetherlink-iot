@@ -8,6 +8,7 @@ const {
   validateLoopbackBroker,
   redactText
 } = require('./run_synthetic_rdi_protocol_validation');
+const { FIXTURE_VOUCHER_PASSWORD, syntheticRdiFixtureVoucher } = require('../lib/synthetic_rdi_contract');
 
 function validDetail(overrides = {}) {
   return {
@@ -41,13 +42,32 @@ function rejects(fn, expectedText) {
   });
 }
 
+// 凭证哈希 Phase 2a：校验结果同时携带契约重建的 username/password，
+// 运行器不再从 /device/detail 读明文（详情只回掩码）。
 assert.deepStrictEqual(
   validateSyntheticFixtureDetail(validDetail(), 'SYNTHRDI0001', '64afc1ec-8a74-4a85-ae8f-5727ff52d720'),
   {
     fixtureId: 'SYNTHRDI0001-0070aaa3',
     hardware: { kind: 'synthetic', serial: 'SYNTH-HW-SYNTHRDI0001' },
     activation: { activateFlag: 'active', isEnabled: 'enabled', action: 'not-executed' },
-    voucherUsername: 'synthetic-rdi-SYNTHRDI0001-0070aaa3'
+    voucherUsername: 'synthetic-rdi-SYNTHRDI0001-0070aaa3',
+    voucherPassword: FIXTURE_VOUCHER_PASSWORD
+  }
+);
+
+// 详情返回掩码 voucher（Phase 2a 形态）时仍可通过：凭证按 fixture 契约重建。
+assert.deepStrictEqual(
+  validateSyntheticFixtureDetail(
+    validDetail({ voucher: '{"username…' }),
+    'SYNTHRDI0001',
+    '64afc1ec-8a74-4a85-ae8f-5727ff52d720'
+  ),
+  {
+    fixtureId: 'SYNTHRDI0001-0070aaa3',
+    hardware: { kind: 'synthetic', serial: 'SYNTH-HW-SYNTHRDI0001' },
+    activation: { activateFlag: 'active', isEnabled: 'enabled', action: 'not-executed' },
+    voucherUsername: syntheticRdiFixtureVoucher('SYNTHRDI0001-0070aaa3').username,
+    voucherPassword: FIXTURE_VOUCHER_PASSWORD
   }
 );
 
@@ -96,4 +116,4 @@ assert.strictEqual(validateLoopbackBroker('127.0.0.1:11086'), '127.0.0.1:11086')
 rejects(() => validateLoopbackBroker('198.51.100.20:1883'), /only permits an explicit loopback broker/);
 assert.strictEqual(redactText('password=fixture-secret Bearer abc.def.ghi'), 'password=[REDACTED] Bearer [REDACTED]');
 
-process.stdout.write('synthetic-rdi validation unit checks: 8 passed\n');
+process.stdout.write('synthetic-rdi validation unit checks: 9 passed\n');

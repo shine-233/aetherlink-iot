@@ -59,7 +59,7 @@ export const useAppStore = defineStore(SetupStoreId.App, () => {
 
   const localeOptions: App.I18n.LangOption[] = [
     {
-      label: 'CN',
+      label: '中文',
       key: 'zh-CN'
     },
     {

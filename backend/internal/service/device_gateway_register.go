@@ -5,6 +5,7 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	dal "aetherlink-iot/backend/internal/dal"
@@ -99,8 +100,20 @@ func (*Device) GatewayRegister(req model.GatewayRegisterReq, claims *utils.UserC
 }
 
 func buildExistingGatewayRegisterRes(device *model.Device) (model.GatewayRegisterRes, error) {
+	// Phase 2b：新行 voucher 列为空串，重复注册回显改从 24h 网页测试缓存解析；
+	// 缓存也未命中（过期/SQL 直插行）时返回与模拟器一致的轮换指引，而非 DB 错误。
+	voucherJSON := device.Voucher
+	if strings.TrimSpace(voucherJSON) == "" {
+		cached, err := dal.LoadDeviceCredentialTestCache(device.ID)
+		if err != nil {
+			return model.GatewayRegisterRes{}, errcode.NewWithMessage(errcode.CodeNotFound,
+				"gateway credential test cache expired or absent; rotate the voucher to regenerate gateway credentials")
+		}
+		voucherJSON = cached
+	}
+
 	var voucher model.DeviceVoucher
-	if err := json.Unmarshal([]byte(device.Voucher), &voucher); err != nil {
+	if err := json.Unmarshal([]byte(voucherJSON), &voucher); err != nil {
 		return model.GatewayRegisterRes{}, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
 			"message":   "解析网关凭证失败",

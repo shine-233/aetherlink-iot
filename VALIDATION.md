@@ -91,6 +91,20 @@ API、E2E 和 synthetic-rdi 运行必须使用独立的 report/output 目录，�
 - 前端质量地基：全局 `any` 长尾清理（约 1300 处，集中在 core/data-architecture）、视觉升级 Phase 1–4、移动端关键路径响应式——均为独立车道，未完成。
 - 设备凭证哈希存储、脚本沙箱 Worker 化、service_access.voucher 哈希化：设计与计划见 `references/backend-hardening-plan.md`。
 
+## P2/P3 收敛批次（2026-08-24，fix/remaining-p2p3）
+
+本节记录 2026-08-24 P2/P3 批次的完成边界与后续批次目标，均基于当前工作树重新验证。
+
+**后端**
+- 运维暴露面门禁（P3）：`backend/router/router_init.go` 的 `/swagger/*any`、`/metrics`、`/metrics-viewer(/echarts.min.js)` 在 `GOTP_ENV=production` 时跳过注册；非生产环境保持原样。router contract 测试仍锁定字面量存在性。
+- JWT Redis 键哈希（P3）：新增 `pkg/utils.TokenDigest`（HMAC-SHA256hex，域分离密钥独立于 voucher），`middleware/jwt_auth.go`、`api/telemetry_ws_auth.go`、`service/sys_user_auth.go`（login/logout/refresh/transform）全部改为摘要作键。**部署注意：上线后旧明文 token 键立即失效，全体用户需重新登录（一次性会话失效）；如需平滑迁移需另行设计双读。** `loginEmailTokenKey(<email>)` 的 value 仍存原 token（email→token 映射语义未变）。
+- DAL 测试盲区收敛（P2）：79 个 DAL 源文件中本轮补齐 3 个核心文件——`device_auth_test.go`（摘要/明文双读与惰性升级）、`alarm_test.go`（告警配置/信息列表租户 scope SQL + JOIN 投影 + trigger_duration 零值显式写）、`users_test.go`（GetUsersByEmail raw 链 + GetUsersByPhoneNumber 双模式）。剩余 DAL 文件的测试补齐为后续批次目标。
+
+**前端**
+- 空态覆盖率（P2）：device 主干列表已有 `DeviceManageEmptyState`（device/manage/index.vue #empty 插槽）；automation 已有 `n-empty`（scene-manage/index.vue 与 scene-linkage dataList.vue）；home 无表格视图，本轮将 `HomeFirstDeviceDeploymentHealthSection.vue` 空结果文本升级为 `n-empty` 作示范。其余约 231 个视图文件的空态巡检为后续批次目标。
+- i18n 绕过精确计数（P2）：按"非测试 views+components 源码中含 CJK 字符的字符串字面量行"口径统计为 **734 行 / 51 个文件**（排除注释行、`__tests__`、`*.test.ts`；统计脚本口径见批次记录）。最大热点：`rdi/constants/rdi-labels.ts`（150 行，双语常量表，需专项车道）、`home/homeFirstDeviceWorkbench.ts`（157 行，注意该 vue 视图内另有 406 个历史 U+FFFD 乱码字符属数据损坏问题）。示范修复：`device/template/components/step/add-edit-commands.vue`（2 处枚举提示 → `device_template.table_header.pleaseAddEnumItem` 新键，四语言已补）与 `add-edit-attributes.vue`（1 处 `'新增成功'` → `common.addSuccess`）。其余 ~731 行为后续批次目标。
+- 无障碍 aria-\*（P3）：已在 3 个高频对话框加 `:aria-label="title"`（management/role、alarm/notification-group、apply/service 的 table-action-modal）作示范；全面 aria 巡检为后续批次目标。
+
 ## 维护与审查建议
 
 - 每次发布前从当前工作树重新生成验证证据，不要沿用旧归档中的通过结论。

@@ -526,7 +526,7 @@ const isEmbeddedHost = computed(() => {
           </NButton>
         </div>
 
-        <n-modal
+        <n-modal aria-label="dialog"
           v-if="canUseOwnerDetailActions"
           v-model:show="showDialog"
           :title="$t('generate.issue-attribute')"

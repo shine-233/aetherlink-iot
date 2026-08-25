@@ -26,6 +26,20 @@ vi.mock('dayjs', () => ({
 
 import Component from '../stats.vue'
 
+// setupState 的受控视图：列结构只需要 key/title，其余成员走 unknown 兜底。
+interface StatsTableColumn {
+  key: string
+  title: unknown
+}
+
+interface StatsSetupState {
+  columns: StatsTableColumn[]
+  columns0: StatsTableColumn[]
+  formatOperationType: (...args: unknown[]) => unknown
+  formatStatus: (...args: unknown[]) => unknown
+  [key: string]: unknown
+}
+
 const mountedWrappers: Array<ReturnType<typeof shallowMount>> = []
 
 const mountComponent = (props = {}) => {
@@ -56,7 +70,7 @@ describe('device/details/modules/stats.vue', () => {
     const wrapper = mountComponent()
     await flushPromises()
     const tables = wrapper.findAllComponents({ name: 'DistributionAndTable' })
-    const state = wrapper.vm.$.setupState as Record<string, any>
+    const state = wrapper.vm.$.setupState as StatsSetupState
 
     expect(tables).toHaveLength(2)
     expect(tables[0].props()).toMatchObject({
@@ -86,9 +100,9 @@ describe('device/details/modules/stats.vue', () => {
     const wrapper = mountComponent()
     await flushPromises()
     // shallowMount stubs child components, so verify the setup state has the expected columns
-    const state = wrapper.vm.$.setupState as Record<string, any>
-    expect(state.columns0.map((column: any) => column.key)).toEqual(['key', 'data_name', 'value', 'ts', 'created_at'])
-    expect(state.columns.map((column: any) => column.key)).toEqual([
+    const state = wrapper.vm.$.setupState as StatsSetupState
+    expect(state.columns0.map(column => column.key)).toEqual(['key', 'data_name', 'value', 'ts', 'created_at'])
+    expect(state.columns.map(column => column.key)).toEqual([
       'created_at',
       'message_id',
       'data',
@@ -101,8 +115,8 @@ describe('device/details/modules/stats.vue', () => {
   it('has correct columns0 for attribute data', async () => {
     const wrapper = mountComponent()
     await flushPromises()
-    const state = wrapper.vm.$.setupState as Record<string, any>
-    expect(state.columns0.map((column: any) => column.title)).toEqual([
+    const state = wrapper.vm.$.setupState as StatsSetupState
+    expect(state.columns0.map(column => column.title)).toEqual([
       'device_template.table_header.attributeIdentifier',
       'device_template.table_header.attributeName',
       'device_template.table_header.attributeValue',
@@ -116,8 +130,8 @@ describe('device/details/modules/stats.vue', () => {
   it('has correct columns for attribute logs', async () => {
     const wrapper = mountComponent()
     await flushPromises()
-    const state = wrapper.vm.$.setupState as Record<string, any>
-    expect(state.columns.map((column: any) => column.title)).toEqual([
+    const state = wrapper.vm.$.setupState as StatsSetupState
+    expect(state.columns.map(column => column.title)).toEqual([
       'custom.device_details.attributeDistributionTime',
       'custom.device_details.messageId',
       'custom.device_details.sendContent',
@@ -132,7 +146,7 @@ describe('device/details/modules/stats.vue', () => {
   it('formatOperationType returns correct labels', async () => {
     const wrapper = mountComponent()
     await flushPromises()
-    const state = wrapper.vm.$.setupState as Record<string, any>
+    const state = wrapper.vm.$.setupState as StatsSetupState
     expect(state.formatOperationType('1')).toBe('custom.device_details.manualOperation')
     expect(state.formatOperationType('2')).toBe('custom.device_details.automaticTriggering')
     expect(state.formatOperationType('99')).toBe('')
@@ -141,7 +155,7 @@ describe('device/details/modules/stats.vue', () => {
   it('formatStatus returns correct labels', async () => {
     const wrapper = mountComponent()
     await flushPromises()
-    const state = wrapper.vm.$.setupState as Record<string, any>
+    const state = wrapper.vm.$.setupState as StatsSetupState
     expect(state.formatStatus('1')).toBe('generate.sendingSuccess')
     expect(state.formatStatus('2')).toBe('generate.sendingFail')
     expect(state.formatStatus('3')).toBe('generate.returnSuccess')

@@ -102,6 +102,7 @@ automation_tests/reports/
 automation_tests/output/
 automation_tests/.locks/
 automation_tests/e2e/.auth/
+automation_tests/visual-baseline/
 automation_tests/.local/
 automation_tests/.local-*/
 automation_tests/reports-*/
