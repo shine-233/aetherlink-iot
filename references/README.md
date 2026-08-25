@@ -2,8 +2,7 @@
 
 本目录保存 AetherLink IoT 当前仍在使用的短参考文档。这里的文件应回答"现在仓库处于什么状态、下一步该做什么、哪些证据不能过度解读"。
 
-2026-07-28 已做归档整理：逐轮进度快照、分支 ledger、历史计划与一次性清理清单已移到
-已于 2026-07-28 永久删除，结论已吸收进主清单。
+2026-07-28 已做归档整理：逐轮进度快照、分支 ledger、历史计划与一次性清理清单已移出本目录；结论已吸收进主清单。2026-08-25 起新增 `archive/` 子目录，集中存放一次性调查笔记（见下文）。
 
 ## 当前入口
 
@@ -22,19 +21,29 @@
 - `mcp-integration-guide.md`：MCP 集成建议和当前未实现边界（design-only）。
 - `mcp-tool-contract.md`：未来 MCP 工具合同草案（design-only，不计为交付或 runtime coverage）。
 - `coverage-criteria.md`：覆盖分层与弱断言判定标准。
-- `repository-file-inventory-summary.md` / `repository-file-inventory.csv`：由 `automation_tests/scripts/generate_repository_inventory.js` 生成的本地全仓文件级台账；默认被 `.gitignore` 排除并保存在仓库外，发布前不纳入 source package。需要审计时可在本地重新生成；它不替代业务运行验证。
-- `source-file-inventory.md`：内部历史源码盘点快照，因包含过期审阅范围而不随公开 source package 发布；它不属于当前运行或测试输入。
 - `source-quality-review.md`：公开发布的源码质量审阅清单，由覆盖合同读取并保留当前静态证据边界。
+- `backend-hardening-plan.md` / `frontend-visual-upgrade-plan.md` / `gen-inheritance-audit.md` / `coverage-artifact-index.md`：现役专项计划与证据索引。
 
-## 历史短状态（保留但不再维护）
+## 本地生成、不入库的台账
 
-以下三份仍留在本目录，因为主清单的证据边界小节引用它们的时间线；结论一律以主清单为准。
+`repository-file-inventory-summary.md` 与 `repository-file-inventory.csv` 由
+`automation_tests/scripts/generate_repository_inventory.js` 生成本地全仓文件级台账，默认被
+`.gitignore` 排除并保存在仓库外；需要审计时在本地重新生成。它们不替代业务运行验证。
 
-- `current-baseline.md`、`live-short-status.md`、`coverage-short-status.md`、`customer-feature-short-status.md`
+历史内部源码盘点快照（原 `source-file-inventory.md`）因包含过期审阅范围已于 2026-07 移出公开仓库。
+
+## archive/（一次性调查笔记）
+
+`archive/` 子目录保存已完成使命的一次性调查记录，仅作历史证据保留，不再维护：
+
+- `archive/dependabot-pr-disposition-20260817.md`：Dependabot PR 逐项处置台账（PUBLICATION.md 引用）。
+- `archive/github-feature-audit-20260817.md`：GitHub 仓库配置审计矩阵（PUBLICATION.md 引用）。
+- `archive/ghcr-visibility-readback-20260817.md`：GHCR 包可见性回读记录。
+- `archive/simulated-integration-boundary-20260817.md`：模拟集成边界调查。
 
 ## 维护规则
 
 - 当前参考文档必须使用中文说明，命令和路径可保留英文。
 - 状态变化时优先更新主清单；短状态文档只补时间线，不单独宣布"完成"。
 - 没有 fresh runtime/API/E2E 证据时，不得把静态清理结论写成"已发布就绪"。
-- 新增文档同步登记到 `文档地图.md`。
+- 新增文档同步登记到 `文档地图.md`；一次性调查笔记一律放 `archive/`，不得散落在本目录顶层。
