@@ -26,7 +26,7 @@ vi.mock('@/store/modules/app', () => ({
   useAppStore: () => ({
     locale: 'zh-CN',
     localeOptions: [
-      { key: 'zh-CN', label: 'CN' },
+      { key: 'zh-CN', label: '中文' },
       { key: 'en-US', label: 'English' }
     ],
     changeLocale: hoisted.changeLocale
@@ -280,7 +280,8 @@ describe('LoginIndex', () => {
     const wrapper = mountComponent()
     await flushPromises()
     const state = getState(wrapper)
-    expect(state.localeButtonLabel).toBe('CN')
+    // mock 的当前 locale 为 zh-CN，按钮显示该语言自身标签；旧值 'CN' 系有损编码产物。
+    expect(state.localeButtonLabel).toBe('中文')
   })
 
   it('should cycle locale on cycleLocale', async () => {
