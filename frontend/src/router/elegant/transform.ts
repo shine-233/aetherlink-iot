@@ -177,6 +177,8 @@ const routeMap: RouteMap = {
   "automation_scene-edit": "/automation/scene-edit",
   "automation_scene-linkage": "/automation/scene-linkage",
   "automation_scene-manage": "/automation/scene-manage",
+  "automation_rule-chain": "/automation/rule-chain",
+  "automation_rule-chain-edit": "/automation/rule-chain/edit",
   "dashboard": "/dashboard",
   "dashboard_rdi-overview": "/dashboard/rdi-overview",
   "dashboard_workbench": "/dashboard/workbench",
