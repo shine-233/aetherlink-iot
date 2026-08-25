@@ -128,6 +128,12 @@ export function createBaseDeviceTabs(): DeviceDetailTabComponent[] {
       refreshKey: 0
     },
     {
+      key: 'device-shadow',
+      name: () => $t('custom.device_details.shadowQueue'),
+      component: createAsyncDeviceTab(() => import('@/views/device/details/modules/device-shadow.vue')),
+      refreshKey: 0
+    },
+    {
       key: 'automate',
       name: () => $t('custom.device_details.automate'),
       component: createAsyncDeviceTab(() => import('@/views/device/details/modules/automate.vue')),

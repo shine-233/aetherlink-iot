@@ -29,20 +29,8 @@ func setupShadowDALTestDB(t *testing.T) *gorm.DB {
 	}
 	sqlDB.SetMaxOpenConns(1)
 	sqlDB.SetMaxIdleConns(1)
-	// sqlite 无法解析模型里的 PG 专有默认值 gen_random_uuid()，按 52.sql 语义手工建表。
-	if err := db.Exec(`CREATE TABLE device_shadow_messages (
-		id TEXT PRIMARY KEY,
-		device_id TEXT NOT NULL,
-		message_type TEXT NOT NULL DEFAULT 'command',
-		payload TEXT NOT NULL DEFAULT '{}',
-		ttl_seconds INTEGER NOT NULL DEFAULT 86400,
-		status TEXT NOT NULL DEFAULT 'pending',
-		created_by TEXT,
-		created_at DATETIME,
-		delivered_at DATETIME,
-		expires_at DATETIME NOT NULL
-	)`).Error; err != nil {
-		t.Fatalf("create test tables: %v", err)
+	if err := db.AutoMigrate(&model.DeviceShadowMessage{}); err != nil {
+		t.Fatalf("migrate test tables: %v", err)
 	}
 	global.DB = db
 	t.Cleanup(func() { global.DB = oldDB })

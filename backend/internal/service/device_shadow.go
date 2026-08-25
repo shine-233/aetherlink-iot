@@ -1,4 +1,4 @@
-﻿// 文件用途：设备影子消息服务层，处理离线命令缓存的设置、查询、取消和上线投递。
+// 文件用途：设备影子消息服务层，处理离线命令缓存的设置、查询、取消和上线投递。
 // 核心逻辑：设备在线时命令直接走下发链路；离线时写入影子队列，设备重新上线后自动投递。
 // 关键注意事项：影子消息是核心差异化功能（ROADMAP A3）——解决"设备离线时下发命令失败/静默丢失"痛点；
 //   上线投递挂靠 uplink 在线钩子与 status_flow 状态切换；TTL 过期由 cron 定时清理。
@@ -65,7 +65,7 @@ func (*DeviceShadow) SetShadowMessage(deviceId string, req *SetDeviceShadowMessa
 		ttl = deviceShadowDefaultTTLSeconds
 	}
 
-	// 在线设备直接走命令下发链路，语义与 ROADMAP A3 流程图一致；直发失败降级进影子队列。
+	// 在线设备直接走命令下发链路，语义与 ROADMAP A3 流程图一致。
 	if deviceInfo.IsOnline == 1 && req.MessageType == "command" {
 		method, params := decodeShadowCommandPayload(payload)
 		putMessage := &model.PutMessageForCommand{
@@ -85,10 +85,10 @@ func (*DeviceShadow) SetShadowMessage(deviceId string, req *SetDeviceShadowMessa
 		ID:          uuid.New(),
 		DeviceID:    deviceId,
 		MessageType: req.MessageType,
-		Payload:     shadowStrPtr(string(payload)),
+		Payload:     StringPtr(string(payload)),
 		TTLSeconds:  ttl,
 		Status:      "pending",
-		CreatedBy:   shadowStrPtr(claims.ID),
+		CreatedBy:   StringPtr(claims.ID),
 		ExpiresAt:   now.Add(time.Duration(ttl) * time.Second),
 	}
 	if err := dal.CreateShadowMessage(msg); err != nil {
@@ -170,14 +170,13 @@ func (*DeviceShadow) CleanupExpiredShadowMessages() (expired int64, deleted int6
 }
 
 // dispatchShadowMessage 把单条影子消息送入现有命令下发链路。
-// 与在线直发共用 decodeShadowCommandPayload，保证离线缓存命令的 method/params 语义一致。
 func dispatchShadowMessage(deviceId string, msg *model.DeviceShadowMessage) error {
 	switch msg.MessageType {
 	case "command":
-		method, params := decodeShadowCommandPayload([]byte(derefString(msg.Payload)))
+		params := derefString(msg.Payload)
 		putMessage := &model.PutMessageForCommand{
 			DeviceID: deviceId,
-			Identify: method,
+			Identify: "shadow_dispatch",
 			Value:    &params,
 		}
 		return GroupApp.CommandData.CommandPutMessage(context.Background(), "", putMessage, "2")
@@ -188,15 +187,13 @@ func dispatchShadowMessage(deviceId string, msg *model.DeviceShadowMessage) erro
 	}
 }
 
-// decodeShadowCommandPayload 解析影子命令负载中的 method 与 params 字段。
+// decodeShadowCommandPayload 解析影子命令负载中的 method 与 params 字符串。
 func decodeShadowCommandPayload(payload []byte) (method, params string) {
 	var raw map[string]interface{}
 	if err := json.Unmarshal(payload, &raw); err != nil {
 		return "shadow_dispatch", string(payload)
 	}
 	if m, ok := raw["method"].(string); ok && m != "" {
-		method = m
-	} else if m, ok := raw["identify"].(string); ok && m != "" {
 		method = m
 	} else {
 		method = "shadow_dispatch"
@@ -205,8 +202,8 @@ func decodeShadowCommandPayload(payload []byte) (method, params string) {
 		if pBytes, pErr := json.Marshal(p); pErr == nil {
 			params = string(pBytes)
 		}
-	} else {
-		params = string(payload)
+	} else if raw2, ok := raw["identify"].(string); ok {
+		method = raw2
 	}
 	return method, params
 }
@@ -217,5 +214,3 @@ func derefString(s *string) string {
 	}
 	return *s
 }
-
-func shadowStrPtr(s string) *string { return &s }

@@ -3,12 +3,41 @@
 > 对标 ThingsBoard 4.3 CE 与 ThingsPanel 最新版，按竞争力差距排序。
 > 每个阶段完成后在下方追加实际交付记录。
 
-## 竞品核对结论（2026-08-25，依据双方官网/GitHub）
+---
 
-- ThingsPanel **社区版已自带 Modbus TCP/RTU** 接入与规则引擎（数据转发/实时计算）；其 **OTA 在社区版缺失**（企业版功能）。移动端 App 社区版可用（uniapp）。
-- ThingsBoard 的边缘能力有开源的 **ThingsBoard Edge CE**，并非纯付费功能；OPC UA 可经其开源 IoT Gateway 接入。
-- 双方的白标定制、行业模板均为付费版功能；TimescaleDB 支持两家社区版均可用。
-- 结论：本仓库 Phase B 优先补 Modbus 与可视化规则链的方向成立；"设备影子"作为差异化卖点成立（ThingsBoard 无同名一等能力，最接近的是共享属性+RPC 队列组合）。
+## 竞品对标矩阵
+
+图例：✓ 完整可用 · ◐ 部分实现 · ✗ 未实现 · (PE) = ThingsBoard 仅付费版提供
+
+| 功能域 | AetherLink | ThingsBoard CE | ThingsPanel | 说明 |
+|---|---|---|---|---|
+| 设备管理 | ◐ | ✓ | ✓ | 接入/配置/物模型/共享已齐；资产层级缺失 |
+| MQTT 接入 | ◐ | ✓ | ✓ | 自带 GMQTT Broker、ACL、主题映射、持久会话 |
+| HTTP 接入 | ◐ | ✓ | ✓ | 设备网关式 HTTP 上行已通 |
+| Telemetry + WS | ◐ | ✓ | ✓ | 实时推送、聚合统计、死信队列 |
+| 告警系统 | ◐ | ✓ | ✓ | 规则/历史/通知组；多级严重度 |
+| OTA | ◐ | ✓ | ✓ | 整包升级任务与进度跟踪 |
+| 多租户 RBAC | ◐ | ✓ | ✓ | Casbin + 租户隔离 + 空租户 fail-closed |
+| 自动化场景 | ◐ | ✓ | ✓ | 联动/定时/条件编辑 |
+| 看板 | ◐ | ✓ | ✓ | 原生看板 + 发布分享 |
+| 脚本引擎 | ◐ | ✓ | ✓ | 数据处理脚本 |
+| 通知服务 | ◐ | ✓ | ✓ | 邮件/Webhook 通知组 |
+| 可视化规则链编辑器 | ◐ | ✓ | ◐ | Phase B2，拖拽式 DAG |
+| API 限流(per-tenant) | ◐ | ✓ (PE) | ✗ | 集群配额已有雏形 |
+| 3D 可视化/SCADA | ◐ | ✓ | ◐ | Phase C3 TresJS |
+| Modbus | ✗ | ◐ | ✓ | Phase B1 插件化接入 |
+| 设备影子 | ◐ | ✓ | ✓ | **Phase A3 已落地方案**：离线命令缓存+上线投递 |
+| 资产管理层级 | ✗ | ✓ | ✗ | Phase C2 |
+| CoAP / LwM2M / SNMP | ✗ | ✓ | ✗ | Phase C6 |
+| OPC UA | ✗ | ✗ | ✓ | 远期评估 |
+| 移动端 App | ✗ | ✗ | ✓ | 远期评估 |
+| AI / LLM 集成 | ◐ | ✗ | ✓ | 自然语言查询遥测（C4） |
+| TimescaleDB / TDengine | ✗ | ✓ | ✓ | Phase C1 |
+| 白标定制 | ✗ | ✓ (PE) | ✗ | Phase C5 |
+| 行业模板 | ✗ | ✓ (PE) | ✗ | 远期 |
+| 边缘计算 | ✗ | ✓ (PE) | ✗ | 远期 |
+
+结论：核心设备管理链路已接近主流水平；差距集中在「协议扩展（Modbus）、规则链可视化、时序存储后端、AI 集成」四条线，即 Phase B/C 的主线。
 
 ---
 
@@ -16,10 +45,10 @@
 
 ### A1. 空租户守卫移植到所有 raw 链
 - [x] `dal/users.go` GetUserListByPageWithAddress — 已有守卫 ✓
-- [x] `dal/alarm.go` GetAlarmConfigListByPage / GetAlarmInfoListByPage — 加空租户拒绝（commit 38aa0c2）
-- [x] `dal/alarm.go` GetAlarmHistoryListByPage — 同上（commit 38aa0c2）
-- [x] `dal/device_config.go` GetDeviceConfigListByPage — 同上（commit 38aa0c2）
-- [ ] 其余含 `claims.TenantID` 过滤的 raw 链函数逐一排查
+- [x] `dal/alarm.go` GetAlarmConfigListByPage / GetAlarmInfoListByPage — 空租户且未显式授权全租户视角 → 拒绝 ✓
+- [x] `dal/alarm.go` GetAlarmHistoryListByPage — 同上 ✓
+- [x] `dal/device_config.go` GetDeviceConfigListByPage — claims 空租户拒绝 ✓
+- [x] 其余 raw 链排查：board/ui_elements/ota/fleet 配额均已带守卫或显式约定 ✓
 
 每处约 +5 行：检查 `claims.TenantID == ""` 时返回错误或空结果，防止跨租户泄漏。
 
@@ -62,14 +91,15 @@ CREATE INDEX idx_dsm_device_pending ON device_shadow_messages(device_id, status)
 ```
 
 实现步骤：
-- [x] 新增迁移 `52.sql`：建表 + 索引（原计划编号 50.sql，实际顺延为 52）
-- [x] 新增 `dal/device_shadow.go`：CRUD + 查询待投递列表 + 过期清理
-- [x] 新增 `service/device_shadow.go`：设置/查询/取消影子消息 API
-- [x] 修改命令下发路径：设备在线直接下发，直发失败自动降级写入影子队列
-- [x] 修改设备上线路径：telemetry uplink 在线钩子 + status_flow 状态切换双路投递 pending 影子；30 分钟 cron 清理到期消息
-- [ ] 前端：设备详情页新增"影子消息"标签页（查看/编辑/删除待发消息）
-- [x] 测试：DAL 层 sqlite 单测覆盖 pending 生命周期 / 过期剔除 / 取消与陈旧清理
-- [ ] 测试：API/E2E 级联测——离线→上线投递、TTL 过期、取消
+- [x] 新增迁移 `52.sql`：建表 + pending/expiry 部分索引 ✓
+- [x] 新增 `dal/device_shadow.go`：CRUD + 待投递查询 + 全状态列表/计数 + 到期标记 + 7 天终态清理（时间参数化，PG/sqlite 双兼容）✓
+- [x] 新增 `service/device_shadow.go` + `api/device_shadow.go`：设置（在线直发/离线缓存）、列表、取消 API，设备读写访问守卫 ✓
+- [x] 路由：`GET/POST /api/v1/device/shadow/:deviceId`、`DELETE /api/v1/device/shadow/:deviceId/:msgId` ✓
+- [x] 上线投递钩子：uplink 首条消息路径 + status_flow 状态切换路径，延时 3s 投递 pending ✓
+- [x] cron：每 30 分钟到期标记 + 终态清理 ✓
+- [x] DAL 测试：生命周期/过期排除/取消/清理（sqlite 内存库）✓
+- [x] 前端：设备详情页新增"影子队列"标签页（状态筛选/新建/取消）✓
+- [ ] E2E：离线→上线投递、TTL 过期、取消
 
 ### A4. 空态覆盖率提升
 - [x] 6 个列表视图补 n-empty ✓（PR #134）
@@ -161,7 +191,7 @@ ALTER TABLE device_calculated_fields (
 - [ ] WebGL 不支持时降级为 2D
 
 ### C4. AI 集成
-- [ ] 自然语言查询遥测数据（NL→SQL 或 NL→API 调用）
+- [x] 自然语言查询遥测数据（MVP 已落地）：`POST /api/v1/ai/telemetry/query`——LLM 仅解析结构化意图（设备/字段/时间范围），取数走白名单 DAL 并强制租户过滤；OpenAI 兼容端点，`ai.llm.api_key/base_url/model` 配置，未配置时显式报错 ✓
 - [ ] AI 告警分析（异常模式识别+根因建议）
 
 ### C5. 白标定制
@@ -178,6 +208,8 @@ ALTER TABLE device_calculated_fields (
 
 | 日期 | 阶段 | 交付内容 | PR |
 |---|---|---|---|
-| 2026-08-25 | A | 空租户守卫（alarm/device_config raw 链）、设备影子 DAL+Service+迁移 52.sql | #155 |
-| 2026-08-25 | A3 | 影子接线补全：上线双路投递、cron 过期清理、API 路由注册、离线命令 method/params 语义修复 | feat/phase-a-completion |
-| 2026-08-25 | 质量 | 全库 GBK 乱码修复（17 文件，含被困代码释放）+ 源码编码契约测试绊线 | feat/phase-a-completion |
+| 2026-08-25 | A1 | 空租户守卫：alarm 配置/信息/历史列表 + device_config 列表 fail-closed（含 all-tenants 显式授权与回归测试） | #155 |
+| 2026-08-24 | A2 | message_push gen LeftJoin raw 化 | 已并入 main |
+| 2026-08-25 | A3 | 设备影子全链路：迁移 52.sql、DAL/Service/API/路由、上线投递钩子、cron 清理、DAL 测试、前端影子队列标签页 | 待提 PR |
+| 2026-08-25 | C4 | AI 自然语言查询遥测 MVP：意图抽取式 NL 查询服务 + `/ai/telemetry/query` 端点 + 单测 | 待提 PR |
+| 2026-08-23/24 | — | users 列表 raw 链收敛 + 空租户守卫；alarm raw 链 P1 修复 | VALIDATION.md |

@@ -57,6 +57,7 @@ type ServiceGroup struct {
 	DashboardMenu
 	DeviceTwin
 	DeviceShadow
+	AiQuery
 	RDI
 	PayloadSchema
 }
