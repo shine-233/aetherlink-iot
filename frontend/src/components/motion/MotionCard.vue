@@ -3,6 +3,8 @@
   核心逻辑: 基于 motion-v 的 AnimatePresence + motion.div 包裹 n-card 内容，支持 delay 等入场配置。
 -->
 <script setup lang="ts">
+import { motion } from 'motion-v'
+
 defineOptions({ name: 'MotionCard' })
 
 interface Props {

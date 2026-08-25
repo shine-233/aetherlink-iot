@@ -87,6 +87,8 @@
     "@iconify-json/ic": "^1.2.2",
     "@iconify-json/material-symbols": "^1.2.88",
     "@iconify-json/mdi": "^1.2.3",
+    "@tresjs/cientos": "^5.8.1",
+    "@tresjs/core": "^5.8.3",
     "@types/bmapgl": "0.0.7",
     "@types/lodash-es": "4.17.12",
     "@types/node": "26.2.0",
