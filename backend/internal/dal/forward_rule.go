@@ -21,7 +21,8 @@ func CreateForwardRule(rule *model.ForwardRule) error {
 
 // UpdateForwardRule 更新规则（按 id + 租户双条件，未命中报错）。
 func UpdateForwardRule(rule *model.ForwardRule, tenantID string) error {
-	res := global.DB.Where("id = ? AND tenant_id = ?", rule.ID, tenantID).
+	res := global.DB.Model(&model.ForwardRule{}).
+		Where("id = ? AND tenant_id = ?", rule.ID, tenantID).
 		Updates(map[string]interface{}{
 			"name":               rule.Name,
 			"enabled":            rule.Enabled,
@@ -43,7 +44,7 @@ func UpdateForwardRule(rule *model.ForwardRule, tenantID string) error {
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": res.Error.Error()})
 	}
 	if res.RowsAffected == 0 {
-		return errcode.New(101001)
+		return errcode.NewWithMessage(errcode.CodeNotFound, "forward rule not found")
 	}
 	return nil
 }
@@ -88,7 +89,8 @@ func GetForwardRuleByID(id, tenantID string) (*model.ForwardRule, error) {
 func GetForwardRuleListByPage(req *model.GetForwardRuleListByPageReq, tenantID string) (int64, []*model.ForwardRule, error) {
 	db := global.DB.Table(model.TableNameForwardRule).Where("tenant_id = ?", tenantID)
 	if req.Name != nil && *req.Name != "" {
-		db = db.Where("name ILIKE ?", "%"+*req.Name+"%")
+		// 跨库大小写不敏感匹配（PG 支持 ILIKE，SQLite 不支持，统一用 LOWER+LIKE）。
+		db = db.Where("LOWER(name) LIKE LOWER(?)", "%"+*req.Name+"%")
 	}
 	if req.Enabled != nil {
 		db = db.Where("enabled = ?", *req.Enabled)

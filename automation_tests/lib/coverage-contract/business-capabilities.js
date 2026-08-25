@@ -654,6 +654,22 @@ const BUSINESS_CAPABILITIES = [
     e2eTests: ['e2e/06_system.spec.js', 'e2e/14_route_coverage_closure.spec.js'],
     backendTests: ['internal/api/system_api_test.go', 'router/router_contract_test.go'],
     gmqttTests: ['plugin/prometheus/hooks_test.go']
+  },
+  {
+    id: 'forward-rules',
+    priority: 'P1',
+    domain: 'Data forwarding integrations',
+    frontendRoutes: [],
+    endpoints: [
+      'GET /api/v1/forward_rules',
+      'POST /api/v1/forward_rules',
+      'GET /api/v1/forward_rules/:id',
+      'PUT /api/v1/forward_rules/:id',
+      'DELETE /api/v1/forward_rules/:id',
+      'PUT /api/v1/forward_rules/:id/toggle'
+    ],
+    automationTests: ['tests/27_forward_rules.test.js'],
+    e2eTests: []
   }
 ];
 

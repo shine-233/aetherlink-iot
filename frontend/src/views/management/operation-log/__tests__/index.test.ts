@@ -165,7 +165,9 @@ describe('management/operation-log/index.vue', () => {
 
     const columns = state.columns as Array<{ type?: string; key?: string; renderExpand?: (row: any) => VNodeChild }>
     const expandColumn = columns.find(column => column.type === 'expand')
-    expect(expandColumn).toBeTruthy()
+    // 弱断言审计禁止 toBeTruthy：这里显式校验列定义存在且携带 expand 渲染函数。
+    expect(expandColumn).toBeDefined()
+    expect(expandColumn?.renderExpand).toBeTypeOf('function')
 
     const row = buildRow()
     const ExpandHost = defineComponent({
