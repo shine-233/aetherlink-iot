@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"aetherlink-iot/backend/internal/dal"
+	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/global"
 
 	"github.com/sirupsen/logrus"
@@ -164,8 +165,9 @@ func (c *ScriptCache) setToCache(ctx context.Context, cacheKey string, script *C
 		return err
 	}
 
-	// 永久缓存（TTL = 0）
-	err = global.REDIS.Set(ctx, cacheKey, data, 0).Err()
+	// 兜底 TTL 缓存（与 initialize/redis_init.go 的脚本缓存写入保持同一策略，
+	// 见 pkg/constant.CacheFallbackTTL；InvalidateCache 主动失效仍是主机制）。
+	err = global.REDIS.Set(ctx, cacheKey, data, constant.CacheFallbackTTL).Err()
 	if err != nil {
 		return err
 	}

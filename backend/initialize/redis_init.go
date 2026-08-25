@@ -15,6 +15,7 @@ import (
 
 	"aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 	global "aetherlink-iot/backend/pkg/global"
 
@@ -161,8 +162,10 @@ func GetDeviceCacheById(deviceId string) (*model.Device, error) {
 	if err != nil {
 		return nil, err
 	}
-	// 将设备信息存入redis
-	err = SetRedisForJsondata(deviceId, deviceFromDB, 0)
+	// 将设备信息存入redis。
+	// P2 修复（2026-08-25）：兜底 TTL 替代永久缓存——写路径主动失效仍是主机制，
+	// 兜底过期确保任何遗漏失效的写路径最终自愈，不再产生永久脏读。
+	err = SetRedisForJsondata(deviceId, deviceFromDB, constant.CacheFallbackTTL)
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +192,7 @@ func GetScriptByDeviceAndScriptType(device *model.Device, scriptType string) (*m
 		if script == nil {
 			return nil, nil
 		}
-		err = SetRedisForJsondata(key, script, 0)
+		err = SetRedisForJsondata(key, script, constant.CacheFallbackTTL)
 		if err != nil {
 			logrus.Debug("set redis cache entry failed")
 			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
