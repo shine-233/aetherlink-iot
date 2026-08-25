@@ -92,6 +92,18 @@ cd mqtt-broker && go run ./cmd/gmqttd
 
 自动化测试的运行前提与执行顺序见 [automation_tests/README.md](automation_tests/README.md)，CI 之外的完整自托管栈验证由 nightly `compose-stack-e2e` 流水线执行。
 
+## 路线图
+
+详细计划与交付记录见 [ROADMAP.md](ROADMAP.md)。当前节奏：
+
+| 阶段 | 周期 | 重点 |
+| --- | --- | --- |
+| Phase A（进行中） | 1-2 个迭代 | 空租户守卫全量移植、**设备影子**（离线命令缓存，差异化能力）、空态覆盖 |
+| Phase B | 3-5 个迭代 | Modbus TCP 插件（gRPC 独立进程）、可视化规则链编辑器（Vue Flow）、计算字段 |
+| Phase C | 远期 | TimescaleDB 后端、租户层级、TresJS 3D 面板、AI 查询遥测 |
+
+竞品定位与差距核对（ThingsBoard CE/PE、ThingsPanel 社区版）也记录在 ROADMAP.md 顶部。
+
 ## 文档导航
 
 | 文档 | 用途 |
@@ -109,7 +121,7 @@ cd mqtt-broker && go run ./cmd/gmqttd
 
 - 源码离线门禁持续保持绿色，但**这不等于**真实 API、浏览器 E2E、真机 RDI 或生产环境已验收。
 - 真实 RDI 设备、目标服务器部署、HTTPS/TLS、公网 MQTT 与 backup/restore 目前为 `not-tested` / `pending` / `configuration-required`，逐项状态见 [VALIDATION.md](VALIDATION.md)。
-- 数据库迁移链当前到 `49.sql`；升级 OpenAPI 密钥为哈希存储后，旧明文密钥需重新生成方可继续使用。
+- 数据库迁移链当前到 `52.sql`；升级 OpenAPI 密钥为哈希存储后，旧明文密钥需重新生成方可继续使用。
 
 ## 贡献
 

@@ -3,15 +3,22 @@
 > 对标 ThingsBoard 4.3 CE 与 ThingsPanel 最新版，按竞争力差距排序。
 > 每个阶段完成后在下方追加实际交付记录。
 
+## 竞品核对结论（2026-08-25，依据双方官网/GitHub）
+
+- ThingsPanel **社区版已自带 Modbus TCP/RTU** 接入与规则引擎（数据转发/实时计算）；其 **OTA 在社区版缺失**（企业版功能）。移动端 App 社区版可用（uniapp）。
+- ThingsBoard 的边缘能力有开源的 **ThingsBoard Edge CE**，并非纯付费功能；OPC UA 可经其开源 IoT Gateway 接入。
+- 双方的白标定制、行业模板均为付费版功能；TimescaleDB 支持两家社区版均可用。
+- 结论：本仓库 Phase B 优先补 Modbus 与可视化规则链的方向成立；"设备影子"作为差异化卖点成立（ThingsBoard 无同名一等能力，最接近的是共享属性+RPC 队列组合）。
+
 ---
 
 ## Phase A — 短期（1-2 个迭代）
 
 ### A1. 空租户守卫移植到所有 raw 链
 - [x] `dal/users.go` GetUserListByPageWithAddress — 已有守卫 ✓
-- [ ] `dal/alarm.go` GetAlarmConfigListByPage / GetAlarmInfoListByPage — 加空租户拒绝
-- [ ] `dal/alarm.go` GetAlarmHistoryListByPage — 同上
-- [ ] `dal/device_config.go` GetDeviceConfigListByPage — 同上
+- [x] `dal/alarm.go` GetAlarmConfigListByPage / GetAlarmInfoListByPage — 加空租户拒绝（commit 38aa0c2）
+- [x] `dal/alarm.go` GetAlarmHistoryListByPage — 同上（commit 38aa0c2）
+- [x] `dal/device_config.go` GetDeviceConfigListByPage — 同上（commit 38aa0c2）
 - [ ] 其余含 `claims.TenantID` 过滤的 raw 链函数逐一排查
 
 每处约 +5 行：检查 `claims.TenantID == ""` 时返回错误或空结果，防止跨租户泄漏。
@@ -55,13 +62,14 @@ CREATE INDEX idx_dsm_device_pending ON device_shadow_messages(device_id, status)
 ```
 
 实现步骤：
-- [ ] 新增迁移 `50.sql`：建表 + 索引
-- [ ] 新增 `dal/device_shadow.go`：CRUD + 查询待投递列表 + 过期清理
-- [ ] 新增 `service/device_shadow.go`：设置/查询/取消影子消息 API
-- [ ] 修改命令下发路径：设备离线时写入影子而非报错
-- [ ] 修改设备上线路径（telemetry uplink 首条消息）：查询并投递 pending 影子
+- [x] 新增迁移 `52.sql`：建表 + 索引（原计划编号 50.sql，实际顺延为 52）
+- [x] 新增 `dal/device_shadow.go`：CRUD + 查询待投递列表 + 过期清理
+- [x] 新增 `service/device_shadow.go`：设置/查询/取消影子消息 API
+- [x] 修改命令下发路径：设备在线直接下发，直发失败自动降级写入影子队列
+- [x] 修改设备上线路径：telemetry uplink 在线钩子 + status_flow 状态切换双路投递 pending 影子；30 分钟 cron 清理到期消息
 - [ ] 前端：设备详情页新增"影子消息"标签页（查看/编辑/删除待发消息）
-- [ ] 测试：离线→上线投递、TTL 过期、取消
+- [x] 测试：DAL 层 sqlite 单测覆盖 pending 生命周期 / 过期剔除 / 取消与陈旧清理
+- [ ] 测试：API/E2E 级联测——离线→上线投递、TTL 过期、取消
 
 ### A4. 空态覆盖率提升
 - [x] 6 个列表视图补 n-empty ✓（PR #134）
@@ -170,4 +178,6 @@ ALTER TABLE device_calculated_fields (
 
 | 日期 | 阶段 | 交付内容 | PR |
 |---|---|---|---|
-| | | | |
+| 2026-08-25 | A | 空租户守卫（alarm/device_config raw 链）、设备影子 DAL+Service+迁移 52.sql | #155 |
+| 2026-08-25 | A3 | 影子接线补全：上线双路投递、cron 过期清理、API 路由注册、离线命令 method/params 语义修复 | feat/phase-a-completion |
+| 2026-08-25 | 质量 | 全库 GBK 乱码修复（17 文件，含被困代码释放）+ 源码编码契约测试绊线 | feat/phase-a-completion |
