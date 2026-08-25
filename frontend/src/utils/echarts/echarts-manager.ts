@@ -19,6 +19,7 @@ import {
   DatasetComponent,
   TransformComponent
 } from 'echarts/components'
+import { aetherLinkTheme } from './aetherlink-theme'
 import { LabelLayout, UniversalTransition } from 'echarts/features'
 import { CanvasRenderer } from 'echarts/renderers'
 
@@ -201,7 +202,7 @@ export function initEChartsComponents() {
 
   try {
     echarts.use(BASIC_COMPONENTS)
-
+    echarts.registerTheme('aetherlink', aetherLinkTheme as any)
     isEChartsRegistered = true
   } catch (error) {
     // 捕获重复注册错误，但不影响程序执行
@@ -281,8 +282,8 @@ export function createEChartsInstance(
   // 确保组件已注册
   initEChartsComponents()
 
-  // 创建实例
-  return echarts.init(dom, theme, opts)
+  // 创建实例（默认使用 AetherLink 品牌主题）
+  return echarts.init(dom, theme || 'aetherlink', opts)
 }
 
 /**
