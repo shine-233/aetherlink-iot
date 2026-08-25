@@ -78,7 +78,9 @@ flowchart LR
 # 前端
 cd frontend && pnpm install && pnpm dev
 
-# 后端（需先准备 backend/configs/ 的 PG/Redis/MQTT 配置）
+# 后端（需先准备 backend/configs/ 的 PG/Redis/MQTT 配置；
+# 出厂 conf.yml 的 jwt.key 为占位符，启动会被 fail-fast 拒绝，
+# 本地请先设置强密钥，例如 PowerShell：$env:GOTP_JWT_KEY = "<openssl rand -base64 48 的输出>"）
 cd backend && go run .
 
 # Broker

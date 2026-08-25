@@ -43,6 +43,13 @@ func NewApplication(options ...Option) (*Application, error) {
 		}
 	}
 
+	if app.Config != nil {
+		// 安全关键配置 fail-fast：占位符/弱 JWT 密钥在启动即拒绝，防止带病上线后 token 可被伪造。
+		if err := validateSecurityCriticalConfig(app.Config); err != nil {
+			return nil, err
+		}
+	}
+
 	if app.DB != nil {
 		// P1 修复（2026-08-23，见 VALIDATION.md）：gen 单例链必须从"全新语句"会话根出发。
 		// gorm 的 Statement.clone() 只清空 Clauses/Preloads，其余字段（含 Model/Dest）按值继承；
