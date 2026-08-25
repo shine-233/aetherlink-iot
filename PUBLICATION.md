@@ -1,4 +1,4 @@
-# 发布边界策略
+﻿# 发布边界策略
 
 本仓库按独立的 AetherLink IoT 源码工作区准备公开发布。本文档定义公开源码边界和发布检查清单；详细验证门槛见 `VALIDATION.md`，外部合约说明见 `COMPATIBILITY.md`。
 
@@ -60,12 +60,12 @@
 
 ### 2026-08-17 继续收口记录
 
-- GitHub 当前 API 可回读的 Dependabot PR 共 55 个：25 个已合并、30 个关闭未合并、0 个仍 open。#55、#57、#60 已在本轮明确标记为被 #80 或 #79/#82/#83 替代后关闭；#63、#67、#70 也已作为被替代的旧升级 PR 关闭。逐项分类、当前 manifest/lock 证据和处置理由见 [`references/dependabot-pr-disposition-20260817.md`](references/dependabot-pr-disposition-20260817.md)。仓库全部 PR（含维护者提交的 CI/安全修复）不能与 Dependabot 数量混用。
+- GitHub 当前 API 可回读的 Dependabot PR 共 55 个：25 个已合并、30 个关闭未合并、0 个仍 open。#55、#57、#60 已在本轮明确标记为被 #80 或 #79/#82/#83 替代后关闭；#63、#67、#70 也已作为被替代的旧升级 PR 关闭。逐项分类、当前 manifest/lock 证据和处置理由见 [`references/archive/dependabot-pr-disposition-20260817.md`](references/archive/dependabot-pr-disposition-20260817.md)。仓库全部 PR（含维护者提交的 CI/安全修复）不能与 Dependabot 数量混用。
 - 新增 `.github/workflows/container-ci.yml`：PR、`main` push、正式 tag 和手动运行都会对 backend/frontend/MQTT broker 三个生产 Dockerfile 做 `linux/amd64` build-only。该 job 不登录 GHCR、不 push、不申请 `packages: write`；三个 check 也已接入两个 tag release workflow 的 required-check 轮询。它仍不是 Compose 启动、迁移、API/E2E 或真实设备验收。
 - `.github/dependabot.yml` 现在对 `backend/cmd/aetherlink-device-autotest` 同时覆盖普通 minor/patch 和 security updates；合同测试还会防止新增维护 manifest 后没有 Dependabot entry。
 - `integration-nightly.yml` 现在有显式 `Integration result` 汇总 job。缺少 environment 配置时配置门禁失败，下游 live API/E2E/device job 不会被当成通过；任何 skipped、失败或未运行都会以 fail-closed 结果结束。当前 integration environment 仍没有真实变量/secrets，所以本轮没有启动真实 API、账号、MQTT 或设备验收。
 - 对两个 Secret Scanning 高级选项执行过真实 GitHub API PATCH，但回读仍为 `secret_scanning_non_provider_patterns=disabled`、`secret_scanning_validity_checks=disabled`；基础 Secret Scanning、Push Protection、Private vulnerability reporting、Dependabot security updates 和 automated security fixes 均为 enabled。当前只能确认“写请求没有改变状态”，不能把 disabled 伪装成已开启，也不在缺少可靠 entitlement 证据时武断归因到具体套餐名称。
-- 2026-08-17 配置审计另发现并修正了三个深度问题：最低质量门禁现在固定 Node 22，而不是依赖 hosted runner 的预装 Node；`integration` environment 已设置 protected-branches deployment policy；Dependency Review 的 PR job 与 main push job 现在使用不同的 check 名称，避免同一 SHA 出现一个 success 和一个 skipped 的同名 required context，同时把 `pull-requests: write` 保留在 PR job。随后 #71–#75、#80、#81、#83、#85 的维护者 CI/安全修复合并到了 v0.1.6 的发布目标 `6511f90b1bf4c4219467c0b217d735f8f25e7e30`；其后的 PR #86 只同步发布证据文档，PR #87 已把该门禁修复合并到当前 `main=0330a3cdd10e884966a8d89e5ba94dc44661ce24`；PR #87 的 Source CI、Container build、CodeQL、Dependency Review 和 Minimum quality gate 均成功。完整矩阵见 [`references/github-feature-audit-20260817.md`](references/github-feature-audit-20260817.md)。
+- 2026-08-17 配置审计另发现并修正了三个深度问题：最低质量门禁现在固定 Node 22，而不是依赖 hosted runner 的预装 Node；`integration` environment 已设置 protected-branches deployment policy；Dependency Review 的 PR job 与 main push job 现在使用不同的 check 名称，避免同一 SHA 出现一个 success 和一个 skipped 的同名 required context，同时把 `pull-requests: write` 保留在 PR job。随后 #71–#75、#80、#81、#83、#85 的维护者 CI/安全修复合并到了 v0.1.6 的发布目标 `6511f90b1bf4c4219467c0b217d735f8f25e7e30`；其后的 PR #86 只同步发布证据文档，PR #87 已把该门禁修复合并到当前 `main=0330a3cdd10e884966a8d89e5ba94dc44661ce24`；PR #87 的 Source CI、Container build、CodeQL、Dependency Review 和 Minimum quality gate 均成功。完整矩阵见 [`references/archive/github-feature-audit-20260817.md`](references/archive/github-feature-audit-20260817.md)。
 
 ### v0.1.3 Source/Container Release 端到端证据
 
