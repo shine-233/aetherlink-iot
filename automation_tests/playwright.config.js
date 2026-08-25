@@ -11,7 +11,7 @@ const config = require('./lib/runtime_config');
 const networkConfig = require('./lib/network_runtime');
 
 const frontendDir = path.resolve(__dirname, '../frontend');
-const browserChannel = process.env.PLAYWRIGHT_BROWSER_CHANNEL || 'msedge';
+const browserChannel = process.env.PLAYWRIGHT_BROWSER_CHANNEL || 'chromium';
 const browserExecutablePath = process.env.PLAYWRIGHT_BROWSER_EXECUTABLE_PATH;
 const reportsDir = path.resolve(__dirname, config.report.outputDir);
 

@@ -23,7 +23,7 @@ npm run test:list
 node run_tests.js --module e2e-device --list
 ```
 
-执行真实 E2E 前先运行 `npm run preflight:api-e2e`，并确认 `FRONTEND_URL`/`PREVIEW_URL` 指向 `9725` 预览代理。预检会检查配置，并实际探测 preview HTML、代理后的 deployment health JSON 和 backend health JSON；它仍不会登录、运行浏览器流程或证明业务正确。运行前还应确认 `frontend/dist` 已由 `frontend/pnpm build` 生成；默认浏览器通道是 `msedge`，缺失时请设置 `PLAYWRIGHT_BROWSER_CHANNEL` 或 `PLAYWRIGHT_BROWSER_EXECUTABLE_PATH`。
+执行真实 E2E 前先运行 `npm run preflight:api-e2e`，并确认 `FRONTEND_URL`/`PREVIEW_URL` 指向 `9725` 预览代理。预检会检查配置，并实际探测 preview HTML、代理后的 deployment health JSON 和 backend health JSON；它仍不会登录、运行浏览器流程或证明业务正确。运行前还应确认 `frontend/dist` 已由 `frontend/pnpm build` 生成；默认浏览器通道是 `chromium`，如需系统浏览器请设置 `PLAYWRIGHT_BROWSER_CHANNEL` 或 `PLAYWRIGHT_BROWSER_EXECUTABLE_PATH`。
 
 ## 审查发现
 

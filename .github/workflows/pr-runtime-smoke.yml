@@ -1,0 +1,136 @@
+name: PR Runtime Smoke
+
+# PR 门禁的运行时信号：在真实 Compose 栈上跑最小 API 冒烟子集（认证 + 设备）。
+# 完整 API/E2E 回归仍由 nightly compose-stack-e2e 承担；本工作流只回答
+# "main 当前的登录/设备主链路是否还能起栈、是否被本 PR 直接打断"。
+# 通过 paths 过滤控制成本：只有可能影响运行时的变更才触发。
+
+on:
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'mqtt-broker/**'
+      - 'frontend/src/**'
+      - 'frontend/package.json'
+      - 'docker-compose.yml'
+      - 'deploy/**'
+      - '.github/workflows/pr-runtime-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-runtime-smoke-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Compose smoke (auth + device)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      AETHERLINK_DEVICE_VALIDATION_MODE: generic-emulator
+      # NOTE: do NOT set AETHERLINK_MQTT_ACCESS_ADDRESS or AETHERLINK_PUBLIC_URL
+      # here; init.sh derives loopback-safe defaults for local CI stacks.
+      AETHERLINK_PSQL_PATH: /usr/local/bin/psl-compose
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - name: Install psql client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+
+      # Must run BEFORE any step that spawns psql: the compose stack intentionally
+      # does not publish 5432 to the host (network-segmentation contract), so the
+      # only reachable route is `docker exec` into the postgres container.
+      - name: Create psql docker-exec wrapper
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /usr/local/bin/psl-compose <<'WRAPPER'
+          #!/bin/bash
+          # Route psql through docker exec into the compose postgres container.
+          args=()
+          skip_next=false
+          for arg in "$@"; do
+            if $skip_next; then skip_next=false; continue; fi
+            case "$arg" in
+              -h|-p) skip_next=true ;;
+              *) args+=("$arg") ;;
+            esac
+          done
+          exec docker exec -i aetherlink-iot-postgres-1 psql "${args[@]}"
+          WRAPPER
+          chmod +x /usr/local/bin/psl-compose
+
+      - name: Build and start Compose stack
+        shell: bash
+        run: |
+          set -euo pipefail
+          AETHERLINK_NO_BUILD= bash deploy/init.sh --performance-tier light --skip-verify
+
+      - name: Install automation dependencies
+        working-directory: automation_tests
+        run: npm ci
+
+      - name: Generate throwaway test accounts
+        working-directory: automation_tests
+        run: npm run prepare:local-accounts
+
+      - name: Load generated account credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -a
+          # shellcheck disable=SC1091
+          . automation_tests/.env.local
+          set +a
+          {
+            echo "SUPER_ADMIN_EMAIL=$SUPER_ADMIN_EMAIL"
+            echo "TENANT_ADMIN_EMAIL=$TENANT_ADMIN_EMAIL"
+            echo "TENANT_USER_EMAIL=$TENANT_USER_EMAIL"
+            echo "READONLY_USER_EMAIL=$READONLY_USER_EMAIL"
+          } >> "$GITHUB_ENV"
+
+      - name: Run API smoke (auth + device)
+        working-directory: automation_tests
+        env:
+          AETHERLINK_MQTT_ACCESS_ADDRESS: localhost:1883
+          AETHERLINK_DB_NAME: aetherlink_iot
+          GOTP_DB_PSQL_DBNAME: aetherlink_iot
+        run: |
+          set -euo pipefail
+          npm run test:auth
+          npm run test:device
+
+      - name: Upload smoke reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pr-smoke-reports-${{ github.run_id }}
+          path: |
+            automation_tests/reports/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Dump stack logs on failure
+        if: failure()
+        shell: bash
+        run: |
+          docker compose ps || true
+          for svc in postgres redis mqtt-broker backend frontend; do
+            echo "===== $svc ====="
+            docker compose logs --tail 120 "$svc" || true
+          done
+
+      - name: Tear down stack
+        if: always()
+        shell: bash
+        run: docker compose down -v --remove-orphans

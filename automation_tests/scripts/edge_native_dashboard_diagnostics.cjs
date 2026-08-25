@@ -3,7 +3,7 @@ const path = require('path')
 const { chromium } = require('@playwright/test')
 
 const previewBaseURL = process.env.NATIVE_PREVIEW_URL || 'http://127.0.0.1:9730'
-const browserChannel = process.env.PLAYWRIGHT_BROWSER_CHANNEL || 'msedge'
+const browserChannel = process.env.PLAYWRIGHT_BROWSER_CHANNEL || 'chromium'
 const authStatePath = path.resolve(__dirname, '..', 'e2e', '.auth', 'tenant-admin.json')
 const screenshotPath = path.resolve(__dirname, '..', 'output', 'playwright', 'native-dashboard-diagnostics.png')
 

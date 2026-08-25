@@ -133,7 +133,7 @@ async function capture() {
   const executablePath = process.env.PLAYWRIGHT_BROWSER_EXECUTABLE_PATH;
   const launchOptions = executablePath
     ? { executablePath, headless: true }
-    : { channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL || 'msedge', headless: true };
+    : { channel: process.env.PLAYWRIGHT_BROWSER_CHANNEL || 'chromium', headless: true };
 
   const browser = await chromium.launch(launchOptions);
   const manifest = {
