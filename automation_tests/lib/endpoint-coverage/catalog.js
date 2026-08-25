@@ -44,6 +44,12 @@ const ALL_ENDPOINTS = [
   { method: 'POST', path: '/api/v1/device/gateway-sub-register',            module: 'device',    auth: false },
   { method: 'POST', path: '/api/v1/device/auth',                            module: 'device',    auth: false },
   { method: 'GET',  path: '/api/v1/devices/:device_id/diagnostics',         module: 'device',    auth: false },
+  { method: 'GET',  path: '/api/v1/calculated_fields',                      module: 'device',    auth: true },
+  { method: 'POST', path: '/api/v1/calculated_fields',                      module: 'device',    auth: true },
+  { method: 'PUT',  path: '/api/v1/calculated_fields/:id',                  module: 'device',    auth: true },
+  { method: 'DELETE', path: '/api/v1/calculated_fields/:id',                module: 'device',    auth: true },
+  { method: 'PUT',  path: '/api/v1/calculated_fields/:id/toggle',           module: 'device',    auth: true },
+  { method: 'GET',  path: '/api/v1/calculated_fields/:id',                  module: 'device',    auth: true },
 
   // === SSE（sse.go） ===
   { method: 'GET',  path: '/api/v1/events',                                 module: 'system',    auth: true },

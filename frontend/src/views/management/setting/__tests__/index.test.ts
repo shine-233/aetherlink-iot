@@ -19,7 +19,8 @@ const paneSpecs = [
   { name: 'account-email', label: 'custom.personalCenter.changeAccountEmail', section: 'account-email' },
   { name: 'warning-email', label: 'custom.management.warningEmail', section: 'warning-email' },
   { name: 'branding', label: 'custom.management.branding', section: 'branding' },
-  { name: 'function', label: 'custom.management.configSetting', section: 'function' }
+  { name: 'function', label: 'custom.management.configSetting', section: 'function' },
+  { name: 'calc-field', label: 'custom.management.calcField.title', section: 'calc-field' }
 ] as const
 
 function createSettingStub(stubName: string, section: string) {
@@ -61,6 +62,10 @@ vi.mock('../components/warning-email-setting.vue', () => ({
 
 vi.mock('../components/telemetry-dead-letter-setting.vue', () => ({
   default: createSettingStub('TelemetryDeadLetterSettingStub', 'telemetry-dead-letter')
+}))
+
+vi.mock('@/views/management/calculated-field/index.vue', () => ({
+  default: createSettingStub('CalculatedFieldSettingStub', 'calc-field')
 }))
 
 import SettingIndex from '../index.vue'
@@ -165,6 +170,7 @@ describe('management/setting/index.vue', () => {
       'false',
       'false',
       'false',
+      'false',
       'false'
     ])
     expect(wrapper.get('[data-visible="true"] [data-setting-section]').attributes('data-setting-section')).toBe(
@@ -211,5 +217,9 @@ describe('management/setting/index.vue', () => {
     const functionTrigger = wrapper.get('[data-tab-trigger="function"]')
     await functionTrigger.trigger('click')
     expect(wrapper.get('[data-visible="true"] [data-setting-section]').attributes('data-setting-section')).toBe('function')
+
+    const calcFieldTrigger = wrapper.get('[data-tab-trigger="calc-field"]')
+    await calcFieldTrigger.trigger('click')
+    expect(wrapper.get('[data-visible="true"] [data-setting-section]').attributes('data-setting-section')).toBe('calc-field')
   })
 })

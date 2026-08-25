@@ -601,6 +601,10 @@ function classifyEndpointCatalogItem(endpointKey) {
   if (/^\/api\/v1\/ai(?:\/|$)/.test(pathPart)) {
     return { endpoint: endpointKey, scope: 'P0/P1', capability: 'device-telemetry' };
   }
+  // 计算字段（遥测派生指标）归属设备遥测能力，必须在通用 device 分支之前匹配。
+  if (/^\/api\/v1\/calculated_fields(?:\/|$)/.test(pathPart)) {
+    return { endpoint: endpointKey, scope: 'P0/P1', capability: 'device-telemetry' };
+  }
   if (/^\/api\/v1\/(?:device(?:\/|$)|devices(?:\/|$)|telemetry(?:\/|$)|attribute(?:\/|$)|event(?:\/|$)|events(?:\/|$)|command(?:\/|$)|expected(?:\/|$)|datapolicy(?:\/|$)|device_config(?:\/|$))/.test(pathPart)) {
     return { endpoint: endpointKey, scope: 'P0/P1', capability: 'device-telemetry' };
   }

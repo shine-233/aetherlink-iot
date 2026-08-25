@@ -15,6 +15,7 @@ import AccountProfileSetting from './components/account-profile-setting.vue'
 import BrandingSetting from './components/branding-setting.vue'
 import TelemetryDeadLetterSetting from './components/telemetry-dead-letter-setting.vue'
 import WarningEmailSetting from './components/warning-email-setting.vue'
+import CalculatedField from '@/views/management/calculated-field/index.vue'
 </script>
 
 <template>
@@ -42,6 +43,9 @@ import WarningEmailSetting from './components/warning-email-setting.vue'
           </NTabPane>
           <NTabPane name="function" :tab="$t('custom.management.configSetting')">
             <FunctionSetting></FunctionSetting>
+          </NTabPane>
+          <NTabPane name="calc-field" :tab="$t('custom.management.calcField.title')">
+            <CalculatedField />
           </NTabPane>
         </NTabs>
       </div>
