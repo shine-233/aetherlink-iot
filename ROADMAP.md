@@ -211,6 +211,30 @@ ALTER TABLE device_calculated_fields (
 
 ---
 
+## 技术债与设计待办（2026-08-25 盘点）
+
+### D1. 上帝组件拆分（低优先级，待视觉 lane 稳定后执行）
+
+当前最大文件：`HomeFirstDeviceWorkbenchView.vue`(41KB)、`RdiDeviceOperationsView.vue`(34KB)、
+`alarm-configuration.vue`(32KB)、`commandCenterJobView.ts`(32KB)；后端 `dal/fleet_command_jobs.go`(31KB)。
+拆分原则：只抽离**已稳定**的展示块与数据组装函数到 composable/子组件，不改任何请求契约；
+工作台与设备详情正被视觉 lane 高频迭代，先等其收敛再动手，避免无意义冲突。
+
+### D2. 前端 token 收敛为纯 HttpOnly cookie（需运行时验证后再实施）
+
+现状：`GOTP_AUTH_COOKIE_ENABLED=true`（默认）下后端同时下发 HttpOnly cookie 与 body token，
+前端把 token 存 localStorage 并以 `x-token` 头回传——XSS 面未完全消除。
+目标形态：登录后仅保留 cookie；内存（Pinia）持有会话副本；应用冷启动调用 refresh 端点换新；
+localStorage 仅在 `GOTP_AUTH_COOKIE_ENABLED=false` 的纯 header 部署下启用。
+未实施原因：认证属安全关键路径，必须配套离线→上线全链路 E2E 证据后才允许切换。
+
+### D3. PR 运行时冒烟门禁（本次已落地）
+
+新增 `.github/workflows/pr-runtime-smoke.yml`：paths 过滤触发，起 light 档 Compose 栈，
+跑 `01_auth + 02_device` API 冒烟；完整回归仍由 nightly compose-stack-e2e 承担。
+
+---
+
 ## 交付记录
 
 | 日期 | 阶段 | 交付内容 | PR |
@@ -221,3 +245,4 @@ ALTER TABLE device_calculated_fields (
 | 2026-08-25 | C4 | AI 自然语言查询遥测 MVP：意图抽取式 NL 查询服务 + `/ai/telemetry/query` 端点 + 单测 | 待提 PR |
 | 2026-08-23/24 | — | users 列表 raw 链收敛 + 空租户守卫；alarm raw 链 P1 修复 | VALIDATION.md |
 | 2026-08-25 | 质量 | 全库 GBK 乱码修复（17 文件，含 echarts-manager 被困代码释放）+ 源码编码契约测试绊线 + 影子离线投递 method/params 语义修复 | feat/phase-a-completion |
+| 2026-08-25 | 门禁 | PR 运行时冒烟工作流（auth+device，paths 过滤）；OPENAPI_KEY 默认权限下调 TENANT_ADMIN→TENANT_USER；清理 CI 调试探针凭据；Playwright 默认通道 msedge→chromium | feat/phase-a-completion |
