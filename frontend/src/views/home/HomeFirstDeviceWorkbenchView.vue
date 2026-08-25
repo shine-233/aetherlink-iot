@@ -136,7 +136,7 @@ const firstDevicePostReadyHandoff = computed(() =>
 const firstDeviceReadyNextGuideDescription = computed(() => {
   return (
     firstDevicePostReadyHandoff.value?.description ||
-    '首页已经看到在线状态、最新遥测和第一张图表；现在这套接入方式可以继续复制给更多设备。'
+    '首台设备已就绪，暂无待执行的下一步引导。'
   )
 })
 const firstDeviceCoreGuideSummary = computed(() => buildFirstDeviceCoreGuideSummary(firstDeviceCoreGuideSteps.value))
@@ -146,7 +146,7 @@ const firstRunSetupBlockerStep = computed(
 )
 const firstRunSetupBlockerTitle = computed(() => firstRunSetupBlockerStep.value?.title || '先完成租户初始化')
 const firstRunSetupBlockerDescription = computed(
-  () => firstRunSetupBlockerStep.value?.description || '请先完成初始化，再回到这里生成第一台设备。'
+  () => firstRunSetupBlockerStep.value?.description || '当前存在未完成的初始化步骤，请先按引导完成租户与部署检查',
 )
 const firstRunSetupBlockerAction = computed(() => firstRunSetupBlockerStep.value?.action || '去处理初始化')
 const deviceIdentitySectionRef = ref<HTMLElement | null>(null)
@@ -331,7 +331,7 @@ const firstDeviceVerificationAction = computed(() =>
 const getFirstDeviceFlowNodeAction = node => {
   if (node.key === 'deployment') {
     return {
-      label: node.ok ? '重新检查' : '检查部署',
+      label: node.ok ? '部署正常' : '去诊断',
       disabled: false,
       loading: props.deploymentHealthLoading,
       run: () => emit('refreshDeploymentHealth')
@@ -346,7 +346,7 @@ const getFirstDeviceFlowNodeAction = node => {
           run: () => emit('openFirstDeviceAccessGuide')
         }
       : {
-          label: '生成设备',
+          label: '生成首台设备',
           disabled: props.firstRunCreateTenantRequired || !props.deploymentHealthOk,
           loading: props.firstRunCreateLoading,
           run: () => emit('createFirstRunFirstDevice')
@@ -371,7 +371,7 @@ const getFirstDeviceFlowNodeAction = node => {
   if (node.key === 'browser_test') {
     return props.firstDeviceOnboardingGuard.canRunBrowserTest
       ? {
-          label: node.ok ? '再次测试' : '浏览器测试',
+          label: node.ok ? '再次测试' : '开始测试',
           disabled: false,
           loading: props.firstDeviceActionLoading,
           run: () => emit('simulateFirstDeviceTelemetry')
@@ -487,7 +487,7 @@ const getFirstDeviceClosedLoopState = (key: string, done = false) => {
 
   return {
     state,
-    stateLabel: state === 'done' ? '已完成' : state === 'active' ? '现在做' : '等待',
+    stateLabel: state === 'done' ? '已完成' : state === 'active' ? '进行中' : '等待',
     stateType: state === 'done' ? 'success' : state === 'active' ? 'warning' : 'default'
   }
 }
@@ -514,8 +514,8 @@ const firstDeviceClosedLoopSteps = computed(() => {
       section: 'deployment',
       order: '01',
       title: '部署健康',
-      detail: props.deploymentHealthOk ? '前端、API、DB、Redis、MQTT 可用' : '先确认部署组件都正常',
-      actionLabel: props.deploymentHealthOk ? '重新检查' : '检查部署',
+      detail: props.deploymentHealthOk ? '前端、API、Broker、Redis、MQTT 可用' : '先确认部署组件都正常',
+      actionLabel: props.deploymentHealthOk ? '查看详情' : '去诊断',
       disabled: false,
       loading: props.deploymentHealthLoading,
       ...deployment
@@ -527,7 +527,7 @@ const firstDeviceClosedLoopSteps = computed(() => {
       title: '创建产品/设备',
       detail: props.firstDevice
         ? props.firstDevice.name || props.firstDevice.number || '第一台设备已生成'
-        : '一键生成默认产品、物模型和第一台设备',
+        : '请先完成上方初始化步骤，系统会自动生成首台设备',
       actionLabel: props.firstDevice ? '定位设备信息' : '一键生成',
       disabled: props.firstRunCreateTenantRequired || !props.deploymentHealthOk,
       loading: props.firstRunCreateLoading,
@@ -538,8 +538,8 @@ const firstDeviceClosedLoopSteps = computed(() => {
       section: 'connection',
       order: '03',
       title: '复制 MQTT/HTTP 参数',
-      detail: activeFirstDeviceTestCommand.value?.label || '等待连接参数和测试命令',
-      actionLabel: props.firstDeviceOnboardingGuard.canCopyCommand ? '复制测试命令' : '看接入指南',
+      detail: activeFirstDeviceTestCommand.value?.label || '还没有可复制的测试命令，请先生成设备',
+      actionLabel: props.firstDeviceOnboardingGuard.canCopyCommand ? '复制测试命令' : '暂无可复制的命令',
       disabled: !props.firstDevice,
       loading: false,
       ...connection
@@ -549,8 +549,8 @@ const firstDeviceClosedLoopSteps = computed(() => {
       section: 'test',
       order: '04',
       title: '浏览器发测试数据',
-      detail: props.firstDeviceBrowserTest?.message || '不用真实设备，先在浏览器里模拟上报',
-      actionLabel: props.firstDeviceOnboardingGuard.canRunBrowserTest ? '发送测试' : '打开 Ready Check',
+      detail: props.firstDeviceBrowserTest?.message || '尚未收到测试数据，发送后这里会显示结果',
+      actionLabel: props.firstDeviceOnboardingGuard.canRunBrowserTest ? '发送测试数据' : '打开 Ready Check',
       disabled: !props.firstDevice,
       loading: props.firstDeviceActionLoading,
       ...browserTest
@@ -571,7 +571,7 @@ const firstDeviceClosedLoopSteps = computed(() => {
       section: 'proof',
       order: '06',
       title: '下载成功证明',
-      detail: props.firstDeviceReadyProof.ready ? '设备已准备好，可以交付证明' : '等所有证明项变绿后下载',
+      detail: props.firstDeviceReadyProof.ready ? '成功证明条件已满足，可下载存档' : '还差关键证据，按步骤继续操作',
       actionLabel: props.firstDeviceReadyProof.ready ? '下载证明' : '查看缺口',
       disabled: !props.firstDevice,
       loading: false,

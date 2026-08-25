@@ -598,6 +598,9 @@ function classifyEndpointCatalogItem(endpointKey) {
       /^\/api\/v1\/payload-schema(?:\/|$)/.test(pathPart)) {
     return { endpoint: endpointKey, scope: 'P0/P1', capability: 'command-jobs' };
   }
+  if (/^\/api\/v1\/ai(?:\/|$)/.test(pathPart)) {
+    return { endpoint: endpointKey, scope: 'P0/P1', capability: 'device-telemetry' };
+  }
   if (/^\/api\/v1\/(?:device(?:\/|$)|devices(?:\/|$)|telemetry(?:\/|$)|attribute(?:\/|$)|event(?:\/|$)|events(?:\/|$)|command(?:\/|$)|expected(?:\/|$)|datapolicy(?:\/|$)|device_config(?:\/|$))/.test(pathPart)) {
     return { endpoint: endpointKey, scope: 'P0/P1', capability: 'device-telemetry' };
   }

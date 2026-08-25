@@ -304,8 +304,8 @@ test.describe('route-backed business closure [14_route_coverage_closure]', () =>
       await renderedRow.getByRole('button', { name: /Edit|编辑/i }).click();
       const editModal = rolePage.locator('.n-modal').last();
       await expect(editModal).toBeVisible();
-      const elementCodeInput = editModal.locator('.n-form-item').filter({ hasText: /Name|鍚嶇О/i }).locator('input').first();
-      const accessPathInput = editModal.locator('.n-form-item').filter({ hasText: /Access Path|璁块棶璺緞/i }).locator('input').first();
+      const elementCodeInput = editModal.locator('.n-form-item').filter({ hasText: /Name|名称/i }).locator('input').first();
+      const accessPathInput = editModal.locator('.n-form-item').filter({ hasText: /Access Path|访问路径/i }).locator('input').first();
       await expect(elementCodeInput).toHaveValue(expected.element_code);
       await expect(accessPathInput).toHaveValue(expected.param1);
       await editModal.getByRole('button', { name: /Cancel|取消/i }).click();

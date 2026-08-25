@@ -43,6 +43,10 @@ const DEVICE_TELEMETRY_ENDPOINTS = [
   'GET /api/v1/device/detail/:id',
   'GET /api/v1/device/twin/:id',
   'PUT /api/v1/device/twin/:id/desired',
+  'POST /api/v1/device/shadow/:deviceId',
+  'GET /api/v1/device/shadow/:deviceId',
+  'DELETE /api/v1/device/shadow/:deviceId/:msgId',
+  'POST /api/v1/ai/telemetry/query',
   'GET /api/v1/device/twin-drift',
   'GET /api/v1/telemetry/datas/current/keys',
   'GET /api/v1/telemetry/datas/history',
@@ -297,7 +301,8 @@ const BUSINESS_CAPABILITIES = [
       { file: 'tests/17_api_coverage_closure.test.js', evidenceKind: 'boundary' },
       'tests/17_api_boundary_smoke.test.js',
       'tests/18_seeded_device_data.test.js',
-      'tests/22_mqtt_device_pipeline.test.js'
+      'tests/22_mqtt_device_pipeline.test.js',
+      'tests/27_shadow_messages.test.js'
     ],
     e2eTests: [
       'e2e/02_device.spec.js',
@@ -312,7 +317,9 @@ const BUSINESS_CAPABILITIES = [
       'internal/api/telemetry_api_test.go',
       'mqtt/publish/publish_test.go',
       'internal/adapter/mqttadapter/topics_test.go',
-      'internal/service/command_direct_method_test.go'
+      'internal/service/command_direct_method_test.go',
+      'internal/dal/device_shadow_test.go',
+      'internal/service/ai_telemetry_query_test.go'
     ],
     gmqttTests: [
       GMQTT_AETHERLINK_PLUGIN_TEST('topicmap_matcher_test.go'),

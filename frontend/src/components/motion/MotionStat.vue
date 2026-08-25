@@ -1,5 +1,6 @@
 <!--
-  鏂囦欢鐢ㄩ€旓細甯︽暟瀛楁粴鍔ㄥ姩鐢荤殑缁熻鍗＄墖銆?  鏍稿績閫昏緫锛歶seCountUp rAF 琛ラ棿 + motion-v 缂╂斁鍏ュ満銆?-->
+  组件用途: 统计数值组件，使用 useCountUp 的 rAF 数字滚动动画 + motion-v 入场动效。
+-->
 <script setup lang="ts">
 import { computed, type Ref } from 'vue'
 import { useCountUp } from '@/hooks/use-count-up'

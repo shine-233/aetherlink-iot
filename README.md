@@ -36,9 +36,12 @@ cd aetherlink-iot
 - **设备全生命周期**：接入、配置、物模型、管理、共享、遥测、属性、命令、事件、告警与 OTA。
 - **多租户后台**：租户/用户/角色/权限（Casbin RBAC）、系统管理与操作审计。
 - **自动化场景**：联动规则、可视化条件编辑与定时触发。
+- **设备影子**：离线命令缓存——设备不在线时下发自动入队，重新上线后按 TTL 自动投递。
 - **可视化**：默认内置本地原生看板；可选启用 ThingsVis 兼容集成。
 - **MQTT Broker**：插件化认证与 ACL、上下行路由、主题映射、持久化队列与会话撤销。
 - **开放能力**：OpenAPI 密钥（哈希存储）、协议插件、数据脚本引擎。
+
+产品演进计划见 [ROADMAP.md](ROADMAP.md)：对标 ThingsBoard CE / ThingsPanel 的功能差距矩阵与 Phase A/B/C 分阶段交付清单。
 
 ## 系统架构
 
@@ -92,6 +95,18 @@ cd mqtt-broker && go run ./cmd/gmqttd
 
 自动化测试的运行前提与执行顺序见 [automation_tests/README.md](automation_tests/README.md)，CI 之外的完整自托管栈验证由 nightly `compose-stack-e2e` 流水线执行。
 
+## 路线图
+
+详细计划与交付记录见 [ROADMAP.md](ROADMAP.md)。当前节奏：
+
+| 阶段 | 周期 | 重点 |
+| --- | --- | --- |
+| Phase A（进行中） | 1-2 个迭代 | 空租户守卫全量移植、**设备影子**（离线命令缓存，差异化能力）、空态覆盖 |
+| Phase B | 3-5 个迭代 | Modbus TCP 插件（gRPC 独立进程）、可视化规则链编辑器（Vue Flow）、计算字段 |
+| Phase C | 远期 | TimescaleDB 后端、租户层级、TresJS 3D 面板、AI 查询遥测 |
+
+竞品定位与差距核对（ThingsBoard CE/PE、ThingsPanel 社区版）也记录在 ROADMAP.md 顶部。
+
 ## 文档导航
 
 | 文档 | 用途 |
@@ -109,7 +124,7 @@ cd mqtt-broker && go run ./cmd/gmqttd
 
 - 源码离线门禁持续保持绿色，但**这不等于**真实 API、浏览器 E2E、真机 RDI 或生产环境已验收。
 - 真实 RDI 设备、目标服务器部署、HTTPS/TLS、公网 MQTT 与 backup/restore 目前为 `not-tested` / `pending` / `configuration-required`，逐项状态见 [VALIDATION.md](VALIDATION.md)。
-- 数据库迁移链当前到 `49.sql`；升级 OpenAPI 密钥为哈希存储后，旧明文密钥需重新生成方可继续使用。
+- 数据库迁移链当前到 `52.sql`；升级 OpenAPI 密钥为哈希存储后，旧明文密钥需重新生成方可继续使用。
 
 ## 贡献
 
