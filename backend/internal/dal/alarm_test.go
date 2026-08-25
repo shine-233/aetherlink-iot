@@ -69,7 +69,7 @@ func TestGetAlarmConfigListByPageTenantScope(t *testing.T) {
 	count, list, err := GetAlarmConfigListByPage(&model.GetAlarmConfigListByPageReq{
 		TenantID: "tenant-1",
 		PageReq:  model.PageReq{Page: 1, PageSize: 20},
-	})
+	}, false)
 	if err != nil {
 		t.Fatalf("GetAlarmConfigListByPage returned error: %v", err)
 	}
@@ -114,7 +114,7 @@ func TestGetAlarmConfigListByPageJoinsNotificationGroupNameAndFilters(t *testing
 		Name:       &name,
 		Enabled:    "Y",
 		AlarmLevel: &level,
-	})
+	}, false)
 	if err != nil {
 		t.Fatalf("filtered GetAlarmConfigListByPage returned error: %v", err)
 	}
@@ -189,7 +189,7 @@ func TestGetAlarmInfoListByPageTenantScopeAndJoinProjection(t *testing.T) {
 	count, list, err := GetAlarmInfoListByPage(&model.GetAlarmInfoListByPageReq{
 		TenantID: "tenant-1",
 		PageReq:  model.PageReq{Page: 1, PageSize: 20},
-	})
+	}, false)
 	if err != nil {
 		t.Fatalf("GetAlarmInfoListByPage returned error: %v", err)
 	}
@@ -205,5 +205,53 @@ func TestGetAlarmInfoListByPageTenantScopeAndJoinProjection(t *testing.T) {
 	}
 	if rows[0]["processor_name"] == nil || rows[0]["processor_name"] == "" {
 		t.Fatalf("processor_name = %#v, want joined user name", rows[0]["processor_name"])
+	}
+}
+
+// ROADMAP A1：空租户守卫——未显式声明全租户视角时，空租户查询必须 fail-closed。
+func TestGetAlarmConfigListByPageRejectsEmptyTenantWithoutAllTenants(t *testing.T) {
+	db := setupAlarmDALTestDB(t)
+	now := time.Now().UTC()
+	for _, tenantID := range []string{"tenant-1", "tenant-2"} {
+		if err := db.Create(&model.AlarmConfig{
+			ID: "ac-" + tenantID, Name: "cfg-" + tenantID, AlarmLevel: "H",
+			TenantID: tenantID, Enabled: "Y", CreatedAt: now, UpdatedAt: now,
+		}).Error; err != nil {
+			t.Fatalf("create alarm config %s: %v", tenantID, err)
+		}
+	}
+
+	if _, _, err := GetAlarmConfigListByPage(&model.GetAlarmConfigListByPageReq{TenantID: "  "}, false); err == nil {
+		t.Fatal("expected error for empty tenant id without all-tenants scope")
+	}
+
+	count, list, err := GetAlarmConfigListByPage(&model.GetAlarmConfigListByPageReq{}, true)
+	if err != nil {
+		t.Fatalf("all-tenants GetAlarmConfigListByPage returned error: %v", err)
+	}
+	if count != 2 {
+		t.Fatalf("count = %d, want 2 (all tenants)", count)
+	}
+	rows := list.([]map[string]interface{})
+	if len(rows) != 2 {
+		t.Fatalf("rows = %#v, want both tenants under explicit all-tenants scope", rows)
+	}
+}
+
+// ROADMAP A1：空租户守卫——告警信息列表同语义。
+func TestGetAlarmInfoListByPageRejectsEmptyTenantWithoutAllTenants(t *testing.T) {
+	setupAlarmDALTestDB(t)
+
+	if _, _, err := GetAlarmInfoListByPage(&model.GetAlarmInfoListByPageReq{TenantID: ""}, false); err == nil {
+		t.Fatal("expected error for empty tenant id without all-tenants scope")
+	}
+}
+
+// ROADMAP A1：空租户守卫——告警历史列表在无全租户视角时拒绝空租户。
+func TestGetAlarmHistoryListByPageRejectsEmptyTenantWithoutAllTenants(t *testing.T) {
+	setupAlarmDALTestDB(t)
+
+	if _, _, err := GetAlarmHistoryListByPage(&model.GetAlarmHisttoryListByPage{}, "", nil); err == nil {
+		t.Fatal("expected error for empty tenant id without all-tenants scope")
 	}
 }

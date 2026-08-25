@@ -381,7 +381,9 @@ func (*Alarm) GetAlarmConfigListByPage(req *model.GetAlarmConfigListByPageReq, c
 		return nil, err
 	}
 	req.TenantID = tenantID
-	total, list, err := dal.GetAlarmConfigListByPage(req)
+	// ROADMAP A1：SYS_ADMIN 未指定租户时显式授权全租户视角，其余空租户在 DAL fail-closed。
+	allTenants := claims.Authority == constant.SYS_ADMIN && strings.TrimSpace(tenantID) == ""
+	total, list, err := dal.GetAlarmConfigListByPage(req, allTenants)
 	if err != nil {
 		return nil, wrapAlarmDBError(err)
 	}
@@ -451,7 +453,9 @@ func (*Alarm) GetAlarmInfoListByPage(req *model.GetAlarmInfoListByPageReq, claim
 		return nil, err
 	}
 	req.TenantID = tenantID
-	total, list, err := dal.GetAlarmInfoListByPage(req)
+	// ROADMAP A1：SYS_ADMIN 未指定租户时显式授权全租户视角，其余空租户在 DAL fail-closed。
+	allTenants := claims.Authority == constant.SYS_ADMIN && strings.TrimSpace(tenantID) == ""
+	total, list, err := dal.GetAlarmInfoListByPage(req, allTenants)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
