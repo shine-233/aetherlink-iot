@@ -617,7 +617,7 @@ function classifyEndpointCatalogItem(endpointKey) {
     return { endpoint: endpointKey, scope: 'P0/P1', capability: 'ota-script-openapi-service' };
   }
   if (/^\/api\/v1\/forward_rules(?:\/|$)/.test(pathPart)) {
-    return { endpoint: endpointKey, scope: 'P0/P1', capability: 'forward-rules' };
+    return { endpoint: endpointKey, scope: 'P0/P1', capability: 'ota-script-openapi-service' };
   }
   if (/^\/deployment\/health$/.test(pathPart) || /^\/api\/v1\/(?:deployment\/health|sys_|systime|logo|operation_logs|system\/metrics)/.test(pathPart)) {
     return { endpoint: endpointKey, scope: 'P0/P1', capability: 'system-deployment' };
