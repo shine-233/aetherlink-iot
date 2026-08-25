@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 数据转发规则端点的真实 HTTP 覆盖（对标 26_uncovered_endpoints 的边界口径）。
  * 本模块当前定位为 boundary：验证鉴权门禁、参数校验与记录级错误契约，
  * 不声称第三方投递闭环（投递链路由 forward 引擎单测 + 后续专项覆盖）。
@@ -19,7 +19,8 @@ function expectOkPage(resp) {
 
 function expectRecordNotFound(resp) {
   expect(resp).to.be.an('object');
-  expect(resp.code).to.equal(101001);
+  expect(resp.code).to.equal(100404);
+  expect(resp.message).to.match(/forward rule not found/);
 }
 
 describe('Forward rules API module', function () {
@@ -35,8 +36,8 @@ describe('Forward rules API module', function () {
       target_type: 'http',
       http_url: 'http://127.0.0.1:9/ingest'
     });
-    // 绑定校验失败走统一参数错误码，而非 200。
-    expect(resp.code).to.not.equal(200);
+    // service 层来源类型白名单校验失败 → 显式参数错误码 100002。
+    expect(resp.code).to.equal(100002);
   });
 
   it('returns record-not-found when updating a fake forward rule id', async function () {

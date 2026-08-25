@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Business capability inventory and route classification data.
  *
  * Keep this module data-only so the coverage contract facade can reuse the
@@ -543,6 +543,12 @@ const BUSINESS_CAPABILITIES = [
       'GET /api/v1/ota/task/:id/governance-preview',
       'DELETE /api/v1/ota/task/:id',
       'GET /api/v1/ota/task',
+      'GET /api/v1/forward_rules',
+      'POST /api/v1/forward_rules',
+      'GET /api/v1/forward_rules/:id',
+      'PUT /api/v1/forward_rules/:id',
+      'DELETE /api/v1/forward_rules/:id',
+      'PUT /api/v1/forward_rules/:id/toggle',
       'GET /api/v1/ota/task/detail',
       'PUT /api/v1/ota/task/detail',
       'GET /api/v1/ota/download/files/upgradePackage/:path/:file',
@@ -655,22 +661,4 @@ const BUSINESS_CAPABILITIES = [
     backendTests: ['internal/api/system_api_test.go', 'router/router_contract_test.go'],
     gmqttTests: ['plugin/prometheus/hooks_test.go']
   },
-  {
-    id: 'forward-rules',
-    priority: 'P1',
-    domain: 'Data forwarding integrations',
-    frontendRoutes: [],
-    endpoints: [
-      'GET /api/v1/forward_rules',
-      'POST /api/v1/forward_rules',
-      'GET /api/v1/forward_rules/:id',
-      'PUT /api/v1/forward_rules/:id',
-      'DELETE /api/v1/forward_rules/:id',
-      'PUT /api/v1/forward_rules/:id/toggle'
-    ],
-    automationTests: ['tests/27_forward_rules.test.js'],
-    e2eTests: []
-  }
-];
-
 module.exports = { BUSINESS_CAPABILITIES, PARENT_ROUTES };
