@@ -52,10 +52,7 @@ func GetOpenAPIKeyListByPage(listReq *model.OpenAPIKeyListReq, tenantID string) 
 		return 0, nil, err
 	}
 
-	if listReq.Page != 0 && listReq.PageSize != 0 {
-		queryBuilder = queryBuilder.Limit(listReq.PageSize)
-		queryBuilder = queryBuilder.Offset((listReq.Page - 1) * listReq.PageSize)
-	}
+	queryBuilder = applyListPagination(queryBuilder, listReq.Page, listReq.PageSize)
 
 	err = queryBuilder.Select(
 		q.ALL,

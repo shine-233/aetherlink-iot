@@ -185,10 +185,7 @@ func GetDeviceConfigListByPage(deviceconfig *model.GetDeviceConfigListByPageReq,
 		return count, deviceconfigList, err
 	}
 
-	if deviceconfig.Page != 0 && deviceconfig.PageSize != 0 {
-		queryBuilder = queryBuilder.Limit(deviceconfig.PageSize)
-		queryBuilder = queryBuilder.Offset((deviceconfig.Page - 1) * deviceconfig.PageSize)
-	}
+	queryBuilder = applyListPagination(queryBuilder, deviceconfig.Page, deviceconfig.PageSize)
 	queryBuilder = queryBuilder.Order(q.CreatedAt.Desc())
 	deviceconfigList, err = queryBuilder.Select().Find()
 	if err != nil {

@@ -125,9 +125,7 @@ func GetAlarmConfigListByPage(d *model.GetAlarmConfigListByPageReq, allTenants b
 		Select("ac.*, ng.name AS notification_group_name").
 		Joins("LEFT JOIN notification_groups ng ON ng.id = ac.notification_group_id").
 		Order("ac.created_at DESC")
-	if d.Page != 0 && d.PageSize != 0 {
-		listBuilder = listBuilder.Offset((d.Page - 1) * d.PageSize).Limit(d.PageSize)
-	}
+	listBuilder = applyListPagination(listBuilder, d.Page, d.PageSize)
 	list := make([]map[string]interface{}, 0)
 	if err := listBuilder.Scan(&list).Error; err != nil {
 		return 0, nil, err
@@ -198,9 +196,7 @@ func GetAlarmInfoListByPage(d *model.GetAlarmInfoListByPageReq, allTenants bool)
 		Joins("LEFT JOIN alarm_config ac ON ac.id = ai.alarm_config_id").
 		Joins("LEFT JOIN users u ON ai.processor = u.id").
 		Order("ai.alarm_time DESC")
-	if d.Page != 0 && d.PageSize != 0 {
-		listBuilder = listBuilder.Offset((d.Page - 1) * d.PageSize).Limit(d.PageSize)
-	}
+	listBuilder = applyListPagination(listBuilder, d.Page, d.PageSize)
 	list := make([]map[string]interface{}, 0)
 	if err := listBuilder.Scan(&list).Error; err != nil {
 		return 0, nil, err
@@ -228,9 +224,7 @@ func GetAlarmHistoryListByPage(d *model.GetAlarmHisttoryListByPage, tenantID str
 		Select("ah.*, ac.name AS alarm_config_name, ac.alarm_level AS alarm_level").
 		Joins("LEFT JOIN alarm_config ac ON ac.id = ah.alarm_config_id").
 		Order("ah.create_at DESC")
-	if d.Page != 0 && d.PageSize != 0 {
-		listBuilder = listBuilder.Offset((d.Page - 1) * d.PageSize).Limit(d.PageSize)
-	}
+	listBuilder = applyListPagination(listBuilder, d.Page, d.PageSize)
 	list := make([]map[string]interface{}, 0)
 	if err := listBuilder.Scan(&list).Error; err != nil {
 		return 0, nil, err

@@ -430,10 +430,7 @@ func GetUserListByPageWithAddress(userListReq *model.UserListReq, claims *utils.
 	}
 
 	// 分页
-	if userListReq.Page != 0 && userListReq.PageSize != 0 {
-		base = base.Limit(userListReq.PageSize)
-		base = base.Offset((userListReq.Page - 1) * userListReq.PageSize)
-	}
+	base = applyListPagination(base, userListReq.Page, userListReq.PageSize)
 
 	var usersWithAddress []userWithAddressRow
 	if err := base.Order("users.created_at DESC").Scan(&usersWithAddress).Error; err != nil {

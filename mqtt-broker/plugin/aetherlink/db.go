@@ -208,6 +208,14 @@ func GetDeviceByVoucher(voucher string) (*Device, error) {
 		if err := SetStr(voucherCacheKey(voucher), device.ID, defaultCacheTTL); err != nil {
 			return nil, err
 		}
+		// 反向索引失败不阻断认证：最坏情况是该映射无法被按设备失效，
+		// 残留时间仍受 defaultCacheTTL 约束。
+		if err := indexVoucherCacheKeyForDevice(device.ID, voucherCacheKey(voucher), defaultCacheTTL); err != nil && Log != nil {
+			Log.Warn("index voucher cache mapping failed",
+				zap.String("device_id", device.ID),
+				zap.Error(err),
+			)
+		}
 		if err := SetRedisForJsondata(device.ID, device, defaultCacheTTL); err != nil {
 			return nil, err
 		}

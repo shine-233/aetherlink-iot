@@ -52,9 +52,7 @@ func GetCommandSetLogsDataListByPage(req model.GetCommandSetLogsListByPageReq) (
 	listBuilder := base.Session(&gorm.Session{}).
 		Select("command_set_logs.*, device_model_commands.data_name AS identify_name, users.name AS username").
 		Order("command_set_logs.created_at DESC")
-	if req.Page != 0 && req.PageSize != 0 {
-		listBuilder = listBuilder.Limit(req.PageSize).Offset((req.Page - 1) * req.PageSize)
-	}
+	listBuilder = applyListPagination(listBuilder, req.Page, req.PageSize)
 	list := make([]map[string]interface{}, 0)
 	if err := listBuilder.Scan(&list).Error; err != nil {
 		logrus.Error(err)

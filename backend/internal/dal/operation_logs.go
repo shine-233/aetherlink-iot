@@ -62,10 +62,7 @@ func GetListByPage(operationLog *model.GetOperationLogListByPageReq, userClaims 
 		return count, operationLogList, err
 	}
 
-	if operationLog.Page != 0 && operationLog.PageSize != 0 {
-		queryBuilder = queryBuilder.Limit(operationLog.PageSize)
-		queryBuilder = queryBuilder.Offset((operationLog.Page - 1) * operationLog.PageSize)
-	}
+	queryBuilder = applyListPagination(queryBuilder, operationLog.Page, operationLog.PageSize)
 
 	err = queryBuilder.Select(q.ALL, u.Name.As("user_name"), u.Email).
 		Order(q.CreatedAt.Desc()).

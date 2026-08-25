@@ -79,10 +79,7 @@ func GetRoleListByPage(data *model.GetRoleListByPageReq, tenantID string) (int64
 		return count, dataList, err
 	}
 
-	if data.Page != 0 && data.PageSize != 0 {
-		queryBuilder = queryBuilder.Limit(data.PageSize)
-		queryBuilder = queryBuilder.Offset((data.Page - 1) * data.PageSize)
-	}
+	queryBuilder = applyListPagination(queryBuilder, data.Page, data.PageSize)
 
 	dataList, err = queryBuilder.Select().Order(q.UpdatedAt).Find()
 	if err != nil {
