@@ -351,6 +351,19 @@ export const expectMessageList = async (params: object) => {
 export const expectMessageDelete = async (params: string | number) => {
   return await request.delete(`/expected/data/${params}`)
 }
+
+/** 设备影子消息列表（可按 status 过滤） */
+export const deviceShadowList = async (deviceId: string, params?: object) => {
+  return await request.get(`/device/shadow/${deviceId}`, { params })
+}
+/** 设置设备影子消息：设备在线直接下发，离线写入缓存队列 */
+export const deviceShadowSet = async (deviceId: string, params: object) => {
+  return await request.post(`/device/shadow/${deviceId}`, params)
+}
+/** 取消待投递的影子消息 */
+export const deviceShadowCancel = async (deviceId: string, msgId: string) => {
+  return await request.delete(`/device/shadow/${deviceId}/${msgId}`)
+}
 /** 属性集查询：载荷契约固定为 { device_id }；历史上曾因裸字符串调用实际请求 /attribute/datas/undefined。 */
 export const getAttributeDataSet = async (
   params: { device_id: string | number },
