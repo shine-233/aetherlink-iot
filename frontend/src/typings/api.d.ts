@@ -448,9 +448,9 @@ declare namespace Api {
       updated_at: string | null
       /** 上次访问时间 */
       lastVisitTime: string | null
-      /** 鐢ㄦ埛瑙掕壊 */
+      /** 用户角色 */
       authority?: string | null
-      /** 绉熸埛 id */
+      /** 租户 id */
       tenant_id?: string | null
     }
     interface UserKey {

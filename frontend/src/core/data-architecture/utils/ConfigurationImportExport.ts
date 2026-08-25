@@ -59,9 +59,9 @@ export interface ExportedConfiguration {
   data: {
     /** Configuration import/export field. */
     dataSourceConfiguration?: DataSourceConfiguration
-    /** 缂佸嫪娆㈤柊宥囩枂 */
+    /** 组件配置 */
     componentConfiguration?: Record<string, unknown>
-    /** 娴溿倓绨伴柊宥囩枂 */
+    /** 交互配置 */
     interactionConfiguration?: Record<string, unknown>
   }
   /** Configuration import/export field. */

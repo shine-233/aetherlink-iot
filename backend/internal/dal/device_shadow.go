@@ -77,7 +77,7 @@ func ExpireDueShadowMessages() (int64, error) {
 	return result.RowsAffected, result.Error
 }
 
-// CancelShadowMessage 取消指定的 pending 影子消息。
+// CancelShadowMessage 取消指定的 pending 影子消息；目标不存在或非 pending 时返回 gorm.ErrRecordNotFound。
 func CancelShadowMessage(id string) error {
 	result := global.DB.Model(&model.DeviceShadowMessage{}).
 		Where("id = ? AND status = ?", id, "pending").

@@ -136,7 +136,7 @@ const firstDevicePostReadyHandoff = computed(() =>
 const firstDeviceReadyNextGuideDescription = computed(() => {
   return (
     firstDevicePostReadyHandoff.value?.description ||
-    '棣栭〉宸茬粡鐪嬪埌鍦ㄧ嚎鐘舵€併€佹渶鏂伴仴娴嬪拰绗竴寮犲浘琛紱鐜板湪杩欏鎺ュ叆鏂瑰紡鍙互缁х画澶嶅埗缁欐洿澶氳澶囥€?
+    '首台设备已就绪，暂无待执行的下一步引导。'
   )
 })
 const firstDeviceCoreGuideSummary = computed(() => buildFirstDeviceCoreGuideSummary(firstDeviceCoreGuideSteps.value))
@@ -144,11 +144,11 @@ const firstRunSetupBlockerStep = computed(
   () =>
     props.firstRunSetupBlockerStep || props.homeCustomerGuideProgress.find(step => step.id === 'setup') || null
 )
-const firstRunSetupBlockerTitle = computed(() => firstRunSetupBlockerStep.value?.title || '鍏堝畬鎴愮鎴峰垵濮嬪寲')
+const firstRunSetupBlockerTitle = computed(() => firstRunSetupBlockerStep.value?.title || '先完成租户初始化')
 const firstRunSetupBlockerDescription = computed(
-  () => firstRunSetupBlockerStep.value?.description || '璇峰厛瀹屾垚鍒濆鍖栵紝鍐嶅洖鍒拌繖閲岀敓鎴愮涓€鍙拌澶囥€?
+  () => firstRunSetupBlockerStep.value?.description || '当前存在未完成的初始化步骤，请先按引导完成租户与部署检查',
 )
-const firstRunSetupBlockerAction = computed(() => firstRunSetupBlockerStep.value?.action || '鍘诲鐞嗗垵濮嬪寲')
+const firstRunSetupBlockerAction = computed(() => firstRunSetupBlockerStep.value?.action || '去处理初始化')
 const deviceIdentitySectionRef = ref<HTMLElement | null>(null)
 const connectionTestViewportRef = ref<HTMLElement | null>(null)
 const connectionTestSectionRef = ref<{ connectionEl: HTMLElement | null; testCommandEl: HTMLElement | null } | null>(
@@ -331,7 +331,7 @@ const firstDeviceVerificationAction = computed(() =>
 const getFirstDeviceFlowNodeAction = node => {
   if (node.key === 'deployment') {
     return {
-      label: node.ok ? '閲嶆柊妫€鏌? : '妫€鏌ラ儴缃?,
+      label: node.ok ? '部署正常' : '去诊断',
       disabled: false,
       loading: props.deploymentHealthLoading,
       run: () => emit('refreshDeploymentHealth')
@@ -340,13 +340,13 @@ const getFirstDeviceFlowNodeAction = node => {
   if (node.key === 'identity') {
     return props.firstDevice
       ? {
-          label: '鎵撳紑 Ready Check',
+          label: '打开 Ready Check',
           disabled: false,
           loading: false,
           run: () => emit('openFirstDeviceAccessGuide')
         }
       : {
-          label: '鐢熸垚璁惧',
+          label: '生成首台设备',
           disabled: props.firstRunCreateTenantRequired || !props.deploymentHealthOk,
           loading: props.firstRunCreateLoading,
           run: () => emit('createFirstRunFirstDevice')
@@ -355,14 +355,14 @@ const getFirstDeviceFlowNodeAction = node => {
   if (node.key === 'connection') {
     if (props.firstDeviceOnboardingGuard.canCopyCommand && activeFirstDeviceTestCommand.value?.code) {
       return {
-        label: '澶嶅埗娴嬭瘯鍛戒护',
+        label: '复制测试命令',
         disabled: false,
         loading: false,
         run: () => void copyActiveFirstDeviceTestCommand()
       }
     }
     return {
-      label: '鎵撳紑鎺ュ叆鎸囧崡',
+      label: '打开接入指南',
       disabled: false,
       loading: false,
       run: () => emit('openFirstDeviceFullGuide')
@@ -371,13 +371,13 @@ const getFirstDeviceFlowNodeAction = node => {
   if (node.key === 'browser_test') {
     return props.firstDeviceOnboardingGuard.canRunBrowserTest
       ? {
-          label: node.ok ? '鍐嶆娴嬭瘯' : '娴忚鍣ㄦ祴璇?,
+          label: node.ok ? '再次测试' : '开始测试',
           disabled: false,
           loading: props.firstDeviceActionLoading,
           run: () => emit('simulateFirstDeviceTelemetry')
         }
       : {
-          label: '鎵撳紑 Ready Check',
+          label: '打开 Ready Check',
           disabled: false,
           loading: false,
           run: () => emit('openFirstDeviceAccessGuide')
@@ -385,14 +385,14 @@ const getFirstDeviceFlowNodeAction = node => {
   }
   if (node.key === 'online' || node.key === 'telemetry') {
     return {
-      label: '鏌ョ湅 Ready Check',
+      label: '查看 Ready Check',
       disabled: false,
       loading: false,
       run: () => emit('openFirstDeviceAccessGuide')
     }
   }
   return {
-    label: node.ok ? '鏌ョ湅鎺ュ叆鎸囧崡' : '缁х画澶勭悊',
+    label: node.ok ? '查看接入指南' : '继续处理',
     disabled: false,
     loading: false,
     run: () => (node.ok ? emit('openFirstDeviceFullGuide') : runFirstDevicePrimaryAction())
@@ -487,7 +487,7 @@ const getFirstDeviceClosedLoopState = (key: string, done = false) => {
 
   return {
     state,
-    stateLabel: state === 'done' ? '宸插畬鎴? : state === 'active' ? '鐜板湪鍋? : '绛夊緟',
+    stateLabel: state === 'done' ? '已完成' : state === 'active' ? '进行中' : '等待',
     stateType: state === 'done' ? 'success' : state === 'active' ? 'warning' : 'default'
   }
 }
@@ -513,9 +513,9 @@ const firstDeviceClosedLoopSteps = computed(() => {
       key: 'deployment',
       section: 'deployment',
       order: '01',
-      title: '閮ㄧ讲鍋ュ悍',
-      detail: props.deploymentHealthOk ? '鍓嶇銆丄PI銆丏B銆丷edis銆丮QTT 鍙敤' : '鍏堢‘璁ら儴缃茬粍浠堕兘姝ｅ父',
-      actionLabel: props.deploymentHealthOk ? '閲嶆柊妫€鏌? : '妫€鏌ラ儴缃?,
+      title: '部署健康',
+      detail: props.deploymentHealthOk ? '前端、API、Broker、Redis、MQTT 可用' : '先确认部署组件都正常',
+      actionLabel: props.deploymentHealthOk ? '查看详情' : '去诊断',
       disabled: false,
       loading: props.deploymentHealthLoading,
       ...deployment
@@ -524,11 +524,11 @@ const firstDeviceClosedLoopSteps = computed(() => {
       key: 'identity',
       section: 'device',
       order: '02',
-      title: '鍒涘缓浜у搧/璁惧',
+      title: '创建产品/设备',
       detail: props.firstDevice
-        ? props.firstDevice.name || props.firstDevice.number || '绗竴鍙拌澶囧凡鐢熸垚'
-        : '涓€閿敓鎴愰粯璁や骇鍝併€佺墿妯″瀷鍜岀涓€鍙拌澶?,
-      actionLabel: props.firstDevice ? '瀹氫綅璁惧淇℃伅' : '涓€閿敓鎴?,
+        ? props.firstDevice.name || props.firstDevice.number || '第一台设备已生成'
+        : '请先完成上方初始化步骤，系统会自动生成首台设备',
+      actionLabel: props.firstDevice ? '定位设备信息' : '一键生成',
       disabled: props.firstRunCreateTenantRequired || !props.deploymentHealthOk,
       loading: props.firstRunCreateLoading,
       ...identity
@@ -537,9 +537,9 @@ const firstDeviceClosedLoopSteps = computed(() => {
       key: 'connection',
       section: 'connection',
       order: '03',
-      title: '澶嶅埗 MQTT/HTTP 鍙傛暟',
-      detail: activeFirstDeviceTestCommand.value?.label || '绛夊緟杩炴帴鍙傛暟鍜屾祴璇曞懡浠?,
-      actionLabel: props.firstDeviceOnboardingGuard.canCopyCommand ? '澶嶅埗娴嬭瘯鍛戒护' : '鐪嬫帴鍏ユ寚鍗?,
+      title: '复制 MQTT/HTTP 参数',
+      detail: activeFirstDeviceTestCommand.value?.label || '还没有可复制的测试命令，请先生成设备',
+      actionLabel: props.firstDeviceOnboardingGuard.canCopyCommand ? '复制测试命令' : '暂无可复制的命令',
       disabled: !props.firstDevice,
       loading: false,
       ...connection
@@ -548,9 +548,9 @@ const firstDeviceClosedLoopSteps = computed(() => {
       key: 'browser_test',
       section: 'test',
       order: '04',
-      title: '娴忚鍣ㄥ彂娴嬭瘯鏁版嵁',
-      detail: props.firstDeviceBrowserTest?.message || '涓嶇敤鐪熷疄璁惧锛屽厛鍦ㄦ祻瑙堝櫒閲屾ā鎷熶笂鎶?,
-      actionLabel: props.firstDeviceOnboardingGuard.canRunBrowserTest ? '鍙戦€佹祴璇? : '鎵撳紑 Ready Check',
+      title: '浏览器发测试数据',
+      detail: props.firstDeviceBrowserTest?.message || '尚未收到测试数据，发送后这里会显示结果',
+      actionLabel: props.firstDeviceOnboardingGuard.canRunBrowserTest ? '发送测试数据' : '打开 Ready Check',
       disabled: !props.firstDevice,
       loading: props.firstDeviceActionLoading,
       ...browserTest
@@ -559,9 +559,9 @@ const firstDeviceClosedLoopSteps = computed(() => {
       key: 'telemetry',
       section: 'chart',
       order: '05',
-      title: '纭鍦ㄧ嚎/閬ユ祴/棣栧浘',
+      title: '确认在线/遥测/首图',
       detail: firstDeviceLatestProofText.value,
-      actionLabel: props.firstDeviceChart.ready ? '鏌ョ湅棣栧浘' : '鍒锋柊纭',
+      actionLabel: props.firstDeviceChart.ready ? '查看首图' : '刷新确认',
       disabled: !props.firstDevice,
       loading: props.firstDeviceLoading,
       ...telemetry
@@ -570,9 +570,9 @@ const firstDeviceClosedLoopSteps = computed(() => {
       key: 'proof',
       section: 'proof',
       order: '06',
-      title: '涓嬭浇鎴愬姛璇佹槑',
-      detail: props.firstDeviceReadyProof.ready ? '璁惧宸插噯澶囧ソ锛屽彲浠ヤ氦浠樿瘉鏄? : '绛夋墍鏈夎瘉鏄庨」鍙樼豢鍚庝笅杞?,
-      actionLabel: props.firstDeviceReadyProof.ready ? '涓嬭浇璇佹槑' : '鏌ョ湅缂哄彛',
+      title: '下载成功证明',
+      detail: props.firstDeviceReadyProof.ready ? '成功证明条件已满足，可下载存档' : '还差关键证据，按步骤继续操作',
+      actionLabel: props.firstDeviceReadyProof.ready ? '下载证明' : '查看缺口',
       disabled: !props.firstDevice,
       loading: false,
       ...proof

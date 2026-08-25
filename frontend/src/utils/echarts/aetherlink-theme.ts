@@ -1,5 +1,7 @@
 /**
- * 鏂囦欢鐢ㄩ€旓細娉ㄥ唽 AetherLink IoT 鍝佺墝 ECharts 涓婚锛屽叏灞€鐢熸晥銆? * 鏍稿績閫昏緫锛氬畾涔夊搧鐗岃壊鏉裤€佹笎鍙橀潰绉浘銆佸渾瑙掓煴鐘跺浘銆佹煍鍜岀綉鏍肩嚎涓庡潗鏍囪酱鏍峰紡銆? * 鍏抽敭娉ㄦ剰浜嬮」锛氫富棰樺湪 echarts/core 鍒濆鍖栧悗閫氳繃 registerTheme 娉ㄥ唽涓€娆″嵆鍙€? */
+ * AetherLink IoT 品牌 ECharts 主题。
+ * 通过 echarts/core 的 registerTheme 注册后供所有图表复用。
+ */
 import type { EChartsOption } from 'echarts'
 
 const BRAND = {
