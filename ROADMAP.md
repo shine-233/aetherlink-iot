@@ -148,12 +148,12 @@ AetherLink Backend ←──gRPC──→ Modbus TCP Plugin ←──Modbus TCP�
 - 动作节点：告警 / 控制设备 / 发送通知 / Webhook
 
 实现步骤：
-- [ ] 安装 `@vue-flow/core` 依赖
-- [ ] 定义规则链数据模型（DAG 有向无环图）
-- [ ] 后端 CRUD API + 执行引擎（拓扑排序遍历 DAG）
-- [ ] 前端画布组件（拖拽节点、连线、属性面板）
-- [ ] 内置节点类型注册机制
-- [ ] 与现有 scene automation 共存（规则链是更底层的通用能力）
+- [x] 安装 `@vue-flow/core` 依赖 ✓
+- [x] 定义规则链数据模型（DAG 有向无环图）：迁移 `54.sql` 建表，graph={nodes:[{id,type,config}],edges} JSONB；校验含类型注册表、边完整性、触发器存在、Kahn 无环 ✓
+- [x] 后端 CRUD API + 执行引擎：`/rule-chains` 租户内 CRUD（空租户 fail-closed）；引擎从零入度触发节点拓扑遍历，过滤剪枝分支、映射重塑载荷；60s 启用链缓存随写失效；遥测副作用与设备上线两处异步钩子接入 ✓
+- [x] 内置节点类型注册机制：trigger.telemetry / trigger.device_online / filter.threshold / transform.mapping / action.webhook / action.command（告警动作留扩展点）✓
+- [x] 前端画布组件：拖拽节点面板、连线定序、点击节点属性面板（阈值/映射/Webhook/命令表单）、列表页启用开关与删除确认；路由+四语言 i18n ✓
+- [x] 与现有 scene automation 共存：独立 `/automation/rule-chain` 页面与场景联动并列，规则链作为更底层的通用能力由上行管道直接驱动 ✓
 
 ### B3. 计算字段（Calculated Fields）
 在遥测写入管道中增加表达式计算步骤。
@@ -217,7 +217,9 @@ ALTER TABLE device_calculated_fields (
 |---|---|---|---|
 | 2026-08-25 | A1 | 空租户守卫：alarm 配置/信息/历史列表 + device_config 列表 fail-closed（含 all-tenants 显式授权与回归测试） | #155 |
 | 2026-08-24 | A2 | message_push gen LeftJoin raw 化 | 已并入 main |
-| 2026-08-25 | A3 | 设备影子全链路：迁移 52.sql、DAL/Service/API/路由、上线投递钩子、cron 清理、DAL 测试、前端影子队列标签页 | 待提 PR |
-| 2026-08-25 | C4 | AI 自然语言查询遥测 MVP：意图抽取式 NL 查询服务 + `/ai/telemetry/query` 端点 + 单测 | 待提 PR |
+| 2026-08-25 | A3 | 设备影子全链路：迁移 52.sql、DAL/Service/API/路由、上线投递钩子、cron 清理、DAL 测试、前端影子队列标签页 | #160/#161 |
+| 2026-08-25 | C4 | AI 自然语言查询遥测 MVP：意图抽取式 NL 查询服务 + `/ai/telemetry/query` 端点 + 单测 | #160 |
 | 2026-08-23/24 | — | users 列表 raw 链收敛 + 空租户守卫；alarm raw 链 P1 修复 | VALIDATION.md |
 | 2026-08-25 | 质量 | 全库 GBK 乱码修复（17 文件，含 echarts-manager 被困代码释放）+ 源码编码契约测试绊线 + 影子离线投递 method/params 语义修复 | feat/phase-a-completion |
+| 2026-08-25 | B1 | Modbus TCP 插件（独立模块 modbus-plugin）：JSON 点表采集/缩放、MQTT 上报、命令下行写入、内嵌从站单测、compose `--profile modbus`；平台点表存储 + 前端「Modbus 点表」界面 + 插件 OpenAPI Key 拉取闭环；gRPC 通道暂缓 | #162 |
+| 2026-08-25 | B2 | 可视化规则链编辑器：迁移 54.sql、DAG 校验（Kahn 无环）、拓扑执行引擎 + webhook/command 动作、`/rule-chains` CRUD + 上行双钩子、Vue Flow 画布编辑器 + 四语言 i18n、引擎/CRUD 单测 | feat/rule-chain-b2 |
