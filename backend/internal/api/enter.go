@@ -60,6 +60,7 @@ type Controller struct {
 	DashboardMenuApi
 	DeviceTwinApi
 	DeviceShadowApi
+	DeviceModbusProfileApi
 	AiQueryApi
 	RDIApi
 	PayloadSchemaApi

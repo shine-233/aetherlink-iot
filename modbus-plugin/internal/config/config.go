@@ -23,9 +23,17 @@ const (
 // Config 插件根配置。
 type Config struct {
 	MQTT                MQTTConfig     `json:"mqtt"`
+	Platform            PlatformConfig `json:"platform"`
 	PollIntervalSeconds int            `json:"poll_interval_seconds"`
 	HealthAddr          string         `json:"health_addr"`
 	Devices             []DeviceConfig `json:"devices"`
+}
+
+// PlatformConfig 平台 HTTP API 拉取点表的连接信息（OpenAPI Key 鉴权）。
+type PlatformConfig struct {
+	BaseURL      string `json:"base_url"`
+	APIKey       string `json:"api_key"`
+	TimeoutMilli int    `json:"timeout_milli"`
 }
 
 // MQTTConfig 平台 broker 连接与 topic 约定。
@@ -37,13 +45,16 @@ type MQTTConfig struct {
 }
 
 // DeviceConfig 一台被采集的 Modbus 设备（对应平台上一台真实设备凭证）。
+// use_platform_profile=true 时从平台拉取 target+registers 覆盖本地回退配置；
+// 凭证（username/password）永远只存本地，平台侧点表不包含任何凭证字段。
 type DeviceConfig struct {
-	DeviceNumber string          `json:"device_number"`
-	Username     string          `json:"username"`
-	Password     string          `json:"password"`
-	ClientID     string          `json:"client_id"`
-	Target       TargetConfig    `json:"target"`
-	Registers    []RegisterPoint `json:"registers"`
+	DeviceNumber       string          `json:"device_number"`
+	Username           string          `json:"username"`
+	Password           string          `json:"password"`
+	ClientID           string          `json:"client_id"`
+	UsePlatformProfile bool            `json:"use_platform_profile"`
+	Target             TargetConfig    `json:"target"`
+	Registers          []RegisterPoint `json:"registers"`
 }
 
 // TargetConfig Modbus TCP 从站目标。
@@ -110,17 +121,19 @@ func (d *DeviceConfig) validate(index int, seenDevice map[string]bool) error {
 		return fmt.Errorf("devices[%d].device_number %q duplicated", index, d.DeviceNumber)
 	}
 	seenDevice[d.DeviceNumber] = true
-	if strings.TrimSpace(d.Target.Host) == "" {
-		return fmt.Errorf("devices[%d].target.host is required", index)
+	if !d.UsePlatformProfile {
+		if strings.TrimSpace(d.Target.Host) == "" {
+			return fmt.Errorf("devices[%d].target.host is required", index)
+		}
+	}
+	if len(d.Registers) == 0 && !d.UsePlatformProfile {
+		return fmt.Errorf("devices[%d].registers must not be empty (or enable use_platform_profile)", index)
 	}
 	if d.Target.Port <= 0 {
 		d.Target.Port = DefaultTargetPort
 	}
 	if d.Target.TimeoutMs <= 0 {
 		d.Target.TimeoutMs = DefaultTimeoutMs
-	}
-	if len(d.Registers) == 0 {
-		return fmt.Errorf("devices[%d].registers must not be empty", index)
 	}
 	seenKey := map[string]bool{}
 	for j := range d.Registers {

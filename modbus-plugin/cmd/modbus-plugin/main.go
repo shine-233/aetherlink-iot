@@ -18,6 +18,7 @@ import (
 
 	"github.com/shine-233/aetherlink-iot/modbus-plugin/internal/config"
 	"github.com/shine-233/aetherlink-iot/modbus-plugin/internal/modbusclient"
+	"github.com/shine-233/aetherlink-iot/modbus-plugin/internal/platform"
 	"github.com/shine-233/aetherlink-iot/modbus-plugin/internal/poller"
 	"github.com/shine-233/aetherlink-iot/modbus-plugin/internal/reporter"
 )
@@ -37,6 +38,28 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	// 平台点表拉取：use_platform_profile 的设备以 x-api-key 拉取 target+registers，
+	// 覆盖本地回退配置；失败保留本地值继续运行（前端界面保存的点表即此来源）。
+	if cfg.Platform.BaseURL != "" && cfg.Platform.APIKey != "" {
+		timeout := time.Duration(cfg.Platform.TimeoutMilli) * time.Millisecond
+		if timeout <= 0 {
+			timeout = 5 * time.Second
+		}
+		pc := platform.NewClient(cfg.Platform.BaseURL, cfg.Platform.APIKey, timeout)
+		for i := range cfg.Devices {
+			device := &cfg.Devices[i]
+			if !device.UsePlatformProfile {
+				continue
+			}
+			changed, err := pc.FetchProfile(ctx, device)
+			if err != nil {
+				logger.WithError(err).WithField("device", device.DeviceNumber).Warn("platform profile fetch failed; using local fallback")
+				continue
+			}
+			logger.WithFields(logrus.Fields{"device": device.DeviceNumber, "changed": changed}).Info("platform profile loaded")
+		}
+	}
 
 	var wg sync.WaitGroup
 	for i := range cfg.Devices {

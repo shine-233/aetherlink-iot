@@ -134,6 +134,12 @@ export function createBaseDeviceTabs(): DeviceDetailTabComponent[] {
       refreshKey: 0
     },
     {
+      key: 'device-modbus',
+      name: () => $t('custom.device_details.modbusProfile'),
+      component: createAsyncDeviceTab(() => import('@/views/device/details/modules/device-modbus.vue')),
+      refreshKey: 0
+    },
+    {
       key: 'automate',
       name: () => $t('custom.device_details.automate'),
       component: createAsyncDeviceTab(() => import('@/views/device/details/modules/automate.vue')),
