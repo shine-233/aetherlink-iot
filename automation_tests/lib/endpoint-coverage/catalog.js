@@ -312,6 +312,14 @@ const ALL_ENDPOINTS = [
   // === 操作日志（operation_logs.go） ===
   { method: 'GET',    path: '/api/v1/operation_logs',                      module: 'log',       auth: true },
 
+  // === 数据转发规则（forward_rules.go） ===
+  { method: 'GET',    path: '/api/v1/forward_rules',                       module: 'forward-rule', auth: true },
+  { method: 'GET',    path: '/api/v1/forward_rules/:id',                   module: 'forward-rule', auth: true },
+  { method: 'POST',   path: '/api/v1/forward_rules',                       module: 'forward-rule', auth: true },
+  { method: 'PUT',    path: '/api/v1/forward_rules/:id',                   module: 'forward-rule', auth: true },
+  { method: 'DELETE', path: '/api/v1/forward_rules/:id',                   module: 'forward-rule', auth: true },
+  { method: 'PUT',    path: '/api/v1/forward_rules/:id/toggle',            module: 'forward-rule', auth: true },
+
   // === Logo（logo.go） ===
   { method: 'PUT',    path: '/api/v1/logo',                                module: 'system',    auth: true },
 

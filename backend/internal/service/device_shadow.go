@@ -1,7 +1,8 @@
 // 文件用途：设备影子消息服务层，处理离线命令缓存的设置、查询、取消和投递。
 // 核心逻辑：接收 API 请求写入影子消息；设备上线时批量查询 pending 并投递；TTL 过期自动清理。
 // 关键注意事项：影子消息是核心差异化功能——解决"设备离线时下发命令失败"痛点；
-//   上线投递依赖 telemetry uplink 首条消息钩子或 MQTT broker OnConnected 钩子触发。
+//
+//	上线投递依赖 telemetry uplink 首条消息钩子或 MQTT broker OnConnected 钩子触发。
 package service
 
 import (

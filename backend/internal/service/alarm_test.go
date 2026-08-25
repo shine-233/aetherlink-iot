@@ -227,52 +227,52 @@ func TestAlarmValidateHistoryType(t *testing.T) {
 		},
 		{
 			name:      "empty alarm type is valid",
-			alarmType: strPtr(""),
+			alarmType: alarmTestStrPtr(""),
 			wantErr:   false,
 		},
 		{
 			name:      "whitespace alarm type is valid (trimmed to empty)",
-			alarmType: strPtr("   "),
+			alarmType: alarmTestStrPtr("   "),
 			wantErr:   false,
 		},
 		{
 			name:      "temperature_alarm is valid",
-			alarmType: strPtr("temperature_alarm"),
+			alarmType: alarmTestStrPtr("temperature_alarm"),
 			wantErr:   false,
 		},
 		{
 			name:      "switch_alarm is valid",
-			alarmType: strPtr("switch_alarm"),
+			alarmType: alarmTestStrPtr("switch_alarm"),
 			wantErr:   false,
 		},
 		{
 			name:      "warranty_alarm is valid",
-			alarmType: strPtr("warranty_alarm"),
+			alarmType: alarmTestStrPtr("warranty_alarm"),
 			wantErr:   false,
 		},
 		{
 			name:      "pressure_alarm is valid",
-			alarmType: strPtr("pressure_alarm"),
+			alarmType: alarmTestStrPtr("pressure_alarm"),
 			wantErr:   false,
 		},
 		{
 			name:      "PT is valid",
-			alarmType: strPtr("PT"),
+			alarmType: alarmTestStrPtr("PT"),
 			wantErr:   false,
 		},
 		{
 			name:      "unsupported alarm type rejected",
-			alarmType: strPtr("unknown_alarm"),
+			alarmType: alarmTestStrPtr("unknown_alarm"),
 			wantErr:   true,
 		},
 		{
 			name:      "alarm type with trailing space is trimmed and valid",
-			alarmType: strPtr("temperature_alarm "),
+			alarmType: alarmTestStrPtr("temperature_alarm "),
 			wantErr:   false,
 		},
 		{
 			name:      "case sensitive: TEMPERATURE_ALARM rejected",
-			alarmType: strPtr("TEMPERATURE_ALARM"),
+			alarmType: alarmTestStrPtr("TEMPERATURE_ALARM"),
 			wantErr:   true,
 		},
 	}
@@ -305,7 +305,7 @@ func TestAlarmValidateHistoryTypeTrimsValue(t *testing.T) {
 
 func TestAlarmValidateHistoryStatusAllowsStoredValuesAndActiveQueryAlias(t *testing.T) {
 	for _, raw := range []string{"", "   ", "H", " M ", "L", "N", model.AlarmHistoryQueryStatusActive} {
-		req := &model.GetAlarmHisttoryListByPage{AlarmStatus: strPtr(raw)}
+		req := &model.GetAlarmHisttoryListByPage{AlarmStatus: alarmTestStrPtr(raw)}
 		assert.NoError(t, validateAlarmHistoryStatus(req), "alarm status %q should be accepted", raw)
 		assert.Equal(t, strings.TrimSpace(raw), *req.AlarmStatus)
 	}
@@ -315,7 +315,7 @@ func TestAlarmValidateHistoryStatusAllowsStoredValuesAndActiveQueryAlias(t *test
 
 func TestAlarmValidateHistoryStatusRejectsUnsupportedOrWrongCaseValues(t *testing.T) {
 	for _, raw := range []string{"ALL", "active", "A", "RESET", "unknown"} {
-		req := &model.GetAlarmHisttoryListByPage{AlarmStatus: strPtr(raw)}
+		req := &model.GetAlarmHisttoryListByPage{AlarmStatus: alarmTestStrPtr(raw)}
 		err := validateAlarmHistoryStatus(req)
 		assert.Error(t, err, "alarm status %q should be rejected", raw)
 		appErr, ok := err.(*errcode.Error)
@@ -705,6 +705,6 @@ func TestDeleteAlarmHistoryRetainsAuthorizedAuditRecord(t *testing.T) {
 }
 
 // helper
-func strPtr(s string) *string {
+func alarmTestStrPtr(s string) *string {
 	return &s
 }

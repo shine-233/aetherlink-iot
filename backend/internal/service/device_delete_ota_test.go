@@ -39,11 +39,11 @@ func TestDeviceDeleteDeviceCleansOTATaskDetailsBeforeDeviceRow(t *testing.T) {
 		t.Fatalf("create OTA task: %v", err)
 	}
 	if err := db.Create(&model.OtaUpgradeTaskDetail{
-		ID:              detailID,
+		ID:               detailID,
 		OtaUpgradeTaskID: taskID,
-		DeviceID:        deviceID,
-		Status:          model.OtaUpgradeTaskDetailStatusPending,
-		UpdatedAt:       &now,
+		DeviceID:         deviceID,
+		Status:           model.OtaUpgradeTaskDetailStatusPending,
+		UpdatedAt:        &now,
 	}).Error; err != nil {
 		t.Fatalf("create OTA task detail: %v", err)
 	}

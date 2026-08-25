@@ -40,6 +40,7 @@ type apps struct {
 	DashboardMenu
 	RDI
 	PayloadSchema
+	ForwardRule
 }
 
 var Model = new(apps)

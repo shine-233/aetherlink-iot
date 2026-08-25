@@ -61,6 +61,7 @@ type Controller struct {
 	DeviceTwinApi
 	RDIApi
 	PayloadSchemaApi
+	ForwardRuleApi
 }
 
 var (

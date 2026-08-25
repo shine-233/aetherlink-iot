@@ -298,6 +298,8 @@ func RouterInit() *gin.Engine {
 
 			apps.Model.PayloadSchema.InitPayloadSchema(v1) // payload schema 静态校验
 
+			apps.Model.ForwardRule.Init(v1) // 数据转发规则
+
 			// 初始化系统监控路由
 			apps.Model.SystemMonitor.InitSystemMonitor(v1, m)
 		}

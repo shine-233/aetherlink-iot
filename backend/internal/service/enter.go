@@ -58,6 +58,7 @@ type ServiceGroup struct {
 	DeviceTwin
 	RDI
 	PayloadSchema
+	ForwardRuleService
 }
 
 // GroupApp 是全局业务服务入口，供 API 层和中间件层调用

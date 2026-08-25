@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"aetherlink-iot/backend/internal/forward"
 	"aetherlink-iot/backend/internal/processor"
 	"aetherlink-iot/backend/internal/service"
 	"aetherlink-iot/backend/internal/uplink"
@@ -97,6 +98,10 @@ func WithFlowService() Option {
 		bus := uplink.NewBus(uplink.BusConfig{
 			BufferSize: busBufferSize,
 		}, a.Logger)
+
+		// 1.5 数据转发引擎：订阅上行总线，按启用规则投递第三方 HTTP/MQTT。
+		forwardEngine := forward.NewForwardEngine(bus, a.Logger)
+		a.RegisterService(&forward.ForwardEngineServiceWrapper{Engine: forwardEngine})
 
 		// 2. 创建 Processor
 		dataProcessor := processor.NewScriptProcessor()

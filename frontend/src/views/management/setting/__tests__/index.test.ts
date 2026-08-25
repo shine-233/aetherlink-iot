@@ -15,6 +15,7 @@ const paneSpecs = [
     label: 'custom.management.telemetryDeadLetter.title',
     section: 'telemetry-dead-letter'
   },
+  { name: 'operation-log', label: 'custom.management.operationLog.title', section: 'operation-log' },
   { name: 'account-profile', label: 'custom.management.accountProfile.title', section: 'account-profile' },
   { name: 'account-email', label: 'custom.personalCenter.changeAccountEmail', section: 'account-email' },
   { name: 'warning-email', label: 'custom.management.warningEmail', section: 'warning-email' },
@@ -61,6 +62,10 @@ vi.mock('../components/warning-email-setting.vue', () => ({
 
 vi.mock('../components/telemetry-dead-letter-setting.vue', () => ({
   default: createSettingStub('TelemetryDeadLetterSettingStub', 'telemetry-dead-letter')
+}))
+
+vi.mock('@/views/management/operation-log/index.vue', () => ({
+  default: createSettingStub('OperationLogPanelStub', 'operation-log')
 }))
 
 import SettingIndex from '../index.vue'
@@ -160,6 +165,7 @@ describe('management/setting/index.vue', () => {
     expect(wrapper.classes()).toContain('overflow-hidden')
     expect(wrapper.findAll('.n-tab-pane-stub').map(pane => pane.attributes('data-visible'))).toEqual([
       'true',
+      'false',
       'false',
       'false',
       'false',

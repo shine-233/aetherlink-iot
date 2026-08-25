@@ -1,5 +1,5 @@
 <!--
-系统设置页，负责聚合数据清理、账号资料、账号邮箱、告警邮箱、品牌配置和功能开关等系统级配置子页。
+系统设置页，负责聚合数据清理、账号资料、账号邮箱、告警邮箱、品牌配置、功能开关和操作审计日志等系统级配置子页。
 核心链路：本页只承担 tab 壳层职责，各类设置的拉取、保存和校验分别下沉到对应组件中执行。
 静态维护重点：
 1. tab 顺序已经隐含了“高风险运维操作 -> 账号信息 -> 品牌与功能配置”的分组方式，调整时要同步检查 README 和国际化文案。
@@ -15,6 +15,7 @@ import AccountProfileSetting from './components/account-profile-setting.vue'
 import BrandingSetting from './components/branding-setting.vue'
 import TelemetryDeadLetterSetting from './components/telemetry-dead-letter-setting.vue'
 import WarningEmailSetting from './components/warning-email-setting.vue'
+import OperationLogPanel from '@/views/management/operation-log/index.vue'
 </script>
 
 <template>
@@ -27,6 +28,13 @@ import WarningEmailSetting from './components/warning-email-setting.vue'
           </NTabPane>
           <NTabPane name="telemetry-dead-letter" :tab="$t('custom.management.telemetryDeadLetter.title')">
             <TelemetryDeadLetterSetting />
+          </NTabPane>
+          <NTabPane
+            name="operation-log"
+            :tab="$t('custom.management.operationLog.title')"
+            display-directive="show:lazy"
+          >
+            <OperationLogPanel />
           </NTabPane>
           <NTabPane name="account-profile" :tab="$t('custom.management.accountProfile.title')">
             <AccountProfileSetting />
