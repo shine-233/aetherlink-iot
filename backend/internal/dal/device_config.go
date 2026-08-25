@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	model "aetherlink-iot/backend/internal/model"
@@ -152,6 +153,12 @@ func GetDeviceConfigForTenant(id, tenantID string) (*model.DeviceConfig, error) 
 }
 
 func GetDeviceConfigListByPage(deviceconfig *model.GetDeviceConfigListByPageReq, claims *utils.UserClaims) (int64, interface{}, error) {
+	// 空租户守卫（ROADMAP A1）：claims.TenantID 运行期可能因 token 边界条件变为空串，
+	// WHERE tenant_id='' 会静默匹配 0 行——显式拒绝而非返回"偶发空列表"（users 收敛模式）。
+	if claims == nil || strings.TrimSpace(claims.TenantID) == "" {
+		logrus.Warn("dal: device config list query has empty TenantID in claims; rejecting")
+		return 0, nil, fmt.Errorf("empty tenant id in claims")
+	}
 	q := query.DeviceConfig
 	var count int64
 	var data []model.DeviceConfigRsp
