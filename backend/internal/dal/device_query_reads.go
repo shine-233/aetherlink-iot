@@ -237,17 +237,19 @@ func GetSubDeviceListByParentID(parentId string) ([]*model.Device, error) {
 
 func GetDeviceTemplateChartSelect(tenantId string) (any, error) {
 	data := []map[string]interface{}{}
-	d := query.Device
-	dc := query.DeviceConfig
-	dm := query.DeviceTemplate
-	err := d.LeftJoin(dc, dc.ID.EqCol(d.DeviceConfigID)).
-		LeftJoin(dm, dm.ID.EqCol(dc.DeviceTemplateID)).
-		Where(d.TenantID.Eq(tenantId)).
-		Where(d.ActivateFlag.Eq("active")).
-		Where(d.DeviceConfigID.IsNotNull()).
-		Where(dc.DeviceTemplateID.IsNotNull()).
-		Where(dm.WebChartConfig.IsNotNull()).
-		Select(d.ID.As("device_id"), d.Name.As("device_name"), dm.WebChartConfig).Scan(&data)
+	// P1 修复（2026-08-24，见 VALIDATION.md）：gen 双 LeftJoin 改走 raw 链
+	// （clone==1 根，每次链式起点均为全新 Statement）；
+	// JOIN 形态、投影列名与过滤语义和收敛前逐条一致。
+	err := global.DB.Table("devices AS d").
+		Joins("LEFT JOIN device_configs dc ON dc.id = d.device_config_id").
+		Joins("LEFT JOIN device_templates dm ON dm.id = dc.device_template_id").
+		Where("d.tenant_id = ?", tenantId).
+		Where("d.activate_flag = ?", "active").
+		Where("d.device_config_id IS NOT NULL").
+		Where("dc.device_template_id IS NOT NULL").
+		Where("dm.web_chart_config IS NOT NULL").
+		Select("d.id AS device_id, d.name AS device_name, dm.web_chart_config").
+		Scan(&data).Error
 	if err != nil {
 		logrus.Error(err)
 		return nil, err

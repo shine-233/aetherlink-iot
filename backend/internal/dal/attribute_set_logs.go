@@ -13,37 +13,42 @@ import (
 
 	model "aetherlink-iot/backend/internal/model"
 	query "aetherlink-iot/backend/internal/query"
+	"aetherlink-iot/backend/pkg/global"
 
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 func GetAttributeSetLogsDataListByPage(req model.GetAttributeSetLogsListByPageReq) (int64, []*model.AttributeSetLog, error) {
 
 	var count int64
-	q := query.AttributeSetLog
-	u := query.User
-	queryBuilder := q.WithContext(context.Background())
-	queryBuilder = queryBuilder.Where(q.DeviceID.Eq(req.DeviceId))
+	// P1 修复（2026-08-24，见 VALIDATION.md）：gen LeftJoin 改走 raw 链
+	// （clone==1 根，每次链式起点均为全新 Statement），Count 与 Scan 用 Session 克隆防污染；
+	// 过滤条件、JOIN 形态、投影列名、排序与分页语义与收敛前逐条一致。
+	base := global.DB.Table("attribute_set_logs").
+		Where("attribute_set_logs.device_id = ?", req.DeviceId)
 	if req.Status != nil {
-		queryBuilder = queryBuilder.Where(q.Status.Eq(*req.Status))
+		base = base.Where("attribute_set_logs.status = ?", *req.Status)
 	}
 	if req.OperationType != nil {
-		queryBuilder = queryBuilder.Where(q.OperationType.Eq(*req.OperationType))
+		base = base.Where("attribute_set_logs.operation_type = ?", *req.OperationType)
 	}
-	count, err := queryBuilder.Count()
-	if err != nil {
+
+	if err := base.Session(&gorm.Session{}).Count(&count).Error; err != nil {
 		logrus.Error(err)
 		return count, nil, err
 	}
 
+	listBuilder := base.Session(&gorm.Session{}).
+		Select("attribute_set_logs.*, users.name AS username").
+		Joins("LEFT JOIN users ON users.id = attribute_set_logs.user_id").
+		Order("attribute_set_logs.created_at DESC")
 	if req.Page != 0 && req.PageSize != 0 {
-		queryBuilder = queryBuilder.Limit(req.PageSize)
-		queryBuilder = queryBuilder.Offset((req.Page - 1) * req.PageSize)
+		listBuilder = listBuilder.Limit(req.PageSize).
+			Offset((req.Page - 1) * req.PageSize)
 	}
-	queryBuilder = queryBuilder.Order(q.CreatedAt.Desc())
-	queryBuilder = queryBuilder.LeftJoin(u, u.ID.EqCol(q.UserID))
-	list, err := queryBuilder.Select(q.ALL, u.Name.As("username")).Find()
-	if err != nil {
+	var list []*model.AttributeSetLog
+	if err := listBuilder.Scan(&list).Error; err != nil {
 		logrus.Error(err)
 		return count, list, err
 	}

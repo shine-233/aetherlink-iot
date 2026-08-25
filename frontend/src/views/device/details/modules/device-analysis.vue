@@ -267,7 +267,11 @@ onMounted(() => {})
       </n-card>
     </n-modal>
 
-    <n-data-table :columns="columns" :data="tableData" class="mt-4" :pagination="pagination" :remote="true" />
+    <n-data-table :columns="columns" :data="tableData" class="mt-4" :pagination="pagination" :remote="true">
+      <template #empty>
+        <n-empty :description="$t('common.noData')" />
+      </template>
+    </n-data-table>
   </n-card>
 </template>
 
