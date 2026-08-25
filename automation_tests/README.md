@@ -24,7 +24,7 @@
 - `automation_tests/.env.example` is the committed release-style automation env template. Copy it into an ignored local env file or export the same keys in your shell before running release API/E2E evidence collection.
 - `npm run preflight:local` is the local convenience gate: it requires `frontend/dist/index.html` and a reachable backend, starts an isolated preview proxy for the check, runs the `local-lite` configuration/connectivity checks, and always shuts the proxy down. It does not validate release accounts or prove release readiness.
 - `npm run preflight:api-e2e` remains the strict full release configuration/connectivity gate. It probes preview HTML, proxied deployment-health JSON, and backend health JSON, but does not start services, log in, run browser flows, or prove business correctness.
-- The default Playwright browser channel is msedge. If that browser is unavailable on the machine, set PLAYWRIGHT_BROWSER_CHANNEL or PLAYWRIGHT_BROWSER_EXECUTABLE_PATH before running E2E.
+- The default Playwright browser channel is chromium. If you prefer a system browser, set PLAYWRIGHT_BROWSER_CHANNEL (e.g. msedge) or PLAYWRIGHT_BROWSER_EXECUTABLE_PATH before running E2E.
 
 ## 规范入口与证据边界
 
