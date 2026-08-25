@@ -2,7 +2,7 @@
   组件用途: 统计数值组件，使用 useCountUp 的 rAF 数字滚动动画 + motion-v 入场动效。
 -->
 <script setup lang="ts">
-import { computed, type Ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useCountUp } from '@/hooks/use-count-up'
 
 defineOptions({ name: 'MotionStat' })

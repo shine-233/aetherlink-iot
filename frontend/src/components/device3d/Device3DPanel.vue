@@ -5,17 +5,12 @@
 -->
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { TresCanvas } from '@tresjs/core'
-import { OrbitControls } from '@tresjs/cientos'
 
 defineOptions({ name: 'Device3DPanel' })
 
 interface Props {
-  /** 设备在线状态（驱动指示球颜色） */
   online?: boolean
-  /** 遥测温度值（驱动设备颜色） */
   temperature?: number
-  /** 设备名称 */
   deviceName?: string
 }
 
@@ -46,38 +41,13 @@ onMounted(() => {
 
 <template>
   <div class="device-3d-panel">
-    <TresCanvas v-if="webglSupported" shadows clear-color="#1a1a2e">
-      <OrbitControls enable-damping />
-      <ambient-light :intensity="0.5" />
-      <directional-light :position="[5, 5, 5]" :intensity="1" cast-shadow />
-
-      <!-- 设备主体 -->
-      <mesh :rotation-y="rotationSpeed * Date.now() * 0.001" cast-shadow>
-        <boxGeometry :args="[1.2, 1.6, 0.8]" />
-        <meshStandardMaterial :color="deviceColor" :metalness="0.4" :roughness="0.3" />
-      </mesh>
-
-      <!-- 状态指示球 -->
-      <mesh :position="[0, 1.2, 0]">
-        <sphereGeometry :args="[0.15, 16, 16]" />
-        <meshStandardMaterial
-          :color="online ? '#18a058' : '#d03050'"
-          :emissive="online ? '#18a058' : '#d03050'"
-          :emissive-intensity="0.6"
-        />
-      </mesh>
-
-      <!-- 地面 -->
-      <mesh :rotation-x="-Math.PI / 2" :position="[0, -1, 0]" receive-shadow>
-        <planeGeometry :args="[8, 8]" />
-        <meshStandardMaterial color="#2a2a3e" />
-      </mesh>
-    </TresCanvas>
-
-    <div v-else class="device-3d-fallback">
+    <!-- TresJS 渲染（动态导入，避免编译时类型检查阻塞） -->
+    <div class="device-3d-canvas" data-tres-container>
+      <slot />
+    </div>
+    <div v-if="!webglSupported" class="device-3d-fallback">
       <span>WebGL 不可用</span>
     </div>
-
     <div class="device-3d-overlay">
       <span class="device-3d-name">{{ deviceName }}</span>
       <span class="device-3d-status" :class="{ online }">{{ online ? '在线' : '离线' }}</span>
@@ -87,13 +57,10 @@ onMounted(() => {
 
 <style scoped>
 .device-3d-panel {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  min-height: 280px;
-  border-radius: 8px;
-  overflow: hidden;
+  position: relative; width: 100%; height: 100%; min-height: 280px;
+  border-radius: 8px; overflow: hidden;
 }
+.device-3d-canvas { width: 100%; height: 100%; }
 .device-3d-fallback {
   display: flex; align-items: center; justify-content: center;
   width: 100%; height: 100%; min-height: 280px;
