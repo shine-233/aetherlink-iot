@@ -1,4 +1,4 @@
-// 文件用途：数据转发规则 API Handler——CRUD、启停与分页查询。
+﻿// 文件用途：数据转发规则 API Handler——CRUD、启停与分页查询。
 // 核心逻辑：绑定参数 → 读取 claims 租户作用域 → 委托 service → 统一响应中间件返回。
 // 关键注意事项：出参 mqtt_password 恒为掩码（service 层装配）；写操作建议仅租户管理员使用。
 
@@ -36,6 +36,7 @@ func (*ForwardRuleApi) HandleUpdate(c *gin.Context) {
 	if !BindAndValidate(c, &rule) {
 		return
 	}
+	rule.ID = c.Param("id")
 	claims := c.MustGet("claims").(*utils.UserClaims)
 	out, err := service.GroupApp.ForwardRuleService.UpdateForwardRule(&rule, claims.TenantID)
 	if err != nil {

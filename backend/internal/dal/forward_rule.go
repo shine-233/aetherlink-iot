@@ -1,4 +1,4 @@
-// 文件用途：数据转发规则 DAL——raw 链 CRUD、分页与启用规则加载。
+﻿// 文件用途：数据转发规则 DAL——raw 链 CRUD、分页与启用规则加载。
 // 核心逻辑：全部查询以 global.DB/global.DB.Table 为 clone==1 干净起点（gen 继承面收敛
 // 家族约定），租户隔离条件在每条语句内显式携带。
 // 关键注意事项：本文件不做脚本执行与网络投递，仅负责规则持久化读取。
@@ -56,7 +56,7 @@ func DeleteForwardRule(id, tenantID string) error {
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": res.Error.Error()})
 	}
 	if res.RowsAffected == 0 {
-		return errcode.New(101001)
+		return errcode.NewWithMessage(errcode.CodeNotFound, "forward rule not found")
 	}
 	return nil
 }
@@ -70,7 +70,7 @@ func SetForwardRuleEnabled(id, tenantID string, enabled bool) error {
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": res.Error.Error()})
 	}
 	if res.RowsAffected == 0 {
-		return errcode.New(101001)
+		return errcode.NewWithMessage(errcode.CodeNotFound, "forward rule not found")
 	}
 	return nil
 }
