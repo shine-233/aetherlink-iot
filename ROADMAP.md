@@ -191,7 +191,7 @@ ALTER TABLE device_calculated_fields (
 - [ ] WebGL 不支持时降级为 2D
 
 ### C4. AI 集成
-- [ ] 自然语言查询遥测数据（NL→SQL 或 NL→API 调用）
+- [x] 自然语言查询遥测数据（MVP 已落地）：`POST /api/v1/ai/telemetry/query`——LLM 仅解析结构化意图（设备/字段/时间范围），取数走白名单 DAL 并强制租户过滤；OpenAI 兼容端点，`ai.llm.api_key/base_url/model` 配置，未配置时显式报错 ✓
 - [ ] AI 告警分析（异常模式识别+根因建议）
 
 ### C5. 白标定制
@@ -211,4 +211,5 @@ ALTER TABLE device_calculated_fields (
 | 2026-08-25 | A1 | 空租户守卫：alarm 配置/信息/历史列表 + device_config 列表 fail-closed（含 all-tenants 显式授权与回归测试） | #155 |
 | 2026-08-24 | A2 | message_push gen LeftJoin raw 化 | 已并入 main |
 | 2026-08-25 | A3 | 设备影子全链路：迁移 52.sql、DAL/Service/API/路由、上线投递钩子、cron 清理、DAL 测试、前端影子队列标签页 | 待提 PR |
+| 2026-08-25 | C4 | AI 自然语言查询遥测 MVP：意图抽取式 NL 查询服务 + `/ai/telemetry/query` 端点 + 单测 | 待提 PR |
 | 2026-08-23/24 | — | users 列表 raw 链收敛 + 空租户守卫；alarm raw 链 P1 修复 | VALIDATION.md |
