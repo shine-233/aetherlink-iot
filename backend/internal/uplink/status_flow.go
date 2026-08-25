@@ -171,5 +171,15 @@ func (f *StatusUplink) dispatchStatusChangedSideEffects(ctx *statusMessageContex
 	if ctx.status == 1 {
 		go f.sendExpectedData(ctx.device)
 		go f.sendPendingShadowMessages(ctx.device)
+		f.triggerRuleChainsOnline(ctx.device)
 	}
+}
+
+// triggerRuleChainsOnline 设备上线触发规则链（ROADMAP B2）：异步、错误不阻断状态流。
+func (f *StatusUplink) triggerRuleChainsOnline(device *model.Device) {
+	if device == nil {
+		return
+	}
+	deviceCopy := *device
+	go service.GroupApp.RuleChain.OnDeviceOnline(deviceCopy)
 }

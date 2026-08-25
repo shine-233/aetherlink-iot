@@ -58,6 +58,7 @@ type ServiceGroup struct {
 	DeviceTwin
 	DeviceShadow
 	AiQuery
+	RuleChain
 	RDI
 	PayloadSchema
 }
