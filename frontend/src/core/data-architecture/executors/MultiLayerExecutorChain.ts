@@ -20,13 +20,16 @@ import {
 } from '@/core/data-architecture/executors/MultiSourceIntegrator'
 import { unifiedDataExecutor, type UnifiedDataConfig } from '@/core/data-architecture/UnifiedDataExecutor'
 import { shouldSuppressUnmockedTestConsole } from '@/utils/test-console'
+import { createLogger } from '@/utils/logger'
+
+const logger = createLogger('MultiLayerExecutorChain')
 
 function chainWarn(...args: any[]): void {
-  if (!shouldSuppressUnmockedTestConsole(console.warn)) console.warn(...args)
+  if (!shouldSuppressUnmockedTestConsole(console.warn)) logger.warn(...args)
 }
 
 function chainError(...args: any[]): void {
-  if (!shouldSuppressUnmockedTestConsole(console.error)) console.error(...args)
+  if (!shouldSuppressUnmockedTestConsole(console.error)) logger.error(...args)
 }
 
 /** 在内部抛出时保留统一执行器的稳定错误代码。 */
