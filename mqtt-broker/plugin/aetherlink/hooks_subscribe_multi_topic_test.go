@@ -127,6 +127,11 @@ func installMQTTSubscribeTestStore(t *testing.T, device *Device) *int {
 	previousRedis := redisCache
 	previousLog := Log
 
+	// 本测试以 DB 查询回调计数断言“每条主题都执行鉴权查找”；
+	// 设备路由微缓存会合并同设备查找，这里显式旁路以保持原断言语义。
+	restoreCache := setDeviceRouteCacheForTest(&deviceRouteCache{entries: make(map[string]deviceRouteCacheEntry)})
+	t.Cleanup(restoreCache)
+
 	sqlDB, err := sql.Open("pgx", "")
 	if err != nil {
 		t.Fatalf("open test database handle: %v", err)
