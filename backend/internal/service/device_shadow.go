@@ -170,13 +170,14 @@ func (*DeviceShadow) CleanupExpiredShadowMessages() (expired int64, deleted int6
 }
 
 // dispatchShadowMessage 把单条影子消息送入现有命令下发链路。
+// 与在线直发共用 decodeShadowCommandPayload，保证离线缓存命令的 method/params 语义一致。
 func dispatchShadowMessage(deviceId string, msg *model.DeviceShadowMessage) error {
 	switch msg.MessageType {
 	case "command":
-		params := derefString(msg.Payload)
+		method, params := decodeShadowCommandPayload([]byte(derefString(msg.Payload)))
 		putMessage := &model.PutMessageForCommand{
 			DeviceID: deviceId,
-			Identify: "shadow_dispatch",
+			Identify: method,
 			Value:    &params,
 		}
 		return GroupApp.CommandData.CommandPutMessage(context.Background(), "", putMessage, "2")
