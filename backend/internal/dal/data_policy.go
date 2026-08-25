@@ -43,10 +43,7 @@ func GetDataPolicyListByPage(datapolicy *model.GetDataPolicyListByPageReq) (int6
 		return count, datapolicyList, err
 	}
 
-	if datapolicy.Page != 0 && datapolicy.PageSize != 0 {
-		queryBuilder = queryBuilder.Limit(datapolicy.PageSize)
-		queryBuilder = queryBuilder.Offset((datapolicy.Page - 1) * datapolicy.PageSize)
-	}
+	queryBuilder = applyListPagination(queryBuilder, datapolicy.Page, datapolicy.PageSize)
 
 	datapolicyList, err = queryBuilder.Select().Order(q.ID.Asc()).Find()
 	if err != nil {
