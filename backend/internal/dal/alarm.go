@@ -316,7 +316,7 @@ func applyAlarmHistoryScopedFilters(builder *gorm.DB, req *model.GetAlarmHisttor
 				`%"event_type":"pressure_alarm"%`,
 			)
 		} else {
-			builder = builder.Where("COALESCE(ah.remark::text, '') LIKE ?", fmt.Sprintf(`%%"event_type":"%s"%%`, alarmType))
+			builder = builder.Where("COALESCE(ah.remark::text, '') LIKE ?", fmt.Sprintf(`%%"event_type":"%s"%%`, EscapeLikePattern(alarmType)))
 		}
 	}
 	if !isAlarmHistoryActiveStatusFilter(req.AlarmStatus) && req.DeviceId != nil && strings.TrimSpace(*req.DeviceId) != "" {
@@ -658,7 +658,7 @@ func newAlarmConfigListScopedDB(req *model.GetAlarmConfigListByPageReq, allTenan
 		return nil, fmt.Errorf("tenant id is required")
 	}
 	if req.Name != nil && *req.Name != "" {
-		builder = builder.Where("ac.name LIKE ?", fmt.Sprintf("%%%s%%", *req.Name))
+		builder = builder.Where("ac.name LIKE ?", ContainsLikePattern(*req.Name))
 	}
 	if req.AlarmLevel != nil && *req.AlarmLevel != "" {
 		builder = builder.Where("ac.alarm_level = ?", *req.AlarmLevel)

@@ -99,7 +99,7 @@ func applyGatewayUnrelatedDeviceTypeFilter(builder query.IDeviceDo, deviceType *
 
 func applyGatewayUnrelatedDeviceSearchFilter(builder query.IDeviceDo, search *string) query.IDeviceDo {
 	if search != nil && *search != "" {
-		return builder.Where(query.Device.Name.Like(fmt.Sprintf("%%%s%%", *search)))
+		return builder.Where(query.Device.Name.Like(ContainsLikePattern(*search)))
 	}
 	return builder
 }
@@ -188,7 +188,7 @@ func (DeviceQuery) GetDeviceSelect(tenantId string, deviceName string, bindConfi
 		Select(device.ID, device.Name, device.DeviceConfigID.As("device_config_id"), deviceConfig.Name.As("device_config_name")).
 		Where(device.TenantID.Eq(tenantId)).
 		Where(device.ActivateFlag.Eq("active")).
-		Where(device.Name.Like(fmt.Sprintf("%%%s%%", deviceName))).
+		Where(device.Name.Like(ContainsLikePattern(deviceName))).
 		LeftJoin(deviceConfig, deviceConfig.ID.EqCol(device.DeviceConfigID)).
 		Order(device.CreatedAt.Desc())
 	switch bindConfig {

@@ -201,10 +201,10 @@ func (plan *deviceListPagePlan) applySearchFilter(searchValue *string) {
 	q := query.Device
 	search := strings.ToLower(strings.TrimSpace(*searchValue))
 	plan.builder = plan.builder.Where(field.Or(
-		q.Name.Lower().Like(fmt.Sprintf("%%%s%%", search)),
-		q.DeviceNumber.Lower().Like(fmt.Sprintf("%%%s%%", search)),
-		q.CurrentVersion.Lower().Like(fmt.Sprintf("%%%s%%", search)),
-		q.Description.Lower().Like(fmt.Sprintf("%%%s%%", search)),
+		q.Name.Lower().Like(ContainsLikePattern(search)),
+		q.DeviceNumber.Lower().Like(ContainsLikePattern(search)),
+		q.CurrentVersion.Lower().Like(ContainsLikePattern(search)),
+		q.Description.Lower().Like(ContainsLikePattern(search)),
 	))
 }
 

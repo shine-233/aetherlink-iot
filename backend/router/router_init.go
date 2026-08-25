@@ -164,6 +164,8 @@ func RouterInit() *gin.Engine {
 	router.GET("/deployment/health", controllers.SystemApi.DeploymentHealth)
 
 	api := router.Group("api")
+	// 启动期 Casbin 覆盖审计的基线容器：在挂载 CasbinRBAC 前声明，快照在挂载点后写入。
+	var casbinBaselineRoutes []string
 	{
 		// 无需权限校验
 		v1 := api.Group("v1")
@@ -228,6 +230,9 @@ func RouterInit() *gin.Engine {
 
 		// 需要权限校验
 		v1.Use(middleware.CasbinRBAC())
+		// 启动期 Casbin 覆盖审计基线：此快照之后注册的一切路由都视为"受 Casbin 保护"，
+		// 必须登记进资源表，否则 auditCasbinRouteCoverage 会在启动期阻断（见 casbin_audit.go）。
+		casbinBaselineRoutes = ginRoutePaths(router)
 		// SSE服务
 		SSERouter(v1)
 
@@ -306,6 +311,9 @@ func RouterInit() *gin.Engine {
 			apps.Model.SystemMonitor.InitSystemMonitor(v1, m)
 		}
 	}
+
+	// fail-fast：任何挂载在 CasbinRBAC 之后却未登记进资源表的路由，在启动期直接暴露。
+	auditCasbinRouteCoverage(router, casbinBaselineRoutes)
 
 	return router
 }

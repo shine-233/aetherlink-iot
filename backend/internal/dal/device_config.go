@@ -176,7 +176,7 @@ func GetDeviceConfigListByPage(deviceconfig *model.GetDeviceConfigListByPageReq,
 		queryBuilder = queryBuilder.Where(q.ProtocolType.Eq(*deviceconfig.ProtocolType))
 	}
 	if deviceconfig.Name != nil && *deviceconfig.Name != "" {
-		queryBuilder = queryBuilder.Where(q.Name.Like(fmt.Sprintf("%%%s%%", *deviceconfig.Name)))
+		queryBuilder = queryBuilder.Where(q.Name.Like(ContainsLikePattern(*deviceconfig.Name)))
 	}
 
 	count, err := queryBuilder.Count()
@@ -251,7 +251,7 @@ func GetDeviceConfigSelectList(deviceConfigName *string, tenantID string, device
 	queryBuilder := isolatedDeviceConfig().WithContext(context.Background())
 	queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenantID))
 	if deviceConfigName != nil {
-		queryBuilder = queryBuilder.Where(q.Name.Like(fmt.Sprintf("%%%s%%", *deviceConfigName)))
+		queryBuilder = queryBuilder.Where(q.Name.Like(ContainsLikePattern(*deviceConfigName)))
 	}
 	if deviceType != nil {
 		queryBuilder = queryBuilder.Where(q.DeviceType.Eq(*deviceType))

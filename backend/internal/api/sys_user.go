@@ -66,6 +66,7 @@ func (*UserApi) Login(c *gin.Context) {
 	}
 
 	loginLock := service.NewLoginLock()
+	clientIP := c.ClientIP()
 
 	// 检查账号是否因连续失败而被锁定。
 	if loginLock.MaxFailedAttempts > 0 {
@@ -75,13 +76,21 @@ func (*UserApi) Login(c *gin.Context) {
 		}
 	}
 
+	// IP 维度防爆破（安全审计 F3）：阻止同一出口 IP 换账号轰炸；方法内部自判开关。
+	if err := loginLock.GetAllowLoginForIP(c, clientIP); err != nil {
+		c.Error(err)
+		return
+	}
+
 	loginRsp, err := service.GroupApp.User.Login(c, &loginReq)
 	if err != nil {
 		_ = loginLock.LoginFail(c, loginReq.Email)
+		_ = loginLock.LoginFailForIP(c, clientIP)
 		c.Error(err)
 		return
 	}
 	_ = loginLock.LoginSuccess(c, loginReq.Email)
+	_ = loginLock.LoginSuccessForIP(c, clientIP)
 	setAuthCookieForLoginResponse(c, loginRsp)
 	c.Set("data", loginRsp)
 }
@@ -104,7 +113,9 @@ func (*UserApi) Logout(c *gin.Context) {
 // 审查重点：确认 claims 来源可信，且刷新不会绕过封禁、租户停用或权限变更。
 func (*UserApi) RefreshToken(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	loginRsp, err := service.GroupApp.User.RefreshToken(userClaims)
+	// 与鉴权中间件同源提取旧 token 并计算摘要，供 service 在新会话落库后吊销旧会话（F1 修复）。
+	previousTokenDigest := utils.TokenDigest(middleware.SelectJWTAuthToken(c))
+	loginRsp, err := service.GroupApp.User.RefreshToken(userClaims, previousTokenDigest)
 	if err != nil {
 		c.Error(err)
 		return

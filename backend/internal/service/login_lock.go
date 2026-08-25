@@ -18,6 +18,10 @@ import (
 type LoginLock struct {
 	MaxFailedAttempts int64
 	LockDuration      time.Duration
+	// IP 维度防爆破（安全审计 F3）：账号维度锁定无法阻止"同一出口 IP 换账号轰炸"，
+	// 也无法防止单账号被恶意批量锁定；IP 与账号双维度互补，任一命中即拒绝。
+	IPMaxFailedAttempts int64
+	IPWindowDuration    time.Duration
 }
 
 // loginLockShouldLock 判定本次失败后是否需要锁定账号。
@@ -38,9 +42,17 @@ func NewLoginLock() *LoginLock {
 	if lockDuration < 0 {
 		lockDuration = 0
 	}
+	ipMax := viper.GetInt64("classified-protect.ip-login-max-fail-times")
+	ipWindow := viper.GetDuration("classified-protect.ip-login-fail-window-seconds")
+	if ipWindow < 0 {
+		ipWindow = 0
+	}
 	return &LoginLock{
-		MaxFailedAttempts: maxFailedAttempts,
-		LockDuration:      lockDuration * time.Second,
+		MaxFailedAttempts:   maxFailedAttempts,
+		LockDuration:        lockDuration * time.Second,
+		IPMaxFailedAttempts: ipMax,
+		// 与账号维度同约定：配置值为秒数（GetDuration 对纯数字按纳秒解析，统一乘 Second 换算）。
+		IPWindowDuration: ipWindow * time.Second,
 	}
 }
 
@@ -49,12 +61,74 @@ func (l *LoginLock) enabled() bool {
 	return l.MaxFailedAttempts > 0 && l.LockDuration > 0
 }
 
+// ipEnabled 返回 IP 维度防护是否生效：语义与账号维度一致（阈值与窗口均需为正）。
+func (l *LoginLock) ipEnabled() bool {
+	return l.IPMaxFailedAttempts > 0 && l.IPWindowDuration > 0
+}
+
 func (*LoginLock) getLockKey(username string) string {
 	return fmt.Sprintf("user:%s:lock_until", username)
 }
 
 func (*LoginLock) getKey(username string) string {
 	return fmt.Sprintf("user:%s:failed_attempts", username)
+}
+
+func (*LoginLock) getIPFailKey(ip string) string {
+	return fmt.Sprintf("login-ip:%s:failed_attempts", ip)
+}
+
+func (*LoginLock) getIPLockKey(ip string) string {
+	return fmt.Sprintf("login-ip:%s:lock_until", ip)
+}
+
+// GetAllowLoginForIP 判定该来源 IP 是否因失败过多被拒绝。
+// 与账号维度互不影响：任一维度处于锁定期即整体拒绝登录尝试。
+func (l *LoginLock) GetAllowLoginForIP(_ context.Context, ip string) error {
+	if !l.ipEnabled() || ip == "" {
+		return nil
+	}
+	lockUntil, err := global.REDIS.Get(context.Background(), l.getIPLockKey(ip)).Result()
+	if err == nil {
+		lockUntilTime, err := time.Parse(time.RFC3339, lockUntil)
+		if err == nil && time.Now().Before(lockUntilTime) {
+			return errcode.WithVars(errcode.CodeTooManyAttempts, map[string]interface{}{
+				"attempts":    l.IPMaxFailedAttempts,
+				"duration":    l.IPWindowDuration / time.Minute,
+				"unlock_time": lockUntilTime.Format(time.DateTime),
+			})
+		}
+	}
+	return nil
+}
+
+// LoginSuccessForIP 登录成功后清除该 IP 的失败计数（仅自身维度，不动账号计数）。
+func (l *LoginLock) LoginSuccessForIP(_ context.Context, ip string) error {
+	if !l.ipEnabled() || ip == "" {
+		return nil
+	}
+	return global.REDIS.Del(context.Background(), l.getIPFailKey(ip)).Err()
+}
+
+// LoginFailForIP 累计该 IP 失败次数并在达到阈值时锁定整个来源一段时间。
+// 计数键带窗口 TTL：静默期过后自动衰减，避免陈旧计数永久惩罚 NAT 出口。
+func (l *LoginLock) LoginFailForIP(_ context.Context, ip string) error {
+	if !l.ipEnabled() || ip == "" {
+		return nil
+	}
+	failKey := l.getIPFailKey(ip)
+	failed, err := global.REDIS.Incr(context.Background(), failKey).Result()
+	if err != nil {
+		return errors.Errorf("Error incrementing ip failed attempts for %s: %v", ip, err)
+	}
+	if failed == 1 {
+		global.REDIS.Expire(context.Background(), failKey, l.IPWindowDuration)
+	}
+	if loginLockShouldLock(l.IPMaxFailedAttempts, failed) {
+		lockUntilTime := time.Now().Add(l.IPWindowDuration)
+		global.REDIS.Set(context.Background(), l.getIPLockKey(ip), lockUntilTime.Format(time.RFC3339), l.IPWindowDuration)
+	}
+	return nil
 }
 
 func (l *LoginLock) GetAllowLogin(_ context.Context, username string) error {
