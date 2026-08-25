@@ -432,6 +432,9 @@ watch([effectiveModule, () => sysSetting.system_name], () => {
   height: 100%;
   overflow: hidden;
   opacity: 0.6;
+  /* 纯装饰背景层：必须放行指针事件，否则会持续拦截登录卡片上方按钮的点击
+     （Playwright "subtree intercepts pointer events"，E2E 语言切换用例超时的根因）。 */
+  pointer-events: none;
 }
 
 .bg-animation-inner::before {

@@ -8,6 +8,7 @@ import (
 
 	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/pkg/global"
 	"aetherlink-iot/backend/pkg/utils"
 )
 
@@ -41,9 +42,10 @@ func commandJobSupportBundleFromPersistence(
 	commandLogs := commandSetLogsByDeviceMessageIDForJobDetails(supportDetails)
 	progressHealth := buildFleetCommandJobProgressHealth(job, time.Now().UTC())
 	auditSummary := buildFleetCommandJobAuditSummary(events)
-	// 支持包证据行同样受内联上限约束；达到上限时显式标记并提示，
-	// 避免把部分证据当成完整证据集交给支持人员复核。
-	supportRowsTruncated := len(supportDetails) >= commandJobInlineRowLimit
+	// 支持包证据行同样受内联上限约束；达到上限且状态计数显示仍有更多行时
+	// 才判定截断并显式提示，避免把部分证据当成完整证据集交给支持人员复核。
+	supportRowsTruncated := len(supportDetails) >= commandJobInlineRowLimit &&
+		commandJobStatusCountsTotal(counts) > len(supportDetails)
 	retryCounts := commandJobRetryPolicyCounts{
 		Retryable: retryableCount,
 		Ready:     retryReadyCount,
@@ -312,7 +314,11 @@ func commandJobResultFromPersistence(job *model.CommandJob, details []*model.Com
 	rows := commandJobRowsFromDetails(details)
 	// 内联行集受 commandJobInlineRowLimit 约束；真实总数以状态计数为准，
 	// 截断时必须显式标记，避免把“前 N 行”当成全量结果。
-	rowsTotal := commandJobStatusCountsTotal(counts)
+	// counts 为 nil/空时退化为内联行数本身，RowsTotal 始终不小于已返回行数。
+	rowsTotal := len(rows)
+	if countsTotal := commandJobStatusCountsTotal(counts); countsTotal > rowsTotal {
+		rowsTotal = countsTotal
+	}
 	rowsTruncated := len(rows) < rowsTotal
 	createdAt := job.CreatedAt
 	updatedAt := job.UpdatedAt
@@ -525,6 +531,11 @@ func commandSetLogsByDeviceMessageIDForJobDetails(details []*model.CommandJobDet
 			DeviceID:  detail.DeviceID,
 			MessageID: *detail.MessageID,
 		})
+	}
+	if len(lookups) == 0 || global.DB == nil {
+		// 生产环境 global.DB 与 query.SetDefault 恒成对初始化（见 application.go）；
+		// DB 未就绪（如纯内存单测）时跳过日志联查，仅返回 detail 自带响应字段。
+		return map[string]*model.CommandSetLog{}
 	}
 	logs, err := dal.GetCommandSetLogsByDeviceMessageIDs(lookups)
 	if err != nil {
