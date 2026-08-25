@@ -86,8 +86,12 @@ describe('DataItemFetcher', () => {
       temperature: 26
     })
     await expect(fetcher.fetchData({ type: 'json', config: { jsonString: '{bad json' } })).resolves.toEqual({})
-    expect(errorSpy).toHaveBeenCalledWith(
-      '[DataItemFetcher] JSON data source parse failed:',
+    // Logger 契约：console.error 首参恒为 "[AetherLink IoT][模块][级别] 时间 -" 前缀。
+    expect(errorSpy).toHaveBeenCalledTimes(1)
+    const [parsePrefix, parseMessage, parsePayload] = errorSpy.mock.calls[0]
+    expect(parsePrefix).toMatch(/^\[AetherLink IoT\]\[DataItemFetcher\]\[ERROR\] /)
+    expect(parseMessage).toBe('[DataItemFetcher] JSON data source parse failed:')
+    expect(parsePayload).toEqual(
       expect.objectContaining({
         error: expect.any(String)
       })
@@ -114,8 +118,11 @@ describe('DataItemFetcher', () => {
       }
     })
 
-    expect(errorSpy).toHaveBeenCalledWith(
-      '[DataItemFetcher] Unsupported data source:',
+    expect(errorSpy).toHaveBeenCalledTimes(1)
+    const [wsPrefix, wsMessage, wsPayload] = errorSpy.mock.calls[0]
+    expect(wsPrefix).toMatch(/^\[AetherLink IoT\]\[DataItemFetcher\]\[ERROR\] /)
+    expect(wsMessage).toBe('[DataItemFetcher] Unsupported data source:')
+    expect(wsPayload).toEqual(
       expect.objectContaining({
         type: 'websocket',
         url: 'wss://example.test/telemetry'
@@ -388,8 +395,15 @@ describe('DataItemFetcher', () => {
 
     expect(configurationBridgeMock.getConfiguration).toHaveBeenCalledWith('chartA')
     expect(requestMock.get).toHaveBeenCalledWith('/api/devices/recovered-device', { timeout: 10000 })
-    expect(errorSpy).toHaveBeenCalledWith(
-      expect.stringContaining('Damaged binding path detected'),
+    // Logger 契约：console.error 首参恒为前缀；恢复路径会输出多条错误，定位目标调用再验证。
+    const damagedCall = errorSpy.mock.calls.find(
+      call => typeof call[1] === 'string' && String(call[1]).includes('Damaged binding path detected')
+    )
+    expect(damagedCall).toBeDefined()
+    const [bindingPrefix, bindingMessage, bindingPayload] = damagedCall as unknown[]
+    expect(bindingPrefix).toMatch(/^\[AetherLink IoT\]\[\w+\]\[ERROR\] /)
+    expect(bindingMessage).toEqual(expect.stringContaining('Damaged binding path detected'))
+    expect(bindingPayload).toEqual(
       expect.objectContaining({
         key: 'device_id',
         bindingPath: '123',
@@ -577,9 +591,11 @@ describe('DataItemFetcher', () => {
     await expect(fetcher.fetchData({ type: 'script', config: { script: 'return false' } })).resolves.toBe(false)
     await expect(fetcher.fetchData({ type: 'script', config: { script: 'return ""' } })).resolves.toBe('')
     await expect(fetcher.fetchData({ type: 'script', config: { script: 'while(true){}' } })).resolves.toEqual({})
-    expect(errorSpy).toHaveBeenCalledWith('[DataItemFetcher] Script data source failed:', {
-      error: 'blocked'
-    })
+    expect(errorSpy).toHaveBeenCalledTimes(1)
+    const [scriptPrefix, scriptMessage, scriptPayload] = errorSpy.mock.calls[0]
+    expect(scriptPrefix).toMatch(/^\[AetherLink IoT\]\[DataItemFetcher\]\[ERROR\] /)
+    expect(scriptMessage).toBe('[DataItemFetcher] Script data source failed:')
+    expect(scriptPayload).toEqual({ error: 'blocked' })
     errorSpy.mockRestore()
   })
 })
