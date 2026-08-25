@@ -660,5 +660,7 @@ const BUSINESS_CAPABILITIES = [
     e2eTests: ['e2e/06_system.spec.js', 'e2e/14_route_coverage_closure.spec.js'],
     backendTests: ['internal/api/system_api_test.go', 'router/router_contract_test.go'],
     gmqttTests: ['plugin/prometheus/hooks_test.go']
-  },
+  }
+];
+
 module.exports = { BUSINESS_CAPABILITIES, PARENT_ROUTES };
