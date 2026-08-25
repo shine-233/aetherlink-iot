@@ -5,6 +5,9 @@
  * recovery, and data-type conversion separate from request orchestration.
  */
 import type { HttpParameter } from '@/core/data-architecture/types/http-config'
+import { createLogger } from '@/utils/logger'
+
+const logger = createLogger('DataItemFetcherParameterResolution')
 import { convertValue } from '@/core/data-architecture/types/http-config'
 import {
   isDamagedComponentBindingPath,
@@ -28,7 +31,7 @@ export function logHttpParametersLifecycle(config: HttpDataItemConfig, stage: st
     if (param.value && typeof param.value === 'string') {
       const isSuspiciousPath = !param.value.includes('.') && param.value.length < 10 && param.variableName
       if (isSuspiciousPath) {
-        console.error(`[${source}[${index}]] Suspicious binding path:`, {
+        logger.error(`[${source}[${index}]] Suspicious binding path:`, {
           key: param.key,
           value: param.value,
           variableName: param.variableName,
@@ -44,7 +47,7 @@ export function validateParameterBindingPaths(config: HttpDataItemConfig): void 
     if (param.selectedTemplate === 'component-property-binding' || param.valueMode === 'component') {
       const recoveredPath = resolveRecoverableComponentBindingPath(param.value, param.variableName)
       if (!recoveredPath.isValid) {
-        console.error('[DataItemFetcher] Invalid parameter binding path:', {
+        logger.error('[DataItemFetcher] Invalid parameter binding path:', {
           index,
           key: param.key,
           value: recoveredPath.bindingPath,
@@ -114,7 +117,7 @@ function normalizeComponentBindingPath(param: HttpParameter): string {
   let bindingPath = typeof param.value === 'string' ? param.value : String(param.value ?? '')
 
   if (isDamagedComponentBindingPath(bindingPath, param.variableName)) {
-    console.error('[DataItemFetcher] Damaged binding path detected:', {
+    logger.error('[DataItemFetcher] Damaged binding path detected:', {
       key: param.key,
       bindingPath,
       variableName: param.variableName

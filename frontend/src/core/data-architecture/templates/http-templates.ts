@@ -179,7 +179,7 @@ if (config.params) {
   }
 }
 if (missingParams.length > 0) {
-  console.error('缺少必要设备遥测参数:', missingParams)
+  logger.error('缺少必要设备遥测参数:', missingParams)
 }
 
 return config`,
@@ -240,7 +240,7 @@ try {
   return response
 
 } catch (error) {
-  console.error('[遥测数据] 处理失败:', error)
+  logger.error('[遥测数据] 处理失败:', error)
   return response
 }`
     }
@@ -382,10 +382,10 @@ let commandData
 try {
   commandData = JSON.parse(config.body)
   if (!commandData.device_id || !commandData.command_identifier) {
-    console.error('缺少必要的命令参数: device_id, command_identifier')
+    logger.error('缺少必要的命令参数: device_id, command_identifier')
   }
 } catch (e) {
-  console.error('命令数据格式错误:', e)
+  logger.error('命令数据格式错误:', e)
 }
 
 return config`,
