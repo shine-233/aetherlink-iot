@@ -192,7 +192,15 @@ func (user *User) ResetPassword(ctx context.Context, resetPasswordReq *model.Res
 	}
 	t := time.Now().UTC()
 	info.PasswordLastUpdated = &t
-	info.Password = utils.BcryptHash(resetPasswordReq.Password)
+	hashedPassword, hashErr := utils.BcryptHash(resetPasswordReq.Password)
+	if hashErr != nil {
+		logrus.Error(ctx, "[ResetPasswordByCode]hash password failed:", hashErr)
+		return errcode.WithData(errcode.CodeDecryptError, map[string]interface{}{
+			"operation": "update_password",
+			"error":     "Failed to hash password",
+		})
+	}
+	info.Password = hashedPassword
 	if err = db.UpdateByEmail(ctx, info, userQuery.Password, userQuery.PasswordLastUpdated); err != nil {
 		logrus.Error(ctx, "[ResetPasswordByCode]Update Users info failed:", err)
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{

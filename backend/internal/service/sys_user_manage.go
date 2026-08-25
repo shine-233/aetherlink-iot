@@ -168,10 +168,11 @@ func setCreateUserPassword(user *model.User, password string) error {
 		return err
 	}
 
-	hashedPassword := utils.BcryptHash(password)
-	if hashedPassword == "" {
+	hashedPassword, hashErr := utils.BcryptHash(password)
+	if hashErr != nil {
 		return errcode.WithData(errcode.CodeDecryptError, map[string]interface{}{
 			"error": "Failed to hash password",
+			"cause": hashErr.Error(),
 		})
 	}
 	user.Password = hashedPassword
@@ -350,9 +351,12 @@ func applyUpdateUserPassword(user *model.User, password *string, now time.Time) 
 	if password == nil {
 		return nil
 	}
-	hashedPassword := utils.BcryptHash(*password)
-	if hashedPassword == "" {
-		return errcode.New(errcode.CodeDecryptError)
+	hashedPassword, hashErr := utils.BcryptHash(*password)
+	if hashErr != nil {
+		return errcode.WithData(errcode.CodeDecryptError, map[string]interface{}{
+			"error": "Failed to hash password",
+			"cause": hashErr.Error(),
+		})
 	}
 	user.Password = hashedPassword
 	user.PasswordLastUpdated = &now
@@ -658,7 +662,10 @@ func (u *User) InitSuperAdmin(ctx context.Context, req *model.SuperAdminInitReq)
 		return nil, err
 	}
 
-	userInfo := newLocalSuperAdminUser(requestEmail, req.Password, time.Now().UTC())
+	userInfo, userInfoErr := newLocalSuperAdminUser(requestEmail, req.Password, time.Now().UTC())
+	if userInfoErr != nil {
+		return nil, userInfoErr
+	}
 
 	if err := dal.CreateUsers(userInfo); err != nil {
 		return nil, errcode.WithData(errcode.CodeLocalInitCreateUserFail, map[string]interface{}{
@@ -731,19 +738,26 @@ func ensureLocalSuperAdminAbsent(requestEmail string) error {
 	return nil
 }
 
-func newLocalSuperAdminUser(requestEmail, password string, now time.Time) *model.User {
+func newLocalSuperAdminUser(requestEmail, password string, now time.Time) (*model.User, error) {
+	hashedPassword, hashErr := utils.BcryptHash(password)
+	if hashErr != nil {
+		return nil, errcode.WithData(errcode.CodeDecryptError, map[string]interface{}{
+			"error": "Failed to hash password",
+			"email": requestEmail,
+		})
+	}
 	return &model.User{
 		ID:                  uuid.New(),
 		Name:                &requestEmail,
 		Email:               requestEmail,
 		Status:              StringPtr("N"),
 		Authority:           StringPtr("SYS_ADMIN"),
-		Password:            utils.BcryptHash(password),
+		Password:            hashedPassword,
 		TenantID:            StringPtr(""),
 		CreatedAt:           &now,
 		UpdatedAt:           &now,
 		PasswordLastUpdated: &now,
-	}
+	}, nil
 }
 
 func buildLocalInitLoginFailure(userInfo *model.User, cause error) error {

@@ -221,6 +221,10 @@ func seedPasswordResetUser(t *testing.T, db *gorm.DB, id, email string) {
 	status := "N"
 	authority := "TENANT_USER"
 	tenantID := "tenant-a"
+	oldHash, oldHashErr := utils.BcryptHash("OldPassword1!")
+	if oldHashErr != nil {
+		t.Fatalf("seed password reset user hash: %v", oldHashErr)
+	}
 	if err := db.Create(&model.User{
 		ID:                  id,
 		Name:                &name,
@@ -228,7 +232,7 @@ func seedPasswordResetUser(t *testing.T, db *gorm.DB, id, email string) {
 		Email:               email,
 		Status:              &status,
 		Authority:           &authority,
-		Password:            utils.BcryptHash("OldPassword1!"),
+		Password:            oldHash,
 		TenantID:            &tenantID,
 		CreatedAt:           &now,
 		UpdatedAt:           &now,

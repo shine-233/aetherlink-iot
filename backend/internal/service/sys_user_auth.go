@@ -534,7 +534,12 @@ func buildEmailRegisterPassword(ctx context.Context, password string, salt *stri
 	if err := utils.ValidatePassword(password); err != nil {
 		return "", err
 	}
-	return utils.BcryptHash(password), nil
+	hashed, hashErr := utils.BcryptHash(password)
+	if hashErr != nil {
+		logrus.Error("hash register password failed:", hashErr)
+		return "", errcode.NewWithMessage(errcode.CodeDecryptError, "failed to hash password")
+	}
+	return hashed, nil
 }
 
 func newEmailRegisterUser(email, phoneNumber, hashedPassword, tenantID string, now time.Time) *model.User {

@@ -73,7 +73,8 @@ func TestSysUserAuthValidatePassword_MaxLength(t *testing.T) {
 
 func TestSysUserAuthBcryptHashAndCheck(t *testing.T) {
 	password := "TestPass123!@"
-	hash := utils.BcryptHash(password)
+	hash, err := utils.BcryptHash(password)
+	assert.NoError(t, err)
 	assert.NotEmpty(t, hash)
 	assert.NotEqual(t, password, hash)
 	assert.True(t, utils.BcryptCheck(password, hash))
@@ -81,7 +82,8 @@ func TestSysUserAuthBcryptHashAndCheck(t *testing.T) {
 
 func TestSysUserAuthBcryptCheck_WrongPassword(t *testing.T) {
 	password := "TestPass123!@"
-	hash := utils.BcryptHash(password)
+	hash, err := utils.BcryptHash(password)
+	assert.NoError(t, err)
 	assert.False(t, utils.BcryptCheck("WrongPass123!@", hash))
 }
 
