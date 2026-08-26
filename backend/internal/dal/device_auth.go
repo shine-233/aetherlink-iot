@@ -40,6 +40,7 @@ func isTemplateSecretDigest(storedValue string) bool {
 // 库中值为 64 位 hex 时按摘要比对 sha256(呈现值)；否则按历史明文精确比对，
 // 命中后惰性升级为摘要，避免破坏性迁移。查询使用两次等值条件（呈现值、其摘要），
 // 与原单列等值索引兼容，无需全表扫描。
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDeviceConfigByTemplateSecret(presentedSecret string) (*model.DeviceConfig, error) {
 	if presentedSecret == "" {
 		return nil, nil
@@ -83,6 +84,7 @@ func upgradeTemplateSecretToDigest(configID string, digest string) {
 }
 
 // GetProductByProductKey 通过产品密钥获取产品信息
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetProductByProductKey(productKey string) (*model.Product, error) {
 	product, err := query.Product.Where(query.Product.ProductKey.Eq(productKey)).First()
 	if err != nil {

@@ -94,11 +94,13 @@ func GetDeviceSelectByGroupId(tenantId string, group_id string, deviceName strin
 	return data, query.Scan(&data)
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetRGroupDeviceByDeviceId(device_id string) ([]*model.RGroupDevice, error) {
 	data, err := query.RGroupDevice.Where(query.RGroupDevice.DeviceID.Eq(device_id)).Find()
 	return data, err
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDeviceIdsByGroupIds(group_ids []string) ([]string, error) {
 	data, err := query.RGroupDevice.Where(query.RGroupDevice.GroupID.In(group_ids...)).Select(query.RGroupDevice.DeviceID).Find()
 	var deviceIds []string
@@ -108,6 +110,7 @@ func GetDeviceIdsByGroupIds(group_ids []string) ([]string, error) {
 	return deviceIds, err
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDeviceIdsByDeviceConfigId(deviceConfigIds []string) ([]string, error) {
 	var result []string
 	err := query.Device.Where(query.Device.DeviceConfigID.In(deviceConfigIds...)).Pluck(query.Device.ID, &result)

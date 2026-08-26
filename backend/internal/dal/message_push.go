@@ -21,6 +21,7 @@ func CreateMessagePushMange(data *model.MessagePushManage) error {
 	return query.MessagePushManage.Create(data)
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetMessagePushMangeExists(userId, pushId string) (bool, error) {
 	index, err := query.MessagePushManage.Where(query.MessagePushManage.PushID.Eq(pushId), query.MessagePushManage.UserID.Eq(userId)).Count()
 	if err != nil {
@@ -55,6 +56,7 @@ func MessagePushMangeSendUpdate(id string, updates map[string]interface{}) error
 	return err
 }
 
+// tenant-scope: system-table?2026-08-26 ?????
 func GetMessagePushConfig() (*model.MessagePushConfigRes, error) {
 	var result model.MessagePushConfigRes
 	return &result, query.MessagePushConfig.Where(query.MessagePushConfig.ConfigType.Eq(1)).Scan(&result)
@@ -97,6 +99,7 @@ func MessagePushSendLogSave(log *model.MessagePushLog) error {
 	return query.MessagePushLog.Save(log)
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetUserMessagePushManage(userId string) (*model.MessagePushManage, error) {
 	return query.MessagePushManage.Where(
 		query.MessagePushManage.UserID.Eq(userId),
@@ -106,6 +109,7 @@ func GetUserMessagePushManage(userId string) (*model.MessagePushManage, error) {
 }
 
 // GetUserMessagePushManages 查询用户的所有有效推送记录（支持多设备）
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetUserMessagePushManages(userId string) ([]*model.MessagePushManage, error) {
 	return query.MessagePushManage.Where(
 		query.MessagePushManage.UserID.Eq(userId),
@@ -114,6 +118,7 @@ func GetUserMessagePushManages(userId string) ([]*model.MessagePushManage, error
 	).Find()
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetMessagePushMangeInactiveWithSeven() error {
 	var result []model.MessagePushManage
 	err := query.MessagePushManage.Where(query.MessagePushManage.InactiveTime.Lt(time.Now().Add(-7 * time.Hour * 24))).Scan(&result)
@@ -152,6 +157,7 @@ func GetMessagePushMangeInactiveWithSeven() error {
 	return err
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetMessagePushMangeInactive() error {
 	var result []model.MessagePushManage
 	err := query.MessagePushManage.Where(query.MessagePushManage.ErrCount.Gt(3), query.MessagePushManage.InactiveTime.IsNull()).Scan(&result)

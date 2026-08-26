@@ -13,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetSceneLogByPage(req model.GetSceneLogListByPageReq) (int64, []*model.SceneLog, error) {
 
 	var count int64

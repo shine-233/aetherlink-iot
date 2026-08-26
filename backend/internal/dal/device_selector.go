@@ -14,6 +14,7 @@ import (
 )
 
 // GetDeviceSelector 返回设备选择器分页结果。
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDeviceSelector(req model.DeviceSelectorReq, tenantId string) (*model.DeviceSelectorRes, error) {
 	queryBuilder := baseDeviceSelectorQuery(tenantId)
 	queryBuilder = applyDeviceSelectorFilters(queryBuilder, req)

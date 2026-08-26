@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDevicePreRegisterListByPage(req *model.GetDevicePreRegisterListByPageReq, tenantID string) (int64, []model.GetDevicePreRegisterListByPageRsp, error) {
 	var count int64
 	deviceList := []model.GetDevicePreRegisterListByPageRsp{}

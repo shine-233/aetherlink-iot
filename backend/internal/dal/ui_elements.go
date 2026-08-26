@@ -177,6 +177,7 @@ func buildUiElementTree1(elements []*model.SysUIElement) []*model.UiElementsList
 }
 
 // 获取租户下权限配置表单树
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetTenantUiElementsList() (interface{}, error) {
 	q := query.SysUIElement
 	queryBuilder := q.WithContext(context.Background())

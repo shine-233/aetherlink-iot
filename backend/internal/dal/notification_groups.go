@@ -40,6 +40,7 @@ func DeleteNotificationGroup(id string) error {
 	return err
 }
 
+// tenant-scope: no-tenant-column?2026-08-26 ?????
 func GetNotificationGroupList(page, pageSize int) (int64, interface{}, error) {
 	var count int64
 	queryBuilder := query.NotificationGroup.WithContext(context.Background())
@@ -55,6 +56,7 @@ func GetNotificationGroupList(page, pageSize int) (int64, interface{}, error) {
 	return count, notificationGroupList, err
 }
 
+// tenant-scope: no-tenant-column?2026-08-26 ?????
 func GetNotificationGroupById(id string) (*model.NotificationGroup, error) {
 	p := query.NotificationGroup
 	notificationGroup, err := query.NotificationGroup.Where(p.ID.Eq(id)).Select().First()

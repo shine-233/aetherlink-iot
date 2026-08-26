@@ -180,6 +180,7 @@ func GetDeviceModelCommandsListByPage(r model.GetDeviceModelListByPageReq, tenan
 	return count, data, err
 }
 
+// tenant-scope: parent-owned?2026-08-26 ?????
 func GetDeviceModelEventDataList(device_template_id string) ([]*model.DeviceModelEvent, error) {
 	data, err := query.DeviceModelEvent.
 		Where(query.DeviceModelEvent.DeviceTemplateID.Eq(device_template_id)).Find()
@@ -189,6 +190,7 @@ func GetDeviceModelEventDataList(device_template_id string) ([]*model.DeviceMode
 	return data, nil
 }
 
+// tenant-scope: parent-owned?2026-08-26 ?????
 func GetDeviceModelCommandDataList(device_template_id string) ([]*model.DeviceModelCommand, error) {
 	data, err := query.DeviceModelCommand.
 		Where(query.DeviceModelCommand.DeviceTemplateID.Eq(device_template_id)).Find()
@@ -198,6 +200,7 @@ func GetDeviceModelCommandDataList(device_template_id string) ([]*model.DeviceMo
 	return data, nil
 }
 
+// tenant-scope: parent-owned?2026-08-26 ?????
 func GetDeviceModelTelemetryDataList(device_template_id string) ([]*model.DeviceModelTelemetry, error) {
 	data, err := query.DeviceModelTelemetry.
 		Where(query.DeviceModelTelemetry.DeviceTemplateID.Eq(device_template_id)).Find()
@@ -207,6 +210,7 @@ func GetDeviceModelTelemetryDataList(device_template_id string) ([]*model.Device
 	return data, nil
 }
 
+// tenant-scope: parent-owned?2026-08-26 ?????
 func GetDeviceModelAttributeDataList(device_template_id string) ([]*model.DeviceModelAttribute, error) {
 	data, err := query.DeviceModelAttribute.
 		Where(query.DeviceModelAttribute.DeviceTemplateID.Eq(device_template_id)).Find()
@@ -238,6 +242,7 @@ func GetDeviceModelAttributeDataForTenant(deviceTemplateID, tenantID string) ([]
 	return q.Where(q.DeviceTemplateID.Eq(deviceTemplateID), q.TenantID.Eq(tenantID)).Find()
 }
 
+// tenant-scope: parent-owned?2026-08-26 ?????
 func GetIdentifierNameTelemetry() func(device_template_id, identifier string) string {
 	return func(device_template_id, identifier string) string {
 		q := query.DeviceModelTelemetry
@@ -252,6 +257,7 @@ func GetIdentifierNameTelemetry() func(device_template_id, identifier string) st
 	}
 }
 
+// tenant-scope: parent-owned?2026-08-26 ?????
 func GetIdentifierNameAttribute() func(device_template_id, identifier string) string {
 	return func(device_template_id, identifier string) string {
 		q := query.DeviceModelAttribute
@@ -265,6 +271,7 @@ func GetIdentifierNameAttribute() func(device_template_id, identifier string) st
 		return *result.DataName
 	}
 }
+// tenant-scope: parent-owned?2026-08-26 ?????
 func GetIdentifierNameEvent() func(device_template_id, identifier string) string {
 	return func(device_template_id, identifier string) string {
 		q := query.DeviceModelEvent

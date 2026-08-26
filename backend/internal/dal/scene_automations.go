@@ -40,6 +40,7 @@ func DeleteSceneAutomation(id string, tx *query.QueryTx) error {
 
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetSceneAutomation(id string, tx *query.QueryTx) (*model.SceneAutomation, error) {
 	if tx != nil {
 		data, err := tx.SceneAutomation.Where(tx.SceneAutomation.ID.Eq(id)).First()

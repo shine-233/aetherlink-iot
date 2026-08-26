@@ -31,6 +31,7 @@ func DeleteDataPolicy(id string) error {
 	return err
 }
 
+// tenant-scope: system-table?2026-08-26 ?????
 func GetDataPolicyListByPage(datapolicy *model.GetDataPolicyListByPageReq) (int64, interface{}, error) {
 	q := query.DataPolicy
 	var count int64
@@ -54,6 +55,7 @@ func GetDataPolicyListByPage(datapolicy *model.GetDataPolicyListByPageReq) (int6
 	return count, datapolicyList, err
 }
 
+// tenant-scope: system-table?2026-08-26 ?????
 func GetDataPolicy() ([]*model.DataPolicy, error) {
 	p := query.DataPolicy
 	datapolicyList, err := p.Select().Find()

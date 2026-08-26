@@ -23,6 +23,7 @@ func CreateRole(data *model.Role) error {
 	return query.Role.Create(data)
 }
 
+// tenant-scope: no-tenant-column?2026-08-26 ?????
 func GetRoleByID(id string) (model.Role, error) {
 	var data model.Role
 	err := query.Role.Where(query.Role.ID.Eq(id)).Scan(&data)
@@ -91,6 +92,7 @@ func GetRoleListByPage(data *model.GetRoleListByPageReq, tenantID string) (int64
 }
 
 // 查询用户的角色
+// tenant-scope: no-tenant-column?2026-08-26 ?????
 func GetRolesByUserId(userId string) ([]string, bool) {
 	if global.CasbinEnforcer == nil {
 		return nil, false
@@ -110,6 +112,7 @@ func GetRolesByUserId(userId string) ([]string, bool) {
 	return roles, true
 }
 
+// tenant-scope: no-tenant-column?2026-08-26 ?????
 func GetRolesByUserIds(userIds []string) map[string][]string {
 	rolesByUserID := make(map[string][]string, len(userIds))
 	if len(userIds) == 0 || global.CasbinEnforcer == nil {

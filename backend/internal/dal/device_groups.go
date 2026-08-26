@@ -174,6 +174,7 @@ func GetAutoBindRootDeviceGroupID(tx *query.Query, tenantId string) (string, err
 	return rootGroups[0].ID, nil
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDeviceGroupDetail(id string) (*model.Group, error) {
 	d, err := query.Group.Where(query.Group.ID.Eq(id)).First()
 	if err != nil {
@@ -243,6 +244,7 @@ func GetDeviceGroupStatistics(groupID string, tenantID string, ownerUserID *stri
 	}, nil
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDeviceGroupTierById(id string) (map[string]interface{}, error) {
 	r := make(map[string]interface{})
 	sql := `
@@ -268,6 +270,7 @@ func GetDeviceGroupTierById(id string) (map[string]interface{}, error) {
 // GetDeviceGroupTierByIds 批量解析分组层级路径，返回 groupID -> group_path。
 // 用单条递归 CTE（带 root_id 分组）替代逐分组查询，消除列表构建时的 N+1。
 // 查不到的分组不出现在结果中，与单条版返回空 map 的语义一致。
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDeviceGroupTierByIds(ids []string) (map[string]interface{}, error) {
 	result := make(map[string]interface{}, len(ids))
 	if len(ids) == 0 {
@@ -301,6 +304,7 @@ func GetDeviceGroupTierByIds(ids []string) (map[string]interface{}, error) {
 }
 
 // 获取目标分组的所有子分组id
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetGroupChildrenIds(id string) ([]string, error) {
 	var ids []string
 	sql := `

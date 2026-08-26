@@ -35,6 +35,7 @@ func isolatedTelemetryCurrent() query.ITelemetryCurrentDataDo {
 }
 
 // 从 telemetry_current_datas 中获取遥测当前数据，用于替换 telemetry_datas
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetCurrentTelemetryDataEvolution(deviceId string) ([]*model.TelemetryCurrentData, error) {
 	dbType := viper.GetString("grpc.tptodb_type")
 	if dbType == "TSDB" || dbType == "KINGBASE" || dbType == "POLARDB" {
@@ -67,6 +68,7 @@ func GetCurrentTelemetryDataEvolution(deviceId string) ([]*model.TelemetryCurren
 	return data, nil
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetCurrentTelemetryReadiness(deviceId string) (int64, *model.TelemetryCurrentData, error) {
 	dbType := viper.GetString("grpc.tptodb_type")
 	if dbType == "TSDB" || dbType == "KINGBASE" || dbType == "POLARDB" {
@@ -120,6 +122,7 @@ func getCurrentTelemetryReadinessFromDB(deviceId string) (int64, *model.Telemetr
 }
 
 // 从 telemetry_current_datas 中获取遥测当前数据，用于替换 telemetry_datas
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetCurrentTelemetryDataEvolutionByDeviceIDs(deviceIDs []string) (map[string][]*model.TelemetryCurrentData, error) {
 	normalizedIDs := make([]string, 0, len(deviceIDs))
 	seen := make(map[string]struct{}, len(deviceIDs))
@@ -169,6 +172,7 @@ func GetCurrentTelemetryDataEvolutionByDeviceIDs(deviceIDs []string) (map[string
 	return result, nil
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetCurrentTelemetryDataEvolutionByKeys(deviceId string, keys []string) ([]*model.TelemetryCurrentData, error) {
 	dbType := viper.GetString("grpc.tptodb_type")
 	if dbType == "TSDB" || dbType == "KINGBASE" || dbType == "POLARDB" {
@@ -203,6 +207,7 @@ func GetCurrentTelemetryDataEvolutionByKeys(deviceId string, keys []string) ([]*
 	return data, nil
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetCurrentTelemetryDataOneKeys(deviceId string, keys string) (interface{}, error) {
 	// 读侧收敛：单 key 读从全新 Statement 出发；既有 ErrRecordNotFound 返回语义保持逐字节一致。
 	data, err := isolatedTelemetryCurrent().

@@ -15,6 +15,7 @@ import (
 )
 
 // 根据类型获取配置（邮件/短信）
+// tenant-scope: system-table?2026-08-26 ?????
 func GetNotificationServicesConfigByType(noticeType string) (*model.NotificationServicesConfig, error) {
 	data, err := query.NotificationServicesConfig.Where(query.NotificationServicesConfig.NoticeType.Eq(noticeType)).Take()
 	if err != nil {

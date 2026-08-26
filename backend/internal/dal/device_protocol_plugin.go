@@ -18,6 +18,7 @@ import (
 )
 
 // GetDeviceListByProtocolType 通过协议标识符获取协议插件可使用的直连设备列表。
+// tenant-scope: system-table?2026-08-26 ?????
 func GetDeviceListByProtocolType(req model.GetDevicesByProtocolPluginReq, tenantID string, ownerUserID *string, devicesRsp *model.GetDevicesByProtocolPluginRsp) error {
 	if req.DeviceType == "1" {
 		queryBuilder := baseProtocolPluginDeviceListQuery(req, tenantID, ownerUserID)

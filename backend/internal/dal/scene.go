@@ -139,6 +139,7 @@ func DeleteSceneInfo(scene_id string) error {
 	return err
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetSceneInfo(scene_id string) (*model.SceneInfo, error) {
 	sceneInfo, err := query.SceneInfo.Where(query.SceneInfo.ID.Eq(scene_id)).First()
 	if err != nil {
@@ -194,6 +195,7 @@ func GetSceneInfoByPage(req *model.GetSceneListByPageReq, tenant_id string) (int
 	return count, sceneList, nil
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetSceneActionsInfo(scene_id string) ([]*model.SceneActionInfo, error) {
 	sceneActionInfo, err := query.SceneActionInfo.Where(query.SceneActionInfo.SceneID.Eq(scene_id)).Find()
 	if err != nil {

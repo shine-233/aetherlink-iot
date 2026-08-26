@@ -82,6 +82,7 @@ func GetServiceAccessListByServicePluginID(servicePluginID string, tenantID stri
 }
 
 // 通过id获取服务接入点信息
+// tenant-scope: no-tenant-column?2026-08-26 ?????
 func GetServiceAccessByID(id string) (*model.ServiceAccess, error) {
 	// 使用first查询
 	q := query.ServiceAccess

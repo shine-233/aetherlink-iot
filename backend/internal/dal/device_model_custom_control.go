@@ -18,6 +18,7 @@ func CreateDeviceModelCustomControl(data *model.DeviceModelCustomControl) error 
 	return query.DeviceModelCustomControl.Create(data)
 }
 
+// tenant-scope: parent-owned?2026-08-26 ?????
 func GetDeviceModelCustomControlById(id string) (*model.DeviceModelCustomControl, error) {
 	return query.DeviceModelCustomControl.Where(query.DeviceModelCustomControl.ID.Eq(id)).First()
 }

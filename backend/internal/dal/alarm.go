@@ -67,6 +67,7 @@ func DeleteAlarmConfig(id string) error {
 	return nil
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetAlarmByID(id string) (*model.AlarmConfig, error) {
 	data, err := query.AlarmConfig.Where(query.AlarmConfig.ID.Eq(id)).First()
 	if err != nil {
@@ -75,6 +76,7 @@ func GetAlarmByID(id string) (*model.AlarmConfig, error) {
 	return data, nil
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetAlarmHistoryByID(id string) (*model.AlarmHistory, error) {
 	data, err := query.AlarmHistory.Where(query.AlarmHistory.ID.Eq(id)).First()
 	if err != nil {
@@ -83,6 +85,7 @@ func GetAlarmHistoryByID(id string) (*model.AlarmHistory, error) {
 	return data, nil
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetAlarmHistoriesByIDs(ids []string) ([]*model.AlarmHistory, error) {
 	if len(ids) == 0 {
 		return nil, nil
@@ -91,6 +94,7 @@ func GetAlarmHistoriesByIDs(ids []string) ([]*model.AlarmHistory, error) {
 }
 
 // 根据告警历史 ID 获取历史详情，并在存在时展开关联设备列表。
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetAlarmInfoHistoryByID(id string, ownerUserID *string) (map[string]interface{}, error) {
 	var result map[string]interface{}
 	err := query.AlarmHistory.Where(query.AlarmHistory.ID.Eq(id)).Select(query.AlarmHistory.ALL).Scan(&result)
@@ -137,6 +141,7 @@ func CreateAlarmInfo(d *model.AlarmInfo) error {
 	return query.AlarmInfo.Create(d)
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetAlarmInfoByID(id string) (*model.AlarmInfo, error) {
 	data, err := query.AlarmInfo.Where(query.AlarmInfo.ID.Eq(id)).First()
 	if err != nil {
@@ -553,6 +558,7 @@ func GetConfigByDevice(req *model.GetDeviceAlarmStatusReq, tenantID string) ([]m
 	return config, query.AlarmConfig.Where(query.AlarmConfig.ID.In(configIDs...), query.AlarmConfig.TenantID.Eq(tenantID)).Scan(&config)
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetAlarmNameWithCache(alarmId string) string {
 	redis := global.REDIS
 	cacheKey := fmt.Sprintf("GetAlarmNameWithCache:alarmId:%s", alarmId)
@@ -591,6 +597,7 @@ func DeleteAlarmHistoryByConfigId(alarmConfigId string) error {
 const alarmHistoryScanBatchSize = 1000
 
 // GetDeviceIdsByAlarmConfigId 返回触发过指定告警配置的设备 ID 去重列表。
+// tenant-scope: parent-owned?2026-08-26 ?????
 func GetDeviceIdsByAlarmConfigId(alarmConfigId string) ([]string, error) {
 	hq := query.AlarmHistory
 	deviceSet := make(map[string]struct{})
@@ -721,6 +728,7 @@ func isAlarmHistoryActiveStatusFilter(alarmStatus *string) bool {
 	return alarmStatus != nil && strings.TrimSpace(*alarmStatus) == model.AlarmHistoryQueryStatusActive
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func CountActiveAlarmHistoryByTenant(tenantID string, ownerUserID *string) (int64, error) {
 	return CountActiveAlarmHistoryByScope(tenantID, ownerUserID, false)
 }

@@ -33,6 +33,7 @@ func (DeviceModelTelemetryQuery) Find(ctx context.Context, option ...gen.Conditi
 	return
 }
 
+// tenant-scope: parent-owned?2026-08-26 ?????
 func GetDataNameByIdentifierAndTemplateId(device_template_id string, identifier ...string) ([]*model.DeviceModelTelemetry, error) {
 	data, err := query.DeviceModelTelemetry.
 		Where(query.DeviceModelTelemetry.DeviceTemplateID.Eq(device_template_id)).

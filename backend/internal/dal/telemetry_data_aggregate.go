@@ -22,6 +22,7 @@ type TelemetryDatasAggregate struct {
 }
 
 // 聚合查询
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetTelemetryDatasAggregate(_ context.Context, telemetryDatasAggregate TelemetryDatasAggregate) ([]map[string]interface{}, error) {
 	var data []map[string]interface{}
 	var queryString string
@@ -136,6 +137,7 @@ const telemetryDiffQuery = `WITH FilteredData AS (
 // GetQueryString1 returns one of the fixed aggregate SQL statements. The
 // request value selects a constant expression and is never interpolated into
 // SQL, while the query values themselves remain parameterized by GORM.
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetQueryString1(aggregateFunction string) string {
 	switch aggregateFunction {
 	case "avg":
@@ -153,6 +155,7 @@ func GetQueryString1(aggregateFunction string) string {
 
 // GetQueryString2 returns the fixed difference query. The argument is kept for
 // API compatibility with the older query builder.
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetQueryString2(_ string) string {
 	return telemetryDiffQuery
 }
