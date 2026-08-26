@@ -66,6 +66,12 @@ importers:
       '@iconify/vue':
         specifier: 5.0.1
         version: 5.0.1(vue@3.5.41(typescript@5.8.3))
+      '@tresjs/cientos':
+        specifier: ^5.8.1
+        version: 5.8.1(@tresjs/core@5.8.3(three@0.185.1)(vue@3.5.41(typescript@5.8.3)))(three@0.185.1)(vue@3.5.41(typescript@5.8.3))
+      '@tresjs/core':
+        specifier: ^5.8.3
+        version: 5.8.3(three@0.185.1)(vue@3.5.41(typescript@5.8.3))
       '@vueuse/core':
         specifier: 14.4.0
         version: 14.4.0(vue@3.5.41(typescript@5.8.3))
@@ -90,6 +96,9 @@ importers:
       lodash-es:
         specifier: 4.18.1
         version: 4.18.1
+      motion-v:
+        specifier: ^2.4.0
+        version: 2.4.0(@vueuse/core@14.4.0(vue@3.5.41(typescript@5.8.3)))(vue@3.5.41(typescript@5.8.3))
       naive-ui:
         specifier: 2.44.1
         version: 2.44.1(vue@3.5.41(typescript@5.8.3))
@@ -105,6 +114,9 @@ importers:
       pinia:
         specifier: ^3.0.3
         version: 3.0.4(typescript@5.8.3)(vue@3.5.41(typescript@5.8.3))
+      three:
+        specifier: ^0.185.1
+        version: 0.185.1
       vue:
         specifier: ^3.5.41
         version: 3.5.41(typescript@5.8.3)
@@ -148,12 +160,6 @@ importers:
       '@iconify-json/mdi':
         specifier: ^1.2.3
         version: 1.2.3
-      '@tresjs/cientos':
-        specifier: ^5.8.1
-        version: 5.8.1(@tresjs/core@5.8.3(three@0.185.1)(vue@3.5.41(typescript@5.8.3)))(three@0.185.1)(vue@3.5.41(typescript@5.8.3))
-      '@tresjs/core':
-        specifier: ^5.8.3
-        version: 5.8.3(three@0.185.1)(vue@3.5.41(typescript@5.8.3))
       '@types/bmapgl':
         specifier: 0.0.7
         version: 0.0.7
@@ -226,9 +232,6 @@ importers:
       happy-dom:
         specifier: ^20.11.2
         version: 20.11.2
-      motion-v:
-        specifier: ^2.4.0
-        version: 2.4.0(@vueuse/core@14.4.0(vue@3.5.41(typescript@5.8.3)))(vue@3.5.41(typescript@5.8.3))
       prettier:
         specifier: ^3.9.6
         version: 3.9.6
@@ -238,9 +241,6 @@ importers:
       sass:
         specifier: 1.102.0
         version: 1.102.0
-      three:
-        specifier: ^0.185.1
-        version: 0.185.1
       tsx:
         specifier: 4.23.12
         version: 4.23.12

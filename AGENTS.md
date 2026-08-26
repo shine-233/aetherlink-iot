@@ -28,6 +28,8 @@ AetherLink IoT 是面向物联网设备接入、监控和私有部署的平台�
 - 外接模块必须保留稳定接口契约；能本地化的核心能力优先使用本地实现，不能本地化的能力返回明确的 optional/external-blocked 状态。
 - 数据库迁移当前最高为 `52.sql` / `VERSION_NUMBER=52`；修改迁移前先核对 `backend/sql/` 与目标数据库的 `sys_version`。
 - Broker 认证失败限速为插件配置面：`auth_ratelimit.max_failures_per_minute`（默认 30/分钟/IP）。
+- 登录防爆破为账号+IP 双维度：账号沿用 `classified-protect.login-max-fail-times`；IP 维度用 `classified-protect.ip-login-max-fail-times` / `ip-login-fail-window-seconds`（默认 20 次/600 秒，负值关闭）。
+- Casbin 路由覆盖审计默认 fail-fast（`casbin.route-audit-mode: fail-fast|warn|off`）：挂载在 CasbinRBAC 之后的新路由必须登记进资源表，否则后端拒绝启动。
 - devices.voucher 的 Redis 缓存键是跨服务 SHA-256 契约：`backend/pkg/utils/vouchercache.go` 必须与 `mqtt-broker/plugin/aetherlink/db.go` 的 `voucherCacheKey` 保持一致，任一侧变更需双端同步并更新两侧契约测试。
 - 后端内部拨号 MQTT broker 一律经 `backend/pkg/utils/mqtt_broker_address.go` 的统一助手解析，禁止在业务代码里直连 localhost/127.0.0.1。
 - 8082 指标端口无认证且永久 loopback 绑定（docker-compose.yml 契约测试锁定），不得改为跟随对外绑定地址。
