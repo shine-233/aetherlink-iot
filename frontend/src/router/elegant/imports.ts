@@ -58,6 +58,7 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   "personal-center": () => import("@/views/personal-center/index.vue"),
   "product_update-ota": () => import("@/views/product/update-ota/index.vue"),
   "product_update-package": () => import("@/views/product/update-package/index.vue"),
+  "product_pre-register": () => import("@/views/product/pre-register/index.vue"),
   "system-management-user_equipment-map": () => import("@/views/system-management-user/equipment-map/index.vue"),
   "system-management-user_system-log": () => import("@/views/system-management-user/system-log/index.vue"),
   "visualization_native-board": () => import("@/views/visualization/native-board/index.vue"),

@@ -129,6 +129,8 @@ API、E2E 和 synthetic-rdi 运行必须使用独立的 report/output 目录，�
 - IP 锁定、Casbin 审计、刷新吊销均为静态+单测证据；真实 Redis/浏览器 E2E 运行验证 pending。
 - A5 http_client 死代码 `Post/Delete` 已删除（零调用方核实）；`PostJson` 返回 *http.Response 的契约保持，由现有调用方正确 Close。
 - 未纳入本批：13 个零测试业务目录补齐、巨型文件拆分、1014 处硬编码 hex 的 token 化、JWT 主通道切换 HttpOnly cookie、Device3DPanel 接线——需独立车道或产品决策。
+- **Casbin g2 资源表核查（2026-08-26，预注册 lane）**：全代码库与全部迁移脚本均无 `ptype='g2'` 写入路径——`GetUrl` 恒 false，`CasbinRBAC` 的 URL 级鉴权在当前所有环境实际未激活（仅 JWT 生效），启动审计 fail-fast 对存量部署的阻断风险与此同源。新路由按兄弟口径仅注册路由。g2 种子化/菜单面登记需产品决策后单独立项。
+- 设备预注册 CSV 批量导入：service 层 sqlite 全链路测试 ×5 + 前端组件测试 ×3 为静态证据；真实浏览器上传/导出下载链路 E2E pending。
 
 ## 维护与审查建议
 

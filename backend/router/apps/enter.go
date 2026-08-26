@@ -42,6 +42,7 @@ type apps struct {
 	AiQuery
 	RDI
 	PayloadSchema
+	Product
 }
 
 var Model = new(apps)

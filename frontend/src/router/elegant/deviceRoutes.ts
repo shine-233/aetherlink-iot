@@ -182,6 +182,15 @@ export const productRoutes: GeneratedRoute[] = [
             title: 'product_update-package',
             i18nKey: 'route.product_update-package'
           }
+        },
+        {
+          name: 'product_pre-register',
+          path: '/product/pre-register',
+          component: 'view.product_pre-register',
+          meta: {
+            title: 'product_pre-register',
+            i18nKey: 'route.product_pre-register'
+          }
         }
       ]
     }

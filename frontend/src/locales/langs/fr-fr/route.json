@@ -11,6 +11,7 @@
   "route.product": "Gestion des produits",
   "route.product_update-ota": "Mise à niveau OTA",
   "route.product_update-package": "Gestion des packages de mise à niveau",
+  "route.product_pre-register": "Préenregistrement des appareils",
   "route.dashboard": "Opérations et visualisation",
   "route.dashboard_workspace": "Entrée visualisation",
   "route.dashboard_rdi-overview": "Aperçu RDI",

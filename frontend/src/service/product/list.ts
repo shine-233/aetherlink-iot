@@ -30,6 +30,10 @@ export const addDevice = async (data: object) => {
 export const exportDevice = async (params: object) => {
   return await request.get('/device/preRegister/export', { params })
 }
+// /file/up：批次文件上传（type=importBatch，仅允许 .csv/.xlsx/.xls）
+export const uploadImportBatchFile = async (formData: FormData) => {
+  return await request.post<{ path?: string }>('/file/up', formData)
+}
 // /device_config/{ id };
 export const delDeviceConfig = (id: string) => request.delete(`/device_config/${id}`)
 export const getDict = async (params: object) => {

@@ -275,6 +275,8 @@ func RouterInit() *gin.Engine {
 
 			apps.Model.DeviceConfig.Init(v1) // 设备配置
 
+			apps.Model.Product.Init(v1) // 产品选择列表
+
 			apps.Model.DataScript.Init(v1) // 数据处理脚本
 
 			apps.Model.NotificationGroup.InitNotificationGroup(v1) // 通知组
