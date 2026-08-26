@@ -937,6 +937,8 @@
   "custom.device_details.diagnosisNextStep": "Étape suivante : ",
   "custom.device_details.diagnosisNoLogs": "Aucun journal pour le moment...",
   "custom.device_details.twinLite": "Jumeau d appareil",
+  "custom.device_details.preview3d": "Aperçu 3D",
+  "custom.device_details.preview3dIntro": "Vue 3D procédurale pilotée par l état de connexion et la dernière télémétrie de température ; repli sur une carte d information si WebGL est indisponible.",
   "custom.device_details.twinIntro": "Comparez les valeurs souhaitées et reportées pour vérifier si l appareil a réellement appliqué la commande de la plateforme.",
   "custom.device_details.twinSourceHint": "Les valeurs souhaitées viennent des messages attendus en attente; les valeurs reportées viennent des instantanés actuels de télémétrie et d attributs. Une différence signifie que l appareil n a pas encore confirmé la valeur ou a reporté un autre résultat.",
   "custom.device_details.twinDesired": "Souhaite",

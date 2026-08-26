@@ -226,6 +226,10 @@ func RouterInit() *gin.Engine {
 		// 需要权限校验
 		v1.Use(middleware.JWTAuth())
 
+		// per-tenant API 限流（对标 TB PE 能力）：JWT 后全量业务接口统一计数；
+		// 阈值 api-rate-limit.requests-per-minute（默认 600，<=0 关闭），超限返回 429+Retry-After。
+		v1.Use(middleware.TenantRateLimit())
+
 		// 设备诊断需要登录态 claims，但不走 Casbin 菜单权限。
 		v1.GET("/devices/:device_id/diagnostics", controllers.DeviceApi.GetDeviceDiagnostics)
 

@@ -29,22 +29,23 @@
 | 看板 | ◐ | ✓ | ✓ | 原生看板 + 发布分享 |
 | 脚本引擎 | ◐ | ✓ | ✓ | 数据处理脚本 |
 | 通知服务 | ◐ | ✓ | ✓ | 邮件/Webhook 通知组 |
-| 可视化规则链编辑器 | ◐ | ✓ | ◐ | Phase B2，拖拽式 DAG |
-| API 限流(per-tenant) | ◐ | ✓ (PE) | ✗ | 集群配额已有雏形 |
-| 3D 可视化/SCADA | ◐ | ✓ | ◐ | Phase C3 TresJS |
-| Modbus | ✗ | ◐ | ✓ | Phase B1 插件化接入 |
-| 设备影子 | ◐ | ✓ | ✓ | **Phase A3 已落地方案**：离线命令缓存+上线投递 |
+| 可视化规则链编辑器 | ✓* | ✓ | ◐ | B2 分支 `origin/feat/rule-chain-b2` 就绪（DAG 引擎+Vue Flow 画布），待合并 |
+| API 限流(per-tenant) | ✓ 单机 | ✓ (PE) | ✗ | 默认 600 rpm/租户（env 可调），429+Retry-After；集群 Redis 版待 C 阶段 |
+| 3D 可视化/SCADA | ✓ | ✓ | ◐ | C3 已落地：设备详情「3D 预览」tab，遥测驱动材质、WebGL 降级 |
+| Modbus | ✓* | ◐ | ✓ | B1 分支 `feat/modbus-b1` 就绪（独立插件+点表 UI），待合并 |
+| 设备影子 | ✓ | ✓ | ✓ | Phase A3 已交付：离线命令缓存+上线投递 |
 | 资产管理层级 | ✗ | ✓ | ✗ | Phase C2 |
 | CoAP / LwM2M / SNMP | ✗ | ✓ | ✗ | Phase C6 |
 | OPC UA | ✗ | ✗ | ✓ | 远期评估 |
 | 移动端 App | ✗ | ✗ | ✓ | 远期评估 |
-| AI / LLM 集成 | ◐ | ✗ | ✓ | 自然语言查询遥测（C4） |
+| AI / LLM 集成 | ✓ | ✗ | ✓ | C4 已落地 NL 查询遥测；AI 告警分析待做 |
+| 计算字段 | ✓* | ✓ | ✗ | B3 分支 `calcfield-lane` 就绪（53.sql+govaluate 安全表达式），待合并 |
 | TimescaleDB / TDengine | ✗ | ✓ | ✓ | Phase C1 |
 | 白标定制 | ✗ | ✓ (PE) | ✗ | Phase C5 |
 | 行业模板 | ✗ | ✓ (PE) | ✗ | 远期 |
 | 边缘计算 | ✗ | ✓ (PE) | ✗ | 远期 |
 
-结论：核心设备管理链路已接近主流水平；差距集中在「协议扩展（Modbus）、规则链可视化、时序存储后端、AI 集成」四条线，即 Phase B/C 的主线。
+结论：核心设备管理链路已接近主流水平。Modbus（B1）、规则链可视化（B2）、计算字段（B3）三条 lane 已完成实现待合并；合并后剩余差距收敛为「时序存储后端（C1 TimescaleDB）、资产层级（C2）、CoAP/LwM2M（C6）、白标（C5）」四项远期线。
 
 ---
 
@@ -220,6 +221,10 @@ ALTER TABLE device_calculated_fields (
 
 | 日期 | 阶段 | 交付内容 | PR |
 |---|---|---|---|
+<<<<<<< HEAD
+| 2026-08-26 | B4+ | per-tenant API 限流中间件（默认 600rpm，429+Retry-After，6 用例）；C3 3D 预览 tab 正式接线（遥测驱动+懒加载+i18n×4）；response 中间件契约测试 ×8 | #177 |
+| 2026-08-26 | P1 | 安全加固批：LIKE 通配转义、刷新令牌吊销、IP 维度登录防爆破、Casbin 路由覆盖审计、DAL 租户强制删除、doctor 公网明文 MQTT 门禁 | #176 |
+=======
 | 2026-08-25 | 安全 P0 | 高德 securityJsCode 去硬编码：改由 VITE_AMAP_SECURITY_CODE 构建期注入（index.html 清除明文密钥，map-sdk 增加 ensureAmapSecurityConfig 契约测试；**旧 key 已公开泄漏，必须在高德控制台轮换**） | sec/p0-guardrails |
 | 2026-08-25 | 安全 P0 | JWT 密钥启动 fail-fast：占位符（CHANGE_ME_*）/空值/长度<32 拒绝启动，含修复指引；README 开发调试同步 GOTP_JWT_KEY 说明 | 同上 |
 | 2026-08-25 | 安全 P1 | OpenAPI Key 默认权限 TENANT_ADMIN→TENANT_USER 最小降权（compose/.env.example/文档三面同步，需要写能力显式上调） | 同上 |
@@ -229,6 +234,7 @@ ALTER TABLE device_calculated_fields (
 | 2026-08-25 | 质量 P0 | 修复 main 自 #159 起的 typecheck 断裂：补装 @tresjs/core@5/@tresjs/cientos@5/three（组件当前零引用，不进 bundle）+ MotionCard 显式 import motion-v；vue-tsc 全绿 | 同上 |
 | 2026-08-25 | 性能 P2 | 前端首屏治理：语言包改按需加载（entry **1701KB→182KB，-89%**，fr/es 保留 en 兜底合并语义）、node-forge 动态 import 移出登录关键路径、chunkSizeWarningLimit 回调 1000 | 同上 |
 | 2026-08-25 | 性能 P2 | 后端缓存与查询：设备/脚本缓存 TTL=0 改为 30min 兜底过期（pkg/constant.CacheFallbackTTL，主动失效仍为主机制）；AI 遥测查询 N+1 改单条 IN 批量并下沉租户过滤（GetDevicesByIDsForTenant）。OTA 包加载已有批量回退路径、device_metrics 已有 30s 进程内模板缓存，经复核无需改动 | 同上 |
+>>>>>>> origin/main
 | 2026-08-25 | A1 | 空租户守卫：alarm 配置/信息/历史列表 + device_config 列表 fail-closed（含 all-tenants 显式授权与回归测试） | #155 |
 | 2026-08-24 | A2 | message_push gen LeftJoin raw 化 | 已并入 main |
 | 2026-08-25 | A3 | 设备影子全链路：迁移 52.sql、DAL/Service/API/路由、上线投递钩子、cron 清理、DAL 测试、前端影子队列标签页 | 待提 PR |

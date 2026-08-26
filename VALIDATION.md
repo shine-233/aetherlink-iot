@@ -128,7 +128,17 @@ API、E2E 和 synthetic-rdi 运行必须使用独立的 report/output 目录，�
 **明确 pending / 后续批次**
 - IP 锁定、Casbin 审计、刷新吊销均为静态+单测证据；真实 Redis/浏览器 E2E 运行验证 pending。
 - A5 http_client 死代码 `Post/Delete` 已删除（零调用方核实）；`PostJson` 返回 *http.Response 的契约保持，由现有调用方正确 Close。
+<<<<<<< HEAD
+- **JWT HttpOnly cookie 经复核（2026-08-26 第二车道）实际已达成**：`middleware/auth_cookie.go` 的 `ensureAuthCookieDefaults` 将 `auth.cookie.enabled` 默认置 true，登录/刷新响应均追加 HttpOnly SameSite=Lax cookie；剩余议题仅为生产 HTTPS 下开启 `auth.cookie.secure`（部署侧动作）。
+- **零测试目录收敛进展**：`internal/middleware/response` 已补 8 用例契约测试（panic 恢复/已写响应跳过/错误包/data 包裹/变量替换/Accept-Language）。其余目录中 `internal/logic`、`api/sseapi` 强依赖 gorm query 单例与 Redis hub，需先抽存储接口再可测；`internal/query` 为 gorm-gen 生成物、`cmd/gen`/`cmd/virtual_sensor` 为工具入口——按现状维持 pending。
+- 未纳入本批：巨型文件同包拆分（867 行 attribute_event_ingress.go 等 top10，纯代码移动也会污染 blame 与在途分支合并，需独立 lane 排期）、1014 处硬编码 hex 的 token 化（需先定设计 token 权威值与视觉回归基线）、Device3DPanel 硬编码材质色集中化（随面板接线已隔离在单文件，后续随主题系统统一处理）。
+
+### P2 补充车道（2026-08-26 第二批，improve/p2-lane-tests-visual）
+
+- Device3DPanel 正式接线（此前为无引用死代码）：新增设备详情「3D 预览」tab（registry 懒加载 + vendor-three 分包按需下载），薄包装复用 useTelemetryRealtimeState，温度启发式（精确 temperature → temp 模糊）驱动材质颜色，WebGL 缺失自动降级；i18n 四语言补齐；6 用例单测钉住接线契约。
+=======
 - 未纳入本批：13 个零测试业务目录补齐、巨型文件拆分、1014 处硬编码 hex 的 token 化、JWT 主通道切换 HttpOnly cookie、Device3DPanel 接线——需独立车道或产品决策。
+>>>>>>> origin/main
 
 ## 维护与审查建议
 
