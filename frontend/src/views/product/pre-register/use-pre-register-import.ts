@@ -4,7 +4,9 @@
  * 关键注意事项: voucher 仅在创建响应中出现一次，页面展示后不落任何持久状态。
  */
 import { computed, reactive, ref } from 'vue'
+import type { FormInst, FormRules } from 'naive-ui'
 import { addDevice, getProductList, uploadImportBatchFile } from '@/service/product/list'
+import { $t } from '@/locales'
 import type { PreRegisterImportResult } from './types'
 
 export type PreRegisterImportMode = 'auto' | 'file'
@@ -20,6 +22,17 @@ export function usePreRegisterImport(options: { onImported: () => void | Promise
     current_version: '',
     device_count: 1
   })
+
+  const formRef = ref<FormInst & HTMLElement>()
+  // 提交前内联校验：必填项就地报错，替代此前"提交后才被后端拒绝"的体验。
+  const rules: FormRules = {
+    product_id: [{ required: true, message: $t('common.pleaseCheckValue'), trigger: ['blur', 'change'] }],
+    batch_number: [
+      { required: true, message: $t('common.pleaseCheckValue'), trigger: ['input', 'blur'] },
+      { max: 36, message: $t('common.pleaseCheckValue'), trigger: ['input', 'blur'] }
+    ],
+    device_count: [{ required: true, type: 'number', min: 1, max: 10000, message: $t('common.pleaseCheckValue'), trigger: ['input', 'blur'] }]
+  }
 
   const productOptions = ref<{ label: string; value: string }[]>([])
   const productLoading = ref(false)
@@ -91,6 +104,12 @@ export function usePreRegisterImport(options: { onImported: () => void | Promise
 
   async function submitImport() {
     if (!canSubmit.value || submitting.value) return false
+    try {
+      // validate?.() 兼容测试桩：真实 NaiveUI FormInst 必有 validate。
+      await formRef.value?.validate?.()
+    } catch {
+      return false
+    }
     submitting.value = true
     submitError.value = ''
     try {
@@ -132,6 +151,8 @@ export function usePreRegisterImport(options: { onImported: () => void | Promise
     uploadSelectedFile,
     mode,
     form,
+    formRef,
+    rules,
     productOptions,
     productLoading,
     fetchProductOptions,

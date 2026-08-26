@@ -223,3 +223,4 @@ ALTER TABLE device_calculated_fields (
 | 2026-08-23/24 | — | users 列表 raw 链收敛 + 空租户守卫；alarm raw 链 P1 修复 | VALIDATION.md |
 | 2026-08-25 | 质量 | 全库 GBK 乱码修复（17 文件，含 echarts-manager 被困代码释放）+ 源码编码契约测试绊线 + 影子离线投递 method/params 语义修复 | feat/phase-a-completion |
 | 2026-08-26 | fleet | CSV 批量导入设备：`POST/GET /device/preRegister` + `/preRegister/export` 路由补齐（修复前端契约断裂），自动生成/CSV 双模式建档、一次性凭证+脱敏导出、产品租户校验、service 层 sqlite 全链路测试 ×5 | feat/device-preregister-import |
+| 2026-08-26 | 设计 | 设计系统收敛 L1/L2：字号/圆角 token 落地 global.scss、断点三合一（删 --bp-* 双轨）、uno shortcuts 单源化（preset 导出 aetherlinkShortcuts）、共享 PageHeader 组件收敛 3 页 5 处重复页头、10 个表格页补 NEmpty 空态、linkage-edit 47 处 hex→token 迁移、UI emoji→SvgIcon、裸删除补 Popconfirm、html lang 随语言切换、hex 绊线契约测试（基线 1042→994 只降不升） | feat/device-preregister-import |

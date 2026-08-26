@@ -64,6 +64,8 @@ const mountComponent = (props = {}) => {
         NSpace: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
         NCheckbox: defineComponent({ name: 'NCheckbox', props: { value: { default: '' }, label: { default: '' } }, emits: ['update:checked'], setup(_, { slots }) { return () => h('label', slots.default?.()) } }),
         NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } }),
+        // 删除按钮已包进 Popconfirm 二次确认；桩只渲染 trigger，保持原断言可定位按钮文案。
+        NPopconfirm: defineComponent({ setup(_, { slots }) { return () => h('span', slots.trigger?.()) } }),
       }
     }
   })

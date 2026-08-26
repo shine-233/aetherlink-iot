@@ -131,6 +131,7 @@ API、E2E 和 synthetic-rdi 运行必须使用独立的 report/output 目录，�
 - 未纳入本批：13 个零测试业务目录补齐、巨型文件拆分、1014 处硬编码 hex 的 token 化、JWT 主通道切换 HttpOnly cookie、Device3DPanel 接线——需独立车道或产品决策。
 - **Casbin g2 资源表核查（2026-08-26，预注册 lane）**：全代码库与全部迁移脚本均无 `ptype='g2'` 写入路径——`GetUrl` 恒 false，`CasbinRBAC` 的 URL 级鉴权在当前所有环境实际未激活（仅 JWT 生效），启动审计 fail-fast 对存量部署的阻断风险与此同源。新路由按兄弟口径仅注册路由。g2 种子化/菜单面登记需产品决策后单独立项。
 - 设备预注册 CSV 批量导入：service 层 sqlite 全链路测试 ×5 + 前端组件测试 ×3 为静态证据；真实浏览器上传/导出下载链路 E2E pending。
+- **设计系统收敛进度（2026-08-26）**：L1（token/断点/shortcuts 单源 + hex 绊线基线 1042→994）与 L2 首批（PageHeader 收敛 3 页、10 表格页空态、裸删除确认、emoji 清理、html lang 同步、pre-register 表单校验）已完成并有测试锁定；剩余 pending——hex→token 迁移存量约 994 处（绊线只降不升，按重灾区排序：DeviceAccessGuide 46 / HomeFirstDeviceVerificationOverview 44 / CommandJobPreviewWorkbench 33）、38 个手写筛选表格页向 DataTablePage 渐进迁移、图标四套归一 Iconify、IA 改名（device config/template 错位、双 rdi-overview、management 双组）需带兼容重定向的独立 lane。
 
 ## 维护与审查建议
 

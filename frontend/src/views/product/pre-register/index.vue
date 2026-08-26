@@ -8,6 +8,7 @@ import { computed, onMounted, ref } from 'vue'
 import type { DataTableColumns, UploadFileInfo } from 'naive-ui'
 import { exportDevice } from '@/service/product/list'
 import { $t } from '@/locales'
+import PageHeader from '@/components/common/page-header/index.vue'
 import { createPreRegisterColumns, formatPreRegisterTime } from './pre-register-table-columns'
 import type { PreRegisterRecord } from './types'
 import { usePreRegisterList } from './use-pre-register-list'
@@ -21,6 +22,8 @@ const {
   uploading,
   mode,
   form,
+  formRef,
+  rules,
   productOptions,
   productLoading,
   fetchProductOptions,
@@ -90,16 +93,13 @@ onMounted(() => {
 <template>
   <div class="pre-register-page">
     <NSpace vertical size="medium">
-      <div class="page-header">
-        <div>
-          <div class="page-title">{{ $t('route.product_pre-register') }}</div>
-          <div class="page-subtitle">{{ $t('page.product.pre-register.subtitle') }}</div>
-        </div>
-        <NSpace>
-          <NButton :loading="exporting" @click="handleExport">{{ $t('page.product.pre-register.export') }}</NButton>
-          <NButton type="primary" @click="openModal">{{ $t('page.product.pre-register.import') }}</NButton>
-        </NSpace>
-      </div>
+      <PageHeader
+        :title="$t('route.product_pre-register')"
+        :subtitle="$t('page.product.pre-register.subtitle')"
+      >
+        <NButton :loading="exporting" @click="handleExport">{{ $t('page.product.pre-register.export') }}</NButton>
+        <NButton type="primary" @click="openModal">{{ $t('page.product.pre-register.import') }}</NButton>
+      </PageHeader>
 
       <NCard :bordered="false">
         <NSpace align="center" :wrap="true">
@@ -165,7 +165,7 @@ onMounted(() => {
           </NSpace>
         </NRadioGroup>
 
-        <NForm label-placement="top">
+        <NForm ref="formRef" :model="form" :rules="rules" label-placement="top">
           <NGrid cols="1 s:2" responsive="screen" :x-gap="16">
             <NFormItemGi :label="$t('page.product.pre-register.product')" required>
               <NSelect
@@ -253,23 +253,6 @@ onMounted(() => {
 <style scoped>
 .pre-register-page {
   padding: 16px;
-}
-
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.page-title {
-  font-size: 22px;
-  font-weight: 700;
-}
-
-.page-subtitle {
-  margin-top: 4px;
-  color: var(--text-color-3);
 }
 
 .filter-control {

@@ -91,9 +91,14 @@ const handleChange = () => {
           </NCheckbox>
         </NSpace>
       </NCheckboxGroup>
-      <NButton type="error" size="small" style="margin-left: 12px" @click="() => handleDelete(index)">
-        {{ $t('common.delete') }}
-      </NButton>
+      <NPopconfirm @positive-click="() => handleDelete(index)">
+        <template #trigger>
+          <NButton type="error" size="small" style="margin-left: 12px">
+            {{ $t('common.delete') }}
+          </NButton>
+        </template>
+        {{ $t('common.confirmDelete') }}
+      </NPopconfirm>
     </NFormItem>
   </NForm>
 </template>

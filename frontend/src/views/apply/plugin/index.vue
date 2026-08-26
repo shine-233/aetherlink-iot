@@ -7,7 +7,7 @@
 <!-- eslint-disable require-atomic-updates -->
 <script setup lang="tsx">
 import { ref, watch } from 'vue'
-import { NButton, NPopconfirm, NSpace, NTag } from 'naive-ui'
+import { NButton, NEmpty, NPopconfirm, NSpace, NTag } from 'naive-ui'
 import { delRegisterService, getServices } from '@/service/api/plugin'
 import { $t } from '@/locales'
 import serviceConfigModal from './components/serviceConfigModal.vue'
@@ -186,7 +186,11 @@ getList()
           :loading="pageData.loading"
           :pagination="queryInfo"
           class="flex-1-hidden"
-        />
+        >
+          <template #empty>
+            <NEmpty :description="$t('common.noData')" class="py-24px" />
+          </template>
+        </NDataTable>
       </div>
     </NCard>
     <serviceModal ref="serviceModalRef" @get-list="getList"></serviceModal>

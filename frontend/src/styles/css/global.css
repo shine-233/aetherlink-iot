@@ -33,14 +33,9 @@ input:-moz-autofill:active {
 
 
 /* ===== 视觉升级 Phase1：统一断点 / 交错入场 / 可达性 ===== */
-/* 断点三档与设计系统对齐：--bp-sm 640 / --bp-md 960 / --bp-lg 1280。
-   媒体查询无法直接使用 CSS 变量，此变量供组件级宽度/间距计算；
-   SCSS 侧请引用 styles/scss/_breakpoints.scss 的同名变量。 */
-:root {
-  --bp-sm: 640px;
-  --bp-md: 960px;
-  --bp-lg: 1280px;
-}
+/* 断点唯一权威取值在 styles/scss/global.scss 的 :root（--breakpoint-*，sm=640/md=960/lg=1280）。
+   历史上这里曾重复定义过一套 --bp-*，已于设计系统收敛（2026-08-26）删除；媒体查询请用
+   styles/scss/_mixins.scss 注入的 $breakpoint-* / @include mobile。 */
 
 /* 列表/卡片网格交错入场：容器加 .stagger，子元素按序浮现 */
 @keyframes stagger-in {

@@ -56,6 +56,8 @@ export const useAppStore = defineStore(SetupStoreId.App, () => {
   }
 
   const locale = ref<App.I18n.LangType>(localStg.get('lang') || 'en-US')
+  // 启动即对齐 <html lang> 与实际语言（index.html 静态值不随用户偏好变化）。
+  document.documentElement.lang = locale.value
 
   const localeOptions: App.I18n.LangOption[] = [
     {
@@ -80,6 +82,8 @@ export const useAppStore = defineStore(SetupStoreId.App, () => {
     const { persistRemote = true } = options
     locale.value = lang
     setLocale(lang)
+    // 同步 <html lang>，保证可访问性（屏幕阅读器发音）与浏览器翻译提示正确。
+    document.documentElement.lang = lang
     localStg.set('lang', lang)
     if (persistRemote) {
       void persistPreferredLanguage(lang)
