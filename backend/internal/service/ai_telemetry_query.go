@@ -239,7 +239,7 @@ func (*AiQuery) QueryTelemetry(req *AiTelemetryQueryReq, claims *utils.UserClaim
 	snapshots := make([]aiDeviceTelemetrySnapshot, 0, len(intent.DeviceIDs))
 	if len(intent.DeviceIDs) > 0 {
 		for _, deviceID := range intent.DeviceIDs {
-			deviceInfo, err := dal.GetDeviceByID(deviceID)
+			deviceInfo, err := dal.GetDeviceByIDUnscoped(deviceID)
 			if err != nil || deviceInfo == nil || deviceInfo.TenantID != tenantID {
 				continue
 			}

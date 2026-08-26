@@ -191,6 +191,15 @@ classified-protect:
   # IP 维度失败计数/锁定窗口（单位：秒）
   ip-login-fail-window-seconds: 600
 
+# Casbin 路由覆盖审计：挂载在 CasbinRBAC 之后却未登记进资源表的路由会在启动期暴露。
+# fail-fast（默认）阻断启动；warn 仅告警（存量库升级过渡）；off 关闭。
+casbin:
+  route-audit-mode: fail-fast
+
+# Casbin 路由覆盖审计模式：fail-fast（默认，未登记路由阻断启动）| warn（存量库升级过渡）| off（不推荐）
+casbin:
+  route-audit-mode: fail-fast
+
 # 会话设置
 session:
   # 会话超时时间（以分钟为单位）

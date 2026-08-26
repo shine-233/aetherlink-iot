@@ -83,11 +83,11 @@ func UpdateDeviceConfig(id string, condsMap map[string]interface{}) error {
 	return err
 }
 
-func DeleteDeviceConfig(id string) error {
-	// P1 修复（2026-08-23，见 VALIDATION.md）：RowsAffected 不得忽略。
-	// 删除未命中行时必须显式报错，杜绝"API 返回成功但行仍在"的假成功删除；
-	// 上层 service 依赖该错误把 200050 引用计数问题留给真实残留数据。
-	info := global.DB.Where("id = ?", id).Delete(&model.DeviceConfig{})
+// DeleteDeviceConfigForTenant 按 id+tenant 双条件删除设备配置，DAL 层强制租户隔离（安全审计 F4：
+// 消除对 service 层 check-then-act 的单一依赖）。P1 修复（2026-08-23，见 VALIDATION.md）：
+// RowsAffected 不得忽略——删除未命中行时显式报错，杜绝"API 返回成功但行仍在"的假成功删除。
+func DeleteDeviceConfigForTenant(id, tenantID string) error {
+	info := global.DB.Where("id = ? AND tenant_id = ?", id, tenantID).Delete(&model.DeviceConfig{})
 	err := info.Error
 	if err != nil {
 		logrus.Error(err)

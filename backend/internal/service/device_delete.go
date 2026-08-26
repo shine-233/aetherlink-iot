@@ -61,7 +61,7 @@ func ensureDeviceDeleteAccess(id string, userClaims *utils.UserClaims) (*model.D
 	if userClaims == nil {
 		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to delete device")
 	}
-	deviceInfo, err := dal.GetDeviceByID(id)
+	deviceInfo, err := dal.GetDeviceByIDUnscoped(id)
 	if err != nil {
 		return nil, err
 	}

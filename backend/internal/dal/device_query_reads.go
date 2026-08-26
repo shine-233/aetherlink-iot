@@ -284,11 +284,12 @@ func GetSubDeviceExists(deviceId, subAddr string) bool {
 	return false
 }
 
-// GetDeviceByID 按 id 精确读取设备，diagnostics/guide/twin/detail 的权限守卫共用此入口。
-// 批次二收敛（2026-08-24，见 references/gen-inheritance-audit.md）：改走 raw global.DB 链
-// （clone==1 根，每次链式起点均为全新 Statement），切断包级 query.Device 继承式语句根；
-// gorm.ErrRecordNotFound 等错误逐字节透传，调用方 errors.Is 判定行为不变。
-func GetDeviceByID(id string) (*model.Device, error) {
+// GetDeviceByIDUnscoped 按 id 精确读取设备，不带任何租户过滤。
+// 命名带 Unscoped 是编译器级警示：仅允许用于系统内部链路（遥测管道、网关注册回调、
+// 已在 service 层完成 ensure*Access 校验后的详情读取等），新增面向用户请求的调用必须改用
+// 租户限定变体或先完成归属校验。批次二收敛（2026-08-24，见 references/gen-inheritance-audit.md）：
+// 改走 raw global.DB 链（clone==1 根），gorm.ErrRecordNotFound 逐字节透传。
+func GetDeviceByIDUnscoped(id string) (*model.Device, error) {
 	var device model.Device
 	err := global.DB.Where("id = ?", id).First(&device).Error
 	if err != nil {
@@ -313,7 +314,9 @@ func GetDevicesByIDsForTenant(deviceIDs []string, tenantID string) (map[string]*
 	return indexDevicesByID(devices, result), nil
 }
 
-func GetDevicesByIDs(deviceIDs []string) (map[string]*model.Device, error) {
+// GetDevicesByIDsUnscoped 按 id 集合批量读取设备，不带租户过滤。
+// 命名带 Unscoped 是编译器级警示：仅限系统内部链路；用户请求面请用 GetDevicesByIDsForTenant。
+func GetDevicesByIDsUnscoped(deviceIDs []string) (map[string]*model.Device, error) {
 	normalizedIDs := normalizeDeviceIDs(deviceIDs)
 	result := make(map[string]*model.Device, len(normalizedIDs))
 	if len(normalizedIDs) == 0 {
@@ -376,7 +379,7 @@ func GetDeviceDetail(id string) (map[string]interface{}, error) {
 		return nil, err
 	}
 	if data["parent_id"] != nil {
-		parentDevice, err := GetDeviceByID(data["parent_id"].(string))
+		parentDevice, err := GetDeviceByIDUnscoped(data["parent_id"].(string))
 		if err != nil {
 			logrus.Error(err)
 			return nil, err

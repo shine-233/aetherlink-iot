@@ -73,7 +73,7 @@ func alarmNotificationDeviceMap(deviceInfo *model.Device) map[string]interface{}
 
 func loadAlarmNotificationDevices(deviceIDs []string) []map[string]interface{} {
 	devices := make([]map[string]interface{}, 0, len(deviceIDs))
-	devicesByID, err := dal.GetDevicesByIDs(deviceIDs)
+	devicesByID, err := dal.GetDevicesByIDsUnscoped(deviceIDs)
 	if err != nil {
 		return devices
 	}

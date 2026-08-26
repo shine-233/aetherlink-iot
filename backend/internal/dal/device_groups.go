@@ -83,8 +83,9 @@ func CreateDeviceGroup(r *model.Group) error {
 	return query.Group.Create(r)
 }
 
-func DeleteDeviceGroup(id string) error {
-	_, err := query.Group.Where(query.Group.ID.Eq(id)).Delete()
+// DeleteDeviceGroupForTenant 按 id+tenant 双条件删除分组，DAL 层强制租户隔离（安全审计 F4）。
+func DeleteDeviceGroupForTenant(id, tenantID string) error {
+	_, err := query.Group.Where(query.Group.ID.Eq(id), query.Group.TenantID.Eq(tenantID)).Delete()
 	return err
 }
 

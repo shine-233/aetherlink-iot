@@ -97,7 +97,11 @@ func TestDeviceConfigCRUDLifecycle(t *testing.T) {
 		t.Fatalf("template id = %v, want explicit empty string written", renamed.DeviceTemplateID)
 	}
 
-	if err := DeleteDeviceConfig("config-lifecycle"); err != nil {
+	// F4 回归：租户不匹配时 DAL 层必须拒绝删除（防 check-then-act 旁路）。
+	if err := DeleteDeviceConfigForTenant("config-lifecycle", "tenant-other"); err == nil {
+		t.Fatal("foreign-tenant delete must fail even though row exists")
+	}
+	if err := DeleteDeviceConfigForTenant("config-lifecycle", "tenant-a"); err != nil {
 		t.Fatalf("DeleteDeviceConfig existing row: %v", err)
 	}
 	var remaining int64
@@ -105,7 +109,7 @@ func TestDeviceConfigCRUDLifecycle(t *testing.T) {
 	if remaining != 0 {
 		t.Fatalf("delete reported success but row remains (count=%d)", remaining)
 	}
-	if err := DeleteDeviceConfig("config-lifecycle"); err == nil {
+	if err := DeleteDeviceConfigForTenant("config-lifecycle", "tenant-a"); err == nil {
 		t.Fatal("second DeleteDeviceConfig should fail with no rows affected, got nil error")
 	}
 }

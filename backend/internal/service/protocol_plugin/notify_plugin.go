@@ -70,7 +70,7 @@ func DisconnectDevice(deviceID string, httpAddress string) error {
 // 移除网关子设备调用
 func DisconnectDeviceByDeviceID(deviceID string) error {
 	// 获取设备信息
-	device, err := dal.GetDeviceByID(deviceID)
+	device, err := dal.GetDeviceByIDUnscoped(deviceID)
 	if err != nil {
 		return err
 	}

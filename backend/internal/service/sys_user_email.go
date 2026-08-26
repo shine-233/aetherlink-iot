@@ -481,7 +481,7 @@ func warningEmailsForOwnedDevices(tenantID string, deviceIDs ...string) []string
 		return warningEmailsForTenant(tenantID)
 	}
 
-	devicesByID, err := dal.GetDevicesByIDs(normalizedDeviceIDs)
+	devicesByID, err := dal.GetDevicesByIDsUnscoped(normalizedDeviceIDs)
 	if err != nil || len(devicesByID) != len(normalizedDeviceIDs) {
 		return warningEmailsForTenant(tenantID)
 	}
