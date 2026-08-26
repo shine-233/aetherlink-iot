@@ -208,9 +208,9 @@ vi.mock('naive-ui', () => ({
 }))
 
 vi.mock('@vicons/ionicons5', () => ({
-  DownloadOutline: defineComponent({ setup: () => () => h('svg', { class: 'icon-download' }) }),
+  CloudDownloadOutline: defineComponent({ setup: () => () => h('svg', { class: 'icon-download' }) }),
   ChevronDownOutline: defineComponent({ setup: () => () => h('svg', { class: 'icon-down' }) }),
-  UploadOutline: defineComponent({ setup: () => () => h('svg', { class: 'icon-upload' }) })
+  CloudUploadOutline: defineComponent({ setup: () => () => h('svg', { class: 'icon-upload' }) })
 }))
 
 // Keep the parent test focused on the import orchestration contract while
