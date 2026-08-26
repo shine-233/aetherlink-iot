@@ -61,6 +61,7 @@ type Controller struct {
 	DeviceTwinApi
 	DeviceShadowApi
 	AiQueryApi
+	RuleChainApi
 	RDIApi
 	PayloadSchemaApi
 }

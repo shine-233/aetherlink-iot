@@ -111,6 +111,7 @@
     "@vitejs/plugin-vue-jsx": "5.1.6",
     "@vitest/coverage-v8": "^4.0.18",
     "@vitest/ui": "^4.0.18",
+    "@vue-flow/core": "^1.48.2",
     "@vue/test-utils": "^2.4.6",
     "cross-env": "10.1.0",
     "eslint": "10.8.1",

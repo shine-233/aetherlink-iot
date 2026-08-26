@@ -43,6 +43,8 @@
   "route.visualization-native-board-editor": "Éditeur de tableau de bord natif",
   "route.visualization-native-boards": "Tableaux de bord natifs",
   "route.automation_scene-manage": "Gestion des scènes",
+  "route.automation_rule-chain": "Chaînes de règles",
+  "route.automation_rule-chain-edit": "Éditeur de chaînes de règles",
   "route.automation_scene-linkage": "Automatisations",
   "route.automation_linkage-edit": "Modifier l'automatisation",
   "route.automation": "Automatisations",

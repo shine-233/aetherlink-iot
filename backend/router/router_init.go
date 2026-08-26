@@ -304,6 +304,8 @@ func RouterInit() *gin.Engine {
 
 			apps.Model.AiQuery.InitAiQuery(v1) // AI 集成（自然语言查询遥测）
 
+			apps.Model.RuleChain.InitRuleChain(v1) // 规则链（可视化 DAG 编排）
+
 			apps.Model.OpenAPIKey.InitOpenAPIKey(v1)
 
 			apps.Model.MessagePush.Init(v1)

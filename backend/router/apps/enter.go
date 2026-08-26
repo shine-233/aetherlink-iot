@@ -40,6 +40,7 @@ type apps struct {
 	DashboardMenu
 	DeviceShadow
 	AiQuery
+	RuleChain
 	RDI
 	PayloadSchema
 }

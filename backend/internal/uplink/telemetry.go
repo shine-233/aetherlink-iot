@@ -502,6 +502,20 @@ func (f *TelemetryUplink) processTelemetrySideEffects(device *model.Device, tele
 	}
 	f.publishTelemetryWebSocket(device, triggerValues)
 	f.executeTelemetryAutomation(device, triggerParam, triggerValues)
+	f.executeRuleChains(device, triggerValues)
+}
+
+// executeRuleChains 规则链触发（ROADMAP B2）：异步执行，错误只记录不阻断上行。
+func (f *TelemetryUplink) executeRuleChains(device *model.Device, values map[string]interface{}) {
+	if len(values) == 0 {
+		return
+	}
+	deviceCopy := *device
+	valuesCopy := make(map[string]interface{}, len(values))
+	for k, v := range values {
+		valuesCopy[k] = v
+	}
+	go service.GroupApp.RuleChain.OnTelemetry(deviceCopy, valuesCopy)
 }
 
 // convertToTelemetryPoints converts telemetry payloads into storage points and automation trigger inputs.
