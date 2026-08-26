@@ -808,6 +808,17 @@ if [ "$SERVER_MODE" = "1" ]; then
       add_check error 1 server-mqtt-address-not-local "Server mode MQTT address is a non-local, non-placeholder endpoint."
     fi
   fi
+
+  # 安全审计 F5：公网 MQTT 当前默认明文传输——compose 仅映射 1883，broker 的 8883/TLS 监听默认关闭，
+  # 设备凭证将以明文穿越公网。默认强警告提示运维显式决策；AETHERLINK_STRICT_TLS=1 时升级为阻断错误。
+  strict_tls="$(env_or_default AETHERLINK_STRICT_TLS 0)"
+  tls_msg="Server mode exposes MQTT beyond localhost while transport TLS is disabled by default; device credentials would travel in cleartext."
+  tls_fix="Enable broker TLS: generate dev/intranet certs via deploy/gen-mqtt-certs, use a real CA plus the broker 8883 listener for production, or restrict port 1883 to a trusted network. Set AETHERLINK_STRICT_TLS=1 to make this check blocking."
+  if [ "$strict_tls" = "1" ]; then
+    add_check error 0 server-mqtt-plaintext-tls "$tls_msg" "$tls_fix"
+  else
+    add_check warning 0 server-mqtt-plaintext-tls "$tls_msg" "$tls_fix"
+  fi
 fi
 
 if [ -f .env ]; then
