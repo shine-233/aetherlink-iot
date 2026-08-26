@@ -13,9 +13,7 @@
           <n-icon><CloudDownloadOutline /></n-icon>
         </template>
         {{ $t('common.export') }}
-        <template #suffix>
-          <n-icon size="14"><ChevronDownOutline /></n-icon>
-        </template>
+        <n-icon size="14"><ChevronDownOutline /></n-icon>
       </n-button>
     </n-dropdown>
 
@@ -123,7 +121,7 @@
           <n-button
             type="primary"
             :loading="isProcessing"
-            :disabled="importPreview?.conflicts.length > 0"
+            :disabled="(importPreview?.conflicts?.length ?? 0) > 0"
             @click="handleConfirmImport"
           >
             {{ $t('common.confirm') }}
@@ -538,7 +536,8 @@ const handleFullConfigurationImportPreview = async (importData: any): Promise<vo
     importData,
     props.componentId,
     props.configurationManager || {},
-    props.configuration
+    // 运行时契约：父组件传入的 configuration 在此场景承载可用组件列表（JSON 边界）。
+    props.configuration as unknown as Array<Record<string, unknown>>
   )
 
   openFullImportPreview(preview)

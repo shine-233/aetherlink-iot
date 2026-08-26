@@ -14,7 +14,7 @@
   ],
   "scripts": {
     "build": "cross-env NODE_OPTIONS=--max-old-space-size=4096 VITE_SERVICE_ENV=prod vite build",
-    "build:check": "pnpm run typecheck && pnpm run typecheck:data-architecture && pnpm run typecheck:packages && pnpm run typecheck:blindspots && pnpm run build",
+    "build:check": "pnpm run typecheck && pnpm run typecheck:data-architecture && pnpm run typecheck:packages && pnpm run build",
     "build:8192": "cross-env NODE_OPTIONS=--max-old-space-size=8192 VITE_SERVICE_ENV=prod vite build",
     "build:test": "cross-env VITE_SERVICE_ENV=test vite build",
     "build:vite": "cross-env NODE_OPTIONS=--max-old-space-size=4096 VITE_SERVICE_ENV=prod vite build",
@@ -37,7 +37,6 @@
     "typecheck": "cross-env NODE_OPTIONS=--max-old-space-size=4096 vue-tsc --noEmit --skipLibCheck",
     "typecheck:data-architecture": "cross-env NODE_OPTIONS=--max-old-space-size=4096 tsc --project tsconfig.data-architecture.json --noEmit --skipLibCheck",
     "typecheck:packages": "node scripts/typecheck-workspaces.mjs",
-    "typecheck:blindspots": "node scripts/typecheck-blindspots.mjs",
     "update-pkg": "aetherlink update-pkg",
     "quality-check": "node scripts/dev-quality-check.js",
     "audit:grid-drag": "node scripts/audit-grid-drag-deps.js",

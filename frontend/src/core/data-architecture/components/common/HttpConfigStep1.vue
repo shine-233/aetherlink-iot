@@ -16,6 +16,7 @@ import type { HttpConfig } from '@/core/data-architecture/types/http-config'
 import DynamicParameterEditor from '@/core/data-architecture/components/common/DynamicParameterEditor.vue'
 import { internalAddressOptions, getApiByValue } from '@/core/data-architecture/data/internal-address-data'
 import type { InternalApiItem } from '@/core/data-architecture/types/internal-api'
+import type { SelectMixedOption } from 'naive-ui/es/select/src/interface'
 import type { EnhancedParameter } from '@/core/data-architecture/types/parameter-editor'
 
 interface Props {
@@ -34,6 +35,9 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 const { t } = useI18n()
+
+// 模板里直接写 navigator 会被 vue-tsc 当作组件实例属性解析；显式暴露浏览器对象。
+const navigatorRef = navigator
 
 // 🔥 新增：防止循环更新的标记
 const isUpdatingFromChild = ref(false)
@@ -81,16 +85,30 @@ const isDynamicBindingParameter = (param: EnhancedParameter) =>
 
 const createEditorParamId = () => `param_${Date.now()}_${Math.random()}`
 
+// 兼容三种历史路径参数形态（EnhancedParameter / HttpPathParam / PathParameter）
+// 的最小结构输入；toEditorPathParam 只消费以下字段（valueMode 用宽 string，
+// 因为历史形态未收窄到联合类型）。
+type EditorPathParamInput = {
+  key?: string
+  value?: string | number | boolean
+  enabled?: boolean
+  valueMode?: string
+  selectedTemplate?: string
+  isDynamic?: boolean
+  variableName?: string
+  description?: string
+  dataType?: 'string' | 'number' | 'boolean' | 'json'
+  defaultValue?: string | number | boolean
+}
+
 const toEditorPathParam = (
-  param: Partial<EnhancedParameter> & {
-    isDynamic?: boolean
-  },
+  param: EditorPathParamInput,
   fallbackKey = 'pathParam'
 ): EnhancedParameter => ({
   key: param.key || fallbackKey,
   value: param.value || '',
   enabled: param.enabled !== false,
-  valueMode: param.valueMode || (param.isDynamic ? 'property' : 'manual'),
+  valueMode: (param.valueMode || (param.isDynamic ? 'property' : 'manual')) as EnhancedParameter['valueMode'],
   selectedTemplate: param.selectedTemplate || (param.isDynamic ? 'property-binding' : 'manual'),
   variableName: param.variableName || '',
   description: param.description || '',
@@ -545,7 +563,7 @@ onMounted(() => {
       <n-form-item v-if="addressType === 'internal'" label="选择内部接口" required>
         <n-select
           :value="selectedInternalAddress"
-          :options="internalAddressOptions"
+          :options="internalAddressOptions as unknown as SelectMixedOption[]"
           placeholder="请选择内部接口"
           @update:value="onInternalAddressSelect"
         />
@@ -560,7 +578,7 @@ onMounted(() => {
             </span>
           </template>
           <template #suffix>
-            <n-button text size="small" @click="() => navigator.clipboard?.writeText(getFinalUrl)">复制</n-button>
+            <n-button text size="small" @click="() => navigatorRef.clipboard?.writeText(getFinalUrl)">复制</n-button>
           </template>
         </n-input>
       </n-form-item>

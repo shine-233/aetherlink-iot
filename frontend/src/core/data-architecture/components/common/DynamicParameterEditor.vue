@@ -345,9 +345,8 @@ const updateParameterValue = (param: EnhancedParameter, index: number, newValue:
             {{ param.key }}: {{ param.value }}
           </n-tag>
         </n-space>
-        <template #action>
-          <n-button size="small" text type="primary" @click="editDeviceConfig">重新配置</n-button>
-        </template>
+        <!-- n-alert 无 #action 插槽；操作按钮放在告警内容之后保持同组视觉 -->
+        <n-button size="small" text type="primary" @click="editDeviceConfig">重新配置</n-button>
       </n-alert>
     </div>
 
