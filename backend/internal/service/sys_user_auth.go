@@ -142,11 +142,16 @@ func loginSessionTimeoutMinutes() int {
 	return timeout
 }
 
+// authRedisOpTimeout 约束认证链路 Redis 会话写删操作时长。
+// 这些历史函数未收 ctx，用短超时替代裸 Background，避免无界阻塞登录/登出。
+const authRedisOpTimeout = 3 * time.Second
+
 func saveUserLoginToken(token, email string, timeout int) error {
 	if global.REDIS == nil {
 		return tokenSaveError(email, errors.New("redis client is not initialized"))
 	}
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), authRedisOpTimeout)
+	defer cancel()
 	ttl := time.Duration(timeout) * time.Minute
 	if logic.UserIsShare(ctx) {
 		return setLoginToken(ctx, token, email, ttl)
@@ -210,7 +215,9 @@ func tokenSaveError(email string, err error) error {
 
 // @description 退出登录
 func (*User) Logout(token string) error {
-	if err := global.REDIS.Del(context.Background(), utils.TokenDigest(token)).Err(); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), authRedisOpTimeout)
+	defer cancel()
+	if err := global.REDIS.Del(ctx, utils.TokenDigest(token)).Err(); err != nil {
 		return errcode.New(errcode.CodeTokenDeleteError)
 	}
 	return nil
@@ -261,7 +268,9 @@ func revokePreviousTokenDigest(digest, email string) {
 	if digest == "" || global.REDIS == nil {
 		return
 	}
-	if err := global.REDIS.Del(context.Background(), digest).Err(); err != nil && !errors.Is(err, redis.Nil) {
+	ctx, cancel := context.WithTimeout(context.Background(), authRedisOpTimeout)
+	defer cancel()
+	if err := global.REDIS.Del(ctx, digest).Err(); err != nil && !errors.Is(err, redis.Nil) {
 		logrus.Warnf("revoke previous session digest failed: email=%s err=%v", email, err)
 	}
 }
@@ -301,13 +310,15 @@ func refreshSessionTimeoutMinutes() int {
 }
 
 func saveRefreshToken(token, email string, timeout int) error {
+	ctx, cancel := context.WithTimeout(context.Background(), authRedisOpTimeout)
+	defer cancel()
 	if global.REDIS == nil {
 		return errcode.WithData(errcode.CodeTokenSaveError, map[string]interface{}{
 			"error": "redis client is not initialized",
 			"email": email,
 		})
 	}
-	if err := global.REDIS.Set(context.Background(), utils.TokenDigest(token), "1", time.Duration(timeout)*time.Minute).Err(); err != nil {
+	if err := global.REDIS.Set(ctx, utils.TokenDigest(token), "1", time.Duration(timeout)*time.Minute).Err(); err != nil {
 		return errcode.WithData(errcode.CodeTokenSaveError, map[string]interface{}{
 			"error": err.Error(),
 			"email": email,
@@ -396,13 +407,15 @@ func transformUserTokenTTL() time.Duration {
 }
 
 func saveTransformUserToken(token, userID string, ttl time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), authRedisOpTimeout)
+	defer cancel()
 	if global.REDIS == nil {
 		return errcode.WithData(errcode.CodeTokenSaveError, map[string]interface{}{
 			"error":   "redis client is not initialized",
 			"user_id": userID,
 		})
 	}
-	if err := global.REDIS.Set(context.Background(), utils.TokenDigest(token), "1", ttl).Err(); err != nil {
+	if err := global.REDIS.Set(ctx, utils.TokenDigest(token), "1", ttl).Err(); err != nil {
 		return errcode.WithData(errcode.CodeTokenSaveError, map[string]interface{}{
 			"error":   err.Error(),
 			"user_id": userID,
@@ -495,7 +508,8 @@ func buildOptionalEmailRegisterPhoneNumber(phonePrefix, phoneNumber string) stri
 }
 
 func verifyEmailRegisterCode(email, verifyCode string) error {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), authRedisOpTimeout)
+	defer cancel()
 	// 失败次数达到上限的验证码立即作废，防止 6 位数字码在有效期内被暴力枚举。
 	if err := ensureVerificationCodeAttemptsAllowed(ctx, email); err != nil {
 		return err
