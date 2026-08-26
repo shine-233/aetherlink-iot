@@ -937,6 +937,8 @@
   "custom.device_details.diagnosisNextStep": "Siguiente paso: ",
   "custom.device_details.diagnosisNoLogs": "Aún no hay registros...",
   "custom.device_details.twinLite": "Gemelo del dispositivo",
+  "custom.device_details.preview3d": "Vista 3D",
+  "custom.device_details.preview3dIntro": "Vista 3D procedural controlada por el estado en línea y la última telemetría de temperatura; se degrada a una tarjeta informativa si WebGL no está disponible.",
   "custom.device_details.twinIntro": "Compare los valores deseados con los reportados para confirmar si el dispositivo aplicó realmente el comando de la plataforma.",
   "custom.device_details.twinSourceHint": "Los valores deseados vienen de mensajes esperados pendientes; los valores reportados vienen de instantáneas actuales de telemetría y atributos. Una diferencia significa que el dispositivo aún no confirmó el valor o reportó otro resultado.",
   "custom.device_details.twinDesired": "Deseado",

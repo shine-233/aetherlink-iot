@@ -920,6 +920,8 @@
   "custom.device_details.diagnosisNextStep": "Next step: ",
   "custom.device_details.diagnosisNoLogs": "No logs yet...",
   "custom.device_details.twinLite": "Device Twin",
+  "custom.device_details.preview3d": "3D Preview",
+  "custom.device_details.preview3dIntro": "A procedural 3D view driven by device online status and the latest temperature telemetry; falls back to a notice card when WebGL is unavailable.",
   "custom.device_details.twinIntro": "Compare desired values with reported values to see whether the device actually applied the platform command.",
   "custom.device_details.twinSourceHint": "Desired values come from pending expected messages; reported values come from current telemetry and attribute snapshots. A delta means the device has not confirmed the value or reported something different.",
   "custom.device_details.twinDesired": "Desired",

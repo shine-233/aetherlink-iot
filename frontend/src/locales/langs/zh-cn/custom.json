@@ -921,6 +921,8 @@
   "custom.device_details.diagnosisNextStep": "下一步：",
   "custom.device_details.diagnosisNoLogs": "暂无日志...",
   "custom.device_details.twinLite": "设备影子",
+  "custom.device_details.preview3d": "3D 预览",
+  "custom.device_details.preview3dIntro": "基于设备在线状态与最新温度遥测驱动的程序化 3D 视图；WebGL 不可用时自动降级为提示卡片。",
   "custom.device_details.twinIntro": "对比期望值和上报值，判断设备是否真正应用了平台命令。",
   "custom.device_details.twinSourceHint": "期望值来自待处理的期望消息；上报值来自当前遥测和属性快照。存在差异说明设备尚未确认，或上报了不同结果。",
   "custom.device_details.twinDesired": "期望值",
