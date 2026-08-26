@@ -312,6 +312,8 @@ func RouterInit() *gin.Engine {
 
 			apps.Model.PayloadSchema.InitPayloadSchema(v1) // payload schema 静态校验
 
+			apps.Model.CalculatedField.InitCalculatedField(v1) // 计算字段（遥测派生指标）
+
 			// 初始化系统监控路由
 			apps.Model.SystemMonitor.InitSystemMonitor(v1, m)
 		}

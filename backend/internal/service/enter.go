@@ -60,6 +60,7 @@ type ServiceGroup struct {
 	AiQuery
 	RDI
 	PayloadSchema
+	CalculatedField CalculatedFieldService
 }
 
 // GroupApp 是全局业务服务入口，供 API 层和中间件层调用

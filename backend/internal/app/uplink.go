@@ -168,7 +168,15 @@ func WithFlowService() Option {
 		// 13. 注册到服务管理器
 		a.RegisterService(wrapper)
 
-		// 14. 保存到 Application（供外部使用）
+		// 14. 计算字段引擎：订阅总线扇出流，从遥测派生新遥测并写回存储链路。
+		//     注册顺序在 uplink 之后，StopAll 反序执行时先停引擎再关总线。
+		calcFieldWrapper := &CalcFieldServiceWrapper{
+			engine: newCalcFieldEngine(bus, storageInput, a.Logger),
+			logger: a.Logger,
+		}
+		a.RegisterService(calcFieldWrapper)
+
+		// 15. 保存到 Application（供外部使用）
 		a.uplinkService = wrapper
 
 		logrus.Info("Uplink service registered")

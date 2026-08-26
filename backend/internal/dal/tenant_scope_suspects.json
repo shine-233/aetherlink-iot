@@ -26,7 +26,6 @@
   "GetAttributeOneKeysByDeviceId": "attribute_datas.go",
   "GetAttributeSetLogByMessageID": "attribute_set_logs.go",
   "GetAttributeSetLogsDataListByPage": "attribute_set_logs.go",
-  "GetCalculatedFieldsByConfigId": "calculated_fields.go",
   "GetCommandJobDetailsByPage": "fleet_command_jobs.go",
   "GetCommandSetLogByMessageID": "command_set_logs.go",
   "GetCommandSetLogByMessageIDWithContext": "command_set_logs.go",

@@ -221,20 +221,8 @@ ALTER TABLE device_calculated_fields (
 
 | 日期 | 阶段 | 交付内容 | PR |
 |---|---|---|---|
-<<<<<<< HEAD
 | 2026-08-26 | B4+ | per-tenant API 限流中间件（默认 600rpm，429+Retry-After，6 用例）；C3 3D 预览 tab 正式接线（遥测驱动+懒加载+i18n×4）；response 中间件契约测试 ×8 | #177 |
 | 2026-08-26 | P1 | 安全加固批：LIKE 通配转义、刷新令牌吊销、IP 维度登录防爆破、Casbin 路由覆盖审计、DAL 租户强制删除、doctor 公网明文 MQTT 门禁 | #176 |
-=======
-| 2026-08-25 | 安全 P0 | 高德 securityJsCode 去硬编码：改由 VITE_AMAP_SECURITY_CODE 构建期注入（index.html 清除明文密钥，map-sdk 增加 ensureAmapSecurityConfig 契约测试；**旧 key 已公开泄漏，必须在高德控制台轮换**） | sec/p0-guardrails |
-| 2026-08-25 | 安全 P0 | JWT 密钥启动 fail-fast：占位符（CHANGE_ME_*）/空值/长度<32 拒绝启动，含修复指引；README 开发调试同步 GOTP_JWT_KEY 说明 | 同上 |
-| 2026-08-25 | 安全 P1 | OpenAPI Key 默认权限 TENANT_ADMIN→TENANT_USER 最小降权（compose/.env.example/文档三面同步，需要写能力显式上调） | 同上 |
-| 2026-08-25 | 可靠性 P1 | Broker 持久化默认切 Redis：GMQTT_PERSISTENCE_* 环境覆盖层（start/reload 双路径 + fail-fast 校验），Compose 默认 redis、文件默认保持 memory，契约测试锁定；broker 重启不再丢离线会话/QoS 队列 | 同上 |
-| 2026-08-25 | 部署 P1 | server 模式明文暴露强警告（AETHERLINK_SKIP_TLS_WARNING=1 显式静默）+ HTTPS 公网入口自动下发 Secure 认证 cookie（init.sh/init.ps1 对等实现） | 同上 |
-| 2026-08-25 | 验证状态 | 上述改动定向验证通过（backend app/middleware、broker command/contract 单测，前端 21/21 定向 vitest）；**compose 全栈启动、MQTTS 链路、真实部署回归为 pending**，发布前须按 VALIDATION.md 重跑 | — |
-| 2026-08-25 | 质量 P0 | 修复 main 自 #159 起的 typecheck 断裂：补装 @tresjs/core@5/@tresjs/cientos@5/three（组件当前零引用，不进 bundle）+ MotionCard 显式 import motion-v；vue-tsc 全绿 | 同上 |
-| 2026-08-25 | 性能 P2 | 前端首屏治理：语言包改按需加载（entry **1701KB→182KB，-89%**，fr/es 保留 en 兜底合并语义）、node-forge 动态 import 移出登录关键路径、chunkSizeWarningLimit 回调 1000 | 同上 |
-| 2026-08-25 | 性能 P2 | 后端缓存与查询：设备/脚本缓存 TTL=0 改为 30min 兜底过期（pkg/constant.CacheFallbackTTL，主动失效仍为主机制）；AI 遥测查询 N+1 改单条 IN 批量并下沉租户过滤（GetDevicesByIDsForTenant）。OTA 包加载已有批量回退路径、device_metrics 已有 30s 进程内模板缓存，经复核无需改动 | 同上 |
->>>>>>> origin/main
 | 2026-08-25 | A1 | 空租户守卫：alarm 配置/信息/历史列表 + device_config 列表 fail-closed（含 all-tenants 显式授权与回归测试） | #155 |
 | 2026-08-24 | A2 | message_push gen LeftJoin raw 化 | 已并入 main |
 | 2026-08-25 | A3 | 设备影子全链路：迁移 52.sql、DAL/Service/API/路由、上线投递钩子、cron 清理、DAL 测试、前端影子队列标签页 | 待提 PR |

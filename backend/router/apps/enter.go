@@ -42,6 +42,7 @@ type apps struct {
 	AiQuery
 	RDI
 	PayloadSchema
+	CalculatedField
 }
 
 var Model = new(apps)
