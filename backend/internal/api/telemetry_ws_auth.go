@@ -15,8 +15,13 @@ import (
 	"github.com/spf13/viper"
 )
 
+// wsTokenValidationTimeout 约束 WS 首消息认证里的 Redis 会话校验时长。
+// WS 链路拿不到 gin 请求上下文，用短超时替代裸 Background，避免读循环被无界阻塞。
+const wsTokenValidationTimeout = 3 * time.Second
+
 func validateToken(token string) (*utils.UserClaims, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), wsTokenValidationTimeout)
+	defer cancel()
 	// P3 修复（2026-08-24，见 VALIDATION.md）：与 HTTP 中间件一致，Redis 键使用 token 摘要。
 	tokenKey := utils.TokenDigest(token)
 	if global.REDIS.Get(ctx, tokenKey).Val() != "1" {
@@ -61,7 +66,10 @@ func validateAPIKey(apiKey string) (*utils.UserClaims, error) {
 		return nil, err
 	}
 
-	return telemetryTenantAdminReadClaims(info.TenantID, info.CreatedID), nil
+	// 与 HTTP 侧 jwt_auth.openAPIKeyAuthority 同源：同一把 OpenAPI Key 在 WS 上
+	// 不再单独授予 TENANT_ADMIN；默认最小权限 TENANT_USER，需要提升的部署通过
+	// GOTP_OPENAPI_KEY_AUTHORITY 显式配置。
+	return telemetryAPIKeyClaims(middleware.OpenAPIKeyAuthority(), info.TenantID, info.CreatedID), nil
 }
 
 var (
@@ -152,10 +160,12 @@ func validateTelemetryAPIKeyAuth(req telemetryAuthRequest) (*utils.UserClaims, e
 	return nil, apiKeyErr, apiKeyProvided
 }
 
-func telemetryTenantAdminReadClaims(tenantID string, userID string) *utils.UserClaims {
+// telemetryAPIKeyClaims 构造 OpenAPI Key 的 WS 会话 claims；authority 由
+// middleware.OpenAPIKeyAuthority 统一提供（HTTP/WS 同口径）。
+func telemetryAPIKeyClaims(authority string, tenantID string, userID string) *utils.UserClaims {
 	return &utils.UserClaims{
 		TenantID:  tenantID,
-		Authority: "TENANT_ADMIN",
+		Authority: authority,
 		ID:        userID,
 	}
 }

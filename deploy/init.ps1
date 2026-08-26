@@ -277,6 +277,12 @@ function Initialize-AetherLinkEnvFile {
     $content = Set-AetherLinkEnvValue $content "AETHERLINK_BIND_ADDRESS" "0.0.0.0"
   }
 
+  # Keep auth cookie Secure in sync with the public URL scheme (mirrors
+  # sync_auth_cookie_secure_env_file in deploy/init.sh).
+  if ($PublicUrl -and $PublicUrl.StartsWith("https://")) {
+    $content = Set-AetherLinkEnvValue $content "GOTP_AUTH_COOKIE_SECURE" "true"
+  }
+
   Set-Content -Path ".env" -Value $content -Encoding utf8
   Write-Host "Created .env with generated local secrets."
 }
@@ -316,8 +322,56 @@ function Sync-AetherLinkAddressEnvFile {
     }
   }
 
+  # Keep auth cookie Secure in sync with the public URL scheme (mirrors init.sh).
+  $effectivePublicUrlForCookie = $PublicUrl
+  if (-not $effectivePublicUrlForCookie) {
+    $effectivePublicUrlForCookie = Get-AetherLinkEnvValue ".env" "AETHERLINK_PUBLIC_URL"
+  }
+  if ($effectivePublicUrlForCookie -and $effectivePublicUrlForCookie.StartsWith("https://")) {
+    $content = Set-AetherLinkEnvValue $content "GOTP_AUTH_COOKIE_SECURE" "true"
+  }
+
   Set-Content -Path ".env" -Value $content -Encoding utf8
   Write-Host "Updated .env from explicit startup arguments."
+}
+
+function Warn-AetherLinkPlaintextServerExposure {
+  if (-not $Server) {
+    return
+  }
+  if ($env:AETHERLINK_SKIP_TLS_WARNING -eq "1") {
+    return
+  }
+  $effectiveBindAddress = $BindAddress
+  if (-not $effectiveBindAddress) {
+    $effectiveBindAddress = Get-AetherLinkEnvValue ".env" "AETHERLINK_BIND_ADDRESS"
+  }
+  $effectivePublicUrl = $PublicUrl
+  if (-not $effectivePublicUrl) {
+    $effectivePublicUrl = Get-AetherLinkEnvValue ".env" "AETHERLINK_PUBLIC_URL"
+  }
+  if (-not $effectiveBindAddress -or (Test-AetherLinkLocalAddress $effectiveBindAddress)) {
+    return
+  }
+  if ($effectivePublicUrl -and $effectivePublicUrl.StartsWith("https://")) {
+    return
+  }
+  Write-Host ""
+  Write-Host "====================================================================" -ForegroundColor Yellow
+  Write-Host "WARNING: server mode exposes plaintext services beyond loopback." -ForegroundColor Yellow
+  Write-Host "- Web/API (8080/9999) and device MQTT (1883) currently have no TLS."
+  Write-Host "- Device vouchers and JWT tokens travel unencrypted on these ports."
+  Write-Host "Recommended hardening:"
+  Write-Host "- Terminate TLS for the web entry with a reverse proxy and keep"
+  Write-Host "  AETHERLINK_PUBLIC_URL on https:// (this also flips the auth cookie"
+  Write-Host "  to Secure automatically on the next start)."
+  Write-Host "- For MQTTS, mount real CA-signed certificates, enable the :8883"
+  Write-Host "  listener in mqtt-broker/cmd/gmqttd/default_config.yml, then publish"
+  Write-Host "  8883 via a Compose override. deploy/gen-mqtt-certs.* issues"
+  Write-Host "  self-signed certificates for intranet/testing only."
+  Write-Host "Set AETHERLINK_SKIP_TLS_WARNING=1 to acknowledge and silence this warning."
+  Write-Host "====================================================================" -ForegroundColor Yellow
+  Write-Host ""
 }
 
 Resolve-AetherLinkFirstRunAddresses
@@ -327,6 +381,8 @@ if (-not (Test-Path ".env")) {
 } else {
   Sync-AetherLinkAddressEnvFile
 }
+
+Warn-AetherLinkPlaintextServerExposure
 
 $doctorParams = @{}
 if ($PublicUrl) {

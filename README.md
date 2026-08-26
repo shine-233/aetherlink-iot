@@ -78,7 +78,9 @@ flowchart LR
 # 前端
 cd frontend && pnpm install && pnpm dev
 
-# 后端（需先准备 backend/configs/ 的 PG/Redis/MQTT 配置）
+# 后端（需先准备 backend/configs/ 的 PG/Redis/MQTT 配置；
+# 出厂 conf.yml 的 jwt.key 为占位符，启动会被 fail-fast 拒绝，
+# 本地请先设置强密钥，例如 PowerShell：$env:GOTP_JWT_KEY = "<openssl rand -base64 48 的输出>"）
 cd backend && go run .
 
 # Broker
@@ -124,7 +126,7 @@ cd mqtt-broker && go run ./cmd/gmqttd
 
 - 源码离线门禁持续保持绿色，但**这不等于**真实 API、浏览器 E2E、真机 RDI 或生产环境已验收。
 - 真实 RDI 设备、目标服务器部署、HTTPS/TLS、公网 MQTT 与 backup/restore 目前为 `not-tested` / `pending` / `configuration-required`，逐项状态见 [VALIDATION.md](VALIDATION.md)。
-- 数据库迁移链当前到 `52.sql`；升级 OpenAPI 密钥为哈希存储后，旧明文密钥需重新生成方可继续使用。
+- 数据库迁移链当前到 `53.sql`；升级 OpenAPI 密钥为哈希存储后，旧明文密钥需重新生成方可继续使用。
 
 ## 贡献
 

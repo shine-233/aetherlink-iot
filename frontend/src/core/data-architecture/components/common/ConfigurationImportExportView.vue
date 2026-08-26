@@ -1,4 +1,4 @@
-﻿<!--
+<!--
   文件用途: 配置导入导出视图组件。
   核心逻辑: 提供配置导出下拉、导入入口、处理状态和结果反馈。
   关键注意事项: 导入导出格式由工具层维护，组件不应复制持久化 schema 规则。
@@ -10,7 +10,7 @@
     <n-dropdown :options="exportOptions" :disabled="isProcessing" @select="handleExportSelect">
       <n-button type="primary" size="small" :loading="isProcessing">
         <template #icon>
-          <n-icon><DownloadOutline /></n-icon>
+          <n-icon><CloudDownloadOutline /></n-icon>
         </template>
         {{ $t('common.export') }}
         <template #suffix>
@@ -22,7 +22,7 @@
     <!-- 导入按钮 -->
     <n-button type="info" size="small" :loading="isProcessing" @click="triggerFileInput">
       <template #icon>
-        <n-icon><UploadOutline /></n-icon>
+        <n-icon><CloudUploadOutline /></n-icon>
       </template>
       {{ $t('common.import') }}
     </n-button>
@@ -213,7 +213,7 @@ import {
   NAlert,
   NDropdown
 } from 'naive-ui'
-import { DownloadOutline, UploadOutline, ChevronDownOutline } from '@vicons/ionicons5'
+import { CloudDownloadOutline, CloudUploadOutline, ChevronDownOutline } from '@vicons/ionicons5'
 
 import {
   configurationExporter,
@@ -345,12 +345,12 @@ const exportOptions = computed(() => [
   {
     label: t('configuration.export.fullConfiguration'),
     key: 'full',
-    icon: () => h(NIcon, null, { default: () => h(DownloadOutline) })
+    icon: () => h(NIcon, null, { default: () => h(CloudDownloadOutline) })
   },
   {
     label: t('configuration.export.singleDataSource'),
     key: 'single',
-    icon: () => h(NIcon, null, { default: () => h(DownloadOutline) })
+    icon: () => h(NIcon, null, { default: () => h(CloudDownloadOutline) })
   }
 ])
 

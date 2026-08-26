@@ -307,5 +307,8 @@ func RouterInit() *gin.Engine {
 		}
 	}
 
+	// 启动期一致性报告：列出会因 casbin fail-open 放行的未登记路由（只告警不阻断）。
+	LogCasbinRegistrationGaps(router)
+
 	return router
 }

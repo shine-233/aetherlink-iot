@@ -41,10 +41,7 @@ func GetServiceAccessListByPage(req *model.GetServiceAccessByPageReq, tenantID s
 		logrus.Error(err)
 		return count, serviceAccess, err
 	}
-	if req.Page != 0 && req.PageSize != 0 {
-		queryBuilder = queryBuilder.Limit(req.PageSize)
-		queryBuilder = queryBuilder.Offset((req.Page - 1) * req.PageSize)
-	}
+	queryBuilder = applyListPagination(queryBuilder, req.Page, req.PageSize)
 
 	err = queryBuilder.Select().Order(q.CreateAt.Desc()).Scan(&serviceAccess)
 	if err != nil {

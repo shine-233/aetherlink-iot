@@ -17,7 +17,6 @@ import (
 	"aetherlink-iot/backend/internal/model"
 	service "aetherlink-iot/backend/internal/service"
 	"aetherlink-iot/backend/pkg/utils"
-	"context"
 
 	"github.com/gin-gonic/gin"
 )
@@ -32,7 +31,7 @@ type ExpectedDataApi struct{}
 // 1. 上游通常来自设备期望值列表页或运维检索页。
 // 2. 下游 service 负责分页查询、排序与状态字段解释，API 层不直接拼装业务数据。
 // 静态审查建议：
-// 1. 这里使用 `context.Background()`，若后续查询链路需要继承请求级 trace、超时或取消信号，可评估是否改为显式透传请求上下文。
+// 1. 查询链路现已透传 c.Request.Context()（2026-08 #11 断链治理）；后续新增入口同样不要使用裸 Background。
 // 2. 若期望数据列表后续支持导出或批量筛查，应避免在现有 DTO 中堆叠过多可选字段。
 // /api/v1/expected/data/list
 func (*ExpectedDataApi) HandleExpectedDataList(c *gin.Context) {
@@ -41,7 +40,7 @@ func (*ExpectedDataApi) HandleExpectedDataList(c *gin.Context) {
 		return
 	}
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.ExpectedData.PageList(context.Background(), &req, userClaims)
+	resp, err := service.GroupApp.ExpectedData.PageList(c.Request.Context(), &req, userClaims)
 	if err != nil {
 		c.Error(err)
 		return

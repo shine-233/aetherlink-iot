@@ -19,6 +19,7 @@ import type {
   HttpParam,
   HttpPathParam,
   HttpConfig,
+  HttpParameter,
   PathParameter
 } from '@/core/data-architecture/types/http-config'
 import { extractPathParamsFromUrl } from '@/core/data-architecture/types/http-config'

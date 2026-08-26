@@ -20,7 +20,7 @@ function handleOpenCapability() {
     void router.push(props.route)
     return
   }
-  window.open(props.route, '_blank')
+  window.open(props.route, '_blank', 'noopener,noreferrer')
 }
 </script>
 

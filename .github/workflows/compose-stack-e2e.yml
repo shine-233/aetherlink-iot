@@ -269,6 +269,14 @@ jobs:
           GOTP_DB_PSQL_DBNAME: aetherlink_iot
         run: npm run test:automation:e2e
 
+      # 轻量负载探测：公共端点延迟地板（非 tiers.json 容量承诺），随报告归档做趋势追踪。
+      - name: Run lightweight API load probe
+        if: success()
+        working-directory: automation_tests
+        env:
+          AETHERLINK_API_BASE_URL: http://127.0.0.1:9999
+        run: node scripts/load_probe.mjs --duration 30 --rps 20
+
       - name: Upload integration reports
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

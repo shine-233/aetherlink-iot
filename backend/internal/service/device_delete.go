@@ -203,13 +203,18 @@ func finalizeDeviceDelete(id string, deviceInfo *model.Device) {
 }
 
 func deleteDeviceVoucherCache(deviceID, voucher string) {
-	if global.REDIS == nil || strings.TrimSpace(voucher) == "" {
+	if global.REDIS == nil {
 		return
 	}
 	// broker 侧缓存键为 sha256(voucher) 十六进制摘要，rdi.go 的物理解绑流程复用本函数删键。
-	if err := global.REDIS.Del(context.Background(), utils.VoucherCacheKey(voucher)).Err(); err != nil {
-		logrus.Warn("delete device voucher cache failed")
+	// 2b 行的 voucher 列已置空（仅存哈希），无法直删——这类设备只能依赖下方的按设备失效通道。
+	if strings.TrimSpace(voucher) != "" {
+		if err := global.REDIS.Del(context.Background(), utils.VoucherCacheKey(voucher)).Err(); err != nil {
+			logrus.Warn("delete device voucher cache failed")
+		}
 	}
+	// 设备删除后按设备失效 broker 侧全部映射。
+	notifyBrokerVoucherCacheInvalidation(context.Background(), deviceID)
 }
 
 func deleteDeviceCache(deviceID string) {

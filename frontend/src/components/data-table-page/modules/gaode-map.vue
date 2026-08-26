@@ -6,7 +6,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useScriptTag } from '@vueuse/core'
-import { AMAP_SDK_URL } from '@/constants/map-sdk'
+import { AMAP_SDK_URL, ensureAmapSecurityConfig } from '@/constants/map-sdk'
 import { $t } from '@/locales'
 
 defineOptions({ name: 'GaodeMap' })
@@ -19,6 +19,7 @@ async function renderMap() {
   if (!scriptLoader) return
 
   try {
+    ensureAmapSecurityConfig()
     await scriptLoader.load(true)
     if (!domRef.value) return
 
