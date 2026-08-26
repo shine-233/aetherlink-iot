@@ -60,6 +60,8 @@ func configureRuntimeEnvironment() error {
 	viper.AutomaticEnv()
 
 	for _, key := range []string{
+		"device_route_cache.ttl",
+		"device_route_cache.max_entries",
 		"db.psql.psqladdr",
 		"db.psql.psqlport",
 		"db.psql.psqluser",

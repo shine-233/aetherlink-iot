@@ -308,11 +308,18 @@ func deviceVoucherLookupCandidates(voucher string) []string {
 }
 
 func GetDeviceById(deviceID string) (*Device, error) {
+	// 上行热路径：优先吃进程内微缓存，未命中才落 PostgreSQL（并在成功后回填）。
+	if cached, ok := deviceRoute.get(deviceID); ok {
+		return cached, nil
+	}
 	var device Device
 	result := db.Model(&Device{}).Where("id = ?", deviceID).First(&device)
 	if result.Error != nil {
+		// 负结果不缓存，且清掉可能的过期条目：设备删除/禁用后立即回到权威判定。
+		deviceRoute.invalidate(deviceID)
 		return nil, result.Error
 	}
+	deviceRoute.set(device.ID, &device)
 	if err := SetRedisForJsondata(device.ID, device, defaultCacheTTL); err != nil {
 		return nil, err
 	}

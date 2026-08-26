@@ -100,6 +100,8 @@ func evictVoucherCacheForDevice(deviceID string) (int, error) {
 			return evicted, fmt.Errorf("clear voucher cache index: %w", err)
 		}
 	}
+	// 同步清进程内设备路由微缓存，让删除/轮换后的鉴权状态立即回到权威判定。
+	deviceRoute.invalidate(deviceID)
 	return evicted, nil
 }
 
