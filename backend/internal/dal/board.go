@@ -75,6 +75,7 @@ func PublishBoard(id string, tenantID string, shareToken string, publishedAt tim
 // board lookup. It requires both a matching token and the native published
 // flag, so an unpublished or ThingsVis board cannot be exposed through this
 // endpoint.
+// tenant-scope: public-share?2026-08-26 ?????
 func GetPublishedBoardByShareToken(shareToken string) (*model.Board, error) {
 	p := query.Board
 	return p.Where(

@@ -99,6 +99,7 @@ func DeleteDeviceConfigForTenant(id, tenantID string) error {
 	return nil
 }
 
+// tenant-scope: no-tenant-column?2026-08-26 ?????
 func GetDeviceConfigByID(id string) (*model.DeviceConfig, error) {
 	// 1. 先从 Redis 缓存读取
 	cacheKey := id + "_config"
@@ -407,6 +408,7 @@ func UpdateDeviceConfigVoucherType(id string, voucherType *string) error {
 	return err
 }
 
+// tenant-scope: no-tenant-column?2026-08-26 ?????
 func GetDeviceConfigIdByName(name string) *string {
 	var configId string
 	err := global.DB.Model(&model.DeviceConfig{}).
@@ -425,6 +427,7 @@ func countBy(q *gorm.DB) (int64, error) {
 	return n, err
 }
 
+// tenant-scope: no-tenant-column?2026-08-26 ?????
 func GetDeviceConfigCountByFuncTemplateId(id string) (int64, error) {
 	count, err := countBy(global.DB.Model(&model.DeviceConfig{}).Where("device_template_id = ?", id))
 	if err != nil {

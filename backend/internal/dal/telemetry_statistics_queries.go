@@ -42,6 +42,7 @@ var StatisticAggregateWindowMillisecond = map[string]int64{
 	"1mo": int64(time.Hour * 24 * 30 / time.Millisecond),
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetTelemetryStatisticDataByDeviceIds(deviceIds []string, keys []string, timeType string, limit *int, aggregateMethod string) ([]map[string]interface{}, error) {
 	if len(deviceIds) != len(keys) {
 		return nil, fmt.Errorf("device ID count does not match key count")

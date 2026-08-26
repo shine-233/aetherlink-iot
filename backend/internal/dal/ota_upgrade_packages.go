@@ -38,6 +38,7 @@ func DeleteOtaUpgradePackage(packageId string) error {
 	return nil
 }
 
+// tenant-scope: no-tenant-column?2026-08-26 ?????
 func GetOtaUpgradePackageByID(id string) (*model.OtaUpgradePackage, error) {
 	ota, err := query.OtaUpgradePackage.Where(query.OtaUpgradePackage.ID.Eq(id)).First()
 	if err != nil {

@@ -70,6 +70,7 @@ func DeleteDataScript(id string) error {
 	return err
 }
 
+// tenant-scope: parent-owned?2026-08-26 ?????
 func GetDataScriptById(id string) (*model.DataScript, error) {
 	data, err := query.DataScript.Where(query.DataScript.ID.Eq(id)).First()
 	if err != nil {
@@ -81,6 +82,7 @@ func GetDataScriptById(id string) (*model.DataScript, error) {
 	return data, err
 }
 
+// tenant-scope: parent-owned?2026-08-26 ?????
 func GetDataScriptListByPage(data *model.GetDataScriptListByPageReq) (int64, interface{}, error) {
 	q := query.DataScript
 	var count int64
@@ -156,6 +158,7 @@ func EnableDataScript(data *model.DataScript) error {
 	return err
 }
 
+// tenant-scope: parent-owned?2026-08-26 ?????
 func GetDeviceIDsByDataScriptID(dataScriptID string) ([]string, error) {
 	var deviceIDs []string
 	dataScript, err := query.DataScript.Where(query.DataScript.ID.Eq(dataScriptID)).First()
@@ -174,6 +177,7 @@ func GetDeviceIDsByDataScriptID(dataScriptID string) ([]string, error) {
 	return deviceIDs, err
 }
 
+// tenant-scope: parent-owned?2026-08-26 ?????
 func GetDataScriptByDeviceConfigIdAndScriptType(deviceConfigId *string, scriptType string) (*model.DataScript, error) {
 	if deviceConfigId == nil || *deviceConfigId == "" {
 		return nil, nil

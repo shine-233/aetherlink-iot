@@ -1,12 +1,15 @@
 // 文件用途：租户隔离的结构性静态守卫（#8）——清单棘轮版。
 // 核心逻辑：AST 扫描 dal 非测试文件中「查询型导出函数」，凡函数体既无
-//   tenant_id/TenantID 证据、也无 all-tenants 显式授权语义、且不含
-//   `tenant-scope:` 标记者记为 suspect；与 tenant_scope_suspects.json 基线
-//   按函数名对比：新增未登记函数即失败；存量清一个减一格（env 触发重写）。
+//
+//	tenant_id/TenantID 证据、也无 all-tenants 显式授权语义、且不含
+//	`tenant-scope:` 标记者记为 suspect；与 tenant_scope_suspects.json 基线
+//	按函数名对比：新增未登记函数即失败；存量清一个减一格（env 触发重写）。
+//
 // 关键注意事项：这是启发式护栏而非完备证明。为历史函数补 tenant_id 条件后，
-//   用 `TENANT_SCOPE_AUDIT_UPDATE=1 go test ./internal/dal/ -run TestTenantScopeQueryAudit`
-//   重写基线并提交 diff（应只出现删除行）。新写查询请直接带租户过滤或标注
-//   `tenant-scope: caller-enforced|system-table|no-tenant-column` 等证据注释。
+//
+//	用 `TENANT_SCOPE_AUDIT_UPDATE=1 go test ./internal/dal/ -run TestTenantScopeQueryAudit`
+//	重写基线并提交 diff（应只出现删除行）。新写查询请直接带租户过滤或标注
+//	`tenant-scope: caller-enforced|system-table|no-tenant-column` 等证据注释。
 package dal
 
 import (
@@ -30,7 +33,11 @@ func isTestGoFileName(name string) bool {
 }
 
 func functionBodySource(src []byte, fset *token.FileSet, fn *ast.FuncDecl) string {
+	// 纳入文档注释：tenant-scope: 标记按约定写在函数头注释里。
 	start := fset.Position(fn.Pos()).Offset
+	if fn.Doc != nil && len(fn.Doc.List) > 0 {
+		start = fset.Position(fn.Doc.Pos()).Offset
+	}
 	end := fset.Position(fn.End()).Offset
 	if start < 0 || end > len(src) || start >= end {
 		return ""
@@ -68,7 +75,7 @@ func collectTenantScopeSuspects(t *testing.T) map[string]string {
 		if err != nil {
 			t.Fatalf("read %s: %v", path, err)
 		}
-		file, err := parser.ParseFile(fset, path, src, 0)
+		file, err := parser.ParseFile(fset, path, src, parser.ParseComments)
 		if err != nil {
 			t.Fatalf("parse %s: %v", path, err)
 		}

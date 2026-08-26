@@ -21,6 +21,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetCommandSetLogsDataListByPage(req model.GetCommandSetLogsListByPageReq) (int64, any, error) {
 
 	var count int64
@@ -143,12 +144,14 @@ func CreateCommandSetLog(log *model.CommandSetLog) error {
 }
 
 // GetCommandSetLogByMessageID 根据 message_id 和 device_id 查询日志。
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetCommandSetLogByMessageID(messageID string, deviceID string) (*model.CommandSetLog, error) {
 	return GetCommandSetLogByMessageIDWithContext(context.Background(), messageID, deviceID)
 }
 
 // GetCommandSetLogByMessageIDWithContext lets short request-response callers
 // cancel an in-flight lookup when the HTTP request or wait deadline ends.
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetCommandSetLogByMessageIDWithContext(ctx context.Context, messageID string, deviceID string) (*model.CommandSetLog, error) {
 	return query.CommandSetLog.WithContext(ctx).
 		Where(query.CommandSetLog.MessageID.Eq(messageID)).
@@ -192,6 +195,7 @@ func CommandSetLogLookupKey(deviceID, messageID string) string {
 }
 
 // GetCommandSetLogsByDeviceMessageIDs returns command logs keyed by device_id + message_id.
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetCommandSetLogsByDeviceMessageIDs(lookups []CommandSetLogLookup) (map[string]*model.CommandSetLog, error) {
 	result := make(map[string]*model.CommandSetLog, len(lookups))
 	if len(lookups) == 0 {
@@ -241,6 +245,7 @@ func GetCommandSetLogsByDeviceMessageIDs(lookups []CommandSetLogLookup) (map[str
 }
 
 // GetCommandSetLogsByPage 分页查询命令下发日志
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetCommandSetLogsByPage(req *model.GetCommandSetLogsListByPageReq) ([]*model.CommandSetLog, int64, error) {
 	q := query.CommandSetLog.Order(query.CommandSetLog.CreatedAt.Desc())
 

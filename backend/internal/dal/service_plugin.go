@@ -52,6 +52,7 @@ func UpdateServicePlugin(id string, updates map[string]interface{}) error {
 	return err
 }
 
+// tenant-scope: system-table?2026-08-26 ?????
 func GetServicePluginListByPage(req *model.GetServicePluginByPageReq) (int64, []map[string]interface{}, error) {
 	var count int64
 	servicePlugins := make([]map[string]interface{}, 0)
@@ -93,6 +94,7 @@ func GetServicePluginListByPage(req *model.GetServicePluginByPageReq) (int64, []
 	return count, servicePlugins, err
 }
 
+// tenant-scope: system-table?2026-08-26 ?????
 func GetServicePlugin(id string) (interface{}, error) {
 	var servicePlugin *model.ServicePlugin
 
@@ -110,6 +112,7 @@ func GetServicePlugin(id string) (interface{}, error) {
 }
 
 // 通过service_plugin_id获取插件服务信息
+// tenant-scope: system-table?2026-08-26 ?????
 func GetServicePluginByID(id string) (*model.ServicePlugin, error) {
 	// 使用first查询
 	q := query.ServicePlugin
@@ -123,6 +126,7 @@ func GetServicePluginByID(id string) (*model.ServicePlugin, error) {
 }
 
 // 通过service_plugin_id获取配置文件中的http_address
+// tenant-scope: system-table?2026-08-26 ?????
 func GetServicePluginHttpAddressByID(id string) (*model.ServicePlugin, string, error) {
 	servicePlugin, err := GetServicePluginByID(id)
 	if err != nil {
@@ -150,6 +154,7 @@ func GetServicePluginHttpAddressByID(id string) (*model.ServicePlugin, string, e
 }
 
 // 通过service_identifier获取插件服务信息
+// tenant-scope: system-table?2026-08-26 ?????
 func GetServicePluginByServiceIdentifier(serviceIdentifier string) (*model.ServicePlugin, error) {
 	if serviceIdentifier == "MQTT" {
 		return &model.ServicePlugin{
@@ -171,6 +176,7 @@ func GetServicePluginByServiceIdentifier(serviceIdentifier string) (*model.Servi
 }
 
 // 通过device_config_id获取插件服务信息
+// tenant-scope: system-table?2026-08-26 ?????
 func GetServicePluginByDeviceConfigID(deviceConfigID string) (*model.ServicePlugin, error) {
 	// 获取设备配置信息
 	deviceConfig, err := GetDeviceConfigByID(deviceConfigID)
@@ -182,6 +188,7 @@ func GetServicePluginByDeviceConfigID(deviceConfigID string) (*model.ServicePlug
 }
 
 // 通过device_config_id获取主题前缀
+// tenant-scope: system-table?2026-08-26 ?????
 func GetServicePluginSubTopicPrefixByDeviceConfigID(deviceConfigID string) (string, error) {
 	servicePlugin, err := GetServicePluginByDeviceConfigID(deviceConfigID)
 	if err != nil {
@@ -239,6 +246,7 @@ func UpdateServicePluginHeartbeat(serviceIdentifier string) error {
 }
 
 // GetServiceSelectList
+// tenant-scope: system-table?2026-08-26 ?????
 func GetServiceSelectList() ([]model.ServicePlugin, error) {
 	q := query.ServicePlugin
 	queryBuilder := q.WithContext(context.Background())

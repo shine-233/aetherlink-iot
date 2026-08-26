@@ -14,6 +14,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetAttributeDataList(deviceId string) ([]*model.AttributeData, error) {
 	data, err := query.AttributeData.
 		Where(query.AttributeData.DeviceID.Eq(deviceId)).Find()
@@ -31,6 +32,7 @@ left join device_model_attributes dma on dt.id = dma.device_template_id and ad.k
 where devices.id = 'ca33926c-5ee5-3e9f-147e-94e188fde65b'
 */
 // 根据设备ID获取设备属性数据列表并关联查到数据名称如以上sql
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetAttributeDataListWithDeviceName(deviceId string) ([]map[string]interface{}, error) {
 	var data []map[string]interface{}
 	// P1 修复（2026-08-24，见 VALIDATION.md）：五级链（attribute_datas→devices→
@@ -58,6 +60,7 @@ func DeleteAttributeData(id string) error {
 	return err
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetAttributeDataByID(id string) (*model.AttributeData, error) {
 	return query.AttributeData.
 		Where(query.AttributeData.ID.Eq(id)).
@@ -112,6 +115,7 @@ func UpdateAttributeData(data *model.AttributeData) (*model.AttributeData, error
 }
 
 // 获取设备单指标最新值，如果数据不存在，返回nil
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetAttributeOneKeys(deviceId string, keys string) (interface{}, error) {
 	data, err := query.AttributeData.Where(query.AttributeData.DeviceID.Eq(deviceId), query.AttributeData.Key.Eq(keys)).Order(query.AttributeData.T.Desc()).First()
 	var result interface{}
@@ -135,6 +139,7 @@ func GetAttributeOneKeys(deviceId string, keys string) (interface{}, error) {
 }
 
 // 获取设备单指标最新值,如果数据不存在，返回nil
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetAttributeOneKeysByDeviceId(deviceId string, keys string) (*model.AttributeData, error) {
 	data, err := query.AttributeData.Where(query.AttributeData.DeviceID.Eq(deviceId), query.AttributeData.Key.Eq(keys)).Order(query.AttributeData.T.Desc()).First()
 	if err != nil {

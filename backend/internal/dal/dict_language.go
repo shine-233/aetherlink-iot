@@ -23,6 +23,7 @@ func DeleteDictLanguageById(id string) error {
 	return err
 }
 
+// tenant-scope: system-table?2026-08-26 ?????
 func GetDictLanguageByDictIdListAndLanguageCode(dictIdList []string, languageCode string) (dictLanList []*model.SysDictLanguage, err error) {
 	q := query.SysDictLanguage
 	if len(languageCode) != 0 {
@@ -36,6 +37,7 @@ func GetDictLanguageByDictIdListAndLanguageCode(dictIdList []string, languageCod
 	return dictLanList, err
 }
 
+// tenant-scope: system-table?2026-08-26 ?????
 func GetDictLanguageListByDictId(dictId string) ([]*model.SysDictLanguage, error) {
 	q := query.SysDictLanguage
 	var d []*model.SysDictLanguage

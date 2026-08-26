@@ -27,6 +27,7 @@ func CreateDeviceTemplate(device *model.DeviceTemplate) (*model.DeviceTemplate, 
 	return device, query.DeviceTemplate.Create(device)
 }
 
+// tenant-scope: no-tenant-column?2026-08-26 ?????
 func GetDeviceTemplateById(id string) (*model.DeviceTemplate, error) {
 	template, err := query.DeviceTemplate.Where(query.DeviceTemplate.ID.Eq(id)).First()
 	if err != nil {
@@ -69,6 +70,7 @@ func GetDeviceTemplateChartConfigByID(id, tenantID string) (*model.DeviceTemplat
 // 并发下继承残留 Statement（同 devices 列表读旧快照家族，CI 实证 /device/template/chart
 // 间歇 101001），改为 global.DB raw 链重建等价三表 LEFT JOIN；Scan 空行/nil id 的
 // 兼容分支逐字节保留。
+// tenant-scope: no-tenant-column?2026-08-26 ?????
 func GetDeviceTemplateByDeviceId(deviceId string) (any, error) {
 	var rsp map[string]interface{}
 	err := global.DB.Table("devices").

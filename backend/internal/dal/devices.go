@@ -245,6 +245,7 @@ func DeleteDeviceWithTx(id string, tenantID string, tx *query.QueryTx) error {
 
 // GetParentDeviceBySubDeviceID returns the parent/gateway record for a child device ID.
 // 批次一收敛（2026-08-24）：直链读起点改走 raw global.DB 链，杜绝继承链残留。
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetParentDeviceBySubDeviceID(subDeviceID string) (info *model.Device, err error) {
 	device := &model.Device{}
 	if err = global.DB.Model(&model.Device{}).
@@ -258,6 +259,7 @@ func GetParentDeviceBySubDeviceID(subDeviceID string) (info *model.Device, err e
 
 // GetDeviceByIDForUpdate locks the device row inside a transaction for
 // read-modify-write updates such as additional_info JSON changes.
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDeviceByIDForUpdate(tx *query.QueryTx, id string) (*model.Device, error) {
 	device, err := tx.Device.Where(tx.Device.ID.Eq(id)).
 		Clauses(clause.Locking{Strength: "UPDATE"}).First()

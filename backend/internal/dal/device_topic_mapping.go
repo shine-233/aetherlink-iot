@@ -41,11 +41,13 @@ func TopicMappingExists(ctx context.Context, deviceConfigID, direction, sourceTo
 	return false, err
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDeviceTopicMappingByID(ctx context.Context, id int64) (*model.DeviceTopicMapping, error) {
 	q := query.DeviceTopicMapping
 	return q.WithContext(ctx).Where(q.ID.Eq(id)).First()
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func ListDeviceTopicMappings(ctx context.Context, req *model.ListDeviceTopicMappingReq) ([]*model.DeviceTopicMapping, int64, error) {
 	q := query.DeviceTopicMapping
 	dao := applyDeviceTopicMappingFilters(q.WithContext(ctx), req)

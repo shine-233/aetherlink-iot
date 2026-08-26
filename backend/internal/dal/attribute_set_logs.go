@@ -19,6 +19,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetAttributeSetLogsDataListByPage(req model.GetAttributeSetLogsListByPageReq) (int64, []*model.AttributeSetLog, error) {
 
 	var count int64
@@ -94,6 +95,7 @@ func (AttributeSetLogsQuery) SetAttributeResultUpdate(ctx context.Context, logId
 }
 
 // 根据key查询设备属性
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetAttributeDataByKey(req model.GetDataListByKeyReq) (*model.AttributeData, error) {
 	data, err := query.AttributeData.WithContext(context.Background()).Where(query.AttributeData.DeviceID.Eq(req.DeviceId), query.AttributeData.Key.Eq(req.Key)).First()
 	if err != nil {
@@ -115,6 +117,7 @@ func CreateAttributeSetLog(log *model.AttributeSetLog) error {
 }
 
 // GetAttributeSetLogByMessageID 根据 message_id 和 device_id 查询日志（提升性能）
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetAttributeSetLogByMessageID(messageID string, deviceID string) (*model.AttributeSetLog, error) {
 	return query.AttributeSetLog.
 		Where(query.AttributeSetLog.MessageID.Eq(messageID)).

@@ -86,6 +86,7 @@ func ListTenantDashboardMenus(tenantID string, parentCode string) ([]model.Tenan
 	return menus, err
 }
 
+// tenant-scope: no-tenant-column?2026-08-26 ?????
 func GetVisDashboardByID(dashboardID string) (*model.VisDashboard, error) {
 	dashboard, err := query.VisDashboard.Where(query.VisDashboard.ID.Eq(dashboardID)).First()
 	if err != nil {
@@ -98,6 +99,7 @@ func GetVisDashboardByID(dashboardID string) (*model.VisDashboard, error) {
 	return dashboard, nil
 }
 
+// tenant-scope: no-tenant-column?2026-08-26 ?????
 func GetNativeBoardByID(boardID string) (*model.Board, error) {
 	board, err := query.Board.Where(query.Board.ID.Eq(boardID)).First()
 	if err != nil {

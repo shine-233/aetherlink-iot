@@ -24,6 +24,7 @@ func CreateDict(dict *model.SysDict, tx *query.QueryTx) error {
 	}
 }
 
+// tenant-scope: system-table?2026-08-26 ?????
 func GetDictById(dictId string) (*model.SysDict, error) {
 	dict, err := query.SysDict.Where(query.SysDict.ID.Eq(dictId)).First()
 	if err != nil {
@@ -37,6 +38,7 @@ func DeleteDictById(dictId string) error {
 	return err
 }
 
+// tenant-scope: system-table?2026-08-26 ?????
 func GetDictListByCode(dictCode string) ([]*model.SysDict, error) {
 	dict, err := query.SysDict.Where(query.SysDict.DictCode.Eq(dictCode)).Find()
 	if err != nil {
@@ -45,6 +47,7 @@ func GetDictListByCode(dictCode string) ([]*model.SysDict, error) {
 	return dict, err
 }
 
+// tenant-scope: system-table?2026-08-26 ?????
 func GetDictListByPage(dictListReq *model.GetDictLisyByPageReq, claims *utils.UserClaims) (count int64, dictList interface{}, err error) {
 	q := query.SysDict
 
@@ -83,6 +86,7 @@ func GetDictListByPage(dictListReq *model.GetDictLisyByPageReq, claims *utils.Us
 }
 
 // 根据字典标识符和多语言标识符获取字典
+// tenant-scope: system-table?2026-08-26 ?????
 func GetDictLanguageByDictCodeAndLanguageCode(dictCode, languageCode string) ([]map[string]interface{}, error) {
 	var data []map[string]interface{}
 	// P1 修复（2026-08-24，见 VALIDATION.md）：字典多语言翻译改走 raw global.DB 链，

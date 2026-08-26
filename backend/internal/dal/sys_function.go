@@ -12,11 +12,13 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// tenant-scope: system-table?2026-08-26 ?????
 func GetAllSysFunction() ([]*model.SysFunction, error) {
 	data, err := query.SysFunction.Order(query.SysFunction.ID.Desc()).Find()
 	return data, err
 }
 
+// tenant-scope: system-table?2026-08-26 ?????
 func GetSysFunctionById(functionId string) (*model.SysFunction, error) {
 	data, err := query.SysFunction.Where(query.SysFunction.ID.Eq(functionId)).First()
 	return data, err

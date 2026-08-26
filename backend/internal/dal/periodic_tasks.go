@@ -28,6 +28,7 @@ func SwitchPeriodicTask(sceneAutomationId, enabled string, tx *query.QueryTx) er
 	return err
 }
 
+// tenant-scope: system-internal?2026-08-26 ?????
 func GetPeriodicTask(sceneAutomationId string) ([]*model.PeriodicTask, error) {
 	data, err := query.PeriodicTask.Where(query.PeriodicTask.SceneAutomationID.Eq(sceneAutomationId)).Find()
 	return data, err
@@ -43,6 +44,7 @@ func DeletePeriodicTask(sceneAutomationId string, tx *query.QueryTx) error {
 	}
 }
 
+// tenant-scope: system-internal?2026-08-26 ?????
 func GetPeriodicTaskListWithLock(limit int) ([]*model.PeriodicTask, error) {
 	key := "aetherlink-iot:periodicTask"
 	lockToken := common.AcquireLockToken(key, time.Second*5)

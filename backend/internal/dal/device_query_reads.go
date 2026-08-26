@@ -226,6 +226,7 @@ func (DeviceQuery) GetSubList(ctx context.Context, parent_id string, pageSize, p
 }
 
 // 获取子设备列表
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetSubDeviceListByParentID(parentId string) ([]*model.Device, error) {
 	device := query.Device
 	list, err := device.Where(device.ParentID.Eq(parentId)).Find()
@@ -258,6 +259,7 @@ func GetDeviceTemplateChartSelect(tenantId string) (any, error) {
 }
 
 // 通过子设配置ID查询所有关联这个配置的子设备的网关设备列表
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetGatewayDevicesBySubDeviceConfigID(deviceConfigID string) ([]string, error) {
 	device := query.Device
 	var deviceIDList []string
@@ -272,6 +274,7 @@ func GetGatewayDevicesBySubDeviceConfigID(deviceConfigID string) ([]string, erro
 
 // GetSubDeviceExists
 // @description 查询子设备是否存在
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetSubDeviceExists(deviceId, subAddr string) bool {
 	num, err := query.Device.Where(query.Device.ParentID.Eq(deviceId), query.Device.SubDeviceAddr.Eq(subAddr)).Count()
 	if err != nil {
@@ -365,6 +368,7 @@ func indexDevicesByID(devices []*model.Device, result map[string]*model.Device) 
 // 批次二收敛（2026-08-24，见 references/gen-inheritance-audit.md）：raw global.DB 链重建等价
 // JOIN（device_configs + 最新遥测子查询），不再从包级单例起 Do 链；Scan 无行返回空 map 的
 // 既有行为保留（上游加固另行处理）。
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDeviceDetail(id string) (map[string]interface{}, error) {
 	data := make(map[string]interface{})
 	latestTelemetry := global.DB.Table("telemetry_current_datas").
@@ -396,6 +400,7 @@ func GetDeviceDetail(id string) (map[string]interface{}, error) {
 // 凭证哈希存储 Phase 1（references/backend-hardening-plan.md 车道1）：双模式匹配——
 // 先按 voucher_hash=sha256hex(voucher) 走 idx_devices_voucher_hash 索引，未命中再
 // 回落 voucher=? 明文兜底（覆盖尚未回填的存量行）；Phase 2 停写明文后移除兜底分支。
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDeviceByVoucher(voucher string) (*model.Device, error) {
 	var device model.Device
 	err := global.DB.Where("voucher_hash = ?", utils.VoucherStorageHash(voucher)).
@@ -417,6 +422,7 @@ func deviceVoucherNotFoundError(err error) error {
 }
 
 // 通过设备编号获取设备信息（批次二收敛：raw global.DB 链起点）。
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDeviceByDeviceNumber(deviceNumber string) (*model.Device, error) {
 	var device model.Device
 	err := global.DB.Where("device_number = ?", deviceNumber).First(&device).Error
@@ -427,6 +433,7 @@ func GetDeviceByDeviceNumber(deviceNumber string) (*model.Device, error) {
 	return &device, err
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDeviceBySubDeviceAddress(deviceAddress []string, parentId string) (map[string]*model.Device, error) {
 	devices := []*model.Device{}
 	err := global.DB.
@@ -446,6 +453,7 @@ func GetDeviceBySubDeviceAddress(deviceAddress []string, parentId string) (map[s
 // GetDevicesCount returns the total device count for app telemetry. On count
 // failure it logs the database error and returns zero to preserve the caller's
 // existing no-error contract.
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDevicesCount() int64 {
 	count, err := query.Device.Count()
 	if err != nil {
@@ -455,6 +463,7 @@ func GetDevicesCount() int64 {
 }
 
 // 通过设备id获取设备信息（批次二收敛：raw global.DB 链起点）。
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDeviceCacheById(deviceId string) (*model.Device, error) {
 	var device model.Device
 	err := global.DB.Where("id = ?", deviceId).First(&device).Error
@@ -469,6 +478,7 @@ func GetDeviceCacheById(deviceId string) (*model.Device, error) {
 // strings used by rule evaluation. Missing devices are treated as OFF-LINE.
 // 批次二收敛（见 references/gen-inheritance-audit.md）：raw global.DB 链起点，
 // gorm.ErrRecordNotFound 仍归一为 OFF-LINE 且不报错。
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDeviceCurrentStatus(deviceId string) (string, error) {
 	var device model.Device
 	err := global.DB.Where("id = ?", deviceId).First(&device).Error
@@ -489,6 +499,7 @@ func GetDeviceCurrentStatus(deviceId string) (string, error) {
 // device's current config, or an empty string when no template is configured.
 // 批次二收敛（见 references/gen-inheritance-audit.md）：raw global.DB 链重建等价 LEFT JOIN，
 // 以 Model(&model.Device{}) 锚定主表，投影与别名保持不变。
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDeviceTemplateIdByDeviceId(deviceId string) (string, error) {
 	var result model.DeviceConfig
 	err := global.DB.Model(&model.Device{}).
@@ -507,6 +518,7 @@ func GetDeviceTemplateIdByDeviceId(deviceId string) (string, error) {
 }
 
 // 通过设备配置id获取设备列表
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDevicesByDeviceConfigID(deviceConfigID string) ([]*model.Device, error) {
 	device := query.Device
 	list, err := device.Where(device.DeviceConfigID.Eq(deviceConfigID)).Find()
@@ -517,6 +529,7 @@ func GetDevicesByDeviceConfigID(deviceConfigID string) ([]*model.Device, error) 
 }
 
 // GetDeviceLatestAlarmStatus 获取设备的最新告警状态
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDeviceLatestAlarmStatus(deviceID string) (string, error) {
 	lda := query.LatestDeviceAlarm
 	alarm, err := lda.Where(lda.DeviceID.Eq(deviceID)).First()

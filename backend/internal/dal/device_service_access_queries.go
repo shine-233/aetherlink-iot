@@ -14,6 +14,7 @@ import (
 )
 
 // GetServiceDeviceList 查询服务接入点关联的完整设备记录。
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetServiceDeviceList(serviceAccessID string) ([]model.Device, error) {
 	var devices []model.Device
 	err := query.Device.Where(query.Device.ServiceAccessID.Eq(serviceAccessID)).Scan(&devices)
@@ -24,6 +25,7 @@ func GetServiceDeviceList(serviceAccessID string) ([]model.Device, error) {
 	return devices, err
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func CountServiceDevicesByAccessID(serviceAccessID string) (int64, error) {
 	if serviceAccessID == "" {
 		return 0, nil
@@ -38,6 +40,7 @@ func CountServiceDevicesByAccessID(serviceAccessID string) (int64, error) {
 	return count, nil
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetServiceDeviceListByNumbers(serviceAccessID string, deviceNumbers []string) ([]model.Device, error) {
 	normalizedNumbers := normalizeServiceDeviceNumbers(deviceNumbers)
 	if serviceAccessID == "" || len(normalizedNumbers) == 0 {
@@ -74,6 +77,7 @@ func normalizeServiceDeviceNumbers(deviceNumbers []string) []string {
 	return normalized
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetServiceDevicesByAccessIDs(serviceAccessIDs []string) (map[string][]model.Device, error) {
 	result := make(map[string][]model.Device, len(serviceAccessIDs))
 	normalizedIDs := normalizeDeviceIDs(serviceAccessIDs)

@@ -94,6 +94,7 @@ func clampCommandJobListPage(page, pageSize int) (int, int) {
 	return page, pageSize
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func ListCommandJobs(tenantID, status, search, attentionFilter string, page, pageSize int, maxAttempts int, now time.Time) (int64, []*model.CommandJob, error) {
 	page, pageSize = clampCommandJobListPage(page, pageSize)
 	var total int64
@@ -124,10 +125,12 @@ func commandJobListBaseQuery(tenantID, status, search, attentionFilter string, m
 	return query
 }
 
+// tenant-scope: system-internal?2026-08-26 ?????
 func ListTimedOutRunningCommandJobs(now time.Time, limit int) ([]*model.CommandJob, error) {
 	return listTimedOutRunningCommandJobs("", now, limit)
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func ListTimedOutRunningCommandJobsForTenant(tenantID string, now time.Time, limit int) ([]*model.CommandJob, error) {
 	return listTimedOutRunningCommandJobs(tenantID, now, limit)
 }
@@ -201,6 +204,7 @@ func GetCommandJobDetails(jobID, tenantID string, limit int) ([]*model.CommandJo
 	return details, err
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func CountCommandJobDetails(jobID, tenantID string) (int64, error) {
 	return CountCommandJobDetailsByFilter(jobID, tenantID, "", "", 0, time.Now().UTC())
 }
@@ -219,6 +223,7 @@ func CountCommandJobDetailsByFilter(jobID, tenantID, statusFilter, search string
 	return total, err
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetCommandJobDetailsByPage(jobID, tenantID string, page, pageSize int) ([]*model.CommandJobDetail, error) {
 	return GetCommandJobDetailsByPageAndFilter(jobID, tenantID, page, pageSize, "", "", 0, time.Now().UTC())
 }
@@ -458,6 +463,7 @@ func UpdateCommandJobDetailResponseByMessageID(deviceID, messageID, status, payl
 	return &detail, result.RowsAffected, nil
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func FindCommandJobDetailResponseCandidates(deviceID, messageID string, limit int) ([]*model.CommandJobDetail, error) {
 	if deviceID == "" || messageID == "" {
 		return nil, nil

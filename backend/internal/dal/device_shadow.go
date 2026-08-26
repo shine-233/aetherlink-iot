@@ -19,6 +19,7 @@ func CreateShadowMessage(msg *model.DeviceShadowMessage) error {
 }
 
 // GetPendingShadowMessages 查询指定设备所有未过期的 pending 影子消息（按创建时间排序）。
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetPendingShadowMessages(deviceId string) ([]*model.DeviceShadowMessage, error) {
 	var msgs []*model.DeviceShadowMessage
 	err := global.DB.
@@ -29,6 +30,7 @@ func GetPendingShadowMessages(deviceId string) ([]*model.DeviceShadowMessage, er
 }
 
 // GetAllShadowMessages 查询指定设备的影子消息（可按状态过滤，status 为空时返回全部），新→旧排序。
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetAllShadowMessages(deviceId, status string) ([]*model.DeviceShadowMessage, error) {
 	query := global.DB.Where("device_id = ?", deviceId)
 	if status != "" {
@@ -40,6 +42,7 @@ func GetAllShadowMessages(deviceId, status string) ([]*model.DeviceShadowMessage
 }
 
 // CountShadowMessagesByDevice 统计指定设备各状态的影子消息数量。
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func CountShadowMessagesByDevice(deviceId string) (map[string]int64, error) {
 	type row struct {
 		Status string `gorm:"column:status"`
