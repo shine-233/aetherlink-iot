@@ -33,34 +33,34 @@ func GetOpenAPIKeyByAppKey(appKey string) (*model.OpenAPIKey, error) {
 }
 
 func GetOpenAPIKeyListByPage(listReq *model.OpenAPIKeyListReq, tenantID string) (int64, interface{}, error) {
-	q := query.OpenAPIKey
-	u := query.User
 	keysList := make([]model.OpenAPIKeyListRsp, 0)
 
-	queryBuilder := q.WithContext(context.Background())
+	// P1 修复（2026-08-24，见 VALIDATION.md）：gen LeftJoin 改走 raw 链
+	// （clone==1 根，每次链式起点均为全新 Statement），Count 与 Scan 用 Session 克隆防污染；
+	// 过滤条件、JOIN 形态、投影列名、排序与分页语义与收敛前逐条一致。
+	base := global.DB.Table("open_api_keys")
 	if tenantID != "" {
-		queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenantID))
+		base = base.Where("open_api_keys.tenant_id = ?", tenantID)
 	}
 	if listReq.Status != nil {
-		queryBuilder = queryBuilder.Where(q.Status.Eq(*listReq.Status))
+		base = base.Where("open_api_keys.status = ?", *listReq.Status)
 	}
+	// 收敛前 LeftJoin 在 Count 之前叠加，此处保持同序（1:1 关联不影响行数）。
+	base = base.Joins("LEFT JOIN users ON users.id = open_api_keys.created_id")
 
-	queryBuilder = queryBuilder.LeftJoin(u, u.ID.EqCol(q.CreatedID))
-
-	count, err := queryBuilder.Count()
-	if err != nil {
+	var count int64
+	if err := base.Session(&gorm.Session{}).Count(&count).Error; err != nil {
 		return 0, nil, err
 	}
 
-	queryBuilder = applyListPagination(queryBuilder, listReq.Page, listReq.PageSize)
-
-	err = queryBuilder.Select(
-		q.ALL,
-		u.ID.As("user_id"),
-		u.Email.As("email"),
-		u.Name.As("user_name"),
-	).Order(q.CreatedAt.Desc()).Scan(&keysList)
-	if err != nil {
+	listBuilder := base.Session(&gorm.Session{}).
+		Select("open_api_keys.*, users.id AS user_id, users.email AS email, users.name AS user_name").
+		Order("open_api_keys.created_at DESC")
+	if listReq.Page != 0 && listReq.PageSize != 0 {
+		listBuilder = listBuilder.Limit(listReq.PageSize).
+			Offset((listReq.Page - 1) * listReq.PageSize)
+	}
+	if err := listBuilder.Scan(&keysList).Error; err != nil {
 		return 0, nil, err
 	}
 

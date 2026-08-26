@@ -397,7 +397,7 @@ watch(
 </script>
 
 <template>
-  <NModal v-model:show="modalVisible" preset="card" :title="title" class="w-700px">
+  <NModal v-model:show="modalVisible" preset="card" :title="title" :aria-label="title" class="w-700px">
     <NForm ref="formRef" label-placement="left" :label-width="80" :model="formModel" :rules="rules">
       <NGrid :cols="24" :x-gap="18">
         <NFormItemGridItem :span="12" :label="$t('page.manage.user.userName')" path="name">

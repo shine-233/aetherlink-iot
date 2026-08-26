@@ -7,6 +7,10 @@ import { motion } from 'motion-v'
 
 defineOptions({ name: 'MotionCard' })
 
+// vue-tsc 无法把模板中的小写点号标签 <motion.div> 解析到 setup 绑定，
+// 用大写别名走组件作用域解析，同时保留 motion.div 的完整类型。
+const MotionDiv = motion.div
+
 interface Props {
   /** 交错入场延迟（毫秒） */
   delay?: number
@@ -21,7 +25,7 @@ withDefaults(defineProps<Props>(), {
 </script>
 
 <template>
-  <motion.div
+  <MotionDiv
     :initial="{ opacity: 0, y: 16, scale: 0.98 }"
     :animate="{ opacity: 1, y: 0, scale: 1 }"
     :exit="{ opacity: 0, y: -8, scale: 0.98 }"
@@ -35,7 +39,7 @@ withDefaults(defineProps<Props>(), {
     :class="{ 'motion-card--hover': hover }"
   >
     <slot />
-  </motion.div>
+  </MotionDiv>
 </template>
 
 <style scoped>
@@ -43,11 +47,15 @@ withDefaults(defineProps<Props>(), {
   will-change: transform, opacity;
 }
 .motion-card--hover {
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .motion-card--hover:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 24px rgba(32, 128, 240, 0.10), 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 8px 24px rgba(32, 128, 240, 0.1),
+    0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 @media (prefers-reduced-motion: reduce) {

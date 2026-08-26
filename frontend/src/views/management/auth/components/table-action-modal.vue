@@ -181,7 +181,7 @@ watch(
 </script>
 
 <template>
-  <NModal v-model:show="modalVisible" preset="card" :title="title" class="w-800px">
+  <NModal v-model:show="modalVisible" preset="card" :title="title" :aria-label="title" class="w-800px">
     <NForm ref="formRef" label-placement="left" :label-width="120" :model="formModel" :rules="rules">
       <NGrid :cols="24" :x-gap="18">
         <NFormItemGridItem :span="12" :label="$t('page.manage.menu.form.parent')" path="parent_id">
