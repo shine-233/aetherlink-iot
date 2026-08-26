@@ -34,6 +34,7 @@
 | 3D 可视化/SCADA | ◐ | ✓ | ◐ | Phase C3 TresJS |
 | Modbus | ✗ | ◐ | ✓ | Phase B1 插件化接入 |
 | 设备影子 | ◐ | ✓ | ✓ | **Phase A3 已落地方案**：离线命令缓存+上线投递 |
+| CSV 批量导入设备 | ◐ | ✓ | ✓ | 后端已落地（产品级预注册：自动生成/CSV 文件、一次性凭证、脱敏导出）；前端导入 UI 待接 |
 | 资产管理层级 | ✗ | ✓ | ✗ | Phase C2 |
 | CoAP / LwM2M / SNMP | ✗ | ✓ | ✗ | Phase C6 |
 | OPC UA | ✗ | ✗ | ✓ | 远期评估 |
@@ -221,3 +222,4 @@ ALTER TABLE device_calculated_fields (
 | 2026-08-25 | C4 | AI 自然语言查询遥测 MVP：意图抽取式 NL 查询服务 + `/ai/telemetry/query` 端点 + 单测 | 待提 PR |
 | 2026-08-23/24 | — | users 列表 raw 链收敛 + 空租户守卫；alarm raw 链 P1 修复 | VALIDATION.md |
 | 2026-08-25 | 质量 | 全库 GBK 乱码修复（17 文件，含 echarts-manager 被困代码释放）+ 源码编码契约测试绊线 + 影子离线投递 method/params 语义修复 | feat/phase-a-completion |
+| 2026-08-26 | fleet | CSV 批量导入设备：`POST/GET /device/preRegister` + `/preRegister/export` 路由补齐（修复前端契约断裂），自动生成/CSV 双模式建档、一次性凭证+脱敏导出、产品租户校验、service 层 sqlite 全链路测试 ×5 | feat/device-preregister-import |
