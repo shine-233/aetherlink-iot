@@ -66,7 +66,7 @@ const handleLogin = async () => {
 // 若后续接入网关、反向代理或独立市场域名，这里的地址拼装建议集中收口到配置层。
 const handleGoToRegister = () => {
   const marketUrl = window.location.origin.replace(/:\d+$/, ':18083') + '/register'
-  window.open(marketUrl, '_blank')
+  window.open(marketUrl, '_blank', 'noopener,noreferrer')
 }
 
 defineExpose({ open })

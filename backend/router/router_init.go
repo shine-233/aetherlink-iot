@@ -23,6 +23,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 
 	// gin-swagger middleware
 	_ "aetherlink-iot/backend/docs"
@@ -312,8 +313,13 @@ func RouterInit() *gin.Engine {
 		}
 	}
 
-	// fail-fast：任何挂载在 CasbinRBAC 之后却未登记进资源表的路由，在启动期直接暴露。
-	auditCasbinRouteCoverage(router, casbinBaselineRoutes)
+	// 启动期 Casbin 覆盖检查：默认 fail-fast（P1 批交付，casbin.route-audit-mode 可配 warn/off）；
+	// 运维显式选择 off 时退回 #178 引入的只警报报告，保底可观测性。
+	if strings.EqualFold(strings.TrimSpace(viper.GetString("casbin.route-audit-mode")), "off") {
+		LogCasbinRegistrationGaps(router)
+	} else {
+		auditCasbinRouteCoverage(router, casbinBaselineRoutes)
+	}
 
 	return router
 }

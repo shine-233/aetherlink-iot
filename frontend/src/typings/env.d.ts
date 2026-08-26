@@ -77,6 +77,8 @@ declare namespace Env {
     readonly VITE_BAIDU_MAP_KEY?: string
     /** Optional AMap browser SDK key; leave empty to use the local fallback view */
     readonly VITE_AMAP_KEY?: string
+    /** Optional AMap security JS code; injected before SDK load and never hardcoded into HTML */
+    readonly VITE_AMAP_SECURITY_CODE?: string
     /** Optional Tencent Map browser SDK key; leave empty to disable the external map */
     readonly VITE_TENCENT_MAP_KEY?: string
     /** Auto login username for development environment */

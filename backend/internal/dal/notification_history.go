@@ -74,11 +74,7 @@ func GetNotificationHisoryListByPage(notifications *model.GetNotificationHistory
 
 	queryBuilder = queryBuilder.Session(&gorm.Session{}).
 		Order("nh.send_time DESC")
-	if notifications.Page != 0 && notifications.PageSize != 0 {
-		queryBuilder = queryBuilder.
-			Limit(notifications.PageSize).
-			Offset((notifications.Page - 1) * notifications.PageSize)
-	}
+	queryBuilder = applyListPagination(queryBuilder, notifications.Page, notifications.PageSize)
 
 	notificationList := make([]*model.NotificationHistory, 0)
 	if err := queryBuilder.Find(&notificationList).Error; err != nil {

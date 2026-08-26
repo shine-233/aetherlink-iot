@@ -278,3 +278,8 @@ mqtt_session_revocations:
 plugin:
   service:
     key: ""
+
+# 公开 WebSocket 端点每来源 IP 并发连接上限；环境变量 GOTP_WS_MAX_CONNS_PER_IP 可覆盖。
+# 未认证连接在首消息鉴权前同样占用额度（防握手洪泛）；计数为进程内尽力而为语义。
+ws:
+  max_conns_per_ip: 64

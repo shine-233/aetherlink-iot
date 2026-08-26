@@ -97,7 +97,14 @@ func (*User) UpdateUserInfo(ctx context.Context, updateUserReq *model.UpdateUser
 		}
 	}
 	if updateUserReq.Password != nil {
-		updateUserReq.Password = StringPtr(utils.BcryptHash(*updateUserReq.Password))
+		hashed, hashErr := utils.BcryptHash(*updateUserReq.Password)
+		if hashErr != nil {
+			return errcode.WithData(errcode.CodeDecryptError, map[string]interface{}{
+				"error":   "Failed to hash password",
+				"user_id": claims.ID,
+			})
+		}
+		updateUserReq.Password = StringPtr(hashed)
 	}
 
 	r, err := dal.UpdateUserInfoByIdPersonal(user.ID, updateUserReq)

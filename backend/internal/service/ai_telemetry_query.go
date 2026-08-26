@@ -234,13 +234,21 @@ func (*AiQuery) QueryTelemetry(req *AiTelemetryQueryReq, claims *utils.UserClaim
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "AI returned an unreadable query intent")
 	}
 
-	// 取数路径 1：指定了设备 → 校验设备属于该租户后按 keys 拉当前遥测。
+	// 取数路径 1：指定了设备 → 批量校验设备属于该租户后按 keys 拉当前遥测。
 	// 取数路径 2：未指定 → 复用租户最近活跃设备的既有白名单查询。
+	// P2 修复（2026-08-25）：设备归属校验由逐个 GetDeviceByID 改为单条
+	// IN 查询（GetDevicesByIDsForTenant），租户过滤下沉到 SQL，消除 N+1 并收紧越权面。
 	snapshots := make([]aiDeviceTelemetrySnapshot, 0, len(intent.DeviceIDs))
 	if len(intent.DeviceIDs) > 0 {
+		devicesByID, err := dal.GetDevicesByIDsForTenant(intent.DeviceIDs, tenantID)
+		if err != nil {
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"error": "batch load devices failed: " + err.Error(),
+			})
+		}
 		for _, deviceID := range intent.DeviceIDs {
-			deviceInfo, err := dal.GetDeviceByIDUnscoped(deviceID)
-			if err != nil || deviceInfo == nil || deviceInfo.TenantID != tenantID {
+			deviceInfo := devicesByID[deviceID]
+			if deviceInfo == nil {
 				continue
 			}
 			snapshot := aiDeviceTelemetrySnapshot{

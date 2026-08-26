@@ -160,6 +160,12 @@ importers:
       '@iconify-json/mdi':
         specifier: ^1.2.3
         version: 1.2.3
+      '@tresjs/cientos':
+        specifier: ^5.8.1
+        version: 5.8.1(@tresjs/core@5.8.3(three@0.185.1)(vue@3.5.41(typescript@5.8.3)))(three@0.185.1)(vue@3.5.41(typescript@5.8.3))
+      '@tresjs/core':
+        specifier: ^5.8.3
+        version: 5.8.3(three@0.185.1)(vue@3.5.41(typescript@5.8.3))
       '@types/bmapgl':
         specifier: 0.0.7
         version: 0.0.7
@@ -241,6 +247,9 @@ importers:
       sass:
         specifier: 1.102.0
         version: 1.102.0
+      three:
+        specifier: ^0.185.1
+        version: 0.185.1
       tsx:
         specifier: 4.23.12
         version: 4.23.12
