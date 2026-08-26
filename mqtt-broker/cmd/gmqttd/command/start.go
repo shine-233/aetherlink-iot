@@ -54,6 +54,12 @@ func installSignal(srv server.Server) {
 				logger.Error("reload error", zap.Error(err))
 				return
 			}
+			// 与启动路径一致地应用持久化环境覆盖，防止 SIGHUP 回退到 YAML 静态值。
+			applyPersistenceEnvOverrides(&c)
+			if err := validatePersistenceConfig(&c); err != nil {
+				logger.Error("reload error", zap.Error(err))
+				return
+			}
 			srv.ApplyConfig(c)
 			logger.Info("gmqtt reloaded")
 		case <-stopSignalCh:
@@ -112,6 +118,10 @@ func NewStartCmd() *cobra.Command {
 			} else {
 				must(err)
 			}
+			// 部署期持久化覆盖 + fail-fast 校验：Compose 通过 GMQTT_PERSISTENCE_*
+			// 把会话/订阅/QoS 队列切到 Redis，broker 重启不再丢离线会话与排队消息。
+			applyPersistenceEnvOverrides(&c)
+			must(validatePersistenceConfig(&c))
 			if c.PidFile != "" {
 				pid, err := pidfile.New(c.PidFile)
 				if err != nil {

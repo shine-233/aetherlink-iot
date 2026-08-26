@@ -470,7 +470,11 @@ watch(
             :bordered="false"
             :loading="topicMappingLoading"
             class="topic-mapping-table"
-          />
+          >
+            <template #empty>
+              <n-empty :description="$t('common.noData')" />
+            </template>
+          </NDataTable>
         </div>
       </NFormItem>
       <NFormItem>

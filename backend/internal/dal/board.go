@@ -96,10 +96,7 @@ func GetBoardListByPage(boards *model.GetBoardListByPageReq, tenantId string) (i
 	}
 
 	if boards.Name != nil && *boards.Name != "" {
-		escapedName := strings.ReplaceAll(*boards.Name, "\\", "\\\\")
-		escapedName = strings.ReplaceAll(escapedName, "%", "\\%")
-		escapedName = strings.ReplaceAll(escapedName, "_", "\\_")
-		queryBuilder = queryBuilder.Where(q.Name.Like(fmt.Sprintf("%%%s%%", escapedName)))
+		queryBuilder = queryBuilder.Where(q.Name.Like(ContainsLikePattern(*boards.Name)))
 	}
 
 	if boards.HomeFlag != nil && *boards.HomeFlag != "" {
@@ -114,10 +111,7 @@ func GetBoardListByPage(boards *model.GetBoardListByPageReq, tenantId string) (i
 		logrus.Error(err)
 		return count, nil, err
 	}
-	if boards.Page != 0 && boards.PageSize != 0 {
-		queryBuilder = queryBuilder.Limit(boards.PageSize)
-		queryBuilder = queryBuilder.Offset((boards.Page - 1) * boards.PageSize)
-	}
+	queryBuilder = applyListPagination(queryBuilder, boards.Page, boards.PageSize)
 	queryBuilder = queryBuilder.Order(q.CreatedAt.Desc())
 	boardsList, err := queryBuilder.Select(
 		q.ID,

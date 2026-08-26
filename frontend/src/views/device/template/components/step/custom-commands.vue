@@ -236,7 +236,11 @@ onMounted(() => {
         {{ $t('generate.addCustomCommand') }}
       </NButton>
     </div>
-    <NDataTable :columns="columns" :data="commandjson.listData" class="flex-1-hidden" />
+    <NDataTable :columns="columns" :data="commandjson.listData" class="flex-1-hidden">
+      <template #empty>
+        <n-empty :description="$t('common.noData')" />
+      </template>
+    </NDataTable>
 
     <div class="w-full flex justify-end">
       <NPagination

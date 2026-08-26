@@ -10,11 +10,7 @@
 
   <body>
     <div id="app"></div>
-    <script>
-      window._AMapSecurityConfig = {
-        securityJsCode: '2483a3a12b79b9428d87e1bcac19c446'
-      }
-    </script>
+    <!-- 高德安全密钥改为部署期注入（VITE_AMAP_SECURITY_CODE），由 src/constants/map-sdk.ts 在 SDK 加载前挂载，禁止在 HTML 中硬编码 -->
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

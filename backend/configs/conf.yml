@@ -171,6 +171,22 @@ classified-protect:
   login-max-fail-times: 5
   # 连续登录失败锁定时间（单位：秒），-1表示不锁定
   login-fail-locked-seconds: 300
+  # IP 维度登录失败阈值：同一来源 IP 窗口内累计失败达阈值后整段拒绝（防换账号轰炸），-1 表示不启用
+  ip-login-max-fail-times: 20
+  # IP 维度失败计数/锁定窗口（单位：秒）
+  ip-login-fail-window-seconds: 600
+
+# Casbin 路由覆盖审计：未登记进资源表的受保护路由在启动期阻断（可改 warn/off 过渡）
+<<<<<<< HEAD
+# Per-tenant API rate limiting (429 + Retry-After when exceeded).
+# Default 600 requests/minute/tenant; set <=0 to disable. Env override: GOTP_API_RATE_LIMIT_RPM.
+api-rate-limit:
+  requests-per-minute: 600
+
+=======
+>>>>>>> origin/main
+casbin:
+  route-audit-mode: fail-fast
 
 # 会话设置
 session:
@@ -270,3 +286,8 @@ mqtt_session_revocations:
 plugin:
   service:
     key: ""
+
+# 公开 WebSocket 端点每来源 IP 并发连接上限；环境变量 GOTP_WS_MAX_CONNS_PER_IP 可覆盖。
+# 未认证连接在首消息鉴权前同样占用额度（防握手洪泛）；计数为进程内尽力而为语义。
+ws:
+  max_conns_per_ip: 64

@@ -35,6 +35,7 @@
 - ThingsVis：`thingsvisAppFrameLifecycle.ts` 与 `thingsvisFrameTransportBridge.ts` 已把生命周期编排和 transport 安全边界分开，但 `tv:ready` 调度、`targetOrigin` 来源和 `tv:platform-data` 回推语义仍属于外部契约，不能当作普通清理随意调整。
 - broker：`mqtt-broker/server/client.go` 与 `mqtt-broker/server/client_options.go` 已完成契约/协商选项拆分，但插件侧看到的 `Client` 接口和运行时选项字段仍是对外表面，后续重命名或删字段都应按 breaking migration 处理。
 - telemetry：`automate_telemetry.go` 的拆分当前主要是内部可维护性优化；真正需要按外部合约对待的仍是生成的 gRPC symbol、method path 和任何对外可见的 telemetry client wrapper。
+- 认证会话与 Casbin 审计（P1 加固批次，2026-08-26）：`<email>_token` 键的 value 已从明文 JWT 改为 `utils.TokenDigest` 摘要且 TTL 与会话超时对齐；刷新令牌现在会在新会话写入成功后吊销旧摘要。`casbin.route-audit-mode` 默认 fail-fast——存量库升级若启动报"protected routes not registered"，先在菜单/API 管理补登记对应路由，过渡期可临时设 `warn` 或 `off`。
 
 ## 当前工作树
 

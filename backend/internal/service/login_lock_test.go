@@ -133,3 +133,43 @@ func TestNewLoginLockNormalizesNegativeDurationAndDisabledState(t *testing.T) {
 	viper.Set(durationKey, 300)
 	assert.True(t, NewLoginLock().enabled())
 }
+
+// --- IP 维度防爆破（F3）---
+
+func TestLoginLockGetIPKeys(t *testing.T) {
+	ll := &LoginLock{}
+	assert.Equal(t, "login-ip:203.0.113.7:failed_attempts", ll.getIPFailKey("203.0.113.7"))
+	assert.Equal(t, "login-ip:203.0.113.7:lock_until", ll.getIPLockKey("203.0.113.7"))
+	assert.Equal(t, "login-ip::failed_attempts", ll.getIPFailKey(""))
+}
+
+func TestNewLoginLockReadsIPDimensionConfig(t *testing.T) {
+	maxKey := "classified-protect.ip-login-max-fail-times"
+	windowKey := "classified-protect.ip-login-fail-window-seconds"
+	prevMax := viper.Get(maxKey)
+	prevWindow := viper.Get(windowKey)
+	defer func() {
+		viper.Set(maxKey, prevMax)
+		viper.Set(windowKey, prevWindow)
+	}()
+
+	viper.Set(maxKey, 20)
+	viper.Set(windowKey, 600)
+	ll := NewLoginLock()
+	assert.Equal(t, int64(20), ll.IPMaxFailedAttempts)
+	assert.Equal(t, 600*time.Second, ll.IPWindowDuration)
+	assert.True(t, ll.ipEnabled())
+
+	viper.Set(maxKey, -1)
+	viper.Set(windowKey, -1)
+	ll = NewLoginLock()
+	assert.Equal(t, int64(-1), ll.IPMaxFailedAttempts)
+	assert.Equal(t, time.Duration(0), ll.IPWindowDuration, "negative ip window must normalize to 0")
+	assert.False(t, ll.ipEnabled(), "negative threshold must disable ip accounting")
+}
+
+// IP 维度复用与账号维度相同的阈值语义：<=0 不限制，达到阈值即锁。
+func TestIPProtectionReusesAccountThresholdSemantics(t *testing.T) {
+	assert.False(t, loginLockShouldLock(0, 100))
+	assert.True(t, loginLockShouldLock(20, 20))
+}

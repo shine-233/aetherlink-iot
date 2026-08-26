@@ -135,19 +135,22 @@ const firstBlockingProofItem = computed(() => readyProof.items?.find((item: any)
       </div>
 
       <div class="mt-10px grid gap-6px">
-        <div v-for="item in readyProof.items" :key="item.key" class="first-device-proof-row">
-          <div class="min-w-0">
-            <span>{{ item.label }}</span>
-            <small>{{ item.detail }}</small>
+        <template v-if="readyProof.items?.length">
+          <div v-for="item in readyProof.items" :key="item.key" class="first-device-proof-row">
+            <div class="min-w-0">
+              <span>{{ item.label }}</span>
+              <small>{{ item.detail }}</small>
+            </div>
+            <strong :class="item.ok ? 'text-green-600' : 'text-orange-600'">
+              {{
+                item.ok
+                  ? $t('custom.home.firstDevice.proof.passed')
+                  : $t('custom.home.firstDevice.proof.pending')
+              }}
+            </strong>
           </div>
-          <strong :class="item.ok ? 'text-green-600' : 'text-orange-600'">
-            {{
-              item.ok
-                ? $t('custom.home.firstDevice.proof.passed')
-                : $t('custom.home.firstDevice.proof.pending')
-            }}
-          </strong>
-        </div>
+        </template>
+        <n-empty v-else :description="$t('common.noData')" />
       </div>
     </div>
   </div>

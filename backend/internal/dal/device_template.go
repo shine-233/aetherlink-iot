@@ -117,7 +117,7 @@ func GetDeviceTemplateListByPage(req *model.GetDeviceTemplateListByPageReq, clai
 	var count int64
 	queryBuilder := q.WithContext(context.Background())
 	if req.Name != nil {
-		queryBuilder = queryBuilder.Where(q.Name.Like(fmt.Sprintf("%%%s%%", *req.Name)))
+		queryBuilder = queryBuilder.Where(q.Name.Like(ContainsLikePattern(*req.Name)))
 	}
 	queryBuilder = queryBuilder.Where(q.TenantID.Eq(claims.TenantID))
 	count, err := queryBuilder.Count()
@@ -145,7 +145,7 @@ func GetDeviceTemplateMenu(req *model.GetDeviceTemplateMenuReq, claims *utils.Us
 	q := query.DeviceTemplate
 	queryBuilder := q.WithContext(context.Background())
 	if req.Name != nil {
-		queryBuilder = queryBuilder.Where(q.Name.Like(fmt.Sprintf("%%%s%%", *req.Name)))
+		queryBuilder = queryBuilder.Where(q.Name.Like(ContainsLikePattern(*req.Name)))
 	}
 	queryBuilder = queryBuilder.Where(q.TenantID.Eq(claims.TenantID))
 	var data []map[string]interface{}
@@ -227,12 +227,12 @@ func GetDeviceTemplateSelector(req *model.GetDeviceTemplateSelectorReq, tenantID
 
 	// 物模型名称模糊匹配
 	if req.Name != nil && *req.Name != "" {
-		queryBuilder = queryBuilder.Where(q.Name.Like(fmt.Sprintf("%%%s%%", *req.Name)))
+		queryBuilder = queryBuilder.Where(q.Name.Like(ContainsLikePattern(*req.Name)))
 	}
 
 	// 标签模糊匹配
 	if req.Label != nil && *req.Label != "" {
-		queryBuilder = queryBuilder.Where(q.Label.Like(fmt.Sprintf("%%%s%%", *req.Label)))
+		queryBuilder = queryBuilder.Where(q.Label.Like(ContainsLikePattern(*req.Label)))
 	}
 
 	// 查询ID、Name和Label字段

@@ -244,7 +244,7 @@ func (a *AttributeData) AttributeGetMessage(claims *utils.UserClaims, req *model
 	}
 
 	// 1. 获取设备信息
-	device, err := dal.GetDeviceByID(req.DeviceID)
+	device, err := dal.GetDeviceByIDUnscoped(req.DeviceID)
 	if err != nil {
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),

@@ -60,7 +60,7 @@ func loadTelemetryDeviceForAccess(deviceID string, claims *utils.UserClaims, per
 		return nil, err
 	}
 
-	deviceInfo, err := dal.GetDeviceByID(normalizedDeviceID)
+	deviceInfo, err := dal.GetDeviceByIDUnscoped(normalizedDeviceID)
 	if err != nil {
 		// 错误映射加固（2026-08）：ErrRecordNotFound 表示该设备主行在库中根本不存在，
 		// 与租户/共享可见性无关，可以安全地映射为明确的"资源不存在"业务码 100404；

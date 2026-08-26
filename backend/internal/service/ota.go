@@ -83,7 +83,7 @@ func normalizeOTADeviceWriteAccessIDs(deviceIDs []string) ([]string, error) {
 
 func loadOTADevicesForWriteAccess(deviceIDs []string, claims *utils.UserClaims) (map[string]*model.Device, error) {
 	if claims.Authority == constant.SYS_ADMIN {
-		return dal.GetDevicesByIDs(deviceIDs)
+		return dal.GetDevicesByIDsUnscoped(deviceIDs)
 	}
 	return dal.GetDevicesByIDsForTenant(deviceIDs, claims.TenantID)
 }

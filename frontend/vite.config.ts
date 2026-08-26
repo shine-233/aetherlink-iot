@@ -119,7 +119,7 @@ export default defineConfig(function (configEnv) {
       port: 9725
     },
     build: {
-      chunkSizeWarningLimit: 1500,
+      chunkSizeWarningLimit: 1000,
       minify: isLightBuild ? false : 'esbuild',
       sourcemap: false,
       reportCompressedSize: false,
@@ -140,6 +140,15 @@ export default defineConfig(function (configEnv) {
             if (normalizedId.includes('@codemirror') || normalizedId.includes('codemirror')) return 'vendor-codemirror'
             if (normalizedId.includes('grid-layout-plus')) return 'vendor-grid'
             if (normalizedId.includes('naive-ui')) return 'vendor-ui'
+            // three/@tresjs power the 3D device panel; isolate the large three
+            // bundle so it only downloads with routes that mount the panel.
+            if (
+              normalizedId.includes('@tresjs') ||
+              normalizedId.includes('node_modules/three/')
+            ) {
+              return 'vendor-three'
+            }
+            if (normalizedId.includes('motion-v')) return 'vendor-motion'
             // Let Rollup order Vue, Vue Router, Pinia, and Vue I18n together.
             // Forcing them into one manual chunk can trigger TDZ errors in
             // production preview when circular exports initialize out of order.

@@ -7,7 +7,9 @@
 import type { GridLayoutPlusItem, PerformanceConfig } from '../gridLayoutPlusTypes'
 
 function getHighResolutionTime(): number {
-  return globalThis.performance?.now ? globalThis.performance.now() : Date.now()
+  // lib.dom 将 performance 标为恒存在；运行时仍可能缺失，用可空视图保留守卫语义。
+  const perf = globalThis.performance as Performance | undefined
+  return perf?.now ? perf.now() : Date.now()
 }
 
 /**
@@ -114,7 +116,8 @@ export class PerformanceMonitor {
     if (!this.isEnabled) return ''
 
     const id = `${operation}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    if (globalThis.performance?.mark) {
+    const perf = globalThis.performance as Performance | undefined
+    if (perf?.mark) {
       performance.mark(`${id}_start`)
     } else {
       this.timers.set(id, getHighResolutionTime())
@@ -131,7 +134,8 @@ export class PerformanceMonitor {
 
     try {
       // 在非浏览器或能力不完整环境下，退化为普通高精度时间差统计。
-      if (!globalThis.performance?.mark || !globalThis.performance?.measure) {
+      const perf = globalThis.performance as Performance | undefined
+      if (!perf?.mark || !perf.measure) {
         const start = this.timers.get(id)
         if (start === undefined) return null
 

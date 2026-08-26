@@ -115,7 +115,11 @@ const columns: any = [
 
 <template>
   <div>{{ $t('device_template.table_header.setEnum') }}</div>
-  <n-data-table :columns="columns" :data="props.additionalInfo" class="enum-table m-b2 m-t2" />
+  <n-data-table :columns="columns" :data="props.additionalInfo" class="enum-table m-b2 m-t2">
+    <template #empty>
+      <n-empty :description="$t('common.noData')" />
+    </template>
+  </n-data-table>
   <NButton class="add-button" @click="onAdd">
     <template #icon>
       <SvgIcon local-icon="add" />

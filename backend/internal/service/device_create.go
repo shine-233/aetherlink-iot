@@ -97,7 +97,7 @@ func resolveCreateDeviceID(requestedID *string) (string, error) {
 		})
 	}
 
-	existingDevice, err := dal.GetDeviceByID(deviceID)
+	existingDevice, err := dal.GetDeviceByIDUnscoped(deviceID)
 	if err == nil && existingDevice != nil {
 		return "", errcode.WithData(errcode.CodeParamError, map[string]interface{}{
 			"error": "设备 ID 已存在",

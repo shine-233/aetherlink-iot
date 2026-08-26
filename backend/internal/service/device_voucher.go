@@ -153,12 +153,13 @@ func ensureUpdatedVoucherAvailable(voucher string, deviceID string, changed bool
 func handleUpdatedVoucherSideEffects(ctx context.Context, deviceID string, deviceInfo *model.Device, oldCredential string) {
 	// broker 侧缓存键为 HMAC-SHA256(voucher) 摘要，删键必须走同一哈希构造，否则旧凭证缓存无法失效。
 	if strings.TrimSpace(oldCredential) == "" {
-		// 2b 行且轮换前无测试缓存条目（如 SQL 直插夹具）：接受 ≤1h broker 缓存残窗，
-		// 见 backend-hardening-plan.md 遗留清单第 3 条。
-		logrus.Warn("[Device][UpdateDeviceVoucher] old credential unavailable; broker cache entry may persist up to its TTL")
+		// 2b 行且轮换前无测试缓存条目（如 SQL 直插夹具）：无法计算旧键，
+		// 改走按设备失效通道让 broker 清掉该设备的全部映射（hardening-plan 遗留#3 收口）。
+		logrus.Warn("[Device][UpdateDeviceVoucher] old credential unavailable; falling back to per-device cache invalidation")
 	} else if err := global.REDIS.Del(ctx, utils.VoucherCacheKey(oldCredential)).Err(); err != nil {
 		logrus.Warn("[Device][UpdateDeviceVoucher] delete old voucher cache failed")
 	}
+	notifyBrokerVoucherCacheInvalidation(ctx, deviceID)
 	disconnectNonMQTTDeviceAfterVoucherChange(ctx, deviceID, deviceInfo)
 }
 
