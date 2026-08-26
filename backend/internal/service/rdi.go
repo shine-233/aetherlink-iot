@@ -630,7 +630,7 @@ func getRDIDeviceForRead(deviceID string, claims *utils.UserClaims) (*model.Devi
 	if deviceID == "" {
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "device_id is required")
 	}
-	device, err := dal.GetDeviceByID(deviceID)
+	device, err := dal.GetDeviceByIDUnscoped(deviceID)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": "database operation failed"})
 	}
@@ -645,7 +645,7 @@ func getRDIDevice(deviceID string, claims *utils.UserClaims) (*model.Device, err
 	if deviceID == "" {
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "device_id is required")
 	}
-	device, err := dal.GetDeviceByID(deviceID)
+	device, err := dal.GetDeviceByIDUnscoped(deviceID)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": "database operation failed"})
 	}

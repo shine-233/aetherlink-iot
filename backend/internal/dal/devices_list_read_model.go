@@ -14,7 +14,6 @@
 package dal
 
 import (
-	"fmt"
 	"strings"
 
 	model "aetherlink-iot/backend/internal/model"
@@ -223,7 +222,7 @@ func hasDeviceListValue(s *string) bool {
 }
 
 func deviceListLike(f field.String, v string) field.Expr {
-	return f.Like(fmt.Sprintf("%%%s%%", v))
+	return f.Like(ContainsLikePattern(v))
 }
 
 // rdiDeviceSharedStatusCondition keeps the SQL-side list filter aligned with

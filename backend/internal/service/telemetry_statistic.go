@@ -519,7 +519,7 @@ func ensureTelemetryStatisticDeviceAccess(deviceIDs []string, claims *utils.User
 		normalizedIDs = append(normalizedIDs, normalizedID)
 	}
 
-	devicesByID, err := dal.GetDevicesByIDs(normalizedIDs)
+	devicesByID, err := dal.GetDevicesByIDsUnscoped(normalizedIDs)
 	if err != nil {
 		return err
 	}

@@ -51,7 +51,7 @@ func normalizeBatchDeviceConfigIDs(deviceIDs []string) []string {
 }
 
 func validateBatchDeviceConfigDevices(deviceIDs []string, deviceConfig *model.DeviceConfig, claims *utils.UserClaims) error {
-	devicesByID, err := dal.GetDevicesByIDs(deviceIDs)
+	devicesByID, err := dal.GetDevicesByIDsUnscoped(deviceIDs)
 	if err != nil {
 		return wrapDeviceConfigDBError(err)
 	}

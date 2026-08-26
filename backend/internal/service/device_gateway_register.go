@@ -151,7 +151,7 @@ func (*Device) GatewayDeviceRegister(req model.DeviceRegisterReq, claims *utils.
 		return model.DeviceRegisterRes{}, errcode.NewWithMessage(errcode.CodeNoPermission, "网关子设备注册需要 API Key")
 	}
 
-	device, err := dal.GetDeviceByID(req.DeviceId)
+	device, err := dal.GetDeviceByIDUnscoped(req.DeviceId)
 	if err != nil {
 		return model.DeviceRegisterRes{
 			Type:    "sub-register-response",

@@ -19,6 +19,7 @@ import type {
   HttpParam,
   HttpPathParam,
   HttpConfig,
+  HttpParameter,
   PathParameter
 } from '@/core/data-architecture/types/http-config'
 import { extractPathParamsFromUrl } from '@/core/data-architecture/types/http-config'
@@ -136,10 +137,11 @@ function initializeParameters(config?: HttpConfig): HttpParameter[] {
         key: pathParam.key,
         value: pathParam.value,
         enabled: pathParam.enabled,
-        isDynamic: pathParam.isDynamic,
-        dataType: pathParam.dataType,
-        variableName: pathParam.variableName,
-        description: pathParam.description,
+        // 联合形态（EnhancedParameter | HttpPathParam）下这些字段可能缺省，按执行器默认补齐。
+        isDynamic: pathParam.isDynamic ?? false,
+        dataType: pathParam.dataType ?? 'string',
+        variableName: pathParam.variableName ?? '',
+        description: pathParam.description ?? '',
         paramType: 'path'
       })
     })
@@ -185,7 +187,8 @@ const switchToTab = (tab: 'basic' | 'headers' | 'params' | 'scripts') => {
  * 🎯 优化：Tab验证 - 基础配置是否完成
  */
 const isBasicConfigValid = computed(() => {
-  return localConfig.url && localConfig.method
+  // 显式布尔化：url/method 是字符串与联合字面量，直接返回会泄漏 '' | 'GET'… 到 disabled 等布尔位。
+  return Boolean(localConfig.url && localConfig.method)
 })
 
 /**
@@ -244,9 +247,8 @@ const updateConfig = () => {
       variableName: firstParam.variableName || '',
       description: firstParam.description || '',
       selectedTemplate: firstParam.selectedTemplate,
-      defaultValue: firstParam.defaultValue,
-      key: firstParam.key,
-      enabled: firstParam.enabled
+      defaultValue: firstParam.defaultValue
+      // 注意：PathParameter 形态没有 key 字段（键名只存在于 pathParams 条目上）。
     }
 
     if (process.env.NODE_ENV === 'development') {

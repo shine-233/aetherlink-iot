@@ -114,10 +114,7 @@ func GetDeviceModelTelemetryListByPage(r model.GetDeviceModelListByPageReq, tena
 		logrus.Error(err)
 		return count, data, err
 	}
-	if r.Page != 0 && r.PageSize != 0 {
-		queryBuilder = queryBuilder.Limit(r.PageSize)
-		queryBuilder = queryBuilder.Offset((r.Page - 1) * r.PageSize)
-	}
+	queryBuilder = applyListPagination(queryBuilder, r.Page, r.PageSize)
 	data, err = queryBuilder.Select().Find()
 	if err != nil {
 		logrus.Error(err)
@@ -136,10 +133,7 @@ func GetDeviceModelAttributesListByPage(r model.GetDeviceModelListByPageReq, ten
 		logrus.Error(err)
 		return count, data, err
 	}
-	if r.Page != 0 && r.PageSize != 0 {
-		queryBuilder = queryBuilder.Limit(r.PageSize)
-		queryBuilder = queryBuilder.Offset((r.Page - 1) * r.PageSize)
-	}
+	queryBuilder = applyListPagination(queryBuilder, r.Page, r.PageSize)
 	data, err = queryBuilder.Select().Find()
 	if err != nil {
 		logrus.Error(err)
@@ -158,10 +152,7 @@ func GetDeviceModelEventsListByPage(r model.GetDeviceModelListByPageReq, tenant_
 		logrus.Error(err)
 		return count, data, err
 	}
-	if r.Page != 0 && r.PageSize != 0 {
-		queryBuilder = queryBuilder.Limit(r.PageSize)
-		queryBuilder = queryBuilder.Offset((r.Page - 1) * r.PageSize)
-	}
+	queryBuilder = applyListPagination(queryBuilder, r.Page, r.PageSize)
 	data, err = queryBuilder.Select().Find()
 	if err != nil {
 		logrus.Error(err)
@@ -180,10 +171,7 @@ func GetDeviceModelCommandsListByPage(r model.GetDeviceModelListByPageReq, tenan
 		logrus.Error(err)
 		return count, data, err
 	}
-	if r.Page != 0 && r.PageSize != 0 {
-		queryBuilder = queryBuilder.Limit(r.PageSize)
-		queryBuilder = queryBuilder.Offset((r.Page - 1) * r.PageSize)
-	}
+	queryBuilder = applyListPagination(queryBuilder, r.Page, r.PageSize)
 	data, err = queryBuilder.Select().Find()
 	if err != nil {
 		logrus.Error(err)

@@ -3,8 +3,36 @@
  * 核心逻辑：覆盖空密钥、空白密钥和特殊字符编码。
  * 关键注意事项：仓库不得提供可直接使用的供应商密钥。
  */
-import { describe, expect, it } from 'vitest'
-import { buildAmapSdkUrl, buildBaiduMapSdkUrl, buildTencentMapSdkUrl } from './map-sdk'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  buildAmapSdkUrl,
+  buildBaiduMapSdkUrl,
+  buildTencentMapSdkUrl,
+  ensureAmapSecurityConfig
+} from './map-sdk'
+
+describe('ensureAmapSecurityConfig', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    delete window._AMapSecurityConfig
+  })
+
+  it('mounts the deployment security code before SDK load', () => {
+    vi.stubEnv('VITE_AMAP_SECURITY_CODE', ' deployed-code ')
+    ensureAmapSecurityConfig()
+    expect(window._AMapSecurityConfig).toEqual({ securityJsCode: 'deployed-code' })
+  })
+
+  it('stays silent when the security code is absent or blank', () => {
+    vi.stubEnv('VITE_AMAP_SECURITY_CODE', '')
+    ensureAmapSecurityConfig()
+    expect(window._AMapSecurityConfig).toBeUndefined()
+
+    vi.stubEnv('VITE_AMAP_SECURITY_CODE', '   ')
+    ensureAmapSecurityConfig()
+    expect(window._AMapSecurityConfig).toBeUndefined()
+  })
+})
 
 describe('buildBaiduMapSdkUrl', () => {
   it('disables the provider when no key is configured', () => {

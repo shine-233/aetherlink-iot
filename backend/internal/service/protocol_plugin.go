@@ -83,7 +83,7 @@ func validateProtocolPluginDeviceConfigReq(req model.GetDeviceConfigReq, claims 
 func loadProtocolPluginDevice(req model.GetDeviceConfigReq) (*model.Device, error) {
 	switch {
 	case req.DeviceId != "":
-		return dal.GetDeviceByID(req.DeviceId)
+		return dal.GetDeviceByIDUnscoped(req.DeviceId)
 	case req.Voucher != "":
 		return dal.GetDeviceByVoucher(req.Voucher)
 	case req.DeviceNumber != "":

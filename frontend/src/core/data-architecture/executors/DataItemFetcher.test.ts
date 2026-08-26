@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { DataItemFetcher, type DataItem, type HttpDataItemConfig } from './DataItemFetcher'
 
-const { requestMock, scriptEngineMock, editorStoreMock, configurationBridgeMock } = vi.hoisted(() => ({
+const { requestMock, scriptEngineMock, editorStoreMock, configurationBridgeMock, loggerMock } = vi.hoisted(() => ({
   requestMock: {
     get: vi.fn(),
     post: vi.fn(),
@@ -25,6 +25,12 @@ const { requestMock, scriptEngineMock, editorStoreMock, configurationBridgeMock 
   },
   configurationBridgeMock: {
     getConfiguration: vi.fn()
+  },
+  loggerMock: {
+    error: vi.fn(),
+    warn: vi.fn(),
+    info: vi.fn(),
+    debug: vi.fn()
   }
 }))
 
@@ -42,6 +48,10 @@ vi.mock('@/components/visual-editor/store/editor', () => ({
 
 vi.mock('@/components/visual-editor/configuration/ConfigurationIntegrationBridge', () => ({
   configurationIntegrationBridge: configurationBridgeMock
+}))
+
+vi.mock('@/utils/logger', () => ({
+  createLogger: () => loggerMock
 }))
 
 const httpParam = (overrides: Partial<HttpDataItemConfig['params'][number]> = {}) => ({
@@ -79,24 +89,21 @@ describe('DataItemFetcher', () => {
   })
 
   it('parses JSON data sources and reports malformed JSON before returning an empty object', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     const fetcher = new DataItemFetcher()
 
     await expect(fetcher.fetchData({ type: 'json', config: { jsonString: '{"temperature":26}' } })).resolves.toEqual({
       temperature: 26
     })
     await expect(fetcher.fetchData({ type: 'json', config: { jsonString: '{bad json' } })).resolves.toEqual({})
-    expect(errorSpy).toHaveBeenCalledWith(
+    expect(loggerMock.error).toHaveBeenCalledWith(
       '[DataItemFetcher] JSON data source parse failed:',
       expect.objectContaining({
         error: expect.any(String)
       })
     )
-    errorSpy.mockRestore()
   })
 
   it('returns an explicit unsupported result for WebSocket data sources', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     const fetcher = new DataItemFetcher()
 
     await expect(
@@ -114,14 +121,13 @@ describe('DataItemFetcher', () => {
       }
     })
 
-    expect(errorSpy).toHaveBeenCalledWith(
+    expect(loggerMock.error).toHaveBeenCalledWith(
       '[DataItemFetcher] Unsupported data source:',
       expect.objectContaining({
         type: 'websocket',
         url: 'wss://example.test/telemetry'
       })
     )
-    errorSpy.mockRestore()
   })
 
   it('builds GET requests with path parameters, query parameters, headers, and timeout', async () => {
@@ -333,7 +339,6 @@ describe('DataItemFetcher', () => {
   })
 
   it('returns invalid component binding defaults directly without numeric coercion', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     requestMock.get.mockResolvedValue({ ok: true })
     const fetcher = new DataItemFetcher()
 
@@ -357,11 +362,9 @@ describe('DataItemFetcher', () => {
       timeout: 10000,
       params: { limit: '' }
     })
-    errorSpy.mockRestore()
   })
 
   it('recovers damaged component binding paths from variable names', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     configurationBridgeMock.getConfiguration.mockReturnValue({
       base: { deviceId: 'recovered-device' },
       component: {}
@@ -388,7 +391,7 @@ describe('DataItemFetcher', () => {
 
     expect(configurationBridgeMock.getConfiguration).toHaveBeenCalledWith('chartA')
     expect(requestMock.get).toHaveBeenCalledWith('/api/devices/recovered-device', { timeout: 10000 })
-    expect(errorSpy).toHaveBeenCalledWith(
+    expect(loggerMock.error).toHaveBeenCalledWith(
       expect.stringContaining('Damaged binding path detected'),
       expect.objectContaining({
         key: 'device_id',
@@ -396,7 +399,6 @@ describe('DataItemFetcher', () => {
         variableName: 'chartA_deviceId'
       })
     )
-    errorSpy.mockRestore()
   })
 
   it('falls back to the visual-editor store when bridge configuration is missing', async () => {
@@ -561,7 +563,6 @@ describe('DataItemFetcher', () => {
   })
 
   it('preserves successful script data, including falsy values, and reports failures', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     scriptEngineMock.execute
       .mockResolvedValueOnce({ success: true, data: { computed: 42 } })
       .mockResolvedValueOnce({ success: true, data: 0 })
@@ -577,9 +578,8 @@ describe('DataItemFetcher', () => {
     await expect(fetcher.fetchData({ type: 'script', config: { script: 'return false' } })).resolves.toBe(false)
     await expect(fetcher.fetchData({ type: 'script', config: { script: 'return ""' } })).resolves.toBe('')
     await expect(fetcher.fetchData({ type: 'script', config: { script: 'while(true){}' } })).resolves.toEqual({})
-    expect(errorSpy).toHaveBeenCalledWith('[DataItemFetcher] Script data source failed:', {
+    expect(loggerMock.error).toHaveBeenCalledWith('[DataItemFetcher] Script data source failed:', {
       error: 'blocked'
     })
-    errorSpy.mockRestore()
   })
 })

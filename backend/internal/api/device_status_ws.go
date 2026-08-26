@@ -93,6 +93,8 @@ func (*TelemetryDataApi) ServeDeviceOnlineStatusWS(c *gin.Context) {
 
 	sendDeviceStatusWSInitialList(localClient, initialList)
 
+	// Background 是有意为之：该 ctx 的生命周期=WS 连接本身（连接级订阅），
+	// 不能绑 HTTP 请求上下文——升级后请求对象语义不可靠。
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

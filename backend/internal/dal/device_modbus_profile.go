@@ -32,9 +32,16 @@ func UpsertDeviceModbusProfile(deviceId, profileJSON, updatedBy string) (time.Ti
 }
 
 // GetDeviceModbusProfile 读取设备点表；不存在时返回 nil 而非错误。
-func GetDeviceModbusProfile(deviceId string) (*model.DeviceModbusProfile, error) {
+// GetDeviceModbusProfile 按 设备+租户 双条件读取点表（tenant-scope 棘轮要求，
+// 不再依赖 service 层 check-then-act 单独兜底）；不存在时返回 (nil, nil)。
+func GetDeviceModbusProfile(deviceId, tenantID string) (*model.DeviceModbusProfile, error) {
 	var row model.DeviceModbusProfile
-	err := global.DB.Where("device_id = ?", deviceId).First(&row).Error
+	err := global.DB.
+		Table("device_modbus_profiles p").
+		Select("p.*").
+		Joins("JOIN devices d ON d.id = p.device_id AND d.tenant_id = ?", tenantID).
+		Where("p.device_id = ?", deviceId).
+		First(&row).Error
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil
 	}

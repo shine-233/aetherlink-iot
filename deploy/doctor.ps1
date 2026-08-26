@@ -598,6 +598,17 @@ if ($Server) {
   $serverMqttOk = $mqttAddressOk -and (Test-AetherLinkServerAddress $MqttAddress)
   $serverMqttMessage = if (-not $mqttAddressOk) { "Server mode MQTT address is invalid: $MqttAddress." } elseif ($serverMqttOk) { "Server mode MQTT address is a non-local, non-placeholder endpoint: $MqttAddress." } else { "Server mode MQTT address is missing, local-only, or a placeholder: $MqttAddress." }
   Add-AetherLinkDoctorResult "server-mqtt-address-not-local" "error" $serverMqttOk $serverMqttMessage "Set -MqttAddress or AETHERLINK_MQTT_ACCESS_ADDRESS to an IP/domain devices can reach, for example 192.168.1.10:1883."
+
+  # 安全审计 F5：公网 MQTT 默认明文传输（compose 仅映射 1883，broker 8883/TLS 监听默认关闭）。
+  # 默认强警告；AETHERLINK_STRICT_TLS=1 时升级为阻断错误，与 doctor.sh 行为对齐。
+  $strictTls = "$($envValues['AETHERLINK_STRICT_TLS'])" -eq '1'
+  $tlsMessage = "Server mode exposes MQTT beyond localhost while transport TLS is disabled by default; device credentials would travel in cleartext."
+  $tlsFix = "Enable broker TLS: generate dev/intranet certs via deploy/gen-mqtt-certs, use a real CA plus the broker 8883 listener for production, or restrict port 1883 to a trusted network. Set AETHERLINK_STRICT_TLS=1 to make this check blocking."
+  if ($strictTls) {
+    Add-AetherLinkDoctorResult "server-mqtt-plaintext-tls" "error" $false $tlsMessage $tlsFix
+  } else {
+    Add-AetherLinkDoctorResult "server-mqtt-plaintext-tls" "warning" $false $tlsMessage $tlsFix
+  }
 }
 
 if ($mqttAddressOk) {

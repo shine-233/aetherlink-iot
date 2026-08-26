@@ -101,10 +101,7 @@ func GetDataScriptListByPage(data *model.GetDataScriptListByPageReq) (int64, int
 		return count, dataList, err
 	}
 
-	if data.Page != 0 && data.PageSize != 0 {
-		queryBuilder = queryBuilder.Limit(data.PageSize)
-		queryBuilder = queryBuilder.Offset((data.Page - 1) * data.PageSize)
-	}
+	queryBuilder = applyListPagination(queryBuilder, data.Page, data.PageSize)
 
 	dataList, err = queryBuilder.Select().Order(q.CreatedAt).Find()
 	if err != nil {

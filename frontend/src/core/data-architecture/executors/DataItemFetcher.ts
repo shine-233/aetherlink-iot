@@ -5,7 +5,11 @@
  * 重构建议: 按 json/http/websocket/script fetch strategy 拆分，并先锁定缓存键与绑定路径测试。
  */
 import { defaultScriptEngine } from '@/core/script-engine'
+import { createLogger } from '@/utils/logger'
 import type { HttpConfig, HttpParameter, PathParameter } from '@/core/data-architecture/types/http-config'
+
+const logger = createLogger('DataItemFetcher')
+
 import { request } from '@/service/request'
 import { useEditorStore } from '@/components/visual-editor/store/editor'
 import {
@@ -139,7 +143,7 @@ export class DataItemFetcher implements IDataItemFetcher {
       const targetComponent = this.findEditorStoreComponent(componentId)
       return targetComponent ? this.getNestedProperty(targetComponent.properties, propertyPath) : undefined
     } catch (error) {
-      console.error('[DataItemFetcher] Component property binding failed:', error)
+      logger.error('[DataItemFetcher] Component property binding failed:', error)
       return undefined
     }
   }
@@ -255,7 +259,7 @@ export class DataItemFetcher implements IDataItemFetcher {
   }
 
   private logFetcherError(scope: string, details: Record<string, unknown>): void {
-    console.error(`[DataItemFetcher] ${scope}:`, details)
+    logger.error(`[DataItemFetcher] ${scope}:`, details)
   }
 
   private getNestedProperty(obj: unknown, path: string): unknown {
@@ -394,7 +398,7 @@ export class DataItemFetcher implements IDataItemFetcher {
         Object.assign(config, scriptResult.data)
       }
     } catch (error) {
-      console.error('[DataItemFetcher] Pre-request script failed:', error)
+      logger.error('[DataItemFetcher] Pre-request script failed:', error)
     }
   }
 
@@ -449,7 +453,7 @@ export class DataItemFetcher implements IDataItemFetcher {
         return scriptResult.data !== undefined ? scriptResult.data : response
       }
     } catch (error) {
-      console.error('[DataItemFetcher] Post-response script failed:', error)
+      logger.error('[DataItemFetcher] Post-response script failed:', error)
     }
 
     return response

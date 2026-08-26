@@ -297,7 +297,15 @@ func (*UsersService) UpdateTenantInfoPassword(ctx context.Context, userInfo *uti
 	info.UpdatedAt = &t
 	info.PasswordLastUpdated = &t
 
-	info.Password = utils.BcryptHash(param.Password)
+	hashedPassword, hashErr := utils.BcryptHash(param.Password)
+	if hashErr != nil {
+		logrus.Error(ctx, "[UpdateTenantInfoPassword]hash password failed:", hashErr)
+		return errcode.WithData(101001, map[string]interface{}{
+			"error": "Failed to hash password",
+			"email": userInfo.Email,
+		})
+	}
+	info.Password = hashedPassword
 	if err = db.UpdateByEmail(ctx, info, user.Password, user.UpdatedAt, user.PasswordLastUpdated); err != nil {
 		logrus.Error(ctx, "[UpdateTenantInfoPassword]Update Users info failed:", err)
 		return errcode.WithData(101001, map[string]interface{}{

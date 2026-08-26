@@ -314,7 +314,11 @@ watch(
           :bordered="false"
           :max-height="350"
           remote
-        />
+        >
+          <template #empty>
+            <n-empty :description="$t('common.noData')" />
+          </template>
+        </NDataTable>
       </div>
     </NCard>
   </NModal>

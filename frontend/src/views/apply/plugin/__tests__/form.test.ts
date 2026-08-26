@@ -43,6 +43,10 @@ const mountComponent = (props: Record<string, any> = {}) => {
           setup(_, { slots }) {
             return () => h('div', { class: 'n-dynamic-input' }, slots.default ? slots.default({ index: 0 }) : [])
           }
+        }),
+        NEmpty: defineComponent({
+          props: { description: String },
+          setup() { return () => h('div', { class: 'n-empty' }) }
         })
       }
     }
@@ -72,10 +76,21 @@ describe('apply/plugin/components/form.vue', () => {
     expect(state.rules).toEqual({})
   })
 
-  it('renders NForm component', () => {
+  it('renders the empty state instead of a blank form when schema is missing', () => {
     const wrapper = mountComponent()
+    expect(wrapper.find('.n-empty').exists()).toBe(true)
+    expect(wrapper.find('.n-form').exists()).toBe(false)
+  })
+
+  it('renders NForm component when schema has elements', () => {
+    const wrapper = mountComponent({
+      formElements: [
+        { type: 'input', dataKey: 'host', label: 'Host', placeholder: 'Enter host', validate: {} }
+      ]
+    })
     const form = wrapper.find('.n-form')
     expect(form.attributes('class')).toContain('n-form')
+    expect(wrapper.find('.n-empty').exists()).toBe(false)
   })
 
   it('initializes with empty rules', () => {

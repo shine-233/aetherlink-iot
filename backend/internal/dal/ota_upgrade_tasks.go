@@ -253,10 +253,7 @@ func GetOtaUpgradeTaskDetailListByPage(p *model.GetOTAUpgradeTaskDetailReq) (int
 	}
 
 	// 分页
-	if p.Page != 0 && p.PageSize != 0 {
-		detailDataBuilder = detailDataBuilder.Limit(p.PageSize)
-		detailDataBuilder = detailDataBuilder.Offset((p.Page - 1) * p.PageSize)
-	}
+	detailDataBuilder = applyListPagination(detailDataBuilder, p.Page, p.PageSize)
 	otaTask := query.OtaUpgradeTask
 	otaPackage := query.OtaUpgradePackage
 

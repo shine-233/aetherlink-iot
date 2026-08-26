@@ -47,7 +47,7 @@ func loadSimulationVoucher(deviceID string) (string, error) {
 		return voucher, nil
 	}
 	// 兼容窗口兜底：仅当 DB 行明文列仍有值（存量/SQL 夹具行）时放行。
-	if deviceInfo, dbErr := dal.GetDeviceByID(deviceID); dbErr == nil && deviceInfo != nil &&
+	if deviceInfo, dbErr := dal.GetDeviceByIDUnscoped(deviceID); dbErr == nil && deviceInfo != nil &&
 		strings.TrimSpace(deviceInfo.Voucher) != "" {
 		return deviceInfo.Voucher, nil
 	}

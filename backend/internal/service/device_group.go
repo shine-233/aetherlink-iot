@@ -177,7 +177,7 @@ func (*DeviceGroup) DeleteDeviceGroup(id string, claims *utils.UserClaims) error
 	if _, err := ensureDeviceGroupWriteAccess(id, claims); err != nil {
 		return err
 	}
-	return dal.DeleteDeviceGroup(id)
+	return dal.DeleteDeviceGroupForTenant(id, claims.TenantID)
 }
 
 func (*DeviceGroup) UpdateDeviceGroup(req model.UpdateDeviceGroupReq, claims *utils.UserClaims) error {

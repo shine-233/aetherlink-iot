@@ -89,7 +89,7 @@ func (*DeviceModbusProfile) GetProfileForUser(deviceId string, claims *utils.Use
 	if _, err := ensureTelemetryDeviceReadAccess(deviceId, claims); err != nil {
 		return nil, err
 	}
-	row, err := dal.GetDeviceModbusProfile(deviceId)
+	row, err := dal.GetDeviceModbusProfile(deviceId, claims.TenantID)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": err.Error()})
 	}
@@ -111,7 +111,7 @@ func (*DeviceModbusProfile) GetProfileByDeviceNumber(deviceNumber string, claims
 	if deviceInfo.TenantID != claims.TenantID {
 		return nil, errcode.New(errcode.CodeNoPermission)
 	}
-	row, err := dal.GetDeviceModbusProfile(deviceInfo.ID)
+	row, err := dal.GetDeviceModbusProfile(deviceInfo.ID, deviceInfo.TenantID)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": err.Error()})
 	}

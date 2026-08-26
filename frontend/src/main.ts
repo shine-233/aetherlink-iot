@@ -58,7 +58,8 @@ async function setupApp() {
   const app = createApp(App)
 
   setupStore(app)
-  setupI18n(app)
+  // 启动语言包按需加载：挂载前注册当前语言，其余语言切换时动态拉取。
+  await setupI18n(app)
   setupNProgress()
   setupLoading()
 

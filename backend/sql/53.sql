@@ -1,15 +1,38 @@
--- 53.sql: 设备 Modbus 点表（ROADMAP B1 前端配置界面配套存储）
--- 背景：modbus-plugin 的寄存器点表原先只能靠本地 config.json 下发；
---       平台侧持久化后，前端可在线编辑点表，插件经 OpenAPI Key 拉取。
--- 边界：profile 只存 target + registers 等映射信息，绝不存设备凭证
---       （username/password 仍只在插件本地配置/密钥管理中）。
--- 回滚：DROP TABLE device_modbus_profiles;（插件可回退本地文件模式）
-
-CREATE TABLE IF NOT EXISTS device_modbus_profiles (
-    device_id VARCHAR(36) PRIMARY KEY,
-    profile JSONB NOT NULL DEFAULT '{}',
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_by VARCHAR(36)
+-- Phase B2: 规则链编辑器后端持久化
+-- 规则链主表
+CREATE TABLE IF NOT EXISTS rule_chains (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(128) NOT NULL,
+    description TEXT DEFAULT '',
+    enabled BOOLEAN NOT NULL DEFAULT true,
+    tenant_id VARCHAR(36) NOT NULL,
+    created_by UUID,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE INDEX idx_rc_tenant ON rule_chains(tenant_id);
 
-COMMENT ON TABLE device_modbus_profiles IS '设备 Modbus 点表（target+registers 映射；不含凭证），供前端编辑与 modbus-plugin 拉取';
+-- 规则链节点表
+CREATE TABLE IF NOT EXISTS rule_chain_nodes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    chain_id UUID NOT NULL REFERENCES rule_chains(id) ON DELETE CASCADE,
+    node_key VARCHAR(64) NOT NULL,
+    node_type VARCHAR(20) NOT NULL,
+    subtype VARCHAR(64) NOT NULL DEFAULT '',
+    label VARCHAR(128) DEFAULT '',
+    config JSONB NOT NULL DEFAULT '{}',
+    position_x DOUBLE PRECISION NOT NULL DEFAULT 0,
+    position_y DOUBLE PRECISION NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_rcn_chain ON rule_chain_nodes(chain_id);
+
+-- 规则链连接表（DAG 边）
+CREATE TABLE IF NOT EXISTS rule_chain_edges (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    chain_id UUID NOT NULL REFERENCES rule_chains(id) ON DELETE CASCADE,
+    source_node_key VARCHAR(64) NOT NULL,
+    target_node_key VARCHAR(64) NOT NULL,
+    label VARCHAR(64) DEFAULT ''
+);
+CREATE INDEX idx_rce_chain ON rule_chain_edges(chain_id);

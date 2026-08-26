@@ -29,6 +29,23 @@ export function buildAmapSdkUrl(key?: string): string {
 
 export const AMAP_SDK_URL = buildAmapSdkUrl(import.meta.env.VITE_AMAP_KEY)
 
+declare global {
+  interface Window {
+    _AMapSecurityConfig?: { securityJsCode: string }
+  }
+}
+
+/**
+ * 将部署环境提供的高德安全密钥挂载到 window，必须在 AMap SDK 脚本注入之前调用。
+ * 未配置时保持静默：SDK 仍可加载，仅依赖 jscode 的服务端代理能力不可用。
+ * 禁止把真实密钥写回源码或 HTML；历史硬编码密钥已视为泄漏并轮换。
+ */
+export function ensureAmapSecurityConfig(): void {
+  const securityCode = import.meta.env.VITE_AMAP_SECURITY_CODE?.trim()
+  if (!securityCode) return
+  window._AMapSecurityConfig = { securityJsCode: securityCode }
+}
+
 /** 根据部署环境中的 key 构造腾讯地图 SDK 地址；未配置时禁用外部脚本加载。 */
 export function buildTencentMapSdkUrl(key?: string): string {
   const normalizedKey = key?.trim()

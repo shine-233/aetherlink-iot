@@ -21,7 +21,7 @@ watchEffect(() => {
   const str = '{}'
   const thejson = JSON.parse(str)
   if (props.formElements) {
-    props.formElements.forEach(element => {
+    props.formElements.forEach((element) => {
       if (element.type === 'table') {
         protocol_config.value[element.dataKey] ??= thejson[element.dataKey] || []
       } else {
@@ -39,7 +39,13 @@ const onCreate = () => {
 
 <template>
   <div class="connection-box">
-    <NForm :model="protocol_config" :rules="rules" label-placement="top" class="w-full">
+    <!-- 插件未返回配置 schema 时给出明确空态，避免渲染成无法理解的空白表单区。 -->
+    <NEmpty
+      v-if="!props.formElements || !props.formElements.length"
+      :description="$t('common.noData')"
+      class="py-24px"
+    />
+    <NForm v-else :model="protocol_config" :rules="rules" label-placement="top" class="w-full">
       <div class="w-full">
         <template v-for="element in props.formElements" :key="element.dataKey">
           <div v-if="element.type === 'input'">
@@ -128,5 +134,4 @@ const onCreate = () => {
     </NForm>
   </div>
 </template>
-
 <style scoped lang="scss"></style>

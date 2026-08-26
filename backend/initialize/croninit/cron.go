@@ -6,6 +6,7 @@
 package croninit
 
 import (
+	"sync"
 	"time"
 
 	"aetherlink-iot/backend/internal/service"
@@ -14,10 +15,21 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var c = cron.New()
+var (
+	c = cron.New()
+	// bootstrapOnce 重入守卫：历史实现无防护，重复调用 CronInit 会把全部任务叠加注册，
+	// 导致清理/推送/自动化执行体成倍运行（hardening 挂账项，2026-08 收口）。
+	bootstrapOnce sync.Once
+	// cronBootstrap 为测试注入点；生产指向 startCronScheduler。
+	cronBootstrap = startCronScheduler
+)
 
-// CronInit 注册全部定时任务并启动全局 cron 调度器。
+// CronInit 注册全部定时任务并启动全局 cron 调度器；重复调用是幂等 no-op。
 func CronInit() {
+	bootstrapOnce.Do(func() { cronBootstrap() })
+}
+
+func startCronScheduler() {
 	// 初始化设备统计定时任务
 	InitDeviceStatsCron(c)
 

@@ -34,10 +34,7 @@ func GetSceneAutomationLog(req *model.GetSceneAutomationLogReq, tenantId string)
 		return count, nil, err
 	}
 
-	if req.Page != 0 && req.PageSize != 0 {
-		queryBuilder = queryBuilder.Limit(req.PageSize)
-		queryBuilder = queryBuilder.Offset((req.Page - 1) * req.PageSize)
-	}
+	queryBuilder = applyListPagination(queryBuilder, req.Page, req.PageSize)
 
 	logList, err := queryBuilder.Order(q.ExecutedAt.Desc()).Find()
 	if err != nil {

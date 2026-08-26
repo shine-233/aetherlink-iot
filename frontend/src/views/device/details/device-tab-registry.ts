@@ -80,6 +80,13 @@ export function createBaseDeviceTabs(): DeviceDetailTabComponent[] {
       refreshKey: 0
     },
     {
+      key: 'device-3d',
+      name: () => $t('custom.device_details.preview3d'),
+      component: createAsyncDeviceTab(() => import('@/views/device/details/modules/device-3d.vue')),
+      refreshKey: 0,
+      sharedReadOnlySafe: true
+    },
+    {
       key: 'rdi',
       name: () => 'RDI',
       component: createAsyncDeviceTab(() => import('@/views/device/details/modules/RdiDeviceOperationsView.vue')),

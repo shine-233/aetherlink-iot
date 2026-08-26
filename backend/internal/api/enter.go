@@ -64,6 +64,7 @@ type Controller struct {
 	AiQueryApi
 	RDIApi
 	PayloadSchemaApi
+	CalculatedFieldApi
 }
 
 var (

@@ -8,6 +8,12 @@ import { config } from '@vue/test-utils';
 import { afterEach, vi } from 'vitest';
 import { testI18n } from './i18n';
 import { dialogMock, messageMock } from './hoisted-mocks';
+import { ensureLocaleReady } from '@/locales';
+
+// 生产在挂载前 await ensureLocaleReady() 装载启动语言目录；语言包改为按需
+// 懒加载后，真实 $t 实例默认 messages 为空、会退化成"返回 key"。测试环境
+// 同样先预装载 en-us 目录，保证直接导入真实 $t 的业务模块断言到译文。
+await ensureLocaleReady();
 
 const mockedCurrentRoute = vi.hoisted(() => ({
   value: {

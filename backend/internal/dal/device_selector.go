@@ -6,7 +6,6 @@ package dal
 
 import (
 	"context"
-	"fmt"
 
 	model "aetherlink-iot/backend/internal/model"
 	query "aetherlink-iot/backend/internal/query"
@@ -63,7 +62,7 @@ func applyDeviceSelectorFilters(builder query.IDeviceDo, req model.DeviceSelecto
 		}
 	}
 	if req.Search != nil && *req.Search != "" {
-		builder = builder.Where(device.Name.Like(fmt.Sprintf("%%%s%%", *req.Search)))
+		builder = builder.Where(device.Name.Like(ContainsLikePattern(*req.Search)))
 	}
 	if req.OwnerUserID != nil && *req.OwnerUserID != "" {
 		builder = builder.Where(device.OwnerUserID.Eq(*req.OwnerUserID))
