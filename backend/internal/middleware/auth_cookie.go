@@ -88,3 +88,9 @@ func selectJWTAuthToken(c *gin.Context, headerToken string) string {
 	}
 	return headerToken
 }
+
+// SelectJWTAuthToken 按与鉴权中间件完全一致的顺序提取原始 token（认证 cookie 优先，其次 x-token 头）。
+// 供刷新端点计算旧会话摘要使用，避免 api 层自行拼装取值逻辑导致与中间件来源漂移。
+func SelectJWTAuthToken(c *gin.Context) string {
+	return selectJWTAuthToken(c, c.Request.Header.Get("x-token"))
+}

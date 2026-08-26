@@ -171,6 +171,14 @@ classified-protect:
   login-max-fail-times: 5
   # 连续登录失败锁定时间（单位：秒），-1表示不锁定
   login-fail-locked-seconds: 300
+  # IP 维度登录失败阈值：同一来源 IP 窗口内累计失败达阈值后整段拒绝（防换账号轰炸），-1 表示不启用
+  ip-login-max-fail-times: 20
+  # IP 维度失败计数/锁定窗口（单位：秒）
+  ip-login-fail-window-seconds: 600
+
+# Casbin 路由覆盖审计：未登记进资源表的受保护路由在启动期阻断（可改 warn/off 过渡）
+casbin:
+  route-audit-mode: fail-fast
 
 # 会话设置
 session:

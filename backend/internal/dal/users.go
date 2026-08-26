@@ -351,7 +351,7 @@ func GetUsersByPhoneNumber(phoneNumber string) (*model.User, error) {
 	if strings.HasPrefix(phoneNumber, "+") {
 		err = global.DB.Where("phone_number = ?", phoneNumber).First(&user).Error
 	} else {
-		err = global.DB.Where("phone_number LIKE ?", "%"+phoneNumber).First(&user).Error
+		err = global.DB.Where("phone_number LIKE ?", "%"+EscapeLikePattern(phoneNumber)).First(&user).Error
 	}
 	if err != nil {
 		return nil, err
@@ -400,28 +400,28 @@ func GetUserListByPageWithAddress(userListReq *model.UserListReq, claims *utils.
 
 	// 用户基本信息过滤
 	if userListReq.Email != nil && *userListReq.Email != "" {
-		base = base.Where("users.email LIKE ?", fmt.Sprintf("%%%s%%", *userListReq.Email))
+		base = base.Where("users.email LIKE ?", ContainsLikePattern(*userListReq.Email))
 	}
 	if userListReq.PhoneNumber != nil && *userListReq.PhoneNumber != "" {
 		base = base.Where("users.phone_number = ?", *userListReq.PhoneNumber)
 	}
 	if userListReq.Name != nil && *userListReq.Name != "" {
-		base = base.Where("users.name LIKE ?", fmt.Sprintf("%%%s%%", *userListReq.Name))
+		base = base.Where("users.name LIKE ?", ContainsLikePattern(*userListReq.Name))
 	}
 	if userListReq.Status != nil && *userListReq.Status != "" {
 		base = base.Where("users.status = ?", *userListReq.Status)
 	}
 	if userListReq.Organization != nil && *userListReq.Organization != "" {
-		base = base.Where("users.organization LIKE ?", fmt.Sprintf("%%%s%%", *userListReq.Organization))
+		base = base.Where("users.organization LIKE ?", ContainsLikePattern(*userListReq.Organization))
 	}
 	if userListReq.Country != nil && *userListReq.Country != "" {
-		base = base.Where("user_address.country LIKE ?", fmt.Sprintf("%%%s%%", *userListReq.Country))
+		base = base.Where("user_address.country LIKE ?", ContainsLikePattern(*userListReq.Country))
 	}
 	if userListReq.Province != nil && *userListReq.Province != "" {
-		base = base.Where("user_address.province LIKE ?", fmt.Sprintf("%%%s%%", *userListReq.Province))
+		base = base.Where("user_address.province LIKE ?", ContainsLikePattern(*userListReq.Province))
 	}
 	if userListReq.City != nil && *userListReq.City != "" {
-		base = base.Where("user_address.city LIKE ?", fmt.Sprintf("%%%s%%", *userListReq.City))
+		base = base.Where("user_address.city LIKE ?", ContainsLikePattern(*userListReq.City))
 	}
 
 	// 获取总数（1:1关系不需要去重）

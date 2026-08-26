@@ -74,7 +74,7 @@ func GetSceneAutomationWithAlarmByPageReq(req *model.GetSceneAutomationsWithAlar
 	queryBuilder := q.WithContext(ctx)
 	if !common.IsStringEmpty(req.DeviceId) {
 		sceneIDs, _ = getSceneAutomationIdByDeviceId(ctx, *req.DeviceId)
-		deviceConfig, err := GetDeviceByID(*req.DeviceId)
+		deviceConfig, err := GetDeviceByIDUnscoped(*req.DeviceId)
 		if err != nil {
 			return count, nil, err
 		}

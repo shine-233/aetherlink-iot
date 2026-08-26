@@ -182,10 +182,19 @@ ota:
   download_address: http://127.0.0.1:8080
 
 classified-protect:
-  # 连续登录失败次数则锁定，-1表示不受限制，可以一直尝试登录
+  # 连续登录失败次数则锁定，-1表示不受限制，可以一直尝试登入
   login-max-fail-times: 5
   # 连续登录失败锁定时间（单位：秒），-1表示不锁定
   login-fail-locked-seconds: 300
+  # IP 维度登录失败阈值：同一来源 IP 在窗口内累计失败达到该值后整段拒绝（防换账号轰炸），-1 表示不启用
+  ip-login-max-fail-times: 20
+  # IP 维度失败计数/锁定窗口（单位：秒）
+  ip-login-fail-window-seconds: 600
+
+# Casbin 路由覆盖审计：挂载在 CasbinRBAC 之后却未登记进资源表的路由会在启动期暴露。
+# fail-fast（默认）阻断启动；warn 仅告警（存量库升级过渡）；off 关闭。
+casbin:
+  route-audit-mode: fail-fast
 
 # 会话设置
 session:

@@ -23,6 +23,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 
 	// gin-swagger middleware
 	_ "aetherlink-iot/backend/docs"
@@ -164,6 +165,8 @@ func RouterInit() *gin.Engine {
 	router.GET("/deployment/health", controllers.SystemApi.DeploymentHealth)
 
 	api := router.Group("api")
+	// 启动期 Casbin 覆盖审计的基线容器：在挂载 CasbinRBAC 前声明，快照在挂载点后写入。
+	var casbinBaselineRoutes []string
 	{
 		// 无需权限校验
 		v1 := api.Group("v1")
@@ -228,6 +231,9 @@ func RouterInit() *gin.Engine {
 
 		// 需要权限校验
 		v1.Use(middleware.CasbinRBAC())
+		// 启动期 Casbin 覆盖审计基线：此快照之后注册的一切路由都视为"受 Casbin 保护"，
+		// 必须登记进资源表，否则 auditCasbinRouteCoverage 会在启动期阻断（见 casbin_audit.go）。
+		casbinBaselineRoutes = ginRoutePaths(router)
 		// SSE服务
 		SSERouter(v1)
 
@@ -307,8 +313,13 @@ func RouterInit() *gin.Engine {
 		}
 	}
 
-	// 启动期一致性报告：列出会因 casbin fail-open 放行的未登记路由（只告警不阻断）。
-	LogCasbinRegistrationGaps(router)
+	// 启动期 Casbin 覆盖检查：默认 fail-fast（P1 批交付，casbin.route-audit-mode 可配 warn/off）；
+	// 运维显式选择 off 时退回 #178 引入的只警报报告，保底可观测性。
+	if strings.EqualFold(strings.TrimSpace(viper.GetString("casbin.route-audit-mode")), "off") {
+		LogCasbinRegistrationGaps(router)
+	} else {
+		auditCasbinRouteCoverage(router, casbinBaselineRoutes)
+	}
 
 	return router
 }

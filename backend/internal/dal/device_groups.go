@@ -8,7 +8,6 @@ package dal
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
 	model "aetherlink-iot/backend/internal/model"
@@ -84,8 +83,9 @@ func CreateDeviceGroup(r *model.Group) error {
 	return query.Group.Create(r)
 }
 
-func DeleteDeviceGroup(id string) error {
-	_, err := query.Group.Where(query.Group.ID.Eq(id)).Delete()
+// DeleteDeviceGroupForTenant 按 id+tenant 双条件删除分组，DAL 层强制租户隔离（安全审计 F4）。
+func DeleteDeviceGroupForTenant(id, tenantID string) error {
+	_, err := query.Group.Where(query.Group.ID.Eq(id), query.Group.TenantID.Eq(tenantID)).Delete()
 	return err
 }
 
@@ -112,10 +112,7 @@ func GetDeviceGroupListByPage(req model.GetDeviceGroupsListByPageReq, tenantId s
 	}
 	if req.Name != nil && *req.Name != "" {
 		// 转义 LIKE 通配符，防止用户输入的 % 和 _ 被当作通配符
-		escapedName := strings.ReplaceAll(*req.Name, "\\", "\\\\")
-		escapedName = strings.ReplaceAll(escapedName, "%", "\\%")
-		escapedName = strings.ReplaceAll(escapedName, "_", "\\_")
-		queryBuilder = queryBuilder.Where(q.Name.Like(fmt.Sprintf("%%%s%%", escapedName)))
+		queryBuilder = queryBuilder.Where(q.Name.Like(ContainsLikePattern(*req.Name)))
 	}
 
 	if req.ParentId != nil && *req.ParentId != "" {

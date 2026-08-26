@@ -186,6 +186,8 @@ const title = computed(() => {
 })
 
 const formRef = ref<HTMLElement & FormInst>()
+// 提交进行中标记：防止重复提交，并驱动确认按钮 loading 态。
+const submitLoading = ref(false)
 
 type FormModel = Pick<UserManagement.User, 'email' | 'name' | 'phone_number' | 'gender' | 'remark' | 'status'> & {
   password: string
@@ -365,16 +367,22 @@ async function handleSubmit() {
   // 移除不需要提交的字段
   delete (submitData as any).confirmPwd
 
-  let data: any
-  if (props.type === 'add') {
-    data = await addUser(submitData)
-  } else if (props.type === 'edit') {
-    data = await editUser(submitData)
+  submitLoading.value = true
+  try {
+    let data: any
+    if (props.type === 'add') {
+      data = await addUser(submitData)
+    } else if (props.type === 'edit') {
+      data = await editUser(submitData)
+    }
+    // 失败时保持弹窗打开，保留用户输入；错误提示由请求层全局 onError 统一弹出。
+    if (!data.error) {
+      emit('success')
+      closeModal()
+    }
+  } finally {
+    submitLoading.value = false
   }
-  if (!data.error) {
-    emit('success')
-  }
-  closeModal()
 }
 
 watch(
@@ -474,7 +482,7 @@ watch(
       </NGrid>
       <NSpace class="w-full pt-16px" :size="24" justify="end">
         <NButton class="w-72px" @click="closeModal">{{ $t('common.cancel') }}</NButton>
-        <NButton class="w-72px" type="primary" @click="handleSubmit">{{ $t('common.confirm') }}</NButton>
+        <NButton class="w-72px" type="primary" :loading="submitLoading" @click="handleSubmit">{{ $t('common.confirm') }}</NButton>
       </NSpace>
     </NForm>
   </NModal>

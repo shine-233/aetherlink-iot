@@ -96,10 +96,7 @@ func GetBoardListByPage(boards *model.GetBoardListByPageReq, tenantId string) (i
 	}
 
 	if boards.Name != nil && *boards.Name != "" {
-		escapedName := strings.ReplaceAll(*boards.Name, "\\", "\\\\")
-		escapedName = strings.ReplaceAll(escapedName, "%", "\\%")
-		escapedName = strings.ReplaceAll(escapedName, "_", "\\_")
-		queryBuilder = queryBuilder.Where(q.Name.Like(fmt.Sprintf("%%%s%%", escapedName)))
+		queryBuilder = queryBuilder.Where(q.Name.Like(ContainsLikePattern(*boards.Name)))
 	}
 
 	if boards.HomeFlag != nil && *boards.HomeFlag != "" {

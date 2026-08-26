@@ -74,7 +74,7 @@ func GetDeviceModelCustomCommandsByPage(page model.GetDeviceModelListByPageReq, 
 }
 
 func GetDeviceModelCustomCommandsByDeviceId(deviceId, tenantId string) ([]*model.DeviceModelCustomCommand, error) {
-	d, err := GetDeviceByID(deviceId)
+	d, err := GetDeviceByIDUnscoped(deviceId)
 	if err != nil {
 		return nil, err
 	}
