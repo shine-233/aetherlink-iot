@@ -196,10 +196,6 @@ classified-protect:
 casbin:
   route-audit-mode: fail-fast
 
-# Casbin 路由覆盖审计模式：fail-fast（默认，未登记路由阻断启动）| warn（存量库升级过渡）| off（不推荐）
-casbin:
-  route-audit-mode: fail-fast
-
 # 会话设置
 session:
   # 会话超时时间（以分钟为单位）
