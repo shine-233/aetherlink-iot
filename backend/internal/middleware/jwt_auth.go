@@ -61,7 +61,8 @@ func JWTAuth() gin.HandlerFunc {
 
 func isValidJWT(c *gin.Context, token string) bool {
 	requestID := c.GetString("X-Request-ID")
-	ctx := context.Background()
+	// 继承请求上下文：客户端断连/超时后 Redis 会话校验随之取消，不再脱离请求生命周期。
+	ctx := c.Request.Context()
 
 	// P3 修复（2026-08-24，见 VALIDATION.md）：Redis 键统一使用 token 摘要（utils.TokenDigest），
 	// 不再把完整明文 JWT 落地为 Redis key。与 service 登录/登出/刷新和 WS 认证共用同一键空间。
@@ -216,7 +217,7 @@ func OpenAPIKeyAuth(c *gin.Context) bool {
 		return false
 	}
 
-	tenantID, createdID, err := dal.VerifyOpenAPIKey(context.Background(), appKey)
+	tenantID, createdID, err := dal.VerifyOpenAPIKey(c.Request.Context(), appKey)
 	if err != nil {
 		recordOpenAPIKeyAuthFailure(clientIP)
 		c.JSON(http.StatusUnauthorized, ErrorResponse{
@@ -242,11 +243,19 @@ func openAPIKeyClaims(tenantID string, createdID string) *utils.UserClaims {
 
 // openAPIKeyAuthority 读取 OpenAPI Key 等效 claims 的权限。
 // open_api_keys 表没有独立的权限/scope 字段，因此统一取环境变量
-// GOTP_OPENAPI_KEY_AUTHORITY（viper 键 openapi.key.authority），
-// 未配置时保持默认 TENANT_ADMIN 以兼容存量部署，运维可下调为 TENANT_USER 等。
+// GOTP_OPENAPI_KEY_AUTHORITY（viper 键 openapi.key.authority）。
+// P1 修复（2026-08-25）：默认从 TENANT_ADMIN 降为 TENANT_USER（最小权限）——
+// 泄露一把机器 key 不再等价于租户管理员沦陷；需要写能力的部署必须显式配置提升，
+// 后续应为 key 增加独立 scope 字段并按字段授权（见 apikey_test.go 头注释）。
 func openAPIKeyAuthority() string {
 	if authority := strings.TrimSpace(viper.GetString("openapi.key.authority")); authority != "" {
 		return authority
 	}
-	return constant.TENANT_ADMIN
+	return constant.TENANT_USER
+}
+
+// OpenAPIKeyAuthority 供 WS 等其他认证面复用同一份 OpenAPI Key 等效权限解析，
+// 保证 HTTP 与 WebSocket 对同一把 key 的授权口径一致（默认最小权限 TENANT_USER）。
+func OpenAPIKeyAuthority() string {
+	return openAPIKeyAuthority()
 }

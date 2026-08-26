@@ -60,6 +60,8 @@ func configureRuntimeEnvironment() error {
 	viper.AutomaticEnv()
 
 	for _, key := range []string{
+		"device_route_cache.ttl",
+		"device_route_cache.max_entries",
 		"db.psql.psqladdr",
 		"db.psql.psqlport",
 		"db.psql.psqluser",
@@ -119,8 +121,9 @@ func New(config config.Config) (server.Plugin, error) {
 // AetherLinkPlugin is the AetherLink IoT MQTT plugin for auth,
 // routing, status reporting, and device-session revocation.
 type AetherLinkPlugin struct {
-	mu                       sync.Mutex
-	sessionRevocationMonitor *mqttSessionRevocationMonitor
+	mu                            sync.Mutex
+	sessionRevocationMonitor      *mqttSessionRevocationMonitor
+	voucherCacheInvalidationWatch *voucherCacheInvalidationMonitor
 }
 
 // Load initializes logging and runtime dependencies once.
@@ -149,6 +152,19 @@ func (t *AetherLinkPlugin) Load(service server.Server) error {
 		return fmt.Errorf("aetherlink-gmqtt: start mqtt session revocation monitor: %w", err)
 	}
 	t.sessionRevocationMonitor = monitor
+
+	// 凭证缓存失效通道是残窗收口的卫生机制：订阅建立失败只降级告警，
+	// 不阻断 broker 启动（残留映射仍受缓存 TTL 兜底）。
+	invalidationWatch := newVoucherCacheInvalidationMonitor(subscribeRedisVoucherCacheInvalidations)
+	if err := invalidationWatch.Start(); err != nil {
+		if Log != nil {
+			Log.Warn("start voucher cache invalidation monitor failed; rotation residual window falls back to cache TTL",
+				zap.Error(err),
+			)
+		}
+	} else {
+		t.voucherCacheInvalidationWatch = invalidationWatch
+	}
 	return nil
 }
 
@@ -161,6 +177,12 @@ func (t *AetherLinkPlugin) Unload() error {
 	if t.sessionRevocationMonitor != nil {
 		firstErr = t.sessionRevocationMonitor.Close()
 		t.sessionRevocationMonitor = nil
+	}
+	if t.voucherCacheInvalidationWatch != nil {
+		if err := t.voucherCacheInvalidationWatch.Close(); firstErr == nil {
+			firstErr = err
+		}
+		t.voucherCacheInvalidationWatch = nil
 	}
 	if err := DefaultMqttClient.Close(); firstErr == nil {
 		firstErr = err

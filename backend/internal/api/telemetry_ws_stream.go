@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -26,26 +27,40 @@ const (
 )
 
 // upgradeTelemetryWSSession 统一各 WebSocket 端点的升级样板：
-// 升级失败时记录 gin 错误并返回 ok=false；成功时打印连接日志，
-// 并返回幂等的连接关闭函数，作为该会话唯一的连接级关闭入口。
+// 先过每来源 IP 并发闸门（未认证连接也占用额度，防握手洪泛）；升级失败时记录
+// gin 错误并返回 ok=false；成功时打印连接日志，并返回幂等的连接关闭函数
+// （内含闸门槽位归还），作为该会话唯一的连接级关闭入口。
 func upgradeTelemetryWSSession(c *gin.Context, connectedLog string) (*websocket.Conn, func(), bool) {
+	ip := c.ClientIP()
+	if !defaultWSIPGate.tryAcquire(ip) {
+		logrus.Warn("websocket connection rejected: per-IP concurrent limit reached")
+		c.AbortWithStatus(http.StatusTooManyRequests)
+		return nil, nil, false
+	}
 	conn, err := Wsupgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
+		defaultWSIPGate.release(ip)
 		c.Error(errcode.WithData(errcode.CodeSystemError, "WebSocket upgrade failed"))
 		return nil, nil, false
 	}
 
 	logrus.WithField("remote_addr", conn.RemoteAddr().String()).Info(connectedLog)
-	return conn, newWSConnCloser(conn), true
+	return conn, newWSConnCloser(conn, func() { defaultWSIPGate.release(ip) }), true
 }
 
 // newWSConnCloser 返回幂等的一次性关闭函数。会话关闭可能从多条路径触发
 // （handler defer、读循环失败、心跳超时、订阅清理），once 保证底层连接只会被
-// 真正关闭一次；关闭顺序约定为“先关写队列（WSClient.CloseSend），最后关连接”。
-func newWSConnCloser(conn *websocket.Conn) func() {
+// 真正关闭一次、附加清理动作（如闸门槽位归还）只会执行一次；关闭顺序约定为
+// “先关写队列（WSClient.CloseSend），最后关连接”。
+func newWSConnCloser(conn *websocket.Conn, extraCleanup ...func()) func() {
 	var once sync.Once
 	return func() {
 		once.Do(func() {
+			for _, cleanup := range extraCleanup {
+				if cleanup != nil {
+					cleanup()
+				}
+			}
 			_ = conn.Close()
 		})
 	}

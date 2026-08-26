@@ -70,10 +70,7 @@ func GetOtaUpgradePackageListByPage(p *model.GetOTAUpgradePackageLisyByPageReq, 
 		return count, packageList, err
 	}
 
-	if p.Page != 0 && p.PageSize != 0 {
-		queryBuilder = queryBuilder.Limit(p.PageSize)
-		queryBuilder = queryBuilder.Offset((p.Page - 1) * p.PageSize)
-	}
+	queryBuilder = applyListPagination(queryBuilder, p.Page, p.PageSize)
 
 	d := query.DeviceConfig
 	err = queryBuilder.Select(q.ALL, d.Name.As("device_config_name")).

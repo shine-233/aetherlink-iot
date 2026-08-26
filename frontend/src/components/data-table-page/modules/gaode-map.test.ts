@@ -14,7 +14,8 @@ const hoisted = vi.hoisted(() => ({
 vi.mock('@/constants/map-sdk', () => ({
   get AMAP_SDK_URL() {
     return hoisted.sdkUrl
-  }
+  },
+  ensureAmapSecurityConfig: () => {}
 }))
 
 vi.mock('@/locales', () => ({

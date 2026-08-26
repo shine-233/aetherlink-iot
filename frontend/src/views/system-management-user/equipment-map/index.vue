@@ -10,7 +10,7 @@ import { useRouter } from 'vue-router'
 import { useScriptTag } from '@vueuse/core'
 import { deviceList, deviceMapTelemetry } from '@/service/api/device'
 import { $t } from '@/locales'
-import { AMAP_SDK_URL } from '@/constants/map-sdk'
+import { AMAP_SDK_URL, ensureAmapSecurityConfig } from '@/constants/map-sdk'
 
 interface DeviceRecord {
   id: string
@@ -233,6 +233,7 @@ async function initMap() {
   mapLoading.value = true
   mapError.value = false
   try {
+    ensureAmapSecurityConfig()
     await loadAmap(true)
     if (!mapDomRef.value || typeof AMap === 'undefined') return
     const center = selectedLngLat() || [114.05834626586915, 22.546789983033168]
