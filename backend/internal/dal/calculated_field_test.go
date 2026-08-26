@@ -171,13 +171,23 @@ func TestListEnabledCalculatedFieldsByTemplateOnlyReturnsEnabled(t *testing.T) {
 	setupCalculatedFieldTestDB(t)
 	createCalculatedFieldRow(t, "on-1", "tenant-a", "tpl-on", "power_w", true)
 	createCalculatedFieldRow(t, "off-1", "tenant-a", "tpl-on", "energy_wh", false)
+	// 异租户同模板 id 的启用规则不得泄漏进结果（tenant-scope 棘轮契约）。
+	createCalculatedFieldRow(t, "on-foreign", "tenant-b", "tpl-on", "power_w_foreign", true)
 
-	fields, err := ListEnabledCalculatedFieldsByTemplate("tpl-on")
+	fields, err := ListEnabledCalculatedFieldsByTemplate("tenant-a", "tpl-on")
 	if err != nil {
 		t.Fatalf("list enabled: %v", err)
 	}
 	if len(fields) != 1 || fields[0].ID != "on-1" {
 		t.Fatalf("enabled fields = %#v, want only on-1", fields)
+	}
+
+	foreign, err := ListEnabledCalculatedFieldsByTemplate("tenant-b", "tpl-on")
+	if err != nil {
+		t.Fatalf("list enabled for foreign tenant: %v", err)
+	}
+	if len(foreign) != 1 || foreign[0].ID != "on-foreign" {
+		t.Fatalf("foreign tenant fields = %#v, want only on-foreign", foreign)
 	}
 }
 
@@ -210,15 +220,15 @@ func TestGetDeviceTemplateIDByDeviceIDJoinsConfigs(t *testing.T) {
 		}
 	}
 
-	got, err := GetDeviceTemplateIDByDeviceID("dev-bound")
+	got, err := GetDeviceTemplateIDByDeviceID("tenant-a", "dev-bound")
 	if err != nil || got != "tpl-9" {
 		t.Fatalf("template for dev-bound = %q err=%v, want tpl-9", got, err)
 	}
-	got, err = GetDeviceTemplateIDByDeviceID("dev-unbound")
+	got, err = GetDeviceTemplateIDByDeviceID("tenant-a", "dev-unbound")
 	if err != nil || got != "" {
 		t.Fatalf("template for dev-unbound = %q err=%v, want empty", got, err)
 	}
-	got, err = GetDeviceTemplateIDByDeviceID("missing-device")
+	got, err = GetDeviceTemplateIDByDeviceID("tenant-a", "missing-device")
 	if err != nil || got != "" {
 		t.Fatalf("missing device must resolve to empty without error, got %q err=%v", got, err)
 	}

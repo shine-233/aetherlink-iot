@@ -32,11 +32,11 @@ type stubSource struct {
 	fields     []FieldRule
 }
 
-func (s stubSource) ResolveTemplateID(context.Context, string) (string, error) {
+func (s stubSource) ResolveTemplateID(_ context.Context, _, _ string) (string, error) {
 	return s.templateID, nil
 }
 
-func (s stubSource) ListEnabledFields(context.Context, string) ([]FieldRule, error) {
+func (s stubSource) ListEnabledFields(context.Context, string, string) ([]FieldRule, error) {
 	return s.fields, nil
 }
 

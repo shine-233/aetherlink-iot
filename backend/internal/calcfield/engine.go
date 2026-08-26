@@ -49,21 +49,21 @@ type FieldRule struct {
 
 // TemplateSource 提供设备→模板归属与模板启用字段两类查询，便于单测注入桩实现。
 type TemplateSource interface {
-	ResolveTemplateID(ctx context.Context, deviceID string) (string, error)
-	ListEnabledFields(ctx context.Context, templateID string) ([]FieldRule, error)
+	ResolveTemplateID(ctx context.Context, tenantID, deviceID string) (string, error)
+	ListEnabledFields(ctx context.Context, tenantID, templateID string) ([]FieldRule, error)
 }
 
 // dalTemplateSource 默认实现：查询走 internal/dal 的 raw 链。
 type dalTemplateSource struct{}
 
 // ResolveTemplateID 解析设备归属模板 id；未绑定配置/模板返回空串。
-func (dalTemplateSource) ResolveTemplateID(_ context.Context, deviceID string) (string, error) {
-	return dal.GetDeviceTemplateIDByDeviceID(deviceID)
+func (dalTemplateSource) ResolveTemplateID(_ context.Context, tenantID, deviceID string) (string, error) {
+	return dal.GetDeviceTemplateIDByDeviceID(tenantID, deviceID)
 }
 
 // ListEnabledFields 返回模板下全部启用计算字段。
-func (dalTemplateSource) ListEnabledFields(_ context.Context, templateID string) ([]FieldRule, error) {
-	fields, err := dal.ListEnabledCalculatedFieldsByTemplate(templateID)
+func (dalTemplateSource) ListEnabledFields(_ context.Context, tenantID, templateID string) ([]FieldRule, error) {
+	fields, err := dal.ListEnabledCalculatedFieldsByTemplate(tenantID, templateID)
 	if err != nil {
 		return nil, err
 	}
@@ -195,12 +195,12 @@ func (e *Engine) processMessage(msg *uplink.DeviceMessage) {
 		return
 	}
 
-	templateID := e.resolveTemplateIDCached(msg.DeviceID)
+	templateID := e.resolveTemplateIDCached(msg.TenantID, msg.DeviceID)
 	if templateID == "" {
 		return
 	}
 
-	rules := e.listRulesCached(templateID)
+	rules := e.listRulesCached(msg.TenantID, templateID)
 	if len(rules) == 0 {
 		return
 	}
@@ -306,7 +306,8 @@ func (e *Engine) enqueueDerived(source *uplink.DeviceMessage, outputKey string, 
 }
 
 // resolveTemplateIDCached 设备→模板归属懒查，60s 缓存；查询失败不缓存。
-func (e *Engine) resolveTemplateIDCached(deviceID string) string {
+// tenantID 参与查询过滤（tenant-scope 棘轮要求），同设备必属同租户故缓存键仍用 deviceID。
+func (e *Engine) resolveTemplateIDCached(tenantID, deviceID string) string {
 	now := time.Now()
 	e.cacheMu.RLock()
 	cached, exists := e.templateCache[deviceID]
@@ -315,7 +316,7 @@ func (e *Engine) resolveTemplateIDCached(deviceID string) string {
 		return cached.templateID
 	}
 
-	templateID, err := e.templateSource.ResolveTemplateID(e.ctx, deviceID)
+	templateID, err := e.templateSource.ResolveTemplateID(e.ctx, tenantID, deviceID)
 	if err != nil {
 		e.logger.WithFields(logrus.Fields{
 			"device_id": deviceID,
@@ -331,16 +332,18 @@ func (e *Engine) resolveTemplateIDCached(deviceID string) string {
 }
 
 // listRulesCached 模板启用字段清单缓存，30s TTL；每次刷新重新解析表达式。
-func (e *Engine) listRulesCached(templateID string) []compiledRule {
+// 缓存键含租户前缀：不同租户的同 id 模板互不可见，规则集必须隔离。
+func (e *Engine) listRulesCached(tenantID, templateID string) []compiledRule {
+	cacheKey := tenantID + ":" + templateID
 	now := time.Now()
 	e.cacheMu.RLock()
-	cached, exists := e.rulesCache[templateID]
+	cached, exists := e.rulesCache[cacheKey]
 	e.cacheMu.RUnlock()
 	if exists && now.Before(cached.expiresAt) {
 		return cached.rules
 	}
 
-	fields, err := e.templateSource.ListEnabledFields(e.ctx, templateID)
+	fields, err := e.templateSource.ListEnabledFields(e.ctx, tenantID, templateID)
 	if err != nil {
 		e.logger.WithFields(logrus.Fields{
 			"template_id": templateID,
@@ -351,7 +354,7 @@ func (e *Engine) listRulesCached(templateID string) []compiledRule {
 
 	rules := compileFieldRules(fields, e.logger)
 	e.cacheMu.Lock()
-	e.rulesCache[templateID] = cachedRules{rules: rules, expiresAt: now.Add(fieldRulesCacheTTL)}
+	e.rulesCache[cacheKey] = cachedRules{rules: rules, expiresAt: now.Add(fieldRulesCacheTTL)}
 	e.cacheMu.Unlock()
 	return rules
 }

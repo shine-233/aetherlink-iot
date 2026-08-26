@@ -100,10 +100,12 @@ func ListCalculatedFieldsByPage(tenantID string, req *model.CalculatedFieldListR
 }
 
 // ListEnabledCalculatedFieldsByTemplate 返回某设备模板下全部启用字段（引擎热路径）。
-func ListEnabledCalculatedFieldsByTemplate(templateID string) ([]*model.CalculatedField, error) {
+// ListEnabledCalculatedFieldsByTemplate 返回指定租户下某模板的全部启用计算字段。
+// tenant_id 过滤是 tenant-scope 棘轮要求：模板 id 不携带归属信息，必须显式限定。
+func ListEnabledCalculatedFieldsByTemplate(tenantID, templateID string) ([]*model.CalculatedField, error) {
 	fields := make([]*model.CalculatedField, 0)
 	err := global.DB.WithContext(context.Background()).
-		Where("device_template_id = ? AND enabled = TRUE", templateID).
+		Where("device_template_id = ? AND tenant_id = ? AND enabled = TRUE", templateID, tenantID).
 		Order("id ASC").
 		Limit(maxCalculatedFieldListLimit).
 		Find(&fields).Error
@@ -121,7 +123,8 @@ func CountDeviceTemplatesInTenant(templateID, tenantID string) (int64, error) {
 }
 
 // GetDeviceTemplateIDByDeviceID 解析设备归属的设备模板 id；未绑定配置/模板时返回空串。
-func GetDeviceTemplateIDByDeviceID(deviceID string) (string, error) {
+// GetDeviceTemplateIDByDeviceID 在指定租户内解析设备归属模板 id；跨租户 deviceID 视为不存在。
+func GetDeviceTemplateIDByDeviceID(tenantID, deviceID string) (string, error) {
 	var row struct {
 		TemplateID *string `gorm:"column:template_id"`
 	}
@@ -129,7 +132,7 @@ func GetDeviceTemplateIDByDeviceID(deviceID string) (string, error) {
 		Table("devices d").
 		Select("dc.device_template_id AS template_id").
 		Joins("LEFT JOIN device_configs dc ON dc.id = d.device_config_id").
-		Where("d.id = ?", deviceID).
+		Where("d.id = ? AND d.tenant_id = ?", deviceID, tenantID).
 		Limit(1).
 		Scan(&row).Error
 	if err != nil {
