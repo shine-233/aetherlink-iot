@@ -700,7 +700,7 @@ if (configId.value) {
 }
 
 .first-automation-telemetry-guide__draft small {
-  color: rgb(var(--success-600));
+  color: rgb(var(----color));
 }
 
 .first-automation-telemetry-guide__draft-actions {

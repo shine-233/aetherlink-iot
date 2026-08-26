@@ -595,7 +595,10 @@ describe('commandCenterJobView', () => {
 
     const auditCard = buildCommandJobAuditSummaryCard(ambiguousResult, t)
     const executionCard = buildCommandJobExecutionSummaryCard(ambiguousResult, t)
-    const closeoutPacket = buildCommandJobCloseoutPacket(ambiguousResult, 'https://example.test/jobs?command_job_id=job-1')
+    const closeoutPacket = buildCommandJobCloseoutPacket(
+      ambiguousResult,
+      'https://example.test/jobs?command_job_id=job-1'
+    )
 
     expect(auditCard).toMatchObject({
       latestLabel: 'Device ack ambiguous',
@@ -616,7 +619,9 @@ describe('commandCenterJobView', () => {
     })
     expect(closeoutPacket).toContain('latest=device_ack_ambiguous')
     expect(closeoutPacket).toContain(closeBlocker)
-    expect(closeoutPacket).toContain('- [blocked] Resolve ambiguous device response: Latest event: device_ack_ambiguous')
+    expect(closeoutPacket).toContain(
+      '- [blocked] Resolve ambiguous device response: Latest event: device_ack_ambiguous'
+    )
   })
 
   it('falls back to local progress health when backend health is absent', () => {
@@ -1018,7 +1023,7 @@ describe('commandCenterJobView', () => {
       },
       {
         key: 'logs',
-         label: 'Missing log evidence',
+        label: 'Missing log evidence',
         value: '1 missing logs.',
         reviewRowsStatusFilter: 'missing_log',
         type: 'warning'
@@ -1070,12 +1075,12 @@ describe('commandCenterJobView', () => {
       t
     )
 
-    expect(tracks.map(track => [track.device, track.type])).toEqual([
+    expect(tracks.map((track) => [track.device, track.type])).toEqual([
       ['dev-failed', 'error'],
       ['dev-blocked', 'error'],
       ['pump-1', 'success']
     ])
-    expect(tracks[0].steps.map(step => [step.key, step.state])).toEqual([
+    expect(tracks[0].steps.map((step) => [step.key, step.state])).toEqual([
       ['preview', 'Done'],
       ['dispatch', 'Failed 2/3'],
       ['ack', 'Waiting'],
@@ -1087,7 +1092,7 @@ describe('commandCenterJobView', () => {
       detail: 'permission missing',
       type: 'error'
     })
-    expect(tracks[2].steps.map(step => step.state)).toEqual(['Done', 'Done', 'Done', 'Done'])
+    expect(tracks[2].steps.map((step) => step.state)).toEqual(['Done', 'Done', 'Done', 'Done'])
   })
 
   it('treats device failure responses as retryable evidence', () => {
@@ -1130,8 +1135,8 @@ describe('commandCenterJobView', () => {
             key: 'dev-ack-failed',
             device: 'dev-ack-failed',
             status: 'submitted',
-             deviceId: 'dev-ack-failed',
-             readiness: '-',
+            deviceId: 'dev-ack-failed',
+            readiness: '-',
             reason: '-',
             action: 'motor refused command'
           }
@@ -1221,7 +1226,7 @@ describe('commandCenterJobView', () => {
       t
     )
 
-    expect(rows.map(row => [row.key, row.count, row.type, row.filter])).toEqual([
+    expect(rows.map((row) => [row.key, row.count, row.type, row.filter])).toEqual([
       ['needs_operator_action', 6, 'warning', 'needs_operator_action'],
       ['retry_ready', 2, 'warning', 'retry_ready'],
       ['retry_waiting', 1, 'info', 'retry_waiting'],

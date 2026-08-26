@@ -116,7 +116,9 @@ const bindThingsVisSectionRef = (element: Element | ComponentPublicInstance | nu
             </n-button>
             <n-button @click="emit('openRdiDashboard')">{{ $t('route.dashboard_rdi-overview') }}</n-button>
             <n-button @click="emit('openRdiAlarmOverview')">{{ $t('route.alarm_rdi-overview') }}</n-button>
-            <n-button @click="emit('openAlarmCenter')">{{ $t('custom.home.compatNotice.actions.alarmCenter') }}</n-button>
+            <n-button @click="emit('openAlarmCenter')">
+              {{ $t('custom.home.compatNotice.actions.alarmCenter') }}
+            </n-button>
             <n-button @click="emit('openSystemSettings')">
               {{ $t('custom.home.compatNotice.actions.systemSettings') }}
             </n-button>

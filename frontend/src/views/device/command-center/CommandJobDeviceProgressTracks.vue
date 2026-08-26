@@ -12,11 +12,7 @@ const emit = defineEmits<{
 
 <template>
   <div class="command-job-device-progress">
-    <div
-      v-for="track in tracks"
-      :key="track.key"
-      class="command-job-device-progress__track"
-    >
+    <div v-for="track in tracks" :key="track.key" class="command-job-device-progress__track">
       <div class="command-job-device-progress__head">
         <div>
           <strong>{{ track.device }}</strong>
@@ -25,11 +21,7 @@ const emit = defineEmits<{
         <NTag :type="track.type" size="small">{{ track.nextAction }}</NTag>
       </div>
       <div class="command-job-device-progress__steps">
-        <div
-          v-for="step in track.steps"
-          :key="step.key"
-          class="command-job-device-progress__step"
-        >
+        <div v-for="step in track.steps" :key="step.key" class="command-job-device-progress__step">
           <NTag :type="step.type" size="small">{{ step.state }}</NTag>
           <div>
             <strong>{{ step.label }}</strong>

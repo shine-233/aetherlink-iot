@@ -6,11 +6,7 @@ describe('commandCenterCommandTemplates', () => {
     const templates = buildBuiltInCommandTemplates()
 
     expect(templates.map((template) => template.key)).toEqual(['reboot', 'sync', 'diagnose'])
-    expect(templates.map((template) => template.identify)).toEqual([
-      'reboot',
-      'sync_config',
-      'collect_diagnostics'
-    ])
+    expect(templates.map((template) => template.identify)).toEqual(['reboot', 'sync_config', 'collect_diagnostics'])
     templates.forEach((template) => {
       expect(template.titleKey).toContain('custom.commandCenter.template')
       expect(template.descKey).toContain('custom.commandCenter.template')

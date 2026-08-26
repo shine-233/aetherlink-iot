@@ -25,14 +25,13 @@ interface CommandJobResultEvidenceSectionHandle {
 
 const operatorActions = computed<CommandJobResultActions>(() => ({
   ...props.jobActions,
-  reviewCommandJobRows: async statusFilter => {
+  reviewCommandJobRows: async (statusFilter) => {
     await props.jobActions.reviewCommandJobRows(statusFilter)
     await evidenceSectionRef.value?.scrollRowsTableIntoView()
   }
 }))
 
 const actions = computed(() => props.jobActions)
-
 </script>
 
 <template>
@@ -101,7 +100,10 @@ const actions = computed(() => props.jobActions)
         />
       </section>
 
-      <section v-if="state.jobOutcomeGroups.length" class="command-job-result-section command-job-result-section--outcomes">
+      <section
+        v-if="state.jobOutcomeGroups.length"
+        class="command-job-result-section command-job-result-section--outcomes"
+      >
         <div class="command-job-result-section__head">
           <strong>{{ $t('custom.commandCenter.outcomeTitle') }}</strong>
           <span>{{ $t('custom.commandCenter.outcomeDesc') }}</span>
@@ -167,5 +169,4 @@ const actions = computed(() => props.jobActions)
   font-size: 12px;
   line-height: 1.5;
 }
-
 </style>

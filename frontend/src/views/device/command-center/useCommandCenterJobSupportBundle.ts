@@ -55,7 +55,9 @@ export const useCommandCenterJobSupportBundle = (options: UseCommandCenterJobSup
       supportBundle.value = bundle
     } catch (error) {
       if (requestSeq === supportBundleRequestSeq) {
-        options.setError(error instanceof Error ? error.message : options.t('custom.commandCenter.copySupportBundleFailed'))
+        options.setError(
+          error instanceof Error ? error.message : options.t('custom.commandCenter.copySupportBundleFailed')
+        )
       }
     } finally {
       if (requestSeq === supportBundleRequestSeq) {
@@ -78,7 +80,9 @@ export const useCommandCenterJobSupportBundle = (options: UseCommandCenterJobSup
       else window.$message?.warning(options.t('common.copyFailed'))
     } catch (error) {
       if (requestSeq === supportBundleRequestSeq) {
-        options.setError(error instanceof Error ? error.message : options.t('custom.commandCenter.copySupportBundleFailed'))
+        options.setError(
+          error instanceof Error ? error.message : options.t('custom.commandCenter.copySupportBundleFailed')
+        )
       }
     } finally {
       if (requestSeq === supportBundleRequestSeq) {
@@ -103,7 +107,9 @@ export const useCommandCenterJobSupportBundle = (options: UseCommandCenterJobSup
       }
     } catch (error) {
       if (requestSeq === supportBundleRequestSeq) {
-        options.setError(error instanceof Error ? error.message : options.t('custom.commandCenter.downloadSupportBundleFailed'))
+        options.setError(
+          error instanceof Error ? error.message : options.t('custom.commandCenter.downloadSupportBundleFailed')
+        )
       }
     } finally {
       if (requestSeq === supportBundleRequestSeq) {

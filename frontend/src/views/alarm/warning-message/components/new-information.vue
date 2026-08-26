@@ -8,7 +8,7 @@
 import { computed, getCurrentInstance, h, reactive, ref } from 'vue'
 import type { Ref } from 'vue'
 import type { DataTableColumns, PaginationProps } from 'naive-ui'
-import { NButton, NPopconfirm, useMessage } from 'naive-ui'
+import { NButton, NEmpty, NPopconfirm, useMessage } from 'naive-ui'
 import { delInfo, editInfo, warningMessageList } from '@/service/api/alarm'
 import { $t } from '@/locales'
 import type { ModalType } from './pop-up.vue'
@@ -273,7 +273,11 @@ const getPlatform = computed(() => {
       :data="tableData"
       :pagination="pagination"
       class="w-full"
-    />
+    >
+      <template #empty>
+        <NEmpty :description="$t('common.noData')" class="py-24px" />
+      </template>
+    </NDataTable>
   </div>
 
   <popUp

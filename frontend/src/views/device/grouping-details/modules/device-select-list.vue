@@ -7,7 +7,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import type { DataTableColumns, DataTableRowKey, PaginationProps } from 'naive-ui'
-import { NDataTable } from 'naive-ui'
+import { NDataTable, NEmpty } from 'naive-ui'
 import { deviceGroupRelation, deviceList } from '@/service/api/device'
 import { createDeviceColumns } from '@/views/device/modules/all-columns'
 import { $t } from '@/locales'
@@ -123,7 +123,11 @@ onMounted(getDeviceList)
     :checked-row-keys="checkedRowKeysRef"
     class="h-auto"
     @update:checked-row-keys="handleCheck"
-  />
+  >
+    <template #empty>
+      <NEmpty :description="$t('common.noData')" class="py-24px" />
+    </template>
+  </NDataTable>
   <NFlex justify="end" class="mt-4">
     <NPagination
       v-model:page="pagination.page"

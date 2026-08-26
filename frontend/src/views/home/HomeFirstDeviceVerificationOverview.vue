@@ -54,19 +54,13 @@ const emit = defineEmits<{
         <span>{{ $t('custom.home.firstDevice.overview.latestProof') }}</span>
         <strong>{{ latestProofText }}</strong>
       </div>
-      <div
-        class="mt-10px first-device-operator-cue"
-        :class="`first-device-operator-cue--${operatorCue.type}`"
-      >
+      <div class="mt-10px first-device-operator-cue" :class="`first-device-operator-cue--${operatorCue.type}`">
         <span>{{ $t('custom.home.firstDevice.overview.doOneThing') }}</span>
         <strong>{{ operatorCue.title }}</strong>
         <small>{{ operatorCue.detail }}</small>
         <small class="first-device-operator-cue__signal">{{ operatorCue.successSignal }}</small>
       </div>
-      <div
-        class="mt-10px first-device-mission-control"
-        :class="`first-device-mission-control--${missionControl.type}`"
-      >
+      <div class="mt-10px first-device-mission-control" :class="`first-device-mission-control--${missionControl.type}`">
         <div class="first-device-mission-control__item">
           <span>{{ $t('custom.home.firstDevice.overview.currentStage') }}</span>
           <strong>{{ missionControl.currentStateLabel }}</strong>
@@ -217,11 +211,7 @@ const emit = defineEmits<{
     </div>
   </div>
 
-  <FirstRunWizardSection
-    :ready="ready"
-    :steps="wizardSteps"
-    @open-step="emit('openHomeGuideStep', $event)"
-  />
+  <FirstRunWizardSection :ready="ready" :steps="wizardSteps" @open-step="emit('openHomeGuideStep', $event)" />
 
   <HomeFirstDeviceFlowCanvas
     :ready="ready"
@@ -264,9 +254,9 @@ const emit = defineEmits<{
   gap: 12px;
   align-items: center;
   padding: 14px;
-  border: 1px solid #bfdbfe;
-  border-radius: 8px;
-  background: #eff6ff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: rgb(var(--info-color) / 0.08);
 }
 
 .first-device-latest-proof {
@@ -275,17 +265,17 @@ const emit = defineEmits<{
   gap: 8px;
   align-items: start;
   min-width: 0;
-  font-size: 12px;
+  font-size: var(--font-size-caption);
 }
 
 .first-device-latest-proof span {
-  color: #64748b;
+  color: var(--text-color-3);
 }
 
 .first-device-latest-proof strong {
   min-width: 0;
   overflow-wrap: anywhere;
-  color: #0f172a;
+  color: var(--text-color-1);
 }
 
 .first-device-delivery-lanes {
@@ -297,26 +287,26 @@ const emit = defineEmits<{
 .first-device-delivery-lane {
   min-width: 0;
   padding: 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
   background:
     radial-gradient(circle at top right, rgb(255 255 255 / 84%), transparent 42%),
-    linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    linear-gradient(135deg, var(--card-color) 0%, var(--action-color) 100%);
   box-shadow: 0 10px 26px rgb(15 23 42 / 6%);
 }
 
 .first-device-delivery-lane span {
   display: inline-flex;
   margin-bottom: 6px;
-  color: #64748b;
-  font-size: 12px;
+  color: var(--text-color-3);
+  font-size: var(--font-size-caption);
   font-weight: 600;
 }
 
 .first-device-delivery-lane strong {
   display: block;
-  color: #0f172a;
-  font-size: 14px;
+  color: var(--text-color-1);
+  font-size: var(--font-size-base);
   line-height: 20px;
   overflow-wrap: anywhere;
 }
@@ -324,22 +314,22 @@ const emit = defineEmits<{
 .first-device-delivery-lane small {
   display: block;
   margin-top: 6px;
-  color: #475569;
-  font-size: 12px;
+  color: var(--text-color-2);
+  font-size: var(--font-size-caption);
   line-height: 18px;
   overflow-wrap: anywhere;
 }
 
 .first-device-delivery-lane--connect {
-  border-color: #bfdbfe;
+  border-color: var(--border-color);
 }
 
 .first-device-delivery-lane--verify {
-  border-color: #fde68a;
+  border-color: rgb(var(--warning-color) / 0.6);
 }
 
 .first-device-delivery-lane--operate {
-  border-color: #bbf7d0;
+  border-color: rgb(var(--success-color) / 0.5);
 }
 
 .first-device-delivery-lane__actions {
@@ -353,50 +343,50 @@ const emit = defineEmits<{
   display: grid;
   gap: 4px;
   padding: 10px;
-  border: 1px solid #bfdbfe;
-  border-radius: 8px;
-  background: #fff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--card-color);
 }
 
 .first-device-operator-cue--success {
-  border-color: #bbf7d0;
-  background: #f0fdf4;
+  border-color: rgb(var(--success-color) / 0.5);
+  background: rgb(var(--success-color) / 0.07);
 }
 
 .first-device-operator-cue--warning {
-  border-color: #fed7aa;
-  background: #fff7ed;
+  border-color: rgb(var(--warning-color) / 0.6);
+  background: rgb(var(--warning-color) / 0.1);
 }
 
 .first-device-operator-cue span,
 .first-device-operator-cue small {
-  color: #64748b;
-  font-size: 12px;
+  color: var(--text-color-3);
+  font-size: var(--font-size-caption);
   line-height: 1.45;
 }
 
 .first-device-operator-cue strong {
-  color: #0f172a;
-  font-size: 14px;
+  color: var(--text-color-1);
+  font-size: var(--font-size-base);
   overflow-wrap: anywhere;
 }
 
 .first-device-operator-cue__signal {
-  color: #475569;
+  color: var(--text-color-2);
 }
 
 .first-device-closure-summary {
   display: grid;
   gap: 10px;
   padding: 12px;
-  border: 1px solid #fed7aa;
-  border-radius: 8px;
-  background: #fff7ed;
+  border: 1px solid rgb(var(--warning-color) / 0.6);
+  border-radius: var(--radius-md);
+  background: rgb(var(--warning-color) / 0.1);
 }
 
 .first-device-closure-summary--ready {
-  border-color: #bbf7d0;
-  background: #f0fdf4;
+  border-color: rgb(var(--success-color) / 0.5);
+  background: rgb(var(--success-color) / 0.07);
 }
 
 .first-device-closure-summary__head {
@@ -409,8 +399,8 @@ const emit = defineEmits<{
 .first-device-closure-summary__head span,
 .first-device-closure-summary__grid span {
   display: block;
-  font-size: 12px;
-  color: #64748b;
+  font-size: var(--font-size-caption);
+  color: var(--text-color-3);
 }
 
 .first-device-closure-summary__head strong,
@@ -419,7 +409,7 @@ const emit = defineEmits<{
   min-width: 0;
   margin-top: 2px;
   overflow-wrap: anywhere;
-  color: #0f172a;
+  color: var(--text-color-1);
 }
 
 .first-device-closure-summary__grid {
@@ -434,13 +424,13 @@ const emit = defineEmits<{
   margin-top: 4px;
   overflow-wrap: anywhere;
   line-height: 18px;
-  color: #475569;
+  color: var(--text-color-2);
 }
 
 .first-device-closure-progress {
   height: 8px;
   overflow: hidden;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(148, 163, 184, 0.25);
 }
 
@@ -448,14 +438,14 @@ const emit = defineEmits<{
   height: 100%;
   min-width: 8px;
   border-radius: inherit;
-  background: #16a34a;
+  background: rgb(var(--success-color));
   transition: width 0.2s ease;
 }
 
 .first-device-primary-signal {
   max-width: 220px;
-  color: #475569;
-  font-size: 12px;
+  color: var(--text-color-2);
+  font-size: var(--font-size-caption);
   line-height: 18px;
   overflow-wrap: anywhere;
 }
@@ -465,24 +455,24 @@ const emit = defineEmits<{
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   padding: 10px;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  background: #fff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--card-color);
 }
 
 .first-device-mission-control--success {
-  border-color: #bbf7d0;
+  border-color: rgb(var(--success-color) / 0.5);
 }
 
 .first-device-mission-control--warning {
-  border-color: #fed7aa;
+  border-color: rgb(var(--warning-color) / 0.6);
 }
 
 .first-device-mission-control__item {
   min-width: 0;
   padding: 8px;
   border-radius: 6px;
-  background: #f8fafc;
+  background: var(--action-color);
 }
 
 .first-device-mission-control__item--wide {
@@ -492,7 +482,7 @@ const emit = defineEmits<{
 .first-device-mission-control__item span,
 .first-device-mission-control__item small {
   display: block;
-  color: #64748b;
+  color: var(--text-color-3);
   font-size: 11px;
   line-height: 1.45;
 }
@@ -500,8 +490,8 @@ const emit = defineEmits<{
 .first-device-mission-control__item strong {
   display: block;
   margin-top: 3px;
-  color: #0f172a;
-  font-size: 13px;
+  color: var(--text-color-1);
+  font-size: var(--font-size-secondary);
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
@@ -518,28 +508,28 @@ const emit = defineEmits<{
   align-items: center;
   justify-content: space-between;
   padding: 12px;
-  border: 1px solid #fed7aa;
-  border-radius: 8px;
-  background: #fff7ed;
+  border: 1px solid rgb(var(--warning-color) / 0.6);
+  border-radius: var(--radius-md);
+  background: rgb(var(--warning-color) / 0.1);
 }
 
 .first-device-verification-action--success {
-  border-color: #bbf7d0;
-  background: #f0fdf4;
+  border-color: rgb(var(--success-color) / 0.5);
+  background: rgb(var(--success-color) / 0.07);
 }
 
 .first-device-verification-action strong {
   display: block;
   margin-top: 3px;
-  color: #0f172a;
-  font-size: 14px;
+  color: var(--text-color-1);
+  font-size: var(--font-size-base);
 }
 
 .first-device-verification-action small {
   display: block;
   margin-top: 4px;
-  color: #475569;
-  font-size: 12px;
+  color: var(--text-color-2);
+  font-size: var(--font-size-caption);
   line-height: 18px;
 }
 
@@ -566,6 +556,5 @@ const emit = defineEmits<{
   .first-device-closure-summary__grid {
     grid-template-columns: 1fr;
   }
-
 }
 </style>

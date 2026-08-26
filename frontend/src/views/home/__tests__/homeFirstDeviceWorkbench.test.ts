@@ -448,12 +448,12 @@ describe('homeFirstDeviceWorkbench', () => {
   })
 
   it('resolves the focused first-device section from the active quickstart step', () => {
-    expect(resolveFirstDeviceFocusedSectionKey({ activeStep: { key: 'health' }, ready: false, chartReady: false })).toBe(
-      'deployment'
-    )
-    expect(resolveFirstDeviceFocusedSectionKey({ activeStep: { key: 'publish' }, ready: false, chartReady: false })).toBe(
-      'test'
-    )
+    expect(
+      resolveFirstDeviceFocusedSectionKey({ activeStep: { key: 'health' }, ready: false, chartReady: false })
+    ).toBe('deployment')
+    expect(
+      resolveFirstDeviceFocusedSectionKey({ activeStep: { key: 'publish' }, ready: false, chartReady: false })
+    ).toBe('test')
     expect(
       resolveFirstDeviceFocusedSectionKey({
         activeStep: { key: 'verify' },

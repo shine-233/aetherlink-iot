@@ -6,7 +6,7 @@
 -->
 <script setup lang="tsx">
 import { computed, getCurrentInstance, onMounted, reactive, ref, watch } from 'vue'
-import { NButton, NCard, NFlex, NInput, NTag } from 'naive-ui'
+import { NButton, NCard, NEmpty, NFlex, NInput, NTag } from 'naive-ui'
 import type { PaginationProps } from 'naive-ui'
 import dayjs from 'dayjs'
 import { useRouter } from 'vue-router'
@@ -521,7 +521,11 @@ const submitCallback = async () => {
         :row-key="rowKey"
         v-model:checked-row-keys="selectedAlarmRowKeys"
         class="w-100%"
-      />
+      >
+        <template #empty>
+          <NEmpty :description="$t('common.noData')" class="py-24px" />
+        </template>
+      </n-data-table>
     </div>
     <!--    <div class="flex gap-20px">-->
     <!--      <NButton @click="handleBatch">{{ $t('generate.batch-process') }}</NButton>-->

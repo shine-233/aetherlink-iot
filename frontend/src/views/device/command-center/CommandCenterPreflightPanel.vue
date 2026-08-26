@@ -55,7 +55,9 @@ defineProps<{
       {{ $t('custom.commandCenter.noSelection') }}
     </NAlert>
     <NAlert v-else class="mt-3" type="success" :show-icon="false">
-      {{ isDeviceFilterScope ? $t('custom.commandCenter.filterScopeReady') : $t('custom.commandCenter.selectionReady') }}
+      {{
+        isDeviceFilterScope ? $t('custom.commandCenter.filterScopeReady') : $t('custom.commandCenter.selectionReady')
+      }}
     </NAlert>
   </section>
 </template>

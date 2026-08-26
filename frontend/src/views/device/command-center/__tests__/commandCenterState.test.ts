@@ -231,7 +231,7 @@ describe('commandCenterState', () => {
       fallbackNextAction: 'Preview before submitting'
     })
 
-    expect(plan?.cards.map(card => [card.key, card.value])).toEqual([
+    expect(plan?.cards.map((card) => [card.key, card.value])).toEqual([
       ['immediate', 2],
       ['jobs', 3],
       ['blocked', 1],
@@ -245,15 +245,29 @@ describe('commandCenterState', () => {
     const plan = buildCommandJobPreviewActionPlan({
       previewResult: {
         rows: [
-          { eligible: true, recommended_path: 'immediate', telemetry_current_count: 2 } as unknown as FleetCommandJobPreviewRow,
-          { eligible: false, recommended_path: 'blocked', reason: 'no permission', advice: 'ask admin' } as unknown as FleetCommandJobPreviewRow,
-          { eligible: false, recommended_path: 'blocked', reason: 'no permission', advice: 'ask admin' } as unknown as FleetCommandJobPreviewRow
+          {
+            eligible: true,
+            recommended_path: 'immediate',
+            telemetry_current_count: 2
+          } as unknown as FleetCommandJobPreviewRow,
+          {
+            eligible: false,
+            recommended_path: 'blocked',
+            reason: 'no permission',
+            advice: 'ask admin'
+          } as unknown as FleetCommandJobPreviewRow,
+          {
+            eligible: false,
+            recommended_path: 'blocked',
+            reason: 'no permission',
+            advice: 'ask admin'
+          } as unknown as FleetCommandJobPreviewRow
         ]
       },
       fallbackNextAction: 'Preview before submitting'
     })
 
-    expect(plan?.cards.map(card => [card.key, card.value])).toEqual([
+    expect(plan?.cards.map((card) => [card.key, card.value])).toEqual([
       ['immediate', 1],
       ['jobs', 0],
       ['blocked', 2],
@@ -308,13 +322,13 @@ describe('commandCenterState', () => {
       shownCount: 3,
       nextAction: 'Submit eligible devices and fix blocked devices first.'
     })
-    expect(preview?.groups.map(group => [group.key, group.count, group.type])).toEqual([
+    expect(preview?.groups.map((group) => [group.key, group.count, group.type])).toEqual([
       ['eligible', 2, 'success'],
       ['immediate', 1, 'success'],
       ['jobs', 1, 'info'],
       ['blocked', 1, 'error']
     ])
-    expect(preview?.groups.find(group => group.key === 'blocked')?.representativeRows).toEqual([
+    expect(preview?.groups.find((group) => group.key === 'blocked')?.representativeRows).toEqual([
       {
         key: 'dev-3',
         device: 'pump-3',
@@ -328,7 +342,13 @@ describe('commandCenterState', () => {
     const rows = [
       { device_id: 'dev-1', device_number: 'pump-1', eligible: true, recommended_path: 'immediate' },
       { device_id: 'dev-2', device_number: 'pump-2', eligible: true, recommended_path: 'jobs' },
-      { device_id: 'dev-3', device_number: 'pump-3', eligible: false, recommended_path: 'blocked', reason: 'missing key' }
+      {
+        device_id: 'dev-3',
+        device_number: 'pump-3',
+        eligible: false,
+        recommended_path: 'blocked',
+        reason: 'missing key'
+      }
     ] as unknown as FleetCommandJobPreviewRow[]
     const preview = buildCommandJobEligibilityImpactPreview({
       isDeviceFilterScope: false,
@@ -341,15 +361,15 @@ describe('commandCenterState', () => {
     })
 
     expect(filterCommandJobPreviewRowsByImpactGroup(rows, 'all')).toHaveLength(3)
-    expect(filterCommandJobPreviewRowsByImpactGroup(rows, 'eligible').map(row => row.device_id)).toEqual([
+    expect(filterCommandJobPreviewRowsByImpactGroup(rows, 'eligible').map((row) => row.device_id)).toEqual([
       'dev-1',
       'dev-2'
     ])
-    expect(filterCommandJobPreviewRowsByImpactGroup(rows, 'immediate').map(row => row.device_id)).toEqual(['dev-1'])
-    expect(filterCommandJobPreviewRowsByImpactGroup(rows, 'jobs').map(row => row.device_id)).toEqual(['dev-2'])
-    expect(filterCommandJobPreviewRowsByImpactGroup(rows, 'blocked').map(row => row.device_id)).toEqual(['dev-3'])
+    expect(filterCommandJobPreviewRowsByImpactGroup(rows, 'immediate').map((row) => row.device_id)).toEqual(['dev-1'])
+    expect(filterCommandJobPreviewRowsByImpactGroup(rows, 'jobs').map((row) => row.device_id)).toEqual(['dev-2'])
+    expect(filterCommandJobPreviewRowsByImpactGroup(rows, 'blocked').map((row) => row.device_id)).toEqual(['dev-3'])
 
-    const summary = buildCommandJobEligibilityImpactSummaryText(preview, key => key)
+    const summary = buildCommandJobEligibilityImpactSummaryText(preview, (key) => key)
     expect(summary).toContain('custom.commandCenter.impactPreviewTitle')
     expect(summary).toContain('custom.commandCenter.impactPreviewFullCoverage: 3/3')
     expect(summary).toContain('custom.commandCenter.impactPreviewBlocked: 1')
@@ -363,8 +383,16 @@ describe('commandCenterState', () => {
         total_matched: 42,
         requested_count: 42,
         rows: [
-          { eligible: true, recommended_path: 'immediate', telemetry_current_count: 1 } as unknown as FleetCommandJobPreviewRow,
-          { eligible: false, recommended_path: 'blocked', telemetry_current_count: 0 } as unknown as FleetCommandJobPreviewRow
+          {
+            eligible: true,
+            recommended_path: 'immediate',
+            telemetry_current_count: 1
+          } as unknown as FleetCommandJobPreviewRow,
+          {
+            eligible: false,
+            recommended_path: 'blocked',
+            telemetry_current_count: 0
+          } as unknown as FleetCommandJobPreviewRow
         ]
       }
     })
@@ -390,14 +418,18 @@ describe('commandCenterState', () => {
       isDeviceFilterScope: false,
       previewResult: {
         requested_count: 10,
-        rows: [{ eligible: true, recommended_path: 'jobs', telemetry_current_count: 0 }] as unknown as FleetCommandJobPreviewRow
+        rows: [
+          { eligible: true, recommended_path: 'jobs', telemetry_current_count: 0 }
+        ] as unknown as FleetCommandJobPreviewRow
       }
     })
     const fullFilterPreview = buildFilteredFleetEligibilityPreview({
       isDeviceFilterScope: true,
       previewResult: {
         requested_count: 1,
-        rows: [{ eligible: true, recommended_path: 'jobs', telemetry_current_count: 0 }] as unknown as FleetCommandJobPreviewRow
+        rows: [
+          { eligible: true, recommended_path: 'jobs', telemetry_current_count: 0 }
+        ] as unknown as FleetCommandJobPreviewRow
       }
     })
 

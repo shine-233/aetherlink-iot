@@ -203,7 +203,8 @@ const commandJobProgressHealthType = (state: string): CommandJobProgressHealthCa
 const formatCommandJobDuration = (seconds: number | undefined, t: Translate) => {
   if (typeof seconds !== 'number' || !Number.isFinite(seconds)) return '--'
   if (seconds < 0) return t('custom.commandCenter.progressHealthExpired')
-  if (seconds < 60) return t('custom.commandCenter.progressHealthSeconds').replace('{seconds}', String(Math.round(seconds)))
+  if (seconds < 60)
+    return t('custom.commandCenter.progressHealthSeconds').replace('{seconds}', String(Math.round(seconds)))
   return t('custom.commandCenter.progressHealthMinutes').replace('{minutes}', String(Math.ceil(seconds / 60)))
 }
 
@@ -246,7 +247,10 @@ export function buildCommandJobProgressHealthCard(
     rows: [
       { label: t('custom.commandCenter.progressHealthPending'), value: String(health.pending_count) },
       { label: t('custom.commandCenter.progressHealthTerminal'), value: String(health.terminal_count) },
-      { label: t('custom.commandCenter.progressHealthElapsed'), value: formatCommandJobDuration(health.elapsed_seconds, t) },
+      {
+        label: t('custom.commandCenter.progressHealthElapsed'),
+        value: formatCommandJobDuration(health.elapsed_seconds, t)
+      },
       {
         label: t('custom.commandCenter.progressHealthRemaining'),
         value: formatCommandJobDuration(health.timeout_remaining_seconds, t)
@@ -280,7 +284,7 @@ export function buildCommandJobCloseoutPacket(
   const audit = result.audit_summary
   const closeReadiness = execution?.can_close ? 'ready' : 'blocked'
   const closeBlockers = execution?.close_blockers?.filter(Boolean) ?? []
-  const checklist = execution?.checklist?.filter(item => item.key || item.label) ?? []
+  const checklist = execution?.checklist?.filter((item) => item.key || item.label) ?? []
   const supportRows = supportBundle
     ? [
         `Support bundle generated: ${formatCommandJobDateTime(supportBundle.generated_at)}`,
@@ -301,13 +305,15 @@ export function buildCommandJobCloseoutPacket(
     closeBlockers.length ? `Close blockers: ${closeBlockers.join('; ')}` : 'Close blockers: none',
     execution?.next_action ? `Next action: ${execution.next_action}` : '',
     checklist.length ? 'Checklist:' : '',
-    ...checklist.map(item => `- [${item.state || 'unknown'}] ${item.label || item.key}: ${item.detail || '-'}`),
+    ...checklist.map((item) => `- [${item.state || 'unknown'}] ${item.label || item.key}: ${item.detail || '-'}`),
     audit
       ? `Audit: ${audit.event_count || 0} events, latest=${audit.latest_event_type || '-'}, at=${formatCommandJobDateTime(audit.latest_event_at)}, message=${audit.latest_message || '-'}`
       : 'Audit: no audit summary loaded',
     ...supportRows,
     jobLink ? `Job link: ${jobLink}` : ''
-  ].filter(Boolean).join('\n')
+  ]
+    .filter(Boolean)
+    .join('\n')
 }
 
 export function buildCommandJobAuditSummaryCard(
@@ -392,10 +398,14 @@ export function buildCommandJobEvidenceSummary(result: FleetCommandJobSubmitResu
 
 export function buildCommandJobSubmitNextAction(row: FleetCommandJobSubmitRow, t: Translate) {
   if (row.response_status_label === 'device_ack_success') return t('custom.commandCenter.nextActionDeviceAckSuccess')
-  if (row.response_status_label === 'device_ack_failed') return row.response_error || t('custom.commandCenter.nextActionDeviceAckFailed')
+  if (row.response_status_label === 'device_ack_failed')
+    return row.response_error || t('custom.commandCenter.nextActionDeviceAckFailed')
   const retryState = resolveCommandJobRowRetryState(row)
   if (retryState === 'waiting_backoff' && isFutureCommandJobDate(row.next_retry_after)) {
-    return t('custom.commandCenter.nextActionRetryAfter').replace('{time}', formatCommandJobDateTime(row.next_retry_after))
+    return t('custom.commandCenter.nextActionRetryAfter').replace(
+      '{time}',
+      formatCommandJobDateTime(row.next_retry_after)
+    )
   }
   if (retryState === 'max_attempts_reached') return t('custom.commandCenter.nextActionRetryLimitReached')
   if (row.advice) return row.advice
@@ -423,7 +433,8 @@ function commandJobDeviceProgressType(row: FleetCommandJobSubmitRow): 'success' 
   if (row.response_status_label === 'device_ack_failed') return 'error'
   if (row.can_retry || resolveCommandJobRowRetryState(row) === 'max_attempts_reached') return 'error'
   if (!row.eligible || row.recommended_path === 'blocked') return 'error'
-  if (row.response_status_label === 'device_ack_success' || row.completed_at || row.status === 'completed') return 'success'
+  if (row.response_status_label === 'device_ack_success' || row.completed_at || row.status === 'completed')
+    return 'success'
   if (row.eligible && !row.log_recorded) return 'warning'
   if (resolveCommandJobRowRetryState(row) === 'waiting_backoff') return 'warning'
   return 'info'
@@ -444,19 +455,27 @@ function commandJobDeviceProgressStepType(state: string): 'success' | 'info' | '
   return 'info'
 }
 
-function commandJobDeviceProgressPreviewStep(row: FleetCommandJobSubmitRow, t: Translate): CommandJobDeviceProgressStep {
+function commandJobDeviceProgressPreviewStep(
+  row: FleetCommandJobSubmitRow,
+  t: Translate
+): CommandJobDeviceProgressStep {
   const blocked = !row.eligible || row.recommended_path === 'blocked'
   const state = blocked ? 'blocked' : 'done'
   return {
     key: 'preview',
     label: t('custom.commandCenter.deviceProgressPreview'),
     state: t(`custom.commandCenter.deviceProgressState.${state}`),
-    detail: blocked ? row.reason || t('custom.commandCenter.deviceProgressPreviewBlocked') : formatCommandJobReadiness(row.readiness),
+    detail: blocked
+      ? row.reason || t('custom.commandCenter.deviceProgressPreviewBlocked')
+      : formatCommandJobReadiness(row.readiness),
     type: commandJobDeviceProgressStepType(state)
   }
 }
 
-function commandJobDeviceProgressDispatchStep(row: FleetCommandJobSubmitRow, t: Translate): CommandJobDeviceProgressStep {
+function commandJobDeviceProgressDispatchStep(
+  row: FleetCommandJobSubmitRow,
+  t: Translate
+): CommandJobDeviceProgressStep {
   const retryState = resolveCommandJobRowRetryState(row)
   const failed = row.status === 'failed' || row.can_retry || retryState === 'max_attempts_reached'
   const submitted = Boolean(row.submitted_at || row.message_id || row.last_dispatch_started_at)
@@ -467,7 +486,10 @@ function commandJobDeviceProgressDispatchStep(row: FleetCommandJobSubmitRow, t: 
       : ''
   const detail = failed
     ? row.reason || row.advice || formatCommandJobStatus(row.status, t)
-    : row.message_id || row.last_dispatch_started_at || row.submitted_at || t('custom.commandCenter.deviceProgressDispatchWaiting')
+    : row.message_id ||
+      row.last_dispatch_started_at ||
+      row.submitted_at ||
+      t('custom.commandCenter.deviceProgressDispatchWaiting')
 
   return {
     key: 'dispatch',
@@ -497,13 +519,17 @@ function commandJobDeviceProgressAckStep(row: FleetCommandJobSubmitRow, t: Trans
   }
 }
 
-function commandJobDeviceProgressEvidenceStep(row: FleetCommandJobSubmitRow, t: Translate): CommandJobDeviceProgressStep {
+function commandJobDeviceProgressEvidenceStep(
+  row: FleetCommandJobSubmitRow,
+  t: Translate
+): CommandJobDeviceProgressStep {
   const state = row.log_recorded || row.command_log_created_at ? 'done' : 'missing'
   return {
     key: 'evidence',
     label: t('custom.commandCenter.deviceProgressEvidence'),
     state: t(`custom.commandCenter.deviceProgressState.${state}`),
-    detail: row.command_log_created_at || row.next_retry_after || t('custom.commandCenter.deviceProgressEvidenceMissing'),
+    detail:
+      row.command_log_created_at || row.next_retry_after || t('custom.commandCenter.deviceProgressEvidenceMissing'),
     type: commandJobDeviceProgressStepType(state)
   }
 }
@@ -517,7 +543,7 @@ export function buildCommandJobDeviceProgressTracks(
   return [...rows]
     .sort((left, right) => commandJobDeviceProgressPriority(left) - commandJobDeviceProgressPriority(right))
     .slice(0, Math.max(0, limit))
-    .map(row => ({
+    .map((row) => ({
       key: row.detail_id || row.device_id || row.message_id || `${row.status}-${row.device_number || row.name}`,
       deviceId: row.device_id,
       device: row.device_number || row.name || row.device_id,
@@ -607,7 +633,10 @@ export function buildCommandJobOutcomeGroups(
   return groups.filter((group) => group.count > 0)
 }
 
-export function buildCommandJobStatusRows(result: FleetCommandJobSubmitResult | null, t: Translate): CommandJobLabelValueRow[] {
+export function buildCommandJobStatusRows(
+  result: FleetCommandJobSubmitResult | null,
+  t: Translate
+): CommandJobLabelValueRow[] {
   if (!result) return []
   return [
     { label: t('custom.commandCenter.jobId'), value: result.job_id },
@@ -692,15 +721,10 @@ export function buildCommandJobHistoryStatusOptions(t: Translate) {
   ]
 }
 
-const formatCommandJobAttentionOptionLabel = (
-  label: string,
-  count: number | undefined
-) => (typeof count === 'number' && count > 0 ? `${label} (${count})` : label)
+const formatCommandJobAttentionOptionLabel = (label: string, count: number | undefined) =>
+  typeof count === 'number' && count > 0 ? `${label} (${count})` : label
 
-export function buildCommandJobHistoryAttentionOptions(
-  t: Translate,
-  counts?: FleetCommandJobListAttentionCounts
-) {
+export function buildCommandJobHistoryAttentionOptions(t: Translate, counts?: FleetCommandJobListAttentionCounts) {
   return [
     { label: t('custom.commandCenter.jobAttentionAll'), value: '' },
     {
@@ -711,7 +735,10 @@ export function buildCommandJobHistoryAttentionOptions(
       value: 'needs_operator_action'
     },
     {
-      label: formatCommandJobAttentionOptionLabel(t('custom.commandCenter.jobAttentionRetryable'), counts?.retryable_count),
+      label: formatCommandJobAttentionOptionLabel(
+        t('custom.commandCenter.jobAttentionRetryable'),
+        counts?.retryable_count
+      ),
       value: 'retryable'
     },
     {
@@ -743,7 +770,10 @@ export function buildCommandJobHistoryAttentionOptions(
       value: 'device_failed'
     },
     {
-      label: formatCommandJobAttentionOptionLabel(t('custom.commandCenter.jobAttentionMissingLog'), counts?.log_missing_count),
+      label: formatCommandJobAttentionOptionLabel(
+        t('custom.commandCenter.jobAttentionMissingLog'),
+        counts?.log_missing_count
+      ),
       value: 'missing_log'
     },
     {

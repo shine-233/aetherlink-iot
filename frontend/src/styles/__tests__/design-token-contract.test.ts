@@ -7,9 +7,10 @@ import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-// 基线 = 设计系统审计日（2026-08-26）的 1042，减去首轮迁移（linkage-edit 47 + market-template-card 1）。
-// 后续 hex→token 迁移 lane 每迁完一个文件就同步下调此数字。
-const HEX_BASELINE = 994
+// 基线轨迹：审计日 1042 → 首轮迁移(linkage-edit 等) 994 → 第二轮批量迁移
+// （DeviceAccessGuide/CommandCenter 四件套/home 两件套/fleet 等）733。
+// 后续 hex→token 迁移 lane 每迁完一批就同步下调此数字，只降不升。
+const HEX_BASELINE = 733
 
 function collectVueFiles(dir: string): string[] {
   const out: string[] = []

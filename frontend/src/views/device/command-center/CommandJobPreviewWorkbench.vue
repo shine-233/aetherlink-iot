@@ -63,7 +63,6 @@ const emit = defineEmits<{
   saveCommandTemplate: []
   submitCommandJob: []
 }>()
-
 </script>
 
 <template>
@@ -258,8 +257,8 @@ const emit = defineEmits<{
   display: flex;
   align-items: center;
   gap: 10px;
-  color: #475569;
-  font-size: 13px;
+  color: var(--text-color-2);
+  font-size: var(--font-size-secondary);
 }
 
 .command-schedule-control {
@@ -268,11 +267,11 @@ const emit = defineEmits<{
   justify-content: space-between;
   gap: 12px;
   padding: 10px 12px;
-  border: 1px solid #c7d2fe;
-  border-radius: 8px;
-  background: #eef2ff;
-  color: #475569;
-  font-size: 13px;
+  border: 1px solid rgb(var(--info-color) / 0.35);
+  border-radius: var(--radius-md);
+  background: rgb(var(--info-color) / 0.08);
+  color: var(--text-color-2);
+  font-size: var(--font-size-secondary);
 }
 
 .command-schedule-control > div {
@@ -282,12 +281,12 @@ const emit = defineEmits<{
 }
 
 .command-schedule-control span {
-  color: #312e81;
+  color: rgb(var(--info-900-color));
   font-weight: 600;
 }
 
 .command-schedule-control small {
-  color: #64748b;
+  color: var(--text-color-3);
   line-height: 1.5;
 }
 
@@ -301,11 +300,11 @@ const emit = defineEmits<{
   justify-content: space-between;
   gap: 12px;
   padding: 10px 12px;
-  border: 1px solid #bae6fd;
-  border-radius: 8px;
-  background: #f0f9ff;
-  color: #475569;
-  font-size: 13px;
+  border: 1px solid rgb(var(--info-color) / 0.35);
+  border-radius: var(--radius-md);
+  background: rgb(var(--info-color) / 0.06);
+  color: var(--text-color-2);
+  font-size: var(--font-size-secondary);
 }
 
 .command-cap-control > div {
@@ -315,12 +314,12 @@ const emit = defineEmits<{
 }
 
 .command-cap-control span {
-  color: #0f172a;
+  color: var(--text-color-1);
   font-weight: 600;
 }
 
 .command-cap-control small {
-  color: #64748b;
+  color: var(--text-color-3);
   line-height: 1.5;
 }
 
@@ -330,9 +329,9 @@ const emit = defineEmits<{
   justify-content: space-between;
   gap: 12px;
   padding: 12px;
-  border: 1px solid #facc15;
+  border: 1px solid rgb(var(--warning-color));
   border-radius: 10px;
-  background: linear-gradient(135deg, #fefce8 0%, #fff7ed 100%);
+  background: linear-gradient(135deg, rgb(var(--warning-color) / 0.08) 0%, rgb(var(--warning-color) / 0.05) 100%);
 }
 
 .command-scope-safety > div {
@@ -342,14 +341,14 @@ const emit = defineEmits<{
 }
 
 .command-scope-safety strong {
-  color: #854d0e;
-  font-size: 13px;
+  color: rgb(var(--warning-800-color));
+  font-size: var(--font-size-secondary);
 }
 
 .command-scope-safety span,
 .command-scope-safety small {
-  color: #713f12;
-  font-size: 12px;
+  color: rgb(var(--warning-900-color));
+  font-size: var(--font-size-caption);
   line-height: 1.45;
 }
 
@@ -357,19 +356,19 @@ const emit = defineEmits<{
   display: grid;
   gap: 8px;
   padding: 12px;
-  border: 1px solid #fecdd3;
-  border-radius: 8px;
-  background: #fff1f2;
+  border: 1px solid rgb(var(--error-color) / 0.25);
+  border-radius: var(--radius-md);
+  background: rgb(var(--error-color) / 0.05);
 }
 
 .command-readiness-card--ready {
-  border-color: #bbf7d0;
-  background: #f0fdf4;
+  border-color: rgb(var(--success-color) / 0.35);
+  background: rgb(var(--success-color) / 0.06);
 }
 
 .command-readiness-card--warning {
-  border-color: #fed7aa;
-  background: #fff7ed;
+  border-color: rgb(var(--warning-color) / 0.4);
+  background: rgb(var(--warning-color) / 0.05);
 }
 
 .command-readiness-card__head {
@@ -380,20 +379,20 @@ const emit = defineEmits<{
 }
 
 .command-readiness-card__head strong {
-  color: #0f172a;
-  font-size: 14px;
+  color: var(--text-color-1);
+  font-size: var(--font-size-base);
 }
 
 .command-readiness-card__body {
   display: grid;
   gap: 4px;
-  color: #475569;
-  font-size: 12px;
+  color: var(--text-color-2);
+  font-size: var(--font-size-caption);
   line-height: 1.5;
 }
 
 .command-readiness-card__body strong {
-  color: #0f172a;
+  color: var(--text-color-1);
 }
 
 .command-preview-recovery {
@@ -412,9 +411,9 @@ const emit = defineEmits<{
   display: grid;
   gap: 10px;
   padding: 12px;
-  border: 1px solid #bbf7d0;
-  border-radius: 8px;
-  background: #f0fdf4;
+  border: 1px solid rgb(var(--success-color) / 0.35);
+  border-radius: var(--radius-md);
+  background: rgb(var(--success-color) / 0.06);
 }
 
 .command-preview-explanation__head {
@@ -423,13 +422,13 @@ const emit = defineEmits<{
 }
 
 .command-preview-explanation__head strong {
-  color: #14532d;
-  font-size: 14px;
+  color: rgb(var(--success-900-color));
+  font-size: var(--font-size-base);
 }
 
 .command-preview-explanation__head span {
-  color: #166534;
-  font-size: 12px;
+  color: rgb(var(--success-800-color));
+  font-size: var(--font-size-caption);
 }
 
 .command-preview-explanation__grid {
@@ -443,20 +442,20 @@ const emit = defineEmits<{
   gap: 4px;
   min-width: 0;
   padding: 10px;
-  border: 1px solid #dcfce7;
-  border-radius: 8px;
-  background: #ffffff;
+  border: 1px solid rgb(var(--success-color) / 0.12);
+  border-radius: var(--radius-md);
+  background: var(--card-color);
 }
 
 .command-preview-explanation__item span {
-  color: #64748b;
-  font-size: 12px;
+  color: var(--text-color-3);
+  font-size: var(--font-size-caption);
 }
 
 .command-preview-explanation__item strong {
   overflow-wrap: anywhere;
-  color: #0f172a;
-  font-size: 13px;
+  color: var(--text-color-1);
+  font-size: var(--font-size-secondary);
 }
 
 @media (max-width: 900px) {

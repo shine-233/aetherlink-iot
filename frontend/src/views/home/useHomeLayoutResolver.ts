@@ -38,13 +38,8 @@ type UseHomeLayoutResolverOptions = {
 }
 
 export function useHomeLayoutResolver(options: UseHomeLayoutResolverOptions) {
-  const {
-    isSysAdmin,
-    nativeTenantId,
-    hasNativeHomeTenantContext,
-    shouldShowSecondarySections,
-    scheduleIdleTask
-  } = options
+  const { isSysAdmin, nativeTenantId, hasNativeHomeTenantContext, shouldShowSecondarySections, scheduleIdleTask } =
+    options
 
   const layoutFetched = ref(false)
   const hasCompatHomeConfig = ref(false)
@@ -143,7 +138,7 @@ export function useHomeLayoutResolver(options: UseHomeLayoutResolverOptions) {
     fallbackDashboard: VisualizationHomeDashboard | null,
     budgetMs = THINGSVIS_HOME_DASHBOARD_BUDGET_MS,
     tenantId?: string
-  ) : Promise<VisualizationHomeLoadResult & { timedOut?: boolean }> => {
+  ): Promise<VisualizationHomeLoadResult & { timedOut?: boolean }> => {
     if (fallbackDashboard) {
       return { ok: true, data: fallbackDashboard, timedOut: false }
     }
@@ -224,7 +219,11 @@ export function useHomeLayoutResolver(options: UseHomeLayoutResolverOptions) {
     }
 
     const cachedHome = readThingsVisHomeCache()
-    if (!isNativeHomeProvider && cachedHome?.state === 'thingsvis' && isCompleteThingsVisDashboard(cachedHome.dashboard)) {
+    if (
+      !isNativeHomeProvider &&
+      cachedHome?.state === 'thingsvis' &&
+      isCompleteThingsVisDashboard(cachedHome.dashboard)
+    ) {
       thingsVisHome.value = cachedHome.dashboard ?? null
       useThingsVis.value = true
       layoutFetched.value = true

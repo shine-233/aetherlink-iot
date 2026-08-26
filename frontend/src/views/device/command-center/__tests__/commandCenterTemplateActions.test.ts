@@ -36,14 +36,14 @@ const createTemplateActions = (overrides: Partial<Parameters<typeof useCommandCe
 
   const actions = useCommandCenterTemplateActions({
     ...state,
-    saveCommandTemplate: draft => {
+    saveCommandTemplate: (draft) => {
       savedDrafts.push(draft)
       return Boolean(draft.identify)
     },
-    deleteCommandTemplate: templateId => {
+    deleteCommandTemplate: (templateId) => {
       deletedIds.push(templateId)
     },
-    importCommandTemplates: raw => {
+    importCommandTemplates: (raw) => {
       if (raw === 'bad') throw new Error('invalid json')
       return { imported: raw === 'empty' ? 0 : 2, skipped: 0 }
     },
@@ -54,12 +54,12 @@ const createTemplateActions = (overrides: Partial<Parameters<typeof useCommandCe
       clearReuseCount += 1
     },
     t,
-    copyText: async text => {
+    copyText: async (text) => {
       copiedTexts.push(text)
       return true
     },
-    notifySuccess: message => successMessages.push(message),
-    notifyWarning: message => warningMessages.push(message),
+    notifySuccess: (message) => successMessages.push(message),
+    notifyWarning: (message) => warningMessages.push(message),
     ...overrides
   })
 

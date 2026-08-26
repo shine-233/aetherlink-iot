@@ -78,7 +78,7 @@ export const useCommandCenterJobWorkbench = (options: UseCommandCenterJobWorkben
     supportBundleLoading
   } = useCommandCenterJobSupportBundle({
     activeJobId: () => submitResult.value?.job_id,
-    setError: message => {
+    setError: (message) => {
       commandJobError.value = message
     },
     t: options.t
@@ -89,7 +89,7 @@ export const useCommandCenterJobWorkbench = (options: UseCommandCenterJobWorkben
   let jobActionRequestSeq = 0
   let jobRowsRequestSeq = 0
 
-  const retryableFailedRows = computed(() => submitResult.value?.rows.filter(row => row.can_retry) ?? [])
+  const retryableFailedRows = computed(() => submitResult.value?.rows.filter((row) => row.can_retry) ?? [])
   const canLoadMoreCommandJobRows = computed(() => {
     const result = submitResult.value
     if (!result?.job_id) return false
@@ -98,16 +98,18 @@ export const useCommandCenterJobWorkbench = (options: UseCommandCenterJobWorkben
   })
   const canRetryLoadedCommandJob = computed(() => {
     const result = submitResult.value
-    const readyCount = result?.retry_ready_count ?? retryableFailedRows.value.filter(row => {
-      if (row.retry_state) return row.retry_state === 'retryable'
-      if (!row.next_retry_after) return true
-      const retryAt = Date.parse(row.next_retry_after)
-      return !Number.isFinite(retryAt) || retryAt <= Date.now()
-    }).length
+    const readyCount =
+      result?.retry_ready_count ??
+      retryableFailedRows.value.filter((row) => {
+        if (row.retry_state) return row.retry_state === 'retryable'
+        if (!row.next_retry_after) return true
+        const retryAt = Date.parse(row.next_retry_after)
+        return !Number.isFinite(retryAt) || retryAt <= Date.now()
+      }).length
     return Boolean(result?.can_retry_failed && readyCount > 0)
   })
   const commandJobRowsStatusFilterOptions = computed(() =>
-    commandJobRowsStatusFilters.map(value => ({
+    commandJobRowsStatusFilters.map((value) => ({
       label: options.t(`custom.commandCenter.rowsFilter.${value}`),
       value
     }))
@@ -115,10 +117,7 @@ export const useCommandCenterJobWorkbench = (options: UseCommandCenterJobWorkben
   const canLoadMoreJobHistory = computed(() => jobHistory.value.list.length < jobHistory.value.total)
   const canAutoRefreshCommandJob = computed(
     () =>
-      !jobActionLoading.value &&
-      !commandJobRowsLoading.value &&
-      !supportBundleLoading.value &&
-      !jobHistoryLoading.value
+      !jobActionLoading.value && !commandJobRowsLoading.value && !supportBundleLoading.value && !jobHistoryLoading.value
   )
   const activeJobWarnings = computed(() => {
     const result = submitResult.value ?? previewResult.value
@@ -304,7 +303,8 @@ export const useCommandCenterJobWorkbench = (options: UseCommandCenterJobWorkben
       clearCommandJobSupportBundle()
     } catch (error) {
       if (requestSeq === jobActionRequestSeq) {
-        commandJobError.value = error instanceof Error ? error.message : options.t('custom.commandCenter.jobStatusLoadFailed')
+        commandJobError.value =
+          error instanceof Error ? error.message : options.t('custom.commandCenter.jobStatusLoadFailed')
       }
     } finally {
       if (requestSeq === jobActionRequestSeq) {
@@ -346,7 +346,8 @@ export const useCommandCenterJobWorkbench = (options: UseCommandCenterJobWorkben
       }
     } catch (error) {
       if (requestSeq === jobRowsRequestSeq) {
-        commandJobError.value = error instanceof Error ? error.message : options.t('custom.commandCenter.jobStatusLoadFailed')
+        commandJobError.value =
+          error instanceof Error ? error.message : options.t('custom.commandCenter.jobStatusLoadFailed')
       }
     } finally {
       if (requestSeq === jobRowsRequestSeq) {
@@ -398,9 +399,7 @@ export const useCommandCenterJobWorkbench = (options: UseCommandCenterJobWorkben
     await loadCommandJobRows(currentJob.job_id, 1, false, statusFilter, '')
   }
 
-  const commandJobActionResultAsPagedSummary = (
-    result: FleetCommandJobSubmitResult
-  ): FleetCommandJobSubmitResult => {
+  const commandJobActionResultAsPagedSummary = (result: FleetCommandJobSubmitResult): FleetCommandJobSubmitResult => {
     const rowsTotal = result.rows_total ?? result.rows.length
     return {
       ...result,
@@ -425,7 +424,8 @@ export const useCommandCenterJobWorkbench = (options: UseCommandCenterJobWorkben
       void loadCommandJobHistory()
     } catch (error) {
       if (requestSeq === jobActionRequestSeq) {
-        commandJobError.value = error instanceof Error ? error.message : options.t('custom.commandCenter.jobCancelFailed')
+        commandJobError.value =
+          error instanceof Error ? error.message : options.t('custom.commandCenter.jobCancelFailed')
       }
     } finally {
       if (requestSeq === jobActionRequestSeq) {
@@ -449,7 +449,8 @@ export const useCommandCenterJobWorkbench = (options: UseCommandCenterJobWorkben
       void loadCommandJobHistory()
     } catch (error) {
       if (requestSeq === jobActionRequestSeq) {
-        commandJobError.value = error instanceof Error ? error.message : options.t('custom.commandCenter.jobRetryFailed')
+        commandJobError.value =
+          error instanceof Error ? error.message : options.t('custom.commandCenter.jobRetryFailed')
       }
     } finally {
       if (requestSeq === jobActionRequestSeq) {
@@ -459,7 +460,7 @@ export const useCommandCenterJobWorkbench = (options: UseCommandCenterJobWorkben
   }
 
   const copyRetryableDeviceIds = async () => {
-    const deviceIds = retryableFailedRows.value.map(row => row.device_id).filter(Boolean)
+    const deviceIds = retryableFailedRows.value.map((row) => row.device_id).filter(Boolean)
     if (deviceIds.length === 0) {
       window.$message?.warning(options.t('custom.commandCenter.copyFailedDeviceIdsEmpty'))
       return
@@ -485,7 +486,8 @@ export const useCommandCenterJobWorkbench = (options: UseCommandCenterJobWorkben
       await loadCommandJobRows(jobId, 1, false, rowsStatusFilter, rowsSearch)
     } catch (error) {
       if (requestSeq === jobActionRequestSeq) {
-        commandJobError.value = error instanceof Error ? error.message : options.t('custom.commandCenter.jobStatusLoadFailed')
+        commandJobError.value =
+          error instanceof Error ? error.message : options.t('custom.commandCenter.jobStatusLoadFailed')
       }
     } finally {
       if (requestSeq === jobActionRequestSeq) {

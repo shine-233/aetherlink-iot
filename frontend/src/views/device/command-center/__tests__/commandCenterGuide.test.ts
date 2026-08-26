@@ -26,7 +26,7 @@ describe('commandCenterGuide', () => {
       actions
     )
 
-    expect(steps.map(step => step.key)).toEqual(['select', 'identify', 'preview', 'submit'])
+    expect(steps.map((step) => step.key)).toEqual(['select', 'identify', 'preview', 'submit'])
     expect(steps[0]).toMatchObject({
       statusKey: 'custom.commandCenter.guideStatusAction',
       statusType: 'warning',
