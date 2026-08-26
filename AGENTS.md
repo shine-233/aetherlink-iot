@@ -29,6 +29,7 @@ AetherLink IoT 是面向物联网设备接入、监控和私有部署的平台�
 - 数据库迁移当前最高为 `53.sql` / `VERSION_NUMBER=53`；修改迁移前先核对 `backend/sql/` 与目标数据库的 `sys_version`。
 - Broker 认证失败限速为插件配置面：`auth_ratelimit.max_failures_per_minute`（默认 30/分钟/IP）。
 - devices.voucher 的 Redis 缓存键是跨服务 SHA-256 契约：`backend/pkg/utils/vouchercache.go` 必须与 `mqtt-broker/plugin/aetherlink/db.go` 的 `voucherCacheKey` 保持一致，任一侧变更需双端同步并更新两侧契约测试。
+- 凭证缓存按设备失效通道是跨服务契约：backend `service.DeviceVoucherCacheInvalidationChannel` 与 broker `VoucherCacheInvalidationChannel` 均为 `aetherlink:device-voucher:cache-invalidate`，payload 为 `{"version":1,"device_id"}`；broker 写入 voucher 映射时同步维护反向索引（`aetherlink:voucher-cache-idx:v1:<deviceID>`）。任一侧变更需双端同步并更新两侧契约测试。
 - 后端内部拨号 MQTT broker 一律经 `backend/pkg/utils/mqtt_broker_address.go` 的统一助手解析，禁止在业务代码里直连 localhost/127.0.0.1。
 - 8082 指标端口无认证且永久 loopback 绑定（docker-compose.yml 契约测试锁定），不得改为跟随对外绑定地址。
 - `deploy/gen-mqtt-certs.*` 仅生成开发/内网自签名证书；生产 TLS 必须使用正规 CA。

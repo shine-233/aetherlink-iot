@@ -64,7 +64,7 @@ describe('capability-card.vue', () => {
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
     const wrapper = mountComponent({ route: 'https://example.com/docs' })
     await wrapper.trigger('click')
-    expect(openSpy).toHaveBeenCalledWith('https://example.com/docs', '_blank')
+    expect(openSpy).toHaveBeenCalledWith('https://example.com/docs', '_blank', 'noopener,noreferrer')
   })
 
   it('applies iconColor to SvgIcon style when provided', () => {

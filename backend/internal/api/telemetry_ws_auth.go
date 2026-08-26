@@ -15,8 +15,13 @@ import (
 	"github.com/spf13/viper"
 )
 
+// wsTokenValidationTimeout 约束 WS 首消息认证里的 Redis 会话校验时长。
+// WS 链路拿不到 gin 请求上下文，用短超时替代裸 Background，避免读循环被无界阻塞。
+const wsTokenValidationTimeout = 3 * time.Second
+
 func validateToken(token string) (*utils.UserClaims, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), wsTokenValidationTimeout)
+	defer cancel()
 	// P3 修复（2026-08-24，见 VALIDATION.md）：与 HTTP 中间件一致，Redis 键使用 token 摘要。
 	tokenKey := utils.TokenDigest(token)
 	if global.REDIS.Get(ctx, tokenKey).Val() != "1" {

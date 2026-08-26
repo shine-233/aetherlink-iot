@@ -61,7 +61,8 @@ func JWTAuth() gin.HandlerFunc {
 
 func isValidJWT(c *gin.Context, token string) bool {
 	requestID := c.GetString("X-Request-ID")
-	ctx := context.Background()
+	// 继承请求上下文：客户端断连/超时后 Redis 会话校验随之取消，不再脱离请求生命周期。
+	ctx := c.Request.Context()
 
 	// P3 修复（2026-08-24，见 VALIDATION.md）：Redis 键统一使用 token 摘要（utils.TokenDigest），
 	// 不再把完整明文 JWT 落地为 Redis key。与 service 登录/登出/刷新和 WS 认证共用同一键空间。
@@ -216,7 +217,7 @@ func OpenAPIKeyAuth(c *gin.Context) bool {
 		return false
 	}
 
-	tenantID, createdID, err := dal.VerifyOpenAPIKey(context.Background(), appKey)
+	tenantID, createdID, err := dal.VerifyOpenAPIKey(c.Request.Context(), appKey)
 	if err != nil {
 		recordOpenAPIKeyAuthFailure(clientIP)
 		c.JSON(http.StatusUnauthorized, ErrorResponse{

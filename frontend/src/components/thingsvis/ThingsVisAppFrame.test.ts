@@ -1017,7 +1017,7 @@ describe('ThingsVisAppFrame.vue', () => {
     await dispatchFrameMessage({ type: 'tv:preview', projectId: 'dashboard-2' })
 
     expect(hoisted.routerResolve).not.toHaveBeenCalled()
-    expect(window.open).toHaveBeenCalledWith('/visualization/thingsvis-preview?id=dashboard-2', '_blank')
+    expect(window.open).toHaveBeenCalledWith('/visualization/thingsvis-preview?id=dashboard-2', '_blank', 'noopener,noreferrer')
     expect(postedPayloads(postMessage, 'tv:platform-data')).toHaveLength(2)
 
     wrapper.unmount()
@@ -1065,6 +1065,6 @@ describe('ThingsVisAppFrame.vue', () => {
     await dispatchFrameMessage({ type: 'tv:preview', projectId: { id: 'dashboard-2' } })
 
     expect(hoisted.routerResolve).not.toHaveBeenCalled()
-    expect(window.open).toHaveBeenCalledWith('/visualization/thingsvis-preview?id=dashboard-1', '_blank')
+    expect(window.open).toHaveBeenCalledWith('/visualization/thingsvis-preview?id=dashboard-1', '_blank', 'noopener,noreferrer')
   })
 })
