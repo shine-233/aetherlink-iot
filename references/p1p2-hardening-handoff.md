@@ -1,36 +1,27 @@
-# P1/P2 加固批次 · 交接状态（2026-08-26）
+# P1/P2 加固批次 · 三车道全部完成（2026-08-26）
 
-分支：`improve/p1p2-hardening`（基于 improve/p2p3-batch @ 59bccd9，已推送）
-批次提交：`2c3ddab` 后端安全加固第一批（24 文件，+489/-54）
+## PR 链（按序合并）
 
-## 已完成（本会话验证过）
+1. **#170** `improve/p2p3-batch` — P2/P3 收敛批（CI 已绿）
+2. **#176** `improve/p1p2-hardening` — 安全加固批（17/17 SUCCESS）
+   - LIKE 转义 ×15 · F1 刷新吊销 · F2 email 键摘要化 · F3 IP 防爆破 · Casbin fail-fast 审计
+   - F4 *Unscoped 改名(26 点) + *ForTenant 双条件删除 · A5 http_client 死代码
+   - B1 依赖归位 · vendor-three/motion 分包 · B5 表单空态/submitLoading · C1 doctor TLS 门禁
+3. **#177** `improve/p2-lane-tests-visual` — 车道三（5/5 workflow SUCCESS）
+   - response 中间件 8 用例契约套件（零测试目录收敛第一步）
+   - Device3DPanel 接线为设备详情「3D 预览」tab（懒加载+vendor-three 按需；温度启发式驱动颜色；WebGL 降级）
+   - i18n 四语言；6 用例接线单测；shared 视图只读裁剪断言更新
+   - 核实更正：**JWT HttpOnly cookie 默认已启用**（auth.cookie.enabled=true），剩余仅生产 HTTPS 开 secure
 
-- [x] LIKE 通配转义：`dal.EscapeLikePattern/ContainsLikePattern`（like_escape.go）+ 全部 15 处拼接点接入 + 单测
-- [x] 刷新吊销旧会话（F1）：`RefreshToken(claims, previousTokenDigest)`；api 层经 `middleware.SelectJWTAuthToken`（新导出）算摘要
-- [x] `<email>_token` 键改存 TokenDigest 且 TTL 对齐会话超时（F2）；`deleteLoginToken` 已删除
-- [x] IP 维度登录防爆破（F3）：`login_lock.go` 新增 4 方法；配置键 `classified-protect.ip-login-max-fail-times/ip-login-fail-window-seconds`（默认 20/600s 启用，-1 关闭）；conf.yml 与 conf.example.yml 已同步
-- [x] Casbin 路由覆盖审计：`router/casbin_audit.go` 基线快照差集 + fail-fast；模式 `casbin.route-audit-mode: fail-fast|warn|off`（yml 待补键，见下）
-- [x] 测试：like_escape_test / casbin_route_audit_test(service) / casbin_audit_test(router) / login_lock IP 用例
+## 最终未做清单（含理由，详见 VALIDATION.md）
 
-## 验证状态
-
-- `go build ./...` 通过；`go test ./router/ ./internal/api/ ./internal/dal/` 全绿
-- `internal/service` 仅 1 个**既有失败**（与本批无关，基线复现）：`TestCheckDBMigrationsRequiresCurrentMigrationVersion`
-- CI：push 已触发 Source CI，结果未等待
-
-## 下一步（新会话按序执行）
-
-1. **补 yml**：conf.yml/conf.example.yml 顶层加 `casbin: { route-audit-mode: fail-fast }`（代码默认即 fail-fast，写键是为了可发现性）
-2. **跑全量**：`cd backend && go test ./... && go build ./...`；前端不动
-3. **A5 http_client**：`third_party/others/http_client/request_method.go` 的 `Post/Delete` 是零调用死代码→直接删；`PostJson` 保留（Notification 正确 Close、DisconnectDevice 调用方 runtime.go:111 正确 defer Close）；更新文件头注释第 3 行
-4. **A6 裸查 DAL 加固**：`GetDeviceByID`(device_query_reads.go:291)/`GetDevicesByIDs`(:316) 改名 `*Unscoped`+doc 强制约定，~26 个调用点在 internal/service（编译器驱动）；`DeleteDeviceConfig(id)`(device_config.go:86)/`DeleteDeviceGroup(id)`(device_groups.go:87) 增加 `ForTenant(id,tenantID)` 版本并改 2 个 service 调用点传 claims.TenantID
-5. **前端 B 批**：B1 three/@tresjs/core/@tresjs/cientos/@types/three 从 devDependencies 移到 dependencies（pnpm install 刷 lockfile）；B2 vite.config.ts manualChunks 加 vendor-three(three,@tresjs/*)+vendor-motion(motion-v)；B3 ~~china-region.json~~ **已是动态导入（index.vue:109、ProvinceCityDistrictSelector.vue:88），无需做**；封面图 554KB 压缩可选
-6. **前端 B5**：apply/form.vue、personal-center/change-information.vue、management/user table-action-modal 补 loading/error/empty 态 + 组件测试
-7. **部署 C1**：doctor.sh/.ps1 在 server 模式且绑定非 loopback 且未配 TLS 证书时强警告（`AETHERLINK_STRICT_TLS=1` 升级为阻断）
-8. **文档同步**：COMPATIBILITY.md（casbin 审计对存量库的升级影响）、VALIDATION.md（Redis 行为变更标 pending）、AGENTS.md casbin 审计一行
-9. **明确不做（记录理由）**：13 个零测试目录全量补齐/巨型文件拆分/1014 处硬编码 hex 迁移/JWT 默认改 HttpOnly cookie/Device3DPanel 接线——需独立 lane 或产品决策
+- 巨型文件 top10 拆分：纯代码移动也污染 blame 与在途合并，需独立排期 lane
+- 1014 处硬编码 hex token 化：需先定设计 token 权威值与视觉回归基线
+- logic/sseapi 测试：需先抽存储接口解耦 gorm query 单例与 Redis hub
+- query/cmd/gen 等：生成物或工具入口，无测试价值
+- 真实 Redis/E2E 运行验证：本三批均为静态+单测证据
 
 ## 环境备忘
 
-- worktree：`C:\Users\Zz\AppData\Local\Temp\opencode\final-wt`（占用 improve/p2p3-batch 分支的是它，主仓库在 sec/p0-guardrails）
-- 禁止用 PS 的 Get-Content/Set-Content 往返改文件（UTF8+BOM 毁编码，已踩坑），一律用 edit 工具
+worktree：`C:\Users\Zz\AppData\Local\Temp\opencode\final-wt`；改文件用 edit 工具或 .NET IO UTF8NoBOM；
+git commit -m 长 message 用 `-F <file>` 且文件须无 BOM。
