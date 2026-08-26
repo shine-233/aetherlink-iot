@@ -77,18 +77,11 @@
           <n-form-item :label="t('configuration.import.selectTargetSlot')">
             <n-select
               :value="selectedTargetSlot"
-              :options="targetSlotOptions"
+              :options="targetSlotOptions as unknown as SelectMixedOption[]"
+              :render-label="renderTargetSlotOption"
               :placeholder="t('configuration.import.selectTargetSlot')"
               @update:value="emit('update:selectedTargetSlot', $event)"
             >
-              <template #option="{ option }">
-                <div style="display: flex; justify-content: space-between; align-items: center">
-                  <span>{{ option.label }}</span>
-                  <n-tag :type="option.occupied ? 'warning' : 'success'" size="small">
-                    {{ option.occupied ? t('configuration.import.slotOccupied') : t('configuration.import.slotEmpty') }}
-                  </n-tag>
-                </div>
-              </template>
             </n-select>
           </n-form-item>
 
@@ -123,9 +116,13 @@
 </template>
 
 <script setup lang="ts">
+import { h } from 'vue'
+import type { VNodeChild } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { NTag, type SelectOption } from 'naive-ui'
 import type { SingleDataSourceImportPreview } from '@/core/data-architecture/utils/ConfigurationImportExport'
 import type { TargetSlotOption } from './configurationImportExportViewHelpers'
+import type { SelectMixedOption } from 'naive-ui/es/select/src/interface'
 
 defineProps<{
   show: boolean
@@ -142,6 +139,20 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+// 目标槽位选项的富渲染（label + 占用状态标签）；naive 的 #option 槽位在 volar 类型中缺失，
+// 改用类型完备的 render-label 实现等价 UI。
+const renderTargetSlotOption = (option: SelectOption): VNodeChild => {
+  const slot = option as unknown as TargetSlotOption
+  return h('div', { style: 'display: flex; justify-content: space-between; align-items: center' }, [
+    h('span', null, String(slot.label)),
+    h(
+      NTag,
+      { type: slot.occupied ? 'warning' : 'success', size: 'small' },
+      { default: () => (slot.occupied ? t('configuration.import.slotOccupied') : t('configuration.import.slotEmpty')) }
+    )
+  ])
+}
 </script>
 
 <style scoped>

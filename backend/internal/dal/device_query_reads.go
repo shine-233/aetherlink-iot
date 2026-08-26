@@ -285,6 +285,7 @@ func GetSubDeviceExists(deviceId, subAddr string) bool {
 }
 
 // GetDeviceByIDUnscoped 按 id 精确读取设备，不带任何租户过滤。
+// tenant-scope: system-internal（遥测管道/网关回调/已 ensure*Access 的详情读取）。
 // 命名带 Unscoped 是编译器级警示：仅允许用于系统内部链路（遥测管道、网关注册回调、
 // 已在 service 层完成 ensure*Access 校验后的详情读取等），新增面向用户请求的调用必须改用
 // 租户限定变体或先完成归属校验。批次二收敛（2026-08-24，见 references/gen-inheritance-audit.md）：
@@ -315,6 +316,7 @@ func GetDevicesByIDsForTenant(deviceIDs []string, tenantID string) (map[string]*
 }
 
 // GetDevicesByIDsUnscoped 按 id 集合批量读取设备，不带租户过滤。
+// tenant-scope: system-internal（仅系统链路；用户请求面用 GetDevicesByIDsForTenant）。
 // 命名带 Unscoped 是编译器级警示：仅限系统内部链路；用户请求面请用 GetDevicesByIDsForTenant。
 func GetDevicesByIDsUnscoped(deviceIDs []string) (map[string]*model.Device, error) {
 	normalizedIDs := normalizeDeviceIDs(deviceIDs)

@@ -507,10 +507,10 @@ const onComponentChange = (componentId: string | null) => {
   if (componentId) {
     // 组件选择变化时，属性选项会通过 watch 自动更新
     nextTick(() => {
-      emit('change', '', null)
+      emit('change', '', undefined)
     })
   } else {
-    emit('change', '', null)
+    emit('change', '', undefined)
   }
 }
 
@@ -546,9 +546,9 @@ const onPropertyChange = (propertyPath: string | null) => {
     const selectedOption = propertyOptions.value.find((opt) => opt.value === propertyPath)
     const propertyInfo = selectedOption?.propertyInfo || null
 
-    emit('change', propertyPath, propertyInfo)
+    emit('change', propertyPath, propertyInfo ?? undefined)
   } else {
-    emit('change', '', null)
+    emit('change', '', undefined)
   }
 }
 </script>

@@ -4,6 +4,7 @@ import { NButton, NCheckbox, NIcon, NInput, NSelect, NSpace, NText } from 'naive
 import { CreateOutline as EditOutline, PhonePortraitOutline, TrashOutline } from '@vicons/ionicons5'
 import type { EnhancedParameter } from '@/core/data-architecture/types/parameter-editor'
 import type { TemplateOption } from '@/core/data-architecture/components/common/templates/index'
+import type { SelectMixedOption } from 'naive-ui/es/select/src/interface'
 
 const props = defineProps<{
   param: EnhancedParameter
@@ -110,7 +111,7 @@ const isSecondaryDeviceGroup = computed(
       <n-select
         v-else-if="param.valueMode === 'dropdown'"
         :value="param.value"
-        :options="valueOptions"
+        :options="valueOptions as SelectMixedOption[]"
         :filterable="allowCustomValue"
         :tag="allowCustomValue"
         size="small"

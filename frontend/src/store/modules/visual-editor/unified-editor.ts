@@ -281,7 +281,10 @@ export const useUnifiedEditorStore = defineStore('unified-visual-editor', {
      * 注册组件定义
      */
     registerWidget(definition: WidgetDefinition): void {
-      this.widgets.set(definition.type, definition)
+      // 宽松 WidgetDefinition 的 type/id 均可选；注册键回退到 id，两者皆缺则拒绝注册。
+      const key = definition.type || definition.id
+      if (!key) return
+      this.widgets.set(key, definition)
     },
 
     /**
