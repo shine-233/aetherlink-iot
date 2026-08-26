@@ -16,9 +16,15 @@
  */
 
 import { ref, computed, watch } from 'vue'
-import type { HttpConfig } from '@/core/data-architecture/types/http-config'
+import type { HttpConfig, HttpHeader } from '@/core/data-architecture/types/http-config'
 import type { EnhancedParameter } from '@/core/data-architecture/types/parameter-editor'
 import DynamicParameterEditor from '@/core/data-architecture/components/common/DynamicParameterEditor.vue'
+
+// 历史持久化形态 HttpHeader 与编辑器形态 EnhancedParameter 是同构异名边界，
+// 在组件入参/出参两处集中桥接，避免散落断言。
+const toEditorHeaders = (list: HttpHeader[] | undefined): EnhancedParameter[] =>
+  (list || []) as unknown as EnhancedParameter[]
+const fromEditorHeaders = (list: EnhancedParameter[]): HttpHeader[] => list as unknown as HttpHeader[]
 // 导入图标
 import { Sparkles as SparkleIcon } from '@vicons/ionicons5'
 
@@ -109,7 +115,6 @@ const applyTemplate = () => {
   if (newHeaders.length > 0) {
     const updatedHeaders = [...(props.modelValue.headers || []), ...newHeaders]
     updateHeaders(updatedHeaders)
-
     // 标记已应用模板
     hasAppliedTemplate.value = true
     showTemplateRecommend.value = false
@@ -126,10 +131,10 @@ const dismissRecommend = () => {
 /**
  * 更新请求头配置
  */
-const updateHeaders = (headers: EnhancedParameter[]) => {
+const updateHeaders = (headers: Array<EnhancedParameter | HttpHeader>) => {
   const updatedValue = {
     ...props.modelValue,
-    headers
+    headers: fromEditorHeaders(headers as EnhancedParameter[])
   }
 
   emit('update:modelValue', updatedValue)
@@ -185,7 +190,7 @@ const updateHeaders = (headers: EnhancedParameter[]) => {
 
     <!-- 请求头配置 -->
     <DynamicParameterEditor
-      :model-value="modelValue.headers || []"
+      :model-value="toEditorHeaders(modelValue.headers)"
       parameter-type="header"
       title="请求头配置"
       add-button-text="添加请求头"

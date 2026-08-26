@@ -64,6 +64,7 @@ type Controller struct {
 	RuleChainApi
 	RDIApi
 	PayloadSchemaApi
+	CalculatedFieldApi
 }
 
 var (

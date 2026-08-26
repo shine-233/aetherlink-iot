@@ -43,6 +43,7 @@ type apps struct {
 	RuleChain
 	RDI
 	PayloadSchema
+	CalculatedField
 }
 
 var Model = new(apps)
