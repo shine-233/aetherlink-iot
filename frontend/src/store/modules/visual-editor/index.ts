@@ -424,22 +424,27 @@ export const MigrationHelper = {
   migrateFromOldStore(oldStoreData: any): void {
     const system = useUnifiedVisualEditorSystem()
 
+    // 迁移目标依赖系统已完成 initialize；未初始化（测试/极端时序）时无可迁移面。
+    if (!system.store || !system.configService) {
+      return
+    }
+
     // 迁移节点数据
     if (oldStoreData.nodes) {
       oldStoreData.nodes.forEach((node: any) => {
-        system.store.addNode(node)
+        system.store!.addNode(node)
       })
     }
 
     // 迁移选中状态
     if (oldStoreData.selectedIds) {
-      system.store.selectNodes(oldStoreData.selectedIds)
+      system.store!.selectNodes(oldStoreData.selectedIds)
     }
 
     // 迁移配置数据
     if (oldStoreData.configurations) {
       Object.entries(oldStoreData.configurations).forEach(([widgetId, config]: [string, any]) => {
-        system.configService.setConfiguration(widgetId, config)
+        system.configService!.setConfiguration(widgetId, config)
       })
     }
   },

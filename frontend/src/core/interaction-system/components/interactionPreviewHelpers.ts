@@ -9,8 +9,10 @@ type InteractionActionType = InteractionResponse['action']
 
 export type PreviewLogType = 'info' | 'success' | 'warning' | 'error'
 
-export function getInteractionEventTagType(event: InteractionEventType) {
-  const typeMap: Record<string, string> = {
+export function getInteractionEventTagType(
+  event: InteractionEventType
+): 'success' | 'info' | 'warning' | 'default' | 'error' {
+  const typeMap: Record<string, 'success' | 'info' | 'warning' | 'default' | 'error'> = {
     click: 'success',
     hover: 'info',
     focus: 'warning',

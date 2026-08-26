@@ -47,15 +47,6 @@
     "**/examples/**",
     "**/backup/**",
     "**/*_backup_*/**",
-    "**/* copy.vue",
-    "src/components/DeviceSelectSingle.vue",
-    "src/core/data-architecture/**/*",
-    "src/core/data-architecture/**/*.test.ts",
-    "src/core/data-architecture/**/*.test.tsx",
-    "src/core/data-architecture/components/backup/**/*",
-    "src/core/interaction-system/**/*",
-    "src/core/script-engine/**/*",
-    "src/components/common/grid",
-    "src/store/modules/visual-editor/**/*"
+    "**/* copy.vue"
   ]
 }
