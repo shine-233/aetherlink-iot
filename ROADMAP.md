@@ -128,12 +128,14 @@ AetherLink Backend ←──gRPC──→ Modbus TCP Plugin ←──Modbus TCP�
 ```
 
 实现步骤：
-- [ ] 定义协议插件 gRPC 接口 proto 文件（连接管理、数据采集、命令下发）
-- [ ] 实现 Modbus TCP 连接池与轮询采集器
-- [ ] 实现寄存器地址映射配置（JSON/YAML）
-- [ ] 数据上报走现有 telemetry uplink 管道
-- [ ] 前端：Modbus 寄存器映射配置界面
-- [ ] 打包为 Docker 容器，通过 docker-compose 可选启用
+- [x] 新增独立进程模块 `modbus-plugin/`：grid-x/modbus 封装（按目标串行事务 + 懒重连）、轮询采集器、命令下行订阅 ✓
+- [x] 寄存器地址映射点表（JSON）：holding/input/coil/discrete × u16/i16/u32/i32/f32 大端解码，multiplier/offset 缩放，`writable` 标记可写点 ✓
+- [x] 数据上报走现有 telemetry uplink 管道：以设备自身 MQTT 凭证发布 `{key: value}` 到 `devices/telemetry`，设备归属由 broker 认证绑定 ✓
+- [x] 命令下发：订阅 `devices/command/{number}/+`，按 `{identify, value}` 匹配可写寄存器执行 FC5/FC6/FC16 写入 ✓
+- [x] Dockerfile + docker-compose 可选 profile（`--profile modbus`），点表含凭证只读挂载 ✓
+- [x] 单元测试：内嵌 MBAP 从站闭环验证 FC3/FC4 读值缩放、f32 写读回环、只读拒绝 ✓
+- [-] 自定义 gRPC 插件接口暂缓：当前平台插件运行时为 HTTP 边界（pluginruntime）、数据面为 MQTT；待平台暴露插件 gRPC 网关后再评估，避免引入无消费方的私有通道
+- [x] 前端：设备详情页「Modbus 点表」标签页（从站目标表单 + 点位行内编辑表格），保存后由插件经 OpenAPI Key 拉取生效 ✓
 
 参考仓库：
 - https://github.com/ThingsPanel/modbus-protocol-plugin
@@ -225,7 +227,8 @@ ALTER TABLE device_calculated_fields (
 | 2026-08-26 | P1 | 安全加固批：LIKE 通配转义、刷新令牌吊销、IP 维度登录防爆破、Casbin 路由覆盖审计、DAL 租户强制删除、doctor 公网明文 MQTT 门禁 | #176 |
 | 2026-08-25 | A1 | 空租户守卫：alarm 配置/信息/历史列表 + device_config 列表 fail-closed（含 all-tenants 显式授权与回归测试） | #155 |
 | 2026-08-24 | A2 | message_push gen LeftJoin raw 化 | 已并入 main |
-| 2026-08-25 | A3 | 设备影子全链路：迁移 52.sql、DAL/Service/API/路由、上线投递钩子、cron 清理、DAL 测试、前端影子队列标签页 | 待提 PR |
-| 2026-08-25 | C4 | AI 自然语言查询遥测 MVP：意图抽取式 NL 查询服务 + `/ai/telemetry/query` 端点 + 单测 | 待提 PR |
+| 2026-08-25 | A3 | 设备影子全链路：迁移 52.sql、DAL/Service/API/路由、上线投递钩子、cron 清理、DAL 测试、前端影子队列标签页 | #160/#161 |
+| 2026-08-25 | C4 | AI 自然语言查询遥测 MVP：意图抽取式 NL 查询服务 + `/ai/telemetry/query` 端点 + 单测 | #160 |
 | 2026-08-23/24 | — | users 列表 raw 链收敛 + 空租户守卫；alarm raw 链 P1 修复 | VALIDATION.md |
 | 2026-08-25 | 质量 | 全库 GBK 乱码修复（17 文件，含 echarts-manager 被困代码释放）+ 源码编码契约测试绊线 + 影子离线投递 method/params 语义修复 | feat/phase-a-completion |
+| 2026-08-25 | B1 | Modbus TCP 插件（独立模块 modbus-plugin）：JSON 点表采集/缩放、MQTT 上报、命令下行写入、内嵌从站单测、compose `--profile modbus`；平台点表存储 + 前端「Modbus 点表」界面 + 插件 OpenAPI Key 拉取闭环；gRPC 通道暂缓（见 B1 备注） | #162 |

@@ -238,6 +238,30 @@ services:
       start_period: 30s
       retries: 12
 
+  # 可选 Modbus TCP 协议插件（ROADMAP B1）：默认不启动，
+  # 通过 `docker compose --profile modbus up -d modbus-plugin` 启用。
+  # 启用前先复制 modbus-plugin/config.example.json 为 modbus-plugin/config.json 并填入设备凭证与点表。
+  modbus-plugin:
+    profiles: ["modbus"]
+    networks:
+      - core_net
+    build:
+      context: ./modbus-plugin
+    restart: unless-stopped
+    cpus: "${AETHERLINK_MODBUS_CPUS:-0.20}"
+    mem_limit: "${AETHERLINK_MODBUS_MEM_LIMIT:-96m}"
+    pids_limit: ${AETHERLINK_MODBUS_PIDS_LIMIT:-64}
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      mqtt-broker:
+        condition: service_healthy
+    environment:
+      MODBUS_PLUGIN_CONFIG: /modbus-plugin/config/config.json
+    volumes:
+      # 点表含设备凭证：只读挂载，禁止把真实凭证打进镜像或提交进仓库。
+      - ./modbus-plugin/config.json:/modbus-plugin/config/config.json:ro
+
 volumes:
   postgres-data:
   redis-data:

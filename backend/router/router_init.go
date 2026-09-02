@@ -304,6 +304,8 @@ func RouterInit() *gin.Engine {
 
 			apps.Model.AiQuery.InitAiQuery(v1) // AI 集成（自然语言查询遥测）
 
+			apps.Model.DeviceModbusProfile.InitDeviceModbusProfile(v1) // Modbus 点表配置
+
 			apps.Model.OpenAPIKey.InitOpenAPIKey(v1)
 
 			apps.Model.MessagePush.Init(v1)

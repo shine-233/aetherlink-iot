@@ -193,14 +193,11 @@ classified-protect:
 
 # Casbin 路由覆盖审计：挂载在 CasbinRBAC 之后却未登记进资源表的路由会在启动期暴露。
 # fail-fast（默认）阻断启动；warn 仅告警（存量库升级过渡）；off 关闭。
-<<<<<<< HEAD
 # Per-tenant API rate limiting (429 + Retry-After when exceeded).
 # Default 600 requests/minute/tenant; set <=0 to disable. Env override: GOTP_API_RATE_LIMIT_RPM.
 api-rate-limit:
   requests-per-minute: 600
 
-=======
->>>>>>> origin/main
 casbin:
   route-audit-mode: fail-fast
 
