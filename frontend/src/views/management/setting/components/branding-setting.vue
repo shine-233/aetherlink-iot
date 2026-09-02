@@ -9,6 +9,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { editThemeSetting, fetchThemeSetting } from '@/service/api/setting'
 import { useSysSettingStore } from '@/store/modules/sys-setting'
+import { useThemeStore } from '@/store/modules/theme'
 import { $t } from '@/locales'
 import { message } from '@/utils/common/discrete'
 
@@ -19,11 +20,14 @@ type BrandingForm = {
   logo_background: string
   logo_loading: string
   home_background: string
+  theme_color: string
+  favicon: string
 }
 
 const loading = ref(false)
 const saving = ref(false)
 const sysSettingStore = useSysSettingStore()
+const themeStore = useThemeStore()
 
 // 这里直接维护可编辑表单副本，避免把 store 中的全局主题状态直接暴露给输入框。
 const form = reactive<BrandingForm>({
@@ -32,7 +36,9 @@ const form = reactive<BrandingForm>({
   logo_cache: '',
   logo_background: '',
   logo_loading: '',
-  home_background: ''
+  home_background: '',
+  theme_color: '',
+  favicon: ''
 })
 
 // 主题设置接口当前按列表返回，这里只接管第一条记录作为“当前生效品牌配置”。
@@ -43,6 +49,8 @@ function assignForm(record?: Api.GeneralSetting.ThemeSetting) {
   form.logo_background = record?.logo_background || ''
   form.logo_loading = record?.logo_loading || ''
   form.home_background = record?.home_background || ''
+  form.theme_color = record?.theme_color || ''
+  form.favicon = record?.favicon || ''
 }
 
 // 回显链路只负责把远端品牌配置落入局部表单，不直接写全局 store，避免编辑中的脏值提前污染全局展示。
@@ -71,11 +79,18 @@ async function saveBrandingSetting() {
       logo_cache: form.logo_cache.trim(),
       logo_background: form.logo_background.trim(),
       logo_loading: form.logo_loading.trim(),
-      home_background: form.home_background.trim()
+      home_background: form.home_background.trim(),
+      theme_color: form.theme_color.trim(),
+      favicon: form.favicon.trim()
     })
     if (!error) {
       message.success($t('custom.management.branding.saved'))
       await sysSettingStore.initSysSetting()
+      // 白标联动：theme_color 非空时同步 Naive 主题系统主色（登录页/全局主题即时生效）。
+      const rawColor = form.theme_color.trim()
+      if (rawColor && /^#[0-9a-fA-F]{6}$/.test(rawColor)) {
+        themeStore.updateThemeColors('primary', rawColor)
+      }
     }
   } finally {
     saving.value = false
@@ -94,6 +109,12 @@ onMounted(loadBrandingSetting)
       </NFormItem>
       <NFormItem :label="$t('custom.management.branding.faviconUrl')">
         <NInput v-model:value="form.logo_cache" maxlength="255" clearable />
+      </NFormItem>
+      <NFormItem :label="$t('custom.management.branding.themeColor')">
+        <NInput v-model:value="form.theme_color" maxlength="32" placeholder="#1677ff" clearable />
+      </NFormItem>
+      <NFormItem :label="$t('custom.management.branding.browserFavicon')">
+        <NInput v-model:value="form.favicon" maxlength="255" clearable />
       </NFormItem>
       <NFormItem :label="$t('custom.management.branding.headerLogoUrl')">
         <NInput v-model:value="form.logo_background" maxlength="255" clearable />

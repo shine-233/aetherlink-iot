@@ -19,6 +19,8 @@ type Logo struct {
 	LogoBackground string  `gorm:"column:logo_background;not null;comment:加载页面Logo" json:"logo_background"` // 加载页面Logo
 	LogoLoading    string  `gorm:"column:logo_loading;not null;comment:加载页面Logo" json:"logo_loading"`       // 加载页面Logo
 	HomeBackground string  `gorm:"column:home_background;not null;comment:首页背景" json:"home_background"`     // 首页背景
+	ThemeColor     string  `gorm:"column:theme_color;default:'';comment:租户级主题色" json:"theme_color"`        // 主题色（C5 白标）
+	Favicon        string  `gorm:"column:favicon;default:'';comment:页签favicon" json:"favicon"`             // 页签favicon（C5 白标）
 	Remark         *string `gorm:"column:remark" json:"remark"`
 }
 

@@ -12,5 +12,7 @@ type UpdateLogoReq struct {
 	LogoBackground *string `json:"logo_background" validate:"omitempty,max=255"` // 站标Logo
 	LogoLoading    *string `json:"logo_loading" validate:"omitempty,max=255"`    // 加载页面Logo
 	HomeBackground *string `json:"home_background" validate:"omitempty,max=255"` // 首页背景
+	ThemeColor     *string `json:"theme_color" validate:"omitempty,max=32"`      // 主题色（C5 白标，#RRGGBB）
+	Favicon        *string `json:"favicon" validate:"omitempty,max=255"`         // 页签favicon URL（C5 白标）
 	Remark         *string `json:"remark" validate:"omitempty,max=255"`
 }

@@ -133,7 +133,9 @@ describe('sys-setting store', () => {
       logo_cache: '',
       logo_background: '',
       logo_loading: '',
-      home_background: ''
+      home_background: '',
+      theme_color: '',
+      favicon: ''
     })
     expect(hoisted.localStgSet).toHaveBeenCalledWith('logoLoading', '')
     expect(hoisted.localStgSet).toHaveBeenCalledWith('systemName', '')

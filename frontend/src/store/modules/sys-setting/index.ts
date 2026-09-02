@@ -20,7 +20,9 @@ const emptySysSetting: SysSetting = {
   logo_background: '',
   logo_loading: '',
   logo_cache: '',
-  home_background: ''
+  home_background: '',
+  theme_color: '',
+  favicon: ''
 }
 
 function resolveAssetUrl(value?: string | null) {
@@ -43,18 +45,30 @@ function applyFavicon(url?: string | null) {
   link.href = href
 }
 
+// applyThemeColor 将租户级主题色注入全局 CSS 变量（C5 白标）。
+// 空值/非法 hex 回退为空字符串，由 CSS 的 fallback 保持默认主题。
+function applyThemeColor(color?: string | null) {
+  if (typeof document === 'undefined') return
+  const root = document.documentElement
+  const value = String(color || '').trim()
+  root.style.setProperty('--aetherlink-brand-color', value || '')
+}
+
 function normalizeSetting(setting?: Partial<Api.GeneralSetting.ThemeSetting> | null): SysSetting {
   return {
     system_name: String(setting?.system_name || '').trim(),
     logo_background: resolveAssetUrl(setting?.logo_background),
     logo_loading: resolveAssetUrl(setting?.logo_loading),
     logo_cache: resolveAssetUrl(setting?.logo_cache),
-    home_background: resolveAssetUrl(setting?.home_background)
+    home_background: resolveAssetUrl(setting?.home_background),
+    theme_color: String(setting?.theme_color || '').trim(),
+    favicon: resolveAssetUrl(setting?.favicon)
   }
 }
 
 function syncBrandingRuntime(setting: SysSetting) {
-  applyFavicon(setting.logo_cache)
+  applyFavicon(setting.favicon || setting.logo_cache)
+  applyThemeColor(setting.theme_color)
   localStg.set('logoLoading', setting.logo_loading || '')
   localStg.set('systemName', setting.system_name || '')
 }
