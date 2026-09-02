@@ -67,6 +67,7 @@ type Controller struct {
 	PayloadSchemaApi
 	CalculatedFieldApi
 	ProductApi
+	TenantApi
 	EntityVersionApi
 }
 

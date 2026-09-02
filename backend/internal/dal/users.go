@@ -395,7 +395,18 @@ func GetUserListByPageWithAddress(userListReq *model.UserListReq, claims *utils.
 			logrus.Warn("dal: tenant-scoped user list query has empty TenantID in claims; rejecting")
 			return count, nil, fmt.Errorf("empty tenant id in claims")
 		}
-		base = base.Where("users.tenant_id = ? AND users.authority = ?", claims.TenantID, TENANT_USER)
+		if claims.Authority == TENANT_ADMIN {
+			// C2 客户层级（60.sql/tenants）：租户管理员可见自身 + 全部后代租户的用户；
+			// scope 来自 tenants 表登记，未登记租户退化为仅自身（等价旧精确过滤）。
+			scope, scopeErr := TenantScope(claims.TenantID)
+			if scopeErr != nil {
+				logrus.Error("dal: resolve tenant scope failed:", scopeErr)
+				return count, nil, scopeErr
+			}
+			base = base.Where("users.tenant_id IN ? AND users.authority = ?", scope, TENANT_USER)
+		} else {
+			base = base.Where("users.tenant_id = ? AND users.authority = ?", claims.TenantID, TENANT_USER)
+		}
 	} else if claims.Authority == SYS_ADMIN {
 		base = base.Where("users.authority = ?", TENANT_ADMIN)
 	} else {

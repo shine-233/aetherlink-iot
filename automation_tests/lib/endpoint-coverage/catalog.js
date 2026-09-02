@@ -40,6 +40,13 @@ const ALL_ENDPOINTS = [
   { method: 'GET',  path: '/api/v1/tenant/setup-state',                     module: 'auth',      auth: false },
   { method: 'POST', path: '/api/v1/tenant/super-admin/init',                module: 'auth',      auth: false },
   { method: 'POST', path: '/api/v1/tenant/market-register',                 module: 'auth',      auth: false },
+
+  // === 租户客户层级（apps/tenant.go，C2 / tenant.go） ===
+  { method: 'GET',  path: '/api/v1/tenant/tree',                            module: 'tenant',    auth: true },
+  { method: 'GET',  path: '/api/v1/tenant/:id',                             module: 'tenant',    auth: true },
+  { method: 'POST', path: '/api/v1/tenant',                                 module: 'tenant',    auth: true },
+  { method: 'PUT',  path: '/api/v1/tenant/:id',                             module: 'tenant',    auth: true },
+  { method: 'DELETE', path: '/api/v1/tenant/:id',                           module: 'tenant',    auth: true },
   { method: 'POST', path: '/api/v1/device/gateway-register',                module: 'device',    auth: false },
   { method: 'POST', path: '/api/v1/device/gateway-sub-register',            module: 'device',    auth: false },
   { method: 'POST', path: '/api/v1/device/auth',                            module: 'device',    auth: false },
