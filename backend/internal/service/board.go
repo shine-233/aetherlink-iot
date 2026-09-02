@@ -482,7 +482,12 @@ func (*Board) GetBoardListByPage(Params *model.GetBoardListByPageReq, U *utils.U
 	if err != nil {
 		return nil, err
 	}
-	total, list, err := dal.GetBoardListByPage(Params, tenantID)
+	// C2：tenantID 为空=管理员全量（scopes=nil），否则展开 self∪祖先层级作用域。
+	var boardScopes []string
+	if strings.TrimSpace(tenantID) != "" {
+		boardScopes = expandTenantIDScope(tenantID)
+	}
+	total, list, err := dal.GetBoardListByPageForScopes(Params, boardScopes)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
