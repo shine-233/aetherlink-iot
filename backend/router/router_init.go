@@ -320,6 +320,8 @@ func RouterInit() *gin.Engine {
 
 			apps.Model.CalculatedField.InitCalculatedField(v1) // 计算字段（遥测派生指标）
 
+			apps.Model.Tenant.InitTenant(v1) // 租户客户层级（组织架构管理）
+
 			// 初始化系统监控路由
 			apps.Model.SystemMonitor.InitSystemMonitor(v1, m)
 		}

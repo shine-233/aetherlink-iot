@@ -46,6 +46,7 @@ type apps struct {
 	PayloadSchema
 	CalculatedField
 	Product
+	Tenant
 }
 
 var Model = new(apps)
