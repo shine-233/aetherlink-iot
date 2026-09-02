@@ -14,6 +14,7 @@ func CreateOidcProvider(p *model.OidcProvider) error {
 	return global.DB.Create(p).Error
 }
 
+// tenant-scope: reviewed-2026-09-02 all-tenants semantics (public SSO entry); provider→tenant ownership enforced by session issuer user binding.
 // GetOidcProviderByID 按 id 读取（供 SSO 公开入口），不限租户但需 enabled。
 func GetOidcProviderByID(id string) (*model.OidcProvider, error) {
 	var p model.OidcProvider

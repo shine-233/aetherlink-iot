@@ -35,14 +35,14 @@
 | Modbus | ✓ | ◐ | ✓ | B1 已合入：独立插件+点表 UI（55.sql + modbus-plugin） |
 | 设备影子 | ✓ | ✓ | ✓ | Phase A3 已交付：离线命令缓存+上线投递 |
 | CSV 批量导入设备 | ✓ | ✓ | ✓ | 后端建档/导出与前端导入向导均已落地（自动生成/CSV 双模式、一次性凭证、脱敏导出）；产品选择列表 `/product` 同步补齐 |
-| 资产管理层级 | ✗ | ✓ | ✗ | Phase C2 |
-| CoAP / LwM2M / SNMP | ✗ | ✓ | ✗ | Phase C6 |
-| OPC UA | ✗ | ✗ | ✓ | 远期评估 |
+| 资产管理层级 | ◐ | ✓ | ✗ | C2：60.sql + CRUD/树 API 已入；RBAC/DAL 级联待接 |
+| CoAP / LwM2M / SNMP | ◐ | ✓ | ✗ | C6：CoAP/LwM2M UDP 网关接线（配置门控）；SNMP/OPC UA 库级，待管理侧接入 |
+| OPC UA | ◐ | ✗ | ✓ | 库级 client（gopcua）已入；连接器/点位接入待立项 |
 | 移动端 App | ✗ | ✗ | ✓ | 远期评估 |
 | AI / LLM 集成 | ✓ | ✗ | ✓ | C4 已落地 NL 查询遥测；AI 告警分析待做 |
 | 计算字段 | ✓ | ✓ | ✗ | B3 已合入：govaluate 安全表达式派生遥测（54.sql） |
 | TimescaleDB / TDengine | ◐ | ✓ | ✓ | C1 部分落地：57.sql 条件化 hypertable + 7 天压缩（检测扩展自动启用） |
-| 白标定制 | ✗ | ✓ (PE) | ✗ | Phase C5 |
+| 白标定制 | ◐ | ✓ (PE) | ✗ | C5：主题色/favicon 已入主线（59.sql）；运行期验证待做 |
 | 行业模板 | ✗ | ✓ (PE) | ✗ | 远期 |
 | 边缘计算 | ✗ | ✓ (PE) | ✗ | 远期 |
 
@@ -187,13 +187,14 @@ ALTER TABLE device_calculated_fields (
 
 ### C1. TimescaleDB 可选存储后端
 - [x] 时序表迁移为 hypertable（57.sql：telemetry_datas + alarm_info，检测扩展存在才执行）
-- [ ] 配置开关切换普通 PG vs TimescaleDB（当前为"检测扩展自动启用"，显式开关待做）
+- [x] 配置开关切换普通 PG vs TimescaleDB（timescale_mode=auto/on/off 显式开关，含 fail-fast；运行期三态验证待重建栈执行）
 - [x] 压缩策略自动配置（telemetry_datas 7 天压缩 + segmentby device_id）
 
 ### C2. 租户客户层级
-- [ ] tenants 表增加 parent_tenant_id 自引用
-- [ ] RBAC 支持层级继承
-- [ ] 数据隔离按层级级联过滤
+- [x] tenants 表增加 parent_tenant_id 自引用（60.sql）与资产树 assets（60.sql）
+- [x] 资产 CRUD/树 API（dal/service/api/router，Scope=self∪祖先，成环拒绝；assets 垂直切片）
+- [ ] RBAC 角色集按层级继承扩展（policy 拉取点接入，见 WORKPLAN P0-B）
+- [ ] 存量核心模块 DAL 租户过滤 =→IN(Scope) 全量替换（assets 已按 Scope 原生，device/alarm/board 待逐模块）
 
 ### C3. TresJS 3D 可视化面板
 - [ ] 安装 @tresjs/core + @tresjs/cientos + three
@@ -206,17 +207,19 @@ ALTER TABLE device_calculated_fields (
 - [ ] AI 告警分析（异常模式识别+根因建议）
 
 ### C5. 白标定制
-- [ ] 租户级 logo/favicon/主题色配置
-- [ ] 登录页自定义
+- [x] 租户级 logo/favicon/主题色配置（59.sql + logo API + CSS 变量 + branding 表单，已并入单一主线）
+- [ ] 运行期全流程验证（登录页/主题/favicon 两租户互不串扰）与前端表单回归
 
 ### C6. CoAP / LwM2M 协议支持
-- [ ] CoAP 服务端（Go get RFC7252 库）
-- [ ] LwM2M 客户端注册/上报流程
+- [x] CoAP 服务端（RFC7252 子集：编解码/UDP 服务器/注册表/well-known + blockwise/observe 组件）
+- [x] LwM2M 注册层 + 对象实例模型 + 观察者推送（UDP 服务器配置门控接入 application 生命周期）
+- [ ] 设备凭证映射 + 遥测汇入现有 uplink 管道（网关设备接入闭环，见 WORKPLAN P1-C）
 
 ### C7. 安全与平台能力补齐（对标 ThingsBoard CE 免费能力，2026-08-25 审查补录）
-- [ ] 双因素认证 2FA（TOTP，登录可选绑定；TB CE 3.5+ 已内置同类能力）
-- [ ] OAuth2 / OIDC 单点登录（外部 IdP 接入，租户级配置）
-- [ ] 实体版本控制（设备/看板/规则链等实体 JSON 导出 + Git 式备份恢复，对标 TB 3.5+ Version Control）
+- [x] 双因素认证 2FA 后端（61.sql：绑定/激活/解绑 API、登录第二因子防重放、一次性恢复码）；前端绑定/扫码 UI 待接
+- [x] OAuth2/OIDC 单点登录后端（62.sql：租户 IdP 配置 CRUD、/sso/:id/start|callback、sessionIssuer 绑定本地用户）；登录页 SSO 入口待接
+- [x] 实体版本控制（设备/看板/规则链等实体 JSON 导出 + Git 式备份恢复，对标 TB 3.5+ Version Control）
+- [ ] 2FA/OIDC 前端接线与真实 IdP E2E（见 WORKPLAN P1-A/P1-B）
 
 ---
 
@@ -244,4 +247,5 @@ ALTER TABLE device_calculated_fields (
 | 2026-08-25 | B1 | Modbus TCP 插件（独立模块 modbus-plugin）：JSON 点表采集/缩放、MQTT 上报、命令下行写入、内嵌从站单测、compose `--profile modbus`；平台点表存储 + 前端「Modbus 点表」界面 + 插件 OpenAPI Key 拉取闭环；gRPC 通道暂缓（见 B1 备注） | #162 |
 | 2026-08-25 | B2 | 可视化规则链编辑器：迁移 56.sql（graph 列）、DAG 校验（Kahn 无环）、拓扑执行引擎 + webhook/command 动作、`/rule-chains` CRUD + 上行双钩子、Vue Flow 画布编辑器 + 四语言 i18n、引擎/CRUD 单测 | feat/rule-chain-b2 |
 | 2026-08-26 | fleet | CSV 批量导入设备：`POST/GET /device/preRegister` + `/preRegister/export` 路由补齐（修复前端契约断裂），自动生成/CSV 双模式建档、一次性凭证+脱敏导出、产品租户校验、service 层 sqlite 全链路测试 ×5 | feat/device-preregister-import |
+| 2026-09-02 | C2/C6/C7 实现批 | 三线合入单一主线（full-integ：main 12 项增量 ⊕ c5 白标/实体版本/安全 ⊕ gh/main）；C2 资产 CRUD/树 API（Scope=自身∪祖先+成环拒绝，DAL sqlite 测试）；C7 2FA 后端（61.sql 绑定/激活/解绑/第二因子防重放/恢复码）与 OIDC/SSO 后端（62.sql 提供方 CRUD + /sso/:id/start|callback + sessionIssuer）；C6 CoAP/LwM2M UDP 网关配置门控接入 application；ROADMAP 勾选回填 | full-integ |
 | 2026-08-26 | 设计 | 设计系统收敛 L1/L2：字号/圆角 token 落地 global.scss、断点三合一（删 --bp-* 双轨）、uno shortcuts 单源化（preset 导出 aetherlinkShortcuts）、共享 PageHeader 组件收敛 3 页 5 处重复页头、10 个表格页补 NEmpty 空态、linkage-edit 47 处 hex→token 迁移、UI emoji→SvgIcon、裸删除补 Popconfirm、html lang 随语言切换、hex 绊线契约测试（基线 1042→994 只降不升） | feat/device-preregister-import |

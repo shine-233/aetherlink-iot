@@ -10,6 +10,7 @@ import (
 	"aetherlink-iot/backend/pkg/global"
 )
 
+// tenant-scope: reviewed-2026-09-02 user-scoped (user_id keyed); user→tenant ownership enforced at service/login boundary.
 // GetUserTOTP 读取用户 TOTP 状态；未绑定返回 gorm.ErrRecordNotFound。
 func GetUserTOTP(userID string) (*model.UserTOTP, error) {
 	var row model.UserTOTP
@@ -65,6 +66,7 @@ func ConsumeUserTOTPRecoveryCode(userID, codeHash string) (bool, error) {
 	return res.RowsAffected > 0, nil
 }
 
+// tenant-scope: reviewed-2026-09-02 user-scoped (user_id keyed); see GetUserTOTP marker.
 // ListUnusedRecoveryCodeHashes 列出未用恢复码（绑定结果校验用）。
 func ListUnusedRecoveryCodeHashes(userID string) ([]string, error) {
 	var rows []struct {
