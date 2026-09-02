@@ -74,9 +74,9 @@ declare namespace Api {
     type RoleType = 'SYS_ADMIN' | 'TENANT_ADMIN' | 'TENANT_USER'
 
     interface LoginToken {
-      token?: string
-      expires_in?: number
-      /** 2FA 第二因子挑战：step='totp' 且携带一次性 ticket */
+      token: string
+      expires_in: number
+      /** 2FA 第二因子挑战：step='totp' 且携带一次性 ticket（挑战响应无 token） */
       step?: 'totp'
       ticket?: string
     }

@@ -32,7 +32,7 @@ async function handleSetup() {
   errorMsg.value = ''
   const { data, error } = await fetchTotpSetup()
   if (error) {
-    errorMsg.value = error
+    errorMsg.value = error instanceof Error ? error.message : String(error ?? '')
     return
   }
   setup.value = data
@@ -45,7 +45,7 @@ async function handleActivate() {
   const { data, error } = await fetchTotpActivate(code.value.trim())
   busy.value = false
   if (error) {
-    errorMsg.value = error
+    errorMsg.value = error instanceof Error ? error.message : String(error ?? '')
     return
   }
   recoveryCodes.value = data?.codes ?? []
@@ -61,7 +61,7 @@ async function handleDisable() {
   const { error } = await fetchTotpDisable(code.value.trim())
   busy.value = false
   if (error) {
-    errorMsg.value = error
+    errorMsg.value = error instanceof Error ? error.message : String(error ?? '')
     return
   }
   enabled.value = false
