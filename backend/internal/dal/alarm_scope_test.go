@@ -302,3 +302,49 @@ func TestGetAlarmHistoryListByPageAppliesStatusFilterAndPagination(t *testing.T)
 		t.Fatalf("first page row = %v, want newest row-recovered", pagedRows[0]["id"])
 	}
 }
+func TestGetAlarmHistoryListByPageForScopesCascadesTenants(t *testing.T) {
+	db := setupAlarmHistoryListTestDB(t)
+	now := time.Now().UTC()
+	rows := []model.AlarmHistory{
+		{ID: "sc-h1", AlarmConfigID: "config-a", Name: "t-a h", AlarmStatus: "H", TenantID: "tenant-a", CreateAt: now.Add(-time.Minute), AlarmDeviceList: `[]`},
+		{ID: "sc-h2", AlarmConfigID: "config-b", Name: "t-b l", AlarmStatus: "L", TenantID: "tenant-b", CreateAt: now.Add(-2 * time.Minute), AlarmDeviceList: `[]`},
+		{ID: "sc-h3", AlarmConfigID: "config-c", Name: "t-c m", AlarmStatus: "M", TenantID: "tenant-c", CreateAt: now, AlarmDeviceList: `[]`},
+	}
+	if err := db.Create(&rows).Error; err != nil {
+		t.Fatalf("seed alarm history: %v", err)
+	}
+	if err := db.Exec(`INSERT INTO alarm_config (id, name, alarm_level, tenant_id) VALUES
+		('config-a', 'Config A', 'H', 'tenant-a'),
+		('config-b', 'Config B', 'L', 'tenant-b'),
+		('config-c', 'Config C', 'M', 'tenant-c')`).Error; err != nil {
+		t.Fatalf("seed alarm configs: %v", err)
+	}
+
+	// 级联作用域 {tenant-c, tenant-a}（self=tenant-c，祖先=tenant-a）：两租户数据可见，tenant-b 不可见。
+	count, list, err := GetAlarmHistoryListByPageForScopes(&model.GetAlarmHisttoryListByPage{}, []string{"tenant-c", "tenant-a"}, nil)
+	if err != nil {
+		t.Fatalf("scoped history query: %v", err)
+	}
+	got := []string{}
+	for _, row := range list.([]map[string]interface{}) {
+		got = append(got, row["id"].(string))
+	}
+	if count != 2 || len(got) != 2 {
+		t.Fatalf("scoped {c,a} count=%d got=%#v, want only sc-h1 & sc-h3", count, got)
+	}
+	for _, id := range got {
+		if id == "sc-h2" {
+			t.Fatalf("scoped query leaked tenant-b row")
+		}
+	}
+
+	// 空作用域且非全量：fail-closed。
+	if _, _, err := GetAlarmHistoryListByPageForScopes(&model.GetAlarmHisttoryListByPage{}, nil, nil); err == nil {
+		t.Fatal("empty scopes without all-tenants must be rejected")
+	}
+	// 全量 + 空作用域：放行。
+	allCount, _, errAll := GetAlarmHistoryListByPageForScopes(&model.GetAlarmHisttoryListByPage{AllTenants: true}, nil, nil)
+	if errAll != nil || allCount != 3 {
+		t.Fatalf("all-tenants empty scopes count=%d err=%v, want 3", allCount, errAll)
+	}
+}

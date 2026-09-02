@@ -111,22 +111,26 @@ func GetAlarmInfoHistoryByID(id string, ownerUserID *string) (map[string]interfa
 // GetAlarmConfigListByPage 分页查询告警配置，支持租户、名称、等级和启用状态过滤。
 // allTenants 仅限 SYS_ADMIN 显式全租户视角；其余调用方必须携带非空租户，否则 fail-closed。
 func GetAlarmConfigListByPage(d *model.GetAlarmConfigListByPageReq, allTenants bool) (int64, interface{}, error) {
-	// P1 修复（2026-08-24，见 VALIDATION.md）：告警配置列表改走 raw global.DB 链
-	// （clone==1 根，每次链式起点均为全新 Statement），杜绝包级单例
-	// LeftJoin(NotificationGroup)+ALL+Scan 在高并发下跨请求残留 Statement 读到空/旧数据；
-	// JOIN 形态、投影列名、排序与分页语义与收敛前逐条一致。
-	base, err := newAlarmConfigListScopedDB(d, allTenants)
+	return alarmConfigListByPageScoped(d, allTenants, nil)
+}
+
+// GetAlarmConfigListByPageForScopes 层级作用域变体（ROADMAP C2）：alarm_config.tenant_id IN (scopes)。
+// tenant-scope: caller-enforced (scopes 由 service 层展开并校验)。
+func GetAlarmConfigListByPageForScopes(d *model.GetAlarmConfigListByPageReq, allTenants bool, scopes []string) (int64, interface{}, error) {
+	return alarmConfigListByPageScoped(d, allTenants, scopes)
+}
+
+func alarmConfigListByPageScoped(d *model.GetAlarmConfigListByPageReq, allTenants bool, scopes []string) (int64, interface{}, error) {
+	base, err := newAlarmConfigListScopedDB(d, allTenants, scopes...)
 	if err != nil {
 		return 0, nil, err
 	}
 	var count int64
 	if err := base.Session(&gorm.Session{}).Count(&count).Error; err != nil {
-		logrus.Error(err)
 		return count, nil, err
 	}
 
-	listBuilder := base.Session(&gorm.Session{}).
-		Select("ac.*, ng.name AS notification_group_name").
+	listBuilder := base.Session(&gorm.Session{}).Select("ac.*, ng.name AS notification_group_name").
 		Joins("LEFT JOIN notification_groups ng ON ng.id = ac.notification_group_id").
 		Order("ac.created_at DESC")
 	listBuilder = applyListPagination(listBuilder, d.Page, d.PageSize)
@@ -179,20 +183,23 @@ func UpdateAlarmInfoBatch(req *model.UpdateAlarmInfoBatchReq, userid string, ten
 	return nil
 }
 
-// GetAlarmInfoListByPage 分页查询告警信息，支持按租户、时间、处理结果和等级过滤。
-// allTenants 仅限 SYS_ADMIN 显式全租户视角；其余调用方必须携带非空租户，否则 fail-closed。
+// GetAlarmInfoListByPageForScopes 层级作用域变体（ROADMAP C2）：alarm_info.tenant_id IN (scopes)。
+// tenant-scope: caller-enforced (scopes 由 service 层展开并校验)。
+func GetAlarmInfoListByPageForScopes(d *model.GetAlarmInfoListByPageReq, allTenants bool, scopes []string) (int64, interface{}, error) {
+	return alarmInfoListByPageScoped(d, allTenants, scopes)
+}
+
 func GetAlarmInfoListByPage(d *model.GetAlarmInfoListByPageReq, allTenants bool) (int64, interface{}, error) {
-	// P1 修复（2026-08-24，见 VALIDATION.md）：告警信息列表改走 raw global.DB 链
-	// （clone==1 根，每次链式起点均为全新 Statement），杜绝包级单例
-	// LeftJoin(AlarmConfig,User)+ALL+Scan 在高并发下跨请求残留 Statement 读到空/旧数据；
-	// JOIN 形态、投影列名、排序与分页语义与收敛前逐条一致。
-	base, err := newAlarmInfoListScopedDB(d, allTenants)
+	return alarmInfoListByPageScoped(d, allTenants, nil)
+}
+
+func alarmInfoListByPageScoped(d *model.GetAlarmInfoListByPageReq, allTenants bool, scopes []string) (int64, interface{}, error) {
+	base, err := newAlarmInfoListScopedDB(d, allTenants, scopes...)
 	if err != nil {
 		return 0, nil, err
 	}
 	var count int64
 	if err := base.Session(&gorm.Session{}).Count(&count).Error; err != nil {
-		logrus.Error(err)
 		return count, nil, err
 	}
 
@@ -210,6 +217,38 @@ func GetAlarmInfoListByPage(d *model.GetAlarmInfoListByPageReq, allTenants bool)
 }
 
 // GetAlarmHistoryListByPage 分页查询告警历史，并展开关联设备列表供上层直接展示。
+// GetAlarmHistoryListByPageForScopes 层级作用域变体（ROADMAP C2）：alarm_history.tenant_id IN (scopes)。
+// tenant-scope: caller-enforced (scopes 由 service 层展开并校验)。
+func GetAlarmHistoryListByPageForScopes(d *model.GetAlarmHisttoryListByPage, scopes []string, ownerUserID *string) (int64, interface{}, error) {
+	allTenants := d != nil && d.AllTenants
+	if !allTenants && len(scopes) == 0 {
+		logrus.Warn("dal: scoped alarm history query requires at least one tenant")
+		return 0, nil, fmt.Errorf("tenant id is required")
+	}
+	queryBuilder := applyAlarmHistoryScopedFilters(newAlarmHistoryScopedDB("", ownerUserID, allTenants, scopes...), d, ownerUserID)
+	var count int64
+	if err := queryBuilder.Session(&gorm.Session{}).Count(&count).Error; err != nil {
+		return count, nil, err
+	}
+	listBuilder := queryBuilder.Session(&gorm.Session{}).
+		Select("ah.*, ac.name AS alarm_config_name, ac.alarm_level AS alarm_level").
+		Joins("LEFT JOIN alarm_config ac ON ac.id = ah.alarm_config_id").
+		Order("ah.create_at DESC")
+	listBuilder = applyListPagination(listBuilder, d.Page, d.PageSize)
+	list := make([]map[string]interface{}, 0)
+	if err := listBuilder.Scan(&list).Error; err != nil {
+		return 0, nil, err
+	}
+	if isAlarmHistoryActiveStatusFilter(d.AlarmStatus) {
+		if err := expandCurrentActiveAlarmHistoryDeviceFields(list, ownerUserID); err != nil {
+			return 0, nil, err
+		}
+	} else {
+		expandAlarmHistoryListDeviceFields(list, ownerUserID)
+	}
+	return count, list, nil
+}
+
 func GetAlarmHistoryListByPage(d *model.GetAlarmHisttoryListByPage, tenantID string, ownerUserID *string) (int64, interface{}, error) {
 	allTenants := d != nil && d.AllTenants
 	// 空租户守卫（ROADMAP A1）：未声明全租户视角时，空租户必须显式拒绝，
@@ -258,10 +297,17 @@ const alarmHistoryOwnerExistsSQL = `EXISTS (
       AND scoped_device.owner_user_id = ?
 )`
 
-func newAlarmHistoryScopedDB(tenantID string, ownerUserID *string, allTenants bool) *gorm.DB {
+func newAlarmHistoryScopedDB(tenantID string, ownerUserID *string, allTenants bool, tenantScopes ...string) *gorm.DB {
 	builder := global.DB.Table("alarm_history AS ah")
 	if !allTenants {
-		builder = builder.Where("ah.tenant_id = ?", tenantID)
+		switch len(tenantScopes) {
+		case 0:
+			builder = builder.Where("ah.tenant_id = ?", tenantID)
+		case 1:
+			builder = builder.Where("ah.tenant_id = ?", tenantScopes[0])
+		default:
+			builder = builder.Where("ah.tenant_id IN ?", tenantScopes)
+		}
 	}
 	if ownerUserID == nil || strings.TrimSpace(*ownerUserID) == "" {
 		return builder
@@ -647,12 +693,19 @@ func DeleteAlarmNameCache(alarmId string) error {
 // 条件语义与收敛前的 applyAlarmConfigListFilters 逐条对齐。
 // 空租户守卫（ROADMAP A1）：租户为空且未显式声明全租户视角时拒绝查询，
 // 防止条件过滤被静默跳过后退化为跨租户全表扫描（与 board/users 收敛模式一致）。
-func newAlarmConfigListScopedDB(req *model.GetAlarmConfigListByPageReq, allTenants bool) (*gorm.DB, error) {
+func newAlarmConfigListScopedDB(req *model.GetAlarmConfigListByPageReq, allTenants bool, tenantScopes ...string) (*gorm.DB, error) {
 	builder := global.DB.Table("alarm_config AS ac")
 	if req == nil {
 		return builder, nil
 	}
-	if tenantID := strings.TrimSpace(req.TenantID); tenantID != "" {
+	if len(tenantScopes) > 0 {
+		switch len(tenantScopes) {
+		case 1:
+			builder = builder.Where("ac.tenant_id = ?", tenantScopes[0])
+		default:
+			builder = builder.Where("ac.tenant_id IN ?", tenantScopes)
+		}
+	} else if tenantID := strings.TrimSpace(req.TenantID); tenantID != "" {
 		builder = builder.Where("ac.tenant_id = ?", tenantID)
 	} else if !allTenants {
 		logrus.Warn("dal: alarm config list query has empty TenantID without all-tenants scope; rejecting")
@@ -674,12 +727,19 @@ func newAlarmConfigListScopedDB(req *model.GetAlarmConfigListByPageReq, allTenan
 // 条件语义与收敛前的 applyAlarmInfoListFilters 逐条对齐。
 // 空租户守卫（ROADMAP A1）：租户为空且未显式声明全租户视角时拒绝查询，
 // 防止条件过滤被静默跳过后退化为跨租户全表扫描（与 board/users 收敛模式一致）。
-func newAlarmInfoListScopedDB(req *model.GetAlarmInfoListByPageReq, allTenants bool) (*gorm.DB, error) {
+func newAlarmInfoListScopedDB(req *model.GetAlarmInfoListByPageReq, allTenants bool, tenantScopes ...string) (*gorm.DB, error) {
 	builder := global.DB.Table("alarm_info AS ai")
 	if req == nil {
 		return builder, nil
 	}
-	if tenantID := strings.TrimSpace(req.TenantID); tenantID != "" {
+	if len(tenantScopes) > 0 {
+		switch len(tenantScopes) {
+		case 1:
+			builder = builder.Where("ai.tenant_id = ?", tenantScopes[0])
+		default:
+			builder = builder.Where("ai.tenant_id IN ?", tenantScopes)
+		}
+	} else if tenantID := strings.TrimSpace(req.TenantID); tenantID != "" {
 		builder = builder.Where("ai.tenant_id = ?", tenantID)
 	} else if !allTenants {
 		logrus.Warn("dal: alarm info list query has empty TenantID without all-tenants scope; rejecting")
@@ -701,7 +761,7 @@ func newAlarmInfoListScopedDB(req *model.GetAlarmInfoListByPageReq, allTenants b
 // 原 applyAlarmHistoryListFilters/applyAlarmHistoryTimeFilter/applyAlarmHistoryStatusFilter/
 // applyAlarmHistoryTypeFilter/applyAlarmHistoryDeviceFilter/withAlarmHistoryListJoins/
 // applyAlarmHistoryListPage/scanAlarmHistoryList 为 gen 继承式语句根的遗留死代码
-//（唯一调用方 GetAlarmHistoryListByPage 已于此前收敛为 raw global.DB 链，
+// （唯一调用方 GetAlarmHistoryListByPage 已于此前收敛为 raw global.DB 链，
 // 见本文件 GetAlarmHistoryListByPage 的 Table("alarm_history AS ah")+
 // Joins("LEFT JOIN alarm_config ac ...")+Select+Order 内联实现），
 // 现整体删除以杜绝复用回退到 gen LeftJoin；过滤语义由 applyAlarmHistoryScopedFilters 承接。
