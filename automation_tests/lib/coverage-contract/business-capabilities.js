@@ -34,7 +34,8 @@ const DEVICE_TELEMETRY_FRONTEND_ROUTES = [
   '/device/service-details',
   '/device/share',
   '/device/shared-with-me',
-  '/device/template'
+  '/device/template',
+  '/product/pre-register'
 ];
 
 const DEVICE_TELEMETRY_ENDPOINTS = [
@@ -199,7 +200,14 @@ const DEVICE_TELEMETRY_ENDPOINTS = [
   'GET /api/v1/device_config/metrics/condition/menu',
   'GET /api/v1/expected/data/list',
   'POST /api/v1/expected/data',
-  'DELETE /api/v1/expected/data/:id'
+  'DELETE /api/v1/expected/data/:id',
+  'GET /api/v1/device/modbus/profile/:deviceId',
+  'GET /api/v1/device/modbus/profile/number/:deviceNumber',
+  'PUT /api/v1/device/modbus/profile/:deviceId',
+  'GET /api/v1/device/preRegister',
+  'POST /api/v1/device/preRegister',
+  'GET /api/v1/device/preRegister/export',
+  'GET /api/v1/product'
 ];
 
 const COMMAND_JOBS_ENDPOINTS = [
@@ -460,7 +468,7 @@ const BUSINESS_CAPABILITIES = [
     id: 'automation-scene',
     priority: 'P1',
     domain: 'Automation and scene',
-    frontendRoutes: ['/automation/scene-manage', '/automation/scene-edit', '/automation/scene-linkage', '/automation/linkage-edit'],
+    frontendRoutes: ['/automation/scene-manage', '/automation/scene-edit', '/automation/scene-linkage', '/automation/linkage-edit', '/automation/rule-chain', '/automation/rule-chain/edit'],
     endpoints: [
       'GET /api/v1/scene',
       'POST /api/v1/scene',
@@ -478,7 +486,12 @@ const BUSINESS_CAPABILITIES = [
       'GET /api/v1/scene_automations/list',
       'POST /api/v1/scene_automations/switch/:id',
       'GET /api/v1/scene_automations/log',
-      'GET /api/v1/scene_automations/alarm'
+      'GET /api/v1/scene_automations/alarm',
+      'POST /api/v1/rule-chains',
+      'PUT /api/v1/rule-chains',
+      'GET /api/v1/rule-chains/list',
+      'GET /api/v1/rule-chains/:id',
+      'DELETE /api/v1/rule-chains/:id'
     ],
     automationTests: [
       'tests/23_seeded_automation_scene.test.js',

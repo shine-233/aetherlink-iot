@@ -133,6 +133,12 @@ const ALL_ENDPOINTS = [
   { method: 'POST',   path: '/api/v1/device/shadow/:deviceId',             module: 'device',    auth: true },
   { method: 'GET',    path: '/api/v1/device/shadow/:deviceId',             module: 'device',    auth: true },
   { method: 'DELETE', path: '/api/v1/device/shadow/:deviceId/:msgId',      module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device/modbus/profile/:deviceId',      module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device/modbus/profile/number/:deviceNumber', module: 'device', auth: true },
+  { method: 'PUT',    path: '/api/v1/device/modbus/profile/:deviceId',      module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device/preRegister',                   module: 'device',    auth: true },
+  { method: 'POST',   path: '/api/v1/device/preRegister',                   module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device/preRegister/export',            module: 'device',    auth: true },
   { method: 'POST',   path: '/api/v1/ai/telemetry/query',                  module: 'device',    auth: true },
   { method: 'GET',    path: '/api/v1/device/check/:deviceNumber',          module: 'device',    auth: true },
   { method: 'GET',    path: '/api/v1/device/tenant/list',                  module: 'device',    auth: true },
@@ -413,6 +419,16 @@ const ALL_ENDPOINTS = [
   { method: 'GET',    path: '/api/v1/scene_automations/detail/:id',        module: 'automation', auth: true },
   { method: 'GET',    path: '/api/v1/scene_automations/log',               module: 'automation', auth: true },
   { method: 'GET',    path: '/api/v1/scene_automations/alarm',             module: 'automation', auth: true },
+
+  // === 规则链（rule_chain.go，ROADMAP B2） ===
+  { method: 'POST',   path: '/api/v1/rule-chains',                         module: 'automation', auth: true },
+  { method: 'PUT',    path: '/api/v1/rule-chains',                         module: 'automation', auth: true },
+  { method: 'GET',    path: '/api/v1/rule-chains/list',                    module: 'automation', auth: true },
+  { method: 'GET',    path: '/api/v1/rule-chains/:id',                     module: 'automation', auth: true },
+  { method: 'DELETE', path: '/api/v1/rule-chains/:id',                     module: 'automation', auth: true },
+
+  // === 产品选择（product.go，预注册建档数据源） ===
+  { method: 'GET',    path: '/api/v1/product',                             module: 'product',   auth: true },
 
   // === 系统功能（sys_function.go） ===
   { method: 'PUT',    path: '/api/v1/sys_function/:id',                    module: 'system',    auth: true },

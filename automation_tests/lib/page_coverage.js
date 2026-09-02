@@ -49,6 +49,10 @@ const ALL_PAGES = [
   { route: '/automation/scene-edit', module: 'automation', name: 'Scene editor', priority: 'P1' },
   { route: '/automation/scene-linkage', module: 'automation', name: 'Scene linkage', priority: 'P1' },
   { route: '/automation/linkage-edit', module: 'automation', name: 'Linkage editor', priority: 'P1' },
+  { route: '/automation/rule-chain', module: 'automation', name: 'Rule chain list', priority: 'P1' },
+  { route: '/automation/rule-chain/edit', module: 'automation', name: 'Rule chain editor', priority: 'P1' },
+
+  { route: '/product/pre-register', module: 'device', name: 'Device pre-register import', priority: 'P1' },
 
 
   { route: '/management/user', module: 'management', name: 'Tenant management', priority: 'P1' },
