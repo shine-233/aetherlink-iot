@@ -22,10 +22,7 @@ import { useCommandCenterPageView } from './useCommandCenterPageView'
 import { useCommandCenterJobSession } from './useCommandCenterJobSession'
 import { buildCommandJobResultViewModel } from './commandCenterJobResultViewModel'
 import type { CommandJobResultActions } from './commandCenterJobResultViewModel'
-import {
-  buildClearedSavedFilterQuery,
-  buildRenamedSavedFilterQuery
-} from './commandCenterRouteQuery'
+import { buildClearedSavedFilterQuery, buildRenamedSavedFilterQuery } from './commandCenterRouteQuery'
 import { buildCommandJobProgressSteps } from './commandCenterProgressFlow'
 import CommandCenterDraftNotices from './CommandCenterDraftNotices.vue'
 import CommandCenterJobHistorySection from './CommandCenterJobHistorySection.vue'
@@ -199,20 +196,20 @@ const setPreflightViewportRef = (element: HTMLElement | null) => {
   preflightViewportRef.value = element
 }
 const initialJobHistoryLoadRequested = ref(false)
-const {
-  shouldMount: shouldMountJobHistoryPanel,
-  mountNow: mountJobHistoryPanelNow
-} = useViewportDeferredMount(jobHistoryViewportRef, {
-  rootMargin: '360px 0px',
-  fallbackDelay: 500
-})
-const {
-  shouldMount: shouldMountPreflightPanel,
-  mountNow: mountPreflightPanelNow
-} = useViewportDeferredMount(preflightViewportRef, {
-  rootMargin: '420px 0px',
-  fallbackDelay: 1800
-})
+const { shouldMount: shouldMountJobHistoryPanel, mountNow: mountJobHistoryPanelNow } = useViewportDeferredMount(
+  jobHistoryViewportRef,
+  {
+    rootMargin: '360px 0px',
+    fallbackDelay: 500
+  }
+)
+const { shouldMount: shouldMountPreflightPanel, mountNow: mountPreflightPanelNow } = useViewportDeferredMount(
+  preflightViewportRef,
+  {
+    rootMargin: '420px 0px',
+    fallbackDelay: 1800
+  }
+)
 const {
   commandTemplateName,
   deleteCommandTemplate,
@@ -528,8 +525,6 @@ watch(
     syncSelectedSavedFleetFilterFromRoute()
   }
 )
-
-
 </script>
 
 <template>
@@ -558,12 +553,7 @@ watch(
       <div>
         <strong>{{ $t('custom.commandCenter.recentRunningJobTitle') }}</strong>
         <span>
-          {{
-            $t('custom.commandCenter.recentRunningJobDesc').replace(
-              '{jobId}',
-              recentRunningCommandJobId
-            )
-          }}
+          {{ $t('custom.commandCenter.recentRunningJobDesc').replace('{jobId}', recentRunningCommandJobId) }}
         </span>
       </div>
       <NSpace :size="[8, 8]">
@@ -712,7 +702,7 @@ watch(
           @apply-built-in-command-template="applyBuiltInCommandTemplate"
           @apply-saved-command-template="applySavedCommandTemplate"
           @copy-eligibility-impact-summary="copyCommandJobEligibilityImpactSummary"
-          @copy-saved-command-template="template => copyCommandTemplateExport([template])"
+          @copy-saved-command-template="(template) => copyCommandTemplateExport([template])"
           @copy-saved-command-templates="() => copyCommandTemplateExport(savedCommandTemplates)"
           @delete-saved-command-template="deleteSavedCommandTemplate"
           @import-saved-command-templates="importSavedCommandTemplates"
@@ -721,11 +711,7 @@ watch(
           @save-command-template="saveCurrentCommandTemplate"
           @submit-command-job="submitCommandJob"
         />
-        <CommandJobResultView
-          v-if="submitResult"
-          :job-result="commandJobResult"
-          :job-actions="commandJobActions"
-        />
+        <CommandJobResultView v-if="submitResult" :job-result="commandJobResult" :job-actions="commandJobActions" />
       </section>
     </div>
 
@@ -899,6 +885,5 @@ watch(
     flex-direction: column;
     align-items: flex-start;
   }
-
 }
 </style>

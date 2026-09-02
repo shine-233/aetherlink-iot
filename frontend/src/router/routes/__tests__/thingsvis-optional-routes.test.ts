@@ -13,7 +13,7 @@ beforeAll(async () => {
   vi.resetModules()
   vi.doUnmock('@/router/routes')
   ;({ createRoutes } = await import('../index'))
-}, 15_000)
+}, 45_000)
 
 function flattenRoutes(routes: RouteTree[]): RouteTree[] {
   return routes.flatMap(route => [route, ...flattenRoutes(route.children || [])])

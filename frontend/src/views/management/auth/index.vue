@@ -13,7 +13,7 @@
 <script setup lang="tsx">
 import { h, reactive, ref } from 'vue'
 import type { Ref } from 'vue'
-import { NButton, NPopconfirm, NSpace, NTag } from 'naive-ui'
+import { NButton, NEmpty, NPopconfirm, NSpace, NTag } from 'naive-ui'
 import type { DataTableColumns, PaginationProps } from 'naive-ui'
 import { useBoolean, useLoading } from '@aetherlink/hooks'
 import { routerSysFlagLabels, routerTypeLabels } from '@/constants/business'
@@ -261,7 +261,11 @@ init()
           :loading="loading"
           :pagination="pagination"
           class="flex-1-hidden"
-        />
+        >
+          <template #empty>
+            <NEmpty :description="$t('common.noData')" class="py-24px" />
+          </template>
+        </NDataTable>
         <TableActionModal
           v-model:visible="visible"
           :type="modalType"

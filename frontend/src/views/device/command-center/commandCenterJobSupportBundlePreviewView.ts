@@ -261,12 +261,20 @@ export const buildCommandJobSupportBundlePreview = (
 
   return {
     summaryRows: [
-      { label: t('custom.commandCenter.supportBundleGeneratedAt'), value: formatCommandJobDateTime(bundle.generated_at) },
+      {
+        label: t('custom.commandCenter.supportBundleGeneratedAt'),
+        value: formatCommandJobDateTime(bundle.generated_at)
+      },
       ...(bundle.scheduled_at
         ? [{ label: t('custom.commandCenter.scheduledAt'), value: formatCommandJobDateTime(bundle.scheduled_at) }]
         : []),
       ...(bundle.next_dispatch_at
-        ? [{ label: t('custom.commandCenter.nextDispatchAt'), value: formatCommandJobDateTime(bundle.next_dispatch_at) }]
+        ? [
+            {
+              label: t('custom.commandCenter.nextDispatchAt'),
+              value: formatCommandJobDateTime(bundle.next_dispatch_at)
+            }
+          ]
         : []),
       {
         label: t('custom.commandCenter.supportBundleRetryableDevices'),
@@ -288,7 +296,10 @@ export const buildCommandJobSupportBundlePreview = (
         label: t('custom.commandCenter.supportBundleMissingLogDevices'),
         value: String(bundle.missing_log_device_ids?.length ?? 0)
       },
-      { label: t('custom.commandCenter.supportBundleFailedDevices'), value: String(bundle.failed_devices?.length ?? 0) },
+      {
+        label: t('custom.commandCenter.supportBundleFailedDevices'),
+        value: String(bundle.failed_devices?.length ?? 0)
+      },
       { label: t('custom.commandCenter.supportBundleEvents'), value: String(bundle.events?.length ?? 0) },
       { label: t('custom.commandCenter.supportBundleShareHint'), value: bundle.share_hint || '-' }
     ],

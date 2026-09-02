@@ -25,6 +25,7 @@ func SwitchDeviceTriggerCondition(sceneAutomationId, enabled string, tx *query.Q
 	return err
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDeviceTriggerCondition(sceneAutomationId string) ([]*model.DeviceTriggerCondition, error) {
 	data, err := query.DeviceTriggerCondition.
 		Where(query.DeviceTriggerCondition.SceneAutomationID.Eq(sceneAutomationId)).
@@ -42,6 +43,7 @@ func DeleteDeviceTriggerCondition(sceneAutomationId string, tx *query.QueryTx) e
 	}
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDeviceTriggerConditionByDeviceId(deviceId string, conditionType string) ([]model.DeviceTriggerCondition, error) {
 	var condtionds []model.DeviceTriggerCondition
 	qd := query.DeviceTriggerCondition
@@ -49,6 +51,7 @@ func GetDeviceTriggerConditionByDeviceId(deviceId string, conditionType string) 
 	return condtionds, err
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDeviceTriggerConditionListByDeviceId(deviceId string) ([]model.DeviceTriggerCondition, error) {
 	var condtionds []model.DeviceTriggerCondition
 	qd := query.DeviceTriggerCondition
@@ -56,6 +59,7 @@ func GetDeviceTriggerConditionListByDeviceId(deviceId string) ([]model.DeviceTri
 	return condtionds, err
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDeviceTriggerConditionByGroupIds(groupIds []string) ([]model.DeviceTriggerCondition, error) {
 	var condtionds []model.DeviceTriggerCondition
 	qd := query.DeviceTriggerCondition

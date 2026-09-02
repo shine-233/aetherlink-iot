@@ -28,6 +28,7 @@ func SwitchOneTimeTask(sceneAutomationId, enabled string, tx *query.QueryTx) err
 	return err
 }
 
+// tenant-scope: system-internal?2026-08-26 ?????
 func GetOneTimeTask(sceneAutomationId string) ([]*model.OneTimeTask, error) {
 	data, err := query.OneTimeTask.Where(query.OneTimeTask.SceneAutomationID.Eq(sceneAutomationId)).Find()
 	return data, err
@@ -43,6 +44,7 @@ func DeleteOneTimeTask(sceneAutomationId string, tx *query.QueryTx) error {
 	}
 }
 
+// tenant-scope: system-internal?2026-08-26 ?????
 func GetOnceTaskListWithLock(limit int) ([]*model.OneTimeTask, error) {
 	key := "aetherlink-iot:onceTask"
 	lockToken := common.AcquireLockToken(key, time.Second*5)

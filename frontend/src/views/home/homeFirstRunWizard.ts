@@ -130,7 +130,9 @@ async function resolveHomeFirstRunVoucherType(protocol: HomeFirstRunProtocol, pr
   const preferred = options.find((option) => /access|token|bearer/i.test(getVoucherOptionText(option)))
   const selected = preferred || options[0]
   if (!selected?.value) {
-    throw new Error('HTTP 接入服务没有返回可用凭证类型。请先完善 HTTP 服务/协议插件配置，或先选择 MQTT 生成第一台设备。')
+    throw new Error(
+      'HTTP 接入服务没有返回可用凭证类型。请先完善 HTTP 服务/协议插件配置，或先选择 MQTT 生成第一台设备。'
+    )
   }
   return selected.value
 }

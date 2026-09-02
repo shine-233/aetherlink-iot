@@ -54,7 +54,7 @@ async function handleUpdateNode(action: UserAction, context: StateHandlerContext
   if (action.data && action.data.properties) {
     try {
       const updatedNode = context.store.nodes.find((node) => node.id === action.targetId)
-      if (updatedNode) {
+      if (updatedNode?.properties) {
         await syncNodePropertiesToConfiguration(action.targetId, updatedNode.properties, context)
       }
     } catch (error) {

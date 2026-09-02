@@ -38,7 +38,9 @@ const previewRowsForDisplay = computed(() => previewRowsForImpactFilter.value.sl
 
 const activePreviewImpactFilterLabel = computed(() => {
   if (previewImpactFilter.value === 'all') return ''
-  const group = props.commandJobEligibilityImpactPreview?.groups?.find((item: any) => item.key === previewImpactFilter.value)
+  const group = props.commandJobEligibilityImpactPreview?.groups?.find(
+    (item: any) => item.key === previewImpactFilter.value
+  )
   return group ? $t(group.labelKey) : ''
 })
 
@@ -98,12 +100,7 @@ const formatFilteredFleetPreviewMessage = (t: (key: string) => string, preview: 
             <small>{{ $t(group.descriptionKey) }}</small>
           </div>
           <NSpace :size="[6, 6]" align="center">
-            <NButton
-              size="tiny"
-              secondary
-              :disabled="group.count === 0"
-              @click="previewImpactFilter = group.key"
-            >
+            <NButton size="tiny" secondary :disabled="group.count === 0" @click="previewImpactFilter = group.key">
               {{ $t('custom.commandCenter.impactPreviewShowRows') }}
             </NButton>
             <NTag :type="group.type" size="small">{{ group.count }}</NTag>
@@ -141,11 +138,7 @@ const formatFilteredFleetPreviewMessage = (t: (key: string) => string, preview: 
       {{ previewGovernanceSummaryCard.summary }}
     </NAlert>
     <div class="command-preview-governance__grid">
-      <div
-        v-for="item in previewGovernanceSummaryCard.items"
-        :key="item.key"
-        class="command-preview-governance__item"
-      >
+      <div v-for="item in previewGovernanceSummaryCard.items" :key="item.key" class="command-preview-governance__item">
         <NTag :type="item.type" size="small">
           {{ item.stateLabel }}
         </NTag>
@@ -196,11 +189,7 @@ const formatFilteredFleetPreviewMessage = (t: (key: string) => string, preview: 
     </div>
   </div>
 
-  <NAlert
-    v-if="filteredFleetEligibilityPreview"
-    :type="filteredFleetEligibilityPreview.alertType"
-    :show-icon="false"
-  >
+  <NAlert v-if="filteredFleetEligibilityPreview" :type="filteredFleetEligibilityPreview.alertType" :show-icon="false">
     {{ formatFilteredFleetPreviewMessage($t, filteredFleetEligibilityPreview) }}
   </NAlert>
   <NAlert v-for="warning in activeJobWarnings" :key="warning" type="warning" :show-icon="false">
@@ -229,9 +218,7 @@ const formatFilteredFleetPreviewMessage = (t: (key: string) => string, preview: 
   <NAlert v-if="previewResult && activePreviewImpactFilterLabel" type="info" :show-icon="false">
     <NSpace justify="space-between" align="center">
       <span>
-        {{
-          $t('custom.commandCenter.impactPreviewActiveFilter').replace('{group}', activePreviewImpactFilterLabel)
-        }}
+        {{ $t('custom.commandCenter.impactPreviewActiveFilter').replace('{group}', activePreviewImpactFilterLabel) }}
       </span>
       <NButton size="tiny" secondary @click="previewImpactFilter = 'all'">
         {{ $t('custom.commandCenter.impactPreviewShowAllRows') }}
@@ -261,9 +248,9 @@ const formatFilteredFleetPreviewMessage = (t: (key: string) => string, preview: 
   display: grid;
   gap: 10px;
   padding: 12px;
-  border: 1px solid #c7d2fe;
-  border-radius: 8px;
-  background: #eef2ff;
+  border: 1px solid rgb(var(--info-color) / 0.35);
+  border-radius: var(--radius-md);
+  background: rgb(var(--info-color) / 0.08);
 }
 
 .command-impact-preview__head,
@@ -283,8 +270,8 @@ const formatFilteredFleetPreviewMessage = (t: (key: string) => string, preview: 
 }
 
 .command-impact-preview__head strong {
-  color: #312e81;
-  font-size: 14px;
+  color: rgb(var(--info-900-color));
+  font-size: var(--font-size-base);
 }
 
 .command-impact-preview__head span,
@@ -292,8 +279,8 @@ const formatFilteredFleetPreviewMessage = (t: (key: string) => string, preview: 
 .command-impact-preview__representative span,
 .command-impact-preview__representative small {
   overflow-wrap: anywhere;
-  color: #4338ca;
-  font-size: 12px;
+  color: rgb(var(--info-700-color));
+  font-size: var(--font-size-caption);
   line-height: 1.45;
 }
 
@@ -308,14 +295,14 @@ const formatFilteredFleetPreviewMessage = (t: (key: string) => string, preview: 
   gap: 8px;
   min-width: 0;
   padding: 10px;
-  border: 1px solid #ddd6fe;
-  border-radius: 8px;
-  background: #ffffff;
+  border: 1px solid rgb(var(--info-color) / 0.3);
+  border-radius: var(--radius-md);
+  background: var(--card-color);
 }
 
 .command-impact-preview__group-head span {
-  color: #0f172a;
-  font-size: 13px;
+  color: var(--text-color-1);
+  font-size: var(--font-size-secondary);
   font-weight: 600;
 }
 
@@ -327,22 +314,22 @@ const formatFilteredFleetPreviewMessage = (t: (key: string) => string, preview: 
 .command-impact-preview__representative {
   padding: 8px;
   border-radius: 6px;
-  background: #f8fafc;
+  background: var(--action-color);
 }
 
 .command-impact-preview__representative strong {
   overflow-wrap: anywhere;
-  color: #0f172a;
-  font-size: 12px;
+  color: var(--text-color-1);
+  font-size: var(--font-size-caption);
 }
 
 .command-preview-governance {
   display: grid;
   gap: 10px;
   padding: 12px;
-  border: 1px solid #bbf7d0;
-  border-radius: 8px;
-  background: #f0fdf4;
+  border: 1px solid rgb(var(--success-color) / 0.35);
+  border-radius: var(--radius-md);
+  background: rgb(var(--success-color) / 0.06);
 }
 
 .command-preview-governance__head {
@@ -359,14 +346,14 @@ const formatFilteredFleetPreviewMessage = (t: (key: string) => string, preview: 
 }
 
 .command-preview-governance__head strong {
-  color: #14532d;
-  font-size: 14px;
+  color: rgb(var(--success-900-color));
+  font-size: var(--font-size-base);
 }
 
 .command-preview-governance__head span {
   overflow-wrap: anywhere;
-  color: #166534;
-  font-size: 12px;
+  color: rgb(var(--success-800-color));
+  font-size: var(--font-size-caption);
   line-height: 1.5;
 }
 
@@ -382,9 +369,9 @@ const formatFilteredFleetPreviewMessage = (t: (key: string) => string, preview: 
   gap: 8px;
   min-width: 0;
   padding: 10px;
-  border: 1px solid #dcfce7;
-  border-radius: 8px;
-  background: #ffffff;
+  border: 1px solid rgb(var(--success-color) / 0.12);
+  border-radius: var(--radius-md);
+  background: var(--card-color);
 }
 
 .command-preview-governance__item > div {
@@ -400,14 +387,14 @@ const formatFilteredFleetPreviewMessage = (t: (key: string) => string, preview: 
 }
 
 .command-preview-governance__item strong {
-  color: #0f172a;
-  font-size: 12px;
+  color: var(--text-color-1);
+  font-size: var(--font-size-caption);
 }
 
 .command-preview-governance__item span,
 .command-preview-governance__item small {
-  color: #475569;
-  font-size: 12px;
+  color: var(--text-color-2);
+  font-size: var(--font-size-caption);
   line-height: 1.5;
 }
 
@@ -415,9 +402,9 @@ const formatFilteredFleetPreviewMessage = (t: (key: string) => string, preview: 
   display: grid;
   gap: 10px;
   padding: 12px;
-  border: 1px solid #bae6fd;
-  border-radius: 8px;
-  background: #f0f9ff;
+  border: 1px solid rgb(var(--info-color) / 0.35);
+  border-radius: var(--radius-md);
+  background: rgb(var(--info-color) / 0.06);
 }
 
 .command-preview-plan__head {
@@ -437,16 +424,16 @@ const formatFilteredFleetPreviewMessage = (t: (key: string) => string, preview: 
 
 .command-preview-plan__head strong,
 .command-preview-plan__blockers strong {
-  color: #0c4a6e;
-  font-size: 14px;
+  color: rgb(var(--info-900-color));
+  font-size: var(--font-size-base);
 }
 
 .command-preview-plan__head span,
 .command-preview-plan__blocker span,
 .command-preview-plan__blocker small {
   overflow-wrap: anywhere;
-  color: #075985;
-  font-size: 12px;
+  color: rgb(var(--info-800-color));
+  font-size: var(--font-size-caption);
   line-height: 1.45;
 }
 
@@ -461,18 +448,18 @@ const formatFilteredFleetPreviewMessage = (t: (key: string) => string, preview: 
   gap: 4px;
   min-width: 0;
   padding: 10px;
-  border: 1px solid #e0f2fe;
-  border-radius: 8px;
-  background: #ffffff;
+  border: 1px solid rgb(var(--info-color) / 0.15);
+  border-radius: var(--radius-md);
+  background: var(--card-color);
 }
 
 .command-preview-plan__card span {
-  color: #64748b;
-  font-size: 12px;
+  color: var(--text-color-3);
+  font-size: var(--font-size-caption);
 }
 
 .command-preview-plan__card strong {
-  color: #0f172a;
+  color: var(--text-color-1);
   font-size: 18px;
 }
 
@@ -482,9 +469,9 @@ const formatFilteredFleetPreviewMessage = (t: (key: string) => string, preview: 
   align-items: flex-start;
   gap: 8px;
   padding: 8px;
-  border: 1px solid #fde68a;
-  border-radius: 8px;
-  background: #fffbeb;
+  border: 1px solid rgb(var(--warning-color) / 0.35);
+  border-radius: var(--radius-md);
+  background: rgb(var(--warning-color) / 0.06);
 }
 
 @media (max-width: 900px) {

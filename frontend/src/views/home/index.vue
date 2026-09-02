@@ -32,12 +32,8 @@ const authStore = useAuthStore()
 const route = useRoute()
 const isSysAdmin = computed(() => isSysAdminUser(authStore.userInfo))
 
-const {
-  isFirstDeviceOnboardingRoute,
-  nativeHomeTenantId,
-  hasHomeFirstRunTenantContext,
-  hasNativeHomeTenantContext
-} = resolveHomeTenantRouteContext({ route, userInfo: () => authStore.userInfo })
+const { isFirstDeviceOnboardingRoute, nativeHomeTenantId, hasHomeFirstRunTenantContext, hasNativeHomeTenantContext } =
+  resolveHomeTenantRouteContext({ route, userInfo: () => authStore.userInfo })
 
 const { refreshTenantSetupGuideState, homeSetupReady, homeSetupGuideStep } = useHomeTenantSetupGuide({
   hasFirstRunTenantContext: hasHomeFirstRunTenantContext
@@ -253,7 +249,10 @@ watch(shouldShowHomeSecondarySections, (shouldShow) => {
     </div>
   </div>
 
-  <div v-else-if="isError && !useThingsVis && isSysAdmin && !isFirstDeviceOnboardingRoute" class="h-full w-full flex-center">
+  <div
+    v-else-if="isError && !useThingsVis && isSysAdmin && !isFirstDeviceOnboardingRoute"
+    class="h-full w-full flex-center"
+  >
     <n-result status="418" :title="$t('custom.home.title')" :description="$t('custom.home.description')">
       <template #footer>
         <n-button
@@ -279,11 +278,7 @@ watch(shouldShowHomeSecondarySections, (shouldShow) => {
   </div>
 
   <div v-else-if="showSysAdminSetup && !isFirstDeviceOnboardingRoute" class="h-full w-full flex-center">
-    <n-result
-      status="info"
-      :title="sysAdminSetupTitle"
-      :description="sysAdminSetupDescription"
-    >
+    <n-result status="info" :title="sysAdminSetupTitle" :description="sysAdminSetupDescription">
       <template #footer>
         <div class="flex items-center gap-3">
           <n-button
@@ -362,7 +357,7 @@ watch(shouldShowHomeSecondarySections, (shouldShow) => {
       :is-error="isError"
       :use-things-vis="useThingsVis"
       :things-vis-home="thingsVisHome"
-      :things-vis-section-ref="(homeThingsVisSectionRef as any)"
+      :things-vis-section-ref="homeThingsVisSectionRef as any"
       :should-mount-home-things-vis-frame="shouldMountHomeThingsVisFrame"
       :show-compat-home-notice="showCompatHomeNotice"
       :compat-home-config-count="compatHomeConfigCount"

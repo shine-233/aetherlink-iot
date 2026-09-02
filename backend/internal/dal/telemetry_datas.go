@@ -59,6 +59,7 @@ func applyTelemetryPagination(queryBuilder query.ITelemetryDataDo, page, pageSiz
 	return queryBuilder
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetCurrentTelemetrData(deviceId string) ([]model.TelemetryData, error) {
 	var re []model.TelemetryData
 	sql := `
@@ -80,6 +81,7 @@ func GetCurrentTelemetrData(deviceId string) ([]model.TelemetryData, error) {
 	return re, nil
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetCurrentTelemetrDetailData(deviceId string) (*model.TelemetryData, error) {
 	if usesTelemetryQueryClient() {
 		var data []model.TelemetryData
@@ -113,6 +115,7 @@ func GetCurrentTelemetrDetailData(deviceId string) (*model.TelemetryData, error)
 	return re, nil
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetHistoryTelemetrData(deviceId, key string, startTime, endTime int64) ([]*model.TelemetryData, error) {
 	if usesTelemetryQueryClient() {
 		data := make([]*model.TelemetryData, 0)
@@ -142,6 +145,7 @@ func GetHistoryTelemetrData(deviceId, key string, startTime, endTime int64) ([]*
 	return data, nil
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetHistoryTelemetrDataByPage(p *model.GetTelemetryHistoryDataByPageReq) (int64, []*model.TelemetryData, error) {
 	if usesTelemetryQueryClient() {
 		data := make([]*model.TelemetryData, 0)
@@ -187,6 +191,7 @@ func GetHistoryTelemetrDataByPage(p *model.GetTelemetryHistoryDataByPageReq) (in
 	return count, list, nil
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetHistoryTelemetrDataByExport(p *model.GetTelemetryHistoryDataByPageReq, offset, batchSize int) ([]*model.TelemetryData, error) {
 	q := query.TelemetryData
 	queryBuilder := telemetryHistoryPageQuery(p)
@@ -199,6 +204,7 @@ func GetHistoryTelemetrDataByExport(p *model.GetTelemetryHistoryDataByPageReq, o
 	return list, nil
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetHistoryTelemetrDataByExportBefore(p *model.GetTelemetryHistoryDataByPageReq, beforeTime *int64, batchSize int) ([]*model.TelemetryData, error) {
 	q := query.TelemetryData
 	queryBuilder := telemetryHistoryPageQuery(p)
@@ -330,10 +336,12 @@ func deleteTelemetryDataBatch(cutoff int64, batchSize int) (int64, error) {
 	return result.RowsAffected, result.Error
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetTelemetrStatisticData(deviceID, key string, startTime, endTime int64) ([]map[string]interface{}, error) {
 	return GetTelemetrStatisticDataWithLimit(deviceID, key, startTime, endTime, 0)
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetTelemetrStatisticDataWithLimit(deviceID, key string, startTime, endTime int64, limit int) ([]map[string]interface{}, error) {
 	if usesTelemetryQueryClient() {
 		var fields []map[string]interface{}
@@ -371,6 +379,7 @@ func GetTelemetrStatisticDataWithLimit(deviceID, key string, startTime, endTime 
 	return data, nil
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetTelemetrStatisticaAgregationData(deviceId, key string, sTime, eTime, aggregateWindow int64, aggregateFunc string) ([]map[string]interface{}, error) {
 	var data []map[string]interface{}
 	if usesTelemetryQueryClient() {

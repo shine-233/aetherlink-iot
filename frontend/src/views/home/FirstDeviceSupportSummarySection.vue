@@ -63,7 +63,7 @@ defineExpose({
       </div>
     </div>
 
-    <n-modal aria-label="dialog" v-model:show="previewVisible" preset="card" class="first-device-support-modal">
+    <n-modal v-model:show="previewVisible" aria-label="dialog" preset="card" class="first-device-support-modal">
       <template #header>{{ $t('custom.commandCenter.supportBundlePreviewTitle') }}</template>
       <div class="first-device-support-modal-body">
         <n-alert type="info" :show-icon="false">

@@ -311,7 +311,11 @@ export function useHomeFirstDeviceWorkbench(options: UseHomeFirstDeviceWorkbench
       }
       browserTest.value = buildFirstDeviceBrowserTestState({
         status: 'sent',
-        message: $t('custom.home.browserTest.confirmProgress', { sentMessage, attempt, total: BROWSER_TEST_CONFIRM_ATTEMPTS }),
+        message: $t('custom.home.browserTest.confirmProgress', {
+          sentMessage,
+          attempt,
+          total: BROWSER_TEST_CONFIRM_ATTEMPTS
+        }),
         sentAt
       })
       testResult.value = browserTest.value.message

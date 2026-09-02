@@ -84,7 +84,10 @@ const visibleQuickstartSteps = computed(() =>
 )
 const hiddenCommandCount = computed(() => Math.max(props.accessGuide.commands.length - visibleCommands.value.length, 0))
 const hiddenCommandCountText = computed(() =>
-  String($t('custom.device_details.accessGuideHiddenTestCodeCount')).replace('{count}', String(hiddenCommandCount.value))
+  String($t('custom.device_details.accessGuideHiddenTestCodeCount')).replace(
+    '{count}',
+    String(hiddenCommandCount.value)
+  )
 )
 const supportSummaryPreview = ref('')
 const supportSummaryPreviewVisible = ref(false)
@@ -182,7 +185,9 @@ const downloadAccessPacket = () => {
             size="small"
             secondary
             :loading="firstBlockerCard.secondaryActionKind === 'refresh' ? debugLoading : debugActionLoading"
-            @click="firstBlockerCard.secondaryActionKind === 'refresh' ? emit('refreshDebugEvidence') : emit('enableDebug')"
+            @click="
+              firstBlockerCard.secondaryActionKind === 'refresh' ? emit('refreshDebugEvidence') : emit('enableDebug')
+            "
           >
             {{ firstBlockerCard.secondaryAction }}
           </NButton>
@@ -524,28 +529,28 @@ const downloadAccessPacket = () => {
   align-items: center;
   margin-bottom: 18px;
   padding: 16px;
-  border: 1px solid #dbeafe;
+  border: 1px solid var(--border-color);
   border-left-width: 5px;
   border-radius: 14px;
-  background: linear-gradient(135deg, #f8fbff 0%, #ffffff 100%);
+  background: linear-gradient(135deg, rgb(var(--info-color) / 0.05) 0%, var(--card-color) 100%);
 }
 
 .access-guide-blocker-card strong {
   display: block;
-  color: #111827;
+  color: var(--text-color-1);
   font-size: 18px;
   overflow-wrap: anywhere;
 }
 
 .access-guide-blocker-card p {
   margin: 8px 0 0;
-  color: #475569;
+  color: var(--text-color-2);
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
 
 .access-guide-blocker-card p span {
-  color: #334155;
+  color: var(--text-color-2);
   font-weight: 700;
 }
 
@@ -557,19 +562,19 @@ const downloadAccessPacket = () => {
 }
 
 .access-guide-blocker-card--success {
-  border-left-color: #18a058;
+  border-left-color: rgb(var(--success-color));
 }
 
 .access-guide-blocker-card--warning {
-  border-left-color: #f0a020;
+  border-left-color: rgb(var(--warning-color));
 }
 
 .access-guide-blocker-card--danger {
-  border-left-color: #d03050;
+  border-left-color: rgb(var(--error-color));
 }
 
 .access-guide-blocker-card--neutral {
-  border-left-color: #6b7280;
+  border-left-color: var(--text-color-3);
 }
 
 .access-guide-grid {
@@ -582,16 +587,16 @@ const downloadAccessPacket = () => {
 .access-guide-metric {
   min-width: 0;
   padding: 10px 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
   border-radius: 6px;
-  background: #fafafa;
+  background: var(--action-color);
 }
 
 .access-guide-label {
   display: block;
   margin-bottom: 6px;
-  color: #666;
-  font-size: 12px;
+  color: var(--text-color-3);
+  font-size: var(--font-size-caption);
 }
 
 .access-guide-copy {
@@ -600,7 +605,7 @@ const downloadAccessPacket = () => {
   padding: 0;
   border: none;
   background: transparent;
-  color: #2563eb;
+  color: rgb(var(--info-color));
   cursor: pointer;
   font: inherit;
   font-weight: 600;
@@ -633,10 +638,10 @@ const downloadAccessPacket = () => {
   gap: 14px;
   margin-bottom: 12px;
   padding: 14px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
   border-left-width: 4px;
   border-radius: 10px;
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  background: linear-gradient(135deg, var(--card-color) 0%, var(--action-color) 100%);
 }
 
 .access-guide-diagnostic-hero strong {
@@ -645,7 +650,7 @@ const downloadAccessPacket = () => {
 
 .access-guide-diagnostic-hero p {
   margin: 8px 0 0;
-  color: #475569;
+  color: var(--text-color-2);
   line-height: 1.5;
 }
 
@@ -660,39 +665,39 @@ const downloadAccessPacket = () => {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  color: #555;
-  font-size: 12px;
+  color: var(--text-color-3);
+  font-size: var(--font-size-caption);
 }
 
 .access-guide-diagnostic-hero-side strong {
   display: block;
   margin-top: 2px;
-  color: #111827;
+  color: var(--text-color-1);
 }
 
 .access-guide-diagnostic-hero--success {
-  border-left-color: #18a058;
+  border-left-color: rgb(var(--success-color));
 }
 
 .access-guide-diagnostic-hero--warning {
-  border-left-color: #f0a020;
+  border-left-color: rgb(var(--warning-color));
 }
 
 .access-guide-diagnostic-hero--danger {
-  border-left-color: #d03050;
+  border-left-color: rgb(var(--error-color));
 }
 
 .access-guide-diagnostic-hero--neutral {
-  border-left-color: #6b7280;
+  border-left-color: var(--text-color-3);
 }
 
 .access-guide-diagnostic {
   min-width: 0;
   padding: 10px 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
   border-left-width: 3px;
   border-radius: 6px;
-  background: #fff;
+  background: var(--card-color);
 }
 
 .access-guide-diagnostic strong {
@@ -701,27 +706,27 @@ const downloadAccessPacket = () => {
 }
 
 .access-guide-diagnostic--success {
-  border-left-color: #18a058;
+  border-left-color: rgb(var(--success-color));
 }
 
 .access-guide-diagnostic--warning {
-  border-left-color: #f0a020;
+  border-left-color: rgb(var(--warning-color));
 }
 
 .access-guide-diagnostic--danger {
-  border-left-color: #d03050;
+  border-left-color: rgb(var(--error-color));
 }
 
 .access-guide-diagnostic--neutral {
-  border-left-color: #6b7280;
+  border-left-color: var(--text-color-3);
 }
 
 .access-guide-debug-section {
   margin-bottom: 18px;
   padding: 12px;
-  border: 1px solid #dbeafe;
-  border-radius: 8px;
-  background: #f8fbff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: rgb(var(--info-color) / 0.05);
 }
 
 .access-guide-debug-header {
@@ -733,8 +738,8 @@ const downloadAccessPacket = () => {
 }
 
 .access-guide-debug-subtitle {
-  color: #555;
-  font-size: 12px;
+  color: var(--text-color-3);
+  font-size: var(--font-size-caption);
 }
 
 .access-guide-debug-actions,
@@ -752,8 +757,8 @@ const downloadAccessPacket = () => {
 .access-guide-debug-status {
   flex-wrap: wrap;
   margin-bottom: 10px;
-  color: #555;
-  font-size: 12px;
+  color: var(--text-color-3);
+  font-size: var(--font-size-caption);
 }
 
 .access-guide-debug-logs {
@@ -765,23 +770,23 @@ const downloadAccessPacket = () => {
   flex-direction: column;
   gap: 3px;
   padding: 8px 10px;
-  border: 1px solid #e5e7eb;
-  border-left: 3px solid #2563eb;
+  border: 1px solid var(--border-color);
+  border-left: 3px solid rgb(var(--info-color));
   border-radius: 6px;
-  background: #fff;
-  font-size: 12px;
+  background: var(--card-color);
+  font-size: var(--font-size-caption);
 }
 
 .access-guide-debug-log span {
-  color: #555;
+  color: var(--text-color-3);
   overflow-wrap: anywhere;
 }
 
 .access-guide-check {
   min-width: 0;
   padding: 10px 12px;
-  border-left: 3px solid #18a058;
-  background: #f6fffa;
+  border-left: 3px solid rgb(var(--success-color));
+  background: rgb(var(--success-color) / 0.08);
 }
 
 .access-guide-check strong,
@@ -791,8 +796,8 @@ const downloadAccessPacket = () => {
 
 .access-guide-check span {
   margin-top: 4px;
-  color: #555;
-  font-size: 12px;
+  color: var(--text-color-3);
+  font-size: var(--font-size-caption);
 }
 
 .access-guide-scroll {
@@ -812,8 +817,8 @@ const downloadAccessPacket = () => {
 .access-guide-support-preview-scroll {
   max-height: 440px;
   padding: 10px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
   background: #0f172a;
 }
 
@@ -841,8 +846,8 @@ const downloadAccessPacket = () => {
 }
 
 .access-guide-section-subtitle {
-  color: #555;
-  font-size: 12px;
+  color: var(--text-color-3);
+  font-size: var(--font-size-caption);
   line-height: 1.4;
 }
 
@@ -877,9 +882,9 @@ const downloadAccessPacket = () => {
   justify-content: space-between;
   gap: 12px;
   padding: 10px 12px;
-  border: 1px dashed #d4dde8;
+  border: 1px dashed var(--border-color);
   border-radius: 10px;
-  color: #667085;
+  color: var(--text-color-3);
 }
 
 @media (max-width: 720px) {

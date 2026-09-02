@@ -53,7 +53,7 @@ export function useCommandCenterRouteDraftSync(options: UseCommandCenterRouteDra
     options.resetCommandJobDraft()
   }
 
-  watch(options.commandIdentify, identify => {
+  watch(options.commandIdentify, (identify) => {
     if (reusedCommandJobDraft.value && identify !== reusedCommandJobDraft.value.identify) {
       clearReusedCommandJobDraft()
     }

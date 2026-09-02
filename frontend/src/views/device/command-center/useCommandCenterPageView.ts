@@ -124,8 +124,7 @@ export function useCommandCenterPageView(input: UseCommandCenterPageViewInput) {
   const canPreviewCommandJobNow = computed(() => commandJobReadiness.value.canPreview)
   const canSubmitCommandJobNow = computed(() => commandJobReadiness.value.canSubmit)
   const showPreviewRecoveryAction = computed(
-    () =>
-      Boolean(commandSubmitDisabledHint.value) && !canSubmitCommandJobNow.value && canPreviewCommandJobNow.value
+    () => Boolean(commandSubmitDisabledHint.value) && !canSubmitCommandJobNow.value && canPreviewCommandJobNow.value
   )
   const commandJobReadinessTagType = computed(() => {
     if (commandJobReadiness.value.customerRiskLevel === 'ready') return 'success'
@@ -188,8 +187,8 @@ export function useCommandCenterPageView(input: UseCommandCenterPageViewInput) {
   )
   const previewColumns = computed(() =>
     createCommandJobPreviewColumns({
-      formatRecommendedPath: path => formatCommandCenterRecommendedPath(path, input.t),
-      formatTelemetryEvidence: row => formatCommandCenterTelemetryEvidence(row, input.t),
+      formatRecommendedPath: (path) => formatCommandCenterRecommendedPath(path, input.t),
+      formatTelemetryEvidence: (row) => formatCommandCenterTelemetryEvidence(row, input.t),
       t: input.t
     })
   )

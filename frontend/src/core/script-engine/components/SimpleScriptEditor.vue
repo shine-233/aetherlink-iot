@@ -6,6 +6,7 @@
 -->
 <script setup lang="ts">
 import { computed, defineAsyncComponent, defineComponent, h, onMounted, shallowRef } from 'vue'
+import type { LanguageSupport } from '@codemirror/language'
 import { useThemeStore } from '@/store/modules/theme'
 import { useI18n } from 'vue-i18n'
 
@@ -67,7 +68,7 @@ const CodeMirror = defineAsyncComponent({
   errorComponent: PlainTextEditor,
   delay: 0
 })
-const editorLanguage = shallowRef<unknown>()
+const editorLanguage = shallowRef<LanguageSupport | undefined>()
 
 onMounted(async () => {
   try {

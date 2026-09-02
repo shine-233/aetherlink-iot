@@ -80,6 +80,13 @@ export function createBaseDeviceTabs(): DeviceDetailTabComponent[] {
       refreshKey: 0
     },
     {
+      key: 'device-3d',
+      name: () => $t('custom.device_details.preview3d'),
+      component: createAsyncDeviceTab(() => import('@/views/device/details/modules/device-3d.vue')),
+      refreshKey: 0,
+      sharedReadOnlySafe: true
+    },
+    {
       key: 'rdi',
       name: () => 'RDI',
       component: createAsyncDeviceTab(() => import('@/views/device/details/modules/RdiDeviceOperationsView.vue')),
@@ -131,6 +138,12 @@ export function createBaseDeviceTabs(): DeviceDetailTabComponent[] {
       key: 'device-shadow',
       name: () => $t('custom.device_details.shadowQueue'),
       component: createAsyncDeviceTab(() => import('@/views/device/details/modules/device-shadow.vue')),
+      refreshKey: 0
+    },
+    {
+      key: 'device-modbus',
+      name: () => $t('custom.device_details.modbusProfile'),
+      component: createAsyncDeviceTab(() => import('@/views/device/details/modules/device-modbus.vue')),
       refreshKey: 0
     },
     {

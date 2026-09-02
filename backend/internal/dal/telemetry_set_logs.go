@@ -16,6 +16,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetTelemetrySetLogsListByPage(req *model.GetTelemetrySetLogsListByPageReq) (int64, []map[string]interface{}, error) {
 
 	var count int64
@@ -41,9 +42,7 @@ func GetTelemetrySetLogsListByPage(req *model.GetTelemetrySetLogsListByPageReq) 
 	listBuilder := base.Session(&gorm.Session{}).
 		Select("telemetry_set_logs.*, users.name AS username").
 		Order("telemetry_set_logs.created_at DESC")
-	if req.Page != 0 && req.PageSize != 0 {
-		listBuilder = listBuilder.Limit(req.PageSize).Offset((req.Page - 1) * req.PageSize)
-	}
+	listBuilder = applyListPagination(listBuilder, req.Page, req.PageSize)
 	list := make([]map[string]interface{}, 0)
 	if err := listBuilder.Scan(&list).Error; err != nil {
 		logrus.Error(err)
@@ -74,6 +73,7 @@ func DeleteTelemetrySetLogsByDeviceId(deviceId string, tx *query.QueryTx) error 
 }
 
 // GetTelemetrySetLogByID 根据日志ID查询遥测下发日志
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetTelemetrySetLogByID(logID string) (*model.TelemetrySetLog, error) {
 	q := query.TelemetrySetLog
 	log, err := q.WithContext(context.Background()).

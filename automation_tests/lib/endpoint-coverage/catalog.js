@@ -44,6 +44,12 @@ const ALL_ENDPOINTS = [
   { method: 'POST', path: '/api/v1/device/gateway-sub-register',            module: 'device',    auth: false },
   { method: 'POST', path: '/api/v1/device/auth',                            module: 'device',    auth: false },
   { method: 'GET',  path: '/api/v1/devices/:device_id/diagnostics',         module: 'device',    auth: false },
+  { method: 'GET',  path: '/api/v1/calculated_fields',                      module: 'device',    auth: true },
+  { method: 'POST', path: '/api/v1/calculated_fields',                      module: 'device',    auth: true },
+  { method: 'PUT',  path: '/api/v1/calculated_fields/:id',                  module: 'device',    auth: true },
+  { method: 'DELETE', path: '/api/v1/calculated_fields/:id',                module: 'device',    auth: true },
+  { method: 'PUT',  path: '/api/v1/calculated_fields/:id/toggle',           module: 'device',    auth: true },
+  { method: 'GET',  path: '/api/v1/calculated_fields/:id',                  module: 'device',    auth: true },
 
   // === SSE（sse.go） ===
   { method: 'GET',  path: '/api/v1/events',                                 module: 'system',    auth: true },
@@ -127,6 +133,12 @@ const ALL_ENDPOINTS = [
   { method: 'POST',   path: '/api/v1/device/shadow/:deviceId',             module: 'device',    auth: true },
   { method: 'GET',    path: '/api/v1/device/shadow/:deviceId',             module: 'device',    auth: true },
   { method: 'DELETE', path: '/api/v1/device/shadow/:deviceId/:msgId',      module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device/modbus/profile/:deviceId',      module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device/modbus/profile/number/:deviceNumber', module: 'device', auth: true },
+  { method: 'PUT',    path: '/api/v1/device/modbus/profile/:deviceId',      module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device/preRegister',                   module: 'device',    auth: true },
+  { method: 'POST',   path: '/api/v1/device/preRegister',                   module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device/preRegister/export',            module: 'device',    auth: true },
   { method: 'POST',   path: '/api/v1/ai/telemetry/query',                  module: 'device',    auth: true },
   { method: 'GET',    path: '/api/v1/device/check/:deviceNumber',          module: 'device',    auth: true },
   { method: 'GET',    path: '/api/v1/device/tenant/list',                  module: 'device',    auth: true },
@@ -407,6 +419,22 @@ const ALL_ENDPOINTS = [
   { method: 'GET',    path: '/api/v1/scene_automations/detail/:id',        module: 'automation', auth: true },
   { method: 'GET',    path: '/api/v1/scene_automations/log',               module: 'automation', auth: true },
   { method: 'GET',    path: '/api/v1/scene_automations/alarm',             module: 'automation', auth: true },
+
+  // === 规则链（rule_chain.go，ROADMAP B2） ===
+  { method: 'POST',   path: '/api/v1/rule-chains',                         module: 'automation', auth: true },
+  { method: 'PUT',    path: '/api/v1/rule-chains',                         module: 'automation', auth: true },
+  { method: 'GET',    path: '/api/v1/rule-chains/list',                    module: 'automation', auth: true },
+  { method: 'GET',    path: '/api/v1/rule-chains/:id',                     module: 'automation', auth: true },
+  { method: 'DELETE', path: '/api/v1/rule-chains/:id',                     module: 'automation', auth: true },
+
+  // === 产品选择（product.go，预注册建档数据源） ===
+  { method: 'GET',    path: '/api/v1/product',                             module: 'product',   auth: true },
+
+  // === 实体版本控制（entity_version.go，ROADMAP C7） ===
+  { method: 'GET',    path: '/api/v1/entity_versions',                     module: 'versioning', auth: true },
+  { method: 'POST',   path: '/api/v1/entity_versions',                     module: 'versioning', auth: true },
+  { method: 'GET',    path: '/api/v1/entity_versions/:id',                 module: 'versioning', auth: true },
+  { method: 'POST',   path: '/api/v1/entity_versions/:id/restore',         module: 'versioning', auth: true },
 
   // === 系统功能（sys_function.go） ===
   { method: 'PUT',    path: '/api/v1/sys_function/:id',                    module: 'system',    auth: true },

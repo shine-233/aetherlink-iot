@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"aetherlink-iot/backend/internal/middleware"
 	"aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/pkg/global"
 	"aetherlink-iot/backend/pkg/utils"
@@ -17,6 +18,18 @@ import (
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )
+
+// 回归锚点：WS 上的 OpenAPI Key claims 必须与 HTTP 侧同口径（middleware.OpenAPIKeyAuthority，
+// 默认最小权限 TENANT_USER），不得再硬编码 TENANT_ADMIN。
+func TestTelemetryAPIKeyClaimsUseSharedLeastPrivilegeAuthority(t *testing.T) {
+	claims := telemetryAPIKeyClaims(middleware.OpenAPIKeyAuthority(), "ws-tenant", "ws-user")
+	if claims.Authority != "TENANT_USER" {
+		t.Fatalf("default WS API key authority = %q, want least-privilege TENANT_USER", claims.Authority)
+	}
+	if claims.TenantID != "ws-tenant" || claims.ID != "ws-user" {
+		t.Fatalf("unexpected claims identity: tenant=%q id=%q", claims.TenantID, claims.ID)
+	}
+}
 
 func TestCheckTelemetryJWTUserStatusRejectsDisabledOrMissingUsers(t *testing.T) {
 	db := setupTelemetryWSUserStatusDB(t)

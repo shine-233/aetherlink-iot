@@ -49,7 +49,7 @@ func (*Device) GetDeviceOnlineStatus(deviceID string, claims *utils.UserClaims) 
 	if claims == nil {
 		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query device online status")
 	}
-	deviceInfo, err := dal.GetDeviceByID(deviceID)
+	deviceInfo, err := dal.GetDeviceByIDUnscoped(deviceID)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"error": "get device info failed:" + err.Error(),
@@ -70,7 +70,7 @@ func (*Device) GetDeviceOnlineStatuses(deviceIDs []string, claims *utils.UserCla
 		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query device online status")
 	}
 
-	devices, err := dal.GetDevicesByIDs(deviceIDs)
+	devices, err := dal.GetDevicesByIDsUnscoped(deviceIDs)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"error": "get device info failed:" + err.Error(),

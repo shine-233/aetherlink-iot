@@ -22,6 +22,7 @@ func UpdateLogo(logoID string, logomap map[string]interface{}) error {
 	return err
 }
 
+// tenant-scope: no-tenant-column?2026-08-26 ?????
 func GetLogoList() (int64, interface{}, error) {
 	q := query.Logo
 	var count int64

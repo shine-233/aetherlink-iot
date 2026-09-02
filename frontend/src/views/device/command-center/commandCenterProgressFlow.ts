@@ -45,9 +45,7 @@ export const buildCommandJobProgressSteps = (input: CommandJobProgressFlowInput)
       index: '01',
       state: stateFor(scopeReady, !scopeReady),
       titleKey: 'custom.commandCenter.progressScopeTitle',
-      descKey: scopeReady
-        ? 'custom.commandCenter.progressScopeReadyDesc'
-        : 'custom.commandCenter.progressScopeTodoDesc'
+      descKey: scopeReady ? 'custom.commandCenter.progressScopeReadyDesc' : 'custom.commandCenter.progressScopeTodoDesc'
     }),
     stepWithStatus({
       key: 'preview',

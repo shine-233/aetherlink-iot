@@ -1,6 +1,6 @@
 <script setup lang="tsx">
 import { computed, reactive, ref } from 'vue'
-import { NButton, NPopconfirm, NSpace, NTag, NText } from 'naive-ui'
+import { NButton, NEmpty, NPopconfirm, NSpace, NTag, NText } from 'naive-ui'
 import type { DataTableColumns, PaginationProps } from 'naive-ui'
 import dayjs from 'dayjs'
 import {
@@ -334,6 +334,10 @@ getTableData()
       :scroll-x="1500"
       flex-height
       min-height="360px"
-    />
+    >
+      <template #empty>
+        <NEmpty :description="$t('common.noData')" class="py-24px" />
+      </template>
+    </NDataTable>
   </div>
 </template>

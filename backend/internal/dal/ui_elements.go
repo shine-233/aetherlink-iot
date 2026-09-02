@@ -52,10 +52,7 @@ func ServeUiElementsListByPage(uielements *model.ServeUiElementsListByPageReq) (
 		logrus.Error(err)
 		return count, nil, err
 	}
-	if uielements.Page != 0 && uielements.PageSize != 0 {
-		queryBuilder = queryBuilder.Limit(uielements.PageSize)
-		queryBuilder = queryBuilder.Offset((uielements.Page - 1) * uielements.PageSize)
-	}
+	queryBuilder = applyListPagination(queryBuilder, uielements.Page, uielements.PageSize)
 
 	uielementsList, err := queryBuilder.Select().Order(q.Order_).Find()
 	if err != nil {
@@ -180,6 +177,7 @@ func buildUiElementTree1(elements []*model.SysUIElement) []*model.UiElementsList
 }
 
 // 获取租户下权限配置表单树
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetTenantUiElementsList() (interface{}, error) {
 	q := query.SysUIElement
 	queryBuilder := q.WithContext(context.Background())

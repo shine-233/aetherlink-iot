@@ -49,8 +49,8 @@ export const useCommandCenterTemplateActions = ({
   clearReusedCommandJobDraft,
   t,
   copyText = writeClipboardText,
-  notifySuccess = message => window.$message?.success(message),
-  notifyWarning = message => window.$message?.warning(message)
+  notifySuccess = (message) => window.$message?.success(message),
+  notifyWarning = (message) => window.$message?.warning(message)
 }: UseCommandCenterTemplateActionsOptions) => {
   const saveCurrentCommandTemplate = () => {
     const saved = saveCommandTemplate({
@@ -99,7 +99,9 @@ export const useCommandCenterTemplateActions = ({
     try {
       const result = importCommandTemplates(raw)
       if (result.imported > 0) {
-        notifySuccess(t('custom.commandCenter.importCommandTemplatesSuccess').replace('{count}', String(result.imported)))
+        notifySuccess(
+          t('custom.commandCenter.importCommandTemplatesSuccess').replace('{count}', String(result.imported))
+        )
         return
       }
     } catch {

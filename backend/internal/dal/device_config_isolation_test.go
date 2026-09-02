@@ -83,7 +83,7 @@ func TestDeviceConfigChainsStartFromIsolatedStatements(t *testing.T) {
 		db.Exec(`DELETE FROM device_configs WHERE id = ?`, target.ID)
 	})
 
-	if err := DeleteDeviceConfig(target.ID); err != nil {
+	if err := DeleteDeviceConfigForTenant(target.ID, target.TenantID); err != nil {
 		t.Fatalf("delete existing row failed: %v", err)
 	}
 
@@ -98,7 +98,7 @@ func TestDeviceConfigChainsStartFromIsolatedStatements(t *testing.T) {
 		t.Fatalf("expected exactly one qualified id condition, got %d: %s", n, deleteSQL)
 	}
 
-	err = DeleteDeviceConfig(target.ID)
+	err = DeleteDeviceConfigForTenant(target.ID, target.TenantID)
 	if err == nil {
 		t.Fatalf("deleting missing row must return an explicit no-rows-affected error")
 	}

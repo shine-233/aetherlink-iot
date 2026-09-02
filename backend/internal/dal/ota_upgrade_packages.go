@@ -38,6 +38,7 @@ func DeleteOtaUpgradePackage(packageId string) error {
 	return nil
 }
 
+// tenant-scope: no-tenant-column?2026-08-26 ?????
 func GetOtaUpgradePackageByID(id string) (*model.OtaUpgradePackage, error) {
 	ota, err := query.OtaUpgradePackage.Where(query.OtaUpgradePackage.ID.Eq(id)).First()
 	if err != nil {
@@ -70,10 +71,7 @@ func GetOtaUpgradePackageListByPage(p *model.GetOTAUpgradePackageLisyByPageReq, 
 		return count, packageList, err
 	}
 
-	if p.Page != 0 && p.PageSize != 0 {
-		queryBuilder = queryBuilder.Limit(p.PageSize)
-		queryBuilder = queryBuilder.Offset((p.Page - 1) * p.PageSize)
-	}
+	queryBuilder = applyListPagination(queryBuilder, p.Page, p.PageSize)
 
 	d := query.DeviceConfig
 	err = queryBuilder.Select(q.ALL, d.Name.As("device_config_name")).

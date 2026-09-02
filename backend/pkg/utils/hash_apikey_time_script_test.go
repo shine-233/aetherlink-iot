@@ -13,7 +13,10 @@ import (
 )
 
 func TestBcryptHashAndCheckPassword(t *testing.T) {
-	hash := BcryptHash("Aa1!aaaa")
+	hash, err := BcryptHash("Aa1!aaaa")
+	if err != nil {
+		t.Fatalf("BcryptHash returned error for a valid password: %v", err)
+	}
 	if hash == "" {
 		t.Fatal("BcryptHash returned empty hash")
 	}
@@ -28,6 +31,18 @@ func TestBcryptHashAndCheckPassword(t *testing.T) {
 	}
 	if BcryptCheck("Aa1!aaaa", "not-a-bcrypt-hash") {
 		t.Fatal("BcryptCheck accepted a malformed hash")
+	}
+}
+
+// 回归锚点：超过 72 字节的输入会让 bcrypt 返回 ErrPasswordTooLong。
+// 旧实现吞掉该错误并静默写入空哈希，账号将永久无法登录且无日志痕迹。
+func TestBcryptHashReturnsErrorForOverlongPassword(t *testing.T) {
+	hash, err := BcryptHash(strings.Repeat("a", 73))
+	if err == nil {
+		t.Fatal("BcryptHash should return an error for passwords longer than 72 bytes")
+	}
+	if hash != "" {
+		t.Fatalf("BcryptHash should not return a partial hash on failure, got %q", hash)
 	}
 }
 

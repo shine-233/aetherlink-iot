@@ -16,6 +16,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetEventDatasListByPage(req *model.GetEventDatasListByPageReq) (int64, []map[string]interface{}, error) {
 
 	var count int64
@@ -41,9 +42,7 @@ func GetEventDatasListByPage(req *model.GetEventDatasListByPageReq) (int64, []ma
 	listBuilder := base.Session(&gorm.Session{}).
 		Select("event_datas.*, device_model_events.data_name").
 		Order("event_datas.ts DESC")
-	if req.Page != 0 && req.PageSize != 0 {
-		listBuilder = listBuilder.Limit(req.PageSize).Offset((req.Page - 1) * req.PageSize)
-	}
+	listBuilder = applyListPagination(listBuilder, req.Page, req.PageSize)
 	list := make([]map[string]interface{}, 0)
 	if err := listBuilder.Scan(&list).Error; err != nil {
 		logrus.Error(err)
@@ -55,6 +54,7 @@ func GetEventDatasListByPage(req *model.GetEventDatasListByPageReq) (int64, []ma
 }
 
 // CreateEventData 创建事件数据
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDeviceEventOneKeys(deviceId string, keys string) (string, error) {
 	data, err := query.EventData.Where(query.EventData.DeviceID.Eq(deviceId), query.EventData.Identify.Eq(keys)).Order(query.EventData.T.Desc()).First()
 	var result string
@@ -77,6 +77,7 @@ func DeleteEventDataByDeviceId(deviceId string, tx *query.QueryTx) error {
 }
 
 // 获取设备单指标最新值,如果数据不存在，返回nil
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetEventDataOneKeysByDeviceId(deviceId string, keys string) (*model.EventData, error) {
 	data, err := query.EventData.Where(query.EventData.DeviceID.Eq(deviceId), query.EventData.Identify.Eq(keys)).Order(query.EventData.T.Desc()).First()
 	if err != nil {

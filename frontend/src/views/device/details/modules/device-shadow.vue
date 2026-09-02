@@ -9,7 +9,7 @@
 <script setup lang="ts">
 import { h, onMounted, reactive, ref } from 'vue'
 import type { Ref } from 'vue'
-import { NButton, NPopconfirm, NTag } from 'naive-ui'
+import { NButton, NEmpty, NPopconfirm, NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import dayjs from 'dayjs'
 import { deviceShadowCancel, deviceShadowList, deviceShadowSet } from '@/service/api'
@@ -200,7 +200,11 @@ onMounted(getTableData)
       :loading="loading"
       :bordered="false"
       size="small"
-    />
+    >
+      <template #empty>
+        <NEmpty :description="$t('common.noData')" class="py-24px" />
+      </template>
+    </n-data-table>
 
     <n-modal
       v-model:show="showCreateModal"

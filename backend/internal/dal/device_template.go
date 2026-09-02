@@ -27,6 +27,7 @@ func CreateDeviceTemplate(device *model.DeviceTemplate) (*model.DeviceTemplate, 
 	return device, query.DeviceTemplate.Create(device)
 }
 
+// tenant-scope: no-tenant-column?2026-08-26 ?????
 func GetDeviceTemplateById(id string) (*model.DeviceTemplate, error) {
 	template, err := query.DeviceTemplate.Where(query.DeviceTemplate.ID.Eq(id)).First()
 	if err != nil {
@@ -69,6 +70,7 @@ func GetDeviceTemplateChartConfigByID(id, tenantID string) (*model.DeviceTemplat
 // 并发下继承残留 Statement（同 devices 列表读旧快照家族，CI 实证 /device/template/chart
 // 间歇 101001），改为 global.DB raw 链重建等价三表 LEFT JOIN；Scan 空行/nil id 的
 // 兼容分支逐字节保留。
+// tenant-scope: no-tenant-column?2026-08-26 ?????
 func GetDeviceTemplateByDeviceId(deviceId string) (any, error) {
 	var rsp map[string]interface{}
 	err := global.DB.Table("devices").
@@ -117,7 +119,7 @@ func GetDeviceTemplateListByPage(req *model.GetDeviceTemplateListByPageReq, clai
 	var count int64
 	queryBuilder := q.WithContext(context.Background())
 	if req.Name != nil {
-		queryBuilder = queryBuilder.Where(q.Name.Like(fmt.Sprintf("%%%s%%", *req.Name)))
+		queryBuilder = queryBuilder.Where(q.Name.Like(ContainsLikePattern(*req.Name)))
 	}
 	queryBuilder = queryBuilder.Where(q.TenantID.Eq(claims.TenantID))
 	count, err := queryBuilder.Count()
@@ -145,7 +147,7 @@ func GetDeviceTemplateMenu(req *model.GetDeviceTemplateMenuReq, claims *utils.Us
 	q := query.DeviceTemplate
 	queryBuilder := q.WithContext(context.Background())
 	if req.Name != nil {
-		queryBuilder = queryBuilder.Where(q.Name.Like(fmt.Sprintf("%%%s%%", *req.Name)))
+		queryBuilder = queryBuilder.Where(q.Name.Like(ContainsLikePattern(*req.Name)))
 	}
 	queryBuilder = queryBuilder.Where(q.TenantID.Eq(claims.TenantID))
 	var data []map[string]interface{}
@@ -227,12 +229,12 @@ func GetDeviceTemplateSelector(req *model.GetDeviceTemplateSelectorReq, tenantID
 
 	// 物模型名称模糊匹配
 	if req.Name != nil && *req.Name != "" {
-		queryBuilder = queryBuilder.Where(q.Name.Like(fmt.Sprintf("%%%s%%", *req.Name)))
+		queryBuilder = queryBuilder.Where(q.Name.Like(ContainsLikePattern(*req.Name)))
 	}
 
 	// 标签模糊匹配
 	if req.Label != nil && *req.Label != "" {
-		queryBuilder = queryBuilder.Where(q.Label.Like(fmt.Sprintf("%%%s%%", *req.Label)))
+		queryBuilder = queryBuilder.Where(q.Label.Like(ContainsLikePattern(*req.Label)))
 	}
 
 	// 查询ID、Name和Label字段

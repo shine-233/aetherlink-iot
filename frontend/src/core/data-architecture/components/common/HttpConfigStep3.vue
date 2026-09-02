@@ -17,9 +17,14 @@
 
 import { ref, computed, watch } from 'vue'
 import { NText } from 'naive-ui'
-import type { HttpConfig } from '@/core/data-architecture/types/http-config'
+import type { HttpConfig, HttpParam } from '@/core/data-architecture/types/http-config'
 import type { EnhancedParameter } from '@/core/data-architecture/types/parameter-editor'
 import DynamicParameterEditor from '@/core/data-architecture/components/common/DynamicParameterEditor.vue'
+
+// 历史持久化形态 HttpParam 与编辑器形态 EnhancedParameter 的边界桥接（同 Step2 请求头）。
+const toEditorParams = (list: HttpParam[] | undefined): EnhancedParameter[] =>
+  (list || []) as unknown as EnhancedParameter[]
+const fromEditorParams = (list: EnhancedParameter[]): HttpParam[] => list as unknown as HttpParam[]
 // 导入图标
 import { Sparkles as SparkleIcon } from '@vicons/ionicons5'
 
@@ -111,7 +116,8 @@ const applyTemplate = () => {
   const newParams = templateParams.filter(p => !existingKeys.has(p.key))
 
   if (newParams.length > 0) {
-    const updatedParams = [...(props.modelValue.params || []), ...newParams]
+    // 模板参数与存量形态合并后统一按持久化别名收口。
+    const updatedParams = [...(props.modelValue.params || []), ...newParams] as HttpParam[]
     emit('update:modelValue', { ...props.modelValue, params: updatedParams })
 
     // 标记已应用模板
@@ -178,7 +184,7 @@ const dismissRecommend = () => {
 
     <!-- 查询参数配置 -->
     <DynamicParameterEditor
-      :model-value="modelValue.params || []"
+      :model-value="toEditorParams(modelValue.params)"
       parameter-type="query"
       title="查询参数配置"
       add-button-text="添加查询参数"
@@ -188,7 +194,7 @@ const dismissRecommend = () => {
       :current-component-id="componentId"
       @update:model-value="
         updatedParams => {
-          emit('update:modelValue', { ...modelValue, params: updatedParams })
+          emit('update:modelValue', { ...modelValue, params: fromEditorParams(updatedParams) })
         }
       "
     />

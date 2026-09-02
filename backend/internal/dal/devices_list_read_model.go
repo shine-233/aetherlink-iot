@@ -14,7 +14,6 @@
 package dal
 
 import (
-	"fmt"
 	"strings"
 
 	model "aetherlink-iot/backend/internal/model"
@@ -28,12 +27,14 @@ import (
 )
 
 // GetDeviceListByPage returns one filtered page of active tenant devices.
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenantID string) (int64, []model.GetDeviceListByPageRsp, error) {
 	return newDeviceListPageReadModel(req, tenantID).execute()
 }
 
 // CountDeviceListByFilter counts devices matching the same filters used by the
 // device list endpoint without scanning display rows.
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func CountDeviceListByFilter(req *model.GetDeviceListByPageReq, tenantID string) (int64, error) {
 	plan, err := newDeviceListPageReadModel(req, tenantID).plan()
 	if err != nil {
@@ -47,6 +48,7 @@ func CountDeviceListByFilter(req *model.GetDeviceListByPageReq, tenantID string)
 
 // CountDeviceListFilteredIDs counts which provided ids are still inside the
 // same filtered active-device scope.
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func CountDeviceListFilteredIDs(req *model.GetDeviceListByPageReq, tenantID string, ids []string) (int64, error) {
 	plan, err := newDeviceListPageReadModel(req, tenantID).plan()
 	if err != nil {
@@ -59,6 +61,7 @@ func CountDeviceListFilteredIDs(req *model.GetDeviceListByPageReq, tenantID stri
 }
 
 // ListDeviceIDsByFilter returns only ids for a filtered active-device scope.
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func ListDeviceIDsByFilter(req *model.GetDeviceListByPageReq, tenantID string, limit int) ([]string, error) {
 	plan, err := newDeviceListPageReadModel(req, tenantID).plan()
 	if err != nil {
@@ -72,6 +75,7 @@ func ListDeviceIDsByFilter(req *model.GetDeviceListByPageReq, tenantID string, l
 
 // GetDeviceListRowsByFilterAndIDs loads display rows for a small selected id
 // set while preserving the same filters as the device list endpoint.
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDeviceListRowsByFilterAndIDs(req *model.GetDeviceListByPageReq, tenantID string, ids []string) ([]model.GetDeviceListByPageRsp, error) {
 	plan, err := newDeviceListPageReadModel(req, tenantID).plan()
 	if err != nil {
@@ -223,7 +227,7 @@ func hasDeviceListValue(s *string) bool {
 }
 
 func deviceListLike(f field.String, v string) field.Expr {
-	return f.Like(fmt.Sprintf("%%%s%%", v))
+	return f.Like(ContainsLikePattern(v))
 }
 
 // rdiDeviceSharedStatusCondition keeps the SQL-side list filter aligned with

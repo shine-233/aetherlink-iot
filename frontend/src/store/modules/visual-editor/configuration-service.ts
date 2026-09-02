@@ -106,10 +106,12 @@ export class ConfigurationService {
       this.store.setBaseConfiguration(widgetId, configuration.base)
     }
     if (configuration.component) {
-      this.store.setComponentConfiguration(widgetId, configuration.component)
+      // WidgetConfiguration.component（ComponentConfig）与 store 侧 ComponentConfiguration
+      // 是两套历史接口，结构兼容但名义不同；与下方 base 分支同样在此收口断言。
+      this.store.setComponentConfiguration(widgetId, configuration.component as ComponentConfiguration)
     }
     if (configuration.dataSource) {
-      this.store.setDataSourceConfiguration(widgetId, configuration.dataSource)
+      this.store.setDataSourceConfiguration(widgetId, configuration.dataSource as DataSourceConfiguration)
     }
     if (configuration.interaction) {
       this.store.setInteractionConfiguration(widgetId, configuration.interaction)
@@ -119,7 +121,7 @@ export class ConfigurationService {
     this.emitConfigurationChange(widgetId, 'full', oldConfig, configuration)
 
     if (configuration.dataSource) {
-      void this.handleDataSourceSideEffects(widgetId, configuration.dataSource)
+      void this.handleDataSourceSideEffects(widgetId, configuration.dataSource as DataSourceConfiguration)
     }
   }
 
@@ -204,10 +206,10 @@ export class ConfigurationService {
       throw new Error(`组件 ${widgetId} 没有数据源配置`)
     }
 
-    const updatedConfig: DataSourceConfiguration = {
+    const updatedConfig = {
       ...currentConfig,
       bindings: { ...currentConfig.bindings, ...bindings }
-    }
+    } as DataSourceConfiguration
 
     this.setDataSourceConfig(widgetId, updatedConfig)
   }
@@ -299,7 +301,7 @@ export class ConfigurationService {
 
     // 数据源配置验证
     if (config.dataSource) {
-      const dsValidation = this.validateDataSourceConfig(config.dataSource)
+      const dsValidation = this.validateDataSourceConfig(config.dataSource as DataSourceConfiguration)
       errors.push(...dsValidation.errors)
       warnings.push(...dsValidation.warnings)
     }
@@ -461,7 +463,9 @@ export class ConfigurationService {
    * 重新执行数据源并写入运行时数据
    */
   async refreshRuntimeData(widgetId: string, config?: DataSourceConfiguration): Promise<void> {
-    const dataSourceConfig = config || this.getConfigurationSection(widgetId, 'dataSource')
+    const dataSourceConfig = (config || this.getConfigurationSection(widgetId, 'dataSource')) as
+      | DataSourceConfiguration
+      | undefined
     if (!dataSourceConfig) return
 
     const requirement = this.buildRuntimeRequirement(widgetId, dataSourceConfig)
@@ -500,7 +504,8 @@ export class ConfigurationService {
   }
 
   private createSimpleDataSourceConfig(config: DataSourceConfiguration): SimpleDataSourceConfig | null {
-    const sourceConfig = config.config || {}
+    // sourceConfig 是 JSON 边界上的自由形态配置（历史数据可能缺字段），按宽松记录读取。
+    const sourceConfig = (config.config || {}) as Record<string, any>
 
     if (config.type === 'api') {
       if (!sourceConfig.url) {

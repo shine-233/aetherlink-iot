@@ -55,11 +55,7 @@ export function buildCommandJobReadiness(
   const hasPreview = Boolean(input.previewResult)
   const canPreview = input.hasCommandJobScope && Boolean(input.commandIdentify.trim())
   const canSubmit = hasPreview && !blockingReason
-  const previewCoverageStatus = !hasPreview
-    ? 'missing'
-    : input.previewCoversFullFilterScope
-      ? 'full'
-      : 'subset_only'
+  const previewCoverageStatus = !hasPreview ? 'missing' : input.previewCoversFullFilterScope ? 'full' : 'subset_only'
   const requiredNextAction = !canPreview
     ? blockingReason || t('custom.commandCenter.commandIdentifierRequired')
     : canSubmit

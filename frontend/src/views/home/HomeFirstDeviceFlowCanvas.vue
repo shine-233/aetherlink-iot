@@ -31,9 +31,7 @@ const flowNodeEntries = computed(() =>
       </div>
       <n-tag size="small" round :bordered="false" :type="ready ? 'success' : 'warning'">
         {{
-          ready
-            ? $t('custom.home.firstDevice.canvas.loopDone')
-            : $t('custom.home.firstDevice.canvas.loopInProgress')
+          ready ? $t('custom.home.firstDevice.canvas.loopDone') : $t('custom.home.firstDevice.canvas.loopInProgress')
         }}
       </n-tag>
     </div>

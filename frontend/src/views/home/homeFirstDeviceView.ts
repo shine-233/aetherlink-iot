@@ -74,10 +74,8 @@ export const buildFirstDeviceCoreGuideSummary = (
   }
 }
 
-export const shouldExpandHomeGuideStep = (
-  step: HomeFirstDeviceGuideStep,
-  summary: HomeFirstDeviceCoreGuideSummary
-) => step.status === 'active' || (!summary.nextStep && step.status === 'done')
+export const shouldExpandHomeGuideStep = (step: HomeFirstDeviceGuideStep, summary: HomeFirstDeviceCoreGuideSummary) =>
+  step.status === 'active' || (!summary.nextStep && step.status === 'done')
 
 export const buildFirstRunWizardEvidence = (
   step: HomeFirstDeviceGuideStep,
@@ -142,11 +140,10 @@ export const buildFocusedQuickstartCopy = (options: {
 }) => {
   const key = options.activeStep?.key
   const title = options.ready ? '首台设备已准备好' : options.activeStep?.title || '现在只做这一步'
-  const description = options.ready
-    ? options.readyDescription
-    : options.activeStep?.description || options.guardSummary
+  const description = options.ready ? options.readyDescription : options.activeStep?.description || options.guardSummary
   const successSignal = options.ready
-    ? options.postReadyHandoff?.completionSignal || '完成标准：第 5 步显示“设备已准备好”，并且在线状态与最新遥测都通过。'
+    ? options.postReadyHandoff?.completionSignal ||
+      '完成标准：第 5 步显示“设备已准备好”，并且在线状态与最新遥测都通过。'
     : key === 'health'
       ? '完成标准：部署健康里的前端、API、数据库、Redis、MQTT Broker 全部恢复为正常。'
       : key === 'create'
@@ -236,7 +233,10 @@ export const buildFirstDeviceMissionControl = (options: {
       type: activeStep.disabled ? 'warning' : 'info',
       currentStateLabel: activeStep.title ? `当前阶段：${activeStep.title}` : '首台设备接入进行中',
       nextClickLabel,
-      whyThisClick: activeStep.description || options.currentBlocker?.detail || '首页已经判断出当前最短路径，先完成这一步，不需要理解其它模块。',
+      whyThisClick:
+        activeStep.description ||
+        options.currentBlocker?.detail ||
+        '首页已经判断出当前最短路径，先完成这一步，不需要理解其它模块。',
       finishSignal: options.successSignal,
       stuckHint: activeStep.disabled
         ? '按钮暂时不可点时，先定位当前工作区，看缺的是部署健康、连接参数还是上一环证据。'
@@ -247,7 +247,9 @@ export const buildFirstDeviceMissionControl = (options: {
 
   return {
     type: options.currentBlocker ? 'warning' : 'info',
-    currentStateLabel: options.currentBlocker?.label ? `当前卡点：${options.currentBlocker.label}` : '等待首页确认下一步',
+    currentStateLabel: options.currentBlocker?.label
+      ? `当前卡点：${options.currentBlocker.label}`
+      : '等待首页确认下一步',
     nextClickLabel: options.actionLabel || '刷新进度',
     whyThisClick: options.currentBlocker?.detail || '首页还在等待最新状态，刷新后会继续把当前卡点高亮出来。',
     finishSignal: options.successSignal,
@@ -357,7 +359,9 @@ export const buildFirstDeviceOperationChecklist = (options: {
     key: 'params',
     label: '连接参数',
     ok: options.canCopyCommand,
-    detail: options.canCopyCommand ? '参数已完整，可以直接复制命令或测试代码。' : '还存在占位符或缺少端点，请先补齐连接参数。'
+    detail: options.canCopyCommand
+      ? '参数已完整，可以直接复制命令或测试代码。'
+      : '还存在占位符或缺少端点，请先补齐连接参数。'
   },
   {
     key: 'test',

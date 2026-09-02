@@ -18,12 +18,7 @@ const emit = defineEmits<{
   <div class="flex items-center justify-between gap-8px">
     <div class="flex min-w-0 flex-wrap items-center gap-8px">
       <div class="font-600">{{ $t('custom.home.firstDevice.connection.title') }}</div>
-      <n-button
-        size="tiny"
-        secondary
-        :disabled="!firstDevice"
-        @click="emit('copyConnectionSummary')"
-      >
+      <n-button size="tiny" secondary :disabled="!firstDevice" @click="emit('copyConnectionSummary')">
         {{ $t('custom.home.firstDevice.connection.copySummary') }}
       </n-button>
     </div>
@@ -48,10 +43,7 @@ const emit = defineEmits<{
     <div class="first-device-access-row">
       <span>{{ $t('custom.home.firstDevice.connection.endpoint') }}</span>
       <strong>
-        {{
-          firstDeviceAccessGuide?.endpoint ||
-          `${firstDeviceSimulation?.server}:${firstDeviceSimulation?.port}`
-        }}
+        {{ firstDeviceAccessGuide?.endpoint || `${firstDeviceSimulation?.server}:${firstDeviceSimulation?.port}` }}
       </strong>
     </div>
     <div class="first-device-access-row">
@@ -67,9 +59,7 @@ const emit = defineEmits<{
     <div class="first-device-access-row">
       <span>{{ $t('custom.home.firstDevice.connection.controlEntry') }}</span>
       <strong>
-        {{
-          firstDeviceAccessGuide?.controlTopic || $t('custom.home.firstDevice.connection.openReadyCheckToView')
-        }}
+        {{ firstDeviceAccessGuide?.controlTopic || $t('custom.home.firstDevice.connection.openReadyCheckToView') }}
       </strong>
     </div>
   </div>
@@ -97,20 +87,14 @@ const emit = defineEmits<{
   </div>
 
   <div class="mt-10px grid gap-6px">
-    <div
-      v-for="item in operationChecklist"
-      :key="item.key"
-      class="first-device-operation-check"
-    >
+    <div v-for="item in operationChecklist" :key="item.key" class="first-device-operation-check">
       <div class="min-w-0">
         <strong>{{ item.label }}</strong>
         <small>{{ item.detail }}</small>
       </div>
       <n-tag size="small" round :bordered="false" :type="item.ok ? 'success' : 'warning'">
         {{
-          item.ok
-            ? $t('custom.home.firstDevice.connection.ready')
-            : $t('custom.home.firstDevice.connection.processing')
+          item.ok ? $t('custom.home.firstDevice.connection.ready') : $t('custom.home.firstDevice.connection.processing')
         }}
       </n-tag>
     </div>

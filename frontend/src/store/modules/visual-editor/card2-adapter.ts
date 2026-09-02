@@ -7,6 +7,7 @@
 
 import { useUnifiedEditorStore } from '@/store/modules/visual-editor/unified-editor'
 import { useDataFlowManager } from '@/store/modules/visual-editor/data-flow-manager'
+import type { Component } from 'vue'
 import type {
   WidgetDefinition,
   DataSourceConfiguration,
@@ -143,6 +144,7 @@ export class Card2VisualEditorAdapter {
    */
   private adaptComponentDefinition(card2Def: ComponentDefinition): WidgetDefinition {
     return {
+      id: card2Def.type,
       type: card2Def.type,
       name: card2Def.name,
       description: card2Def.description,
@@ -396,8 +398,8 @@ export class Card2VisualEditorAdapter {
     // 检查是否是Card2.1组件
     const card2Definition = this.editorStore.card2Components.get(componentType)
     if (card2Definition) {
-      // 初始化Card2.1组件的默认配置
-      this.initializeCard2ComponentConfig(widgetId, card2Definition)
+      // 初始化Card2.1组件的默认配置（store map 以宽松类型存取；运行时对象由本适配器严格创建）
+      this.initializeCard2ComponentConfig(widgetId, card2Definition as unknown as ComponentDefinition)
     }
   }
 
@@ -462,7 +464,7 @@ export class Card2VisualEditorAdapter {
    * 获取所有已注册的Card2.1组件
    */
   getAllCard2Components(): ComponentDefinition[] {
-    return Array.from(this.editorStore.card2Components.values())
+    return Array.from(this.editorStore.card2Components.values()) as unknown as ComponentDefinition[]
   }
 
   /**

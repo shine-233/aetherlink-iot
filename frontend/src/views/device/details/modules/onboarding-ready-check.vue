@@ -4,10 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { $t } from '@/locales'
 import { useViewportDeferredMount } from '@/hooks/common/useViewportDeferredMount'
 import { writeClipboardText } from '@/utils/clipboard'
-import {
-  buildReadyCheckEvidenceCards,
-  type ReadyCheckEvidenceCard
-} from './device-access-guide-state'
+import { buildReadyCheckEvidenceCards, type ReadyCheckEvidenceCard } from './device-access-guide-state'
 import {
   buildReadyCheckEvidenceDeepLinks,
   formatReadyCheckDeepLink,
@@ -86,8 +83,8 @@ const otaTaskId = computed(() => readyCheckSourceContext.value.otaTaskId)
 const otaDetailId = computed(() => readyCheckSourceContext.value.otaDetailId)
 const commandJobId = computed(() => readyCheckSourceContext.value.commandJobId)
 const readyCheckSourceLabel = computed(() => $t(readyCheckSourceContext.value.labelKey))
-const readyCheckSourceDetail = computed(() =>
-  readyCheckSourceContext.value.detailText || $t(readyCheckSourceContext.value.detailKey)
+const readyCheckSourceDetail = computed(
+  () => readyCheckSourceContext.value.detailText || $t(readyCheckSourceContext.value.detailKey)
 )
 const {
   diagnosticsLoading,
@@ -116,17 +113,23 @@ const latestTelemetryValueText = computed(() => compactValueText(readyCheck.valu
 const nextActions = computed(() => {
   return diagnostics.value.nextActions
 })
-const evaluatedAtText = computed(() => connectionGuide.value?.evaluated_at || $t('custom.device_details.readyCheckEvidenceUnknownTime'))
+const evaluatedAtText = computed(
+  () => connectionGuide.value?.evaluated_at || $t('custom.device_details.readyCheckEvidenceUnknownTime')
+)
 const readinessSummaryText = computed(() => {
   const readiness = connectionGuide.value?.readiness
   if (readiness?.summary) return readiness.summary
   return readySummary.value
 })
 const lastConnectionIssueText = computed(() => {
-  return connectionGuide.value?.last_connection_error?.summary || $t('custom.device_details.readyCheckEvidenceNoLastIssue')
+  return (
+    connectionGuide.value?.last_connection_error?.summary || $t('custom.device_details.readyCheckEvidenceNoLastIssue')
+  )
 })
 const partialResultText = computed(() => {
-  const partialResults = Array.isArray(connectionGuide.value?.partial_results) ? connectionGuide.value?.partial_results : []
+  const partialResults = Array.isArray(connectionGuide.value?.partial_results)
+    ? connectionGuide.value?.partial_results
+    : []
   if (!partialResults?.length) return $t('custom.device_details.readyCheckEvidenceComplete')
   return partialResults.map((warning) => `${warning.component || 'guide'}: ${warning.reason || 'partial'}`).join('; ')
 })
@@ -143,17 +146,17 @@ const backendNextSteps = computed(() => {
 const collectionFailureSummary = computed(() =>
   $t('custom.device_details.readyCheckCollectionWarningDesc').replace(
     '{collectors}',
-    collectionFailures.value.map(item => $t(item.labelKey)).join(', ')
+    collectionFailures.value.map((item) => $t(item.labelKey)).join(', ')
   )
 )
 const evidenceCenterViewportRef = ref<HTMLElement | null>(null)
-const {
-  shouldMount: shouldMountEvidenceCenter,
-  mountNow: mountEvidenceCenterNow
-} = useViewportDeferredMount(evidenceCenterViewportRef, {
-  rootMargin: '420px 0px',
-  fallbackDelay: 650
-})
+const { shouldMount: shouldMountEvidenceCenter, mountNow: mountEvidenceCenterNow } = useViewportDeferredMount(
+  evidenceCenterViewportRef,
+  {
+    rootMargin: '420px 0px',
+    fallbackDelay: 650
+  }
+)
 const evidenceDeepLinks = computed<ReadyCheckDeepLink[]>(() =>
   buildReadyCheckEvidenceDeepLinks({
     routeQuery: route.query as Record<string, unknown>,
@@ -201,7 +204,9 @@ const evidenceCenterItems = computed(() => [
     key: 'last-issue',
     labelKey: 'custom.device_details.readyCheckEvidenceLastIssue',
     value: lastConnectionIssueText.value,
-    detail: connectionGuide.value?.last_connection_error?.code || $t('custom.device_details.readyCheckEvidenceNoLastIssueCode')
+    detail:
+      connectionGuide.value?.last_connection_error?.code ||
+      $t('custom.device_details.readyCheckEvidenceNoLastIssueCode')
   },
   {
     key: 'completeness',
@@ -271,7 +276,9 @@ const readyCheckSupportBundleInput = computed(() => ({
   collectionFailures: collectionFailures.value,
   boundaryText: $t('custom.device_details.readyCheckEvidenceBoundaryDesc')
 }))
-const readyCheckDiagnosticSummary = computed(() => buildReadyCheckDiagnosticMarkdown(readyCheckSupportBundleInput.value))
+const readyCheckDiagnosticSummary = computed(() =>
+  buildReadyCheckDiagnosticMarkdown(readyCheckSupportBundleInput.value)
+)
 
 const copyReadyCheckDiagnosticSummary = async () => {
   const copied = await writeClipboardText(readyCheckDiagnosticSummary.value)
@@ -282,7 +289,8 @@ const copyReadyCheckDiagnosticSummary = async () => {
   }
 }
 
-const readyCheckSupportFileNameValue = () => readyCheckSupportFileName(props.id || deviceNumber.value || deviceName.value || 'device')
+const readyCheckSupportFileNameValue = () =>
+  readyCheckSupportFileName(props.id || deviceNumber.value || deviceName.value || 'device')
 
 const buildReadyCheckSupportBundleValue = () => buildReadyCheckSupportBundle(readyCheckSupportBundleInput.value)
 
@@ -503,15 +511,17 @@ const primaryReadyAction = computed<ReadyCheckPrimaryActionItem>(() => {
     }
   }
   return (
-    steps.value.find(step => step.status === 'attention') ??
-    evidenceActionCards.value.find(card => card.status === 'attention') ??
-    steps.value.find(step => step.status === 'next') ??
-    evidenceActionCards.value.find(card => card.status === 'next') ??
+    steps.value.find((step) => step.status === 'attention') ??
+    evidenceActionCards.value.find((card) => card.status === 'attention') ??
+    steps.value.find((step) => step.status === 'next') ??
+    evidenceActionCards.value.find((card) => card.status === 'next') ??
     steps.value[0]
   )
 })
 const primaryReadyActionSummary = computed(() => primaryReadyAction.value?.summary || readySummary.value)
-const showFirstDeviceReadyHandoff = computed(() => isFirstDeviceOnboardingSource.value && readyCheck.value.ready === true)
+const showFirstDeviceReadyHandoff = computed(
+  () => isFirstDeviceOnboardingSource.value && readyCheck.value.ready === true
+)
 
 onMounted(refreshDiagnostics)
 
@@ -523,7 +533,7 @@ watch(
 )
 
 const runReadyCheckStep = (key: string) => {
-  steps.value.find(step => step.key === key)?.action?.()
+  steps.value.find((step) => step.key === key)?.action?.()
 }
 </script>
 
@@ -676,11 +686,16 @@ const runReadyCheckStep = (key: string) => {
   display: grid;
   gap: 14px;
   overflow: hidden;
-  border: 1px solid #dbeafe;
+  border: 1px solid var(--border-color);
   border-radius: 18px;
   background:
     radial-gradient(circle at 14% 8%, rgba(59, 130, 246, 0.2), transparent 28%),
-    linear-gradient(135deg, #f8fbff 0%, #eef6ff 52%, #f8fafc 100%);
+    linear-gradient(
+      135deg,
+      rgb(var(--info-color) / 0.05) 0%,
+      rgb(var(--info-color) / 0.08) 52%,
+      var(--action-color) 100%
+    );
   padding: 18px;
   box-shadow: 0 18px 46px rgba(15, 23, 42, 0.08);
 }
@@ -713,15 +728,15 @@ const runReadyCheckStep = (key: string) => {
 }
 
 .ready-check-hero__eyebrow {
-  color: #2563eb;
-  font-size: 12px;
+  color: rgb(var(--info-color));
+  font-size: var(--font-size-caption);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .ready-check-hero__copy strong {
-  color: #0f172a;
+  color: var(--text-color-1);
   font-size: 24px;
   line-height: 1.2;
   overflow-wrap: anywhere;
@@ -730,27 +745,27 @@ const runReadyCheckStep = (key: string) => {
 .ready-check-hero__copy p {
   max-width: 760px;
   margin: 0;
-  color: #475569;
-  font-size: 13px;
+  color: var(--text-color-2);
+  font-size: var(--font-size-secondary);
   line-height: 1.6;
 }
 
 .ready-check-hero__state {
   flex: 0 0 auto;
-  border: 1px solid #fed7aa;
-  border-radius: 999px;
-  background: #fff7ed;
+  border: 1px solid rgb(var(--warning-color) / 0.4);
+  border-radius: var(--radius-pill);
+  background: rgb(var(--warning-color) / 0.1);
   padding: 6px 12px;
-  color: #9a3412;
-  font-size: 12px;
+  color: rgb(var(--warning-800-color));
+  font-size: var(--font-size-caption);
   font-weight: 700;
   box-shadow: 0 10px 24px rgba(154, 52, 18, 0.1);
 }
 
 .ready-check-hero__state.is-online {
-  border-color: #bbf7d0;
-  background: #f0fdf4;
-  color: #15803d;
+  border-color: rgb(var(--success-color) / 0.4);
+  background: rgb(var(--success-color) / 0.08);
+  color: rgb(var(--success-700-color));
   box-shadow: 0 10px 24px rgba(21, 128, 61, 0.1);
 }
 
@@ -773,19 +788,19 @@ const runReadyCheckStep = (key: string) => {
 }
 
 .ready-check-source-banner strong {
-  color: #166534;
-  font-size: 14px;
+  color: rgb(var(--success-800-color));
+  font-size: var(--font-size-base);
 }
 
 .ready-check-source-banner span {
-  color: #166534;
-  font-size: 12px;
+  color: rgb(var(--success-800-color));
+  font-size: var(--font-size-caption);
   line-height: 18px;
 }
 
 .ready-check-source-banner--warning strong,
 .ready-check-source-banner--warning span {
-  color: #92400e;
+  color: rgb(var(--warning-800-color));
 }
 
 .ready-check-source-banner__meta {
@@ -795,18 +810,18 @@ const runReadyCheckStep = (key: string) => {
 }
 
 .ready-check-source-banner__meta code {
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(15, 23, 42, 0.08);
   padding: 2px 8px;
-  color: #334155;
-  font-size: 12px;
+  color: var(--text-color-2);
+  font-size: var(--font-size-caption);
 }
 
 .ready-check-summary > div {
   min-width: 0;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  background: #fff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--card-color);
 }
 
 .ready-check-summary > div {
@@ -821,14 +836,14 @@ const runReadyCheckStep = (key: string) => {
 }
 
 .ready-check-summary span {
-  color: #64748b;
-  font-size: 13px;
+  color: var(--text-color-3);
+  font-size: var(--font-size-secondary);
   line-height: 1.5;
 }
 
 .ready-check-summary strong {
   display: block;
-  color: #0f172a;
+  color: var(--text-color-1);
   overflow-wrap: anywhere;
   line-height: 1.35;
   word-break: break-word;
@@ -848,13 +863,13 @@ const runReadyCheckStep = (key: string) => {
 }
 
 .ready-check-collection-warning__copy strong {
-  color: #92400e;
-  font-size: 14px;
+  color: rgb(var(--warning-800-color));
+  font-size: var(--font-size-base);
 }
 
 .ready-check-collection-warning__copy span {
-  color: #92400e;
-  font-size: 13px;
+  color: rgb(var(--warning-800-color));
+  font-size: var(--font-size-secondary);
   line-height: 1.5;
 }
 
@@ -863,9 +878,9 @@ const runReadyCheckStep = (key: string) => {
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  border: 1px dashed #cbd5e1;
+  border: 1px dashed var(--border-color);
   border-radius: 16px;
-  background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+  background: linear-gradient(135deg, var(--action-color) 0%, rgb(var(--primary-color) / 0.06) 100%);
   padding: 18px 20px;
 }
 
@@ -876,20 +891,20 @@ const runReadyCheckStep = (key: string) => {
 }
 
 .ready-check-deferred-placeholder__copy span {
-  color: #6366f1;
-  font-size: 12px;
+  color: rgb(var(--primary-color));
+  font-size: var(--font-size-caption);
   font-weight: 700;
 }
 
 .ready-check-deferred-placeholder__copy strong {
-  color: #0f172a;
+  color: var(--text-color-1);
   font-size: 15px;
 }
 
 .ready-check-deferred-placeholder__copy p {
   margin: 0;
-  color: #475569;
-  font-size: 13px;
+  color: var(--text-color-2);
+  font-size: var(--font-size-secondary);
   line-height: 1.6;
 }
 

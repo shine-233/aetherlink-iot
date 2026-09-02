@@ -381,7 +381,7 @@ func (*DeviceConfig) DeleteDeviceConfig(id string, claims *utils.UserClaims) err
 		})
 	}
 
-	err = dal.DeleteDeviceConfig(id)
+	err = dal.DeleteDeviceConfigForTenant(id, claims.TenantID)
 	if err != nil {
 		// dal 层错误内插用户可控的 id（log-injection 面），日志只记固定语义。
 		logrus.Error("delete device config failed")

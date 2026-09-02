@@ -70,7 +70,11 @@ export function useCommandCenterSavedFleetFilters(options: UseCommandCenterSaved
       const data = (response as any).data ?? response
       const serverFilters = normalizeServerFleetSavedFilters(data?.list ?? [])
       savedFleetFilters.value = mergeSavedFleetFilters(serverFilters, localFilters)
-      savedFleetFilterStatus.value = serverFilters.length ? 'server' : savedFleetFilters.value.length ? 'local' : 'empty'
+      savedFleetFilterStatus.value = serverFilters.length
+        ? 'server'
+        : savedFleetFilters.value.length
+          ? 'local'
+          : 'empty'
       saveFleetFiltersToStorage(storage, savedFleetFilters.value)
       syncSelectedSavedFleetFilterFromRoute()
     } catch {

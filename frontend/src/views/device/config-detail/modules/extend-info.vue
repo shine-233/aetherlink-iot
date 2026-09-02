@@ -260,7 +260,11 @@ onMounted(() => {
 <template>
   <div class="extend-box">
     <NButton type="primary" @click="addDevice()">{{ $t('generate.add-extension-info') }}</NButton>
-    <NDataTable :columns="columns" :data="extendInfoList" size="small" class="m-tb-10" />
+    <NDataTable :columns="columns" :data="extendInfoList" size="small" class="m-tb-10">
+      <template #empty>
+        <n-empty :description="$t('common.noData')" />
+      </template>
+    </NDataTable>
     <!--    <div class="pagination-box">-->
     <!--      &lt;!&ndash; Data table to display device groups &ndash;&gt;-->
     <!--      &lt;!&ndash; Pagination component &ndash;&gt;-->

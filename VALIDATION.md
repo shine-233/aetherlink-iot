@@ -97,13 +97,47 @@ API、E2E 和 synthetic-rdi 运行必须使用独立的 report/output 目录，�
 
 **后端**
 - 运维暴露面门禁（P3）：`backend/router/router_init.go` 的 `/swagger/*any`、`/metrics`、`/metrics-viewer(/echarts.min.js)` 在 `GOTP_ENV=production` 时跳过注册；非生产环境保持原样。router contract 测试仍锁定字面量存在性。
-- JWT Redis 键哈希（P3）：新增 `pkg/utils.TokenDigest`（HMAC-SHA256hex，域分离密钥独立于 voucher），`middleware/jwt_auth.go`、`api/telemetry_ws_auth.go`、`service/sys_user_auth.go`（login/logout/refresh/transform）全部改为摘要作键。**部署注意：上线后旧明文 token 键立即失效，全体用户需重新登录（一次性会话失效）；如需平滑迁移需另行设计双读。** `loginEmailTokenKey(<email>)` 的 value 仍存原 token（email→token 映射语义未变）。
+- JWT Redis 键哈希（P3）：新增 `pkg/utils.TokenDigest`（HMAC-SHA256hex，域分离密钥独立于 voucher），`middleware/jwt_auth.go`、`api/telemetry_ws_auth.go`、`service/sys_user_auth.go`（login/logout/refresh/transform）全部改为摘要作键。**部署注意：上线后旧明文 token 键立即失效，全体用户需重新登录（一次性会话失效）；如需平滑迁移需另行设计双读。** `loginEmailTokenKey(<email>)` 的 value 已在 P1 加固批次（2026-08-26）改为存 TokenDigest 摘要且 TTL 与会话超时对齐（此前存明文 token 且无 TTL）。
 - DAL 测试盲区收敛（P2）：79 个 DAL 源文件中本轮补齐 3 个核心文件——`device_auth_test.go`（摘要/明文双读与惰性升级）、`alarm_test.go`（告警配置/信息列表租户 scope SQL + JOIN 投影 + trigger_duration 零值显式写）、`users_test.go`（GetUsersByEmail raw 链 + GetUsersByPhoneNumber 双模式）。剩余 DAL 文件的测试补齐为后续批次目标。
 
 **前端**
 - 空态覆盖率（P2）：device 主干列表已有 `DeviceManageEmptyState`（device/manage/index.vue #empty 插槽）；automation 已有 `n-empty`（scene-manage/index.vue 与 scene-linkage dataList.vue）；home 无表格视图，本轮将 `HomeFirstDeviceDeploymentHealthSection.vue` 空结果文本升级为 `n-empty` 作示范。其余约 231 个视图文件的空态巡检为后续批次目标。
 - i18n 绕过精确计数（P2）：按"非测试 views+components 源码中含 CJK 字符的字符串字面量行"口径统计为 **734 行 / 51 个文件**（排除注释行、`__tests__`、`*.test.ts`；统计脚本口径见批次记录）。最大热点：`rdi/constants/rdi-labels.ts`（150 行，双语常量表，需专项车道）、`home/homeFirstDeviceWorkbench.ts`（157 行，注意该 vue 视图内另有 406 个历史 U+FFFD 乱码字符属数据损坏问题）。示范修复：`device/template/components/step/add-edit-commands.vue`（2 处枚举提示 → `device_template.table_header.pleaseAddEnumItem` 新键，四语言已补）与 `add-edit-attributes.vue`（1 处 `'新增成功'` → `common.addSuccess`）。其余 ~731 行为后续批次目标。
 - 无障碍 aria-\*（P3）：已在 3 个高频对话框加 `:aria-label="title"`（management/role、alarm/notification-group、apply/service 的 table-action-modal）作示范；全面 aria 巡检为后续批次目标。
+
+## P1 安全加固批次（2026-08-26，improve/p1p2-hardening）
+
+本节记录 2026-08-26 P1 加固批次的完成边界，均基于当前工作树静态与单测验证。
+
+**后端（已验证：`go build ./...` + `go test ./...` 全绿）**
+- LIKE 通配转义（P2）：新增 `dal.EscapeLikePattern/ContainsLikePattern`，接入 users/alarm/device_config/device_selector/device_template/device_query_reads/devices_list_read_model*/board/device_groups 全部用户输入拼接点；`like_escape_test.go` 钉死转义顺序契约。
+- 刷新令牌吊销（F1/LOW）：`RefreshToken` 在新会话写入成功后吊销旧 token 摘要；api 层经 `middleware.SelectJWTAuthToken` 同源提取。
+- `<email>_token` 键改摘要存储 + 会话对齐 TTL（F2/LOW）：不再落地明文 JWT。
+- 登录防爆破 IP 维度（F3/LOW）：账号+IP 双维度；配置 `classified-protect.ip-login-max-fail-times/ip-login-fail-window-seconds`（默认 20 次/600 秒启用）。
+- Casbin 路由覆盖审计（P1）：启动期 fail-fast 校验"CasbinRBAC 之后注册的路由必须登记进资源表"；`casbin.route-audit-mode: fail-fast|warn|off`。**存量库升级注意见 COMPATIBILITY.md。**
+- 裸查 DAL 收敛（F4）：`GetDeviceByID→GetDeviceByIDUnscoped`、`GetDevicesByIDs→GetDevicesByIDsUnscoped`（编译器级警示 + 调用面收敛）；`DeleteDeviceConfig/DeleteDeviceGroup` 改为 `*ForTenant(id, tenantID)` 双条件删除，含异租户拒绝回归测试。
+- 既有失败修复：`deployment_health_migrations_test.go` 由 CGO sqlite 切换 glebarez 纯 Go 驱动（Windows/CGO_ENABLED=0 可跑）。
+
+**前端（已验证：prettier/eslint 通过；全量 typecheck/test/build 见批次提交 CI）**
+- 依赖分类修正（B1）：`motion-v` devDependencies→dependencies（运行时 import）；`@types/three` 归位 devDependencies。vendor-three/vendor-motion 手动分包此前已在分支内完成（B2 无需改动）。
+- 插件表单空态（B5）：`apply/plugin/components/form.vue` 在插件未返回 schema 时渲染 `NEmpty(common.noData)`。其余两个审计命中项复核为误报（table-action-modal 已有 submitLoading；change-information 已有状态处理），未做无意义 diff。
+
+**部署（C1）**
+- doctor 新增 `server-mqtt-plaintext-tls` 检查（sh+ps1 对齐）：server 模式下公网 MQTT 默认明文 → 默认强警告，`AETHERLINK_STRICT_TLS=1` 升级为阻断错误；`.env.example` 已补变量说明。
+
+**明确 pending / 后续批次**
+- IP 锁定、Casbin 审计、刷新吊销均为静态+单测证据；真实 Redis/浏览器 E2E 运行验证 pending。
+- A5 http_client 死代码 `Post/Delete` 已删除（零调用方核实）；`PostJson` 返回 *http.Response 的契约保持，由现有调用方正确 Close。
+- **JWT HttpOnly cookie 经复核（2026-08-26 第二车道）实际已达成**：`middleware/auth_cookie.go` 的 `ensureAuthCookieDefaults` 将 `auth.cookie.enabled` 默认置 true，登录/刷新响应均追加 HttpOnly SameSite=Lax cookie；剩余议题仅为生产 HTTPS 下开启 `auth.cookie.secure`（部署侧动作）。
+- **零测试目录收敛进展**：`internal/middleware/response` 已补 8 用例契约测试（panic 恢复/已写响应跳过/错误包/data 包裹/变量替换/Accept-Language）。其余目录中 `internal/logic`、`api/sseapi` 强依赖 gorm query 单例与 Redis hub，需先抽存储接口再可测；`internal/query` 为 gorm-gen 生成物、`cmd/gen`/`cmd/virtual_sensor` 为工具入口——按现状维持 pending。
+- 未纳入本批：巨型文件同包拆分（867 行 attribute_event_ingress.go 等 top10，纯代码移动也会污染 blame 与在途分支合并，需独立 lane 排期）、1014 处硬编码 hex 的 token 化（需先定设计 token 权威值与视觉回归基线）、Device3DPanel 硬编码材质色集中化（随面板接线已隔离在单文件，后续随主题系统统一处理）。
+
+### P2 补充车道（2026-08-26 第二批，improve/p2-lane-tests-visual）
+
+- Device3DPanel 正式接线（此前为无引用死代码）：新增设备详情「3D 预览」tab（registry 懒加载 + vendor-three 分包按需下载），薄包装复用 useTelemetryRealtimeState，温度启发式（精确 temperature → temp 模糊）驱动材质颜色，WebGL 缺失自动降级；i18n 四语言补齐；6 用例单测钉住接线契约。
+- **Casbin g2 资源表核查（2026-08-26，预注册 lane）**：全代码库与全部迁移脚本均无 `ptype='g2'` 写入路径——`GetUrl` 恒 false，`CasbinRBAC` 的 URL 级鉴权在当前所有环境实际未激活（仅 JWT 生效），启动审计 fail-fast 对存量部署的阻断风险与此同源。新路由按兄弟口径仅注册路由。g2 种子化/菜单面登记需产品决策后单独立项。
+- 设备预注册 CSV 批量导入：service 层 sqlite 全链路测试 ×5 + 前端组件测试 ×3 为静态证据；真实浏览器上传/导出下载链路 E2E pending。
+- **设计系统收敛进度（2026-08-26）**：L1（token/断点/shortcuts 单源 + hex 绊线基线 1042→733）与 L2 首批（PageHeader 收敛 3 页、21 个表格页补空态、裸删除确认、emoji 清理、html lang 同步、pre-register 表单校验）已完成并有测试锁定；hex 迁移已完成 linkage-edit、DeviceAccessGuide(46→1)、onboarding-ready-check(29→0)、home 两件套(71→0)、command-center 四件套(96→0)、DeviceFleetOverview(24→4 渐变保留) 等重灾区；剩余存量 733 处（绊线只降不升）；调色板档位变量规范名为 `--{色}-{档}-color`（如 `--success-600-color`），迁移时禁止省略 -color 后缀（已修复 6 处无效引用）。仍待后续 lane——38 个手写筛选表格页向 DataTablePage 渐进迁移、图标四套归一 Iconify、IA 改名（device config/template 错位、双 rdi-overview、management 双组）需带兼容重定向的独立 lane。
 
 ## 维护与审查建议
 

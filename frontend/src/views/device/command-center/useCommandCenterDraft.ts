@@ -67,9 +67,7 @@ export function useCommandCenterDraft(options: UseCommandCenterDraftOptions) {
     return true
   }
 
-  const currentPayloadFingerprint = computed(() =>
-    serializeFleetCommandPayload(buildCurrentFleetCommandPayload())
-  )
+  const currentPayloadFingerprint = computed(() => serializeFleetCommandPayload(buildCurrentFleetCommandPayload()))
 
   return {
     buildCurrentFleetCommandPayload,

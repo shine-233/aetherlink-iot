@@ -9,7 +9,7 @@
 <script setup lang="tsx">
 import { reactive, ref } from 'vue'
 import type { Ref } from 'vue'
-import { NButton, NSpace, NTag } from 'naive-ui'
+import { NButton, NEmpty, NSpace, NTag } from 'naive-ui'
 import type { DataTableColumns, FormInst } from 'naive-ui'
 import dayjs from 'dayjs'
 import { useBoolean, useLoading } from '@aetherlink/hooks'
@@ -174,9 +174,19 @@ init()
 
 <template>
   <div class="h-full flex-col">
-    <NDataTable :columns="columns" :data="tableData" :loading="loading" flex-height min-height="150px" />
+    <NDataTable :columns="columns" :data="tableData" :loading="loading" flex-height min-height="150px">
+      <template #empty>
+        <NEmpty :description="$t('common.noData')" class="py-24px" />
+      </template>
+    </NDataTable>
 
-    <NModal v-model:show="visible" preset="card" :title="$t('common.edit')" class="w-700px">
+    <NModal
+      v-model:show="visible"
+      preset="card"
+      :title="$t('common.edit')"
+      :aria-label="$t('common.edit')"
+      class="w-700px"
+    >
       <NForm ref="formRef" label-placement="left" :label-width="120" :model="editData">
         <NGrid :cols="24" :x-gap="18">
           <NFormItemGridItem :span="24" :label="$t('page.manage.setting.dataClearSetting.form.retentionDays')">

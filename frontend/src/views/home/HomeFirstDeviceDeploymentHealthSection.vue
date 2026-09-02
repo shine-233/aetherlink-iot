@@ -74,10 +74,7 @@ const deploymentHealthOverview = computed(() => {
           : $t('custom.home.firstDevice.health.pendingDesc')
       }}
     </div>
-    <div
-      class="first-device-health-overview"
-      :class="`first-device-health-overview--${deploymentHealthOverview.type}`"
-    >
+    <div class="first-device-health-overview" :class="`first-device-health-overview--${deploymentHealthOverview.type}`">
       <div class="min-w-0">
         <strong>{{ deploymentHealthOverview.title }}</strong>
         <small>{{ deploymentHealthOverview.detail }}</small>

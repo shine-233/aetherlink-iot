@@ -6,7 +6,6 @@ package dal
 
 import (
 	"context"
-	"fmt"
 
 	model "aetherlink-iot/backend/internal/model"
 	query "aetherlink-iot/backend/internal/query"
@@ -15,6 +14,7 @@ import (
 )
 
 // GetDeviceSelector 返回设备选择器分页结果。
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDeviceSelector(req model.DeviceSelectorReq, tenantId string) (*model.DeviceSelectorRes, error) {
 	queryBuilder := baseDeviceSelectorQuery(tenantId)
 	queryBuilder = applyDeviceSelectorFilters(queryBuilder, req)
@@ -63,7 +63,7 @@ func applyDeviceSelectorFilters(builder query.IDeviceDo, req model.DeviceSelecto
 		}
 	}
 	if req.Search != nil && *req.Search != "" {
-		builder = builder.Where(device.Name.Like(fmt.Sprintf("%%%s%%", *req.Search)))
+		builder = builder.Where(device.Name.Like(ContainsLikePattern(*req.Search)))
 	}
 	if req.OwnerUserID != nil && *req.OwnerUserID != "" {
 		builder = builder.Where(device.OwnerUserID.Eq(*req.OwnerUserID))

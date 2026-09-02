@@ -185,7 +185,7 @@ const { handleIframeLoad } = useThingsVisAppFrameHostRuntime({
   logger,
   message: (window as any).$message,
   fallbackAlert: (message) => alert(message),
-  openPreview: (href) => window.open(href, '_blank')
+  openPreview: (href) => window.open(href, '_blank', 'noopener,noreferrer')
 })
 
 onMounted(() => {

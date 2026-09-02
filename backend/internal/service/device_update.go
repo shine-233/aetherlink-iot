@@ -82,7 +82,7 @@ func normalizeUpdateDeviceInput(req model.UpdateDeviceReq) (model.UpdateDeviceRe
 func getUpdateDeviceTarget(req *model.UpdateDeviceReq) (*model.Device, error) {
 	// "EMPTY" is a compatibility sentinel from older callers, not a normal missing-ID state.
 	if req.Id != "EMPTY" {
-		oldDevice, err := dal.GetDeviceByID(req.Id)
+		oldDevice, err := dal.GetDeviceByIDUnscoped(req.Id)
 		if err != nil {
 			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 				"sql_error": err.Error(),

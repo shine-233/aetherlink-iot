@@ -18,6 +18,7 @@ func CreateDeviceModelCustomCommand(data *model.DeviceModelCustomCommand) error 
 	return query.DeviceModelCustomCommand.Create(data)
 }
 
+// tenant-scope: parent-owned?2026-08-26 ?????
 func GetDeviceModelCustomCommandById(id string) (*model.DeviceModelCustomCommand, error) {
 	return query.DeviceModelCustomCommand.Where(query.DeviceModelCustomCommand.ID.Eq(id)).First()
 }
@@ -61,10 +62,7 @@ func GetDeviceModelCustomCommandsByPage(page model.GetDeviceModelListByPageReq, 
 		return count, nil, err
 	}
 
-	if page.Page != 0 && page.PageSize != 0 {
-		queryBuilder = queryBuilder.Limit(page.PageSize)
-		queryBuilder = queryBuilder.Offset((page.Page - 1) * page.PageSize)
-	}
+	queryBuilder = applyListPagination(queryBuilder, page.Page, page.PageSize)
 
 	data, err := queryBuilder.Select(q.ALL).Find()
 	if err != nil {
@@ -77,7 +75,7 @@ func GetDeviceModelCustomCommandsByPage(page model.GetDeviceModelListByPageReq, 
 }
 
 func GetDeviceModelCustomCommandsByDeviceId(deviceId, tenantId string) ([]*model.DeviceModelCustomCommand, error) {
-	d, err := GetDeviceByID(deviceId)
+	d, err := GetDeviceByIDUnscoped(deviceId)
 	if err != nil {
 		return nil, err
 	}

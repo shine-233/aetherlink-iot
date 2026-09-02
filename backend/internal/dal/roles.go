@@ -23,6 +23,7 @@ func CreateRole(data *model.Role) error {
 	return query.Role.Create(data)
 }
 
+// tenant-scope: no-tenant-column?2026-08-26 ?????
 func GetRoleByID(id string) (model.Role, error) {
 	var data model.Role
 	err := query.Role.Where(query.Role.ID.Eq(id)).Scan(&data)
@@ -79,10 +80,7 @@ func GetRoleListByPage(data *model.GetRoleListByPageReq, tenantID string) (int64
 		return count, dataList, err
 	}
 
-	if data.Page != 0 && data.PageSize != 0 {
-		queryBuilder = queryBuilder.Limit(data.PageSize)
-		queryBuilder = queryBuilder.Offset((data.Page - 1) * data.PageSize)
-	}
+	queryBuilder = applyListPagination(queryBuilder, data.Page, data.PageSize)
 
 	dataList, err = queryBuilder.Select().Order(q.UpdatedAt).Find()
 	if err != nil {
@@ -94,6 +92,7 @@ func GetRoleListByPage(data *model.GetRoleListByPageReq, tenantID string) (int64
 }
 
 // 查询用户的角色
+// tenant-scope: no-tenant-column?2026-08-26 ?????
 func GetRolesByUserId(userId string) ([]string, bool) {
 	if global.CasbinEnforcer == nil {
 		return nil, false
@@ -113,6 +112,7 @@ func GetRolesByUserId(userId string) ([]string, bool) {
 	return roles, true
 }
 
+// tenant-scope: no-tenant-column?2026-08-26 ?????
 func GetRolesByUserIds(userIds []string) map[string][]string {
 	rolesByUserID := make(map[string][]string, len(userIds))
 	if len(userIds) == 0 || global.CasbinEnforcer == nil {

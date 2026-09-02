@@ -181,7 +181,7 @@ const getComponentTemplate = (param: EnhancedParameter | null) => {
 
 <template>
   <n-drawer :show="show" :width="500" :on-after-leave="handleAfterLeave" @update:show="handleShowUpdate">
-    <n-drawer-content :title="`编辑 ${getComponentTemplate(drawerParam)?.name || '参数'}`" closable>
+    <n-drawer-content :title="`编辑 ${getTemplateById(drawerParam?.selectedTemplate || '')?.name || '参数'}`" closable>
       <template v-if="drawerParam">
         <component
           :is="getComponentTemplate(drawerParam)?.component"

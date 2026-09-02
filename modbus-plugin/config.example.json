@@ -1,0 +1,30 @@
+{
+  "mqtt": {
+    "host": "broker",
+    "port": 1883,
+    "telemetry_topic": "devices/telemetry",
+    "command_topic_prefix": "devices/command"
+  },
+  "poll_interval_seconds": 10,
+  "health_addr": ":8090",
+  "devices": [
+    {
+      "device_number": "modbus-plc-01",
+      "username": "REPLACE_WITH_DEVICE_VOUCHER_USERNAME",
+      "password": "REPLACE_WITH_DEVICE_VOUCHER_PASSWORD",
+      "client_id": "modbus-plugin-modbus-plc-01",
+      "target": {
+        "host": "192.168.1.50",
+        "port": 502,
+        "unit_id": 1,
+        "timeout_ms": 3000
+      },
+      "registers": [
+        { "key": "temperature", "type": "input", "address": 100, "data_type": "i16", "multiplier": 0.1 },
+        { "key": "humidity", "type": "input", "address": 101, "data_type": "u16", "multiplier": 0.1 },
+        { "key": "power", "type": "holding", "address": 200, "data_type": "f32" },
+        { "key": "switch_1", "type": "coil", "address": 10, "writable": true }
+      ]
+    }
+  ]
+}

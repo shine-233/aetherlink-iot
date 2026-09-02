@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { useMessage } from 'naive-ui'
+import { NEmpty, useMessage } from 'naive-ui'
 import dayjs from 'dayjs'
 import { addMonths } from 'date-fns'
 import { telemetryHistoryData } from '@/service/api'
@@ -191,7 +191,11 @@ onMounted(getTelemetryHistoryData)
         :data="tableData"
         virtual-scroll
         :max-height="360"
-      />
+      >
+        <template #empty>
+          <NEmpty :description="$t('common.noData')" class="py-24px" />
+        </template>
+      </n-data-table>
       <div class="mt-4 flex justify-end">
         <n-pagination
           v-model:page="pagination.page"

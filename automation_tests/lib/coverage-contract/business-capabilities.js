@@ -34,7 +34,8 @@ const DEVICE_TELEMETRY_FRONTEND_ROUTES = [
   '/device/service-details',
   '/device/share',
   '/device/shared-with-me',
-  '/device/template'
+  '/device/template',
+  '/product/pre-register'
 ];
 
 const DEVICE_TELEMETRY_ENDPOINTS = [
@@ -58,6 +59,12 @@ const DEVICE_TELEMETRY_ENDPOINTS = [
   'POST /api/v1/device/gateway-register',
   'POST /api/v1/device/gateway-sub-register',
   'POST /api/v1/device/auth',
+  'GET /api/v1/calculated_fields',
+  'POST /api/v1/calculated_fields',
+  'PUT /api/v1/calculated_fields/:id',
+  'DELETE /api/v1/calculated_fields/:id',
+  'PUT /api/v1/calculated_fields/:id/toggle',
+  'GET /api/v1/calculated_fields/:id',
   'GET /api/v1/devices/:device_id/diagnostics',
   'GET /api/v1/events',
   'DELETE /api/v1/device/:id',
@@ -193,7 +200,14 @@ const DEVICE_TELEMETRY_ENDPOINTS = [
   'GET /api/v1/device_config/metrics/condition/menu',
   'GET /api/v1/expected/data/list',
   'POST /api/v1/expected/data',
-  'DELETE /api/v1/expected/data/:id'
+  'DELETE /api/v1/expected/data/:id',
+  'GET /api/v1/device/modbus/profile/:deviceId',
+  'GET /api/v1/device/modbus/profile/number/:deviceNumber',
+  'PUT /api/v1/device/modbus/profile/:deviceId',
+  'GET /api/v1/device/preRegister',
+  'POST /api/v1/device/preRegister',
+  'GET /api/v1/device/preRegister/export',
+  'GET /api/v1/product'
 ];
 
 const COMMAND_JOBS_ENDPOINTS = [
@@ -302,7 +316,8 @@ const BUSINESS_CAPABILITIES = [
       'tests/17_api_boundary_smoke.test.js',
       'tests/18_seeded_device_data.test.js',
       'tests/22_mqtt_device_pipeline.test.js',
-      'tests/27_shadow_messages.test.js'
+      'tests/27_shadow_messages.test.js',
+      { file: 'tests/28_calculated_fields.test.js', evidenceKind: 'boundary' }
     ],
     e2eTests: [
       'e2e/02_device.spec.js',
@@ -453,7 +468,7 @@ const BUSINESS_CAPABILITIES = [
     id: 'automation-scene',
     priority: 'P1',
     domain: 'Automation and scene',
-    frontendRoutes: ['/automation/scene-manage', '/automation/scene-edit', '/automation/scene-linkage', '/automation/linkage-edit'],
+    frontendRoutes: ['/automation/scene-manage', '/automation/scene-edit', '/automation/scene-linkage', '/automation/linkage-edit', '/automation/rule-chain', '/automation/rule-chain/edit'],
     endpoints: [
       'GET /api/v1/scene',
       'POST /api/v1/scene',
@@ -471,7 +486,12 @@ const BUSINESS_CAPABILITIES = [
       'GET /api/v1/scene_automations/list',
       'POST /api/v1/scene_automations/switch/:id',
       'GET /api/v1/scene_automations/log',
-      'GET /api/v1/scene_automations/alarm'
+      'GET /api/v1/scene_automations/alarm',
+      'POST /api/v1/rule-chains',
+      'PUT /api/v1/rule-chains',
+      'GET /api/v1/rule-chains/list',
+      'GET /api/v1/rule-chains/:id',
+      'DELETE /api/v1/rule-chains/:id'
     ],
     automationTests: [
       'tests/23_seeded_automation_scene.test.js',
@@ -651,7 +671,11 @@ const BUSINESS_CAPABILITIES = [
       'PUT /api/v1/logo',
       'GET /api/v1/operation_logs',
       'GET /api/v1/system/metrics/current',
-      'GET /api/v1/system/metrics/history'
+      'GET /api/v1/system/metrics/history',
+      'GET /api/v1/entity_versions',
+      'POST /api/v1/entity_versions',
+      'GET /api/v1/entity_versions/:id',
+      'POST /api/v1/entity_versions/:id/restore'
     ],
     automationTests: [
       'tests/06_system.test.js',

@@ -241,6 +241,7 @@ func UpdateUserWithAddress(user *model.User, addressReq *model.UpdateUserAddress
 	})
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetUsersById(uid string) (*model.User, error) {
 	user, err := query.User.Where(query.User.ID.Eq(uid)).First()
 	if err != nil {
@@ -325,6 +326,7 @@ func GetUserByIdWithAddress(uid string) (map[string]interface{}, error) {
 // P1 修复（2026-08-23，见 VALIDATION.md）：登录高频路径改走 raw global.DB 链
 // （clone==1 根，每次链式起点均为全新 Statement），与 UpdateLastVisitTime 同理，
 // 杜绝 gen 继承链在高并发下残留 Model/Dest 导致的陈旧条件注入。
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetUsersByEmail(email string) (*model.User, error) {
 	if strings.TrimSpace(email) == "" {
 		return nil, gorm.ErrRecordNotFound
@@ -342,6 +344,7 @@ func GetUsersByEmail(email string) (*model.User, error) {
 // - 如果输入不带区号(纯数字)：模糊匹配数字后缀(LIKE '%digits')
 // GetUsersByPhoneNumber 通过手机号获取用户；支持带区号精确匹配与无区号后缀模糊匹配。
 // P1 修复（2026-08-23）：同 GetUsersByEmail，改走 raw global.DB 链规避继承链竞态。
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetUsersByPhoneNumber(phoneNumber string) (*model.User, error) {
 	if phoneNumber == "" {
 		return nil, errors.New("phone number is empty")
@@ -351,7 +354,7 @@ func GetUsersByPhoneNumber(phoneNumber string) (*model.User, error) {
 	if strings.HasPrefix(phoneNumber, "+") {
 		err = global.DB.Where("phone_number = ?", phoneNumber).First(&user).Error
 	} else {
-		err = global.DB.Where("phone_number LIKE ?", "%"+phoneNumber).First(&user).Error
+		err = global.DB.Where("phone_number LIKE ?", "%"+EscapeLikePattern(phoneNumber)).First(&user).Error
 	}
 	if err != nil {
 		return nil, err
@@ -359,6 +362,7 @@ func GetUsersByPhoneNumber(phoneNumber string) (*model.User, error) {
 	return &user, nil
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetUserListByPage(userListReq *model.UserListReq, claims *utils.UserClaims) (int64, interface{}, error) {
 	return GetUserListByPageWithAddress(userListReq, claims)
 }
@@ -400,28 +404,28 @@ func GetUserListByPageWithAddress(userListReq *model.UserListReq, claims *utils.
 
 	// 用户基本信息过滤
 	if userListReq.Email != nil && *userListReq.Email != "" {
-		base = base.Where("users.email LIKE ?", fmt.Sprintf("%%%s%%", *userListReq.Email))
+		base = base.Where("users.email LIKE ?", ContainsLikePattern(*userListReq.Email))
 	}
 	if userListReq.PhoneNumber != nil && *userListReq.PhoneNumber != "" {
 		base = base.Where("users.phone_number = ?", *userListReq.PhoneNumber)
 	}
 	if userListReq.Name != nil && *userListReq.Name != "" {
-		base = base.Where("users.name LIKE ?", fmt.Sprintf("%%%s%%", *userListReq.Name))
+		base = base.Where("users.name LIKE ?", ContainsLikePattern(*userListReq.Name))
 	}
 	if userListReq.Status != nil && *userListReq.Status != "" {
 		base = base.Where("users.status = ?", *userListReq.Status)
 	}
 	if userListReq.Organization != nil && *userListReq.Organization != "" {
-		base = base.Where("users.organization LIKE ?", fmt.Sprintf("%%%s%%", *userListReq.Organization))
+		base = base.Where("users.organization LIKE ?", ContainsLikePattern(*userListReq.Organization))
 	}
 	if userListReq.Country != nil && *userListReq.Country != "" {
-		base = base.Where("user_address.country LIKE ?", fmt.Sprintf("%%%s%%", *userListReq.Country))
+		base = base.Where("user_address.country LIKE ?", ContainsLikePattern(*userListReq.Country))
 	}
 	if userListReq.Province != nil && *userListReq.Province != "" {
-		base = base.Where("user_address.province LIKE ?", fmt.Sprintf("%%%s%%", *userListReq.Province))
+		base = base.Where("user_address.province LIKE ?", ContainsLikePattern(*userListReq.Province))
 	}
 	if userListReq.City != nil && *userListReq.City != "" {
-		base = base.Where("user_address.city LIKE ?", fmt.Sprintf("%%%s%%", *userListReq.City))
+		base = base.Where("user_address.city LIKE ?", ContainsLikePattern(*userListReq.City))
 	}
 
 	// 获取总数（1:1关系不需要去重）
@@ -430,10 +434,7 @@ func GetUserListByPageWithAddress(userListReq *model.UserListReq, claims *utils.
 	}
 
 	// 分页
-	if userListReq.Page != 0 && userListReq.PageSize != 0 {
-		base = base.Limit(userListReq.PageSize)
-		base = base.Offset((userListReq.Page - 1) * userListReq.PageSize)
-	}
+	base = applyListPagination(base, userListReq.Page, userListReq.PageSize)
 
 	var usersWithAddress []userWithAddressRow
 	if err := base.Order("users.created_at DESC").Scan(&usersWithAddress).Error; err != nil {
@@ -453,6 +454,7 @@ func GetUserListByPageWithAddress(userListReq *model.UserListReq, claims *utils.
 	return count, userList, nil
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetUsersCount() int64 {
 	count, err := query.User.Count()
 	if err != nil {

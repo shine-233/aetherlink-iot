@@ -120,13 +120,7 @@ const firstBlockingProofItem = computed(() => readyProof.items?.find((item: any)
             }}
           </small>
         </div>
-        <n-button
-          v-if="readyProof.ready"
-          size="tiny"
-          type="primary"
-          ghost
-          @click="emit('downloadSuccessProof')"
-        >
+        <n-button v-if="readyProof.ready" size="tiny" type="primary" ghost @click="emit('downloadSuccessProof')">
           {{ $t('custom.home.firstDevice.proof.downloadDeliveryProof') }}
         </n-button>
         <n-tag v-else size="small" round :bordered="false" type="warning">
@@ -135,19 +129,18 @@ const firstBlockingProofItem = computed(() => readyProof.items?.find((item: any)
       </div>
 
       <div class="mt-10px grid gap-6px">
-        <div v-for="item in readyProof.items" :key="item.key" class="first-device-proof-row">
-          <div class="min-w-0">
-            <span>{{ item.label }}</span>
-            <small>{{ item.detail }}</small>
+        <template v-if="readyProof.items?.length">
+          <div v-for="item in readyProof.items" :key="item.key" class="first-device-proof-row">
+            <div class="min-w-0">
+              <span>{{ item.label }}</span>
+              <small>{{ item.detail }}</small>
+            </div>
+            <strong :class="item.ok ? 'text-green-600' : 'text-orange-600'">
+              {{ item.ok ? $t('custom.home.firstDevice.proof.passed') : $t('custom.home.firstDevice.proof.pending') }}
+            </strong>
           </div>
-          <strong :class="item.ok ? 'text-green-600' : 'text-orange-600'">
-            {{
-              item.ok
-                ? $t('custom.home.firstDevice.proof.passed')
-                : $t('custom.home.firstDevice.proof.pending')
-            }}
-          </strong>
-        </div>
+        </template>
+        <n-empty v-else :description="$t('common.noData')" />
       </div>
     </div>
   </div>
@@ -163,9 +156,9 @@ const firstBlockingProofItem = computed(() => readyProof.items?.find((item: any)
 .first-device-success-proof-card {
   min-width: 0;
   padding: 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  background: #fff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--card-color);
 }
 
 .first-device-operation-check {
@@ -175,22 +168,22 @@ const firstBlockingProofItem = computed(() => readyProof.items?.find((item: any)
   gap: 8px;
   min-width: 0;
   padding: 8px 10px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-color);
   border-radius: 6px;
-  background: #f8fafc;
+  background: var(--action-color);
 }
 
 .first-device-operation-check strong {
   display: block;
   overflow-wrap: anywhere;
-  color: #0f172a;
-  font-size: 12px;
+  color: var(--text-color-1);
+  font-size: var(--font-size-caption);
 }
 
 .first-device-operation-check small {
   display: block;
   margin-top: 3px;
-  color: #64748b;
+  color: var(--text-color-3);
   font-size: 11px;
   line-height: 1.45;
 }
@@ -200,9 +193,9 @@ const firstBlockingProofItem = computed(() => readyProof.items?.find((item: any)
   gap: 3px;
   margin-top: 8px;
   padding: 8px 10px;
-  border: 1px solid #dbeafe;
-  border-radius: 8px;
-  background: #eff6ff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: rgb(var(--info-color) / 0.08);
 }
 
 .first-device-chart-generation-hint strong,
@@ -212,12 +205,12 @@ const firstBlockingProofItem = computed(() => readyProof.items?.find((item: any)
 }
 
 .first-device-chart-generation-hint strong {
-  color: #0f172a;
-  font-size: 12px;
+  color: var(--text-color-1);
+  font-size: var(--font-size-caption);
 }
 
 .first-device-chart-generation-hint small {
-  color: #475569;
+  color: var(--text-color-2);
   font-size: 11px;
   line-height: 1.45;
 }
@@ -231,28 +224,28 @@ const firstBlockingProofItem = computed(() => readyProof.items?.find((item: any)
 .first-device-chart-summary {
   min-width: 0;
   padding: 10px;
-  border: 1px solid #bfdbfe;
+  border: 1px solid var(--border-color);
   border-radius: 6px;
-  background: #eff6ff;
+  background: rgb(var(--info-color) / 0.08);
 }
 
 .first-device-chart-summary span {
   display: block;
-  color: #2563eb;
-  font-size: 12px;
+  color: rgb(var(----color));
+  font-size: var(--font-size-caption);
 }
 
 .first-device-chart-summary strong {
   display: block;
   overflow-wrap: anywhere;
-  color: #0f172a;
-  font-size: 14px;
+  color: var(--text-color-1);
+  font-size: var(--font-size-base);
 }
 
 .first-device-chart-summary small {
   display: block;
   margin-top: 3px;
-  color: #64748b;
+  color: var(--text-color-3);
   line-height: 1.4;
 }
 
@@ -264,19 +257,19 @@ const firstBlockingProofItem = computed(() => readyProof.items?.find((item: any)
   min-width: 0;
   padding: 8px 10px;
   border-radius: 6px;
-  background: #fff;
+  background: var(--card-color);
 }
 
 .first-device-bar span {
   display: block;
-  color: #64748b;
-  font-size: 12px;
+  color: var(--text-color-3);
+  font-size: var(--font-size-caption);
 }
 
 .first-device-bar strong {
   display: block;
   overflow-wrap: anywhere;
-  color: #0f172a;
+  color: var(--text-color-1);
 }
 
 .first-device-bar-track {
@@ -284,14 +277,14 @@ const firstBlockingProofItem = computed(() => readyProof.items?.find((item: any)
   height: 6px;
   margin-top: 5px;
   overflow: hidden;
-  border-radius: 999px;
-  background: #e2e8f0;
+  border-radius: var(--radius-pill);
+  background: var(--action-color);
 }
 
 .first-device-bar-fill {
   height: 100%;
   border-radius: inherit;
-  background: #22c55e;
+  background: rgb(var(--success-color));
 }
 
 .first-device-handoff-hint {
@@ -301,14 +294,14 @@ const firstBlockingProofItem = computed(() => readyProof.items?.find((item: any)
   gap: 10px;
   margin-top: 10px;
   padding: 10px;
-  border: 1px solid #fed7aa;
-  border-radius: 8px;
-  background: #fff7ed;
+  border: 1px solid rgb(var(--warning-color) / 0.6);
+  border-radius: var(--radius-md);
+  background: rgb(var(--warning-color) / 0.1);
 }
 
 .first-device-handoff-hint--ready {
-  border-color: #bbf7d0;
-  background: #f0fdf4;
+  border-color: rgb(var(--success-color) / 0.5);
+  background: rgb(var(--success-color) / 0.07);
 }
 
 .first-device-handoff-hint strong,
@@ -318,13 +311,13 @@ const firstBlockingProofItem = computed(() => readyProof.items?.find((item: any)
 }
 
 .first-device-handoff-hint strong {
-  color: #0f172a;
-  font-size: 12px;
+  color: var(--text-color-1);
+  font-size: var(--font-size-caption);
 }
 
 .first-device-handoff-hint small {
   margin-top: 4px;
-  color: #475569;
+  color: var(--text-color-2);
   font-size: 11px;
   line-height: 1.45;
 }
@@ -335,13 +328,13 @@ const firstBlockingProofItem = computed(() => readyProof.items?.find((item: any)
   justify-content: space-between;
   gap: 8px;
   min-width: 0;
-  font-size: 12px;
+  font-size: var(--font-size-caption);
 }
 
 .first-device-proof-row small {
   display: block;
   margin-top: 2px;
-  color: #94a3b8;
+  color: var(--text-color-3);
   font-size: 11px;
   line-height: 1.4;
 }

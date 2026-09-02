@@ -188,7 +188,13 @@ init()
     </NForm>
   </NSpin>
 
-  <NModal v-model:show="visible" preset="card" :title="$t('common.debug')" class="w-500px">
+  <NModal
+    v-model:show="visible"
+    preset="card"
+    :title="$t('common.debug')"
+    :aria-label="$t('common.debug')"
+    class="w-500px"
+  >
     <NForm ref="debugFormRef" label-placement="left" :label-width="120" :model="debugData" :rules="rules">
       <NGrid :cols="24" :x-gap="18">
         <NFormItemGridItem :span="24" :label="$t('page.manage.notification.email.form.inbox')" path="email">

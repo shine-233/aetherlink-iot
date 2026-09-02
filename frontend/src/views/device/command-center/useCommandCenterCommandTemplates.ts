@@ -123,9 +123,7 @@ export function useCommandCenterCommandTemplates() {
 
     const now = new Date().toISOString()
     const name = draft.name?.trim() || commandTemplateName.value.trim() || identify
-    const existing = savedCommandTemplates.value.find(
-      (template) => template.name.toLowerCase() === name.toLowerCase()
-    )
+    const existing = savedCommandTemplates.value.find((template) => template.name.toLowerCase() === name.toLowerCase())
     const nextTemplate: CommandCenterSavedCommandTemplate = {
       id: existing?.id || `command-template-${Date.now()}`,
       name: name.slice(0, 64),

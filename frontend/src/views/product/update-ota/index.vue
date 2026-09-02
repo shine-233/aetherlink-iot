@@ -12,6 +12,7 @@ import { debounce } from 'lodash-es'
 import { addOtaTask, editOtaTaskDetail, getOtaTaskSupportBundle, previewOtaTask } from '@/service/product/update-ota'
 import { listFleetSavedFilters } from '@/service/api/device'
 import { $t } from '@/locales'
+import PageHeader from '@/components/common/page-header/index.vue'
 import { createOtaTaskColumns } from './ota-task-table-columns'
 import { useOtaTaskData } from './useOtaTaskData'
 import { useOtaTaskDetail } from './useOtaTaskDetail'
@@ -409,24 +410,17 @@ onMounted(async () => {
 <template>
   <div class="product-page">
     <NSpace vertical size="medium">
-      <div class="page-header">
-        <div>
-          <div class="page-title">{{ $t('page.product.update-ota.otaTitle') }}</div>
-          <div class="page-subtitle">
-            {{
-              selectedPackage?.name || selectedPackage?.version || $t('page.product.update-package.packagePlaceholder')
-            }}
-          </div>
-        </div>
-        <NSpace>
-          <!-- 必须显式无参调用：fetchPackages(search = keyword) 的首参是搜索词，
-               直接绑定会把 MouseEvent 当搜索词传进去，触发 search.trim() 类型错误。 -->
-          <NButton :loading="packageLoading" @click="() => fetchPackages()">{{ $t('common.refresh') }}</NButton>
-          <NButton type="primary" :disabled="!selectedPackageId" @click="openTaskModal">
-            {{ $t('page.product.update-ota.updateTask') }}
-          </NButton>
-        </NSpace>
-      </div>
+      <PageHeader
+        :title="$t('page.product.update-ota.otaTitle')"
+        :subtitle="selectedPackage?.name || selectedPackage?.version || $t('page.product.update-package.packagePlaceholder')"
+      >
+        <!-- 必须显式无参调用：fetchPackages(search = keyword) 的首参是搜索词，
+             直接绑定会把 MouseEvent 当搜索词传进去，触发 search.trim() 类型错误。 -->
+        <NButton :loading="packageLoading" @click="() => fetchPackages()">{{ $t('common.refresh') }}</NButton>
+        <NButton type="primary" :disabled="!selectedPackageId" @click="openTaskModal">
+          {{ $t('page.product.update-ota.updateTask') }}
+        </NButton>
+      </PageHeader>
 
       <NCard :bordered="false">
         <NSpace align="center" :wrap="true">
@@ -466,7 +460,11 @@ onMounted(async () => {
         :loading="taskLoading"
         :pagination="taskPagination"
         :scroll-x="980"
-      />
+      >
+        <template #empty>
+          <NEmpty :description="$t('common.noData')" class="py-24px" />
+        </template>
+      </NDataTable>
     </NSpace>
 
     <NModal
@@ -579,23 +577,6 @@ onMounted(async () => {
 <style scoped>
 .product-page {
   padding: 16px;
-}
-
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.page-title {
-  font-size: 22px;
-  font-weight: 700;
-}
-
-.page-subtitle {
-  margin-top: 4px;
-  color: var(--text-color-3);
 }
 
 .package-select {
@@ -728,11 +709,6 @@ onMounted(async () => {
 }
 
 @media (max-width: 720px) {
-  .page-header {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
   .package-select,
   .detail-filter {
     width: 100%;

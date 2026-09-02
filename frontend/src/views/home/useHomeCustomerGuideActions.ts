@@ -58,7 +58,10 @@ export function useHomeCustomerGuideActions(options: UseHomeCustomerGuideActions
     const state = firstRunGuideState.value
     if (!state?.lastTitle) return ''
     if (state.quickCreateDeviceName) {
-      return $t('custom.home.resume.afterCreate', { deviceName: state.quickCreateDeviceName, lastTitle: state.lastTitle })
+      return $t('custom.home.resume.afterCreate', {
+        deviceName: state.quickCreateDeviceName,
+        lastTitle: state.lastTitle
+      })
     }
     return $t('custom.home.resume.continue', {
       lastTitle: state.lastTitle,
@@ -228,9 +231,9 @@ export function useHomeCustomerGuideActions(options: UseHomeCustomerGuideActions
   const runFirstDeviceQuickstartAction = (action: string) =>
     action === 'health'
       ? options.refreshDeploymentHealth()
-      : options.ensureFirstDeviceWorkbenchLoaded().then(() =>
-          options.workbench.runQuickstartAction(action, createFirstRunFirstDevice)
-        )
+      : options
+          .ensureFirstDeviceWorkbenchLoaded()
+          .then(() => options.workbench.runQuickstartAction(action, createFirstRunFirstDevice))
 
   const openFirstDeviceAccessGuideAfterLoad = () =>
     options.ensureFirstDeviceWorkbenchLoaded().then(() => {

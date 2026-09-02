@@ -142,11 +142,16 @@ func loginSessionTimeoutMinutes() int {
 	return timeout
 }
 
+// authRedisOpTimeout 约束认证链路 Redis 会话写删操作时长。
+// 这些历史函数未收 ctx，用短超时替代裸 Background，避免无界阻塞登录/登出。
+const authRedisOpTimeout = 3 * time.Second
+
 func saveUserLoginToken(token, email string, timeout int) error {
 	if global.REDIS == nil {
 		return tokenSaveError(email, errors.New("redis client is not initialized"))
 	}
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), authRedisOpTimeout)
+	defer cancel()
 	ttl := time.Duration(timeout) * time.Minute
 	if logic.UserIsShare(ctx) {
 		return setLoginToken(ctx, token, email, ttl)
@@ -154,45 +159,44 @@ func saveUserLoginToken(token, email string, timeout int) error {
 	return replaceExclusiveLoginToken(ctx, token, email, ttl)
 }
 
+// replaceExclusiveLoginToken 实现单账号独占会话语义：
+// 新 token 白名单写入成功后吊销旧会话，并把 <email>_token 键维护为"当前会话摘要"。
+// P3 加固（2026-08-25）：该键不再落地明文 JWT（改存 utils.TokenDigest 摘要），且 TTL 与会话超时对齐；
+// 修复了明文令牌长期驻留 Redis（TTL=0）以及旧 access token 在刷新后仍存活至 TTL 的问题（安全审计 F1/F2）。
 func replaceExclusiveLoginToken(ctx context.Context, token, email string, ttl time.Duration) error {
-	oldToken, err := loadPreviousLoginToken(ctx, email)
+	oldDigest, err := loadPreviousLoginTokenDigest(ctx, email)
 	if err != nil {
 		return err
 	}
-	if oldToken != "" {
-		if err := deleteLoginToken(ctx, oldToken, email); err != nil {
-			return err
+	if oldDigest != "" {
+		// 键值即摘要：直接删除旧摘要键即可吊销上一会话。
+		if err := global.REDIS.Del(ctx, oldDigest).Err(); err != nil && !errors.Is(err, redis.Nil) {
+			return tokenSaveError(email, err)
 		}
 	}
 	if err := setLoginToken(ctx, token, email, ttl); err != nil {
 		return err
 	}
-	if err := global.REDIS.Set(ctx, loginEmailTokenKey(email), token, 0).Err(); err != nil {
+	if err := global.REDIS.Set(ctx, loginEmailTokenKey(email), utils.TokenDigest(token), ttl).Err(); err != nil {
 		_ = global.REDIS.Del(ctx, utils.TokenDigest(token)).Err()
 		return tokenSaveError(email, err)
 	}
 	return nil
 }
 
-func loadPreviousLoginToken(ctx context.Context, email string) (string, error) {
-	oldToken, err := global.REDIS.Get(ctx, loginEmailTokenKey(email)).Result()
+// loadPreviousLoginTokenDigest 返回该账号上一会话的 token 摘要（键值即摘要，非明文 JWT）。
+func loadPreviousLoginTokenDigest(ctx context.Context, email string) (string, error) {
+	oldDigest, err := global.REDIS.Get(ctx, loginEmailTokenKey(email)).Result()
 	if err != nil && !errors.Is(err, redis.Nil) {
 		return "", tokenSaveError(email, err)
 	}
-	return oldToken, nil
+	return oldDigest, nil
 }
 
 func setLoginToken(ctx context.Context, token, email string, ttl time.Duration) error {
 	// P3 修复（2026-08-24，见 VALIDATION.md）：Redis 键统一使用 token 摘要（utils.TokenDigest），
 	// 与 middleware/jwt_auth.go、api/telemetry_ws_auth.go 共用同一键空间。
 	if err := global.REDIS.Set(ctx, utils.TokenDigest(token), "1", ttl).Err(); err != nil {
-		return tokenSaveError(email, err)
-	}
-	return nil
-}
-
-func deleteLoginToken(ctx context.Context, token, email string) error {
-	if err := global.REDIS.Del(ctx, utils.TokenDigest(token)).Err(); err != nil && !errors.Is(err, redis.Nil) {
 		return tokenSaveError(email, err)
 	}
 	return nil
@@ -211,14 +215,18 @@ func tokenSaveError(email string, err error) error {
 
 // @description 退出登录
 func (*User) Logout(token string) error {
-	if err := global.REDIS.Del(context.Background(), utils.TokenDigest(token)).Err(); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), authRedisOpTimeout)
+	defer cancel()
+	if err := global.REDIS.Del(ctx, utils.TokenDigest(token)).Err(); err != nil {
 		return errcode.New(errcode.CodeTokenDeleteError)
 	}
 	return nil
 }
 
 // @description 刷新token
-func (*User) RefreshToken(userClaims *utils.UserClaims) (*model.LoginRsp, error) {
+// previousTokenDigest 是本次请求所持旧 token 的摘要（api 层经 middleware.SelectJWTAuthToken 计算）。
+// 新 token 写入成功后立即吊销旧摘要，修复刷新后旧 access token 仍可用至 TTL 的问题（安全审计 F1）。
+func (*User) RefreshToken(userClaims *utils.UserClaims, previousTokenDigest string) (*model.LoginRsp, error) {
 	user, err := loadRefreshTokenUser(userClaims)
 	if err != nil {
 		return nil, err
@@ -249,8 +257,22 @@ func (*User) RefreshToken(userClaims *utils.UserClaims) (*model.LoginRsp, error)
 	if err := saveRefreshToken(token, user.Email, timeout); err != nil {
 		return nil, err
 	}
+	revokePreviousTokenDigest(previousTokenDigest, user.Email)
 
 	return newLoginResponse(token, timeout), nil
+}
+
+// revokePreviousTokenDigest 尽力吊销旧会话摘要；失败仅告警不阻断刷新链路——
+// 吊销失败时退回旧行为（旧 token 存活至 TTL），避免把用户完全锁死在认证续期上。
+func revokePreviousTokenDigest(digest, email string) {
+	if digest == "" || global.REDIS == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), authRedisOpTimeout)
+	defer cancel()
+	if err := global.REDIS.Del(ctx, digest).Err(); err != nil && !errors.Is(err, redis.Nil) {
+		logrus.Warnf("revoke previous session digest failed: email=%s err=%v", email, err)
+	}
 }
 
 func loadRefreshTokenUser(userClaims *utils.UserClaims) (*model.User, error) {
@@ -288,13 +310,15 @@ func refreshSessionTimeoutMinutes() int {
 }
 
 func saveRefreshToken(token, email string, timeout int) error {
+	ctx, cancel := context.WithTimeout(context.Background(), authRedisOpTimeout)
+	defer cancel()
 	if global.REDIS == nil {
 		return errcode.WithData(errcode.CodeTokenSaveError, map[string]interface{}{
 			"error": "redis client is not initialized",
 			"email": email,
 		})
 	}
-	if err := global.REDIS.Set(context.Background(), utils.TokenDigest(token), "1", time.Duration(timeout)*time.Minute).Err(); err != nil {
+	if err := global.REDIS.Set(ctx, utils.TokenDigest(token), "1", time.Duration(timeout)*time.Minute).Err(); err != nil {
 		return errcode.WithData(errcode.CodeTokenSaveError, map[string]interface{}{
 			"error": err.Error(),
 			"email": email,
@@ -383,13 +407,15 @@ func transformUserTokenTTL() time.Duration {
 }
 
 func saveTransformUserToken(token, userID string, ttl time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), authRedisOpTimeout)
+	defer cancel()
 	if global.REDIS == nil {
 		return errcode.WithData(errcode.CodeTokenSaveError, map[string]interface{}{
 			"error":   "redis client is not initialized",
 			"user_id": userID,
 		})
 	}
-	if err := global.REDIS.Set(context.Background(), utils.TokenDigest(token), "1", ttl).Err(); err != nil {
+	if err := global.REDIS.Set(ctx, utils.TokenDigest(token), "1", ttl).Err(); err != nil {
 		return errcode.WithData(errcode.CodeTokenSaveError, map[string]interface{}{
 			"error":   err.Error(),
 			"user_id": userID,
@@ -482,7 +508,8 @@ func buildOptionalEmailRegisterPhoneNumber(phonePrefix, phoneNumber string) stri
 }
 
 func verifyEmailRegisterCode(email, verifyCode string) error {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), authRedisOpTimeout)
+	defer cancel()
 	// 失败次数达到上限的验证码立即作废，防止 6 位数字码在有效期内被暴力枚举。
 	if err := ensureVerificationCodeAttemptsAllowed(ctx, email); err != nil {
 		return err
@@ -534,7 +561,12 @@ func buildEmailRegisterPassword(ctx context.Context, password string, salt *stri
 	if err := utils.ValidatePassword(password); err != nil {
 		return "", err
 	}
-	return utils.BcryptHash(password), nil
+	hashed, hashErr := utils.BcryptHash(password)
+	if hashErr != nil {
+		logrus.Error("hash register password failed:", hashErr)
+		return "", errcode.NewWithMessage(errcode.CodeDecryptError, "failed to hash password")
+	}
+	return hashed, nil
 }
 
 func newEmailRegisterUser(email, phoneNumber, hashedPassword, tenantID string, now time.Time) *model.User {

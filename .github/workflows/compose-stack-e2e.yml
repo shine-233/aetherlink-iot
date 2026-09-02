@@ -269,6 +269,22 @@ jobs:
           GOTP_DB_PSQL_DBNAME: aetherlink_iot
         run: npm run test:automation:e2e
 
+      # 轻量负载探测：租户管理员读路径（设备分页）+ /health 对照；结果随报告归档做趋势追踪。
+      # 凭据从 preflight 生成的 .env.local 现场加载（不进入全局 env/日志）。
+      - name: Run lightweight API load probe
+        if: success()
+        working-directory: ${{ github.workspace }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -a
+          # shellcheck disable=SC1091
+          . automation_tests/.env.local
+          set +a
+          cd automation_tests
+          AETHERLINK_API_BASE_URL=http://127.0.0.1:9999 \
+            node scripts/load_probe.mjs --duration 30 --rps 20 --auth
+
       - name: Upload integration reports
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

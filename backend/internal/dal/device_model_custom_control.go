@@ -18,6 +18,7 @@ func CreateDeviceModelCustomControl(data *model.DeviceModelCustomControl) error 
 	return query.DeviceModelCustomControl.Create(data)
 }
 
+// tenant-scope: parent-owned?2026-08-26 ?????
 func GetDeviceModelCustomControlById(id string) (*model.DeviceModelCustomControl, error) {
 	return query.DeviceModelCustomControl.Where(query.DeviceModelCustomControl.ID.Eq(id)).First()
 }
@@ -61,10 +62,7 @@ func GetDeviceModelCustomControlByPage(page model.GetDeviceModelListByPageReq, t
 		return count, nil, err
 	}
 
-	if page.Page != 0 && page.PageSize != 0 {
-		queryBuilder = queryBuilder.Limit(page.PageSize)
-		queryBuilder = queryBuilder.Offset((page.Page - 1) * page.PageSize)
-	}
+	queryBuilder = applyListPagination(queryBuilder, page.Page, page.PageSize)
 
 	data, err := queryBuilder.Select(q.ALL).Order(q.CreatedAt.Desc()).Find()
 	if err != nil {

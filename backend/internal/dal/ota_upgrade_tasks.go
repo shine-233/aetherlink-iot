@@ -107,6 +107,7 @@ func DeleteOTAUpgradeTaskDetailsByDeviceIDTx(deviceID string, tx *query.QueryTx)
 	return err
 }
 
+// tenant-scope: no-tenant-column?2026-08-26 ?????
 func GetOtaUpgradeTaskListByPage(p *model.GetOTAUpgradeTaskListByPageReq, ownerUserID *string) (int64, []map[string]interface{}, error) {
 	// 初始化SQL WHERE子句和参数
 	whereClause := "WHERE t.ota_upgrade_package_id = ?"
@@ -204,6 +205,7 @@ func OTAUpgradeTaskDevicesOwnedBy(taskID string, ownerUserID string) (bool, erro
 	return counts.TotalCount > 0 && counts.OwnedCount == counts.TotalCount, nil
 }
 
+// tenant-scope: no-tenant-column?2026-08-26 ?????
 func GetOtaUpgradeTaskDetailListByPage(p *model.GetOTAUpgradeTaskDetailReq) (int64, interface{}, interface{}, error) {
 
 	var count int64
@@ -253,10 +255,7 @@ func GetOtaUpgradeTaskDetailListByPage(p *model.GetOTAUpgradeTaskDetailReq) (int
 	}
 
 	// 分页
-	if p.Page != 0 && p.PageSize != 0 {
-		detailDataBuilder = detailDataBuilder.Limit(p.PageSize)
-		detailDataBuilder = detailDataBuilder.Offset((p.Page - 1) * p.PageSize)
-	}
+	detailDataBuilder = applyListPagination(detailDataBuilder, p.Page, p.PageSize)
 	otaTask := query.OtaUpgradeTask
 	otaPackage := query.OtaUpgradePackage
 
@@ -407,6 +406,7 @@ func int64FromSQLValue(value interface{}) int64 {
 // rollout task, keyed by the int16 status enum (pending/pushed/upgrading/
 // succeeded/failed/canceled). It is a read-only aggregation used by the rollout
 // governance preview; the actual dispatch and row transitions live elsewhere.
+// tenant-scope: no-tenant-column?2026-08-26 ?????
 func CountOTAUpgradeTaskDetailStatuses(taskID string) (map[int16]int, error) {
 	type statusCount struct {
 		Status int16 `json:"status"`

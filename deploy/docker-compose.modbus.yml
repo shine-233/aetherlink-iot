@@ -1,0 +1,39 @@
+# Modbus TCP 协议插件（ROADMAP B1）独立 Compose 文件。
+#
+# 默认 docker-compose.yml 保持轻量（只有 postgres/redis/mqtt-broker/backend/frontend），
+# 该文件把 modbus-plugin 独立出来，需显式启用：
+#
+#   docker compose -f docker-compose.yml \
+#     -f deploy/docker-compose.modbus.yml \
+#     --profile modbus up -d
+#
+# 启用前先复制 modbus-plugin/config.example.json 为 modbus-plugin/config.json
+# 并填入设备凭证与点表（只读挂载，禁止把真实凭证打进镜像或提交进仓库）。
+
+services:
+  modbus-plugin:
+    profiles: ["modbus"]
+    networks:
+      - core_net
+    build:
+      context: ./modbus-plugin
+    restart: unless-stopped
+    cpus: "${AETHERLINK_MODBUS_CPUS:-0.20}"
+    mem_limit: "${AETHERLINK_MODBUS_MEM_LIMIT:-96m}"
+    pids_limit: ${AETHERLINK_MODBUS_PIDS_LIMIT:-64}
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    depends_on:
+      mqtt-broker:
+        condition: service_healthy
+    environment:
+      MODBUS_PLUGIN_CONFIG: /modbus-plugin/config/config.json
+    volumes:
+      # 点表含设备凭证：只读挂载，禁止把真实凭证打进镜像或提交进仓库。
+      - ./modbus-plugin/config.json:/modbus-plugin/config/config.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8090/healthz >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 12

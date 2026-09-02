@@ -7,7 +7,7 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { type DataTableColumns, NButton, NDataTable, type PaginationProps, useMessage } from 'naive-ui'
+import { type DataTableColumns, NButton, NDataTable, NEmpty, type PaginationProps, useMessage } from 'naive-ui'
 import {
   deleteDeviceGroup,
   deleteDeviceGroupRelation,
@@ -363,7 +363,11 @@ watch(the_modal2, modal => {
                 remote
                 :pagination="group_pagination"
                 class="h-auto"
-              ></NDataTable>
+              >
+                <template #empty>
+                  <NEmpty :description="$t('common.noData')" class="py-24px" />
+                </template>
+              </NDataTable>
             </NSpace>
             <AddOrEditDevices
               v-if="renderAddChildGroupModal"
@@ -386,7 +390,11 @@ watch(the_modal2, modal => {
               </NButton>
             </NSpace>
 
-            <NDataTable :columns="deviceColumns" :data="device_data" :loading="loading" class="h-auto"></NDataTable>
+            <NDataTable :columns="deviceColumns" :data="device_data" :loading="loading" class="h-auto">
+              <template #empty>
+                <NEmpty :description="$t('common.noData')" class="py-24px" />
+              </template>
+            </NDataTable>
             <NFlex justify="end" class="mt-4">
               <NPagination
                 v-model:page="devicePagination.page"

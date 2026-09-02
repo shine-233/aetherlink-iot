@@ -79,6 +79,8 @@ const closeModal = () => {
   modalVisible.value = false
   formData.value.name = ''
 }
+// 提交进行中标记：防止重复提交，并驱动保存按钮 loading 态。
+const submitLoading = ref(false)
 /**
  * 修改姓名
  *
@@ -87,11 +89,17 @@ const closeModal = () => {
 const editName = async () => {
   await validate()
   const data = { name: formData.value.name }
-  const res = await changeInformation(data)
+  submitLoading.value = true
+  try {
+    const res = await changeInformation(data)
 
-  if (!res.error) {
-    modalVisible.value = false
-    emit('modification', formData.value.name)
+    // 失败时保持弹窗打开，保留用户输入；错误提示由请求层全局 onError 统一弹出。
+    if (!res.error) {
+      modalVisible.value = false
+      emit('modification', formData.value.name)
+    }
+  } finally {
+    submitLoading.value = false
   }
 }
 /** passwordModification */
@@ -111,10 +119,15 @@ const password = async () => {
     password: password1,
     salt
   }
-  const res = await passwordModification(param)
-  if (!res.error) {
-    modalVisible.value = false
-    emit('modification')
+  submitLoading.value = true
+  try {
+    const res = await passwordModification(param)
+    if (!res.error) {
+      modalVisible.value = false
+      emit('modification')
+    }
+  } finally {
+    submitLoading.value = false
   }
 }
 
@@ -197,7 +210,7 @@ const rules: FormRules = {
       </NGrid>
       <NSpace class="w-full pt-16px" :size="24" justify="end">
         <NButton class="w-72px" @click="closeModal">{{ $t('generate.cancel') }}</NButton>
-        <NButton class="w-72px" type="primary" @click="submit">{{ $t('common.save') }}</NButton>
+        <NButton class="w-72px" type="primary" :loading="submitLoading" @click="submit">{{ $t('common.save') }}</NButton>
       </NSpace>
     </NForm>
   </NModal>

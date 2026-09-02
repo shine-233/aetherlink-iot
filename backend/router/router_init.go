@@ -23,6 +23,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 
 	// gin-swagger middleware
 	_ "aetherlink-iot/backend/docs"
@@ -164,6 +165,8 @@ func RouterInit() *gin.Engine {
 	router.GET("/deployment/health", controllers.SystemApi.DeploymentHealth)
 
 	api := router.Group("api")
+	// 启动期 Casbin 覆盖审计的基线容器：在挂载 CasbinRBAC 前声明，快照在挂载点后写入。
+	var casbinBaselineRoutes []string
 	{
 		// 无需权限校验
 		v1 := api.Group("v1")
@@ -223,11 +226,18 @@ func RouterInit() *gin.Engine {
 		// 需要权限校验
 		v1.Use(middleware.JWTAuth())
 
+		// per-tenant API 限流（对标 TB PE 能力）：JWT 后全量业务接口统一计数；
+		// 阈值 api-rate-limit.requests-per-minute（默认 600，<=0 关闭），超限返回 429+Retry-After。
+		v1.Use(middleware.TenantRateLimit())
+
 		// 设备诊断需要登录态 claims，但不走 Casbin 菜单权限。
 		v1.GET("/devices/:device_id/diagnostics", controllers.DeviceApi.GetDeviceDiagnostics)
 
 		// 需要权限校验
 		v1.Use(middleware.CasbinRBAC())
+		// 启动期 Casbin 覆盖审计基线：此快照之后注册的一切路由都视为"受 Casbin 保护"，
+		// 必须登记进资源表，否则 auditCasbinRouteCoverage 会在启动期阻断（见 casbin_audit.go）。
+		casbinBaselineRoutes = ginRoutePaths(router)
 		// SSE服务
 		SSERouter(v1)
 
@@ -270,6 +280,8 @@ func RouterInit() *gin.Engine {
 
 			apps.Model.DeviceConfig.Init(v1) // 设备配置
 
+			apps.Model.Product.Init(v1) // 产品选择列表
+
 			apps.Model.DataScript.Init(v1) // 数据处理脚本
 
 			apps.Model.NotificationGroup.InitNotificationGroup(v1) // 通知组
@@ -294,6 +306,12 @@ func RouterInit() *gin.Engine {
 
 			apps.Model.AiQuery.InitAiQuery(v1) // AI 集成（自然语言查询遥测）
 
+			apps.Model.DeviceModbusProfile.InitDeviceModbusProfile(v1) // Modbus 点表配置
+
+			apps.Model.RuleChain.InitRuleChain(v1) // 规则链（可视化 DAG 编排）
+
+			apps.Model.EntityVersion.InitEntityVersion(v1) // 实体版本控制（快照/历史/恢复）
+
 			apps.Model.OpenAPIKey.InitOpenAPIKey(v1)
 
 			apps.Model.MessagePush.Init(v1)
@@ -302,9 +320,19 @@ func RouterInit() *gin.Engine {
 
 			apps.Model.PayloadSchema.InitPayloadSchema(v1) // payload schema 静态校验
 
+			apps.Model.CalculatedField.InitCalculatedField(v1) // 计算字段（遥测派生指标）
+
 			// 初始化系统监控路由
 			apps.Model.SystemMonitor.InitSystemMonitor(v1, m)
 		}
+	}
+
+	// 启动期 Casbin 覆盖检查：默认 fail-fast（P1 批交付，casbin.route-audit-mode 可配 warn/off）；
+	// 运维显式选择 off 时退回 #178 引入的只警报报告，保底可观测性。
+	if strings.EqualFold(strings.TrimSpace(viper.GetString("casbin.route-audit-mode")), "off") {
+		LogCasbinRegistrationGaps(router)
+	} else {
+		auditCasbinRouteCoverage(router, casbinBaselineRoutes)
 	}
 
 	return router

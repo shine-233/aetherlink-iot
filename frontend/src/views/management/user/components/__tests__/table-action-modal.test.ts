@@ -289,7 +289,9 @@ describe('management/user/components/table-action-modal.vue', () => {
     await state.handleSubmit()
     await flushPromises()
     expect(wrapper.emitted('success')).toBeUndefined()
-    expect(wrapper.emitted('update:visible')).toEqual([[false]])
+    // 契约（组件 handleSubmit 注释）：失败时保持弹窗打开并保留用户输入，
+    // 因此不应产生任何 update:visible 关闭事件。
+    expect(wrapper.emitted('update:visible')).toBeUndefined()
   })
 
   it('watch on visible triggers handleUpdateFormModelByModalType when visible becomes true', async () => {

@@ -55,10 +55,7 @@ func GetRGroupDeviceByGroupId(req model.GetDeviceListByGroup, tenantID string, o
 		return count, devicesList, err
 	}
 
-	if req.Page != 0 && req.PageSize != 0 {
-		queryBuilder = queryBuilder.Limit(req.PageSize)
-		queryBuilder = queryBuilder.Offset((req.Page - 1) * req.PageSize)
-	}
+	queryBuilder = applyListPagination(queryBuilder, req.Page, req.PageSize)
 	err = queryBuilder.Select(q.GroupID, d.ID, d.DeviceNumber, d.Name, d.DeviceConfigID.As("device_config_id"), c.Name.As("device_config_name")).
 		Order(d.CreatedAt.Desc()).
 		Scan(&devicesList)
@@ -97,11 +94,13 @@ func GetDeviceSelectByGroupId(tenantId string, group_id string, deviceName strin
 	return data, query.Scan(&data)
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetRGroupDeviceByDeviceId(device_id string) ([]*model.RGroupDevice, error) {
 	data, err := query.RGroupDevice.Where(query.RGroupDevice.DeviceID.Eq(device_id)).Find()
 	return data, err
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDeviceIdsByGroupIds(group_ids []string) ([]string, error) {
 	data, err := query.RGroupDevice.Where(query.RGroupDevice.GroupID.In(group_ids...)).Select(query.RGroupDevice.DeviceID).Find()
 	var deviceIds []string
@@ -111,6 +110,7 @@ func GetDeviceIdsByGroupIds(group_ids []string) ([]string, error) {
 	return deviceIds, err
 }
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDeviceIdsByDeviceConfigId(deviceConfigIds []string) ([]string, error) {
 	var result []string
 	err := query.Device.Where(query.Device.DeviceConfigID.In(deviceConfigIds...)).Pluck(query.Device.ID, &result)

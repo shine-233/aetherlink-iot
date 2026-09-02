@@ -13,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetSceneLogByPage(req model.GetSceneLogListByPageReq) (int64, []*model.SceneLog, error) {
 
 	var count int64
@@ -34,10 +35,7 @@ func GetSceneLogByPage(req model.GetSceneLogListByPageReq) (int64, []*model.Scen
 		return count, nil, err
 	}
 
-	if req.Page != 0 && req.PageSize != 0 {
-		queryBuilder = queryBuilder.Limit(req.PageSize)
-		queryBuilder = queryBuilder.Offset((req.Page - 1) * req.PageSize)
-	}
+	queryBuilder = applyListPagination(queryBuilder, req.Page, req.PageSize)
 
 	logList, err := queryBuilder.Order(q.ExecutedAt.Desc()).Find()
 	if err != nil {

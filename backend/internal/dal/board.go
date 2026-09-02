@@ -75,6 +75,7 @@ func PublishBoard(id string, tenantID string, shareToken string, publishedAt tim
 // board lookup. It requires both a matching token and the native published
 // flag, so an unpublished or ThingsVis board cannot be exposed through this
 // endpoint.
+// tenant-scope: public-share?2026-08-26 ?????
 func GetPublishedBoardByShareToken(shareToken string) (*model.Board, error) {
 	p := query.Board
 	return p.Where(
@@ -96,10 +97,7 @@ func GetBoardListByPage(boards *model.GetBoardListByPageReq, tenantId string) (i
 	}
 
 	if boards.Name != nil && *boards.Name != "" {
-		escapedName := strings.ReplaceAll(*boards.Name, "\\", "\\\\")
-		escapedName = strings.ReplaceAll(escapedName, "%", "\\%")
-		escapedName = strings.ReplaceAll(escapedName, "_", "\\_")
-		queryBuilder = queryBuilder.Where(q.Name.Like(fmt.Sprintf("%%%s%%", escapedName)))
+		queryBuilder = queryBuilder.Where(q.Name.Like(ContainsLikePattern(*boards.Name)))
 	}
 
 	if boards.HomeFlag != nil && *boards.HomeFlag != "" {
@@ -114,10 +112,7 @@ func GetBoardListByPage(boards *model.GetBoardListByPageReq, tenantId string) (i
 		logrus.Error(err)
 		return count, nil, err
 	}
-	if boards.Page != 0 && boards.PageSize != 0 {
-		queryBuilder = queryBuilder.Limit(boards.PageSize)
-		queryBuilder = queryBuilder.Offset((boards.Page - 1) * boards.PageSize)
-	}
+	queryBuilder = applyListPagination(queryBuilder, boards.Page, boards.PageSize)
 	queryBuilder = queryBuilder.Order(q.CreatedAt.Desc())
 	boardsList, err := queryBuilder.Select(
 		q.ID,

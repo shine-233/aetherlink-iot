@@ -70,7 +70,8 @@ vi.mock('../homeDeploymentHealth', () => ({
 vi.mock('../homeFirstRunWizard', () => ({
   createHomeFirstRunFirstDevice: vi.fn(),
   getHomeFirstRunTenantId: vi.fn((userInfo: { tenant_id?: string; tenantId?: string }) =>
-    String(userInfo?.tenant_id || userInfo?.tenantId || '').trim())
+    String(userInfo?.tenant_id || userInfo?.tenantId || '').trim()
+  )
 }))
 
 vi.mock('../homeFirstRunStorage', () => ({
@@ -98,7 +99,7 @@ vi.mock('../useHomeFirstDeviceWorkbench', () => ({
     copyPublishCommand: vi.fn(),
     simulateTelemetry: vi.fn(),
     runQuickstartAction: vi.fn(() => Promise.resolve()),
-    refresh: vi.fn(() => Promise.resolve()),
+    refresh: vi.fn(() => Promise.resolve())
   })
 }))
 
@@ -221,7 +222,7 @@ const getSetupState = (wrapper: ReturnType<typeof mountComponent>) => wrapper.vm
 
 describe('home/index.vue', () => {
   afterEach(() => {
-    mountedWrappers.forEach(wrapper => wrapper.unmount())
+    mountedWrappers.forEach((wrapper) => wrapper.unmount())
     mountedWrappers.length = 0
   })
 
@@ -390,7 +391,7 @@ describe('home/index.vue', () => {
     })
     const openNativeBoardsButton = wrapper
       .findAll('button')
-      .find(button => button.text() === 'custom.home.actions.openNativeBoards')
+      .find((button) => button.text() === 'custom.home.actions.openNativeBoards')
     if (!openNativeBoardsButton) throw new Error('Missing Native boards tenant-context action')
     await openNativeBoardsButton.trigger('click')
     expect(router.push).toHaveBeenCalledWith('/visualization/native-boards')

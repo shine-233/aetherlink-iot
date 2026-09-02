@@ -118,6 +118,8 @@ func TestEnvironmentOptionHelpersPropagateLoadErrors(t *testing.T) {
 func TestNewApplicationAppliesOptionsAndNilBusesAreSafe(t *testing.T) {
 	cfg := viper.New()
 	cfg.Set("server.port", 9999)
+	// 启动期安全校验要求非占位符 JWT 密钥；本测试关注选项装配语义。
+	cfg.Set("jwt.key", "unit-test-jwt-signing-key-0123456789abcdef")
 	app, err := NewApplication(WithConfig(cfg))
 	if err != nil {
 		t.Fatalf("NewApplication returned error: %v", err)

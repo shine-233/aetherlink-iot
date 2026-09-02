@@ -1,5 +1,9 @@
 import type { DataTableColumns } from 'naive-ui'
-import type { CommandJobRowsStatusFilter, FleetCommandJobSubmitResult, FleetCommandJobSubmitRow } from '@/service/api/device'
+import type {
+  CommandJobRowsStatusFilter,
+  FleetCommandJobSubmitResult,
+  FleetCommandJobSubmitRow
+} from '@/service/api/device'
 import type {
   CommandJobLabelValueRow,
   CommandJobAuditSummaryCard,
