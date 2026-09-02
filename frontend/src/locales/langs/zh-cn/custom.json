@@ -2235,5 +2235,7 @@
   "custom.twoFactor.loginTitle": "双重验证",
   "custom.twoFactor.loginHint": "该账号已启用双因素认证，请输入身份验证器动态码或恢复码：",
   "custom.twoFactor.loginSubmit": "验证并登录",
-  "custom.twoFactor.loginBack": "返回重新登录"
+  "custom.twoFactor.loginBack": "返回重新登录",
+  "custom.ssoLogin.title": "或使用 SSO 登录",
+  "custom.ssoLogin.noProvider": "（未配置平台级 SSO 提供方）"
 }

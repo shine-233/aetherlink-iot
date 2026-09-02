@@ -184,6 +184,7 @@ func RouterInit() *gin.Engine {
 			}
 			v1.POST("login", controllers.Login)
 			v1.POST("login/totp", controllers.UserApi.LoginWithTotp)
+			v1.GET("sso/providers", controllers.OidcSsoApi.HandleOidcPublicProviders)
 			v1.GET("sso/:id/start", controllers.OidcSsoApi.HandleSSOStart)
 			v1.GET("sso/:id/callback", controllers.OidcSsoApi.HandleSSOCallback)
 			v1.GET("verification/code", controllers.HandleVerificationCode)

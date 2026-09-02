@@ -23,6 +23,11 @@ export function fetchLoginTotp(ticket: string, code: string) {
   return request.post<Api.Auth.LoginToken>('/login/totp', { ticket, code })
 }
 
+/** 登录页 SSO 提供方发现（公开，仅平台级启用项） */
+export function fetchSsoProviders() {
+  return request.get<Array<{ id: string; name: string }> | null>('/sso/providers')
+}
+
 /** Get user info */
 export function fetchGetUserInfo() {
   return request.get<Api.Auth.UserInfo>('/user/detail')

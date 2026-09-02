@@ -1,7 +1,8 @@
 // 文件用途：OIDC/SSO 服务层（ROADMAP C7 剩余）——租户 IdP 配置 CRUD + 登录落地。
 // 核心链路：SSO start/callback 路由按 :providerId 读取启用配置，构造 internal/oidc 中间件
-//   （state+nonce cookie、授权码换 token、ID Token 验签），验签后经 SessionIssuer 按 email
-//   绑定本地用户并签发本地 JWT，302 回前端携带 token；未匹配本地账号则回前端报错，不自动开户。
+//
+//	（state+nonce cookie、授权码换 token、ID Token 验签），验签后经 SessionIssuer 按 email
+//	绑定本地用户并签发本地 JWT，302 回前端携带 token；未匹配本地账号则回前端报错，不自动开户。
 package service
 
 import (
@@ -67,6 +68,20 @@ func (*OidcSso) Create(claims *utils.UserClaims, req *OidcProviderReq) (*model.O
 		return nil, errcode.New(errcode.CodeDBError)
 	}
 	return p, nil
+}
+
+// ListPublic 登录页可发现提供方（仅平台级启用项；不返回任何敏感字段）。
+func (*OidcSso) ListPublic() ([]*model.OidcProvider, error) {
+	list, err := dal.ListPublicOidcProviders()
+	if err != nil {
+		return nil, errcode.New(errcode.CodeDBError)
+	}
+	for _, p := range list {
+		p.ClientSecret = ""
+		p.Issuer = ""
+		p.ClientID = ""
+	}
+	return list, nil
 }
 
 // List 列出当前租户的提供方（脱敏：不返回 client_secret）。
@@ -184,7 +199,7 @@ func (*OidcSso) ssoMiddlewareFor(p *model.OidcProvider) *oidc.Middleware {
 			token = *rsp.Token
 			expires = rsp.ExpiresIn
 		}
-		return front + sep + "token=" + url.QueryEscape(token) + "&expires_in=" + url.QueryEscape(strconv.FormatInt(expires,10)) + "&email=" + url.QueryEscape(profile.Email), nil
+		return front + sep + "token=" + url.QueryEscape(token) + "&expires_in=" + url.QueryEscape(strconv.FormatInt(expires, 10)) + "&email=" + url.QueryEscape(profile.Email), nil
 	})
 	mw.StateCookie = "oidc_state_" + id
 	mw.StartPath = "/sso/" + id + "/start"
@@ -219,6 +234,3 @@ func (*OidcSso) HandleSSO(c *gin.Context) {
 	}
 	c.AbortWithStatusJSON(404, gin.H{"code": 404, "message": "unknown sso route"})
 }
-
-
-

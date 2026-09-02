@@ -2235,5 +2235,7 @@
   "custom.twoFactor.loginTitle": "Two-factor verification",
   "custom.twoFactor.loginHint": "This account has 2FA enabled. Enter an authenticator code or a recovery code:",
   "custom.twoFactor.loginSubmit": "Verify & login",
-  "custom.twoFactor.loginBack": "Back to login"
+  "custom.twoFactor.loginBack": "Back to login",
+  "custom.ssoLogin.title": "or sign in with SSO",
+  "custom.ssoLogin.noProvider": "(no platform SSO provider configured)"
 }

@@ -15,6 +15,7 @@ import { useRouterPush } from '@/hooks/common/router'
 import { useNaiveForm } from '@/hooks/common/form'
 import { useAuthStore } from '@/store/modules/auth'
 import { getFunction } from '@/service/api/setting'
+import { fetchSsoProviders } from '@/service/api/auth'
 
 defineOptions({
   name: 'PwdLogin'
@@ -99,6 +100,11 @@ const emailOptions = computed(() => {
 })
 
 const totpCode = ref('')
+const ssoProviders = ref<Array<{ id: string; name: string }>>([])
+async function loadSsoProviders() {
+  const { data } = await fetchSsoProviders()
+  ssoProviders.value = data ?? []
+}
 
 async function handleTotpSubmit() {
   const code = totpCode.value.trim()
@@ -107,6 +113,10 @@ async function handleTotpSubmit() {
   if (authStore.totpChallenge) {
     totpCode.value = ''
   }
+}
+
+function windowOpen(href: string) {
+  window.location.href = href
 }
 
 function backToPwdStep() {
@@ -181,6 +191,7 @@ function loadMarketEmail() {
 }
 
 onMounted(() => {
+  loadSsoProviders()
   const is_remember_rath = localStorage.getItem('isRememberPath')
   if (is_remember_rath === '0' || is_remember_rath === '1') {
     isRememberPath.value = is_remember_rath === '1'
@@ -248,6 +259,24 @@ onMounted(() => {
       >
         {{ $t('route.login') }}
       </NButton>
+
+      <template v-if="!authStore.totpChallenge && ssoProviders.length">
+        <n-divider title-placement="center">
+          {{ $t('custom.ssoLogin.title') }}
+        </n-divider>
+        <div class="flex flex-col gap-8px">
+          <NButton
+            v-for="provider in ssoProviders"
+            :key="provider.id"
+            quaternary
+            type="primary"
+            block
+            @click="windowOpen(`/api/v1/sso/${provider.id}/start`)"
+          >
+            {{ provider.name }}
+          </NButton>
+        </div>
+      </template>
 
       <template v-if="authStore.totpChallenge">
         <n-alert type="info" :show-icon="false">

@@ -25,6 +25,14 @@ func GetOidcProviderByID(id string) (*model.OidcProvider, error) {
 	return &p, nil
 }
 
+// tenant-scope: reviewed-2026-09-02 all-tenants semantics (public SSO discovery: only platform-level enabled providers).
+// ListPublicOidcProviders 登录页可发现的提供方：仅平台级（tenant_id=”）且启用。
+func ListPublicOidcProviders() ([]*model.OidcProvider, error) {
+	var list []*model.OidcProvider
+	err := global.DB.Where("tenant_id = ? AND enabled = ?", "", true).Order("created_at ASC").Find(&list).Error
+	return list, err
+}
+
 // GetOidcProviderOwned 租户管理员读取自己名下提供方（含未启用）。
 func GetOidcProviderOwned(id, tenantID string) (*model.OidcProvider, error) {
 	var p model.OidcProvider

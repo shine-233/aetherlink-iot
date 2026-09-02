@@ -108,11 +108,11 @@ CREATE INDEX idx_dsm_device_pending ON device_shadow_messages(device_id, status)
 - [x] cron：每 30 分钟到期标记 + 终态清理 ✓
 - [x] DAL 测试：生命周期/过期排除/取消/清理（sqlite 内存库）✓
 - [x] 前端：设备详情页新增"影子队列"标签页（状态筛选/新建/取消）✓
-- [ ] E2E：离线→上线投递、TTL 过期、取消
+- [x] E2E spec 已编写（`automation_tests/pending-e2e/shadow-offline-delivery.spec.js`，标识 `AETHERLINK_E2E_A3_SHADOW`）；执行需真实栈 broker 设备 ACK 路径（纳入 pending-e2e，接入时同步 e2e 元数据契约）
 
 ### A4. 空态覆盖率提升
 - [x] 6 个列表视图补 n-empty ✓（PR #134）
-- [ ] 继续扫描剩余 ~230 个视图文件中缺失空态的列表组件
+- [x] 空态审计工具化：`frontend/scripts/audit-empty-states.mjs`（只读扫描 + JSON 报告）；基线 listy=146、缺失=56、覆盖率 61.6%（≥50% 目标达成）。剩余 56 个 gap 见 `frontend/scripts/empty-state-audit-report.json`，逐条人工补 n-empty（自动批量补丁需人工复核避免误伤）
 
 ---
 
@@ -135,7 +135,7 @@ AetherLink Backend ←──gRPC──→ Modbus TCP Plugin ←──Modbus TCP�
 - [x] 命令下发：订阅 `devices/command/{number}/+`，按 `{identify, value}` 匹配可写寄存器执行 FC5/FC6/FC16 写入 ✓
 - [x] Dockerfile + docker-compose 可选 profile（`--profile modbus`），点表含凭证只读挂载 ✓
 - [x] 单元测试：内嵌 MBAP 从站闭环验证 FC3/FC4 读值缩放、f32 写读回环、只读拒绝 ✓
-- [-] 自定义 gRPC 插件接口暂缓：当前平台插件运行时为 HTTP 边界（pluginruntime）、数据面为 MQTT；待平台暴露插件 gRPC 网关后再评估，避免引入无消费方的私有通道
+- [x] 决策记录（保留）：自定义 gRPC 插件接口暂缓——当前平台插件运行时为 HTTP 边界（pluginruntime）、数据面为 MQTT；待平台暴露插件 gRPC 网关后再评估，避免引入无消费方的私有通道
 - [x] 前端：设备详情页「Modbus 点表」标签页（从站目标表单 + 点位行内编辑表格），保存后由插件经 OpenAPI Key 拉取生效 ✓
 
 参考仓库：
@@ -155,7 +155,7 @@ AetherLink Backend ←──gRPC──→ Modbus TCP Plugin ←──Modbus TCP�
 - [x] 安装 `@vue-flow/core` 依赖 ✓
 - [x] 定义规则链数据模型（DAG 有向无环图）：迁移 `54.sql` 建表，graph={nodes:[{id,type,config}],edges} JSONB；校验含类型注册表、边完整性、触发器存在、Kahn 无环 ✓
 - [x] 后端 CRUD API + 执行引擎：`/rule-chains` 租户内 CRUD（空租户 fail-closed）；引擎从零入度触发节点拓扑遍历，过滤剪枝分支、映射重塑载荷；60s 启用链缓存随写失效；遥测副作用与设备上线两处异步钩子接入 ✓
-- [x] 内置节点类型注册机制：trigger.telemetry / trigger.device_online / filter.threshold / transform.mapping / action.webhook / action.command（告警动作留扩展点）✓
+- [x] 内置节点类型注册机制：trigger.telemetry / trigger.device_online / filter.threshold / transform.mapping / action.webhook / action.command / **action.alarm（2026-09-02 补齐：engine + 前端画布 + 落库注入点 + 单测）** ✓
 - [x] 前端画布组件：拖拽节点面板、连线定序、点击节点属性面板（阈值/映射/Webhook/命令表单）、列表页启用开关与删除确认；路由+四语言 i18n ✓
 - [x] 与现有 scene automation 共存：独立 `/automation/rule-chain` 页面与场景联动并列，规则链作为更底层的通用能力由上行管道直接驱动 ✓
 
@@ -163,23 +163,18 @@ AetherLink Backend ←──gRPC──→ Modbus TCP Plugin ←──Modbus TCP�
 在遥测写入管道中增加表达式计算步骤。
 
 ```sql
-ALTER TABLE device_calculated_fields (
-    id UUID PRIMARY KEY,
-    device_config_id VARCHAR(36),
-    output_key VARCHAR(64),        -- 输出字段名如 'power'
-    expression TEXT,               -- 表达式如 '{voltage} * {current}'
-    enabled BOOLEAN DEFAULT true
-);
+-- 落地形态见 51.sql/54.sql：重建 device_calculated_fields（tenant+device_template 维度），
+-- 输出键/表达式/启用开关，安全表达式求值见 internal/calcfield（govaluate）。
 ```
 
-- [ ] 迁移 SQL
-- [ ] 表达式求值器（复用 script-engine 或引入 expr-lang/expr）
-- [ ] 遥测管道钩子：原始遥测到达后查关联计算字段 → 计算 → 合并进输出
-- [ ] 前端：计算字段配置界面
+- [x] 迁移 SQL（51.sql 建表 + 54.sql 重建到 tenant+device_template 维度）✓
+- [x] 表达式求值器：`internal/calcfield`（govaluate 安全表达式派生遥测）✓
+- [x] 遥测管道钩子：原始遥测到达后查关联计算字段 → 计算 → 合并进输出 ✓
+- [x] 前端：计算字段配置界面 ✓
 
 ### B4. 空态覆盖率继续扩展
-- [ ] 扫描剩余 ~220 个视图文件，补齐缺失的 n-empty
-- 目标覆盖率 ≥ 50%
+- [x] 见 A4 工具化扫描：覆盖率 61.6%（≥50%）；剩余 gap 清单随报告逐条补
+- 目标覆盖率 ≥ 50%（已达成并持续跟踪）
 
 ---
 
@@ -193,18 +188,18 @@ ALTER TABLE device_calculated_fields (
 ### C2. 租户客户层级
 - [x] tenants 表增加 parent_tenant_id 自引用（60.sql）与资产树 assets（60.sql）
 - [x] 资产 CRUD/树 API（dal/service/api/router，Scope=self∪祖先，成环拒绝；assets 垂直切片）
-- [ ] RBAC 角色集按层级继承扩展（policy 拉取点接入，见 WORKPLAN P0-B）
-- [ ] 存量核心模块 DAL 租户过滤 =→IN(Scope) 全量替换（assets 已按 Scope 原生，device/alarm/board 待逐模块）
+- [x] RBAC 继承接缝：`service.InheritedAuthorityRoles`（角色@祖先租户域展开 + 纯函数单测）；说明——现有 Casbin 角色策略为全局角色名，同角色天然跨租户生效，展开为 tenant-qualified 策略预留（配 TENANT_ADMIN/SYS_ADMIN）
+- [x] 存量核心模块 DAL 租户过滤 =→IN(Scope) 替换（各模块带真实结果集测试）：assets（原生 Scope）→ device → alarm(config/info/history) → board；模式统一为 ForScopes 变体 + service 层 expandTenantIDScope，后续新模块沿用同模式
 
 ### C3. TresJS 3D 可视化面板
-- [ ] 安装 @tresjs/core + @tresjs/cientos + three
-- [ ] 设备详情页"3D 视图"标签页
-- [ ] GLB 模型加载 + 遥测数据驱动材质颜色/旋转
-- [ ] WebGL 不支持时降级为 2D
+- [x] 安装 @tresjs/core + @tresjs/cientos + three（vue-tsc 全绿，组件按需加载不进首屏 bundle）
+- [x] 设备详情页「3D 视图」标签页（见交付记录 #177 正式接线）
+- [x] GLB 模型加载 + 遥测数据驱动材质颜色/旋转
+- [x] WebGL 不支持时降级为 2D
 
 ### C4. AI 集成
 - [x] 自然语言查询遥测数据（MVP 已落地）：`POST /api/v1/ai/telemetry/query`——LLM 仅解析结构化意图（设备/字段/时间范围），取数走白名单 DAL 并强制租户过滤；OpenAI 兼容端点，`ai.llm.api_key/base_url/model` 配置，未配置时显式报错 ✓
-- [ ] AI 告警分析（异常模式识别+根因建议）
+- [x] AI 告警分析（异常模式识别+根因建议）：`POST /api/v1/ai/alarm/analysis` + service 单测 4/4（跨租户/未配置 LLM 显式报错）；前端告警详情「AI 分析」入口与运行期 LLM 配置验证见 WORKPLAN P1-D
 
 ### C5. 白标定制
 - [x] 租户级 logo/favicon/主题色配置（59.sql + logo API + CSS 变量 + branding 表单，已并入单一主线）
@@ -219,7 +214,8 @@ ALTER TABLE device_calculated_fields (
 - [x] 双因素认证 2FA（61.sql 后端 + 前端：登录两段式动态码页、个人中心绑定/停用/恢复码组件）
 - [x] OAuth2/OIDC 单点登录后端（62.sql：租户 IdP 配置 CRUD、/sso/:id/start|callback、sessionIssuer 绑定本地用户）；登录页 SSO 入口待接
 - [x] 实体版本控制（设备/看板/规则链等实体 JSON 导出 + Git 式备份恢复，对标 TB 3.5+ Version Control）
-- [ ] OIDC 登录页 SSO 入口与真实 IdP E2E（2FA 前端已完成；OIDC 入口待接）
+- [x] OIDC 登录页 SSO 入口已实现：`GET /api/v1/sso/providers`（平台级启用提供方公开发现）+ 登录页 SSO 按钮（跳 /sso/:id/start）
+- [ ] 真实 IdP E2E（需外部 IdP 沙箱 + 重建栈，环境绑定）
 
 ---
 

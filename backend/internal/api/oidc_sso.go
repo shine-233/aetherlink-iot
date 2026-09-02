@@ -67,6 +67,17 @@ func (*OidcSsoApi) HandleOidcProviderDelete(c *gin.Context) {
 	c.Set("data", map[string]interface{}{})
 }
 
+// HandleOidcPublicProviders 登录页 SSO 提供方发现（公开，仅平台级）。
+// GET /api/v1/sso/providers
+func (*OidcSsoApi) HandleOidcPublicProviders(c *gin.Context) {
+	resp, err := service.GroupApp.OidcSso.ListPublic()
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", resp)
+}
+
 // HandleSSOStart SSO 入口：302 到 IdP（公开）。
 // GET /api/v1/sso/:id/start
 func (*OidcSsoApi) HandleSSOStart(c *gin.Context) {
