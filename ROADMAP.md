@@ -216,10 +216,10 @@ ALTER TABLE device_calculated_fields (
 - [ ] 设备凭证映射 + 遥测汇入现有 uplink 管道（网关设备接入闭环，见 WORKPLAN P1-C）
 
 ### C7. 安全与平台能力补齐（对标 ThingsBoard CE 免费能力，2026-08-25 审查补录）
-- [x] 双因素认证 2FA 后端（61.sql：绑定/激活/解绑 API、登录第二因子防重放、一次性恢复码）；前端绑定/扫码 UI 待接
+- [x] 双因素认证 2FA（61.sql 后端 + 前端：登录两段式动态码页、个人中心绑定/停用/恢复码组件）
 - [x] OAuth2/OIDC 单点登录后端（62.sql：租户 IdP 配置 CRUD、/sso/:id/start|callback、sessionIssuer 绑定本地用户）；登录页 SSO 入口待接
 - [x] 实体版本控制（设备/看板/规则链等实体 JSON 导出 + Git 式备份恢复，对标 TB 3.5+ Version Control）
-- [ ] 2FA/OIDC 前端接线与真实 IdP E2E（见 WORKPLAN P1-A/P1-B）
+- [ ] OIDC 登录页 SSO 入口与真实 IdP E2E（2FA 前端已完成；OIDC 入口待接）
 
 ---
 

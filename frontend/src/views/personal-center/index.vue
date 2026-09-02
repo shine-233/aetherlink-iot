@@ -33,6 +33,7 @@ import { encryptDataByRsa } from '@/utils/security/rsa-encrypt'
 import { createProxyPattern } from '~/env.config'
 import ProvinceCityDistrictSelector from '@/components/common/ProvinceCityDistrictSelector.vue'
 import WarningEmailSetting from '@/views/management/setting/components/warning-email-setting.vue'
+import TwoFactorSetting from './components/two-factor-setting.vue'
 import { usePersonalCenterEmailChange } from './usePersonalCenterEmailChange'
 
 // 开发环境使用代理路径，生产环境使用完整上传地址。
@@ -782,6 +783,13 @@ onMounted(async () => {
           <span>{{ $t('custom.management.warningEmail') }}</span>
         </div>
         <WarningEmailSetting />
+      </div>
+      <n-divider />
+      <div class="mt-24px">
+        <div class="flex text-16px font-600 mb-20px items-center gap-6px">
+          <span>{{ $t('custom.twoFactor.totpStatus') }}</span>
+        </div>
+        <TwoFactorSetting />
       </div>
     </n-card>
     <NModal

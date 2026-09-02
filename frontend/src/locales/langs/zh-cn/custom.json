@@ -2222,5 +2222,18 @@
   "custom.home.firstDevice.proofSection.stepRange": "第 4-5 步",
   "custom.home.firstDevice.workbench.afterOnboarding": "接入完成后",
   "custom.home.firstDevice.workbench.minimalLoop": "最小闭环",
-  "custom.home.firstDevice.workbench.minimalLoopDesc": "物模型字段清晰、设备在线、遥测有值、告警可追踪、看板能分享。先跑通一台，再复制到批量设备。"
+  "custom.home.firstDevice.workbench.minimalLoopDesc": "物模型字段清晰、设备在线、遥测有值、告警可追踪、看板能分享。先跑通一台，再复制到批量设备。",
+  "custom.twoFactor.totpStatus": "双因素认证状态",
+  "custom.twoFactor.enabled": "已启用",
+  "custom.twoFactor.disabled": "未启用",
+  "custom.twoFactor.enable": "启用 2FA",
+  "custom.twoFactor.scanHint": "请用身份验证器 App 扫描下方 URI（无法扫码可手动录入 secret）：",
+  "custom.twoFactor.codePlaceholder": "6 位动态码",
+  "custom.twoFactor.activate": "激活",
+  "custom.twoFactor.recoveryHint": "请立即保存以下一次性恢复码（仅显示一次，用后即废）：",
+  "custom.twoFactor.disable": "停用 2FA",
+  "custom.twoFactor.loginTitle": "双重验证",
+  "custom.twoFactor.loginHint": "该账号已启用双因素认证，请输入身份验证器动态码或恢复码：",
+  "custom.twoFactor.loginSubmit": "验证并登录",
+  "custom.twoFactor.loginBack": "返回重新登录"
 }

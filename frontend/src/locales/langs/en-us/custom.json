@@ -2222,5 +2222,18 @@
   "custom.home.firstDevice.workbench.afterOnboarding": "After onboarding",
   "custom.home.firstDevice.workbench.minimalLoop": "Minimal loop",
   "custom.home.firstDevice.workbench.minimalLoopDesc": "Clear things-model fields, the device online, telemetry with values, traceable alarms, and a shareable dashboard. Get one device working, then replicate it in bulk.",
-  "custom.devicePage.savedFleetFilterOwnedBadge": "Owned"
+  "custom.devicePage.savedFleetFilterOwnedBadge": "Owned",
+  "custom.twoFactor.totpStatus": "2FA status",
+  "custom.twoFactor.enabled": "Enabled",
+  "custom.twoFactor.disabled": "Disabled",
+  "custom.twoFactor.enable": "Enable 2FA",
+  "custom.twoFactor.scanHint": "Scan the URI with your authenticator app (or enter secret manually):",
+  "custom.twoFactor.codePlaceholder": "6-digit code",
+  "custom.twoFactor.activate": "Activate",
+  "custom.twoFactor.recoveryHint": "Save these one-time recovery codes now (shown once only):",
+  "custom.twoFactor.disable": "Disable 2FA",
+  "custom.twoFactor.loginTitle": "Two-factor verification",
+  "custom.twoFactor.loginHint": "This account has 2FA enabled. Enter an authenticator code or a recovery code:",
+  "custom.twoFactor.loginSubmit": "Verify & login",
+  "custom.twoFactor.loginBack": "Back to login"
 }

@@ -98,6 +98,22 @@ const emailOptions = computed(() => {
   return filteredDomains.map(domain => `${username}@${domain}`)
 })
 
+const totpCode = ref('')
+
+async function handleTotpSubmit() {
+  const code = totpCode.value.trim()
+  if (!code) return
+  await authStore.loginWithTotp(code)
+  if (authStore.totpChallenge) {
+    totpCode.value = ''
+  }
+}
+
+function backToPwdStep() {
+  authStore.totpChallenge = null
+  totpCode.value = ''
+}
+
 async function handleSubmit() {
   await validate()
   await authStore.login(model.userName.trim(), model.password)
@@ -232,7 +248,35 @@ onMounted(() => {
       >
         {{ $t('route.login') }}
       </NButton>
-      <n-divider v-if="showZc" title-placement="center" style="padding: 0px; margin: 0px">
+
+      <template v-if="authStore.totpChallenge">
+        <n-alert type="info" :show-icon="false">
+          {{ $t('custom.twoFactor.loginTitle') }}：{{ $t('custom.twoFactor.loginHint') }}
+        </n-alert>
+        <NInput
+          v-model:value="totpCode"
+          :placeholder="$t('custom.twoFactor.codePlaceholder')"
+          data-testid="login-totp-code"
+          maxlength="6"
+          @keydown.enter="handleTotpSubmit"
+        />
+        <NButton
+          style="border-radius: 8px"
+          type="primary"
+          size="large"
+          block
+          data-testid="login-totp-submit"
+          :loading="authStore.loginLoading"
+          @click="handleTotpSubmit"
+        >
+          {{ $t('custom.twoFactor.loginSubmit') }}
+        </NButton>
+        <NButton quaternary block size="small" @click="backToPwdStep">
+          {{ $t('custom.twoFactor.loginBack') }}
+        </NButton>
+      </template>
+
+      <n-divider v-if="showZc"  title-placement="center" style="padding: 0px; margin: 0px">
         {{ $t('generate.or') }}
       </n-divider>
       <div class="flex-y-center justify-between gap-12px mt--4">
