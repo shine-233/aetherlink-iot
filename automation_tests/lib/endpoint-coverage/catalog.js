@@ -437,6 +437,12 @@ const ALL_ENDPOINTS = [
   // === 产品选择（product.go，预注册建档数据源） ===
   { method: 'GET',    path: '/api/v1/product',                             module: 'product',   auth: true },
 
+  // === 实体版本控制（entity_version.go，ROADMAP C7） ===
+  { method: 'GET',    path: '/api/v1/entity_versions',                     module: 'versioning', auth: true },
+  { method: 'POST',   path: '/api/v1/entity_versions',                     module: 'versioning', auth: true },
+  { method: 'GET',    path: '/api/v1/entity_versions/:id',                 module: 'versioning', auth: true },
+  { method: 'POST',   path: '/api/v1/entity_versions/:id/restore',         module: 'versioning', auth: true },
+
   // === 系统功能（sys_function.go） ===
   { method: 'PUT',    path: '/api/v1/sys_function/:id',                    module: 'system',    auth: true },
 

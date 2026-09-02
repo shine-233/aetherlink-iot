@@ -47,6 +47,7 @@ type apps struct {
 	CalculatedField
 	Product
 	Tenant
+	EntityVersion
 }
 
 var Model = new(apps)

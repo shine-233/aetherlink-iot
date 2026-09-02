@@ -310,6 +310,8 @@ func RouterInit() *gin.Engine {
 
 			apps.Model.RuleChain.InitRuleChain(v1) // 规则链（可视化 DAG 编排）
 
+			apps.Model.EntityVersion.InitEntityVersion(v1) // 实体版本控制（快照/历史/恢复）
+
 			apps.Model.OpenAPIKey.InitOpenAPIKey(v1)
 
 			apps.Model.MessagePush.Init(v1)

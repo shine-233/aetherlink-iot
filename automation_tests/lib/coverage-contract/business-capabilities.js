@@ -676,7 +676,11 @@ const BUSINESS_CAPABILITIES = [
       'PUT /api/v1/logo',
       'GET /api/v1/operation_logs',
       'GET /api/v1/system/metrics/current',
-      'GET /api/v1/system/metrics/history'
+      'GET /api/v1/system/metrics/history',
+      'GET /api/v1/entity_versions',
+      'POST /api/v1/entity_versions',
+      'GET /api/v1/entity_versions/:id',
+      'POST /api/v1/entity_versions/:id/restore'
     ],
     automationTests: [
       'tests/06_system.test.js',
