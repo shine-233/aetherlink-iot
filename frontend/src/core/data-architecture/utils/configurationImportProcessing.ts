@@ -153,11 +153,7 @@ export function getConfigurationImportConflictMessages(
   dependencyConflicts: string[],
   overwriteConflicts: string[]
 ): string[] {
-  return [
-    ...missingDependencies.map((dep) => `缺失依赖组件: ${dep}`),
-    ...dependencyConflicts,
-    ...overwriteConflicts
-  ]
+  return [...missingDependencies.map((dep) => `缺失依赖组件: ${dep}`), ...dependencyConflicts, ...overwriteConflicts]
 }
 
 export function buildConfigurationImportPreview(

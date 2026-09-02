@@ -206,7 +206,9 @@ export interface SingleDataSourceImportPreview {
 /**
  * Configuration import/export note.
  */
-function requireGetConfiguration(m: ConfigurationManagerLike): NonNullable<ConfigurationManagerLike['getConfiguration']> {
+function requireGetConfiguration(
+  m: ConfigurationManagerLike
+): NonNullable<ConfigurationManagerLike['getConfiguration']> {
   const fn = m.getConfiguration
   if (!fn) throw new Error('configurationManager.getConfiguration is unavailable')
   return fn

@@ -353,6 +353,10 @@ declare namespace Api {
       logo_cache: string | undefined
       /** 背景图片 */
       home_background: string | undefined
+      /** 主题色（C5 白标，#RRGGBB，空值回退默认主题） */
+      theme_color: string | undefined
+      /** 页签 favicon URL（C5 白标，与站标 logo_cache 解耦） */
+      favicon: string | undefined
     }
 
     /** 数据清理设置 */
