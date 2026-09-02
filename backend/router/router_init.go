@@ -312,6 +312,8 @@ func RouterInit() *gin.Engine {
 
 			apps.Model.EntityVersion.InitEntityVersion(v1) // 实体版本控制（快照/历史/恢复）
 
+			apps.Model.Asset.InitAsset(v1) // 资产层级（ROADMAP C2）
+
 			apps.Model.OpenAPIKey.InitOpenAPIKey(v1)
 
 			apps.Model.MessagePush.Init(v1)

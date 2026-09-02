@@ -47,6 +47,7 @@ type apps struct {
 	CalculatedField
 	Product
 	EntityVersion
+	Asset
 }
 
 var Model = new(apps)
