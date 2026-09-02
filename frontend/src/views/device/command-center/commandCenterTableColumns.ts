@@ -40,77 +40,77 @@ export const createCommandJobPreviewColumns = (
   {
     title: options.t('custom.commandCenter.device'),
     key: 'device_number',
-    render: row => row.device_number || row.name || row.device_id
+    render: (row) => row.device_number || row.name || row.device_id
   },
   {
     title: options.t('custom.commandCenter.online'),
     key: 'online',
-    render: row => (row.online ? options.t('common.yesOrNo.yes') : options.t('common.yesOrNo.no'))
+    render: (row) => (row.online ? options.t('common.yesOrNo.yes') : options.t('common.yesOrNo.no'))
   },
   {
     title: options.t('custom.commandCenter.eligible'),
     key: 'eligible',
-    render: row => (row.eligible ? options.t('common.yesOrNo.yes') : options.t('common.yesOrNo.no'))
+    render: (row) => (row.eligible ? options.t('common.yesOrNo.yes') : options.t('common.yesOrNo.no'))
   },
   {
     title: options.t('custom.commandCenter.readinessEvidence'),
     key: 'readiness',
-    render: row => formatCommandJobReadiness(row.readiness)
+    render: (row) => formatCommandJobReadiness(row.readiness)
   },
   {
     title: options.t('custom.commandCenter.recommendedPath'),
     key: 'recommended_path',
-    render: row => options.formatRecommendedPath(row.recommended_path)
+    render: (row) => options.formatRecommendedPath(row.recommended_path)
   },
   {
     title: options.t('custom.commandCenter.telemetryEvidenceColumn'),
     key: 'telemetry_current_count',
-    render: row => options.formatTelemetryEvidence(row)
+    render: (row) => options.formatTelemetryEvidence(row)
   },
   { title: options.t('common.status'), key: 'status' },
-  { title: options.t('custom.commandCenter.advice'), key: 'advice', render: row => row.advice || '-' },
-  { title: options.t('custom.commandCenter.reason'), key: 'reason', render: row => row.reason || '-' }
+  { title: options.t('custom.commandCenter.advice'), key: 'advice', render: (row) => row.advice || '-' },
+  { title: options.t('custom.commandCenter.reason'), key: 'reason', render: (row) => row.reason || '-' }
 ]
 
 export const createCommandJobSubmitColumns = (t: Translate): DataTableColumns<FleetCommandJobSubmitRow> => [
   {
     title: t('custom.commandCenter.device'),
     key: 'device_number',
-    render: row => row.device_number || row.name || row.device_id
+    render: (row) => row.device_number || row.name || row.device_id
   },
   { title: t('common.status'), key: 'status' },
   {
     title: t('custom.commandCenter.readinessEvidence'),
     key: 'readiness',
-    render: row => formatCommandJobReadiness(row.readiness)
+    render: (row) => formatCommandJobReadiness(row.readiness)
   },
-  { title: t('custom.commandCenter.messageId'), key: 'message_id', render: row => row.message_id || '-' },
+  { title: t('custom.commandCenter.messageId'), key: 'message_id', render: (row) => row.message_id || '-' },
   {
     title: t('custom.commandCenter.deviceResponseStatus'),
     key: 'response_status_label',
-    render: row => formatCommandJobResponseStatus(row.response_status_label, t)
+    render: (row) => formatCommandJobResponseStatus(row.response_status_label, t)
   },
   {
     title: t('custom.commandCenter.deviceResponseEvidence'),
     key: 'response_data',
     ellipsis: { tooltip: true },
-    render: row => row.response_error || row.response_data || '-'
+    render: (row) => row.response_error || row.response_data || '-'
   },
   {
     title: t('custom.commandCenter.logRecorded'),
     key: 'log_recorded',
-    render: row => (row.log_recorded ? t('common.yesOrNo.yes') : t('common.yesOrNo.no'))
+    render: (row) => (row.log_recorded ? t('common.yesOrNo.yes') : t('common.yesOrNo.no'))
   },
-  { title: t('custom.commandCenter.reason'), key: 'reason', render: row => row.reason || '-' },
+  { title: t('custom.commandCenter.reason'), key: 'reason', render: (row) => row.reason || '-' },
   {
     title: t('custom.commandCenter.nextAction'),
     key: 'next_action',
-    render: row => buildCommandJobSubmitNextAction(row, t)
+    render: (row) => buildCommandJobSubmitNextAction(row, t)
   },
   {
     title: t('custom.commandCenter.canRetry'),
     key: 'can_retry',
-    render: row => (row.can_retry ? t('common.yesOrNo.yes') : t('common.yesOrNo.no'))
+    render: (row) => (row.can_retry ? t('common.yesOrNo.yes') : t('common.yesOrNo.no'))
   }
 ]
 
@@ -122,7 +122,7 @@ export const createCommandJobHistoryColumns = (
   {
     title: options.t('common.status'),
     key: 'status',
-    render: row =>
+    render: (row) =>
       h(
         NTag,
         { size: 'small', type: row.status === 'completed' ? 'success' : row.status === 'failed' ? 'error' : 'info' },
@@ -132,12 +132,12 @@ export const createCommandJobHistoryColumns = (
   {
     title: options.t('custom.commandCenter.jobRequested'),
     key: 'requested_count',
-    render: row => buildCommandJobHistoryProgress(row, options.t)
+    render: (row) => buildCommandJobHistoryProgress(row, options.t)
   },
   {
     title: options.t('custom.commandCenter.jobAttentionColumn'),
     key: 'needs_operator_action_count',
-    render: row =>
+    render: (row) =>
       h(
         NTag,
         { size: 'small', type: row.needs_operator_action ? 'warning' : 'success' },
@@ -147,17 +147,17 @@ export const createCommandJobHistoryColumns = (
   {
     title: options.t('custom.commandCenter.scheduledAt'),
     key: 'scheduled_at',
-    render: row => formatCommandJobDateTime(row.scheduled_at)
+    render: (row) => formatCommandJobDateTime(row.scheduled_at)
   },
   {
     title: options.t('custom.commandCenter.updatedAt'),
     key: 'updated_at',
-    render: row => formatCommandJobDateTime(row.updated_at)
+    render: (row) => formatCommandJobDateTime(row.updated_at)
   },
   {
     title: options.t('common.actions'),
     key: 'actions',
-    render: row =>
+    render: (row) =>
       h(
         NSpace,
         { size: 8, wrap: false },
@@ -180,7 +180,8 @@ export const createCommandJobHistoryColumns = (
                     size: 'small',
                     secondary: true,
                     type: 'warning',
-                    onClick: () => options.openCommandJobDetail(row.job_id, { rowsStatusFilter: 'needs_attention', rowsSearch: '' })
+                    onClick: () =>
+                      options.openCommandJobDetail(row.job_id, { rowsStatusFilter: 'needs_attention', rowsSearch: '' })
                   },
                   { default: () => options.t('custom.commandCenter.reviewJobAttention') }
                 )

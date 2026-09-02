@@ -7,7 +7,7 @@
 <script setup lang="tsx">
 import { computed, getCurrentInstance, reactive, ref } from 'vue'
 import type { Ref } from 'vue'
-import { NButton, NPopconfirm, NSpace, NSwitch } from 'naive-ui'
+import { NButton, NEmpty, NPopconfirm, NSpace, NSwitch } from 'naive-ui'
 import type { DataTableColumns, PaginationProps } from 'naive-ui'
 import {
   deleteNotificationGroup,
@@ -159,7 +159,11 @@ getTableData()
         <NButton type="primary" @click="handleAddTable">+{{ $t('device_template.add') }}</NButton>
       </template>
       <div class="h-full flex-col">
-        <NDataTable :columns="columns" :data="tableData" :loading="loading" />
+        <NDataTable :columns="columns" :data="tableData" :loading="loading">
+          <template #empty>
+            <NEmpty :description="$t('common.noData')" class="py-24px" />
+          </template>
+        </NDataTable>
         <div class="pagination-box">
           <NPagination v-model:page="pagination.page" :item-count="total" @update:page="getTableData" />
         </div>

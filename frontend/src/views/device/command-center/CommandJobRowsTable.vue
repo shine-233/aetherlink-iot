@@ -21,7 +21,7 @@ const rowSearchDraft = ref('')
 
 watch(
   () => state.value.commandJobRowsSearch,
-  value => {
+  (value) => {
     rowSearchDraft.value = value
   },
   { immediate: true }
@@ -29,8 +29,9 @@ watch(
 
 const activeRowsFilterLabel = computed(() => {
   return (
-    state.value.commandJobRowsStatusFilterOptions.find(option => option.value === state.value.commandJobRowsStatusFilter)?.label ||
-    state.value.commandJobRowsStatusFilter
+    state.value.commandJobRowsStatusFilterOptions.find(
+      (option) => option.value === state.value.commandJobRowsStatusFilter
+    )?.label || state.value.commandJobRowsStatusFilter
   )
 })
 
@@ -136,7 +137,11 @@ const resetRowsFilter = () => {
     :bordered="false"
     flex-height
     class="command-job-result-table"
-  />
+  >
+    <template #empty>
+      <NEmpty :description="$t('common.noData')" class="py-24px" />
+    </template>
+  </NDataTable>
   <NAlert v-if="state.submitRowsHiddenCount > 0" type="info" :show-icon="false">
     <div class="command-job-rows-more">
       <span>

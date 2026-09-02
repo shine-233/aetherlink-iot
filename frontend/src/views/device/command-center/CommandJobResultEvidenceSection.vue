@@ -83,14 +83,14 @@ defineExpose({ scrollRowsTableIntoView })
   display: grid;
   gap: 10px;
   padding: 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: #f8fafc;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--action-color);
 }
 
 .command-job-result-section--evidence {
-  border-color: #cbd5e1;
-  background: #f8fafc;
+  border-color: var(--border-color);
+  background: var(--action-color);
 }
 
 .command-job-result-section__head {
@@ -99,13 +99,13 @@ defineExpose({ scrollRowsTableIntoView })
 }
 
 .command-job-result-section__head strong {
-  color: #0f172a;
-  font-size: 14px;
+  color: var(--text-color-1);
+  font-size: var(--font-size-base);
 }
 
 .command-job-result-section__head span {
-  color: #475569;
-  font-size: 12px;
+  color: var(--text-color-2);
+  font-size: var(--font-size-caption);
   line-height: 1.5;
 }
 
@@ -126,9 +126,9 @@ defineExpose({ scrollRowsTableIntoView })
   display: grid;
   gap: 10px;
   padding: 12px;
-  border: 1px solid #c7d2fe;
-  border-radius: 8px;
-  background: #eef2ff;
+  border: 1px solid rgb(var(--info-color) / 0.35);
+  border-radius: var(--radius-md);
+  background: rgb(var(--info-color) / 0.08);
 }
 
 .command-job-audit-card__head {
@@ -145,14 +145,14 @@ defineExpose({ scrollRowsTableIntoView })
 }
 
 .command-job-audit-card__head strong {
-  color: #3730a3;
-  font-size: 14px;
+  color: rgb(var(--info-800-color));
+  font-size: var(--font-size-base);
 }
 
 .command-job-audit-card__head span {
   overflow-wrap: anywhere;
-  color: #4338ca;
-  font-size: 12px;
+  color: rgb(var(--info-700-color));
+  font-size: var(--font-size-caption);
   line-height: 1.5;
 }
 
@@ -167,20 +167,20 @@ defineExpose({ scrollRowsTableIntoView })
   gap: 4px;
   min-width: 0;
   padding: 10px;
-  border: 1px solid #e0e7ff;
-  border-radius: 8px;
-  background: #ffffff;
+  border: 1px solid rgb(var(--info-color) / 0.15);
+  border-radius: var(--radius-md);
+  background: var(--card-color);
 }
 
 .command-job-audit-card__grid span {
-  color: #64748b;
-  font-size: 12px;
+  color: var(--text-color-3);
+  font-size: var(--font-size-caption);
 }
 
 .command-job-audit-card__grid strong {
   overflow-wrap: anywhere;
-  color: #0f172a;
-  font-size: 13px;
+  color: var(--text-color-1);
+  font-size: var(--font-size-secondary);
 }
 
 .command-job-timeline__item {
@@ -188,19 +188,19 @@ defineExpose({ scrollRowsTableIntoView })
   gap: 4px;
   min-width: 140px;
   padding: 10px 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  background: #fff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--card-color);
 }
 
 .command-job-timeline__item span {
-  color: #64748b;
-  font-size: 12px;
+  color: var(--text-color-3);
+  font-size: var(--font-size-caption);
 }
 
 .command-job-timeline__item strong {
-  color: #0f172a;
-  font-size: 13px;
+  color: var(--text-color-1);
+  font-size: var(--font-size-secondary);
 }
 
 @media (max-width: 900px) {

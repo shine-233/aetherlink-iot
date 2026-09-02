@@ -52,9 +52,7 @@ async function submitRename() {
 
   const renamed = await props.renameSavedFleetFilter(props.activeSavedFleetFilter.id, nextName)
   if (!renamed) {
-    window.$message?.warning(
-      props.savedFleetFilterActionError || $t('custom.commandCenter.savedFilterRenameFailed')
-    )
+    window.$message?.warning(props.savedFleetFilterActionError || $t('custom.commandCenter.savedFilterRenameFailed'))
     return
   }
 
@@ -66,9 +64,7 @@ async function deleteActiveSavedFleetFilter() {
   if (!props.activeSavedFleetFilter) return
   const deleted = await props.deleteSavedFleetFilter(props.activeSavedFleetFilter.id)
   if (!deleted) {
-    window.$message?.warning(
-      props.savedFleetFilterActionError || $t('custom.commandCenter.savedFilterDeleteFailed')
-    )
+    window.$message?.warning(props.savedFleetFilterActionError || $t('custom.commandCenter.savedFilterDeleteFailed'))
     return
   }
 

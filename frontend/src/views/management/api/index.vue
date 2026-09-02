@@ -12,7 +12,7 @@
 <script setup lang="tsx">
 import { computed, getCurrentInstance, reactive, ref, watch } from 'vue'
 import type { Ref } from 'vue'
-import { NAlert, NButton, NPopconfirm, NSpace, NSwitch, NTag } from 'naive-ui'
+import { NAlert, NButton, NEmpty, NPopconfirm, NSpace, NSwitch, NTag } from 'naive-ui'
 import type { DataTableColumns, PaginationProps } from 'naive-ui'
 import { useBoolean, useLoading } from '@aetherlink/hooks'
 import { apiKeyDel, fetchKeyList, updateKey } from '@/service/api'
@@ -395,7 +395,11 @@ init()
           :loading="loading"
           :pagination="pagination"
           class="flex-1-hidden"
-        />
+        >
+          <template #empty>
+            <NEmpty :description="$t('common.noData')" class="py-24px" />
+          </template>
+        </NDataTable>
         <TableActionModal
           v-model:visible="visible"
           :class="getPlatform ? 'w-90%' : 'w-500px'"

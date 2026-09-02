@@ -280,6 +280,8 @@ func RouterInit() *gin.Engine {
 
 			apps.Model.DeviceConfig.Init(v1) // 设备配置
 
+			apps.Model.Product.Init(v1) // 产品选择列表
+
 			apps.Model.DataScript.Init(v1) // 数据处理脚本
 
 			apps.Model.NotificationGroup.InitNotificationGroup(v1) // 通知组
@@ -303,6 +305,10 @@ func RouterInit() *gin.Engine {
 			apps.Model.DeviceShadow.InitDeviceShadow(v1) // 设备影子（离线命令缓存）
 
 			apps.Model.AiQuery.InitAiQuery(v1) // AI 集成（自然语言查询遥测）
+
+			apps.Model.DeviceModbusProfile.InitDeviceModbusProfile(v1) // Modbus 点表配置
+
+			apps.Model.RuleChain.InitRuleChain(v1) // 规则链（可视化 DAG 编排）
 
 			apps.Model.OpenAPIKey.InitOpenAPIKey(v1)
 

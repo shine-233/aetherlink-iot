@@ -95,6 +95,25 @@ export const automationRoutes: GeneratedRoute[] = [
             title: 'automation_scene-manage',
             i18nKey: 'route.automation_scene-manage'
           }
+        },
+        {
+          name: 'automation_rule-chain',
+          path: '/automation/rule-chain',
+          component: 'view.automation_rule-chain',
+          meta: {
+            title: 'automation_rule-chain',
+            i18nKey: 'route.automation_rule-chain'
+          }
+        },
+        {
+          name: 'automation_rule-chain-edit',
+          path: '/automation/rule-chain/edit',
+          component: 'view.automation_rule-chain-edit',
+          meta: {
+            title: 'automation_rule-chain-edit',
+            i18nKey: 'route.automation_rule-chain-edit',
+            hideInMenu: true
+          }
         }
       ]
     }

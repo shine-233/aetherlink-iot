@@ -98,6 +98,11 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 		// 服务接入点批量创建设备
 		deviceapi.POST("service/access/batch", api.Controllers.DeviceApi.CreateDeviceBatch)
 
+		// 设备预注册：产品级批量建档（自动生成/CSV 导入）、分页查询与批次导出
+		deviceapi.GET("preRegister", api.Controllers.DeviceApi.HandleDevicePreRegisterListByPage)
+		deviceapi.POST("preRegister", api.Controllers.DeviceApi.CreateDevicePreRegister)
+		deviceapi.GET("preRegister/export", api.Controllers.DeviceApi.ExportDevicePreRegister)
+
 		// 设备单指标图表数据查询
 		deviceapi.GET("/metrics/chart", api.Controllers.DeviceApi.HandleDeviceMetricsChart)
 

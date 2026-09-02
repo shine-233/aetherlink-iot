@@ -1,4 +1,4 @@
-﻿networks:
+networks:
   postgres_net:
     internal: true
   redis_net:

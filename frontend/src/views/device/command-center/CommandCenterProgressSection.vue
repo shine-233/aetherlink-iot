@@ -26,17 +26,18 @@ const emit = defineEmits<{
         <h2>{{ $t('custom.commandCenter.progressTitle') }}</h2>
         <p>{{ $t('custom.commandCenter.progressDesc') }}</p>
       </div>
-      <NButton size="small" secondary :loading="previewLoading" :disabled="!canPreviewCommandJobNow" @click="emit('preview')">
+      <NButton
+        size="small"
+        secondary
+        :loading="previewLoading"
+        :disabled="!canPreviewCommandJobNow"
+        @click="emit('preview')"
+      >
         {{ $t('custom.commandCenter.progressPreviewAction') }}
       </NButton>
     </div>
     <div class="command-job-progress__steps">
-      <div
-        v-for="step in steps"
-        :key="step.key"
-        class="command-job-progress__step"
-        :class="`is-${step.state}`"
-      >
+      <div v-for="step in steps" :key="step.key" class="command-job-progress__step" :class="`is-${step.state}`">
         <div class="command-job-progress__step-top">
           <span class="command-job-progress__index">{{ step.index }}</span>
           <NTag size="small" :type="step.tagType">{{ $t(step.statusKey) }}</NTag>

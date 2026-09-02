@@ -12,13 +12,7 @@ const emit = defineEmits<{
 
 <template>
   <div class="command-job-outcomes">
-    <NAlert
-      v-for="group in groups"
-      :key="group.key"
-      :type="group.type"
-      :show-icon="false"
-      class="command-job-outcome"
-    >
+    <NAlert v-for="group in groups" :key="group.key" :type="group.type" :show-icon="false" class="command-job-outcome">
       <div class="command-job-outcome__head">
         <strong>{{ group.title }}</strong>
         <NTag size="small" type="info">{{ group.count }}</NTag>
@@ -85,7 +79,10 @@ const emit = defineEmits<{
 
 .command-job-outcome__device {
   display: grid;
-  grid-template-columns: minmax(90px, 1.2fr) minmax(70px, 0.8fr) minmax(90px, 1fr) minmax(90px, 1fr) minmax(120px, 1.6fr);
+  grid-template-columns: minmax(90px, 1.2fr) minmax(70px, 0.8fr) minmax(90px, 1fr) minmax(90px, 1fr) minmax(
+      120px,
+      1.6fr
+    );
   gap: 8px;
   align-items: start;
   padding: 8px;

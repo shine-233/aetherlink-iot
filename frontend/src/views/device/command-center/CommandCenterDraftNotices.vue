@@ -36,7 +36,13 @@ const emit = defineEmits<{
       </span>
     </div>
     <NSpace :size="[8, 8]">
-      <NButton size="small" type="primary" :loading="previewLoading" :disabled="!canPreviewNow" @click="emit('preview')">
+      <NButton
+        size="small"
+        type="primary"
+        :loading="previewLoading"
+        :disabled="!canPreviewNow"
+        @click="emit('preview')"
+      >
         {{ $t('custom.commandCenter.reusedDraftPreviewNow') }}
       </NButton>
       <NButton size="small" secondary @click="emit('dismissReusedDraft')">
@@ -57,7 +63,13 @@ const emit = defineEmits<{
       </span>
     </div>
     <NSpace :size="[8, 8]">
-      <NButton size="small" type="primary" :loading="previewLoading" :disabled="!canPreviewNow" @click="emit('preview')">
+      <NButton
+        size="small"
+        type="primary"
+        :loading="previewLoading"
+        :disabled="!canPreviewNow"
+        @click="emit('preview')"
+      >
         {{ $t('custom.commandCenter.routeDraftPreviewNow') }}
       </NButton>
       <NButton size="small" secondary @click="emit('dismissRouteDraft')">

@@ -31,6 +31,8 @@ declare module "@elegant-router/types" {
     "automation": "/automation";
     "automation_linkage-edit": "/automation/linkage-edit";
     "automation_scene-edit": "/automation/scene-edit";
+    "automation_rule-chain": "/automation/rule-chain";
+    "automation_rule-chain-edit": "/automation/rule-chain/edit";
     "automation_scene-linkage": "/automation/scene-linkage";
     "automation_scene-manage": "/automation/scene-manage";
     "dashboard": "/dashboard";
@@ -67,6 +69,7 @@ declare module "@elegant-router/types" {
     "product": "/product";
     "product_update-ota": "/product/update-ota";
     "product_update-package": "/product/update-package";
+    "product_pre-register": "/product/pre-register";
     "system-management-user": "/system-management-user";
     "system-management-user_equipment-map": "/system-management-user/equipment-map";
     "system-management-user_system-log": "/system-management-user/system-log";
@@ -155,6 +158,8 @@ declare module "@elegant-router/types" {
     | "apply_plugin"
     | "apply_service"
     | "automation_linkage-edit"
+    | "automation_rule-chain"
+    | "automation_rule-chain-edit"
     | "automation_scene-edit"
     | "automation_scene-linkage"
     | "automation_scene-manage"
@@ -186,6 +191,7 @@ declare module "@elegant-router/types" {
     | "personal-center"
     | "product_update-ota"
     | "product_update-package"
+    | "product_pre-register"
     | "system-management-user_equipment-map"
     | "system-management-user_system-log"
     | "visualization_native-board"

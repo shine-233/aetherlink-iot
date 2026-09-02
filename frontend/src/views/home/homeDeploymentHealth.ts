@@ -126,26 +126,22 @@ export const normalizeDeploymentHealth = (
     if (check && !checks[key]) checks[key] = check
   }
 
-  return Object.entries(checks)
-    .map(([key, check]) => {
-      const source = healthSourceMap[key] || 'backend-health-api'
-      const sourceLabelKey = healthSourceLabelKeyMap[source]
+  return Object.entries(checks).map(([key, check]) => {
+    const source = healthSourceMap[key] || 'backend-health-api'
+    const sourceLabelKey = healthSourceLabelKeyMap[source]
 
-      return {
-        key,
-        label: translateHealthCopy(key, 'label', t),
-        description: translateHealthCopy(key, 'description', t),
-        source,
-        sourceLabel: sourceLabelKey
-          ? t(sourceLabelKey)
-          : t('custom.home.firstDevice.health.sources.default'),
-        nextAction:
-          translateHealthCopy(key, 'nextAction', t) || t('custom.home.firstDevice.health.defaultNextAction'),
-        ok: Boolean(check.ok),
-        latency: Number(check.latency_ms || 0),
-        error: check.error || ''
-      }
-    })
+    return {
+      key,
+      label: translateHealthCopy(key, 'label', t),
+      description: translateHealthCopy(key, 'description', t),
+      source,
+      sourceLabel: sourceLabelKey ? t(sourceLabelKey) : t('custom.home.firstDevice.health.sources.default'),
+      nextAction: translateHealthCopy(key, 'nextAction', t) || t('custom.home.firstDevice.health.defaultNextAction'),
+      ok: Boolean(check.ok),
+      latency: Number(check.latency_ms || 0),
+      error: check.error || ''
+    }
+  })
 }
 
 export const fetchDeploymentHealthReport = async (t: Translate): Promise<DeploymentHealthReport | null> => {

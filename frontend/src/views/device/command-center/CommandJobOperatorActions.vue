@@ -145,7 +145,12 @@ const reviewOperatorRows = () => {
     <NButton size="small" secondary :loading="state.supportBundleLoading" @click="actions.copyCommandJobSupportBundle">
       {{ $t('custom.commandCenter.copySupportBundle') }}
     </NButton>
-    <NButton size="small" secondary :loading="state.supportBundleLoading" @click="actions.downloadCommandJobSupportBundle">
+    <NButton
+      size="small"
+      secondary
+      :loading="state.supportBundleLoading"
+      @click="actions.downloadCommandJobSupportBundle"
+    >
       {{ $t('custom.commandCenter.downloadSupportBundle') }}
     </NButton>
     <NButton
@@ -168,7 +173,12 @@ const reviewOperatorRows = () => {
     >
       {{ $t('custom.commandCenter.retryFailedJob') }}
     </NButton>
-    <NButton size="small" secondary :disabled="state.retryableFailedRows.length === 0" @click="actions.copyRetryableDeviceIds">
+    <NButton
+      size="small"
+      secondary
+      :disabled="state.retryableFailedRows.length === 0"
+      @click="actions.copyRetryableDeviceIds"
+    >
       {{ $t('custom.commandCenter.copyFailedDeviceIds') }}
     </NButton>
   </NSpace>

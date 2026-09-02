@@ -26,13 +26,7 @@ export interface CommandJobOperatorNextAction {
   description: string
   evidence: string
   primaryActionLabel: string
-  primaryAction:
-    | 'refresh'
-    | 'retry'
-    | 'copy-retryable'
-    | 'preview-support'
-    | 'copy-link'
-    | 'none'
+  primaryAction: 'refresh' | 'retry' | 'copy-retryable' | 'preview-support' | 'copy-link' | 'none'
   reviewRowsStatusFilter?: CommandJobRowsStatusFilter
   type: 'success' | 'info' | 'warning' | 'error'
 }
@@ -56,9 +50,7 @@ type CommandJobOperatorDecisionFacts = {
   blockedCount: number
 }
 
-const buildCommandJobOperatorDecisionFacts = (
-  result: FleetCommandJobSubmitResult
-): CommandJobOperatorDecisionFacts => {
+const buildCommandJobOperatorDecisionFacts = (result: FleetCommandJobSubmitResult): CommandJobOperatorDecisionFacts => {
   const rowFacts = buildCommandJobRowFacts(result)
   return {
     retryableCount: result.retryable_count ?? rowFacts.retryableRows.length,
@@ -131,7 +123,10 @@ export function buildCommandJobActionConsequenceRows(
     rows.push({
       key: 'device-response',
       label: t('custom.commandCenter.jobAttentionDeviceFailed'),
-      value: t('custom.commandCenter.actionConsequenceDeviceFailed').replace('{count}', String(facts.deviceFailedCount)),
+      value: t('custom.commandCenter.actionConsequenceDeviceFailed').replace(
+        '{count}',
+        String(facts.deviceFailedCount)
+      ),
       reviewRowsStatusFilter: 'device_failed',
       type: 'error'
     })
@@ -173,7 +168,10 @@ export function buildCommandJobTroubleshootingRows(
     rows.push({
       key: 'retry-waiting',
       label: t('custom.commandCenter.troubleshootingRetryWaitingTitle'),
-      value: t('custom.commandCenter.troubleshootingRetryWaitingDesc').replace('{count}', String(facts.retryWaitingCount)),
+      value: t('custom.commandCenter.troubleshootingRetryWaitingDesc').replace(
+        '{count}',
+        String(facts.retryWaitingCount)
+      ),
       reviewRowsStatusFilter: 'retry_waiting',
       type: 'warning'
     })
@@ -183,7 +181,10 @@ export function buildCommandJobTroubleshootingRows(
     rows.push({
       key: 'retry-exhausted',
       label: t('custom.commandCenter.troubleshootingRetryExhaustedTitle'),
-      value: t('custom.commandCenter.troubleshootingRetryExhaustedDesc').replace('{count}', String(facts.retryExhaustedCount)),
+      value: t('custom.commandCenter.troubleshootingRetryExhaustedDesc').replace(
+        '{count}',
+        String(facts.retryExhaustedCount)
+      ),
       reviewRowsStatusFilter: 'retry_exhausted',
       type: 'error'
     })
@@ -249,7 +250,10 @@ export function buildCommandJobOperatorNextAction(
     return {
       key: 'device-response',
       title: t('custom.commandCenter.operatorDecisionDeviceFailedTitle'),
-      description: t('custom.commandCenter.operatorDecisionDeviceFailedDesc').replace('{count}', String(facts.deviceFailedCount)),
+      description: t('custom.commandCenter.operatorDecisionDeviceFailedDesc').replace(
+        '{count}',
+        String(facts.deviceFailedCount)
+      ),
       evidence,
       primaryActionLabel: t('custom.commandCenter.previewSupportBundle'),
       primaryAction: 'preview-support',
@@ -262,7 +266,10 @@ export function buildCommandJobOperatorNextAction(
     return {
       key: 'retry',
       title: t('custom.commandCenter.operatorDecisionRetryTitle'),
-      description: t('custom.commandCenter.operatorDecisionRetryDesc').replace('{count}', String(facts.retryReadyCount)),
+      description: t('custom.commandCenter.operatorDecisionRetryDesc').replace(
+        '{count}',
+        String(facts.retryReadyCount)
+      ),
       evidence,
       primaryActionLabel: t('custom.commandCenter.retryFailedJob'),
       primaryAction: 'retry',
@@ -275,7 +282,10 @@ export function buildCommandJobOperatorNextAction(
     return {
       key: 'retry-waiting',
       title: t('custom.commandCenter.operatorDecisionRetryWaitingTitle'),
-      description: t('custom.commandCenter.operatorDecisionRetryWaitingDesc').replace('{count}', String(facts.retryWaitingCount)),
+      description: t('custom.commandCenter.operatorDecisionRetryWaitingDesc').replace(
+        '{count}',
+        String(facts.retryWaitingCount)
+      ),
       evidence,
       primaryActionLabel: t('custom.commandCenter.refreshJob'),
       primaryAction: 'refresh',
@@ -288,7 +298,10 @@ export function buildCommandJobOperatorNextAction(
     return {
       key: 'retry-exhausted',
       title: t('custom.commandCenter.operatorDecisionRetryExhaustedTitle'),
-      description: t('custom.commandCenter.operatorDecisionRetryExhaustedDesc').replace('{count}', String(facts.retryExhaustedCount)),
+      description: t('custom.commandCenter.operatorDecisionRetryExhaustedDesc').replace(
+        '{count}',
+        String(facts.retryExhaustedCount)
+      ),
       evidence,
       primaryActionLabel: t('custom.commandCenter.previewSupportBundle'),
       primaryAction: 'preview-support',

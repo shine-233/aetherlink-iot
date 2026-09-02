@@ -177,14 +177,11 @@ classified-protect:
   ip-login-fail-window-seconds: 600
 
 # Casbin 路由覆盖审计：未登记进资源表的受保护路由在启动期阻断（可改 warn/off 过渡）
-<<<<<<< HEAD
 # Per-tenant API rate limiting (429 + Retry-After when exceeded).
 # Default 600 requests/minute/tenant; set <=0 to disable. Env override: GOTP_API_RATE_LIMIT_RPM.
 api-rate-limit:
   requests-per-minute: 600
 
-=======
->>>>>>> origin/main
 casbin:
   route-audit-mode: fail-fast
 

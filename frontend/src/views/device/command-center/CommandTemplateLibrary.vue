@@ -1,9 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import {
-  buildBuiltInCommandTemplates,
-  type BuiltInCommandTemplate
-} from './commandCenterCommandTemplates'
+import { buildBuiltInCommandTemplates, type BuiltInCommandTemplate } from './commandCenterCommandTemplates'
 import type { CommandCenterSavedCommandTemplate } from './useCommandCenterCommandTemplates'
 
 interface Props {
@@ -71,7 +68,13 @@ const importSavedCommandTemplates = () => {
         :placeholder="$t('custom.commandCenter.templateNamePlaceholder')"
         @update:value="emit('update:commandTemplateName', $event)"
       />
-      <NButton size="small" type="primary" secondary :disabled="!commandIdentify.trim()" @click="emit('saveCommandTemplate')">
+      <NButton
+        size="small"
+        type="primary"
+        secondary
+        :disabled="!commandIdentify.trim()"
+        @click="emit('saveCommandTemplate')"
+      >
         {{ $t('custom.commandCenter.saveCommandTemplate') }}
       </NButton>
     </div>
@@ -106,12 +109,7 @@ const importSavedCommandTemplates = () => {
         </span>
         <span>{{ $t(template.descKey) }}</span>
         <small>
-          {{
-            $t('custom.commandCenter.templateTimeoutHint').replace(
-              '{seconds}',
-              String(template.timeoutSeconds)
-            )
-          }}
+          {{ $t('custom.commandCenter.templateTimeoutHint').replace('{seconds}', String(template.timeoutSeconds)) }}
         </small>
       </button>
     </div>
@@ -140,7 +138,12 @@ const importSavedCommandTemplates = () => {
             {{ $t('custom.commandCenter.templateTimeoutHint').replace('{seconds}', String(template.timeoutSeconds)) }}
           </small>
           <NSpace :size="[8, 8]">
-            <NButton size="small" secondary :disabled="!hasCommandJobScope" @click="emit('applySavedCommandTemplate', template)">
+            <NButton
+              size="small"
+              secondary
+              :disabled="!hasCommandJobScope"
+              @click="emit('applySavedCommandTemplate', template)"
+            >
               {{ $t('custom.commandCenter.applyCommandTemplate') }}
             </NButton>
             <NButton size="small" secondary @click="emit('copySavedCommandTemplate', template)">

@@ -27,10 +27,7 @@ const formatCommandPayload = () => {
         {{ $t(commandPayloadInsight.titleKey) }}
       </NTag>
       <span>
-        {{
-          $t(commandPayloadInsight.descKey)
-            .replace('{fields}', String(commandPayloadInsight.fieldCount))
-        }}
+        {{ $t(commandPayloadInsight.descKey).replace('{fields}', String(commandPayloadInsight.fieldCount)) }}
       </span>
     </div>
     <NSpace size="small">

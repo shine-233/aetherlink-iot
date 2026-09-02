@@ -135,6 +135,9 @@ API、E2E 和 synthetic-rdi 运行必须使用独立的 report/output 目录，�
 ### P2 补充车道（2026-08-26 第二批，improve/p2-lane-tests-visual）
 
 - Device3DPanel 正式接线（此前为无引用死代码）：新增设备详情「3D 预览」tab（registry 懒加载 + vendor-three 分包按需下载），薄包装复用 useTelemetryRealtimeState，温度启发式（精确 temperature → temp 模糊）驱动材质颜色，WebGL 缺失自动降级；i18n 四语言补齐；6 用例单测钉住接线契约。
+- **Casbin g2 资源表核查（2026-08-26，预注册 lane）**：全代码库与全部迁移脚本均无 `ptype='g2'` 写入路径——`GetUrl` 恒 false，`CasbinRBAC` 的 URL 级鉴权在当前所有环境实际未激活（仅 JWT 生效），启动审计 fail-fast 对存量部署的阻断风险与此同源。新路由按兄弟口径仅注册路由。g2 种子化/菜单面登记需产品决策后单独立项。
+- 设备预注册 CSV 批量导入：service 层 sqlite 全链路测试 ×5 + 前端组件测试 ×3 为静态证据；真实浏览器上传/导出下载链路 E2E pending。
+- **设计系统收敛进度（2026-08-26）**：L1（token/断点/shortcuts 单源 + hex 绊线基线 1042→733）与 L2 首批（PageHeader 收敛 3 页、21 个表格页补空态、裸删除确认、emoji 清理、html lang 同步、pre-register 表单校验）已完成并有测试锁定；hex 迁移已完成 linkage-edit、DeviceAccessGuide(46→1)、onboarding-ready-check(29→0)、home 两件套(71→0)、command-center 四件套(96→0)、DeviceFleetOverview(24→4 渐变保留) 等重灾区；剩余存量 733 处（绊线只降不升）；调色板档位变量规范名为 `--{色}-{档}-color`（如 `--success-600-color`），迁移时禁止省略 -color 后缀（已修复 6 处无效引用）。仍待后续 lane——38 个手写筛选表格页向 DataTablePage 渐进迁移、图标四套归一 Iconify、IA 改名（device config/template 错位、双 rdi-overview、management 双组）需带兼容重定向的独立 lane。
 
 ## 维护与审查建议
 

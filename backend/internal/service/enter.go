@@ -57,7 +57,9 @@ type ServiceGroup struct {
 	DashboardMenu
 	DeviceTwin
 	DeviceShadow
+	DeviceModbusProfile
 	AiQuery
+	RuleChain
 	RDI
 	PayloadSchema
 	CalculatedField CalculatedFieldService

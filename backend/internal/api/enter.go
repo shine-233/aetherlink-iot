@@ -60,10 +60,13 @@ type Controller struct {
 	DashboardMenuApi
 	DeviceTwinApi
 	DeviceShadowApi
+	DeviceModbusProfileApi
 	AiQueryApi
+	RuleChainApi
 	RDIApi
 	PayloadSchemaApi
 	CalculatedFieldApi
+	ProductApi
 }
 
 var (

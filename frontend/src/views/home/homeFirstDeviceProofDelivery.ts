@@ -1,7 +1,4 @@
-import {
-  buildFirstDeviceSuccessProofPacket,
-  type FirstDeviceSuccessProofPacket
-} from './homeFirstDeviceSuccessProof'
+import { buildFirstDeviceSuccessProofPacket, type FirstDeviceSuccessProofPacket } from './homeFirstDeviceSuccessProof'
 
 export interface FirstDeviceProofDeliveryState {
   device: any

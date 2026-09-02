@@ -617,6 +617,14 @@ function classifyEndpointCatalogItem(endpointKey) {
   if (/^\/api\/v1\/scene(?:_automations)?(?:\/|$)/.test(pathPart)) {
     return { endpoint: endpointKey, scope: 'P0/P1', capability: 'automation-scene' };
   }
+  // 规则链（ROADMAP B2）归自动化场景能力，必须在通用 device 分支之前匹配。
+  if (/^\/api\/v1\/rule-chains(?:\/|$)/.test(pathPart)) {
+    return { endpoint: endpointKey, scope: 'P0/P1', capability: 'automation-scene' };
+  }
+  // 产品选择列表（预注册建档数据源）归设备遥测能力。
+  if (/^\/api\/v1\/product(?:\/|$)/.test(pathPart)) {
+    return { endpoint: endpointKey, scope: 'P0/P1', capability: 'device-telemetry' };
+  }
   if (/^\/api\/v1\/(?:board(?:\/|$)|dashboard-menu(?:\/|$))/.test(pathPart)) {
     return { endpoint: endpointKey, scope: 'P0/P1', capability: 'visualization' };
   }
@@ -650,6 +658,10 @@ function classifyPageCatalogRoute(route) {
     return { route, scope: 'P0/P1', capability: 'visualization' };
   }
   if (/^\/(?:product|apply)(?:\/|$)/.test(route)) {
+    // 预注册建档属设备能力；其余 product 页（update-ota/update-package）保持 OTA 归属。
+    if (route === '/product/pre-register') {
+      return { route, scope: 'P0/P1', capability: 'device-telemetry' };
+    }
     return { route, scope: 'P0/P1', capability: 'ota-script-openapi-service' };
   }
   if (/^\/(?:home|system-management-user)(?:\/|$)|^\/(?:403|404|500)$/.test(route)) {

@@ -84,20 +84,15 @@ function inspectSourceEncoding() {
       if (file.relative === SELF_PATH) {
         continue;
       }
-    let stat;
-    try {
-      stat = fs.statSync(file.full);
-    } catch (err) {
-      continue;
-    }
-    if (stat.size > 4 * 1024 * 1024) {
-      continue; // 超大文件不在契约范围内（当前仓库不存在此类源文件）
-    }
     let content;
     try {
       content = fs.readFileSync(file.full, 'utf8');
     } catch (err) {
       findings.push({ file: file.relative, line: 0, reason: 'not-valid-utf8' });
+      continue;
+    }
+    // 超大文件不纳入契约范围（当前仓库不存在此类源文件）；读取后按字节长度判断，避免 stat+read 文件竞态。
+    if (Buffer.byteLength(content, 'utf8') > 4 * 1024 * 1024) {
       continue;
     }
     const lines = content.split('\n');

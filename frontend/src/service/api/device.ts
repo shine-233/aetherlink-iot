@@ -364,6 +364,15 @@ export const deviceShadowSet = async (deviceId: string, params: object) => {
 export const deviceShadowCancel = async (deviceId: string, msgId: string) => {
   return await request.delete(`/device/shadow/${deviceId}/${msgId}`)
 }
+
+/** 读取设备 Modbus 点表 */
+export const getModbusProfile = async (deviceId: string) => {
+  return await request.get(`/device/modbus/profile/${deviceId}`)
+}
+/** 保存设备 Modbus 点表（body 为 {profile} 包装） */
+export const saveModbusProfile = async (deviceId: string, profile: object) => {
+  return await request.put(`/device/modbus/profile/${deviceId}`, { profile })
+}
 /** 属性集查询：载荷契约固定为 { device_id }；历史上曾因裸字符串调用实际请求 /attribute/datas/undefined。 */
 export const getAttributeDataSet = async (
   params: { device_id: string | number },

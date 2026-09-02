@@ -112,9 +112,7 @@ export function useCommandCenterNavigation(deps: CommandCenterNavigationDeps) {
 
   const applySavedFleetFilterInCommandCenter = async (filterId: string | number | null) => {
     deps.selectedSavedFleetFilterId.value = typeof filterId === 'string' ? filterId : null
-    const savedFilter = deps
-      .savedFleetFilters()
-      .find((filter) => filter.id === deps.selectedSavedFleetFilterId.value)
+    const savedFilter = deps.savedFleetFilters().find((filter) => filter.id === deps.selectedSavedFleetFilterId.value)
     if (!savedFilter) return
 
     const nextRoute = buildSavedFilterCommandCenterRoute(savedFilter.params, savedFilter.previewTotal, savedFilter)

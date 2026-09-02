@@ -39,10 +39,13 @@ type apps struct {
 	DeviceAuth
 	DashboardMenu
 	DeviceShadow
+	DeviceModbusProfile
 	AiQuery
+	RuleChain
 	RDI
 	PayloadSchema
 	CalculatedField
+	Product
 }
 
 var Model = new(apps)
