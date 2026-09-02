@@ -85,6 +85,8 @@ func GetPublishedBoardByShareToken(shareToken string) (*model.Board, error) {
 	).First()
 }
 
+// tenant-scope: reviewed-2026-09-02 all-tenants semantics (empty tenant = SYS_ADMIN full view);
+// scoped execution delegated to boardListByScopes with scopes from service layer.
 func GetBoardListByPage(boards *model.GetBoardListByPageReq, tenantId string) (int64, interface{}, error) {
 	var scopes []string
 	if strings.TrimSpace(tenantId) != "" {
