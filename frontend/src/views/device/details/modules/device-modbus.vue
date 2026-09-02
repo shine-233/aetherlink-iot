@@ -215,7 +215,7 @@ onMounted(loadProfile)
   align-items: center;
 }
 .updated-info {
-  color: var(--n-text-color-disabled, #999);
+  color: var(--n-text-color-disabled);
   font-size: 12px;
 }
 </style>

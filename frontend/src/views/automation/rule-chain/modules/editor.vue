@@ -390,18 +390,18 @@ defineExpose({ serializeGraph })
 .palette-item {
   padding: 8px 10px;
   margin-bottom: 8px;
-  border: 1px dashed var(--n-border-color, #d4d4d8);
+  border: 1px dashed var(--n-border-color);
   border-radius: 6px;
   cursor: grab;
-  background: var(--n-color, #fff);
+  background: var(--n-color);
   user-select: none;
 }
 .canvas-wrap {
-  border: 1px solid var(--n-border-color, #e5e7eb);
+  border: 1px solid var(--n-border-color);
   border-radius: 8px;
   overflow: hidden;
   background:
-    radial-gradient(circle, #e5e7eb 1px, transparent 1px) 0 0 / 16px 16px;
+    radial-gradient(circle, var(--n-border-color) 1px, transparent 1px) 0 0 / 16px 16px;
 }
 .props {
   overflow-y: auto;
