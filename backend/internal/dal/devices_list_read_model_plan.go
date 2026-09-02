@@ -30,8 +30,8 @@ import (
 // deviceListPageReadModel keeps the GetDeviceListByPage planning and execution
 // contract behind one internal seam.
 type deviceListPageReadModel struct {
-	req      *model.GetDeviceListByPageReq
-	tenantID string
+	req    *model.GetDeviceListByPageReq
+	scopes []string
 }
 
 type deviceListPagePlan struct {
@@ -42,10 +42,12 @@ type deviceListPagePlan struct {
 }
 
 func newDeviceListPageReadModel(req *model.GetDeviceListByPageReq, tenantID string) deviceListPageReadModel {
-	return deviceListPageReadModel{
-		req:      req,
-		tenantID: tenantID,
-	}
+	return deviceListPageReadModel{req: req, scopes: []string{tenantID}}
+}
+
+// newDeviceListPageReadModelScoped 层级作用域变体：scopes=self∪祖先，nil 表示平台全量（配合 req.AllTenants）。
+func newDeviceListPageReadModelScoped(req *model.GetDeviceListByPageReq, scopes []string) deviceListPageReadModel {
+	return deviceListPageReadModel{req: req, scopes: scopes}
 }
 
 func (rm deviceListPageReadModel) execute() (int64, []model.GetDeviceListByPageRsp, error) {
@@ -104,7 +106,15 @@ func (rm deviceListPageReadModel) baseQuery() *gorm.DB {
 		builder = builder.Where(q.ActivateFlag.Eq("active"))
 	}
 	if rm.req == nil || !rm.req.AllTenants {
-		builder = builder.Where(q.TenantID.Eq(rm.tenantID))
+		switch len(rm.scopes) {
+		case 0:
+			// 无作用域且非全量：维持旧守卫语义（空租户查询不到任何设备）。
+			builder = builder.Where(q.TenantID.Eq(""))
+		case 1:
+			builder = builder.Where(q.TenantID.Eq(rm.scopes[0]))
+		default:
+			builder = builder.Where(q.TenantID.In(rm.scopes...))
+		}
 	}
 	return builder
 }

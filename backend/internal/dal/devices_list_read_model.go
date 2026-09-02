@@ -32,6 +32,13 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenantID string) (in
 	return newDeviceListPageReadModel(req, tenantID).execute()
 }
 
+// GetDeviceListByPageForScopes 层级作用域变体（ROADMAP C2）：tenant_id IN (scopes)。
+// scopes=self∪祖先；scopes 为空且非 AllTenants 时维持空结果守卫语义。
+// tenant-scope: caller-enforced (scopes 由 service 层展开并校验)。
+func GetDeviceListByPageForScopes(req *model.GetDeviceListByPageReq, scopes []string) (int64, []model.GetDeviceListByPageRsp, error) {
+	return newDeviceListPageReadModelScoped(req, scopes).execute()
+}
+
 // CountDeviceListByFilter counts devices matching the same filters used by the
 // device list endpoint without scanning display rows.
 // tenant-scope: caller-enforced?2026-08-26 ?????
