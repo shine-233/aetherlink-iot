@@ -26,3 +26,19 @@ func (*AiQueryApi) QueryTelemetryByQuestion(c *gin.Context) {
 	}
 	c.Set("data", resp)
 }
+
+// AnalyzeAlarm 告警根因分析（ROADMAP C4：AI 告警分析）。
+// POST /api/v1/ai/alarm/analysis
+func (*AiQueryApi) AnalyzeAlarm(c *gin.Context) {
+	var req service.AiAlarmAnalysisReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	resp, err := service.GroupApp.AiQuery.AnalyzeAlarm(&req, userClaims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", resp)
+}

@@ -276,6 +276,29 @@ func CheckVersion(db *gorm.DB) error {
 				tx.Rollback()
 				return fmt.Errorf("sql文件不存在,可能需要手动升级：%s", fileName)
 			}
+			// ROADMAP C1 收尾：TimescaleDB 显式开关（AETHERLINK_TIMESCALE_MODE=auto|on|off）。
+			// 57.sql 的 hypertable 转换是否执行由该配置决定；off 时跳过但迁移继续（保持普通 PG）。
+			if i == TimescaleSQLFileNumber {
+				mode, err := normalizeTimescaleMode(readTimescaleMode())
+				if err != nil {
+					tx.Rollback()
+					return err
+				}
+				installed, probeErr := timescaleExtensionInstalled(db)
+				if probeErr != nil {
+					tx.Rollback()
+					return probeErr
+				}
+				run, failMsg := decideTimescaleMigration(mode, installed)
+				if failMsg != "" {
+					tx.Rollback()
+					return fmt.Errorf("%s", failMsg)
+				}
+				if !run {
+					log.Println("跳过 sql/57.sql（TimescaleDB 显式关闭，保持普通 PostgreSQL）")
+					continue
+				}
+			}
 			log.Println("执行sql文件：", fileName)
 			// 读取 SQL 脚本文件
 			sqlFile, err := os.ReadFile(fileName)
