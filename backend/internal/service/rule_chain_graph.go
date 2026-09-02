@@ -1,6 +1,8 @@
 // 文件用途：规则链 DAG 图模型、解析与校验（ROADMAP B2）。
 // 核心逻辑：graph JSON = {nodes:[{id,type,config}], edges:[{from,to}]}；
-//   校验含唯一性、边引用完整性、触发器存在性与 Kahn 拓扑无环检查。
+//
+//	校验含唯一性、边引用完整性、触发器存在性与 Kahn 拓扑无环检查。
+//
 // 关键注意事项：节点类型注册表是扩展点——新增类型需同时实现执行 handler。
 package service
 
@@ -11,15 +13,16 @@ import (
 )
 
 const (
-	RuleChainTriggerTelemetry   = "trigger.telemetry"
-	RuleChainTriggerOnline      = "trigger.device_online"
-	RuleChainFilterThreshold    = "filter.threshold"
-	RuleChainTransformMapping   = "transform.mapping"
-	RuleChainActionWebhook      = "action.webhook"
-	RuleChainActionCommand      = "action.command"
-	ruleChainMaxNodes           = 64
-	ruleChainMaxEdges           = 128
-	ruleChainMaxGraphBytes      = 256 * 1024
+	RuleChainTriggerTelemetry = "trigger.telemetry"
+	RuleChainTriggerOnline    = "trigger.device_online"
+	RuleChainFilterThreshold  = "filter.threshold"
+	RuleChainTransformMapping = "transform.mapping"
+	RuleChainActionWebhook    = "action.webhook"
+	RuleChainActionCommand    = "action.command"
+	RuleChainActionAlarm      = "action.alarm"
+	ruleChainMaxNodes         = 64
+	ruleChainMaxEdges         = 128
+	ruleChainMaxGraphBytes    = 256 * 1024
 )
 
 // RuleChainNodeTypeMeta 内置节点类型注册表（前端画布与后端校验共用语义）。
@@ -30,6 +33,7 @@ var RuleChainNodeTypeMeta = map[string]string{
 	RuleChainTransformMapping: "transform",
 	RuleChainActionWebhook:    "action",
 	RuleChainActionCommand:    "action",
+	RuleChainActionAlarm:      "action",
 }
 
 // RuleChainGraph DAG 定义。

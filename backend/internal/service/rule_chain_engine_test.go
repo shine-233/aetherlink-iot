@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"aetherlink-iot/backend/internal/model"
 	"github.com/stretchr/testify/require"
 )
 
@@ -118,4 +119,62 @@ func TestExecuteRuleChainNodeErrorIsReported(t *testing.T) {
 		&RuleChainContext{DeviceID: "dev-4"}, map[string]any{"k": float64(1)})
 	require.Len(t, errs, 1)
 	require.True(t, strings.Contains(errs[0].Error(), "url"), errs[0].Error())
+}
+
+func TestExecuteRuleChainAlarmActionCreatesHistory(t *testing.T) {
+	oldCreator := ruleChainAlarmCreator
+	defer func() { ruleChainAlarmCreator = oldCreator }()
+	var got *model.AlarmHistory
+	ruleChainAlarmCreator = func(_ context.Context, h *model.AlarmHistory) error {
+		got = h
+		return nil
+	}
+	graphJSON := `{"nodes":[
+		{"id":"t","type":"trigger.telemetry"},
+		{"id":"a","type":"action.alarm","config":{"name":"高温告警","severity":"H","description":"温度超过阈值"}}
+	],"edges":[{"from":"t","to":"a"}]}`
+	graph, err := ParseRuleChainGraph(graphJSON)
+	require.NoError(t, err)
+	errs := ExecuteRuleChainGraph(context.Background(), graph,
+		&RuleChainContext{DeviceID: "dev-5", TenantID: "tenant-1"},
+		map[string]any{"temperature": float64(41)})
+	require.Empty(t, errs)
+	require.NotNil(t, got)
+	require.Equal(t, "高温告警", got.Name)
+	require.Equal(t, "H", got.AlarmStatus)
+	require.Equal(t, "tenant-1", got.TenantID)
+	require.Equal(t, `["dev-5"]`, got.AlarmDeviceList)
+	require.NotNil(t, got.Content)
+}
+
+func TestExecuteRuleChainAlarmActionValidation(t *testing.T) {
+	oldCreator := ruleChainAlarmCreator
+	defer func() { ruleChainAlarmCreator = oldCreator }()
+	called := false
+	ruleChainAlarmCreator = func(_ context.Context, _ *model.AlarmHistory) error {
+		called = true
+		return nil
+	}
+	// 缺少 name → 报错且不落库
+	graphJSON := `{"nodes":[
+		{"id":"t","type":"trigger.telemetry"},
+		{"id":"a","type":"action.alarm","config":{"severity":"M"}}
+	],"edges":[{"from":"t","to":"a"}]}`
+	graph, err := ParseRuleChainGraph(graphJSON)
+	require.NoError(t, err)
+	errs := ExecuteRuleChainGraph(context.Background(), graph,
+		&RuleChainContext{DeviceID: "dev-6", TenantID: "tenant-1"}, map[string]any{"k": float64(1)})
+	require.Len(t, errs, 1)
+	require.Contains(t, errs[0].Error(), "name")
+	require.False(t, called, "missing name must not create alarm")
+	// 非法 severity → 报错
+	graphJSON2 := `{"nodes":[
+		{"id":"t","type":"trigger.telemetry"},
+		{"id":"a","type":"action.alarm","config":{"name":"x","severity":"X"}}
+	],"edges":[{"from":"t","to":"a"}]}`
+	graph2, _ := ParseRuleChainGraph(graphJSON2)
+	errs2 := ExecuteRuleChainGraph(context.Background(), graph2,
+		&RuleChainContext{DeviceID: "dev-6", TenantID: "tenant-1"}, map[string]any{"k": float64(1)})
+	require.Len(t, errs2, 1)
+	require.Contains(t, errs2[0].Error(), "severity")
 }
