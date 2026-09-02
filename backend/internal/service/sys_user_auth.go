@@ -68,6 +68,17 @@ func (u *User) Login(ctx context.Context, loginReq *model.LoginReq) (*model.Logi
 		return nil, errcode.New(errcode.CodeUserDisabled)
 	}
 
+	// 2FA（ROADMAP C7）：已启用 TOTP 的用户在密码正确后进入第二因子阶段。
+	if totpRow, err := dal.GetUserTOTP(user.ID); err == nil && totpRow.Enabled {
+		ticket, terr := GroupApp.UserTotp.IssueChallenge(user.ID)
+		if terr != nil {
+			return nil, terr
+		}
+		return nil, errcode.WithData(errcode.CodeTotpRequired, map[string]interface{}{
+			"ticket": ticket,
+		})
+	}
+
 	logrsp, err := u.UserLoginAfter(user)
 	if err != nil {
 		return nil, err

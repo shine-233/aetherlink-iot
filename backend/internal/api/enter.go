@@ -69,6 +69,7 @@ type Controller struct {
 	ProductApi
 	EntityVersionApi
 	AssetApi
+	UserTotpApi
 }
 
 var (

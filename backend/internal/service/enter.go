@@ -65,6 +65,7 @@ type ServiceGroup struct {
 	CalculatedField CalculatedFieldService
 	EntityVersion   EntityVersionService
 	Asset
+	UserTotp
 }
 
 // GroupApp 是全局业务服务入口，供 API 层和中间件层调用

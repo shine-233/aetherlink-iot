@@ -183,6 +183,7 @@ func RouterInit() *gin.Engine {
 				plugin.POST("plugin/service/access", controllers.HandlePluginServiceAccess)
 			}
 			v1.POST("login", controllers.Login)
+			v1.POST("login/totp", controllers.UserApi.LoginWithTotp)
 			v1.GET("verification/code", controllers.HandleVerificationCode)
 			v1.POST("reset/password/link", controllers.RequestPasswordResetLink)
 			v1.POST("reset/password", controllers.ResetPassword)
@@ -243,6 +244,8 @@ func RouterInit() *gin.Engine {
 
 		{
 			apps.Model.User.InitUser(v1) // 用户模块
+
+			apps.Model.UserTOTP.InitUserTOTP(v1) // 2FA（TOTP 绑定/状态）
 
 			apps.Model.Role.Init(v1) // 角色管理
 
