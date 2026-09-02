@@ -161,7 +161,11 @@ func buildAutoPreRegisterRows(req model.CreateDevicePreRegisterReq, tenantID str
 		})
 	}
 
-	deviceNumbers := make([]string, 0, *req.DeviceCount)
+	count := *req.DeviceCount
+	if count > preRegisterMaxDeviceCount {
+		count = preRegisterMaxDeviceCount
+	}
+	deviceNumbers := make([]string, 0, count)
 	for i := 0; i < *req.DeviceCount; i++ {
 		deviceNumbers = append(deviceNumbers, "PR-"+uuid.New()[0:12])
 	}
@@ -186,7 +190,7 @@ func buildAutoPreRegisterRows(req model.CreateDevicePreRegisterReq, tenantID str
 	}
 
 	createdAt := time.Now().UTC()
-	rows := make([]*model.Device, 0, *req.DeviceCount)
+	rows := make([]*model.Device, 0, count)
 	for i, number := range deviceNumbers {
 		name := fmt.Sprintf("%s-%04d", req.BatchNumber, i+1)
 		rows = append(rows, newPreRegisterDevice(number, name, req, tenantID, createdAt))

@@ -12,7 +12,7 @@
   --breakpoint-md: 960px;
   --breakpoint-lg: 1280px;
 
-  /* 租户级品牌主题色（ROADMAP C5 白标）：由 sys-setting store 注入覆盖，
+/* 租户级品牌主题色（ROADMAP C5 白标）：由 sys-setting store 注入覆盖，
    * 空值回退此默认值。登录页/页头等高可见品牌位可引用该变量。 */
   --aetherlink-brand-color: #1677ff;
 

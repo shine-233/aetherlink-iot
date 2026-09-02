@@ -33,4 +33,3 @@
 - Inspect seed data and placeholders such as `CHANGE_ME_SMTP_PASSWORD` before publication. This README does not certify that a database has been upgraded or that any SQL has been executed.
 
 - A schema snapshot elsewhere in the repository is reference material only; verify the target database version and the numbered migration chain before generating model/query code.
-
