@@ -76,7 +76,7 @@ func (*DeviceShadow) SetShadowMessage(deviceId string, req *SetDeviceShadowMessa
 		if sendErr := GroupApp.CommandData.CommandPutMessage(context.Background(), "", putMessage, "2"); sendErr == nil {
 			return &SetShadowMessageResp{Direct: true}, nil
 		} else {
-			logrus.WithField("device_id", deviceId).Warnf("shadow direct send failed, falling back to shadow queue, err=%v", sendErr)
+			logrus.Warn("shadow direct send failed, falling back to shadow queue, err=", sendErr)
 		}
 	}
 
@@ -125,7 +125,7 @@ func (*DeviceShadow) CancelShadowMessage(deviceId, msgId string, claims *utils.U
 	}
 	err := dal.CancelShadowMessage(msgId)
 	if err != nil {
-		logrus.WithField("message_id", msgId).Warnf("CancelShadowMessage failed, err=%v", err)
+		logrus.Warn("CancelShadowMessage failed, err=", err)
 		return errcode.NewWithMessage(errcode.CodeParamError, "pending shadow message not found")
 	}
 	return nil
@@ -144,11 +144,11 @@ func (*DeviceShadow) DeliverPendingShadowMessages(deviceId string) (int, error) 
 	delivered := 0
 	for _, msg := range pending {
 		if sendErr := dispatchShadowMessage(deviceId, msg); sendErr != nil {
-			logrus.WithField("device_id", deviceId).WithField("message_id", msg.ID).Warnf("shadow deliver failed (kept pending), err=%v", sendErr)
+			logrus.Warnf("shadow deliver failed (kept pending), err=%v", sendErr)
 			continue
 		}
 		if markErr := dal.MarkShadowMessageDelivered(msg.ID); markErr != nil {
-			logrus.Errorf("shadow mark delivered failed: msg=%s err=%v", msg.ID, markErr)
+			logrus.Error("shadow mark delivered failed, err=", markErr)
 			continue
 		}
 		delivered++
