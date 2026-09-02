@@ -59,6 +59,7 @@ type ServiceGroup struct {
 	DeviceShadow
 	DeviceModbusProfile
 	AiQuery
+	RuleChain
 	RDI
 	PayloadSchema
 	CalculatedField CalculatedFieldService

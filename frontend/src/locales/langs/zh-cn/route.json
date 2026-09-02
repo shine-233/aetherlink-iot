@@ -43,6 +43,8 @@
   "route.visualization-native-board-editor": "原生看板编辑器",
   "route.visualization-native-boards": "原生看板",
   "route.automation_scene-manage": "场景",
+  "route.automation_rule-chain": "规则链",
+  "route.automation_rule-chain-edit": "规则链编辑",
   "route.automation_scene-linkage": "自动化",
   "route.automation_linkage-edit": "编辑自动化",
   "route.automation": "自动化",

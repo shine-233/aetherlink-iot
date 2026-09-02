@@ -62,6 +62,7 @@ type Controller struct {
 	DeviceShadowApi
 	DeviceModbusProfileApi
 	AiQueryApi
+	RuleChainApi
 	RDIApi
 	PayloadSchemaApi
 	CalculatedFieldApi

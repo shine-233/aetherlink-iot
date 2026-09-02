@@ -306,6 +306,8 @@ func RouterInit() *gin.Engine {
 
 			apps.Model.DeviceModbusProfile.InitDeviceModbusProfile(v1) // Modbus 点表配置
 
+			apps.Model.RuleChain.InitRuleChain(v1) // 规则链（可视化 DAG 编排）
+
 			apps.Model.OpenAPIKey.InitOpenAPIKey(v1)
 
 			apps.Model.MessagePush.Init(v1)

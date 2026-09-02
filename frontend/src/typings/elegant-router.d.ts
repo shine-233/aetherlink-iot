@@ -31,6 +31,8 @@ declare module "@elegant-router/types" {
     "automation": "/automation";
     "automation_linkage-edit": "/automation/linkage-edit";
     "automation_scene-edit": "/automation/scene-edit";
+    "automation_rule-chain": "/automation/rule-chain";
+    "automation_rule-chain-edit": "/automation/rule-chain/edit";
     "automation_scene-linkage": "/automation/scene-linkage";
     "automation_scene-manage": "/automation/scene-manage";
     "dashboard": "/dashboard";
@@ -155,6 +157,8 @@ declare module "@elegant-router/types" {
     | "apply_plugin"
     | "apply_service"
     | "automation_linkage-edit"
+    | "automation_rule-chain"
+    | "automation_rule-chain-edit"
     | "automation_scene-edit"
     | "automation_scene-linkage"
     | "automation_scene-manage"
