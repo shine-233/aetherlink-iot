@@ -1,1 +1,0 @@
-go run . start -c default_config.yml

@@ -1,8 +1,0 @@
-blank_issues_enabled: false
-contact_links:
-  - name: Security vulnerability report
-    url: https://github.com/shine-233/aetherlink-iot/security/advisories/new
-    about: Report security issues privately instead of opening a public issue.
-  - name: Project discussions
-    url: https://github.com/shine-233/aetherlink-iot/discussions
-    about: Ask usage and design questions in Discussions.

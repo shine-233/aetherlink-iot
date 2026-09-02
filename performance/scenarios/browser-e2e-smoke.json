@@ -1,6 +1,0 @@
-{
-  "id": "browser-e2e-smoke",
-  "description": "Browser smoke path for login, home, first device, and ready-check pages.",
-  "requiredTargets": ["targetUrl", "backendUrl"],
-  "evidence": ["playwrightReport", "screenshotsOnFailure", "traceOnFailure", "exitCode"]
-}
