@@ -113,9 +113,14 @@ const guideStepTagType = (step: HomeFirstDeviceGuideStep) => step.statusType as 
             <div class="min-w-0">
               <div class="flex flex-wrap items-center gap-8px">
                 <div class="text-15px font-600">{{ step.title }}</div>
-                <n-tag size="small" round :bordered="false" :type="guideStepTagType(step)">{{ step.statusLabel }}</n-tag>
+                <n-tag size="small" round :bordered="false" :type="guideStepTagType(step)">
+                  {{ step.statusLabel }}
+                </n-tag>
               </div>
-              <div v-if="shouldExpandHomeGuideStep(step, coreGuideSummary)" class="mt-4px text-13px line-height-20px text-gray-500">
+              <div
+                v-if="shouldExpandHomeGuideStep(step, coreGuideSummary)"
+                class="mt-4px text-13px line-height-20px text-gray-500"
+              >
                 {{ step.description }}
               </div>
               <div v-else class="mt-3px text-12px text-gray-500">
@@ -150,7 +155,9 @@ const guideStepTagType = (step: HomeFirstDeviceGuideStep) => step.statusType as 
             <div class="min-w-0">
               <div class="flex flex-wrap items-center gap-8px">
                 <div class="text-14px font-600">{{ step.title }}</div>
-                <n-tag size="small" round :bordered="false" :type="guideStepTagType(step)">{{ step.statusLabel }}</n-tag>
+                <n-tag size="small" round :bordered="false" :type="guideStepTagType(step)">
+                  {{ step.statusLabel }}
+                </n-tag>
               </div>
               <div class="mt-3px text-12px line-height-18px text-gray-500">{{ step.description }}</div>
             </div>

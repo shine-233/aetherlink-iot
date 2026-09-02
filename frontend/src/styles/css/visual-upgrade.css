@@ -10,7 +10,7 @@
 }
 .n-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 24px rgba(32,128,240,0.10), 0 2px 8px rgba(0,0,0,0.06);
+  box-shadow: 0 8px 24px rgb(var(--info-color) / 0.10), 0 2px 8px rgba(0,0,0,0.06);
 }
 
 /* ---- 缁熻鍗＄墖鏁板瓧鍖哄煙 ---- */
@@ -30,7 +30,7 @@
 
 /* ---- 琛ㄦ牸琛?hover 楂樹寒 ---- */
 .n-data-table-tr:hover {
-  background-color: rgba(32,128,240,0.03) !important;
+  background-color: rgb(var(--info-color) / 0.03) !important;
 }
 
 /* ---- 椤甸潰鍐呭杩涘満鍔ㄧ敾锛堥厤鍚?global-content Transition锛?--- */
@@ -45,14 +45,14 @@
 /* ---- 在线状态脉冲指示器 ---- */
 .status-dot-online {
   width: 8px; height: 8px; border-radius: 50%;
-  background: #18a058;
+  background: rgb(var(--success-color));
   position: relative;
 }
 .status-dot-online::after {
   content: "";
   position: absolute; inset: -4px;
   border-radius: 50%;
-  border: 2px solid #18a058;
+  border: 2px solid rgb(var(--success-color));
   opacity: 0;
   animation: status-pulse 2s ease-out infinite;
 }

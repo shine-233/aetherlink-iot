@@ -77,7 +77,11 @@ const firstDeviceSetupSequence = computed(() => [
     detail: props.firstDevice
       ? $t('custom.home.firstDevice.identity.sequence.generated')
       : $t('custom.home.firstDevice.identity.sequence.generatedWithDevice'),
-    state: props.firstDevice ? 'done' : props.firstRunCreateTenantRequired || !props.deploymentHealthOk ? 'todo' : 'active'
+    state: props.firstDevice
+      ? 'done'
+      : props.firstRunCreateTenantRequired || !props.deploymentHealthOk
+        ? 'todo'
+        : 'active'
   },
   {
     order: '4',
@@ -85,7 +89,11 @@ const firstDeviceSetupSequence = computed(() => [
     detail: props.firstDevice
       ? $t('custom.home.firstDevice.identity.sequence.parametersCopyable')
       : $t('custom.home.firstDevice.identity.sequence.generateOnce'),
-    state: props.firstDevice ? 'done' : props.firstRunCreateTenantRequired || !props.deploymentHealthOk ? 'todo' : 'active'
+    state: props.firstDevice
+      ? 'done'
+      : props.firstRunCreateTenantRequired || !props.deploymentHealthOk
+        ? 'todo'
+        : 'active'
   }
 ])
 
@@ -132,7 +140,12 @@ const updateFirstRunProtocol = (value: HomeFirstRunProtocol) => {
       {{ $t('custom.home.firstDevice.identity.createFirstDeviceDesc') }}
     </div>
     <div class="mt-10px first-device-setup-sequence">
-      <div v-for="step in firstDeviceSetupSequence" :key="step.order" class="first-device-setup-step" :data-state="step.state">
+      <div
+        v-for="step in firstDeviceSetupSequence"
+        :key="step.order"
+        class="first-device-setup-step"
+        :data-state="step.state"
+      >
         <span>{{ step.order }}</span>
         <strong>{{ step.label }}</strong>
         <small>{{ step.detail }}</small>
@@ -176,10 +189,7 @@ const updateFirstRunProtocol = (value: HomeFirstRunProtocol) => {
         {{ $t('custom.home.firstDevice.identity.editThingsModel') }}
       </n-button>
     </div>
-    <div
-      v-if="!deploymentHealthOk"
-      class="mt-8px flex flex-wrap items-center gap-8px text-12px text-orange-600"
-    >
+    <div v-if="!deploymentHealthOk" class="mt-8px flex flex-wrap items-center gap-8px text-12px text-orange-600">
       <span>{{ $t('custom.home.firstDevice.identity.healthBlockedHint') }}</span>
       <n-button size="tiny" secondary :loading="firstDeviceLoading" @click="emit('refreshDeploymentHealth')">
         {{ $t('custom.home.firstDevice.common.checkDeploymentHealth') }}
@@ -193,7 +203,10 @@ const updateFirstRunProtocol = (value: HomeFirstRunProtocol) => {
         })
       }}
     </div>
-    <div v-if="firstRunCreateTenantRequired" class="mt-10px rounded-6px border border-orange-200 bg-orange-50 px-10px py-8px">
+    <div
+      v-if="firstRunCreateTenantRequired"
+      class="mt-10px rounded-6px border border-orange-200 bg-orange-50 px-10px py-8px"
+    >
       <div class="text-13px text-orange-700 font-600">{{ firstRunSetupBlockerTitle }}</div>
       <div class="mt-3px text-12px line-height-18px text-orange-700">
         {{ firstRunSetupBlockerDescription }}
@@ -226,11 +239,7 @@ const updateFirstRunProtocol = (value: HomeFirstRunProtocol) => {
       <div>
         <span>{{ $t('custom.devicePage.online') }}</span>
         <strong>
-          {{
-            firstDevice.online
-              ? $t('custom.devicePage.online')
-              : $t('custom.home.firstDevice.identity.notOnline')
-          }}
+          {{ firstDevice.online ? $t('custom.devicePage.online') : $t('custom.home.firstDevice.identity.notOnline') }}
         </strong>
       </div>
       <div>

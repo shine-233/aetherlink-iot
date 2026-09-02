@@ -11,9 +11,7 @@ const emit = defineEmits<{
 }>()
 
 const doneCount = computed(() => props.steps.filter((step: any) => step.state === 'done').length)
-const percent = computed(() =>
-  props.steps.length ? Math.round((doneCount.value / props.steps.length) * 100) : 0
-)
+const percent = computed(() => (props.steps.length ? Math.round((doneCount.value / props.steps.length) * 100) : 0))
 </script>
 
 <template>

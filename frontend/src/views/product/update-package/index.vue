@@ -11,6 +11,7 @@ import dayjs from 'dayjs'
 import { useRoute, useRouter } from 'vue-router'
 import { deleteOtaPackage } from '@/service/product/update-package'
 import { $t } from '@/locales'
+import PageHeader from '@/components/common/page-header/index.vue'
 import { createOtaPackageColumns } from './ota-package-table-columns'
 import type { OtaPackageRecord } from './ota-package-types'
 import { useOtaPackageForm } from './use-ota-package-form'
@@ -159,16 +160,10 @@ onBeforeUnmount(() => {
 <template>
   <div class="product-page">
     <NSpace vertical size="medium">
-      <div class="page-header">
-        <div>
-          <div class="page-title">{{ $t('page.product.update-package.packageList') }}</div>
-          <div class="page-subtitle">{{ $t('route.product_update-package') }}</div>
-        </div>
-        <NSpace>
-          <NButton @click="fetchPackages">{{ $t('common.refresh') }}</NButton>
-          <NButton type="primary" @click="openCreateModal">{{ $t('page.product.update-package.packageAdd') }}</NButton>
-        </NSpace>
-      </div>
+      <PageHeader :title="$t('page.product.update-package.packageList')" :subtitle="$t('route.product_update-package')">
+        <NButton @click="fetchPackages">{{ $t('common.refresh') }}</NButton>
+        <NButton type="primary" @click="openCreateModal">{{ $t('page.product.update-package.packageAdd') }}</NButton>
+      </PageHeader>
 
       <NAlert v-if="isReturnToOtaTaskFlow" type="info" :show-icon="true">
         <strong>{{ $t('page.product.update-package.returnToOtaTitle') }}</strong>
@@ -409,23 +404,6 @@ onBeforeUnmount(() => {
   padding: 16px;
 }
 
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.page-title {
-  font-size: 22px;
-  font-weight: 700;
-}
-
-.page-subtitle {
-  margin-top: 4px;
-  color: var(--text-color-3);
-}
-
 .filter-control {
   width: 220px;
 }
@@ -509,11 +487,6 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 720px) {
-  .page-header {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
   .filter-control {
     width: 100%;
   }

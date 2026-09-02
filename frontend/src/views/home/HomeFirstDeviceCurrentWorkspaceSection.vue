@@ -28,13 +28,12 @@ const emit = defineEmits<{
       <div class="mt-4px text-12px line-height-18px text-gray-500">
         {{ description }}
       </div>
-      <div class="mt-6px rounded-6px border border-dashed border-gray-300 px-10px py-8px text-12px line-height-18px text-gray-600">
+      <div
+        class="mt-6px rounded-6px border border-dashed border-gray-300 px-10px py-8px text-12px line-height-18px text-gray-600"
+      >
         {{ successSignal }}
       </div>
-      <div
-        v-if="currentStep?.disabled && !ready"
-        class="mt-5px text-12px text-orange-600"
-      >
+      <div v-if="currentStep?.disabled && !ready" class="mt-5px text-12px text-orange-600">
         {{ currentStep.description }}
       </div>
     </div>

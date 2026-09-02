@@ -29,23 +29,24 @@
 | 看板 | ◐ | ✓ | ✓ | 原生看板 + 发布分享 |
 | 脚本引擎 | ◐ | ✓ | ✓ | 数据处理脚本 |
 | 通知服务 | ◐ | ✓ | ✓ | 邮件/Webhook 通知组 |
-| 可视化规则链编辑器 | ✓* | ✓ | ◐ | B2 分支 `origin/feat/rule-chain-b2` 就绪（DAG 引擎+Vue Flow 画布），待合并 |
+| 可视化规则链编辑器 | ✓ | ✓ | ◐ | B2 已合入：DAG 引擎+Vue Flow 画布（56.sql graph 列） |
 | API 限流(per-tenant) | ✓ 单机 | ✓ (PE) | ✗ | 默认 600 rpm/租户（env 可调），429+Retry-After；集群 Redis 版待 C 阶段 |
 | 3D 可视化/SCADA | ✓ | ✓ | ◐ | C3 已落地：设备详情「3D 预览」tab，遥测驱动材质、WebGL 降级 |
-| Modbus | ✓* | ◐ | ✓ | B1 分支 `feat/modbus-b1` 就绪（独立插件+点表 UI），待合并 |
+| Modbus | ✓ | ◐ | ✓ | B1 已合入：独立插件+点表 UI（55.sql + modbus-plugin） |
 | 设备影子 | ✓ | ✓ | ✓ | Phase A3 已交付：离线命令缓存+上线投递 |
+| CSV 批量导入设备 | ✓ | ✓ | ✓ | 后端建档/导出与前端导入向导均已落地（自动生成/CSV 双模式、一次性凭证、脱敏导出）；产品选择列表 `/product` 同步补齐 |
 | 资产管理层级 | ✗ | ✓ | ✗ | Phase C2 |
 | CoAP / LwM2M / SNMP | ✗ | ✓ | ✗ | Phase C6 |
 | OPC UA | ✗ | ✗ | ✓ | 远期评估 |
 | 移动端 App | ✗ | ✗ | ✓ | 远期评估 |
 | AI / LLM 集成 | ✓ | ✗ | ✓ | C4 已落地 NL 查询遥测；AI 告警分析待做 |
-| 计算字段 | ✓* | ✓ | ✗ | B3 分支 `calcfield-lane` 就绪（53.sql+govaluate 安全表达式），待合并 |
+| 计算字段 | ✓ | ✓ | ✗ | B3 已合入：govaluate 安全表达式派生遥测（54.sql） |
 | TimescaleDB / TDengine | ✗ | ✓ | ✓ | Phase C1 |
 | 白标定制 | ✗ | ✓ (PE) | ✗ | Phase C5 |
 | 行业模板 | ✗ | ✓ (PE) | ✗ | 远期 |
 | 边缘计算 | ✗ | ✓ (PE) | ✗ | 远期 |
 
-结论：核心设备管理链路已接近主流水平。Modbus（B1）、规则链可视化（B2）、计算字段（B3）三条 lane 已完成实现待合并；合并后剩余差距收敛为「时序存储后端（C1 TimescaleDB）、资产层级（C2）、CoAP/LwM2M（C6）、白标（C5）」四项远期线。
+结论：核心设备管理链路已接近主流水平。Modbus（B1）、规则链可视化（B2）、计算字段（B3）、CSV 批量导入（fleet）已合入；剩余差距收敛为「时序存储后端（C1 TimescaleDB）、资产层级（C2）、CoAP/LwM2M（C6）、白标（C5）」四项远期线。
 
 ---
 
@@ -242,3 +243,5 @@ ALTER TABLE device_calculated_fields (
 | 2026-08-25 | 质量 | 全库 GBK 乱码修复（17 文件，含 echarts-manager 被困代码释放）+ 源码编码契约测试绊线 + 影子离线投递 method/params 语义修复 | feat/phase-a-completion |
 | 2026-08-25 | B1 | Modbus TCP 插件（独立模块 modbus-plugin）：JSON 点表采集/缩放、MQTT 上报、命令下行写入、内嵌从站单测、compose `--profile modbus`；平台点表存储 + 前端「Modbus 点表」界面 + 插件 OpenAPI Key 拉取闭环；gRPC 通道暂缓（见 B1 备注） | #162 |
 | 2026-08-25 | B2 | 可视化规则链编辑器：迁移 56.sql（graph 列）、DAG 校验（Kahn 无环）、拓扑执行引擎 + webhook/command 动作、`/rule-chains` CRUD + 上行双钩子、Vue Flow 画布编辑器 + 四语言 i18n、引擎/CRUD 单测 | feat/rule-chain-b2 |
+| 2026-08-26 | fleet | CSV 批量导入设备：`POST/GET /device/preRegister` + `/preRegister/export` 路由补齐（修复前端契约断裂），自动生成/CSV 双模式建档、一次性凭证+脱敏导出、产品租户校验、service 层 sqlite 全链路测试 ×5 | feat/device-preregister-import |
+| 2026-08-26 | 设计 | 设计系统收敛 L1/L2：字号/圆角 token 落地 global.scss、断点三合一（删 --bp-* 双轨）、uno shortcuts 单源化（preset 导出 aetherlinkShortcuts）、共享 PageHeader 组件收敛 3 页 5 处重复页头、10 个表格页补 NEmpty 空态、linkage-edit 47 处 hex→token 迁移、UI emoji→SvgIcon、裸删除补 Popconfirm、html lang 随语言切换、hex 绊线契约测试（基线 1042→994 只降不升） | feat/device-preregister-import |

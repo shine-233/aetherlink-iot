@@ -11,6 +11,7 @@
   "route.product": "Product Management",
   "route.product_update-ota": "OTA",
   "route.product_update-package": "Upgrade Package Management",
+  "route.product_pre-register": "Device Pre-register",
   "route.dashboard": "Operations & Visuals",
   "route.dashboard_workspace": "Visualization Entry",
   "route.dashboard_rdi-overview": "RDI Overview",

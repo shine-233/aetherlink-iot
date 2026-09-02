@@ -120,12 +120,12 @@ const getMetricValue = (key: (typeof metricItems)[number]['key']) => props.curre
   overflow: hidden;
   margin-bottom: 12px;
   padding: 16px;
-  border: 1px solid #dbeafe;
+  border: 1px solid var(--border-color);
   border-radius: 18px;
   background:
     radial-gradient(circle at 8% 0%, rgba(59, 130, 246, 0.16), transparent 30%),
     radial-gradient(circle at 92% 8%, rgba(20, 184, 166, 0.14), transparent 28%),
-    linear-gradient(135deg, #f8fbff 0%, #f1f7ff 58%, #ffffff 100%);
+    linear-gradient(135deg, #f8fbff 0%, #f1f7ff 58%, var(--card-color) 100%);
   box-shadow: 0 18px 44px rgba(15, 23, 42, 0.08);
 }
 
@@ -152,8 +152,8 @@ const getMetricValue = (key: (typeof metricItems)[number]['key']) => props.curre
 
 .device-fleet-overview__eyebrow {
   margin: 0 0 4px;
-  color: #2563eb;
-  font-size: 12px;
+  color: rgb(var(----color));
+  font-size: var(--font-size-caption);
   font-weight: 800;
   letter-spacing: 0.08em;
   line-height: 1.3;
@@ -162,7 +162,7 @@ const getMetricValue = (key: (typeof metricItems)[number]['key']) => props.curre
 
 .device-fleet-overview__title {
   margin: 0;
-  color: #0f172a;
+  color: var(--text-color-1);
   font-size: 21px;
   font-weight: 700;
   line-height: 1.2;
@@ -204,16 +204,16 @@ const getMetricValue = (key: (typeof metricItems)[number]['key']) => props.curre
 
 .device-fleet-overview__total:hover,
 .device-fleet-overview__metric:not(:disabled):hover {
-  border-color: #93c5fd;
-  background: #fff;
+  border-color: rgb(var(--info-color) / 0.5);
+  background: var(--card-color);
   box-shadow: 0 16px 32px rgb(15 23 42 / 10%);
   transform: translateY(-1px);
 }
 
 .device-fleet-overview__total.is-active,
 .device-fleet-overview__metric.is-active {
-  border-color: #2563eb;
-  background: #eff6ff;
+  border-color: rgb(var(--info-color));
+  background: rgb(var(--info-color) / 0.08);
   box-shadow:
     0 0 0 2px rgb(37 99 235 / 14%),
     0 16px 34px rgb(37 99 235 / 10%);
@@ -230,8 +230,8 @@ const getMetricValue = (key: (typeof metricItems)[number]['key']) => props.curre
 .device-fleet-overview__total-label,
 .device-fleet-overview__metric-label {
   overflow: hidden;
-  color: #64748b;
-  font-size: 12px;
+  color: var(--text-color-3);
+  font-size: var(--font-size-caption);
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -241,7 +241,7 @@ const getMetricValue = (key: (typeof metricItems)[number]['key']) => props.curre
 .device-fleet-overview__metric strong {
   display: block;
   margin-top: 3px;
-  color: #0f172a;
+  color: var(--text-color-1);
   font-size: 24px;
   font-weight: 760;
   line-height: 1.15;
@@ -250,13 +250,13 @@ const getMetricValue = (key: (typeof metricItems)[number]['key']) => props.curre
 .device-fleet-overview__total small {
   margin-top: 6px;
   color: rgba(255, 255, 255, 0.78);
-  font-size: 12px;
+  font-size: var(--font-size-caption);
   line-height: 1.35;
 }
 
 .device-fleet-overview__total .device-fleet-overview__total-label,
 .device-fleet-overview__total strong {
-  color: #fff;
+  color: white;
 }
 
 .device-fleet-overview__metric {
@@ -277,9 +277,9 @@ const getMetricValue = (key: (typeof metricItems)[number]['key']) => props.curre
   flex: 0 0 34px;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
-  background: #eef2f7;
-  color: #344054;
+  border-radius: var(--radius-lg);
+  background: var(--action-color);
+  color: var(--text-color-2);
   font-size: 20px;
 }
 
@@ -288,18 +288,18 @@ const getMetricValue = (key: (typeof metricItems)[number]['key']) => props.curre
 }
 
 .tone-success .device-fleet-overview__metric-icon {
-  background: #dcfce7;
-  color: #15803d;
+  background: rgb(var(--success-color) / 0.16);
+  color: rgb(var(----color));
 }
 
 .tone-warning .device-fleet-overview__metric-icon {
-  background: #fef3c7;
-  color: #b45309;
+  background: rgb(var(--warning-color) / 0.16);
+  color: rgb(var(----color));
 }
 
 .tone-danger .device-fleet-overview__metric-icon {
-  background: #fee2e2;
-  color: #b91c1c;
+  background: rgb(var(--error-color) / 0.16);
+  color: rgb(var(----color));
 }
 
 .device-fleet-overview__footer {
@@ -311,8 +311,8 @@ const getMetricValue = (key: (typeof metricItems)[number]['key']) => props.curre
   justify-content: space-between;
   gap: 8px;
   margin-top: 10px;
-  color: #475569;
-  font-size: 12px;
+  color: var(--text-color-2);
+  font-size: var(--font-size-caption);
   line-height: 1.5;
 }
 

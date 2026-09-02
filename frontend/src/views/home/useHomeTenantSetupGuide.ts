@@ -56,9 +56,7 @@ export function useHomeTenantSetupGuide(options: UseHomeTenantSetupGuideOptions)
     return tenantSetupState.value?.next_step || 'login'
   })
 
-  const homeSetupReady = computed(
-    () => tenantSetupNextStep.value === 'login' && options.hasFirstRunTenantContext.value
-  )
+  const homeSetupReady = computed(() => tenantSetupNextStep.value === 'login' && options.hasFirstRunTenantContext.value)
 
   const homeSetupGuideStep = computed(() => {
     if (tenantSetupNextStep.value === 'create_super_admin') {

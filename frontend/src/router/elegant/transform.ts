@@ -213,6 +213,7 @@ const routeMap: RouteMap = {
   "product": "/product",
   "product_update-ota": "/product/update-ota",
   "product_update-package": "/product/update-package",
+  "product_pre-register": "/product/pre-register",
   "system-management-user": "/system-management-user",
   "system-management-user_equipment-map": "/system-management-user/equipment-map",
   "system-management-user_system-log": "/system-management-user/system-log",

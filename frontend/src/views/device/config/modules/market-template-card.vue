@@ -9,6 +9,7 @@
 <script setup lang="ts">
 import { NCard, NButton, NSpace, NTag, NEllipsis } from 'naive-ui'
 import { $t } from '@/locales'
+import SvgIcon from '@/components/custom/svg-icon.vue'
 import defaultCover from '@/assets/imgs/default_template_cover.png'
 
 defineProps<{
@@ -61,7 +62,10 @@ const emit = defineEmits(['install', 'view-detail'])
       </div>
 
       <!-- 安装次数 -->
-      <div class="card-stats">📥 {{ template.install_count || 0 }} {{ $t('market.installCount') }}</div>
+      <div class="card-stats">
+        <SvgIcon icon="mdi:download" class="card-stats__icon" />
+        {{ template.install_count || 0 }} {{ $t('market.installCount') }}
+      </div>
 
       <!-- 操作按钮 -->
       <NSpace class="card-actions" :size="8">
@@ -138,9 +142,16 @@ const emit = defineEmits(['install', 'view-detail'])
 }
 
 .card-stats {
-  font-size: 12px;
-  color: #999;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-size-caption);
+  color: var(--text-color-3);
   margin-bottom: 10px;
+}
+
+.card-stats__icon {
+  font-size: 14px;
 }
 
 .card-actions {

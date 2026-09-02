@@ -7,7 +7,7 @@
 <script setup lang="tsx">
 import { computed, getCurrentInstance, reactive, ref } from 'vue'
 import type { Ref } from 'vue'
-import { NButton, NSelect } from 'naive-ui'
+import { NButton, NEmpty, NSelect } from 'naive-ui'
 import type { DataTableColumns, PaginationProps } from 'naive-ui'
 import dayjs from 'dayjs'
 import { useRoute } from 'vue-router'
@@ -273,7 +273,11 @@ getTableData()
           <NButton class="ml-15px w-72px" type="primary" @click="handleReset">{{ $t('generate.reset') }}</NButton>
         </view>
       </NForm>
-      <NDataTable :columns="columns" :data="tableData" :loading="loading" class="flex-1-hidden" />
+      <NDataTable :columns="columns" :data="tableData" :loading="loading" class="flex-1-hidden">
+        <template #empty>
+          <NEmpty :description="$t('common.noData')" class="py-24px" />
+        </template>
+      </NDataTable>
       <div class="pagination-box">
         <NPagination v-model:page="pagination.page" :item-count="total" @update:page="getTableData" />
       </div>

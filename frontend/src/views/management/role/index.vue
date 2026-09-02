@@ -9,7 +9,7 @@
 <script setup lang="tsx">
 import { computed, getCurrentInstance, reactive, ref } from 'vue'
 import type { Ref } from 'vue'
-import { NButton, NPopconfirm, NSpace } from 'naive-ui'
+import { NButton, NEmpty, NPopconfirm, NSpace } from 'naive-ui'
 import type { DataTableColumns, PaginationProps } from 'naive-ui'
 import { useBoolean, useLoading } from '@aetherlink/hooks'
 import { deleteRole, listRoles } from '@/service/api'
@@ -218,7 +218,11 @@ init()
           :loading="loading"
           :pagination="pagination"
           class="flex-1-hidden"
-        />
+        >
+          <template #empty>
+            <NEmpty :description="$t('common.noData')" class="py-24px" />
+          </template>
+        </NDataTable>
         <TableActionModal
           v-model:visible="visible"
           :class="getPlatform ? 'w-90%' : 'w-500px'"

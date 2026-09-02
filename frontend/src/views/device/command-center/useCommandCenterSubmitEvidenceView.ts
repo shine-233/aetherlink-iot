@@ -67,10 +67,7 @@ export const commandJobSubmitRowsForCustomer = (
   return selected
 }
 
-export const commandJobSubmitRowsHiddenCount = (
-  result: FleetCommandJobSubmitResult | null,
-  displayedCount: number
-) => {
+export const commandJobSubmitRowsHiddenCount = (result: FleetCommandJobSubmitResult | null, displayedCount: number) => {
   if (!result) return 0
   const total = Math.max(result.rows_total ?? result.rows.length, result.rows.length)
   return Math.max(0, total - displayedCount)
@@ -81,9 +78,13 @@ export function useCommandCenterSubmitEvidenceView(options: {
   supportBundle: Ref<FleetCommandJobSupportBundle | null>
   t: Translate
 }) {
-  const submitCapabilitySummary = computed(() => buildCommandJobCapabilitySummary(options.submitResult.value, options.t))
+  const submitCapabilitySummary = computed(() =>
+    buildCommandJobCapabilitySummary(options.submitResult.value, options.t)
+  )
   const jobAuditSummaryCard = computed(() => buildCommandJobAuditSummaryCard(options.submitResult.value, options.t))
-  const jobExecutionSummaryCard = computed(() => buildCommandJobExecutionSummaryCard(options.submitResult.value, options.t))
+  const jobExecutionSummaryCard = computed(() =>
+    buildCommandJobExecutionSummaryCard(options.submitResult.value, options.t)
+  )
   const jobGovernanceSummaryCard = computed(() =>
     buildCommandJobGovernanceSummaryCard(options.submitResult.value?.governance_summary, options.t)
   )
@@ -92,8 +93,18 @@ export function useCommandCenterSubmitEvidenceView(options: {
   const submitEvidenceAlertType = computed<CommandJobEvidenceAlertType>(() => {
     const result = options.submitResult.value
     if (!result) return 'info'
-    if ((result.blocked_count || 0) > 0 || commandJobRetryReadyCount(result) > 0 || commandJobRetryExhaustedCount(result) > 0) return 'error'
-    if ((result.failed_count || 0) > 0 || commandJobRetryWaitingCount(result) > 0 || (result.log_missing_count || 0) > 0) return 'warning'
+    if (
+      (result.blocked_count || 0) > 0 ||
+      commandJobRetryReadyCount(result) > 0 ||
+      commandJobRetryExhaustedCount(result) > 0
+    )
+      return 'error'
+    if (
+      (result.failed_count || 0) > 0 ||
+      commandJobRetryWaitingCount(result) > 0 ||
+      (result.log_missing_count || 0) > 0
+    )
+      return 'warning'
     return 'success'
   })
   const submitRowsForCustomer = computed(() => commandJobSubmitRowsForCustomer(options.submitResult.value?.rows ?? []))
@@ -104,15 +115,23 @@ export function useCommandCenterSubmitEvidenceView(options: {
   const jobProgressHealthCard = computed(() => buildCommandJobProgressHealthCard(options.submitResult.value, options.t))
   const jobProgressSummary = computed(() => buildCommandJobProgressSummary(options.submitResult.value, options.t))
   const jobStatusLabel = computed(() => formatCommandJobStatus(options.submitResult.value?.status, options.t))
-  const jobActionConsequenceRows = computed(() => buildCommandJobActionConsequenceRows(options.submitResult.value, options.t))
-  const jobDeviceProgressTracks = computed(() => buildCommandJobDeviceProgressTracks(options.submitResult.value, options.t))
+  const jobActionConsequenceRows = computed(() =>
+    buildCommandJobActionConsequenceRows(options.submitResult.value, options.t)
+  )
+  const jobDeviceProgressTracks = computed(() =>
+    buildCommandJobDeviceProgressTracks(options.submitResult.value, options.t)
+  )
   const jobStatusRows = computed(() => buildCommandJobStatusRows(options.submitResult.value, options.t))
   const jobStatusCountRows = computed(() => buildCommandJobStatusCountRows(options.submitResult.value, options.t))
   const jobTimelineRows = computed(() => buildCommandJobTimelineRows(options.submitResult.value, options.t))
-  const jobTroubleshootingRows = computed(() => buildCommandJobTroubleshootingRows(options.submitResult.value, options.t))
+  const jobTroubleshootingRows = computed(() =>
+    buildCommandJobTroubleshootingRows(options.submitResult.value, options.t)
+  )
   const jobOperatorNextAction = computed(() => buildCommandJobOperatorNextAction(options.submitResult.value, options.t))
   const jobOutcomeGroups = computed(() => buildCommandJobOutcomeGroups(options.submitResult.value, options.t))
-  const supportBundlePreview = computed(() => buildCommandJobSupportBundlePreview(options.supportBundle.value, options.t))
+  const supportBundlePreview = computed(() =>
+    buildCommandJobSupportBundlePreview(options.supportBundle.value, options.t)
+  )
   const canRetryCurrentCommandJob = computed(() => canRetryCommandJob(options.submitResult.value))
 
   return {

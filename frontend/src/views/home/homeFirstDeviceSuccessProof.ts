@@ -170,10 +170,12 @@ export const buildFirstDeviceSuccessProofPacket = (options: {
     connection: {
       protocol: accessGuide?.protocol || 'MQTT',
       endpoint_kind: accessGuide?.endpointKind || '',
-      endpoint: accessGuide?.endpoint || (options.simulation ? `${options.simulation.server}:${options.simulation.port}` : ''),
+      endpoint:
+        accessGuide?.endpoint || (options.simulation ? `${options.simulation.server}:${options.simulation.port}` : ''),
       report_entry:
-        (accessGuide?.endpointKind === 'http' ? accessGuide?.endpoint : accessGuide?.reportTopic || options.simulation?.topic) ||
-        '',
+        (accessGuide?.endpointKind === 'http'
+          ? accessGuide?.endpoint
+          : accessGuide?.reportTopic || options.simulation?.topic) || '',
       control_topic: accessGuide?.controlTopic || '',
       auth_mode: accessGuide?.authMode || '',
       tls_hint_key: accessGuide?.tlsHintKey || '',

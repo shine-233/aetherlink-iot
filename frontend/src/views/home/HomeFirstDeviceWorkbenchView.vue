@@ -124,8 +124,7 @@ const firstDeviceCoreGuideSteps = computed(() => filterFirstDeviceCoreGuideSteps
 const firstDeviceNextGuideSteps = computed(() => filterFirstDeviceNextGuideSteps(props.homeCustomerGuideProgress))
 const firstDeviceNextActiveGuideStep = computed<HomeCustomerGuideProgressStep | null>(
   () =>
-    (firstDeviceNextGuideSteps.value.find(step => step.status === 'active') as HomeCustomerGuideProgressStep) ||
-    null
+    (firstDeviceNextGuideSteps.value.find((step) => step.status === 'active') as HomeCustomerGuideProgressStep) || null
 )
 const firstDevicePostReadyHandoff = computed(() =>
   buildFirstDevicePostReadyHandoff({
@@ -134,19 +133,15 @@ const firstDevicePostReadyHandoff = computed(() =>
   })
 )
 const firstDeviceReadyNextGuideDescription = computed(() => {
-  return (
-    firstDevicePostReadyHandoff.value?.description ||
-    '首台设备已就绪，暂无待执行的下一步引导。'
-  )
+  return firstDevicePostReadyHandoff.value?.description || '首台设备已就绪，暂无待执行的下一步引导。'
 })
 const firstDeviceCoreGuideSummary = computed(() => buildFirstDeviceCoreGuideSummary(firstDeviceCoreGuideSteps.value))
 const firstRunSetupBlockerStep = computed(
-  () =>
-    props.firstRunSetupBlockerStep || props.homeCustomerGuideProgress.find(step => step.id === 'setup') || null
+  () => props.firstRunSetupBlockerStep || props.homeCustomerGuideProgress.find((step) => step.id === 'setup') || null
 )
 const firstRunSetupBlockerTitle = computed(() => firstRunSetupBlockerStep.value?.title || '先完成租户初始化')
 const firstRunSetupBlockerDescription = computed(
-  () => firstRunSetupBlockerStep.value?.description || '当前存在未完成的初始化步骤，请先按引导完成租户与部署检查',
+  () => firstRunSetupBlockerStep.value?.description || '当前存在未完成的初始化步骤，请先按引导完成租户与部署检查'
 )
 const firstRunSetupBlockerAction = computed(() => firstRunSetupBlockerStep.value?.action || '去处理初始化')
 const deviceIdentitySectionRef = ref<HTMLElement | null>(null)
@@ -196,9 +191,7 @@ const { shouldMount: shouldMountSupportSummarySection, mountNow: mountSupportSum
 const pendingSupportSummaryPreviewOpen = ref(false)
 const deploymentHealthSectionRef = ref<HTMLElement | null>(null)
 const firstFailedDeploymentHealthRow = computed(() => props.deploymentHealthRows.find((row) => !row.ok) || null)
-const firstDeviceCurrentBlocker = computed(
-  () => props.firstDeviceReadyProof.items?.find(item => !item.ok) || null
-)
+const firstDeviceCurrentBlocker = computed(() => props.firstDeviceReadyProof.items?.find((item) => !item.ok) || null)
 const firstDevicePrimaryAction = computed(
   () =>
     props.firstDeviceOnboardingGuard.activeStep?.action ||
@@ -328,7 +321,7 @@ const firstDeviceVerificationAction = computed(() =>
   })
 )
 
-const getFirstDeviceFlowNodeAction = node => {
+const getFirstDeviceFlowNodeAction = (node) => {
   if (node.key === 'deployment') {
     return {
       label: node.ok ? '部署正常' : '去诊断',
@@ -467,7 +460,7 @@ const firstDeviceTestCommands = computed(() =>
 )
 const activeFirstDeviceTestCommand = computed(
   () =>
-    firstDeviceTestCommands.value.find(command => command.language === selectedFirstDeviceTestCommand.value) ||
+    firstDeviceTestCommands.value.find((command) => command.language === selectedFirstDeviceTestCommand.value) ||
     firstDeviceTestCommands.value[0] ||
     null
 )
@@ -482,7 +475,7 @@ const firstDeviceOnlineTesterState = computed(() =>
   })
 )
 const getFirstDeviceClosedLoopState = (key: string, done = false) => {
-  const node = firstDeviceFlowNodes.value.find(item => item.key === key)
+  const node = firstDeviceFlowNodes.value.find((item) => item.key === key)
   const state = done || node?.ok ? 'done' : node?.state === 'active' ? 'active' : 'todo'
 
   return {
@@ -586,7 +579,7 @@ watch(
       selectedFirstDeviceTestCommand.value = ''
       return
     }
-    if (!commands.some(command => command.language === selectedFirstDeviceTestCommand.value)) {
+    if (!commands.some((command) => command.language === selectedFirstDeviceTestCommand.value)) {
       selectedFirstDeviceTestCommand.value = commands[0].language
     }
   },
@@ -637,7 +630,7 @@ const copyActiveFirstDeviceTestCommand = async () => {
     window.$message?.error($t('common.copyFailed'))
   }
 }
-const runFirstDeviceClosedLoopStep = step => {
+const runFirstDeviceClosedLoopStep = (step) => {
   if (step.disabled) {
     void focusSection(step.section)
     return
@@ -851,11 +844,7 @@ const runFirstDevicePrimaryAction = () => {
 
   <div
     class="grid gap-16px"
-    :class="
-      firstDeviceFocusMode
-        ? 'lg:grid-cols-1'
-        : 'lg:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.8fr)]'
-    "
+    :class="firstDeviceFocusMode ? 'lg:grid-cols-1' : 'lg:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.8fr)]'"
   >
     <HomeFirstDeviceGuideProgress
       :first-device="firstDevice"

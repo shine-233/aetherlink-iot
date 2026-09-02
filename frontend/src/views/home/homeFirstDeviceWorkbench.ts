@@ -1,14 +1,8 @@
 ﻿import type { DeviceAccessGuideState } from '@/views/device/details/modules/device-access-guide-state'
 import { summarizeDeviceConnectionDiagnostics } from '@/views/device/details/modules/device-connection-diagnostics-state'
 
-export {
-  buildFirstDeviceSuccessProofPacket,
-  type FirstDeviceSuccessProofPacket
-} from './homeFirstDeviceSuccessProof'
-export {
-  buildFirstDeviceSupportSummary,
-  type FirstDeviceSupportSummaryOptions
-} from './homeFirstDeviceSupportSummary'
+export { buildFirstDeviceSuccessProofPacket, type FirstDeviceSuccessProofPacket } from './homeFirstDeviceSuccessProof'
+export { buildFirstDeviceSupportSummary, type FirstDeviceSupportSummaryOptions } from './homeFirstDeviceSupportSummary'
 export { buildFirstDeviceOnlineTesterState } from './homeFirstDeviceOnlineTesterState'
 
 export type FirstDeviceSummary = {
@@ -704,8 +698,7 @@ export const buildFirstDeviceReadyProof = (options: {
         ? `${options.browserTest?.telemetryKey || 'telemetry'} = ${options.browserTest?.telemetryValue || '--'}，测试上报已被最新遥测确认。`
         : firstReportConfirmed
           ? `${options.telemetry[0]?.key || 'telemetry'} = ${options.telemetry[0]?.value || '--'}，真实设备上报已被在线状态、最新遥测和首图确认。`
-          : options.browserTest?.message ||
-            '点击浏览器在线测试，或让真实设备发送一条测试遥测。'
+          : options.browserTest?.message || '点击浏览器在线测试，或让真实设备发送一条测试遥测。'
     },
     {
       key: 'online',

@@ -164,7 +164,11 @@ const updateJobHistoryAttentionFilter = (value: string | null) => {
         </div>
       </div>
 
-      <NAlert v-if="!jobHistoryInitialLoadQueued && !jobHistoryLoading && !jobHistory.list.length" type="info" :show-icon="false">
+      <NAlert
+        v-if="!jobHistoryInitialLoadQueued && !jobHistoryLoading && !jobHistory.list.length"
+        type="info"
+        :show-icon="false"
+      >
         <div class="command-job-history-empty">
           <div>
             <strong>{{ $t('custom.commandCenter.jobHistoryEmptyTitle') }}</strong>
@@ -197,7 +201,11 @@ const updateJobHistoryAttentionFilter = (value: string | null) => {
         :data="jobHistory.list"
         :pagination="false"
         :bordered="false"
-      />
+      >
+        <template #empty>
+          <NEmpty :description="$t('common.noData')" class="py-24px" />
+        </template>
+      </NDataTable>
       <span class="command-job-history__total">
         {{ $t('custom.commandCenter.jobHistoryTotal').replace('{total}', String(jobHistory.total)) }}
       </span>
@@ -227,9 +235,9 @@ const updateJobHistoryAttentionFilter = (value: string | null) => {
   display: grid;
   gap: 10px;
   padding: 12px;
-  border: 1px solid #bae6fd;
-  border-radius: 8px;
-  background: #f0f9ff;
+  border: 1px solid rgb(var(--info-color) / 0.35);
+  border-radius: var(--radius-md);
+  background: rgb(var(--info-color) / 0.06);
 }
 
 .command-filter-summary__head {
@@ -238,22 +246,22 @@ const updateJobHistoryAttentionFilter = (value: string | null) => {
 }
 
 .command-filter-summary__head strong {
-  color: #0f172a;
-  font-size: 14px;
+  color: var(--text-color-1);
+  font-size: var(--font-size-base);
 }
 
 .command-filter-summary__head span {
-  color: #475569;
-  font-size: 12px;
+  color: var(--text-color-2);
+  font-size: var(--font-size-caption);
 }
 
 .command-job-history {
   display: grid;
   gap: 10px;
   padding: 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: #f8fafc;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--action-color);
 }
 
 .command-job-history__head {
@@ -269,23 +277,23 @@ const updateJobHistoryAttentionFilter = (value: string | null) => {
 }
 
 .command-job-history__head strong {
-  color: #0f172a;
-  font-size: 14px;
+  color: var(--text-color-1);
+  font-size: var(--font-size-base);
 }
 
 .command-job-history__head span,
 .command-job-history__total {
-  color: #64748b;
-  font-size: 12px;
+  color: var(--text-color-3);
+  font-size: var(--font-size-caption);
 }
 
 .command-job-attention-summary {
   display: grid;
   gap: 10px;
   padding: 10px;
-  border: 1px solid #dbeafe;
-  border-radius: 8px;
-  background: #eff6ff;
+  border: 1px solid rgb(var(--info-color) / 0.2);
+  border-radius: var(--radius-md);
+  background: rgb(var(--info-color) / 0.07);
 }
 
 .command-job-attention-summary__head {
@@ -294,13 +302,13 @@ const updateJobHistoryAttentionFilter = (value: string | null) => {
 }
 
 .command-job-attention-summary__head strong {
-  color: #0f172a;
-  font-size: 13px;
+  color: var(--text-color-1);
+  font-size: var(--font-size-secondary);
 }
 
 .command-job-attention-summary__head span {
-  color: #475569;
-  font-size: 12px;
+  color: var(--text-color-2);
+  font-size: var(--font-size-caption);
 }
 
 .command-job-attention-summary__grid {
@@ -316,16 +324,16 @@ const updateJobHistoryAttentionFilter = (value: string | null) => {
   justify-content: space-between;
   gap: 8px;
   padding: 8px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: #fff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--card-color);
 }
 
 .command-job-attention-summary__item span {
   min-width: 0;
   overflow: hidden;
-  color: #334155;
-  font-size: 12px;
+  color: var(--text-color-2);
+  font-size: var(--font-size-caption);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -340,12 +348,12 @@ const updateJobHistoryAttentionFilter = (value: string | null) => {
 .command-job-history-empty strong {
   display: block;
   margin-bottom: 4px;
-  color: #075985;
+  color: rgb(var(--info-800-color));
 }
 
 .command-job-history-empty span {
-  color: #0369a1;
-  font-size: 12px;
+  color: rgb(var(--info-700-color));
+  font-size: var(--font-size-caption);
 }
 
 .command-job-history__more {
@@ -358,8 +366,8 @@ const updateJobHistoryAttentionFilter = (value: string | null) => {
 
 .command-job-history__more span {
   min-width: 0;
-  color: #64748b;
-  font-size: 12px;
+  color: var(--text-color-3);
+  font-size: var(--font-size-caption);
 }
 
 @media (max-width: 900px) {

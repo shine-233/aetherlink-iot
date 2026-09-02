@@ -548,21 +548,21 @@ if (configId.value) {
 }
 
 .first-automation-starter__title {
-  font-size: 15px;
+  font-size: var(--font-size-lg);
   font-weight: 700;
-  color: #16324f;
+  color: var(--text-color-1);
 }
 
 .first-automation-starter__desc {
   margin-top: 4px;
-  color: #4b5563;
+  color: var(--text-color-2);
   line-height: 1.5;
 }
 
 .first-automation-starter__steps {
   display: grid;
   gap: 6px;
-  color: #374151;
+  color: var(--text-color-2);
   line-height: 1.55;
 }
 
@@ -570,20 +570,20 @@ if (configId.value) {
   display: grid;
   gap: 8px;
   padding: 10px;
-  border: 1px solid #d8e2f2;
-  border-radius: 8px;
-  background: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--card-color);
 }
 
 .first-automation-telemetry-guide__title {
-  font-size: 14px;
+  font-size: var(--font-size-base);
   font-weight: 700;
-  color: #16324f;
+  color: var(--text-color-1);
 }
 
 .first-automation-telemetry-guide__desc {
   margin-top: 3px;
-  color: #4b5563;
+  color: var(--text-color-2);
   line-height: 1.45;
 }
 
@@ -598,29 +598,29 @@ if (configId.value) {
   gap: 4px;
   min-width: 0;
   padding: 8px;
-  border: 1px solid #d7dde8;
-  border-radius: 8px;
-  background: #f8fafc;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--action-color);
 }
 
 .first-automation-telemetry-guide__card--ready {
-  border-color: #88c3a2;
-  background: #f3fbf6;
+  border-color: rgb(var(--success-color) / 0.5);
+  background: rgb(var(--success-color) / 0.07);
 }
 
 .first-automation-telemetry-guide__card span {
-  color: #6b7280;
-  font-size: 12px;
+  color: var(--text-color-3);
+  font-size: var(--font-size-caption);
 }
 
 .first-automation-telemetry-guide__card strong {
   overflow-wrap: anywhere;
-  color: #1f2937;
-  font-size: 13px;
+  color: var(--text-color-1);
+  font-size: var(--font-size-secondary);
 }
 
 .first-automation-telemetry-guide__hint {
-  color: #374151;
+  color: var(--text-color-2);
   line-height: 1.5;
 }
 
@@ -628,30 +628,30 @@ if (configId.value) {
   display: grid;
   gap: 3px;
   padding: 8px 10px;
-  border: 1px solid #d7dde8;
-  border-radius: 8px;
-  background: #f8fafc;
-  color: #374151;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--action-color);
+  color: var(--text-color-2);
   line-height: 1.45;
 }
 
 .first-automation-telemetry-guide__next--ready {
-  border-color: #88c3a2;
-  background: #f3fbf6;
+  border-color: rgb(var(--success-color) / 0.5);
+  background: rgb(var(--success-color) / 0.07);
 }
 
 .first-automation-telemetry-guide__next--missing {
-  border-color: #e7c269;
-  background: #fff8e6;
+  border-color: rgb(var(--warning-color) / 0.6);
+  background: rgb(var(--warning-color) / 0.1);
 }
 
 .first-automation-telemetry-guide__next strong {
-  color: #1f2937;
-  font-size: 13px;
+  color: var(--text-color-1);
+  font-size: var(--font-size-secondary);
 }
 
 .first-automation-telemetry-guide__next span {
-  font-size: 13px;
+  font-size: var(--font-size-secondary);
 }
 
 .first-automation-telemetry-guide__draft {
@@ -660,47 +660,47 @@ if (configId.value) {
   gap: 10px;
   align-items: center;
   padding: 9px 10px;
-  border: 1px solid #d7dde8;
-  border-radius: 8px;
-  background: #f8fafc;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--action-color);
 }
 
 .first-automation-telemetry-guide__draft--ready {
-  border-color: #79a8f2;
-  background: #f2f7ff;
+  border-color: rgb(var(--info-color) / 0.55);
+  background: rgb(var(--info-color) / 0.08);
 }
 
 .first-automation-telemetry-guide__draft--missing {
-  border-color: #e7c269;
-  background: #fff8e6;
+  border-color: rgb(var(--warning-color) / 0.6);
+  background: rgb(var(--warning-color) / 0.1);
 }
 
 .first-automation-telemetry-guide__draft--action {
-  border-color: #88c3a2;
-  background: #f3fbf6;
+  border-color: rgb(var(--success-color) / 0.5);
+  background: rgb(var(--success-color) / 0.07);
 }
 
 .first-automation-telemetry-guide__draft > div:first-child {
   display: grid;
   gap: 3px;
   min-width: 0;
-  color: #374151;
+  color: var(--text-color-2);
   line-height: 1.45;
 }
 
 .first-automation-telemetry-guide__draft strong {
-  color: #1f2937;
-  font-size: 13px;
+  color: var(--text-color-1);
+  font-size: var(--font-size-secondary);
 }
 
 .first-automation-telemetry-guide__draft span,
 .first-automation-telemetry-guide__draft small {
   overflow-wrap: anywhere;
-  font-size: 13px;
+  font-size: var(--font-size-secondary);
 }
 
 .first-automation-telemetry-guide__draft small {
-  color: #176f3d;
+  color: rgb(var(----color));
 }
 
 .first-automation-telemetry-guide__draft-actions {
@@ -722,19 +722,19 @@ if (configId.value) {
   gap: 8px;
   min-width: 0;
   padding: 10px;
-  border: 1px solid #d8dee9;
-  border-radius: 8px;
-  background: #f8fafc;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--action-color);
 }
 
 .first-automation-checklist__item--done {
-  border-color: #8ac99a;
-  background: #f1fbf4;
+  border-color: rgb(var(--success-color) / 0.55);
+  background: rgb(var(--success-color) / 0.06);
 }
 
 .first-automation-checklist__item--active {
-  border-color: #79a8f2;
-  background: #f2f7ff;
+  border-color: rgb(var(--info-color) / 0.55);
+  background: rgb(var(--info-color) / 0.08);
 }
 
 .first-automation-checklist__marker {
@@ -743,21 +743,21 @@ if (configId.value) {
   justify-content: center;
   width: 24px;
   height: 24px;
-  border-radius: 999px;
-  background: #e5e7eb;
-  color: #1f2937;
-  font-size: 12px;
+  border-radius: var(--radius-pill);
+  background: var(--divider-color);
+  color: var(--text-color-1);
+  font-size: var(--font-size-caption);
   font-weight: 700;
 }
 
 .first-automation-checklist__item--done .first-automation-checklist__marker {
-  background: #18a058;
-  color: #ffffff;
+  background: rgb(var(--success-color));
+  color: white;
 }
 
 .first-automation-checklist__item--active .first-automation-checklist__marker {
-  background: #2080f0;
-  color: #ffffff;
+  background: rgb(var(--info-color));
+  color: white;
 }
 
 .first-automation-checklist__body {
@@ -767,12 +767,12 @@ if (configId.value) {
 }
 
 .first-automation-checklist__body strong {
-  font-size: 13px;
-  color: #1f2937;
+  font-size: var(--font-size-secondary);
+  color: var(--text-color-1);
 }
 
 .first-automation-checklist__body small {
-  color: #4b5563;
+  color: var(--text-color-2);
   line-height: 1.45;
 }
 

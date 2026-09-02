@@ -32,11 +32,7 @@ const isStepDisabled = (step: FirstRunWizardStep) => step.status === 'todo'
         </div>
       </div>
       <n-tag size="small" round :bordered="false" :type="ready ? 'success' : 'warning'">
-        {{
-          ready
-            ? $t('custom.home.firstDevice.wizard.loopDone')
-            : $t('custom.home.firstDevice.wizard.loopPending')
-        }}
+        {{ ready ? $t('custom.home.firstDevice.wizard.loopDone') : $t('custom.home.firstDevice.wizard.loopPending') }}
       </n-tag>
     </div>
 

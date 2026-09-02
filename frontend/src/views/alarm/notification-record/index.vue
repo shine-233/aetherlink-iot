@@ -7,7 +7,7 @@
 <script setup lang="tsx">
 import { computed, getCurrentInstance, reactive, ref } from 'vue'
 import type { Ref } from 'vue'
-import { NButton } from 'naive-ui'
+import { NButton, NEmpty } from 'naive-ui'
 import type { DataTableColumns, PaginationProps } from 'naive-ui'
 import dayjs from 'dayjs'
 import { getNotificationHistoryList } from '@/service/api/notification'
@@ -177,7 +177,11 @@ getTableData()
           :pagination="pagination"
           :remote="true"
           class="flex-1-hidden mt-4"
-        />
+        >
+          <template #empty>
+            <NEmpty :description="$t('common.noData')" class="py-24px" />
+          </template>
+        </NDataTable>
       </div>
     </NCard>
   </div>

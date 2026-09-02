@@ -45,6 +45,7 @@ type apps struct {
 	RDI
 	PayloadSchema
 	CalculatedField
+	Product
 }
 
 var Model = new(apps)

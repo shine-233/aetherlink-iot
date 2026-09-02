@@ -62,18 +62,15 @@ const emit = defineEmits<{
       <pre class="first-device-command">{{ command.code }}</pre>
     </n-tab-pane>
   </n-tabs>
-  <pre v-else class="first-device-command">{{ firstDevicePublishCommand || $t('custom.home.firstDevice.tester.loadingParams') }}</pre>
+  <pre v-else class="first-device-command">{{
+    firstDevicePublishCommand || $t('custom.home.firstDevice.tester.loadingParams')
+  }}</pre>
   <div class="first-device-online-tester">
     <div class="flex flex-col gap-8px sm:flex-row sm:items-start sm:justify-between">
       <div class="min-w-0">
         <div class="flex flex-wrap items-center gap-8px">
           <strong>{{ firstDeviceOnlineTesterState.title }}</strong>
-          <n-tag
-            size="small"
-            round
-            :bordered="false"
-            :type="firstDeviceOnlineTesterState.type"
-          >
+          <n-tag size="small" round :bordered="false" :type="firstDeviceOnlineTesterState.type">
             {{ firstDeviceOnlineTesterState.statusLabel }}
           </n-tag>
         </div>

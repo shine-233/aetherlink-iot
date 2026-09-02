@@ -1,11 +1,5 @@
 ﻿export type HomeCustomerGuideStepId =
-  | 'setup'
-  | 'deployment'
-  | 'template'
-  | 'device'
-  | 'telemetry'
-  | 'automation'
-  | 'dashboard'
+  'setup' | 'deployment' | 'template' | 'device' | 'telemetry' | 'automation' | 'dashboard'
 
 export type HomeCustomerGuideStep = {
   id: HomeCustomerGuideStepId
@@ -131,42 +125,43 @@ export const buildHomeCustomerGuideProgress = (
             ...input.setupStep
           }
         : step.id === 'template' && !input.hasTemplate
-        ? {
-            ...step,
-            description:
-              '不用先离开首页配置物模型；留在“接入第一台设备”工作台，一键生成时会同时创建默认产品、物模型、MQTT/HTTP 配置和第一台设备。',
-            route: '/home?onboarding=first-device&focus=device',
-            action: '生成默认物模型和设备'
-          }
-        : step.id === 'device' && !input.hasDevice
-        ? {
-            ...step,
-            description: '留在首页即可一键生成产品、物模型、MQTT/HTTP 配置和第一台设备；生成后继续在这里复制参数并发送第一条遥测。',
-            route: '/home?onboarding=first-device&focus=device',
-            action: '一键生成设备'
-          }
-        : step.id === 'device' && input.hasDevice && !input.deviceOnline
-        ? {
-            ...step,
-            description: '已经有第一台设备；现在留在首页继续复制参数、浏览器在线测试和在线状态确认。',
-            route: '/home?onboarding=first-device&focus=test',
-            action: '继续接入'
-          }
-        : step.id === 'telemetry' && !input.hasTelemetry
-        ? {
-            ...step,
-            description: '回到首页第 3 步，复制命令或直接点击浏览器在线测试，先发出第一条可见遥测。',
-            route: '/home?onboarding=first-device&focus=test',
-            action: '发送第一条遥测'
-          }
-        : step.id === 'telemetry' && input.hasTelemetry && !input.hasFirstChart
-        ? {
-            ...step,
-            description: '最新遥测已经到了，留在首页第 4 步确认第一张图表和可交付状态。',
-            route: '/home?onboarding=first-device&focus=chart',
-            action: '查看第一张图表'
-          }
-        : step
+          ? {
+              ...step,
+              description:
+                '不用先离开首页配置物模型；留在“接入第一台设备”工作台，一键生成时会同时创建默认产品、物模型、MQTT/HTTP 配置和第一台设备。',
+              route: '/home?onboarding=first-device&focus=device',
+              action: '生成默认物模型和设备'
+            }
+          : step.id === 'device' && !input.hasDevice
+            ? {
+                ...step,
+                description:
+                  '留在首页即可一键生成产品、物模型、MQTT/HTTP 配置和第一台设备；生成后继续在这里复制参数并发送第一条遥测。',
+                route: '/home?onboarding=first-device&focus=device',
+                action: '一键生成设备'
+              }
+            : step.id === 'device' && input.hasDevice && !input.deviceOnline
+              ? {
+                  ...step,
+                  description: '已经有第一台设备；现在留在首页继续复制参数、浏览器在线测试和在线状态确认。',
+                  route: '/home?onboarding=first-device&focus=test',
+                  action: '继续接入'
+                }
+              : step.id === 'telemetry' && !input.hasTelemetry
+                ? {
+                    ...step,
+                    description: '回到首页第 3 步，复制命令或直接点击浏览器在线测试，先发出第一条可见遥测。',
+                    route: '/home?onboarding=first-device&focus=test',
+                    action: '发送第一条遥测'
+                  }
+                : step.id === 'telemetry' && input.hasTelemetry && !input.hasFirstChart
+                  ? {
+                      ...step,
+                      description: '最新遥测已经到了，留在首页第 4 步确认第一张图表和可交付状态。',
+                      route: '/home?onboarding=first-device&focus=chart',
+                      action: '查看第一张图表'
+                    }
+                  : step
     const complete = isGuideStepComplete(step, input)
     if (complete) {
       return {

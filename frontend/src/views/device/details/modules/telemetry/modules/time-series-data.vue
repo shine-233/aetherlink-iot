@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { defineAsyncComponent, onMounted, reactive, ref, watch } from 'vue'
-import { NDatePicker, NSelect, NSpace } from 'naive-ui'
+import { NDatePicker, NEmpty, NSelect, NSpace } from 'naive-ui'
 import { useFullscreen } from '@vueuse/core'
 import dayjs from 'dayjs'
 import { telemetryDataHistoryList } from '@/service/api/device'
@@ -411,7 +411,11 @@ onMounted(() => {
         :columns="columns"
         :data="tableData"
         :pagination="pagination"
-      />
+      >
+        <template #empty>
+          <NEmpty :description="$t('common.noData')" class="py-24px" />
+        </template>
+      </n-data-table>
       <div ref="chartRef" class="telemetry-chart relative m-0 p-0">
         <div :class="`${isFullscreen ? 'h-full' : 'chart-height'} p-2`">
           <ChartComponent :initial-options="initialOptions" />

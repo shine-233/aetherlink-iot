@@ -1,4 +1,1 @@
-export {
-  useViewportDeferredMount,
-  type ViewportDeferredMountOptions
-} from '@/hooks/common/useViewportDeferredMount'
+export { useViewportDeferredMount, type ViewportDeferredMountOptions } from '@/hooks/common/useViewportDeferredMount'

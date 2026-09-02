@@ -69,6 +69,7 @@ declare module "@elegant-router/types" {
     "product": "/product";
     "product_update-ota": "/product/update-ota";
     "product_update-package": "/product/update-package";
+    "product_pre-register": "/product/pre-register";
     "system-management-user": "/system-management-user";
     "system-management-user_equipment-map": "/system-management-user/equipment-map";
     "system-management-user_system-log": "/system-management-user/system-log";
@@ -190,6 +191,7 @@ declare module "@elegant-router/types" {
     | "personal-center"
     | "product_update-ota"
     | "product_update-package"
+    | "product_pre-register"
     | "system-management-user_equipment-map"
     | "system-management-user_system-log"
     | "visualization_native-board"

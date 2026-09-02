@@ -1,4 +1,8 @@
-import type { FleetCommandJobPayload, FleetCommandJobPreviewBlocker, FleetCommandJobPreviewRow } from '@/service/api/device'
+import type {
+  FleetCommandJobPayload,
+  FleetCommandJobPreviewBlocker,
+  FleetCommandJobPreviewRow
+} from '@/service/api/device'
 import { getDeviceFilterLabel, getDeviceFilterValueLabel } from '@/views/device/shared/device-filter-summary-labels'
 
 export type QueryValue = string | string[] | null | undefined
@@ -354,10 +358,10 @@ export function buildCommandJobPreviewActionPlan(input: {
   const fallbackCounts = buildRouteDecisionSummary(preview.rows)
   const counts = preview.path_counts || fallbackCounts
   const fallbackBlockers = preview.rows
-    .filter(row => !row.eligible || row.recommended_path === 'blocked')
+    .filter((row) => !row.eligible || row.recommended_path === 'blocked')
     .reduce<FleetCommandJobPreviewBlocker[]>((items, row) => {
       const reason = row.reason || row.status || 'Preview row is blocked.'
-      const existing = items.find(item => item.reason === reason && item.advice === row.advice)
+      const existing = items.find((item) => item.reason === reason && item.advice === row.advice)
       if (existing) existing.count += 1
       else items.push({ reason, advice: row.advice, count: 1 })
       return items
@@ -367,10 +371,25 @@ export function buildCommandJobPreviewActionPlan(input: {
 
   return {
     cards: [
-      { key: 'immediate', labelKey: 'custom.commandCenter.previewPlanImmediate', value: counts.immediate, type: 'success' },
+      {
+        key: 'immediate',
+        labelKey: 'custom.commandCenter.previewPlanImmediate',
+        value: counts.immediate,
+        type: 'success'
+      },
       { key: 'jobs', labelKey: 'custom.commandCenter.previewPlanJobs', value: counts.jobs, type: 'info' },
-      { key: 'blocked', labelKey: 'custom.commandCenter.previewPlanBlocked', value: counts.blocked, type: counts.blocked > 0 ? 'warning' : 'default' },
-      { key: 'telemetry', labelKey: 'custom.commandCenter.previewPlanTelemetry', value: counts.telemetry, type: 'default' }
+      {
+        key: 'blocked',
+        labelKey: 'custom.commandCenter.previewPlanBlocked',
+        value: counts.blocked,
+        type: counts.blocked > 0 ? 'warning' : 'default'
+      },
+      {
+        key: 'telemetry',
+        labelKey: 'custom.commandCenter.previewPlanTelemetry',
+        value: counts.telemetry,
+        type: 'default'
+      }
     ],
     blockers: preview.blockers?.length ? preview.blockers.slice(0, 5) : fallbackBlockers,
     nextAction: preview.next_action || input.fallbackNextAction
@@ -388,7 +407,9 @@ const commandJobPreviewRowReason = (row: FleetCommandJobPreviewRow) =>
 
 const commandJobPreviewRowAdvice = (row: FleetCommandJobPreviewRow) => row.advice || '-'
 
-const commandJobPreviewRepresentatives = (rows: FleetCommandJobPreviewRow[]): CommandJobEligibilityImpactRepresentative[] =>
+const commandJobPreviewRepresentatives = (
+  rows: FleetCommandJobPreviewRow[]
+): CommandJobEligibilityImpactRepresentative[] =>
   rows.slice(0, 3).map((row, index) => ({
     key: commandJobPreviewRowKey(row, index),
     device: commandJobPreviewRowDevice(row),
@@ -401,15 +422,15 @@ export function filterCommandJobPreviewRowsByImpactGroup(
   groupKey: CommandJobEligibilityImpactFilterKey
 ): FleetCommandJobPreviewRow[] {
   if (groupKey === 'all') return rows
-  if (groupKey === 'eligible') return rows.filter(row => row.eligible)
-  if (groupKey === 'immediate') return rows.filter(row => row.eligible && row.recommended_path === 'immediate')
-  if (groupKey === 'jobs') return rows.filter(row => row.eligible && row.recommended_path === 'jobs')
-  return rows.filter(row => !row.eligible || row.recommended_path === 'blocked')
+  if (groupKey === 'eligible') return rows.filter((row) => row.eligible)
+  if (groupKey === 'immediate') return rows.filter((row) => row.eligible && row.recommended_path === 'immediate')
+  if (groupKey === 'jobs') return rows.filter((row) => row.eligible && row.recommended_path === 'jobs')
+  return rows.filter((row) => !row.eligible || row.recommended_path === 'blocked')
 }
 
 export function buildCommandJobEligibilityImpactSummaryText(
   preview: CommandJobEligibilityImpactPreview | null | undefined,
-  translate: (key: string) => string = key => key
+  translate: (key: string) => string = (key) => key
 ): string {
   if (!preview) return ''
 
@@ -419,9 +440,9 @@ export function buildCommandJobEligibilityImpactSummaryText(
     `${translate('custom.commandCenter.nextAction')}: ${preview.nextAction}`
   ]
 
-  preview.groups.forEach(group => {
+  preview.groups.forEach((group) => {
     lines.push(`${translate(group.labelKey)}: ${group.count}`)
-    group.representativeRows.forEach(row => {
+    group.representativeRows.forEach((row) => {
       lines.push(`- ${row.device}: ${row.reason}; ${row.advice}`)
     })
   })
@@ -445,10 +466,10 @@ export function buildCommandJobEligibilityImpactPreview(input: {
   const requestedCount = preview.requested_count || rows.length
   const shownCount = rows.length
   const coverage = !input.isDeviceFilterScope || shownCount >= requestedCount ? 'full' : 'subset_only'
-  const eligibleRows = rows.filter(row => row.eligible)
-  const immediateRows = rows.filter(row => row.eligible && row.recommended_path === 'immediate')
-  const jobRows = rows.filter(row => row.eligible && row.recommended_path === 'jobs')
-  const blockedRows = rows.filter(row => !row.eligible || row.recommended_path === 'blocked')
+  const eligibleRows = rows.filter((row) => row.eligible)
+  const immediateRows = rows.filter((row) => row.eligible && row.recommended_path === 'immediate')
+  const jobRows = rows.filter((row) => row.eligible && row.recommended_path === 'jobs')
+  const blockedRows = rows.filter((row) => !row.eligible || row.recommended_path === 'blocked')
 
   return {
     coverage,
@@ -525,8 +546,8 @@ export function buildFilteredFleetEligibilityPreview(input: {
     requestedCount,
     shownCount,
     totalMatched,
-    subsetEligibleCount: rows.filter(row => row.eligible).length,
-    subsetBlockedCount: rows.filter(row => !row.eligible).length,
+    subsetEligibleCount: rows.filter((row) => row.eligible).length,
+    subsetBlockedCount: rows.filter((row) => !row.eligible).length,
     immediateCount: routeDecision.immediate,
     jobsCount: routeDecision.jobs,
     blockedPathCount: routeDecision.blocked,

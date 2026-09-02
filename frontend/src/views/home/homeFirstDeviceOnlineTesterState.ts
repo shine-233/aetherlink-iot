@@ -103,7 +103,9 @@ export const buildFirstDeviceOnlineTesterState = (options: {
       : disabledReason,
     actionLabel: '浏览器在线测试',
     disabledReason,
-    lastSignal: options.guard.canRunBrowserTest ? '完成标准：回显遥测出现具体 key/value，证明项逐步变绿。' : disabledReason,
+    lastSignal: options.guard.canRunBrowserTest
+      ? '完成标准：回显遥测出现具体 key/value，证明项逐步变绿。'
+      : disabledReason,
     echoRows
   }
 }

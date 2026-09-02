@@ -8,7 +8,7 @@
 import { computed, defineAsyncComponent, h, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import type { DataTableColumns } from 'naive-ui'
-import { NButton, NTag } from 'naive-ui'
+import { NButton, NEmpty, NTag } from 'naive-ui'
 import dayjs from 'dayjs'
 import { acknowledgeAlarmHistory, resetAlarmHistory } from '@/service/api/alarm'
 import { useAuthStore } from '@/store/modules/auth'
@@ -584,7 +584,11 @@ onBeforeUnmount(() => {
             :loading="alarmLoading"
             :pagination="alarmPagination"
             :scroll-x="980"
-          />
+          >
+            <template #empty>
+              <NEmpty :description="$t('common.noData')" class="py-24px" />
+            </template>
+          </NDataTable>
         </NSpace>
       </NCard>
 

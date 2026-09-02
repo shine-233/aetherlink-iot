@@ -23,9 +23,7 @@ interface UseCommandCenterJobFollowUpActionsOptions {
 export function useCommandCenterJobFollowUpActions(options: UseCommandCenterJobFollowUpActionsOptions) {
   const copyCommandJobLink = async () => {
     if (!options.submitResult.value?.job_id) return
-    const ok = await writeClipboardText(
-      buildCommandJobLink(window.location.href, options.submitResult.value.job_id)
-    )
+    const ok = await writeClipboardText(buildCommandJobLink(window.location.href, options.submitResult.value.job_id))
     if (ok) {
       window.$message?.success(options.t('custom.commandCenter.copyJobLinkSuccess'))
     } else {
