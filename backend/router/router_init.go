@@ -184,6 +184,8 @@ func RouterInit() *gin.Engine {
 			}
 			v1.POST("login", controllers.Login)
 			v1.POST("login/totp", controllers.UserApi.LoginWithTotp)
+			v1.GET("sso/:id/start", controllers.OidcSsoApi.HandleSSOStart)
+			v1.GET("sso/:id/callback", controllers.OidcSsoApi.HandleSSOCallback)
 			v1.GET("verification/code", controllers.HandleVerificationCode)
 			v1.POST("reset/password/link", controllers.RequestPasswordResetLink)
 			v1.POST("reset/password", controllers.ResetPassword)
@@ -246,6 +248,8 @@ func RouterInit() *gin.Engine {
 			apps.Model.User.InitUser(v1) // 用户模块
 
 			apps.Model.UserTOTP.InitUserTOTP(v1) // 2FA（TOTP 绑定/状态）
+
+			apps.Model.OidcSso.InitOidcProvider(v1) // OIDC/SSO 提供方管理（ROADMAP C7）
 
 			apps.Model.Role.Init(v1) // 角色管理
 

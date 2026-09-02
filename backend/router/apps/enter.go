@@ -49,6 +49,7 @@ type apps struct {
 	EntityVersion
 	Asset
 	UserTOTP
+	OidcSso
 }
 
 var Model = new(apps)
