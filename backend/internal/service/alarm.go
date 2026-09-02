@@ -753,7 +753,7 @@ func (*Alarm) DeleteAlarmHistory(id string, claims *utils.UserClaims) error {
 	return errcode.NewWithMessage(errcode.CodeOpDenied, alarmHistoryRetentionMessage)
 }
 
-// alarmListScopes 返回告警列表查询的层级作用域：allTenants(系统管理员全量) 返回 nil，否则 self∪祖先。
+// alarmListScopes 返回告警列表查询的层级作用域：allTenants(系统管理员全量) 返回 nil，否则 self∪子孙（自上而下）。
 func alarmListScopes(allTenants bool, self string) []string {
 	if allTenants {
 		return nil

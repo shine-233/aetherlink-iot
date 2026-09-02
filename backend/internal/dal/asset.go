@@ -1,6 +1,8 @@
 // 文件用途：资产 DAL 层（ROADMAP C2），封装 assets 表 CRUD。
 // 核心逻辑：所有查询强制携带 tenantScopes（由 Service 层按 hierarchy.Scope 展开，
-//   即 self∪祖先），杜绝跨租户读；删除前校验无子节点。
+//
+//	即 self∪子孙（自上而下）），杜绝跨租户读；删除前校验无子节点。
+//
 // 关键注意事项：时间/字符串语义与 device_shadow 一致，仅用参数化值，保证 PG/sqlite 同行为。
 package dal
 

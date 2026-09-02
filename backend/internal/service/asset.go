@@ -1,7 +1,8 @@
 // 文件用途：资产服务层（ROADMAP C2）。
-// 核心逻辑：由 claims.TenantID 经 hierarchy.Scope（self∪祖先，由 tenants.parent_tenant_id
-//   链接推导）展开为可读租户作用域，所有 DAL 查询携带该作用域；写操作固定绑定 claims 租户，
-//   并对 parent_id 做存在性 + 成环拒绝（复用 hierarchy 语义包）。
+// 核心逻辑：由 claims.TenantID 经 hierarchy.ScopeDown（self∪子孙，自上而下）展开为
+//
+//	链接推导）展开为可读租户作用域，所有 DAL 查询携带该作用域；写操作固定绑定 claims 租户，
+//	并对 parent_id 做存在性 + 成环拒绝（复用 hierarchy 语义包）。
 package service
 
 import (
@@ -30,26 +31,14 @@ type AssetReq struct {
 	Meta      string `json:"meta"`
 }
 
-// assetScope 依据 claims 解析可读租户作用域。
+// assetScope 依据 claims 解析可读租户作用域（self∪子孙，自上而下；总部/父级可下钻）。
 // 说明：SYS_ADMIN（TenantID 为空）作为平台侧暂未纳入层级资产，返回自身空作用域由调用方拒绝。
 func assetScope(claims *utils.UserClaims) (self string, scopes []string) {
 	if claims == nil || claims.TenantID == "" {
 		return "", nil
 	}
 	self = claims.TenantID
-	parent := map[string]string{}
-	if links := dal.ListTenantParentLinks(); links != nil {
-		pm, err := hierarchy.BuildParentMap(links)
-		if err == nil {
-			parent = pm
-		}
-	}
-	scope, err := hierarchy.Scope(self, parent)
-	if err != nil {
-		// 环等异常数据不阻断单租户自身使用；回退 self-only。
-		scope = nil
-	}
-	scopes = append([]string{self}, scope...)
+	scopes = expandTenantIDScope(self)
 	return self, scopes
 }
 

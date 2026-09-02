@@ -187,7 +187,7 @@ AetherLink Backend ←──gRPC──→ Modbus TCP Plugin ←──Modbus TCP�
 
 ### C2. 租户客户层级
 - [x] tenants 表增加 parent_tenant_id 自引用（60.sql）与资产树 assets（60.sql）
-- [x] 资产 CRUD/树 API（dal/service/api/router，Scope=self∪祖先，成环拒绝；assets 垂直切片）
+- [x] 资产 CRUD/树 API（dal/service/api/router，Scope=self∪子孙（自上而下：总部/父级可下钻），成环拒绝；assets 垂直切片）
 - [x] RBAC 继承接缝：`service.InheritedAuthorityRoles`（角色@祖先租户域展开 + 纯函数单测）；说明——现有 Casbin 角色策略为全局角色名，同角色天然跨租户生效，展开为 tenant-qualified 策略预留（配 TENANT_ADMIN/SYS_ADMIN）
 - [x] 存量核心模块 DAL 租户过滤 =→IN(Scope) 替换（各模块带真实结果集测试）：assets（原生 Scope）→ device → alarm(config/info/history) → board；模式统一为 ForScopes 变体 + service 层 expandTenantIDScope，后续新模块沿用同模式
 

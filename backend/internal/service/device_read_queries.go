@@ -67,7 +67,7 @@ func resolveDeviceListTenantScope(req *model.GetDeviceListByPageReq, claims *uti
 	return requireDeviceTenantClaims(claims, "no permission to query device list")
 }
 
-// resolveDeviceListScopes 返回设备列表查询的层级作用域（self∪祖先）。
+// resolveDeviceListScopes 返回设备列表查询的层级作用域（self∪子孙，自上而下）。
 // 与旧 resolveDeviceListTenantScope 等价守卫：AllTenants 仅系统管理员可用，非全量时要求租户 claims。
 func resolveDeviceListScopes(req *model.GetDeviceListByPageReq, claims *utils.UserClaims) ([]string, error) {
 	if req == nil {
