@@ -1125,6 +1125,8 @@
   "custom.management.calcField.emptyHint": "No calculated fields yet; use the add button to create one",
   "custom.management.branding.systemTitle": "System title",
   "custom.management.branding.faviconUrl": "Favicon URL",
+  "custom.management.branding.themeColor": "Theme Color",
+  "custom.management.branding.browserFavicon": "Browser favicon URL",
   "custom.management.branding.headerLogoUrl": "Header logo URL",
   "custom.management.branding.loadingLogoUrl": "Loading logo URL",
   "custom.management.branding.homeBackgroundUrl": "Home background URL",

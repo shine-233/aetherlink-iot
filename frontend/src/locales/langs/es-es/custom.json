@@ -1142,6 +1142,8 @@
   "custom.management.calcField.emptyHint": "Aún no hay campos calculados; usa el botón de añadir para crear uno",
   "custom.management.branding.systemTitle": "Título del sistema",
   "custom.management.branding.faviconUrl": "URL del favicon",
+  "custom.management.branding.themeColor": "Color de tema",
+  "custom.management.branding.browserFavicon": "URL del favicon del navegador",
   "custom.management.branding.headerLogoUrl": "URL del logo de cabecera",
   "custom.management.branding.loadingLogoUrl": "URL del logo de carga",
   "custom.management.branding.homeBackgroundUrl": "URL del fondo de inicio",

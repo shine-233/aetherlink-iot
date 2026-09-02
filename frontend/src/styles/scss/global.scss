@@ -12,6 +12,10 @@
   --breakpoint-md: 960px;
   --breakpoint-lg: 1280px;
 
+/* 租户级品牌主题色（ROADMAP C5 白标）：由 sys-setting store 注入覆盖，
+   * 空值回退此默认值。登录页/页头等高可见品牌位可引用该变量。 */
+  --aetherlink-brand-color: #1677ff;
+
   /* ===== 设计 token：字号 / 圆角（设计系统收敛 2026-08-26）=====
    * 组件 scoped 样式一律引用这些变量，禁止再写裸 px 字号与散落圆角。
    * 页面主标题用 --font-size-page-title；区块标题 --font-size-xl；

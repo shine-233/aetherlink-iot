@@ -13,7 +13,8 @@ const hoisted = vi.hoisted(() => ({
   editThemeSetting: vi.fn(),
   messageSuccess: vi.fn(),
   messageError: vi.fn(),
-  initSysSetting: vi.fn()
+  initSysSetting: vi.fn(),
+  updateThemeColors: vi.fn()
 }))
 
 vi.mock('@/service/api/setting', () => ({
@@ -24,6 +25,12 @@ vi.mock('@/service/api/setting', () => ({
 vi.mock('@/store/modules/sys-setting', () => ({
   useSysSettingStore: () => ({
     initSysSetting: hoisted.initSysSetting
+  })
+}))
+
+vi.mock('@/store/modules/theme', () => ({
+  useThemeStore: () => ({
+    updateThemeColors: hoisted.updateThemeColors
   })
 }))
 
@@ -100,7 +107,9 @@ describe('management/setting/components/branding-setting.vue', () => {
       logo_cache: 'https://example.com/favicon.ico',
       logo_background: 'https://example.com/logo.png',
       logo_loading: 'https://example.com/loading.png',
-      home_background: 'https://example.com/bg.png'
+      home_background: 'https://example.com/bg.png',
+      theme_color: '',
+      favicon: ''
     })
     expect(state.loading).toBe(false)
   })
@@ -173,7 +182,9 @@ describe('management/setting/components/branding-setting.vue', () => {
       logo_cache: 'https://example.com/favicon.ico',
       logo_background: 'https://example.com/logo.png',
       logo_loading: 'https://example.com/loading.png',
-      home_background: 'https://example.com/bg.png'
+      home_background: 'https://example.com/bg.png',
+      theme_color: '',
+      favicon: ''
     })
     expect(hoisted.messageSuccess).toHaveBeenCalledWith('custom.management.branding.saved')
     expect(hoisted.initSysSetting).toHaveBeenCalledTimes(1)

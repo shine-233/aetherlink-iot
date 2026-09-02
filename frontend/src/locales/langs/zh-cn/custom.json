@@ -1126,6 +1126,8 @@
   "custom.management.calcField.emptyHint": "暂无计算字段，点击右上角新增",
   "custom.management.branding.systemTitle": "系统标题",
   "custom.management.branding.faviconUrl": "Favicon URL",
+  "custom.management.branding.themeColor": "主题色",
+  "custom.management.branding.browserFavicon": "浏览器页签图标 URL",
   "custom.management.branding.headerLogoUrl": "页头 Logo URL",
   "custom.management.branding.loadingLogoUrl": "加载页 Logo URL",
   "custom.management.branding.homeBackgroundUrl": "首页背景 URL",
