@@ -41,7 +41,7 @@
 | 移动端 App | ✗ | ✗ | ✓ | 远期评估 |
 | AI / LLM 集成 | ✓ | ✗ | ✓ | C4 已落地 NL 查询遥测；AI 告警分析待做 |
 | 计算字段 | ✓ | ✓ | ✗ | B3 已合入：govaluate 安全表达式派生遥测（54.sql） |
-| TimescaleDB / TDengine | ✗ | ✓ | ✓ | Phase C1 |
+| TimescaleDB / TDengine | ◐ | ✓ | ✓ | C1 部分落地：57.sql 条件化 hypertable + 7 天压缩（检测扩展自动启用） |
 | 白标定制 | ✗ | ✓ (PE) | ✗ | Phase C5 |
 | 行业模板 | ✗ | ✓ (PE) | ✗ | 远期 |
 | 边缘计算 | ✗ | ✓ (PE) | ✗ | 远期 |
@@ -186,9 +186,9 @@ ALTER TABLE device_calculated_fields (
 ## Phase C — 远期
 
 ### C1. TimescaleDB 可选存储后端
-- [ ] 时序表迁移为 hypertable
-- [ ] 配置开关切换普通 PG vs TimescaleDB
-- [ ] 压缩策略自动配置
+- [x] 时序表迁移为 hypertable（57.sql：telemetry_datas + alarm_info，检测扩展存在才执行）
+- [ ] 配置开关切换普通 PG vs TimescaleDB（当前为"检测扩展自动启用"，显式开关待做）
+- [x] 压缩策略自动配置（telemetry_datas 7 天压缩 + segmentby device_id）
 
 ### C2. 租户客户层级
 - [ ] tenants 表增加 parent_tenant_id 自引用
