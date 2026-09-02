@@ -625,6 +625,10 @@ function classifyEndpointCatalogItem(endpointKey) {
   if (/^\/api\/v1\/product(?:\/|$)/.test(pathPart)) {
     return { endpoint: endpointKey, scope: 'P0/P1', capability: 'device-telemetry' };
   }
+// 实体版本控制（ROADMAP C7）：快照/列表/恢复属配置治理能力，归 system-deployment。
+  if (/^\/api\/v1\/entity_versions(?:\/|$)/.test(pathPart)) {
+    return { endpoint: endpointKey, scope: 'P0/P1', capability: 'system-deployment' };
+  }
   if (/^\/api\/v1\/(?:board(?:\/|$)|dashboard-menu(?:\/|$))/.test(pathPart)) {
     return { endpoint: endpointKey, scope: 'P0/P1', capability: 'visualization' };
   }

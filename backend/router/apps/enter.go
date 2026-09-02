@@ -46,6 +46,7 @@ type apps struct {
 	PayloadSchema
 	CalculatedField
 	Product
+	EntityVersion
 }
 
 var Model = new(apps)

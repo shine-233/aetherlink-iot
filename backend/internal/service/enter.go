@@ -63,6 +63,7 @@ type ServiceGroup struct {
 	RDI
 	PayloadSchema
 	CalculatedField CalculatedFieldService
+	EntityVersion   EntityVersionService
 }
 
 // GroupApp 是全局业务服务入口，供 API 层和中间件层调用
