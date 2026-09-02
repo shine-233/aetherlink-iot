@@ -104,10 +104,19 @@ func UpdateDeviceModelCommand(d *model.DeviceModelCommand) (err error) {
 	}
 }
 
-func GetDeviceModelTelemetryListByPage(r model.GetDeviceModelListByPageReq, tenant_id string) (count int64, data []*model.DeviceModelTelemetry, err error) {
+// GetDeviceModelTelemetryListByPage 分页查询某模板的遥测物模型定义（tenant-scope: caller-enforced；
+// scopes 由 service 层展开——总部/父级可见 self∪子孙模板的物模型）。
+func GetDeviceModelTelemetryListByPage(r model.GetDeviceModelListByPageReq, scopes []string) (count int64, data []*model.DeviceModelTelemetry, err error) {
 	q := query.DeviceModelTelemetry
 	queryBuilder := q.WithContext(context.Background())
-	queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenant_id))
+	if len(scopes) == 0 {
+		return count, data, nil
+	}
+	if len(scopes) == 1 {
+		queryBuilder = queryBuilder.Where(q.TenantID.Eq(scopes[0]))
+	} else {
+		queryBuilder = queryBuilder.Where(q.TenantID.In(scopes...))
+	}
 	queryBuilder = queryBuilder.Where(q.DeviceTemplateID.Eq(r.DeviceTemplateId))
 	count, err = queryBuilder.Count()
 	if err != nil {
@@ -123,10 +132,18 @@ func GetDeviceModelTelemetryListByPage(r model.GetDeviceModelListByPageReq, tena
 	return count, data, err
 }
 
-func GetDeviceModelAttributesListByPage(r model.GetDeviceModelListByPageReq, tenant_id string) (count int64, data []*model.DeviceModelAttribute, err error) {
+// GetDeviceModelAttributesListByPage 分页查询某模板的属性物模型定义（tenant-scope: caller-enforced）。
+func GetDeviceModelAttributesListByPage(r model.GetDeviceModelListByPageReq, scopes []string) (count int64, data []*model.DeviceModelAttribute, err error) {
 	q := query.DeviceModelAttribute
 	queryBuilder := q.WithContext(context.Background())
-	queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenant_id))
+	if len(scopes) == 0 {
+		return count, data, nil
+	}
+	if len(scopes) == 1 {
+		queryBuilder = queryBuilder.Where(q.TenantID.Eq(scopes[0]))
+	} else {
+		queryBuilder = queryBuilder.Where(q.TenantID.In(scopes...))
+	}
 	queryBuilder = queryBuilder.Where(q.DeviceTemplateID.Eq(r.DeviceTemplateId))
 	count, err = queryBuilder.Count()
 	if err != nil {
@@ -142,10 +159,18 @@ func GetDeviceModelAttributesListByPage(r model.GetDeviceModelListByPageReq, ten
 	return count, data, err
 }
 
-func GetDeviceModelEventsListByPage(r model.GetDeviceModelListByPageReq, tenant_id string) (count int64, data []*model.DeviceModelEvent, err error) {
+// GetDeviceModelEventsListByPage 分页查询某模板的事件物模型定义（tenant-scope: caller-enforced）。
+func GetDeviceModelEventsListByPage(r model.GetDeviceModelListByPageReq, scopes []string) (count int64, data []*model.DeviceModelEvent, err error) {
 	q := query.DeviceModelEvent
 	queryBuilder := q.WithContext(context.Background())
-	queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenant_id))
+	if len(scopes) == 0 {
+		return count, data, nil
+	}
+	if len(scopes) == 1 {
+		queryBuilder = queryBuilder.Where(q.TenantID.Eq(scopes[0]))
+	} else {
+		queryBuilder = queryBuilder.Where(q.TenantID.In(scopes...))
+	}
 	queryBuilder = queryBuilder.Where(q.DeviceTemplateID.Eq(r.DeviceTemplateId))
 	count, err = queryBuilder.Count()
 	if err != nil {
@@ -161,10 +186,18 @@ func GetDeviceModelEventsListByPage(r model.GetDeviceModelListByPageReq, tenant_
 	return count, data, err
 }
 
-func GetDeviceModelCommandsListByPage(r model.GetDeviceModelListByPageReq, tenant_id string) (count int64, data []*model.DeviceModelCommand, err error) {
+// GetDeviceModelCommandsListByPage 分页查询某模板的命令物模型定义（tenant-scope: caller-enforced）。
+func GetDeviceModelCommandsListByPage(r model.GetDeviceModelListByPageReq, scopes []string) (count int64, data []*model.DeviceModelCommand, err error) {
 	q := query.DeviceModelCommand
 	queryBuilder := q.WithContext(context.Background())
-	queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenant_id))
+	if len(scopes) == 0 {
+		return count, data, nil
+	}
+	if len(scopes) == 1 {
+		queryBuilder = queryBuilder.Where(q.TenantID.Eq(scopes[0]))
+	} else {
+		queryBuilder = queryBuilder.Where(q.TenantID.In(scopes...))
+	}
 	queryBuilder = queryBuilder.Where(q.DeviceTemplateID.Eq(r.DeviceTemplateId))
 	count, err = queryBuilder.Count()
 	if err != nil {
@@ -271,6 +304,7 @@ func GetIdentifierNameAttribute() func(device_template_id, identifier string) st
 		return *result.DataName
 	}
 }
+
 // tenant-scope: parent-owned?2026-08-26 ?????
 func GetIdentifierNameEvent() func(device_template_id, identifier string) string {
 	return func(device_template_id, identifier string) string {

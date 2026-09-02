@@ -15,10 +15,12 @@ import (
 
 func (*DeviceModel) GetDeviceModelListByPageGeneral(req model.GetDeviceModelListByPageReq, what string, claims *utils.UserClaims) (interface{}, error) {
 
+	// 自上而下租户作用域（self∪子孙）：总部/父级管理员可下钻查看子租户模板的物模型定义。
+	scopes := expandTenantIDScope(claims.TenantID)
 	listRsp := make(map[string]interface{})
 	switch what {
 	case model.DEVICE_MODEL_TELEMETRY:
-		count, data, err := dal.GetDeviceModelTelemetryListByPage(req, claims.TenantID)
+		count, data, err := dal.GetDeviceModelTelemetryListByPage(req, scopes)
 		if err != nil {
 			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 				"sql_error": err.Error(),
@@ -28,7 +30,7 @@ func (*DeviceModel) GetDeviceModelListByPageGeneral(req model.GetDeviceModelList
 		listRsp["list"] = data
 		return listRsp, nil
 	case model.DEVICE_MODEL_ATTRIBUTES:
-		count, data, err := dal.GetDeviceModelAttributesListByPage(req, claims.TenantID)
+		count, data, err := dal.GetDeviceModelAttributesListByPage(req, scopes)
 		if err != nil {
 			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 				"sql_error": err.Error(),
@@ -38,7 +40,7 @@ func (*DeviceModel) GetDeviceModelListByPageGeneral(req model.GetDeviceModelList
 		listRsp["list"] = data
 		return listRsp, nil
 	case model.DEVICE_MODEL_EVENTS:
-		count, data, err := dal.GetDeviceModelEventsListByPage(req, claims.TenantID)
+		count, data, err := dal.GetDeviceModelEventsListByPage(req, scopes)
 		if err != nil {
 			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 				"sql_error": err.Error(),
@@ -48,7 +50,7 @@ func (*DeviceModel) GetDeviceModelListByPageGeneral(req model.GetDeviceModelList
 		listRsp["list"] = data
 		return listRsp, nil
 	case model.DEVICE_MODEL_COMMANDS:
-		count, data, err := dal.GetDeviceModelCommandsListByPage(req, claims.TenantID)
+		count, data, err := dal.GetDeviceModelCommandsListByPage(req, scopes)
 		if err != nil {
 			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 				"sql_error": err.Error(),

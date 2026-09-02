@@ -18,6 +18,16 @@ import (
 
 type DeviceTemplate struct{}
 
+// tenantIDInScopes 纯成员判断：resourceTenant 是否落在自上而下可读租户作用域内（供测试注入）。
+func tenantIDInScopes(resourceTenant string, scopes []string) bool {
+	for _, s := range scopes {
+		if s == resourceTenant {
+			return true
+		}
+	}
+	return false
+}
+
 func ensureDeviceTemplateReadAccess(templateID string, claims *utils.UserClaims) (*model.DeviceTemplate, error) {
 	if claims == nil {
 		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query thing model")
@@ -31,7 +41,8 @@ func ensureDeviceTemplateReadAccess(templateID string, claims *utils.UserClaims)
 	if t.Flag != nil && *t.Flag == dal.DEVICE_TEMPLATE_PUBLIC {
 		return t, nil
 	}
-	if claims.Authority != dal.SYS_ADMIN && t.TenantID != claims.TenantID {
+	// 自上而下（self∪子孙）：总部/父级管理员可读取子租户模板；系统管理员全量；叶子租户退化为仅自身。
+	if claims.Authority != dal.SYS_ADMIN && !tenantIDInScopes(t.TenantID, expandTenantIDScope(claims.TenantID)) {
 		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query thing model")
 	}
 	return t, nil
@@ -214,7 +225,7 @@ func (*DeviceTemplate) DeleteDeviceTemplate(id string, claims *utils.UserClaims)
 
 func (*DeviceTemplate) GetDeviceTemplateListByPage(req model.GetDeviceTemplateListByPageReq, claims *utils.UserClaims) (interface{}, error) {
 
-	total, list, err := dal.GetDeviceTemplateListByPage(&req, claims)
+	total, list, err := dal.GetDeviceTemplateListByPage(&req, expandTenantIDScope(claims.TenantID))
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -231,7 +242,7 @@ func (*DeviceTemplate) GetDeviceTemplateListByPage(req model.GetDeviceTemplateLi
 // 获取物模型下拉菜单
 func (*DeviceTemplate) GetDeviceTemplateMenu(req model.GetDeviceTemplateMenuReq, claims *utils.UserClaims) (interface{}, error) {
 
-	data, err := dal.GetDeviceTemplateMenu(&req, claims)
+	data, err := dal.GetDeviceTemplateMenu(&req, expandTenantIDScope(claims.TenantID))
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -240,9 +251,9 @@ func (*DeviceTemplate) GetDeviceTemplateMenu(req model.GetDeviceTemplateMenuReq,
 	return data, nil
 }
 
-// GetDeviceTemplateStats 获取设备物模型统计信息
+// GetDeviceTemplateStats 获取设备物模型统计信息（统计范围 = claims 自上而下作用域，供总部下钻子模板）
 func (*DeviceTemplate) GetDeviceTemplateStats(req model.GetDeviceTemplateStatsReq, claims *utils.UserClaims) (*model.GetDeviceTemplateStatsRsp, error) {
-	data, err := dal.GetDeviceTemplateStats(req.DeviceTemplateID, claims.TenantID)
+	data, err := dal.GetDeviceTemplateStats(req.DeviceTemplateID, expandTenantIDScope(claims.TenantID))
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
