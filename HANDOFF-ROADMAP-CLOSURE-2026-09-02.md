@@ -60,3 +60,48 @@
 - **沙箱 heredoc 会把反斜杠转义改成正斜杠**（`\n`→`/n`）污染被写文件：凡含换行/制表符的补丁一律用 Write 落盘 `.py` 再 `python file`，字符串内避免反斜杠序列。
 - 隔离 repo 放 `projects` 之外可避免被并行会话的 git 清扫干扰；refs 写入若被重置用 `git update-ref` + 手动写 refs 文件修复 HEAD。
 - `go vet` 对 `cron_test.go` 既有 lock-copy 告警与本批无关（勿误判）。
+
+
+---
+
+## 附录：新端点登记补丁（harness/catalog 归属方套用）
+
+> 说明：`automation_tests/lib/endpoint-coverage/catalog.js` 与 `coverage-contract/business-capabilities.js`
+> 由并行会话持续重构（计数契约敏感），本批未直接改动以避免互相覆盖；以下为已验证的登记内容。
+
+### catalog.js（ALL_ENDPOINTS 追加）
+```js
+  // === 资产层级（ROADMAP C2，asset.go） ===
+  { method: 'POST',   path: '/api/v1/asset',                    module: 'asset',     auth: true },
+  { method: 'PUT',    path: '/api/v1/asset',                    module: 'asset',     auth: true },
+  { method: 'DELETE', path: '/api/v1/asset/:id',                module: 'asset',     auth: true },
+  { method: 'GET',    path: '/api/v1/asset/list',               module: 'asset',     auth: true },
+  { method: 'GET',    path: '/api/v1/asset/tree',               module: 'asset',     auth: true },
+  { method: 'GET',    path: '/api/v1/asset/:id',                module: 'asset',     auth: true },
+
+  // === 2FA（ROADMAP C7，user_totp.go / router_init 公开段） ===
+  { method: 'GET',    path: '/api/v1/user/totp/setup',          module: 'user',      auth: true },
+  { method: 'POST',   path: '/api/v1/user/totp/activate',       module: 'user',      auth: true },
+  { method: 'POST',   path: '/api/v1/user/totp/disable',        module: 'user',      auth: true },
+  { method: 'GET',    path: '/api/v1/user/totp/status',         module: 'user',      auth: true },
+  { method: 'POST',   path: '/api/v1/login/totp',               module: 'auth',      auth: false },
+
+  // === OIDC/SSO（oidc_sso.go：提供方管理在 JWT 组；start/callback/providers 公开） ===
+  { method: 'POST',   path: '/api/v1/oidc/provider',            module: 'oidc',      auth: true },
+  { method: 'GET',    path: '/api/v1/oidc/provider/list',       module: 'oidc',      auth: true },
+  { method: 'PUT',    path: '/api/v1/oidc/provider',            module: 'oidc',      auth: true },
+  { method: 'DELETE', path: '/api/v1/oidc/provider/:id',        module: 'oidc',      auth: true },
+  { method: 'GET',    path: '/api/v1/sso/providers',            module: 'oidc',      auth: false },
+  { method: 'GET',    path: '/api/v1/sso/:id/start',            module: 'oidc',      auth: false },
+  { method: 'GET',    path: '/api/v1/sso/:id/callback',         module: 'oidc',      auth: false },
+```
+
+### business-capabilities.js（能力级登记建议）
+- asset：CRUD/树
+- security.two_factor：login second-factor + bind/activate/disable/status
+- security.oidc_sso：provider CRUD + public discovery + start/callback
+-（rule-chain 的 action.alarm 为节点类型扩展，不新增 HTTP 端点，无需目录登记）
+
+### Casbin g2（运行时登记，需重建栈后按菜单/功能机制）
+- 上述 auth:true 新路由需在启动审计前登记进 g2 资源（当前机制经角色-功能管理在运行期写入 DB；无静态 seed 文件）。新增模块命名建议：asset / user-totp / oidc-provider。
+
