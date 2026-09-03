@@ -155,13 +155,23 @@ func (*FleetSavedFilter) List(claims *utils.UserClaims) (*model.FleetSavedFilter
 	if claims == nil {
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "claims are required")
 	}
-	filters, err := dal.ListFleetSavedFiltersVisibleToUser(claims.TenantID, claims.ID, fleetSavedFilterListLimit)
+	filters, err := dal.ListFleetSavedFiltersVisibleToUser(fleetSavedFilterListScopes(claims.TenantID), claims.ID, fleetSavedFilterListLimit)
 	if err != nil {
 		return nil, err
 	}
 	return &model.FleetSavedFilterListRsp{
 		List: buildFleetSavedFilterList(filters, claims.ID),
 	}, nil
+}
+
+// fleetSavedFilterListScopes 解析管理列表读作用域：
+// 空租户（SYS_ADMIN 维护平台空租户行，等价旧行为查 tenant_id 为空串）→ [""]；
+// 非空租户 → expandTenantIDScope 自上而下 self∪子孙。
+func fleetSavedFilterListScopes(tenantID string) []string {
+	if tenantID == "" {
+		return []string{""}
+	}
+	return expandTenantIDScope(tenantID)
 }
 
 // buildFleetSavedFilterList 把可见记录整理成响应列表：先本人拥有的，再别人
