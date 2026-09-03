@@ -238,9 +238,34 @@ func (*User) GetUserById(id string) (*model.User, error) {
 	return user, nil
 }
 
+// userListScopes 解析用户目录列表读作用域（ROADMAP C2 自上而下）：
+// TENANT_USER 保持 self-only（成员目录仅本租户）；TENANT_ADMIN → expandTenantIDScope
+// （self∪子孙，可读层级内成员用户）；SYS_ADMIN → nil（平台级管理员目录，无租户过滤）；
+// nil/未知声明 → nil，由 DAL 显式拒绝。
+func userListScopes(claims *utils.UserClaims) []string {
+	if claims == nil {
+		return nil
+	}
+	switch claims.Authority {
+	case constant.TENANT_USER:
+		if tenantID := strings.TrimSpace(claims.TenantID); tenantID != "" {
+			return []string{tenantID}
+		}
+		return nil
+	case constant.TENANT_ADMIN:
+		tenantID := strings.TrimSpace(claims.TenantID)
+		if tenantID == "" {
+			return nil
+		}
+		return expandTenantIDScope(tenantID)
+	default:
+		return nil
+	}
+}
+
 // GetUserListByPage 按当前登录人的权限边界分页查询用户列表。
 func (*User) GetUserListByPage(userListReq *model.UserListReq, claims *utils.UserClaims) (map[string]interface{}, error) {
-	total, list, err := dal.GetUserListByPage(userListReq, claims)
+	total, list, err := dal.GetUserListByPage(userListReq, claims, userListScopes(claims))
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"operation": "query_user",
