@@ -3,6 +3,7 @@ module aetherlink-iot/backend
 go 1.25.0
 
 require (
+	github.com/alicebob/miniredis/v2 v2.38.0
 	github.com/casbin/casbin/v2 v2.135.0
 	github.com/eclipse/paho.mqtt.golang v1.5.1
 	github.com/gin-gonic/gin v1.12.0
@@ -10,6 +11,7 @@ require (
 	github.com/go-playground/validator/v10 v10.30.3
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/google/uuid v1.6.0
+	github.com/gopcua/opcua v0.9.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/jinzhu/copier v0.4.0
 	github.com/pkg/errors v0.9.1
@@ -27,7 +29,6 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gorm.io/datatypes v1.2.7
 	gorm.io/driver/postgres v1.6.2
-	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gen v0.3.28
 	gorm.io/gorm v1.31.2
 	gorm.io/plugin/dbresolver v1.6.2
@@ -38,7 +39,6 @@ require (
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
-	github.com/alicebob/miniredis/v2 v2.38.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.6.1 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect
@@ -55,7 +55,6 @@ require (
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/mailru/easyjson v0.7.6 // indirect
-	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/ncruces/go-strftime v0.1.9 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
@@ -76,7 +75,7 @@ require (
 
 require (
 	github.com/bytedance/sonic v1.15.0 // indirect
-	github.com/casbin/govaluate v1.3.0 // indirect
+	github.com/casbin/govaluate v1.3.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
