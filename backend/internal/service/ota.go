@@ -334,8 +334,31 @@ func (*OTA) DeleteOTAUpgradePackage(packageId string, claims *utils.UserClaims) 
 	return err
 }
 
+// otaUpgradePackageListScopes 解析 OTA 升级包列表读作用域（ROADMAP C2 自上而下）：
+// TENANT_USER 保持 self-only（升级包为租户级资源、无 per-user 维度），空租户返回 nil fail-closed；
+// 空租户管理员（SYS_ADMIN 平台包，tenant_id 为空串）→ [""] 保持旧行为；
+// 其余非空租户管理员 → expandTenantIDScope（self∪子孙，链接缺失回退 self-only）。
+func otaUpgradePackageListScopes(claims *utils.UserClaims) []string {
+	if claims == nil {
+		return nil
+	}
+	if claims.Authority == constant.TENANT_USER {
+		if tenantID := strings.TrimSpace(claims.TenantID); tenantID != "" {
+			return []string{tenantID}
+		}
+		return nil
+	}
+	if strings.TrimSpace(claims.TenantID) == "" {
+		return []string{""}
+	}
+	return expandTenantIDScope(claims.TenantID)
+}
+
 func (*OTA) GetOTAUpgradePackageListByPage(req *model.GetOTAUpgradePackageLisyByPageReq, userClaims *utils.UserClaims) (map[string]interface{}, error) {
-	total, list, err := dal.GetOtaUpgradePackageListByPage(req, userClaims.TenantID)
+	if userClaims == nil {
+		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to list ota packages")
+	}
+	total, list, err := dal.GetOtaUpgradePackageListByPage(req, otaUpgradePackageListScopes(userClaims))
 	if err != nil {
 		return nil, err
 	}

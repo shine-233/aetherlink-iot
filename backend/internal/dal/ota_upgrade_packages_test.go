@@ -29,7 +29,7 @@ func TestGetOtaUpgradePackageListReturnsEmptyArrayShape(t *testing.T) {
 		}
 	})
 
-	total, rawList, err := GetOtaUpgradePackageListByPage(&model.GetOTAUpgradePackageLisyByPageReq{}, "tenant-empty")
+	total, rawList, err := GetOtaUpgradePackageListByPage(&model.GetOTAUpgradePackageLisyByPageReq{}, []string{"tenant-empty"})
 	if err != nil {
 		t.Fatalf("list ota packages: %v", err)
 	}
