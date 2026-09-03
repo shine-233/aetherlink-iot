@@ -80,26 +80,27 @@ func ensureTemplateInTenant(templateID, tenantID string) error {
 	return nil
 }
 
-// GetCalculatedFieldList 分页查询当前租户的计算字段。
+// GetCalculatedFieldList 分页查询作用域内（self∪子孙，ROADMAP C2）的计算字段。
 func (*CalculatedFieldService) GetCalculatedFieldList(req *model.CalculatedFieldListReq, claims *utils.UserClaims) (*model.CalculatedFieldListRsp, error) {
 	tenantID, err := calculatedFieldScope(claims)
 	if err != nil {
 		return nil, err
 	}
-	total, list, dbErr := dal.ListCalculatedFieldsByPage(tenantID, req)
+	scopes := expandTenantIDScope(tenantID)
+	total, list, dbErr := dal.ListCalculatedFieldsByPage(scopes, req)
 	if dbErr != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": dbErr.Error()})
 	}
 	return &model.CalculatedFieldListRsp{Total: total, List: list}, nil
 }
 
-// GetCalculatedField 按 id 查询单条计算字段。
+// GetCalculatedField 按 id 查询单条计算字段（读走作用域成员判定）。
 func (*CalculatedFieldService) GetCalculatedField(id string, claims *utils.UserClaims) (*model.CalculatedField, error) {
 	tenantID, err := calculatedFieldScope(claims)
 	if err != nil {
 		return nil, err
 	}
-	field, dbErr := dal.GetCalculatedFieldForScope(id, tenantID)
+	field, dbErr := dal.GetCalculatedFieldForScopes(id, expandTenantIDScope(tenantID))
 	if dbErr != nil {
 		if errIsRecordNotFound(dbErr) {
 			return nil, errcode.NewWithMessage(errcode.CodeNotFound, "calculated field not found")

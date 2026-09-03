@@ -21,12 +21,32 @@ func CreateCalculatedField(field *model.CalculatedField) error {
 	return global.DB.WithContext(context.Background()).Create(field).Error
 }
 
-// GetCalculatedFieldForScope 按 id + 租户查询单条计算字段。
+// GetCalculatedFieldForScope 按 id + 租户查询单条计算字段（写路径前置校验保持严格同租户）。
 func GetCalculatedFieldForScope(id, tenantID string) (*model.CalculatedField, error) {
 	var field model.CalculatedField
 	err := global.DB.WithContext(context.Background()).
 		Where("id = ? AND tenant_id = ?", id, tenantID).
 		First(&field).Error
+	if err != nil {
+		return nil, err
+	}
+	return &field, nil
+}
+
+// GetCalculatedFieldForScopes 按 id + 作用域读取单条计算字段（ROADMAP C2 自上而下读路径）。
+// 0 个作用域视为不存在（fail-closed）；1 个走 = 与旧行为等价；多个走 IN。
+func GetCalculatedFieldForScopes(id string, scopes []string) (*model.CalculatedField, error) {
+	if len(scopes) == 0 {
+		return nil, gorm.ErrRecordNotFound
+	}
+	var field model.CalculatedField
+	query := global.DB.WithContext(context.Background()).Where("id = ?", id)
+	if len(scopes) == 1 {
+		query = query.Where("tenant_id = ?", scopes[0])
+	} else {
+		query = query.Where("tenant_id IN ?", scopes)
+	}
+	err := query.First(&field).Error
 	if err != nil {
 		return nil, err
 	}
@@ -62,12 +82,21 @@ func DeleteCalculatedFieldForScope(id, tenantID string) error {
 	return nil
 }
 
-// ListCalculatedFieldsByPage 分页返回当前租户的计算字段，可按模板/名称过滤。
+// ListCalculatedFieldsByPage 分页返回作用域内的计算字段，可按模板/名称过滤。
+// scopes 语义：0→fail-closed 空结果、1→tenant_id =（与旧单租户等价）、>1→tenant_id IN。
+// tenant-scope: scopes 由 service 层展开并校验（ROADMAP C2 自上而下）。
 // pageSize 非正或超过上限时收敛到具名上限，避免负值取消 LIMIT 造成全表扫描。
-func ListCalculatedFieldsByPage(tenantID string, req *model.CalculatedFieldListReq) (int64, []*model.CalculatedField, error) {
+func ListCalculatedFieldsByPage(scopes []string, req *model.CalculatedFieldListReq) (int64, []*model.CalculatedField, error) {
 	query := global.DB.WithContext(context.Background()).
-		Model(&model.CalculatedField{}).
-		Where("tenant_id = ?", tenantID)
+		Model(&model.CalculatedField{})
+	switch len(scopes) {
+	case 0:
+		return 0, []*model.CalculatedField{}, nil
+	case 1:
+		query = query.Where("tenant_id = ?", scopes[0])
+	default:
+		query = query.Where("tenant_id IN ?", scopes)
+	}
 	if req != nil {
 		if req.DeviceTemplateID != nil && *req.DeviceTemplateID != "" {
 			query = query.Where("device_template_id = ?", *req.DeviceTemplateID)
