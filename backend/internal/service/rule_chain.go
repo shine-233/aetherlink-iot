@@ -1,8 +1,11 @@
 // 文件用途：规则链服务层（ROADMAP B2）——CRUD、图校验与上行执行入口。
 // 核心逻辑：CRUD 带租户守卫与 DAG 校验；执行入口按租户拉启用链（60s 缓存），
-//   写操作失效缓存；OnTelemetry/OnDeviceOnline 供上行钩子以 goroutine 调用。
+//
+//	写操作失效缓存；OnTelemetry/OnDeviceOnline 供上行钩子以 goroutine 调用。
+//
 // 关键注意事项：空租户 fail-closed；执行错误只记录不阻断上行主流程；
-//   单设备单次执行的节点扇出由 maxNodes 上限约束，防止放大。
+//
+//	单设备单次执行的节点扇出由 maxNodes 上限约束，防止放大。
 package service
 
 import (
@@ -165,13 +168,37 @@ func (*RuleChain) GetChain(id string, claims *utils.UserClaims) (*model.RuleChai
 	return chain, nil
 }
 
-// ListChains 分页列表；keyword 按名称模糊。
-func (*RuleChain) ListChains(keyword string, page, pageSize int, claims *utils.UserClaims) (map[string]interface{}, error) {
-	tenantID, err := normalizeRuleChainTenant("", claims)
-	if err != nil {
-		return nil, err
+// ruleChainListScopes 将调用方 claims 映射为规则链列表读作用域（ROADMAP C2 自上而下三态约定的服务层入口）：
+//   - nil claims → nil（fail-closed，由 ListChains 返回无权限）；
+//   - TENANT_USER → 仅自身 [claims.TenantID]；
+//   - 空租户（SYS_ADMIN 平台态）→ [""]（保留 legacy 平台行可读语义）；
+//   - 非空管理员（TENANT_ADMIN / 指定租户的 SYS_ADMIN）→ expandTenantIDScope（self∪子孙，无链接回退 self-only）。
+//
+// 说明：规则链是租户级资源，无按用户维度的可见性拆分（不同于 notification_history 的设备 Owner EXISTS 钳制），
+// 故 TENANT_USER 直接 self-only；作用域展开只放宽租户维，不触碰 Owner/User 维。
+func ruleChainListScopes(claims *utils.UserClaims) []string {
+	if claims == nil {
+		return nil
 	}
-	count, chains, err := dal.ListRuleChainsByTenant(tenantID, keyword, page, pageSize)
+	if claims.Authority == constant.TENANT_USER {
+		if tenantID := strings.TrimSpace(claims.TenantID); tenantID != "" {
+			return []string{tenantID}
+		}
+		return nil
+	}
+	if strings.TrimSpace(claims.TenantID) == "" {
+		return []string{""}
+	}
+	return expandTenantIDScope(claims.TenantID)
+}
+
+// ListChains 分页列表；keyword 按名称模糊。读路径接入 C2 自上而下作用域。
+func (*RuleChain) ListChains(keyword string, page, pageSize int, claims *utils.UserClaims) (map[string]interface{}, error) {
+	scopes := ruleChainListScopes(claims)
+	if len(scopes) == 0 {
+		return nil, errcode.New(errcode.CodeNoPermission)
+	}
+	count, chains, err := dal.ListRuleChainsByTenant(scopes, keyword, page, pageSize)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": err.Error()})
 	}
@@ -189,7 +216,7 @@ type ruleChainCacheEntry struct {
 }
 
 var (
-	ruleChainCacheMu      sync.Mutex
+	ruleChainCacheMu       sync.Mutex
 	ruleChainCacheByTenant = map[string]ruleChainCacheEntry{}
 )
 

@@ -1,7 +1,8 @@
 // 文件用途：规则链 DAL（ROADMAP B2）。
 // 核心逻辑：租户内 CRUD 与按触发类型的启用链查询。
 // 关键注意事项：所有列表查询必须携带非空 tenant_id（空租户守卫）；
-//   图结构合法性（DAG 无环、节点类型已知）在 service 层校验。
+//
+//	图结构合法性（DAG 无环、节点类型已知）在 service 层校验。
 package dal
 
 import (
@@ -11,6 +12,7 @@ import (
 	"aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/pkg/global"
 
+	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
 
@@ -57,12 +59,23 @@ func GetRuleChainByID(id, tenantID string) (*model.RuleChain, error) {
 	return &chain, nil
 }
 
-// ListRuleChainsByTenant 租户内分页列表；keyword 可选按名称模糊。
-func ListRuleChainsByTenant(tenantID, keyword string, page, pageSize int) (int64, []model.RuleChain, error) {
-	if strings.TrimSpace(tenantID) == "" {
-		return 0, nil, fmt.Errorf("tenant id is required")
+// ListRuleChainsByTenant 租户作用域分页列表；keyword 可选按名称模糊。
+// scopes 三态：len==0 → fail-closed 空结果（不扫全表）；len==1 → tenant_id = ?（等价 legacy 单租户）；
+// len>1 → tenant_id IN ?（自上而下 self∪子孙）。注意：本函数仅服务管理列表读路径；
+// 执行热路径 ListEnabledRuleChainGraphs 仍按 device 单租户锚定，不在作用域内展开（C2 只放列表读）。
+func ListRuleChainsByTenant(scopes []string, keyword string, page, pageSize int) (int64, []model.RuleChain, error) {
+	if len(scopes) == 0 {
+		logrus.Warn("dal: tenant-scoped rule chain list query has empty scopes; rejecting")
+		return 0, make([]model.RuleChain, 0), nil
 	}
-	query := global.DB.Model(&model.RuleChain{}).Where("tenant_id = ?", tenantID)
+	var query *gorm.DB
+	if len(scopes) == 1 {
+		// tenant-scope: ListRuleChainsByTenant 按 tenant_id = ? 过滤（单元素等价于 legacy 单租户）
+		query = global.DB.Model(&model.RuleChain{}).Where("tenant_id = ?", scopes[0])
+	} else {
+		// tenant-scope: ListRuleChainsByTenant 按 tenant_id IN ? 过滤（自上而下作用域 self∪子孙）
+		query = global.DB.Model(&model.RuleChain{}).Where("tenant_id IN ?", scopes)
+	}
 	if kw := strings.TrimSpace(keyword); kw != "" {
 		query = query.Where("name LIKE ?", fmt.Sprintf("%%%s%%", kw))
 	}
@@ -84,7 +97,8 @@ func ListRuleChainsByTenant(tenantID, keyword string, page, pageSize int) (int64
 	return count, chains, err
 }
 
-// ListEnabledRuleChainGraphs 返回租户内启用链的原始 graph 文本（执行热路径用）。
+// ListEnabledRuleChainGraphs 返回单租户内启用链的原始 graph 文本（执行热路径用，由 OnTelemetry/OnDeviceOnline 按 device.TenantID 调用）。
+// 注意：本函数按 device 单租户锚定，刻意不展开 C2 作用域——上行执行上下文始终归属设备自身租户，展开等于越权执行子树链。
 func ListEnabledRuleChainGraphs(tenantID string) ([]string, error) {
 	if strings.TrimSpace(tenantID) == "" {
 		return nil, fmt.Errorf("tenant id is required")
