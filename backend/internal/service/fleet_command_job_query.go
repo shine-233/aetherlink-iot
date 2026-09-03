@@ -1,10 +1,13 @@
 package service
 
 import (
+	"strings"
 	"time"
 
 	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/pkg/constant"
+	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/utils"
 )
 
@@ -202,8 +205,35 @@ func loadRecentCommandJobEvents(jobID, tenantID string) ([]*model.CommandJobEven
 	return dal.GetRecentCommandJobEvents(jobID, tenantID, defaultFleetCommandJobEventLimit)
 }
 
+// fleetCommandJobListScopes 解析命令任务列表读作用域（ROADMAP C2 自上而下）：
+// TENANT_USER 保持 self-only；TENANT_ADMIN/SYS_ADMIN 非空租户 → expandTenantIDScope
+// （self∪子孙，链接缺失回退 self-only）；空租户 → [""]（提交路径 requireDeviceTenantClaims
+// 本就拒绝空租户，平台任务不存在，映射仅保持旧行为）；nil 声明 → nil fail-closed。
+// 边界决策：设备筛选预览/提交仍锚定操作员本租户（C2 仅放列表读，不扩大向子树设备
+// 下发命令的写路径）；超时恢复 expireTimedOutFleetCommandJobsForTenant 保持单租户
+// （有状态写，全局 worker ListTimedOutRunningCommandJobs 兜底全部租户）。
+func fleetCommandJobListScopes(claims *utils.UserClaims) []string {
+	if claims == nil {
+		return nil
+	}
+	if claims.Authority == constant.TENANT_USER {
+		if tenantID := strings.TrimSpace(claims.TenantID); tenantID != "" {
+			return []string{tenantID}
+		}
+		return nil
+	}
+	if strings.TrimSpace(claims.TenantID) == "" {
+		return []string{""}
+	}
+	return expandTenantIDScope(claims.TenantID)
+}
+
 func (FleetCommandJobQueryService) ListFleetCommandJobs(req *model.FleetCommandJobListReq, claims *utils.UserClaims) (*model.FleetCommandJobListResult, error) {
+	if claims == nil {
+		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to list fleet command jobs")
+	}
 	req = normalizeFleetCommandJobListReq(req)
+	scopes := fleetCommandJobListScopes(claims)
 
 	if err := expireTimedOutFleetCommandJobsForTenant(claims.TenantID); err != nil {
 		return nil, err
@@ -211,7 +241,7 @@ func (FleetCommandJobQueryService) ListFleetCommandJobs(req *model.FleetCommandJ
 
 	now := time.Now().UTC()
 	total, jobs, err := dal.ListCommandJobs(
-		claims.TenantID,
+		scopes,
 		req.Status,
 		req.Search,
 		req.AttentionFilter,
@@ -225,12 +255,12 @@ func (FleetCommandJobQueryService) ListFleetCommandJobs(req *model.FleetCommandJ
 	}
 
 	jobIDs := commandJobIDsFromList(jobs)
-	attentionMetrics, err := dal.GetCommandJobListAttentionMetrics(jobIDs, claims.TenantID, commandJobMaxDispatchAttempts, now)
+	attentionMetrics, err := dal.GetCommandJobListAttentionMetrics(jobIDs, scopes, commandJobMaxDispatchAttempts, now)
 	if err != nil {
 		return nil, err
 	}
 	attentionSummary, err := dal.GetCommandJobListAttentionSummary(
-		claims.TenantID,
+		scopes,
 		req.Status,
 		req.Search,
 		req.AttentionFilter,

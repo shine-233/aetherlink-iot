@@ -49,7 +49,7 @@ func TestListCommandJobsPaginatesWithTotal(t *testing.T) {
 	base := seedCommandJobListPagination(t, db, seededJobs)
 
 	// 翻页正确性：第 1 页与第 2 页不得重叠，且按 created_at DESC 排序。
-	total, firstPage, err := ListCommandJobs("tenant-a", "", "", "", 1, 10, 3, base)
+	total, firstPage, err := ListCommandJobs([]string{"tenant-a"}, "", "", "", 1, 10, 3, base)
 	if err != nil {
 		t.Fatalf("list first page: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestListCommandJobsPaginatesWithTotal(t *testing.T) {
 		t.Fatalf("first page returned %d rows, want 10", len(firstPage))
 	}
 
-	total, secondPage, err := ListCommandJobs("tenant-a", "", "", "", 2, 10, 3, base)
+	total, secondPage, err := ListCommandJobs([]string{"tenant-a"}, "", "", "", 2, 10, 3, base)
 	if err != nil {
 		t.Fatalf("list second page: %v", err)
 	}
@@ -82,7 +82,7 @@ func TestListCommandJobsPaginatesWithTotal(t *testing.T) {
 	}
 
 	// 尾页只返回剩余行。
-	total, lastPage, err := ListCommandJobs("tenant-a", "", "", "", 3, 10, 3, base)
+	total, lastPage, err := ListCommandJobs([]string{"tenant-a"}, "", "", "", 3, 10, 3, base)
 	if err != nil {
 		t.Fatalf("list last page: %v", err)
 	}
@@ -101,7 +101,7 @@ func TestListCommandJobsAppliesDefaultAndClampsOversize(t *testing.T) {
 	base := seedCommandJobListPagination(t, db, seededJobs)
 
 	// 无参默认：page=0/pageSize=0 应回退第 1 页固定页大小。
-	total, jobs, err := ListCommandJobs("tenant-a", "", "", "", 0, 0, 3, base)
+	total, jobs, err := ListCommandJobs([]string{"tenant-a"}, "", "", "", 0, 0, 3, base)
 	if err != nil {
 		t.Fatalf("list with zero paging params: %v", err)
 	}
@@ -113,7 +113,7 @@ func TestListCommandJobsAppliesDefaultAndClampsOversize(t *testing.T) {
 	}
 
 	// 越界收敛：超大 page_size 必须截断到上限；负数页码回退第 1 页。
-	total, jobs, err = ListCommandJobs("tenant-a", "", "", "", -4, 10000, 3, base)
+	total, jobs, err = ListCommandJobs([]string{"tenant-a"}, "", "", "", -4, 10000, 3, base)
 	if err != nil {
 		t.Fatalf("list with negative page and oversize page_size: %v", err)
 	}
@@ -122,7 +122,7 @@ func TestListCommandJobsAppliesDefaultAndClampsOversize(t *testing.T) {
 	}
 
 	// 租户隔离不受分页参数影响。
-	total, _, err = ListCommandJobs("tenant-b", "", "", "", 1, 10, 3, base)
+	total, _, err = ListCommandJobs([]string{"tenant-b"}, "", "", "", 1, 10, 3, base)
 	if err != nil {
 		t.Fatalf("list other tenant: %v", err)
 	}

@@ -74,15 +74,19 @@ func commandJobListAttentionMetricsFromRow(row commandJobAttentionMetricsRow) Co
 	}
 }
 
-func GetCommandJobListAttentionMetrics(jobIDs []string, tenantID string, maxAttempts int, now time.Time) (map[string]CommandJobListAttentionMetrics, error) {
+// GetCommandJobListAttentionMetrics 按作用域聚合列表页各任务的 attention 指标（ROADMAP C2 自上而下读）。
+// scopes 语义：空→fail-closed 空结果、1→tenant_id =（与旧单租户等价）、>1→tenant_id IN；
+// 明细行 tenant 与其所属任务一致（提交路径写入操作员租户），作用域外任务自然无指标。
+// tenant-scope: scopes 由 service 层展开并校验（与 ListCommandJobs 同一映射）。
+func GetCommandJobListAttentionMetrics(jobIDs []string, scopes []string, maxAttempts int, now time.Time) (map[string]CommandJobListAttentionMetrics, error) {
 	result := map[string]CommandJobListAttentionMetrics{}
-	if len(jobIDs) == 0 {
+	if len(jobIDs) == 0 || len(scopes) == 0 {
 		return result, nil
 	}
 	var rows []commandJobAttentionMetricsRow
 	err := global.DB.Model(&model.CommandJobDetail{}).
 		Select(commandJobAttentionMetricsSelect(true), commandJobAttentionMetricsArgs(maxAttempts, now)...).
-		Where("tenant_id = ? AND command_job_id IN ?", tenantID, jobIDs).
+		Where("tenant_id IN ? AND command_job_id IN ?", scopes, jobIDs).
 		Group("command_job_id").
 		Scan(&rows).Error
 	if err != nil {
@@ -94,12 +98,18 @@ func GetCommandJobListAttentionMetrics(jobIDs []string, tenantID string, maxAtte
 	return result, nil
 }
 
-func GetCommandJobListAttentionSummary(tenantID, status, search, attentionFilter string, maxAttempts int, now time.Time) (CommandJobListAttentionMetrics, error) {
+// GetCommandJobListAttentionSummary 按作用域聚合列表页整体 attention 指标（ROADMAP C2 自上而下读）。
+// scopes 语义与 GetCommandJobListAttentionMetrics 一致；命中任务子查询复用 commandJobListBaseQuery。
+// tenant-scope: scopes 由 service 层展开并校验（与 ListCommandJobs 同一映射）。
+func GetCommandJobListAttentionSummary(scopes []string, status, search, attentionFilter string, maxAttempts int, now time.Time) (CommandJobListAttentionMetrics, error) {
+	if len(scopes) == 0 {
+		return CommandJobListAttentionMetrics{}, nil
+	}
 	var item commandJobAttentionMetricsRow
-	matchingJobs := commandJobListBaseQuery(tenantID, status, search, attentionFilter, maxAttempts, now).Select("id")
+	matchingJobs := commandJobListBaseQuery(scopes, status, search, attentionFilter, maxAttempts, now).Select("id")
 	err := global.DB.Model(&model.CommandJobDetail{}).
 		Select(commandJobAttentionMetricsSelect(false), commandJobAttentionMetricsArgs(maxAttempts, now)...).
-		Where("tenant_id = ? AND command_job_id IN (?)", tenantID, matchingJobs).
+		Where("tenant_id IN ? AND command_job_id IN (?)", scopes, matchingJobs).
 		Scan(&item).Error
 	if err != nil {
 		return CommandJobListAttentionMetrics{}, err

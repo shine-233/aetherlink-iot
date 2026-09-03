@@ -94,12 +94,19 @@ func clampCommandJobListPage(page, pageSize int) (int, int) {
 	return page, pageSize
 }
 
-// tenant-scope: caller-enforced?2026-08-26 ?????
-func ListCommandJobs(tenantID, status, search, attentionFilter string, page, pageSize int, maxAttempts int, now time.Time) (int64, []*model.CommandJob, error) {
+// ListCommandJobs 分页返回作用域内的命令任务（ROADMAP C2 自上而下读）。
+// scopes 语义：0→fail-closed 空结果、1→tenant_id =（与旧单租户等价）、>1→tenant_id IN。
+// 设备筛选预览/提交路径仍锚定操作员本租户（C2 仅放列表读，不扩大向子树设备下发命令的写路径）。
+// tenant-scope: scopes 由 service 层展开并校验（TENANT_ADMIN/SYS_ADMIN self∪子孙；
+// TENANT_USER 保持 self-only；空租户由 service 映射为 [""]，提交路径本就拒绝空租户）。
+func ListCommandJobs(scopes []string, status, search, attentionFilter string, page, pageSize int, maxAttempts int, now time.Time) (int64, []*model.CommandJob, error) {
+	if len(scopes) == 0 {
+		return 0, nil, nil
+	}
 	page, pageSize = clampCommandJobListPage(page, pageSize)
 	var total int64
 	var jobs []*model.CommandJob
-	query := commandJobListBaseQuery(tenantID, status, search, attentionFilter, maxAttempts, now)
+	query := commandJobListBaseQuery(scopes, status, search, attentionFilter, maxAttempts, now)
 	if err := query.Count(&total).Error; err != nil {
 		return 0, nil, err
 	}
@@ -111,8 +118,14 @@ func ListCommandJobs(tenantID, status, search, attentionFilter string, page, pag
 	return total, jobs, err
 }
 
-func commandJobListBaseQuery(tenantID, status, search, attentionFilter string, maxAttempts int, now time.Time) *gorm.DB {
-	query := global.DB.Model(&model.CommandJob{}).Where("tenant_id = ?", tenantID)
+func commandJobListBaseQuery(scopes []string, status, search, attentionFilter string, maxAttempts int, now time.Time) *gorm.DB {
+	query := global.DB.Model(&model.CommandJob{})
+	switch len(scopes) {
+	case 1:
+		query = query.Where("tenant_id = ?", scopes[0])
+	default:
+		query = query.Where("tenant_id IN ?", scopes)
+	}
 	if status != "" {
 		query = query.Where("status = ?", status)
 	}
