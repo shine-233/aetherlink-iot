@@ -21,6 +21,18 @@ func GetUserTOTP(userID string) (*model.UserTOTP, error) {
 	return &row, nil
 }
 
+// SaveUserTOTPPending 绑定准备（enabled=false）：持久化 Setup 下发的 secret 密文，
+// 供 Activate 用同一 secret 校验动态码后再置启用（修复运行期发现：Activate 另生成随机
+// secret 会导致 Setup 提供的验证码必然校验失败）。
+func SaveUserTOTPPending(userID, cipher string) error {
+	return global.DB.Exec(
+		`INSERT INTO user_totp (user_id, secret_cipher, enabled, last_used_step, updated_at)
+		 VALUES (?, ?, FALSE, 0, ?)
+		 ON CONFLICT(user_id) DO UPDATE SET secret_cipher = EXCLUDED.secret_cipher,
+		   enabled = FALSE, last_used_step = 0, updated_at = EXCLUDED.updated_at`,
+		userID, cipher, time.Now().UTC()).Error
+}
+
 // SaveUserTOTPSecret 首次绑定：写入密文并启用；已存在则覆盖密文并保持启用。
 func SaveUserTOTPSecret(userID, cipher string) error {
 	return global.DB.Exec(

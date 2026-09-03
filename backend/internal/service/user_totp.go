@@ -1,7 +1,8 @@
 // 文件用途：2FA（ROADMAP C7）服务层——TOTP 绑定/解绑/登录第二因子/恢复码。
 // 核心链路：登录密码正确且用户已启用 2FA 时签发短期挑战 ticket；第二因子端点
-//   校验 TOTP（含 30s 步内防重放）或一次性恢复码（用后即废），通过后走既有 UserLoginAfter
-//   签发正式会话。secret 以 AES-GCM 密文落库，密钥由 jwt.key 派生（未配置则拒绝启用）。
+//
+//	校验 TOTP（含 30s 步内防重放）或一次性恢复码（用后即废），通过后走既有 UserLoginAfter
+//	签发正式会话。secret 以 AES-GCM 密文落库，密钥由 jwt.key 派生（未配置则拒绝启用）。
 package service
 
 import (
@@ -21,8 +22,8 @@ import (
 	"aetherlink-iot/backend/internal/totp"
 	"aetherlink-iot/backend/pkg/errcode"
 
-	"github.com/golang-jwt/jwt/v4"
 	"github.com/go-basic/uuid"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/spf13/viper"
 	"gorm.io/gorm"
 )
@@ -32,11 +33,11 @@ type UserTotp struct{}
 
 // TOTPSetupRsp 绑定准备响应（明文 secret 只出现这一次）。
 type TOTPSetupRsp struct {
-	Secret   string `json:"secret"`
-	URI      string `json:"uri"`
-	Account  string `json:"account"`
-	Issuer   string `json:"issuer"`
-	Enabled  bool   `json:"enabled"`
+	Secret  string `json:"secret"`
+	URI     string `json:"uri"`
+	Account string `json:"account"`
+	Issuer  string `json:"issuer"`
+	Enabled bool   `json:"enabled"`
 }
 
 // RecoveryCodesRsp 激活后一次性返回恢复码明文。
@@ -148,6 +149,15 @@ func (*UserTotp) Setup(claimsUserID, email string) (*TOTPSetupRsp, error) {
 	if err != nil {
 		return nil, errcode.New(errcode.CodeSystemError)
 	}
+	// 运行期修复（2026-09-03 隔离栈回归）：persist 一份 enabled=false 的 pending 密文，
+	// Activate 用同一 secret 校验（此前 Activate 另生成随机 secret，Setup 验证码必然失败）。
+	cipherText, err := aesGCMEncrypt(secret)
+	if err != nil {
+		return nil, errcode.NewWithMessage(errcode.CodeSystemError, "2FA key not configured")
+	}
+	if err := dal.SaveUserTOTPPending(claimsUserID, cipherText); err != nil {
+		return nil, errcode.New(errcode.CodeDBError)
+	}
 	issuer := "AetherLink"
 	return &TOTPSetupRsp{
 		Secret:  secret,
@@ -160,19 +170,25 @@ func (*UserTotp) Setup(claimsUserID, email string) (*TOTPSetupRsp, error) {
 
 // Activate 校验验证码后落库密文并发放一次性恢复码。
 func (*UserTotp) Activate(claimsUserID, email, code string) (*RecoveryCodesRsp, error) {
-	secret, err := totp.GenerateSecret(20)
+	// 使用 Setup 阶段持久化的 pending secret 校验（若从未 Setup 则拒绝）。
+	row, err := dal.GetUserTOTP(claimsUserID)
 	if err != nil {
-		return nil, errcode.New(errcode.CodeSystemError)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errcode.NewWithMessage(errcode.CodeParamError, "请先执行绑定准备(Setup)")
+		}
+		return nil, errcode.New(errcode.CodeDBError)
 	}
-	// 激活前先在内存里验证一遍，避免把无效码落库。
+	if row.Enabled {
+		return nil, errcode.New(errcode.CodeTotpAlreadyEnabled)
+	}
+	secret, err := aesGCMDecrypt(row.SecretCipher)
+	if err != nil {
+		return nil, errcode.New(errcode.CodeTotpInvalid)
+	}
 	if !totp.Validate(strings.TrimSpace(code), secret, 1, time.Now().UTC()) {
 		return nil, errcode.New(errcode.CodeTotpInvalid)
 	}
-	cipherText, err := aesGCMEncrypt(secret)
-	if err != nil {
-		return nil, errcode.NewWithMessage(errcode.CodeSystemError, "2FA key not configured")
-	}
-	if err := dal.SaveUserTOTPSecret(claimsUserID, cipherText); err != nil {
+	if err := dal.SaveUserTOTPSecret(claimsUserID, row.SecretCipher); err != nil {
 		return nil, errcode.New(errcode.CodeDBError)
 	}
 	codes := generateRecoveryCodes(totpRecoveryCodeCount)

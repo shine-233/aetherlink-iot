@@ -218,6 +218,8 @@ func ssoCallbackURL(providerID string) string {
 }
 
 // HandleSSO 路由处理器：区分 start / callback，动态装配 provider 中间件。
+// 修复（2026-09-03 隔离栈回归）：start/callback 前缀需带 v1 组前缀（/api/v1），
+// 否则 middleware 前缀永不匹配而落入默认分支；此处用真实请求路径覆盖两个匹配前缀。
 // GET /sso/:id/start | /sso/:id/callback
 func (*OidcSso) HandleSSO(c *gin.Context) {
 	id := c.Param("id")
@@ -227,6 +229,14 @@ func (*OidcSso) HandleSSO(c *gin.Context) {
 		return
 	}
 	mw := GroupApp.OidcSso.ssoMiddlewareFor(provider)
+	reqPath := c.Request.URL.Path
+	if strings.HasSuffix(reqPath, "/start") {
+		mw.StartPath = reqPath
+		mw.CallbackPath = reqPath + "?not-a-callback" // 保证 callback 分支不误匹配
+	} else {
+		mw.CallbackPath = reqPath
+		mw.StartPath = reqPath + "?not-a-start"
+	}
 	mw.Handle(c)
 	if c.Writer.Written() {
 		c.Abort()
