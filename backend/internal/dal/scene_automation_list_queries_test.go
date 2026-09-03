@@ -49,7 +49,7 @@ func TestGetSceneAutomationByPageMergesDeviceAndConfigMatches(t *testing.T) {
 	count, list, err := GetSceneAutomationByPage(&model.GetSceneAutomationByPageReq{
 		DeviceId: &deviceID,
 		PageReq:  model.PageReq{Page: 1, PageSize: 20},
-	}, "tenant-a")
+	}, []string{"tenant-a"})
 	if err != nil {
 		t.Fatalf("GetSceneAutomationByPage(): %v", err)
 	}
@@ -67,7 +67,7 @@ func TestGetSceneAutomationByPageMergesDeviceAndConfigMatches(t *testing.T) {
 func TestGetSceneAutomationByPageKeepsNoMatchNilList(t *testing.T) {
 	setupSceneAutomationListTestDB(t)
 	missingDevice := "missing-device"
-	count, list, err := GetSceneAutomationByPage(&model.GetSceneAutomationByPageReq{DeviceId: &missingDevice}, "tenant-a")
+	count, list, err := GetSceneAutomationByPage(&model.GetSceneAutomationByPageReq{DeviceId: &missingDevice}, []string{"tenant-a"})
 	if err != nil || count != 0 || list != nil {
 		t.Fatalf("no-match result = (%d, %#v, %v), want (0, nil, nil)", count, list, err)
 	}
