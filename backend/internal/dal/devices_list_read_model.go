@@ -33,7 +33,8 @@ func GetDeviceListByPage(req *model.GetDeviceListByPageReq, tenantID string) (in
 }
 
 // GetDeviceListByPageForScopes 层级作用域变体（ROADMAP C2）：tenant_id IN (scopes)。
-// scopes=self∪祖先；scopes 为空且非 AllTenants 时维持空结果守卫语义。
+// 方向由 service 层 resolveDeviceListScopes/expandTenantIDScope 决定（自上而下 self∪子孙）；
+// scopes 为空且非 AllTenants 时维持空结果守卫语义。
 // tenant-scope: caller-enforced (scopes 由 service 层展开并校验)。
 func GetDeviceListByPageForScopes(req *model.GetDeviceListByPageReq, scopes []string) (int64, []model.GetDeviceListByPageRsp, error) {
 	return newDeviceListPageReadModelScoped(req, scopes).execute()
