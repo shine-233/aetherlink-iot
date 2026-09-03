@@ -190,7 +190,7 @@ func RouterInit() *gin.Engine {
 			v1.GET("verification/code", controllers.HandleVerificationCode)
 			v1.POST("reset/password/link", controllers.RequestPasswordResetLink)
 			v1.POST("reset/password", controllers.ResetPassword)
-			v1.GET("logo", controllers.HandleLogoList)
+			v1.GET("logo", middleware.OptionalJWTAuth(), controllers.HandleLogoList)
 			// 设备遥测（ws）
 			v1.GET("telemetry/datas/current/ws", controllers.TelemetryDataApi.ServeCurrentDataByWS)
 			// 设备在线离线状态（ws） - 兼容旧实现

@@ -22,6 +22,7 @@ type Logo struct {
 	ThemeColor     string  `gorm:"column:theme_color;default:'';comment:租户级主题色" json:"theme_color"`        // 主题色（C5 白标）
 	Favicon        string  `gorm:"column:favicon;default:'';comment:页签favicon" json:"favicon"`             // 页签favicon（C5 白标）
 	Remark         *string `gorm:"column:remark" json:"remark"`
+	TenantID       string  `gorm:"column:tenant_id;not null;default:'';comment:租户ID" json:"tenant_id"` // 租户ID（C5 白标：每租户一套品牌）
 }
 
 // TableName Logo's table name

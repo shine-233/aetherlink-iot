@@ -39,6 +39,7 @@ func newLogo(db *gorm.DB, opts ...gen.DOOption) logo {
 	_logo.LogoLoading = field.NewString(tableName, "logo_loading")
 	_logo.HomeBackground = field.NewString(tableName, "home_background")
 	_logo.Remark = field.NewString(tableName, "remark")
+	_logo.TenantID = field.NewString(tableName, "tenant_id")
 
 	_logo.fillFieldMap()
 
@@ -56,6 +57,7 @@ type logo struct {
 	LogoLoading    field.String // 加载页面Logo
 	HomeBackground field.String // 首页背景
 	Remark         field.String
+	TenantID       field.String // 租户ID
 
 	fieldMap map[string]field.Expr
 }
@@ -79,6 +81,7 @@ func (l *logo) updateTableName(table string) *logo {
 	l.LogoLoading = field.NewString(table, "logo_loading")
 	l.HomeBackground = field.NewString(table, "home_background")
 	l.Remark = field.NewString(table, "remark")
+	l.TenantID = field.NewString(table, "tenant_id")
 
 	l.fillFieldMap()
 
@@ -95,7 +98,7 @@ func (l *logo) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (l *logo) fillFieldMap() {
-	l.fieldMap = make(map[string]field.Expr, 7)
+	l.fieldMap = make(map[string]field.Expr, 8)
 	l.fieldMap["id"] = l.ID
 	l.fieldMap["system_name"] = l.SystemName
 	l.fieldMap["logo_cache"] = l.LogoCache
@@ -103,6 +106,7 @@ func (l *logo) fillFieldMap() {
 	l.fieldMap["logo_loading"] = l.LogoLoading
 	l.fieldMap["home_background"] = l.HomeBackground
 	l.fieldMap["remark"] = l.Remark
+	l.fieldMap["tenant_id"] = l.TenantID
 }
 
 func (l logo) clone(db *gorm.DB) logo {
