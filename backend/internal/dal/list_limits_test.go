@@ -100,7 +100,7 @@ func TestListEmailTemplatesCapsUnpagedAndOversizedQueries(t *testing.T) {
 	}
 
 	// 未分页调用同样必须封顶，避免一次性拉取全表。
-	total, list, err := ListEmailTemplates("tenant-a", 0, 0)
+	total, list, err := ListEmailTemplates([]string{"tenant-a"}, 0, 0)
 	if err != nil {
 		t.Fatalf("unpaged list email templates: %v", err)
 	}
@@ -111,7 +111,7 @@ func TestListEmailTemplatesCapsUnpagedAndOversizedQueries(t *testing.T) {
 		t.Fatalf("unpaged list returned %d rows, want capped at %d", len(list), maxEmailTemplateListLimit)
 	}
 
-	_, list, err = ListEmailTemplates("tenant-a", 1, 5000)
+	_, list, err = ListEmailTemplates([]string{"tenant-a"}, 1, 5000)
 	if err != nil {
 		t.Fatalf("oversized page size list email templates: %v", err)
 	}
@@ -119,7 +119,7 @@ func TestListEmailTemplatesCapsUnpagedAndOversizedQueries(t *testing.T) {
 		t.Fatalf("oversized page size returned %d rows, want capped at %d", len(list), maxEmailTemplateListLimit)
 	}
 
-	total, list, err = ListEmailTemplates("tenant-a", 2, 300)
+	total, list, err = ListEmailTemplates([]string{"tenant-a"}, 2, 300)
 	if err != nil {
 		t.Fatalf("second page list email templates: %v", err)
 	}

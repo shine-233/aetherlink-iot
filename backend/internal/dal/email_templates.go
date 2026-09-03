@@ -17,10 +17,21 @@ import (
 // maxEmailTemplateListLimit 邮件模板列表单次返回的行数上限，防止无界查询。
 const maxEmailTemplateListLimit = 500
 
-func ListEmailTemplates(tenantID string, page, pageSize int) (int64, []*model.EmailTemplate, error) {
+// ListEmailTemplates 分页返回作用域内的告警邮件模板（ROADMAP C2 自上而下读）。
+// scopes 语义：0→fail-closed 空结果、1→tenant_id =（与旧单租户等价）、>1→tenant_id IN。
+// tenant-scope: scopes 由 service 层展开并校验（TENANT_ADMIN self∪子孙；平台默认模板由
+// SYS_ADMIN 以 [""] 作用域管理）。
+func ListEmailTemplates(scopes []string, page, pageSize int) (int64, []*model.EmailTemplate, error) {
 	query := global.DB.WithContext(context.Background()).
-		Model(&model.EmailTemplate{}).
-		Where("tenant_id = ? AND purpose = ?", tenantID, model.EmailTemplatePurposeAlarm)
+		Model(&model.EmailTemplate{})
+	switch len(scopes) {
+	case 0:
+		return 0, []*model.EmailTemplate{}, nil
+	case 1:
+		query = query.Where("tenant_id = ? AND purpose = ?", scopes[0], model.EmailTemplatePurposeAlarm)
+	default:
+		query = query.Where("tenant_id IN ? AND purpose = ?", scopes, model.EmailTemplatePurposeAlarm)
+	}
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
 		return 0, nil, err
