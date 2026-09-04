@@ -61,11 +61,13 @@ func PasswordToKey(protocol AuthProtocol, password string, engineID []byte) ([]b
 	case AuthHMACMD5:
 		// lgtm [go/weak-sensitive-data-hashing] -- RFC 3414 requires MD5 for legacy USM interoperability.
 		m := md5.New()
+		// lgtm [go/weak-sensitive-data-hashing] -- RFC 3414 Ku derivation is protocol-mandated.
 		m.Write(material)
 		return m.Sum(nil), nil
 	case AuthHMACSHA:
 		// lgtm [go/weak-sensitive-data-hashing] -- RFC 3414 requires SHA-1 for legacy USM interoperability.
 		s := sha1.New()
+		// lgtm [go/weak-sensitive-data-hashing] -- RFC 3414 Ku derivation is protocol-mandated.
 		s.Write(material)
 		return s.Sum(nil), nil
 	default:
