@@ -67,6 +67,12 @@ vi.mock('@/service/api/setting', () => ({
   getFunction: () => mockGetFunction()
 }))
 
+// 登录页挂载时会拉取 SSO 提供方列表；不 mock 则请求层在测试环境 reject，
+// 组件虽有降级 catch，仍以确定性 mock 保证用例可复现（空列表 = 无 SSO 入口）。
+vi.mock('@/service/api/auth', () => ({
+  fetchSsoProviders: vi.fn().mockResolvedValue({ data: [], error: null })
+}))
+
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ locale: { value: 'zh-CN' } }),
   createI18n: () => ({ global: { t: (key: string) => key, locale: { value: 'zh-CN' } } })

@@ -102,8 +102,14 @@ const emailOptions = computed(() => {
 const totpCode = ref('')
 const ssoProviders = ref<Array<{ id: string; name: string }>>([])
 async function loadSsoProviders() {
-  const { data } = await fetchSsoProviders()
-  ssoProviders.value = data ?? []
+  // SSO 提供方获取失败（后端旧版本无该端点/网络异常）时降级为无 SSO 入口，
+  // 不阻断密码登录主链路——拒绝若逃逸会成为 unhandled rejection 并污染测试与监控。
+  try {
+    const { data } = await fetchSsoProviders()
+    ssoProviders.value = data ?? []
+  } catch {
+    ssoProviders.value = []
+  }
 }
 
 async function handleTotpSubmit() {
