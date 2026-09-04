@@ -1,7 +1,9 @@
 // 文件用途：LwM2M 1.0 注册层（ROADMAP C6）——基于同仓 internal/coap 的 CoAP 实现。
 // 核心逻辑：实现 OMA LwM2M 注册接口核心：POST /rd?ep=<endpoint>&lt=<life>&b=<binding>，
-//   返回 2.01 Created 并登记客户端（endpoint name 唯一）；DELETE /rd/{id} 注销；
-//   提供按 lifetime 的过期清理与在线查询。
+//
+//	返回 2.01 Created 并登记客户端（endpoint name 唯一）；DELETE /rd/{id} 注销；
+//	提供按 lifetime 的过期清理与在线查询。
+//
 // 关键注意事项：
 //   - 本层为注册簿 + 生命周期语义，不解析 DTLS/队列模式/对象模型；对象实例（/19/0 等）与
 //     observe 订阅在后续迭代接入 coap.Registry（Uri-Path 已支持多段）；
@@ -77,6 +79,25 @@ func (r *Registry) HandleRegister() coap.Handler {
 		default:
 			return coap.CodeMethodNotAllowed, nil, textPlain, nil
 		}
+	}
+}
+
+// HandleRegisterWithNotify 在 HandleRegister 基础上追加注册成功回调（新建或刷新均通知）。
+// 回调仅通报端点名，不参与注册决策；onRegister 为 nil 时行为与 HandleRegister 完全一致。
+// 用途：上层把 LwM2M 端点名与平台设备做凭证映射（WORKPLAN P1-C）。
+func (r *Registry) HandleRegisterWithNotify(onRegister func(endpoint string)) coap.Handler {
+	inner := r.HandleRegister()
+	if onRegister == nil {
+		return inner
+	}
+	return func(req *coap.Message) (coap.Code, []byte, int, error) {
+		code, body, obs, err := inner(req)
+		if err == nil && (code == coap.CodeCreated || code == coap.CodeChanged) {
+			if ep, _, _, perr := parseRegisterParams(req); perr == nil && ep != "" {
+				onRegister(ep)
+			}
+		}
+		return code, body, obs, err
 	}
 }
 

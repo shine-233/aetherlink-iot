@@ -1,7 +1,9 @@
 // 文件用途：LwM2M 对象实例模型（ROADMAP C6 续）——设备资源树 /{对象}/{实例}/{资源}。
 // 核心逻辑：ObjectStore 以 objID→instID→resID 存资源值（int/string/bytes），提供
-//   Get/Set/Delete/Clear，并把多段 Uri-Path 映射到 LwM2M 语义；经 coap.Registry 前缀通配
-//   挂载形如 "/19*"（二进制 App 数据容器 19/0）等对象读取/写入。
+//
+//	Get/Set/Delete/Clear，并把多段 Uri-Path 映射到 LwM2M 语义；经 coap.Registry 前缀通配
+//	挂载形如 "/19*"（二进制 App 数据容器 19/0）等对象读取/写入。
+//
 // 关键注意事项：
 //   - 路径段必须为正整数，非数字或资源缺失返回 4.04/4.05；长度与值类型做边界钳制；
 //   - 多客户端隔离：一个 ObjectStore 对应一个已注册客户端（由上层按 ClientID 分发）。
@@ -21,12 +23,19 @@ const maxResourceValueSize = 64 * 1024
 // ObjectStore 单客户端的对象实例存储（objID→instID→resID→value）。
 type ObjectStore struct {
 	values   map[uint16]map[uint16]map[uint16]string
-	revision uint64 // 单调变更号：每次写/删 +1，供 observe/上报增量推送
+	revision uint64                                    // 单调变更号：每次写/删 +1，供 observe/上报增量推送
+	onChange func(obj, inst, res uint16, value string) // 资源写入回调（nil 安全；上层遥测汇入挂钩点）
 }
 
 // NewObjectStore 新建对象存储。
 func NewObjectStore() *ObjectStore {
 	return &ObjectStore{values: map[uint16]map[uint16]map[uint16]string{}}
+}
+
+// SetOnChange 注册资源写入回调：每次成功 Set 触发一次（nil 表示清除）。
+// 约定：回调只做移交（入队/计数），重活由持有方异步处理，不得阻塞 CoAP 写路径。
+func (s *ObjectStore) SetOnChange(fn func(obj, inst, res uint16, value string)) {
+	s.onChange = fn
 }
 
 // Revision 返回当前变更号（0 = 尚无写入）。
@@ -45,6 +54,9 @@ func (s *ObjectStore) Set(obj, inst, res uint16, value string) error {
 	}
 	s.values[obj][inst][res] = value
 	s.revision++
+	if s.onChange != nil {
+		s.onChange(obj, inst, res, value)
+	}
 	return nil
 }
 

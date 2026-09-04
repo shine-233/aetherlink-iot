@@ -36,7 +36,7 @@
 | 设备影子 | ✓ | ✓ | ✓ | Phase A3 已交付：离线命令缓存+上线投递 |
 | CSV 批量导入设备 | ✓ | ✓ | ✓ | 后端建档/导出与前端导入向导均已落地（自动生成/CSV 双模式、一次性凭证、脱敏导出）；产品选择列表 `/product` 同步补齐 |
 | 资产管理层级 | ◐ | ✓ | ✗ | C2：60.sql + CRUD/树 API 已入；RBAC/DAL 级联待接 |
-| CoAP / LwM2M / SNMP | ◐ | ✓ | ✗ | C6：CoAP/LwM2M UDP 网关接线（配置门控）；SNMP/OPC UA 库级，待管理侧接入 |
+| CoAP / LwM2M / SNMP | ◐ | ✓ | ✗ | C6 闭环：UDP 网关 + 端点凭证映射 + 遥测汇入 uplink（P1-C，2026-09-04）；SNMP/OPC UA 库级，待管理侧接入 |
 | OPC UA | ◐ | ✗ | ✓ | 库级 client（gopcua）已入；连接器/点位接入待立项 |
 | 移动端 App | ✗ | ✗ | ✓ | 远期评估 |
 | AI / LLM 集成 | ✓ | ✗ | ✓ | C4 已落地 NL 查询遥测；AI 告警分析待做 |
@@ -203,19 +203,19 @@ AetherLink Backend ←──gRPC──→ Modbus TCP Plugin ←──Modbus TCP�
 
 ### C5. 白标定制
 - [x] 租户级 logo/favicon/主题色配置（59.sql + logo API + CSS 变量 + branding 表单，已并入单一主线）
-- [ ] 运行期全流程验证（登录页/主题/favicon 两租户互不串扰）与前端表单回归
+- [x] 运行期全流程验证（登录页/主题/favicon 两租户互不串扰）与前端表单回归 ✓（2026-09-04：c5_validate.py v4 **28/28 × 2 轮**隔离栈实跑、两租户互不串扰；前端 branding-setting vitest **11/11 PASS**）
 
 ### C6. CoAP / LwM2M 协议支持
 - [x] CoAP 服务端（RFC7252 子集：编解码/UDP 服务器/注册表/well-known + blockwise/observe 组件）
 - [x] LwM2M 注册层 + 对象实例模型 + 观察者推送（UDP 服务器配置门控接入 application 生命周期）
-- [ ] 设备凭证映射 + 遥测汇入现有 uplink 管道（网关设备接入闭环，见 WORKPLAN P1-C）
+- [x] 设备凭证映射 + 遥测汇入现有 uplink 管道（网关设备接入闭环，WORKPLAN P1-C）：lwm2m.ObjectStore.OnChange 写入回调 + /rd HandleRegisterWithNotify 注册通知；protocolgw.TelemetryBridge（DBNumberResolver 端点→device_number 凭证映射[60s TTL 缓存/fail-closed]、IPSO 键转换 3303/3304/3323/3325/3330 + lwm2m/{o}/{i}/{r} 回退、队列化汇入不阻塞写路径）→ 与 MQTT 同一 UplinkMessage/uplink.Bus（source_protocol=coap）；app 装配 DB/Bus 未就绪自动降级纯接入层；单测 +14（protocolgw+lwm2m 合计 31 PASS）✓
 
 ### C7. 安全与平台能力补齐（对标 ThingsBoard CE 免费能力，2026-08-25 审查补录）
 - [x] 双因素认证 2FA（61.sql 后端 + 前端：登录两段式动态码页、个人中心绑定/停用/恢复码组件）
 - [x] OAuth2/OIDC 单点登录后端（62.sql：租户 IdP 配置 CRUD、/sso/:id/start|callback、sessionIssuer 绑定本地用户）；登录页 SSO 入口待接
 - [x] 实体版本控制（设备/看板/规则链等实体 JSON 导出 + Git 式备份恢复，对标 TB 3.5+ Version Control）
 - [x] OIDC 登录页 SSO 入口已实现：`GET /api/v1/sso/providers`（平台级启用提供方公开发现）+ 登录页 SSO 按钮（跳 /sso/:id/start）
-- [ ] 真实 IdP E2E（需外部 IdP 沙箱 + 重建栈，环境绑定）
+- [ ] 真实 IdP E2E（需外部 IdP 沙箱 + 重建栈，环境绑定；2026-09-04 复核：执行沙箱无外网路径——代理端口 7890/1089/1891 全部不通、直连 TLS 被拦，维持绑定待用户环境执行）
 
 ---
 
@@ -244,4 +244,5 @@ AetherLink Backend ←──gRPC──→ Modbus TCP Plugin ←──Modbus TCP�
 | 2026-08-25 | B2 | 可视化规则链编辑器：迁移 56.sql（graph 列）、DAG 校验（Kahn 无环）、拓扑执行引擎 + webhook/command 动作、`/rule-chains` CRUD + 上行双钩子、Vue Flow 画布编辑器 + 四语言 i18n、引擎/CRUD 单测 | feat/rule-chain-b2 |
 | 2026-08-26 | fleet | CSV 批量导入设备：`POST/GET /device/preRegister` + `/preRegister/export` 路由补齐（修复前端契约断裂），自动生成/CSV 双模式建档、一次性凭证+脱敏导出、产品租户校验、service 层 sqlite 全链路测试 ×5 | feat/device-preregister-import |
 | 2026-09-02 | C2/C6/C7 实现批 | 三线合入单一主线（full-integ：main 12 项增量 ⊕ c5 白标/实体版本/安全 ⊕ gh/main）；C2 资产 CRUD/树 API（Scope=自身∪祖先+成环拒绝，DAL sqlite 测试）；C7 2FA 后端（61.sql 绑定/激活/解绑/第二因子防重放/恢复码）与 OIDC/SSO 后端（62.sql 提供方 CRUD + /sso/:id/start|callback + sessionIssuer）；C6 CoAP/LwM2M UDP 网关配置门控接入 application；ROADMAP 勾选回填 | full-integ |
+| 2026-09-04 | C6 收尾（P1-C） | 网关设备接入闭环：lwm2m ObjectStore.OnChange 写入回调 + /rd HandleRegisterWithNotify；protocolgw TelemetryBridge（DBNumberResolver 端点→设备凭证映射[TTL 缓存/fail-closed]、IPSO 键转换+路径回退、队列化汇入 uplink.Bus source_protocol=coap）；app 装配（DB/Bus 未就绪降级纯接入）；单测 +14（protocolgw+lwm2m 合计 31 PASS、vet 干净）；同批完成 C5 运行期验证（28/28×2 零回归）与前端 branding vitest 11/11 | c2-tenant-scope-merge |
 | 2026-08-26 | 设计 | 设计系统收敛 L1/L2：字号/圆角 token 落地 global.scss、断点三合一（删 --bp-* 双轨）、uno shortcuts 单源化（preset 导出 aetherlinkShortcuts）、共享 PageHeader 组件收敛 3 页 5 处重复页头、10 个表格页补 NEmpty 空态、linkage-edit 47 处 hex→token 迁移、UI emoji→SvgIcon、裸删除补 Popconfirm、html lang 随语言切换、hex 绊线契约测试（基线 1042→994 只降不升） | feat/device-preregister-import |
