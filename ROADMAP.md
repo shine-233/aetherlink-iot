@@ -220,7 +220,8 @@ AetherLink Backend ←──gRPC──→ Modbus TCP Plugin ←──Modbus TCP�
 ### C7+. RBAC 激活工程（casbin 路由覆盖，2026-09-04 审计评估立项）
 > 现状：启动审计报 286 条受保护路由未登记 casbin 资源表（`casbin.deny-unregistered` 未开 + dev 库无种子 → 运行期跳过角色校验）。严重度评估：JWTAuth 组中间件仍强制认证、DAL 层租户隔离是第二道防线，缺口是**角色级授权**（任意已登录用户可调全部业务 API），非匿名裸奔；但角色间权限边界（管理员 vs 普通用户）当前不存在。
 - [x] 匹配器与 fail-closed 开关（本轮）：configs/casbin.conf matcher 增 `urlPatternMatch` 锚定模式通道（自实现，弃用内置 keyMatch2——其非锚定正则存在 `api/v1/devices` 误命中 `api/v1/devicesXYZ` 的越权放大）；GetUrl 双通道（精确 g2 + 锚定模式）修"参数路由永远无法被保护/识别"的潜伏缺陷；CasbinRBAC 增 `casbin.deny-unregistered` 开关（默认 false 保持现状，true 时未登记 403 fail-closed）；测试 +10（utils 表驱动 12 例/service 模式判定与 Enforce/中间件严格模式 3 例）
-- [ ] RBAC 激活（需产品裁决，非机械活）：①角色×路由矩阵（哪些角色可见哪些 API，286 条逐条归属）；②63.sql 幂等种子（g2 登记全部模式 + p 授权 + 用户-角色 g 绑定——注意 casbin_rule 当前全空，g 表也空，启用即需绑定流程）；③登记流程接 menu/API 管理（或启动期自动登记模式）；④种子后把 `casbin.route-audit-mode` 切回 fail-fast（默认值）堵死新增未登记路由；⑤生产部署前开 `casbin.deny-unregistered: true`
+- [x] RBAC 激活（2026-09-04 用户授权代行裁决——**状态 quo 显式化**：3 内置角色 × 全部受保护路由全量授权，激活不改任何用户有效行为，收紧后续逐行删 p）：①矩阵裁决 = 全量授权；②`63.sql` 幂等种子（g2 登记 287 模式[含方法感知审计补出的 PUT /logo] + p 861 授权 + g 绑定存量 15 用户，ON CONFLICT 幂等）；③新建用户空 RoleIDs 时按 users.authority 兜底绑定 + 绑定后 LoadPolicy 刷新内存（sys_user_manage，adapter 判空防单测 panic）；④`route-audit-mode` 切回 **fail-fast**（实测 287 路由全登记通过）；⑤dev conf 开 `casbin.deny-unregistered: true`。运行期证据：audit passed(287)、登录→已登记路由 200、撤销单路由 p 授权→403 非法访问、C5 28/28 零回归。
+- [ ] 后续收紧（产品迭代期逐次进行）：按角色删除具体 p 授权行即每个收紧决策的 diff；集群多实例部署需补 casbin watcher（内存策略同步），单实例无此需求。
 
 ---
 
