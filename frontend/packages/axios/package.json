@@ -14,7 +14,7 @@
     "@aetherlink/utils": "workspace:*",
     "axios": "1.19.0",
     "axios-retry": "4.5.0",
-    "qs": "6.15.3"
+    "qs": "6.16.0"
   },
   "devDependencies": {
     "@types/qs": "6.15.1"
