@@ -92,6 +92,51 @@ func GetRoleListByPage(data *model.GetRoleListByPageReq, tenantID string) (int64
 }
 
 // 查询用户的角色
+// GetRoleIDsByTenants 返回归属于任一指定租户的角色 ID 列表。
+// 语义（供 C2 RBAC 角色集继承 service.RoleExpander 使用）：
+//   - 空输入（nil/全空白）返回空切片、无错误，调用方无需特判；
+//   - 仅返回 tenant_id 命中入参的角色；系统级角色（tenant_id 为 NULL/空串）一律排除，
+//     避免把平台级角色误当作祖先租户角色继承，造成权限放大；
+//   - 出错时如实上抛（调用方按"扩展失败即跳过、绝不放行"处理，不阻断鉴权主流程）。
+// tenant-scope: caller-enforced（入参即租户白名单，等价于显式 IN 过滤）
+func GetRoleIDsByTenants(tenantIDs []string) ([]string, error) {
+	ids := make([]string, 0, len(tenantIDs))
+	seen := make(map[string]struct{}, len(tenantIDs))
+	for _, id := range tenantIDs {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		if _, dup := seen[id]; dup {
+			continue
+		}
+		seen[id] = struct{}{}
+		ids = append(ids, id)
+	}
+	if len(ids) == 0 {
+		return []string{}, nil
+	}
+
+	var roles []*model.Role
+	if err := query.Role.WithContext(context.Background()).
+		Where(query.Role.TenantID.In(ids...)).
+		Select(query.Role.ID).
+		Scan(&roles); err != nil {
+		logrus.WithError(err).Error("failed to load role ids by tenants")
+		return nil, err
+	}
+
+	roleIDs := make([]string, 0, len(roles))
+	for _, r := range roles {
+		if r == nil || r.ID == "" {
+			continue
+		}
+		roleIDs = append(roleIDs, r.ID)
+	}
+	return roleIDs, nil
+}
+
+// 查询用户的角色
 // tenant-scope: no-tenant-column?2026-08-26 ?????
 func GetRolesByUserId(userId string) ([]string, bool) {
 	if global.CasbinEnforcer == nil {
