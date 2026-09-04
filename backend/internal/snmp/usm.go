@@ -59,10 +59,12 @@ func PasswordToKey(protocol AuthProtocol, password string, engineID []byte) ([]b
 	material := append(append(append([]byte{}, buf...), engineID...), buf...)
 	switch protocol {
 	case AuthHMACMD5:
+		// lgtm [go/weak-sensitive-data-hashing] -- RFC 3414 requires MD5 for legacy USM interoperability.
 		m := md5.New()
 		m.Write(material)
 		return m.Sum(nil), nil
 	case AuthHMACSHA:
+		// lgtm [go/weak-sensitive-data-hashing] -- RFC 3414 requires SHA-1 for legacy USM interoperability.
 		s := sha1.New()
 		s.Write(material)
 		return s.Sum(nil), nil
@@ -81,10 +83,12 @@ func LocalizeKey(protocol AuthProtocol, ku, engineID []byte) []byte {
 		material := append(append(append([]byte{}, prev...), engineID...), ku...)
 		switch protocol {
 		case AuthHMACMD5:
+			// lgtm [go/weak-sensitive-data-hashing] -- RFC 3414 requires MD5 for legacy USM interoperability.
 			m := md5.New()
 			m.Write(material)
 			return m.Sum(nil)
 		default:
+			// lgtm [go/weak-sensitive-data-hashing] -- RFC 3414 requires SHA-1 for legacy USM interoperability.
 			s := sha1.New()
 			s.Write(material)
 			return s.Sum(nil)
