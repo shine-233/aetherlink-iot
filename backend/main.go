@@ -54,6 +54,7 @@ func main() {
 		app.WithTelemetryDeadLetterWorker(),
 		app.WithTelemetry(),
 		app.WithCoAPGateway(), // C6：CoAP/LwM2M 协议网关（protocols.coap.enabled=true 时启动）
+		app.WithCollectors(), // C6：SNMP/OPC UA 轮询采集器（collectors.*.enabled=true 时启动）
 	)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "application initialization failed: %v\n", err)

@@ -179,11 +179,28 @@ classified-protect:
 # Casbin 路由覆盖审计：未登记进资源表的受保护路由在启动期阻断（可改 warn/off 过渡）
 # Per-tenant API rate limiting (429 + Retry-After when exceeded).
 # Default 600 requests/minute/tenant; set <=0 to disable. Env override: GOTP_API_RATE_LIMIT_RPM.
+# backend：memory（默认）| redis（集群共享配额，Redis 故障 fail-open）。
 api-rate-limit:
   requests-per-minute: 600
+  backend: memory
 
 casbin:
   route-audit-mode: fail-fast
+  # RBAC 激活态开关：true 时未登记路由 403 fail-closed（隔离栈 conf-c5.yml 已开启并实证）。
+  deny-unregistered: false
+  # 集群多实例策略同步 watcher（ROADMAP C7+）；单实例保持关闭。
+  watcher:
+    enabled: false
+    channel: ""
+
+# SNMP/OPC UA 轮询采集器（点表见 device_configs.protocol_config，协议类型 SNMP/OPCUA）。
+collectors:
+  snmp:
+    enabled: false
+  opcua:
+    enabled: false
+  interval: 60s
+  timeout: 3s
 
 # 会话设置
 session:

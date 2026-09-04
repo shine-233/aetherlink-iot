@@ -24,29 +24,29 @@
 | Telemetry + WS | ◐ | ✓ | ✓ | 实时推送、聚合统计、死信队列 |
 | 告警系统 | ◐ | ✓ | ✓ | 规则/历史/通知组；多级严重度 |
 | OTA | ◐ | ✓ | ✓ | 整包升级任务与进度跟踪 |
-| 多租户 RBAC | ◐ | ✓ | ✓ | Casbin + 租户隔离 + 空租户 fail-closed |
+| 多租户 RBAC | ✓ | ✓ | ✓ | Casbin + 租户隔离 + 空租户 fail-closed；RBAC 已激活（63.sql 全量授权 quo 显式化） |
 | 自动化场景 | ◐ | ✓ | ✓ | 联动/定时/条件编辑 |
 | 看板 | ◐ | ✓ | ✓ | 原生看板 + 发布分享 |
 | 脚本引擎 | ◐ | ✓ | ✓ | 数据处理脚本 |
 | 通知服务 | ◐ | ✓ | ✓ | 邮件/Webhook 通知组 |
 | 可视化规则链编辑器 | ✓ | ✓ | ◐ | B2 已合入：DAG 引擎+Vue Flow 画布（56.sql graph 列） |
-| API 限流(per-tenant) | ✓ 单机 | ✓ (PE) | ✗ | 默认 600 rpm/租户（env 可调），429+Retry-After；集群 Redis 版待 C 阶段 |
+| API 限流(per-tenant) | ✓ | ✓ (PE) | ✗ | 默认 600 rpm/租户（env 可调），429+Retry-After；backend=memory 单机 / backend=redis 集群共享（2026-09-04 补齐，fail-open 降级） |
 | 3D 可视化/SCADA | ✓ | ✓ | ◐ | C3 已落地：设备详情「3D 预览」tab，遥测驱动材质、WebGL 降级 |
 | Modbus | ✓ | ◐ | ✓ | B1 已合入：独立插件+点表 UI（55.sql + modbus-plugin） |
 | 设备影子 | ✓ | ✓ | ✓ | Phase A3 已交付：离线命令缓存+上线投递 |
 | CSV 批量导入设备 | ✓ | ✓ | ✓ | 后端建档/导出与前端导入向导均已落地（自动生成/CSV 双模式、一次性凭证、脱敏导出）；产品选择列表 `/product` 同步补齐 |
-| 资产管理层级 | ◐ | ✓ | ✗ | C2：60.sql + CRUD/树 API 已入；RBAC/DAL 级联待接 |
-| CoAP / LwM2M / SNMP | ◐ | ✓ | ✗ | C6 闭环：UDP 网关 + 端点凭证映射 + 遥测汇入 uplink（P1-C，2026-09-04）；SNMP/OPC UA 库级，待管理侧接入 |
-| OPC UA | ◐ | ✗ | ✓ | 库级 client（gopcua）已入；连接器/点位接入待立项 |
+| 资产管理层级 | ✓ | ✓ | ✗ | C2：60.sql + CRUD/树 API + RBAC/DAL 级联（expandTenantIDScope 已覆盖 device/alarm/board/ota/rule_chain 等十余模块） |
+| CoAP / LwM2M / SNMP | ✓ | ✓ | ✗ | C6 闭环：CoAP/LwM2M UDP 网关 + 端点凭证映射 + 遥测汇入 uplink（P1-C）；SNMP v2c 采集器接入（2026-09-04，protocol_type=SNMP 点表轮询→uplink） |
+| OPC UA | ✓ | ✗ | ✓ | 库级 client（gopcua）+ 连接器/点位采集接入（2026-09-04，protocol_type=OPCUA，连接 TTL 缓存/懒重连）；真实 opc.tcp 服务器 E2E 环境绑定待接 |
 | 移动端 App | ✗ | ✗ | ✓ | 远期评估 |
-| AI / LLM 集成 | ✓ | ✗ | ✓ | C4 已落地 NL 查询遥测；AI 告警分析待做 |
+| AI / LLM 集成 | ✓ | ✗ | ✓ | C4：NL 查询遥测 + AI 告警分析（service 单测 4/4）均落地 |
 | 计算字段 | ✓ | ✓ | ✗ | B3 已合入：govaluate 安全表达式派生遥测（54.sql） |
 | TimescaleDB / TDengine | ◐ | ✓ | ✓ | C1 部分落地：57.sql 条件化 hypertable + 7 天压缩（检测扩展自动启用） |
-| 白标定制 | ◐ | ✓ (PE) | ✗ | C5：主题色/favicon 已入主线（59.sql）；运行期验证待做 |
+| 白标定制 | ✓ | ✓ (PE) | ✗ | C5：主题色/favicon 已入主线（59.sql）；运行期验证完成（28/28×2 轮 + 前端 branding 11/11） |
 | 行业模板 | ✗ | ✓ (PE) | ✗ | 远期 |
 | 边缘计算 | ✗ | ✓ (PE) | ✗ | 远期 |
 
-结论：核心设备管理链路已接近主流水平。Modbus（B1）、规则链可视化（B2）、计算字段（B3）、CSV 批量导入（fleet）已合入；剩余差距收敛为「时序存储后端（C1 TimescaleDB）、资产层级（C2）、CoAP/LwM2M（C6）、白标（C5）」四项远期线。
+结论：核心设备管理链路已接近主流水平。Modbus（B1）、规则链可视化（B2）、计算字段（B3）、CSV 批量导入（fleet）、资产层级（C2）、CoAP/LwM2M/SNMP/OPC UA 接入（C6，SNMP/OPC UA 采集器 2026-09-04 补齐）、白标（C5）均已合入；剩余差距收敛为「TimescaleDB 运行期三态验证（C1，on 态环境绑定）、C7 真实 IdP E2E（环境绑定）、RBAC 按角色收紧（产品迭代期）、行业模板/边缘计算/移动端（远期）」。
 
 ---
 
@@ -206,6 +206,8 @@ AetherLink Backend ←──gRPC──→ Modbus TCP Plugin ←──Modbus TCP�
 - [x] 运行期全流程验证（登录页/主题/favicon 两租户互不串扰）与前端表单回归 ✓（2026-09-04：c5_validate.py v4 **28/28 × 2 轮**隔离栈实跑、两租户互不串扰；前端 branding-setting vitest **11/11 PASS**）
 
 ### C6. CoAP / LwM2M 协议支持
+- [x] SNMP 采集接入（管理侧，2026-09-04）：`internal/collector` 轮询采集器——devices⨝device_configs（protocol_type='SNMP'）发现启用设备，protocol_config 点表（target/community/points[{key,oid}]）一次 Get 批量采集，INTEGER/Counter/TimeTicks→数值、OCTET STRING→文本，汇入 uplink（source_protocol=snmp）；发现缓存 TTL 60s、fail-closed 计数；内嵌 UDP SNMP agent 全链路单测 + miniredis 无关；conf 键 `collectors.snmp.enabled` ✓
+- [x] OPC UA 连接器接入（管理侧，2026-09-04）：同上骨架，protocol_type='OPCUA' + opcua.Config 连接段（复用 Validate/Normalize），按设备连接 TTL 缓存（5min）+ 读失败懒重连，节点值→遥测键；`collectors.opcua.enabled` 门控；真实 opc.tcp 服务器读写 E2E 环境绑定待接 ✓
 - [x] CoAP 服务端（RFC7252 子集：编解码/UDP 服务器/注册表/well-known + blockwise/observe 组件）
 - [x] LwM2M 注册层 + 对象实例模型 + 观察者推送（UDP 服务器配置门控接入 application 生命周期）
 - [x] 设备凭证映射 + 遥测汇入现有 uplink 管道（网关设备接入闭环，WORKPLAN P1-C）：lwm2m.ObjectStore.OnChange 写入回调 + /rd HandleRegisterWithNotify 注册通知；protocolgw.TelemetryBridge（DBNumberResolver 端点→device_number 凭证映射[60s TTL 缓存/fail-closed]、IPSO 键转换 3303/3304/3323/3325/3330 + lwm2m/{o}/{i}/{r} 回退、队列化汇入不阻塞写路径）→ 与 MQTT 同一 UplinkMessage/uplink.Bus（source_protocol=coap）；app 装配 DB/Bus 未就绪自动降级纯接入层（注：uplink.enable=false 时 WithFlowService 早退不建 uplinkService，网关仅纯接入——生产启用遥测汇入须同时开 uplink）；单测 +14（protocolgw+lwm2m 合计 31 PASS）；**运行期 E2E（2026-09-04，隔离栈真实 UDP）：外部客户端注册 2.01 / 写资源 2.04 / 读回 2.05 三步全过，遥测经凭证映射汇入 uplink 管道并按租户落库 telemetry_datas（temperature=26.5，tenant_id 正确），测后种子已回滚**；已知限制：coap 子集 codec 的 option 值仅支持内联 ≤12 字节（扩展编码 13/14 拒绝），超长端点名（如 urn:imei:xxx）需先行 codec 升级 ✓
@@ -221,7 +223,8 @@ AetherLink Backend ←──gRPC──→ Modbus TCP Plugin ←──Modbus TCP�
 > 现状：启动审计报 286 条受保护路由未登记 casbin 资源表（`casbin.deny-unregistered` 未开 + dev 库无种子 → 运行期跳过角色校验）。严重度评估：JWTAuth 组中间件仍强制认证、DAL 层租户隔离是第二道防线，缺口是**角色级授权**（任意已登录用户可调全部业务 API），非匿名裸奔；但角色间权限边界（管理员 vs 普通用户）当前不存在。
 - [x] 匹配器与 fail-closed 开关（本轮）：configs/casbin.conf matcher 增 `urlPatternMatch` 锚定模式通道（自实现，弃用内置 keyMatch2——其非锚定正则存在 `api/v1/devices` 误命中 `api/v1/devicesXYZ` 的越权放大）；GetUrl 双通道（精确 g2 + 锚定模式）修"参数路由永远无法被保护/识别"的潜伏缺陷；CasbinRBAC 增 `casbin.deny-unregistered` 开关（默认 false 保持现状，true 时未登记 403 fail-closed）；测试 +10（utils 表驱动 12 例/service 模式判定与 Enforce/中间件严格模式 3 例）
 - [x] RBAC 激活（2026-09-04 用户授权代行裁决——**状态 quo 显式化**：3 内置角色 × 全部受保护路由全量授权，激活不改任何用户有效行为，收紧后续逐行删 p）：①矩阵裁决 = 全量授权；②`63.sql` 幂等种子（g2 登记 287 模式[含方法感知审计补出的 PUT /logo] + p 861 授权 + g 绑定存量 15 用户，ON CONFLICT 幂等）；③新建用户空 RoleIDs 时按 users.authority 兜底绑定 + 绑定后 LoadPolicy 刷新内存（sys_user_manage，adapter 判空防单测 panic）；④`route-audit-mode` 切回 **fail-fast**（实测 287 路由全登记通过）；⑤dev conf 开 `casbin.deny-unregistered: true`。运行期证据：audit passed(287)、登录→已登记路由 200、撤销单路由 p 授权→403 非法访问、C5 28/28 零回归。
-- [ ] 后续收紧（产品迭代期逐次进行）：按角色删除具体 p 授权行即每个收紧决策的 diff；集群多实例部署需补 casbin watcher（内存策略同步），单实例无此需求。
+- [x] 集群 casbin watcher（2026-09-04）：Redis Pub/Sub 最小 persist.Watcher（`internal/adapter/casbinwatcher`，自通知跳过/全量重载/订阅确认 fail-fast，miniredis 双实例通知契约测试）；`global.CasbinEnforcer` 切换 **SyncedEnforcer**（watcher 触发的 LoadPolicy 与并发 Enforce 互斥，顺带消除既有无锁竞态）；`casbin.watcher.enabled` 门控挂载于 Redis 就绪后（单实例默认关闭，无行为变化）✓
+- [ ] 后续收紧（产品迭代期逐次进行）：按角色删除具体 p 授权行即每个收紧决策的 diff。
 
 ---
 
@@ -252,3 +255,4 @@ AetherLink Backend ←──gRPC──→ Modbus TCP Plugin ←──Modbus TCP�
 | 2026-09-02 | C2/C6/C7 实现批 | 三线合入单一主线（full-integ：main 12 项增量 ⊕ c5 白标/实体版本/安全 ⊕ gh/main）；C2 资产 CRUD/树 API（Scope=自身∪祖先+成环拒绝，DAL sqlite 测试）；C7 2FA 后端（61.sql 绑定/激活/解绑/第二因子防重放/恢复码）与 OIDC/SSO 后端（62.sql 提供方 CRUD + /sso/:id/start|callback + sessionIssuer）；C6 CoAP/LwM2M UDP 网关配置门控接入 application；ROADMAP 勾选回填 | full-integ |
 | 2026-09-04 | C6 收尾（P1-C） | 网关设备接入闭环：lwm2m ObjectStore.OnChange 写入回调 + /rd HandleRegisterWithNotify；protocolgw TelemetryBridge（DBNumberResolver 端点→设备凭证映射[TTL 缓存/fail-closed]、IPSO 键转换+路径回退、队列化汇入 uplink.Bus source_protocol=coap）；app 装配（DB/Bus 未就绪降级纯接入）；单测 +14（protocolgw+lwm2m 合计 31 PASS、vet 干净）；同批完成 C5 运行期验证（28/28×2 零回归）与前端 branding vitest 11/11 | c2-tenant-scope-merge |
 | 2026-08-26 | 设计 | 设计系统收敛 L1/L2：字号/圆角 token 落地 global.scss、断点三合一（删 --bp-* 双轨）、uno shortcuts 单源化（preset 导出 aetherlinkShortcuts）、共享 PageHeader 组件收敛 3 页 5 处重复页头、10 个表格页补 NEmpty 空态、linkage-edit 47 处 hex→token 迁移、UI emoji→SvgIcon、裸删除补 Popconfirm、html lang 随语言切换、hex 绊线契约测试（基线 1042→994 只降不升） | feat/device-preregister-import |
+| 2026-09-04 | C6/C7+/限流 收尾批 | ①SNMP 采集接入：internal/collector 轮询采集器（devices⨝device_configs 发现、protocol_config 点表、内嵌 UDP agent 单测、uplink 汇入 source_protocol=snmp）+ OPC UA 连接器（连接 TTL 缓存/懒重连）；app.WithCollectors 门控装配（collectors.*.enabled）。②casbin 集群 watcher：Redis Pub/Sub persist.Watcher + SyncedEnforcer 切换（消除 Enforce/LoadPolicy 竞态）+ casbin.watcher.enabled 门控。③限流集群版：tenant_rate_limit 拆 store 接口，Redis 固定窗口 Lua（INCR+PEXPIRE+PTTL）+ fail-open 降级，api-rate-limit.backend=memory|redis。④ROADMAP 矩阵回填过时行（资产级联/白标/AI 告警分析） | 本地主线 |
