@@ -11,53 +11,12 @@ package collector
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
+	"aetherlink-iot/backend/internal/collector/pointconfig"
 	"aetherlink-iot/backend/internal/snmp"
 )
-
-// Point 采集点表行：遥测键 + 协议寻址（SNMP 用 OID，OPC UA 用 Node）。
-type Point struct {
-	Key  string `json:"key"`
-	OID  string `json:"oid,omitempty"`
-	Node string `json:"node,omitempty"`
-}
-
-// SnmpConfig SNMP protocol_config JSON 结构。
-type SnmpConfig struct {
-	Target    string  `json:"target"` // host:port（UDP）
-	Community string  `json:"community"`
-	TimeoutMs int     `json:"timeout_ms,omitempty"` // 单次 Get 超时；缺省用 Runner 预算
-	Points    []Point `json:"points"`
-}
-
-// parseSnmpConfig 解析并校验点表；空目标/community/点位均拒绝（fail-closed）。
-func parseSnmpConfig(raw string) (*SnmpConfig, error) {
-	if raw == "" {
-		return nil, fmt.Errorf("snmp: protocol_config 为空")
-	}
-	var cfg SnmpConfig
-	if err := json.Unmarshal([]byte(raw), &cfg); err != nil {
-		return nil, fmt.Errorf("snmp: protocol_config 非法 JSON: %w", err)
-	}
-	if cfg.Target == "" {
-		return nil, fmt.Errorf("snmp: target 必填（host:port）")
-	}
-	if cfg.Community == "" {
-		return nil, fmt.Errorf("snmp: community 必填")
-	}
-	if len(cfg.Points) == 0 {
-		return nil, fmt.Errorf("snmp: points 至少一条")
-	}
-	for i, p := range cfg.Points {
-		if p.Key == "" || p.OID == "" {
-			return nil, fmt.Errorf("snmp: points[%d] key/oid 必填", i)
-		}
-	}
-	return &cfg, nil
-}
 
 // SnmpPoller 无状态 SNMP 采集实现。
 type SnmpPoller struct{}
@@ -70,7 +29,7 @@ func (SnmpPoller) ConfigType() string { return "SNMP" }
 
 // Poll 单目标采集：批量 Get → OID 回填遥测键。
 func (SnmpPoller) Poll(ctx context.Context, t deviceTarget) (map[string]interface{}, error) {
-	cfg, err := parseSnmpConfig(t.ConfigJSON)
+	cfg, err := pointconfig.ParseSnmpConfig(t.ConfigJSON)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +65,7 @@ func (SnmpPoller) Poll(ctx context.Context, t deviceTarget) (map[string]interfac
 }
 
 // snmpPollBudget 解析采集超时预算。
-func snmpPollBudget(cfg *SnmpConfig, ctx context.Context) time.Duration {
+func snmpPollBudget(cfg *pointconfig.SnmpConfig, ctx context.Context) time.Duration {
 	if cfg.TimeoutMs > 0 {
 		return time.Duration(cfg.TimeoutMs) * time.Millisecond
 	}

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"aetherlink-iot/backend/internal/collector/pointconfig"
 	"aetherlink-iot/backend/internal/snmp"
 )
 
@@ -27,13 +28,13 @@ func TestParseSnmpConfigValidation(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := parseSnmpConfig(tc.raw)
+			_, err := pointconfig.ParseSnmpConfig(tc.raw)
 			if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
 				t.Fatalf("期望错误含 %q，实际 %v", tc.wantErr, err)
 			}
 		})
 	}
-	cfg, err := parseSnmpConfig(`{"target":"10.0.0.5:161","community":"public","points":[{"key":"temperature","oid":"1.3.6.1.4.1.99.1"}]}`)
+	cfg, err := pointconfig.ParseSnmpConfig(`{"target":"10.0.0.5:161","community":"public","points":[{"key":"temperature","oid":"1.3.6.1.4.1.99.1"}]}`)
 	if err != nil {
 		t.Fatalf("合法配置不应报错: %v", err)
 	}

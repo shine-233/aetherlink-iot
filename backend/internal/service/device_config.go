@@ -127,6 +127,11 @@ func (*DeviceConfig) CreateDeviceConfig(req *model.CreateDeviceConfigReq, claims
 	deviceconfig.CreatedAt = t
 	deviceconfig.UpdatedAt = t
 	deviceconfig.TenantID = claims.TenantID
+	// 内置采集器协议（SNMP/OPC UA）：点表结构在保存时校验（ROADMAP C6），
+	// 复用 collector 包解析器——保存通过的点表采集器必然可解析。
+	if err := validateCollectorProtocolConfig(deviceconfig.ProtocolType, deviceconfig.ProtocolConfig); err != nil {
+		return deviceconfig, err
+	}
 	// 设备密钥明文只在创建响应中回显一次，落库保存 SHA-256 摘要，避免拖库后批量伪造设备。
 	authTemplateSecret := uuid.New()
 	deviceconfig.TemplateSecret = StringPtr(dal.HashTemplateSecret(authTemplateSecret))
@@ -154,6 +159,19 @@ func (*DeviceConfig) UpdateDeviceConfig(req model.UpdateDeviceConfigReq, claims 
 		return nil, err
 	}
 	if err := validatePayloadSchemaBinding(req.PayloadSchemaId, oldConfig.TenantID); err != nil {
+		return nil, err
+	}
+	// 内置采集器协议（SNMP/OPC UA）：以"请求值优先、旧值兜底"合成生效点表并校验，
+	// 在任何落库写之前拦截跨字段不一致（如切到 SNMP 却残留旧协议的 protocol_config）。
+	effectiveProtocolType := oldConfig.ProtocolType
+	if req.ProtocolType != nil {
+		effectiveProtocolType = req.ProtocolType
+	}
+	effectiveProtocolConfig := oldConfig.ProtocolConfig
+	if req.ProtocolConfig != nil {
+		effectiveProtocolConfig = req.ProtocolConfig
+	}
+	if err := validateCollectorProtocolConfig(effectiveProtocolType, effectiveProtocolConfig); err != nil {
 		return nil, err
 	}
 	if err := clearBlankDeviceTemplateID(&req); err != nil {

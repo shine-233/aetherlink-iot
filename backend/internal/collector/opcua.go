@@ -12,47 +12,17 @@ package collector
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"sync"
 	"time"
 
+	"aetherlink-iot/backend/internal/collector/pointconfig"
 	"aetherlink-iot/backend/internal/opcua"
 
-	"github.com/sirupsen/logrus"
 	"github.com/gopcua/opcua/ua"
+	"github.com/sirupsen/logrus"
 )
-
-// OpcuaConfig OPC UA protocol_config JSON 结构（连接段复用 opcua.Config 校验）。
-type OpcuaConfig struct {
-	opcua.Config
-	Points []Point `json:"points"`
-}
-
-// parseOpcuaConfig 解析并校验点表；连接段经 opcua.Validate（endpoint 前缀/SecurityMode 白名单）。
-func parseOpcuaConfig(raw string) (*OpcuaConfig, error) {
-	if raw == "" {
-		return nil, fmt.Errorf("opcua: protocol_config 为空")
-	}
-	var cfg OpcuaConfig
-	if err := json.Unmarshal([]byte(raw), &cfg); err != nil {
-		return nil, fmt.Errorf("opcua: protocol_config 非法 JSON: %w", err)
-	}
-	if len(cfg.Points) == 0 {
-		return nil, fmt.Errorf("opcua: points 至少一条")
-	}
-	for i, p := range cfg.Points {
-		if p.Key == "" || p.Node == "" {
-			return nil, fmt.Errorf("opcua: points[%d] key/node 必填", i)
-		}
-	}
-	if err := opcua.Validate(cfg.Config); err != nil {
-		return nil, err
-	}
-	cfg.Config = opcua.Normalize(cfg.Config)
-	return &cfg, nil
-}
 
 // opcuaConnTTL 连接缓存 TTL：TTL 内复用会话；读失败立即失效强制重连。
 const opcuaConnTTL = 5 * time.Minute
@@ -85,7 +55,7 @@ func (p *OpcuaPoller) ConfigType() string { return "OPCUA" }
 
 // Poll 单目标采集：确保连接 → 逐节点读 → 转换。
 func (p *OpcuaPoller) Poll(ctx context.Context, t deviceTarget) (map[string]interface{}, error) {
-	cfg, err := parseOpcuaConfig(t.ConfigJSON)
+	cfg, err := pointconfig.ParseOpcuaConfig(t.ConfigJSON)
 	if err != nil {
 		return nil, err
 	}

@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"aetherlink-iot/backend/internal/collector/pointconfig"
+
 	"github.com/gopcua/opcua/ua"
 )
 
@@ -25,13 +27,13 @@ func TestParseOpcuaConfigValidation(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := parseOpcuaConfig(tc.raw)
+			_, err := pointconfig.ParseOpcuaConfig(tc.raw)
 			if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
 				t.Fatalf("期望错误含 %q，实际 %v", tc.wantErr, err)
 			}
 		})
 	}
-	cfg, err := parseOpcuaConfig(`{"endpoint":"opc.tcp://127.0.0.1:4840","points":[{"key":"temperature","node":"ns=2;s=Demo.Temp"}]}`)
+	cfg, err := pointconfig.ParseOpcuaConfig(`{"endpoint":"opc.tcp://127.0.0.1:4840","points":[{"key":"temperature","node":"ns=2;s=Demo.Temp"}]}`)
 	if err != nil {
 		t.Fatalf("合法配置不应报错: %v", err)
 	}
