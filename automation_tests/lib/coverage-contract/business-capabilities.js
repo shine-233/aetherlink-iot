@@ -22,6 +22,7 @@ const PARENT_ROUTES = new Set([
 
 const DEVICE_TELEMETRY_FRONTEND_ROUTES = [
   '/device/manage',
+  '/device/asset',
   '/device/details',
   '/device/thingsmodel',
   '/device-details-app',
@@ -207,6 +208,7 @@ const DEVICE_TELEMETRY_ENDPOINTS = [
   'GET /api/v1/device/preRegister',
   'POST /api/v1/device/preRegister',
   'GET /api/v1/device/preRegister/export',
+  'POST /api/v1/ai/alarm/analysis',
   'GET /api/v1/product'
 ];
 
@@ -238,6 +240,7 @@ const PERMISSION_TENANCY_FRONTEND_ROUTES = [
   '/management/auth',
   '/management/api',
   '/management/notification',
+  '/management/entity-version',
   '/management/setting',
   '/personal-center'
 ];
@@ -295,7 +298,28 @@ const PERMISSION_TENANCY_ENDPOINTS = [
   'PUT /api/v1/ui_elements',
   'GET /api/v1/ui_elements',
   'GET /api/v1/ui_elements/menu',
-  'GET /api/v1/ui_elements/select/form'
+  'GET /api/v1/ui_elements/select/form',
+  // 2FA（TOTP）登录与个人绑定生命周期
+  'POST /api/v1/login/totp',
+  'GET /api/v1/user/totp/setup',
+  'POST /api/v1/user/totp/activate',
+  'POST /api/v1/user/totp/disable',
+  'GET /api/v1/user/totp/status',
+  // 租户资产层级（ROADMAP C2）
+  'POST /api/v1/asset',
+  'PUT /api/v1/asset',
+  'DELETE /api/v1/asset/:id',
+  'GET /api/v1/asset/list',
+  'GET /api/v1/asset/tree',
+  'GET /api/v1/asset/:id',
+  // OIDC/SSO 提供方管理与公共 SSO 端点（ROADMAP C7）
+  'POST /api/v1/oidc/provider',
+  'PUT /api/v1/oidc/provider',
+  'DELETE /api/v1/oidc/provider/:id',
+  'GET /api/v1/oidc/provider/list',
+  'GET /api/v1/sso/providers',
+  'GET /api/v1/sso/:id/start',
+  'GET /api/v1/sso/:id/callback'
 ];
 
 const BUSINESS_CAPABILITIES = [
