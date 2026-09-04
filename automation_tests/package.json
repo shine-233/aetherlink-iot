@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "AetherLink IoT API automation tests",
   "scripts": {
-    "test": "mocha tests/00_*.test.js --timeout 30000 --reporter mochawesome --reporter-options reportDir=reports,reportFilename=test-report,overwrite=true",
+    "test": "mocha tests/00_*.test.js --exclude tests/00_preflight_api_e2e.test.js --timeout 30000 --reporter mochawesome --reporter-options reportDir=reports,reportFilename=test-report,overwrite=true",
     "test:integration": "mocha tests/*.test.js --timeout 30000 --reporter mochawesome --reporter-options reportDir=reports,reportFilename=test-report,overwrite=true",
     "test:auth": "mocha tests/01_auth.test.js --timeout 30000 --reporter mochawesome --reporter-options reportDir=reports,reportFilename=auth-report,overwrite=true",
     "test:device": "mocha tests/02_device.test.js --timeout 30000 --reporter mochawesome --reporter-options reportDir=reports,reportFilename=device-report,overwrite=true",
