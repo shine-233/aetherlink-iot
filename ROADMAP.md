@@ -208,7 +208,7 @@ AetherLink Backend ←──gRPC──→ Modbus TCP Plugin ←──Modbus TCP�
 ### C6. CoAP / LwM2M 协议支持
 - [x] CoAP 服务端（RFC7252 子集：编解码/UDP 服务器/注册表/well-known + blockwise/observe 组件）
 - [x] LwM2M 注册层 + 对象实例模型 + 观察者推送（UDP 服务器配置门控接入 application 生命周期）
-- [x] 设备凭证映射 + 遥测汇入现有 uplink 管道（网关设备接入闭环，WORKPLAN P1-C）：lwm2m.ObjectStore.OnChange 写入回调 + /rd HandleRegisterWithNotify 注册通知；protocolgw.TelemetryBridge（DBNumberResolver 端点→device_number 凭证映射[60s TTL 缓存/fail-closed]、IPSO 键转换 3303/3304/3323/3325/3330 + lwm2m/{o}/{i}/{r} 回退、队列化汇入不阻塞写路径）→ 与 MQTT 同一 UplinkMessage/uplink.Bus（source_protocol=coap）；app 装配 DB/Bus 未就绪自动降级纯接入层；单测 +14（protocolgw+lwm2m 合计 31 PASS）✓
+- [x] 设备凭证映射 + 遥测汇入现有 uplink 管道（网关设备接入闭环，WORKPLAN P1-C）：lwm2m.ObjectStore.OnChange 写入回调 + /rd HandleRegisterWithNotify 注册通知；protocolgw.TelemetryBridge（DBNumberResolver 端点→device_number 凭证映射[60s TTL 缓存/fail-closed]、IPSO 键转换 3303/3304/3323/3325/3330 + lwm2m/{o}/{i}/{r} 回退、队列化汇入不阻塞写路径）→ 与 MQTT 同一 UplinkMessage/uplink.Bus（source_protocol=coap）；app 装配 DB/Bus 未就绪自动降级纯接入层（注：uplink.enable=false 时 WithFlowService 早退不建 uplinkService，网关仅纯接入——生产启用遥测汇入须同时开 uplink）；单测 +14（protocolgw+lwm2m 合计 31 PASS）；**运行期 E2E（2026-09-04，隔离栈真实 UDP）：外部客户端注册 2.01 / 写资源 2.04 / 读回 2.05 三步全过，遥测经凭证映射汇入 uplink 管道并按租户落库 telemetry_datas（temperature=26.5，tenant_id 正确），测后种子已回滚**；已知限制：coap 子集 codec 的 option 值仅支持内联 ≤12 字节（扩展编码 13/14 拒绝），超长端点名（如 urn:imei:xxx）需先行 codec 升级 ✓
 
 ### C7. 安全与平台能力补齐（对标 ThingsBoard CE 免费能力，2026-08-25 审查补录）
 - [x] 双因素认证 2FA（61.sql 后端 + 前端：登录两段式动态码页、个人中心绑定/停用/恢复码组件）
