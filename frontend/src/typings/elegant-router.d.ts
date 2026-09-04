@@ -40,6 +40,7 @@ declare module "@elegant-router/types" {
     "dashboard_workbench": "/dashboard/workbench";
     "dashboard_workspace": "/dashboard/workspace";
     "device": "/device";
+    "device_asset": "/device/asset";
     "device_command-center": "/device/command-center";
     "device_config": "/device/template";
     "device_config-detail": "/device/config-detail";
@@ -61,6 +62,7 @@ declare module "@elegant-router/types" {
     "management": "/management";
     "management_api": "/management/api";
     "management_auth": "/management/auth";
+    "management_entity-version": "/management/entity-version";
     "management_notification": "/management/notification";
     "management_role": "/management/role";
     "management_setting": "/management/setting";
@@ -167,6 +169,7 @@ declare module "@elegant-router/types" {
     | "dashboard_workbench"
     | "dashboard_workspace"
     | "device-details-app"
+    | "device_asset"
     | "device_command-center"
     | "device_config-detail"
     | "device_config-edit"
@@ -184,6 +187,7 @@ declare module "@elegant-router/types" {
     | "home"
     | "management_api"
     | "management_auth"
+    | "management_entity-version"
     | "management_notification"
     | "management_role"
     | "management_setting"

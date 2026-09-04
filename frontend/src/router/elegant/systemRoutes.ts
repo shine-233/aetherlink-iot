@@ -122,6 +122,15 @@ export const managementRoutes: GeneratedRoute[] = [
           }
         },
         {
+          name: 'management_entity-version',
+          path: '/management/entity-version',
+          component: 'view.management_entity-version',
+          meta: {
+            title: 'management_entity-version',
+            i18nKey: 'route.management_entity-version'
+          }
+        },
+        {
           name: 'management_notification',
           path: '/management/notification',
           component: 'view.management_notification',

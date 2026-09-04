@@ -11,6 +11,15 @@ export const deviceRoutes: GeneratedRoute[] = [
       },
       children: [
         {
+          name: 'device_asset',
+          path: '/device/asset',
+          component: 'view.device_asset',
+          meta: {
+            title: 'device_asset',
+            i18nKey: 'route.device_asset'
+          }
+        },
+        {
           name: 'device_command-center',
           path: '/device/command-center',
           component: 'view.device_command-center',

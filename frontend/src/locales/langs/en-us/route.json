@@ -64,5 +64,7 @@
   "route.device_service-access": "Third-party Integration",
   "route.device_service_access": "Third-party Integration",
   "route.device_service-details": "Third-party Integration Details",
-  "route.visualization-thingsvis-menu-dashboard": "Embedded Home Dashboard"
+  "route.visualization-thingsvis-menu-dashboard": "Embedded Home Dashboard",
+  "route.device_asset": "Assets",
+  "route.management_entity-version": "Entity versions"
 }
