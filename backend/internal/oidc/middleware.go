@@ -128,7 +128,17 @@ func (m *Middleware) handleCallback(c *gin.Context) {
 	}
 	nonce := parts[1]
 	// state 校验通过后即作废 cookie，防重放。
-	http.SetCookie(c.Writer, &http.Cookie{Name: m.StateCookie, Value: "", Path: "/", HttpOnly: true, MaxAge: -1})
+	// Match the secure state cookie issued by handleStart; deletion must not
+	// downgrade the cookie attributes on HTTPS callbacks.
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     m.StateCookie,
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   -1,
+	})
 
 	doc, err := m.Client.Discover(c.Request.Context())
 	if err != nil {
