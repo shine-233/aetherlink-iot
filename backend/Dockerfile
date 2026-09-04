@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM golang:1.26.6-alpine AS builder
+FROM golang:1.27.0-alpine AS builder
 WORKDIR $GOPATH/src/app
 COPY . ./
 ENV GO111MODULE=on
