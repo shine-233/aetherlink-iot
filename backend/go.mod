@@ -23,7 +23,7 @@ require (
 	github.com/xuri/excelize/v2 v2.11.0
 	golang.org/x/crypto v0.55.0
 	golang.org/x/time v0.15.0
-	google.golang.org/grpc v1.83.0
+	google.golang.org/grpc v1.83.1
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v2 v2.4.0
