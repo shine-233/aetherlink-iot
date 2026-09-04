@@ -31,7 +31,7 @@ export interface AssetPayload {
   parent_id?: string
   name: string
   asset_type?: string
-  meta?: string
+  meta?: string | null
 }
 
 /** 资产分页列表（parent_id 为空时列根节点） */
