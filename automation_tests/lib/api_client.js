@@ -48,6 +48,7 @@ function assertRelativeAPIPath(url) {
 // 命中时测试侧仅做一次退避后重试以容忍防护性限流，不构成绕过。
 const RATE_LIMIT_CODE = 201003;
 const RATE_LIMIT_BACKOFF_MS = 1200;
+const TOKEN_EXPIRED_CODE = 40102;
 
 // MQTT debug 会话创建（backend OpenCooldown 默认 2s，按 device+user scope 冷却）。
 // 套件连跑间隔过短时会命中重开冷却返回 201003，属防护性限流而非业务失败。
@@ -171,6 +172,31 @@ class ApiClient {
     }
   }
 
+  isExpiredTokenError(err) {
+    const responseData = err && err.response && err.response.data;
+    const responseCodes = [
+      responseData && responseData.code,
+      responseData && responseData.data && responseData.data.code,
+      responseData && responseData.error && responseData.error.code
+    ];
+    return Boolean(
+      err &&
+      err.response &&
+      err.response.status === 401 &&
+      responseCodes.some(code => Number(code) === TOKEN_EXPIRED_CODE)
+    );
+  }
+
+  async retryExpiredToken(err, accountKey, options, retry) {
+    if (!this.isExpiredTokenError(err) || options.tokenExpiryRetried) {
+      return this.handleError(err);
+    }
+
+    this.clearToken(accountKey);
+    await this.login(accountKey);
+    return retry({ ...options, tokenExpiryRetried: true });
+  }
+
   /**
    * 通用 GET 请求
    * 请求失败时返回标准化错误对象（含 _requestError: true），不抛出异常
@@ -179,7 +205,7 @@ class ApiClient {
    * @param {string} accountKey - 使用的账号
    * @returns {Promise<object>} 后端响应体或错误对象
    */
-  async get(url, params = {}, accountKey = 'tenant_admin') {
+  async get(url, params = {}, accountKey = 'tenant_admin', options = {}) {
     assertRelativeAPIPath(url);
     const headers = await this.authHeaders(accountKey);
     try {
@@ -188,7 +214,12 @@ class ApiClient {
       return resp.data;
     } catch (err) {
       this.recordEndpointResponse('GET', url, err);
-      return this.handleError(err);
+      return this.retryExpiredToken(
+        err,
+        accountKey,
+        options,
+        retryOptions => this.get(url, params, accountKey, retryOptions)
+      );
     }
   }
 
@@ -220,11 +251,16 @@ class ApiClient {
       return resp.data;
     } catch (err) {
       this.recordEndpointResponse('POST', url, err);
-      return this.handleError(err);
+      return this.retryExpiredToken(
+        err,
+        accountKey,
+        options,
+        retryOptions => this.post(url, data, accountKey, retryOptions)
+      );
     }
   }
 
-  async upload(url, fileContent, fields = {}, accountKey = 'tenant_admin') {
+  async upload(url, fileContent, fields = {}, accountKey = 'tenant_admin', options = {}) {
     assertRelativeAPIPath(url);
     if (!Buffer.isBuffer(fileContent)) {
       throw new TypeError('Automation uploads must be generated fixture buffers');
@@ -246,7 +282,12 @@ class ApiClient {
       return resp.data;
     } catch (err) {
       this.recordEndpointResponse('POST', url, err);
-      return this.handleError(err);
+      return this.retryExpiredToken(
+        err,
+        accountKey,
+        options,
+        retryOptions => this.upload(url, fileContent, fields, accountKey, retryOptions)
+      );
     }
   }
 
@@ -258,7 +299,7 @@ class ApiClient {
    * @param {string} accountKey - 使用的账号
    * @returns {Promise<object>} 后端响应体或错误对象
    */
-  async put(url, data = {}, accountKey = 'tenant_admin') {
+  async put(url, data = {}, accountKey = 'tenant_admin', options = {}) {
     assertRelativeAPIPath(url);
     const headers = await this.authHeaders(accountKey);
     try {
@@ -267,11 +308,16 @@ class ApiClient {
       return resp.data;
     } catch (err) {
       this.recordEndpointResponse('PUT', url, err);
-      return this.handleError(err);
+      return this.retryExpiredToken(
+        err,
+        accountKey,
+        options,
+        retryOptions => this.put(url, data, accountKey, retryOptions)
+      );
     }
   }
 
-  async patch(url, data = {}, accountKey = 'tenant_admin') {
+  async patch(url, data = {}, accountKey = 'tenant_admin', options = {}) {
     assertRelativeAPIPath(url);
     const headers = await this.authHeaders(accountKey);
     try {
@@ -280,7 +326,12 @@ class ApiClient {
       return resp.data;
     } catch (err) {
       this.recordEndpointResponse('PATCH', url, err);
-      return this.handleError(err);
+      return this.retryExpiredToken(
+        err,
+        accountKey,
+        options,
+        retryOptions => this.patch(url, data, accountKey, retryOptions)
+      );
     }
   }
 
@@ -292,7 +343,7 @@ class ApiClient {
    * @param {string} accountKey - 使用的账号
    * @returns {Promise<object>} 后端响应体或错误对象
    */
-  async delete(url, data = {}, accountKey = 'tenant_admin') {
+  async delete(url, data = {}, accountKey = 'tenant_admin', options = {}) {
     assertRelativeAPIPath(url);
     const headers = await this.authHeaders(accountKey);
     try {
@@ -301,7 +352,12 @@ class ApiClient {
       return resp.data;
     } catch (err) {
       this.recordEndpointResponse('DELETE', url, err);
-      return this.handleError(err);
+      return this.retryExpiredToken(
+        err,
+        accountKey,
+        options,
+        retryOptions => this.delete(url, data, accountKey, retryOptions)
+      );
     }
   }
 

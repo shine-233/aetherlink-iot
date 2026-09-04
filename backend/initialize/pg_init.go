@@ -92,6 +92,9 @@ func PgInit() (*gorm.DB, error) {
 	if err := CasbinInit(); err != nil {
 		return nil, fmt.Errorf("casbin initialization failed: %w", err)
 	}
+	if err := TenantTreeInit(); err != nil {
+		return nil, fmt.Errorf("tenant tree initialization failed: %w", err)
+	}
 
 	return db, nil
 }

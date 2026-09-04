@@ -18,7 +18,16 @@ import (
 
 // CreateRuleChain 新建规则链。
 func CreateRuleChain(chain *model.RuleChain) error {
-	return global.DB.Create(chain).Error
+	return global.DB.Model(&model.RuleChain{}).Create(map[string]interface{}{
+		"id":          chain.ID,
+		"tenant_id":   chain.TenantID,
+		"name":        chain.Name,
+		"description": chain.Description,
+		"enabled":     chain.Enabled,
+		"graph":       chain.Graph,
+		"created_at":  chain.CreatedAt,
+		"updated_at":  chain.UpdatedAt,
+	}).Error
 }
 
 // UpdateRuleChain 按主键更新非零字段，返回是否命中。

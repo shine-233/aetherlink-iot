@@ -17,17 +17,27 @@ import (
 )
 
 func TestExecuteRuleChainThresholdBlocksBranch(t *testing.T) {
+	oldPoster := ruleChainWebhookPoster
+	defer func() { ruleChainWebhookPoster = oldPoster }()
+
 	var webhookHits atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		webhookHits.Add(1)
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
+	ruleChainWebhookPoster = func(ctx context.Context, _ string, body []byte) (*http.Response, error) {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, server.URL, strings.NewReader(string(body)))
+		if err != nil {
+			return nil, err
+		}
+		return http.DefaultClient.Do(req)
+	}
 
 	graphJSON := `{"nodes":[
 		{"id":"t","type":"trigger.telemetry"},
 		{"id":"f","type":"filter.threshold","config":{"key":"temperature","op":">","value":30}},
-		{"id":"w","type":"action.webhook","config":{"url":"` + server.URL + `"}}
+		{"id":"w","type":"action.webhook","config":{"url":"https://hooks.example.com/threshold"}}
 	],"edges":[{"from":"t","to":"f"},{"from":"f","to":"w"}]}`
 	graph, err := ParseRuleChainGraph(graphJSON)
 	require.NoError(t, err)
@@ -51,6 +61,9 @@ func TestExecuteRuleChainThresholdBlocksBranch(t *testing.T) {
 }
 
 func TestExecuteRuleChainMappingTransformsPayload(t *testing.T) {
+	oldPoster := ruleChainWebhookPoster
+	defer func() { ruleChainWebhookPoster = oldPoster }()
+
 	var lastBody atomic.Value
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
@@ -59,11 +72,18 @@ func TestExecuteRuleChainMappingTransformsPayload(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
+	ruleChainWebhookPoster = func(ctx context.Context, _ string, body []byte) (*http.Response, error) {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, server.URL, strings.NewReader(string(body)))
+		if err != nil {
+			return nil, err
+		}
+		return http.DefaultClient.Do(req)
+	}
 
 	graphJSON := `{"nodes":[
 		{"id":"t","type":"trigger.telemetry"},
 		{"id":"m","type":"transform.mapping","config":{"fields":{"temperature":"temp_c"}}},
-		{"id":"w","type":"action.webhook","config":{"url":"` + server.URL + `"}}
+		{"id":"w","type":"action.webhook","config":{"url":"https://hooks.example.com/mapping"}}
 	],"edges":[{"from":"t","to":"m"},{"from":"m","to":"w"}]}`
 	graph, err := ParseRuleChainGraph(graphJSON)
 	require.NoError(t, err)
@@ -110,15 +130,44 @@ func TestExecuteRuleChainCommandActionUsesSender(t *testing.T) {
 func TestExecuteRuleChainNodeErrorIsReported(t *testing.T) {
 	graphJSON := `{"nodes":[
 		{"id":"t","type":"trigger.telemetry"},
-		{"id":"w","type":"action.webhook","config":{}}
-	],"edges":[{"from":"t","to":"w"}]}`
+		{"id":"c","type":"action.command","config":{}}
+	],"edges":[{"from":"t","to":"c"}]}`
 	graph, err := ParseRuleChainGraph(graphJSON)
 	require.NoError(t, err)
 
 	errs := ExecuteRuleChainGraph(context.Background(), graph,
 		&RuleChainContext{DeviceID: "dev-4"}, map[string]any{"k": float64(1)})
 	require.Len(t, errs, 1)
-	require.True(t, strings.Contains(errs[0].Error(), "url"), errs[0].Error())
+	require.True(t, strings.Contains(errs[0].Error(), "identify"), errs[0].Error())
+}
+
+func TestExecuteRuleChainGraphForTriggerRunsOnlyMatchingRoot(t *testing.T) {
+	oldSender := ruleChainCommandSender
+	defer func() { ruleChainCommandSender = oldSender }()
+
+	var calls atomic.Int32
+	var gotIdentify atomic.Value
+	ruleChainCommandSender = func(_ context.Context, _, identify, _ string) error {
+		calls.Add(1)
+		gotIdentify.Store(identify)
+		return nil
+	}
+	graphJSON := `{"nodes":[
+		{"id":"telemetry","type":"trigger.telemetry"},
+		{"id":"online","type":"trigger.device_online"},
+		{"id":"telemetry-command","type":"action.command","config":{"identify":"telemetry-action"}},
+		{"id":"online-command","type":"action.command","config":{"identify":"online-action"}}
+	],"edges":[
+		{"from":"telemetry","to":"telemetry-command"},
+		{"from":"online","to":"online-command"}
+	]}`
+	graph, err := ParseRuleChainGraph(graphJSON)
+	require.NoError(t, err)
+
+	errs := ExecuteRuleChainGraphForTrigger(context.Background(), graph, &RuleChainContext{DeviceID: "dev"}, map[string]any{}, RuleChainTriggerTelemetry)
+	require.Empty(t, errs)
+	require.Equal(t, int32(1), calls.Load(), "the online branch must not execute during telemetry")
+	require.Equal(t, "telemetry-action", gotIdentify.Load(), "the telemetry branch must be the one that executes")
 }
 
 func TestExecuteRuleChainAlarmActionCreatesHistory(t *testing.T) {

@@ -6,6 +6,7 @@ package global
 
 import (
 	"aetherlink-iot/backend/internal/middleware/response"
+	"aetherlink-iot/backend/internal/tenantree"
 
 	"github.com/casbin/casbin/v2"
 	"github.com/redis/go-redis/v9"
@@ -13,13 +14,15 @@ import (
 )
 
 var (
-	VERSION         = "0.0.23"
-	VERSION_NUMBER  = 63
-	SYSTEM_VERSION  = "v1.2.3"
-	DB              *gorm.DB
-	REDIS           *redis.Client
-	STATUS_REDIS    *redis.Client
-	CasbinEnforcer  *casbin.Enforcer
+	VERSION        = "0.0.23"
+	VERSION_NUMBER = 57
+	SYSTEM_VERSION = "v1.2.3"
+	DB             *gorm.DB
+	REDIS          *redis.Client
+	STATUS_REDIS   *redis.Client
+	CasbinEnforcer *casbin.Enforcer
+	// TenantTree is the process-wide lazy tenant hierarchy cache.
+	TenantTree      *tenantree.Tree
 	OtaAddress      string
 	TPSSEManager    *SSEManager
 	ResponseHandler *response.Handler

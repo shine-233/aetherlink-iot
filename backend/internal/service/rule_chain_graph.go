@@ -10,6 +10,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"aetherlink-iot/backend/pkg/safehttp"
 )
 
 const (
@@ -19,7 +21,6 @@ const (
 	RuleChainTransformMapping = "transform.mapping"
 	RuleChainActionWebhook    = "action.webhook"
 	RuleChainActionCommand    = "action.command"
-	RuleChainActionAlarm      = "action.alarm"
 	ruleChainMaxNodes         = 64
 	ruleChainMaxEdges         = 128
 	ruleChainMaxGraphBytes    = 256 * 1024
@@ -33,7 +34,6 @@ var RuleChainNodeTypeMeta = map[string]string{
 	RuleChainTransformMapping: "transform",
 	RuleChainActionWebhook:    "action",
 	RuleChainActionCommand:    "action",
-	RuleChainActionAlarm:      "action",
 }
 
 // RuleChainGraph DAG 定义。
@@ -101,6 +101,12 @@ func (g *RuleChainGraph) Validate() error {
 		if !ok {
 			return fmt.Errorf("node %q has unknown type %q", node.ID, node.Type)
 		}
+		if node.Type == RuleChainActionWebhook {
+			target, _ := node.Config["url"].(string)
+			if _, err := safehttp.ParseWebhookURL(target); err != nil {
+				return fmt.Errorf("webhook node %q has invalid url: %w", node.ID, err)
+			}
+		}
 		if kind == "trigger" {
 			hasTrigger = true
 		}
@@ -115,6 +121,22 @@ func (g *RuleChainGraph) Validate() error {
 		}
 		if edge.From == edge.To {
 			return fmt.Errorf("edge %d is self-loop", i)
+		}
+	}
+	indegree := make(map[string]int, len(g.Nodes))
+	for _, node := range g.Nodes {
+		indegree[node.ID] = 0
+	}
+	for _, edge := range g.Edges {
+		indegree[edge.To]++
+	}
+	for _, node := range g.Nodes {
+		kind := RuleChainNodeTypeMeta[node.Type]
+		if kind == "trigger" && indegree[node.ID] != 0 {
+			return fmt.Errorf("trigger node %q must be a root", node.ID)
+		}
+		if kind != "trigger" && indegree[node.ID] == 0 {
+			return fmt.Errorf("non-trigger node %q cannot be a root", node.ID)
 		}
 	}
 	return g.validateAcyclic()

@@ -144,7 +144,11 @@ func (*Casbin) HasRole(role string) bool {
 }
 
 // 校验
-func (*Casbin) Verify(user string, url string) bool {
+
+func (c *Casbin) Verify(user string, url string) bool {
+	if global.CasbinEnforcer == nil {
+		return false
+	}
 	isTrue, err := global.CasbinEnforcer.Enforce(user, url, "allow")
 	if err != nil {
 		// Enforce 内部错误（存储/模型异常）时拒绝并记录：fail-closed 保护所有接口。
@@ -153,5 +157,8 @@ func (*Casbin) Verify(user string, url string) bool {
 		logrus.Errorf("casbin enforce failed, deny by default: err=%v", err)
 		return false
 	}
-	return isTrue
+	if isTrue {
+		return true
+	}
+	return c.verifyInherited(user, url)
 }

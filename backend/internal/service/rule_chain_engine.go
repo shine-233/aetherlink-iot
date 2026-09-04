@@ -9,7 +9,6 @@
 package service
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -18,9 +17,8 @@ import (
 	"strings"
 	"time"
 
-	"aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
-	"github.com/go-basic/uuid"
+	"aetherlink-iot/backend/pkg/safehttp"
 )
 
 const (
@@ -47,8 +45,19 @@ var ruleChainCommandSender = func(ctx context.Context, deviceID, identify, param
 	return GroupApp.CommandData.CommandPutMessage(ctx, "", putMessage, "2")
 }
 
+var ruleChainWebhookPoster = safehttp.PostWebhookJSON
+
 // ExecuteRuleChainGraph 执行一条规则链，返回聚合错误（节点失败记录但继续其他分支）。
 func ExecuteRuleChainGraph(ctx context.Context, graph *RuleChainGraph, rcc *RuleChainContext, values map[string]any) []error {
+	return executeRuleChainGraphFromTrigger(ctx, graph, rcc, values, "")
+}
+
+// ExecuteRuleChainGraphForTrigger executes only roots matching the current runtime event.
+func ExecuteRuleChainGraphForTrigger(ctx context.Context, graph *RuleChainGraph, rcc *RuleChainContext, values map[string]any, triggerType string) []error {
+	return executeRuleChainGraphFromTrigger(ctx, graph, rcc, values, triggerType)
+}
+
+func executeRuleChainGraphFromTrigger(ctx context.Context, graph *RuleChainGraph, rcc *RuleChainContext, values map[string]any, triggerType string) []error {
 	if graph == nil || rcc == nil {
 		return nil
 	}
@@ -74,6 +83,9 @@ func ExecuteRuleChainGraph(ctx context.Context, graph *RuleChainGraph, rcc *Rule
 		}
 	}
 	for _, root := range graph.Roots() {
+		if triggerType != "" && root.Type != triggerType {
+			continue
+		}
 		walk(root, values)
 	}
 	return errs
@@ -92,8 +104,6 @@ func executeRuleChainNode(ctx context.Context, node *RuleChainNode, rcc *RuleCha
 		return true, payload, ruleChainActionWebhook(ctx, node.Config, rcc, payload)
 	case RuleChainActionCommand:
 		return true, payload, ruleChainActionCommand(ctx, node.Config, rcc)
-	case RuleChainActionAlarm:
-		return true, payload, ruleChainActionAlarm(ctx, node.Config, rcc, payload)
 	default:
 		return false, payload, fmt.Errorf("unknown node type %q", node.Type)
 	}
@@ -213,17 +223,12 @@ func ruleChainActionWebhook(ctx context.Context, cfg map[string]any, rcc *RuleCh
 	}
 	callCtx, cancel := context.WithTimeout(ctx, wait)
 	defer cancel()
-	req, err := http.NewRequestWithContext(callCtx, http.MethodPost, url, bytes.NewReader(body))
+	resp, err := ruleChainWebhookPoster(callCtx, url, body)
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= http.StatusBadRequest {
+	defer safehttp.DrainAndClose(resp)
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return fmt.Errorf("webhook responded %d", resp.StatusCode)
 	}
 	return nil
@@ -246,58 +251,4 @@ func ruleChainActionCommand(ctx context.Context, cfg map[string]any, rcc *RuleCh
 		return fmt.Errorf("command action requires a device context")
 	}
 	return ruleChainCommandSender(ctx, rcc.DeviceID, identify, string(paramsJSON))
-}
-
-// ruleChainAlarmCreator 告警动作落库注入点（测试可替换）。
-var ruleChainAlarmCreator = func(ctx context.Context, history *model.AlarmHistory) error {
-	return dal.CreateAlarmHistoryRow(history)
-}
-
-// ruleChainActionAlarm 产生一条告警历史（action.alarm）。
-// config: {name:string(必填), severity:"L"|"M"|"H"(默认H), description, content}
-func ruleChainActionAlarm(ctx context.Context, cfg map[string]any, rcc *RuleChainContext, payload map[string]any) error {
-	if cfg == nil {
-		return fmt.Errorf("alarm config is required")
-	}
-	name, _ := cfg["name"].(string)
-	if strings.TrimSpace(name) == "" {
-		return fmt.Errorf("alarm action requires name")
-	}
-	severity, _ := cfg["severity"].(string)
-	switch severity {
-	case "":
-		severity = "H"
-	case "L", "M", "H":
-	default:
-		return fmt.Errorf("alarm action severity must be one of L/M/H")
-	}
-	content, _ := cfg["content"].(string)
-	if content == "" {
-		if summary, err := json.Marshal(payload); err == nil && len(summary) < 512 {
-			content = string(summary)
-		}
-	}
-	description, _ := cfg["description"].(string)
-	deviceList := "[]"
-	if rcc.DeviceID != "" {
-		deviceList = `["` + rcc.DeviceID + `"]`
-	}
-	history := &model.AlarmHistory{
-		ID:                uuid.New(),
-		AlarmConfigID:     "",
-		GroupID:           "",
-		SceneAutomationID: "",
-		Name:              name,
-		AlarmStatus:       severity,
-		TenantID:          rcc.TenantID,
-		CreateAt:          time.Now().UTC(),
-		AlarmDeviceList:   deviceList,
-	}
-	if description != "" {
-		history.Description = &description
-	}
-	if content != "" {
-		history.Content = &content
-	}
-	return ruleChainAlarmCreator(ctx, history)
 }
