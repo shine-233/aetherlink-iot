@@ -185,8 +185,8 @@ normalize_performance_tier() {
 }
 
 check_env_example_keys() {
-  [ -f .env ] || return
-  [ -f .env.example ] || return
+  [ -f .env ] || return 0
+  [ -f .env.example ] || return 0
 
   env_keys="${TMPDIR:-/tmp}/aetherlink-env-keys.$$"
   example_keys="${TMPDIR:-/tmp}/aetherlink-example-keys.$$"
