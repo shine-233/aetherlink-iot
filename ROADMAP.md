@@ -37,7 +37,7 @@
 | CSV 批量导入设备 | ✓ | ✓ | ✓ | 后端建档/导出与前端导入向导均已落地（自动生成/CSV 双模式、一次性凭证、脱敏导出）；产品选择列表 `/product` 同步补齐 |
 | 资产管理层级 | ✓ | ✓ | ✗ | C2：60.sql + CRUD/树 API + RBAC/DAL 级联（expandTenantIDScope 已覆盖 device/alarm/board/ota/rule_chain 等十余模块） |
 | CoAP / LwM2M / SNMP | ✓ | ✓ | ✗ | C6 闭环：CoAP/LwM2M UDP 网关 + 端点凭证映射 + 遥测汇入 uplink（P1-C）；SNMP v2c 采集接入（protocol_type=SNMP 点表轮询→uplink，含配置页动态表单与保存校验，2026-09-04） |
-| OPC UA | ✓ | ✗ | ✓ | 库级 client（gopcua）+ 连接器/点位采集接入（protocol_type=OPCUA，连接 TTL 缓存/懒重连，含配置页动态表单与保存校验，2026-09-04）；真实 opc.tcp 服务器 E2E 环境绑定待接 |
+| OPC UA | ✓ | ✗ | ✓ | 库级 client（gopcua）+ 连接器/点位采集接入（protocol_type=OPCUA，连接 TTL 缓存/懒重连，含配置页动态表单与保存校验）；**运行期 E2E 已过（2026-09-04，opcuastub 本地 opc.tcp 服务器，遥测 5s 周期落库 tenant 归属正确）** |
 | 移动端 App | ✗ | ✗ | ✓ | 远期评估 |
 | AI / LLM 集成 | ✓ | ✗ | ✓ | C4：NL 查询遥测 + AI 告警分析（service 单测 4/4）均落地 |
 | 计算字段 | ✓ | ✓ | ✗ | B3 已合入：govaluate 安全表达式派生遥测（54.sql） |
@@ -207,7 +207,7 @@ AetherLink Backend ←──gRPC──→ Modbus TCP Plugin ←──Modbus TCP�
 
 ### C6. CoAP / LwM2M 协议支持
 - [x] SNMP 采集接入（管理侧，2026-09-04）：`internal/collector` 轮询采集器——devices⨝device_configs（protocol_type='SNMP'）发现启用设备，protocol_config 点表（target/community/points[{key,oid}]）一次 Get 批量采集，INTEGER/Counter/TimeTicks→数值、OCTET STRING→文本，汇入 uplink（source_protocol=snmp）；发现缓存 TTL 60s、fail-closed 计数；内嵌 UDP SNMP agent 全链路单测 + miniredis 无关；conf 键 `collectors.snmp.enabled`；**运行期 E2E（隔离栈真实 UDP，2026-09-04）：snmpstub agent（cmd/snmpstub）+ scratch 库启动后端，遥测 5s 周期落库 telemetry_datas（uptime=600 数值、hostname=collectore2e 文本，tenant_id 归属正确）；OPC UA 死端口设备同栈验证 fail-closed（每轮干净告警、不阻塞 SNMP 通道），测后 scratch 库/配置/进程全清** ✓
-- [x] OPC UA 连接器接入（管理侧，2026-09-04）：同上骨架，protocol_type='OPCUA' + opcua.Config 连接段（复用 Validate/Normalize），按设备连接 TTL 缓存（5min）+ 读失败懒重连，节点值→遥测键；`collectors.opcua.enabled` 门控；真实 opc.tcp 服务器读写 E2E 环境绑定待接 ✓
+- [x] OPC UA 连接器接入（管理侧，2026-09-04）：同上骨架，protocol_type='OPCUA' + opcua.Config 连接段（复用 Validate/Normalize），按设备连接 TTL 缓存（5min）+ 读失败懒重连，节点值→遥测键；`collectors.opcua.enabled` 门控 ✓；**运行期 E2E（2026-09-04）：opcuastub（cmd/opcuastub，gopcua server 包本地 opc.tcp 服务器，None 安全/匿名）+ scratch 库启动后端，ns=1;s=temperature(26.5)/humidity(61.0) 每 5s 落库 telemetry_datas、tenant 归属正确、零采集失败；测后 scratch 库/配置/进程全清** ✓
 - [x] 配置页动态表单与保存校验（2026-09-04 第二批）：协议下拉内置 SNMP/OPC UA 项（GetServiceSelect 基础列表）；`pointconfig` 子包收敛点表解析/校验（service→collector 导入环破除）；内置 config_form 动态表单（input/select/table 契约，dataKey=点表 JSON 键）；凭证表单回退平台标准方案；device_config 创建/更新按"生效值"校验点表结构（坏点表保存即拒，不再等采集器日志）✓
 - [x] CoAP 服务端（RFC7252 子集：编解码/UDP 服务器/注册表/well-known + blockwise/observe 组件）
 - [x] LwM2M 注册层 + 对象实例模型 + 观察者推送（UDP 服务器配置门控接入 application 生命周期）
@@ -258,4 +258,5 @@ AetherLink Backend ←──gRPC──→ Modbus TCP Plugin ←──Modbus TCP�
 | 2026-08-26 | 设计 | 设计系统收敛 L1/L2：字号/圆角 token 落地 global.scss、断点三合一（删 --bp-* 双轨）、uno shortcuts 单源化（preset 导出 aetherlinkShortcuts）、共享 PageHeader 组件收敛 3 页 5 处重复页头、10 个表格页补 NEmpty 空态、linkage-edit 47 处 hex→token 迁移、UI emoji→SvgIcon、裸删除补 Popconfirm、html lang 随语言切换、hex 绊线契约测试（基线 1042→994 只降不升） | feat/device-preregister-import |
 | 2026-09-04 | C6/C7+/限流 收尾批 | ①SNMP 采集接入：internal/collector 轮询采集器（devices⨝device_configs 发现、protocol_config 点表、内嵌 UDP agent 单测、uplink 汇入 source_protocol=snmp）+ OPC UA 连接器（连接 TTL 缓存/懒重连）；app.WithCollectors 门控装配（collectors.*.enabled）。②casbin 集群 watcher：Redis Pub/Sub persist.Watcher + SyncedEnforcer 切换（消除 Enforce/LoadPolicy 竞态）+ casbin.watcher.enabled 门控。③限流集群版：tenant_rate_limit 拆 store 接口，Redis 固定窗口 Lua（INCR+PEXPIRE+PTTL）+ fail-open 降级，api-rate-limit.backend=memory|redis。④ROADMAP 矩阵回填过时行（资产级联/白标/AI 告警分析） | 本地主线 8fdd51e |
 | 2026-09-04 | C6/C1 运行期 E2E 批 | SNMP 采集器隔离栈运行期 E2E：snmpstub agent（cmd/snmpstub 新工具，复用 internal/snmp BuildGetResponse）+ scratch 库 + collectors.snmp.enabled 启动 → 遥测 5s 周期落库 telemetry_datas（uptime=600/hostname=collectore2e，tenant 归属正确）；OPC UA 死端口同栈验证 fail-closed 不阻塞；TimescaleDB 三态运行期：auto（无扩展跳过）+ off（显式跳过 57.sql，日志「跳过 sql/57.sql（TimescaleDB 显式关闭）」）已验证，on 环境绑定。测后 scratch 双库/配置/日志/进程全清 | 本地主线 |
+| 2026-09-04 | OPC UA 运行期 E2E 批 | opcuastub（cmd/opcuastub，gopcua server 包本地 opc.tcp 服务器，None 安全/匿名，Start 非阻塞需挂主协程）+ scratch 库 + collectors.opcua.enabled 启动 → ns=1;s=temperature(26.5)/humidity(61.0) 每 5s 落库 telemetry_datas、tenant 归属正确、零采集失败。OPC UA 全链路（连接/读值/转换/汇入/落库）实证闭环，不再依赖外部真实服务器；测后全清 | 本地主线 |
 | 2026-09-04 | C6 表单与校验批 | SNMP/OPC UA 配置页动态表单：GetServiceSelect 内置协议项 + builtinCollectorConfigForm（input/select/table 契约，dataKey=点表 JSON 键）+ 凭证表单回退平台标准方案 + device_config 创建/更新按生效值校验点表（pointconfig 子包破除 service→collector 导入环，保存即拒坏点表） | 本地主线 |
