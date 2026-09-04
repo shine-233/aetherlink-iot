@@ -23,6 +23,7 @@ const ALL_PAGES = [
   { route: '/dashboard/workbench', module: 'dashboard', name: 'Workbench', priority: 'P1' },
 
   { route: '/device/manage', module: 'device', name: 'Device management', priority: 'P0' },
+  { route: '/device/asset', module: 'device', name: 'Tenant asset management', priority: 'P1' },
   { route: '/device/command-center', module: 'device', name: 'Command center', priority: 'P0' },
   { route: '/device/template', module: 'device', name: 'Device template', priority: 'P1' },
   { route: '/device/config-detail', module: 'device', name: 'Device config detail', priority: 'P1' },
@@ -60,6 +61,7 @@ const ALL_PAGES = [
   { route: '/management/api', module: 'management', name: 'API management', priority: 'P1' },
   { route: '/management/auth', module: 'management', name: 'Permission management', priority: 'P1' },
   { route: '/management/notification', module: 'management', name: 'Notification config', priority: 'P1' },
+  { route: '/management/entity-version', module: 'management', name: 'Entity version management', priority: 'P1' },
   { route: '/management/setting', module: 'management', name: 'System setting', priority: 'P1' },
   { route: '/product/update-ota', module: 'product', name: 'OTA update', priority: 'P1' },
   { route: '/product/update-package', module: 'product', name: 'Update package', priority: 'P1' },
