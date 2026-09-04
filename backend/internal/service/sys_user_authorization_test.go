@@ -554,3 +554,40 @@ func assertSysUserAuthorizationRoles(t *testing.T, userID string, want []string)
 		}
 	}
 }
+
+func TestSysUserCreateWithoutRoleIDsBindsAuthorityFallback(t *testing.T) {
+	db := setupSysUserAuthorizationTestDB(t)
+	if err := db.AutoMigrate(&model.UserAddress{}, &model.Board{}, &model.CasbinRule{}); err != nil {
+		t.Fatalf("migrate user transaction tables: %v", err)
+	}
+	setupTestCasbinEnforcer()
+	now := time.Now().UTC()
+	user := &model.User{
+		ID:                  "fallback-user",
+		Name:                StringPtr("fallback user"),
+		PhoneNumber:         "fallback-phone",
+		Email:               "fallback-user@example.com",
+		Status:              StringPtr("N"),
+		Authority:           StringPtr(constant.TENANT_USER),
+		Password:            "hashed",
+		TenantID:            StringPtr("tenant-a"),
+		CreatedAt:           &now,
+		UpdatedAt:           &now,
+		PasswordLastUpdated: &now,
+	}
+
+	// 未显式给 RoleIDs 的创建请求：按 users.authority 兜底绑定（RBAC 激活后
+	// 无绑定用户会被全量 403，兜底保证新建用户继承其权限类型的全量授权）。
+	err := createUserWithAddressDefaultBoardAndRoles(user, &model.CreateUserReq{
+		RoleIDs: nil,
+	}, &utils.UserClaims{
+		ID:        "sys-admin",
+		Authority: constant.SYS_ADMIN,
+		TenantID:  "",
+	})
+	if err != nil {
+		t.Fatalf("create transaction returned error: %v", err)
+	}
+
+	assertSysUserAuthorizationCasbinRoles(t, db, "fallback-user", []string{constant.TENANT_USER})
+}

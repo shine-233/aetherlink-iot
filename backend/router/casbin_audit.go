@@ -16,35 +16,56 @@ import (
 	"github.com/spf13/viper"
 )
 
-// ginRoutePaths 返回引擎当前全部路由（去除前导 "/"，与 CasbinRBAC 中间件口径一致）。
-func ginRoutePaths(engine *gin.Engine) []string {
+// ginRouteKeys 返回引擎当前全部路由，形如 "GET api/v1/logo"（METHOD + 去前导斜杠路径）。
+// 方法感知：基线/新增的比较必须带 METHOD——同一路径可同时存在公开方法（如 GET /logo）
+// 与受保护方法（如 PUT /logo），按纯路径去重会让后者逃过审计（实测缺陷，2026-09-04）。
+func ginRouteKeys(engine *gin.Engine) []string {
 	registered := engine.Routes()
-	paths := make([]string, 0, len(registered))
+	keys := make([]string, 0, len(registered))
 	for _, route := range registered {
-		paths = append(paths, strings.TrimLeft(route.Path, "/"))
+		keys = append(keys, route.Method+" "+strings.TrimLeft(route.Path, "/"))
 	}
-	return paths
+	return keys
 }
 
-// pathsAddedSince 返回 all 中相对 baseline 新增的路径（保持稳定去重）。
+// pathsAddedSince 返回 all 中相对 baseline 新增的路由键（保持稳定去重）。
 func pathsAddedSince(all, baseline []string) []string {
 	base := make(map[string]struct{}, len(baseline))
-	for _, path := range baseline {
-		base[path] = struct{}{}
+	for _, key := range baseline {
+		base[key] = struct{}{}
 	}
 	added := make([]string, 0, len(all))
 	seen := make(map[string]struct{}, len(all))
-	for _, path := range all {
-		if _, ok := base[path]; ok {
+	for _, key := range all {
+		if _, ok := base[key]; ok {
 			continue
 		}
-		if _, dup := seen[path]; dup {
+		if _, dup := seen[key]; dup {
 			continue
 		}
-		seen[path] = struct{}{}
-		added = append(added, path)
+		seen[key] = struct{}{}
+		added = append(added, key)
 	}
 	return added
+}
+
+// addedKeysToPaths 从 "METHOD path" 键中取出去重后的路径集合（登记粒度是路径，act 由
+// Enforce 契约固定为 "allow"，与 HTTP 方法无关）。
+func addedKeysToPaths(keys []string) []string {
+	seen := make(map[string]struct{}, len(keys))
+	paths := make([]string, 0, len(keys))
+	for _, key := range keys {
+		parts := strings.SplitN(key, " ", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		if _, dup := seen[parts[1]]; dup {
+			continue
+		}
+		seen[parts[1]] = struct{}{}
+		paths = append(paths, parts[1])
+	}
+	return paths
 }
 
 // auditCasbinRouteCoverage 在 RouterInit 尾部执行：
@@ -66,7 +87,8 @@ func auditCasbinRouteCoverage(engine *gin.Engine, baselineRoutes []string) {
 		return
 	}
 
-	gated := pathsAddedSince(ginRoutePaths(engine), baselineRoutes)
+	gatedKeys := pathsAddedSince(ginRouteKeys(engine), baselineRoutes)
+	gated := addedKeysToPaths(gatedKeys)
 	missing := service.AuditUnregisteredCasbinRoutes(gated, service.GroupApp.Casbin.GetUrl)
 	if len(missing) == 0 {
 		logrus.Infof("casbin route audit passed: %d protected routes registered", len(gated))

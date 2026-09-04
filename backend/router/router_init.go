@@ -241,7 +241,8 @@ func RouterInit() *gin.Engine {
 		v1.Use(middleware.CasbinRBAC())
 		// 启动期 Casbin 覆盖审计基线：此快照之后注册的一切路由都视为"受 Casbin 保护"，
 		// 必须登记进资源表，否则 auditCasbinRouteCoverage 会在启动期阻断（见 casbin_audit.go）。
-		casbinBaselineRoutes = ginRoutePaths(router)
+		// 键含 METHOD（ginRouteKeys）：同路径的公开方法（如 GET /logo）不得掩盖受保护方法。
+		casbinBaselineRoutes = ginRouteKeys(router)
 		// SSE服务
 		SSERouter(v1)
 
