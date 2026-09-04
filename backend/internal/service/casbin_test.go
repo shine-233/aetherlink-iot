@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	global "aetherlink-iot/backend/pkg/global"
+	utils "aetherlink-iot/backend/pkg/utils"
 )
 
 func TestProductionCasbinConfigHasNoHardcodedSubjectBypass(t *testing.T) {
@@ -333,4 +334,73 @@ m = g(r.sub, p.sub) && r.obj == p.obj && r.act == p.act
 	c := &Casbin{}
 	assert.False(t, c.Verify("user-fail-closed", "/api/verify"),
 		"Enforce 返回错误时必须 fail-closed 拒绝")
+}
+
+// setupPatternCasbinEnforcer 与 configs/casbin.conf 的双通道 matcher 保持一致
+// （g2 分组 + urlPatternMatch 锚定模式，函数经 AddFunction 注入，与生产同源）。
+func setupPatternCasbinEnforcer(t *testing.T) {
+	t.Helper()
+	modelStr := `
+[request_definition]
+r = sub, obj, act
+
+[policy_definition]
+p = sub, obj, act
+
+[role_definition]
+g = _, _
+g2 = _, _
+
+[policy_effect]
+e = some(where (p.eft == allow))
+
+[matchers]
+m = g(r.sub, p.sub) && (g2(r.obj, p.obj) || urlPatternMatch(r.obj, p.obj)) && r.act == p.act
+`
+	casbinModel, err := model.NewModelFromString(modelStr)
+	require.NoError(t, err)
+	e, err := casbin.NewEnforcer(casbinModel)
+	require.NoError(t, err)
+	// casbin v2.135 的 AddFunction 无返回值（失败以其内部 panic 暴露）。
+	e.AddFunction("urlPatternMatch", utils.URLPatternCasbinFunction())
+
+	oldEnforcer := global.CasbinEnforcer
+	t.Cleanup(func() { global.CasbinEnforcer = oldEnforcer })
+	global.CasbinEnforcer = e
+}
+
+func TestGetUrlRecognizesParamRoutePattern(t *testing.T) {
+	setupPatternCasbinEnforcer(t)
+	c := &Casbin{}
+	_, err := global.CasbinEnforcer.AddNamedGroupingPolicies("g2", [][]string{
+		{"api/v1/device/:id", "device-resource"},
+		{"api/v1/devices", "device-list-resource"},
+	})
+	require.NoError(t, err)
+
+	assert.True(t, c.GetUrl("api/v1/device/123"), "参数路由请求路径应经锚定模式判定为已登记")
+	assert.True(t, c.GetUrl("api/v1/device/:id"), "模式串本身应精确命中")
+	assert.True(t, c.GetUrl("api/v1/devices"), "静态路由精确命中不受影响")
+	assert.False(t, c.GetUrl("api/v1/devicesXYZ"), "锚定匹配不得子串误命中")
+	assert.False(t, c.GetUrl("api/v1/other/123"), "未登记路径不得误判")
+}
+
+func TestVerifyEnforcesParamRouteViaPatternPolicy(t *testing.T) {
+	setupPatternCasbinEnforcer(t)
+	c := &Casbin{}
+	_, err := global.CasbinEnforcer.AddNamedGroupingPolicies("g", [][]string{
+		{"user-1", "role-1"},
+	})
+	require.NoError(t, err)
+	// p.obj 直接写模式——urlPatternMatch 通道使参数路由可被真实保护
+	_, err = global.CasbinEnforcer.AddNamedPolicies("p", [][]string{
+		{"role-1", "api/v1/device/:id", "allow"},
+		{"role-1", "api/v1/devices", "allow"},
+	})
+	require.NoError(t, err)
+
+	assert.True(t, c.Verify("user-1", "api/v1/device/123"), "模式策略应放行参数路由请求")
+	assert.False(t, c.Verify("user-no-role", "api/v1/device/123"), "无角色用户应被拒绝")
+	assert.True(t, c.Verify("user-1", "api/v1/devices"), "静态路由既有语义不受影响")
+	assert.False(t, c.Verify("user-1", "api/v1/device/123/secret"), "模式不得越过段边界（越权放大回归）")
 }

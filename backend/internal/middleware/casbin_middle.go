@@ -13,34 +13,43 @@ import (
 	utils "aetherlink-iot/backend/pkg/utils"
 
 	"github.com/gin-gonic/gin"
+	"github.com/spf13/viper"
 )
 
 // 采用casbin，如果资源在表中，就需要校验，不在表中不做校验
 // RBAC：用户-角色-功能-资源-动作
-
+// 严格模式（casbin.deny-unregistered=true）：未登记路由 fail-closed 返回 403，
+// 用于 RBAC 已激活部署封死"未登记=绕过"缺口；默认 false 保持历史放行语义
+// （JWTAuth 组中间件仍兜底认证，缺的只是角色级授权），dev 无种子库不受影响。
 func CasbinRBAC() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		url := strings.TrimLeft(c.Request.URL.Path, "/")
-		// 判断接口是否注册进 casbin 资源表（GetUrl 未注册返回 false，未注册的接口不做校验）
+		// 判断接口是否注册进 casbin 资源表（GetUrl 含精确与 keyMatch2 模式两通道）
 		isVerify := service.GroupApp.Casbin.GetUrl(url)
-		if isVerify {
-			// claims 由前置 JWT 中间件写入；缺失或类型不符时 fail-closed，
-			// 避免像 MustGet 硬断言那样让中间件顺序错乱时直接 panic。
-			claimsValue, exists := c.Get("claims")
-			if !exists {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-				return
-			}
-			userClaims, ok := claimsValue.(*utils.UserClaims)
-			if !ok || userClaims == nil {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-				return
-			}
-			isSuccess := service.GroupApp.Casbin.Verify(userClaims.ID, url)
-			if !isSuccess {
+		if !isVerify {
+			if viper.GetBool("casbin.deny-unregistered") {
+				// 与已注册未授权保持同一拒绝契约（403 + "非法访问"），前端可统一处理。
 				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "非法访问"})
 				return
 			}
+			return
+		}
+		// claims 由前置 JWT 中间件写入；缺失或类型不符时 fail-closed，
+		// 避免像 MustGet 硬断言那样让中间件顺序错乱时直接 panic。
+		claimsValue, exists := c.Get("claims")
+		if !exists {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			return
+		}
+		userClaims, ok := claimsValue.(*utils.UserClaims)
+		if !ok || userClaims == nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			return
+		}
+		isSuccess := service.GroupApp.Casbin.Verify(userClaims.ID, url)
+		if !isSuccess {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "非法访问"})
+			return
 		}
 	}
 }
