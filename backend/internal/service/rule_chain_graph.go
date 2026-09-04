@@ -21,6 +21,7 @@ const (
 	RuleChainTransformMapping = "transform.mapping"
 	RuleChainActionWebhook    = "action.webhook"
 	RuleChainActionCommand    = "action.command"
+	RuleChainActionAlarm      = "action.alarm"
 	ruleChainMaxNodes         = 64
 	ruleChainMaxEdges         = 128
 	ruleChainMaxGraphBytes    = 256 * 1024
@@ -34,6 +35,7 @@ var RuleChainNodeTypeMeta = map[string]string{
 	RuleChainTransformMapping: "transform",
 	RuleChainActionWebhook:    "action",
 	RuleChainActionCommand:    "action",
+	RuleChainActionAlarm:      "action",
 }
 
 // RuleChainGraph DAG 定义。
