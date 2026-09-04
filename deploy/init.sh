@@ -342,7 +342,7 @@ initialize_env_file() {
 # GOTP_AUTH_COOKIE_SECURE 必须跟随公网入口协议：HTTPS 部署不允许下发非 Secure 认证 cookie。
 # 仅在检测到 https:// 公网地址时强制 true；HTTP 本地/联调保留运维显式配置。
 sync_auth_cookie_secure_env_file() {
-  [ -f .env ] || return
+  [ -f .env ] || return 0
   effective_public_url="${AETHERLINK_PUBLIC_URL:-$(read_env_value AETHERLINK_PUBLIC_URL || true)}"
   case "$effective_public_url" in
     https://*) replace_env_value GOTP_AUTH_COOKIE_SECURE "true" .env ;;
@@ -352,15 +352,15 @@ sync_auth_cookie_secure_env_file() {
 # server 模式把端口发布到 loopback 之外；当整条链路仍是明文（公网入口非 HTTPS）时
 # 打印醒目告警，要求运维显式选择 TLS 终结方案。AETHERLINK_SKIP_TLS_WARNING=1 表示已知悉并静默。
 warn_plaintext_server_exposure() {
-  [ "$SERVER_MODE" = "1" ] || return
-  [ "${AETHERLINK_SKIP_TLS_WARNING:-}" = "1" ] && return
+  [ "$SERVER_MODE" = "1" ] || return 0
+  [ "${AETHERLINK_SKIP_TLS_WARNING:-}" = "1" ] && return 0
   effective_bind_address="${AETHERLINK_BIND_ADDRESS:-$(read_env_value AETHERLINK_BIND_ADDRESS || true)}"
   effective_public_url="${AETHERLINK_PUBLIC_URL:-$(read_env_value AETHERLINK_PUBLIC_URL || true)}"
   case "$effective_bind_address" in
-    ""|localhost|127.0.0.1|::1|\[::1\]) return ;;
+    ""|localhost|127.0.0.1|::1|\[::1\]) return 0 ;;
   esac
   case "$effective_public_url" in
-    https://*) return ;;
+    https://*) return 0 ;;
   esac
   cat >&2 <<'WARN_EOF'
 ====================================================================
@@ -381,7 +381,7 @@ WARN_EOF
 }
 
 sync_address_env_file() {
-  [ -f .env ] || return
+  [ -f .env ] || return 0
 
   effective_performance_tier="${AETHERLINK_PERFORMANCE_TIER:-}"
   if [ -z "$effective_performance_tier" ]; then
