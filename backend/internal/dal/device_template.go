@@ -12,7 +12,6 @@ import (
 	model "aetherlink-iot/backend/internal/model"
 	query "aetherlink-iot/backend/internal/query"
 	global "aetherlink-iot/backend/pkg/global"
-	utils "aetherlink-iot/backend/pkg/utils"
 
 	"github.com/sirupsen/logrus"
 )
@@ -109,19 +108,38 @@ func DeleteDeviceTemplate(id string) error {
 	return err
 }
 
-func GetDeviceTemplateListByPage(req *model.GetDeviceTemplateListByPageReq, claims *utils.UserClaims) (int64, interface{}, error) {
+// deviceTemplateTenantScope 把自上而下租户作用域（self∪子孙，由 service 层展开）
+// 装配到 gen 查询链：单元素退化为 Eq（与旧行为等价）；空作用域返回空结果标记（fail-closed）。
+func deviceTemplateTenantScope(q query.IDeviceTemplateDo, scopes []string) (query.IDeviceTemplateDo, bool) {
+	switch len(scopes) {
+	case 0:
+		return q, true
+	case 1:
+		return q.Where(query.DeviceTemplate.TenantID.Eq(scopes[0])), false
+	default:
+		return q.Where(query.DeviceTemplate.TenantID.In(scopes...)), false
+	}
+}
+
+// GetDeviceTemplateListByPage 分页查询物模型（tenant-scope: caller-enforced；scopes 由 service 层按
+// hierarchy.ScopeDown 展开，自上而下：总部/父级可见 self∪子孙模板）。
+func GetDeviceTemplateListByPage(req *model.GetDeviceTemplateListByPageReq, scopes []string) (int64, interface{}, error) {
 
 	if req.Page <= 0 || req.PageSize <= 0 {
 		return 0, nil, fmt.Errorf("page and pageSize must be greater than 0")
 	}
 
 	q := query.DeviceTemplate
-	var count int64
 	queryBuilder := q.WithContext(context.Background())
 	if req.Name != nil {
 		queryBuilder = queryBuilder.Where(q.Name.Like(ContainsLikePattern(*req.Name)))
 	}
-	queryBuilder = queryBuilder.Where(q.TenantID.Eq(claims.TenantID))
+	var empty bool
+	queryBuilder, empty = deviceTemplateTenantScope(queryBuilder, scopes)
+	if empty {
+		return 0, nil, nil
+	}
+	var count int64
 	count, err := queryBuilder.Count()
 	if err != nil {
 		logrus.Error(err)
@@ -142,14 +160,18 @@ func GetDeviceTemplateListByPage(req *model.GetDeviceTemplateListByPageReq, clai
 
 }
 
-func GetDeviceTemplateMenu(req *model.GetDeviceTemplateMenuReq, claims *utils.UserClaims) (interface{}, error) {
+// GetDeviceTemplateMenu 查询物模型下拉菜单（tenant-scope: caller-enforced；scopes 由 service 层展开）。
+func GetDeviceTemplateMenu(req *model.GetDeviceTemplateMenuReq, scopes []string) (interface{}, error) {
 
 	q := query.DeviceTemplate
 	queryBuilder := q.WithContext(context.Background())
 	if req.Name != nil {
 		queryBuilder = queryBuilder.Where(q.Name.Like(ContainsLikePattern(*req.Name)))
 	}
-	queryBuilder = queryBuilder.Where(q.TenantID.Eq(claims.TenantID))
+	queryBuilder, empty := deviceTemplateTenantScope(queryBuilder, scopes)
+	if empty {
+		return nil, nil
+	}
 	var data []map[string]interface{}
 	err := queryBuilder.Select(q.ID, q.Name).Order(q.CreatedAt.Desc()).Scan(&data)
 	if err != nil {
@@ -159,15 +181,23 @@ func GetDeviceTemplateMenu(req *model.GetDeviceTemplateMenuReq, claims *utils.Us
 
 }
 
-// GetDeviceTemplateStats 获取设备物模型统计信息
-func GetDeviceTemplateStats(deviceTemplateID string, tenantID string) (*model.GetDeviceTemplateStatsRsp, error) {
+// GetDeviceTemplateStats 获取设备物模型统计信息（tenant-scope: caller-enforced；
+// scopes 由 service 层展开——模板与关联设备计数均限制在自上而下作用域内）。
+func GetDeviceTemplateStats(deviceTemplateID string, scopes []string) (*model.GetDeviceTemplateStatsRsp, error) {
 	ctx := context.Background()
+	if len(scopes) == 0 {
+		return nil, fmt.Errorf("thing model not found: id=%s tenant_scope=empty", deviceTemplateID)
+	}
 
 	// 查询物模型基本信息
 	dt := query.DeviceTemplate
-	template, err := dt.WithContext(ctx).
-		Where(dt.ID.Eq(deviceTemplateID), dt.TenantID.Eq(tenantID)).
-		First()
+	dtQuery := dt.WithContext(ctx).Where(dt.ID.Eq(deviceTemplateID))
+	if len(scopes) == 1 {
+		dtQuery = dtQuery.Where(dt.TenantID.Eq(scopes[0]))
+	} else {
+		dtQuery = dtQuery.Where(dt.TenantID.In(scopes...))
+	}
+	template, err := dtQuery.First()
 	if err != nil {
 		logrus.Error("query thing model error: ", err)
 		return nil, err
@@ -179,20 +209,30 @@ func GetDeviceTemplateStats(deviceTemplateID string, tenantID string) (*model.Ge
 	d := query.Device
 
 	// 统计总设备数
-	totalDevices, err := d.WithContext(ctx).
+	deviceQuery := d.WithContext(ctx).
 		Join(dc, dc.ID.EqCol(d.DeviceConfigID)).
-		Where(dc.DeviceTemplateID.Eq(deviceTemplateID), d.TenantID.Eq(tenantID)).
-		Count()
+		Where(dc.DeviceTemplateID.Eq(deviceTemplateID))
+	if len(scopes) == 1 {
+		deviceQuery = deviceQuery.Where(d.TenantID.Eq(scopes[0]))
+	} else {
+		deviceQuery = deviceQuery.Where(d.TenantID.In(scopes...))
+	}
+	totalDevices, err := deviceQuery.Count()
 	if err != nil {
 		logrus.Error("query total devices error: ", err)
 		return nil, err
 	}
 
 	// 统计在线设备数
-	onlineDevices, err := d.WithContext(ctx).
+	onlineQuery := d.WithContext(ctx).
 		Join(dc, dc.ID.EqCol(d.DeviceConfigID)).
-		Where(dc.DeviceTemplateID.Eq(deviceTemplateID), d.TenantID.Eq(tenantID), d.IsOnline.Eq(1)).
-		Count()
+		Where(dc.DeviceTemplateID.Eq(deviceTemplateID), d.IsOnline.Eq(1))
+	if len(scopes) == 1 {
+		onlineQuery = onlineQuery.Where(d.TenantID.Eq(scopes[0]))
+	} else {
+		onlineQuery = onlineQuery.Where(d.TenantID.In(scopes...))
+	}
+	onlineDevices, err := onlineQuery.Count()
 	if err != nil {
 		logrus.Error("query online devices error: ", err)
 		return nil, err

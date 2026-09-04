@@ -13,12 +13,24 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func GetSceneAutomationLog(req *model.GetSceneAutomationLogReq, tenantId string) (int64, []*model.SceneAutomationLog, error) {
+// GetSceneAutomationLog 分页返回指定场景在作用域内的执行日志（ROADMAP C2 自上而下读）。
+// scopes 语义：0→fail-closed 空结果、1→tenant_id =（与旧单租户等价）、>1→tenant_id IN；
+// 日志行以其执行时的租户归属存储，作用域内不含该场景租户时自然空结果（不泄露存在性）。
+// tenant-scope: scopes 由 service 层展开并校验（TENANT_ADMIN/SYS_ADMIN self∪子孙；
+// TENANT_USER 保持 self-only；空租户由 service 映射为 [""] 保持平台空租户旧行为）。
+func GetSceneAutomationLog(req *model.GetSceneAutomationLogReq, scopes []string) (int64, []*model.SceneAutomationLog, error) {
 	var count int64
 	q := query.SceneAutomationLog
 	queryBuilder := q.WithContext(context.Background())
+	switch len(scopes) {
+	case 0:
+		return 0, []*model.SceneAutomationLog{}, nil
+	case 1:
+		queryBuilder = queryBuilder.Where(q.TenantID.Eq(scopes[0]))
+	default:
+		queryBuilder = queryBuilder.Where(q.TenantID.In(scopes...))
+	}
 	queryBuilder = queryBuilder.Where(q.SceneAutomationID.Eq(req.SceneAutomationId))
-	queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenantId))
 
 	if req.ExecutionResult != nil {
 		queryBuilder = queryBuilder.Where(q.ExecutionResult.Eq(*req.ExecutionResult))

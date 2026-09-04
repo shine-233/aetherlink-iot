@@ -362,12 +362,15 @@ func GetUsersByPhoneNumber(phoneNumber string) (*model.User, error) {
 	return &user, nil
 }
 
-// tenant-scope: caller-enforced?2026-08-26 ?????
-func GetUserListByPage(userListReq *model.UserListReq, claims *utils.UserClaims) (int64, interface{}, error) {
-	return GetUserListByPageWithAddress(userListReq, claims)
+// GetUserListByPage 按角色权限边界分页查询用户目录（ROADMAP C2 自上而下读）。
+// scopes 语义：TENANT_ADMIN → service 层展开的 self∪子孙；TENANT_USER → service 强制
+// self-only；SYS_ADMIN → nil（平台级管理员目录，无租户过滤，与旧行为一致）。
+// tenant-scope: scopes 由 service 层展开并校验；claims 租户为空时仍显式拒绝（P1 修复语义）。
+func GetUserListByPage(userListReq *model.UserListReq, claims *utils.UserClaims, scopes []string) (int64, interface{}, error) {
+	return GetUserListByPageWithAddress(userListReq, claims, scopes)
 }
 
-func GetUserListByPageWithAddress(userListReq *model.UserListReq, claims *utils.UserClaims) (int64, interface{}, error) {
+func GetUserListByPageWithAddress(userListReq *model.UserListReq, claims *utils.UserClaims, scopes []string) (int64, interface{}, error) {
 	var count int64
 	var userList []map[string]interface{}
 
@@ -395,7 +398,18 @@ func GetUserListByPageWithAddress(userListReq *model.UserListReq, claims *utils.
 			logrus.Warn("dal: tenant-scoped user list query has empty TenantID in claims; rejecting")
 			return count, nil, fmt.Errorf("empty tenant id in claims")
 		}
-		base = base.Where("users.tenant_id = ? AND users.authority = ?", claims.TenantID, TENANT_USER)
+		// ROADMAP C2 自上而下：TENANT_ADMIN 的成员目录可见 self∪子孙租户成员
+		// （scopes 由 service 层展开并校验）；TENANT_USER 由 service 强制 self-only，
+		// 过滤语义与旧单租户等价。
+		if len(scopes) == 0 {
+			logrus.Warn("dal: tenant-scoped user list query has empty scopes; rejecting")
+			return count, nil, fmt.Errorf("empty tenant scope for user list")
+		}
+		if len(scopes) == 1 {
+			base = base.Where("users.tenant_id = ? AND users.authority = ?", scopes[0], TENANT_USER)
+		} else {
+			base = base.Where("users.tenant_id IN ? AND users.authority = ?", scopes, TENANT_USER)
+		}
 	} else if claims.Authority == SYS_ADMIN {
 		base = base.Where("users.authority = ?", TENANT_ADMIN)
 	} else {

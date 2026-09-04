@@ -28,7 +28,8 @@ const palette: PaletteItem[] = [
   { type: 'filter.threshold', label: $t('custom.rule_chain.nodeFilterThreshold') },
   { type: 'transform.mapping', label: $t('custom.rule_chain.nodeTransformMapping') },
   { type: 'action.webhook', label: $t('custom.rule_chain.nodeActionWebhook') },
-  { type: 'action.command', label: $t('custom.rule_chain.nodeActionCommand') }
+  { type: 'action.command', label: $t('custom.rule_chain.nodeActionCommand') },
+  { type: 'action.alarm', label: $t('custom.rule_chain.nodeActionAlarm') }
 ]
 
 const flowNodes = ref<any[]>([])
@@ -124,6 +125,9 @@ const isCommandNode = computed(
   () => !!selectedNode.value && graphNodeType(selectedNode.value) === 'action.command'
 )
 
+const isAlarmNode = computed(
+  () => !!selectedNode.value && graphNodeType(selectedNode.value) === 'action.alarm'
+)
 // mapping fields 以 "from=to" 行文本编辑，简单直观
 const mappingLines = ref('')
 
@@ -364,6 +368,15 @@ defineExpose({ serializeGraph })
                   :autosize="{ minRows: 3, maxRows: 6 }"
                   @blur="handleParamsBlur"
                 />
+              </n-form-item>
+            </template>
+
+            <template v-if="isAlarmNode">
+              <n-form-item :label="$t('custom.rule_chain.alarmName')" label-placement="top">
+                <n-input :value="String(selectedConfig.name || '')" @update:value="(v: string) => updateSelectedConfig('name', v)" :placeholder="$t('custom.rule_chain.alarmNamePh')" />
+              </n-form-item>
+              <n-form-item :label="$t('custom.rule_chain.alarmSeverity')" label-placement="top">
+                <n-input :value="String(selectedConfig.severity || 'H')" @update:value="(v: string) => updateSelectedConfig('severity', v)" placeholder="L/M/H" style="width:120px" />
               </n-form-item>
             </template>
           </template>

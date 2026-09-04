@@ -29,12 +29,24 @@ func GetFleetSavedFilterInTenant(id, tenantID string) (*model.FleetSavedFilter, 
 	return &filter, err
 }
 
-// ListFleetSavedFiltersVisibleToUser 返回本人拥有的全部筛选器，加上同租户
-// 其他成员显式共享（shared = true）的筛选器。跨租户记录永不可见。
-func ListFleetSavedFiltersVisibleToUser(tenantID, userID string, limit int) ([]*model.FleetSavedFilter, error) {
+// ListFleetSavedFiltersVisibleToUser 返回作用域内本人拥有的全部筛选器，加上
+// 同作用域其他成员显式共享（shared = true）的筛选器（ROADMAP C2 自上而下读）。
+// scopes 语义：0→fail-closed 空结果、1→tenant_id =（与旧单租户等价）、>1→tenant_id IN；
+// user 维度恒为 user_id = ? OR shared = true，跨成员私有行即使落在作用域内也不可见。
+// tenant-scope: scopes 由 service 层展开并校验（TENANT_ADMIN self∪子孙；调用方为
+// SYS_ADMIN 且 tenant 为空时由 service 映射为 [""] 保持平台空租户旧行为）。
+func ListFleetSavedFiltersVisibleToUser(scopes []string, userID string, limit int) ([]*model.FleetSavedFilter, error) {
 	var filters []*model.FleetSavedFilter
-	err := global.DB.
-		Where("tenant_id = ? AND (user_id = ? OR shared = ?)", tenantID, userID, true).
+	query := global.DB.Model(&model.FleetSavedFilter{})
+	switch len(scopes) {
+	case 0:
+		return []*model.FleetSavedFilter{}, nil
+	case 1:
+		query = query.Where("tenant_id = ? AND (user_id = ? OR shared = ?)", scopes[0], userID, true)
+	default:
+		query = query.Where("tenant_id IN ? AND (user_id = ? OR shared = ?)", scopes, userID, true)
+	}
+	err := query.
 		Order("updated_at DESC").
 		Limit(limit).
 		Find(&filters).Error

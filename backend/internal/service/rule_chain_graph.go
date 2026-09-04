@@ -1,6 +1,8 @@
 // 文件用途：规则链 DAG 图模型、解析与校验（ROADMAP B2）。
 // 核心逻辑：graph JSON = {nodes:[{id,type,config}], edges:[{from,to}]}；
-//   校验含唯一性、边引用完整性、触发器存在性与 Kahn 拓扑无环检查。
+//
+//	校验含唯一性、边引用完整性、触发器存在性与 Kahn 拓扑无环检查。
+//
 // 关键注意事项：节点类型注册表是扩展点——新增类型需同时实现执行 handler。
 package service
 
@@ -8,18 +10,21 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"aetherlink-iot/backend/pkg/safehttp"
 )
 
 const (
-	RuleChainTriggerTelemetry   = "trigger.telemetry"
-	RuleChainTriggerOnline      = "trigger.device_online"
-	RuleChainFilterThreshold    = "filter.threshold"
-	RuleChainTransformMapping   = "transform.mapping"
-	RuleChainActionWebhook      = "action.webhook"
-	RuleChainActionCommand      = "action.command"
-	ruleChainMaxNodes           = 64
-	ruleChainMaxEdges           = 128
-	ruleChainMaxGraphBytes      = 256 * 1024
+	RuleChainTriggerTelemetry = "trigger.telemetry"
+	RuleChainTriggerOnline    = "trigger.device_online"
+	RuleChainFilterThreshold  = "filter.threshold"
+	RuleChainTransformMapping = "transform.mapping"
+	RuleChainActionWebhook    = "action.webhook"
+	RuleChainActionCommand    = "action.command"
+	RuleChainActionAlarm      = "action.alarm"
+	ruleChainMaxNodes         = 64
+	ruleChainMaxEdges         = 128
+	ruleChainMaxGraphBytes    = 256 * 1024
 )
 
 // RuleChainNodeTypeMeta 内置节点类型注册表（前端画布与后端校验共用语义）。
@@ -30,6 +35,7 @@ var RuleChainNodeTypeMeta = map[string]string{
 	RuleChainTransformMapping: "transform",
 	RuleChainActionWebhook:    "action",
 	RuleChainActionCommand:    "action",
+	RuleChainActionAlarm:      "action",
 }
 
 // RuleChainGraph DAG 定义。
@@ -97,6 +103,12 @@ func (g *RuleChainGraph) Validate() error {
 		if !ok {
 			return fmt.Errorf("node %q has unknown type %q", node.ID, node.Type)
 		}
+		if node.Type == RuleChainActionWebhook {
+			target, _ := node.Config["url"].(string)
+			if _, err := safehttp.ParseWebhookURL(target); err != nil {
+				return fmt.Errorf("webhook node %q has invalid url: %w", node.ID, err)
+			}
+		}
 		if kind == "trigger" {
 			hasTrigger = true
 		}
@@ -111,6 +123,22 @@ func (g *RuleChainGraph) Validate() error {
 		}
 		if edge.From == edge.To {
 			return fmt.Errorf("edge %d is self-loop", i)
+		}
+	}
+	indegree := make(map[string]int, len(g.Nodes))
+	for _, node := range g.Nodes {
+		indegree[node.ID] = 0
+	}
+	for _, edge := range g.Edges {
+		indegree[edge.To]++
+	}
+	for _, node := range g.Nodes {
+		kind := RuleChainNodeTypeMeta[node.Type]
+		if kind == "trigger" && indegree[node.ID] != 0 {
+			return fmt.Errorf("trigger node %q must be a root", node.ID)
+		}
+		if kind != "trigger" && indegree[node.ID] == 0 {
+			return fmt.Errorf("non-trigger node %q cannot be a root", node.ID)
 		}
 	}
 	return g.validateAcyclic()

@@ -85,15 +85,34 @@ func GetPublishedBoardByShareToken(shareToken string) (*model.Board, error) {
 	).First()
 }
 
+// tenant-scope: reviewed-2026-09-02 all-tenants semantics (empty tenant = SYS_ADMIN full view);
+// scoped execution delegated to boardListByScopes with scopes from service layer.
 func GetBoardListByPage(boards *model.GetBoardListByPageReq, tenantId string) (int64, interface{}, error) {
+	var scopes []string
+	if strings.TrimSpace(tenantId) != "" {
+		scopes = []string{tenantId}
+	}
+	return boardListByScopes(boards, scopes)
+}
+
+// GetBoardListByPageForScopes 层级作用域变体（ROADMAP C2）：boards.tenant_id IN (scopes)。
+// tenant-scope: caller-enforced (scopes 由 service 层展开并校验；nil=管理员全量)。
+func GetBoardListByPageForScopes(boards *model.GetBoardListByPageReq, scopes []string) (int64, interface{}, error) {
+	return boardListByScopes(boards, scopes)
+}
+
+func boardListByScopes(boards *model.GetBoardListByPageReq, scopes []string) (int64, interface{}, error) {
 	q := query.Board
 	var count int64
 	queryBuilder := q.WithContext(context.Background())
-	// An empty tenant id is reserved for SYS_ADMIN's explicit all-tenant list
-	// scope. Ordinary callers are rejected in the service layer before reaching
-	// this DAL function, so an empty value must not silently become a tenant.
-	if strings.TrimSpace(tenantId) != "" {
-		queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenantId))
+	// An empty scope list is reserved for SYS_ADMIN's explicit all-tenant list scope.
+	if len(scopes) > 0 {
+		switch len(scopes) {
+		case 1:
+			queryBuilder = queryBuilder.Where(q.TenantID.Eq(scopes[0]))
+		default:
+			queryBuilder = queryBuilder.Where(q.TenantID.In(scopes...))
+		}
 	}
 
 	if boards.Name != nil && *boards.Name != "" {
@@ -134,7 +153,7 @@ func GetBoardListByPage(boards *model.GetBoardListByPageReq, tenantId string) (i
 		return count, boardsList, err
 	}
 
-	return count, boardsList, err
+	return count, boardsList, nil
 }
 
 func GetBoard(id string, tenantId string) (interface{}, error) {

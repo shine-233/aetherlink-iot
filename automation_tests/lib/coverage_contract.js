@@ -591,7 +591,7 @@ function classifyEndpointCatalogItem(endpointKey) {
   if (/^\/(?:health|ready|metrics|metrics-viewer|files\/|swagger\/)/.test(pathPart)) {
     return { endpoint: endpointKey, scope: 'infra', capability: 'system-deployment' };
   }
-  if (/^\/api\/v1\/(?:login|user(?:\/|$)|role(?:\/|$)|casbin(?:\/|$)|tenant(?:\/|$)|reset\/password|verification\/code|dict(?:\/|$)|ui_elements(?:\/|$))/.test(pathPart)) {
+  if (/^\/api\/v1\/(?:login|user(?:\/|$)|role(?:\/|$)|casbin(?:\/|$)|tenant(?:\/|$)|reset\/password|verification\/code|dict(?:\/|$)|ui_elements(?:\/|$)|asset(?:\/|$)|oidc(?:\/|$)|sso(?:\/|$))/.test(pathPart)) {
     return { endpoint: endpointKey, scope: 'P0/P1', capability: 'permission-tenancy' };
   }
   if (/^\/api\/v1\/command\/datas\/(?:jobs|delivery\/diagnostics|saved-filters)(?:\/|$)/.test(pathPart) ||

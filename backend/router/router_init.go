@@ -183,10 +183,14 @@ func RouterInit() *gin.Engine {
 				plugin.POST("plugin/service/access", controllers.HandlePluginServiceAccess)
 			}
 			v1.POST("login", controllers.Login)
+			v1.POST("login/totp", controllers.UserApi.LoginWithTotp)
+			v1.GET("sso/providers", controllers.OidcSsoApi.HandleOidcPublicProviders)
+			v1.GET("sso/:id/start", controllers.OidcSsoApi.HandleSSOStart)
+			v1.GET("sso/:id/callback", controllers.OidcSsoApi.HandleSSOCallback)
 			v1.GET("verification/code", controllers.HandleVerificationCode)
 			v1.POST("reset/password/link", controllers.RequestPasswordResetLink)
 			v1.POST("reset/password", controllers.ResetPassword)
-			v1.GET("logo", controllers.HandleLogoList)
+			v1.GET("logo", middleware.OptionalJWTAuth(), controllers.HandleLogoList)
 			// 设备遥测（ws）
 			v1.GET("telemetry/datas/current/ws", controllers.TelemetryDataApi.ServeCurrentDataByWS)
 			// 设备在线离线状态（ws） - 兼容旧实现
@@ -237,12 +241,17 @@ func RouterInit() *gin.Engine {
 		v1.Use(middleware.CasbinRBAC())
 		// 启动期 Casbin 覆盖审计基线：此快照之后注册的一切路由都视为"受 Casbin 保护"，
 		// 必须登记进资源表，否则 auditCasbinRouteCoverage 会在启动期阻断（见 casbin_audit.go）。
-		casbinBaselineRoutes = ginRoutePaths(router)
+		// 键含 METHOD（ginRouteKeys）：同路径的公开方法（如 GET /logo）不得掩盖受保护方法。
+		casbinBaselineRoutes = ginRouteKeys(router)
 		// SSE服务
 		SSERouter(v1)
 
 		{
 			apps.Model.User.InitUser(v1) // 用户模块
+
+			apps.Model.UserTOTP.InitUserTOTP(v1) // 2FA（TOTP 绑定/状态）
+
+			apps.Model.OidcSso.InitOidcProvider(v1) // OIDC/SSO 提供方管理（ROADMAP C7）
 
 			apps.Model.Role.Init(v1) // 角色管理
 
@@ -311,6 +320,8 @@ func RouterInit() *gin.Engine {
 			apps.Model.RuleChain.InitRuleChain(v1) // 规则链（可视化 DAG 编排）
 
 			apps.Model.EntityVersion.InitEntityVersion(v1) // 实体版本控制（快照/历史/恢复）
+
+			apps.Model.Asset.InitAsset(v1) // 资产层级（ROADMAP C2）
 
 			apps.Model.OpenAPIKey.InitOpenAPIKey(v1)
 

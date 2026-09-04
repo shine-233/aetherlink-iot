@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strings"
 )
 
 // PayloadSchemaFieldType 是 broker 侧字段类型的本地镜像(不 import backend module)。
@@ -48,6 +49,53 @@ type PayloadSchemaFieldConstraint struct {
 type PayloadSchemaEnforcement struct {
 	Strict bool
 	Fields []PayloadSchemaFieldConstraint
+}
+
+// validatePayloadSchemaEnforcement mirrors the backend registry's structural
+// checks before a DB-resolved schema is marked as bound.  A malformed or
+// incompatible persisted schema must fail closed at the broker boundary,
+// rather than being interpreted differently from the backend runtime path.
+func validatePayloadSchemaEnforcement(enf PayloadSchemaEnforcement) error {
+	if len(enf.Fields) == 0 {
+		return fmt.Errorf("payload schema must declare at least one field")
+	}
+	seen := make(map[string]struct{}, len(enf.Fields))
+	for _, field := range enf.Fields {
+		name := strings.TrimSpace(field.Name)
+		if name == "" {
+			return fmt.Errorf("payload schema field name is required")
+		}
+		if _, ok := seen[name]; ok {
+			return fmt.Errorf("payload schema field names must be unique")
+		}
+		seen[name] = struct{}{}
+
+		switch field.Type {
+		case PayloadSchemaFieldTypeNumber:
+			if field.Min != nil && field.Max != nil && *field.Min > *field.Max {
+				return fmt.Errorf("payload schema field min cannot exceed max")
+			}
+			if len(field.Enum) > 0 || field.Pattern != nil {
+				return fmt.Errorf("number fields cannot declare enum or pattern constraints")
+			}
+		case PayloadSchemaFieldTypeString:
+			if field.Min != nil || field.Max != nil {
+				return fmt.Errorf("string fields cannot declare min or max constraints")
+			}
+			if field.Pattern != nil {
+				if _, err := regexp.Compile(*field.Pattern); err != nil {
+					return fmt.Errorf("payload schema field pattern is invalid")
+				}
+			}
+		case PayloadSchemaFieldTypeBoolean, PayloadSchemaFieldTypeObject, PayloadSchemaFieldTypeArray:
+			if field.Min != nil || field.Max != nil || len(field.Enum) > 0 || field.Pattern != nil {
+				return fmt.Errorf("payload schema field type does not support scalar constraints")
+			}
+		default:
+			return fmt.Errorf("unsupported payload schema field type")
+		}
+	}
+	return nil
 }
 
 // PayloadSchemaDecisionOutcome 是决策结果枚举。
@@ -84,7 +132,7 @@ func DecidePayloadSchemaEnforcement(enf PayloadSchemaEnforcement, rawPayload []b
 	}
 
 	var decoded map[string]any
-	if err := json.Unmarshal(rawPayload, &decoded); err != nil {
+	if err := json.Unmarshal(rawPayload, &decoded); err != nil || decoded == nil {
 		decision.Outcome = PayloadSchemaReject
 		decision.Errors = append(decision.Errors, "payload is not a valid JSON object")
 		decision.Reason = "payload is not a valid JSON object"
@@ -187,6 +235,8 @@ func decidePayloadFieldValue(field PayloadSchemaFieldConstraint, value any) stri
 		if _, ok := value.([]any); !ok {
 			return fmt.Sprintf("field %q must be an array", field.Name)
 		}
+	default:
+		return fmt.Sprintf("field %q has unsupported type %q", field.Name, field.Type)
 	}
 	return ""
 }

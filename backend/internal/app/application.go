@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"aetherlink-iot/backend/internal/downlink"
+	"aetherlink-iot/backend/internal/protocolgw"
 	"aetherlink-iot/backend/internal/query"
 	"aetherlink-iot/backend/internal/storage"
 	"aetherlink-iot/backend/internal/uplink"
@@ -27,6 +28,8 @@ type Application struct {
 	uplinkService   *UplinkServiceWrapper
 	mqttService     *MQTTService
 	downlinkService *DownlinkServiceWrapper
+	// CoAPGateway C6 协议网关实例（未启用时为 nil）。
+	CoAPGateway *protocolgw.Gateway
 
 	shutdownOnce sync.Once
 }

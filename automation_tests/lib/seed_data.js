@@ -15,6 +15,7 @@ const crypto = require('crypto');
 const { execFile, spawn } = require('child_process');
 const { promisify } = require('util');
 const mqttRuntime = require('./mqtt_runtime');
+const { readCommandReceipts, startMqttOTADevice } = require('./mqtt_device_fixture');
 
 const execFileAsync = promisify(execFile);
 
@@ -177,13 +178,16 @@ function getOptInSyntheticRdiPid() {
   return pid;
 }
 
-function getRdiCandidatePids() {
-  return [
-    getOptInSyntheticRdiPid(),
-    testData.getDevicePID('inactive_pid'),
+function getRdiCandidatePids(accountKey = 'tenant_admin') {
+  const candidates = [getOptInSyntheticRdiPid()];
+  if (accountKey === 'tenant_admin') {
+    candidates.push(testData.getDevicePID('inactive_pid'));
+  }
+  candidates.push(
     testData.getDevicePID('activated_pid'),
     testData.getDevicePID('activated_pid_2')
-  ].filter(Boolean);
+  );
+  return candidates.filter(Boolean);
 }
 
 /**
@@ -480,16 +484,22 @@ async function startReadyCheckEmulator(device, accountKey = 'tenant_admin', opti
   const configPath = path.join(reportDir, `ready-check-emulator-${runId}.json`);
   const stdoutPath = path.join(reportDir, `ready-check-emulator-${runId}.stdout.log`);
   const stderrPath = path.join(reportDir, `ready-check-emulator-${runId}.stderr.log`);
+  const commandReceiptPath = String(options.commandReceiptPath || '').trim();
   fs.writeFileSync(configPath, buildReadyCheckEmulatorConfig(), 'utf8');
 
   const moduleRoot = path.resolve(__dirname, '..', '..', 'backend', 'cmd', 'aetherlink-device-autotest');
   const stdout = fs.createWriteStream(stdoutPath, { flags: 'a' });
   const stderr = fs.createWriteStream(stderrPath, { flags: 'a' });
-  const child = spawn(binary.path, [
+  const commandArgs = [
     '-config', configPath,
     '-mode', 'command-emulator',
     '-command-success'
-  ], {
+  ];
+  if (commandReceiptPath) {
+    fs.mkdirSync(path.dirname(commandReceiptPath), { recursive: true });
+    commandArgs.push('-command-receipt-path', commandReceiptPath);
+  }
+  const child = spawn(binary.path, commandArgs, {
     cwd: moduleRoot,
     windowsHide: true,
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -549,6 +559,8 @@ async function startReadyCheckEmulator(device, accountKey = 'tenant_admin', opti
 
   return {
     row: onlineDetail,
+    commandReceiptPath,
+    readCommandReceipts: () => commandReceiptPath ? readCommandReceipts(commandReceiptPath) : [],
     cleanup: stop
   };
 }
@@ -607,6 +619,8 @@ async function prepareReadyCheckRuntimeDevice(accountKey = 'tenant_admin', optio
       device: {
         ...afterStart.device,
         row: runtime.row,
+        commandReceiptPath: runtime.commandReceiptPath,
+        readCommandReceipts: runtime.readCommandReceipts,
         cleanup: runtime.cleanup
       }
     };
@@ -634,6 +648,8 @@ async function prepareReadyCheckRuntimeDevice(accountKey = 'tenant_admin', optio
       device: {
         ...selection.device,
         row: runtime.row,
+        commandReceiptPath: runtime.commandReceiptPath,
+        readCommandReceipts: runtime.readCommandReceipts,
         created: true,
         cleanup: async () => {
           await runtime.cleanup();
@@ -683,7 +699,12 @@ async function loadDeviceDetailsForFixture(rows, accountKey = 'tenant_admin') {
 }
 
 async function activateFixtureDevice(accountKey = 'tenant_admin') {
-  const candidatePids = getRdiCandidatePids();
+  // The inactive synthetic PID is a one-shot activation-proof fixture owned
+  // by the canonical tenant_admin account. Letting another tenant fall
+  // through to it would silently consume the proof fixture while trying to
+  // provision an unrelated device (the first cross-tenant PID returns
+  // 201001, then the old candidate loop claimed the inactive PID).
+  const candidatePids = getRdiCandidatePids(accountKey);
 
   for (const pid of candidatePids) {
     const resp = await apiClient.post('/rdi/devices/activate', {
@@ -971,6 +992,7 @@ async function ensureAlarmConfig(accountKey = 'tenant_admin') {
   const id = pickId(createResp.data);
   return {
     id,
+    name: req.name,
     row: createResp.data,
     blocked: false,
     cleanup: async () => {
@@ -1014,7 +1036,8 @@ async function ensureReadyCheckCommandFixture(accountKey = 'tenant_admin', optio
     throw new Error('Ready Check command fixture requires a non-empty command identifier');
   }
   const selection = await prepareReadyCheckRuntimeDevice(accountKey, {
-    failureIdentify: options.failureIdentify || ''
+    failureIdentify: options.failureIdentify || '',
+    commandReceiptPath: options.commandReceiptPath || ''
   });
   if (selection.blocked) {
     return {
@@ -1316,68 +1339,117 @@ async function createOtaPackageSeed(accountKey = 'super_admin') {
   }
 }
 
-function sqlLiteral(value) {
-  return `'${String(value).replace(/'/g, "''")}'`;
-}
-
-async function createOtaTaskPersistenceSeed(packageId, packageRow, accountKey, packageSeed) {
-  const psqlPath = process.env.AETHERLINK_PSQL_PATH || 'C:\\Program Files\\PostgreSQL\\17\\bin\\psql.exe';
-  if (!fs.existsSync(psqlPath)) {
-    if (packageSeed) await packageSeed.cleanup();
-    return {
-      blocked: true,
-      reason: 'PostgreSQL psql client is unavailable for isolated OTA task fixture',
-      cleanup: async () => {}
-    };
-  }
-
-  const deviceSeed = await ensureDevice('tenant_admin');
-  const taskId = crypto.randomUUID();
-  const detailId = crypto.randomUUID();
-  const taskName = makeRunLabel('seed_ota_task');
-  const database = getOtaSeedDatabaseOptions();
-  const sql = [
-    `INSERT INTO ota_upgrade_tasks (id, name, ota_upgrade_package_id, description, created_at, remark, target_mode, preview_total, selected_count, created_by_authority) VALUES (${sqlLiteral(taskId)}, ${sqlLiteral(taskName)}, ${sqlLiteral(packageId)}, ${sqlLiteral('isolated support-bundle fixture')}, NOW(), ${sqlLiteral('no-dispatch fixture')}, 'explicit', 1, 1, 'SYS_ADMIN')`,
-    `INSERT INTO ota_upgrade_task_details (id, ota_upgrade_task_id, device_id, steps, status, status_description, updated_at, remark) VALUES (${sqlLiteral(detailId)}, ${sqlLiteral(taskId)}, ${sqlLiteral(deviceSeed.id)}, 0, 1, ${sqlLiteral('pending support-bundle fixture')}, NOW(), ${sqlLiteral('no-dispatch fixture')})`
-  ].join('; ');
+async function createOtaTaskApiSeed(packageId, packageRow, accountKey, packageSeed, options = {}) {
+  // Keep this fixture on the public API path.  Direct SQL insertion would only
+  // prove that the support-bundle reader can deserialize rows while bypassing
+  // package access, device ownership, task initialization, and dispatch setup.
+  // A SYS_ADMIN task may target a tenant device, but the device-create API is
+  // tenant-scoped and requires a concrete tenant claim.  Create the disposable
+  // device under tenant_admin, then let the task caller exercise its own
+  // package/device authorization path.
+  const deviceAccountKey = accountKey === 'super_admin' ? 'tenant_admin' : accountKey;
+  const deviceSeed = await createSimulationDevice(deviceAccountKey);
+  const taskName = makeRunLabel('seed_ota_task_api');
+  let taskId = '';
+  let mqttDevice = null;
 
   try {
-    await execFileAsync(psqlPath, [
-      '-h', database.host,
-      '-p', database.port,
-      '-U', database.user,
-      '-d', database.database,
-      '-v', 'ON_ERROR_STOP=1',
-      '-c', sql
-    ], { windowsHide: true, timeout: 15000, env: { ...process.env, PGPASSWORD: database.password } });
+    // A real OTA task is dispatched asynchronously as soon as it is created.
+    // Start the authenticated device before POST /ota/task so the publisher's
+    // online precondition and the device's OTA inform subscription are both
+    // part of the same runtime proof. Support-bundle callers leave this off.
+    if (options.startMqttDevice) {
+      mqttDevice = await startMqttOTADevice(
+        deviceSeed,
+        deviceAccountKey,
+        options.mqttOptions || {}
+      );
+    }
+
+    const createResp = await apiClient.post('/ota/task', {
+      name: taskName,
+      ota_upgrade_package_id: packageId,
+      description: 'isolated API-created support-bundle fixture',
+      remark: 'automation API fixture',
+      device_id_list: [deviceSeed.id],
+      expected_total: 1
+    }, accountKey);
+    requireSuccess(createResp, 'create OTA task through public API');
+
+    // The create endpoint intentionally returns data=null.  Resolve the task
+    // through the tenant-scoped list endpoint and then read its detail rows so
+    // the fixture itself proves both task and task-detail persistence.
+    let task = null;
+    const taskListDeadline = Date.now() + 15000;
+    while (Date.now() < taskListDeadline && !taskId) {
+      const listResp = await apiClient.get('/ota/task', {
+        page: 1,
+        page_size: 100,
+        ota_upgrade_package_id: packageId
+      }, accountKey);
+      requireSuccess(listResp, 'list API-created OTA task');
+      task = listFromResponse(listResp).find(row => row && (
+        row.name === taskName ||
+        row.task_name === taskName ||
+        row.Name === taskName
+      ));
+      taskId = pickOtaTaskId(task);
+      if (!taskId) await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    if (!taskId) throw new Error('API-created OTA task was not visible in task list');
+
+    let detail = null;
+    const detailDeadline = Date.now() + 15000;
+    while (Date.now() < detailDeadline && !detail) {
+      const detailResp = await apiClient.get('/ota/task/detail', {
+        page: 1,
+        page_size: 100,
+        ota_upgrade_task_id: taskId
+      }, accountKey);
+      requireSuccess(detailResp, 'read API-created OTA task details');
+      const details = listFromResponse(detailResp);
+      detail = details.find(row => row && (
+        row.device_id === deviceSeed.id ||
+        row.DeviceID === deviceSeed.id ||
+        row.deviceId === deviceSeed.id
+      ));
+      if (!detail) await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    if (!detail) throw new Error('API-created OTA task detail was not visible for the seeded device');
 
     return {
       id: taskId,
       taskId,
       packageId,
       package: packageRow,
-      task: { id: taskId, name: taskName, ota_upgrade_package_id: packageId },
+      task,
+      detail,
+      device: deviceSeed,
+      mqttDevice,
       blocked: false,
       cleanup: async () => {
         try {
-          await execFileAsync(psqlPath, [
-            '-h', database.host,
-            '-p', database.port,
-            '-U', database.user,
-            '-d', database.database,
-            '-v', 'ON_ERROR_STOP=1',
-            '-c', `DELETE FROM ota_upgrade_tasks WHERE id = ${sqlLiteral(taskId)}`
-          ], { windowsHide: true, timeout: 15000, env: { ...process.env, PGPASSWORD: database.password } });
+          const deleteResp = await apiClient.delete('/ota/task/' + taskId, {}, accountKey);
+          requireSuccess(deleteResp, 'delete API-created OTA task fixture');
         } finally {
+          if (mqttDevice) await mqttDevice.cleanup();
           await deviceSeed.cleanup();
           if (packageSeed) await packageSeed.cleanup();
         }
       }
     };
   } catch (error) {
-    await deviceSeed.cleanup();
-    if (packageSeed) await packageSeed.cleanup();
-    throw new Error(`create isolated OTA task fixture failed: ${error.message}`);
+    if (taskId) {
+      try { await apiClient.delete('/ota/task/' + taskId, {}, accountKey); } catch (_) { /* preserve original error */ }
+    }
+    if (mqttDevice) {
+      try { await mqttDevice.cleanup(); } catch (_) { /* preserve original error */ }
+    }
+    try { await deviceSeed.cleanup(); } catch (_) { /* preserve original error */ }
+    if (packageSeed) {
+      try { await packageSeed.cleanup(); } catch (_) { /* preserve original error */ }
+    }
+    throw new Error(`create isolated OTA task through API failed: ${error.message}`);
   }
 }
 
@@ -1438,7 +1510,7 @@ async function ensureOtaTaskSupportBundleSource(accountKey = 'super_admin') {
   const packageForTask = packages[0];
   const packageId = pickOtaPackageId(packageForTask);
   if (packageId) {
-    return createOtaTaskPersistenceSeed(packageId, packageForTask, accountKey, packageSeed);
+    return createOtaTaskApiSeed(packageId, packageForTask, taskAccount, packageSeed);
   }
 
   if (packageSeed) await packageSeed.cleanup();
@@ -1691,6 +1763,8 @@ module.exports = {
   ensureAlarmConfig,
   ensureDevice,
   createSimulationDevice,
+  createOtaPackageSeed,
+  createOtaTaskApiSeed,
   ensureDeviceConfig,
   ensureReadyCheckCommandFixture,
   ensureDeviceWithTelemetry,

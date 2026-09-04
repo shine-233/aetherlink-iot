@@ -53,6 +53,7 @@ func main() {
 		app.WithMQTTSessionRevocationOutboxWorker(),
 		app.WithTelemetryDeadLetterWorker(),
 		app.WithTelemetry(),
+		app.WithCoAPGateway(), // C6：CoAP/LwM2M 协议网关（protocols.coap.enabled=true 时启动）
 	)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "application initialization failed: %v\n", err)

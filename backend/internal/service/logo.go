@@ -17,7 +17,18 @@ import (
 type Logo struct{}
 
 func (*Logo) UpdateLogo(UpdateLogoReq *model.UpdateLogoReq, claims *utils.UserClaims) error {
-	if claims == nil || claims.Authority != constant.SYS_ADMIN {
+	if claims == nil {
+		return errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to update logo settings")
+	}
+	// 权限门禁：系统管理员维护全局/系统级品牌（tenant_id=''），租户管理员仅维护本租户品牌。
+	switch claims.Authority {
+	case constant.SYS_ADMIN:
+		// 全局行作用域：tenant_id 为空串，由 DAL 按 (id, tenant_id) 约束兜底。
+	case constant.TENANT_ADMIN:
+		if claims.TenantID == "" {
+			return errcode.NewWithMessage(errcode.CodeNoPermission, "complete tenant initialization before update logo")
+		}
+	default:
 		return errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to update logo settings")
 	}
 
@@ -28,7 +39,7 @@ func (*Logo) UpdateLogo(UpdateLogoReq *model.UpdateLogoReq, claims *utils.UserCl
 		})
 	}
 
-	err = dal.UpdateLogo(UpdateLogoReq.Id, condsMap)
+	err = dal.UpdateLogo(claims.TenantID, UpdateLogoReq.Id, condsMap)
 	if err != nil {
 		logrus.Error(err)
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -38,9 +49,9 @@ func (*Logo) UpdateLogo(UpdateLogoReq *model.UpdateLogoReq, claims *utils.UserCl
 	return err
 }
 
-func (*Logo) GetLogoList() (map[string]interface{}, error) {
+func (*Logo) GetLogoList(tenantID string) (map[string]interface{}, error) {
 
-	total, list, err := dal.GetLogoList()
+	total, list, err := dal.GetLogoList(tenantID)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"err": err.Error(),

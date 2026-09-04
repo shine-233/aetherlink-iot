@@ -35,11 +35,10 @@ func TestNotificationHistoryOwnerScopeRequiresEveryLinkedDevice(t *testing.T) {
 	}
 
 	req := &model.GetNotificationHistoryListByPageReq{
-		PageReq:  model.PageReq{Page: 1, PageSize: 20},
-		TenantID: "tenant-1",
+		PageReq: model.PageReq{Page: 1, PageSize: 20},
 	}
 	ownerA := "owner-a"
-	total, list, err := GetNotificationHisoryListByPage(req, &ownerA)
+	total, list, err := GetNotificationHisoryListByPage(req, []string{"tenant-1"}, &ownerA)
 	if err != nil {
 		t.Fatalf("query owner-scoped notification history: %v", err)
 	}
@@ -49,7 +48,7 @@ func TestNotificationHistoryOwnerScopeRequiresEveryLinkedDevice(t *testing.T) {
 	if err := db.Delete(&model.Device{}, "id = ?", "device-b").Error; err != nil {
 		t.Fatalf("delete foreign device: %v", err)
 	}
-	total, list, err = GetNotificationHisoryListByPage(req, &ownerA)
+	total, list, err = GetNotificationHisoryListByPage(req, []string{"tenant-1"}, &ownerA)
 	if err != nil {
 		t.Fatalf("query owner scope after foreign device deletion: %v", err)
 	}
@@ -57,7 +56,7 @@ func TestNotificationHistoryOwnerScopeRequiresEveryLinkedDevice(t *testing.T) {
 		t.Fatalf("post-delete histories = total %d, list %#v; deleted foreign scope must remain hidden", total, notificationHistoryIDs(list))
 	}
 
-	total, list, err = GetNotificationHisoryListByPage(req, nil)
+	total, list, err = GetNotificationHisoryListByPage(req, []string{"tenant-1"}, nil)
 	if err != nil {
 		t.Fatalf("query tenant-admin notification history: %v", err)
 	}

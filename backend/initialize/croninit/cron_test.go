@@ -10,11 +10,12 @@ import (
 )
 
 func TestCronInitIsIdempotent(t *testing.T) {
+	// 注意：bootstrapOnce 是 sync.Once（内含 noCopy），按值保存并恢复会触发 go vet copylocks。
+	// 改为测试结束时重置为零值——本包内只有本用例依赖 Once 状态，无需还原旧副本。
 	oldBootstrap := cronBootstrap
-	oldOnce := bootstrapOnce
 	t.Cleanup(func() {
 		cronBootstrap = oldBootstrap
-		bootstrapOnce = oldOnce
+		bootstrapOnce = sync.Once{}
 	})
 
 	var calls int

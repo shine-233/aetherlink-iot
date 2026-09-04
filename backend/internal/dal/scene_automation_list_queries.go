@@ -16,12 +16,25 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func GetSceneAutomationByPage(req *model.GetSceneAutomationByPageReq, tenantID string) (int64, []*model.SceneAutomation, error) {
+// GetSceneAutomationByPage 分页返回作用域内的场景自动化（ROADMAP C2 自上而下读）。
+// scopes 语义：0→fail-closed 空结果、1→tenant_id =（与旧单租户等价）、>1→tenant_id IN；
+// 租户作用域先行收窄，设备/配置锚点命中在此基础上进一步筛选（AND 语义）。
+// tenant-scope: scopes 由 service 层展开并校验（TENANT_ADMIN/SYS_ADMIN self∪子孙；
+// TENANT_USER 保持 self-only；空租户由 service 映射为 [""] 保持平台空租户旧行为）。
+func GetSceneAutomationByPage(req *model.GetSceneAutomationByPageReq, scopes []string) (int64, []*model.SceneAutomation, error) {
 	q := query.SceneAutomation
 
 	var count int64
 	ctx := context.Background()
 	queryBuilder := q.WithContext(ctx)
+	switch len(scopes) {
+	case 0:
+		return 0, nil, nil
+	case 1:
+		queryBuilder = queryBuilder.Where(q.TenantID.Eq(scopes[0]))
+	default:
+		queryBuilder = queryBuilder.Where(q.TenantID.In(scopes...))
+	}
 	if req.Name != nil && *req.Name != "" {
 		queryBuilder = queryBuilder.Where(q.Name.Like(fmt.Sprintf("%%%s%%", *req.Name)))
 	}
@@ -47,8 +60,6 @@ func GetSceneAutomationByPage(req *model.GetSceneAutomationByPageReq, tenantID s
 		queryBuilder = queryBuilder.Where(q.ID.In(sceneIDs...))
 	}
 
-	queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenantID))
-
 	count, err := queryBuilder.Count()
 	if err != nil {
 		logrus.Error(err)
@@ -63,7 +74,12 @@ func GetSceneAutomationByPage(req *model.GetSceneAutomationByPageReq, tenantID s
 	return count, sceneList, nil
 }
 
-func GetSceneAutomationWithAlarmByPageReq(req *model.GetSceneAutomationsWithAlarmByPageReq, tenantID string) (int64, []*model.SceneAutomation, error) {
+// GetSceneAutomationWithAlarmByPageReq 分页返回作用域内且带告警动作的场景自动化（ROADMAP C2 自上而下读）。
+// scopes 语义：0→fail-closed 空结果、1→tenant_id =（与旧单租户等价）、>1→tenant_id IN；
+// 设备/配置锚点为必选（接口层已校验至少一项非空），锚点关系扫描不跨作用域扩大可见行。
+// tenant-scope: scopes 由 service 层展开并校验（TENANT_ADMIN/SYS_ADMIN self∪子孙；
+// TENANT_USER 保持 self-only；空租户由 service 映射为 [""] 保持平台空租户旧行为）。
+func GetSceneAutomationWithAlarmByPageReq(req *model.GetSceneAutomationsWithAlarmByPageReq, scopes []string) (int64, []*model.SceneAutomation, error) {
 	q := query.SceneAutomation
 
 	var (
@@ -72,6 +88,9 @@ func GetSceneAutomationWithAlarmByPageReq(req *model.GetSceneAutomationsWithAlar
 	)
 	ctx := context.Background()
 	queryBuilder := q.WithContext(ctx)
+	if len(scopes) == 0 {
+		return 0, nil, nil
+	}
 	if !common.IsStringEmpty(req.DeviceId) {
 		sceneIDs, _ = getSceneAutomationIdByDeviceId(ctx, *req.DeviceId)
 		deviceConfig, err := GetDeviceByIDUnscoped(*req.DeviceId)
@@ -82,8 +101,11 @@ func GetSceneAutomationWithAlarmByPageReq(req *model.GetSceneAutomationsWithAlar
 			sceneIDsByConfig, _ := getSceneAutomationIdByDeviceConfigId(ctx, *deviceConfig.DeviceConfigID)
 			sceneIDs = append(sceneIDs, sceneIDsByConfig...)
 		}
-	} else {
+	} else if !common.IsStringEmpty(req.DeviceConfigId) {
 		sceneIDs, _ = getSceneAutomationIdByDeviceConfigId(ctx, *req.DeviceConfigId)
+	} else {
+		// 双锚点均为空时保持无命中契约，避免对 nil 指针解引用。
+		return count, nil, nil
 	}
 
 	if len(sceneIDs) == 0 {
@@ -98,7 +120,12 @@ func GetSceneAutomationWithAlarmByPageReq(req *model.GetSceneAutomationsWithAlar
 		return count, nil, nil
 	}
 
-	queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenantID), q.ID.In(sceneIDs...))
+	switch len(scopes) {
+	case 1:
+		queryBuilder = queryBuilder.Where(q.TenantID.Eq(scopes[0]), q.ID.In(sceneIDs...))
+	default:
+		queryBuilder = queryBuilder.Where(q.TenantID.In(scopes...), q.ID.In(sceneIDs...))
+	}
 	count, err = queryBuilder.Count()
 	if err != nil {
 		logrus.Error(err)

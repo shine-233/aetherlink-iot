@@ -80,11 +80,13 @@ func ensureDeviceGroupReadAccess(groupID string, claims *utils.UserClaims) (*mod
 			"group_id": groupID,
 		})
 	}
-	if claims.Authority != constant.SYS_ADMIN && group.TenantID != claims.TenantID {
+	// ROADMAP C2 自上而下读作用域：TENANT_ADMIN/SYS_ADMIN 可读 self∪子孙分组；写仍保持严格同租户。
+	scopes := expandTenantIDScope(claims.TenantID)
+	if claims.Authority != constant.SYS_ADMIN && !tenantIDInScopes(group.TenantID, scopes) {
 		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query device group")
 	}
 	if claims.Authority == constant.TENANT_USER {
-		visible, err := dal.IsGroupVisibleToOwner(groupID, claims.TenantID, claims.ID)
+		visible, err := dal.IsGroupVisibleToOwner(groupID, scopes, claims.ID)
 		if err != nil {
 			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 				"error":    err.Error(),
@@ -228,7 +230,8 @@ func (*DeviceGroup) UpdateDeviceGroup(req model.UpdateDeviceGroupReq, claims *ut
 }
 
 func (*DeviceGroup) GetDeviceGroupListByPage(req model.GetDeviceGroupsListByPageReq, userClaims *utils.UserClaims) (interface{}, error) {
-	total, list, err := dal.GetDeviceGroupListByPage(req, userClaims.TenantID, deviceOwnerUserIDFilterForClaims(userClaims))
+	scopes := expandTenantIDScope(userClaims.TenantID)
+	total, list, err := dal.GetDeviceGroupListByPage(req, scopes, deviceOwnerUserIDFilterForClaims(userClaims))
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"error":     err.Error(),
@@ -246,7 +249,8 @@ func (*DeviceGroup) GetDeviceGroupListByPage(req model.GetDeviceGroupsListByPage
 }
 
 func (*DeviceGroup) GetDeviceGroupByTree(userClaims *utils.UserClaims) (interface{}, error) {
-	data, err := dal.GetDeviceGroupAll(userClaims.TenantID, deviceOwnerUserIDFilterForClaims(userClaims))
+	scopes := expandTenantIDScope(userClaims.TenantID)
+	data, err := dal.GetDeviceGroupAll(scopes, deviceOwnerUserIDFilterForClaims(userClaims))
 	if err != nil {
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"error":     err.Error(),

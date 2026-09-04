@@ -64,5 +64,7 @@
   "route.device_service-access": "Intégration tierce",
   "route.device_service_access": "Intégration tierce",
   "route.device_service-details": "Détails de l'intégration tierce",
-  "route.visualization-thingsvis-menu-dashboard": "Tableau intégré accueil"
+  "route.visualization-thingsvis-menu-dashboard": "Tableau intégré accueil",
+  "route.device_asset": "Actifs",
+  "route.management_entity-version": "Versions d’entité"
 }

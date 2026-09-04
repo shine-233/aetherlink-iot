@@ -76,6 +76,9 @@ declare namespace Api {
     interface LoginToken {
       token: string
       expires_in: number
+      /** 2FA 第二因子挑战：step='totp' 且携带一次性 ticket（挑战响应无 token） */
+      step?: 'totp'
+      ticket?: string
     }
 
     /** 用户信息 */

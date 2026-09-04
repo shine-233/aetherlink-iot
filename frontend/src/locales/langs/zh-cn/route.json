@@ -64,5 +64,7 @@
   "route.device_service-access": "第三方集成",
   "route.device_service_access": "第三方集成",
   "route.device_service-details": "第三方集成详情",
-  "route.visualization-thingsvis-menu-dashboard": "首页嵌入看板"
+  "route.visualization-thingsvis-menu-dashboard": "首页嵌入看板",
+  "route.device_asset": "资产层级",
+  "route.management_entity-version": "实体版本"
 }

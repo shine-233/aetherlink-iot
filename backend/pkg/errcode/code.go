@@ -41,6 +41,10 @@ const (
 	CodeMarketCheckFailed        = 200057 // 市场邮箱校验失败
 	CodeLocalInitCreateUserFail  = 200058 // 本地创建超管失败
 	CodeLocalInitLoginFail       = 200059 // 本地登录态创建失败
+	CodeTotpRequired             = 200060 // 需要第二步 TOTP 验证（2FA，ROADMAP C7）
+	CodeTotpInvalid              = 200061 // TOTP 验证码无效/过期/已使用
+	CodeTotpAlreadyEnabled       = 200062 // 2FA 已启用
+	CodeTotpNotEnabled           = 200063 // 2FA 未启用
 
 	// 权限模块 (201xxx)
 	CodeNoPermission = 201001 // 无权限

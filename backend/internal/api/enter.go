@@ -68,6 +68,9 @@ type Controller struct {
 	CalculatedFieldApi
 	ProductApi
 	EntityVersionApi
+	AssetApi
+	UserTotpApi
+	OidcSsoApi
 }
 
 var (

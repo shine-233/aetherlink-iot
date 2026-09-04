@@ -25,40 +25,55 @@ func normalizeOwnerUserID(ownerUserID *string) string {
 	return strings.TrimSpace(*ownerUserID)
 }
 
-func GetVisibleGroupIDsForOwner(tenantId string, ownerUserID string) ([]string, error) {
+// GetVisibleGroupIDsForOwner 返回 owner 在 scopes（self∪子孙，ROADMAP C2 自上而下）内可见的分组：
+// 含其设备的直接分组、其自建分组，以及这些分组的所有祖先。
+// scopes 为空或 owner 为空时 fail-closed 返回空集合。
+// tenant-scope: scopes 由 service 层展开并校验。
+func GetVisibleGroupIDsForOwner(scopes []string, ownerUserID string) ([]string, error) {
 	ownerUserID = strings.TrimSpace(ownerUserID)
-	if tenantId == "" || ownerUserID == "" {
+	if len(scopes) == 0 || ownerUserID == "" {
 		return []string{}, nil
 	}
+	scopePlaceholders := strings.TrimRight(strings.Repeat("?,", len(scopes)), ",")
 
 	var groupIDs []string
-	sql := `
-	WITH RECURSIVE directly_visible_groups AS (
+	sql := `WITH RECURSIVE directly_visible_groups AS (
 		SELECT DISTINCT rgd.group_id AS group_id
-		FROM r_group_devices rgd
+		FROM r_group_device rgd
 		INNER JOIN devices d ON d.id = rgd.device_id
-		WHERE rgd.tenant_id = ?
-		  AND d.tenant_id = ?
+		WHERE rgd.tenant_id IN (` + scopePlaceholders + `)
+		  AND d.tenant_id IN (` + scopePlaceholders + `)
 		  AND d.owner_user_id = ?
-		UNION
+		UNION ALL
 		SELECT g.id AS group_id
 		FROM groups g
-		WHERE g.tenant_id = ?
+		WHERE g.tenant_id IN (` + scopePlaceholders + `)
 		  AND g.owner_user_id = ?
 	),
 	group_tree AS (
 		SELECT g.id, g.parent_id
 		FROM groups g
 		INNER JOIN directly_visible_groups dvg ON dvg.group_id = g.id
-		UNION
+		UNION ALL
 		SELECT parent.id, parent.parent_id
 		FROM groups parent
 		INNER JOIN group_tree gt ON gt.parent_id = parent.id
 	)
 	SELECT DISTINCT id
-	FROM group_tree;
-	`
-	err := global.DB.Raw(sql, tenantId, tenantId, ownerUserID, tenantId, ownerUserID).Scan(&groupIDs).Error
+	FROM group_tree;`
+	args := make([]interface{}, 0, len(scopes)*3+2)
+	for _, s := range scopes {
+		args = append(args, s)
+	}
+	for _, s := range scopes {
+		args = append(args, s)
+	}
+	args = append(args, ownerUserID)
+	for _, s := range scopes {
+		args = append(args, s)
+	}
+	args = append(args, ownerUserID)
+	err := global.DB.Raw(sql, args...).Scan(&groupIDs).Error
 	if err != nil {
 		logrus.Error(err)
 		return nil, err
@@ -66,8 +81,9 @@ func GetVisibleGroupIDsForOwner(tenantId string, ownerUserID string) ([]string, 
 	return groupIDs, nil
 }
 
-func IsGroupVisibleToOwner(groupID string, tenantId string, ownerUserID string) (bool, error) {
-	groupIDs, err := GetVisibleGroupIDsForOwner(tenantId, ownerUserID)
+// IsGroupVisibleToOwner 判断分组是否落在 owner 的 scopes 可见集合内。
+func IsGroupVisibleToOwner(groupID string, scopes []string, ownerUserID string) (bool, error) {
+	groupIDs, err := GetVisibleGroupIDsForOwner(scopes, ownerUserID)
 	if err != nil {
 		return false, err
 	}
@@ -94,14 +110,31 @@ func UpdateDeviceGroup(r *model.Group) error {
 	return err
 }
 
-func GetDeviceGroupListByPage(req model.GetDeviceGroupsListByPageReq, tenantId string, ownerUserID *string) (int64, interface{}, error) {
+// deviceGroupTenantScope 自上而下作用域条件（ROADMAP C2）：0→fail-closed、1→Eq、>1→In。
+func deviceGroupTenantScope(q query.IGroupDo, scopes []string) (query.IGroupDo, bool) {
+	switch len(scopes) {
+	case 0:
+		return q, true
+	case 1:
+		return q.Where(query.Group.TenantID.Eq(scopes[0])), false
+	default:
+		return q.Where(query.Group.TenantID.In(scopes...)), false
+	}
+}
+
+// GetDeviceGroupListByPage 分页查询分组，租户条件取自 scopes（0→fail-closed 空、1→Eq、>1→In）。
+// tenant-scope: scopes 由 service 层展开并校验（ROADMAP C2 自上而下）。
+func GetDeviceGroupListByPage(req model.GetDeviceGroupsListByPageReq, scopes []string, ownerUserID *string) (int64, interface{}, error) {
 	q := query.Group
 	var count int64
 	var groupList interface{}
 	queryBuilder := q.WithContext(context.Background())
-	queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenantId))
+	var noScope bool
+	if queryBuilder, noScope = deviceGroupTenantScope(queryBuilder, scopes); noScope {
+		return 0, []*model.Group{}, nil
+	}
 	if normalizedOwnerUserID := normalizeOwnerUserID(ownerUserID); normalizedOwnerUserID != "" {
-		visibleGroupIDs, err := GetVisibleGroupIDsForOwner(tenantId, normalizedOwnerUserID)
+		visibleGroupIDs, err := GetVisibleGroupIDsForOwner(scopes, normalizedOwnerUserID)
 		if err != nil {
 			return 0, groupList, err
 		}
@@ -136,10 +169,16 @@ func GetDeviceGroupListByPage(req model.GetDeviceGroupsListByPageReq, tenantId s
 	return count, groupList, err
 }
 
-func GetDeviceGroupAll(tenantId string, ownerUserID *string) ([]*model.Group, error) {
-	queryBuilder := query.Group.Where(query.Group.TenantID.Eq(tenantId))
+// GetDeviceGroupAll 全量分组（树/下拉），租户条件取自 scopes（0→fail-closed 空、1→Eq、>1→In）。
+// tenant-scope: scopes 由 service 层展开并校验（ROADMAP C2 自上而下）。
+func GetDeviceGroupAll(scopes []string, ownerUserID *string) ([]*model.Group, error) {
+	queryBuilder := query.Group.WithContext(context.Background())
+	var noScope bool
+	if queryBuilder, noScope = deviceGroupTenantScope(queryBuilder, scopes); noScope {
+		return []*model.Group{}, nil
+	}
 	if normalizedOwnerUserID := normalizeOwnerUserID(ownerUserID); normalizedOwnerUserID != "" {
-		visibleGroupIDs, err := GetVisibleGroupIDsForOwner(tenantId, normalizedOwnerUserID)
+		visibleGroupIDs, err := GetVisibleGroupIDsForOwner(scopes, normalizedOwnerUserID)
 		if err != nil {
 			return nil, err
 		}
@@ -174,7 +213,7 @@ func GetAutoBindRootDeviceGroupID(tx *query.Query, tenantId string) (string, err
 	return rootGroups[0].ID, nil
 }
 
-// tenant-scope: caller-enforced?2026-08-26 ?????
+// tenant-scope: caller-enforced (service 层校验分组归属后调用，reviewed 2026-08-26)
 func GetDeviceGroupDetail(id string) (*model.Group, error) {
 	d, err := query.Group.Where(query.Group.ID.Eq(id)).First()
 	if err != nil {
@@ -244,7 +283,7 @@ func GetDeviceGroupStatistics(groupID string, tenantID string, ownerUserID *stri
 	}, nil
 }
 
-// tenant-scope: caller-enforced?2026-08-26 ?????
+// tenant-scope: caller-enforced (service 层校验分组归属后调用，reviewed 2026-08-26)
 func GetDeviceGroupTierById(id string) (map[string]interface{}, error) {
 	r := make(map[string]interface{})
 	sql := `
@@ -270,7 +309,7 @@ func GetDeviceGroupTierById(id string) (map[string]interface{}, error) {
 // GetDeviceGroupTierByIds 批量解析分组层级路径，返回 groupID -> group_path。
 // 用单条递归 CTE（带 root_id 分组）替代逐分组查询，消除列表构建时的 N+1。
 // 查不到的分组不出现在结果中，与单条版返回空 map 的语义一致。
-// tenant-scope: caller-enforced?2026-08-26 ?????
+// tenant-scope: caller-enforced (service 层校验分组归属后调用，reviewed 2026-08-26)
 func GetDeviceGroupTierByIds(ids []string) (map[string]interface{}, error) {
 	result := make(map[string]interface{}, len(ids))
 	if len(ids) == 0 {
@@ -304,7 +343,7 @@ func GetDeviceGroupTierByIds(ids []string) (map[string]interface{}, error) {
 }
 
 // 获取目标分组的所有子分组id
-// tenant-scope: caller-enforced?2026-08-26 ?????
+// tenant-scope: caller-enforced (service 层校验分组归属后调用，reviewed 2026-08-26)
 func GetGroupChildrenIds(id string) ([]string, error) {
 	var ids []string
 	sql := `

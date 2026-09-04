@@ -108,3 +108,33 @@ func TestRedactNotificationHistoryKeepsAdminAuditFields(t *testing.T) {
 		t.Fatalf("tenant-admin notification audit fields were redacted: %#v", rows[0])
 	}
 }
+
+func TestNotificationHistoryListScopes(t *testing.T) {
+	// TENANT_USER 保持 self-only：其可见性由 DAL 的 device-owner 关系 EXISTS 钳制，
+	// 即使父租户存在子孙也不做层级展开。
+	if got := notificationHistoryListScopes(&utils.UserClaims{
+		ID: "tenant-user-1", TenantID: "tenant-1", Authority: constant.TENANT_USER,
+	}); len(got) != 1 || got[0] != "tenant-1" {
+		t.Fatalf("tenant-user scope = %#v, want [tenant-1]", got)
+	}
+	if got := notificationHistoryListScopes(&utils.UserClaims{
+		ID: "tenant-user-1", TenantID: "", Authority: constant.TENANT_USER,
+	}); got != nil {
+		t.Fatalf("tenant-user without tenant scope = %#v, want nil (fail closed)", got)
+	}
+	// 空租户（SYS_ADMIN 平台空租户行）→ [""]，保持旧 tenant_id='' 行为。
+	if got := notificationHistoryListScopes(&utils.UserClaims{
+		ID: "sys-admin-1", TenantID: "", Authority: constant.SYS_ADMIN,
+	}); len(got) != 1 || got[0] != "" {
+		t.Fatalf("sys-admin platform scope = %#v, want [\"\"]", got)
+	}
+	// 非空租户（TENANT_ADMIN/SYS_ADMIN）→ 展开 self∪子孙；无链接时回退 self-only。
+	if got := notificationHistoryListScopes(&utils.UserClaims{
+		ID: "tenant-admin-1", TenantID: "tenant-1", Authority: constant.TENANT_ADMIN,
+	}); len(got) != 1 || got[0] != "tenant-1" {
+		t.Fatalf("tenant-admin fallback scope = %#v, want [tenant-1]", got)
+	}
+	if got := notificationHistoryListScopes(nil); got != nil {
+		t.Fatalf("nil claims scope = %#v, want nil", got)
+	}
+}

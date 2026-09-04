@@ -1,11 +1,15 @@
 // 文件用途：规则链服务层（ROADMAP B2）——CRUD、图校验与上行执行入口。
 // 核心逻辑：CRUD 带租户守卫与 DAG 校验；执行入口按租户拉启用链（60s 缓存），
-//   写操作失效缓存；OnTelemetry/OnDeviceOnline 供上行钩子以 goroutine 调用。
+//
+//	写操作失效缓存；OnTelemetry/OnDeviceOnline 供上行钩子以 goroutine 调用。
+//
 // 关键注意事项：空租户 fail-closed；执行错误只记录不阻断上行主流程；
-//   单设备单次执行的节点扇出由 maxNodes 上限约束，防止放大。
+//
+//	单设备单次执行的节点扇出由 maxNodes 上限约束，防止放大。
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"strings"
@@ -17,6 +21,7 @@ import (
 	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 	"github.com/go-basic/uuid"
+	"github.com/go-playground/validator/v10"
 
 	"aetherlink-iot/backend/pkg/utils"
 
@@ -28,19 +33,48 @@ const ruleChainCacheTTL = 60 * time.Second
 // RuleChain 规则链服务入口。
 type RuleChain struct{}
 
+var ruleChainRequestValidator = validator.New()
+
 type createRuleChainReq struct {
 	Name        string          `json:"name" validate:"required,max=128"`
 	Description *string         `json:"description"`
 	TenantID    string          `json:"tenant_id"` // 仅 SYS_ADMIN 可指定
+	Enabled     *bool           `json:"enabled"`
 	Graph       json.RawMessage `json:"graph" validate:"required"`
 }
 
 type updateRuleChainReq struct {
-	ID          string          `json:"id" validate:"required"`
+	ID          string          `json:"id" validate:"required,max=36"`
 	Name        string          `json:"name" validate:"required,max=128"`
 	Description *string         `json:"description"`
 	Enabled     bool            `json:"enabled"`
 	Graph       json.RawMessage `json:"graph" validate:"required"`
+}
+
+func validateRuleChainRequest(req interface{}) error {
+	if err := ruleChainRequestValidator.Struct(req); err != nil {
+		return errcode.NewWithMessage(errcode.CodeParamError, "invalid rule chain request: "+err.Error())
+	}
+	return nil
+}
+
+func normalizeRuleChainGraph(raw json.RawMessage) ([]byte, error) {
+	graphJSON := bytes.TrimSpace([]byte(raw))
+	if len(graphJSON) > 0 && graphJSON[0] == '"' {
+		var encoded string
+		if err := json.Unmarshal(raw, &encoded); err != nil {
+			return nil, errcode.NewWithMessage(errcode.CodeParamError, "graph string is not valid json")
+		}
+		graphJSON = []byte(encoded)
+	}
+	if _, err := ParseRuleChainGraph(string(graphJSON)); err != nil {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "invalid graph: "+err.Error())
+	}
+	var compacted bytes.Buffer
+	if err := json.Compact(&compacted, graphJSON); err != nil {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "graph is not valid json")
+	}
+	return compacted.Bytes(), nil
 }
 
 func normalizeRuleChainTenant(reqTenantID string, claims *utils.UserClaims) (string, error) {
@@ -65,21 +99,30 @@ func (*RuleChain) CreateChain(raw []byte, claims *utils.UserClaims) (*model.Rule
 	if err := json.Unmarshal(raw, &req); err != nil {
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "body is not valid json")
 	}
+	req.Name = strings.TrimSpace(req.Name)
+	if err := validateRuleChainRequest(&req); err != nil {
+		return nil, err
+	}
 	tenantID, err := normalizeRuleChainTenant(req.TenantID, claims)
 	if err != nil {
 		return nil, err
 	}
-	if _, err := ParseRuleChainGraph(string(req.Graph)); err != nil {
-		return nil, errcode.NewWithMessage(errcode.CodeParamError, "invalid graph: "+err.Error())
+	graphJSON, err := normalizeRuleChainGraph(req.Graph)
+	if err != nil {
+		return nil, err
+	}
+	enabled := true
+	if req.Enabled != nil {
+		enabled = *req.Enabled
 	}
 	now := time.Now().UTC()
 	chain := &model.RuleChain{
 		ID:          uuid.New(),
 		TenantID:    tenantID,
-		Name:        strings.TrimSpace(req.Name),
+		Name:        req.Name,
 		Description: req.Description,
-		Enabled:     true,
-		Graph:       req.Graph,
+		Enabled:     enabled,
+		Graph:       graphJSON,
 		CreatedAt:   &now,
 		UpdatedAt:   &now,
 	}
@@ -96,6 +139,11 @@ func (*RuleChain) UpdateChain(raw []byte, claims *utils.UserClaims) (*model.Rule
 	if err := json.Unmarshal(raw, &req); err != nil {
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "body is not valid json")
 	}
+	req.ID = strings.TrimSpace(req.ID)
+	req.Name = strings.TrimSpace(req.Name)
+	if err := validateRuleChainRequest(&req); err != nil {
+		return nil, err
+	}
 	tenantID, err := normalizeRuleChainTenant("", claims)
 	if err != nil {
 		return nil, err
@@ -107,16 +155,17 @@ func (*RuleChain) UpdateChain(raw []byte, claims *utils.UserClaims) (*model.Rule
 	if existing == nil {
 		return nil, errcode.NewWithMessage(errcode.CodeNotFound, "rule chain not found")
 	}
-	if _, err := ParseRuleChainGraph(string(req.Graph)); err != nil {
-		return nil, errcode.NewWithMessage(errcode.CodeParamError, "invalid graph: "+err.Error())
+	graphJSON, err := normalizeRuleChainGraph(req.Graph)
+	if err != nil {
+		return nil, err
 	}
 	updated := &model.RuleChain{
 		ID:          existing.ID,
 		TenantID:    tenantID,
-		Name:        strings.TrimSpace(req.Name),
+		Name:        req.Name,
 		Description: req.Description,
 		Enabled:     req.Enabled,
-		Graph:       req.Graph,
+		Graph:       graphJSON,
 	}
 	ok, err := dal.UpdateRuleChain(updated)
 	if err != nil {
@@ -165,13 +214,37 @@ func (*RuleChain) GetChain(id string, claims *utils.UserClaims) (*model.RuleChai
 	return chain, nil
 }
 
-// ListChains 分页列表；keyword 按名称模糊。
-func (*RuleChain) ListChains(keyword string, page, pageSize int, claims *utils.UserClaims) (map[string]interface{}, error) {
-	tenantID, err := normalizeRuleChainTenant("", claims)
-	if err != nil {
-		return nil, err
+// ruleChainListScopes 将调用方 claims 映射为规则链列表读作用域（ROADMAP C2 自上而下三态约定的服务层入口）：
+//   - nil claims → nil（fail-closed，由 ListChains 返回无权限）；
+//   - TENANT_USER → 仅自身 [claims.TenantID]；
+//   - 空租户（SYS_ADMIN 平台态）→ [""]（保留 legacy 平台行可读语义）；
+//   - 非空管理员（TENANT_ADMIN / 指定租户的 SYS_ADMIN）→ expandTenantIDScope（self∪子孙，无链接回退 self-only）。
+//
+// 说明：规则链是租户级资源，无按用户维度的可见性拆分（不同于 notification_history 的设备 Owner EXISTS 钳制），
+// 故 TENANT_USER 直接 self-only；作用域展开只放宽租户维，不触碰 Owner/User 维。
+func ruleChainListScopes(claims *utils.UserClaims) []string {
+	if claims == nil {
+		return nil
 	}
-	count, chains, err := dal.ListRuleChainsByTenant(tenantID, keyword, page, pageSize)
+	if claims.Authority == constant.TENANT_USER {
+		if tenantID := strings.TrimSpace(claims.TenantID); tenantID != "" {
+			return []string{tenantID}
+		}
+		return nil
+	}
+	if strings.TrimSpace(claims.TenantID) == "" {
+		return []string{""}
+	}
+	return expandTenantIDScope(claims.TenantID)
+}
+
+// ListChains 分页列表；keyword 按名称模糊。读路径接入 C2 自上而下作用域。
+func (*RuleChain) ListChains(keyword string, page, pageSize int, claims *utils.UserClaims) (map[string]interface{}, error) {
+	scopes := ruleChainListScopes(claims)
+	if len(scopes) == 0 {
+		return nil, errcode.New(errcode.CodeNoPermission)
+	}
+	count, chains, err := dal.ListRuleChainsByTenant(scopes, keyword, page, pageSize)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": err.Error()})
 	}
@@ -189,7 +262,7 @@ type ruleChainCacheEntry struct {
 }
 
 var (
-	ruleChainCacheMu      sync.Mutex
+	ruleChainCacheMu       sync.Mutex
 	ruleChainCacheByTenant = map[string]ruleChainCacheEntry{}
 )
 
@@ -257,7 +330,7 @@ func (*RuleChain) OnTelemetry(device model.Device, values map[string]any) {
 			TenantID:     device.TenantID,
 			Timestamp:    time.Now().UnixMilli(),
 		}
-		for _, execErr := range ExecuteRuleChainGraph(ctx, graph, rcc, values) {
+		for _, execErr := range ExecuteRuleChainGraphForTrigger(ctx, graph, rcc, values, RuleChainTriggerTelemetry) {
 			logrus.WithField("chain", graph.Nodes[0].ID).Warn(execErr)
 		}
 	}
@@ -292,7 +365,7 @@ func (*RuleChain) OnDeviceOnline(device model.Device) {
 			TenantID:     device.TenantID,
 			Timestamp:    time.Now().UnixMilli(),
 		}
-		for _, execErr := range ExecuteRuleChainGraph(ctx, graph, rcc, values) {
+		for _, execErr := range ExecuteRuleChainGraphForTrigger(ctx, graph, rcc, values, RuleChainTriggerOnline) {
 			logrus.Warn(execErr)
 		}
 	}

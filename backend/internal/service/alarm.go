@@ -383,7 +383,7 @@ func (*Alarm) GetAlarmConfigListByPage(req *model.GetAlarmConfigListByPageReq, c
 	req.TenantID = tenantID
 	// ROADMAP A1：SYS_ADMIN 未指定租户时显式授权全租户视角，其余空租户在 DAL fail-closed。
 	allTenants := claims.Authority == constant.SYS_ADMIN && strings.TrimSpace(tenantID) == ""
-	total, list, err := dal.GetAlarmConfigListByPage(req, allTenants)
+	total, list, err := dal.GetAlarmConfigListByPageForScopes(req, allTenants, alarmListScopes(allTenants, tenantID))
 	if err != nil {
 		return nil, wrapAlarmDBError(err)
 	}
@@ -455,7 +455,7 @@ func (*Alarm) GetAlarmInfoListByPage(req *model.GetAlarmInfoListByPageReq, claim
 	req.TenantID = tenantID
 	// ROADMAP A1：SYS_ADMIN 未指定租户时显式授权全租户视角，其余空租户在 DAL fail-closed。
 	allTenants := claims.Authority == constant.SYS_ADMIN && strings.TrimSpace(tenantID) == ""
-	total, list, err := dal.GetAlarmInfoListByPage(req, allTenants)
+	total, list, err := dal.GetAlarmInfoListByPageForScopes(req, allTenants, alarmListScopes(allTenants, tenantID))
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -496,7 +496,7 @@ func (*Alarm) GetAlarmHisttoryListByPage(req *model.GetAlarmHisttoryListByPage, 
 		}
 		tenantID = device.TenantID
 	}
-	total, list, err := dal.GetAlarmHistoryListByPage(req, tenantID, deviceOwnerUserIDFilterForClaims(claims))
+	total, list, err := dal.GetAlarmHistoryListByPageForScopes(req, alarmListScopes(req.AllTenants, tenantID), deviceOwnerUserIDFilterForClaims(claims))
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -751,4 +751,12 @@ func (*Alarm) DeleteAlarmHistory(id string, claims *utils.UserClaims) error {
 		return err
 	}
 	return errcode.NewWithMessage(errcode.CodeOpDenied, alarmHistoryRetentionMessage)
+}
+
+// alarmListScopes 返回告警列表查询的层级作用域：allTenants(系统管理员全量) 返回 nil，否则 self∪子孙（自上而下）。
+func alarmListScopes(allTenants bool, self string) []string {
+	if allTenants {
+		return nil
+	}
+	return expandTenantIDScope(self)
 }

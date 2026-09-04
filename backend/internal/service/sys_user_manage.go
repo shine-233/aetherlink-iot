@@ -15,6 +15,7 @@ import (
 
 	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
+	"aetherlink-iot/backend/pkg/global"
 
 	"gorm.io/gorm"
 
@@ -180,6 +181,14 @@ func setCreateUserPassword(user *model.User, password string) error {
 }
 
 func createUserWithAddressDefaultBoardAndRoles(user *model.User, createUserReq *model.CreateUserReq, claims *utils.UserClaims) error {
+	// RBAC 激活后 casbin g 表是授权事实源：创建请求未显式给 RoleIDs 时，
+	// 按 users.authority 兜底绑定（与 63.sql 对存量用户的种子口径一致），
+	// 否则新用户在 RBAC 生效（deny-unregistered / 种子后 Verify 全走 casbin）时被全量 403。
+	roleIDs := createUserReq.RoleIDs
+	if len(roleIDs) == 0 && user.Authority != nil && *user.Authority != "" {
+		roleIDs = []string{*user.Authority}
+	}
+	bound := false
 	if err := query.Q.Transaction(func(tx *query.Query) error {
 		if err := tx.User.Create(user); err != nil {
 			return err
@@ -192,10 +201,11 @@ func createUserWithAddressDefaultBoardAndRoles(user *model.User, createUserReq *
 				return err
 			}
 		}
-		if len(createUserReq.RoleIDs) == 0 {
+		if len(roleIDs) == 0 {
 			return nil
 		}
-		return replaceUserRoleBindingsWithTx(tx, user.ID, createUserReq.RoleIDs)
+		bound = true
+		return replaceUserRoleBindingsWithTx(tx, user.ID, roleIDs)
 	}); err != nil {
 		logrus.Error(err)
 		if strings.Contains(err.Error(), "users_un") {
@@ -205,6 +215,14 @@ func createUserWithAddressDefaultBoardAndRoles(user *model.User, createUserReq *
 			"error":      err.Error(),
 			"user_email": user.Email,
 		})
+	}
+	if bound && global.CasbinEnforcer != nil && global.CasbinEnforcer.GetAdapter() != nil {
+		// 仅带 DB adapter 的生产 enforcer 需要重载内存策略（绑定经 tx 直写 DB）；
+		// 单测内存模型无 adapter，LoadPolicy 会 panic，其策略本就由内存直管无需重载。
+		// 创建频率低，全量重载最简单且与 DB 强一致；失败不回滚用户（重启/下次绑定收敛），仅告警。
+		if err := global.CasbinEnforcer.LoadPolicy(); err != nil {
+			logrus.Errorf("casbin LoadPolicy after user create failed (memory stale until next reload): err=%v", err)
+		}
 	}
 	return nil
 }
@@ -238,9 +256,34 @@ func (*User) GetUserById(id string) (*model.User, error) {
 	return user, nil
 }
 
+// userListScopes 解析用户目录列表读作用域（ROADMAP C2 自上而下）：
+// TENANT_USER 保持 self-only（成员目录仅本租户）；TENANT_ADMIN → expandTenantIDScope
+// （self∪子孙，可读层级内成员用户）；SYS_ADMIN → nil（平台级管理员目录，无租户过滤）；
+// nil/未知声明 → nil，由 DAL 显式拒绝。
+func userListScopes(claims *utils.UserClaims) []string {
+	if claims == nil {
+		return nil
+	}
+	switch claims.Authority {
+	case constant.TENANT_USER:
+		if tenantID := strings.TrimSpace(claims.TenantID); tenantID != "" {
+			return []string{tenantID}
+		}
+		return nil
+	case constant.TENANT_ADMIN:
+		tenantID := strings.TrimSpace(claims.TenantID)
+		if tenantID == "" {
+			return nil
+		}
+		return expandTenantIDScope(tenantID)
+	default:
+		return nil
+	}
+}
+
 // GetUserListByPage 按当前登录人的权限边界分页查询用户列表。
 func (*User) GetUserListByPage(userListReq *model.UserListReq, claims *utils.UserClaims) (map[string]interface{}, error) {
-	total, list, err := dal.GetUserListByPage(userListReq, claims)
+	total, list, err := dal.GetUserListByPage(userListReq, claims, userListScopes(claims))
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"operation": "query_user",

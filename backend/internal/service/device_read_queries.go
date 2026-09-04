@@ -13,12 +13,12 @@ import (
 )
 
 func (*Device) GetDeviceListByPage(req *model.GetDeviceListByPageReq, u *utils.UserClaims) (map[string]interface{}, error) {
-	tenantID, err := resolveDeviceListTenantScope(req, u)
+	scopes, err := resolveDeviceListScopes(req, u)
 	if err != nil {
 		return nil, err
 	}
 	applyDeviceListOwnerFilterForClaims(req, u)
-	total, list, err := dal.GetDeviceListByPage(req, tenantID)
+	total, list, err := dal.GetDeviceListByPageForScopes(req, scopes)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -65,6 +65,29 @@ func resolveDeviceListTenantScope(req *model.GetDeviceListByPageReq, claims *uti
 		return "", nil
 	}
 	return requireDeviceTenantClaims(claims, "no permission to query device list")
+}
+
+// resolveDeviceListScopes 返回设备列表查询的层级作用域（self∪子孙，自上而下）。
+// 与旧 resolveDeviceListTenantScope 等价守卫：AllTenants 仅系统管理员可用，非全量时要求租户 claims。
+func resolveDeviceListScopes(req *model.GetDeviceListByPageReq, claims *utils.UserClaims) ([]string, error) {
+	if req == nil {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "device list request is required")
+	}
+	if err := requireSystemAdminAllTenantsScope(
+		req.AllTenants,
+		claims,
+		"all-tenants device list is only available to system administrators",
+	); err != nil {
+		return nil, err
+	}
+	if req.AllTenants {
+		return nil, nil
+	}
+	self, err := requireDeviceTenantClaims(claims, "no permission to query device list")
+	if err != nil {
+		return nil, err
+	}
+	return expandTenantIDScope(self), nil
 }
 
 func rdiSystemInfoSummaryFromAdditionalInfo(additionalInfo *string) model.RDISystemInfoSummary {

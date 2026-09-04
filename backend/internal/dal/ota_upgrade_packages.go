@@ -47,12 +47,24 @@ func GetOtaUpgradePackageByID(id string) (*model.OtaUpgradePackage, error) {
 	return ota, err
 }
 
-func GetOtaUpgradePackageListByPage(p *model.GetOTAUpgradePackageLisyByPageReq, tenantId string) (int64, interface{}, error) {
+// GetOtaUpgradePackageListByPage 分页返回作用域内的 OTA 升级包（ROADMAP C2 自上而下读）。
+// scopes 语义：0→fail-closed 空结果、1→tenant_id =（与旧单租户等价）、>1→tenant_id IN；
+// 升级包为租户级资源（tenant_id 可空=平台包），空租户管理员由 service 映射为 [""] 保持旧行为。
+// tenant-scope: scopes 由 service 层展开并校验（TENANT_ADMIN/SYS_ADMIN self∪子孙；
+// TENANT_USER 保持 self-only）。
+func GetOtaUpgradePackageListByPage(p *model.GetOTAUpgradePackageLisyByPageReq, scopes []string) (int64, interface{}, error) {
 	q := query.OtaUpgradePackage
 	var count int64
 	packageList := make([]model.GetOTAUpgradeTaskListByPageRsp, 0)
 	queryBuilder := q.WithContext(context.Background())
-	queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenantId))
+	switch len(scopes) {
+	case 0:
+		return 0, packageList, nil
+	case 1:
+		queryBuilder = queryBuilder.Where(q.TenantID.Eq(scopes[0]))
+	default:
+		queryBuilder = queryBuilder.Where(q.TenantID.In(scopes...))
+	}
 	if p.Name != "" {
 		queryBuilder = queryBuilder.Where(q.Name.Like(fmt.Sprintf("%%%s%%", p.Name)))
 	}

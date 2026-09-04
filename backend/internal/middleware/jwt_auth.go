@@ -59,6 +59,48 @@ func JWTAuth() gin.HandlerFunc {
 	}
 }
 
+// OptionalJWTAuth 与 JWTAuth 同源的鉴权中间件，但“缺失/无效 token”时不阻断请求：
+// 有效 token 则注入 claims（供 Handler 做租户作用域收口），缺失或失效则按匿名继续。
+// 用于品牌配置等“未登录取全局兜底、已登录取本租户”的公开可读端点，避免把匿名用户挡在登录页之外。
+func OptionalJWTAuth() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := selectJWTAuthToken(c, c.Request.Header.Get("x-token"))
+		if token == "" {
+			c.Next()
+			return
+		}
+		claims := resolveClaimsFromToken(c, token)
+		if claims == nil {
+			// 无效 token：按匿名继续，不阻断品牌读取
+			c.Next()
+			return
+		}
+		c.Set("claims", claims)
+		c.Next()
+	}
+}
+
+// resolveClaimsFromToken 复用 JWTAuth 的校验链路（Redis 会话 + 解析 + 用户状态），
+// 成功返回 claims，失败返回 nil（由调用方降级为匿名）。
+func resolveClaimsFromToken(c *gin.Context, token string) *utils.UserClaims {
+	ctx := c.Request.Context()
+	tokenKey := utils.TokenDigest(token)
+	if global.REDIS == nil || global.REDIS.Get(ctx, tokenKey).Val() != "1" {
+		return nil
+	}
+	key := viper.GetString("jwt.key")
+	j := utils.NewJWT([]byte(key))
+	claims, err := j.ParseToken(token)
+	if err != nil {
+		return nil
+	}
+	active, _ := cachedJWTUserStatus(ctx, claims)
+	if !active {
+		return nil
+	}
+	return claims
+}
+
 func isValidJWT(c *gin.Context, token string) bool {
 	requestID := c.GetString("X-Request-ID")
 	// 继承请求上下文：客户端断连/超时后 Redis 会话校验随之取消，不再脱离请求生命周期。

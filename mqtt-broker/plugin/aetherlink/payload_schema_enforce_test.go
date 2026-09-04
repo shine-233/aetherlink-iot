@@ -34,6 +34,31 @@ func TestDecidePayloadSchemaEnforcement_RejectInvalidJSON(t *testing.T) {
 	}
 }
 
+func TestDecidePayloadSchemaEnforcement_RejectsNullRoot(t *testing.T) {
+	d := DecidePayloadSchemaEnforcement(PayloadSchemaEnforcement{}, []byte(`null`))
+	if d.Outcome != PayloadSchemaReject {
+		t.Fatalf("expected reject for null root, got %s", d.Outcome)
+	}
+	if len(d.Errors) != 1 || d.Errors[0] != "payload is not a valid JSON object" {
+		t.Fatalf("expected the non-object diagnostic, got %v", d.Errors)
+	}
+}
+
+func TestDecidePayloadSchemaEnforcement_RejectsUnsupportedFieldType(t *testing.T) {
+	enf := PayloadSchemaEnforcement{
+		Fields: []PayloadSchemaFieldConstraint{
+			{Name: "temp", Type: PayloadSchemaFieldType("integer")},
+		},
+	}
+	d := DecidePayloadSchemaEnforcement(enf, []byte(`{"temp":1}`))
+	if d.Outcome != PayloadSchemaReject {
+		t.Fatalf("expected reject for unsupported field type, got %s", d.Outcome)
+	}
+	if len(d.Errors) != 1 || d.Errors[0] != `field "temp" has unsupported type "integer"` {
+		t.Fatalf("expected unsupported-type diagnostic, got %v", d.Errors)
+	}
+}
+
 func TestDecidePayloadSchemaEnforcement_RejectMissingRequired(t *testing.T) {
 	enf := PayloadSchemaEnforcement{
 		Fields: []PayloadSchemaFieldConstraint{

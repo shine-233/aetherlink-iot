@@ -11,6 +11,7 @@ import (
 
 	"aetherlink-iot/backend/internal/adapter/casbinadapter"
 	global "aetherlink-iot/backend/pkg/global"
+	utils "aetherlink-iot/backend/pkg/utils"
 
 	"github.com/casbin/casbin/v2"
 	"github.com/spf13/viper"
@@ -29,6 +30,12 @@ func CasbinInit() error {
 	if err != nil {
 		return fmt.Errorf("failed to create enforcer: %v", err)
 	}
+
+	// urlPatternMatch：锚定 RESTful 模式匹配（configs/casbin.conf matcher 引用）。
+	// 不用内置 keyMatch2：其非锚定正则会子串误命中（如模式 api/v1/devices 命中
+	// api/v1/devicesXYZ），构成越权放大；统一走 utils.URLPatternCasbinFunction 锚定实现。
+	// （casbin v2.135 的 AddFunction 无返回值，注册失败以其内部 panic 暴露。）
+	e.AddFunction("urlPatternMatch", utils.URLPatternCasbinFunction())
 
 	if err := e.LoadPolicy(); err != nil {
 		return fmt.Errorf("failed to load policy: %v", err)

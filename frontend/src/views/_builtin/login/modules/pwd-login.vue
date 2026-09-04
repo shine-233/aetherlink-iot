@@ -15,6 +15,7 @@ import { useRouterPush } from '@/hooks/common/router'
 import { useNaiveForm } from '@/hooks/common/form'
 import { useAuthStore } from '@/store/modules/auth'
 import { getFunction } from '@/service/api/setting'
+import { fetchSsoProviders } from '@/service/api/auth'
 
 defineOptions({
   name: 'PwdLogin'
@@ -98,6 +99,37 @@ const emailOptions = computed(() => {
   return filteredDomains.map(domain => `${username}@${domain}`)
 })
 
+const totpCode = ref('')
+const ssoProviders = ref<Array<{ id: string; name: string }>>([])
+async function loadSsoProviders() {
+  // SSO 提供方获取失败（后端旧版本无该端点/网络异常）时降级为无 SSO 入口，
+  // 不阻断密码登录主链路——拒绝若逃逸会成为 unhandled rejection 并污染测试与监控。
+  try {
+    const { data } = await fetchSsoProviders()
+    ssoProviders.value = data ?? []
+  } catch {
+    ssoProviders.value = []
+  }
+}
+
+async function handleTotpSubmit() {
+  const code = totpCode.value.trim()
+  if (!code) return
+  await authStore.loginWithTotp(code)
+  if (authStore.totpChallenge) {
+    totpCode.value = ''
+  }
+}
+
+function windowOpen(href: string) {
+  window.location.href = href
+}
+
+function backToPwdStep() {
+  authStore.totpChallenge = null
+  totpCode.value = ''
+}
+
 async function handleSubmit() {
   await validate()
   await authStore.login(model.userName.trim(), model.password)
@@ -165,6 +197,7 @@ function loadMarketEmail() {
 }
 
 onMounted(() => {
+  loadSsoProviders()
   const is_remember_rath = localStorage.getItem('isRememberPath')
   if (is_remember_rath === '0' || is_remember_rath === '1') {
     isRememberPath.value = is_remember_rath === '1'
@@ -232,7 +265,53 @@ onMounted(() => {
       >
         {{ $t('route.login') }}
       </NButton>
-      <n-divider v-if="showZc" title-placement="center" style="padding: 0px; margin: 0px">
+
+      <template v-if="!authStore.totpChallenge && ssoProviders.length">
+        <n-divider title-placement="center">
+          {{ $t('custom.ssoLogin.title') }}
+        </n-divider>
+        <div class="flex flex-col gap-8px">
+          <NButton
+            v-for="provider in ssoProviders"
+            :key="provider.id"
+            quaternary
+            type="primary"
+            block
+            @click="windowOpen(`/api/v1/sso/${provider.id}/start`)"
+          >
+            {{ provider.name }}
+          </NButton>
+        </div>
+      </template>
+
+      <template v-if="authStore.totpChallenge">
+        <n-alert type="info" :show-icon="false">
+          {{ $t('custom.twoFactor.loginTitle') }}：{{ $t('custom.twoFactor.loginHint') }}
+        </n-alert>
+        <NInput
+          v-model:value="totpCode"
+          :placeholder="$t('custom.twoFactor.codePlaceholder')"
+          data-testid="login-totp-code"
+          maxlength="6"
+          @keydown.enter="handleTotpSubmit"
+        />
+        <NButton
+          style="border-radius: 8px"
+          type="primary"
+          size="large"
+          block
+          data-testid="login-totp-submit"
+          :loading="authStore.loginLoading"
+          @click="handleTotpSubmit"
+        >
+          {{ $t('custom.twoFactor.loginSubmit') }}
+        </NButton>
+        <NButton quaternary block size="small" @click="backToPwdStep">
+          {{ $t('custom.twoFactor.loginBack') }}
+        </NButton>
+      </template>
+
+      <n-divider v-if="showZc"  title-placement="center" style="padding: 0px; margin: 0px">
         {{ $t('generate.or') }}
       </n-divider>
       <div class="flex-y-center justify-between gap-12px mt--4">

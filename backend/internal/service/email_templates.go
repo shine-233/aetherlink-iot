@@ -151,6 +151,7 @@ func validateAlarmEmailTemplate(req *model.EmailTemplateUpsertReq) error {
 	return err
 }
 
+// ListEmailTemplates 分页查询作用域内（self∪子孙，ROADMAP C2）的告警邮件模板。
 func (*NotificationServicesConfig) ListEmailTemplates(page, pageSize int, claims *utils.UserClaims) (*model.EmailTemplateListRsp, error) {
 	tenantID, err := emailTemplateScopeForClaims(claims)
 	if err != nil {
@@ -162,11 +163,22 @@ func (*NotificationServicesConfig) ListEmailTemplates(page, pageSize int, claims
 	if pageSize < 1 || pageSize > 100 {
 		pageSize = 20
 	}
-	total, list, err := dal.ListEmailTemplates(tenantID, page, pageSize)
+	scopes := emailTemplateListScopes(tenantID)
+	total, list, err := dal.ListEmailTemplates(scopes, page, pageSize)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
 	}
 	return &model.EmailTemplateListRsp{List: list, Total: total}, nil
+}
+
+// emailTemplateListScopes 解析管理列表读作用域：
+// 空租户（SYS_ADMIN 管理平台默认模板，tenant_id 为空串）→ [""]，保持旧行为；
+// 非空租户 → expandTenantIDScope 自上而下 self∪子孙。
+func emailTemplateListScopes(tenantID string) []string {
+	if tenantID == "" {
+		return []string{""}
+	}
+	return expandTenantIDScope(tenantID)
 }
 
 func (*NotificationServicesConfig) CreateEmailTemplate(req *model.EmailTemplateUpsertReq, claims *utils.UserClaims) (*model.EmailTemplate, error) {

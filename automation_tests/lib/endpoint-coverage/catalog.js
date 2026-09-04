@@ -23,6 +23,7 @@ const ALL_ENDPOINTS = [
   { method: 'GET',  path: '/api/v1/verification/code',                      module: 'auth',      auth: false },
   { method: 'POST', path: '/api/v1/reset/password',                         module: 'auth',      auth: false },
   { method: 'POST', path: '/api/v1/reset/password/link',                    module: 'auth',      auth: false },
+  { method: 'POST', path: '/api/v1/login/totp',                              module: 'auth',      auth: false },
   { method: 'GET',  path: '/api/v1/logo',                                   module: 'system',    auth: false },
   { method: 'GET',  path: '/api/v1/deployment/health',                      module: 'system',    auth: false },
   { method: 'GET',  path: '/api/v1/telemetry/datas/current/ws',             module: 'telemetry', auth: false },
@@ -73,6 +74,28 @@ const ALL_ENDPOINTS = [
   { method: 'PUT',  path: '/api/v1/user/address/:id',                       module: 'user',      auth: true },
   { method: 'GET',  path: '/api/v1/user/tenant/id',                         module: 'user',      auth: true },
   { method: 'GET',  path: '/api/v1/user/selector',                          module: 'user',      auth: true },
+  { method: 'GET',  path: '/api/v1/user/totp/setup',                        module: 'user',      auth: true },
+  { method: 'POST', path: '/api/v1/user/totp/activate',                     module: 'user',      auth: true },
+  { method: 'POST', path: '/api/v1/user/totp/disable',                      module: 'user',      auth: true },
+  { method: 'GET',  path: '/api/v1/user/totp/status',                       module: 'user',      auth: true },
+
+  // === Asset inventory (asset.go) ===
+  { method: 'POST', path: '/api/v1/asset',                                  module: 'asset',     auth: true },
+  { method: 'PUT',  path: '/api/v1/asset',                                  module: 'asset',     auth: true },
+  { method: 'DELETE', path: '/api/v1/asset/:id',                             module: 'asset',     auth: true },
+  { method: 'GET', path: '/api/v1/asset/list',                              module: 'asset',     auth: true },
+  { method: 'GET', path: '/api/v1/asset/tree',                              module: 'asset',     auth: true },
+  { method: 'GET', path: '/api/v1/asset/:id',                               module: 'asset',     auth: true },
+
+  // === OIDC/SSO provider management ===
+  { method: 'POST', path: '/api/v1/oidc/provider',                           module: 'oidc',      auth: true },
+  { method: 'PUT', path: '/api/v1/oidc/provider',                            module: 'oidc',      auth: true },
+  { method: 'DELETE', path: '/api/v1/oidc/provider/:id',                     module: 'oidc',      auth: true },
+  { method: 'GET', path: '/api/v1/oidc/provider/list',                       module: 'oidc',      auth: true },
+  { method: 'GET', path: '/api/v1/sso/providers',                             module: 'sso',       auth: true },
+  { method: 'GET', path: '/api/v1/sso/:id/start',                             module: 'sso',       auth: false },
+  { method: 'GET', path: '/api/v1/sso/:id/callback',                          module: 'sso',       auth: false },
+  { method: 'POST', path: '/api/v1/ai/alarm/analysis',                       module: 'alarm',     auth: true },
 
   // === 角色管理（role.go） ===
   { method: 'POST',   path: '/api/v1/role',                                 module: 'role',      auth: true },

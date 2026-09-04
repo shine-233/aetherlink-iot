@@ -44,11 +44,23 @@ const notificationHistoryForeignOwnerExistsSQL = `EXISTS (
 		)
 )`
 
-func GetNotificationHisoryListByPage(notifications *model.GetNotificationHistoryListByPageReq, ownerUserID *string) (int64, []*model.NotificationHistory, error) {
+// GetNotificationHisoryListByPage 分页返回作用域内的通知历史（ROADMAP C2 自上而下读）。
+// scopes 语义：0→fail-closed 空结果、1→tenant_id =（与旧单租户等价）、>1→tenant_id IN；
+// ownerUserID 非空时（TENANT_USER）仍以 device-owner 关系 EXISTS 钳制，跨成员/跨租户私有行不可见。
+// tenant-scope: scopes 由 service 层展开并校验（TENANT_ADMIN/SYS_ADMIN self∪子孙；
+// TENANT_USER 保持 self-only；空租户由 service 映射为 [""] 保持平台空租户旧行为）。
+func GetNotificationHisoryListByPage(notifications *model.GetNotificationHistoryListByPageReq, scopes []string, ownerUserID *string) (int64, []*model.NotificationHistory, error) {
 	var count int64
 	queryBuilder := global.DB.WithContext(context.Background()).
-		Table(model.TableNameNotificationHistory+" AS nh").
-		Where("nh.tenant_id = ?", notifications.TenantID)
+		Table(model.TableNameNotificationHistory + " AS nh")
+	switch len(scopes) {
+	case 0:
+		return 0, []*model.NotificationHistory{}, nil
+	case 1:
+		queryBuilder = queryBuilder.Where("nh.tenant_id = ?", scopes[0])
+	default:
+		queryBuilder = queryBuilder.Where("nh.tenant_id IN ?", scopes)
+	}
 	if ownerUserID != nil && strings.TrimSpace(*ownerUserID) != "" {
 		ownerID := strings.TrimSpace(*ownerUserID)
 		queryBuilder = queryBuilder.

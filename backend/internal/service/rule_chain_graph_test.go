@@ -4,6 +4,7 @@
 package service
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -14,7 +15,7 @@ const validLinearGraph = `{
   "nodes": [
     {"id":"t1","type":"trigger.telemetry"},
     {"id":"f1","type":"filter.threshold","config":{"key":"temperature","op":">","value":30}},
-    {"id":"a1","type":"action.webhook","config":{"url":"http://127.0.0.1:1/hook"}}
+    {"id":"a1","type":"action.webhook","config":{"url":"https://hooks.example.com/hook"}}
   ],
   "edges":[{"from":"t1","to":"f1"},{"from":"f1","to":"a1"}]
 }`
@@ -57,4 +58,44 @@ func TestParseRuleChainGraphRejectsUnknownTypeAndBadEdges(t *testing.T) {
 func TestParseRuleChainGraphToleratesEmpty(t *testing.T) {
 	_, err := ParseRuleChainGraph("   ")
 	require.Error(t, err, "empty graph must fail (no trigger)")
+}
+
+func TestParseRuleChainGraphRejectsDisconnectedActionRoot(t *testing.T) {
+	graph := `{"nodes":[
+		{"id":"t","type":"trigger.telemetry"},
+		{"id":"w","type":"action.webhook","config":{"url":"https://example.com"}}
+	],"edges":[]}`
+	_, err := ParseRuleChainGraph(graph)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "non-trigger node")
+}
+
+func TestParseRuleChainGraphRejectsTriggerWithIncomingEdge(t *testing.T) {
+	graph := `{"nodes":[
+		{"id":"t1","type":"trigger.telemetry"},
+		{"id":"t2","type":"trigger.device_online"}
+	],"edges":[{"from":"t1","to":"t2"}]}`
+	_, err := ParseRuleChainGraph(graph)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "must be a root")
+}
+
+func TestParseRuleChainGraphRejectsUnsafeWebhookURL(t *testing.T) {
+	for _, target := range []string{
+		"",
+		"file:///tmp/hook",
+		"http://user:password@example.com/hook",
+		"http://127.0.0.1/hook",
+		"http://[::1]/hook",
+	} {
+		t.Run(target, func(t *testing.T) {
+			graph := `{"nodes":[
+				{"id":"t","type":"trigger.telemetry"},
+				{"id":"w","type":"action.webhook","config":{"url":` + fmt.Sprintf("%q", target) + `}}
+			],"edges":[{"from":"t","to":"w"}]}`
+			_, err := ParseRuleChainGraph(graph)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "invalid url")
+		})
+	}
 }

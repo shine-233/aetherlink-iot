@@ -68,3 +68,14 @@ func TestEmailTemplateScopeForClaims(t *testing.T) {
 		t.Fatal("tenant user should not manage email templates")
 	}
 }
+
+// TestEmailTemplateListScopes 管理列表读作用域：空租户(SYS_ADMIN 平台默认模板)映射 [""]，
+// 非空租户回退 self-only（无层级链接时至少包含自身，等价旧单租户）。
+func TestEmailTemplateListScopes(t *testing.T) {
+	if got := emailTemplateListScopes(""); len(got) != 1 || got[0] != "" {
+		t.Fatalf("platform scope = %#v, want [\"\"]", got)
+	}
+	if got := emailTemplateListScopes("tenant-1"); len(got) != 1 || got[0] != "tenant-1" {
+		t.Fatalf("tenant fallback scope = %#v, want [tenant-1]", got)
+	}
+}

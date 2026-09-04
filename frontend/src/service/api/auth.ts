@@ -18,6 +18,16 @@ export function fetchLogin(email: string, password: string, salt: string | null)
   return request.post<Api.Auth.LoginToken>('/login', { email, password, salt })
 }
 
+/** 2FA 第二因子登录（ticket 由 /login 的 step=totp 挑战下发） */
+export function fetchLoginTotp(ticket: string, code: string) {
+  return request.post<Api.Auth.LoginToken>('/login/totp', { ticket, code })
+}
+
+/** 登录页 SSO 提供方发现（公开，仅平台级启用项） */
+export function fetchSsoProviders() {
+  return request.get<Array<{ id: string; name: string }> | null>('/sso/providers')
+}
+
 /** Get user info */
 export function fetchGetUserInfo() {
   return request.get<Api.Auth.UserInfo>('/user/detail')

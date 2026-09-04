@@ -1,6 +1,8 @@
 package service
 
 import (
+	"strings"
+
 	"aetherlink-iot/backend/initialize"
 	"aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
@@ -169,12 +171,12 @@ func refreshSwitchedSceneAutomationCache(sceneAutomationID string, target string
 }
 
 func (*SceneAutomation) GetSceneAutomationByPageReq(req *model.GetSceneAutomationByPageReq, u *utils.UserClaims) (interface{}, error) {
-	tenantID, err := sceneAutomationQueryTenantID(req.DeviceId, req.DeviceConfigId, u)
+	scopes, err := sceneAutomationListScopes(req.DeviceId, req.DeviceConfigId, u)
 	if err != nil {
 		return nil, err
 	}
 
-	total, sceneInfo, err := dal.GetSceneAutomationByPage(req, tenantID)
+	total, sceneInfo, err := dal.GetSceneAutomationByPage(req, scopes)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -187,12 +189,12 @@ func (*SceneAutomation) GetSceneAutomationByPageReq(req *model.GetSceneAutomatio
 }
 
 func (*SceneAutomation) GetSceneAutomationWithAlarmByPageReq(req *model.GetSceneAutomationsWithAlarmByPageReq, u *utils.UserClaims) (interface{}, error) {
-	tenantID, err := sceneAutomationQueryTenantID(req.DeviceId, req.DeviceConfigId, u)
+	scopes, err := sceneAutomationListScopes(req.DeviceId, req.DeviceConfigId, u)
 	if err != nil {
 		return nil, err
 	}
 
-	total, sceneInfo, err := dal.GetSceneAutomationWithAlarmByPageReq(req, tenantID)
+	total, sceneInfo, err := dal.GetSceneAutomationWithAlarmByPageReq(req, scopes)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -227,6 +229,37 @@ func sceneAutomationQueryTenantID(deviceID *string, deviceConfigID *string, clai
 		tenantID = deviceConfig.TenantID
 	}
 	return tenantID, nil
+}
+
+// sceneAutomationListScopes 解析场景自动化管理读作用域（ROADMAP C2 自上而下）：
+// 先按 device/config 锚点做资源读访问校验并收敛到锚点租户，再映射为作用域；
+// 无锚点时锚点租户即声明租户。nil 声明一律返回错误（与旧签名一致）。
+func sceneAutomationListScopes(deviceID *string, deviceConfigID *string, claims *utils.UserClaims) ([]string, error) {
+	tenantID, err := sceneAutomationQueryTenantID(deviceID, deviceConfigID, claims)
+	if err != nil {
+		return nil, err
+	}
+	return sceneAutomationReadScopes(tenantID, claims), nil
+}
+
+// sceneAutomationReadScopes 将解析后的租户映射为场景自动化读作用域：
+// TENANT_USER 保持 self-only（场景为租户级资源、无 per-user 可见性维度），空租户
+// 返回 nil（fail-closed）；空租户管理员（SYS_ADMIN 平台行）→ [""] 保持旧行为；
+// 其余非空租户管理员 → expandTenantIDScope（self∪子孙，链接缺失回退 self-only）。
+func sceneAutomationReadScopes(tenantID string, claims *utils.UserClaims) []string {
+	if claims == nil {
+		return nil
+	}
+	if claims.Authority == constant.TENANT_USER {
+		if tenantID := strings.TrimSpace(tenantID); tenantID != "" {
+			return []string{tenantID}
+		}
+		return nil
+	}
+	if strings.TrimSpace(tenantID) == "" {
+		return []string{""}
+	}
+	return expandTenantIDScope(tenantID)
 }
 
 func (*SceneAutomation) UpdateSceneAutomation(req *model.UpdateSceneAutomationReq, u *utils.UserClaims) (string, error) {

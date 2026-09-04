@@ -5,6 +5,8 @@
 package service
 
 import (
+	"strings"
+
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/pkg/constant"
@@ -37,6 +39,26 @@ func ensureNotificationHistoryOwnerScope(claims *utils.UserClaims) error {
 	return nil
 }
 
+// notificationHistoryListScopes 解析通知历史读作用域（ROADMAP C2，自上而下）：
+// TENANT_USER 保持 self-only——其可见性由 DAL 的 device-owner 关系 EXISTS 钳制，跨层展开无意义；
+// 空租户（SYS_ADMIN 平台空租户行）→ [""]，保持旧行为；
+// TENANT_ADMIN/SYS_ADMIN 非空租户 → expandTenantIDScope self∪子孙。
+func notificationHistoryListScopes(claims *utils.UserClaims) []string {
+	if claims == nil {
+		return nil
+	}
+	if claims.Authority == constant.TENANT_USER {
+		if tenantID := strings.TrimSpace(claims.TenantID); tenantID != "" {
+			return []string{tenantID}
+		}
+		return nil
+	}
+	if strings.TrimSpace(claims.TenantID) == "" {
+		return []string{""}
+	}
+	return expandTenantIDScope(claims.TenantID)
+}
+
 func (*NotificationHisory) GetNotificationHistoryListByPage(pageParam *model.GetNotificationHistoryListByPageReq, claims *utils.UserClaims) (map[string]interface{}, error) {
 	if err := ensureNotificationHistoryOwnerScope(claims); err != nil {
 		return nil, err
@@ -48,8 +70,7 @@ func (*NotificationHisory) GetNotificationHistoryListByPage(pageParam *model.Get
 		// oracle; sensitive fields are redacted from the returned rows below.
 		pageParam.SendTarget = nil
 	}
-	pageParam.TenantID = claims.TenantID
-	total, list, err := dal.GetNotificationHisoryListByPage(pageParam, deviceOwnerUserIDFilterForClaims(claims))
+	total, list, err := dal.GetNotificationHisoryListByPage(pageParam, notificationHistoryListScopes(claims), deviceOwnerUserIDFilterForClaims(claims))
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),

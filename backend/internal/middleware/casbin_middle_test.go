@@ -17,12 +17,14 @@ import (
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/model"
 	"github.com/gin-gonic/gin"
+	"github.com/spf13/viper"
 )
 
 func setupCasbinRBACEnforcer(t *testing.T) {
 	t.Helper()
 
-	// 与 configs/casbin.conf 保持一致：matcher 通过 g2 关联资源
+	// 与 configs/casbin.conf 保持一致：matcher 双通道（g2 分组 + urlPatternMatch 锚定模式），
+	// urlPatternMatch 与生产同源（utils.URLPatternCasbinFunction）。
 	modelStr := `
 [request_definition]
 r = sub, obj, act
@@ -38,7 +40,7 @@ g2 = _, _
 e = some(where (p.eft == allow))
 
 [matchers]
-m = g(r.sub, p.sub) && g2(r.obj, p.obj) && r.act == p.act
+m = g(r.sub, p.sub) && (g2(r.obj, p.obj) || urlPatternMatch(r.obj, p.obj)) && r.act == p.act
 `
 	casbinModel, err := model.NewModelFromString(modelStr)
 	if err != nil {
@@ -49,6 +51,8 @@ m = g(r.sub, p.sub) && g2(r.obj, p.obj) && r.act == p.act
 	if err != nil {
 		t.Fatalf("create test casbin enforcer: %v", err)
 	}
+	// casbin v2.135 的 AddFunction 无返回值（失败以其内部 panic 暴露）。
+	enforcer.AddFunction("urlPatternMatch", utils.URLPatternCasbinFunction())
 
 	oldEnforcer := global.CasbinEnforcer
 	global.CasbinEnforcer = enforcer
@@ -166,5 +170,61 @@ func TestCasbinRBACSkipsVerificationWithoutEnforcer(t *testing.T) {
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d when casbin enforcer is unavailable", recorder.Code, http.StatusOK)
+	}
+}
+
+func TestCasbinRBACDeniesUnregisteredWhenStrictMode(t *testing.T) {
+	setupCasbinRBACEnforcer(t)
+	viper.Set("casbin.deny-unregistered", true)
+	t.Cleanup(func() { viper.Reset() })
+	router := newCasbinRBACTestRouter(&utils.UserClaims{ID: "user-device-admin"})
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/not-in-casbin", nil))
+
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d for unregistered url in strict mode", recorder.Code, http.StatusForbidden)
+	}
+	var body map[string]string
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode response body %q: %v", recorder.Body.String(), err)
+	}
+	if body["error"] != "非法访问" {
+		t.Fatalf(`error = %q, want "非法访问"（与已注册未授权保持同一拒绝契约）`, body["error"])
+	}
+}
+
+func TestCasbinRBACStrictModeKeepsRegisteredAuthorizedPass(t *testing.T) {
+	setupCasbinRBACEnforcer(t)
+	viper.Set("casbin.deny-unregistered", true)
+	t.Cleanup(func() { viper.Reset() })
+	router := newCasbinRBACTestRouter(&utils.UserClaims{ID: "user-device-admin"})
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/devices", nil))
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d for registered+authorized url in strict mode", recorder.Code, http.StatusOK)
+	}
+}
+
+func TestCasbinRBACStrictModePatternRegisteredRouteGoesToVerify(t *testing.T) {
+	setupCasbinRBACEnforcer(t)
+	viper.Set("casbin.deny-unregistered", true)
+	t.Cleanup(func() { viper.Reset() })
+	// 登记参数模式（p 策略 obj 仍是资源组 device-resource）→ GetUrl 模式命中 → 走 Verify；
+// 但具体路径既不在 g2 组内也无匹配模式策略 → Enforce 拒绝 403（验证严格模式下判定链完整走通）
+	if _, err := global.CasbinEnforcer.AddNamedGroupingPolicies("g2", [][]string{
+		{"api/v1/device/:id", "device-resource"},
+	}); err != nil {
+		t.Fatalf("register param pattern: %v", err)
+	}
+	router := newCasbinRBACTestRouter(&utils.UserClaims{ID: "user-device-admin"})
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/device/123", nil))
+
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d (pattern-registered but unauthorized)", recorder.Code, http.StatusForbidden)
 	}
 }

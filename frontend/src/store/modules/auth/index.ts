@@ -10,7 +10,7 @@ import dayjs from 'dayjs'
 import { SetupStoreId } from '@/enum'
 import { useLoading } from '@aetherlink/hooks'
 import { useRouterPush } from '@/hooks/common/router'
-import { fetchGetUserInfo, fetchLogin, logout } from '@/service/api'
+import { fetchGetUserInfo, fetchLogin, fetchLoginTotp, logout } from '@/service/api'
 import { transformUser } from '@/service/api/auth'
 import { localStg } from '@/utils/storage'
 import { $t } from '@/locales'
@@ -56,6 +56,9 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
 
   const token = ref(getToken())
 
+  /** 2FA 待完成挑战（密码已通过、等待动态码） */
+  const totpChallenge = ref<{ ticket: string; email: string } | null>(null)
+
   /** Is login */
   const isLogin = computed(() => Boolean(token.value))
 
@@ -78,6 +81,55 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
     }
 
     await routeStore.resetStore()
+  }
+
+  /**
+   * 完成登录落库：写入 token/用户信息并初始化路由后跳转（密码策略提示保留在个人中心）。
+   */
+  async function adoptLogin(loginToken: Api.Auth.LoginToken, rawPassword?: string) {
+    const { loop, info } = await loginByToken(loginToken)
+    if (loop && info) {
+      const password_last_updated = info.password_last_updated
+      const now = new Date()
+      const daysSinceUpdate = dayjs(now).diff(password_last_updated, 'day')
+      const tipFunc = async () => {
+        await routeStore.initAuthRoute()
+        await redirectFromLogin()
+      }
+      if (rawPassword && !validPassword(rawPassword)) {
+        tipFunc()
+      } else if (!info.password_last_updated || daysSinceUpdate > 90) {
+        tipFunc()
+      } else {
+        await routeStore.initAuthRoute()
+        await redirectFromLogin()
+      }
+    }
+  }
+
+  /**
+   * 2FA 第二因子登录：ticket + 动态码（或恢复码）换正式会话。
+   */
+  async function loginWithTotp(code: string) {
+    startLoading()
+    try {
+      const challenge = totpChallenge.value
+      if (!challenge) {
+        return
+      }
+      const { data: loginToken } = await fetchLoginTotp(challenge.ticket, code)
+      if (!loginToken) {
+        await resetStore()
+        return
+      }
+      totpChallenge.value = null
+      await adoptLogin(loginToken)
+    } catch (error) {
+      logger.error('[AuthStore] 2FA 登录失败:', error instanceof Error ? error.message : error)
+      await resetStore()
+    } finally {
+      endLoading()
+    }
   }
 
   /**
@@ -105,27 +157,12 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
         await resetStore()
         return
       }
-
-      const { loop, info } = await loginByToken(loginToken)
-      if (loop && info) {
-        const password_last_updated = info.password_last_updated
-        const now = new Date()
-        const daysSinceUpdate = dayjs(now).diff(password_last_updated, 'day')
-        // 密码不合规或超过 90 天未更新时，仍完成登录流程并跳转，由个人中心引导修改密码
-        const tipFunc = async () => {
-          await routeStore.initAuthRoute()
-          await redirectFromLogin()
-        }
-
-        if (!validPassword(password)) {
-          tipFunc()
-        } else if (!info.password_last_updated || daysSinceUpdate > 90) {
-          tipFunc()
-        } else {
-          await routeStore.initAuthRoute()
-          await redirectFromLogin()
-        }
+      // 2FA（ROADMAP C7）：密码正确但需动态码时，保存挑战并停留在登录页等待第二因子。
+      if (loginToken.step === 'totp' && loginToken.ticket) {
+        totpChallenge.value = { ticket: loginToken.ticket, email: userName }
+        return
       }
+      await adoptLogin(loginToken, password)
     } catch (error) {
       logger.error('[AuthStore] 登录失败:', error instanceof Error ? error.message : error)
       await resetStore()
@@ -206,6 +243,8 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
     loginLoading,
     resetStore,
     login,
+    loginWithTotp,
+    totpChallenge,
     enter,
     requestLogout,
     loginByToken

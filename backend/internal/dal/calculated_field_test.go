@@ -104,7 +104,7 @@ func TestListCalculatedFieldsByPageFiltersAndCaps(t *testing.T) {
 	createCalculatedFieldRow(t, "other", "tenant-b", "tpl-1", "key_b", true)
 
 	templateFilter := "tpl-1"
-	total, list, err := ListCalculatedFieldsByPage("tenant-a", &model.CalculatedFieldListReq{
+	total, list, err := ListCalculatedFieldsByPage([]string{"tenant-a"}, &model.CalculatedFieldListReq{
 		PageReq:          model.PageReq{Page: 1, PageSize: 5},
 		DeviceTemplateID: &templateFilter,
 	})
@@ -116,7 +116,7 @@ func TestListCalculatedFieldsByPageFiltersAndCaps(t *testing.T) {
 	}
 
 	// pageSize 超上限/负数时必须收敛到具名上限而不是取消 LIMIT。
-	total, _, err = ListCalculatedFieldsByPage("tenant-a", &model.CalculatedFieldListReq{
+	total, _, err = ListCalculatedFieldsByPage([]string{"tenant-a"}, &model.CalculatedFieldListReq{
 		PageReq: model.PageReq{Page: 1, PageSize: -7},
 	})
 	if err != nil {
@@ -144,7 +144,7 @@ func TestListCalculatedFieldsByPageFiltersAndCaps(t *testing.T) {
 	if err := db.CreateInBatches(rows, 100).Error; err != nil {
 		t.Fatalf("seed capped rows: %v", err)
 	}
-	_, list, err = ListCalculatedFieldsByPage("tenant-cap", &model.CalculatedFieldListReq{
+	_, list, err = ListCalculatedFieldsByPage([]string{"tenant-cap"}, &model.CalculatedFieldListReq{
 		PageReq: model.PageReq{Page: 1, PageSize: 5000},
 	})
 	if err != nil {
@@ -155,7 +155,7 @@ func TestListCalculatedFieldsByPageFiltersAndCaps(t *testing.T) {
 	}
 
 	nameFilter := "field-other"
-	total, _, err = ListCalculatedFieldsByPage("tenant-b", &model.CalculatedFieldListReq{
+	total, _, err = ListCalculatedFieldsByPage([]string{"tenant-b"}, &model.CalculatedFieldListReq{
 		PageReq: model.PageReq{Page: 1, PageSize: 10},
 		Name:    &nameFilter,
 	})
@@ -231,6 +231,84 @@ func TestGetDeviceTemplateIDByDeviceIDJoinsConfigs(t *testing.T) {
 	got, err = GetDeviceTemplateIDByDeviceID("tenant-a", "missing-device")
 	if err != nil || got != "" {
 		t.Fatalf("missing device must resolve to empty without error, got %q err=%v", got, err)
+	}
+}
+
+// TestListCalculatedFieldsByPageScopeDown 自上而下作用域真实结果集：
+// [hq, child] 含两租户、[hq] 只含本租户、空作用域 fail-closed、模板过滤与作用域叠加。
+func TestListCalculatedFieldsByPageScopeDown(t *testing.T) {
+	setupCalculatedFieldTestDB(t)
+	createCalculatedFieldRow(t, "cf-hq-1", "hq", "tpl-hq", "power_w", true)
+	createCalculatedFieldRow(t, "cf-child-1", "child", "tpl-child", "energy_wh", true)
+	createCalculatedFieldRow(t, "cf-x-1", "tenant-x", "tpl-x", "voltage_v", false)
+
+	templateFilter := "tpl-child"
+	total, list, err := ListCalculatedFieldsByPage([]string{"hq", "child"}, &model.CalculatedFieldListReq{
+		PageReq:          model.PageReq{Page: 1, PageSize: 10},
+		DeviceTemplateID: &templateFilter,
+	})
+	if err != nil {
+		t.Fatalf("scoped+template list: %v", err)
+	}
+	if total != 1 || len(list) != 1 || list[0].ID != "cf-child-1" {
+		t.Fatalf("template-filtered scope [hq child] total=%d rows=%#v", total, list)
+	}
+
+	total, list, err = ListCalculatedFieldsByPage([]string{"hq", "child"}, nil)
+	if err != nil {
+		t.Fatalf("scope [hq child]: %v", err)
+	}
+	if total != 2 {
+		t.Fatalf("scope [hq child] total=%d, want 2", total)
+	}
+	seen := map[string]bool{}
+	for _, f := range list {
+		seen[f.ID] = true
+	}
+	if !seen["cf-hq-1"] || !seen["cf-child-1"] || seen["cf-x-1"] {
+		t.Fatalf("scope [hq child] leaked/missing rows: %#v", seen)
+	}
+
+	// 单元素作用域等价旧单租户：hq 看不到 child 与 tenant-x。
+	total, list, err = ListCalculatedFieldsByPage([]string{"hq"}, nil)
+	if err != nil {
+		t.Fatalf("scope [hq]: %v", err)
+	}
+	if total != 1 || len(list) != 1 || list[0].ID != "cf-hq-1" {
+		t.Fatalf("scope [hq] total=%d rows=%#v", total, list)
+	}
+
+	// 空作用域 fail-closed。
+	total, list, err = ListCalculatedFieldsByPage(nil, nil)
+	if err != nil {
+		t.Fatalf("empty scope: %v", err)
+	}
+	if total != 0 || len(list) != 0 {
+		t.Fatalf("empty scope total=%d rows=%d", total, len(list))
+	}
+}
+
+// TestGetCalculatedFieldForScopesScopeDown 单条读作用域成员判定：父可读子、子不可读父、空作用域不存在。
+func TestGetCalculatedFieldForScopesScopeDown(t *testing.T) {
+	setupCalculatedFieldTestDB(t)
+	createCalculatedFieldRow(t, "cf-hq-1", "hq", "tpl-hq", "power_w", true)
+	createCalculatedFieldRow(t, "cf-child-1", "child", "tpl-child", "energy_wh", true)
+
+	if _, err := GetCalculatedFieldForScopes("cf-child-1", []string{"hq", "child"}); err != nil {
+		t.Fatalf("parent in-scope read child: %v", err)
+	}
+	if _, err := GetCalculatedFieldForScopes("cf-child-1", []string{"hq"}); err != gorm.ErrRecordNotFound {
+		t.Fatalf("child out-of-scope read must miss, got %v", err)
+	}
+	if _, err := GetCalculatedFieldForScopes("cf-hq-1", []string{"hq"}); err != nil {
+		t.Fatalf("single-scope own read: %v", err)
+	}
+	if _, err := GetCalculatedFieldForScopes("cf-hq-1", nil); err != gorm.ErrRecordNotFound {
+		t.Fatalf("empty scope must fail closed as not found, got %v", err)
+	}
+	// 写路径守卫仍是严格单租户：hq 无法按 child 租户命中。
+	if err := UpdateCalculatedFieldForScope("cf-child-1", "hq", map[string]interface{}{"enabled": false}); err != gorm.ErrRecordNotFound {
+		t.Fatalf("write guard must stay strict-tenant, got %v", err)
 	}
 }
 

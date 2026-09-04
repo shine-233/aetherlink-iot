@@ -84,6 +84,10 @@ func (*UserApi) Login(c *gin.Context) {
 
 	loginRsp, err := service.GroupApp.User.Login(c, &loginReq)
 	if err != nil {
+		if e, ok := err.(*errcode.Error); ok && handleTotpChallengeError(c, e) {
+			// 密码正确但需第二因子：不计失败、不下发错误，返回 step=totp 挑战。
+			return
+		}
 		_ = loginLock.LoginFail(c, loginReq.Email)
 		_ = loginLock.LoginFailForIP(c, clientIP)
 		c.Error(err)
