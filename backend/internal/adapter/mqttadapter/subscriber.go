@@ -191,6 +191,11 @@ func (a *Adapter) SubscribeDeviceTopics(client mqtt.Client) error {
 			handler:  a.handleStatusMessage,
 			describe: "设备状态上报",
 		},
+		TopicPatternOTAProgress: {
+			qos:      1,
+			handler:  a.handleEventMessage,
+			describe: "OTA设备进度上报",
+		},
 	}
 
 	for topic, config := range topics {
