@@ -38,7 +38,7 @@
 | 资产管理层级 | ✓ | ✓ | ✗ | C2：60.sql + CRUD/树 API + RBAC/DAL 级联（expandTenantIDScope 已覆盖 device/alarm/board/ota/rule_chain 等十余模块） |
 | CoAP / LwM2M / SNMP | ✓ | ✓ | ✗ | C6 闭环：CoAP/LwM2M UDP 网关 + 端点凭证映射 + 遥测汇入 uplink（P1-C）；SNMP v2c 采集接入（protocol_type=SNMP 点表轮询→uplink，含配置页动态表单与保存校验，2026-09-04） |
 | OPC UA | ✓ | ✗ | ✓ | 库级 client（gopcua）+ 连接器/点位采集接入（protocol_type=OPCUA，连接 TTL 缓存/懒重连，含配置页动态表单与保存校验）；**运行期 E2E 已过（2026-09-04，opcuastub 本地 opc.tcp 服务器，遥测 5s 周期落库 tenant 归属正确）** |
-| 移动端 App | ✗ | ✗ | ✓ | 远期评估 |
+| 移动端 App | ◐ | ✓ (PE) | ✓ | MVP 落地（2026-09-05）：uni-app 骨架补完为可用应用——登录/设备列表（在线徽标）/最新遥测查看，H5 构建通过；API 契约与 backend 对齐并实跑验证（发现并修正原骨架误用 /device/list 未绑定设备接口）；小程序/APP 目标构建脚本就绪，上架属发布事项 |
 | AI / LLM 集成 | ✓ | ✗ | ✓ | C4：NL 查询遥测 + AI 告警分析（service 单测 4/4）均落地 |
 | 计算字段 | ✓ | ✓ | ✗ | B3 已合入：govaluate 安全表达式派生遥测（54.sql） |
 | TimescaleDB / TDengine | ✓ | ✓ | ✓ | C1 闭环：57.sql 条件化 hypertable + 7 天压缩；**三态运行期全部验证（2026-09-05）**：auto（无扩展条件跳过）/ off（显式跳过）/ **on 正向**（真实 timescaledb 2.29.2 + EDB PG17.10 隔离实例——hypertable 转换、compress_after=7 chunks 压缩策略、遥测读写全过）与 **on 负向**（扩展缺失→启动失败+可操作指引）。on 态验证发现并修复 57.sql 缺陷：bigint 时间列的 compress_after 必须用 chunk 数而非 INTERVAL（SQLSTATE 22023，auto 模式从未触达故此前不可见） |
@@ -261,6 +261,7 @@ AetherLink Backend ←──gRPC──→ Modbus TCP Plugin ←──Modbus TCP�
 | 2026-09-04 | C6/C1 运行期 E2E 批 | SNMP 采集器隔离栈运行期 E2E：snmpstub agent（cmd/snmpstub 新工具，复用 internal/snmp BuildGetResponse）+ scratch 库 + collectors.snmp.enabled 启动 → 遥测 5s 周期落库 telemetry_datas（uptime=600/hostname=collectore2e，tenant 归属正确）；OPC UA 死端口同栈验证 fail-closed 不阻塞；TimescaleDB 三态运行期：auto（无扩展跳过）+ off（显式跳过 57.sql，日志「跳过 sql/57.sql（TimescaleDB 显式关闭）」）已验证，on 环境绑定。测后 scratch 双库/配置/日志/进程全清 | 本地主线 |
 | 2026-09-04 | OPC UA 运行期 E2E 批 | opcuastub（cmd/opcuastub，gopcua server 包本地 opc.tcp 服务器，None 安全/匿名，Start 非阻塞需挂主协程）+ scratch 库 + collectors.opcua.enabled 启动 → ns=1;s=temperature(26.5)/humidity(61.0) 每 5s 落库 telemetry_datas、tenant 归属正确、零采集失败。OPC UA 全链路（连接/读值/转换/汇入/落库）实证闭环，不再依赖外部真实服务器；测后全清 | 本地主线 |
 | 2026-09-04 | C7 OIDC 协议级 E2E 批 | cmd/idpstub 本地 OIDC Provider（Discovery/authorize 一次性 code/token/RS256 JWKS）+ 隔离栈 scratch 库实测：start→authorize→callback 授权码流程全链路通过，HS256 与 RS256+JWKS 双验签路径均过，ID Token email 绑定本地用户签发平台 JWT（调鉴权 API 200+用户档案）；负路径（篡改 state/无 cookie 重放）双 400；发现并记录 redirect_uri 相对路径限制（跨域 IdP 需绝对回调地址，改进项）；测后 scratch 库/配置/进程全清 | 本地主线 |
+| 2026-09-05 | 移动端 MVP 批 | active/mobile-app-uni：API 契约对齐（修正误用 /device/list 未绑定接口→/device 分页）+ 设备列表在线徽标与点击展开最新遥测 + README 契约表；H5 构建 DONE；三端点实跑验证（login 200/分页列表字段命中/遥测空态数组） | 本地主线 |
 | 2026-09-05 | 行业模板 MVP 批 | 65.sql 三行业模板种子（工业传感器/电力监测/智能家居，租户守卫+幂等）+ VERSION_NUMBER 65 → 模板库 API 列表验证三模板可见（total=3） | 本地主线 |
 | 2026-09-05 | C1 on 态 + Keycloak 互通批 | ①Timescale on 态完整闭环：真实 timescaledb 2.29.2（EDB PG17.10 隔离实例，官方 issue #10348 指引 PG≥17.10）→ hypertable 转换/compress_after=7 chunks 压缩策略/遥测读写全过 + on 负向 fail-closed；**发现并修复 57.sql 缺陷**（bigint 时间列 compress_after 须用 chunk 数）。②Keycloak 26.7.3 真第三方互通 E2E 全链路通过；**发现并修复 redirect_uri 相对路径缺陷**（sso.public-base-url 绝对回调）。③RBAC 按角色收紧 64.sql 落库（TU 撤管理面 32 行/TA 撤平台面 12 行），三角色 32/32 矩阵运行期验证 | 本地主线 |
 | 2026-09-04 | 集群双实例 E2E 批 | 双 backend 实例（9199/9200，同 scratch 库同 Redis，watcher 开 + api-rate-limit backend=redis rpm=5）：①watcher——A 经 POST /casbin/user 变更 g 绑定，2s 内 B 的 GET 即返回新绑定且日志恰一条「收到跨实例变更通知，策略已重载」（A 零自通知）；②限流共享配额——A 连续调用第 6 次起 429（固定窗口），**B 从未被压测直接 429+Retry-After:33**（Redis 共享计数跨实例生效）。测后 scratch 库/配置/进程全清 | 本地主线 |
