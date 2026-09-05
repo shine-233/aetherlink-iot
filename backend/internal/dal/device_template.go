@@ -7,6 +7,7 @@ package dal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	model "aetherlink-iot/backend/internal/model"
@@ -14,6 +15,7 @@ import (
 	global "aetherlink-iot/backend/pkg/global"
 
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 const (
@@ -133,6 +135,9 @@ func GetDeviceTemplateListByPage(req *model.GetDeviceTemplateListByPageReq, scop
 	queryBuilder := q.WithContext(context.Background())
 	if req.Name != nil {
 		queryBuilder = queryBuilder.Where(q.Name.Like(ContainsLikePattern(*req.Name)))
+	}
+	if req.TypeKey != nil && *req.TypeKey != "" {
+		queryBuilder = queryBuilder.Where(q.TypeKey.Eq(*req.TypeKey))
 	}
 	var empty bool
 	queryBuilder, empty = deviceTemplateTenantScope(queryBuilder, scopes)
@@ -286,4 +291,22 @@ func GetDeviceTemplateSelector(req *model.GetDeviceTemplateSelectorReq, tenantID
 	}
 
 	return results, nil
+}
+
+// FindDeviceTemplateByNameVersion 按租户+名称+版本查找模板（模板市场导入幂等判定）。
+// 找不到时返回 (nil, nil)；调用方以 nil 判定"不存在"。
+func FindDeviceTemplateByNameVersion(tenantID, name, version string) (*model.DeviceTemplate, error) {
+	q := query.DeviceTemplate
+	data, err := q.WithContext(context.Background()).
+		Where(q.TenantID.Eq(tenantID)).
+		Where(q.Name.Eq(name)).
+		Where(q.Version.Eq(version)).
+		First()
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return data, nil
 }

@@ -24,6 +24,9 @@ import (
 	"github.com/spf13/viper"
 )
 
+// OperationTypeEdgeRelay 边缘中继命令的操作类型（命令审计留痕用）。
+const OperationTypeEdgeRelay = "edge-relay"
+
 // Config 边缘转发配置（edge.forward.*）。
 type Config struct {
 	Enabled     bool   // 总开关（默认 false）
@@ -34,6 +37,11 @@ type Config struct {
 	Password    string // 可选
 	BufferLimit int    // 断连缓冲上限（条），默认 10000，满则丢最旧
 	QoS         byte   // 发布 QoS，默认 1
+
+	// 云端下行命令（边缘 RPC）
+	CommandEnabled    bool   // 是否订阅云端命令 topic（默认 false）
+	CommandTopic      string // 命令 topic（支持 MQTT 通配符），默认 {prefix}/cmd/+
+	CommandOperatorID string // 命令审计记录的操作人，默认 edge-relay
 }
 
 // ConfigFromViper 从 viper 读取 edge.forward.* 配置。
@@ -49,8 +57,17 @@ func ConfigFromViper() Config {
 		BufferLimit: int(viper.GetInt("edge.forward.buffer-limit")),
 		QoS:         byte(viper.GetUint("edge.forward.qos")),
 	}
+	cfg.CommandEnabled = viper.GetBool("edge.forward.command-enabled")
+	cfg.CommandTopic = getStr("edge.forward.command-topic")
+	cfg.CommandOperatorID = getStr("edge.forward.command-operator-id")
 	if cfg.TopicPrefix == "" {
 		cfg.TopicPrefix = "aetherlink/edge"
+	}
+	if cfg.CommandTopic == "" {
+		cfg.CommandTopic = cfg.TopicPrefix + "/cmd/+"
+	}
+	if cfg.CommandOperatorID == "" {
+		cfg.CommandOperatorID = "edge-relay"
 	}
 	if cfg.ClientID == "" {
 		cfg.ClientID = "aetherlink-edge"
@@ -90,6 +107,10 @@ type Forwarder struct {
 
 	livePublished uint64
 	bufFlushed    uint64
+
+	// 云端下行命令
+	sink            CommandSink
+	commandsApplied uint64
 }
 
 // New 构造转发器并订阅总线（观察者缓冲 256，与总线语义一致）。
@@ -105,6 +126,12 @@ func New(bus *uplink.Bus, cfg Config, log *logrus.Logger) *Forwarder {
 		done:       make(chan struct{}),
 		subscribed: make(chan struct{}),
 	}
+}
+
+// WithCommandSink 绑定云端命令落地下游（返回自身便于链式构造）。
+func (f *Forwarder) WithCommandSink(sink CommandSink) *Forwarder {
+	f.sink = sink
+	return f
 }
 
 // Subscribed 返回总线订阅就绪信号（closed 即已生效）。
@@ -255,6 +282,16 @@ func (f *Forwarder) tryConnect() bool {
 	f.connected = true
 	f.mu.Unlock()
 	f.log.WithField("broker", f.cfg.Broker).Info("edge forward: 云连接已建立")
+	if f.cfg.CommandEnabled && f.sink != nil {
+		token := client.Subscribe(f.cfg.CommandTopic, f.cfg.QoS, func(_ mqtt.Client, msg mqtt.Message) {
+			f.handleCommand(msg.Topic(), msg.Payload())
+		})
+		if !token.WaitTimeout(5*time.Second) || token.Error() != nil {
+			f.log.Warn("edge forward: 云端命令订阅失败 topic=", f.cfg.CommandTopic, " err=", token.Error())
+		} else {
+			f.log.WithField("topic", f.cfg.CommandTopic).Info("edge forward: 云端命令订阅已就绪")
+		}
+	}
 	return true
 }
 

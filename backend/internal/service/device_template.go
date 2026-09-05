@@ -272,3 +272,84 @@ func (*DeviceTemplate) GetDeviceTemplateSelector(req model.GetDeviceTemplateSele
 	}
 	return data, nil
 }
+
+// ExportDeviceTemplate 模板市场导出：按读权限导出可移植模板描述符（不含 id/tenant_id）。
+func (*DeviceTemplate) ExportDeviceTemplate(id string, claims *utils.UserClaims) (*model.DeviceTemplateExport, error) {
+	t, err := ensureDeviceTemplateReadAccess(id, claims)
+	if err != nil {
+		return nil, err
+	}
+	return &model.DeviceTemplateExport{
+		Kind:           "aetherlink-device-template",
+		Name:           t.Name,
+		Author:         t.Author,
+		Version:        t.Version,
+		Description:    t.Description,
+		Remark:         t.Remark,
+		Path:           t.Path,
+		Label:          t.Label,
+		Brand:          t.Brand,
+		ModelNumber:    t.ModelNumber,
+		TypeKey:        t.TypeKey,
+		WebChartConfig: t.WebChartConfig,
+		AppChartConfig: t.AppChartConfig,
+		ExportedAt:     time.Now().UTC().Format(time.RFC3339),
+	}, nil
+}
+
+// ImportDeviceTemplate 模板市场导入：把导出载荷创建为调用者租户下的新模板。
+// 幂等语义：同租户下已存在同名同版本模板时返回既有模板（created=false），不重复建行。
+func (*DeviceTemplate) ImportDeviceTemplate(req model.ImportDeviceTemplateReq, claims *utils.UserClaims) (*model.DeviceTemplate, bool, error) {
+	if err := ensureTenantScopedWriteClaims(claims, "import thing model"); err != nil {
+		return nil, false, err
+	}
+	if req.Kind != "" && req.Kind != "aetherlink-device-template" {
+		return nil, false, errcode.NewWithMessage(errcode.CodeParamError, "unsupported template kind: "+req.Kind)
+	}
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		return nil, false, errcode.WithVars(100005, map[string]interface{}{
+			"field": "name",
+		})
+	}
+	version := "1.0.0"
+	if req.Version != nil && strings.TrimSpace(*req.Version) != "" {
+		version = strings.TrimSpace(*req.Version)
+	}
+	// 幂等：同租户同名同版本直接复用。
+	existing, err := dal.FindDeviceTemplateByNameVersion(claims.TenantID, name, version)
+	if err != nil {
+		return nil, false, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	if existing != nil {
+		return existing, false, nil
+	}
+	t := time.Now().UTC()
+	deviceTemplate := model.DeviceTemplate{
+		ID:             uuid.New(),
+		Name:           name,
+		Author:         req.Author,
+		Version:        &version,
+		Description:    req.Description,
+		TenantID:       claims.TenantID,
+		CreatedAt:      t,
+		UpdatedAt:      t,
+		Label:          req.Label,
+		WebChartConfig: req.WebChartConfig,
+		AppChartConfig: req.AppChartConfig,
+		Remark:         req.Remark,
+		Path:           req.Path,
+		TypeKey:        req.TypeKey,
+		Brand:          req.Brand,
+		ModelNumber:    req.ModelNumber,
+	}
+	data, err := dal.CreateDeviceTemplate(&deviceTemplate)
+	if err != nil {
+		return nil, false, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	return data, true, nil
+}

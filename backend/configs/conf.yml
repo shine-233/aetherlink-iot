@@ -318,4 +318,8 @@ edge:
     username: ""
     password: ""
     buffer-limit: 10000
+    command-enabled: false        # 云端下行命令（边缘 RPC）
+    command-topic: "aetherlink/edge/cmd/+"
+    command-operator-id: "edge-relay"
     qos: 1
+

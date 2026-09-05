@@ -4,7 +4,11 @@
 package app
 
 import (
+	"context"
+
 	"aetherlink-iot/backend/internal/edgeforward"
+	"aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/internal/service"
 
 	"github.com/sirupsen/logrus"
 )
@@ -46,7 +50,8 @@ func WithEdgeForward() Option {
 			a.RegisterService(skipLogService{name: "边缘遥测云转发", reason: "DB/uplink 未就绪", logger: a.Logger})
 			return nil
 		}
-		wrapper := &EdgeForwardWrapper{forwarder: edgeforward.New(a.GetUplinkBus(), cfg, a.Logger), logger: a.Logger}
+		forwarder := edgeforward.New(a.GetUplinkBus(), cfg, a.Logger).WithCommandSink(commandDataSink{})
+		wrapper := &EdgeForwardWrapper{forwarder: forwarder, logger: a.Logger}
 		a.RegisterService(wrapper)
 		return nil
 	}
@@ -67,3 +72,13 @@ func (s skipLogService) Start() error {
 }
 
 func (s skipLogService) Stop() error { return nil }
+
+// commandDataSink 把云端命令落到本地命令通道（service.GroupApp.CommandData）。
+// 操作人由 edge.forward.command-operator-id 给出（默认 edge-relay），审计可追溯。
+type commandDataSink struct{}
+
+// PutCommand 下发命令到本地设备（与 RDI/控制台下发同一通道）。
+func (commandDataSink) PutCommand(ctx context.Context, operatorID string, req *model.PutMessageForCommand, operationType string) error {
+	_, err := service.GroupApp.CommandData.CommandPutMessageWithTracking(ctx, operatorID, req, operationType)
+	return err
+}
