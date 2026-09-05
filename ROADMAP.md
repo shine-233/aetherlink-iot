@@ -43,7 +43,7 @@
 | 计算字段 | ✓ | ✓ | ✗ | B3 已合入：govaluate 安全表达式派生遥测（54.sql） |
 | TimescaleDB / TDengine | ✓ | ✓ | ✓ | C1 闭环：57.sql 条件化 hypertable + 7 天压缩；**三态运行期全部验证（2026-09-05）**：auto（无扩展条件跳过）/ off（显式跳过）/ **on 正向**（真实 timescaledb 2.29.2 + EDB PG17.10 隔离实例——hypertable 转换、compress_after=7 chunks 压缩策略、遥测读写全过）与 **on 负向**（扩展缺失→启动失败+可操作指引）。on 态验证发现并修复 57.sql 缺陷：bigint 时间列的 compress_after 必须用 chunk 数而非 INTERVAL（SQLSTATE 22023，auto 模式从未触达故此前不可见） |
 | 白标定制 | ✓ | ✓ (PE) | ✗ | C5：主题色/favicon 已入主线（59.sql）；运行期验证完成（28/28×2 轮 + 前端 branding 11/11） |
-| 行业模板 | ✗ | ✓ (PE) | ✗ | 远期 |
+| 行业模板 | ◐ | ✓ (PE) | ✗ | MVP 落地（2026-09-05，65.sql）：工业传感器/电力监测/智能家居三个开箱即用模板入种子（租户守卫插入，生产库零孤儿行），模板库 API 验证可见；模板分类目录/模板市场/按行业导出属产品迭代 |
 | 边缘计算 | ✗ | ✓ (PE) | ✗ | 远期 |
 
 结论：核心设备管理链路已接近主流水平。Modbus（B1）、规则链可视化（B2）、计算字段（B3）、CSV 批量导入（fleet）、资产层级（C2）、CoAP/LwM2M/SNMP/OPC UA 接入（C6，SNMP/OPC UA 采集器 2026-09-04 补齐）、白标（C5）均已合入。**2026-09-04 收敛终态**：可实现项全部以运行期证据闭环（SNMP/OPC UA 采集器真实协议 E2E、watcher 双实例同步、限流集群共享配额、OIDC 授权码流程双算法、Timescale auto/off 态）；剩余均为非工程缺口项——Timescale `on` 态（需扩展二进制，本地 PG 无此扩展）、第三方 IdP 互通验收（协议级已过，建议用户环境按 idpstub 同流程抽验）、RBAC 按角色收紧（产品迭代期）、行业模板/边缘计算/移动端（远期）。
@@ -261,6 +261,7 @@ AetherLink Backend ←──gRPC──→ Modbus TCP Plugin ←──Modbus TCP�
 | 2026-09-04 | C6/C1 运行期 E2E 批 | SNMP 采集器隔离栈运行期 E2E：snmpstub agent（cmd/snmpstub 新工具，复用 internal/snmp BuildGetResponse）+ scratch 库 + collectors.snmp.enabled 启动 → 遥测 5s 周期落库 telemetry_datas（uptime=600/hostname=collectore2e，tenant 归属正确）；OPC UA 死端口同栈验证 fail-closed 不阻塞；TimescaleDB 三态运行期：auto（无扩展跳过）+ off（显式跳过 57.sql，日志「跳过 sql/57.sql（TimescaleDB 显式关闭）」）已验证，on 环境绑定。测后 scratch 双库/配置/日志/进程全清 | 本地主线 |
 | 2026-09-04 | OPC UA 运行期 E2E 批 | opcuastub（cmd/opcuastub，gopcua server 包本地 opc.tcp 服务器，None 安全/匿名，Start 非阻塞需挂主协程）+ scratch 库 + collectors.opcua.enabled 启动 → ns=1;s=temperature(26.5)/humidity(61.0) 每 5s 落库 telemetry_datas、tenant 归属正确、零采集失败。OPC UA 全链路（连接/读值/转换/汇入/落库）实证闭环，不再依赖外部真实服务器；测后全清 | 本地主线 |
 | 2026-09-04 | C7 OIDC 协议级 E2E 批 | cmd/idpstub 本地 OIDC Provider（Discovery/authorize 一次性 code/token/RS256 JWKS）+ 隔离栈 scratch 库实测：start→authorize→callback 授权码流程全链路通过，HS256 与 RS256+JWKS 双验签路径均过，ID Token email 绑定本地用户签发平台 JWT（调鉴权 API 200+用户档案）；负路径（篡改 state/无 cookie 重放）双 400；发现并记录 redirect_uri 相对路径限制（跨域 IdP 需绝对回调地址，改进项）；测后 scratch 库/配置/进程全清 | 本地主线 |
+| 2026-09-05 | 行业模板 MVP 批 | 65.sql 三行业模板种子（工业传感器/电力监测/智能家居，租户守卫+幂等）+ VERSION_NUMBER 65 → 模板库 API 列表验证三模板可见（total=3） | 本地主线 |
 | 2026-09-05 | C1 on 态 + Keycloak 互通批 | ①Timescale on 态完整闭环：真实 timescaledb 2.29.2（EDB PG17.10 隔离实例，官方 issue #10348 指引 PG≥17.10）→ hypertable 转换/compress_after=7 chunks 压缩策略/遥测读写全过 + on 负向 fail-closed；**发现并修复 57.sql 缺陷**（bigint 时间列 compress_after 须用 chunk 数）。②Keycloak 26.7.3 真第三方互通 E2E 全链路通过；**发现并修复 redirect_uri 相对路径缺陷**（sso.public-base-url 绝对回调）。③RBAC 按角色收紧 64.sql 落库（TU 撤管理面 32 行/TA 撤平台面 12 行），三角色 32/32 矩阵运行期验证 | 本地主线 |
 | 2026-09-04 | 集群双实例 E2E 批 | 双 backend 实例（9199/9200，同 scratch 库同 Redis，watcher 开 + api-rate-limit backend=redis rpm=5）：①watcher——A 经 POST /casbin/user 变更 g 绑定，2s 内 B 的 GET 即返回新绑定且日志恰一条「收到跨实例变更通知，策略已重载」（A 零自通知）；②限流共享配额——A 连续调用第 6 次起 429（固定窗口），**B 从未被压测直接 429+Retry-After:33**（Redis 共享计数跨实例生效）。测后 scratch 库/配置/进程全清 | 本地主线 |
 | 2026-09-04 | C6 表单与校验批 | SNMP/OPC UA 配置页动态表单：GetServiceSelect 内置协议项 + builtinCollectorConfigForm（input/select/table 契约，dataKey=点表 JSON 键）+ 凭证表单回退平台标准方案 + device_config 创建/更新按生效值校验点表（pointconfig 子包破除 service→collector 导入环，保存即拒坏点表） | 本地主线 |
