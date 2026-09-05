@@ -257,6 +257,7 @@ CREATE TABLE public.logo (
 	logo_loading varchar(255) NOT NULL, -- 加载页面Logo
 	home_background varchar(255) NOT NULL, -- 首页背景
 	remark varchar(255) NULL,
+	tenant_id varchar(36) NOT NULL DEFAULT '', -- 租户ID
 	CONSTRAINT logo_pkey PRIMARY KEY (id)
 );
 
@@ -268,6 +269,7 @@ COMMENT ON COLUMN public.logo.logo_cache IS '站标Logo';
 COMMENT ON COLUMN public.logo.logo_background IS '加载页面Logo';
 COMMENT ON COLUMN public.logo.logo_loading IS '加载页面Logo';
 COMMENT ON COLUMN public.logo.home_background IS '首页背景';
+COMMENT ON COLUMN public.logo.tenant_id IS '租户ID';
 
 
 -- public.notification_groups definition

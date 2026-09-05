@@ -321,12 +321,11 @@ async function seed(options, pid) {
   // 凭证哈希 Phase 2a：voucher 走 lib/synthetic_rdi_contract.js 的确定性契约，
   // 运行器（run_synthetic_rdi_protocol_validation.js）按同一契约重建，不再读详情接口。
   const voucher = JSON.stringify(syntheticRdiFixtureVoucher(fixtureId));
-  const voucherHash = crypto.createHmac('sha256', 'aetherlink:voucher-cache:v1').update(voucher).digest('hex');
   const sql = [
     'INSERT INTO public.devices (',
     'id, name, voucher, tenant_id, is_enabled, owner_user_id, activate_flag,',
     'created_at, update_at, device_number, additional_info, protocol_config,',
-    'current_version, is_online, access_way, description, voucher_hash',
+    'current_version, is_online, access_way, description',
     ') VALUES (',
     sqlLiteral(id),
     ',', sqlLiteral(`Synthetic RDI ${pid}`),
@@ -337,7 +336,6 @@ async function seed(options, pid) {
     ',', jsonLiteral({ fixture_provenance: PROVENANCE, protocol: PROVENANCE }),
     ',', sqlLiteral('synthetic-rdi-1.0.0'),
     ',0,', sqlLiteral('A'), ',', sqlLiteral('Synthetic RDI fixture; never real hardware'),
-    ',', sqlLiteral(voucherHash),
     ') RETURNING id, device_number, tenant_id, is_enabled, activate_flag, is_online, additional_info::text;'
   ].join(' ');
   const row = parseRow(await spawnPsql(`BEGIN; ${sql} COMMIT;`, options));
