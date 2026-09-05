@@ -1,16 +1,20 @@
 // 文件用途：本地 OIDC Provider（E2E 用，ROADMAP C7 真实 IdP E2E 的本地闭环工具）。
 // 核心逻辑：实现 OIDC 授权码流程所需的最小协议面——Discovery 文档、/authorize
-//   （自动批准并发一次性 code）、/token（校验 code/client 并签发 ID Token）、
-//   RS256 模式下的 /jwks.json。ID Token 含 sub/iss/aud/exp/iat/nonce/email。
+//
+//	（自动批准并发一次性 code）、/token（校验 code/client 并签发 ID Token）、
+//	RS256 模式下的 /jwks.json。ID Token 含 sub/iss/aud/exp/iat/nonce/email。
+//
 // 关键注意事项：
 //   - 仅供本地/隔离栈 E2E：code 存内存、无用户交互页（自动批准）、无 TLS；
 //   - 支持 HS256（client_secret 签名）与 RS256（JWKS 公钥）两种 ID Token 算法，
 //     覆盖 backend internal/oidc.VerifyIDToken 的两条验签路径；
 //   - authorize 的 redirect_uri 若为相对路径（平台当前约定），按 -backend-base 补全，
 //     使浏览器/curl 能回到后端回调入口。
+//
 // 用法：go build -o idpstub.exe ./cmd/idpstub
-//   ./idpstub.exe -addr 127.0.0.1:15555 -alg HS256
-//   ./idpstub.exe -addr 127.0.0.1:15555 -alg RS256
+//
+//	./idpstub.exe -addr 127.0.0.1:15555 -alg HS256
+//	./idpstub.exe -addr 127.0.0.1:15555 -alg RS256
 package main
 
 import (
@@ -152,6 +156,11 @@ func main() {
 		mu.Lock()
 		codes[code] = codeEntry{nonce: q.Get("nonce"), expireAt: time.Now().Add(2 * time.Minute)}
 		mu.Unlock()
+		// 仅接受站内相对路径回调：必须以单 "/" 开头，且不得包含 "//" 或 "\"（防协议相对与反斜杠绕过）。
+		if !strings.HasPrefix(redirectURI, "/") || strings.HasPrefix(redirectURI, "//") || strings.HasPrefix(redirectURI, "/\\") {
+			http.Error(w, "invalid redirect_uri", http.StatusBadRequest)
+			return
+		}
 		sep := "?"
 		if strings.Contains(redirectURI, "?") {
 			sep = "&"

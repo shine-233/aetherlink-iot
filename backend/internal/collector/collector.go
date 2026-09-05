@@ -14,7 +14,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
+	"unicode"
 	"time"
 
 	"aetherlink-iot/backend/internal/adapter/mqttadapter"
@@ -224,9 +226,9 @@ func (r *Runner) pollTarget(t deviceTarget) {
 		r.stats.Failed++
 		r.mu.Unlock()
 		r.log.WithFields(logrus.Fields{
-			"device_id": t.DeviceID,
-			"protocol":  r.poller.Protocol(),
-			"error":     err,
+			"device_id": sanitizeLogValue(t.DeviceID),
+			"protocol":  sanitizeLogValue(r.poller.Protocol()),
+			"error":     sanitizeLogValue(err.Error()),
 		}).Warn("collector: 目标采集失败")
 		return
 	}
@@ -272,4 +274,15 @@ func (r *Runner) publish(t deviceTarget, values map[string]interface{}) {
 	r.mu.Lock()
 	r.stats.Published++
 	r.mu.Unlock()
+}
+
+// sanitizeLogValue 去除日志值中的换行与控制字符，阻断通过设备标识等
+// 用户可控字段伪造日志行（CodeQL go/log-injection）。
+func sanitizeLogValue(v string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '\n' || r == '\r' || r == '\t' || unicode.IsControl(r) {
+			return -1
+		}
+		return r
+	}, v)
 }
