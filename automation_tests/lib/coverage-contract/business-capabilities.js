@@ -478,7 +478,9 @@ const BUSINESS_CAPABILITIES = [
       'tests/10_dict.test.js',
       'tests/13_user_extra.test.js',
       'tests/17_api_boundary_smoke.test.js',
-      'tests/20_seeded_system_permission.test.js'
+      'tests/20_seeded_system_permission.test.js',
+      'tests/33_asset_management.test.js',
+      'tests/34_totp_lifecycle.test.js'
     ],
     e2eTests: [
       'e2e/01_login.spec.js',
@@ -704,7 +706,8 @@ const BUSINESS_CAPABILITIES = [
     automationTests: [
       'tests/06_system.test.js',
       'tests/17_api_boundary_smoke.test.js',
-      { file: 'tests/20_seeded_system_permission.test.js', evidenceKind: 'boundary' }
+      { file: 'tests/20_seeded_system_permission.test.js', evidenceKind: 'boundary' },
+      'tests/35_entity_version.test.js'
     ],
     e2eTests: ['e2e/06_system.spec.js', 'e2e/14_route_coverage_closure.spec.js'],
     backendTests: ['internal/api/system_api_test.go', 'router/router_contract_test.go'],

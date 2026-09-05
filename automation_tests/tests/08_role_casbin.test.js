@@ -179,9 +179,11 @@ describe('角色与Casbin权限模块 [08_role_casbin]', function () {
   // ==================== Casbin 用户角色 ====================
 
   describe('TC-CASBIN-005 查询用户角色', function () {
-    it('新建用户应返回空角色列表', async function () {
+    it('新建用户应自动绑定其 authority 对应的内置角色', async function () {
+      // RBAC 激活后的契约：新建用户按 authority 自动绑定内置角色；
+      // 夹具未显式指定 authority，后端默认 TENANT_USER，故角色列表恰为 ['TENANT_USER']。
       const roles = await getUserRoles(apiClient, testUser.id, accountKey);
-      expect(roles).to.deep.equal([]);
+      expect(roles).to.deep.equal(['TENANT_USER']);
     });
   });
 

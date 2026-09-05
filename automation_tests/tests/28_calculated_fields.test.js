@@ -81,10 +81,17 @@ describe('Calculated fields API boundary [28_calculated_fields]', function () {
   });
 
   it('reports calculated field not found when updating a fake id', async function () {
+    // 服务端校验顺序：先模板存在性（100002）后字段存在性（100404）。
+    // 要触达"fake 字段 id → 100404"分支，必须携带租户内真实存在的模板 id。
+    const templateList = await apiClient.get('/device/template', { page: 1, page_size: 1 }, 'tenant_admin');
+    expectSuccess(templateList);
+    const realTemplateId = templateList.data.list[0] && templateList.data.list[0].id;
+    expect(realTemplateId, 'a real device template must exist for the tenant').to.be.a('string').and.not.equal('');
+
     const fakeId = '00000000-0000-0000-0000-0000000000aa';
     const resp = await apiClient.put(calculatedFieldPath(fakeId), {
       name: 'ghost',
-      device_template_id: '00000000-0000-0000-0000-000000000001',
+      device_template_id: realTemplateId,
       output_key: 'power_w',
       expression: 'voltage + 1'
     }, 'tenant_admin');

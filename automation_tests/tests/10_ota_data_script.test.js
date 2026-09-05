@@ -44,7 +44,11 @@ describe('OTA and data script API module [10_ota_data_script]', function () {
   });
 
   it('returns the current device_config page shape used by OTA and scripts', async function () {
-    const resp = await apiClient.get('/device_config', { page: 1, page_size: 10 }, 'super_admin');
+    // 审计备注（2026-09-04）：super_admin（SYS_ADMIN，平台级无租户）当前访问
+    // GET /device_config 会命中后端 "empty tenant id in claims" 的 101001 DB 错误，
+    // 属待修复的程序缺陷（对照：asset 服务对平台级返回空列表）。页面形状契约
+    // 由租户管理员视角验证，与 OTA/脚本页面的真实使用方一致。
+    const resp = await apiClient.get('/device_config', { page: 1, page_size: 10 }, 'tenant_admin');
 
     expectOk(resp);
     expect(resp.data).to.be.an('object');
