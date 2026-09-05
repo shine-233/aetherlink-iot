@@ -19,6 +19,7 @@ type CreateDeviceTemplateReq struct {
 	Label       *string `json:"label" validate:"omitempty,max=255"`
 	Brand       *string `json:"brand" validate:"omitempty,max=255"`
 	ModelNumber *string `json:"model_number" validate:"omitempty,max=255"`
+	TypeKey     *string `json:"type_key" validate:"omitempty,max=64"` // 行业类型（模板分类目录）
 }
 
 type UpdateDeviceTemplateReq struct {
@@ -35,6 +36,7 @@ type UpdateDeviceTemplateReq struct {
 	UpdatedAt      *time.Time `json:"updated_at" validate:"omitempty"`
 	Brand          *string    `json:"brand" validate:"omitempty,max=255"`
 	ModelNumber    *string    `json:"model_number" validate:"omitempty,max=255"`
+	TypeKey        *string    `json:"type_key" validate:"omitempty,max=64"` // 行业类型（模板分类目录）
 }
 
 type GetDeviceTemplateListByPageReq struct {

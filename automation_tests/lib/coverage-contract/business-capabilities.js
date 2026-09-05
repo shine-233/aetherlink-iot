@@ -113,6 +113,8 @@ const DEVICE_TELEMETRY_ENDPOINTS = [
   'GET /api/v1/device/template/menu',
   'GET /api/v1/device/template/stats',
   'GET /api/v1/device/template/selector',
+  'GET /api/v1/device/template/export/:id',
+  'POST /api/v1/device/template/import',
   'GET /api/v1/device/template/chart',
   'GET /api/v1/device/template/chart/select',
   'POST /api/v1/device/template/market/login',

@@ -87,6 +87,7 @@ func (*DeviceTemplate) CreateDeviceTemplate(req model.CreateDeviceTemplateReq, c
 	deviceTemplate.Label = req.Label
 	deviceTemplate.Brand = req.Brand
 	deviceTemplate.ModelNumber = req.ModelNumber
+	deviceTemplate.TypeKey = req.TypeKey
 
 	t := time.Now().UTC()
 
@@ -141,6 +142,9 @@ func (*DeviceTemplate) UpdateDeviceTemplate(req model.UpdateDeviceTemplateReq, c
 	}
 	if req.ModelNumber != nil {
 		t.ModelNumber = req.ModelNumber
+	}
+	if req.TypeKey != nil {
+		t.TypeKey = req.TypeKey
 	}
 	if req.WebChartConfig != nil {
 		if !IsJSON(*req.WebChartConfig) {
@@ -297,12 +301,21 @@ func (*DeviceTemplate) ExportDeviceTemplate(id string, claims *utils.UserClaims)
 	}, nil
 }
 
+// ProvisionIdentify 实体下发命令的 identify（云端把导出载荷经命令通道推给边端）。
+const ProvisionIdentify = "aetherlink/template/import"
+
 // ImportDeviceTemplate 模板市场导入：把导出载荷创建为调用者租户下的新模板。
 // 幂等语义：同租户下已存在同名同版本模板时返回既有模板（created=false），不重复建行。
 func (*DeviceTemplate) ImportDeviceTemplate(req model.ImportDeviceTemplateReq, claims *utils.UserClaims) (*model.DeviceTemplate, bool, error) {
 	if err := ensureTenantScopedWriteClaims(claims, "import thing model"); err != nil {
 		return nil, false, err
 	}
+	return (*DeviceTemplate)(nil).ImportDeviceTemplateWithTenant(req, claims.TenantID)
+}
+
+// ImportDeviceTemplateWithTenant 实体下发核心：把导出载荷创建为指定租户下的新模板
+// （无 claims 上下文的中继路径——边端命令通道以配置租户落地）。幂等语义同上。
+func (*DeviceTemplate) ImportDeviceTemplateWithTenant(req model.ImportDeviceTemplateReq, tenantID string) (*model.DeviceTemplate, bool, error) {
 	if req.Kind != "" && req.Kind != "aetherlink-device-template" {
 		return nil, false, errcode.NewWithMessage(errcode.CodeParamError, "unsupported template kind: "+req.Kind)
 	}
@@ -317,7 +330,7 @@ func (*DeviceTemplate) ImportDeviceTemplate(req model.ImportDeviceTemplateReq, c
 		version = strings.TrimSpace(*req.Version)
 	}
 	// 幂等：同租户同名同版本直接复用。
-	existing, err := dal.FindDeviceTemplateByNameVersion(claims.TenantID, name, version)
+	existing, err := dal.FindDeviceTemplateByNameVersion(tenantID, name, version)
 	if err != nil {
 		return nil, false, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -333,7 +346,7 @@ func (*DeviceTemplate) ImportDeviceTemplate(req model.ImportDeviceTemplateReq, c
 		Author:         req.Author,
 		Version:        &version,
 		Description:    req.Description,
-		TenantID:       claims.TenantID,
+		TenantID:       tenantID,
 		CreatedAt:      t,
 		UpdatedAt:      t,
 		Label:          req.Label,
