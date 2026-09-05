@@ -19,7 +19,11 @@ BEGIN
             timescaledb.compress_segmentby = 'device_id',
             timescaledb.compress_orderby = '"ts" DESC'
         );
-        PERFORM add_compression_policy('telemetry_datas', INTERVAL '7 days');
+        -- compress_after 语义随时间列类型而定：ts 为 UnixMilli bigint（整数时间列）时
+        -- 必须用 chunk 数（整数），INTERVAL 仅适用于 TIMESTAMP 列（2026-09-05 on 态
+        -- 运行期验证发现：传 INTERVAL 报 SQLSTATE 22023 invalid compress_after）。
+        -- 分块 1 天 → 7 chunks = 7 天。
+        PERFORM add_compression_policy('telemetry_datas', 7);
 
         -- 告警历史表：先改复合主键（含分区时间列），再转 hypertable。
         ALTER TABLE alarm_info DROP CONSTRAINT IF EXISTS alarm_info_pk;

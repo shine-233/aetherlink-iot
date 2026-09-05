@@ -41,7 +41,7 @@
 | 移动端 App | ✗ | ✗ | ✓ | 远期评估 |
 | AI / LLM 集成 | ✓ | ✗ | ✓ | C4：NL 查询遥测 + AI 告警分析（service 单测 4/4）均落地 |
 | 计算字段 | ✓ | ✓ | ✗ | B3 已合入：govaluate 安全表达式派生遥测（54.sql） |
-| TimescaleDB / TDengine | ◐ | ✓ | ✓ | C1 落地：57.sql 条件化 hypertable + 7 天压缩（检测扩展自动启用）；运行期三态：auto（无扩展→57.sql 内部条件跳过）与 off（显式跳过 57.sql，日志留痕）已验证（2026-09-04），on 态需扩展环境绑定 |
+| TimescaleDB / TDengine | ✓ | ✓ | ✓ | C1 闭环：57.sql 条件化 hypertable + 7 天压缩；**三态运行期全部验证（2026-09-05）**：auto（无扩展条件跳过）/ off（显式跳过）/ **on 正向**（真实 timescaledb 2.29.2 + EDB PG17.10 隔离实例——hypertable 转换、compress_after=7 chunks 压缩策略、遥测读写全过）与 **on 负向**（扩展缺失→启动失败+可操作指引）。on 态验证发现并修复 57.sql 缺陷：bigint 时间列的 compress_after 必须用 chunk 数而非 INTERVAL（SQLSTATE 22023，auto 模式从未触达故此前不可见） |
 | 白标定制 | ✓ | ✓ (PE) | ✗ | C5：主题色/favicon 已入主线（59.sql）；运行期验证完成（28/28×2 轮 + 前端 branding 11/11） |
 | 行业模板 | ✗ | ✓ (PE) | ✗ | 远期 |
 | 边缘计算 | ✗ | ✓ (PE) | ✗ | 远期 |
