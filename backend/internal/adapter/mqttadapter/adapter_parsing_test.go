@@ -117,6 +117,10 @@ func TestAdapterTopicAndPayloadParsing(t *testing.T) {
 	if err != nil || messageID != "msg-001" {
 		t.Fatalf("message id parse mismatch: id=%q err=%v", messageID, err)
 	}
+	messageID, err = adapter.parseAttributeOrEventTopic(TopicPatternOTAProgress)
+	if err != nil || messageID != "" {
+		t.Fatalf("OTA progress topic should return empty message id without error: id=%q err=%v", messageID, err)
+	}
 	_, err = adapter.parseAttributeOrEventTopic("devices/attributes/")
 	assertExactAdapterError(t, err, "message_id is empty in topic: devices/attributes/")
 	_, err = adapter.parseAttributeOrEventTopic("devices")

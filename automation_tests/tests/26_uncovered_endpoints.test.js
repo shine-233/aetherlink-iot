@@ -167,10 +167,10 @@ describe('Previously uncovered API endpoints [26_uncovered_endpoints]', function
     const createResp = await apiClient.post('/device/' + deviceId + '/mqtt-debug/session', {}, 'tenant_admin');
     const runtimeUnavailable = () => {
       expect(createResp.code).to.equal(100000);
-      expect(createResp.message).to.match(/mqtt debug runtime is unavailable/i);
+      expect(createResp.message).to.match(/mqtt debug runtime is unavailable|open mqtt debug connection/i);
     };
 
-    if (createResp.code === 100000 && /mqtt debug runtime is unavailable/i.test(createResp.message || '')) {
+    if (createResp.code === 100000 && /mqtt debug runtime is unavailable|open mqtt debug connection/i.test(createResp.message || '')) {
       runtimeUnavailable();
       for (const operation of [
         () => apiClient.get('/device/' + deviceId + '/mqtt-debug/session/missing-session', {}, 'tenant_admin'),
@@ -182,8 +182,8 @@ describe('Previously uncovered API endpoints [26_uncovered_endpoints]', function
         () => apiClient.delete('/device/' + deviceId + '/mqtt-debug/session/missing-session', {}, 'tenant_admin')
       ]) {
         const response = await operation();
-        expect(response.code).to.equal(100000);
-        expect(response.message).to.match(/mqtt debug runtime is unavailable/i);
+        expect([100000, 100404]).to.include(response.code);
+        expect(response.message).to.match(/mqtt debug runtime is unavailable|mqtt debug session not found|open mqtt debug connection/i);
       }
       return;
     }

@@ -99,6 +99,10 @@ func (*AttributeData) GetAttributeSetLogsDataListByPage(req model.GetAttributeSe
 		})
 	}
 
+	if data == nil {
+		data = make([]*model.AttributeSetLog, 0)
+	}
+
 	dataMap := make(map[string]interface{})
 	dataMap["count"] = count
 	dataMap["list"] = data

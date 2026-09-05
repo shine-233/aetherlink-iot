@@ -48,10 +48,13 @@ func GetAttributeSetLogsDataListByPage(req model.GetAttributeSetLogsListByPageRe
 		listBuilder = listBuilder.Limit(req.PageSize).
 			Offset((req.Page - 1) * req.PageSize)
 	}
-	var list []*model.AttributeSetLog
+	list := make([]*model.AttributeSetLog, 0)
 	if err := listBuilder.Scan(&list).Error; err != nil {
 		logrus.Error(err)
 		return count, list, err
+	}
+	if list == nil {
+		list = make([]*model.AttributeSetLog, 0)
 	}
 
 	return count, list, nil

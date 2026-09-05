@@ -14,6 +14,9 @@ package device
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -203,6 +206,26 @@ func (d *DirectDevice) PublishStatus(online bool) error {
 	return nil
 }
 
+// Topics 返回该设备绑定的 MQTT 主题构造器
+func (d *DirectDevice) Topics() *utils.MQTTTopics {
+	return d.topics
+}
+
+// PublishRaw 发布原始字节流到指定主题
+func (d *DirectDevice) PublishRaw(topic string, payload []byte) error {
+	token := d.client.Publish(topic, d.config.MQTT.QoS, false, payload)
+	if !token.WaitTimeout(5 * time.Second) {
+		return fmt.Errorf("publish timeout")
+	}
+	if token.Error() != nil {
+		return fmt.Errorf("publish failed: %w", token.Error())
+	}
+	d.logger.Info("Raw message published",
+		zap.String("topic", topic),
+		zap.Int("payload_len", len(payload)))
+	return nil
+}
+
 // PublishCommandResponse 发送命令响应
 func (d *DirectDevice) PublishCommandResponse(messageID string, success bool, method string) error {
 	innerPayload, err := d.builder.BuildResponse(success, method)
@@ -261,14 +284,18 @@ func (d *DirectDevice) PublishAttributeSetResponse(messageID string, success boo
 // every platform command through the same MQTT topic and response envelope as
 // the integration device. It is intentionally opt-in (CLI mode) so ordinary
 // telemetry/attribute/event smoke runs do not mutate command state.
-func (d *DirectDevice) RunCommandEmulator(stop <-chan struct{}, success bool) error {
+// RunCommandEmulator keeps a connected direct device alive and acknowledges
+// every platform command through the same MQTT topic and response envelope as
+// the integration device. It is intentionally opt-in (CLI mode) so ordinary
+// telemetry/attribute/event smoke runs do not mutate command state.
+func (d *DirectDevice) RunCommandEmulator(stop <-chan struct{}, success bool, receiptPath string) error {
 	if d.client == nil || !d.client.IsConnected() {
 		return fmt.Errorf("device must be connected before starting command emulator")
 	}
 
 	topic := d.topics.Command()
 	token := d.client.Subscribe(topic, d.config.MQTT.QoS, func(_ mqtt.Client, msg mqtt.Message) {
-		messageID, method, ok := commandMessageDetails(msg.Topic(), msg.Payload())
+		messageID, method, params, ok := commandMessageFullDetails(msg.Topic(), msg.Payload())
 		if !ok {
 			d.logger.Warn("Ignoring malformed command in emulator", zap.String("topic", msg.Topic()))
 			return
@@ -277,6 +304,26 @@ func (d *DirectDevice) RunCommandEmulator(stop <-chan struct{}, success bool) er
 		if err := d.PublishCommandResponse(messageID, responseSuccess, method); err != nil {
 			d.logger.Error("Failed to publish emulated command response", zap.Error(err), zap.String("message_id", messageID))
 			return
+		}
+		if strings.TrimSpace(receiptPath) != "" {
+			ackResult := 0
+			if !responseSuccess {
+				ackResult = 1
+			}
+			receipt := map[string]interface{}{
+				"message_id": messageID,
+				"method":     method,
+				"params":     params,
+				"topic":      msg.Topic(),
+				"ack_topic":  d.topics.CommandResponse(messageID),
+				"ack_payload": map[string]interface{}{
+					"result": ackResult,
+					"method": method,
+				},
+			}
+			if err := appendReceiptLine(receiptPath, receipt); err != nil {
+				d.logger.Error("Failed to append command receipt", zap.Error(err), zap.String("receipt_path", receiptPath))
+			}
 		}
 		d.logger.Info("Emulated command response published",
 			zap.String("message_id", messageID),
@@ -321,6 +368,161 @@ unsubscribe:
 	return unsubscribe.Error()
 }
 
+// RunOTAEmulator keeps a connected direct device alive, listens for OTA informs,
+// reports progressive status updates on ota/devices/progress, and writes receipts.
+func (d *DirectDevice) RunOTAEmulator(stop <-chan struct{}, receiptPath, progressValuesStr, otaVersion string, otaFailure bool) error {
+	if d.client == nil || !d.client.IsConnected() {
+		return fmt.Errorf("device must be connected before starting ota emulator")
+	}
+
+	informTopic := d.topics.OTAInform()
+	token := d.client.Subscribe(informTopic, d.config.MQTT.QoS, func(_ mqtt.Client, msg mqtt.Message) {
+		d.logger.Info("OTA inform message received", zap.String("topic", msg.Topic()))
+		if strings.TrimSpace(receiptPath) != "" {
+			var rawPayload interface{}
+			if err := json.Unmarshal(msg.Payload(), &rawPayload); err != nil {
+				rawPayload = string(msg.Payload())
+			}
+			receipt := map[string]interface{}{
+				"kind":    "inform",
+				"topic":   msg.Topic(),
+				"payload": rawPayload,
+			}
+			if err := appendReceiptLine(receiptPath, receipt); err != nil {
+				d.logger.Error("Failed to write ota inform receipt", zap.Error(err))
+			}
+		}
+
+		progressValues := parseProgressValues(progressValuesStr)
+		for i, p := range progressValues {
+			time.Sleep(250 * time.Millisecond)
+			status := int16(3) // upgrading
+			isLast := i == len(progressValues)-1
+			desc := fmt.Sprintf("OTA upgrading, progress %d%%", p)
+			if otaFailure && isLast {
+				status = 5 // failure
+				desc = "OTA upgrade failed"
+			} else if p >= 100 {
+				status = 4 // success
+				desc = "OTA upgrade succeeded"
+			}
+
+			params := map[string]interface{}{
+				"progress":    p,
+				"status":      status,
+				"description": desc,
+			}
+			if otaVersion != "" {
+				params["version"] = otaVersion
+			}
+			eventPayload := map[string]interface{}{
+				"method": "ota_progress",
+				"params": params,
+			}
+			payloadBytes, err := json.Marshal(eventPayload)
+			if err != nil {
+				d.logger.Error("Failed to marshal ota_progress event", zap.Error(err))
+				continue
+			}
+
+			progressTopic := "ota/devices/progress"
+			pubToken := d.client.Publish(progressTopic, d.config.MQTT.QoS, false, payloadBytes)
+			if !pubToken.WaitTimeout(5 * time.Second) {
+				d.logger.Error("Failed to publish ota_progress: timeout")
+			} else if pubToken.Error() != nil {
+				d.logger.Error("Failed to publish ota_progress", zap.Error(pubToken.Error()))
+			} else {
+				d.logger.Info("OTA progress published", zap.Int("progress", p), zap.Int16("status", status))
+			}
+
+			if strings.TrimSpace(receiptPath) != "" {
+				receipt := map[string]interface{}{
+					"kind":     "progress",
+					"progress": p,
+					"topic":    progressTopic,
+					"payload":  eventPayload,
+				}
+				if err := appendReceiptLine(receiptPath, receipt); err != nil {
+					d.logger.Error("Failed to write ota progress receipt", zap.Error(err))
+				}
+			}
+		}
+	})
+	if !token.WaitTimeout(5 * time.Second) {
+		return fmt.Errorf("ota emulator subscription timeout")
+	}
+	if token.Error() != nil {
+		return fmt.Errorf("ota emulator subscription failed: %w", token.Error())
+	}
+
+	if err := d.PublishStatus(true); err != nil {
+		return fmt.Errorf("publish ota emulator online status: %w", err)
+	}
+
+	statusTicker := time.NewTicker(5 * time.Second)
+	defer statusTicker.Stop()
+	for {
+		select {
+		case <-stop:
+			if err := d.PublishStatus(false); err != nil {
+				return fmt.Errorf("publish ota emulator offline status: %w", err)
+			}
+			goto unsubscribe
+		case <-statusTicker.C:
+			if err := d.PublishStatus(true); err != nil {
+				return fmt.Errorf("refresh ota emulator online status: %w", err)
+			}
+		}
+	}
+
+unsubscribe:
+	unsubscribe := d.client.Unsubscribe(informTopic)
+	if !unsubscribe.WaitTimeout(5 * time.Second) {
+		return fmt.Errorf("ota emulator unsubscribe timeout")
+	}
+	return unsubscribe.Error()
+}
+
+func parseProgressValues(s string) []int {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return []int{0, 10, 50, 100}
+	}
+	parts := strings.Split(s, ",")
+	var result []int
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		if v, err := strconv.Atoi(part); err == nil {
+			result = append(result, v)
+		}
+	}
+	if len(result) == 0 {
+		return []int{0, 10, 50, 100}
+	}
+	return result
+}
+
+func appendReceiptLine(receiptPath string, obj interface{}) error {
+	dir := filepath.Dir(receiptPath)
+	if dir != "" && dir != "." {
+		_ = os.MkdirAll(dir, 0755)
+	}
+	b, err := json.Marshal(obj)
+	if err != nil {
+		return err
+	}
+	f, err := os.OpenFile(receiptPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = f.Write(append(b, '\n'))
+	return err
+}
+
 // commandResponseSuccess keeps the emulator successful by default while
 // allowing one explicitly named command contract to exercise a real failed
 // acknowledgement path. This avoids racing a test-injected failure with the
@@ -333,17 +535,23 @@ func commandResponseSuccess(defaultSuccess bool, method, failureIdentify string)
 }
 
 func commandMessageDetails(topic string, payload []byte) (string, string, bool) {
+	id, method, _, ok := commandMessageFullDetails(topic, payload)
+	return id, method, ok
+}
+
+func commandMessageFullDetails(topic string, payload []byte) (string, string, interface{}, bool) {
 	parts := strings.Split(strings.TrimSpace(topic), "/")
 	if len(parts) != 4 || parts[0] != "devices" || parts[1] != "command" || parts[2] == "" || parts[3] == "" {
-		return "", "", false
+		return "", "", nil, false
 	}
 	var command struct {
-		Method string `json:"method"`
+		Method string      `json:"method"`
+		Params interface{} `json:"params"`
 	}
 	if err := json.Unmarshal(payload, &command); err != nil || strings.TrimSpace(command.Method) == "" {
-		return "", "", false
+		return "", "", nil, false
 	}
-	return parts[3], command.Method, true
+	return parts[3], command.Method, command.Params, true
 }
 
 // messageHandler 通用消息处理器

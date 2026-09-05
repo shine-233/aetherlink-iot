@@ -5,7 +5,9 @@
 package simulationpublish
 
 import (
+	"fmt"
 	"net"
+	"time"
 
 	"aetherlink-iot/backend/pkg/utils"
 
@@ -29,16 +31,25 @@ func PublishMessage(host string, port string, topic string, payload string, user
 		logrus.Println("simulation mqtt connect success")
 	})
 	c := mqtt.NewClient(opts)
-	if token := c.Connect(); token.Wait() && token.Error() != nil {
-		logrus.Error("simulation MQTT Broker connection failed")
-		return token.Error()
+	connectToken := c.Connect()
+	if !connectToken.WaitTimeout(5 * time.Second) {
+		logrus.Error("simulation MQTT Broker connection timed out")
+		return fmt.Errorf("simulation mqtt connection timed out")
+	}
+	if connectToken.Error() != nil {
+		logrus.Error("simulation MQTT Broker connection failed: ", connectToken.Error())
+		return connectToken.Error()
 	}
 	defer c.Disconnect(250)
 	logrus.Debug("simulation MQTT publish request prepared")
-	token := c.Publish(topic, 0, false, simulationPayload(payload))
-	if token.Wait() && token.Error() != nil {
-		logrus.Error("simulation MQTT Broker publish failed")
-		return token.Error()
+	pubToken := c.Publish(topic, 0, false, simulationPayload(payload))
+	if !pubToken.WaitTimeout(5 * time.Second) {
+		logrus.Error("simulation MQTT Broker publish timed out")
+		return fmt.Errorf("simulation mqtt publish timed out")
+	}
+	if pubToken.Error() != nil {
+		logrus.Error("simulation MQTT Broker publish failed: ", pubToken.Error())
+		return pubToken.Error()
 	}
 	return nil
 }
@@ -52,6 +63,8 @@ func buildSimulationClientOptions(host string, port string, username string, pas
 	opts.SetCleanSession(true)
 	opts.SetOrderMatters(false)
 	opts.SetResumeSubs(false)
+	opts.SetAutoReconnect(false)
+	opts.SetConnectTimeout(5 * time.Second)
 	return opts
 }
 
