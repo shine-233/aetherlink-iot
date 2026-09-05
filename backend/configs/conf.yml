@@ -321,5 +321,6 @@ edge:
     command-enabled: false        # 云端下行命令（边缘 RPC）
     command-topic: "aetherlink/edge/cmd/+"
     command-operator-id: "edge-relay"
+    provision-tenant-id: ""       # 实体下发目标租户（空则丢弃 aetherlink/template/import 命令）
     qos: 1
 

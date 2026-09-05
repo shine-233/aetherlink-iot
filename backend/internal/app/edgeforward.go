@@ -5,6 +5,9 @@ package app
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"strings"
 
 	"aetherlink-iot/backend/internal/edgeforward"
 	"aetherlink-iot/backend/internal/model"
@@ -50,7 +53,7 @@ func WithEdgeForward() Option {
 			a.RegisterService(skipLogService{name: "边缘遥测云转发", reason: "DB/uplink 未就绪", logger: a.Logger})
 			return nil
 		}
-		forwarder := edgeforward.New(a.GetUplinkBus(), cfg, a.Logger).WithCommandSink(commandDataSink{})
+		forwarder := edgeforward.New(a.GetUplinkBus(), cfg, a.Logger).WithCommandSink(commandDataSink{provisionTenantID: cfg.ProvisionTenantID})
 		wrapper := &EdgeForwardWrapper{forwarder: forwarder, logger: a.Logger}
 		a.RegisterService(wrapper)
 		return nil
@@ -73,12 +76,47 @@ func (s skipLogService) Start() error {
 
 func (s skipLogService) Stop() error { return nil }
 
-// commandDataSink 把云端命令落到本地命令通道（service.GroupApp.CommandData）。
+// commandDataSink 把云端命令落到本地：
+//   - identify == aetherlink/template/import → 实体下发：把载荷导入边端配置租户的模板库；
+//   - 其余 identify → 设备命令通道（service.GroupApp.CommandData，与 RDI/控制台同路）。
+//
 // 操作人由 edge.forward.command-operator-id 给出（默认 edge-relay），审计可追溯。
-type commandDataSink struct{}
+type commandDataSink struct {
+	provisionTenantID string // 实体下发目标租户（edge.forward.provision-tenant-id）
+}
 
-// PutCommand 下发命令到本地设备（与 RDI/控制台下发同一通道）。
-func (commandDataSink) PutCommand(ctx context.Context, operatorID string, req *model.PutMessageForCommand, operationType string) error {
+// PutCommand 按识别符路由云端命令。
+func (s commandDataSink) PutCommand(ctx context.Context, operatorID string, req *model.PutMessageForCommand, operationType string) error {
+	if req.Identify == service.ProvisionIdentify {
+		return s.importProvisionedTemplate(operatorID, req)
+	}
 	_, err := service.GroupApp.CommandData.CommandPutMessageWithTracking(ctx, operatorID, req, operationType)
 	return err
+}
+
+// importProvisionedTemplate 实体下发：解析载荷并导入边端配置租户的模板库（幂等）。
+func (s commandDataSink) importProvisionedTemplate(operatorID string, req *model.PutMessageForCommand) error {
+	tenantID := strings.TrimSpace(s.provisionTenantID)
+	if tenantID == "" {
+		return errors.New("provision tenant not configured (edge.forward.provision-tenant-id)")
+	}
+	payload := ""
+	if req.Value != nil {
+		payload = *req.Value
+	}
+	var templateReq model.ImportDeviceTemplateReq
+	if err := json.Unmarshal([]byte(payload), &templateReq); err != nil {
+		return err
+	}
+	data, created, err := (*service.DeviceTemplate)(nil).ImportDeviceTemplateWithTenant(templateReq, tenantID)
+	if err != nil {
+		return err
+	}
+	logrus.WithFields(logrus.Fields{
+		"tenant_id": tenantID,
+		"name":      data.Name,
+		"created":   created,
+		"operator":  operatorID,
+	}).Info("edge forward: 实体下发完成（模板导入）")
+	return nil
 }

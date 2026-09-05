@@ -42,6 +42,9 @@ type Config struct {
 	CommandEnabled    bool   // 是否订阅云端命令 topic（默认 false）
 	CommandTopic      string // 命令 topic（支持 MQTT 通配符），默认 {prefix}/cmd/+
 	CommandOperatorID string // 命令审计记录的操作人，默认 edge-relay
+
+	// 实体下发：aetherlink/template/import 命令的落地租户（空则丢弃下发命令并告警）
+	ProvisionTenantID string
 }
 
 // ConfigFromViper 从 viper 读取 edge.forward.* 配置。
@@ -69,6 +72,7 @@ func ConfigFromViper() Config {
 	if cfg.CommandOperatorID == "" {
 		cfg.CommandOperatorID = "edge-relay"
 	}
+	cfg.ProvisionTenantID = getStr("edge.forward.provision-tenant-id")
 	if cfg.ClientID == "" {
 		cfg.ClientID = "aetherlink-edge"
 	}

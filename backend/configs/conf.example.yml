@@ -344,5 +344,6 @@ edge:
     qos: 1                        # 0 或 1
     command-enabled: false        # 云端下行命令（边缘 RPC）：订阅命令 topic
     command-topic: "aetherlink/edge/cmd/+"  # 命令 topic（支持通配符）
-    command-operator-id: "edge-relay"       # 命令审计操作人标识
+    command-operator-id: "edge-relay"
+    provision-tenant-id: ""       # 实体下发目标租户（空则丢弃 aetherlink/template/import 命令）       # 命令审计操作人标识
 
