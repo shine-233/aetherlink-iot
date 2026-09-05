@@ -323,3 +323,8 @@ mqtt_session_revocations:
 plugin:
   service:
     key: ""
+
+# OIDC SSO 回调基址（可选）：配置后 authorize 的 redirect_uri 使用绝对地址，
+# 跨域外部 IdP（Keycloak 等）必需；留空保持相对路径（仅同域反代部署）。
+sso:
+  public-base-url: ""

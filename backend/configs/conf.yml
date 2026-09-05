@@ -305,3 +305,6 @@ plugin:
 # 未认证连接在首消息鉴权前同样占用额度（防握手洪泛）；计数为进程内尽力而为语义。
 ws:
   max_conns_per_ip: 64
+
+sso:
+  public-base-url: ""
