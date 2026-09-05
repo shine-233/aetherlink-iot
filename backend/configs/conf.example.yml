@@ -338,8 +338,6 @@ edge:
     broker: "tcp://127.0.0.1:18883"  # 上级云 broker
     topic-prefix: "aetherlink/edge"  # topic = {prefix}/{type}/{device_id}
     client-id: "aetherlink-edge"
-    username: ""
-    password: ""
     buffer-limit: 10000           # 断连缓冲上限（条）
     qos: 1                        # 0 或 1
     command-enabled: false        # 云端下行命令（边缘 RPC）：订阅命令 topic

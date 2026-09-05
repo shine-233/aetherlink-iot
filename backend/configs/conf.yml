@@ -315,8 +315,6 @@ edge:
     broker: "tcp://127.0.0.1:18883"
     topic-prefix: "aetherlink/edge"
     client-id: "aetherlink-edge"
-    username: ""
-    password: ""
     buffer-limit: 10000
     command-enabled: false        # 云端下行命令（边缘 RPC）
     command-topic: "aetherlink/edge/cmd/+"
