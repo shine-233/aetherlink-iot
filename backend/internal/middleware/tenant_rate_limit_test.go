@@ -4,6 +4,7 @@
 package middleware
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -25,11 +26,11 @@ func TestTenantRateLimiterAllowsUpToRpmWithinWindow(t *testing.T) {
 	limiter.now = func() time.Time { return now }
 
 	for i := 0; i < 3; i++ {
-		allowed, retry := limiter.allow("tenant-a")
+		allowed, retry := limiter.allow(context.Background(), "tenant-a")
 		require.True(t, allowed, "request %d should pass", i+1)
 		assert.Zero(t, retry)
 	}
-	allowed, retryAfter := limiter.allow("tenant-a")
+	allowed, retryAfter := limiter.allow(context.Background(), "tenant-a")
 	assert.False(t, allowed)
 	assert.Positive(t, retryAfter)
 	assert.LessOrEqual(t, retryAfter, int64(61))
@@ -40,13 +41,13 @@ func TestTenantRateLimiterResetsAfterWindowRolls(t *testing.T) {
 	limiter := newTenantRateLimiter(1)
 	limiter.now = func() time.Time { return now }
 
-	firstAllowed, _ := limiter.allow("tenant-a")
+	firstAllowed, _ := limiter.allow(context.Background(), "tenant-a")
 	require.True(t, firstAllowed)
-	allowed, _ := limiter.allow("tenant-a")
+	allowed, _ := limiter.allow(context.Background(), "tenant-a")
 	assert.False(t, allowed, "second request inside window must be limited")
 
 	now = now.Add(2 * time.Minute)
-	allowed, _ = limiter.allow("tenant-a")
+	allowed, _ = limiter.allow(context.Background(), "tenant-a")
 	assert.True(t, allowed, "new window must reset the counter")
 }
 
@@ -55,17 +56,17 @@ func TestTenantRateLimiterIsolatesTenantsAndFallsBackToUserKey(t *testing.T) {
 	limiter := newTenantRateLimiter(1)
 	limiter.now = func() time.Time { return now }
 
-	firstOfA, _ := limiter.allow("tenant-a")
+	firstOfA, _ := limiter.allow(context.Background(), "tenant-a")
 	require.True(t, firstOfA)
-	firstOfB, _ := limiter.allow("tenant-b")
+	firstOfB, _ := limiter.allow(context.Background(), "tenant-b")
 	assert.True(t, firstOfB, "other tenant must have its own bucket")
 
-	firstOfUser, _ := limiter.allow("user:u-1")
+	firstOfUser, _ := limiter.allow(context.Background(), "user:u-1")
 	require.True(t, firstOfUser)
-	allowedUser, _ := limiter.allow("user:u-1")
+	allowedUser, _ := limiter.allow(context.Background(), "user:u-1")
 	assert.False(t, allowedUser, "empty-tenant subjects fall back to per-user keys")
 
-	allowedEmpty, _ := limiter.allow("")
+	allowedEmpty, _ := limiter.allow(context.Background(), "")
 	assert.True(t, allowedEmpty, "empty key is never limited")
 }
 
@@ -77,8 +78,8 @@ func TestTenantRateLimiterDisabledWhenRpmNonPositive(t *testing.T) {
 	negative.now = func() time.Time { return now }
 
 	for i := 0; i < 50; i++ {
-		allowedA, _ := limiter.allow("tenant-a")
-		allowedB, _ := negative.allow("tenant-b")
+		allowedA, _ := limiter.allow(context.Background(), "tenant-a")
+		allowedB, _ := negative.allow(context.Background(), "tenant-b")
 		require.True(t, allowedA)
 		require.True(t, allowedB)
 	}

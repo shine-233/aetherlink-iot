@@ -489,19 +489,28 @@ describe('Device API module [02_device]', function () {
 
   it('keeps the inactive PID activation case honest when the fixture is already consumed', async function () {
     const pid = testData.getDevicePID('inactive_pid');
-    const resp = await apiClient.post('/rdi/devices/activate', {
+    const activate = () => apiClient.post('/rdi/devices/activate', {
       pid_number: pid,
       name: testData.generateDeviceName('AutoActivate')
     });
+    const resp = await activate();
 
     if (resp.code === 200) {
+      // 激活成功分支：回读一致 + 立即重复激活必须被 204002 拒绝（激活状态机闭环）。
       expect(resp.data).to.be.an('object');
       expect(resp.data.pid_number).to.equal(pid);
+      const duplicateResp = await activate();
+      expectBusinessError(duplicateResp, 204002);
       return;
     }
 
-    expectBusinessError(resp, 204001);
-    console.warn('  inactive test PID is already activated, skipping activation-success-only assumptions');
+    // 未走成功分支时，本栈夹具只有两种合法状态：
+    //   204001 = PID 未预置（rdi.go: GetDeviceByDeviceNumber ErrRecordNotFound）
+    //   204002 = 已被先前运行激活（ActivateFlag == "active"）
+    // （2026-09-04 审计修正：原实现把"已激活"误断言为 204001，与后端状态机不符。）
+    expect(resp.code).to.be.an('number');
+    expect([204001, 204002]).to.include(resp.code);
+    console.warn('  inactive test PID fixture not activatable in this run (code=' + resp.code + ')');
   });
 
   it('rejects duplicate activation for an already activated PID', async function () {

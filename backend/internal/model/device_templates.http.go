@@ -19,6 +19,7 @@ type CreateDeviceTemplateReq struct {
 	Label       *string `json:"label" validate:"omitempty,max=255"`
 	Brand       *string `json:"brand" validate:"omitempty,max=255"`
 	ModelNumber *string `json:"model_number" validate:"omitempty,max=255"`
+	TypeKey     *string `json:"type_key" validate:"omitempty,max=64"` // 行业类型（模板分类目录）
 }
 
 type UpdateDeviceTemplateReq struct {
@@ -35,11 +36,13 @@ type UpdateDeviceTemplateReq struct {
 	UpdatedAt      *time.Time `json:"updated_at" validate:"omitempty"`
 	Brand          *string    `json:"brand" validate:"omitempty,max=255"`
 	ModelNumber    *string    `json:"model_number" validate:"omitempty,max=255"`
+	TypeKey        *string    `json:"type_key" validate:"omitempty,max=64"` // 行业类型（模板分类目录）
 }
 
 type GetDeviceTemplateListByPageReq struct {
 	PageReq
-	Name *string `json:"name" form:"name" validate:"omitempty,max=255"`
+	Name    *string `json:"name" form:"name" validate:"omitempty,max=255"`
+	TypeKey *string `json:"type_key" form:"type_key" validate:"omitempty,max=64"` // 行业类型过滤（模板分类目录）
 }
 type GetDeviceTemplateMenuReq struct {
 	Name *string `json:"name" form:"name" validate:"omitempty,max=255"`
@@ -201,3 +204,24 @@ type InstallFromMarketRsp struct {
 	DeviceConfig   *DeviceConfig      `json:"device_config"` // 安装后创建的设备配置
 	MissingPlugins []PluginDependency `json:"missing_plugins,omitempty"`
 }
+
+// DeviceTemplateExport 模板市场导出载荷：跨租户可移植的模板描述符（不含 id/tenant_id）。
+type DeviceTemplateExport struct {
+	Kind           string  `json:"kind" validate:"omitempty"`                 // 固定 aetherlink-device-template，导入侧校验
+	Name           string  `json:"name" validate:"required,max=255"`          // 模板名称
+	Author         *string `json:"author" validate:"omitempty,max=99"`        // 作者
+	Version        *string `json:"version" validate:"omitempty,max=36"`       // 版本号
+	Description    *string `json:"description" validate:"omitempty,max=500"`  // 描述
+	Remark         *string `json:"remark" validate:"omitempty,max=255"`       // 备注
+	Path           *string `json:"path" validate:"omitempty,max=255"`         // 图片路径
+	Label          *string `json:"label" validate:"omitempty,max=255"`        // 标签
+	Brand          *string `json:"brand" validate:"omitempty,max=255"`        // 品牌
+	ModelNumber    *string `json:"model_number" validate:"omitempty,max=255"` // 型号
+	TypeKey        *string `json:"type_key" validate:"omitempty,max=64"`      // 类型
+	WebChartConfig *string `json:"web_chart_config" validate:"omitempty"`     // web图表配置
+	AppChartConfig *string `json:"app_chart_config" validate:"omitempty"`     // app图表配置
+	ExportedAt     string  `json:"exported_at" validate:"omitempty"`          // 导出时间（RFC3339）
+}
+
+// ImportDeviceTemplateReq 模板市场导入入参：即导出载荷原样回传（服务侧创建到调用者租户）。
+type ImportDeviceTemplateReq = DeviceTemplateExport

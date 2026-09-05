@@ -148,7 +148,7 @@ function categoryFor(relativePath) {
     /(^|\/)[^/]*\.env\.(example|sample|template)$/.test(relativePath) ||
     /(^|\/)\.env\.(example|sample|template)$/.test(relativePath)
   ) return 'configuration';
-  if (['.go', '.ts', '.tsx', '.vue', '.js', '.mjs', '.cjs', '.sh', '.ps1', '.sql', '.proto', '.cmd'].includes(extension)) return 'source';
+  if (['.go', '.ts', '.tsx', '.vue', '.js', '.mjs', '.cjs', '.sh', '.ps1', '.sql', '.proto', '.cmd', '.lua'].includes(extension)) return 'source';
   if (['.png', '.jpg', '.jpeg', '.gif', '.ico', '.woff', '.woff2', '.ttf', '.pdf', '.doc', '.docx', '.xls', '.xlsx'].includes(extension)) return 'binary-asset';
   if (['.json', '.csv', '.svg', '.html', '.css', '.scss', '.less', '.txt'].includes(extension) || basename === '.gitkeep') return 'data-or-asset';
   if (basename === 'license') return 'documentation';

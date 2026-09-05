@@ -109,6 +109,13 @@ describe('Alarm API module [04_alarm]', function () {
       expect(pickId(resp.data)).to.equal(alarmConfigId);
       expect(resp.data.name).to.equal(updatedName);
       expect(resp.data.enabled).to.equal('Y');
+
+      // 持久化重查：更新结果必须出现在后续列表中，而非仅回显请求值。
+      const listResp = await apiClient.get('/alarm/config', { page: 1, page_size: 100 });
+      expectOk(listResp);
+      const updatedRow = listResp.data.list.find(row => pickId(row) === alarmConfigId);
+      expect(updatedRow, 'updated alarm config must be visible in the list').to.be.an('object');
+      expect(updatedRow.name).to.equal(updatedName);
     });
   });
 

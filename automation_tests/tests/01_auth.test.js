@@ -163,6 +163,11 @@ describe('Auth API module [01_auth]', function () {
     expect(updateResp.data.default_language).to.equal('en-US');
     expect(updateResp.data.prefer_lang).to.equal('en-US');
 
+    // 持久化重读：偏好语言必须真实落库，而不只是回显请求值。
+    const persistedResp = await apiClient.get('/user/detail', {}, 'tenant_admin');
+    expectOk(persistedResp);
+    expect(persistedResp.data.default_language).to.equal('en-US');
+
     const restoreResp = await apiClient.put('/user/prefer-lang', {
       default_language: 'zh-CN'
     }, 'tenant_admin');
@@ -170,6 +175,10 @@ describe('Auth API module [01_auth]', function () {
     expectOk(restoreResp);
     expect(restoreResp.data.default_language).to.equal('zh-CN');
     expect(restoreResp.data.prefer_lang).to.equal('zh-CN');
+
+    const restoredDetailResp = await apiClient.get('/user/detail', {}, 'tenant_admin');
+    expectOk(restoredDetailResp);
+    expect(restoredDetailResp.data.default_language).to.equal('zh-CN');
   });
 
   it('refreshes the tenant admin token and returns expiry metadata', async function () {

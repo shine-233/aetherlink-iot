@@ -22,6 +22,7 @@ type DeviceTemplateReadSchema struct {
 	DeviceModelConfig *string   `json:"device_model_config"` // 物模型配置
 	WebChartConfig    *string   `json:"web_chart_config"`    // web图表配置
 	AppChartConfig    *string   `json:"app_chart_config"`    // app图表配置
+	TypeKey           *string   `json:"type_key"`            // 行业类型（模板分类目录）
 }
 
 // GetDeviceTemplateListResponse 描述物模型列表接口的顶层响应结构。

@@ -110,6 +110,11 @@ func (*DeviceConfig) GetDeviceConfigConnect(ctx context.Context, deviceID string
 
 // GetVoucherTypeForm returns the voucher selector schema for a device config protocol.
 func (*DeviceConfig) GetVoucherTypeForm(deviceType string, protocolType string, lang string) (data interface{}, err error) {
+	// 内置采集器协议（SNMP/OPC UA）无插件凭证表单：沿用平台标准设备凭证方案
+	// （凭证仍承担设备身份语义，与采集点表中的协议凭证互不相干）。
+	if isBuiltinCollectorProtocol(protocolType) {
+		protocolType = "MQTT"
+	}
 	if protocolType != "MQTT" {
 		var pd ServicePlugin
 		return pd.GetPluginForm(protocolType, deviceType, string(constant.VOUCHER_FORM))

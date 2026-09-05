@@ -24,29 +24,30 @@
 | Telemetry + WS | ◐ | ✓ | ✓ | 实时推送、聚合统计、死信队列 |
 | 告警系统 | ◐ | ✓ | ✓ | 规则/历史/通知组；多级严重度 |
 | OTA | ◐ | ✓ | ✓ | 整包升级任务与进度跟踪 |
-| 多租户 RBAC | ◐ | ✓ | ✓ | Casbin + 租户隔离 + 空租户 fail-closed |
+| 多租户 RBAC | ✓ | ✓ | ✓ | Casbin + 租户隔离 + 空租户 fail-closed；RBAC 已激活（63.sql 全量授权 quo 显式化） |
 | 自动化场景 | ◐ | ✓ | ✓ | 联动/定时/条件编辑 |
 | 看板 | ◐ | ✓ | ✓ | 原生看板 + 发布分享 |
 | 脚本引擎 | ◐ | ✓ | ✓ | 数据处理脚本 |
 | 通知服务 | ◐ | ✓ | ✓ | 邮件/Webhook 通知组 |
 | 可视化规则链编辑器 | ✓ | ✓ | ◐ | B2 已合入：DAG 引擎+Vue Flow 画布（56.sql graph 列） |
-| API 限流(per-tenant) | ✓ 单机 | ✓ (PE) | ✗ | 默认 600 rpm/租户（env 可调），429+Retry-After；集群 Redis 版待 C 阶段 |
+| API 限流(per-tenant) | ✓ | ✓ (PE) | ✗ | 默认 600 rpm/租户（env 可调），429+Retry-After；backend=memory 单机 / backend=redis 集群共享（2026-09-04 补齐，fail-open 降级） |
 | 3D 可视化/SCADA | ✓ | ✓ | ◐ | C3 已落地：设备详情「3D 预览」tab，遥测驱动材质、WebGL 降级 |
 | Modbus | ✓ | ◐ | ✓ | B1 已合入：独立插件+点表 UI（55.sql + modbus-plugin） |
 | 设备影子 | ✓ | ✓ | ✓ | Phase A3 已交付：离线命令缓存+上线投递 |
 | CSV 批量导入设备 | ✓ | ✓ | ✓ | 后端建档/导出与前端导入向导均已落地（自动生成/CSV 双模式、一次性凭证、脱敏导出）；产品选择列表 `/product` 同步补齐 |
-| 资产管理层级 | ◐ | ✓ | ✗ | C2：60.sql + CRUD/树 API 已入；RBAC/DAL 级联待接 |
-| CoAP / LwM2M / SNMP | ◐ | ✓ | ✗ | C6 闭环：UDP 网关 + 端点凭证映射 + 遥测汇入 uplink（P1-C，2026-09-04）；SNMP/OPC UA 库级，待管理侧接入 |
-| OPC UA | ◐ | ✗ | ✓ | 库级 client（gopcua）已入；连接器/点位接入待立项 |
-| 移动端 App | ✗ | ✗ | ✓ | 远期评估 |
-| AI / LLM 集成 | ✓ | ✗ | ✓ | C4 已落地 NL 查询遥测；AI 告警分析待做 |
+| 资产管理层级 | ✓ | ✓ | ✗ | C2：60.sql + CRUD/树 API + RBAC/DAL 级联（expandTenantIDScope 已覆盖 device/alarm/board/ota/rule_chain 等十余模块） |
+| CoAP / LwM2M / SNMP | ✓ | ✓ | ✗ | C6 闭环：CoAP/LwM2M UDP 网关 + 端点凭证映射 + 遥测汇入 uplink（P1-C）；SNMP v2c 采集接入（protocol_type=SNMP 点表轮询→uplink，含配置页动态表单与保存校验，2026-09-04） |
+| OPC UA | ✓ | ✗ | ✓ | 库级 client（gopcua）+ 连接器/点位采集接入（protocol_type=OPCUA，连接 TTL 缓存/懒重连，含配置页动态表单与保存校验）；**运行期 E2E 已过（2026-09-04，opcuastub 本地 opc.tcp 服务器，遥测 5s 周期落库 tenant 归属正确）** |
+| 移动端 App | ◐ | ✓ (PE) | ✓ | MVP 落地（2026-09-05）：uni-app 骨架补完为可用应用——登录/设备列表（在线徽标）/最新遥测查看，H5 构建通过；API 契约与 backend 对齐并实跑验证（发现并修正原骨架误用 /device/list 未绑定设备接口）；小程序/APP 目标构建脚本就绪，上架属发布事项 |
+| AI / LLM 集成 | ✓ | ✗ | ✓ | C4：NL 查询遥测 + AI 告警分析（service 单测 4/4）均落地 |
 | 计算字段 | ✓ | ✓ | ✗ | B3 已合入：govaluate 安全表达式派生遥测（54.sql） |
-| TimescaleDB / TDengine | ◐ | ✓ | ✓ | C1 部分落地：57.sql 条件化 hypertable + 7 天压缩（检测扩展自动启用） |
-| 白标定制 | ◐ | ✓ (PE) | ✗ | C5：主题色/favicon 已入主线（59.sql）；运行期验证待做 |
-| 行业模板 | ✗ | ✓ (PE) | ✗ | 远期 |
-| 边缘计算 | ✗ | ✓ (PE) | ✗ | 远期 |
+| TimescaleDB / TDengine | ✓ | ✓ | ✓ | C1 闭环：57.sql 条件化 hypertable + 7 天压缩；**三态运行期全部验证（2026-09-05）**：auto（无扩展条件跳过）/ off（显式跳过）/ **on 正向**（真实 timescaledb 2.29.2 + EDB PG17.10 隔离实例——hypertable 转换、compress_after=7 chunks 压缩策略、遥测读写全过）与 **on 负向**（扩展缺失→启动失败+可操作指引）。on 态验证发现并修复 57.sql 缺陷：bigint 时间列的 compress_after 必须用 chunk 数而非 INTERVAL（SQLSTATE 22023，auto 模式从未触达故此前不可见） |
+| 白标定制 | ✓ | ✓ (PE) | ✗ | C5：主题色/favicon 已入主线（59.sql）；运行期验证完成（28/28×2 轮 + 前端 branding 11/11） |
+| 行业模板 | ◐ | ✓ (PE) | ✗ | MVP 落地（2026-09-05，65.sql）：工业传感器/电力监测/智能家居三个开箱即用模板入种子（租户守卫插入，生产库零孤儿行），模板库 API 验证可见；模板分类目录/模板市场/按行业导出属产品迭代 |
+| 模板市场 | ◐ | ✓ (PE) | ✗ | MVP 落地（2026-09-05，0bb8620）：导出（GET export/:id 可移植描述符）/导入（POST import，租户幂等 created 标记）/行业分类目录（type_key 过滤），运行期 E2E 全过（含坏 kind 拒绝 100002）；66.sql 登记+授权（g2 注册行 + SA/TA p 行 v2=allow），审计 289 路由；市场浏览页/按行业打包下载属产品迭代 |
+| 边缘计算 | ◐ | ✓ (PE) | ✗ | MVP 落地（2026-09-05）：边缘网关遥测云转发（uplink 总线订阅→云 MQTT，断连缓冲/重连重投/fail-open）+ 实时与断网重投 E2E 证据；边端自治规则已运行期实证（断云下采集→存储→场景规则→告警全闭环）；边缘 RPC 命令下行已落地（0bb8620：command-topic 订阅→CommandSink→CommandPutMessageWithTracking，edge-relay 审计）；实体下发已落地（4a13415：云端发布 aetherlink/template/import 命令→边端 Sink 路由→ImportDeviceTemplateWithTenant 落地配置租户，幂等去重；E2E 周期发布 3 次全接收、首建后去重）|
 
-结论：核心设备管理链路已接近主流水平。Modbus（B1）、规则链可视化（B2）、计算字段（B3）、CSV 批量导入（fleet）已合入；剩余差距收敛为「时序存储后端（C1 TimescaleDB）、资产层级（C2）、CoAP/LwM2M（C6）、白标（C5）」四项远期线。
+结论：核心设备管理链路已接近主流水平。Modbus（B1）、规则链可视化（B2）、计算字段（B3）、CSV 批量导入（fleet）、资产层级（C2）、CoAP/LwM2M/SNMP/OPC UA 接入（C6，SNMP/OPC UA 采集器 2026-09-04 补齐）、白标（C5）均已合入。**2026-09-04 收敛终态**：可实现项全部以运行期证据闭环（SNMP/OPC UA 采集器真实协议 E2E、watcher 双实例同步、限流集群共享配额、OIDC 授权码流程双算法、Timescale auto/off 态）；剩余均为非工程缺口项——Timescale `on` 态（需扩展二进制，本地 PG 无此扩展）、第三方 IdP 互通验收（协议级已过，建议用户环境按 idpstub 同流程抽验）、RBAC 按角色收紧（产品迭代期）、行业模板/边缘计算/移动端（远期）。
 
 ---
 
@@ -206,6 +207,9 @@ AetherLink Backend ←──gRPC──→ Modbus TCP Plugin ←──Modbus TCP�
 - [x] 运行期全流程验证（登录页/主题/favicon 两租户互不串扰）与前端表单回归 ✓（2026-09-04：c5_validate.py v4 **28/28 × 2 轮**隔离栈实跑、两租户互不串扰；前端 branding-setting vitest **11/11 PASS**）
 
 ### C6. CoAP / LwM2M 协议支持
+- [x] SNMP 采集接入（管理侧，2026-09-04）：`internal/collector` 轮询采集器——devices⨝device_configs（protocol_type='SNMP'）发现启用设备，protocol_config 点表（target/community/points[{key,oid}]）一次 Get 批量采集，INTEGER/Counter/TimeTicks→数值、OCTET STRING→文本，汇入 uplink（source_protocol=snmp）；发现缓存 TTL 60s、fail-closed 计数；内嵌 UDP SNMP agent 全链路单测 + miniredis 无关；conf 键 `collectors.snmp.enabled`；**运行期 E2E（隔离栈真实 UDP，2026-09-04）：snmpstub agent（cmd/snmpstub）+ scratch 库启动后端，遥测 5s 周期落库 telemetry_datas（uptime=600 数值、hostname=collectore2e 文本，tenant_id 归属正确）；OPC UA 死端口设备同栈验证 fail-closed（每轮干净告警、不阻塞 SNMP 通道），测后 scratch 库/配置/进程全清** ✓
+- [x] OPC UA 连接器接入（管理侧，2026-09-04）：同上骨架，protocol_type='OPCUA' + opcua.Config 连接段（复用 Validate/Normalize），按设备连接 TTL 缓存（5min）+ 读失败懒重连，节点值→遥测键；`collectors.opcua.enabled` 门控 ✓；**运行期 E2E（2026-09-04）：opcuastub（cmd/opcuastub，gopcua server 包本地 opc.tcp 服务器，None 安全/匿名）+ scratch 库启动后端，ns=1;s=temperature(26.5)/humidity(61.0) 每 5s 落库 telemetry_datas、tenant 归属正确、零采集失败；测后 scratch 库/配置/进程全清** ✓
+- [x] 配置页动态表单与保存校验（2026-09-04 第二批）：协议下拉内置 SNMP/OPC UA 项（GetServiceSelect 基础列表）；`pointconfig` 子包收敛点表解析/校验（service→collector 导入环破除）；内置 config_form 动态表单（input/select/table 契约，dataKey=点表 JSON 键）；凭证表单回退平台标准方案；device_config 创建/更新按"生效值"校验点表结构（坏点表保存即拒，不再等采集器日志）✓
 - [x] CoAP 服务端（RFC7252 子集：编解码/UDP 服务器/注册表/well-known + blockwise/observe 组件）
 - [x] LwM2M 注册层 + 对象实例模型 + 观察者推送（UDP 服务器配置门控接入 application 生命周期）
 - [x] 设备凭证映射 + 遥测汇入现有 uplink 管道（网关设备接入闭环，WORKPLAN P1-C）：lwm2m.ObjectStore.OnChange 写入回调 + /rd HandleRegisterWithNotify 注册通知；protocolgw.TelemetryBridge（DBNumberResolver 端点→device_number 凭证映射[60s TTL 缓存/fail-closed]、IPSO 键转换 3303/3304/3323/3325/3330 + lwm2m/{o}/{i}/{r} 回退、队列化汇入不阻塞写路径）→ 与 MQTT 同一 UplinkMessage/uplink.Bus（source_protocol=coap）；app 装配 DB/Bus 未就绪自动降级纯接入层（注：uplink.enable=false 时 WithFlowService 早退不建 uplinkService，网关仅纯接入——生产启用遥测汇入须同时开 uplink）；单测 +14（protocolgw+lwm2m 合计 31 PASS）；**运行期 E2E（2026-09-04，隔离栈真实 UDP）：外部客户端注册 2.01 / 写资源 2.04 / 读回 2.05 三步全过，遥测经凭证映射汇入 uplink 管道并按租户落库 telemetry_datas（temperature=26.5，tenant_id 正确），测后种子已回滚**；已知限制：coap 子集 codec 的 option 值仅支持内联 ≤12 字节（扩展编码 13/14 拒绝），超长端点名（如 urn:imei:xxx）需先行 codec 升级 ✓
@@ -215,13 +219,15 @@ AetherLink Backend ←──gRPC──→ Modbus TCP Plugin ←──Modbus TCP�
 - [x] OAuth2/OIDC 单点登录后端（62.sql：租户 IdP 配置 CRUD、/sso/:id/start|callback、sessionIssuer 绑定本地用户）；登录页 SSO 入口待接
 - [x] 实体版本控制（设备/看板/规则链等实体 JSON 导出 + Git 式备份恢复，对标 TB 3.5+ Version Control）
 - [x] OIDC 登录页 SSO 入口已实现：`GET /api/v1/sso/providers`（平台级启用提供方公开发现）+ 登录页 SSO 按钮（跳 /sso/:id/start）
-- [ ] 真实 IdP E2E（需外部 IdP 沙箱 + 重建栈，环境绑定；2026-09-04 复核：执行沙箱无外网路径——代理端口 7890/1089/1891 全部不通、直连 TLS 被拦，维持绑定待用户环境执行）
+- [x] **Keycloak 真第三方 IdP 互通 E2E（2026-09-05）**：Keycloak 26.7.3 真实部署（start-dev 8180 + kcadm 建 realm/client/user）→ 平台 SSO 流程对真实 Keycloak 全链路通过：authorize 真登录表单提交 → 真实 RS256+JWKS 验签 → email 绑定本地用户 → 平台 JWT 调鉴权 API 200。**互通发现并修复平台缺陷**：authorize 的 redirect_uri 为相对路径会被规范 IdP 以 Invalid parameter: redirect_uri 拒绝——新增 sso.public-base-url 配置构造绝对回调（留空保持同域反代旧行为）✓
+- [x] OIDC 授权码流程协议级 E2E（2026-09-04，隔离栈本地 idpstub）：`cmd/idpstub` 本地 OIDC Provider（Discovery + /authorize 自动批准一次性 code + /token + RS256 模式 JWKS）+ scratch 库 + 种子用户/租户提供方 → **完整授权码流程全链路通过**：start 302 IdP（state+nonce cookie）→ authorize 302 回调 → code 换 id_token → 验签（HS256 与 RS256+JWKS 两路均过）→ email 绑定本地用户 → 302 落地页携带平台 JWT → 该 JWT 调鉴权 API 返回 200+用户档案；负路径：篡改 state 400、无 state cookie 重放 400（防重放生效）。**遗留说明**：①真实第三方 IdP（Keycloak/Auth0 等）互通建议用户环境按同流程验收（协议面一致，风险在 IdP 侧实现差异而非平台代码）；②发现 redirect_uri 为相对路径 `/api/v1/sso/:id/callback`——同域反代部署可用，跨域外部 IdP 需 IdP 侧容忍或后续提供方配置支持绝对回调地址（改进项）。测后 scratch 库/配置/进程全清 ✓
 
 ### C7+. RBAC 激活工程（casbin 路由覆盖，2026-09-04 审计评估立项）
 > 现状：启动审计报 286 条受保护路由未登记 casbin 资源表（`casbin.deny-unregistered` 未开 + dev 库无种子 → 运行期跳过角色校验）。严重度评估：JWTAuth 组中间件仍强制认证、DAL 层租户隔离是第二道防线，缺口是**角色级授权**（任意已登录用户可调全部业务 API），非匿名裸奔；但角色间权限边界（管理员 vs 普通用户）当前不存在。
 - [x] 匹配器与 fail-closed 开关（本轮）：configs/casbin.conf matcher 增 `urlPatternMatch` 锚定模式通道（自实现，弃用内置 keyMatch2——其非锚定正则存在 `api/v1/devices` 误命中 `api/v1/devicesXYZ` 的越权放大）；GetUrl 双通道（精确 g2 + 锚定模式）修"参数路由永远无法被保护/识别"的潜伏缺陷；CasbinRBAC 增 `casbin.deny-unregistered` 开关（默认 false 保持现状，true 时未登记 403 fail-closed）；测试 +10（utils 表驱动 12 例/service 模式判定与 Enforce/中间件严格模式 3 例）
 - [x] RBAC 激活（2026-09-04 用户授权代行裁决——**状态 quo 显式化**：3 内置角色 × 全部受保护路由全量授权，激活不改任何用户有效行为，收紧后续逐行删 p）：①矩阵裁决 = 全量授权；②`63.sql` 幂等种子（g2 登记 287 模式[含方法感知审计补出的 PUT /logo] + p 861 授权 + g 绑定存量 15 用户，ON CONFLICT 幂等）；③新建用户空 RoleIDs 时按 users.authority 兜底绑定 + 绑定后 LoadPolicy 刷新内存（sys_user_manage，adapter 判空防单测 panic）；④`route-audit-mode` 切回 **fail-fast**（实测 287 路由全登记通过）；⑤dev conf 开 `casbin.deny-unregistered: true`。运行期证据：audit passed(287)、登录→已登记路由 200、撤销单路由 p 授权→403 非法访问、C5 28/28 零回归。
-- [ ] 后续收紧（产品迭代期逐次进行）：按角色删除具体 p 授权行即每个收紧决策的 diff；集群多实例部署需补 casbin watcher（内存策略同步），单实例无此需求。
+- [x] 集群 casbin watcher（2026-09-04）：Redis Pub/Sub 最小 persist.Watcher（`internal/adapter/casbinwatcher`，自通知跳过/全量重载/订阅确认 fail-fast，miniredis 双实例通知契约测试）；`global.CasbinEnforcer` 切换 **SyncedEnforcer**（watcher 触发的 LoadPolicy 与并发 Enforce 互斥，顺带消除既有无锁竞态）；`casbin.watcher.enabled` 门控挂载于 Redis 就绪后（单实例默认关闭，无行为变化）；**双实例运行期 E2E（2026-09-04，隔离栈 scratch 库 + SSO 登录令牌）：实例 A `POST /casbin/user` 变更 g 绑定（200）→ 2s 后实例 B `GET /casbin/user` 即返回新绑定（内存重载生效），B 日志恰一条「收到跨实例变更通知，策略已重载」，A 零自通知** ✓
+- [ ] 后续收紧（产品迭代期逐次进行）：按角色删除具体 p 授权行即每个收紧决策的 diff。
 
 ---
 
@@ -252,3 +258,18 @@ AetherLink Backend ←──gRPC──→ Modbus TCP Plugin ←──Modbus TCP�
 | 2026-09-02 | C2/C6/C7 实现批 | 三线合入单一主线（full-integ：main 12 项增量 ⊕ c5 白标/实体版本/安全 ⊕ gh/main）；C2 资产 CRUD/树 API（Scope=自身∪祖先+成环拒绝，DAL sqlite 测试）；C7 2FA 后端（61.sql 绑定/激活/解绑/第二因子防重放/恢复码）与 OIDC/SSO 后端（62.sql 提供方 CRUD + /sso/:id/start|callback + sessionIssuer）；C6 CoAP/LwM2M UDP 网关配置门控接入 application；ROADMAP 勾选回填 | full-integ |
 | 2026-09-04 | C6 收尾（P1-C） | 网关设备接入闭环：lwm2m ObjectStore.OnChange 写入回调 + /rd HandleRegisterWithNotify；protocolgw TelemetryBridge（DBNumberResolver 端点→设备凭证映射[TTL 缓存/fail-closed]、IPSO 键转换+路径回退、队列化汇入 uplink.Bus source_protocol=coap）；app 装配（DB/Bus 未就绪降级纯接入）；单测 +14（protocolgw+lwm2m 合计 31 PASS、vet 干净）；同批完成 C5 运行期验证（28/28×2 零回归）与前端 branding vitest 11/11 | c2-tenant-scope-merge |
 | 2026-08-26 | 设计 | 设计系统收敛 L1/L2：字号/圆角 token 落地 global.scss、断点三合一（删 --bp-* 双轨）、uno shortcuts 单源化（preset 导出 aetherlinkShortcuts）、共享 PageHeader 组件收敛 3 页 5 处重复页头、10 个表格页补 NEmpty 空态、linkage-edit 47 处 hex→token 迁移、UI emoji→SvgIcon、裸删除补 Popconfirm、html lang 随语言切换、hex 绊线契约测试（基线 1042→994 只降不升） | feat/device-preregister-import |
+| 2026-09-04 | C6/C7+/限流 收尾批 | ①SNMP 采集接入：internal/collector 轮询采集器（devices⨝device_configs 发现、protocol_config 点表、内嵌 UDP agent 单测、uplink 汇入 source_protocol=snmp）+ OPC UA 连接器（连接 TTL 缓存/懒重连）；app.WithCollectors 门控装配（collectors.*.enabled）。②casbin 集群 watcher：Redis Pub/Sub persist.Watcher + SyncedEnforcer 切换（消除 Enforce/LoadPolicy 竞态）+ casbin.watcher.enabled 门控。③限流集群版：tenant_rate_limit 拆 store 接口，Redis 固定窗口 Lua（INCR+PEXPIRE+PTTL）+ fail-open 降级，api-rate-limit.backend=memory|redis。④ROADMAP 矩阵回填过时行（资产级联/白标/AI 告警分析） | 本地主线 8fdd51e |
+| 2026-09-04 | C6/C1 运行期 E2E 批 | SNMP 采集器隔离栈运行期 E2E：snmpstub agent（cmd/snmpstub 新工具，复用 internal/snmp BuildGetResponse）+ scratch 库 + collectors.snmp.enabled 启动 → 遥测 5s 周期落库 telemetry_datas（uptime=600/hostname=collectore2e，tenant 归属正确）；OPC UA 死端口同栈验证 fail-closed 不阻塞；TimescaleDB 三态运行期：auto（无扩展跳过）+ off（显式跳过 57.sql，日志「跳过 sql/57.sql（TimescaleDB 显式关闭）」）已验证，on 环境绑定。测后 scratch 双库/配置/日志/进程全清 | 本地主线 |
+| 2026-09-04 | OPC UA 运行期 E2E 批 | opcuastub（cmd/opcuastub，gopcua server 包本地 opc.tcp 服务器，None 安全/匿名，Start 非阻塞需挂主协程）+ scratch 库 + collectors.opcua.enabled 启动 → ns=1;s=temperature(26.5)/humidity(61.0) 每 5s 落库 telemetry_datas、tenant 归属正确、零采集失败。OPC UA 全链路（连接/读值/转换/汇入/落库）实证闭环，不再依赖外部真实服务器；测后全清 | 本地主线 |
+| 2026-09-04 | C7 OIDC 协议级 E2E 批 | cmd/idpstub 本地 OIDC Provider（Discovery/authorize 一次性 code/token/RS256 JWKS）+ 隔离栈 scratch 库实测：start→authorize→callback 授权码流程全链路通过，HS256 与 RS256+JWKS 双验签路径均过，ID Token email 绑定本地用户签发平台 JWT（调鉴权 API 200+用户档案）；负路径（篡改 state/无 cookie 重放）双 400；发现并记录 redirect_uri 相对路径限制（跨域 IdP 需绝对回调地址，改进项）；测后 scratch 库/配置/进程全清 | 本地主线 |
+| 2026-09-05 | Timescale on 生产窗口 | 主栈升级落地：EDB PG 17.10 + timescaledb 2.29.2 新实例（5434）+ 主栈数据 dump/restore（94 表）+ **storage.timescale_mode=on**；hypertable×2 + 压缩策略(7 chunks) 注册 + SNMP 采集 47 行活体落库。注：mode 门控迁移期 57.sql——已迁移库需手工执行 57.sql 转换（已记入 HANDOFF） | 本地主栈（活体运行中） |
+| 2026-09-05 | 云端推送+PR | main 受保护（hook 拒直推）→ **PR #211**（session-closure-20260905 → main）承载 22+4 commit；竞态窗口对方线的 4 个修复 commit 已 cherry-pick 吸收（#206/#207/#209/#210），其独有 ba09655 等备份于 **remote-line-backup-20260905**；**mobile 新仓 aetherlink-iot-mobile** 已建并推送（绑定主仓，默认私有）| 云端 |
+| 2026-09-05 | 分类目录完整化批 | a6cc8a8：模板 Create/Update API 增加 type_key（此前分类目录只读——控制台无法按行业归类）+ ReadSchema 暴露 type_key；automation 36_template_market.test.js 提供两条新路由运行期覆盖（255P/0F），catalog+explicit inventory 对齐登记；00_* 三契约（覆盖/oracle/仓库清单）全绿 | 本地主线 |
+| 2026-09-05 | 实体下发批 | 4a13415：模板经命令通道下发边端（ImportDeviceTemplateWithTenant claims-free 核心 + provision-tenant-id 配置 + Sink 路由）；edgemqttbroker 整体重写（全包消费修复流错位 panic、SUBSCRIBE/通配/QoS1 PUBACK、-pub @file 周期发布）；E2E：周期发布 3 次全接收、首建后幂等去重；56 包 0 FAIL | 本地主线 |
+| 2026-09-05 | 模板市场+边缘 RPC 批 | 0bb8620：接手树上遗留草稿并完成——模板导出/导入（租户幂等）+分类目录（type_key）+66.sql（g2 登记行+SA/TA p 行 v2=allow）+修复三处遗留缺陷（errcode.CodeParams 未定义/WaitTimeout 反转/YAML 重复 edge 根键）；边缘命令下行接线（CommandSink→CommandPutMessageWithTracking）；运行期 E2E 全过（审计 289 路由）；56 包 0 FAIL | 本地主线 |
+| 2026-09-05 | 边缘计算 MVP 批 | internal/edgeforward：订阅 uplink 总线观察者 → 云 MQTT 转发（topic={prefix}/{type}/{device_id}，JSON 信封含 payload+metadata）+ 断连环形缓冲（buffer-limit 满丢最旧计数）+ 重连按序重投，fail-open 不影响本地入库；cmd/edgemqttbroker 验证工具；**LIVE E2E（snmpstub→uplink→边缘转发→云 broker）**：实时转发 10 条信封完整、断云 15s 缓冲→重连重投日志无缺口、恰 2 次建连、本地入库 20 条不受影响；单测 3 场景（回环 MQTT broker）全绿 | 本地主线 |
+| 2026-09-05 | 移动端 MVP 批 | active/mobile-app-uni：API 契约对齐（修正误用 /device/list 未绑定接口→/device 分页）+ 设备列表在线徽标与点击展开最新遥测 + README 契约表；H5 构建 DONE；三端点实跑验证（login 200/分页列表字段命中/遥测空态数组） | 本地主线 |
+| 2026-09-05 | 行业模板 MVP 批 | 65.sql 三行业模板种子（工业传感器/电力监测/智能家居，租户守卫+幂等）+ VERSION_NUMBER 65 → 模板库 API 列表验证三模板可见（total=3） | 本地主线 |
+| 2026-09-05 | C1 on 态 + Keycloak 互通批 | ①Timescale on 态完整闭环：真实 timescaledb 2.29.2（EDB PG17.10 隔离实例，官方 issue #10348 指引 PG≥17.10）→ hypertable 转换/compress_after=7 chunks 压缩策略/遥测读写全过 + on 负向 fail-closed；**发现并修复 57.sql 缺陷**（bigint 时间列 compress_after 须用 chunk 数）。②Keycloak 26.7.3 真第三方互通 E2E 全链路通过；**发现并修复 redirect_uri 相对路径缺陷**（sso.public-base-url 绝对回调）。③RBAC 按角色收紧 64.sql 落库（TU 撤管理面 32 行/TA 撤平台面 12 行），三角色 32/32 矩阵运行期验证 | 本地主线 |
+| 2026-09-04 | 集群双实例 E2E 批 | 双 backend 实例（9199/9200，同 scratch 库同 Redis，watcher 开 + api-rate-limit backend=redis rpm=5）：①watcher——A 经 POST /casbin/user 变更 g 绑定，2s 内 B 的 GET 即返回新绑定且日志恰一条「收到跨实例变更通知，策略已重载」（A 零自通知）；②限流共享配额——A 连续调用第 6 次起 429（固定窗口），**B 从未被压测直接 429+Retry-After:33**（Redis 共享计数跨实例生效）。测后 scratch 库/配置/进程全清 | 本地主线 |
+| 2026-09-04 | C6 表单与校验批 | SNMP/OPC UA 配置页动态表单：GetServiceSelect 内置协议项 + builtinCollectorConfigForm（input/select/table 契约，dataKey=点表 JSON 键）+ 凭证表单回退平台标准方案 + device_config 创建/更新按生效值校验点表（pointconfig 子包破除 service→collector 导入环，保存即拒坏点表） | 本地主线 |

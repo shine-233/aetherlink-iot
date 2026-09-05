@@ -309,3 +309,36 @@ func (*DeviceApi) InstallFromMarket(c *gin.Context) {
 	}
 	c.Set("data", data)
 }
+
+// ExportDeviceTemplate 模板市场导出：按读权限产出可移植模板描述符（JSON 载荷）。
+// @Router   /api/v1/device/template/export/{id} [get]
+func (*DeviceApi) ExportDeviceTemplate(c *gin.Context) {
+	id := c.Param("id")
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	data, err := service.GroupApp.DeviceTemplate.ExportDeviceTemplate(id, userClaims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", data)
+}
+
+// ImportDeviceTemplate 模板市场导入：导出载荷原样回传，创建为调用者租户下的新模板。
+// 幂等：同租户同名同版本返回既有模板（data.created=false）。
+// @Router   /api/v1/device/template/import [post]
+func (*DeviceApi) ImportDeviceTemplate(c *gin.Context) {
+	var req model.ImportDeviceTemplateReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	data, created, err := service.GroupApp.DeviceTemplate.ImportDeviceTemplate(req, userClaims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", gin.H{
+		"template": data,
+		"created":  created,
+	})
+}

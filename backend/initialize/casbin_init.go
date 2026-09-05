@@ -10,6 +10,7 @@ import (
 	"log"
 
 	"aetherlink-iot/backend/internal/adapter/casbinadapter"
+	"aetherlink-iot/backend/internal/adapter/casbinwatcher"
 	global "aetherlink-iot/backend/pkg/global"
 	utils "aetherlink-iot/backend/pkg/utils"
 
@@ -26,7 +27,7 @@ func CasbinInit() error {
 		return fmt.Errorf("failed to initialize local Casbin adapter: %w", err)
 	}
 
-	e, err := casbin.NewEnforcer("./configs/casbin.conf", a)
+	e, err := casbin.NewSyncedEnforcer("./configs/casbin.conf", a)
 	if err != nil {
 		return fmt.Errorf("failed to create enforcer: %v", err)
 	}
@@ -45,5 +46,46 @@ func CasbinInit() error {
 	log.Println("casbin启动完成")
 
 	global.OtaAddress = viper.GetString("ota.download_address")
+	return nil
+}
+
+// attachCasbinWatcher 在 Redis 就绪后按配置挂载集群策略同步 watcher（ROADMAP C7+）。
+// 单实例部署无需开启（默认关闭）；集群多实例开启后，任一实例的策略变更经 Redis
+// Pub/Sub 广播，其余实例即时 LoadPolicy 收敛（SyncedEnforcer 保证与并发 Enforce 互斥）。
+// 依赖顺序：RedisInit（本函数挂载点）晚于 CasbinInit，故此处全局 enforcer 必已就绪；
+// 测试等未初始化场景静默跳过。
+func attachCasbinWatcher() error {
+	if !viper.GetBool("casbin.watcher.enabled") {
+		return nil
+	}
+	if global.CasbinEnforcer == nil {
+		log.Println("casbin watcher: 全局 enforcer 未就绪，跳过挂载")
+		return nil
+	}
+	channel := viper.GetString("casbin.watcher.channel")
+	opts := []casbinwatcher.Option{}
+	if channel != "" {
+		opts = append(opts, casbinwatcher.WithChannel(channel))
+	}
+	w, err := casbinwatcher.New(global.REDIS, opts...)
+	if err != nil {
+		return fmt.Errorf("构造 watcher 失败: %w", err)
+	}
+	if err := global.CasbinEnforcer.SetWatcher(w); err != nil {
+		w.Close()
+		return fmt.Errorf("挂载到 enforcer 失败: %w", err)
+	}
+	// 覆盖默认回调：补一条观测日志后全量重载（SyncedEnforcer 的 LoadPolicy 自带锁）。
+	if err := w.SetUpdateCallback(func(string) {
+		if err := global.CasbinEnforcer.LoadPolicy(); err != nil {
+			log.Printf("casbin watcher: 跨实例策略重载失败: %v", err)
+			return
+		}
+		log.Println("casbin watcher: 收到跨实例变更通知，策略已重载")
+	}); err != nil {
+		w.Close()
+		return fmt.Errorf("设置回调失败: %w", err)
+	}
+	log.Printf("casbin watcher: 已挂载（channel=%s）——集群实例策略同步生效", w.Channel())
 	return nil
 }
