@@ -204,6 +204,7 @@ const routeMap: RouteMap = {
   "legal": "/legal",
   "login": "/login/:module(pwd-login|code-login|register|register-email|register-super-admin|reset-pwd|bind-wechat)?",
   "management": "/management",
+  "management_entity-version": "/management/entity-version",
   "management_api": "/management/api",
   "management_auth": "/management/auth",
   "management_entity-version": "/management/entity-version",
