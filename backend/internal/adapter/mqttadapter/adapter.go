@@ -250,7 +250,9 @@ func (a *Adapter) HandleEventMessage(payload []byte, topic string) error {
 	}
 
 	// 8. 立即发送 ACK 响应（协议层行为，不等待业务处理完成）
-	a.publishEventResponse(device.DeviceNumber, messageID, method, busErr)
+	if topic != TopicPatternOTAProgress {
+		a.publishEventResponse(device.DeviceNumber, messageID, method, busErr)
+	}
 
 	a.logger.WithFields(logrus.Fields{
 		"device_id":  device.ID,
@@ -449,6 +451,9 @@ func (a *Adapter) detectMessageType(topic string, baseType string) string {
 // parseAttributeOrEventTopic 解析属性/事件 Topic 获取 messageID。
 // Topic 格式: devices/attributes/{messageID} 或 devices/event/{messageID}
 func (a *Adapter) parseAttributeOrEventTopic(topic string) (string, error) {
+	if topic == TopicPatternOTAProgress {
+		return "", nil
+	}
 	parts := strings.Split(topic, "/")
 	if len(parts) < 3 {
 		return "", fmt.Errorf("invalid topic format: %s (expected at least 3 parts)", topic)

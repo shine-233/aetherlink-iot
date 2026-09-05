@@ -12,6 +12,7 @@ Refactor suggestion: 可把各模式执行逻辑移入可测试的 runner 包，
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -28,8 +29,15 @@ import (
 
 func main() {
 	configPath := flag.String("config", "config.yaml", "Path to config file")
-	testMode := flag.String("mode", "telemetry", "Test mode: telemetry, attribute, event, all")
+	testMode := flag.String("mode", "telemetry", "Test mode: telemetry, attribute, event, all, command-emulator, ota-emulator, telemetry-json, telemetry-raw")
 	commandSuccess := flag.Bool("command-success", true, "Command emulator response result (only used with -mode command-emulator)")
+	commandReceiptPath := flag.String("command-receipt-path", "", "Path to write command emulator receipts")
+	otaProgressPath := flag.String("ota-progress-path", "", "Path to write OTA emulator receipts")
+	otaProgressValues := flag.String("ota-progress-values", "", "Comma-separated integer progress values for OTA emulator")
+	otaVersion := flag.String("ota-version", "", "Target OTA version reported by OTA emulator")
+	otaFailure := flag.Bool("ota-failure", false, "Whether OTA emulator reports terminal failure")
+	telemetryPayload := flag.String("telemetry-payload", "", "JSON payload to publish in telemetry-json mode")
+	telemetryRawPayload := flag.String("telemetry-raw-payload", "", "Raw payload string to publish in telemetry-raw mode")
 	flag.Parse()
 
 	// 初始化日志
@@ -77,9 +85,33 @@ func main() {
 			<-signals
 			close(stop)
 		}()
-		logger.Info("Command emulator is listening", zap.Bool("success", *commandSuccess))
-		if err := direct.RunCommandEmulator(stop, *commandSuccess); err != nil {
+		logger.Info("Command emulator is listening", zap.Bool("success", *commandSuccess), zap.String("receipt_path", *commandReceiptPath))
+		if err := direct.RunCommandEmulator(stop, *commandSuccess, *commandReceiptPath); err != nil {
 			logger.Fatal("Command emulator stopped with error", zap.Error(err))
+		}
+		return
+	}
+
+	if *testMode == "ota-emulator" {
+		direct, ok := dev.(*device.DirectDevice)
+		if !ok {
+			logger.Fatal("ota-emulator requires direct device mode")
+		}
+		signals := make(chan os.Signal, 1)
+		stop := make(chan struct{})
+		signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
+		defer signal.Stop(signals)
+		go func() {
+			<-signals
+			close(stop)
+		}()
+		logger.Info("OTA emulator is listening",
+			zap.String("receipt_path", *otaProgressPath),
+			zap.String("progress_values", *otaProgressValues),
+			zap.String("version", *otaVersion),
+			zap.Bool("failure", *otaFailure))
+		if err := direct.RunOTAEmulator(stop, *otaProgressPath, *otaProgressValues, *otaVersion, *otaFailure); err != nil {
+			logger.Fatal("OTA emulator stopped with error", zap.Error(err))
 		}
 		return
 	}
@@ -92,6 +124,26 @@ func main() {
 	switch *testMode {
 	case "telemetry":
 		runTelemetryTest(dev, cfg, logger)
+	case "telemetry-json":
+		direct, ok := dev.(*device.DirectDevice)
+		if !ok {
+			logger.Fatal("telemetry-json requires direct device mode")
+		}
+		var data interface{}
+		if err := json.Unmarshal([]byte(*telemetryPayload), &data); err != nil {
+			logger.Fatal("Failed to parse telemetry-payload as JSON", zap.Error(err))
+		}
+		if err := direct.PublishTelemetry(data); err != nil {
+			logger.Fatal("Failed to publish telemetry", zap.Error(err))
+		}
+	case "telemetry-raw":
+		direct, ok := dev.(*device.DirectDevice)
+		if !ok {
+			logger.Fatal("telemetry-raw requires direct device mode")
+		}
+		if err := direct.PublishRaw(direct.Topics().Telemetry(), []byte(*telemetryRawPayload)); err != nil {
+			logger.Fatal("Failed to publish raw telemetry", zap.Error(err))
+		}
 	case "attribute":
 		runAttributeTest(dev, cfg, logger)
 	case "event":

@@ -151,15 +151,15 @@ func (*CalculatedFieldService) UpdateCalculatedField(id string, req *model.Calcu
 	if validateErr := validateCalculatedFieldValue(req.OutputKey, req.Expression); validateErr != nil {
 		return nil, validateErr
 	}
-	if templateErr := ensureTemplateInTenant(req.DeviceTemplateID, tenantID); templateErr != nil {
-		return nil, templateErr
-	}
-
 	if _, dbErr := dal.GetCalculatedFieldForScope(id, tenantID); dbErr != nil {
 		if errIsRecordNotFound(dbErr) {
 			return nil, errcode.NewWithMessage(errcode.CodeNotFound, "calculated field not found")
 		}
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": dbErr.Error()})
+	}
+
+	if templateErr := ensureTemplateInTenant(req.DeviceTemplateID, tenantID); templateErr != nil {
+		return nil, templateErr
 	}
 
 	updates := map[string]interface{}{

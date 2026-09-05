@@ -28,6 +28,10 @@ const (
 	// 格式: devices/status/{device_id}
 	TopicPatternStatus = "devices/status/+"
 
+	// TopicPatternOTAProgress OTA升级进度上报 Topic 模式
+	// 格式: ota/devices/progress
+	TopicPatternOTAProgress = "ota/devices/progress"
+
 	// 网关 Topic 模式（前缀为 gateway/）
 	TopicPatternGatewayTelemetry = "gateway/telemetry"
 	TopicPatternGatewayAttribute = "gateway/attributes/+"
