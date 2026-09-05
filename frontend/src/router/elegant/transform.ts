@@ -207,7 +207,6 @@ const routeMap: RouteMap = {
   "management_entity-version": "/management/entity-version",
   "management_api": "/management/api",
   "management_auth": "/management/auth",
-  "management_entity-version": "/management/entity-version",
   "management_notification": "/management/notification",
   "management_role": "/management/role",
   "management_setting": "/management/setting",
