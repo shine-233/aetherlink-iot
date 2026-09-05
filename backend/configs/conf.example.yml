@@ -328,3 +328,17 @@ plugin:
 # 跨域外部 IdP（Keycloak 等）必需；留空保持相对路径（仅同域反代部署）。
 sso:
   public-base-url: ""
+
+# 边缘网关遥测云转发（边缘计算 MVP，ROADMAP 边缘计算）：订阅上行总线，
+# 把已受理遥测/属性/事件经 MQTT 转发到上级云 broker。断连时内存缓冲
+# （buffer-limit 条，满丢最旧并计数），重连后按序重投。fail-open 不影响本地入库。
+edge:
+  forward:
+    enabled: false                # 默认关闭；边缘节点部署时开启
+    broker: "tcp://127.0.0.1:18883"  # 上级云 broker
+    topic-prefix: "aetherlink/edge"  # topic = {prefix}/{type}/{device_id}
+    client-id: "aetherlink-edge"
+    username: ""
+    password: ""
+    buffer-limit: 10000           # 断连缓冲上限（条）
+    qos: 1                        # 0 或 1

@@ -308,3 +308,14 @@ ws:
 
 sso:
   public-base-url: ""
+
+edge:
+  forward:
+    enabled: false
+    broker: "tcp://127.0.0.1:18883"
+    topic-prefix: "aetherlink/edge"
+    client-id: "aetherlink-edge"
+    username: ""
+    password: ""
+    buffer-limit: 10000
+    qos: 1
