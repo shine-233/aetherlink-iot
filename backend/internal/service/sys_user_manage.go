@@ -710,12 +710,31 @@ func (u *User) InitSuperAdmin(ctx context.Context, req *model.SuperAdminInitReq)
 		return nil, userInfoErr
 	}
 
-	if err := dal.CreateUsers(userInfo); err != nil {
+	bound := false
+	if err := query.Q.Transaction(func(tx *query.Query) error {
+		if err := tx.User.Create(userInfo); err != nil {
+			return err
+		}
+		if userInfo.Authority != nil && *userInfo.Authority != "" {
+			bound = true
+			return replaceUserRoleBindingsWithTx(tx, userInfo.ID, []string{*userInfo.Authority})
+		}
+		return nil
+	}); err != nil {
 		return nil, errcode.WithData(errcode.CodeLocalInitCreateUserFail, map[string]interface{}{
 			"operation": "create_user",
 			"email":     requestEmail,
 			"error":     err.Error(),
 		})
+	}
+	if bound && global.CasbinEnforcer != nil {
+		if global.CasbinEnforcer.GetAdapter() != nil {
+			if err := global.CasbinEnforcer.LoadPolicy(); err != nil {
+				logrus.Errorf("casbin LoadPolicy after super admin init failed: err=%v", err)
+			}
+		} else {
+			_, _ = GroupApp.Casbin.AddRolesToUserWithError(userInfo.ID, []string{*userInfo.Authority})
+		}
 	}
 	loginRsp, err := u.UserLoginAfter(userInfo)
 	if err != nil {
@@ -809,6 +828,12 @@ func buildLocalInitLoginFailure(userInfo *model.User, cause error) error {
 	}
 	if cleanupErr := dal.DeleteUsersById(userInfo.ID); cleanupErr != nil {
 		errorData["cleanup_error"] = cleanupErr.Error()
+	}
+	if global.CasbinEnforcer != nil {
+		_, _ = GroupApp.Casbin.RemoveUserAndRoleWithError(userInfo.ID)
+	}
+	if global.DB != nil {
+		_ = global.DB.Where("ptype = ? AND v0 = ?", "g", userInfo.ID).Delete(&model.CasbinRule{}).Error
 	}
 	if codeErr, ok := cause.(*errcode.Error); ok {
 		errorData["cause_code"] = codeErr.Code
