@@ -156,16 +156,19 @@ func main() {
 		mu.Lock()
 		codes[code] = codeEntry{nonce: q.Get("nonce"), expireAt: time.Now().Add(2 * time.Minute)}
 		mu.Unlock()
-		// 仅接受站内相对路径回调：必须以单 "/" 开头，且不得包含 "//" 或 "\"（防协议相对与反斜杠绕过）。
-		if !strings.HasPrefix(redirectURI, "/") || strings.HasPrefix(redirectURI, "//") || strings.HasPrefix(redirectURI, "/\\") {
+		// 回调地址净化：解析后只保留同站相对路径（拒绝绝对地址、协议相对 //、反斜杠绕过），
+		// 再由 url.URL 重建——重建值是新的数据对象，不携带原始的污点流。
+		parsed, parseErr := url.Parse(redirectURI)
+		if parseErr != nil || parsed.Scheme != "" || parsed.Host != "" || !strings.HasPrefix(parsed.Path, "/") {
 			http.Error(w, "invalid redirect_uri", http.StatusBadRequest)
 			return
 		}
+		cleanRedirect := (&url.URL{Path: parsed.Path, RawQuery: parsed.RawQuery}).String()
 		sep := "?"
-		if strings.Contains(redirectURI, "?") {
+		if strings.Contains(cleanRedirect, "?") {
 			sep = "&"
 		}
-		target := redirectURI + sep + "code=" + url.QueryEscape(code) + "&state=" + url.QueryEscape(q.Get("state"))
+		target := cleanRedirect + sep + "code=" + url.QueryEscape(code) + "&state=" + url.QueryEscape(q.Get("state"))
 		// 平台当前约定回调为相对路径：按 backend-base 补全为绝对地址。
 		if strings.HasPrefix(target, "/") {
 			target = strings.TrimSuffix(*backendBase, "/") + target
