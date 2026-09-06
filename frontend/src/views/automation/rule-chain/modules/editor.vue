@@ -545,7 +545,7 @@ defineExpose({ serializeGraph })
 .trace-error {
   margin-top: 4px;
   font-size: 12px;
-  color: #d03050;
+  color: rgb(var(--error-color));
   word-break: break-all;
 }
 </style>

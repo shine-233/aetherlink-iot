@@ -246,7 +246,7 @@ const handleAddMember = () => {
           </NFormItem>
           <div>{{ $t('generate.im-sign-secret') }}</div>
           <NInput v-model:value="notificationConfig.Secret" />
-          <div style="font-size: 12px; color: #8f8e94; margin-top: 8px">
+          <div style="font-size: 12px; margin-top: 8px; opacity: 0.6">
             {{ $t('generate.im-sign-hint') }}
           </div>
         </template>
