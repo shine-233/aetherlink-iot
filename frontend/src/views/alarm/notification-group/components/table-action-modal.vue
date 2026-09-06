@@ -53,7 +53,11 @@ const initNotificationConfig = {
   VOICE: '',
   WEBHOOK: '',
   PayloadURL: '',
-  Secret: ''
+  Secret: '',
+  // PHASE-D-D2 BEGIN IM 渠道配置字段
+  BOT_TOKEN: '',
+  CHAT_ID: ''
+  // PHASE-D-D2 END
 }
 
 const formModel = ref<FormModel>(createDefaultFormModel())
@@ -117,6 +121,14 @@ function handleUpdateFormModelByModalType() {
           notificationConfig.value.PayloadURL = notification_config.PayloadURL
           notificationConfig.value.Secret = notification_config.Secret
         }
+        // PHASE-D-D2 BEGIN IM 渠道编辑回填（后端按顶层键读取）
+        else if (['DINGTALK', 'WECOM', 'FEISHU', 'TELEGRAM'].includes(notification_type)) {
+          notificationConfig.value.WEBHOOK = notification_config.WEBHOOK || ''
+          notificationConfig.value.Secret = notification_config.Secret || ''
+          notificationConfig.value.BOT_TOKEN = notification_config.BOT_TOKEN || ''
+          notificationConfig.value.CHAT_ID = notification_config.CHAT_ID || ''
+        }
+        // PHASE-D-D2 END
         notificationConfig.value[notification_type] = notification_config[notification_type]
       }
     }
@@ -225,6 +237,29 @@ const handleAddMember = () => {
             </div>
           </div>
         </template>
+
+        <!-- PHASE-D-D2 BEGIN IM 渠道配置表单 -->
+        <template v-if="['DINGTALK', 'WECOM', 'FEISHU'].includes(formModel.notification_type)">
+          <div>{{ $t('generate.im-webhook') }}</div>
+          <NFormItem path="webhook" label="">
+            <NInput v-model:value="notificationConfig.WEBHOOK" />
+          </NFormItem>
+          <div>{{ $t('generate.im-sign-secret') }}</div>
+          <NInput v-model:value="notificationConfig.Secret" />
+          <div style="font-size: 12px; color: #8f8e94; margin-top: 8px">
+            {{ $t('generate.im-sign-hint') }}
+          </div>
+        </template>
+
+        <template v-if="formModel.notification_type === 'TELEGRAM'">
+          <div>{{ $t('generate.im-bot-token') }}</div>
+          <NFormItem path="bot_token" label="">
+            <NInput v-model:value="notificationConfig.BOT_TOKEN" />
+          </NFormItem>
+          <div>{{ $t('generate.im-chat-id') }}</div>
+          <NInput v-model:value="notificationConfig.CHAT_ID" />
+        </template>
+        <!-- PHASE-D-D2 END -->
       </div>
 
       <NSpace class="w-full pt-16px" :size="24" justify="end">

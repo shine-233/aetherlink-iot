@@ -125,11 +125,17 @@ func (n *NotificationServicesConfig) dispatchNotificationChannel(notificationGro
 	case model.NoticeType_Email:
 		n.sendEmailNotification(notificationGroup, alertJson, templateVars)
 	case model.NoticeType_SME_CODE:
-		n.sendSMSNotification(notifyType)
+		// PHASE-D-D2 BEGIN：原为"不支持"桩，替换为阿里云短信实发送。
+		n.sendSMSAliyunNotification(notificationGroup, templateVars)
+		// PHASE-D-D2 END
 	case model.NoticeType_Webhook:
 		n.sendWebhookNotification(notificationGroup, alertJson, templateVars.deviceIDs)
 	case model.NoticeType_APP:
 		n.sendAppNotification()
+	// PHASE-D-D2 BEGIN：新增 IM 渠道分发（钉钉/企微/飞书/Telegram）。
+	case noticeTypeDingTalk, noticeTypeWeCom, noticeTypeFeishu, noticeTypeTelegram:
+		n.sendIMNotification(notificationGroup, templateVars, notifyType)
+	// PHASE-D-D2 END
 	default:
 		logUnsupportedNotificationType(notifyType)
 	}
@@ -212,10 +218,6 @@ func (n *NotificationServicesConfig) sendEmailNotificationRecipient(notification
 	if err := sendEmailMessageForDevices(emailBody, subject, notificationGroup.TenantID, deviceIDs, emailAddr); err != nil {
 		logrus.Error("email notification failed for alert payload:", err, " payload_size=", len(alertJson))
 	}
-}
-
-func (n *NotificationServicesConfig) sendSMSNotification(notifyType string) {
-	logUnsupportedNotificationType(notifyType)
 }
 
 func parseExecuteWebhookConfig(notificationGroup *model.NotificationGroup) (executeWebhookConfig, bool) {
