@@ -650,5 +650,21 @@
   "page.manage.notification.shortMessage.form.endpoint": "服务端点",
   "page.manage.notification.shortMessage.form.signName": "签名名称",
   "page.manage.notification.shortMessage.form.templateCode": "模板编码",
-  "page.product.update-ota.diagnoseFirstFailure": "诊断首个失败设备"
+  "page.product.update-ota.diagnoseFirstFailure": "诊断首个失败设备",
+  "page.deviceDebug.liveFrames": "实时上行帧",
+  "page.deviceDebug.connect": "连接",
+  "page.deviceDebug.disconnect": "断开",
+  "page.deviceDebug.noFrames": "暂无帧数据",
+  "page.deviceDebug.commandPanel": "命令下发与投递诊断",
+  "page.deviceDebug.identify": "命令标识",
+  "page.deviceDebug.params": "参数(JSON)",
+  "page.deviceDebug.send": "下发",
+  "page.deviceDebug.commandSent": "命令已提交",
+  "page.deviceDebug.commandFailed": "命令提交失败",
+  "page.deviceDebug.refreshDiagnostics": "刷新投递诊断",
+  "page.deviceDebug.isOnline": "设备在线",
+  "page.deviceDebug.evaluatedAt": "评估时间",
+  "page.deviceDebug.latestLog": "最近投递日志",
+  "page.deviceDebug.noToken": "缺少登录令牌,请重新登录",
+  "page.deviceDebug.identifyRequired": "命令标识必填"
 }

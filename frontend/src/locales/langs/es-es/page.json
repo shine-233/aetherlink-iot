@@ -650,5 +650,21 @@
   "page.manage.notification.shortMessage.form.signName": "Nombre de firma",
   "page.manage.notification.shortMessage.form.templateCode": "Código de plantilla",
   "page.thingsvis.retry": "Reintentar",
-  "page.product.update-ota.diagnoseFirstFailure": "Diagnosticar el primer dispositivo con fallo"
+  "page.product.update-ota.diagnoseFirstFailure": "Diagnosticar el primer dispositivo con fallo",
+  "page.deviceDebug.liveFrames": "Tramas en vivo",
+  "page.deviceDebug.connect": "Conectar",
+  "page.deviceDebug.disconnect": "Desconectar",
+  "page.deviceDebug.noFrames": "Sin tramas",
+  "page.deviceDebug.commandPanel": "Comandos y diagnóstico",
+  "page.deviceDebug.identify": "Identificador",
+  "page.deviceDebug.params": "Parámetros (JSON)",
+  "page.deviceDebug.send": "Enviar",
+  "page.deviceDebug.commandSent": "Comando enviado",
+  "page.deviceDebug.commandFailed": "Fallo del comando",
+  "page.deviceDebug.refreshDiagnostics": "Actualizar diagnóstico",
+  "page.deviceDebug.isOnline": "En línea",
+  "page.deviceDebug.evaluatedAt": "Evaluado",
+  "page.deviceDebug.latestLog": "Último registro",
+  "page.deviceDebug.noToken": "Falta el token",
+  "page.deviceDebug.identifyRequired": "Identificador obligatorio"
 }

@@ -650,5 +650,21 @@
   "page.manage.notification.shortMessage.form.signName": "Nom de signature",
   "page.manage.notification.shortMessage.form.templateCode": "Code de modèle",
   "page.thingsvis.retry": "Réessayer",
-  "page.product.update-ota.diagnoseFirstFailure": "Diagnostiquer le premier appareil en échec"
+  "page.product.update-ota.diagnoseFirstFailure": "Diagnostiquer le premier appareil en échec",
+  "page.deviceDebug.liveFrames": "Trames montantes en direct",
+  "page.deviceDebug.connect": "Connecter",
+  "page.deviceDebug.disconnect": "Déconnecter",
+  "page.deviceDebug.noFrames": "Aucune trame",
+  "page.deviceDebug.commandPanel": "Commandes & diagnostics",
+  "page.deviceDebug.identify": "Identifiant",
+  "page.deviceDebug.params": "Paramètres (JSON)",
+  "page.deviceDebug.send": "Envoyer",
+  "page.deviceDebug.commandSent": "Commande envoyée",
+  "page.deviceDebug.commandFailed": "Échec de la commande",
+  "page.deviceDebug.refreshDiagnostics": "Actualiser les diagnostics",
+  "page.deviceDebug.isOnline": "En ligne",
+  "page.deviceDebug.evaluatedAt": "Évalué à",
+  "page.deviceDebug.latestLog": "Dernier journal",
+  "page.deviceDebug.noToken": "Token manquant",
+  "page.deviceDebug.identifyRequired": "Identifiant requis"
 }
