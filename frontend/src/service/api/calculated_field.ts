@@ -13,6 +13,9 @@ export interface CalculatedFieldRow {
   device_template_id: string
   output_key: string
   expression: string
+  // PHASE-D-D4 高级类型
+  type: string
+  config?: Record<string, unknown> | null
   enabled: boolean
   remark?: string | null
   created_at: string
@@ -37,6 +40,8 @@ export interface CalculatedFieldUpsertParams {
   output_key: string
   expression: string
   remark?: string | null
+  type?: string
+  config?: Record<string, unknown> | null
 }
 
 export interface CalculatedFieldCreateParams extends CalculatedFieldUpsertParams {

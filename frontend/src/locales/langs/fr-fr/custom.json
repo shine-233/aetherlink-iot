@@ -2281,5 +2281,13 @@
   "custom.alarmAnalysis.suggestions": "Actions recommandées",
   "custom.alarmAnalysis.empty": "Aucun résultat d’analyse",
   "custom.alarmAnalysis.notConfigured": "LLM non configuré, analyse IA indisponible",
-  "custom.alarmAnalysis.inaccessible": "Alarme introuvable ou inaccessible"
+  "custom.alarmAnalysis.inaccessible": "Alarme introuvable ou inaccessible",
+  "custom.management.calcField.typeLabel": "Type de champ",
+  "custom.management.calcField.typeSimple": "Expression simple",
+  "custom.management.calcField.typeTimeseries": "Agrégation temporelle",
+  "custom.management.calcField.typeRelatedAgg": "Agrégation d'entités liées",
+  "custom.management.calcField.typeGeofence": "Geofencing",
+  "custom.management.calcField.typePropagation": "Propagation",
+  "custom.management.calcField.configLabel": "Config avancée (JSON)",
+  "custom.management.calcField.configInvalid": "JSON invalide"
 }

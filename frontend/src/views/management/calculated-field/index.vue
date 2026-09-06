@@ -144,6 +144,8 @@ type CalcFieldFormModel = {
   output_key: string
   expression: string
   remark: string
+  type: string
+  config: string
 }
 
 const formModel = reactive<CalcFieldFormModel>({
@@ -151,8 +153,21 @@ const formModel = reactive<CalcFieldFormModel>({
   device_template_id: '',
   output_key: '',
   expression: '',
-  remark: ''
+  remark: '',
+  type: 'simple',
+  config: '{}'
 })
+
+// PHASE-D-D4 BEGIN 高级类型选项与配置 JSON 编辑
+const advancedTypeOptions = [
+  { label: $t('custom.management.calcField.typeSimple'), value: 'simple' },
+  { label: $t('custom.management.calcField.typeTimeseries'), value: 'timeseries_agg' },
+  { label: $t('custom.management.calcField.typeRelatedAgg'), value: 'related_agg' },
+  { label: $t('custom.management.calcField.typeGeofence'), value: 'geofence' },
+  { label: $t('custom.management.calcField.typePropagation'), value: 'propagation' }
+]
+const isAdvancedType = computed(() => formModel.type !== 'simple')
+// PHASE-D-D4 END
 
 const formRules: FormRules = {
   name: [{ required: true, message: $t('custom.management.calcField.nameRequired'), trigger: 'blur' }],
@@ -167,8 +182,27 @@ const formRules: FormRules = {
       trigger: 'blur'
     }
   ],
-  expression: [{ required: true, message: $t('custom.management.calcField.expressionRequired'), trigger: 'blur' }]
+  expression: [
+    {
+      validator: () => formModel.type === 'simple',
+      message: $t('custom.management.calcField.expressionRequired'),
+      trigger: 'blur'
+    }
+  ]
 }
+
+// PHASE-D-D4:高级类型配置 JSON 校验
+function validateConfigJson(): boolean {
+  if (!isAdvancedType.value) return true
+  try {
+    JSON.parse(formModel.config || '{}')
+    return true
+  } catch {
+    window.$message?.error($t('custom.management.calcField.configInvalid'))
+    return false
+  }
+}
+// PHASE-D-D4 END
 
 const modalTitle = computed(() =>
   editingId.value ? $t('custom.management.calcField.edit') : $t('custom.management.calcField.add')
@@ -181,6 +215,8 @@ function openCreateModal() {
   formModel.output_key = ''
   formModel.expression = ''
   formModel.remark = ''
+  formModel.type = 'simple'
+  formModel.config = '{}'
   modalVisible.value = true
 }
 
@@ -191,6 +227,8 @@ function openEditModal(row: CalculatedFieldRow) {
   formModel.output_key = row.output_key
   formModel.expression = row.expression
   formModel.remark = row.remark || ''
+  formModel.type = row.type || 'simple'
+  formModel.config = row.config ? JSON.stringify(row.config, null, 2) : '{}'
   modalVisible.value = true
 }
 
@@ -200,12 +238,15 @@ function buildUpsertParams(): CalculatedFieldUpsertParams {
     device_template_id: formModel.device_template_id,
     output_key: formModel.output_key.trim(),
     expression: formModel.expression,
-    remark: formModel.remark.trim() ? formModel.remark.trim() : null
+    remark: formModel.remark.trim() ? formModel.remark.trim() : null,
+    type: formModel.type,
+    config: isAdvancedType.value ? (JSON.parse(formModel.config || '{}') as Record<string, unknown>) : null
   }
 }
 
 async function handleSubmit() {
   await formRef.value?.validate()
+  if (!validateConfigJson()) return
   saving.value = true
   try {
     const params = buildUpsertParams()
@@ -346,7 +387,11 @@ void getTableData()
         <NFormItem :label="$t('custom.management.calcField.outputKey')" path="output_key">
           <NInput v-model:value="formModel.output_key" :maxlength="128" placeholder="power_w" />
         </NFormItem>
-        <NFormItem :label="$t('custom.management.calcField.expression')" path="expression">
+        <!-- PHASE-D-D4 BEGIN 高级类型选择与配置 -->
+        <NFormItem :label="$t('custom.management.calcField.typeLabel')" path="type">
+          <NSelect v-model:value="formModel.type" :options="advancedTypeOptions" />
+        </NFormItem>
+        <NFormItem v-if="!isAdvancedType" :label="$t('custom.management.calcField.expression')" path="expression">
           <NInput
             v-model:value="formModel.expression"
             type="textarea"
@@ -354,6 +399,15 @@ void getTableData()
             placeholder="(voltage * current) / 1000"
           />
         </NFormItem>
+        <NFormItem v-else :label="$t('custom.management.calcField.configLabel')" path="config">
+          <NInput
+            v-model:value="formModel.config"
+            type="textarea"
+            :rows="5"
+            placeholder="source_key/func/window_seconds"
+          />
+        </NFormItem>
+        <!-- PHASE-D-D4 END -->
         <NFormItem :label="$t('custom.management.calcField.remark')" path="remark">
           <NInput v-model:value="formModel.remark" type="textarea" :rows="2" :maxlength="500" />
         </NFormItem>

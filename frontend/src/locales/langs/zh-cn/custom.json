@@ -2281,5 +2281,13 @@
   "custom.alarmAnalysis.suggestions": "处置建议",
   "custom.alarmAnalysis.empty": "暂无分析结果",
   "custom.alarmAnalysis.notConfigured": "未配置 LLM，AI 分析不可用",
-  "custom.alarmAnalysis.inaccessible": "告警不存在或无权访问"
+  "custom.alarmAnalysis.inaccessible": "告警不存在或无权访问",
+  "custom.management.calcField.typeLabel": "字段类型",
+  "custom.management.calcField.typeSimple": "简单表达式",
+  "custom.management.calcField.typeTimeseries": "时序聚合",
+  "custom.management.calcField.typeRelatedAgg": "关联实体聚合",
+  "custom.management.calcField.typeGeofence": "地理围栏",
+  "custom.management.calcField.typePropagation": "传播",
+  "custom.management.calcField.configLabel": "高级配置(JSON)",
+  "custom.management.calcField.configInvalid": "配置必须为合法 JSON"
 }
