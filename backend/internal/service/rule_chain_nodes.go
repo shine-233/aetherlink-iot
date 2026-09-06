@@ -23,10 +23,10 @@ const (
 	RuleChainEnrichmentRelatedAttributes    = "enrichment.related_device_attributes"
 	RuleChainEnrichmentTenantMetadata       = "enrichment.tenant_metadata"
 	// Transformation 扩充
-	RuleChainTransformScript          = "transform.script"
-	RuleChainTransformRenameKeys      = "transform.rename_keys"
-	RuleChainTransformSplitArray      = "transform.split_array"
-	RuleChainTransformDedup           = "transform.dedup"
+	RuleChainTransformScript           = "transform.script"
+	RuleChainTransformRenameKeys       = "transform.rename_keys"
+	RuleChainTransformSplitArray       = "transform.split_array"
+	RuleChainTransformDedup            = "transform.dedup"
 	RuleChainTransformChangeOriginator = "transform.change_originator"
 	// Flow 控制
 	RuleChainFlowSubchain   = "flow.subchain"
@@ -47,20 +47,20 @@ const (
 
 // 规则链 kind 常量（前端 palette 分组依据）。
 const (
-	RuleChainKindTrigger     = "trigger"
-	RuleChainKindFilter      = "filter"
-	RuleChainKindTransform   = "transform"
-	RuleChainKindEnrichment  = "enrichment"
-	RuleChainKindFlow        = "flow"
-	RuleChainKindAction      = "action"
-	RuleChainKindAnalytics   = "analytics"
-	RuleChainKindExternal    = "external"
+	RuleChainKindTrigger    = "trigger"
+	RuleChainKindFilter     = "filter"
+	RuleChainKindTransform  = "transform"
+	RuleChainKindEnrichment = "enrichment"
+	RuleChainKindFlow       = "flow"
+	RuleChainKindAction     = "action"
+	RuleChainKindAnalytics  = "analytics"
+	RuleChainKindExternal   = "external"
 )
 
 // RuleChainNodeSpec 单个节点类型的注册描述。
 type RuleChainNodeSpec struct {
-	Type     string // 节点类型（graph node type）
-	Kind     string // 分类（trigger/filter/transform/enrichment/flow/action/analytics/external）
+	Type     string                         // 节点类型（graph node type）
+	Kind     string                         // 分类（trigger/filter/transform/enrichment/flow/action/analytics/external）
 	Validate func(cfg map[string]any) error // 配置校验器（nil 表示无约束）
 }
 

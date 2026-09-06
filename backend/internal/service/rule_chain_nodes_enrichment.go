@@ -4,6 +4,7 @@
 //	结果统一合入 msg metadata（可配 prefix 命名空间），不改写 payload。
 //
 // 关键注意事项：设备与租户维度全部 fail-closed——关联设备查不到即报错，
+//
 //	杜绝借富化节点越权读取其他租户数据；数据读取经注入点替换以便 hermetic 测试。
 package service
 

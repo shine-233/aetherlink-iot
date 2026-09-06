@@ -4,6 +4,7 @@
 //	change_originator 五个转换节点；exists/string_match/in_range 三个过滤节点。
 //
 // 关键注意事项：split_array 引擎级多输出（上限 ruleChainMaxNodeOutputs）；
+//
 //	dedup 依赖进程内时间窗注册表，重启后窗口重置（MVP 语义，交付说明已注明）；
 //	change_originator 必须通过租户守卫校验目标设备，跨租户即报错。
 package service

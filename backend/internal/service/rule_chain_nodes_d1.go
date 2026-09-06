@@ -6,6 +6,7 @@
 //	包级注入点，默认实现直查 global.DB（租户维度硬过滤），测试替换为内存桩。
 //
 // 关键注意事项：所有默认实现必须 fail-closed——查不到、租户不符一律返回错误，
+//
 //	绝不跨租户读取；热路径注入点为 nil 时保持零开销旁路。
 package service
 
@@ -131,7 +132,7 @@ func executeRuleChainNodeD1(e *ruleChainExecution, node *RuleChainNode, msg rule
 		return ruleChainEnrichmentTenantMetadata(e.ctx, node, rcc, payload, metadata)
 	// ---- Transformation 扩充 ----
 	case RuleChainTransformScript:
-		return ruleChainTransformScript(e.ctx, node, msg, rcc)
+		return ruleChainTransformScript(e, node, msg)
 	case RuleChainTransformRenameKeys:
 		return ruleChainTransformRenameKeys(node, payload, metadata, rcc)
 	case RuleChainTransformSplitArray:
