@@ -252,6 +252,7 @@ func RouterInit() *gin.Engine {
 			apps.Model.UserTOTP.InitUserTOTP(v1) // 2FA（TOTP 绑定/状态）
 
 			apps.Model.OidcSso.InitOidcProvider(v1) // OIDC/SSO 提供方管理（ROADMAP C7）
+			apps.Model.PluginRegistry.InitPluginRegistry(v1) // PHASE-D-D9 插件管理
 
 			apps.Model.Role.Init(v1) // 角色管理
 

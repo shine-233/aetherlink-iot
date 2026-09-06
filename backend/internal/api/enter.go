@@ -63,6 +63,7 @@ type Controller struct {
 	DeviceModbusProfileApi
 	AiQueryApi
 	RuleChainApi
+	PluginRegistryApi // PHASE-D-D9 插件框架 gRPC 网关
 	RDIApi
 	PayloadSchemaApi
 	CalculatedFieldApi
