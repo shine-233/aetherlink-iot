@@ -157,6 +157,11 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 		deviceTemplateapi.GET("export/:id", api.Controllers.DeviceApi.ExportDeviceTemplate)
 		deviceTemplateapi.POST("import", api.Controllers.DeviceApi.ImportDeviceTemplate)
 
+		// PHASE-D-D10 BEGIN 模板市场运营化：分类目录 + 按行业打包导出
+		deviceTemplateapi.GET("market/catalog", api.Controllers.DeviceApi.HandleMarketCatalog)
+		deviceTemplateapi.GET("market/bundle", api.Controllers.DeviceApi.HandleExportMarketBundle)
+		// PHASE-D-D10 END
+
 		// 根据设备ID获取模板
 		deviceTemplateapi.GET("/chart", api.Controllers.DeviceApi.HandleDeviceTemplateByDeviceId)
 

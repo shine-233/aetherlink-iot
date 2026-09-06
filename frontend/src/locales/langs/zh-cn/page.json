@@ -670,5 +670,12 @@
   "page.pluginRegistry.identify": "命令标识",
   "page.pluginRegistry.params": "参数(JSON)",
   "page.pluginRegistry.send": "下发",
-  "page.pluginRegistry.nameRequired": "插件名必填"
+  "page.pluginRegistry.nameRequired": "插件名必填",
+  "page.marketBrowse.title": "模板市场",
+  "page.marketBrowse.import": "导入模板",
+  "page.marketBrowse.downloadBundle": "按行业打包下载",
+  "page.marketBrowse.allTypes": "全部",
+  "page.marketBrowse.uncategorized": "未分类",
+  "page.marketBrowse.empty": "该分类暂无模板",
+  "page.marketBrowse.downloadStarted": "打包下载已开始"
 }

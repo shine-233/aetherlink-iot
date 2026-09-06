@@ -670,5 +670,12 @@
   "page.pluginRegistry.identify": "Command Identify",
   "page.pluginRegistry.params": "Params (JSON)",
   "page.pluginRegistry.send": "Send",
-  "page.pluginRegistry.nameRequired": "Plugin name is required"
+  "page.pluginRegistry.nameRequired": "Plugin name is required",
+  "page.marketBrowse.title": "Template Market",
+  "page.marketBrowse.import": "Import Template",
+  "page.marketBrowse.downloadBundle": "Download Bundle",
+  "page.marketBrowse.allTypes": "All",
+  "page.marketBrowse.uncategorized": "Uncategorized",
+  "page.marketBrowse.empty": "No templates in this category",
+  "page.marketBrowse.downloadStarted": "Bundle download started"
 }

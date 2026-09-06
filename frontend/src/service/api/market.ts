@@ -50,3 +50,48 @@ export const installFromMarket = async (data: {
 }) => {
   return await request.post<Record<string, unknown>>('/device/template/market/install', data)
 }
+
+// PHASE-D-D10 BEGIN 模板市场运营化：本地分类目录 + 按行业打包导出
+export interface MarketCatalogEntry {
+  type_key: string
+  template_count: number
+  download_count: number
+}
+
+/** 行业分类目录（租户内 distinct type_key + 计数） */
+export const getMarketCatalog = async () => {
+  return await request.get<MarketCatalogEntry[]>('/device/template/market/catalog')
+}
+
+/** 按行业打包导出（base64 信封，前端解码为文件下载） */
+export const getMarketBundle = async (typeKey: string) => {
+  return await request.get<{ file_name: string; content_base64: string; count: number }>(
+    '/device/template/market/bundle',
+    { params: typeKey ? { type_key: typeKey } : {} }
+  )
+}
+
+/** 模板导入（导出载荷回放，同租户同名同版本幂等） */
+export const importDeviceTemplate = async (data: unknown) => {
+  return await request.post('/device/template/import', data)
+}
+
+/** 本地模板分页列表（浏览页卡片数据源，后端支持 type_key 过滤） */
+export const getLocalTemplateList = async (params: { page: number; page_size: number; type_key?: string }) => {
+  return await request.get('/device/template', { params })
+}
+
+/** 解码 base64 打包载荷并触发浏览器下载 */
+export function downloadMarketBundle(bundle: { file_name: string; content_base64: string }) {
+  const binary = atob(bundle.content_base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
+  const blob = new Blob([bytes], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = bundle.file_name
+  anchor.click()
+  URL.revokeObjectURL(url)
+}
+// PHASE-D-D10 END

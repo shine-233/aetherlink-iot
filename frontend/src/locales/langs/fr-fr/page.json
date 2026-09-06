@@ -670,5 +670,12 @@
   "page.pluginRegistry.identify": "Identifiant",
   "page.pluginRegistry.params": "Paramètres (JSON)",
   "page.pluginRegistry.send": "Envoyer",
-  "page.pluginRegistry.nameRequired": "Nom requis"
+  "page.pluginRegistry.nameRequired": "Nom requis",
+  "page.marketBrowse.title": "Marché de modèles",
+  "page.marketBrowse.import": "Importer",
+  "page.marketBrowse.downloadBundle": "Télécharger le paquet",
+  "page.marketBrowse.allTypes": "Tous",
+  "page.marketBrowse.uncategorized": "Non classé",
+  "page.marketBrowse.empty": "Aucun modèle",
+  "page.marketBrowse.downloadStarted": "Téléchargement lancé"
 }
