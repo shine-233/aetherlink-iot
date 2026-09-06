@@ -67,6 +67,7 @@ type ServiceGroup struct {
 	Asset
 	UserTotp
 	OidcSso
+	PluginRegistry PluginRegistryService // PHASE-D-D9 插件框架 gRPC 网关管理面
 }
 
 // GroupApp 是全局业务服务入口，供 API 层和中间件层调用

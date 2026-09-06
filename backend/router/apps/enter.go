@@ -50,6 +50,7 @@ type apps struct {
 	Asset
 	UserTOTP
 	OidcSso
+	PluginRegistry // PHASE-D-D9 插件框架 gRPC 网关
 }
 
 var Model = new(apps)
