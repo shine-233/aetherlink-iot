@@ -2281,5 +2281,6 @@
   "custom.alarmAnalysis.suggestions": "Actions recommandées",
   "custom.alarmAnalysis.empty": "Aucun résultat d’analyse",
   "custom.alarmAnalysis.notConfigured": "LLM non configuré, analyse IA indisponible",
-  "custom.alarmAnalysis.inaccessible": "Alarme introuvable ou inaccessible"
+  "custom.alarmAnalysis.inaccessible": "Alarme introuvable ou inaccessible",
+  "custom.device_details.debugLive": "Débogage en direct"
 }

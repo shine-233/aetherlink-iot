@@ -2281,5 +2281,6 @@
   "custom.alarmAnalysis.suggestions": "处置建议",
   "custom.alarmAnalysis.empty": "暂无分析结果",
   "custom.alarmAnalysis.notConfigured": "未配置 LLM，AI 分析不可用",
-  "custom.alarmAnalysis.inaccessible": "告警不存在或无权访问"
+  "custom.alarmAnalysis.inaccessible": "告警不存在或无权访问",
+  "custom.device_details.debugLive": "实时调试"
 }

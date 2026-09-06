@@ -2281,5 +2281,6 @@
   "custom.alarmAnalysis.suggestions": "Recommended actions",
   "custom.alarmAnalysis.empty": "No analysis result",
   "custom.alarmAnalysis.notConfigured": "LLM not configured, AI analysis unavailable",
-  "custom.alarmAnalysis.inaccessible": "Alarm not found or inaccessible"
+  "custom.alarmAnalysis.inaccessible": "Alarm not found or inaccessible",
+  "custom.device_details.debugLive": "Live Debug"
 }

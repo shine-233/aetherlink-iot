@@ -677,5 +677,21 @@
   "page.marketBrowse.allTypes": "All",
   "page.marketBrowse.uncategorized": "Uncategorized",
   "page.marketBrowse.empty": "No templates in this category",
-  "page.marketBrowse.downloadStarted": "Bundle download started"
+  "page.marketBrowse.downloadStarted": "Bundle download started",
+  "page.deviceDebug.liveFrames": "Live Uplink Frames",
+  "page.deviceDebug.connect": "Connect",
+  "page.deviceDebug.disconnect": "Disconnect",
+  "page.deviceDebug.noFrames": "No frames yet",
+  "page.deviceDebug.commandPanel": "Command & Delivery Diagnostics",
+  "page.deviceDebug.identify": "Command Identify",
+  "page.deviceDebug.params": "Params (JSON)",
+  "page.deviceDebug.send": "Send",
+  "page.deviceDebug.commandSent": "Command submitted",
+  "page.deviceDebug.commandFailed": "Command submit failed",
+  "page.deviceDebug.refreshDiagnostics": "Refresh Diagnostics",
+  "page.deviceDebug.isOnline": "Device Online",
+  "page.deviceDebug.evaluatedAt": "Evaluated At",
+  "page.deviceDebug.latestLog": "Latest Delivery Log",
+  "page.deviceDebug.noToken": "Login token missing, please re-login",
+  "page.deviceDebug.identifyRequired": "Command identify is required"
 }

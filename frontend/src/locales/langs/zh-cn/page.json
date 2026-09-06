@@ -677,5 +677,21 @@
   "page.marketBrowse.allTypes": "全部",
   "page.marketBrowse.uncategorized": "未分类",
   "page.marketBrowse.empty": "该分类暂无模板",
-  "page.marketBrowse.downloadStarted": "打包下载已开始"
+  "page.marketBrowse.downloadStarted": "打包下载已开始",
+  "page.deviceDebug.liveFrames": "实时上行帧",
+  "page.deviceDebug.connect": "连接",
+  "page.deviceDebug.disconnect": "断开",
+  "page.deviceDebug.noFrames": "暂无帧数据",
+  "page.deviceDebug.commandPanel": "命令下发与投递诊断",
+  "page.deviceDebug.identify": "命令标识",
+  "page.deviceDebug.params": "参数(JSON)",
+  "page.deviceDebug.send": "下发",
+  "page.deviceDebug.commandSent": "命令已提交",
+  "page.deviceDebug.commandFailed": "命令提交失败",
+  "page.deviceDebug.refreshDiagnostics": "刷新投递诊断",
+  "page.deviceDebug.isOnline": "设备在线",
+  "page.deviceDebug.evaluatedAt": "评估时间",
+  "page.deviceDebug.latestLog": "最近投递日志",
+  "page.deviceDebug.noToken": "缺少登录令牌,请重新登录",
+  "page.deviceDebug.identifyRequired": "命令标识必填"
 }
