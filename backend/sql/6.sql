@@ -17,8 +17,6 @@ CREATE TABLE "public"."message_push_rule_log" (
 )
 ;
 
-ALTER TABLE "public"."message_push_rule_log"
-    OWNER TO "postgres";
 
 COMMENT ON COLUMN "public"."message_push_rule_log"."type" IS '1 主动失效 2被动失效 3定时任务 4自动清理';
 
@@ -42,8 +40,6 @@ CREATE TABLE "public"."message_push_manage" (
 )
 ;
 
-ALTER TABLE "public"."message_push_manage"
-    OWNER TO "postgres";
 
 CREATE UNIQUE INDEX "index_user_push" ON "public"."message_push_manage" USING btree (
     "user_id" COLLATE "pg_catalog"."default" "pg_catalog"."text_ops" ASC NULLS LAST,
@@ -84,8 +80,6 @@ CREATE TABLE "public"."message_push_log" (
 )
 ;
 
-ALTER TABLE "public"."message_push_log"
-    OWNER TO "postgres";
 
 COMMENT ON COLUMN "public"."message_push_log"."user_id" IS '用户id';
 
@@ -111,8 +105,6 @@ CREATE TABLE "public"."message_push_config" (
 )
 ;
 
-ALTER TABLE "public"."message_push_config"
-    OWNER TO "postgres";
 
 COMMENT ON COLUMN "public"."message_push_config"."url" IS '推送地址';
 
