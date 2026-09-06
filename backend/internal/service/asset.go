@@ -43,11 +43,17 @@ func assetScope(claims *utils.UserClaims) (self string, scopes []string) {
 }
 
 // validateTree 确保 parent 属于同一租户作用域且不构成环。
+// 修复（审计 2026-09-05，D1）：原实现仅当"现存映射已成环"时才报错，从不检查
+// targetID 是否会因本次重挂进入 parentID 的祖先链——导致"把节点挂到自己的
+// 子孙下"被接受（200），产生互为父子的死环，且环上节点因互为子节点而无法再经
+// API 删除。正确语义：parentID 的祖先链中若已含 targetID（更新场景），本次写入
+// 必然成环，拒绝。局限：pm 仅由本租户节点构成（nodesToHierarchy 过滤）；跨租户
+// 父链场景由父节点存在性校验与创建期同租户绑定兜底，放开时需一并扩展节点来源。
 func validateAssetTree(self, parentID, targetID string, scopes []string) error {
 	if parentID == "" {
 		return nil
 	}
-	if parentID == targetID {
+	if targetID != "" && parentID == targetID {
 		return errcode.NewWithMessage(errcode.CodeParamError, "资产不能作为自身的父节点")
 	}
 	parent, err := dal.GetAsset(parentID, scopes)
@@ -63,8 +69,16 @@ func validateAssetTree(self, parentID, targetID string, scopes []string) error {
 	if err != nil {
 		return errcode.New(errcode.CodeDBError)
 	}
-	if _, err := hierarchy.Ancestors(parentID, pm); err != nil {
+	ancestors, ancErr := hierarchy.Ancestors(parentID, pm)
+	if ancErr != nil {
 		return errcode.NewWithMessage(errcode.CodeParamError, "资产层级存在环，拒绝写入")
+	}
+	if targetID != "" {
+		for _, ancestor := range ancestors {
+			if ancestor == targetID {
+				return errcode.NewWithMessage(errcode.CodeParamError, "资产层级存在环，拒绝写入")
+			}
+		}
 	}
 	return nil
 }

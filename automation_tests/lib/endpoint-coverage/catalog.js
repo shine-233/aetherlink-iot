@@ -207,6 +207,8 @@ const ALL_ENDPOINTS = [
   { method: 'GET',    path: '/api/v1/device/template/menu',                module: 'template',  auth: true },
   { method: 'GET',    path: '/api/v1/device/template/stats',               module: 'template',  auth: true },
   { method: 'GET',    path: '/api/v1/device/template/selector',            module: 'template',  auth: true },
+  { method: 'GET',    path: '/api/v1/device/template/export/:id',          module: 'template',  auth: true },
+  { method: 'POST',   path: '/api/v1/device/template/import',              module: 'template',  auth: true },
   { method: 'GET',    path: '/api/v1/device/template/chart',               module: 'template',  auth: true },
   { method: 'GET',    path: '/api/v1/device/template/chart/select',        module: 'template',  auth: true },
   { method: 'POST',   path: '/api/v1/device/template/market/login',        module: 'template',  auth: true },

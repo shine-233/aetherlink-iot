@@ -153,6 +153,10 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 		// 物模型选择器
 		deviceTemplateapi.GET("/selector", api.Controllers.DeviceApi.HandleDeviceTemplateSelector)
 
+		// 模板市场：导出/导入（ROADMAP 模板市场 MVP）
+		deviceTemplateapi.GET("export/:id", api.Controllers.DeviceApi.ExportDeviceTemplate)
+		deviceTemplateapi.POST("import", api.Controllers.DeviceApi.ImportDeviceTemplate)
+
 		// 根据设备ID获取模板
 		deviceTemplateapi.GET("/chart", api.Controllers.DeviceApi.HandleDeviceTemplateByDeviceId)
 

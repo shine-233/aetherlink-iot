@@ -127,7 +127,7 @@ describe('Playwright E2E metadata contract', function () {
 
   it('keeps the metadata facade lookup contract stable across ordered data parts', function () {
     const keys = Object.keys(TEST_METADATA);
-    expect(keys).to.have.length(61);
+    expect(keys).to.have.length(64);
     expect(new Set(keys).size).to.equal(keys.length);
     expect(keys[0]).to.equal('tests/00_coverage_contract.test.js');
     expect(keys[keys.length - 1]).to.equal('e2e/14_route_coverage_closure.spec.js');

@@ -195,11 +195,35 @@ classified-protect:
 # fail-fast（默认）阻断启动；warn 仅告警（存量库升级过渡）；off 关闭。
 # Per-tenant API rate limiting (429 + Retry-After when exceeded).
 # Default 600 requests/minute/tenant; set <=0 to disable. Env override: GOTP_API_RATE_LIMIT_RPM.
+# backend：memory（默认，进程内计数，单机部署）| redis（集群多实例共享配额；
+#   Redis 故障时 fail-open 放行并告警——限流是滥用防护，不放大故障）。
 api-rate-limit:
   requests-per-minute: 600
+  backend: memory
 
 casbin:
   route-audit-mode: fail-fast
+  # 未登记路由 fail-closed：true 时未登记进 casbin 资源表的路由一律 403（RBAC 激活态开关，
+  # 集群收紧期建议开启；默认 false 保持"登记即校验"的存量行为）。
+  deny-unregistered: false
+  # 集群多实例策略同步 watcher（ROADMAP C7+）：开启后任一实例的 p/g 变更经 Redis Pub/Sub
+  # 广播，其余实例即时重载策略（依赖 global Redis；单实例部署无需开启）。
+  # channel 省略时使用默认 aetherlink:casbin:policy-updates。
+  watcher:
+    enabled: false
+    channel: ""
+
+# SNMP/OPC UA 轮询采集器（ROADMAP C6 收尾：库级协议栈的管理侧接入）。
+# 设备发现口径：devices(is_enabled=enabled) ⨝ device_configs(protocol_type='SNMP'/'OPCUA')，
+# 点表存于 device_configs.protocol_config（JSON），详见 internal/collector 包注释。
+# interval 采集周期（下限 5s）；timeout 单目标采集预算。
+collectors:
+  snmp:
+    enabled: false
+  opcua:
+    enabled: false
+  interval: 60s
+  timeout: 3s
 
 # 会话设置
 session:
@@ -299,3 +323,25 @@ mqtt_session_revocations:
 plugin:
   service:
     key: ""
+
+# OIDC SSO 回调基址（可选）：配置后 authorize 的 redirect_uri 使用绝对地址，
+# 跨域外部 IdP（Keycloak 等）必需；留空保持相对路径（仅同域反代部署）。
+sso:
+  public-base-url: ""
+
+# 边缘网关遥测云转发（边缘计算 MVP，ROADMAP 边缘计算）：订阅上行总线，
+# 把已受理遥测/属性/事件经 MQTT 转发到上级云 broker。断连时内存缓冲
+# （buffer-limit 条，满丢最旧并计数），重连后按序重投。fail-open 不影响本地入库。
+edge:
+  forward:
+    enabled: false                # 默认关闭；边缘节点部署时开启
+    broker: "tcp://127.0.0.1:18883"  # 上级云 broker
+    topic-prefix: "aetherlink/edge"  # topic = {prefix}/{type}/{device_id}
+    client-id: "aetherlink-edge"
+    buffer-limit: 10000           # 断连缓冲上限（条）
+    qos: 1                        # 0 或 1
+    command-enabled: false        # 云端下行命令（边缘 RPC）：订阅命令 topic
+    command-topic: "aetherlink/edge/cmd/+"  # 命令 topic（支持通配符）
+    command-operator-id: "edge-relay"
+    provision-tenant-id: ""       # 实体下发目标租户（空则丢弃 aetherlink/template/import 命令）       # 命令审计操作人标识
+

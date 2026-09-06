@@ -188,10 +188,20 @@ func (*ServicePlugin) GetServiceSelect(req *model.GetServiceSelectReq, claims *u
 	}
 
 	resp := make(map[string]interface{})
+	// 基础协议列表：MQTT（原生接入）+ SNMP/OPC UA（内置轮询采集器，ROADMAP C6——
+	// 表单由 builtinCollectorConfigForm 提供，不经插件链路）。
 	protocolList := []map[string]interface{}{
 		{
 			"service_identifier": "MQTT",
 			"name":               "MQTT",
+		},
+		{
+			"service_identifier": builtinProtocolSNMP,
+			"name":               "SNMP",
+		},
+		{
+			"service_identifier": builtinProtocolOPCUA,
+			"name":               "OPC UA",
 		},
 	}
 	serviceList := make([]map[string]interface{}, 0)
@@ -283,6 +293,10 @@ func (p *ServicePlugin) GetProtocolPluginFormByProtocolType(protocolType string,
 	}
 	if protocolType == "MQTT" {
 		return nil, nil
+	}
+	// 内置采集器协议：平台内置表单（无插件 HTTP 表单源）。
+	if form := builtinCollectorConfigForm(protocolType); form != nil {
+		return form, nil
 	}
 	data, err := p.GetPluginForm(protocolType, deviceType, string(constant.CONFIG_FORM))
 	if err != nil {

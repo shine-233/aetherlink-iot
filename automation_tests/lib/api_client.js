@@ -50,12 +50,39 @@ const RATE_LIMIT_CODE = 201003;
 const RATE_LIMIT_BACKOFF_MS = 1200;
 const TOKEN_EXPIRED_CODE = 40102;
 
+// 每租户 HTTP 429 限流（middleware.TenantRateLimit，含 Retry-After 头）。
+// 与 201003 同口径：测试侧退避重试以容忍防护性限流，不构成绕过；
+// 最多重试 4 次（覆盖批处理用例的突发窗口），尊重 Retry-After（上限 5s），持续超限时如实失败。
+const HTTP_RATE_LIMIT_STATUS = 429;
+const HTTP_RATE_LIMIT_MAX_RETRIES = 4;
+const HTTP_RATE_LIMIT_BACKOFF_MS = 1500;
+const HTTP_RATE_LIMIT_BACKOFF_CAP_MS = 5000;
+
 // MQTT debug 会话创建（backend OpenCooldown 默认 2s，按 device+user scope 冷却）。
 // 套件连跑间隔过短时会命中重开冷却返回 201003，属防护性限流而非业务失败。
 const MQTT_DEBUG_SESSION_CREATE_PATH_RE = /^\/device\/[^/]+\/mqtt-debug\/session$/;
 
 function wait(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// 计算 429 退避时长：优先尊重 Retry-After（秒），上限受 HTTP_RATE_LIMIT_BACKOFF_CAP_MS 约束。
+function httpRateLimitBackoffMs(resp) {
+  const retryAfter = resp && resp.headers ? Number(resp.headers['retry-after']) : NaN;
+  if (Number.isFinite(retryAfter) && retryAfter >= 0) {
+    return Math.min(retryAfter * 1000, HTTP_RATE_LIMIT_BACKOFF_CAP_MS);
+  }
+  return HTTP_RATE_LIMIT_BACKOFF_MS;
+}
+
+// 判定响应是否为每租户 HTTP 429 限流（middleware.TenantRateLimit 返回 {code:429,...}）。
+function isHttpRateLimited(resp) {
+  return Boolean(
+    resp &&
+    resp.status === HTTP_RATE_LIMIT_STATUS &&
+    resp.data &&
+    Number(resp.data.code) === HTTP_RATE_LIMIT_STATUS
+  );
 }
 
 // 区分「业务码非 200 的主动抛出」与 axios 网络错误，避免被 catch 二次包装或误判重试。
@@ -198,6 +225,30 @@ class ApiClient {
   }
 
   /**
+   * 统一的可恢复错误处理：token 过期重登 → 每租户 429 限流退避重试 → 标准化错误对象。
+   * 429 容忍与 201003 同口径：仅退避重试（最多 HTTP_RATE_LIMIT_MAX_RETRIES 次），
+   * 尊重 Retry-After；持续超限时如实上抛错误，不构成对限流策略的绕过。
+   */
+  async handleRecoverableError(err, accountKey, options, retry) {
+    if (this.isExpiredTokenError(err) && !options.tokenExpiryRetried) {
+      return this.retryExpiredToken(err, accountKey, options, retry);
+    }
+    if (
+      err &&
+      err.response &&
+      err.response.status === HTTP_RATE_LIMIT_STATUS &&
+      (options.httpRateLimitRetries || 0) < HTTP_RATE_LIMIT_MAX_RETRIES
+    ) {
+      await wait(httpRateLimitBackoffMs(err.response));
+      return retry({
+        ...options,
+        httpRateLimitRetries: (options.httpRateLimitRetries || 0) + 1
+      });
+    }
+    return this.handleError(err);
+  }
+
+  /**
    * 通用 GET 请求
    * 请求失败时返回标准化错误对象（含 _requestError: true），不抛出异常
    * @param {string} url - 接口路径（相对 baseURL）
@@ -214,7 +265,7 @@ class ApiClient {
       return resp.data;
     } catch (err) {
       this.recordEndpointResponse('GET', url, err);
-      return this.retryExpiredToken(
+      return this.handleRecoverableError(
         err,
         accountKey,
         options,
@@ -251,7 +302,7 @@ class ApiClient {
       return resp.data;
     } catch (err) {
       this.recordEndpointResponse('POST', url, err);
-      return this.retryExpiredToken(
+      return this.handleRecoverableError(
         err,
         accountKey,
         options,
@@ -282,7 +333,7 @@ class ApiClient {
       return resp.data;
     } catch (err) {
       this.recordEndpointResponse('POST', url, err);
-      return this.retryExpiredToken(
+      return this.handleRecoverableError(
         err,
         accountKey,
         options,
@@ -308,7 +359,7 @@ class ApiClient {
       return resp.data;
     } catch (err) {
       this.recordEndpointResponse('PUT', url, err);
-      return this.retryExpiredToken(
+      return this.handleRecoverableError(
         err,
         accountKey,
         options,
@@ -326,7 +377,7 @@ class ApiClient {
       return resp.data;
     } catch (err) {
       this.recordEndpointResponse('PATCH', url, err);
-      return this.retryExpiredToken(
+      return this.handleRecoverableError(
         err,
         accountKey,
         options,
@@ -352,7 +403,7 @@ class ApiClient {
       return resp.data;
     } catch (err) {
       this.recordEndpointResponse('DELETE', url, err);
-      return this.retryExpiredToken(
+      return this.handleRecoverableError(
         err,
         accountKey,
         options,

@@ -260,6 +260,16 @@ module.exports = {
         ["visualization"],
       ),
       metadataCase(
+        "deletes a dedicated board and verifies it disappears from detail and list",
+        "business",
+        true,
+        true,
+        true,
+        true,
+        true,
+        ["visualization"],
+      ),
+      metadataCase(
         "rejects tenant overview for tenant_admin in the current local deployment",
         "business",
         true,

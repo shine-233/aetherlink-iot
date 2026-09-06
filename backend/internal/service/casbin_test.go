@@ -60,7 +60,7 @@ m = g(r.sub, p.sub) && r.obj == p.obj && r.act == p.act
 		panic("failed to build test casbin model: " + err.Error())
 	}
 
-	e, err := casbin.NewEnforcer(casbinModel)
+	e, err := casbin.NewSyncedEnforcer(casbinModel)
 	if err != nil {
 		panic("failed to create test casbin enforcer: " + err.Error())
 	}
@@ -324,7 +324,7 @@ m = g(r.sub, p.sub) && r.obj == p.obj && r.act == p.act
 `
 	casbinModel, err := model.NewModelFromString(modelStr)
 	require.NoError(t, err)
-	e, err := casbin.NewEnforcer(casbinModel)
+	e, err := casbin.NewSyncedEnforcer(casbinModel)
 	require.NoError(t, err)
 
 	oldEnforcer := global.CasbinEnforcer
@@ -359,7 +359,7 @@ m = g(r.sub, p.sub) && (g2(r.obj, p.obj) || urlPatternMatch(r.obj, p.obj)) && r.
 `
 	casbinModel, err := model.NewModelFromString(modelStr)
 	require.NoError(t, err)
-	e, err := casbin.NewEnforcer(casbinModel)
+	e, err := casbin.NewSyncedEnforcer(casbinModel)
 	require.NoError(t, err)
 	// casbin v2.135 的 AddFunction 无返回值（失败以其内部 panic 暴露）。
 	e.AddFunction("urlPatternMatch", utils.URLPatternCasbinFunction())

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 文件用途：用于验证Casbin 权限 API 自动化测试。
  * 核心逻辑：通过共享 API 客户端和测试数据访问目标接口，断言响应结构、错误分支或可观察状态。
  * 关键注意事项：接口命中不等同于业务正确；计入证据前需要确认断言覆盖真实状态和前置条件。
@@ -123,9 +123,11 @@ describe('权限/Casbin模块 [09_casbin]', function () {
   });
 
   describe('TC-CASBIN-005 查询用户角色', function () {
-    it('新建用户应返回空角色列表', async function () {
+    it('新建用户应自动绑定其 authority 对应的内置角色', async function () {
+      // RBAC 激活后的契约：新建用户按 authority 自动绑定内置角色；
+      // 夹具未显式指定 authority，后端默认 TENANT_USER，故角色列表恰为 ['TENANT_USER']。
       const roles = await getUserRoles(apiClient, user.id, accountKey);
-      expect(roles).to.satisfy(r => Array.isArray(r) && (r.length === 0 || (r.length === 1 && r[0] === 'TENANT_USER')));
+      expect(roles).to.deep.equal(['TENANT_USER']);
     });
   });
 

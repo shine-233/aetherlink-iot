@@ -68,6 +68,10 @@ func RedisInit() (*redis.Client, error) {
 	go global.InitSSEManager()
 	// 启动WebSocket管理器
 	go global.InitWSManager()
+	// Casbin 集群策略同步 watcher（casbin.watcher.enabled 门控；见 ROADMAP C7+）。
+	if err := attachCasbinWatcher(); err != nil {
+		return nil, fmt.Errorf("挂载 casbin watcher 失败: %w", err)
+	}
 	return client, nil
 }
 

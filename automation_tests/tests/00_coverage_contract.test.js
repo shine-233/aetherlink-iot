@@ -231,6 +231,38 @@ describe("Coverage harness contract [00_coverage_contract]", function () {
         hasNegativeStatusCase: true,
         titles: ["refreshes token and rejects protected endpoints without auth"],
       },
+      {
+        file: "tests/33_asset_management.test.js",
+        evidenceKind: "business",
+        businessClosureEvidence: true,
+        hasStatusBodyCase: true,
+        hasStatefulStatusBodyCase: true,
+        hasNegativeStatusCase: true,
+        titles: [
+          "creates a root asset, re-reads it, and finds it in list and tree",
+          "creates a child asset and proves hierarchy in list and tree",
+          "updates an owned asset and verifies persistence by re-read",
+          "stores valid meta JSON and rejects invalid meta JSON with a param error",
+          "blocks deletion of a parent with children, then deletes leaf-first to absence",
+          "filters asset list by keyword with response evidence",
+          "keeps asset tree tenant-isolated across tenant admins",
+        ],
+      },
+      {
+        file: "tests/34_totp_lifecycle.test.js",
+        evidenceKind: "business",
+        businessClosureEvidence: true,
+        hasStatusBodyCase: true,
+        hasStatefulStatusBodyCase: true,
+        hasNegativeStatusCase: true,
+        titles: [
+          "issues pending 2FA setup material with an otpauth provisioning uri",
+          "activates 2FA with a valid TOTP code, issues recovery codes, and reports enabled status",
+          "challenges the second factor at login and completes it with a valid code",
+          "rejects replaying a consumed TOTP code for a second second-factor login",
+          "disables 2FA with a valid code and restores plain password login",
+        ],
+      },
     ]);
     expect(
       permissionTenancy.e2eEvidence
@@ -337,6 +369,7 @@ describe("Coverage harness contract [00_coverage_contract]", function () {
           "returns the tenant board list with list and total fields",
           "creates a tenant board with the current local payload shape",
           "updates the created board",
+          "deletes a dedicated board and verifies it disappears from detail and list",
           "rejects tenant overview for tenant_admin in the current local deployment",
         ],
       },
@@ -426,6 +459,18 @@ describe("Coverage harness contract [00_coverage_contract]", function () {
           "creates a UI element and verifies it appears in the list",
           "rejects updates for a non-existent UI element id",
           "re-saves the current logo payload without changing values",
+        ],
+      },
+      {
+        file: "tests/35_entity_version.test.js",
+        evidenceKind: "business",
+        businessClosureEvidence: true,
+        hasStatusBodyCase: true,
+        hasStatefulStatusBodyCase: true,
+        hasNegativeStatusCase: false,
+        titles: [
+          "snapshots a board, lists the version history, and reads the snapshot detail",
+          "restores an earlier snapshot after a mutation and verifies the reversion",
         ],
       },
     ]);
@@ -922,6 +967,7 @@ describe("Coverage harness contract [00_coverage_contract]", function () {
       "returns the tenant board list with list and total fields",
       "creates a tenant board with the current local payload shape",
       "updates the created board",
+      "deletes a dedicated board and verifies it disappears from detail and list",
       "rejects tenant overview for tenant_admin in the current local deployment",
     ]);
     expect(

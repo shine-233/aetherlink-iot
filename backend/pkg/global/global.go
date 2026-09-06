@@ -15,12 +15,15 @@ import (
 
 var (
 	VERSION        = "0.0.23"
-	VERSION_NUMBER = 64
+	VERSION_NUMBER = 66
 	SYSTEM_VERSION = "v1.2.3"
 	DB             *gorm.DB
 	REDIS          *redis.Client
 	STATUS_REDIS   *redis.Client
-	CasbinEnforcer *casbin.Enforcer
+	// CasbinEnforcer 切换为 SyncedEnforcer（2026-09-04，ROADMAP C7+ watcher 配套）：
+	// watcher 跨实例通知触发的 LoadPolicy 与 HTTP 并发 Enforce 共存需锁保护；
+	// 同时消除既有"手工 LoadPolicy vs 并发 Enforce"的无锁竞态。
+	CasbinEnforcer *casbin.SyncedEnforcer
 	// TenantTree is the process-wide lazy tenant hierarchy cache.
 	TenantTree      *tenantree.Tree
 	OtaAddress      string

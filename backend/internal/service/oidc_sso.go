@@ -19,6 +19,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-basic/uuid"
+	"github.com/spf13/viper"
 	"gorm.io/gorm"
 )
 
@@ -211,10 +212,19 @@ func ssoErrorQuery(kind string) string {
 	return "?sso_error=" + url.QueryEscape(kind)
 }
 
-// ssoCallbackURL 回调地址由外部反向代理决定域名，此处返回平台内相对回调路径；
-// IdP 侧 redirect_uri 需与部署时完整地址保持一致（见部署文档/README 配置示例）。
+// ssoCallbackURL 构造 SSO 回调地址。
+// 配置 sso.public-base-url（平台对外可达基址，如 https://iot.example.com）时返回
+// 绝对地址——OIDC 规范要求 authorize 的 redirect_uri 为绝对 URL，且须与 IdP 侧
+// 客户端注册精确匹配（2026-09-05 Keycloak 互通 E2E 发现：相对路径会被标准 IdP
+// 以 "Invalid parameter: redirect_uri" 拒绝）。未配置时保持历史相对路径行为
+// （仅同域反向代理部署可用）。
 func ssoCallbackURL(providerID string) string {
-	return "/api/v1/sso/" + providerID + "/callback"
+	path := "/api/v1/sso/" + providerID + "/callback"
+	base := strings.TrimSpace(viper.GetString("sso.public-base-url"))
+	if base == "" {
+		return path
+	}
+	return strings.TrimSuffix(base, "/") + path
 }
 
 // HandleSSO 路由处理器：区分 start / callback，动态装配 provider 中间件。

@@ -239,6 +239,7 @@ function expectSupportBundleFailedDeviceDiagnostics(data) {
       "retryable_dispatch_failure",
       "blocked_before_dispatch",
       "canceled_before_terminal_result",
+      "cancel_in_flight",
       "missing_platform_log",
       "needs_row_review",
     ]);

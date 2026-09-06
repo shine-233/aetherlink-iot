@@ -508,4 +508,298 @@ module.exports = {
       },
     ],
   },
+  "tests/33_asset_management.test.js": {
+    file: "tests/33_asset_management.test.js",
+    type: "api",
+    evidenceKind: "business",
+    fileFlags: {
+      runtimeEvidenceRequired: true,
+    },
+    cases: [
+      {
+        title:
+          "creates a root asset, re-reads it, and finds it in list and tree",
+        evidenceKind: "business",
+        businessClosureEvidence: true,
+        hasExactStatusAssertion: true,
+        hasBodyAssertion: true,
+        hasMutationOrSeedAction: true,
+        hasNegativeAssertion: false,
+        capabilityIds: ["permission-tenancy"],
+      },
+      {
+        title:
+          "creates a child asset and proves hierarchy in list and tree",
+        evidenceKind: "business",
+        businessClosureEvidence: true,
+        hasExactStatusAssertion: true,
+        hasBodyAssertion: true,
+        hasMutationOrSeedAction: true,
+        hasNegativeAssertion: false,
+        capabilityIds: ["permission-tenancy"],
+      },
+      {
+        title:
+          "updates an owned asset and verifies persistence by re-read",
+        evidenceKind: "business",
+        businessClosureEvidence: true,
+        hasExactStatusAssertion: true,
+        hasBodyAssertion: true,
+        hasMutationOrSeedAction: true,
+        hasNegativeAssertion: false,
+        capabilityIds: ["permission-tenancy"],
+      },
+      {
+        title:
+          "stores valid meta JSON and rejects invalid meta JSON with a param error",
+        evidenceKind: "business",
+        businessClosureEvidence: true,
+        hasExactStatusAssertion: true,
+        hasBodyAssertion: true,
+        hasMutationOrSeedAction: true,
+        hasNegativeAssertion: true,
+        capabilityIds: ["permission-tenancy"],
+      },
+      {
+        title:
+          "blocks deletion of a parent with children, then deletes leaf-first to absence",
+        evidenceKind: "business",
+        businessClosureEvidence: true,
+        hasExactStatusAssertion: true,
+        hasBodyAssertion: true,
+        hasMutationOrSeedAction: true,
+        hasNegativeAssertion: true,
+        capabilityIds: ["permission-tenancy"],
+      },
+      {
+        title:
+          "filters asset list by keyword with response evidence",
+        evidenceKind: "business",
+        businessClosureEvidence: true,
+        hasExactStatusAssertion: true,
+        hasBodyAssertion: true,
+        hasMutationOrSeedAction: true,
+        hasNegativeAssertion: false,
+        capabilityIds: ["permission-tenancy"],
+      },
+      {
+        title:
+          "keeps asset tree tenant-isolated across tenant admins",
+        evidenceKind: "business",
+        businessClosureEvidence: true,
+        hasExactStatusAssertion: true,
+        hasBodyAssertion: true,
+        hasMutationOrSeedAction: true,
+        hasNegativeAssertion: true,
+        capabilityIds: ["permission-tenancy"],
+      },
+      {
+        title:
+          "rejects asset name omission with a required-field error",
+        evidenceKind: "boundary",
+        businessClosureEvidence: false,
+        hasExactStatusAssertion: true,
+        hasBodyAssertion: true,
+        hasMutationOrSeedAction: true,
+        hasNegativeAssertion: true,
+        capabilityIds: ["permission-tenancy"],
+      },
+      {
+        title:
+          "rejects creating an asset under a non-existent parent with a product error",
+        evidenceKind: "boundary",
+        businessClosureEvidence: false,
+        hasExactStatusAssertion: true,
+        hasBodyAssertion: true,
+        hasMutationOrSeedAction: true,
+        hasNegativeAssertion: true,
+        capabilityIds: ["permission-tenancy"],
+      },
+      {
+        title:
+          "rejects self-parent and cycle updates with explicit product errors",
+        evidenceKind: "boundary",
+        businessClosureEvidence: false,
+        hasExactStatusAssertion: true,
+        hasBodyAssertion: true,
+        hasMutationOrSeedAction: true,
+        hasNegativeAssertion: true,
+        capabilityIds: ["permission-tenancy"],
+      },
+      {
+        title:
+          "rejects platform-level (no-tenant) asset creation for super admin",
+        evidenceKind: "boundary",
+        businessClosureEvidence: false,
+        hasExactStatusAssertion: true,
+        hasBodyAssertion: true,
+        hasMutationOrSeedAction: true,
+        hasNegativeAssertion: true,
+        capabilityIds: ["permission-tenancy"],
+      },
+      {
+        title:
+          "rejects reads and deletes for non-existent asset ids",
+        evidenceKind: "boundary",
+        businessClosureEvidence: false,
+        hasExactStatusAssertion: true,
+        hasBodyAssertion: true,
+        hasMutationOrSeedAction: true,
+        hasNegativeAssertion: true,
+        capabilityIds: ["permission-tenancy"],
+      },
+    ],
+  },
+  "tests/34_totp_lifecycle.test.js": {
+    file: "tests/34_totp_lifecycle.test.js",
+    type: "api",
+    evidenceKind: "business",
+    fileFlags: {
+      runtimeEvidenceRequired: true,
+    },
+    cases: [
+      {
+        title:
+          "issues pending 2FA setup material with an otpauth provisioning uri",
+        evidenceKind: "business",
+        businessClosureEvidence: true,
+        hasExactStatusAssertion: true,
+        hasBodyAssertion: true,
+        hasMutationOrSeedAction: false,
+        hasNegativeAssertion: false,
+        capabilityIds: ["permission-tenancy"],
+      },
+      {
+        title:
+          "rejects activation with an invalid code before enabling 2FA",
+        evidenceKind: "boundary",
+        businessClosureEvidence: false,
+        hasExactStatusAssertion: true,
+        hasBodyAssertion: true,
+        hasMutationOrSeedAction: true,
+        hasNegativeAssertion: true,
+        capabilityIds: ["permission-tenancy"],
+      },
+      {
+        title:
+          "activates 2FA with a valid TOTP code, issues recovery codes, and reports enabled status",
+        evidenceKind: "business",
+        businessClosureEvidence: true,
+        hasExactStatusAssertion: true,
+        hasBodyAssertion: true,
+        hasMutationOrSeedAction: true,
+        hasNegativeAssertion: false,
+        capabilityIds: ["permission-tenancy"],
+      },
+      {
+        title:
+          "rejects duplicate setup while 2FA is enabled",
+        evidenceKind: "boundary",
+        businessClosureEvidence: false,
+        hasExactStatusAssertion: true,
+        hasBodyAssertion: true,
+        hasMutationOrSeedAction: false,
+        hasNegativeAssertion: true,
+        capabilityIds: ["permission-tenancy"],
+      },
+      {
+        title:
+          "challenges the second factor at login and completes it with a valid code",
+        evidenceKind: "business",
+        businessClosureEvidence: true,
+        hasExactStatusAssertion: true,
+        hasBodyAssertion: true,
+        hasMutationOrSeedAction: true,
+        hasNegativeAssertion: true,
+        capabilityIds: ["permission-tenancy"],
+      },
+      {
+        title:
+          "rejects replaying a consumed TOTP code for a second second-factor login",
+        evidenceKind: "business",
+        businessClosureEvidence: true,
+        hasExactStatusAssertion: true,
+        hasBodyAssertion: true,
+        hasMutationOrSeedAction: true,
+        hasNegativeAssertion: true,
+        capabilityIds: ["permission-tenancy"],
+      },
+      {
+        title:
+          "disables 2FA with a valid code and restores plain password login",
+        evidenceKind: "business",
+        businessClosureEvidence: true,
+        hasExactStatusAssertion: true,
+        hasBodyAssertion: true,
+        hasMutationOrSeedAction: true,
+        hasNegativeAssertion: false,
+        capabilityIds: ["permission-tenancy"],
+      },
+    ],
+  },
+  "tests/35_entity_version.test.js": {
+    file: "tests/35_entity_version.test.js",
+    type: "api",
+    evidenceKind: "business",
+    fileFlags: {
+      runtimeEvidenceRequired: true,
+    },
+    cases: [
+      {
+        title:
+          "snapshots a board, lists the version history, and reads the snapshot detail",
+        evidenceKind: "business",
+        businessClosureEvidence: true,
+        hasExactStatusAssertion: true,
+        hasBodyAssertion: true,
+        hasMutationOrSeedAction: true,
+        hasNegativeAssertion: false,
+        capabilityIds: ["system-deployment"],
+      },
+      {
+        title:
+          "restores an earlier snapshot after a mutation and verifies the reversion",
+        evidenceKind: "business",
+        businessClosureEvidence: true,
+        hasExactStatusAssertion: true,
+        hasBodyAssertion: true,
+        hasMutationOrSeedAction: true,
+        hasNegativeAssertion: false,
+        capabilityIds: ["system-deployment"],
+      },
+      {
+        title:
+          "rejects unsupported entity types with the whitelist message",
+        evidenceKind: "boundary",
+        businessClosureEvidence: false,
+        hasExactStatusAssertion: true,
+        hasBodyAssertion: true,
+        hasMutationOrSeedAction: true,
+        hasNegativeAssertion: true,
+        capabilityIds: ["system-deployment"],
+      },
+      {
+        title:
+          "rejects reads and restores for non-existent version ids",
+        evidenceKind: "boundary",
+        businessClosureEvidence: false,
+        hasExactStatusAssertion: true,
+        hasBodyAssertion: true,
+        hasMutationOrSeedAction: true,
+        hasNegativeAssertion: true,
+        capabilityIds: ["system-deployment"],
+      },
+      {
+        title:
+          "refuses to restore a snapshot whose target entity no longer exists",
+        evidenceKind: "boundary",
+        businessClosureEvidence: false,
+        hasExactStatusAssertion: true,
+        hasBodyAssertion: true,
+        hasMutationOrSeedAction: true,
+        hasNegativeAssertion: true,
+        capabilityIds: ["system-deployment"],
+      },
+    ],
+  },
 };

@@ -174,6 +174,12 @@ describe('Data query API module [03_data]', function () {
     expect(resp.data.fileType).to.equal('csv');
     expect(resp.data.fileName).to.be.a('string').and.include('.csv');
     expect(resp.data.filePath).to.be.a('string').and.include('files/excel/');
+
+    // 真实下载验证：导出产物必须可通过 /files 静态通道取回且非空。
+    const fileResp = await apiClient.getRootNoAuth('/' + String(resp.data.filePath).replace(/^\/+/, ''));
+    expect(fileResp.httpStatus, 'exported csv must be downloadable').to.equal(200);
+    const csvText = String(fileResp.data);
+    expect(csvText.length).to.be.greaterThan(0);
   });
 
   it('creates an Excel export task for recent RDI history', async function () {
@@ -193,6 +199,12 @@ describe('Data query API module [03_data]', function () {
     expect(resp.data.fileType).to.equal('excel');
     expect(resp.data.fileName).to.be.a('string').and.include('.xlsx');
     expect(resp.data.filePath).to.be.a('string').and.include('files/excel/');
+
+    // 真实下载验证：xlsx 是 zip 容器，产物必须可取回、非空且带 PK 魔数。
+    const fileResp = await apiClient.getRootNoAuth('/' + String(resp.data.filePath).replace(/^\/+/, ''));
+    expect(fileResp.httpStatus, 'exported xlsx must be downloadable').to.equal(200);
+    expect(String(fileResp.data).length).to.be.greaterThan(0);
+    expect(String(fileResp.data).substring(0, 2), 'xlsx must start with the zip PK magic').to.equal('PK');
   });
 
   it('returns statistic points for the selected telemetry key', async function () {

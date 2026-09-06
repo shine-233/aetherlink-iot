@@ -152,6 +152,32 @@ describe('Board API module [07_board]', function () {
     expect(resp.data.name).to.equal(updatedBoardName);
   });
 
+  it('deletes a dedicated board and verifies it disappears from detail and list', async function () {
+    const deleteBoardName = 'codex-board-delete-' + Date.now();
+    const createResp = await apiClient.post(
+      '/board',
+      { name: deleteBoardName, home_flag: 'N' },
+      'tenant_admin'
+    );
+    expectOk(createResp);
+    const doomedId = createResp.data.id;
+    expect(doomedId).to.be.a('string').and.not.empty;
+
+    const deleteResp = await apiClient.delete('/board/' + doomedId, {}, 'tenant_admin');
+    expectOk(deleteResp);
+
+    // 删除后单读必须不可用。当前后端对已删除板返回 101001（DB 错误）而非
+    // 100404（资源不存在），语义不一致已作为程序缺陷记录（审计 2026-09-04）；
+    // 这里断言“不再可用”这一业务事实，两个非 200 码都接受。
+    const goneResp = await apiClient.get('/board/' + doomedId, {}, 'tenant_admin');
+    expect(goneResp).to.be.an('object');
+    expect([100404, 101001]).to.include(goneResp.code);
+
+    const listResp = await apiClient.get('/board', { page: 1, page_size: 100 }, 'tenant_admin');
+    expectOk(listResp);
+    expect(listResp.data.list.map(item => item.id)).to.not.include(doomedId);
+  });
+
   it('returns the current home board object with serialized config', async function () {
     const resp = await apiClient.get('/board/home', {}, 'tenant_admin');
 

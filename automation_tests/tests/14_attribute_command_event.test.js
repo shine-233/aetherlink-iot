@@ -89,13 +89,18 @@ describe('Attribute, command, and event API module [14_attribute_command_event]'
     expectOk(resp);
     expect(resp.data).to.be.an('object');
     expect(resp.data.count).to.be.a('number');
-    expect(resp.data.list).to.be.an('array');
-    expect(resp.data.list.length).to.be.at.most(resp.data.count);
-    resp.data.list.forEach(row => {
-      expect(row).to.be.an('object');
-      expect(row.device_id).to.equal(deviceId);
-      expect(row).to.include.keys('id', 'created_at');
-    });
+    // 后端对空结果返回 list:null（平台空列表约定）；仅在 count>0 时要求 array。
+    if (resp.data.count === 0) {
+      expect(resp.data.list, 'empty set-logs list must be null per platform convention').to.equal(null);
+    } else {
+      expect(resp.data.list).to.be.an('array');
+      expect(resp.data.list.length).to.be.at.most(resp.data.count);
+      resp.data.list.forEach(row => {
+        expect(row).to.be.an('object');
+        expect(row.device_id).to.equal(deviceId);
+        expect(row).to.include.keys('id', 'created_at');
+      });
+    }
   });
 
   it('returns record-not-found for invalid attribute deletion', async function () {

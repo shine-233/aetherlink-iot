@@ -219,6 +219,34 @@ func BuildSetRequest(community string, requestID int32, binds []VarBind) ([]byte
 			append(buildTLV(0x04, []byte(community)), pdu...)...)), nil
 }
 
+// BuildGetResponse 构建 SNMPv2c GetResponse 报文（测试内嵌 agent / 中继场景复用）。
+// errorStatus 非 0 时按 errorIndex 报告，varbinds 仍按原样携带。
+func BuildGetResponse(community string, requestID int32, errorStatus, errorIndex int, binds []VarBind) ([]byte, error) {
+	community = sanitizeCommunity(community)
+	if len(binds) == 0 {
+		return nil, fmt.Errorf("snmp: GetResponse 至少一条 varbind")
+	}
+	reqID := buildTLV(0x02, berIntBytes(int64(requestID)))
+	items := []byte{}
+	for _, b := range binds {
+		oidBytes, err := EncodeOID(b.OID)
+		if err != nil {
+			return nil, err
+		}
+		valBytes := buildTLV(b.Value.Type, b.Value.Raw)
+		items = append(items, buildTLV(0x30, append(oidBytes, valBytes...))...)
+	}
+	varbinds := buildTLV(0x30, items)
+	pdu := buildTLV(pduGetResponse,
+		append(reqID,
+			append(buildTLV(0x02, berIntBytes(int64(errorStatus))),
+				append(buildTLV(0x02, berIntBytes(int64(errorIndex))),
+					varbinds...)...)...))
+	return buildTLV(0x30,
+		append(buildTLV(0x02, []byte{1}),
+			append(buildTLV(0x04, []byte(community)), pdu...)...)), nil
+}
+
 func sanitizeCommunity(s string) string {
 	if len(s) > 64 {
 		return s[:64]

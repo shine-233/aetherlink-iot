@@ -47,7 +47,7 @@ m = g(r.sub, p.sub) && (g2(r.obj, p.obj) || urlPatternMatch(r.obj, p.obj)) && r.
 		t.Fatalf("build test casbin model: %v", err)
 	}
 
-	enforcer, err := casbin.NewEnforcer(casbinModel)
+	enforcer, err := casbin.NewSyncedEnforcer(casbinModel)
 	if err != nil {
 		t.Fatalf("create test casbin enforcer: %v", err)
 	}

@@ -35,6 +35,21 @@ describe('Telemetry extra API module [12_telemetry_extra]', function () {
     seededDevice = await seedData.ensureDevice('tenant_admin');
     deviceId = seededDevice.id;
     expect(deviceId).to.be.a('string').and.not.equal('');
+
+    // 模拟端点要求设备具备凭证（voucher）。ensureDevice 的"第一行"回退可能选中
+    // 经无凭证路径创建的设备（如 C6 Sensor 001，init 返回 100404），此时回退到
+    // 经激活路径创建、凭证完备的 RDI 种子设备，保证模拟链路可测。
+    const initProbe = await apiClient.get(
+      '/telemetry/datas/simulation/init',
+      { device_id: deviceId },
+      'tenant_admin'
+    );
+    if (initProbe.code === 100404) {
+      const rdiSeed = await seedData.ensureRdiDevice('tenant_admin');
+      expect(rdiSeed.id, 'RDI fallback seed device id').to.be.a('string').and.not.equal('');
+      seededDevice = rdiSeed;
+      deviceId = rdiSeed.id;
+    }
   });
 
   after(async function () {
