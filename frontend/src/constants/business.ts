@@ -175,7 +175,25 @@ export const notificationOptions = [
   {
     label: 'webhook',
     value: 'WEBHOOK'
+  },
+  // PHASE-D-D2 BEGIN 新增 IM 通知渠道
+  {
+    label: $t('generate.notice-dingtalk'),
+    value: 'DINGTALK'
+  },
+  {
+    label: $t('generate.notice-wecom'),
+    value: 'WECOM'
+  },
+  {
+    label: $t('generate.notice-feishu'),
+    value: 'FEISHU'
+  },
+  {
+    label: $t('generate.notice-telegram'),
+    value: 'TELEGRAM'
   }
+  // PHASE-D-D2 END
 ]
 
 export const enumDataType: Record<'Number' | 'String' | 'Boolean', string> = {

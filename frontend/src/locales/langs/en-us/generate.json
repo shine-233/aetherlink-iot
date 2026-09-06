@@ -668,5 +668,14 @@
   "generate.dataType": "Data type",
   "generate.default": "Default",
   "generate.metricsSelection": "Metric selection",
-  "generate.dataTypeSelection": "Data type selection"
+  "generate.dataTypeSelection": "Data type selection",
+  "generate.notice-dingtalk": "DingTalk Bot",
+  "generate.notice-wecom": "WeCom Bot",
+  "generate.notice-feishu": "Feishu Bot",
+  "generate.notice-telegram": "Telegram Bot",
+  "generate.im-webhook": "Webhook URL",
+  "generate.im-sign-secret": "Sign Secret (optional)",
+  "generate.im-sign-hint": "For DingTalk/Feishu, a non-empty secret enables request signing",
+  "generate.im-bot-token": "Bot Token",
+  "generate.im-chat-id": "Chat ID"
 }
