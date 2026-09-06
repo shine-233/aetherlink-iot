@@ -650,5 +650,12 @@
   "page.manage.notification.shortMessage.form.endpoint": "Endpoint",
   "page.manage.notification.shortMessage.form.signName": "Sign name",
   "page.manage.notification.shortMessage.form.templateCode": "Template code",
-  "page.product.update-ota.diagnoseFirstFailure": "Diagnose first failed device"
+  "page.product.update-ota.diagnoseFirstFailure": "Diagnose first failed device",
+  "page.marketBrowse.title": "Template Market",
+  "page.marketBrowse.import": "Import Template",
+  "page.marketBrowse.downloadBundle": "Download Bundle",
+  "page.marketBrowse.allTypes": "All",
+  "page.marketBrowse.uncategorized": "Uncategorized",
+  "page.marketBrowse.empty": "No templates in this category",
+  "page.marketBrowse.downloadStarted": "Bundle download started"
 }

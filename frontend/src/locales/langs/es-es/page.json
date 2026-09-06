@@ -650,5 +650,12 @@
   "page.manage.notification.shortMessage.form.signName": "Nombre de firma",
   "page.manage.notification.shortMessage.form.templateCode": "Código de plantilla",
   "page.thingsvis.retry": "Reintentar",
-  "page.product.update-ota.diagnoseFirstFailure": "Diagnosticar el primer dispositivo con fallo"
+  "page.product.update-ota.diagnoseFirstFailure": "Diagnosticar el primer dispositivo con fallo",
+  "page.marketBrowse.title": "Mercado de plantillas",
+  "page.marketBrowse.import": "Importar",
+  "page.marketBrowse.downloadBundle": "Descargar paquete",
+  "page.marketBrowse.allTypes": "Todas",
+  "page.marketBrowse.uncategorized": "Sin categoría",
+  "page.marketBrowse.empty": "Sin plantillas",
+  "page.marketBrowse.downloadStarted": "Descarga iniciada"
 }

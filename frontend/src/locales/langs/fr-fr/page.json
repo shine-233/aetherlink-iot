@@ -650,5 +650,12 @@
   "page.manage.notification.shortMessage.form.signName": "Nom de signature",
   "page.manage.notification.shortMessage.form.templateCode": "Code de modèle",
   "page.thingsvis.retry": "Réessayer",
-  "page.product.update-ota.diagnoseFirstFailure": "Diagnostiquer le premier appareil en échec"
+  "page.product.update-ota.diagnoseFirstFailure": "Diagnostiquer le premier appareil en échec",
+  "page.marketBrowse.title": "Marché de modèles",
+  "page.marketBrowse.import": "Importer",
+  "page.marketBrowse.downloadBundle": "Télécharger le paquet",
+  "page.marketBrowse.allTypes": "Tous",
+  "page.marketBrowse.uncategorized": "Non classé",
+  "page.marketBrowse.empty": "Aucun modèle",
+  "page.marketBrowse.downloadStarted": "Téléchargement lancé"
 }
