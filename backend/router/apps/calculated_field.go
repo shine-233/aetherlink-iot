@@ -23,5 +23,11 @@ func (*CalculatedField) InitCalculatedField(Router *gin.RouterGroup) {
 		url.DELETE(":id", api.Controllers.CalculatedFieldApi.HandleDeleteCalculatedField)
 		url.PUT(":id/toggle", api.Controllers.CalculatedFieldApi.HandleToggleCalculatedField)
 		url.GET(":id", api.Controllers.CalculatedFieldApi.HandleGetCalculatedField)
+
+		// PHASE-D-D4 BEGIN 历史重算任务
+		url.POST("recompute", api.Controllers.CalculatedFieldApi.HandleCreateCalcfieldRecomputeTask)
+		url.GET("recompute", api.Controllers.CalculatedFieldApi.HandleListCalcfieldRecomputeTasks)
+		url.GET("recompute/:id", api.Controllers.CalculatedFieldApi.HandleGetCalcfieldRecomputeTask)
+		// PHASE-D-D4 END
 	}
 }

@@ -4,6 +4,8 @@
 // 重构建议：若后续增加单位、标签等派生元数据列，先补 5x.sql 迁移再同步本文件与前端类型。
 package model
 
+import "encoding/json"
+
 import "time"
 
 const TableNameCalculatedField = "calculated_fields"
@@ -16,6 +18,10 @@ type CalculatedField struct {
 	DeviceTemplateID string    `gorm:"column:device_template_id;not null" json:"device_template_id"`
 	OutputKey        string    `gorm:"column:output_key;not null" json:"output_key"`
 	Expression       string    `gorm:"column:expression;not null" json:"expression"`
+	// PHASE-D-D4 BEGIN 高级类型扩展
+	Type   string          `gorm:"column:type;not null;default:simple;comment:simple/timeseries_agg/related_agg/geofence/propagation" json:"type"` // 字段类型
+	Config json.RawMessage `gorm:"column:config;type:jsonb" json:"config"`                                                          // 类型配置(简单表达式为空)
+	// PHASE-D-D4 END
 	Enabled          bool      `gorm:"column:enabled" json:"enabled"`
 	Remark           *string   `gorm:"column:remark" json:"remark"`
 	CreatedAt        time.Time `gorm:"column:created_at" json:"created_at"`
@@ -27,12 +33,15 @@ func (*CalculatedField) TableName() string { return TableNameCalculatedField }
 
 // CalculatedFieldCreateReq 创建计算字段请求。
 type CalculatedFieldCreateReq struct {
-	Name             string  `json:"name" validate:"required,max=128"`
-	DeviceTemplateID string  `json:"device_template_id" validate:"required,max=36"`
-	OutputKey        string  `json:"output_key" validate:"required,max=128"`
-	Expression       string  `json:"expression" validate:"required,max=2000"`
-	Enabled          *bool   `json:"enabled" validate:"omitempty"`
-	Remark           *string `json:"remark" validate:"omitempty,max=500"`
+	Name             string          `json:"name" validate:"required,max=128"`
+	DeviceTemplateID string          `json:"device_template_id" validate:"required,max=36"`
+	OutputKey        string          `json:"output_key" validate:"required,max=128"`
+	Expression       string          `json:"expression" validate:"max=2000"`
+	Enabled          *bool           `json:"enabled" validate:"omitempty"`
+	Remark           *string         `json:"remark" validate:"omitempty,max=500"`
+	// PHASE-D-D4:高级类型(type 缺省=simple;simple 时 expression 必填,其余走 config)
+	Type   string          `json:"type" validate:"omitempty,max=32"`
+	Config json.RawMessage `json:"config" validate:"omitempty"`
 }
 
 // CalculatedFieldUpdateReq 更新计算字段请求；ID 由 handler 从路径参数注入。

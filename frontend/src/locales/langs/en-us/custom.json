@@ -2308,5 +2308,13 @@
   "custom.rule_chain.refresh": "Refresh",
   "custom.rule_chain.noTraces": "No traces yet (enable rule-chain.trace-enabled)",
   "custom.rule_chain.tracePass": "Pass",
-  "custom.rule_chain.traceFail": "Fail"
+  "custom.rule_chain.traceFail": "Fail",
+  "custom.management.calcField.typeLabel": "Field Type",
+  "custom.management.calcField.typeSimple": "Simple Expression",
+  "custom.management.calcField.typeTimeseries": "Time Series Aggregation",
+  "custom.management.calcField.typeRelatedAgg": "Related Entities Aggregation",
+  "custom.management.calcField.typeGeofence": "Geofencing",
+  "custom.management.calcField.typePropagation": "Propagation",
+  "custom.management.calcField.configLabel": "Advanced Config (JSON)",
+  "custom.management.calcField.configInvalid": "Config must be valid JSON"
 }

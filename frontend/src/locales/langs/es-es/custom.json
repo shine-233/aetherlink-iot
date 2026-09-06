@@ -2308,5 +2308,13 @@
   "custom.rule_chain.refresh": "Actualizar",
   "custom.rule_chain.noTraces": "Sin registros (activar rule-chain.trace-enabled)",
   "custom.rule_chain.tracePass": "OK",
-  "custom.rule_chain.traceFail": "Fallo"
+  "custom.rule_chain.traceFail": "Fallo",
+  "custom.management.calcField.typeLabel": "Tipo de campo",
+  "custom.management.calcField.typeSimple": "Expresión simple",
+  "custom.management.calcField.typeTimeseries": "Agregación temporal",
+  "custom.management.calcField.typeRelatedAgg": "Agregación de entidades",
+  "custom.management.calcField.typeGeofence": "Geocerca",
+  "custom.management.calcField.typePropagation": "Propagación",
+  "custom.management.calcField.configLabel": "Config avanzada (JSON)",
+  "custom.management.calcField.configInvalid": "JSON inválido"
 }
