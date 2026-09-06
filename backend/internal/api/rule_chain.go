@@ -4,6 +4,7 @@ package api
 
 import (
 	"io"
+	"strconv"
 
 	"aetherlink-iot/backend/internal/service"
 	"aetherlink-iot/backend/pkg/errcode"
@@ -110,4 +111,26 @@ func (*RuleChainApi) HandleListRuleChains(c *gin.Context) {
 		return
 	}
 	c.Set("data", resp)
+}
+
+// HandleGetRuleChainNodeTraces 节点最近调试 trace（PHASE-D-D1）。
+// GET /api/v1/rule-chains/:id/nodes/:nodeId/traces?limit=10
+func (*RuleChainApi) HandleGetRuleChainNodeTraces(c *gin.Context) {
+	chainID := c.Param("id")
+	nodeID := c.Param("nodeId")
+	if chainID == "" || nodeID == "" {
+		c.Error(errcode.NewWithMessage(errcode.CodeParamError, "id and nodeId are required"))
+		return
+	}
+	limit, err := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if err != nil {
+		limit = 0
+	}
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	traces, svcErr := service.GroupApp.RuleChain.GetNodeTraces(chainID, nodeID, limit, userClaims)
+	if svcErr != nil {
+		c.Error(svcErr)
+		return
+	}
+	c.Set("data", traces)
 }

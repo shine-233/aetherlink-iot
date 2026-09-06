@@ -28,20 +28,22 @@ const (
 )
 
 // RuleChainNodeTypeMeta 内置节点类型注册表（前端画布与后端校验共用语义）。
-var RuleChainNodeTypeMeta = map[string]string{
-	RuleChainTriggerTelemetry: "trigger",
-	RuleChainTriggerOnline:    "trigger",
-	RuleChainFilterThreshold:  "filter",
-	RuleChainTransformMapping: "transform",
-	RuleChainActionWebhook:    "action",
-	RuleChainActionCommand:    "action",
-	RuleChainActionAlarm:      "action",
-}
+// PHASE-D-D1：类型清单收敛到 ruleChainNodeSpecs 单一来源（rule_chain_nodes.go），此处仅保留兼容视图。
+var RuleChainNodeTypeMeta = func() map[string]string {
+	m := make(map[string]string, len(ruleChainNodeSpecs))
+	for _, spec := range ruleChainNodeSpecs {
+		m[spec.Type] = spec.Kind
+	}
+	return m
+}()
 
 // RuleChainGraph DAG 定义。
 type RuleChainGraph struct {
 	Nodes []RuleChainNode `json:"nodes"`
 	Edges []RuleChainEdge `json:"edges"`
+	// ChainID 所属规则链 ID（PHASE-D-D1）：graph JSON 不含该字段，由服务层加载后回填，
+	// 用于子链解析、防环与节点级 trace 归属。
+	ChainID string `json:"-"`
 }
 
 // RuleChainNode 单个节点。
@@ -60,6 +62,16 @@ type RuleChainEdge struct {
 
 // ParseRuleChainGraph 解析并校验 graph 文本。
 func ParseRuleChainGraph(raw string) (*RuleChainGraph, error) {
+	return parseRuleChainGraphRaw(raw, true)
+}
+
+// ParseRuleChainSubgraph 解析并校验子链 graph（PHASE-D-D1）：
+// 子链由父链调用驱动，不要求触发器节点，也允许非触发节点作为入边根。
+func ParseRuleChainSubgraph(raw string) (*RuleChainGraph, error) {
+	return parseRuleChainGraphRaw(raw, false)
+}
+
+func parseRuleChainGraphRaw(raw string, requireTrigger bool) (*RuleChainGraph, error) {
 	if len(raw) > ruleChainMaxGraphBytes {
 		return nil, fmt.Errorf("graph exceeds size limit")
 	}
@@ -71,14 +83,19 @@ func ParseRuleChainGraph(raw string) (*RuleChainGraph, error) {
 	if err := json.Unmarshal([]byte(rawTrimmed), &graph); err != nil {
 		return nil, fmt.Errorf("graph is not valid json: %w", err)
 	}
-	if err := graph.Validate(); err != nil {
+	if err := graph.validateGraph(requireTrigger); err != nil {
 		return nil, err
 	}
 	return &graph, nil
 }
 
-// Validate 校验节点/边结构与 DAG 无环约束。
+// Validate 校验节点/边结构与 DAG 无环约束（根链：必须有触发器）。
 func (g *RuleChainGraph) Validate() error {
+	return g.validateGraph(true)
+}
+
+// validateGraph 通用校验；requireTrigger=false 时放宽触发器与根约束（子链语义）。
+func (g *RuleChainGraph) validateGraph(requireTrigger bool) error {
 	if len(g.Nodes) == 0 {
 		return fmt.Errorf("graph.nodes must not be empty")
 	}
@@ -109,11 +126,15 @@ func (g *RuleChainGraph) Validate() error {
 				return fmt.Errorf("webhook node %q has invalid url: %w", node.ID, err)
 			}
 		}
+		// PHASE-D-D1：节点配置校验器统一兜底（含 2.0 新类型与存量类型）。
+		if err := validateRuleChainNodeConfig(node.Type, node.Config); err != nil {
+			return fmt.Errorf("node %q has invalid config: %w", node.ID, err)
+		}
 		if kind == "trigger" {
 			hasTrigger = true
 		}
 	}
-	if !hasTrigger {
+	if requireTrigger && !hasTrigger {
 		return fmt.Errorf("graph needs at least one trigger node")
 	}
 	for i := range g.Edges {
@@ -137,7 +158,7 @@ func (g *RuleChainGraph) Validate() error {
 		if kind == "trigger" && indegree[node.ID] != 0 {
 			return fmt.Errorf("trigger node %q must be a root", node.ID)
 		}
-		if kind != "trigger" && indegree[node.ID] == 0 {
+		if requireTrigger && kind != "trigger" && indegree[node.ID] == 0 {
 			return fmt.Errorf("non-trigger node %q cannot be a root", node.ID)
 		}
 	}

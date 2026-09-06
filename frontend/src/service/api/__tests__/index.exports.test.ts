@@ -249,6 +249,7 @@ describe('service API barrel export contract', () => {
         "ruleChainDelete",
         "ruleChainGet",
         "ruleChainList",
+        "ruleChainNodeTraces",
         "ruleChainUpdate",
         "saveDashboardMenuConfig",
         "saveModbusProfile",
