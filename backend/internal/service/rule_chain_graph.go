@@ -28,20 +28,22 @@ const (
 )
 
 // RuleChainNodeTypeMeta 内置节点类型注册表（前端画布与后端校验共用语义）。
-var RuleChainNodeTypeMeta = map[string]string{
-	RuleChainTriggerTelemetry: "trigger",
-	RuleChainTriggerOnline:    "trigger",
-	RuleChainFilterThreshold:  "filter",
-	RuleChainTransformMapping: "transform",
-	RuleChainActionWebhook:    "action",
-	RuleChainActionCommand:    "action",
-	RuleChainActionAlarm:      "action",
-}
+// PHASE-D-D1：类型清单收敛到 ruleChainNodeSpecs 单一来源（rule_chain_nodes.go），此处仅保留兼容视图。
+var RuleChainNodeTypeMeta = func() map[string]string {
+	m := make(map[string]string, len(ruleChainNodeSpecs))
+	for _, spec := range ruleChainNodeSpecs {
+		m[spec.Type] = spec.Kind
+	}
+	return m
+}()
 
 // RuleChainGraph DAG 定义。
 type RuleChainGraph struct {
 	Nodes []RuleChainNode `json:"nodes"`
 	Edges []RuleChainEdge `json:"edges"`
+	// ChainID 所属规则链 ID（PHASE-D-D1）：graph JSON 不含该字段，由服务层加载后回填，
+	// 用于子链解析、防环与节点级 trace 归属。
+	ChainID string `json:"-"`
 }
 
 // RuleChainNode 单个节点。
@@ -108,6 +110,10 @@ func (g *RuleChainGraph) Validate() error {
 			if _, err := safehttp.ParseWebhookURL(target); err != nil {
 				return fmt.Errorf("webhook node %q has invalid url: %w", node.ID, err)
 			}
+		}
+		// PHASE-D-D1：节点配置校验器统一兜底（含 2.0 新类型与存量类型）。
+		if err := validateRuleChainNodeConfig(node.Type, node.Config); err != nil {
+			return fmt.Errorf("node %q has invalid config: %w", node.ID, err)
 		}
 		if kind == "trigger" {
 			hasTrigger = true
