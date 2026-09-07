@@ -1,0 +1,69 @@
+// 插件网关 gRPC 契约基线（PHASE-D-D9）。
+// 当前实现采用手写 ServiceDesc + JSON 编解码（codec 名 aetherjson，见 codec.go），
+// 本文件作为未来引入 protoc 代码生成时的契约基线：字段名与 contract.go 的 JSON 标签一致，
+// 切换codegen时线格式保持兼容（JSON codec ↔ protojson 字段名对齐）。
+syntax = "proto3";
+
+package aetherlink.plugin.v1;
+
+option go_package = "aetherlink-iot/backend/internal/pluginruntime/grpcgateway";
+
+service PluginGateway {
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+  rpc Uplink(UplinkFrame) returns (UplinkAck);
+  rpc Attach(AttachRequest) returns (stream DownlinkCommand);
+}
+
+message RegisterRequest {
+  string name = 1;
+  string version = 2;
+  string token = 3;
+  string description = 4;
+  map<string, string> capabilities = 5;
+}
+
+message RegisterResponse {
+  string plugin_id = 1;
+  string status = 2;
+  string message = 3;
+}
+
+message HeartbeatRequest {
+  string plugin_id = 1;
+  string token = 2;
+  string version = 3;
+}
+
+message HeartbeatResponse {
+  bool accepted = 1;
+  string status = 2;
+  string message = 3;
+}
+
+message UplinkFrame {
+  string plugin_id = 1;
+  string token = 2;
+  string device_number = 3;
+  string data_type = 4;
+  map<string, string> payload_value = 5; // JSON 载荷（值型）；protoc 切换时按需细化
+  map<string, string> metadata = 6;
+}
+
+message UplinkAck {
+  bool accepted = 1;
+  string message = 2;
+}
+
+message AttachRequest {
+  string plugin_id = 1;
+  string token = 2;
+}
+
+message DownlinkCommand {
+  string command_id = 1;
+  string device_number = 2;
+  string identify = 3;
+  map<string, string> params_value = 4; // JSON 参数；protoc 切换时按需细化
+  int64 issued_at = 5;
+}

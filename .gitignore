@@ -161,3 +161,7 @@ backend/configs/rsa_key/public.pem
 
 # Runtime-generated RSA keypair (per-install); never ship keys
 backend/configs/rsa_key/*.pem
+
+# Python bytecode caches
+__pycache__/
+*.pyc

@@ -77,6 +77,12 @@ func startCronScheduler() {
 		}
 	})
 
+	// 定时报表调度（ROADMAP D3）：每分钟扫描启用的报表任务，按 cron 表达式补跑并邮件投递 CSV。
+	c.AddFunc("0 * * * * *", func() {
+		logrus.Debug("【定时任务】定时报表调度扫描开始")
+		service.GroupApp.ReportSchedule.ScanAndExecuteDueSchedules()
+	})
+
 	c.Start()
 }
 

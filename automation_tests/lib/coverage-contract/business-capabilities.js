@@ -211,7 +211,28 @@ const DEVICE_TELEMETRY_ENDPOINTS = [
   'POST /api/v1/device/preRegister',
   'GET /api/v1/device/preRegister/export',
   'POST /api/v1/ai/alarm/analysis',
-  'GET /api/v1/product'
+  'GET /api/v1/product',
+  // AI 2.0 模型中心与助手（ROADMAP D7）
+  'POST /api/v1/ai/models',
+  'PUT /api/v1/ai/models',
+  'GET /api/v1/ai/models',
+  'GET /api/v1/ai/models/:id',
+  'DELETE /api/v1/ai/models/:id',
+  'POST /api/v1/ai/assistant/chat',
+  // 接入安全 X.509 设备证书（ROADMAP D5）
+  'POST /api/v1/device-certificates/issue',
+  'POST /api/v1/device-certificates/verify',
+  'GET /api/v1/device-certificates',
+  'GET /api/v1/device-certificates/:id',
+  'POST /api/v1/device-certificates/:id/revoke',
+  'POST /api/v1/device-certificates/:id/renew',
+  // 计算字段手动重算
+  'POST /api/v1/calculated_fields/recompute',
+  'GET /api/v1/calculated_fields/recompute',
+  'GET /api/v1/calculated_fields/recompute/:id',
+  // 模板市场目录与打包下载（ROADMAP D10）
+  'GET /api/v1/device/template/market/catalog',
+  'GET /api/v1/device/template/market/bundle'
 ];
 
 const COMMAND_JOBS_ENDPOINTS = [
@@ -519,7 +540,8 @@ const BUSINESS_CAPABILITIES = [
       'PUT /api/v1/rule-chains',
       'GET /api/v1/rule-chains/list',
       'GET /api/v1/rule-chains/:id',
-      'DELETE /api/v1/rule-chains/:id'
+      'DELETE /api/v1/rule-chains/:id',
+      'GET /api/v1/rule-chains/:id/nodes/:nodeId/traces'
     ],
     automationTests: [
       'tests/23_seeded_automation_scene.test.js',
@@ -569,7 +591,14 @@ const BUSINESS_CAPABILITIES = [
       'GET /api/v1/board/tenant/device/info',
       'GET /api/v1/board/user/info',
       'POST /api/v1/board/user/update',
-      'POST /api/v1/board/user/update/password'
+      'POST /api/v1/board/user/update/password',
+      // 定时报表（ROADMAP D3）
+      'POST /api/v1/report/schedules',
+      'PUT /api/v1/report/schedules',
+      'GET /api/v1/report/schedules',
+      'GET /api/v1/report/schedules/:id',
+      'DELETE /api/v1/report/schedules/:id',
+      'POST /api/v1/report/schedules/:id/run'
     ],
     automationTests: ['tests/07_board.test.js', 'tests/17_api_boundary_smoke.test.js'],
     e2eTests: ['e2e/11_visualization.spec.js', 'e2e/14_route_coverage_closure.spec.js'],
@@ -630,7 +659,21 @@ const BUSINESS_CAPABILITIES = [
       'GET /api/v1/service/access/voucher/form',
       'GET /api/v1/service/access/device/list',
       'POST /api/v1/file/up',
-      'GET /api/v1/protocol_plugin/config_form'
+      'GET /api/v1/protocol_plugin/config_form',
+      // 插件注册表管理面（ROADMAP D9）
+      'GET /api/v1/plugins',
+      'POST /api/v1/plugins',
+      'DELETE /api/v1/plugins/:id',
+      'POST /api/v1/plugins/:id/downlink',
+      'PUT /api/v1/plugins/:id/enable',
+      'PUT /api/v1/plugins/:id/disable',
+      'PUT /api/v1/plugins/:id/token',
+      // 边缘计算 2.0：快照下发与 OTA 经边分发（ROADMAP D6）
+      'POST /api/v1/edge/sync',
+      'GET /api/v1/edge/sync',
+      'GET /api/v1/edge/sync/:id',
+      'POST /api/v1/edge/sync/:id/retry',
+      'POST /api/v1/edge/ota/distribute'
     ],
     automationTests: [
       'tests/10_ota_data_script.test.js',

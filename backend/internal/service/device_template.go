@@ -5,6 +5,7 @@
 package service
 
 import (
+	"context"
 	"strings"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	utils "aetherlink-iot/backend/pkg/utils"
 
 	"github.com/go-basic/uuid"
+	"github.com/sirupsen/logrus"
 )
 
 type DeviceTemplate struct{}
@@ -283,6 +285,12 @@ func (*DeviceTemplate) ExportDeviceTemplate(id string, claims *utils.UserClaims)
 	if err != nil {
 		return nil, err
 	}
+	// PHASE-D-D10 BEGIN 导出计数（单个导出与行业打包共用此路径，计数语义统一）
+	if incErr := dal.IncrementTemplateDownloadCounts(context.Background(), []string{id}); incErr != nil {
+		// 计数失败不阻断导出（运营统计为尽力而为语义）。
+		logrus.Warn("模板导出计数失败:", incErr)
+	}
+	// PHASE-D-D10 END
 	return &model.DeviceTemplateExport{
 		Kind:           "aetherlink-device-template",
 		Name:           t.Name,

@@ -252,6 +252,7 @@ func RouterInit() *gin.Engine {
 			apps.Model.UserTOTP.InitUserTOTP(v1) // 2FA（TOTP 绑定/状态）
 
 			apps.Model.OidcSso.InitOidcProvider(v1) // OIDC/SSO 提供方管理（ROADMAP C7）
+			apps.Model.PluginRegistry.InitPluginRegistry(v1) // PHASE-D-D9 插件管理
 
 			apps.Model.Role.Init(v1) // 角色管理
 
@@ -276,6 +277,11 @@ func RouterInit() *gin.Engine {
 			apps.Model.EventData.InitEventData(v1) // 事件数据
 
 			apps.Model.TelemetryData.InitTelemetryData(v1) // 遥测数据
+
+			apps.Model.ReportSchedule.InitReportSchedule(v1) // 定时报表 D3
+			apps.Model.DeviceCertificate.InitDeviceCertificate(v1) // 接入安全 X.509 D5
+			apps.Model.EdgeSync.InitEdgeSync(v1) // 边缘计算 2.0 D6
+			apps.Model.AiModel.InitAiModel(v1) // AI 2.0 D7
 
 			apps.Model.AttributeData.InitAttributeData(v1) // 属性数据
 

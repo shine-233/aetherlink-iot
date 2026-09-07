@@ -668,5 +668,14 @@
   "generate.connectionWorkbench.copyPackageSuccess": "接入包已复制",
   "generate.connectionWorkbench.copyPackageFailed": "复制接入包失败",
   "generate.connectionWorkbench.copyConfigSuccess": "脱敏配置已复制",
-  "generate.connectionWorkbench.copyConfigFailed": "复制脱敏配置失败"
+  "generate.connectionWorkbench.copyConfigFailed": "复制脱敏配置失败",
+  "generate.notice-dingtalk": "钉钉机器人",
+  "generate.notice-wecom": "企业微信机器人",
+  "generate.notice-feishu": "飞书机器人",
+  "generate.notice-telegram": "Telegram 机器人",
+  "generate.im-webhook": "Webhook 地址",
+  "generate.im-sign-secret": "加签密钥(可选)",
+  "generate.im-sign-hint": "钉钉/飞书填写后启用加签校验,留空则不签名",
+  "generate.im-bot-token": "Bot Token",
+  "generate.im-chat-id": "Chat ID"
 }

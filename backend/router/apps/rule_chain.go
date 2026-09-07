@@ -19,5 +19,8 @@ func (*RuleChain) InitRuleChain(Router *gin.RouterGroup) {
 		ruleChains.GET("list", ruleChainApi.HandleListRuleChains)
 		ruleChains.GET(":id", ruleChainApi.HandleGetRuleChain)
 		ruleChains.DELETE(":id", ruleChainApi.HandleDeleteRuleChain)
+		// PHASE-D-D1 BEGIN 节点级调试 trace 查询
+		ruleChains.GET(":id/nodes/:nodeId/traces", ruleChainApi.HandleGetRuleChainNodeTraces)
+		// PHASE-D-D1 END
 	}
 }

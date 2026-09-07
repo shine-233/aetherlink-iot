@@ -204,26 +204,22 @@ func TestExecuteRuleChainAlarmActionValidation(t *testing.T) {
 		called = true
 		return nil
 	}
-	// 缺少 name → 报错且不落库
+	// PHASE-D-D1：配置校验前移到 ParseRuleChainGraph（不合法配置进不了库）。
+	// 缺少 name → 解析期拒绝，不落库也不落告警。
 	graphJSON := `{"nodes":[
 		{"id":"t","type":"trigger.telemetry"},
 		{"id":"a","type":"action.alarm","config":{"severity":"M"}}
 	],"edges":[{"from":"t","to":"a"}]}`
-	graph, err := ParseRuleChainGraph(graphJSON)
-	require.NoError(t, err)
-	errs := ExecuteRuleChainGraph(context.Background(), graph,
-		&RuleChainContext{DeviceID: "dev-6", TenantID: "tenant-1"}, map[string]any{"k": float64(1)})
-	require.Len(t, errs, 1)
-	require.Contains(t, errs[0].Error(), "name")
+	_, err := ParseRuleChainGraph(graphJSON)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "name")
 	require.False(t, called, "missing name must not create alarm")
-	// 非法 severity → 报错
+	// 非法 severity → 同样解析期拒绝
 	graphJSON2 := `{"nodes":[
 		{"id":"t","type":"trigger.telemetry"},
 		{"id":"a","type":"action.alarm","config":{"name":"x","severity":"X"}}
 	],"edges":[{"from":"t","to":"a"}]}`
-	graph2, _ := ParseRuleChainGraph(graphJSON2)
-	errs2 := ExecuteRuleChainGraph(context.Background(), graph2,
-		&RuleChainContext{DeviceID: "dev-6", TenantID: "tenant-1"}, map[string]any{"k": float64(1)})
-	require.Len(t, errs2, 1)
-	require.Contains(t, errs2[0].Error(), "severity")
+	_, err2 := ParseRuleChainGraph(graphJSON2)
+	require.Error(t, err2)
+	require.Contains(t, err2.Error(), "severity")
 }

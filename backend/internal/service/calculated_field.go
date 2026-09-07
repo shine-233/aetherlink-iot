@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	types "aetherlink-iot/backend/internal/calcfield/types"
 	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/pkg/errcode"
@@ -116,8 +117,19 @@ func (*CalculatedFieldService) CreateCalculatedField(req *model.CalculatedFieldC
 	if err != nil {
 		return nil, err
 	}
-	if validateErr := validateCalculatedFieldValue(req.OutputKey, req.Expression); validateErr != nil {
-		return nil, validateErr
+	fieldType := req.Type
+	if fieldType == "" {
+		fieldType = types.TypeSimple
+	}
+	// PHASE-D-D4:高级类型校验(config 合法性);simple 保持 expression 必填。
+	if fieldType == types.TypeSimple {
+		if validateErr := validateCalculatedFieldValue(req.OutputKey, req.Expression); validateErr != nil {
+			return nil, validateErr
+		}
+	} else {
+		if validateErr := types.ValidateFieldConfig(fieldType, req.Config); validateErr != nil {
+			return nil, errcode.NewWithMessage(errcode.CodeParamError, validateErr.Error())
+		}
 	}
 	if templateErr := ensureTemplateInTenant(req.DeviceTemplateID, tenantID); templateErr != nil {
 		return nil, templateErr
@@ -131,6 +143,8 @@ func (*CalculatedFieldService) CreateCalculatedField(req *model.CalculatedFieldC
 		DeviceTemplateID: req.DeviceTemplateID,
 		OutputKey:        req.OutputKey,
 		Expression:       req.Expression,
+		Type:             fieldType,
+		Config:           req.Config,
 		Enabled:          req.Enabled != nil && *req.Enabled,
 		Remark:           req.Remark,
 		CreatedAt:        now,

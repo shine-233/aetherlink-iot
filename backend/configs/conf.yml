@@ -300,6 +300,10 @@ mqtt_session_revocations:
 plugin:
   service:
     key: ""
+  # PHASE-D-D9：插件框架 gRPC 网关（第三方协议插件经 gRPC 接入）
+  grpc:
+    enabled: false
+    port: 18881
 
 # 公开 WebSocket 端点每来源 IP 并发连接上限；环境变量 GOTP_WS_MAX_CONNS_PER_IP 可覆盖。
 # 未认证连接在首消息鉴权前同样占用额度（防握手洪泛）；计数为进程内尽力而为语义。

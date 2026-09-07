@@ -10,7 +10,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { VueFlow, useVueFlow, type Connection } from '@vue-flow/core'
 import '@vue-flow/core/dist/style.css'
 import '@vue-flow/core/dist/theme-default.css'
-import { ruleChainCreate, ruleChainGet, ruleChainUpdate } from '@/service/api'
+import { ruleChainCreate, ruleChainGet, ruleChainUpdate, ruleChainNodeTraces } from '@/service/api'
 import { $t } from '@/locales'
 
 const route = useRoute()
@@ -29,7 +29,30 @@ const palette: PaletteItem[] = [
   { type: 'transform.mapping', label: $t('custom.rule_chain.nodeTransformMapping') },
   { type: 'action.webhook', label: $t('custom.rule_chain.nodeActionWebhook') },
   { type: 'action.command', label: $t('custom.rule_chain.nodeActionCommand') },
-  { type: 'action.alarm', label: $t('custom.rule_chain.nodeActionAlarm') }
+  { type: 'action.alarm', label: $t('custom.rule_chain.nodeActionAlarm') },
+  // PHASE-D-D1 BEGIN 规则链 2.0 新节点（28 种）
+  { type: 'filter.exists', label: $t('custom.rule_chain.nodeD1FilterExists') },
+  { type: 'filter.string_match', label: $t('custom.rule_chain.nodeD1FilterStringMatch') },
+  { type: 'filter.in_range', label: $t('custom.rule_chain.nodeD1FilterInRange') },
+  { type: 'transform.script', label: $t('custom.rule_chain.nodeD1TransformScript') },
+  { type: 'transform.rename_keys', label: $t('custom.rule_chain.nodeD1TransformRenameKeys') },
+  { type: 'transform.split_array', label: $t('custom.rule_chain.nodeD1TransformSplitArray') },
+  { type: 'transform.dedup', label: $t('custom.rule_chain.nodeD1TransformDedup') },
+  { type: 'transform.change_originator', label: $t('custom.rule_chain.nodeD1TransformChangeOriginator') },
+  { type: 'enrichment.originator_attributes', label: $t('custom.rule_chain.nodeD1EnrichOriginator') },
+  { type: 'enrichment.latest_telemetry', label: $t('custom.rule_chain.nodeD1EnrichLatestTelemetry') },
+  { type: 'enrichment.related_device_attributes', label: $t('custom.rule_chain.nodeD1EnrichRelated') },
+  { type: 'enrichment.tenant_metadata', label: $t('custom.rule_chain.nodeD1EnrichTenantMeta') },
+  { type: 'flow.subchain', label: $t('custom.rule_chain.nodeD1FlowSubchain') },
+  { type: 'flow.delay', label: $t('custom.rule_chain.nodeD1FlowDelay') },
+  { type: 'flow.checkpoint', label: $t('custom.rule_chain.nodeD1FlowCheckpoint') },
+  { type: 'analytics.generator', label: $t('custom.rule_chain.nodeD1AnalyticsGenerator') },
+  { type: 'analytics.latest', label: $t('custom.rule_chain.nodeD1AnalyticsLatest') },
+  { type: 'analytics.message_count', label: $t('custom.rule_chain.nodeD1AnalyticsMessageCount') },
+  { type: 'external.mqtt_forward', label: $t('custom.rule_chain.nodeD1ExternalMqtt') },
+  { type: 'external.kafka', label: $t('custom.rule_chain.nodeD1ExternalKafka') },
+  { type: 'ai.inference', label: $t('custom.rule_chain.nodeD1AiInference') }
+  // PHASE-D-D1 END
 ]
 
 const flowNodes = ref<any[]>([])
@@ -55,6 +78,7 @@ onConnect((connection: Connection) => {
 onNodeClick(({ node }) => {
   selectedNodeId.value = node.id
   syncMappingFromSelection()
+  syncGenericConfigFromSelection()
 })
 
 onPaneClick(() => {
@@ -74,9 +98,10 @@ function onDrop(event: DragEvent) {
   const id = nextNodeId()
   flowNodes.value.push({
     id,
-    type: 'input',
+    // PHASE-D-D1：触发器用 input（仅出边），其余节点用 default（双向句柄）
+    type: type.startsWith('trigger.') ? 'input' : 'default',
     position,
-    data: { label: `${labelOf(type)}\n#${id}` }
+    data: { label: `${labelOf(type)}\n#${id}`, nodeType: type, config: {} }
   })
   if (type.startsWith('action.')) {
     ensureOutputHandle(id)
@@ -128,6 +153,60 @@ const isCommandNode = computed(
 const isAlarmNode = computed(
   () => !!selectedNode.value && graphNodeType(selectedNode.value) === 'action.alarm'
 )
+
+// PHASE-D-D1 BEGIN 通用 JSON 配置编辑器 + 节点调试 trace 面板
+const SPECIAL_CONFIG_TYPES = new Set([
+  'filter.threshold',
+  'transform.mapping',
+  'action.webhook',
+  'action.command',
+  'action.alarm'
+])
+const isGenericConfigNode = computed(
+  () => !!selectedNode.value && !SPECIAL_CONFIG_TYPES.has(graphNodeType(selectedNode.value))
+)
+const genericConfigText = ref('')
+
+function syncGenericConfigFromSelection() {
+  if (!isGenericConfigNode.value) return
+  genericConfigText.value = JSON.stringify(selectedConfig.value || {}, null, 2)
+}
+
+function applyGenericConfig(event: FocusEvent) {
+  const input = event.target as HTMLTextAreaElement
+  try {
+    const parsed = JSON.parse(input.value || '{}')
+    if (selectedNode.value) {
+      selectedNode.value.data = { ...selectedNode.value.data, config: parsed }
+    }
+  } catch {
+    window.$message?.error($t('custom.rule_chain.invalidJson'))
+  }
+}
+
+interface TraceRow {
+  id: string
+  pass: boolean
+  error_msg?: string
+  elapsed_ms: number
+  created_at: string
+}
+const traceRows = ref<TraceRow[]>([])
+const traceLoading = ref(false)
+
+async function loadNodeTraces() {
+  if (!chainId || !selectedNode.value) return
+  traceLoading.value = true
+  try {
+    const { data, error } = await ruleChainNodeTraces(chainId, selectedNode.value.id, 10)
+    if (!error && Array.isArray(data)) {
+      traceRows.value = data
+    }
+  } finally {
+    traceLoading.value = false
+  }
+}
+// PHASE-D-D1 END
 // mapping fields 以 "from=to" 行文本编辑，简单直观
 const mappingLines = ref('')
 
@@ -379,6 +458,44 @@ defineExpose({ serializeGraph })
                 <n-input :value="String(selectedConfig.severity || 'H')" @update:value="(v: string) => updateSelectedConfig('severity', v)" placeholder="L/M/H" style="width:120px" />
               </n-form-item>
             </template>
+
+            <!-- PHASE-D-D1 BEGIN 通用 JSON 配置编辑器（覆盖 2.0 新节点类型） -->
+            <template v-if="isGenericConfigNode">
+              <n-form-item :label="$t('custom.rule_chain.genericConfig')" label-placement="top">
+                <n-input
+                  v-model:value="genericConfigText"
+                  type="textarea"
+                  :autosize="{ minRows: 5, maxRows: 14 }"
+                  @blur="applyGenericConfig"
+                />
+              </n-form-item>
+            </template>
+
+            <template v-if="chainId && selectedNode">
+              <div class="mt-3 flex items-center justify-between">
+                <span class="text-12px font-600">{{ $t('custom.rule_chain.nodeTraces') }}</span>
+                <n-button size="tiny" :loading="traceLoading" @click="loadNodeTraces">
+                  {{ $t('custom.rule_chain.refresh') }}
+                </n-button>
+              </div>
+              <n-empty
+                v-if="!traceRows.length"
+                size="small"
+                :description="$t('custom.rule_chain.noTraces')"
+                class="mt-2"
+              />
+              <div v-for="row in traceRows" :key="row.id" class="trace-row">
+                <div class="flex items-center justify-between">
+                  <n-tag :type="row.pass ? 'success' : 'error'" size="small">
+                    {{ row.pass ? $t('custom.rule_chain.tracePass') : $t('custom.rule_chain.traceFail') }}
+                  </n-tag>
+                  <span class="text-12px">{{ row.elapsed_ms }}ms</span>
+                </div>
+                <div class="text-12px opacity-60">{{ row.created_at }}</div>
+                <div v-if="row.error_msg" class="trace-error">{{ row.error_msg }}</div>
+              </div>
+            </template>
+            <!-- PHASE-D-D1 END -->
           </template>
           <n-empty v-else :description="$t('custom.rule_chain.selectNodeHint')" />
         </aside>
@@ -418,5 +535,18 @@ defineExpose({ serializeGraph })
 }
 .props {
   overflow-y: auto;
+}
+/* PHASE-D-D1 trace 面板样式 */
+.trace-row {
+  margin-top: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--n-border-color);
+  border-radius: 6px;
+}
+.trace-error {
+  margin-top: 4px;
+  font-size: 12px;
+  color: rgb(var(--error-color));
+  word-break: break-all;
 }
 </style>

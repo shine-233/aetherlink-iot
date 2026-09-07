@@ -110,6 +110,14 @@ export function createBaseDeviceTabs(): DeviceDetailTabComponent[] {
       component: createAsyncDeviceTab(() => import('@/views/device/details/modules/message.vue')),
       refreshKey: 0
     },
+    // PHASE-D-D11 BEGIN 设备实时调试（WS 原始帧时间线 + 命令下发/投递诊断）
+    {
+      key: 'device-debug-live',
+      name: () => $t('custom.device_details.debugLive'),
+      component: createAsyncDeviceTab(() => import('@/views/device/details/modules/device-debug-live.vue')),
+      refreshKey: 0
+    },
+    // PHASE-D-D11 END
     {
       key: 'stats',
       name: () => $t('custom.device_details.attributes'),

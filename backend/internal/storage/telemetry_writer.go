@@ -593,9 +593,7 @@ func (w *telemetryWriter) persistFailedTelemetryContext(ctx context.Context, his
 	}
 	if storeResult.Corrupt > 0 && w.logger != nil {
 		w.logger.Warnf(
-			"telemetry file spool detected corrupt deterministic record before replacement: device_id=%s key=%s ts=%d detected=%d quarantined=%d backlog=%d bytes=%d quarantine_records=%d quarantine_bytes=%d",
-			history.DeviceID,
-			history.Key,
+			"telemetry file spool detected corrupt deterministic record before replacement: ts=%d detected=%d quarantined=%d backlog=%d bytes=%d quarantine_records=%d quarantine_bytes=%d (device/key omitted: device-controlled strings are kept out of logs per log-injection gate)",
 			history.TS,
 			storeResult.Corrupt,
 			storeResult.Quarantined,
@@ -617,9 +615,7 @@ func (w *telemetryWriter) persistFailedTelemetryContext(ctx context.Context, his
 		}
 		if w.logger != nil {
 			w.logger.Warnf(
-				"telemetry saved to independent file spool after PostgreSQL dead-letter failure: device_id=%s, key=%s, ts=%d backlog=%d bytes=%d quarantine_records=%d quarantine_bytes=%d",
-				history.DeviceID,
-				history.Key,
+				"telemetry saved to independent file spool after PostgreSQL dead-letter failure: ts=%d backlog=%d bytes=%d quarantine_records=%d quarantine_bytes=%d (device/key omitted: device-controlled strings are kept out of logs per log-injection gate)",
 				history.TS,
 				usage.Records,
 				usage.Bytes,
@@ -629,9 +625,7 @@ func (w *telemetryWriter) persistFailedTelemetryContext(ctx context.Context, his
 		}
 	} else if storeResult.Duplicate && w.logger != nil {
 		w.logger.Debugf(
-			"telemetry file spool already contains durable record: device_id=%s, key=%s, ts=%d backlog=%d bytes=%d",
-			history.DeviceID,
-			history.Key,
+			"telemetry file spool already contains durable record: ts=%d backlog=%d bytes=%d (device/key omitted: device-controlled strings are kept out of logs per log-injection gate)",
 			history.TS,
 			usage.Records,
 			usage.Bytes,
@@ -687,7 +681,7 @@ func (w *telemetryWriter) recordTelemetryDeadLetterContext(ctx context.Context, 
 	}).Create(&deadLetter)
 	if insert.Error != nil {
 		if w.logger != nil {
-			w.logger.Errorf("telemetry dead-letter insert failed: device_id=%s, key=%s, err=%v", history.DeviceID, history.Key, insert.Error)
+			w.logger.Errorf("telemetry dead-letter insert failed: ts=%d, err=%v (device/key omitted: device-controlled strings are kept out of logs per log-injection gate)", history.TS, insert.Error)
 		}
 		return insert.Error
 	}
@@ -706,9 +700,7 @@ func (w *telemetryWriter) acceptExistingTelemetryDeadLetter(existing TelemetryDe
 	}
 	if w.logger != nil {
 		w.logger.Debugf(
-			"telemetry dead-letter already contains durable record: device_id=%s, key=%s, ts=%d",
-			history.DeviceID,
-			history.Key,
+			"telemetry dead-letter already contains durable record: ts=%d (device/key omitted: device-controlled strings are kept out of logs per log-injection gate)",
 			history.TS,
 		)
 	}

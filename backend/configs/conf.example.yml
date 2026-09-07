@@ -323,6 +323,10 @@ mqtt_session_revocations:
 plugin:
   service:
     key: ""
+  # PHASE-D-D9：插件框架 gRPC 网关（第三方协议插件经 gRPC 接入）
+  grpc:
+    enabled: false
+    port: 18881
 
 # OIDC SSO 回调基址（可选）：配置后 authorize 的 redirect_uri 使用绝对地址，
 # 跨域外部 IdP（Keycloak 等）必需；留空保持相对路径（仅同域反代部署）。

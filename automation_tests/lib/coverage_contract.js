@@ -605,7 +605,7 @@ function classifyEndpointCatalogItem(endpointKey) {
   if (/^\/api\/v1\/calculated_fields(?:\/|$)/.test(pathPart)) {
     return { endpoint: endpointKey, scope: 'P0/P1', capability: 'device-telemetry' };
   }
-  if (/^\/api\/v1\/(?:device(?:\/|$)|devices(?:\/|$)|telemetry(?:\/|$)|attribute(?:\/|$)|event(?:\/|$)|events(?:\/|$)|command(?:\/|$)|expected(?:\/|$)|datapolicy(?:\/|$)|device_config(?:\/|$))/.test(pathPart)) {
+  if (/^\/api\/v1\/(?:device(?:\/|$)|devices(?:\/|$)|device-certificates(?:\/|$)|telemetry(?:\/|$)|attribute(?:\/|$)|event(?:\/|$)|events(?:\/|$)|command(?:\/|$)|expected(?:\/|$)|datapolicy(?:\/|$)|device_config(?:\/|$))/.test(pathPart)) {
     return { endpoint: endpointKey, scope: 'P0/P1', capability: 'device-telemetry' };
   }
   if (/^\/api\/v1\/rdi(?:\/|$)/.test(pathPart)) {
@@ -629,10 +629,10 @@ function classifyEndpointCatalogItem(endpointKey) {
   if (/^\/api\/v1\/entity_versions(?:\/|$)/.test(pathPart)) {
     return { endpoint: endpointKey, scope: 'P0/P1', capability: 'system-deployment' };
   }
-  if (/^\/api\/v1\/(?:board(?:\/|$)|dashboard-menu(?:\/|$))/.test(pathPart)) {
+  if (/^\/api\/v1\/(?:board(?:\/|$)|dashboard-menu(?:\/|$)|report(?:\/|$))/.test(pathPart)) {
     return { endpoint: endpointKey, scope: 'P0/P1', capability: 'visualization' };
   }
-  if (/^\/api\/v1\/(?:ota(?:\/|$)|data_script(?:\/|$)|open(?:\/|$)|service(?:\/|$)|plugin(?:\/|$)|protocol_plugin(?:\/|$)|file\/up)/.test(pathPart)) {
+  if (/^\/api\/v1\/(?:ota(?:\/|$)|data_script(?:\/|$)|open(?:\/|$)|service(?:\/|$)|plugins?(?:\/|$)|protocol_plugin(?:\/|$)|edge(?:\/|$)|file\/up)/.test(pathPart)) {
     return { endpoint: endpointKey, scope: 'P0/P1', capability: 'ota-script-openapi-service' };
   }
   if (/^\/deployment\/health$/.test(pathPart) || /^\/api\/v1\/(?:deployment\/health|sys_|systime|logo|operation_logs|system\/metrics)/.test(pathPart)) {

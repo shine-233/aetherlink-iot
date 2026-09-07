@@ -41,10 +41,13 @@ type StorageEnqueuer interface {
 }
 
 // FieldRule 是一条参与求值的启用字段。
+// PHASE-D-D4:Type+Config 扩展高级类型;Type 为空或 simple 走既有 govaluate 路径。
 type FieldRule struct {
 	ID         string
 	OutputKey  string
 	Expression string
+	Type       string
+	Config     json.RawMessage
 }
 
 // TemplateSource 提供设备→模板归属与模板启用字段两类查询，便于单测注入桩实现。
@@ -69,7 +72,13 @@ func (dalTemplateSource) ListEnabledFields(_ context.Context, tenantID, template
 	}
 	rules := make([]FieldRule, 0, len(fields))
 	for _, field := range fields {
-		rules = append(rules, FieldRule{ID: field.ID, OutputKey: field.OutputKey, Expression: field.Expression})
+		rules = append(rules, FieldRule{
+			ID:         field.ID,
+			OutputKey:  field.OutputKey,
+			Expression: field.Expression,
+			Type:       field.Type,
+			Config:     field.Config,
+		})
 	}
 	return rules, nil
 }
@@ -80,6 +89,9 @@ type compiledRule struct {
 	outputKey string
 	expr      *govaluate.EvaluableExpression
 	variables []string
+	// PHASE-D-D4:高级类型
+	fieldType string
+	advanced  *advancedConfig
 }
 
 type cachedTemplate struct {
@@ -210,6 +222,25 @@ func (e *Engine) processMessage(msg *uplink.DeviceMessage) {
 		timestamp = time.Now().UnixMilli()
 	}
 	for _, rule := range rules {
+		// PHASE-D-D4 BEGIN 高级类型路由
+		if rule.fieldType != "" && rule.fieldType != FieldTypeSimple {
+			value, targets, err := evaluateAdvanced(rule, payload, timestamp, msg.DeviceID, msg.TenantID)
+			if err != nil {
+				continue
+			}
+			if value == nil && targets == nil {
+				continue
+			}
+			if value != nil {
+				e.enqueueDerived(msg, rule.outputKey, value, timestamp)
+			}
+			// propagation:向目标设备派生同键副本(目标解析/校验在服务层与 seam)。
+			for _, target := range targets {
+				e.enqueueDerivedTo(msg, target, rule.outputKey, value, timestamp)
+			}
+			continue
+		}
+		// PHASE-D-D4 END
 		value, ok := evaluateRule(rule, payload)
 		if !ok {
 			continue
@@ -305,6 +336,36 @@ func (e *Engine) enqueueDerived(source *uplink.DeviceMessage, outputKey string, 
 	}
 }
 
+// enqueueDerivedTo 向指定目标设备派生同键副本（propagation 语义）；metadata 标记来源。
+func (e *Engine) enqueueDerivedTo(source *uplink.DeviceMessage, targetDeviceID, outputKey string, value interface{}, timestamp int64) {
+	if targetDeviceID == "" || targetDeviceID == source.DeviceID {
+		return
+	}
+	payload, err := json.Marshal(map[string]interface{}{outputKey: value})
+	if err != nil {
+		e.dropped.Add(1)
+		return
+	}
+	metadata := map[string]interface{}{
+		MetadataGeneratedFlag:       true,
+		"calcfield_propagated_from": source.DeviceID,
+	}
+	if source.TenantID != "" {
+		metadata["tenant_id"] = source.TenantID
+	}
+	derived := &uplink.DeviceMessage{
+		Type:      uplink.MessageTypeTelemetry,
+		DeviceID:  targetDeviceID,
+		TenantID:  source.TenantID,
+		Timestamp: timestamp,
+		Payload:   payload,
+		Metadata:  metadata,
+	}
+	if !e.storage.EnqueueDerivedTelemetry(e.ctx, derived) {
+		e.dropped.Add(1)
+	}
+}
+
 // resolveTemplateIDCached 设备→模板归属懒查，60s 缓存；查询失败不缓存。
 // tenantID 参与查询过滤（tenant-scope 棘轮要求），同设备必属同租户故缓存键仍用 deviceID。
 func (e *Engine) resolveTemplateIDCached(tenantID, deviceID string) string {
@@ -360,9 +421,33 @@ func (e *Engine) listRulesCached(tenantID, templateID string) []compiledRule {
 }
 
 // compileFieldRules 预编译表达式；解析失败的规则跳过（服务层已在保存时拦截）。
+// PHASE-D-D4：高级类型走 parseAdvancedConfig 编译配置；simple 保持 govaluate 路径。
 func compileFieldRules(fields []FieldRule, logger *logrus.Logger) []compiledRule {
 	rules := make([]compiledRule, 0, len(fields))
 	for _, field := range fields {
+		fieldType := field.Type
+		if fieldType == "" {
+			fieldType = FieldTypeSimple
+		}
+		if fieldType != FieldTypeSimple {
+			cfg, err := parseAdvancedConfig(fieldType, field.Config)
+			if err != nil {
+				if logger != nil {
+					logger.WithFields(logrus.Fields{
+						"field_id": field.ID,
+						"error":    err,
+					}).Warn("Calcfield advanced config invalid; skipping rule")
+				}
+				continue
+			}
+			rules = append(rules, compiledRule{
+				id:        field.ID,
+				outputKey: field.OutputKey,
+				fieldType: fieldType,
+				advanced:  cfg,
+			})
+			continue
+		}
 		expr, err := govaluate.NewEvaluableExpression(field.Expression)
 		if err != nil {
 			if logger != nil {

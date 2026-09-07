@@ -67,6 +67,11 @@ type ServiceGroup struct {
 	Asset
 	UserTotp
 	OidcSso
+	PluginRegistry PluginRegistryService // PHASE-D-D9 插件框架 gRPC 网关管理面
+	ReportSchedule ReportScheduleService  // PHASE-D-D3 定时报表
+	DeviceCertificate DeviceCertificateService // PHASE-D-D5 接入安全 X.509
+	EdgeSync EdgeSyncService // PHASE-D-D6 边缘计算 2.0
+	AiModel  AiModelService  // PHASE-D-D7 AI 2.0 模型中心 + 助手
 }
 
 // GroupApp 是全局业务服务入口，供 API 层和中间件层调用
