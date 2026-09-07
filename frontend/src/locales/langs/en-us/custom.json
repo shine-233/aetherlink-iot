@@ -2303,6 +2303,7 @@
   "custom.rule_chain.nodeD1AnalyticsMessageCount": "Analytics · Message Count",
   "custom.rule_chain.nodeD1ExternalMqtt": "External · MQTT Forward",
   "custom.rule_chain.nodeD1ExternalKafka": "External · Kafka",
+  "custom.rule_chain.nodeD1AiInference": "External · AI Inference",
   "custom.rule_chain.genericConfig": "Config (JSON)",
   "custom.rule_chain.nodeTraces": "Recent Debug Traces",
   "custom.rule_chain.refresh": "Refresh",

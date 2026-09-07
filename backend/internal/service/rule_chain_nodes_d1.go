@@ -167,6 +167,9 @@ func executeRuleChainNodeD1(e *ruleChainExecution, node *RuleChainNode, msg rule
 		return ruleChainExternalMQTTForward(e, node, rcc, payload, metadata)
 	case RuleChainExternalKafka:
 		return ruleChainExternalKafka(e.ctx, node, rcc, payload, metadata)
+	// ---- AI（PHASE-D-D7）----
+	case RuleChainAiInference:
+		return ruleChainAiInference(e, node, rcc, payload, metadata)
 	default:
 		return ruleChainNodeResult{}, fmt.Errorf("unknown node type %q", node.Type)
 	}

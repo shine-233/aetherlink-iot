@@ -281,6 +281,7 @@ func RouterInit() *gin.Engine {
 			apps.Model.ReportSchedule.InitReportSchedule(v1) // 定时报表 D3
 			apps.Model.DeviceCertificate.InitDeviceCertificate(v1) // 接入安全 X.509 D5
 			apps.Model.EdgeSync.InitEdgeSync(v1) // 边缘计算 2.0 D6
+			apps.Model.AiModel.InitAiModel(v1) // AI 2.0 D7
 
 			apps.Model.AttributeData.InitAttributeData(v1) // 属性数据
 

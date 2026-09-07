@@ -50,7 +50,8 @@ const palette: PaletteItem[] = [
   { type: 'analytics.latest', label: $t('custom.rule_chain.nodeD1AnalyticsLatest') },
   { type: 'analytics.message_count', label: $t('custom.rule_chain.nodeD1AnalyticsMessageCount') },
   { type: 'external.mqtt_forward', label: $t('custom.rule_chain.nodeD1ExternalMqtt') },
-  { type: 'external.kafka', label: $t('custom.rule_chain.nodeD1ExternalKafka') }
+  { type: 'external.kafka', label: $t('custom.rule_chain.nodeD1ExternalKafka') },
+  { type: 'ai.inference', label: $t('custom.rule_chain.nodeD1AiInference') }
   // PHASE-D-D1 END
 ]
 

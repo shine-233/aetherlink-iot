@@ -104,6 +104,8 @@ var ruleChainNodeSpecs = []RuleChainNodeSpec{
 	// ---- 外部 ----
 	{Type: RuleChainExternalMQTTForward, Kind: RuleChainKindExternal, Validate: validateMQTTForwardConfig},
 	{Type: RuleChainExternalKafka, Kind: RuleChainKindExternal, Validate: validateKafkaForwardConfig},
+	// ---- AI（PHASE-D-D7）----
+	{Type: RuleChainAiInference, Kind: RuleChainKindExternal, Validate: validateAiInferenceConfig},
 }
 
 // ruleChainKindByType 按 type 索引的 kind 表（校验热路径用）。

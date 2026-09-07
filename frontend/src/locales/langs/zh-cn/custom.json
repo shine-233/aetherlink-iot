@@ -2303,6 +2303,7 @@
   "custom.rule_chain.nodeD1AnalyticsMessageCount": "分析 · 消息计数",
   "custom.rule_chain.nodeD1ExternalMqtt": "外部 · MQTT 外发",
   "custom.rule_chain.nodeD1ExternalKafka": "外部 · Kafka 外发",
+  "custom.rule_chain.nodeD1AiInference": "外部 · AI 推理",
   "custom.rule_chain.genericConfig": "节点配置(JSON)",
   "custom.rule_chain.nodeTraces": "最近调试记录",
   "custom.rule_chain.refresh": "刷新",
