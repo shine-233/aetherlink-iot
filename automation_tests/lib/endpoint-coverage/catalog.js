@@ -515,7 +515,59 @@ const ALL_ENDPOINTS = [
   { method: 'GET',    path: '/api/v1/system/metrics/history',              module: 'monitor',   auth: true },
 
   // === 设备认证（device_auth.go） ===
-  { method: 'POST',   path: '/api/v1/device/auth',                         module: 'device',    auth: true }
+  { method: 'POST',   path: '/api/v1/device/auth',                         module: 'device',    auth: true },
+
+  // === 定时报表（ROADMAP D3 report_schedule.go） ===
+  { method: 'POST',   path: '/api/v1/report/schedules',                    module: 'report',    auth: true },
+  { method: 'PUT',    path: '/api/v1/report/schedules',                    module: 'report',    auth: true },
+  { method: 'GET',    path: '/api/v1/report/schedules',                    module: 'report',    auth: true },
+  { method: 'GET',    path: '/api/v1/report/schedules/:id',                module: 'report',    auth: true },
+  { method: 'DELETE', path: '/api/v1/report/schedules/:id',                module: 'report',    auth: true },
+  { method: 'POST',   path: '/api/v1/report/schedules/:id/run',            module: 'report',    auth: true },
+
+  // === 接入安全 X.509（ROADMAP D5 device_certificate.go） ===
+  { method: 'POST',   path: '/api/v1/device-certificates/issue',           module: 'device',    auth: true },
+  { method: 'POST',   path: '/api/v1/device-certificates/verify',          module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device-certificates',                 module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/device-certificates/:id',             module: 'device',    auth: true },
+  { method: 'POST',   path: '/api/v1/device-certificates/:id/revoke',      module: 'device',    auth: true },
+  { method: 'POST',   path: '/api/v1/device-certificates/:id/renew',       module: 'device',    auth: true },
+
+  // === 边缘计算 2.0（ROADMAP D6 edge_sync.go） ===
+  { method: 'POST',   path: '/api/v1/edge/sync',                           module: 'edge',      auth: true },
+  { method: 'GET',    path: '/api/v1/edge/sync',                           module: 'edge',      auth: true },
+  { method: 'GET',    path: '/api/v1/edge/sync/:id',                       module: 'edge',      auth: true },
+  { method: 'POST',   path: '/api/v1/edge/sync/:id/retry',                 module: 'edge',      auth: true },
+  { method: 'POST',   path: '/api/v1/edge/ota/distribute',                 module: 'edge',      auth: true },
+
+  // === AI 2.0（ROADMAP D7 ai_model.go） ===
+  { method: 'POST',   path: '/api/v1/ai/models',                           module: 'ai',        auth: true },
+  { method: 'PUT',    path: '/api/v1/ai/models',                           module: 'ai',        auth: true },
+  { method: 'GET',    path: '/api/v1/ai/models',                           module: 'ai',        auth: true },
+  { method: 'GET',    path: '/api/v1/ai/models/:id',                       module: 'ai',        auth: true },
+  { method: 'DELETE', path: '/api/v1/ai/models/:id',                       module: 'ai',        auth: true },
+  { method: 'POST',   path: '/api/v1/ai/assistant/chat',                   module: 'ai',        auth: true },
+
+  // === 插件注册表（ROADMAP D9 plugin_registry） ===
+  { method: 'GET',    path: '/api/v1/plugins',                             module: 'plugin',    auth: true },
+  { method: 'POST',   path: '/api/v1/plugins',                             module: 'plugin',    auth: true },
+  { method: 'DELETE', path: '/api/v1/plugins/:id',                         module: 'plugin',    auth: true },
+  { method: 'POST',   path: '/api/v1/plugins/:id/downlink',                module: 'plugin',    auth: true },
+  { method: 'PUT',    path: '/api/v1/plugins/:id/enable',                  module: 'plugin',    auth: true },
+  { method: 'PUT',    path: '/api/v1/plugins/:id/disable',                 module: 'plugin',    auth: true },
+  { method: 'PUT',    path: '/api/v1/plugins/:id/token',                   module: 'plugin',    auth: true },
+
+  // === 模板市场（ROADMAP D10 device_template_market） ===
+  { method: 'GET',    path: '/api/v1/device/template/market/catalog',      module: 'template',  auth: true },
+  { method: 'GET',    path: '/api/v1/device/template/market/bundle',       module: 'template',  auth: true },
+
+  // === 计算字段重算（calculated_fields recompute） ===
+  { method: 'POST',   path: '/api/v1/calculated_fields/recompute',         module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/calculated_fields/recompute',         module: 'device',    auth: true },
+  { method: 'GET',    path: '/api/v1/calculated_fields/recompute/:id',     module: 'device',    auth: true },
+
+  // === 规则链节点追踪（rule_chain_trace_query） ===
+  { method: 'GET',    path: '/api/v1/rule-chains/:id/nodes/:nodeId/traces', module: 'automation', auth: true }
 ];
 
 module.exports = { ALL_ENDPOINTS };
