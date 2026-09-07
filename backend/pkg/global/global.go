@@ -18,7 +18,7 @@ var (
 	// 低于已合入迁移编号会导致新迁移永不执行（2026-09-06 Phase D 集成修复）。
 	// 69/71/72/73 为补齐号位的空迁移（循环对缺文件 fail-fast，故不可跳过）。
 	VERSION        = "0.0.23"
-	VERSION_NUMBER = 79
+	VERSION_NUMBER = 80
 	SYSTEM_VERSION = "v1.2.3"
 	DB             *gorm.DB
 	REDIS          *redis.Client

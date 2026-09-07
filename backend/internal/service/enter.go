@@ -69,6 +69,7 @@ type ServiceGroup struct {
 	OidcSso
 	PluginRegistry PluginRegistryService // PHASE-D-D9 插件框架 gRPC 网关管理面
 	ReportSchedule ReportScheduleService  // PHASE-D-D3 定时报表
+	DeviceCertificate DeviceCertificateService // PHASE-D-D5 接入安全 X.509
 }
 
 // GroupApp 是全局业务服务入口，供 API 层和中间件层调用

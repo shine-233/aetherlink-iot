@@ -65,6 +65,7 @@ type Controller struct {
 	RuleChainApi
 	PluginRegistryApi // PHASE-D-D9 插件框架 gRPC 网关
 	ReportScheduleApi // PHASE-D-D3 定时报表
+	DeviceCertificateApi // PHASE-D-D5 接入安全 X.509
 	RDIApi
 	PayloadSchemaApi
 	CalculatedFieldApi
