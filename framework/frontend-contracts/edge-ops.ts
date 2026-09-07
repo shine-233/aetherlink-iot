@@ -1,0 +1,4 @@
+export type EdgeTaskKind = 'REGISTER' | 'SYNC_CONFIG' | 'DEPLOY_RULE' | 'DEPLOY_WIDGET' | 'UPGRADE' | 'ROLLBACK';
+export interface EdgeNode { id: string; name: string; version: string; status: 'ONLINE' | 'OFFLINE' | 'DEGRADED'; lastHeartbeat?: string; queueDepth: number; capabilities: string[]; }
+export interface EdgeTask { id: string; nodeId: string; kind: EdgeTaskKind; payload: Record<string, unknown>; status: 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELED'; attempts: number; error?: string; createdAt: string; updatedAt: string; }
+export interface EdgeOpsApi { listNodes(): Promise<EdgeNode[]>; getNode(id: string): Promise<EdgeNode>; enqueue(task: Omit<EdgeTask, 'id' | 'status' | 'attempts' | 'createdAt' | 'updatedAt'>): Promise<EdgeTask>; cancelTask(id: string): Promise<void>; retryTask(id: string): Promise<EdgeTask>; streamNodeEvents(nodeId: string, onEvent: (event: { type: string; payload: unknown }) => void): () => void; }
