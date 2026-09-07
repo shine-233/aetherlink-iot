@@ -56,9 +56,9 @@ ThingsPanel 社区仓库可见 MQTT/HTTP/Modbus、物模型、看板、规则、
 
 框架代码：
 
-    scripts/preflight-release.ps1
-    scripts/validate-deploy.ps1
-    scripts/backup-restore.ps1
+    scripts/roadmap/preflight-release.ps1
+    scripts/roadmap/validate-deploy.ps1
+    scripts/roadmap/backup-restore.ps1
     docs/validation/release-<date>.md
 
 依赖：部署环境、证书、Redis/Postgres/Timescale、真实 DNS 或等价隔离栈。

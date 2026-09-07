@@ -1,6 +1,6 @@
 # Frontend Contracts Framework
 
-This directory is an implementation scaffold for the next AetherLink roadmap phase. It is intentionally isolated from `frontend/src` and has no runtime wiring, build entry, or production imports.
+This directory is an implementation scaffold inside the frontend source tree for the next AetherLink roadmap phase. It has no runtime wiring or production imports yet, so another model can implement one contract at a time without changing current behavior.
 
 ## Scope
 

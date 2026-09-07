@@ -1,6 +1,6 @@
 # Roadmap backend framework
 
-This directory is an isolated, compileable contract scaffold for the next
+This directory is a source-tree, compileable contract scaffold for the next
 AetherLink roadmap. It does **not** register routes, migrations, workers,
 providers, or `service.GroupApp` dependencies. Existing production behavior is
 unchanged.
