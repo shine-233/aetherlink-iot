@@ -39,6 +39,8 @@ func ListReportSchedules(tenantID string, limit int) ([]*model.ReportSchedule, e
 }
 
 // ListEnabledReportSchedules 返回全部启用中的任务，供 cron 调度扫描（跨租户，因调度在后台运行）。
+// tenant-scope: caller-enforced——本函数只做到期任务枚举；租户边界在执行路径强制
+// （ExecuteSchedule 按任务行自带 tenant_id 过滤遥测与收件人，见 service/report_schedule.go）。
 func ListEnabledReportSchedules() ([]*model.ReportSchedule, error) {
 	var list []*model.ReportSchedule
 	err := global.DB.

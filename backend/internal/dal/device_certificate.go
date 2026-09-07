@@ -61,6 +61,8 @@ func MarkDeviceCertificateExpired(id string) error {
 }
 
 // GetPlatformCA 读取平台 CA 单行；未初始化返回 gorm.ErrRecordNotFound。
+// tenant-scope: system-table——platform_cas 为平台级系统表（无租户列，全局单行 id="default"），
+// 设备证书行的租户隔离由 device_certificates.tenant_id 承担，与 CA 复用无关。
 func GetPlatformCA() (*model.PlatformCA, error) {
 	var ca model.PlatformCA
 	err := global.DB.Where("id = ?", "default").First(&ca).Error
