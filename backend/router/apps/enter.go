@@ -51,6 +51,7 @@ type apps struct {
 	UserTOTP
 	OidcSso
 	PluginRegistry // PHASE-D-D9 插件框架 gRPC 网关
+	ReportSchedule  // PHASE-D-D3 定时报表
 }
 
 var Model = new(apps)

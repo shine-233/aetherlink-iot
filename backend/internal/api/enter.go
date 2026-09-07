@@ -64,6 +64,7 @@ type Controller struct {
 	AiQueryApi
 	RuleChainApi
 	PluginRegistryApi // PHASE-D-D9 插件框架 gRPC 网关
+	ReportScheduleApi // PHASE-D-D3 定时报表
 	RDIApi
 	PayloadSchemaApi
 	CalculatedFieldApi

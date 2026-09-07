@@ -278,6 +278,8 @@ func RouterInit() *gin.Engine {
 
 			apps.Model.TelemetryData.InitTelemetryData(v1) // 遥测数据
 
+			apps.Model.ReportSchedule.InitReportSchedule(v1) // 定时报表 D3
+
 			apps.Model.AttributeData.InitAttributeData(v1) // 属性数据
 
 			apps.Model.CommandData.InitCommandData(v1) // 命令数据
