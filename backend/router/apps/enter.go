@@ -53,6 +53,7 @@ type apps struct {
 	PluginRegistry // PHASE-D-D9 插件框架 gRPC 网关
 	ReportSchedule  // PHASE-D-D3 定时报表
 	DeviceCertificate // PHASE-D-D5 接入安全 X.509
+	EdgeSync // PHASE-D-D6 边缘计算 2.0
 }
 
 var Model = new(apps)

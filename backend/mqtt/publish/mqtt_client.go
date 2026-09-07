@@ -106,3 +106,28 @@ func PublishOtaAddressWithTimeout(deviceNumber string, payload []byte, timeout t
 	}
 	return nil
 }
+
+// PublishToTopic 向指定主题发布任意下行负载（ROADMAP D6 边缘同步/OTA 经边分发共用）。
+// 语义与 PublishOtaAddressWithTimeout 一致：仅等待有界 broker ACK，超时按未知结果上报，
+// 共享客户端可能在返回后仍完成投递——调用方以任务状态表 + 重试收敛最终一致。
+func PublishToTopic(topic string, qos byte, payload []byte, timeout time.Duration) error {
+	if strings.TrimSpace(topic) == "" {
+		return fmt.Errorf("%w: publish topic is empty", ErrPublisherUnavailable)
+	}
+	if timeout <= 0 {
+		timeout = defaultOTAPublishTimeout
+	}
+	client := mqttClient
+	if client == nil || !client.IsConnectionOpen() {
+		return fmt.Errorf("%w: shared client is not connected", ErrPublisherUnavailable)
+	}
+	token := client.Publish(topic, qos, false, payload)
+	if !token.WaitTimeout(timeout) {
+		return fmt.Errorf("%w after %s", ErrPublishTimeout, timeout)
+	}
+	if err := token.Error(); err != nil {
+		logrus.WithError(err).WithField("topic", topic).Error("MQTT publish failed")
+		return err
+	}
+	return nil
+}
