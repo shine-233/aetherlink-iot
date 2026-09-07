@@ -101,7 +101,7 @@ func ruleChainAiInference(e *ruleChainExecution, node *RuleChainNode, rcc *RuleC
 
 	// 回复写回：metadata（富化语义）+ payload（下游可直接消费）。
 	metadata[outputKey] = reply
-	out := make(map[string]any, len(payload)+1)
+	out := make(map[string]any, len(payload))
 	for k, v := range payload {
 		out[k] = v
 	}

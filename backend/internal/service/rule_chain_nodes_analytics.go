@@ -36,7 +36,7 @@ func ruleChainAnalyticsGenerator(node *RuleChainNode, payload, metadata map[stri
 			generated[key] = raw
 		}
 	}
-	out := make(map[string]any, len(payload)+len(generated))
+	out := make(map[string]any, len(payload))
 	for k, v := range payload {
 		out[k] = v
 	}
@@ -56,7 +56,7 @@ func ruleChainAnalyticsLatest(ctx context.Context, node *RuleChainNode, rcc *Rul
 	if err != nil {
 		return ruleChainNodeResult{}, fmt.Errorf("fetch latest telemetry: %w", err)
 	}
-	out := make(map[string]any, len(payload)+len(latest))
+	out := make(map[string]any, len(payload))
 	for k, v := range payload {
 		out[k] = v
 	}
@@ -124,7 +124,7 @@ func ruleChainAnalyticsMessageCount(e *ruleChainExecution, node *RuleChainNode, 
 	}
 	entry.mu.Unlock()
 
-	out := make(map[string]any, len(payload)+1)
+	out := make(map[string]any, len(payload))
 	for k, v := range payload {
 		out[k] = v
 	}

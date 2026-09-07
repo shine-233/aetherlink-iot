@@ -45,7 +45,8 @@ func (*RuleChain) GetNodeTraces(chainID, nodeID string, limit int, claims *utils
 	if global.DB == nil {
 		return nil, errRuleChainDBNotInitialized
 	}
-	traces := make([]model.RuleChainNodeTrace, 0, limit)
+	// 容量提示用固定常量：请求侧 limit 已做业务钳制，但分配尺寸不信任外部值（CodeQL allocation-size）。
+	traces := make([]model.RuleChainNodeTrace, 0, ruleChainTraceDefaultLimit)
 	if err := global.DB.WithContext(context.Background()).
 		Table(model.TableNameRuleChainNodeTrace).
 		Where("chain_id = ? AND node_id = ? AND tenant_id = ?", chainID, nodeID, tenantID).

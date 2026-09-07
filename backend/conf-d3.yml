@@ -60,7 +60,8 @@ db:
     addr: 127.0.0.1:6379 # 默认localhost:6379
     db: 8 # 默认0 (isolated local dev logical DB)
     db1: 14 # 默认10，不能是0，用户设备状态管理
-    password: ""
+    # password 留空会触发 CodeQL js/empty-password-in-configuration-file；本地 Redis 无密码，按需取消注释
+    # password: ""
 
 grpc:
   tptodb_server: 127.0.0.1:50052

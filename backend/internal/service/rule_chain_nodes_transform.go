@@ -68,7 +68,7 @@ func ruleChainTransformScript(e *ruleChainExecution, node *RuleChainNode, msg ru
 // ruleChainTransformRenameKeys 键重命名：{mappings:{old:new}}。
 func ruleChainTransformRenameKeys(node *RuleChainNode, payload, metadata map[string]any, rcc *RuleChainContext) (ruleChainNodeResult, error) {
 	mappings, _ := node.Config["mappings"].(map[string]any)
-	output := make(map[string]any, len(payload)+len(mappings))
+	output := make(map[string]any, len(payload))
 	for key, value := range payload {
 		output[key] = value
 	}
