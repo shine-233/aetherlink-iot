@@ -128,9 +128,14 @@ func (e *ruleChainExecution) walkAndCollect(values map[string]any, triggerType s
 			return
 		}
 		start := time.Now()
-		result, nodeErr := e.executeNode(node, msg)
+		result, attempt, nodeErr := e.executeNodeWithPolicy(node, msg)
 		recordRuleChainNodeTrace(e, node, msg, result, nodeErr, time.Since(start))
 		if nodeErr != nil {
+			if attempt.Attempts > 1 {
+				errs = append(errs, fmt.Errorf("node %s(%s): %w (attempts=%d, backoff=%dms)",
+					node.ID, node.Type, nodeErr, attempt.Attempts, attempt.BackoffMs))
+				return
+			}
 			errs = append(errs, fmt.Errorf("node %s(%s): %w", node.ID, node.Type, nodeErr))
 			return
 		}
