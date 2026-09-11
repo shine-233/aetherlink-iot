@@ -22,6 +22,7 @@ func (*CommandData) InitCommandData(Router *gin.RouterGroup) {
 		commandDataApi.GET("jobs", api.Controllers.CommandSetLogApi.ListFleetCommandJobs)
 		commandDataApi.GET("jobs/:job_id/support-bundle", api.Controllers.CommandSetLogApi.GetFleetCommandJobSupportBundle)
 		commandDataApi.GET("jobs/:job_id/rows", api.Controllers.CommandSetLogApi.GetFleetCommandJobRows)
+		commandDataApi.GET("jobs/:job_id/report", api.Controllers.CommandSetLogApi.GetFleetCommandJobReport)
 		commandDataApi.GET("jobs/:job_id", api.Controllers.CommandSetLogApi.GetFleetCommandJob)
 		commandDataApi.POST("jobs/:job_id/cancel", api.Controllers.CommandSetLogApi.CancelFleetCommandJob)
 		commandDataApi.POST("jobs/:job_id/retry", api.Controllers.CommandSetLogApi.RetryFleetCommandJob)

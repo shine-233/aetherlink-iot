@@ -254,6 +254,46 @@ func (CommandSetLogApi) GetFleetCommandJobRows(c *gin.Context) {
 	c.Set("data", data)
 }
 
+// GetFleetCommandJobReport 导出批次作业明细行报告（P0.3）。
+// format=csv 时返回 CSV 文本，format=json 时返回结构化行。
+// @Summary Export fleet command job report
+// @Description Exports per-device detail rows for a command job as CSV or JSON. NULL progress columns export as empty, never as 0.
+// @Tags CommandJobs
+// @Accept json
+// @Produce text/csv
+// @Param job_id path string true "Command job ID"
+// @Param format query string false "csv or json" default(csv)
+// @Param limit query int false "Row limit"
+// @Success 200 {object} service.FleetCommandJobReport
+// @Router /api/v1/command/datas/jobs/{job_id}/report [get]
+func (CommandSetLogApi) GetFleetCommandJobReport(c *gin.Context) {
+	jobID := c.Param("job_id")
+	if jobID == "" {
+		c.Error(errcode.WithData(errcode.CodeParamError, "job_id is required"))
+		return
+	}
+
+	var limit int
+	if rawLimit := c.Query("limit"); rawLimit != "" {
+		parsed, err := strconv.Atoi(rawLimit)
+		if err != nil || parsed < 0 {
+			c.Error(errcode.WithData(errcode.CodeParamError, "limit must be a non-negative integer"))
+			return
+		}
+		limit = parsed
+	}
+
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	data, err := service.GroupApp.CommandData.GetFleetCommandJobReport(
+		jobID, c.Query("format"), limit, userClaims,
+	)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", data)
+}
+
 // GetFleetCommandJobSupportBundle returns a copyable troubleshooting package for support handoff.
 // @Summary Get fleet command job support bundle
 // @Description Returns a copyable troubleshooting package for support handoff, including per-device status, retryable devices, and next actions.
