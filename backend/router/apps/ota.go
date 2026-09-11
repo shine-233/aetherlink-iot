@@ -41,6 +41,10 @@ func (*OTA) InitOTA(Router *gin.RouterGroup) {
 
 			// 只读治理预览：读取 task 状态 + detail 分状态计数，用纯规划器推演下一步动作，不下发、不改行。
 			task.GET(":id/governance-preview", api.Controllers.OTAApi.PreviewOTARolloutGovernance)
+
+			// 治理执行面：把规划器的决策真正落到设备上（按限速放量 / 失败率中止 / 超时收尾 / 完成）。
+			// 没有它，金丝雀只会"说"该怎么做，而不会真的拦住或放量。
+			task.POST(":id/governance-apply", api.Controllers.OTAApi.ApplyOTARolloutGovernance)
 		}
 	}
 }
