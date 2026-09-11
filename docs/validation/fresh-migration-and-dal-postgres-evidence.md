@@ -58,6 +58,23 @@ AETHERLINK_TEST_PSQL_DSN=postgres://postgres@127.0.0.1:55432/aetherlink_fresh_te
 ok      aetherlink-iot/backend/internal/dal  45.847s
 ```
 
+### 追加：`internal/service` 层数据库用例
+
+```
+AETHERLINK_TEST_PSQL_DSN=postgres://postgres@127.0.0.1:55432/aetherlink_fresh_test?sslmode=disable \
+  go test ./internal/service/ -run 'Postgres' -count=1 -v
+--- PASS: TestMapDeviceGroupRelationWriteErrorHidesPostgresUniqueViolation (0.00s)
+--- PASS: TestDefaultPostgresSupportsOptionalTimescaleDB (0.00s)
+--- PASS: TestScadaDocumentAgainstPostgres (0.82s)
+--- PASS: TestScadaControlAuditAgainstPostgres (0.95s)
+--- PASS: TestPushRetryAgainstPostgres (0.77s)
+--- PASS: TestPushDeliveryStatusCheckAgainstPostgres (0.76s)
+ok      aetherlink-iot/backend/internal/service  3.494s
+```
+
+至此 `internal/dal` 10 条 + `internal/service` 6 条，共 **16 条**依赖 PostgreSQL 的用例
+全部取得运行期证据。
+
 ## 过程中的一个负向发现（重要）
 
 **同样这批用例，在"空库"上是 FAIL 的**：

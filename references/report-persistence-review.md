@@ -10,20 +10,55 @@ Revision: dirty worktree on `main` (no commit).
 
 ## Disposition (updated same day)
 
-P1, P2 and P3 have been **implemented** in the working tree. They are **not
-verified**: `TestReportMigration83Postgres` skips because no DSN is set, so no
-PostgreSQL behaviour was exercised. `go build ./...`, `go vet` on the touched
-packages and `go test` on `dal` / `model` / `service` / `app` all pass — that
-proves compilation and the existing in-process tests, nothing about the fixed
-SQL paths.
+P1, P2 and P3 have been **implemented** in the working tree. As of the same
+evening, **P1 now has real PostgreSQL evidence** (see below); P2 and P4 remain
+unverified. `go build ./...`, `go vet` on the touched packages and `go test` on
+`dal` / `model` / `service` / `app` pass — for everything except P1 that still
+proves only compilation and the existing in-process tests.
 
 | Finding | Change | Verified |
 | --- | --- | --- |
-| P1 | `report_run.go` failure paths now call `updateReportScheduleSummaryTx` instead of the `IfCurrent` helper, so a terminal failure advances `last_run_id`/`last_status`/`last_run_at`. The helper's existing `created_at, id` monotonicity guard still prevents an older run from overwriting a newer one. | no (needs PostgreSQL) |
+| P1 | `report_run.go` failure paths now call `updateReportScheduleSummaryTx` instead of the `IfCurrent` helper, so a terminal failure advances `last_run_id`/`last_status`/`last_run_at`. The helper's existing `created_at, id` monotonicity guard still prevents an older run from overwriting a newer one. | **yes — PostgreSQL, with negative control** (below) |
 | P2 | `dal.ReportRunSubmission` gained `OverallStatus`; `findIdempotentReportRun` and `createIdempotentReportRun` project it from the run's real generation + delivery state; `service.reportRunAction` returns it instead of a literal. `model.ProjectReportStatus` was exported so the action and detail responses share one projector. | no (needs live API) |
 | P3 | `UpdateReportScheduleSummary` deleted. `updateReportScheduleSummaryIfCurrentTx` became unreachable once P1 landed and was deleted with it. | compile-only |
 | P4 | Both claim loops now `continue` instead of `return ErrReportClaimLost` when the claim update matches 0 rows, so one contended row no longer discards the batch. The delivery→run lookup after a *successful* claim still aborts on purpose: that row is already `processing`, and skipping it would orphan a leased delivery that the reaper would later mark `ambiguous`. | no (needs PostgreSQL) |
 | P5 | `tenant_id` added to the `next_run_at` update in `MaterializeDueReportScheduleRuns`. | no |
+
+### P1 runtime evidence (PostgreSQL, same evening)
+
+A PostgreSQL instance became available on this machine and the migration-83
+harness was corrected, so P1 is no longer blocked. New subtest
+`generation failure advances schedule summary` in
+`backend/internal/dal/report_migration83_postgres_test.go`:
+
+1. seed a schedule whose `last_status` is `succeeded` (the previous run's outcome);
+2. insert a pending run, claim it, then `FailClaimedReportGeneration`;
+3. assert `last_status == failed` and `last_run_id == <the failed run>`.
+
+Run:
+
+```
+AETHERLINK_TEST_PSQL_DSN="postgres://postgres@127.0.0.1:55432/aetherlink_m83_test?sslmode=disable" \
+  go test ./internal/dal/ -run TestReportMigration83Postgres -count=1
+```
+
+Result: `ok aetherlink-iot/backend/internal/dal 46.735s` — all 14 subtests pass
+against real PostgreSQL.
+
+**Negative control.** The fix at `report_run.go` was temporarily replaced with
+`return nil` and the subtest re-run. It failed as intended:
+
+```
+last_status = "succeeded", want "failed"
+last_run_id = <nil>, want c2a7c17a-…—603239f00ddb
+```
+
+That is exactly the P1 defect: without the fix the schedule keeps advertising the
+previous run's outcome and never records the failed run. So the test is not a
+no-op — it discriminates. The fix was restored and the full suite re-run green.
+
+P2 and P4 still have no runtime evidence (live API and multi-replica contention
+respectively). P5 remains unexercised.
 
 A deterministic regression guard for P2 was added at the end of
 `tests/37_report_schedule.test.js`: after the run is polled to a terminal state,
@@ -218,9 +253,10 @@ db, err := gorm.Open(postgres.New(postgres.Config{Conn: schemaDB}), ...)
 
 Consequences for this review:
 
-- P1 was **doubly** blocked: no DSN *and* a harness that could not connect. Only
-  the first remains. Supplying a DSN should now exercise
-  `updateReportScheduleSummaryTx` for real.
+- P1 was **doubly** blocked: no DSN *and* a harness that could not connect. Both
+  are now resolved — a PostgreSQL instance is available and the harness connects —
+  so P1 has real runtime evidence with a negative control (see "P1 runtime
+  evidence" above). The remaining unverified findings are P2, P4 and P5.
 - Any earlier claim of PostgreSQL-backed evidence for migration 83 should be
   treated as unsupported, since the harness could not have produced it.
 - A repository-wide grep for `RegisterConnConfig` in the backend finds no other

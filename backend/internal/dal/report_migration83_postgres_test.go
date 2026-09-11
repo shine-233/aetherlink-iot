@@ -112,6 +112,11 @@ func TestReportMigration83Postgres(t *testing.T) {
 		resetReport83Tables(t, db)
 		testReport83ExpiredDeliveryAmbiguous(t, db)
 	})
+	// P1：生成失败必须推进计划汇总，否则计划会一直对外宣称上一次运行的结果。
+	t.Run("generation failure advances schedule summary", func(t *testing.T) {
+		resetReport83Tables(t, db)
+		testReport83FailureAdvancesScheduleSummary(t, db)
+	})
 	t.Run("expired delivery owner loses every settlement before reap", func(t *testing.T) {
 		for _, settle := range []struct {
 			name      string
@@ -673,6 +678,45 @@ func testReport83PersistedAttemptPolicy(t *testing.T, db *gorm.DB) {
 	reclaimed := requireOneReport83GenerationClaim(t, retryable.ID)
 	if reclaimed.Run.MaxAttempts != 4 || reclaimed.Run.AttemptCount != 2 {
 		t.Fatalf("reclaimed persisted policy = max %d attempts %d", reclaimed.Run.MaxAttempts, reclaimed.Run.AttemptCount)
+	}
+}
+
+// testReport83FailureAdvancesScheduleSummary 覆盖 P1：
+// 生成失败必须把计划汇总推进到 failed。修复前 last_run_id 只由生成成功写入，
+// 于是 IfCurrent 守卫会静默 no-op，计划会一直对外宣称上一次运行的 succeeded。
+func testReport83FailureAdvancesScheduleSummary(t *testing.T, db *gorm.DB) {
+	tenantID := "tenant-fail-summary"
+	scheduleID := uuid.NewString()
+	insertReport83Schedule(t, db, tenantID, scheduleID, time.Now().Add(time.Hour))
+
+	// 先制造"上一次运行成功"的历史，让计划汇总停在 succeeded。
+	if err := db.Model(&model.ReportSchedule{}).Where("id = ?", scheduleID).
+		Updates(map[string]interface{}{"last_status": model.ReportProjectedStatusSucceeded}).Error; err != nil {
+		t.Fatalf("seed schedule summary: %v", err)
+	}
+
+	run := insertReport83Run(t, db, tenantID, scheduleID, uuid.NewString(), model.ReportGenerationStatusPending, 0, 1)
+	claimed, err := ClaimReportGenerations(context.Background(), 1, time.Minute)
+	if err != nil {
+		t.Fatalf("claim generation: %v", err)
+	}
+	if len(claimed) != 1 || claimed[0].Run.ID != run.ID {
+		t.Fatalf("claimed = %#v, want one owner for %s", claimed, run.ID)
+	}
+	if err := FailClaimedReportGeneration(context.Background(), claimed[0].Run.ID, claimed[0].Token, "boom"); err != nil {
+		t.Fatalf("fail generation: %v", err)
+	}
+
+	var schedule model.ReportSchedule
+	if err := db.Where("id = ?", scheduleID).Take(&schedule).Error; err != nil {
+		t.Fatalf("load schedule: %v", err)
+	}
+	if schedule.LastStatus != model.ReportProjectedStatusFailed {
+		t.Errorf("last_status = %q, want %q：生成失败后计划不得继续宣称上一次运行的结果",
+			schedule.LastStatus, model.ReportProjectedStatusFailed)
+	}
+	if schedule.LastRunID == nil || *schedule.LastRunID != run.ID {
+		t.Errorf("last_run_id = %v, want %s", schedule.LastRunID, run.ID)
 	}
 }
 
