@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -270,5 +271,153 @@ func TestReportScheduleCronAndTimezoneValidation(t *testing.T) {
 		if _, _, err := parseReportSchedule(test.cron, test.zone); err == nil {
 			t.Fatalf("parseReportSchedule(%q, %q) accepted invalid input", test.cron, test.zone)
 		}
+	}
+}
+
+type reportSMTPStub struct {
+	result ReportSMTPResult
+}
+
+func (stub reportSMTPStub) Send(context.Context, ReportSMTPEnvelope) ReportSMTPResult {
+	return stub.result
+}
+
+func reportDeliveryClaimFixture() dal.ReportDeliveryClaim {
+	return dal.ReportDeliveryClaim{
+		Run:   &model.ReportScheduleRun{ID: "run-1"},
+		Token: "token-1",
+		Delivery: &model.ReportScheduleDelivery{
+			EnvelopeFrom:       "sender@example.test",
+			EnvelopeRecipients: []string{"ops@example.test"},
+			MessageID:          "message-1@example.test",
+			Subject:            "Daily report",
+			Payload:            []byte("timestamp,device_id\n"),
+		},
+	}
+}
+
+// Which settlement an SMTP outcome maps to IS the acceptance-boundary contract.
+// Before the settlement hooks were injectable this mapping had no unit coverage,
+// so swapping the ambiguous branch for an accepted one would have gone unnoticed
+// outside the PostgreSQL-only integration test.
+func TestDeliverClaimMapsSMTPOutcomeToSettlement(t *testing.T) {
+	cases := []struct {
+		name           string
+		smtp           ReportSMTPAdapter
+		mutate         func(*dal.ReportDeliveryClaim)
+		wantSettlement string
+		wantCode       string
+	}{
+		{
+			name:           "accepted settles accepted",
+			smtp:           reportSMTPStub{result: ReportSMTPResult{Outcome: ReportSMTPAccepted}},
+			wantSettlement: "accepted",
+		},
+		{
+			name:           "definite failure retries with the smtp code",
+			smtp:           reportSMTPStub{result: ReportSMTPResult{Outcome: ReportSMTPFailed, Code: "smtp_dial_failed"}},
+			wantSettlement: "retry",
+			wantCode:       "smtp_dial_failed",
+		},
+		{
+			name:           "ambiguous settles ambiguous, never accepted",
+			smtp:           reportSMTPStub{result: ReportSMTPResult{Outcome: ReportSMTPAmbiguous, Code: "send_response_unknown"}},
+			wantSettlement: "ambiguous",
+			wantCode:       "send_response_unknown",
+		},
+		{
+			name:           "unrecognised outcome is ambiguous, not a success",
+			smtp:           reportSMTPStub{result: ReportSMTPResult{Outcome: ReportSMTPOutcome("unexpected"), Code: "unknown_outcome"}},
+			wantSettlement: "ambiguous",
+			wantCode:       "unknown_outcome",
+		},
+		{
+			name:           "invalid persisted envelope fails with invalid_envelope",
+			smtp:           reportSMTPStub{result: ReportSMTPResult{Outcome: ReportSMTPAccepted}},
+			mutate:         func(claim *dal.ReportDeliveryClaim) { claim.Delivery.MessageID = "" },
+			wantSettlement: "failed",
+			wantCode:       "invalid_envelope",
+		},
+		{
+			name:           "missing smtp adapter retries instead of settling",
+			smtp:           nil,
+			wantSettlement: "retry",
+			wantCode:       "smtp_not_configured",
+		},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			claim := reportDeliveryClaimFixture()
+			if testCase.mutate != nil {
+				testCase.mutate(&claim)
+			}
+			var settlement, code string
+			processor := &ReportRunProcessor{
+				SMTP: testCase.smtp,
+				SettleDeliveryAccepted: func(_ context.Context, _, _ string) error {
+					settlement = "accepted"
+					return nil
+				},
+				SettleDeliveryAmbiguous: func(_ context.Context, _, _, errorCode string) error {
+					settlement = "ambiguous"
+					code = errorCode
+					return nil
+				},
+				SettleDeliveryFailed: func(_ context.Context, _, _, errorCode string) error {
+					settlement = "failed"
+					code = errorCode
+					return nil
+				},
+				RetryDelivery: func(_ context.Context, _, _, errorCode string) error {
+					settlement = "retry"
+					code = errorCode
+					return nil
+				},
+			}
+			if err := processor.DeliverClaim(context.Background(), claim); err != nil {
+				t.Fatalf("DeliverClaim error = %v", err)
+			}
+			if settlement != testCase.wantSettlement || code != testCase.wantCode {
+				t.Fatalf("settlement = %q/%q, want %q/%q", settlement, code, testCase.wantSettlement, testCase.wantCode)
+			}
+		})
+	}
+}
+
+func TestDeliverClaimRejectsIncompleteClaimWithoutSettling(t *testing.T) {
+	settled := false
+	processor := &ReportRunProcessor{
+		SMTP: reportSMTPStub{result: ReportSMTPResult{Outcome: ReportSMTPAccepted}},
+		SettleDeliveryFailed: func(_ context.Context, _, _, _ string) error {
+			settled = true
+			return nil
+		},
+		SettleDeliveryAccepted: func(_ context.Context, _, _ string) error {
+			settled = true
+			return nil
+		},
+	}
+	if err := processor.DeliverClaim(context.Background(), dal.ReportDeliveryClaim{}); err == nil {
+		t.Fatal("DeliverClaim accepted an incomplete claim")
+	}
+	if settled {
+		t.Fatal("incomplete claim must not settle; it would mask a malformed claim as delivery failure")
+	}
+}
+
+func TestIsReportClaimLostRecognisesWrappedFenceLoss(t *testing.T) {
+	if isReportClaimLost(nil) {
+		t.Fatal("isReportClaimLost(nil) = true, want false")
+	}
+	if isReportClaimLost(errors.New("boom")) {
+		t.Fatal("isReportClaimLost(unrelated) = true, want false")
+	}
+	if !isReportClaimLost(dal.ErrReportClaimLost) {
+		t.Fatal("isReportClaimLost(ErrReportClaimLost) = false, want true")
+	}
+	// A lost lease must survive wrapping, or fencing breaks at the first helper
+	// that adds context.
+	if !isReportClaimLost(fmt.Errorf("settle delivery: %w", dal.ErrReportClaimLost)) {
+		t.Fatal("isReportClaimLost(wrapped) = false, want true")
 	}
 }

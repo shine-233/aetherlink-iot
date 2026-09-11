@@ -49,6 +49,13 @@ type ReportRunProcessor struct {
 	RetryGeneration    func(context.Context, string, string, string, string) error
 	FailGeneration     func(context.Context, string, string, string) error
 	CompleteGeneration func(context.Context, string, string, string, []string, string, string, []byte, int64) error
+	// Delivery settlements are injectable for the same reason generation ones
+	// are: which settlement an SMTP outcome maps to is the acceptance-boundary
+	// contract, and it must be provable without a database.
+	SettleDeliveryAccepted  func(context.Context, string, string) error
+	SettleDeliveryAmbiguous func(context.Context, string, string, string) error
+	SettleDeliveryFailed    func(context.Context, string, string, string) error
+	RetryDelivery           func(context.Context, string, string, string) error
 }
 
 func NewReportRunProcessor(smtp ReportSMTPAdapter) *ReportRunProcessor {
@@ -56,12 +63,16 @@ func NewReportRunProcessor(smtp ReportSMTPAdapter) *ReportRunProcessor {
 		smtp = NewConfiguredReportSMTPAdapter()
 	}
 	return &ReportRunProcessor{
-		Telemetry:          reportTelemetryDAL{},
-		SMTP:               smtp,
-		EnvelopeFrom:       loadReportEnvelopeFrom,
-		RetryGeneration:    dal.RetryClaimedReportGeneration,
-		FailGeneration:     dal.FailClaimedReportGeneration,
-		CompleteGeneration: dal.CompleteReportGeneration,
+		Telemetry:               reportTelemetryDAL{},
+		SMTP:                    smtp,
+		EnvelopeFrom:            loadReportEnvelopeFrom,
+		RetryGeneration:         dal.RetryClaimedReportGeneration,
+		FailGeneration:          dal.FailClaimedReportGeneration,
+		CompleteGeneration:      dal.CompleteReportGeneration,
+		SettleDeliveryAccepted:  dal.SettleReportDeliveryAccepted,
+		SettleDeliveryAmbiguous: dal.SettleReportDeliveryAmbiguous,
+		SettleDeliveryFailed:    dal.SettleReportDeliveryFailed,
+		RetryDelivery:           dal.RetryClaimedReportDelivery,
 	}
 }
 
@@ -217,20 +228,51 @@ func (processor *ReportRunProcessor) DeliverClaim(ctx context.Context, claim dal
 	}
 	envelope, err := persistedReportDeliveryEnvelope(claim.Delivery)
 	if err != nil {
-		return dal.SettleReportDeliveryFailed(ctx, claim.Run.ID, claim.Token, "invalid_envelope")
+		return processor.settleDeliveryFailed()(ctx, claim.Run.ID, claim.Token, "invalid_envelope")
 	}
 	if processor.SMTP == nil {
-		return dal.RetryClaimedReportDelivery(ctx, claim.Run.ID, claim.Token, "smtp_not_configured")
+		return processor.retryDelivery()(ctx, claim.Run.ID, claim.Token, "smtp_not_configured")
 	}
 	result := processor.SMTP.Send(ctx, envelope)
 	switch result.Outcome {
 	case ReportSMTPAccepted:
-		return dal.SettleReportDeliveryAccepted(ctx, claim.Run.ID, claim.Token)
+		return processor.settleDeliveryAccepted()(ctx, claim.Run.ID, claim.Token)
 	case ReportSMTPFailed:
-		return dal.RetryClaimedReportDelivery(ctx, claim.Run.ID, claim.Token, result.Code)
+		return processor.retryDelivery()(ctx, claim.Run.ID, claim.Token, result.Code)
 	default:
-		return dal.SettleReportDeliveryAmbiguous(ctx, claim.Run.ID, claim.Token, result.Code)
+		// Anything that is not a definite accept or a definite failure is
+		// ambiguous: the mail may or may not have gone out. Settling it as
+		// anything else would silently under- or over-report delivery.
+		return processor.settleDeliveryAmbiguous()(ctx, claim.Run.ID, claim.Token, result.Code)
 	}
+}
+
+func (processor *ReportRunProcessor) settleDeliveryAccepted() func(context.Context, string, string) error {
+	if processor != nil && processor.SettleDeliveryAccepted != nil {
+		return processor.SettleDeliveryAccepted
+	}
+	return dal.SettleReportDeliveryAccepted
+}
+
+func (processor *ReportRunProcessor) settleDeliveryAmbiguous() func(context.Context, string, string, string) error {
+	if processor != nil && processor.SettleDeliveryAmbiguous != nil {
+		return processor.SettleDeliveryAmbiguous
+	}
+	return dal.SettleReportDeliveryAmbiguous
+}
+
+func (processor *ReportRunProcessor) settleDeliveryFailed() func(context.Context, string, string, string) error {
+	if processor != nil && processor.SettleDeliveryFailed != nil {
+		return processor.SettleDeliveryFailed
+	}
+	return dal.SettleReportDeliveryFailed
+}
+
+func (processor *ReportRunProcessor) retryDelivery() func(context.Context, string, string, string) error {
+	if processor != nil && processor.RetryDelivery != nil {
+		return processor.RetryDelivery
+	}
+	return dal.RetryClaimedReportDelivery
 }
 
 func isReportClaimLost(err error) bool { return errors.Is(err, dal.ErrReportClaimLost) }
