@@ -51,6 +51,7 @@ func main() {
 		app.WithHTTPService(),
 		app.WithCronService(),
 		app.WithReportScheduleWorker(),
+		app.WithSceneTimerWorker(), // P0.4：持久化场景定时触发，重启后不丢任务
 		app.WithMQTTSessionRevocationOutboxWorker(),
 		app.WithTelemetryDeadLetterWorker(),
 		app.WithTelemetry(),
