@@ -72,6 +72,31 @@ func TestReportGeneratorDetectsGlobalRowOverflow(t *testing.T) {
 	}
 }
 
+// The byte cap (reportMaxBytes) is enforced by reportLimitedBuffer but had no
+// covering test, so a regression could silently emit truncated artifacts under
+// an "ok" code. A single device/key pair emits at most reportMaxRows rows, so
+// each row must be wide enough for the CSV payload to cross reportMaxBytes
+// before the row limit trips.
+func TestReportGeneratorDetectsByteLimit(t *testing.T) {
+	start := time.Unix(1700000000, 0).UTC()
+	value := strings.Repeat("x", 512)
+	processor := &ReportRunProcessor{Telemetry: reportTelemetryReaderFunc(func(_ context.Context, _, _, _ string, _, _ int64, limit int) ([]*model.TelemetryData, error) {
+		rows := make([]*model.TelemetryData, limit-1) // stay at, not above, the row limit
+		for index := range rows {
+			rowValue := value
+			rows[index] = &model.TelemetryData{
+				T:       start.Add(time.Duration(index) * time.Millisecond).UnixMilli(),
+				StringV: &rowValue,
+			}
+		}
+		return rows, nil
+	})}
+	payload, _, code, err := processor.generate(context.Background(), &model.ReportScheduleRun{TenantID: "tenant", WindowStartAt: start, WindowEndAt: start.Add(time.Hour), ConfigSnapshot: model.ReportRunConfigSnapshot{DeviceIDs: []string{"device"}, Keys: []string{"key"}, Format: "csv"}})
+	if err == nil || code != "byte_limit_exceeded" || payload != nil {
+		t.Fatalf("generate = payload %v code %q error %v", payload, code, err)
+	}
+}
+
 func TestReportGenerationEnvelopeClassifiesConfigurationAndSnapshotErrors(t *testing.T) {
 	start := time.Unix(1700000000, 0).UTC()
 	run := &model.ReportScheduleRun{
