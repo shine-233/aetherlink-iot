@@ -102,6 +102,8 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 		deviceapi.GET("preRegister", api.Controllers.DeviceApi.HandleDevicePreRegisterListByPage)
 		deviceapi.POST("preRegister", api.Controllers.DeviceApi.CreateDevicePreRegister)
 		deviceapi.GET("preRegister/export", api.Controllers.DeviceApi.ExportDevicePreRegister)
+		// P0.5 清理执行面：此前只有分流函数（且仅被测试调用），清理实际无法执行。
+		deviceapi.POST("preRegister/cleanup", api.Controllers.DeviceApi.CleanupDevicePreRegister)
 
 		// 设备单指标图表数据查询
 		deviceapi.GET("/metrics/chart", api.Controllers.DeviceApi.HandleDeviceMetricsChart)
