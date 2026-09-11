@@ -6,7 +6,15 @@
 
 - 按时间戳或主题保存一次验证会话的输出。
 - 将历史证据与当前发布政策分离，避免旧报告覆盖当前结论。
-- 只说明“当时命令产生了这些文件”，不自动说明“当前代码仍然通过”。
+- 只说明"当时命令产生了这些文件"，不自动说明"当前代码仍然通过"。
+
+> **布局约束（2026-09-11 更正，勿违反）**：归档 run 目录必须放在 `verification/` 的
+> **直接子级**，不要为了"整洁"再套一层 `archive/<YYYY-MM>/` 之类的子目录。
+> 原因：`automation_tests/lib/coverage_inspector.js` 的 `listArchiveDirectories()`
+> 用 `readdirSync` **只读一层**，且只排除 `templates` 与 `.staging`。
+> 一旦嵌套，检查器就看不到这些 legacy manifest，会把"发现 16 份 legacy 并判为不合格"
+> 悄悄变成"一个都没发现"——两者最终都报 `no-eligible-archive`，**结论看起来一样，
+> 但证据发现行为被改掉了**，属于静默的度量系统变更。曾于 2026-09-11 误操作并已回退。
 
 ## Canonical automation coverage archive
 
