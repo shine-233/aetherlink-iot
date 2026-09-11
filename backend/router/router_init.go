@@ -283,9 +283,14 @@ func RouterInit() *gin.Engine {
 			apps.Model.EdgeSync.InitEdgeSync(v1) // 边缘计算 2.0 D6
 			apps.Model.AiModel.InitAiModel(v1) // AI 2.0 D7
 
+			apps.Model.Scada.Init(v1)  // P1.3 Widget 与 SCADA 基础层
+			apps.Model.Mobile.Init(v1) // P1.4 移动端控制与通知
+
 			apps.Model.AttributeData.InitAttributeData(v1) // 属性数据
 
 			apps.Model.CommandData.InitCommandData(v1) // 命令数据
+
+			apps.Model.EntityRelation.InitEntityRelation(v1) // P1.1 通用实体关系
 
 			apps.Model.OperationLog.Init(v1) // 操作日志
 

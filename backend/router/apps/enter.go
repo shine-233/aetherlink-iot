@@ -19,6 +19,7 @@ type apps struct {
 	TelemetryData
 	AttributeData
 	CommandData
+	EntityRelation // P1.1 通用实体关系
 	OperationLog
 	Logo
 	DataPolicy
@@ -55,6 +56,8 @@ type apps struct {
 	DeviceCertificate // PHASE-D-D5 接入安全 X.509
 	EdgeSync // PHASE-D-D6 边缘计算 2.0
 	AiModel  // PHASE-D-D7 AI 2.0 模型中心 + 助手
+	Scada    // P1.3 Widget 与 SCADA 基础层
+	Mobile   // P1.4 移动端控制与通知
 }
 
 var Model = new(apps)
