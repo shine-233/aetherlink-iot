@@ -40,8 +40,13 @@ var (
 	sceneExecutionChecks = []sceneExecutionCheck{
 		(*Automate).canAttemptScene,
 		(*Automate).sceneIsActive,
+		(*Automate).sceneWithinExecutionWindow,
 		(*Automate).conditionsMatchScene,
 		(*Automate).allowSceneExecutionRate,
+	}
+	// loadSceneExecutionWindows 可注入，使窗口门禁无需数据库即可验证。
+	loadSceneExecutionWindows = func(ctx context.Context, tenantID string, sceneAutomationIDs []string) (map[string]model.SceneAutomationWindow, error) {
+		return dal.GetSceneAutomationWindows(ctx, tenantID, sceneAutomationIDs)
 	}
 )
 
@@ -50,6 +55,8 @@ type sceneExecutionCandidate struct {
 	deviceID          string
 	conditions        initialize.DTConditions
 	actions           []model.ActionInfo
+	// window 为 nil 表示该场景未配置执行窗口，按无界处理。
+	window *model.SceneAutomationWindow
 }
 
 type sceneExecutionOutcome struct {
@@ -96,8 +103,15 @@ func (*Automate) LimiterAllow(id string) bool {
 func (a *Automate) ExecuteRun(info initialize.AutomateExecteParams) error {
 	logrus.Trace("automation execute run start")
 	var executionErrors []error
+	// 一次上报命中的场景数量有限，窗口按批预取，避免每个候选各查一次库。
+	// 取不到窗口（未配置或存储不可用）时 windows 为空，候选即视为无界，
+	// 保持既有"始终可执行"行为——不因读取失败而误伤存量场景。
+	windows := a.executionWindows(info)
 	for _, v := range info.AutomateExecteSceeInfos {
 		candidate := newSceneExecutionCandidate(info, v)
+		if window, ok := windows[candidate.sceneAutomationID]; ok {
+			candidate.window = &window
+		}
 		if !a.prepareSceneExecution(candidate) {
 			continue
 		}
@@ -142,6 +156,62 @@ func (a *Automate) canAttemptScene(candidate sceneExecutionCandidate) bool {
 func (a *Automate) sceneIsActive(candidate sceneExecutionCandidate) bool {
 	logrus.Tracef("checking whether scene is closed: sceneAutomationID=%s", candidate.sceneAutomationID)
 	return !executeRunCheckSceneAutomationHasClose(a, candidate.sceneAutomationID)
+}
+
+// executionWindows 为本次上报涉及的场景预取执行窗口。
+// 任何读取失败都返回空映射，使全部候选退化成"无界"：
+// 窗口是约束而非放行条件，读取出错时宁可沿用既有行为，也不能凭空拦掉执行。
+func (a *Automate) executionWindows(info initialize.AutomateExecteParams) map[string]model.SceneAutomationWindow {
+	ids := make([]string, 0, len(info.AutomateExecteSceeInfos))
+	for _, scene := range info.AutomateExecteSceeInfos {
+		if scene.SceneAutomationId != "" {
+			ids = append(ids, scene.SceneAutomationId)
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	// 窗口是租户私有配置：无法判定租户时绝不发起无租户过滤的查询，
+	// 那会把别家租户的区间套到本场景上。此时退化为无界更安全。
+	tenantID := ""
+	if a.device != nil {
+		tenantID = a.device.TenantID
+	}
+	if tenantID == "" {
+		logrus.Warn("skip scene execution window lookup: tenant could not be determined")
+		return nil
+	}
+	windows, err := loadSceneExecutionWindows(context.Background(), tenantID, ids)
+	if err != nil {
+		logrus.Warnf("load scene execution windows failed; treating all as unbounded: %v", err)
+		return nil
+	}
+	return windows
+}
+
+// sceneWithinExecutionWindow 判定当前时刻是否落在场景的执行窗口内。
+// 未配置窗口（window 为 nil 或无任何边界）一律放行，保持存量行为不变。
+// 时区非法走 fail closed：不静默按 UTC 兜底，否则窗口边界整体偏移，
+// 等于凭空制造出一段"可执行"的时间。
+func (a *Automate) sceneWithinExecutionWindow(candidate sceneExecutionCandidate) bool {
+	if candidate.window == nil || !candidate.window.HasBounds() {
+		return true
+	}
+	window := ExecutionWindow{
+		StartsAt:  candidate.window.StartsAt,
+		ExpiresAt: candidate.window.ExpiresAt,
+		Timezone:  candidate.window.NormalizedTimezone(),
+	}
+	allowed, err := (FlowEngine{}).CanRun(time.Now(), window)
+	if err != nil {
+		logrus.Warnf("scene %s has an invalid execution window; refusing to run: %v",
+			candidate.sceneAutomationID, err)
+		return false
+	}
+	if !allowed {
+		logrus.Tracef("scene %s skipped: outside execution window", candidate.sceneAutomationID)
+	}
+	return allowed
 }
 
 func (a *Automate) conditionsMatchScene(candidate sceneExecutionCandidate) bool {
