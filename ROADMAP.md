@@ -151,8 +151,15 @@ ThingsPanel 社区仓库可见 MQTT/HTTP/Modbus、物模型、看板、规则、
   恢复置 `next_dispatch_at=now` 并立即触发一次派发。暂停态重复调用幂等，不产生第二次事件。
 - 定向证据：`fleet_command_job_state_machine_test.go` 5 例通过（合法转移、终态不可复活、
   非法转移被拒、暂停态不可派发、错误不静默）。
-- 仍未完成：进度消费（`Percent` 进度事件与幂等）、回滚（新审计事件）、灰度/金丝雀、
-  报告导出，以及真实设备/broker 或协议 stub 的 E2E。这些未做，本项**不算完成**。
+- 进度消费（已补）：`fleet_command_job_progress_rollback.go` 提供 `ConsumeFleetCommandJobProgress`。
+  **幂等令牌刻意不含上报时间**——否则设备重传一次进度就变成两条事件，可用事件数量伪造推进速度。
+  终态/已取消批次拒绝进度上报（给死掉的批次写进度等于伪造进展）。
+- 回滚（已补）：`RollbackFleetCommandJob` 只允许对已结束（completed/partially_failed/failed）批次执行；
+  **回滚创建新批次而不是把原批次改回去**，原批次历史保持只读，
+  并在原批次与新批次双向留下 `rollback` 审计事件以便追溯。
+- 仍未完成：灰度/金丝雀、报告导出，以及真实设备/broker 或协议 stub 的 E2E。
+  另：进度事件目前只落事件表，**尚未回写明细行的状态/百分比**（需迁移加列，且磁盘已满无法验证），
+  因此本项**仍不算完成**。
 
 ### P0.4 场景与 Flow 语义
 
@@ -166,11 +173,43 @@ ThingsPanel 社区仓库可见 MQTT/HTTP/Modbus、物模型、看板、规则、
 
 门禁：边界时间表驱动测试；重复触发幂等；停止动作可审计；服务重启后调度不丢任务。
 
+实现状态（2026-09-11，部分完成——执行窗口与冲突停止语义；此前 `ExecutionWindow` /
+`StopConflictingFlows` 在全库完全不存在）：
+
+- 新增 `backend/internal/service/scene_execution_window.go`：
+  - `ExecutionWindow{StartsAt, ExpiresAt, Timezone}` 与 `FlowEngine.CanRun(now, w)`。
+    区间语义为**左闭右开 `[starts_at, expires_at)`**，避免同一时刻被两个窗口同时命中。
+  - **时区非法一律 fail closed**（返回 `ErrInvalidExecutionTimezone`），
+    不静默按 UTC 兜底——那会让窗口边界整体偏移，属于伪造可执行性。空时区才按 UTC。
+  - `FlowTriggerKey` 提供重复触发幂等：按 `(flow, device, 秒级时刻)` 生成键，
+    吸收定时器亚秒抖动，避免一次触发被放大成多次。
+  - `StopConflictingFlows` 通过可注入的 `FlowRunRegistry` / `FlowAuditSink` 停止同设备上的
+    其他运行中 Flow；**任一侧缺失即拒绝执行，禁止静默停止**，且每次停止都留审计事件。
+- 定向证据：`scene_execution_window_test.go` 7 例通过，含门禁要求的**边界时间表驱动测试**
+  （前/恰在起点/窗口内/前 1ns/恰在终点/过期后/无上界/无下界/完全无界共 11 行）。
+- 仍未完成：定时器触发的持久化与"服务重启后调度不丢任务"、
+  与真实场景引擎（automate_telemetry_scene_execution / scene.go）的接线，以及真实 E2E。
+  本项**不算完成**。
+
 ### P0.5 CSV 浏览器 E2E
 
 交付物：上传、校验错误展示、批量建档、一次性凭证下载、脱敏导出和清理。
 
 门禁：真实浏览器选择文件；坏行逐行反馈；下载文件可解析；凭证只出现一次；跨租户产品不可选。
+
+实现状态（2026-09-11，部分完成——仅导入校验层有可运行证据）：
+
+- 已存在：CSV 导入（`buildFilePreRegisterRows` / `readPreRegisterImportCSV`），
+  表头严格校验为 `device_number,name`，坏行带 `csv_row` 反馈，跨租户产品校验
+  （`validatePreRegisterProductTenant`）已具备。
+- 本轮补的定向证据：`device_pre_register_csv_test.go` 3 例通过——
+  路径穿越 / 绝对路径 / 非 csv / 越出白名单目录一律拒绝；表头顺序错、缺列、空文件被拒；
+  单元格仅裁剪首尾空白、内部空格保留。
+- 仍缺失（本项**不算完成**）：
+  - 真实浏览器选择文件的 E2E（需前端 + 后端 + 数据库的活栈，未执行）；
+  - **一次性凭证下载**（"凭证只出现一次"）在代码里没有独立机制，
+    目前只是沿用批量创建的 username 形态，不满足门禁；
+  - **脱敏导出与清理完全没有实现**（`device_pre_register.go` 中无任何 export 逻辑）。
 
 ### P0.6 持久化报表执行与 SMTP 事实语义
 
