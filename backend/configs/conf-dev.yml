@@ -46,6 +46,11 @@ secrets:
 market:
   enabled: true
   base_url: "http://127.0.0.1:18000" # Market service address (via Kong gateway)
+  # 模板市场包签名（ROADMAP P1.6）。打包导出出包即签名，导入前先验签。
+  # 与 secrets.master_keys 分开——签名与加密不共用同一把钥匙。
+  # 未配置或非法时：导出拒绝出包、导入拒绝入包，一律 fail closed。
+  active_bundle_signing_key_id: "" # 例如 mk1；留空表示未配置
+  bundle_signing_keys: {}          # 例如 { mk1: "<base64 >=32 bytes>" }
 
 db:
   psql:

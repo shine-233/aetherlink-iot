@@ -48,12 +48,19 @@ func (*DeviceTemplate) ExportMarketBundle(typeKey string, claims *utils.UserClai
 		templates = append(templates, exported)
 	}
 	// 打包计数：ExportDeviceTemplate 内部已按单模板计数（打包=逐模板各 +1），此处不再重复。
-	return &model.MarketBundle{
+	bundle := &model.MarketBundle{
 		TypeKey:    typeKey,
 		ExportedAt: time.Now().UnixMilli(),
 		Count:      len(templates),
 		Templates:  templates,
-	}, nil
+	}
+	// 出包即签名：未配置签名密钥一律拒绝出包，不允许无法验真的包在租户间流转。
+	if err := SignMarketBundle(bundle); err != nil {
+		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"sign_error": err.Error(),
+		})
+	}
+	return bundle, nil
 }
 
 // PHASE-D-D10 END

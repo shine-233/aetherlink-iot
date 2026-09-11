@@ -53,6 +53,12 @@ market:
   # 外部市场是可选能力；只有同时显式启用并配置有效 base_url 时才允许出站请求。
   enabled: false
   base_url: "" # 市场服务地址；未接入市场服务时保持为空，避免误访问示例域名
+  # 模板市场包签名（ROADMAP P1.6）。打包导出出包即签名，导入前先验签。
+  # bundle_signing_keys 的值必须是 base64 编码、长度不小于 32 字节的密钥，
+  # 且与 secrets.master_keys 分开——签名与加密不共用同一把钥匙。
+  # 未配置或非法时：导出拒绝出包、导入拒绝入包，一律 fail closed。
+  active_bundle_signing_key_id: "" # 例如 mk1；留空表示未配置
+  bundle_signing_keys: {}          # 例如 { mk1: "<base64 >=32 bytes>" }，轮换期可同时保留 mk0
 
 integrations:
   # 外部镜像默认不参与核心部署。optional-integrations Compose profile 会显式覆盖这些状态。
