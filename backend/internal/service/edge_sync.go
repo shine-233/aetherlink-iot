@@ -95,6 +95,24 @@ func (EdgeSyncService) CreateEdgeSync(req *model.CreateEdgeSyncReq, claims *util
 	default:
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "unsupported resource_type: "+req.ResourceType)
 	}
+
+	// 冲突闸门：同一资源若已有一份内容不同的在途快照，拒绝再发。
+	// 否则边缘最终状态取决于消息到达顺序，出问题无法归因。
+	// 查不到在途任务列表时同样失败——无法确认无冲突就不允许下发。
+	pending, lerr := dal.ListEdgeSyncTasks(claims.TenantID, req.ResourceType, gateway.ID, edgeSyncStatusPending, edgeSyncConflictScanLimit)
+	if lerr != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": lerr.Error()})
+	}
+	if conflict := DetectEdgeSyncConflict(pending, req.ResourceType, req.ResourceID, string(content)); conflict != nil {
+		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"conflict":        true,
+			"pending_task_id": conflict.PendingTaskID,
+			"resource_type":   conflict.ResourceType,
+			"resource_id":     conflict.ResourceID,
+			"reason":          conflict.Reason,
+		})
+	}
+
 	payload = edgeSyncPayload{
 		Type:        req.ResourceType,
 		ResourceID:  req.ResourceID,
