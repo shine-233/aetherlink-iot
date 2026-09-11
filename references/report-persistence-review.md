@@ -60,6 +60,33 @@ no-op — it discriminates. The fix was restored and the full suite re-run green
 P2 and P4 still have no runtime evidence (live API and multi-replica contention
 respectively). P5 remains unexercised.
 
+### P4 and P5 are defensive — their failure mode cannot be triggered on the current schema
+
+Both were written as defence in depth, and neither can be demonstrated by a test
+today. Stating this explicitly matters more than producing a test that only looks
+like evidence.
+
+**P4** (`continue` instead of `return ErrReportClaimLost` when a claim update
+matches 0 rows). The scan takes `FOR UPDATE SKIP LOCKED` and holds the locks for
+the whole transaction, and the update's time bound comes from the same
+`clock_timestamp()` source as the scan — but read *later*, so it is strictly more
+permissive. A row that survives the scan therefore still matches the update
+unless another transaction modified it, which the row lock already prevents. The
+0-row branch is a genuine race window in a distributed deployment, not something
+a single-process test can reach. A probabilistic "run N workers and hope" test
+would be flaky, which is worse than no test.
+
+**P5** (`tenant_id` added to the `next_run_at` update). `id` is a UUID primary
+key, so `id = ?` is already unique and the missing predicate cannot cause a
+cross-tenant write today. The predicate guards against *future* drift — if IDs
+ever stop being globally unique, the unscoped update becomes a cross-tenant write.
+Its own code comment says as much. There is no state to assert against.
+
+Consequence: P4 and P5 should be reported as **reasoned and implemented, not
+runtime-verified**, and should not be counted toward a "verified" claim for this
+batch. Verifying them would require either a multi-replica deployment (P4) or a
+schema where entity IDs are only tenant-unique (P5).
+
 A deterministic regression guard for P2 was added at the end of
 `tests/37_report_schedule.test.js`: after the run is polled to a terminal state,
 replaying the same `Idempotency-Key` must report that terminal projection rather
