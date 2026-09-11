@@ -27,6 +27,23 @@ const (
 	ruleChainMaxGraphBytes    = 256 * 1024
 )
 
+// 边类型（ROADMAP P1.2 失败分支）。
+// 空值与 success 等价——存量 graph JSON 没有 kind 字段，必须保持原有行为。
+const (
+	RuleChainEdgeKindSuccess = "success"
+	RuleChainEdgeKindFailure = "failure"
+)
+
+// validateRuleChainEdgeKind 边类型白名单；非法值一律拒绝，不静默按 success 兜底。
+func validateRuleChainEdgeKind(kind string) error {
+	switch kind {
+	case "", RuleChainEdgeKindSuccess, RuleChainEdgeKindFailure:
+		return nil
+	default:
+		return fmt.Errorf("unknown edge kind %q", kind)
+	}
+}
+
 // RuleChainNodeTypeMeta 内置节点类型注册表（前端画布与后端校验共用语义）。
 // PHASE-D-D1：类型清单收敛到 ruleChainNodeSpecs 单一来源（rule_chain_nodes.go），此处仅保留兼容视图。
 var RuleChainNodeTypeMeta = func() map[string]string {
@@ -58,7 +75,13 @@ type RuleChainNode struct {
 type RuleChainEdge struct {
 	From string `json:"from"`
 	To   string `json:"to"`
+	// Kind 边类型：success（默认，含空值）或 failure。
+	// failure 边只在源节点执行失败时被走；成功路径不会经过它。
+	Kind string `json:"kind,omitempty"`
 }
+
+// IsFailure 是否为失败分支边。
+func (e RuleChainEdge) IsFailure() bool { return e.Kind == RuleChainEdgeKindFailure }
 
 // ParseRuleChainGraph 解析并校验 graph 文本。
 func ParseRuleChainGraph(raw string) (*RuleChainGraph, error) {
@@ -145,6 +168,9 @@ func (g *RuleChainGraph) validateGraph(requireTrigger bool) error {
 		if edge.From == edge.To {
 			return fmt.Errorf("edge %d is self-loop", i)
 		}
+		if err := validateRuleChainEdgeKind(edge.Kind); err != nil {
+			return fmt.Errorf("edge %d: %w", i, err)
+		}
 	}
 	indegree := make(map[string]int, len(g.Nodes))
 	for _, node := range g.Nodes {
@@ -218,11 +244,21 @@ func (g *RuleChainGraph) Roots() []*RuleChainNode {
 	return roots
 }
 
-// Successors 返回节点的下游节点（按边顺序）。
+// Successors 返回节点的成功路径下游节点（按边顺序）。
+// 失败分支边不在其中——成功路径绝不经过 failure 边。
 func (g *RuleChainGraph) Successors(nodeID string) []*RuleChainNode {
+	return g.successorsByKind(nodeID, false)
+}
+
+// FailureSuccessors 返回节点的失败分支下游节点（按边顺序）。
+func (g *RuleChainGraph) FailureSuccessors(nodeID string) []*RuleChainNode {
+	return g.successorsByKind(nodeID, true)
+}
+
+func (g *RuleChainGraph) successorsByKind(nodeID string, failure bool) []*RuleChainNode {
 	result := make([]*RuleChainNode, 0, 2)
 	for _, edge := range g.Edges {
-		if edge.From != nodeID {
+		if edge.From != nodeID || edge.IsFailure() != failure {
 			continue
 		}
 		for i := range g.Nodes {

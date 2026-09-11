@@ -33,6 +33,10 @@ const (
 	ruleChainMaxSubchainDepth = 5
 	// ruleChainMaxNodeOutputs 单节点最大输出分支数（split 数组上限）。
 	ruleChainMaxNodeOutputs = 100
+
+	// 失败分支下游可见的 metadata 键（P1.2）。
+	ruleChainMetaFailedNode = "rc_failed_node"
+	ruleChainMetaError      = "rc_error"
 )
 
 // RuleChainContext 一次链执行的运行时上下文。
@@ -131,12 +135,28 @@ func (e *ruleChainExecution) walkAndCollect(values map[string]any, triggerType s
 		result, attempt, nodeErr := e.executeNodeWithPolicy(node, msg)
 		recordRuleChainNodeTrace(e, node, msg, result, nodeErr, time.Since(start))
 		if nodeErr != nil {
-			if attempt.Attempts > 1 {
-				errs = append(errs, fmt.Errorf("node %s(%s): %w (attempts=%d, backoff=%dms)",
-					node.ID, node.Type, nodeErr, attempt.Attempts, attempt.BackoffMs))
+			failureNext := e.graph.FailureSuccessors(node.ID)
+			if len(failureNext) == 0 {
+				if attempt.Attempts > 1 {
+					errs = append(errs, fmt.Errorf("node %s(%s): %w (attempts=%d, backoff=%dms)",
+						node.ID, node.Type, nodeErr, attempt.Attempts, attempt.BackoffMs))
+					return
+				}
+				errs = append(errs, fmt.Errorf("node %s(%s): %w", node.ID, node.Type, nodeErr))
 				return
 			}
-			errs = append(errs, fmt.Errorf("node %s(%s): %w", node.ID, node.Type, nodeErr))
+			// 失败分支接管：错误不再计入聚合 errs（表示已被下游处理），
+			// 但 trace 已记录该失败事实、死信亦照常下沉——失败分支只接管流向，不抹除记录。
+			for _, fb := range failureNext {
+				if e.ctx.Err() != nil {
+					return
+				}
+				walk(fb, ruleChainMessage{
+					Payload:  msg.Payload,
+					Metadata: ruleChainFailureMetadata(msg.Metadata, node.ID, nodeErr),
+					Rcc:      msg.Rcc,
+				})
+			}
 			return
 		}
 		if !result.pass {
@@ -163,6 +183,22 @@ func (e *ruleChainExecution) walkAndCollect(values map[string]any, triggerType s
 		walk(root, ruleChainMessage{Payload: values, Metadata: map[string]any{}, Rcc: rcc})
 	}
 	return errs
+}
+
+// ruleChainFailureMetadata 把失败事实注入下游 metadata，供失败分支节点判定与告警。
+// 失败原因只带错误文本，不带原始载荷（沿用审计最小化约定）。
+func ruleChainFailureMetadata(base map[string]any, nodeID string, nodeErr error) map[string]any {
+	meta := make(map[string]any, len(base)+2)
+	for k, v := range base {
+		meta[k] = v
+	}
+	errText := ""
+	if nodeErr != nil {
+		errText = nodeErr.Error()
+	}
+	meta[ruleChainMetaFailedNode] = nodeID
+	meta[ruleChainMetaError] = errText
+	return meta
 }
 
 // executeNode 分发单节点执行。pass=false 表示分支被过滤剪断。
