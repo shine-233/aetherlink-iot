@@ -8,6 +8,8 @@
 const fs = require('fs');
 const path = require('path');
 const writeJsonArtifact = require('./json_artifact');
+const provenance = require('./coverage_provenance');
+const caseContext = require('./coverage_case_context');
 const { ALL_ENDPOINTS } = require('./endpoint-coverage/catalog');
 
 /**
@@ -37,8 +39,11 @@ function normalizePath(url) {
 class EndpointCoverage {
   constructor() {
     this.hitSet = new Map(); // key: "METHOD /path" -> { count, endpoint }
+    this.events = [];
     this.totalEndpoints = ALL_ENDPOINTS.length;
     this.coverageFile = process.env.ENDPOINT_COVERAGE_FILE || '';
+    this.provenanceFile = process.env.COVERAGE_PROVENANCE_FILE ||
+      provenance.provenanceFileForCoverage(this.coverageFile);
   }
 
   /**
@@ -46,27 +51,59 @@ class EndpointCoverage {
    * @param {string} method - HTTP 方法 (GET/POST/PUT/DELETE)
    * @param {string} url - 实际请求 URL
    */
-  hit(method, url) {
+  hit(method, url, observation = {}) {
+    const inheritedContext = caseContext.get() || {};
+    observation = {
+      ...inheritedContext,
+      ...observation,
+      attempt: { ...(inheritedContext.attempt || {}), ...(observation.attempt || {}) }
+    };
     const normalizedPath = normalizePath(url);
     const key = method.toUpperCase() + ' ' + normalizedPath;
 
-    // 查找匹配的端点定义
+    // Find the authoritative catalog target before recording provenance.
     const matched = this.findEndpoint(method.toUpperCase(), normalizedPath);
-    if (matched) {
-      const endpointKey = matched.method + ' ' + matched.path;
-      if (!this.hitSet.has(endpointKey)) {
-        this.hitSet.set(endpointKey, { count: 0, endpoint: matched });
+    const endpoint = matched || {
+      method: method.toUpperCase(),
+      path: normalizedPath,
+      module: 'unknown',
+      auth: null
+    };
+    const target = endpoint.method + ' ' + endpoint.path;
+    const event = provenance.createEvent({
+      eventId: observation.eventId,
+      runId: observation.runId,
+      module: observation.module || endpoint.module,
+      kind: 'endpoint',
+      target,
+      case: observation.case,
+      attempt: observation.attempt,
+      outcome: observation.outcome || 'pending',
+      statusCode: observation.statusCode,
+      disposition: observation.disposition || 'candidate',
+      diagnostics: {
+        catalogMatched: Boolean(matched),
+        requestedTarget: key,
+        ...(observation.diagnostics || {})
       }
-      this.hitSet.get(endpointKey).count++;
-    } else {
-      // 未在清单中找到的端点，也记录下来（可能清单不完整）
-      if (!this.hitSet.has(key)) {
-        this.hitSet.set(key, { count: 0, endpoint: { method: method.toUpperCase(), path: normalizedPath, module: 'unknown', auth: null } });
-      }
-      this.hitSet.get(key).count++;
+    });
+    this.events.push(event);
+
+    // A transport failure is useful diagnostic provenance, but it must not
+    // enter the aggregate hit set and therefore cannot cover an endpoint.
+    if (event.attempt.transportFailure || event.statusCode === null) {
+      this.flushProvenance();
+      return event;
     }
 
+    if (!this.hitSet.has(target)) {
+      this.hitSet.set(target, { count: 0, endpoint });
+    }
+    this.hitSet.get(target).count++;
+
     this.flush();
+    this.flushProvenance();
+    return event;
   }
 
   /**
@@ -79,7 +116,11 @@ class EndpointCoverage {
         key,
         count: value.count,
         endpoint: value.endpoint
-      }))
+      })),
+      provenance: {
+        schema: provenance.SCHEMA,
+        events: provenance.mergeEvents(this.events)
+      }
     };
   }
 
@@ -107,6 +148,10 @@ class EndpointCoverage {
         });
       }
     });
+    this.events = provenance.mergeEvents(
+      this.events,
+      payload.provenance && payload.provenance.events
+    );
   }
 
   /**
@@ -138,6 +183,20 @@ class EndpointCoverage {
     }
 
     writeJsonArtifact(this.coverageFile, this.toJSON());
+  }
+
+  flushProvenance() {
+    if (!this.provenanceFile) return;
+    provenance.writeLedger(this.provenanceFile, this.events);
+  }
+
+  getProvenanceEvents() {
+    return provenance.mergeEvents(this.events);
+  }
+
+  replaceProvenanceEvents(events) {
+    this.events = provenance.mergeEvents(events);
+    provenance.replaceLedger(this.provenanceFile, this.events);
   }
 
   /**
@@ -335,12 +394,16 @@ class EndpointCoverage {
    * 写入覆盖率报告文件
    * @param {string} outputDir - 输出目录
    */
-  writeReport(outputDir = './reports') {
+  writeReport(outputDir = './reports', interval = {}) {
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    const stats = this.getStats();
+    const stats = {
+      startedAt: interval.startedAt || null,
+      finishedAt: interval.finishedAt || null,
+      ...this.getStats()
+    };
 
     // JSON 报告
     const jsonPath = path.join(outputDir, 'endpoint-coverage.json');
@@ -419,7 +482,9 @@ class EndpointCoverage {
    */
   reset() {
     this.hitSet.clear();
+    this.events = [];
     this.flush();
+    provenance.replaceLedger(this.provenanceFile, []);
   }
 
   getCatalog() {

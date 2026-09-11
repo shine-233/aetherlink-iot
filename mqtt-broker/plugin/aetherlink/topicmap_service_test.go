@@ -80,6 +80,10 @@ func TestTopicMapServiceFiltersDownPayloadByDataIdentifier(t *testing.T) {
 	if string(out) != `{"mode":"eco"}` {
 		t.Fatalf("filtered payload = %s", string(out))
 	}
+	payload[31] = 'X'
+	if string(out) != `{"mode":"eco"}` {
+		t.Fatalf("filtered payload aliased source buffer: %s", string(out))
+	}
 }
 
 func TestTopicMapServiceFallsBackToUnfilteredDownPayload(t *testing.T) {
@@ -100,5 +104,9 @@ func TestTopicMapServiceFallsBackToUnfilteredDownPayload(t *testing.T) {
 	}
 	if string(out) != string(payload) {
 		t.Fatalf("fallback payload = %s", string(out))
+	}
+	out[0] = 'X'
+	if payload[0] == 'X' {
+		t.Fatal("fallback payload aliases source buffer")
 	}
 }

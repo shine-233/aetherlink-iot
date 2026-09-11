@@ -141,10 +141,27 @@ export interface VisualizationProviderContext {
   ownerId?: string
 }
 
+export interface VisualizationProviderCapabilities {
+  readonly projects: {
+    readonly list: boolean
+    readonly create: boolean
+    readonly update: boolean
+    readonly delete: boolean
+  }
+  readonly dashboards: {
+    readonly thumbnail: boolean
+    readonly genericLayout: boolean
+    readonly dataSources: boolean
+    readonly variables: boolean
+    readonly publish: boolean
+  }
+}
+
 export interface VisualizationProvider {
   readonly id: VisualizationProviderId
   readonly kind: 'third-party' | 'local'
   readonly deploymentMode: VisualizationProviderDeploymentMode
+  readonly capabilities: VisualizationProviderCapabilities
   listProjects(params?: { page?: number; limit?: number }): Promise<VisualizationResult<VisualizationPage<VisualizationProject>>>
   getProject(id: string): Promise<VisualizationResult<VisualizationProject>>
   createProject(payload: CreateVisualizationProjectPayload): Promise<VisualizationResult<VisualizationProject>>

@@ -50,12 +50,13 @@ func main() {
 		app.WithGRPCService(),
 		app.WithHTTPService(),
 		app.WithCronService(),
+		app.WithReportScheduleWorker(),
 		app.WithMQTTSessionRevocationOutboxWorker(),
 		app.WithTelemetryDeadLetterWorker(),
 		app.WithTelemetry(),
-		app.WithCoAPGateway(), // C6：CoAP/LwM2M 协议网关（protocols.coap.enabled=true 时启动）
-		app.WithCollectors(), // C6：SNMP/OPC UA 轮询采集器（collectors.*.enabled=true 时启动）
-		app.WithEdgeForward(), // 边缘计算：遥测云转发（edge.forward.enabled=true 时启动）
+		app.WithCoAPGateway(),   // C6：CoAP/LwM2M 协议网关（protocols.coap.enabled=true 时启动）
+		app.WithCollectors(),    // C6：SNMP/OPC UA 轮询采集器（collectors.*.enabled=true 时启动）
+		app.WithEdgeForward(),   // 边缘计算：遥测云转发（edge.forward.enabled=true 时启动）
 		app.WithPluginGateway(), // PHASE-D-D9：插件 gRPC 网关（plugin.grpc.enabled=true 时启动）
 	)
 	if err != nil {

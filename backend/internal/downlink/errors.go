@@ -8,7 +8,12 @@ package downlink
 import "errors"
 
 var (
-	ErrInvalidMessage = errors.New("invalid message")
-	ErrEncodeFailed   = errors.New("script encode failed")
-	ErrPublishFailed  = errors.New("mqtt publish failed")
+	ErrInvalidMessage    = errors.New("invalid message")
+	ErrInvalidBufferSize = errors.New("invalid downlink buffer size")
+	ErrBusNotStarted     = errors.New("downlink bus not started")
+	ErrBusUnavailable    = errors.New("downlink bus unavailable")
+	ErrBusClosed         = errors.New("downlink bus closed")
+	ErrPublishTimeout    = errors.New("downlink publish timeout")
+	ErrEncodeFailed      = errors.New("script encode failed")
+	ErrPublishFailed     = errors.New("mqtt publish failed")
 )

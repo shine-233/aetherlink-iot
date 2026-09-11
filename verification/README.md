@@ -8,6 +8,29 @@
 - 将历史证据与当前发布政策分离，避免旧报告覆盖当前结论。
 - 只说明“当时命令产生了这些文件”，不自动说明“当前代码仍然通过”。
 
+## Canonical automation coverage archive
+
+New full API/E2E coverage evidence must use `archive-manifest.json` with schema
+`aetherlink.automation.archive.v1` and the report names in
+[`templates/api-e2e-manifest.template.json`](templates/api-e2e-manifest.template.json).
+The manifest binds the run interval, command, exit code, strict-integration
+mode, Git revision and clean source state, evidence kind, cleanup result,
+redaction state, and SHA-256 of every report.
+
+Inspect evidence from the repository root with:
+
+```powershell
+node automation_tests/scripts/inspect_coverage_evidence.js --project-root .
+```
+
+The inspector exits nonzero when evidence is missing, invalid, stale,
+ambiguous, from another revision, produced from a dirty source tree, failed or
+skipped, or lacks authored business-flow/case outcomes. Endpoint and route
+render coverage remain reachability metrics and cannot independently make
+release readiness pass. Legacy manifests remain visible as historical evidence
+but are never selected as current canonical evidence. Shared
+`automation_tests/reports/` is not a durable archive.
+
 ## 文件用途
 
 以下名称是归档约定；对应目录可能不存在，不代表当前工作树已产生该类证据。

@@ -11,7 +11,7 @@
 - 前端源码视图文件：559；前端测试文件：1849（静态文件计数，不等于执行过）。
 - 后端 Go 源文件：916；Go 测试文件：365。
 - MQTT Broker Go 源文件：206；测试文件：78。
-- API 自动化测试文件：82；E2E spec：25；另有 1 个 `pending-e2e` spec 未纳入常规目录。
+- 当前 runner 正式识别 81 个 API 模块、20 个常规 E2E 模块；另有 1 个 `pending-e2e` spec 未纳入常规目录。目录中的辅助文件或静态文件计数不能替代 runner inventory。
 - 静态测试声明约 807 个，不能替代运行结果、业务断言和外部依赖证据。
 
 ## 运行证据边界
@@ -19,7 +19,7 @@
 - 使用真实项目路径 `active/aetherlink-iot` 运行 inspector：当前 `selectedArchive=null`，`endpointCoverage/pageCoverage/summary` 均为空。
 - 57 个前端叶路由可被当前路由目录识别，但没有当前归档覆盖证据；这不是说每个页面绝对没有历史访问，而是当前没有可审计的新鲜 page 证据。
 - 当前可追溯的完整历史 Compose 证据是 2026-08-24 的归档：API 和 Playwright 20/20 模块通过，但 manifest 明确限定为 synthetic/compose，不是 real-RDI、目标生产部署或发布签字。
-- `automation_tests` 当前缺少 `axios`，因此本轮无法重新运行 `npm run test:list` 或完整 API/E2E runner。文件存在不能当作本轮执行成功。
+- 2026-09-08 在 revision `30fd899b3dde1920115abd7e44eb2565ae7c46b3` 复核：lockfile 对应的 `axios@1.19.0` 已安装，`npm run test:list` 成功并识别 81 个 API、20 个常规 E2E 模块。该静态 inventory 成功不等于 API/E2E 已运行通过。
 
 ## 明确的占位或未实现代码
 
@@ -27,7 +27,7 @@
 
 1. `backend/internal/roadmap/skeletons.go`：`Unwired*` 契约骨架统一返回 `ErrNotImplemented`；这是路线图框架，不是业务实现。
 2. `frontend/src/service/visualization-provider/native-board-provider.ts`：项目创建/更新/删除以及复杂 `canvasConfig/nodes/dataSources/variables/thumbnail` 路径显式返回 unsupported。不能把它当作完整 Dashboard/SCADA 编辑器。
-3. `mqtt-broker/cmd/gmqttd/command/gen-plugin/tmpl.go`：存在 `panic("implement me")`，相关生成器路径不能宣称可用。
+3. `mqtt-broker/cmd/gmqctl/command/gen-plugin/tmpl.go`：生成模板包含 `panic("implement me")` 和 `panic("impermanent me")`，生成器本身可运行，但生成的插件 scaffold 在实现前不具备安全可加载语义。
 4. 多个生成 gRPC 服务返回 `codes.Unimplemented`。必须区分生成代码的可选服务接口与实际产品依赖，不能用接口存在证明功能可用。
 
 ## 测试覆盖的明显弱点
@@ -74,7 +74,7 @@
 ## 下一步审计门禁
 
 1. 修正审计工具默认路径、错误处理和归档识别规则；不能继续使用静默空项目结果。
-2. 安装并锁定 `automation_tests` 依赖，运行 `test:list`、preflight 和 API/E2E；归档命令、commit SHA、环境摘要、失败清单和清理结果。
+2. 保持 `automation_tests/package-lock.json` 与已安装依赖一致；`test:list` 已复核，下一步运行 preflight 和 API/E2E，并归档命令、commit SHA、环境摘要、失败清单和清理结果。
 3. 建立能力矩阵：每个 P0/P1 能力映射到源码、API、UI、E2E、负向、幂等和真实运行 oracle。
 4. 将 `pending-e2e` 影子测试改为常规可执行测试，但先替换弱断言为精确 HTTP/MQTT/数据库/设备状态断言。
 5. 对所有 `unsupported`、`ErrNotImplemented`、`panic("implement me")` 和 `codes.Unimplemented` 做分类：删除死代码、实现、或明确标记 optional/external-blocked。

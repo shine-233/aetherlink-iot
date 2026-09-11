@@ -86,7 +86,9 @@ func (t *TelemetryData) TelemetryPutMessage(ctx context.Context, userID string, 
 		return markTelemetryDownlinkFailed(ctx, logInfo, "downlink bus not initialized")
 	}
 
-	t.downlinkBus.PublishTelemetry(buildTelemetryDownlinkMessage(param, logInfo.ID, downlinkContext))
+	if err := t.downlinkBus.PublishTelemetry(buildTelemetryDownlinkMessage(param, logInfo.ID, downlinkContext)); err != nil {
+		return markTelemetryDownlinkFailed(ctx, logInfo, fmt.Sprintf("downlink telemetry admission failed: %v", err))
+	}
 	return nil
 }
 

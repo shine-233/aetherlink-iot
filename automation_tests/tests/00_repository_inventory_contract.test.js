@@ -103,6 +103,7 @@ describe('repository inventory contract [00_repository_inventory_contract]', fun
     expect(categoryFor('backend/internal/model/devices.gen.go')).to.equal('generated-source');
     expect(categoryFor('backend/third_party/grpc/client.go')).to.equal('third-party');
     expect(categoryFor('frontend/src/views/device/index.test.ts')).to.equal('test');
+    expect(categoryFor('mqtt-broker/cmd/gmqctl/command/gen-plugin/testdata/safe_plugin.go.golden')).to.equal('test');
     expect(categoryFor('frontend/pnpm-lock.yaml')).to.equal('lockfile');
     expect(categoryFor('deploy/docker-compose.optional-integrations.yml')).to.equal('configuration');
     expect(categoryFor('frontend/.env.example')).to.equal('configuration');

@@ -14,6 +14,7 @@ const frontendDir = path.resolve(__dirname, '../frontend');
 const browserChannel = process.env.PLAYWRIGHT_BROWSER_CHANNEL || 'msedge';
 const browserExecutablePath = process.env.PLAYWRIGHT_BROWSER_EXECUTABLE_PATH;
 const reportsDir = path.resolve(__dirname, config.report.outputDir);
+const playwrightJsonOutput = process.env.PLAYWRIGHT_JSON_OUTPUT || path.join(reportsDir, 'e2e-results.json');
 
 function isTruthyEnv(value) {
   return ['1', 'true', 'yes', 'on'].includes(String(value || '').toLowerCase());
@@ -55,12 +56,12 @@ if (browserExecutablePath) {
 module.exports = defineConfig({
   testDir: './e2e',
   fullyParallel: true,
-  forbidOnly: !!process.env.CI,
+  forbidOnly: true,
   retries: config.e2e.retries,
   workers: process.env.PAGE_COVERAGE_FILE ? 1 : config.e2e.workers,
   reporter: [
     ['html', { outputFolder: path.join(reportsDir, 'e2e-html'), open: 'never' }],
-    ['json', { outputFile: path.join(reportsDir, 'e2e-results.json') }],
+    ['json', { outputFile: playwrightJsonOutput }],
     ['list']
   ],
   use: {

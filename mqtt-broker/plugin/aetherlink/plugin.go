@@ -109,7 +109,10 @@ func runtimeInit() error {
 	if err := Init(); err != nil { // init database & redis
 		return fmt.Errorf("aetherlink-gmqtt: init database/redis failed: %w", err)
 	}
-	go DefaultMqttClient.MqttInit()
+	if err := DefaultMqttClient.Start(); err != nil {
+		return fmt.Errorf("aetherlink-gmqtt: start internal mqtt client: %w", err)
+	}
+	mappedMQTTPublisher = DefaultMqttClient
 	return nil
 }
 

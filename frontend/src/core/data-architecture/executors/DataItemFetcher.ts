@@ -31,6 +31,16 @@ type HttpExecutionContext = {
 
 type HttpRequestDispatcher = () => Promise<unknown>
 
+class DataItemFetchError extends Error {
+  constructor(
+    readonly errorCode: DataItemFetchFailureCode,
+    message: string
+  ) {
+    super(message)
+    this.name = 'DataItemFetchError'
+  }
+}
+
 /** 组件绑定读取时使用的可视化编辑器节点形状（仅依赖 id 与 properties 字段） */
 type EditorStoreNodeLike = {
   id: string
@@ -104,14 +114,28 @@ export interface ScriptDataItemConfig {
   context?: Record<string, unknown>
 }
 
-export interface UnsupportedDataSourceResult {
+export type DataItemFetchFailureCode =
+  | 'DATA_ITEM_FETCH_FAILED'
+  | 'JSON_PARSE_FAILED'
+  | 'HTTP_REQUEST_FAILED'
+  | 'UNSUPPORTED_HTTP_METHOD'
+  | 'PRE_REQUEST_SCRIPT_FAILED'
+  | 'POST_RESPONSE_SCRIPT_FAILED'
+  | 'SCRIPT_EXECUTION_FAILED'
+  | 'UNSUPPORTED_DATA_SOURCE'
+
+export interface DataItemFetchFailure {
   success: false
+  error: string
+  errorCode: DataItemFetchFailureCode
+  unsupported?: true
+  sourceType?: string
+}
+
+export type UnsupportedDataSourceResult = DataItemFetchFailure & {
   unsupported: true
-  error: {
-    code: 'UNSUPPORTED_DATA_SOURCE'
-    message: string
-    type: DataItem['type']
-  }
+  errorCode: 'UNSUPPORTED_DATA_SOURCE'
+  sourceType: string
 }
 
 export interface IDataItemFetcher {
@@ -287,11 +311,15 @@ export class DataItemFetcher implements IDataItemFetcher {
     try {
       return await this.fetchByDataItemType(item)
     } catch (error) {
+      const message = this.formatError(error)
       this.logFetcherError('fetchData failed', {
         type: item.type,
         error: this.toLoggableError(error)
       })
-      return {}
+      return this.buildFetchFailure(
+        error instanceof DataItemFetchError ? error.errorCode : 'DATA_ITEM_FETCH_FAILED',
+        message
+      )
     }
   }
 
@@ -305,8 +333,11 @@ export class DataItemFetcher implements IDataItemFetcher {
         return await this.fetchWebSocketData(item.config)
       case 'script':
         return await this.fetchScriptData(item.config)
-      default:
-        return {}
+      default: {
+        const sourceType = (item as { type?: unknown }).type
+        const normalizedType = typeof sourceType === 'string' ? sourceType : 'unknown'
+        return this.buildUnsupportedDataSourceResult(normalizedType, `Unsupported data source: ${normalizedType}`)
+      }
     }
   }
 
@@ -314,10 +345,11 @@ export class DataItemFetcher implements IDataItemFetcher {
     try {
       return JSON.parse(config.jsonString)
     } catch (error) {
+      const message = this.formatError(error)
       this.logFetcherError('JSON data source parse failed', {
-        error: this.formatError(error)
+        error: message
       })
-      return {}
+      return this.buildFetchFailure('JSON_PARSE_FAILED', message)
     }
   }
 
@@ -337,9 +369,12 @@ export class DataItemFetcher implements IDataItemFetcher {
   }
 
   private async fetchHttpDataWithCache(executionContext: HttpExecutionContext): Promise<unknown> {
-    const { preparedConfig, requestPlan } = executionContext
-    const requestPromise = this.getOrCreateHttpRequestPromise(executionContext)
-    return await this.normalizeHttpResponse(preparedConfig, await requestPromise)
+    const { preparedConfig } = executionContext
+    const requestResult = await this.getOrCreateHttpRequestPromise(executionContext)
+    if (this.isDataItemFetchFailure(requestResult)) {
+      return requestResult
+    }
+    return await this.normalizeHttpResponse(preparedConfig, requestResult)
   }
 
   private getOrCreateHttpRequestPromise(executionContext: HttpExecutionContext): Promise<unknown> {
@@ -394,35 +429,54 @@ export class DataItemFetcher implements IDataItemFetcher {
       const scriptResult = await defaultScriptEngine.execute(config.preRequestScript, {
         config
       })
-      if (scriptResult.success && scriptResult.data) {
+      if (!scriptResult.success) {
+        throw new DataItemFetchError(
+          'PRE_REQUEST_SCRIPT_FAILED',
+          scriptResult.error ? this.formatError(scriptResult.error) : 'Pre-request script returned an unsuccessful result.'
+        )
+      }
+      if (scriptResult.data !== undefined && scriptResult.data !== null) {
         Object.assign(config, scriptResult.data)
       }
     } catch (error) {
-      logger.error('[DataItemFetcher] Pre-request script failed:', error)
+      if (error instanceof DataItemFetchError) {
+        throw error
+      }
+      throw new DataItemFetchError('PRE_REQUEST_SCRIPT_FAILED', this.formatError(error))
     }
   }
 
   private async executeHttpRequest(config: HttpDataItemConfig, requestPlan: HttpRequestPlan): Promise<unknown> {
+    if (!this.isSupportedHttpMethod(requestPlan.method)) {
+      const error = `Unsupported HTTP method: ${config.method}`
+      this.logFetcherError('fetchHttpData failed', {
+        url: config.url,
+        method: config.method,
+        error
+      })
+      return this.buildFetchFailure('UNSUPPORTED_HTTP_METHOD', error)
+    }
+
     try {
       logHttpParametersLifecycle(config, 'before send')
-      return await this.dispatchHttpRequest(config, requestPlan)
+      return await this.dispatchHttpRequest(requestPlan)
     } catch (error) {
       this.logFetcherError('fetchHttpData failed', {
         url: config.url,
         method: config.method,
         error: this.toLoggableError(error)
       })
-      return {}
+      return this.buildFetchFailure('HTTP_REQUEST_FAILED', this.formatError(error))
     }
   }
 
-  private async dispatchHttpRequest(config: HttpDataItemConfig, requestPlan: HttpRequestPlan): Promise<unknown> {
-    const dispatcher = this.getHttpRequestDispatcher(config, requestPlan)
+  private async dispatchHttpRequest(requestPlan: HttpRequestPlan): Promise<unknown> {
+    const dispatcher = this.getHttpRequestDispatcher(requestPlan)
     return await dispatcher()
   }
 
-  private getHttpRequestDispatcher(config: HttpDataItemConfig, requestPlan: HttpRequestPlan): HttpRequestDispatcher {
-    const dispatchers: Record<HttpRequestPlan['method'], HttpRequestDispatcher> = {
+  private getHttpRequestDispatcher(requestPlan: HttpRequestPlan): HttpRequestDispatcher {
+    const dispatchers: Record<string, HttpRequestDispatcher> = {
       GET: () => request.get(requestPlan.finalUrl, requestPlan.requestConfig),
       POST: () => request.post(requestPlan.finalUrl, requestPlan.requestBody, requestPlan.requestConfig),
       PUT: () => request.put(requestPlan.finalUrl, requestPlan.requestBody, requestPlan.requestConfig),
@@ -430,12 +484,11 @@ export class DataItemFetcher implements IDataItemFetcher {
       DELETE: () => request.delete(requestPlan.finalUrl, requestPlan.requestConfig)
     }
 
-    const dispatcher = dispatchers[requestPlan.method]
-    if (!dispatcher) {
-      throw new Error(`Unsupported HTTP method: ${config.method}`)
-    }
+    return dispatchers[requestPlan.method]
+  }
 
-    return dispatcher
+  private isSupportedHttpMethod(method: string): boolean {
+    return ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(method)
   }
 
   private async normalizeHttpResponse(config: HttpDataItemConfig, response: unknown): Promise<unknown> {
@@ -449,14 +502,40 @@ export class DataItemFetcher implements IDataItemFetcher {
 
     try {
       const scriptResult = await defaultScriptEngine.execute(config.postResponseScript, { response })
-      if (scriptResult.success) {
-        return scriptResult.data !== undefined ? scriptResult.data : response
+      if (!scriptResult.success) {
+        const error = scriptResult.error
+          ? this.formatError(scriptResult.error)
+          : 'Post-response script returned an unsuccessful result.'
+        this.logFetcherError('Post-response script failed', { error })
+        return this.buildFetchFailure('POST_RESPONSE_SCRIPT_FAILED', error)
       }
+      return scriptResult.data !== undefined ? scriptResult.data : response
     } catch (error) {
-      logger.error('[DataItemFetcher] Post-response script failed:', error)
+      const message = this.formatError(error)
+      this.logFetcherError('Post-response script failed', { error: message })
+      return this.buildFetchFailure('POST_RESPONSE_SCRIPT_FAILED', message)
     }
+  }
 
-    return response
+  private isDataItemFetchFailure(value: unknown): value is DataItemFetchFailure {
+    return (
+      typeof value === 'object' &&
+      value !== null &&
+      (value as Partial<DataItemFetchFailure>).success === false &&
+      typeof (value as Partial<DataItemFetchFailure>).error === 'string' &&
+      typeof (value as Partial<DataItemFetchFailure>).errorCode === 'string'
+    )
+  }
+
+  private buildFetchFailure(
+    errorCode: DataItemFetchFailureCode,
+    error: string
+  ): DataItemFetchFailure {
+    return {
+      success: false,
+      error,
+      errorCode
+    }
   }
 
   private generateRequestKey(requestPlan: HttpRequestPlan): string {
@@ -473,15 +552,13 @@ export class DataItemFetcher implements IDataItemFetcher {
     return this.buildUnsupportedDataSourceResult('websocket', message)
   }
 
-  private buildUnsupportedDataSourceResult(type: DataItem['type'], message: string): UnsupportedDataSourceResult {
+  private buildUnsupportedDataSourceResult(type: string, message: string): UnsupportedDataSourceResult {
     return {
       success: false,
       unsupported: true,
-      error: {
-        code: 'UNSUPPORTED_DATA_SOURCE',
-        message,
-        type
-      }
+      error: message,
+      errorCode: 'UNSUPPORTED_DATA_SOURCE',
+      sourceType: type
     }
   }
 
@@ -489,19 +566,21 @@ export class DataItemFetcher implements IDataItemFetcher {
     try {
       const result = await defaultScriptEngine.execute(config.script, config.context || {})
       if (!result.success) {
-        this.logFetcherError('Script data source failed', {
-          error: result.error ?? 'Script execution returned an unsuccessful result.'
-        })
-        return {}
+        const error = result.error
+          ? this.formatError(result.error)
+          : 'Script execution returned an unsuccessful result.'
+        this.logFetcherError('Script data source failed', { error })
+        return this.buildFetchFailure('SCRIPT_EXECUTION_FAILED', error)
       }
 
-      // 保留 0、false 和空字符串等有效脚本结果，仅空值回退为空对象。
+      // 保留 0、false 和空字符串等有效脚本结果；成功空值继续兼容旧配置并回退为空对象。
       return result.data !== null && result.data !== undefined ? result.data : {}
     } catch (error) {
+      const message = this.formatError(error)
       this.logFetcherError('Script data source failed', {
-        error: this.formatError(error)
+        error: message
       })
-      return {}
+      return this.buildFetchFailure('SCRIPT_EXECUTION_FAILED', message)
     }
   }
 }

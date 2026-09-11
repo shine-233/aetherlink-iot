@@ -100,6 +100,16 @@ export const visualizationRoutes: GeneratedRoute[] = [
           }
         },
         {
+          name: 'visualization_report',
+          path: '/visualization/report',
+          component: 'view.visualization_report',
+          meta: {
+            title: 'visualization_report',
+            i18nKey: 'route.visualization-report',
+            roles: ['SYS_ADMIN', 'TENANT_ADMIN']
+          }
+        },
+        {
           name: 'visualization_native-boards',
           path: '/visualization/native-boards',
           component: 'view.visualization_native-boards',

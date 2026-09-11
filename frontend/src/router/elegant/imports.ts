@@ -68,6 +68,7 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   "visualization_native-board": () => import("@/views/visualization/native-board/index.vue"),
   "visualization_native-board-editor": () => import("@/views/visualization/native-board-editor/index.vue"),
   "visualization_native-boards": () => import("@/views/visualization/native-boards/index.vue"),
+  "visualization_report": () => import("@/views/visualization/report/index.vue"),
   "visualization_thingsvis-dashboards": () => import("@/views/visualization/thingsvis-dashboards/index.vue"),
   "visualization_thingsvis-editor": () => import("@/views/visualization/thingsvis-editor/index.vue"),
   "visualization_thingsvis-menu-dashboard": () => import("@/views/visualization/thingsvis-menu-dashboard/index.vue"),

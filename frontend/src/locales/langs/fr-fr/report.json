@@ -1,0 +1,111 @@
+{
+  "page": {
+    "kicker": "CONTRÔLE DE LIVRAISON DES RAPPORTS",
+    "title": "Rapports planifiés",
+    "subtitle": "Définissez des fenêtres de télémétrie fixes, livrez des rapports CSV et inspectez chaque tentative de génération et d’envoi.",
+    "cadenceLabel": "Fuseau de planification",
+    "cadenceValue": "Fuseau IANA par planification",
+    "search": "Rechercher les planifications",
+    "empty": "Aucun rapport planifié"
+  },
+  "action": {
+    "create": "Nouvelle planification",
+    "createFirst": "Créer la première planification",
+    "search": "Rechercher",
+    "refresh": "Actualiser",
+    "runNow": "Exécuter maintenant",
+    "history": "Historique",
+    "details": "Détails",
+    "retry": "Relancer le rapport",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "cancel": "Annuler",
+    "save": "Enregistrer"
+  },
+  "table": {
+    "name": "Planification",
+    "delivery": "Périmètre de livraison",
+    "targetSummary": "{devices} appareils · {keys} clés",
+    "nextRun": "Prochaine exécution",
+    "lastRun": "Dernière exécution",
+    "enabled": "État",
+    "actions": "Actions"
+  },
+  "form": {
+    "createTitle": "Créer un rapport planifié",
+    "editTitle": "Modifier le rapport planifié",
+    "name": "Nom",
+    "cron": "Expression cron",
+    "timezone": "Fuseau horaire",
+    "lookback": "Fenêtre rétrospective fixe (heures)",
+    "recipients": "Destinataires",
+    "recipientsHint": "Adresses séparées par des virgules",
+    "devices": "ID des appareils",
+    "keys": "Clés de télémétrie",
+    "linesHint": "Une valeur par ligne ou séparée par des virgules",
+    "enabled": "Planification active",
+    "required": "Ce champ est obligatoire"
+  },
+  "history": {
+    "title": "Historique des exécutions",
+    "subtitle": "Preuves de génération et SMTP de cette planification.",
+    "empty": "Cette planification n’a pas encore été exécutée",
+    "started": "Début",
+    "window": "Fenêtre de données fixe",
+    "overall": "Global",
+    "generation": "Génération",
+    "delivery": "Livraison",
+    "risk": "Risque de doublon"
+  },
+  "detail": {
+    "kicker": "EXÉCUTION SÉLECTIONNÉE",
+    "updated": "Dernière mise à jour",
+    "smtpAccepted": "Accepté par le serveur SMTP",
+    "smtpAmbiguous": "Résultat SMTP ambigu",
+    "smtpAcceptanceCaveat": "Accepté signifie que le serveur SMTP a accepté le message ; cela ne confirme pas sa livraison dans la boîte du destinataire.",
+    "generationAttempts": "Tentatives de génération",
+    "deliveryAttempts": "Tentatives de livraison",
+    "errors": "Erreurs limitées",
+    "noErrors": "Aucune erreur enregistrée"
+  },
+  "risk": {
+    "duplicate": "Possible",
+    "none": "Aucun",
+    "warning": "Le résultat SMTP précédent est ambigu. Une nouvelle tentative peut livrer ce rapport plusieurs fois."
+  },
+  "common": { "enabled": "Actif", "disabled": "Inactif", "yes": "Oui", "no": "Non", "notAvailable": "—" },
+  "status": {
+    "never": "Jamais exécuté",
+    "unknown": "Inconnu",
+    "queued": "En file d’attente",
+    "running": "En cours",
+    "pending": "En attente",
+    "processing": "Traitement",
+    "retrying": "Nouvelle tentative",
+    "succeeded": "Réussi",
+    "accepted": "Accepté par SMTP",
+    "ambiguous": "Ambigu",
+    "failed": "Échec"
+  },
+  "message": {
+    "loadFailed": "Impossible de charger les rapports. Actualisez pour réessayer.",
+    "targetsRequired": "Ajoutez au moins un appareil et une clé de télémétrie.",
+    "created": "Rapport planifié créé.",
+    "updated": "Rapport planifié mis à jour.",
+    "saveFailed": "Impossible d’enregistrer le rapport.",
+    "staleRevision": "Le rapport a changé dans une autre session. Les données ont été actualisées ; vérifiez les modifications et réessayez.",
+    "deleted": "Rapport planifié supprimé.",
+    "deleteFailed": "Impossible de supprimer le rapport.",
+    "deleteStaleRevision": "Le rapport a changé dans une autre session et n’a donc pas été supprimé. Les données ont été actualisées.",
+    "deleteConfirm": "Supprimer ce rapport et ses exécutions futures ?",
+    "runStarted": "Exécution démarrée.",
+    "runReplay": "L’exécution existante a été renvoyée pour cette requête.",
+    "runFailed": "Impossible de démarrer l’exécution.",
+    "historyFailed": "Impossible de charger l’historique.",
+    "scheduleDisabled": "Cette planification est inactive. Activez-la avant d’exécuter ou de relancer un rapport.",
+    "pollFailed": "Les mises à jour automatiques se sont arrêtées après plusieurs échecs. Actualisez l’historique pour réessayer.",
+    "retryStarted": "Nouvelle tentative démarrée.",
+    "retryReplay": "La tentative existante a été renvoyée pour cette requête.",
+    "retryFailed": "Impossible de relancer l’exécution."
+  }
+}

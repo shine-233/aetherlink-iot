@@ -2,14 +2,79 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	"aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/internal/query"
 	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
+	"aetherlink-iot/backend/pkg/global"
 	"aetherlink-iot/backend/pkg/utils"
+
+	"github.com/glebarez/sqlite"
+	"gorm.io/gorm"
 )
+
+func setupBoardServiceAccessTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	oldDB := global.DB
+	dbName := strings.ReplaceAll(t.Name(), "/", "_")
+	db, err := gorm.Open(sqlite.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared", dbName)), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open board sqlite: %v", err)
+	}
+	if err := db.AutoMigrate(&model.Board{}); err != nil {
+		t.Fatalf("migrate board: %v", err)
+	}
+	global.DB = db
+	query.SetDefault(db)
+	t.Cleanup(func() {
+		global.DB = oldDB
+		if oldDB != nil {
+			query.SetDefault(oldDB)
+		}
+	})
+	return db
+}
+
+func TestBoardMissingDetailAndRepeatedDeleteReturnNotFound(t *testing.T) {
+	db := setupBoardServiceAccessTestDB(t)
+	claims := &utils.UserClaims{Authority: constant.TENANT_ADMIN, TenantID: "tenant-a"}
+
+	_, err := (&Board{}).GetBoard("missing-board", claims)
+	assertErrcodeError(t, err, "missing detail", errcode.CodeNotFound, "board not found")
+
+	now := time.Now().UTC()
+	board := &model.Board{ID: "owned-board", Name: "Owned", TenantID: claims.TenantID, CreatedAt: now, UpdatedAt: now, HomeFlag: "N"}
+	if err := db.Create(board).Error; err != nil {
+		t.Fatalf("seed board: %v", err)
+	}
+	if err := (&Board{}).DeleteBoard(board.ID, claims); err != nil {
+		t.Fatalf("first delete returned error: %v", err)
+	}
+	err = (&Board{}).DeleteBoard(board.ID, claims)
+	assertErrcodeError(t, err, "repeated delete", errcode.CodeNotFound, "board not found")
+}
+
+func TestBoardCrossTenantDeleteIsDeniedAndPreservesBoard(t *testing.T) {
+	db := setupBoardServiceAccessTestDB(t)
+	now := time.Now().UTC()
+	board := &model.Board{ID: "foreign-board", Name: "Foreign", TenantID: "tenant-b", CreatedAt: now, UpdatedAt: now, HomeFlag: "N"}
+	if err := db.Create(board).Error; err != nil {
+		t.Fatalf("seed board: %v", err)
+	}
+	claims := &utils.UserClaims{Authority: constant.TENANT_ADMIN, TenantID: "tenant-a"}
+	err := (&Board{}).DeleteBoard(board.ID, claims)
+	assertErrcodeError(t, err, "cross-tenant delete", errcode.CodeNoPermission, "no permission to query board")
+
+	var stored model.Board
+	if err := db.First(&stored, "id = ?", board.ID).Error; err != nil {
+		t.Fatalf("foreign board was removed: %v", err)
+	}
+}
 
 func TestEnsureBoardWritePermissionFailClosed(t *testing.T) {
 	tenantA := "tenant-a"

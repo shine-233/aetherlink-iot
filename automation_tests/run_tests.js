@@ -13,34 +13,37 @@ const reporter = require('./lib/reporter');
 const apiClient = require('./lib/api_client');
 const endpointCoverage = require('./lib/endpoint_coverage');
 const pageCoverage = require('./lib/page_coverage');
+const coverageProvenance = require('./lib/coverage_provenance');
 const {
   summarizeMochaResult,
-  summarizePlaywrightResult
+  summarizePlaywrightResult,
+  qualifyCoverageProvenance
 } = require('./lib/runner/result-summary');
 const {
   EXIT_CODES,
   parseCliArgs,
   parseArgs,
   shouldArchiveReports,
+  isStrictIntegrationEnabled,
+  getStrictIntegrationGaps,
   getRunnerExitCode
 } = require('./lib/runner/cli-policy');
 const testMetadata = require('./lib/test_metadata');
+const { reconcileManagedMochaCases } = require('./lib/runner/mocha-case-inventory');
+const { reconcilePlaywrightCases } = require('./lib/runner/playwright-case-reconciliation');
 const runtimeConfig = require('./lib/runtime_config');
 const networkConfig = require('./lib/network_runtime');
+const runArtifacts = require('./lib/runner/run-artifacts');
+const coverageContract = require('./lib/coverage_contract');
+const goTestRuntime = require('./lib/go-test-runtime');
 
-const reportsDir = path.resolve(__dirname, runtimeConfig.report.outputDir);
+let reportsDir = null;
+const projectRoot = path.resolve(__dirname, '..');
 const verificationDir = path.resolve(
   __dirname,
   process.env.AUTOMATION_VERIFICATION_DIR || path.join('..', 'verification')
 );
-
-function prepareReportsDir() {
-  if (!fs.existsSync(reportsDir)) {
-    fs.mkdirSync(reportsDir, { recursive: true });
-  }
-}
-
-prepareReportsDir();
+let activeRunArtifacts = null;
 
 const {
   NON_BUSINESS_EVIDENCE_LABELS,
@@ -59,10 +62,43 @@ const DISCOVERED_SUITES = discoverSuites();
 const API_MODULES = DISCOVERED_SUITES.apiModules;
 const E2E_MODULES = DISCOVERED_SUITES.e2eModules;
 
+function createArtifactEnvironment() {
+  return {
+    evidenceKind: process.env.AUTOMATION_EVIDENCE_KIND || 'local-real',
+    lane: process.env.AUTOMATION_EVIDENCE_LANE || 'local-api-e2e',
+    frontendUrl: runtimeConfig.frontendURL,
+    backendUrl: runtimeConfig.baseURL,
+    mqttAddress: process.env.AUTOTEST_MQTT_BROKER || '',
+    database: process.env.AUTOMATION_DATABASE_IDENTITY || 'configured-local-database',
+    accountSource: process.env.AUTOMATION_ACCOUNT_SOURCE || 'ignored local automation environment'
+  };
+}
+
+function prepareRunArtifacts(plan) {
+  const scope = runArtifacts.classifyPlanScope(plan, plan.discoveredSuites);
+  activeRunArtifacts = runArtifacts.createRunArtifacts({
+    projectRoot,
+    verificationRoot: verificationDir,
+    startedAt: new Date(),
+    command: [process.execPath, path.join(__dirname, 'run_tests.js'), ...process.argv.slice(2)],
+    scope,
+    publicationRequested: shouldArchiveReports(plan.args, scope),
+    environment: createArtifactEnvironment()
+  });
+  reportsDir = activeRunArtifacts.reportDir;
+  process.env.AUTOMATION_REPORT_DIR = reportsDir;
+  return activeRunArtifacts;
+}
+
 function getCoverageTempFile(testFile, type = 'api') {
   const safeName = testFile.replace(/[\\/]/g, '_').replace(/\.[^.]+$/g, '');
   const suffix = type === 'page' ? 'page-coverage' : 'endpoint-coverage';
   return path.join(reportsDir, `${type}-${safeName}-${suffix}.json`);
+}
+
+function createCoverageRunId(type, testFile) {
+  const safeName = testFile.replace(/[\\/]/g, '_').replace(/\.[^.]+$/g, '');
+  return `${type}-${safeName}-${process.pid}-${Date.now()}`;
 }
 
 function printUsage() {
@@ -76,7 +112,7 @@ function printUsage() {
     '  node run_tests.js --module device         Run matching API module(s)',
     '  node run_tests.js --e2e                   Run all E2E modules only',
     '  node run_tests.js --include-e2e           Run API modules, then E2E modules',
-    '  node run_tests.js --include-e2e --archive Archive reports into verification/',
+    '  node run_tests.js --include-e2e --archive Publish a canonical archive only for a clean strict full run',
     '  node run_tests.js --module device --e2e   Run matching E2E module(s)',
     '  node run_tests.js --list                  Print discovered modules',
     '',
@@ -96,37 +132,6 @@ function printModuleList() {
   };
   printGroup('API modules (' + API_MODULES.length + ')', API_MODULES);
   printGroup('E2E modules (' + E2E_MODULES.length + ')', E2E_MODULES);
-}
-
-function archiveReportsIfRequested(args) {
-  if (!shouldArchiveReports(args)) {
-    return null;
-  }
-
-  if (!fs.existsSync(reportsDir)) {
-    return null;
-  }
-
-  const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+$/, '').replace('T', '-');
-  const archiveDir = path.join(verificationDir, 'automation-run-' + timestamp);
-  fs.mkdirSync(archiveDir, { recursive: true });
-
-  for (const entry of fs.readdirSync(reportsDir, { withFileTypes: true })) {
-    const source = path.join(reportsDir, entry.name);
-    const target = path.join(archiveDir, entry.name);
-    if (entry.isFile()) {
-      fs.copyFileSync(source, target);
-    }
-  }
-
-  const manifest = {
-    archivedAt: new Date().toISOString(),
-    command: ['node', 'run_tests.js', ...process.argv.slice(2)],
-    reportSource: reportsDir,
-    note: 'Copied after runner completion to avoid shared reports being mistaken for durable evidence.'
-  };
-  fs.writeFileSync(path.join(archiveDir, 'archive-manifest.json'), JSON.stringify(manifest, null, 2), 'utf8');
-  return archiveDir;
 }
 
 function getApiWorkerCount(args, moduleCount) {
@@ -190,20 +195,27 @@ function runMocha(testFile) {
       mochaPath,
       path.join(__dirname, 'tests', testFile),
       '--timeout', '30000',
-      '--reporter', 'mochawesome',
+      '--reporter', path.join(__dirname, 'lib', 'coverage_mocha_reporter.js'),
       '--reporter-options',
       `reportDir=${reportsDir},reportFilename=${reportFilename},overwrite=true,quiet=true`
     ];
 
     const coverageFile = getCoverageTempFile(testFile, 'api');
+    const provenanceFile = coverageProvenance.provenanceFileForCoverage(coverageFile);
+    const coverageRunId = createCoverageRunId('api', testFile);
     removeFileIfExists(coverageFile);
+    removeFileIfExists(provenanceFile);
     removeFileIfExists(reportJson);
 
     const proc = spawn(cmd, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: {
         ...process.env,
-        ENDPOINT_COVERAGE_FILE: coverageFile
+        ENDPOINT_COVERAGE_FILE: coverageFile,
+        COVERAGE_PROVENANCE_FILE: provenanceFile,
+        AETHERLINK_COVERAGE_RUN_ID: coverageRunId,
+        AETHERLINK_COVERAGE_MODULE: keyFromFilename(testFile),
+        AUTOMATION_REPORT_DIR: reportsDir
       }
     });
 
@@ -213,7 +225,7 @@ function runMocha(testFile) {
     proc.stderr.on('data', data => { stderr += data.toString(); });
 
     proc.on('close', code => {
-      resolve({ code, stdout, stderr, coverageFile, reportJson });
+      resolve({ code, stdout, stderr, coverageFile, provenanceFile, coverageRunId, reportJson });
     });
   });
 }
@@ -222,7 +234,8 @@ function runPlaywright(testFile) {
   return new Promise(resolve => {
     const cmd = process.execPath;
     const pwPath = require.resolve('@playwright/test/cli');
-    const reportJson = path.join(reportsDir, 'e2e-results.json');
+    const safeName = testFile.replace(/[\\/]/g, '_').replace(/\.[^.]+$/g, '');
+    const reportJson = path.join(reportsDir, `e2e-${safeName}-results.json`);
     const args = [
       pwPath,
       'test',
@@ -233,14 +246,22 @@ function runPlaywright(testFile) {
     removeFileIfExists(reportJson);
 
     const coverageFile = getCoverageTempFile(testFile, 'page');
+    const provenanceFile = coverageProvenance.provenanceFileForCoverage(coverageFile);
+    const coverageRunId = createCoverageRunId('e2e', testFile);
     removeFileIfExists(coverageFile);
+    removeFileIfExists(provenanceFile);
 
     const proc = spawn(cmd, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
       cwd: __dirname,
       env: {
         ...process.env,
-        PAGE_COVERAGE_FILE: coverageFile
+        PAGE_COVERAGE_FILE: coverageFile,
+        COVERAGE_PROVENANCE_FILE: provenanceFile,
+        AETHERLINK_COVERAGE_RUN_ID: coverageRunId,
+        AETHERLINK_COVERAGE_MODULE: keyFromFilename(testFile),
+        PLAYWRIGHT_JSON_OUTPUT: reportJson,
+        AUTOMATION_REPORT_DIR: reportsDir
       }
     });
 
@@ -250,7 +271,7 @@ function runPlaywright(testFile) {
     proc.stderr.on('data', data => { stderr += data.toString(); });
 
     proc.on('close', code => {
-      resolve({ code, stdout, stderr, reportJson, coverageFile });
+      resolve({ code, stdout, stderr, reportJson, coverageFile, provenanceFile, coverageRunId });
     });
   });
 }
@@ -345,30 +366,16 @@ function printModuleRunStart(kind, mod) {
   console.log('-'.repeat(50));
 }
 
-function recordModuleSummary(mod, type, summary) {
-  // Metadata is case-level by design. Once a module has actually run to
-  // completion, promote only explicitly marked business cases into the
-  // runtime report; boundary/catalog cases must not inflate closure.
-  const metadata = testMetadata.getTestMetadata(mod.file);
-  const businessCases = metadata && Array.isArray(metadata.cases)
-    ? metadata.cases.filter(item => (
-      item &&
-      item.evidenceKind === 'business' &&
-      item.businessClosureEvidence === true
-    ))
-    : [];
-  if (
-    summary.passed === true &&
-    summary.skipped === 0 &&
-    summary.blockedReasons.length === 0 &&
-    businessCases.length > 0
-  ) {
-    summary.caseLevelBusinessClosureEvidence = true;
-    summary.oracleCases = businessCases.map(item => ({
-      title: item.title,
-      businessClosureEvidence: true
-    }));
+function readJsonReportIfPresent(filePath) {
+  if (!filePath || !fs.existsSync(filePath)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch (_error) {
+    return null;
   }
+}
+
+function persistModuleSummary(mod, type, summary) {
   reporter.record(
     mod.key,
     getReportDisplayName(mod),
@@ -378,6 +385,125 @@ function recordModuleSummary(mod, type, summary) {
     mod.evidenceLabel,
     summary
   );
+}
+
+function recordModuleSummary(
+  mod,
+  type,
+  summary,
+  result = null,
+  explicitReport = null,
+  deferRecord = false
+) {
+  const metadataFile = mod.metadataFile || mod.file;
+  const metadata = testMetadata.getTestMetadata(metadataFile);
+  if (type === 'api') {
+    const reconciliation = reconcileManagedMochaCases({
+      metadataFile,
+      metadata,
+      reportCases: summary.caseResults
+    });
+    summary.caseMetadataManaged = reconciliation.managed;
+    summary.caseReconciliationValid = reconciliation.valid;
+    summary.caseReconciliationErrors = reconciliation.errors;
+    summary.caseResults = reconciliation.managed ? reconciliation.caseResults : summary.caseResults;
+    const runtimeEligible = summary.passed === true &&
+      summary.outcome === 'passed' &&
+      summary.skipped === 0 &&
+      summary.blockedReasons.length === 0 &&
+      reconciliation.valid;
+    summary.oracleCases = runtimeEligible ? reconciliation.oracleCases : [];
+    summary.caseLevelBusinessClosureEvidence = runtimeEligible &&
+      summary.oracleCases.some(item => (
+        item.evidenceKind === 'business' && item.businessClosureEvidence === true
+      ));
+  } else if (type === 'e2e') {
+    const managed = Boolean(metadata && Array.isArray(metadata.cases) && metadata.cases.some(item => (
+      item && (item.caseId || item.fullTitle)
+    )));
+    if (managed) {
+      const report = explicitReport || readJsonReportIfPresent(result && result.reportJson);
+      if (!report) {
+        summary.passed = false;
+        summary.outcome = 'failed';
+        summary.caseMetadataManaged = true;
+        summary.caseReconciliationValid = false;
+        summary.caseReconciliationErrors = [
+          'Playwright JSON report is missing for managed case reconciliation'
+        ];
+        summary.reason = summary.caseReconciliationErrors[0];
+      } else {
+        const reconciliation = reconcilePlaywrightCases(report, metadata);
+        summary.caseMetadataManaged = true;
+        summary.caseReconciliationValid = reconciliation.errors.length === 0;
+        summary.caseReconciliationErrors = reconciliation.errors;
+        const caseIdByIdentity = new Map(reconciliation.oracleCases.map(item => [
+          `${item.file} :: ${item.fullTitle}`,
+          item.caseId
+        ]));
+        summary.caseResults = reconciliation.extractedCases.map(item => ({
+          ...item,
+          caseId: caseIdByIdentity.get(item.identity) || null,
+          titlePath: item.fullTitle
+            ? item.fullTitle.split(' › ').map(part => part.trim()).filter(Boolean)
+            : []
+        }));
+        const runtimeEligible = summary.passed === true &&
+          summary.outcome === 'passed' &&
+          summary.skipped === 0 &&
+          summary.blockedReasons.length === 0 &&
+          summary.caseReconciliationValid;
+        if (!summary.caseReconciliationValid) {
+          summary.passed = false;
+          summary.outcome = 'failed';
+          summary.reason = reconciliation.errors.join('; ');
+        }
+        summary.oracleCases = runtimeEligible ? reconciliation.oracleCases : [];
+        summary.caseLevelBusinessClosureEvidence = runtimeEligible &&
+          summary.oracleCases.some(item => item.businessClosureEvidence === true);
+      }
+    }
+  }
+  if (!deferRecord) {
+    persistModuleSummary(mod, type, summary);
+  }
+}
+
+function finalizeCoverageProvenance(mod, result, summary) {
+  const ledger = coverageProvenance.readLedger(result.provenanceFile);
+  const qualified = qualifyCoverageProvenance(
+    ledger.events,
+    summary,
+    mod.key,
+    result.coverageRunId
+  );
+  result.coverageArtifactQualified = true;
+  coverageProvenance.replaceLedger(result.provenanceFile, qualified);
+  if (result.coverageFile && fs.existsSync(result.coverageFile)) {
+    try {
+      const coveragePayload = JSON.parse(fs.readFileSync(result.coverageFile, 'utf8'));
+      coveragePayload.provenance = {
+        schema: coverageProvenance.SCHEMA,
+        events: qualified
+      };
+      fs.writeFileSync(result.coverageFile, JSON.stringify(coveragePayload, null, 2), 'utf8');
+    } catch (error) {
+      result.coverageArtifactQualified = false;
+      qualified.forEach(event => {
+        event.disposition = 'diagnostic';
+        event.diagnostics = {
+          ...event.diagnostics,
+          coverageArtifactRewriteFailed: error.message
+        };
+      });
+      coverageProvenance.replaceLedger(result.provenanceFile, qualified);
+    }
+  }
+  summary.coverageProvenance = {
+    ...coverageProvenance.summarizeEvents(qualified),
+    file: result.provenanceFile
+  };
+  return qualified;
 }
 
 function printModuleRunTail(result, summary) {
@@ -403,9 +529,13 @@ async function executeModuleRun(options) {
   printModuleRunStart(kind, mod);
   const result = await execute(mod.file);
   const summary = summarize(result);
-  recordModuleSummary(mod, type, summary);
+  recordModuleSummary(mod, type, summary, result, null, true);
+  finalizeCoverageProvenance(mod, result, summary);
+  persistModuleSummary(mod, type, summary);
   printModuleRunTail(result, summary);
-  mergeCoverage(result.coverageFile);
+  if (result.coverageArtifactQualified !== false) {
+    mergeCoverage(result.coverageFile);
+  }
   return createModuleRunRecord(mod, result, summary);
 }
 
@@ -525,50 +655,98 @@ async function runE2EPhase(plan) {
   return runModulesSequentially(e2eModulesToRun, runE2EModule);
 }
 
-function writeCoverageReport(title, coverage) {
+function writeCoverageReport(title, coverage, interval) {
   printPhaseHeader(title);
   coverage.report();
-  coverage.writeReport(reportsDir);
+  coverage.writeReport(reportsDir, interval);
 }
 
-function writeCoverageReportsForPlan(plan) {
+function writeCoverageReportsForPlan(plan, interval) {
   if (plan.apiModulesToRun.length > 0) {
-    writeCoverageReport('Phase 3: API endpoint coverage', endpointCoverage);
+    writeCoverageReport('Phase 3: API endpoint coverage', endpointCoverage, interval);
   }
 
   if (plan.e2eModulesToRun.length > 0) {
-    writeCoverageReport('Phase 4: E2E page coverage', pageCoverage);
+    writeCoverageReport('Phase 4: E2E page coverage', pageCoverage, interval);
   }
 }
 
-function printReportLocations(jsonReport, archiveDir) {
+function writeGoTestEvidenceForPlan(plan) {
+  if (activeRunArtifacts.scope !== 'full') return null;
+  printPhaseHeader('Phase 5: Exact Go runtime evidence');
+  const report = goTestRuntime.collectGoTestEvidence({
+    projectRoot,
+    evidenceItems: coverageContract.ALL_GO_EVIDENCE,
+    startedAt: new Date().toISOString(),
+    source: activeRunArtifacts.source
+  });
+  goTestRuntime.writeGoTestEvidenceReport(reportsDir, report);
+  return report;
+}
+
+function printReportLocations(artifactResult) {
   console.log('\nReports:');
-  console.log('  HTML: ' + path.resolve(reportsDir));
-  console.log('  JSON: ' + path.resolve(jsonReport));
-  if (archiveDir) {
-    console.log('  Archive: ' + path.resolve(archiveDir));
+  console.log('  Run-scoped output: ' + path.resolve(artifactResult.reportDir));
+  if (artifactResult.reports.summary) {
+    console.log('  JSON: ' + path.resolve(artifactResult.reports.summary));
+  }
+  if (artifactResult.archiveDir) {
+    console.log('  Canonical archive: ' + path.resolve(artifactResult.archiveDir));
+  } else {
+    console.log('  Diagnostic staging: ' + path.resolve(artifactResult.diagnosticDir));
+    if (artifactResult.publicationErrors.length > 0) {
+      console.log('  Not published: ' + artifactResult.publicationErrors.join('; '));
+    }
   }
   console.log('');
 }
 
-function createFinalizedRunResult(summary, jsonReport, archiveDir) {
+function createFinalizedRunResult(summary, artifactResult, exitCode) {
   return {
     summary,
-    jsonReport,
-    archiveDir
+    jsonReport: artifactResult.reports.summary || null,
+    reportDir: artifactResult.reportDir,
+    archiveDir: artifactResult.archiveDir,
+    diagnosticDir: artifactResult.diagnosticDir,
+    exitCode
   };
 }
 
 function finalizeRunReports(plan) {
   const summary = reporter.end();
-  const jsonReport = reporter.generateJsonReport(reportsDir);
+  const initialInterval = {
+    startedAt: reporter.startTime ? reporter.startTime.toISOString() : activeRunArtifacts.startedAt
+  };
+  reporter.generateJsonReport(reportsDir);
+  const goReport = writeGoTestEvidenceForPlan(plan);
+  const finishedAt = new Date();
+  const interval = {
+    startedAt: initialInterval.startedAt,
+    finishedAt: finishedAt.toISOString()
+  };
+  writeCoverageReportsForPlan(plan, interval);
 
-  writeCoverageReportsForPlan(plan);
+  const strictIntegration = isStrictIntegrationEnabled();
+  const runnerExitCode = getRunnerExitCode(summary, { strictIntegration });
+  const goEvidenceFailed = activeRunArtifacts.scope === 'full' && (!goReport || goReport.passed !== true);
+  const exitCode = goEvidenceFailed && runnerExitCode === 0 ? EXIT_CODES.failed : runnerExitCode;
+  const blockingGaps = getStrictIntegrationGaps(summary);
+  if (goEvidenceFailed) blockingGaps.push('go-test-evidence-failed');
+  const artifactResult = runArtifacts.finalizeRunArtifacts(activeRunArtifacts, {
+    finishedAt,
+    exitCode,
+    strictIntegration,
+    cleanup: runArtifacts.deriveCleanupEvidence({
+      ...summary,
+      caseOutcomes: reporter.getCanonicalOperationCaseOutcomes()
+    }),
+    blockingGaps
+  });
+  reportsDir = artifactResult.reportDir;
+  process.env.AUTOMATION_REPORT_DIR = reportsDir;
+  printReportLocations(artifactResult);
 
-  const archiveDir = archiveReportsIfRequested(plan.args);
-  printReportLocations(jsonReport, archiveDir);
-
-  return createFinalizedRunResult(summary, jsonReport, archiveDir);
+  return createFinalizedRunResult(summary, artifactResult, exitCode);
 }
 
 function exitRunner(code) {
@@ -588,8 +766,15 @@ function handleInformationalArgs(args) {
 }
 
 async function executePlan(plan) {
+  prepareRunArtifacts(plan);
   const servicesReady = await ensureServicesReady(plan);
   if (!servicesReady) {
+    runArtifacts.writeInterruptedManifest(activeRunArtifacts, {
+      exitCode: EXIT_CODES.serviceUnavailable,
+      strictIntegration: isStrictIntegrationEnabled(),
+      cleanup: { status: 'not-run', notes: ['Test execution did not start because service readiness failed.'] },
+      blockingGaps: ['service-unavailable']
+    });
     exitRunner(EXIT_CODES.serviceUnavailable);
     return;
   }
@@ -599,7 +784,7 @@ async function executePlan(plan) {
   await runE2EPhase(plan);
 
   const result = finalizeRunReports(plan);
-  exitRunner(getRunnerExitCode(result.summary));
+  exitRunner(result.exitCode);
 }
 
 async function main() {
@@ -620,6 +805,18 @@ async function main() {
 if (require.main === module) {
   main().catch(err => {
     console.error('Automation runner failed:', err);
+    if (activeRunArtifacts && fs.existsSync(activeRunArtifacts.stagingDir)) {
+      try {
+        runArtifacts.writeInterruptedManifest(activeRunArtifacts, {
+          exitCode: EXIT_CODES.failed,
+          strictIntegration: isStrictIntegrationEnabled(),
+          cleanup: { status: 'not-run', notes: ['Runner terminated before normal finalization.'] },
+          blockingGaps: ['runner-interrupted']
+        });
+      } catch (manifestError) {
+        console.error('Failed to preserve interrupted-run manifest:', manifestError);
+      }
+    }
     exitRunner(EXIT_CODES.failed);
   });
 }
@@ -637,9 +834,12 @@ module.exports = {
   discoverE2EModules,
   buildExecutionPlan,
   selectModules,
+  prepareRunArtifacts,
   summarizePhaseResults,
   summarizeMochaResult,
   summarizePlaywrightResult,
+  finalizeCoverageProvenance,
+  executeModuleRun,
   recordModuleSummary,
   getRunnerExitCode,
   API_MODULES,

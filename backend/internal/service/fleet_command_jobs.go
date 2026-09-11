@@ -40,6 +40,8 @@ const (
 	commandJobStatusPartiallyFailed = "partially_failed"
 	commandJobStatusFailed          = "failed"
 	commandJobStatusCanceled        = "canceled"
+	// commandJobStatusPaused 批次暂停（P0.3）：暂停期间 worker 不再下发，恢复后继续。
+	commandJobStatusPaused = "paused"
 
 	commandJobDetailStatusBlocked     = "blocked"
 	commandJobDetailStatusReady       = "ready"
@@ -62,6 +64,10 @@ const (
 	commandJobEventCompleted          = "completed"
 	commandJobEventTimeout            = "timeout"
 	commandJobEventResumed            = "resumed"
+	// P0.3 批次暂停/恢复的用户语义事件。注意与 commandJobEventResumed 区分：
+	// 后者是 worker 故障恢复（recovery）语义，前者是用户主动暂停后的恢复，两者不可混用。
+	commandJobEventPaused   = "paused"
+	commandJobEventUnpaused = "unpaused"
 	commandJobEventWorkerFailed       = "worker_failed"
 	commandJobEventDeviceAckSuccess   = "device_ack_success"
 	commandJobEventDeviceAckFailed    = "device_ack_failed"

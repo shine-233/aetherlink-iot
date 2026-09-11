@@ -320,9 +320,11 @@ func (c *CommandData) publishCommand(plan *commandDispatchPlan, messageID, ident
 		TopicPrefix:    plan.topicPrefix,
 		MessageID:      messageID,
 	}
-	c.downlinkBus.PublishCommand(msg)
+	if err := c.downlinkBus.PublishCommand(msg); err != nil {
+		return fmt.Errorf("downlink command admission failed: %w", err)
+	}
 
-	logrus.Info("Command sent via downlink")
+	logrus.Info("Command admitted to downlink bus")
 	return nil
 }
 

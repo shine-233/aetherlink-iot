@@ -171,6 +171,9 @@ func ensureBoardReadAccess(ctx context.Context, boardID string, claims *utils.Us
 		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query board")
 	}
 	board, err := dal.BoardQuery{}.First(ctx, query.Board.ID.Eq(boardID))
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, errcode.NewWithMessage(errcode.CodeNotFound, "board not found")
+	}
 	if err != nil {
 		return nil, wrapBoardDBError(err)
 	}
@@ -412,6 +415,9 @@ func (*Board) DeleteBoard(id string, claims *utils.UserClaims) error {
 		return err
 	}
 	err = dal.DeleteBoard(id, board.TenantID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return errcode.NewWithMessage(errcode.CodeNotFound, "board not found")
+	}
 	if err != nil {
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),

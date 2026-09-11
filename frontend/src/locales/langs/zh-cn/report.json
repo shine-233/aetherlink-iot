@@ -1,0 +1,111 @@
+{
+  "page": {
+    "kicker": "报表投递控制",
+    "title": "定时报表",
+    "subtitle": "定义固定遥测窗口、投递 CSV 报表，并检查每次生成与邮件尝试。",
+    "cadenceLabel": "调度时区",
+    "cadenceValue": "每个计划使用 IANA 时区",
+    "search": "搜索报表计划",
+    "empty": "暂无报表计划"
+  },
+  "action": {
+    "create": "新建计划",
+    "createFirst": "创建第一个计划",
+    "search": "搜索",
+    "refresh": "刷新",
+    "runNow": "立即运行",
+    "history": "运行历史",
+    "details": "详情",
+    "retry": "重试报表",
+    "edit": "编辑",
+    "delete": "删除",
+    "cancel": "取消",
+    "save": "保存更改"
+  },
+  "table": {
+    "name": "计划",
+    "delivery": "投递范围",
+    "targetSummary": "{devices} 台设备 · {keys} 个测点",
+    "nextRun": "下次运行",
+    "lastRun": "上次运行",
+    "enabled": "状态",
+    "actions": "操作"
+  },
+  "form": {
+    "createTitle": "创建报表计划",
+    "editTitle": "编辑报表计划",
+    "name": "名称",
+    "cron": "Cron 表达式",
+    "timezone": "时区",
+    "lookback": "固定回溯窗口（小时）",
+    "recipients": "收件人",
+    "recipientsHint": "多个邮箱用逗号分隔",
+    "devices": "设备 ID",
+    "keys": "遥测键",
+    "linesHint": "每行一个值，或使用逗号分隔",
+    "enabled": "启用计划",
+    "required": "此项必填"
+  },
+  "history": {
+    "title": "运行历史",
+    "subtitle": "此计划的生成和 SMTP 证据。",
+    "empty": "此计划尚未运行",
+    "started": "开始时间",
+    "window": "固定数据窗口",
+    "overall": "总体",
+    "generation": "生成",
+    "delivery": "投递",
+    "risk": "重复风险"
+  },
+  "detail": {
+    "kicker": "所选运行",
+    "updated": "最后更新",
+    "smtpAccepted": "SMTP 服务器已接受",
+    "smtpAmbiguous": "SMTP 结果不明确",
+    "smtpAcceptanceCaveat": "已接受仅表示 SMTP 服务器接受了邮件，不代表邮件已送达收件人邮箱。",
+    "generationAttempts": "生成尝试次数",
+    "deliveryAttempts": "投递尝试次数",
+    "errors": "有限错误信息",
+    "noErrors": "暂无错误"
+  },
+  "risk": {
+    "duplicate": "可能",
+    "none": "无",
+    "warning": "上次 SMTP 结果不明确。重试可能导致该报表被重复投递。"
+  },
+  "common": { "enabled": "已启用", "disabled": "已停用", "yes": "是", "no": "否", "notAvailable": "—" },
+  "status": {
+    "never": "从未运行",
+    "unknown": "未知",
+    "queued": "已排队",
+    "running": "运行中",
+    "pending": "等待中",
+    "processing": "处理中",
+    "retrying": "重试中",
+    "succeeded": "成功",
+    "accepted": "SMTP 已接受",
+    "ambiguous": "结果不明确",
+    "failed": "失败"
+  },
+  "message": {
+    "loadFailed": "无法加载报表计划，请刷新重试。",
+    "targetsRequired": "请至少添加一个设备 ID 和遥测键。",
+    "created": "报表计划已创建。",
+    "updated": "报表计划已更新。",
+    "saveFailed": "无法保存报表计划。",
+    "staleRevision": "报表计划已在其他会话中更改。已刷新数据，请检查后重试。",
+    "deleted": "报表计划已删除。",
+    "deleteFailed": "无法删除报表计划。",
+    "deleteStaleRevision": "报表计划已在其他会话中更改，因此未删除。已刷新数据。",
+    "deleteConfirm": "删除此报表计划及其未来运行？",
+    "runStarted": "报表运行已启动。",
+    "runReplay": "此请求返回了已有报表运行。",
+    "runFailed": "无法启动报表运行。",
+    "historyFailed": "无法加载运行历史。",
+    "scheduleDisabled": "此计划已停用。请先启用，再运行或重试报表。",
+    "pollFailed": "连续刷新失败，已停止自动更新。请刷新运行历史后重试。",
+    "retryStarted": "报表重试已启动。",
+    "retryReplay": "此请求返回了已有重试。",
+    "retryFailed": "无法重试报表运行。"
+  }
+}

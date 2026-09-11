@@ -170,6 +170,16 @@ export const legacyThingsVisProvider: ThirdPartyVisualizationProvider = {
   id: LEGACY_THINGSVIS_PROVIDER_ID,
   kind: 'third-party',
   deploymentMode: 'optional-external',
+  capabilities: {
+    projects: { list: true, create: true, update: true, delete: true },
+    dashboards: {
+      thumbnail: true,
+      genericLayout: true,
+      dataSources: true,
+      variables: true,
+      publish: true
+    }
+  },
   listProjects: params => unwrap(getThingsVisProjects(params), mapRequired(value => mapPage(value, mapProject)), 'project list'),
   getProject: id => unwrap(getThingsVisProject(id), mapRequired(mapProject), 'project'),
   createProject: payload => unwrap(createThingsVisProject(payload), mapRequired(mapProject), 'project'),

@@ -2,9 +2,10 @@
  * 文件用途：模板市场（导出/导入/分类目录）API 自动化测试 [36_template_market]。
  * 核心逻辑：创建 run 唯一的工业模板源 → 分类目录过滤断言（正断言，无条件跳过）→
  *   导出可移植描述符（无 id/tenant 字段）→ 改名导入（created=true）→ 重复导入
- *   （幂等 created=false 同 id）→ 非法 kind 拒绝（100002，走 expectBusinessError）。
- * 关键注意事项：源模板与导入副本均用 run 唯一后缀命名，重复运行不积累同名脏数据；
- *   endpoint catalog 的 export/:id 与 import 两条路由由本文件提供运行期覆盖。
+ *   （幂等 created=false 同 id）→ 非法 kind 拒绝（100002，走 expectBusinessError）→
+ *   删除源模板和导入副本并精确回读 not-found 状态。
+ * 关键注意事项：源模板与导入副本均用 run 唯一后缀命名；显式 cleanup case 提供业务证据，
+ *   after hook 仅在前置 case 失败时兜底清理。export/:id 与 import 路由由本文件提供运行期覆盖。
  */
 
 const { expect } = require('chai');
@@ -31,6 +32,28 @@ describe('Template market API module [36_template_market]', function () {
   let sourceId = null;
   let exportedPayload = null;
   let importedTemplateId = null;
+
+  async function deleteTemplateIfPresent(id) {
+    if (!id) return;
+    const detailResp = await apiClient.get(
+      '/device/template/detail/' + id,
+      {},
+      'tenant_admin',
+    );
+    if (detailResp.code === 200) {
+      const deleteResp = await apiClient.delete(
+        '/device/template/' + id,
+        {},
+        'tenant_admin',
+      );
+      expectOk(deleteResp);
+    }
+  }
+
+  after(async function () {
+    await deleteTemplateIfPresent(importedTemplateId);
+    await deleteTemplateIfPresent(sourceId);
+  });
 
   it('creates an industrial source template and filters the directory by type_key', async function () {
     const createResp = await apiClient.post(
@@ -120,5 +143,46 @@ describe('Template market API module [36_template_market]', function () {
       expect(row.name).to.not.equal(sourceName);
       expect(row.name).to.not.equal(importedName);
     }
+  });
+
+  it('deletes both templates and returns exact not-found state afterwards', async function () {
+    expect(importedTemplateId).to.be.a('string').and.not.equal('');
+    expect(sourceId).to.be.a('string').and.not.equal('');
+
+    const ids = [importedTemplateId, sourceId];
+    const names = [importedName, sourceName];
+    for (const id of ids) {
+      const deleteResp = await apiClient.delete(
+        '/device/template/' + id,
+        {},
+        'tenant_admin',
+      );
+      expectOk(deleteResp);
+
+      const detailResp = await apiClient.get(
+        '/device/template/detail/' + id,
+        {},
+        'tenant_admin',
+      );
+      expectBusinessError(detailResp, 101001);
+      expect(detailResp.data).to.deep.equal({ sql_error: 'record not found' });
+    }
+
+    const listResp = await apiClient.get(
+      '/device/template',
+      { page: 1, page_size: 50, type_key: 'industrial' },
+      'tenant_admin',
+    );
+    expectOk(listResp);
+    const rows = (listResp.data && listResp.data.list) || [];
+    for (const id of ids) {
+      expect(rows.some(row => row.id === id)).to.equal(false);
+    }
+    for (const name of names) {
+      expect(rows.some(row => row.name === name)).to.equal(false);
+    }
+
+    importedTemplateId = null;
+    sourceId = null;
   });
 });

@@ -5,6 +5,7 @@
 package service
 
 import (
+	"strings"
 	"time"
 
 	dal "aetherlink-iot/backend/internal/dal"
@@ -18,6 +19,17 @@ import (
 )
 
 type NotificationGroup struct{}
+
+const directAppNotificationTypeMessage = "direct APP notification type is not supported; use MEMBER notification config with notificationType APP"
+
+func validateNotificationGroupType(rawTypes string) error {
+	for _, notifyType := range strings.Split(rawTypes, ",") {
+		if strings.EqualFold(strings.TrimSpace(notifyType), model.NoticeType_APP) {
+			return errcode.NewWithMessage(errcode.CodeParamError, directAppNotificationTypeMessage)
+		}
+	}
+	return nil
+}
 
 func ensureNotificationGroupReadAccess(id string, u *utils.UserClaims) (*model.NotificationGroup, error) {
 	notificationGroup, err := dal.GetNotificationGroupById(id)
@@ -47,6 +59,10 @@ func ensureNotificationGroupWriteAccess(id string, u *utils.UserClaims) (*model.
 }
 
 func (*NotificationGroup) CreateNotificationGroup(createNotificationgroupReq *model.CreateNotificationGroupReq, u *utils.UserClaims) (*model.NotificationGroup, error) {
+	if err := validateNotificationGroupType(createNotificationgroupReq.NotificationType); err != nil {
+		return nil, err
+	}
+
 	var notificationGroup model.NotificationGroup
 	notificationGroup.ID = uuid.New()
 	notificationGroup.Name = createNotificationgroupReq.Name
@@ -81,6 +97,12 @@ func (*NotificationGroup) GetNotificationGroupById(id string, u *utils.UserClaim
 func (*NotificationGroup) UpdateNotificationGroup(id string, updateNotificationgroupReq *model.UpdateNotificationGroupReq, u *utils.UserClaims) (*model.NotificationGroup, error) {
 	notificationGroup, err := ensureNotificationGroupWriteAccess(id, u)
 	if err != nil {
+		return nil, err
+	}
+	if updateNotificationgroupReq.NotificationType != nil {
+		notificationGroup.NotificationType = *updateNotificationgroupReq.NotificationType
+	}
+	if err := validateNotificationGroupType(notificationGroup.NotificationType); err != nil {
 		return nil, err
 	}
 	utils.SerializeData(updateNotificationgroupReq, notificationGroup)

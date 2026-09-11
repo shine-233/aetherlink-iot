@@ -514,16 +514,16 @@ const ALL_ENDPOINTS = [
   { method: 'GET',    path: '/api/v1/system/metrics/current',              module: 'monitor',   auth: true },
   { method: 'GET',    path: '/api/v1/system/metrics/history',              module: 'monitor',   auth: true },
 
-  // === 设备认证（device_auth.go） ===
-  { method: 'POST',   path: '/api/v1/device/auth',                         module: 'device',    auth: true },
-
   // === 定时报表（ROADMAP D3 report_schedule.go） ===
   { method: 'POST',   path: '/api/v1/report/schedules',                    module: 'report',    auth: true },
-  { method: 'PUT',    path: '/api/v1/report/schedules',                    module: 'report',    auth: true },
   { method: 'GET',    path: '/api/v1/report/schedules',                    module: 'report',    auth: true },
+  { method: 'PUT',    path: '/api/v1/report/schedules/:id',                module: 'report',    auth: true },
   { method: 'GET',    path: '/api/v1/report/schedules/:id',                module: 'report',    auth: true },
   { method: 'DELETE', path: '/api/v1/report/schedules/:id',                module: 'report',    auth: true },
   { method: 'POST',   path: '/api/v1/report/schedules/:id/run',            module: 'report',    auth: true },
+  { method: 'GET',    path: '/api/v1/report/schedules/:id/runs',           module: 'report',    auth: true },
+  { method: 'GET',    path: '/api/v1/report/schedules/:id/runs/:run_id',   module: 'report',    auth: true },
+  { method: 'POST',   path: '/api/v1/report/schedules/:id/runs/:run_id/retry', module: 'report', auth: true },
 
   // === 接入安全 X.509（ROADMAP D5 device_certificate.go） ===
   { method: 'POST',   path: '/api/v1/device-certificates/issue',           module: 'device',    auth: true },

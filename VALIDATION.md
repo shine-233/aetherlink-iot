@@ -1,6 +1,6 @@
 # 验证策略
 
-本文档说明公开发布所需的验证分层、命令顺序、证据要求与当前 pending 门禁。历史批次会话记录已归档至 `references/archive/validation-session-log-202608.md`，只作 historical，不构成当前发布证据；发布证据必须基于当前工作树重新生成并归档命令上下文、退出码和报告。
+本文档说明公开发布所需的验证分层、命令顺序、证据要求与当前 pending 门禁。历史批次会话记录已归档至 `references/archive/validation-session-log-202608.md`，只作 historical，不构成当前发布证据；发布证据必须基于当前源码 revision 重新生成并归档命令上下文、退出码和报告。当前基线为 `main@30fd899b3dde1920115abd7e44eb2565ae7c46b3` 且工作树 materially dirty；截至 2026-09-09 没有同 revision、hash-bound 的 canonical archive，因此发布就绪为 unknown。
 
 ## 分层验证
 
@@ -73,7 +73,7 @@ node run_tests.js --include-e2e --workers=1 --archive
 
 MQTT automation harness 默认端口已统一：`standard` profile 使用 `127.0.0.1:1883`，`localdev-status` 使用 `127.0.0.1:1885`，显式 `AUTOMATION_MQTT_PORT` 优先。
 
-API、E2E 和 synthetic-rdi 运行必须使用独立的 report/output 目录，并记录 effective backend、broker、database、evidence kind 和 cleanup 结果；不得把 focused、full 和 historical 报告手工拼接。建议拆四条 lane：普通 `simulation` telemetry、`generic-emulator` command、隔离 `synthetic-rdi` contract，以及条件满足后才执行的 `real-rdi`。外部常驻设备模拟器与规格自管模拟器不能同时在线（ACK 抢答冲突），需分 lane。
+API、E2E 和 synthetic-rdi 运行必须使用独立的 run-scoped report/output staging 目录，并记录 effective backend、broker、database、evidence kind、exact module/case outcomes 和 cleanup 结果；canonical archive 不得扫描共享 `automation_tests/reports/`，也不得把 focused、full、stale 和 historical 报告手工拼接。报告关闭后必须计算 SHA-256、校验 schema/path/hash/outcome/exit-code/redaction 一致性，并以同文件系统 atomic rename 发布；中断或无效 run 只能保留非 canonical staging。建议拆四条 lane：普通 `simulation` telemetry、`generic-emulator` command、隔离 `synthetic-rdi` contract，以及条件满足后才执行的 `real-rdi`。外部常驻设备模拟器与规格自管模拟器不能同时在线（ACK 抢答冲突），需分 lane。
 
 对于 preview/E2E 证据，preview 端口上的 `/api/v1/*` 必须真实代理到后端 API 并返回 JSON；仅启动前端 preview 不算有效证据。`npm run preflight:api-e2e` 是配置+有限连通性门禁（六账号列表、无 `CHANGE_ME_*` 残留、URL/端口一致性、代理开关），通过它不等于业务正确性证明，更不能标记 `real-rdi`。
 
@@ -82,7 +82,7 @@ API、E2E 和 synthetic-rdi 运行必须使用独立的 report/output 目录，�
 ## 外部合约变更
 
 兼容名称与三类外部合约（broker plugin 面 / ThingsVis embed-SSO / telemetry gRPC symbols）的变更规则以 `COMPATIBILITY.md` 为唯一权威；任何一侧变化按 breaking migration 处理并在同一轮重跑聚焦的 broker/frontend/backend/API/E2E 验证。
-- **compose lane 首轮全绿归档已存在**：`verification/automation-run-20260824-compose-first-green/archive-manifest.json`（PR #123 提交集，run 32692782323）；`continue-on-error` 已移除。后续合并需维持全绿或注明降级原因。
+- **compose lane 历史全绿归档存在**：`verification/automation-run-20260824-compose-first-green/archive-manifest.json` 仅证明对应旧提交集（run 32692782323），不得用于当前 revision aggregate；`continue-on-error` 已移除。
 - 真实环境门禁（目标服务器部署、HTTPS/TLS 终止、公网 MQTT、backup/restore、ThingsVis 外部集成、real-rdi）全部维持 pending/blocked，不允许 simulation 冒充。
 - 性能层：`performance/` 仅有结构化框架与目录占位，尚无实测 benchmark 数据。
 - 前端类型收敛：全局 `any` 长尾约 **1183 处**（排除测试；集中在 core/data-architecture 约 304 处）。视觉升级 Phase1 路由转场、断点令牌、.stagger 工具类、prefers-reduced-motion 守卫已落地（#125）；骨架屏替换 / ECharts 品牌 theme / motion-v 微交互尚未开始。

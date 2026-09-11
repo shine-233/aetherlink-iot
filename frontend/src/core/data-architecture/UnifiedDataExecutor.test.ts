@@ -100,6 +100,24 @@ describe('UnifiedDataExecutor local transforms', () => {
     expect(requestMock).toHaveBeenCalledOnce()
   })
 
+  it('returns a structured HTTP failure when the request adapter rejects', async () => {
+    requestMock.mockRejectedValue(new Error('gateway unavailable'))
+    const executor = new UnifiedDataExecutor()
+
+    await expect(
+      executor.execute({
+        id: 'http-failure',
+        type: 'http',
+        config: { url: '/api/failing' }
+      })
+    ).resolves.toMatchObject({
+      success: false,
+      error: 'gateway unavailable',
+      errorCode: 'HTTP_REQUEST_FAILED',
+      sourceId: 'http-failure'
+    })
+  })
+
   it('returns null when a transform path does not exist', async () => {
     const executor = new UnifiedDataExecutor()
 

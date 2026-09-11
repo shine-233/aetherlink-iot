@@ -1,98 +1,130 @@
-// 文件用途：定时报表（ROADMAP D3）HTTP 入口。
-// 边界说明：租户边界在 service 层处理；本层只做绑定、claims 提取与错误出口。
 package api
 
 import (
+	"net/http"
+	"strconv"
+	"strings"
+
+	"aetherlink-iot/backend/internal/middleware/response"
 	"aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/internal/service"
+	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/utils"
+
 	"github.com/gin-gonic/gin"
 )
 
 type ReportScheduleApi struct{}
 
-// Create 创建定时报表任务。
-// POST /api/v1/report/schedules
 func (*ReportScheduleApi) Create(c *gin.Context) {
-	var req model.CreateReportScheduleReq
+	var req model.CreateReportScheduleRequest
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.ReportSchedule.CreateReportSchedule(&req, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	result, err := service.GroupApp.ReportSchedule.CreateReportSchedule(c.Request.Context(), &req, reportClaims(c))
+	setReportResult(c, result, err)
 }
 
-// Update 更新定时报表任务。
-// PUT /api/v1/report/schedules
 func (*ReportScheduleApi) Update(c *gin.Context) {
-	var req model.UpdateReportScheduleReq
+	var req model.UpdateReportScheduleRequest
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.ReportSchedule.UpdateReportSchedule(&req, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	result, err := service.GroupApp.ReportSchedule.UpdateReportSchedule(c.Request.Context(), c.Param("id"), &req, reportClaims(c))
+	setReportResult(c, result, err)
 }
 
-// Delete 删除定时报表任务。
-// DELETE /api/v1/report/schedules/:id
 func (*ReportScheduleApi) Delete(c *gin.Context) {
-	var req struct {
-		ID string `json:"id" validate:"required"`
+	revision, err := strconv.ParseInt(c.Query("revision"), 10, 64)
+	if err != nil || revision < 1 {
+		c.Error(errcode.NewWithMessage(errcode.CodeParamError, "revision query parameter is required"))
+		return
 	}
+	if err := service.GroupApp.ReportSchedule.DeleteReportSchedule(c.Request.Context(), c.Param("id"), revision, reportClaims(c)); err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", gin.H{"id": c.Param("id")})
+}
+
+func (*ReportScheduleApi) List(c *gin.Context) {
+	var req model.ReportScheduleListRequest
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	if err := service.GroupApp.ReportSchedule.DeleteReportSchedule(req.ID, claims); err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", gin.H{"id": req.ID})
+	result, err := service.GroupApp.ReportSchedule.ListReportSchedules(c.Request.Context(), req, reportClaims(c))
+	setReportResult(c, result, err)
 }
 
-// List 列出本租户报表任务。
-// GET /api/v1/report/schedules
-func (*ReportScheduleApi) List(c *gin.Context) {
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.ReportSchedule.ListReportSchedules(claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
-}
-
-// Get 获取单条报表任务。
-// GET /api/v1/report/schedules/:id
 func (*ReportScheduleApi) Get(c *gin.Context) {
-	id := c.Param("id")
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.ReportSchedule.GetReportSchedule(id, claims)
+	result, err := service.GroupApp.ReportSchedule.GetReportSchedule(c.Request.Context(), c.Param("id"), reportClaims(c))
+	setReportResult(c, result, err)
+}
+
+func (*ReportScheduleApi) RunNow(c *gin.Context) {
+	key, ok := requireReportIdempotencyKey(c)
+	if !ok {
+		return
+	}
+	result, err := service.GroupApp.ReportSchedule.SubmitManualRun(c.Request.Context(), c.Param("id"), key, reportClaims(c))
+	setAcceptedReportResult(c, result, err)
+}
+
+func (*ReportScheduleApi) ListRuns(c *gin.Context) {
+	var req model.ReportRunListRequest
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	result, err := service.GroupApp.ReportSchedule.ListRuns(c.Request.Context(), c.Param("id"), req, reportClaims(c))
+	setReportResult(c, result, err)
+}
+
+func (*ReportScheduleApi) GetRun(c *gin.Context) {
+	result, err := service.GroupApp.ReportSchedule.GetRun(c.Request.Context(), c.Param("id"), c.Param("run_id"), reportClaims(c))
+	setReportResult(c, result, err)
+}
+
+func (*ReportScheduleApi) RetryRun(c *gin.Context) {
+	key, ok := requireReportIdempotencyKey(c)
+	if !ok {
+		return
+	}
+	result, err := service.GroupApp.ReportSchedule.SubmitRetry(c.Request.Context(), c.Param("id"), c.Param("run_id"), key, reportClaims(c))
+	setAcceptedReportResult(c, result, err)
+}
+
+func reportClaims(c *gin.Context) *utils.UserClaims {
+	value, exists := c.Get("claims")
+	if !exists {
+		return nil
+	}
+	claims, _ := value.(*utils.UserClaims)
+	return claims
+}
+
+func requireReportIdempotencyKey(c *gin.Context) (string, bool) {
+	key := c.GetHeader("Idempotency-Key")
+	if len(key) < 1 || len(key) > 128 || strings.TrimSpace(key) != key {
+		c.Error(errcode.NewWithMessage(errcode.CodeParamError, "Idempotency-Key must contain 1..128 bytes without surrounding whitespace"))
+		return "", false
+	}
+	return key, true
+}
+
+func setReportResult(c *gin.Context, result interface{}, err error) {
 	if err != nil {
 		c.Error(err)
 		return
 	}
-	c.Set("data", resp)
+	c.Set("data", result)
 }
 
-// RunNow 手动立即触发一次报表生成与投递（调试/验证用）。
-// POST /api/v1/report/schedules/:id/run
-func (*ReportScheduleApi) RunNow(c *gin.Context) {
-	id := c.Param("id")
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	if err := service.GroupApp.ReportSchedule.RunNow(id, claims); err != nil {
+func setAcceptedReportResult(c *gin.Context, result *model.ReportRunActionResponse, err error) {
+	if err != nil {
 		c.Error(err)
 		return
 	}
-	c.Set("data", gin.H{"id": id, "triggered": true})
+	c.Header("Location", result.StatusURL)
+	response.SetSuccessStatus(c, http.StatusAccepted)
+	c.Set("data", result)
 }

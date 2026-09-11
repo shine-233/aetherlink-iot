@@ -114,10 +114,26 @@ describe('Automation runner CLI policy contract', function() {
     expect(cliPolicy.isStrictIntegrationEnabled({})).to.equal(false);
   });
 
-  it('archives only explicit archive or full include-e2e runs', function() {
-    expect(cliPolicy.shouldArchiveReports({ archive: true, includeE2e: false, modules: ['device'] })).to.equal(true);
-    expect(cliPolicy.shouldArchiveReports({ archive: false, includeE2e: true, modules: [] })).to.equal(true);
-    expect(cliPolicy.shouldArchiveReports({ archive: false, includeE2e: true, modules: ['device'] })).to.equal(false);
-    expect(cliPolicy.shouldArchiveReports({ archive: false, includeE2e: false, modules: [] })).to.equal(false);
+  it('archives only requested full-scope runs', function() {
+    expect(cliPolicy.shouldArchiveReports(
+      { archive: true, includeE2e: false, modules: ['device'] },
+      'diagnostic'
+    )).to.equal(false);
+    expect(cliPolicy.shouldArchiveReports(
+      { archive: true, includeE2e: false, modules: [] },
+      'full'
+    )).to.equal(true);
+    expect(cliPolicy.shouldArchiveReports(
+      { archive: false, includeE2e: true, modules: [] },
+      'full'
+    )).to.equal(true);
+    expect(cliPolicy.shouldArchiveReports(
+      { archive: false, includeE2e: true, modules: ['device'] },
+      'diagnostic'
+    )).to.equal(false);
+    expect(cliPolicy.shouldArchiveReports(
+      { archive: false, includeE2e: false, modules: [] },
+      'diagnostic'
+    )).to.equal(false);
   });
 });

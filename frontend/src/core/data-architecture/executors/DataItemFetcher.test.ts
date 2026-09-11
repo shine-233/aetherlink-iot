@@ -88,13 +88,17 @@ describe('DataItemFetcher', () => {
     vi.useRealTimers()
   })
 
-  it('parses JSON data sources and reports malformed JSON before returning an empty object', async () => {
+  it('parses JSON data sources and returns a structured malformed-JSON failure', async () => {
     const fetcher = new DataItemFetcher()
 
     await expect(fetcher.fetchData({ type: 'json', config: { jsonString: '{"temperature":26}' } })).resolves.toEqual({
       temperature: 26
     })
-    await expect(fetcher.fetchData({ type: 'json', config: { jsonString: '{bad json' } })).resolves.toEqual({})
+    await expect(fetcher.fetchData({ type: 'json', config: { jsonString: '{bad json' } })).resolves.toMatchObject({
+      success: false,
+      error: expect.any(String),
+      errorCode: 'JSON_PARSE_FAILED'
+    })
     expect(loggerMock.error).toHaveBeenCalledWith(
       '[DataItemFetcher] JSON data source parse failed:',
       expect.objectContaining({
@@ -114,11 +118,9 @@ describe('DataItemFetcher', () => {
     ).resolves.toEqual({
       success: false,
       unsupported: true,
-      error: {
-        code: 'UNSUPPORTED_DATA_SOURCE',
-        message: 'WebSocket data sources are not supported by DataItemFetcher fetchData.',
-        type: 'websocket'
-      }
+      error: 'WebSocket data sources are not supported by DataItemFetcher fetchData.',
+      errorCode: 'UNSUPPORTED_DATA_SOURCE',
+      sourceType: 'websocket'
     })
 
     expect(loggerMock.error).toHaveBeenCalledWith(
@@ -128,6 +130,20 @@ describe('DataItemFetcher', () => {
         url: 'wss://example.test/telemetry'
       })
     )
+  })
+
+  it('returns a structured failure for unknown runtime data-source variants', async () => {
+    const fetcher = new DataItemFetcher()
+
+    await expect(
+      fetcher.fetchData({ type: 'future-source', config: {} } as unknown as DataItem)
+    ).resolves.toEqual({
+      success: false,
+      unsupported: true,
+      error: 'Unsupported data source: future-source',
+      errorCode: 'UNSUPPORTED_DATA_SOURCE',
+      sourceType: 'future-source'
+    })
   })
 
   it('builds GET requests with path parameters, query parameters, headers, and timeout', async () => {
@@ -514,6 +530,124 @@ describe('DataItemFetcher', () => {
     expect(requestMock.get).toHaveBeenCalledWith('/api/devices/dev-current', { timeout: 10000 })
   })
 
+  it('returns structured HTTP failures and never runs post-response scripts for failed requests', async () => {
+    requestMock.get.mockRejectedValue(new Error('network unavailable'))
+    scriptEngineMock.execute.mockResolvedValue({ success: true, data: { disguised: true } })
+    const fetcher = new DataItemFetcher()
+
+    await expect(
+      fetcher.fetchData(
+        httpItem({
+          url: '/api/failing',
+          postResponseScript: 'return { disguised: true }'
+        })
+      )
+    ).resolves.toEqual({
+      success: false,
+      error: 'network unavailable',
+      errorCode: 'HTTP_REQUEST_FAILED'
+    })
+    expect(scriptEngineMock.execute).not.toHaveBeenCalled()
+  })
+
+  it('rejects unsupported HTTP methods before invoking a request adapter', async () => {
+    const fetcher = new DataItemFetcher()
+
+    await expect(
+      fetcher.fetchData(
+        httpItem({
+          url: '/api/unsupported',
+          method: 'OPTIONS' as HttpDataItemConfig['method']
+        })
+      )
+    ).resolves.toEqual({
+      success: false,
+      error: 'Unsupported HTTP method: OPTIONS',
+      errorCode: 'UNSUPPORTED_HTTP_METHOD'
+    })
+    expect(requestMock.get).not.toHaveBeenCalled()
+    expect(requestMock.post).not.toHaveBeenCalled()
+    expect(requestMock.put).not.toHaveBeenCalled()
+    expect(requestMock.patch).not.toHaveBeenCalled()
+    expect(requestMock.delete).not.toHaveBeenCalled()
+  })
+
+  it('fails closed when pre-request scripts fail before dispatch', async () => {
+    scriptEngineMock.execute.mockResolvedValue({ success: false, error: 'pre hook rejected' })
+    const fetcher = new DataItemFetcher()
+
+    await expect(
+      fetcher.fetchData(
+        httpItem({
+          url: '/api/pre-hook-failure',
+          preRequestScript: 'throw new Error("blocked")'
+        })
+      )
+    ).resolves.toEqual({
+      success: false,
+      error: 'pre hook rejected',
+      errorCode: 'PRE_REQUEST_SCRIPT_FAILED'
+    })
+    expect(requestMock.get).not.toHaveBeenCalled()
+  })
+
+  it('fails closed when pre-request scripts throw before dispatch', async () => {
+    scriptEngineMock.execute.mockRejectedValue(new Error('pre hook crashed'))
+    const fetcher = new DataItemFetcher()
+
+    await expect(
+      fetcher.fetchData(
+        httpItem({
+          url: '/api/pre-hook-throw',
+          preRequestScript: 'throw new Error("crashed")'
+        })
+      )
+    ).resolves.toEqual({
+      success: false,
+      error: 'pre hook crashed',
+      errorCode: 'PRE_REQUEST_SCRIPT_FAILED'
+    })
+    expect(requestMock.get).not.toHaveBeenCalled()
+  })
+
+  it('reports unsuccessful post-response scripts instead of raw data', async () => {
+    requestMock.get.mockResolvedValue({ raw: true })
+    scriptEngineMock.execute.mockResolvedValue({ success: false, error: 'post hook rejected' })
+    const fetcher = new DataItemFetcher()
+
+    await expect(
+      fetcher.fetchData(
+        httpItem({
+          url: '/api/post-hook-rejection',
+          postResponseScript: 'return false'
+        })
+      )
+    ).resolves.toEqual({
+      success: false,
+      error: 'post hook rejected',
+      errorCode: 'POST_RESPONSE_SCRIPT_FAILED'
+    })
+  })
+
+  it('does not disguise failed post-response scripts as raw successful data', async () => {
+    requestMock.get.mockResolvedValue({ raw: true })
+    scriptEngineMock.execute.mockRejectedValue(new Error('post hook crashed'))
+    const fetcher = new DataItemFetcher()
+
+    await expect(
+      fetcher.fetchData(
+        httpItem({
+          url: '/api/post-hook-failure',
+          postResponseScript: 'throw new Error("crashed")'
+        })
+      )
+    ).resolves.toEqual({
+      success: false,
+      error: 'post hook crashed',
+      errorCode: 'POST_RESPONSE_SCRIPT_FAILED'
+    })
+  })
+
   it('applies pre-request and post-response scripts around HTTP requests', async () => {
     scriptEngineMock.execute
       .mockResolvedValueOnce({
@@ -562,13 +696,15 @@ describe('DataItemFetcher', () => {
     expect(requestMock.post).toHaveBeenNthCalledWith(2, '/api/scripted-cache', { tenant: 'b' }, { timeout: 10000 })
   })
 
-  it('preserves successful script data, including falsy values, and reports failures', async () => {
+  it('preserves successful script data, including falsy and legacy null values, and reports failures', async () => {
     scriptEngineMock.execute
       .mockResolvedValueOnce({ success: true, data: { computed: 42 } })
       .mockResolvedValueOnce({ success: true, data: 0 })
       .mockResolvedValueOnce({ success: true, data: false })
       .mockResolvedValueOnce({ success: true, data: '' })
+      .mockResolvedValueOnce({ success: true, data: null })
       .mockResolvedValueOnce({ success: false, error: 'blocked' })
+      .mockRejectedValueOnce(new Error('engine crashed'))
     const fetcher = new DataItemFetcher()
 
     await expect(fetcher.fetchData({ type: 'script', config: { script: 'return 42' } })).resolves.toEqual({
@@ -577,9 +713,22 @@ describe('DataItemFetcher', () => {
     await expect(fetcher.fetchData({ type: 'script', config: { script: 'return 0' } })).resolves.toBe(0)
     await expect(fetcher.fetchData({ type: 'script', config: { script: 'return false' } })).resolves.toBe(false)
     await expect(fetcher.fetchData({ type: 'script', config: { script: 'return ""' } })).resolves.toBe('')
-    await expect(fetcher.fetchData({ type: 'script', config: { script: 'while(true){}' } })).resolves.toEqual({})
+    await expect(fetcher.fetchData({ type: 'script', config: { script: 'return null' } })).resolves.toEqual({})
+    await expect(fetcher.fetchData({ type: 'script', config: { script: 'while(true){}' } })).resolves.toEqual({
+      success: false,
+      error: 'blocked',
+      errorCode: 'SCRIPT_EXECUTION_FAILED'
+    })
+    await expect(fetcher.fetchData({ type: 'script', config: { script: 'throw new Error()' } })).resolves.toEqual({
+      success: false,
+      error: 'engine crashed',
+      errorCode: 'SCRIPT_EXECUTION_FAILED'
+    })
     expect(loggerMock.error).toHaveBeenCalledWith('[DataItemFetcher] Script data source failed:', {
       error: 'blocked'
+    })
+    expect(loggerMock.error).toHaveBeenCalledWith('[DataItemFetcher] Script data source failed:', {
+      error: 'engine crashed'
     })
   })
 })

@@ -47,6 +47,7 @@ const expectedP0P1Routes = [
   '/visualization/native-board',
   '/visualization/native-board-editor',
   '/visualization/native-boards',
+  '/visualization/report',
   '/visualization/thingsvis',
   '/visualization/thingsvis-dashboards',
   '/visualization/thingsvis-editor',
@@ -105,11 +106,13 @@ describe('route coverage contract', () => {
     expect(paths).toEqual(expect.arrayContaining(expectedP0P1Routes));
   });
 
-  it('protects native board management routes while leaving the viewer shareable', () => {
+  it('protects report and native board management routes while leaving the viewer shareable', () => {
+    const reportRoute = routes.find(route => route.path === '/visualization/report');
     const listRoute = routes.find(route => route.path === '/visualization/native-boards');
     const editorRoute = routes.find(route => route.path === '/visualization/native-board-editor');
     const viewerRoute = routes.find(route => route.path === '/visualization/native-board');
 
+    expect(reportRoute?.meta?.roles).toEqual(['SYS_ADMIN', 'TENANT_ADMIN']);
     expect(listRoute?.meta?.roles).toEqual(['SYS_ADMIN', 'TENANT_ADMIN']);
     expect(editorRoute?.meta?.roles).toEqual(['SYS_ADMIN', 'TENANT_ADMIN']);
     expect(viewerRoute?.meta?.roles || []).toEqual([]);

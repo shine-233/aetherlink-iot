@@ -173,11 +173,17 @@ func (a *AttributeData) AttributePutMessage(ctx context.Context, operatorID stri
 
 	messageID := uuid.New()[:8]
 	if err := a.createAttributeLog(profile.device, messageID, putMessageReq.Value, operationType); err != nil {
-		logrus.WithError(err).Error("Failed to create attribute log")
-		// 不阻塞发送流程
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"operation": "create_attribute_set_log",
+			"error":     err.Error(),
+		})
 	}
 
-	return a.publishAttributeSet(profile.device, targetDevice, targetDeviceNumber, profile.deviceType, topicPrefix, messageID, jsonData)
+	if err := a.publishAttributeSet(profile.device, targetDevice, targetDeviceNumber, profile.deviceType, topicPrefix, messageID, jsonData); err != nil {
+		a.markAttributePublishFailed(profile.device.ID, messageID, err)
+		return err
+	}
+	return nil
 }
 
 // resolveDeviceInfo 处理多层网关，返回目标设备、目标设备编号和Topic前缀
@@ -233,6 +239,24 @@ func (a *AttributeData) createAttributeLog(device *model.Device, messageId, valu
 	return dal.CreateAttributeSetLog(log)
 }
 
+func (a *AttributeData) markAttributePublishFailed(deviceID, messageID string, publishErr error) {
+	if deviceID == "" || messageID == "" || publishErr == nil {
+		return
+	}
+	log, err := dal.GetAttributeSetLogByMessageID(messageID, deviceID)
+	if err != nil {
+		logrus.WithError(err).Warn("Failed to find attribute log after publish failure")
+		return
+	}
+	status := strconv.Itoa(constant.StatusFailed)
+	errorMessage := fmt.Sprintf("publish failed: %v", publishErr)
+	log.Status = &status
+	log.ErrorMessage = &errorMessage
+	if err := dal.UpdateAttributeSetLog(log); err != nil {
+		logrus.WithError(err).Warn("Failed to mark attribute log as publish failed")
+	}
+}
+
 // getDeviceConfigID 获取设备配置ID
 func (a *AttributeData) getDeviceConfigID(device *model.Device) string {
 	if device.DeviceConfigID == nil {
@@ -256,8 +280,9 @@ func (a *AttributeData) AttributeGetMessage(claims *utils.UserClaims, req *model
 	}
 
 	if device.DeviceNumber == "" {
-		// 没有设备编号，不支持获取属性
-		return nil
+		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"error": "device number is required for attribute get",
+		})
 	}
 
 	// 2. 获取设备类型和协议类型

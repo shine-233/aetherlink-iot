@@ -43,6 +43,7 @@
   "route.visualization-native-board": "Native dashboard viewer",
   "route.visualization-native-board-editor": "Native dashboard editor",
   "route.visualization-native-boards": "Native dashboards",
+  "route.visualization-report": "Scheduled reports",
   "route.automation_scene-manage": "Scene",
   "route.automation_rule-chain": "Rule Chains",
   "route.automation_rule-chain-edit": "Rule Chain Editor",

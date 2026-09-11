@@ -179,6 +179,7 @@ type MsgArrivedRequest struct {
 	// Message is the message that is going to be passed to topic match process.
 	// The caller can modify it.
 	Message *gmqtt.Message
+	handled bool
 	// IterationOptions provides the the ability to change the options of topic matching process.
 	// In most of cases, you don't need to modify it.
 	// The default value is:
@@ -196,6 +197,12 @@ type MsgArrivedRequest struct {
 // Drop drops the message, so the message will not be delivered to any clients.
 func (m *MsgArrivedRequest) Drop() {
 	m.Message = nil
+}
+
+// MarkHandled records that a hook completed the publish outside local subscription delivery.
+// MQTT v5 then returns Success rather than NotMatchingSubscribers.
+func (m *MsgArrivedRequest) MarkHandled() {
+	m.handled = true
 }
 
 type OnMsgArrivedWrapper func(OnMsgArrived) OnMsgArrived

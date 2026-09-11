@@ -1,6 +1,8 @@
 # AetherLink IoT 平台下一阶段路线图
 
-> 版本：2026-09-07
+> 版本：2026-09-10
+>
+> 当前证据基线：`main@30fd899b3dde1920115abd7e44eb2565ae7c46b3`，工作树 materially dirty；没有同 revision、hash-bound 的 canonical runtime archive，Phase 0 与发布就绪均为 unknown。
 >
 > 目标：以 ThingsBoard（CE/PE/Cloud/Edge/Gateway/生态产品）和 ThingsPanel（社区版及官网宣称的企业扩展）为参照，把 AetherLink 从“功能已合入”推进到“可部署、可运维、可扩展、可证明”。
 >
@@ -8,30 +10,32 @@
 
 ## 1. 状态口径
 
-### 1.1 已完成（有源码和测试/运行期证据）
+### 1.1 已实现的源码基线（不自动等同当前运行期完成）
 
 - 接入：MQTT/HTTP、Modbus、CoAP/LwM2M、SNMP、OPC UA；GMQTT Broker、ACL、持久会话和 uplink 管道。
 - 核心模型：设备、产品/模板、遥测、属性、命令、设备影子队列、资产树、租户父子层级、基础 Casbin RBAC。
 - 自动化：DAG 规则链、Vue Flow 编辑器、阈值/映射/Webhook/命令/告警节点；场景自动化已有基础能力。
 - 数据与运维：PostgreSQL/TimescaleDB 三态门控、遥测统计、告警、OTA 任务模型、Redis 限流、Casbin watcher、白标配置。
 - 产品切片：CSV 预注册 API、行业模板种子、模板导入/导出 MVP、边缘遥测转发/缓存/命令和模板下发、移动端 H5 MVP、AI 遥测查询和告警分析。
-- 质量：新库迁移 1..66 已验证；部分真实协议 E2E、双实例 watcher/限流、Timescale on/off/auto、OIDC/Keycloak 已验证。
+- 质量：当前迁移源码连续至 `82.sql` / `VERSION_NUMBER=82`；部分历史协议 E2E、双实例 watcher/限流、Timescale on/off/auto、OIDC/Keycloak 曾验证，但旧归档只作 historical，不能证明当前工作树。
 
 ### 1.2 部分完成（不得写成完整能力）
 
 - 3D：设备详情 GLB 预览、遥测驱动材质/旋转和 WebGL 降级；这不等于完整 SCADA。
 - 看板：基础 Native Board/ThingsVis 路径可用；native-board-provider.ts 中项目增删改和自定义 canvasConfig/nodes/dataSources/variables 仍返回 unsupported。
-- OTA：任务创建、下发、进度模型已有；进度消费、失败重试、暂停/恢复、回滚未闭环。
-- 影子：离线缓存和上线投递已实现；真实 broker ACK、超时/重试和 UI 全链路待验收。
-- 报表/分析：遥测统计和导出局部实现；尚无 Trendz 级分析工作台、定时报表和任务调度闭环。
+- OTA：进度消费、逐设备失败重试和取消已有；持久 rollout worker、强制灰度批次、暂停/恢复、旧 attempt 隔离、回滚和审计未闭环。
+- 影子：离线缓存和上线投递已实现；当前 broker publish 仍被记为 delivered，缺少设备 ACK identity、超时/退避、terminal failure 与 duplicate/late ACK 隔离。
+- CSV 预注册：API、service 和 UI 基础已实现；真实浏览器 file chooser、逐行可见错误、一次性凭证下载/重载、脱敏导出解析、跨租户拒绝和 cleanup 证据待补。
+- 规则链：基础 engine 与 trace/query 已有；节点 timeout/backoff、failure edge、DLQ、replay side-effect safety、draft/published version 和 rollback 未闭环。
+- 报表/分析：遥测统计、导出和进程内定时报表局部实现；当前扫描器没有跨副本 claim/lease/fencing，执行与 SMTP 投递没有不可变 run/outbox 记录，手动运行也没有可查询的异步结果，因此仍不构成持久任务调度闭环。Trendz 级分析工作台属于后续 P2，不与本轮 P0 报表可靠性混称。
 - 边缘：数据转发、断线缓存、RPC/实体下发已有；节点注册、健康、版本、冲突和远程运维不足。
 - 移动端：登录、设备列表、最新遥测和 H5 构建；命令、告警、影子、推送、正式 Android/iOS 发布未完成。
 - RBAC：路由登记和基础角色矩阵已激活；仍需按产品定义持续收紧并维护正/负向矩阵。
 
 ### 1.3 明确缺失
 
-- 通用 Entity Relations（设备/资产/客户/网关任意关系）。
-- 规则链节点级超时、重试、退避、死信、Trace、回放、版本发布。
+- 通用 Entity Relations（设备/资产/客户/网关任意关系）；当前只有 roadmap 设计 scaffold，没有 numbered migration、DAL/service/API/Casbin/UI 生产链路。
+- 规则链可靠性剩余项：节点级超时、退避、失败分支、死信、回放安全和版本发布；基础 Trace 已有，不能再列为完全缺失。
 - 可扩展 Widget/SCADA 工业画布、变量和联动体系。
 - OTA 完整状态机和回滚；模板市场升级/回滚/签名/依赖。
 - 边缘节点生命周期和云边配置同步冲突解决。
@@ -47,6 +51,17 @@ ThingsPanel 社区仓库可见 MQTT/HTTP/Modbus、物模型、看板、规则、
 产品决策：优先补可靠性闭环、实体关系、SCADA/Widget 扩展、规则链运维、边缘运维和移动控制；不在近期复制完整 TBMQ、Trendz、600+ Widget 或多地域 SaaS 计费体系。
 
 ## 3. 阶段路线
+
+### 3.0 当前优先门禁：可信证据生产
+
+在 P0.1 之前先完成两项测量系统修复：
+
+1. runner 从启动时创建唯一 run-scoped staging 目录，所有 Mocha/Playwright/endpoint/page/provenance/summary 直接写入该目录；禁止扫描共享 `automation_tests/reports/` 拼装 canonical archive。
+2. 报告关闭后生成 `aetherlink.automation.archive.v1`，绑定 command、interval、exit code、strict mode、evidence kind、Git revision/dirty diff、cleanup/redaction、exact module/case outcomes 和 SHA-256；staging 校验成功后用同文件系统 atomic rename 发布。
+3. backend/GMQTT capability mapping 必须使用 repository-relative file + exact Go test function + stable evidence ID + semantic anchor；同文件存在任意 `func Test` 不再算 traceability。
+4. canonical producer、inspector negative controls 和 exact identity 门禁通过前，不运行或引用新 full API/E2E 结果来提升 readiness。
+
+当前状态：canonical producer 已完成 run-scoped staging、partial diagnostic、report hash、cleanup truth、manifest redaction、inspector-backed validation、manifest-last 和 same-filesystem atomic rename；2026-09-10 的 producer/policy/inspector focused contracts 为 61 passing，但这只是静态 harness 证据。exact backend/GMQTT identity 与 production-reachable placeholder/no-op gate 尚未完成，因此阶段 3.0 仍为 `partial`，不得提升 Phase 0 或发布就绪。
 
 ## P0：证据与生产闭环（发布前置）
 
@@ -81,6 +96,33 @@ ThingsPanel 社区仓库可见 MQTT/HTTP/Modbus、物模型、看板、规则、
 
 门禁：离线下发返回 202/pending；上线后仅投递一次；设备 ACK 后为 delivered；无 ACK 按退避重试并最终 expired/failed；跨租户访问 404/403；浏览器队列状态与 API 一致。
 
+实现状态（2026-09-11，源码层完成；运行时证据待统一验证）：
+
+- 修正了一个虚假成功：**旧实现 dispatch 成功即写 `delivered`，把"已下发"当成"设备已确认"**。
+  现引入 `sent`（已下发待 ACK），只有设备 ACK 才转 `delivered` 并写 `ack_at`。
+- 迁移 `84.sql`：新增 `attempts` / `sent_at` / `ack_at` / `next_attempt_at` / `last_error`，
+  状态词表扩展为 `pending|sent|delivered|failed|expired|canceled`（带 CHECK 约束），
+  并回填历史 `delivered` 行的 `ack_at`，不谎称这些行曾等待过 ACK。
+- 退避重试：未 ACK 时按 30s→60s→120s（上限 10min）指数退避，超过 `ShadowMaxAttempts=3` 转 `failed`；
+  TTL 是硬终止，不因重试而延长，到期转 `expired`。
+- 新增端点 `POST /api/v1/device/shadow/:deviceId/:msgId/ack`（只有 pending/sent 可确认，终态行拒绝）。
+- cron 与上线钩子都会先跑 `ExpireAndRetryShadowMessages()` 再做投递，避免重复投递。
+- 未改 `device_shadow.gen.go`（生成产物，策略上保留不手改）；`attempts` 由 DAL 事务内读-改-写。
+- 定向证据：`backend/internal/model/device_shadow_test.go`（5 例，状态词表/终态/退避上限/时间点单调性）全部通过。
+- MQTT 侧 ACK 上报入口：新增消息类型 `shadow_ack`（`uplink/bus.go`），路由到响应链路；
+  `ResponseUplink.processShadowAck` 解析 `{"shadow_id":"<id>","result":0}`。
+  **`result` 非 0 表示设备收到但处理失败——不确认送达，保留 sent 等退避重试**，
+  绝不把"设备明确报错"写成 delivered。注意必须在 message_id 校验之前处理，
+  否则影子 ACK 会因缺少命令 message_id 被直接丢弃。
+- UI 队列状态展示：`device-shadow.vue` 新增 sent/failed 状态与 `attempts`、`ack_at` 两列；
+  sent 用中性色以区别 delivered 的绿色；`ack_at` 为空即表示尚未确认，
+  不用 `delivered_at` 顶替（前者是确认时间，后者是送达时间）。四语 locale 已同步。
+- API 层 E2E 定义：`automation_tests/tests/27_shadow_messages.test.js` 已改为
+  **上线后先断言 sent，再显式 ACK 才断言 delivered + ack_at**；
+  并新增"终态行不可被确认"的负向用例（原测试把旧的 delivered 假成功写死了，已修正）。
+- 仍未执行：上述 API 用例需真实后端 + broker 才能跑，尚未运行；
+  UI 的真实浏览器证据与 MQTT 端到端联调同样待统一验证阶段执行。
+
 ### P0.3 OTA 状态机
 
 交付物：进度消费、批次暂停/恢复/取消、失败重试、灰度、回滚和报告。
@@ -94,6 +136,23 @@ ThingsPanel 社区仓库可见 MQTT/HTTP/Modbus、物模型、看板、规则、
     func (s *OTAService) RetryFailed(ctx context.Context, jobID string, limit int) error
 
 门禁：状态转移非法即拒绝；同一事件幂等；失败设备可筛选重试；回滚产生新审计事件；至少一条真实设备/broker 或协议 stub E2E。
+
+实现状态（2026-09-11，部分完成——仅状态机与暂停/恢复）：
+
+- 查清了一个易混淆点：既有的 `commandJobEventResumed` 是 **worker 故障恢复（recovery）语义**，
+  不是用户暂停后的恢复。P0.3 要求的"批次暂停/恢复"此前**完全没有实现**（全库无 `paused`）。
+  新增用户语义事件 `paused` / `unpaused`，与 recovery 的 `resumed` 明确区分，
+  避免把"故障自愈"粉饰成"人工恢复"。
+- 新增 `backend/internal/service/fleet_command_job_state_machine.go`：
+  集中声明合法状态转移表（`scheduled/running/paused` 及终态），
+  **非法转移一律返回 CodeOpDenied 并带上双向状态，绝不静默成功**；终态不可"复活"。
+- 新增 `PauseFleetCommandJob` / `ResumeFleetCommandJob`：
+  暂停清 `next_dispatch_at` 使 worker 停止领取（派发只取 running/scheduled，故暂停真正生效）；
+  恢复置 `next_dispatch_at=now` 并立即触发一次派发。暂停态重复调用幂等，不产生第二次事件。
+- 定向证据：`fleet_command_job_state_machine_test.go` 5 例通过（合法转移、终态不可复活、
+  非法转移被拒、暂停态不可派发、错误不静默）。
+- 仍未完成：进度消费（`Percent` 进度事件与幂等）、回滚（新审计事件）、灰度/金丝雀、
+  报告导出，以及真实设备/broker 或协议 stub 的 E2E。这些未做，本项**不算完成**。
 
 ### P0.4 场景与 Flow 语义
 
@@ -112,6 +171,35 @@ ThingsPanel 社区仓库可见 MQTT/HTTP/Modbus、物模型、看板、规则、
 交付物：上传、校验错误展示、批量建档、一次性凭证下载、脱敏导出和清理。
 
 门禁：真实浏览器选择文件；坏行逐行反馈；下载文件可解析；凭证只出现一次；跨租户产品不可选。
+
+### P0.6 持久化报表执行与 SMTP 事实语义
+
+交付物：`83.sql`、显式 IANA 时区与 `next_run_at`、乐观 revision、不可变 `report_schedule_runs`、一对一 `report_schedule_deliveries` outbox、数据库时间驱动的 slot materialization、`SKIP LOCKED` claim、UUID fencing token、lease 续租/恢复/最终尝试收口、手动与子重试幂等、固定报表窗口、租户级 run history/detail、精确 HTTP 202/Location，以及管理员报表工作台。
+
+事实边界：SMTP 仅提供 at-least-once 尝试。`accepted` 只表示 SMTP 服务器接受消息，不表示收件人最终送达；可能已接受但客户端未收到确定响应的结果必须终止为 `ambiguous`，只能由管理员显式创建带重复投递风险提示的不可变子 run，禁止静默自动重发。调度停机期间只合并为一个有用 occurrence，并记录 bounded misfire evidence，不生成无界补跑积压。
+
+门禁：同一 scheduled slot 在并发副本中至多落一个 run；过期/错误 token 不能续租或结算；生成失败不得创建“成功”报表，任一遥测查询失败或行/字节上限都使生成失败；generation success 与 delivery outbox 插入同一 fenced transaction；过期 delivery lease 进入 `ambiguous`；手动运行不改变 recurring cadence；重复 Idempotency-Key 同形状重放原结果、异形状冲突；跨租户 ID 表现为 not found；软删除保留历史且存在 active work 时拒绝；前端独立呈现 generation/delivery 状态和 SMTP 风险。
+
+部署约束：这是版本 82→83 的协调切换。先停止并 drain 全部 v82 backend，再应用迁移 83 并启动 v83 lifecycle worker；禁止 v82 cron scanner 与 v83 durable worker 重叠，失败时只允许 roll-forward。
+
+### P0.7 AI 凭证静态加密
+
+交付物：AI provider API key 的 envelope encryption、密钥版本、轮换与不可逆 API 掩码；现有公共 HTTPS safe-egress、DNS 重验、IP pinning、禁代理/禁重定向、origin-bound Authorization 和请求/响应上限保持不变。
+
+门禁：数据库与日志不出现明文密钥；缺失/错误主密钥 fail closed；旧密文可在轮换窗口读取并可重加密；创建/更新/读取/调用、跨租户拒绝和网络错误脱敏都有定向证据。
+
+实现状态（2026-09-11，源码层完成；运行时证据待统一验证）：
+
+- 新增 `backend/pkg/secrets`：AES-256-GCM 信封加密，密文格式 `aenv1.<keyID>.<base64(nonce||ciphertext)>`。
+  主密钥取自 `secrets.master_keys.<keyID>`（base64 的 32 字节），当前版本由 `secrets.active_key_id` 指定。
+- AAD 绑定租户：把 A 租户的密文行搬到 B 租户必然认证失败，无法冒充可用凭证。
+- 写入路径（创建/更新）先封装再落库；主密钥缺失、非法或长度错误一律 fail closed，绝不降级为明文。
+- 读取路径（详情/列表/调用）解密；遗留明文行在迁移窗口内仍可读，调用时自动重写到当前主密钥（自愈式轮换）。
+- 出参只出不可逆掩码（前 4 位 + `****`，不足 4 位全掩码）；解密失败时直接全掩码，不回显密文。
+- 定向证据：`backend/pkg/secrets/envelope_test.go`（8 例）与 `backend/internal/service/ai_model_secret_test.go`（5 例）全部通过。
+- 配置文件 `conf.yml` / `conf-dev.yml` / `conf.example.yml` 只写入占位符，默认未配置即 fail closed；
+  生产部署须通过环境变量注入主密钥，配置文件中不得出现真实密钥。
+- 未含：全局 `ai.llm.api_key`（yaml 配置）仍为明文，属配置级密钥管理，不在本项“静态加密（落库）”范围内。
 
 ## P1：平台核心竞争力
 
@@ -210,7 +298,7 @@ ThingsPanel 社区仓库可见 MQTT/HTTP/Modbus、物模型、看板、规则、
     func (s *AnalyticsService) Query(ctx context.Context, q AnalysisQuery) (AnalysisResult, error)
     func (s *AnalyticsService) Export(ctx context.Context, q AnalysisQuery, format string) (io.ReadCloser, error)
 
-交付物：多设备对比、聚合/同比环比、基础异常、CSV/Excel、定时报表和权限/分享。报表后端当前仅部分实现，完成前不得标记为完整。
+交付物：多设备对比、聚合/同比环比、基础异常、CSV/Excel、权限和分享。P0.6 先提供可靠的定时报表执行、历史与 SMTP 事实语义；本阶段在该 durable execution contract 上扩展分析查询和展示，不再创建第二套调度系统。
 
 ### P2.3 数据保留与性能
 
@@ -248,7 +336,7 @@ ThingsPanel 社区仓库可见 MQTT/HTTP/Modbus、物模型、看板、规则、
 
 ## 6. 当前执行顺序
 
-立即执行：P0.1 → P0.2 → P0.3 → P0.4 → P0.5。P0 未通过前，不宣称生产发布就绪。
+立即执行：canonical archive producer → exact backend/GMQTT identity 与 placeholder gate → DataItemFetcher failure algebra 收口 → P0.6 持久化报表执行 → P0.7 AI 凭证静态加密 → P0.1 → P0.2 → P0.3 → P0.4 → P0.5。当前 durable report P0 已进入实现批次；P0 未通过前，不宣称生产发布就绪。
 
 随后执行：P1.1 → P1.2 → P1.3 → P1.4 → P1.5 → P1.6，按客户最先需要的设备关系、规则可靠性和可视化控制能力排序。
 

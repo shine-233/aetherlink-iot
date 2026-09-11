@@ -4,9 +4,6 @@
  * Keep this module data-only so the coverage contract facade can reuse the
  * exact same inventory without duplicating object or list identities.
  */
-const GMQTT_AETHERLINK_PLUGIN_RELATIVE_ROOT = 'plugin/aetherlink';
-const GMQTT_AETHERLINK_PLUGIN_TEST = fileName => `${GMQTT_AETHERLINK_PLUGIN_RELATIVE_ROOT}/${fileName}`;
-
 const PARENT_ROUTES = new Set([
   '/alarm',
   '/apply',
@@ -345,6 +342,86 @@ const PERMISSION_TENANCY_ENDPOINTS = [
   'GET /api/v1/sso/:id/callback'
 ];
 
+const SHARED_GO_EVIDENCE = Object.freeze({
+  mqttPublishTopic: ['go-v1-backend-mqtt-publish-topic', 'backend/mqtt/publish/publish_test.go', 'aetherlink-iot/backend/mqtt/publish', 'TestPublishTopicMatchesOTADownlinkConvention', 'mqtt.pipeline-publishes-canonical-downlink-topic', 'contract', ['device-telemetry', 'mqtt-broker-pipeline']],
+  mqttDeviceTopics: ['go-v1-backend-mqtt-device-topics', 'backend/internal/adapter/mqttadapter/topics_test.go', 'aetherlink-iot/backend/internal/adapter/mqttadapter', 'TestBuildDeviceDownlinkTopics', 'mqtt.pipeline-builds-device-downlink-topics', 'contract', ['device-telemetry', 'mqtt-broker-pipeline']],
+  apiControllerRegistry: ['go-v1-backend-api-controller-registry', 'backend/internal/api/api_router_contract_test.go', 'aetherlink-iot/backend/internal/api', 'TestAPIRouterContractKeepsP0P1ControllerFields', 'api.router-keeps-p0-p1-controller-registry', 'source-structure', ['automation-scene', 'visualization']],
+  prometheusHookBoundary: ['go-v1-gmqtt-prometheus-hook-boundary', 'mqtt-broker/plugin/prometheus/hooks_test.go', 'github.com/DrmagicE/gmqtt/plugin/prometheus', 'TestPrometheusHookWrapperDoesNotInstallBrokerHooks', 'gmqtt.prometheus-preserves-broker-hook-boundary', 'contract', ['mqtt-broker-pipeline', 'system-deployment']]
+});
+
+const GO_EVIDENCE = Object.freeze({
+  deviceTelemetry: [
+    ['go-v1-backend-device-active-missing-number', 'backend/internal/api/device_api_test.go', 'aetherlink-iot/backend/internal/api', 'TestDeviceActiveHandlerRejectsMissingDeviceNumber', 'device.activation.rejects-missing-device-number', 'boundary'],
+    ['go-v1-backend-telemetry-auth-matrix', 'backend/internal/api/telemetry_api_test.go', 'aetherlink-iot/backend/internal/api', 'TestValidateAuthMatrix', 'telemetry.websocket.validates-auth-matrix', 'boundary'],
+    SHARED_GO_EVIDENCE.mqttPublishTopic,
+    SHARED_GO_EVIDENCE.mqttDeviceTopics,
+    ['go-v1-backend-direct-method-timeout', 'backend/internal/service/command_direct_method_test.go', 'aetherlink-iot/backend/internal/service', 'TestWaitForDirectMethodResultTimesOutWithTracking', 'command.direct-method-times-out-with-tracking', 'business'],
+    ['go-v1-backend-shadow-pending-lifecycle', 'backend/internal/dal/device_shadow_test.go', 'aetherlink-iot/backend/internal/dal', 'TestShadowPendingLifecycle', 'shadow.pending-lifecycle-persists-state', 'business'],
+    ['go-v1-backend-shadow-cancel-device-scope', 'backend/internal/dal/device_shadow_test.go', 'aetherlink-iot/backend/internal/dal', 'TestShadowCancelAndStaleCleanup', 'shadow.cancel-rejects-cross-device-message-identity', 'boundary'],
+    ['go-v1-backend-shadow-rejects-unsupported-type', 'backend/internal/service/device_shadow_dispatch_test.go', 'aetherlink-iot/backend/internal/service', 'TestDispatchShadowMessageRejectsUnsupportedType', 'shadow.dispatch-rejects-unsupported-message-type', 'boundary'],
+    ['go-v1-backend-ai-requires-llm', 'backend/internal/service/ai_telemetry_query_test.go', 'aetherlink-iot/backend/internal/service', 'TestQueryTelemetryRequiresConfiguredLLM', 'ai.telemetry-query-requires-configured-provider', 'boundary'],
+    ['go-v1-gmqtt-topicmap-normalizes-device', 'mqtt-broker/plugin/aetherlink/topicmap_matcher_test.go', 'github.com/DrmagicE/gmqtt/plugin/aetherlink', 'TestTopicMapMatcherExtractsNormalizedDownlinkDeviceNumbers', 'mqtt.topic-map-normalizes-downlink-device', 'contract'],
+    ['go-v1-gmqtt-rejects-inactive-device', 'mqtt-broker/plugin/aetherlink/hooks_test.go', 'github.com/DrmagicE/gmqtt/plugin/aetherlink', 'TestEnsureMQTTDeviceActiveRejectsUnboundOrDisabledDevices', 'mqtt.auth-rejects-unbound-or-disabled-device', 'business']
+  ],
+  commandJobs: [
+    ['go-v1-backend-command-job-identify', 'backend/internal/service/fleet_command_job_results_test.go', 'aetherlink-iot/backend/internal/service', 'TestCommandJobResultPreservesIdentifyForDetailAndSummaryResponses', 'command-job.results-preserve-device-identity', 'business'],
+    ['go-v1-backend-command-job-max-attempts', 'backend/internal/service/fleet_command_job_worker_test.go', 'aetherlink-iot/backend/internal/service', 'TestFleetCommandJobDetailFailureStopsAfterMaxAttempts', 'command-job.worker-stops-after-max-attempts', 'business']
+  ],
+  rdi: [
+    ['go-v1-backend-rdi-command-missing-id', 'backend/internal/api/rdi_api_test.go', 'aetherlink-iot/backend/internal/api', 'TestRDISendCommandHandlerRejectsMissingIdentifier', 'rdi.command-rejects-missing-identifier', 'boundary'],
+    ['go-v1-backend-rdi-config-validation', 'backend/internal/service/rdi_test.go', 'aetherlink-iot/backend/internal/service', 'TestValidateRDIConfig', 'rdi.config-validates-business-contract', 'business'],
+    ['go-v1-gmqtt-rdi-topicmap-subscription', 'mqtt-broker/plugin/aetherlink/topicmap_service_test.go', 'github.com/DrmagicE/gmqtt/plugin/aetherlink', 'TestTopicMapServiceAllowsDownSubscribeOnlyForConfiguredSourceTopic', 'rdi.topic-map-requires-configured-source', 'business']
+  ],
+  alarmNotification: [
+    ['go-v1-backend-alarm-auth-boundary', 'backend/internal/api/alarm_api_test.go', 'aetherlink-iot/backend/internal/api', 'TestAlarmProtectedHandlerRejectsMissingAuthentication', 'alarm.protected-handler-rejects-missing-auth', 'boundary']
+  ],
+  permissionTenancy: [
+    ['go-v1-backend-system-public-responses', 'backend/internal/api/system_api_test.go', 'aetherlink-iot/backend/internal/api', 'TestSystemPublicHandlersReturnUnifiedHTTPResponses', 'system.public-handlers-use-unified-responses', 'contract'],
+    ['go-v1-backend-router-device-put', 'backend/router/router_contract_test.go', 'aetherlink-iot/backend/router', 'TestRouterContractKeepsDevicePutRoutes', 'router.device-put-routes-remain-registered', 'source-structure']
+  ],
+  automationScene: [SHARED_GO_EVIDENCE.apiControllerRegistry],
+  visualization: [SHARED_GO_EVIDENCE.apiControllerRegistry],
+  otaScriptOpenapiService: [
+    ['go-v1-backend-ota-range-parser', 'backend/internal/api/api_router_contract_test.go', 'aetherlink-iot/backend/internal/api', 'TestOTAParseByteRangeKeepsSupportedAndRejectedForms', 'ota.download-range-accepts-and-rejects-canonical-forms', 'contract'],
+    ['go-v1-backend-http-signed-error', 'backend/third_party/others/http_client/request_method_test.go', 'aetherlink-iot/backend/third_party/others/http_client', 'TestSignedRequestIncludesSignatureAndRejectsHTTPErrorStatus', 'http.signed-request-rejects-error-status', 'business']
+  ],
+  mqttBrokerPipeline: [
+    SHARED_GO_EVIDENCE.mqttPublishTopic,
+    ['go-v1-backend-simulation-json', 'backend/mqtt/simulation_publish/simulation_publish_test.go', 'aetherlink-iot/backend/mqtt/simulation_publish', 'TestSimulationPayloadPreservesBusinessJSONBody', 'mqtt.simulation-preserves-business-json', 'business'],
+    SHARED_GO_EVIDENCE.mqttDeviceTopics,
+    ['go-v1-backend-mqtt-trusted-source', 'backend/internal/adapter/mqttadapter/adapter_parsing_test.go', 'aetherlink-iot/backend/internal/adapter/mqttadapter', 'TestMQTTUplinkSourceIDUsesTrustedOriginAndProtocolMessageIdentity', 'mqtt.uplink-uses-trusted-source-identity', 'business'],
+    ['go-v1-gmqtt-start-listeners', 'mqtt-broker/cmd/gmqttd/command/start_test.go', 'github.com/DrmagicE/gmqtt/cmd/gmqttd/command', 'TestGetListenersBuildsWebsocketServerWithoutOpeningTCPPort', 'gmqtt.start-builds-websocket-listener-without-binding', 'contract'],
+    ['go-v1-gmqtt-hooks-register', 'mqtt-broker/plugin/aetherlink/hooks_test.go', 'github.com/DrmagicE/gmqtt/plugin/aetherlink', 'TestAetherLinkHookWrapperRegistersAuthSubscribePublishAndLifecycleHooks', 'gmqtt.plugin-registers-production-hooks', 'source-structure'],
+    ['go-v1-gmqtt-send-rejects-uninitialized', 'mqtt-broker/plugin/aetherlink/mqtt_test.go', 'github.com/DrmagicE/gmqtt/plugin/aetherlink', 'TestMqttClientRejectsUninitializedAndClosedClient', 'gmqtt.internal-publish-rejects-uninitialized-client', 'boundary'],
+    SHARED_GO_EVIDENCE.prometheusHookBoundary
+  ],
+  systemDeployment: [
+    ['go-v1-backend-system-deployment-surface', 'backend/internal/api/system_api_test.go', 'aetherlink-iot/backend/internal/api', 'TestSystemAndServiceSourceStructureContractDeclaresDeploymentReadinessSurfaces', 'deployment.api-declares-readiness-surfaces', 'source-structure'],
+    ['go-v1-backend-router-root-surfaces', 'backend/router/router_contract_test.go', 'aetherlink-iot/backend/router', 'TestRouterContractKeepsRootPublicAndMiddlewareSurfaces', 'deployment.router-keeps-public-and-middleware-surfaces', 'source-structure'],
+    SHARED_GO_EVIDENCE.prometheusHookBoundary
+  ]
+});
+
+function goEvidence(entries) {
+  return entries.map(([
+    evidenceId,
+    repositoryFile,
+    packageName,
+    testFunction,
+    semanticAnchor,
+    evidenceRole,
+    capabilityIds = []
+  ]) => ({
+    evidenceId,
+    repositoryFile,
+    package: packageName,
+    testFunction,
+    semanticAnchor,
+    evidenceRole,
+    capabilityIds
+  }));
+}
+
 const BUSINESS_CAPABILITIES = [
   {
     id: 'device-telemetry',
@@ -364,7 +441,8 @@ const BUSINESS_CAPABILITIES = [
       'tests/18_seeded_device_data.test.js',
       'tests/22_mqtt_device_pipeline.test.js',
       'tests/27_shadow_messages.test.js',
-      { file: 'tests/28_calculated_fields.test.js', evidenceKind: 'boundary' }
+      { file: 'tests/28_calculated_fields.test.js', evidenceKind: 'boundary' },
+      'tests/36_template_market.test.js'
     ],
     e2eTests: [
       'e2e/02_device.spec.js',
@@ -374,19 +452,7 @@ const BUSINESS_CAPABILITIES = [
       'e2e/14_route_coverage_closure.spec.js',
       'e2e/19_device_details_app.spec.js'
     ],
-    backendTests: [
-      'internal/api/device_api_test.go',
-      'internal/api/telemetry_api_test.go',
-      'mqtt/publish/publish_test.go',
-      'internal/adapter/mqttadapter/topics_test.go',
-      'internal/service/command_direct_method_test.go',
-      'internal/dal/device_shadow_test.go',
-      'internal/service/ai_telemetry_query_test.go'
-    ],
-    gmqttTests: [
-      GMQTT_AETHERLINK_PLUGIN_TEST('topicmap_matcher_test.go'),
-      GMQTT_AETHERLINK_PLUGIN_TEST('hooks_test.go')
-    ]
+    goEvidence: goEvidence(GO_EVIDENCE.deviceTelemetry)
   },
   {
     id: 'command-jobs',
@@ -396,11 +462,7 @@ const BUSINESS_CAPABILITIES = [
     endpoints: COMMAND_JOBS_ENDPOINTS,
     automationTests: [{ file: 'tests/25_seeded_command_jobs.test.js', evidenceKind: 'business' }],
     e2eTests: ['e2e/20_command_jobs.spec.js', 'e2e/21_ready_check_command_draft.spec.js'],
-    backendTests: [
-      'internal/service/fleet_command_job_results_test.go',
-      'internal/service/fleet_command_job_worker_test.go'
-    ],
-    gmqttTests: []
+    goEvidence: goEvidence(GO_EVIDENCE.commandJobs)
   },
   {
     id: 'rdi',
@@ -428,8 +490,7 @@ const BUSINESS_CAPABILITIES = [
       'tests/18_seeded_device_data.test.js'
     ],
     e2eTests: ['e2e/02_device.spec.js', 'e2e/13_write_flows.spec.js'],
-    backendTests: ['internal/api/rdi_api_test.go', 'internal/service/rdi_test.go'],
-    gmqttTests: [GMQTT_AETHERLINK_PLUGIN_TEST('topicmap_service_test.go')]
+    goEvidence: goEvidence(GO_EVIDENCE.rdi)
   },
   {
     id: 'alarm-notification',
@@ -482,8 +543,7 @@ const BUSINESS_CAPABILITIES = [
       'tests/19_seeded_alarm_notification.test.js'
     ],
     e2eTests: ['e2e/04_alarm.spec.js'],
-    backendTests: ['internal/api/alarm_api_test.go'],
-    gmqttTests: []
+    goEvidence: goEvidence(GO_EVIDENCE.alarmNotification)
   },
   {
     id: 'permission-tenancy',
@@ -508,10 +568,10 @@ const BUSINESS_CAPABILITIES = [
     e2eTests: [
       'e2e/01_login.spec.js',
       'e2e/09_management.spec.js',
-      'e2e/14_route_coverage_closure.spec.js'
+      'e2e/14_route_coverage_closure.spec.js',
+      'e2e/23_native_board_super_admin.spec.js'
     ],
-    backendTests: ['internal/api/system_api_test.go', 'router/router_contract_test.go'],
-    gmqttTests: []
+    goEvidence: goEvidence(GO_EVIDENCE.permissionTenancy)
   },
   {
     id: 'automation-scene',
@@ -546,11 +606,12 @@ const BUSINESS_CAPABILITIES = [
     automationTests: [
       'tests/23_seeded_automation_scene.test.js',
       'tests/24_seeded_scene_automations.test.js',
+      'tests/29_rule_chain_business.test.js',
+      'tests/31_scene_action_20_runtime.test.js',
       { file: 'tests/17_api_coverage_closure.test.js', evidenceKind: 'boundary' }
     ],
     e2eTests: ['e2e/10_automation.spec.js'],
-    backendTests: ['internal/api/api_router_contract_test.go'],
-    gmqttTests: []
+    goEvidence: goEvidence(GO_EVIDENCE.automationScene)
   },
   {
     id: 'visualization',
@@ -560,6 +621,7 @@ const BUSINESS_CAPABILITIES = [
       '/visualization/native-boards',
       '/visualization/native-board',
       '/visualization/native-board-editor',
+      '/visualization/report',
       '/visualization/thingsvis',
       '/visualization/thingsvis-dashboards',
       '/visualization/thingsvis-editor',
@@ -594,16 +656,18 @@ const BUSINESS_CAPABILITIES = [
       'POST /api/v1/board/user/update/password',
       // 定时报表（ROADMAP D3）
       'POST /api/v1/report/schedules',
-      'PUT /api/v1/report/schedules',
       'GET /api/v1/report/schedules',
+      'PUT /api/v1/report/schedules/:id',
       'GET /api/v1/report/schedules/:id',
       'DELETE /api/v1/report/schedules/:id',
-      'POST /api/v1/report/schedules/:id/run'
+      'POST /api/v1/report/schedules/:id/run',
+      'GET /api/v1/report/schedules/:id/runs',
+      'GET /api/v1/report/schedules/:id/runs/:run_id',
+      'POST /api/v1/report/schedules/:id/runs/:run_id/retry'
     ],
-    automationTests: ['tests/07_board.test.js', 'tests/17_api_boundary_smoke.test.js'],
-    e2eTests: ['e2e/11_visualization.spec.js', 'e2e/14_route_coverage_closure.spec.js'],
-    backendTests: ['internal/api/api_router_contract_test.go'],
-    gmqttTests: []
+    automationTests: ['tests/07_board.test.js', 'tests/17_api_boundary_smoke.test.js', 'tests/37_report_schedule.test.js'],
+    e2eTests: ['e2e/11_visualization.spec.js', 'e2e/14_route_coverage_closure.spec.js', 'e2e/23_native_board_super_admin.spec.js'],
+    goEvidence: goEvidence(GO_EVIDENCE.visualization)
   },
   {
     id: 'ota-script-openapi-service',
@@ -680,15 +744,15 @@ const BUSINESS_CAPABILITIES = [
       'tests/15_device_config_openapi.test.js',
       'tests/17_api_coverage_closure.test.js',
       'tests/17_api_boundary_smoke.test.js',
-      'tests/21_seeded_ota_script_openapi.test.js'
+      'tests/21_seeded_ota_script_openapi.test.js',
+      'tests/32_ota_runtime.test.js'
     ],
     e2eTests: [
       'e2e/06_system.spec.js',
       'e2e/15_apply_marketplace.spec.js',
       'e2e/22_ota_support_archive.spec.js'
     ],
-    backendTests: ['internal/api/system_api_test.go', 'third_party/others/http_client/request_method_test.go'],
-    gmqttTests: []
+    goEvidence: goEvidence(GO_EVIDENCE.otaScriptOpenapiService)
   },
   {
     id: 'mqtt-broker-pipeline',
@@ -702,18 +766,7 @@ const BUSINESS_CAPABILITIES = [
     ],
     automationTests: ['tests/22_mqtt_device_pipeline.test.js'],
     e2eTests: ['e2e/02_device.spec.js'],
-    backendTests: [
-      'mqtt/publish/publish_test.go',
-      'mqtt/simulation_publish/simulation_publish_test.go',
-      'internal/adapter/mqttadapter/topics_test.go',
-      'internal/adapter/mqttadapter/adapter_parsing_test.go'
-    ],
-    gmqttTests: [
-      'cmd/gmqttd/command/start_test.go',
-      GMQTT_AETHERLINK_PLUGIN_TEST('hooks_test.go'),
-      GMQTT_AETHERLINK_PLUGIN_TEST('mqtt_test.go'),
-      'plugin/prometheus/hooks_test.go'
-    ]
+    goEvidence: goEvidence(GO_EVIDENCE.mqttBrokerPipeline)
   },
   {
     id: 'system-deployment',
@@ -755,9 +808,27 @@ const BUSINESS_CAPABILITIES = [
       'tests/35_entity_version.test.js'
     ],
     e2eTests: ['e2e/06_system.spec.js', 'e2e/14_route_coverage_closure.spec.js'],
-    backendTests: ['internal/api/system_api_test.go', 'router/router_contract_test.go'],
-    gmqttTests: ['plugin/prometheus/hooks_test.go']
+    goEvidence: goEvidence(GO_EVIDENCE.systemDeployment)
   }
 ];
 
-module.exports = { BUSINESS_CAPABILITIES, PARENT_ROUTES };
+for (const capability of BUSINESS_CAPABILITIES) {
+  capability.goEvidence = Object.freeze(capability.goEvidence.map(item => ({
+    ...item,
+    capabilityIds: Object.freeze(
+      item.capabilityIds.length > 0 ? [...item.capabilityIds] : [capability.id]
+    )
+  })));
+}
+
+const ALL_GO_EVIDENCE = Object.freeze(
+  Array.from(
+    new Map(
+      BUSINESS_CAPABILITIES
+        .flatMap(capability => capability.goEvidence)
+        .map(item => [item.evidenceId, item])
+    ).values()
+  )
+);
+
+module.exports = { ALL_GO_EVIDENCE, BUSINESS_CAPABILITIES, PARENT_ROUTES };

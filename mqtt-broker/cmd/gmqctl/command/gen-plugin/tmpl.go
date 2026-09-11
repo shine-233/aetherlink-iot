@@ -15,10 +15,12 @@ import (
 	"github.com/DrmagicE/gmqtt/server"
 )
 
-const MainTemplate = `package {{.Name}}
+const MainTemplate = `// GMQTT PLUGIN SCAFFOLD: INCOMPLETE
+// Implement the generated methods before enabling registration below.
+package {{.Name}}
 
 import (
-	"go.uber.org/zap"
+	"errors"
 
 	"github.com/DrmagicE/gmqtt/config"
 	"github.com/DrmagicE/gmqtt/server"
@@ -26,9 +28,21 @@ import (
 
 var _ server.Plugin = (*{{.StrutName}})(nil)
 
-const Name = "{{.Name}}"
+const (
+	Name = "{{.Name}}"
+
+	// ScaffoldIncomplete prevents this generated package from registering as a usable plugin.
+	// Set it to false only after replacing every scaffold implementation.
+	ScaffoldIncomplete = true
+)
+
+// ErrScaffoldIncomplete rejects attempts to construct or load the unimplemented scaffold.
+var ErrScaffoldIncomplete = errors.New("gmqtt plugin " + Name + " scaffold is incomplete")
 
 func init() {
+	if ScaffoldIncomplete {
+		return
+	}
 	if err := server.RegisterPlugin(Name, New); err != nil {
 		panic(err)
 	}
@@ -37,22 +51,19 @@ func init() {
 	{{- end}}
 }
 
-func New(config config.Config) (server.Plugin, error) {
-    panic("implement me")
+func New(_ config.Config) (server.Plugin, error) {
+	return nil, ErrScaffoldIncomplete
 }
-
-var log *zap.Logger
 
 type {{.StrutName}} struct {
 }
 
-func ({{.Receiver}} *{{.StrutName}}) Load(service server.Server) error {
-	log = server.LoggerWithField(zap.String("plugin",Name))
-	panic("implement me")
+func ({{.Receiver}} *{{.StrutName}}) Load(_ server.Server) error {
+	return ErrScaffoldIncomplete
 }
 
 func ({{.Receiver}} *{{.StrutName}}) Unload() error {
-	panic("implement me")
+	return nil
 }
 
 func ({{.Receiver}} *{{.StrutName}}) Name() string {
@@ -79,7 +90,8 @@ func ({{.Receiver}} *{{.StrutName}}) HookWrapper() server.HookWrapper {
 
 {{range $index, $element := .Hooks}}
 func ({{$.Receiver}} *{{$.StrutName}}) {{$element}}Wrapper(pre server.{{$element}}) server.{{$element}} {
-	panic("impermanent me")
+	// Safe pass-through until this scaffold hook is implemented.
+	return pre
 }
 {{end}}
 `
@@ -94,7 +106,7 @@ type Config struct {
 
 // Validate validates the configuration, and return an error if it is invalid.
 func (c *Config) Validate() error {
-	panic("implement me")
+	return ErrScaffoldIncomplete
 }
 
 // DefaultConfig is the default configuration.
@@ -103,8 +115,14 @@ var DefaultConfig = Config{
 }
 
 func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
-    panic("implement me")
+	if err := unmarshal((*plainConfig)(c)); err != nil {
+		return err
+	}
+	return c.Validate()
 }
+
+// plainConfig prevents UnmarshalYAML from recursively calling itself.
+type plainConfig Config
 {{- end}}
 `
 

@@ -1,0 +1,24 @@
+package safe_plugin
+
+// Config is the configuration for the safe_plugin plugin.
+type Config struct {
+	// add your config fields
+}
+
+// Validate validates the configuration, and return an error if it is invalid.
+func (c *Config) Validate() error {
+	return ErrScaffoldIncomplete
+}
+
+// DefaultConfig is the default configuration.
+var DefaultConfig = Config{}
+
+func (c *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	if err := unmarshal((*plainConfig)(c)); err != nil {
+		return err
+	}
+	return c.Validate()
+}
+
+// plainConfig prevents UnmarshalYAML from recursively calling itself.
+type plainConfig Config

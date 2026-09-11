@@ -131,7 +131,7 @@ func (n *NotificationServicesConfig) dispatchNotificationChannel(notificationGro
 	case model.NoticeType_Webhook:
 		n.sendWebhookNotification(notificationGroup, alertJson, templateVars.deviceIDs)
 	case model.NoticeType_APP:
-		n.sendAppNotification()
+		n.sendUnsupportedDirectAppNotification(notificationGroup, templateVars)
 	// PHASE-D-D2 BEGIN：新增 IM 渠道分发（钉钉/企微/飞书/Telegram）。
 	case noticeTypeDingTalk, noticeTypeWeCom, noticeTypeFeishu, noticeTypeTelegram:
 		n.sendIMNotification(notificationGroup, templateVars, notifyType)
@@ -240,8 +240,20 @@ func (n *NotificationServicesConfig) sendWebhookNotification(notificationGroup *
 	}
 }
 
-func (n *NotificationServicesConfig) sendAppNotification() {
-	logrus.Warn("direct APP notification type is not supported; use MEMBER notification config with notificationType APP")
+const directAppNotificationFailureReason = "DIRECT_APP_NOTIFICATION_UNSUPPORTED"
+
+func (n *NotificationServicesConfig) sendUnsupportedDirectAppNotification(notificationGroup *model.NotificationGroup, templateVars *executeNotificationTemplateVars) {
+	logrus.Warn(directAppNotificationTypeMessage)
+	if err := n.saveTenantChannelFailure(
+		notificationGroup.TenantID,
+		"",
+		model.NoticeType_APP,
+		directAppNotificationFailureReason,
+		templateVars.content,
+		templateVars.deviceIDs...,
+	); err != nil {
+		logrus.Error("save unsupported direct APP notification failure history failed:", err)
+	}
 }
 
 func logUnsupportedNotificationType(notifyType string) {

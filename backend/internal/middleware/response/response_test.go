@@ -78,6 +78,17 @@ func TestMiddlewareWrapsDataIntoSuccessEnvelope(t *testing.T) {
 	assert.JSONEq(t, `{"code":200,"message":"success","data":{"ok":true}}`, recorder.Body.String())
 }
 
+func TestMiddlewareUsesHandlerSelectedSuccessStatus(t *testing.T) {
+	handler := newTestHandler(t)
+	recorder, _ := perform(t, handler, "en-US", func(c *gin.Context) {
+		SetSuccessStatus(c, http.StatusAccepted)
+		c.Set("data", gin.H{"queued": true})
+	})
+
+	assert.Equal(t, http.StatusAccepted, recorder.Code)
+	assert.JSONEq(t, `{"code":200,"message":"success","data":{"queued":true}}`, recorder.Body.String())
+}
+
 func TestMiddlewareConvertsErrcodeErrorAndReplacesVariables(t *testing.T) {
 	handler := newTestHandler(t)
 	recorder, _ := perform(t, handler, "en-US", func(c *gin.Context) {

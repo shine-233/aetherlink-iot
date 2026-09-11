@@ -26,7 +26,7 @@ AetherLink IoT 是面向物联网设备接入、监控和私有部署的平台�
 - 本地 native board 是默认可视化 provider；ThingsVis 与 HTTP adapter 仅通过显式 optional profile/配置启用。
 - Market、SMTP、地图 provider 属于外部可选能力；未配置时不得阻断核心启动，也不得泄露配置值。
 - 外接模块必须保留稳定接口契约；能本地化的核心能力优先使用本地实现，不能本地化的能力返回明确的 optional/external-blocked 状态。
-- 数据库迁移当前最高为 `55.sql` / `VERSION_NUMBER=55`；修改迁移前先核对 `backend/sql/` 与目标数据库的 `sys_version`。
+- 数据库迁移当前最高为 `82.sql` / `VERSION_NUMBER=82`；修改迁移前必须同时枚举 `backend/sql/` 的连续编号、核对 `backend/pkg/global/global.go` 的迁移上界，并在目标环境核对 `sys_version`，不得只信任文档中的静态数字。
 - 登录防爆破为账号+IP 双维度：账号沿用 `classified-protect.login-max-fail-times`；IP 维度用 `classified-protect.ip-login-max-fail-times` / `ip-login-fail-window-seconds`（默认 20 次/600 秒，负值关闭）。
 - Casbin 路由覆盖审计默认 fail-fast（`casbin.route-audit-mode: fail-fast|warn|off`）：挂载在 CasbinRBAC 之后的新路由必须登记进资源表，否则后端拒绝启动。
 - per-tenant API 限流挂载于 JWTAuth 之后全量业务路由：`api-rate-limit.requests-per-minute`（默认 600，<=0 关闭，env `GOTP_API_RATE_LIMIT_RPM`），超限返回 429+Retry-After；集群部署需替换为共享存储计数。

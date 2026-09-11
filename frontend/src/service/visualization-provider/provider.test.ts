@@ -51,6 +51,10 @@ function providerStub(id = 'stub'): VisualizationProvider {
   const ok = async () => ({ ok: true as const, data: undefined })
   return {
     id, kind: 'local', deploymentMode: 'local-default',
+    capabilities: {
+      projects: { list: true, create: true, update: true, delete: true },
+      dashboards: { thumbnail: true, genericLayout: true, dataSources: true, variables: true, publish: true }
+    },
     listProjects: vi.fn(), getProject: vi.fn(), createProject: vi.fn(), updateProject: vi.fn(), deleteProject: ok,
     listDashboards: vi.fn(), getDashboard: vi.fn(), getDashboardThumbnail: vi.fn(), createDashboard: vi.fn(),
     updateDashboard: vi.fn(), deleteDashboard: ok, publishDashboard: vi.fn(), duplicateDashboard: vi.fn(),
@@ -100,6 +104,8 @@ describe('visualization provider facade and composition', () => {
     const selected = providerStub('native-board')
     registry.register(selected)
     expect(createVisualizationProviderFacade(registry).id).toBe('native-board')
+    expect(createVisualizationProviderFacade(registry).capabilities?.projects.create).toBe(true)
+    expect(createVisualizationProviderFacade(registry, { providerId: 'missing' }).capabilities).toBeNull()
     expect(createVisualizationProviderFacade(registry, { providerId: 'missing' }).selectionError?.code).toBe('unknown-provider')
     expect(createVisualizationProviderFacade(registry, { providerId: null }).selectionError?.code).toBe('unknown-provider')
     expect(createVisualizationProviderFacade(registry, { context: { available: false } }).selectionError?.code).toBe('provider-unavailable')
@@ -125,6 +131,10 @@ describe('visualization provider facade and composition', () => {
     expect(first).toBe(getDefaultVisualizationProviderRegistry())
     expect(first.ids()).toEqual(['native-board', 'legacy-thingsvis'])
     expect(first.get('native-board')?.deploymentMode).toBe('local-default')
+    expect(first.get('native-board')?.capabilities).toEqual({
+      projects: { list: true, create: false, update: false, delete: false },
+      dashboards: { thumbnail: false, genericLayout: false, dataSources: false, variables: false, publish: true }
+    })
     expect(first.get('legacy-thingsvis')?.deploymentMode).toBe('optional-external')
     expect(getDefaultVisualizationProviderFacade().id).toBe('native-board')
     expect(getDefaultVisualizationProviderFacade({ providerId: 'legacy-thingsvis' }).selectionError?.code)

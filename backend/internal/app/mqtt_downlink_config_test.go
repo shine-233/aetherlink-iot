@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"aetherlink-iot/backend/internal/downlink"
@@ -60,5 +61,14 @@ func TestDownlinkServiceStartReturnsNilWhenMQTTDisabled(t *testing.T) {
 	}
 	if wrapper.handler != nil {
 		t.Fatal("downlink handler should stay nil when mqtt is disabled")
+	}
+	msg := &downlink.Message{
+		DeviceID:     "dev-1",
+		DeviceNumber: "number-1",
+		Type:         downlink.MessageTypeCommand,
+		Data:         []byte(`{"cmd":"reset"}`),
+	}
+	if err := wrapper.bus.PublishCommand(msg); !errors.Is(err, downlink.ErrBusNotStarted) {
+		t.Fatalf("disabled downlink publish error = %v, want %v", err, downlink.ErrBusNotStarted)
 	}
 }

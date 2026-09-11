@@ -19,10 +19,12 @@ const hoisted = vi.hoisted(() => ({
   clearThingsVisHomeCache: vi.fn(),
   routerPushByKey: vi.fn(),
   messageError: vi.fn(),
+  nativeCreateProject: vi.fn(),
 }))
 
 let currentRouteQuery: Record<string, any> = {}
 let facadeSelectionError: { code: string; message: string } | null = null
+let facadeProvider: 'legacy' | 'native' = 'legacy'
 
 vi.mock('@/service/api/thingsvis', () => ({
   getThingsVisProjects: hoisted.getThingsVisProjects,
@@ -36,13 +38,22 @@ vi.mock('@/service/visualization-provider/index', async importOriginal => {
   const actual = await importOriginal<typeof import('@/service/visualization-provider/index')>()
   return {
     ...actual,
-    getDefaultVisualizationProviderFacade: () => ({
-      selectionError: facadeSelectionError,
-      execute: (operation: (provider: typeof actual.legacyThingsVisProvider) => unknown) =>
-        facadeSelectionError
-          ? Promise.resolve({ ok: false, error: facadeSelectionError })
-          : operation(actual.legacyThingsVisProvider)
-    })
+    getDefaultVisualizationProviderFacade: () => {
+      const selectedProvider = facadeProvider === 'native'
+        ? {
+            ...actual.nativeBoardProvider,
+            createProject: hoisted.nativeCreateProject,
+          }
+        : actual.legacyThingsVisProvider
+      return {
+        selectionError: facadeSelectionError,
+        capabilities: facadeSelectionError ? null : selectedProvider.capabilities,
+        execute: (operation: (provider: typeof selectedProvider) => unknown) =>
+          facadeSelectionError
+            ? Promise.resolve({ ok: false, error: facadeSelectionError })
+            : operation(selectedProvider)
+      }
+    }
   }
 })
 
@@ -146,6 +157,7 @@ describe('ThingsVisIndex', () => {
     vi.clearAllMocks()
     currentRouteQuery = {}
     facadeSelectionError = null
+    facadeProvider = 'legacy'
     hoisted.getThingsVisProjects.mockResolvedValue({ data: projectPage(), error: null })
   })
 
@@ -341,6 +353,41 @@ describe('ThingsVisIndex', () => {
     expect(hoisted.refreshAuthRoutes).toHaveBeenCalledTimes(1)
     expect(hoisted.refreshAuthRoutes).toHaveBeenCalledWith('/visualization/thingsvis')
     expect(hoisted.clearThingsVisHomeCache).toHaveBeenCalledTimes(1)
+  })
+
+  it('hides unsupported native project controls', async () => {
+    facadeProvider = 'native'
+    currentRouteQuery = { provider: 'native' }
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    const state = getState(wrapper)
+    expect(state.projectCapabilities).toEqual({ list: true, create: false, update: false, delete: false })
+    expect(state.projects).toEqual([expect.objectContaining({ id: 'native-boards' })])
+    expect(wrapper.text()).not.toContain('rdi.thingsvis.newProject')
+    expect(wrapper.findComponent({ name: 'NModal' }).exists()).toBe(false)
+    expect(wrapper.find('.group-hover\\:opacity-100').exists()).toBe(false)
+  })
+
+  it('routes first-device native onboarding to the built-in project without creating one', async () => {
+    facadeProvider = 'native'
+    currentRouteQuery = { provider: 'native', onboarding: 'first-device' }
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    const action = wrapper.get('[data-testid="first-device-project-action"]')
+    expect(action.text()).toContain('rdi.thingsvis.firstDeviceDashboardContinue')
+    await action.trigger('click')
+
+    expect(hoisted.nativeCreateProject).not.toHaveBeenCalled()
+    expect(hoisted.createThingsVisProject).not.toHaveBeenCalled()
+    expect(hoisted.routerPushByKey).toHaveBeenCalledWith('visualization_thingsvis-dashboards', {
+      query: {
+        projectId: 'native-boards',
+        onboarding: 'first-device',
+        provider: 'native'
+      }
+    })
   })
 
   it('should filter projects by search keyword', async () => {

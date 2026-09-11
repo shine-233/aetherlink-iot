@@ -127,6 +127,127 @@ describe('Endpoint coverage matcher [00_endpoint_coverage]', function () {
     expect(commandListMatch.path).to.equal('/api/v1/command/datas/:id');
   });
 
+  it('merges caller headers and exposes raw success metadata only when requested', async function () {
+    const originalAuthHeaders = apiClient.authHeaders;
+    const originalPost = apiClient.client.post;
+    const calls = [];
+
+    try {
+      apiClient.authHeaders = async () => ({ 'x-token': 'fixture-token', 'X-Shared': 'auth' });
+      apiClient.client.post = async (url, data, config) => {
+        calls.push({ url, data, config });
+        return {
+          status: 202,
+          headers: { location: '/api/v1/report/schedules/schedule-1/runs/run-1' },
+          data: { code: 200, data: { run_id: 'run-1' } }
+        };
+      };
+
+      const bodyOnly = await apiClient.post('/report/schedules/schedule-1/run', {}, 'tenant_admin', {
+        headers: { 'Idempotency-Key': 'caller-key', 'X-Shared': 'caller' }
+      });
+      expect(bodyOnly).to.deep.equal({ code: 200, data: { run_id: 'run-1' } });
+
+      const raw = await apiClient.post('/report/schedules/schedule-1/run', {}, 'tenant_admin', {
+        headers: { 'Idempotency-Key': 'caller-key' },
+        rawResponse: true
+      });
+      expect(raw).to.deep.equal({
+        status: 202,
+        headers: { location: '/api/v1/report/schedules/schedule-1/runs/run-1' },
+        data: { code: 200, data: { run_id: 'run-1' } }
+      });
+      expect(calls[0].config.headers).to.deep.equal({
+        'x-token': 'fixture-token',
+        'X-Shared': 'caller',
+        'Idempotency-Key': 'caller-key'
+      });
+    } finally {
+      apiClient.authHeaders = originalAuthHeaders;
+      apiClient.client.post = originalPost;
+    }
+  });
+
+  it('retains one caller idempotency key across token, 429, and transport retries', async function () {
+    const originalAuthHeaders = apiClient.authHeaders;
+    const originalLogin = apiClient.login;
+    const originalPost = apiClient.client.post;
+    const seen = [];
+    let authAttempt = 0;
+    let requestAttempt = 0;
+
+    try {
+      apiClient.authHeaders = async () => ({ 'x-token': `token-${++authAttempt}` });
+      apiClient.login = async () => 'replacement-token';
+      apiClient.client.post = async (url, data, config) => {
+        seen.push(config.headers);
+        requestAttempt++;
+        if (requestAttempt === 1) {
+          const error = new Error('expired');
+          error.response = { status: 401, data: { code: 40102 }, headers: {} };
+          throw error;
+        }
+        if (requestAttempt === 2) {
+          const error = new Error('limited');
+          error.response = { status: 429, data: { code: 429 }, headers: { 'retry-after': '0' } };
+          throw error;
+        }
+        if (requestAttempt === 3) {
+          const error = new Error('reset');
+          error.code = 'ECONNRESET';
+          throw error;
+        }
+        return { status: 202, headers: {}, data: { code: 200, data: { run_id: 'run-1' } } };
+      };
+
+      const result = await apiClient.post('/report/schedules/schedule-1/run', {}, 'tenant_admin', {
+        headers: { 'Idempotency-Key': 'stable-caller-key' },
+        transportRetries: 1,
+        transportRetryBackoffMs: 0
+      });
+      expect(result).to.deep.equal({ code: 200, data: { run_id: 'run-1' } });
+      expect(seen).to.have.length(4);
+      expect(seen.map(item => item['Idempotency-Key'])).to.deep.equal([
+        'stable-caller-key', 'stable-caller-key', 'stable-caller-key', 'stable-caller-key'
+      ]);
+    } finally {
+      apiClient.authHeaders = originalAuthHeaders;
+      apiClient.login = originalLogin;
+      apiClient.client.post = originalPost;
+    }
+  });
+
+  it('bounds explicit transport retries and preserves the final failure', async function () {
+    const originalAuthHeaders = apiClient.authHeaders;
+    const originalGet = apiClient.client.get;
+    let attempts = 0;
+
+    try {
+      apiClient.authHeaders = async () => ({ 'x-token': 'fixture' });
+      apiClient.client.get = async () => {
+        attempts++;
+        const error = new Error('connection refused');
+        error.code = 'ECONNREFUSED';
+        throw error;
+      };
+
+      const failure = await apiClient.get('/report/schedules', {}, 'tenant_admin', {
+        transportRetries: 99,
+        transportRetryBackoffMs: 0
+      });
+      expect(attempts).to.equal(4);
+      expect(failure).to.deep.equal({
+        code: -1,
+        message: 'connection refused',
+        data: null,
+        _requestError: true
+      });
+    } finally {
+      apiClient.authHeaders = originalAuthHeaders;
+      apiClient.client.get = originalGet;
+    }
+  });
+
   it('counts only requests that receive an HTTP response as endpoint coverage', async function () {
     const originalAuthHeaders = apiClient.authHeaders;
     const originalGet = apiClient.client.get;

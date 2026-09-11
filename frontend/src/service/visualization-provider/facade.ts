@@ -1,6 +1,7 @@
 import type {
   VisualizationError,
   VisualizationProvider,
+  VisualizationProviderCapabilities,
   VisualizationProviderContext,
   VisualizationProviderId,
   VisualizationResult
@@ -24,6 +25,10 @@ export class VisualizationProviderFacade {
 
   get id(): string | null {
     return this.provider?.id ?? null
+  }
+
+  get capabilities(): VisualizationProviderCapabilities | null {
+    return this.provider?.capabilities ?? null
   }
 
   execute<T>(operation: (provider: VisualizationProvider) => Promise<VisualizationResult<T>>): Promise<VisualizationResult<T>> {

@@ -70,6 +70,16 @@ export function createInMemoryLocalVisualizationProvider(
     id: options.id ?? 'in-memory-local',
     kind: 'local',
     deploymentMode: 'local-default',
+    capabilities: {
+      projects: { list: true, create: true, update: true, delete: true },
+      dashboards: {
+        thumbnail: true,
+        genericLayout: true,
+        dataSources: true,
+        variables: true,
+        publish: true
+      }
+    },
 
     async listProjects(params) {
       const items = [...projects.values()].map(project => ({

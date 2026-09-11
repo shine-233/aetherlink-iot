@@ -10,7 +10,15 @@ const path = require('path');
 const endpointCoverage = require('./endpoint_coverage');
 const pageCoverage = require('./page_coverage');
 const testMetadata = require('./test_metadata');
-const { BUSINESS_CAPABILITIES, PARENT_ROUTES } = require('./coverage-contract/business-capabilities');
+const { ALL_GO_EVIDENCE, BUSINESS_CAPABILITIES, PARENT_ROUTES } = require('./coverage-contract/business-capabilities');
+const { OPERATION_DIMENSIONS, BUSINESS_OPERATIONS } = require('./coverage-contract/business-operations');
+const {
+  evaluateGoEvidence,
+  getLayer: getGoEvidenceLayer,
+  hasCompatibleDeclaredPackage,
+  inspectGoFile,
+  validateGoEvidenceInventory
+} = require('./go-test-evidence');
 const readiness = require('./coverage-contract/readiness');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
@@ -683,6 +691,22 @@ function summarizeClassifications(items) {
   }, {});
 }
 
+function getCatalogIdentityAudit() {
+  const duplicateKeys = values => {
+    const counts = new Map();
+    for (const value of values) counts.set(value, (counts.get(value) || 0) + 1);
+    return [...counts.entries()]
+      .filter(([, count]) => count > 1)
+      .map(([key, count]) => ({ key, count }));
+  };
+
+  return {
+    duplicateEndpoints: duplicateKeys(getEndpointCatalogKeys()),
+    duplicateRoutes: duplicateKeys(getPageCatalogRoutes()),
+    duplicateMetadataFiles: testMetadata.DUPLICATE_METADATA_FILES || []
+  };
+}
+
 function getCatalogClassificationAudit() {
   const endpointClassifications = getEndpointCatalogKeys().map(classifyEndpointCatalogItem);
   const routeClassifications = getPageCatalogRoutes().map(classifyPageCatalogRoute);
@@ -960,8 +984,223 @@ function hasTrueE2EEvidence(capability, e2eEvidence) {
   );
 }
 
-function getBusinessTraceability() {
+function getOperationInventoryAudit(operations = BUSINESS_OPERATIONS) {
+  const knownDimensions = new Set(OPERATION_DIMENSIONS);
+  const capabilitiesById = new Map(BUSINESS_CAPABILITIES.map(item => [item.id, item]));
+  const operationIds = new Set();
+  const caseIdentities = new Set();
+  const errors = [];
+
+  for (const operation of operations) {
+    if (!operation || typeof operation.id !== 'string' || !operation.id.trim()) {
+      errors.push({ operationId: operation?.id || null, reason: 'missing-operation-id' });
+      continue;
+    }
+    if (operationIds.has(operation.id)) {
+      errors.push({ operationId: operation.id, reason: 'duplicate-operation-id' });
+    }
+    operationIds.add(operation.id);
+
+    const capabilityIds = Array.isArray(operation.capabilityIds) ? operation.capabilityIds : [];
+    for (const capabilityId of capabilityIds) {
+      if (!capabilitiesById.has(capabilityId)) {
+        errors.push({ operationId: operation.id, capabilityId, reason: 'unknown-capability-id' });
+      }
+    }
+    for (const dimension of operation.requiredDimensions || []) {
+      if (!knownDimensions.has(dimension)) {
+        errors.push({ operationId: operation.id, dimension, reason: 'unknown-required-dimension' });
+      }
+    }
+
+    for (const mapped of operation.cases || []) {
+      const caseIdentity = `${mapped.file}::${mapped.title}`;
+      if (caseIdentities.has(caseIdentity)) {
+        errors.push({ operationId: operation.id, file: mapped.file, title: mapped.title, reason: 'duplicate-mapped-case-identity' });
+      }
+      caseIdentities.add(caseIdentity);
+      const metadata = testMetadata.getTestMetadata(mapped.file);
+      const testPath = path.join(PROJECT_ROOT, 'automation_tests', mapped.file || '');
+      const matchingBlocks = getTestBlocks(readText(testPath)).filter(item => item.title === mapped.title);
+      const block = matchingBlocks[0];
+      if (!metadata) {
+        errors.push({ operationId: operation.id, file: mapped.file, title: mapped.title, reason: 'missing-exact-metadata' });
+      } else {
+        const matchingCaseMetadata = metadata.cases.filter(item => item.title === mapped.title);
+        const caseMetadata = matchingCaseMetadata[0];
+        if (matchingCaseMetadata.length > 1) {
+          errors.push({ operationId: operation.id, file: mapped.file, title: mapped.title, reason: 'duplicate-case-metadata' });
+        }
+        if (!caseMetadata) {
+          errors.push({ operationId: operation.id, file: mapped.file, title: mapped.title, reason: 'missing-case-metadata' });
+        } else {
+          const evidenceRole = mapped.evidenceRole || 'business';
+          if (caseMetadata.schemaVersion === 2) {
+            const operationIds = Array.isArray(caseMetadata.operationIds)
+              ? caseMetadata.operationIds
+              : [];
+            const dimensions = Array.isArray(caseMetadata.operationDimensions)
+              ? caseMetadata.operationDimensions
+              : [];
+            if (!operationIds.includes(operation.id)) {
+              errors.push({ operationId: operation.id, file: mapped.file, title: mapped.title, reason: 'case-operation-mismatch' });
+            }
+            const missingDeclaredDimensions = (mapped.dimensions || [])
+              .filter(dimension => !dimensions.includes(dimension));
+            const unexpectedDeclaredDimensions = dimensions
+              .filter(dimension => !operation.requiredDimensions.includes(dimension));
+            for (const dimension of missingDeclaredDimensions) {
+              errors.push({ operationId: operation.id, file: mapped.file, title: mapped.title, dimension, reason: 'case-operation-dimension-mismatch' });
+            }
+            for (const dimension of unexpectedDeclaredDimensions) {
+              errors.push({ operationId: operation.id, file: mapped.file, title: mapped.title, dimension, reason: 'case-declares-unsupported-operation-dimension' });
+            }
+          }
+          if (evidenceRole === 'business') {
+            if (
+              metadata.evidenceKind !== 'business' ||
+              caseMetadata.evidenceKind !== 'business' ||
+              caseMetadata.businessClosureEvidence !== true
+            ) {
+              errors.push({ operationId: operation.id, file: mapped.file, title: mapped.title, reason: 'case-is-not-business-evidence' });
+            }
+          } else if (evidenceRole === 'boundary') {
+            if (caseMetadata.evidenceKind !== 'boundary' || caseMetadata.businessClosureEvidence === true) {
+              errors.push({ operationId: operation.id, file: mapped.file, title: mapped.title, reason: 'case-is-not-boundary-evidence' });
+            }
+            if (!(mapped.dimensions || []).includes('negativeControl')) {
+              errors.push({ operationId: operation.id, file: mapped.file, title: mapped.title, reason: 'boundary-case-missing-negative-control' });
+            }
+            for (const dimension of (mapped.dimensions || []).filter(item => !['response', 'negativeControl'].includes(item))) {
+              errors.push({ operationId: operation.id, file: mapped.file, title: mapped.title, dimension, reason: 'boundary-case-maps-business-dimension' });
+            }
+          } else {
+            errors.push({ operationId: operation.id, file: mapped.file, title: mapped.title, evidenceRole, reason: 'unknown-case-evidence-role' });
+          }
+          for (const capabilityId of capabilityIds) {
+            if (!Array.isArray(caseMetadata.capabilityIds) || !caseMetadata.capabilityIds.includes(capabilityId)) {
+              errors.push({ operationId: operation.id, file: mapped.file, title: mapped.title, capabilityId, reason: 'case-capability-mismatch' });
+            }
+          }
+        }
+      }
+      if (matchingBlocks.length > 1) {
+        errors.push({ operationId: operation.id, file: mapped.file, title: mapped.title, reason: 'duplicate-test-block' });
+      }
+      if (!block) {
+        errors.push({ operationId: operation.id, file: mapped.file, title: mapped.title, reason: 'missing-test-block' });
+      }
+      for (const dimension of mapped.dimensions || []) {
+        if (!knownDimensions.has(dimension)) {
+          errors.push({ operationId: operation.id, file: mapped.file, title: mapped.title, dimension, reason: 'unknown-mapped-dimension' });
+        }
+      }
+      for (const capabilityId of capabilityIds) {
+        const capability = capabilitiesById.get(capabilityId);
+        const mappedFiles = capability
+          ? [...capability.automationTests.map(getAutomationTestPath), ...capability.e2eTests]
+          : [];
+        if (capability && !mappedFiles.includes(mapped.file)) {
+          errors.push({ operationId: operation.id, file: mapped.file, capabilityId, reason: 'file-not-mapped-to-capability' });
+        }
+      }
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+function getOperationTraceability(operations = BUSINESS_OPERATIONS, runtimeOutcomes = []) {
+  const expectedCaseIdentities = new Set(
+    operations.flatMap(operation => (operation.cases || []).map(item => `${item.file}::${item.title}`))
+  );
+  const runtimeGroups = new Map();
+  const globalRuntimeOutcomeErrors = [];
+  const runtimeErrorsByOperation = new Map();
+  const addRuntimeError = (error, operationIds = []) => {
+    if (operationIds.length === 0) {
+      globalRuntimeOutcomeErrors.push(error);
+      return;
+    }
+    for (const operationId of operationIds) {
+      const errors = runtimeErrorsByOperation.get(operationId) || [];
+      errors.push(error);
+      runtimeErrorsByOperation.set(operationId, errors);
+    }
+  };
+  const operationIdsByCase = new Map();
+  for (const operation of operations) {
+    for (const mapped of operation.cases || []) {
+      const identity = `${mapped.file}::${mapped.title}`;
+      const operationIds = operationIdsByCase.get(identity) || [];
+      operationIds.push(operation.id);
+      operationIdsByCase.set(identity, operationIds);
+    }
+  }
+  for (const item of runtimeOutcomes) {
+    const file = typeof item?.file === 'string' ? item.file : '';
+    const title = typeof item?.title === 'string' ? item.title : '';
+    if (!file || !title) {
+      addRuntimeError({ file: file || null, title: title || null, reason: 'malformed-runtime-identity' });
+      continue;
+    }
+    const identity = `${file}::${title}`;
+    if (!expectedCaseIdentities.has(identity)) {
+      addRuntimeError({ file, title, reason: 'unexpected-runtime-identity' });
+      continue;
+    }
+    const group = runtimeGroups.get(identity) || [];
+    group.push(item);
+    runtimeGroups.set(identity, group);
+  }
+  for (const [identity, group] of runtimeGroups) {
+    if (group.length > 1) {
+      const [file, title] = identity.split('::');
+      addRuntimeError(
+        { file, title, reason: 'duplicate-runtime-identity' },
+        operationIdsByCase.get(identity) || []
+      );
+    }
+  }
+
+  return operations.map(operation => {
+    const mappedDimensions = [...new Set((operation.cases || []).flatMap(item => item.dimensions || []))];
+    const missingDimensions = (operation.requiredDimensions || []).filter(item => !mappedDimensions.includes(item));
+    const operationRuntimeErrors = [
+      ...globalRuntimeOutcomeErrors,
+      ...(runtimeErrorsByOperation.get(operation.id) || [])
+    ];
+    const outcomes = (operation.cases || []).map(item => {
+      const group = runtimeGroups.get(`${item.file}::${item.title}`) || [];
+      return group.length === 1 ? group[0] : null;
+    });
+    const hasRuntimeEvidence = outcomes.length > 0 && outcomes.every(Boolean) && operationRuntimeErrors.length === 0;
+    const runtimeStatus = !hasRuntimeEvidence
+      ? 'unknown'
+      : outcomes.some(item => item.outcome === 'failed')
+        ? 'failed'
+        : outcomes.every(item => item.outcome === 'passed')
+          ? 'passed'
+          : 'unknown';
+    const staticInventoryValid = getOperationInventoryAudit([operation]).valid;
+    return {
+      ...operation,
+      mappedDimensions,
+      missingDimensions,
+      staticInventoryValid,
+      runtimeOutcomeErrors: operationRuntimeErrors,
+      runtimeStatus,
+      ready: staticInventoryValid && missingDimensions.length === 0 && hasRuntimeEvidence && runtimeStatus === 'passed'
+    };
+  });
+}
+
+function getBusinessTraceability(options = {}) {
   const automationRoot = path.join(PROJECT_ROOT, 'automation_tests');
+  const runtimeEvaluation = evaluateGoEvidence(ALL_GO_EVIDENCE, options.goRuntimeReport || null);
+  const runtimeByEvidenceId = new Map(
+    runtimeEvaluation.evaluations.map(item => [item.evidenceId, item])
+  );
   return BUSINESS_CAPABILITIES.map(capability => {
     const automationEvidence = capability.automationTests.map(testEntry =>
       getAutomationEvidenceForTraceability(
@@ -974,27 +1213,38 @@ function getBusinessTraceability() {
     const e2eEvidence = capability.e2eTests.map(testPath =>
       getE2EEvidenceForTraceability(automationRoot, testPath, capability.id)
     );
-    const backendEvidence = capability.backendTests.map(testPath => getMappedTestFileStatus(capability.id, 'backend', testPath));
-    const gmqttEvidence = capability.gmqttTests.map(testPath => getMappedTestFileStatus(capability.id, 'gmqtt', testPath));
+    const goEvidence = capability.goEvidence.map(evidence =>
+      getGoEvidenceStatus(capability.id, evidence, runtimeByEvidenceId.get(evidence.evidenceId))
+    );
+    const backendEvidence = goEvidence.filter(item => item.layer === 'backend');
+    const gmqttEvidence = goEvidence.filter(item => item.layer === 'gmqtt');
     const hasTrueAutomation = hasTrueAutomationEvidence(automationEvidence);
     const hasTrueE2E = hasTrueE2EEvidence(capability, e2eEvidence);
+    const requiredGMQTTEvidence = capability.id === 'mqtt-broker-pipeline'
+      ? gmqttEvidence
+      : [];
 
     return {
       ...capability,
       automationEvidence,
       e2eEvidence,
+      goEvidence,
       backendEvidence,
       gmqttEvidence,
+      goRuntimeSchemaValid: runtimeEvaluation.schemaValid,
+      goRuntimeErrors: runtimeEvaluation.errors,
       hasFrontendRoute: capability.frontendRoutes.length > 0,
       hasEndpoint: capability.endpoints.length > 0,
       hasAutomation: capability.automationTests.length > 0,
       hasTrueAutomation,
       hasE2E: capability.e2eTests.length > 0,
       hasTrueE2E,
-      hasBackend: backendEvidence.some(item => item.exists && item.hasTestFunction),
-      hasGMQTT: capability.priority === 'P0' && capability.id === 'mqtt-broker-pipeline'
-        ? gmqttEvidence.some(item => item.exists && item.hasTestFunction)
-        : true
+      hasGoDeclaration: goEvidence.length > 0 && goEvidence.every(item => item.declarationValid),
+      hasBackendDeclaration: backendEvidence.length > 0 && backendEvidence.every(item => item.declarationValid),
+      hasGMQTTDeclaration: requiredGMQTTEvidence.length === 0 || requiredGMQTTEvidence.every(item => item.declarationValid),
+      hasGoRuntime: goEvidence.length > 0 && goEvidence.every(item => item.runtimePassed),
+      hasBackendRuntime: backendEvidence.length > 0 && backendEvidence.every(item => item.runtimePassed),
+      hasGMQTTRuntime: requiredGMQTTEvidence.length === 0 || requiredGMQTTEvidence.every(item => item.runtimePassed)
     };
   });
 }
@@ -1084,8 +1334,8 @@ function getAutomationEvidenceMetadata(testEntry) {
     };
   }
   return {
-    evidenceKind: 'business',
-    evidenceSource: 'default-business'
+    evidenceKind: 'unknown',
+    evidenceSource: 'missing-metadata'
   };
 }
 
@@ -1142,18 +1392,51 @@ function normalizeRunnerOutcome(outcome) {
   };
 }
 
+function getGoEvidenceStatus(capability, evidence, runtimeEvaluation = null, options = {}) {
+  const source = inspectGoFile(PROJECT_ROOT, evidence.repositoryFile, options);
+  const matching = source.tests.filter(item => item.name === evidence.testFunction);
+  const layer = getGoEvidenceLayer(evidence);
+  const declarationErrors = [];
+  if (!source.exists) declarationErrors.push('missing-test-file');
+  if (source.parseError) declarationErrors.push('go-ast-parse-failed');
+  if (
+    source.exists &&
+    !source.parseError &&
+    !hasCompatibleDeclaredPackage(evidence, PROJECT_ROOT, source.packageName)
+  ) {
+    declarationErrors.push('package-mismatch');
+  }
+  if (source.exists && !source.parseError && matching.length === 0) declarationErrors.push('missing-test-function');
+  if (matching.length > 1) declarationErrors.push('duplicate-test-function');
+  if (matching.length === 1 && (matching[0].parameter !== '*testing.T' || matching[0].exported !== true)) {
+    declarationErrors.push('invalid-test-signature');
+  }
+  return {
+    ...evidence,
+    capability,
+    layer,
+    file: evidence.repositoryFile,
+    exists: source.exists,
+    declaredPackage: source.packageName,
+    declarationErrors,
+    declarationValid: declarationErrors.length === 0,
+    runtimeIdentity: runtimeEvaluation?.runtimeIdentity || `${evidence.package}::${evidence.testFunction}`,
+    runtimeOutcome: runtimeEvaluation?.runtimeOutcome || 'unknown',
+    runtimePassed: runtimeEvaluation?.runtimePassed === true
+  };
+}
+
 function getMappedTestFileStatus(capability, layer, testPath) {
+  if (layer === 'backend' || layer === 'gmqtt') {
+    throw new Error('Go evidence requires an exact package/test identity; use getGoEvidenceStatus().');
+  }
   const rootByLayer = {
     automation: path.join(PROJECT_ROOT, 'automation_tests'),
-    e2e: path.join(PROJECT_ROOT, 'automation_tests'),
-    backend: BACKEND_ROOT,
-    gmqtt: GMQTT_ROOT
+    e2e: path.join(PROJECT_ROOT, 'automation_tests')
   };
   const filePath = path.join(rootByLayer[layer], testPath);
   const text = readText(filePath);
-  const hasTestFunction = layer === 'backend' || layer === 'gmqtt'
-    ? /\bfunc\s+Test\w+\s*\(/.test(text)
-    : /\b(?:it|test)\s*\(/.test(text);
+  const hasTestFunction = /\b(?:it|test)\s*\(/.test(text);
 
   return {
     capability,
@@ -1170,9 +1453,10 @@ function getMappedTestFileAudit(traceability = getBusinessTraceability()) {
       getMappedTestFileStatus(capability.id, 'automation', getAutomationTestPath(testEntry))
     ),
     ...capability.e2eTests.map(testPath => getMappedTestFileStatus(capability.id, 'e2e', testPath)),
-    ...capability.backendEvidence,
-    ...capability.gmqttEvidence
-  ]).filter(item => !item.exists || !item.hasTestFunction);
+    ...capability.goEvidence
+  ]).filter(item => item.layer === 'backend' || item.layer === 'gmqtt'
+    ? !item.declarationValid
+    : !item.exists || !item.hasTestFunction);
 }
 
 function getTestBlocks(text) {
@@ -1391,7 +1675,7 @@ function isMetadataE2EBusinessClosure(item) {
 
 function getE2EBusinessCases(text, testPath = null, capabilityId = null) {
   const metadata = testMetadata.getTestMetadata(testPath);
-  if (metadata && Array.isArray(metadata.cases)) {
+  if (metadata && metadata.evidenceKind === 'business' && Array.isArray(metadata.cases)) {
     const blocksByTitle = new Map(getTestBlocks(text).map(block => [block.title, block]));
     const sourceGapTitles = new Set(
       getE2EMetadataSourceAudit(text, testPath).map(item => item.title)
@@ -1969,15 +2253,25 @@ const {
 } = readiness;
 
 function collectSelfCheckAudits() {
+  const capabilityIds = BUSINESS_CAPABILITIES.map(item => item.id);
+  const goEvidenceInventoryAudit = validateGoEvidenceInventory(ALL_GO_EVIDENCE, PROJECT_ROOT, {
+    capabilityIds
+  });
   const traceability = getBusinessTraceability();
+  const operationInventoryAudit = getOperationInventoryAudit();
+  const operationTraceability = getOperationTraceability();
   const catalogClassificationAudit = getCatalogClassificationAudit();
   const explicitBusinessInventoryAudit = getExplicitBusinessInventoryAudit(catalogClassificationAudit);
 
   return {
+    catalogIdentityAudit: getCatalogIdentityAudit(),
     routeComparison: comparePageCatalogToSource(),
     endpointComparison: compareEndpointCatalogToSource(),
     missingCapabilityEndpoints: compareEndpointCapabilityMap(),
     traceability,
+    goEvidenceInventoryAudit,
+    operationInventoryAudit,
+    operationTraceability,
     catalogClassificationAudit,
     explicitBusinessInventoryAudit,
     explicitBusinessInventoryGapReport: getExplicitBusinessInventoryGapReport(explicitBusinessInventoryAudit),
@@ -2006,7 +2300,10 @@ function selfCheck() {
 
 module.exports = {
   BACKEND_ROOT,
+  ALL_GO_EVIDENCE,
   BUSINESS_CAPABILITIES,
+  BUSINESS_OPERATIONS,
+  OPERATION_DIMENSIONS,
   FRONTEND_ELEGANT_ROUTE_ROOT,
   FRONTEND_ROOT,
   GMQTT_ROOT,
@@ -2015,6 +2312,7 @@ module.exports = {
   comparePageCatalogToSource,
   classifyEndpointCatalogItem,
   classifyPageCatalogRoute,
+  getCatalogIdentityAudit,
   getCatalogClassificationAudit,
   getExplicitBusinessInventoryAudit,
   getExplicitBusinessInventoryGapReport,
@@ -2033,6 +2331,9 @@ module.exports = {
   getWeakAutomationAssertionFindings,
   getMappedTestFileAudit,
   getMappedTestFileStatus,
+  getGoEvidenceStatus,
+  getOperationInventoryAudit,
+  getOperationTraceability,
   getFrontendWeakAssertionAudit,
   getFrontendSourceContractAudit,
   classifyBlockedReason,

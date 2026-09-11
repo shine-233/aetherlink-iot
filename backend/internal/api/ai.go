@@ -19,7 +19,7 @@ func (*AiQueryApi) QueryTelemetryByQuestion(c *gin.Context) {
 		return
 	}
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.AiQuery.QueryTelemetry(&req, userClaims)
+	resp, err := service.GroupApp.AiQuery.QueryTelemetry(c.Request.Context(), &req, userClaims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -35,7 +35,7 @@ func (*AiQueryApi) AnalyzeAlarm(c *gin.Context) {
 		return
 	}
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.AiQuery.AnalyzeAlarm(&req, userClaims)
+	resp, err := service.GroupApp.AiQuery.AnalyzeAlarm(c.Request.Context(), &req, userClaims)
 	if err != nil {
 		c.Error(err)
 		return

@@ -56,9 +56,20 @@ function getCapabilityOracleStatus(capability) {
     businessCases.some(item => item.hasSeedOrApiSetup);
   const userVisibleOracle = capability.e2eTests.length > 0 &&
     businessCases.some(item => item.provesBusinessFlow && item.hasBusinessAssertion);
-  const sourceOracle = backendEvidence.some(item => item.exists && item.hasTestFunction);
-  const mqttOracle = !MQTT_CAPABILITIES.has(capability.id) ||
-    gmqttEvidence.some(item => item.exists && item.hasTestFunction);
+  const sourceDeclaration = backendEvidence.length > 0 && backendEvidence.every(item => item.declarationValid === true);
+  const mqttDeclaration = !MQTT_CAPABILITIES.has(capability.id) ||
+    (gmqttEvidence.length > 0 && gmqttEvidence.every(item => item.declarationValid === true));
+  const sourceOracle = backendEvidence.length > 0 && backendEvidence
+    .filter(item => item.evidenceRole !== 'source-structure')
+    .every(item => item.runtimePassed === true) &&
+    backendEvidence.some(item => item.evidenceRole !== 'source-structure');
+  const mqttOracle = !MQTT_CAPABILITIES.has(capability.id) || (
+    gmqttEvidence.length > 0 &&
+    gmqttEvidence
+      .filter(item => item.evidenceRole !== 'source-structure')
+      .every(item => item.runtimePassed === true) &&
+    gmqttEvidence.some(item => item.evidenceRole !== 'source-structure')
+  );
 
   return {
     capability: capability.id,
@@ -68,6 +79,8 @@ function getCapabilityOracleStatus(capability) {
     negativeOracle,
     stateOracle,
     userVisibleOracle,
+    sourceDeclaration,
+    mqttDeclaration,
     sourceOracle,
     mqttOracle,
     passed: statusOracle &&
@@ -123,6 +136,8 @@ function selfCheck() {
       'negativeOracle',
       'stateOracle',
       'userVisibleOracle',
+      'sourceDeclaration',
+      'mqttDeclaration',
       'sourceOracle',
       'mqttOracle'
     ]) {
@@ -139,11 +154,12 @@ function selfCheck() {
   for (const item of mappedTestFileAudit) {
     missing.push({
       capability: item.capability,
-      missing: 'mappedTestFileOracle',
+      missing: 'mappedTestDeclarationOracle',
       layer: item.layer,
       file: item.file,
       exists: item.exists,
-      hasTestFunction: item.hasTestFunction
+      declarationValid: item.declarationValid === true,
+      declarationErrors: item.declarationErrors || []
     });
   }
 
@@ -197,6 +213,7 @@ function selfCheck() {
     explicitBusinessInventoryAudit,
     explicitBusinessInventoryGapReport,
     mappedTestFileAudit,
+    goEvidenceInventoryAudit: coverage.goEvidenceInventoryAudit,
     previewProxyOracle,
     missing,
     staticOracleReady,

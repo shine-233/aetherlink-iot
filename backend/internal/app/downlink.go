@@ -49,7 +49,9 @@ func (s *DownlinkServiceWrapper) Start() error {
 	s.handler = downlink.NewHandler(adapter, s.processor, s.logger)
 
 	// 启动 Bus
-	s.bus.Start(s.ctx, s.handler)
+	if err := s.bus.Start(s.ctx, s.handler); err != nil {
+		return fmt.Errorf("start downlink bus: %w", err)
+	}
 	s.logger.Info("Downlink service started successfully")
 	return nil
 }

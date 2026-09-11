@@ -16,7 +16,10 @@ describe('visualization provider compatibility boundary', () => {
     expect(localVisualizationProvider).toMatchObject({
       id: 'native-board',
       kind: 'local',
-      deploymentMode: 'local-default'
+      deploymentMode: 'local-default',
+      capabilities: {
+        projects: { list: true, create: false, update: false, delete: false }
+      }
     })
     expect(externalVisualizationProvider).toMatchObject({
       id: 'legacy-thingsvis',

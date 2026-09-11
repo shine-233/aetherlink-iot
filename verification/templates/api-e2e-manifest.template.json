@@ -1,18 +1,43 @@
 {
-  "timestamp": "",
-  "git_commit": "",
-  "target_url": "",
-  "backend_url": "",
-  "commands": [],
+  "schema": "aetherlink.automation.archive.v1",
+  "kind": "automation-coverage",
+  "archivedAt": "",
+  "scope": "full",
+  "run": {
+    "startedAt": "",
+    "finishedAt": "",
+    "command": [],
+    "exitCode": null,
+    "strictIntegration": true
+  },
+  "source": {
+    "gitCommit": "",
+    "gitRef": "",
+    "dirty": false,
+    "diffHash": null
+  },
+  "environment": {
+    "evidenceKind": "local-real",
+    "lane": "",
+    "frontendUrl": "",
+    "backendUrl": "",
+    "mqttAddress": "",
+    "database": "",
+    "accountSource": ""
+  },
   "reports": {
-    "summary_json": "",
-    "endpoint_coverage_json": "",
-    "page_coverage_json": "",
-    "playwright_report": ""
+    "summary": { "path": "summary.json", "sha256": "" },
+    "endpointCoverage": { "path": "endpoint-coverage.json", "sha256": "" },
+    "pageCoverage": { "path": "page-coverage.json", "sha256": "" }
+  },
+  "cleanup": {
+    "status": "not-run",
+    "notes": []
   },
   "redaction": {
-    "secrets_removed": true,
+    "secretsRemoved": true,
     "notes": ""
   },
-  "verdict": "unknown"
+  "verdict": "blocked",
+  "blockingGaps": []
 }

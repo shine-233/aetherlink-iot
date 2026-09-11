@@ -22,6 +22,14 @@ type Response struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
+const successStatusContextKey = "response_success_status"
+
+// SetSuccessStatus lets a handler select the HTTP status used by the standard
+// success envelope. Invalid/non-success values are ignored by Middleware.
+func SetSuccessStatus(c *gin.Context, status int) {
+	c.Set(successStatusContextKey, status)
+}
+
 // Handler 持有响应链所需的错误码消息管理器。
 type Handler struct {
 	ErrManager *errcode.ErrorManager
@@ -81,7 +89,13 @@ func (h *Handler) handleContextError(c *gin.Context, err error) {
 // responseSuccess 使用本地化成功消息写回统一响应。
 func (h *Handler) responseSuccess(c *gin.Context, data interface{}) {
 	lang := c.GetHeader("Accept-Language")
-	c.JSON(http.StatusOK, &Response{
+	status := http.StatusOK
+	if selected, ok := c.Get(successStatusContextKey); ok {
+		if value, valid := selected.(int); valid && value >= http.StatusOK && value < http.StatusMultipleChoices {
+			status = value
+		}
+	}
+	c.JSON(status, &Response{
 		Code:    errcode.CodeSuccess,
 		Message: h.ErrManager.GetMessage(errcode.CodeSuccess, lang),
 		Data:    data,

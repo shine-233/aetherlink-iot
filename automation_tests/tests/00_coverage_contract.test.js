@@ -148,6 +148,14 @@ describe("Coverage harness contract [00_coverage_contract]", function () {
     }
   });
 
+  it("keeps catalog and metadata identities unique", function () {
+    expect(coverageContract.getCatalogIdentityAudit()).to.deep.equal({
+      duplicateEndpoints: [],
+      duplicateRoutes: [],
+      duplicateMetadataFiles: [],
+    });
+  });
+
   it("maps each P0/P1 capability and does not count boundary tests as business automation", function () {
     const check = coverageContract.selfCheck();
     const automationScene = check.traceability.find(
@@ -317,15 +325,9 @@ describe("Coverage harness contract [00_coverage_contract]", function () {
         runtimeEvidenceRequired: true,
       },
       {
-        title: "personal-center renders the authenticated profile returned by the API",
+        title: "uses the selected tenant filter as the create context",
         evidenceLayer: "browser-e2e-with-api-setup",
-        capabilityIds: ["permission-tenancy"],
-        runtimeEvidenceRequired: true,
-      },
-      {
-        title: "management/auth renders a menu element that is present in the API payload",
-        evidenceLayer: "browser-e2e-with-api-setup",
-        capabilityIds: ["permission-tenancy"],
+        capabilityIds: ["visualization", "permission-tenancy"],
         runtimeEvidenceRequired: true,
       },
     ]);
@@ -371,6 +373,26 @@ describe("Coverage harness contract [00_coverage_contract]", function () {
           "updates the created board",
           "deletes a dedicated board and verifies it disappears from detail and list",
           "rejects tenant overview for tenant_admin in the current local deployment",
+        ],
+      },
+      {
+        file: "tests/37_report_schedule.test.js",
+        evidenceKind: "business",
+        businessClosureEvidence: true,
+        hasStatusBodyCase: true,
+        hasStatefulStatusBodyCase: true,
+        hasNegativeStatusCase: true,
+        titles: [
+          "creates a schedule with omitted enabled defaulting to true",
+          "lists and gets the tenant schedule with exact persisted state",
+          "updates by route identity and persists the next revision",
+          "rejects a stale revision and proves the schedule was not mutated",
+          "accepts one durable manual run with exact 202 Location and stable replay",
+          "exposes durable run identity and immutable window without assuming a queued race",
+          "enforces retry eligibility for a terminal parent and rejects ineligible targets",
+          "isolates report reads by tenant and denies non-admin write roles",
+          "isolates nested run list and run detail by tenant",
+          "deletes with the current revision and verifies exact not-found cleanup",
         ],
       },
     ]);
@@ -490,12 +512,6 @@ describe("Coverage harness contract [00_coverage_contract]", function () {
         capabilityIds: ["system-deployment"],
         runtimeEvidenceRequired: true,
       },
-      {
-        title: "system log path filter sends an exact API query and renders the empty result",
-        evidenceLayer: "browser-e2e-with-api-setup",
-        capabilityIds: ["system-deployment"],
-        runtimeEvidenceRequired: true,
-      },
     ]);
     expect(
       mqttPipeline.automationEvidence.map((item) => ({
@@ -567,6 +583,30 @@ describe("Coverage harness contract [00_coverage_contract]", function () {
         rawHasNegativeStatusCase: true,
       },
       {
+        file: "tests/29_rule_chain_business.test.js",
+        evidenceKind: "business",
+        evidenceSource: "test-metadata",
+        businessClosureEvidence: true,
+        hasStatusBodyCase: true,
+        hasStatefulStatusBodyCase: true,
+        hasNegativeStatusCase: true,
+        rawHasStatusBodyCase: true,
+        rawHasStatefulStatusBodyCase: true,
+        rawHasNegativeStatusCase: true,
+      },
+      {
+        file: "tests/31_scene_action_20_runtime.test.js",
+        evidenceKind: "business",
+        evidenceSource: "test-metadata",
+        businessClosureEvidence: true,
+        hasStatusBodyCase: true,
+        hasStatefulStatusBodyCase: true,
+        hasNegativeStatusCase: false,
+        rawHasStatusBodyCase: true,
+        rawHasStatefulStatusBodyCase: true,
+        rawHasNegativeStatusCase: false,
+      },
+      {
         file: "tests/17_api_coverage_closure.test.js",
         evidenceKind: "boundary",
         evidenceSource: "explicit-entry",
@@ -586,6 +626,137 @@ describe("Coverage harness contract [00_coverage_contract]", function () {
       "permission-tenancy",
       "mqtt-broker-pipeline",
     ]);
+  });
+
+  it("keeps operation inventory exact and runtime evidence fail closed", function () {
+    expect(coverageContract.OPERATION_DIMENSIONS).to.deep.equal([
+      "userAction",
+      "response",
+      "mutation",
+      "stateReadback",
+      "negativeControl",
+      "idempotency",
+      "runtimeSideEffect",
+      "tenantScope",
+      "visibleResult",
+      "cleanup",
+    ]);
+    expect(coverageContract.BUSINESS_OPERATIONS.map(item => item.id)).to.deep.equal([
+      "automation.rule-chain.lifecycle",
+      "automation.rule-chain.telemetry-command-runtime",
+      "automation.scene.action-20-runtime",
+      "ota.rollout-success",
+      "ota.rollout-failure-support",
+      "template.market.portable-idempotent-import",
+      "report.schedule.lifecycle-concurrency",
+      "report.run.manual-idempotent-acceptance",
+      "report.run.durable-identity",
+      "report.run.retry",
+      "report.run.nested-tenant-isolation",
+      "visualization.native-board.local-crud",
+      "visualization.native-board.super-admin-tenant-context",
+    ]);
+    expect(coverageContract.getOperationInventoryAudit()).to.deep.equal({
+      valid: true,
+      errors: [],
+    });
+
+    const traceability = coverageContract.getOperationTraceability();
+    expect(traceability.every(item => item.staticInventoryValid)).to.equal(true);
+    expect(traceability.every(item => item.runtimeStatus === "unknown")).to.equal(true);
+    expect(traceability.every(item => item.ready === false)).to.equal(true);
+    const templateMarket = traceability.find(
+      item => item.id === "template.market.portable-idempotent-import",
+    );
+    expect(templateMarket.missingDimensions).to.deep.equal([]);
+    expect(templateMarket.runtimeStatus).to.equal("unknown");
+    expect(templateMarket.ready).to.equal(false);
+  });
+
+  it("does not let metadata or one strong case create operation runtime closure", function () {
+    const operation = coverageContract.BUSINESS_OPERATIONS.find(
+      item => item.id === "automation.rule-chain.lifecycle",
+    );
+    const onePassedCase = [{
+      file: operation.cases[0].file,
+      title: operation.cases[0].title,
+      outcome: "passed",
+    }];
+    const [result] = coverageContract.getOperationTraceability([operation], onePassedCase);
+
+    expect(result.staticInventoryValid).to.equal(true);
+    expect(result.missingDimensions).to.deep.equal([]);
+    expect(result.runtimeStatus).to.equal("unknown");
+    expect(result.ready).to.equal(false);
+  });
+
+  it("rejects v2 operation metadata that disagrees with the authored inventory", function () {
+    const metadata = testMetadata.getTestMetadata("tests/36_template_market.test.js");
+    const testCase = testMetadata.getCaseMetadata(
+      "tests/36_template_market.test.js",
+      "deletes both templates and returns exact not-found state afterwards",
+    );
+    const originalOperationIds = testCase.operationIds;
+    const originalDimensions = testCase.operationDimensions;
+    try {
+      testCase.operationIds = ["automation.rule-chain.lifecycle"];
+      let audit = coverageContract.getOperationInventoryAudit();
+      expect(audit.errors.some(item => item.reason === "case-operation-mismatch"))
+        .to.equal(true);
+
+      testCase.operationIds = ["template.market.portable-idempotent-import"];
+      testCase.operationDimensions = ["response"];
+      audit = coverageContract.getOperationInventoryAudit();
+      expect(audit.errors.some(item => (
+        item.reason === "case-operation-dimension-mismatch" && item.dimension === "cleanup"
+      ))).to.equal(true);
+    } finally {
+      testCase.operationIds = originalOperationIds;
+      testCase.operationDimensions = originalDimensions;
+    }
+    expect(metadata.fileFlags.caseMetadataManaged).to.equal(true);
+  });
+
+  it("rejects invalid inventories and ambiguous runtime identities", function () {
+    const operation = coverageContract.BUSINESS_OPERATIONS.find(
+      item => item.id === "automation.scene.action-20-runtime",
+    );
+    const passed = operation.cases.map(item => ({
+      file: item.file,
+      title: item.title,
+      outcome: "passed",
+    }));
+    const invalidOperation = {
+      ...operation,
+      requiredDimensions: [...operation.requiredDimensions, "unknown-dimension"],
+    };
+    const [invalid] = coverageContract.getOperationTraceability([invalidOperation], passed);
+    expect(invalid.staticInventoryValid).to.equal(false);
+    expect(invalid.ready).to.equal(false);
+
+    const [duplicate] = coverageContract.getOperationTraceability(operation ? [operation] : [], [
+      ...passed,
+      { ...passed[0], outcome: "failed" },
+    ]);
+    expect(duplicate.runtimeStatus).to.equal("unknown");
+    expect(duplicate.runtimeOutcomeErrors).to.deep.equal([{
+      file: passed[0].file,
+      title: passed[0].title,
+      reason: "duplicate-runtime-identity",
+    }]);
+    expect(duplicate.ready).to.equal(false);
+
+    const [unexpected] = coverageContract.getOperationTraceability([operation], [
+      ...passed,
+      { file: "tests/unmapped.test.js", title: "unmapped", outcome: "passed" },
+    ]);
+    expect(unexpected.runtimeStatus).to.equal("unknown");
+    expect(unexpected.runtimeOutcomeErrors).to.deep.equal([{
+      file: "tests/unmapped.test.js",
+      title: "unmapped",
+      reason: "unexpected-runtime-identity",
+    }]);
+    expect(unexpected.ready).to.equal(false);
   });
 
   it("keeps automation quality gates from hiding fake or unclassified coverage", function () {
@@ -620,7 +791,9 @@ describe("Coverage harness contract [00_coverage_contract]", function () {
     const expectedBusinessClosureReady =
       check.skipAudit.explicitBlockedHelpers === 0 &&
       expectedStructuredBusinessEvidence &&
-      check.missingTraceability.length === 0;
+      check.missingTraceability.length === 0 &&
+      check.operationInventoryAudit.valid &&
+      check.operationTraceability.every(item => item.ready);
 
     expect(check.skipAudit.rawMochaSkips).to.deep.equal([]);
     expect(check.skipAudit.rawPlaywrightSkips).to.deep.equal([]);
@@ -769,7 +942,7 @@ describe("Coverage harness contract [00_coverage_contract]", function () {
       coverageContract.getAutomationEvidenceKind(
         "e2e/14_route_coverage_closure.spec.js",
       ),
-    ).to.equal("business");
+    ).to.equal("page-coverage-only");
     expect(
       coverageContract.getAutomationEvidenceKind(
         "e2e/15_apply_marketplace.spec.js",
@@ -1065,6 +1238,7 @@ describe("Coverage harness contract [00_coverage_contract]", function () {
       "native board flows through the local provider on all ThingsVis compatibility routes",
       "seeded ThingsVis project and dashboard render across project list editor preview and menu routes",
       "dashboard menu persists for a real ThingsVis dashboard when the mirror is available",
+      "report schedule lifecycle creates updates runs and exposes durable readback",
     ]);
     expect(e2eBusinessTitles("04_alarm.spec.js")).to.deep.equal([
       "user search refresh keeps the seeded alarm aligned with the history API response",
@@ -1232,9 +1406,9 @@ describe("Coverage harness contract [00_coverage_contract]", function () {
     const applyCatalogModule = runner.E2E_MODULES.find(
       (mod) => mod.key === "apply-marketplace",
     );
-    expect(routeClosureModule.evidenceLabel).to.equal("business");
+    expect(routeClosureModule.evidenceLabel).to.equal("page-coverage-only");
     expect(runner.getReportDisplayName(routeClosureModule)).to.equal(
-      "e2e/14_route_coverage_closure.spec.js [evidence: business]",
+      "e2e/14_route_coverage_closure.spec.js [evidence: page-coverage-only; not business closure]",
     );
     expect(applyCatalogModule.evidenceLabel).to.equal("boundary");
     expect(runner.getReportDisplayName(applyCatalogModule)).to.equal(
@@ -1472,6 +1646,20 @@ describe("Coverage harness contract [00_coverage_contract]", function () {
       expect(report.evidenceContract).to.include({
         businessClosureRequiresEvidenceKind: "business",
       });
+      expect(report.summary.moduleOutcomes).to.deep.include({
+        module: "seeded-automation-scene",
+        type: "api",
+        outcome: "partial-skip",
+        skipped: 1,
+        blockedReasons: [
+          {
+            reason: "missing seeded scene fixture",
+            category: "seed-data",
+            seedable: true,
+          },
+        ],
+      });
+      expect(report.summary.caseOutcomes).to.deep.equal([]);
       expect(
         report.evidenceContract.nonBusinessEvidenceKinds,
       ).to.include.members(["boundary", "catalog", "preflight"]);
@@ -1551,6 +1739,21 @@ describe("Coverage harness contract [00_coverage_contract]", function () {
 
       expect(reporter.results[0].businessClosureEvidence).to.equal(false);
 
+      reporter.results = [];
+      reporter.record(
+        "managed-runtime-with-unreconciled-static-case",
+        "managed-e2e.spec.js",
+        true,
+        "",
+        "e2e",
+        "business",
+        {
+          cases: [{ title: "authored only", businessClosureEvidence: true }],
+          oracleCases: [],
+        },
+      );
+      expect(reporter.results[0].businessClosureEvidence).to.equal(false);
+
       const metadataKey = "tests/contract-mismatched-business-flag.test.js";
       testMetadata.TEST_METADATA[metadataKey] = {
         file: metadataKey,
@@ -1578,6 +1781,7 @@ describe("Coverage harness contract [00_coverage_contract]", function () {
           outcome: "passed",
           skipped: 0,
           blockedReasons: [],
+          caseResults: [],
         },
       );
 
@@ -1691,8 +1895,16 @@ describe("Coverage harness contract [00_coverage_contract]", function () {
         "e2e/14_route_coverage_closure.spec.js",
       ),
     ).to.deep.equal({
-      evidenceKind: "business",
+      evidenceKind: "page-coverage-only",
       evidenceSource: "test-metadata",
+    });
+    expect(
+      coverageContract.getAutomationEvidenceMetadata(
+        "tests/future_unmapped_business.test.js",
+      ),
+    ).to.deep.equal({
+      evidenceKind: "unknown",
+      evidenceSource: "missing-metadata",
     });
     expect(
       coverageContract.getCoverageTagMetadata(
@@ -1710,9 +1922,9 @@ describe("Coverage harness contract [00_coverage_contract]", function () {
         "e2e/14_route_coverage_closure.spec.js",
       ),
     ).to.deep.equal({
-      pageCoverageOnly: false,
-      marker: null,
-      source: "none",
+      pageCoverageOnly: true,
+      marker: "metadata:fileFlags.pageCoverageOnly",
+      source: "test-metadata",
     });
     expect(
       coverageContract
@@ -1830,28 +2042,7 @@ describe("Coverage harness contract [00_coverage_contract]", function () {
         title: item.title,
         businessClosureEvidence: item.businessClosureEvidence,
       }))
-    ).to.deep.equal([
-      {
-        title: "seeded child-device detail route renders the selected device API state",
-        businessClosureEvidence: true,
-      },
-      {
-        title: "personal-center renders the authenticated profile returned by the API",
-        businessClosureEvidence: true,
-      },
-      {
-        title: "seeded OpenAPI key appears in management/api and remains tenant-scoped",
-        businessClosureEvidence: true,
-      },
-      {
-        title: "system log path filter sends an exact API query and renders the empty result",
-        businessClosureEvidence: true,
-      },
-      {
-        title: "management/auth renders a menu element that is present in the API payload",
-        businessClosureEvidence: true,
-      },
-    ]);
+    ).to.deep.equal([]);
     expect(
       coverageContract.getAutomationEvidenceKindDetails("page-coverage-only"),
     ).to.include({

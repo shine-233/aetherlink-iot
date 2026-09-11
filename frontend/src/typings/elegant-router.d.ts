@@ -79,6 +79,7 @@ declare module "@elegant-router/types" {
     "visualization_native-board": "/visualization/native-board";
     "visualization_native-board-editor": "/visualization/native-board-editor";
     "visualization_native-boards": "/visualization/native-boards";
+    "visualization_report": "/visualization/report";
     "visualization_thingsvis": "/visualization/thingsvis";
     "visualization_thingsvis-dashboards": "/visualization/thingsvis-dashboards";
     "visualization_thingsvis-editor": "/visualization/thingsvis-editor";
@@ -201,6 +202,7 @@ declare module "@elegant-router/types" {
     | "visualization_native-board"
     | "visualization_native-board-editor"
     | "visualization_native-boards"
+    | "visualization_report"
     | "visualization_thingsvis-dashboards"
     | "visualization_thingsvis-editor"
     | "visualization_thingsvis-menu-dashboard"

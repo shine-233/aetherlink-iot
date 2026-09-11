@@ -132,15 +132,25 @@ func (user *User) RequestPasswordResetLink(ctx context.Context, req *model.Reset
 	link := buildPasswordResetLink(email, token)
 	body := fmt.Sprintf("Use this link to reset your password. The link expires in %d minutes.\n\n%s", int(resetPasswordTokenTTL.Minutes()), link)
 	if err := user.resetPasswordSender()(body, "AetherLink password reset", "", email); err != nil {
-		_ = store.Delete(ctx, resetPasswordTokenKey(token))
-		return nil, errcode.WithData(200010, map[string]interface{}{
+		cleanupErr := store.Delete(ctx, resetPasswordTokenKey(token))
+		data := map[string]interface{}{
 			"operation": "send_reset_password_link",
+			"email":     email,
+			"error":     err.Error(),
+		}
+		if cleanupErr != nil {
+			data["cleanup_error"] = cleanupErr.Error()
+		}
+		return nil, errcode.WithData(200010, data)
+	}
+
+	if err := store.Delete(ctx, passwordResetCodeKey(email), passwordResetAttemptKey(email)); err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"operation": "clear_password_reset_verification",
 			"email":     email,
 			"error":     err.Error(),
 		})
 	}
-
-	_ = store.Delete(ctx, passwordResetCodeKey(email), passwordResetAttemptKey(email))
 	return &model.ResetPasswordLinkRsp{ExpiresIn: int64(resetPasswordTokenTTL.Seconds())}, nil
 }
 
@@ -209,7 +219,13 @@ func (user *User) ResetPassword(ctx context.Context, resetPasswordReq *model.Res
 			"error":     err.Error(),
 		})
 	}
-	_ = store.Delete(ctx, passwordResetCodeKey(email), passwordResetAttemptKey(email))
+	if err := store.Delete(ctx, passwordResetCodeKey(email), passwordResetAttemptKey(email)); err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"operation": "clear_password_reset_verification",
+			"email":     email,
+			"error":     err.Error(),
+		})
+	}
 	return nil
 }
 

@@ -1,6 +1,7 @@
 package dal
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -34,6 +35,33 @@ func setupBoardScopeTestDB(t *testing.T) *gorm.DB {
 		}
 	})
 	return db
+}
+
+func TestDeleteBoardReturnsNotFoundWithoutRemovingAnotherTenantBoard(t *testing.T) {
+	db := setupBoardScopeTestDB(t)
+	now := time.Now().UTC()
+	board := &model.Board{ID: "board-delete", Name: "Board", TenantID: "tenant-1", CreatedAt: now, UpdatedAt: now, HomeFlag: "N"}
+	if err := db.Create(board).Error; err != nil {
+		t.Fatalf("seed board: %v", err)
+	}
+
+	if err := DeleteBoard(board.ID, "tenant-2"); !errors.Is(err, gorm.ErrRecordNotFound) {
+		t.Fatalf("cross-tenant DeleteBoard error = %v, want record not found", err)
+	}
+	var count int64
+	if err := db.Model(&model.Board{}).Where("id = ?", board.ID).Count(&count).Error; err != nil {
+		t.Fatalf("count board after cross-tenant delete: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("board count after cross-tenant delete = %d, want 1", count)
+	}
+
+	if err := DeleteBoard(board.ID, "tenant-1"); err != nil {
+		t.Fatalf("first DeleteBoard returned error: %v", err)
+	}
+	if err := DeleteBoard(board.ID, "tenant-1"); !errors.Is(err, gorm.ErrRecordNotFound) {
+		t.Fatalf("repeated DeleteBoard error = %v, want record not found", err)
+	}
 }
 
 func TestGetBoardListByPageForScopesFiltersAcrossTenantScope(t *testing.T) {

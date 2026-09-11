@@ -7,6 +7,7 @@ package downlink
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -18,7 +19,9 @@ func TestPublishCloseRaceDoesNotPanic(t *testing.T) {
 
 	// 消费端不取消 ctx，验证仅靠 Close 也能让 Start 的消费协程退出。
 	handler := NewHandler(&mockPublisher{}, &mockProcessor{}, newHandlerTestLogger())
-	bus.Start(context.Background(), handler)
+	if err := bus.Start(context.Background(), handler); err != nil {
+		t.Fatalf("start bus: %v", err)
+	}
 
 	var producers sync.WaitGroup
 	for i := 0; i < 16; i++ {
@@ -26,7 +29,7 @@ func TestPublishCloseRaceDoesNotPanic(t *testing.T) {
 		go func(n int) {
 			defer producers.Done()
 			for j := 0; j < 200; j++ {
-				msg := &Message{DeviceID: fmt.Sprintf("dev-%d-%d", n, j)}
+				msg := &Message{DeviceID: fmt.Sprintf("dev-%d-%d", n, j), DeviceNumber: "number", Data: []byte(`{"value":1}`)}
 				switch j % 4 {
 				case 0:
 					msg.Type = MessageTypeCommand
@@ -67,21 +70,29 @@ func TestPublishCloseRaceDoesNotPanic(t *testing.T) {
 func TestPublishDropsWhenConsumerStuck(t *testing.T) {
 	bus := NewBus(1)
 	bus.timeout = 80 * time.Millisecond
+	bus.mu.Lock()
+	bus.running = true
+	bus.ctx = context.Background()
+	bus.mu.Unlock()
 
-	filler := &Message{DeviceID: "dev-1", Type: MessageTypeCommand, Data: []byte(`{"cmd":"reset"}`)}
-	bus.PublishCommand(filler) // 占满容量为 1 的队列，之后无人消费
+	filler := &Message{DeviceID: "dev-1", DeviceNumber: "number-1", Type: MessageTypeCommand, Data: []byte(`{"cmd":"reset"}`)}
+	if err := bus.PublishCommand(filler); err != nil {
+		t.Fatalf("fill queue: %v", err)
+	}
 
-	stuck := &Message{DeviceID: "dev-2", Type: MessageTypeCommand, Data: []byte(`{"cmd":"ping"}`)}
+	stuck := &Message{DeviceID: "dev-2", DeviceNumber: "number-2", Type: MessageTypeCommand, Data: []byte(`{"cmd":"ping"}`)}
 
-	done := make(chan struct{})
+	done := make(chan error, 1)
 	started := time.Now()
 	go func() {
-		defer close(done)
-		bus.PublishCommand(stuck)
+		done <- bus.PublishCommand(stuck)
 	}()
 
 	select {
-	case <-done:
+	case err := <-done:
+		if !errors.Is(err, ErrPublishTimeout) {
+			t.Fatalf("publish error = %v, want %v", err, ErrPublishTimeout)
+		}
 	case <-time.After(3 * time.Second):
 		t.Fatal("publish did not return after timeout, blocking forever")
 	}
@@ -101,21 +112,25 @@ func TestPublishAfterCloseRejectedByGate(t *testing.T) {
 	bus.Close() // 重复 Close 必须幂等
 
 	before := bus.DroppedMessages()
-	msg := &Message{DeviceID: "dev-1", Type: MessageTypeTelemetry, Data: []byte(`{"interval":30}`)}
+	msg := &Message{DeviceID: "dev-1", DeviceNumber: "number-1", Type: MessageTypeTelemetry, Data: []byte(`{"interval":30}`)}
 
-	done := make(chan struct{})
+	done := make(chan error, 4)
 	go func() {
-		defer close(done)
-		bus.PublishCommand(msg)
-		bus.PublishAttributeSet(msg)
-		bus.PublishAttributeGet(msg)
-		bus.PublishTelemetry(msg)
+		done <- bus.PublishCommand(msg)
+		done <- bus.PublishAttributeSet(msg)
+		done <- bus.PublishAttributeGet(msg)
+		done <- bus.PublishTelemetry(msg)
 	}()
 
-	select {
-	case <-done:
-	case <-time.After(3 * time.Second):
-		t.Fatal("publish after close did not return, gate failed to reject")
+	for i := 0; i < 4; i++ {
+		select {
+		case err := <-done:
+			if !errors.Is(err, ErrBusClosed) {
+				t.Fatalf("publish after close error = %v, want %v", err, ErrBusClosed)
+			}
+		case <-time.After(3 * time.Second):
+			t.Fatal("publish after close did not return, gate failed to reject")
+		}
 	}
 
 	if got := bus.DroppedMessages() - before; got != 4 {
@@ -128,13 +143,49 @@ func TestPublishAfterCloseRejectedByGate(t *testing.T) {
 	}
 }
 
+func TestPublishRejectsCanceledConsumerContext(t *testing.T) {
+	bus := NewBus(1)
+	ctx, cancel := context.WithCancel(context.Background())
+	handler := NewHandler(&mockPublisher{}, &mockProcessor{}, newHandlerTestLogger())
+	if err := bus.Start(ctx, handler); err != nil {
+		t.Fatalf("start bus: %v", err)
+	}
+	cancel()
+
+	deadline := time.Now().Add(time.Second)
+	for {
+		err := bus.PublishCommand(&Message{
+			DeviceID:     "dev-1",
+			DeviceNumber: "number-1",
+			Type:         MessageTypeCommand,
+			Data:         []byte(`{"cmd":"reset"}`),
+		})
+		if errors.Is(err, ErrBusUnavailable) {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("publish after cancellation error = %v, want %v", err, ErrBusUnavailable)
+		}
+		time.Sleep(time.Millisecond)
+	}
+	bus.Close()
+}
+
 func TestClosePreservesBufferedMessagesThenClosesChannels(t *testing.T) {
 	bus := NewBus(4)
+	bus.mu.Lock()
+	bus.running = true
+	bus.ctx = context.Background()
+	bus.mu.Unlock()
 
-	first := &Message{DeviceID: "dev-1", Type: MessageTypeCommand, Data: []byte(`{"cmd":"a"}`)}
-	second := &Message{DeviceID: "dev-2", Type: MessageTypeCommand, Data: []byte(`{"cmd":"b"}`)}
-	bus.PublishCommand(first)
-	bus.PublishCommand(second)
+	first := &Message{DeviceID: "dev-1", DeviceNumber: "number-1", Type: MessageTypeCommand, Data: []byte(`{"cmd":"a"}`)}
+	second := &Message{DeviceID: "dev-2", DeviceNumber: "number-2", Type: MessageTypeCommand, Data: []byte(`{"cmd":"b"}`)}
+	if err := bus.PublishCommand(first); err != nil {
+		t.Fatalf("publish first: %v", err)
+	}
+	if err := bus.PublishCommand(second); err != nil {
+		t.Fatalf("publish second: %v", err)
+	}
 	bus.Close()
 
 	if got := <-bus.SubscribeCommand(); got != first {

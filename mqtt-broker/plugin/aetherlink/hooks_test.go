@@ -10,6 +10,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/DrmagicE/gmqtt"
 	"github.com/DrmagicE/gmqtt/server"
 	"github.com/golang/mock/gomock"
 	"go.uber.org/zap"
@@ -135,13 +136,104 @@ func TestDispatchMQTTUplinkRejectsBeforeCustomTopicMapping(t *testing.T) {
 
 	route := mqttDeviceRoute{deviceID: "dev-1", deviceConfigID: "cfg-1"}
 	msg := mqttArrivedPayload{
-		publishTopic: "custom/upstream/topic",
-		rawPayload:   []byte(`{"humidity":60}`),
+		topic:      "custom/upstream/topic",
+		rawPayload: []byte(`{"humidity":60}`),
 	}
 	request := &server.MsgArrivedRequest{}
 
 	err := route.dispatchMQTTUplink(context.Background(), client, request, msg, "device-user")
 	if !errors.Is(err, errMQTTMessageDiscarded) {
 		t.Fatalf("dispatchMQTTUplink() error = %v, want errMQTTMessageDiscarded", err)
+	}
+	if request.Message != nil {
+		t.Fatal("schema-rejected message was not dropped")
+	}
+}
+
+func TestDispatchMappedMQTTUplinkDropsSourceAndPreservesPublishMetadata(t *testing.T) {
+	previousResolver := resolveUpTarget
+	previousPublisher := mappedMQTTPublisher
+	previousReady := mappedMQTTPublisherReady
+	resolveUpTarget = func(context.Context, string, string) (string, bool) { return "normalized/up", true }
+	publisher := &stubMappedPublisher{}
+	mappedMQTTPublisher = publisher
+	mappedMQTTPublisherReady = func(context.Context) error { return nil }
+	defer func() {
+		resolveUpTarget = previousResolver
+		mappedMQTTPublisher = previousPublisher
+		mappedMQTTPublisherReady = previousReady
+	}()
+
+	ctrl := gomock.NewController(t)
+	client := server.NewMockClient(ctrl)
+	client.EXPECT().ClientOptions().Return(&server.ClientOptions{ClientID: "mapped-client"}).AnyTimes()
+	req := &server.MsgArrivedRequest{Message: &gmqtt.Message{Topic: "alias/resolved/up", Payload: []byte(`{"temp":20}`), QoS: 2, Retained: true}}
+	route := mqttDeviceRoute{deviceID: "dev-1", deviceConfigID: "cfg-1"}
+	msg := parseMQTTArrivedPayload(req)
+
+	if err := route.dispatchMQTTUplink(context.Background(), client, req, msg, "device-user"); err != nil {
+		t.Fatalf("dispatchMQTTUplink: %v", err)
+	}
+	if req.Message != nil {
+		t.Fatal("successfully mapped source message was delivered locally")
+	}
+	if publisher.topic != "normalized/up" || publisher.qos != 2 || !publisher.retained {
+		t.Fatalf("mapped publish metadata = topic %q qos %d retained %v", publisher.topic, publisher.qos, publisher.retained)
+	}
+}
+
+func TestDispatchMappedRetainedDeletePreservesEmptyPayload(t *testing.T) {
+	previousResolver := resolveUpTarget
+	previousPublisher := mappedMQTTPublisher
+	previousReady := mappedMQTTPublisherReady
+	resolveUpTarget = func(context.Context, string, string) (string, bool) { return "normalized/up", true }
+	publisher := &stubMappedPublisher{}
+	mappedMQTTPublisher = publisher
+	mappedMQTTPublisherReady = func(context.Context) error { return nil }
+	defer func() {
+		resolveUpTarget = previousResolver
+		mappedMQTTPublisher = previousPublisher
+		mappedMQTTPublisherReady = previousReady
+	}()
+
+	ctrl := gomock.NewController(t)
+	client := server.NewMockClient(ctrl)
+	client.EXPECT().ClientOptions().Return(&server.ClientOptions{ClientID: "mapped-client"}).AnyTimes()
+	req := &server.MsgArrivedRequest{Message: &gmqtt.Message{Topic: "alias/resolved/up", Payload: nil, QoS: 1, Retained: true}}
+	route := mqttDeviceRoute{deviceID: "dev-1", deviceConfigID: "cfg-1"}
+
+	if err := route.dispatchMQTTUplink(context.Background(), client, req, parseMQTTArrivedPayload(req), "device-user"); err != nil {
+		t.Fatalf("dispatchMQTTUplink: %v", err)
+	}
+	if !publisher.retained || len(publisher.payload) != 0 {
+		t.Fatalf("mapped retained delete = retained %v payload %q", publisher.retained, publisher.payload)
+	}
+}
+
+func TestDispatchMappedMQTTUplinkFailureDropsSourceAndReturnsError(t *testing.T) {
+	previousResolver := resolveUpTarget
+	previousPublisher := mappedMQTTPublisher
+	previousReady := mappedMQTTPublisherReady
+	resolveUpTarget = func(context.Context, string, string) (string, bool) { return "normalized/up", true }
+	mappedMQTTPublisher = &stubMappedPublisher{err: errors.New("broker rejected")}
+	mappedMQTTPublisherReady = func(context.Context) error { return nil }
+	defer func() {
+		resolveUpTarget = previousResolver
+		mappedMQTTPublisher = previousPublisher
+		mappedMQTTPublisherReady = previousReady
+	}()
+
+	ctrl := gomock.NewController(t)
+	client := server.NewMockClient(ctrl)
+	client.EXPECT().ClientOptions().Return(&server.ClientOptions{ClientID: "mapped-client"}).AnyTimes()
+	req := &server.MsgArrivedRequest{Message: &gmqtt.Message{Topic: "alias/resolved/up", Payload: []byte(`{"temp":20}`), QoS: 1}}
+	route := mqttDeviceRoute{deviceID: "dev-1", deviceConfigID: "cfg-1"}
+
+	err := route.dispatchMQTTUplink(context.Background(), client, req, parseMQTTArrivedPayload(req), "device-user")
+	if err == nil || !errors.Is(err, mappedMQTTPublisher.(*stubMappedPublisher).err) {
+		t.Fatalf("dispatchMQTTUplink error = %v", err)
+	}
+	if req.Message != nil {
+		t.Fatal("failed mapped source message fell back to local delivery")
 	}
 }

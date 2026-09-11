@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/DrmagicE/gmqtt/plugin/aetherlink/util"
 	"github.com/DrmagicE/gmqtt/server"
@@ -31,9 +32,10 @@ func (t *AetherLinkPlugin) OnMsgArrivedWrapper(pre server.OnMsgArrived) server.O
 }
 
 type mqttArrivedPayload struct {
-	topic        string
-	publishTopic string
-	rawPayload   []byte
+	topic      string
+	rawPayload []byte
+	qos        byte
+	retained   bool
 }
 
 type mqttDeviceRoute struct {
@@ -44,9 +46,10 @@ type mqttDeviceRoute struct {
 
 func parseMQTTArrivedPayload(req *server.MsgArrivedRequest) mqttArrivedPayload {
 	return mqttArrivedPayload{
-		topic:        req.Message.Topic,
-		publishTopic: string(req.Publish.TopicName),
-		rawPayload:   req.Message.Payload,
+		topic:      req.Message.Topic,
+		rawPayload: req.Message.Payload,
+		qos:        req.Message.QoS,
+		retained:   req.Message.Retained,
 	}
 }
 
@@ -90,17 +93,13 @@ func resolveMQTTDownlinkRoute(ctx context.Context, msg mqttArrivedPayload) (stri
 }
 
 func forwardMQTTDownlink(client server.Client, username string, topic string, src string, originalPayload []byte, outPayload []byte, deviceID string) {
-	forwardSucceeded := true
 	if err := DefaultMqttClient.SendData(src, outPayload); err != nil {
-		forwardSucceeded = false
 		Log.Warn("custom downlink forward failed", zap.String("topic", topic), zap.String("client_id", client.ClientOptions().ClientID), zap.Error(err))
 		writeMQTTForwardDebugLog(client, username, deviceID, topic, src, "error", err.Error(), originalPayload)
-	} else {
-		Log.Info("custom downlink forward succeeded", zap.String("topic", topic), zap.String("client_id", client.ClientOptions().ClientID), zap.String("target", src))
+		return
 	}
-	if forwardSucceeded {
-		writeMQTTForwardDebugLog(client, username, deviceID, topic, src, "ok", "", originalPayload)
-	}
+	Log.Info("custom downlink forward succeeded", zap.String("topic", topic), zap.String("client_id", client.ClientOptions().ClientID), zap.String("target", src))
+	writeMQTTForwardDebugLog(client, username, deviceID, topic, src, "ok", "", originalPayload)
 }
 
 func routeMQTTDeviceMessage(ctx context.Context, client server.Client, req *server.MsgArrivedRequest, msg mqttArrivedPayload, username string) error {
@@ -142,16 +141,19 @@ func mqttDeviceConfigID(device *Device) string {
 func (route mqttDeviceRoute) dispatchMQTTUplink(ctx context.Context, client server.Client, req *server.MsgArrivedRequest, msg mqttArrivedPayload, username string) error {
 	// 所有上行都先经过同一 schema 门禁，避免自定义 topic mapping 绕过设备配置约束。
 	if enforcePayloadSchemaOnUplink(route.deviceID, route.deviceConfigID, msg.rawPayload) {
-		writeMQTTPublishDebugLog(client, username, route.deviceID, msg.publishTopic, false, "", "drop", "payload schema enforcement rejected", msg.rawPayload)
+		writeMQTTPublishDebugLog(client, username, route.deviceID, msg.topic, false, "", "drop", "payload schema enforcement rejected", msg.rawPayload)
+		req.Drop()
 		return errMQTTMessageDiscarded
 	}
 
 	if route.deviceConfigID != "" {
 		handled, err := route.tryMappedMQTTUplink(ctx, client, msg, username)
 		if handled {
+			req.MarkHandled()
+			req.Drop()
 			return err
 		}
-		Log.Debug("mqtt uplink did not match custom mapping", zap.String("topic", msg.publishTopic), zap.String("client_id", client.ClientOptions().ClientID))
+		Log.Debug("mqtt uplink did not match custom mapping", zap.String("topic", msg.topic), zap.String("client_id", client.ClientOptions().ClientID))
 	}
 
 	return handleStandardMQTTUplink(client, req, msg, username, route.deviceID, route.deviceNumber)
@@ -162,39 +164,46 @@ func (route mqttDeviceRoute) tryMappedMQTTUplink(ctx context.Context, client ser
 		return false, nil
 	}
 
-	svc := NewTopicMapService()
-	target, ok := svc.ResolveUpTarget(ctx, route.deviceConfigID, msg.publishTopic)
+	target, ok := resolveUpTarget(ctx, route.deviceConfigID, msg.topic)
 	if !ok || target == "" {
 		return false, nil
 	}
 
-	if err := DefaultMqttClient.SendData(target, buildMQTTUplinkPayload(route.deviceID, msg.rawPayload)); err != nil {
-		writeMQTTPublishDebugLog(client, username, route.deviceID, msg.publishTopic, true, target, "error", err.Error(), msg.rawPayload)
-		Log.Warn("custom uplink forward failed", zap.String("topic", msg.publishTopic), zap.String("client_id", client.ClientOptions().ClientID), zap.Error(err))
-		return true, nil
+	if err := mappedMQTTPublisherReady(ctx); err != nil {
+		writeMQTTPublishDebugLog(client, username, route.deviceID, msg.topic, true, target, "error", err.Error(), msg.rawPayload)
+		return true, fmt.Errorf("custom uplink forward unavailable: %w", err)
+	}
+	payload := buildMQTTUplinkPayload(route.deviceID, msg.rawPayload)
+	if msg.retained && len(msg.rawPayload) == 0 {
+		payload = nil
+	}
+	if err := mappedMQTTPublisher.SendMessage(target, msg.qos, msg.retained, payload); err != nil {
+		writeMQTTPublishDebugLog(client, username, route.deviceID, msg.topic, true, target, "error", err.Error(), msg.rawPayload)
+		Log.Warn("custom uplink forward failed", zap.String("topic", msg.topic), zap.String("client_id", client.ClientOptions().ClientID), zap.Error(err))
+		return true, fmt.Errorf("custom uplink forward failed: %w", err)
 	}
 
-	Log.Info("custom uplink forward succeeded", zap.String("topic", msg.publishTopic), zap.String("client_id", client.ClientOptions().ClientID), zap.String("target", target))
-	writeMQTTPublishDebugLog(client, username, route.deviceID, msg.publishTopic, true, target, "drop", "", msg.rawPayload)
-	return true, errMQTTMessageDiscarded
+	Log.Info("custom uplink forward succeeded", zap.String("topic", msg.topic), zap.String("client_id", client.ClientOptions().ClientID), zap.String("target", target))
+	writeMQTTPublishDebugLog(client, username, route.deviceID, msg.topic, true, target, "ok", "", msg.rawPayload)
+	return true, nil
 }
 
 func handleStandardMQTTUplink(client server.Client, req *server.MsgArrivedRequest, msg mqttArrivedPayload, username string, deviceID string, deviceNumber string) error {
 	// 发布校验与订阅侧 ValidateSubTopicForDevice 对称：
 	// 形状匹配之外，topic 中携带设备身份的槽位（devices/status 的设备 ID、
 	// '+/up' 首层的设备编号）必须等于发布者自身身份，防止跨设备注入。
-	if !util.ValidatePubTopicForDevice(msg.publishTopic, deviceID, deviceNumber) {
+	if !util.ValidatePubTopicForDevice(msg.topic, deviceID, deviceNumber) {
 		return handleMQTTPublishPermissionDenied(client, username, deviceID, msg)
 	}
 
 	req.Message.Payload = buildMQTTUplinkPayload(deviceID, msg.rawPayload)
-	writeMQTTPublishDebugLog(client, username, deviceID, msg.publishTopic, false, "", "ok", "", msg.rawPayload)
+	writeMQTTPublishDebugLog(client, username, deviceID, msg.topic, false, "", "ok", "", msg.rawPayload)
 	return nil
 }
 
 func handleMQTTPublishPermissionDenied(client server.Client, username string, deviceID string, msg mqttArrivedPayload) error {
-	writeMQTTPublishDebugLog(client, username, deviceID, msg.publishTopic, false, "", "deny", "permission denied", msg.rawPayload)
-	Log.Warn("mqtt publish permission denied", zap.String("topic", msg.publishTopic), zap.String("client_id", client.ClientOptions().ClientID))
+	writeMQTTPublishDebugLog(client, username, deviceID, msg.topic, false, "", "deny", "permission denied", msg.rawPayload)
+	Log.Warn("mqtt publish permission denied", zap.String("topic", msg.topic), zap.String("client_id", client.ClientOptions().ClientID))
 	return errors.New("permission denied")
 }
 

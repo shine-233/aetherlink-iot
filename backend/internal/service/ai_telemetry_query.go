@@ -1,15 +1,17 @@
 // 文件用途：AI 集成——自然语言查询遥测数据（ROADMAP C4 首项）。
 // 核心逻辑：LLM 只负责把用户问题解析成结构化查询意图（设备、字段、时间范围），
-//   实际取数走白名单 DAL 路径并强制租户过滤；不执行模型生成的裸 SQL，杜绝注入面。
+//
+//	实际取数走白名单 DAL 路径并强制租户过滤；不执行模型生成的裸 SQL，杜绝注入面。
+//
 // 关键注意事项：未配置 ai.llm.api_key 时显式报"未配置"，不伪装成功；
-//   意图参数必须钳制上限（设备数/字段数/回溯时长），防止放大查询。
+//
+//	意图参数必须钳制上限（设备数/字段数/回溯时长），防止放大查询。
 package service
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
@@ -28,7 +30,6 @@ const (
 	aiIntentMaxKeys      = 10
 	aiIntentMinHoursBack = 1
 	aiIntentMaxHoursBack = 24 * 30
-	aiHTTPTimeout        = 30 * time.Second
 )
 
 // AiQuery AI 集成服务入口。
@@ -42,11 +43,11 @@ type AiTelemetryQueryReq struct {
 
 // AiTelemetryQueryResp 查询响应：意图 + 各设备当前遥测快照。
 type AiTelemetryQueryResp struct {
-	Question    string                       `json:"question"`
-	Intent      telemetryQueryIntent         `json:"intent"`
-	Devices     []aiDeviceTelemetrySnapshot  `json:"devices"`
-	Model       string                       `json:"model"`
-	GeneratedAt time.Time                    `json:"generated_at"`
+	Question    string                      `json:"question"`
+	Intent      telemetryQueryIntent        `json:"intent"`
+	Devices     []aiDeviceTelemetrySnapshot `json:"devices"`
+	Model       string                      `json:"model"`
+	GeneratedAt time.Time                   `json:"generated_at"`
 }
 
 type telemetryQueryIntent struct {
@@ -56,11 +57,11 @@ type telemetryQueryIntent struct {
 }
 
 type aiDeviceTelemetrySnapshot struct {
-	DeviceID    string            `json:"device_id"`
-	DeviceNumber string           `json:"device_number"`
-	Name        string            `json:"name"`
-	Latest      map[string]string `json:"latest"`
-	UpdatedAt   *time.Time        `json:"updated_at"`
+	DeviceID     string            `json:"device_id"`
+	DeviceNumber string            `json:"device_number"`
+	Name         string            `json:"name"`
+	Latest       map[string]string `json:"latest"`
+	UpdatedAt    *time.Time        `json:"updated_at"`
 }
 
 func aiLLMBaseURL() string {
@@ -134,75 +135,16 @@ func clampTelemetryIntent(intent telemetryQueryIntent) telemetryQueryIntent {
 	return intent
 }
 
-type aiChatRequest struct {
-	Model     string        `json:"model"`
-	Messages  []aiChatMessage `json:"messages"`
-	Temperature float64     `json:"temperature"`
-}
-
-type aiChatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
-type aiChatResponse struct {
-	Choices []struct {
-		Message struct {
-			Content string `json:"content"`
-		} `json:"message"`
-	} `json:"choices"`
-	Error *struct {
-		Message string `json:"message"`
-	} `json:"error"`
-}
-
-// callLLMChat 调用 OpenAI 兼容的 chat completions 接口。
+// callLLMChat 调用统一的 OpenAI 兼容公网出站边界。
 func callLLMChat(ctx context.Context, system, user string) (string, error) {
-	payload := aiChatRequest{
-		Model: aiLLMModel(),
-		Messages: []aiChatMessage{
-			{Role: "system", Content: system},
-			{Role: "user", Content: user},
-		},
-		Temperature: 0,
-	}
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return "", err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, aiLLMBaseURL()+"/chat/completions", strings.NewReader(string(body)))
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+aiLLMAPIKey())
-
-	client := &http.Client{Timeout: aiHTTPTimeout}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	var parsed aiChatResponse
-	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
-		return "", fmt.Errorf("invalid llm response: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		msg := http.StatusText(resp.StatusCode)
-		if parsed.Error != nil && parsed.Error.Message != "" {
-			msg = parsed.Error.Message
-		}
-		return "", fmt.Errorf("llm http %d: %s", resp.StatusCode, msg)
-	}
-	if len(parsed.Choices) == 0 {
-		return "", fmt.Errorf("llm returned no choices")
-	}
-	return parsed.Choices[0].Message.Content, nil
+	return aiChatCompletion(ctx, aiLLMBaseURL(), aiLLMAPIKey(), aiLLMModel(), []aiLLMChatMessage{
+		{Role: "system", Content: system},
+		{Role: "user", Content: user},
+	}, 0, nil)
 }
 
 // QueryTelemetry 自然语言查询遥测：意图解析（LLM）→ 白名单取数（DAL，强制租户过滤）。
-func (*AiQuery) QueryTelemetry(req *AiTelemetryQueryReq, claims *utils.UserClaims) (*AiTelemetryQueryResp, error) {
+func (*AiQuery) QueryTelemetry(ctx context.Context, req *AiTelemetryQueryReq, claims *utils.UserClaims) (*AiTelemetryQueryResp, error) {
 	if req == nil || strings.TrimSpace(req.Question) == "" {
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "question is required")
 	}
@@ -223,14 +165,14 @@ func (*AiQuery) QueryTelemetry(req *AiTelemetryQueryReq, claims *utils.UserClaim
 	}
 
 	system, user := buildTelemetryIntentPrompt(strings.TrimSpace(req.Question))
-	content, err := callLLMChat(context.Background(), system, user)
+	content, err := callLLMChat(ctx, system, user)
 	if err != nil {
-		logrus.Warnf("ai telemetry query llm call failed: %v", err)
-		return nil, errcode.NewWithMessage(errcode.CodeParamError, "AI request failed: "+err.Error())
+		logrus.Warn("ai telemetry query llm call failed")
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "AI request failed")
 	}
 	intent, err := parseAiIntentJson(content)
 	if err != nil {
-		logrus.Warnf("ai telemetry query intent parse failed: %v content=%q", err, content)
+		logrus.Warn("ai telemetry query intent parse failed")
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "AI returned an unreadable query intent")
 	}
 

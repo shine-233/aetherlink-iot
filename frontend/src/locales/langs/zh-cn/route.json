@@ -43,6 +43,7 @@
   "route.visualization-native-board": "原生看板查看器",
   "route.visualization-native-board-editor": "原生看板编辑器",
   "route.visualization-native-boards": "原生看板",
+  "route.visualization-report": "定时报表",
   "route.automation_scene-manage": "场景",
   "route.automation_rule-chain": "规则链",
   "route.automation_rule-chain-edit": "规则链编辑",

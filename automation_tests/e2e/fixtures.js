@@ -28,27 +28,63 @@ const ROLE_FILES = {
   email_change_tenant: 'email-change-tenant.json'
 };
 
-function instrumentPageCoverage(page) {
+function coverageContext(testInfo) {
+  if (!testInfo) return {};
+  return {
+    runId: process.env.AETHERLINK_COVERAGE_RUN_ID,
+    module: process.env.AETHERLINK_COVERAGE_MODULE ||
+      path.basename(testInfo.file || '', path.extname(testInfo.file || '')) ||
+      'unknown',
+    case: {
+      file: testInfo.file || null,
+      title: testInfo.title || null,
+      titlePath: typeof testInfo.titlePath === 'function' ? testInfo.titlePath() : [],
+      caseId: testInfo.testId || null
+    },
+    attempt: {
+      retry: testInfo.retry,
+      workerIndex: testInfo.workerIndex,
+      parallelIndex: testInfo.parallelIndex,
+      repeatEachIndex: testInfo.repeatEachIndex
+    }
+  };
+}
+
+function instrumentPageCoverage(page, testInfo) {
+  const context = coverageContext(testInfo);
   let gotoInFlight = 0;
   page.on('framenavigated', frame => {
     if (frame === page.mainFrame() && gotoInFlight === 0) {
       // SPA router.push/history navigation does not pass through page.goto.
-      pageCoverage.hitPage(frame.url());
+      pageCoverage.hitPage(frame.url(), undefined, {
+        ...context,
+        statusCode: null,
+        outcome: 'pending',
+        diagnostics: { navigation: 'spa' }
+      });
     }
   });
 
   const originalGoto = page.goto.bind(page);
   page.goto = async function(url, options) {
     gotoInFlight++;
+    let response = null;
     let completed = false;
     try {
-      const response = await originalGoto(url, options);
+      response = await originalGoto(url, options);
       completed = true;
       return response;
     } finally {
       gotoInFlight--;
       // Record only the settled URL, after redirects and failed navigations.
-      if (completed && gotoInFlight === 0) pageCoverage.hitPage(page.url());
+      if (completed && gotoInFlight === 0) {
+        pageCoverage.hitPage(page.url(), undefined, {
+          ...context,
+          statusCode: response ? response.status() : null,
+          outcome: 'pending',
+          diagnostics: { navigation: 'goto' }
+        });
+      }
     }
   };
 }
@@ -75,8 +111,8 @@ function storageStateExists(role) {
  * 扩展后的 test fixture，提供 rolePage / api / data 等便捷对象
  */
 const test = base.extend({
-  page: async ({ page }, use) => {
-    instrumentPageCoverage(page);
+  page: async ({ page }, use, testInfo) => {
+    instrumentPageCoverage(page, testInfo);
 
     await use(page);
   },
@@ -93,7 +129,7 @@ const test = base.extend({
    *   test('用例', async ({ rolePage }) => { ... })
    *   test.use({ role: 'tenant_admin' })
    */
-  rolePage: async ({ browser, role }, use) => {
+  rolePage: async ({ browser, role }, use, testInfo) => {
     const storageStatePath = getStorageStatePath(role);
 
     if (!storageStateExists(role)) {
@@ -107,7 +143,7 @@ const test = base.extend({
     const page = await context.newPage();
 
     // 拦截 page.goto() 调用，自动记录页面覆盖率
-    instrumentPageCoverage(page);
+    instrumentPageCoverage(page, testInfo);
 
     await use(page);
     await context.close();
@@ -116,34 +152,40 @@ const test = base.extend({
   /**
    * API 辅助对象，复用 lib/api_client.js
    */
-  api: async ({}, use) => {
+  api: async ({}, use, testInfo) => {
+    const requestContext = coverageContext(testInfo);
+    const withContext = options => ({
+      ...(options || {}),
+      ...requestContext,
+      attempt: { ...requestContext.attempt, ...((options && options.attempt) || {}) }
+    });
     await use({
       client: apiClient,
       config: config,
       /**
        * 以指定角色登录并返回 token
        */
-      login: (accountKey) => apiClient.login(accountKey),
+      login: (accountKey) => apiClient.login(accountKey, withContext()),
       /**
        * GET 请求
        */
-      get: (url, params, accountKey) => apiClient.get(url, params, accountKey),
-      getNoAuth: (url, params) => apiClient.getNoAuth(url, params),
+      get: (url, params, accountKey, options) => apiClient.get(url, params, accountKey, withContext(options)),
+      getNoAuth: (url, params, options) => apiClient.getNoAuth(url, params, withContext(options)),
       /**
        * POST 请求
        */
-      post: (url, data, accountKey) => apiClient.post(url, data, accountKey),
-      postNoAuth: (url, data) => apiClient.postNoAuth(url, data),
+      post: (url, data, accountKey, options) => apiClient.post(url, data, accountKey, withContext(options)),
+      postNoAuth: (url, data, options) => apiClient.postNoAuth(url, data, withContext(options)),
       /**
        * PUT 请求
        */
-      put: (url, data, accountKey) => apiClient.put(url, data, accountKey),
-      putNoAuth: (url, data) => apiClient.putNoAuth(url, data),
+      put: (url, data, accountKey, options) => apiClient.put(url, data, accountKey, withContext(options)),
+      putNoAuth: (url, data, options) => apiClient.putNoAuth(url, data, withContext(options)),
       /**
        * DELETE 请求
        */
-      delete: (url, data, accountKey) => apiClient.delete(url, data, accountKey),
-      deleteNoAuth: (url, data) => apiClient.deleteNoAuth(url, data),
+      delete: (url, data, accountKey, options) => apiClient.delete(url, data, accountKey, withContext(options)),
+      deleteNoAuth: (url, data, options) => apiClient.deleteNoAuth(url, data, withContext(options)),
       /**
        * 探测账号在当前本地后端是否可登录
        */

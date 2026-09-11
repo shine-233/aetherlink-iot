@@ -56,7 +56,7 @@ const MODULE_EVIDENCE_LABELS = {
   'api:runtime-config-env': 'config',
   'e2e:apply-marketplace': 'boundary',
   'e2e:dashboard': 'boundary',
-  'e2e:route-coverage-closure': 'business'
+  'e2e:route-coverage-closure': 'page-coverage-only'
 };
 
 const NON_BUSINESS_EVIDENCE_LABELS = new Set([
@@ -135,9 +135,6 @@ function getModuleEvidenceLabelFromMetadata(key, type, metadata) {
   const explicit = MODULE_EVIDENCE_LABELS[`${type}:${key}`];
   if (explicit) {
     return explicit;
-  }
-  if (type === 'api' && key.startsWith('seeded-')) {
-    return 'business';
   }
   return 'unknown';
 }
@@ -218,13 +215,15 @@ function getModuleNameForType(type, key) {
 function createDiscoveredModule(type, file) {
   const key = keyFromFilename(file);
   const moduleFile = getModuleFileForType(type, file);
-  const metadata = testMetadata.getTestMetadata(getMetadataPathForModule(type, file, moduleFile));
+  const metadataFile = getMetadataPathForModule(type, file, moduleFile);
+  const metadata = testMetadata.getTestMetadata(metadataFile);
   return {
     key,
     aliases: buildAliases(key, type, file),
     name: getModuleNameForType(type, key),
     evidenceLabel: getModuleEvidenceLabelFromMetadata(key, type, metadata),
     file: moduleFile,
+    metadataFile,
     rawFile: file,
     type
   };
@@ -303,6 +302,7 @@ function buildExecutionPlan(args, suites = discoverSuites()) {
     args,
     apiModulesToRun,
     e2eModulesToRun,
+    discoveredSuites: suites,
     runMode: args.parallel ? 'parallel' : 'sequential',
     types: getPlanTypes(apiModulesToRun, e2eModulesToRun)
   };

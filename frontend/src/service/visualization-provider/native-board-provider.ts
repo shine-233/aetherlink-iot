@@ -147,6 +147,16 @@ export const nativeBoardProvider: LocalVisualizationProvider = {
   id: NATIVE_BOARD_PROVIDER_ID,
   kind: 'local',
   deploymentMode: 'local-default',
+  capabilities: {
+    projects: { list: true, create: false, update: false, delete: false },
+    dashboards: {
+      thumbnail: false,
+      genericLayout: false,
+      dataSources: false,
+      variables: false,
+      publish: true
+    }
+  },
 
   async listProjects(params) {
     const page = Math.max(1, Math.floor(params?.page ?? 1))

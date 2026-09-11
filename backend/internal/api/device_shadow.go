@@ -68,3 +68,21 @@ func (*DeviceShadowApi) CancelShadowMessage(c *gin.Context) {
 	}
 	c.Set("data", map[string]interface{}{})
 }
+
+// AckShadowMessage 设备确认已收到影子消息（P0.2 ACK 闭环）。
+// POST /api/v1/device/shadow/:deviceId/:msgId/ack
+// 只有 pending/sent 的消息可被确认；终态行返回参数错误，不允许把历史结果改写成已送达。
+func (*DeviceShadowApi) AckShadowMessage(c *gin.Context) {
+	deviceId := c.Param("deviceId")
+	msgId := c.Param("msgId")
+	if deviceId == "" || msgId == "" {
+		c.Error(errcode.NewWithMessage(errcode.CodeParamError, "device_id and msg_id are required"))
+		return
+	}
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	if err := service.GroupApp.DeviceShadow.AckShadowMessage(deviceId, msgId, userClaims); err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", map[string]interface{}{})
+}

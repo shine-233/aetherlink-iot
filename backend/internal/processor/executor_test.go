@@ -9,7 +9,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
+	"time"
 
 	lua "github.com/yuin/gopher-lua"
 )
@@ -86,6 +88,28 @@ end
 	}
 	if got != "safe" {
 		t.Fatalf("sandbox visibility = %q, want safe", got)
+	}
+}
+
+func TestLuaExecutorRejectsDangerousRequiredModules(t *testing.T) {
+	executor := NewLuaExecutor()
+	_, err := executor.ExecuteDecode(context.Background(), `
+local osModule = require("os")
+function encodeInp() return tostring(osModule) end
+`, nil)
+	if err == nil || !strings.Contains(err.Error(), `module "os" is not allowed`) {
+		t.Fatalf("ExecuteDecode unsafe module error = %v", err)
+	}
+}
+
+func TestLuaExecutorReportsContextDeadlineAsTimeout(t *testing.T) {
+	executor := NewLuaExecutor()
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	_, err := executor.ExecuteDecode(ctx, `function encodeInp() while true do end end`, nil)
+	var processorErr *ProcessorError
+	if !errors.As(err, &processorErr) || processorErr.Code != ErrCodeScriptTimeout {
+		t.Fatalf("ExecuteDecode timeout error = %#v", err)
 	}
 }
 

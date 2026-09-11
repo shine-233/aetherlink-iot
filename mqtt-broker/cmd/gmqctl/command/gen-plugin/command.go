@@ -16,10 +16,10 @@ import (
 )
 
 var (
-	name     string
-	hooksStr string
-	config   bool
-	output   string
+	name       string
+	hooksStr   string
+	configFlag bool
+	output     string
 )
 
 func must(err error) {
@@ -35,7 +35,7 @@ func init() {
 	}
 	Command.Flags().StringVarP(&name, "name", "n", "", "The plugin name.")
 	Command.Flags().StringVarP(&hooksStr, "hooks", "H", "", "The hooks use by the plugin, multiple hooks are separated by ','")
-	Command.Flags().BoolVarP(&config, "config", "c", false, "Whether the plugin needs a configuration.")
+	Command.Flags().BoolVarP(&configFlag, "config", "c", false, "Whether the plugin needs a configuration.")
 	Command.Flags().StringVarP(&output, "output", "o", "", "The output directory.")
 	Command.MarkFlagRequired("name")
 }
@@ -73,7 +73,10 @@ var Command = &cobra.Command{
 }
 
 func run(cmd *cobra.Command, args []string) error {
-	name := strings.ToLower(name)
+	name := strings.ToLower(strings.TrimSpace(name))
+	if name == "" {
+		return errors.New("missing name")
+	}
 	// Guess the output directory when not set.
 	// If the current directory is gmqtt, then the code gen assumes it is in the gmqtt project root directory.
 	if output == "" {
@@ -99,7 +102,7 @@ func run(cmd *cobra.Command, args []string) error {
 		StrutName: strcase.ToCamel(name),
 		Hooks:     hooks,
 		Receiver:  string(name[0]),
-		Config:    config,
+		Config:    configFlag,
 	}
 
 	err = prepareOutput(output)

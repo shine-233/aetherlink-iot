@@ -16,6 +16,13 @@ const DefaultTimeout = 3 * time.Second
 // Execute runs encodeInp(msg, topic). The supplied context may impose a
 // shorter deadline, while DefaultTimeout remains the hard upper bound.
 func Execute(ctx context.Context, code string, msg []byte, topic string) (result string, err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			result = ""
+			err = fmt.Errorf("lua script panic: %v", recovered)
+		}
+	}()
+
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -25,14 +32,9 @@ func Execute(ctx context.Context, code string, msg []byte, topic string) (result
 	L := lua.NewState()
 	defer L.Close()
 	L.SetContext(execCtx)
-	setupSandbox(L)
-
-	defer func() {
-		if recovered := recover(); recovered != nil {
-			result = ""
-			err = fmt.Errorf("lua script panic: %v", recovered)
-		}
-	}()
+	if err := setupSandbox(L); err != nil {
+		return "", err
+	}
 
 	if err := L.DoString(code); err != nil {
 		if execCtx.Err() != nil {
@@ -71,7 +73,7 @@ func Execute(ctx context.Context, code string, msg []byte, topic string) (result
 	return value.String(), nil
 }
 
-func setupSandbox(L *lua.LState) {
+func setupSandbox(L *lua.LState) error {
 	L.PreloadModule("json", luajson.Loader)
 	originalRequire := L.GetGlobal("require")
 	if err := L.CallByParam(lua.P{
@@ -79,7 +81,7 @@ func setupSandbox(L *lua.LState) {
 		NRet:    1,
 		Protect: true,
 	}, lua.LString("json")); err != nil {
-		panic(fmt.Sprintf("preload json module: %v", err))
+		return fmt.Errorf("preload json module: %w", err)
 	}
 	jsonModule := L.Get(-1)
 	L.Pop(1)
@@ -99,4 +101,5 @@ func setupSandbox(L *lua.LState) {
 	} {
 		L.SetGlobal(name, lua.LNil)
 	}
+	return nil
 }

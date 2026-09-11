@@ -830,10 +830,14 @@ func buildLocalInitLoginFailure(userInfo *model.User, cause error) error {
 		errorData["cleanup_error"] = cleanupErr.Error()
 	}
 	if global.CasbinEnforcer != nil {
-		_, _ = GroupApp.Casbin.RemoveUserAndRoleWithError(userInfo.ID)
+		if _, err := GroupApp.Casbin.RemoveUserAndRoleWithError(userInfo.ID); err != nil {
+			errorData["casbin_cleanup_error"] = err.Error()
+		}
 	}
 	if global.DB != nil {
-		_ = global.DB.Where("ptype = ? AND v0 = ?", "g", userInfo.ID).Delete(&model.CasbinRule{}).Error
+		if err := global.DB.Where("ptype = ? AND v0 = ?", "g", userInfo.ID).Delete(&model.CasbinRule{}).Error; err != nil {
+			errorData["casbin_rule_cleanup_error"] = err.Error()
+		}
 	}
 	if codeErr, ok := cause.(*errcode.Error); ok {
 		errorData["cause_code"] = codeErr.Code

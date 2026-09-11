@@ -57,7 +57,7 @@ describe('locale completeness (REQ-22/34/55)', () => {
   // 属已知翻译债,单独统计但不使本测试 FAIL——如实标注,避免为"假绿"而删断言、也避免范围外硬补 86 键。
   const CUSTOMER_FACING_NS = new Set([
     'basic', 'buttons', 'card', 'common', 'custom', 'device_template', 'dropdown', 'form',
-    'generate', 'grouping_details', 'icon', 'market', 'others', 'page', 'rdi', 'route', 'theme', 'time'
+    'generate', 'grouping_details', 'icon', 'market', 'others', 'page', 'rdi', 'report', 'route', 'theme', 'time'
   ])
   const KNOWN_DEBT_NS = new Set(['visual-editor', 'interaction', 'script'])
 

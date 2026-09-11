@@ -140,17 +140,35 @@ function expectDiagnosticsPayload(resp, deviceId) {
 
 async function rawGet(pathname, options = {}) {
   const url = ROOT_URL + pathname;
-  endpointCoverage.hit('GET', url);
-  const resp = await axios.get(url, {
-    timeout: options.timeout || 5000,
-    responseType: options.responseType || 'text',
-    headers: options.headers,
-    validateStatus: () => true
-  });
-  if (resp.data && typeof resp.data.destroy === 'function') {
-    resp.data.destroy();
+  try {
+    const resp = await axios.get(url, {
+      timeout: options.timeout || 5000,
+      responseType: options.responseType || 'text',
+      headers: options.headers,
+      validateStatus: () => true
+    });
+    endpointCoverage.hit('GET', url, {
+      statusCode: resp.status,
+      attempt: { responseReceived: true },
+      case: options.case
+    });
+    if (resp.data && typeof resp.data.destroy === 'function') {
+      resp.data.destroy();
+    }
+    return resp;
+  } catch (error) {
+    endpointCoverage.hit('GET', url, {
+      statusCode: null,
+      attempt: {
+        responseReceived: false,
+        transportFailure: true,
+        errorCode: error && error.code,
+        errorMessage: error && error.message
+      },
+      case: options.case
+    });
+    throw error;
   }
-  return resp;
 }
 
 async function bootstrapApiCoverageContext() {

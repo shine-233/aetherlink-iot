@@ -44,7 +44,11 @@ describe('native board visualization provider', () => {
     expect(nativeBoardProvider).toMatchObject({
       id: 'native-board',
       kind: 'local',
-      deploymentMode: 'local-default'
+      deploymentMode: 'local-default',
+      capabilities: {
+        projects: { list: true, create: false, update: false, delete: false },
+        dashboards: { thumbnail: false, genericLayout: false, dataSources: false, variables: false, publish: true }
+      }
     })
   })
 

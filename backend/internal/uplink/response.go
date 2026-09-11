@@ -8,6 +8,7 @@ package uplink
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"aetherlink-iot/backend/internal/query"
@@ -93,6 +94,13 @@ func (f *ResponseUplink) Done() <-chan struct{} {
 
 // processMessage 处理响应消息
 func (f *ResponseUplink) processMessage(msg *DeviceMessage) {
+	// P0.2 影子 ACK 不携带命令 message_id，必须先行处理，
+	// 否则会被下面的 message_id 缺失校验直接丢弃，导致设备确认永远不生效。
+	if msg.Type == MessageTypeShadowAck {
+		f.processShadowAck(msg)
+		return
+	}
+
 	// 1. 提取 message_id
 	messageID, ok := msg.Metadata["message_id"].(string)
 	if !ok || messageID == "" {
@@ -115,6 +123,53 @@ func (f *ResponseUplink) processMessage(msg *DeviceMessage) {
 	default:
 		f.logger.WithField("type", msg.Type).Warn("Unknown response type")
 	}
+}
+
+// processShadowAck 处理设备对影子消息的确认（P0.2 ACK 闭环）。
+// 上报格式：{"shadow_id":"<id>","result":0}；result 缺省视为 0（成功）。
+// result 非 0 表示设备收到但处理失败：不确认送达，保留 sent 等退避重试，
+// 绝不把"设备明确报错"写成 delivered。
+func (f *ResponseUplink) processShadowAck(msg *DeviceMessage) {
+	var payload struct {
+		ShadowID string `json:"shadow_id"`
+		Result   *int   `json:"result"`
+		Message  string `json:"message"`
+	}
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		f.logger.WithError(err).WithField("payload", string(msg.Payload)).
+			Warn("failed to parse shadow ack payload")
+		return
+	}
+
+	shadowID := strings.TrimSpace(payload.ShadowID)
+	if shadowID == "" {
+		// 兼容：允许把 ID 放在 metadata 里上报。
+		if v, ok := msg.Metadata["shadow_id"].(string); ok {
+			shadowID = strings.TrimSpace(v)
+		}
+	}
+	if shadowID == "" {
+		f.logger.WithField("device_id", msg.DeviceID).Warn("shadow ack missing shadow_id")
+		return
+	}
+
+	if payload.Result != nil && *payload.Result != 0 {
+		f.logger.WithFields(logrus.Fields{
+			"device_id": msg.DeviceID, "shadow_id": shadowID, "result": *payload.Result,
+		}).Warn("shadow ack reported failure; kept sent for retry")
+		return
+	}
+
+	if err := service.GroupApp.DeviceShadow.AckShadowMessageByDevice(msg.DeviceID, shadowID); err != nil {
+		f.logger.WithError(err).WithFields(logrus.Fields{
+			"device_id": msg.DeviceID, "shadow_id": shadowID,
+		}).Warn("shadow ack rejected")
+		return
+	}
+
+	f.logger.WithFields(logrus.Fields{
+		"device_id": msg.DeviceID, "shadow_id": shadowID,
+	}).Info("shadow message acknowledged")
 }
 
 // parseResponse 解析响应数据

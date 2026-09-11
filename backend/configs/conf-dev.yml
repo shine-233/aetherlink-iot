@@ -35,6 +35,14 @@ log:
 jwt:
   key: CHANGE_ME_DEV_JWT_SECRET
 
+
+secrets:
+  # AI provider 凭证静态加密（ROADMAP P0.7）。
+  # master_keys 的值必须是 base64 编码的 32 字节（AES-256）密钥。
+  # 未配置或非法时，AI 凭证写入一律 fail closed，绝不降级为明文落库。
+  active_key_id: ""  # 例如 k1；留空表示未配置
+  master_keys: {}     # 例如 { k1: "<base64 32 bytes>" }，轮换期可同时保留 k0
+
 market:
   enabled: true
   base_url: "http://127.0.0.1:18000" # Market service address (via Kong gateway)
@@ -243,6 +251,18 @@ telemetry:
   heartbeat_interval: "1h"
   state_file: "./configs/.telemetry_state.json"
 #                                    # 多实例部署时，只有一个实例设为 true，其他实例设为 false
+
+# 持久化报表调度、生成与 SMTP outbox worker（迁移 83）
+reports:
+  worker:
+    enabled: true
+    interval: "15s"
+    limit: 20
+    concurrency: 4
+    max_attempts: 3
+    lease_timeout: "2m"
+    operation_timeout: "1m"
+    shutdown_timeout: "10s"
 
 # Telemetry dead-letter 自动重放配置
 telemetry_dead_letters:

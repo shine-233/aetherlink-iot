@@ -19,7 +19,7 @@ func (*AiModelApi) CreateModel(c *gin.Context) {
 		return
 	}
 	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.AiModel.CreateAiModel(&req, claims)
+	resp, err := service.GroupApp.AiModel.CreateAiModel(c.Request.Context(), &req, claims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -35,7 +35,7 @@ func (*AiModelApi) UpdateModel(c *gin.Context) {
 		return
 	}
 	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.AiModel.UpdateAiModel(&req, claims)
+	resp, err := service.GroupApp.AiModel.UpdateAiModel(c.Request.Context(), &req, claims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -88,7 +88,7 @@ func (*AiModelApi) Chat(c *gin.Context) {
 		return
 	}
 	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.AiModel.AiAssistantChat(&req, claims)
+	resp, err := service.GroupApp.AiModel.AiAssistantChat(c.Request.Context(), &req, claims)
 	if err != nil {
 		c.Error(err)
 		return

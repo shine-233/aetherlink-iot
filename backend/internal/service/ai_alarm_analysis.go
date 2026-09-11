@@ -30,7 +30,7 @@ type AiAlarmAnalysisResp struct {
 	AlarmID            string    `json:"alarm_id"`
 	Summary            string    `json:"summary"`
 	ProbableCauses     []string  `json:"probable_causes"`
-	RecommendedActions []string `json:"recommended_actions"`
+	RecommendedActions []string  `json:"recommended_actions"`
 	Model              string    `json:"model"`
 	GeneratedAt        time.Time `json:"generated_at"`
 }
@@ -131,7 +131,7 @@ func parseAlarmAnalysisJSON(content string) (alarmAnalysisResult, error) {
 }
 
 // AnalyzeAlarm 分析单条告警的根因与处置建议（ROADMAP C4：AI 告警分析）。
-func (*AiQuery) AnalyzeAlarm(req *AiAlarmAnalysisReq, claims *utils.UserClaims) (*AiAlarmAnalysisResp, error) {
+func (*AiQuery) AnalyzeAlarm(ctx context.Context, req *AiAlarmAnalysisReq, claims *utils.UserClaims) (*AiAlarmAnalysisResp, error) {
 	tenantID, err := alarmAnalysisScope(claims)
 	if err != nil {
 		return nil, err
@@ -153,9 +153,9 @@ func (*AiQuery) AnalyzeAlarm(req *AiAlarmAnalysisReq, claims *utils.UserClaims) 
 	}
 
 	system, user := buildAlarmAnalysisPrompt(alarm, req.Question)
-	content, err := callLLMChat(context.Background(), system, user)
+	content, err := callLLMChat(ctx, system, user)
 	if err != nil {
-		return nil, errcode.NewWithMessage(errcode.CodeParamError, "AI request failed: "+err.Error())
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "AI request failed")
 	}
 	result, err := parseAlarmAnalysisJSON(content)
 	if err != nil {

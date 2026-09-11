@@ -159,6 +159,12 @@ describe('service/request/request.ts', () => {
     })
   })
 
+  it('accepts the standard success business envelope independently of HTTP 202 transport status', () => {
+    expect(requestOptions.isBackendSuccess({ status: 200, data: { code: 200 } })).toBe(true)
+    expect(requestOptions.isBackendSuccess({ status: 202, data: { code: 200 } })).toBe(true)
+    expect(requestOptions.isBackendSuccess({ status: 202, data: { code: 409 } })).toBe(false)
+  })
+
   it('transformBackendResponse returns nested data by default and destroys messages for non-GET requests', () => {
     const response = {
       config: {

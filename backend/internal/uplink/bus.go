@@ -34,7 +34,25 @@ const (
 	MessageTypeAttributeSetResponse        = "attribute_set_response"
 	MessageTypeGatewayCommandResponse      = "gateway_command_response"
 	MessageTypeGatewayAttributeSetResponse = "gateway_attribute_set_response"
+	// MessageTypeShadowAck 设备对影子消息的确认（P0.2 ACK 闭环）。
+	// 设备上报 {"shadow_id":"<id>","result":0}；result 非 0 表示设备处理失败，不确认送达。
+	MessageTypeShadowAck = "shadow_ack"
 )
+
+// isResponseMessageType 判断消息类型是否走响应通道（单一事实来源，路由与测试共用）。
+// 响应类消息使用独立的背压策略：队列满时直接返回错误，由调用方决定是否重试。
+func isResponseMessageType(msgType string) bool {
+	switch msgType {
+	case MessageTypeCommandResponse,
+		MessageTypeAttributeSetResponse,
+		MessageTypeGatewayCommandResponse,
+		MessageTypeGatewayAttributeSetResponse,
+		MessageTypeShadowAck:
+		return true
+	default:
+		return false
+	}
+}
 
 // Bus 是 Adapter 与各类 Uplink Flow 之间的内存消息总线。
 // 它不负责业务处理，只负责分类缓存、路由分发和关闭控制。
@@ -269,16 +287,14 @@ func (b *Bus) PublishContext(ctx context.Context, msgInterface MessageLike) erro
 			b.logger.Debug("【设备上下线】Status message sent to statusChan")
 		}
 
-	// 响应消息走独立策略：队列满时直接返回错误，由调用方决定是否重试。
-	case MessageTypeCommandResponse,
-		MessageTypeAttributeSetResponse,
-		MessageTypeGatewayCommandResponse,
-		MessageTypeGatewayAttributeSetResponse:
-		publishErr = b.publishResponse(ctx, msg)
-
 	default:
-		b.logger.Errorf("Unknown message type: %s", msg.Type)
-		return ErrUnknownMessageType
+		// 响应消息走独立策略：队列满时直接返回错误，由调用方决定是否重试。
+		if isResponseMessageType(msg.Type) {
+			publishErr = b.publishResponse(ctx, msg)
+		} else {
+			b.logger.Errorf("Unknown message type: %s", msg.Type)
+			return ErrUnknownMessageType
+		}
 	}
 	if publishErr == nil {
 		b.notifyAcceptedMessage(observerMessage)

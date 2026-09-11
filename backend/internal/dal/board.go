@@ -45,7 +45,7 @@ func DeleteBoard(id string, tenantID string) error {
 		return err
 	}
 	if r.RowsAffected == 0 {
-		return nil
+		return gorm.ErrRecordNotFound
 	}
 	return nil
 }

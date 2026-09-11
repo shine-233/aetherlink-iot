@@ -1,101 +1,154 @@
-// 文件用途：验证 `gmqctl gen plugin` 生成器的文件输出和 hook 名称校验。
-// 核心逻辑：用临时 testdata 目录运行生成流程，检查主文件、hook 文件和可选配置文件是否符合参数预期。
-// 关键注意事项：测试会操作包内全局 flag 变量，新增用例时要显式重置相关状态。
-// 重构建议：生成器改为参数结构体后，可把测试改成表驱动并使用 t.TempDir 隔离输出。
+// 文件用途：验证 `gmqctl gen plugin` 生成器的安全 scaffold 契约。
 package gen_plugin
 
 import (
 	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
-func TestRun(t *testing.T) {
-	defer os.RemoveAll("./testdata/")
-	a := assert.New(t)
-	var err error
-	os.Mkdir("./testdata/", 0777)
-	name = "test"
-	hooksStr = "OnBasicAuth"
-	config = true
-	output = "./testdata"
-	a.Nil(run(nil, nil))
-	_, err = os.Stat("./testdata/test.go")
-	a.Nil(err)
-	_, err = os.Stat("./testdata/config.go")
-	a.Nil(err)
-	_, err = os.Stat("./testdata/hooks.go")
-	a.Nil(err)
-	a.NotNil(run(nil, nil))
+func generatePlugin(t *testing.T, pluginName, hooks string, withConfig bool, dir string) error {
+	t.Helper()
+	oldName, oldHooks, oldConfig, oldOutput := name, hooksStr, configFlag, output
+	name, hooksStr, configFlag, output = pluginName, hooks, withConfig, dir
+	t.Cleanup(func() {
+		name, hooksStr, configFlag, output = oldName, oldHooks, oldConfig, oldOutput
+	})
+	return run(nil, nil)
 }
 
-func TestRunEmptyHooks(t *testing.T) {
-	defer os.RemoveAll("./testdata/")
-	a := assert.New(t)
-	var err error
-	os.Mkdir("./testdata/", 0777)
-	name = "test"
-	config = true
-	output = "./testdata"
-	a.Nil(run(nil, nil))
-	_, err = os.Stat("./testdata/test.go")
-	a.Nil(err)
-	_, err = os.Stat("./testdata/config.go")
-	a.Nil(err)
-	_, err = os.Stat("./testdata/hooks.go")
-	a.Nil(err)
-}
-
-func TestRunNoConfig(t *testing.T) {
-	a := assert.New(t)
-	var err error
-	defer os.RemoveAll("./testdata/")
-	os.Mkdir("./testdata", 0777)
-	name = "test"
-	hooksStr = "OnBasicAuth"
-	config = false
-	output = "./testdata"
-	run(nil, nil)
-	_, err = os.Stat("./testdata/test.go")
-	a.Nil(err)
-	_, err = os.Stat("./testdata/config.go")
-	a.True(os.IsNotExist(err))
-	_, err = os.Stat("./testdata/hooks.go")
-	a.Nil(err)
-}
-
-func TestValidateHookName(t *testing.T) {
-	var tt = []struct {
-		name  string
-		hooks string
-		rs    []string
-		valid bool
-	}{
-		{
-			name:  "valid",
-			hooks: "OnSubscribe, OnSubscribed",
-			rs:    []string{"OnSubscribe", "OnSubscribed"},
-			valid: true,
-		},
-		{
-			name:  "invalid",
-			hooks: "OnAbc,OnDEF",
-			rs:    nil,
-			valid: false,
-		},
+func TestGeneratedPluginGolden(t *testing.T) {
+	outputDir := t.TempDir()
+	if err := generatePlugin(t, "safe_plugin", "OnBasicAuth,OnSubscribed", true, outputDir); err != nil {
+		t.Fatalf("generate plugin: %v", err)
 	}
-	for _, v := range tt {
-		t.Run(v.name, func(t *testing.T) {
-			a := assert.New(t)
-			got, err := ValidateHooks(v.hooks)
-			if v.valid {
-				a.Nil(err)
-			} else {
-				a.NotNil(err)
-			}
-			a.Equal(v.rs, got)
-		})
+	for _, file := range []string{"safe_plugin.go", "hooks.go", "config.go"} {
+		got, err := os.ReadFile(filepath.Join(outputDir, file))
+		if err != nil {
+			t.Fatalf("read generated %s: %v", file, err)
+		}
+		want, err := os.ReadFile(filepath.Join("testdata", file+".golden"))
+		if err != nil {
+			t.Fatalf("read golden %s: %v", file, err)
+		}
+		if string(got) != string(want) {
+			t.Errorf("generated %s differs from testdata/%s.golden\n--- got ---\n%s\n--- want ---\n%s", file, file, got, want)
+		}
 	}
+}
 
+func TestRunRefusesOverwrite(t *testing.T) {
+	outputDir := t.TempDir()
+	target := filepath.Join(outputDir, "safe_plugin.go")
+	const original = "do not overwrite\n"
+	if err := os.WriteFile(target, []byte(original), 0o600); err != nil {
+		t.Fatalf("seed target: %v", err)
+	}
+	err := generatePlugin(t, "safe_plugin", "OnBasicAuth", false, outputDir)
+	if err == nil || !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("run error = %v, want overwrite refusal", err)
+	}
+	got, readErr := os.ReadFile(target)
+	if readErr != nil {
+		t.Fatalf("read target: %v", readErr)
+	}
+	if string(got) != original {
+		t.Fatalf("target was modified: got %q, want %q", got, original)
+	}
+	if _, statErr := os.Stat(filepath.Join(outputDir, "hooks.go")); !os.IsNotExist(statErr) {
+		t.Fatalf("hooks.go should not be generated after refusal, stat error = %v", statErr)
+	}
+}
+
+func TestRunRejectsInvalidHookBeforeWriting(t *testing.T) {
+	outputDir := filepath.Join(t.TempDir(), "generated")
+	err := generatePlugin(t, "safe_plugin", "OnNotAHook", false, outputDir)
+	if err == nil || !strings.Contains(err.Error(), "invalid hook name: OnNotAHook") {
+		t.Fatalf("run error = %v, want invalid-hook error", err)
+	}
+	if _, statErr := os.Stat(outputDir); !os.IsNotExist(statErr) {
+		t.Fatalf("output should not exist after invalid hook, stat error = %v", statErr)
+	}
+}
+
+func TestValidateHooks(t *testing.T) {
+	got, err := ValidateHooks("OnSubscribe, OnSubscribed")
+	if err != nil {
+		t.Fatalf("ValidateHooks valid input: %v", err)
+	}
+	if strings.Join(got, ",") != "OnSubscribe,OnSubscribed" {
+		t.Fatalf("ValidateHooks = %v", got)
+	}
+	if _, err = ValidateHooks("OnAbc,OnDEF"); err == nil {
+		t.Fatal("ValidateHooks accepted invalid hooks")
+	}
+}
+
+func TestGeneratedModuleCompiles(t *testing.T) {
+	moduleDir := t.TempDir()
+	pluginDir := filepath.Join(moduleDir, "safe_plugin")
+	if err := generatePlugin(t, "safe_plugin", "OnBasicAuth,OnSubscribe", true, pluginDir); err != nil {
+		t.Fatalf("generate plugin: %v", err)
+	}
+	writeTemporaryModule(t, moduleDir)
+	cmd := exec.Command("go", "test", "-mod=mod", "./...")
+	cmd.Dir = moduleDir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("temporary generated module did not compile: %v\n%s", err, out)
+	}
+}
+
+func writeTemporaryModule(t *testing.T, moduleDir string) {
+	t.Helper()
+	brokerRoot, err := filepath.Abs(filepath.Join("..", "..", "..", ".."))
+	if err != nil {
+		t.Fatalf("resolve broker root: %v", err)
+	}
+	goMod := "module example.com/generated-plugin\n\ngo 1.25.0\n\nrequire github.com/DrmagicE/gmqtt v0.0.0\n\nreplace github.com/DrmagicE/gmqtt => " + filepath.ToSlash(brokerRoot) + "\n"
+	if err := os.WriteFile(filepath.Join(moduleDir, "go.mod"), []byte(goMod), 0o600); err != nil {
+		t.Fatalf("write temporary go.mod: %v", err)
+	}
+}
+
+func TestGeneratedUnconfiguredPluginRejectsLoad(t *testing.T) {
+	moduleDir := t.TempDir()
+	pluginDir := filepath.Join(moduleDir, "safe_plugin")
+	if err := generatePlugin(t, "safe_plugin", "OnBasicAuth", false, pluginDir); err != nil {
+		t.Fatalf("generate plugin: %v", err)
+	}
+	writeTemporaryModule(t, moduleDir)
+	loadTest := `package safe_plugin
+
+import (
+	"errors"
+	"testing"
+
+	"github.com/DrmagicE/gmqtt/config"
+)
+
+func TestScaffoldRejectsConstructionAndLoad(t *testing.T) {
+	plugin, err := New(config.Config{})
+	if plugin != nil || !errors.Is(err, ErrScaffoldIncomplete) {
+		t.Fatalf("New() = (%v, %v), want (nil, ErrScaffoldIncomplete)", plugin, err)
+	}
+	if err := (&SafePlugin{}).Load(nil); !errors.Is(err, ErrScaffoldIncomplete) {
+		t.Fatalf("Load() error = %v, want ErrScaffoldIncomplete", err)
+	}
+	if err := (&SafePlugin{}).Unload(); err != nil {
+		t.Fatalf("Unload() error = %v, want nil", err)
+	}
+}
+`
+	if err := os.WriteFile(filepath.Join(pluginDir, "scaffold_load_test.go"), []byte(loadTest), 0o600); err != nil {
+		t.Fatalf("write load test: %v", err)
+	}
+	cmd := exec.Command("go", "test", "-mod=mod", "./safe_plugin", "-run", "TestScaffoldRejectsConstructionAndLoad", "-count=1")
+	cmd.Dir = moduleDir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("unconfigured generated plugin load contract failed: %v\n%s", err, out)
+	}
 }

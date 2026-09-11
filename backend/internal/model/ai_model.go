@@ -1,6 +1,7 @@
 // 文件用途：AI 2.0（ROADMAP D7）模型中心数据模型与 HTTP 请求/响应体。
 // 核心逻辑：租户级 AI 模型档案（OpenAI 兼容端点 + 模型名 + 密钥 + 用途），供助手与规则链 AI 节点取用。
-// 关键注意事项：api_key 落库存原文（本地栈）；任何出参一律脱敏（仅前 4 位 + 掩码），详见 service 层。
+// 关键注意事项：api_key 落库为信封密文（P0.7，见 backend/pkg/secrets），明文永不落库；
+// 任何出参一律脱敏（仅前 4 位 + 掩码），详见 service 层。迁移窗口内的遗留明文行读取时透明处理并会被重新封装。
 package model
 
 import "time"
@@ -22,7 +23,7 @@ type AiModel struct {
 	Provider  string    `gorm:"column:provider;not null;default:openai" json:"provider"` // openai 兼容
 	BaseURL   string    `gorm:"column:base_url;not null" json:"base_url"`
 	Model     string    `gorm:"column:model;not null" json:"model"`
-	APIKey    string    `gorm:"column:api_key;type:text;not null" json:"-"`
+	APIKey    string    `gorm:"column:api_key;type:text;not null" json:"-"` // 信封密文 aenv1.<keyID>.<base64>
 	Purpose   string    `gorm:"column:purpose;not null;default:chat" json:"purpose"`
 	Enabled   bool      `gorm:"column:enabled;not null;default:true" json:"enabled"`
 	CreatedAt time.Time `gorm:"column:created_at;not null" json:"created_at"`

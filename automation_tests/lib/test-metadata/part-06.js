@@ -1,5 +1,46 @@
 const { metadataCase, e2eCase } = require("./helpers");
 
+const RULE_CHAIN_SUITE = "Rule chain API business flow [29_rule_chain_business]";
+const SCENE_ACTION_20_SUITE = "Scene action 20 real MQTT runtime [31_scene_action_20_runtime]";
+const OTA_RUNTIME_SUITE = "OTA public API and authenticated MQTT runtime [32_ota_runtime]";
+const TEMPLATE_MARKET_SUITE = "Template market API module [36_template_market]";
+const REPORT_SCHEDULE_SUITE = "Report schedule public API contract [37_report_schedule]";
+
+function managedMetadataCase(suite, config) {
+  return metadataCase({
+    schemaVersion: 2,
+    ...config,
+    fullTitle: `${suite} ${config.title}`,
+  });
+}
+
+function managedCase(caseId, title, options = {}) {
+  return {
+    caseId,
+    title,
+    evidenceKind: options.evidenceKind || "business",
+    businessClosureEvidence: options.businessClosureEvidence !== false,
+    assertions: {
+      exactStatus: options.exactStatus !== false,
+      body: options.body !== false,
+      mutationOrSeed: options.mutationOrSeed !== false,
+      negative: options.negative === true,
+    },
+    capabilityIds: options.capabilityIds || [],
+    operationIds: options.operationIds || [],
+    operationDimensions: options.operationDimensions || [],
+    semantics: {
+      actor: options.actor || "prepared-tenant-admin",
+      role: options.role || "tenant_admin",
+      tenant: options.tenant || "own-tenant",
+      idempotency: options.idempotency || "not-applicable",
+      state: options.state || [],
+      visibleResult: options.visibleResult || "api-response-asserted",
+      cleanup: options.cleanup || "not-applicable",
+    },
+  };
+}
+
 module.exports = {
   "tests/25_seeded_command_jobs.test.js": {
     file: "tests/25_seeded_command_jobs.test.js",
@@ -348,6 +389,16 @@ module.exports = {
         ["mqtt-broker-pipeline"],
       ),
       metadataCase(
+        "rejects acknowledging a shadow message that is not ackable",
+        "business",
+        true,
+        true,
+        false,
+        true,
+        true,
+        ["mqtt-broker-pipeline"],
+      ),
+      metadataCase(
         "delivers pending shadows automatically after the device comes online",
         "business",
         true,
@@ -359,11 +410,79 @@ module.exports = {
       ),
     ],
   },
+  "tests/29_rule_chain_business.test.js": {
+    file: "tests/29_rule_chain_business.test.js",
+    type: "api",
+    evidenceKind: "business",
+    fileFlags: { runtimeEvidenceRequired: true, caseMetadataManaged: true },
+    cases: [
+      managedMetadataCase(RULE_CHAIN_SUITE, managedCase("automation.rule-chain.lifecycle.create-disabled", "creates a tenant-owned disabled rule chain with the exact graph", { capabilityIds: ["automation-scene"], operationIds: ["automation.rule-chain.lifecycle"], operationDimensions: ["response", "mutation", "tenantScope"], state: ["created", "disabled", "graph-readback"] })),
+      managedMetadataCase(RULE_CHAIN_SUITE, managedCase("automation.rule-chain.lifecycle.read", "lists and gets the created chain with exact persisted state", { capabilityIds: ["automation-scene"], operationIds: ["automation.rule-chain.lifecycle"], operationDimensions: ["response", "stateReadback", "tenantScope"], mutationOrSeed: false, state: ["listed", "detail-readback"] })),
+      managedMetadataCase(RULE_CHAIN_SUITE, managedCase("automation.rule-chain.lifecycle.update", "updates name and enabled state and persists both changes", { capabilityIds: ["automation-scene"], operationIds: ["automation.rule-chain.lifecycle"], operationDimensions: ["response", "mutation", "stateReadback"], state: ["renamed", "enabled", "readback"] })),
+      managedMetadataCase(RULE_CHAIN_SUITE, managedCase("automation.rule-chain.lifecycle.reject-disconnected-root", "rejects a disconnected action root with an exact parameter error and no row", { capabilityIds: ["automation-scene"], operationIds: ["automation.rule-chain.lifecycle"], operationDimensions: ["response", "stateReadback", "negativeControl"], negative: true, state: ["rejected", "absence-readback"] })),
+      managedMetadataCase(RULE_CHAIN_SUITE, managedCase("automation.rule-chain.lifecycle.delete", "deletes the chain and returns exact not-found state afterwards", { capabilityIds: ["automation-scene"], operationIds: ["automation.rule-chain.lifecycle"], operationDimensions: ["response", "mutation", "stateReadback", "cleanup"], negative: true, state: ["deleted", "not-found-readback"], cleanup: "verified-by-case" })),
+      managedMetadataCase(RULE_CHAIN_SUITE, managedCase("automation.rule-chain.telemetry-command-runtime.threshold", "executes telemetry rules only above threshold and records an acknowledged automatic MQTT command", { capabilityIds: ["automation-scene"], operationIds: ["automation.rule-chain.telemetry-command-runtime"], operationDimensions: ["response", "mutation", "stateReadback", "negativeControl", "runtimeSideEffect", "cleanup"], negative: true, state: ["below-threshold-no-command", "above-threshold-acknowledged"], cleanup: "verified-by-case" })),
+    ],
+  },
+  "tests/31_scene_action_20_runtime.test.js": {
+    file: "tests/31_scene_action_20_runtime.test.js",
+    type: "api",
+    evidenceKind: "business",
+    fileFlags: { runtimeEvidenceRequired: true, caseMetadataManaged: true },
+    cases: [
+      managedMetadataCase(SCENE_ACTION_20_SUITE, managedCase("automation.scene.action-20-runtime.execute", "executes scene action 20 from a real MQTT online transition and exposes automation/scene/alarm logs", { capabilityIds: ["automation-scene"], operationIds: ["automation.scene.action-20-runtime"], operationDimensions: ["response", "mutation", "stateReadback", "runtimeSideEffect", "cleanup"], state: ["mqtt-online-transition", "execution-logs-readback"], cleanup: "verified-by-case" })),
+    ],
+  },
+  "tests/32_ota_runtime.test.js": {
+    file: "tests/32_ota_runtime.test.js",
+    type: "api",
+    evidenceKind: "business",
+    fileFlags: { runtimeEvidenceRequired: true, caseMetadataManaged: true },
+    cases: [
+      managedMetadataCase(OTA_RUNTIME_SUITE, managedCase("ota.rollout-success.device-reported", "creates a task through the public API and persists a successful device-reported OTA rollout", { capabilityIds: ["ota-script-openapi-service"], operationIds: ["ota.rollout-success"], operationDimensions: ["response", "mutation", "stateReadback", "runtimeSideEffect", "cleanup"], state: ["task-created", "device-success-reported", "rollout-readback"], cleanup: "verified-by-case" })),
+      managedMetadataCase(OTA_RUNTIME_SUITE, managedCase("ota.rollout-failure-support.device-reported", "persists a device-reported OTA failure and exposes it through the support bundle", { capabilityIds: ["ota-script-openapi-service"], operationIds: ["ota.rollout-failure-support"], operationDimensions: ["response", "mutation", "stateReadback", "negativeControl", "runtimeSideEffect", "cleanup"], negative: true, state: ["device-failure-reported", "support-bundle-readback"], cleanup: "verified-by-case" })),
+    ],
+  },
+  "tests/36_template_market.test.js": {
+    file: "tests/36_template_market.test.js",
+    type: "api",
+    evidenceKind: "business",
+    fileFlags: { runtimeEvidenceRequired: true, caseMetadataManaged: true },
+    cases: [
+      managedMetadataCase(TEMPLATE_MARKET_SUITE, managedCase("template.market.create-industrial-source", "creates an industrial source template and filters the directory by type_key", { capabilityIds: ["device-telemetry"], state: ["source-created", "directory-filtered"] })),
+      managedMetadataCase(TEMPLATE_MARKET_SUITE, managedCase("template.market.portable-idempotent-import.export", "exports a portable template descriptor without id/tenant fields", { capabilityIds: ["device-telemetry"], operationIds: ["template.market.portable-idempotent-import"], operationDimensions: ["response"], mutationOrSeed: false, state: ["portable-descriptor-exported"] })),
+      managedMetadataCase(TEMPLATE_MARKET_SUITE, managedCase("template.market.portable-idempotent-import.create", "imports the payload as a new tenant template (created=true)", { capabilityIds: ["device-telemetry"], operationIds: ["template.market.portable-idempotent-import"], operationDimensions: ["response", "mutation"], state: ["import-created"] })),
+      managedMetadataCase(TEMPLATE_MARKET_SUITE, managedCase("template.market.portable-idempotent-import.reimport", "re-imports the same name+version idempotently (created=false, same id)", { capabilityIds: ["device-telemetry"], operationIds: ["template.market.portable-idempotent-import"], operationDimensions: ["response", "stateReadback", "idempotency"], idempotency: "same-name-version-same-id", state: ["not-recreated", "same-id-readback"] })),
+      managedMetadataCase(TEMPLATE_MARKET_SUITE, managedCase("template.market.portable-idempotent-import.reject-kind", "rejects unsupported template kinds via expectBusinessError(100002)", { evidenceKind: "boundary", businessClosureEvidence: false, capabilityIds: ["device-telemetry"], operationIds: ["template.market.portable-idempotent-import"], operationDimensions: ["response", "negativeControl"], negative: true, state: ["unsupported-kind-rejected"] })),
+      managedMetadataCase(TEMPLATE_MARKET_SUITE, managedCase("template.market.directory-isolation", "keeps other industry directories isolated from the industrial entries", { capabilityIds: ["device-telemetry"], mutationOrSeed: false, negative: true, state: ["power-directory-isolated"] })),
+      managedMetadataCase(TEMPLATE_MARKET_SUITE, managedCase("template.market.portable-idempotent-import.cleanup", "deletes both templates and returns exact not-found state afterwards", { capabilityIds: ["device-telemetry"], operationIds: ["template.market.portable-idempotent-import"], operationDimensions: ["response", "mutation", "stateReadback", "cleanup"], negative: true, state: ["both-deleted", "not-found-readback", "list-absence-readback"], cleanup: "verified-by-case" })),
+    ],
+  },
+  "tests/37_report_schedule.test.js": {
+    file: "tests/37_report_schedule.test.js",
+    type: "api",
+    evidenceKind: "business",
+    fileFlags: { runtimeEvidenceRequired: true, caseMetadataManaged: true },
+    cases: [
+      managedMetadataCase(REPORT_SCHEDULE_SUITE, managedCase("report.schedule.lifecycle-concurrency.create-default-enabled", "creates a schedule with omitted enabled defaulting to true", { capabilityIds: ["visualization"], operationIds: ["report.schedule.lifecycle-concurrency"], operationDimensions: ["response", "mutation", "tenantScope"], state: ["created", "enabled-defaulted", "revision-one"] })),
+      managedMetadataCase(REPORT_SCHEDULE_SUITE, managedCase("report.schedule.lifecycle-concurrency.read", "lists and gets the tenant schedule with exact persisted state", { capabilityIds: ["visualization"], operationIds: ["report.schedule.lifecycle-concurrency"], operationDimensions: ["response", "stateReadback", "tenantScope"], mutationOrSeed: false, state: ["list-readback", "detail-readback"] })),
+      managedMetadataCase(REPORT_SCHEDULE_SUITE, managedCase("report.schedule.lifecycle-concurrency.update", "updates by route identity and persists the next revision", { capabilityIds: ["visualization"], operationIds: ["report.schedule.lifecycle-concurrency"], operationDimensions: ["response", "mutation", "stateReadback"], state: ["route-scoped-update", "revision-incremented", "detail-readback"] })),
+      managedMetadataCase(REPORT_SCHEDULE_SUITE, managedCase("report.schedule.lifecycle-concurrency.stale-revision", "rejects a stale revision and proves the schedule was not mutated", { capabilityIds: ["visualization"], operationIds: ["report.schedule.lifecycle-concurrency"], operationDimensions: ["response", "stateReadback", "negativeControl"], mutationOrSeed: false, negative: true, state: ["stale-revision-rejected", "unchanged-readback"] })),
+      managedMetadataCase(REPORT_SCHEDULE_SUITE, managedCase("report.run.manual-idempotent-acceptance.submit-replay", "accepts one durable manual run with exact 202 Location and stable replay", { capabilityIds: ["visualization"], operationIds: ["report.run.manual-idempotent-acceptance"], operationDimensions: ["response", "mutation", "stateReadback", "idempotency", "runtimeSideEffect", "tenantScope"], idempotency: "same-key-same-run", state: ["http-202", "location-header", "durable-run-readback", "single-run-replay"] })),
+      managedMetadataCase(REPORT_SCHEDULE_SUITE, managedCase("report.run.durable-identity-terminallifecycle", "exposes durable run identity and immutable window without assuming a queued race", { capabilityIds: ["visualization"], operationIds: ["report.run.durable-identity"], operationDimensions: ["response", "stateReadback", "runtimeSideEffect"], state: ["immutable-window-readback", "terminal-generation-readback", "terminal-delivery-readback", "history-readback"] })),
+      managedMetadataCase(REPORT_SCHEDULE_SUITE, managedCase("report.run.retry.idempotency-key-required", "requires an idempotency key before retrying a report run", { evidenceKind: "boundary", businessClosureEvidence: false, capabilityIds: ["visualization"], operationDimensions: [], mutationOrSeed: false, negative: true, state: ["retry-rejected-before-state-evaluation"] })),      managedMetadataCase(REPORT_SCHEDULE_SUITE, managedCase("report.run.retry.eligibility-and-child-immutability", "enforces retry eligibility for a terminal parent and rejects ineligible targets", { capabilityIds: ["visualization"], operationIds: ["report.run.retry"], operationDimensions: ["response", "mutation", "stateReadback", "idempotency", "negativeControl"], idempotency: "same-key-same-child", negative: true, state: ["ineligible-target-rejected", "immutable-child-created", "retry-replay-readback", "parent-binding-readback"] })),
+      managedMetadataCase(REPORT_SCHEDULE_SUITE, managedCase("report.schedule.lifecycle-concurrency.isolation", "isolates report reads by tenant and denies non-admin write roles", { capabilityIds: ["visualization", "permission-tenancy"], operationIds: ["report.schedule.lifecycle-concurrency"], operationDimensions: ["response", "stateReadback", "negativeControl", "tenantScope"], mutationOrSeed: false, negative: true, tenant: "own-and-other-tenant", state: ["cross-tenant-not-found", "role-writes-denied", "absence-readback"] })),
+      managedMetadataCase(REPORT_SCHEDULE_SUITE, managedCase("report.run.nested-tenant-isolation", "isolates nested run list and run detail by tenant", { capabilityIds: ["visualization", "permission-tenancy"], operationIds: ["report.run.nested-tenant-isolation"], operationDimensions: ["response", "negativeControl", "tenantScope"], mutationOrSeed: false, negative: true, tenant: "own-and-other-tenant", state: ["nested-run-list-not-found", "nested-run-detail-not-found"] })),
+      managedMetadataCase(REPORT_SCHEDULE_SUITE, managedCase("report.schedule.lifecycle-concurrency.cleanup", "deletes with the current revision and verifies exact not-found cleanup", { capabilityIds: ["visualization"], operationIds: ["report.schedule.lifecycle-concurrency"], operationDimensions: ["response", "mutation", "stateReadback", "cleanup"], negative: true, state: ["revision-aware-delete", "not-found-readback"], cleanup: "verified-by-case" })),
+    ],
+  },
   "e2e/14_route_coverage_closure.spec.js": {
     file: "e2e/14_route_coverage_closure.spec.js",
     type: "e2e",
-    evidenceKind: "business",
-    fileFlags: {},
+    evidenceKind: "page-coverage-only",
+    fileFlags: {
+      pageCoverageOnly: true,
+    },
     cases: [
       e2eCase(
         "tenant menu denies unregistered dashboard workspace routes",
