@@ -66,6 +66,7 @@ AetherLink IoT 是面向物联网平台场景的完整源码仓库，包含 5 �
 ### 规划与文档索引
 - [ROADMAP.md](ROADMAP.md) — 公开能力规划入口
 - [references/文档地图.md](references/文档地图.md) — 文档定位索引
+- [AGENTS.md](AGENTS.md) — 项目规则与现役边界（实现模型入口）
 
 ### 安全、发布与合规
 - [SECURITY.md](SECURITY.md) — 安全策略与本地密钥清单
@@ -75,7 +76,6 @@ AetherLink IoT 是面向物联网平台场景的完整源码仓库，包含 5 �
 - [GENERATED_FILES.md](GENERATED_FILES.md) — 生成文件保留策略
 - [VALIDATION.md](VALIDATION.md) — 验证门槛与证据边界
 - [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) — 第三方 license 声明
-- [CLAUDE.md](CLAUDE.md) — 项目配置与工作规则、权威文档索引
 
 ### 自动化测试
 - [automation_tests/README.md](automation_tests/README.md) — 测试总览

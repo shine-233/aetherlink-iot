@@ -66,8 +66,13 @@ Get-ChildItem verification\templates\*.json |
 
 ## 2026-08-12 synthetic-rdi fresh continuation
 
-当前 fresh 隔离软件证据：[`synthetic-rdi-20260812-fresh`](synthetic-rdi-20260812-fresh/)。manifest 标记为 `synthetic-rdi` / `protocol-emulator`，`claim_scope=isolated-software-path-only`，`real_rdi_status=not-tested`，`production_signoff=not-ready`。fresh fixture 从 `inactive/disabled` 开始，经公开 `POST /api/v1/rdi/devices/activate` 返回 `200` 并记录 `activated-this-run`，随后完成 success/failure ACK、`offline -> online -> offline`、fresh telemetry、SQL 回读、脱敏扫描和 34/34 share/link 软件合同；旧的 `final-6` 仍保留为历史同类证据，不与本轮 fresh 结果拼接。
+> **归档缺失说明（2026-09-11 核对）**：本节引用的 `synthetic-rdi-20260812-fresh/` 目录
+> **不存在于当前工作树，且从未进入 Git 版本库**（`git log --all` 无该路径记录）。
+> 下方链接均为失效引用，本节内容只能作为文字记录阅读，不能作为可回溯的证据。
+> 如需恢复该证据，需从维护者私有环境取回归档，不得依据本节描述重建结论。
 
-本轮 fresh PID 为 `SYN260812229`，数据库回读为 `active/enabled`、`is_online=0`、`temperature_1=25.5`；原始激活和回读分别见 [`raw/synthetic-activation.json`](synthetic-rdi-20260812-fresh/raw/synthetic-activation.json) 与 [`raw/db-readback.json`](synthetic-rdi-20260812-fresh/raw/db-readback.json)。share/link 原始报告见 [`share-link-api/reports/02_device-report.json`](synthetic-rdi-20260812-fresh/share-link-api/reports/02_device-report.json)，包含跨租户 tenant ID 不同、首次/重复接受、`shared-with-me`、共享用户只读限制、写入/再次 share 拒绝和无效 token。Node contract `8 passed`、Go emulator test 通过、55/55 文件哈希一致，敏感信息扫描命中均为 `0`。数据库密码只作为运行时参数使用，未写入任何测试文档或证据。
+当前 fresh 隔离软件证据：`synthetic-rdi-20260812-fresh/`。manifest 标记为 `synthetic-rdi` / `protocol-emulator`，`claim_scope=isolated-software-path-only`，`real_rdi_status=not-tested`，`production_signoff=not-ready`。fresh fixture 从 `inactive/disabled` 开始，经公开 `POST /api/v1/rdi/devices/activate` 返回 `200` 并记录 `activated-this-run`，随后完成 success/failure ACK、`offline -> online -> offline`、fresh telemetry、SQL 回读、脱敏扫描和 34/34 share/link 软件合同；旧的 `final-6` 仍保留为历史同类证据，不与本轮 fresh 结果拼接。
+
+本轮 fresh PID 为 `SYN260812229`，数据库回读为 `active/enabled`、`is_online=0`、`temperature_1=25.5`；原始激活和回读分别见 `raw/synthetic-activation.json` 与 `raw/db-readback.json`。share/link 原始报告见 `share-link-api/reports/02_device-report.json`，包含跨租户 tenant ID 不同、首次/重复接受、`shared-with-me`、共享用户只读限制、写入/再次 share 拒绝和无效 token。Node contract `8 passed`、Go emulator test 通过、55/55 文件哈希一致，敏感信息扫描命中均为 `0`。数据库密码只作为运行时参数使用，未写入任何测试文档或证据。
 
 边界不变：模拟 PID、voucher、硬件身份、固件 MQTT session、遥测、在线状态和 ACK 只证明隔离本地软件路径，不是实体 RDI 证明。真实 RDI PID/activation、真实 voucher/硬件身份、真实固件 MQTT session、真实物理遥测/在线状态/ACK、真实设备 RDI share/link 与生产跨租户权限链、ThingsVis/negative-menu、HTTPS、公网 MQTT、Docker/Compose target 和目标环境 backup/restore 仍需单独验收，不能从该归档晋升为部署通过。
