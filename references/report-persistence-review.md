@@ -188,3 +188,41 @@ No PostgreSQL execution, no live API or browser run, no `go test` against a real
 database. Findings P1–P4 are structural and do not depend on runtime, but the
 fixes for them will need same-revision PostgreSQL evidence before any of this
 batch can be published as verified.
+
+### Addendum: the migration-83 harness could never have produced that evidence
+
+The absence of PostgreSQL evidence for migration 83 was **not only** a missing
+DSN. `openReport83Postgres` in
+`backend/internal/dal/report_migration83_postgres_test.go` built its connection
+with:
+
+```go
+connectionString := stdlib.RegisterConnConfig(configuration)
+db, err := gorm.Open(postgres.Open(connectionString), ...)
+```
+
+`stdlib.RegisterConnConfig` returns a `database/sql` *registration name* (such as
+`registeredConnConfig0`), not a DSN. `postgres.Open` parses its argument as a DSN,
+so the open fails. The observable effect was misleading: with no DSN configured
+the test skipped cleanly, but **the moment a DSN was supplied it would have failed
+at connection time** — meaning this file had never produced a single real
+PostgreSQL result, and could not have, regardless of who ran it.
+
+The corrected form opens a `*sql.DB` and hands it to gorm, which also makes the
+per-schema `search_path` take effect:
+
+```go
+schemaDB := stdlib.OpenDB(*configuration)
+db, err := gorm.Open(postgres.New(postgres.Config{Conn: schemaDB}), ...)
+```
+
+Consequences for this review:
+
+- P1 was **doubly** blocked: no DSN *and* a harness that could not connect. Only
+  the first remains. Supplying a DSN should now exercise
+  `updateReportScheduleSummaryTx` for real.
+- Any earlier claim of PostgreSQL-backed evidence for migration 83 should be
+  treated as unsupported, since the harness could not have produced it.
+- A repository-wide grep for `RegisterConnConfig` in the backend finds no other
+  call site, so this defect was confined to the migration-83 harness. The other
+  PostgreSQL-only suites do not share it.
