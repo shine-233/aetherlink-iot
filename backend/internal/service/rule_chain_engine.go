@@ -134,6 +134,7 @@ func (e *ruleChainExecution) walkAndCollect(values map[string]any, triggerType s
 		start := time.Now()
 		result, attempt, nodeErr := e.executeNodeWithPolicy(node, msg)
 		recordRuleChainNodeTrace(e, node, msg, result, nodeErr, time.Since(start))
+		recordRuleChainReplayInput(e, node, msg, result, nodeErr)
 		if nodeErr != nil {
 			failureNext := e.graph.FailureSuccessors(node.ID)
 			if len(failureNext) == 0 {
