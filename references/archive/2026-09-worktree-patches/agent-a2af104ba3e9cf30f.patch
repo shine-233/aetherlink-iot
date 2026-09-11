@@ -1,0 +1,2052 @@
+diff --git a/automation_tests/e2e/fixtures.js b/automation_tests/e2e/fixtures.js
+index d34b558..155d2cd 100644
+--- a/automation_tests/e2e/fixtures.js
++++ b/automation_tests/e2e/fixtures.js
+@@ -28,27 +28,63 @@ const ROLE_FILES = {
+   email_change_tenant: 'email-change-tenant.json'
+ };
+ 
+-function instrumentPageCoverage(page) {
++function coverageContext(testInfo) {
++  if (!testInfo) return {};
++  return {
++    runId: process.env.AETHERLINK_COVERAGE_RUN_ID,
++    module: process.env.AETHERLINK_COVERAGE_MODULE ||
++      path.basename(testInfo.file || '', path.extname(testInfo.file || '')) ||
++      'unknown',
++    case: {
++      file: testInfo.file || null,
++      title: testInfo.title || null,
++      titlePath: typeof testInfo.titlePath === 'function' ? testInfo.titlePath() : [],
++      caseId: testInfo.testId || null
++    },
++    attempt: {
++      retry: testInfo.retry,
++      workerIndex: testInfo.workerIndex,
++      parallelIndex: testInfo.parallelIndex,
++      repeatEachIndex: testInfo.repeatEachIndex
++    }
++  };
++}
++
++function instrumentPageCoverage(page, testInfo) {
++  const context = coverageContext(testInfo);
+   let gotoInFlight = 0;
+   page.on('framenavigated', frame => {
+     if (frame === page.mainFrame() && gotoInFlight === 0) {
+       // SPA router.push/history navigation does not pass through page.goto.
+-      pageCoverage.hitPage(frame.url());
++      pageCoverage.hitPage(frame.url(), undefined, {
++        ...context,
++        statusCode: null,
++        outcome: 'pending',
++        diagnostics: { navigation: 'spa' }
++      });
+     }
+   });
+ 
+   const originalGoto = page.goto.bind(page);
+   page.goto = async function(url, options) {
+     gotoInFlight++;
++    let response = null;
+     let completed = false;
+     try {
+-      const response = await originalGoto(url, options);
++      response = await originalGoto(url, options);
+       completed = true;
+       return response;
+     } finally {
+       gotoInFlight--;
+       // Record only the settled URL, after redirects and failed navigations.
+-      if (completed && gotoInFlight === 0) pageCoverage.hitPage(page.url());
++      if (completed && gotoInFlight === 0) {
++        pageCoverage.hitPage(page.url(), undefined, {
++          ...context,
++          statusCode: response ? response.status() : null,
++          outcome: 'pending',
++          diagnostics: { navigation: 'goto' }
++        });
++      }
+     }
+   };
+ }
+@@ -75,8 +111,8 @@ function storageStateExists(role) {
+  * 扩展后的 test fixture，提供 rolePage / api / data 等便捷对象
+  */
+ const test = base.extend({
+-  page: async ({ page }, use) => {
+-    instrumentPageCoverage(page);
++  page: async ({ page }, use, testInfo) => {
++    instrumentPageCoverage(page, testInfo);
+ 
+     await use(page);
+   },
+@@ -93,7 +129,7 @@ const test = base.extend({
+    *   test('用例', async ({ rolePage }) => { ... })
+    *   test.use({ role: 'tenant_admin' })
+    */
+-  rolePage: async ({ browser, role }, use) => {
++  rolePage: async ({ browser, role }, use, testInfo) => {
+     const storageStatePath = getStorageStatePath(role);
+ 
+     if (!storageStateExists(role)) {
+@@ -107,7 +143,7 @@ const test = base.extend({
+     const page = await context.newPage();
+ 
+     // 拦截 page.goto() 调用，自动记录页面覆盖率
+-    instrumentPageCoverage(page);
++    instrumentPageCoverage(page, testInfo);
+ 
+     await use(page);
+     await context.close();
+@@ -116,34 +152,40 @@ const test = base.extend({
+   /**
+    * API 辅助对象，复用 lib/api_client.js
+    */
+-  api: async ({}, use) => {
++  api: async ({}, use, testInfo) => {
++    const requestContext = coverageContext(testInfo);
++    const withContext = options => ({
++      ...(options || {}),
++      ...requestContext,
++      attempt: { ...requestContext.attempt, ...((options && options.attempt) || {}) }
++    });
+     await use({
+       client: apiClient,
+       config: config,
+       /**
+        * 以指定角色登录并返回 token
+        */
+-      login: (accountKey) => apiClient.login(accountKey),
++      login: (accountKey) => apiClient.login(accountKey, withContext()),
+       /**
+        * GET 请求
+        */
+-      get: (url, params, accountKey) => apiClient.get(url, params, accountKey),
+-      getNoAuth: (url, params) => apiClient.getNoAuth(url, params),
++      get: (url, params, accountKey) => apiClient.get(url, params, accountKey, withContext()),
++      getNoAuth: (url, params) => apiClient.getNoAuth(url, params, withContext()),
+       /**
+        * POST 请求
+        */
+-      post: (url, data, accountKey) => apiClient.post(url, data, accountKey),
+-      postNoAuth: (url, data) => apiClient.postNoAuth(url, data),
++      post: (url, data, accountKey) => apiClient.post(url, data, accountKey, withContext()),
++      postNoAuth: (url, data) => apiClient.postNoAuth(url, data, withContext()),
+       /**
+        * PUT 请求
+        */
+-      put: (url, data, accountKey) => apiClient.put(url, data, accountKey),
+-      putNoAuth: (url, data) => apiClient.putNoAuth(url, data),
++      put: (url, data, accountKey) => apiClient.put(url, data, accountKey, withContext()),
++      putNoAuth: (url, data) => apiClient.putNoAuth(url, data, withContext()),
+       /**
+        * DELETE 请求
+        */
+-      delete: (url, data, accountKey) => apiClient.delete(url, data, accountKey),
+-      deleteNoAuth: (url, data) => apiClient.deleteNoAuth(url, data),
++      delete: (url, data, accountKey) => apiClient.delete(url, data, accountKey, withContext()),
++      deleteNoAuth: (url, data) => apiClient.deleteNoAuth(url, data, withContext()),
+       /**
+        * 探测账号在当前本地后端是否可登录
+        */
+diff --git a/automation_tests/lib/api_client.js b/automation_tests/lib/api_client.js
+index 081d9de..ec070e4 100644
+--- a/automation_tests/lib/api_client.js
++++ b/automation_tests/lib/api_client.js
+@@ -125,6 +125,7 @@ class ApiClient {
+         email: account.email,
+         password: account.password
+       });
++      this.recordEndpointResponse('POST', '/login', resp, options);
+       if (resp.data && resp.data.code === 200 && resp.data.data && resp.data.data.token) {
+         this.tokens[accountKey] = resp.data.data.token;
+         return resp.data.data.token;
+@@ -137,6 +138,9 @@ class ApiClient {
+       }
+       throw new LoginRetrySignal(`登录失败: ${JSON.stringify(resp.data)}`);
+     } catch (err) {
++      if (!(err instanceof LoginRetrySignal)) {
++        this.recordEndpointResponse('POST', '/login', err, options);
++      }
+       if (err instanceof LoginRetrySignal) {
+         throw err;
+       }
+@@ -193,10 +197,41 @@ class ApiClient {
+     return { 'x-token': token };
+   }
+ 
+-  recordEndpointResponse(method, url, error = null) {
+-    if (!error || error.response) {
+-      endpointCoverage.hit(method, this.baseURL + url);
+-    }
++  recordEndpointResponse(method, url, responseOrError = null, requestContext = {}) {
++    const response = responseOrError && responseOrError.response
++      ? responseOrError.response
++      : responseOrError;
++    const statusCode = response && Number.isInteger(Number(response.status))
++      ? Number(response.status)
++      : null;
++    const transportFailure = Boolean(responseOrError && !responseOrError.response && statusCode === null);
++    return endpointCoverage.hit(method, this.baseURL + url, {
++      case: requestContext.case,
++      runId: requestContext.runId,
++      module: requestContext.module,
++      statusCode,
++      outcome: requestContext.outcome || 'pending',
++      attempt: {
++        ...(requestContext.attempt || {}),
++        retry: requestContext.retry !== undefined
++          ? requestContext.retry
++          : requestContext.attempt && requestContext.attempt.retry,
++        workerIndex: requestContext.workerIndex !== undefined
++          ? requestContext.workerIndex
++          : requestContext.attempt && requestContext.attempt.workerIndex,
++        parallelIndex: requestContext.parallelIndex !== undefined
++          ? requestContext.parallelIndex
++          : requestContext.attempt && requestContext.attempt.parallelIndex,
++        repeatEachIndex: requestContext.repeatEachIndex !== undefined
++          ? requestContext.repeatEachIndex
++          : requestContext.attempt && requestContext.attempt.repeatEachIndex,
++        responseReceived: statusCode !== null,
++        transportFailure,
++        errorCode: responseOrError && responseOrError.code,
++        errorMessage: responseOrError && responseOrError.message
++      },
++      diagnostics: requestContext.diagnostics
++    });
+   }
+ 
+   isExpiredTokenError(err) {
+@@ -261,10 +296,10 @@ class ApiClient {
+     const headers = await this.authHeaders(accountKey);
+     try {
+       const resp = await this.client.get(url, { params, headers });
+-      this.recordEndpointResponse('GET', url);
++      this.recordEndpointResponse('GET', url, resp, options);
+       return resp.data;
+     } catch (err) {
+-      this.recordEndpointResponse('GET', url, err);
++      this.recordEndpointResponse('GET', url, err, options);
+       return this.handleRecoverableError(
+         err,
+         accountKey,
+@@ -287,7 +322,7 @@ class ApiClient {
+     const headers = await this.authHeaders(accountKey);
+     try {
+       const resp = await this.client.post(url, data, { headers });
+-      this.recordEndpointResponse('POST', url);
++      this.recordEndpointResponse('POST', url, resp, options);
+       // MQTT debug 会话创建命中 201003（会话重开冷却）时退避重试 1 次：
+       // 测试侧对防护性限流的容忍而非绕过，与 login 的限流容忍模式一致，仅限该接口。
+       if (
+@@ -301,7 +336,7 @@ class ApiClient {
+       }
+       return resp.data;
+     } catch (err) {
+-      this.recordEndpointResponse('POST', url, err);
++      this.recordEndpointResponse('POST', url, err, options);
+       return this.handleRecoverableError(
+         err,
+         accountKey,
+@@ -329,10 +364,10 @@ class ApiClient {
+       const resp = await this.client.post(url, form, {
+         headers: { ...auth, ...form.getHeaders() }
+       });
+-      this.recordEndpointResponse('POST', url);
++      this.recordEndpointResponse('POST', url, resp, options);
+       return resp.data;
+     } catch (err) {
+-      this.recordEndpointResponse('POST', url, err);
++      this.recordEndpointResponse('POST', url, err, options);
+       return this.handleRecoverableError(
+         err,
+         accountKey,
+@@ -355,10 +390,10 @@ class ApiClient {
+     const headers = await this.authHeaders(accountKey);
+     try {
+       const resp = await this.client.put(url, data, { headers });
+-      this.recordEndpointResponse('PUT', url);
++      this.recordEndpointResponse('PUT', url, resp, options);
+       return resp.data;
+     } catch (err) {
+-      this.recordEndpointResponse('PUT', url, err);
++      this.recordEndpointResponse('PUT', url, err, options);
+       return this.handleRecoverableError(
+         err,
+         accountKey,
+@@ -373,10 +408,10 @@ class ApiClient {
+     const headers = await this.authHeaders(accountKey);
+     try {
+       const resp = await this.client.patch(url, data, { headers });
+-      this.recordEndpointResponse('PATCH', url);
++      this.recordEndpointResponse('PATCH', url, resp, options);
+       return resp.data;
+     } catch (err) {
+-      this.recordEndpointResponse('PATCH', url, err);
++      this.recordEndpointResponse('PATCH', url, err, options);
+       return this.handleRecoverableError(
+         err,
+         accountKey,
+@@ -399,10 +434,10 @@ class ApiClient {
+     const headers = await this.authHeaders(accountKey);
+     try {
+       const resp = await this.client.delete(url, { headers, data });
+-      this.recordEndpointResponse('DELETE', url);
++      this.recordEndpointResponse('DELETE', url, resp, options);
+       return resp.data;
+     } catch (err) {
+-      this.recordEndpointResponse('DELETE', url, err);
++      this.recordEndpointResponse('DELETE', url, err, options);
+       return this.handleRecoverableError(
+         err,
+         accountKey,
+@@ -418,31 +453,55 @@ class ApiClient {
+    * @param {object} params - 查询参数
+    * @returns {Promise<object>} 后端响应体或错误对象
+    */
+-  async getNoAuth(url, params = {}) {
++  async getNoAuth(url, params = {}, options = {}) {
+     assertRelativeAPIPath(url);
+     try {
+       const resp = await this.client.get(url, { params });
+-      this.recordEndpointResponse('GET', url);
++      this.recordEndpointResponse('GET', url, resp, options);
+       return resp.data;
+     } catch (err) {
+-      this.recordEndpointResponse('GET', url, err);
++      this.recordEndpointResponse('GET', url, err, options);
+       return this.handleError(err);
+     }
+   }
+ 
+-  async getRootNoAuth(url, params = {}) {
++  async getRootNoAuth(url, params = {}, options = {}) {
+     assertRelativeAPIPath(url);
+     const rootURL = this.baseURL.replace(/\/api\/v1\/?$/, '');
+     const targetURL = new URL(url, rootURL + '/').toString();
+     try {
+       const resp = await axios.get(targetURL, { params, timeout: this.timeout });
+-      endpointCoverage.hit('GET', targetURL);
++      endpointCoverage.hit('GET', targetURL, {
++        ...options,
++        statusCode: resp.status,
++        attempt: { ...(options.attempt || {}), responseReceived: true }
++      });
+       return { httpStatus: resp.status, data: resp.data };
+     } catch (err) {
+       if (err.response) {
+-        endpointCoverage.hit('GET', targetURL);
++        endpointCoverage.hit('GET', targetURL, {
++          ...options,
++          statusCode: err.response.status,
++          attempt: {
++            ...(options.attempt || {}),
++            responseReceived: true,
++            errorCode: err.code,
++            errorMessage: err.message
++          }
++        });
+         return { httpStatus: err.response.status, data: err.response.data };
+       }
++      endpointCoverage.hit('GET', targetURL, {
++        ...options,
++        statusCode: null,
++        attempt: {
++          ...(options.attempt || {}),
++          responseReceived: false,
++          transportFailure: true,
++          errorCode: err.code,
++          errorMessage: err.message
++        }
++      });
+       return this.handleError(err);
+     }
+   }
+@@ -453,14 +512,14 @@ class ApiClient {
+    * @param {object} data - 请求体
+    * @returns {Promise<object>} 后端响应体或错误对象
+    */
+-  async postNoAuth(url, data = {}) {
++  async postNoAuth(url, data = {}, options = {}) {
+     assertRelativeAPIPath(url);
+     try {
+       const resp = await this.client.post(url, data);
+-      this.recordEndpointResponse('POST', url);
++      this.recordEndpointResponse('POST', url, resp, options);
+       return resp.data;
+     } catch (err) {
+-      this.recordEndpointResponse('POST', url, err);
++      this.recordEndpointResponse('POST', url, err, options);
+       return this.handleError(err);
+     }
+   }
+@@ -471,14 +530,14 @@ class ApiClient {
+    * @param {object} data - 请求体
+    * @returns {Promise<object>} 后端响应体或错误对象
+    */
+-  async putNoAuth(url, data = {}) {
++  async putNoAuth(url, data = {}, options = {}) {
+     assertRelativeAPIPath(url);
+     try {
+       const resp = await this.client.put(url, data);
+-      this.recordEndpointResponse('PUT', url);
++      this.recordEndpointResponse('PUT', url, resp, options);
+       return resp.data;
+     } catch (err) {
+-      this.recordEndpointResponse('PUT', url, err);
++      this.recordEndpointResponse('PUT', url, err, options);
+       return this.handleError(err);
+     }
+   }
+@@ -489,14 +548,14 @@ class ApiClient {
+    * @param {object} data - 请求体
+    * @returns {Promise<object>} 后端响应体或错误对象
+    */
+-  async deleteNoAuth(url, data = {}) {
++  async deleteNoAuth(url, data = {}, options = {}) {
+     assertRelativeAPIPath(url);
+     try {
+       const resp = await this.client.delete(url, { data });
+-      this.recordEndpointResponse('DELETE', url);
++      this.recordEndpointResponse('DELETE', url, resp, options);
+       return resp.data;
+     } catch (err) {
+-      this.recordEndpointResponse('DELETE', url, err);
++      this.recordEndpointResponse('DELETE', url, err, options);
+       return this.handleError(err);
+     }
+   }
+diff --git a/automation_tests/lib/coverage_case_context.js b/automation_tests/lib/coverage_case_context.js
+new file mode 100644
+index 0000000..8f23df6
+--- /dev/null
++++ b/automation_tests/lib/coverage_case_context.js
+@@ -0,0 +1,13 @@
++const { AsyncLocalStorage } = require('async_hooks');
++
++const storage = new AsyncLocalStorage();
++
++function run(context, callback) {
++  return storage.run(context || null, callback);
++}
++
++function get() {
++  return storage.getStore() || null;
++}
++
++module.exports = { run, get };
+diff --git a/automation_tests/lib/coverage_mocha_reporter.js b/automation_tests/lib/coverage_mocha_reporter.js
+new file mode 100644
+index 0000000..15f4116
+--- /dev/null
++++ b/automation_tests/lib/coverage_mocha_reporter.js
+@@ -0,0 +1,62 @@
++const Mocha = require('mocha');
++
++const caseContext = require('./coverage_case_context');
++const delegate = require('mochawesome');
++
++const {
++  EVENT_TEST_BEGIN,
++  EVENT_TEST_END,
++  EVENT_HOOK_BEGIN,
++  EVENT_HOOK_END
++} = Mocha.Runner.constants;
++
++module.exports = function CoverageMochawesomeReporter(runner, options) {
++  let active = null;
++
++  const buildTestContext = test => ({
++    runId: process.env.AETHERLINK_COVERAGE_RUN_ID,
++    module: process.env.AETHERLINK_COVERAGE_MODULE,
++    case: {
++      file: test.file || null,
++      title: test.title || null,
++      titlePath: typeof test.fullTitle === 'function' ? [test.fullTitle()] : [],
++      caseId: null
++    },
++    attempt: { retry: typeof test.currentRetry === 'function' ? test.currentRetry() : 0 }
++  });
++
++  runner.on(EVENT_TEST_BEGIN, test => {
++    active = buildTestContext(test);
++    caseContext.run(active, () => {});
++  });
++
++  runner.on(EVENT_HOOK_BEGIN, hook => {
++    active = {
++      runId: process.env.AETHERLINK_COVERAGE_RUN_ID,
++      module: process.env.AETHERLINK_COVERAGE_MODULE,
++      case: {
++        file: hook.file || null,
++        hook: hook.title || hook.hookName || 'hook'
++      },
++      attempt: {}
++    };
++    caseContext.run(active, () => {});
++  });
++
++  runner.on(EVENT_TEST_END, () => { active = null; });
++  runner.on(EVENT_HOOK_END, () => { active = null; });
++
++  const originalRun = runner.runTest.bind(runner);
++  runner.runTest = function(done) {
++    const context = this.test ? buildTestContext(this.test) : active;
++    return caseContext.run(context, () => originalRun(done));
++  };
++
++  const originalHook = runner.hook.bind(runner);
++  runner.hook = function(name, fn) {
++    const context = active;
++    return caseContext.run(context, () => originalHook(name, fn));
++  };
++
++  delegate.call(this, runner, options);
++};
+diff --git a/automation_tests/lib/coverage_provenance.js b/automation_tests/lib/coverage_provenance.js
+new file mode 100644
+index 0000000..3a49c69
+--- /dev/null
++++ b/automation_tests/lib/coverage_provenance.js
+@@ -0,0 +1,328 @@
++const crypto = require('crypto');
++const fs = require('fs');
++const path = require('path');
++
++const writeJsonArtifact = require('./json_artifact');
++
++const SCHEMA = 'aetherlink.coverage.hit.v1';
++const KINDS = new Set(['endpoint', 'page']);
++const DISPOSITIONS = new Set(['candidate', 'effective', 'diagnostic']);
++const COVERING_OUTCOMES = new Set(['passed', 'expected']);
++const NON_COVERING_OUTCOMES = new Set([
++  'failed',
++  'skipped',
++  'partial',
++  'partial-skip',
++  'all-skipped',
++  'flaky',
++  'mismatched',
++  'unexpected'
++]);
++
++function cleanString(value) {
++  return typeof value === 'string' && value.trim() ? value.trim() : null;
++}
++
++function finiteInteger(value) {
++  const number = Number(value);
++  return Number.isInteger(number) && number >= 0 ? number : null;
++}
++
++function normalizeStatusCode(value) {
++  const statusCode = finiteInteger(value);
++  return statusCode !== null && statusCode >= 100 && statusCode <= 599
++    ? statusCode
++    : null;
++}
++
++function normalizeAttempt(attempt = {}) {
++  const retry = finiteInteger(attempt.retry);
++  const workerIndex = finiteInteger(attempt.workerIndex);
++  const parallelIndex = finiteInteger(attempt.parallelIndex);
++  const repeatEachIndex = finiteInteger(attempt.repeatEachIndex);
++  return {
++    retry,
++    workerIndex,
++    parallelIndex,
++    repeatEachIndex,
++    transportFailure: attempt.transportFailure === true,
++    responseReceived: attempt.responseReceived === true,
++    errorCode: cleanString(attempt.errorCode),
++    errorMessage: cleanString(attempt.errorMessage)
++  };
++}
++
++function normalizeCaseContext(context = {}) {
++  const file = cleanString(context.file);
++  const title = cleanString(context.title);
++  const titlePath = Array.isArray(context.titlePath)
++    ? context.titlePath.map(cleanString).filter(Boolean)
++    : [];
++  const caseId = cleanString(context.caseId);
++  const hook = cleanString(context.hook);
++  const attributed = Boolean(file && (title || titlePath.length > 0 || caseId));
++  return { file, title, titlePath, caseId, hook, attributed };
++}
++
++function normalizeFile(value) {
++  const file = cleanString(value);
++  return file ? file.replace(/\\/g, '/') : null;
++}
++
++function titlePathKey(value) {
++  const titlePath = Array.isArray(value) ? value.map(cleanString).filter(Boolean) : [];
++  return titlePath.length > 0 ? JSON.stringify(titlePath) : null;
++}
++
++function addUniqueCase(index, key, item) {
++  if (!key) return;
++  if (!index.has(key)) {
++    index.set(key, item);
++  } else {
++    index.set(key, false);
++  }
++}
++
++function defaultRunId() {
++  return cleanString(process.env.AETHERLINK_COVERAGE_RUN_ID) || 'unattributed-run';
++}
++
++function createEvent(input = {}) {
++  const kind = cleanString(input.kind);
++  if (!KINDS.has(kind)) throw new Error('coverage provenance kind must be endpoint or page');
++  const target = cleanString(input.target);
++  if (!target) throw new Error('coverage provenance target is required');
++  const moduleName = cleanString(input.module) ||
++    cleanString(process.env.AETHERLINK_COVERAGE_MODULE) ||
++    'unknown';
++  const caseContext = normalizeCaseContext(input.case);
++  const attempt = normalizeAttempt(input.attempt);
++  const requestedDisposition = cleanString(input.disposition) || 'candidate';
++  if (!DISPOSITIONS.has(requestedDisposition)) {
++    throw new Error('invalid coverage provenance disposition: ' + requestedDisposition);
++  }
++  const outcome = cleanString(input.outcome) || 'pending';
++  const observedAt = cleanString(input.observedAt) || new Date().toISOString();
++  if (!Number.isFinite(Date.parse(observedAt))) {
++    throw new Error('coverage provenance observedAt must be an ISO timestamp');
++  }
++  const disposition = requestedDisposition === 'candidate' && (
++    !caseContext.attributed || attempt.transportFailure || NON_COVERING_OUTCOMES.has(outcome)
++  ) ? 'diagnostic' : requestedDisposition;
++
++  return {
++    schema: SCHEMA,
++    eventId: cleanString(input.eventId) || crypto.randomUUID(),
++    runId: cleanString(input.runId) || defaultRunId(),
++    module: moduleName,
++    kind,
++    target,
++    case: caseContext,
++    attempt,
++    outcome,
++    statusCode: normalizeStatusCode(input.statusCode),
++    observedAt: new Date(observedAt).toISOString(),
++    disposition,
++    diagnostics: input.diagnostics && typeof input.diagnostics === 'object'
++      ? { ...input.diagnostics }
++      : {}
++  };
++}
++
++function validateEvent(event) {
++  if (!event || event.schema !== SCHEMA) return false;
++  if (!cleanString(event.eventId) || !cleanString(event.runId)) return false;
++  if (!cleanString(event.module) || !KINDS.has(event.kind) || !cleanString(event.target)) return false;
++  if (!event.case || typeof event.case.attributed !== 'boolean') return false;
++  if (!event.attempt || typeof event.attempt.transportFailure !== 'boolean') return false;
++  if (!cleanString(event.outcome) || !DISPOSITIONS.has(event.disposition)) return false;
++  if (!cleanString(event.observedAt) || !Number.isFinite(Date.parse(event.observedAt))) return false;
++  if (event.statusCode !== null && normalizeStatusCode(event.statusCode) === null) return false;
++  return true;
++}
++
++function eventIdentity(event) {
++  return event && cleanString(event.eventId);
++}
++
++function mergeEvents(...collections) {
++  const rank = { candidate: 1, diagnostic: 2, effective: 3 };
++  const byId = new Map();
++  for (const collection of collections) {
++    for (const event of Array.isArray(collection) ? collection : []) {
++      if (!validateEvent(event)) continue;
++      const id = eventIdentity(event);
++      if (!id) continue;
++      const current = byId.get(id);
++      if (!current || rank[event.disposition] >= rank[current.disposition]) {
++        byId.set(id, event);
++      }
++    }
++  }
++  return Array.from(byId.values()).sort((left, right) => (
++    left.observedAt.localeCompare(right.observedAt) ||
++    (eventIdentity(left) || '').localeCompare(eventIdentity(right) || '')
++  ));
++}
++
++function readLedger(filePath) {
++  if (!filePath || !fs.existsSync(filePath)) return { schema: SCHEMA, events: [] };
++  try {
++    const payload = JSON.parse(fs.readFileSync(filePath, 'utf8'));
++    return { schema: SCHEMA, events: mergeEvents(payload && payload.events) };
++  } catch (_error) {
++    return { schema: SCHEMA, events: [] };
++  }
++}
++
++function writeLedger(filePath, events) {
++  if (!filePath) return;
++  const persisted = readLedger(filePath);
++  writeJsonArtifact(filePath, {
++    schema: SCHEMA,
++    events: mergeEvents(persisted.events, events)
++  });
++}
++
++function replaceLedger(filePath, events) {
++  if (!filePath) return;
++  writeJsonArtifact(filePath, {
++    schema: SCHEMA,
++    events: mergeEvents(events)
++  });
++}
++
++function appendEvent(filePath, event) {
++  writeLedger(filePath, [event]);
++  return event;
++}
++
++function outcomeFromCaseResult(result = {}) {
++  const status = cleanString(result.status) || 'unknown';
++  const retry = finiteInteger(result.retry) || 0;
++  if (status === 'skipped') return 'skipped';
++  if (status !== 'passed' && status !== 'expected') return status === 'timedOut' ? 'failed' : status;
++  if (retry > 0) return 'flaky';
++  return status === 'expected' ? 'expected' : 'passed';
++}
++
++function qualifyEvents(events, authoritative = {}) {
++  const runId = cleanString(authoritative.runId);
++  const moduleName = cleanString(authoritative.module);
++  const moduleOutcome = cleanString(authoritative.moduleOutcome) || 'unknown';
++  const modulePassed = authoritative.modulePassed === true && moduleOutcome === 'passed';
++  const cases = Array.isArray(authoritative.cases) ? authoritative.cases : [];
++  const casesById = new Map();
++  const casesByFileTitlePath = new Map();
++  const casesByFileTitle = new Map();
++  for (const item of cases) {
++    if (!item || typeof item !== 'object') continue;
++    const normalized = {
++      caseId: cleanString(item.caseId),
++      file: normalizeFile(item.file),
++      title: cleanString(item.title),
++      titlePath: Array.isArray(item.titlePath) ? item.titlePath.map(cleanString).filter(Boolean) : [],
++      outcome: cleanString(item.outcome) || outcomeFromCaseResult(item),
++      attempts: Array.isArray(item.attempts) ? item.attempts.map(normalizeAttempt) : [],
++      mismatched: item.mismatched === true
++    };
++    addUniqueCase(casesById, normalized.caseId, normalized);
++    const pathKey = titlePathKey(normalized.titlePath);
++    addUniqueCase(
++      casesByFileTitlePath,
++      normalized.file && pathKey ? normalized.file + '::' + pathKey : null,
++      normalized
++    );
++    addUniqueCase(
++      casesByFileTitle,
++      normalized.file && normalized.title ? normalized.file + '::' + normalized.title : null,
++      normalized
++    );
++  }
++
++  return mergeEvents(events).map(event => {
++    const runMatches = !runId || event.runId === runId;
++    const moduleMatches = !moduleName || event.module === moduleName;
++    if (!runMatches || !moduleMatches) {
++      return {
++        ...event,
++        disposition: 'diagnostic',
++        diagnostics: {
++          ...event.diagnostics,
++          qualifiedByAuthoritativeResult: false,
++          authoritativeModuleOutcome: moduleOutcome,
++          authoritativeCaseOutcome: null,
++          qualificationScopeMatched: false
++        }
++      };
++    }
++    const eventFile = normalizeFile(event.case.file);
++    const eventPathKey = titlePathKey(event.case.titlePath);
++    let matched = event.case.caseId
++      ? casesById.get(event.case.caseId)
++      : undefined;
++    if (matched === undefined && eventFile && eventPathKey) {
++      matched = casesByFileTitlePath.get(eventFile + '::' + eventPathKey);
++    }
++    if (matched === undefined && eventFile && event.case.title) {
++      matched = casesByFileTitle.get(eventFile + '::' + event.case.title);
++    }
++    let outcome = event.outcome;
++    let disposition = 'diagnostic';
++    const statusEligible = event.kind !== 'endpoint' || event.statusCode !== null;
++    if (matched) {
++      outcome = matched.mismatched ? 'mismatched' : matched.outcome;
++      if (modulePassed && COVERING_OUTCOMES.has(outcome) && statusEligible && !event.attempt.transportFailure) {
++        disposition = 'effective';
++      }
++    }
++    return {
++      ...event,
++      outcome,
++      disposition,
++      diagnostics: {
++        ...event.diagnostics,
++        qualifiedByAuthoritativeResult: Boolean(matched),
++        authoritativeModuleOutcome: moduleOutcome,
++        authoritativeCaseOutcome: matched ? outcome : null,
++        qualificationScopeMatched: true
++      }
++    };
++  });
++}
++
++function summarizeEvents(events) {
++  const valid = mergeEvents(events);
++  return {
++    schema: SCHEMA,
++    total: valid.length,
++    candidate: valid.filter(event => event.disposition === 'candidate').length,
++    effective: valid.filter(event => event.disposition === 'effective').length,
++    diagnostic: valid.filter(event => event.disposition === 'diagnostic').length,
++    effectiveEvents: valid.filter(event => event.disposition === 'effective')
++  };
++}
++
++function provenanceFileForCoverage(coverageFile) {
++  if (!coverageFile) return '';
++  const extension = path.extname(coverageFile);
++  const stem = extension ? coverageFile.slice(0, -extension.length) : coverageFile;
++  return stem + '-provenance.json';
++}
++
++module.exports = {
++  SCHEMA,
++  createEvent,
++  validateEvent,
++  mergeEvents,
++  readLedger,
++  writeLedger,
++  replaceLedger,
++  appendEvent,
++  qualifyEvents,
++  summarizeEvents,
++  outcomeFromCaseResult,
++  provenanceFileForCoverage,
++  normalizeCaseContext,
++  normalizeAttempt
++};
+diff --git a/automation_tests/lib/endpoint_coverage.js b/automation_tests/lib/endpoint_coverage.js
+index 78020c7..438dcc8 100644
+--- a/automation_tests/lib/endpoint_coverage.js
++++ b/automation_tests/lib/endpoint_coverage.js
+@@ -8,6 +8,8 @@
+ const fs = require('fs');
+ const path = require('path');
+ const writeJsonArtifact = require('./json_artifact');
++const provenance = require('./coverage_provenance');
++const caseContext = require('./coverage_case_context');
+ const { ALL_ENDPOINTS } = require('./endpoint-coverage/catalog');
+ 
+ /**
+@@ -37,8 +39,11 @@ function normalizePath(url) {
+ class EndpointCoverage {
+   constructor() {
+     this.hitSet = new Map(); // key: "METHOD /path" -> { count, endpoint }
++    this.events = [];
+     this.totalEndpoints = ALL_ENDPOINTS.length;
+     this.coverageFile = process.env.ENDPOINT_COVERAGE_FILE || '';
++    this.provenanceFile = process.env.COVERAGE_PROVENANCE_FILE ||
++      provenance.provenanceFileForCoverage(this.coverageFile);
+   }
+ 
+   /**
+@@ -46,27 +51,59 @@ class EndpointCoverage {
+    * @param {string} method - HTTP 方法 (GET/POST/PUT/DELETE)
+    * @param {string} url - 实际请求 URL
+    */
+-  hit(method, url) {
++  hit(method, url, observation = {}) {
++    const inheritedContext = caseContext.get() || {};
++    observation = {
++      ...inheritedContext,
++      ...observation,
++      attempt: { ...(inheritedContext.attempt || {}), ...(observation.attempt || {}) }
++    };
+     const normalizedPath = normalizePath(url);
+     const key = method.toUpperCase() + ' ' + normalizedPath;
+ 
+-    // 查找匹配的端点定义
++    // Find the authoritative catalog target before recording provenance.
+     const matched = this.findEndpoint(method.toUpperCase(), normalizedPath);
+-    if (matched) {
+-      const endpointKey = matched.method + ' ' + matched.path;
+-      if (!this.hitSet.has(endpointKey)) {
+-        this.hitSet.set(endpointKey, { count: 0, endpoint: matched });
+-      }
+-      this.hitSet.get(endpointKey).count++;
+-    } else {
+-      // 未在清单中找到的端点，也记录下来（可能清单不完整）
+-      if (!this.hitSet.has(key)) {
+-        this.hitSet.set(key, { count: 0, endpoint: { method: method.toUpperCase(), path: normalizedPath, module: 'unknown', auth: null } });
++    const endpoint = matched || {
++      method: method.toUpperCase(),
++      path: normalizedPath,
++      module: 'unknown',
++      auth: null
++    };
++    const target = endpoint.method + ' ' + endpoint.path;
++    const event = provenance.createEvent({
++      eventId: observation.eventId,
++      runId: observation.runId,
++      module: observation.module || endpoint.module,
++      kind: 'endpoint',
++      target,
++      case: observation.case,
++      attempt: observation.attempt,
++      outcome: observation.outcome || 'pending',
++      statusCode: observation.statusCode,
++      disposition: observation.disposition || 'candidate',
++      diagnostics: {
++        catalogMatched: Boolean(matched),
++        requestedTarget: key,
++        ...(observation.diagnostics || {})
+       }
+-      this.hitSet.get(key).count++;
++    });
++    this.events.push(event);
++
++    // A transport failure is useful diagnostic provenance, but it must not
++    // enter the aggregate hit set and therefore cannot cover an endpoint.
++    if (event.attempt.transportFailure || event.statusCode === null) {
++      this.flushProvenance();
++      return event;
++    }
++
++    if (!this.hitSet.has(target)) {
++      this.hitSet.set(target, { count: 0, endpoint });
+     }
++    this.hitSet.get(target).count++;
+ 
+     this.flush();
++    this.flushProvenance();
++    return event;
+   }
+ 
+   /**
+@@ -79,7 +116,11 @@ class EndpointCoverage {
+         key,
+         count: value.count,
+         endpoint: value.endpoint
+-      }))
++      })),
++      provenance: {
++        schema: provenance.SCHEMA,
++        events: provenance.mergeEvents(this.events)
++      }
+     };
+   }
+ 
+@@ -107,6 +148,10 @@ class EndpointCoverage {
+         });
+       }
+     });
++    this.events = provenance.mergeEvents(
++      this.events,
++      payload.provenance && payload.provenance.events
++    );
+   }
+ 
+   /**
+@@ -140,6 +185,20 @@ class EndpointCoverage {
+     writeJsonArtifact(this.coverageFile, this.toJSON());
+   }
+ 
++  flushProvenance() {
++    if (!this.provenanceFile) return;
++    provenance.writeLedger(this.provenanceFile, this.events);
++  }
++
++  getProvenanceEvents() {
++    return provenance.mergeEvents(this.events);
++  }
++
++  replaceProvenanceEvents(events) {
++    this.events = provenance.mergeEvents(events);
++    provenance.replaceLedger(this.provenanceFile, this.events);
++  }
++
+   /**
+    * 在端点清单中查找匹配项
+    * @param {string} method
+@@ -419,7 +478,9 @@ class EndpointCoverage {
+    */
+   reset() {
+     this.hitSet.clear();
++    this.events = [];
+     this.flush();
++    provenance.replaceLedger(this.provenanceFile, []);
+   }
+ 
+   getCatalog() {
+diff --git a/automation_tests/lib/page_coverage.js b/automation_tests/lib/page_coverage.js
+index 4c46ce9..becc2ec 100644
+--- a/automation_tests/lib/page_coverage.js
++++ b/automation_tests/lib/page_coverage.js
+@@ -8,6 +8,7 @@
+ const fs = require('fs');
+ const path = require('path');
+ const writeJsonArtifact = require('./json_artifact');
++const provenance = require('./coverage_provenance');
+ 
+ const ALL_PAGES = [
+   { route: '/login', module: 'auth', name: 'Login', priority: 'P0' },
+@@ -108,6 +109,7 @@ class PageCoverage {
+   constructor() {
+     this.hitPages = new Map();
+     this.hitFlows = new Map();
++    this.events = [];
+     // Playwright may restart a worker after a failed test or retry.  The
+     // replacement worker receives the same PAGE_COVERAGE_FILE, so keep a
+     // snapshot of what this process has already flushed and append only the
+@@ -118,12 +120,32 @@ class PageCoverage {
+     this.totalPages = ALL_PAGES.length;
+     this.totalFlows = ALL_FLOWS.length;
+     this.coverageFile = process.env.PAGE_COVERAGE_FILE || '';
++    this.provenanceFile = process.env.COVERAGE_PROVENANCE_FILE ||
++      provenance.provenanceFileForCoverage(this.coverageFile);
+   }
+ 
+-  hitPage(route, name) {
++  hitPage(route, name, observation = {}) {
+     const normalizedRoute = this.normalizeRoute(route);
+     const page = this.findPage(normalizedRoute);
+     const key = page ? page.route : normalizedRoute;
++    const event = provenance.createEvent({
++      eventId: observation.eventId,
++      runId: observation.runId,
++      module: observation.module || (page && page.module) || 'unknown',
++      kind: 'page',
++      target: key,
++      case: observation.case,
++      attempt: observation.attempt,
++      outcome: observation.outcome || 'pending',
++      statusCode: observation.statusCode,
++      disposition: observation.disposition || 'candidate',
++      diagnostics: {
++        catalogMatched: Boolean(page),
++        observedURL: String(route || ''),
++        ...(observation.diagnostics || {})
++      }
++    });
++    this.events.push(event);
+ 
+     if (!this.hitPages.has(key)) {
+       this.hitPages.set(key, {
+@@ -143,6 +165,8 @@ class PageCoverage {
+       .forEach(flow => this.hitFlow(flow.id, false));
+ 
+     this.flush();
++    this.flushProvenance();
++    return event;
+   }
+ 
+   hitFlow(flowId, flush = true) {
+@@ -202,7 +226,11 @@ class PageCoverage {
+         key,
+         count: value.count,
+         flow: value.flow
+-      }))
++      })),
++      provenance: {
++        schema: provenance.SCHEMA,
++        events: provenance.mergeEvents(this.events)
++      }
+     };
+   }
+ 
+@@ -234,6 +262,10 @@ class PageCoverage {
+         });
+       }
+     });
++    this.events = provenance.mergeEvents(
++      this.events,
++      payload.provenance && payload.provenance.events
++    );
+   }
+ 
+   mergeFromFile(filePath) {
+@@ -301,7 +333,14 @@ class PageCoverage {
+ 
+     const output = {
+       pages: mergeDelta(persisted.pages, this.hitPages, this.flushedPages, 'page'),
+-      flows: mergeDelta(persisted.flows, this.hitFlows, this.flushedFlows, 'flow')
++      flows: mergeDelta(persisted.flows, this.hitFlows, this.flushedFlows, 'flow'),
++      provenance: {
++        schema: provenance.SCHEMA,
++        events: provenance.mergeEvents(
++          persisted.provenance && persisted.provenance.events,
++          this.events
++        )
++      }
+     };
+ 
+     writeJsonArtifact(this.coverageFile, output);
+@@ -313,6 +352,20 @@ class PageCoverage {
+     );
+   }
+ 
++  flushProvenance() {
++    if (!this.provenanceFile) return;
++    provenance.writeLedger(this.provenanceFile, this.events);
++  }
++
++  getProvenanceEvents() {
++    return provenance.mergeEvents(this.events);
++  }
++
++  replaceProvenanceEvents(events) {
++    this.events = provenance.mergeEvents(events);
++    provenance.replaceLedger(this.provenanceFile, this.events);
++  }
++
+   getStats() {
+     const coveredPages = [];
+     const uncoveredPages = [];
+@@ -459,11 +512,17 @@ class PageCoverage {
+   reset() {
+     this.hitPages.clear();
+     this.hitFlows.clear();
++    this.events = [];
+     this.flushedPages.clear();
+     this.flushedFlows.clear();
+     if (this.coverageFile) {
+-      writeJsonArtifact(this.coverageFile, { pages: [], flows: [] });
++      writeJsonArtifact(this.coverageFile, {
++        pages: [],
++        flows: [],
++        provenance: { schema: provenance.SCHEMA, events: [] }
++      });
+     }
++    provenance.replaceLedger(this.provenanceFile, []);
+   }
+ 
+   getCatalog() {
+diff --git a/automation_tests/lib/reporter.js b/automation_tests/lib/reporter.js
+index 80a0a75..b10e921 100644
+--- a/automation_tests/lib/reporter.js
++++ b/automation_tests/lib/reporter.js
+@@ -132,6 +132,7 @@ class Reporter {
+       outcome,
+       skipped,
+       blockedReasons,
++      coverageProvenance: summary.coverageProvenance || null,
+       businessClosureEvidence,
+       timestamp: new Date()
+     });
+@@ -173,6 +174,7 @@ class Reporter {
+       },
+       byEvidenceKind,
+       businessClosureEvidence,
++      coverageProvenance: this.groupCoverageProvenance(),
+       evidenceContract: {
+         businessClosureRequiresEvidenceKind: 'business',
+         nonBusinessEvidenceKinds: ['boundary', 'catalog', 'contract', 'preflight', 'config', 'page-coverage-only'],
+@@ -244,6 +246,26 @@ class Reporter {
+     return evidenceKind === 'business' && summary.caseLevelBusinessClosureEvidence === true;
+   }
+ 
++  groupCoverageProvenance() {
++    return this.results.reduce((summary, result) => {
++      const item = result.coverageProvenance;
++      if (!item) return summary;
++      summary.modules++;
++      summary.total += Number(item.total || 0);
++      summary.candidate += Number(item.candidate || 0);
++      summary.effective += Number(item.effective || 0);
++      summary.diagnostic += Number(item.diagnostic || 0);
++      return summary;
++    }, {
++      schema: 'aetherlink.coverage.hit.v1',
++      modules: 0,
++      total: 0,
++      candidate: 0,
++      effective: 0,
++      diagnostic: 0
++    });
++  }
++
+   groupByType() {
+     const groups = {};
+     this.results.forEach(r => {
+diff --git a/automation_tests/lib/runner/result-summary.js b/automation_tests/lib/runner/result-summary.js
+index 767326d..7e4dd2c 100644
+--- a/automation_tests/lib/runner/result-summary.js
++++ b/automation_tests/lib/runner/result-summary.js
+@@ -1,6 +1,7 @@
+ const fs = require('fs');
+ 
+ const coverageContract = require('../coverage_contract');
++const provenance = require('../coverage_provenance');
+ 
+ function readJsonIfPresent(filePath) {
+   if (!filePath || !fs.existsSync(filePath)) {
+@@ -59,20 +60,102 @@ function createRunnerSummary({
+   outcome,
+   skipped = 0,
+   blockedReasons = [],
+-  reason = ''
++  reason = '',
++  cases = []
+ }) {
+   return {
+     passed: Boolean(passed),
+     outcome: outcome || (passed ? 'passed' : 'failed'),
+     skipped: Number(skipped || 0),
+     blockedReasons: Array.isArray(blockedReasons) ? blockedReasons : [],
+-    reason: reason || ''
++    reason: reason || '',
++    cases: Array.isArray(cases) ? cases : []
+   };
+ }
+ 
++function collectMochaCases(report) {
++  const cases = [];
++  const visit = (suite, parents = [], inheritedFile = '') => {
++    if (!suite || typeof suite !== 'object') return;
++    const file = suite.file || inheritedFile;
++    const nextParents = suite.title ? [...parents, suite.title] : parents;
++    for (const test of suite.tests || []) {
++      cases.push({
++        caseId: test.uuid || null,
++        file: test.file || file || null,
++        title: test.title || null,
++        titlePath: test.fullTitle
++          ? [test.fullTitle]
++          : [...nextParents, test.title].filter(Boolean),
++        outcome: test.fail ? 'failed' : test.pending ? 'skipped' : test.pass ? 'passed' : 'unknown',
++        attempts: []
++      });
++    }
++    for (const child of suite.suites || []) visit(child, nextParents, file);
++  };
++  for (const result of (report && report.results) || []) visit(result);
++  return cases;
++}
++
++function collectPlaywrightCases(report) {
++  const cases = [];
++  const visit = (suite, parents = [], inheritedFile = '') => {
++    if (!suite || typeof suite !== 'object') return;
++    const file = suite.file || inheritedFile;
++    const nextParents = suite.title ? [...parents, suite.title] : parents;
++    for (const spec of suite.specs || []) {
++      const tests = Array.isArray(spec.tests) ? spec.tests : [];
++      const attempts = tests.flatMap(test => (test.results || []).map(result => ({
++        retry: result.retry,
++        workerIndex: result.workerIndex,
++        parallelIndex: result.parallelIndex,
++        transportFailure: false,
++        responseReceived: false,
++        errorMessage: result.error && result.error.message
++      })));
++      const finalTest = tests[tests.length - 1] || {};
++      const finalResult = (finalTest.results || [])[finalTest.results ? finalTest.results.length - 1 : 0] || {};
++      const status = finalTest.status ||
++        (spec.ok === false ? finalResult.status : 'passed');
++      const retry = attempts.reduce((max, attempt) => Math.max(max, Number(attempt.retry) || 0), 0);
++      let outcome = status === 'skipped' ? 'skipped' :
++        (status === 'passed' || status === 'expected') ? (retry > 0 ? 'flaky' : 'passed') :
++          (status === 'unexpected' ? 'failed' : status || 'unknown');
++      if (spec.ok === false && outcome === 'passed') outcome = 'mismatched';
++      cases.push({
++        caseId: spec.id || finalTest.testId || null,
++        file: spec.file || file || null,
++        title: spec.title || null,
++        titlePath: [...nextParents, spec.title].filter(Boolean),
++        outcome,
++        attempts,
++        mismatched: spec.ok === false && outcome !== 'failed'
++      });
++    }
++    for (const child of suite.suites || []) visit(child, nextParents, file);
++  };
++  for (const suite of (report && report.suites) || []) visit(suite);
++  return cases;
++}
++
++function qualifyCoverageProvenance(events, summary, moduleName, runId) {
++  const authoritativeCases = (summary && summary.cases || []).map(item => ({
++    ...item,
++    caseId: item.caseId || null
++  }));
++  return provenance.qualifyEvents(events, {
++    runId,
++    module: moduleName,
++    modulePassed: summary && summary.passed === true,
++    moduleOutcome: summary && summary.outcome,
++    cases: authoritativeCases
++  });
++}
++
+ function summarizeMochaResult(result, explicitReport) {
+   const report = explicitReport || readJsonIfPresent(result.reportJson);
+   const stats = report && report.stats ? report.stats : null;
++  const cases = collectMochaCases(report);
+   const defaultReason = result.stderr || result.stdout || 'exit code ' + result.code;
+   const blockedReasons = extractBlockedReasons(result.stdout, result.stderr);
+ 
+@@ -82,7 +165,8 @@ function summarizeMochaResult(result, explicitReport) {
+       outcome: result.code === 0 ? 'passed' : 'failed',
+       skipped: 0,
+       blockedReasons,
+-      reason: result.code === 0 ? '' : defaultReason
++      reason: result.code === 0 ? '' : defaultReason,
++      cases
+     });
+   }
+ 
+@@ -98,7 +182,8 @@ function summarizeMochaResult(result, explicitReport) {
+       outcome: 'failed',
+       skipped: pending,
+       blockedReasons,
+-      reason: defaultReason
++      reason: defaultReason,
++      cases
+     });
+   }
+   if (allSkipped) {
+@@ -113,7 +198,8 @@ function summarizeMochaResult(result, explicitReport) {
+       blockedReasons,
+       reason: runtimeExternalOnly
+         ? 'all tests skipped because a declared runtime-external prerequisite was unavailable'
+-        : 'all tests skipped; environment/data preconditions were not satisfied'
++        : 'all tests skipped; environment/data preconditions were not satisfied',
++      cases
+     });
+   }
+   return createRunnerSummary({
+@@ -121,13 +207,15 @@ function summarizeMochaResult(result, explicitReport) {
+     outcome: pending > 0 ? 'partial-skip' : 'passed',
+     skipped: pending,
+     blockedReasons,
+-    reason: pending > 0 ? `skipped ${pending}/${tests}; check fixture readiness if this was unexpected` : ''
++    reason: pending > 0 ? `skipped ${pending}/${tests}; check fixture readiness if this was unexpected` : '',
++    cases
+   });
+ }
+ 
+ function summarizePlaywrightResult(result, explicitReport) {
+   const report = explicitReport || readJsonIfPresent(result.reportJson);
+   const stats = report && report.stats ? report.stats : null;
++  const cases = collectPlaywrightCases(report);
+   const defaultReason = result.stderr || result.stdout || 'exit code ' + result.code;
+   const blockedReasons = extractBlockedReasons(result.stdout, result.stderr);
+ 
+@@ -137,7 +225,8 @@ function summarizePlaywrightResult(result, explicitReport) {
+       outcome: result.code === 0 ? 'passed' : 'failed',
+       skipped: 0,
+       blockedReasons,
+-      reason: result.code === 0 ? '' : defaultReason
++      reason: result.code === 0 ? '' : defaultReason,
++      cases
+     });
+   }
+ 
+@@ -152,7 +241,8 @@ function summarizePlaywrightResult(result, explicitReport) {
+       outcome: 'failed',
+       skipped,
+       blockedReasons,
+-      reason: defaultReason
++      reason: defaultReason,
++      cases
+     });
+   }
+   if (allSkipped) {
+@@ -164,7 +254,8 @@ function summarizePlaywrightResult(result, explicitReport) {
+       blockedReasons,
+       reason: runtimeExternalOnly
+         ? 'all E2E tests skipped because a declared runtime-external prerequisite was unavailable'
+-        : 'all E2E tests skipped; environment/data preconditions were not satisfied'
++        : 'all E2E tests skipped; environment/data preconditions were not satisfied',
++      cases
+     });
+   }
+   return createRunnerSummary({
+@@ -172,7 +263,8 @@ function summarizePlaywrightResult(result, explicitReport) {
+     outcome: skipped > 0 ? 'partial-skip' : 'passed',
+     skipped,
+     blockedReasons,
+-    reason: skipped > 0 ? `skipped ${skipped}; check fixture readiness if this was unexpected` : ''
++    reason: skipped > 0 ? `skipped ${skipped}; check fixture readiness if this was unexpected` : '',
++    cases
+   });
+ }
+ 
+@@ -180,6 +272,9 @@ module.exports = {
+   extractBlockedReasons,
+   hasOnlyRuntimeExternalBlocks,
+   createRunnerSummary,
++  collectMochaCases,
++  collectPlaywrightCases,
++  qualifyCoverageProvenance,
+   summarizeMochaResult,
+   summarizePlaywrightResult
+ };
+diff --git a/automation_tests/run_tests.js b/automation_tests/run_tests.js
+index 1b9479f..4f02f55 100644
+--- a/automation_tests/run_tests.js
++++ b/automation_tests/run_tests.js
+@@ -13,9 +13,11 @@ const reporter = require('./lib/reporter');
+ const apiClient = require('./lib/api_client');
+ const endpointCoverage = require('./lib/endpoint_coverage');
+ const pageCoverage = require('./lib/page_coverage');
++const coverageProvenance = require('./lib/coverage_provenance');
+ const {
+   summarizeMochaResult,
+-  summarizePlaywrightResult
++  summarizePlaywrightResult,
++  qualifyCoverageProvenance
+ } = require('./lib/runner/result-summary');
+ const {
+   EXIT_CODES,
+@@ -65,6 +67,11 @@ function getCoverageTempFile(testFile, type = 'api') {
+   return path.join(reportsDir, `${type}-${safeName}-${suffix}.json`);
+ }
+ 
++function createCoverageRunId(type, testFile) {
++  const safeName = testFile.replace(/[\\/]/g, '_').replace(/\.[^.]+$/g, '');
++  return `${type}-${safeName}-${process.pid}-${Date.now()}`;
++}
++
+ function printUsage() {
+   console.log([
+     'AetherLink IoT automation runner',
+@@ -190,20 +197,26 @@ function runMocha(testFile) {
+       mochaPath,
+       path.join(__dirname, 'tests', testFile),
+       '--timeout', '30000',
+-      '--reporter', 'mochawesome',
++      '--reporter', path.join(__dirname, 'lib', 'coverage_mocha_reporter.js'),
+       '--reporter-options',
+       `reportDir=${reportsDir},reportFilename=${reportFilename},overwrite=true,quiet=true`
+     ];
+ 
+     const coverageFile = getCoverageTempFile(testFile, 'api');
++    const provenanceFile = coverageProvenance.provenanceFileForCoverage(coverageFile);
++    const coverageRunId = createCoverageRunId('api', testFile);
+     removeFileIfExists(coverageFile);
++    removeFileIfExists(provenanceFile);
+     removeFileIfExists(reportJson);
+ 
+     const proc = spawn(cmd, args, {
+       stdio: ['ignore', 'pipe', 'pipe'],
+       env: {
+         ...process.env,
+-        ENDPOINT_COVERAGE_FILE: coverageFile
++        ENDPOINT_COVERAGE_FILE: coverageFile,
++        COVERAGE_PROVENANCE_FILE: provenanceFile,
++        AETHERLINK_COVERAGE_RUN_ID: coverageRunId,
++        AETHERLINK_COVERAGE_MODULE: keyFromFilename(testFile)
+       }
+     });
+ 
+@@ -213,7 +226,7 @@ function runMocha(testFile) {
+     proc.stderr.on('data', data => { stderr += data.toString(); });
+ 
+     proc.on('close', code => {
+-      resolve({ code, stdout, stderr, coverageFile, reportJson });
++      resolve({ code, stdout, stderr, coverageFile, provenanceFile, coverageRunId, reportJson });
+     });
+   });
+ }
+@@ -233,14 +246,20 @@ function runPlaywright(testFile) {
+     removeFileIfExists(reportJson);
+ 
+     const coverageFile = getCoverageTempFile(testFile, 'page');
++    const provenanceFile = coverageProvenance.provenanceFileForCoverage(coverageFile);
++    const coverageRunId = createCoverageRunId('e2e', testFile);
+     removeFileIfExists(coverageFile);
++    removeFileIfExists(provenanceFile);
+ 
+     const proc = spawn(cmd, args, {
+       stdio: ['ignore', 'pipe', 'pipe'],
+       cwd: __dirname,
+       env: {
+         ...process.env,
+-        PAGE_COVERAGE_FILE: coverageFile
++        PAGE_COVERAGE_FILE: coverageFile,
++        COVERAGE_PROVENANCE_FILE: provenanceFile,
++        AETHERLINK_COVERAGE_RUN_ID: coverageRunId,
++        AETHERLINK_COVERAGE_MODULE: keyFromFilename(testFile)
+       }
+     });
+ 
+@@ -250,7 +269,7 @@ function runPlaywright(testFile) {
+     proc.stderr.on('data', data => { stderr += data.toString(); });
+ 
+     proc.on('close', code => {
+-      resolve({ code, stdout, stderr, reportJson, coverageFile });
++      resolve({ code, stdout, stderr, reportJson, coverageFile, provenanceFile, coverageRunId });
+     });
+   });
+ }
+@@ -390,6 +409,20 @@ function printModuleRunTail(result, summary) {
+   }
+ }
+ 
++function finalizeCoverageProvenance(mod, result, summary) {
++  const ledger = coverageProvenance.readLedger(result.provenanceFile);
++  const qualified = qualifyCoverageProvenance(
++    ledger.events,
++    summary,
++    mod.key,
++    result.coverageRunId
++  );
++  coverageProvenance.replaceLedger(result.provenanceFile, qualified);
++  summary.coverageProvenance = coverageProvenance.summarizeEvents(qualified);
++  summary.coverageProvenance.file = result.provenanceFile;
++  return qualified;
++}
++
+ async function executeModuleRun(options) {
+   const {
+     mod,
+@@ -403,6 +436,7 @@ async function executeModuleRun(options) {
+   printModuleRunStart(kind, mod);
+   const result = await execute(mod.file);
+   const summary = summarize(result);
++  finalizeCoverageProvenance(mod, result, summary);
+   recordModuleSummary(mod, type, summary);
+   printModuleRunTail(result, summary);
+   mergeCoverage(result.coverageFile);
+@@ -640,6 +674,7 @@ module.exports = {
+   summarizePhaseResults,
+   summarizeMochaResult,
+   summarizePlaywrightResult,
++  finalizeCoverageProvenance,
+   recordModuleSummary,
+   getRunnerExitCode,
+   API_MODULES,
+diff --git a/automation_tests/tests/00_coverage_provenance_contract.test.js b/automation_tests/tests/00_coverage_provenance_contract.test.js
+new file mode 100644
+index 0000000..646bc41
+--- /dev/null
++++ b/automation_tests/tests/00_coverage_provenance_contract.test.js
+@@ -0,0 +1,299 @@
++const { expect } = require('chai');
++const fs = require('fs');
++const os = require('os');
++const path = require('path');
++const { spawnSync } = require('child_process');
++
++const provenance = require('../lib/coverage_provenance');
++
++function candidate(overrides = {}) {
++  return provenance.createEvent({
++    eventId: overrides.eventId || '11111111-1111-4111-8111-111111111111',
++    runId: 'run-1',
++    module: 'device',
++    kind: 'endpoint',
++    target: 'GET /api/v1/device',
++    case: {
++      file: 'tests/02_device.test.js',
++      title: 'lists the seeded device',
++      caseId: 'device-list'
++    },
++    attempt: { retry: 0, responseReceived: true },
++    outcome: 'pending',
++    statusCode: 200,
++    observedAt: '2026-09-08T00:00:00.000Z',
++    disposition: 'candidate',
++    ...overrides
++  });
++}
++
++describe('Coverage provenance contract [00_coverage_provenance_contract]', function () {
++  it('creates the versioned endpoint/page hit event contract', function () {
++    const event = candidate();
++    expect(event).to.include({
++      schema: 'aetherlink.coverage.hit.v1',
++      eventId: '11111111-1111-4111-8111-111111111111',
++      runId: 'run-1',
++      module: 'device',
++      kind: 'endpoint',
++      target: 'GET /api/v1/device',
++      outcome: 'pending',
++      statusCode: 200,
++      disposition: 'candidate'
++    });
++    expect(event.case).to.include({
++      file: 'tests/02_device.test.js',
++      title: 'lists the seeded device',
++      caseId: 'device-list',
++      attributed: true
++    });
++    expect(event.attempt).to.include({
++      retry: 0,
++      responseReceived: true,
++      transportFailure: false
++    });
++    expect(provenance.validateEvent(event)).to.equal(true);
++  });
++
++  it('keeps suite hooks and unattributed setup hits diagnostic', function () {
++    for (const event of [
++      candidate({ case: { file: 'tests/02_device.test.js', hook: 'before all' } }),
++      candidate({ case: {} })
++    ]) {
++      expect(event.case.attributed).to.equal(false);
++      expect(event.disposition).to.equal('diagnostic');
++    }
++  });
++
++  it('never qualifies transport failures or responses without an HTTP status', function () {
++    const events = [
++      candidate({
++        eventId: 'transport-failure',
++        statusCode: null,
++        attempt: { transportFailure: true, responseReceived: false, errorCode: 'ECONNREFUSED' }
++      }),
++      candidate({ eventId: 'missing-status', statusCode: null })
++    ];
++    const qualified = provenance.qualifyEvents(events, {
++      runId: 'run-1',
++      module: 'device',
++      modulePassed: true,
++      moduleOutcome: 'passed',
++      cases: [{ caseId: 'device-list', outcome: 'passed' }]
++    });
++
++    expect(qualified.every(event => event.disposition === 'diagnostic')).to.equal(true);
++  });
++
++  it('qualifies only an authoritative passed case in a passed module', function () {
++    const events = [
++      candidate({ eventId: 'passed-case' }),
++      candidate({
++        eventId: 'failed-case',
++        case: { file: 'tests/02_device.test.js', title: 'fails', caseId: 'failed' }
++      }),
++      candidate({
++        eventId: 'skipped-case',
++        case: { file: 'tests/02_device.test.js', title: 'skips', caseId: 'skipped' }
++      }),
++      candidate({
++        eventId: 'flaky-case',
++        case: { file: 'tests/02_device.test.js', title: 'flakes', caseId: 'flaky' }
++      }),
++      candidate({
++        eventId: 'mismatched-case',
++        case: { file: 'tests/02_device.test.js', title: 'mismatch', caseId: 'mismatch' }
++      })
++    ];
++    const qualified = provenance.qualifyEvents(events, {
++      runId: 'run-1',
++      module: 'device',
++      modulePassed: true,
++      moduleOutcome: 'passed',
++      cases: [
++        { caseId: 'device-list', outcome: 'passed' },
++        { caseId: 'failed', outcome: 'failed' },
++        { caseId: 'skipped', outcome: 'skipped' },
++        { caseId: 'flaky', outcome: 'flaky' },
++        { caseId: 'mismatch', outcome: 'passed', mismatched: true }
++      ]
++    });
++
++    expect(qualified.find(event => event.eventId === 'passed-case').disposition).to.equal('effective');
++    expect(qualified.filter(event => event.eventId !== 'passed-case').every(event => (
++      event.disposition === 'diagnostic'
++    ))).to.equal(true);
++  });
++
++  it('uses exact file and title path and rejects ambiguous title fallback', function () {
++    const events = [
++      candidate({
++        eventId: 'exact-path',
++        case: {
++          file: 'tests\\duplicate.test.js',
++          title: 'same title',
++          titlePath: ['suite B', 'same title']
++        }
++      }),
++      candidate({
++        eventId: 'ambiguous-title',
++        case: { file: 'tests/duplicate.test.js', title: 'same title' }
++      })
++    ];
++    const qualified = provenance.qualifyEvents(events, {
++      runId: 'run-1',
++      module: 'device',
++      modulePassed: true,
++      moduleOutcome: 'passed',
++      cases: [
++        {
++          file: 'tests/duplicate.test.js',
++          title: 'same title',
++          titlePath: ['suite A', 'same title'],
++          outcome: 'failed'
++        },
++        {
++          file: 'tests/duplicate.test.js',
++          title: 'same title',
++          titlePath: ['suite B', 'same title'],
++          outcome: 'passed'
++        }
++      ]
++    });
++
++    expect(qualified.find(event => event.eventId === 'exact-path').disposition).to.equal('effective');
++    expect(qualified.find(event => event.eventId === 'ambiguous-title').disposition).to.equal('diagnostic');
++  });
++
++  it('does not fall back when an authoritative caseId is ambiguous', function () {
++    const [qualified] = provenance.qualifyEvents([
++      candidate({
++        eventId: 'ambiguous-id',
++        case: {
++          file: 'tests/duplicate.test.js',
++          title: 'same title',
++          titlePath: ['suite B', 'same title'],
++          caseId: 'duplicate-id'
++        }
++      })
++    ], {
++      runId: 'run-1',
++      module: 'device',
++      modulePassed: true,
++      moduleOutcome: 'passed',
++      cases: [
++        {
++          caseId: 'duplicate-id',
++          file: 'tests/duplicate.test.js',
++          title: 'same title',
++          titlePath: ['suite A', 'same title'],
++          outcome: 'failed'
++        },
++        {
++          caseId: 'duplicate-id',
++          file: 'tests/duplicate.test.js',
++          title: 'same title',
++          titlePath: ['suite B', 'same title'],
++          outcome: 'passed'
++        }
++      ]
++    });
++
++    expect(qualified.disposition).to.equal('diagnostic');
++  });
++
++  it('demotes events outside the authoritative run or module scope', function () {
++    const events = [
++      candidate({ eventId: 'wrong-run', runId: 'other-run' }),
++      candidate({ eventId: 'wrong-module', module: 'alarm' })
++    ];
++    const qualified = provenance.qualifyEvents(events, {
++      runId: 'run-1',
++      module: 'device',
++      modulePassed: true,
++      moduleOutcome: 'passed',
++      cases: [{ caseId: 'device-list', outcome: 'passed' }]
++    });
++
++    expect(qualified.every(event => event.disposition === 'diagnostic')).to.equal(true);
++    expect(qualified.every(event => event.diagnostics.qualificationScopeMatched === false)).to.equal(true);
++  });
++
++  it('revokes all candidates when the authoritative module is partial or failed', function () {
++    for (const moduleOutcome of ['failed', 'partial-skip', 'all-skipped']) {
++      const [event] = provenance.qualifyEvents([candidate()], {
++        runId: 'run-1',
++        module: 'device',
++        modulePassed: moduleOutcome === 'partial-skip',
++        moduleOutcome,
++        cases: [{ caseId: 'device-list', outcome: 'passed' }]
++      });
++      expect(event.disposition, moduleOutcome).to.equal('diagnostic');
++    }
++  });
++
++  it('deduplicates replacement-worker events by stable eventId', function () {
++    const initial = candidate({ eventId: 'stable-id' });
++    const replacement = { ...initial, disposition: 'effective', outcome: 'passed' };
++    const merged = provenance.mergeEvents([initial], [replacement]);
++
++    expect(merged).to.have.length(1);
++    expect(merged[0]).to.include({
++      eventId: 'stable-id',
++      disposition: 'effective',
++      outcome: 'passed'
++    });
++  });
++
++  it('attributes API hits to the exact active Mocha case', function () {
++    const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aetherlink-provenance-'));
++    const testFile = path.join(outputDir, 'fixture.test.js');
++    const coverageFile = path.join(outputDir, 'coverage.json');
++    const provenanceFile = provenance.provenanceFileForCoverage(coverageFile);
++    const reporterPath = path.resolve(__dirname, '../lib/coverage_mocha_reporter.js');
++    const endpointPath = path.resolve(__dirname, '../lib/endpoint_coverage.js');
++    fs.writeFileSync(testFile, [
++      `const coverage = require(${JSON.stringify(endpointPath)});`,
++      "describe('fixture suite', function () {",
++      "  it('exact case', function () {",
++      "    coverage.hit('GET', 'http://127.0.0.1:9999/api/v1/device', { statusCode: 200 });",
++      '  });',
++      '});'
++    ].join('\n'));
++
++    try {
++      const mochaCli = require.resolve('mocha/bin/mocha.js');
++      const result = spawnSync(process.execPath, [
++        mochaCli,
++        testFile,
++        '--reporter', reporterPath,
++        '--reporter-options', `reportDir=${outputDir},reportFilename=fixture,overwrite=true,quiet=true`
++      ], {
++        encoding: 'utf8',
++        env: {
++          ...process.env,
++          ENDPOINT_COVERAGE_FILE: coverageFile,
++          COVERAGE_PROVENANCE_FILE: provenanceFile,
++          AETHERLINK_COVERAGE_RUN_ID: 'mocha-run',
++          AETHERLINK_COVERAGE_MODULE: 'fixture-module'
++        }
++      });
++      expect(result.status, result.stderr || result.stdout).to.equal(0);
++      const ledger = provenance.readLedger(provenanceFile);
++      expect(ledger.events).to.have.length(1);
++      expect(ledger.events[0].case).to.include({
++        title: 'exact case',
++        attributed: true
++      });
++      expect(ledger.events[0].case.titlePath).to.deep.equal(['fixture suite exact case']);
++      expect(ledger.events[0]).to.include({
++        runId: 'mocha-run',
++        module: 'fixture-module',
++        statusCode: 200,
++        disposition: 'candidate'
++      });
++    } finally {
++      fs.rmSync(outputDir, { recursive: true, force: true });
++    }
++  });
++});
+diff --git a/automation_tests/tests/00_page_coverage_persistence.test.js b/automation_tests/tests/00_page_coverage_persistence.test.js
+index b915b4c..9ab8848 100644
+--- a/automation_tests/tests/00_page_coverage_persistence.test.js
++++ b/automation_tests/tests/00_page_coverage_persistence.test.js
+@@ -10,15 +10,25 @@ const path = require('path');
+ const { spawnSync } = require('child_process');
+ 
+ const trackerPath = path.resolve(__dirname, '../lib/page_coverage.js');
++const provenance = require('../lib/coverage_provenance');
+ 
+-function runCoverageWorker(coverageFile, route) {
++function runCoverageWorker(coverageFile, route, eventId) {
+   const script = [
+     `const tracker = require(${JSON.stringify(trackerPath)});`,
+-    `tracker.hitPage(${JSON.stringify(route)});`
++    `tracker.hitPage(${JSON.stringify(route)}, undefined, {`,
++    "  runId: 'replacement-run',",
++    "  module: 'device',",
++    "  case: { file: 'e2e/02_device.spec.js', title: 'renders route', caseId: 'case-1' },",
++    `  eventId: ${JSON.stringify(eventId)}`,
++    '});'
+   ].join('\n');
+   return spawnSync(process.execPath, ['-e', script], {
+     encoding: 'utf8',
+-    env: { ...process.env, PAGE_COVERAGE_FILE: coverageFile }
++    env: {
++      ...process.env,
++      PAGE_COVERAGE_FILE: coverageFile,
++      COVERAGE_PROVENANCE_FILE: provenance.provenanceFileForCoverage(coverageFile)
++    }
+   });
+ }
+ 
+@@ -28,8 +38,8 @@ describe('Page coverage persistence contract [00_page_coverage_persistence]', fu
+     const coverageFile = path.join(outputDir, 'page.json');
+ 
+     try {
+-      expect(runCoverageWorker(coverageFile, '/device/manage').status).to.equal(0);
+-      expect(runCoverageWorker(coverageFile, '/device/grouping').status).to.equal(0);
++      expect(runCoverageWorker(coverageFile, '/device/manage', 'replacement-event').status).to.equal(0);
++      expect(runCoverageWorker(coverageFile, '/device/grouping', 'replacement-event').status).to.equal(0);
+ 
+       const payload = JSON.parse(fs.readFileSync(coverageFile, 'utf8'));
+       expect(payload.pages.map(item => item.key)).to.have.members([
+@@ -40,6 +50,12 @@ describe('Page coverage persistence contract [00_page_coverage_persistence]', fu
+         'route:/device/manage',
+         'route:/device/grouping'
+       ]);
++      expect(payload.provenance.events).to.have.length(1);
++      expect(payload.provenance.events[0].eventId).to.equal('replacement-event');
++
++      const ledger = provenance.readLedger(provenance.provenanceFileForCoverage(coverageFile));
++      expect(ledger.events).to.have.length(1);
++      expect(ledger.events[0].eventId).to.equal('replacement-event');
+     } finally {
+       fs.rmSync(outputDir, { recursive: true, force: true });
+     }
+diff --git a/automation_tests/tests/00_runner_result_summary_contract.test.js b/automation_tests/tests/00_runner_result_summary_contract.test.js
+index a68e9d2..d4906f2 100644
+--- a/automation_tests/tests/00_runner_result_summary_contract.test.js
++++ b/automation_tests/tests/00_runner_result_summary_contract.test.js
+@@ -1,7 +1,10 @@
+ const fs = require('fs');
++const os = require('os');
++const path = require('path');
+ const { expect } = require('chai');
+ 
+ const runner = require('../run_tests');
++const provenance = require('../lib/coverage_provenance');
+ const resultSummary = require('../lib/runner/result-summary');
+ 
+ function mochaAllSkippedResult(stdout = '') {
+@@ -125,6 +128,92 @@ describe('Runner result summary contract', function() {
+     });
+   });
+ 
++  it('collects canonical Playwright case identity and retry outcome', function() {
++    const [testCase] = resultSummary.collectPlaywrightCases({
++      suites: [{
++        title: 'device suite',
++        file: 'e2e/02_device.spec.js',
++        specs: [{
++          id: 'spec-id',
++          title: 'renders device',
++          ok: true,
++          tests: [{
++            status: 'expected',
++            results: [{ retry: 1, workerIndex: 3, parallelIndex: 0 }]
++          }]
++        }]
++      }]
++    });
++
++    expect(testCase).to.include({
++      caseId: 'spec-id',
++      file: 'e2e/02_device.spec.js',
++      title: 'renders device',
++      outcome: 'flaky'
++    });
++    expect(testCase.titlePath).to.deep.equal(['device suite', 'renders device']);
++    expect(testCase.attempts[0]).to.include({ retry: 1, workerIndex: 3 });
++  });
++
++  it('finalizes only passing same-module provenance as effective', function() {
++    const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aetherlink-finalize-'));
++    const ledgerPath = path.join(outputDir, 'module-provenance.json');
++    const event = provenance.createEvent({
++      eventId: 'runner-event',
++      runId: 'runner-run',
++      module: 'device',
++      kind: 'page',
++      target: '/device/manage',
++      case: {
++        file: 'e2e/02_device.spec.js',
++        title: 'renders device',
++        titlePath: ['device suite', 'renders device'],
++        caseId: 'spec-id'
++      }
++    });
++    provenance.writeLedger(ledgerPath, [event]);
++
++    try {
++      const summary = resultSummary.createRunnerSummary({
++        passed: true,
++        outcome: 'passed',
++        cases: [{ caseId: 'spec-id', outcome: 'passed' }]
++      });
++      const qualified = runner.finalizeCoverageProvenance(
++        { key: 'device' },
++        { provenanceFile: ledgerPath, coverageRunId: 'runner-run' },
++        summary
++      );
++
++      expect(qualified[0].disposition).to.equal('effective');
++      expect(summary.coverageProvenance).to.include({ total: 1, effective: 1, diagnostic: 0 });
++      const persisted = provenance.readLedger(ledgerPath).events;
++      expect(persisted).to.have.length(1);
++      expect(persisted[0].disposition).to.equal('effective');
++    } finally {
++      fs.rmSync(outputDir, { recursive: true, force: true });
++    }
++  });
++
++  it('demotes authoritative cases when their module is partial', function() {
++    const [qualified] = resultSummary.qualifyCoverageProvenance([
++      provenance.createEvent({
++        eventId: 'partial-event',
++        runId: 'runner-run',
++        module: 'device',
++        kind: 'page',
++        target: '/device/manage',
++        case: { file: 'e2e/02_device.spec.js', title: 'renders device', caseId: 'spec-id' }
++      })
++    ], resultSummary.createRunnerSummary({
++      passed: true,
++      outcome: 'partial-skip',
++      cases: [{ caseId: 'spec-id', outcome: 'passed' }]
++    }), 'device', 'runner-run');
++
++    expect(qualified.disposition).to.equal('diagnostic');
++  });
++
+   it('prefers explicitReport without reading result.reportJson', function() {
+     const originalReadFileSync = fs.readFileSync;
+     let readAttempted = false;
+diff --git a/automation_tests/tests/helpers/api_closure_helpers.js b/automation_tests/tests/helpers/api_closure_helpers.js
+index 5abe598..3b233ee 100644
+--- a/automation_tests/tests/helpers/api_closure_helpers.js
++++ b/automation_tests/tests/helpers/api_closure_helpers.js
+@@ -140,17 +140,35 @@ function expectDiagnosticsPayload(resp, deviceId) {
+ 
+ async function rawGet(pathname, options = {}) {
+   const url = ROOT_URL + pathname;
+-  endpointCoverage.hit('GET', url);
+-  const resp = await axios.get(url, {
+-    timeout: options.timeout || 5000,
+-    responseType: options.responseType || 'text',
+-    headers: options.headers,
+-    validateStatus: () => true
+-  });
+-  if (resp.data && typeof resp.data.destroy === 'function') {
+-    resp.data.destroy();
++  try {
++    const resp = await axios.get(url, {
++      timeout: options.timeout || 5000,
++      responseType: options.responseType || 'text',
++      headers: options.headers,
++      validateStatus: () => true
++    });
++    endpointCoverage.hit('GET', url, {
++      statusCode: resp.status,
++      attempt: { responseReceived: true },
++      case: options.case
++    });
++    if (resp.data && typeof resp.data.destroy === 'function') {
++      resp.data.destroy();
++    }
++    return resp;
++  } catch (error) {
++    endpointCoverage.hit('GET', url, {
++      statusCode: null,
++      attempt: {
++        responseReceived: false,
++        transportFailure: true,
++        errorCode: error && error.code,
++        errorMessage: error && error.message
++      },
++      case: options.case
++    });
++    throw error;
+   }
+-  return resp;
+ }
+ 
+ async function bootstrapApiCoverageContext() {

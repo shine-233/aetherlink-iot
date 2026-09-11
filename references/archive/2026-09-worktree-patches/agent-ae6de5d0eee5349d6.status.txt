@@ -1,0 +1,5 @@
+ M mqtt-broker/cmd/gmqctl/command/gen-plugin/README.md
+ M mqtt-broker/cmd/gmqctl/command/gen-plugin/command.go
+ M mqtt-broker/cmd/gmqctl/command/gen-plugin/command_test.go
+ M mqtt-broker/cmd/gmqctl/command/gen-plugin/tmpl.go
+?? mqtt-broker/cmd/gmqctl/command/gen-plugin/testdata/

@@ -1,0 +1,14 @@
+ M automation_tests/e2e/fixtures.js
+ M automation_tests/lib/api_client.js
+ A automation_tests/lib/coverage_case_context.js
+ A automation_tests/lib/coverage_mocha_reporter.js
+ A automation_tests/lib/coverage_provenance.js
+ M automation_tests/lib/endpoint_coverage.js
+ M automation_tests/lib/page_coverage.js
+ M automation_tests/lib/reporter.js
+ M automation_tests/lib/runner/result-summary.js
+ M automation_tests/run_tests.js
+ A automation_tests/tests/00_coverage_provenance_contract.test.js
+ M automation_tests/tests/00_page_coverage_persistence.test.js
+ M automation_tests/tests/00_runner_result_summary_contract.test.js
+ M automation_tests/tests/helpers/api_closure_helpers.js

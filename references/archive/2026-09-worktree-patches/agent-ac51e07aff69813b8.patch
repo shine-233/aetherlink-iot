@@ -1,0 +1,170 @@
+diff --git a/automation_tests/lib/reporter.js b/automation_tests/lib/reporter.js
+index 80a0a75..9e19248 100644
+--- a/automation_tests/lib/reporter.js
++++ b/automation_tests/lib/reporter.js
+@@ -133,6 +133,10 @@ class Reporter {
+       skipped,
+       blockedReasons,
+       businessClosureEvidence,
++      oracleCases: Array.isArray(summary.oracleCases) ? summary.oracleCases : [],
++      caseReconciliationErrors: Array.isArray(summary.caseReconciliationErrors)
++        ? summary.caseReconciliationErrors
++        : [],
+       timestamp: new Date()
+     });
+     const mark = passed ? 'PASS' : 'FAIL';
+diff --git a/automation_tests/lib/test-metadata/helpers.js b/automation_tests/lib/test-metadata/helpers.js
+index 7e2c400..263a088 100644
+--- a/automation_tests/lib/test-metadata/helpers.js
++++ b/automation_tests/lib/test-metadata/helpers.js
+@@ -43,6 +43,9 @@ function e2eCase(
+     requiresSeededDevice: options.requiresSeededDevice === true,
+     requiresSeededOtaTask: options.requiresSeededOtaTask === true,
+     runtimeEvidenceRequired: options.runtimeEvidenceRequired === true,
++    ...(options.caseId ? { caseId: options.caseId } : {}),
++    ...(options.fullTitle ? { fullTitle: options.fullTitle } : {}),
++    ...(options.operationDimensions ? { operationDimensions: options.operationDimensions } : {}),
+   };
+ }
+ 
+diff --git a/automation_tests/lib/test-metadata/part-05.js b/automation_tests/lib/test-metadata/part-05.js
+index a62ccf3..804172d 100644
+--- a/automation_tests/lib/test-metadata/part-05.js
++++ b/automation_tests/lib/test-metadata/part-05.js
+@@ -112,6 +112,7 @@ module.exports = {
+   },
+   "e2e/11_visualization.spec.js": {
+     file: "e2e/11_visualization.spec.js",
++    suiteTitle: "ThingsVis visualization business routes [11_visualization]",
+     type: "e2e",
+     evidenceKind: "business",
+     fileFlags: {},
+@@ -125,6 +126,13 @@ module.exports = {
+           capabilityIds: ["visualization"],
+           evidenceLayer: "browser-e2e-with-api-setup",
+           runtimeEvidenceRequired: true,
++          caseId: "pw-v2-visualization-native-board-crud",
++          fullTitle: "ThingsVis visualization business routes [11_visualization] › native board CRUD is persisted by the local provider across list viewer and editor routes",
++          operationDimensions: {
++            operation: "native-board-crud",
++            actor: "tenant-admin",
++            provider: "native",
++          },
+         },
+       ),
+       e2eCase(
+@@ -396,6 +404,7 @@ module.exports = {
+   },
+   "e2e/23_native_board_super_admin.spec.js": {
+     file: "e2e/23_native_board_super_admin.spec.js",
++    suiteTitle: "SYS_ADMIN native board tenant context [23_native_board_super_admin]",
+     type: "e2e",
+     evidenceKind: "business",
+     fileFlags: {
+@@ -411,6 +420,14 @@ module.exports = {
+           evidenceLayer: "browser-e2e-with-api-setup",
+           capabilityIds: ["visualization", "permission-tenancy"],
+           runtimeEvidenceRequired: true,
++          caseId: "pw-v2-native-board-super-admin-tenant-context",
++          fullTitle: "SYS_ADMIN native board tenant context [23_native_board_super_admin] › uses the selected tenant filter as the create context",
++          operationDimensions: {
++            operation: "native-board-create",
++            actor: "super-admin",
++            tenantContext: "selected-tenant",
++            provider: "native",
++          },
+         },
+       ),
+     ],
+diff --git a/automation_tests/playwright.config.js b/automation_tests/playwright.config.js
+index 2d35dc5..f59def3 100644
+--- a/automation_tests/playwright.config.js
++++ b/automation_tests/playwright.config.js
+@@ -55,7 +55,7 @@ if (browserExecutablePath) {
+ module.exports = defineConfig({
+   testDir: './e2e',
+   fullyParallel: true,
+-  forbidOnly: !!process.env.CI,
++  forbidOnly: true,
+   retries: config.e2e.retries,
+   workers: process.env.PAGE_COVERAGE_FILE ? 1 : config.e2e.workers,
+   reporter: [
+diff --git a/automation_tests/run_tests.js b/automation_tests/run_tests.js
+index 1b9479f..597b227 100644
+--- a/automation_tests/run_tests.js
++++ b/automation_tests/run_tests.js
+@@ -25,6 +25,7 @@ const {
+   getRunnerExitCode
+ } = require('./lib/runner/cli-policy');
+ const testMetadata = require('./lib/test_metadata');
++const { reconcilePlaywrightCases } = require('./lib/runner/playwright-case-reconciliation');
+ const runtimeConfig = require('./lib/runtime_config');
+ const networkConfig = require('./lib/network_runtime');
+ 
+@@ -345,7 +346,16 @@ function printModuleRunStart(kind, mod) {
+   console.log('-'.repeat(50));
+ }
+ 
+-function recordModuleSummary(mod, type, summary) {
++function readJsonReportIfPresent(filePath) {
++  if (!filePath || !fs.existsSync(filePath)) return null;
++  try {
++    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
++  } catch (_error) {
++    return null;
++  }
++}
++
++function recordModuleSummary(mod, type, summary, result = null, explicitReport = null) {
+   // Metadata is case-level by design. Once a module has actually run to
+   // completion, promote only explicitly marked business cases into the
+   // runtime report; boundary/catalog cases must not inflate closure.
+@@ -357,14 +367,36 @@ function recordModuleSummary(mod, type, summary) {
+       item.businessClosureEvidence === true
+     ))
+     : [];
+-  if (
++  const managedPlaywrightCases = type === 'e2e' && metadata && Array.isArray(metadata.cases) &&
++    metadata.cases.some(item => item && (item.caseId || item.fullTitle));
++  const managedBusinessCases = managedPlaywrightCases
++    ? businessCases.filter(item => item.caseId && item.fullTitle)
++    : businessCases;
++  if (managedPlaywrightCases) {
++    const report = explicitReport || (result && result.reportJson
++      ? readJsonReportIfPresent(result.reportJson)
++      : null);
++    const reconciliation = report ? reconcilePlaywrightCases(report, metadata) : {
++      oracleCases: [],
++      errors: ['Playwright JSON report is missing for managed case reconciliation']
++    };
++    summary.caseReconciliationErrors = reconciliation.errors;
++    if (reconciliation.errors.length > 0) {
++      summary.passed = false;
++      summary.outcome = 'failed';
++      summary.reason = reconciliation.errors.join('; ');
++    } else if (reconciliation.oracleCases.length > 0) {
++      summary.caseLevelBusinessClosureEvidence = true;
++      summary.oracleCases = reconciliation.oracleCases;
++    }
++  } else if (
+     summary.passed === true &&
+     summary.skipped === 0 &&
+     summary.blockedReasons.length === 0 &&
+-    businessCases.length > 0
++    managedBusinessCases.length > 0
+   ) {
+     summary.caseLevelBusinessClosureEvidence = true;
+-    summary.oracleCases = businessCases.map(item => ({
++    summary.oracleCases = managedBusinessCases.map(item => ({
+       title: item.title,
+       businessClosureEvidence: true
+     }));
+@@ -403,7 +435,7 @@ async function executeModuleRun(options) {
+   printModuleRunStart(kind, mod);
+   const result = await execute(mod.file);
+   const summary = summarize(result);
+-  recordModuleSummary(mod, type, summary);
++  recordModuleSummary(mod, type, summary, result);
+   printModuleRunTail(result, summary);
+   mergeCoverage(result.coverageFile);
+   return createModuleRunRecord(mod, result, summary);

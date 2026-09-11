@@ -1,0 +1,197 @@
+diff --git a/backend/internal/service/notification_execution.go b/backend/internal/service/notification_execution.go
+index 9e62fd8..ba5d647 100644
+--- a/backend/internal/service/notification_execution.go
++++ b/backend/internal/service/notification_execution.go
+@@ -5,10 +5,12 @@ import (
+ 	"errors"
+ 	"fmt"
+ 	"strings"
++	"time"
+ 
+ 	dal "aetherlink-iot/backend/internal/dal"
+ 	model "aetherlink-iot/backend/internal/model"
+ 
++	"github.com/go-basic/uuid"
+ 	"github.com/sirupsen/logrus"
+ )
+ 
+@@ -131,7 +133,7 @@ func (n *NotificationServicesConfig) dispatchNotificationChannel(notificationGro
+ 	case model.NoticeType_Webhook:
+ 		n.sendWebhookNotification(notificationGroup, alertJson, templateVars.deviceIDs)
+ 	case model.NoticeType_APP:
+-		n.sendAppNotification()
++		n.failDirectAppNotification(notificationGroup, templateVars)
+ 	// PHASE-D-D2 BEGIN：新增 IM 渠道分发（钉钉/企微/飞书/Telegram）。
+ 	case noticeTypeDingTalk, noticeTypeWeCom, noticeTypeFeishu, noticeTypeTelegram:
+ 		n.sendIMNotification(notificationGroup, templateVars, notifyType)
+@@ -240,8 +242,33 @@ func (n *NotificationServicesConfig) sendWebhookNotification(notificationGroup *
+ 	}
+ }
+ 
+-func (n *NotificationServicesConfig) sendAppNotification() {
+-	logrus.Warn("direct APP notification type is not supported; use MEMBER notification config with notificationType APP")
++const directAppNotificationFailureRemark = "direct_app_not_supported_use_member_app_recipient"
++
++var persistDirectAppFailureHistory = func(history *model.NotificationHistory, deviceIDs ...string) error {
++	return GroupApp.NotificationHisory.SaveNotificationHistory(history, deviceIDs...)
++}
++
++func buildDirectAppFailureHistory(notificationGroup *model.NotificationGroup, templateVars *executeNotificationTemplateVars) *model.NotificationHistory {
++	status := "FAILURE"
++	remark := directAppNotificationFailureRemark
++	return &model.NotificationHistory{
++		ID:               uuid.New(),
++		SendTime:         time.Now().UTC(),
++		SendContent:      &templateVars.subject,
++		SendTarget:       "notification_group:" + notificationGroup.ID,
++		SendResult:       &status,
++		NotificationType: model.NoticeType_APP,
++		TenantID:         notificationGroup.TenantID,
++		Remark:           &remark,
++	}
++}
++
++func (n *NotificationServicesConfig) failDirectAppNotification(notificationGroup *model.NotificationGroup, templateVars *executeNotificationTemplateVars) {
++	history := buildDirectAppFailureHistory(notificationGroup, templateVars)
++	if err := persistDirectAppFailureHistory(history, templateVars.deviceIDs...); err != nil {
++		logrus.Error("persist direct APP notification failure history failed:", err)
++	}
++	logrus.Error(directAppNotificationFailureRemark, " group:", notificationGroup.ID)
+ }
+ 
+ func logUnsupportedNotificationType(notifyType string) {
+diff --git a/backend/internal/service/notification_groups.go b/backend/internal/service/notification_groups.go
+index e902ae0..325fbf3 100644
+--- a/backend/internal/service/notification_groups.go
++++ b/backend/internal/service/notification_groups.go
+@@ -19,6 +19,17 @@ import (
+ 
+ type NotificationGroup struct{}
+ 
++const directAppNotificationGroupError = "direct APP notification groups are not supported; use notification_type MEMBER with recipient notificationType APP"
++
++func validateNotificationGroupType(notificationType string) error {
++	for _, notifyType := range splitExecuteNotificationTypes(notificationType) {
++		if notifyType == model.NoticeType_APP {
++			return errcode.NewWithMessage(errcode.CodeParamError, directAppNotificationGroupError)
++		}
++	}
++	return nil
++}
++
+ func ensureNotificationGroupReadAccess(id string, u *utils.UserClaims) (*model.NotificationGroup, error) {
+ 	notificationGroup, err := dal.GetNotificationGroupById(id)
+ 	if err != nil {
+@@ -47,6 +58,13 @@ func ensureNotificationGroupWriteAccess(id string, u *utils.UserClaims) (*model.
+ }
+ 
+ func (*NotificationGroup) CreateNotificationGroup(createNotificationgroupReq *model.CreateNotificationGroupReq, u *utils.UserClaims) (*model.NotificationGroup, error) {
++	if u == nil {
++		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to create notification group")
++	}
++	if err := validateNotificationGroupType(createNotificationgroupReq.NotificationType); err != nil {
++		return nil, err
++	}
++
+ 	var notificationGroup model.NotificationGroup
+ 	notificationGroup.ID = uuid.New()
+ 	notificationGroup.Name = createNotificationgroupReq.Name
+@@ -83,6 +101,11 @@ func (*NotificationGroup) UpdateNotificationGroup(id string, updateNotificationg
+ 	if err != nil {
+ 		return nil, err
+ 	}
++	if updateNotificationgroupReq.NotificationType != nil {
++		if err := validateNotificationGroupType(*updateNotificationgroupReq.NotificationType); err != nil {
++			return nil, err
++		}
++	}
+ 	utils.SerializeData(updateNotificationgroupReq, notificationGroup)
+ 
+ 	notificationGroup.UpdatedAt = time.Now().UTC()
+diff --git a/backend/internal/service/notification_member_delivery.go b/backend/internal/service/notification_member_delivery.go
+index c0bdbe1..4fbb490 100644
+--- a/backend/internal/service/notification_member_delivery.go
++++ b/backend/internal/service/notification_member_delivery.go
+@@ -11,6 +11,16 @@ import (
+ 	"github.com/sirupsen/logrus"
+ )
+ 
++var (
++	getUserMessagePushManages = dal.GetUserMessagePushManages
++	persistMemberAppHistory   = func(history *model.NotificationHistory, deviceIDs ...string) error {
++		return GroupApp.NotificationHisory.SaveNotificationHistory(history, deviceIDs...)
++	}
++	deliverMemberAppPush = func(message model.MessagePushSend, pushManage model.MessagePushManage) {
++		GroupApp.MessagePush.MessagePushSendAndLog(message, pushManage, 2)
++	}
++)
++
+ func (n *NotificationServicesConfig) handleMemberNotification(notificationGroup *model.NotificationGroup, alertJson, subject, content, tenantID string, deviceIDs ...string) error {
+ 	logrus.Info("start member notification, group:", notificationGroup.ID)
+ 
+@@ -149,7 +159,7 @@ func (n *NotificationServicesConfig) handleMemberNotificationType(notifyType, us
+ }
+ 
+ func (n *NotificationServicesConfig) sendMemberAppNotification(userID, userName string, alertData map[string]interface{}, subject, content, tenantID string, deviceIDs []string) {
+-	pushManages, err := dal.GetUserMessagePushManages(userID)
++	pushManages, err := getUserMessagePushManages(userID)
+ 	if err != nil {
+ 		logrus.Warn("query user push records failed:", userName, err)
+ 		n.saveMemberAppFailure(tenantID, userName, subject, content, fmt.Sprintf("query push records failed: %v | detail content: %s", err, content), deviceIDs)
+@@ -167,12 +177,19 @@ func (n *NotificationServicesConfig) sendMemberAppNotification(userID, userName
+ 	}
+ 
+ 	pushTarget := fmt.Sprintf("user:%s", userName)
+-	n.saveNotificationHistory("APP", tenantID, pushTarget, subject, "SUCCESS", nil, deviceIDs...)
++	n.saveMemberAppHistory("SUCCESS", tenantID, pushTarget, subject, nil, deviceIDs)
+ }
+ 
+ func (n *NotificationServicesConfig) saveMemberAppFailure(tenantID, userName, subject, content, remark string, deviceIDs []string) {
+ 	pushTarget := fmt.Sprintf("user:%s", userName)
+-	n.saveNotificationHistory("APP", tenantID, pushTarget, subject, "FAILURE", &remark, deviceIDs...)
++	n.saveMemberAppHistory("FAILURE", tenantID, pushTarget, subject, &remark, deviceIDs)
++}
++
++func (n *NotificationServicesConfig) saveMemberAppHistory(status, tenantID, target, content string, remark *string, deviceIDs []string) {
++	history := buildNotificationHistory(model.NoticeType_APP, tenantID, target, content, status, remark)
++	if err := persistMemberAppHistory(history, deviceIDs...); err != nil {
++		logrus.Error("save member APP notification history failed:", err)
++	}
+ }
+ 
+ func sendMemberAppPush(pushManage *model.MessagePushManage, userName string, alertData map[string]interface{}, subject, content string) {
+@@ -189,7 +206,7 @@ func sendMemberAppPush(pushManage *model.MessagePushManage, userName string, ale
+ 	if alarmID, ok := alertData["id"].(string); ok && alarmID != "" {
+ 		message.AlarmId = &alarmID
+ 	}
+-	GroupApp.MessagePush.MessagePushSendAndLog(message, *pushManage, 2)
++	deliverMemberAppPush(message, *pushManage)
+ }
+ 
+ func parseNotificationMemberConfig(config map[string]interface{}) ([]map[string]interface{}, error) {
+diff --git a/backend/internal/service/notification_services_config.go b/backend/internal/service/notification_services_config.go
+index 71777d0..e63fd9e 100644
+--- a/backend/internal/service/notification_services_config.go
++++ b/backend/internal/service/notification_services_config.go
+@@ -144,8 +144,8 @@ func deliverTenantAlarmEmail(d *gomail.Dialer, m *gomail.Message) error {
+ 	return lastErr
+ }
+ 
+-func (n *NotificationServicesConfig) saveNotificationHistory(notificationType, tenantID, target, content, status string, remark *string, deviceIDs ...string) error {
+-	history := &model.NotificationHistory{
++func buildNotificationHistory(notificationType, tenantID, target, content, status string, remark *string) *model.NotificationHistory {
++	return &model.NotificationHistory{
+ 		ID:               uuid.New(),
+ 		SendTime:         time.Now().UTC(),
+ 		SendContent:      &content,
+@@ -155,6 +155,10 @@ func (n *NotificationServicesConfig) saveNotificationHistory(notificationType, t
+ 		TenantID:         tenantID,
+ 		Remark:           remark,
+ 	}
++}
++
++func (n *NotificationServicesConfig) saveNotificationHistory(notificationType, tenantID, target, content, status string, remark *string, deviceIDs ...string) error {
++	history := buildNotificationHistory(notificationType, tenantID, target, content, status, remark)
+ 
+ 	err := GroupApp.NotificationHisory.SaveNotificationHistory(history, deviceIDs...)
+ 	if err != nil {
