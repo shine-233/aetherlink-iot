@@ -179,12 +179,21 @@ func openReport83Postgres(t *testing.T) *gorm.DB {
 		t.Fatalf("read migration 83: %v", err)
 	}
 	rewritten := strings.ReplaceAll(string(migration), "public.", quotedSchema+".")
+	// 迁移里的 DO 块用字符串字面量 'public' 查询 information_schema 判定列类型，
+	// 只替换 "public." 前缀不会命中这些字面量，导致转换分支在隔离 schema 下永不执行，
+	// 前置表停留在 naive TIMESTAMP，进而让模式断言失败——这是测试隔离缺陷，不是产品缺陷。
+	rewritten = strings.ReplaceAll(rewritten, "'public'", "'"+schema+"'")
 	if _, err := adminSQL.ExecContext(context.Background(), rewritten); err != nil {
 		t.Fatalf("apply migration 83 in isolated schema: %v", err)
 	}
 	configuration.RuntimeParams["search_path"] = schema
-	connectionString := stdlib.RegisterConnConfig(configuration)
-	db, err := gorm.Open(postgres.Open(connectionString), &gorm.Config{SkipDefaultTransaction: true})
+	// stdlib.RegisterConnConfig 返回的是 database/sql 的注册名（如 registeredConnConfig0），
+	// gorm 的 postgres.Open 不认这个名字，会把它当普通 DSN 解析并失败——
+	// 这导致本测试在 DSN 未配置时只是 Skip，一旦真正配置就必然在连接阶段报错，
+	// 等于从未产生过任何真实 PostgreSQL 证据。
+	// 正确做法：用 stdlib.OpenDB 拿到 *sql.DB 再交给 postgres.New，search_path 才会生效。
+	schemaDB := stdlib.OpenDB(*configuration)
+	db, err := gorm.Open(postgres.New(postgres.Config{Conn: schemaDB}), &gorm.Config{SkipDefaultTransaction: true})
 	if err != nil {
 		t.Fatalf("open schema-scoped PostgreSQL connection: %v", err)
 	}
