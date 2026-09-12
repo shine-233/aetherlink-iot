@@ -139,6 +139,16 @@ export const visualizationRoutes: GeneratedRoute[] = [
             hideInMenu: true,
             roles: ['SYS_ADMIN', 'TENANT_ADMIN']
           }
+        },
+        {
+          name: 'visualization_scada-editor',
+          path: '/visualization/scada-editor',
+          component: 'view.visualization_scada-editor',
+          meta: {
+            title: 'visualization_scada-editor',
+            i18nKey: 'route.visualization-scada-editor',
+            roles: ['SYS_ADMIN', 'TENANT_ADMIN']
+          }
         }
       ]
     }

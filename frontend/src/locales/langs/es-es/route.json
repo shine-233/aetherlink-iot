@@ -67,5 +67,6 @@
   "route.device_service-details": "Detalles de integración de terceros",
   "route.visualization-thingsvis-menu-dashboard": "Vista integrada de inicio",
   "route.device_asset": "Activos",
-  "route.management_entity-version": "Versiones de entidad"
+  "route.management_entity-version": "Versiones de entidad",
+  "route.visualization-scada-editor": "Editor de lienzo SCADA"
 }

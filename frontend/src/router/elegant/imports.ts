@@ -67,6 +67,7 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   "system-management-user_system-log": () => import("@/views/system-management-user/system-log/index.vue"),
   "visualization_native-board": () => import("@/views/visualization/native-board/index.vue"),
   "visualization_native-board-editor": () => import("@/views/visualization/native-board-editor/index.vue"),
+  "visualization_scada-editor": () => import("@/views/visualization/scada-editor/index.vue"),
   "visualization_native-boards": () => import("@/views/visualization/native-boards/index.vue"),
   "visualization_report": () => import("@/views/visualization/report/index.vue"),
   "visualization_thingsvis-dashboards": () => import("@/views/visualization/thingsvis-dashboards/index.vue"),

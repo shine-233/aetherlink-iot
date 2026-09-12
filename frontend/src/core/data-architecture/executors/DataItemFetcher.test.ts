@@ -107,6 +107,30 @@ describe('DataItemFetcher', () => {
     )
   })
 
+  it('classifies an unclassified throw as DATA_ITEM_FETCH_FAILED instead of propagating it', async () => {
+    const fetcher = new DataItemFetcher()
+    // A malformed http config makes the request-plan builder raise a raw
+    // TypeError. The failure algebra is only closed if that raw error is still
+    // returned as a classified failure: if it escaped, callers would have to
+    // catch unknown exceptions and the eight errorCode values would not be an
+    // exhaustive contract. This is the only code that had no coverage, so the
+    // closure property itself was unproven.
+    await expect(
+      fetcher.fetchData({ type: 'http', config: undefined } as unknown as DataItem)
+    ).resolves.toMatchObject({
+      success: false,
+      error: expect.any(String),
+      errorCode: 'DATA_ITEM_FETCH_FAILED'
+    })
+
+    expect(loggerMock.error).toHaveBeenCalledWith(
+      '[DataItemFetcher] fetchData failed:',
+      expect.objectContaining({
+        type: 'http'
+      })
+    )
+  })
+
   it('returns an explicit unsupported result for WebSocket data sources', async () => {
     const fetcher = new DataItemFetcher()
 

@@ -67,5 +67,6 @@
   "route.device_service-details": "Third-party Integration Details",
   "route.visualization-thingsvis-menu-dashboard": "Embedded Home Dashboard",
   "route.device_asset": "Assets",
-  "route.management_entity-version": "Entity versions"
+  "route.management_entity-version": "Entity versions",
+  "route.visualization-scada-editor": "SCADA canvas editor"
 }

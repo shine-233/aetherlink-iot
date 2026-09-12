@@ -67,5 +67,6 @@
   "route.device_service-details": "第三方集成详情",
   "route.visualization-thingsvis-menu-dashboard": "首页嵌入看板",
   "route.device_asset": "资产层级",
-  "route.management_entity-version": "实体版本"
+  "route.management_entity-version": "实体版本",
+  "route.visualization-scada-editor": "SCADA 画布编辑器"
 }
