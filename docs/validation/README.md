@@ -26,13 +26,20 @@
 | --- | --- | --- |
 | `P0.1-preflight-evidence.md` | P0.1 | 三个门禁脚本实跑；并记录一次真实拦截（迁移上界落后） |
 | `P0.2-shadow-ack-evidence.md` | P0.2 | 影子 ACK 闭环的数据库层证据；仍缺 MQTT 端到端 |
+| `P0.3-job-report-evidence.md` | P0.3 | 报告导出：进度 NULL 与 0 两分、租户隔离、缺租户被拒（真实 PG） |
 | `P0.5-export-cleanup-evidence.md` | P0.5 | 导出/清理接线核查 + Casbin 漏登记修复 |
 | `P0.5-cleanup-execution-evidence.md` | P0.5 | 清理**真实删除路径**证据（与注入式单测互补） |
 | `P0.6-postgres-migration83-evidence.md` | P0.6 | 迁移 83 实跑，17 组子用例；SKIP 解除 |
 | `P0.6-P0.7-evidence.md` | P0.6 / P0.7 | 单元层证据（另一会话），并含一条已更正的环境判断 |
 | `P0.7-secret-encryption-evidence.md` | P0.7 | 凭证静态加密数据库层证据：库里不含明文等 5 项 |
 | `P1.2-rulechain-version-evidence.md` | P1.2 | 草稿/发布/回滚：语义 + 迁移 + 端点 + 持久化证据 |
-| `fresh-migration-and-dal-postgres-evidence.md` | 通用 | 全新库迁移通过；16 条依赖数据库的用例取得证据 |
+| `fresh-migration-and-dal-postgres-evidence.md` | 通用 | 全新库迁移通过（`sys_version=88`，113 表）；16 条依赖数据库的用例取得证据 |
+
+> 📌 **2026-09-12 追加**：迁移链已在 **`VERSION_NUMBER=93`** 下重新验证通过
+> （空库 `aetherlink_migrate_20260912`，`MIGRATE_OK` / `sys_version=93` / 114 张表，
+> 库保留作活证据）。详见 `P1.2-rulechain-version-evidence.md` 的「2026-09-12 复核修正」一节——
+> 该次验证同时让 P1.2 两条常驻用例**由 SKIP 转 PASS**，并补了负向对照。
+> 结论：**88 与 93 是两次独立验证，不要互相替代**；引用时请写明是哪个版本号。
 
 ## 本目录的约定
 
@@ -57,6 +64,25 @@ pg_ctl -D "C:\Users\Zz\al_pg_verify" stop -m fast
 > 需要落库验证时，先 `CREATE DATABASE` 再用一次性程序调 `initialize.CheckVersion(db)` 把迁移链跑完，
 > 然后 `go test` 时设置 `AETHERLINK_TEST_PSQL_DSN=postgres://postgres@127.0.0.1:55432/<db>?sslmode=disable`。
 > **直接指空库会 FAIL**（`relation "devices" does not exist` 等）——有 DSN 不等于能跑。
+
+## 验证库约定：证据必须可复现（2026-09-12 教训）
+
+**在一次性临时库上跑出来的结果不算证据。** 本目录曾犯过这个错：P1.2 的"7 项全过"
+是在一个跑完即删的临时库上、用未提交的一次性程序跑出来的，验证结束后库与程序都不存在。
+后续任何人指向一个没有对应表的库，那两条常驻用例只会 **SKIP**——
+"已固化为常驻测试"实际上等于"永远 Skip"，构不成人人可复现的证据。
+该问题由复核发现并已修正，修正过程见 `P1.2-rulechain-version-evidence.md` 末尾。
+
+因此约定：
+
+1. **使用常驻验证库**。当前约定为 `aetherlink_verify`（迁移已应用到位）。
+   需要新表时把对应迁移幂等应用到该库，而不是临时建一个库跑完就丢。
+2. **报告 PASS 前先确认表存在**，别只看用例没报红——`*_postgres_test.go` 在缺表时是 Skip，
+   Skip 会让测试整体 `ok`，看起来像通过。
+3. **重要的数据库不变式要有负向对照**：例如单 published 约束，
+   `DROP INDEX` 后必须看到它真的失败，否则无法证明这条索引在起作用（可能是空绿）。
+4. 一次性验证程序可以写，但**结论必须能由常驻用例在常驻库上复算出来**，
+   否则只在该次会话成立。
 
 ## 写数据库测试的三个必备动作
 
