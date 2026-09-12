@@ -207,9 +207,13 @@ ThingsPanel 社区仓库可见 MQTT/HTTP/Modbus、物模型、看板、规则、
     其他运行中 Flow；**任一侧缺失即拒绝执行，禁止静默停止**，且每次停止都留审计事件。
 - 定向证据：`scene_execution_window_test.go` 7 例通过，含门禁要求的**边界时间表驱动测试**
   （前/恰在起点/窗口内/前 1ns/恰在终点/过期后/无上界/无下界/完全无界共 11 行）。
-- 仍未完成：定时器触发的持久化与"服务重启后调度不丢任务"、
-  与真实场景引擎（automate_telemetry_scene_execution / scene.go）的接线，以及真实 E2E。
+- 仍未完成：真实 E2E。
   本项**不算完成**。
+
+**2026-09-12 更新：定时器持久化与场景引擎接线已完成**（上文对应表述已过时）：
+`internal/dal/scene_automation_window.go`（`GetSceneAutomationWindows` 批量读取执行窗口）
++ `internal/service/scene_execution_window.go` + 迁移 91 相关表；定时器触发已落库，
+"服务重启后调度不丢任务"已有持久化支撑。真实 E2E 仍缺（需活栈）。
 
 ### P0.5 CSV 浏览器 E2E
 
@@ -308,8 +312,15 @@ ThingsPanel 社区仓库可见 MQTT/HTTP/Modbus、物模型、看板、规则、
     拒绝任意字符串，防止关系图语义漂移。
   - 关系类型长度与元数据大小均有上限，超限拒绝而非静默截断。
 - 定向证据：`entity_relation_test.go` 6 例通过（必填、白名单、自环、超限、反向判定）。
-- 未完成（本项**不算完成**）：DAL/Service 的 CRUD 与查询、租户 Scope 守卫、
-  看板与权限集成，以及迁移 85 的实际执行（磁盘已满，无法验证）。
+- 未完成（本项**不算完成**）：看板与权限集成。
+
+**2026-09-12 更新：CRUD 与租户 Scope 守卫已完成、迁移已实际执行**（上文对应表述已过时）：
+`internal/dal/entity_relation.go` 提供 `CreateEntityRelation` / `FindEntityRelationInTenant` /
+`GetEntityRelationInTenant` / `DeleteEntityRelationInTenant` / `ListEntityRelations`，
+均强制带 `tenant_id`（跨租户表现为未命中而非"存在但无权限"）；
+`internal/service/entity_relation.go` 已接线 HTTP（`4a5b701`），并修掉过 nil DB 直接 panic 的问题。
+迁移 85 已在真实 PostgreSQL 上执行通过（全新库迁移链验证，`sys_version` 达 93）。
+剩余缺口：看板与权限集成，以及本项的运行期证据文档。
     ListRelations(ctx context.Context, q RelationQuery) ([]Relation, error)
     DeleteRelation(ctx context.Context, id string) error
 
@@ -418,6 +429,12 @@ ThingsPanel 社区仓库可见 MQTT/HTTP/Modbus、物模型、看板、规则、
 门禁：项目 CRUD 不再返回 unsupported；画布保存/加载可往返；遥测断线有状态；控制命令有权限、确认和审计；3D/WebGL 降级不影响 2D 看板。
 
 实现状态（2026-09-11，**后端内核已完成，尚未接线到 HTTP/前端，本项不算完成**）：
+
+**2026-09-12 更新：HTTP 与前端已接线**（上文"尚未接线"已过时）：`router/apps/scada.go` 已注册
+`scada` 路由组（`ad5e698` SCADA 与移动端运行时接线及服务注册、`a92212e` SCADA 后端内核、
+`46f90e8` 前端 SCADA 编辑器与可视化路由）。控制相关端点在服务未接线时 fail closed
+（`ScadaControl` 为 nil 即报错），不存在"半接线假装可用"。
+仍缺：真实浏览器端的画布保存/加载往返与 3D 降级验证。
 
 - 迁移 `backend/sql/88.sql`：`scada_projects`（多项目容器，此前根本没有"项目"这一层，
   所以项目 CRUD 只能返回 unsupported）、`scada_documents`（画布，草稿/发布/归档三态）、
