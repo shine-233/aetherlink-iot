@@ -40,6 +40,9 @@ func main() {
 		app.WithLogger(),
 		app.WithDatabase(),
 		app.WithRedis(),
+		// P1.3/P1.4：SCADA 控制 + 移动端服务接线。必须排在 WithDatabase 之后。
+		app.WithScadaMobileWiring(),
+		app.WithRuleChainReplayPersistence(), // P1.2 回放留存（默认关闭，需显式开启）
 
 		app.WithStorageService(),
 		app.WithFlowService(),

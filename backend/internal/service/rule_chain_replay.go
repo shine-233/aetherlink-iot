@@ -32,6 +32,9 @@ type RuleChainReplayRecord struct {
 	ChainID  string
 	NodeID   string
 	NodeType string
+	// TenantID 记录所属租户。回放留存的是原始输入载荷，敏感性与遥测同级，
+	// 落库必须带租户隔离，否则跨租户可回放别人的输入。
+	TenantID string
 	Payload  map[string]any
 	Metadata map[string]any
 	Pass     bool
@@ -63,11 +66,16 @@ func recordRuleChainReplayInput(e *ruleChainExecution, node *RuleChainNode, msg 
 	if nodeErr != nil {
 		errText = nodeErr.Error()
 	}
+	tenantID := ""
+	if msg.Rcc != nil {
+		tenantID = msg.Rcc.TenantID
+	}
 	ruleChainReplayRecorder(RuleChainReplayRecord{
 		ExecID:   e.execID,
 		ChainID:  chainID,
 		NodeID:   node.ID,
 		NodeType: node.Type,
+		TenantID: tenantID,
 		Payload:  msg.Payload,
 		Metadata: msg.Metadata,
 		Pass:     result.pass && nodeErr == nil,
