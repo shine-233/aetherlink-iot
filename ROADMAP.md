@@ -123,6 +123,12 @@ ThingsPanel 社区仓库可见 MQTT/HTTP/Modbus、物模型、看板、规则、
 - 仍未执行：上述 API 用例需真实后端 + broker 才能跑，尚未运行；
   UI 的真实浏览器证据与 MQTT 端到端联调同样待统一验证阶段执行。
 
+**2026-09-12 更新：数据库层运行期证据已取得**（`docs/validation/P0.2-shadow-ack-evidence.md`，
+常驻用例 `internal/dal/device_shadow_postgres_test.go`，缺 DSN 则 Skip）：
+下发后状态必须是 `sent` 而非 `delivered`；设备 ACK 后才转 `delivered` 且 `ack_at` 非空
+（不得用 `delivered_at` 顶替）；终态行重复 ACK 被拒；重试耗尽转 `failed`；TTL 到期转 `expired`。
+**本项仍 don=false**：真实 MQTT `shadow_ack` 上报的端到端与浏览器证据仍需活栈。
+
 ### P0.3 OTA 状态机
 
 交付物：进度消费、批次暂停/恢复/取消、失败重试、灰度、回滚和报告。
@@ -211,6 +217,16 @@ ThingsPanel 社区仓库可见 MQTT/HTTP/Modbus、物模型、看板、规则、
     目前只是沿用批量创建的 username 形态，不满足门禁；
   - **脱敏导出与清理完全没有实现**（`device_pre_register.go` 中无任何 export 逻辑）。
 
+**2026-09-12 更新：上面的"完全没实现"已过时。** 导出与清理均已接线并完成 Casbin 登记：
+- 导出走 Excel，`utils.MaskVoucher` 脱敏、按租户过滤、分批 5000、上限 20 万行
+  （`device_preregister_export.go`）；列头已声明"已脱敏，完整凭证仅创建时可见"。
+- 清理执行面 `device_preregister_cleanup.go`，分流逻辑由 `device_pre_register_export.go` 的
+  `classifyPreRegisterCleanup` 提供（注入使用）：已激活设备永不删除、跨租户 fail closed、空批次幂等。
+- `preRegister/cleanup` 路由此前**从未登记 Casbin**，而 `casbin.route-audit-mode` 默认 fail-fast，
+  缺登记会让后端在启动期直接拒绝启动——已由迁移 `90.sql` 补登记（同批次的 export 在 63.sql）。
+- 运行期证据：`docs/validation/P0.5-cleanup-execution-evidence.md`（真实删除路径，9 例全过）。
+**本项仍记为 partial**：真实浏览器 file chooser E2E 需活栈。
+
 ### P0.6 持久化报表执行与 SMTP 事实语义
 
 交付物：`83.sql`、显式 IANA 时区与 `next_run_at`、乐观 revision、不可变 `report_schedule_runs`、一对一 `report_schedule_deliveries` outbox、数据库时间驱动的 slot materialization、`SKIP LOCKED` claim、UUID fencing token、lease 续租/恢复/最终尝试收口、手动与子重试幂等、固定报表窗口、租户级 run history/detail、精确 HTTP 202/Location，以及管理员报表工作台。
@@ -238,7 +254,14 @@ ThingsPanel 社区仓库可见 MQTT/HTTP/Modbus、物模型、看板、规则、
 - 定向证据：`backend/pkg/secrets/envelope_test.go`（8 例）与 `backend/internal/service/ai_model_secret_test.go`（5 例）全部通过。
 - 配置文件 `conf.yml` / `conf-dev.yml` / `conf.example.yml` 只写入占位符，默认未配置即 fail closed；
   生产部署须通过环境变量注入主密钥，配置文件中不得出现真实密钥。
-- 未含：全局 `ai.llm.api_key`（yaml 配置）仍为明文，属配置级密钥管理，不在本项“静态加密（落库）”范围内。
+- 未含：全局 `ai.llm.api_key`（yaml 配置）仍为明文，属配置级密钥管理，不在本项"静态加密（落库）"范围内。
+
+**2026-09-12 更新：数据库层运行期证据已取得**（`docs/validation/P0.7-secret-encryption-evidence.md`，
+常驻用例 `internal/service/ai_model_secret_postgres_test.go`，缺 DSN 则 Skip）：
+断言落到存储层——直接 `SELECT api_key` 后确认**库内不含明文**且为信封格式
+（只断言"调用了加密"发现不了降级明文落库）；跨租户搬运密文解不开（AAD 绑定）；
+出参掩码不回显明文；主密钥缺失时 `Seal` fail closed；遗留明文可读且标记 `needsReseal`。
+**本项仍记为 partial**：生产环境主密钥注入与"日志无明文"未验证。
 
 ## P1：平台核心竞争力
 
