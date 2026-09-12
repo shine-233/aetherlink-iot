@@ -42,6 +42,27 @@ jwt:
   key: CHANGE_ME_JWT_SECRET  # 建议通过环境变量 GOTP_JWT_KEY 设置
 
 
+# SCADA 实时控制（ROADMAP P1.3）。
+scada:
+  control:
+    # 二次确认令牌的 HMAC 密钥。留空 = 不签发令牌，所有需要确认的命令一律被拒
+    # （fail closed，绝不退化成"不用确认也能点"）。
+    # 建议通过环境变量 GOTP_SCADA_CONTROL_CONFIRMATION_SECRET 设置。
+    confirmation_secret: ""
+    # 令牌有效期（秒）。<=0 时用默认 300 秒。
+    confirmation_ttl_seconds: 300
+
+# 移动端推送（ROADMAP P1.4）。
+push:
+  providers:
+    fcm:
+      # 留空 = 推送投递未接线：能力矩阵报 push=false，令牌仍可登记但不会投递。
+      # 配了但凭据非法会**阻断启动**（静默降级成"不发推送"会让运维以为推送是通的）。
+      project_id: ""
+      # 服务账号的 JSON 内容（不是文件路径）。需要 firebase.messaging 权限。
+      # 建议通过环境变量 GOTP_PUSH_PROVIDERS_FCM_SERVICE_ACCOUNT_JSON 设置。
+      service_account_json: ""
+
 secrets:
   # AI provider 凭证静态加密（ROADMAP P0.7）。
   # master_keys 的值必须是 base64 编码的 32 字节（AES-256）密钥。
