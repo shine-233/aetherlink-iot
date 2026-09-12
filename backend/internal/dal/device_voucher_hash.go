@@ -22,6 +22,9 @@ import (
 // deviceVoucherHashBackfillBatchSize 单批扫描/写回的设备行数。
 const deviceVoucherHashBackfillBatchSize = 500
 
+// deviceVoucherPurgeBatchSize 单批清理存量明文的行数。
+const deviceVoucherPurgeBatchSize = 500
+
 type deviceVoucherHashBackfillRow struct {
 	ID      string `gorm:"column:id"`
 	Voucher string `gorm:"column:voucher"`
@@ -88,4 +91,64 @@ func BackfillDeviceVoucherHash(db *gorm.DB) error {
 			return nil
 		}
 	}
+}
+
+// PurgeDeviceVoucherPlaintext 清理存量行的明文凭证（P0.5"凭证仅出现一次"的收尾）。
+// 回填（BackfillDeviceVoucherHash）只补 hash、不动明文，双模式窗口内存量明文一直留在
+// devices.voucher 列里；窗口关闭后需要这一步把它清掉，否则"停写明文"只对新增/轮换生效。
+//
+// 硬安全约束：**只清理已经有 voucher_hash 的行**。voucher_hash 是停写明文后唯一的
+// 匹配依据，缺 hash 的行一旦清掉明文，凭证就不可恢复地丢失（设备再也连不上、运维也拿不回），
+// 所以这类行一律跳过，交给回填补完 hash 后的下一轮处理——宁可留着明文，也不能删掉唯一副本。
+//
+// 写入用 (id, voucher_hash IS NOT NULL, voucher=原值) 三条件做 CAS：并发的凭证轮换或回填
+// 会让条件不再匹配，此时跳过而不是误清。函数幂等，已清理行（voucher=''）不再入选。
+// maxRows<=0 表示不限；返回实际被清理的行数。
+func PurgeDeviceVoucherPlaintext(db *gorm.DB, maxRows int) (int64, error) {
+	if db == nil {
+		return 0, gorm.ErrInvalidDB
+	}
+	if maxRows <= 0 {
+		maxRows = int(^uint(0) >> 1) // 不限：交给批次循环与"无进展即停"收口
+	}
+
+	var purged int64
+	for processed := 0; processed < maxRows; {
+		batch := maxRows - processed
+		if batch > deviceVoucherPurgeBatchSize {
+			batch = deviceVoucherPurgeBatchSize
+		}
+		var rows []deviceVoucherHashBackfillRow
+		if err := db.Raw(
+			"SELECT id, voucher FROM devices WHERE voucher <> '' AND voucher_hash IS NOT NULL LIMIT ?",
+			batch,
+		).Scan(&rows).Error; err != nil {
+			return purged, err
+		}
+		if len(rows) == 0 {
+			return purged, nil
+		}
+
+		batchPurged := int64(0)
+		for _, row := range rows {
+			processed++
+			result := db.Exec(
+				"UPDATE devices SET voucher = '' WHERE id = ? AND voucher_hash IS NOT NULL AND voucher = ?",
+				row.ID, row.Voucher,
+			)
+			if result.Error != nil {
+				return purged, result.Error
+			}
+			purged += result.RowsAffected
+			batchPurged += result.RowsAffected
+		}
+		// 本批一条都没清掉：剩余行正在被并发改写，交下一轮，避免原地空转。
+		if batchPurged == 0 {
+			return purged, nil
+		}
+		if len(rows) < batch {
+			return purged, nil
+		}
+	}
+	return purged, nil
 }

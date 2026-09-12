@@ -400,21 +400,45 @@ func GetDeviceDetail(id string) (map[string]interface{}, error) {
 // 凭证哈希存储 Phase 1（references/backend-hardening-plan.md 车道1）：双模式匹配——
 // 先按 voucher_hash=sha256hex(voucher) 走 idx_devices_voucher_hash 索引，未命中再
 // 回落 voucher=? 明文兜底（覆盖尚未回填的存量行）；Phase 2 停写明文后移除兜底分支。
+//
+// 键序兼容（与 broker 同源缺陷修复）：voucher 以 text 落库，而同一份凭证存在两种稳定
+// JSON 编码——创建/网关路径产出结构体序 {"username":..,"password":..}，更新凭证接口把
+// JSON 主体绑成 map 后序列化产出字典序 {"password":..,"username":..}。二者语义相同、
+// 字符串不等，单串精确匹配会让一侧写入的凭证在另一侧读取时落空（协议插件按凭证取
+// 配置即走这里）。故两轮匹配都按 DeviceVoucherLookupCandidates 展开候选：精确串优先，
+// 仅在未命中时才多付至多两次索引/兜底查询。
 // tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDeviceByVoucher(voucher string) (*model.Device, error) {
-	var device model.Device
-	err := global.DB.Where("voucher_hash = ?", utils.VoucherStorageHash(voucher)).
-		First(&device).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		err = global.DB.Where("voucher = ?", voucher).First(&device).Error
-	}
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, deviceVoucherNotFoundError(err)
+	candidates := utils.DeviceVoucherLookupCandidates(voucher)
+
+	// 第一轮：全部候选走 hash 索引路径。
+	for _, candidate := range candidates {
+		var device model.Device
+		err := global.DB.Where("voucher_hash = ?", utils.VoucherStorageHash(candidate)).
+			First(&device).Error
+		if err == nil {
+			return &device, nil
 		}
-		return nil, err
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		}
 	}
-	return &device, err
+
+	// 第二轮：全部候选走明文兜底，覆盖尚未回填 voucher_hash 的存量行。
+	var lookupErr error
+	for _, candidate := range candidates {
+		var device model.Device
+		err := global.DB.Where("voucher = ?", candidate).First(&device).Error
+		if err == nil {
+			return &device, nil
+		}
+		lookupErr = err
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		}
+	}
+	// candidates 恒非空（至少含原始 voucher），故 lookupErr 必为最后一条 NotFound。
+	return nil, deviceVoucherNotFoundError(lookupErr)
 }
 
 func deviceVoucherNotFoundError(err error) error {

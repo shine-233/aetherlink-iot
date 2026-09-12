@@ -364,6 +364,92 @@ func TestDeviceVoucherDualModeAgainstPostgres(t *testing.T) {
 	}
 }
 
+// TestGetDeviceByVoucherMatchesAcrossJSONKeyOrders 锁定键序缺陷回归：库中落的是一种
+// JSON 编码、设备/调用方按另一种编码上报时仍须命中。真实成因是后端两条写入路径产出
+// 不同键序——创建/网关路径为结构体序，更新凭证接口把 JSON 主体绑成 map 后为字典序。
+// 覆盖 hash 列（Phase 2b 停写明文后的主路径）与明文兜底（存量未回填行）两个匹配面。
+func TestGetDeviceByVoucherMatchesAcrossJSONKeyOrders(t *testing.T) {
+	const (
+		structOrder = `{"username":"order-user","password":"order-pass"}`
+		lexical     = `{"password":"order-pass","username":"order-user"}`
+	)
+	if structOrder == lexical {
+		t.Fatal("fixture broken: the two encodings must differ as strings")
+	}
+
+	t.Run("hash column written in lexical order matches struct-order presentation", func(t *testing.T) {
+		setupDeviceVoucherDualModeTestDB(t)
+		hash := utils.VoucherStorageHash(lexical)
+		seedDualModeDevice(t, "vh-order-hash-store", "", &hash)
+
+		device, err := GetDeviceByVoucher(structOrder)
+		if err != nil || device == nil || device.ID != "vh-order-hash-store" {
+			t.Fatalf("struct-order lookup = (%v, %v), want vh-order-hash-store", device, err)
+		}
+	})
+
+	t.Run("hash column written in struct order matches lexical presentation", func(t *testing.T) {
+		setupDeviceVoucherDualModeTestDB(t)
+		hash := utils.VoucherStorageHash(structOrder)
+		seedDualModeDevice(t, "vh-order-hash-struct", "", &hash)
+
+		device, err := GetDeviceByVoucher(lexical)
+		if err != nil || device == nil || device.ID != "vh-order-hash-struct" {
+			t.Fatalf("lexical lookup = (%v, %v), want vh-order-hash-struct", device, err)
+		}
+	})
+
+	t.Run("legacy plaintext written in lexical order matches struct-order presentation", func(t *testing.T) {
+		setupDeviceVoucherDualModeTestDB(t)
+		seedDualModeDevice(t, "vh-order-plain-store", lexical, nil)
+
+		device, err := GetDeviceByVoucher(structOrder)
+		if err != nil || device == nil || device.ID != "vh-order-plain-store" {
+			t.Fatalf("plaintext fallback lookup = (%v, %v), want vh-order-plain-store", device, err)
+		}
+	})
+}
+
+// TestCheckVoucherExistsDetectsSemanticallyEqualVoucher 锁定唯一性预检与读取侧覆盖同一
+// 匹配面：键序不同的同义凭证必须判为冲突，否则会签发重复凭证，而 broker 认证侧用
+// First() 取首条，重复凭证会让设备身份不确定。排除自身语义不受展开影响。
+func TestCheckVoucherExistsDetectsSemanticallyEqualVoucher(t *testing.T) {
+	setupDeviceVoucherDualModeTestDB(t)
+
+	const (
+		storedVoucher = `{"password":"dup-pass","username":"dup-user"}`
+		presented     = `{"username":"dup-user","password":"dup-pass"}`
+	)
+	hash := utils.VoucherStorageHash(storedVoucher)
+	seedDualModeDevice(t, "vh-dup-existing", storedVoucher, &hash)
+
+	cases := []struct {
+		name    string
+		exclude string
+		want    bool
+	}{
+		{name: "reordered voucher collides", exclude: "other-device", want: true},
+		{name: "identical voucher collides", exclude: "other-device", want: true},
+		{name: "self excluded", exclude: "vh-dup-existing", want: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			probe := presented
+			if tc.name == "identical voucher collides" {
+				probe = storedVoucher
+			}
+			got, err := CheckVoucherExists(probe, tc.exclude)
+			if err != nil || got != tc.want {
+				t.Fatalf("CheckVoucherExists(%q, %q) = (%v, %v), want (%v, nil)", probe, tc.exclude, got, err, tc.want)
+			}
+		})
+	}
+
+	if got, err := CheckVoucherExists(`{"username":"dup-user","password":"different"}`, "other-device"); err != nil || got {
+		t.Fatalf("different password must not collide, got (%v, %v)", got, err)
+	}
+}
+
 func strPtr(value string) *string {
 	return &value
 }

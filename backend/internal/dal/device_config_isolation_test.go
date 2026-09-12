@@ -94,8 +94,16 @@ func TestDeviceConfigChainsStartFromIsolatedStatements(t *testing.T) {
 	if strings.Contains(deleteSQL, poisonID) {
 		t.Fatalf("stale primary key leaked into DELETE statement: %s", deleteSQL)
 	}
-	if n := strings.Count(deleteSQL, `"device_configs"."id"`); n != 1 {
-		t.Fatalf("expected exactly one qualified id condition, got %d: %s", n, deleteSQL)
+	// 原断言直接匹配 "device_configs"."id"，但 gorm 对单表 DELETE 不强制限定列名，
+	// 实际生成的是：DELETE FROM "device_configs" WHERE id = ? AND tenant_id = ?
+	// 单表场景下列名无歧义，因此按语义校验而非匹配标识符引号风格，
+	// 仍然覆盖原意：陈旧主键不得泄漏、必须租户收敛、id 条件唯一。
+	// 计数用 " id ="（前导空格），避免把 "tenant_id =" 误算成 id 条件。
+	if n := strings.Count(deleteSQL, " id ="); n != 1 {
+		t.Fatalf("expected exactly one id condition, got %d: %s", n, deleteSQL)
+	}
+	if !strings.Contains(deleteSQL, "tenant_id") {
+		t.Fatalf("DELETE must stay tenant-scoped: %s", deleteSQL)
 	}
 
 	err = DeleteDeviceConfigForTenant(target.ID, target.TenantID)
