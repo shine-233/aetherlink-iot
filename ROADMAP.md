@@ -163,9 +163,23 @@ ThingsPanel 社区仓库可见 MQTT/HTTP/Modbus、物模型、看板、规则、
 - 回滚（已补）：`RollbackFleetCommandJob` 只允许对已结束（completed/partially_failed/failed）批次执行；
   **回滚创建新批次而不是把原批次改回去**，原批次历史保持只读，
   并在原批次与新批次双向留下 `rollback` 审计事件以便追溯。
-- 仍未完成：灰度/金丝雀、报告导出，以及真实设备/broker 或协议 stub 的 E2E。
+- 仍未完成：真实设备/broker 或协议 stub 的 E2E。
   另：进度事件目前只落事件表，**尚未回写明细行的状态/百分比**（需迁移加列，且磁盘已满无法验证），
   因此本项**仍不算完成**。
+
+**2026-09-12 更新：上文"灰度/金丝雀、报告导出未完成"已过时，两者均已实现并有单测**
+
+- **灰度/金丝雀执行面**：`internal/service/ota_rollout_governance_apply.go`（`ApplyRolloutGovernance`，
+  含 `applyDispatchBatch` / `applyAbort` / `applyTimeout` / `applyComplete` 四个决策分支）
+  + `internal/dal/ota_rollout_governance.go` + `internal/api/ota.go`。
+  关键设计：金丝雀设备的选取是**确定性的**（同一批在多次治理间顺序一致，便于比对）——
+  若每次随机取样，"限速下发"会退化成"一次性全推"，金丝雀就失去意义。
+- **报告导出**：`internal/service/fleet_command_job_report.go`
+  （`GetFleetCommandJobReport` + `FormatFleetCommandJobReportCSV` + `sanitizeReportCell`）。
+- 单测：`ota_rollout_governance_apply_test.go`、`ota_rollout_governance_test.go`、
+  `ota_rollout_governance_preview_test.go`、`fleet_command_job_report_test.go`。
+- **缺口**：两者均**无运行期证据文档**（无 `docs/validation/` 对应条目），
+  灰度治理亦未接真实设备/broker 的 E2E。按 §4 口径，仍属"代码在、运行期证据缺失"。
 
 ### P0.4 场景与 Flow 语义
 
