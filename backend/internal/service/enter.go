@@ -72,6 +72,13 @@ type ServiceGroup struct {
 	DeviceCertificate DeviceCertificateService // PHASE-D-D5 接入安全 X.509
 	EdgeSync EdgeSyncService // PHASE-D-D6 边缘计算 2.0
 	AiModel  AiModelService  // PHASE-D-D7 AI 2.0 模型中心 + 助手
+	ScadaDocument ScadaDocumentService // P1.3 项目与画布文档（零值即可用）
+	// ScadaControl 为 nil 表示未接线（缺 Widget 注册表 / 确认签发器 / 下发执行器）。
+	// 接线前所有控制接口 fail closed：接口存在不等于能力可用。
+	ScadaControl *ScadaControlService // P1.3 实时控制
+	// Mobile 为 nil 表示未接线（缺设备/影子/告警等依赖）。
+	// 能力矩阵会如实报告各项为 false，未接线的能力调用即失败。
+	Mobile *MobileService // P1.4 移动端
 }
 
 // GroupApp 是全局业务服务入口，供 API 层和中间件层调用
