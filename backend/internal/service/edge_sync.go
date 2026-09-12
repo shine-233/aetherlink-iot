@@ -6,6 +6,7 @@
 //     broker ACK 成功 → synced；失败/不可用 → failed（error 落库，可 retry 重放同一快照）。
 //   - OTA 经边分发：为 (网关, 升级包, 目标设备集合) 逐设备生成 ota 类型任务，payload 携带
 //     package 元信息（id/name/version/url/签名）与目标设备编号，由边缘代理在本地网内转发。
+//
 // 关键注意事项：
 //   - 本验证栈 MQTT 关闭时投递如实落 failed（error=ErrPublisherUnavailable 语义），不伪造 synced。
 //   - 重试不重拍快照：以任务行内 payload 为准，保证幂等与审计一致。
@@ -33,14 +34,18 @@ const edgeSyncPublishTimeoutSeconds = 5
 
 // edgeSyncPayload 下发快照统一信封。
 type edgeSyncPayload struct {
-	Type        string          `json:"type"` // dashboard/rule_chain/ota
-	ResourceID  string          `json:"resource_id"`
-	Name        string          `json:"name"`
-	Content     json.RawMessage `json:"content,omitempty"`
-	Package     *edgeOtaPackage `json:"package,omitempty"`
-	TargetDevice string         `json:"target_device,omitempty"` // ota 类型：目标设备编号
-	GeneratedAt string          `json:"generated_at"`
-	Version     int             `json:"version"` // 快照格式版本
+	Type         string          `json:"type"` // dashboard/rule_chain/ota
+	ResourceID   string          `json:"resource_id"`
+	Name         string          `json:"name"`
+	Content      json.RawMessage `json:"content,omitempty"`
+	Package      *edgeOtaPackage `json:"package,omitempty"`
+	TargetDevice string          `json:"target_device,omitempty"` // ota 类型：目标设备编号
+	GeneratedAt  string          `json:"generated_at"`
+	Version      int             `json:"version"` // 快照格式版本（结构版本，当前恒为 1）
+	// Revision 资源内容修订号（P1.5）：这个资源下发的第几版内容。
+	// 与 Version 是两回事——Version 表示"快照长什么样"，Revision 表示"第几版"。
+	// 此前只有 Version 且恒为 1，无从判断边缘已拿到哪一版，重连后无法按版本同步。
+	Revision int64 `json:"revision"`
 }
 
 type edgeOtaPackage struct {
@@ -113,6 +118,14 @@ func (EdgeSyncService) CreateEdgeSync(req *model.CreateEdgeSyncReq, claims *util
 		})
 	}
 
+	// 修订号由该资源的历史下发推导，单调递增，用于回答"边缘拿到了第几版"。
+	// 这里查不到历史不报错：首版从 1 开始即可。真正必须 fail closed 的是上面的
+	// 冲突闸门——无法确认无冲突就不允许下发，而修订号取不到只是回到起点。
+	history, herr := dal.ListEdgeSyncTasks(claims.TenantID, req.ResourceType, gateway.ID, "", edgeSyncRevisionScanLimit)
+	if herr != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": herr.Error()})
+	}
+
 	payload = edgeSyncPayload{
 		Type:        req.ResourceType,
 		ResourceID:  req.ResourceID,
@@ -120,6 +133,7 @@ func (EdgeSyncService) CreateEdgeSync(req *model.CreateEdgeSyncReq, claims *util
 		Content:     content,
 		GeneratedAt: now.Format(time.RFC3339),
 		Version:     1,
+		Revision:    EdgeSyncRevisionFromHistory(history, req.ResourceID),
 	}
 	raw, merr := json.Marshal(payload)
 	if merr != nil {
@@ -215,9 +229,9 @@ func (EdgeSyncService) DistributeEdgeOTA(req *model.EdgeOtaDistributeReq, claims
 			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": derr.Error()})
 		}
 		payload := edgeSyncPayload{
-			Type:        model.EdgeResourceOtaPackage,
-			ResourceID:  pkg.ID,
-			Name:        pkg.Name,
+			Type:       model.EdgeResourceOtaPackage,
+			ResourceID: pkg.ID,
+			Name:       pkg.Name,
 			Package: &edgeOtaPackage{
 				ID:          pkg.ID,
 				Name:        pkg.Name,
