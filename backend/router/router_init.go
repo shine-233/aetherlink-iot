@@ -292,6 +292,8 @@ func RouterInit() *gin.Engine {
 
 			apps.Model.EntityRelation.InitEntityRelation(v1) // P1.1 通用实体关系
 
+			apps.Model.TelemetryAnalysis.InitTelemetryAnalysis(v1) // P2.2 轻量分析
+
 			apps.Model.OperationLog.Init(v1) // 操作日志
 
 			apps.Model.Logo.Init(v1) // logo

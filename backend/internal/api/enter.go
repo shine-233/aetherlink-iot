@@ -39,6 +39,7 @@ type Controller struct {
 	DeviceConfigApi
 	DataScriptApi
 	EntityRelationApi // P1.1 通用实体关系
+	TelemetryAnalysisApi // P2.2 轻量分析
 	RoleApi
 	CasbinApi
 	NotificationGroupApi

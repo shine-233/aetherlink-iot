@@ -20,6 +20,7 @@ type apps struct {
 	AttributeData
 	CommandData
 	EntityRelation // P1.1 通用实体关系
+	TelemetryAnalysis // P2.2 轻量分析
 	OperationLog
 	Logo
 	DataPolicy
