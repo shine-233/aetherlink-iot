@@ -57,6 +57,11 @@ func (c *CommandData) ConsumeFleetCommandJobProgress(ctx context.Context, e Flee
 	if e.Percent < 0 || e.Percent > 100 {
 		return errcode.NewWithMessage(errcode.CodeParamError, "percent must be between 0 and 100")
 	}
+	// 进度发生时间缺失时回退到"现在"：progress_at 的比较以它为准，零值会让
+	// "progress_at <= At" 恒为假，进度将永久写不进明细行。
+	if e.At.IsZero() {
+		e.At = time.Now()
+	}
 
 	job, err := loadFleetCommandJobWithFreshTimeout(e.JobID, e.TenantID)
 	if err != nil {
@@ -77,9 +82,49 @@ func (c *CommandData) ConsumeFleetCommandJobProgress(ctx context.Context, e Flee
 		return nil
 	}
 
-	deviceID := e.DeviceID
-	recordFleetCommandJobEvent(e.JobID, e.TenantID, nil, &deviceID, commandJobEventProgress, token)
-	return nil
+	// 回写明细行（迁移 87）：进度必须体现在明细行自身，只落事件等于"没落进度"——
+	// 事件表是审计流水，明细行才是运维真正看的那份状态。
+	// 顺序要紧：先回写、后记事件。若先记事件，回写一旦失败，去重令牌会把这条进度
+	// 永久挡在门外，进度再也补不回来。
+	writeback, err := dal.UpdateFleetCommandJobDetailProgress(dal.FleetCommandJobProgressWriteback{
+		JobID:    e.JobID,
+		TenantID: e.TenantID,
+		DeviceID: e.DeviceID,
+		Percent:  e.Percent,
+		Status:   e.Status,
+		Error:    e.Error,
+		At:       e.At,
+	})
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+	}
+
+	switch writeback {
+	case dal.CommandJobProgressApplied:
+		deviceID := e.DeviceID
+		recordFleetCommandJobEvent(e.JobID, e.TenantID, nil, &deviceID, commandJobEventProgress, token)
+		return nil
+	case dal.CommandJobProgressStale:
+		// 乱序到达的旧进度：幂等忽略，且不留事件——它从未生效，记下来只会让
+		// 事件条数看起来像"处理了很多进度"。
+		return nil
+	case dal.CommandJobProgressNoRow:
+		return errcode.NewWithMessage(
+			errcode.CodeNotFound,
+			fmt.Sprintf("device %s has no row in command job %s", e.DeviceID, e.JobID),
+		)
+	case dal.CommandJobProgressTerminal:
+		return errcode.NewWithMessage(
+			errcode.CodeOpDenied,
+			"command job detail is in a terminal status and does not accept progress reports",
+		)
+	default:
+		// concurrent rewrite between the UPDATE and the diagnostic read.
+		return errcode.NewWithMessage(
+			errcode.CodeOpDenied,
+			"progress report was superseded by a concurrent update; retry is safe",
+		)
+	}
 }
 
 func commandJobProgressRejectedError(status string) error {

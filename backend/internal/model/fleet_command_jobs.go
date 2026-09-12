@@ -73,6 +73,17 @@ type CommandJobDetail struct {
 	UpdatedAt             time.Time  `gorm:"column:updated_at;not null" json:"updated_at"`
 	SubmittedAt           *time.Time `gorm:"column:submitted_at" json:"submitted_at"`
 	CompletedAt           *time.Time `gorm:"column:completed_at" json:"completed_at"`
+	// P0.3 进度回写（迁移 87）。三列均为可空，且语义必须与"零值"区分开：
+	//   - ProgressPercent 为 nil 表示"该设备从未上报进度"，与"上报了 0%"是两种事实，
+	//     不可用 0 充当默认值，否则会把"无进度"粉饰成"已开始但未推进"；
+	//   - ProgressStatus/ProgressError 为 nil 表示"最近一次进度上报没有携带状态/错误"，
+	//     即明细行是最近一次被接受的进度上报的镜像。
+	ProgressPercent *int       `gorm:"column:progress_percent" json:"progress_percent"`
+	ProgressStatus  *string    `gorm:"column:progress_status" json:"progress_status"`
+	ProgressError   *string    `gorm:"column:progress_error" json:"progress_error"`
+	// ProgressAt 是进度"发生时间"（不是写入时间，写入时间看 UpdatedAt）。
+	// 回写只接受 ProgressAt 不早于当前值的上报，乱序到达的旧进度不得覆盖新进度。
+	ProgressAt *time.Time `gorm:"column:progress_at" json:"progress_at"`
 }
 
 func (*CommandJobDetail) TableName() string {
