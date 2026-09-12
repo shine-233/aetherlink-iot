@@ -12,6 +12,11 @@ param(
   [string]$PsqlPath = 'psql',
   [string]$PgDumpPath = 'pg_dump',
   [string]$Dsn = $env:AETHERLINK_BACKUP_DSN,
+  # Restore target. Falls back to $Dsn when empty. Never guessed: which database
+  # gets overwritten must be stated by the caller.
+  [string]$TargetDsn = '',
+  # Restore overwrites the target database. Refused unless -Force is given.
+  [switch]$Force,
   [switch]$CheckOnly
 )
 
@@ -127,12 +132,63 @@ switch ($Action) {
   }
   'backup' {
     Test-Tooling $PgDumpPath $PsqlPath $Dsn
-    Pend 'backup-exec' 'dump/restore execution not implemented; this gate only proves readiness and integrity'
+    if (-not $safe) { break }
+    if ($CheckOnly) { Pend 'backup-exec' 'CheckOnly=true; refusing to run pg_dump'; break }
+    if ($Dsn -eq '' -or $Dsn -like '*CHANGE_ME*') {
+      Pend 'backup-exec' 'no DSN; cannot execute dump'
+      break
+    }
+    if (-not (Test-Path $ArtifactPath)) { New-Item -ItemType Directory -Path $ArtifactPath -Force | Out-Null }
+    $stamp = (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ')
+    $dumpPath = Join-Path $ArtifactPath "aetherlink-$stamp.dump"
+    # Plain SQL format on purpose: it restores with psql, so the gate only needs
+    # pg_dump + psql. Custom format (-Fc) would require pg_restore and would make
+    # `psql --file=<dump>` in the restore branch silently wrong.
+    & $PgDumpPath "--no-owner" "--dbname=$Dsn" "--file=$dumpPath"
+    if ($LASTEXITCODE -ne 0) {
+      Fail 'backup-exec' "pg_dump failed with exit code $LASTEXITCODE"
+      break
+    }
+    if (-not (Test-Path $dumpPath)) { Fail 'backup-exec' 'pg_dump reported success but produced no file'; break }
+    Write-BackupManifest $ArtifactPath
+    $size = (Get-Item $dumpPath).Length
+    Pass 'backup-exec' "dump written: $(Split-Path $dumpPath -Leaf) ($size bytes)"
   }
   'restore' {
     Test-Tooling $PgDumpPath $PsqlPath $Dsn
-    if ($safe -and (Test-Path $ArtifactPath)) { Test-BackupManifest $ArtifactPath }
-    Pend 'restore-exec' 'restore execution not implemented; refusal keeps a half-verified restore from being reported as success'
+    if (-not $safe) { break }
+    if ($CheckOnly) { Pend 'restore-exec' 'CheckOnly=true; refusing to restore'; break }
+    if (-not (Test-Path $ArtifactPath)) { Fail 'restore-exec' "artifact path missing: $ArtifactPath"; break }
+
+    # Verify integrity BEFORE restoring: skipping it risks writing a corrupt
+    # backup into the database, and the target is already overwritten by then.
+    Test-BackupManifest $ArtifactPath
+    if ($script:Failures -gt 0) {
+      Fail 'restore-exec' 'manifest verification failed; refusing to restore unverified backup'
+      break
+    }
+    $dumps = @(Get-ChildItem -Path $ArtifactPath -Filter '*.dump' -File | Sort-Object LastWriteTimeUtc -Descending)
+    if ($dumps.Count -eq 0) { Fail 'restore-exec' 'no *.dump artifact found to restore'; break }
+    $target = $dumps[0].FullName
+
+    # Do not write `$x = if (...) {...} else {...}` - that is PowerShell 7+ syntax
+    # and fails to parse on 5.1 ("switch statement clause is missing a condition").
+    $restoreDsn = $Dsn
+    if ($TargetDsn -ne '') { $restoreDsn = $TargetDsn }
+    if ($restoreDsn -eq '' -or $restoreDsn -like '*CHANGE_ME*') {
+      Pend 'restore-exec' 'no target DSN; refusing to guess which database to overwrite'
+      break
+    }
+    if (-not $Force) {
+      Pend 'restore-exec' "restore would overwrite target database; re-run with -Force after confirming (artifact: $(Split-Path $target -Leaf))"
+      break
+    }
+    & $PsqlPath "--dbname=$restoreDsn" "--file=$target"
+    if ($LASTEXITCODE -ne 0) {
+      Fail 'restore-exec' "restore failed with exit code $LASTEXITCODE"
+      break
+    }
+    Pass 'restore-exec' "restored $(Split-Path $target -Leaf) into target database"
   }
 }
 
