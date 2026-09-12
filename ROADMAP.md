@@ -61,7 +61,7 @@ ThingsPanel 社区仓库可见 MQTT/HTTP/Modbus、物模型、看板、规则、
 3. backend/GMQTT capability mapping 必须使用 repository-relative file + exact Go test function + stable evidence ID + semantic anchor；同文件存在任意 `func Test` 不再算 traceability。
 4. canonical producer、inspector negative controls 和 exact identity 门禁通过前，不运行或引用新 full API/E2E 结果来提升 readiness。
 
-当前状态：canonical producer 已完成 run-scoped staging、partial diagnostic、report hash、cleanup truth、manifest redaction、inspector-backed validation、manifest-last 和 same-filesystem atomic rename；2026-09-10 的 producer/policy/inspector focused contracts 为 61 passing，但这只是静态 harness 证据。exact backend/GMQTT identity 与 production-reachable placeholder/no-op gate 尚未完成，因此阶段 3.0 仍为 `partial`，不得提升 Phase 0 或发布就绪。
+当前状态：canonical producer 已完成 run-scoped staging、partial diagnostic、report hash、cleanup truth、manifest redaction、inspector-backed validation、manifest-last 和 same-filesystem atomic rename；2026-09-10 的 producer/policy/inspector focused contracts 为 61 passing，但这只是静态 harness 证据。exact backend/GMQTT identity 与 production-reachable placeholder/no-op gate 已于 2026-09-11 实现并实测通过（详见 `docs/validation/P0.6-P0.7-evidence.md`）：capability mapping 的 26 条 goEvidence 均带 repository-relative file + exact Go test function + stable evidence ID + semantic anchor，其中 GMQTT 条目覆盖 `mqtt-broker/plugin/aetherlink/hooks_test.go` 等精确函数；placeholder gate 从入口做 BFS 可达性分析，实测 cataloged 2123 / reachable 1708 / violations 0，且契约测试含负向对照（能检出全部四类 false-success 族，非空转）。实测门禁：`00_go_test_evidence_contract` 11 passing、`00_go_test_runtime_contract` 8 passing、`00_production_placeholder_gate_contract` 5 passing、`00_coverage_contract` capability mapping 相关 4 项 passing。因此阶段 3.0 的测量系统修复已闭环，但**这仍是静态 harness 证据**，不含真实服务/浏览器运行期证据，故不得据此提升 Phase 0 或发布就绪。
 
 ## P0：证据与生产闭环（发布前置）
 
@@ -257,6 +257,22 @@ ThingsPanel 社区仓库可见 MQTT/HTTP/Modbus、物模型、看板、规则、
     );
 
     CreateRelation(ctx context.Context, r Relation) error
+
+实现状态（2026-09-11，部分完成——模型、校验与迁移已落地；CRUD 与看板集成未做）：
+
+- 新增迁移 `backend/sql/85.sql`：`entity_relations` 表。
+  唯一约束包含 `tenant_id`（跨租户关系不会互相覆盖），
+  **CHECK 直接拒绝自环**，并按起点/终点各建一条索引支持正查与反查。
+- 新增 `backend/internal/model/entity_relation.go`：`EntityRelation` 模型与集中校验。
+  要点：
+  - **关系是有向的**：`relation_type` 不隐含对称，反向必须显式写入，
+    不允许由查询层"脑补"出来（提供 `IsReverseOf` 便于提示而非自动生成）。
+  - **实体类型走受控白名单**（device/asset/customer/gateway），
+    拒绝任意字符串，防止关系图语义漂移。
+  - 关系类型长度与元数据大小均有上限，超限拒绝而非静默截断。
+- 定向证据：`entity_relation_test.go` 6 例通过（必填、白名单、自环、超限、反向判定）。
+- 未完成（本项**不算完成**）：DAL/Service 的 CRUD 与查询、租户 Scope 守卫、
+  看板与权限集成，以及迁移 85 的实际执行（磁盘已满，无法验证）。
     ListRelations(ctx context.Context, q RelationQuery) ([]Relation, error)
     DeleteRelation(ctx context.Context, id string) error
 
@@ -274,6 +290,76 @@ ThingsPanel 社区仓库可见 MQTT/HTTP/Modbus、物模型、看板、规则、
     func (e *Engine) Replay(ctx context.Context, executionID string) error
 
 门禁：失败节点进入 DLQ；重试次数和延迟可观测；同一消息 Trace 可串联；发布版本可回滚；回放不重复生产副作用（除非显式确认）。
+
+实现状态（2026-09-11，部分完成——仅节点级执行策略；失败分支、回放与版本化未做）：
+
+- 新增 `backend/internal/service/rule_chain_node_policy.go`：节点可用 `config.policy`
+  声明 `timeout_ms` / `max_attempts` / `backoff_ms` / `dead_letter` / `retry_safe`。
+- **有副作用节点默认禁止重试**：`action` / `external` 分类（设备命令、Webhook、告警）
+  以及注册表外的未知类型，即使配置 `max_attempts>1` 也强制只执行一次，
+  除非显式声明 `retry_safe: true`。重试一次设备命令等于两次下发、重试一次 Webhook
+  等于两次业务投递——静默重试会把重复副作用伪装成成功。
+- 节点级独立超时：此前只有整链 `ruleChainExecTimeout=10s`，单节点无法限制。
+  超时值非法（0 或超过整链上限）一律拒绝，不静默兜底。
+- 指数退避 `Backoff * 2^(n-1)`，单次上限 5s；等待必须响应上下文取消，
+  **剩余时间不足整链 deadline 时直接放弃重试**，绝不睡过超时窗口。
+- 终局失败下沉死信（默认开启，可 `dead_letter: false` 关闭）；落点
+  `ruleChainDeadLetterSink` 为注入点，未接线时旁路，不改变既有行为。
+  死信刻意不含消息载荷，沿用 trace 的审计最小化约定。
+- 重试次数与累计退避进入聚合错误文案（`attempts=N, backoff=Nms`）以满足
+  "重试次数和延迟可观测"；trace 表未加列，避免为可观测性引入新迁移。
+- 定向证据：`rule_chain_node_policy_test.go` 11 例通过（默认值、9 种非法策略拒绝、
+  无副作用节点重试到上限、有副作用节点不重试、retry_safe 放行、未知类型按有副作用处理、
+  节点超时生效、退避响应取消、死信字段完整、死信可关闭、成功不产生死信）。
+  既有 `-run RuleChain` 用例无回归。
+- **失败分支（已补）**：`RuleChainEdge` 增加 `kind` 字段（`success` / `failure`），
+  **空值等价 success**，存量 graph JSON 行为完全不变。成功路径只走 success 边，
+  `Successors` 已排除 failure 边；节点失败时改走 `FailureSuccessors`。
+  - 被失败分支接管后，该错误**不再计入聚合 errs**（表示已被下游处理），
+    但 trace 与死信照常记录——失败分支只接管流向，**不抹除失败事实**。
+  - 失败分支自身失败时其错误照常冒泡，不会被吞掉。
+  - 失败事实以 `rc_failed_node` / `rc_error` 注入下游 metadata，
+    只带错误文本不带原始载荷（沿用审计最小化约定）。
+  - 非法边类型一律拒绝，不静默按 success 兜底。
+  - 定向证据：`rule_chain_failure_edge_test.go` 8 例通过（非法边类型拒绝、
+    三种合法 kind、成功路径跳过失败边、失败分支接管、失败分支自身错误冒泡、
+    无失败分支时保持既有行为、metadata 承载失败事实、无 kind 存量边行为不变）。
+- **输入回放与副作用显式确认（已补）**：`backend/internal/service/rule_chain_replay.go`。
+  - `ruleChainReplayRecorder` 为可注入记录落点，**默认不接线**（nil 即旁路、热路径零开销）。
+    回放必然要留存输入，这与 trace 的"审计最小化"不是一回事：trace 只记事实、replay 记输入，
+    因此默认状态不留存任何载荷，只有运维显式接入持久化时才产生第二份数据。
+  - 回放**不沿图继续遍历**：后继节点各有自己的记录，跟着边走会把下游重复执行 N 遍。
+  - **副作用闸门**：命中 `action`/`external` 及未知类型节点时，未显式确认即**整体拒绝**，
+    一个节点都不执行——绝不放行到一半才发现有副作用。确认后放行，并在 metadata 打
+    `rc_replay` / `rc_replay_of`，使重放产生的副作用可被追溯、不与首次执行混淆。
+  - **节点类型漂移拒绝重跑**：记录是按旧类型语义捕获的，换类型后旧输入不再适用。
+  - 回放必须带来源执行 ID，否则无法审计。
+  - 定向证据：`rule_chain_replay_test.go` 10 例通过（缺来源 ID 拒绝、空记录拒绝、
+    未确认副作用整体拦截且零执行、确认后执行、无副作用节点免确认、类型漂移拒绝、
+    节点缺失上报、重放标记、未接线旁路、记录捕获到输入）。
+- 仍未完成（本项**不算完成**）：草稿/发布版本与回滚、真实链路 E2E。
+  回放持久化未接数据库（迁移号位 87/88/89 已被占用，回放持久化需另行排号）。
+
+**2026-09-12 更新：草稿/发布版本与回滚已落地（上文"版本化未做"已过时）**
+
+- 语义层 `backend/internal/service/rule_chain_version.go`：版本单向 `draft -> published`；
+  published 只读、不可重复发布；**回滚产生新草稿而非回写原版本**，原历史保持只读，
+  两侧各留一条审计事件；版本号单调递增且由已有最大版本推导；**图哈希参与版本身份**，
+  内容未变不产生空版本。定向证据 9 例通过。
+- 持久化迁移 `backend/sql/93.sql`：`rule_chain_versions` 表。关键设计是
+  **部分唯一索引保证一条链同一时刻只有一个 published**——把不变式交给数据库，
+  不做应用层"先查再写"（高并发必漏判）。status 受 CHECK 约束，
+  `rolled_back_from` 记录回滚来源便于双向追溯。
+- 端点接线（model / dal / service 编排 / api / router）：
+  `GET /api/v1/rule-chains/:id/versions`、`POST /api/v1/rule-chains/:id/versions`、
+  `POST /api/v1/rule-chains/versions/publish`、`POST /api/v1/rule-chains/versions/rollback`。
+  三条新路由已在 93.sql 登记 Casbin——缺登记会让后端在启动期 fail-fast 拒绝启动。
+- 编排函数统一带 `Record` 后缀（`PublishRuleChainVersionRecord` /
+  `RollbackRuleChainVersionRecord`）：避免与纯语义函数同名，**Go 没有重载**，同名会编译失败。
+- 运行期证据：`docs/validation/P1.2-rulechain-version-evidence.md`。真实 PostgreSQL 验证 7 项全过，
+  含"第二条 published 被部分唯一索引拒绝"（`rule_chain_versions_single_published_idx`），
+  并已固化为常驻用例 `internal/service/rule_chain_version_postgres_test.go`（缺 DSN 则 Skip，不假通过）。
+- 仍缺：真实链路 E2E（需活栈）。**因此 P1.2 整体仍记为 partial 而非 done。**
 
 ### P1.3 Widget 与 SCADA 基础层
 
@@ -294,6 +380,73 @@ ThingsPanel 社区仓库可见 MQTT/HTTP/Modbus、物模型、看板、规则、
 
 门禁：项目 CRUD 不再返回 unsupported；画布保存/加载可往返；遥测断线有状态；控制命令有权限、确认和审计；3D/WebGL 降级不影响 2D 看板。
 
+实现状态（2026-09-11，**后端内核已完成，尚未接线到 HTTP/前端，本项不算完成**）：
+
+- 迁移 `backend/sql/88.sql`：`scada_projects`（多项目容器，此前根本没有"项目"这一层，
+  所以项目 CRUD 只能返回 unsupported）、`scada_documents`（画布，草稿/发布/归档三态）、
+  `scada_document_versions`（发布快照，不可变）、`scada_control_audits`。
+  `global.VERSION_NUMBER` 已提到 88。
+- 模型 `internal/model/scada.go` + DAL `internal/dal/scada.go`：
+  - 保存走**条件更新**（`WHERE current_version = ? AND status <> 'ARCHIVED'`），
+    由 RowsAffected 判定成败；RowsAffected=0 时服务层**再查一次**来区分
+    "版本冲突 / 已归档 / 不存在"，不猜。
+  - `published_version` 可空：NULL 表示从未发布，与"发布了第 0 版"是两种事实。
+  - 画布 JSON 超限拒绝，不静默截断（截断后无法解析，等于存一份永久损坏的画布）。
+- 服务 `internal/service/scada_document.go`：项目 CRUD、画布往返、乐观并发、发布、
+  回滚。**回滚不改历史**——把目标版本内容写成新的草稿版本，且不自动发布，
+  与 fleet 批次回滚保持同一语义。
+- 服务 `internal/service/widget_registry.go`：Widget 按 (type, version) 注册，
+  能力必须显式声明（空能力按"没想清楚"拒绝，不静默当 2D）。
+  3D 降级是**逐个 Widget** 的：无 WebGL 时 3D Widget 转 degraded，2D Widget 全部照常可用，
+  未注册 Widget 转 unknown，两者都不阻断整块看板加载。
+- 服务 `internal/service/scada_control.go`：控制命令依次过
+  「存在性 → 归档终态 → Widget/命令已注册 → 权限 → 二次确认」，
+  确认令牌由 HMAC 绑定 (租户, 文档, Widget, 命令, 操作人, 过期时间)，密钥缺失即 fail closed。
+  **审计先于执行落库（pending），写不进去就拒绝执行**；被拒绝的命令同样留痕。
+- 服务 `internal/service/scada_telemetry_link.go`：链路状态机。
+  未连接时数据一律判为陈旧，且**不参考最后一帧有多新**——断线后继续把最后一帧
+  当实时值显示，正是本项目要消灭的假成功。
+- 证据：服务层定向用例全通过；`scada_postgres_test.go` 4 例在**真实 PostgreSQL** 通过
+  （复合唯一约束、jsonb 往返、乐观并发、审计 pending→success、状态 CHECK）。
+- HTTP 接口与路由**已接线**（`internal/api/scada.go` + `router/apps/scada.go`）：
+  项目 CRUD、文档 CRUD/保存/发布/回滚/归档/版本/审计、控制命令与确认令牌签发，
+  共 19 条端点，并由 `router/apps/scada_routes_test.go` 在真实 Gin 引擎上校验注册结果
+  （静态契约测试只解析源码，证明不了端点真的挂上了）。
+  租户一律由 claims 推导，非系统管理员指定其他租户明确拒绝而非静默降级。
+  **控制相关端点在服务未接线时 fail closed**（ScadaControl 为 nil 即报错），
+  接口存在不等于能力可用。
+- 前端画布编辑器**已建**（`frontend/src/views/visualization/scada-editor/`）：
+  - `scada-model.ts`（纯模型）+ `scada-model.test.ts` **24 例通过**，覆盖：
+    画布解析**失败即阻断保存**（不退化成空画布，否则一保存就覆盖真实内容）、
+    序列化往返、版本冲突与归档错误的分别识别、
+    遥测陈旧判定（断开状态下最后一帧再新也算陈旧）、3D 降级不影响 2D、
+    未知命令默认要求确认（fail closed）。
+  - `index.vue`：项目/文档管理、画布编辑、带版本号保存、冲突与归档分别提示、
+    发布/回滚/归档、陈旧横幅、降级提示、控制命令确认流程。
+  - API 客户端 `src/service/api/scada.ts`；i18n 四个语种各 34 键；
+    路由已注册（`visualization_scada-editor`）。前端 typecheck 干净。
+- **控制服务已装配进启动流程**（`internal/app/scada_mobile_wiring.go` + `main.go`）：
+  - `service.AssembleScadaControl` 注入内置 Widget 注册表、二次确认签发器（密钥取自
+    `scada.control.confirmation_secret` / `GOTP_SCADA_CONTROL_CONFIRMATION_SECRET`）
+    与真实下发执行器；执行器委托 `CommandData.CommandPutMessageWithTracking`。
+  - **下发必须携带真实 claims**：命令通道在没有 claims 参数时会跳过设备写权限校验
+    （`command_data.go: ensureCommandWriteAccess`），因此 `ControlExecution.ActorClaims`
+    为空时执行器直接拒绝执行。已有用例锁住这条闸与「凭证一路传到执行器」。
+  - 密钥未配置**不阻断启动**，但打 warn：签发不出令牌，所有需要确认的命令被拒。
+    未启用 SCADA 的部署不该被一个用不到的密钥挡在门外，代价是日志里必须看得见。
+  - 内置 Widget 与前端 `WIDGET_REGISTRY` 的一致性由
+    `TestBuiltinWidgetRegistryMatchesFrontend` 兜住（该用例直接解析前端源码，
+    并已用「改前端版本号 → 用例失败」做过负向对照）。
+- 未完成（**明确不算完成**）：
+  - **画布拖拽未接线**（`grid-layout-plus` 现无调用方证据，不盲接；界面上未做假入口）
+  - Widget 注册表仍是前后端各一份常量（有一致性测试兜底，但未改为前端从后端拉取）
+  - 内置 Widget 的 `schema` 是最小合法 JSON 对象，**尚未定义真实配置字段**，
+    因此后端目前不校验画布里单个 Widget 的配置内容
+  - 工业符号库未做、3D 无实际 Widget 渲染
+  - **无浏览器/运行时 E2E**（模型层有单测，界面未经真实浏览器验证）
+  - **未做真实下发联调**：执行器接到真实命令通道，但没有在连着 broker 的环境里
+    验证过一条命令真的到达设备
+
 ### P1.4 移动端控制与通知
 
 交付物：命令、影子、告警确认、OTA 状态、Dashboard 查看、FCM/APNs 抽象、离线缓存、Android/iOS 构建。
@@ -304,6 +457,126 @@ ThingsPanel 社区仓库可见 MQTT/HTTP/Modbus、物模型、看板、规则、
     interface PushProvider { register(token: string): Promise<void>; send(message: PushMessage): Promise<void>; }
 
 门禁：角色权限与 Web 端一致；弱网重试不重复命令；推送失败可重试并可审计；至少 Android/H5 一条完整业务 E2E。
+
+实现状态（2026-09-11，**推送与幂等内核已完成，移动端本身未开始，本项不算完成**）：
+
+- 迁移 `backend/sql/88.sql`：`push_device_registrations`（令牌登记，复合唯一含租户/用户/平台/令牌）、
+  `push_deliveries`（投递与重试审计）。
+- 模型 `internal/model/push.go` + DAL `internal/dal/push.go`：
+  - 令牌登记走数据库 `ON CONFLICT` upsert，不做"先查再插"；重复登记不产生第二行，
+    否则一次推送会被放大成 N 条。
+  - 终态 `dead` 与可重试的 `failed` 分开表达；终态不得携带 `next_attempt_at`，
+    否则重试器会把已放弃的投递重新捞起，把失败伪装成"还在路上"。
+  - 捞取重试必须同时限定 status 与 `next_attempt_at <= now`，避免重试节奏被击穿。
+- 服务 `internal/service/push_provider.go`：`PushProvider` 契约（FCM/APNs 适配器位），
+  **无可用 Provider 时报错而非静默成功**；重试有上限，用尽转 dead；
+  每次尝试都计 `attempt_count` 并留 `last_error`，投递历史即审计。
+- 服务 `internal/service/mobile.go`：移动端能力聚合。
+  - **能力矩阵由实际接线决定**：依赖没注入就报 false，调用即失败——
+    先报 true 再说会让移动端展示一堆点了就报错的功能。
+    `OfflineCache` 恒为 false：那是客户端能力，服务端报 true 等于替客户端撒谎。
+  - 弱网幂等：命令必须带幂等键，命中已完成键**直接返回原收据且不再下发**；
+    下发失败**释放键**以保证可重试；同一键换参数必须拒绝
+    （否则第二条命令返回第一条的结果，用户以为生效其实没有）。
+  - 幂等存储为接口，默认实现是进程内的（重启即失），跨实例强幂等需换成 DB/Redis 实现。
+- 证据：服务层定向用例全通过；`scada_postgres_test.go` 中推送 2 例在**真实 PostgreSQL** 通过
+  （upsert 不产生重复行、failed→dead 终态、终态不再被捞起、状态 CHECK 生效）。
+- HTTP 接口与路由**已注册**（`internal/api/mobile.go` + `router/apps/mobile.go`）：
+  能力矩阵、推送登记/撤销、幂等命令下发；命令强制 `Idempotency-Key` 头。
+  **服务未接线时全部 fail closed**（`service.GroupApp.Mobile` 为 nil 即报错），
+  唯独能力矩阵接口返回全 false——那正是"未接线"的如实声明，供客户端隐藏入口。
+- **移动端服务已装配进启动流程**（与 SCADA 同一个 `WithScadaMobileWiring`）：
+  命令、设备列表、告警、影子均已接到真实实现；OTA / 看板 / 推送投递仍未接线。
+- **设备列表 / 告警 / 影子已接线，且复用既有归属过滤**（`internal/service/mobile_adapters.go`）：
+  - 归属过滤**不自己实现**，一律委托既有判定：`applyDeviceListOwnerFilterForClaims`
+    （设备）、`GetAlarmHisttoryListByPage` 内部的 `deviceOwnerUserIDFilterForClaims`（告警）、
+    `ensureTelemetryDeviceReadAccess` / `ensureAlarmHistoryWriteAccess`（影子与告警确认）。
+    自己拼 `WHERE owner_user_id = ?` 会在管理员处漏数据、在普通用户处把"没配归属的设备"全放出去。
+  - **依赖契约收完整 `*utils.UserClaims` 而不是 (tenantID, userID)**：归属过滤由
+    `claims.Authority` 决定，光有 userID 拼不出这个判断。HTTP 接口也因此**不收 `tenant_id` 入参**——
+    允许调用方指定租户等于把过滤开关交出去。
+  - 端点：`GET /mobile/devices`、`GET /mobile/alarms`、`POST /mobile/alarms/:id/ack`、
+    `GET|PUT /mobile/devices/:id/shadow`，由 `router/apps/scada_routes_test.go` 在真实 Gin 引擎上校验。
+  - 分页夹紧（默认 20，上限 100）：`page_size` 直接下推会让 0 变成"不限量"。
+  - **影子语义如实说明**：本项目的影子是**离线命令队列**（`device_shadow_messages`），
+    不是自由格式的 desired/reported 文档。`GET` 返回影子消息队列视图，
+    `PUT` 提交 `{"method":..., "params":...}` 命令载荷（在线即下发、离线入队）；
+    非 JSON 载荷直接拒绝，不静默存一份设备侧解析不了的字节。
+  - `MobileDeviceSummary` 用 `warn_status`（"Y"/"N"）而非 `alarm_count`：设备列表查询
+    不 join 告警表，造一个 0/1 的"条数"会让移动端把布尔标记当数量展示。
+- 证据：`TestMobileDeviceListOwnershipFilterOnPostgres` /
+  `TestMobileDeviceListHidesUnownedDevicesFromTenantUser` 在**真实 PostgreSQL** 通过
+  （普通用户 A/B 各只见自己的设备、租户管理员见全部、其它租户见 0 台、
+  无归属设备对普通用户不可见），并已用「移除归属过滤 → 用例失败」
+  做过负向对照，确认断言真的在卡这条规则。
+  告警与影子的过滤直接复用既有实现，其校验由既有告警/影子用例覆盖，未另造一套。
+- **OTA 状态已接线**（`GET /mobile/devices/:id/ota`）：
+  - 先过 `ensureTelemetryDeviceReadAccess`（与影子/遥测同一道闸，含归属判定），
+    再以**设备的租户**查 OTA 明细。
+  - 新查询 `dal.LatestOTAUpgradeDetailForDevice`：**`ota_upgrade_task_details` 自身没有
+    tenant_id 列**，租户要经 `task → package.tenant_id` 两级关联才拿得到。
+    只按 device_id 查会跨租户泄漏升级进度，故必须走包路径过滤。
+  - 无升级记录返回 `none`（不是报错）；未知状态码返回 `unknown`（不猜，猜错会把失败显示成成功）。
+- **看板列表已接线**（`GET /mobile/dashboards`）：复用 `Board.GetBoardListByPage`。
+  看板**没有归属列**，是租户级共享资产，可见性由既有 `resolveBoardListTenant` 按角色裁决
+  （SYS_ADMIN 全量 / TENANT_ADMIN 本租户 / 其余拒绝）。这里刻意**不加** owner 过滤——
+  无字段可依，且会改掉"看板是共享资产"的既有语义。
+- **推送投递已可接线**：实现了 FCM HTTP v1 Provider（`internal/service/push_provider_fcm.go`）
+  与 APNs Provider（`internal/service/push_provider_apns.go`）。
+  - 服务账号 JWT（RS256）换 OAuth2 令牌，令牌缓存到过期前 60 秒。
+  - **错误分可重试与终态**：429/5xx 与换票失败=可重试；4xx（除 429）与空令牌=终态，
+    由 `PushService.settleTerminal` 直接置 dead，不再浪费重试预算——
+    令牌失效重试一万次也不会成功，还会把这个事实埋进最后一次 last_error。
+  - `AssemblePush(PushWiringConfig{FCM, APNs})` **按凭据分别注册**：某个渠道没配齐就
+    不注册该渠道；**两个都没配**返回 nil 服务（不是空壳），能力矩阵报 `push=false`；
+    配了但凭据非法则**阻断启动**，不静默降级成"不发推送"。
+    `ErrFCMNotConfigured` / `ErrAPNSNotConfigured` 是"没配"，不是错误，不阻断启动。
+  - **APNs（iOS）已实现**：ES256 签名 JWT（`kid` 头）作 Bearer，**强制 HTTP/2**
+    （APNs 只在 HTTP/2 上服务，走 HTTP/1.1 会被拒），`apns-topic` / `apns-push-type` 齐备，
+    自定义字段放在 `aps` 之外（放进 `aps` 会被 Apple 静默丢弃），非字符串值转字符串
+    （与 FCM `data` 同一约束）。错误分类同 FCM：429/5xx 可重试，400/403/410/413 终态，
+    其中 410 = 令牌对该 topic 已失效，直接置 dead。
+- 证据：
+  - FCM：httptest 起假 OAuth2/FCM 端点，覆盖成功、429/5xx 可重试、404/403/400/401 终态、
+    空令牌终态、换票失败可重试、令牌缓存（3 次发送只换票 1 次）、请求体断言
+    （含 `data` 非字符串值转字符串），共 14 例通过。
+  - APNs：httptest 起 **HTTP/2** 假端点（断言 `r.Proto == "HTTP/2.0"`，否则测的是不存在的协议路径），
+    覆盖配置校验（缺字段逐个报、RSA 密钥冒充 EC 密钥须拒）、仅支持 iOS、请求头与路径、
+    载荷形状（自定义字段在 `aps` 外、数值转字符串）、429/500/503 可重试、410/400/403/413 终态、
+    空令牌终态、JWT 复用（含 `kid`/`alg` 解码校验）、双渠道/单渠道/凭据非法阻断/都没配四种装配组合，
+    共 16 例通过。
+  - OTA / 看板：真实 PostgreSQL 上验租户边界（别租户同名设备的 `succeeded` 记录不泄漏）、
+    归属闸（同租户普通用户读不到他人设备的 OTA 状态）、看板只见本租户且普通用户被拒。
+    **负向对照**：摘掉 `p.tenant_id` 条件 → 用例失败（读到别租户的 succeeded），已还原复测。
+  - **移动端接口级 E2E**（`backend/router/apps/mobile_e2e_test.go`，8 例通过）：
+    真实 Gin 引擎 + 真实统一响应中间件 + 真实 PostgreSQL，走 HTTP → 路由 → handler →
+    service → DAL → 库全链路。覆盖能力矩阵、设备列表、影子写入读回与非法载荷拒绝、
+    OTA（无记录 `none` → 有记录 `upgrading`）、看板（管理员可见 / 普通用户按既有规则被拒）、
+    命令缺幂等键被拒、推送令牌登记/重复登记不增行/撤销/撤销不存在报 404。
+    **负向对照**：把能力矩阵的 `push` 改成硬编码 true → 用例失败，已还原复测。
+  - 统一响应中间件对业务错误**也返回 HTTP 200**（错误码在 body 的 `code`），
+    所以这套 E2E 一律断言 `code` 而不是 HTTP 状态；只看 HTTP 200 会把错误当成通过。
+- 顺带修掉的既有缺陷（由上述 E2E 暴露，非本项功能，但如实记录）：
+  - `UnsubscribePush`：登记 id 是 uuid 列，**非 uuid 的输入原样进 SQL** 会让 PG 抛 22P02，
+    而该错误经 `CodeDBError` 把驱动原文（`SQLSTATE`）带回了客户端。改为先判 uuid，统一按 404 返回。
+  - 告警历史的读/写两条路径：查不到记录（`gorm.ErrRecordNotFound`）被当成
+    `101001 数据库错误` 返回，响应里带 `sql_error: "record not found"`。
+    改成 `404 alarm history not found`——"没有这条告警"不是系统故障，
+    混在一起会让客户端把它判成可重试的错误反复重试。**该改动影响 Web 端告警接口（同一条路径）**。
+- 未完成（**明确不算完成**）：
+  - **FCM / APNs 都未与真实 Firebase / Apple 联调过**。httptest 覆盖了各条分支，
+    但真实通道的 4xx 错误码分布、`data` 字段限制、APNs sandbox 与生产的 topic 差异
+    需拿到真实凭据后补一次验证。
+    **凭据就位的验证入口已经写好**（`internal/service/push_provider_live_test.go`）：
+    默认 SKIP，设置 `AETHERLINK_FCM_LIVE_*` / `AETHERLINK_APNS_LIVE_*` 后即跑真机通道，
+    每个渠道都同时验"有效令牌必须成功"与"无效令牌必须失败且判终态"两件事。
+    在此之前**不得**声称推送已验证。
+  - **Android/iOS 构建未做**（无客户端工程，本仓库目前只有后端）
+  - **真机业务 E2E 未做**（需 Android/iOS 客户端 + 真实推送通道）。
+    上面那套是**接口级** E2E：链路真实但没有客户端参与，不能顶替门禁里的
+    「至少 Android/H5 一条完整业务 E2E」。
+  - 进程内幂等存储**重启即失**，跨实例强幂等需换成 DB/Redis 实现同一接口
+  - 告警列表透传既有动态投影（`[]map[string]interface{}`），未为移动端另造强类型 DTO
 
 ### P1.5 边缘运维
 
@@ -317,11 +590,57 @@ ThingsPanel 社区仓库可见 MQTT/HTTP/Modbus、物模型、看板、规则、
 
 门禁：断云自治不丢本地数据；重连后按版本同步；冲突进入人工可见状态；节点离线和升级失败产生告警。
 
+实现状态（2026-09-11，部分完成——仅治理决策层；节点注册/证书与 Reconcile 未做）：
+
+- 新增 `backend/internal/service/edge_governance.go`（纯决策函数，零迁移）：
+  - `ClassifyEdgeNodeHealth`：按最后心跳判定 online/degraded/offline/**unknown**。
+    **心跳为 nil、零值或晚于当前时间一律判 unknown**——时钟异常不得被乐观地当成"刚上报过"。
+  - `CheckEdgeVersionCompatibility`：点分数字版本比较，**版本串为空或含非数值段一律判不兼容**。
+    无法判断兼容就不允许下发，避免在边缘把节点刷成砖。
+  - `DetectEdgeSyncConflict`：**同一资源若已有一份内容不同的在途快照即判冲突**，只检测上报、
+    **绝不自动合并或自动覆盖**——否则边缘最终状态取决于消息到达顺序，出问题无法归因。
+    内容一致视为幂等重发，不算冲突；**在途快照解析失败按"内容不同"处理**，
+    宁可升级为人工确认也不静默放行。
+- 接线：`CreateEdgeSync` 落库前先跑冲突闸门，命中即返回带 `conflict=true` 与在途任务 ID 的
+  参数错误。**查询在途任务失败同样直接报错**——无法确认无冲突就不允许下发（fail closed）。
+- 定向证据：`edge_governance_test.go` 11 例通过（9 行健康判定时间表、两种"不得乐观"场景、
+  10 行版本兼容表、冲突判定/幂等/跨资源/跨类型/缺 ID/解析失败升级/跳过 nil/载荷解析）。
+- 仍未完成（本项**不算完成**）：节点注册与证书、断云自治与重连后按版本同步
+  （当前 `edgeSyncPayload.Version` 是**快照格式版本**且恒为 1，没有同步修订号，
+  无从判断"边缘已拿到哪一版"）、远程升级回滚、Reconcile 编排，以及真实边缘节点联调。
+
 ### P1.6 模板市场产品化
 
 交付物：浏览/搜索/行业打包下载、导入冲突预览、签名、依赖检查、升级/回滚和审计。
 
 门禁：租户幂等；坏签名/坏依赖拒绝；升级可回滚；导入不产生孤儿租户数据；所有动作有审计记录。
+
+实现状态（2026-09-11，部分完成——签名、依赖自洽与冲突预览；升级/回滚与审计记录未做）：
+
+- 现状：市场目录与打包导出已有（`MarketCatalog` / `ExportMarketBundle`），
+  但 `MarketBundle` 此前**没有签名、没有依赖声明、没有版本**，包在租户间流转时
+  既无法验真也无法预判导入后果。
+- 新增 `backend/internal/service/device_template_market_integrity.go`（纯逻辑，零迁移）：
+  - `MarketBundle` 增加 `digest` / `signature` / `signed_key_id`（均 `omitempty`，
+    老包解析不受影响）。摘要覆盖**除签名三字段外的规范 JSON**，否则无法验签。
+  - `SignMarketBundle` / `VerifyMarketBundle`：HMAC-SHA256，**摘要与签名都用常量时间比较**，
+    避免通过响应时间侧信道推断。验签按"未签名 → 密钥缺失 → 摘要不符 → 签名不符"逐级拒绝。
+  - **签名密钥与 P0.7 的加密主密钥分开**（`market.bundle_signing_keys`），
+    签名与加密不共用同一把钥匙；密钥需 base64 且不小于 32 字节，短密钥与非法 base64 一律拒绝。
+  - `CheckMarketBundleDependencies`：包内自洽检查——模板名缺失、包内重名
+    （导入后互相覆盖，最终状态取决于顺序）、模板 `type_key` 与包声明不符、`count` 与实际条数不符。
+  - `PreviewMarketBundleImport`：**只读**，不落库不建模板，只回答"导入会发生什么"，
+    区分 create / overwrite / blocking；**已存在模板必须显式列为覆盖项**，
+    阻断项非空即不应导入。
+  - 接线：`ExportMarketBundle` 出包即签名。**未配置签名密钥一律拒绝出包**
+    （与 P0.7 一致：默认未配置即 fail closed）——这意味着**打包导出端点在配置
+    签名密钥前不可用**，属刻意行为变更。
+  - 配置占位符已写入 `conf.yml` / `conf-dev.yml` / `conf.example.yml` 的 `market` 段。
+- 定向证据：`device_template_market_integrity_test.go` 11 例通过（未配置密钥拒绝出包、
+  短密钥与非法 base64 拒绝、签名验签往返、未签名拒绝导入、篡改内容摘要失配、
+  换密钥验签失败、摘要不含签名字段、依赖检查 6 个场景、冲突预览 3 个场景）。
+- 仍未完成（本项**不算完成**）：升级/回滚（需版本与快照，待排迁移）、导入动作的审计记录、
+  导入接口本身尚未接入打包载荷（当前只有单模板 import 与打包 export），以及真实端到端验证。
 
 ## P2：生态、分析与规模
 
