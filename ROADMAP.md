@@ -63,6 +63,29 @@
 
 **统计：`done` 0 项 / `partial` 16 项 / `pending` 1 项（P2.3 压测子项、P3 多数子项）。**
 
+#### 1.2.1 构建与测试复核（2026-09-13，**修正上表口径**）
+
+恢复 Go 模块缓存后 `go build` 立即暴露：**09-13 批次（97/98/99.sql、edge、rollup、license、看板项目分组、anomaly）从未成功编译过，也从未跑过测试**。此前把"服务层测试无法重跑"归因于"模块缓存被清空"是**误诊**——真实原因是代码存在编译错误。
+
+已修复的 6 处缺陷：
+
+| 类型 | 位置 | 问题 |
+| --- | --- | --- |
+| 编译错误 | `model/device_template_market.go` | `TableNameTemplateUpgradeHistory` 被引用但从未定义（99.sql 的表为手写模型，无 `.gen.go`，常量漏声明） |
+| 编译错误 | `router/router_init.go` | `controllers.Heartbeat` ambiguous selector——`Controller` 同时嵌入 `ServicePluginApi` 与新增的 `EdgeNodeApi` |
+| 测试编译失败 | `service/telemetry_analysis_anomaly_test.go` | 按 `model.` 引用规则常量，常量却只定义在 `service` 包 |
+| 测试失败 | `TestTenantScopeQueryAudit` | 4 个新查询缺租户作用域守卫标记 |
+| 测试失败 | `TestDetectSeriesAnomaliesDeviation` | 测试数据与自身期望值数学上对不上（注释称均值 10/σ≈7.6，实际 12.5/11.82，z(40)=2.33<3 不可能命中） |
+| 测试失败 | `TestBoardMissingDetailAndRepeatedDeleteReturnNotFound` | `DeleteBoard` 新增 `board_project_members` 清理，测试夹具却只迁移 `Board` |
+
+**复核后的真实状态**：
+
+- 后端 `go build -p 1 ./...` → exit 0；`go test -p 1 ./...` → **61 个包全 ok、0 FAIL**（修复后）。
+- 上表中 **P1.5 / P1.6 / P2.1 / P2.2 / P2.3 / P3 的 `partial` 判定应下调**：它们不是"代码存在但关键闭环缺失"，而是"**代码已写但此前未通过构建与测试**"。按 §1.0 缺口类型，这几项的 `未验证` 里必须再区分出"未通过构建"这一更前置的层级。
+- OpenAPI 已重生成（413 paths），`edge/nodes`、`license/status`、`analysis/anomaly`、`bundle/import`、`operation_logs/export`、`board/projects`、`template/upgrade` 全部收录——"四面一致"的 API 面缺口已闭环。
+
+**流程教训（写入 §5 约定）**：**"测试跑不起来"必须先区分环境原因与代码原因**。本项目把后者误判成前者，导致一批不可编译的代码被当成"已完成"写进本路线图。今后任何"某测试无法运行"的表述，必须附上**实际执行过的命令与原始报错**，不得只写结论。
+
 ### 1.3 缺口分类处置（按"要开发"与"只差跑一遍"分账）
 
 **A. 只差跑一遍（`未验证`，恢复环境即可，无需开发）**
@@ -481,6 +504,9 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
     在 docs/validation/ 写证据：命令、版本、结果、日志关键行、清理动作和仍未验证的部分。
     最终报告严格分为 done / partial / pending，并标注缺口类型，不把静态检查当作运行期闭环。
     修改任务状态时直接改写 §1.2 状态总表与对应任务的"实现状态"块，禁止追加"更新/补记"层叠段落。
+    提交前必须真正跑过 `go build ./...` 与 `go test ./...`（本机用 -p 1 防 OOM）；构建不过就不算"已实现"。
+    任何"测试无法运行"的表述必须附上实际执行过的命令与原始报错，禁止只写结论——
+    "环境受限"与"代码编译不过"是两件事，混淆会让不可编译的代码被当成已完成（见 §1.2.1）。
 
 ## 6. 当前执行顺序
 
