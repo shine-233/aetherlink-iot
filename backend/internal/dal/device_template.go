@@ -310,3 +310,21 @@ func FindDeviceTemplateByNameVersion(tenantID, name, version string) (*model.Dev
 	}
 	return data, nil
 }
+
+// ListDeviceTemplateNamesInTenant 列出租户内全部模板名（市场打包导入的覆盖判定用）。
+// 只取名称列并在此处去重成集合；覆盖预览关心的是"这个名字在租户内已存在"，与版本无关。
+func ListDeviceTemplateNamesInTenant(tenantID string) (map[string]bool, error) {
+	q := query.DeviceTemplate
+	rows, err := q.WithContext(context.Background()).
+		Where(q.TenantID.Eq(tenantID)).
+		Select(q.Name).
+		Find()
+	if err != nil {
+		return nil, err
+	}
+	names := make(map[string]bool, len(rows))
+	for _, row := range rows {
+		names[row.Name] = true
+	}
+	return names, nil
+}

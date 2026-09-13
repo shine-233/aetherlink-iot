@@ -104,6 +104,9 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 		deviceapi.GET("preRegister/export", api.Controllers.DeviceApi.ExportDevicePreRegister)
 		// P0.5 清理执行面：此前只有分流函数（且仅被测试调用），清理实际无法执行。
 		deviceapi.POST("preRegister/cleanup", api.Controllers.DeviceApi.CleanupDevicePreRegister)
+		// P0.5 一次性凭证下载：凭证明文下发的唯一出口，消费即失效（迁移 95.sql）。
+		deviceapi.POST("preRegister/credentials/grants", api.Controllers.DeviceApi.GrantPreRegisterCredentials)
+		deviceapi.GET("preRegister/credentials/grants/:id/download", api.Controllers.DeviceApi.DownloadPreRegisterCredentials)
 
 		// 设备单指标图表数据查询
 		deviceapi.GET("/metrics/chart", api.Controllers.DeviceApi.HandleDeviceMetricsChart)
@@ -162,6 +165,14 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 		// PHASE-D-D10 BEGIN 模板市场运营化：分类目录 + 按行业打包导出
 		deviceTemplateapi.GET("market/catalog", api.Controllers.DeviceApi.HandleMarketCatalog)
 		deviceTemplateapi.GET("market/bundle", api.Controllers.DeviceApi.HandleExportMarketBundle)
+		// P1.6 打包载荷导入/预览：验签 → 依赖检查 → 冲突预览 →（确认后）逐模板导入。
+		// 此前 VerifyMarketBundle / CheckMarketBundleDependencies / PreviewMarketBundleImport
+		// 三个完整性函数没有任何 HTTP 入口，等于"坏包进不来"只是因为没有门。
+		deviceTemplateapi.POST("market/bundle/import", api.Controllers.DeviceApi.HandleImportMarketBundle)
+		// P1.6 升级/回滚：升级=导入新版本+留旧载荷快照；回滚=重放旧载荷(幂等,不删行)。
+		deviceTemplateapi.POST("upgrade", api.Controllers.DeviceApi.HandleUpgradeDeviceTemplate)
+		deviceTemplateapi.POST("upgrade/:history_id/rollback", api.Controllers.DeviceApi.HandleRollbackTemplateUpgrade)
+		deviceTemplateapi.GET("upgrade/history", api.Controllers.DeviceApi.HandleListTemplateUpgradeHistory)
 		// PHASE-D-D10 END
 
 		// 根据设备ID获取模板
