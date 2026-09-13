@@ -865,6 +865,7 @@ func TestAutomateTelemetryAutomateFilter_EmptyScenes(t *testing.T) {
 }
 
 func TestAutomateTelemetryExecuteRun_AttemptsDuplicateFailedSceneOnlyOnce(t *testing.T) {
+	defer withFreshSceneTriggerStore()()
 	originalLimiterAllow := executeRunLimiterAllow
 	originalCheckSceneAutomationHasClose := executeRunCheckSceneAutomationHasClose
 	originalConditionCheck := executeRunConditionCheck
@@ -913,6 +914,7 @@ func TestAutomateTelemetryExecuteRun_AttemptsDuplicateFailedSceneOnlyOnce(t *tes
 }
 
 func TestAutomateTelemetryExecuteRun_DoesNotConsumeLimiterWhenConditionFails(t *testing.T) {
+	defer withFreshSceneTriggerStore()()
 	originalLimiterAllow := executeRunLimiterAllow
 	originalCheckSceneAutomationHasClose := executeRunCheckSceneAutomationHasClose
 	originalConditionCheck := executeRunConditionCheck
@@ -952,6 +954,7 @@ func TestAutomateTelemetryExecuteRun_DoesNotConsumeLimiterWhenConditionFails(t *
 }
 
 func TestAutomateTelemetryExecuteRun_ChecksClosedBeforeLimiter(t *testing.T) {
+	defer withFreshSceneTriggerStore()()
 	originalLimiterAllow := executeRunLimiterAllow
 	originalCheckSceneAutomationHasClose := executeRunCheckSceneAutomationHasClose
 	originalConditionCheck := executeRunConditionCheck
@@ -988,6 +991,7 @@ func TestAutomateTelemetryExecuteRun_ChecksClosedBeforeLimiter(t *testing.T) {
 }
 
 func TestAutomateTelemetryExecuteRun_ConsumesLimiterOnlyForReadyScene(t *testing.T) {
+	defer withFreshSceneTriggerStore()()
 	originalLimiterAllow := executeRunLimiterAllow
 	originalCheckSceneAutomationHasClose := executeRunCheckSceneAutomationHasClose
 	originalConditionCheck := executeRunConditionCheck
@@ -1033,6 +1037,7 @@ func TestAutomateTelemetryExecuteRun_ConsumesLimiterOnlyForReadyScene(t *testing
 }
 
 func TestAutomateTelemetryExecuteRun_SkipsPreviouslyAttemptedSceneBeforeGuards(t *testing.T) {
+	defer withFreshSceneTriggerStore()()
 	originalLimiterAllow := executeRunLimiterAllow
 	originalCheckSceneAutomationHasClose := executeRunCheckSceneAutomationHasClose
 	originalConditionCheck := executeRunConditionCheck

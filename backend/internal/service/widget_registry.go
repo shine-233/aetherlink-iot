@@ -17,6 +17,7 @@ package service
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 )
@@ -36,11 +37,11 @@ var widgetCapabilityWebGL = map[string]bool{
 
 // 大小上限。
 const (
-	widgetMaxTypeLen      = 64
-	widgetMaxVersionLen   = 32
-	widgetMaxSchemaBytes  = 256 * 1024
-	widgetMaxCommandLen    = 64
-	widgetMaxCommands      = 32
+	widgetMaxTypeLen     = 64
+	widgetMaxVersionLen  = 32
+	widgetMaxSchemaBytes = 256 * 1024
+	widgetMaxCommandLen  = 64
+	widgetMaxCommands    = 32
 )
 
 var (
@@ -57,6 +58,8 @@ var (
 	ErrWidgetTypeTooLong    = errors.New("widget type is too long")
 	ErrWidgetVersionTooLong = errors.New("widget version is too long")
 	ErrWidgetSchemaTooLarge = errors.New("widget schema is too large")
+	// ErrWidgetCommandParamsInvalid 命令参数不是可校验的 JSON 对象。
+	ErrWidgetCommandParamsInvalid = errors.New("control command params must be a JSON object")
 )
 
 // CommandDefinition Widget 暴露的控制命令。
@@ -77,7 +80,7 @@ type WidgetDefinition struct {
 	// Schema 配置 JSON Schema（JSONSchema7 序列化后的字符串）。
 	Schema string `json:"schema"`
 	// Capabilities 渲染能力，至少一项。含 3d 且环境无 WebGL 时降级。
-	Capabilities []string `json:"capabilities"`
+	Capabilities []string            `json:"capabilities"`
 	Commands     []CommandDefinition `json:"commands,omitempty"`
 }
 
@@ -86,6 +89,10 @@ type WidgetInstance struct {
 	ID         string `json:"id"`
 	WidgetType string `json:"widget_type"`
 	Version    string `json:"version"`
+	// Config 该实例的配置，由 Widget 注册声明的 schema 校验。
+	// nil 表示"还没配置"：校验时按空对象处理，因此 schema 声明的必填项会失败。
+	// 这是刻意的——控件拖上画布但没接遥测点就允许保存，等于画布里留一个永远空白的框。
+	Config map[string]any `json:"config,omitempty"`
 }
 
 // RenderEnvironment 客户端渲染环境。
@@ -187,18 +194,36 @@ func (d *WidgetDefinition) FindCommand(name string) *CommandDefinition {
 // WidgetRegistry 注册表。
 type WidgetRegistry struct {
 	defs map[string]WidgetDefinition // key: type + "@" + version
+	// schemas 与 defs 一一对应的已编译配置校验器。
+	// 单独存一份而不是在校验时临时编译：编译会拒绝不支持的关键字，
+	// 若留到保存画布时才做，用户会拿到"昨天还能存，今天存不了"的结果，
+	// 而真正的原因（有人注册了坏 schema）在那时已经无从追查。
+	schemas map[string]*WidgetSchema
+	// paramSchemas key: type + "@" + version + "#" + command。
+	paramSchemas map[string]*WidgetSchema
 }
 
 // NewWidgetRegistry 创建空注册表。
 func NewWidgetRegistry() *WidgetRegistry {
-	return &WidgetRegistry{defs: make(map[string]WidgetDefinition)}
+	return &WidgetRegistry{
+		defs:         make(map[string]WidgetDefinition),
+		schemas:      make(map[string]*WidgetSchema),
+		paramSchemas: make(map[string]*WidgetSchema),
+	}
 }
 
 func widgetKey(widgetType, version string) string {
 	return strings.TrimSpace(widgetType) + "@" + strings.TrimSpace(version)
 }
 
+func widgetCommandKey(widgetType, version, command string) string {
+	return widgetKey(widgetType, version) + "#" + strings.TrimSpace(command)
+}
+
 // Register 注册一个 Widget 定义。校验失败返回错误；同 (type,version) 覆盖。
+//
+// 除了结构校验，还会在注册时编译 schema（见 widget_schema.go 文件头注意事项 1）：
+// schema 用了不受支持的关键字 → 注册失败，绝不留到画布保存时才炸。
 func (r *WidgetRegistry) Register(d WidgetDefinition) error {
 	if err := ValidateWidgetDefinition(&d); err != nil {
 		return err
@@ -206,7 +231,33 @@ func (r *WidgetRegistry) Register(d WidgetDefinition) error {
 	if r.defs == nil {
 		r.defs = make(map[string]WidgetDefinition)
 	}
-	r.defs[widgetKey(d.Type, d.Version)] = d
+	if r.schemas == nil {
+		r.schemas = make(map[string]*WidgetSchema)
+	}
+	if r.paramSchemas == nil {
+		r.paramSchemas = make(map[string]*WidgetSchema)
+	}
+	key := widgetKey(d.Type, d.Version)
+	schema, err := CompileWidgetSchema(d.Schema)
+	if err != nil {
+		return err
+	}
+	params := make(map[string]*WidgetSchema, len(d.Commands))
+	for _, cmd := range d.Commands {
+		if strings.TrimSpace(cmd.ParamsSchema) == "" {
+			continue
+		}
+		ps, err := CompileWidgetSchema(cmd.ParamsSchema)
+		if err != nil {
+			return err
+		}
+		params[strings.TrimSpace(cmd.Name)] = ps
+	}
+	r.defs[key] = d
+	r.schemas[key] = schema
+	for name, ps := range params {
+		r.paramSchemas[widgetCommandKey(d.Type, d.Version, name)] = ps
+	}
 	return nil
 }
 
@@ -258,6 +309,132 @@ func (r *WidgetRegistry) List() []WidgetDefinition {
 		return out[i].Version < out[j].Version
 	})
 	return out
+}
+
+// ValidateConfig 校验某个 Widget 实例的配置。
+//
+// 未注册的类型返回 nil：那不是"通过校验"，而是"没有 schema 无从校验"，
+// 这类 Widget 会在 ResolveCanvas 里被判为 unknown 并渲染占位符。
+func (r *WidgetRegistry) ValidateConfig(widgetType, version string, config map[string]any) error {
+	if r == nil {
+		return nil
+	}
+	s := r.schemaFor(widgetType, version)
+	if s == nil {
+		return nil
+	}
+	return s.ValidateConfig(config)
+}
+
+// ValidateInstance 校验画布中的一个 Widget 实例（当前即其配置）。
+func (r *WidgetRegistry) ValidateInstance(inst WidgetInstance) error {
+	if r == nil {
+		return nil
+	}
+	if err := r.ValidateConfig(inst.WidgetType, inst.Version, inst.Config); err != nil {
+		id := strings.TrimSpace(inst.ID)
+		if id == "" {
+			id = "<unnamed>"
+		}
+		return fmt.Errorf("widget %s (%s@%s): %w", id, inst.WidgetType, inst.Version, err)
+	}
+	return nil
+}
+
+// ValidateCommandParams 校验控制命令的参数。
+// 命令未声明参数 schema 时不校验——参数该不该有、有什么，由注册声明决定；
+// 没声明就按"不约束"处理，与"声明了但没校验"是两回事。
+func (r *WidgetRegistry) ValidateCommandParams(widgetType, version, command string, params any) error {
+	if r == nil {
+		return nil
+	}
+	s, ok := r.paramSchemas[widgetCommandKey(widgetType, version, command)]
+	if !ok || s == nil {
+		return nil
+	}
+	value, ok := normalizeCommandParams(params)
+	if !ok {
+		return fmt.Errorf("%w: command %s on %s@%s", ErrWidgetCommandParamsInvalid, command, widgetType, version)
+	}
+	return s.Validate(value)
+}
+
+// ValidateCanvasJSON 校验画布 JSON 里每个 Widget 的配置。
+//
+// 只校验 `widgets` 数组：画布顶层允许带自定义字段（variables/bindings 等），
+// 强行要求它符合某个形状会把合法画布拒掉。
+// `widgets` 存在但不是数组时报错——那是一份坏画布，不是"没有 widget"。
+func (r *WidgetRegistry) ValidateCanvasJSON(canvas string) error {
+	if r == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(canvas)
+	if trimmed == "" || trimmed[0] != '{' {
+		return nil
+	}
+	var probe map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(trimmed), &probe); err != nil {
+		// 坏 JSON / 非对象：由 model.ValidateScadaCanvas 负责拦，这里不重复定性。
+		return nil
+	}
+	raw, ok := probe["widgets"]
+	if !ok {
+		return nil
+	}
+	var widgets []WidgetInstance
+	if err := json.Unmarshal(raw, &widgets); err != nil {
+		return fmt.Errorf("%w: canvas widgets must be an array of objects", ErrWidgetConfigNotObject)
+	}
+	for _, w := range widgets {
+		if err := r.ValidateInstance(w); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// schemaFor 取 (type, version) 的已编译 schema，精确版本缺失时回落到该类型最新版本
+// （与 ResolveCanvas 的回落口径保持一致：两边对"用哪份定义"必须给出同一答案）。
+func (r *WidgetRegistry) schemaFor(widgetType, version string) *WidgetSchema {
+	key := widgetKey(widgetType, version)
+	if s, ok := r.schemas[key]; ok {
+		return s
+	}
+	if def := r.Latest(widgetType); def != nil {
+		return r.schemas[widgetKey(def.Type, def.Version)]
+	}
+	return nil
+}
+
+// normalizeCommandParams 把命令参数归一成可校验的 JSON 值。
+// 空参数按空对象处理：声明了必填参数却一个都不传，必须失败而不是跳过校验。
+func normalizeCommandParams(params any) (any, bool) {
+	switch v := params.(type) {
+	case nil:
+		return map[string]any{}, true
+	case map[string]any:
+		return v, true
+	case string:
+		trimmed := strings.TrimSpace(v)
+		if trimmed == "" {
+			return map[string]any{}, true
+		}
+		var out any
+		if err := json.Unmarshal([]byte(trimmed), &out); err != nil {
+			return nil, false
+		}
+		return out, true
+	case []byte:
+		if len(strings.TrimSpace(string(v))) == 0 {
+			return map[string]any{}, true
+		}
+		var out any
+		if err := json.Unmarshal(v, &out); err != nil {
+			return nil, false
+		}
+		return out, true
+	}
+	return nil, false
 }
 
 // ResolveCanvas 解析画布中的 Widget 实例。
