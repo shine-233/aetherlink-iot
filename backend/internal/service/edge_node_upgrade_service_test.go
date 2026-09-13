@@ -53,9 +53,12 @@ func TestEdgeNodeRegisterHeartbeatChain(t *testing.T) {
 	tenantB := tenantA + "-b"
 	claimsA := &utils.UserClaims{TenantID: tenantA, ID: "actor-a", Authority: "TENANT_ADMIN"}
 	claimsB := &utils.UserClaims{TenantID: tenantB, ID: "actor-b", Authority: "TENANT_ADMIN"}
+	// NodeID 必须与租户一起逐次唯一：节点 ID 是全局身份，固定字面量会在第二次运行时
+	// 命中"同一 NodeID 归属别的租户"的抢注守卫，用例变成不可重跑（依赖库的残留状态）。
+	nodeID := "node-e2e-" + time.Now().Format("150405")
 
 	// 1) 首次注册：updated（要写入新节点），健康 online（last_seen=now）。
-	rsp, err := svc.RegisterEdgeNode(model.RegisterEdgeNodeReq{NodeID: "node-e2e-1", Version: "1.0.0", Capabilities: []string{"modbus", " modbus ", "opcua"}}, claimsA)
+	rsp, err := svc.RegisterEdgeNode(model.RegisterEdgeNodeReq{NodeID: nodeID, Version: "1.0.0", Capabilities: []string{"modbus", " modbus ", "opcua"}}, claimsA)
 	if err != nil {
 		t.Fatalf("first register: %v", err)
 	}
@@ -67,16 +70,16 @@ func TestEdgeNodeRegisterHeartbeatChain(t *testing.T) {
 	}
 
 	// 2) 同租户重注册（版本变化）：updated；心跳触碰后 health online。
-	if _, err := svc.RegisterEdgeNode(model.RegisterEdgeNodeReq{NodeID: "node-e2e-1", Version: "1.1.0"}, claimsA); err != nil {
+	if _, err := svc.RegisterEdgeNode(model.RegisterEdgeNodeReq{NodeID: nodeID, Version: "1.1.0"}, claimsA); err != nil {
 		t.Fatalf("re-register: %v", err)
 	}
-	hb, err := svc.HeartbeatEdgeNode("node-e2e-1", model.EdgeNodeHeartbeatReq{}, claimsA)
+	hb, err := svc.HeartbeatEdgeNode(nodeID, model.EdgeNodeHeartbeatReq{}, claimsA)
 	if err != nil || hb.Health != "online" {
 		t.Fatalf("heartbeat = %+v err=%v", hb, err)
 	}
 
 	// 3) 跨租户抢注拒绝（同 NodeID 换租户是安全事件）。
-	if _, err := svc.RegisterEdgeNode(model.RegisterEdgeNodeReq{NodeID: "node-e2e-1", Version: "1.0.0"}, claimsB); err == nil {
+	if _, err := svc.RegisterEdgeNode(model.RegisterEdgeNodeReq{NodeID: nodeID, Version: "1.0.0"}, claimsB); err == nil {
 		t.Fatal("cross-tenant hijack accepted")
 	}
 
