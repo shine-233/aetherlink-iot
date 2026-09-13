@@ -176,7 +176,10 @@ func RouterInit() *gin.Engine {
 			// （配置 plugin.service.key 后全来源严格校验 X-Plugin-Key；未配置仅放行回环/私网）。
 			plugin := v1.Group("", middleware.PluginAuth())
 			{
-				plugin.POST("plugin/heartbeat", controllers.Heartbeat)
+				// 必须限定到 ServicePluginApi：Controller 同时嵌入 ServicePluginApi 与
+				// EdgeNodeApi，两者都有 Heartbeat 方法，裸写 controllers.Heartbeat 会
+				// 触发 Go 的 ambiguous selector 编译错误。此处是插件心跳，用插件实现。
+				plugin.POST("plugin/heartbeat", controllers.ServicePluginApi.Heartbeat)
 				plugin.POST("plugin/device/config", controllers.HandleDeviceConfigForProtocolPlugin)
 				plugin.POST("plugin/devices", controllers.HandleDeviceConfigForProtocolPluginByProtocolType)
 				plugin.POST("plugin/service/access/list", controllers.HandlePluginServiceAccessList)

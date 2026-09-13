@@ -66,6 +66,10 @@ func (p MarketBundleImportPreview) HasBlocking() bool { return len(p.Blocking) >
 
 // PHASE-D-D10 END
 
+// TableNameTemplateUpgradeHistory 对应迁移 99.sql 的 device_template_upgrade_history。
+// 该表为手写模型（无 .gen.go 产物），常量必须在此声明，否则 TableName() 编译不过。
+const TableNameTemplateUpgradeHistory = "device_template_upgrade_history"
+
 // TemplateUpgradeHistory 模板升级历史（P1.6 升级/回滚）。
 // PreviousPayload 保存升级前旧版本完整导出载荷——回滚=重放它，
 // 而不是"删掉新版本"：删行不可逆，重放幂等且可审计。

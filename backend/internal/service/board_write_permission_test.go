@@ -26,7 +26,9 @@ func setupBoardServiceAccessTestDB(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatalf("open board sqlite: %v", err)
 	}
-	if err := db.AutoMigrate(&model.Board{}); err != nil {
+	// DeleteBoard 会先清理 board_project_members 归属（看板项目分组），
+	// 因此夹具必须一并建出这两张表，否则删除路径在 SQLite 上报 no such table。
+	if err := db.AutoMigrate(&model.Board{}, &model.BoardProject{}, &model.BoardProjectMember{}); err != nil {
 		t.Fatalf("migrate board: %v", err)
 	}
 	global.DB = db

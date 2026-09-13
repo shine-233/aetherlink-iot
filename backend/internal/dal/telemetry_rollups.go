@@ -31,6 +31,8 @@ func TelemetryDownsamplingActive() bool {
 }
 
 // ListTelemetryDownsampleTargets 列出 cutoff 之前仍有原始数据的 (设备, 键) 对，限量返回。
+// tenant-scope: system-job —— 降采样是全局后台作业，必须跨租户扫描才能覆盖所有设备；
+// 它只做聚合写入（telemetry_rollups），不向任何租户返回原始数据，故不构成越权读取。
 func ListTelemetryDownsampleTargets(cutoff int64, limit int) ([]model.TelemetryRollupTarget, error) {
 	if limit <= 0 {
 		limit = 100
@@ -68,6 +70,9 @@ func UpsertTelemetryRollups(deviceID, key string, cutoff int64) (int64, error) {
 
 // GetTelemetryRollupAggregate 从冷层读取一个 (设备,键) 的窗口聚合，
 // 输出行与 GetTelemetrStatisticaAgregationData 同形（x=时间戳, y=数值）。
+// tenant-scope: caller-enforced —— 本函数只按 (deviceID, key) 取数，
+// 设备是否属于调用方租户由上层 ensureTelemetryDeviceReadAccess 判定；
+// 在此加租户过滤会与既有热层聚合路径的作用域语义分叉。
 func GetTelemetryRollupAggregate(deviceID, key string, sTime, eTime, aggregateWindow int64, aggregateFunc string) ([]map[string]interface{}, error) {
 	if aggregateWindow <= 0 {
 		aggregateWindow = TelemetryRollupBucketMs

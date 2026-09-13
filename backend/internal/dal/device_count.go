@@ -11,6 +11,8 @@ import (
 )
 
 // CountAllDevices 统计全库设备总数（部署级，跨租户）。
+// tenant-scope: deployment-level —— max_devices 声明的是整套部署允许的设备总量，
+// 刻意不按租户过滤；按租户过滤会让配额失去"部署上限"的语义。
 func CountAllDevices() (int64, error) {
 	var count int64
 	err := global.DB.Model(&model.Device{}).Count(&count).Error

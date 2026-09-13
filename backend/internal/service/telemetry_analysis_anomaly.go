@@ -22,10 +22,11 @@ import (
 	"aetherlink-iot/backend/pkg/utils"
 )
 
-// 异常检测规则类型。
+// 异常检测规则类型：单一事实源在 model 包（对外契约词汇），此处只做本地别名，
+// 避免两处各写一份字面量后悄悄漂移。
 const (
-	TelemetryAnomalyRuleBounds    = "bounds"
-	TelemetryAnomalyRuleDeviation = "deviation"
+	TelemetryAnomalyRuleBounds    = model.TelemetryAnomalyRuleBounds
+	TelemetryAnomalyRuleDeviation = model.TelemetryAnomalyRuleDeviation
 )
 
 // ErrTelemetryAnomalyRuleInvalid 规则本身不可用。

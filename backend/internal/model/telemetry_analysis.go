@@ -40,6 +40,15 @@ const (
 	TelemetryAnalysisFormatCSV  = "csv"
 )
 
+// TelemetryAnomalyRuleType 异常检测规则类型常量（P2.2）。
+// 取值域与 TelemetryAnomalyRuleSpec.Type 一致；放在 model 是因为它属于对外契约词汇，
+// API 入参校验与 service 求值必须共用同一份定义（此前只在 service 定义，导致测试按
+// model. 引用时编译不过）。
+const (
+	TelemetryAnomalyRuleBounds    = "bounds"
+	TelemetryAnomalyRuleDeviation = "deviation"
+)
+
 // TelemetryAnomalyRuleSpec 基础异常检测规则（P2.2）。
 // Type=bounds 时 Min/Max 生效；Type=deviation 时 K 生效（默认 3，即 ±3σ）。
 type TelemetryAnomalyRuleSpec struct {

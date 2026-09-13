@@ -43,13 +43,19 @@ func TestDetectSeriesAnomaliesBoundsOneSided(t *testing.T) {
 
 func TestDetectSeriesAnomaliesDeviation(t *testing.T) {
 	rule := model.TelemetryAnomalyRuleSpec{Type: model.TelemetryAnomalyRuleDeviation}
-	// 均值 10、σ≈7.6 的序列：40 明显越界（z≈3.9 > 3），20 在容差内（z≈1.3）。
-	_, hits, err := DetectSeriesAnomalies(rule, []float64{2, 10, 8, 20, 10, 40, 10, 0})
+	// 11 点序列，均值≈13.18、总体 σ≈10.12：45 明显越界（z≈3.15 > 3），
+	// 其余点最大 |z|≈0.51，落在 ±3σ 容差内。
+	//
+	// 注意样本长度不是随便定的：当序列是"n-1 个相同值 + 1 个离群值"时，
+	// 该离群点的 z 恒等于 sqrt(n-1)，与具体数值无关。因此 n=8 时 z 上限仅 2.65，
+	// 永远触发不了 ±3σ——这正是本用例早先给出错误期望的原因。
+	// 要验证"能命中"，样本至少需要 11 点（sqrt(10)≈3.16）。
+	_, hits, err := DetectSeriesAnomalies(rule, []float64{10, 11, 9, 10, 12, 8, 10, 11, 9, 10, 45})
 	if err != nil {
 		t.Fatalf("deviation rule rejected: %v", err)
 	}
-	if len(hits) != 1 || hits[0].Index != 5 {
-		t.Fatalf("deviation hits = %+v, want only index 5", hits)
+	if len(hits) != 1 || hits[0].Index != 10 {
+		t.Fatalf("deviation hits = %+v, want only index 10", hits)
 	}
 }
 

@@ -20,6 +20,9 @@ import (
 
 // GetEdgeNodeByID 按 ID 全局读取节点（**不带租户过滤**，供跨租户抢注判定）。
 // 未命中返回 (nil, nil)。
+// tenant-scope: caller-enforced —— 必须跨租户读，才能判断"这个节点 ID 已被别的租户注册"；
+// 调用方（注册/心跳/Reconcile）拿到结果后自行比对 claims.TenantID 并拒绝越权。
+// 需要租户内读取请用 GetEdgeNodeInTenant。
 func GetEdgeNodeByID(nodeID string) (*model.EdgeNode, error) {
 	var row model.EdgeNode
 	err := global.DB.Where("id = ?", nodeID).First(&row).Error
