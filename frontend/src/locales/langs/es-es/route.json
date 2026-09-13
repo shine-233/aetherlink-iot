@@ -69,6 +69,7 @@
   "route.device_asset": "Activos",
   "route.management_entity-version": "Versiones de entidad",
   "route.visualization-scada-editor": "Editor de lienzo SCADA",
+  "route.visualization-scada": "Lienzo industrial SCADA",
   "route.device_entity-relation": "Relaciones de entidades",
   "route.management_edge-nodes": "Edge Nodes",
   "route.management_license": "License"

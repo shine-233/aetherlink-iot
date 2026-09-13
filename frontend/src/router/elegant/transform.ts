@@ -226,6 +226,7 @@ const routeMap: RouteMap = {
   "visualization_native-board": "/visualization/native-board",
   "visualization_native-board-editor": "/visualization/native-board-editor",
   "visualization_scada-editor": "/visualization/scada-editor",
+  "visualization_scada": "/visualization/scada",
   "visualization_native-boards": "/visualization/native-boards",
   "visualization_report": "/visualization/report",
   "visualization_thingsvis": "/visualization/thingsvis",

@@ -83,6 +83,7 @@ declare module "@elegant-router/types" {
     "visualization_native-board-editor": "/visualization/native-board-editor";
     "visualization_native-boards": "/visualization/native-boards";
     "visualization_report": "/visualization/report";
+    "visualization_scada": "/visualization/scada";
     "visualization_scada-editor": "/visualization/scada-editor";
     "visualization_thingsvis": "/visualization/thingsvis";
     "visualization_thingsvis-dashboards": "/visualization/thingsvis-dashboards";
@@ -210,6 +211,7 @@ declare module "@elegant-router/types" {
     | "visualization_native-board-editor"
     | "visualization_native-boards"
     | "visualization_report"
+    | "visualization_scada"
     | "visualization_scada-editor"
     | "visualization_thingsvis-dashboards"
     | "visualization_thingsvis-editor"
