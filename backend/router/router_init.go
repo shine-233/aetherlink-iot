@@ -251,7 +251,7 @@ func RouterInit() *gin.Engine {
 
 			apps.Model.UserTOTP.InitUserTOTP(v1) // 2FA（TOTP 绑定/状态）
 
-			apps.Model.OidcSso.InitOidcProvider(v1) // OIDC/SSO 提供方管理（ROADMAP C7）
+			apps.Model.OidcSso.InitOidcProvider(v1)          // OIDC/SSO 提供方管理（ROADMAP C7）
 			apps.Model.PluginRegistry.InitPluginRegistry(v1) // PHASE-D-D9 插件管理
 
 			apps.Model.Role.Init(v1) // 角色管理
@@ -278,9 +278,12 @@ func RouterInit() *gin.Engine {
 
 			apps.Model.TelemetryData.InitTelemetryData(v1) // 遥测数据
 
-			apps.Model.ReportSchedule.InitReportSchedule(v1) // 定时报表 D3
+			apps.Model.ReportSchedule.InitReportSchedule(v1)       // 定时报表 D3
 			apps.Model.DeviceCertificate.InitDeviceCertificate(v1) // 接入安全 X.509 D5
-			apps.Model.EdgeSync.InitEdgeSync(v1) // 边缘计算 2.0 D6
+			apps.Model.EdgeSync.InitEdgeSync(v1)                   // 边缘计算 2.0 D6
+
+			// P3 商业许可证状态（SYS_ADMIN；Casbin 登记 97.sql）
+			v1.GET("license/status", controllers.LicenseApi.Status)
 			apps.Model.AiModel.InitAiModel(v1) // AI 2.0 D7
 
 			apps.Model.Scada.Init(v1)  // P1.3 Widget 与 SCADA 基础层

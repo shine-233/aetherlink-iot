@@ -67,12 +67,15 @@ type ServiceGroup struct {
 	Asset
 	UserTotp
 	OidcSso
-	PluginRegistry PluginRegistryService // PHASE-D-D9 插件框架 gRPC 网关管理面
-	ReportSchedule ReportScheduleService  // PHASE-D-D3 定时报表
+	PluginRegistry    PluginRegistryService    // PHASE-D-D9 插件框架 gRPC 网关管理面
+	ReportSchedule    ReportScheduleService    // PHASE-D-D3 定时报表
 	DeviceCertificate DeviceCertificateService // PHASE-D-D5 接入安全 X.509
-	EdgeSync EdgeSyncService // PHASE-D-D6 边缘计算 2.0
-	AiModel  AiModelService  // PHASE-D-D7 AI 2.0 模型中心 + 助手
-	ScadaDocument ScadaDocumentService // P1.3 项目与画布文档（零值即可用）
+	EdgeSync          EdgeSyncService          // PHASE-D-D6 边缘计算 2.0
+	License           LicenseService           // P3 商业许可证边界
+	BoardProject      BoardProjectService      // P1.x 看板项目分组
+	EdgeNode          EdgeNodeService          // P1.5 边缘节点注册/心跳/Reconcile
+	AiModel           AiModelService           // PHASE-D-D7 AI 2.0 模型中心 + 助手
+	ScadaDocument     ScadaDocumentService     // P1.3 项目与画布文档（零值即可用）
 	// ScadaControl 为 nil 表示未接线（缺 Widget 注册表 / 确认签发器 / 下发执行器）。
 	// 接线前所有控制接口 fail closed：接口存在不等于能力可用。
 	ScadaControl *ScadaControlService // P1.3 实时控制

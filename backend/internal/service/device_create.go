@@ -23,6 +23,11 @@ func (*Device) CreateDevice(req model.CreateDeviceReq, claims *utils.UserClaims)
 		return device, err
 	}
 
+	// P3 商业许可证配额：许可证声明 max_devices 且有效时执行；未启用边界时为 no-op。
+	if err := enforceDeviceQuota(); err != nil {
+		return device, err
+	}
+
 	req, err = normalizeCreateDevicePIDNumber(req)
 	if err != nil {
 		return device, err

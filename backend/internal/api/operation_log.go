@@ -33,3 +33,21 @@ func (*OperationLogsApi) HandleListByPage(c *gin.Context) {
 	}
 	c.Set("data", list)
 }
+
+// ExportAuditLogs 导出当前租户的操作日志 CSV（P3 审计导出）。
+// @Summary  操作日志审计导出
+// @Tags     AuditLogs
+// @Router   /api/v1/operation_logs/export [post]
+func (*OperationLogsApi) ExportAuditLogs(c *gin.Context) {
+	var req model.AuditLogExportReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	claims := c.MustGet("claims").(*utils.UserClaims)
+	result, err := service.ExportAuditLogs(req, claims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", result)
+}

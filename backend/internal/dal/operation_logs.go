@@ -79,3 +79,18 @@ func DeleteOperationLogsByTime(t time.Time) error {
 	_, err := query.OperationLog.Where(query.OperationLog.CreatedAt.Lte(t)).Delete()
 	return err
 }
+
+// ListOperationLogsForExport 按时间窗读取租户操作日志（P3 审计导出，CSV 渲染用）。
+// 只投影导出列所需的字段级结构；message 载荷列刻意不取——审计最小化（见 service 层注释）。
+func ListOperationLogsForExport(tenantID string, start, end time.Time, limit int) ([]model.OperationLog, error) {
+	if limit <= 0 || limit > 200000 {
+		limit = 100000
+	}
+	rows := make([]model.OperationLog, 0, 512)
+	err := global.DB.Table("operation_logs").
+		Where("tenant_id = ? AND created_at >= ? AND created_at < ?", tenantID, start, end).
+		Order("created_at ASC").
+		Limit(limit).
+		Find(&rows).Error
+	return rows, err
+}
