@@ -194,9 +194,28 @@ func CheckMarketBundleDependencies(bundle *model.MarketBundle) []string {
 	return issues
 }
 
-// PreviewMarketBundleImport 预览导入结果；existing 为租户内已有模板名集合。
+// NormalizeDeviceTemplateVersion 归一化模板版本号：空值一律落到 "1.0.0"。
+// 预览与导入必须共用这一份实现——两处各写一份会让"同版本重导"的判定与实际
+// 幂等键 (租户, 名称, 版本) 分叉，闸门就会挡住本该无需确认的幂等路径。
+func NormalizeDeviceTemplateVersion(version *string) string {
+	if version == nil {
+		return "1.0.0"
+	}
+	if v := strings.TrimSpace(*version); v != "" {
+		return v
+	}
+	return "1.0.0"
+}
+
+// PreviewMarketBundleImport 预览导入结果；existing 为租户内已有模板的 名称→版本。
+//
+// 判定按导入的真实幂等键 (租户, 名称, 版本)：
+//   - 名称不存在           → Create（导入即新建）
+//   - 同名且同版本         → 既非新建也非覆盖：导入是幂等命中，**无需人工确认**
+//   - 同名但版本不同       → Overwrite（会为同名模板再添一个版本，需 confirm_overwrite）
+//
 // 只读：不建模板、不改数据。阻断项非空即不应导入。
-func PreviewMarketBundleImport(bundle *model.MarketBundle, existing map[string]bool) MarketBundleImportPreview {
+func PreviewMarketBundleImport(bundle *model.MarketBundle, existing map[string]string) MarketBundleImportPreview {
 	preview := MarketBundleImportPreview{
 		Create:    make([]string, 0, 4),
 		Overwrite: make([]string, 0, 4),
@@ -213,7 +232,10 @@ func PreviewMarketBundleImport(bundle *model.MarketBundle, existing map[string]b
 		if name == "" {
 			continue
 		}
-		if existing[name] {
+		if existingVersion, ok := existing[name]; ok {
+			if existingVersion == NormalizeDeviceTemplateVersion(template.Version) {
+				continue
+			}
 			preview.Overwrite = append(preview.Overwrite, name)
 			continue
 		}

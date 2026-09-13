@@ -311,20 +311,30 @@ func FindDeviceTemplateByNameVersion(tenantID, name, version string) (*model.Dev
 	return data, nil
 }
 
-// ListDeviceTemplateNamesInTenant 列出租户内全部模板名（市场打包导入的覆盖判定用）。
-// 只取名称列并在此处去重成集合；覆盖预览关心的是"这个名字在租户内已存在"，与版本无关。
-func ListDeviceTemplateNamesInTenant(tenantID string) (map[string]bool, error) {
+// ListDeviceTemplateVersionsInTenant 列出租户内全部模板的 名称→版本（市场打包导入的覆盖判定用）。
+//
+// 为什么必须带上版本而不是只给名称集合：导入的幂等键是 (租户, 名称, 版本)
+// （见 ImportDeviceTemplateWithTenant）。只按名称判定会把"同版本重导"也误判成
+// 覆盖，从而把一条本该无需确认的幂等路径挡在人工闸门后面。
+// 同名多版本时取版本字符串最大的一行，与"租户内该模板的最新版本"语义一致。
+func ListDeviceTemplateVersionsInTenant(tenantID string) (map[string]string, error) {
 	q := query.DeviceTemplate
 	rows, err := q.WithContext(context.Background()).
 		Where(q.TenantID.Eq(tenantID)).
-		Select(q.Name).
+		Select(q.Name, q.Version).
 		Find()
 	if err != nil {
 		return nil, err
 	}
-	names := make(map[string]bool, len(rows))
+	versions := make(map[string]string, len(rows))
 	for _, row := range rows {
-		names[row.Name] = true
+		version := ""
+		if row.Version != nil {
+			version = *row.Version
+		}
+		if prev, ok := versions[row.Name]; !ok || version > prev {
+			versions[row.Name] = version
+		}
 	}
-	return names, nil
+	return versions, nil
 }

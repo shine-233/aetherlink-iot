@@ -52,9 +52,9 @@ func (*DeviceTemplate) ImportMarketBundle(req model.ImportMarketBundleReq, claim
 		})
 	}
 
-	// 3) 冲突预览（只读）。查不到租户模板名集合时同样失败：
+	// 3) 冲突预览（只读）。查不到租户模板版本集合时同样失败：
 	//    无法确认没有覆盖风险就不允许继续。
-	existing, err := dal.ListDeviceTemplateNamesInTenant(claims.TenantID)
+	existing, err := dal.ListDeviceTemplateVersionsInTenant(claims.TenantID)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/internal/query"
 	"aetherlink-iot/backend/pkg/global"
 	"aetherlink-iot/backend/pkg/utils"
 
@@ -32,6 +33,9 @@ func openMarketImportPostgres(t *testing.T) *gorm.DB {
 	}
 	global.DB = db
 	// README 约定：global.DB 之外还要 SetDefault，gen 查询对象否则为 nil。
+	// 漏掉这一步时服务层走 gen 查询会拿到 nil 并返回参数错误（100002），
+	// 而缺 DSN 时用例被 Skip，问题会被完全掩盖。
+	query.SetDefault(db)
 	var exists bool
 	if err := db.Raw("SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='device_templates')").Scan(&exists).Error; err != nil {
 		t.Fatalf("probe device_templates: %v", err)
@@ -44,14 +48,24 @@ func openMarketImportPostgres(t *testing.T) *gorm.DB {
 
 func signedTestBundle(t *testing.T, name string, count int) *model.MarketBundle {
 	t.Helper()
-	viper.Set("market.active_bundle_signing_key_id", "test-key")
-	viper.Set("market.bundle_signing_keys.test-key", "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYxMjM0NTY3ODlhYmNkZWYxMjM0NTY3ODlhYmNkZWY=")
+	// viper 是进程级全局，必须注册清理：不还原会把"已配置签名密钥"泄漏给后续用例，
+	// 使 integrity 的"未配置密钥必须拒绝出包"断言失真（此前正是这样失败的）。
+	viper.Set(marketActiveSigningKeyKey, "test-key")
+	viper.Set(marketBundleSigningKeysKey+".test-key", "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYxMjM0NTY3ODlhYmNkZWYxMjM0NTY3ODlhYmNkZWY=")
+	t.Cleanup(func() {
+		viper.Set(marketActiveSigningKeyKey, "")
+		viper.Set(marketBundleSigningKeysKey+".test-key", "")
+	})
 	templates := make([]*model.DeviceTemplateExport, 0, count)
 	for i := 0; i < count; i++ {
 		version := "9.9.9"
+		// 模板必须声明与包一致的 type_key：CheckMarketBundleDependencies 把它作为
+		// 阻断项（"结果取决于顺序"的问题确认多少遍也改变不了），缺了会在导入/预览
+		// 阶段直接以参数错误拒绝。
+		typeKey := "test-industry"
 		templates = append(templates, &model.DeviceTemplateExport{
 			Kind: "aetherlink-device-template", Name: name,
-			Version: &version,
+			Version: &version, TypeKey: &typeKey,
 		})
 	}
 	bundle := &model.MarketBundle{
