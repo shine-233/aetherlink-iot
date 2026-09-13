@@ -86,6 +86,10 @@ func TestCasbinRegistrationCoversMountedRoutes(t *testing.T) {
 	// Board 组含 P1.x 看板项目分组八条新路由（97.sql 登记）；2026-09-12 全量核对
 	// 组内 17 条路径在 63.sql/97.sql 均有登记后挂入。
 	(&Board{}).InitBoard(v1)
+	// Device 组（含 P1.6 打包导入/升级回滚五条新路由，95/98/99.sql 登记）。
+	// 挂载依据：casbin 启动审计 fail-fast 已在最后一次成功启动时验证全部存量路由
+	// 已登记；新路由登记见 95/98/99.sql。此测试变红 = 有人加了未登记路由。
+	(&Device{}).InitDevice(v1)
 
 	registered := registeredCasbinPaths(t)
 	isRegistered := func(route string) bool {
