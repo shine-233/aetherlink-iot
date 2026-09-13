@@ -255,6 +255,18 @@ telemetry:
   posthog_host: ""
   heartbeat_interval: "1h"
   state_file: "./configs/.telemetry_state.json"
+
+  # P2.3 数据保留与性能。降采样把旧原始数据按 1h 桶汇总进 telemetry_rollups（冷层），
+  # 分析查询对整窗冷数据回落冷层——保留策略删掉原始数据后长窗口查询仍可用。
+  # 注意：telemetry.enabled（上方）是匿名使用统计开关，与本节无关。
+  downsample:
+    enabled: false               # 默认关闭：开启后每日 3 点执行，且仅直连数据库模式有效
+    older_than_days: 90          # 早于该天数的原始数据被汇总进冷层（原始行仍由保留策略清理）
+    max_keys_per_run: 100        # 单轮最多汇总的 (设备,键) 对数，控制作业峰值
+  # 轻量分析的进程内查询缓存。多实例部署各实例独立回源；TTL 内未结束窗口读到稍旧值。
+  analysis_cache:
+    enabled: false               # 默认关闭
+    ttl_seconds: 300
 #                                    # 多实例部署时，只有一个实例设为 true，其他实例设为 false
 
 # 持久化报表调度、生成与 SMTP outbox worker（迁移 83）
@@ -293,3 +305,10 @@ mqtt_session_revocations:
 plugin:
   service:
     key: ""
+
+license:
+  # P3 商业许可证边界。许可证是 base64(签名 JSON)，Ed25519 离线验证。
+  # public_keys 未配置 = 边界未启用，一切执法点放行（默认行为不变）。
+  public_keys: {}                # 例如 { lk1: "<base64 ed25519 public key>" }
+  material: ""                   # base64 编码的许可证材料
+  required: false                # true 时启动必须持有效许可证，否则拒绝启动

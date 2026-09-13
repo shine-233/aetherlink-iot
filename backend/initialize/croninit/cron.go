@@ -56,6 +56,12 @@ func startCronScheduler() {
 		service.GroupApp.CleanSystemDataByCron()
 	})
 
+	// 每天凌晨3点执行遥测降采样（冷层汇总；telemetry.downsample.enabled 门控，默认关闭）
+	c.AddFunc("0 3 * * *", func() {
+		logrus.Debug("【定时任务】遥测降采样任务开始：")
+		service.GroupApp.RunTelemetryDownsampleByCron()
+	})
+
 	// 每天凌晨1点执行脚本
 	c.AddFunc("0 1 * * *", func() {
 		logrus.Debug("【定时任务】每天凌晨1点执行脚本任务开始：")

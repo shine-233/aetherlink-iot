@@ -89,3 +89,47 @@ func (*TelemetryAnalysisApi) ExportTelemetryAnalysis(c *gin.Context) {
 	}
 	c.Set("data", gin.H{"file_path": result.ExportPath, "format": result.Format})
 }
+
+// DetectTelemetryAnomalies 基础异常检测：bounds / deviation 两种规则。
+// @Summary  遥测基础异常检测
+// @Tags     TelemetryAnalysis
+// @Router   /api/v1/telemetry/analysis/anomaly [post]
+func (*TelemetryAnalysisApi) DetectTelemetryAnomalies(c *gin.Context) {
+	var req struct {
+		DeviceIDs []string `json:"device_ids" validate:"required,min=1,max=50,dive,max=36"`
+		Key       string   `json:"key" validate:"required,max=255"`
+		StartTime int64    `json:"start_time" validate:"required"`
+		EndTime   int64    `json:"end_time" validate:"required"`
+		WindowMs  int64    `json:"window_ms" validate:"required,min=1"`
+		Aggregate string   `json:"aggregate" validate:"omitempty,oneof=avg sum min max count last"`
+		Rule      struct {
+			Type string   `json:"type" validate:"required,oneof=bounds deviation"`
+			Min  *float64 `json:"min"`
+			Max  *float64 `json:"max"`
+			K    *float64 `json:"k"`
+		} `json:"rule"`
+	}
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	claims := c.MustGet("claims").(*utils.UserClaims)
+	result, err := service.RunTelemetryAnomalyDetection(model.TelemetryAnomalyQuery{
+		DeviceIDs: req.DeviceIDs,
+		Key:       strings.TrimSpace(req.Key),
+		StartTime: req.StartTime,
+		EndTime:   req.EndTime,
+		WindowMs:  req.WindowMs,
+		Aggregate: req.Aggregate,
+		Rule: model.TelemetryAnomalyRuleSpec{
+			Type: req.Rule.Type,
+			Min:  req.Rule.Min,
+			Max:  req.Rule.Max,
+			K:    req.Rule.K,
+		},
+	}, claims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", result)
+}
