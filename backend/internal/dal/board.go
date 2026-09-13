@@ -126,6 +126,42 @@ func boardListByScopes(boards *model.GetBoardListByPageReq, scopes []string) (in
 	if boards.VisType != nil && *boards.VisType != "" {
 		queryBuilder = queryBuilder.Where(q.VisType.Eq(*boards.VisType))
 	}
+
+	// 看板项目分组过滤：先解析项目成员看板 ID，再按 ID 集合过滤。
+	// scopes 恰好一个租户时成员查找限租户；SYS_ADMIN 全量视图时不限。
+	// "none" 表示内置项目（不落库的默认分组）= 不属于任何项目的看板。
+	if boards.ProjectID != nil {
+		projectID := strings.TrimSpace(*boards.ProjectID)
+		if projectID != "" {
+			tenantForProject := ""
+			if len(scopes) == 1 {
+				tenantForProject = scopes[0]
+			}
+			if projectID == "none" {
+				// 内置项目 = 不属于任何项目的看板。成员表可能为空：此时无排除集，
+				// 全部看板都属内置项目（gen 的 NotIn 不接受空参数，必须分支处理）。
+				memberIDs, merr := ListAllProjectMemberBoardIDs(tenantForProject)
+				if merr != nil {
+					logrus.Error(merr)
+					return 0, nil, merr
+				}
+				if len(memberIDs) > 0 {
+					queryBuilder = queryBuilder.Where(q.ID.NotIn(memberIDs...))
+				}
+			} else {
+				memberIDs, merr := ListBoardIDsByProject(projectID, tenantForProject)
+				if merr != nil {
+					logrus.Error(merr)
+					return 0, nil, merr
+				}
+				if len(memberIDs) == 0 {
+					return 0, []interface{}{}, nil
+				}
+				queryBuilder = queryBuilder.Where(q.ID.In(memberIDs...))
+			}
+		}
+	}
+
 	count, err := queryBuilder.Count()
 	if err != nil {
 		logrus.Error(err)

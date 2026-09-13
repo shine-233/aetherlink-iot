@@ -414,6 +414,13 @@ func (*Board) DeleteBoard(id string, claims *utils.UserClaims) error {
 	if err != nil {
 		return err
 	}
+	// 先解除项目归属（P1.x 看板项目分组）：归属删除失败则中止删除看板，
+	// 避免留下指向已删看板的悬挂归属记录；顺序反过来会产生先删后失败的窗口。
+	if _, merr := dal.RemoveAllBoardProjectMemberships(id, board.TenantID); merr != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": "remove board project membership before delete: " + merr.Error(),
+		})
+	}
 	err = dal.DeleteBoard(id, board.TenantID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return errcode.NewWithMessage(errcode.CodeNotFound, "board not found")
