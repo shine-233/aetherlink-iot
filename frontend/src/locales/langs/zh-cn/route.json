@@ -68,5 +68,8 @@
   "route.visualization-thingsvis-menu-dashboard": "首页嵌入看板",
   "route.device_asset": "资产层级",
   "route.management_entity-version": "实体版本",
-  "route.visualization-scada-editor": "SCADA 画布编辑器"
+  "route.visualization-scada-editor": "SCADA 画布编辑器",
+  "route.device_entity-relation": "实体关系",
+  "route.management_edge-nodes": "边缘节点",
+  "route.management_license": "商业许可证"
 }

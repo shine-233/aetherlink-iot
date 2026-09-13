@@ -20,6 +20,8 @@ const hoisted = vi.hoisted(() => ({
   routerPushByKey: vi.fn(),
   messageError: vi.fn(),
   nativeCreateProject: vi.fn(),
+  fetchBoardProjects: vi.fn(),
+  fetchBoardProjectMembership: vi.fn(),
 }))
 
 let currentRouteQuery: Record<string, any> = {}
@@ -56,6 +58,11 @@ vi.mock('@/service/visualization-provider/index', async importOriginal => {
     }
   }
 })
+
+vi.mock('@/service/api/board', () => ({
+  fetchBoardProjects: hoisted.fetchBoardProjects,
+  fetchBoardProjectMembership: hoisted.fetchBoardProjectMembership
+}))
 
 vi.mock('@/service/api/dashboard-menu', () => ({
   deleteDashboardMenuConfig: hoisted.deleteDashboardMenuConfig,
@@ -154,6 +161,8 @@ const projectPage = (data: unknown[] = []) => ({
 
 describe('ThingsVisIndex', () => {
   beforeEach(() => {
+    hoisted.fetchBoardProjects.mockResolvedValue({ data: [], error: null })
+    hoisted.fetchBoardProjectMembership.mockResolvedValue({ data: null, error: null })
     vi.clearAllMocks()
     currentRouteQuery = {}
     facadeSelectionError = null
@@ -355,18 +364,19 @@ describe('ThingsVisIndex', () => {
     expect(hoisted.clearThingsVisHomeCache).toHaveBeenCalledTimes(1)
   })
 
-  it('hides unsupported native project controls', async () => {
+  it('shows native project controls now that the provider supports project CRUD', async () => {
     facadeProvider = 'native'
     currentRouteQuery = { provider: 'native' }
     const wrapper = mountComponent()
     await flushPromises()
 
     const state = getState(wrapper)
-    expect(state.projectCapabilities).toEqual({ list: true, create: false, update: false, delete: false })
+    expect(state.projectCapabilities).toEqual({ list: true, create: true, update: true, delete: true })
     expect(state.projects).toEqual([expect.objectContaining({ id: 'native-boards' })])
-    expect(wrapper.text()).not.toContain('rdi.thingsvis.newProject')
+    // 创建入口出现；内置项目卡片的编辑/删除入口保持隐藏（provider 对其 fail closed）。
+    expect(wrapper.text()).toContain('rdi.thingsvis.newProject')
     expect(wrapper.findComponent({ name: 'NModal' }).exists()).toBe(false)
-    expect(wrapper.find('.group-hover\\:opacity-100').exists()).toBe(false)
+    expect(wrapper.find('.group-hover\:opacity-100').exists()).toBe(false)
   })
 
   it('routes first-device native onboarding to the built-in project without creating one', async () => {

@@ -68,5 +68,8 @@
   "route.visualization-thingsvis-menu-dashboard": "Embedded Home Dashboard",
   "route.device_asset": "Assets",
   "route.management_entity-version": "Entity versions",
-  "route.visualization-scada-editor": "SCADA canvas editor"
+  "route.visualization-scada-editor": "SCADA canvas editor",
+  "route.device_entity-relation": "Entity Relations",
+  "route.management_edge-nodes": "Edge Nodes",
+  "route.management_license": "License"
 }

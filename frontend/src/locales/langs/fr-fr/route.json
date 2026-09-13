@@ -68,5 +68,8 @@
   "route.visualization-thingsvis-menu-dashboard": "Tableau intégré accueil",
   "route.device_asset": "Actifs",
   "route.management_entity-version": "Versions d’entité",
-  "route.visualization-scada-editor": "Éditeur de canvas SCADA"
+  "route.visualization-scada-editor": "Éditeur de canvas SCADA",
+  "route.device_entity-relation": "Relations d’entités",
+  "route.management_edge-nodes": "Edge Nodes",
+  "route.management_license": "License"
 }

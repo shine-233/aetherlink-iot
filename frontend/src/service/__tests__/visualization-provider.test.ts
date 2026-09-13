@@ -18,7 +18,7 @@ describe('visualization provider compatibility boundary', () => {
       kind: 'local',
       deploymentMode: 'local-default',
       capabilities: {
-        projects: { list: true, create: false, update: false, delete: false }
+        projects: { list: true, create: true, update: true, delete: true }
       }
     })
     expect(externalVisualizationProvider).toMatchObject({

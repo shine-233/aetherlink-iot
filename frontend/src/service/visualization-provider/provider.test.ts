@@ -132,7 +132,7 @@ describe('visualization provider facade and composition', () => {
     expect(first.ids()).toEqual(['native-board', 'legacy-thingsvis'])
     expect(first.get('native-board')?.deploymentMode).toBe('local-default')
     expect(first.get('native-board')?.capabilities).toEqual({
-      projects: { list: true, create: false, update: false, delete: false },
+      projects: { list: true, create: true, update: true, delete: true },
       dashboards: { thumbnail: false, genericLayout: false, dataSources: false, variables: false, publish: true }
     })
     expect(first.get('legacy-thingsvis')?.deploymentMode).toBe('optional-external')
