@@ -52,7 +52,7 @@
 | P0.7 | AI 凭证静态加密 | `partial` | `未验证` | 生产主密钥注入、"日志无明文"未验证 | `P0.7-secret-encryption-evidence.md` |
 | P1.1 | 通用 Entity Relations | `partial` | `未验证` | 运行期证据文档（现有全为纯单测）；看板集成 | 迁移 85、`entity_relation_test.go` |
 | P1.2 | 规则链可靠性 | `partial` | `未验证` | 真实链路 E2E | `P1.2-rulechain-version-evidence.md` |
-| P1.3 | Widget 与 SCADA 基础层 | `partial` | `未接线` + `未验证` | **新 `views/scada/` 编辑器未挂路由**；widget schema 无真实字段；无浏览器 E2E；无真实下发联调 | `scada_postgres_test.go`、`adeaf80` |
+| P1.3 | Widget 与 SCADA 基础层 | `partial` | `未验证` | ~~编辑器未挂路由~~（2026-09-14 已挂）；~~widget schema 无真实字段~~（2026-09-14 已闭环 `36fd6da`）；剩余：浏览器 E2E、真实下发联调 | `scada_postgres_test.go`、`adeaf80` |
 | P1.4 | 移动端控制与通知 | `partial` | `客户端缺失` + `未验证` | **Android/iOS 工程不存在**；FCM/APNs 未真机联调；真机业务 E2E | `mobile_e2e_test.go`、`push_provider_live_test.go` |
 | P1.5 | 边缘运维 | `partial` | `未实现` + `未验证` | 节点证书签发、远程升级回滚、真实边缘联调与断云演练 | `P1.5-P3-completion-batch-20260912.md` |
 | P1.6 | 模板市场产品化 | `partial` | `未验证` + `未接线` | 升级/回滚运行期证据（98/99.sql 未复跑）；预览/确认闸门浏览器 UI | `device_template_market_import_test.go` |
@@ -110,6 +110,9 @@
 | **打包导入闸门 UI 回退** | `views/market/browse/index.vue` 在 main 上是旧版：上传按钮直接调 `/device/template/import`（无签名、无 `confirm_overwrite`），**完全绕过 `VerifyMarketBundle`**；而 `bundle-import-model.ts`（闸门逻辑）与测试都已按新版存在 → 组件与测试契约不一致 | 按模型重写 `index.vue`（解析预检 → 只读预览 → 覆盖确认 → 提交），并补回 `importMarketBundle` API wrapper，同时移除 `importDeviceTemplate` 这个隐患导出 | `__tests__/index.test.ts` 4/4 + `bundle-import-model.test.ts` 30/30 |
 | **anomaly 页文案全缺** | `page.anomaly.*` 43 个键在 4 个语言包里都不存在，`$t()` 回退成键名 | 4 语言各补 43 键 | `__tests__/index.test.ts` 断言通过 |
 | **遥测种子跨天 100% 失败** | `ensureDeviceWithTelemetry` 复用既有设备，而模拟遥测依赖创建时写入 Redis 的**24 小时**凭证测试缓存（`telemetry_simulation.go` 的 `loadSimulationVoucher`），后端无轮换端点 → 隔天必报 `device credential test cache expired or absent`；且 `publishSimulatedTelemetryAndReadCurrent` 只发扁平载荷，本地 stub broker 无 gmqtt 的 aetherlink 插件补信封，adapter 会因 `device_id` 为空丢弃消息 | `lib/seed_data.js`：改为每次新建带新鲜凭证的设备 + 发布失败自动回收；载荷改为"先扁平、读不回来自动回退信封（base64 `values`）" | `tests/03_data` / `12_telemetry_extra` / `40_telemetry_anomaly` 由全挂转通过；`tests/38–42` **38/38** |
+| **style 块硬编码 hex 超绊线**（740 > 733） | 09-12 批次给新旧两个 SCADA 编辑器写了硬编码 hex，超过 design-token 契约基线（design-token-contract.test.ts 唯一在跑的真实失败） | 7 处 hex 全部迁移到 Naive 语义变量（--border-color/--text-color-1/--text-color-3/--card-color/rgb(var(--primary-color))），总量 740→733 回到基线；无需下调基线 | 
+px vitest run src/styles/__tests__/design-token-contract.test.ts 2/2 通过（2026-09-14） |
+| **index.html 标题占位符字面输出** | Vite 仅在存在同名环境变量时替换 %VAR%；clean checkout 无 .env 时 <title> 保留 %VITE_APP_TITLE% 字面量 | 新增 uild/plugins/html-title.ts 构建期兜底默认标题（AetherLink IoT），接入插件链 uild/plugins/index.ts；无 .env 的检出也能产出正确标题 | 插件单测省略（纯字符串替换）；构建验证随下一轮 ite build 一并取证 |
 
 **C. 需真实设备 / 外部通道（`未验证`，需凭据与真机）**
 
@@ -127,7 +130,9 @@
 
 - 本机无网络、无 Docker、Go 模块缓存被清空、系统盘约 11 GB（98%）。**P2.3 压测与 P0.1 部署验收在此之前无法开展。**
 
-## 2. 竞品能力边界（2026-09 刷新）
+## 2. 竞品能力边界（2026-09 刷新；版本锚点 2026-09-14 经 GitHub API 全量复核）
+
+> 版本数据来源：GitHub Releases API 全量实拉（`thingsboard/thingsboard` 87 个 release、`ThingsPanel/thingspanel-backend-community` 51 个 release，见仓库 `docs/validation/2026-09-14-gap-analysis.md` 与逐版本差距矩阵）。40 功能域量化结论：✅ 追平/领先 24 项、🟡 部分实现 12 项、❌ 未实现 4 项。
 
 **ThingsBoard**（Java）：当前 Active LTS 为 **v4.3.x**（v4.3.1.4，2026-08-27）。CE 覆盖设备/资产/客户实体、遥测、MQTT/CoAP/HTTP/SNMP/LWM2M、IoT Gateway（Modbus/OPC-UA/BACnet）、Rule Engine、计算字段（4.0）、Dashboard、告警规则 2.0（4.3）、OTA、多租户、集群、AI 规则节点。PE/Cloud/Edge 额外提供高级 RBAC、白标、平台集成（AWS IoT/Azure/Kafka/LoRaWAN）、400+ 编解码库、自动报表、解决方案模板、SSO、密钥存储与 SLA。TBMQ、Trendz、Edge 是独立生态产品，不应假设 CE 自带。4.0 的破坏性变更：Kafka 强制、flex-layout 移除、Timescale 弃用。
 
@@ -367,8 +372,9 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 - 已实现：服务层——`scada_document.go`（项目 CRUD、画布往返、乐观并发、发布、回滚，**回滚不改历史**）；`widget_registry.go`（按 `(type, version)` 注册，能力必须显式声明；3D 降级是**逐个 Widget** 的，未注册 Widget 转 unknown，均不阻断整块看板加载）；`scada_control.go`（控制命令依次过「存在性 → 归档终态 → Widget/命令已注册 → 权限 → 二次确认」，确认令牌由 HMAC 绑定 (租户, 文档, Widget, 命令, 操作人, 过期时间)，**审计先于执行落库**，被拒命令同样留痕）；`scada_telemetry_link.go`（未连接时数据一律判为陈旧，不参考最后一帧有多新）。
 - 已实现：HTTP 与路由——`internal/api/scada.go` + `router/apps/scada.go` 共 19 条端点，由 `router/apps/scada_routes_test.go` 在真实 Gin 引擎上校验注册结果；控制端点在服务未接线时 fail closed。
 - 已实现：控制服务装配——`internal/app/scada_mobile_wiring.go` + `main.go`；`service.AssembleScadaControl` 注入内置 Widget 注册表、二次确认签发器与真实下发执行器；**下发必须携带真实 claims**（`ControlExecution.ActorClaims` 为空时执行器直接拒绝）；密钥未配置不阻断启动但打 warn。
+- 已实现（2026-09-14，`36fd6da`）：**Widget 配置真实 schema 与保存链路校验**——四个内置 Widget（gauge/chart/valve/twin3d）schema 从 `{}` 占位换成真实字段（全可选、类型/取值约束：maxLength/minimum/maximum/enum/maxItems，存量画布不受影响）；`AssembleScadaControl` 回传注册表并注入 `ScadaDocumentService`（保存与控制的已注册判定同源）；`CreateDocument`/`SaveDocument` 两条写路径按 schema 校验每个 Widget 实例；`ValidateCanvasJSON` 兼容两代画布形状（旧 `widgets[].config` + 新 `nodes[].props`）；前端 WIDGET_REGISTRY 同步同一组 schema（parity 测试守护）；新增 3 个保存链路校验用例。
 - 已实现：前端——`src/views/visualization/scada-editor/`（**已挂路由**）含 `scada-model.ts` 纯模型、`index.vue`、`service/api/scada.ts`、i18n 四语各 34 键；另有**更新的 `src/views/scada/`**（`core/symbolLibrary.ts` 工业符号库七类 valve/pump/vessel/motor/sensor/pipe/electrical、`core/useCanvasEditor.ts` 拖拽/缩放 hook、`core/canvasDocument.ts`）——见 `adeaf80`。
-- 未闭环：**新 `src/views/scada/` 编辑器未挂路由**（路由仍指向旧 `visualization/scada-editor`，用户不可达）；widget 注册表仍是前后端各一份常量（有一致性测试兜底，未改为前端从后端拉取）；内置 Widget 的 `schema` 是最小合法 JSON 对象，**尚未定义真实配置字段**，后端不校验画布内单个 Widget 配置；无浏览器/运行时 E2E；**未做真实下发联调**。
+- 未闭环（2026-09-14 刷新）：~~新 `views/scada/` 编辑器未挂路由~~ 已挂（见 §1.3-B-2 白屏条目附带的五处路由注册）；~~widget schema 无真实字段、后端不校验画布内单个 Widget 配置~~ 已闭环（见上 `36fd6da`）；剩余：widget 注册表仍是前后端各一份常量（有一致性测试兜底，未改为前端从后端拉取）；无浏览器/运行时 E2E；**未做真实下发联调**。
 - 证据：`docs/validation/P1.5-P3-completion-batch-20260912.md`；`scada_postgres_test.go` 4 例真实 PostgreSQL（复合唯一约束、jsonb 往返、乐观并发、审计 pending→success、状态 CHECK）；`scada-model.test.ts` 24 例；`TestBuiltinWidgetRegistryMatchesFrontend`（已用「改前端版本号 → 用例失败」做过负向对照）。
 
 ### P1.4 移动端控制与通知
@@ -556,6 +562,8 @@ ThingsBoard PE/Cloud/Edge、TBMQ、Trendz 和 ThingsPanel 企业宣传能力只�
 
 ### 7.1 相对 ThingsBoard（CE v4.3.x / PE）的缺口
 
+> 版本锚点（2026-09-14 GitHub Releases API 全量复核，87 个 release）：最新 **v4.3.1.5（2026-09-11）**，并行 LTS **v4.2.2.5（同日）**；4.3.x Active LTS（至 2027-07-20）、4.2.x Maintenance LTS（至 2027-02-15）。逐版本功能对照见差距矩阵报告。
+
 | # | 缺口 | TB 来源 | 本地现状 | 缺口类型 | 前提与依赖 | 量级 | 立项建议 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | TB-1 | 告警规则 2.0（可配置规则对象、条件/严重度/传播、告警生命周期与指派评论） | 4.3.0 `#14036`；3.5 告警指派与评论 | 告警历史/确认/备注已有；无独立"告警规则"实体与指派 | `未实现` | 需新表 + 规则求值器；与现有 `rule_chain` 告警节点划清边界 | L | **建议立项（高）**：是工业客户的刚需，且与既有告警链路可复用 |
@@ -568,6 +576,8 @@ ThingsBoard PE/Cloud/Edge、TBMQ、Trendz 和 ThingsPanel 企业宣传能力只�
 | TB-8 | Timewindow 重设计、动态表单、Dashboard 布局断点 | 3.8.0 `#11633`/`#11430`；4.0 动态表单 | 看板能力较基础 | `未实现` | 前端改造为主 | M–L | **建议立项（中）**：纯前端收益，不依赖后端环境，可优先排 |
 
 ### 7.2 相对 ThingsPanel（社区版 / 企业版宣称）的缺口
+
+> 版本锚点（2026-09-14 GitHub Releases API 全量复核，51 个 release，2022-04 → 2026-09-03）：最新 **v1.2.11（2026-09-03）**；演进锚点 v1.1.10 多层网关 / v1.1.12 共享订阅+移动推送 / v1.2.0 遥测聚合 / v1.2.2 模拟遥测 / v1.2.8 资源中心 / v1.2.9 模板封面与令牌续期。
 
 | # | 缺口 | TP 来源 | 本地现状 | 缺口类型 | 前提与依赖 | 量级 | 立项建议 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
