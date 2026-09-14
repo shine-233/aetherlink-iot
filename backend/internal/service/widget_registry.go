@@ -359,11 +359,24 @@ func (r *WidgetRegistry) ValidateCommandParams(widgetType, version, command stri
 	return s.Validate(value)
 }
 
+// canvasNodeShape 新版画布（views/scada canvasDocument）里的节点形状。
+// 与旧版 `widgets[].config` 并存：两代编辑器的画布都会流进保存路径，都要校验。
+type canvasNodeShape struct {
+	ID         string         `json:"id"`
+	Kind       string         `json:"kind"`
+	Ref        string         `json:"ref"`
+	Props      map[string]any `json:"props"`
+}
+
 // ValidateCanvasJSON 校验画布 JSON 里每个 Widget 的配置。
 //
-// 只校验 `widgets` 数组：画布顶层允许带自定义字段（variables/bindings 等），
-// 强行要求它符合某个形状会把合法画布拒掉。
-// `widgets` 存在但不是数组时报错——那是一份坏画布，不是"没有 widget"。
+// 兼容两种画布形状：
+//   - 旧版（visualization/scada-editor）：顶层 `widgets` 数组，配置在 `config`；
+//   - 新版（views/scada canvasDocument）：顶层 `nodes` 数组，kind=widget 的节点
+//     以 `ref` 为 Widget 类型，配置在 `props`。
+//
+// 画布顶层允许带自定义字段（variables/bindings 等），强行要求某个形状会把合法画布拒掉。
+// 字段存在但不是数组时报错——那是一份坏画布，不是"没有 widget"。
 func (r *WidgetRegistry) ValidateCanvasJSON(canvas string) error {
 	if r == nil {
 		return nil
@@ -377,17 +390,30 @@ func (r *WidgetRegistry) ValidateCanvasJSON(canvas string) error {
 		// 坏 JSON / 非对象：由 model.ValidateScadaCanvas 负责拦，这里不重复定性。
 		return nil
 	}
-	raw, ok := probe["widgets"]
-	if !ok {
-		return nil
+	if raw, ok := probe["widgets"]; ok {
+		var widgets []WidgetInstance
+		if err := json.Unmarshal(raw, &widgets); err != nil {
+			return fmt.Errorf("%w: canvas widgets must be an array of objects", ErrWidgetConfigNotObject)
+		}
+		for _, w := range widgets {
+			if err := r.ValidateInstance(w); err != nil {
+				return err
+			}
+		}
 	}
-	var widgets []WidgetInstance
-	if err := json.Unmarshal(raw, &widgets); err != nil {
-		return fmt.Errorf("%w: canvas widgets must be an array of objects", ErrWidgetConfigNotObject)
-	}
-	for _, w := range widgets {
-		if err := r.ValidateInstance(w); err != nil {
-			return err
+	if raw, ok := probe["nodes"]; ok {
+		var nodes []canvasNodeShape
+		if err := json.Unmarshal(raw, &nodes); err != nil {
+			return fmt.Errorf("%w: canvas nodes must be an array of objects", ErrWidgetConfigNotObject)
+		}
+		for _, n := range nodes {
+			if strings.TrimSpace(n.Kind) != "widget" {
+				continue
+			}
+			inst := WidgetInstance{ID: n.ID, WidgetType: n.Ref, Config: n.Props}
+			if err := r.ValidateInstance(inst); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

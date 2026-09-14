@@ -56,7 +56,7 @@ func WithScadaMobileWiring() Option {
 			}
 		}
 
-		control, issuerConfigured, err := service.AssembleScadaControl(service.ScadaControlWiring{
+		control, registry, issuerConfigured, err := service.AssembleScadaControl(service.ScadaControlWiring{
 			ConfirmationSecret: secret,
 			ConfirmationTTL:    ttl,
 		})
@@ -64,6 +64,9 @@ func WithScadaMobileWiring() Option {
 			return fmt.Errorf("scada control wiring failed: %w", err)
 		}
 		service.GroupApp.ScadaControl = control
+		// 同一份注册表注入文档服务：画布保存时按 schema 校验每个 Widget 配置，
+		// 与控制服务的"已注册判定"同源，避免保存放行、执行拒绝的裂缝。
+		service.GroupApp.ScadaDocument.WithWidgetRegistry(registry)
 
 		if !issuerConfigured {
 			logrus.Warnf(

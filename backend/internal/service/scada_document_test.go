@@ -306,3 +306,99 @@ func TestScadaDALSaveUsesConditionalUpdate(t *testing.T) {
 		t.Fatalf("canvas = %v, want the first save's content", fresh.JSONData)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Widget 配置校验闸门（WithWidgetRegistry 注入后的保存路径）
+// ---------------------------------------------------------------------------
+
+// TestSaveDocumentRejectsInvalidWidgetConfig 锁定：注册表注入后，
+// 画布里 Widget 的非法配置必须在保存时被拒，而不是存进去等运行时漂移。
+func TestSaveDocumentRejectsInvalidWidgetConfig(t *testing.T) {
+	setupScadaTestDB(t)
+	reg, err := DefaultWidgetRegistry()
+	if err != nil {
+		t.Fatalf("DefaultWidgetRegistry: %v", err)
+	}
+	svc := newScadaSvc().WithWidgetRegistry(reg)
+	ctx := context.Background()
+
+	project, err := svc.CreateProject(ctx, ScadaProjectCreate{TenantID: "t1", Name: "p"})
+	if err != nil {
+		t.Fatalf("CreateProject: %v", err)
+	}
+
+	// 合法配置（全可选字段 + 类型正确）必须能创建：存量画布兼容性。
+	doc, err := svc.CreateDocument(ctx, ScadaDocumentCreate{
+		TenantID: "t1", ProjectID: project.ID, Name: "d-ok",
+		Canvas: `{"widgets":[{"id":"w1","widget_type":"gauge","version":"1","config":{"title":"温度","min":0,"max":100}}]}`,
+	})
+	if err != nil || doc == nil {
+		t.Fatalf("CreateDocument valid config = (%v, %v)", doc, err)
+	}
+
+	// 非法配置（min 是字符串）必须被拒。
+	if _, err := svc.CreateDocument(ctx, ScadaDocumentCreate{
+		TenantID: "t1", ProjectID: project.ID, Name: "d-bad",
+		Canvas: `{"widgets":[{"id":"w2","widget_type":"gauge","version":"1","config":{"min":"cold"}}]}`,
+	}); err == nil || !strings.Contains(err.Error(), "gauge") {
+		t.Fatalf("CreateDocument invalid config error = %v, want schema violation mentioning gauge", err)
+	}
+
+	// 已有画布（无 config）必须仍能保存：全可选 schema 不破坏存量。
+	if _, err := svc.SaveDocument(ctx, doc.ID, "t1", doc.CurrentVersion, `{"widgets":[{"id":"w1","widget_type":"gauge","version":"1"}]}`, nil); err != nil {
+		t.Fatalf("SaveDocument legacy canvas = %v, want nil", err)
+	}
+}
+
+// TestSaveDocumentValidatesNewCanvasNodesShape 锁定新版画布（nodes[].props）的校验：
+// kind=widget 节点按 ref 找 schema，props 非法即拒；非 widget 节点跳过。
+func TestSaveDocumentValidatesNewCanvasNodesShape(t *testing.T) {
+	setupScadaTestDB(t)
+	reg, err := DefaultWidgetRegistry()
+	if err != nil {
+		t.Fatalf("DefaultWidgetRegistry: %v", err)
+	}
+	svc := newScadaSvc().WithWidgetRegistry(reg)
+	ctx := context.Background()
+
+	project, err := svc.CreateProject(ctx, ScadaProjectCreate{TenantID: "t1", Name: "p2"})
+	if err != nil {
+		t.Fatalf("CreateProject: %v", err)
+	}
+
+	// 新版形状 + 非法 camera_initial（不在 enum 内）必须被拒。
+	if _, err := svc.CreateDocument(ctx, ScadaDocumentCreate{
+		TenantID: "t1", ProjectID: project.ID, Name: "d-nodes-bad",
+		Canvas: `{"schemaVersion":1,"nodes":[{"id":"n1","kind":"widget","ref":"twin3d","props":{"camera_initial":"underground"}}]}`,
+	}); err == nil || !strings.Contains(err.Error(), "twin3d") {
+		t.Fatalf("CreateDocument bad nodes props error = %v, want schema violation mentioning twin3d", err)
+	}
+
+	// 合法新版画布必须能创建。
+	if _, err := svc.CreateDocument(ctx, ScadaDocumentCreate{
+		TenantID: "t1", ProjectID: project.ID, Name: "d-nodes-ok",
+		Canvas: `{"schemaVersion":1,"nodes":[{"id":"n2","kind":"symbol","ref":"valve_v"},{"id":"n3","kind":"widget","ref":"twin3d","props":{"camera_initial":"orbit"}}]}`,
+	}); err != nil {
+		t.Fatalf("CreateDocument valid nodes = %v, want nil", err)
+	}
+}
+
+// TestSaveDocumentWithoutRegistrySkipsConfigCheck 锁定 nil 注册表语义：
+// 未注入注册表时跳过配置校验（那是"没有校验器"，不是"校验通过"）——
+// 存量零值服务与测试不因本闸门而破坏。
+func TestSaveDocumentWithoutRegistrySkipsConfigCheck(t *testing.T) {
+	setupScadaTestDB(t)
+	svc := newScadaSvc()
+	ctx := context.Background()
+
+	project, err := svc.CreateProject(ctx, ScadaProjectCreate{TenantID: "t1", Name: "p3"})
+	if err != nil {
+		t.Fatalf("CreateProject: %v", err)
+	}
+	if _, err := svc.CreateDocument(ctx, ScadaDocumentCreate{
+		TenantID: "t1", ProjectID: project.ID, Name: "d-noreg",
+		Canvas: `{"widgets":[{"id":"w1","widget_type":"gauge","version":"1","config":{"min":"cold"}}]}`,
+	}); err != nil {
+		t.Fatalf("CreateDocument without registry should skip config check, got %v", err)
+	}
+}

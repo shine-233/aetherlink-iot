@@ -244,7 +244,12 @@ func TestCommandDeliveryExecutorRejectsIncompleteExecution(t *testing.T) {
 func TestAssembleScadaControlReportsIssuerState(t *testing.T) {
 	// 未配置密钥：服务接线成功，但签发器未配置（issuerConfigured=false），
 	// 需确认的命令将被拒。不能因为"控制服务存在"就以为危险操作能点。
-	svc, configured, err := AssembleScadaControl(ScadaControlWiring{})
+	svc, registry, configured, err := AssembleScadaControl(ScadaControlWiring{})
+	// 注册表必须一并返回并可用：文档服务的画布配置校验依赖它，
+	// 返回 nil 会让保存路径静默跳过校验（那是装配缺陷，不是可选行为）。
+	if registry == nil || registry.Get("gauge", "1") == nil {
+		t.Fatal("AssembleScadaControl must return a usable widget registry")
+	}
 	if err != nil {
 		t.Fatalf("assemble without secret: %v", err)
 	}
@@ -258,7 +263,7 @@ func TestAssembleScadaControlReportsIssuerState(t *testing.T) {
 		t.Fatalf("IssueConfirmation without secret = %v, want %v", err, ErrConfirmationNoIssuer)
 	}
 
-	svcWithSecret, configured, err := AssembleScadaControl(ScadaControlWiring{ConfirmationSecret: "s3cret"})
+	svcWithSecret, _, configured, err := AssembleScadaControl(ScadaControlWiring{ConfirmationSecret: "s3cret"})
 	if err != nil {
 		t.Fatalf("assemble with secret: %v", err)
 	}

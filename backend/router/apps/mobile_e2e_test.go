@@ -66,7 +66,7 @@ func mobileE2E(t *testing.T, authority string) (*gin.Engine, *gorm.DB) {
 	})
 
 	// 真实服务装配（与生产同一条路径）。
-	control, _, err := service.AssembleScadaControl(service.ScadaControlWiring{ConfirmationSecret: "e2e-secret"})
+	control, _, _, err := service.AssembleScadaControl(service.ScadaControlWiring{ConfirmationSecret: "e2e-secret"})
 	if err != nil {
 		t.Fatalf("assemble scada control: %v", err)
 	}

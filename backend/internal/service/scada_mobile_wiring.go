@@ -34,54 +34,52 @@ var ErrControlActorClaimsMissing = errors.New("control command is missing actor 
 // 内置 Widget 注册表
 // ---------------------------------------------------------------------------
 
-// builtinWidgetSchema 内置 Widget 的配置 schema。
-// 用最小合法 JSON 对象，而不是描述真实配置项：这些 Widget 目前只声明存在性与命令，
-// 尚未定义配置字段。写成看起来很完整的 schema 会让人以为配置已被校验。
-const builtinWidgetSchema = `{}`
+// 内置 Widget 的配置 schema。
+// 全部字段可选、仅做类型/取值约束：存量画布（无 config 或部分字段）必须仍能保存，
+// 但字段一旦出现就按 schema 校验——错类型、越界值在保存时即被拒绝，
+// 不再是"画布上看着正常、运行时静默漂移"。
+// 修改任一 schema 必须同步前端 WIDGET_REGISTRY（scada_mobile_wiring_test.go 的 parity 测试守着）。
+const (
+	widgetSchemaGauge = `{
+  "type": "object",
+  "properties": {
+    "title": {"type": "string", "maxLength": 64},
+    "unit": {"type": "string", "maxLength": 16},
+    "telemetry_key": {"type": "string", "maxLength": 128},
+    "min": {"type": "number"},
+    "max": {"type": "number"}
+  }
+}`
+	widgetSchemaChart = `{
+  "type": "object",
+  "properties": {
+    "title": {"type": "string", "maxLength": 64},
+    "telemetry_keys": {"type": "array", "items": {"type": "string", "maxLength": 128}, "maxItems": 8},
+    "time_window_seconds": {"type": "integer", "minimum": 60, "maximum": 2592000}
+  }
+}`
+	widgetSchemaValve = `{
+  "type": "object",
+  "properties": {
+    "title": {"type": "string", "maxLength": 64},
+    "telemetry_key": {"type": "string", "maxLength": 128},
+    "device_id": {"type": "string", "maxLength": 64},
+    "open_command": {"type": "string", "maxLength": 64},
+    "close_command": {"type": "string", "maxLength": 64}
+  }
+}`
+	widgetSchemaTwin3D = `{
+  "type": "object",
+  "properties": {
+    "title": {"type": "string", "maxLength": 64},
+    "model_url": {"type": "string", "maxLength": 512},
+    "camera_initial": {"type": "string", "enum": ["orbit", "front", "top", "side"]}
+  }
+}`
+)
 
 // builtinWidgetDefinitions 内置 Widget 定义。
 // 必须与前端 src/views/visualization/scada-editor/index.vue 的 WIDGET_REGISTRY 一致。
-func builtinWidgetDefinitions() []WidgetDefinition {
-	return []WidgetDefinition{
-		{
-			Type:         "gauge",
-			Version:      "1",
-			Schema:       builtinWidgetSchema,
-			Capabilities: []string{WidgetCapability2D},
-			Commands: []CommandDefinition{
-				// 只读刷新：不下发到设备，无需二次确认。
-				{Name: "refresh", RequiresConfirmation: false},
-			},
-		},
-		{
-			Type:         "chart",
-			Version:      "1",
-			Schema:       builtinWidgetSchema,
-			Capabilities: []string{WidgetCapability2D},
-			Commands: []CommandDefinition{
-				{Name: "refresh", RequiresConfirmation: false},
-			},
-		},
-		{
-			Type:         "valve",
-			Version:      "1",
-			Schema:       builtinWidgetSchema,
-			Capabilities: []string{WidgetCapability2D},
-			Commands: []CommandDefinition{
-				// 阀门开合会真实改变现场设备状态，必须二次确认。
-				{Name: "open_valve", RequiresConfirmation: true},
-			},
-		},
-		{
-			Type:         "twin3d",
-			Version:      "1",
-			Schema:       builtinWidgetSchema,
-			Capabilities: []string{WidgetCapability3D},
-			Commands:     nil,
-		},
-	}
-}
-
 // DefaultWidgetRegistry 构造内置 Widget 注册表。
 // 注册失败即返回错误：内置定义是常量，注册不上说明注册表校验逻辑被改坏，
 // 静默跳过会让"全部控件未知"看起来像正常状态。
@@ -94,7 +92,46 @@ func DefaultWidgetRegistry() (*WidgetRegistry, error) {
 	}
 	return registry, nil
 }
-
+func builtinWidgetDefinitions() []WidgetDefinition {
+	return []WidgetDefinition{
+		{
+			Type:         "gauge",
+			Version:      "1",
+			Schema:       widgetSchemaGauge,
+			Capabilities: []string{WidgetCapability2D},
+			Commands: []CommandDefinition{
+				// 只读刷新：不下发到设备，无需二次确认。
+				{Name: "refresh", RequiresConfirmation: false},
+			},
+		},
+		{
+			Type:         "chart",
+			Version:      "1",
+			Schema:       widgetSchemaChart,
+			Capabilities: []string{WidgetCapability2D},
+			Commands: []CommandDefinition{
+				{Name: "refresh", RequiresConfirmation: false},
+			},
+		},
+		{
+			Type:         "valve",
+			Version:      "1",
+			Schema:       widgetSchemaValve,
+			Capabilities: []string{WidgetCapability2D},
+			Commands: []CommandDefinition{
+				// 阀门开合会真实改变现场设备状态，必须二次确认。
+				{Name: "open_valve", RequiresConfirmation: true},
+			},
+		},
+		{
+			Type:         "twin3d",
+			Version:      "1",
+			Schema:       widgetSchemaTwin3D,
+			Capabilities: []string{WidgetCapability3D},
+			Commands:     nil,
+		},
+	}
+}
 // ---------------------------------------------------------------------------
 // 命令下发执行器
 // ---------------------------------------------------------------------------
@@ -173,25 +210,27 @@ type ScadaControlWiring struct {
 	ConfirmationTTL time.Duration
 }
 
-// AssembleScadaControl 装配 SCADA 控制服务。
-// 返回 (service, issuerConfigured, error)：
+// AssembleScadaControl 装配 SCADA 控制服务，并把内置 Widget 注册表回传给调用方，
+// 供文档服务（画布保存的 Widget 配置校验）与控制服务共用同一份注册表——
+// 两边对"哪个 Widget 存在、配置长什么样"必须给出同一答案。
+// 返回 (service, registry, issuerConfigured, error)：
 //   - issuerConfigured=false 表示密钥未配置，命令服务已接线但需确认的命令会被拒；
 //     调用方应据此打启动告警，别让"控制能用"掩盖"危险操作其实点不动"。
-func AssembleScadaControl(cfg ScadaControlWiring) (*ScadaControlService, bool, error) {
+func AssembleScadaControl(cfg ScadaControlWiring) (*ScadaControlService, *WidgetRegistry, bool, error) {
 	registry, err := DefaultWidgetRegistry()
 	if err != nil {
-		return nil, false, err
+		return nil, nil, false, err
 	}
 
 	var issuer *ConfirmationIssuer
 	if strings.TrimSpace(cfg.ConfirmationSecret) != "" {
 		issuer, err = NewConfirmationIssuer(cfg.ConfirmationSecret, cfg.ConfirmationTTL)
 		if err != nil {
-			return nil, false, err
+			return nil, nil, false, err
 		}
 	}
 
-	return NewScadaControlService(registry, issuer, NewCommandDeliveryExecutor()), issuer != nil, nil
+	return NewScadaControlService(registry, issuer, NewCommandDeliveryExecutor()), registry, issuer != nil, nil
 }
 
 // AssemblePush 按配置构造推送服务。

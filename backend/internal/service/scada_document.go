@@ -27,7 +27,30 @@ import (
 )
 
 // ScadaDocumentService SCADA 项目与画布文档服务。
-type ScadaDocumentService struct{}
+// widgets 可选注入 Widget 注册表：非 nil 时，画布写路径（创建/保存）会对画布 JSON 里
+// 每个 Widget 实例按注册 schema 做配置校验（见 widget_registry.go ValidateCanvasJSON）。
+// nil 时跳过校验——那是"没有校验器"，不是"校验通过"；装配点负责注入，测试零值仍可用。
+type ScadaDocumentService struct {
+	widgets *WidgetRegistry
+}
+
+// WithWidgetRegistry 注入 Widget 注册表（链式返回自身，供装配点使用）。
+func (s *ScadaDocumentService) WithWidgetRegistry(r *WidgetRegistry) *ScadaDocumentService {
+	s.widgets = r
+	return s
+}
+
+// validateCanvasWidgets 画布内 Widget 配置校验的可选闸门。
+// 注册表缺失时跳过（不伪装通过）；校验失败必须落成参数错误，让前端能定位到具体 Widget。
+func (s *ScadaDocumentService) validateCanvasWidgets(canvas string) error {
+	if s == nil || s.widgets == nil {
+		return nil
+	}
+	if err := s.widgets.ValidateCanvasJSON(canvas); err != nil {
+		return scadaParam(err.Error())
+	}
+	return nil
+}
 
 // 画布空载荷归一化结果：空画布存 {} 而不是 NULL/空串，
 // 这样"加载出来没有 widget"与"加载失败"在前端是两种可区分的事实。
@@ -165,6 +188,9 @@ func (s *ScadaDocumentService) CreateDocument(ctx context.Context, req ScadaDocu
 	if err := model.ValidateScadaDocument(doc); err != nil {
 		return nil, scadaParam(err.Error())
 	}
+	if err := s.validateCanvasWidgets(canvas); err != nil {
+		return nil, err
+	}
 	if err := dal.CreateScadaDocument(doc); err != nil {
 		return nil, scadaParam("scada document already exists or is invalid")
 	}
@@ -218,6 +244,9 @@ func (s *ScadaDocumentService) SaveDocument(ctx context.Context, id, tenantID st
 	doc := &model.ScadaDocument{JSONData: &payload}
 	if err := model.ValidateScadaCanvas(doc.JSONData); err != nil {
 		return nil, scadaParam(err.Error())
+	}
+	if err := s.validateCanvasWidgets(payload); err != nil {
+		return nil, err
 	}
 
 	affected, err := dal.SaveScadaDocumentInTenant(id, tenantID, expectedVersion, payload, actorUserID)
