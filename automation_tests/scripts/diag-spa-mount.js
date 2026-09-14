@@ -23,7 +23,7 @@ const fs = require('fs');
     if (resp.status() >= 400) logs.push(`[response.${resp.status()}] ${resp.request().method()} ${resp.url()}`);
   });
 
-  const ROUTES = ['/login', '/visualization/anomaly', '/visualization/report', '/market/browse', '/management/edge-nodes', '/management/license'];
+  const ROUTES = ['/login', '/visualization/anomaly', '/visualization/report', '/market/browse', '/management/edge-nodes', '/management/license', '/device/grouping'];
 
   for (const route of ROUTES) {
     logs.push(`\n========== goto ${route} ==========`);

@@ -1,6 +1,7 @@
 package dal
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -237,6 +238,118 @@ func TestGetDeviceGroupStatisticsBatchEmptyInput(t *testing.T) {
 	}
 	if len(stats) != 0 {
 		t.Fatalf("empty input map len = %d, want 0", len(stats))
+	}
+}
+
+// seedAlarmHistory 往基表 alarm_history 写一条告警，供视图链
+// alarm_history → current_device_alarm_streams → latest_device_alarms 派生。
+// 只能写基表：latest_device_alarms 是视图，不能 INSERT。
+func seedAlarmHistory(t *testing.T, db *gorm.DB, id, tenant, status string, deviceIDs []string, createdAt time.Time) {
+	t.Helper()
+	deviceList, err := json.Marshal(deviceIDs)
+	if err != nil {
+		t.Fatalf("marshal alarm_device_list: %v", err)
+	}
+	row := model.AlarmHistory{
+		ID:                id,
+		AlarmConfigID:     "cfg-" + id,
+		GroupID:           "grp-" + id,
+		SceneAutomationID: "scene-" + id,
+		Name:              "alarm-" + id,
+		AlarmStatus:       status,
+		TenantID:          tenant,
+		CreateAt:          createdAt,
+		AlarmDeviceList:   string(deviceList),
+	}
+	if err := db.Create(&row).Error; err != nil {
+		t.Fatalf("seed alarm_history %s: %v", id, err)
+	}
+}
+
+// TestGetDeviceGroupStatisticsBatchCountsAlarmsOnPostgres 在真实 PostgreSQL 上验证 alarm_total。
+//
+// 为什么必须单独有 PG 证据：alarm_total 读的是 latest_device_alarms，而它在 PostgreSQL 上
+// 是**视图**（sql/44.sql 定义，链到基表 alarm_history）。SQLite 夹具里同名对象是
+// AutoMigrate 出来的**表**，两者语义不同 —— SQLite 绿不能代表 PG 绿。
+func TestGetDeviceGroupStatisticsBatchCountsAlarmsOnPostgres(t *testing.T) {
+	dsn := os.Getenv("AETHERLINK_TEST_PSQL_DSN")
+	if dsn == "" {
+		t.Skip("AETHERLINK_TEST_PSQL_DSN not set; alarm_total PostgreSQL verification skipped")
+	}
+
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open postgres: %v", err)
+	}
+
+	const tenant = "pg-groupstats-alarm-verify"
+	oldDB := global.DB
+	global.DB = db
+	query.SetDefault(db)
+	t.Cleanup(func() {
+		for _, stmt := range []string{
+			"DELETE FROM " + model.TableNameAlarmHistory + " WHERE tenant_id = ?",
+			"DELETE FROM " + model.TableNameRGroupDevice + " WHERE tenant_id = ?",
+			"DELETE FROM " + model.TableNameDevice + " WHERE tenant_id = ?",
+			"DELETE FROM " + model.TableNameGroup + " WHERE tenant_id = ?",
+		} {
+			_ = db.Exec(stmt, tenant).Error
+		}
+		global.DB = oldDB
+		if oldDB != nil {
+			query.SetDefault(oldDB)
+		}
+	})
+
+	seedDeviceGroup(t, db, "pg-ga-grp", "GA Group", tenant, "0", nil)
+	seedDeviceGroup(t, db, "pg-ga-child", "GA Child", tenant, "pg-ga-grp", nil)
+
+	// 4 台设备，分别对应：H / M / N（不计）/ 老 H + 新 N
+	for _, id := range []string{"pg-ga-h", "pg-ga-m", "pg-ga-n", "pg-ga-hn"} {
+		groupID := "pg-ga-grp"
+		if id == "pg-ga-hn" {
+			groupID = "pg-ga-child" // 放到子分组，顺带验证告警数也按子孙汇总
+		}
+		seedStatisticsDevice(t, db, groupID, statisticsSeedDevice{id: id, tenant: tenant})
+	}
+
+	base := time.Now().UTC().Add(-time.Hour)
+	seedAlarmHistory(t, db, "pg-ga-ah-h", tenant, "H", []string{"pg-ga-h"}, base)
+	seedAlarmHistory(t, db, "pg-ga-ah-m", tenant, "M", []string{"pg-ga-m"}, base)
+	seedAlarmHistory(t, db, "pg-ga-ah-n", tenant, "N", []string{"pg-ga-n"}, base)
+	// 同一设备先 H 后 N：视图的排序是 "H/M/L 优先于 N"，再比 create_at，
+	// 因此该设备的当前状态仍是 H —— 必须计入。
+	seedAlarmHistory(t, db, "pg-ga-ah-hn-old", tenant, "H", []string{"pg-ga-hn"}, base)
+	seedAlarmHistory(t, db, "pg-ga-ah-hn-new", tenant, "N", []string{"pg-ga-hn"}, base.Add(30*time.Minute))
+
+	stats, err := GetDeviceGroupStatisticsBatch([]string{"pg-ga-grp", "pg-ga-child"}, tenant, nil)
+	if err != nil {
+		t.Fatalf("batch: %v", err)
+	}
+
+	root := stats["pg-ga-grp"]
+	if root == nil {
+		t.Fatal("root stats missing")
+	}
+	if root.DeviceTotal != 4 {
+		t.Fatalf("root device_total = %d, want 4", root.DeviceTotal)
+	}
+	if root.AlarmTotal != 3 {
+		t.Fatalf("root alarm_total = %d, want 3 (H + M + 老H压过新N; N 不计)", root.AlarmTotal)
+	}
+
+	child := stats["pg-ga-child"]
+	if child == nil || child.AlarmTotal != 1 {
+		t.Fatalf("child stats = %#v, want alarm_total=1", child)
+	}
+
+	// 与单分组版对齐：告警计数在两条路径上必须一致。
+	single, err := GetDeviceGroupStatistics("pg-ga-grp", tenant, nil)
+	if err != nil {
+		t.Fatalf("single: %v", err)
+	}
+	if *single != *root {
+		t.Fatalf("alarm rollup mismatch: single=%#v batch=%#v", *single, *root)
 	}
 }
 

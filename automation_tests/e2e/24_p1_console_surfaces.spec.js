@@ -23,7 +23,8 @@ const ROUTES = {
   report: '/visualization/report',
   marketBrowse: '/market/browse',
   edgeNodes: '/management/edge-nodes',
-  license: '/management/license'
+  license: '/management/license',
+  deviceGrouping: '/device/grouping'
 };
 
 /**
@@ -60,6 +61,13 @@ test.describe('P1 console surfaces [24_p1_console_surfaces]', () => {
 
     test('edge node console renders the health column', async ({ rolePage }) => {
       await expectRendered(rolePage, ROUTES.edgeNodes, /健康|Health/i);
+    });
+
+    test('device grouping renders the statistics columns', async ({ rolePage }) => {
+      // ROADMAP TP-8②：后端把统计挂进分组列表项的 statistics 字段，
+      // 但"后端有字段"不等于"用户看得见"——必须在表头真的渲染出统计列。
+      // 断言用离线列表头（导航菜单里不会出现 Offline / 离线），避免与菜单项撞词。
+      await expectRendered(rolePage, ROUTES.deviceGrouping, /离线|Offline/i);
     });
   });
 

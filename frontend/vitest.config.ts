@@ -7,13 +7,18 @@
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 import vue from '@vitejs/plugin-vue';
+import vueJsx from '@vitejs/plugin-vue-jsx';
 
 // 使用 fileURLToPath 解析路径,与 vite.config.ts 保持一致(ESM 兼容)
 const srcPath = fileURLToPath(new URL('./src', import.meta.url));
 const rootPath = fileURLToPath(new URL('./', import.meta.url));
 
 export default defineConfig({
-  plugins: [vue()],
+  // vueJsx 必须挂：src 下的 .tsx（如 views/device/modules/all-columns.tsx 的列渲染函数）
+  // 用的是 Vue JSX，只挂 vue() 时 vitest 会按 React 经典模式处理并报
+  // "React is not defined"，整类文件因此不可测。
+  // 与 vite.config.ts 的 build/plugins 保持一致。
+  plugins: [vue(), vueJsx()],
   resolve: {
     alias: {
       '@': srcPath,
