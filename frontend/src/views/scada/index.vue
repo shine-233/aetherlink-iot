@@ -460,7 +460,7 @@ defineExpose({ isDirty, onSave, onRollback, onPublish })
 .scada-editor__canvas-wrap {
   flex: 1 1 auto;
   overflow: auto;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-color);
 }
 
 .scada-editor__canvas {
@@ -472,11 +472,11 @@ defineExpose({ isDirty, onSave, onRollback, onPublish })
   position: absolute;
   cursor: move;
   border: 1px dashed transparent;
-  color: #1f2937;
+  color: var(--text-color-1);
 }
 
 .scada-editor__node.is-selected {
-  border-color: #2563eb;
+  border-color: rgb(var(--primary-color));
 }
 
 .scada-editor__node-label {

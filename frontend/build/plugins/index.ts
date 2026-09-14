@@ -15,6 +15,7 @@ import progress from 'vite-plugin-progress'
 import { setupUnocssPlugin } from './unocss'
 import { setupIconPlugins } from './icons'
 import { setupRouterPlugin } from './router'
+import { setupHtmlTitlePlugin } from './html-title'
 
 /**
  * 自动注册组件的扫描范围。
@@ -57,6 +58,7 @@ export function setupVitePlugins(viteEnv: Env.ImportMeta): PluginOption[] {
       ]
     }),
     ...setupIconPlugins(viteEnv),
+    ...setupHtmlTitlePlugin(viteEnv),
     progress()
   ]
 }

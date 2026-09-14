@@ -444,18 +444,18 @@ loadProjects()
   gap: 6px;
   min-height: 160px;
   padding: 8px;
-  border: 1px dashed #c0c4cc;
+  border: 1px dashed var(--border-color);
   border-radius: 6px;
 }
 .canvas-item {
   padding: 6px;
-  border: 1px solid #dcdfe6;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
-  background: #fafafa;
+  background: var(--card-color);
   overflow: hidden;
 }
 .hint {
   margin-top: 8px;
-  color: #909399;
+  color: var(--text-color-3);
 }
 </style>
