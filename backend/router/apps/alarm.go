@@ -69,5 +69,13 @@ func alarminfo(Router *gin.RouterGroup) {
 
 		// 兼容旧客户端；service 会鉴权后按审计留存策略拒绝物理删除。
 		url.DELETE("history/:id", api.Controllers.AlarmApi.DeleteAlarmHistory)
+
+		// ROADMAP TB-1 第一片：告警评论（生命周期里的协作面）。
+		// 统一挂在 history/:id/comment 下：Gin 的路由树不允许同一段既有 :id 又有静态串
+		// （history/comment/... 会与 history/:id 冲突并 panic），
+		// 所以删除也用 :comment_id 参数而不是另起静态段。
+		url.POST("history/:id/comment", api.Controllers.AlarmApi.CreateAlarmComment)
+		url.GET("history/:id/comment", api.Controllers.AlarmApi.ListAlarmComments)
+		url.DELETE("history/:id/comment/:comment_id", api.Controllers.AlarmApi.DeleteAlarmComment)
 	}
 }
