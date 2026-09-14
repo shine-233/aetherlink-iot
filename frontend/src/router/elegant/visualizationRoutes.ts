@@ -110,6 +110,19 @@ export const visualizationRoutes: GeneratedRoute[] = [
           }
         },
         {
+          // ROADMAP P2.2：anomaly 页面（views/visualization/anomaly）此前只存在于
+          // 文件系统，路由表里没有条目，浏览器实测直接落到 not-found。
+          // 这里补齐注册，与 imports.ts / transform.ts / typings 同步。
+          name: 'visualization_anomaly',
+          path: '/visualization/anomaly',
+          component: 'view.visualization_anomaly',
+          meta: {
+            title: 'visualization_anomaly',
+            i18nKey: 'route.visualization-anomaly',
+            roles: ['SYS_ADMIN', 'TENANT_ADMIN']
+          }
+        },
+        {
           name: 'visualization_native-boards',
           path: '/visualization/native-boards',
           component: 'view.visualization_native-boards',

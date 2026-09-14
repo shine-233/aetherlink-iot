@@ -71,9 +71,49 @@ export const getMarketBundle = async (typeKey: string) => {
   )
 }
 
-/** 模板导入（导出载荷回放，同租户同名同版本幂等） */
-export const importDeviceTemplate = async (data: unknown) => {
-  return await request.post('/device/template/import', data)
+// ROADMAP P1.6：打包导入的预览 + 覆盖确认闸门。
+//
+// 注意：这里**不再**提供 `/device/template/import`（单模板回放）的 wrapper。
+// 那个端点不做 VerifyMarketBundle、也没有 confirm_overwrite 闸门，
+// 页面上任何一条走它的路径都会把整条 P1.6 门禁变成摆设
+// （views/market/browse/index.vue 曾经就是这样，已修）。
+// 所有打包导入一律走本文件下方的 importMarketBundle。
+
+/** 打包导入预览的结构（后端 MarketBundleImportPreview）。 */
+export interface MarketBundlePreviewPayload {
+  total?: number
+  create?: string[]
+  overwrite?: string[]
+  blocking?: string[]
+}
+
+export interface MarketBundleImportItemResult {
+  name?: string
+  version?: string
+  outcome?: 'created' | 'idempotent' | 'rejected' | string
+  template_id?: string
+  reason?: string
+}
+
+export interface MarketBundleImportResult {
+  preview?: MarketBundlePreviewPayload
+  applied?: boolean
+  results?: MarketBundleImportItemResult[]
+}
+
+/**
+ * 打包载荷导入 / 预览。
+ *
+ * 后端先 `VerifyMarketBundle` 验签（未签名包一律拒绝），再做依赖自洽检查；
+ * 含覆盖项时必须 `confirm_overwrite=true` 才继续。
+ * `preview=true` 时只读：验签与依赖检查照常执行，但不落库。
+ */
+export const importMarketBundle = async (data: {
+  bundle: unknown
+  preview?: boolean
+  confirm_overwrite?: boolean
+}) => {
+  return await request.post<MarketBundleImportResult>('/device/template/market/bundle/import', data)
 }
 
 /** 本地模板分页列表（浏览页卡片数据源，后端支持 type_key 过滤） */

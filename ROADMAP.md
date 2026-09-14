@@ -94,7 +94,20 @@
 
 **B. 小开发量（`未接线`）**
 
-- SCADA 新 `views/scada/` 编辑器挂路由；widget schema 定义真实配置字段；anomaly 与打包导入的前端 UI；P0.6 管理员报表工作台前端；P1.6 预览/确认闸门浏览器 UI。
+- widget schema 定义真实配置字段（仍未做）。
+- ~~SCADA 新 `views/scada/` 编辑器挂路由~~ → 已挂（`imports.ts` + `visualizationRoutes.ts`）。
+- ~~anomaly / 打包导入 / 报表工作台前端 UI~~ → 页面存在且浏览器实测可达（2026-09-14）。
+- ~~P1.6 预览 / 确认闸门浏览器 UI~~ → 已接线并实测通过（2026-09-14）。
+
+**B-2. 2026-09-14 已闭环（原列在 B 或此前漏记，现按运行证据结案）**
+
+| 项 | 根因 | 交付物 | 证据 |
+| --- | --- | --- | --- |
+| **全部路由白屏** | `vite.config.ts` 的 `manualChunks` 把 vue/vue-router/pinia/vue-i18n 等全部兜底进同一个 `vendor` chunk；这些包存在循环导出，被强制合并后初始化顺序不保证，运行期在 `createRef` 访问 `RefImpl` 时抛 TDZ（`Cannot access 'X' before initialization`），SPA 完全不挂载。文件里的注释其实早已写明这个风险，但代码与注释不一致 | 去掉 `return 'vendor'` 兜底，交由 Rollup 按依赖图切分 | `automation_tests/scripts/diag-spa-mount.js` 6 条路由全部 `appChildren=1`；`e2e/24_p1_console_surfaces.spec.js` **6/6 通过** |
+| **页面存在但 403 不可达** | 项目用 `VITE_AUTH_ROUTE_MODE=dynamic`，授权路由由 `sys_ui_elements` 驱动；前端 `generatedRoutes` 有条目、菜单里没有的路径会被守卫判为"存在但无权限"→ 403（不是 404） | 前端补 `routes.ts` / `imports.ts` / `transform.ts` / `visualizationRoutes.ts` / `typings` 五处注册；后端新增 `sql/100.sql` 补 5 条菜单行（含 `VERSION_NUMBER` 99→100） | 上述 6/6；`100.sql` 复跑全部 `INSERT 0 0`（幂等） |
+| **打包导入闸门 UI 回退** | `views/market/browse/index.vue` 在 main 上是旧版：上传按钮直接调 `/device/template/import`（无签名、无 `confirm_overwrite`），**完全绕过 `VerifyMarketBundle`**；而 `bundle-import-model.ts`（闸门逻辑）与测试都已按新版存在 → 组件与测试契约不一致 | 按模型重写 `index.vue`（解析预检 → 只读预览 → 覆盖确认 → 提交），并补回 `importMarketBundle` API wrapper，同时移除 `importDeviceTemplate` 这个隐患导出 | `__tests__/index.test.ts` 4/4 + `bundle-import-model.test.ts` 30/30 |
+| **anomaly 页文案全缺** | `page.anomaly.*` 43 个键在 4 个语言包里都不存在，`$t()` 回退成键名 | 4 语言各补 43 键 | `__tests__/index.test.ts` 断言通过 |
+| **遥测种子跨天 100% 失败** | `ensureDeviceWithTelemetry` 复用既有设备，而模拟遥测依赖创建时写入 Redis 的**24 小时**凭证测试缓存（`telemetry_simulation.go` 的 `loadSimulationVoucher`），后端无轮换端点 → 隔天必报 `device credential test cache expired or absent`；且 `publishSimulatedTelemetryAndReadCurrent` 只发扁平载荷，本地 stub broker 无 gmqtt 的 aetherlink 插件补信封，adapter 会因 `device_id` 为空丢弃消息 | `lib/seed_data.js`：改为每次新建带新鲜凭证的设备 + 发布失败自动回收；载荷改为"先扁平、读不回来自动回退信封（base64 `values`）" | `tests/03_data` / `12_telemetry_extra` / `40_telemetry_anomaly` 由全挂转通过；`tests/38–42` **38/38** |
 
 **C. 需真实设备 / 外部通道（`未验证`，需凭据与真机）**
 

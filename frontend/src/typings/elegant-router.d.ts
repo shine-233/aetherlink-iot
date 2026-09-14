@@ -70,6 +70,8 @@ declare module "@elegant-router/types" {
     "management_role": "/management/role";
     "management_setting": "/management/setting";
     "management_user": "/management/user";
+    "market": "/market";
+    "market_browse": "/market/browse";
     "personal-center": "/personal-center";
     "product": "/product";
     "product_update-ota": "/product/update-ota";
@@ -79,6 +81,7 @@ declare module "@elegant-router/types" {
     "system-management-user_equipment-map": "/system-management-user/equipment-map";
     "system-management-user_system-log": "/system-management-user/system-log";
     "visualization": "/visualization";
+    "visualization_anomaly": "/visualization/anomaly";
     "visualization_native-board": "/visualization/native-board";
     "visualization_native-board-editor": "/visualization/native-board-editor";
     "visualization_native-boards": "/visualization/native-boards";
@@ -134,6 +137,7 @@ declare module "@elegant-router/types" {
     | "legal"
     | "login"
     | "management"
+    | "market"
     | "personal-center"
     | "product"
     | "system-management-user"
@@ -201,6 +205,7 @@ declare module "@elegant-router/types" {
     | "management_role"
     | "management_setting"
     | "management_user"
+    | "market_browse"
     | "personal-center"
     | "product_update-ota"
     | "product_update-package"
@@ -211,6 +216,7 @@ declare module "@elegant-router/types" {
     | "visualization_native-board-editor"
     | "visualization_native-boards"
     | "visualization_report"
+    | "visualization_anomaly"
     | "visualization_scada"
     | "visualization_scada-editor"
     | "visualization_thingsvis-dashboards"

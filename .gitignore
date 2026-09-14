@@ -168,4 +168,6 @@ __pycache__/
 
 # Runtime export artifacts and local test-result backups (2026-09-14 triage)
 backend/files/export/
-automation_tests/test-results-bak-*/
+# 任意 test-results 备份前缀：Playwright 每次重跑前都要腾出 test-results/，
+# 用 mv 归档（safe-delete 会拦批量删除），前缀按批次不同，故用通配。
+automation_tests/test-results-*/
