@@ -206,6 +206,14 @@ type DeviceGroupStatistics struct {
 	AlarmTotal   int64 `json:"alarm_total"`
 }
 
+// DeviceGroupWithStatistics 分组列表项 = 分组本体 + 统计。
+// 用内嵌把 Group 的字段平铺到同一层，保持既有消费方（直接读 group 字段）不受影响，
+// statistics 是新增字段，属加法变更。
+type DeviceGroupWithStatistics struct {
+	Group
+	Statistics DeviceGroupStatistics `json:"statistics"`
+}
+
 type CreateDeviceGroupRelationReq struct {
 	GroupId      string   `json:"group_id" validate:"required,max=36"` // 设备组ID
 	DeviceIDList []string `json:"device_id_list" validate:"required"`  // 设备ID列表
