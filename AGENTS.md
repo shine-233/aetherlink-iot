@@ -10,6 +10,15 @@ AetherLink IoT 是面向物联网设备接入、监控和私有部署的平台�
 - 前端：`cd frontend && pnpm typecheck && pnpm test:run && pnpm build`。
 - 后端：`cd backend && go test ./... && go build ./...`。
 - Broker：`cd mqtt-broker && go test ./... && go build ./...`。
+
+> ⚠️ **本机（16 GB 级内存、系统盘长期 98% 占用）上，上面三条"全量"命令跑不完**（2026-09-12 实测）：
+> - `go test ./...` 在**链接期** OOM（`VirtualAlloc ... errno=1455`），与被测代码无关。
+>   改用 `-p 1` 或分包跑：`go test ./internal/service/ ./internal/dal/ ./internal/api/ ./router/... -count=1 -p 1`。
+> - `vitest run`（前端全量）报 `Fatal process out of memory: Zone` 后被 SIGTERM；
+>   `--maxWorkers=1` 仍会超时。**只能按文件或目录分批跑**，例如
+>   `npx vitest run src/views/visualization/scada-editor/scada-model.test.ts`。
+> - 因此**"前后端全量测试通过"在本机无法证明**，不要据单次分包结果宣称全绿；
+>   报告时请写明"哪些包跑了、哪些没跑"。
 - 自动化：`cd automation_tests && npm run test:list`；真实 API/E2E 前先执行对应 preflight。
 
 ## 技术栈与目录
@@ -26,7 +35,15 @@ AetherLink IoT 是面向物联网设备接入、监控和私有部署的平台�
 - 本地 native board 是默认可视化 provider；ThingsVis 与 HTTP adapter 仅通过显式 optional profile/配置启用。
 - Market、SMTP、地图 provider 属于外部可选能力；未配置时不得阻断核心启动，也不得泄露配置值。
 - 外接模块必须保留稳定接口契约；能本地化的核心能力优先使用本地实现，不能本地化的能力返回明确的 optional/external-blocked 状态。
-- 数据库迁移当前最高为 `82.sql` / `VERSION_NUMBER=82`；修改迁移前必须同时枚举 `backend/sql/` 的连续编号、核对 `backend/pkg/global/global.go` 的迁移上界，并在目标环境核对 `sys_version`，不得只信任文档中的静态数字。
+- 数据库迁移上界**以代码为准，不要相信本文件里的数字**（本条曾长期写着 82、后写 93，
+  实际已推进到 99；每次改动都需重新核对）。修改迁移前必须三处同时核对：
+  ① 枚举 `backend/sql/` 下最大且连续的编号；
+  ② 核对 `backend/pkg/global/global.go` 的 `VERSION_NUMBER`；
+  ③ 在目标环境核对 `sys_version` 实际值。
+  三者必须一致；`backend/initialize/migration_version_guard_test.go` 守着①②的一致性。
+  2026-09-13 实测快照：`VERSION_NUMBER=99`，`backend/sql/` 最大为 `99.sql`（① ② 一致）。
+  **注意：全新空库用 `initialize.CheckVersion` 跑通全链的验证只做到过 93（`sys_version=93`，
+  114 张表）；94–99 尚未做过同等的全新库全链验证**，不得据 ①② 一致就宣称 `sys_version` 可达 99。
 - 登录防爆破为账号+IP 双维度：账号沿用 `classified-protect.login-max-fail-times`；IP 维度用 `classified-protect.ip-login-max-fail-times` / `ip-login-fail-window-seconds`（默认 20 次/600 秒，负值关闭）。
 - Casbin 路由覆盖审计默认 fail-fast（`casbin.route-audit-mode: fail-fast|warn|off`）：挂载在 CasbinRBAC 之后的新路由必须登记进资源表，否则后端拒绝启动。
 - per-tenant API 限流挂载于 JWTAuth 之后全量业务路由：`api-rate-limit.requests-per-minute`（默认 600，<=0 关闭，env `GOTP_API_RATE_LIMIT_RPM`），超限返回 429+Retry-After；集群部署需替换为共享存储计数。
