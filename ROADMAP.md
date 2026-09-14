@@ -132,7 +132,7 @@ px vitest run src/styles/__tests__/design-token-contract.test.ts 2/2 通过（20
 
 ## 2. 竞品能力边界（2026-09 刷新；版本锚点 2026-09-14 经 GitHub API 全量复核）
 
-> 版本数据来源：GitHub Releases API 全量实拉（`thingsboard/thingsboard` 87 个 release、`ThingsPanel/thingspanel-backend-community` 51 个 release，见仓库 `docs/validation/2026-09-14-gap-analysis.md` 与逐版本差距矩阵）。40 功能域量化结论：✅ 追平/领先 24 项、🟡 部分实现 12 项、❌ 未实现 4 项。
+> 版本数据来源：GitHub Releases API 全量实拉（`thingsboard/thingsboard` 87 个 release、`ThingsPanel/thingspanel-backend-community` 51 个 release，见仓库 `docs/validation/2026-09-14-gap-analysis.md` 与逐版本差距矩阵）。40 功能域量化结论：✅ 追平/领先 25 项、🟡 部分实现 10 项、❌ 未实现 5 项（2026-09-15 逐行重计）。
 
 **ThingsBoard**（Java）：当前 Active LTS 为 **v4.3.x**（v4.3.1.4，2026-08-27）。CE 覆盖设备/资产/客户实体、遥测、MQTT/CoAP/HTTP/SNMP/LWM2M、IoT Gateway（Modbus/OPC-UA/BACnet）、Rule Engine、计算字段（4.0）、Dashboard、告警规则 2.0（4.3）、OTA、多租户、集群、AI 规则节点。PE/Cloud/Edge 额外提供高级 RBAC、白标、平台集成（AWS IoT/Azure/Kafka/LoRaWAN）、400+ 编解码库、自动报表、解决方案模板、SSO、密钥存储与 SLA。TBMQ、Trendz、Edge 是独立生态产品，不应假设 CE 自带。4.0 的破坏性变更：Kafka 强制、flex-layout 移除、Timescale 弃用。
 
