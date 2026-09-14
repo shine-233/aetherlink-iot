@@ -164,12 +164,26 @@ func TestCheckMarketBundleDependencies(t *testing.T) {
 
 func TestPreviewMarketBundleImport(t *testing.T) {
 	bundle := marketBundleWithTemplates("new-1", "existing-1")
-	preview := PreviewMarketBundleImport(bundle, map[string]bool{"existing-1": true})
+	// 同名但版本不同 → 覆盖（会为同名模板再添一个版本，需人工确认）。
+	preview := PreviewMarketBundleImport(bundle, map[string]string{"existing-1": "0.9.0"})
 
 	require.False(t, preview.HasBlocking())
 	require.Equal(t, []string{"new-1"}, preview.Create)
-	require.Equal(t, []string{"existing-1"}, preview.Overwrite, "已存在模板必须显式列出为覆盖项")
+	require.Equal(t, []string{"existing-1"}, preview.Overwrite, "同名不同版本必须显式列出为覆盖项")
 	require.Equal(t, 2, preview.Total)
+}
+
+// 同名同版本的重导是幂等命中，不得被算成需要人工确认的覆盖——
+// 否则"同包重导全幂等命中"这条路径会被 confirm_overwrite 闸门永久挡住。
+func TestPreviewMarketBundleImportSameVersionIsIdempotentNotOverwrite(t *testing.T) {
+	bundle := marketBundleWithTemplates("existing-1")
+	// marketBundleWithTemplates 不设版本 → 归一化后为 1.0.0，与导入默认规则一致。
+	preview := PreviewMarketBundleImport(bundle, map[string]string{"existing-1": "1.0.0"})
+
+	require.False(t, preview.HasBlocking())
+	require.Empty(t, preview.Overwrite, "同版本重导是幂等命中，不是覆盖")
+	require.Empty(t, preview.Create)
+	require.Zero(t, preview.Total, "无新建也无覆盖时 Total 应为 0")
 }
 
 func TestPreviewMarketBundleImportSurfacesBlocking(t *testing.T) {

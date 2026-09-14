@@ -149,6 +149,18 @@ export const visualizationRoutes: GeneratedRoute[] = [
             i18nKey: 'route.visualization-scada-editor',
             roles: ['SYS_ADMIN', 'TENANT_ADMIN']
           }
+        },
+        {
+          // 工业画布编辑器（符号库 + 拖拽）。与 scada-editor 是互补的两条路径：
+          // scada-editor 负责遥测链路状态与控制命令确认；本页负责工业符号与画布拖拽。
+          name: 'visualization_scada',
+          path: '/visualization/scada',
+          component: 'view.visualization_scada',
+          meta: {
+            title: 'visualization_scada',
+            i18nKey: 'route.visualization-scada',
+            roles: ['SYS_ADMIN', 'TENANT_ADMIN']
+          }
         }
       ]
     }

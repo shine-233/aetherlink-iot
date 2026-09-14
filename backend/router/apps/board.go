@@ -39,6 +39,19 @@ func (*Board) InitBoard(Router *gin.RouterGroup) {
 		url.GET("trend", api.Controllers.BoardApi.GetDeviceTrend)
 
 	}
+	// P1.x 看板项目分组（native-board-provider 项目增删改）
+	projects := url.Group("projects")
+	{
+		projects.POST("", api.Controllers.BoardProjectApi.Create)
+		projects.GET("", api.Controllers.BoardProjectApi.List)
+		projects.GET(":id", api.Controllers.BoardProjectApi.Get)
+		projects.PUT(":id", api.Controllers.BoardProjectApi.Update)
+		projects.DELETE(":id", api.Controllers.BoardProjectApi.Delete)
+		projects.PUT(":id/boards/:board_id", api.Controllers.BoardProjectApi.AddBoard)
+		projects.DELETE(":id/boards/:board_id", api.Controllers.BoardProjectApi.RemoveBoard)
+		projects.GET("member-of/:board_id", api.Controllers.BoardProjectApi.MembershipOf)
+	}
+
 	// 设备数据
 	devices(url)
 	// 租客数据

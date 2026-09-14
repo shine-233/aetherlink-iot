@@ -37,11 +37,17 @@ var (
 	executeRunActionAfterDecoration = func(a *Automate, actions []model.ActionInfo, deviceId string, err error) {
 		a.actionAfterDecorationRun(actions, deviceId, err)
 	}
+	// 顺序即语义，不可随意调换：
+	//   - canAttemptScene / sceneIsActive / sceneWithinExecutionWindow 是无副作用的否决项，先跑；
+	//   - conditionsMatchScene 之后才登记幂等键，否则"条件其实没命中"也会吃掉键，
+	//     把同一秒内真正满足条件的后续上报误杀（见 scene_trigger_idempotency.go 注 2）；
+	//   - 幂等排在限流之前，让重复触发不去消耗限流预算。
 	sceneExecutionChecks = []sceneExecutionCheck{
 		(*Automate).canAttemptScene,
 		(*Automate).sceneIsActive,
 		(*Automate).sceneWithinExecutionWindow,
 		(*Automate).conditionsMatchScene,
+		(*Automate).sceneTriggerIsNew,
 		(*Automate).allowSceneExecutionRate,
 	}
 	// loadSceneExecutionWindows 可注入，使窗口门禁无需数据库即可验证。

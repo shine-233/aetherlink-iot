@@ -11,6 +11,7 @@ import { NAlert, NButton, NCard, NGrid, NGridItem, NInput, NModal, NForm, NFormI
 import { useRouterPush } from '@/hooks/common/router'
 import {
   getDefaultVisualizationProviderFacade,
+  NATIVE_BOARD_PROJECT_ID,
   NATIVE_BOARD_PROVIDER_ID,
   type VisualizationProject
 } from '@/service/visualization-provider/index'
@@ -367,9 +368,9 @@ onMounted(() => {
                     <icon-mdi:folder class="text-24px text-primary" />
                   </div>
 
-                  <!-- Hover actions -->
+                  <!-- Hover actions：内置项目不可改名/删除（provider 层 fail closed），不渲染入口 -->
                   <div
-                    v-if="projectCapabilities.update || projectCapabilities.delete"
+                    v-if="(projectCapabilities.update || projectCapabilities.delete) && project.id !== NATIVE_BOARD_PROJECT_ID"
                     class="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100"
                   >
                     <NButton

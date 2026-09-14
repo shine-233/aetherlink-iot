@@ -17,5 +17,7 @@ func (*OperationLog) Init(Router *gin.RouterGroup) {
 	{
 		// 分页查询
 		url.GET("", api.Controllers.OperationLogsApi.HandleListByPage)
+		// P3 审计导出：当前租户操作日志 CSV（时间窗必填,载荷列不导出）
+		url.POST("export", api.Controllers.OperationLogsApi.ExportAuditLogs)
 	}
 }

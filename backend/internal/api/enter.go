@@ -38,7 +38,7 @@ type Controller struct {
 	DataPolicyApi
 	DeviceConfigApi
 	DataScriptApi
-	EntityRelationApi // P1.1 通用实体关系
+	EntityRelationApi    // P1.1 通用实体关系
 	TelemetryAnalysisApi // P2.2 轻量分析
 	RoleApi
 	CasbinApi
@@ -65,13 +65,16 @@ type Controller struct {
 	DeviceModbusProfileApi
 	AiQueryApi
 	RuleChainApi
-	PluginRegistryApi // PHASE-D-D9 插件框架 gRPC 网关
-	ReportScheduleApi // PHASE-D-D3 定时报表
+	PluginRegistryApi    // PHASE-D-D9 插件框架 gRPC 网关
+	ReportScheduleApi    // PHASE-D-D3 定时报表
 	DeviceCertificateApi // PHASE-D-D5 接入安全 X.509
 	ScadaApi             // P1.3 Widget 与 SCADA 基础层
 	MobileApi            // P1.4 移动端控制与通知
-	EdgeSyncApi // PHASE-D-D6 边缘计算 2.0
-	AiModelApi  // PHASE-D-D7 AI 2.0 模型中心 + 助手
+	EdgeSyncApi          // PHASE-D-D6 边缘计算 2.0
+	LicenseApi           // P3 商业许可证状态
+	BoardProjectApi      // P1.x 看板项目分组
+	EdgeNodeApi          // P1.5 边缘节点注册/心跳/Reconcile
+	AiModelApi           // PHASE-D-D7 AI 2.0 模型中心 + 助手
 	RDIApi
 	PayloadSchemaApi
 	CalculatedFieldApi

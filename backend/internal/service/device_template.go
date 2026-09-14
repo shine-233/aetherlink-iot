@@ -333,10 +333,9 @@ func (*DeviceTemplate) ImportDeviceTemplateWithTenant(req model.ImportDeviceTemp
 			"field": "name",
 		})
 	}
-	version := "1.0.0"
-	if req.Version != nil && strings.TrimSpace(*req.Version) != "" {
-		version = strings.TrimSpace(*req.Version)
-	}
+	// 版本归一化与市场导入预览共用同一实现（NormalizeDeviceTemplateVersion）：
+	// 两处各写一份会让"同版本重导"的判定与实际幂等键分叉。
+	version := NormalizeDeviceTemplateVersion(req.Version)
 	// 幂等：同租户同名同版本直接复用。
 	existing, err := dal.FindDeviceTemplateByNameVersion(tenantID, name, version)
 	if err != nil {

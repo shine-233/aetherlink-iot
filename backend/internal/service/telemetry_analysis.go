@@ -22,12 +22,12 @@ import (
 
 // TelemetryAnalysisDeviceResult 单设备的分析结果。
 type TelemetryAnalysisDeviceResult struct {
-	DeviceID string                     `json:"device_id"`
-	Error    string                     `json:"error,omitempty"`
-	Current  TelemetryAggregateResult   `json:"current"`
-	Baseline TelemetryAggregateResult   `json:"baseline,omitempty"`
-	Delta    *float64                   `json:"delta,omitempty"`
-	Percent  *float64                   `json:"percent_change,omitempty"`
+	DeviceID string                   `json:"device_id"`
+	Error    string                   `json:"error,omitempty"`
+	Current  TelemetryAggregateResult `json:"current"`
+	Baseline TelemetryAggregateResult `json:"baseline,omitempty"`
+	Delta    *float64                 `json:"delta,omitempty"`
+	Percent  *float64                 `json:"percent_change,omitempty"`
 	// PercentReason 百分比未定义时说明原因，绝不把未定义渲染成数字。
 	PercentReason string `json:"percent_change_reason,omitempty"`
 }
@@ -93,6 +93,14 @@ func RunTelemetryAnalysis(ctx context.Context, q model.TelemetryAnalysisQuery, c
 	windowMs := q.EndTime - q.StartTime
 	result := &TelemetryAnalysisResult{Key: q.Key, Aggregate: aggregate, Compare: compare}
 
+	// P2.3：取数路径解析——分析缓存（可选）包裹常规取数；
+	// 整窗冷数据（早于降采样边界）回落 telemetry_rollups 冷层。
+	fetch := telemetryAnalysisOps.fetch
+	if cache := newTelemetryFetchCache(); cache != nil {
+		fetch = cache.wrap(fetch)
+	}
+	coldCutoff := telemetryColdWindowCutoffMs()
+
 	for _, deviceID := range q.DeviceIDs {
 		deviceResult := TelemetryAnalysisDeviceResult{DeviceID: deviceID}
 
@@ -103,7 +111,7 @@ func RunTelemetryAnalysis(ctx context.Context, q model.TelemetryAnalysisQuery, c
 			continue
 		}
 
-		currentRows, err := telemetryAnalysisOps.fetch(deviceID, q.Key, q.StartTime, q.EndTime, windowMs, aggregate)
+		currentRows, err := fetchTelemetryAnalysisSeries(fetch, deviceID, q.Key, q.StartTime, q.EndTime, windowMs, aggregate, coldCutoff)
 		if err != nil {
 			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
 		}
@@ -115,7 +123,7 @@ func RunTelemetryAnalysis(ctx context.Context, q model.TelemetryAnalysisQuery, c
 			if err != nil {
 				return nil, errcode.NewWithMessage(errcode.CodeParamError, err.Error())
 			}
-			baselineRows, err := telemetryAnalysisOps.fetch(deviceID, q.Key, baseStart, baseEnd, baseEnd-baseStart, aggregate)
+			baselineRows, err := fetchTelemetryAnalysisSeries(fetch, deviceID, q.Key, baseStart, baseEnd, baseEnd-baseStart, aggregate, coldCutoff)
 			if err != nil {
 				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
 			}
@@ -165,12 +173,12 @@ func telemetryAnalysisRowsFromResult(result *TelemetryAnalysisResult) [][]string
 			DeviceID: device.DeviceID,
 			Period:   period,
 			Comparison: TelemetryPeriodComparison{
-				Current:                 device.Current,
-				Baseline:                device.Baseline,
-				Delta:                   delta,
-				DeltaOK:                 deltaOK,
-				PercentChange:           device.Percent,
-				PercentUndefinedReason:  device.PercentReason,
+				Current:                device.Current,
+				Baseline:               device.Baseline,
+				Delta:                  delta,
+				DeltaOK:                deltaOK,
+				PercentChange:          device.Percent,
+				PercentUndefinedReason: device.PercentReason,
 			},
 		})
 	}

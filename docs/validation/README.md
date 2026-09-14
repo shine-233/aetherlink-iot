@@ -29,11 +29,15 @@
 | `P0.3-job-report-evidence.md` | P0.3 | 报告导出：进度 NULL 与 0 两分、租户隔离、缺租户被拒（真实 PG） |
 | `P0.5-export-cleanup-evidence.md` | P0.5 | 导出/清理接线核查 + Casbin 漏登记修复 |
 | `P0.5-cleanup-execution-evidence.md` | P0.5 | 清理**真实删除路径**证据（与注入式单测互补） |
+| `P0.5-credential-once-download-evidence.md` | P0.5 | 一次性凭证下载：消费即失效，含并发负向对照 |
 | `P0.6-postgres-migration83-evidence.md` | P0.6 | 迁移 83 实跑，17 组子用例；SKIP 解除 |
 | `P0.6-P0.7-evidence.md` | P0.6 / P0.7 | 单元层证据（另一会话），并含一条已更正的环境判断 |
 | `P0.7-secret-encryption-evidence.md` | P0.7 | 凭证静态加密数据库层证据：库里不含明文等 5 项 |
 | `P1.2-rulechain-version-evidence.md` | P1.2 | 草稿/发布/回滚：语义 + 迁移 + 端点 + 持久化证据 |
 | `fresh-migration-and-dal-postgres-evidence.md` | 通用 | 全新库迁移通过（`sys_version=88`，113 表）；16 条依赖数据库的用例取得证据 |
+| `P1.5-P1.6-deadcode-audit.md` | P1.5 / P1.6 | 死代码核查：P1.5 两个死函数、P1.6 三个死函数 + 无导入端点（grep+编译为准） |
+| `P2-P3-audit.md` | P2 / P3 | P2.1 SDK 死包、P2.2/P2.3 缺口、P3 无代码的判定与依据 |
+| `P1.5-P3-completion-batch-20260912.md` | P1.5/P1.6/P2.1/P2.2/P2.3/P3 | 补全批次：edge_nodes 注册/Reconcile 接线、打包导入端点、roadmap 死包删除+pluginsdk、异常检测、降采样冷层+缓存、license（叶子包 6+6 真实测试全过）、board 项目分组（前端 34/34）；压测保持 pending |
 
 > 📌 **2026-09-12 追加**：迁移链已在 **`VERSION_NUMBER=93`** 下重新验证通过
 > （空库 `aetherlink_migrate_20260912`，`MIGRATE_OK` / `sys_version=93` / 114 张表，

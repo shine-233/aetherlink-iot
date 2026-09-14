@@ -122,12 +122,30 @@ export const managementRoutes: GeneratedRoute[] = [
           }
         },
         {
+          name: 'management_edge-nodes',
+          path: '/management/edge-nodes',
+          component: 'view.management_edge-nodes',
+          meta: {
+            title: 'management_edge-nodes',
+            i18nKey: 'route.management_edge-nodes'
+          }
+        },
+        {
           name: 'management_entity-version',
           path: '/management/entity-version',
           component: 'view.management_entity-version',
           meta: {
             title: 'management_entity-version',
             i18nKey: 'route.management_entity-version'
+          }
+        },
+        {
+          name: 'management_license',
+          path: '/management/license',
+          component: 'view.management_license',
+          meta: {
+            title: 'management_license',
+            i18nKey: 'route.management_license'
           }
         },
         {

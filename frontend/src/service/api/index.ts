@@ -32,5 +32,8 @@ export * from './telemetry-dead-letter'
 export * from './report'
 export * from './rule_chain'
 export * from './asset'
+export * from './entity-relation'
 export * from './entity_version'
 export * from './plugin_registry' // PHASE-D-D9 插件框架 gRPC 网关
+export * from './license'
+export * from './edge-node'

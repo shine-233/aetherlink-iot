@@ -9,6 +9,7 @@ import (
 	_ "time/tzdata"
 
 	"aetherlink-iot/backend/internal/app"
+	"aetherlink-iot/backend/internal/service"
 
 	"github.com/sirupsen/logrus"
 )
@@ -65,6 +66,13 @@ func main() {
 	)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "application initialization failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	// P3 商业许可证启动门控：license.required=true 时必须持有效许可证，
+	// 否则拒绝启动（缺省 required=false 不改变既有部署行为）。
+	if err := service.GroupApp.License.EnforceAtStartup(); err != nil {
+		fmt.Fprintf(os.Stderr, "license boundary check failed: %v\n", err)
 		os.Exit(1)
 	}
 

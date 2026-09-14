@@ -20,6 +20,15 @@ export const deviceRoutes: GeneratedRoute[] = [
           }
         },
         {
+          name: 'device_entity-relation',
+          path: '/device/entity-relation',
+          component: 'view.device_entity-relation',
+          meta: {
+            title: 'device_entity-relation',
+            i18nKey: 'route.device_entity-relation'
+          }
+        },
+        {
           name: 'device_command-center',
           path: '/device/command-center',
           component: 'view.device_command-center',
