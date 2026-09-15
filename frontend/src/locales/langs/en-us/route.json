@@ -75,5 +75,19 @@
   "route.visualization-scada": "SCADA industrial canvas",
   "route.device_entity-relation": "Entity Relations",
   "route.management_edge-nodes": "Edge Nodes",
-  "route.management_license": "License"
+  "route.management_license": "License",
+  "route.apply-service": "Service",
+  "route.automation-rule-chain": "Rule chain",
+  "route.automation-rule-chain-edit": "Rule chain editor",
+  "route.dashboard-rdi-overview": "RDI overview",
+  "route.dashboard-workbench": "Workbench",
+  "route.dashboard-workspace": "Workspace",
+  "route.device-asset": "Asset",
+  "route.device-entity-relation": "Entity relation",
+  "route.management-entity-version": "Entity version",
+  "route.management-role": "Role",
+  "route.product-pre-register": "Pre-registration",
+  "route.product-update-ota": "OTA update",
+  "route.product-update-package": "Update package",
+  "route.system-management-user-equipment-map": "Equipment map"
 }

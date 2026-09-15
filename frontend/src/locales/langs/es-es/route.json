@@ -75,5 +75,19 @@
   "route.visualization-scada": "Lienzo industrial SCADA",
   "route.device_entity-relation": "Relaciones de entidades",
   "route.management_edge-nodes": "Edge Nodes",
-  "route.management_license": "License"
+  "route.management_license": "License",
+  "route.apply-service": "Servicio",
+  "route.automation-rule-chain": "Cadena de reglas",
+  "route.automation-rule-chain-edit": "Editor de cadena de reglas",
+  "route.dashboard-rdi-overview": "Resumen RDI",
+  "route.dashboard-workbench": "Panel de trabajo",
+  "route.dashboard-workspace": "Espacio de trabajo",
+  "route.device-asset": "Activo",
+  "route.device-entity-relation": "Relación de entidades",
+  "route.management-entity-version": "Versión de entidad",
+  "route.management-role": "Rol",
+  "route.product-pre-register": "Prerregistro",
+  "route.product-update-ota": "Actualización OTA",
+  "route.product-update-package": "Paquete de actualización",
+  "route.system-management-user-equipment-map": "Mapa de equipos"
 }

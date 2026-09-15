@@ -75,5 +75,19 @@
   "route.visualization-scada": "Canevas industriel SCADA",
   "route.device_entity-relation": "Relations d’entités",
   "route.management_edge-nodes": "Edge Nodes",
-  "route.management_license": "License"
+  "route.management_license": "License",
+  "route.apply-service": "Service",
+  "route.automation-rule-chain": "Chaîne de règles",
+  "route.automation-rule-chain-edit": "Éditeur de chaîne de règles",
+  "route.dashboard-rdi-overview": "Vue d'ensemble RDI",
+  "route.dashboard-workbench": "Poste de travail",
+  "route.dashboard-workspace": "Espace de travail",
+  "route.device-asset": "Actif",
+  "route.device-entity-relation": "Relation d'entités",
+  "route.management-entity-version": "Version d'entité",
+  "route.management-role": "Rôle",
+  "route.product-pre-register": "Pré-enregistrement",
+  "route.product-update-ota": "Mise à jour OTA",
+  "route.product-update-package": "Paquet de mise à jour",
+  "route.system-management-user-equipment-map": "Carte des équipements"
 }

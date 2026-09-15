@@ -5,7 +5,11 @@ const path = require('path');
 const fs = require('fs');
 
 (async () => {
-  const storage = path.resolve(__dirname, '..', 'e2e', '.auth', 'tenant-admin.json');
+  // 角色可用 DIAG_ROLE 覆盖（文件名用连字符）：DIAG_ROLE=super_admin node scripts/diag-spa-mount.js ...
+  // 用途：区分「路由真的不可达」与「当前角色本就不该看到」——
+  // 例如 /apply/* 整棵只授 SYS_ADMIN，用 tenant_admin 扫会全是 403，那是预期而非缺陷。
+  const role = (process.env.DIAG_ROLE || 'tenant_admin').replace(/_/g, '-');
+  const storage = path.resolve(__dirname, '..', 'e2e', '.auth', `${role}.json`);
   if (!fs.existsSync(storage)) {
     console.error('storage state missing:', storage);
     process.exit(2);
@@ -23,13 +27,22 @@ const fs = require('fs');
     if (resp.status() >= 400) logs.push(`[response.${resp.status()}] ${resp.request().method()} ${resp.url()}`);
   });
 
-  const ROUTES = ['/login', '/visualization/anomaly', '/visualization/report', '/market/browse', '/management/edge-nodes', '/management/license', '/device/grouping'];
+  // 路由可从命令行传入，便于做全量可达性扫描：
+  //   node scripts/diag-spa-mount.js /a /b /c
+  //   node scripts/diag-spa-mount.js $(cat /tmp/routes.txt)
+  // 不传则用下面这份默认清单。
+  const ROUTES =
+    process.argv.slice(2).filter(Boolean).length > 0
+      ? process.argv.slice(2).filter(Boolean)
+      : ['/login', '/visualization/anomaly', '/visualization/report', '/market/browse', '/management/edge-nodes', '/management/license', '/device/grouping'];
+
+  const summary = [];
 
   for (const route of ROUTES) {
     logs.push(`\n========== goto ${route} ==========`);
     try {
       await page.goto(route, { waitUntil: 'domcontentloaded', timeout: 15000 });
-      await page.waitForTimeout(3000);
+      await page.waitForTimeout(2500);
     } catch (e) {
       logs.push(`[goto.error] ${e.message}`);
     }
@@ -47,8 +60,18 @@ const fs = require('fs');
     });
     logs.push(`[info] url=${info.url} title="${info.title}" appChildren=${info.appChildren} appHTMLLen=${info.appHTMLLen} hasRoot=${info.hasRoot}`);
     logs.push(`[body.text] ${info.bodyTextSample.replace(/\n/g, ' | ')}`);
+
+    // 判定：路由表里有、菜单里没有的路径会被守卫跳 403（不是 404）；
+    // appChildren=0 表示 SPA 根本没挂载（白屏，通常是运行期异常，看上面的 pageerror）。
+    let verdict = 'OK';
+    if (info.appChildren <= 0) verdict = 'BLANK';
+    else if (/No Permission/i.test(info.title) || /403/.test(info.url)) verdict = '403';
+    else if (/Not Found|404/i.test(info.title)) verdict = '404';
+    summary.push(`${verdict.padEnd(5)} ${route}  (children=${info.appChildren}, len=${info.appHTMLLen})`);
   }
 
   console.log(logs.join('\n'));
+  console.log('\n========== SUMMARY ==========');
+  console.log(summary.join('\n'));
   await browser.close();
 })().catch(e => { console.error('FATAL', e); process.exit(1); });

@@ -75,5 +75,19 @@
   "route.visualization-scada": "SCADA 工业画布",
   "route.device_entity-relation": "实体关系",
   "route.management_edge-nodes": "边缘节点",
-  "route.management_license": "商业许可证"
+  "route.management_license": "商业许可证",
+  "route.apply-service": "服务",
+  "route.automation-rule-chain": "规则链",
+  "route.automation-rule-chain-edit": "规则链编辑",
+  "route.dashboard-rdi-overview": "RDI 总览",
+  "route.dashboard-workbench": "工作台",
+  "route.dashboard-workspace": "工作区",
+  "route.device-asset": "资产",
+  "route.device-entity-relation": "实体关系",
+  "route.management-entity-version": "实体版本",
+  "route.management-role": "角色",
+  "route.product-pre-register": "预注册",
+  "route.product-update-ota": "OTA 升级",
+  "route.product-update-package": "升级包",
+  "route.system-management-user-equipment-map": "设备地图"
 }
