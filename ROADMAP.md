@@ -594,7 +594,7 @@ ThingsBoard PE/Cloud/Edge、TBMQ、Trendz 和 ThingsPanel 企业宣传能力只�
 
 **第一梯队（建议立即立项，投入小或刚需）**
 
-1. ~~`TP-4` 设备诊断 / GMQTT 管理界面 / Topic 映射页~~ → 已接线（四个组件均有挂载点），只差浏览器证据。
+1. ~~`TP-4` 设备诊断 / GMQTT 管理界面 / Topic 映射页~~ → **已验证（2026-09-15）**：`e2e/25_tp4_device_diagnostics.spec.js` **5/5**，四个组件在真实环境（MQTT broker + 后端 + prod 构建）逐个取证。过程中修掉一处**死代码**：`add-devices-step2.vue` 未传 `device-id`，致 `DeviceMqttDebugWorkbench` 的 `v-if="deviceId && ..."` 恒假——已挂载但永远不可达（提交 `b570eb2`）。**仍缺**：Topic 映射的订阅/发布交互未取证（需先开启调试会话，会真在 broker 上开会话）。
 2. ~~`TP-8` 设备分组统计 + 模拟遥测数据接口~~ → **已闭环（2026-09-14）**，见 §7.2 该行。
 3. `TB-1` 告警规则 2.0——工业刚需，可复用既有告警链路。**（现为第一梯队唯一未开工项）**
 
