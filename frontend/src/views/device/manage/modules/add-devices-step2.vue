@@ -128,6 +128,7 @@ const handleSubmit = async () => {
 
 <template>
   <DeviceAccessGuide
+    :device-id="device_id || undefined"
     :access-guide="accessGuide"
     :connect-info="connectInfo"
     :has-unsaved-credentials="hasUnsavedCredentialChanges"

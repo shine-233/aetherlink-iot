@@ -11,7 +11,8 @@
  *   1. DeviceAccessGuide        设备创建向导第 2 步（/device/manage → 手动添加设备 → 下一步）
  *   2. ConnectionProofSteps     同上，嵌在 DeviceAccessGuide 内
  *   3. DeviceMqttDebugWorkbench DeviceAccessGuide.vue:439，v-if="deviceId && endpointKind==='mqtt'"；
- *      实测只有设备详情页「接入」tab 满足该条件，向导 step2 不满足（见 fixme 用例）
+ *      两条路径都已取证：设备详情页「接入」tab，以及设备创建向导 step2
+ *      （step2 原先恒不渲染，见该用例上方注释；已随 TP-4 死代码修复一并修好）
  *   4. DeviceOperationsWorkbench 设备详情页（/device/details?d_id=<id>），v-if="canUseOwnerDetailActions"
  *
  * 断言口径：
@@ -38,6 +39,9 @@ const MARKER = {
   mqttWorkbenchTestId: 'device-mqtt-debug-workbench',
   mqttWorkbenchTitle: /MQTT 调试工作台|MQTT debug workbench/i,
   mqttWorkbenchOpen: /开启调试会话|Open debug session/i,
+  // 「上报主题」指标由 DeviceAccessGuide.vue:255 的 v-if="endpointKind === 'mqtt'" 控制，
+  // 用来单独钉住 DeviceMqttDebugWorkbench 挂载条件的右半边
+  accessGuideReportTopic: /上报主题|Report topic/i,
   // DeviceOperationsWorkbench 引导文案 + 首张卡片标题
   workbenchIntro: /设备运维工作台|device operations workbench/i,
   workbenchReadyCard: /接入就绪检查|Access readiness check/i,
@@ -140,37 +144,38 @@ test.describe('TP-4 device diagnostics surfaces [25_tp4_device_diagnostics]', ()
     });
 
     /**
-     * 未验证（2026-09-15 实测）：这条路径在真实浏览器里拿不到 DeviceMqttDebugWorkbench。
+     * 2026-09-15 已修复并取证。此处保留根因，说明为什么必须有这条用例：
      *
-     * 根因（源码级，非猜测）：
+     * 原状：这条路径在真实浏览器里拿不到 DeviceMqttDebugWorkbench。
      *   DeviceAccessGuide.vue:439 的挂载条件为
      *     v-if="deviceId && accessGuide.endpointKind === 'mqtt'"
-     *   而 add-devices-step2.vue:130 调用 DeviceAccessGuide 时只传了
+     *   而 add-devices-step2.vue 调用 DeviceAccessGuide 时只传了
      *   access-guide / connect-info / has-unsaved-credentials，没有传 device-id，
      *   尽管 step2 自身有 props.device_id（add-devices-step2.vue:43）。
-     *   于是 wizard 路径下 deviceId 恒为 undefined，v-if 恒假，组件静默不渲染。
+     *   → wizard 路径下 deviceId 恒为 undefined，v-if 恒假，组件静默不渲染：
+     *     已挂载但永远不可达，等于死代码。
      *
-     * 已排除的其它可能：
-     *   - 不是 pageerror / 模块加载失败：同一页面里 DeviceAccessGuide（testid
-     *     device-access-guide）与 ConnectionProofSteps 都正常渲染，上两条用例已证明；
+     * 已排除的其它可能（当时逐条验证过）：
+     *   - 不是 pageerror / 模块加载失败：同页 DeviceAccessGuide 与
+     *     ConnectionProofSteps 都正常渲染，上面两条用例已证明；
      *   - 不是 403：/device/manage 与抽屉都能打开，步骤条也走到第 2 步；
-     *   - 不是 endpointKind 问题：v-if 是 `deviceId && endpointKind === 'mqtt'` 的合取，
-     *     deviceId 为 undefined 时无论 endpointKind 取什么值整体都恒假；
-     *     真正缺失的是 device-id 这个 prop。
+     *   - endpointKind 不是阻碍：`endpointKind = protocol === 'HTTP' ? 'http' : 'mqtt'`
+     *     （device-access-guide-state.ts:706），MQTT 设备取 'mqtt'；真正缺的是 device-id。
      *
-     * 组件本身已通过另一条路径取证：设备详情页「接入」tab（join.vue:369 传了 :device-id），
-     * 见本文件下方 "device details page" 分组的用例。
-     *
-     * 若要消除这条缺口，修法是给 add-devices-step2.vue:130 补上 :device-id="device_id"。
-     * 这属于产品行为变更（向导里会多出一个可开启 broker 调试会话的入口），
-     * 未在此次取证任务里擅自改动，故保留断言并标 fixme。
+     * 修法：add-devices-step2.vue 补 `:device-id="device_id || undefined"`
+     * （用 || undefined 而非空串：空串会让 prop 变成"传了但为空"，排查时更难分辨）。
+     * 副作用是有意为之——向导里现在会出现「开启调试会话」入口，这是原本就该有的能力。
      */
-    test.fixme(
+    test(
       'DeviceMqttDebugWorkbench renders in the creation wizard step 2',
       async ({ rolePage, api }) => {
         const { page, pid } = await openDeviceWizardStep2(rolePage);
 
         try {
+          // 先钉住 v-if 的右半边 endpointKind === 'mqtt'：该指标由
+          // DeviceAccessGuide.vue:255 的同款 v-if 控制，可见即证明不是 endpointKind 挡的。
+          await expect(page.getByText(MARKER.accessGuideReportTopic).first()).toBeVisible({ timeout: 20000 });
+          // 再钉住左半边 deviceId 与合取结果：只有 device-id 真传进去了才成立。
           await expect(page.getByTestId(MARKER.mqttWorkbenchTestId)).toBeVisible({ timeout: 20000 });
           await expect(page.getByText(MARKER.mqttWorkbenchTitle).first()).toBeVisible({ timeout: 20000 });
           await expect(
