@@ -583,7 +583,7 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 3. ~~补 anomaly / 打包导入 / 报表工作台 的前端 UI~~ → 已完成且已复核（2026-09-15 复跑：`market/browse` 4/4 + `visualization/anomaly` 3/3 vitest 通过；三处路由四件套与 `sys_ui_elements` 菜单行齐备，非"文件存在但不可达"）。
 4. ~~补 edge / license / anomaly / bundle-import / operation_logs-export 的自动化 E2E 用例~~ → 已完成且已复核（2026-09-15 实跑：38 组 10/10、39 组 6/6、40 组 11/11、41 组 5/5、42 组 6/6，见 `docs/validation/2026-09-15-roadmap-status-recheck.md`）。
 5. 补运行期证据文档：P1.1 实体关系（PostgreSQL 常驻用例）、P0.3 灰度治理、98/99.sql 在 PostgreSQL 复跑。（P2.2 anomaly 与 P1.5/P1.6 新端点本轮已取证，从本项移除。）
-6. **新增**：TB-1 剩余三片（可配置规则条件 / 严重度传播 / 指派历史审计）——评论片已闭环，见 §7.1。
+6. **TB-1 剩余两片**（可配置规则条件 / 严重度传播与清除）——评论片与指派片已闭环，证据见 `docs/validation/2026-09-15-tb1-assignment-evidence.md`。剩余两片需改规则求值链路，属独立立项。
 
 **第二优先（需恢复环境：Go 模块缓存 / Docker / 磁盘空间）**：
 
@@ -612,7 +612,7 @@ ThingsBoard PE/Cloud/Edge、TBMQ、Trendz 和 ThingsPanel 企业宣传能力只�
 
 | # | 缺口 | TB 来源 | 本地现状 | 缺口类型 | 前提与依赖 | 量级 | 立项建议 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| TB-1 | 告警规则 2.0（可配置规则对象、条件/严重度/传播、告警生命周期与指派评论） | 4.3.0 `#14036`（2026-09-15 源码级复核：**属 CE**）。PR#14036 已合入 CE 仓库 master；CE 侧实锤文件 `common/data/.../cf/configuration/AlarmCalculatedFieldConfiguration.java`、`dao/.../cf/BaseCalculatedFieldService.java`（含 `CalculatedFieldType.ALARM`）、`application/.../actors/calculatedField/CalculatedFieldAlarmActionMsg.java`、前端 `ui-ngx/src/app/modules/home/components/alarm-rules/`（34 文件）。官方对比表未列属遗漏；**仅 "Configure with AI" 为 PE/Cloud**。**重要口径修正：assignee / comment 不是规则配置字段，而是告警实例能力**（TB CE UI 已有 alarm-assignee / alarm-comment 组件）——故本片只是补齐对等能力，不构成差异化 | **第一片已闭环（2026-09-15）**：告警评论前后端落地——`alarm_comment` 表（101.sql）+ model/dal/service/api 四层 + 三条路由 + Casbin 登记；前端 `AlarmCommentPanel.vue` 已挂到 `alarm-configuration.vue` 详情弹窗（路径：列表行「详情」→ `getInfo` → 弹窗内面板），10 条前端用例 + 10 条 API E2E 全绿（**浏览器渲染仍 pending**：Playwright 在本机被沙箱拦下，spec 已写未跑，见 `docs/validation/2026-09-15-roadmap-status-recheck.md` §7.1）。核对修正：① 告警历史/确认/备注已有；② **"指派"其实部分存在**——`alarm_info.processor` 即当前处理人（原写"无指派"不准确）；③ `alarm_info` 是**已废弃**的 device-less 旧表，现代告警走 `alarm_history`。**仍缺**：可配置规则条件、严重度传播（升级/清除）、指派历史审计 | `部分实现` | 剩余部分需改规则求值链路；与现有 `rule_chain` 告警节点划清边界 | L（剩余 L，已完成 S 片） | **继续立项（高）**：评论片已完整落地，剩余"条件/传播/指派审计"按原计划排 |
+| TB-1 | 告警规则 2.0（可配置规则对象、条件/严重度/传播、告警生命周期与指派评论） | 4.3.0 `#14036`（2026-09-15 源码级复核：**属 CE**）。PR#14036 已合入 CE 仓库 master；CE 侧实锤文件 `common/data/.../cf/configuration/AlarmCalculatedFieldConfiguration.java`、`dao/.../cf/BaseCalculatedFieldService.java`（含 `CalculatedFieldType.ALARM`）、`application/.../actors/calculatedField/CalculatedFieldAlarmActionMsg.java`、前端 `ui-ngx/src/app/modules/home/components/alarm-rules/`（34 文件）。官方对比表未列属遗漏；**仅 "Configure with AI" 为 PE/Cloud**。**重要口径修正：assignee / comment 不是规则配置字段，而是告警实例能力**（TB CE UI 已有 alarm-assignee / alarm-comment 组件）——故本片只是补齐对等能力，不构成差异化 | **第一片已闭环（2026-09-15）**：告警评论前后端落地——`alarm_comment` 表（101.sql）+ model/dal/service/api 四层 + 三条路由 + Casbin 登记；前端 `AlarmCommentPanel.vue` 已挂到 `alarm-configuration.vue` 详情弹窗（路径：列表行「详情」→ `getInfo` → 弹窗内面板），10 条前端用例 + 10 条 API E2E 全绿（**浏览器渲染仍 pending**：Playwright 在本机被沙箱拦下，spec 已写未跑，见 `docs/validation/2026-09-15-roadmap-status-recheck.md` §7.1）。核对修正：① 告警历史/确认/备注已有；② **"指派"其实部分存在**——`alarm_info.processor` 即当前处理人（原写"无指派"不准确）；③ `alarm_info` 是**已废弃**的 device-less 旧表，现代告警走 `alarm_history`。**第二片（指派历史审计）已闭环（2026-09-15）**：`103.sql` 新增 `alarm_assignment`（append-only 流水，`assignee_user_id` 为 NULL 表示取消指派，当前处理人 = 最新一条）+ model/dal/service/api 四层 + `POST/GET /alarm/info/history/:id/assignment` + 44 组 E2E **12/12** + 前端 `AlarmAssignmentPanel` 挂载（`alarm-configuration.vue:738`）。**仍缺**：可配置规则条件、严重度传播（升级/清除） | `部分实现` | 剩余两片需改规则求值链路；与现有 `rule_chain` 告警节点划清边界 | L（剩余 L，已完成 S+M 两片） | **继续立项（高）**：评论片与指派片已落地，剩余"条件/传播"两片按原计划排 |
 | TB-2 | 计算字段高级形态：地理围栏、实体间传播、关联实体聚合、输出策略 | 4.3.0 `#13857/#14107/#14141/#14225`；4.0 计算字段 | `calculated_field` 路由存在，为较基础形态 | `未实现` | 依赖实体关系（P1.1，已落地）与地理位置字段 | L | **建议立项（中）**：地理围栏需地图 provider（当前属可选外部能力），可先做传播与聚合 |
 | TB-3 | EDQS 级高性能实体数据查询（内存型实体查询服务） | 4.0.0 `#12527`，4.0.2 持续改进 | 常规 SQL 路径 + 冷层 rollup | `未实现` | 需引入缓存/索引层；与 P2.3 降采样冷层协同 | XL | **不建议近期立项**：收益依赖规模，先用 P2.3 压测量化瓶颈再决定 |
 | TB-4 | 移动应用中心 + 白标移动端 | 3.9.0 `#11835`；PE 白标 | 无客户端工程（P1.4 缺口同源） | `客户端缺失` | 依赖 P1.4 移动端立项决策 | XL | **与 P1.4 合并立项**：先出 Android/iOS 客户端，再谈应用中心与白标 |
@@ -642,7 +642,7 @@ ThingsBoard PE/Cloud/Edge、TBMQ、Trendz 和 ThingsPanel 企业宣传能力只�
 
 1. ~~`TP-4` 设备诊断 / GMQTT 管理界面 / Topic 映射页~~ → **已验证（2026-09-15）**：`e2e/25_tp4_device_diagnostics.spec.js` **5/5**，四个组件在真实环境（MQTT broker + 后端 + prod 构建）逐个取证。过程中修掉一处**死代码**：`add-devices-step2.vue` 未传 `device-id`，致 `DeviceMqttDebugWorkbench` 的 `v-if="deviceId && ..."` 恒假——已挂载但永远不可达（提交 `b570eb2`）。**仍缺**：Topic 映射的订阅/发布交互未取证（需先开启调试会话，会真在 broker 上开会话）。
 2. ~~`TP-8` 设备分组统计 + 模拟遥测数据接口~~ → **已闭环（2026-09-14）**，见 §7.2 该行。
-3. `TB-1` 告警规则 2.0——工业刚需，可复用既有告警链路。**评论片已于 2026-09-15 闭环（前后端 + 10 条前端用例 + 10 条 API E2E）；剩余"可配置规则条件 / 严重度传播 / 指派历史审计"三片仍为第一梯队唯一未开工部分。**
+3. `TB-1` 告警规则 2.0——工业刚需，可复用既有告警链路。**评论片（10 条前端用例 + 10 条 API E2E）与指派片（44 组 12/12 + 前端面板）已于 2026-09-15 闭环；剩余"可配置规则条件 / 严重度传播（升级与清除）"两片仍为第一梯队唯一未开工部分**——它们要改规则求值链路，不能再用"最小切片"打法。
 
 **第二梯队（建议排期，中等投入）**
 
