@@ -38,6 +38,12 @@
 | `P1.5-P1.6-deadcode-audit.md` | P1.5 / P1.6 | 死代码核查：P1.5 两个死函数、P1.6 三个死函数 + 无导入端点（grep+编译为准） |
 | `P2-P3-audit.md` | P2 / P3 | P2.1 SDK 死包、P2.2/P2.3 缺口、P3 无代码的判定与依据 |
 | `P1.5-P3-completion-batch-20260912.md` | P1.5/P1.6/P2.1/P2.2/P2.3/P3 | 补全批次：edge_nodes 注册/Reconcile 接线、打包导入端点、roadmap 死包删除+pluginsdk、异常检测、降采样冷层+缓存、license（叶子包 6+6 真实测试全过）、board 项目分组（前端 34/34）；压测保持 pending |
+| `2026-09-13-build-test-and-pg-verification.md` | 通用（§1.2.1） | 推翻"模块缓存被清空导致测试跑不了"的误诊：真因是代码编译错误；修复 6 处缺陷后 `go build -p 1 ./...` exit 0、`go test -p 1 ./...` 61 包全 ok，并上真实 PG 复验 |
+| `2026-09-13-p1-e2e-and-market-route-evidence.md` | §6 第一优先 | 5 组 API E2E 由 0/5 转 **5/5（38 例全绿）**；anomaly UI 23 例、报表工作台 10 例通过；打包导入 UI 已实现但**路由从未注册**，本次补上 |
+| `2026-09-13-p16-e2e-and-gate-evidence.md` | P1.6 | 打包导入闸门 + Go 侧迁移链 1→99 全链验证（此前只到 93）；38–42 五组用例 **38 passing / 0 failing**，并记录 5 处"用例自身断言错误"的修正 |
+| `2026-09-14-console-routes-and-spa-mount-evidence.md` | §1.3-B-2 | 全路由白屏根因是 `manualChunks` 兜底 `return 'vendor'` 触发 TDZ；修复后 `e2e/24` 由 1/6 转 **6/6**，前端 83/83、`vue-tsc` 0 error |
+| `2026-09-14-device-group-statistics-evidence.md` | §7.2 TP-8 | ① 模拟遥测早已可用（此前误记为未实现）；② 设备分组统计本轮补齐，两条均已闭环 |
+| `2026-09-14-alarm-comment-evidence.md` | §7.2 TB-1 | 告警评论第一片：迁移 `101.sql` + 五层代码 + Casbin 登记；评论挂 `alarm_history` 而非废弃的 `alarm_info` |
 
 > 📌 **2026-09-12 追加**：迁移链已在 **`VERSION_NUMBER=93`** 下重新验证通过
 > （空库 `aetherlink_migrate_20260912`，`MIGRATE_OK` / `sys_version=93` / 114 张表，
