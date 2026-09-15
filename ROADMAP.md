@@ -134,9 +134,48 @@ px vitest run src/styles/__tests__/design-token-contract.test.ts 2/2 通过（20
 
 > 版本数据来源：GitHub Releases API 全量实拉（`thingsboard/thingsboard` 87 个 release、`ThingsPanel/thingspanel-backend-community` 51 个 release，见仓库 `docs/validation/2026-09-14-gap-analysis.md` 与逐版本差距矩阵）。40 功能域量化结论：✅ 追平/领先 25 项、🟡 部分实现 10 项、❌ 未实现 5 项（2026-09-15 逐行重计）。
 
-**ThingsBoard**（Java）：当前 Active LTS 为 **v4.3.x**（v4.3.1.4，2026-08-27）。CE 覆盖设备/资产/客户实体、遥测、MQTT/CoAP/HTTP/SNMP/LWM2M、IoT Gateway（Modbus/OPC-UA/BACnet）、Rule Engine、计算字段（4.0）、Dashboard、告警规则 2.0（4.3）、OTA、多租户、集群、AI 规则节点。PE/Cloud/Edge 额外提供高级 RBAC、白标、平台集成（AWS IoT/Azure/Kafka/LoRaWAN）、400+ 编解码库、自动报表、解决方案模板、SSO、密钥存储与 SLA。TBMQ、Trendz、Edge 是独立生态产品，不应假设 CE 自带。4.0 的破坏性变更：Kafka 强制、flex-layout 移除、Timescale 弃用。
+**ThingsBoard**（Java）：当前 Active LTS 为 **v4.3.x**（v4.3.1.4，2026-08-27）。CE 覆盖设备/资产/客户实体、遥测、MQTT/CoAP/HTTP/SNMP/LWM2M、IoT Gateway（Modbus/OPC-UA/BACnet）、Rule Engine、计算字段（4.0）、Dashboard、告警规则 2.0（4.3）、OTA、多租户、集群、AI 规则节点。PE/Cloud/Edge 额外提供高级 RBAC、平台集成（AWS IoT/Azure/Kafka/LoRaWAN）、400+ 编解码库、自动报表、密钥存储与 SLA。TBMQ、Trendz、Edge 是独立生态产品，不应假设 CE 自带。4.0 的破坏性变更：Kafka 强制、flex-layout 移除、Timescale 弃用。
 
-**ThingsPanel**（Go，**与本项目同源**）：社区版仅 HTTP/MQTT/Modbus TCP·RTU + 看板（无大屏）+ 场景联动 + 固件升级 + 多租户 + APP；企业版将 21 项协议、11 项三方接入、大屏、算法中心、集群、白标、国产化系统与国产数据库列为"需单独购买"。社区仓库 `main@b646061`（2026-09-07）：572 个 `.go` 文件、33 个测试文件、20 条 SQL 迁移。对 ThingsPanel 的结论必须二分"官网宣称"与"开源仓库可验证"。
+> **2026-09-15 CE/PE 边界修正（按 GitHub 仓库真实路径复核，见 `docs/validation/2026-09-15-competitor-ce-boundary-evidence.md`）**
+> 上一段原文曾把 SSO、白标、解决方案模板、2FA 一并归入"PE 额外提供"，**这几条与仓库实际不符**：
+> - **SSO/OAuth2 在 CE**：`controller/OAuth2Controller.java`、`config/CustomOAuth2AuthorizationRequestResolver.java`、
+>   `common/data/.../oauth2/`，内置 4 份厂商模板，Controller 无任何 PE 授权校验。
+> - **白标要分两层**：域名级在 CE（`common/data/.../domain/Domain.java` + `DomainController.java`，
+>   支持自定义域名、每域名 OAuth2、下发 Edge）；**仅品牌级（改 logo/名称/文案）确实缺失**——
+>   `white.?label`/`custom.?translation` 在 10086 个路径中 0 命中，UI 只有静态 logo。
+> - **解决方案模板安装框架在 CE**：`service/solutions/DefaultSolutionService.java` + 20+ 定义类；
+>   PE 差异在**模板内容**从云端 Hub 拉，不在引擎。
+> - **2FA 在 CE**：`service/security/auth/mfa/provider/impl/` 下 Totp/Email/Sms/BackupCode 四种齐全，
+>   v4.3 还加了 Enforced 2FA。
+> - **平台集成要拆开看**：「集成中心 + 数据转换器」CE 确实没有（全树 `integration` 153 命中全是 `IntegrationTest.java`）；
+>   但 **AWS/Azure 规则节点在 CE**（`rule-engine/.../aws/{lambda,sns,sqs}/`、`.../mqtt/azure/TbAzureIotHubNode.java`），
+>   UI 还白送 30 个 `integration-icon/*.svg`。对比表把两者合并表述，容易误导。
+> 一致性校验通过的（CE 确实没有）：LPWAN（`lorawan` 0 命中）、自定义角色（无 Role 实体）、
+> Secrets Storage、报表引擎、400+ 编解码库（`codec` 0 命中）、LDAP。
+> 另注：`thingsboard-edge` **同为 Apache-2.0**，Edge 侧代码也是开源的。
+
+**ThingsPanel**（Go，**与本项目同源**）：社区版覆盖 HTTP/MQTT/Modbus TCP·RTU + 看板 + 场景联动 + 固件升级 + 多租户 + APP；企业版将 21 项协议、11 项三方接入、算法中心、集群、国产化系统与国产数据库列为"需单独购买"。社区仓库 `main@b646061`（2026-09-07）：572 个 `.go` 文件、33 个测试文件、20 条 SQL 迁移。对 ThingsPanel 的结论必须二分"官网宣称"与"开源仓库可验证"。
+另注：**许可证已改为 Apache-2.0**（多篇文章仍称 AGPLv3.0，已过时——`LICENSE` 与 README 均已更新）。
+
+> **2026-09-15 CE/企业版边界修正（同前，仓库路径复核）**
+> 上一段原文曾写"社区版无大屏""社区版不支持白标"，**这两条与仓库实际不符**；另有 3 项此前未记：
+> - **大屏在社区版**：`internal/service/dashboard_template.go`、`internal/model/vis_dashboard.gen.go`、
+>   `internal/service/market_dashboard_bundle.go`、`internal/api/dashboard_menu.go`；
+>   前端 `src/components/thingsvis/{ThingsVisAppFrame,ThingsVisViewer,ThingsVisWidget}.vue`。
+>   v1.2.8 notes 明写"新增大屏模板市场，支持浏览、发布和安装大屏模板"。
+> - **白标在社区版**：`internal/{api,service,dal}/logo.go`、`internal/model/logo.gen.go`、`router/apps/logo.go`；
+>   前端 `src/components/common/system-logo.vue`。v0.2.0-beta（2022）notes 就写了"支持更换系统上所有 logo 和系统名称"。
+> - **产品管理 + OTA 在社区版**：`internal/api/ota.go`、`internal/dal/ota_upgrade_{packages,tasks}.go`、
+>   `internal/{api,service,dal,model,query}/product*`；前端 `src/service/product/update-ota.ts`。
+> - **Redis 实时数据在社区版**：v1.1.10 "用 Redis Pub/Sub 替代 MQTT 做设备状态订阅"；
+>   v1.2.0 又补了指数退避重连。
+> - **技术文档在社区版**：`docs/` 下 `README-DEV.md`、`code_help/`（含 golang 规范）、
+>   `demand-community/`（33 份需求文档）、`docs/设计/`。
+> 一致性校验通过的（社区版确实没有）：TCP 协议接入（`internal/adapter/` 只有 `mqttadapter/`）、
+> Kafka（0 命中）、集群部署。
+> **存疑未下结论**：一型一密——官网称社区版没有，但 v1.0.0 公告与 v1.1.8 notes 都说支持；
+> 全量搜 704 个后端文件未找到独立模块，`products.gen.go` 也无 secret/voucher 字段。
+> 建议人工复核 `internal/service/device_auth.go`、`internal/api/device_auth.go` 后再定论。
 
 **产品决策**：优先补可靠性闭环、实体关系、SCADA/Widget 扩展、规则链运维、边缘运维和移动控制；不在近期复制完整 TBMQ、Trendz、600+ Widget 或多地域 SaaS 计费体系。**本项目相对两平台的护城河项**（设备影子 ACK 状态机、规则链可靠性六件套、通用 Entity Relations、AI 凭证信封加密、遥测降采样冷层、离线 Ed25519 许可证）优先保证真实运行证据，而非扩协议数量对标 ThingsBoard 的广度。
 
@@ -570,7 +609,7 @@ ThingsBoard PE/Cloud/Edge、TBMQ、Trendz 和 ThingsPanel 企业宣传能力只�
 | TB-2 | 计算字段高级形态：地理围栏、实体间传播、关联实体聚合、输出策略 | 4.3.0 `#13857/#14107/#14141/#14225`；4.0 计算字段 | `calculated_field` 路由存在，为较基础形态 | `未实现` | 依赖实体关系（P1.1，已落地）与地理位置字段 | L | **建议立项（中）**：地理围栏需地图 provider（当前属可选外部能力），可先做传播与聚合 |
 | TB-3 | EDQS 级高性能实体数据查询（内存型实体查询服务） | 4.0.0 `#12527`，4.0.2 持续改进 | 常规 SQL 路径 + 冷层 rollup | `未实现` | 需引入缓存/索引层；与 P2.3 降采样冷层协同 | XL | **不建议近期立项**：收益依赖规模，先用 P2.3 压测量化瓶颈再决定 |
 | TB-4 | 移动应用中心 + 白标移动端 | 3.9.0 `#11835`；PE 白标 | 无客户端工程（P1.4 缺口同源） | `客户端缺失` | 依赖 P1.4 移动端立项决策 | XL | **与 P1.4 合并立项**：先出 Android/iOS 客户端，再谈应用中心与白标 |
-| TB-5 | LPWAN / 系统集成（LoRaWAN、Sigfox、AWS IoT、Azure、PubSub、Kafka） | PE 专属（CE 无） | 无对应集成 | `未实现` | 需真实云账号与网络出口；Kafka 需独立中间件 | L（每项 M–L） | **按客户需求单项立项**：无客户时不做，避免建无消费方抽象 |
+| TB-5 | LPWAN / 系统集成（LoRaWAN、Sigfox、AWS IoT、Azure、PubSub、Kafka） | **部分修正（2026-09-15）**：LoRaWAN/Sigfox/集成中心确实 CE 无（`lorawan` 0 命中，`integration` 153 命中全是 `IntegrationTest.java`）；但 **AWS/Azure 的"规则节点级"对接 CE 就有**（`rule-engine/.../aws/{lambda,sns,sqs}/`、`.../mqtt/azure/TbAzureIotHubNode.java`）。对比表把"集成中心"与"规则节点"合并表述，别被误导 | 无对应集成（规则链路已有，可作承载） | `未实现` | 需真实云账号与网络出口；Kafka 需独立中间件 | L（每项 M–L） | **按客户需求单项立项**：无客户时不做；若做，优先走"规则节点"这条更轻的形态 |
 | TB-6 | 400+ 设备载荷编解码库 + 解决方案模板库 | PE 专属；3.6.2 工业控件包 | 仅 `payload_schema` + 自建模板市场 | `未实现` | 内容型资产，需持续维护 | XL | **不建议复制**：改为"模板市场 + 厂商签名（P1.6/P2.1 已具备）"的生态路径 |
 | TB-7 | HAProxy 级速率/连接限制、多队列隔离、Cassandra/Timescale 可选后端 | 3.6.3 队列隔离；4.0 弃 Timescale | 单库 + 进程内缓存；限流为进程内计数 | `未实现` | 多实例部署前提；共享存储计数 | L | **建议立项（中）**：集群化必做项，建议与 P3 多地域/HA 一起排 |
 | TB-8 | Timewindow 重设计、动态表单、Dashboard 布局断点 | 3.8.0 `#11633`/`#11430`；4.0 动态表单 | 看板能力较基础 | `未实现` | 前端改造为主 | M–L | **建议立项（中）**：纯前端收益，不依赖后端环境，可优先排 |
@@ -582,7 +621,7 @@ ThingsBoard PE/Cloud/Edge、TBMQ、Trendz 和 ThingsPanel 企业宣传能力只�
 | # | 缺口 | TP 来源 | 本地现状 | 缺口类型 | 前提与依赖 | 量级 | 立项建议 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | TP-1 | 移动客户端（uniapp App + 小程序） | 社区版即有（`ThingsPanel/app`，58★） | 无客户端工程 | `客户端缺失` | 同 P1.4 / TB-4 | XL | **与 P1.4 合并立项**，三处缺口一次解决 |
-| TP-2 | 大屏编辑器 | 企业版；社区版无 | Native Board 基础能力 + ThingsVis 可选外部集成 | `未实现` | 与 P1.3 SCADA 画布可复用 | L | **建议立项（中）**：优先合并 P1.3 两条 SCADA 编辑器，再谈大屏 |
+| TP-2 | 大屏编辑器 | **前提已修正（2026-09-15）**：原记"企业版；社区版无"是错的——社区版**有**大屏（`internal/service/dashboard_template.go`、`internal/model/vis_dashboard.gen.go`、`internal/service/market_dashboard_bundle.go`、前端 `src/components/thingsvis/`，v1.2.8 还上了大屏模板市场）。所以它只是"我们有差距"，不是"竞品社区版也没有" | Native Board 基础能力 + ThingsVis 可选外部集成；`visualization_native-board*` 三个路由此前 403，已于 2026-09-15 补菜单（隐藏态） | `未实现` | 与 P1.3 SCADA 画布可复用 | L | **立项理由需重述**：不再能用"连社区版都没有"来降级，应按"我们有真实客户需求"独立判断 |
 | TP-3 | 多层网关（网关→子网关→终端） | 1.1.10 | 未见对应实现 | `未实现` | 需网关拓扑模型与多级上下行路由 | L | **建议立项（高）**：工业场景常见，且与既有 MQTT 网关能力衔接 |
 | TP-4 | 设备诊断页 / GMQTT 管理 Web 界面 / Topic 映射配置页 | 1.1.11 | `topic_mapping`、`device_debug` 代码存在，无独立管理界面证据 | `未接线` | 后端能力已具备，缺前端页面 | S–M | **建议立项（高）**：投入小、补齐"四面一致"的 UI 面，性价比最高 |
 | TP-5 | 资源中心（设备模板 + 大屏模板统一市场） | 1.2.8 | 模板市场已建，无资源中心形态 | `未实现` | 复用 P1.6 打包/签名/导入链路 | M | **建议立项（中）**：把 P1.6 已有能力产品化，边际成本低 |
