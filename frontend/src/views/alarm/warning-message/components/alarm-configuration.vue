@@ -37,6 +37,7 @@ import {
 } from './alarmConfigurationColumns'
 import AlarmBatchEvidenceCard from './AlarmBatchEvidenceCard.vue'
 import AlarmCommentPanel from './AlarmCommentPanel.vue'
+import AlarmAssignmentPanel from './AlarmAssignmentPanel.vue'
 import { useAlarmBatchActions } from './useAlarmBatchActions'
 import {
   useAlarmSingleActions,
@@ -721,6 +722,20 @@ const submitCallback = async () => {
             </div>
           </div>
           <AlarmCommentPanel data-testid="alarm-comment-panel" :alarm-history-id="infoData.id" />
+        </NCard>
+        <!--
+          告警指派：与评论同源，入参同样是 infoData.id。本块不带 v-if —— 详情弹窗由
+          n-modal 默认的 display-directive="if" 懒渲染（关闭时不渲染内部内容），
+          且 showDialog 只可能在 getInfo(row) 写好 infoData 之后为 true，
+          所以这里不存在"永远为假"的死挂载（b570eb2 的坑）。
+        -->
+        <NCard embedded size="small" class="alarm-resolution-card">
+          <div class="alarm-resolution-header">
+            <div>
+              <div class="alarm-resolution-title">{{ $t('custom.alarmAssignment.title') }}</div>
+            </div>
+          </div>
+          <AlarmAssignmentPanel data-testid="alarm-assignment-panel" :alarm-history-id="infoData.id" />
         </NCard>
         <NFlex justify="flex-end">
           <NButton @click="closeModal">{{ $t('custom.devicePage.close') }}</NButton>

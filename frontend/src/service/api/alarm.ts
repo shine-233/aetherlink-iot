@@ -157,3 +157,44 @@ export const deleteAlarmComment = async (alarmHistoryId: string, commentId: stri
   )
   return data
 }
+
+// ROADMAP TB-1 第二片：告警指派（处理人）审计流水。
+// 与评论同源，都挂 alarm_history；路径形状受后端 Gin 路由树约束
+// （同一段不能既有 :id 又有静态串），必须写成 history/:id/assignment，
+// 不要改成 history/assignment/:id。
+// 语义（迁移 103 约定）：流水是 append-only 审计记录，不提供 UPDATE/DELETE；
+// assignee_user_id 为 NULL 表示"取消指派"，当前处理人 = 最新一条的 assignee_user_id。
+
+/** 一条告警指派流水。assignee_user_id 为 null 表示"取消指派"。 */
+export interface AlarmAssignment {
+  id: string
+  tenant_id: string
+  alarm_history_id: string
+  assignee_user_id: string | null
+  operator_user_id: string
+  remark: string
+  created_at: string
+}
+
+/** 列出某条告警历史的指派流水（created_at 倒序，最新在前）。 */
+export const listAlarmAssignments = async (alarmHistoryId: string) => {
+  const data = await request.get<{ list: AlarmAssignment[] }>(
+    `/alarm/info/history/${encodeURIComponent(alarmHistoryId)}/assignment`
+  )
+  return data
+}
+
+/**
+ * 写入一条指派流水：assignee_user_id 为 null 即"取消指派"。
+ * 因为是 append-only，改派与取消都走同一个 POST，不提供改/删接口。
+ */
+export const assignAlarm = async (
+  alarmHistoryId: string,
+  params: { assignee_user_id: string | null; remark?: string }
+) => {
+  const data = await request.post<AlarmAssignment>(
+    `/alarm/info/history/${encodeURIComponent(alarmHistoryId)}/assignment`,
+    params
+  )
+  return data
+}

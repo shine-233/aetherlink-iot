@@ -35,7 +35,9 @@ import {
   batchProcessing,
   batchActionAlarmHistory,
   acknowledgeAlarmHistory,
-  resetAlarmHistory
+  resetAlarmHistory,
+  listAlarmAssignments,
+  assignAlarm
 } from '../alarm'
 
 describe('Alarm API 层 - alarm.ts', () => {
@@ -204,6 +206,41 @@ describe('Alarm API 层 - alarm.ts', () => {
       mockPut.mockResolvedValue({ error: null, data: {} })
       await resetAlarmHistory('alarm/id')
       expect(mockPut).toHaveBeenCalledWith('/alarm/info/history/alarm%2Fid/reset')
+    })
+  })
+
+  // 路径形状受 Gin 路由树约束：必须是 history/:id/assignment，
+  // 不能写成 history/assignment/:id（同一段不能既有 :id 又有静态串）。
+  describe('listAlarmAssignments', () => {
+    it('调用 GET /alarm/info/history/{id}/assignment', async () => {
+      mockGet.mockResolvedValue({ error: null, data: { list: [] } })
+      const result = await listAlarmAssignments('a1')
+      expect(mockGet).toHaveBeenCalledTimes(1)
+      expect(mockGet).toHaveBeenCalledWith('/alarm/info/history/a1/assignment')
+      expect(result).toEqual({ error: null, data: { list: [] } })
+    })
+
+    it('对 id 中的特殊字符进行 URL 编码', async () => {
+      mockGet.mockResolvedValue({ error: null, data: { list: [] } })
+      await listAlarmAssignments('alarm/id')
+      expect(mockGet).toHaveBeenCalledWith('/alarm/info/history/alarm%2Fid/assignment')
+    })
+  })
+
+  describe('assignAlarm', () => {
+    it('调用 POST /alarm/info/history/{id}/assignment 并带上被指派人与备注', async () => {
+      mockPost.mockResolvedValue({ error: null, data: {} })
+      const params = { assignee_user_id: 'user-1', remark: 'take over' }
+      const result = await assignAlarm('a1', params)
+      expect(mockPost).toHaveBeenCalledTimes(1)
+      expect(mockPost).toHaveBeenCalledWith('/alarm/info/history/a1/assignment', params)
+      expect(result).toEqual({ error: null, data: {} })
+    })
+
+    it('assignee_user_id 传 null 表示取消指派', async () => {
+      mockPost.mockResolvedValue({ error: null, data: {} })
+      await assignAlarm('a1', { assignee_user_id: null })
+      expect(mockPost).toHaveBeenCalledWith('/alarm/info/history/a1/assignment', { assignee_user_id: null })
     })
   })
 })
