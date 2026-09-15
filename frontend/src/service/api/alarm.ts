@@ -117,3 +117,43 @@ export const batchActionAlarmHistory = async (params: {
   const data = await request.put('/alarm/info/history/batch-action', params)
   return data
 }
+
+// ROADMAP TB-1 第一片：告警评论。
+// 评论挂 alarm_history（现代告警记录），不是已废弃的 alarm_info。
+// 三条端点都在 history/:id/comment 下；路径形状受后端 Gin 路由树约束
+// （同一段不能既有 :id 又有静态串），不要改成 history/comment/:id。
+
+/** 一条告警评论。 */
+export interface AlarmComment {
+  id: string
+  tenant_id: string
+  alarm_history_id: string
+  content: string
+  author_user_id: string
+  created_at: string
+}
+
+/** 列出某条告警历史的评论（时间正序）。 */
+export const listAlarmComments = async (alarmHistoryId: string) => {
+  const data = await request.get<{ list: AlarmComment[] }>(
+    `/alarm/info/history/${encodeURIComponent(alarmHistoryId)}/comment`
+  )
+  return data
+}
+
+/** 新增一条告警评论。 */
+export const createAlarmComment = async (alarmHistoryId: string, content: string) => {
+  const data = await request.post<AlarmComment>(
+    `/alarm/info/history/${encodeURIComponent(alarmHistoryId)}/comment`,
+    { content }
+  )
+  return data
+}
+
+/** 删除一条告警评论（仅作者本人或租户管理员可删）。 */
+export const deleteAlarmComment = async (alarmHistoryId: string, commentId: string) => {
+  const data = await request.delete(
+    `/alarm/info/history/${encodeURIComponent(alarmHistoryId)}/comment/${encodeURIComponent(commentId)}`
+  )
+  return data
+}

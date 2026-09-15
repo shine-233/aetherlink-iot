@@ -36,6 +36,7 @@ import {
   type AlarmConfigurationRow
 } from './alarmConfigurationColumns'
 import AlarmBatchEvidenceCard from './AlarmBatchEvidenceCard.vue'
+import AlarmCommentPanel from './AlarmCommentPanel.vue'
 import { useAlarmBatchActions } from './useAlarmBatchActions'
 import {
   useAlarmSingleActions,
@@ -708,6 +709,19 @@ const submitCallback = async () => {
             </tbody>
           </NTable>
         </n-form-item>
+        <!--
+          告警评论：infoData.id 就是当前告警历史的 id。本块不带 v-if —— 详情弹窗本身由
+          n-modal 的 display-directive="if" 懒渲染，且 showDialog 只可能在 getInfo(row)
+          写好 infoData 之后为 true，所以这里不存在"永远为假"的死挂载。
+        -->
+        <NCard embedded size="small" class="alarm-resolution-card">
+          <div class="alarm-resolution-header">
+            <div>
+              <div class="alarm-resolution-title">{{ $t('custom.alarmComment.title') }}</div>
+            </div>
+          </div>
+          <AlarmCommentPanel data-testid="alarm-comment-panel" :alarm-history-id="infoData.id" />
+        </NCard>
         <NFlex justify="flex-end">
           <NButton @click="closeModal">{{ $t('custom.devicePage.close') }}</NButton>
         </NFlex>
