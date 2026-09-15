@@ -171,3 +171,5 @@ backend/files/export/
 # 任意 test-results 备份前缀：Playwright 每次重跑前都要腾出 test-results/，
 # 用 mv 归档（safe-delete 会拦批量删除），前缀按批次不同，故用通配。
 automation_tests/test-results-*/
+# Playwright 反向对照（断言非恒真验证）的临时输出目录
+automation_tests/.pw-out-*/
