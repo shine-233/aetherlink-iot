@@ -149,6 +149,31 @@ test.describe('菜单驱动路由可达性（102.sql + 验收上线）', () => {
       });
     });
 
+    /**
+     * /management/api（API Keys）必须只对 TENANT_ADMIN 开放。
+     *
+     * 这条断言来自一个真实的权限漏洞（2026-09-15 发现并修复）：
+     *   - sql/5.sql 定义该菜单行时 authority 就是 ["TENANT_ADMIN"]；
+     *   - sql/64.sql 明确把 api/v1/open/keys 从 TENANT_USER 撤权，并在注释里写明
+     *     "console 对应页面按角色菜单过滤（/ui_elements/menu）不展示入口"；
+     *   - 但 sql/47.sql 做了一次无差别 UPDATE：给所有含 TENANT_ADMIN 的菜单行
+     *     统一加上 TENANT_USER，把 64.sql 的配套机制打穿了。
+     * 后果：TENANT_USER 能打开该页（菜单放行），但页面调用 GET /api/v1/open/keys
+     * 拿到 403 并抛 pageerror —— **页面渲染得出来，数据永远加载不了**。
+     *
+     * 只断言"能不能渲染"是抓不到这个的，必须断言角色边界本身。
+     */
+    test.describe('management/api', () => {
+      test.use({ role: 'tenant_user' });
+
+      test('tenant user is denied /management/api', async ({ rolePage }) => {
+        await rolePage.goto('/management/api', { waitUntil: 'domcontentloaded' });
+        await rolePage.waitForTimeout(2500);
+        // 403 页的 "No Permission" 只在 document.title 里（见上面的说明）
+        await expect.poll(() => rolePage.title(), { timeout: 15000 }).toMatch(/No Permission|403/i);
+      });
+    });
+
     test('tenant admin is correctly denied /apply/service', async ({ rolePage }) => {
       // 这条断言的是"权限边界正确"，不是缺陷：/apply 整棵只授 SYS_ADMIN
       await rolePage.goto('/apply/service', { waitUntil: 'domcontentloaded' });
