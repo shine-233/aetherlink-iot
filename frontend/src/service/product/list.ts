@@ -32,7 +32,26 @@ export const exportDevice = async (params: object) => {
 }
 // /file/up：批次文件上传（type=importBatch，仅允许 .csv/.xlsx/.xls）
 export const uploadImportBatchFile = async (formData: FormData) => {
-  return await request.post<{ path?: string }>('/file/up', formData)
+  // 必须显式声明一个"非 JSON"的 Content-Type，否则文件传不上去。
+  //
+  // 原因：请求实例的默认头是 `Content-Type: application/json`
+  // （packages/axios/src/options.ts 的 createAxiosConfig），而 axios 的
+  // transformRequest 对 FormData 是这样分支的：
+  //   if (utils.isFormData(data)) {
+  //     return hasJSONContentType ? JSON.stringify(formDataToJSON(data)) : data
+  //   }
+  // 于是 File 部分无法序列化，请求体退化成 `{}`，
+  // 后端 `c.FormFile("file")` 拿不到文件，返回业务码 202001「请选择需要上传的文件」。
+  //
+  // 声明 multipart 后：transformRequest 走 else 分支原样返回 FormData，
+  // 而 axios 的 xhr 适配器对 FormData 会 `setContentType(false)` 把头交给浏览器，
+  // 由浏览器自动补 boundary —— 所以这里写死不带 boundary 是正确做法，不要手写 boundary。
+  //
+  // 2026-09-15 实测：不这样写时预注册 CSV 导入在浏览器里根本提交不了
+  // （HTTP 200 但业务码报错，页面表现为"点了没反应"）。
+  return await request.post<{ path?: string }>('/file/up', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
 }
 // /device_config/{ id };
 export const delDeviceConfig = (id: string) => request.delete(`/device_config/${id}`)

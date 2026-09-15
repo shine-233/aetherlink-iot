@@ -116,6 +116,44 @@ if (utils.isFormData(data)) {
 | `views/product/update-package/use-ota-package-form.ts:115` | OTA 升级包 |
 | `service/api/personal-center.ts:55` | 个人中心上传（`/file/up`） |
 
+### 2.2 2026-09-16 续查二：Content-Type 已修正，暴露出**第二个叠加缺陷**
+
+在调用点显式声明非 JSON 的 Content-Type（`src/service/product/list.ts` 的
+`uploadImportBatchFile`，第三个参数传 `headers: { 'Content-Type': 'multipart/form-data' }`）
+后，请求头**已经正确**：
+
+```
+content-type = multipart/form-data; boundary=----WebKitFormBoundaryhqiRLKeMSgGByh1B
+```
+
+（这里写死不带 boundary 是**对的**：axios 的 xhr 适配器对 FormData 会
+`setContentType(false)` 把头交给浏览器，由浏览器补 boundary。）
+
+**但上传仍然失败**，后端依旧返回 `202001 请选择需要上传的文件`。
+即：**这是两个叠加的缺陷，修好第一个才暴露出第二个。**
+
+第二个缺陷的位置基本可锁定在**文件对象本身没被正确附上**：
+
+- `index.vue:68` 是 `fileListToFile(list) { selectFile(list[0]?.file ?? null) }`
+  —— 依赖 NaiveUI `UploadFileInfo.file`
+- 若该 `file` 不是真正的 `File`/`Blob`，`FormData.append` 会把它转成字符串
+  或不产生文件部分，后端 `c.FormFile("file")` 就取不到
+- 注意 **`page.on('request')` 的 `postData()` 对二进制 body 会返回 `null`**，
+  所以"body 里没有 Content-Disposition"这个观察**不能直接当作结论**，
+  要用 `postDataBuffer()` 的长度或直接抓包确认
+
+**下一步（收敛到很小的范围）**：
+1. 在 `use-pre-register-import.ts` 的 `uploadSelectedFile` 里临时打印
+   `selectedFile.value` 的 `constructor.name` / `instanceof File` / `size`
+   （或直接在浏览器 console 里对同一段逻辑打点），确认它到底是不是 `File`。
+2. 若不是 `File`：改用 `NUpload` 的 `customRequest`，或直接监听原生
+   `input[type=file]` 的 `change` 取 `event.target.files[0]`；
+   也可在 `onFileListChange` 里退化为 `list[0]?.file ?? list[0]?.fileList?.[0]`。
+3. 修好后 `e2e/28_p05_preregister_csv.spec.js` 前四条去掉 `.fixme` 即可转正。
+
+> 另注：`src/service/product/list.ts` 的 Content-Type 修复**已提交**，
+> 它是必要但**不充分**的一步 —— 单独它不足以让上传成功。
+
 **下一步建议（按优先级）**：
 1. 在浏览器里对 `/file/up` 请求打 `page.on('request')`，打印**完整 headers 对象**，
    确认 `Content-Type` 到底是 axios 自动加的、还是被某个拦截器加的。
