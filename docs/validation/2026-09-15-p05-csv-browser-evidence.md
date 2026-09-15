@@ -142,7 +142,56 @@ content-type = multipart/form-data; boundary=----WebKitFormBoundaryhqiRLKeMSgGBy
   所以"body 里没有 Content-Disposition"这个观察**不能直接当作结论**，
   要用 `postDataBuffer()` 的长度或直接抓包确认
 
-**下一步（收敛到很小的范围）**：
+### 2.3 2026-09-16 续查三：**丢包点已精确定位到"append 之后、发出之前"**
+
+三个决定性实验（都在真实浏览器里做，不改应用代码）：
+
+**实验 A — 挂钩 `FormData.prototype.append`**（`page.addInitScript` 注入）：
+```
+[{"n":"file","ctor":"File","isFile":true,"isBlob":true,"size":34},
+ {"n":"type","ctor":"String"}]
+```
+→ **应用侧完全正确**：往 FormData 里塞的是真正的 `File`（34 字节）。
+
+**实验 B — 对比经代理与直连**（curl，同一个 token、同一份 CSV）：
+```
+经代理 9725 → {"code":200,...,"data":{"path":"./files\\importBatch\\..."}}
+直连 9999 → {"code":200,...,"data":{"path":"./files\\importBatch\\..."}}
+```
+→ **后端与预览代理都是好的**。（此前 curl 只测了直连，代理这次也补测了。）
+
+**实验 C — `postDataBuffer()` 看真实发出的 body 大小**：
+```
+第1次 /file/up  body 字节数 = 44
+   ct = multipart/form-data; boundary=----WebKitFormBoundaryHlbrAHdRfLo2HXrd
+共发出 1 次 /file/up
+```
+→ **请求体只有 44 字节**，装不下一个 34 字节文件 + multipart 头（正常应 300+ 字节）。
+即：**文件部分在 `FormData.append` 之后、真正发出之前被丢掉了**，且只发了一次（不是重试）。
+
+### 结论：问题在请求层，不在应用代码、不在后端、不在代理
+
+| 环节 | 状态 | 依据 |
+|---|---|---|
+| 应用构建 FormData | ✅ 正确 | 实验 A：塞进去的是真 `File` |
+| 请求头 Content-Type | ✅ 已修（提交 `5a6d279`） | 实验 C：`multipart/form-data; boundary=...` |
+| 后端 `UpFile` | ✅ 正确 | 实验 B：curl 直连成功 |
+| 预览代理 | ✅ 正确 | 实验 B：curl 经代理成功 |
+| **请求层发送 body** | ❌ **丢文件** | 实验 C：body 仅 44 字节 |
+
+**下一步（范围已收敛到 `@aetherlink/axios` 内部）**：
+1. 看 `packages/axios/src/index.ts` 的请求拦截器：
+   `const config = { ...conf }` —— 展开一个 axios 配置会**浅拷贝 `data`**（FormData 引用），
+   本身不该丢内容；但 `config.headers.set(REQUEST_ID_KEY, ...)` 之后若触发
+   `transformRequest` 重新处理，需确认 FormData 是否被二次转换。
+2. **重点查 `axios-retry`**：`axiosRetry(instance, createRetryOptions(axiosConf))`。
+   实验 C 显示只发了 1 次请求，但重试逻辑可能**在发出前重建了 config.data**。
+3. 查 `paramsSerializer`（`qs.stringify`）是否被误用到 body 上。
+4. 兜底验证手段：在浏览器里再挂钩一次 `XMLHttpRequest.prototype.send` / `fetch`，
+   看**进入网络层时**的 body 大小是 34 还是 44 —— 可进一步把范围缩到
+   "axios 内部" 还是 "浏览器网络层"。
+
+**原计划的下一步（保留）**：
 1. 在 `use-pre-register-import.ts` 的 `uploadSelectedFile` 里临时打印
    `selectedFile.value` 的 `constructor.name` / `instanceof File` / `size`
    （或直接在浏览器 console 里对同一段逻辑打点），确认它到底是不是 `File`。
