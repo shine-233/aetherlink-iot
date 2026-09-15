@@ -77,5 +77,10 @@ func alarminfo(Router *gin.RouterGroup) {
 		url.POST("history/:id/comment", api.Controllers.AlarmApi.CreateAlarmComment)
 		url.GET("history/:id/comment", api.Controllers.AlarmApi.ListAlarmComments)
 		url.DELETE("history/:id/comment/:comment_id", api.Controllers.AlarmApi.DeleteAlarmComment)
+
+		// ROADMAP TB-1 第二片：告警指派 + 指派历史审计（append-only 流水）。
+		// 与评论片同构，挂在 history/:id/assignment 下；GET/POST 共用一条 Casbin 路径。
+		url.POST("history/:id/assignment", api.Controllers.AlarmApi.CreateAlarmAssignment)
+		url.GET("history/:id/assignment", api.Controllers.AlarmApi.ListAlarmAssignments)
 	}
 }

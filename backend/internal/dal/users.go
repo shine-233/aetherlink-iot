@@ -250,6 +250,33 @@ func GetUsersById(uid string) (*model.User, error) {
 	return user, err
 }
 
+// GetUserTenantIDByID 取用户所属租户；第二个返回值为 false 表示该用户不存在，
+// tenant 为空串表示该用户存在但不属于任何租户（例如平台管理员的 tenant_id 为 NULL）。
+//
+// 只查 tenant_id 一列：调用方（告警指派前校验被指派人）跑在**每次写操作**的路径上，
+// 这里带上 password / additional_info 之类字段等于把敏感列拉进常驻内存对象。
+func GetUserTenantIDByID(uid string) (tenant string, found bool, err error) {
+	var user model.User
+	if global.DB == nil {
+		return "", false, errors.New("users dal: database is not initialized")
+	}
+	err = global.DB.WithContext(context.Background()).
+		Table(model.TableNameUser).
+		Select("tenant_id").
+		Where("id = ?", uid).
+		Take(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", false, nil
+		}
+		return "", false, err
+	}
+	if user.TenantID == nil {
+		return "", true, nil
+	}
+	return *user.TenantID, true, nil
+}
+
 // GetUserByIdWithAddress 返回用户资料、可选地址与角色列表。
 // 实现说明（2026-08-23 重写）：历史上这里用单条 LEFT JOIN + 跨表 Scan 组装，
 // 高负载下曾出现"行存在却扫描为空"的间歇性 record-not-found（详见
