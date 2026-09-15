@@ -54,12 +54,12 @@
 | P1.2 | 规则链可靠性 | `partial` | `未验证` | 真实链路 E2E | `P1.2-rulechain-version-evidence.md` |
 | P1.3 | Widget 与 SCADA 基础层 | `partial` | `未验证` | ~~编辑器未挂路由~~（2026-09-14 已挂）；~~widget schema 无真实字段~~（2026-09-14 已闭环 `36fd6da`）；剩余：浏览器 E2E、真实下发联调 | `scada_postgres_test.go`、`adeaf80` |
 | P1.4 | 移动端控制与通知 | `partial` | `客户端缺失` + `未验证` | **Android/iOS 工程不存在**；FCM/APNs 未真机联调；真机业务 E2E | `mobile_e2e_test.go`、`push_provider_live_test.go` |
-| P1.5 | 边缘运维 | `partial` | `未实现` + `未验证` | 节点证书签发、远程升级回滚、真实边缘联调与断云演练 | `P1.5-P3-completion-batch-20260912.md` |
-| P1.6 | 模板市场产品化 | `partial` | `未验证` + `未接线` | 升级/回滚运行期证据（98/99.sql 未复跑）；预览/确认闸门浏览器 UI | `device_template_market_import_test.go` |
+| P1.5 | 边缘运维 | `partial` | `未实现` + `未验证` | 节点证书签发、远程升级回滚、真实边缘联调与断云演练；**注册/心跳/Reconcile 与跨租户抢注拒绝已有真实 API 运行期证据（38 组 10/10，2026-09-15 复跑）** | `docs/validation/2026-09-15-roadmap-status-recheck.md`、`P1.5-P3-completion-batch-20260912.md` |
+| P1.6 | 模板市场产品化 | `partial` | `未验证` | 升级/回滚运行期证据（98/99.sql 未复跑）；**验签 → 预览 → 覆盖闸门已有真实 API 运行期证据（41 组 5/5：签名往返、无签名拒绝、幂等重导入不再要求覆盖确认）** | `docs/validation/2026-09-15-roadmap-status-recheck.md`、`device_template_market_import_test.go` |
 | P2.1 | 协议插件 SDK | `partial` | `未实现` | 真实外部协议适配器（CAN/BACnet/BLE/LoRaWAN）；manifest 注册 HTTP 运行期路径 | `pkg/pluginsdk`（9/9 实跑通过） |
-| P2.2 | Trendz 类轻量分析 | `partial` | `未验证` | anomaly 运行期证据；受 P0.6 durable execution 约束 | `telemetry_analysis_core_test.go` |
+| P2.2 | Trendz 类轻量分析 | `partial` | `未验证` | **anomaly 端点已有真实 API 运行期证据（40 组 11/11，2026-09-15 复跑）**；剩余约束仍来自 P0.6 durable execution | `docs/validation/2026-09-15-roadmap-status-recheck.md`、`telemetry_analysis_core_test.go` |
 | P2.3 | 数据保留与性能 | `partial` | `环境阻塞` | **基准压测 / 容量模型 / 冷热分层告警 pending** | `P1.5-P3-completion-batch-20260912.md` |
-| P3 | 商业化与长期能力 | `partial` | `未实现` | 许可证签发工具；**其余 11 个子项零代码** | `pkg/license`（6/6 实跑通过） |
+| P3 | 商业化与长期能力 | `partial` | `未实现` | 许可证签发工具；**其余 11 个子项零代码**；**license/status 与 operation_logs/export 已有真实 API 运行期证据（39 组 6/6、42 组 6/6，2026-09-15 复跑）** | `docs/validation/2026-09-15-roadmap-status-recheck.md`、`pkg/license`（6/6 实跑通过） |
 
 **统计：`done` 0 项 / `partial` 16 项 / `pending` 1 项（P2.3 压测子项、P3 多数子项）。**
 
@@ -85,6 +85,8 @@
 - OpenAPI 已重生成（413 paths），`edge/nodes`、`license/status`、`analysis/anomaly`、`bundle/import`、`operation_logs/export`、`board/projects`、`template/upgrade` 全部收录——"四面一致"的 API 面缺口已闭环。
 
 **流程教训（写入 §5 约定）**：**"测试跑不起来"必须先区分环境原因与代码原因**。本项目把后者误判成前者，导致一批不可编译的代码被当成"已完成"写进本路线图。今后任何"某测试无法运行"的表述，必须附上**实际执行过的命令与原始报错**，不得只写结论。
+
+**流程教训（二）："用例挂了"必须先区分"功能坏了"与"凭据没注入"**。`automation_tests` 的 `.env.local` 只在被 `lib/runtime_config.js` 显式载入的路径上生效；直接 `npx mocha tests/xx.test.js` 会拿到空账号，全部用例在 `before all` 里报 `登录失败: {"code":100002,"message":"Field 'Email' is required"}`。这个报错长得像"接口回归"，实际是环境问题。2026-09-15 实测：同一份 38 组用例，不带环境 0 passing，带 `set -a && . ./.env.local && set +a` 后 10/10 passing。**跑 API 用例前必须显式导出 `.env.local`；看到 `Field 'Email' is required` 先查环境，不要去改被测代码。**
 
 ### 1.3 缺口分类处置（按"要开发"与"只差跑一遍"分账）
 
@@ -159,10 +161,14 @@ px vitest run src/styles/__tests__/design-token-contract.test.ts 2/2 通过（20
 
 > **2026-09-15 CE/企业版边界修正（同前，仓库路径复核）**
 > 上一段原文曾写"社区版无大屏""社区版不支持白标"，**这两条与仓库实际不符**；另有 3 项此前未记：
-> - **大屏在社区版**：`internal/service/dashboard_template.go`、`internal/model/vis_dashboard.gen.go`、
+> - **大屏在社区版**：`internal/service/dashboard_template.go`（`ThingsVisClient.CreateDashboardFromSnapshot`，
+>   `Source=MARKET` 从 Horizon 下载安装 bundle）、`internal/model/vis_dashboard.gen.go`（表 `vis_dashboard`）、
 >   `internal/service/market_dashboard_bundle.go`、`internal/api/dashboard_menu.go`；
->   前端 `src/components/thingsvis/{ThingsVisAppFrame,ThingsVisViewer,ThingsVisWidget}.vue`。
->   v1.2.8 notes 明写"新增大屏模板市场，支持浏览、发布和安装大屏模板"。
+>   前端 `src/components/thingsvis/{ThingsVisAppFrame,ThingsVisViewer,ThingsVisWidget,ThingsVisSharedFrame}.vue`
+>   与 `src/views/visualization/thingsvis*`。
+>   **引述更正（2026-09-15）**：此前写的"v1.2.8 notes 明写'新增大屏模板市场，支持浏览、发布和安装大屏模板'"**不属实**——
+>   v1.2.8 release notes 原文只有"新增**看板**模板入口…快速创建可视化看板实例"，无"大屏模板市场/发布/安装"字样。
+>   准确结论：大屏 = dashboard / ThingsVis 同一套能力（社区版具备自建与模板安装），**"发布到市场"未证实**。
 > - **白标在社区版**：`internal/{api,service,dal}/logo.go`、`internal/model/logo.gen.go`、`router/apps/logo.go`；
 >   前端 `src/components/common/system-logo.vue`。v0.2.0-beta（2022）notes 就写了"支持更换系统上所有 logo 和系统名称"。
 > - **产品管理 + OTA 在社区版**：`internal/api/ota.go`、`internal/dal/ota_upgrade_{packages,tasks}.go`、
@@ -572,11 +578,12 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 
 **第一优先（不依赖外部环境，可把 partial 转 done）**：
 
-1. 重生成 OpenAPI（`cd backend && go run ./cmd/openapigen -out docs/openapi/openapi.json`，swag 注解已备）——补齐"四面一致"的 API 面。
-2. SCADA 新 `views/scada/` 编辑器挂路由（符号库与拖拽已就绪，仅差路由注册）。
-3. 补 anomaly / 打包导入 / 报表工作台 的前端 UI。
-4. 补 edge / license / anomaly / bundle-import / operation_logs-export 的自动化 E2E 用例。
-5. 补运行期证据文档：P1.1 实体关系（PostgreSQL 常驻用例）、P0.3 灰度治理、P2.2 anomaly、P1.5/P1.6 新端点、98/99.sql 在 PostgreSQL 复跑。
+1. ~~重生成 OpenAPI~~ → 已完成（2026-09-13，413 paths，见 §1.2.1）。
+2. ~~SCADA 新 `views/scada/` 编辑器挂路由~~ → 已完成（2026-09-14）。
+3. ~~补 anomaly / 打包导入 / 报表工作台 的前端 UI~~ → 已完成且已复核（2026-09-15 复跑：`market/browse` 4/4 + `visualization/anomaly` 3/3 vitest 通过；三处路由四件套与 `sys_ui_elements` 菜单行齐备，非"文件存在但不可达"）。
+4. ~~补 edge / license / anomaly / bundle-import / operation_logs-export 的自动化 E2E 用例~~ → 已完成且已复核（2026-09-15 实跑：38 组 10/10、39 组 6/6、40 组 11/11、41 组 5/5、42 组 6/6，见 `docs/validation/2026-09-15-roadmap-status-recheck.md`）。
+5. 补运行期证据文档：P1.1 实体关系（PostgreSQL 常驻用例）、P0.3 灰度治理、98/99.sql 在 PostgreSQL 复跑。（P2.2 anomaly 与 P1.5/P1.6 新端点本轮已取证，从本项移除。）
+6. **新增**：TB-1 剩余三片（可配置规则条件 / 严重度传播 / 指派历史审计）——评论片已闭环，见 §7.1。
 
 **第二优先（需恢复环境：Go 模块缓存 / Docker / 磁盘空间）**：
 
@@ -605,7 +612,7 @@ ThingsBoard PE/Cloud/Edge、TBMQ、Trendz 和 ThingsPanel 企业宣传能力只�
 
 | # | 缺口 | TB 来源 | 本地现状 | 缺口类型 | 前提与依赖 | 量级 | 立项建议 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| TB-1 | 告警规则 2.0（可配置规则对象、条件/严重度/传播、告警生命周期与指派评论） | 4.3.0 `#14036`；3.5 告警指派与评论 | **已开工（2026-09-14，第一片已闭环）**。核对修正：① 告警历史/确认/备注已有；② **"指派"其实部分存在**——`alarm_info.processor` 就是当前处理人字段（原写"无指派"不准确）；③ `alarm_info` 是**已废弃**的 device-less 旧表（见 `service/alarm_notification.go` 的 `createAlarmInfoRecord` 注释），现代告警走 `alarm_history`。**本轮补齐：告警评论**（`alarm_comment` 表 + POST/GET/DELETE 三条路由 + Casbin）。**仍缺**：可配置规则条件、严重度传播、指派历史审计 | `部分实现` | 剩余部分需改规则求值链路；与现有 `rule_chain` 告警节点划清边界 | L（剩余 L，已完成 S 片） | **继续立项（高）**：评论片已落地，剩余"条件/传播/指派审计"按原计划排 |
+| TB-1 | 告警规则 2.0（可配置规则对象、条件/严重度/传播、告警生命周期与指派评论） | 4.3.0 `#14036`（2026-09-15 源码级复核：**属 CE**）。PR#14036 已合入 CE 仓库 master；CE 侧实锤文件 `common/data/.../cf/configuration/AlarmCalculatedFieldConfiguration.java`、`dao/.../cf/BaseCalculatedFieldService.java`（含 `CalculatedFieldType.ALARM`）、`application/.../actors/calculatedField/CalculatedFieldAlarmActionMsg.java`、前端 `ui-ngx/src/app/modules/home/components/alarm-rules/`（34 文件）。官方对比表未列属遗漏；**仅 "Configure with AI" 为 PE/Cloud**。**重要口径修正：assignee / comment 不是规则配置字段，而是告警实例能力**（TB CE UI 已有 alarm-assignee / alarm-comment 组件）——故本片只是补齐对等能力，不构成差异化 | **第一片已闭环（2026-09-15）**：告警评论前后端落地——`alarm_comment` 表（101.sql）+ model/dal/service/api 四层 + 三条路由 + Casbin 登记；前端 `AlarmCommentPanel.vue` 已挂到 `alarm-configuration.vue` 详情弹窗（路径：列表行「详情」→ `getInfo` → 弹窗内面板），10 条前端用例 + 10 条 API E2E 全绿（**浏览器渲染仍 pending**：Playwright 在本机被沙箱拦下，spec 已写未跑，见 `docs/validation/2026-09-15-roadmap-status-recheck.md` §7.1）。核对修正：① 告警历史/确认/备注已有；② **"指派"其实部分存在**——`alarm_info.processor` 即当前处理人（原写"无指派"不准确）；③ `alarm_info` 是**已废弃**的 device-less 旧表，现代告警走 `alarm_history`。**仍缺**：可配置规则条件、严重度传播（升级/清除）、指派历史审计 | `部分实现` | 剩余部分需改规则求值链路；与现有 `rule_chain` 告警节点划清边界 | L（剩余 L，已完成 S 片） | **继续立项（高）**：评论片已完整落地，剩余"条件/传播/指派审计"按原计划排 |
 | TB-2 | 计算字段高级形态：地理围栏、实体间传播、关联实体聚合、输出策略 | 4.3.0 `#13857/#14107/#14141/#14225`；4.0 计算字段 | `calculated_field` 路由存在，为较基础形态 | `未实现` | 依赖实体关系（P1.1，已落地）与地理位置字段 | L | **建议立项（中）**：地理围栏需地图 provider（当前属可选外部能力），可先做传播与聚合 |
 | TB-3 | EDQS 级高性能实体数据查询（内存型实体查询服务） | 4.0.0 `#12527`，4.0.2 持续改进 | 常规 SQL 路径 + 冷层 rollup | `未实现` | 需引入缓存/索引层；与 P2.3 降采样冷层协同 | XL | **不建议近期立项**：收益依赖规模，先用 P2.3 压测量化瓶颈再决定 |
 | TB-4 | 移动应用中心 + 白标移动端 | 3.9.0 `#11835`；PE 白标 | 无客户端工程（P1.4 缺口同源） | `客户端缺失` | 依赖 P1.4 移动端立项决策 | XL | **与 P1.4 合并立项**：先出 Android/iOS 客户端，再谈应用中心与白标 |
@@ -635,7 +642,7 @@ ThingsBoard PE/Cloud/Edge、TBMQ、Trendz 和 ThingsPanel 企业宣传能力只�
 
 1. ~~`TP-4` 设备诊断 / GMQTT 管理界面 / Topic 映射页~~ → **已验证（2026-09-15）**：`e2e/25_tp4_device_diagnostics.spec.js` **5/5**，四个组件在真实环境（MQTT broker + 后端 + prod 构建）逐个取证。过程中修掉一处**死代码**：`add-devices-step2.vue` 未传 `device-id`，致 `DeviceMqttDebugWorkbench` 的 `v-if="deviceId && ..."` 恒假——已挂载但永远不可达（提交 `b570eb2`）。**仍缺**：Topic 映射的订阅/发布交互未取证（需先开启调试会话，会真在 broker 上开会话）。
 2. ~~`TP-8` 设备分组统计 + 模拟遥测数据接口~~ → **已闭环（2026-09-14）**，见 §7.2 该行。
-3. `TB-1` 告警规则 2.0——工业刚需，可复用既有告警链路。**（现为第一梯队唯一未开工项）**
+3. `TB-1` 告警规则 2.0——工业刚需，可复用既有告警链路。**评论片已于 2026-09-15 闭环（前后端 + 10 条前端用例 + 10 条 API E2E）；剩余"可配置规则条件 / 严重度传播 / 指派历史审计"三片仍为第一梯队唯一未开工部分。**
 
 **第二梯队（建议排期，中等投入）**
 
