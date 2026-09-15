@@ -757,5 +757,8 @@
   "page.anomaly.errorRangeOrder": "La hora de fin debe ser posterior a la de inicio",
   "page.anomaly.errorBoundsRequired": "La regla de límites necesita al menos un mínimo o un máximo",
   "page.anomaly.errorBoundsOrder": "El mínimo no puede superar el máximo",
-  "page.anomaly.errorDeviationK": "K debe ser un número positivo"
+  "page.anomaly.errorDeviationK": "K debe ser un número positivo",
+  "page.product.pre-register.credentialsTitle": "Credenciales de dispositivos (se muestran una sola vez: guárdelas ahora)",
+  "page.product.pre-register.copyCredential": "Copiar credencial",
+  "page.product.pre-register.credentialCopied": "Copiado"
 }

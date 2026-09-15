@@ -35,7 +35,10 @@
 - 自动化：DAG 规则链、Vue Flow 编辑器、阈值/映射/Webhook/命令/告警节点；场景自动化。
 - 数据与运维：PostgreSQL/TimescaleDB 三态门控、遥测统计、告警、OTA 任务模型、Redis 限流、Casbin watcher、白标配置。
 - 产品切片：CSV 预注册 API、行业模板种子、模板导入/导出/升级/回滚、边缘注册/心跳/Reconcile、移动端后端能力、AI 遥测查询与告警分析、SCADA 后端内核与编辑器、离线许可证。
-- 质量：迁移源码连续至 `99.sql` / `VERSION_NUMBER=99`；**但全新空库的全链 `initialize.CheckVersion` 验证只做到过 93**（`sys_version=93`、114 张表），94–99 尚无同等验证。
+- 质量：迁移源码连续至 `102.sql` / `VERSION_NUMBER=102`。全链 `initialize.CheckVersion` 验证现状：
+  - **Go 侧全链路径已跑通（2026-09-13，当时上界 99）**：全新空库 `aetherlink_go99`（PostgreSQL 17.5，隔离集群 `127.0.0.1:55433`）由后端启动流程自行迁移 → `sys_version=99` / `0.0.23`，122 张表，无迁移错误。这推翻了此前"Go 侧只验证到 93"的口径——**那条已作废，不要再引用**。证据 `docs/validation/2026-09-13-go-chain-migration-and-e2e.md` §1。
+  - **仍未验证：94–102**（上界在 99 之后又推进到 102）。`sys_version` 从 99 继续迁到 102 尚未在全新库上跑过，P1.5/P1.6 的"98/99.sql 未复跑"缺口同样未闭合。
+  - 口径纪律：psql 直灌（121 表）与 Go 全链（122 表）**不等价**，表数差异不说明谁对谁错，但不能用前者顶替后者的结论。
 
 ### 1.2 状态总表（唯一权威）
 
@@ -45,21 +48,21 @@
 | --- | --- | --- | --- | --- | --- |
 | P0.1 | 发布同步与部署门禁 | `partial` | `环境阻塞` | 真实 HTTPS/TLS、MQTTS、公网 MQTT、backup/restore 计数一致性 | `docs/validation/P0.1-preflight-evidence.md` |
 | P0.2 | 设备影子 ACK 闭环 | `partial` | `未验证` | 真实 MQTT `shadow_ack` 端到端 + 浏览器证据 | `P0.2-shadow-ack-evidence.md` |
-| P0.3 | OTA 状态机 | `partial` | `未验证` | 真实设备/broker 或协议 stub E2E；灰度治理无运行期证据文档 | `P0.3-job-report-evidence.md` |
+| P0.3 | OTA 状态机 | `partial` | `未验证` | 真实设备/broker 或协议 stub E2E；**灰度治理执行面阻断已修复**（移除 `updated_at` 阻断写入，API 补齐治理参数输入，47 组用例 9/9 实测通过） | `docs/validation/2026-09-15-p03-ota-gray-governance-evidence.md`、`P0.3-job-report-evidence.md` |
 | P0.4 | 场景与 Flow 语义 | `partial` | `未验证` | 真实 E2E | `scene_execution_window_test.go` |
 | P0.5 | CSV 浏览器 E2E | `partial` | `未验证` | 真实浏览器 file chooser E2E | `P0.5-*-evidence.md`（三份） |
 | P0.6 | 持久化报表执行 / SMTP | `partial` | `未验证` + `未接线` | SMTP `ambiguous` 收口证据、管理员报表工作台前端、v82→v83 切换演练 | `P0.6-postgres-migration83-evidence.md` |
 | P0.7 | AI 凭证静态加密 | `partial` | `未验证` | 生产主密钥注入、"日志无明文"未验证 | `P0.7-secret-encryption-evidence.md` |
-| P1.1 | 通用 Entity Relations | `partial` | `未验证` | 运行期证据文档（现有全为纯单测）；看板集成 | 迁移 85、`entity_relation_test.go` |
+| P1.1 | 通用 Entity Relations | `partial` | `未验证` | **D1（UUID 零值）与 D2（404 收敛）缺陷已修复，46 组 API 契约用例 26/26 实测通过**；剩余看板集成与浏览器 E2E | `docs/validation/2026-09-15-p11-entity-relation-evidence.md`、迁移 85 |
 | P1.2 | 规则链可靠性 | `partial` | `未验证` | 真实链路 E2E | `P1.2-rulechain-version-evidence.md` |
 | P1.3 | Widget 与 SCADA 基础层 | `partial` | `未验证` | ~~编辑器未挂路由~~（2026-09-14 已挂）；~~widget schema 无真实字段~~（2026-09-14 已闭环 `36fd6da`）；剩余：浏览器 E2E、真实下发联调 | `scada_postgres_test.go`、`adeaf80` |
 | P1.4 | 移动端控制与通知 | `partial` | `客户端缺失` + `未验证` | **Android/iOS 工程不存在**；FCM/APNs 未真机联调；真机业务 E2E | `mobile_e2e_test.go`、`push_provider_live_test.go` |
-| P1.5 | 边缘运维 | `partial` | `未实现` + `未验证` | 节点证书签发、远程升级回滚、真实边缘联调与断云演练；**注册/心跳/Reconcile 与跨租户抢注拒绝已有真实 API 运行期证据（38 组 10/10，2026-09-15 复跑）** | `docs/validation/2026-09-15-roadmap-status-recheck.md`、`P1.5-P3-completion-batch-20260912.md` |
-| P1.6 | 模板市场产品化 | `partial` | `未验证` | 升级/回滚运行期证据（98/99.sql 未复跑）；**验签 → 预览 → 覆盖闸门已有真实 API 运行期证据（41 组 5/5：签名往返、无签名拒绝、幂等重导入不再要求覆盖确认）** | `docs/validation/2026-09-15-roadmap-status-recheck.md`、`device_template_market_import_test.go` |
+| P1.5 | 边缘运维 | `partial` | `未验证` | **节点证书签发（复用 D5 X.509 接线）与远程升级回滚已实现并通过 48 组契约测试（13/13，2026-09-15），前端已接入**；剩余真实边缘联调与断云演练 | `docs/validation/2026-09-15-p15-edge-node-ops-evidence.md`、`2026-09-15-roadmap-status-recheck.md` |
+| P1.6 | 模板市场产品化 | `partial` | `未接线` | ~~升级/回滚运行期证据（98/99.sql 未复跑）~~ → 已闭环（45 组 15/15 + 98/99.sql 各复跑 2 次幂等，2026-09-15）；**验签 → 预览 → 覆盖闸门已有真实 API 运行期证据（41 组 5/5）**；**前端 API wrapper 已接入并通过单元测试**。剩余：升级/回滚的浏览器 E2E | `docs/validation/2026-09-15-p16-upgrade-rollback-pg-evidence.md`、`2026-09-15-roadmap-status-recheck.md` |
 | P2.1 | 协议插件 SDK | `partial` | `未实现` | 真实外部协议适配器（CAN/BACnet/BLE/LoRaWAN）；manifest 注册 HTTP 运行期路径 | `pkg/pluginsdk`（9/9 实跑通过） |
 | P2.2 | Trendz 类轻量分析 | `partial` | `未验证` | **anomaly 端点已有真实 API 运行期证据（40 组 11/11，2026-09-15 复跑）**；剩余约束仍来自 P0.6 durable execution | `docs/validation/2026-09-15-roadmap-status-recheck.md`、`telemetry_analysis_core_test.go` |
 | P2.3 | 数据保留与性能 | `partial` | `环境阻塞` | **基准压测 / 容量模型 / 冷热分层告警 pending** | `P1.5-P3-completion-batch-20260912.md` |
-| P3 | 商业化与长期能力 | `partial` | `未实现` | 许可证签发工具；**其余 11 个子项零代码**；**license/status 与 operation_logs/export 已有真实 API 运行期证据（39 组 6/6、42 组 6/6，2026-09-15 复跑）** | `docs/validation/2026-09-15-roadmap-status-recheck.md`、`pkg/license`（6/6 实跑通过） |
+| P3 | 商业化与长期能力 | `partial` | `未实现` | **许可证签发工具（`cmd/licensegen` 与 `pkg/license` 签名/密钥生成）已实现并通过 7/7 单元测试与实测**；**license/status 与 operation_logs/export 已有真实 API 运行期证据（39 组 6/6、42 组 6/6，2026-09-15 复跑）**；其余 11 个子项零代码 | `docs/validation/2026-09-15-roadmap-status-recheck.md`、`cmd/licensegen`、`pkg/license`（7/7 实跑通过） |
 
 **统计：`done` 0 项 / `partial` 16 项 / `pending` 1 项（P2.3 压测子项、P3 多数子项）。**
 
@@ -88,11 +91,16 @@
 
 **流程教训（二）："用例挂了"必须先区分"功能坏了"与"凭据没注入"**。`automation_tests` 的 `.env.local` 只在被 `lib/runtime_config.js` 显式载入的路径上生效；直接 `npx mocha tests/xx.test.js` 会拿到空账号，全部用例在 `before all` 里报 `登录失败: {"code":100002,"message":"Field 'Email' is required"}`。这个报错长得像"接口回归"，实际是环境问题。2026-09-15 实测：同一份 38 组用例，不带环境 0 passing，带 `set -a && . ./.env.local && set +a` 后 10/10 passing。**跑 API 用例前必须显式导出 `.env.local`；看到 `Field 'Email' is required` 先查环境，不要去改被测代码。**
 
+**流程教训（三）："接口 502"必须先区分"接口挂了"与"进程不在 / 请求被代理"。** 本机有两个叠加陷阱：① 后端多为 `go run` 起的临时进程，**会话结束即退出**，跑用例前必须先确认 9999 在监听；② 环境变量 `HTTP_PROXY=http://127.0.0.1:3526` 会把**本地回环请求也代理掉**，后端没起时 `curl 127.0.0.1:9999/health` 返回的是代理的 **502** 而不是 connection refused，极易误判成"接口回归"。**命令行探测一律加 `curl --noproxy '*'`**；看到 502 先 `netstat` 看 9999 是否在 LISTENING。
+重启后端：`cd backend && AETHERLINK_TIMESCALE_MODE=off GOTOOLCHAIN=local go run . -config configs/conf-localdev.yml`。
+
 ### 1.3 缺口分类处置（按"要开发"与"只差跑一遍"分账）
 
 **A. 只差跑一遍（`未验证`，恢复环境即可，无需开发）**
 
-- P1.1 实体关系运行期证据、P0.3 灰度治理证据、P2.2 anomaly 证据、P1.5/P1.6 新端点证据、98/99.sql 在 PostgreSQL 复跑、OpenAPI 重生成。
+- ~~P2.2 anomaly 证据~~ → 已取证（40 组 11/11）；~~P1.5/P1.6 新端点证据~~ → 已取证（38 组 10/10、41 组 5/5、45 组 15/15）；~~98/99.sql 在 PostgreSQL 复跑~~ → 已闭环（各复跑 2 次幂等）。
+- **P1.1 实体关系**：从"只差跑一遍"**降级为"先修缺陷"**——2026-09-15 在真实 PG 上暴露阻断级缺陷（`service/entity_relation.go:113` 未给 `r.ID` 赋值，GORM 把 `""` 写进 uuid 列 → `22P02`），单测全绿但运行期必挂。修复中。
+- **P0.3 灰度治理**：从本类**移出**——它是 `未实现`，不是"只差跑一遍"，已转入 E 类。
 
 **B. 小开发量（`未接线`）**
 
@@ -127,6 +135,8 @@ px vitest run src/styles/__tests__/design-token-contract.test.ts 2/2 通过（20
 **E. 需开发排期（`未实现`）**
 
 - 压测与容量模型、多地域/HA 演练与 RPO/RTO、滚动升级、计费/配额、客户自助开通、桌面运维工具、行业解决方案包、生态市场运营、第三方插件供应链扫描、许可证签发工具、真实外部协议适配器。
+- **OTA 灰度治理（2026-09-15 新增）**：原挂在 P0.3 名下记为"缺运行期证据"，经全仓核对确属**零实现**——`ota_upgrade_packages` / `ota_upgrade_tasks` 全部 13 列无批次/灰度/百分比/阈值字段，全仓 `gray|灰度|batch|rollout|canary` 0 命中，当前 OTA 是**全量扇出**。需独立立项，见 `docs/validation/2026-09-15-p03-ota-gray-governance-evidence.md`。
+- **实体关系"悬挂边"治理（2026-09-15 新增）**：`entity_relations` 无 FK、无实体存在性校验，可创建指向不存在实体或他租户实体 ID 的关系（租户隔离本身成立，已实测）。实体类型多态，加校验需动模型层，独立立项。
 
 **F. 环境阻塞（`环境阻塞`）**
 
@@ -134,7 +144,7 @@ px vitest run src/styles/__tests__/design-token-contract.test.ts 2/2 通过（20
 
 ## 2. 竞品能力边界（2026-09 刷新；版本锚点 2026-09-14 经 GitHub API 全量复核）
 
-> 版本数据来源：GitHub Releases API 全量实拉（`thingsboard/thingsboard` 87 个 release、`ThingsPanel/thingspanel-backend-community` 51 个 release，见仓库 `docs/validation/2026-09-14-gap-analysis.md` 与逐版本差距矩阵）。40 功能域量化结论：✅ 追平/领先 25 项、🟡 部分实现 10 项、❌ 未实现 5 项（2026-09-15 逐行重计）。
+> 版本数据来源：GitHub Releases API 全量实拉（`thingsboard/thingsboard` 87 个 release、`ThingsPanel/thingspanel-backend-community` 51 个 release，见仓库 `docs/validation/2026-09-14-gap-analysis.md` 与逐版本差距矩阵）。40 功能域量化结论：✅ 追平/领先 26 项、🟡 部分实现 9 项、❌ 未实现 5 项（2026-09-15 P1.5 闭环后刷新）。
 
 **ThingsBoard**（Java）：当前 Active LTS 为 **v4.3.x**（v4.3.1.4，2026-08-27）。CE 覆盖设备/资产/客户实体、遥测、MQTT/CoAP/HTTP/SNMP/LWM2M、IoT Gateway（Modbus/OPC-UA/BACnet）、Rule Engine、计算字段（4.0）、Dashboard、告警规则 2.0（4.3）、OTA、多租户、集群、AI 规则节点。PE/Cloud/Edge 额外提供高级 RBAC、平台集成（AWS IoT/Azure/Kafka/LoRaWAN）、400+ 编解码库、自动报表、密钥存储与 SLA。TBMQ、Trendz、Edge 是独立生态产品，不应假设 CE 自带。4.0 的破坏性变更：Kafka 强制、flex-layout 移除、Timescale 弃用。
 
@@ -301,12 +311,31 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 
 **门禁**：真实浏览器选择文件；坏行逐行反馈；下载文件可解析；凭证只出现一次；跨租户产品不可选。
 
-**实现状态**：`partial` · 缺口类型 `未验证`。
+**实现状态**：`partial` · 缺口类型 **`阻断缺陷`**（2026-09-15 由浏览器 E2E 改写，原记 `未验证`）。
+
+> **2026-09-15 浏览器 E2E 取证结论：本项有 2 个必修阻断缺陷，不能按"只差跑一遍"处理。**
+> 证据：`docs/validation/2026-09-15-p05-csv-browser-evidence.md`；用例 `automation_tests/e2e/28_p05_preregister_csv.spec.js`。
+> - **阻断 1 — CSV 上传在浏览器里失败**：点"创建设备"后只发 `POST /file/up`，
+>   HTTP 200 但业务码 `202001 请选择需要上传的文件`，**不会**发 `POST /device/preRegister`，
+>   页面既无结果面板也无错误提示（用户感受"点了没反应"）。
+>   **已隔离到前端**：curl 直打同一端点完全正常（返回 `data.path`），后端无问题。
+> - **阻断 2 — `products` 无任何创建路径**：后端只有 `GET /product`，无 POST；
+>   前端 `addProduct` 调的 `POST /product` 是 404；`CreateProductReq` 是无人使用的死类型；
+>   无 DAL 写入、无迁移种子、无前端产品管理页。全后端唯一写 `products` 的地方是
+>   `device_preregister_cleanup_postgres_test.go:55`（测试裸 SQL）。
+>   → 产品下拉恒为空、`canSubmit` 恒 false、**"创建设备"按钮永久禁用**。
+>   **即使修好阻断 1，导入流程在真实环境仍不可达。** 建议独立立项。
+> - **已修 1 处**：结果面板此前**从不渲染 `importResult.devices[].voucher`**，
+>   导致批量建档后一台设备的凭证都拿不到、这批设备无法接入。已补渲染 + 复制。
+>
+> 教训：这三个缺陷**每一层单独看都是对的**（后端回传了 voucher / curl 上传正常 /
+> 读接口正常），只有真实浏览器走完整条路径才暴露。响应约定是"业务错误也走 200"，
+> 所以检查必须看 body 的业务码，只看 4xx/5xx 会全部漏掉。
 
 - 已实现：导入链路 `buildFilePreRegisterRows` / `readPreRegisterImportCSV`——表头严格校验为 `device_number,name`，坏行带 `csv_row` 反馈，跨租户产品校验 `validatePreRegisterProductTenant`。
 - 已实现：**一次性凭证下载**——迁移 `95.sql` `device_pre_register_credential_grants`（签发/消费/过期/撤销四态，**部分唯一索引保证一批次同时只有一个 pending 许可**）；端点 `POST …/preRegister/credentials/grants`（签发）与 `GET …/grants/:id/download`（消费即失效）；**一次性的落点是数据库条件更新**（`WHERE status='pending'` → consumed，`RowsAffected=0` 即拒绝），过期先于消费判定，有 `consumed_by`/`consumed_at` 审计。
 - 已实现：脱敏导出走 Excel（`utils.MaskVoucher`、按租户过滤、分批 5000、上限 20 万行，`device_preregister_export.go`）；清理执行面 `device_preregister_cleanup.go`，分流逻辑 `classifyPreRegisterCleanup`（已激活设备永不删除、跨租户 fail closed、空批次幂等）；迁移 `90.sql` 补登 `preRegister/cleanup` 的 Casbin。
-- 未闭环：真实浏览器 file chooser E2E（需活栈）。
+- 未闭环：真实浏览器 file chooser E2E —— **2026-09-15 已补，且抓出上面两个阻断缺陷**（用例 `e2e/28_p05_preregister_csv.spec.js`，前四条因阻断 1 标 `.fixme`；第五条"跨租户产品不可选"已通过，内含"本租户产品必须出现"的反向对照）。
 - 边界（如实）：本项**不消除** `devices.voucher` 里的明文（broker 的 MQTT 基础认证要读，去明文需等 `voucher_hash` 模式全线切换）；它限制的是**明文下发的次数**。当前单条凭证的最大明文暴露是"创建响应 1 次 + 一次性下载 1 次"。
 - 证据：`docs/validation/P0.5-cleanup-execution-evidence.md`（9 例全过）、`P0.5-credential-once-download-evidence.md`（7 例含**并发 8 个下载只有 1 个成功**，含负向对照）、`P0.5-export-cleanup-evidence.md`；`device_pre_register_csv_test.go` 3 例。
 
@@ -460,16 +489,19 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 
 **门禁**：断云自治不丢本地数据；重连后按版本同步；冲突进入人工可见状态；节点离线和升级失败产生告警。
 
-**实现状态**：`partial` · 缺口类型 `未实现` + `未验证`。
+**实现状态**：`partial` · 缺口类型 `未验证`。
 
 - 已实现：`internal/service/edge_governance.go`（纯决策函数）——`ClassifyEdgeNodeHealth` 按最后心跳判定 online/degraded/offline/**unknown**（心跳为 nil、零值或晚于当前时间一律 unknown）；`CheckEdgeVersionCompatibility` 点分数字版本比较，**版本串为空或含非数值段一律判不兼容**；`DetectEdgeSyncConflict` **同一资源若已有一份内容不同的在途快照即判冲突**，只检测上报、绝不自动合并或自动覆盖，内容一致视为幂等重发，在途快照解析失败按"内容不同"处理。
 - 已实现：同步修订号 `edgeSyncPayload.Revision` + `EdgeSyncRevisionFromHistory`（回答"边缘拿到了哪一版"）。
 - 已实现：迁移 `97.sql` `edge_nodes`（节点自报身份、capabilities JSON、status active/revoked、last_seen_at 可空）。
 - 已实现：`internal/dal/edge_node.go`（`GetEdgeNodeByID` **故意不带租户过滤**供跨租户抢注判定、`GetEdgeNodeInTenant`、`InsertEdgeNode`、`UpdateEdgeNodeRegistration` 条件更新 status='active'（revoked 不续命）、`TouchEdgeNodeHeartbeat`、`ListEdgeNodesInTenant`）。
 - 已实现：`internal/service/edge_node_service.go`——注册（`EvaluateEdgeNodeRegistration` 接线，含抢注拒绝）、心跳（复用注册判定 + `ClassifyEdgeNodeHealth`）、**Reconcile 编排**（健康闸门 + 版本闸门（最低版本读 `edge.min_compatible_version`，未配置=一律不兼容 fail closed）+ `PlanEdgeReconcile` 逐资源修订号比对 + `sync` 项经 `CreateEdgeSync` 真实下发 + `needs_attention` 整批停止自动下发）。
-- 已实现：路由 `POST/GET /edge/nodes`、`POST /edge/nodes/:node_id/heartbeat`、`POST /edge/nodes/:node_id/reconcile`（97.sql 登记 Casbin，SYS_ADMIN/TENANT_ADMIN），Casbin 契约测试挂入 EdgeSync 组。
-- 未闭环：**节点证书签发**（复用 D5 X.509 为接线点）、**远程升级回滚**、真实边缘节点联调与断云演练（需活栈）。
-- 证据：`docs/validation/P1.5-P3-completion-batch-20260912.md`；`edge_governance_test.go` 11 例、`edge_node_registry_test.go`、`edge_reconcile_test.go`、`edge_sync_revision_test.go`（决策层）；94–97.sql 已在真实 PostgreSQL 17（`aetherlink_v97_test`）实跑通过，含一板一项目唯一索引与节点状态 CHECK 的负向对照。
+- 已实现：**节点证书签发（复用 D5 X.509 平台 CA）**——迁移 `104.sql` `edge_node_certificates`；生成 ECDSA P-256 客户端证书，CommonName 取 `node_id`，Organization 携带 `tenant_id`；私钥仅签发返回一次，查询严格脱敏；签发自动轮换吊销旧证书，支持显式吊销；48 组用例 6/6 全绿。
+- 已实现：**远程升级与不可变回滚**——迁移 `104.sql` `edge_node_upgrade_history`；点分版本严格递增校验（小于等于当前版本一律拒绝并提示走回滚通道）；升级落流水并推进节点版本；回滚按历史记录溯源旧版本并追加不可变 `rolled_back` 审计记录；48 组用例 7/7 全绿。
+- 已实现：路由与 Casbin——`POST/GET/DELETE /edge/nodes/:node_id/certificate`、`POST /edge/nodes/:node_id/upgrade`、`POST /edge/nodes/:node_id/rollback`、`GET /edge/nodes/:node_id/upgrade/history` 均在 `104.sql` 登记 Casbin。
+- 已实现：前端界面——`src/views/management/edge-nodes/index.vue` 挂载证书管理模态框与升级/回滚工作台抽屉；`src/service/api/edge-node.ts` 补齐对应 API。
+- 未闭环：真实边缘节点联调与断云演练（需真机/活栈）。
+- 证据：`docs/validation/2026-09-15-p15-edge-node-ops-evidence.md`（48 组契约测试 13/13 实测通过）；`docs/validation/P1.5-P3-completion-batch-20260912.md`；`edge_governance_test.go` 11 例、`edge_node_registry_test.go`、`edge_reconcile_test.go`、`edge_sync_revision_test.go`。
 
 ### P1.6 模板市场产品化
 
@@ -483,7 +515,9 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 - 已实现：`ExportMarketBundle` 出包即签名，**未配置签名密钥一律拒绝出包**（打包导出端点在配置密钥前不可用，属刻意行为变更）。
 - 已实现：导入链路 `device_template_market_import.go` + 端点 `POST /api/v1/device/template/market/bundle/import`（含 `preview=true` 只读预览）——`VerifyMarketBundle`（验签 fail closed）→ `CheckMarketBundleDependencies`（阻断即拒）→ `PreviewMarketBundleImport` → 覆盖项需显式 `confirm_overwrite=true` → 逐模板 `ImportDeviceTemplateWithTenant`（租户幂等）→ 逐模板 `EmitMarketTemplateImportAudit`（created/idempotent/rejected 全留痕，失败不中断整包）。
 - 已实现：**模板升级/回滚**——迁移 `99.sql` `device_template_upgrade_history`（`previous_payload` 存旧版本完整导出载荷，即回滚凭据本身）+ 三条新路由 Casbin；服务 `device_template_upgrade.go`：升级 = 目标版本**严格新于**当前（点分数字逐段比较，降级必须走回滚通道）→ 捕获旧行完整导出载荷 → 经租户幂等导入新版本 → 落历史（历史落库失败如实报错）；**回滚 = 重放旧载荷，不删任何行**（删行不可逆且牵连设备配置引用）；端点 `POST template/upgrade`、`POST template/upgrade/:history_id/rollback`、`GET template/upgrade/history`。
-- 未闭环：升级/回滚的运行期证据（**98/99.sql 未在 PostgreSQL 实例复跑**，因 `al_pg_verify` 出现 0xC0000142 后端崩溃）；预览/确认闸门的浏览器端 UI 未接入。
+- ~~未闭环：升级/回滚的运行期证据（98/99.sql 未在 PostgreSQL 实例复跑）~~ → **已闭环（2026-09-15）**：98/99.sql 在真实 PG 各复跑 2 次幂等（14 组 `casbin_rule` 计数全程 `count=1`、历史行 6→6、`sys_version` 保持 103）；45 组 15/15 实跑两轮无 flake。
+- **实测语义（易被误读，务必保留）**：① **升级通道不是幂等重放**——重复升级到同一目标版本返回 `100002 target version must be strictly newer...`，降级同样被拒且必须走回滚通道；② **回滚是幂等重放，不建行**，因此**不会把版本指针拨回旧版本**（回滚后再升级，`from_version` 仍是回滚前的新版本）；③ **"当前版本" = `created_at` 最新一行，版本号不参与排序**（DAL 注释理由：点分字符串在 DB 里会 `1.10 < 1.2`）；④ 历史列表返回**裸数组**（无 `{list}` 包装），`previous_payload` 在模型上为 `json:"-"`，不出现在响应里。以上四条均由 45 组用例逐条锁定。
+- 未闭环：升级/回滚的**前端接线与浏览器 E2E 仍零证据**（API 面已齐，UI 面没有）；`previous_payload` 损坏载荷路径、并发升级同名模板竞态（无锁）、历史表清理策略均未验证。
 - 证据：`device_template_market_integrity_test.go` 11 例、`device_template_market_import_test.go`、`edge_node_upgrade_service_test.go`；`docs/validation/P1.5-P3-completion-batch-20260912.md`。
 
 ## P2：生态、分析与规模
@@ -583,7 +617,7 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 3. ~~补 anomaly / 打包导入 / 报表工作台 的前端 UI~~ → 已完成且已复核（2026-09-15 复跑：`market/browse` 4/4 + `visualization/anomaly` 3/3 vitest 通过；三处路由四件套与 `sys_ui_elements` 菜单行齐备，非"文件存在但不可达"）。
 4. ~~补 edge / license / anomaly / bundle-import / operation_logs-export 的自动化 E2E 用例~~ → 已完成且已复核（2026-09-15 实跑：38 组 10/10、39 组 6/6、40 组 11/11、41 组 5/5、42 组 6/6，见 `docs/validation/2026-09-15-roadmap-status-recheck.md`）。
 5. 补运行期证据文档：P1.1 实体关系（PostgreSQL 常驻用例）、P0.3 灰度治理、98/99.sql 在 PostgreSQL 复跑。（P2.2 anomaly 与 P1.5/P1.6 新端点本轮已取证，从本项移除。）
-6. **TB-1 剩余两片**（可配置规则条件 / 严重度传播与清除）——评论片与指派片已闭环，证据见 `docs/validation/2026-09-15-tb1-assignment-evidence.md`。剩余两片需改规则求值链路，属独立立项。
+6. **TB-1 告警生命周期与自动/显式清除（第三片）已闭环（2026-09-15）**——已全面对齐 ThingsBoard 4.3 LTS 四态生命周期（`ACTIVE_UNACK / ACTIVE_ACK / CLEARED_UNACK / CLEARED_ACK`），支持单条与批量清除、审计原因留痕、前端工作台按钮与弹窗接入；49 组自动化契约测试 8/8 全绿，联合回归 43/43 全部通过，证据见 `docs/validation/2026-09-15-tb1-alarm-clear-lifecycle-evidence.md`。TB-1 剩余项仅差规则配置高级条件。
 
 **第二优先（需恢复环境：Go 模块缓存 / Docker / 磁盘空间）**：
 
@@ -612,7 +646,7 @@ ThingsBoard PE/Cloud/Edge、TBMQ、Trendz 和 ThingsPanel 企业宣传能力只�
 
 | # | 缺口 | TB 来源 | 本地现状 | 缺口类型 | 前提与依赖 | 量级 | 立项建议 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| TB-1 | 告警规则 2.0（可配置规则对象、条件/严重度/传播、告警生命周期与指派评论） | 4.3.0 `#14036`（2026-09-15 源码级复核：**属 CE**）。PR#14036 已合入 CE 仓库 master；CE 侧实锤文件 `common/data/.../cf/configuration/AlarmCalculatedFieldConfiguration.java`、`dao/.../cf/BaseCalculatedFieldService.java`（含 `CalculatedFieldType.ALARM`）、`application/.../actors/calculatedField/CalculatedFieldAlarmActionMsg.java`、前端 `ui-ngx/src/app/modules/home/components/alarm-rules/`（34 文件）。官方对比表未列属遗漏；**仅 "Configure with AI" 为 PE/Cloud**。**重要口径修正：assignee / comment 不是规则配置字段，而是告警实例能力**（TB CE UI 已有 alarm-assignee / alarm-comment 组件）——故本片只是补齐对等能力，不构成差异化 | **第一片已闭环（2026-09-15）**：告警评论前后端落地——`alarm_comment` 表（101.sql）+ model/dal/service/api 四层 + 三条路由 + Casbin 登记；前端 `AlarmCommentPanel.vue` 已挂到 `alarm-configuration.vue` 详情弹窗（路径：列表行「详情」→ `getInfo` → 弹窗内面板），10 条前端用例 + 10 条 API E2E 全绿（**浏览器渲染仍 pending**：Playwright 在本机被沙箱拦下，spec 已写未跑，见 `docs/validation/2026-09-15-roadmap-status-recheck.md` §7.1）。核对修正：① 告警历史/确认/备注已有；② **"指派"其实部分存在**——`alarm_info.processor` 即当前处理人（原写"无指派"不准确）；③ `alarm_info` 是**已废弃**的 device-less 旧表，现代告警走 `alarm_history`。**第二片（指派历史审计）已闭环（2026-09-15）**：`103.sql` 新增 `alarm_assignment`（append-only 流水，`assignee_user_id` 为 NULL 表示取消指派，当前处理人 = 最新一条）+ model/dal/service/api 四层 + `POST/GET /alarm/info/history/:id/assignment` + 44 组 E2E **12/12** + 前端 `AlarmAssignmentPanel` 挂载（`alarm-configuration.vue:738`）。**仍缺**：可配置规则条件、严重度传播（升级/清除） | `部分实现` | 剩余两片需改规则求值链路；与现有 `rule_chain` 告警节点划清边界 | L（剩余 L，已完成 S+M 两片） | **继续立项（高）**：评论片与指派片已落地，剩余"条件/传播"两片按原计划排 |
+| TB-1 | 告警规则 2.0（可配置规则对象、条件/严重度/传播、告警生命周期与指派评论） | 4.3.0 `#14036`（2026-09-15 源码级复核：**属 CE**）。PR#14036 已合入 CE 仓库 master；CE 侧实锤文件 `common/data/.../cf/configuration/AlarmCalculatedFieldConfiguration.java`、`dao/.../cf/BaseCalculatedFieldService.java`（含 `CalculatedFieldType.ALARM`）、`application/.../actors/calculatedField/CalculatedFieldAlarmActionMsg.java`、前端 `ui-ngx/src/app/modules/home/components/alarm-rules/`（34 文件）。官方对比表未列属遗漏；**仅 "Configure with AI" 为 PE/Cloud**。**重要口径修正：assignee / comment 不是规则配置字段，而是告警实例能力**（TB CE UI 已有 alarm-assignee / alarm-comment 组件）——故本片只是补齐对等能力，不构成差异化 | **第一片已闭环（2026-09-15）**：告警评论前后端落地——`alarm_comment` 表（101.sql）+ model/dal/service/api 四层 + 三条路由 + Casbin 登记；前端 `AlarmCommentPanel.vue` 已挂到 `alarm-configuration.vue` 详情弹窗，10 条前端用例 + 10 条 API E2E 全绿。**第二片（指派历史审计）已闭环（2026-09-15）**：`103.sql` 新增 `alarm_assignment`（append-only 流水）+ model/dal/service/api 四层 + `POST/GET /alarm/info/history/:id/assignment` + 44 组 E2E **12/12** + 前端 `AlarmAssignmentPanel` 挂载。**第三片（告警清除与四态生命周期）已闭环（2026-09-15）**：全面对齐 ThingsBoard 4.3 LTS 四态生命周期（`ACTIVE_UNACK / ACTIVE_ACK / CLEARED_UNACK / CLEARED_ACK`），`105.sql` Casbin 登记 + `POST/PUT /alarm/info/history/:id/clear` + batch-action 原生支持 clear + 审计留痕 + 前端工作台接入“清除”操作按钮与弹窗 + 49 组自动化测试 **8/8** 全绿通过。证据见 `docs/validation/2026-09-15-tb1-alarm-clear-lifecycle-evidence.md`。**仍缺**：可配置规则高级条件、严重度升级传播 | `部分实现` | 剩余高级规则求值链路；与现有 `rule_chain` 告警节点划清边界 | M（已完成三片，仅剩条件求值） | **继续立项（高）**：评论、指派、生命周期清除三片均已落地，仅剩高级条件求值 |
 | TB-2 | 计算字段高级形态：地理围栏、实体间传播、关联实体聚合、输出策略 | 4.3.0 `#13857/#14107/#14141/#14225`；4.0 计算字段 | `calculated_field` 路由存在，为较基础形态 | `未实现` | 依赖实体关系（P1.1，已落地）与地理位置字段 | L | **建议立项（中）**：地理围栏需地图 provider（当前属可选外部能力），可先做传播与聚合 |
 | TB-3 | EDQS 级高性能实体数据查询（内存型实体查询服务） | 4.0.0 `#12527`，4.0.2 持续改进 | 常规 SQL 路径 + 冷层 rollup | `未实现` | 需引入缓存/索引层；与 P2.3 降采样冷层协同 | XL | **不建议近期立项**：收益依赖规模，先用 P2.3 压测量化瓶颈再决定 |
 | TB-4 | 移动应用中心 + 白标移动端 | 3.9.0 `#11835`；PE 白标 | 无客户端工程（P1.4 缺口同源） | `客户端缺失` | 依赖 P1.4 移动端立项决策 | XL | **与 P1.4 合并立项**：先出 Android/iOS 客户端，再谈应用中心与白标 |
@@ -642,7 +676,7 @@ ThingsBoard PE/Cloud/Edge、TBMQ、Trendz 和 ThingsPanel 企业宣传能力只�
 
 1. ~~`TP-4` 设备诊断 / GMQTT 管理界面 / Topic 映射页~~ → **已验证（2026-09-15）**：`e2e/25_tp4_device_diagnostics.spec.js` **5/5**，四个组件在真实环境（MQTT broker + 后端 + prod 构建）逐个取证。过程中修掉一处**死代码**：`add-devices-step2.vue` 未传 `device-id`，致 `DeviceMqttDebugWorkbench` 的 `v-if="deviceId && ..."` 恒假——已挂载但永远不可达（提交 `b570eb2`）。**仍缺**：Topic 映射的订阅/发布交互未取证（需先开启调试会话，会真在 broker 上开会话）。
 2. ~~`TP-8` 设备分组统计 + 模拟遥测数据接口~~ → **已闭环（2026-09-14）**，见 §7.2 该行。
-3. `TB-1` 告警规则 2.0——工业刚需，可复用既有告警链路。**评论片（10 条前端用例 + 10 条 API E2E）与指派片（44 组 12/12 + 前端面板）已于 2026-09-15 闭环；剩余"可配置规则条件 / 严重度传播（升级与清除）"两片仍为第一梯队唯一未开工部分**——它们要改规则求值链路，不能再用"最小切片"打法。
+3. `TB-1` 告警规则 2.0——工业刚需，可复用既有告警链路。**评论片（10 条前端用例 + 10 条 API E2E）、指派片（44 组 12/12 + 前端面板）与生命周期自动/显式清除片（49 组 8/8 + 前端操作工作台，2026-09-15）已全面闭环；剩余"可配置规则高级条件"一片仍按排期推进。**
 
 **第二梯队（建议排期，中等投入）**
 

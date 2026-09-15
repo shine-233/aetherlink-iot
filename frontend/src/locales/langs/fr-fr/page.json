@@ -757,5 +757,8 @@
   "page.anomaly.errorRangeOrder": "L'heure de fin doit suivre l'heure de début",
   "page.anomaly.errorBoundsRequired": "La règle de bornes exige au moins un min ou un max",
   "page.anomaly.errorBoundsOrder": "Le min ne peut pas dépasser le max",
-  "page.anomaly.errorDeviationK": "K doit être un nombre positif"
+  "page.anomaly.errorDeviationK": "K doit être un nombre positif",
+  "page.product.pre-register.credentialsTitle": "Identifiants des appareils (affichés une seule fois — enregistrez-les maintenant)",
+  "page.product.pre-register.copyCredential": "Copier l'identifiant",
+  "page.product.pre-register.credentialCopied": "Copié"
 }
