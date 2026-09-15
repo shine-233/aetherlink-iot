@@ -77,7 +77,60 @@ curl -X POST http://127.0.0.1:9999/api/v1/file/up \
 后端 `UpFile` 读 `c.FormFile("file")` + `c.PostForm("type")`，字段名与前端一致。
 所以是**浏览器发出的请求里没有 file 部分**。
 
-### 待查方向（下一步接手的人从这里开始）
+### 2.1 2026-09-16 续查：拿到了请求报文，机制已明确，但源头仍未定位
+
+**实测到的报文**（`page.on('request')`）：
+
+```
+content-type = application/json
+postData     = "{}"        ← FormData 被序列化成了 JSON 空对象
+```
+
+**机制已经明确**。axios 的 `transformRequest` 对 FormData 是这样分支的：
+
+```js
+if (utils.isFormData(data)) {
+  return hasJSONContentType ? JSON.stringify(formDataToJSON(data)) : data
+}
+```
+
+即：**只要 Content-Type 里含 `application/json`，FormData 就会走 `formDataToJSON`**——
+`File` 无法序列化，于是请求体退化成 `{}`，后端 `c.FormFile("file")` 自然拿不到文件。
+
+**尝试过的修复（未生效，已撤回）**：
+`packages/axios/src/options.ts:43` 的 `createAxiosConfig` 里预设了
+`headers: { 'Content-Type': 'application/json' }`。把它删掉、清空 `node_modules/.vite`
+缓存后重建，**运行时仍然发出 `application/json`**。因为该改动无法验证有效，
+且会影响全站所有请求，**已 `git checkout` 撤回，不留在仓库里**。
+
+**一个必须避免的排查陷阱**：
+`grep 'Content-Type":"application/json' dist/assets/*.js` **不能作为判据** ——
+`packages/axios/src/shared.ts:10` 的读取兜底 `config.headers?.['Content-Type'] || 'application/json'`
+会编译出**完全相同的字面量**。这与本项目此前 `grep 127.0.0.1:9999` 是同一类错误。
+
+**影响面（比单个页面大）**：全站有 3 处文件上传，都走同一个共享 axios 配置，
+推测全部失效：
+| 位置 | 用途 |
+|---|---|
+| `views/product/pre-register/use-pre-register-import.ts:83` | 预注册 CSV |
+| `views/product/update-package/use-ota-package-form.ts:115` | OTA 升级包 |
+| `service/api/personal-center.ts:55` | 个人中心上传（`/file/up`） |
+
+**下一步建议（按优先级）**：
+1. 在浏览器里对 `/file/up` 请求打 `page.on('request')`，打印**完整 headers 对象**，
+   确认 `Content-Type` 到底是 axios 自动加的、还是被某个拦截器加的。
+2. 若来自 axios 自动加：检查 `createFlatRequest` 内部是否把 `Content-Type` 写死
+   （包源码 `packages/axios/src/{index,options,shared}.ts`），
+   以及 `axios-retry` 是否在重试时重建了 config。
+3. 若来自拦截器：`src/service/request/request.ts` 的 `onRequest` 只合并了
+   `x-token` / `Accept-Language`，但 `@aetherlink/axios` 内部可能还有别的钩子。
+4. **兜底方案（不推荐但可先止血）**：上传处显式传
+   `{ headers: { 'Content-Type': 'multipart/form-data' } }` —— 注意必须让浏览器
+   自己补 boundary，不要手写 boundary 字符串。
+
+> 修好后把 `e2e/28_p05_preregister_csv.spec.js` 前四条的 `.fixme` 去掉即可转正。
+
+### 原记录的待查方向（保留，作为交叉验证）
 1. `NUpload` 的 `default-upload=false` 下，`@update:file-list` 给出的
    `UploadFileInfo.file` 是否真被填充 —— `index.vue:68` 是
    `selectFile(list[0]?.file ?? null)`，若 `.file` 为空则 `selectedFile` 为 null。
