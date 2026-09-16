@@ -236,33 +236,12 @@ test.describe('P0.5 预注册 CSV 浏览器 E2E', () => {
   // 每条用例都要开弹窗、等产品下拉、走一次上传 + 提交，默认 30s 不够
   test.describe.configure({ timeout: 90000 });
 
-  /**
-   * ⚠️ 2026-09-15 实测：**CSV 导入在浏览器里走不通**，因此前四条用例标 fixme。
-   *
-   * 现象：点"创建设备"后只发出 `POST /api/v1/file/up`，且返回业务错误
-   *   `{"code":202001,"message":"请选择需要上传的文件"}`
-   * —— HTTP 状态是 200，业务码才说明问题，所以只看"有没有 4xx/5xx"的检查会漏掉。
-   * 之后不会发出 `POST /device/preRegister`，页面既不显示结果面板也不显示错误
-   * （只有一条 toast），表现为"点了没反应"。
-   *
-   * 已隔离：**后端是好的**。用 curl 直接打同一个端点完全正常：
-   *   curl -X POST .../file/up -H "x-token: $TOKEN" \
-   *        -F "file=@x.csv" -F "type=importBatch"
-   *   → {"code":200,"message":"操作成功","data":{"path":"./files\\importBatch\\...csv"}}
-   * 所以问题在**前端的 multipart 上传**：浏览器发出去的请求里没有 file 部分。
-   * 待查方向：`NUpload(default-upload=false)` 的 `UploadFileInfo.file` 是否被填充、
-   * `FormData` 是否被请求层改写。
-   *
-   * 这正是 P0.5 门禁"真实浏览器 file chooser E2E"存在的意义 ——
-   * 接口层与单测层全绿，但用户在浏览器里根本提交不了。
-   * 修好上传后把下面四条的 .fixme 去掉即可转正。
-   */
 
   test.beforeEach(() => {
     test.skip(Boolean(fixtureSkipReason), fixtureSkipReason);
   });
 
-  test.fixme("真实浏览器选文件导入 CSV，并渲染出一次性凭证", async ({ rolePage, api }) => {
+  test("真实浏览器选文件导入 CSV，并渲染出一次性凭证", async ({ rolePage, api }) => {
     const batch = uniqueBatch();
     const numbers = [uniqueDeviceNumber('a'), uniqueDeviceNumber('b')];
 
@@ -300,6 +279,19 @@ test.describe('P0.5 预注册 CSV 浏览器 E2E', () => {
     }
   });
 
+  /**
+   * ⚠️ 2026-09-16 未通过：**错误路径是另一条独立缺陷，与上传根因无关**。
+   *
+   * 实测（page.on('response') 抓 POST /device/preRegister）：
+   *   提交坏行 CSV 时后端返回 {"code":100005,"message":"batch_file不能为空"}
+   *   —— 请求里**根本没带 batch_file**（不是 CSV 内容校验失败）。
+   *   而且页面既没有 .n-alert 也没有 toast，**用户看不到任何反馈**。
+   *
+   * 所以这条用例目前测不到"逐行反馈"，它先卡在更前面：文件路径没传上去。
+   * 修好 batch_file 传递后，才能验证 csv_row 行号展示。
+   * 排查入口：use-pre-register-import.ts:127 的 payload.batch_file = uploadedPath.value
+   * 与 submitImport 里 mode.value === 'file' 的分支判断。
+   */
   test.fixme("坏行逐行反馈：缺字段的行要带上 csv_row 行号", async ({ rolePage, api }) => {
     const batch = uniqueBatch();
 
@@ -328,6 +320,19 @@ test.describe('P0.5 预注册 CSV 浏览器 E2E', () => {
     }
   });
 
+  /**
+   * ⚠️ 2026-09-16 未通过：**错误路径是另一条独立缺陷，与上传根因无关**。
+   *
+   * 实测（page.on('response') 抓 POST /device/preRegister）：
+   *   提交坏行 CSV 时后端返回 {"code":100005,"message":"batch_file不能为空"}
+   *   —— 请求里**根本没带 batch_file**（不是 CSV 内容校验失败）。
+   *   而且页面既没有 .n-alert 也没有 toast，**用户看不到任何反馈**。
+   *
+   * 所以这条用例目前测不到"逐行反馈"，它先卡在更前面：文件路径没传上去。
+   * 修好 batch_file 传递后，才能验证 csv_row 行号展示。
+   * 排查入口：use-pre-register-import.ts:127 的 payload.batch_file = uploadedPath.value
+   * 与 submitImport 里 mode.value === 'file' 的分支判断。
+   */
   test.fixme("表头不合规的文件被拒绝", async ({ rolePage, api }) => {
     const batch = uniqueBatch();
 
@@ -352,7 +357,7 @@ test.describe('P0.5 预注册 CSV 浏览器 E2E', () => {
     }
   });
 
-  test.fixme("凭证只出现一次：关闭弹窗重开后不再展示", async ({ rolePage, api }) => {
+  test("凭证只出现一次：关闭弹窗重开后不再展示", async ({ rolePage, api }) => {
     const batch = uniqueBatch();
 
     try {

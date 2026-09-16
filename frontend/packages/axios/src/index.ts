@@ -19,6 +19,19 @@ import type {
   ResponseType
 } from './type'
 
+/**
+ * 是否"纯对象"（Object 字面量 / new Object）。
+ *
+ * 用于区分"可以用 Object.entries 安全遍历并重建"的载荷
+ * 与 FormData / URLSearchParams / Blob / ArrayBuffer 这类**遍历会失真**的载荷。
+ * 详见 createFlatRequest 里 request 拦截器的注释。
+ */
+function isPlainObject(value: unknown): value is Record<string, any> {
+  if (value === null || typeof value !== 'object') return false
+  const proto = Object.getPrototypeOf(value)
+  return proto === Object.prototype || proto === null
+}
+
 function createCommonRequest<ResponseData = any>(
   axiosConfig?: CreateAxiosDefaults,
   options?: Partial<RequestOption<ResponseData>>
@@ -173,7 +186,19 @@ export function createFlatRequest<ResponseData = any>(
         return acc
       }, {})
     }
-    if (config.data) {
+    // 下面这段"剔除 null 值"只对**纯对象**成立。
+    //
+    // 对 FormData 用 Object.entries 会得到空数组 —— FormData 的条目存在内部槽里，
+    // 不是可枚举自有属性。于是 config.data 会被替换成 {}，**请求体整个被丢掉**。
+    // 2026-09-15 实测：这正是文件上传全站失效的根因 ——
+    // 预注册 CSV 导入在浏览器里后端报 `202001 请选择需要上传的文件`，
+    // 表现为"点了创建设备没反应"（HTTP 200，错误只在业务码里）。
+    //
+    // 证据链（浏览器内挂钩，未改应用代码）：
+    //   FormData.prototype.append → {"n":"file","isFile":true,"size":30}   ← 文件确实塞进去了
+    //   XMLHttpRequest.prototype.send → {"entries":0,"files":[]}            ← 发出去的是空的
+    //   postDataBuffer() → body 仅 44 字节（正常 multipart 应 300+）
+    if (isPlainObject(config.data)) {
       config.data = Object.entries(config.data).reduce((acc: Record<string, any>, [key, value]) => {
         if (value !== null) {
           acc[key] = value
