@@ -345,6 +345,40 @@ fail-closed（只允许 127.0.0.1 + 必须显式给 `AETHERLINK_DB_PASSWORD`，�
 
 ---
 
+## 3.5 2026-09-16 再查：剩下的 `batch_file` 缺陷**在前端之外**
+
+上传根因修好后（提交 `2218dc9`），坏行场景仍失败。抓两侧报文：
+
+**前端实际发出的请求体（`page.on('request')`）——完全正确：**
+```json
+{"product_id":"aa23462b-...","batch_number":"body2-batch","create_type":"2",
+ "batch_file":"./files\\importBatch\\2026-09-16\\3d5238b8d9a661ecf22c6f5140054b32.csv"}
+```
+
+**后端返回：** `{"code":100005,"message":"batch_file不能为空"}`
+
+→ **`batch_file` 明明有值，后端却说它为空。所以这条缺陷不在前端。**
+
+### 定位方向（后端侧）
+`internal/service/device_pre_register.go` 有两处都会返回 `code 100005` + `field: batch_file`：
+
+1. `req.BatchFile == nil || strings.TrimSpace(*req.BatchFile) == ""` —— 报文证明不成立
+2. `readPreRegisterImportCSV` 里的路径校验：
+   `filepath.IsAbs(cleaned) || strings.Contains(cleaned, "..") ||
+    !strings.Contains(filepath.ToSlash(cleaned), preRegisterImportSegment+"/") ||
+    strings.ToLower(filepath.Ext(cleaned)) != ".csv"`
+
+**高度怀疑是第 2 处**：报文的路径是 **Windows 反斜杠**（`./files\importBatch\...`），
+而错误消息映射似乎只按 `field` 生成「batch_file不能为空」，
+把真实的失败原因（路径不合规）**掩盖成了"为空"**。
+
+> 这本身也是个小缺陷：`100005` + `field` 的错误映射把子原因吞掉了，
+> 排查时会被误导到"字段没传"这个错误方向。建议让映射优先透出 `message`。
+
+**下一步**：在 `readPreRegisterImportCSV` 的四个条件上分别打点（或临时返回不同 message），
+确认到底是哪一条不成立；重点验证 Windows 反斜杠路径在
+`filepath.Clean` / `ToSlash` / `preRegisterImportSegment` 组合下是否被判为不合规。
+
 ## 4. 交付物
 
 | 文件 | 内容 |
