@@ -140,7 +140,8 @@ cd backend && GOTOOLCHAIN=local go test -p 1 ./internal/middleware/response/ -co
 --- PASS: TestRealConfigKeepsGenericEmptyFieldTemplate
 --- PASS: TestRealConfigKeepsSharedCodesUnchangedEvenWithCallerMessage
 --- PASS: TestRealConfigRegistersCsvErrorCodes
-ok  aetherlink-iot/backend/internal/middleware/response  0.228s
+--- PASS: TestRealConfigRendersCsvRowThroughFullHttpResponseChain
+ok  aetherlink-iot/backend/internal/middleware/response  0.371s
 ```
 
 其中 `TestRealConfigRendersCsvRowAndReason` 对 zh_CN / en_US 双语断言：
@@ -151,7 +152,21 @@ ok  aetherlink-iot/backend/internal/middleware/response  0.228s
 它钉死"不做全局覆盖"这个决定——若日后有人给共享码加上 message 覆盖，
 100005/100002 会立刻变红，并直接指向那两处硬断言的用例。
 
-### 4.4 回归
+### 4.4 HTTP 边界端到端（真实配置 + 真实中间件）
+
+`TestRealConfigRendersCsvRowThroughFullHttpResponseChain` 用**仓库真实配置**装配
+`Handler`，走真实 Gin 中间件，解析最终写出的 JSON 响应体，断言：
+
+- `code == 100006`
+- `message` 含 `device_number and name are required`
+- `message` 命中 `\b2\b`
+- 不含「不能为空」、不含残留 `${`
+
+这条补上了"单测渲染正确"与"浏览器看得见"之间的最后一环
+（服务层返回 `*errcode.Error` → 中间件按真实模板渲染 → 序列化成 JSON）。
+它使**后端一半**的判据不再依赖活栈可用性。
+
+### 4.5 回归
 
 ```
 cd backend && GOTOOLCHAIN=local go test -p 1 ./internal/service/ ./internal/middleware/... -count=1
@@ -168,9 +183,10 @@ EXIT=0
 1. **浏览器 E2E 未在本轮复跑**。完成判据是
    `automation_tests/e2e/28_p05_preregister_csv.spec.js` 的
    「坏行逐行反馈：缺字段的行要带上 csv_row 行号」去掉 `.fixme` 后通过。
-   本轮已把该判据的**后端一半**（错误码 + 行号 + 模板渲染）在单测层钉死，
-   但**未在真实浏览器里跑通**。需活栈（PostgreSQL + 后端 + 前端 prod 构建）
-   与 `AETHERLINK_DB_PASSWORD`。
+   本轮已把该判据的**后端一半**（服务层错误码 → 中间件渲染 → JSON 响应体）钉死到
+   HTTP 边界（见 §4.4），但**未在真实浏览器里跑通**。需活栈与 `AETHERLINK_DB_PASSWORD`。
+   注意：运行中的后端实例是本次改配置**之前**启动的，`messages.yaml` 只在启动时加载，
+   因此复跑 E2E 前**必须先重启后端**，否则会拿到旧模板而误判为失败。
 2. **`products` 无创建路径**（上游文档任务 2）**未动**——它需要新迁移登记 Casbin，
    而当前 `104/105/106.sql` 均为未提交的在途文件，此刻新增迁移有断裂风险。
 3. `devices.voucher` 明文边界不变（本项不涉及）。

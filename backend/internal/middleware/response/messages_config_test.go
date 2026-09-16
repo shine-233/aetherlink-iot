@@ -6,6 +6,8 @@
 package response
 
 import (
+	"encoding/json"
+	"net/http"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -13,6 +15,7 @@ import (
 
 	"aetherlink-iot/backend/pkg/errcode"
 
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
 
@@ -103,4 +106,43 @@ func TestRealConfigRegistersCsvErrorCodes(t *testing.T) {
 		require.NotEqual(t, "未知错误", msg, "错误码 %d 必须已在 messages.yaml 登记", code)
 	}
 	require.True(t, strings.Contains(manager.GetMessage(100006, "en-US"), "Row"), "100006 英文模板应含 Row")
+}
+
+// 端到端（HTTP 边界）：用**真实配置**装配 Handler，走真实中间件，
+// 断言最终写出的 JSON 里带出行号。
+//
+// 这条补上了"单测渲染正确"与"浏览器看得见"之间的最后一环：
+// 服务层返回 *errcode.Error → 中间件按真实模板渲染 → 序列化成 JSON 响应体。
+// 浏览器 E2E 需要活栈（且后端必须重启以加载新配置），本测试在无外部依赖下
+// 覆盖同一段链路，使"后端一半"的判据不依赖环境可用性。
+func TestRealConfigRendersCsvRowThroughFullHttpResponseChain(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler, err := NewHandler(
+		filepath.Join("..", "..", "..", "configs", "messages.yaml"),
+		filepath.Join("..", "..", "..", "configs", "messages_str.yaml"),
+	)
+	require.NoError(t, err, "真实配置必须可装配 Handler")
+
+	recorder, _ := perform(t, handler, "zh-CN", func(c *gin.Context) {
+		c.Error(errcode.WithVars(100006, map[string]interface{}{
+			"csv_row": 2,
+			"message": "device_number and name are required",
+		}))
+	})
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	body := recorder.Body.String()
+
+	var payload struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(body), &payload), "响应必须是合法 JSON：%s", body)
+
+	require.Equal(t, 100006, payload.Code)
+	require.Contains(t, payload.Message, "device_number and name are required")
+	require.Regexp(t, regexp.MustCompile(`\b2\b`), payload.Message,
+		"浏览器 E2E 断言的是 /\\b2\\b/，后端渲染必须满足同一口径")
+	require.NotContains(t, payload.Message, "不能为空")
+	require.NotContains(t, payload.Message, "${")
 }
