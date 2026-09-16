@@ -61,7 +61,7 @@
 | P1.6 | 模板市场与资源中心产品化 | `partial` | `未验证` | 升级/回滚运行期证据（45 组 15/15）；验签/预览/覆盖闸门（41 组 5/5）；**TP-5 资源中心跨形态综合市场与统一分发已闭环（53 组 21/21，106.sql）**；前端 API wrapper 与视图已接入并通过 vitest 34/34。剩余：升级/回滚的浏览器 E2E | `docs/validation/2026-09-16-tp5-resource-center-evidence.md`、`docs/validation/2026-09-15-p16-upgrade-rollback-pg-evidence.md` |
 | P2.1 | 协议插件 SDK | `partial` | `未实现` | 真实外部协议适配器（CAN/BACnet/BLE/LoRaWAN）；manifest 注册 HTTP 运行期路径 | `pkg/pluginsdk`（9/9 实跑通过） |
 | P2.2 | Trendz 类轻量分析 | `partial` | `未验证` | **anomaly 端点已有真实 API 运行期证据（40 组 11/11，2026-09-15 复跑）**；剩余约束仍来自 P0.6 durable execution | `docs/validation/2026-09-15-roadmap-status-recheck.md`、`telemetry_analysis_core_test.go` |
-| P2.3 | 数据保留与性能 | `partial` | `环境阻塞` | **基准压测 / 容量模型 / 冷热分层告警 pending** | `P1.5-P3-completion-batch-20260912.md` |
+| P2.3 | 数据保留与性能 | `partial` | `环境阻塞` | **已有本地 API 基线数字（2026-09-17，新增负载生成器后实测）**：`/health` **3,920 rps**、p50 0.32ms / p95 7.18ms；触库端点 `/api/v1/deployment/health` **2,376 rps**、p50 0.35ms / p90 4.29ms / p95 12.41ms，两端点**全程 0 失败**。剩余：**MQTT 摄取与浏览器首屏两场景完全未测**；tier 达标证据需资源配额环境（本机不可为）；双实例报告未做；容量模型与冷热分层告警 pending | `docs/validation/2026-09-17-p23-local-api-baseline-evidence.md` |
 | P3 | 商业化与长期能力 | `partial` | `未实现` | **许可证签发工具（`cmd/licensegen` 与 `pkg/license` 签名/密钥生成）已实现并通过 7/7 单元测试与实测**；**license/status 与 operation_logs/export 已有真实 API 运行期证据（39 组 6/6、42 组 6/6，2026-09-15 复跑）**；其余 11 个子项零代码 | `docs/validation/2026-09-15-roadmap-status-recheck.md`、`cmd/licensegen`、`pkg/license`（7/7 实跑通过） |
 
 **统计：`done` 2 项 / `partial` 14 项 / `pending` 1 项（P2.3 压测子项、P3 多数子项）。**
@@ -579,7 +579,14 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 - 已实现：保留策略每日 2 点 cron（真实执行）。
 - 已实现：**降采样**——`telemetry_rollups` 冷层表（97.sql，1h 桶 min/max/avg/last/count）；DAL `internal/dal/telemetry_rollups.go`（汇总 upsert ON CONFLICT 覆盖、**count 加权合并 avg**、min/max/count/last/sum 精确合并）；作业 `telemetry_downsample.go`（`telemetry.downsample.enabled` 门控**默认关闭**，仅直连数据库模式，外部 TSDB 显式跳过，**不删原始数据**）；cron 每日 3 点；分析查询对整窗冷数据回落冷层（`fetchTelemetryAnalysisSeries`，不跨层拼接）——rollup 表有真实读方。
 - 已实现：**查询缓存**——`telemetry_analysis_cache.go` 分析取数进程内 TTL 缓存（`telemetry.analysis_cache.enabled` 默认关闭，TTL 300s，4096 条护栏；多实例各自回源的取舍已注明）。
-- 未闭环：**基准压测 / 容量模型 / 冷热分层告警——本机系统盘约 11 GB 且无网络，压测前提不成立，保持 pending**；rollup SQL 与冷读路径需真实 PostgreSQL 验证（rollup 数学已在 `aetherlink_v97_test` 真 PG 验证：2 行同桶 → min=5/max=7/avg=6/last=7/count=2，upsert 幂等）。
+- 未闭环：~~基准压测 / 容量模型 / 冷热分层告警~~ → **2026-09-17 部分推进**：
+  核对发现 `performance/` **脚手架齐备但没有负载生成器**（`run-tier-benchmark.ps1` 只抓健康检查，
+  从不施加 `tiers.json` 里的 `apiConcurrentUsers`/`mqttClients`），这才是"零容量数字"的根因。
+  已新增 `performance/scripts/api-load-baseline.js`（纯 Node 标准库，无外部依赖）并实测出第一批数字：
+  `/health` 3,920 rps（p50 0.32ms / p95 7.18ms）、触库端点 2,376 rps（p50 0.35ms / p90 4.29ms / p95 12.41ms），
+  两端点 0 失败。**仍 pending**：MQTT 摄取与浏览器首屏两场景未测（物联网平台的真瓶颈恰在此）、
+  tier 达标证据需资源配额环境、双实例报告需先解决多实例前提、容量模型与冷热分层告警未做。
+  证据 `docs/validation/2026-09-17-p23-local-api-baseline-evidence.md`。
 - 证据：`docs/validation/P1.5-P3-completion-batch-20260912.md`。
 
 ## P3：商业化与长期能力
