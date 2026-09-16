@@ -191,6 +191,47 @@ content-type = multipart/form-data; boundary=----WebKitFormBoundaryhqiRLKeMSgGBy
    看**进入网络层时**的 body 大小是 34 还是 44 —— 可进一步把范围缩到
    "axios 内部" 还是 "浏览器网络层"。
 
+### 2.4 2026-09-16 续查四：前端已完全正确，问题在**后端**（且错误提示有误导性）
+
+上传根因修好之后复测坏行场景，抓到完整请求序列：
+
+```
+POST /api/v1/file/up          => {"code":200,"message":"操作成功","data":{"path":"./files\\importBatch\\2026-09-16\\957ed8d9....csv"}}
+POST /api/v1/device/preRegister => {"code":100005,"message":"batch_file不能为空"}
+```
+
+**前端请求体是完全正确的**（`page.on('request').postData()` 实测）：
+
+```json
+{"product_id":"bf971263-...","batch_number":"pl-batch","create_type":"2",
+ "batch_file":"./files\\importBatch\\2026-09-16\\957ed8d9c0d6693a9bac5898f3b77110.csv"}
+```
+
+`batch_file` **明明在请求体里**，后端却报"不能为空"。
+
+**已排除后端绑定问题**：
+- `model.CreateDevicePreRegisterReq.BatchFile` 的 tag 是 `json:"batch_file"` ✅
+- `handler` 走 `BindAndValidate` → `bindRequest` → POST 用 `ShouldBindJSON` ✅
+
+**真正的原因线索：错误提示具有误导性。**
+`device_pre_register.go` 里有**两个不同分支**都返回 `field: "batch_file"`：
+
+1. `buildFilePreRegisterRows` 开头：`req.BatchFile == nil || TrimSpace(*req.BatchFile) == ""`
+   → 这才是真正的"为空"
+2. `readPreRegisterImportCSV` 的路径校验：`filepath.IsAbs` / 含 `..` /
+   不含 `importBatch/` / 扩展名不是 `.csv` → 也返回 `field: "batch_file"`
+
+用户可见文案是由**字段名**生成的，所以分支 2 也会显示"batch_file不能为空"——
+**把"路径不合规"误报成"没传值"**，这是排查时最大的干扰。
+
+**下一步（在后端）**：
+1. 给分支 2 一个可区分的错误码/文案（例如"批次文件路径不合规"），
+   否则真实原因永远被"不能为空"掩盖。
+2. 确认 `./files\importBatch\...` 这个**相对路径**能否被后端进程按自身 CWD 解析到
+   —— `readPreRegisterImportCSV` 最后会 `os.Open(cleaned)`，路径对不上就走到
+   `CodeFileEmpty`（又是一种不同的报错）。
+3. 注意路径里的**反斜杠**：`filepath.ToSlash` 只用于判断，`os.Open` 用的是原始字符串。
+
 **原计划的下一步（保留）**：
 1. 在 `use-pre-register-import.ts` 的 `uploadSelectedFile` 里临时打印
    `selectedFile.value` 的 `constructor.name` / `instanceof File` / `size`
