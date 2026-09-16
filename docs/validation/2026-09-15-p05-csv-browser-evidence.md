@@ -378,3 +378,58 @@ fail-closed（只允许 127.0.0.1 + 必须显式给 `AETHERLINK_DB_PASSWORD`，�
 **要抓到它们，必须真的在浏览器里走完一条端到端路径。**
 这就是 P0.5 门禁"真实浏览器 file chooser E2E"不可替代的原因，
 也是本轮把 P0.5 从"只差跑一遍"改写为"**阻断：有 2 个必修缺陷**"的依据。
+
+---
+
+## 2.4 2026-09-16 续查四：请求体是**正确的**，后端却仍拒绝
+
+修好上传根因（提交 `2218dc9`）后重测坏行场景。同一次运行里同时记录请求体与响应：
+
+```
+#1 req= {"product_id":"cdf830ca-...","batch_number":"cc-batch","create_type":"2",
+         "batch_file":"./files\\importBatch\\2026-09-16\\00f0e4c5...csv"}
+   resp= {"code":100005,"message":"batch_file不能为空"}
+preRegister 共调用 1 次
+alert= 0 []
+```
+
+**这推翻了此前"batch_file 没传上去"的推测** —— 前端请求体完全正确：
+`batch_file` 存在、值合法、只有 1 次调用（不是重试）。
+
+**已排除**：
+- 字段名不匹配：前后端都是 `batch_file`（`model/devices.http.go:234`）
+- 上传失败：`POST /file/up` 返回 `{"code":200,"data":{"path":"./files\\importBatch\\..."}}`
+- 路径校验：`preRegisterImportSegment = "importBatch"`，
+  `filepath.ToSlash("./files\\importBatch\\...")` → `./files/importBatch/...`，含 `importBatch/` ✓
+- 重试：只调用 1 次
+
+**因此问题落在后端 `CreateDevicePreRegister` 的入参绑定或校验分支上**，
+且**错误文案有误导性**：`readPreRegisterImportCSV` 的路径校验失败与
+`req.BatchFile == nil/空` 两个分支**都返回 100005 + field=batch_file**，
+但只有后者会渲染成"batch_file不能为空"。所以看到这句文案**不能断定是"字段没传"**，
+很可能是**路径校验分支**在报错（它的 `message` var 可能被模板忽略了）。
+
+**下一步（3 个具体动作，按性价比排序）**：
+1. 在 `internal/service/device_pre_register.go:277` 的路径校验处**加日志**打印
+   `cleaned` 与 `filepath.ToSlash(cleaned)`，确认它到底走到哪个分支 ——
+   这是最快的一步，能直接证伪或证实上面的推断。
+2. 确认后端进程的**工作目录**与 `saveFile` 写文件的目录是否一致
+   （相对路径 `./files\importBatch\...` 依赖 CWD；上传与建档在同一进程内，
+   理论上一致，但值得实测）。
+3. 若确为路径校验分支：注意 Windows 下 `saveFile` 返回的是**反斜杠**路径，
+   而校验用 `ToSlash` 后判断 —— 检查是否存在盘符/前导 `./` 导致的边界差异。
+
+**另一条独立缺陷（本轮确认）**：坏行被拒时**页面无任何反馈**
+（`n-alert` 数量 0、toast 为空）。后端明明返回了业务错误码，
+前端 `submitError` 却没被渲染 —— 这本身就是可独立修复的可用性问题。
+
+## 2.5 本轮净成果小结（P0.5）
+
+| # | 缺陷 | 状态 |
+|---|---|---|
+| 1 | **文件上传全站失效**（FormData 被 `Object.entries` 清空） | ✅ **已修**（`2218dc9`），端到端验证通过 |
+| 2 | 结果面板从不渲染一次性凭证 | ✅ **已修**（`cb2b2d4`），端到端验证通过 |
+| 3 | 错误路径：坏行无反馈 + 后端拒绝正确请求 | ❌ 已定位，未修（§2.4） |
+| 4 | `products` 无任何创建路径 | ❌ 未修，建议独立立项 |
+
+用例：`e2e/28_p05_preregister_csv.spec.js` **3 passed / 2 skipped**（后两条等缺陷 3 修好转正）。
