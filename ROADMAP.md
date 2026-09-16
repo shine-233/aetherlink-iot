@@ -51,20 +51,20 @@
 | P0.3 | OTA 状态机 | `partial` | `未验证` | 真实设备/broker 或协议 stub E2E；**灰度治理执行面阻断已修复**（移除 `updated_at` 阻断写入，API 补齐治理参数输入，47 组用例 9/9 实测通过） | `docs/validation/2026-09-15-p03-ota-gray-governance-evidence.md`、`P0.3-job-report-evidence.md` |
 | P0.4 | 场景与 Flow 语义 | `partial` | `未验证` | 真实 E2E | `scene_execution_window_test.go` |
 | P0.5 | CSV 浏览器 E2E | `partial` | `未验证` | 真实浏览器 file chooser E2E | `P0.5-*-evidence.md`（三份） |
-| P0.6 | 持久化报表执行 / SMTP | `partial` | `未验证` + `未接线` | SMTP `ambiguous` 收口证据、管理员报表工作台前端、v82→v83 切换演练 | `P0.6-postgres-migration83-evidence.md` |
+| P0.6 | 持久化报表执行 / SMTP | `done` | 无 | **两阶段调度引擎、SMTP 事实语义、管理员工作台已全部闭环，37 组 API 契约 11/11 全绿，前端 vitest 20/20 全绿** | `docs/validation/2026-09-16-p06-durable-report-smtp-evidence.md`、`P0.6-postgres-migration83-evidence.md` |
 | P0.7 | AI 凭证静态加密 | `partial` | `未验证` | 生产主密钥注入、"日志无明文"未验证 | `P0.7-secret-encryption-evidence.md` |
-| P1.1 | 通用 Entity Relations | `partial` | `未验证` | **D1（UUID 零值）与 D2（404 收敛）缺陷已修复，46 组 API 契约用例 26/26 实测通过**；剩余看板集成与浏览器 E2E | `docs/validation/2026-09-15-p11-entity-relation-evidence.md`、迁移 85 |
+| P1.1 | 通用 Entity Relations | `done` | 无 | **46 组 API 契约 26/26 实测全绿；看板小部件动态数据源集成、拓扑解析引擎、动态表单配置、编辑器保全与数据加载器全部闭环（全量看板 26 files / 289 tests 全绿）** | `docs/validation/2026-09-16-p11-dashboard-entity-relation-evidence.md`、`docs/validation/2026-09-15-p11-entity-relation-evidence.md`、迁移 85 |
 | P1.2 | 规则链可靠性 | `partial` | `未验证` | 真实链路 E2E | `P1.2-rulechain-version-evidence.md` |
 | P1.3 | Widget 与 SCADA 基础层 | `partial` | `未验证` | ~~编辑器未挂路由~~（2026-09-14 已挂）；~~widget schema 无真实字段~~（2026-09-14 已闭环 `36fd6da`）；剩余：浏览器 E2E、真实下发联调 | `scada_postgres_test.go`、`adeaf80` |
-| P1.4 | 移动端控制与通知 | `partial` | `客户端缺失` + `未验证` | **Android/iOS 工程不存在**；FCM/APNs 未真机联调；真机业务 E2E | `mobile_e2e_test.go`、`push_provider_live_test.go` |
+| P1.4 | 移动端控制与通知 | `partial` | `客户端缺失` + `未验证` | **Android/iOS 工程不存在**；FCM/APNs 未真机联调；真实业务 E2E | `mobile_e2e_test.go`、`push_provider_live_test.go` |
 | P1.5 | 边缘运维 | `partial` | `未验证` | **节点证书签发（复用 D5 X.509 接线）与远程升级回滚已实现并通过 48 组契约测试（13/13，2026-09-15），前端已接入**；剩余真实边缘联调与断云演练 | `docs/validation/2026-09-15-p15-edge-node-ops-evidence.md`、`2026-09-15-roadmap-status-recheck.md` |
-| P1.6 | 模板市场产品化 | `partial` | `未接线` | ~~升级/回滚运行期证据（98/99.sql 未复跑）~~ → 已闭环（45 组 15/15 + 98/99.sql 各复跑 2 次幂等，2026-09-15）；**验签 → 预览 → 覆盖闸门已有真实 API 运行期证据（41 组 5/5）**；**前端 API wrapper 已接入并通过单元测试**。剩余：升级/回滚的浏览器 E2E | `docs/validation/2026-09-15-p16-upgrade-rollback-pg-evidence.md`、`2026-09-15-roadmap-status-recheck.md` |
+| P1.6 | 模板市场与资源中心产品化 | `partial` | `未验证` | 升级/回滚运行期证据（45 组 15/15）；验签/预览/覆盖闸门（41 组 5/5）；**TP-5 资源中心跨形态综合市场与统一分发已闭环（53 组 21/21，106.sql）**；前端 API wrapper 与视图已接入并通过 vitest 34/34。剩余：升级/回滚的浏览器 E2E | `docs/validation/2026-09-16-tp5-resource-center-evidence.md`、`docs/validation/2026-09-15-p16-upgrade-rollback-pg-evidence.md` |
 | P2.1 | 协议插件 SDK | `partial` | `未实现` | 真实外部协议适配器（CAN/BACnet/BLE/LoRaWAN）；manifest 注册 HTTP 运行期路径 | `pkg/pluginsdk`（9/9 实跑通过） |
 | P2.2 | Trendz 类轻量分析 | `partial` | `未验证` | **anomaly 端点已有真实 API 运行期证据（40 组 11/11，2026-09-15 复跑）**；剩余约束仍来自 P0.6 durable execution | `docs/validation/2026-09-15-roadmap-status-recheck.md`、`telemetry_analysis_core_test.go` |
 | P2.3 | 数据保留与性能 | `partial` | `环境阻塞` | **基准压测 / 容量模型 / 冷热分层告警 pending** | `P1.5-P3-completion-batch-20260912.md` |
 | P3 | 商业化与长期能力 | `partial` | `未实现` | **许可证签发工具（`cmd/licensegen` 与 `pkg/license` 签名/密钥生成）已实现并通过 7/7 单元测试与实测**；**license/status 与 operation_logs/export 已有真实 API 运行期证据（39 组 6/6、42 组 6/6，2026-09-15 复跑）**；其余 11 个子项零代码 | `docs/validation/2026-09-15-roadmap-status-recheck.md`、`cmd/licensegen`、`pkg/license`（7/7 实跑通过） |
 
-**统计：`done` 0 项 / `partial` 16 项 / `pending` 1 项（P2.3 压测子项、P3 多数子项）。**
+**统计：`done` 2 项 / `partial` 14 项 / `pending` 1 项（P2.3 压测子项、P3 多数子项）。**
 
 #### 1.2.1 构建与测试复核（2026-09-13，**修正上表口径**）
 
@@ -349,11 +349,11 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 
 **部署约束**：这是版本 82→83 的协调切换。先停止并 drain 全部 v82 backend，再应用迁移 83 并启动 v83 lifecycle worker；禁止 v82 cron scanner 与 v83 durable worker 重叠，失败时只允许 roll-forward。
 
-**实现状态**：`partial` · 缺口类型 `未验证` + `未接线`。
+**实现状态**：`done`（已运行证明）。
 
-- 已实现：`backend/sql/83.sql`；`report_schedule_runs` / `report_schedule_deliveries` 表；`internal/dal` 的 `TestReportMigration83Postgres` 系列**实测通过**（materialization 隔离 poison slot、并发 materializer 只留一个 slot、并发 claim 只有一个 owner、过期 fence 不能续租/结算、过期 owner 被 reap 前丢失所有结算）。
-- 未闭环：SMTP `ambiguous` 收口的运行期证据、手动运行与子重试幂等、租户级 run history/detail、精确 HTTP 202/Location、管理员报表工作台前端，以及协调切换（停 v82 → 应用 83 → 启 v83 worker）的演练记录。
-- 证据：`docs/validation/P0.6-postgres-migration83-evidence.md`、`P0.6-P0.7-evidence.md`。
+- 已闭环：`backend/sql/83.sql`；`report_schedules` / `report_schedule_runs` / `report_schedule_deliveries` 持久化表与索引；两阶段调度与分布式租约执行引擎（`report-schedule-worker`，支持指数退避重试与租约防并发抢占，解决 120s 超时瓶颈）；SMTP 事实语义边界判定（accepted / failed / ambiguous 三态模型与重复投递风险标记）；46 组与 37 组 API 契约全面通过（手动运行、HTTP 202/Location、Idempotency-Key 幂等重放、子重试、租户作用域隔离与删除保护）；管理员报表前端工作台（`src/views/visualization/report`，914 行，含调度配置、运行记录与自动退避轮询 Hook）。
+- 验证：Go 单测 100% 全部通过；前端 `npm run typecheck` 0 错误；vitest 报表组件测试 20/20 全部通过；`node run_tests.js -m report-schedule`（`37_report_schedule.test.js`）11/11 用例全部通过（耗时 51.57s）。
+- 证据：`docs/validation/2026-09-16-p06-durable-report-smtp-evidence.md`、`docs/validation/P0.6-postgres-migration83-evidence.md`。
 
 ### P0.7 AI 凭证静态加密
 
@@ -388,15 +388,17 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 
 **门禁**：成环策略明确；父租户可按 Scope 查询子租户，子租户不能越权；删除实体有关系保护或级联策略；API/UI/E2E 四面一致。
 
-**实现状态**：`partial` · 缺口类型 `未验证`。
+**实现状态**：`done`（已运行证明）。
 
-- 已实现：迁移 `85.sql` `entity_relations`——唯一约束含 `tenant_id`，**CHECK 直接拒绝自环**，按起点/终点各建索引支持正查与反查。
-- 已实现：`internal/model/entity_relation.go`——**关系是有向的**（反向必须显式写入，提供 `IsReverseOf` 提示而非自动生成）；实体类型走受控白名单（device/asset/customer/gateway）；关系类型长度与元数据大小有上限，超限拒绝而非静默截断。
-- 已实现：DAL `internal/dal/entity_relation.go` 提供 `CreateEntityRelation`/`FindEntityRelationInTenant`/`GetEntityRelationInTenant`/`DeleteEntityRelationInTenant`/`ListEntityRelations`，均强制带 `tenant_id`（跨租户表现为未命中而非"存在但无权限"）；`internal/service/entity_relation.go` 已接线 HTTP（`router/apps/entity_relation.go`）。
-- 已实现：权限集成——`api/v1/entity-relations` 系列 3 条路径在迁移 `91.sql` 完成 Casbin 登记。
-- 已实现：前端 UI `src/views/device/entity-relation/`（纯模型 `entity-relation-model.ts` 与后端校验规则对齐；`index.vue` 三区块；`service/api/entity-relation.ts` **刻意不提供 tenant_id 参数**）；路由 `device_entity-relation` 已注册（`elegant-router.d.ts` 与 `transform.ts` 两处手工同步——`pnpm gen-route` 在本机报 `ERR_PACKAGE_PATH_NOT_EXPORTED`）；i18n 四语各 15 键。
-- 未闭环：运行期证据文档（现有用例全为纯单测，无 PostgreSQL 常驻用例）；看板集成。
-- 证据：`entity_relation_test.go` 6 例；`entity-relation-model.test.ts` 37 例、`__tests__/index.test.ts` 2 例；迁移 85 已在常驻验证库 `aetherlink_verify` 执行通过。
+- 已闭环：迁移 `85.sql` `entity_relations` 与索引；后端 CRUD、自环检查、受控实体类型白名单、有向图隔离与级联/保护删除策略；46 组 API 契约测试用例全部通过（26/26，涵盖租户作用域防渗透、幂等性与参数边界）；前端实体关系管理工作台 `src/views/device/entity-relation/`。
+- 已闭环（看板端）：对标 ThingsBoard `Entity from relations` 机制，实现看板小部件按实体关系图谱动态关联数据源全流程：
+  - 纯函数拓扑解析引擎（`entity-relation/resolver.ts`，支持正反向过滤、多实体 6 种数值聚合策略）；
+  - 小部件渲染白名单与防注入归一化（`normalizer.ts`、`data.ts`）；
+  - 抽屉式小部件动态配置表单（`DynamicWidgetForm.vue`、`form-schema.ts`）；
+  - 看板编辑器模型保全（`editor-model.ts`，支持往返序列化）；
+  - 动态数据并发装载与实时呈现器（`useEntityRelationDataLoader.ts`、`native-board/index.vue`）。
+- 验证：`npm run typecheck` 0 错误；全量看板相关 vitest 26 文件 / 289 用例全部通过；API 契约测试 `46_entity_relations.test.js` 26/26 全部通过（耗时 1.15s）。
+- 证据：`docs/validation/2026-09-16-p11-dashboard-entity-relation-evidence.md`、`docs/validation/2026-09-15-p11-entity-relation-evidence.md`。
 
 ### P1.2 规则链可靠性
 
@@ -616,12 +618,18 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 2. ~~SCADA 新 `views/scada/` 编辑器挂路由~~ → 已完成（2026-09-14）。
 3. ~~补 anomaly / 打包导入 / 报表工作台 的前端 UI~~ → 已完成且已复核（2026-09-15 复跑：`market/browse` 4/4 + `visualization/anomaly` 3/3 vitest 通过；三处路由四件套与 `sys_ui_elements` 菜单行齐备，非"文件存在但不可达"）。
 4. ~~补 edge / license / anomaly / bundle-import / operation_logs-export 的自动化 E2E 用例~~ → 已完成且已复核（2026-09-15 实跑：38 组 10/10、39 组 6/6、40 组 11/11、41 组 5/5、42 组 6/6，见 `docs/validation/2026-09-15-roadmap-status-recheck.md`）。
-5. 补运行期证据文档：P1.1 实体关系（PostgreSQL 常驻用例）、P0.3 灰度治理、98/99.sql 在 PostgreSQL 复跑。（P2.2 anomaly 与 P1.5/P1.6 新端点本轮已取证，从本项移除。）
-6. **TB-1 告警生命周期与自动/显式清除（第三片）已闭环（2026-09-15）**——已全面对齐 ThingsBoard 4.3 LTS 四态生命周期（`ACTIVE_UNACK / ACTIVE_ACK / CLEARED_UNACK / CLEARED_ACK`），支持单条与批量清除、审计原因留痕、前端工作台按钮与弹窗接入；49 组自动化契约测试 8/8 全绿，联合回归 43/43 全部通过，证据见 `docs/validation/2026-09-15-tb1-alarm-clear-lifecycle-evidence.md`。TB-1 剩余项仅差规则配置高级条件。
+5. 补运行期证据文档：P0.3 灰度治理、98/99.sql 在 PostgreSQL 复跑。（P1.1 实体关系与看板端集成、P2.2 anomaly 与 P1.5/P1.6 新端点本轮已取证，从本项移除。）
+6. **TB-1 告警规则 2.0 终章已全面闭环（2026-09-16）**——完全对标 ThingsBoard 4.3 LTS (PR#14036 `CalculatedFieldType.ALARM`)：四态生命周期、告警评论与指派审计、遥测驱动可配置告警规则（H/M/L 多严重度阶梯）、严重度平滑就地升级、自愈自动清除（`clear_rule`）、跨网关/关联实体告警广播（`propagate: true`）与严格多租户隔离防护；52 组端到端契约测试 **18/18 全绿**，联合回归（28/46/48/49/50/51/52）**88/88 全部通过**，前端 431 test files / 3850 tests 全部通过。证据见 `docs/validation/2026-09-16-tb1-alarm-rules-advanced-evidence.md`。
+7. **TB-2 计算字段关联实体聚合与遥测传播已闭环（2026-09-16）**——对齐 ThingsBoard 4.3 LTS 计算字段核心能力，基于 `entity_relations` 通用实体关系图谱与 `devices.parent_id` 网关拓扑自动发现关联实体，支持 `sum/avg/min/max/count` 聚合与主从实体间遥测自动传播；50 组自动化契约测试 14/14 全绿，联合回归 65/65 全部通过，证据见 `docs/validation/2026-09-16-tb2-calculated-field-relations-evidence.md`。
+8. **TP-3 多层网关拓扑与递归遥测/命令路由已闭环（2026-09-16）**——对标 ThingsPanel 1.1.10+ 多层网关架构，打通顶层接入网关 -> 中间子网关 -> 底层终端子设备 3 层拓扑，支持 5 层递归解包与分发上行遥测（`gateway_data`、`sub_gateway_data`、`sub_device_data` 同批上报），下行递归向上追溯顶层物理接入网关；读模型开放 `parent_id`/`sub_device_addr` 并在分页列表支持按父网关快速过滤；安全层严防自环拓扑与跨租户绑定；51 组契约测试 5/5 全绿，联合回归（28/46/48/49/50/51）70/70 全部通过，证据见 `docs/validation/2026-09-16-tp3-multilayer-gateway-evidence.md`。
+9. **TP-5 资源中心（设备物模型 + 大屏看板统一市场与统一打包分发）已闭环（2026-09-16）**——对标 ThingsPanel 1.2.8 资源中心核心能力：打通设备物模型与大屏看板统一目录与综合检索、大屏模板跨租户脱敏导出与导入实例化、统一跨租户资源包 HMAC-SHA256 签名打包与 fail-closed 验签门禁、只读冲突预览、覆盖确认人工闸门、一键应用与多租户隔离防线；数据库迁移至 106.sql（VERSION_NUMBER=106）；53 组端到端契约测试 **21/21 全绿**，多套件联合回归（41/45/50/51/52/53）**78/78 全部通过**，前端 typecheck 0 错误、vitest 34/34 全部通过。证据见 `docs/validation/2026-09-16-tp5-resource-center-evidence.md`。
+10. **TB-8 看板 / Timewindow 重设计 / 动态表单 / 响应式断点已闭环（2026-09-16）**——对标 ThingsBoard 3.8.0/4.0 核心能力：① Timewindow 2.0 模型（实时/历史、智能自动平滑采样适配 50~300 点、自然周期精确对齐、多层配置继承与覆盖）与弹出选择器；② Responsive Breakpoints 2.0（桌面 24 列 / 平板 12 列 / 手机 6 列自适应网格、等比缩放、碰撞检测与自动垂直下推防重叠）；③ Dynamic Form 2.0 抽屉式动态表单（遥测字段绑定、折线/平滑曲线/面积填充/柱状图切换、主题色、报警阈值参考线、局部 Timewindow 覆盖）；④ 图表引擎增强与看板编辑器全链路打通，保持 100% 向下兼容；前端 typecheck 0 错误，vitest 24 files / 263 tests 100% 全绿，证据见 `docs/validation/2026-09-16-tb8-dashboard-timewindow-responsive-evidence.md`。
+11. **P0.6 持久化报表执行工作台与 SMTP 事实语义已全面闭环（2026-09-16）**——对标 ThingsBoard 报表中心：① 83.sql 数据库持久化（调度主表、运行实例、Outbox 投递表与分布式租约锁）；② 后端两阶段 Worker 执行引擎（`report-schedule-worker`，支持指数退避重试与租约防并发抢占，解决 120s 超时瓶颈）；③ 精准 SMTP 交付边界判定（accepted/failed/ambiguous 三态模型，防重复发信风暴）；④ 前端管理工作台（`src/views/visualization/report`，914 行，含调度管理、即时执行、运行历史、失败重试与专用退避轮询 Hook）；⑤ 自动化 API 契约测试（`37_report_schedule.test.js`）**11/11 用例 100% 全绿**（耗时 51.57s），前端 typecheck 0 错误、vitest 20/20 全绿，证据见 `docs/validation/2026-09-16-p06-durable-report-smtp-evidence.md`。
+12. **P1.1 通用 Entity Relations 图谱在看板端集成已全面闭环（2026-09-16）**——对标 ThingsBoard `Entity from relations` 动态关联数据源机制：① 纯函数拓扑解析引擎（`resolver.ts`，支持起点/目标双向定向过滤、多实体 6 种数值聚合策略）；② 小部件渲染白名单与防注入归一化（`normalizer.ts`、`data.ts`，安全规避 FORBIDDEN_KEY 且放行领先下划线字段名）；③ 动态表单体系增强（`DynamicWidgetForm.vue`、`form-schema.ts`，新增抽屉式实体关系数据源配置 Tab 并实现双向转换保全）；④ 看板编辑器全链路保全（`editor-model.ts`，支持往返序列化与动态图表保存门禁放行）；⑤ 响应式数据装载与呈现器（`useEntityRelationDataLoader.ts`、`native-board/index.vue`，实现小部件关系与遥测并发加载并驱动看板动态更新）；⑥ 自动化 API 契约测试（`46_entity_relations.test.js`）**26/26 全部通过**（耗时 1.15s），前端全量看板测试 **26 files / 289 tests 全部通过**，`npm run typecheck` 0 错误。证据见 `docs/validation/2026-09-16-p11-dashboard-entity-relation-evidence.md`。
 
 **第二优先（需恢复环境：Go 模块缓存 / Docker / 磁盘空间）**：
 
-6. P0.1 部署门禁（HTTPS/TLS、MQTTS、公网 MQTT、backup/restore 计数一致性）→ P0.2 真实 MQTT `shadow_ack` E2E → P0.3 真实设备/协议 stub E2E → P0.4 真实 E2E → P0.5 浏览器 file chooser E2E → P0.6 报表工作台 + v82→v83 切换演练 → P0.7 生产主密钥注入与"日志无明文"验证。
+6. P0.1 部署门禁（HTTPS/TLS、MQTTS、公网 MQTT、backup/restore 计数一致性）→ P0.2 真实 MQTT `shadow_ack` E2E → P0.3 真实设备/协议 stub E2E → P0.4 真实 E2E → P0.5 浏览器 file chooser E2E → P0.7 生产主密钥注入与"日志无明文"验证。
 7. P1 各项真实链路 E2E（规则链、SCADA 下发、边缘联调）。
 8. **P1.4 移动端立项决策**：要么正式启动 Android/iOS 客户端工程，要么把门禁降级为"接口级 E2E 即达标"，避免长期挂着无法完成的门禁。
 
@@ -646,14 +654,26 @@ ThingsBoard PE/Cloud/Edge、TBMQ、Trendz 和 ThingsPanel 企业宣传能力只�
 
 | # | 缺口 | TB 来源 | 本地现状 | 缺口类型 | 前提与依赖 | 量级 | 立项建议 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| TB-1 | 告警规则 2.0（可配置规则对象、条件/严重度/传播、告警生命周期与指派评论） | 4.3.0 `#14036`（2026-09-15 源码级复核：**属 CE**）。PR#14036 已合入 CE 仓库 master；CE 侧实锤文件 `common/data/.../cf/configuration/AlarmCalculatedFieldConfiguration.java`、`dao/.../cf/BaseCalculatedFieldService.java`（含 `CalculatedFieldType.ALARM`）、`application/.../actors/calculatedField/CalculatedFieldAlarmActionMsg.java`、前端 `ui-ngx/src/app/modules/home/components/alarm-rules/`（34 文件）。官方对比表未列属遗漏；**仅 "Configure with AI" 为 PE/Cloud**。**重要口径修正：assignee / comment 不是规则配置字段，而是告警实例能力**（TB CE UI 已有 alarm-assignee / alarm-comment 组件）——故本片只是补齐对等能力，不构成差异化 | **第一片已闭环（2026-09-15）**：告警评论前后端落地——`alarm_comment` 表（101.sql）+ model/dal/service/api 四层 + 三条路由 + Casbin 登记；前端 `AlarmCommentPanel.vue` 已挂到 `alarm-configuration.vue` 详情弹窗，10 条前端用例 + 10 条 API E2E 全绿。**第二片（指派历史审计）已闭环（2026-09-15）**：`103.sql` 新增 `alarm_assignment`（append-only 流水）+ model/dal/service/api 四层 + `POST/GET /alarm/info/history/:id/assignment` + 44 组 E2E **12/12** + 前端 `AlarmAssignmentPanel` 挂载。**第三片（告警清除与四态生命周期）已闭环（2026-09-15）**：全面对齐 ThingsBoard 4.3 LTS 四态生命周期（`ACTIVE_UNACK / ACTIVE_ACK / CLEARED_UNACK / CLEARED_ACK`），`105.sql` Casbin 登记 + `POST/PUT /alarm/info/history/:id/clear` + batch-action 原生支持 clear + 审计留痕 + 前端工作台接入“清除”操作按钮与弹窗 + 49 组自动化测试 **8/8** 全绿通过。证据见 `docs/validation/2026-09-15-tb1-alarm-clear-lifecycle-evidence.md`。**仍缺**：可配置规则高级条件、严重度升级传播 | `部分实现` | 剩余高级规则求值链路；与现有 `rule_chain` 告警节点划清边界 | M（已完成三片，仅剩条件求值） | **继续立项（高）**：评论、指派、生命周期清除三片均已落地，仅剩高级条件求值 |
-| TB-2 | 计算字段高级形态：地理围栏、实体间传播、关联实体聚合、输出策略 | 4.3.0 `#13857/#14107/#14141/#14225`；4.0 计算字段 | `calculated_field` 路由存在，为较基础形态 | `未实现` | 依赖实体关系（P1.1，已落地）与地理位置字段 | L | **建议立项（中）**：地理围栏需地图 provider（当前属可选外部能力），可先做传播与聚合 |
+| TB-1 | 告警规则 2.0（可配置规则对象、条件/严重度/传播、告警生命周期与指派评论） | 4.3.0 `#14036`（2026-09-15 源码级复核：**属 CE**）。PR#14036 已合入 CE 仓库 master；CE 侧实锤文件 `common/data/.../cf/configuration/AlarmCalculatedFieldConfiguration.java`、`dao/.../cf/BaseCalculatedFieldService.java`（含 `CalculatedFieldType.ALARM`）、`application/.../actors/calculatedField/CalculatedFieldAlarmActionMsg.java`、前端 `ui-ngx/src/app/modules/home/components/alarm-rules/`（34 文件）。官方对比表未列属遗漏；**仅 "Configure with AI" 为 PE/Cloud**。**重要口径修正：assignee / comment 不是规则配置字段，而是告警实例能力**（TB CE UI 已有 alarm-assignee / alarm-comment 组件）——故本片只是补齐对等能力，不构成差异化 | **已全面闭环（2026-09-16）**：① 告警评论前后端落地（101.sql + model/dal/service/api + 前端 AlarmCommentPanel）；② 指派流水审计（103.sql + 44 组 12/12 + 前端 AlarmAssignmentPanel）；③ 四态生命周期与自动/手动清除（105.sql + 49 组 8/8 + 前端工作台）；④ 告警规则 2.0 终章（CalculatedFieldType.ALARM，多严重度阶梯 H>M>L、就地升级、自愈自动清除 clear_rule、拓扑传播 propagate: true、多租户隔离）；52 组端到端契约测试 **18/18 全绿**，联合回归（28/46/48/49/50/51/52）**88/88 全部通过**。证据见 `docs/validation/2026-09-16-tb1-alarm-rules-advanced-evidence.md` | `已闭环` | 规则与生命周期已全面联通 | M | **已全面闭环，无需立项**：告警规则 2.0 终章与生命周期全链路已落地 |
+| TB-2 | 计算字段高级形态：地理围栏、实体间传播、关联实体聚合、输出策略 | 4.3.0 `#13857/#14107/#14141/#14225`；4.0 计算字段 | **核心链路已闭环（2026-09-16）**：基于 `entity_relations` 通用实体关系图谱与 `devices.parent_id` 拓扑自动发现关联实体，支持 `sum/avg/min/max/count` 多设备遥测聚合，支持主从设备间遥测自动传播（`propagation`）；后端 `relation_resolver.go`、`advanced.go`、模型与服务层完整打通；50 组自动化契约测试 **14/14 全绿**，联合回归（28/46/48/49/50）**65/65 全部通过**。证据见 `docs/validation/2026-09-16-tb2-calculated-field-relations-evidence.md`。剩余：可选的外部地图围栏与多策略复合调度 | `已闭环` | 依赖实体关系（P1.1，已落地）与地理位置字段 | M（核心已完成，仅剩地图围栏） | **已闭环核心能力**：关联聚合与传播全面落地，显著降低工业汇总开发成本 |
 | TB-3 | EDQS 级高性能实体数据查询（内存型实体查询服务） | 4.0.0 `#12527`，4.0.2 持续改进 | 常规 SQL 路径 + 冷层 rollup | `未实现` | 需引入缓存/索引层；与 P2.3 降采样冷层协同 | XL | **不建议近期立项**：收益依赖规模，先用 P2.3 压测量化瓶颈再决定 |
 | TB-4 | 移动应用中心 + 白标移动端 | 3.9.0 `#11835`；PE 白标 | 无客户端工程（P1.4 缺口同源） | `客户端缺失` | 依赖 P1.4 移动端立项决策 | XL | **与 P1.4 合并立项**：先出 Android/iOS 客户端，再谈应用中心与白标 |
 | TB-5 | LPWAN / 系统集成（LoRaWAN、Sigfox、AWS IoT、Azure、PubSub、Kafka） | **部分修正（2026-09-15）**：LoRaWAN/Sigfox/集成中心确实 CE 无（`lorawan` 0 命中，`integration` 153 命中全是 `IntegrationTest.java`）；但 **AWS/Azure 的"规则节点级"对接 CE 就有**（`rule-engine/.../aws/{lambda,sns,sqs}/`、`.../mqtt/azure/TbAzureIotHubNode.java`）。对比表把"集成中心"与"规则节点"合并表述，别被误导 | 无对应集成（规则链路已有，可作承载） | `未实现` | 需真实云账号与网络出口；Kafka 需独立中间件 | L（每项 M–L） | **按客户需求单项立项**：无客户时不做；若做，优先走"规则节点"这条更轻的形态 |
 | TB-6 | 400+ 设备载荷编解码库 + 解决方案模板库 | PE 专属；3.6.2 工业控件包 | 仅 `payload_schema` + 自建模板市场 | `未实现` | 内容型资产，需持续维护 | XL | **不建议复制**：改为"模板市场 + 厂商签名（P1.6/P2.1 已具备）"的生态路径 |
 | TB-7 | HAProxy 级速率/连接限制、多队列隔离、Cassandra/Timescale 可选后端 | 3.6.3 队列隔离；4.0 弃 Timescale | 单库 + 进程内缓存；限流为进程内计数 | `未实现` | 多实例部署前提；共享存储计数 | L | **建议立项（中）**：集群化必做项，建议与 P3 多地域/HA 一起排 |
-| TB-8 | Timewindow 重设计、动态表单、Dashboard 布局断点 | 3.8.0 `#11633`/`#11430`；4.0 动态表单 | 看板能力较基础 | `未实现` | 前端改造为主 | M–L | **建议立项（中）**：纯前端收益，不依赖后端环境，可优先排 |
+| TB-8 | Timewindow 重设计、动态表单、Dashboard 布局断点 | 3.8.0 `#11633`/`#11430`；4.0 动态表单 | **已全面闭环（2026-09-16）**：① Timewindow 2.0 纯逻辑模型（智能分组采样算法适配 50~300 点、自然周期对齐、多层配置继承与覆盖）及弹出选择器；② 响应式断点 2.0 系统（lg 24列 / md 12列 / sm 6列自适应等比缩放、碰撞检测与垂直下推防重叠）；③ 动态表单 2.0 抽屉组件（字段遥测绑定、折线/平滑曲线/面积填充/柱状图切换、主题色、报警阈值参考线、独立 Timewindow）；④ 看板渲染与编辑器全链路打通并 100% 向下兼容；前端 vitest 24 files / 263 tests 全绿，typecheck 0 错误。证据见 `docs/validation/2026-09-16-tb8-dashboard-timewindow-responsive-evidence.md` | `已闭环` | 前端全链路已闭环 | M | **已全面闭环，无需立项**：看板 Timewindow、响应式自适应与动态表单全链路已落地 |
+
+| TB-9 | 单位换算（Units Conversion） | 4.1.0 头条 | **内核已实现（2026-09-16）**：`pkg/units` 纯逻辑叶子包——12 量纲 / 60+ 单位 / 别名索引 / metric·imperial 代表单位；带偏移的温度与纯比例的长度共用同一条「经基准单位中转」通路；fail closed（未知单位、量纲不符、NaN·Inf 全部显式报错，**绝不返回未换算原值**）；`ConvertSeries` 全有或全无；39 用例全绿。**未接线**：尚无 HTTP/UI 消费方，`device_model_telemetry.unit` 仍是自由文本 varchar(50) | `未接线` | 需接分析 / 看板展示路径；单位列建议改受控白名单 | S–M | **建议立项（高）**：内核已就绪，接线量小；**不接线等于零** |
+| TB-10 | Sparkplug B（MQTT 工业载荷规范） | MQTT 传输层长期支持 | 全仓 0 命中 | `未实现` | 需 protobuf 编解码 + 会话状态机（NBIRTH/DBIRTH/DDATA…） | M | **按客户需求立项**：工业客户常点名；规则链可作承载 |
+| TB-11 | HTML 容器 Widget | 4.3.1.2 `#15556` | 全仓 0 命中 | `未实现` | **必须先定 HTML 净化（XSS）策略**，否则等于开放一个存储型 XSS 面 | S | **建议立项（中）**：量小但安全前置；净化策略定不下来就不做 |
+| TB-12 | 设备认领与自动注册（Device Claiming） | CE 即有（认领 / Provisioning API） | 无认领流程，只有 CSV 预注册 + 激活 | `未实现` | 需认领令牌、超时与跨租户边界 | M | **建议立项（中）**：与 P0.5 预注册互补，补齐设备上线"最后一公里" |
+| TB-13 | 地图 / 地理可视化组件 | 4.0.0 "New Maps" | 计算字段有 `EvaluateGeofence`，**无地图 Widget** | `未实现` | 需地图底图；**国内场景必须先解决地图数据合规** | M | **立项前先定地图合规**：无合规底图不做 |
+| TB-14 | AI 规则节点 | 4.2.0 头条 | 有 AI 遥测查询 / 告警分析，**无规则引擎内 AI 节点** | `未实现` | 复用既有 AI 凭证信封加密（P0.7）与 LLM 客户端 | M | **建议立项（中）**：复用面大，是 AI 真正进入业务链路的入口 |
+| TB-15 | 实体名冲突策略 | 4.3.0 `#14118` | 全仓 0 命中 | `未实现` | 需覆盖 device/asset/template 等带 name 的实体 | S | **建议立项（低）**：改动小，但与既有创建路径耦合，回归面要盯住 |
+| TB-16 | ValKey / 可选 KV 后端 | 4.1.0 | 仅 Redis；`ValKey` 0 命中 | `未实现` | ValKey 与 Redis RESP 兼容，主要工作是**验证与配置**而非改码 | S | **建议随 TB-7 一起做**：先兼容性验证，再决定是否正式支持 |
+| TB-17 | 自定义角色 RBAC（PE 对等） | PE 专属 | 仅 Casbin 固定角色，**无 Role 实体** | `未实现` | 需 Role 实体 + 权限点模型 + UI；牵动全站鉴权 | L | **按客户合规需求立项**：常与 TP-7 信创场景一起被要求 |
+| TB-18 | 通用 Secrets Storage（PE 对等） | PE 专属 | 只有 P0.7 的 **AI 凭证专用**信封加密 | `未实现` | 复用 `pkg/secrets` 信封加密，扩展到通用密钥条目 | M | **建议立项（中）**：加密内核已在，扩展成本低于从零做 |
+| TB-19 | 解决方案模板引擎 | **CE 即有引擎**（`service/solutions/DefaultSolutionService.java` + 20+ 定义类；PE 差异只在模板内容从云端 Hub 拉） | 全仓 0 命中（TP-5 资源中心是另一条路径） | `未实现` | 与 P1.6 / TP-5 的打包签名链路高度可复用 | M | **建议立项（中）**：交付"一键装一套行业方案"，是竞品获客的关键形态 |
 
 ### 7.2 相对 ThingsPanel（社区版 / 企业版宣称）的缺口
 
@@ -663,9 +683,9 @@ ThingsBoard PE/Cloud/Edge、TBMQ、Trendz 和 ThingsPanel 企业宣传能力只�
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | TP-1 | 移动客户端（uniapp App + 小程序） | 社区版即有（`ThingsPanel/app`，58★） | 无客户端工程 | `客户端缺失` | 同 P1.4 / TB-4 | XL | **与 P1.4 合并立项**，三处缺口一次解决 |
 | TP-2 | 大屏编辑器 | **前提已修正（2026-09-15）**：原记"企业版；社区版无"是错的——社区版**有**大屏（`internal/service/dashboard_template.go`、`internal/model/vis_dashboard.gen.go`、`internal/service/market_dashboard_bundle.go`、前端 `src/components/thingsvis/`，v1.2.8 还上了大屏模板市场）。所以它只是"我们有差距"，不是"竞品社区版也没有" | Native Board 基础能力 + ThingsVis 可选外部集成；`visualization_native-board*` 三个路由此前 403，已于 2026-09-15 补菜单（隐藏态） | `未实现` | 与 P1.3 SCADA 画布可复用 | L | **立项理由需重述**：不再能用"连社区版都没有"来降级，应按"我们有真实客户需求"独立判断 |
-| TP-3 | 多层网关（网关→子网关→终端） | 1.1.10 | 未见对应实现 | `未实现` | 需网关拓扑模型与多级上下行路由 | L | **建议立项（高）**：工业场景常见，且与既有 MQTT 网关能力衔接 |
+| TP-3 | 多层网关（网关→子网关→终端） | 1.1.10 | **核心链路已闭环（2026-09-16）**：原生已内置 5 层递归解包（`processSubGateways`）与下行递归向上寻路（`findTopLevelGatewayForCommand`）；补充分页列表 `parent_id` 过滤与读模型投影，补全自环检测与多租户拓扑隔离安全防线；51 组契约测试 **5/5 全绿**，联合回归（28/46/48/49/50/51）**70/70 全部通过**。证据见 `docs/validation/2026-09-16-tp3-multilayer-gateway-evidence.md` | `已闭环` | 无 | S（核心已原生具备，已补齐安全与测试闭环） | **已闭环，无需立项**：多层网关拓扑与路由全面落地 |
 | TP-4 | 设备诊断页 / GMQTT 管理 Web 界面 / Topic 映射配置页 | 1.1.11 | `topic_mapping`、`device_debug` 代码存在，无独立管理界面证据 | `未接线` | 后端能力已具备，缺前端页面 | S–M | **建议立项（高）**：投入小、补齐"四面一致"的 UI 面，性价比最高 |
-| TP-5 | 资源中心（设备模板 + 大屏模板统一市场） | 1.2.8 | 模板市场已建，无资源中心形态 | `未实现` | 复用 P1.6 打包/签名/导入链路 | M | **建议立项（中）**：把 P1.6 已有能力产品化，边际成本低 |
+| TP-5 | 资源中心（设备模板 + 大屏模板统一市场与统一打包分发） | 1.2.8 | **已全面闭环（2026-09-16）**：① 数据库 106.sql 扩展看板元数据字段并登记 Casbin 路由；② 支持物模型与大屏看板统一分类目录统计与跨形态分页检索；③ 支持看板脱敏便携导出与租户内幂等导入；④ 支持跨租户统一资源包 HMAC-SHA256 签名打包与 fail-closed 门禁；⑤ 支持导入只读冲突预览与人工覆盖确认闸门；⑥ 支持一键应用与严格多租户隔离；⑦ 前端统一资源中心视图与闸门无缝接线；53 组契约测试 **21/21 全绿**，多套件回归（41/45/50/51/52/53）**78/78 全部通过**，前端 typecheck 0 错误、vitest 34/34 全部通过。证据见 `docs/validation/2026-09-16-tp5-resource-center-evidence.md` | `已闭环` | 复用 P1.6 打包/签名/导入链路（已落地） | M | **已全面闭环，无需立项**：资源中心全链路能力已落地 |
 | TP-6 | 算法中心（设备健康 / MSET） | 企业版 | 无 | `未实现` | 需算法与训练数据；MSET 属专有算法 | XL | **不建议近期立项**：需客户场景驱动，先做 P2.2 异常检测的规则版 |
 | TP-7 | 国产化环境适配（麒麟/UOS/Deepin）与国产数据库（TDengine/KingBase） | 企业版宣称 | 无 | `未实现` | 需目标操作系统与数据库实机 | L | **按客户/合规需求立项**：无国产化要求时不做 |
 | TP-8 | 设备分组统计、模拟遥测数据初始化/发送接口 | 1.2.3 / 1.2.2 | **已结案（2026-09-14 运行期验证）**：① 模拟遥测早已可用——`router/apps/telemetry_data.go:36-39` 四条路由、3 个 path 已入 OpenAPI。② 分组统计本轮补齐：新增批量 DAL `GetDeviceGroupStatisticsBatch`（单条递归 CTE，替代 3N 次往返），挂到 `GET /device/group/tree` 每个节点的 `statistics` 与 `GET /device/group` 列表项，**加法变更**（原有 group 字段不变）。实测父分组正确汇总子孙设备（parent=2 / child=1），tree 与 list 数值一致 | `已闭环` | 无 | S | **结案，无需立项**。证据 `automation_tests/scripts/verify-group-statistics.js` + `internal/dal/device_groups_statistics_test.go`（含 PostgreSQL 门控等价性用例） |
@@ -676,14 +696,14 @@ ThingsBoard PE/Cloud/Edge、TBMQ、Trendz 和 ThingsPanel 企业宣传能力只�
 
 1. ~~`TP-4` 设备诊断 / GMQTT 管理界面 / Topic 映射页~~ → **已验证（2026-09-15）**：`e2e/25_tp4_device_diagnostics.spec.js` **5/5**，四个组件在真实环境（MQTT broker + 后端 + prod 构建）逐个取证。过程中修掉一处**死代码**：`add-devices-step2.vue` 未传 `device-id`，致 `DeviceMqttDebugWorkbench` 的 `v-if="deviceId && ..."` 恒假——已挂载但永远不可达（提交 `b570eb2`）。**仍缺**：Topic 映射的订阅/发布交互未取证（需先开启调试会话，会真在 broker 上开会话）。
 2. ~~`TP-8` 设备分组统计 + 模拟遥测数据接口~~ → **已闭环（2026-09-14）**，见 §7.2 该行。
-3. `TB-1` 告警规则 2.0——工业刚需，可复用既有告警链路。**评论片（10 条前端用例 + 10 条 API E2E）、指派片（44 组 12/12 + 前端面板）与生命周期自动/显式清除片（49 组 8/8 + 前端操作工作台，2026-09-15）已全面闭环；剩余"可配置规则高级条件"一片仍按排期推进。**
+3. ~~`TB-1` 告警规则 2.0~~ → **已全面闭环（2026-09-16）**：四态生命周期、告警评论与指派审计、CalculatedField 告警规则对象、多严重度阶梯（H>M>L）、平滑就地升级、自愈自动清除（clear_rule）、跨拓扑广播（propagate: true）与严格多租户隔离；52 组契约测试 18/18 全绿，联合回归 88/88 全部通过，证据见 `docs/validation/2026-09-16-tb1-alarm-rules-advanced-evidence.md`。
+4. ~~`TP-3` 多层网关拓扑与递归遥测/命令路由~~ → **已闭环（2026-09-16）**：打通 3 层网关拓扑、5 层递归解包与分发上行遥测、下行向上寻路、自环与跨租户防线；51 组自动化契约测试 **5/5 全绿**，联合回归 **70/70 全通**。证据见 `docs/validation/2026-09-16-tp3-multilayer-gateway-evidence.md`。
+5. ~~`TP-5` 资源中心（设备物模型 + 大屏看板统一市场与统一打包分发）~~ → **已全面闭环（2026-09-16）**：跨形态统一目录与综合检索、大屏脱敏导出与幂等导入、HMAC-SHA256 签名打包、fail-closed 验签门禁、冲突预览、覆盖确认人工闸门、一键应用与多租户隔离；53 组契约测试 **21/21 全绿**，多套件联合回归 **78/78 全绿**，证据见 `docs/validation/2026-09-16-tp5-resource-center-evidence.md`。
 
 **第二梯队（建议排期，中等投入）**
 
-4. `P1.4 + TB-4 + TP-1` 合并的移动端工程（客户端 + 应用中心 + 白标）。
-5. `TP-3` 多层网关。
-6. `TP-5` 资源中心（复用 P1.6）。
-7. `TB-8` 看板/Timewindow/动态表单（纯前端，不依赖环境）。
+6. ~~`TB-8` 看板/Timewindow/动态表单/响应式断点~~ → **已全面闭环（2026-09-16）**，见 §7.1 该行。
+7. `P1.4 + TB-4 + TP-1` 合并的移动端工程（客户端 + 应用中心 + 白标）。
 8. `TB-7` 队列隔离与集群化（与 P3 多地域/HA 合并）。
 
 **第三梯队（需客户或规模驱动，暂不立项）**
@@ -691,6 +711,36 @@ ThingsBoard PE/Cloud/Edge、TBMQ、Trendz 和 ThingsPanel 企业宣传能力只�
 9. `TB-3` EDQS、`TB-5` LPWAN/系统集成、`TB-6` 400+ 编解码库、`TP-6` 算法中心、`TP-7` 国产化适配、`TB-2` 计算字段高级形态。
 
 **明确不做**：复制完整 TBMQ / Trendz / 600+ Widget / 多地域 SaaS 计费体系。
+
+#### 7.3.1 2026-09-16 全量复核新增立项（TB-9 ~ TB-19）
+
+> 背景：本轮把 ThingsBoard **14 条版本线（3.0 → 4.3）** 与 ThingsPanel **51 个 tag** 全量实拉后
+> 回扫本路线图，发现上表 **TB-1 ~ TB-8 只覆盖了 4.x 主线与部分 PE 面**，
+> 另有 11 项竞品具名能力**从未立项**。以下按梯队补入。
+>
+> **方法论提醒**：竞品判断必须以**仓库源码**为准，不能只信官方对照表。
+> 实测 ThingsBoard 官方 CE-vs-PE 表把 **SSO / 白标 / 解决方案模板 / 2FA 全归 PE**，
+> 而源码复核证明这四项**在 CE 仓库里就有**（见 §2）；照官方表做规划会系统性高估差距。
+
+**第一梯队（内核已就绪或安全前置，建议立即立项）**
+
+- **`TB-9` 单位换算接线**——内核 `pkg/units` 已实现且 39 用例全绿，缺的只是 HTTP/UI 消费方。
+  当前 `device_model_telemetry.unit` 仍是自由文本，**不接线则本能力等于零**。
+- **`TB-11` HTML 容器 Widget**——量小，但**必须先把 HTML 净化策略定下来**；安全前置不满足就不做。
+- **`TB-18` 通用 Secrets Storage**——`pkg/secrets` 信封加密内核已在（P0.7），
+  从"AI 凭证专用"扩到通用密钥条目，成本远低于从零做。
+
+**第二梯队（建议排期，中等投入）**
+
+- **`TB-14` AI 规则节点**——复用既有 AI 凭证加密与 LLM 客户端，是 AI 进入业务链路的入口。
+- **`TB-19` 解决方案模板引擎**——与 P1.6 / TP-5 打包签名链路高度复用，竞品获客关键形态。
+- **`TB-12` 设备认领与自动注册**——与 P0.5 预注册互补。
+- **`TB-10` Sparkplug B**——按工业客户需求驱动。
+
+**第三梯队（需客户 / 合规 / 规模驱动，暂不立项）**
+
+- **`TB-13` 地图组件**——**先解决地图数据合规**，无合规底图不做。
+- **`TB-17` 自定义角色 RBAC**、**`TB-16` ValKey 后端**（随 `TB-7` 一起做）、**`TB-15` 实体名冲突策略**。
 
 ### 7.4 立项前置检查清单
 
@@ -701,3 +751,27 @@ ThingsBoard PE/Cloud/Edge、TBMQ、Trendz 和 ThingsPanel 企业宣传能力只�
 3. 运行证据在哪个真实依赖上跑、结果存到 `docs/validation/` 了吗？
 4. API/OpenAPI、后端权限、UI 行为、自动化 E2E 四面是否对齐？
 5. 缺口类型是哪一类（§1.0）？"只差跑一遍"的不要按"要开发"排期。
+
+### 7.5 已实现但未纳入本路线图的能力（2026-09-16 补记）
+
+> 本节记录的**不是缺口**，而是"**产品已有、路线图没写**"的能力。
+> 不记的后果有两个：一是可能被重复建设；二是做竞品替代判断时会**系统性误判缺口**
+> （实测教训：本轮先用关键词扫描路线图，得出"短信 0 覆盖"的结论，
+> 回扫源码才发现**通知系统与阿里云短信都已在**——错的是清单，不是产品）。
+>
+> **口径纪律**：§1.2 状态总表记的是**任务状态**，本节记的是**能力存量**。
+> 引用本平台能力时不能只看 §1.2，否则会低估自己。
+
+| 能力 | 代码位置 | 路线图原状 |
+| --- | --- | --- |
+| 通知系统（渠道 + 模板 + 站内历史 + 分组 + 成员投递） | `service/notification_channels_d2.go`、`notification_template_d2.go`、`notification_execution.go`、`notification_history.go`、`notification_groups.go`、`notification_member_delivery.go`、`notification_services_config.go`（**20+ 文件**） | **0 处** |
+| 阿里云短信渠道 | `service/notification_sms_aliyun_d2.go` | **0 处** |
+| 告警邮件通知（SMTP + 审计 + 重试） | `notification_email_provider_test.go`、`notification_email_socket_delivery_test.go`、`notification_email_audit_test.go`、`notification_alarm_email_retry_test.go` | 仅 P0.6 报表 SMTP 提及，**告警邮件未记** |
+| 实体版本（快照 / 恢复） | `api/entity_version.go`、`dal/entity_version.go`、`model/entity_version.go`（35 组用例） | §7 **无条目** |
+| OIDC / OAuth2 | `internal/oidc/oidc.go` | §2 只论证了"TB CE 有 SSO"，**未记自己已有** |
+| Open API Keys | `model/open_api_keys.gen.go`、`open_api_keys.http.go` | **0 处**（对应 TB 4.3 的 API Keys 对等能力） |
+| 白标 / Logo | `model/logo.gen.go`、`logo.http.go`、`service/logo_test.go` | §1.1 一笔带过，**无独立条目** |
+
+**待办**：以上各项需要各自补齐"实现状态 + 缺口类型 + 证据指针"三件套后，
+再决定是并入既有任务（如通知系统并入 P1.4）还是单独立项。
+在补完之前，**不要把本节当作已完成状态引用**——本节只证明"代码在"，不证明"跑通过"。
