@@ -27,6 +27,7 @@ import AdvancedListLayout from '@/components/list-page/index.vue'
 import ItemCard from '@/components/dev-card-item/index.vue'
 import { useBoolean, useLoading } from '~/packages/hooks/src'
 const TemplateModal = defineAsyncComponent(() => import('./components/template-modal.vue'))
+const TemplateUpgradeDrawer = defineAsyncComponent(() => import('./components/template-upgrade-drawer.vue'))
 // 导入SvgIcon组件，使用项目标准图标系统
 import SvgIcon from '@/components/custom/svg-icon.vue'
 import { getPlatformApiBaseUrl } from '@/utils/common/tool'
@@ -36,6 +37,17 @@ const { startLoading, endLoading, loading } = useLoading(false)
 const { bool: visible, setTrue: openModal } = useBoolean()
 const platformApiBaseUrl = getPlatformApiBaseUrl()
 const platformAssetBaseUrl: any = ref(platformApiBaseUrl)
+
+// 升级回滚抽屉状态 (ROADMAP P1.6)
+const upgradeDrawerVisible = ref(false)
+const selectedTemplateName = ref('')
+const selectedTemplateVersion = ref('')
+
+const handleOpenUpgrade = (row: any) => {
+  selectedTemplateName.value = row.name || ''
+  selectedTemplateVersion.value = row.version || ''
+  upgradeDrawerVisible.value = true
+}
 
 // 查询参数
 const queryParams = reactive({
@@ -177,7 +189,7 @@ const columns = computed(() => [
   {
     title: $t('common.actions'),
     key: 'actions',
-    width: 150,
+    width: 220,
     render: (row: any) => {
       return h(
         NSpace,
@@ -192,6 +204,15 @@ const columns = computed(() => [
                 onClick: () => handleEdit(row.id)
               },
               { default: () => $t('common.edit') }
+            ),
+            h(
+              NButton,
+              {
+                size: 'small',
+                type: 'info',
+                onClick: () => handleOpenUpgrade(row)
+              },
+              { default: () => '版本历史' }
             ),
             h(
               NPopconfirm,
@@ -407,6 +428,14 @@ onMounted(() => {
       :type="modalType"
       :template-id="templateId"
       :get-table-data="getData"
+    />
+
+    <!-- 物模型升级回滚抽屉 (ROADMAP P1.6) -->
+    <TemplateUpgradeDrawer
+      v-model:visible="upgradeDrawerVisible"
+      :template-name="selectedTemplateName"
+      :current-version="selectedTemplateVersion"
+      @success="getData"
     />
   </div>
 </template>
