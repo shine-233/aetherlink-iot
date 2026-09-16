@@ -299,7 +299,7 @@ test.describe('P0.5 预注册 CSV 浏览器 E2E', () => {
    * 所以本用例要转正，需要先修错误模板（让它优先透出调用方 message 并保留 csv_row）。
    * 模板是全站共享的（100005 被多处使用），改动需配套回归测试。
    */
-  test.fixme("坏行逐行反馈：缺字段的行要带上 csv_row 行号", async ({ rolePage, api }) => {
+  test("坏行逐行反馈：缺字段的行要带上 csv_row 行号", async ({ rolePage, api }) => {
     const batch = uniqueBatch();
 
     try {
@@ -340,7 +340,7 @@ test.describe('P0.5 预注册 CSV 浏览器 E2E', () => {
    * 排查入口：use-pre-register-import.ts:127 的 payload.batch_file = uploadedPath.value
    * 与 submitImport 里 mode.value === 'file' 的分支判断。
    */
-  test.fixme("表头不合规的文件被拒绝", async ({ rolePage, api }) => {
+  test("表头不合规的文件被拒绝", async ({ rolePage, api }) => {
     const batch = uniqueBatch();
 
     try {

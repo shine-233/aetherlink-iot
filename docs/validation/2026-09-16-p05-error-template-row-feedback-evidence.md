@@ -178,18 +178,49 @@ EXIT=0
 
 ---
 
-## 五、仍未闭环的部分（如实记录）
+## 五、浏览器 E2E 复跑：完成判据达成（2026-09-17）
 
-1. **浏览器 E2E 未在本轮复跑**。完成判据是
-   `automation_tests/e2e/28_p05_preregister_csv.spec.js` 的
-   「坏行逐行反馈：缺字段的行要带上 csv_row 行号」去掉 `.fixme` 后通过。
-   本轮已把该判据的**后端一半**（服务层错误码 → 中间件渲染 → JSON 响应体）钉死到
-   HTTP 边界（见 §4.4），但**未在真实浏览器里跑通**。需活栈与 `AETHERLINK_DB_PASSWORD`。
-   注意：运行中的后端实例是本次改配置**之前**启动的，`messages.yaml` 只在启动时加载，
-   因此复跑 E2E 前**必须先重启后端**，否则会拿到旧模板而误判为失败。
-2. **`products` 无创建路径**（上游文档任务 2）**未动**——它需要新迁移登记 Casbin，
-   而当前 `104/105/106.sql` 均为未提交的在途文件，此刻新增迁移有断裂风险。
-3. `devices.voucher` 明文边界不变（本项不涉及）。
+### 5.1 前置条件
+
+后端已重启（新进程加载了新的 `messages.yaml`——该文件**只在启动时加载，无热重载**，
+不重启会拿到旧模板而把修复误判为失败）。前端 prod 产物已重建并替换
+（`vite build --outDir dist-new` → 备份旧 dist → 换名），预览代理 `127.0.0.1:9725` 已就绪。
+
+### 5.2 结果
+
+```
+cd automation_tests
+export AETHERLINK_DB_PASSWORD=<本地测试库密码>
+PLAYWRIGHT_REUSE_EXISTING_SERVER=1 npx playwright test e2e/28_p05_preregister_csv.spec.js --reporter=list
+```
+
+```
+5 passed (9.3s)
+```
+
+**两条 `.fixme` 已全部转正并通过**：
+
+| 用例 | 修复前 | 现在 |
+| --- | --- | --- |
+| 坏行逐行反馈：缺字段的行要带上 `csv_row` 行号 | `.fixme`（渲染成「batch_file不能为空」，无行号） | **passed** |
+| 表头不合规的文件被拒绝 | `.fixme` | **passed** |
+
+判定口径与浏览器断言一致：坏行反馈必须命中 `/\b2\b/`，即真的把行号渲染出来了。
+
+### 5.3 顺带验证
+
+同一次活栈复跑也验证了 P1.6 的浏览器 E2E（`e2e/29_p16_template_upgrade_rollback.spec.js`）
+**3/3 全绿**，确认「升级抽屉空态文案失效」的修复生效（该缺陷是 `NDataTable` 只有 `empty`
+插槽、没有 `empty-text` prop 导致的）。
+
+---
+
+## 六、仍未闭环（如实记录）
+
+1. **`products` 无任何创建路径**（上游文档任务 2）**未动**——它需要新迁移登记 Casbin，
+   而当前 `104~107.sql` 均为未提交的在途文件，此刻新增迁移有断裂风险。
+   **这是 P0.5 目前唯一的阻断项。**
+2. `devices.voucher` 明文边界不变（本项不涉及）。
 
 ---
 

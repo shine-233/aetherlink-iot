@@ -50,7 +50,7 @@
 | P0.2 | 设备影子 ACK 闭环 | `partial` | `未验证` | 真实 MQTT `shadow_ack` 端到端 + 浏览器证据 | `P0.2-shadow-ack-evidence.md` |
 | P0.3 | OTA 状态机 | `partial` | `未验证` | 真实设备/broker 或协议 stub E2E；**灰度治理执行面阻断已修复**（移除 `updated_at` 阻断写入，API 补齐治理参数输入，47 组用例 9/9 实测通过） | `docs/validation/2026-09-15-p03-ota-gray-governance-evidence.md`、`P0.3-job-report-evidence.md` |
 | P0.4 | 场景与 Flow 语义 | `partial` | `未验证` | 真实 E2E | `scene_execution_window_test.go` |
-| P0.5 | CSV 浏览器 E2E | `partial` | `未验证` | 真实浏览器 file chooser E2E | `P0.5-*-evidence.md`（三份） |
+| P0.5 | CSV 浏览器 E2E | `partial` | `阻断缺陷`（**仅剩 `products` 无创建路径**） | **浏览器 E2E 已 5/5 全绿（2026-09-17，两条 `.fixme` 全部转正）**；错误模板吞掉子原因已修并端到端验证（新增 100006/100007）；**剩余 `products` 无任何创建路径** | `docs/validation/2026-09-16-p05-error-template-row-feedback-evidence.md`、`P0.5-*-evidence.md`（三份） |
 | P0.6 | 持久化报表执行 / SMTP | `done` | 无 | **两阶段调度引擎、SMTP 事实语义、管理员工作台已全部闭环，37 组 API 契约 11/11 全绿，前端 vitest 20/20 全绿** | `docs/validation/2026-09-16-p06-durable-report-smtp-evidence.md`、`P0.6-postgres-migration83-evidence.md` |
 | P0.7 | AI 凭证静态加密 | `partial` | `未验证` | 生产主密钥注入、"日志无明文"未验证 | `P0.7-secret-encryption-evidence.md` |
 | P1.1 | 通用 Entity Relations | `done` | 无 | **46 组 API 契约 26/26 实测全绿；看板小部件动态数据源集成、拓扑解析引擎、动态表单配置、编辑器保全与数据加载器全部闭环（全量看板 26 files / 289 tests 全绿）** | `docs/validation/2026-09-16-p11-dashboard-entity-relation-evidence.md`、`docs/validation/2026-09-15-p11-entity-relation-evidence.md`、迁移 85 |
@@ -313,6 +313,14 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 
 **实现状态**：`partial` · 缺口类型 **`阻断缺陷`**（2026-09-15 由浏览器 E2E 改写，原记 `未验证`）。
 
+> **2026-09-17 更新**：`e2e/28_p05_preregister_csv.spec.js` **5/5 全绿**，两条 `.fixme` 已**全部转正**。
+> 其中「坏行逐行反馈要带 `csv_row` 行号」的判据，是靠修复错误模板达成的：
+> 坏行错误此前复用全站共享的 `100005`，其模板只插值 `${field}`，把调用方给出的
+> `message` 与 `csv_row` 一起丢掉、渲染成「batch_file不能为空」；现改用能承载上下文的
+> 新错误码 `100006`（逐行）/ `100007`（文件级），证据
+> `docs/validation/2026-09-16-p05-error-template-row-feedback-evidence.md`。
+> **剩余唯一阻断是下方「阻断 2：`products` 无任何创建路径」**，故缺口类型仍为 `阻断缺陷`。
+
 > **2026-09-15 浏览器 E2E 取证结论：本项有 2 个必修阻断缺陷，不能按"只差跑一遍"处理。**
 > 证据：`docs/validation/2026-09-15-p05-csv-browser-evidence.md`；用例 `automation_tests/e2e/28_p05_preregister_csv.spec.js`。
 > - **阻断 1 — CSV 上传在浏览器里失败**：点"创建设备"后只发 `POST /file/up`，
@@ -335,7 +343,9 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 - 已实现：导入链路 `buildFilePreRegisterRows` / `readPreRegisterImportCSV`——表头严格校验为 `device_number,name`，坏行带 `csv_row` 反馈，跨租户产品校验 `validatePreRegisterProductTenant`。
 - 已实现：**一次性凭证下载**——迁移 `95.sql` `device_pre_register_credential_grants`（签发/消费/过期/撤销四态，**部分唯一索引保证一批次同时只有一个 pending 许可**）；端点 `POST …/preRegister/credentials/grants`（签发）与 `GET …/grants/:id/download`（消费即失效）；**一次性的落点是数据库条件更新**（`WHERE status='pending'` → consumed，`RowsAffected=0` 即拒绝），过期先于消费判定，有 `consumed_by`/`consumed_at` 审计。
 - 已实现：脱敏导出走 Excel（`utils.MaskVoucher`、按租户过滤、分批 5000、上限 20 万行，`device_preregister_export.go`）；清理执行面 `device_preregister_cleanup.go`，分流逻辑 `classifyPreRegisterCleanup`（已激活设备永不删除、跨租户 fail closed、空批次幂等）；迁移 `90.sql` 补登 `preRegister/cleanup` 的 Casbin。
-- 未闭环：真实浏览器 file chooser E2E —— **2026-09-15 已补，且抓出上面两个阻断缺陷**（用例 `e2e/28_p05_preregister_csv.spec.js`，前四条因阻断 1 标 `.fixme`；第五条"跨租户产品不可选"已通过，内含"本租户产品必须出现"的反向对照）。
+- 未闭环：~~真实浏览器 file chooser E2E~~ → **已闭环（2026-09-17：5/5 全绿，两条 `.fixme` 全部转正）**；
+  ~~错误模板吞掉子原因~~ → **已修并端到端验证**（新增 `100006` 逐行 / `100007` 文件级错误码）。
+  **仅剩下方「阻断 2」：`products` 无任何创建路径。**
 - 边界（如实）：本项**不消除** `devices.voucher` 里的明文（broker 的 MQTT 基础认证要读，去明文需等 `voucher_hash` 模式全线切换）；它限制的是**明文下发的次数**。当前单条凭证的最大明文暴露是"创建响应 1 次 + 一次性下载 1 次"。
 - 证据：`docs/validation/P0.5-cleanup-execution-evidence.md`（9 例全过）、`P0.5-credential-once-download-evidence.md`（7 例含**并发 8 个下载只有 1 个成功**，含负向对照）、`P0.5-export-cleanup-evidence.md`；`device_pre_register_csv_test.go` 3 例。
 
