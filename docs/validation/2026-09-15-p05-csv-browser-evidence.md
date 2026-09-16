@@ -273,6 +273,45 @@ POST /api/v1/device/preRegister => {"code":100005,"message":"batch_file不能为
 
 ---
 
+### 2.4 2026-09-16 续查四：**"batch_file不能为空" 是误报，真实原因是错误信息映射丢了上下文**
+
+修完上传根因后再复测坏行场景，抓到的完整时序是：
+
+```
+POST /api/v1/file/up            => {"code":200,...,"data":{"path":"./files\\importBatch\\2026-09-16\\....csv"}}
+POST /api/v1/device/preRegister => {"code":100005,"message":"batch_file不能为空"}
+```
+
+而 `preRegister` **实际发出的 body 是完全正确的**：
+
+```json
+{"product_id":"a5277e64-...","batch_number":"body2-batch","create_type":"2",
+ "batch_file":"./files\\importBatch\\2026-09-16\\29a406479c8151884ef1f0c6fe2eb69d.csv"}
+```
+
+→ **后端拒绝的是一个合法请求**，所以"batch_file不能为空"这条信息是**误报**。
+
+**真实原因**：坏行 CSV 命中 `buildFilePreRegisterRows` 的行级校验，返回
+`100005` 且 vars 里带 `{field:"batch_file", csv_row:2, message:"device_number and name are required"}`
+（`device_pre_register.go:219-226`）。但**错误信息映射只取用了 `field`**，
+于是把一条"第 2 行缺 name"的行级错误，渲染成了"batch_file不能为空"——
+**一条把排查者指向完全错误方向的提示**。
+
+**危害**：任何按这条信息去查 `batch_file` 传递逻辑的人都会白费时间
+（本次就白花了一轮）。而且前端**既没有 `.n-alert` 也没有 toast**，
+用户在坏行时**看不到任何反馈**。
+
+**建议修复（两处，都在前端）**：
+1. **错误信息映射**：`100005` 的渲染要带上 `csv_row` 与 `message`，
+   让用户看到"第 2 行：device_number 和 name 必填"，而不是"batch_file不能为空"。
+2. **错误展示**：`index.vue` 有 `<NAlert v-if="submitError">`，
+   但 `submitError` 未被赋值（`use-pre-register-import.ts:131` 是
+   `typeof error === 'string' ? error : 'import failed'`，而 error 不是字符串路径），
+   导致错误被吞掉。需要确认 `request` 层在业务码非 200 时抛出的 error 形态，
+   并保证错误一定落到 `submitError`。
+
+修好后 `e2e/28_*.spec.js` 里那两条 `.fixme` 即可转正。
+
 ## 3. 缺陷 2（未修）：`products` 没有任何创建路径
 
 ### 现象
