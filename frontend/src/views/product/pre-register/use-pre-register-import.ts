@@ -139,6 +139,26 @@ export function usePreRegisterImport(options: { onImported: () => void | Promise
       }
       await options.onImported()
       return true
+    } catch (err) {
+      // 必须有 catch：请求层是以 **reject** 形式抛错的，不是返回 { error }。
+      //
+      // 依据 packages/axios/src/index.ts 的 flatRequest：业务码非 200 时它
+      // `return Promise.reject({ data: null, error: { message, status, code, data } })`。
+      // 于是上面 `await addDevice(payload)` 会直接抛异常，紧随其后的
+      // `if (error) { submitError.value = ... }` **永远不会执行**；
+      // 而这里原本只有 try/finally 没有 catch，异常继续向外抛 →
+      // submitError 始终为空 → 页面既不显示错误 alert、也没有 toast。
+      //
+      // 2026-09-15 实测：提交坏行 CSV 时后端正确返回 100005（第 2 行缺 name），
+      // 但用户点了"创建设备"**看不到任何反馈**，表现为"点了没反应"。
+      // 这正是 P0.5 门禁「坏行逐行反馈」测不到的原因 —— 反馈压根没渲染。
+      const detail = err && (err as any).error ? (err as any).error : err
+      const message =
+        (detail && (detail.message || detail.msg)) ||
+        (typeof err === 'string' ? err : '') ||
+        'import failed'
+      submitError.value = String(message)
+      return false
     } finally {
       submitting.value = false
     }

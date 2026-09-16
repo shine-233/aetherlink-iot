@@ -409,11 +409,25 @@ if len(record) < 2 || TrimSpace(record[0]) == "" || TrimSpace(record[1]) == "" {
 
 ### 所以剩下的是两个**真实但性质不同**的缺陷
 
-**缺陷 A（后端）：错误消息映射吞掉子原因**
-`100005 + field=batch_file` 被统一渲染成「batch_file不能为空」，
-把 `message: "device_number and name are required"` 和 `csv_row: 2` **一起丢了**。
-→ 用户和排查者都被指向"字段没传"这个**完全错误的方向**（我本人被误导了两轮）。
-**建议**：映射优先透出 `message`，并保留 `csv_row`。
+**缺陷 A（后端）：错误消息模板写死"不能为空"，吞掉子原因**
+根因已定位到 `backend/configs/messages.yaml:26`：
+```yaml
+100005:
+  zh_CN: "${field}不能为空"
+  en_US: "${field} cannot be empty"
+```
+模板**只插值 `${field}`**，所以调用方传的
+`message: "device_number and name are required"` 与 `csv_row: 2` **全被丢掉**，
+渲染成「batch_file不能为空」——把用户和排查者都指向"字段没传"这个
+**完全错误的方向**（我本人被误导了两轮）。
+
+**建议修法（未实施，原因见下）**：让渲染优先使用调用方提供的 `message`，
+无 `message` 时再回退到 `${field}不能为空`；并把 `csv_row` 一并透出。
+
+> **为什么本次不改**：`100005` 是**全站共享**的错误码，改模板会影响所有使用它的端点，
+> 需要配套的回归测试。在上下文预算不足时改一个全站共享的错误模板，
+> 风险大于收益 —— 交给熟悉该模块的人连同测试一起做更合适。
+> 局部位置与建议已完整记录在此。
 
 **缺陷 B（前端）：错误根本没展示给用户**
 `submitError` 只在 flat request **返回 `{data, error}`** 时才被赋值；
