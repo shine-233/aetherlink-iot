@@ -36,6 +36,12 @@ const (
 	TopicPatternGatewayTelemetry = "gateway/telemetry"
 	TopicPatternGatewayAttribute = "gateway/attributes/+"
 	TopicPatternGatewayEvent     = "gateway/event/+"
+
+	// TopicPatternSparkplug Sparkplug B 上行 Topic 模式（ROADMAP TB-10）。
+	// 规范结构为 `spBv1.0/<group_id>/<message_type>/<edge_node_id>[/<device_id>]`，
+	// 节点级 4 段、设备级 5 段，故用 `#` 同时覆盖两者（MQTT 的 `#` 可匹配零层）。
+	// 设备身份来自话题而非载荷——这是它与 devices/* 系列最大的差别。
+	TopicPatternSparkplug = "spBv1.0/+/+/+/#"
 )
 
 // 下行 Topic 模板（平台 → 设备）

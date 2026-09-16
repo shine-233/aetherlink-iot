@@ -296,3 +296,38 @@ func getDeviceCacheByIdFromDAL(deviceId string) (device *model.Device, err error
 
 	return dal.GetDeviceCacheById(deviceId)
 }
+
+// GetDeviceByNumber 按设备编号（device_number）解析设备。
+//
+// 用途：MQTT Sparkplug B 等**话题/载荷只携带设备编号、不携带内部 ID** 的接入形态——
+// 必须先把编号解析成设备，才能拿到 tenant_id 与内部 ID 并投递到上行总线。
+// 此前只有 GetDeviceCacheById（按主键），这条路是断的。
+//
+// 关键注意事项：
+//   - device_number 在库上是**全局唯一**（`devices_unique UNIQUE (device_number)`），
+//     因此本函数**不接受租户参数**：租户由解析出的设备自身决定。
+//     这也意味着编号是跨租户的全局命名空间，与既有 MQTT 直连设备契约一致。
+//   - 匹配语义为**精确匹配**，与 dal.GetDeviceByDeviceNumber 及既有用例
+//     （`TestCheckDeviceNumberExistsUsesGlobalExactMatch`）一致。刻意不做大小写归一：
+//     把"编号写错大小写"变成"静默接到另一台设备"是身份解析路径上最坏的失败方式。
+//   - **刻意不加 Redis 缓存**：这是设备身份解析路径，宁可每次回源，也不引入
+//     "过期编号仍指向已改号设备"的窗口。若后续确需缓存，必须与 DelDeviceCache 同步失效，
+//     并接受"设备行已删除后无法回查编号"的残留窗口。
+func GetDeviceByNumber(deviceNumber string) (*model.Device, error) {
+	trimmed := strings.TrimSpace(deviceNumber)
+	if trimmed == "" {
+		return nil, fmt.Errorf("device number is empty")
+	}
+	return getDeviceByNumberFromDAL(trimmed)
+}
+
+// getDeviceByNumberFromDAL 从 DAL 按编号回源设备信息，并兜底处理初始化缺失时的 panic。
+func getDeviceByNumberFromDAL(deviceNumber string) (device *model.Device, err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf("device DAL is not initialized: %v", recovered)
+		}
+	}()
+
+	return dal.GetDeviceByDeviceNumber(deviceNumber)
+}

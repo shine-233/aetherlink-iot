@@ -82,16 +82,72 @@ ok  aetherlink-iot/backend/pkg/sparkplug  0.451s
 
 ---
 
-## 四、仍未闭环（如实记录）
+## 四、MQTT 上行接线（同日补齐）
 
-1. **未接入 MQTT 上行链路**——本包是解码内核，尚无运行期消费方。
-   接入点是 `internal/adapter/mqttadapter/adapter.go`（与既有
-   `HandleTelemetryMessage` / `HandleEventMessage` 并列新增 `HandleSparkplugMessage`）。
-2. **接入前需先补一层设备标识解析**：Sparkplug 话题携带的是 Sparkplug 设备名
-   （`edge_node_id` / `device_id`），而现有缓存只有 `initialize.GetDeviceCacheById(deviceID)`
-   ——**没有按 device_number 的查询**。直接接会在"名字 → 内部 ID"这一步断掉。
-3. **未与真实 Sparkplug 设备联调**。验证依据是规范字段号 + 字节向量，不是现场数据。
-4. `DataSet` / `Template` / `PropertySet` / `MetaData` 按设计**只跳过不展开**——
+解码内核若没有消费方就是死代码，故同日完成接线。
+
+### 4.1 新增 `initialize.GetDeviceByNumber`
+
+接线前发现一处**断链**：Sparkplug 话题携带的是设备编号（`edge_node_id` / `device_id`），
+而现有缓存只有 `initialize.GetDeviceCacheById(deviceID)`（按主键），
+**没有按 device_number 的查询**，直接接会在"编号 → 内部 ID"这一步断掉。
+
+新增 `GetDeviceByNumber`，设计取舍：
+
+| 决策 | 理由 |
+| --- | --- |
+| 复用既有 `dal.GetDeviceByDeviceNumber` | 它已存在，语义为**精确匹配**，且被 `TestCheckDeviceNumberExistsUsesGlobalExactMatch` 锁死 |
+| **不接受租户参数** | `devices_unique UNIQUE (device_number)` 表明编号**全局唯一**；租户由解析出的设备自身决定。这也顺带解决了"Sparkplug 话题不含租户"的问题 |
+| **刻意不做大小写归一** | 把"编号写错大小写"变成"静默接到另一台设备"，是身份解析路径上最坏的失败方式 |
+| **刻意不加 Redis 缓存** | 身份解析路径优先正确性：宁可每次回源，也不引入"过期编号仍指向已改号设备"的窗口。如需缓存，必须与 `DelDeviceCache` 同步失效 |
+
+### 4.2 订阅与处理器
+
+- 话题常量 `TopicPatternSparkplug = "spBv1.0/+/+/+/#"`。
+  **必须是 `#` 而不是 `+`**：MQTT 的 `#` 可匹配零层，因此同时覆盖 4 段节点级与 5 段设备级；
+  写成 `spBv1.0/+/+/+/+` 会**漏订全部节点级消息**。用例锁死这一点。
+- `SubscribeDeviceTopics` 注册（qos 1）+ `handleSparkplugMessage` 回调 + `HandleSparkplugMessage` 处理器。
+- 处理器语义：NDATA/DDATA → 解码 → 按编号解析设备 → 数值遥测 JSON → 投递 `UplinkMessage`
+  （`source_protocol = mqtt-sparkplug-b`，元数据带 group/edge/type）。
+  会话类消息（NBIRTH/DBIRTH/NDEATH/DDEATH/NCMD/DCMD/STATE）**忽略且不报错**——
+  设备在 birth 之后持续发 data 是常态，把 birth 当失败会刷满错误日志。
+
+### 4.3 接线契约测试
+
+```
+go test -p 1 ./internal/adapter/mqttadapter/ -run 'Sparkplug' -count=1
+```
+```
+--- PASS: TestHandleSparkplugMessageRejectsInvalidTopic            (8 组非法话题)
+--- PASS: TestHandleSparkplugMessageRejectsMalformedPayloadBeforeBus
+--- PASS: TestHandleSparkplugMessageIgnoresSessionMessagesWithoutError  (7 种会话消息)
+--- PASS: TestHandleSparkplugMessageFailsClosedWhenDeviceLookupFails
+--- PASS: TestSparkplugTopicPatternCoversBothNodeAndDeviceLevel
+ok  aetherlink-iot/backend/internal/adapter/mqttadapter  0.236s
+```
+
+**这组用例刻意只测拒绝路径**——它们都不碰 bus 与数据库，因此能真实执行。
+"成功投递"需要真实 broker + Redis + PostgreSQL，把不可执行的路径写成 skip
+等于用绿灯掩盖"从未跑过"，所以不写。
+
+### 4.4 回归
+
+```
+go build -p 1 ./...                                                  BUILD=0
+go test -p 1 ./internal/adapter/... ./pkg/sparkplug/ ./pkg/units/ ./internal/service/ -count=1
+ok  internal/adapter  0.620s / casbinadapter  1.158s / casbinwatcher  0.745s
+ok  internal/adapter/mqttadapter  0.238s / pkg/sparkplug  0.153s / pkg/units  0.794s / internal/service  3.240s
+```
+
+---
+
+## 五、仍未闭环（如实记录）
+
+1. **未与真实 Sparkplug 设备联调**——无运行期证据。验证依据是规范字段号 + 字节向量 +
+   拒绝路径用例，不是现场数据。因此路线图 TB-10 记 `未验证`（代码与接线齐备，缺运行期证据），
+   **不宣称完成**。
+2. **NBIRTH/DBIRTH 的别名表与会话状态机未做**：Sparkplug 允许 DBIRTH 建立
+   `alias → name` 映射、后续 DDATA 只报 alias。当前实现遇到无名指标会跳过（不猜），
+   因此**纯 alias 上报的设备会表现为"无遥测"**，而不是报错。
+3. `DataSet` / `Template` / `PropertySet` / `MetaData` 按设计**只跳过不展开**——
    它们不承载遥测数值，展开会显著放大攻击面。
-
-因此路线图 TB-10 记 `未实现`（内核已具备，但缺消费方与联调），**不宣称完成**。
