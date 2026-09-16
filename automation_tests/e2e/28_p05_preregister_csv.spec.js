@@ -280,17 +280,24 @@ test.describe('P0.5 预注册 CSV 浏览器 E2E', () => {
   });
 
   /**
-   * ⚠️ 2026-09-16 未通过：**错误路径是另一条独立缺陷，与上传根因无关**。
+   * ⚠️ 2026-09-16 未通过，卡在**后端错误消息模板**这一环（不是上传、不是前端传参）。
    *
-   * 实测（page.on('response') 抓 POST /device/preRegister）：
-   *   提交坏行 CSV 时后端返回 {"code":100005,"message":"batch_file不能为空"}
-   *   —— 请求里**根本没带 batch_file**（不是 CSV 内容校验失败）。
-   *   而且页面既没有 .n-alert 也没有 toast，**用户看不到任何反馈**。
+   * 排查结论（已用排除法定论，详见
+   * docs/validation/2026-09-15-p05-csv-browser-evidence.md §3.6）：
+   *   - 请求体完全正确：batch_file 带值，与 curl 成功那次完全同形；
+   *   - 后端行为**正确**：buildFilePreRegisterRows 识别出第 2 行缺 name，
+   *     并带上了 csv_row: 2 与 message: "device_number and name are required"；
+   *   - 但错误模板 backend/configs/messages.yaml:26 写死了
+   *       zh_CN: "${field}不能为空"
+   *     只插值 ${field}，把 message 与 csv_row **一起丢掉**，
+   *     渲染成「batch_file不能为空」。
    *
-   * 所以这条用例目前测不到"逐行反馈"，它先卡在更前面：文件路径没传上去。
-   * 修好 batch_file 传递后，才能验证 csv_row 行号展示。
-   * 排查入口：use-pre-register-import.ts:127 的 payload.batch_file = uploadedPath.value
-   * 与 submitImport 里 mode.value === 'file' 的分支判断。
+   * 前端侧已修（提交 9c6790e）：此前 submitImport 只有 try/finally 没有 catch，
+   * 而请求层是 reject 抛错的，导致 submitError 永不赋值、页面无任何反馈；
+   * 现在 alert 能显示了，内容就是上面那句被吞掉子原因的文本。
+   *
+   * 所以本用例要转正，需要先修错误模板（让它优先透出调用方 message 并保留 csv_row）。
+   * 模板是全站共享的（100005 被多处使用），改动需配套回归测试。
    */
   test.fixme("坏行逐行反馈：缺字段的行要带上 csv_row 行号", async ({ rolePage, api }) => {
     const batch = uniqueBatch();
