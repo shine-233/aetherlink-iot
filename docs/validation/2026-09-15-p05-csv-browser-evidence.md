@@ -379,6 +379,54 @@ fail-closed（只允许 127.0.0.1 + 必须显式给 `AETHERLINK_DB_PASSWORD`，�
 确认到底是哪一条不成立；重点验证 Windows 反斜杠路径在
 `filepath.Clean` / `ToSlash` / `preRegisterImportSegment` 组合下是否被判为不合规。
 
+## 3.6 2026-09-16 定论：**后端行为正确，问题在错误消息映射 + 前端不展示错误**
+
+### 排除法走完了
+| 路径 | 结果 |
+|---|---|
+| curl 直连 9999（合法 CSV） | ✅ `{"code":200,"data":{"created_count":1,...}}` |
+| curl 经代理 9725（合法 CSV） | ✅ `{"code":200,"data":{"created_count":1,...}}` |
+| 浏览器（**坏行** CSV） | ❌ `{"code":100005,"message":"batch_file不能为空"}` |
+
+配对抓取（同一次请求的 body 与响应）证明**请求体完全正确**：
+```json
+{"product_id":"6b594273-...","batch_number":"pair-batch","create_type":"2",
+ "batch_file":"./files\\importBatch\\2026-09-16\\402b796f6a5007f48dbf29c5171a11ac.csv"}
+```
+与 curl 成功那次**完全同形**。唯一差异是 **CSV 内容**：浏览器用的是 `pair-a-1,`（name 为空）。
+
+### 真相：后端拒绝坏行是**正确行为**
+`device_pre_register.go` 的 `buildFilePreRegisterRows`：
+```go
+if len(record) < 2 || TrimSpace(record[0]) == "" || TrimSpace(record[1]) == "" {
+    return nil, nil, errcode.WithVars(100005, map[string]interface{}{
+        "field": "batch_file", "csv_row": i + 2,
+        "message": "device_number and name are required",
+    })
+}
+```
+它**正确识别了第 2 行缺 name**，并带上了 `csv_row`。
+
+### 所以剩下的是两个**真实但性质不同**的缺陷
+
+**缺陷 A（后端）：错误消息映射吞掉子原因**
+`100005 + field=batch_file` 被统一渲染成「batch_file不能为空」，
+把 `message: "device_number and name are required"` 和 `csv_row: 2` **一起丢了**。
+→ 用户和排查者都被指向"字段没传"这个**完全错误的方向**（我本人被误导了两轮）。
+**建议**：映射优先透出 `message`，并保留 `csv_row`。
+
+**缺陷 B（前端）：错误根本没展示给用户**
+`submitError` 只在 flat request **返回 `{data, error}`** 时才被赋值；
+但业务码非 200 时响应拦截器走的是**抛异常**路径（`isBackendSuccess` 判 `code === 200`），
+`submitImport` 的 `try/finally` 没有 `catch` → `submitError` 永不赋值 → **无 alert**。
+实测 `n-alert = 0`、toast 也为空 —— 用户点了"创建设备"**看不到任何反馈**。
+
+→ 这也解释了为什么"坏行逐行反馈"这条门禁测不到：**反馈压根没渲染**。
+
+### 对本项门禁的影响
+P0.5 门禁里的「坏行逐行反馈」**当前不成立**（缺陷 A + B 共同导致），
+已如实标为 `.fixme`。修好 A、B 后即可转正。
+
 ## 4. 交付物
 
 | 文件 | 内容 |
