@@ -13,6 +13,7 @@ package service
 
 import (
 	"context"
+	"strings"
 
 	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/model"
@@ -30,6 +31,9 @@ type TelemetryAnalysisDeviceResult struct {
 	Percent  *float64                 `json:"percent_change,omitempty"`
 	// PercentReason 百分比未定义时说明原因，绝不把未定义渲染成数字。
 	PercentReason string `json:"percent_change_reason,omitempty"`
+	// UnitReason 本次**未做单位换算**时说明原因（TB-9）。
+	// 有值即表示该设备的数值仍是源单位，调用方不得当成已换算结果展示。
+	UnitReason string `json:"unit_reason,omitempty"`
 }
 
 type TelemetryAnalysisResult struct {
@@ -39,6 +43,13 @@ type TelemetryAnalysisResult struct {
 	Devices    []TelemetryAnalysisDeviceResult `json:"devices"`
 	ExportPath string                          `json:"export_path,omitempty"`
 	Format     string                          `json:"format,omitempty"`
+	// UnitSystem 请求的目标单位制式（未请求时为空）。
+	UnitSystem string `json:"unit_system,omitempty"`
+	// SourceUnit 换算前单位；仅在换算真的发生时给出。
+	SourceUnit string `json:"source_unit,omitempty"`
+	// TargetUnit 换算后单位；仅在换算真的发生时给出。
+	// 刻意与 SourceUnit 一起只在成功时出现——只给 TargetUnit 会让"没换算"看起来像"换算过"。
+	TargetUnit string `json:"target_unit,omitempty"`
 }
 
 // telemetryAnalysisOperations 副作用集合，可注入以便无数据库验证编排。
@@ -91,7 +102,19 @@ func RunTelemetryAnalysis(ctx context.Context, q model.TelemetryAnalysisQuery, c
 	}
 
 	windowMs := q.EndTime - q.StartTime
+
+	// TB-9：单位换算方案。未请求（UnitSystem 为空）时 TargetUnit 与 Reason 都为空，
+	// 后续全部跳过，行为与本次改动前逐位一致。
+	unitPlan := resolveTelemetryUnitPlan(q.Unit, aggregate, q.UnitSystem)
+
 	result := &TelemetryAnalysisResult{Key: q.Key, Aggregate: aggregate, Compare: compare}
+	if requested := strings.TrimSpace(q.UnitSystem); requested != "" {
+		result.UnitSystem = requested
+	}
+	if unitPlan.TargetUnit != "" {
+		result.SourceUnit = unitPlan.SourceUnit
+		result.TargetUnit = unitPlan.TargetUnit
+	}
 
 	// P2.3：取数路径解析——分析缓存（可选）包裹常规取数；
 	// 整窗冷数据（早于降采样边界）回落 telemetry_rollups 冷层。
@@ -128,6 +151,22 @@ func RunTelemetryAnalysis(ctx context.Context, q model.TelemetryAnalysisQuery, c
 				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
 			}
 			baselineValues = telemetryAnalysisValues(baselineRows)
+		}
+
+		// TB-9：单位换算必须在聚合与对比**之前**完成。
+		// 若放在聚合之后，delta 与百分比会停留在源单位，与已换算的当前/基线值不是同一把尺子
+		// ——数值换了单位、变化量没换，这种错误在界面上完全看不出来。
+		if unitPlan.TargetUnit != "" {
+			convertedCurrent, convertedBaseline, convErr := convertTelemetryAnalysisWindows(
+				currentValues, baselineValues, unitPlan.SourceUnit, unitPlan.TargetUnit)
+			if convErr != nil {
+				// 换算失败即不换算：如实写明原因，绝不返回"看着像换算过"的原值。
+				deviceResult.UnitReason = convErr.Error()
+			} else {
+				currentValues, baselineValues = convertedCurrent, convertedBaseline
+			}
+		} else if unitPlan.Reason != "" {
+			deviceResult.UnitReason = unitPlan.Reason
 		}
 
 		comparison := CompareTelemetryPeriods(aggregate, currentValues, baselineValues)

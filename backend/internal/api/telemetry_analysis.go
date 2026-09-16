@@ -31,6 +31,10 @@ func (*TelemetryAnalysisApi) AnalyzeTelemetry(c *gin.Context) {
 		Compare        string   `json:"compare" validate:"omitempty,oneof=none previous_period same_period_last"`
 		CompareOffsets int      `json:"compare_offsets" validate:"omitempty,min=1,max=12"`
 		Format         string   `json:"format" validate:"omitempty,oneof=csv xlsx"`
+		// TB-9 单位换算：unit 为遥测键的源单位符号，unit_system 为目标制式。
+		// unit_system 为空即不换算（默认路径）；两者需成对使用。
+		Unit       string `json:"unit" validate:"omitempty,max=32"`
+		UnitSystem string `json:"unit_system" validate:"omitempty,oneof=metric imperial"`
 	}
 	if !BindAndValidate(c, &req) {
 		return
@@ -46,6 +50,8 @@ func (*TelemetryAnalysisApi) AnalyzeTelemetry(c *gin.Context) {
 		Compare:        req.Compare,
 		CompareOffsets: req.CompareOffsets,
 		Format:         req.Format,
+		Unit:           strings.TrimSpace(req.Unit),
+		UnitSystem:     strings.TrimSpace(req.UnitSystem),
 	}, claims)
 	if err != nil {
 		c.Error(err)
@@ -65,6 +71,9 @@ func (*TelemetryAnalysisApi) ExportTelemetryAnalysis(c *gin.Context) {
 		Aggregate string   `json:"aggregate" validate:"omitempty,oneof=avg sum min max count last"`
 		Compare   string   `json:"compare" validate:"omitempty,oneof=none previous_period same_period_last"`
 		Format    string   `json:"format" validate:"omitempty,oneof=csv xlsx"`
+		// TB-9 单位换算：导出与查询必须支持同一组参数，否则"界面看到的"与"导出的"单位会不一致。
+		Unit       string `json:"unit" validate:"omitempty,max=32"`
+		UnitSystem string `json:"unit_system" validate:"omitempty,oneof=metric imperial"`
 	}
 	if !BindAndValidate(c, &req) {
 		return
@@ -75,13 +84,15 @@ func (*TelemetryAnalysisApi) ExportTelemetryAnalysis(c *gin.Context) {
 	}
 	claims := c.MustGet("claims").(*utils.UserClaims)
 	result, err := service.RunTelemetryAnalysis(c, model.TelemetryAnalysisQuery{
-		DeviceIDs: req.DeviceIDs,
-		Key:       strings.TrimSpace(req.Key),
-		StartTime: req.StartTime,
-		EndTime:   req.EndTime,
-		Aggregate: req.Aggregate,
-		Compare:   req.Compare,
-		Format:    format,
+		DeviceIDs:  req.DeviceIDs,
+		Key:        strings.TrimSpace(req.Key),
+		StartTime:  req.StartTime,
+		EndTime:    req.EndTime,
+		Aggregate:  req.Aggregate,
+		Compare:    req.Compare,
+		Format:     format,
+		Unit:       strings.TrimSpace(req.Unit),
+		UnitSystem: strings.TrimSpace(req.UnitSystem),
 	}, claims)
 	if err != nil {
 		c.Error(err)

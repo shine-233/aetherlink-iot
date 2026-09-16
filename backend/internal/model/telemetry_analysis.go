@@ -15,7 +15,20 @@ type TelemetryAnalysisQuery struct {
 	// CompareOffsets 同比时用于回退的周期倍数，默认 1（如"上周同段"）。
 	CompareOffsets int
 	Format         string
+	// Unit 遥测键的**源单位**符号（如 °C / kPa / m3/h）。仅在 UnitSystem 非空时参与换算。
+	// 当前由调用方提供；后续可改为从设备配置链服务端解析（见 service/telemetry_analysis_units.go）。
+	Unit string
+	// UnitSystem 目标单位制式：metric / imperial。**为空表示不做换算**，行为与既有完全一致。
+	UnitSystem string
 }
+
+// TelemetryAnalysisUnitSystem 目标单位制式常量（ROADMAP TB-9）。
+// 取值域与 pkg/units.System 一致；放在 model 是因为它属于对外契约词汇，
+// API 入参校验与 service 换算必须共用同一份定义。
+const (
+	TelemetryAnalysisUnitSystemMetric   = "metric"
+	TelemetryAnalysisUnitSystemImperial = "imperial"
+)
 
 // TelemetryAnalysisCompareMode 对比模式常量。
 const (
