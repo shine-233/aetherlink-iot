@@ -217,8 +217,7 @@ func buildFilePreRegisterRows(req model.CreateDevicePreRegisterReq, tenantID str
 	seenInFile := make(map[string]struct{}, len(records))
 	for i, record := range records {
 		if len(record) < 2 || strings.TrimSpace(record[0]) == "" || strings.TrimSpace(record[1]) == "" {
-			return nil, nil, errcode.WithVars(100005, map[string]interface{}{
-				"field":   "batch_file",
+			return nil, nil, errcode.WithVars(100006, map[string]interface{}{
 				"csv_row": i + 2,
 				"message": "device_number and name are required",
 			})
@@ -226,8 +225,7 @@ func buildFilePreRegisterRows(req model.CreateDevicePreRegisterReq, tenantID str
 		number := strings.TrimSpace(record[0])
 		name := strings.TrimSpace(record[1])
 		if len(number) > 36 {
-			return nil, nil, errcode.WithVars(100005, map[string]interface{}{
-				"field":   "batch_file",
+			return nil, nil, errcode.WithVars(100006, map[string]interface{}{
 				"csv_row": i + 2,
 				"message": "device_number exceeds 36 characters",
 			})
@@ -240,9 +238,8 @@ func buildFilePreRegisterRows(req model.CreateDevicePreRegisterReq, tenantID str
 		drafts = append(drafts, rowDraft{number: number, name: name})
 	}
 	if len(drafts) > preRegisterMaxDeviceCount {
-		return nil, nil, errcode.WithVars(100005, map[string]interface{}{
-			"field": "batch_file",
-			"max":   preRegisterMaxDeviceCount,
+		return nil, nil, errcode.WithVars(100007, map[string]interface{}{
+			"message": fmt.Sprintf("device count exceeds limit %d", preRegisterMaxDeviceCount),
 		})
 	}
 
@@ -276,8 +273,7 @@ func readPreRegisterImportCSV(batchFile string) ([][]string, error) {
 	if filepath.IsAbs(cleaned) || strings.Contains(cleaned, "..") ||
 		!strings.Contains(filepath.ToSlash(cleaned), preRegisterImportSegment+"/") ||
 		strings.ToLower(filepath.Ext(cleaned)) != ".csv" {
-		return nil, errcode.WithVars(100005, map[string]interface{}{
-			"field":   "batch_file",
+		return nil, errcode.WithVars(100007, map[string]interface{}{
 			"message": "batch_file must be an uploaded csv under importBatch",
 		})
 	}
@@ -295,23 +291,19 @@ func readPreRegisterImportCSV(batchFile string) ([][]string, error) {
 	reader.FieldsPerRecord = -1
 	records, err := reader.ReadAll()
 	if err != nil {
-		return nil, errcode.WithVars(100005, map[string]interface{}{
-			"field":   "batch_file",
+		return nil, errcode.WithVars(100007, map[string]interface{}{
 			"message": "invalid csv: " + err.Error(),
 		})
 	}
 	if len(records) == 0 {
-		return nil, errcode.WithVars(100005, map[string]interface{}{
-			"field":   "batch_file",
+		return nil, errcode.WithVars(100007, map[string]interface{}{
 			"message": "empty csv",
 		})
 	}
 	header := trimCSVCells(records[0])
 	if len(header) < 2 || header[0] != "device_number" || header[1] != "name" {
-		return nil, errcode.WithVars(100005, map[string]interface{}{
-			"field":        "batch_file",
-			"message":      "csv header must be device_number,name",
-			"actual_first": strings.Join(header, ","),
+		return nil, errcode.WithVars(100007, map[string]interface{}{
+			"message": "csv header must be device_number,name (actual: " + strings.Join(header, ",") + ")",
 		})
 	}
 	return records[1:], nil
