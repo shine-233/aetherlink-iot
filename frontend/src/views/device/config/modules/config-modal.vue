@@ -7,7 +7,7 @@
 3. 物模型选项每次打开弹窗都会重新请求，若后续改为缓存/分页，要一起梳理下拉滚动与刷新策略。
 -->
 <script lang="ts" setup>
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { FormInst } from 'naive-ui'
 import { $t } from '@/locales'
 // import {useMessage} from 'naive-ui';
@@ -39,9 +39,20 @@ function defaultConfigForm() {
     protocol_config: null,
     protocol_type: null,
     remark: null,
-    voucher_type: null
+    voucher_type: null,
+    // TB-15 实体名冲突策略：仅**新增**时有意义，取值域与后端一致，默认 fail。
+    // 编辑态会在提交前把它摘掉（见 handleSubmit），避免向后端传一个无意义的参数。
+    conflict_policy: 'fail'
   }
 }
+
+// 用 computed 而不是模块级常量：语言切换后下拉项要跟着变。
+const conflictPolicyOptions = computed(() => [
+  { label: $t('custom.devicePage.conflictPolicyFail'), value: 'fail' },
+  { label: $t('custom.devicePage.conflictPolicyRename'), value: 'rename' },
+  { label: $t('custom.devicePage.conflictPolicyIgnore'), value: 'ignore' },
+  { label: $t('custom.devicePage.conflictPolicyUpdate'), value: 'update' }
+])
 
 // 当前仅覆盖弹窗内可见必填项；若后续增加更多协议字段，记得同步补校验说明。
 const configFormRules = ref({
@@ -154,9 +165,14 @@ const handleClose = () => {
 const handleSubmit = async () => {
   await configFormRef?.value?.validate()
   try {
-    const res = props.modalType === 'add'
-      ? await deviceConfigAdd(configForm.value)
-      : await deviceConfigEdit(configForm.value)
+    const isAdd = props.modalType === 'add'
+    // 冲突策略只在新增时有意义：编辑一个已存在的实体时，"重名怎么办"这个问题
+    // 根本不存在，把它发给后端只会让接口语义变模糊。
+    const payload: Record<string, unknown> = { ...configForm.value }
+    if (!isAdd) {
+      delete payload.conflict_policy
+    }
+    const res = isAdd ? await deviceConfigAdd(payload) : await deviceConfigEdit(payload)
     if (res.error) return
   } catch {
     return
@@ -173,6 +189,13 @@ const handleSubmit = async () => {
       <NForm ref="configFormRef" :model="configForm" :rules="configFormRules" label-placement="left" label-width="auto">
         <NFormItem :label="$t('generate.device-configuration-name')" path="name">
           <NInput v-model:value="configForm.name" :placeholder="$t('generate.enter-device-name')" />
+        </NFormItem>
+        <!-- 冲突策略只在新增态出现：编辑已存在实体时"重名怎么办"不成立。 -->
+        <NFormItem v-if="modalType === 'add'" :label="$t('custom.devicePage.conflictPolicy')" path="conflict_policy">
+          <NSelect v-model:value="configForm.conflict_policy" :options="conflictPolicyOptions" />
+          <template #feedback>
+            <span class="conflict-policy-tip">{{ $t('custom.devicePage.conflictPolicyTip') }}</span>
+          </template>
         </NFormItem>
         <NFormItem :label="$t('generate.select-device-function-template')" path="device_template_id">
           <NSelect
@@ -208,3 +231,12 @@ const handleSubmit = async () => {
     </NCard>
   </div>
 </template>
+
+<style scoped>
+/* 冲突策略的说明文字：字号小、颜色淡，避免与校验错误提示抢注意力。 */
+.conflict-policy-tip {
+  color: #8c8c8c;
+  font-size: 12px;
+  line-height: 1.4;
+}
+</style>

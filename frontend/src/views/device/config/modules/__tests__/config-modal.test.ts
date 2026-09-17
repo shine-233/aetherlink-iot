@@ -91,6 +91,8 @@ describe('device/config/modules/config-modal.vue', () => {
     expect(state.modalTitle).toBe('generate.add')
     expect(state.configForm).toEqual({
       additional_info: null,
+      // TB-15：新增态的冲突策略默认 fail，必须与后端 NormalizeConflictPolicy 的默认一致。
+      conflict_policy: 'fail',
       description: null,
       device_conn_type: null,
       device_template_id: null,
@@ -251,7 +253,10 @@ describe('device/config/modules/config-modal.vue', () => {
     expect(hoisted.deviceConfigAdd).toHaveBeenCalledWith(expect.objectContaining({
       name: 'Test Config',
       device_type: '1',
-      device_conn_type: 'A'
+      device_conn_type: 'A',
+      // TB-15：新增态必须把冲突策略带上，否则后端只能按默认 fail 处理，
+      // 用户在界面上选的 rename/ignore/update 会被静默丢弃。
+      conflict_policy: 'fail'
     }))
     expect(wrapper.emitted('submitted')).toEqual([[]])
     expect(wrapper.emitted('modalClose')).toEqual([[]])
@@ -265,6 +270,10 @@ describe('device/config/modules/config-modal.vue', () => {
     state.configForm.name = 'Test Config'
     await state.handleSubmit()
     expect(hoisted.deviceConfigEdit).toHaveBeenCalledWith(expect.objectContaining({ name: 'Test Config' }))
+    // TB-15：编辑态**不得**携带 conflict_policy——编辑一个已存在的实体时
+    // "重名怎么办"这个问题不成立，把它发出去只会让接口语义变模糊。
+    const editPayload = hoisted.deviceConfigEdit.mock.calls[0][0] as Record<string, unknown>
+    expect('conflict_policy' in editPayload).toBe(false)
   })
 
   it.each([
