@@ -46,7 +46,7 @@
 
 | 任务 | 主题 | 状态 | 缺口类型 | 未闭环（一句话） | 证据 |
 | --- | --- | --- | --- | --- | --- |
-| P0.1 | 发布同步与部署门禁 | `partial` | `环境阻塞` | 真实 HTTPS/TLS、MQTTS、公网 MQTT、backup/restore 计数一致性 | `docs/validation/P0.1-preflight-evidence.md` |
+| P0.1 | 发布同步与部署门禁 | `partial` | `环境阻塞` | **全新库迁移链已验到 109（2026-09-17，新增 `cmd/migchaincheck`，1→109 全链 PASS / 126 表 / `sys_version=109`）**；剩余四条**确实卡在真实部署环境**：HTTPS/TLS、MQTTS 上报下发、公网 MQTT、backup/restore 计数一致性 | `docs/validation/P0.1-preflight-evidence.md`、`2026-09-17-p01-full-migration-chain-evidence.md` |
 | P0.2 | 设备影子 ACK 闭环 | `partial` | `未验证` | 真实 MQTT `shadow_ack` 端到端 + 浏览器证据 | `P0.2-shadow-ack-evidence.md` |
 | P0.3 | OTA 状态机 | `partial` | `未验证` | 真实设备/broker 或协议 stub E2E；**灰度治理执行面阻断已修复**（移除 `updated_at` 阻断写入，API 补齐治理参数输入，47 组用例 9/9 实测通过） | `docs/validation/2026-09-15-p03-ota-gray-governance-evidence.md`、`P0.3-job-report-evidence.md` |
 | P0.4 | 场景与 Flow 语义 | `partial` | `未验证` | 真实 E2E | `scene_execution_window_test.go` |
@@ -58,13 +58,13 @@
 | P1.3 | Widget 与 SCADA 基础层 | `partial` | `未验证` | ~~编辑器未挂路由~~（2026-09-14 已挂）；~~widget schema 无真实字段~~（2026-09-14 已闭环 `36fd6da`）；剩余：浏览器 E2E、真实下发联调 | `scada_postgres_test.go`、`adeaf80` |
 | P1.4 | 移动端控制与通知 | `partial` | `客户端缺失` + `未验证` | **Android/iOS 工程不存在**；FCM/APNs 未真机联调；真实业务 E2E | `mobile_e2e_test.go`、`push_provider_live_test.go` |
 | P1.5 | 边缘运维 | `partial` | `未验证` | **节点证书签发（复用 D5 X.509 接线）与远程升级回滚已实现并通过 48 组契约测试（13/13，2026-09-15），前端已接入**；剩余真实边缘联调与断云演练 | `docs/validation/2026-09-15-p15-edge-node-ops-evidence.md`、`2026-09-15-roadmap-status-recheck.md` |
-| P1.6 | 模板市场与资源中心产品化 | `partial` | `未验证` | 升级/回滚运行期证据（45 组 15/15）；验签/预览/覆盖闸门（41 组 5/5）；**TP-5 资源中心跨形态综合市场与统一分发已闭环（53 组 21/21，106.sql）**；前端 API wrapper 与视图已接入并通过 vitest 34/34。剩余：升级/回滚的浏览器 E2E | `docs/validation/2026-09-16-tp5-resource-center-evidence.md`、`docs/validation/2026-09-15-p16-upgrade-rollback-pg-evidence.md` |
+| P1.6 | 模板市场与资源中心产品化 | `done` | 无 | **全链路已全面闭环（2026-09-17）**：升级/回滚运行期证据（45 组 15/15）；验签/预览/覆盖闸门（41 组 5/5）；TP-5 资源中心跨形态综合市场与统一分发已闭环（53 组 21/21，106.sql）；前端 API wrapper 与视图已接入并通过 vitest 34/34；**升级/回滚真实浏览器 E2E 3/3 全绿（`29_p16_template_upgrade_rollback.spec.js` 实测通过）** | `docs/validation/2026-09-17-p16-e2e-complete-evidence.md`、`docs/validation/2026-09-16-tp5-resource-center-evidence.md` |
 | P2.1 | 协议插件 SDK | `partial` | `未实现` | 真实外部协议适配器（CAN/BACnet/BLE/LoRaWAN）；manifest 注册 HTTP 运行期路径 | `pkg/pluginsdk`（9/9 实跑通过） |
 | P2.2 | Trendz 类轻量分析 | `partial` | `未验证` | **anomaly 端点已有真实 API 运行期证据（40 组 11/11，2026-09-15 复跑）**；剩余约束仍来自 P0.6 durable execution | `docs/validation/2026-09-15-roadmap-status-recheck.md`、`telemetry_analysis_core_test.go` |
 | P2.3 | 数据保留与性能 | `partial` | `环境阻塞` | **已有 API + MQTT 两条路径的本地基线数字（2026-09-17）**：① API——`/health` **3,920 rps**、p50 0.32ms / p95 7.18ms；触库端点 **2,376 rps**、p50 0.35ms / p90 4.29ms / p95 12.41ms，两端点全程 0 失败；② MQTT 摄取——限速组 4 连接 **799 msg/s**、0 失败、**已读回确认落库**；不限速组 2 连接发布侧 15,856 msg/s 但**落库未确认（读回 `code=-1`）故不可用**；延迟样本不可信（p50 恒为 0 ns，物理上不可能，见证据 §二）。剩余：**不限速组 `code=-1` 未查清**；多设备并发（50/200 连接）未做；浏览器首屏未测；tier 达标证据需资源配额环境；双实例报告未做；容量模型与冷热分层告警 pending | `docs/validation/2026-09-17-p23-local-api-baseline-evidence.md`、`2026-09-17-p23-mqtt-ingest-baseline-evidence.md` |
 | P3 | 商业化与长期能力 | `partial` | `未实现` | **许可证签发工具（`cmd/licensegen` 与 `pkg/license` 签名/密钥生成）已实现并通过 7/7 单元测试与实测**；**license/status 与 operation_logs/export 已有真实 API 运行期证据（39 组 6/6、42 组 6/6，2026-09-15 复跑）**；其余 11 个子项零代码 | `docs/validation/2026-09-15-roadmap-status-recheck.md`、`cmd/licensegen`、`pkg/license`（7/7 实跑通过） |
 
-**统计：`done` 2 项 / `partial` 14 项 / `pending` 1 项（P2.3 压测子项、P3 多数子项）。**
+**统计：`done` 3 项（P0.6, P1.1, P1.6） / `partial` 13 项 / `pending` 1 项（P2.3 压测子项、P3 多数子项）。**
 
 #### 1.2.1 构建与测试复核（2026-09-13，**修正上表口径**）
 
@@ -230,7 +230,8 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 **实现状态**：`partial` · 缺口类型 `环境阻塞`。
 
 - 已实现：三个脚本（`preflight-release.ps1` 原为空壳已填实、`validate-deploy.ps1`、`backup-restore.ps1`）实跑——静态不变量 2 项 PASS、失败路径 2 项 FAIL 且 `VERDICT=BLOCKED` 退出码 1、无目标时输出 `PENDING` 退出码 2（不伪装通过）；backup/restore 五场景（清单生成/校验/篡改检出/缺工具 PENDING/根目录拒绝）；备份恢复执行面落地。
-- 已实现：全新空库 `aetherlink_migrate_20260912` 用项目自身 `initialize.CheckVersion` 顺序跑 `sql/1.sql…93.sql`（`AETHERLINK_TIMESCALE_MODE=off`）→ `MIGRATE_OK` / `sys_version=93` / 114 张表（**注：该验证只到 93，94–99 未做同等全链验证**）。
+- 已实现（2026-09-11）：全新空库 `aetherlink_migrate_20260912` 用项目自身 `initialize.CheckVersion` 顺序跑 `sql/1.sql…93.sql`（`AETHERLINK_TIMESCALE_MODE=off`）→ `MIGRATE_OK` / `sys_version=93` / 114 张表。
+- 已实现（2026-09-17，**补齐 94–109 的缺口**）：新增 `backend/cmd/migchaincheck`，在全新空库上跑 **1 → 109 全链**并核对 `sys_version` 落点与建表数 → `sys_version=109`（= `VERSION_NUMBER`）/ **126 张表** / 耗时 837ms / `VERDICT=PASS`。该工具**直接调用项目自身的 `initialize.CheckVersion`**，与生产启动同一条代码路径（自写执行器会导致「校验通过但生产走的是另一条路」）；并**拒绝非空库**（在非空库上跑只能验增量升级，验不了从零安装），负向对照实测退出码 2。注意：本次验证的是**工作区**（109），104–109 这 6 个迁移仍未提交。证据 `docs/validation/2026-09-17-p01-full-migration-chain-evidence.md`。
 - 未闭环：目标服务器 HTTPS/TLS、MQTTS 设备上报/下发、公网 MQTT、backup/restore 计数一致性；因执行环境无 `git` 而报 PENDING 的工作树检查。
 - 证据：`docs/validation/P0.1-preflight-evidence.md`（其中 `VERSION_NUMBER=88 matches max migration=88` 为当日快照，已过时，不代表当前值）。
 
