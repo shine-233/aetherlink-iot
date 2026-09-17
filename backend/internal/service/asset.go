@@ -7,6 +7,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"aetherlink-iot/backend/internal/dal"
@@ -24,11 +25,12 @@ type Asset struct{}
 
 // AssetReq 创建/更新资产入参（由 api 层绑定后透传）。
 type AssetReq struct {
-	ID        string `json:"id"`
-	ParentID  string `json:"parent_id"`
-	Name      string `json:"name" binding:"required"`
-	AssetType string `json:"asset_type"`
-	Meta      string `json:"meta"`
+	ID             string  `json:"id"`
+	ParentID       string  `json:"parent_id"`
+	Name           string  `json:"name" binding:"required"`
+	AssetType      string  `json:"asset_type"`
+	Meta           string  `json:"meta"`
+	ConflictPolicy *string `json:"conflict_policy" form:"conflict_policy"` // TB-15 实体名冲突策略
 }
 
 // assetScope 依据 claims 解析可读租户作用域（self∪子孙，自上而下；总部/父级可下钻）。
@@ -109,6 +111,46 @@ func (*Asset) Create(claims *utils.UserClaims, req *AssetReq) (*model.Asset, err
 	}
 	if err := validateAssetTree(self, strings.TrimSpace(req.ParentID), "", scopes); err != nil {
 		return nil, err
+	}
+
+	// TB-15: 实体名冲突策略消解（FAIL / RENAME / IGNORE / UPDATE）
+	policy := model.NormalizeConflictPolicy(req.ConflictPolicy)
+	if policy != model.ConflictPolicyAllow {
+		existing, err := dal.GetAssetByNameAndTenant(self, name)
+		if err == nil && existing != nil {
+			switch policy {
+			case model.ConflictPolicyFail:
+				return nil, errcode.NewWithMessage(errcode.CodeParamError, fmt.Sprintf("asset with name '%s' already exists", name))
+			case model.ConflictPolicyIgnore:
+				return existing, nil
+			case model.ConflictPolicyUpdate:
+				existing.ParentID = strings.TrimSpace(req.ParentID)
+				if strings.TrimSpace(req.AssetType) != "" {
+					existing.AssetType = strings.TrimSpace(req.AssetType)
+				}
+				metaStr := strings.TrimSpace(req.Meta)
+				if metaStr != "" {
+					existing.Meta = &metaStr
+				}
+				if _, err := dal.UpdateAsset(existing); err != nil {
+					return nil, errcode.New(errcode.CodeDBError)
+				}
+				return existing, nil
+			case model.ConflictPolicyRename:
+				names, err := dal.GetAssetNamesMatchingBase(self, name)
+				if err != nil {
+					return nil, errcode.New(errcode.CodeDBError)
+				}
+				nameMap := make(map[string]bool, len(names))
+				for _, n := range names {
+					nameMap[n] = true
+				}
+				renamed := model.GenerateRenamedName(name, model.NameMaxLengthDefault, func(candidate string) bool {
+					return nameMap[candidate]
+				})
+				name = renamed
+			}
+		}
 	}
 	assetType := strings.TrimSpace(req.AssetType)
 	if assetType == "" {

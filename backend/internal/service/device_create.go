@@ -1,6 +1,8 @@
 package service
 
 import (
+	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -10,6 +12,7 @@ import (
 	utils "aetherlink-iot/backend/pkg/utils"
 
 	"github.com/go-basic/uuid"
+	"gorm.io/gorm"
 )
 
 type createDeviceContext struct {
@@ -21,6 +24,15 @@ type createDeviceContext struct {
 func (*Device) CreateDevice(req model.CreateDeviceReq, claims *utils.UserClaims) (device model.Device, err error) {
 	if err := ensureTenantScopedWriteClaims(claims, "create device"); err != nil {
 		return device, err
+	}
+
+	// TB-15: 实体名冲突策略消解（FAIL / RENAME / IGNORE / UPDATE）
+	existingDev, handled, err := resolveCreateDeviceConflict(&req, claims)
+	if err != nil {
+		return device, err
+	}
+	if handled && existingDev != nil {
+		return *existingDev, nil
 	}
 
 	// P3 商业许可证配额：许可证声明 max_devices 且有效时执行；未启用边界时为 no-op。
@@ -75,6 +87,16 @@ func buildCreateDeviceContext(req model.CreateDeviceReq, claims *utils.UserClaim
 	deviceConfig, err := loadCreateDeviceConfig(normalizeCreateDeviceConfigID(req.DeviceConfigId), claims)
 	if err != nil {
 		return createDeviceContext{}, err
+	}
+
+	if req.ParentID != nil && *req.ParentID != "" {
+		parentDevice, err := ensureTelemetryDeviceWriteAccess(*req.ParentID, claims)
+		if err != nil {
+			return createDeviceContext{}, err
+		}
+		if claims != nil && claims.TenantID != "" && parentDevice.TenantID != claims.TenantID {
+			return createDeviceContext{}, errcode.NewWithMessage(errcode.CodeNoPermission, "parent and device must belong to the same tenant")
+		}
 	}
 
 	createdAt := time.Now().UTC()
@@ -209,4 +231,67 @@ func persistCreateDevice(device *model.Device) error {
 		})
 	}
 	return nil
+}
+
+func resolveCreateDeviceConflict(req *model.CreateDeviceReq, claims *utils.UserClaims) (*model.Device, bool, error) {
+	policy := model.NormalizeConflictPolicy(req.ConflictPolicy)
+	if policy == model.ConflictPolicyAllow {
+		return nil, false, nil
+	}
+	if req.Name == nil || strings.TrimSpace(*req.Name) == "" {
+		return nil, false, nil
+	}
+	name := strings.TrimSpace(*req.Name)
+	req.Name = &name
+
+	existing, err := dal.GetDeviceByNameAndTenant(claims.TenantID, name)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, false, nil
+		}
+		return nil, false, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	if existing == nil {
+		return nil, false, nil
+	}
+
+	switch policy {
+	case model.ConflictPolicyFail:
+		return nil, false, errcode.NewWithMessage(errcode.CodeParamError, fmt.Sprintf("device with name '%s' already exists", name))
+
+	case model.ConflictPolicyIgnore:
+		return existing, true, nil
+
+	case model.ConflictPolicyUpdate:
+		applyCreateDeviceRequestFields(existing, *req)
+		now := time.Now().UTC()
+		existing.UpdateAt = &now
+		if _, err := dal.UpdateDevice(existing); err != nil {
+			return nil, false, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
+		}
+		return existing, true, nil
+
+	case model.ConflictPolicyRename:
+		names, err := dal.GetDeviceNamesMatchingBase(claims.TenantID, name)
+		if err != nil {
+			return nil, false, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+				"sql_error": err.Error(),
+			})
+		}
+		nameMap := make(map[string]bool, len(names))
+		for _, n := range names {
+			nameMap[n] = true
+		}
+		renamed := model.GenerateRenamedName(name, model.NameMaxLengthDefault, func(candidate string) bool {
+			return nameMap[candidate]
+		})
+		req.Name = &renamed
+		return nil, false, nil
+	}
+
+	return nil, false, nil
 }

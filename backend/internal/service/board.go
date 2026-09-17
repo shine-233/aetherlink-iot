@@ -213,6 +213,10 @@ func buildCreateBoardPayload(req *model.CreateBoardReq, tenantID string, now tim
 		TenantID:    tenantID,
 		HomeFlag:    req.HomeFlag,
 		VisType:     req.VisType,
+		TypeKey:     req.TypeKey,
+		Author:      req.Author,
+		Version:     req.Version,
+		PreviewURL:  req.PreviewURL,
 	}
 }
 
@@ -226,6 +230,10 @@ func buildUpdateBoardPayload(req *model.UpdateBoardReq, updatedAt time.Time) mod
 		Description: req.Description,
 		Remark:      req.Remark,
 		VisType:     req.VisType,
+		TypeKey:     req.TypeKey,
+		Author:      req.Author,
+		Version:     req.Version,
+		PreviewURL:  req.PreviewURL,
 		UpdatedAt:   updatedAt,
 	}
 }
@@ -356,6 +364,55 @@ func (*Board) CreateBoard(ctx context.Context, CreateBoardReq *model.CreateBoard
 	}
 
 	db := dal.BoardQuery{}
+
+	// TB-15: 实体名冲突策略消解（FAIL / RENAME / IGNORE / UPDATE）
+	policy := model.NormalizeConflictPolicy(CreateBoardReq.ConflictPolicy)
+	if policy != model.ConflictPolicyAllow {
+		existing, err := db.GetBoardByNameAndTenant(ctx, tenantID, CreateBoardReq.Name)
+		if err == nil && existing != nil {
+			switch policy {
+			case model.ConflictPolicyFail:
+				return nil, errcode.NewWithMessage(errcode.CodeParamError, fmt.Sprintf("board with name '%s' already exists", CreateBoardReq.Name))
+			case model.ConflictPolicyIgnore:
+				return existing, nil
+			case model.ConflictPolicyUpdate:
+				existing.Config = CreateBoardReq.Config
+				existing.Description = CreateBoardReq.Description
+				existing.Remark = CreateBoardReq.Remark
+				existing.VisType = CreateBoardReq.VisType
+				existing.TypeKey = CreateBoardReq.TypeKey
+				existing.Author = CreateBoardReq.Author
+				existing.Version = CreateBoardReq.Version
+				existing.PreviewURL = CreateBoardReq.PreviewURL
+				existing.UpdatedAt = time.Now().UTC()
+				if CreateBoardReq.MenuFlag != "" {
+					existing.MenuFlag = &CreateBoardReq.MenuFlag
+				}
+				if CreateBoardReq.HomeFlag == "Y" {
+					_ = db.UpdateHomeFlagN(ctx, tenantID)
+					existing.HomeFlag = "Y"
+				}
+				if err := dal.UpdateBoard(existing, tenantID); err != nil {
+					return nil, wrapBoardDBError(err)
+				}
+				return existing, nil
+			case model.ConflictPolicyRename:
+				names, err := db.GetBoardNamesMatchingBase(ctx, tenantID, CreateBoardReq.Name)
+				if err != nil {
+					return nil, wrapBoardDBError(err)
+				}
+				nameMap := make(map[string]bool, len(names))
+				for _, n := range names {
+					nameMap[n] = true
+				}
+				renamed := model.GenerateRenamedName(CreateBoardReq.Name, model.NameMaxLengthDefault, func(candidate string) bool {
+					return nameMap[candidate]
+				})
+				CreateBoardReq.Name = renamed
+			}
+		}
+	}
+
 	board := buildCreateBoardPayload(CreateBoardReq, tenantID, time.Now().UTC())
 	if CreateBoardReq.HomeFlag == "Y" {
 		err := db.UpdateHomeFlagN(ctx, tenantID)
