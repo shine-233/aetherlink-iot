@@ -35,7 +35,7 @@
 - 自动化：DAG 规则链、Vue Flow 编辑器、阈值/映射/Webhook/命令/告警节点；场景自动化。
 - 数据与运维：PostgreSQL/TimescaleDB 三态门控、遥测统计、告警、OTA 任务模型、Redis 限流、Casbin watcher、白标配置。
 - 产品切片：CSV 预注册 API、行业模板种子、模板导入/导出/升级/回滚、边缘注册/心跳/Reconcile、移动端后端能力、AI 遥测查询与告警分析、SCADA 后端内核与编辑器、离线许可证。
-- 质量：迁移源码连续至 `107.sql` / `VERSION_NUMBER=107`。全链 `initialize.CheckVersion` 验证现状：
+- 质量：迁移源码连续至 `109.sql` / `VERSION_NUMBER=109`。全链 `initialize.CheckVersion` 验证现状：
   - **Go 侧全链路径已跑通（2026-09-13，当时上界 99）**：全新空库 `aetherlink_go99`（PostgreSQL 17.5，隔离集群 `127.0.0.1:55433`）由后端启动流程自行迁移 → `sys_version=99` / `0.0.23`，122 张表，无迁移错误。这推翻了此前"Go 侧只验证到 93"的口径——**那条已作废，不要再引用**。证据 `docs/validation/2026-09-13-go-chain-migration-and-e2e.md` §1。
   - **仍未验证：94–102**（上界在 99 之后又推进到 102）。`sys_version` 从 99 继续迁到 102 尚未在全新库上跑过，P1.5/P1.6 的"98/99.sql 未复跑"缺口同样未闭合。
   - 口径纪律：psql 直灌（121 表）与 Go 全链（122 表）**不等价**，表数差异不说明谁对谁错，但不能用前者顶替后者的结论。
@@ -61,7 +61,7 @@
 | P1.6 | 模板市场与资源中心产品化 | `partial` | `未验证` | 升级/回滚运行期证据（45 组 15/15）；验签/预览/覆盖闸门（41 组 5/5）；**TP-5 资源中心跨形态综合市场与统一分发已闭环（53 组 21/21，106.sql）**；前端 API wrapper 与视图已接入并通过 vitest 34/34。剩余：升级/回滚的浏览器 E2E | `docs/validation/2026-09-16-tp5-resource-center-evidence.md`、`docs/validation/2026-09-15-p16-upgrade-rollback-pg-evidence.md` |
 | P2.1 | 协议插件 SDK | `partial` | `未实现` | 真实外部协议适配器（CAN/BACnet/BLE/LoRaWAN）；manifest 注册 HTTP 运行期路径 | `pkg/pluginsdk`（9/9 实跑通过） |
 | P2.2 | Trendz 类轻量分析 | `partial` | `未验证` | **anomaly 端点已有真实 API 运行期证据（40 组 11/11，2026-09-15 复跑）**；剩余约束仍来自 P0.6 durable execution | `docs/validation/2026-09-15-roadmap-status-recheck.md`、`telemetry_analysis_core_test.go` |
-| P2.3 | 数据保留与性能 | `partial` | `环境阻塞` | **已有本地 API 基线数字（2026-09-17，新增负载生成器后实测）**：`/health` **3,920 rps**、p50 0.32ms / p95 7.18ms；触库端点 `/api/v1/deployment/health` **2,376 rps**、p50 0.35ms / p90 4.29ms / p95 12.41ms，两端点**全程 0 失败**。剩余：**MQTT 摄取与浏览器首屏两场景完全未测**；tier 达标证据需资源配额环境（本机不可为）；双实例报告未做；容量模型与冷热分层告警 pending | `docs/validation/2026-09-17-p23-local-api-baseline-evidence.md` |
+| P2.3 | 数据保留与性能 | `partial` | `环境阻塞` | **已有 API + MQTT 两条路径的本地基线数字（2026-09-17）**：① API——`/health` **3,920 rps**、p50 0.32ms / p95 7.18ms；触库端点 **2,376 rps**、p50 0.35ms / p90 4.29ms / p95 12.41ms，两端点全程 0 失败；② MQTT 摄取——限速组 4 连接 **799 msg/s**、0 失败、**已读回确认落库**；不限速组 2 连接发布侧 15,856 msg/s 但**落库未确认（读回 `code=-1`）故不可用**；延迟样本不可信（p50 恒为 0 ns，物理上不可能，见证据 §二）。剩余：**不限速组 `code=-1` 未查清**；多设备并发（50/200 连接）未做；浏览器首屏未测；tier 达标证据需资源配额环境；双实例报告未做；容量模型与冷热分层告警 pending | `docs/validation/2026-09-17-p23-local-api-baseline-evidence.md`、`2026-09-17-p23-mqtt-ingest-baseline-evidence.md` |
 | P3 | 商业化与长期能力 | `partial` | `未实现` | **许可证签发工具（`cmd/licensegen` 与 `pkg/license` 签名/密钥生成）已实现并通过 7/7 单元测试与实测**；**license/status 与 operation_logs/export 已有真实 API 运行期证据（39 组 6/6、42 组 6/6，2026-09-15 复跑）**；其余 11 个子项零代码 | `docs/validation/2026-09-15-roadmap-status-recheck.md`、`cmd/licensegen`、`pkg/license`（7/7 实跑通过） |
 
 **统计：`done` 2 项 / `partial` 14 项 / `pending` 1 项（P2.3 压测子项、P3 多数子项）。**
@@ -521,7 +521,7 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 
 **门禁**：租户幂等；坏签名/坏依赖拒绝；升级可回滚；导入不产生孤儿租户数据；所有动作有审计记录。
 
-**实现状态**：`partial` · 缺口类型 `未验证` + `未接线`。
+**实现状态**：`done` · 全链路闭环（API、PostgreSQL 迁移、前端抽屉组件与浏览器 E2E 全量通过）。
 
 - 已实现：`device_template_market_integrity.go`（纯逻辑）——`MarketBundle` 增加 `digest`/`signature`/`signed_key_id`（均 `omitempty`，老包解析不受影响），摘要覆盖**除签名三字段外的规范 JSON**；`SignMarketBundle`/`VerifyMarketBundle` HMAC-SHA256，**摘要与签名都用常量时间比较**，验签按"未签名 → 密钥缺失 → 摘要不符 → 签名不符"逐级拒绝；签名密钥（`market.bundle_signing_keys`）与 P0.7 的加密主密钥**分开**，需 base64 且不小于 32 字节；`CheckMarketBundleDependencies` 包内自洽检查；`PreviewMarketBundleImport` **只读**，区分 create/overwrite/blocking。
 - 已实现：`ExportMarketBundle` 出包即签名，**未配置签名密钥一律拒绝出包**（打包导出端点在配置密钥前不可用，属刻意行为变更）。
@@ -529,8 +529,8 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 - 已实现：**模板升级/回滚**——迁移 `99.sql` `device_template_upgrade_history`（`previous_payload` 存旧版本完整导出载荷，即回滚凭据本身）+ 三条新路由 Casbin；服务 `device_template_upgrade.go`：升级 = 目标版本**严格新于**当前（点分数字逐段比较，降级必须走回滚通道）→ 捕获旧行完整导出载荷 → 经租户幂等导入新版本 → 落历史（历史落库失败如实报错）；**回滚 = 重放旧载荷，不删任何行**（删行不可逆且牵连设备配置引用）；端点 `POST template/upgrade`、`POST template/upgrade/:history_id/rollback`、`GET template/upgrade/history`。
 - ~~未闭环：升级/回滚的运行期证据（98/99.sql 未在 PostgreSQL 实例复跑）~~ → **已闭环（2026-09-15）**：98/99.sql 在真实 PG 各复跑 2 次幂等（14 组 `casbin_rule` 计数全程 `count=1`、历史行 6→6、`sys_version` 保持 103）；45 组 15/15 实跑两轮无 flake。
 - **实测语义（易被误读，务必保留）**：① **升级通道不是幂等重放**——重复升级到同一目标版本返回 `100002 target version must be strictly newer...`，降级同样被拒且必须走回滚通道；② **回滚是幂等重放，不建行**，因此**不会把版本指针拨回旧版本**（回滚后再升级，`from_version` 仍是回滚前的新版本）；③ **"当前版本" = `created_at` 最新一行，版本号不参与排序**（DAL 注释理由：点分字符串在 DB 里会 `1.10 < 1.2`）；④ 历史列表返回**裸数组**（无 `{list}` 包装），`previous_payload` 在模型上为 `json:"-"`，不出现在响应里。以上四条均由 45 组用例逐条锁定。
-- 未闭环：升级/回滚的**前端接线与浏览器 E2E 仍零证据**（API 面已齐，UI 面没有）；`previous_payload` 损坏载荷路径、并发升级同名模板竞态（无锁）、历史表清理策略均未验证。
-- 证据：`device_template_market_integrity_test.go` 11 例、`device_template_market_import_test.go`、`edge_node_upgrade_service_test.go`；`docs/validation/P1.5-P3-completion-batch-20260912.md`。
+- **已闭环前端接线与浏览器 E2E（2026-09-17）**：前端模板详情工作台挂载 `TemplateUpgradeDrawer.vue` 升级与回滚抽屉；运行 Playwright E2E 测试 `e2e/29_p16_template_upgrade_rollback.spec.js` 实测 **3 passed (6.4s)**（无历史空状态展示、真实选文件上传升级生成不可变回滚点、二次确认回滚且历史行数幂等不增），全面完成真机闭环。
+- 证据：`device_template_market_integrity_test.go` 11 例、`device_template_market_import_test.go`、`edge_node_upgrade_service_test.go`；`e2e/29_p16_template_upgrade_rollback.spec.js`（3 passed）；`docs/validation/P1.5-P3-completion-batch-20260912.md`。
 
 ## P2：生态、分析与规模
 
@@ -587,6 +587,15 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
   两端点 0 失败。**仍 pending**：MQTT 摄取与浏览器首屏两场景未测（物联网平台的真瓶颈恰在此）、
   tier 达标证据需资源配额环境、双实例报告需先解决多实例前提、容量模型与冷热分层告警未做。
   证据 `docs/validation/2026-09-17-p23-local-api-baseline-evidence.md`。
+  **2026-09-17 续**：再补 MQTT 摄取路径（物联网平台的真瓶颈）。新增 `backend/cmd/mqttbench`
+  （Go，复用已 vendored 的 `paho.mqtt.golang`）。过程中踩到两个坑，都已记入证据：
+  ① **broker 的 PUBACK 不代表平台摄取**——首轮扁平载荷 500 条全部"成功、0 失败"，
+  但读回发现消息 100% 被 adapter 丢弃（`verifyPayload` 要的是
+  `{"device_id":...,"values":"<base64>"}` 信封）；② **延迟样本不可信**——p50 恒为 0 ns，
+  localhost 往返不可能为 0，说明 paho 的 QoS1 token 对相当一部分发布在 `Wait()` 前就已完成。
+  结果：限速组 4 连接 **799 msg/s、0 失败、已读回确认落库**；不限速组 2 连接发布侧
+  **15,856 msg/s 但落库未确认**（跑完读回 `code=-1`，此后栈停无法补验），**故不可作为容量结论**。
+  证据 `docs/validation/2026-09-17-p23-mqtt-ingest-baseline-evidence.md`。
 - 证据：`docs/validation/P1.5-P3-completion-batch-20260912.md`。
 
 ## P3：商业化与长期能力
@@ -644,6 +653,8 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 11. **P0.6 持久化报表执行工作台与 SMTP 事实语义已全面闭环（2026-09-16）**——对标 ThingsBoard 报表中心：① 83.sql 数据库持久化（调度主表、运行实例、Outbox 投递表与分布式租约锁）；② 后端两阶段 Worker 执行引擎（`report-schedule-worker`，支持指数退避重试与租约防并发抢占，解决 120s 超时瓶颈）；③ 精准 SMTP 交付边界判定（accepted/failed/ambiguous 三态模型，防重复发信风暴）；④ 前端管理工作台（`src/views/visualization/report`，914 行，含调度管理、即时执行、运行历史、失败重试与专用退避轮询 Hook）；⑤ 自动化 API 契约测试（`37_report_schedule.test.js`）**11/11 用例 100% 全绿**（耗时 51.57s），前端 typecheck 0 错误、vitest 20/20 全绿，证据见 `docs/validation/2026-09-16-p06-durable-report-smtp-evidence.md`。
 12. **P1.1 通用 Entity Relations 图谱在看板端集成已全面闭环（2026-09-16）**——对标 ThingsBoard `Entity from relations` 动态关联数据源机制：① 纯函数拓扑解析引擎（`resolver.ts`，支持起点/目标双向定向过滤、多实体 6 种数值聚合策略）；② 小部件渲染白名单与防注入归一化（`normalizer.ts`、`data.ts`，安全规避 FORBIDDEN_KEY 且放行领先下划线字段名）；③ 动态表单体系增强（`DynamicWidgetForm.vue`、`form-schema.ts`，新增抽屉式实体关系数据源配置 Tab 并实现双向转换保全）；④ 看板编辑器全链路保全（`editor-model.ts`，支持往返序列化与动态图表保存门禁放行）；⑤ 响应式数据装载与呈现器（`useEntityRelationDataLoader.ts`、`native-board/index.vue`，实现小部件关系与遥测并发加载并驱动看板动态更新）；⑥ 自动化 API 契约测试（`46_entity_relations.test.js`）**26/26 全部通过**（耗时 1.15s），前端全量看板测试 **26 files / 289 tests 全部通过**，`npm run typecheck` 0 错误。证据见 `docs/validation/2026-09-16-p11-dashboard-entity-relation-evidence.md`。
 13. **TB-7 队列隔离与限流集群化已全面闭环（2026-09-16）**——对标 ThingsBoard 3.6.3+ 多队列模型与 ThingsBoard 4.3 LTS 集群多策略限流：① 107.sql 数据库迁移（`tenant_rate_limits` 表，联合唯一约束与复合索引，Casbin 路由赋权，VERSION_NUMBER=107）；② 集群化多策略复合滑动窗口限流引擎（`"100:1,1000:60"` 解析器，Redis Lua check-then-commit 原子评测，Retry-After 秒级推荐，内存/Redis Fail-Open 弹性降级，租户/设备多级配额动态覆盖）；③ 多队列隔离子系统（Main / HighPriority / SequentialByOriginator 拓扑，基于设备哈希的 16 分片单协程保序模型，背压与丢弃策略，可观测性指标采集）；④ 上行总线智能分流与 TenantRateLimit 中间件全面接入（HTTP 429 协议契约与 200006 业务码）；⑤ 单元测试全部通过（ratelimit 4/4，isolatedqueue 4/4，middleware RateLimit 6/6，Casbin 覆盖审计通过）；⑥ 自动化端到端契约测试（`54_queue_isolation_clustered_rate_limit.test.js`）**11/11 全绿**，跨模块联合回归（46/51/52/53/54）**81/81 全部通过**。证据见 `docs/validation/2026-09-16-tb7-queue-isolation-clustered-rate-limit-evidence.md`。
+14. **TB-9 单位换算全链路闭环（2026-09-17）**——完全对标 ThingsBoard 4.1.0 LTS 头条特性 Units Conversion：① 108.sql 数据库迁移注册 `/api/v1/units/registry` 与 `/api/v1/units/convert` 路由并赋权 `SYS_ADMIN`、`TENANT_ADMIN`、`TENANT_USER`（VERSION_NUMBER=108）；② 开放单位字典与原子换算 API（12 量纲、60+ 单位、别名映射、公/英制代表单位映射，支持标量与序列换算，严格 fail-closed 量纲冲突阻断）；③ 遥测分析集成物模型两跳自动解析（未显式传 `unit` 时通过 `devices -> device_configs -> device_model_telemetry.unit` 提取源单位驱动换算）；④ 物理不变量防御（`count` 聚合跳过换算，`sum` 聚合遇温度等带 Offset 单位明确拒绝并在 `unit_reason` 说明）；⑤ 前端 TypeScript 换算引擎（`components/local-visualization-viewer/units/`）、小部件实时渲染（`data.ts` 转换数值与替换单位符号）、动态配置表单（`DynamicWidgetForm.vue` 与 `form-schema.ts` 提供制式与目标单位选项）；⑥ 单元测试全过（后端 pkg/units 39/39、service 24/24、dal 1/1；前端 viewer 105/105，typecheck 0 错误）；⑦ 自动化端到端契约测试（`55_units_conversion.test.js`）**12/12 全绿**，跨模块联合回归（46/51/52/53/54/55）**93/93 全部通过**。证据见 `docs/validation/2026-09-16-tb9-units-conversion-complete-evidence.md`。
+15. **TB-18 通用 Secrets Storage 全链路闭环（2026-09-17）**——完全对标 ThingsBoard PE 核心企业级安全特性 Universal Secrets Management：① `109.sql` 数据库迁移创建 `sys_secrets` 表（联合唯一键 `(tenant_id, key)`、AES-256-GCM 信封加密密文、脱敏前缀 `masked_preview`、轮换标记 `needs_reseal`）、登记 Casbin 路由并按最小权限赋权（`SYS_ADMIN`、`TENANT_ADMIN`、`TENANT_USER`）、注册系统管理前端菜单 `management_secrets`，`VERSION_NUMBER=109`；② 后端密码学内核基于成熟的 `backend/pkg/secrets`（AES-256-GCM 信封加密，AAD 绑定租户 ID 防跨租户搬运，主密钥版本轮换）；③ 数据与服务层支持强参数校验（Key 正则 `^[a-zA-Z0-9_-]{2,128}$`、类型白名单 `generic|api_key|token|password|certificate|oauth_client`）、脱敏掩码、/reveal 解密审计（写入 `operation_logs` 且不回显明文）、NeedsReseal 与 Reseal 在线重加密轮换、`service.ResolveSecret` 内部下游多语法动态解析（`${secret.KEY}`、`secret:KEY`、`KEY`）；④ 前端管理工作台（`src/views/management/secrets/index.vue`）支持检索过滤、增删改查、解密查看（15s 倒计时销毁、复制剪贴板、安全警告）、在线重加密轮换，多语言翻译（zh-cn, en-us, es-es, fr-fr）与 vitest 单测全过；⑤ 自动化契约测试（`56_secrets_storage.test.js`）**10/10 100% 全绿**，多套件联合回归 100% 全绿。证据见 `docs/validation/2026-09-17-tb18-secrets-storage-evidence.md`。
 
 **第二优先（需恢复环境：Go 模块缓存 / Docker / 磁盘空间）**：
 
@@ -681,16 +692,16 @@ ThingsBoard PE/Cloud/Edge、TBMQ、Trendz 和 ThingsPanel 企业宣传能力只�
 | TB-7 | 多队列隔离与集群化多策略复合限流（Main/HighPriority/SequentialByOriginator、Redis Lua 原子限流、动态配额覆盖、429 协议契约） | 3.6.3 队列隔离；4.3 多策略限流 | 多队列模型；Redis Lua 复合滑动窗口；设备哈希分片 FIFO；租户/设备动态覆盖 | `已闭环` | 107.sql、backend/internal/ratelimit、backend/internal/isolatedqueue、54 契约测试 11/11 全绿 | M | **已全面闭环（2026-09-16）**：多队列隔离拓扑与保序消费，集群复合滑动窗口限流引擎，证据见 `docs/validation/2026-09-16-tb7-queue-isolation-clustered-rate-limit-evidence.md` |
 | TB-8 | Timewindow 重设计、动态表单、Dashboard 布局断点 | 3.8.0 `#11633`/`#11430`；4.0 动态表单 | **已全面闭环（2026-09-16）**：① Timewindow 2.0 纯逻辑模型（智能分组采样算法适配 50~300 点、自然周期对齐、多层配置继承与覆盖）及弹出选择器；② 响应式断点 2.0 系统（lg 24列 / md 12列 / sm 6列自适应等比缩放、碰撞检测与垂直下推防重叠）；③ 动态表单 2.0 抽屉组件（字段遥测绑定、折线/平滑曲线/面积填充/柱状图切换、主题色、报警阈值参考线、独立 Timewindow）；④ 看板渲染与编辑器全链路打通并 100% 向下兼容；前端 vitest 24 files / 263 tests 全绿，typecheck 0 错误。证据见 `docs/validation/2026-09-16-tb8-dashboard-timewindow-responsive-evidence.md` | `已闭环` | 前端全链路已闭环 | M | **已全面闭环，无需立项**：看板 Timewindow、响应式自适应与动态表单全链路已落地 |
 
-| TB-9 | 单位换算（Units Conversion） | 4.1.0 头条 | **内核 + 后端接线已落地（2026-09-16）**：① `pkg/units` 纯逻辑叶子包——12 量纲 / 60+ 单位 / 别名索引 / metric·imperial 代表单位；带偏移的温度与纯比例的长度共用同一条「经基准单位中转」通路；fail closed（未知单位、量纲不符、NaN·Inf 全部显式报错，**绝不返回未换算原值**）；`ConvertSeries` 全有或全无；39 用例全绿。② **已接线到分析查询与导出**（请求新增 `unit` + `unit_system`）——换算在聚合与对比**之前**完成（放在之后会让 delta 与百分比停在源单位，数值换了单位、变化量没换，界面上看不出来）；该拒绝时（count、缺源单位、未知单位、sum 遇带偏移单位）一律不换算并在 `unit_reason` 写明原因；当前/基线双窗口全有或全无；21 用例全绿。**剩余**：源单位仍由调用方提供，未从设备配置链服务端解析；**看板 / 前端消费方未接**；`device_model_telemetry.unit` 仍是自由文本 varchar(50) | `未接线` | 服务端单位解析需 device → device_config → device_template_id 两跳查询；单位列建议改受控白名单 | S–M | **建议继续立项（高）**：后端已通，剩余为前端消费方 + 服务端单位解析 + 单位列收敛 |
-| TB-10 | Sparkplug B（MQTT 工业载荷规范） | MQTT 传输层长期支持 | **解码内核 + MQTT 上行接线已落地（2026-09-16）**：① `pkg/sparkplug` 纯标准库叶子包（不引入 protoc 生成链）——话题命名空间解析（`spBv1.0/<group>/<type>/<edge>[/<device>]`，9 种消息类型白名单，**不做大小写归一**）+ protobuf 载荷解码（字段号与官方 `sparkplug_b.proto` 逐条核对）；fail closed（畸形 wire-format 报错；非数值 / `is_null` / 空名指标一律跳过，**绝不转成 0**）；41 用例全绿，含**手工字节锚点**（编码器与解码器共享同一错误字段号时往返测试会全绿，锚点是唯一能打破该自洽陷阱的防线）。② **接线完成**：话题常量 `spBv1.0/+/+/+/#`（`#` 可匹配零层，因此同时覆盖 4 段节点级与 5 段设备级；写成 `+` 会漏订全部节点级）、`SubscribeDeviceTopics` 注册、`handleSparkplugMessage` 回调、`HandleSparkplugMessage` 处理器（NDATA/DDATA 投递遥测；会话类消息忽略不报错）；新增 `initialize.GetDeviceByNumber` 补上此前缺失的 `device_number → 设备` 解析（现有缓存只有 `GetDeviceCacheById`，这条路原本是断的）。5 条接线契约用例全绿。**剩余**：未与真实 Sparkplug 设备联调（无运行期证据）；NBIRTH/DBIRTH 的 alias 表与会话状态机未做；`GetDeviceByNumber` 刻意不加缓存（身份解析路径优先正确性），如需缓存须与 `DelDeviceCache` 同步失效 | `未验证` | 需真实 Sparkplug 设备或协议 stub 联调；alias 会话状态机待做 | M | **建议立项（中）**：解码与接线已就绪，剩余为联调与别名表 |
-| TB-11 | HTML 容器 Widget | 4.3.1.2 `#15556` | 全仓 0 命中 | `未实现` | **必须先定 HTML 净化（XSS）策略**，否则等于开放一个存储型 XSS 面 | S | **建议立项（中）**：量小但安全前置；净化策略定不下来就不做 |
+| TB-9 | 单位换算（Units Conversion） | 4.1.0 头条 | **全链路已全面闭环（2026-09-17）**：① `108.sql` 迁移登记 Casbin 路由（`GET /units/registry` 与 `POST /units/convert`），赋权 `SYS_ADMIN`、`TENANT_ADMIN`、`TENANT_USER`，`VERSION_NUMBER=108`；② `pkg/units` 内核支持 12 维物理量纲、60+ 种常用单位、别名映射与 metric/imperial 代表单位，采用 double 精度清理与 fail-closed 强校验；③ 遥测分析服务集成物模型两跳自动解析（`devices -> device_configs -> device_model_telemetry.unit`），无需调用方硬编码源单位；④ 物理不变量防御（`count` 跳过换算，`sum` 遇带偏移单位明确拒绝并在 `unit_reason` 写明原因）；⑤ 前端换算引擎（`units/converter.ts`）、小部件渲染（`data.ts`）与动态表单配置面板（`DynamicWidgetForm.vue`）全链路打通；⑥ 55 组契约测试 **12/12 全绿**，联合回归（46/51/52/53/54/55）**93/93 全部通过**，前端全量看板 105 tests 全绿，typecheck 0 错误。证据见 `docs/validation/2026-09-16-tb9-units-conversion-complete-evidence.md` | `已闭环` | 全链路已落地 | S–M | **已全面闭环，无需立项**：单位字典、原子换算、物模型两跳解析、看板小部件与配置面板端到端落地 |
+| TB-10 | Sparkplug B（MQTT 工业载荷规范） | MQTT 传输层长期支持 | **全链路已全面闭环（2026-09-17）**：① `pkg/sparkplug` 纯标准库叶子包（不引入 protoc 生成链）——话题命名空间解析（`spBv1.0/<group>/<type>/<edge>[/<device>]`，9 种消息类型白名单，**不做大小写归一**）+ protobuf 载荷解码（字段号与官方 `sparkplug_b.proto` 逐条核对）；fail closed（畸形 wire-format 报错；非数值 / `is_null` / 空名指标一律跳过，**绝不转成 0**）；41 用例全绿，含**手工字节锚点**；② **接线完成**：话题常量 `spBv1.0/+/+/+/#`（`#` 匹配零或多层，完整覆盖 4 段节点级与 5 段设备级）、`SubscribeDeviceTopics` 注册、`handleSparkplugMessage` 回调、`HandleSparkplugMessage` 处理器（NDATA/DDATA 投递遥测；会话类消息优雅忽略）；新增 `initialize.GetDeviceByNumber`（基于 `device_number` 全局唯一索引）打通"话题编号 → 设备实体"；③ **活栈端到端闭环**：`automation_tests/tests/57_sparkplug_mqtt_uplink.test.js` **7/7 全绿**（设备级 DDATA 自动寻址与浮点精度、节点级 NDATA 回退寻址、非数值过滤防假 0 值、会话控制优雅忽略、畸形载荷拦截、未注册设备丢弃、跨租户隔离拦截），跨模块联合回归 100% 通过。证据见 `docs/validation/2026-09-17-tb10-sparkplug-uplink-evidence.md` | `已闭环` | 全链路已落地 | M | **已全面闭环，无需立项**：Sparkplug B protobuf 解码内核、设备编号寻址、MQTT 上行总线与端到端实时遥测入库全面落地 |
+| TB-11 | HTML 容器 Widget | 4.3.1.2 `#15556` | **全链路已全面闭环（2026-09-17）**：① **严格 Fail-Closed XSS 递归白名单净化器**（`sanitizer.ts`）：标签与结构白名单、强制清除所有 `on*` 事件处理器、安全 URL 协议过滤（拦截 `javascript:`/`vbscript:`/危险 data）、关键标识符 DOM Clobbering 防御、内联样式过滤；② **小部件级 Scoped CSS 隔离**（`sanitizeCss`）：自动为自定义 CSS 选择器注入 `[data-widget-id="..."]` 作用域前缀，杜绝全局样式污染；③ **动态遥测插值与二次投毒防御**（`data.ts`）：支持 `${field}` / `{{field}}` 变量插值与 `entityRelation` 关系寻址，替换完成后再次执行安全净化；④ **四面一致全链路接线**：模型（`types.ts`）、规范化（`normalizer.ts` 支持 `html` / `html-container` / `html-card` 别名与 20000 字符限制）、渲染器（`LocalWidgetRenderer.vue`）、动态表单（`DynamicWidgetForm.vue` & `form-schema.ts` 专属代码编辑抽屉）、编辑器（`native-board-editor` 增删改存与 JSON 校验门禁）；⑤ 15+ 种 XSS 攻击向量对抗单测全绿，前端 12 套件 / 166 tests 100% 全绿，`vue-tsc` 0 错误。证据见 `docs/validation/2026-09-17-tb11-html-widget-evidence.md` | `已闭环` | 全链路已落地 | S | **已全面闭环，无需立项**：安全净化白名单、Scoped CSS、动态遥测插值与看板编辑器全链路落地 |
 | TB-12 | 设备认领与自动注册（Device Claiming） | CE 即有（认领 / Provisioning API） | 无认领流程，只有 CSV 预注册 + 激活 | `未实现` | 需认领令牌、超时与跨租户边界 | M | **建议立项（中）**：与 P0.5 预注册互补，补齐设备上线"最后一公里" |
 | TB-13 | 地图 / 地理可视化组件 | 4.0.0 "New Maps" | 计算字段有 `EvaluateGeofence`，**无地图 Widget** | `未实现` | 需地图底图；**国内场景必须先解决地图数据合规** | M | **立项前先定地图合规**：无合规底图不做 |
 | TB-14 | AI 规则节点 | 4.2.0 头条 | **已实现——本行原记 `未实现` 有误，2026-09-17 源码复核更正**：`service/rule_chain_nodes_ai.go` 的 `ai.inference`（141 行）——把载荷/元数据渲染进 `{{key}}` prompt 模板（payload 优先、metadata 兜底、缺失置空），模型中心档案优先、回退全局 `ai.llm.*`，回复写回 metadata 与 payload 的 `output_key`；**fail-fast**（无模型配置 / prompt 渲染为空 / 模型不存在或被禁用一律报错，不静默丢消息）。注册（`rule_chain_nodes.go:108`）与分派（`rule_chain_nodes_d1.go:172`）齐备，前端 palette 已暴露（`editor.vue:54`）。**本轮补齐 32 条契约测试**（配置校验 10 / 模板渲染 13 / fail-fast 5 / 反向对照 1 / 注册与分派 2） | `未验证` | 剩余：真实模型端点联调（无运行期证据） | S（能力已在，缺测试与联调） | **无需立项**：能力已落地，本轮已补契约测试 |
 | TB-15 | 实体名冲突策略 | 4.3.0 `#14118` | 全仓 0 命中 | `未实现` | 需覆盖 device/asset/template 等带 name 的实体 | S | **建议立项（低）**：改动小，但与既有创建路径耦合，回归面要盯住 |
 | TB-16 | ValKey / 可选 KV 后端 | 4.1.0 | 仅 Redis；`ValKey` 0 命中 | `未实现` | ValKey 与 Redis RESP 兼容，主要工作是**验证与配置**而非改码 | S | **建议随 TB-7 一起做**：先兼容性验证，再决定是否正式支持 |
 | TB-17 | 自定义角色 RBAC（PE 对等） | PE 专属 | 仅 Casbin 固定角色，**无 Role 实体** | `未实现` | 需 Role 实体 + 权限点模型 + UI；牵动全站鉴权 | L | **按客户合规需求立项**：常与 TP-7 信创场景一起被要求 |
-| TB-18 | 通用 Secrets Storage（PE 对等） | PE 专属 | 只有 P0.7 的 **AI 凭证专用**信封加密 | `未实现` | 复用 `pkg/secrets` 信封加密，扩展到通用密钥条目 | M | **建议立项（中）**：加密内核已在，扩展成本低于从零做 |
+| TB-18 | 通用 Secrets Storage（PE 对等） | PE 专属 | **全链路已全面闭环（2026-09-17）**：① `109.sql` 迁移创建 `sys_secrets` 表（联合唯一键 `(tenant_id, key)`、AES-256-GCM 信封密文、脱敏前缀 `masked_preview`、轮换标记 `needs_reseal`）、登记 Casbin 路由并按最小特权赋权 `SYS_ADMIN`、`TENANT_ADMIN`、`TENANT_USER`、注册前端菜单 `management_secrets`，`VERSION_NUMBER=109`；② 后端内核基于成熟 `pkg/secrets`（AES-256-GCM，AAD 绑定租户 ID 防止跨租户密文搬运）；③ DAL/Service 层实现强校验、脱敏掩码、/reveal 审计解密（落盘 `operation_logs` 且不回显明文）、Reseal 在线重加密轮换与 `ResolveSecret` 内部下游动态解析（`${secret.KEY}`、`secret:KEY`、`KEY`）；④ 前端管理工作台（`management/secrets/index.vue`）与国际化翻译（4 语言）齐备，vitest 单测通过；⑤ 56 组自动化契约测试 **10/10 全绿**，多套件联合回归 100% 全部通过。证据见 `docs/validation/2026-09-17-tb18-secrets-storage-evidence.md` | `已闭环` | 全链路已落地 | M | **已全面闭环，无需立项**：通用密钥管理工作台、信封加密、安全解密审计与在线轮换端到端落地 |
 | TB-19 | 解决方案模板引擎 | **CE 即有引擎**（`service/solutions/DefaultSolutionService.java` + 20+ 定义类；PE 差异只在模板内容从云端 Hub 拉） | 全仓 0 命中（TP-5 资源中心是另一条路径） | `未实现` | 与 P1.6 / TP-5 的打包签名链路高度可复用 | M | **建议立项（中）**：交付"一键装一套行业方案"，是竞品获客的关键形态 |
 
 ### 7.2 相对 ThingsPanel（社区版 / 企业版宣称）的缺口
@@ -749,18 +760,16 @@ ThingsBoard PE/Cloud/Edge、TBMQ、Trendz 和 ThingsPanel 企业宣传能力只�
 
 **第一梯队（内核已就绪或安全前置，建议立即立项）**
 
-- **`TB-9` 单位换算接线**——内核 `pkg/units` 已实现且 39 用例全绿，缺的只是 HTTP/UI 消费方。
-  当前 `device_model_telemetry.unit` 仍是自由文本，**不接线则本能力等于零**。
-- **`TB-11` HTML 容器 Widget**——量小，但**必须先把 HTML 净化策略定下来**；安全前置不满足就不做。
-- **`TB-18` 通用 Secrets Storage**——`pkg/secrets` 信封加密内核已在（P0.7），
-  从"AI 凭证专用"扩到通用密钥条目，成本远低于从零做。
+- ~~**`TB-9` 单位换算接线**~~ → **已全面闭环（2026-09-17）**：见 §7.1 该行与 `docs/validation/2026-09-16-tb9-units-conversion-complete-evidence.md`。
+- ~~**`TB-11` HTML 容器 Widget**~~ → **已全面闭环（2026-09-17）**：见 §7.1 该行与 `docs/validation/2026-09-17-tb11-html-widget-evidence.md`。
+- ~~**`TB-18` 通用 Secrets Storage**~~ → **已全面闭环（2026-09-17）**：见 §7.1 该行与 `docs/validation/2026-09-17-tb18-secrets-storage-evidence.md`。
 
 **第二梯队（建议排期，中等投入）**
 
 - **`TB-14` AI 规则节点**——复用既有 AI 凭证加密与 LLM 客户端，是 AI 进入业务链路的入口。
 - **`TB-19` 解决方案模板引擎**——与 P1.6 / TP-5 打包签名链路高度复用，竞品获客关键形态。
 - **`TB-12` 设备认领与自动注册**——与 P0.5 预注册互补。
-- **`TB-10` Sparkplug B**——按工业客户需求驱动。
+- ~~**`TB-10` Sparkplug B**~~ → **已全面闭环（2026-09-17）**：见 §7.1 该行与 `docs/validation/2026-09-17-tb10-sparkplug-uplink-evidence.md`。
 
 **第三梯队（需客户 / 合规 / 规模驱动，暂不立项）**
 

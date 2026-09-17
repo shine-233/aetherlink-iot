@@ -41,6 +41,39 @@ it applies **no resource quota**, so its output must never be presented as
 use nearest-rank (not interpolation), and failures count toward the error rate
 instead of being dropped.
 
+## MQTT ingest load generator
+
+`backend/cmd/mqttbench` drives N MQTT connections against the telemetry topic
+(Go, reusing the already-vendored `paho.mqtt.golang`). This is the path that
+actually matters for an IoT platform, and it is the one `tiers.json`'s
+`mqttClients` was written for.
+
+```bash
+cd backend && go run ./cmd/mqttbench \
+  -broker tcp://127.0.0.1:1883 -topic devices/telemetry \
+  -device-id <device_id> -envelope \
+  -clients 4 -rate 200 -duration 15 -warmup 3 \
+  -out ../performance/reports/local-mqtt-ingest-<date>.json
+```
+
+Two traps this tool exists to expose:
+
+1. **A broker PUBACK does not mean the platform ingested anything.** The MQTT
+   adapter requires the envelope `{"device_id":...,"values":"<base64(flat JSON)>"}`
+   (`publicPayload.Values` is `[]byte`, so Go marshals it as base64). With a flat
+   payload the broker still ACKs every message while the adapter drops 100% of
+   them — "0 failures, high throughput" and total data loss look identical.
+   **Always confirm delivery** with
+   `automation_tests/scripts/verify-telemetry-landed.js <device_id>`; if the read
+   back fails, discard the run.
+2. **The latency samples are not trustworthy.** p50 came out as exactly 0 ns,
+   which is physically impossible for a localhost round trip — paho's QoS 1 token
+   completes before `Wait()` for a large share of publishes. Only
+   `messagesPerSecond` and `failures` should be cited.
+
+`evidenceKind: "local-baseline"` / `tierClaim: null` for the same reason as the
+API generator: no resource quota is applied, so it is not tier evidence.
+
 ## Capture Evidence Scaffold
 
 ```powershell
