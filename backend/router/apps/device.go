@@ -60,6 +60,13 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 		// 移除子设备
 		deviceapi.PUT("sub-remove", api.Controllers.DeviceApi.RemoveSubDevice)
 
+		// TB-12 设备认领与自动注册（Device Claiming）。
+		// 全部挂在静态前缀 claim-tokens 下，避免与 device/:id 通配段产生路由冲突。
+		deviceapi.POST("claim-tokens", api.Controllers.DeviceClaimApi.IssueDeviceClaimToken)
+		deviceapi.GET("claim-tokens", api.Controllers.DeviceClaimApi.ListDeviceClaimTokens)
+		deviceapi.DELETE("claim-tokens/:token_id", api.Controllers.DeviceClaimApi.RevokeDeviceClaimToken)
+		deviceapi.POST("claim-tokens/redeem", api.Controllers.DeviceClaimApi.RedeemDeviceClaim)
+
 		// 选择指标下拉菜单
 		deviceapi.GET("metrics/:id", api.Controllers.DeviceApi.HandleMetrics)
 

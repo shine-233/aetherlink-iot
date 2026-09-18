@@ -88,6 +88,7 @@ type Controller struct {
 	QueueMonitorApi   // TB-7 多队列隔离监控
 	UnitsApi          // TB-9 单位换算与物理量纲
 	SecretApi         // TB-18 通用 Secrets Storage
+	DeviceClaimApi    // TB-12 设备认领与自动注册
 }
 
 var (

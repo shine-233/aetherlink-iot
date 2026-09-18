@@ -506,6 +506,106 @@
         ]
       }
     },
+    "/api/v1/alarm/info/history/:id/assignment": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "ListAlarmAssignments-fm (aetherlink-iot/backend/internal/api.(*AlarmApi))",
+        "tags": [
+          "alarm"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "CreateAlarmAssignment-fm (aetherlink-iot/backend/internal/api.(*AlarmApi))",
+        "tags": [
+          "alarm"
+        ]
+      }
+    },
+    "/api/v1/alarm/info/history/:id/clear": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "ClearAlarmHistory-fm (aetherlink-iot/backend/internal/api.(*AlarmApi))",
+        "tags": [
+          "alarm"
+        ]
+      },
+      "put": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "ClearAlarmHistory-fm (aetherlink-iot/backend/internal/api.(*AlarmApi))",
+        "tags": [
+          "alarm"
+        ]
+      }
+    },
     "/api/v1/alarm/info/history/:id/comment": {
       "get": {
         "responses": {
@@ -1137,6 +1237,37 @@
         ]
       }
     },
+    "/api/v1/board/export/:id": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "ExportBoardTemplate-fm (aetherlink-iot/backend/internal/api.(*BoardApi))",
+        "tags": [
+          "board"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ]
+    },
     "/api/v1/board/home": {
       "get": {
         "responses": {
@@ -1153,6 +1284,27 @@
           }
         ],
         "summary": "HandleBoardListByTenantId-fm (aetherlink-iot/backend/internal/api.(*BoardApi))",
+        "tags": [
+          "board"
+        ]
+      }
+    },
+    "/api/v1/board/import": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "ImportBoardTemplate-fm (aetherlink-iot/backend/internal/api.(*BoardApi))",
         "tags": [
           "board"
         ]
@@ -3397,6 +3549,98 @@
           }
         }
       ]
+    },
+    "/api/v1/device/claim-tokens": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "ListDeviceClaimTokens-fm (aetherlink-iot/backend/internal/api.(*DeviceClaimApi))",
+        "tags": [
+          "device"
+        ]
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "IssueDeviceClaimToken-fm (aetherlink-iot/backend/internal/api.(*DeviceClaimApi))",
+        "tags": [
+          "device"
+        ]
+      }
+    },
+    "/api/v1/device/claim-tokens/:token_id": {
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "RevokeDeviceClaimToken-fm (aetherlink-iot/backend/internal/api.(*DeviceClaimApi))",
+        "tags": [
+          "device"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "token_id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "/api/v1/device/claim-tokens/redeem": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "RedeemDeviceClaim-fm (aetherlink-iot/backend/internal/api.(*DeviceClaimApi))",
+        "tags": [
+          "device"
+        ]
+      }
     },
     "/api/v1/device/connect/form": {
       "get": {
@@ -6324,6 +6568,75 @@
         ]
       }
     },
+    "/api/v1/edge/nodes/:node_id/certificate": {
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "RevokeCertificate-fm (aetherlink-iot/backend/internal/api.(*EdgeNodeApi))",
+        "tags": [
+          "edge"
+        ]
+      },
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "GetCertificate-fm (aetherlink-iot/backend/internal/api.(*EdgeNodeApi))",
+        "tags": [
+          "edge"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "node_id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "IssueCertificate-fm (aetherlink-iot/backend/internal/api.(*EdgeNodeApi))",
+        "tags": [
+          "edge"
+        ]
+      }
+    },
     "/api/v1/edge/nodes/:node_id/heartbeat": {
       "parameters": [
         {
@@ -6385,6 +6698,99 @@
           "edge"
         ]
       }
+    },
+    "/api/v1/edge/nodes/:node_id/rollback": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "node_id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Rollback-fm (aetherlink-iot/backend/internal/api.(*EdgeNodeApi))",
+        "tags": [
+          "edge"
+        ]
+      }
+    },
+    "/api/v1/edge/nodes/:node_id/upgrade": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "node_id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Upgrade-fm (aetherlink-iot/backend/internal/api.(*EdgeNodeApi))",
+        "tags": [
+          "edge"
+        ]
+      }
+    },
+    "/api/v1/edge/nodes/:node_id/upgrade/history": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "GetUpgradeHistory-fm (aetherlink-iot/backend/internal/api.(*EdgeNodeApi))",
+        "tags": [
+          "edge"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "node_id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ]
     },
     "/api/v1/edge/ota/distribute": {
       "post": {
@@ -8648,7 +9054,95 @@
         "tags": [
           "product"
         ]
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "HandleCreateProduct-fm (aetherlink-iot/backend/internal/api.(*ProductApi))",
+        "tags": [
+          "product"
+        ]
+      },
+      "put": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "HandleUpdateProduct-fm (aetherlink-iot/backend/internal/api.(*ProductApi))",
+        "tags": [
+          "product"
+        ]
       }
+    },
+    "/api/v1/product/:id": {
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "HandleDeleteProduct-fm (aetherlink-iot/backend/internal/api.(*ProductApi))",
+        "tags": [
+          "product"
+        ]
+      },
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "HandleGetProductByID-fm (aetherlink-iot/backend/internal/api.(*ProductApi))",
+        "tags": [
+          "product"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ]
     },
     "/api/v1/protocol_plugin/config_form": {
       "get": {
@@ -8668,6 +9162,171 @@
         "summary": "HandleProtocolPluginFormByProtocolType-fm (aetherlink-iot/backend/internal/api.(*ProtocolPluginApi))",
         "tags": [
           "protocol_plugin"
+        ]
+      }
+    },
+    "/api/v1/queue/config": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "GetConfig-fm (aetherlink-iot/backend/internal/api.(*QueueMonitorApi))",
+        "tags": [
+          "queue"
+        ]
+      }
+    },
+    "/api/v1/queue/stats": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "GetStats-fm (aetherlink-iot/backend/internal/api.(*QueueMonitorApi))",
+        "tags": [
+          "queue"
+        ]
+      }
+    },
+    "/api/v1/ratelimit/config": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "GetConfig-fm (aetherlink-iot/backend/internal/api.(*RateLimitApi))",
+        "tags": [
+          "ratelimit"
+        ]
+      }
+    },
+    "/api/v1/ratelimit/metrics": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "GetMetrics-fm (aetherlink-iot/backend/internal/api.(*RateLimitApi))",
+        "tags": [
+          "ratelimit"
+        ]
+      }
+    },
+    "/api/v1/ratelimit/override": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "SetOverride-fm (aetherlink-iot/backend/internal/api.(*RateLimitApi))",
+        "tags": [
+          "ratelimit"
+        ]
+      }
+    },
+    "/api/v1/ratelimit/override/:target_type/:target_id": {
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "DeleteOverride-fm (aetherlink-iot/backend/internal/api.(*RateLimitApi))",
+        "tags": [
+          "ratelimit"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "target_type",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "in": "path",
+          "name": "target_id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "/api/v1/ratelimit/overrides": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "ListOverrides-fm (aetherlink-iot/backend/internal/api.(*RateLimitApi))",
+        "tags": [
+          "ratelimit"
         ]
       }
     },
@@ -9339,6 +9998,111 @@
         ]
       }
     },
+    "/api/v1/resource/center/apply": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "HandleApplyResource-fm (aetherlink-iot/backend/internal/api.(*ResourceCenterApi))",
+        "tags": [
+          "resource"
+        ]
+      }
+    },
+    "/api/v1/resource/center/bundle": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "HandleExportResourceBundle-fm (aetherlink-iot/backend/internal/api.(*ResourceCenterApi))",
+        "tags": [
+          "resource"
+        ]
+      }
+    },
+    "/api/v1/resource/center/bundle/import": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "HandleImportResourceBundle-fm (aetherlink-iot/backend/internal/api.(*ResourceCenterApi))",
+        "tags": [
+          "resource"
+        ]
+      }
+    },
+    "/api/v1/resource/center/catalog": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "HandleResourceCenterCatalog-fm (aetherlink-iot/backend/internal/api.(*ResourceCenterApi))",
+        "tags": [
+          "resource"
+        ]
+      }
+    },
+    "/api/v1/resource/center/list": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "HandleResourceCenterList-fm (aetherlink-iot/backend/internal/api.(*ResourceCenterApi))",
+        "tags": [
+          "resource"
+        ]
+      }
+    },
     "/api/v1/role": {
       "get": {
         "responses": {
@@ -9519,6 +10283,115 @@
         }
       ]
     },
+    "/api/v1/rule-chains/:id/dead-letters": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "HandleListRuleChainDeadLetters-fm (aetherlink-iot/backend/internal/api.(*RuleChainApi))",
+        "tags": [
+          "rule-chains"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "/api/v1/rule-chains/:id/executions/:execId/replay-records": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "HandleListRuleChainReplayRecords-fm (aetherlink-iot/backend/internal/api.(*RuleChainApi))",
+        "tags": [
+          "rule-chains"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "in": "path",
+          "name": "execId",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "/api/v1/rule-chains/:id/executions/:execId/traces": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "HandleGetRuleChainExecutionTraces-fm (aetherlink-iot/backend/internal/api.(*RuleChainApi))",
+        "tags": [
+          "rule-chains"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "in": "path",
+          "name": "execId",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ]
+    },
     "/api/v1/rule-chains/:id/nodes/:nodeId/traces": {
       "get": {
         "responses": {
@@ -9557,6 +10430,37 @@
           }
         }
       ]
+    },
+    "/api/v1/rule-chains/:id/replay": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "HandleReplayRuleChainExecution-fm (aetherlink-iot/backend/internal/api.(*RuleChainApi))",
+        "tags": [
+          "rule-chains"
+        ]
+      }
     },
     "/api/v1/rule-chains/:id/versions": {
       "get": {
@@ -9607,6 +10511,58 @@
           "rule-chains"
         ]
       }
+    },
+    "/api/v1/rule-chains/dead-letters": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "HandleListRuleChainDeadLetters-fm (aetherlink-iot/backend/internal/api.(*RuleChainApi))",
+        "tags": [
+          "rule-chains"
+        ]
+      }
+    },
+    "/api/v1/rule-chains/executions/:execId/traces": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "HandleGetRuleChainExecutionTraces-fm (aetherlink-iot/backend/internal/api.(*RuleChainApi))",
+        "tags": [
+          "rule-chains"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "execId",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ]
     },
     "/api/v1/rule-chains/list": {
       "get": {
@@ -10466,6 +11422,177 @@
         "summary": "SwitchSceneAutomations-fm (aetherlink-iot/backend/internal/api.(*SceneAutomationsApi))",
         "tags": [
           "scene_automations"
+        ]
+      }
+    },
+    "/api/v1/secrets": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "GetSecretList-fm (aetherlink-iot/backend/internal/api.(*SecretApi))",
+        "tags": [
+          "secrets"
+        ]
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "CreateSecret-fm (aetherlink-iot/backend/internal/api.(*SecretApi))",
+        "tags": [
+          "secrets"
+        ]
+      }
+    },
+    "/api/v1/secrets/:id": {
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "DeleteSecret-fm (aetherlink-iot/backend/internal/api.(*SecretApi))",
+        "tags": [
+          "secrets"
+        ]
+      },
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "GetSecretDetail-fm (aetherlink-iot/backend/internal/api.(*SecretApi))",
+        "tags": [
+          "secrets"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "put": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "UpdateSecret-fm (aetherlink-iot/backend/internal/api.(*SecretApi))",
+        "tags": [
+          "secrets"
+        ]
+      }
+    },
+    "/api/v1/secrets/:id/reseal": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "ResealSecret-fm (aetherlink-iot/backend/internal/api.(*SecretApi))",
+        "tags": [
+          "secrets"
+        ]
+      }
+    },
+    "/api/v1/secrets/:id/reveal": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "RevealSecret-fm (aetherlink-iot/backend/internal/api.(*SecretApi))",
+        "tags": [
+          "secrets"
         ]
       }
     },
@@ -11826,6 +12953,48 @@
         "summary": "ServeUiElementsListByTenant-fm (aetherlink-iot/backend/internal/api.(*UiElementsApi))",
         "tags": [
           "ui_elements"
+        ]
+      }
+    },
+    "/api/v1/units/convert": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Convert-fm (aetherlink-iot/backend/internal/api.(*UnitsApi))",
+        "tags": [
+          "units"
+        ]
+      }
+    },
+    "/api/v1/units/registry": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "GetRegistry-fm (aetherlink-iot/backend/internal/api.(*UnitsApi))",
+        "tags": [
+          "units"
         ]
       }
     },

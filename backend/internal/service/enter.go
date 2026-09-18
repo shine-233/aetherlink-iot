@@ -85,6 +85,7 @@ type ServiceGroup struct {
 	ResourceCenter ResourceCenter // TP-5 资源中心（物模型与大屏统一市场）
 	Secret         SecretService  // TB-18 通用 Secrets Storage
 	Product        Product        // TB-15 产品 CRUD 及实体名称冲突解决策略
+	DeviceClaim    DeviceClaim    // TB-12 设备认领与自动注册
 }
 
 // GroupApp 是全局业务服务入口，供 API 层和中间件层调用
