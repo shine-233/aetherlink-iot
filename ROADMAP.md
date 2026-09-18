@@ -52,7 +52,7 @@
 | P0.4 | 场景与 Flow 语义 | `partial` | `未验证` | 真实 E2E | `scene_execution_window_test.go` |
 | P0.5 | CSV 预注册建档与浏览器 E2E | `done` | 无 | **全链路彻底闭环（2026-09-17）**：Product 完整 CRUD（110.sql）已补齐；真实浏览器 Playwright E2E（28 组 5/5 全绿通过，无 psql 插桩），一次性凭证下载、坏行逐行反馈（100006/100007）、脱敏导出与清理全部成立 | `docs/validation/2026-09-17-tb15-entity-name-conflict-evidence.md`、`docs/validation/2026-09-16-p05-error-template-row-feedback-evidence.md`、`P0.5-*-evidence.md` |
 | P0.6 | 持久化报表执行 / SMTP | `done` | 无 | **两阶段调度引擎、SMTP 事实语义、管理员工作台已全部闭环，37 组 API 契约 11/11 全绿，前端 vitest 20/20 全绿** | `docs/validation/2026-09-16-p06-durable-report-smtp-evidence.md`、`P0.6-postgres-migration83-evidence.md` |
-| P0.7 | AI 凭证静态加密 | `partial` | `未验证` | 生产主密钥注入、"日志无明文"未验证 | `P0.7-secret-encryption-evidence.md` |
+| P0.7 | AI 凭证静态加密 | `partial` | `环境阻塞` | **"日志无明文"已活栈取证（2026-09-18）**：带特征明文的 AI 凭证经真实 API 写入后，库内为 `aenv1.k1.<信封密文>`、响应只出 `P07-****` 掩码、重启前后两份完整日志对明文 0 命中；SSRF 公网 HTTPS 校验顺带实测成立。剩余唯一缺口：生产主密钥注入（部署环境验收，与 P0.1 目标服务器项同类） | `docs/validation/2026-09-18-p07-log-no-plaintext-evidence.md`、`P0.7-secret-encryption-evidence.md` |
 | P1.1 | 通用 Entity Relations | `done` | 无 | **46 组 API 契约 26/26 实测全绿；看板小部件动态数据源集成、拓扑解析引擎、动态表单配置、编辑器保全与数据加载器全部闭环（全量看板 26 files / 289 tests 全绿）** | `docs/validation/2026-09-16-p11-dashboard-entity-relation-evidence.md`、`docs/validation/2026-09-15-p11-entity-relation-evidence.md`、迁移 85 |
 | P1.2 | 规则链可靠性 | `done` | 无 | **5 大门禁全闭环（2026-09-17）**：DLQ 死信持久化（111.sql）+ 单消息 Trace 串联 + 输入快照回放与副作用闸门 + 版本/回滚审计；活栈契约测试 `59_rule_chain_reliability.test.js` **14/14 全绿**（含跨租户隔离 4 条），期间根治 `graph.ChainID` 因 `Pluck` 反序列化静默丢失导致死信/Trace 被丢弃的历史缺陷 | `docs/validation/2026-09-17-p12-rule-chain-reliability-evidence.md`、迁移 111 |
 | P1.3 | Widget 与 SCADA 基础层 | `partial` | `未验证` | ~~编辑器未挂路由~~（2026-09-14 已挂）；~~widget schema 无真实字段~~（2026-09-14 已闭环 `36fd6da`）；剩余：浏览器 E2E、真实下发联调 | `scada_postgres_test.go`、`adeaf80` |
@@ -61,7 +61,7 @@
 | P1.6 | 模板市场与资源中心产品化 | `done` | 无 | **全链路已全面闭环（2026-09-17）**：升级/回滚运行期证据（45 组 15/15）；验签/预览/覆盖闸门（41 组 5/5）；TP-5 资源中心跨形态综合市场与统一分发已闭环（53 组 21/21，106.sql）；前端 API wrapper 与视图已接入并通过 vitest 34/34；**升级/回滚真实浏览器 E2E 3/3 全绿（`29_p16_template_upgrade_rollback.spec.js` 实测通过）** | `docs/validation/2026-09-17-p16-e2e-complete-evidence.md`、`docs/validation/2026-09-16-tp5-resource-center-evidence.md` |
 | P2.1 | 协议插件 SDK | `partial` | `未实现` | 真实外部协议适配器（CAN/BACnet/BLE/LoRaWAN）；manifest 注册 HTTP 运行期路径 | `pkg/pluginsdk`（9/9 实跑通过） |
 | P2.2 | Trendz 类轻量分析 | `done` | 无 | **全交付面运行期证据齐备（2026-09-18 活栈取证）**：新增 `60_telemetry_analysis.test.js` **8/8 全绿**补齐分析查询与 CSV/Excel 导出的活栈契约（此前只有 Go 单测）；anomaly 已有 40 组 11/11；看板分享已有 07 组匿名读取证据。过程中兑现 `aggregate=last` 承诺（API 校验允许但 DAL 热路径无分支，运行期必挂）并把 `TelemetryAggregateResult` 线契约补成 snake_case（`value/ok/aggregate`） | `docs/validation/2026-09-18-p22-analysis-query-export-evidence.md`、`telemetry_analysis_core_test.go` |
-| P2.3 | 数据保留与性能 | `partial` | `环境阻塞` | **已有 API + MQTT 两条路径的本地基线数字（2026-09-17）**：① API——`/health` **3,920 rps**、p50 0.32ms / p95 7.18ms；触库端点 **2,376 rps**、p50 0.35ms / p90 4.29ms / p95 12.41ms，两端点全程 0 失败；② MQTT 摄取——限速组 4 连接 **799 msg/s**、0 失败、**已读回确认落库**；不限速组 2 连接发布侧 15,856 msg/s 但**落库未确认（读回 `code=-1`）故不可用**；延迟样本不可信（p50 恒为 0 ns，物理上不可能，见证据 §二）。剩余：**不限速组 `code=-1` 未查清**；多设备并发（50/200 连接）未做；浏览器首屏未测；tier 达标证据需资源配额环境；双实例报告未做；容量模型与冷热分层告警 pending | `docs/validation/2026-09-17-p23-local-api-baseline-evidence.md`、`2026-09-17-p23-mqtt-ingest-baseline-evidence.md` |
+| P2.3 | 数据保留与性能 | `partial` | `环境阻塞` | **已有 API + MQTT 两条路径的本地基线数字（2026-09-17）**：① API——`/health` **3,920 rps**、p50 0.32ms / p95 7.18ms；触库端点 **2,376 rps**、p50 0.35ms / p90 4.29ms / p95 12.41ms，两端点全程 0 失败；② MQTT 摄取——**09-18 已定性并补齐并发档位**：`code=-1` 确系"栈死后读回"的取证伪影（栈内读回确认摄取成功，13,071 msg/s / 130,914 条 / 0 失败）；50 连接 998.8 msg/s、200 连接 1,987.9 msg/s 发布侧 0 失败（连接维度不是瓶颈）；**重要新发现：高负载下摄取管道静默丢弃 ~92%**（19,976 条仅 ~7.5% 温度键行落库，滞后数分钟可见；`uplink/bus.go:395` 满则阻塞订阅者回调 → paho 入站队列丢已 PUBACK 消息——PUBACK ≠ 摄取的结构性证据）；延迟样本仍不可信（p50 恒 0）。剩余：**摄取回压策略决策 + 稳态摄取吞吐精确测量（新增 pending）**；设备维度扇出、浏览器首屏、tier 达标（需资源配额环境）、双实例报告、容量模型与冷热分层告警 | `docs/validation/2026-09-17-p23-local-api-baseline-evidence.md`、`2026-09-17-p23-mqtt-ingest-baseline-evidence.md`、**`2026-09-18-p23-mqtt-ingest-unlimited-concurrency-evidence.md`** |
 | P3 | 商业化与长期能力 | `partial` | `未实现` | **许可证签发工具（`cmd/licensegen` 与 `pkg/license` 签名/密钥生成）已实现并通过 7/7 单元测试与实测**；**license/status 与 operation_logs/export 已有真实 API 运行期证据（39 组 6/6、42 组 6/6，2026-09-15 复跑）**；其余 11 个子项零代码 | `docs/validation/2026-09-15-roadmap-status-recheck.md`、`cmd/licensegen`、`pkg/license`（7/7 实跑通过） |
 
 **统计：`done` 7 项（P0.2, P0.5, P0.6, P1.1, P1.2, P1.6, P2.2） / `partial` 9 项 / `pending` 1 项（P2.3 压测子项、P3 多数子项）。**
@@ -345,12 +345,13 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 
 **门禁**：数据库与日志不出现明文密钥；缺失/错误主密钥 fail closed；旧密文可在轮换窗口读取并可重加密；创建/更新/读取/调用、跨租户拒绝和网络错误脱敏都有定向证据。
 
-**实现状态**：`partial` · 缺口类型 `未验证`。
+**实现状态**：`partial` · 缺口类型 `环境阻塞`（仅剩生产主密钥注入一项）。
 
 - 已实现：`backend/pkg/secrets` AES-256-GCM 信封加密，密文格式 `aenv1.<keyID>.<base64(nonce||ciphertext)>`；主密钥取自 `secrets.master_keys.<keyID>`（base64 的 32 字节），当前版本由 `secrets.active_key_id` 指定。
 - 已实现：AAD 绑定租户（把 A 租户的密文行搬到 B 租户必然认证失败）；写入路径先封装再落库，主密钥缺失/非法/长度错误一律 fail closed；读取路径解密，遗留明文行在迁移窗口内可读并在调用时自动重写到当前主密钥（自愈式轮换）；出参只出不可逆掩码（前 4 位 + `****`）。
 - 已实现：配置文件 `conf.yml` / `conf-dev.yml` / `conf.example.yml` 只写占位符，默认未配置即 fail closed。
-- 未闭环：生产环境主密钥注入与"日志无明文"未验证。
+- 已闭环（2026-09-18）：**"日志无明文"活栈取证**——带特征明文金丝雀的 AI 凭证经真实 API 写入后：库内 `aenv1.k1.<信封密文>`、API 响应仅 `P07-****` 掩码、重启前后两份完整日志对明文 0 命中；SSRF 公网 HTTPS 校验实测成立（`127.0.0.1` 端点被拒）。证据 `docs/validation/2026-09-18-p07-log-no-plaintext-evidence.md`。
+- 未闭环：生产环境主密钥注入与真实部署上的一次创建→读回→轮换（属 P0.1 部署门禁组成部分）。
 - 不含：全局 `ai.llm.api_key`（yaml 配置）仍为明文，属配置级密钥管理，不在本项"静态加密（落库）"范围内。
 - 证据：`docs/validation/P0.7-secret-encryption-evidence.md`；`pkg/secrets/envelope_test.go` 8 例、`internal/service/ai_model_secret_test.go` 5 例、`ai_model_secret_postgres_test.go`（断言直接 `SELECT api_key` 确认库内无明文且为信封格式）。
 
