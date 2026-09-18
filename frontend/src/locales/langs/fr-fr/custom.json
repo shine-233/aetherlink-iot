@@ -2431,5 +2431,17 @@
   "page.edgeNodes.nodeIdRequired": "Node ID is required",
   "page.edgeNodes.versionRequired": "Version is required (dotted numeric)",
   "page.edgeNodes.nodeIdPlaceholder": "Stable node identity, e.g. edge-agent-01",
-  "page.edgeNodes.capabilitiesPlaceholder": "Comma separated, e.g. modbus,opcua"
+  "page.edgeNodes.capabilitiesPlaceholder": "Comma separated, e.g. modbus,opcua",
+  "custom.devicePage.claimDevice": "Revendiquer l'appareil",
+  "custom.devicePage.claimIssueTitle": "Émettre un jeton de revendication",
+  "custom.devicePage.claimGenerate": "Générer la clé",
+  "custom.devicePage.claimKeyOnceWarning": "La clé de revendication n'est affichée qu'une seule fois. Copiez-la maintenant et remettez-la en toute sécurité au destinataire",
+  "custom.devicePage.claimKeyExpires": "Expire le",
+  "custom.devicePage.claimCopyKey": "Copier la clé",
+  "custom.devicePage.claimRedeemHint": "Saisissez le numéro d'appareil et la clé de revendication fournis. En cas de succès, l'appareil est transféré à votre tenant",
+  "custom.devicePage.claimRedeemDeviceNumber": "Numéro d'appareil",
+  "custom.devicePage.claimRedeemClaimKey": "Clé de revendication",
+  "custom.devicePage.claimRedeemEnterNumber": "Saisissez le numéro d'appareil",
+  "custom.devicePage.claimRedeemEnterKey": "Saisissez la clé de revendication",
+  "custom.devicePage.claimRedeemSuccess": "Appareil revendiqué et transféré à votre tenant"
 }

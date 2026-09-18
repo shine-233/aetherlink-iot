@@ -111,12 +111,17 @@ const goDeviceDetails = (row) => {
 type DeviceManageQuickActionsExpose = {
   openEditDevice: (row: any) => void
   openShareDevice: (row: any) => void
+  openIssueClaimToken: (row: any) => void
+  openClaimDevice: () => void
 }
 
 type PendingQuickAction =
   | {
-      kind: 'edit' | 'share'
+      kind: 'edit' | 'share' | 'claim-issue'
       row: any
+    }
+  | {
+      kind: 'claim-redeem'
     }
   | null
 
@@ -137,14 +142,28 @@ const flushPendingQuickAction = () => {
     instance.openEditDevice(nextAction.row)
     return
   }
+  if (nextAction.kind === 'claim-issue') {
+    instance.openIssueClaimToken(nextAction.row)
+    return
+  }
+  if (nextAction.kind === 'claim-redeem') {
+    instance.openClaimDevice()
+    return
+  }
   instance.openShareDevice(nextAction.row)
 }
 
 watch(deviceManageQuickActionsRef, flushPendingQuickAction)
 
-const openDeviceQuickAction = (kind: 'edit' | 'share', row: any) => {
+const openDeviceQuickAction = (kind: 'edit' | 'share' | 'claim-issue', row: any) => {
   quickActionsVisited.value = true
-  pendingQuickAction.value = { kind, row }
+  pendingQuickAction.value = { kind, row } as PendingQuickAction
+  flushPendingQuickAction()
+}
+
+const openClaimDeviceDialog = () => {
+  quickActionsVisited.value = true
+  pendingQuickAction.value = { kind: 'claim-redeem' }
   flushPendingQuickAction()
 }
 
@@ -174,7 +193,11 @@ const openShareDevice = (row: any) => {
   openDeviceQuickAction('share', row)
 }
 
-const columns_to_show = ref(createDeviceManageColumns(goDeviceDetails, openEditDevice, confirmDeleteDevice, openShareDevice))
+const openIssueClaimToken = (row: any) => {
+  openDeviceQuickAction('claim-issue', row)
+}
+
+const columns_to_show = ref(createDeviceManageColumns(goDeviceDetails, openEditDevice, confirmDeleteDevice, openShareDevice, openIssueClaimToken))
 const actions = []
 
 const { scheduleDeviceStatusSubscription } = useDeviceManageStatusSubscription({
@@ -463,6 +486,11 @@ const topActions = [
   {
     element: () => (
       <n-button onClick={() => router.push('/device/shared-with-me')}>{$t('route.device_shared-with-me')}</n-button>
+    )
+  },
+  {
+    element: () => (
+      <n-button onClick={openClaimDeviceDialog}>{$t('custom.devicePage.claimDevice')}</n-button>
     )
   },
   {

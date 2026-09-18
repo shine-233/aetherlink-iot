@@ -66,9 +66,31 @@ mobile 幂等键注释与 AI 层 `userClaims`（无关）；`认领` 仅命中 m
 `casbin route audit passed: 410 protected routes registered`（新增 3 条认领路由全部登记）。
 回归：`go build ./...` exit 0；`internal/service` + `internal/dal` 全包 ok。
 
-## 五、仍未接线（如实）
+## 五、UI 面闭环（2026-09-19 同日补齐）
 
-- **前端 UI 面**：设备详情页无「生成认领令牌」入口、无「认领设备」表单（device_number +
-  claim_key）。后端契约与权限面已闭环，UI 属小开发量（`未接线`）。
+前端接线（`frontend/src/views/device/manage/`）：
+
+- `DeviceManageQuickActions.vue` 新增两个弹窗：**生成认领令牌**（行操作入口，TTL
+  1h/24h/72h/7d 选择 → 明文密钥展示 + 自动复制 + "只显示一次"警示 + 失效时间）与
+  **认领设备**（顶栏入口，device_number + claim_key → 成功后刷新列表）；
+- 行操作列新增「生成认领令牌」（`device-table-columns.tsx`）；顶栏新增「认领设备」按钮
+  （`index.vue`，复用 pending-quick-action 惰性挂载机制）；
+- API wrapper 4 个（`src/service/api/device.ts`：issue/list/revoke/redeem）；
+- i18n 四语各 12 键（zh-cn/en-us/es-es/fr-fr）。
+
+**测试与证据**：
+
+- 组件测试 `DeviceManageQuickActions.test.ts` **4/4 全绿**（签发即复制明文、
+  空表单不打请求、赎回成功后 emit updated）；
+- 服务导出快照更新后通过（9 个测试文件 / 170 tests 全绿）；
+- `npm run typecheck` 0 错误；
+- **浏览器 E2E `e2e/31_tb12_device_claim.spec.js` 1 passed（5.8s，真实 Edge）**：
+  原租户管理页行操作生成令牌（明文 `ack_<48hex>` 展示）→ tenant_admin_b 顶栏
+  「认领设备」填入 device_number + claim_key 提交成功 → 原租户对该设备 detail
+  返回 201001（失去可见性）、认领方 detail 200。全程真实活栈（后端 9999 +
+  preview 构建代理 9725）。
+
+## 六、仍未接线（如实）
+
 - **MQTT 认领通道**：TB 还支持 `v1/devices/me/claim` 设备侧自助认领话题；本实现是
-  用户侧 API 认领，设备侧话题通道未做（可作为后续增强）。
+  用户侧 API + UI 认领，设备侧话题通道未做（可作为后续增强）。

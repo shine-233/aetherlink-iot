@@ -2431,5 +2431,17 @@
   "page.edgeNodes.nodeIdRequired": "节点 ID 必填",
   "page.edgeNodes.versionRequired": "版本必填（点分数字）",
   "page.edgeNodes.nodeIdPlaceholder": "稳定的节点身份，如 edge-agent-01",
-  "page.edgeNodes.capabilitiesPlaceholder": "逗号分隔，如 modbus,opcua"
+  "page.edgeNodes.capabilitiesPlaceholder": "逗号分隔，如 modbus,opcua",
+  "custom.devicePage.claimDevice": "认领设备",
+  "custom.devicePage.claimIssueTitle": "生成认领令牌",
+  "custom.devicePage.claimGenerate": "生成密钥",
+  "custom.devicePage.claimKeyOnceWarning": "认领密钥只显示这一次，请立即复制并安全交付给接收方",
+  "custom.devicePage.claimKeyExpires": "失效时间",
+  "custom.devicePage.claimCopyKey": "复制密钥",
+  "custom.devicePage.claimRedeemHint": "输入交付方提供的设备编号与认领密钥，认领成功后设备将转移到当前租户",
+  "custom.devicePage.claimRedeemDeviceNumber": "设备编号",
+  "custom.devicePage.claimRedeemClaimKey": "认领密钥",
+  "custom.devicePage.claimRedeemEnterNumber": "请输入设备编号",
+  "custom.devicePage.claimRedeemEnterKey": "请输入认领密钥",
+  "custom.devicePage.claimRedeemSuccess": "认领成功，设备已转入当前租户"
 }

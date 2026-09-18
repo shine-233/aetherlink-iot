@@ -642,3 +642,23 @@ export const getDeviceOnlineStatus = async (deviceId: string) => {
 /** 设备调试日志开关 */
 
 /** 设备调试日志查询 */
+
+/** TB-12 设备认领：签发一次性认领令牌（明文 claim_key 只在本响应出现一次） */
+export const issueDeviceClaimToken = async (params: { device_id: string; ttl_seconds?: number }) => {
+  return await request.post('/device/claim-tokens', params)
+}
+
+/** TB-12 设备认领：签发方回查令牌历史（无明文无哈希） */
+export const listDeviceClaimTokens = async (device_id: string) => {
+  return await request.get('/device/claim-tokens', { params: { device_id } })
+}
+
+/** TB-12 设备认领：撤销 active 令牌（consumed/revoked/replaced 终态不可逆） */
+export const revokeDeviceClaimToken = async (token_id: string) => {
+  return await request.delete(`/device/claim-tokens/${token_id}`)
+}
+
+/** TB-12 设备认领：认领设备（设备从签发租户转移到当前租户） */
+export const redeemDeviceClaim = async (params: { device_number: string; claim_key: string }) => {
+  return await request.post('/device/claim-tokens/redeem', params)
+}

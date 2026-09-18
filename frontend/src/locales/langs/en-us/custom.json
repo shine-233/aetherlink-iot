@@ -2431,5 +2431,17 @@
   "page.edgeNodes.nodeIdRequired": "Node ID is required",
   "page.edgeNodes.versionRequired": "Version is required (dotted numeric)",
   "page.edgeNodes.nodeIdPlaceholder": "Stable node identity, e.g. edge-agent-01",
-  "page.edgeNodes.capabilitiesPlaceholder": "Comma separated, e.g. modbus,opcua"
+  "page.edgeNodes.capabilitiesPlaceholder": "Comma separated, e.g. modbus,opcua",
+  "custom.devicePage.claimDevice": "Claim device",
+  "custom.devicePage.claimIssueTitle": "Issue claim token",
+  "custom.devicePage.claimGenerate": "Generate key",
+  "custom.devicePage.claimKeyOnceWarning": "The claim key is shown only once. Copy it now and deliver it securely to the receiver",
+  "custom.devicePage.claimKeyExpires": "Expires at",
+  "custom.devicePage.claimCopyKey": "Copy key",
+  "custom.devicePage.claimRedeemHint": "Enter the device number and claim key from the delivering party. On success the device is transferred to your tenant",
+  "custom.devicePage.claimRedeemDeviceNumber": "Device number",
+  "custom.devicePage.claimRedeemClaimKey": "Claim key",
+  "custom.devicePage.claimRedeemEnterNumber": "Enter device number",
+  "custom.devicePage.claimRedeemEnterKey": "Enter claim key",
+  "custom.devicePage.claimRedeemSuccess": "Device claimed and transferred to your tenant"
 }

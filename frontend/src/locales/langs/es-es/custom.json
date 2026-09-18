@@ -2431,5 +2431,17 @@
   "page.edgeNodes.nodeIdRequired": "Node ID is required",
   "page.edgeNodes.versionRequired": "Version is required (dotted numeric)",
   "page.edgeNodes.nodeIdPlaceholder": "Stable node identity, e.g. edge-agent-01",
-  "page.edgeNodes.capabilitiesPlaceholder": "Comma separated, e.g. modbus,opcua"
+  "page.edgeNodes.capabilitiesPlaceholder": "Comma separated, e.g. modbus,opcua",
+  "custom.devicePage.claimDevice": "Reclamar dispositivo",
+  "custom.devicePage.claimIssueTitle": "Emitir token de reclamo",
+  "custom.devicePage.claimGenerate": "Generar clave",
+  "custom.devicePage.claimKeyOnceWarning": "La clave de reclamo se muestra solo una vez. Cópiala ahora y entrégala de forma segura al receptor",
+  "custom.devicePage.claimKeyExpires": "Expira el",
+  "custom.devicePage.claimCopyKey": "Copiar clave",
+  "custom.devicePage.claimRedeemHint": "Introduce el número de dispositivo y la clave de reclamo proporcionadas. Al confirmar, el dispositivo se transfiere a tu tenant",
+  "custom.devicePage.claimRedeemDeviceNumber": "Número de dispositivo",
+  "custom.devicePage.claimRedeemClaimKey": "Clave de reclamo",
+  "custom.devicePage.claimRedeemEnterNumber": "Introduce el número de dispositivo",
+  "custom.devicePage.claimRedeemEnterKey": "Introduce la clave de reclamo",
+  "custom.devicePage.claimRedeemSuccess": "Dispositivo reclamado y transferido a tu tenant"
 }
