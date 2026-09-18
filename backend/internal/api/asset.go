@@ -21,6 +21,11 @@ func (*AssetApi) HandleAssetCreate(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
+	if req.ConflictPolicy == nil || *req.ConflictPolicy == "" {
+		if q := c.Query("conflict_policy"); q != "" {
+			req.ConflictPolicy = &q
+		}
+	}
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	resp, err := service.GroupApp.Asset.Create(userClaims, &req)
 	if err != nil {

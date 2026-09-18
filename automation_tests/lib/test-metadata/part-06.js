@@ -564,4 +564,23 @@ module.exports = {
       ),
     ],
   },
+  "tests/57_sparkplug_mqtt_uplink.test.js": {
+    file: "tests/57_sparkplug_mqtt_uplink.test.js",
+    type: "api",
+    evidenceKind: "business",
+    fileFlags: {
+      runtimeEvidenceRequired: true,
+      mqttSparkplugUplink: true,
+    },
+    cases: [
+      managedCase("spk-01", "1. 发布 Sparkplug B DDATA 设备级遥测，验证自动寻址入库与数值精确度", { capabilityIds: ["device-telemetry"] }),
+      managedCase("spk-02", "2. 发布 Sparkplug B NDATA 节点级遥测（话题无 device_id），验证回退至 edge_node_id 寻址入库", { capabilityIds: ["device-telemetry"] }),
+      managedCase("spk-03", "3. 非数值指标安全过滤：字符串/布尔指标被安全跳过，严防转为假 0 值（核心物理不变量）", { capabilityIds: ["device-telemetry"] }),
+      managedCase("spk-04", "4. 会话控制类消息（NBIRTH / DBIRTH / STATE）优雅忽略且不报错", { capabilityIds: ["device-telemetry"] }),
+      managedCase("spk-05", "5. 畸形载荷与截断字节 Fail-Closed 拦截：不污染数据库且服务不崩溃", { capabilityIds: ["device-telemetry"], negative: true }),
+      managedCase("spk-06", "6. 未注册 device_number 拦截：丢弃并记录，绝不生成幽灵设备", { capabilityIds: ["device-telemetry"], negative: true }),
+      managedCase("spk-07", "7. 跨租户多租户隔离：租户 B 无法越权查询租户 A 的 Sparkplug 遥测", { capabilityIds: ["permission-tenancy"], negative: true }),
+    ],
+  },
 };
+

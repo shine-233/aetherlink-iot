@@ -17,8 +17,17 @@
 package service
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
+	"fmt"
 	"time"
 
 	"aetherlink-iot/backend/internal/dal"
@@ -26,6 +35,7 @@ import (
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/utils"
 
+	"github.com/google/uuid"
 	"github.com/spf13/viper"
 	"gorm.io/gorm"
 )
@@ -342,3 +352,301 @@ func (*EdgeNodeService) ReconcileEdgeNode(nodeID string, req model.EdgeNodeRecon
 	}
 	return rsp, nil
 }
+
+// ---- P1.5: 边缘节点 X.509 客户端证书生命周期管理 ----
+
+// IssueNodeCertificate 为边缘节点签发 X.509 客户端证书（供边缘网关 mTLS 接入）。
+// 私钥仅在返回体中暴露一次，平台只存证书与元数据。签发时自动吊销旧 active 证书。
+func (*EdgeNodeService) IssueNodeCertificate(nodeID string, req model.IssueEdgeNodeCertificateReq, claims *utils.UserClaims) (*model.IssueEdgeNodeCertificateResp, error) {
+	node, err := dal.GetEdgeNodeInTenant(nodeID, claims.TenantID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errcode.NewWithMessage(errcode.CodeParamError, "edge node not registered")
+		}
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+	}
+	if node.Status != model.EdgeNodeStatusActive {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "edge node is revoked")
+	}
+
+	validityDays := req.ValidityDays
+	if validityDays <= 0 {
+		validityDays = 365
+	}
+	if validityDays > 3650 {
+		validityDays = 3650
+	}
+
+	caCert, caKey, err := ensurePlatformCA()
+	if err != nil {
+		return nil, err
+	}
+
+	devKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "generate edge node key failed: "+err.Error())
+	}
+	serial, err := randSerial()
+	if err != nil {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "generate edge node cert serial failed: "+err.Error())
+	}
+
+	now := time.Now()
+	notBefore := now.Add(-time.Minute)
+	notAfter := now.AddDate(0, 0, validityDays)
+
+	tpl := &x509.Certificate{
+		SerialNumber: serial,
+		Subject: pkix.Name{
+			CommonName:   nodeID,
+			Organization: []string{claims.TenantID},
+		},
+		NotBefore:             notBefore,
+		NotAfter:              notAfter,
+		KeyUsage:              x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		BasicConstraintsValid: true,
+	}
+
+	certDER, err := x509.CreateCertificate(rand.Reader, tpl, caCert, &devKey.PublicKey, caKey)
+	if err != nil {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "create edge node cert failed: "+err.Error())
+	}
+	certPEM := string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER}))
+	keyDER, err := x509.MarshalPKCS8PrivateKey(devKey)
+	if err != nil {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "marshal edge node private key failed: "+err.Error())
+	}
+	keyPEM := string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER}))
+	sum := sha256.Sum256(certDER)
+
+	// 安全轮换：将同一节点已有的 active 证书吊销
+	_, _ = dal.RevokeEdgeNodeCertificates(claims.TenantID, nodeID, now, "renewed by new issuance")
+
+	certRecord := &model.EdgeNodeCertificate{
+		ID:           uuid.New().String(),
+		TenantID:     claims.TenantID,
+		NodeID:       nodeID,
+		SerialNumber: serial.Text(16),
+		Fingerprint:  hex.EncodeToString(sum[:]),
+		CommonName:   nodeID,
+		Certificate:  certPEM,
+		NotBefore:    notBefore,
+		NotAfter:     notAfter,
+		Status:       "active",
+		IssuedAt:     now,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+	if err := dal.CreateEdgeNodeCertificate(certRecord); err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+	}
+
+	return &model.IssueEdgeNodeCertificateResp{
+		ID:           certRecord.ID,
+		NodeID:       nodeID,
+		SerialNumber: certRecord.SerialNumber,
+		Fingerprint:  certRecord.Fingerprint,
+		CommonName:   certRecord.CommonName,
+		Certificate:  certPEM,
+		PrivateKey:   keyPEM,
+		NotBefore:    notBefore.Format(time.RFC3339),
+		NotAfter:     notAfter.Format(time.RFC3339),
+		Status:       certRecord.Status,
+	}, nil
+}
+
+// GetNodeCertificate 查询节点当前生效的证书信息（私钥脱敏）。
+func (*EdgeNodeService) GetNodeCertificate(nodeID string, claims *utils.UserClaims) (*model.EdgeNodeCertificateResp, error) {
+	_, err := dal.GetEdgeNodeInTenant(nodeID, claims.TenantID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errcode.NewWithMessage(errcode.CodeParamError, "edge node not registered")
+		}
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+	}
+
+	cert, err := dal.GetActiveEdgeNodeCertificate(claims.TenantID, nodeID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errcode.NewWithMessage(errcode.CodeParamError, "no active certificate found for edge node")
+		}
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+	}
+
+	var revokedAtStr *string
+	if cert.RevokedAt != nil {
+		s := cert.RevokedAt.Format(time.RFC3339)
+		revokedAtStr = &s
+	}
+
+	return &model.EdgeNodeCertificateResp{
+		ID:           cert.ID,
+		NodeID:       cert.NodeID,
+		SerialNumber: cert.SerialNumber,
+		Fingerprint:  cert.Fingerprint,
+		CommonName:   cert.CommonName,
+		Certificate:  cert.Certificate,
+		NotBefore:    cert.NotBefore.Format(time.RFC3339),
+		NotAfter:     cert.NotAfter.Format(time.RFC3339),
+		Status:       cert.Status,
+		IssuedAt:     cert.IssuedAt.Format(time.RFC3339),
+		RevokedAt:    revokedAtStr,
+	}, nil
+}
+
+// RevokeNodeCertificate 吊销边缘节点证书。
+func (*EdgeNodeService) RevokeNodeCertificate(nodeID string, claims *utils.UserClaims) error {
+	_, err := dal.GetEdgeNodeInTenant(nodeID, claims.TenantID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errcode.NewWithMessage(errcode.CodeParamError, "edge node not registered")
+		}
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+	}
+
+	now := time.Now()
+	_, rerr := dal.RevokeEdgeNodeCertificates(claims.TenantID, nodeID, now, "revoked by admin")
+	if rerr != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": rerr.Error()})
+	}
+	return nil
+}
+
+// ---- P1.5: 边缘节点远程升级与回滚 ----
+
+// UpgradeNode 对指定边缘节点发起版本升级：目标版本必须严格高于当前版本。
+func (*EdgeNodeService) UpgradeNode(nodeID string, req model.UpgradeEdgeNodeReq, claims *utils.UserClaims) (*model.EdgeNodeUpgradeResp, error) {
+	node, err := dal.GetEdgeNodeInTenant(nodeID, claims.TenantID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errcode.NewWithMessage(errcode.CodeParamError, "edge node not registered")
+		}
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+	}
+	if node.Status != model.EdgeNodeStatusActive {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "edge node is revoked")
+	}
+
+	targetParts, ok := parseVersionSegments(req.TargetVersion)
+	if !ok {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, fmt.Sprintf("target version %q is not numeric dotted", req.TargetVersion))
+	}
+	currParts, ok := parseVersionSegments(node.Version)
+	if !ok {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, fmt.Sprintf("current edge node version %q is not numeric dotted", node.Version))
+	}
+
+	// 强制要求升级版本必须严格高于当前版本
+	if compareVersionSegments(targetParts, currParts) <= 0 {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError,
+			fmt.Sprintf("target version %s must be strictly newer than current version %s; for downgrade please use rollback", req.TargetVersion, node.Version))
+	}
+
+	now := time.Now()
+	historyID := uuid.New().String()
+	history := &model.EdgeNodeUpgradeHistory{
+		ID:            historyID,
+		TenantID:      claims.TenantID,
+		NodeID:        nodeID,
+		FromVersion:   node.Version,
+		TargetVersion: req.TargetVersion,
+		PackageURL:    req.PackageURL,
+		Checksum:      req.Checksum,
+		Status:        model.EdgeNodeUpgradeStatusDispatched,
+		OperatorID:    claims.ID,
+		Description:   req.Description,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
+	if err := dal.CreateEdgeNodeUpgradeHistory(history); err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+	}
+
+	// 更新边缘节点当前目标版本
+	if _, uerr := dal.UpdateEdgeNodeVersion(nodeID, claims.TenantID, req.TargetVersion, now); uerr != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": uerr.Error()})
+	}
+
+	return &model.EdgeNodeUpgradeResp{
+		HistoryID:     historyID,
+		NodeID:        nodeID,
+		FromVersion:   node.Version,
+		TargetVersion: req.TargetVersion,
+		Status:        model.EdgeNodeUpgradeStatusDispatched,
+		Message:       fmt.Sprintf("upgrade from %s to %s dispatched", node.Version, req.TargetVersion),
+	}, nil
+}
+
+// RollbackNode 对边缘节点执行版本回滚：按指定历史记录回滚到旧版本，生成不可变回滚历史。
+func (*EdgeNodeService) RollbackNode(nodeID string, req model.RollbackEdgeNodeReq, claims *utils.UserClaims) (*model.EdgeNodeRollbackResp, error) {
+	node, err := dal.GetEdgeNodeInTenant(nodeID, claims.TenantID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errcode.NewWithMessage(errcode.CodeParamError, "edge node not registered")
+		}
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+	}
+
+	history, err := dal.GetEdgeNodeUpgradeHistoryByID(req.HistoryID, claims.TenantID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errcode.NewWithMessage(errcode.CodeParamError, "upgrade history record not found")
+		}
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+	}
+	if history.NodeID != nodeID {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "upgrade history does not belong to this edge node")
+	}
+
+	// 回滚目标版本即历史中的 FromVersion
+	rollbackTo := history.FromVersion
+	now := time.Now()
+	desc := fmt.Sprintf("rollback from %s to %s based on history %s", node.Version, rollbackTo, history.ID)
+	rollbackRecord := &model.EdgeNodeUpgradeHistory{
+		ID:            uuid.New().String(),
+		TenantID:      claims.TenantID,
+		NodeID:        nodeID,
+		FromVersion:   node.Version,
+		TargetVersion: rollbackTo,
+		Status:        model.EdgeNodeUpgradeStatusRolledBack,
+		OperatorID:    claims.ID,
+		Description:   &desc,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
+	if err := dal.CreateEdgeNodeUpgradeHistory(rollbackRecord); err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+	}
+
+	// 更新边缘节点版本
+	if _, uerr := dal.UpdateEdgeNodeVersion(nodeID, claims.TenantID, rollbackTo, now); uerr != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": uerr.Error()})
+	}
+
+	return &model.EdgeNodeRollbackResp{
+		HistoryID:       rollbackRecord.ID,
+		NodeID:          nodeID,
+		RolledToVersion: rollbackTo,
+		Status:          model.EdgeNodeUpgradeStatusRolledBack,
+		Message:         desc,
+	}, nil
+}
+
+// ListNodeUpgradeHistory 查询边缘节点的升级与回滚历史。
+func (*EdgeNodeService) ListNodeUpgradeHistory(nodeID string, limit int, claims *utils.UserClaims) ([]*model.EdgeNodeUpgradeHistory, error) {
+	_, err := dal.GetEdgeNodeInTenant(nodeID, claims.TenantID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errcode.NewWithMessage(errcode.CodeParamError, "edge node not registered")
+		}
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+	}
+
+	list, err := dal.ListEdgeNodeUpgradeHistory(claims.TenantID, nodeID, limit)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+	}
+	return list, nil
+}
+

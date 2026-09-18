@@ -1,4 +1,4 @@
-﻿<!--
+<!--
 文件用途：提供 告警消息管理 页面内的 alarm-configuration 子组件。
 核心逻辑：封装局部表单、弹窗、列表或展示模块，通过 props、emit 与父页面协作。
 关键注意事项：保持组件边界清晰，避免在子组件中绕过父页面的数据刷新与权限控制。
@@ -161,6 +161,7 @@ const columns = createAlarmConfigurationColumns({
   onShowDetails: row => getInfo(row),
   onAcknowledge: row => acknowledgeAlarm(row),
   onReset: row => resetAlarm(row),
+  onClear: row => clearAlarm(row),
   onMaintenance: row => maintenance(row)
 })
 const alarmTriageSummary = computed(() => buildAlarmTriageSummary(tableData.value))
@@ -293,6 +294,10 @@ const acknowledgeAlarm = (row: any) => {
 
 const resetAlarm = (row: any) => {
   openSingleAlarmAction(row as AlarmSingleActionRow, 'reset')
+}
+
+const clearAlarm = (row: any) => {
+  openSingleAlarmAction(row as AlarmSingleActionRow, 'clear')
 }
 
 

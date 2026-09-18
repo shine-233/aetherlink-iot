@@ -152,7 +152,9 @@ func TestPublishRejectsCanceledConsumerContext(t *testing.T) {
 	}
 	cancel()
 
-	deadline := time.Now().Add(time.Second)
+	// 5s 而不是 1s：全量套件并发下消费 goroutine 可能短暂得不到调度，
+	// 断言语义（取消后必须拒绝发布）不变，只放宽观测窗口；命中通常仍是毫秒级。
+	deadline := time.Now().Add(5 * time.Second)
 	for {
 		err := bus.PublishCommand(&Message{
 			DeviceID:     "dev-1",

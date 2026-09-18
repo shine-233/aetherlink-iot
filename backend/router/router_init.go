@@ -291,6 +291,7 @@ func RouterInit() *gin.Engine {
 
 			apps.Model.Scada.Init(v1)  // P1.3 Widget 与 SCADA 基础层
 			apps.Model.Mobile.Init(v1) // P1.4 移动端控制与通知
+			apps.Model.ResourceCenter.InitResourceCenter(v1) // TP-5 资源中心（物模型与大屏统一市场）
 
 			apps.Model.AttributeData.InitAttributeData(v1) // 属性数据
 
@@ -351,6 +352,14 @@ func RouterInit() *gin.Engine {
 			apps.Model.PayloadSchema.InitPayloadSchema(v1) // payload schema 静态校验
 
 			apps.Model.CalculatedField.InitCalculatedField(v1) // 计算字段（遥测派生指标）
+
+			apps.Model.RateLimitRouter.InitRateLimitRouter(v1) // TB-7 集群限流与多策略配额
+
+			apps.Model.QueueMonitorRouter.InitQueueMonitorRouter(v1) // TB-7 队列隔离监控
+
+			apps.Model.UnitsRouter.InitUnitsRouter(v1) // TB-9 单位换算与物理量纲
+
+			apps.Model.SecretsRouter.InitSecrets(v1) // TB-18 通用 Secrets Storage
 
 			// 初始化系统监控路由
 			apps.Model.SystemMonitor.InitSystemMonitor(v1, m)

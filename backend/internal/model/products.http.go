@@ -15,15 +15,19 @@ type CreateProductReq struct {
 	AdditionalInfo *string `json:"additional_info" validate:"omitempty"`         // 附加信息
 	Remark         *string `json:"remark" validate:"omitempty,max=255"`          // 备注
 	DeviceConfigID *string `json:"device_config_id" validate:"omitempty,max=36"` // 设备配置id
+	ConflictPolicy *string `json:"conflict_policy" form:"conflict_policy" validate:"omitempty,max=32"` // TB-15: 实体名冲突策略 (fail, rename, ignore, update, allow)
 }
 
 type UpdateProductReq struct {
-	Id           string  `json:"id" validate:"required,max=36"`              // 产品id
-	Name         *string `json:"name" validate:"omitempty,max=255"`          // 产品名称
-	Description  *string `json:"description"  validate:"omitempty,max=255"`  // 产品描述
-	ProductModel *string `json:"product_model" validate:"omitempty,max=100"` // 产品型号
-	ImageUrl     *string `json:"image_url" validate:"omitempty,max=500"`     // 产品图片
-	ProductType  *string `json:"product_type" validate:"omitempty,max=36"`   // 产品类型
+	Id             string  `json:"id" validate:"required,max=36"`              // 产品id
+	Name           *string `json:"name" validate:"omitempty,max=255"`          // 产品名称
+	Description    *string `json:"description"  validate:"omitempty,max=255"`  // 产品描述
+	ProductModel   *string `json:"product_model" validate:"omitempty,max=100"` // 产品型号
+	ImageUrl       *string `json:"image_url" validate:"omitempty,max=500"`     // 产品图片
+	ProductType    *string `json:"product_type" validate:"omitempty,max=36"`   // 产品类型
+	Remark         *string `json:"remark" validate:"omitempty,max=255"`          // 备注
+	AdditionalInfo *string `json:"additional_info" validate:"omitempty"`         // 附加信息
+	DeviceConfigID *string `json:"device_config_id" validate:"omitempty,max=36"` // 设备配置id
 }
 
 type GetProductListByPageReq struct {

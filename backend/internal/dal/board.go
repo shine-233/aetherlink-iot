@@ -251,6 +251,25 @@ func (BoardQuery) UpdateHomeFlagN(ctx context.Context, tenantid string) error {
 	return err
 }
 
+// GetBoardByNameAndTenant 查询指定租户下指定名称的看板（TB-15）。
+func (BoardQuery) GetBoardByNameAndTenant(ctx context.Context, tenantID, name string) (*model.Board, error) {
+	var b model.Board
+	err := global.DB.WithContext(ctx).Where("tenant_id = ? AND name = ?", tenantID, name).First(&b).Error
+	if err != nil {
+		return nil, err
+	}
+	return &b, nil
+}
+
+// GetBoardNamesMatchingBase 查询指定租户下 baseName 或 baseName (N) 形式的看板名称列表（TB-15）。
+func (BoardQuery) GetBoardNamesMatchingBase(ctx context.Context, tenantID, baseName string) ([]string, error) {
+	var names []string
+	err := global.DB.WithContext(ctx).Model(&model.Board{}).
+		Where("tenant_id = ? AND (name = ? OR name LIKE ?)", tenantID, baseName, baseName+" (%)").
+		Pluck("name", &names).Error
+	return names, err
+}
+
 // GetDeviceTrend returns hourly online and offline device counts for the tenant.
 // tenantID identifies the tenant scope.
 // GetDeviceTrend returns hourly online and offline device counts for the tenant.

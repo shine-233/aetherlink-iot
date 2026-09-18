@@ -40,6 +40,7 @@ vi.mock('naive-ui', () => {
     NInputNumber: container('NInputNumber'),
     NSelect: container('NSelect'),
     NSpin: container('NSpin'),
+    NSwitch: container('NSwitch'),
     useMessage: () => hoisted.message
   }
 })

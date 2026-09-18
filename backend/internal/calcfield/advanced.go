@@ -24,6 +24,7 @@ const (
 	FieldTypeRelatedAgg  = types.TypeRelatedAgg
 	FieldTypeGeofence    = types.TypeGeofence
 	FieldTypePropagation = types.TypePropagation
+	FieldTypeAlarm       = types.TypeAlarm
 )
 
 // advancedConfig 别名(引擎内引用沿用短名)。
@@ -87,9 +88,9 @@ func keptToValues(samples []windowSample) []float64 {
 // ---- 引擎挂点 ----
 
 // RelatedTargetsSource 关联/传播目标解析 seam(显式 device_ids 时无需调用;
-// 资产树自动发现在集成阶段注入实现,解析失败 fail-closed 跳过)。
-var RelatedTargetsSource = func(tenantID, deviceID, direction string) ([]string, error) {
-	return nil, fmt.Errorf("asset-tree target resolver is not wired (use explicit device_ids)")
+// 默认接线 ResolveRelatedTargets 查 entity_relations 及 devices.parent_id)。
+var RelatedTargetsSource = func(tenantID, deviceID, direction, relationType string) ([]string, error) {
+	return ResolveRelatedTargets(tenantID, deviceID, direction, relationType)
 }
 
 // resolveTargets 关联/传播目标:显式列表优先,否则走 seam。
@@ -97,7 +98,7 @@ func resolveTargets(cfg *advancedConfig, tenantID, deviceID string) []string {
 	if len(cfg.DeviceIDs) > 0 {
 		return cfg.DeviceIDs
 	}
-	targets, err := RelatedTargetsSource(tenantID, deviceID, cfg.Direction)
+	targets, err := RelatedTargetsSource(tenantID, deviceID, cfg.Direction, cfg.RelationType)
 	if err != nil {
 		return nil
 	}
@@ -150,14 +151,16 @@ func evaluateAdvanced(rule compiledRule, payload map[string]interface{}, ts int6
 			return nil, nil, nil
 		}
 		return value, targets, nil
+	case FieldTypeAlarm:
+		return evaluateAlarmRule(rule, payload, ts, deviceID, tenantID)
 	default:
 		return nil, nil, fmt.Errorf("unknown advanced type %q", rule.fieldType)
 	}
 }
 
-// readRelatedLatest 关联设备最新值读取缝(dal 实现查 telemetry_current_datas;测试桩)。
+// readRelatedLatest 关联设备最新值读取缝(默认查 telemetry_current_datas;测试桩可注入)。
 var readRelatedLatest = func(rule compiledRule, deviceID, sourceKey string) (float64, bool) {
-	return 0, false
+	return DefaultReadRelatedLatest(deviceID, sourceKey)
 }
 
 // ValidateFieldConfig 服务层保存校验入口(委托 types)。

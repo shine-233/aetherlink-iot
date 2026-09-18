@@ -88,3 +88,110 @@ func (*EdgeNodeApi) Reconcile(c *gin.Context) {
 	}
 	c.Set("data", resp)
 }
+
+// IssueCertificate 签发边缘节点客户端证书。
+// @Summary  签发边缘节点证书
+// @Tags     EdgeNodes
+// @Router   /api/v1/edge/nodes/{node_id}/certificate [post]
+func (*EdgeNodeApi) IssueCertificate(c *gin.Context) {
+	nodeID := c.Param("node_id")
+	var req model.IssueEdgeNodeCertificateReq
+	_ = c.ShouldBindJSON(&req)
+	claims := c.MustGet("claims").(*utils.UserClaims)
+	resp, err := service.GroupApp.EdgeNode.IssueNodeCertificate(nodeID, req, claims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", resp)
+}
+
+// GetCertificate 查看边缘节点当前有效证书。
+// @Summary  查看边缘节点证书
+// @Tags     EdgeNodes
+// @Router   /api/v1/edge/nodes/{node_id}/certificate [get]
+func (*EdgeNodeApi) GetCertificate(c *gin.Context) {
+	nodeID := c.Param("node_id")
+	claims := c.MustGet("claims").(*utils.UserClaims)
+	resp, err := service.GroupApp.EdgeNode.GetNodeCertificate(nodeID, claims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", resp)
+}
+
+// RevokeCertificate 吊销边缘节点证书。
+// @Summary  吊销边缘节点证书
+// @Tags     EdgeNodes
+// @Router   /api/v1/edge/nodes/{node_id}/certificate [delete]
+func (*EdgeNodeApi) RevokeCertificate(c *gin.Context) {
+	nodeID := c.Param("node_id")
+	claims := c.MustGet("claims").(*utils.UserClaims)
+	err := service.GroupApp.EdgeNode.RevokeNodeCertificate(nodeID, claims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", gin.H{"message": "edge node certificate revoked"})
+}
+
+// Upgrade 远程升级边缘节点。
+// @Summary  升级边缘节点
+// @Tags     EdgeNodes
+// @Router   /api/v1/edge/nodes/{node_id}/upgrade [post]
+func (*EdgeNodeApi) Upgrade(c *gin.Context) {
+	nodeID := c.Param("node_id")
+	var req model.UpgradeEdgeNodeReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	claims := c.MustGet("claims").(*utils.UserClaims)
+	resp, err := service.GroupApp.EdgeNode.UpgradeNode(nodeID, req, claims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", resp)
+}
+
+// Rollback 远程回滚边缘节点。
+// @Summary  回滚边缘节点
+// @Tags     EdgeNodes
+// @Router   /api/v1/edge/nodes/{node_id}/rollback [post]
+func (*EdgeNodeApi) Rollback(c *gin.Context) {
+	nodeID := c.Param("node_id")
+	var req model.RollbackEdgeNodeReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	claims := c.MustGet("claims").(*utils.UserClaims)
+	resp, err := service.GroupApp.EdgeNode.RollbackNode(nodeID, req, claims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", resp)
+}
+
+// GetUpgradeHistory 查询边缘节点升级历史。
+// @Summary  边缘节点升级历史
+// @Tags     EdgeNodes
+// @Router   /api/v1/edge/nodes/{node_id}/upgrade/history [get]
+func (*EdgeNodeApi) GetUpgradeHistory(c *gin.Context) {
+	nodeID := c.Param("node_id")
+	claims := c.MustGet("claims").(*utils.UserClaims)
+	limit := 0
+	if v := c.Query("limit"); v != "" {
+		if parsed, perr := strconv.Atoi(v); perr == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+	resp, err := service.GroupApp.EdgeNode.ListNodeUpgradeHistory(nodeID, limit, claims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", resp)
+}
+

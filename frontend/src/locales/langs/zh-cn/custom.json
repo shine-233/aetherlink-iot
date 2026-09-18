@@ -931,7 +931,7 @@
   "custom.device_details.shadowTypeProperty": "属性",
   "custom.device_details.shadowTypeNotification": "通知",
   "custom.device_details.shadowPayload": "载荷",
-  "custom.device_details.shadowPayloadHint": "必须是合法 JSON，例如 {\"method\":\"set\",\"params\":{\"power\":1}}",
+  "custom.device_details.shadowPayloadHint": "必须是合法 JSON 字符串，例如包含 method 与 params",
   "custom.device_details.shadowTTL": "有效期",
   "custom.device_details.shadowTTLUnit": "秒",
   "custom.device_details.shadowSubmit": "提交",

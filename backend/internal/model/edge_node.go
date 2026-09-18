@@ -107,3 +107,126 @@ type EdgeSyncTaskDispatched struct {
 	TaskID       string `json:"task_id,omitempty"`
 	Error        string `json:"error,omitempty"`
 }
+
+// ---- P1.5: 边缘节点证书模型与 DTO ----
+
+const TableNameEdgeNodeCertificate = "edge_node_certificates"
+
+// EdgeNodeCertificate 边缘节点 X.509 证书记录（仅存证书，不存私钥）。
+type EdgeNodeCertificate struct {
+	ID           string     `gorm:"column:id;primaryKey" json:"id"`
+	TenantID     string     `gorm:"column:tenant_id;not null;index" json:"tenant_id"`
+	NodeID       string     `gorm:"column:node_id;not null;index" json:"node_id"`
+	SerialNumber string     `gorm:"column:serial_number;not null" json:"serial_number"`
+	Fingerprint  string     `gorm:"column:fingerprint;not null" json:"fingerprint"` // SHA-256 hex(DER)
+	CommonName   string     `gorm:"column:common_name;not null" json:"common_name"`
+	Certificate  string     `gorm:"column:certificate;type:text;not null" json:"certificate"` // PEM
+	NotBefore    time.Time  `gorm:"column:not_before;not null" json:"not_before"`
+	NotAfter     time.Time  `gorm:"column:not_after;not null" json:"not_after"`
+	Status       string     `gorm:"column:status;not null;default:active" json:"status"` // active/revoked/expired
+	IssuedAt     time.Time  `gorm:"column:issued_at;not null" json:"issued_at"`
+	RevokedAt    *time.Time `gorm:"column:revoked_at" json:"revoked_at"`
+	RevokeReason *string    `gorm:"column:revoke_reason" json:"revoke_reason"`
+	CreatedAt    time.Time  `gorm:"column:created_at;not null" json:"created_at"`
+	UpdatedAt    time.Time  `gorm:"column:updated_at;not null" json:"updated_at"`
+}
+
+func (*EdgeNodeCertificate) TableName() string { return TableNameEdgeNodeCertificate }
+
+// IssueEdgeNodeCertificateReq 签发边缘节点证书。
+type IssueEdgeNodeCertificateReq struct {
+	ValidityDays int `json:"validity_days" validate:"omitempty,min=1,max=3650"`
+}
+
+// IssueEdgeNodeCertificateResp 签发结果，包含仅返回一次的私钥。
+type IssueEdgeNodeCertificateResp struct {
+	ID           string `json:"id"`
+	NodeID       string `json:"node_id"`
+	SerialNumber string `json:"serial_number"`
+	Fingerprint  string `json:"fingerprint"`
+	CommonName   string `json:"common_name"`
+	Certificate  string `json:"certificate"` // PEM
+	PrivateKey   string `json:"private_key"` // PEM，仅签发响应返回一次
+	NotBefore    string `json:"not_before"`
+	NotAfter     string `json:"not_after"`
+	Status       string `json:"status"`
+}
+
+// EdgeNodeCertificateResp 查询证书详情（脱敏私钥）。
+type EdgeNodeCertificateResp struct {
+	ID           string  `json:"id"`
+	NodeID       string  `json:"node_id"`
+	SerialNumber string  `json:"serial_number"`
+	Fingerprint  string  `json:"fingerprint"`
+	CommonName   string  `json:"common_name"`
+	Certificate  string  `json:"certificate"`
+	NotBefore    string  `json:"not_before"`
+	NotAfter     string  `json:"not_after"`
+	Status       string  `json:"status"`
+	IssuedAt     string  `json:"issued_at"`
+	RevokedAt    *string `json:"revoked_at,omitempty"`
+}
+
+// ---- P1.5: 边缘节点升级与回滚模型与 DTO ----
+
+const TableNameEdgeNodeUpgradeHistory = "edge_node_upgrade_history"
+
+// 升级历史状态。
+const (
+	EdgeNodeUpgradeStatusPending    = "pending"
+	EdgeNodeUpgradeStatusDispatched = "dispatched"
+	EdgeNodeUpgradeStatusSuccess    = "success"
+	EdgeNodeUpgradeStatusFailed     = "failed"
+	EdgeNodeUpgradeStatusRolledBack = "rolled_back"
+)
+
+// EdgeNodeUpgradeHistory 边缘节点版本变更/升级历史。
+type EdgeNodeUpgradeHistory struct {
+	ID            string    `gorm:"column:id;primaryKey" json:"id"`
+	TenantID      string    `gorm:"column:tenant_id;not null;index" json:"tenant_id"`
+	NodeID        string    `gorm:"column:node_id;not null;index" json:"node_id"`
+	FromVersion   string    `gorm:"column:from_version;not null" json:"from_version"`
+	TargetVersion string    `gorm:"column:target_version;not null" json:"target_version"`
+	PackageURL    *string   `gorm:"column:package_url" json:"package_url,omitempty"`
+	Checksum      *string   `gorm:"column:checksum" json:"checksum,omitempty"`
+	Status        string    `gorm:"column:status;not null;default:pending" json:"status"`
+	OperatorID    string    `gorm:"column:operator_id;not null" json:"operator_id"`
+	Description   *string   `gorm:"column:description" json:"description,omitempty"`
+	CreatedAt     time.Time `gorm:"column:created_at;not null" json:"created_at"`
+	UpdatedAt     time.Time `gorm:"column:updated_at;not null" json:"updated_at"`
+}
+
+func (*EdgeNodeUpgradeHistory) TableName() string { return TableNameEdgeNodeUpgradeHistory }
+
+// UpgradeEdgeNodeReq 边缘节点升级请求。
+type UpgradeEdgeNodeReq struct {
+	TargetVersion string  `json:"target_version" validate:"required,max=32"`
+	PackageURL    *string `json:"package_url" validate:"omitempty,max=512"`
+	Checksum      *string `json:"checksum" validate:"omitempty,max=128"`
+	Description   *string `json:"description" validate:"omitempty,max=255"`
+}
+
+// RollbackEdgeNodeReq 边缘节点回滚请求。
+type RollbackEdgeNodeReq struct {
+	HistoryID string `json:"history_id" validate:"required,max=36"`
+}
+
+// EdgeNodeUpgradeResp 升级响应。
+type EdgeNodeUpgradeResp struct {
+	HistoryID     string `json:"history_id"`
+	NodeID        string `json:"node_id"`
+	FromVersion   string `json:"from_version"`
+	TargetVersion string `json:"target_version"`
+	Status        string `json:"status"`
+	Message       string `json:"message"`
+}
+
+// EdgeNodeRollbackResp 回滚响应。
+type EdgeNodeRollbackResp struct {
+	HistoryID       string `json:"history_id"`
+	NodeID          string `json:"node_id"`
+	RolledToVersion string `json:"rolled_to_version"`
+	Status          string `json:"status"`
+	Message         string `json:"message"`
+}
+

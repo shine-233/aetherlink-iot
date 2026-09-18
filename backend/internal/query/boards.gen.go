@@ -46,6 +46,11 @@ func newBoard(db *gorm.DB, opts ...gen.DOOption) board {
 	_board.Published = field.NewBool(tableName, "published")
 	_board.PublishedAt = field.NewTime(tableName, "published_at")
 	_board.ShareToken = field.NewString(tableName, "share_token")
+	_board.TypeKey = field.NewString(tableName, "type_key")
+	_board.Author = field.NewString(tableName, "author")
+	_board.Version = field.NewString(tableName, "version")
+	_board.PreviewURL = field.NewString(tableName, "preview_url")
+	_board.DownloadCount = field.NewInt64(tableName, "download_count")
 
 	_board.fillFieldMap()
 
@@ -71,6 +76,11 @@ type board struct {
 	Published   field.Bool
 	PublishedAt field.Time
 	ShareToken  field.String
+	TypeKey       field.String
+	Author        field.String
+	Version       field.String
+	PreviewURL    field.String
+	DownloadCount field.Int64
 	fieldMap    map[string]field.Expr
 }
 
@@ -100,6 +110,11 @@ func (b *board) updateTableName(table string) *board {
 	b.Published = field.NewBool(table, "published")
 	b.PublishedAt = field.NewTime(table, "published_at")
 	b.ShareToken = field.NewString(table, "share_token")
+	b.TypeKey = field.NewString(table, "type_key")
+	b.Author = field.NewString(table, "author")
+	b.Version = field.NewString(table, "version")
+	b.PreviewURL = field.NewString(table, "preview_url")
+	b.DownloadCount = field.NewInt64(table, "download_count")
 
 	b.fillFieldMap()
 
@@ -116,7 +131,7 @@ func (b *board) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (b *board) fillFieldMap() {
-	b.fieldMap = make(map[string]field.Expr, 14)
+	b.fieldMap = make(map[string]field.Expr, 19)
 	b.fieldMap["id"] = b.ID
 	b.fieldMap["name"] = b.Name
 	b.fieldMap["config"] = b.Config
@@ -131,6 +146,11 @@ func (b *board) fillFieldMap() {
 	b.fieldMap["published"] = b.Published
 	b.fieldMap["published_at"] = b.PublishedAt
 	b.fieldMap["share_token"] = b.ShareToken
+	b.fieldMap["type_key"] = b.TypeKey
+	b.fieldMap["author"] = b.Author
+	b.fieldMap["version"] = b.Version
+	b.fieldMap["preview_url"] = b.PreviewURL
+	b.fieldMap["download_count"] = b.DownloadCount
 }
 
 func (b board) clone(db *gorm.DB) board {

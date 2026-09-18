@@ -14,7 +14,7 @@ import {
   type AlarmOption
 } from './alarm-configuration.helpers'
 
-export type AlarmSingleActionType = 'acknowledge' | 'reset'
+export type AlarmSingleActionType = 'acknowledge' | 'reset' | 'clear'
 
 /** 单条操作弹窗的告警行数据（历史列表行，字段宽松） */
 export type AlarmSingleActionRow = Record<string, unknown> & {
@@ -59,19 +59,21 @@ export function useAlarmSingleActions(options: UseAlarmSingleActionsOptions) {
       `${$t('common.alarm_time')}: ${row.create_at ? dayjs(row.create_at as string).format('YYYY-MM-DD HH:mm:ss') : '-'}`
     ].join('\n')
 
-  const singleActionDialogTitle = computed(() =>
-    singleActionType.value === 'acknowledge'
-      ? $t('rdi.overview.acknowledgeAlarm')
-      : $t('rdi.overview.confirmResetAlarm')
-  )
+  const singleActionDialogTitle = computed(() => {
+    if (singleActionType.value === 'acknowledge') return $t('rdi.overview.acknowledgeAlarm')
+    if (singleActionType.value === 'clear') return $t('common.clear') || '清除告警'
+    return $t('rdi.overview.confirmResetAlarm')
+  })
 
   const singleActionDialogHint = computed(() => {
     const row = singleActionRow.value
     if (!row) return ''
-    const hint =
-      singleActionType.value === 'acknowledge'
-        ? $t('rdi.overview.alarmAuditConfirmHint')
-        : $t('rdi.overview.alarmResetAuditHint')
+    let hint = $t('rdi.overview.alarmResetAuditHint')
+    if (singleActionType.value === 'acknowledge') {
+      hint = $t('rdi.overview.alarmAuditConfirmHint')
+    } else if (singleActionType.value === 'clear') {
+      hint = $t('custom.alarmPage.clearAuditHint') || '请确认是否清除此告警。清除后该告警生命周期将流转为 CLEARED 态并留存审计原因。'
+    }
     return `${alarmAuditSummary(row)}\n\n${hint}`
   })
 

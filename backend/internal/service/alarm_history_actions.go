@@ -3,6 +3,7 @@ package service
 import (
 	"strings"
 
+	"aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/utils"
@@ -52,3 +53,11 @@ func applyAlarmHistoryActionWithNote(
 	}
 	return data, nil
 }
+
+// ClearAlarmHistory 针对指定告警记录执行清除操作（对齐 ThingsBoard 4.3 告警清除生命周期）。
+func (*Alarm) ClearAlarmHistory(id string, note string, claims *utils.UserClaims) (*model.AlarmHistoryActionResp, error) {
+	return applyAlarmHistoryActionWithNote(id, claims, note, func(id, tenantID, operatorID, note string) (*model.AlarmHistoryActionResp, error) {
+		return dal.ClearAlarmHistory(id, tenantID, operatorID, note)
+	})
+}
+

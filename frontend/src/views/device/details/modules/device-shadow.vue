@@ -252,6 +252,7 @@ onMounted(getTableData)
           <n-input
             v-model:value="createForm.payload"
             type="textarea"
+            class="shadow-payload-input"
             :autosize="{ minRows: 5, maxRows: 12 }"
             :placeholder="$t('custom.device_details.shadowPayloadHint')"
           />

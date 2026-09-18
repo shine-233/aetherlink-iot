@@ -30,6 +30,12 @@ func (*EdgeSync) InitEdgeSync(Router *gin.RouterGroup) {
 			nodes.GET("", api.Controllers.EdgeNodeApi.List)
 			nodes.POST(":node_id/heartbeat", api.Controllers.EdgeNodeApi.Heartbeat)
 			nodes.POST(":node_id/reconcile", api.Controllers.EdgeNodeApi.Reconcile)
+			nodes.POST(":node_id/certificate", api.Controllers.EdgeNodeApi.IssueCertificate)
+			nodes.GET(":node_id/certificate", api.Controllers.EdgeNodeApi.GetCertificate)
+			nodes.DELETE(":node_id/certificate", api.Controllers.EdgeNodeApi.RevokeCertificate)
+			nodes.POST(":node_id/upgrade", api.Controllers.EdgeNodeApi.Upgrade)
+			nodes.POST(":node_id/rollback", api.Controllers.EdgeNodeApi.Rollback)
+			nodes.GET(":node_id/upgrade/history", api.Controllers.EdgeNodeApi.GetUpgradeHistory)
 		}
 	}
 }

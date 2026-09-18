@@ -19,6 +19,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"aetherlink-iot/backend/internal/isolatedqueue"
 	"github.com/sirupsen/logrus"
 )
 
@@ -85,6 +86,9 @@ type Bus struct {
 	observerNextID uint64
 	observers      map[uint64]*acceptedMessageObserver
 
+	// 队列隔离管理器（对标 ThingsBoard 3.6.3+ 多队列隔离与度量）
+	queueManager *isolatedqueue.QueueManager
+
 	// logger 用于记录满队列、未知类型和关闭态丢弃等运行信号。
 	logger *logrus.Logger
 }
@@ -120,6 +124,7 @@ func NewBus(config BusConfig, logger *logrus.Logger) *Bus {
 		abortPublish: make(chan struct{}),
 		closeDone:    make(chan struct{}),
 		observers:    make(map[uint64]*acceptedMessageObserver),
+		queueManager: isolatedqueue.GetDefaultManager(),
 		logger:       logger,
 	}
 }
@@ -298,6 +303,7 @@ func (b *Bus) PublishContext(ctx context.Context, msgInterface MessageLike) erro
 	}
 	if publishErr == nil {
 		b.notifyAcceptedMessage(observerMessage)
+		b.recordIsolatedQueue(ctx, msg)
 	}
 	return publishErr
 }
@@ -331,6 +337,7 @@ func (b *Bus) PublishResponseContext(ctx context.Context, msg *DeviceMessage) er
 		return err
 	}
 	b.notifyAcceptedMessage(observerMessage)
+	b.recordIsolatedQueue(ctx, msg)
 	return nil
 }
 
@@ -564,7 +571,7 @@ func (b *Bus) closeAcceptedMessageObservers() {
 
 // GetChannelStats 返回当前队列长度和容量快照，供监控或诊断背压使用。
 func (b *Bus) GetChannelStats() map[string]interface{} {
-	return map[string]interface{}{
+	stats := map[string]interface{}{
 		"telemetry_len": len(b.telemetryChan),
 		"telemetry_cap": cap(b.telemetryChan),
 		"attribute_len": len(b.attributeChan),
@@ -578,6 +585,44 @@ func (b *Bus) GetChannelStats() map[string]interface{} {
 		"response_queue": len(b.responseChan),
 
 		"buffer_size": b.bufferSize,
+	}
+
+	if b.queueManager != nil {
+		stats["isolated_queues"] = b.queueManager.GetAllStats()
+	}
+
+	return stats
+}
+
+// GetQueueManager 返回关联的多队列隔离管理器。
+func (b *Bus) GetQueueManager() *isolatedqueue.QueueManager {
+	return b.queueManager
+}
+
+// recordIsolatedQueue 根据消息类型分流记录到独立隔离队列。
+func (b *Bus) recordIsolatedQueue(ctx context.Context, msg *DeviceMessage) {
+	if b.queueManager == nil || msg == nil {
+		return
+	}
+
+	qMsg := &isolatedqueue.QueueMessage{
+		OriginatorID: msg.DeviceID,
+		Type:         msg.Type,
+		Payload:      msg.Payload,
+		Metadata:     msg.Metadata,
+	}
+
+	switch msg.Type {
+	case MessageTypeTelemetry, "gateway_telemetry", MessageTypeAttribute, "gateway_attribute":
+		_ = b.queueManager.Submit(ctx, isolatedqueue.QueueTypeMain, qMsg)
+
+	case MessageTypeEvent, "gateway_event", MessageTypeStatus, MessageTypeShadowAck:
+		_ = b.queueManager.Submit(ctx, isolatedqueue.QueueTypeHighPriority, qMsg)
+
+	default:
+		if isResponseMessageType(msg.Type) {
+			_ = b.queueManager.SubmitByOriginator(ctx, isolatedqueue.QueueTypeSequentialByOriginator, msg.DeviceID, qMsg)
+		}
 	}
 }
 

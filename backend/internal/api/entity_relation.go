@@ -110,6 +110,13 @@ func (*EntityRelationApi) DeleteEntityRelation(c *gin.Context) {
 		c.Error(err)
 		return
 	}
+	// 未命中与越权一律收敛成 404（此前直接透出 deleted: 0 + 200，
+	// 与 handler 注释、前端 wrapper 注释都不一致，且调用方会把"没删掉"当成成功）。
+	// 这里不区分两种原因：区分就等于告诉调用方"这个 ID 在别处存在"。
+	if affected == 0 {
+		c.Error(errcode.NewWithMessage(errcode.CodeNotFound, "关系不存在"))
+		return
+	}
 	c.Set("data", gin.H{"deleted": affected})
 }
 

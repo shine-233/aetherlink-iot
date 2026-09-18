@@ -58,7 +58,7 @@ type OTARolloutTaskPatch struct {
 // callers must have validated access before reaching this write.
 func UpdateOTAUpgradeTaskRolloutState(taskID string, patch OTARolloutTaskPatch) (int64, error) {
 	d := query.OtaUpgradeTask
-	updates := map[string]interface{}{"updated_at": time.Now().UTC()}
+	updates := map[string]interface{}{}
 	if patch.Status != "" {
 		updates["status"] = patch.Status
 	}
@@ -70,6 +70,9 @@ func UpdateOTAUpgradeTaskRolloutState(taskID string, patch OTARolloutTaskPatch) 
 	}
 	if patch.RateWindowStartedAt != nil {
 		updates["rate_window_started_at"] = *patch.RateWindowStartedAt
+	}
+	if len(updates) == 0 {
+		return 0, nil
 	}
 	result, err := d.WithContext(context.Background()).
 		Where(d.ID.Eq(taskID)).

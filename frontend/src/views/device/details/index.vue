@@ -481,6 +481,17 @@ function handleDeviceUpdateSuccess() {
   getDeviceDetail()
 }
 
+function handleChildComponentChange(payload: unknown) {
+  // 阻止原生 DOM input/change 事件（例如 radio/select/checkbox 切换冒泡）误触发全页详情重载
+  if (
+    payload instanceof Event ||
+    (payload && typeof payload === 'object' && 'target' in payload && 'bubbles' in payload)
+  ) {
+    return
+  }
+  getDeviceDetail()
+}
+
 const save = async () => {
   if (!canUseOwnerDetailActions.value) return
   if (!validateDeviceBeforeSave()) return
@@ -670,7 +681,7 @@ const isEmbeddedHost = computed(() => {
                 :device-data="deviceData"
                 :device-config-id="deviceData?.device_config_id || ''"
                 :device-template-id="deviceData?.device_config?.device_template_id || ''"
-                @change="getDeviceDetail"
+                @change="handleChildComponentChange"
               />
             </n-spin>
           </n-tab-pane>

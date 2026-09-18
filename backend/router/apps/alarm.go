@@ -65,6 +65,9 @@ func alarminfo(Router *gin.RouterGroup) {
 
 		url.PUT("history/:id/reset", api.Controllers.AlarmApi.ResetAlarmHistory)
 
+		url.PUT("history/:id/clear", api.Controllers.AlarmApi.ClearAlarmHistory)
+		url.POST("history/:id/clear", api.Controllers.AlarmApi.ClearAlarmHistory)
+
 		url.GET("history/:id", api.Controllers.AlarmApi.HandleAlarmInfoHistory)
 
 		// 兼容旧客户端；service 会鉴权后按审计留存策略拒绝物理删除。

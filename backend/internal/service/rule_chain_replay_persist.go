@@ -13,10 +13,15 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/pkg/errcode"
+	"aetherlink-iot/backend/pkg/utils"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -25,6 +30,8 @@ import (
 // ruleChainReplayRetentionKey 回放留存开关。
 // 未显式开启即不接线：宁可没有回放数据，也不能悄悄留存第二份载荷。
 const ruleChainReplayRetentionKey = "rule_chain.replay.retention_enabled"
+
+var replayRetentionExplicitOverride *bool
 
 // InstallRuleChainReplayPersistence 按配置决定是否接入回放留存。
 // 关闭时确保 recorder 为 nil（旁路），开启时安装落库 recorder。
@@ -37,7 +44,23 @@ func InstallRuleChainReplayPersistence() {
 }
 
 func ruleChainReplayRetentionEnabled() bool {
-	return viper.IsSet(ruleChainReplayRetentionKey) && viper.GetBool(ruleChainReplayRetentionKey)
+	if replayRetentionExplicitOverride != nil {
+		return *replayRetentionExplicitOverride
+	}
+	if viper.IsSet(ruleChainReplayRetentionKey) && viper.GetBool(ruleChainReplayRetentionKey) {
+		return true
+	}
+	if viper.IsSet("rule-chain.replay.retention-enabled") && viper.GetBool("rule-chain.replay.retention-enabled") {
+		return true
+	}
+	val := os.Getenv("AETHERLINK_RULE_CHAIN_REPLAY_RETENTION")
+	return val == "true" || val == "1"
+}
+
+// SetRuleChainReplayRetentionEnabled 动态调整回放留存开关（供测试与运维控制）。
+func SetRuleChainReplayRetentionEnabled(enabled bool) {
+	replayRetentionExplicitOverride = &enabled
+	InstallRuleChainReplayPersistence()
 }
 
 // RuleChainReplayRetentionEnabled 暴露留存开关状态，供启动装配打日志提示。
@@ -134,3 +157,82 @@ func unmarshalRuleChainReplayJSON(raw string) (map[string]any, error) {
 	}
 	return decoded, nil
 }
+
+// ReplayExecution 校验租户并执行单次批次输入回放，严格施加副作用闸门保护。
+func (*RuleChain) ReplayExecution(ctx context.Context, chainID, execID string, confirmSideEffects bool, claims *utils.UserClaims) (map[string]any, error) {
+	tenantID, err := normalizeRuleChainTenant("", claims)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(chainID) == "" || strings.TrimSpace(execID) == "" {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "chain_id and exec_id are required")
+	}
+	chain, err := dal.GetRuleChainByID(chainID, tenantID)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": err.Error()})
+	}
+	if chain == nil {
+		return nil, errcode.NewWithMessage(errcode.CodeNotFound, "rule chain not found")
+	}
+	graph, err := ParseRuleChainGraph(string(chain.Graph))
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{"error": fmt.Sprintf("invalid chain graph: %v", err)})
+	}
+	graph.ChainID = chain.ID
+
+	records, err := LoadRuleChainReplayRecords(ctx, tenantID, strings.TrimSpace(execID))
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": err.Error()})
+	}
+	if len(records) == 0 {
+		return nil, errcode.NewWithMessage(errcode.CodeNotFound, fmt.Sprintf("no replay records found for execution %s", execID))
+	}
+
+	rcc := &RuleChainContext{
+		TenantID:  tenantID,
+		Timestamp: time.Now().UnixMilli(),
+	}
+	nodeErrs, gateErr := ReplayRuleChainExecution(ctx, graph, records, rcc, RuleChainReplayOptions{
+		ReplayOf:           strings.TrimSpace(execID),
+		ConfirmSideEffects: confirmSideEffects,
+	})
+	if gateErr != nil {
+		return nil, errcode.NewWithMessage(errcode.CodeOpDenied, gateErr.Error())
+	}
+
+	errStrings := make([]string, 0, len(nodeErrs))
+	for _, e := range nodeErrs {
+		if e != nil {
+			errStrings = append(errStrings, e.Error())
+		}
+	}
+
+	return map[string]any{
+		"execution_id":   strings.TrimSpace(execID),
+		"chain_id":       chainID,
+		"replayed_nodes": len(records),
+		"errors":         errStrings,
+	}, nil
+}
+
+// GetReplayRecords 查询某次执行的回放快照原始记录（租户隔离）。
+func (*RuleChain) GetReplayRecords(ctx context.Context, chainID, execID string, claims *utils.UserClaims) ([]model.RuleChainReplayRecordRow, error) {
+	tenantID, err := normalizeRuleChainTenant("", claims)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(execID) == "" {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "execId is required")
+	}
+	if strings.TrimSpace(chainID) != "" {
+		chain, err := dal.GetRuleChainByID(chainID, tenantID)
+		if err != nil {
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": err.Error()})
+		}
+		if chain == nil {
+			return nil, errcode.NewWithMessage(errcode.CodeNotFound, "rule chain not found")
+		}
+	}
+	return dal.ListRuleChainReplayRecords(ctx, tenantID, strings.TrimSpace(execID))
+}
+

@@ -28,6 +28,11 @@ func (*DeviceConfigApi) CreateDeviceConfig(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
+	if req.ConflictPolicy == nil || *req.ConflictPolicy == "" {
+		if q := c.Query("conflict_policy"); q != "" {
+			req.ConflictPolicy = &q
+		}
+	}
 	var userClaims = c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.DeviceConfig.CreateDeviceConfig(&req, userClaims)
 	if err != nil {

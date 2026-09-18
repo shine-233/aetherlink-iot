@@ -138,3 +138,58 @@ func (d *Document) Allows(feature string) bool {
 	}
 	return false
 }
+
+// GenerateKeyPair 生成一对用于离线商业许可证签发的 Ed25519 密钥对。
+// 返回 base64 (std) 编码的公钥与私钥字符串。
+func GenerateKeyPair() (string, string, error) {
+	pub, priv, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		return "", "", fmt.Errorf("license: key generation failed: %w", err)
+	}
+	pubBase64 := base64.StdEncoding.EncodeToString(pub)
+	privBase64 := base64.StdEncoding.EncodeToString(priv)
+	return pubBase64, privBase64, nil
+}
+
+// SignDocument 使用 Ed25519 私钥对许可证 Document 进行规范序列化与数字签名，
+// 返回 base64 编码的许可证材料字符串，可直接部署在平台的 license.material 配置中。
+func SignDocument(doc *Document, keyID string, privateKey ed25519.PrivateKey) (string, error) {
+	keyID = strings.TrimSpace(keyID)
+	if keyID == "" {
+		return "", errors.New("license: key_id cannot be empty")
+	}
+	if len(privateKey) != ed25519.PrivateKeySize {
+		return "", fmt.Errorf("license: invalid private key size: expected %d, got %d", ed25519.PrivateKeySize, len(privateKey))
+	}
+	if doc == nil {
+		return "", errors.New("license: document cannot be nil")
+	}
+	docBytes, err := json.Marshal(doc)
+	if err != nil {
+		return "", fmt.Errorf("license: marshal document failed: %w", err)
+	}
+	sig := ed25519.Sign(privateKey, docBytes)
+	material := Material{
+		Document:  json.RawMessage(docBytes),
+		Signature: base64.StdEncoding.EncodeToString(sig),
+		KeyID:     keyID,
+	}
+	materialBytes, err := json.Marshal(material)
+	if err != nil {
+		return "", fmt.Errorf("license: marshal material failed: %w", err)
+	}
+	return base64.StdEncoding.EncodeToString(materialBytes), nil
+}
+
+// SignDocumentWithBase64Key 便捷函数：使用 base64 编码的私钥字符串进行签名。
+func SignDocumentWithBase64Key(doc *Document, keyID string, privateKeyBase64 string) (string, error) {
+	raw, err := base64.StdEncoding.DecodeString(strings.TrimSpace(privateKeyBase64))
+	if err != nil {
+		return "", fmt.Errorf("license: invalid base64 private key: %w", err)
+	}
+	if len(raw) != ed25519.PrivateKeySize {
+		return "", fmt.Errorf("license: private key must be %d bytes, got %d", ed25519.PrivateKeySize, len(raw))
+	}
+	return SignDocument(doc, keyID, ed25519.PrivateKey(raw))
+}
+

@@ -16,6 +16,7 @@
 package service
 
 import (
+	"context"
 	"strings"
 
 	"aetherlink-iot/backend/internal/dal"
@@ -60,7 +61,8 @@ func (*DeviceTemplate) ImportMarketBundle(req model.ImportMarketBundleReq, claim
 			"sql_error": err.Error(),
 		})
 	}
-	preview := PreviewMarketBundleImport(bundle, existing)
+	existingBoards, _ := dal.ListBoardTemplateVersionsInTenant(context.Background(), claims.TenantID)
+	preview := PreviewResourceBundleImport(bundle, existing, existingBoards)
 	rsp := &model.ImportMarketBundleRsp{Preview: preview, Applied: false}
 
 	// 4) 预览模式到此为止，不落库。
@@ -78,9 +80,9 @@ func (*DeviceTemplate) ImportMarketBundle(req model.ImportMarketBundleReq, claim
 		})
 	}
 
-	// 6) 逐模板导入 + 逐模板审计。单个模板失败不中断整包：
-	//    中断会让"哪些进来了"取决于模板在包里的顺序，同样不可归因。
-	results := make([]model.MarketBundleTemplateImportResult, 0, len(bundle.Templates))
+	// 6) 逐模板与看板导入 + 逐项审计。单个项失败不中断整包：
+	//    中断会让"哪些进来了"取决于项在包里的顺序，同样不可归因。
+	results := make([]model.MarketBundleTemplateImportResult, 0, len(bundle.Templates)+len(bundle.Boards))
 	for _, template := range bundle.Templates {
 		if template == nil {
 			continue
@@ -90,6 +92,7 @@ func (*DeviceTemplate) ImportMarketBundle(req model.ImportMarketBundleReq, claim
 			version = strings.TrimSpace(*template.Version)
 		}
 		result := model.MarketBundleTemplateImportResult{
+			Kind:    "device_template",
 			Name:    strings.TrimSpace(template.Name),
 			Version: version,
 		}
@@ -113,6 +116,32 @@ func (*DeviceTemplate) ImportMarketBundle(req model.ImportMarketBundleReq, claim
 		// 每个模板独立留痕：幂等命中与拒绝同样要可归因。
 		EmitMarketTemplateImportAudit(BuildMarketTemplateImportAudit(
 			claims.TenantID, claims.ID, result.Name, result.Version, created, ierr))
+		results = append(results, result)
+	}
+
+	for _, board := range bundle.Boards {
+		if board == nil {
+			continue
+		}
+		version := "1.0.0"
+		if board.Version != nil && strings.TrimSpace(*board.Version) != "" {
+			version = strings.TrimSpace(*board.Version)
+		}
+		result := model.MarketBundleTemplateImportResult{
+			Kind:    "board_template",
+			Name:    strings.TrimSpace(board.Name),
+			Version: version,
+		}
+		savedBoard, berr := GroupApp.Board.ImportBoard(board, claims)
+		if berr != nil {
+			result.Outcome = string(MarketTemplateImportRejected)
+			result.Reason = berr.Error()
+		} else {
+			result.Outcome = string(MarketTemplateImportCreated)
+			if savedBoard != nil {
+				result.TemplateID = savedBoard.ID
+			}
+		}
 		results = append(results, result)
 	}
 	rsp.Applied = true

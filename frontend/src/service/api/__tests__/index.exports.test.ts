@@ -9,6 +9,8 @@ describe('service API barrel export contract', () => {
 
     expect(exports).toMatchInlineSnapshot(`
       [
+        "TELEMETRY_ANOMALY_RULE_BOUNDS",
+        "TELEMETRY_ANOMALY_RULE_DEVIATION",
         "acceptRdiSharedDevice",
         "activateRdiDevice",
         "addAttributes",
@@ -84,6 +86,7 @@ describe('service API barrel export contract', () => {
         "deleteRolePermissions",
         "deleteTopicMapping",
         "detachDeviceFromConfig",
+        "detectTelemetryAnomalies",
         "deviceAdd",
         "deviceAlarmHistory",
         "deviceAlarmHistoryPut",
@@ -157,6 +160,8 @@ describe('service API barrel export contract', () => {
         "fetchCompatHomeConfig",
         "fetchDashboardMenuConfig",
         "fetchDashboardMenuConfigs",
+        "fetchEdgeNodeCertificate",
+        "fetchEdgeNodeUpgradeHistory",
         "fetchEdgeNodes",
         "fetchElementList",
         "fetchEmailCode",
@@ -230,6 +235,7 @@ describe('service API barrel export contract', () => {
         "getTopicMappingList",
         "heartbeatEdgeNode",
         "invokeDirectMethod",
+        "issueEdgeNodeCertificate",
         "listEntityRelations",
         "listFleetCommandJobs",
         "listFleetSavedFilters",
@@ -269,8 +275,10 @@ describe('service API barrel export contract', () => {
         "requestPasswordResetLink",
         "retryFleetCommandJob",
         "retryReportRun",
+        "revokeEdgeNodeCertificate",
         "revokeRdiShareRecipient",
         "revokeRdiShareToken",
+        "rollbackEdgeNode",
         "rotatePluginToken",
         "ruleChainCreate",
         "ruleChainDelete",
@@ -317,6 +325,7 @@ describe('service API barrel export contract', () => {
         "updateRole",
         "updateTelemetryDeadLetterStatus",
         "updateTopicMapping",
+        "upgradeEdgeNode",
       ]
     `)
   })

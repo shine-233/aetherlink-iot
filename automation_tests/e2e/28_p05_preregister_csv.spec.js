@@ -104,19 +104,21 @@ function psql(sql) {
   });
 }
 
-const sqlString = value => (value === null || value === undefined ? 'NULL' : `'${String(value).replace(/'/g, "''")}'`);
-
-async function seedProduct(name, tenantId) {
-  const id = crypto.randomUUID();
-  await psql(
-    `INSERT INTO products (id, name, created_at, tenant_id) VALUES (${sqlString(id)}, ${sqlString(name)}, now(), ${sqlString(tenantId)});`
-  );
-  return { id, name };
+async function seedProduct(name, account) {
+  const resp = await apiClient.post('/product', { name, conflict_policy: 'allow' }, account);
+  if (!resp || !resp.data) {
+    throw new Error(`创建产品失败: ${JSON.stringify(resp)}`);
+  }
+  return resp.data;
 }
 
-async function deleteProduct(id) {
+async function deleteProduct(id, account) {
   if (!id) return;
-  await psql(`DELETE FROM products WHERE id = ${sqlString(id)};`);
+  try {
+    await apiClient.delete(`/product/${id}`, {}, account);
+  } catch (e) {
+    // ignore cleanup error
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -207,13 +209,12 @@ let fixtureSkipReason = '';
 
 test.beforeAll(async () => {
   try {
-    const tenantResp = await apiClient.get('/user/tenant/id', {}, 'tenant_admin');
-    const tenantId = typeof tenantResp?.data === 'string' ? tenantResp.data : tenantResp?.data?.tenant_id;
-    if (!tenantId) throw new Error('无法取得当前租户 ID');
+    await apiClient.login('tenant_admin');
+    await apiClient.login('tenant_admin_b');
 
-    ownProduct = await seedProduct(`p05-own-${Date.now().toString(36)}`, tenantId);
-    // 跨租户用例：一条属于"别的租户"的产品，本租户列表里绝不能出现
-    foreignProduct = await seedProduct(`p05-foreign-${Date.now().toString(36)}`, 'p05-foreign-tenant');
+    ownProduct = await seedProduct(`p05-own-${Date.now().toString(36)}`, 'tenant_admin');
+    // 跨租户用例：属于 tenant_admin_b 的产品，本租户列表里绝不能出现
+    foreignProduct = await seedProduct(`p05-foreign-${Date.now().toString(36)}`, 'tenant_admin_b');
   } catch (e) {
     fixtureSkipReason = `无法准备产品前置数据：${e && e.message}`;
   }
@@ -221,8 +222,8 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   try {
-    await deleteProduct(ownProduct && ownProduct.id);
-    await deleteProduct(foreignProduct && foreignProduct.id);
+    if (ownProduct) await deleteProduct(ownProduct.id || ownProduct.ID, 'tenant_admin');
+    if (foreignProduct) await deleteProduct(foreignProduct.id || foreignProduct.ID, 'tenant_admin_b');
   } catch (e) {
     console.warn(`[cleanup] 产品前置数据清理失败：${e && e.message}`);
   }

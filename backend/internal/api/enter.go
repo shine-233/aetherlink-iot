@@ -83,6 +83,11 @@ type Controller struct {
 	AssetApi
 	UserTotpApi
 	OidcSsoApi
+	ResourceCenterApi // TP-5 资源中心
+	RateLimitApi      // TB-7 集群限流与多策略配额
+	QueueMonitorApi   // TB-7 多队列隔离监控
+	UnitsApi          // TB-9 单位换算与物理量纲
+	SecretApi         // TB-18 通用 Secrets Storage
 }
 
 var (

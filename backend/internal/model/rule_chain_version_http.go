@@ -13,3 +13,9 @@ type RuleChainVersionActionReq struct {
 	ChainID string `json:"chain_id" form:"chain_id" binding:"required"`
 	Version int    `json:"version" form:"version" binding:"required"`
 }
+
+// RuleChainReplayReq 规则链输入回放请求（P1.2 回放执行面）。
+type RuleChainReplayReq struct {
+	ExecutionID        string `json:"execution_id" form:"execution_id" binding:"required"`
+	ConfirmSideEffects bool   `json:"confirm_side_effects" form:"confirm_side_effects"`
+}

@@ -11,6 +11,7 @@ import {
   buildAlarmClosureNextAction,
   isAcknowledged,
   isReset,
+  isCleared,
   type AlarmOption
 } from './alarm-configuration.helpers'
 
@@ -23,6 +24,7 @@ export interface AlarmConfigurationRow {
   description: string
   alarm_level: string
   alarm_status: string
+  lifecycle_status?: string
   alarm_config_name?: string
   notification_group_id: string
   enabled: string
@@ -36,6 +38,7 @@ export type AlarmConfigurationColumnHandlers = {
   onShowDetails: (row: AlarmConfigurationRow) => void
   onAcknowledge: (row: AlarmConfigurationRow) => void
   onReset: (row: AlarmConfigurationRow) => void
+  onClear?: (row: AlarmConfigurationRow) => void
   onMaintenance: (row: AlarmConfigurationRow) => void
 }
 
@@ -143,7 +146,7 @@ export function createAlarmConfigurationColumns(
     {
       key: 'actions',
       title: $t('common.actions'),
-      width: '360px',
+      width: '420px',
       align: 'left',
       render: row => {
         return (
@@ -163,6 +166,17 @@ export function createAlarmConfigurationColumns(
             <NButton type="error" size="small" data-testid="alarm-reset" disabled={isReset(row)} onClick={() => handlers.onReset(row)}>
               {$t('common.reset')}
             </NButton>
+            {handlers.onClear && (
+              <NButton
+                type="info"
+                size="small"
+                data-testid="alarm-clear"
+                disabled={isCleared(row)}
+                onClick={() => handlers.onClear!(row)}
+              >
+                {$t('common.clear') || '清除'}
+              </NButton>
+            )}
             <NButton type="warning" size="small" data-testid="alarm-maintenance-note" onClick={() => handlers.onMaintenance(row)}>
               {$t('common.maintenance')}
             </NButton>

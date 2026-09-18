@@ -76,6 +76,8 @@
   "route.device_entity-relation": "Relations d’entités",
   "route.management_edge-nodes": "Edge Nodes",
   "route.management_license": "License",
+  "route.management_secrets": "Gestion des Secrets",
+  "route.management-secrets": "Gestion des Secrets",
   "route.apply-service": "Service",
   "route.automation-rule-chain": "Chaîne de règles",
   "route.automation-rule-chain-edit": "Éditeur de chaîne de règles",

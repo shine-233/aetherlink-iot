@@ -101,11 +101,65 @@ func GetAlarmInfoHistoryByID(id string, ownerUserID *string) (map[string]interfa
 	if err != nil {
 		return nil, err
 	}
+	if result == nil {
+		return nil, nil
+	}
+	expandMapRemarkFields(result)
 	if result["alarm_device_list"] == nil {
 		return result, nil
 	}
 	result["alarm_device_list"] = alarmHistoryDeviceListMaps(result["alarm_device_list"], ownerUserID)
 	return result, nil
+}
+
+func expandMapRemarkFields(item map[string]interface{}) {
+	if item == nil {
+		return
+	}
+	var rawRemark string
+	switch v := item["remark"].(type) {
+	case string:
+		rawRemark = v
+	case *string:
+		if v != nil {
+			rawRemark = *v
+		}
+	}
+	statusStr := ""
+	if s, ok := item["alarm_status"].(string); ok {
+		statusStr = s
+	}
+	item["lifecycle_status"] = computeAlarmLifecycleStatus(statusStr, &rawRemark)
+	if strings.TrimSpace(rawRemark) != "" {
+		var r map[string]interface{}
+		if err := json.Unmarshal([]byte(rawRemark), &r); err == nil {
+			for _, k := range []string{"acknowledged", "acknowledged_by", "acknowledged_at", "reset", "reset_by", "reset_at", "cleared_by", "cleared_at", "action_note"} {
+				if val, exists := r[k]; exists && val != nil {
+					item[k] = val
+				}
+			}
+		}
+	}
+}
+
+func computeMapLifecycleStatus(item map[string]interface{}) string {
+	if item == nil {
+		return "ACTIVE_UNACK"
+	}
+	var rawRemark string
+	switch v := item["remark"].(type) {
+	case string:
+		rawRemark = v
+	case *string:
+		if v != nil {
+			rawRemark = *v
+		}
+	}
+	statusStr := ""
+	if s, ok := item["alarm_status"].(string); ok {
+		statusStr = s
+	}
+	return computeAlarmLifecycleStatus(statusStr, &rawRemark)
 }
 
 // GetAlarmConfigListByPage 分页查询告警配置，支持租户、名称、等级和启用状态过滤。
@@ -246,6 +300,9 @@ func GetAlarmHistoryListByPageForScopes(d *model.GetAlarmHisttoryListByPage, sco
 	} else {
 		expandAlarmHistoryListDeviceFields(list, ownerUserID)
 	}
+	for _, item := range list {
+		expandMapRemarkFields(item)
+	}
 	return count, list, nil
 }
 
@@ -279,6 +336,9 @@ func GetAlarmHistoryListByPage(d *model.GetAlarmHisttoryListByPage, tenantID str
 		}
 	} else {
 		expandAlarmHistoryListDeviceFields(list, ownerUserID)
+	}
+	for _, item := range list {
+		expandMapRemarkFields(item)
 	}
 	return count, list, nil
 }

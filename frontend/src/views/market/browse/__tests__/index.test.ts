@@ -31,6 +31,14 @@ vi.mock('@/service/api/market', () => ({
   importMarketBundle: (...args: unknown[]) => importMarketBundle(...args)
 }))
 
+vi.mock('@/service/api/resource-center', () => ({
+  getResourceCenterCatalog: vi.fn(async () => ({ data: [], error: null })),
+  getResourceCenterList: vi.fn(async () => ({ data: { list: [], total: 0, page: 1, page_size: 200 }, error: null })),
+  exportResourceBundle: vi.fn(async () => ({ data: null, error: null })),
+  importResourceBundle: (...args: unknown[]) => importMarketBundle(...args),
+  applyResource: vi.fn(async () => ({ data: { message: 'ok' }, error: null }))
+}))
+
 const messages = {
   en: {
     page: {

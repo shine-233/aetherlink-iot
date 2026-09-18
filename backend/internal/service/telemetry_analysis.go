@@ -54,15 +54,17 @@ type TelemetryAnalysisResult struct {
 
 // telemetryAnalysisOperations 副作用集合，可注入以便无数据库验证编排。
 type telemetryAnalysisOperations struct {
-	fetch  func(deviceID, key string, start, end int64, windowMs int64, aggregateFunc string) ([]map[string]interface{}, error)
-	access func(deviceID string, claims *utils.UserClaims) (*model.Device, error)
-	export func(q model.TelemetryAnalysisQuery, rows [][]string) (*TelemetryAnalysisExportResult, error)
+	fetch       func(deviceID, key string, start, end int64, windowMs int64, aggregateFunc string) ([]map[string]interface{}, error)
+	access      func(deviceID string, claims *utils.UserClaims) (*model.Device, error)
+	export      func(q model.TelemetryAnalysisQuery, rows [][]string) (*TelemetryAnalysisExportResult, error)
+	resolveUnit func(ctx context.Context, deviceID, key string) (string, error)
 }
 
 var telemetryAnalysisOps = telemetryAnalysisOperations{
-	fetch:  dal.GetTelemetrStatisticaAgregationData,
-	access: ensureTelemetryDeviceReadAccess,
-	export: ExportTelemetryAnalysis,
+	fetch:       dal.GetTelemetrStatisticaAgregationData,
+	access:      ensureTelemetryDeviceReadAccess,
+	export:      ExportTelemetryAnalysis,
+	resolveUnit: dal.ResolveDeviceTelemetryUnit,
 }
 
 // telemetryAnalysisValues 从聚合行里提取数值序列。
@@ -103,9 +105,17 @@ func RunTelemetryAnalysis(ctx context.Context, q model.TelemetryAnalysisQuery, c
 
 	windowMs := q.EndTime - q.StartTime
 
-	// TB-9：单位换算方案。未请求（UnitSystem 为空）时 TargetUnit 与 Reason 都为空，
+	// TB-9：单位换算方案。若未显式传 unit 但指定了 unit_system，尝试从首台设备的物模型自动两跳解析源单位。
+	sourceUnit := strings.TrimSpace(q.Unit)
+	if sourceUnit == "" && strings.TrimSpace(q.UnitSystem) != "" && len(q.DeviceIDs) > 0 && telemetryAnalysisOps.resolveUnit != nil {
+		if resolvedUnit, err := telemetryAnalysisOps.resolveUnit(ctx, q.DeviceIDs[0], q.Key); err == nil && resolvedUnit != "" {
+			sourceUnit = resolvedUnit
+		}
+	}
+
+	// 未请求（UnitSystem 为空）时 TargetUnit 与 Reason 都为空，
 	// 后续全部跳过，行为与本次改动前逐位一致。
-	unitPlan := resolveTelemetryUnitPlan(q.Unit, aggregate, q.UnitSystem)
+	unitPlan := resolveTelemetryUnitPlan(sourceUnit, aggregate, q.UnitSystem)
 
 	result := &TelemetryAnalysisResult{Key: q.Key, Aggregate: aggregate, Compare: compare}
 	if requested := strings.TrimSpace(q.UnitSystem); requested != "" {

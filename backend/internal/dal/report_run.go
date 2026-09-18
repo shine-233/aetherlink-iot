@@ -13,6 +13,7 @@ import (
 	"aetherlink-iot/backend/internal/model"
 
 	"github.com/google/uuid"
+	"github.com/spf13/viper"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -628,11 +629,19 @@ func reportRetryDelay(attempt int) time.Duration {
 	if attempt < 1 {
 		attempt = 1
 	}
-	delay := reportRetryBaseDelay
-	for index := 1; index < attempt && delay < reportRetryMaxDelay; index++ {
+	baseDelay := reportRetryBaseDelay
+	if configured := viper.GetDuration("reports.worker.retry_base_delay"); configured > 0 {
+		baseDelay = configured
+	}
+	maxDelay := reportRetryMaxDelay
+	if configured := viper.GetDuration("reports.worker.retry_max_delay"); configured > 0 {
+		maxDelay = configured
+	}
+	delay := baseDelay
+	for index := 1; index < attempt && delay < maxDelay; index++ {
 		delay *= 2
-		if delay > reportRetryMaxDelay {
-			delay = reportRetryMaxDelay
+		if delay > maxDelay {
+			delay = maxDelay
 		}
 	}
 	return delay

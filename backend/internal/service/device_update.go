@@ -112,6 +112,37 @@ func authorizeUpdateDevice(req model.UpdateDeviceReq, oldDevice *model.Device, c
 	if _, err := ensureTelemetryDeviceWriteAccess(req.Id, claims); err != nil {
 		return err
 	}
+
+	if req.ParentID != nil && *req.ParentID != "" {
+		if *req.ParentID == req.Id {
+			return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+				"message": "device cannot be its own parent",
+			})
+		}
+		parentDevice, err := ensureTelemetryDeviceWriteAccess(*req.ParentID, claims)
+		if err != nil {
+			return err
+		}
+		if parentDevice.TenantID != oldDevice.TenantID {
+			return errcode.NewWithMessage(errcode.CodeNoPermission, "parent and device must belong to the same tenant")
+		}
+		currParentID := parentDevice.ParentID
+		hops := 0
+		for currParentID != nil && *currParentID != "" && hops < 20 {
+			if *currParentID == req.Id {
+				return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+					"message": "cycle detected in gateway hierarchy",
+				})
+			}
+			anc, err := dal.GetDeviceByIDUnscoped(*currParentID)
+			if err != nil || anc == nil {
+				break
+			}
+			currParentID = anc.ParentID
+			hops++
+		}
+	}
+
 	if req.DeviceConfigId == nil || *req.DeviceConfigId == "" {
 		return nil
 	}

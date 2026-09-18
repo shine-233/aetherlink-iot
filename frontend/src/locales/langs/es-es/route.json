@@ -76,6 +76,8 @@
   "route.device_entity-relation": "Relaciones de entidades",
   "route.management_edge-nodes": "Edge Nodes",
   "route.management_license": "License",
+  "route.management_secrets": "Almacén de Secretos",
+  "route.management-secrets": "Almacén de Secretos",
   "route.apply-service": "Servicio",
   "route.automation-rule-chain": "Cadena de reglas",
   "route.automation-rule-chain-edit": "Editor de cadena de reglas",

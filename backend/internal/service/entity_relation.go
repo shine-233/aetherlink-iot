@@ -14,12 +14,15 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 
 	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/global"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -108,6 +111,19 @@ func CreateRelation(ctx context.Context, r *model.EntityRelation) error {
 	}
 	if err := model.ValidateEntityRelation(r, len(*r.Metadata)); err != nil {
 		return errcode.NewWithMessage(errcode.CodeParamError, err.Error())
+	}
+	// metadata 以 *string 直写 jsonb 列：不在这里校验 JSON 合法性，
+	// 非法串会一路传到数据库，最终以 SQLSTATE 22P02 的形式暴露成系统错误，
+	// 既不是参数错误，也会把库内细节带出去。
+	if !json.Valid([]byte(strings.TrimSpace(*r.Metadata))) {
+		return errcode.NewWithMessage(errcode.CodeParamError, "关系元数据必须是合法 JSON")
+	}
+	// id 列是 uuid 且默认值在数据库侧（85.sql 的 gen_random_uuid()），
+	// 而模型标签没有 default —— GORM 会把零值 "" 原样拼进 INSERT，
+	// PostgreSQL 直接报 invalid input syntax for type uuid（SQLSTATE 22P02）。
+	// 因此主键必须由本层显式生成，不能指望数据库默认值。
+	if strings.TrimSpace(r.ID) == "" {
+		r.ID = uuid.New().String()
 	}
 
 	err := dal.CreateEntityRelation(r)

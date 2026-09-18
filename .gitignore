@@ -140,6 +140,7 @@ backend/files/logs/
 backend/files/excel/
 backend/files/upgradePackage/
 backend/files/telemetry-spool/
+backend/files/importBatch/
 backend/data/telemetry-spool/
 backend/data/attribute-event-spool/
 backend/configs/.instance_id

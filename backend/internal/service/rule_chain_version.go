@@ -41,11 +41,11 @@ type RuleChainVersion struct {
 
 // RuleChainVersionAudit 每次流转产生的审计事件，双向留痕。
 type RuleChainVersionAudit struct {
-	ChainID   string
-	Action    string // created / published / rollback_from / rollback_to
-	Version   int
-	RelatedTo *int
-	At        time.Time
+	ChainID   string    `json:"chain_id"`
+	Action    string    `json:"action"` // created / published / rollback_from / rollback_to
+	Version   int       `json:"version"`
+	RelatedTo *int      `json:"related_to,omitempty"`
+	At        time.Time `json:"at"`
 }
 
 func ruleChainVersionErrorf(msg string) error {

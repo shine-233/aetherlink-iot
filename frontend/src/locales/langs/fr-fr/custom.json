@@ -943,7 +943,7 @@
   "custom.device_details.shadowTypeProperty": "Propriété",
   "custom.device_details.shadowTypeNotification": "Notification",
   "custom.device_details.shadowPayload": "Charge",
-  "custom.device_details.shadowPayloadHint": "JSON valide requis, ex. {\"method\":\"set\",\"params\":{\"power\":1}}",
+  "custom.device_details.shadowPayloadHint": "JSON valide requis, avec method et params",
   "custom.device_details.shadowTTL": "TTL",
   "custom.device_details.shadowTTLUnit": "s",
   "custom.device_details.shadowSubmit": "Envoyer",

@@ -5,7 +5,9 @@ package api
 import (
 	"io"
 	"strconv"
+	"strings"
 
+	model "aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/internal/service"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/utils"
@@ -134,3 +136,76 @@ func (*RuleChainApi) HandleGetRuleChainNodeTraces(c *gin.Context) {
 	}
 	c.Set("data", traces)
 }
+
+// HandleListRuleChainDeadLetters 查询规则链死信列表（P1.2 护城河）。
+// GET /api/v1/rule-chains/:id/dead-letters or GET /api/v1/rule-chains/dead-letters
+func (*RuleChainApi) HandleListRuleChainDeadLetters(c *gin.Context) {
+	chainID := c.Param("id")
+	if chainID == "" {
+		chainID = c.Query("chain_id")
+	}
+	execID := c.Query("exec_id")
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+
+	res, err := service.GroupApp.RuleChain.ListRuleChainDeadLetters(chainID, execID, page, pageSize, userClaims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", res)
+}
+
+// HandleGetRuleChainExecutionTraces 查询单次执行批次全节点串联 trace 链路（P1.2 护城河）。
+// GET /api/v1/rule-chains/:id/executions/:execId/traces or GET /api/v1/rule-chains/executions/:execId/traces
+func (*RuleChainApi) HandleGetRuleChainExecutionTraces(c *gin.Context) {
+	chainID := c.Param("id")
+	execID := c.Param("execId")
+	if execID == "" {
+		execID = c.Query("exec_id")
+	}
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	traces, err := service.GroupApp.RuleChain.GetExecutionTraces(chainID, execID, userClaims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", traces)
+}
+
+// HandleListRuleChainReplayRecords 查询某次执行的回放输入快照记录（P1.2 护城河）。
+// GET /api/v1/rule-chains/:id/executions/:execId/replay-records
+func (*RuleChainApi) HandleListRuleChainReplayRecords(c *gin.Context) {
+	chainID := c.Param("id")
+	execID := c.Param("execId")
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	records, err := service.GroupApp.RuleChain.GetReplayRecords(c.Request.Context(), chainID, execID, userClaims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", records)
+}
+
+// HandleReplayRuleChainExecution 触发单次执行输入回放，严格施加副作用确认闸门（P1.2 护城河）。
+// POST /api/v1/rule-chains/:id/replay
+func (*RuleChainApi) HandleReplayRuleChainExecution(c *gin.Context) {
+	chainID := c.Param("id")
+	if strings.TrimSpace(chainID) == "" {
+		c.Error(errcode.NewWithMessage(errcode.CodeParamError, "chain id is required"))
+		return
+	}
+	var req model.RuleChainReplayReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	res, err := service.GroupApp.RuleChain.ReplayExecution(c.Request.Context(), chainID, req.ExecutionID, req.ConfirmSideEffects, userClaims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", res)
+}
+

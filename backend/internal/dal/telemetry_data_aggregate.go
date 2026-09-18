@@ -29,7 +29,7 @@ func GetTelemetryDatasAggregate(_ context.Context, telemetryDatasAggregate Telem
 
 	// 根据聚合方法获取不同的查询sql
 	switch telemetryDatasAggregate.AggregateFunction {
-	case "avg", "max", "min", "sum":
+	case "avg", "max", "min", "sum", "count", "last":
 		queryString = GetQueryString1(telemetryDatasAggregate.AggregateFunction)
 	case "diff":
 		queryString = GetQueryString2(telemetryDatasAggregate.AggregateFunction)
@@ -97,11 +97,48 @@ const telemetryAggregateQuerySuffix = `
 			x ASC;`
 
 const (
-	telemetryAggregateAvgQuery = telemetryAggregateQueryPrefix + "AVG(number_v) AS y" + telemetryAggregateQuerySuffix
-	telemetryAggregateMaxQuery = telemetryAggregateQueryPrefix + "MAX(number_v) AS y" + telemetryAggregateQuerySuffix
-	telemetryAggregateMinQuery = telemetryAggregateQueryPrefix + "MIN(number_v) AS y" + telemetryAggregateQuerySuffix
-	telemetryAggregateSumQuery = telemetryAggregateQueryPrefix + "SUM(number_v) AS y" + telemetryAggregateQuerySuffix
+	telemetryAggregateAvgQuery   = telemetryAggregateQueryPrefix + "AVG(number_v) AS y" + telemetryAggregateQuerySuffix
+	telemetryAggregateMaxQuery   = telemetryAggregateQueryPrefix + "MAX(number_v) AS y" + telemetryAggregateQuerySuffix
+	telemetryAggregateMinQuery   = telemetryAggregateQueryPrefix + "MIN(number_v) AS y" + telemetryAggregateQuerySuffix
+	telemetryAggregateSumQuery   = telemetryAggregateQueryPrefix + "SUM(number_v) AS y" + telemetryAggregateQuerySuffix
+	telemetryAggregateCountQuery = telemetryAggregateQueryPrefix + "COUNT(number_v) AS y" + telemetryAggregateQuerySuffix
 )
+
+// telemetryAggregateLastQuery 取每个分桶内时间戳最新的一个样本。
+// P2.2 的 API 校验一直允许 aggregate=last，热路径却没有任何分支——
+// 请求会在运行期拿到「不支持的聚合函数」。本语句补齐该承诺：
+// array_agg(... ORDER BY ts_sec DESC)[1] 等价于桶内最后一个非空样本，
+// 与冷层 rollup 的 last 列语义一致。
+const telemetryAggregateLastQuery = `WITH FilteredData AS (
+			SELECT
+				ts / 1000 AS ts_sec,
+				number_v
+			FROM
+				telemetry_datas
+			WHERE
+				ts BETWEEN ? AND ? AND key = ? AND device_id = ?
+				AND number_v IS NOT NULL
+				AND abs(number_v) < 1e15
+		),
+		TimeIntervals AS (
+			SELECT
+				ts_sec - (ts_sec % ?) AS x,
+				(array_agg(number_v ORDER BY ts_sec DESC))[1] AS y
+			FROM
+				FilteredData
+			GROUP BY
+				x
+		)
+		SELECT
+			x * 1000 AS x,
+			(x + ?) * 1000 AS x2,
+			y
+		FROM
+			TimeIntervals
+		WHERE
+			y IS NOT NULL
+		ORDER BY
+			x ASC;`
 
 const telemetryDiffQuery = `WITH FilteredData AS (
 			SELECT
@@ -148,6 +185,10 @@ func GetQueryString1(aggregateFunction string) string {
 		return telemetryAggregateMinQuery
 	case "sum":
 		return telemetryAggregateSumQuery
+	case "count":
+		return telemetryAggregateCountQuery
+	case "last":
+		return telemetryAggregateLastQuery
 	default:
 		return ""
 	}

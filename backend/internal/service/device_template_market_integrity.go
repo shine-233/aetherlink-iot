@@ -66,11 +66,13 @@ func marketBundleCanonical(bundle *model.MarketBundle) ([]byte, error) {
 		ExportedAt int64                         `json:"exported_at"`
 		Count      int                           `json:"count"`
 		Templates  []*model.DeviceTemplateExport `json:"templates"`
+		Boards     []*model.BoardTemplateExport  `json:"boards,omitempty"`
 	}{
 		TypeKey:    bundle.TypeKey,
 		ExportedAt: bundle.ExportedAt,
 		Count:      bundle.Count,
 		Templates:  bundle.Templates,
+		Boards:     bundle.Boards,
 	}
 	return json.Marshal(shadow)
 }
@@ -153,15 +155,15 @@ type MarketBundleImportPreview = model.MarketBundleImportPreview
 
 // CheckMarketBundleDependencies 包内自洽与依赖检查，返回问题列表（空表示通过）。
 // 判定口径：
-//   - 模板名缺失：导入后无法定位，也无法幂等重放；
-//   - 包内模板重名：导入后互相覆盖，最终状态取决于顺序，属不确定行为；
+//   - 模板或看板名缺失：导入后无法定位，也无法幂等重放；
+//   - 包内模板或看板重名：导入后互相覆盖，最终状态取决于顺序，属不确定行为；
 //   - 包声明了行业类型，而模板 type_key 与之不符：包不自洽。
 func CheckMarketBundleDependencies(bundle *model.MarketBundle) []string {
 	if bundle == nil {
 		return []string{"bundle is nil"}
 	}
 	issues := make([]string, 0, 4)
-	seen := make(map[string]bool, len(bundle.Templates))
+	seenTemplates := make(map[string]bool, len(bundle.Templates))
 	for i, template := range bundle.Templates {
 		if template == nil {
 			issues = append(issues, fmt.Sprintf("templates[%d] is nil", i))
@@ -172,24 +174,58 @@ func CheckMarketBundleDependencies(bundle *model.MarketBundle) []string {
 			issues = append(issues, fmt.Sprintf("templates[%d] has empty name", i))
 			continue
 		}
-		if seen[name] {
+		if seenTemplates[name] {
 			issues = append(issues, fmt.Sprintf("duplicate template name %q within bundle", name))
 		}
-		seen[name] = true
+		seenTemplates[name] = true
 		if bundle.TypeKey != "" {
 			templateTypeKey := ""
 			if template.TypeKey != nil {
 				templateTypeKey = strings.TrimSpace(*template.TypeKey)
 			}
-			if templateTypeKey != bundle.TypeKey {
+			if templateTypeKey != "" && templateTypeKey != bundle.TypeKey {
 				issues = append(issues, fmt.Sprintf("template %q type_key %q does not match bundle type_key %q",
 					name, templateTypeKey, bundle.TypeKey))
 			}
 		}
 	}
-	if bundle.Count != len(bundle.Templates) {
-		issues = append(issues, fmt.Sprintf("bundle count %d does not match templates length %d",
-			bundle.Count, len(bundle.Templates)))
+
+	seenBoards := make(map[string]bool, len(bundle.Boards))
+	for i, board := range bundle.Boards {
+		if board == nil {
+			issues = append(issues, fmt.Sprintf("boards[%d] is nil", i))
+			continue
+		}
+		name := strings.TrimSpace(board.Name)
+		if name == "" {
+			issues = append(issues, fmt.Sprintf("boards[%d] has empty name", i))
+			continue
+		}
+		if seenBoards[name] {
+			issues = append(issues, fmt.Sprintf("duplicate board name %q within bundle", name))
+		}
+		seenBoards[name] = true
+		if bundle.TypeKey != "" {
+			boardTypeKey := ""
+			if board.TypeKey != nil {
+				boardTypeKey = strings.TrimSpace(*board.TypeKey)
+			}
+			if boardTypeKey != "" && boardTypeKey != bundle.TypeKey {
+				issues = append(issues, fmt.Sprintf("board %q type_key %q does not match bundle type_key %q",
+					name, boardTypeKey, bundle.TypeKey))
+			}
+		}
+	}
+
+	totalItems := len(bundle.Templates) + len(bundle.Boards)
+	if bundle.Count != totalItems {
+		if len(bundle.Boards) == 0 {
+			issues = append(issues, fmt.Sprintf("bundle count %d does not match templates length %d",
+				bundle.Count, len(bundle.Templates)))
+		} else {
+			issues = append(issues, fmt.Sprintf("bundle count %d does not match items length %d",
+				bundle.Count, totalItems))
+		}
 	}
 	return issues
 }
@@ -207,23 +243,27 @@ func NormalizeDeviceTemplateVersion(version *string) string {
 	return "1.0.0"
 }
 
-// PreviewMarketBundleImport 预览导入结果；existing 为租户内已有模板的 名称→版本。
-//
-// 判定按导入的真实幂等键 (租户, 名称, 版本)：
-//   - 名称不存在           → Create（导入即新建）
-//   - 同名且同版本         → 既非新建也非覆盖：导入是幂等命中，**无需人工确认**
-//   - 同名但版本不同       → Overwrite（会为同名模板再添一个版本，需 confirm_overwrite）
-//
-// 只读：不建模板、不改数据。阻断项非空即不应导入。
+// PreviewMarketBundleImport 预览导入结果（兼容单物模型包调用）；existing 为租户内已有模板的 名称→版本。
 func PreviewMarketBundleImport(bundle *model.MarketBundle, existing map[string]string) MarketBundleImportPreview {
+	return PreviewResourceBundleImport(bundle, existing, nil)
+}
+
+// PreviewResourceBundleImport 资源中心综合预览：支持物模型与大屏看板双重冲突分析。
+func PreviewResourceBundleImport(bundle *model.MarketBundle, existingTemplates map[string]string, existingBoards map[string]string) MarketBundleImportPreview {
 	preview := MarketBundleImportPreview{
-		Create:    make([]string, 0, 4),
-		Overwrite: make([]string, 0, 4),
-		Blocking:  CheckMarketBundleDependencies(bundle),
+		Create:            make([]string, 0, 4),
+		Overwrite:         make([]string, 0, 4),
+		Blocking:          CheckMarketBundleDependencies(bundle),
+		TemplateCreate:    make([]string, 0, 4),
+		TemplateOverwrite: make([]string, 0, 4),
+		BoardCreate:       make([]string, 0, 4),
+		BoardOverwrite:    make([]string, 0, 4),
 	}
 	if bundle == nil {
 		return preview
 	}
+
+	// 1. 判定物模型模板
 	for _, template := range bundle.Templates {
 		if template == nil {
 			continue
@@ -232,15 +272,39 @@ func PreviewMarketBundleImport(bundle *model.MarketBundle, existing map[string]s
 		if name == "" {
 			continue
 		}
-		if existingVersion, ok := existing[name]; ok {
+		if existingVersion, ok := existingTemplates[name]; ok {
 			if existingVersion == NormalizeDeviceTemplateVersion(template.Version) {
 				continue
 			}
 			preview.Overwrite = append(preview.Overwrite, name)
+			preview.TemplateOverwrite = append(preview.TemplateOverwrite, name)
 			continue
 		}
 		preview.Create = append(preview.Create, name)
+		preview.TemplateCreate = append(preview.TemplateCreate, name)
 	}
+
+	// 2. 判定大屏看板
+	for _, board := range bundle.Boards {
+		if board == nil {
+			continue
+		}
+		name := strings.TrimSpace(board.Name)
+		if name == "" {
+			continue
+		}
+		if existingVersion, ok := existingBoards[name]; ok {
+			if existingVersion == NormalizeDeviceTemplateVersion(board.Version) {
+				continue
+			}
+			preview.Overwrite = append(preview.Overwrite, name)
+			preview.BoardOverwrite = append(preview.BoardOverwrite, name)
+			continue
+		}
+		preview.Create = append(preview.Create, name)
+		preview.BoardCreate = append(preview.BoardCreate, name)
+	}
+
 	preview.Total = len(preview.Create) + len(preview.Overwrite)
 	return preview
 }

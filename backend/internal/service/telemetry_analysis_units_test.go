@@ -10,6 +10,7 @@
 package service
 
 import (
+	"context"
 	"math"
 	"testing"
 
@@ -313,5 +314,40 @@ func TestRunTelemetryAnalysisReportsUnitReasonInsteadOfSilentPassThrough(t *test
 				t.Fatalf("未换算时数值必须保持源单位，实际 %v，期望 %v", device.Current.Value, testCase.wantValue)
 			}
 		})
+	}
+}
+
+// TB-9：若调用方未传 unit 但指定了 unit_system，自动从设备物模型链路解析源单位并换算。
+func TestRunTelemetryAnalysisAutoResolvesUnitFromDevice(t *testing.T) {
+	ops := fakeAnalysisOps([]float64{0, 10, 20}, nil)
+	ops.resolveUnit = func(ctx context.Context, deviceID, key string) (string, error) {
+		if deviceID == "dev-1" && key == "temp" {
+			return "°C", nil
+		}
+		return "", nil
+	}
+	withTelemetryAnalysisOps(t, ops)
+
+	query := baseAnalysisQuery()
+	query.Compare = model.TelemetryAnalysisCompareNone
+	query.Unit = "" // 刻意为空，依赖服务端自动解析
+	query.UnitSystem = model.TelemetryAnalysisUnitSystemImperial
+	query.Aggregate = model.TelemetryAnalysisAggAvg
+
+	result, err := RunTelemetryAnalysis(context.Background(), query, claimsForTenant())
+	if err != nil {
+		t.Fatalf("分析失败：%v", err)
+	}
+
+	if result.SourceUnit != "°C" || result.TargetUnit != "°F" {
+		t.Fatalf("自动解析与换算失败：source=%q target=%q", result.SourceUnit, result.TargetUnit)
+	}
+	device := result.Devices[0]
+	if device.UnitReason != "" {
+		t.Fatalf("换算成功时不应有 unit_reason：%q", device.UnitReason)
+	}
+	// 均值 10°C -> 50°F
+	if !almostEqualFloat(device.Current.Value, 50) {
+		t.Fatalf("期望换算后为 50°F，实际为 %v", device.Current.Value)
 	}
 }

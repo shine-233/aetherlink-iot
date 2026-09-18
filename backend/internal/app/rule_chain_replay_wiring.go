@@ -13,9 +13,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// WithRuleChainReplayPersistence 按配置装配规则链回放留存。
+// WithRuleChainReplayPersistence 按配置装配规则链回放留存与死信队列。
 func WithRuleChainReplayPersistence() Option {
 	return func(app *Application) error {
+		service.InstallRuleChainDeadLetterPersistence()
 		service.InstallRuleChainReplayPersistence()
 		if service.RuleChainReplayRetentionEnabled() {
 			logrus.Warn("rule chain replay retention is enabled: raw node input will be persisted")

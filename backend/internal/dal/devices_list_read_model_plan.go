@@ -248,6 +248,7 @@ func (plan *deviceListPagePlan) applyConfigFieldFilters() {
 
 	plan.applyTextFilter(plan.req.DeviceConfigId, q.DeviceConfigID.Eq)
 	plan.applyTextFilter(plan.req.DeviceTemplateID, c.DeviceTemplateID.Eq)
+	plan.applyTextFilter(plan.req.ParentID, q.ParentID.Eq)
 }
 
 func (plan *deviceListPagePlan) applyProtocolTypeFilters() {

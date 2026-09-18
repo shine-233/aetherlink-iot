@@ -466,3 +466,23 @@ func UpdateDeviceDeviceConfigIDs(deviceIDs []string, deviceConfigID *string) err
 	}
 	return nil
 }
+
+// GetDeviceConfigByNameAndTenant 查询指定租户下指定名称的设备配置（TB-15）。
+func GetDeviceConfigByNameAndTenant(tenantID, name string) (*model.DeviceConfig, error) {
+	var dc model.DeviceConfig
+	err := global.DB.Where("tenant_id = ? AND name = ?", tenantID, name).First(&dc).Error
+	if err != nil {
+		return nil, err
+	}
+	return &dc, nil
+}
+
+// GetDeviceConfigNamesMatchingBase 查询指定租户下 baseName 或 baseName (N) 形式的配置名称列表（TB-15）。
+func GetDeviceConfigNamesMatchingBase(tenantID, baseName string) ([]string, error) {
+	var names []string
+	err := global.DB.Model(&model.DeviceConfig{}).
+		Where("tenant_id = ? AND (name = ? OR name LIKE ?)", tenantID, baseName, baseName+" (%)").
+		Pluck("name", &names).Error
+	return names, err
+}
+

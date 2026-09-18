@@ -282,18 +282,19 @@ func enabledGraphsForTenant(tenantID string) []*RuleChainGraph {
 	if ok && time.Now().Before(entry.expiresAt) {
 		return entry.graphs
 	}
-	graphsRaw, err := dal.ListEnabledRuleChainGraphs(tenantID)
+	chains, err := dal.ListEnabledRuleChains(tenantID)
 	if err != nil {
 		logrus.WithError(err).Warn("rule chain cache load failed")
 		return nil
 	}
-	graphs := make([]*RuleChainGraph, 0, len(graphsRaw))
-	for _, raw := range graphsRaw {
-		graph, perr := ParseRuleChainGraph(raw)
+	graphs := make([]*RuleChainGraph, 0, len(chains))
+	for _, c := range chains {
+		graph, perr := ParseRuleChainGraph(c.Graph)
 		if perr != nil {
 			logrus.WithError(perr).Warn("skip invalid rule chain graph")
 			continue
 		}
+		graph.ChainID = c.ID
 		graphs = append(graphs, graph)
 	}
 	ruleChainCacheMu.Lock()

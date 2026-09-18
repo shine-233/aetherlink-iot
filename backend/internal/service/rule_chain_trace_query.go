@@ -59,6 +59,41 @@ func (*RuleChain) GetNodeTraces(chainID, nodeID string, limit int, claims *utils
 	return traces, nil
 }
 
+// GetExecutionTraces 返回指定单次执行批次（execID）全部节点的 trace，按时间正序排列（串联出一条完整流转链路）。
+func (*RuleChain) GetExecutionTraces(chainID, execID string, claims *utils.UserClaims) ([]model.RuleChainNodeTrace, error) {
+	tenantID, err := normalizeRuleChainTenant("", claims)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(execID) == "" {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "execId is required")
+	}
+	if strings.TrimSpace(chainID) != "" {
+		chain, err := dal.GetRuleChainByID(chainID, tenantID)
+		if err != nil {
+			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": err.Error()})
+		}
+		if chain == nil {
+			return nil, errcode.NewWithMessage(errcode.CodeNotFound, "rule chain not found")
+		}
+	}
+	if global.DB == nil {
+		return nil, errRuleChainDBNotInitialized
+	}
+	traces := make([]model.RuleChainNodeTrace, 0)
+	query := global.DB.WithContext(context.Background()).
+		Table(model.TableNameRuleChainNodeTrace).
+		Where("tenant_id = ? AND exec_id = ?", tenantID, strings.TrimSpace(execID))
+	if strings.TrimSpace(chainID) != "" {
+		query = query.Where("chain_id = ?", strings.TrimSpace(chainID))
+	}
+	if err := query.Order("created_at ASC").Find(&traces).Error; err != nil {
+		logrus.Error("查询执行批次 trace 失败:", err)
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": err.Error()})
+	}
+	return traces, nil
+}
+
 // normalizeTraceLimitString 查询参数解析容错。
 func normalizeTraceLimitString(raw string) int {
 	limit, err := strconv.Atoi(strings.TrimSpace(raw))

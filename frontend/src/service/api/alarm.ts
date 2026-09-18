@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 文件用途: 告警消息、告警配置、告警历史和通知对象相关 API wrapper。
  * 核心逻辑: 将告警页面的新增、编辑、删除、分页查询、处理记录和通知关系操作映射到后端接口。
  * 关键注意事项: 告警级别、处理状态、通知组和历史筛选条件会影响告警闭环判断，字段变更需同步后端和自动化测试。
@@ -108,10 +108,18 @@ export const resetAlarmHistory = async (id: string) => {
   return data
 }
 
-/** Batch acknowledge or reset alarm history records. */
+/** Clear an alarm history record (ThingsBoard 4.3 Alarm Clear & Lifecycle). */
+export const clearAlarmHistory = async (id: string, note?: string) => {
+  const data = await request.put(`/alarm/info/history/${encodeURIComponent(id)}/clear`, {
+    note
+  })
+  return data
+}
+
+/** Batch acknowledge, reset, or clear alarm history records. */
 export const batchActionAlarmHistory = async (params: {
   ids: string[]
-  action: 'acknowledge' | 'reset'
+  action: 'acknowledge' | 'reset' | 'clear'
   note?: string
 }) => {
   const data = await request.put('/alarm/info/history/batch-action', params)

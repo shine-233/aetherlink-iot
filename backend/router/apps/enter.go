@@ -59,6 +59,11 @@ type apps struct {
 	AiModel  // PHASE-D-D7 AI 2.0 模型中心 + 助手
 	Scada    // P1.3 Widget 与 SCADA 基础层
 	Mobile   // P1.4 移动端控制与通知
+	ResourceCenter // TP-5 资源中心
+	RateLimitRouter // TB-7 集群限流
+	QueueMonitorRouter // TB-7 队列隔离监控
+	UnitsRouter // TB-9 单位换算与物理量纲
+	SecretsRouter // TB-18 通用 Secrets Storage
 }
 
 var Model = new(apps)

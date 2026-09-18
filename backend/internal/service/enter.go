@@ -82,6 +82,9 @@ type ServiceGroup struct {
 	// Mobile 为 nil 表示未接线（缺设备/影子/告警等依赖）。
 	// 能力矩阵会如实报告各项为 false，未接线的能力调用即失败。
 	Mobile *MobileService // P1.4 移动端
+	ResourceCenter ResourceCenter // TP-5 资源中心（物模型与大屏统一市场）
+	Secret         SecretService  // TB-18 通用 Secrets Storage
+	Product        Product        // TB-15 产品 CRUD 及实体名称冲突解决策略
 }
 
 // GroupApp 是全局业务服务入口，供 API 层和中间件层调用

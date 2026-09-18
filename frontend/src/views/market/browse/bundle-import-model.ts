@@ -20,6 +20,7 @@ export interface MarketBundlePayload {
   exported_at?: number
   count?: number
   templates?: unknown[]
+  boards?: unknown[]
   /** 内容摘要（hex SHA-256）。 */
   digest?: string
   /** HMAC-SHA256 签名（hex）。 */
@@ -35,6 +36,10 @@ export interface MarketBundlePreview {
   create?: string[]
   overwrite?: string[]
   blocking?: string[]
+  template_create?: string[]
+  template_overwrite?: string[]
+  board_create?: string[]
+  board_overwrite?: string[]
 }
 
 export type BundleImportOutcome = 'created' | 'idempotent' | 'rejected'
@@ -94,7 +99,10 @@ export function hasBundleSignature(bundle: MarketBundlePayload | null): boolean 
 }
 
 function countTemplates(bundle: MarketBundlePayload): number {
-  if (Array.isArray(bundle.templates)) return bundle.templates.length
+  const tpls = Array.isArray(bundle.templates) ? bundle.templates.length : 0
+  const boards = Array.isArray(bundle.boards) ? bundle.boards.length : 0
+  const sum = tpls + boards
+  if (sum > 0) return sum
   if (typeof bundle.count === 'number' && Number.isFinite(bundle.count)) return bundle.count
   return 0
 }

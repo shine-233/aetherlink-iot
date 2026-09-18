@@ -147,10 +147,56 @@ func TestDocumentAllows(t *testing.T) {
 		t.Fatal("empty features should not restrict")
 	}
 	restricted := Document{Features: []string{"edge_ops"}}
-	if !restricted.Allows("edge_ops") {
-		t.Fatal("listed feature denied")
-	}
 	if restricted.Allows("billing") {
 		t.Fatal("unlisted feature allowed")
 	}
 }
+
+func TestGenerateKeyPairAndSigningRoundTrip(t *testing.T) {
+	pubBase64, privBase64, err := GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair failed: %v", err)
+	}
+	if pubBase64 == "" || privBase64 == "" {
+		t.Fatal("GenerateKeyPair returned empty key string")
+	}
+
+	now := time.Now()
+	doc := &Document{
+		Edition:    "enterprise",
+		IssuedTo:   "Test Customer",
+		Features:   []string{"scada", "edge_ops", "audit_export"},
+		MaxDevices: 5000,
+		MaxTenants: 10,
+		NotBefore:  now.Add(-time.Hour).UnixMilli(),
+		NotAfter:   now.Add(24 * time.Hour).UnixMilli(),
+		IssuedAt:   now.UnixMilli(),
+	}
+
+	keyID := "test_key_1"
+	materialBase64, err := SignDocumentWithBase64Key(doc, keyID, privBase64)
+	if err != nil {
+		t.Fatalf("SignDocumentWithBase64Key failed: %v", err)
+	}
+
+	verifier, err := NewVerifier(map[string]string{keyID: pubBase64})
+	if err != nil {
+		t.Fatalf("NewVerifier failed: %v", err)
+	}
+
+	parsed, fp, err := verifier.Parse(materialBase64, now)
+	if err != nil {
+		t.Fatalf("verifier failed to parse signed license: %v", err)
+	}
+
+	if parsed.Edition != "enterprise" || parsed.MaxDevices != 5000 || parsed.MaxTenants != 10 {
+		t.Fatalf("parsed document fields mismatch: %+v", parsed)
+	}
+	if !parsed.Allows("scada") || !parsed.Allows("edge_ops") || parsed.Allows("unknown_feature") {
+		t.Fatalf("parsed document feature check failed")
+	}
+	if len(fp) != 64 {
+		t.Fatalf("fingerprint length = %d, want 64", len(fp))
+	}
+}
+

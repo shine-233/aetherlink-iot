@@ -1,18 +1,22 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { resolveMetric, resolveText } from './data'
+import { resolveHtml, resolveMetric, resolveText } from './data'
 import LocalEChartsWidget from './LocalEChartsWidget.vue'
 import type {
   ChartWidgetConfig,
+  HtmlWidgetConfig,
   LocalViewerFields,
   MetricWidgetConfig,
   NormalizedLocalWidget,
   TextWidgetConfig
 } from './types'
 
+import type { TimewindowConfig } from './timewindow/types'
+
 const props = defineProps<{
   widget: NormalizedLocalWidget
   fields: LocalViewerFields
+  timewindow?: TimewindowConfig
 }>()
 
 const text = computed(() =>
@@ -25,6 +29,11 @@ const metric = computed(() =>
     ? resolveMetric(props.widget.config as MetricWidgetConfig, props.fields)
     : null
 )
+const htmlWidget = computed(() =>
+  props.widget.type === 'html'
+    ? resolveHtml(props.widget.config as HtmlWidgetConfig, props.fields, props.widget.id)
+    : null
+)
 </script>
 
 <template>
@@ -35,6 +44,16 @@ const metric = computed(() =>
     <div v-else-if="widget.type === 'metric'" class="local-metric-widget" :class="{ unavailable: !metric?.available }">
       <span class="local-metric-label">{{ metric?.label }}</span>
       <span class="local-metric-value">{{ metric?.value }}{{ metric?.unit }}</span>
+    </div>
+    <div
+      v-else-if="widget.type === 'html'"
+      class="local-html-widget"
+      :class="{ unavailable: !htmlWidget?.available }"
+    >
+      <component :is="'style'" v-if="htmlWidget?.scopedCss" type="text/css">
+        {{ htmlWidget.scopedCss }}
+      </component>
+      <div class="local-html-content" v-html="htmlWidget?.html" />
     </div>
     <LocalEChartsWidget
       v-else-if="widget.type === 'line-chart' || widget.type === 'bar-chart'"
@@ -61,10 +80,21 @@ const metric = computed(() =>
 
 .local-text-widget,
 .local-metric-widget,
+.local-html-widget,
 .local-widget-unsupported {
   box-sizing: border-box;
   height: 100%;
   padding: 12px;
+}
+
+.local-html-widget {
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+
+.local-html-content {
+  width: 100%;
+  height: 100%;
 }
 
 .local-text-widget {

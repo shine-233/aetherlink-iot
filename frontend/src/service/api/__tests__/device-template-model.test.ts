@@ -28,8 +28,11 @@ import {
   getDeviceListForSelect,
   getDeviceModel,
   getDeviceTemplateDetail,
+  getDeviceTemplateUpgradeHistory,
   postDeviceModel,
-  putDeviceModel
+  putDeviceModel,
+  rollbackDeviceTemplateUpgrade,
+  upgradeDeviceTemplate
 } from '../device-template-model'
 
 describe('device-template-model API service', () => {
@@ -89,4 +92,21 @@ describe('device-template-model API service', () => {
 
     expect(mockGet).toHaveBeenCalledWith('/device/selector', { params })
   })
+
+  it('covers template upgrade, rollback, and upgrade history API contracts', async () => {
+    mockPost.mockResolvedValue({ data: { history_id: 'hist-1', template: { id: 't-1' } }, error: null })
+    mockGet.mockResolvedValue({ data: [{ id: 'hist-1', template_name: 'test' }], error: null })
+
+    const upgradePayload = { payload: { template_name: 'sensor_template', version: '1.2.0' } }
+    await upgradeDeviceTemplate(upgradePayload)
+    await rollbackDeviceTemplateUpgrade('hist-1')
+    await getDeviceTemplateUpgradeHistory({ template_name: 'sensor_template' })
+
+    expect(mockPost).toHaveBeenNthCalledWith(1, '/device/template/upgrade', upgradePayload)
+    expect(mockPost).toHaveBeenNthCalledWith(2, '/device/template/upgrade/hist-1/rollback')
+    expect(mockGet).toHaveBeenCalledWith('/device/template/upgrade/history', {
+      params: { template_name: 'sensor_template' }
+    })
+  })
 })
+

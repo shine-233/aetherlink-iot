@@ -1,7 +1,7 @@
 package service
 
 import (
-	"sync"
+	"os"
 	"sync/atomic"
 	"time"
 
@@ -19,20 +19,41 @@ import (
 //     绝不让 trace 失败影响消息执行）；
 //   - 错误摘要截断到 500 字符，且只落错误文本，不落完整载荷（审计最小化）。
 
-// ruleChainTraceEnabled trace 总开关（viper rule-chain.trace-enabled，默认关闭；
-// 首次执行时懒加载缓存，热路径只读原子值）。
-var ruleChainTraceEnabled = loadTraceEnabledOnce
+var traceEnabledCached = atomic.Bool{}
 
-var (
-	traceEnabledOnce   = sync.Once{}
-	traceEnabledCached = atomic.Bool{}
-)
+func isTraceGloballyEnabled() bool {
+	if traceEnabledCached.Load() {
+		return true
+	}
+	if viper.GetBool("rule-chain.trace-enabled") || viper.GetBool("rule_chain.trace_enabled") {
+		return true
+	}
+	val := os.Getenv("AETHERLINK_RULE_CHAIN_TRACE_ENABLED")
+	return val == "true" || val == "1"
+}
 
-func loadTraceEnabledOnce() bool {
-	traceEnabledOnce.Do(func() {
-		traceEnabledCached.Store(viper.GetBool("rule-chain.trace-enabled"))
-	})
-	return traceEnabledCached.Load()
+// ruleChainTraceEnabled trace 总开关（viper rule-chain.trace-enabled 或环境变量，默认关闭）。
+var ruleChainTraceEnabled func() bool = isTraceGloballyEnabled
+
+// SetRuleChainTraceEnabled 动态调整 trace 开关（供测试与运维控制）。
+func SetRuleChainTraceEnabled(enabled bool) {
+	traceEnabledCached.Store(enabled)
+	ruleChainTraceEnabled = func() bool { return enabled }
+}
+
+func shouldRecordNodeTrace(node *RuleChainNode) bool {
+	if ruleChainTraceEnabled() {
+		return true
+	}
+	if node != nil && node.Config != nil {
+		if d, ok := node.Config["debug"].(bool); ok && d {
+			return true
+		}
+		if t, ok := node.Config["trace"].(bool); ok && t {
+			return true
+		}
+	}
+	return false
 }
 
 // ruleChainTraceWriter trace 落库注入点（67.sql 表）；nil 时即使开关打开也旁路。
@@ -45,7 +66,7 @@ const ruleChainTraceErrorMax = 500
 
 // recordRuleChainNodeTrace 引擎每次节点执行后的 trace 挂点。
 func recordRuleChainNodeTrace(e *ruleChainExecution, node *RuleChainNode, msg ruleChainMessage, result ruleChainNodeResult, nodeErr error, elapsed time.Duration) {
-	if !ruleChainTraceEnabled() || ruleChainTraceWriter == nil {
+	if !shouldRecordNodeTrace(node) || ruleChainTraceWriter == nil {
 		return
 	}
 	chainID := ""

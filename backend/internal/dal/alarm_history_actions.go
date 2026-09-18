@@ -33,11 +33,12 @@ func acknowledgeLoadedAlarmHistory(history *model.AlarmHistory, tenantID, userID
 	history.Remark = &remark
 
 	resp := &model.AlarmHistoryActionResp{
-		ID:             history.ID,
-		AlarmStatus:    history.AlarmStatus,
-		Remark:         &remark,
-		AcknowledgedBy: &userID,
-		AcknowledgedAt: &ackAt,
+		ID:              history.ID,
+		AlarmStatus:     history.AlarmStatus,
+		Remark:          &remark,
+		AcknowledgedBy:  &userID,
+		AcknowledgedAt:  &ackAt,
+		LifecycleStatus: computeAlarmLifecycleStatus(history.AlarmStatus, &remark),
 	}
 	if strings.TrimSpace(note) != "" {
 		resp.ActionNote = &note
@@ -74,16 +75,81 @@ func resetLoadedAlarmHistory(history *model.AlarmHistory, tenantID, userID, note
 	history.Remark = &remark
 
 	resp := &model.AlarmHistoryActionResp{
-		ID:          history.ID,
-		AlarmStatus: "N",
-		Remark:      &remark,
-		ResetBy:     &userID,
-		ResetAt:     &resetAt,
+		ID:              history.ID,
+		AlarmStatus:     "N",
+		Remark:          &remark,
+		ResetBy:         &userID,
+		ResetAt:         &resetAt,
+		LifecycleStatus: computeAlarmLifecycleStatus("N", &remark),
 	}
 	if strings.TrimSpace(note) != "" {
 		resp.ActionNote = &note
 	}
 	return resp, nil
+}
+
+// ClearAlarmHistory 清除告警（对齐 ThingsBoard 4.3 告警清除生命周期）。
+func ClearAlarmHistory(id, tenantID, userID, note string) (*model.AlarmHistoryActionResp, error) {
+	history, err := actionAlarmHistoryForAction(id, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	return ClearLoadedAlarmHistoryWithNote(history, userID, note)
+}
+
+// ClearLoadedAlarmHistoryWithNote 针对已载入的告警记录执行清除。
+func ClearLoadedAlarmHistoryWithNote(history *model.AlarmHistory, userID, note string) (*model.AlarmHistoryActionResp, error) {
+	if history == nil {
+		return nil, errors.New("alarm history is required")
+	}
+	curStatus := strings.ToUpper(strings.TrimSpace(history.AlarmStatus))
+	if curStatus == "N" {
+		return nil, errors.New("alarm history is already cleared")
+	}
+
+	clearedAt := time.Now().UTC().Format(time.RFC3339)
+	remark := actionAlarmHistoryClearRemark(history.Remark, userID, clearedAt, curStatus, note)
+	if err := actionApplyAlarmHistoryReset(history.ID, history.TenantID, remark); err != nil {
+		return nil, err
+	}
+	history.AlarmStatus = "N"
+	history.Remark = &remark
+
+	resp := &model.AlarmHistoryActionResp{
+		ID:              history.ID,
+		AlarmStatus:     "N",
+		Remark:          &remark,
+		ClearedBy:       &userID,
+		ClearedAt:       &clearedAt,
+		LifecycleStatus: computeAlarmLifecycleStatus("N", &remark),
+	}
+	if strings.TrimSpace(note) != "" {
+		resp.ActionNote = &note
+	}
+	return resp, nil
+}
+
+func computeAlarmLifecycleStatus(alarmStatus string, rawRemark *string) string {
+	isCleared := strings.ToUpper(strings.TrimSpace(alarmStatus)) == "N"
+	isAck := false
+	if rawRemark != nil && strings.TrimSpace(*rawRemark) != "" {
+		var r map[string]interface{}
+		if err := json.Unmarshal([]byte(*rawRemark), &r); err == nil {
+			if ack, ok := r["acknowledged"].(bool); ok && ack {
+				isAck = true
+			}
+		}
+	}
+	if isCleared {
+		if isAck {
+			return "CLEARED_ACK"
+		}
+		return "CLEARED_UNACK"
+	}
+	if isAck {
+		return "ACTIVE_ACK"
+	}
+	return "ACTIVE_UNACK"
 }
 
 func actionAlarmHistoryForAction(id, tenantID string) (*model.AlarmHistory, error) {
@@ -143,6 +209,19 @@ func actionAlarmHistoryResetRemark(raw *string, userID, resetAt, resetFromStatus
 	}
 	if strings.TrimSpace(note) != "" {
 		fields["reset_note"] = note
+	}
+	return actionMergeAlarmHistoryRemark(raw, fields)
+}
+
+func actionAlarmHistoryClearRemark(raw *string, userID, clearedAt, clearFromStatus, note string) string {
+	fields := map[string]interface{}{
+		"cleared":           true,
+		"cleared_by":        userID,
+		"cleared_at":        clearedAt,
+		"clear_from_status": clearFromStatus,
+	}
+	if strings.TrimSpace(note) != "" {
+		fields["clear_note"] = note
 	}
 	return actionMergeAlarmHistoryRemark(raw, fields)
 }

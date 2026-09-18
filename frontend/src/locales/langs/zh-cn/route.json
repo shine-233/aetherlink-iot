@@ -76,6 +76,8 @@
   "route.device_entity-relation": "实体关系",
   "route.management_edge-nodes": "边缘节点",
   "route.management_license": "商业许可证",
+  "route.management_secrets": "密钥管理",
+  "route.management-secrets": "密钥管理",
   "route.apply-service": "服务",
   "route.automation-rule-chain": "规则链",
   "route.automation-rule-chain-edit": "规则链编辑",

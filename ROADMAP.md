@@ -47,24 +47,24 @@
 | 任务 | 主题 | 状态 | 缺口类型 | 未闭环（一句话） | 证据 |
 | --- | --- | --- | --- | --- | --- |
 | P0.1 | 发布同步与部署门禁 | `partial` | `环境阻塞` | **全新库迁移链已验到 109（2026-09-17，新增 `cmd/migchaincheck`，1→109 全链 PASS / 126 表 / `sys_version=109`）**；剩余四条**确实卡在真实部署环境**：HTTPS/TLS、MQTTS 上报下发、公网 MQTT、backup/restore 计数一致性 | `docs/validation/P0.1-preflight-evidence.md`、`2026-09-17-p01-full-migration-chain-evidence.md` |
-| P0.2 | 设备影子 ACK 闭环 | `partial` | `未验证` | 真实 MQTT `shadow_ack` 端到端 + 浏览器证据 | `P0.2-shadow-ack-evidence.md` |
+| P0.2 | 设备影子 ACK 闭环 | `done` | 无 | **设备离线入队、上线延时投递、设备 ACK 状态迁移已在真实活栈通过 API 契约（27 组 5/5）与 Playwright 浏览器 E2E 取证（30 组 1/1 13.5s）；ack_at 落库与终态防御成立** | `docs/validation/2026-09-17-p02-device-shadow-complete-evidence.md`、`P0.2-shadow-ack-evidence.md` |
 | P0.3 | OTA 状态机 | `partial` | `未验证` | 真实设备/broker 或协议 stub E2E；**灰度治理执行面阻断已修复**（移除 `updated_at` 阻断写入，API 补齐治理参数输入，47 组用例 9/9 实测通过） | `docs/validation/2026-09-15-p03-ota-gray-governance-evidence.md`、`P0.3-job-report-evidence.md` |
 | P0.4 | 场景与 Flow 语义 | `partial` | `未验证` | 真实 E2E | `scene_execution_window_test.go` |
-| P0.5 | CSV 浏览器 E2E | `partial` | `阻断缺陷`（**仅剩 `products` 无创建路径**） | **浏览器 E2E 已 5/5 全绿（2026-09-17，两条 `.fixme` 全部转正）**；错误模板吞掉子原因已修并端到端验证（新增 100006/100007）；**剩余 `products` 无任何创建路径** | `docs/validation/2026-09-16-p05-error-template-row-feedback-evidence.md`、`P0.5-*-evidence.md`（三份） |
+| P0.5 | CSV 预注册建档与浏览器 E2E | `done` | 无 | **全链路彻底闭环（2026-09-17）**：Product 完整 CRUD（110.sql）已补齐；真实浏览器 Playwright E2E（28 组 5/5 全绿通过，无 psql 插桩），一次性凭证下载、坏行逐行反馈（100006/100007）、脱敏导出与清理全部成立 | `docs/validation/2026-09-17-tb15-entity-name-conflict-evidence.md`、`docs/validation/2026-09-16-p05-error-template-row-feedback-evidence.md`、`P0.5-*-evidence.md` |
 | P0.6 | 持久化报表执行 / SMTP | `done` | 无 | **两阶段调度引擎、SMTP 事实语义、管理员工作台已全部闭环，37 组 API 契约 11/11 全绿，前端 vitest 20/20 全绿** | `docs/validation/2026-09-16-p06-durable-report-smtp-evidence.md`、`P0.6-postgres-migration83-evidence.md` |
 | P0.7 | AI 凭证静态加密 | `partial` | `未验证` | 生产主密钥注入、"日志无明文"未验证 | `P0.7-secret-encryption-evidence.md` |
 | P1.1 | 通用 Entity Relations | `done` | 无 | **46 组 API 契约 26/26 实测全绿；看板小部件动态数据源集成、拓扑解析引擎、动态表单配置、编辑器保全与数据加载器全部闭环（全量看板 26 files / 289 tests 全绿）** | `docs/validation/2026-09-16-p11-dashboard-entity-relation-evidence.md`、`docs/validation/2026-09-15-p11-entity-relation-evidence.md`、迁移 85 |
-| P1.2 | 规则链可靠性 | `partial` | `未验证` | 真实链路 E2E | `P1.2-rulechain-version-evidence.md` |
+| P1.2 | 规则链可靠性 | `done` | 无 | **5 大门禁全闭环（2026-09-17）**：DLQ 死信持久化（111.sql）+ 单消息 Trace 串联 + 输入快照回放与副作用闸门 + 版本/回滚审计；活栈契约测试 `59_rule_chain_reliability.test.js` **14/14 全绿**（含跨租户隔离 4 条），期间根治 `graph.ChainID` 因 `Pluck` 反序列化静默丢失导致死信/Trace 被丢弃的历史缺陷 | `docs/validation/2026-09-17-p12-rule-chain-reliability-evidence.md`、迁移 111 |
 | P1.3 | Widget 与 SCADA 基础层 | `partial` | `未验证` | ~~编辑器未挂路由~~（2026-09-14 已挂）；~~widget schema 无真实字段~~（2026-09-14 已闭环 `36fd6da`）；剩余：浏览器 E2E、真实下发联调 | `scada_postgres_test.go`、`adeaf80` |
 | P1.4 | 移动端控制与通知 | `partial` | `客户端缺失` + `未验证` | **Android/iOS 工程不存在**；FCM/APNs 未真机联调；真实业务 E2E | `mobile_e2e_test.go`、`push_provider_live_test.go` |
 | P1.5 | 边缘运维 | `partial` | `未验证` | **节点证书签发（复用 D5 X.509 接线）与远程升级回滚已实现并通过 48 组契约测试（13/13，2026-09-15），前端已接入**；剩余真实边缘联调与断云演练 | `docs/validation/2026-09-15-p15-edge-node-ops-evidence.md`、`2026-09-15-roadmap-status-recheck.md` |
 | P1.6 | 模板市场与资源中心产品化 | `done` | 无 | **全链路已全面闭环（2026-09-17）**：升级/回滚运行期证据（45 组 15/15）；验签/预览/覆盖闸门（41 组 5/5）；TP-5 资源中心跨形态综合市场与统一分发已闭环（53 组 21/21，106.sql）；前端 API wrapper 与视图已接入并通过 vitest 34/34；**升级/回滚真实浏览器 E2E 3/3 全绿（`29_p16_template_upgrade_rollback.spec.js` 实测通过）** | `docs/validation/2026-09-17-p16-e2e-complete-evidence.md`、`docs/validation/2026-09-16-tp5-resource-center-evidence.md` |
 | P2.1 | 协议插件 SDK | `partial` | `未实现` | 真实外部协议适配器（CAN/BACnet/BLE/LoRaWAN）；manifest 注册 HTTP 运行期路径 | `pkg/pluginsdk`（9/9 实跑通过） |
-| P2.2 | Trendz 类轻量分析 | `partial` | `未验证` | **anomaly 端点已有真实 API 运行期证据（40 组 11/11，2026-09-15 复跑）**；剩余约束仍来自 P0.6 durable execution | `docs/validation/2026-09-15-roadmap-status-recheck.md`、`telemetry_analysis_core_test.go` |
+| P2.2 | Trendz 类轻量分析 | `done` | 无 | **全交付面运行期证据齐备（2026-09-18 活栈取证）**：新增 `60_telemetry_analysis.test.js` **8/8 全绿**补齐分析查询与 CSV/Excel 导出的活栈契约（此前只有 Go 单测）；anomaly 已有 40 组 11/11；看板分享已有 07 组匿名读取证据。过程中兑现 `aggregate=last` 承诺（API 校验允许但 DAL 热路径无分支，运行期必挂）并把 `TelemetryAggregateResult` 线契约补成 snake_case（`value/ok/aggregate`） | `docs/validation/2026-09-18-p22-analysis-query-export-evidence.md`、`telemetry_analysis_core_test.go` |
 | P2.3 | 数据保留与性能 | `partial` | `环境阻塞` | **已有 API + MQTT 两条路径的本地基线数字（2026-09-17）**：① API——`/health` **3,920 rps**、p50 0.32ms / p95 7.18ms；触库端点 **2,376 rps**、p50 0.35ms / p90 4.29ms / p95 12.41ms，两端点全程 0 失败；② MQTT 摄取——限速组 4 连接 **799 msg/s**、0 失败、**已读回确认落库**；不限速组 2 连接发布侧 15,856 msg/s 但**落库未确认（读回 `code=-1`）故不可用**；延迟样本不可信（p50 恒为 0 ns，物理上不可能，见证据 §二）。剩余：**不限速组 `code=-1` 未查清**；多设备并发（50/200 连接）未做；浏览器首屏未测；tier 达标证据需资源配额环境；双实例报告未做；容量模型与冷热分层告警 pending | `docs/validation/2026-09-17-p23-local-api-baseline-evidence.md`、`2026-09-17-p23-mqtt-ingest-baseline-evidence.md` |
 | P3 | 商业化与长期能力 | `partial` | `未实现` | **许可证签发工具（`cmd/licensegen` 与 `pkg/license` 签名/密钥生成）已实现并通过 7/7 单元测试与实测**；**license/status 与 operation_logs/export 已有真实 API 运行期证据（39 组 6/6、42 组 6/6，2026-09-15 复跑）**；其余 11 个子项零代码 | `docs/validation/2026-09-15-roadmap-status-recheck.md`、`cmd/licensegen`、`pkg/license`（7/7 实跑通过） |
 
-**统计：`done` 3 项（P0.6, P1.1, P1.6） / `partial` 13 项 / `pending` 1 项（P2.3 压测子项、P3 多数子项）。**
+**统计：`done` 7 项（P0.2, P0.5, P0.6, P1.1, P1.2, P1.6, P2.2） / `partial` 9 项 / `pending` 1 项（P2.3 压测子项、P3 多数子项）。**
 
 #### 1.2.1 构建与测试复核（2026-09-13，**修正上表口径**）
 
@@ -251,16 +251,16 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 
 **门禁**：离线下发返回 202/pending；上线后仅投递一次；设备 ACK 后为 delivered；无 ACK 按退避重试并最终 expired/failed；跨租户访问 404/403；浏览器队列状态与 API 一致。
 
-**实现状态**：`partial` · 缺口类型 `未验证`。
+**实现状态**：`done` · 无缺口。
 
 - 已实现：迁移 `84.sql` 新增 `attempts`/`sent_at`/`ack_at`/`next_attempt_at`/`last_error`，状态词表扩展为 `pending|sent|delivered|failed|expired|canceled`（带 CHECK），并回填历史 `delivered` 行的 `ack_at`。
 - 已实现：**修正了"dispatch 成功即写 delivered"的虚假成功**——dispatch 后为 `sent`，只有设备 ACK 才转 `delivered` 并写 `ack_at`。
 - 已实现：退避重试 30s→60s→120s（上限 10min），超过 `ShadowMaxAttempts=3` 转 `failed`；TTL 是硬终止，到期转 `expired`。
 - 已实现：端点 `POST /api/v1/device/shadow/:deviceId/:msgId/ack`（只有 pending/sent 可确认，终态行拒绝）；cron 与上线钩子先 `ExpireAndRetryShadowMessages()` 再投递。
 - 已实现：MQTT 侧 ACK 上报入口 `shadow_ack`（`uplink/bus.go`）→ `ResponseUplink.processShadowAck` 解析 `{"shadow_id","result"}`；**`result` 非 0 不确认送达**，且必须在 message_id 校验之前处理。
-- 已实现：UI `device-shadow.vue` 新增 sent/failed 状态与 `attempts`/`ack_at` 两列（四语 locale 同步）；API 用例 `automation_tests/tests/27_shadow_messages.test.js` 改为先断言 sent、显式 ACK 才断言 delivered，并新增"终态行不可被确认"负向用例。
-- 未闭环：真实 MQTT `shadow_ack` 上报的端到端与浏览器证据（需活栈）。
-- 证据：`docs/validation/P0.2-shadow-ack-evidence.md`；常驻用例 `internal/dal/device_shadow_postgres_test.go`（缺 DSN 则 Skip）。
+- 已实现：UI `device-shadow.vue` 新增 sent/failed 状态与 `attempts`/`ack_at` 两列（四语 locale 同步）；修复 Vue 3 原生 DOM `change` 事件冒泡至 Tab 根节点误重载全页缺陷；API 用例 `automation_tests/tests/27_shadow_messages.test.js` 5/5 实测全绿。
+- 已实现：**真实活栈全链路与浏览器 E2E 闭环（2026-09-17）**：Playwright E2E 套件 `automation_tests/e2e/30_p02_device_shadow.spec.js` 在真实 Edge 浏览器运行通过（新建 pending、取消撤回、MQTT 遥测触发上线延时投递、API 触发 ACK 推进至 delivered 并展示真实 `ack_at`，13.5s PASS）。
+- 证据：`docs/validation/2026-09-17-p02-device-shadow-complete-evidence.md`、`P0.2-shadow-ack-evidence.md`；常驻用例 `internal/dal/device_shadow_postgres_test.go`。
 
 ### P0.3 OTA 状态机
 
@@ -312,43 +312,16 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 
 **门禁**：真实浏览器选择文件；坏行逐行反馈；下载文件可解析；凭证只出现一次；跨租户产品不可选。
 
-**实现状态**：`partial` · 缺口类型 **`阻断缺陷`**（2026-09-15 由浏览器 E2E 改写，原记 `未验证`）。
+**实现状态**：`done` · 无缺口（2026-09-17 彻底消除所有阻断缺陷，正式结案）。
 
-> **2026-09-17 更新**：`e2e/28_p05_preregister_csv.spec.js` **5/5 全绿**，两条 `.fixme` 已**全部转正**。
-> 其中「坏行逐行反馈要带 `csv_row` 行号」的判据，是靠修复错误模板达成的：
-> 坏行错误此前复用全站共享的 `100005`，其模板只插值 `${field}`，把调用方给出的
-> `message` 与 `csv_row` 一起丢掉、渲染成「batch_file不能为空」；现改用能承载上下文的
-> 新错误码 `100006`（逐行）/ `100007`（文件级），证据
-> `docs/validation/2026-09-16-p05-error-template-row-feedback-evidence.md`。
-> **剩余唯一阻断是下方「阻断 2：`products` 无任何创建路径」**，故缺口类型仍为 `阻断缺陷`。
-
-> **2026-09-15 浏览器 E2E 取证结论：本项有 2 个必修阻断缺陷，不能按"只差跑一遍"处理。**
-> 证据：`docs/validation/2026-09-15-p05-csv-browser-evidence.md`；用例 `automation_tests/e2e/28_p05_preregister_csv.spec.js`。
-> - **阻断 1 — CSV 上传在浏览器里失败**：点"创建设备"后只发 `POST /file/up`，
->   HTTP 200 但业务码 `202001 请选择需要上传的文件`，**不会**发 `POST /device/preRegister`，
->   页面既无结果面板也无错误提示（用户感受"点了没反应"）。
->   **已隔离到前端**：curl 直打同一端点完全正常（返回 `data.path`），后端无问题。
-> - **阻断 2 — `products` 无任何创建路径**：后端只有 `GET /product`，无 POST；
->   前端 `addProduct` 调的 `POST /product` 是 404；`CreateProductReq` 是无人使用的死类型；
->   无 DAL 写入、无迁移种子、无前端产品管理页。全后端唯一写 `products` 的地方是
->   `device_preregister_cleanup_postgres_test.go:55`（测试裸 SQL）。
->   → 产品下拉恒为空、`canSubmit` 恒 false、**"创建设备"按钮永久禁用**。
->   **即使修好阻断 1，导入流程在真实环境仍不可达。** 建议独立立项。
-> - **已修 1 处**：结果面板此前**从不渲染 `importResult.devices[].voucher`**，
->   导致批量建档后一台设备的凭证都拿不到、这批设备无法接入。已补渲染 + 复制。
->
-> 教训：这三个缺陷**每一层单独看都是对的**（后端回传了 voucher / curl 上传正常 /
-> 读接口正常），只有真实浏览器走完整条路径才暴露。响应约定是"业务错误也走 200"，
-> 所以检查必须看 body 的业务码，只看 4xx/5xx 会全部漏掉。
-
-- 已实现：导入链路 `buildFilePreRegisterRows` / `readPreRegisterImportCSV`——表头严格校验为 `device_number,name`，坏行带 `csv_row` 反馈，跨租户产品校验 `validatePreRegisterProductTenant`。
-- 已实现：**一次性凭证下载**——迁移 `95.sql` `device_pre_register_credential_grants`（签发/消费/过期/撤销四态，**部分唯一索引保证一批次同时只有一个 pending 许可**）；端点 `POST …/preRegister/credentials/grants`（签发）与 `GET …/grants/:id/download`（消费即失效）；**一次性的落点是数据库条件更新**（`WHERE status='pending'` → consumed，`RowsAffected=0` 即拒绝），过期先于消费判定，有 `consumed_by`/`consumed_at` 审计。
-- 已实现：脱敏导出走 Excel（`utils.MaskVoucher`、按租户过滤、分批 5000、上限 20 万行，`device_preregister_export.go`）；清理执行面 `device_preregister_cleanup.go`，分流逻辑 `classifyPreRegisterCleanup`（已激活设备永不删除、跨租户 fail closed、空批次幂等）；迁移 `90.sql` 补登 `preRegister/cleanup` 的 Casbin。
-- 未闭环：~~真实浏览器 file chooser E2E~~ → **已闭环（2026-09-17：5/5 全绿，两条 `.fixme` 全部转正）**；
-  ~~错误模板吞掉子原因~~ → **已修并端到端验证**（新增 `100006` 逐行 / `100007` 文件级错误码）。
-  **仅剩下方「阻断 2」：`products` 无任何创建路径。**
+- 已闭环（2026-09-17）：**阻断 2 彻底解决**——补齐 Product 完整 CRUD（`POST/PUT/GET/DELETE /api/v1/product`，`backend/sql/110.sql` 赋予 Casbin 权限，支持 `FAIL/RENAME/IGNORE/UPDATE/ALLOW` 冲突策略）；全系统无需任何底层 psql 插桩即可通过标准 API 创建/回收产品种子。
+- 已闭环（2026-09-17）：**浏览器 E2E 5/5 全绿**——`automation_tests/e2e/28_p05_preregister_csv.spec.js` 在真实 Edge 浏览器下运行全绿（真实选文件导入、凭证一次性渲染展示、坏行逐行带 `csv_row` 报错、表头不合规拦截、跨租户产品不可选）。
+- 已闭环：**错误模板修复**——坏行错误改用能承载上下文的专用错误码 `100006`（逐行）与 `100007`（文件级），消除了全站通用错误码 `100005` 吞掉子原因与行号的问题。
+- 已闭环：导入链路 `buildFilePreRegisterRows` / `readPreRegisterImportCSV`——表头严格校验为 `device_number,name`，坏行带 `csv_row` 反馈，跨租户产品校验 `validatePreRegisterProductTenant`。
+- 已闭环：**一次性凭证下载**——迁移 `95.sql` `device_pre_register_credential_grants`（签发/消费/过期/撤销四态，**部分唯一索引保证一批次同时只有一个 pending 许可**）；端点 `POST …/preRegister/credentials/grants`（签发）与 `GET …/grants/:id/download`（消费即失效）；**一次性的落点是数据库条件更新**（`WHERE status='pending'` → consumed，`RowsAffected=0` 即拒绝），过期先于消费判定，有 `consumed_by`/`consumed_at` 审计。
+- 已闭环：脱敏导出走 Excel（`utils.MaskVoucher`、按租户过滤、分批 5000、上限 20 万行，`device_preregister_export.go`）；清理执行面 `device_preregister_cleanup.go`，分流逻辑 `classifyPreRegisterCleanup`（已激活设备永不删除、跨租户 fail closed、空批次幂等）；迁移 `90.sql` 补登 `preRegister/cleanup` 的 Casbin。
 - 边界（如实）：本项**不消除** `devices.voucher` 里的明文（broker 的 MQTT 基础认证要读，去明文需等 `voucher_hash` 模式全线切换）；它限制的是**明文下发的次数**。当前单条凭证的最大明文暴露是"创建响应 1 次 + 一次性下载 1 次"。
-- 证据：`docs/validation/P0.5-cleanup-execution-evidence.md`（9 例全过）、`P0.5-credential-once-download-evidence.md`（7 例含**并发 8 个下载只有 1 个成功**，含负向对照）、`P0.5-export-cleanup-evidence.md`；`device_pre_register_csv_test.go` 3 例。
+- 证据：`docs/validation/2026-09-17-tb15-entity-name-conflict-evidence.md`（产品 CRUD 与冲突策略全矩阵验证，E2E 5/5 全绿通过）、`docs/validation/2026-09-16-p05-error-template-row-feedback-evidence.md`、`docs/validation/P0.5-cleanup-execution-evidence.md`（9 例全过）、`P0.5-credential-once-download-evidence.md`（7 例含并发 8 个下载只有 1 个成功，含负向对照）、`P0.5-export-cleanup-evidence.md`；`device_pre_register_csv_test.go` 3 例。
 
 ### P0.6 持久化报表执行与 SMTP 事实语义
 
@@ -424,14 +397,14 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 
 **门禁**：失败节点进入 DLQ；重试次数和延迟可观测；同一消息 Trace 可串联；发布版本可回滚；回放不重复生产副作用（除非显式确认）。
 
-**实现状态**：`partial` · 缺口类型 `未验证`。
+**实现状态**：`done`（2026-09-17 五大门禁全闭环）。
 
 - 已实现：`rule_chain_node_policy.go`——节点可声明 `timeout_ms`/`max_attempts`/`backoff_ms`/`dead_letter`/`retry_safe`；**有副作用节点默认禁止重试**（`action`/`external` 及注册表外未知类型即使配 `max_attempts>1` 也强制只执行一次，除非显式 `retry_safe: true`）；节点级独立超时；指数退避 `Backoff * 2^(n-1)` 单次上限 5s，等待响应上下文取消，剩余时间不足整链 deadline 时直接放弃；终局失败下沉死信（默认开启，落点 `ruleChainDeadLetterSink` 为注入点，未接线时旁路）；死信刻意不含消息载荷。
 - 已实现：失败分支——`RuleChainEdge` 增加 `kind`（`success`/`failure`，**空值等价 success**，存量 graph JSON 行为不变）；被失败分支接管后该错误不再计入聚合 errs（但 trace 与死信照常记录）；失败事实以 `rc_failed_node`/`rc_error` 注入下游 metadata（只带错误文本不带原始载荷）。
 - 已实现：输入回放 `rule_chain_replay.go`——`ruleChainReplayRecorder` 为可注入落点，**默认不接线**（nil 即旁路、热路径零开销）；回放**不沿图继续遍历**；**副作用闸门**命中有副作用节点时未显式确认即整体拒绝（一个节点都不执行），确认后打 `rc_replay`/`rc_replay_of`；节点类型漂移拒绝重跑；回放必须带来源执行 ID。
 - 已实现：草稿/发布版本与回滚——`rule_chain_version.go` 版本单向 `draft -> published`，published 只读、不可重复发布；**回滚产生新草稿而非回写原版本**，两侧各留审计事件；版本号单调递增；**图哈希参与版本身份**；迁移 `93.sql` `rule_chain_versions` 以**部分唯一索引保证一条链同一时刻只有一个 published**；4 条端点（GET/POST versions、publish、rollback）已在 93.sql 登记 Casbin。
-- 未闭环：真实链路 E2E（需活栈）。回放持久化未接数据库（迁移号位需另排）。
-- 证据：`docs/validation/P1.2-rulechain-version-evidence.md`（真实 PostgreSQL 7 项全过，含"第二条 published 被部分唯一索引拒绝"，并做 `DROP INDEX` 负向对照）；常驻用例 `internal/service/rule_chain_version_postgres_test.go`（缺 DSN 或缺表一律 Skip）；`rule_chain_node_policy_test.go` 11 例、`rule_chain_failure_edge_test.go` 8 例、`rule_chain_replay_test.go` 10 例。
+- 已闭环（2026-09-17）：**DLQ 持久化与回放快照落库**——迁移 `111.sql` `rule_chain_dead_letters`（审计最小化，不含业务载荷）；死信持久化运行在独立异步 goroutine（`defer recover()` 保护，绝不阻塞上行主链路）；输入快照按 `rule_chain.replay.retention_enabled` 开关留存；新增 6 条查询端点（死信按链/租户级、Trace 链级/租户级、回放执行面）并全部登记 Casbin；期间根治 `graph.ChainID` 因 `Pluck("graph")` 反序列化恒为空串导致死信/Trace 被静默丢弃的历史缺陷（改为 `ListEnabledRuleChains` 回填 `c.ID`）。
+- 证据：`docs/validation/2026-09-17-p12-rule-chain-reliability-evidence.md`——活栈（PostgreSQL 17.5 + Redis + Stub Broker）契约测试 `automation_tests/tests/59_rule_chain_reliability.test.js` **14/14 全绿**（版本生命周期 5、死信 3、Trace 2、回放与副作用闸门 4，含 4 条跨租户隔离负向用例）；Go 单测 18 例全过；Casbin 路由审计 407 条 protected routes 通过。此前证据 `docs/validation/P1.2-rulechain-version-evidence.md`（真实 PostgreSQL 7 项全过，含"第二条 published 被部分唯一索引拒绝"的 `DROP INDEX` 负向对照）仍然有效；常驻用例 `internal/service/rule_chain_version_postgres_test.go`（缺 DSN 或缺表一律 Skip）；`rule_chain_node_policy_test.go` 11 例、`rule_chain_failure_edge_test.go` 8 例、`rule_chain_replay_test.go` 10 例。
 
 ### P1.3 Widget 与 SCADA 基础层
 
@@ -561,13 +534,13 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 
 **交付物**：多设备对比、聚合/同比环比、基础异常、CSV/Excel、权限和分享。P0.6 先提供可靠的定时报表执行、历史与 SMTP 事实语义；本阶段在该 durable execution contract 上扩展分析查询和展示，不再创建第二套调度系统。
 
-**实现状态**：`partial` · 缺口类型 `未验证`。
+**实现状态**：`done`（2026-09-18 活栈运行期证据齐备）。
 
 - 已实现：多设备对比 / 聚合 / 同比环比 / CSV·Excel 导出与逐设备权限复查（`telemetry_analysis*.go` + `96.sql` Casbin）。
 - 已实现：**基础异常检测**——`telemetry_analysis_anomaly.go` 提供 `bounds`（静态上下限）与 `deviation`（均值±Kσ，默认 3）两种规则；空序列报"无数据"而非"无异常"；σ=0 显式零命中；编排 `RunTelemetryAnomalyDetection` 复用分析服务取数缝与设备权限缝，单设备失败不中断多设备检测；端点 `POST /api/v1/telemetry/analysis/anomaly`（97.sql Casbin，角色与既有分析路由一致）。
 - 已实现：仪表盘分享——`boards` 的 `Published`/`ShareToken` 列、`PublishBoard` 签发、公开路由 `GET /api/v1/board/shared/:token`（注册于 JWT 之前）。
-- 未闭环：anomaly 的运行期证据（需环境）；P0.6 durable execution 仍 partial——在其上扩展的定时报表类分析仍受同一约束。
-- 证据：`telemetry_analysis_core_test.go`、`telemetry_analysis_export_test.go`；`docs/validation/P1.5-P3-completion-batch-20260912.md`。
+- 已闭环（2026-09-18）：**分析查询与导出的活栈 API 契约**——`automation_tests/tests/60_telemetry_analysis.test.js` **8/8 全绿**（snake_case 线契约 `current={value,ok,aggregate}`、`aggregate=last` 兑现、基线无数据时百分比缺位并带 reason、逐行越权、CSV/缺省 xlsx 导出与非法格式拒绝）。过程中修复 `dal.GetTelemetryDatasAggregate` 缺 `last` 分支（API 校验承诺了但运行期必挂）并补 `TelemetryAggregateResult` 的 json tag。anomaly 的运行期证据为 40 组 11/11（2026-09-15）；看板分享为 07 组（发布 + 匿名读取）。
+- 证据：`docs/validation/2026-09-18-p22-analysis-query-export-evidence.md`（含活栈环境、判定要点与仍未验证部分）；`telemetry_analysis_core_test.go`、`telemetry_analysis_export_test.go`。
 
 ### P2.3 数据保留与性能
 
@@ -645,7 +618,7 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 2. ~~SCADA 新 `views/scada/` 编辑器挂路由~~ → 已完成（2026-09-14）。
 3. ~~补 anomaly / 打包导入 / 报表工作台 的前端 UI~~ → 已完成且已复核（2026-09-15 复跑：`market/browse` 4/4 + `visualization/anomaly` 3/3 vitest 通过；三处路由四件套与 `sys_ui_elements` 菜单行齐备，非"文件存在但不可达"）。
 4. ~~补 edge / license / anomaly / bundle-import / operation_logs-export 的自动化 E2E 用例~~ → 已完成且已复核（2026-09-15 实跑：38 组 10/10、39 组 6/6、40 组 11/11、41 组 5/5、42 组 6/6，见 `docs/validation/2026-09-15-roadmap-status-recheck.md`）。
-5. 补运行期证据文档：P0.3 灰度治理、98/99.sql 在 PostgreSQL 复跑。（P1.1 实体关系与看板端集成、P2.2 anomaly 与 P1.5/P1.6 新端点本轮已取证，从本项移除。）
+5. ~~补运行期证据文档：P0.3 灰度治理、98/99.sql 在 PostgreSQL 复跑~~ → 均已闭环（2026-09-15：47 组灰度治理 9/9 实测通过；98/99.sql 在真实 PG 各复跑 2 次幂等）。（P1.1 实体关系与看板端集成、P2.2 anomaly 与 P1.5/P1.6 新端点本轮已取证，从本项移除。）
 6. **TB-1 告警规则 2.0 终章已全面闭环（2026-09-16）**——完全对标 ThingsBoard 4.3 LTS (PR#14036 `CalculatedFieldType.ALARM`)：四态生命周期、告警评论与指派审计、遥测驱动可配置告警规则（H/M/L 多严重度阶梯）、严重度平滑就地升级、自愈自动清除（`clear_rule`）、跨网关/关联实体告警广播（`propagate: true`）与严格多租户隔离防护；52 组端到端契约测试 **18/18 全绿**，联合回归（28/46/48/49/50/51/52）**88/88 全部通过**，前端 431 test files / 3850 tests 全部通过。证据见 `docs/validation/2026-09-16-tb1-alarm-rules-advanced-evidence.md`。
 7. **TB-2 计算字段关联实体聚合与遥测传播已闭环（2026-09-16）**——对齐 ThingsBoard 4.3 LTS 计算字段核心能力，基于 `entity_relations` 通用实体关系图谱与 `devices.parent_id` 网关拓扑自动发现关联实体，支持 `sum/avg/min/max/count` 聚合与主从实体间遥测自动传播；50 组自动化契约测试 14/14 全绿，联合回归 65/65 全部通过，证据见 `docs/validation/2026-09-16-tb2-calculated-field-relations-evidence.md`。
 8. **TP-3 多层网关拓扑与递归遥测/命令路由已闭环（2026-09-16）**——对标 ThingsPanel 1.1.10+ 多层网关架构，打通顶层接入网关 -> 中间子网关 -> 底层终端子设备 3 层拓扑，支持 5 层递归解包与分发上行遥测（`gateway_data`、`sub_gateway_data`、`sub_device_data` 同批上报），下行递归向上追溯顶层物理接入网关；读模型开放 `parent_id`/`sub_device_addr` 并在分页列表支持按父网关快速过滤；安全层严防自环拓扑与跨租户绑定；51 组契约测试 5/5 全绿，联合回归（28/46/48/49/50/51）70/70 全部通过，证据见 `docs/validation/2026-09-16-tp3-multilayer-gateway-evidence.md`。

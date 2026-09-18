@@ -21,10 +21,12 @@ import (
 
 // TelemetryAggregateResult 一组样本的聚合结果。
 // OK 为 false 表示"没有可计算的值"（空序列），与"值为 0"是两种事实。
+// json tag 补齐于 P2.2 契约测试落地时：该结构此前无 HTTP 消费方，
+// 缺 tag 会把 Go 字段名（Value/OK/Aggregate）原样序列化，破坏全站 snake_case 线契约。
 type TelemetryAggregateResult struct {
-	Value     float64
-	OK        bool
-	Aggregate string
+	Value     float64 `json:"value"`
+	OK        bool    `json:"ok"`
+	Aggregate string  `json:"aggregate"`
 }
 
 // aggregateTelemetrySeries 对数值序列做聚合。

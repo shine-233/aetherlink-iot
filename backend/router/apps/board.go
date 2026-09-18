@@ -38,6 +38,9 @@ func (*Board) InitBoard(Router *gin.RouterGroup) {
 		// 租户设备在线离线趋势图
 		url.GET("trend", api.Controllers.BoardApi.GetDeviceTrend)
 
+		// 看板模板导出与导入（TP-5 资源中心）
+		url.GET("export/:id", api.Controllers.BoardApi.ExportBoardTemplate)
+		url.POST("import", api.Controllers.BoardApi.ImportBoardTemplate)
 	}
 	// P1.x 看板项目分组（native-board-provider 项目增删改）
 	projects := url.Group("projects")

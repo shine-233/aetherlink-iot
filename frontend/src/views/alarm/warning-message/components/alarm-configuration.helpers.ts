@@ -220,6 +220,13 @@ export function isReset(row: { alarm_status?: string }) {
   return row.alarm_status === 'N'
 }
 
+export function isCleared(row: { alarm_status?: string; lifecycle_status?: string; remark?: unknown }) {
+  if (row.lifecycle_status?.startsWith('CLEARED_')) return true
+  if (row.alarm_status === 'N') return true
+  const remark = parseAlarmRemark(row.remark)
+  return Boolean(remark.cleared_at || remark.reset_at)
+}
+
 export function buildAlarmResolutionTimeline(
   row: {
     alarm_status?: string

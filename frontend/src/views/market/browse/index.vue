@@ -1,15 +1,10 @@
 <!--
-  文件用途：模板市场浏览页（ROADMAP P1.6）——本地模板库浏览 + 按行业打包导出 + 打包导入闸门。
-  核心逻辑：浏览/导出沿用旧能力；导入走 market/bundle/import 的三段式流程：
-            解析预检 → 只读预览（create/overwrite/blocking）→ 覆盖项显式确认后提交。
-  关键注意事项：
-    1. **不得回退到 /device/template/import**。那是无签名的单模板回放端点，
-       会绕过 VerifyMarketBundle 与 confirm_overwrite 闸门；本页曾有一条
-       handleImportFile 直接调它，等于把整条 P1.6 门禁做成摆设。
-       所有导入必须经 importMarketBundle。
-    2. 前端不验签，也不得假装验签——只做"包里有没有签名三字段"的预检，
-       真正的验签由后端 fail closed 执行（见 bundle-import-model.ts 注释 1）。
-    3. 阻断项不可被确认绕过；覆盖项必须显式确认，且换文件时确认态必须重置。
+  文件用途：资源中心浏览与运营页（ROADMAP TP-5 / P1.6）——设备物模型与大屏看板统一市场。
+  核心逻辑：
+    1. 支持全部资源 / 设备物模型 / 大屏看板 多形态切换与行业分类过滤；
+    2. 资源统一展示、卡片预览与一键应用到当前租户；
+    3. 支持跨租户综合资源包（物模型+大屏看板）的打包导出与加密签名导入闸门：
+       解析预检 → 只读双重预览（物模型/大屏待新建/待覆盖/阻断项）→ 覆盖项显式确认后提交。
 -->
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
@@ -35,6 +30,11 @@ import {
   importMarketBundle,
   type MarketCatalogEntry
 } from '@/service/api/market'
+import {
+  applyResource,
+  getResourceCenterCatalog,
+  getResourceCenterList
+} from '@/service/api/resource-center'
 import { $t } from '@/locales'
 
 defineOptions({ name: 'MarketBrowse' })
@@ -47,10 +47,13 @@ interface TemplateRow {
   description?: string
   type_key?: string
   download_count?: number
+  resource_type?: 'device_template' | 'board_template' | string
+  vis_type?: string
 }
 
 const catalog = ref<MarketCatalogEntry[]>([])
 const activeType = ref<string>('')
+const activeResourceType = ref<'all' | 'device_template' | 'board_template'>('all')
 const templates = ref<TemplateRow[]>([])
 const loading = ref(false)
 
@@ -64,10 +67,28 @@ const tabs = computed(() => [
 ])
 
 const filtered = computed(() =>
-  templates.value.filter(row => (activeType.value ? (row.type_key || '') === activeType.value : true))
+  templates.value.filter(row => {
+    const matchType = activeType.value ? (row.type_key || '') === activeType.value : true
+    const matchResource = activeResourceType.value === 'all' || !row.resource_type
+      ? true
+      : row.resource_type === activeResourceType.value
+    return matchType && matchResource
+  })
 )
 
 async function loadCatalog() {
+  try {
+    const { data, error } = await getResourceCenterCatalog()
+    if (!error && Array.isArray(data) && data.length > 0) {
+      catalog.value = data.map(item => ({
+        type_key: item.type_key,
+        template_count: item.total_count,
+        download_count: item.download_count
+      }))
+      return
+    }
+  } catch {}
+
   const { data, error } = await getMarketCatalog()
   if (!error && Array.isArray(data)) catalog.value = data as MarketCatalogEntry[]
 }
@@ -75,6 +96,29 @@ async function loadCatalog() {
 async function loadTemplates() {
   loading.value = true
   try {
+    try {
+      const { data, error } = await getResourceCenterList({
+        page: 1,
+        page_size: 200,
+        resource_type: activeResourceType.value === 'all' ? undefined : activeResourceType.value,
+        type_key: activeType.value || undefined
+      })
+      if (!error && data && Array.isArray(data.list) && data.list.length > 0) {
+        templates.value = data.list.map(r => ({
+          id: r.id,
+          name: r.name,
+          version: r.version,
+          author: r.author,
+          description: r.description,
+          type_key: r.type_key,
+          download_count: r.download_count,
+          resource_type: r.resource_type,
+          vis_type: r.vis_type
+        }))
+        return
+      }
+    } catch {}
+
     const { data, error } = await getLocalTemplateList({ page: 1, page_size: 200 })
     if (!error && data) {
       const payload = data as { list?: TemplateRow[] }
@@ -92,8 +136,24 @@ async function handleDownloadBundle(typeKey: string) {
   window.$message?.success($t('page.marketBrowse.downloadStarted'))
 }
 
+async function handleApply(row: TemplateRow) {
+  try {
+    const rType = (row.resource_type as 'device_template' | 'board_template') || 'device_template'
+    const { error } = await applyResource({
+      resource_type: rType,
+      resource_id: row.id
+    })
+    if (!error) {
+      window.$message?.success($t('page.marketBrowse.applySuccess'))
+      await loadTemplates()
+    }
+  } catch (err: any) {
+    window.$message?.error(err?.message || 'Apply failed')
+  }
+}
+
 // ---------------------------------------------------------------------------
-// 打包导入闸门
+// 综合资源包导入闸门
 // ---------------------------------------------------------------------------
 
 const importVisible = ref(false)
@@ -112,7 +172,6 @@ const importDecision = computed<BundleImportDecision>(() =>
 const importCanSubmit = computed(() => canSubmitBundleImport(importDecision.value, confirmOverwrite.value))
 const importSigned = computed(() => hasBundleSignature(importBundle.value))
 
-/** 文件指纹：同名同大小但内容不同的极端情况由后端预览结果兜住。 */
 function fileKeyOf(file: File): string {
   return `${file.name}|${file.size}|${file.lastModified}`
 }
@@ -149,7 +208,6 @@ async function handleImportFile(file: File) {
   importBundle.value = parsed.bundle
   importVisible.value = true
 
-  // 未签名的包后端一定会拒，没必要多打一次往返；决策会显示 unsigned。
   if (!hasBundleSignature(parsed.bundle)) return
 
   importBusy.value = true
@@ -214,7 +272,15 @@ defineExpose({ handleImportFile })
         </div>
       </template>
 
-      <n-tabs v-model:value="activeType" type="segment" class="mb-4">
+      <!-- 资源形态切换（全部 / 设备物模型 / 大屏看板） -->
+      <n-tabs v-model:value="activeResourceType" type="line" class="mb-3" @update:value="loadTemplates">
+        <n-tab name="all">{{ $t('page.marketBrowse.allResources') }}</n-tab>
+        <n-tab name="device_template">{{ $t('page.marketBrowse.deviceTemplates') }}</n-tab>
+        <n-tab name="board_template">{{ $t('page.marketBrowse.boardTemplates') }}</n-tab>
+      </n-tabs>
+
+      <!-- 行业分类切换 -->
+      <n-tabs v-model:value="activeType" type="segment" class="mb-4" @update:value="loadTemplates">
         <n-tab v-for="tab in tabs" :key="tab.key || '__all__'" :name="tab.key">
           {{ tab.label }} ({{ tab.count }})
         </n-tab>
@@ -230,13 +296,23 @@ defineExpose({ handleImportFile })
       <div v-else class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
         <n-card v-for="row in filtered" :key="row.id" size="small" :bordered="true" class="rounded-8px">
           <div class="flex items-center justify-between">
-            <span class="font-600">{{ row.name }}</span>
+            <div class="flex items-center gap-2">
+              <span class="font-600">{{ row.name }}</span>
+              <n-tag size="tiny" :type="row.resource_type === 'board_template' ? 'warning' : 'success'">
+                {{ row.resource_type === 'board_template' ? $t('page.marketBrowse.boardTemplates') : $t('page.marketBrowse.deviceTemplates') }}
+              </n-tag>
+            </div>
             <n-tag size="small" type="info">{{ row.version || '-' }}</n-tag>
           </div>
           <div class="mt-1 text-12px opacity-70">{{ row.description || row.author || '—' }}</div>
           <div class="mt-2 flex items-center justify-between text-12px">
             <n-tag size="small">{{ row.type_key || $t('page.marketBrowse.uncategorized') }}</n-tag>
-            <span class="opacity-70">{{ row.download_count ?? 0 }} ↓</span>
+            <div class="flex items-center gap-3">
+              <span class="opacity-70">{{ row.download_count ?? 0 }} ↓</span>
+              <n-button text type="primary" size="tiny" @click="handleApply(row)">
+                {{ $t('page.marketBrowse.apply') }}
+              </n-button>
+            </div>
           </div>
         </n-card>
       </div>
@@ -277,7 +353,7 @@ defineExpose({ handleImportFile })
           {{ importDecisionMessage }}
         </n-alert>
 
-        <!-- 三类名单必须分开渲染：阻断项混进覆盖项会让用户以为勾一下就能过 -->
+        <!-- 三类名单分开渲染：阻断项、覆盖项、新建项 -->
         <div v-if="importLists.create.length" class="text-13px">
           <div class="mb-1 font-600">{{ $t('page.marketBrowse.importCreate') }}</div>
           <ul class="ml-4 list-disc opacity-80">

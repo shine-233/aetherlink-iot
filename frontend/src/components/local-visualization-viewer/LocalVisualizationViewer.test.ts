@@ -84,4 +84,54 @@ describe('LocalVisualizationViewer', () => {
     expect(wrapper.get('[data-testid="local-viewer-empty"]').text()).toContain('Add a widget in the board editor')
     expect(wrapper.findComponent(GridLayoutPlus).exists()).toBe(false)
   })
+
+  it('renders timewindow toolbar and responsive indicator when enabled', async () => {
+    const wrapper = mount(LocalVisualizationViewer, {
+      props: {
+        dashboard: {
+          version: 1,
+          columns: 24,
+          rowHeight: 60,
+          responsive: true,
+          timewindow: {
+            type: 'realtime',
+            realtime: { interval: '1h' },
+            aggregation: { func: 'avg', interval: 60000 }
+          },
+          widgets: widgets.slice(0, 1)
+        },
+        fields: { status: 'online' }
+      }
+    })
+
+    expect(wrapper.find('[data-testid="viewer-toolbar"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="breakpoint-indicator"]').exists()).toBe(true)
+  })
+
+  it('renders a sanitized html widget with dynamic variables and scoped css', () => {
+    const htmlWidget = {
+      id: 'html1',
+      x: 0,
+      y: 0,
+      w: 4,
+      h: 2,
+      type: 'html',
+      config: {
+        html: '<div class="custom-card"><h3>Equipment: {{dev}}</h3><p>Temp: ${temp}</p></div>',
+        css: '.custom-card { color: #10b981; }',
+        field: 'temp'
+      }
+    }
+    const wrapper = mount(LocalVisualizationViewer, {
+      props: {
+        dashboard: { version: 1, columns: 12, rowHeight: 48, widgets: [htmlWidget] },
+        fields: { dev: 'Pump-4', temp: 88 }
+      }
+    })
+    const widgetEl = wrapper.get('[data-widget-id="html1"]')
+    expect(widgetEl.text()).toContain('Equipment: Pump-4')
+    expect(widgetEl.text()).toContain('Temp: 88')
+    expect(widgetEl.html()).toContain('[data-widget-id="html1"] .custom-card {')
+  })
 })
+

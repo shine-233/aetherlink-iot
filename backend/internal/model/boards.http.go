@@ -16,6 +16,11 @@ type CreateBoardReq struct {
 	Remark      *string `json:"remark" validate:"omitempty,max=255"`
 	TenantID    string  `json:"tenant_id" validate:"omitempty,max=36"` //租户id
 	VisType     *string `json:"vis_type" validate:"omitempty,max=50"`
+	TypeKey     *string `json:"type_key" validate:"omitempty,max=64"`
+	Author      *string `json:"author" validate:"omitempty,max=99"`
+	Version     *string `json:"version" validate:"omitempty,max=36"`
+	PreviewURL     *string `json:"preview_url" validate:"omitempty,max=255"`
+	ConflictPolicy *string `json:"conflict_policy" form:"conflict_policy" validate:"omitempty,oneof=fail rename ignore update allow"` // TB-15 实体名冲突策略
 }
 
 type UpdateBoardReq struct {
@@ -28,6 +33,10 @@ type UpdateBoardReq struct {
 	Remark      *string `json:"remark" validate:"omitempty,max=255"`
 	TenantID    string  `json:"tenant_id" validate:"omitempty,max=36"` //租户id
 	VisType     *string `json:"vis_type" validate:"omitempty,max=50"`
+	TypeKey     *string `json:"type_key" validate:"omitempty,max=64"`
+	Author      *string `json:"author" validate:"omitempty,max=99"`
+	Version     *string `json:"version" validate:"omitempty,max=36"`
+	PreviewURL  *string `json:"preview_url" validate:"omitempty,max=255"`
 }
 
 type GetBoardListByPageReq struct {

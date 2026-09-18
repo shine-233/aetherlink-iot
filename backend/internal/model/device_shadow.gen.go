@@ -19,11 +19,16 @@ type DeviceShadowMessage struct {
 	MessageType string    `gorm:"column:message_type;not null;default:command" json:"message_type"`
 	Payload     *string   `gorm:"column:payload;type:jsonb;not null;default:{}" json:"payload"`
 	TTLSeconds  int       `gorm:"column:ttl_seconds;not null;default:86400" json:"ttl_seconds"`
-	Status      string    `gorm:"column:status;not null;default:pending" json:"status"`
-	CreatedBy   *string   `gorm:"column:created_by" json:"created_by"`
-	CreatedAt   *time.Time `gorm:"column:created_at" json:"created_at"`
-	DeliveredAt *time.Time `gorm:"column:delivered_at" json:"delivered_at"`
-	ExpiresAt   time.Time `gorm:"column:expires_at;not null" json:"expires_at"`
+	Status        string     `gorm:"column:status;not null;default:pending" json:"status"`
+	Attempts      int        `gorm:"column:attempts;not null;default:0" json:"attempts"`
+	SentAt        *time.Time `gorm:"column:sent_at" json:"sent_at"`
+	AckAt         *time.Time `gorm:"column:ack_at" json:"ack_at"`
+	NextAttemptAt *time.Time `gorm:"column:next_attempt_at" json:"next_attempt_at"`
+	LastError     *string    `gorm:"column:last_error" json:"last_error"`
+	CreatedBy     *string    `gorm:"column:created_by" json:"created_by"`
+	CreatedAt     *time.Time `gorm:"column:created_at" json:"created_at"`
+	DeliveredAt   *time.Time `gorm:"column:delivered_at" json:"delivered_at"`
+	ExpiresAt     time.Time  `gorm:"column:expires_at;not null" json:"expires_at"`
 }
 
 // TableName DeviceShadowMessage's table name

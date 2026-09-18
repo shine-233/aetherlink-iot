@@ -1,8 +1,20 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { NButton, NCard, NInput, NInputNumber, NSelect, NSpin, useMessage } from 'naive-ui'
-import { LocalVisualizationViewer, type ChartWidgetConfig, type LocalWidgetType, type MetricWidgetConfig, type TextWidgetConfig } from '@/components/local-visualization-viewer'
+import { NButton, NCard, NInput, NInputNumber, NSelect, NSpin, NSwitch, useMessage } from 'naive-ui'
+import {
+  LocalVisualizationViewer,
+  type ChartWidgetConfig,
+  type HtmlWidgetConfig,
+  type LocalWidgetConfig,
+  type LocalWidgetType,
+  type MetricWidgetConfig,
+  type NormalizedLocalWidget,
+  type TextWidgetConfig
+} from '@/components/local-visualization-viewer'
+import { TimewindowSelector } from '@/components/local-visualization-viewer/timewindow'
+import type { TimewindowConfig } from '@/components/local-visualization-viewer/timewindow/types'
+import { DynamicWidgetForm } from '@/components/local-visualization-viewer/dynamic-form'
 import { useRouterPush } from '@/hooks/common/router'
 import { $t } from '@/locales'
 import { getDefaultVisualizationProviderFacade } from '@/service/visualization-provider/composition'
@@ -13,8 +25,11 @@ import {
   loadEditorDashboard,
   removeWidget,
   serializeEditorDashboard,
+  updateDashboardResponsive,
+  updateDashboardTimewindow,
   updateWidgetConfig,
   updateWidgetLayout,
+  updateWidgetTimewindow,
   type EditorDashboard,
   type EditorModelResult,
   type EditorWidget
@@ -25,7 +40,8 @@ const WIDGET_TYPES: { label: string; value: LocalWidgetType }[] = [
   { label: 'Text', value: 'text' },
   { label: 'Metric', value: 'metric' },
   { label: 'Line chart', value: 'line-chart' },
-  { label: 'Bar chart', value: 'bar-chart' }
+  { label: 'Bar chart', value: 'bar-chart' },
+  { label: 'HTML 容器', value: 'html' }
 ]
 
 const route = useRoute()
@@ -140,6 +156,35 @@ function handleChartValues(widget: EditorWidget, value: string) {
   handleConfig(widget, 'values', values)
 }
 
+const editingWidget = ref<EditorWidget | null>(null)
+const dynamicFormVisible = ref(false)
+
+function handleOpenDynamicForm(widget: EditorWidget) {
+  editingWidget.value = widget
+  dynamicFormVisible.value = true
+}
+
+function handleDynamicFormSave(updatedConfig: LocalWidgetConfig) {
+  if (!dashboard.value || !editingWidget.value) return
+  const id = editingWidget.value.id
+  applyResult(updateWidgetConfig(dashboard.value, id, updatedConfig))
+  if ((updatedConfig as any).timewindow) {
+    applyResult(updateWidgetTimewindow(dashboard.value, id, (updatedConfig as any).timewindow))
+  }
+  dynamicFormVisible.value = false
+  editingWidget.value = null
+}
+
+function handleDashboardTimewindow(tw: TimewindowConfig) {
+  if (!dashboard.value) return
+  applyResult(updateDashboardTimewindow(dashboard.value, tw))
+}
+
+function handleDashboardResponsive(val: boolean) {
+  if (!dashboard.value) return
+  applyResult(updateDashboardResponsive(dashboard.value, val))
+}
+
 async function handleSave() {
   if (!canEdit.value || saving.value || !board.value || !dashboard.value) return
   const id = boardId.value
@@ -209,6 +254,26 @@ onBeforeUnmount(() => {
               data-testid="board-description"
             />
           </div>
+
+          <!-- 全局看板设置：Timewindow 与 响应式断点 -->
+          <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-gray-200 bg-gray-50 p-3">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-medium text-gray-700">响应式断点自适应 (24/12/6列):</span>
+              <NSwitch
+                :value="dashboard.responsive ?? true"
+                data-testid="toggle-responsive"
+                @update:value="handleDashboardResponsive"
+              />
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-medium text-gray-700">看板时间窗口:</span>
+              <TimewindowSelector
+                :model-value="dashboard.timewindow"
+                @update:model-value="handleDashboardTimewindow"
+              />
+            </div>
+          </div>
+
           <div class="mb-4 flex flex-wrap items-center gap-2">
             <NSelect v-model:value="selectedType" :options="WIDGET_TYPES" class="w-48" data-testid="widget-type" />
             <NButton type="primary" data-testid="add-widget" @click="handleAddWidget">
@@ -222,9 +287,14 @@ onBeforeUnmount(() => {
           <NCard v-for="widget in dashboard.widgets" :key="widget.id" size="small" class="mb-3" data-testid="widget-editor">
             <div class="mb-3 flex items-center justify-between">
               <strong>{{ widget.type }} · {{ widget.id }}</strong>
-              <NButton type="error" size="small" @click="handleRemoveWidget(widget.id)">
-                {{ $t('custom.nativeBoardEditor.remove') }}
-              </NButton>
+              <div class="flex items-center gap-2">
+                <NButton size="small" type="primary" secondary data-testid="open-widget-form" @click="handleOpenDynamicForm(widget)">
+                  高级配置
+                </NButton>
+                <NButton type="error" size="small" @click="handleRemoveWidget(widget.id)">
+                  {{ $t('custom.nativeBoardEditor.remove') }}
+                </NButton>
+              </div>
             </div>
             <div class="mb-3 grid grid-cols-4 gap-2">
               <NInputNumber :value="widget.x" :min="0" :max="dashboard.columns - 1" @update:value="handleLayout(widget, 'x', $event)" />
@@ -244,6 +314,35 @@ onBeforeUnmount(() => {
               <NInput :value="(widget.config as MetricWidgetConfig).unit" class="mt-2" placeholder="Unit (optional)" @update:value="handleConfig(widget, 'unit', $event || undefined)" />
               <NInputNumber :value="(widget.config as MetricWidgetConfig).decimals" class="mt-2" :min="0" :max="6" placeholder="Decimals" @update:value="handleConfig(widget, 'decimals', $event === null ? undefined : $event)" />
             </template>
+            <template v-else-if="widget.type === 'html'">
+              <NInput
+                :value="(widget.config as HtmlWidgetConfig).html"
+                type="textarea"
+                :rows="3"
+                placeholder="HTML 模板 (例如 <div>{{status}}</div>)"
+                @update:value="handleConfig(widget, 'html', $event)"
+              />
+              <NInput
+                :value="(widget.config as HtmlWidgetConfig).css"
+                type="textarea"
+                :rows="2"
+                class="mt-2"
+                placeholder="自定义 CSS (自动 Scoped 隔离)"
+                @update:value="handleConfig(widget, 'css', $event || undefined)"
+              />
+              <NInput
+                :value="(widget.config as HtmlWidgetConfig).field"
+                class="mt-2"
+                placeholder="绑定字段 (可选)"
+                @update:value="handleConfig(widget, 'field', $event || undefined)"
+              />
+              <NInput
+                :value="(widget.config as HtmlWidgetConfig).fallback"
+                class="mt-2"
+                placeholder="无数据兜底 (可选)"
+                @update:value="handleConfig(widget, 'fallback', $event || undefined)"
+              />
+            </template>
             <template v-else>
               <NInput :value="(widget.config as ChartWidgetConfig).title" placeholder="Chart title" @update:value="handleConfig(widget, 'title', $event || undefined)" />
               <NInput :value="(widget.config as ChartWidgetConfig).categories?.join(', ')" class="mt-2" placeholder="Categories, comma separated" @update:value="handleChartCategories(widget, $event)" />
@@ -260,6 +359,14 @@ onBeforeUnmount(() => {
       <div v-else class="flex min-h-80 items-center justify-center text-gray-400" role="status">
         {{ loading ? $t('custom.nativeBoardEditor.loading') : failed ? $t('custom.nativeBoardEditor.loadFailed') : '' }}
       </div>
+
+      <DynamicWidgetForm
+        :show="dynamicFormVisible"
+        :type="editingWidget ? editingWidget.type : 'text'"
+        :config="editingWidget ? editingWidget.config : null"
+        @update:show="dynamicFormVisible = $event"
+        @save="handleDynamicFormSave"
+      />
     </NSpin>
   </div>
 </template>
