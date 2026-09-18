@@ -11895,6 +11895,127 @@
         ]
       }
     },
+    "/api/v1/solutions": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "ListIndustrySolutions-fm (aetherlink-iot/backend/internal/api.(*IndustrySolutionApi))",
+        "tags": [
+          "solutions"
+        ]
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "CreateIndustrySolution-fm (aetherlink-iot/backend/internal/api.(*IndustrySolutionApi))",
+        "tags": [
+          "solutions"
+        ]
+      }
+    },
+    "/api/v1/solutions/:id": {
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "DeleteIndustrySolution-fm (aetherlink-iot/backend/internal/api.(*IndustrySolutionApi))",
+        "tags": [
+          "solutions"
+        ]
+      },
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "GetIndustrySolution-fm (aetherlink-iot/backend/internal/api.(*IndustrySolutionApi))",
+        "tags": [
+          "solutions"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "/api/v1/solutions/:id/install": {
+      "parameters": [
+        {
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "InstallIndustrySolution-fm (aetherlink-iot/backend/internal/api.(*IndustrySolutionApi))",
+        "tags": [
+          "solutions"
+        ]
+      }
+    },
     "/api/v1/sso/:id/callback": {
       "get": {
         "responses": {

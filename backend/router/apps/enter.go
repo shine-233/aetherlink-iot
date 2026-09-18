@@ -64,6 +64,7 @@ type apps struct {
 	QueueMonitorRouter // TB-7 队列隔离监控
 	UnitsRouter // TB-9 单位换算与物理量纲
 	SecretsRouter // TB-18 通用 Secrets Storage
+	IndustrySolution // TB-19 解决方案模板引擎
 }
 
 var Model = new(apps)

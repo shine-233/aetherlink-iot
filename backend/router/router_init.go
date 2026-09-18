@@ -292,6 +292,7 @@ func RouterInit() *gin.Engine {
 			apps.Model.Scada.Init(v1)  // P1.3 Widget 与 SCADA 基础层
 			apps.Model.Mobile.Init(v1) // P1.4 移动端控制与通知
 			apps.Model.ResourceCenter.InitResourceCenter(v1) // TP-5 资源中心（物模型与大屏统一市场）
+			apps.Model.IndustrySolution.InitIndustrySolution(v1) // TB-19 解决方案模板引擎
 
 			apps.Model.AttributeData.InitAttributeData(v1) // 属性数据
 
