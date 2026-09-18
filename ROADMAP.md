@@ -677,7 +677,7 @@ ThingsBoard PE/Cloud/Edge、TBMQ、Trendz 和 ThingsPanel 企业宣传能力只�
 | TB-16 | ValKey / 可选 KV 后端 | 4.1.0 | 仅 Redis；`ValKey` 0 命中 | `未实现` | ValKey 与 Redis RESP 兼容，主要工作是**验证与配置**而非改码 | S | **建议随 TB-7 一起做**：先兼容性验证，再决定是否正式支持 |
 | TB-17 | 自定义角色 RBAC（PE 对等） | PE 专属 | 仅 Casbin 固定角色，**无 Role 实体** | `未实现` | 需 Role 实体 + 权限点模型 + UI；牵动全站鉴权 | L | **按客户合规需求立项**：常与 TP-7 信创场景一起被要求 |
 | TB-18 | 通用 Secrets Storage（PE 对等） | PE 专属 | **全链路已全面闭环（2026-09-17）**：① `109.sql` 迁移创建 `sys_secrets` 表（联合唯一键 `(tenant_id, key)`、AES-256-GCM 信封密文、脱敏前缀 `masked_preview`、轮换标记 `needs_reseal`）、登记 Casbin 路由并按最小特权赋权 `SYS_ADMIN`、`TENANT_ADMIN`、`TENANT_USER`、注册前端菜单 `management_secrets`，`VERSION_NUMBER=109`；② 后端内核基于成熟 `pkg/secrets`（AES-256-GCM，AAD 绑定租户 ID 防止跨租户密文搬运）；③ DAL/Service 层实现强校验、脱敏掩码、/reveal 审计解密（落盘 `operation_logs` 且不回显明文）、Reseal 在线重加密轮换与 `ResolveSecret` 内部下游动态解析（`${secret.KEY}`、`secret:KEY`、`KEY`）；④ 前端管理工作台（`management/secrets/index.vue`）与国际化翻译（4 语言）齐备，vitest 单测通过；⑤ 56 组自动化契约测试 **10/10 全绿**，多套件联合回归 100% 全部通过。证据见 `docs/validation/2026-09-17-tb18-secrets-storage-evidence.md` | `已闭环` | 全链路已落地 | M | **已全面闭环，无需立项**：通用密钥管理工作台、信封加密、安全解密审计与在线轮换端到端落地 |
-| TB-19 | 解决方案模板引擎 | **CE 即有引擎**（`service/solutions/DefaultSolutionService.java` + 20+ 定义类；PE 差异只在模板内容从云端 Hub 拉） | **后端全链路已闭环（2026-09-19）**：113.sql（`industry_solutions` 同租户名唯一 + `industry_solution_installs` append-only 流水）+ service 编排层复用 TP-5 `ApplyResource` 管道（不建第二套打包/签名/冲突闸门）+ 创建即只读校验引用（探测误创建实例的初版缺陷已修）+ 5 端点 Casbin 登记（路由审计 413 通过）+ OpenAPI 454 paths；**7/7 活栈契约全绿**（创建无副作用、引用不可用即拒、逐项安装结果与流水、跨租户 detail/install 均 404）。语义与 TB 一致：每次安装实例化一套新资产，模板导入租户幂等。**剩余：前端 UI 面（方案管理页/一键装按钮）与规则链等更多资源类型未纳入** | `未接线`（UI 面） | 契约与权限面已齐，UI 小开发量 | S–M | **后端已闭环**：见 `docs/validation/2026-09-19-tb19-solution-template-engine-evidence.md`；剩 UI 接线 |
+| TB-19 | 解决方案模板引擎 | **CE 即有引擎**（`service/solutions/DefaultSolutionService.java` + 20+ 定义类；PE 差异只在模板内容从云端 Hub 拉） | **后端全链路已闭环（2026-09-19）**：113.sql（`industry_solutions` 同租户名唯一 + `industry_solution_installs` append-only 流水）+ service 编排层复用 TP-5 `ApplyResource` 管道（不建第二套打包/签名/冲突闸门）+ 创建即只读校验引用（探测误创建实例的初版缺陷已修）+ 5 端点 Casbin 登记（路由审计 413 通过）+ OpenAPI 454 paths；**7/7 活栈契约全绿**（创建无副作用、引用不可用即拒、逐项安装结果与流水、跨租户 detail/install 均 404）。语义与 TB 一致：每次安装实例化一套新资产，模板导入租户幂等；**UI 面同日闭环（2026-09-19）**：`management/solutions` 管理控制台（路由四件套 + 114.sql 菜单行）+ 组件测试 4/4 + **浏览器 E2E `32_tb19_industry_solution.spec.js` 1 passed（真实 Edge，2.7s）**；**顺带发现并修复 TB-18 Secrets 死菜单**——109.sql 菜单行一直存在但路由四件套从未登记，运行期被 route-adapter 跳过、页面不可达（§1.3-B-2 陷阱再现），已同批补齐并以「skip invalid menu route 警告=0」钉进 e2e。**剩余：规则链等更多资源类型未纳入方案引用** | 无 | 全链路已落地 | S | **已全面闭环，无需立项**：见 `docs/validation/2026-09-19-tb19-solution-template-engine-evidence.md` |
 
 ### 7.2 相对 ThingsPanel（社区版 / 企业版宣称）的缺口
 
@@ -743,7 +743,7 @@ ThingsBoard PE/Cloud/Edge、TBMQ、Trendz 和 ThingsPanel 企业宣传能力只�
 **第二梯队（建议排期，中等投入）**
 
 - **`TB-14` AI 规则节点**——复用既有 AI 凭证加密与 LLM 客户端，是 AI 进入业务链路的入口。
-- ~~**`TB-19` 解决方案模板引擎**~~ → **后端全链路已闭环（2026-09-19）**：见 §7.1 该行与 `docs/validation/2026-09-19-tb19-solution-template-engine-evidence.md`；剩前端 UI 接线（`未接线`）。
+- ~~**`TB-19` 解决方案模板引擎**~~ → **已全面闭环（2026-09-19，含 UI 与浏览器 E2E）**：见 §7.1 该行与 `docs/validation/2026-09-19-tb19-solution-template-engine-evidence.md`；同批修复 TB-18 Secrets 死菜单。
 - ~~**`TB-12` 设备认领与自动注册**~~ → **已全面闭环（2026-09-19，含 UI 与浏览器 E2E）**：见 §7.1 该行与 `docs/validation/2026-09-19-tb12-device-claiming-evidence.md`。
 - ~~**`TB-10` Sparkplug B**~~ → **已全面闭环（2026-09-17）**：见 §7.1 该行与 `docs/validation/2026-09-17-tb10-sparkplug-uplink-evidence.md`。
 

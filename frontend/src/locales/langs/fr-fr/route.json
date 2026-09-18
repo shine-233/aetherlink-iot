@@ -91,5 +91,8 @@
   "route.product-pre-register": "Pré-enregistrement",
   "route.product-update-ota": "Mise à jour OTA",
   "route.product-update-package": "Paquet de mise à jour",
-  "route.system-management-user-equipment-map": "Carte des équipements"
+  "route.system-management-user-equipment-map": "Carte des équipements",
+  "route.management_solutions": "Modèles de solution",
+  "view.management_solutions": "Modèles de solution",
+  "view.management_secrets": "Gestion des secrets"
 }

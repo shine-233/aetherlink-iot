@@ -37,6 +37,7 @@ export * from './entity_version'
 export * from './plugin_registry' // PHASE-D-D9 插件框架 gRPC 网关
 export * from './license'
 export * from './edge-node'
+export * from './solution'
 // ROADMAP P2.2：anomaly 页面（views/visualization/anomaly）从 `@/service/api` 汇总导入
 // TELEMETRY_ANOMALY_RULE_* / detectTelemetryAnomalies 等，但本 barrel 此前漏了这条
 // re-export，导致 vue-tsc 报 11 个 TS2305「has no exported member」，页面也编译不过。

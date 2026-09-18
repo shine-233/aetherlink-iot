@@ -59,8 +59,30 @@
 `casbin route audit passed: 413 protected routes registered`（较 112 的 410 新增 3 条）。
 回归：`go build ./...` exit 0；vet 通过；`internal/service` + `internal/dal` 全包 ok。
 
-## 五、仍未接线（如实）
+## 五、UI 面闭环（2026-09-19 同日补齐，并顺带修复 TB-18 死菜单）
 
-- **前端 UI 面**：无方案管理页/「一键装方案」按钮（后端契约、权限、流水面已闭环）。
+前端交付：
+
+- `src/views/management/solutions/index.vue` 管理控制台（方案分页列表 / 新建方案
+  弹窗含有序资源引用编辑 / 一键安装确认框与逐项结果面板 / 安装流水回查 / 删除）；
+- `src/service/api/solution.ts` 5 个 wrapper 并入 barrel；
+- 路由四件套（imports.ts / systemRoutes.ts / transform.ts / typings）登记
+  `management_solutions`；114.sql 登记 sys_ui_elements 菜单行（orders 48）；
+- 组件测试 4/4（创建裁剪与空值拦截、确认框触发、逐项 applied/failed、流水展示）。
+
+**重要发现——TB-18 Secrets 页面此前实际不可达**：运行期控制台警告
+`[route-adapter] skip invalid menu route: management_secrets`，即 109.sql 的菜单行
+一直存在但 imports.ts 等路由四件套从未登记，页面挂不上（正是路线图 §1.3-B-2 记录
+过的「菜单有了、路由没挂」陷阱）。本批同补 secrets 的四件套登记并加进 e2e 断言：
+`skip invalid menu route` 警告数必须为 0。
+
+**测试与证据**：typecheck 0 错误；服务导出快照更新通过；
+**浏览器 E2E `e2e/32_tb19_industry_solution.spec.js` 1 passed（真实 Edge，2.7s）**：
+菜单直达 /management/solutions → 种子方案行渲染 → 一键安装确认 →
+「安装完成：共 2 项，成功 2 项，失败 0 项」逐项展示 →
+控制台无任何 skip invalid menu route 警告。全程真实活栈。
+
+## 六、仍未接线（如实）
+
 - 方案内容目前覆盖 device_template + board_template 两类资源；规则链等更多资源
   类型需要在资源中心白名单扩展后再纳入方案引用。

@@ -209,6 +209,8 @@ const routeMap: RouteMap = {
   "management_api": "/management/api",
   "management_edge-nodes": "/management/edge-nodes",
   "management_license": "/management/license",
+  "management_secrets": "/management/secrets",
+  "management_solutions": "/management/solutions",
   "management_auth": "/management/auth",
   "management_notification": "/management/notification",
   "management_role": "/management/role",

@@ -91,5 +91,8 @@
   "route.product-pre-register": "预注册",
   "route.product-update-ota": "OTA 升级",
   "route.product-update-package": "升级包",
-  "route.system-management-user-equipment-map": "设备地图"
+  "route.system-management-user-equipment-map": "设备地图",
+  "route.management_solutions": "解决方案模板",
+  "view.management_solutions": "解决方案模板",
+  "view.management_secrets": "密钥管理"
 }

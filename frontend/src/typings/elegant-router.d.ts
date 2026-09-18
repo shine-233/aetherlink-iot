@@ -65,6 +65,8 @@ declare module "@elegant-router/types" {
     "management_auth": "/management/auth";
     "management_edge-nodes": "/management/edge-nodes";
     "management_entity-version": "/management/entity-version";
+    "management_secrets": "/management/secrets";
+    "management_solutions": "/management/solutions";
     "management_license": "/management/license";
     "management_notification": "/management/notification";
     "management_role": "/management/role";
@@ -200,6 +202,8 @@ declare module "@elegant-router/types" {
     | "management_auth"
     | "management_edge-nodes"
     | "management_entity-version"
+    | "management_secrets"
+    | "management_solutions"
     | "management_license"
     | "management_notification"
     | "management_role"

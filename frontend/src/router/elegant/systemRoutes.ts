@@ -122,6 +122,24 @@ export const managementRoutes: GeneratedRoute[] = [
           }
         },
         {
+          name: 'management_secrets',
+          path: '/management/secrets',
+          component: 'view.management_secrets',
+          meta: {
+            title: 'management_secrets',
+            i18nKey: 'route.management_secrets'
+          }
+        },
+        {
+          name: 'management_solutions',
+          path: '/management/solutions',
+          component: 'view.management_solutions',
+          meta: {
+            title: 'management_solutions',
+            i18nKey: 'route.management_solutions'
+          }
+        },
+        {
           name: 'management_edge-nodes',
           path: '/management/edge-nodes',
           component: 'view.management_edge-nodes',
