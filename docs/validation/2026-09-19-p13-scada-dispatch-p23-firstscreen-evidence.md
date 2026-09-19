@@ -38,12 +38,30 @@ params.target=open、ack_payload 回应答信封）→ 审计 outcome=success �
 审计语义如实记录：确认闸门拒绝的 outcome 是 **denied**（不是 failed），
 两类失败在审计里分账。
 
-### P1.3 门禁对账
+### 浏览器 E2E（同日补齐，P1.3 正式翻 done）
 
-项目 CRUD 不再 unsupported✓；画布保存/加载可往返✓（SQLite/PG 契约测试）；
-遥测断线判陈旧✓；控制命令权限/确认/审计✓ + **真实下发✓**；3D/WebGL 逐 Widget
-降级✓。**唯一剩余：画布编辑器的浏览器 E2E**（UI 行为面的最后一块），
-P1.3 维持 `partial`（`未验证`），不得提前翻 done。
+`automation_tests/e2e/34_scada_editor.spec.js` **1 passed（3.1s，真实 Edge）**：
+
+1. 编辑器页加载（save 初始禁用——「无变化往返不产生空版本」契约在 UI 侧成立）；
+2. **通过 UI 走 new project / new canvas 创建**（顺带取证项目 CRUD 的 UI 面；
+   不走下拉——项目列表分页不一定包含新建项，第一版用下拉选择即因此超时）；
+3. 展开符号面板（NCollapse 默认折叠）→ `+ timeseries` 添加节点 → 画布变脏、save 激活；
+4. save 走 expected_version 乐观并发 → 「已保存」→ API 直读画布确认 timeseries 节点落库；
+5. publish → 「已发布」→ versions 端点确认发布快照 ≥1。
+
+### P1.3 门禁对账（终版）
+
+项目 CRUD 不再 unsupported✓（含 UI 面）；画布保存/加载可往返✓；遥测断线判陈旧✓；
+控制命令权限/确认/审计✓ + 真实下发✓；3D/WebGL 逐 Widget 降级✓；
+**四面一致齐备**（API/OpenAPI ✓、后端权限 ✓、UI 行为 ✓、自动化 E2E ✓）→
+**P1.3 翻 `done`**。
+
+### E2E 踩坑记录（诚实入档）
+
+- chai 语法两次误用到 playwright expect（`.to.be.an('object')` → `toBeTruthy()`、
+  `.not.to.equal` → `.not.toBe`）——与 31/32 号同坑；
+- naive-ui 下拉选项分页（10/页）导致种子项不可选，改走 UI 创建路径；
+- NCollapse 默认折叠，符号面板需先展开。
 
 ## 二、P2.3：浏览器首屏测量（prod 构建 + preview 代理，warm cache）
 
