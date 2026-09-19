@@ -13,6 +13,7 @@ import (
 	"aetherlink-iot/backend/internal/mqttdebug"
 	service "aetherlink-iot/backend/internal/service"
 	"aetherlink-iot/backend/mqtt"
+	"aetherlink-iot/backend/mqtt/publish"
 	"aetherlink-iot/backend/pkg/utils"
 
 	mqtt_client "github.com/eclipse/paho.mqtt.golang"
@@ -184,6 +185,12 @@ func (s *MQTTService) initMQTTAdapter() error {
 		UplinkSource: NewBusUplinkSource(bus),
 	}, s.app.Logger)
 	service.SetDeviceMQTTDebugRuntime(s.mqttDebug)
+
+	// OTA 下行发布走 mqtt/publish 的共享客户端（ota/devices/inform/<device_number>）。
+	// 该客户端此前从未在应用装配里创建——mqttClient 恒为 nil，PublishOtaAddress
+	// 永远返回 ErrPublisherUnavailable，OTA 任务下发在运行期整体不可用（P0.3
+	// 真实 E2E 一直无法闭环的根因）。与 Adapter 同处初始化，进程内只建一次。
+	publish.CreateMqttClient()
 
 	logrus.Info("MQTT Adapter initialized successfully - all subscriptions active")
 	logrus.Info("📌 Automatic re-subscription on reconnect is enabled")
