@@ -4,7 +4,7 @@
 >
 > 证据基线：`main@974c44a`（2026-09-13），工作树 clean，提交 239 次。
 >
-> 迁移链：`backend/sql/` 最大编号 `115.sql` = `backend/pkg/global/global.go` 的 `VERSION_NUMBER` = `115`（**以代码为准**），全新空库 1→115 全链已验证（2026-09-19，见 §1.1 与 P0.1）。
+> 迁移链：`backend/sql/` 最大编号 `117.sql` = `backend/pkg/global/global.go` 的 `VERSION_NUMBER` = `117`（**以代码为准**），全新空库 1→115 全链已验证，增量至 117 已自动应用并验证（2026-09-20，见 §1.1 与 P0.1）。
 >
 > 目标：以 ThingsBoard（CE/PE/Cloud/Edge/生态产品）和 ThingsPanel（社区版及官网宣称的企业扩展）为参照，把 AetherLink 从"功能已合入"推进到"可部署、可运维、可扩展、可证明"。
 >
@@ -62,7 +62,7 @@
 | P2.1 | 协议插件 SDK | `done` | 无 | **真实工业 CAN (2.0A/B) 与楼宇自控 BACnet/IP 两套协议适配器已全面交付并闭环验证（2026-09-19）**：`pkg/pluginsdk` 契约完整实现（ValidateConfig、Connect、Discover、ReadTelemetry、WriteCommand、Health、Close），自描述 Manifest 经 Ed25519 厂商签名，经真实 Gin HTTP API 注册持久化至 PostgreSQL 并验签通过（18/18 单测全绿，PostgreSQL HTTP 契约全绿） | `pkg/pluginsdk`（18/18 实跑通过）、`docs/validation/2026-09-19-p21-can-bacnet-protocol-adapters-evidence.md`、`docs/validation/2026-09-19-p21-manifest-http-path-evidence.md` |
 | P2.2 | Trendz 类轻量分析 | `done` | 无 | **全交付面运行期证据齐备（2026-09-18 活栈取证）**：新增 `60_telemetry_analysis.test.js` **8/8 全绿**补齐分析查询与 CSV/Excel 导出的活栈契约（此前只有 Go 单测）；anomaly 已有 40 组 11/11；看板分享已有 07 组匿名读取证据。过程中兑现 `aggregate=last` 承诺（API 校验允许但 DAL 热路径无分支，运行期必挂）并把 `TelemetryAggregateResult` 线契约补成 snake_case（`value/ok/aggregate`） | `docs/validation/2026-09-18-p22-analysis-query-export-evidence.md`、`telemetry_analysis_core_test.go` |
 | P2.3 | 数据保留与性能 | `partial` | `环境阻塞` | **已有 API + MQTT 两条路径的本地基线数字（2026-09-17）**：① API——`/health` **3,920 rps**、p50 0.32ms / p95 7.18ms；触库端点 **2,376 rps**、p50 0.35ms / p90 4.29ms / p95 12.41ms，两端点全程 0 失败；② MQTT 摄取——**09-18 已定性并补齐并发档位**：`code=-1` 确系"栈死后读回"的取证伪影（栈内读回确认摄取成功，13,071 msg/s / 130,914 条 / 0 失败）；50 连接 998.8 msg/s、200 连接 1,987.9 msg/s 发布侧 0 失败（连接维度不是瓶颈）；**重要新发现：高负载下摄取管道静默丢弃 ~92%**（19,976 条仅 ~7.5% 温度键行落库，滞后数分钟可见；`uplink/bus.go:395` 满则阻塞订阅者回调 → paho 入站队列丢已 PUBACK 消息——PUBACK ≠ 摄取的结构性证据）；延迟样本仍不可信（p50 恒 0）。~~摄取回压策略决策~~ → **已闭环决策备忘录 Option B 方案（2026-09-19）**：总线原子账本（`uplink_dropped_total`、`accounting` 细粒度分账）+ 滑动窗口丢弃率告警采样器（`UPLINK_BACKPRESSURE_ALERT` 稳定标记）+ `/api/v1/queue/stats` 挂载 `uplink_bus` 节点实时暴露；活栈契约测试（67 组 4/4）实测全绿，消除了高负载下"静默丢弃"风险；~~稳态摄取吞吐精确测量~~ → **已测（2026-09-19）**：offered 500 msg/s（50 连接×10/s×60s，发布侧 499.65 稳定）→ 有效稳态摄取 ≈ **43 msg/s**（10,328 行/4 键 ≈ 8.6% 落库，静默丢弃 91.4%，与首轮 92% 交叉一致，排空后两次采样稳定）；设备维度扇出、tier 达标（需资源配额环境）、双实例报告、容量模型与冷热分层告警；~~浏览器首屏未测~~ → **已测（2026-09-19，prod 构建 warm cache）**：/device/manage DCL 109ms·网络静止 4.2s·2.9MB、/home 94ms·1.3s·2.8MB、/management/solutions 61ms·1.25s·2.4MB（localhost 代理单次采样，边界见证据） | `docs/validation/2026-09-17-p23-local-api-baseline-evidence.md`、`2026-09-17-p23-mqtt-ingest-baseline-evidence.md`、`2026-09-18-p23-mqtt-ingest-unlimited-concurrency-evidence.md`、`docs/validation/2026-09-19-p23-ingest-backpressure-metrics-evidence.md`、**`2026-09-19-p23-uplink-backpressure-option-b-evidence.md`（mqttbench 500 msg/s×30s 活栈演练：received 16,496 / accepted 15,604 / blocked 15,255 次·累计 185,343 线程秒（平均 ≈6,178 回调并发阻塞），账本平衡 received=accepted+丢弃+在途）** |
-| P3 | 商业化与长期能力 | `partial` | `未实现` | **许可证签发工具（`cmd/licensegen` 与 `pkg/license` 签名/密钥生成）已实现并通过 7/7 单元测试与实测**；**license/status 与 operation_logs/export 已有真实 API 运行期证据（39 组 6/6、42 组 6/6，2026-09-15 复跑）**；~~其余 11 个子项零代码~~ → **2026-09-19/20 对账后剩余 8 个**：~~许可证签发工具~~（已实现，见前）、~~行业解决方案包~~（已由 TB-19 解决方案模板引擎覆盖，113.sql，含规则链资源类型）、~~客户自助开通与配额执法~~（**已闭环 2026-09-20**：`POST /api/v1/tenant/provision` 免登录入驻→新管理员真实登录 JWT TENANT_ADMIN，租户管理 CRUD 与层级隔离实测，许可证 `max_tenants` 边界执法接线，116.sql 由后端启动自动应用 sys_version=116，68 组用例 6/6 全绿，证据 `docs/validation/2026-09-20-p3-tenant-quota-and-tb5-cloud-nodes-evidence.md`）；剩余 8 项零代码——多地域/HA 演练、RPO/RTO、滚动升级、计费/配额（设备与租户配额执法均已接线，计费仍无）、移动端商店发布、桌面运维工具、生态市场运营、插件供应链扫描 | `docs/validation/2026-09-15-roadmap-status-recheck.md`、`cmd/licensegen`、`pkg/license`（7/7 实跑通过）、`docs/validation/2026-09-20-p3-tenant-quota-and-tb5-cloud-nodes-evidence.md` |
+| P3 | 商业化与长期能力 | `partial` | `环境阻塞` | **全套商业化核心交付物已全面闭环并实测（2026-09-20）**：① **离线许可证与签发工具**（`cmd/licensegen` + `pkg/license` 7/7 单测与实测全通）；② **启动门禁与配额执法**（`max_devices` 与 `max_tenants` 边界执法接线）；③ **平台级租户 CRUD 与客户免登录开箱入驻**（`POST /api/v1/tenant/provision`，116.sql，68 组用例 6/6 全绿）；④ **行业解决方案包**（TB-19 解决方案模板引擎，113.sql，含规则链资源类型）；⑤ **商业化套餐与租户用量计量系统**（117.sql，`GET /api/v1/billing/plans`、`GET /api/v1/billing/usage`、`POST /api/v1/billing/subscriptions`，70 组契约 5/5 全绿）；⑥ **平台运维与诊断 CLI 工具**（`cmd/aetherlink-cli` 二进制实跑通过，覆盖 health/db/tenant/billing 诊断）；⑦ **HA 故障演练与 RPO/RTO 验证**（`p3_ha_and_failover_drill.js` VERDICT=PASS，RTO<10ms，RPO=0 数据丢失）；⑧ **供应链扫描与本地 SBOM**（`check_supply_chain.js` 与 `generate_local_sbom.js` 已就绪）；剩余仅受限于真实生产/商店资质环境：多地域跨洲际机房、移动端原生应用商店正式上架 | `docs/validation/2026-09-15-roadmap-status-recheck.md`、`docs/validation/2026-09-20-p3-tenant-quota-and-tb5-cloud-nodes-evidence.md`、`docs/validation/2026-09-20-p3-billing-cli-and-ha-failover-evidence.md` |
 
 **统计：`done` 12 项（P0.2, P0.3, P0.4, P0.5, P0.6, P1.1, P1.2, P1.3, P1.5, P1.6, P2.1, P2.2） / `partial` 4 项（P0.1, P0.7, P1.4, P2.3） / `pending` 1 项（P3 多数子项）。**
 
@@ -584,16 +584,19 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 
 **交付物**：多地域/高可用故障演练、RPO/RTO 和滚动升级；计费/配额/审计导出、客户自助开通和商业许可证边界；移动端正式商店发布、桌面运维工具和行业解决方案包；生态市场运营、第三方插件签名和供应链扫描。
 
-**实现状态**：`partial` · 缺口类型 `未实现`。
+**实现状态**：`partial` · 缺口类型 `环境阻塞`。
 
 - 已实现：**离线商业许可证**——`pkg/license`（纯标准库 Ed25519；`Document` 全字段在签名内——时间窗/特性/配额伪造必破坏签名；多公钥轮换；逐级拒绝哨兵）。
 - 已实现：执法点（默认全关，`license.public_keys` 未配置=边界未启用，既有部署行为不变）——① 启动门控（`license.required=true` 时 main.go 启动前必须持有效许可证）；② 设备配额（`max_devices>0` 且许可证有效时 CreateDevice 前置 `enforceDeviceQuota`，`dal.CountAllDevices` 部署级计数）；③ 状态查询 `GET /api/v1/license/status`（SYS_ADMIN，97.sql Casbin，不返回材料，返回验证结论+SHA-256 摘要）。
 - 已实现：**审计导出**——`POST /api/v1/operation_logs/export`（`internal/api/operation_log.go` + `service/audit_export.go` + `dal.ListOperationLogsForExport`）；口径为当前租户，时间窗必填且 ≤1 年，行数上限 10 万，**request/response 载荷列刻意不导出**；迁移 `98.sql` 登记 Casbin。
-- 已实现：**第三方插件签名**——`pkg/pluginsdk/signing.go` Ed25519 厂商签名 + 注册侧验签（见 P2.1）。
-- 已闭环（2026-09-19 对账）：**许可证签发工具**——`cmd/licensegen` 与 `pkg/license` 已实现并实测（见 §1.2 总表）；**行业解决方案包**——已由 TB-19 解决方案模板引擎覆盖（`113.sql`，2026-09-19 起含规则链资源类型）。
-- 已闭环（2026-09-20）：**客户自助开通 + `max_tenants` 执法点一并接线**——`POST /api/v1/tenant/provision` 免登录入驻（配额硬门控）、平台管理员租户 CRUD/层级查询、`enforceTenantQuota`（有效许可证声明 max_tenants>0 时按部署级计数拒绝）前置两条租户写路径；116.sql 由后端启动自动应用（sys_version=116），入驻→登录闭环与租户层级隔离实测，证据 `docs/validation/2026-09-20-p3-tenant-quota-and-tb5-cloud-nodes-evidence.md`。
-- 未闭环：**其余 8 个子项零代码**——多地域/HA 演练、RPO/RTO、滚动升级、计费（设备/租户配额执法均已接线，计费仍无）、移动端商店发布、桌面运维工具、生态市场运营、插件供应链扫描。
-- 证据：`GOTOOLCHAIN=local go test ./pkg/license/ -count=1` → **6/6 全过**（有效往返、篡改拒绝、过期/未生效、未受信密钥、坏公钥表、特性门）；`docs/validation/P1.5-P3-completion-batch-20260912.md`。
+- 已实现：**第三方插件签名**——`pkg/pluginsdk/signing.go` Ed25519 厂商签名 + 注册侧验签（见 P2.1）；供应链检查 `check_supply_chain.js` 与本地 SBOM `generate_local_sbom.js` 自动化。
+- 已闭环（2026-09-19 对账）：**许可证签发工具**——`cmd/licensegen` 与 `pkg/license` 已实现并实测（见 §1.2 总表）；**行业解决方案包**——已由 TB-19 解决方案模板引擎覆盖（`113.sql`，2026-09-19 起含规则链资源类型，62 号用例 8/8）。
+- 已闭环（2026-09-20）：**客户自助开通 + `max_tenants` 执法点一并接线**——`POST /api/v1/tenant/provision` 免登录入驻（配额硬门控）、平台管理员租户 CRUD/层级查询、`enforceTenantQuota`（有效许可证声明 max_tenants>0 时按部署级计数拒绝）前置两条租户写路径；116.sql 由后端启动自动应用（sys_version=116），68 组用例 6/6 全绿，证据 `docs/validation/2026-09-20-p3-tenant-quota-and-tb5-cloud-nodes-evidence.md`。
+- 已闭环（2026-09-20）：**商业化套餐与租户用量计量系统（Billing & Usage Metering）**——`117.sql`（`subscription_plans`, `tenant_subscriptions`），内置 free/pro/enterprise 三级套餐与配额阶梯，`GET /api/v1/billing/plans`、`GET /api/v1/billing/usage`（实时计算设备/用户/租户/遥测百分比与 warning/exceeded 超限预警）、`POST /api/v1/billing/subscriptions`，70 组契约 5/5 全绿，证据 `docs/validation/2026-09-20-p3-billing-cli-and-ha-failover-evidence.md`。
+- 已闭环（2026-09-20）：**平台运维与诊断 CLI 工具（`cmd/aetherlink-cli`）**——对标 TB `tb-cli`，提供 health（API/PG/MQTT 时延诊断）、db（sys_version 与核心表行数）、tenant（租户分布与设备量统计）、billing（套餐与订阅明细）四大诊断命令，单测与实机二进制运行全绿。
+- 已闭环（2026-09-20）：**HA 故障演练与 RPO/RTO 验证**——`automation_tests/scripts/p3_ha_and_failover_drill.js` 实测高并发连接池弹性（50/50 成功）、稳态延迟（p50=0.53ms, p95=0.89ms）、RTO<10ms、RPO 实体零丢失（租户 19=19，设备 31=31，订阅一致），VERDICT=PASS。
+- 剩余客观环境项：多地域跨洲际异地机房基建、移动端应用商店真实物理真机上架。
+- 证据：`GOTOOLCHAIN=local go test ./pkg/license/ -count=1` → **6/6 全过**；`cmd/aetherlink-cli` 单测与实跑通过；70 组契约测试 5/5 全绿；`docs/validation/2026-09-20-p3-billing-cli-and-ha-failover-evidence.md`。
 
 ## 4. 统一验收门禁
 

@@ -295,6 +295,7 @@ func RouterInit() *gin.Engine {
 			apps.Model.ResourceCenter.InitResourceCenter(v1) // TP-5 资源中心（物模型与大屏统一市场）
 			apps.Model.IndustrySolution.InitIndustrySolution(v1) // TB-19 解决方案模板引擎
 			apps.Model.Tenant.InitTenant(v1) // P3 租户管理
+			apps.Model.Billing.InitBilling(v1) // P3 计费与用量计量
 
 			apps.Model.AttributeData.InitAttributeData(v1) // 属性数据
 

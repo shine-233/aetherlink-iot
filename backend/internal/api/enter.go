@@ -91,6 +91,7 @@ type Controller struct {
 	DeviceClaimApi    // TB-12 设备认领与自动注册
 	IndustrySolutionApi // TB-19 解决方案模板引擎
 	TenantApi         // P3 租户管理与自助开通
+	BillingApi        // P3 商业化计费与用量计量
 }
 
 var (
