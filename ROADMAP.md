@@ -523,7 +523,9 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 - 已实现：删除 `internal/roadmap` 死包（含 `Unwired*` 骨架与 `ErrNotImplemented` 占位；零 import 两次独立 grep 复核、已提交可完整恢复）。
 - 已实现：`pkg/pluginsdk`（叶子包，纯标准库）——`ProtocolAdapter` 接口（全部带 ctx，与草图偏差在 doc 注释说明）、`Manifest` + `ParseManifest`/`Validate`（名称字符集/点分数字版本/transport 白名单/宿主兼容 fail closed/点表重名拒绝/凭证字段只声明不承载值）、与 widget schema 同语义的配置 Schema 校验器（未知关键字编译期拒绝，刻意不共享代码——SDK 须独立分发）、`signing.go` Ed25519 厂商签名（厂商私钥签、平台公钥验，与 P1.6 的 HMAC 对称方案刻意区分）。
 - 已实现：真实消费方——`PluginRegistryService.Create` 接受可选 `manifest` 字段，提供时必须通过 `pluginsdk.ParseManifest`；**manifest 带厂商签名就必须验过**（`plugin.trusted_vendor_keys` 配置 key_id → base64 ed25519 公钥，坏公钥条目报错而非跳过，未签名允许——D9 兼容过渡）；原始 JSON 落 `plugin_registries.manifest` 列（97.sql，可空）。
-- 未闭环：真实外部协议适配器（CAN/BACnet/BLE/LoRaWAN 按客户需求接入）；manifest 注册的 HTTP 运行期路径（服务层依赖无法离线编译，测试以源码交付）。
+- 已闭环（2026-09-19）：**manifest 注册的 HTTP 运行期路径**——真实 Gin + 真实 PG 契约测试五用例（合法签名注册落库/篡改拒绝/未受信厂商拒绝/非法 manifest 拒绝/未签名 D9 放行），证据 `docs/validation/2026-09-19-p21-manifest-http-path-evidence.md`。
+- 已闭环（2026-09-19）：**manifest 注册的 HTTP 运行期路径**——真实 Gin + 真实 PostgreSQL 契约测试（`router/apps/plugin_registry_http_test.go`）：合法厂商签名（pluginsdk Ed25519 本尊生成）注册成功且原始 manifest 落库、篡改签名/未受信厂商/非法 manifest 三类全部 100002 拒绝、未签名 D9 过渡放行。此前"服务层依赖无法离线编译，测试以源码交付"的欠账随模块缓存恢复清偿。
+- 未闭环：真实外部协议适配器（CAN/BACnet/BLE/LoRaWAN 按客户需求接入）。
 - 证据：`GOTOOLCHAIN=local go test ./pkg/pluginsdk/ -count=1` → **9/9 全过**（宿主兼容表、manifest 合法/8 类破坏输入、schema 贯通含未知关键字拒绝、integer 拒非整数、接口编译期锚点、签名往返/篡改/未知厂商/空受信表/非法 manifest 拒签）；go build / go vet 同过。
 
 ### P2.2 Trendz 类轻量分析
