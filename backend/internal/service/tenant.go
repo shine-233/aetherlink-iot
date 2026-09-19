@@ -363,10 +363,26 @@ func (s *TenantService) SelfServiceProvisionTenant(_ context.Context, req *model
 		if err := tx.Table(model.TableNameBoard).Create(board).Error; err != nil {
 			return err
 		}
+		// 绑定 Casbin 角色 (g, adminID, TENANT_ADMIN)
+		ptype := "g"
+		adminIDStr := adminID
+		roleStr := "TENANT_ADMIN"
+		casbinRule := &model.CasbinRule{
+			Ptype: &ptype,
+			V0:    &adminIDStr,
+			V1:    &roleStr,
+		}
+		if err := tx.Table(model.TableNameCasbinRule).Create(casbinRule).Error; err != nil {
+			return err
+		}
 		return nil
 	})
 	if txErr != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": txErr.Error()})
+	}
+
+	if global.CasbinEnforcer != nil {
+		_ = global.CasbinEnforcer.LoadPolicy()
 	}
 
 	return &model.SelfProvisionTenantRsp{
