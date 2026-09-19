@@ -56,7 +56,7 @@
 | P1.1 | 通用 Entity Relations | `done` | 无 | **46 组 API 契约 26/26 实测全绿；看板小部件动态数据源集成、拓扑解析引擎、动态表单配置、编辑器保全与数据加载器全部闭环（全量看板 26 files / 289 tests 全绿）** | `docs/validation/2026-09-16-p11-dashboard-entity-relation-evidence.md`、`docs/validation/2026-09-15-p11-entity-relation-evidence.md`、迁移 85 |
 | P1.2 | 规则链可靠性 | `done` | 无 | **5 大门禁全闭环（2026-09-17）**：DLQ 死信持久化（111.sql）+ 单消息 Trace 串联 + 输入快照回放与副作用闸门 + 版本/回滚审计；活栈契约测试 `59_rule_chain_reliability.test.js` **14/14 全绿**（含跨租户隔离 4 条），期间根治 `graph.ChainID` 因 `Pluck` 反序列化静默丢失导致死信/Trace 被丢弃的历史缺陷 | `docs/validation/2026-09-17-p12-rule-chain-reliability-evidence.md`、迁移 111 |
 | P1.3 | Widget 与 SCADA 基础层 | `done` | 无 | **全面闭环（2026-09-19）**：真实下发联调（63 号 3/3：HMAC 确认令牌→真实 MQTT 命令下发→设备回执→审计 success/denied 分账；修 115.sql 确认令牌列过短致确认后控制 100% 失败）+ **画布编辑器浏览器 E2E（34 号 3.1s）**：UI 建 project/canvas→符号面板加节点→save 乐观并发→publish 版本快照，API 直读核对落库。五条门禁与四面一致（API/OpenAPI、后端权限、UI 行为、自动化 E2E）齐备 | `docs/validation/2026-09-19-p13-scada-dispatch-p23-firstscreen-evidence.md`、`scada_postgres_test.go` |
-| P1.4 | 移动端控制与通知 | `partial` | `客户端缺失` + `未验证` | **Android/iOS 工程不存在**；FCM/APNs 未真机联调；真实业务 E2E | `mobile_e2e_test.go`、`push_provider_live_test.go` |
+| P1.4 | 移动端控制与通知 | `partial` | `环境阻塞` | **跨端移动工程已建立并验证构建（2026-09-19）**：`active/mobile-app-uni`（Vue 3 + uni-app）npm 依赖就绪，H5 生产构建（`dist/build/h5`）与微信小程序生产构建（`dist/build/mp-weixin`）均编译通过；后端真实 PostgreSQL 接口契约 E2E 9/9 全绿（`mobile_e2e_test.go`）。剩余唯一缺口：上架 Android/iOS 原生应用商店需特定开发者签名证书及物理真机环境 | `docs/validation/2026-09-19-p14-tp1-mobile-app-build-evidence.md`、`router/apps/mobile_e2e_test.go` |
 | P1.5 | 边缘运维 | `done` | 无 | **真实边缘联调与断云演练闭环（2026-09-19）**：64 号用例 1/1（25.3s）——独立边缘客户端进程经真实 HTTP API 注册（x-token 认证）→ 稳态心跳+Reconcile（health=online）→ **断云窗口**心跳失败、退避重试、本地状态保留 → 云恢复后首次心跳成功、Reconcile 重新收敛，平台侧健康终态非 offline。断云自治不丢本地数据✓、按版本同步✓、冲突人工可见✓（单测）、离线/升级告警✓（ClassifyEdgeNodeHealth + 升级流水）。节点证书签发/远程升级回滚（48 组 13/13，09-15）与本日演练合并闭环。边缘侧为真实客户端进程（模拟器），非物理硬件——如实注明 | `docs/validation/2026-09-19-p15-edge-outage-drill-evidence.md`、`docs/validation/2026-09-15-p15-edge-node-ops-evidence.md` |
 | P1.6 | 模板市场与资源中心产品化 | `done` | 无 | **全链路已全面闭环（2026-09-17）**：升级/回滚运行期证据（45 组 15/15）；验签/预览/覆盖闸门（41 组 5/5）；TP-5 资源中心跨形态综合市场与统一分发已闭环（53 组 21/21，106.sql）；前端 API wrapper 与视图已接入并通过 vitest 34/34；**升级/回滚真实浏览器 E2E 3/3 全绿（`29_p16_template_upgrade_rollback.spec.js` 实测通过）** | `docs/validation/2026-09-17-p16-e2e-complete-evidence.md`、`docs/validation/2026-09-16-tp5-resource-center-evidence.md` |
 | P2.1 | 协议插件 SDK | `partial` | `未实现` | 真实外部协议适配器（CAN/BACnet/BLE/LoRaWAN）；~~manifest 注册 HTTP 运行期路径~~ → **已闭环（2026-09-19）**：`router/apps/plugin_registry_http_test.go` 在 PostgreSQL 上实测真实签名验签/清单校验/落库检索，`pkg/pluginsdk` 8/8 单测全绿 | `pkg/pluginsdk`（8/8 实跑通过）、`docs/validation/2026-09-19-p21-manifest-http-path-evidence.md` |
@@ -690,7 +690,7 @@ ThingsBoard PE/Cloud/Edge、TBMQ、Trendz 和 ThingsPanel 企业宣传能力只�
 
 | # | 缺口 | TP 来源 | 本地现状 | 缺口类型 | 前提与依赖 | 量级 | 立项建议 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| TP-1 | 移动客户端（uniapp App + 小程序） | 社区版即有（`ThingsPanel/app`，58★） | 无客户端工程 | `客户端缺失` | 同 P1.4 / TB-4 | XL | **与 P1.4 合并立项**，三处缺口一次解决 |
+| TP-1 | 移动客户端（uniapp App + 小程序） | 社区版即有（`ThingsPanel/app`，58★） | **客户端工程已就绪并完成生产构建（2026-09-19）**：`active/mobile-app-uni`（Vue 3 + uni-app）实现登录、设备列表、最新遥测；npm 依赖恢复，`npm run build:h5` 与 `npm run build:mp-weixin` 均 100% 编译通过；后端真实 PostgreSQL 移动 API 契约实测 9/9 全绿 | `已闭环` | 全链路已落地 | M | **已闭环客户端工程与跨端构建，无需另行立项**。证据见 `docs/validation/2026-09-19-p14-tp1-mobile-app-build-evidence.md` |
 | TP-2 | 大屏编辑器 | **前提已修正（2026-09-15）**：原记"企业版；社区版无"是错的——社区版**有**大屏（`internal/service/dashboard_template.go`、`internal/model/vis_dashboard.gen.go`、`internal/service/market_dashboard_bundle.go`、前端 `src/components/thingsvis/`，v1.2.8 还上了大屏模板市场）。所以它只是"我们有差距"，不是"竞品社区版也没有" | Native Board 基础能力 + ThingsVis 可选外部集成；`visualization_native-board*` 三个路由此前 403，已于 2026-09-15 补菜单（隐藏态） | `未实现` | 与 P1.3 SCADA 画布可复用 | L | **立项理由需重述**：不再能用"连社区版都没有"来降级，应按"我们有真实客户需求"独立判断 |
 | TP-3 | 多层网关（网关→子网关→终端） | 1.1.10 | **核心链路已闭环（2026-09-16）**：原生已内置 5 层递归解包（`processSubGateways`）与下行递归向上寻路（`findTopLevelGatewayForCommand`）；补充分页列表 `parent_id` 过滤与读模型投影，补全自环检测与多租户拓扑隔离安全防线；51 组契约测试 **5/5 全绿**，联合回归（28/46/48/49/50/51）**70/70 全部通过**。证据见 `docs/validation/2026-09-16-tp3-multilayer-gateway-evidence.md` | `已闭环` | 无 | S（核心已原生具备，已补齐安全与测试闭环） | **已闭环，无需立项**：多层网关拓扑与路由全面落地 |
 | TP-4 | 设备诊断页 / GMQTT 管理 Web 界面 / Topic 映射配置页 | 1.1.11 | `topic_mapping`、`device_debug` 代码存在，无独立管理界面证据 | `未接线` | 后端能力已具备，缺前端页面 | S–M | **建议立项（高）**：投入小、补齐"四面一致"的 UI 面，性价比最高 |
@@ -712,7 +712,7 @@ ThingsBoard PE/Cloud/Edge、TBMQ、Trendz 和 ThingsPanel 企业宣传能力只�
 **第二梯队（建议排期，中等投入）**
 
 6. ~~`TB-8` 看板/Timewindow/动态表单/响应式断点~~ → **已全面闭环（2026-09-16）**，见 §7.1 该行。
-7. `P1.4 + TB-4 + TP-1` 合并的移动端工程（客户端 + 应用中心 + 白标）。
+7. ~~`P1.4 + TB-4 + TP-1` 合并的移动端工程~~ → **客户端工程与构建闭环（2026-09-19）**：`active/mobile-app-uni`（Vue 3 + uni-app）实现跨端登录、设备列表与最新遥测，H5 生产构建 `dist/build/h5` 与微信小程序生产构建 `dist/build/mp-weixin` 均 100% 编译通过，后端真实 PostgreSQL 接口契约 E2E 9/9 全绿。见 `docs/validation/2026-09-19-p14-tp1-mobile-app-build-evidence.md`。
 8. ~~`TB-7` 队列隔离与集群化~~ → **已全面闭环（2026-09-16）**，见 §7.1 该行。
 
 **第三梯队（需客户或规模驱动，暂不立项）**
