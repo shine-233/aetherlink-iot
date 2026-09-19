@@ -54,6 +54,20 @@ POST /api/v1/login {"email":"drill-smoke@example.com",...}
 
 冒烟租户/管理员/关联行已按行删除（users 1、tenants 1，复核 0|0）。
 
+## 二·补记：g 角色绑定缺陷的发现与修复（2026-09-20）
+
+首轮活栈冒烟中「入驻返回 200、新管理员可登录（JWT TENANT_ADMIN）」成立，但
+**新管理员随后调用 `GET /tenants` 得 403**——Casbin 中间件鉴权主体是
+`userClaims.ID`（`CasbinRBAC` → `Casbin.Verify(userID, url)` → `Enforce(user, url, "allow")`），
+角色经 `casbin_rule ptype='g'` 行映射；provision 事务只写了
+`users.authority` 列、漏插 g 行，导致"登录能过、授权全拒"。
+
+修复（commit `3193954`）：provision 事务内补插 `(g, adminID, TENANT_ADMIN)` 并
+`LoadPolicy()` 重载。修复后 **68 号契约 `automation_tests/tests/68_p3_tenant_provisioning_and_quota.test.js`
+6/6 全绿**（SYS_ADMIN 分页/建租户/详情、TENANT_ADMIN 仅见 self+子孙、自助开通
+原子性、重复 email 拒绝、license status 端点）。62/66/67 回归复核通过。
+此前"入驻→登录闭环成立"的结论保留，但以本补记的 68 号 6/6 为最终口径。
+
 ## 四、边界（如实）
 
 - 配额执法依赖离线许可证声明（`license.public_keys` 未配置=边界未启用，
