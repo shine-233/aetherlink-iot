@@ -247,6 +247,78 @@ func (*DeviceClaim) RedeemClaim(_ context.Context, req *model.RedeemDeviceClaimR
 	return resp, nil
 }
 
+// RegisterDeviceClaimFromDevice 设备自主认领上报（TB-12 MQTT 通道 v1/devices/me/claim）。
+// 设备通过 MQTT 认证连接后，自报 secretKey（与可选 durationMs/ttlSeconds）。
+// 平台为该设备登记 ClaimKeyHash，原设备所有者租户即可将该设备交给下游凭 secretKey 赎回认领。
+func (*DeviceClaim) RegisterDeviceClaimFromDevice(_ context.Context, deviceID string, secretKey string, ttlSeconds int64) (*model.IssueDeviceClaimTokenResp, error) {
+	deviceID = strings.TrimSpace(deviceID)
+	secretKey = strings.TrimSpace(secretKey)
+	if deviceID == "" {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "device_id is required")
+	}
+	if secretKey == "" {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "secretKey is required")
+	}
+	if len(secretKey) < 4 || len(secretKey) > 128 {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "secretKey length must be between 4 and 128")
+	}
+
+	if ttlSeconds <= 0 {
+		ttlSeconds = deviceClaimDefaultTTLSeconds
+	}
+	if ttlSeconds > deviceClaimMaxTTLSeconds {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "ttl_seconds must not exceed 30 days")
+	}
+
+	device, err := dal.GetDeviceByIDUnscoped(deviceID)
+	if err != nil {
+		return nil, errcode.New(errcode.CodeNotFound)
+	}
+
+	sum := sha256.Sum256([]byte(secretKey))
+	now := time.Now()
+	token := &model.DeviceClaimToken{
+		ID:           newDeviceClaimID(),
+		TenantID:     device.TenantID,
+		DeviceID:     device.ID,
+		DeviceNumber: device.DeviceNumber,
+		ClaimKeyHash: hex.EncodeToString(sum[:]),
+		Status:       model.DeviceClaimStatusActive,
+		ExpiresAt:    now.Add(time.Duration(ttlSeconds) * time.Second),
+		CreatedAt:    now,
+	}
+
+	err = dal.WithDeviceClaimTransaction(func(tx *gorm.DB) error {
+		if _, err := dal.ReplaceActiveDeviceClaimTokens(tx, device.ID); err != nil {
+			return err
+		}
+		return dal.InsertDeviceClaimToken(tx, token)
+	})
+	if err != nil {
+		return nil, errcode.NewWithMessage(errcode.CodeDBError, "register device claim token failed")
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"module":        "device_claim",
+		"action":        "register_from_device",
+		"tenant_id":     device.TenantID,
+		"device_id":     device.ID,
+		"device_number": device.DeviceNumber,
+		"token_id":      token.ID,
+		"expires_at":    token.ExpiresAt.Format(time.RFC3339),
+		"audit_message": "device claim token registered by device via MQTT",
+	}).Info("device claim token registered by device via MQTT")
+
+	return &model.IssueDeviceClaimTokenResp{
+		TokenID:      token.ID,
+		DeviceID:     device.ID,
+		DeviceNumber: device.DeviceNumber,
+		ClaimKey:     secretKey,
+		ExpiresAt:    token.ExpiresAt,
+		CreatedAt:    token.CreatedAt,
+	}, nil
+}
+
 // newDeviceClaimID 生成 varchar(36) 主键（uuid v4 文本，与 104.sql 系列表一致）。
 func newDeviceClaimID() string {
 	var b [16]byte

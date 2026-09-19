@@ -30,6 +30,7 @@ coverage.out
 
 # Logs and temp files
 logs/
+automation_tests/scratch/
 *.log
 *.tmp
 *.temp

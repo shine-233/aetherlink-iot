@@ -62,6 +62,10 @@ var pubList = []pubTopicPattern{
 	{pattern: "devices/register", identityKind: identityNone},    // 网关子设备注册（子设备信息在 payload 内，归因仍为网关自身）
 	{pattern: "devices/config/down", identityKind: identityNone}, // 设备配置下载
 
+	{pattern: "v1/devices/me/claim", identityKind: identityNone}, // TB-12 设备端自主认领（ThingsBoard 标准）
+	{pattern: "devices/claim", identityKind: identityNone},       // TB-12 设备端自主认领（原生）
+	{pattern: "gateway/claim", identityKind: identityNone},       // TB-12 网关自主认领
+
 	{pattern: "+/up", identityKind: identityDeviceNumber}, // 心智悦喷淋一体机上行数据：首层绑定发布者设备编号
 }
 

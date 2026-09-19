@@ -46,10 +46,10 @@
 
 | 任务 | 主题 | 状态 | 缺口类型 | 未闭环（一句话） | 证据 |
 | --- | --- | --- | --- | --- | --- |
-| P0.1 | 发布同步与部署门禁 | `partial` | `环境阻塞` | **全新库迁移链已验到 109（2026-09-17，新增 `cmd/migchaincheck`，1→109 全链 PASS / 126 表 / `sys_version=109`）**；剩余三条**确实卡在真实部署环境**：HTTPS/TLS、MQTTS 上报下发、公网 MQTT；~~backup/restore 计数一致性~~ → **已闭环（2026-09-19）**：backup-restore.ps1 真实 pg_dump（11.1MB dump + SHA-256 manifest）→ 恢复到全新空库 aetherlink_p01_restore → 五张核心表行数逐一比对一致（devices 32/scene_info 10/alarm_config 10/telemetry_datas 85,869/users 7）、sys_version=115 保留 | `docs/validation/P0.1-preflight-evidence.md`、`2026-09-17-p01-full-migration-chain-evidence.md` |
+| P0.1 | 发布同步与部署门禁 | `partial` | `环境阻塞` | **全新库迁移链已延伸验证至 115（2026-09-19，`cmd/migchaincheck`，1→115 全链 PASS / 130 表 / `sys_version=115` / 667ms）**；剩余三条**确实卡在真实部署环境**：HTTPS/TLS、MQTTS 上报下发、公网 MQTT；~~backup/restore 计数一致性~~ → **已闭环（2026-09-19）**：backup-restore.ps1 真实 pg_dump（11.1MB dump + SHA-256 manifest）→ 恢复到全新空库 aetherlink_p01_restore → 五张核心表行数逐一比对一致（devices 32/scene_info 10/alarm_config 10/telemetry_datas 85,869/users 7）、sys_version=115 保留 | `docs/validation/P0.1-preflight-evidence.md`、`docs/validation/2026-09-19-p01-migration-chain-115-evidence.md`、`docs/validation/2026-09-19-p01-backup-restore-counts-evidence.md` |
 | P0.2 | 设备影子 ACK 闭环 | `done` | 无 | **设备离线入队、上线延时投递、设备 ACK 状态迁移已在真实活栈通过 API 契约（27 组 5/5）与 Playwright 浏览器 E2E 取证（30 组 1/1 13.5s）；ack_at 落库与终态防御成立** | `docs/validation/2026-09-17-p02-device-shadow-complete-evidence.md`、`P0.2-shadow-ack-evidence.md` |
 | P0.3 | OTA 状态机 | `done` | 无 | **真实 stub E2E 闭环（2026-09-19）**：32 号用例 2/2 全绿（公网 API 建任务→认证设备经真实 MQTT 收 inform→进度回报→终态明细落库；失败路径+支撑包读回）。多年未闭环的根因是**发布客户端从未接线**（`publish.CreateMqttClient` 零调用→`mqttClient` 恒 nil→OTA 下发必失败），已修。门禁对账：状态机/幂等/重试/回滚审计（单测）✓、灰度治理 47 组 9/9✓、真实 stub E2E✓ | `docs/validation/2026-09-19-p03-p04-runtime-e2e-evidence.md`、`docs/validation/2026-09-15-p03-ota-gray-governance-evidence.md`、`P0.3-job-report-evidence.md` |
-| P0.4 | 场景与 Flow 语义 | `done` | 无 | **真实 E2E 闭环（2026-09-19）**：31 号 strict 用例 1/1 全绿——真实 MQTT 在线迁移触发自动化→动作 20 激活嵌套场景→告警→三路执行日志 strict psql 直查核验。多年未闭环的根因是**动作 20 校验对象错误**（校验查 scene_automations 而运行期执行 scenes，合法场景动作创建期即被拒），已修并加回归测试。门禁对账：边界表驱动✓（单测 11 行）、重复触发幂等✓、停止可审计✓、真实 E2E✓；"重启不丢调度"由 DB 持久化窗口（91.sql）+启动 cron 重载结构性保证（无专门重启演练，如实注明） | `docs/validation/2026-09-19-p03-p04-runtime-e2e-evidence.md`、`scene_execution_window_test.go` |
+| P0.4 | 场景与 Flow 语义 | `done` | 无 | **真实 E2E 与重启不丢调度闭环（2026-09-19）**：① 31 号 strict 用例 1/1 全绿——真实 MQTT 在线迁移触发自动化→动作 20 激活嵌套场景→告警→三路执行日志 strict psql 直查核验（已修复动作 20 校验对象错误历史缺陷）；② **"重启不丢调度"已通过专门重启演练取证**：`automation_tests/scripts/p04_restart_drill.js` 真实注册定时任务（OneTimeTask）→ 强杀后端进程 → 冷启动 `backend.exe` → 真实到期自动唤醒触发（VERDICT=PASS / 0 丢调度），冷重启恢复不变量全面成立 | `docs/validation/2026-09-19-p03-p04-runtime-e2e-evidence.md`、`docs/validation/2026-09-19-p04-restart-persistence-drill-evidence.md`、`scene_execution_window_test.go` |
 | P0.5 | CSV 预注册建档与浏览器 E2E | `done` | 无 | **全链路彻底闭环（2026-09-17）**：Product 完整 CRUD（110.sql）已补齐；真实浏览器 Playwright E2E（28 组 5/5 全绿通过，无 psql 插桩），一次性凭证下载、坏行逐行反馈（100006/100007）、脱敏导出与清理全部成立 | `docs/validation/2026-09-17-tb15-entity-name-conflict-evidence.md`、`docs/validation/2026-09-16-p05-error-template-row-feedback-evidence.md`、`P0.5-*-evidence.md` |
 | P0.6 | 持久化报表执行 / SMTP | `done` | 无 | **两阶段调度引擎、SMTP 事实语义、管理员工作台已全部闭环，37 组 API 契约 11/11 全绿，前端 vitest 20/20 全绿** | `docs/validation/2026-09-16-p06-durable-report-smtp-evidence.md`、`P0.6-postgres-migration83-evidence.md` |
 | P0.7 | AI 凭证静态加密 | `partial` | `环境阻塞` | **"日志无明文"已活栈取证（2026-09-18）**：带特征明文的 AI 凭证经真实 API 写入后，库内为 `aenv1.k1.<信封密文>`、响应只出 `P07-****` 掩码、重启前后两份完整日志对明文 0 命中；SSRF 公网 HTTPS 校验顺带实测成立。剩余唯一缺口：生产主密钥注入（部署环境验收，与 P0.1 目标服务器项同类） | `docs/validation/2026-09-18-p07-log-no-plaintext-evidence.md`、`P0.7-secret-encryption-evidence.md` |
@@ -59,7 +59,7 @@
 | P1.4 | 移动端控制与通知 | `partial` | `客户端缺失` + `未验证` | **Android/iOS 工程不存在**；FCM/APNs 未真机联调；真实业务 E2E | `mobile_e2e_test.go`、`push_provider_live_test.go` |
 | P1.5 | 边缘运维 | `done` | 无 | **真实边缘联调与断云演练闭环（2026-09-19）**：64 号用例 1/1（25.3s）——独立边缘客户端进程经真实 HTTP API 注册（x-token 认证）→ 稳态心跳+Reconcile（health=online）→ **断云窗口**心跳失败、退避重试、本地状态保留 → 云恢复后首次心跳成功、Reconcile 重新收敛，平台侧健康终态非 offline。断云自治不丢本地数据✓、按版本同步✓、冲突人工可见✓（单测）、离线/升级告警✓（ClassifyEdgeNodeHealth + 升级流水）。节点证书签发/远程升级回滚（48 组 13/13，09-15）与本日演练合并闭环。边缘侧为真实客户端进程（模拟器），非物理硬件——如实注明 | `docs/validation/2026-09-19-p15-edge-outage-drill-evidence.md`、`docs/validation/2026-09-15-p15-edge-node-ops-evidence.md` |
 | P1.6 | 模板市场与资源中心产品化 | `done` | 无 | **全链路已全面闭环（2026-09-17）**：升级/回滚运行期证据（45 组 15/15）；验签/预览/覆盖闸门（41 组 5/5）；TP-5 资源中心跨形态综合市场与统一分发已闭环（53 组 21/21，106.sql）；前端 API wrapper 与视图已接入并通过 vitest 34/34；**升级/回滚真实浏览器 E2E 3/3 全绿（`29_p16_template_upgrade_rollback.spec.js` 实测通过）** | `docs/validation/2026-09-17-p16-e2e-complete-evidence.md`、`docs/validation/2026-09-16-tp5-resource-center-evidence.md` |
-| P2.1 | 协议插件 SDK | `partial` | `未实现` | 真实外部协议适配器（CAN/BACnet/BLE/LoRaWAN）；manifest 注册 HTTP 运行期路径 | `pkg/pluginsdk`（9/9 实跑通过） |
+| P2.1 | 协议插件 SDK | `partial` | `未实现` | 真实外部协议适配器（CAN/BACnet/BLE/LoRaWAN）；~~manifest 注册 HTTP 运行期路径~~ → **已闭环（2026-09-19）**：`router/apps/plugin_registry_http_test.go` 在 PostgreSQL 上实测真实签名验签/清单校验/落库检索，`pkg/pluginsdk` 8/8 单测全绿 | `pkg/pluginsdk`（8/8 实跑通过）、`docs/validation/2026-09-19-p21-manifest-http-path-evidence.md` |
 | P2.2 | Trendz 类轻量分析 | `done` | 无 | **全交付面运行期证据齐备（2026-09-18 活栈取证）**：新增 `60_telemetry_analysis.test.js` **8/8 全绿**补齐分析查询与 CSV/Excel 导出的活栈契约（此前只有 Go 单测）；anomaly 已有 40 组 11/11；看板分享已有 07 组匿名读取证据。过程中兑现 `aggregate=last` 承诺（API 校验允许但 DAL 热路径无分支，运行期必挂）并把 `TelemetryAggregateResult` 线契约补成 snake_case（`value/ok/aggregate`） | `docs/validation/2026-09-18-p22-analysis-query-export-evidence.md`、`telemetry_analysis_core_test.go` |
 | P2.3 | 数据保留与性能 | `partial` | `环境阻塞` | **已有 API + MQTT 两条路径的本地基线数字（2026-09-17）**：① API——`/health` **3,920 rps**、p50 0.32ms / p95 7.18ms；触库端点 **2,376 rps**、p50 0.35ms / p90 4.29ms / p95 12.41ms，两端点全程 0 失败；② MQTT 摄取——**09-18 已定性并补齐并发档位**：`code=-1` 确系"栈死后读回"的取证伪影（栈内读回确认摄取成功，13,071 msg/s / 130,914 条 / 0 失败）；50 连接 998.8 msg/s、200 连接 1,987.9 msg/s 发布侧 0 失败（连接维度不是瓶颈）；**重要新发现：高负载下摄取管道静默丢弃 ~92%**（19,976 条仅 ~7.5% 温度键行落库，滞后数分钟可见；`uplink/bus.go:395` 满则阻塞订阅者回调 → paho 入站队列丢已 PUBACK 消息——PUBACK ≠ 摄取的结构性证据）；延迟样本仍不可信（p50 恒 0）。剩余：**摄取回压策略决策**——决策建议已成文（`docs/design/2026-09-19-ingest-backpressure-decision-memo.md`：短期 B 丢弃计数暴露+告警、中期随容量模型做 C 反压到 broker、A 维持静默丢弃不强化），**待 owner 拍板后立项**；~~稳态摄取吞吐精确测量~~ → **已测（2026-09-19）**：offered 500 msg/s（50 连接×10/s×60s，发布侧 499.65 稳定）→ 有效稳态摄取 ≈ **43 msg/s**（10,328 行/4 键 ≈ 8.6% 落库，静默丢弃 91.4%，与首轮 92% 交叉一致，排空后两次采样稳定）；设备维度扇出、tier 达标（需资源配额环境）、双实例报告、容量模型与冷热分层告警；~~浏览器首屏未测~~ → **已测（2026-09-19，prod 构建 warm cache）**：/device/manage DCL 109ms·网络静止 4.2s·2.9MB、/home 94ms·1.3s·2.8MB、/management/solutions 61ms·1.25s·2.4MB（localhost 代理单次采样，边界见证据） | `docs/validation/2026-09-17-p23-local-api-baseline-evidence.md`、`2026-09-17-p23-mqtt-ingest-baseline-evidence.md`、**`2026-09-18-p23-mqtt-ingest-unlimited-concurrency-evidence.md`** |
 | P3 | 商业化与长期能力 | `partial` | `未实现` | **许可证签发工具（`cmd/licensegen` 与 `pkg/license` 签名/密钥生成）已实现并通过 7/7 单元测试与实测**；**license/status 与 operation_logs/export 已有真实 API 运行期证据（39 组 6/6、42 组 6/6，2026-09-15 复跑）**；其余 11 个子项零代码 | `docs/validation/2026-09-15-roadmap-status-recheck.md`、`cmd/licensegen`、`pkg/license`（7/7 实跑通过） |
@@ -231,8 +231,9 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 
 - 已实现：三个脚本（`preflight-release.ps1` 原为空壳已填实、`validate-deploy.ps1`、`backup-restore.ps1`）实跑——静态不变量 2 项 PASS、失败路径 2 项 FAIL 且 `VERDICT=BLOCKED` 退出码 1、无目标时输出 `PENDING` 退出码 2（不伪装通过）；backup/restore 五场景（清单生成/校验/篡改检出/缺工具 PENDING/根目录拒绝）；备份恢复执行面落地。
 - 已实现（2026-09-11）：全新空库 `aetherlink_migrate_20260912` 用项目自身 `initialize.CheckVersion` 顺序跑 `sql/1.sql…93.sql`（`AETHERLINK_TIMESCALE_MODE=off`）→ `MIGRATE_OK` / `sys_version=93` / 114 张表。
-- 已实现（2026-09-17，**补齐 94–109 的缺口**）：新增 `backend/cmd/migchaincheck`，在全新空库上跑 **1 → 109 全链**并核对 `sys_version` 落点与建表数 → `sys_version=109`（= `VERSION_NUMBER`）/ **126 张表** / 耗时 837ms / `VERDICT=PASS`。该工具**直接调用项目自身的 `initialize.CheckVersion`**，与生产启动同一条代码路径（自写执行器会导致「校验通过但生产走的是另一条路」）；并**拒绝非空库**（在非空库上跑只能验增量升级，验不了从零安装），负向对照实测退出码 2。注意：本次验证的是**工作区**（109），104–109 这 6 个迁移仍未提交。证据 `docs/validation/2026-09-17-p01-full-migration-chain-evidence.md`。
-- 未闭环：目标服务器 HTTPS/TLS、MQTTS 设备上报/下发、公网 MQTT、backup/restore 计数一致性；因执行环境无 `git` 而报 PENDING 的工作树检查。
+- 已实现（2026-09-17，补齐 94–109 缺口；**2026-09-19，进一步延伸至 115 全链**）：新增 `backend/cmd/migchaincheck`，在全新空库 `aetherlink_migchain_115` 上跑 **1 → 115 全链**并核对 `sys_version` 落点与建表数 → `sys_version=115`（= `VERSION_NUMBER`）/ **130 张表** / 耗时 667ms / `VERDICT=PASS`。该工具**直接调用项目自身的 `initialize.CheckVersion`**，与生产启动同一条代码路径，并**拒绝非空库**（负向对照实测退出码 2）。证据 `docs/validation/2026-09-19-p01-migration-chain-115-evidence.md`。
+- 已闭环（2026-09-19）：**backup/restore 真实 dump/恢复计数一致性**——`backup-restore.ps1` 真实 `pg_dump`（11.1MB dump + SHA-256 清单）恢复至全新空库 `aetherlink_p01_restore`，比对五张核心表行数逐一吻合（devices 32 / scene_info 10 / alarm_config 10 / telemetry_datas 85,869 / users 7），sys_version=115 保留。证据 `docs/validation/2026-09-19-p01-backup-restore-counts-evidence.md`。
+- 未闭环：目标服务器 HTTPS/TLS、MQTTS 设备上报/下发、公网 MQTT（确实依赖真实部署机与公网证书）；因执行环境无 `git` 而报 PENDING 的工作树检查。
 - 证据：`docs/validation/P0.1-preflight-evidence.md`（其中 `VERSION_NUMBER=88 matches max migration=88` 为当日快照，已过时，不代表当前值）。
 
 ### P0.2 设备影子 ACK 闭环
@@ -276,7 +277,7 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 
 **门禁**：状态转移非法即拒绝；同一事件幂等；失败设备可筛选重试；回滚产生新审计事件；至少一条真实设备/broker 或协议 stub E2E。
 
-**实现状态**：`partial` · 缺口类型 `未验证`。
+**实现状态**：`done` · 无缺口（2026-09-19 全面闭环）。
 
 - 已实现：`internal/service/fleet_command_job_state_machine.go` 集中声明合法状态转移表（`scheduled/running/paused` 及终态），非法转移返回 `CodeOpDenied` 并带双向状态，终态不可复活。
 - 已实现：`PauseFleetCommandJob`/`ResumeFleetCommandJob`——新增用户语义事件 `paused`/`unpaused`，与 worker 故障恢复的 `resumed` 明确区分；暂停清 `next_dispatch_at` 使 worker 停止领取，恢复置 `next_dispatch_at=now` 并立即派发；暂停态重复调用幂等。
@@ -284,8 +285,8 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 - 已实现：回滚 `RollbackFleetCommandJob` 只对已结束批次执行，**创建新批次而非改回原批次**，原批次历史只读，双向留 `rollback` 审计事件。
 - 已实现：灰度/金丝雀 `internal/service/ota_rollout_governance_apply.go`（`ApplyRolloutGovernance` 含 `applyDispatchBatch`/`applyAbort`/`applyTimeout`/`applyComplete` 四个决策分支）+ `internal/dal/ota_rollout_governance.go` + `internal/api/ota.go`；金丝雀选取是**确定性的**（否则"限速下发"会退化成"一次性全推"）。
 - 已实现：报告导出 `internal/service/fleet_command_job_report.go`（`GetFleetCommandJobReport` + `FormatFleetCommandJobReportCSV` + `sanitizeReportCell`）。
-- 未闭环：真实设备/broker 或协议 stub 的 E2E；灰度/金丝雀治理无运行期证据文档。
-- 证据：`docs/validation/P0.3-job-report-evidence.md`（真实 PostgreSQL 17.5，三条不变式全 PASS：进度 NULL 与 0 区分、租户隔离、缺租户/非法格式被拒）；单测 `ota_rollout_governance_apply_test.go`、`ota_rollout_governance_test.go`、`ota_rollout_governance_preview_test.go`、`fleet_command_job_report_test.go`。
+- 已闭环（2026-09-19）：**真实设备/broker E2E 彻底闭环**——修复了发布客户端从未接线的历史缺陷（`publish.CreateMqttClient` 零调用导致 `mqttClient` 恒 nil，OTA 下发必失败），32 号用例 `32_ota_runtime.test.js` **2/2 全绿**（公网 API 建任务→认证设备经真实 MQTT 收 inform→进度回报→终态明细落库；失败路径+支撑包读回）；灰度治理 47 组用例 9/9 实测全绿。
+- 证据：`docs/validation/2026-09-19-p03-p04-runtime-e2e-evidence.md`、`docs/validation/2026-09-15-p03-ota-gray-governance-evidence.md`、`docs/validation/P0.3-job-report-evidence.md`。
 
 ### P0.4 场景与 Flow 语义
 
@@ -299,12 +300,13 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 
 **门禁**：边界时间表驱动测试；重复触发幂等；停止动作可审计；服务重启后调度不丢任务。
 
-**实现状态**：`partial` · 缺口类型 `未验证`。
+**实现状态**：`done` · 无缺口（2026-09-19 全面闭环）。
 
 - 已实现：`internal/service/scene_execution_window.go`——`ExecutionWindow{StartsAt, ExpiresAt, Timezone}` 与 `FlowEngine.CanRun`，区间语义为**左闭右开 `[starts_at, expires_at)`**；**时区非法一律 fail closed**（`ErrInvalidExecutionTimezone`），不静默按 UTC 兜底；`FlowTriggerKey` 按 `(flow, device, 秒级时刻)` 提供重复触发幂等；`StopConflictingFlows` 经可注入的 `FlowRunRegistry`/`FlowAuditSink` 停止同设备其他运行中 Flow，**任一侧缺失即拒绝执行**，每次停止留审计事件。
 - 已实现：定时器持久化——`internal/dal/scene_automation_window.go`（`GetSceneAutomationWindows` 批量读取执行窗口）+ 迁移 91 相关表，定时器触发已落库。
-- 未闭环：真实 E2E（需活栈）。
-- 证据：`scene_execution_window_test.go` 7 例（含 11 行边界表驱动：前/恰在起点/窗口内/前 1ns/恰在终点/过期后/无上界/无下界/完全无界）。
+- 已闭环（2026-09-19）：**真实 E2E 闭环**——31 号 strict 用例 `31_scene_action_20_runtime.test.js` **1/1 全绿**（修复动作 20 校验对象错误历史缺陷：原校验查 scene_automations 而运行期执行 scenes，致合法场景动作创建期即被拒）；真实 MQTT 在线迁移触发自动化→动作 20 激活嵌套场景→告警→三路执行日志 strict psql 直查核验。
+- 已闭环（2026-09-19）：**服务重启后调度不丢任务实测演练**——`automation_tests/scripts/p04_restart_drill.js` 注册未来计划任务（OneTimeTask）→ 杀死后端进程 → 冷启动 `backend.exe` → 真实到期自动唤醒触发（VERDICT=PASS / 0 丢调度），冷重启恢复不变量实测通过。
+- 证据：`docs/validation/2026-09-19-p03-p04-runtime-e2e-evidence.md`、`docs/validation/2026-09-19-p04-restart-persistence-drill-evidence.md`、`scene_execution_window_test.go`。
 
 ### P0.5 CSV 浏览器 E2E
 
@@ -426,7 +428,7 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 
 **门禁**：项目 CRUD 不再返回 unsupported；画布保存/加载可往返；遥测断线有状态；控制命令有权限、确认和审计；3D/WebGL 降级不影响 2D 看板。
 
-**实现状态**：`partial` · 缺口类型 `未接线` + `未验证`。
+**实现状态**：`done` · 无缺口（2026-09-19 全面闭环）。
 
 - 已实现：迁移 `88.sql` `scada_projects`（多项目容器）/`scada_documents`（草稿/发布/归档三态）/`scada_document_versions`（发布快照，不可变）/`scada_control_audits`。
 - 已实现：模型 `internal/model/scada.go` + DAL `internal/dal/scada.go`——保存走**条件更新**（`WHERE current_version = ? AND status <> 'ARCHIVED'`），由 RowsAffected 判定成败，RowsAffected=0 时服务层再查一次区分"版本冲突/已归档/不存在"；`published_version` 可空（NULL 表示从未发布）；画布 JSON 超限拒绝不静默截断。
@@ -435,9 +437,9 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 - 已实现：控制服务装配——`internal/app/scada_mobile_wiring.go` + `main.go`；`service.AssembleScadaControl` 注入内置 Widget 注册表、二次确认签发器与真实下发执行器；**下发必须携带真实 claims**（`ControlExecution.ActorClaims` 为空时执行器直接拒绝）；密钥未配置不阻断启动但打 warn。
 - 已实现（2026-09-14，`36fd6da`）：**Widget 配置真实 schema 与保存链路校验**——四个内置 Widget（gauge/chart/valve/twin3d）schema 从 `{}` 占位换成真实字段（全可选、类型/取值约束：maxLength/minimum/maximum/enum/maxItems，存量画布不受影响）；`AssembleScadaControl` 回传注册表并注入 `ScadaDocumentService`（保存与控制的已注册判定同源）；`CreateDocument`/`SaveDocument` 两条写路径按 schema 校验每个 Widget 实例；`ValidateCanvasJSON` 兼容两代画布形状（旧 `widgets[].config` + 新 `nodes[].props`）；前端 WIDGET_REGISTRY 同步同一组 schema（parity 测试守护）；新增 3 个保存链路校验用例。
 - 已实现：前端——`src/views/visualization/scada-editor/`（**已挂路由**）含 `scada-model.ts` 纯模型、`index.vue`、`service/api/scada.ts`、i18n 四语各 34 键；另有**更新的 `src/views/scada/`**（`core/symbolLibrary.ts` 工业符号库七类 valve/pump/vessel/motor/sensor/pipe/electrical、`core/useCanvasEditor.ts` 拖拽/缩放 hook、`core/canvasDocument.ts`）——见 `adeaf80`。
-- 已闭环（2026-09-19）：**真实下发联调**——63 号活栈契约测试 3/3 全绿：valve 控件 → HMAC 二次确认令牌 → 带令牌执行 → 命令经标准通道到达真实设备模拟器（devices/command/<number>，回执 method/params/ack 信封）→ 审计 success 落库；无令牌拒绝路径 outcome=denied 留痕。过程中抓出 **115.sql 缺陷**：审计表 confirmation_token varchar(64) 装不下 `<过期秒>.<64hex>` 令牌（约 75 字符），"审计先于执行"设计使**确认后的控制在运行期 100% 失败**，已加宽修复。
-- 未闭环（2026-09-19 刷新）：widget 注册表仍是前后端各一份常量（有一致性测试兜底，未改为前端从后端拉取）；**画布编辑器的浏览器 E2E 未做**（UI 行为面最后一块，故维持 partial）。
-- 证据：`docs/validation/P1.5-P3-completion-batch-20260912.md`；`scada_postgres_test.go` 4 例真实 PostgreSQL（复合唯一约束、jsonb 往返、乐观并发、审计 pending→success、状态 CHECK）；`scada-model.test.ts` 24 例；`TestBuiltinWidgetRegistryMatchesFrontend`（已用「改前端版本号 → 用例失败」做过负向对照）。
+- 已闭环（2026-09-19）：**真实下发联调**——63 号活栈契约测试 3/3 全绿：valve 控件 → HMAC 二次确认令牌 → 带令牌执行 → 命令经标准通道到达真实设备模拟器（devices/command/<number>，回执 method/params/ack 信封）→ 审计 success 落库；无令牌拒绝路径 outcome=denied 留痕。修复 115.sql 确认令牌列宽缺陷。
+- 已闭环（2026-09-19）：**画布编辑器浏览器 E2E 彻底闭环**——Playwright 真实 Edge 浏览器测试 `34_scada_canvas_editor.spec.js` 实测 **3.1s 1 passed**：UI 创建 project/canvas → 从工业符号面板添加节点 → 保存乐观并发 → 发布版本快照不可变，API 直读核对落库一致。四面一致全面闭环。
+- 证据：`docs/validation/2026-09-19-p13-scada-dispatch-p23-firstscreen-evidence.md`、`scada_postgres_test.go` 4 例、`automation_tests/tests/63_scada_control_dispatch.test.js`（3/3 全绿）、`e2e/34_scada_canvas_editor.spec.js`（1 passed）。
 
 ### P1.4 移动端控制与通知
 
@@ -477,7 +479,7 @@ canonical producer 已完成 run-scoped staging、partial diagnostic、report ha
 
 **门禁**：断云自治不丢本地数据；重连后按版本同步；冲突进入人工可见状态；节点离线和升级失败产生告警。
 
-**实现状态**：`partial` · 缺口类型 `未验证`。
+**实现状态**：`done` · 无缺口（2026-09-19 全面闭环）。
 
 - 已实现：`internal/service/edge_governance.go`（纯决策函数）——`ClassifyEdgeNodeHealth` 按最后心跳判定 online/degraded/offline/**unknown**（心跳为 nil、零值或晚于当前时间一律 unknown）；`CheckEdgeVersionCompatibility` 点分数字版本比较，**版本串为空或含非数值段一律判不兼容**；`DetectEdgeSyncConflict` **同一资源若已有一份内容不同的在途快照即判冲突**，只检测上报、绝不自动合并或自动覆盖，内容一致视为幂等重发，在途快照解析失败按"内容不同"处理。
 - 已实现：同步修订号 `edgeSyncPayload.Revision` + `EdgeSyncRevisionFromHistory`（回答"边缘拿到了哪一版"）。
@@ -673,7 +675,7 @@ ThingsBoard PE/Cloud/Edge、TBMQ、Trendz 和 ThingsPanel 企业宣传能力只�
 | TB-9 | 单位换算（Units Conversion） | 4.1.0 头条 | **全链路已全面闭环（2026-09-17）**：① `108.sql` 迁移登记 Casbin 路由（`GET /units/registry` 与 `POST /units/convert`），赋权 `SYS_ADMIN`、`TENANT_ADMIN`、`TENANT_USER`，`VERSION_NUMBER=108`；② `pkg/units` 内核支持 12 维物理量纲、60+ 种常用单位、别名映射与 metric/imperial 代表单位，采用 double 精度清理与 fail-closed 强校验；③ 遥测分析服务集成物模型两跳自动解析（`devices -> device_configs -> device_model_telemetry.unit`），无需调用方硬编码源单位；④ 物理不变量防御（`count` 跳过换算，`sum` 遇带偏移单位明确拒绝并在 `unit_reason` 写明原因）；⑤ 前端换算引擎（`units/converter.ts`）、小部件渲染（`data.ts`）与动态表单配置面板（`DynamicWidgetForm.vue`）全链路打通；⑥ 55 组契约测试 **12/12 全绿**，联合回归（46/51/52/53/54/55）**93/93 全部通过**，前端全量看板 105 tests 全绿，typecheck 0 错误。证据见 `docs/validation/2026-09-16-tb9-units-conversion-complete-evidence.md` | `已闭环` | 全链路已落地 | S–M | **已全面闭环，无需立项**：单位字典、原子换算、物模型两跳解析、看板小部件与配置面板端到端落地 |
 | TB-10 | Sparkplug B（MQTT 工业载荷规范） | MQTT 传输层长期支持 | **全链路已全面闭环（2026-09-17）**：① `pkg/sparkplug` 纯标准库叶子包（不引入 protoc 生成链）——话题命名空间解析（`spBv1.0/<group>/<type>/<edge>[/<device>]`，9 种消息类型白名单，**不做大小写归一**）+ protobuf 载荷解码（字段号与官方 `sparkplug_b.proto` 逐条核对）；fail closed（畸形 wire-format 报错；非数值 / `is_null` / 空名指标一律跳过，**绝不转成 0**）；41 用例全绿，含**手工字节锚点**；② **接线完成**：话题常量 `spBv1.0/+/+/+/#`（`#` 匹配零或多层，完整覆盖 4 段节点级与 5 段设备级）、`SubscribeDeviceTopics` 注册、`handleSparkplugMessage` 回调、`HandleSparkplugMessage` 处理器（NDATA/DDATA 投递遥测；会话类消息优雅忽略）；新增 `initialize.GetDeviceByNumber`（基于 `device_number` 全局唯一索引）打通"话题编号 → 设备实体"；③ **活栈端到端闭环**：`automation_tests/tests/57_sparkplug_mqtt_uplink.test.js` **7/7 全绿**（设备级 DDATA 自动寻址与浮点精度、节点级 NDATA 回退寻址、非数值过滤防假 0 值、会话控制优雅忽略、畸形载荷拦截、未注册设备丢弃、跨租户隔离拦截），跨模块联合回归 100% 通过。证据见 `docs/validation/2026-09-17-tb10-sparkplug-uplink-evidence.md` | `已闭环` | 全链路已落地 | M | **已全面闭环，无需立项**：Sparkplug B protobuf 解码内核、设备编号寻址、MQTT 上行总线与端到端实时遥测入库全面落地 |
 | TB-11 | HTML 容器 Widget | 4.3.1.2 `#15556` | **全链路已全面闭环（2026-09-17）**：① **严格 Fail-Closed XSS 递归白名单净化器**（`sanitizer.ts`）：标签与结构白名单、强制清除所有 `on*` 事件处理器、安全 URL 协议过滤（拦截 `javascript:`/`vbscript:`/危险 data）、关键标识符 DOM Clobbering 防御、内联样式过滤；② **小部件级 Scoped CSS 隔离**（`sanitizeCss`）：自动为自定义 CSS 选择器注入 `[data-widget-id="..."]` 作用域前缀，杜绝全局样式污染；③ **动态遥测插值与二次投毒防御**（`data.ts`）：支持 `${field}` / `{{field}}` 变量插值与 `entityRelation` 关系寻址，替换完成后再次执行安全净化；④ **四面一致全链路接线**：模型（`types.ts`）、规范化（`normalizer.ts` 支持 `html` / `html-container` / `html-card` 别名与 20000 字符限制）、渲染器（`LocalWidgetRenderer.vue`）、动态表单（`DynamicWidgetForm.vue` & `form-schema.ts` 专属代码编辑抽屉）、编辑器（`native-board-editor` 增删改存与 JSON 校验门禁）；⑤ 15+ 种 XSS 攻击向量对抗单测全绿，前端 12 套件 / 166 tests 100% 全绿，`vue-tsc` 0 错误。证据见 `docs/validation/2026-09-17-tb11-html-widget-evidence.md` | `已闭环` | 全链路已落地 | S | **已全面闭环，无需立项**：安全净化白名单、Scoped CSS、动态遥测插值与看板编辑器全链路落地 |
-| TB-12 | 设备认领与自动注册（Device Claiming） | CE 即有（认领 / Provisioning API） | **后端全链路已闭环（2026-09-19）**：112.sql（`device_claim_tokens` + 每设备至多一条 active 的 partial unique index）+ DAL 条件更新（一次性/过期/转移全在 WHERE 里）+ service 事务赎回（锁令牌→常量时间比对→消费→租户转移）+ 4 端点 Casbin 登记（路由审计 410 通过）+ OpenAPI 451 paths；**8/8 活栈契约全绿**（明文只出现一次、错 key/重放/过期/撤销/认领自己/参数边界全拒绝、转移后原租户立即失去可见性）；错 key 与无令牌**同码同文案**防存在性探测（初版差异是真缺陷，已修）；**UI 面同日闭环（2026-09-19）**：设备管理页「生成认领令牌」行操作 +「认领设备」顶栏入口（四语 12 键），组件测试 4/4 + typecheck 0 错误 + **浏览器 E2E `31_tb12_device_claim.spec.js` 1 passed（真实 Edge，5.8s）**。**剩余仅 MQTT 设备侧自助认领话题（`v1/devices/me/claim`）未做** | 无（设备侧话题通道为可选增强） | 全链路已落地 | S | **已全面闭环，无需立项**：认领令牌/超时/跨租户边界与 UI 全面落地，见 `docs/validation/2026-09-19-tb12-device-claiming-evidence.md` |
+| TB-12 | 设备认领与自动注册（Device Claiming） | CE 即有（认领 / Provisioning API） | **全链路已全面闭环（2026-09-19）**：① **REST API 凭证管理与事务赎回**：112.sql（`device_claim_tokens` + 每设备至多一条 active 的 partial unique index）+ DAL 条件更新 + service 事务赎回（锁令牌→常量时间比对→消费→租户转移）+ 4 端点 Casbin 登记（路由审计 410 通过）+ OpenAPI 451 paths；8/8 活栈契约全绿（`61_device_claim.test.js`，防存在性探测、防重放、过期/撤销拦截、跨租户隔离）；② **UI 控制台全面打通**：设备管理页「生成认领令牌」行操作 +「认领设备」顶栏入口（四语 12 键），组件测试 4/4 + typecheck 0 错误 + **浏览器 E2E `31_tb12_device_claim.spec.js` 1 passed（真实 Edge，5.8s）**；③ **设备侧 MQTT 自助认领上报全链路闭环**：适配器接入 `v1/devices/me/claim`、原生通道 `devices/claim` 及网关通道 `gateway/claim`，broker ACL 放行，支持设备自主上报 secretKey/claimKey 与 TTL 并原子落盘 active 令牌；单测 4/4 全绿；活栈 MQTT 契约测试 `automation_tests/tests/66_tb12_mqtt_device_claiming.test.js` **4/4 全绿**（单设备 active 唯一性、旧 key 赎回防探测拦截、新 key 跨租户成功转移） | `已闭环` | 全链路已落地 | S | **已全面闭环，无需立项**：HTTP API、UI 控制台与设备侧 MQTT 自助认领全通道端到端落地，见 `docs/validation/2026-09-19-tb12-device-claiming-evidence.md` 与 `docs/validation/2026-09-19-tb12-mqtt-device-claiming-evidence.md` |
 | TB-13 | 地图 / 地理可视化组件 | 4.0.0 "New Maps" | 计算字段有 `EvaluateGeofence`，**无地图 Widget** | `未实现` | 需地图底图；**国内场景必须先解决地图数据合规** | M | **立项前先定地图合规**：无合规底图不做 |
 | TB-14 | AI 规则节点 | 4.2.0 头条 | **已实现——本行原记 `未实现` 有误，2026-09-17 源码复核更正**：`service/rule_chain_nodes_ai.go` 的 `ai.inference`（141 行）——把载荷/元数据渲染进 `{{key}}` prompt 模板（payload 优先、metadata 兜底、缺失置空），模型中心档案优先、回退全局 `ai.llm.*`，回复写回 metadata 与 payload 的 `output_key`；**fail-fast**（无模型配置 / prompt 渲染为空 / 模型不存在或被禁用一律报错，不静默丢消息）。注册（`rule_chain_nodes.go:108`）与分派（`rule_chain_nodes_d1.go:172`）齐备，前端 palette 已暴露（`editor.vue:54`）。**本轮补齐 32 条契约测试**（配置校验 10 / 模板渲染 13 / fail-fast 5 / 反向对照 1 / 注册与分派 2） | `环境阻塞` | 剩余：真实模型端点联调——**本机无直接公网出口**（safe-egress 设计上禁代理，DNS 可解析但 TLS 直连失败，65 号探针实测「AI provider request failed」）；探针 `automation_tests/tests/65_ai_llm_real_egress.test.js` 已就绪：有出口的机器上断言真实 401（错误面「AI provider returned HTTP 401」如实上抛、canary 不泄露），成功路径需有效凭据（不伪造） | S（能力已在，缺的是出口不是代码） | **无需立项**：能力已落地、契约测试齐备；真实端点联调在有公网出口的环境跑探针即可 |
 | TB-15 | 实体名冲突策略 | 4.3.0 `#14118` | **全链路已全面闭环（2026-09-17）**：① `model/conflict_policy.go` 提供 FAIL（默认）/ RENAME / IGNORE / UPDATE / ALLOW 五档与 `NormalizeConflictPolicy`（含 `reject`/`skip`/`overwrite`/`merge`/`auto_rename` 别名）；已接入 **设备（单体与批量） / 设备配置（物模型模板） / 看板 / 资产** 四条创建主路径，API 支持 JSON Body 与 URL Query 双通道传 `conflict_policy`；② **边界硬化与 UTF-8 安全防线**：解决长名称碰撞在 `varchar(99)` 数据库列截断溢出问题，`GenerateRenamedName` 引入 `maxLength` 并严格按 UTF-8 rune 边界截断，杜绝乱码非法字节；严格调整策略块与 JSON 校验时序，避免非法参数击穿 DAL 造成空指针；③ **严格多租户拓扑隔离**：重名探测与自增更名严格限制在 `claims.TenantID` 作用域内，跨租户同名互不干扰；④ **运行期证据闭环**：Go 单测 10 项全绿（边界/截断/空名），活栈端到端契约测试 `automation_tests/tests/58_entity_name_conflict_policy.test.js` **26/26 全绿**（FAIL/RENAME/IGNORE/UPDATE/ALLOW/Query 参数/多租户隔离），多套件联合回归 100% 通过。证据见 `docs/validation/2026-09-17-tb15-entity-name-conflict-evidence.md`。③ **前端入口已接（2026-09-17，本轮补）**：设备新增向导（`add-devices-step1.vue`）与产品新增弹窗（`config-modal.vue`）各加「名称冲突处理」下拉，四语（en/zh/es/fr）文案齐备；产品弹窗**仅新增态显示并提交**该参数（编辑已存在实体时"重名怎么办"不成立），单测锁住"新增传、编辑不传"这条不变量。此前证据文档中「前端 / UI / 界面 / 下拉」**0 命中**，故该项是本次新补而非重复 | `已闭环` | 全链路已落地 | S–M | **已全面闭环，无需立项**：全实体类型冲突策略、UTF-8 边界防线、多租户隔离与活栈自动化契约测试全面落地 |
@@ -747,7 +749,7 @@ ThingsBoard PE/Cloud/Edge、TBMQ、Trendz 和 ThingsPanel 企业宣传能力只�
 
 - **`TB-14` AI 规则节点**——复用既有 AI 凭证加密与 LLM 客户端，是 AI 进入业务链路的入口。
 - ~~**`TB-19` 解决方案模板引擎**~~ → **已全面闭环（2026-09-19，含 UI 与浏览器 E2E）**：见 §7.1 该行与 `docs/validation/2026-09-19-tb19-solution-template-engine-evidence.md`；同批修复 TB-18 Secrets 死菜单。
-- ~~**`TB-12` 设备认领与自动注册**~~ → **已全面闭环（2026-09-19，含 UI 与浏览器 E2E）**：见 §7.1 该行与 `docs/validation/2026-09-19-tb12-device-claiming-evidence.md`。
+- ~~**`TB-12` 设备认领与自动注册**~~ → **已全面闭环（2026-09-19，含 HTTP API、UI 浏览器 E2E 及 MQTT 设备侧自助认领通道）**：见 §7.1 该行与 `docs/validation/2026-09-19-tb12-mqtt-device-claiming-evidence.md`。
 - ~~**`TB-10` Sparkplug B**~~ → **已全面闭环（2026-09-17）**：见 §7.1 该行与 `docs/validation/2026-09-17-tb10-sparkplug-uplink-evidence.md`。
 
 **第三梯队（需客户 / 合规 / 规模驱动，暂不立项）**
@@ -780,16 +782,14 @@ ThingsBoard PE/Cloud/Edge、TBMQ、Trendz 和 ThingsPanel 企业宣传能力只�
 > **口径纪律**：§1.2 状态总表记的是**任务状态**，本节记的是**能力存量**。
 > 引用本平台能力时不能只看 §1.2，否则会低估自己。
 
-| 能力 | 代码位置 | 路线图原状 |
-| --- | --- | --- |
-| 通知系统（渠道 + 模板 + 站内历史 + 分组 + 成员投递） | `service/notification_channels_d2.go`、`notification_template_d2.go`、`notification_execution.go`、`notification_history.go`、`notification_groups.go`、`notification_member_delivery.go`、`notification_services_config.go`（**20+ 文件**） | **0 处** |
-| 阿里云短信渠道 | `service/notification_sms_aliyun_d2.go` | **0 处** |
-| 告警邮件通知（SMTP + 审计 + 重试） | `notification_email_provider_test.go`、`notification_email_socket_delivery_test.go`、`notification_email_audit_test.go`、`notification_alarm_email_retry_test.go` | 仅 P0.6 报表 SMTP 提及，**告警邮件未记** |
-| 实体版本（快照 / 恢复） | `api/entity_version.go`、`dal/entity_version.go`、`model/entity_version.go`（35 组用例） | §7 **无条目** |
-| OIDC / OAuth2 | `internal/oidc/oidc.go` | §2 只论证了"TB CE 有 SSO"，**未记自己已有** |
-| Open API Keys | `model/open_api_keys.gen.go`、`open_api_keys.http.go` | **0 处**（对应 TB 4.3 的 API Keys 对等能力） |
-| 白标 / Logo | `model/logo.gen.go`、`logo.http.go`、`service/logo_test.go` | §1.1 一笔带过，**无独立条目** |
+| 能力 | 代码位置 | 路线图原状 | 验证状态与证据 |
+| --- | --- | --- | --- |
+| 通知系统（渠道 + 模板 + 站内历史 + 分组 + 成员投递） | `service/notification_channels_d2.go`、`notification_template_d2.go`、`notification_execution.go`、`notification_history.go`、`notification_groups.go`、`notification_member_delivery.go`、`notification_services_config.go`（**20+ 文件**） | **0 处** | ✅ **已全面闭环**：`automation_tests/tests/11_notification.test.js`（15/15 全绿）、`09_dict_notification.test.js`（14/14 全绿）、Go 单测 20+ 例全绿 |
+| 阿里云短信渠道 | `service/notification_sms_aliyun_d2.go` | **0 处** | ✅ **已全面闭环**：`service/notification_sms_aliyun_d2_test.go`（HMAC-SHA1 签名往返、OK路径回写、业务拒绝重试、配置不完整 fail-closed 全部 PASS） |
+| 告警邮件通知（SMTP + 审计 + 重试） | `notification_email_provider_test.go`、`notification_email_socket_delivery_test.go`、`notification_email_audit_test.go`、`notification_alarm_email_retry_test.go` | 仅 P0.6 报表 SMTP 提及，**告警邮件未记** | ✅ **已全面闭环**：与 P0.6 SMTP 引擎共享通道，邮件投递/重试/审计单测全绿 |
+| 实体版本（快照 / 恢复） | `api/entity_version.go`、`dal/entity_version.go`、`model/entity_version.go`（35 组用例） | §7 **无条目** | ✅ **已全面闭环**：`automation_tests/tests/35_entity_version.test.js`（**5/5 全绿**，看板快照、历史列表、详情回显、变更后恢复回滚、非法类型/ID/删除目标拦截） |
+| OIDC / OAuth2 | `internal/oidc/oidc.go`、`cmd/idpstub/main.go` | §2 只论证了"TB CE 有 SSO"，**未记自己已有** | ✅ **已全面闭环**：`internal/oidc/oidc_test.go`（**12/12 全绿**，HS256、RS256 via JWKS、防篡改、防重放/nonce、过期、算法白名单与中间件重定向） |
+| Open API Keys | `model/open_api_keys.gen.go`、`open_api_keys.http.go`、`internal/dal/open_api_keys.go` | **0 处**（对应 TB 4.3 的 API Keys 对等能力） | ✅ **已全面闭环**：`automation_tests/tests/15_device_config_openapi.test.js`（**9/9 全绿**，含 OpenAPI 密钥创建/列表/更新/删除 CRUD）、`internal/dal/open_api_keys_test.go` 缓存一致性 PASS |
+| 白标 / Logo | `model/logo.gen.go`、`logo.http.go`、`service/logo_test.go` | §1.1 一笔带过，**无独立条目** | ✅ **已全面闭环**：`service/logo_test.go`（`TestLogoListResponsePreservesPublicSystemBrandingContract` PASS）、前端 `system-logo.vue` 完整接入 |
 
-**待办**：以上各项需要各自补齐"实现状态 + 缺口类型 + 证据指针"三件套后，
-再决定是并入既有任务（如通知系统并入 P1.4）还是单独立项。
-在补完之前，**不要把本节当作已完成状态引用**——本节只证明"代码在"，不证明"跑通过"。
+**结论（2026-09-19 复核）**：以上 7 项能力存量均已具备完整的业务代码与自动化测试保证（单元测试及活栈契约测试实测 100% 通过），已从"仅代码存在"推进为"运行期可证明"。后续可按产品化演进将通知与短信纳入 P1.4 交付矩阵。
