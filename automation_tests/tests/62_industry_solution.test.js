@@ -6,7 +6,8 @@
  *   2. 列表 / 详情（含安装流水回查）；
  *   3. 一键安装——逐项 applied、逐项留流水、目标实例 ID 可追溯；
  *   4. 多租户隔离——他租户对方案不可见、不可安装；
- *   5. 删除与参数校验。
+ *   5. 删除与参数校验；
+ *   6. 规则链资源类型（TB-19 剩余缺口闭环）——引用/安装实例化新链、源链只读、跨租户引用被拒。
  *
  * 关键注意事项：
  *   - 方案只存引用：安装走资源中心既有应用管道（export→import），
@@ -33,6 +34,7 @@ describe(SUITE, function () {
   let solutionId = null;
   let templateId = null;
   let boardId = null;
+  let ruleChainId = null;
   let installTargets = [];
 
   before(async function () {
@@ -74,6 +76,20 @@ describe(SUITE, function () {
     templateId = tplResp.data.template ? tplResp.data.template.id : tplResp.data.id;
     cleanups.push(async () => {
       await apiClient.delete('/device/template/' + templateId, {}, ACCOUNT);
+    });
+
+    // 3. 种子规则链（tenant A，单触发器节点的最小合法 DAG）
+    const rcResp = await apiClient.post('/rule-chains', {
+      name: seedData.makeRunLabel('tb19_chain_seed'),
+      graph: {
+        nodes: [{ id: 't1', type: 'trigger.telemetry', config: {} }],
+        edges: []
+      }
+    }, ACCOUNT);
+    expect(rcResp.code, 'seed rule chain').to.equal(200);
+    ruleChainId = rcResp.data.id;
+    cleanups.push(async () => {
+      await apiClient.delete('/rule-chains/' + ruleChainId, {}, ACCOUNT);
     });
 
     solutionName = seedData.makeRunLabel('tb19_solution');
@@ -174,6 +190,47 @@ describe(SUITE, function () {
 
     const install = await apiClient.post('/solutions/' + solutionId + '/install', {}, OTHER_ACCOUNT);
     expect(install.code, 'cross-tenant install').to.equal(CODE_NOT_FOUND);
+  });
+
+  it('references and installs a rule chain as a solution resource (TB-19 剩余缺口闭环)', async function () {
+    // 创建引用规则链的方案：探测走只读导出，不产生副作用实例。
+    const create = await apiClient.post('/solutions', {
+      name: seedData.makeRunLabel('tb19_solution_rc'),
+      resources: [
+        { resource_type: 'rule_chain', resource_id: ruleChainId, target_name: 'tb19_installed_chain' }
+      ]
+    }, ACCOUNT);
+    expect(create.code, 'create rule-chain solution').to.equal(200);
+    const rcSolutionId = create.data.id;
+    cleanups.push(async () => {
+      await apiClient.delete('/solutions/' + rcSolutionId, {}, ACCOUNT);
+    });
+
+    // 他租户不能引用本租户的规则链（探测路径按租户校验归属）。
+    const crossTenant = await apiClient.post('/solutions', {
+      name: seedData.makeRunLabel('tb19_solution_rc_b'),
+      resources: [{ resource_type: 'rule_chain', resource_id: ruleChainId }]
+    }, OTHER_ACCOUNT);
+    expect(crossTenant.code, 'cross-tenant rule chain reference').to.equal(CODE_PARAM_ERROR);
+
+    // 安装：实例化一条新链（与看板模板语义一致），源链只读不动。
+    const install = await apiClient.post('/solutions/' + rcSolutionId + '/install', {}, ACCOUNT);
+    expect(install.code, 'install rule-chain solution').to.equal(200);
+    expect(install.data.total, 'total items').to.equal(1);
+    expect(install.data.applied, 'applied').to.equal(1);
+    const item = install.data.items[0];
+    expect(item.status, 'item applied').to.equal('applied');
+    expect(item.resource_type, 'resource type kept').to.equal('rule_chain');
+    expect(item.target_id, 'new chain id').to.be.a('string').and.not.equal(ruleChainId);
+    installTargets.push({ path: '/rule-chains/' + item.target_id });
+
+    // 新链真实落库可读且按 target_name 命名；源链原样可读。
+    const installed = await apiClient.get('/rule-chains/' + item.target_id, {}, ACCOUNT);
+    expect(installed.code, 'installed chain readable').to.equal(200);
+    expect(installed.data.name, 'installed chain named by target_name').to.equal('tb19_installed_chain');
+
+    const source = await apiClient.get('/rule-chains/' + ruleChainId, {}, ACCOUNT);
+    expect(source.code, 'source chain untouched').to.equal(200);
   });
 
   it('deletes the solution and validates parameters', async function () {

@@ -93,10 +93,29 @@ func WithFlowService() Option {
 		logrus.Infof("Flow config: enabled=%v, bus_buffer_size=%d",
 			isEnabled, busBufferSize)
 
-		// 1. 创建 Bus
+		// 1. 创建 Bus。摄取回压告警（P2.3 短期 B 方案，决策备忘录
+		// docs/design/2026-09-19-ingest-backpressure-decision-memo.md）默认开启，
+		// 可用 telemetry.uplink_backpressure_alert.* 键覆盖；同时注册诊断总线
+		// 供 /api/v1/queue/stats 暴露丢弃/阻塞账本。
+		alertCfg := uplink.DefaultBackpressureAlertConfig()
+		if viper.IsSet(uplink.AlertEnabledKey) {
+			alertCfg.Enabled = viper.GetBool(uplink.AlertEnabledKey)
+		}
+		if viper.IsSet(uplink.AlertWindowKey) {
+			alertCfg.Window = time.Duration(viper.GetInt(uplink.AlertWindowKey)) * time.Second
+		}
+		if viper.IsSet(uplink.AlertDropRatioKey) {
+			alertCfg.DropRatio = viper.GetFloat64(uplink.AlertDropRatioKey)
+		}
+		if viper.IsSet(uplink.AlertMinReceivedKey) {
+			alertCfg.MinReceived = uint64(viper.GetInt64(uplink.AlertMinReceivedKey))
+		}
+
 		bus := uplink.NewBus(uplink.BusConfig{
 			BufferSize: busBufferSize,
+			Alert:      &alertCfg,
 		}, a.Logger)
+		uplink.RegisterDiagnosticsBus(bus)
 
 		// 2. 创建 Processor
 		dataProcessor := processor.NewScriptProcessor()

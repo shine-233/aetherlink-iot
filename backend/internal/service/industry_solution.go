@@ -28,6 +28,7 @@ type IndustrySolutionService struct{}
 var solutionResourceTypes = map[string]bool{
 	"device_template": true,
 	"board_template":  true,
+	"rule_chain":      true,
 }
 
 // CreateIndustrySolution 创建方案：逐项校验引用类型，并当场用资源中心的
@@ -46,7 +47,7 @@ func (*IndustrySolutionService) CreateIndustrySolution(_ context.Context, req *m
 	for i, ref := range req.Resources {
 		if !solutionResourceTypes[strings.TrimSpace(ref.ResourceType)] {
 			return nil, errcode.NewWithMessage(errcode.CodeParamError,
-				"resources["+strconv.Itoa(i)+"].resource_type must be device_template or board_template")
+				"resources["+strconv.Itoa(i)+"].resource_type must be device_template, board_template or rule_chain")
 		}
 		if strings.TrimSpace(ref.ResourceID) == "" {
 			return nil, errcode.NewWithMessage(errcode.CodeParamError,
@@ -65,6 +66,8 @@ func (*IndustrySolutionService) CreateIndustrySolution(_ context.Context, req *m
 			_, probeErr = GroupApp.DeviceTemplate.ExportDeviceTemplate(probe, claims)
 		case "board_template":
 			_, probeErr = GroupApp.Board.ExportBoard(probe, claims)
+		case "rule_chain":
+			_, probeErr = GroupApp.RuleChain.ExportChain(probe, claims)
 		}
 		if probeErr != nil {
 			return nil, errcode.NewWithMessage(errcode.CodeParamError,

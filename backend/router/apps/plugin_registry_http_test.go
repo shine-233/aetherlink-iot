@@ -195,6 +195,90 @@ func TestPluginRegistryManifestHTTPPathOnPostgres(t *testing.T) {
 	})
 }
 
+func TestRegisterRealIndustrialAdaptersHTTPPathOnPostgres(t *testing.T) {
+	engine, db := pluginE2E(t)
+
+	// 1) 真实工业 CAN 协议适配器 Manifest 签名与 HTTP 注册
+	canPub, canPriv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("generate can ed25519 key: %v", err)
+	}
+	canManifest := pluginsdk.CANAdapterManifest()
+	if err := pluginsdk.SignManifest(canManifest, "vendor-bosch-industrial", canPriv); err != nil {
+		t.Fatalf("sign can manifest: %v", err)
+	}
+	canRaw, _ := json.Marshal(canManifest)
+
+	// 2) 真实楼宇自控 BACnet 协议适配器 Manifest 签名与 HTTP 注册
+	bacnetPub, bacnetPriv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("generate bacnet ed25519 key: %v", err)
+	}
+	bacnetManifest := pluginsdk.BACnetAdapterManifest()
+	if err := pluginsdk.SignManifest(bacnetManifest, "vendor-honeywell-hvac", bacnetPriv); err != nil {
+		t.Fatalf("sign bacnet manifest: %v", err)
+	}
+	bacnetRaw, _ := json.Marshal(bacnetManifest)
+
+	// 配置双受信厂商公钥
+	prev := viper.Get("plugin.trusted_vendor_keys")
+	viper.Set("plugin.trusted_vendor_keys", map[string]string{
+		"vendor-bosch-industrial": base64.StdEncoding.EncodeToString(canPub),
+		"vendor-honeywell-hvac":   base64.StdEncoding.EncodeToString(bacnetPub),
+	})
+	t.Cleanup(func() {
+		if prev == nil {
+			viper.Set("plugin.trusted_vendor_keys", nil)
+		} else {
+			viper.Set("plugin.trusted_vendor_keys", prev)
+		}
+	})
+
+	canName := fmt.Sprintf("e2e-can-adapter-%d", timeNowUnix())
+	canResp := pluginE2EDo(t, engine, fmt.Sprintf(
+		`{"name":%s,"version":"1.0.0","manifest":%s}`,
+		jsonString(canName), jsonString(string(canRaw))))
+	if code := pluginE2ECode(t, canResp); code != 200 {
+		t.Fatalf("can adapter registration failed: %v", canResp)
+	}
+
+	var canStored string
+	if err := db.Raw("SELECT manifest FROM plugin_registries WHERE name = ?", canName).Scan(&canStored).Error; err != nil || canStored == "" {
+		t.Fatalf("can manifest must be persisted in db, got %q err=%v", canStored, err)
+	}
+	parsedCAN, err := pluginsdk.ParseManifest([]byte(canStored))
+	if err != nil {
+		t.Fatalf("parse stored can manifest: %v", err)
+	}
+	if err := pluginsdk.VerifyManifestSignature(parsedCAN, map[string]ed25519.PublicKey{"vendor-bosch-industrial": canPub}); err != nil {
+		t.Fatalf("verify stored can manifest signature: %v", err)
+	}
+
+	bacnetName := fmt.Sprintf("e2e-bacnet-adapter-%d", timeNowUnix())
+	bacnetResp := pluginE2EDo(t, engine, fmt.Sprintf(
+		`{"name":%s,"version":"1.0.0","manifest":%s}`,
+		jsonString(bacnetName), jsonString(string(bacnetRaw))))
+	if code := pluginE2ECode(t, bacnetResp); code != 200 {
+		t.Fatalf("bacnet adapter registration failed: %v", bacnetResp)
+	}
+
+	var bacnetStored string
+	if err := db.Raw("SELECT manifest FROM plugin_registries WHERE name = ?", bacnetName).Scan(&bacnetStored).Error; err != nil || bacnetStored == "" {
+		t.Fatalf("bacnet manifest must be persisted in db, got %q err=%v", bacnetStored, err)
+	}
+	parsedBACnet, err := pluginsdk.ParseManifest([]byte(bacnetStored))
+	if err != nil {
+		t.Fatalf("parse stored bacnet manifest: %v", err)
+	}
+	if err := pluginsdk.VerifyManifestSignature(parsedBACnet, map[string]ed25519.PublicKey{"vendor-honeywell-hvac": bacnetPub}); err != nil {
+		t.Fatalf("verify stored bacnet manifest signature: %v", err)
+	}
+
+	t.Cleanup(func() {
+		db.Exec("DELETE FROM plugin_registries WHERE name LIKE 'e2e-%'")
+	})
+}
+
 // timeNowUnix 让并发/重复执行的名字互不冲突。
 func timeNowUnix() int64 {
 	return time.Now().UnixNano()

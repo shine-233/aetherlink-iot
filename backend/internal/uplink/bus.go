@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"aetherlink-iot/backend/internal/isolatedqueue"
 	"github.com/sirupsen/logrus"
@@ -89,6 +90,12 @@ type Bus struct {
 	// 队列隔离管理器（对标 ThingsBoard 3.6.3+ 多队列隔离与度量）
 	queueManager *isolatedqueue.QueueManager
 
+	// acct 是摄取回压账本（P2.3 短期 B 方案）：接收/接受/丢弃/阻塞全部原子计数，
+	// 让"满队列阻塞 → paho 入站队列丢已 PUBACK 消息"从静默变为可观测。
+	acct       busAccounting
+	alertState backpressureAlertState
+	alertCfg   *BackpressureAlertConfig
+
 	// logger 用于记录满队列、未知类型和关闭态丢弃等运行信号。
 	logger *logrus.Logger
 }
@@ -96,6 +103,9 @@ type Bus struct {
 // BusConfig 定义总线初始化参数。
 type BusConfig struct {
 	BufferSize int // BufferSize 是每类 channel 的容量，<=0 时回退到默认值 10000。
+	// Alert 非空且 Enabled 时启动丢弃率窗口告警采样器（生产装配按
+	// telemetry.uplink_backpressure_alert.* 读取配置）；nil 时关闭，单测默认关闭。
+	Alert *BackpressureAlertConfig
 }
 
 // NewBus 创建并初始化总线。
@@ -111,7 +121,7 @@ func NewBus(config BusConfig, logger *logrus.Logger) *Bus {
 		logger = logrus.StandardLogger()
 	}
 
-	return &Bus{
+	bus := &Bus{
 		telemetryChan: make(chan *DeviceMessage, config.BufferSize),
 		attributeChan: make(chan *DeviceMessage, config.BufferSize),
 		eventChan:     make(chan *DeviceMessage, config.BufferSize),
@@ -127,6 +137,14 @@ func NewBus(config BusConfig, logger *logrus.Logger) *Bus {
 		queueManager: isolatedqueue.GetDefaultManager(),
 		logger:       logger,
 	}
+
+	if config.Alert != nil && config.Alert.Enabled && config.Alert.Window > 0 {
+		alertCfg := *config.Alert
+		bus.alertCfg = &alertCfg
+		bus.startBackpressureAlertSampler(alertCfg)
+	}
+
+	return bus
 }
 
 // AcceptedMessageSubscription is a bounded, read-only observation stream of
@@ -266,6 +284,7 @@ func (b *Bus) PublishContext(ctx context.Context, msgInterface MessageLike) erro
 	// rejected here without ever touching a channel.
 	if err := b.beginPublish(); err != nil {
 		b.logger.Warn("Bus is closing or closed, message dropped")
+		b.acct.rejectedTotal.Add(1)
 		return err
 	}
 	defer b.publishers.Done()
@@ -275,19 +294,23 @@ func (b *Bus) PublishContext(ctx context.Context, msgInterface MessageLike) erro
 	observerMessage := b.prepareAcceptedMessageObservation(msg)
 
 	// 根据消息类型路由到不同的 channel，同时兼容网关透传类型。
+	kind, knownKind := accountingKindFor(msg.Type)
+	if knownKind {
+		b.acct.accountReceived(kind)
+	}
 	var publishErr error
 	switch msg.Type {
 	case MessageTypeTelemetry, "gateway_telemetry":
-		publishErr = b.publishWithBackpressure(ctx, b.telemetryChan, msg, "【设备遥测】Telemetry")
+		publishErr = b.publishWithBackpressure(ctx, b.telemetryChan, msg, "【设备遥测】Telemetry", acctKindTelemetry)
 
 	case MessageTypeAttribute, "gateway_attribute":
-		publishErr = b.publishWithBackpressure(ctx, b.attributeChan, msg, "【设备属性】Attribute")
+		publishErr = b.publishWithBackpressure(ctx, b.attributeChan, msg, "【设备属性】Attribute", acctKindAttribute)
 
 	case MessageTypeEvent, "gateway_event":
-		publishErr = b.publishWithBackpressure(ctx, b.eventChan, msg, "【设备事件】Event")
+		publishErr = b.publishWithBackpressure(ctx, b.eventChan, msg, "【设备事件】Event", acctKindEvent)
 
 	case MessageTypeStatus:
-		publishErr = b.publishWithBackpressure(ctx, b.statusChan, msg, "【设备上下线】Status")
+		publishErr = b.publishWithBackpressure(ctx, b.statusChan, msg, "【设备上下线】Status", acctKindStatus)
 		if publishErr == nil {
 			b.logger.Debug("【设备上下线】Status message sent to statusChan")
 		}
@@ -298,8 +321,12 @@ func (b *Bus) PublishContext(ctx context.Context, msgInterface MessageLike) erro
 			publishErr = b.publishResponse(ctx, msg)
 		} else {
 			b.logger.Errorf("Unknown message type: %s", msg.Type)
+			b.acct.droppedUnknownType.Add(1)
 			return ErrUnknownMessageType
 		}
+	}
+	if knownKind {
+		b.acct.accountPublishOutcome(kind, publishErr)
 	}
 	if publishErr == nil {
 		b.notifyAcceptedMessage(observerMessage)
@@ -333,8 +360,11 @@ func (b *Bus) PublishResponseContext(ctx context.Context, msg *DeviceMessage) er
 	defer b.publishers.Done()
 
 	observerMessage := b.prepareAcceptedMessageObservation(msg)
-	if err := b.publishResponse(ctx, msg); err != nil {
-		return err
+	b.acct.accountReceived(acctKindResponse)
+	publishErr := b.publishResponse(ctx, msg)
+	b.acct.accountPublishOutcome(acctKindResponse, publishErr)
+	if publishErr != nil {
+		return publishErr
 	}
 	b.notifyAcceptedMessage(observerMessage)
 	b.recordIsolatedQueue(ctx, msg)
@@ -383,6 +413,7 @@ func (b *Bus) publishWithBackpressure(
 	ch chan *DeviceMessage,
 	msg *DeviceMessage,
 	queueName string,
+	kind int,
 ) error {
 	select {
 	case ch <- msg:
@@ -393,6 +424,11 @@ func (b *Bus) publishWithBackpressure(
 		return ErrBusClosed
 	default:
 		b.logger.Warnf("%s channel full, blocking publish", queueName)
+		// 阻塞发生在订阅者回调线程上；阻塞事件与耗时是 paho 入站队列
+		// 溢出丢"已 PUBACK"消息的先行指标（P2.3 短期 B 方案）。
+		b.acct.blockedEvents[kind].Add(1)
+		blockedStart := time.Now()
+		defer func() { b.acct.blockedNanos[kind].Add(uint64(time.Since(blockedStart))) }()
 	}
 
 	select {
@@ -585,6 +621,14 @@ func (b *Bus) GetChannelStats() map[string]interface{} {
 		"response_queue": len(b.responseChan),
 
 		"buffer_size": b.bufferSize,
+	}
+
+	// 摄取回压账本（P2.3 短期 B 方案）：总丢弃计数键名对齐决策备忘录
+	// 验收口径的 uplink_dropped_total，分账明细在 accounting 内。
+	stats[UplinkDroppedTotalKey] = b.acct.droppedTotal.Load()
+	stats["accounting"] = b.acct.snapshot()
+	if b.alertCfg != nil {
+		stats["backpressure_alert"] = b.alertState.snapshot(*b.alertCfg)
 	}
 
 	if b.queueManager != nil {

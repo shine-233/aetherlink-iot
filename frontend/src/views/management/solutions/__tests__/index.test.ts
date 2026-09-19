@@ -164,4 +164,13 @@ describe('SolutionsManagementView', () => {
     await state.submitCreate()
     expect(mocks.createIndustrySolution).not.toHaveBeenCalled()
   })
+
+  it('exposes rule_chain as a solution reference resource type (TB-19 剩余缺口闭环)', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    const state = wrapper.vm.$.setupState as Record<string, any>
+    const values = (state.resourceTypeOptions as { value: string }[]).map(o => o.value)
+    expect(values).toContain('rule_chain')
+    expect(values).toEqual(expect.arrayContaining(['device_template', 'board_template', 'rule_chain']))
+  })
 })

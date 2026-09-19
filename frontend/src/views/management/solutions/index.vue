@@ -65,7 +65,8 @@ const installResult = ref<SolutionInstallResponse | null>(null)
 
 const resourceTypeOptions = [
   { label: '物模型模板', value: 'device_template' },
-  { label: '看板模板', value: 'board_template' }
+  { label: '看板模板', value: 'board_template' },
+  { label: '规则链', value: 'rule_chain' }
 ]
 
 const columns: DataTableColumns<IndustrySolutionItem> = [

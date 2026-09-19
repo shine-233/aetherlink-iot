@@ -8,6 +8,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -291,6 +292,40 @@ func (*ResourceCenter) ApplyResource(req model.ResourceCenterApplyReq, claims *u
 			TargetName:   board.Name,
 			Message:      "board template applied successfully",
 			Resource:     board,
+		}, nil
+
+	case "rule_chain":
+		// TB-19 剩余缺口闭环：规则链纳入方案可引用资源。导出走只读
+		// ExportChain，导入复用 CreateChain 的全部校验（graph 规范化、
+		// 名称校验、租户取自 claims）——每次安装实例化一条新链，与
+		// 看板模板语义一致；源链只读不动。
+		exported, err := GroupApp.RuleChain.ExportChain(resourceID, claims)
+		if err != nil {
+			return nil, err
+		}
+		name := exported.Name
+		if targetName != "" {
+			name = targetName
+		}
+		raw, err := json.Marshal(map[string]interface{}{
+			"name":        name,
+			"description": exported.Description,
+			"enabled":     exported.Enabled,
+			"graph":       exported.Graph,
+		})
+		if err != nil {
+			return nil, errcode.NewWithMessage(errcode.CodeParamError, "rule chain export is not valid json")
+		}
+		chain, err := GroupApp.RuleChain.CreateChain(raw, claims)
+		if err != nil {
+			return nil, err
+		}
+		return &model.ResourceCenterApplyRsp{
+			ResourceType: "rule_chain",
+			TargetID:     chain.ID,
+			TargetName:   chain.Name,
+			Message:      "rule chain applied successfully",
+			Resource:     chain,
 		}, nil
 
 	default:
