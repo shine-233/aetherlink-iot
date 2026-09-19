@@ -193,6 +193,7 @@ func RouterInit() *gin.Engine {
 			v1.GET("verification/code", controllers.HandleVerificationCode)
 			v1.POST("reset/password/link", controllers.RequestPasswordResetLink)
 			v1.POST("reset/password", controllers.ResetPassword)
+			v1.POST("tenant/provision", controllers.TenantApi.SelfProvisionTenant) // P3 客户自助开通入驻
 			v1.GET("logo", middleware.OptionalJWTAuth(), controllers.HandleLogoList)
 			// 设备遥测（ws）
 			v1.GET("telemetry/datas/current/ws", controllers.TelemetryDataApi.ServeCurrentDataByWS)
@@ -293,6 +294,7 @@ func RouterInit() *gin.Engine {
 			apps.Model.Mobile.Init(v1) // P1.4 移动端控制与通知
 			apps.Model.ResourceCenter.InitResourceCenter(v1) // TP-5 资源中心（物模型与大屏统一市场）
 			apps.Model.IndustrySolution.InitIndustrySolution(v1) // TB-19 解决方案模板引擎
+			apps.Model.Tenant.InitTenant(v1) // P3 租户管理
 
 			apps.Model.AttributeData.InitAttributeData(v1) // 属性数据
 

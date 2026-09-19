@@ -65,6 +65,7 @@ type apps struct {
 	UnitsRouter // TB-9 单位换算与物理量纲
 	SecretsRouter // TB-18 通用 Secrets Storage
 	IndustrySolution // TB-19 解决方案模板引擎
+	Tenant // P3 租户管理与自助开通
 }
 
 var Model = new(apps)

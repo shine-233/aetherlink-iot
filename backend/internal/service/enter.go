@@ -87,6 +87,7 @@ type ServiceGroup struct {
 	Product        Product        // TB-15 产品 CRUD 及实体名称冲突解决策略
 	DeviceClaim    DeviceClaim    // TB-12 设备认领与自动注册
 	IndustrySolution IndustrySolutionService // TB-19 解决方案模板引擎
+	Tenant         TenantService  // P3 租户管理与自助开通服务
 }
 
 // GroupApp 是全局业务服务入口，供 API 层和中间件层调用

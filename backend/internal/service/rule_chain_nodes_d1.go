@@ -104,6 +104,15 @@ var ruleChainMQTTPublisher = func(_ context.Context, _ string, _ byte, _ []byte)
 // ruleChainKafkaProducer kafka 外发注入点（external.kafka 骨架）；未注入时 noop。
 var ruleChainKafkaProducer func(ctx context.Context, topic, key string, payload []byte) error
 
+// ruleChainAWSSQSProducer AWS SQS 外发注入点（external.aws_sqs 骨架）；未注入时 noop。
+var ruleChainAWSSQSProducer func(ctx context.Context, queueURL, region string, payload []byte) error
+
+// ruleChainAWSSNSProducer AWS SNS 外发注入点（external.aws_sns 骨架）；未注入时 noop。
+var ruleChainAWSSNSProducer func(ctx context.Context, topicARN, region string, payload []byte) error
+
+// ruleChainAzureIoTHubProducer Azure IoT Hub 外发注入点（external.azure_iot_hub 骨架）；未注入时 noop。
+var ruleChainAzureIoTHubProducer func(ctx context.Context, hubName, deviceID string, payload []byte) error
+
 // ruleChainDedupChecker 时间窗去重检查（transform.dedup）；scope 内 signature 窗口已见过返回 true。
 var ruleChainDedupChecker = ruleChainDedupSeenOrMark
 
@@ -167,6 +176,12 @@ func executeRuleChainNodeD1(e *ruleChainExecution, node *RuleChainNode, msg rule
 		return ruleChainExternalMQTTForward(e, node, rcc, payload, metadata)
 	case RuleChainExternalKafka:
 		return ruleChainExternalKafka(e.ctx, node, rcc, payload, metadata)
+	case RuleChainExternalAWSSQS:
+		return ruleChainExternalAWSSQS(e.ctx, node, rcc, payload, metadata)
+	case RuleChainExternalAWSSNS:
+		return ruleChainExternalAWSSNS(e.ctx, node, rcc, payload, metadata)
+	case RuleChainExternalAzureIoTHub:
+		return ruleChainExternalAzureIoTHub(e.ctx, node, rcc, payload, metadata)
 	// ---- AI（PHASE-D-D7）----
 	case RuleChainAiInference:
 		return ruleChainAiInference(e, node, rcc, payload, metadata)

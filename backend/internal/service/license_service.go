@@ -170,3 +170,24 @@ func enforceDeviceQuota() error {
 	}
 	return nil
 }
+
+// enforceTenantQuota 租户配额执法（CreateTenant 与 SelfServiceProvisionTenant 前置）。
+// 边界未启用 / 材料无效 / 未声明配额一律放行——配额只在"有效许可证明确声明 max_tenants>0"时执行。
+func enforceTenantQuota() error {
+	doc, derr := LicenseService{}.currentDocument()
+	if derr != nil || doc == nil || doc.MaxTenants <= 0 {
+		return nil
+	}
+	count, err := dal.CountAllTenants()
+	if err != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+	}
+	if count >= doc.MaxTenants {
+		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"error":       "tenant quota exhausted by license",
+			"max_tenants": doc.MaxTenants,
+			"current":     count,
+		})
+	}
+	return nil
+}

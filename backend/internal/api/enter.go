@@ -90,6 +90,7 @@ type Controller struct {
 	SecretApi         // TB-18 通用 Secrets Storage
 	DeviceClaimApi    // TB-12 设备认领与自动注册
 	IndustrySolutionApi // TB-19 解决方案模板引擎
+	TenantApi         // P3 租户管理与自助开通
 }
 
 var (

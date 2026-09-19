@@ -55,6 +55,111 @@ func ruleChainExternalKafka(ctx context.Context, node *RuleChainNode, rcc *RuleC
 	return ruleChainNodeResult{pass: true, outputs: []ruleChainNodeOutput{{payload: payload, metadata: metadata, rcc: rcc}}}, nil
 }
 
+// ruleChainExternalAWSSQS external.aws_sqs：AWS SQS 消息外发节点（对标 ThingsBoard SQS 规则节点）。
+func ruleChainExternalAWSSQS(ctx context.Context, node *RuleChainNode, rcc *RuleChainContext, payload, metadata map[string]any) (ruleChainNodeResult, error) {
+	queueURL, _ := node.Config["queue_url"].(string)
+	queueURL = strings.TrimSpace(queueURL)
+	if queueURL == "" {
+		return ruleChainNodeResult{}, fmt.Errorf("aws_sqs config requires queue_url")
+	}
+	region, _ := node.Config["region"].(string)
+	region = strings.TrimSpace(region)
+	if region == "" {
+		return ruleChainNodeResult{}, fmt.Errorf("aws_sqs config requires region")
+	}
+	tenantID := ""
+	if rcc != nil {
+		tenantID = rcc.TenantID
+	}
+	if secretRef, ok := node.Config["secret_key"].(string); ok && strings.TrimSpace(secretRef) != "" {
+		if _, err := ResolveSecret(ctx, tenantID, secretRef); err != nil {
+			logNodeDebug("", node.ID, "aws_sqs resolve secret failed: %v", err)
+		}
+	}
+	envelope, err := marshalRuleChainEnvelope(payload, metadata)
+	if err != nil {
+		return ruleChainNodeResult{}, fmt.Errorf("marshal aws_sqs envelope: %w", err)
+	}
+	if ruleChainAWSSQSProducer == nil {
+		logNodeDebug("", node.ID, "aws_sqs producer not wired; skip (config-gated)")
+		return ruleChainNodeResult{pass: true, outputs: []ruleChainNodeOutput{{payload: payload, metadata: metadata, rcc: rcc}}}, nil
+	}
+	if err := ruleChainAWSSQSProducer(ctx, queueURL, region, envelope); err != nil {
+		return ruleChainNodeResult{}, fmt.Errorf("aws_sqs send message: %w", err)
+	}
+	return ruleChainNodeResult{pass: true, outputs: []ruleChainNodeOutput{{payload: payload, metadata: metadata, rcc: rcc}}}, nil
+}
+
+// ruleChainExternalAWSSNS external.aws_sns：AWS SNS 话题外发节点（对标 ThingsBoard SNS 规则节点）。
+func ruleChainExternalAWSSNS(ctx context.Context, node *RuleChainNode, rcc *RuleChainContext, payload, metadata map[string]any) (ruleChainNodeResult, error) {
+	topicARN, _ := node.Config["topic_arn"].(string)
+	topicARN = strings.TrimSpace(topicARN)
+	if topicARN == "" {
+		return ruleChainNodeResult{}, fmt.Errorf("aws_sns config requires topic_arn")
+	}
+	region, _ := node.Config["region"].(string)
+	region = strings.TrimSpace(region)
+	if region == "" {
+		return ruleChainNodeResult{}, fmt.Errorf("aws_sns config requires region")
+	}
+	tenantID := ""
+	if rcc != nil {
+		tenantID = rcc.TenantID
+	}
+	if secretRef, ok := node.Config["secret_key"].(string); ok && strings.TrimSpace(secretRef) != "" {
+		if _, err := ResolveSecret(ctx, tenantID, secretRef); err != nil {
+			logNodeDebug("", node.ID, "aws_sns resolve secret failed: %v", err)
+		}
+	}
+	envelope, err := marshalRuleChainEnvelope(payload, metadata)
+	if err != nil {
+		return ruleChainNodeResult{}, fmt.Errorf("marshal aws_sns envelope: %w", err)
+	}
+	if ruleChainAWSSNSProducer == nil {
+		logNodeDebug("", node.ID, "aws_sns producer not wired; skip (config-gated)")
+		return ruleChainNodeResult{pass: true, outputs: []ruleChainNodeOutput{{payload: payload, metadata: metadata, rcc: rcc}}}, nil
+	}
+	if err := ruleChainAWSSNSProducer(ctx, topicARN, region, envelope); err != nil {
+		return ruleChainNodeResult{}, fmt.Errorf("aws_sns publish: %w", err)
+	}
+	return ruleChainNodeResult{pass: true, outputs: []ruleChainNodeOutput{{payload: payload, metadata: metadata, rcc: rcc}}}, nil
+}
+
+// ruleChainExternalAzureIoTHub external.azure_iot_hub：Azure IoT Hub 遥测转发节点（对标 ThingsBoard Azure 规则节点）。
+func ruleChainExternalAzureIoTHub(ctx context.Context, node *RuleChainNode, rcc *RuleChainContext, payload, metadata map[string]any) (ruleChainNodeResult, error) {
+	hubName, _ := node.Config["hub_name"].(string)
+	hubName = strings.TrimSpace(hubName)
+	if hubName == "" {
+		return ruleChainNodeResult{}, fmt.Errorf("azure_iot_hub config requires hub_name")
+	}
+	deviceID, _ := node.Config["device_id"].(string)
+	deviceID = strings.TrimSpace(deviceID)
+	if deviceID == "" && rcc != nil {
+		deviceID = rcc.DeviceID
+	}
+	tenantID := ""
+	if rcc != nil {
+		tenantID = rcc.TenantID
+	}
+	if secretRef, ok := node.Config["shared_access_key"].(string); ok && strings.TrimSpace(secretRef) != "" {
+		if _, err := ResolveSecret(ctx, tenantID, secretRef); err != nil {
+			logNodeDebug("", node.ID, "azure_iot_hub resolve secret failed: %v", err)
+		}
+	}
+	envelope, err := marshalRuleChainEnvelope(payload, metadata)
+	if err != nil {
+		return ruleChainNodeResult{}, fmt.Errorf("marshal azure_iot_hub envelope: %w", err)
+	}
+	if ruleChainAzureIoTHubProducer == nil {
+		logNodeDebug("", node.ID, "azure_iot_hub producer not wired; skip (config-gated)")
+		return ruleChainNodeResult{pass: true, outputs: []ruleChainNodeOutput{{payload: payload, metadata: metadata, rcc: rcc}}}, nil
+	}
+	if err := ruleChainAzureIoTHubProducer(ctx, hubName, deviceID, envelope); err != nil {
+		return ruleChainNodeResult{}, fmt.Errorf("azure_iot_hub forward telemetry: %w", err)
+	}
+	return ruleChainNodeResult{pass: true, outputs: []ruleChainNodeOutput{{payload: payload, metadata: metadata, rcc: rcc}}}, nil
+}
+
 // marshalRuleChainPayload 载荷序列化（checkpoint 用）。
 func marshalRuleChainPayload(payload map[string]any) ([]byte, error) {
 	return marshalRuleChainJSON(payload)
