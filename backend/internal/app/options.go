@@ -12,6 +12,10 @@ import (
 func WithConfig(config *viper.Viper) Option {
 	return func(app *Application) error {
 		app.Config = config
+		// 先把 GOTP 环境变量映射补到全局单例，再逐键拷贝配置文件的值。
+		// 拷贝循环只覆盖 YAML 声明过的键（空 map 的嵌套键会被 AllKeys 漏掉），
+		// 漏掉的那部分只能靠环境变量兜底，见 config.go 的详细说明。
+		applyEnvMappingToGlobalViper()
 		for _, key := range config.AllKeys() {
 			viper.Set(key, config.Get(key))
 		}
