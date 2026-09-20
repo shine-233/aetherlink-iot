@@ -12,7 +12,7 @@ export function createMobileLayoutGuard(router: Router) {
     const appStore = useAppStore()
 
     if (appStore.isMobile && shouldUseMobileLayout(to)) {
-      const routeMatch = router.getRoutes().find(route => route.name === to.name)
+      const routeMatch = router.getRoutes().find((route) => route.name === to.name)
 
       // Vue Router 不适合在守卫中直接替换已注册组件；这里仅保留移动端候选识别。
       if (routeMatch && isBaseLayoutComponent(routeMatch.components?.default)) {

@@ -47,21 +47,21 @@ describe('ConfigurationManager', () => {
   it('exposes built-in templates by id and category', () => {
     const manager = new ConfigurationManager()
 
-    expect(manager.getBuiltinTemplates().map(template => template.id)).toEqual([
+    expect(manager.getBuiltinTemplates().map((template) => template.id)).toEqual([
       'json-basic',
       'http-api',
       'script-generated',
       'multi-source'
     ])
     expect(manager.getTemplate('http-api')?.configuration.dataSources[0].dataItems[0].item.type).toBe('http')
-    expect(manager.getTemplatesByCategory('basic').map(template => template.id)).toEqual(['json-basic', 'http-api'])
+    expect(manager.getTemplatesByCategory('basic').map((template) => template.id)).toEqual(['json-basic', 'http-api'])
     expect(manager.getTemplate('missing')).toBeUndefined()
   })
 
   it('returns isolated deterministic template copies', () => {
     const manager = new ConfigurationManager()
     const templates = manager.getBuiltinTemplates()
-    const scriptTemplate = templates.find(template => template.id === 'script-generated')
+    const scriptTemplate = templates.find((template) => template.id === 'script-generated')
     const script = scriptTemplate?.configuration.dataSources[0].dataItems[0].item.config.script || ''
 
     expect(script).not.toContain('Math.random')

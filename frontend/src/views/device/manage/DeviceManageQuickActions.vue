@@ -266,12 +266,7 @@ defineExpose({
           {{ $t('custom.devicePage.claimGenerate') }}
         </NButton>
       </NFlex>
-      <NInput
-        v-if="claimKey"
-        :value="claimKey"
-        readonly
-        :placeholder="$t('custom.devicePage.claimGenerate')"
-      />
+      <NInput v-if="claimKey" :value="claimKey" readonly :placeholder="$t('custom.devicePage.claimGenerate')" />
       <NAlert v-if="claimKey" type="warning" :show-icon="false">
         {{ $t('custom.devicePage.claimKeyOnceWarning') }}
       </NAlert>

@@ -14,7 +14,7 @@ describe('scada symbol library', () => {
   })
 
   it('keeps symbol keys unique and non-empty', () => {
-    const keys = listScadaSymbols().map(symbol => symbol.key)
+    const keys = listScadaSymbols().map((symbol) => symbol.key)
     expect(new Set(keys).size).toBe(keys.length)
     for (const key of keys) {
       expect(key.trim()).not.toBe('')
@@ -43,10 +43,7 @@ describe('scada symbol library', () => {
   it('groups the catalogue without losing symbols', () => {
     const categories = listScadaSymbolCategories()
     expect(categories.length).toBeGreaterThan(0)
-    const total = categories.reduce(
-      (sum, category) => sum + listScadaSymbolsByCategory(category).length,
-      0
-    )
+    const total = categories.reduce((sum, category) => sum + listScadaSymbolsByCategory(category).length, 0)
     expect(total).toBe(listScadaSymbols().length)
   })
 

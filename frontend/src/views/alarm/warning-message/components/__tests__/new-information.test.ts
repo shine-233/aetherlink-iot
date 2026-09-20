@@ -38,7 +38,7 @@ vi.mock('~/packages/hooks', () => ({
   })
 }))
 
-vi.mock('vue', async importOriginal => {
+vi.mock('vue', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue')>()
   return {
     ...actual,
@@ -108,8 +108,7 @@ interface NewInformationSetupState {
   [key: string]: unknown
 }
 
-const getSetupState = (wrapper: ReturnType<typeof shallowMount>) =>
-  wrapper.vm.$.setupState as NewInformationSetupState
+const getSetupState = (wrapper: ReturnType<typeof shallowMount>) => wrapper.vm.$.setupState as NewInformationSetupState
 
 describe('new-information.vue', () => {
   beforeEach(() => {
@@ -118,8 +117,22 @@ describe('new-information.vue', () => {
     hoisted.warningMessageList.mockResolvedValue({
       data: {
         list: [
-          { id: 'a1', name: 'Alarm 1', description: 'desc 1', alarm_level: 'H', enabled: 'Y', notification_group_name: 'Group 1' },
-          { id: 'a2', name: 'Alarm 2', description: 'desc 2', alarm_level: 'L', enabled: 'N', notification_group_name: 'Group 2' }
+          {
+            id: 'a1',
+            name: 'Alarm 1',
+            description: 'desc 1',
+            alarm_level: 'H',
+            enabled: 'Y',
+            notification_group_name: 'Group 1'
+          },
+          {
+            id: 'a2',
+            name: 'Alarm 2',
+            description: 'desc 2',
+            alarm_level: 'L',
+            enabled: 'N',
+            notification_group_name: 'Group 2'
+          }
         ],
         total: 2
       }
@@ -160,7 +173,7 @@ describe('new-information.vue', () => {
       let resolveList: (value: unknown) => void = () => undefined
       hoisted.warningMessageList.mockImplementationOnce(
         () =>
-          new Promise(resolve => {
+          new Promise((resolve) => {
             resolveList = resolve
           })
       )
@@ -182,14 +195,14 @@ describe('new-information.vue', () => {
       await flushPromises()
 
       const setupState = getSetupState(wrapper)
-      const enabledItem = setupState.tableData.find(item => item.enabled === 'Y')
+      const enabledItem = setupState.tableData.find((item) => item.enabled === 'Y')
       expect(enabledItem.operatorBtn).toHaveLength(3)
-      const types = enabledItem.operatorBtn.map(b => b.type)
+      const types = enabledItem.operatorBtn.map((b) => b.type)
       expect(types).toContain('edit')
       expect(types).toContain('enable')
       expect(types).toContain('delete')
       // For enabled=Y, the enable button should say "disable"
-      const enableBtn = enabledItem.operatorBtn.find(b => b.type === 'enable')
+      const enableBtn = enabledItem.operatorBtn.find((b) => b.type === 'enable')
       expect(enableBtn.btnName).toBe('page.manage.common.status.disable')
     })
 
@@ -200,8 +213,8 @@ describe('new-information.vue', () => {
       await flushPromises()
 
       const setupState = getSetupState(wrapper)
-      const disabledItem = setupState.tableData.find(item => item.enabled === 'N')
-      const enableBtn = disabledItem.operatorBtn.find(b => b.type === 'enable')
+      const disabledItem = setupState.tableData.find((item) => item.enabled === 'N')
+      const enableBtn = disabledItem.operatorBtn.find((b) => b.type === 'enable')
       expect(enableBtn.btnName).toBe('page.manage.common.status.enable')
     })
 
@@ -539,9 +552,7 @@ describe('new-information.vue', () => {
       await getSetupState(wrapper).list()
 
       expect(hoisted.warningMessageList).toHaveBeenCalledWith({ page: 1, page_size: 10 })
-      expect(getSetupState(wrapper).tableData).toEqual([
-        expect.objectContaining({ id: 'g2', name: 'Alarm 2' })
-      ])
+      expect(getSetupState(wrapper).tableData).toEqual([expect.objectContaining({ id: 'g2', name: 'Alarm 2' })])
       expect(getSetupState(wrapper).pagination.itemCount).toBe(1)
     })
   })
@@ -553,7 +564,7 @@ describe('new-information.vue', () => {
       const setupState = getSetupState(wrapper)
 
       expect(setupState.columns).toHaveLength(6)
-      const keys = setupState.columns.map(c => c.key)
+      const keys = setupState.columns.map((c) => c.key)
       expect(keys).toEqual(['name', 'description', 'alarm_level', 'notification_group_name', 'enabled', 'actions'])
     })
 
@@ -562,7 +573,7 @@ describe('new-information.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      const alarmLevelCol = setupState.columns.find(c => c.key === 'alarm_level')
+      const alarmLevelCol = setupState.columns.find((c) => c.key === 'alarm_level')
       expect(alarmLevelCol.render({ alarm_level: 'H' })).toBe('common.high')
       expect(alarmLevelCol.render({ alarm_level: 'M' })).toBe('common.middle')
       expect(alarmLevelCol.render({ alarm_level: 'L' })).toBe('common.low')
@@ -574,7 +585,7 @@ describe('new-information.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      const enabledCol = setupState.columns.find(c => c.key === 'enabled')
+      const enabledCol = setupState.columns.find((c) => c.key === 'enabled')
       expect(enabledCol.render({ enabled: 'Y' })).toBe('page.manage.common.status.enable')
       expect(enabledCol.render({ enabled: 'N' })).toBe('page.manage.common.status.disable')
     })

@@ -136,7 +136,7 @@ export class ConfigEventBus {
    */
   addEventFilter(filter: ConfigEventFilter): void {
     // 按优先级插入（优先级高的在前）
-    const insertIndex = this.globalFilters.findIndex(f => (f.priority || 0) < (filter.priority || 0))
+    const insertIndex = this.globalFilters.findIndex((f) => (f.priority || 0) < (filter.priority || 0))
     if (insertIndex === -1) {
       this.globalFilters.push(filter)
     } else {
@@ -149,7 +149,7 @@ export class ConfigEventBus {
    * @param filterName 过滤器名称
    */
   removeEventFilter(filterName: string): void {
-    const index = this.globalFilters.findIndex(f => f.name === filterName)
+    const index = this.globalFilters.findIndex((f) => f.name === filterName)
     if (index !== -1) {
       this.globalFilters.splice(index, 1)
     }
@@ -252,7 +252,7 @@ export const configEventBus = new ConfigEventBus()
 // 添加一些默认的过滤器
 configEventBus.addEventFilter({
   name: 'ignore-system-updates',
-  condition: event => {
+  condition: (event) => {
     // 忽略某些系统级别的配置更新，避免无限循环
     return event.source !== 'system' || event.context?.shouldTriggerExecution !== false
   },
@@ -280,7 +280,7 @@ export function registerDataExecutionTrigger(
 }
 
 // 监听所有配置变更事件，特别关注基础配置和数据源配置变更。
-configEventBus.onConfigChange('config-changed', async event => {
+configEventBus.onConfigChange('config-changed', async (event) => {
   // 对于需要触发数据执行的事件，调用注册的触发器
   if (event.context?.shouldTriggerExecution && dataExecutionTriggerCallback) {
     try {
@@ -299,7 +299,7 @@ configEventBus.onConfigChange('config-changed', async event => {
 })
 
 // 监听基础配置变更事件。
-configEventBus.onConfigChange('base-config-changed', async event => {
+configEventBus.onConfigChange('base-config-changed', async (event) => {
   // 基础配置变更通常都需要触发数据重新执行
   if (!event.context) {
     event.context = {}
@@ -319,7 +319,7 @@ configEventBus.onConfigChange('base-config-changed', async event => {
 })
 
 // 监听数据源配置变更事件。
-configEventBus.onConfigChange('data-source-changed', async event => {
+configEventBus.onConfigChange('data-source-changed', async (event) => {
   // 数据源配置变更通常都需要触发数据重新执行
   if (!event.context) {
     event.context = {}

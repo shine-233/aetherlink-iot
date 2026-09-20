@@ -55,7 +55,7 @@ function normalizeDeviceConfigOptions(list: any[] = []) {
   const optionMap = new Map<string, any>()
   optionMap.set(unbindConfigOption.value, unbindConfigOption)
   const sourceList = list ?? []
-  sourceList.forEach(item => {
+  sourceList.forEach((item) => {
     if (!item?.id) return
     optionMap.set(item.id, {
       label: item.name,
@@ -103,7 +103,7 @@ const searchDeviceConfigList = (name = '') => {
 // 把后端分组树中的 group 包装结构转换成 NTree / NTransfer 可消费的 option 结构。
 function transformDataToOptions(data) {
   // 定义转换函数
-  const transform = item => {
+  const transform = (item) => {
     // 基本转换
     const option = {
       label: item.group.name,
@@ -136,7 +136,7 @@ const getTreeData = async () => {
 const getTreeRelationData = async () => {
   const { data, error } = await getDeviceGroupRelation({ device_id: props.id })
   if (!error && data) {
-    valueRef.value = data?.map(item => item.group_id)
+    valueRef.value = data?.map((item) => item.group_id)
   }
 }
 const deviceDataStore = useDeviceDataStore()
@@ -146,7 +146,7 @@ function flattenTree(list: undefined | Option[]): Option[] {
   const result: Option[] = []
 
   function flatten(_list: Option[] = []) {
-    _list.forEach(item => {
+    _list.forEach((item) => {
       result.push(item)
       flatten(item.children)
     })
@@ -158,17 +158,17 @@ function flattenTree(list: undefined | Option[]): Option[] {
 
 // 设备分组勾选变化时立即调用新增/删除关系接口，当前没有额外的“保存”步骤。
 function syncDeviceGroupRelation(nextKeys: Array<string | number>, previousKeys: Array<string | number>) {
-  const addedKeys = nextKeys.filter(key => !previousKeys.includes(key))
-  const removedKeys = previousKeys.filter(key => !nextKeys.includes(key))
+  const addedKeys = nextKeys.filter((key) => !previousKeys.includes(key))
+  const removedKeys = previousKeys.filter((key) => !nextKeys.includes(key))
 
-  addedKeys.forEach(groupId => {
+  addedKeys.forEach((groupId) => {
     deviceGroupRelation({
       group_id: groupId,
       device_id_list: [props.id]
     })
   })
 
-  removedKeys.forEach(groupId => {
+  removedKeys.forEach((groupId) => {
     deleteDeviceGroupRelation({
       group_id: groupId,
       device_id: props.id
@@ -188,7 +188,7 @@ const renderSourceList: TransferRenderSourceList = ({ pattern }) => {
       checkOnClick
       blockLine
       selectable={false}
-      onUpdateCheckedKeys={keys => {
+      onUpdateCheckedKeys={(keys) => {
         const previousKeys = valueRef.value
         valueRef.value = keys
         syncDeviceGroupRelation(keys, previousKeys)
@@ -221,7 +221,7 @@ onBeforeUnmount(() => {
 
 // 切换设备配置后刷新 store 与当前页，再通知父层详情壳层做级联更新。
 // 切换设备配置不是纯本地状态更新，而是直接改真实设备绑定配置，并回刷 store 与当前区域。
-const selectConfig = async v => {
+const selectConfig = async (v) => {
   selectedValues.value = v
   await deviceUpdateConfig({ device_id: props.id, device_config_id: v })
   await deviceDataStore.fetchData(props.id)

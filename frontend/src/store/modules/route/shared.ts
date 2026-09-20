@@ -23,7 +23,7 @@ export function filterAuthRoutesByRoles(routes: ElegantConstRoute[], roles: stri
     return routes
   }
 
-  return routes.flatMap(route => filterAuthRouteByRoles(route, roles))
+  return routes.flatMap((route) => filterAuthRouteByRoles(route, roles))
 }
 
 /**
@@ -37,13 +37,13 @@ function filterAuthRouteByRoles(route: ElegantConstRoute, roles: string[]) {
   const currentRoles = Array.isArray(roles) ? roles : []
 
   // 只要命中任一角色即可保留该路由。
-  const hasPermission = !routeRoles.length || routeRoles.some(role => currentRoles.includes(role))
+  const hasPermission = !routeRoles.length || routeRoles.some((role) => currentRoles.includes(role))
   if (!hasPermission) return []
 
   const filterRoute = { ...route }
 
   if (filterRoute.children?.length) {
-    filterRoute.children = filterRoute.children.flatMap(item => filterAuthRouteByRoles(item, roles))
+    filterRoute.children = filterRoute.children.flatMap((item) => filterAuthRouteByRoles(item, roles))
 
     // A public parent is useful only when it still has an authorized child.
     if (!filterRoute.children.length) return []
@@ -79,11 +79,11 @@ export function sortRoutesByOrder(routes: ElegantConstRoute[]) {
 export function getGlobalMenusByAuthRoutes(routes: ElegantConstRoute[]) {
   const menus: App.Global.Menu[] = []
 
-  routes.forEach(route => {
+  routes.forEach((route) => {
     if (!route.meta?.hideInMenu) {
       const menu = getGlobalMenuByBaseRoute(route)
 
-      if (route.children?.some(child => !child.meta?.hideInMenu)) {
+      if (route.children?.some((child) => !child.meta?.hideInMenu)) {
         menu.children = getGlobalMenusByAuthRoutes(route.children)
       }
 
@@ -100,7 +100,7 @@ export function getGlobalMenusByAuthRoutes(routes: ElegantConstRoute[]) {
 export function updateLocaleOfGlobalMenus(menus: App.Global.Menu[]) {
   const result: App.Global.Menu[] = []
 
-  menus.forEach(menu => {
+  menus.forEach((menu) => {
     const { i18nKey, label, children } = menu
 
     const newLabel = resolveRouteLabel(i18nKey, label)
@@ -152,9 +152,9 @@ function getGlobalMenuByBaseRoute(route: RouteLocationNormalizedLoaded | Elegant
 export function getCacheRouteNames(routes: RouteRecordRaw[]) {
   const cacheNames: LastLevelRouteKey[] = []
 
-  routes.forEach(route => {
+  routes.forEach((route) => {
     // 只缓存末级且实际挂载组件的页面路由。
-    route.children?.forEach(child => {
+    route.children?.forEach((child) => {
       if (child.component && child.meta?.keepAlive) {
         cacheNames.push(child.name as LastLevelRouteKey)
       }
@@ -168,7 +168,7 @@ export function getCacheRouteNames(routes: RouteRecordRaw[]) {
  * 判断路由树中是否存在指定路由名。
  */
 export function isRouteExistByRouteName(routeName: RouteKey, routes: ElegantConstRoute[]) {
-  return routes.some(route => recursiveGetIsRouteExistByRouteName(route, routeName))
+  return routes.some((route) => recursiveGetIsRouteExistByRouteName(route, routeName))
 }
 
 /**
@@ -182,7 +182,7 @@ function recursiveGetIsRouteExistByRouteName(route: ElegantConstRoute, routeName
   }
 
   if (route.children && route.children.length) {
-    isExist = route.children.some(item => recursiveGetIsRouteExistByRouteName(item, routeName))
+    isExist = route.children.some((item) => recursiveGetIsRouteExistByRouteName(item, routeName))
   }
 
   return isExist
@@ -194,7 +194,7 @@ function recursiveGetIsRouteExistByRouteName(route: ElegantConstRoute, routeName
 export function getSelectedMenuKeyPathByKey(selectedKey: string, menus: App.Global.Menu[]) {
   const keyPath: string[] = []
 
-  menus.some(menu => {
+  menus.some((menu) => {
     const path = findMenuPath(selectedKey, menu)
 
     const find = Boolean(path?.length)

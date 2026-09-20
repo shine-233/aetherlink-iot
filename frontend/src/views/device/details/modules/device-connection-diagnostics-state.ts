@@ -57,9 +57,7 @@ export type DeviceConnectionDiagnosticsResponse = {
   partial_results?: DeviceConnectionDiagnosticsWarning[]
 }
 
-export const unwrapDeviceConnectionDiagnosticsResponse = (
-  response: unknown
-): DeviceConnectionDiagnosticsResponse => {
+export const unwrapDeviceConnectionDiagnosticsResponse = (response: unknown): DeviceConnectionDiagnosticsResponse => {
   const value = response as any
   return value?.data?.data ?? value?.data ?? value ?? {}
 }
@@ -120,9 +118,7 @@ const resolveLatestConnectionIssue = (data: DeviceConnectionDiagnosticsResponse)
   return normalizeDiagnosticsWarning(warnings[0])
 }
 
-export const summarizeDeviceConnectionDiagnostics = (
-  responseOrData: unknown
-): DeviceAccessGuideDiagnosticsSummary => {
+export const summarizeDeviceConnectionDiagnostics = (responseOrData: unknown): DeviceAccessGuideDiagnosticsSummary => {
   const data = unwrapDeviceConnectionDiagnosticsResponse(responseOrData)
   const recentLogs = Array.isArray(data.debug?.recent_logs) ? data.debug.recent_logs : []
   const partialWarnings = Array.isArray(data.partial_results)

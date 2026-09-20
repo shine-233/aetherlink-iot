@@ -95,17 +95,24 @@ export interface UpgradeEdgeNodePayload {
 }
 
 export function upgradeEdgeNode(nodeId: string, payload: UpgradeEdgeNodePayload) {
-  return request.post<{ history_id: string; node_id: string; from_version: string; target_version: string; status: string; message: string }>(
-    `/edge/nodes/${encodeURIComponent(nodeId)}/upgrade`,
-    payload
-  )
+  return request.post<{
+    history_id: string
+    node_id: string
+    from_version: string
+    target_version: string
+    status: string
+    message: string
+  }>(`/edge/nodes/${encodeURIComponent(nodeId)}/upgrade`, payload)
 }
 
 export function rollbackEdgeNode(nodeId: string, historyId: string) {
-  return request.post<{ history_id: string; node_id: string; rolled_to_version: string; status: string; message: string }>(
-    `/edge/nodes/${encodeURIComponent(nodeId)}/rollback`,
-    { history_id: historyId }
-  )
+  return request.post<{
+    history_id: string
+    node_id: string
+    rolled_to_version: string
+    status: string
+    message: string
+  }>(`/edge/nodes/${encodeURIComponent(nodeId)}/rollback`, { history_id: historyId })
 }
 
 export function fetchEdgeNodeUpgradeHistory(nodeId: string, limit?: number) {
@@ -113,4 +120,3 @@ export function fetchEdgeNodeUpgradeHistory(nodeId: string, limit?: number) {
     params: limit ? { limit } : undefined
   })
 }
-

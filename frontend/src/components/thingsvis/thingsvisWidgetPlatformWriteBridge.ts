@@ -75,11 +75,7 @@ const postPlatformWriteSuccess = (
   )
 }
 
-const postPlatformWriteError = (
-  requestId: string | undefined,
-  error: string,
-  postMessageToGuest: PostGuestMessage
-) => {
+const postPlatformWriteError = (requestId: string | undefined, error: string, postMessageToGuest: PostGuestMessage) => {
   postPlatformWriteResult(
     requestId,
     {
@@ -90,10 +86,7 @@ const postPlatformWriteError = (
   )
 }
 
-const resolveWritableDeviceId = (
-  getPreviewDeviceId: () => string | undefined,
-  requestedDeviceId?: string
-) => {
+const resolveWritableDeviceId = (getPreviewDeviceId: () => string | undefined, requestedDeviceId?: string) => {
   const previewDeviceId = getPreviewDeviceId()
   const normalizedRequestedDeviceId = typeof requestedDeviceId === 'string' ? requestedDeviceId.trim() : ''
 
@@ -165,10 +158,7 @@ const buildPlatformWritePayload = (
 const publishPlatformWrite = async (
   deviceId: string,
   payload: PlatformWritePayload,
-  options: Pick<
-    PlatformWriteBridgeOptions,
-    'publishAttributeData' | 'publishCommandData' | 'publishTelemetryData'
-  >
+  options: Pick<PlatformWriteBridgeOptions, 'publishAttributeData' | 'publishCommandData' | 'publishTelemetryData'>
 ): Promise<PlatformWritePublishResult> => {
   if (payload.fieldType === 'attribute') {
     return {

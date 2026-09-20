@@ -57,7 +57,8 @@ const applyPropertyTemplateMetadata = (
 ) => {
   if (sourceParam.key) {
     updatedParam.variableName = generateVariableName(sourceParam.key)
-    updatedParam.description = updatedParam.description || `${PARAMETER_TYPE_DISPLAY_NAME[parameterType]}参数：${sourceParam.key}`
+    updatedParam.description =
+      updatedParam.description || `${PARAMETER_TYPE_DISPLAY_NAME[parameterType]}参数：${sourceParam.key}`
   }
   updatedParam.isDynamic = true
 }

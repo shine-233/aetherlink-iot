@@ -32,7 +32,7 @@ function isFrontendEncryptionEnabled(rawConfig: string | null) {
     if (
       !Array.isArray(config) ||
       !config.every(
-        item =>
+        (item) =>
           item !== null &&
           typeof item === 'object' &&
           typeof (item as { name?: unknown }).name === 'string' &&
@@ -43,7 +43,7 @@ function isFrontendEncryptionEnabled(rawConfig: string | null) {
       return false
     }
 
-    return config.some(item => item.name === 'frontend_res' && item.enable_flag === 'enable')
+    return config.some((item) => item.name === 'frontend_res' && item.enable_flag === 'enable')
   } catch {
     return false
   }

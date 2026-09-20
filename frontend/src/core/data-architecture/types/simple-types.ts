@@ -240,10 +240,7 @@ export interface UserDataSourceInput {
  * 数据源用户配置
  */
 export type DataSourceUserConfig =
-  | StaticDataSourceConfig
-  | ApiDataSourceConfig
-  | WebSocketDataSourceConfig
-  | ScriptDataSourceConfig
+  StaticDataSourceConfig | ApiDataSourceConfig | WebSocketDataSourceConfig | ScriptDataSourceConfig
 
 /**
  * 静态数据源配置

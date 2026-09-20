@@ -29,7 +29,7 @@ const editorHostRef = ref<HTMLElement | null>(null)
 
 // 项目未安装 Lua language extension；使用 CodeMirror 纯文本模式，
 // 不以 JavaScript 高亮冒充 Lua 语义，也不增加额外部署依赖。
-const CodeMirror = defineAsyncComponent(() => import('vue-codemirror6').then(module => module.default))
+const CodeMirror = defineAsyncComponent(() => import('vue-codemirror6').then((module) => module.default))
 
 const editorValue = computed({
   get: () => props.value,
@@ -74,12 +74,7 @@ defineExpose({
 
 <template>
   <div ref="editorHostRef" class="monaco-lua-editor" :class="wordWrapClass">
-    <CodeMirror
-      v-model="editorValue"
-      basic
-      :style="editorStyle"
-      :disabled="Boolean(options?.readOnly)"
-    />
+    <CodeMirror v-model="editorValue" basic :style="editorStyle" :disabled="Boolean(options?.readOnly)" />
   </div>
 </template>
 

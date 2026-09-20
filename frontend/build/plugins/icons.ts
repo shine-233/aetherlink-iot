@@ -31,7 +31,7 @@ export function setupIconPlugins(viteEnv: Env.ImportMeta): PluginOption[] {
     Icons({
       compiler: 'vue3',
       customCollections: {
-        [localPrefix.replace(`${iconPrefix}-`, '')]: FileSystemIconLoader(localIconPath, svg =>
+        [localPrefix.replace(`${iconPrefix}-`, '')]: FileSystemIconLoader(localIconPath, (svg) =>
           svg.replace(/^<svg\s/, '<svg width="1em" height="1em" ')
         )
       },

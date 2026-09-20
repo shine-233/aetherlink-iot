@@ -63,7 +63,7 @@ export function extractPathParams(url: string): string[] {
   const matches = url.match(/\{([^}]+)\}/g)
   if (!matches) return []
 
-  return matches.map(match => match.slice(1, -1)) // 去掉 { }
+  return matches.map((match) => match.slice(1, -1)) // 去掉 { }
 }
 
 /**
@@ -77,7 +77,7 @@ export function hasPathParameters(url: string): boolean {
  * 根据URL和HTTP方法生成接口描述
  */
 export function generateApiDescription(url: string, method: HttpMethod, functionName?: string): string {
-  const pathSegments = url.split('/').filter(segment => segment.length > 0)
+  const pathSegments = url.split('/').filter((segment) => segment.length > 0)
   const lastSegment = pathSegments[pathSegments.length - 1]
 
   // 如果有函数名和注释，优先使用

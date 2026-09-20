@@ -28,17 +28,51 @@ const mountComponent = (props = {}) => {
     },
     global: {
       stubs: {
-        NForm: defineComponent({ setup(_, { slots }) { return () => h('form', slots.default ? slots.default() : []) } }),
-        NFormItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NInput: defineComponent({ props: { value: { default: '' } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NInputNumber: defineComponent({ props: { value: { default: 0 } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NSelect: defineComponent({ props: { value: { default: null } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NEllipsis: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
+        NForm: defineComponent({
+          setup(_, { slots }) {
+            return () => h('form', slots.default ? slots.default() : [])
+          }
+        }),
+        NFormItem: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NInput: defineComponent({
+          props: { value: { default: '' } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NInputNumber: defineComponent({
+          props: { value: { default: 0 } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NSelect: defineComponent({
+          props: { value: { default: null } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NEllipsis: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
         NDynamicInput: defineComponent({
           props: { value: { default: () => [] } },
           emits: ['update:value'],
           setup(stubProps, { slots }) {
-            return () => h('div', (stubProps.value as any[]).map((_row, index) => slots.default?.({ index })))
+            return () =>
+              h(
+                'div',
+                (stubProps.value as any[]).map((_row, index) => slots.default?.({ index }))
+              )
           }
         })
       }
@@ -49,8 +83,14 @@ const mountComponent = (props = {}) => {
 }
 
 describe('device/service-details/components/form.vue', () => {
-  beforeEach(() => { vi.clearAllMocks() })
-  afterEach(() => { while (mountedWrappers.length > 0) { mountedWrappers.pop()?.unmount() } })
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+  afterEach(() => {
+    while (mountedWrappers.length > 0) {
+      mountedWrappers.pop()?.unmount()
+    }
+  })
 
   it('initializes protocol config keys for each service form field', () => {
     const wrapper = mountComponent()

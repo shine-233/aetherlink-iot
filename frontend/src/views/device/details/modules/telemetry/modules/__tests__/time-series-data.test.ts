@@ -407,7 +407,10 @@ describe('time-series-data.vue', () => {
       await button.trigger('click')
     }
 
-    const chartOptions = wrapper.findComponent({ name: 'ChartComponentStub' }).props('initialOptions') as Record<string, any>
+    const chartOptions = wrapper.findComponent({ name: 'ChartComponentStub' }).props('initialOptions') as Record<
+      string,
+      any
+    >
     chartOptions.toolbox.feature.myTool1.onclick()
     chartOptions.toolbox.feature.myTool2.onclick()
     chartOptions.toolbox.feature.myTool3.onclick()

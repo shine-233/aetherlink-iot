@@ -54,7 +54,7 @@ export const useReadyCheckCollectors = () => {
 
     const refreshPromise = (async () => {
       const commandsRequest = commandDataById(deviceId).then(
-        value => ({ status: 'fulfilled' as const, value }),
+        (value) => ({ status: 'fulfilled' as const, value }),
         () => ({ status: 'rejected' as const })
       )
       const [diagnosticsResponse, guideResponse] = await Promise.allSettled([
@@ -90,7 +90,7 @@ export const useReadyCheckCollectors = () => {
         commandsResponse.status === 'fulfilled' ? buildRecommendedCommandDraft(commandsResponse.value?.data) : null
       if (commandsResponse.status === 'rejected') {
         collectionFailures.value = [
-          ...collectionFailures.value.filter(failure => failure.key !== 'commands'),
+          ...collectionFailures.value.filter((failure) => failure.key !== 'commands'),
           { key: 'commands', labelKey: 'custom.device_details.readyCheckCollectionCommands' }
         ]
       }

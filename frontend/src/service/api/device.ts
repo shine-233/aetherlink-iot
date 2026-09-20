@@ -106,11 +106,15 @@ export const deviceDictProtocolService = async (params: CustomAxiosRequestConfig
   return await request.get<DeviceManagement.TreeStructure>('/dict/protocol/service', params)
 }
 /** 接入方式下拉一级菜单 */
-export const deviceDictProtocolServiceFirstLevel = async (params: CustomAxiosRequestConfig & Record<string, unknown>) => {
+export const deviceDictProtocolServiceFirstLevel = async (
+  params: CustomAxiosRequestConfig & Record<string, unknown>
+) => {
   return await request.get<DeviceManagement.ProtocolAndService>('/service/plugin/select', params)
 }
 /** 接入方式下拉二级菜单 */
-export const deviceDictProtocolServiceSecondLevel = async (params: CustomAxiosRequestConfig & Record<string, unknown>) => {
+export const deviceDictProtocolServiceSecondLevel = async (
+  params: CustomAxiosRequestConfig & Record<string, unknown>
+) => {
   return await request.get<DeviceManagement.ServiceList>('/service/access/list', params)
 }
 

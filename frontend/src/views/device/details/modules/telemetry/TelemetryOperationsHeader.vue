@@ -30,9 +30,7 @@ const getControlPayloadPreview = (item: TelemetryControlItem) => item.content ||
     <NFlex justify="space-between" align="center" :wrap="true" class="mb-3 telemetry-operations__header">
       <NFlex align="center" :wrap="true" :size="8">
         <div class="text-15px font-600">{{ $t('custom.device_details.commandDelivery') }}</div>
-        <n-tag size="small" round type="info">
-          {{ controlCountText }} {{ $t('custom.device_details.command') }}
-        </n-tag>
+        <n-tag size="small" round type="info">{{ controlCountText }} {{ $t('custom.device_details.command') }}</n-tag>
         <n-tag size="small" round :type="simulationStatusType">
           {{ $t('generate.simulate-report-data') }}: {{ simulationStatusText }}
         </n-tag>

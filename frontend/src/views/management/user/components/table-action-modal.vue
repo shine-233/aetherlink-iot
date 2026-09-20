@@ -67,7 +67,7 @@ const modalVisible = computed({
 })
 
 const customUserStatusOptions = computed(() => {
-  return userStatusOptions.map(item => {
+  return userStatusOptions.map((item) => {
     const key = item.value === 'N' ? 'page.manage.user.status.normal' : 'page.manage.user.status.freeze'
     return {
       label: $t(key),
@@ -106,7 +106,7 @@ const timezoneDefs: { value: string; cityKey: string }[] = [
   { value: 'UTC', cityKey: 'page.manage.user.tz.utc' }
 ]
 const timezoneOptions = computed(() =>
-  timezoneDefs.map(item => ({ label: `${item.value} (${$t(item.cityKey)})`, value: item.value }))
+  timezoneDefs.map((item) => ({ label: `${item.value} (${$t(item.cityKey)})`, value: item.value }))
 )
 
 // 默认语言选择会影响用户后台显示语言，应与平台支持语言列表保持同步。
@@ -286,7 +286,7 @@ function parsePhoneNumber(phoneNumber: string): { country_code: string; phone_on
   const cleanPhone = phoneNumber.replace(/[^\d+]/g, '')
 
   // 按长度匹配区号（从长到短匹配，避免误匹配）
-  const sortedCountryCodes = countryCodeOptions.map(option => option.value).sort((a, b) => b.length - a.length)
+  const sortedCountryCodes = countryCodeOptions.map((option) => option.value).sort((a, b) => b.length - a.length)
 
   for (const code of sortedCountryCodes) {
     if (cleanPhone.startsWith(code)) {
@@ -387,7 +387,7 @@ async function handleSubmit() {
 
 watch(
   () => props.visible,
-  newVal => {
+  (newVal) => {
     if (newVal) {
       handleUpdateFormModelByModalType()
     }
@@ -482,7 +482,9 @@ watch(
       </NGrid>
       <NSpace class="w-full pt-16px" :size="24" justify="end">
         <NButton class="w-72px" @click="closeModal">{{ $t('common.cancel') }}</NButton>
-        <NButton class="w-72px" type="primary" :loading="submitLoading" @click="handleSubmit">{{ $t('common.confirm') }}</NButton>
+        <NButton class="w-72px" type="primary" :loading="submitLoading" @click="handleSubmit">
+          {{ $t('common.confirm') }}
+        </NButton>
       </NSpace>
     </NForm>
   </NModal>

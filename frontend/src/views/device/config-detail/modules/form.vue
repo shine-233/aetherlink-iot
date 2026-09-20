@@ -42,7 +42,7 @@ watchEffect(() => {
   const thejson = JSON.parse(str)
   rules.value = {}
   if (formElementList.value.length > 0) {
-    formElementList.value.forEach(element => {
+    formElementList.value.forEach((element) => {
       // table 字段始终用数组承载多行配置，详情页回显和新增空行都依赖这里的默认结构。
       if (element.type === 'table') {
         protocol_config.value[element.dataKey] ??= thejson[element.dataKey] || []
@@ -68,12 +68,7 @@ const onCreate = () => {
         <template v-for="element in formElementList" :key="element.dataKey">
           <!-- 单值输入字段：根据 validate.type 决定是数字输入还是普通文本输入。 -->
           <template v-if="element.type === 'input'">
-            <NFormItem
-              :label="element.label"
-              :path="element.dataKey"
-              class="w-300"
-              :rules="[ruleFor(element)]"
-            >
+            <NFormItem :label="element.label" :path="element.dataKey" class="w-300" :rules="[ruleFor(element)]">
               <NTooltip trigger="hover" placement="top">
                 <template #trigger>
                   <NInputNumber

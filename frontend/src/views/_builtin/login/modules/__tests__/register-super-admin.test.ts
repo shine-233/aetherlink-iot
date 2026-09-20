@@ -64,7 +64,7 @@ function withNaiveAliases(stubs: Record<string, unknown>) {
 
   pairs.forEach(([source, names]) => {
     if (stubs[source]) {
-      names.forEach(name => {
+      names.forEach((name) => {
         aliases[name] = stubs[source]
       })
     }
@@ -128,7 +128,7 @@ describe('RegisterSuperAdmin', () => {
       email: [{ required: true, message: 'email required' }],
       pwd: [{ required: true, message: 'pwd required' }]
     })
-    expect(wrapper.findAllComponents({ name: 'NFormItem' }).map(item => item.props('path'))).toEqual(['email', 'pwd'])
+    expect(wrapper.findAllComponents({ name: 'NFormItem' }).map((item) => item.props('path'))).toEqual(['email', 'pwd'])
   })
 
   it('should disable email field when marketEmail prop is provided', () => {
@@ -214,7 +214,9 @@ describe('RegisterSuperAdmin', () => {
     await vm.handleSubmit()
 
     expect((globalThis as unknown as { $message: { warning: Mock } }).$message.warning).toHaveBeenCalledTimes(1)
-    expect((globalThis as unknown as { $message: { warning: Mock } }).$message.warning).toHaveBeenCalledWith('custom.login.registerSuperAdmin.marketRegistrationRequired')
+    expect((globalThis as unknown as { $message: { warning: Mock } }).$message.warning).toHaveBeenCalledWith(
+      'custom.login.registerSuperAdmin.marketRegistrationRequired'
+    )
   })
 
   it('should prefill email from marketEmail prop on mount', () => {

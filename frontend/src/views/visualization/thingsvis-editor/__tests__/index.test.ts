@@ -35,7 +35,13 @@ vi.mock('vue-router', () => ({
 }))
 
 vi.mock('@/components/visualization-provider/VisualizationProviderFrame.vue', () => ({
-  default: defineComponent({ name: 'VisualizationProviderFrame', props: ['id', 'schema', 'mode'], setup() { return () => h('div') } })
+  default: defineComponent({
+    name: 'VisualizationProviderFrame',
+    props: ['id', 'schema', 'mode'],
+    setup() {
+      return () => h('div')
+    }
+  })
 }))
 
 import ThingsVisEditor from '../index.vue'
@@ -48,9 +54,22 @@ const mountComponent = (props = {}) => {
     props,
     global: {
       stubs: {
-        NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } }),
-        NBreadcrumb: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NBreadcrumbItem: defineComponent({ setup(_, { slots }) { return () => h('span', slots.default?.()) } }),
+        NButton: defineComponent({
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default?.())
+          }
+        }),
+        NBreadcrumb: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NBreadcrumbItem: defineComponent({
+          setup(_, { slots }) {
+            return () => h('span', slots.default?.())
+          }
+        })
       }
     }
   })
@@ -70,7 +89,7 @@ describe('ThingsVisEditor', () => {
   })
 
   afterEach(() => {
-    mountedWrappers.forEach(w => w.unmount())
+    mountedWrappers.forEach((w) => w.unmount())
     mountedWrappers.length = 0
     consoleWarnSpy?.mockRestore()
     consoleWarnSpy = null
@@ -123,7 +142,12 @@ describe('ThingsVisEditor', () => {
   it('ignores an older response that resolves after a newer request', async () => {
     let resolveOlder!: (value: unknown) => void
     hoisted.getDashboard
-      .mockImplementationOnce(() => new Promise(resolve => { resolveOlder = resolve }))
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveOlder = resolve
+          })
+      )
       .mockResolvedValueOnce({ ok: true, data: { name: 'New Dashboard', projectId: 'proj-1' } })
     const wrapper = mountComponent()
     const state = getState(wrapper)

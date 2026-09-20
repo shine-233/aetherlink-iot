@@ -276,7 +276,9 @@ export const useOtaTaskFlow = (options: {
 
         const selectedCount = Number(data?.selected_count || data?.data?.selected_count || 0)
         const overLimit = Boolean(data?.over_limit ?? data?.data?.over_limit)
-        const maxDevices = Number(data?.max_devices || data?.data?.max_devices || fleetFilterPayload.value.max_devices || 5000)
+        const maxDevices = Number(
+          data?.max_devices || data?.data?.max_devices || fleetFilterPayload.value.max_devices || 5000
+        )
         const totalMatched = Number(data?.total_matched || data?.data?.total_matched || selectedCount)
         if (selectedCount <= 0) {
           options.message.warning?.(options.t('page.product.update-ota.filterPreviewNoDevices'))

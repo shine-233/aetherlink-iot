@@ -102,7 +102,7 @@ const loadPresetData = async () => {
 
 watch(
   () => props.presetModalVisible,
-  visible => {
+  (visible) => {
     if (visible && props.deviceTemplateId && props.property.identifier) {
       loadPresetData()
     } else {

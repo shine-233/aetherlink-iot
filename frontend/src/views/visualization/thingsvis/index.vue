@@ -7,7 +7,20 @@
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { NAlert, NButton, NCard, NGrid, NGridItem, NInput, NModal, NForm, NFormItem, NEmpty, NSpin, useMessage } from 'naive-ui'
+import {
+  NAlert,
+  NButton,
+  NCard,
+  NGrid,
+  NGridItem,
+  NInput,
+  NModal,
+  NForm,
+  NFormItem,
+  NEmpty,
+  NSpin,
+  useMessage
+} from 'naive-ui'
 import { useRouterPush } from '@/hooks/common/router'
 import {
   getDefaultVisualizationProviderFacade,
@@ -24,18 +37,23 @@ import { $t } from '@/locales'
 const { routerPushByKey } = useRouterPush()
 const message = useMessage()
 const route = useRoute()
-const providerId = computed(() => resolveVisualizationProviderId({
-  provider: route.query.provider,
-  projectId: route.query.projectId
-}))
+const providerId = computed(() =>
+  resolveVisualizationProviderId({
+    provider: route.query.provider,
+    projectId: route.query.projectId
+  })
+)
 const provider = getDefaultVisualizationProviderFacade({ providerId: providerId.value })
 const providerError = computed(() => provider.selectionError)
-const projectCapabilities = computed(() => provider.capabilities?.projects ?? {
-  list: false,
-  create: false,
-  update: false,
-  delete: false
-})
+const projectCapabilities = computed(
+  () =>
+    provider.capabilities?.projects ?? {
+      list: false,
+      create: false,
+      update: false,
+      delete: false
+    }
+)
 const providerBlockedMessage = computed(() => {
   if (providerError.value?.code === 'external-blocked') {
     return $t('rdi.thingsvis.externalProviderDisabledDescription')
@@ -48,7 +66,9 @@ const isFirstDeviceOnboarding = computed(() => route.query.onboarding === 'first
 const onboardingDashboardQuery = computed((): Record<string, string> =>
   isFirstDeviceOnboarding.value
     ? { onboarding: 'first-device', ...(isNativeProvider.value ? { provider: 'native' } : {}) }
-    : (isNativeProvider.value ? { provider: 'native' } : {})
+    : isNativeProvider.value
+      ? { provider: 'native' }
+      : {}
 )
 
 // State
@@ -64,7 +84,7 @@ const projects = computed(() => {
   const keyword = searchKeyword.value.trim().toLowerCase()
   if (!keyword) return allProjects.value
 
-  return allProjects.value.filter(item => item.name.toLowerCase().includes(keyword))
+  return allProjects.value.filter((item) => item.name.toLowerCase().includes(keyword))
 })
 
 // Form state
@@ -79,7 +99,7 @@ const fetchProjects = async () => {
   try {
     if (providerError.value) return
 
-    const result = await provider.execute(current => current.listProjects({ page: 1, limit: 100 }))
+    const result = await provider.execute((current) => current.listProjects({ page: 1, limit: 100 }))
     if (result.ok) {
       allProjects.value = result.data.items
     } else {
@@ -141,10 +161,12 @@ const handleSaveProject = async () => {
 
   try {
     if (editingProject.value) {
-      const result = await provider.execute(current => current.updateProject(editingProject.value!.id, {
-        name: formData.value.name,
-        description: formData.value.description || undefined
-      }))
+      const result = await provider.execute((current) =>
+        current.updateProject(editingProject.value!.id, {
+          name: formData.value.name,
+          description: formData.value.description || undefined
+        })
+      )
       if (result.ok) {
         message.success($t('rdi.thingsvis.updateProjectSuccess'))
         showModal.value = false
@@ -153,10 +175,12 @@ const handleSaveProject = async () => {
         message.error($t('rdi.thingsvis.updateProjectFailed'))
       }
     } else {
-      const result = await provider.execute(current => current.createProject({
-        name: formData.value.name,
-        description: formData.value.description || undefined
-      }))
+      const result = await provider.execute((current) =>
+        current.createProject({
+          name: formData.value.name,
+          description: formData.value.description || undefined
+        })
+      )
       if (result.ok) {
         message.success($t('rdi.thingsvis.createSuccess'))
         showModal.value = false
@@ -181,7 +205,7 @@ const openDeleteConfirm = (id: string, name: string) => {
     message.warning($t('rdi.thingsvis.projectDeletionUnsupported'))
     return
   }
-  const project = allProjects.value.find(item => item.id === id)
+  const project = allProjects.value.find((item) => item.id === id)
   if ((project?.dashboardCount || 0) > 0) {
     message.warning($t('rdi.thingsvis.projectHasDashboardsWarning'))
     return
@@ -196,16 +220,18 @@ const handleDeleteProject = async () => {
   deletingId.value = pendingDeleteProject.value.id
   try {
     const { id } = pendingDeleteProject.value
-    const dashboardsResult = await provider.execute(current => current.listDashboards({
-      projectId: id,
-      page: 1,
-      limit: 1000
-    }))
+    const dashboardsResult = await provider.execute((current) =>
+      current.listDashboards({
+        projectId: id,
+        page: 1,
+        limit: 1000
+      })
+    )
     if (!dashboardsResult.ok) {
       message.error($t('rdi.thingsvis.deleteFailed'))
       return
     }
-    const dashboardIds = dashboardsResult.data.items.map(dashboard => dashboard.id)
+    const dashboardIds = dashboardsResult.data.items.map((dashboard) => dashboard.id)
 
     for (const did of dashboardIds) {
       const { error } = await deleteDashboardMenuConfig(did)
@@ -215,7 +241,7 @@ const handleDeleteProject = async () => {
       }
     }
 
-    const deleteResult = await provider.execute(current => current.deleteProject(id))
+    const deleteResult = await provider.execute((current) => current.deleteProject(id))
     if (deleteResult.ok) {
       const deletedName = pendingDeleteProject.value?.name || ''
       deleteConfirmModal.value = false
@@ -339,14 +365,15 @@ onMounted(() => {
             <icon-mdi:folder-open-outline class="text-50px text-gray-300" />
           </template>
           <template v-if="projectCapabilities.create" #extra>
-            <NButton type="primary" @click="isFirstDeviceOnboarding ? openFirstDeviceProjectCreateModal() : openCreateModal()">
+            <NButton
+              type="primary"
+              @click="isFirstDeviceOnboarding ? openFirstDeviceProjectCreateModal() : openCreateModal()"
+            >
               <template #icon>
                 <icon-mdi:plus />
               </template>
               {{
-                isFirstDeviceOnboarding
-                  ? $t('rdi.thingsvis.firstDeviceProjectCreate')
-                  : $t('rdi.thingsvis.newProject')
+                isFirstDeviceOnboarding ? $t('rdi.thingsvis.firstDeviceProjectCreate') : $t('rdi.thingsvis.newProject')
               }}
             </NButton>
           </template>
@@ -370,7 +397,10 @@ onMounted(() => {
 
                   <!-- Hover actions：内置项目不可改名/删除（provider 层 fail closed），不渲染入口 -->
                   <div
-                    v-if="(projectCapabilities.update || projectCapabilities.delete) && project.id !== NATIVE_BOARD_PROJECT_ID"
+                    v-if="
+                      (projectCapabilities.update || projectCapabilities.delete) &&
+                      project.id !== NATIVE_BOARD_PROJECT_ID
+                    "
                     class="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100"
                   >
                     <NButton

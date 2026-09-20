@@ -31,7 +31,16 @@ export function usePreRegisterImport(options: { onImported: () => void | Promise
       { required: true, message: $t('common.pleaseCheckValue'), trigger: ['input', 'blur'] },
       { max: 36, message: $t('common.pleaseCheckValue'), trigger: ['input', 'blur'] }
     ],
-    device_count: [{ required: true, type: 'number', min: 1, max: 10000, message: $t('common.pleaseCheckValue'), trigger: ['input', 'blur'] }]
+    device_count: [
+      {
+        required: true,
+        type: 'number',
+        min: 1,
+        max: 10000,
+        message: $t('common.pleaseCheckValue'),
+        trigger: ['input', 'blur']
+      }
+    ]
   }
 
   const productOptions = ref<{ label: string; value: string }[]>([])
@@ -154,9 +163,7 @@ export function usePreRegisterImport(options: { onImported: () => void | Promise
       // 这正是 P0.5 门禁「坏行逐行反馈」测不到的原因 —— 反馈压根没渲染。
       const detail = err && (err as any).error ? (err as any).error : err
       const message =
-        (detail && (detail.message || detail.msg)) ||
-        (typeof err === 'string' ? err : '') ||
-        'import failed'
+        (detail && (detail.message || detail.msg)) || (typeof err === 'string' ? err : '') || 'import failed'
       submitError.value = String(message)
       return false
     } finally {

@@ -30,8 +30,12 @@ type DeviceGroupStatistics = {
   alarm_total?: number
 }
 
-const AddOrEditDevices = defineAsyncComponent(() => import('@/views/device/grouping/components/add-or-edit-devices/index.vue'))
-const DeviceSelectList = defineAsyncComponent(() => import('@/views/device/grouping-details/modules/device-select-list.vue'))
+const AddOrEditDevices = defineAsyncComponent(
+  () => import('@/views/device/grouping/components/add-or-edit-devices/index.vue')
+)
+const DeviceSelectList = defineAsyncComponent(
+  () => import('@/views/device/grouping-details/modules/device-select-list.vue')
+)
 
 const group_data = ref([])
 const device_data = ref<DeviceManagement.DeviceData[]>([])
@@ -301,19 +305,19 @@ const goToGroupListRoot = () => {
 
 watch(
   () => route.query.id,
-  newId => {
+  (newId) => {
     if (newId) {
       currentId.value = newId
       reload(newId as string)
     }
   }
 )
-watch(the_modal1, modal => {
+watch(the_modal1, (modal) => {
   if (!pendingAddChildGroupModalOpen.value || !modal) return
   modal.showModal = true
   pendingAddChildGroupModalOpen.value = false
 })
-watch(the_modal2, modal => {
+watch(the_modal2, (modal) => {
   if (!pendingEditGroupModalOpen.value || !modal) return
   modal.showModal = true
   pendingEditGroupModalOpen.value = false

@@ -10,7 +10,7 @@ export const LOCAL_VIEWER_LIMITS = {
   fields: 200
 } as const
 
-export type LocalWidgetType = 'text' | 'metric' | 'line-chart' | 'bar-chart' | 'html'
+export type LocalWidgetType = 'text' | 'metric' | 'line-chart' | 'bar-chart' | 'html' | 'map'
 
 export type LocalFieldValue = string | number | boolean | null | readonly (string | number | boolean | null)[]
 export type LocalViewerFields = Readonly<Record<string, LocalFieldValue>>
@@ -68,7 +68,20 @@ export interface HtmlWidgetConfig {
   entityRelation?: EntityRelationSourceConfig
 }
 
-export type LocalWidgetConfig = TextWidgetConfig | MetricWidgetConfig | ChartWidgetConfig | HtmlWidgetConfig
+export interface MapWidgetConfig {
+  title?: string
+  latField?: string
+  lngField?: string
+  zoom?: number
+  defaultLat?: number
+  defaultLng?: number
+  showTrajectory?: boolean
+  entityId?: string
+  fallback?: string
+}
+
+export type LocalWidgetConfig =
+  TextWidgetConfig | MetricWidgetConfig | ChartWidgetConfig | HtmlWidgetConfig | MapWidgetConfig
 
 export interface NormalizedLocalWidget {
   id: string
@@ -92,13 +105,9 @@ export interface NormalizedLocalDashboard {
   responsive?: boolean
 }
 
-export type NormalizeDashboardResult =
-  | { ok: true; dashboard: NormalizedLocalDashboard }
-  | { ok: false; error: string }
+export type NormalizeDashboardResult = { ok: true; dashboard: NormalizedLocalDashboard } | { ok: false; error: string }
 
-export type NormalizeFieldsResult =
-  | { ok: true; fields: LocalViewerFields }
-  | { ok: false; error: string }
+export type NormalizeFieldsResult = { ok: true; fields: LocalViewerFields } | { ok: false; error: string }
 
 export interface ResolvedText {
   available: boolean
@@ -121,4 +130,12 @@ export interface ResolvedHtml {
   available: boolean
   html: string
   scopedCss?: string
+}
+
+export interface ResolvedMapData {
+  available: boolean
+  title?: string
+  lat?: number
+  lng?: number
+  fallback?: string
 }

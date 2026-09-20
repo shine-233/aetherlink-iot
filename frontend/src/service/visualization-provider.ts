@@ -17,7 +17,9 @@ export type VisualizationProviderKind = (typeof VISUALIZATION_PROVIDER_KINDS)[ke
 export const localVisualizationProvider = nativeBoardProvider
 export const externalVisualizationProvider = legacyThingsVisProvider
 
-export function getVisualizationProvider(kind: unknown = VISUALIZATION_PROVIDER_KINDS.local): VisualizationProvider | null {
+export function getVisualizationProvider(
+  kind: unknown = VISUALIZATION_PROVIDER_KINDS.local
+): VisualizationProvider | null {
   if (kind === VISUALIZATION_PROVIDER_KINDS.local) return localVisualizationProvider
   if (kind === VISUALIZATION_PROVIDER_KINDS.external) return externalVisualizationProvider
   return null

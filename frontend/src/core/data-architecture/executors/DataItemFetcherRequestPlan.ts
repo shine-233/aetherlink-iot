@@ -260,7 +260,7 @@ function hasCurrentPathParameters(config: HttpDataItemConfig): boolean {
 }
 
 function currentQueryParameterKeys(config: HttpDataItemConfig): Set<string> {
-  return new Set(config.params?.filter(param => param.enabled && param.key).map(param => param.key) ?? [])
+  return new Set(config.params?.filter((param) => param.enabled && param.key).map((param) => param.key) ?? [])
 }
 
 function currentHeaderKeysForConfig(config: HttpDataItemConfig): Set<string> {
@@ -315,14 +315,14 @@ function createRequestKeyMaterial(
 
 function stableStringify(value: unknown): string {
   if (Array.isArray(value)) {
-    return `[${value.map(item => stableStringify(item)).join(',')}]`
+    return `[${value.map((item) => stableStringify(item)).join(',')}]`
   }
 
   if (value && typeof value === 'object') {
     const record = value as Record<string, unknown>
     return `{${Object.keys(record)
       .sort()
-      .map(key => `${JSON.stringify(key)}:${stableStringify(record[key])}`)
+      .map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`)
       .join(',')}}`
   }
 

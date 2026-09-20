@@ -52,7 +52,7 @@ export function useViewportDeferredMount(
 
     observer = new IntersectionObserver(
       (entries) => {
-        if (entries.some(entry => entry.isIntersecting || entry.intersectionRatio > 0)) {
+        if (entries.some((entry) => entry.isIntersecting || entry.intersectionRatio > 0)) {
           mountNow()
         }
       },

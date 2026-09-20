@@ -31,18 +31,12 @@ import {
   isAcknowledged,
   isReset
 } from './alarm-configuration.helpers'
-import {
-  createAlarmConfigurationColumns,
-  type AlarmConfigurationRow
-} from './alarmConfigurationColumns'
+import { createAlarmConfigurationColumns, type AlarmConfigurationRow } from './alarmConfigurationColumns'
 import AlarmBatchEvidenceCard from './AlarmBatchEvidenceCard.vue'
 import AlarmCommentPanel from './AlarmCommentPanel.vue'
 import AlarmAssignmentPanel from './AlarmAssignmentPanel.vue'
 import { useAlarmBatchActions } from './useAlarmBatchActions'
-import {
-  useAlarmSingleActions,
-  type AlarmSingleActionRow
-} from './alarm-configuration.single-actions'
+import { useAlarmSingleActions, type AlarmSingleActionRow } from './alarm-configuration.single-actions'
 import { useAlarmClosureEvidenceExport } from './alarm-configuration.evidence-export'
 
 const props = defineProps<{
@@ -81,14 +75,14 @@ const pagination: PaginationProps = reactive({
   onChange: (page: number) => {
     pagination.page = page
     selectedAlarmRowKeys.value = []
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
+
     getAlarmHistory()
   },
   onUpdatePageSize: (pageSize: number) => {
     pagination.pageSize = pageSize
     pagination.page = 1
     selectedAlarmRowKeys.value = []
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
+
     getAlarmHistory()
   }
 })
@@ -158,11 +152,11 @@ const alarmStatusOptions = ref(createAlarmStatusOptions($t))
 const alarmTypeOptions = ref(createAlarmTypeOptions($t))
 const columns = createAlarmConfigurationColumns({
   getAlarmStatusOptions: () => alarmStatusOptions.value,
-  onShowDetails: row => getInfo(row),
-  onAcknowledge: row => acknowledgeAlarm(row),
-  onReset: row => resetAlarm(row),
-  onClear: row => clearAlarm(row),
-  onMaintenance: row => maintenance(row)
+  onShowDetails: (row) => getInfo(row),
+  onAcknowledge: (row) => acknowledgeAlarm(row),
+  onReset: (row) => resetAlarm(row),
+  onClear: (row) => clearAlarm(row),
+  onMaintenance: (row) => maintenance(row)
 })
 const alarmTriageSummary = computed(() => buildAlarmTriageSummary(tableData.value))
 const {
@@ -282,7 +276,7 @@ const {
   runSingleAlarmAction
 } = useAlarmSingleActions({
   severityOptions: alarmStatusOptions,
-  evidenceRowOf: row => alarmEvidenceRow(row),
+  evidenceRowOf: (row) => alarmEvidenceRow(row),
   evidenceBoundaryLabel: alarmEvidenceBoundary,
   closeDetailDialog: closeModal,
   refresh: getAlarmHistory
@@ -299,7 +293,6 @@ const resetAlarm = (row: any) => {
 const clearAlarm = (row: any) => {
   openSingleAlarmAction(row as AlarmSingleActionRow, 'clear')
 }
-
 
 const buildCurrentAlarmClosureEvidenceBundle = () =>
   buildAlarmClosureEvidenceBundle({
@@ -420,13 +413,7 @@ const submitCallback = async () => {
         </NFlex>
       </div>
     </NAlert>
-    <NForm
-      ref="queryFormRef"
-      class="alarm-query-form"
-      :inline="!getPlatform"
-      label-placement="left"
-      :model="queryData"
-    >
+    <NForm ref="queryFormRef" class="alarm-query-form" :inline="!getPlatform" label-placement="left" :model="queryData">
       <NFormItem path="status">
         <n-date-picker v-model:value="range" type="datetimerange" :clearable="false" separator="-" />
       </NFormItem>
@@ -520,13 +507,13 @@ const submitCallback = async () => {
     </NCard>
     <div class="w-100% flex-1-hidden alarm-table-scroll">
       <n-data-table
+        v-model:checked-row-keys="selectedAlarmRowKeys"
         remote
         :loading="loading"
         :columns="columns"
         :data="tableData"
         :pagination="pagination"
         :row-key="rowKey"
-        v-model:checked-row-keys="selectedAlarmRowKeys"
         class="w-100%"
       >
         <template #empty>
@@ -538,7 +525,12 @@ const submitCallback = async () => {
     <!--      <NButton @click="handleBatch">{{ $t('generate.batch-process') }}</NButton>-->
     <!--      <NButton @click="handleIgnore">{{ $t('generate.batch-ignore') }}</NButton>-->
     <!--    </div>-->
-    <n-modal aria-label="dialog" v-model:show="batchActionDialogVisible" class="max-w-[600px]" :mask-closable="!batchActionLoading">
+    <n-modal
+      v-model:show="batchActionDialogVisible"
+      aria-label="dialog"
+      class="max-w-[600px]"
+      :mask-closable="!batchActionLoading"
+    >
       <NCard :title="batchActionDialogTitle" class="alarm-action-modal-card">
         <div class="batch-action-hint">
           <div class="whitespace-pre-line">{{ batchActionDialogHint }}</div>
@@ -673,7 +665,13 @@ const submitCallback = async () => {
             {{ $t('custom.alarmPage.auditBoundaryHint') }}
           </NAlert>
           <NFlex class="mt-3" :size="8" wrap>
-            <NButton v-if="detailNeedsAcknowledge" size="small" type="success" secondary @click="acknowledgeAlarm(infoData)">
+            <NButton
+              v-if="detailNeedsAcknowledge"
+              size="small"
+              type="success"
+              secondary
+              @click="acknowledgeAlarm(infoData)"
+            >
               {{ $t('rdi.overview.acknowledgeAlarm') }}
             </NButton>
             <NButton v-if="detailNeedsReset" size="small" type="error" secondary @click="resetAlarm(infoData)">
@@ -1028,5 +1026,4 @@ const submitCallback = async () => {
     grid-template-columns: 1fr;
   }
 }
-
 </style>

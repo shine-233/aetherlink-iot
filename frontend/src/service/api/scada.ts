@@ -178,7 +178,12 @@ export function fetchMobileCapabilities() {
   return request.get<MobileCapabilityMatrix>('/mobile/capabilities')
 }
 
-export function subscribeMobilePush(payload: { platform: 'ios' | 'android' | 'h5'; token: string; provider?: string; tenant_id?: string }) {
+export function subscribeMobilePush(payload: {
+  platform: 'ios' | 'android' | 'h5'
+  token: string
+  provider?: string
+  tenant_id?: string
+}) {
   return request.post('/mobile/push/subscribe', payload)
 }
 

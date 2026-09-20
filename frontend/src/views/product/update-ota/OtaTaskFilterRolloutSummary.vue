@@ -21,7 +21,14 @@ defineProps<{
       <NTag type="info" round>
         {{
           $t('page.product.update-ota.fullFilterScopeCount')
-            .replace('{currentPage}', String(selectedSavedFleetFilter ? 0 : (fleetPreselectionResult?.currentPageCount ?? fleetPreselectionResult?.requestedCount ?? 0)))
+            .replace(
+              '{currentPage}',
+              String(
+                selectedSavedFleetFilter
+                  ? 0
+                  : (fleetPreselectionResult?.currentPageCount ?? fleetPreselectionResult?.requestedCount ?? 0)
+              )
+            )
             .replace('{total}', String(fleetPreselectionResult?.requestedTotal ?? '--'))
         }}
       </NTag>

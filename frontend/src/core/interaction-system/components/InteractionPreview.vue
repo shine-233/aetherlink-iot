@@ -87,7 +87,7 @@
                 <n-switch
                   :value="interaction.enabled"
                   size="small"
-                  @update:value="value => toggleInteraction(index, value)"
+                  @update:value="(value) => toggleInteraction(index, value)"
                 />
                 <n-button
                   size="tiny"
@@ -171,11 +171,7 @@ import { useI18n } from 'vue-i18n'
 import { NSpace, NText, NButton, NIcon, NCard, NTag, NSwitch, useMessage } from 'naive-ui'
 import { PlayOutline, RefreshOutline, FlashOutline, PlayCircleOutline } from '@vicons/ionicons5'
 
-import type {
-  InteractionConfig,
-  InteractionEventType,
-  InteractionResponse
-} from './interactionPreviewTypes'
+import type { InteractionConfig, InteractionEventType, InteractionResponse } from './interactionPreviewTypes'
 import {
   applyInteractionPreviewResponse,
   formatInteractionPreviewTime,
@@ -223,7 +219,7 @@ const isHovering = ref(false)
 
 // 计算属性
 const hasActiveInteractions = computed(() => {
-  return props.interactions.some(interaction => interaction.enabled)
+  return props.interactions.some((interaction) => interaction.enabled)
 })
 
 const previewElementStyles = computed(() => {
@@ -333,7 +329,7 @@ const executeInteraction = (interaction: InteractionConfig, index: number) => {
     () => {
       activeInteractions.value.delete(index)
     },
-    Math.max(...interaction.responses.map(r => (r.delay || 0) + (r.duration || 300)))
+    Math.max(...interaction.responses.map((r) => (r.delay || 0) + (r.duration || 300)))
   )
 }
 
@@ -344,7 +340,7 @@ const executeResponse = (response: InteractionResponse) => {
 
   const setRuntimeStyle = (property: string, styleValue: unknown) => {
     const normalizedValue = String(styleValue)
-    const cssProperty = property.replace(/[A-Z]/g, match => `-${match.toLowerCase()}`)
+    const cssProperty = property.replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`)
     element.style.setProperty(cssProperty, normalizedValue)
     runtimeStyles.value = {
       ...runtimeStyles.value,
@@ -354,7 +350,7 @@ const executeResponse = (response: InteractionResponse) => {
 
   applyInteractionPreviewResponse(element, response, {
     setRuntimeStyle,
-    setContent: value => {
+    setContent: (value) => {
       currentContent.value = value
     }
   })
@@ -371,8 +367,8 @@ const runAllInteractions = () => {
   // 模拟触发所有事件类型
   const eventTypes: InteractionEventType[] = ['click', 'hover', 'focus', 'blur', 'custom']
 
-  eventTypes.forEach(eventType => {
-    const hasEvent = props.interactions.some(i => i.event === eventType && i.enabled)
+  eventTypes.forEach((eventType) => {
+    const hasEvent = props.interactions.some((i) => i.event === eventType && i.enabled)
     if (hasEvent) {
       executeInteractionsByEvent(eventType)
     }

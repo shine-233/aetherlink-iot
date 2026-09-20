@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  convertSeries,
-  convertUnit,
-  convertUnitToSystem,
-  getCompatibleUnits,
-  lookupUnit
-} from './converter'
+import { convertSeries, convertUnit, convertUnitToSystem, getCompatibleUnits, lookupUnit } from './converter'
 
 describe('Units Converter Engine', () => {
   describe('lookupUnit', () => {

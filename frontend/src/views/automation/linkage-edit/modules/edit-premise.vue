@@ -367,12 +367,12 @@ defineExpose({
                       @update:show="(show) => show && ensureDevicesLoaded()"
                       @click.prevent="
                         (e) => {
-                           onDeviceKeydownEnter(e, Number(ifIndex))
+                          onDeviceKeydownEnter(e, Number(ifIndex))
                         }
                       "
                       @keydown.enter="
                         (e) => {
-                           onDeviceKeydownEnter(e, Number(ifIndex))
+                          onDeviceKeydownEnter(e, Number(ifIndex))
                         }
                       "
                       @update:value="() => triggerSourceChange(ifItem, Number(ifIndex))"
@@ -392,13 +392,13 @@ defineExpose({
                             @update:value="(data) => getDevice(data, queryDevice.device_name)"
                           />
                           <NInput
-                             :ref="(el) => setQueryDeviceNameRef(el, Number(ifIndex))"
+                            :ref="(el) => setQueryDeviceNameRef(el, Number(ifIndex))"
                             v-model:value="queryDevice.device_name"
                             class="flex-1"
                             clearable
                             :placeholder="$t('common.input')"
-                             @keydown.enter="onTapInput(queryDevice, Number(ifIndex))"
-                             @click="handleFocus(Number(ifIndex))"
+                            @keydown.enter="onTapInput(queryDevice, Number(ifIndex))"
+                            @click="handleFocus(Number(ifIndex))"
                           ></NInput>
                           <NButton
                             :disabled="!btnloading"
@@ -430,7 +430,7 @@ defineExpose({
                       filterable
                       @update:show="(show) => show && ensureDeviceConfigsLoaded()"
                       @search="getDeviceConfig"
-                       @update:value="() => triggerSourceChange(ifItem, Number(ifIndex))"
+                      @update:value="() => triggerSourceChange(ifItem, Number(ifIndex))"
                     />
                   </NFormItem>
                 </template>
@@ -529,8 +529,8 @@ defineExpose({
               <PremiseScheduleConditionEditor
                 v-if="ifItem.ifType === '2'"
                 :if-item="ifItem"
-                 :if-group-index="Number(ifGroupIndex)"
-                 :if-index="Number(ifIndex)"
+                :if-group-index="Number(ifGroupIndex)"
+                :if-index="Number(ifIndex)"
                 :premise-form-rules="premiseFormRules"
                 :time-condition-options="getTimeConditionOptions(ifGroupItem)"
                 :cycle-options="cycleOptions"
@@ -559,7 +559,12 @@ defineExpose({
             </NFlex>
           </NFlex>
         </NCard>
-        <NButton v-if="Number(ifGroupIndex) > 0" type="error" class="relative" @click="deleteIfGroupsItem(Number(ifGroupIndex))">
+        <NButton
+          v-if="Number(ifGroupIndex) > 0"
+          type="error"
+          class="relative"
+          @click="deleteIfGroupsItem(Number(ifGroupIndex))"
+        >
           {{ $t('generate.delete-group') }}
         </NButton>
       </NFlex>
@@ -581,5 +586,4 @@ defineExpose({
 :deep(.n-card__content) {
   padding: 10px 10px 4px 10px !important;
 }
-
 </style>

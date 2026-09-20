@@ -15,7 +15,12 @@ vi.mock('@/components/common/grid', () => ({
       idKey: String
     },
     setup(props, { slots }) {
-      return () => h('div', { class: 'grid-stub' }, props.layout.map((item: unknown) => slots.default?.({ item })))
+      return () =>
+        h(
+          'div',
+          { class: 'grid-stub' },
+          props.layout.map((item: unknown) => slots.default?.({ item }))
+        )
     }
   })
 }))
@@ -48,7 +53,13 @@ describe('LocalVisualizationViewer', () => {
       showTitle: false,
       contentPadding: false,
       idKey: 'id',
-      config: expect.objectContaining({ colNum: 12, rowHeight: 48, isDraggable: false, isResizable: false, staticGrid: true })
+      config: expect.objectContaining({
+        colNum: 12,
+        rowHeight: 48,
+        isDraggable: false,
+        isResizable: false,
+        staticGrid: true
+      })
     })
     expect(wrapper.get('[data-widget-id="text"]').text()).toContain('State: online')
     expect(wrapper.get('[data-widget-id="metric"]').text()).toContain('42 W')
@@ -133,5 +144,31 @@ describe('LocalVisualizationViewer', () => {
     expect(widgetEl.text()).toContain('Temp: 88')
     expect(widgetEl.html()).toContain('[data-widget-id="html1"] .custom-card {')
   })
-})
 
+  it('renders a map widget with GPS coordinates, title, and controls', () => {
+    const mapWidget = {
+      id: 'map1',
+      x: 0,
+      y: 0,
+      w: 6,
+      h: 4,
+      type: 'map',
+      config: {
+        title: 'Vehicle Tracker',
+        latField: 'lat',
+        lngField: 'lng'
+      }
+    }
+    const wrapper = mount(LocalVisualizationViewer, {
+      props: {
+        dashboard: { version: 1, columns: 12, rowHeight: 48, widgets: [mapWidget] },
+        fields: { lat: 39.9042, lng: 116.4074 }
+      }
+    })
+    const widgetEl = wrapper.get('[data-widget-id="map1"]')
+    expect(widgetEl.text()).toContain('Vehicle Tracker')
+    expect(widgetEl.text()).toContain('39.9042')
+    expect(widgetEl.text()).toContain('116.4074')
+    expect(widgetEl.find('.local-map-controls').exists()).toBe(true)
+  })
+})

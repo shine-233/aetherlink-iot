@@ -34,7 +34,7 @@ const getDeviceList = async () => {
   queryParams.search = searchKeyword.value.trim() || undefined
   const res = await deviceList(queryParams)
   const rows = Array.isArray(res.data?.list) ? res.data.list : []
-  data.value = rows.filter(item => item.group_id !== props.groupId) as DeviceManagement.DeviceData[]
+  data.value = rows.filter((item) => item.group_id !== props.groupId) as DeviceManagement.DeviceData[]
   if (res?.data?.total) {
     pagination.pageCount = Math.ceil(res?.data?.total / 5)
   } else {

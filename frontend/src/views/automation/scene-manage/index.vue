@@ -36,7 +36,6 @@ const sceneEdit = (item: any) => {
 const sceneActivation = async (item: any) => {
   const res = await sceneActive(item.id)
   if (!res.error) {
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
     await getData()
   }
 }
@@ -153,7 +152,7 @@ const columns: Ref<any> = ref([
     title: $t('common.actions'),
     align: 'left',
     width: '300px',
-    render: row => {
+    render: (row) => {
       return (
         <NSpace justify={'start'}>
           <NButton size={'small'} type="success" onClick={() => sceneActivation(row)}>
@@ -198,7 +197,7 @@ const execution_result_options = ref([
 
 const queryLog = () => {
   logQuery.value.page = 1
-  // eslint-disable-next-line @typescript-eslint/no-use-before-define
+
   getLogList()
 }
 
@@ -279,8 +278,8 @@ getData()
       </NFlex>
     </NCard>
     <n-modal
-      aria-label="dialog"
       v-model:show="showLog"
+      aria-label="dialog"
       :style="bodyStyle"
       preset="card"
       :title="$t('generate.log')"

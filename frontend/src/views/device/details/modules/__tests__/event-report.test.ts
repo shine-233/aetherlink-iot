@@ -72,13 +72,7 @@ describe('device/details/modules/event-report.vue', () => {
     const table = wrapper.getComponent(distributionStub)
     const columns = table.props('tableColumns') as Array<Record<string, any>>
 
-    expect(columns.map(column => column.key)).toEqual([
-      'identify',
-      'data_name',
-      'ts',
-      'data',
-      'error_message'
-    ])
+    expect(columns.map((column) => column.key)).toEqual(['identify', 'data_name', 'ts', 'data', 'error_message'])
     expect(columns[2].title).toBe('device_template.table_header.eventReportingTime')
     expect(columns[2].render({ ts: '2026-06-21T10:20:30Z' })).toBe('2024-01-01 00:00:00')
   })

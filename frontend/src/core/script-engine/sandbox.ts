@@ -517,7 +517,9 @@ export class ScriptSandbox implements IScriptSandbox {
   }
 
   private rejectExternalNetwork(..._args: unknown[]): Promise<never> {
-    return Promise.reject(new Error('SCRIPT_NETWORK_EXTERNAL_BLOCKED: script network access requires an audited adapter'))
+    return Promise.reject(
+      new Error('SCRIPT_NETWORK_EXTERNAL_BLOCKED: script network access requires an audited adapter')
+    )
   }
 
   /**

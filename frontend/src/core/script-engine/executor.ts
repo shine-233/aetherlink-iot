@@ -150,7 +150,7 @@ export class ScriptExecutor implements IScriptExecutor {
       (...args: unknown[]) => {
         const log: ScriptLog = {
           level,
-          message: args.map(arg => (typeof arg === 'object' ? JSON.stringify(arg) : String(arg))).join(' '),
+          message: args.map((arg) => (typeof arg === 'object' ? JSON.stringify(arg) : String(arg))).join(' '),
           timestamp: Date.now(),
           args
         }

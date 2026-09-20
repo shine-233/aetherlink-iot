@@ -41,7 +41,7 @@ const shouldSkipAnimation = () =>
 
 watch(
   () => props.mNum,
-  nextValue => {
+  (nextValue) => {
     cancelAnimation()
     const target = parseFiniteNumber(nextValue)
     if (target === null) {

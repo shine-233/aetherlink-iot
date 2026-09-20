@@ -27,7 +27,7 @@ let readyPromise: Promise<void> | null = null
 export async function ensureLocaleReady(): Promise<void> {
   if (!readyPromise) {
     const current = i18n.global.locale.value as App.I18n.LangType
-    readyPromise = loadLocaleMessages(current).then(messages => {
+    readyPromise = loadLocaleMessages(current).then((messages) => {
       i18n.global.setLocaleMessage(current, messages)
     })
   }

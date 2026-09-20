@@ -66,7 +66,7 @@ function startSocket() {
     clearPing()
     pingTimer = setInterval(() => socket?.send('ping'), 8000)
   }
-  socket.onmessage = event => {
+  socket.onmessage = (event) => {
     if (event.data === 'pong') return
     appendFrame(event.data)
   }
@@ -184,7 +184,7 @@ defineExpose({ startSocket, stopSocket })
           <n-input v-model:value="paramsText" type="textarea" :autosize="{ minRows: 2, maxRows: 6 }" />
         </n-form-item>
         <n-space justify="end">
-          <n-button size="small" @click="loadDiagnostics" :loading="diagnosticsLoading">
+          <n-button size="small" :loading="diagnosticsLoading" @click="loadDiagnostics">
             {{ $t('page.deviceDebug.refreshDiagnostics') }}
           </n-button>
           <n-button size="small" type="primary" :loading="sending" @click="handleSendCommand">

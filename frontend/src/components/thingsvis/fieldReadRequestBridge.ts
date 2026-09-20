@@ -16,9 +16,9 @@ export type PlatformFieldReadRequest<TPayload> = {
   targetDeviceId?: string
 }
 
-export function resolvePlatformFieldReadRequest<
-  TPayload extends { fieldIds?: unknown; deviceId?: string } | undefined
->(input: PlatformFieldReadRequestInput<TPayload>): PlatformFieldReadRequest<TPayload> | null {
+export function resolvePlatformFieldReadRequest<TPayload extends { fieldIds?: unknown; deviceId?: string } | undefined>(
+  input: PlatformFieldReadRequestInput<TPayload>
+): PlatformFieldReadRequest<TPayload> | null {
   const fieldIds = normalizeRequestedFieldIds(input.payload?.fieldIds)
   if (fieldIds.length === 0) return null
 

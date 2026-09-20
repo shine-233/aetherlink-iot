@@ -40,9 +40,9 @@ const { domRef, updateOptions } = useTpECharts(
 // 静态审查建议：deep watch 对大型配置对象可能较敏感，后续如出现性能问题可优先排查这里。
 watch(
   () => props.initialOptions,
-  newOptions => {
+  (newOptions) => {
     if (newOptions) {
-      updateOptions(currentOptions => {
+      updateOptions((currentOptions) => {
         // 这里通过浅合并保留旧配置中未被新配置覆盖的字段。
         // 使用注意：若期望“完全替换”某个嵌套配置，需要在调用方传入完整结构。
         return { ...currentOptions, ...newOptions }

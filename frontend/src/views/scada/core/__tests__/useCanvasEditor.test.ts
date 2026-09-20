@@ -117,8 +117,8 @@ describe('canvas editor: z ordering', () => {
     const second = editor.addNode({ kind: 'widget', ref: 'gauge', x: 0, y: 0, width: 10, height: 10 })
     editor.bringToFront(second.id)
     const reloaded = editor.canvas.value.nodes
-    expect(reloaded.find(node => node.id === second.id)?.z).toBeGreaterThan(
-      reloaded.find(node => node.id === first.id)?.z ?? 0
+    expect(reloaded.find((node) => node.id === second.id)?.z).toBeGreaterThan(
+      reloaded.find((node) => node.id === first.id)?.z ?? 0
     )
   })
 })

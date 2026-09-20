@@ -184,7 +184,12 @@ onBeforeUnmount(stopObservingLazyResources)
 
         <NTooltip>
           <template #trigger>
-            <NButton size="small" secondary data-testid="thingsvis-dashboard-copy-link" @click.stop="emit('copyLink', dashboard)">
+            <NButton
+              size="small"
+              secondary
+              data-testid="thingsvis-dashboard-copy-link"
+              @click.stop="emit('copyLink', dashboard)"
+            >
               <template #icon>
                 <icon-mdi:link-variant />
               </template>
@@ -227,7 +232,14 @@ onBeforeUnmount(stopObservingLazyResources)
         </NTooltip>
         <NTooltip v-else>
           <template #trigger>
-            <NButton size="small" type="primary" secondary disabled data-testid="thingsvis-dashboard-current-home" @click.stop>
+            <NButton
+              size="small"
+              type="primary"
+              secondary
+              disabled
+              data-testid="thingsvis-dashboard-current-home"
+              @click.stop
+            >
               <template #icon>
                 <icon-mdi:home />
               </template>

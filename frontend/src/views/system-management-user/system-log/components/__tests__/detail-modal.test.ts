@@ -25,11 +25,38 @@ const mountComponent = (props = {}) => {
     props,
     global: {
       stubs: {
-        NModal: defineComponent({ props: { show: Boolean }, emits: ['update:show'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NForm: defineComponent({ props: ['model', 'labelPlacement', 'labelAlign', 'labelWidth'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NFormItem: defineComponent({ props: ['label'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NInput: defineComponent({ props: { value: { default: '' } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } }),
+        NModal: defineComponent({
+          props: { show: Boolean },
+          emits: ['update:show'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NForm: defineComponent({
+          props: ['model', 'labelPlacement', 'labelAlign', 'labelWidth'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NFormItem: defineComponent({
+          props: ['label'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NInput: defineComponent({
+          props: { value: { default: '' } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NButton: defineComponent({
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default?.())
+          }
+        })
       }
     }
   })
@@ -41,7 +68,7 @@ const getState = (wrapper: ReturnType<typeof shallowMount>) => wrapper.vm.$.setu
 
 describe('DetailModal', () => {
   afterEach(() => {
-    mountedWrappers.forEach(w => w.unmount())
+    mountedWrappers.forEach((w) => w.unmount())
     mountedWrappers.length = 0
   })
 
@@ -66,7 +93,18 @@ describe('DetailModal', () => {
   it('should show modal with info', () => {
     const wrapper = mountComponent()
     const state = getState(wrapper)
-    const info = { id: '1', email: 'test@test.com', username: 'admin', ip: '127.0.0.1', request_message: 'req', response_message: 'res', latency: '100', name: 'POST', path: '/api/test', created_at: '2024-01-01' }
+    const info = {
+      id: '1',
+      email: 'test@test.com',
+      username: 'admin',
+      ip: '127.0.0.1',
+      request_message: 'req',
+      response_message: 'res',
+      latency: '100',
+      name: 'POST',
+      path: '/api/test',
+      created_at: '2024-01-01'
+    }
     state.show(info)
     expect(state.modalVisible).toBe(true)
     expect(state.detailInfo).toEqual(info)

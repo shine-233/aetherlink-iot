@@ -433,9 +433,7 @@ onMounted(() => {
             {{ $t('card.latestPoint') }}:
             {{ latestTimestamp !== null ? dayjs(latestTimestamp).format('YYYY-MM-DD HH:mm:ss') : '-' }}
           </span>
-          <span>
-            {{ $t('card.validDataPoints') }}: {{ validSampleCount }}/{{ totalSampleCount }}
-          </span>
+          <span>{{ $t('card.validDataPoints') }}: {{ validSampleCount }}/{{ totalSampleCount }}</span>
         </div>
       </div>
     </div>

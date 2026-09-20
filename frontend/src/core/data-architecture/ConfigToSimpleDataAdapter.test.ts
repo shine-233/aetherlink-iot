@@ -96,9 +96,7 @@ describe('ConfigToSimpleDataAdapter', () => {
         processScript: undefined
       }
     ])
-    expect(errorSpy).toHaveBeenCalledWith(
-      '[ConfigAdapter] UNSUPPORTED_DATA_SOURCE_TYPE: unsupported (mqtt)'
-    )
+    expect(errorSpy).toHaveBeenCalledWith('[ConfigAdapter] UNSUPPORTED_DATA_SOURCE_TYPE: unsupported (mqtt)')
   })
 
   it('returns null for malformed raw JSON and reports the parse failure', () => {

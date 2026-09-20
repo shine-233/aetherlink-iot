@@ -10,8 +10,8 @@ import type { ColorPaletteFamily, ColorPaletteFamilyWithNearestPalette } from '.
 import defaultPalettes from './json/palette.json'
 
 export function getNearestColorPaletteFamily(color: string, families: ColorPaletteFamily[]) {
-  const familyWithConfig = families.map(family => {
-    const palettes = family.palettes.map(palette => {
+  const familyWithConfig = families.map((family) => {
+    const palettes = family.palettes.map((palette) => {
       return {
         ...palette,
         delta: getDeltaE(color, palette.hexcode)
@@ -71,7 +71,7 @@ export function getColorPaletteFamily(color: string, colorName: string) {
 
   const colorPaletteFamily: ColorPaletteFamily = {
     key: colorName,
-    palettes: palettes.map(palette => {
+    palettes: palettes.map((palette) => {
       let hexValue = color
 
       const isSame = number === palette.number

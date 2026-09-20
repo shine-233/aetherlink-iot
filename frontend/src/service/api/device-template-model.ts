@@ -74,4 +74,3 @@ export const rollbackDeviceTemplateUpgrade = async (historyId: string) => {
 export const getDeviceTemplateUpgradeHistory = async (params?: { template_name?: string }) => {
   return await request.get<Api.BaseApi.Data | any>(`/device/template/upgrade/history`, { params })
 }
-

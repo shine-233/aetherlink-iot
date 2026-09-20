@@ -98,13 +98,13 @@ function canonicalConfig(widget: NormalizedLocalWidget): LocalWidgetConfig {
 }
 
 function canonicalDashboard(dashboard: NormalizedLocalDashboard): EditorModelResult {
-  const unsupported = dashboard.widgets.find(widget => widget.type === 'unsupported')
+  const unsupported = dashboard.widgets.find((widget) => widget.type === 'unsupported')
   if (unsupported) return fail(`Widget ${unsupported.id} is not supported`)
   const boundChart = dashboard.widgets.find(
-    widget =>
+    (widget) =>
       (widget.type === 'line-chart' || widget.type === 'bar-chart') &&
       Boolean((widget.config as ChartWidgetConfig).categoryField || (widget.config as ChartWidgetConfig).valueField) &&
-      !((widget.config as ChartWidgetConfig).entityRelation?.enabled)
+      !(widget.config as ChartWidgetConfig).entityRelation?.enabled
   )
   if (boundChart) return fail(`Chart ${boundChart.id} must use static data`)
 
@@ -114,7 +114,7 @@ function canonicalDashboard(dashboard: NormalizedLocalDashboard): EditorModelRes
       version: 1,
       columns: dashboard.columns,
       rowHeight: dashboard.rowHeight,
-      widgets: dashboard.widgets.map(widget => ({
+      widgets: dashboard.widgets.map((widget) => ({
         id: widget.id,
         x: widget.x,
         y: widget.y,
@@ -157,7 +157,9 @@ export function validateEditorDashboard(input: unknown): EditorModelResult {
   return normalizeCanonicalDashboard(input)
 }
 
-export function serializeEditorDashboard(input: unknown): { ok: true; config: string; dashboard: EditorDashboard } | { ok: false; error: string } {
+export function serializeEditorDashboard(
+  input: unknown
+): { ok: true; config: string; dashboard: EditorDashboard } | { ok: false; error: string } {
   const result = validateEditorDashboard(input)
   if (!result.ok) return result
 
@@ -184,7 +186,7 @@ function defaultConfig(type: LocalWidgetType): LocalWidgetConfig {
 }
 
 function createUniqueId(dashboard: EditorDashboard, idFactory: () => string): string | null {
-  const ids = new Set(dashboard.widgets.map(widget => widget.id))
+  const ids = new Set(dashboard.widgets.map((widget) => widget.id))
   for (let attempt = 0; attempt < 100; attempt += 1) {
     let candidate: unknown
     try {
@@ -217,15 +219,22 @@ export function addWidget(
   if (nextY + height > LOCAL_VIEWER_LIMITS.rows) return fail('Dashboard has no remaining rows')
   return validateEditorDashboard({
     ...current.dashboard,
-    widgets: [...current.dashboard.widgets, { id, x: 0, y: nextY, w: width, h: height, type, config: defaultConfig(type) }]
+    widgets: [
+      ...current.dashboard.widgets,
+      { id, x: 0, y: nextY, w: width, h: height, type, config: defaultConfig(type) }
+    ]
   })
 }
 
 export function removeWidget(dashboard: EditorDashboard, id: string): EditorModelResult {
   const current = validateEditorDashboard(dashboard)
   if (!current.ok) return current
-  if (!ID_PATTERN.test(id) || !current.dashboard.widgets.some(widget => widget.id === id)) return fail('Widget was not found')
-  return validateEditorDashboard({ ...current.dashboard, widgets: current.dashboard.widgets.filter(widget => widget.id !== id) })
+  if (!ID_PATTERN.test(id) || !current.dashboard.widgets.some((widget) => widget.id === id))
+    return fail('Widget was not found')
+  return validateEditorDashboard({
+    ...current.dashboard,
+    widgets: current.dashboard.widgets.filter((widget) => widget.id !== id)
+  })
 }
 
 export function updateWidgetLayout(
@@ -235,20 +244,22 @@ export function updateWidgetLayout(
 ): EditorModelResult {
   const current = validateEditorDashboard(dashboard)
   if (!current.ok) return current
-  if (!ID_PATTERN.test(id) || !current.dashboard.widgets.some(widget => widget.id === id)) return fail('Widget was not found')
+  if (!ID_PATTERN.test(id) || !current.dashboard.widgets.some((widget) => widget.id === id))
+    return fail('Widget was not found')
   return validateEditorDashboard({
     ...current.dashboard,
-    widgets: current.dashboard.widgets.map(widget => (widget.id === id ? { ...widget, ...layout } : widget))
+    widgets: current.dashboard.widgets.map((widget) => (widget.id === id ? { ...widget, ...layout } : widget))
   })
 }
 
 export function updateWidgetConfig(dashboard: EditorDashboard, id: string, config: unknown): EditorModelResult {
   const current = validateEditorDashboard(dashboard)
   if (!current.ok) return current
-  if (!ID_PATTERN.test(id) || !current.dashboard.widgets.some(widget => widget.id === id)) return fail('Widget was not found')
+  if (!ID_PATTERN.test(id) || !current.dashboard.widgets.some((widget) => widget.id === id))
+    return fail('Widget was not found')
   return validateEditorDashboard({
     ...current.dashboard,
-    widgets: current.dashboard.widgets.map(widget => (widget.id === id ? { ...widget, config } : widget))
+    widgets: current.dashboard.widgets.map((widget) => (widget.id === id ? { ...widget, config } : widget))
   })
 }
 
@@ -264,10 +275,7 @@ export function updateDashboardTimewindow(
   })
 }
 
-export function updateDashboardResponsive(
-  dashboard: EditorDashboard,
-  responsive: boolean
-): EditorModelResult {
+export function updateDashboardResponsive(dashboard: EditorDashboard, responsive: boolean): EditorModelResult {
   const current = validateEditorDashboard(dashboard)
   if (!current.ok) return current
   return validateEditorDashboard({
@@ -283,9 +291,10 @@ export function updateWidgetTimewindow(
 ): EditorModelResult {
   const current = validateEditorDashboard(dashboard)
   if (!current.ok) return current
-  if (!ID_PATTERN.test(id) || !current.dashboard.widgets.some(widget => widget.id === id)) return fail('Widget was not found')
+  if (!ID_PATTERN.test(id) || !current.dashboard.widgets.some((widget) => widget.id === id))
+    return fail('Widget was not found')
   return validateEditorDashboard({
     ...current.dashboard,
-    widgets: current.dashboard.widgets.map(widget => (widget.id === id ? { ...widget, timewindow } : widget))
+    widgets: current.dashboard.widgets.map((widget) => (widget.id === id ? { ...widget, timewindow } : widget))
   })
 }

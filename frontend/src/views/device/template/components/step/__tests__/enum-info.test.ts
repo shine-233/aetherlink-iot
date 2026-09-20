@@ -17,9 +17,24 @@ vi.mock('@/constants/business', () => ({
 }))
 
 vi.mock('naive-ui', () => ({
-  NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : []) } }),
-  NSelect: defineComponent({ props: { value: { default: null } }, emits: ['update:value'], setup() { return () => h('div') } }),
-  NSpace: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } })
+  NButton: defineComponent({
+    emits: ['click'],
+    setup(_, { slots, emit }) {
+      return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : [])
+    }
+  }),
+  NSelect: defineComponent({
+    props: { value: { default: null } },
+    emits: ['update:value'],
+    setup() {
+      return () => h('div')
+    }
+  }),
+  NSpace: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  })
 }))
 
 import Component from '../enum-info.vue'
@@ -31,7 +46,12 @@ const mountComponent = (props = {}) => {
     props: { additionalInfo: [], ...props },
     global: {
       stubs: {
-        NDataTable: defineComponent({ props: { data: { type: Array, default: () => [] } }, setup() { return () => h('div') } })
+        NDataTable: defineComponent({
+          props: { data: { type: Array, default: () => [] } },
+          setup() {
+            return () => h('div')
+          }
+        })
       }
     }
   })
@@ -42,8 +62,14 @@ const mountComponent = (props = {}) => {
 const getSetupState = (wrapper: ReturnType<typeof shallowMount>) => wrapper.vm.$.setupState as Record<string, any>
 
 describe('device/template/components/step/enum-info.vue', () => {
-  beforeEach(() => { vi.clearAllMocks() })
-  afterEach(() => { while (mountedWrappers.length > 0) { mountedWrappers.pop()?.unmount() } })
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+  afterEach(() => {
+    while (mountedWrappers.length > 0) {
+      mountedWrappers.pop()?.unmount()
+    }
+  })
 
   it('initializes enum table columns and boolean value options from additional info', () => {
     const additionalInfo = [{ value_type: 'Boolean', value: true, description: 'enabled' }]
@@ -61,9 +87,7 @@ describe('device/template/components/step/enum-info.vue', () => {
     const wrapper = mountComponent({ additionalInfo: [] })
     const state = getSetupState(wrapper)
     state.onAdd()
-    expect(wrapper.emitted('updateAdditionalInfo')).toEqual([
-      [[{ value_type: '', value: '', description: '' }]]
-    ])
+    expect(wrapper.emitted('updateAdditionalInfo')).toEqual([[[{ value_type: '', value: '', description: '' }]]])
   })
 
   it('onChange updates field and emits updateAdditionalInfo', () => {
@@ -86,7 +110,12 @@ describe('device/template/components/step/enum-info.vue', () => {
   })
 
   it('onDel removes row and emits updateAdditionalInfo', () => {
-    const wrapper = mountComponent({ additionalInfo: [{ value_type: 'String', value: '1', description: 'd' }, { value_type: 'Number', value: '2', description: 'd2' }] })
+    const wrapper = mountComponent({
+      additionalInfo: [
+        { value_type: 'String', value: '1', description: 'd' },
+        { value_type: 'Number', value: '2', description: 'd2' }
+      ]
+    })
     const state = getSetupState(wrapper)
     state.onDel(0)
     expect(wrapper.emitted('updateAdditionalInfo')).toEqual([

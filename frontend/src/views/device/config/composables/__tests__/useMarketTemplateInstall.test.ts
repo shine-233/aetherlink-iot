@@ -35,22 +35,12 @@ describe('useMarketTemplateInstall', () => {
   })
 
   it('builds install dialog content without hard-coded page copy inside the flow', () => {
-    expect(buildInstallSuccessContent('Pump Controller', [], t)).toBe(
-      'Pump Controller\nmarket.installSuccessNextStep'
-    )
+    expect(buildInstallSuccessContent('Pump Controller', [], t)).toBe('Pump Controller\nmarket.installSuccessNextStep')
     expect(
-      buildInstallSuccessContent(
-        'Pump Controller',
-        [{ plugin_name: 'mqtt', min_version: '1.2.0', required: true }],
-        t
-      )
+      buildInstallSuccessContent('Pump Controller', [{ plugin_name: 'mqtt', min_version: '1.2.0', required: true }], t)
     ).toContain('market.missingPluginsMessage\nmqtt (>=1.2.0) [market.pluginRequired]\nmarket.contactAdmin')
-    expect(buildAlreadyInstalledContent('Pump Controller', t)).toBe(
-      'Pump Controller\nmarket.alreadyInstalledNextStep'
-    )
-    expect(buildPluginInstallFailureContent('missing plugin', t)).toBe(
-      'missing plugin\n\nmarket.pluginFailureHint'
-    )
+    expect(buildAlreadyInstalledContent('Pump Controller', t)).toBe('Pump Controller\nmarket.alreadyInstalledNextStep')
+    expect(buildPluginInstallFailureContent('missing plugin', t)).toBe('missing plugin\n\nmarket.pluginFailureHint')
   })
 
   it('opens login instead of silently returning when token is missing', async () => {

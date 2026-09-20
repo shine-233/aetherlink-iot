@@ -14,7 +14,9 @@ import { telemetryDataCurrent } from '@/service/api/device' // 假设此路径�
 import { createLogger } from '@/utils/logger'
 
 const HistoryData = defineAsyncComponent(() => import('../device/details/modules/telemetry/modules/history-data.vue'))
-const TimeSeriesData = defineAsyncComponent(() => import('../device/details/modules/telemetry/modules/time-series-data.vue'))
+const TimeSeriesData = defineAsyncComponent(
+  () => import('../device/details/modules/telemetry/modules/time-series-data.vue')
+)
 
 const props = defineProps<{
   id: string
@@ -69,13 +71,7 @@ onMounted(() => {
       <n-card header-class="border-b h-36px" hoverable :style="{ height: cardHeight + 'px' }">
         <div class="card-body">
           <span v-if="isColor(i)" class="index-style">{{ i.value }}</span>
-          <AnimatedNumber
-            v-else
-            :data-index="index"
-            class="c1"
-            :m-num="i.value"
-            :quantile-show="true"
-          />
+          <AnimatedNumber v-else :data-index="index" class="c1" :m-num="i.value" :quantile-show="true" />
           <span v-if="i.unit">{{ i.unit }}</span>
         </div>
         <template #header>
@@ -121,7 +117,7 @@ onMounted(() => {
       </n-card>
     </n-gi>
   </n-grid>
-  <n-modal aria-label="dialog" v-model:show="showHistory" :title="$t('generate.telemetry-history-data')" class="w-90%">
+  <n-modal v-model:show="showHistory" aria-label="dialog" :title="$t('generate.telemetry-history-data')" class="w-90%">
     <NCard>
       <HistoryData
         v-if="modelType === $t('custom.device_details.history')"

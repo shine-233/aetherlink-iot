@@ -63,13 +63,42 @@ const mountComponent = (props: Record<string, any> = {}) => {
         }),
         NFormItemGridItem: defineComponent({
           props: { span: Number, label: String, path: String },
-          setup(_, { slots }) { return () => h('div', { class: 'n-form-item' }, slots.default ? slots.default() : []) }
+          setup(_, { slots }) {
+            return () => h('div', { class: 'n-form-item' }, slots.default ? slots.default() : [])
+          }
         }),
-        NGrid: defineComponent({ props: { cols: Number, xGap: Number }, setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NInput: defineComponent({ props: { value: { default: '' }, type: String, placeholder: String }, emits: ['update:value'], setup() { return () => h('input') } }),
-        NSelect: defineComponent({ props: { value: { default: null }, options: Array }, emits: ['update:value'], setup() { return () => h('select') } }),
-        NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : []) } }),
-        NSpace: defineComponent({ props: { size: Number, justify: String, class: String }, setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } })
+        NGrid: defineComponent({
+          props: { cols: Number, xGap: Number },
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NInput: defineComponent({
+          props: { value: { default: '' }, type: String, placeholder: String },
+          emits: ['update:value'],
+          setup() {
+            return () => h('input')
+          }
+        }),
+        NSelect: defineComponent({
+          props: { value: { default: null }, options: Array },
+          emits: ['update:value'],
+          setup() {
+            return () => h('select')
+          }
+        }),
+        NButton: defineComponent({
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : [])
+          }
+        }),
+        NSpace: defineComponent({
+          props: { size: Number, justify: String, class: String },
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        })
       }
     }
   })

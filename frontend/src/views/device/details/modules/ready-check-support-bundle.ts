@@ -201,9 +201,7 @@ export const buildReadyCheckDiagnosticMarkdown = (input: ReadyCheckSupportBundle
     partialWarningLines.length ? partialWarningLines.join('\n') : '暂无部分诊断告警。',
     '',
     '## 前端采集失败',
-    collectorFailureLines.length
-      ? collectorFailureLines.join('\n')
-      : '本次刷新未发现前端采集器失败。',
+    collectorFailureLines.length ? collectorFailureLines.join('\n') : '本次刷新未发现前端采集器失败。',
     '',
     '## 后端建议步骤',
     input.backendNextSteps.length
@@ -214,7 +212,9 @@ export const buildReadyCheckDiagnosticMarkdown = (input: ReadyCheckSupportBundle
     '',
     '## 证据入口',
     input.deepLinks
-      .map((link, index) => `${index + 1}. ${t(link.labelKey)}: ${formatReadyCheckDeepLink(link)} / ${t(link.boundaryKey)}`)
+      .map(
+        (link, index) => `${index + 1}. ${t(link.labelKey)}: ${formatReadyCheckDeepLink(link)} / ${t(link.boundaryKey)}`
+      )
       .join('\n'),
     '',
     '## 证据边界',

@@ -168,7 +168,7 @@ export class UnifiedVisualEditorSystem {
     this.configService.registerMigration({
       fromVersion: '1.0.0',
       toVersion: '1.1.0',
-      migrate: config => {
+      migrate: (config) => {
         // 示例迁移逻辑
         return {
           ...config,
@@ -193,7 +193,7 @@ export class UnifiedVisualEditorSystem {
     this.dataFlowManager.registerSideEffect({
       name: 'SystemStateSync',
       condition: () => true, // 监听所有操作
-      execute: action => {
+      execute: (action) => {
         // 系统状态同步逻辑
       }
     })
@@ -216,10 +216,10 @@ export class UnifiedVisualEditorSystem {
     }
 
     // 监听配置变更
-    this.configService.onConfigurationChange(event => {})
+    this.configService.onConfigurationChange((event) => {})
 
     // 监听数据流更新
-    this.dataFlowManager.onDataFlowUpdate(action => {})
+    this.dataFlowManager.onDataFlowUpdate((action) => {})
 
     // 监听错误事件
     this.dataFlowManager.onError((action, error) => {})

@@ -37,14 +37,12 @@ describe('ScriptTemplateManager', () => {
     const templates = engine.templateManager.getAllTemplates()
 
     expect(templates).toHaveLength(ALL_BUILT_IN_TEMPLATES.length)
-    expect(templates.map(template => template.name)).toEqual(
-      ALL_BUILT_IN_TEMPLATES.map(template => template.name)
-    )
-    expect(new Set(templates.map(template => template.name)).size).toBe(templates.length)
+    expect(templates.map((template) => template.name)).toEqual(ALL_BUILT_IN_TEMPLATES.map((template) => template.name))
+    expect(new Set(templates.map((template) => template.name)).size).toBe(templates.length)
   })
 
   it('keeps HTTP integration behind the explicit audited network adapter contract', () => {
-    const template = ALL_BUILT_IN_TEMPLATES.find(candidate => candidate.name === 'HTTP API 数据获取')
+    const template = ALL_BUILT_IN_TEMPLATES.find((candidate) => candidate.name === 'HTTP API 数据获取')
 
     expect(template).toBeDefined()
     expect(template?.code).toContain('_utils.networkUtils')

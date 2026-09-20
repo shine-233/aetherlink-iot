@@ -138,11 +138,12 @@ describe('market browse bundle import gate', () => {
   it('renders create / overwrite / blocking as three separate lists', async () => {
     const wrapper = mountPage()
     await wrapper.vm.$nextTick()
-    await openImport(
-      wrapper,
-      JSON.stringify(SIGNED_BUNDLE),
-      { total: 2, create: ['new-one'], overwrite: ['existing-one'], blocking: ['dup:t'] }
-    )
+    await openImport(wrapper, JSON.stringify(SIGNED_BUNDLE), {
+      total: 2,
+      create: ['new-one'],
+      overwrite: ['existing-one'],
+      blocking: ['dup:t']
+    })
     const text = wrapper.text()
     expect(text).toContain('Create')
     expect(text).toContain('Overwrite')
@@ -169,11 +170,12 @@ describe('market browse bundle import gate', () => {
   it('flags an unsigned bundle instead of letting the user submit it', async () => {
     const wrapper = mountPage()
     await wrapper.vm.$nextTick()
-    await openImport(
-      wrapper,
-      JSON.stringify({ type_key: 'x', count: 1, templates: [{ name: 't' }] }),
-      { total: 1, create: ['t'], overwrite: [], blocking: [] }
-    )
+    await openImport(wrapper, JSON.stringify({ type_key: 'x', count: 1, templates: [{ name: 't' }] }), {
+      total: 1,
+      create: ['t'],
+      overwrite: [],
+      blocking: []
+    })
     // 前端不验签，只做预检：必须明确告知"未签名"而不是显示成可导入。
     expect(wrapper.text()).toContain('Unsigned (server will reject)')
   })

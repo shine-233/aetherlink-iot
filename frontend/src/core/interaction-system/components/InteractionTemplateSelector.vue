@@ -40,7 +40,7 @@
                 <!-- 交互事件预览 -->
                 <div class="template-events">
                   <n-tag
-                    v-for="event in template.config.map(c => c.event)"
+                    v-for="event in template.config.map((c) => c.event)"
                     :key="event"
                     size="small"
                     :type="getEventTagType(event)"
@@ -426,7 +426,7 @@ const allTemplates = computed(() => [...predefinedTemplates.value, ...userTempla
 
 // 根据分类获取模板
 const getTemplatesByCategory = (category: string) => {
-  return allTemplates.value.filter(template => template.category === category)
+  return allTemplates.value.filter((template) => template.category === category)
 }
 
 // 获取事件标签类型
@@ -461,7 +461,7 @@ const getTotalActionsCount = (configs: InteractionConfig[]) => {
 // 选择模板
 const selectTemplate = (template: InteractionTemplate) => {
   // 为每个配置项创建副本并发出选择事件
-  template.config.forEach(config => {
+  template.config.forEach((config) => {
     emit('select', { ...config })
   })
 }
@@ -478,7 +478,7 @@ const handleCustomTemplateUpload = (data: { file: { file?: File } }) => {
   if (!file) return false
 
   const reader = new FileReader()
-  reader.onload = e => {
+  reader.onload = (e) => {
     try {
       const content = e.target?.result as string
       customTemplateJson.value = content

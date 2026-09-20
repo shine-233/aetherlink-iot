@@ -17,7 +17,7 @@ const emit = defineEmits(['update:addAndEditModalVisible', 'update:objItem', 'de
 const addParameter: Ref<boolean> = ref(false)
 let eventsData: any = reactive([])
 const generalOptions: any = reactive(
-  ['String', 'Number', 'Boolean'].map(v => ({
+  ['String', 'Number', 'Boolean'].map((v) => ({
     label: v,
     value: v
   }))
@@ -69,15 +69,15 @@ const addParameterRules: any = reactive({
 
 // 编辑
 const addFlag: Ref<boolean> = ref(true)
-const edit: (row: any) => void = row => {
+const edit: (row: any) => void = (row) => {
   addParameter.value = true
   addFlag.value = false
   addParameterFrom = reactive({ ...row })
 }
 
 // 删除
-const del: (id: string) => void = async id => {
-  const index: number = eventsData.findIndex(item => item.id === id)
+const del: (id: string) => void = async (id) => {
+  const index: number = eventsData.findIndex((item) => item.id === id)
   eventsData.splice(index, 1)
 }
 
@@ -108,7 +108,7 @@ const col: Ref<DataTableColumns<AddDeviceModel.Device>> = ref([
     width: 350,
     title: () => $t('common.actions'),
     align: 'center',
-    render: row => {
+    render: (row) => {
       return (
         <NSpace justify={'center'}>
           <NButton quaternary type="primary" size={'small'} onClick={() => edit(row)}>
@@ -145,7 +145,7 @@ let addFrom: any = reactive({
 // 监听一下父组件传递过来的编辑数据
 watch(
   objItem,
-  newVal => {
+  (newVal) => {
     if (objItem.id) {
       addFrom = reactive({
         device_template_id: deviceTemplateId,
@@ -242,7 +242,7 @@ const parameterSubmit: () => void = async () => {
       description: ''
     })
   } else {
-    const index: number = eventsData.findIndex(item => item.id === addParameterFrom.id)
+    const index: number = eventsData.findIndex((item) => item.id === addParameterFrom.id)
     eventsData[index] = reactive(addParameterFrom)
   }
   addParameter.value = false

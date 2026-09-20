@@ -195,10 +195,11 @@ const commandDiagnosticsSupportBundle = computed(() => {
     recentLogs.length
       ? recentLogs
           .slice(0, 5)
-          .map((log, index) =>
-            `${index + 1}. ${[log.created_at, log.message_id, log.identify, log.status_label, log.error_message]
-              .filter(Boolean)
-              .join(' / ')}`
+          .map(
+            (log, index) =>
+              `${index + 1}. ${[log.created_at, log.message_id, log.identify, log.status_label, log.error_message]
+                .filter(Boolean)
+                .join(' / ')}`
           )
           .join('\n')
       : '<none>',

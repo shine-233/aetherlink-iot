@@ -49,7 +49,7 @@ function dataTypeOptions(row: RegisterRow) {
   if (row.type === 'coil' || row.type === 'discrete') {
     return [{ label: 'bool', value: 'bool' }]
   }
-  return ['u16', 'i16', 'u32', 'i32', 'f32'].map(value => ({ label: value, value }))
+  return ['u16', 'i16', 'u32', 'i32', 'f32'].map((value) => ({ label: value, value }))
 }
 
 function addRegister() {
@@ -103,7 +103,7 @@ async function handleSave() {
       unit_id: Number(target.unit_id) || 1,
       timeout_ms: Number(target.timeout_ms) || 3000
     },
-    registers: registers.map(row => ({
+    registers: registers.map((row) => ({
       key: row.key,
       type: row.type,
       address: Number(row.address) || 0,
@@ -129,7 +129,7 @@ onMounted(loadProfile)
 </script>
 
 <template>
-  <div class="modbus-profile" v-loading="loading">
+  <div v-loading="loading" class="modbus-profile">
     <n-alert type="info" :show-icon="false" class="mb-3">
       {{ $t('custom.device_details.modbusIntro') }}
     </n-alert>
@@ -173,9 +173,17 @@ onMounted(loadProfile)
         <tr v-for="(row, index) in registers" :key="index">
           <td><n-input v-model:value="row.key" size="small" /></td>
           <td>
-            <n-select v-model:value="row.type" size="small" :options="typeOptions" style="width: 110px" @update:value="row.dataType = row.type === 'coil' || row.type === 'discrete' ? 'bool' : 'u16'" />
+            <n-select
+              v-model:value="row.type"
+              size="small"
+              :options="typeOptions"
+              style="width: 110px"
+              @update:value="row.dataType = row.type === 'coil' || row.type === 'discrete' ? 'bool' : 'u16'"
+            />
           </td>
-          <td><n-input-number v-model:value="row.address" size="small" :min="0" :max="65535" style="width: 110px" /></td>
+          <td>
+            <n-input-number v-model:value="row.address" size="small" :min="0" :max="65535" style="width: 110px" />
+          </td>
           <td>
             <n-select v-model:value="row.dataType" size="small" :options="dataTypeOptions(row)" style="width: 90px" />
           </td>

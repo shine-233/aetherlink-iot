@@ -30,7 +30,11 @@ vi.mock('@/locales', () => ({
 }))
 
 vi.mock('naive-ui', () => ({
-  NFlex: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } })
+  NFlex: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  })
 }))
 
 import Component from '../attribute-info.vue'
@@ -47,7 +51,13 @@ const mountComponent = (props = {}) => {
         }
       },
       stubs: {
-        NSelect: defineComponent({ props: { value: { default: null } }, emits: ['update:value', 'search'], setup() { return () => h('div') } })
+        NSelect: defineComponent({
+          props: { value: { default: null } },
+          emits: ['update:value', 'search'],
+          setup() {
+            return () => h('div')
+          }
+        })
       }
     }
   })

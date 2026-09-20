@@ -5,7 +5,6 @@
  * 重构建议: 按领域继续拆分 public/internal 类型，减少临时契约被外部长期依赖。
  */
 
-
 // 编辑器大数据管理
 export type {
   IEditorDataManager,

@@ -43,7 +43,7 @@ function createCommonRequest<ResponseData = any>(
 
   axiosRetry(instance, createRetryOptions(axiosConf))
 
-  instance.interceptors.request.use(conf => {
+  instance.interceptors.request.use((conf) => {
     const config: InternalAxiosRequestConfig = { ...conf }
     const requestId = nanoid()
 
@@ -57,7 +57,7 @@ function createCommonRequest<ResponseData = any>(
   })
 
   instance.interceptors.response.use(
-    async response => {
+    async (response) => {
       if (opts.isBackendSuccess(response)) {
         return Promise.resolve(response)
       }
@@ -101,7 +101,7 @@ function createCommonRequest<ResponseData = any>(
   }
 
   function cancelAllRequest() {
-    cancelTokenSourceMap.forEach(cancelTokenSource => {
+    cancelTokenSourceMap.forEach((cancelTokenSource) => {
       cancelTokenSource.cancel()
     })
     cancelTokenSourceMap.clear()
@@ -177,7 +177,7 @@ export function createFlatRequest<ResponseData = any>(
 ) {
   const { instance, opts, cancelRequest, cancelAllRequest } = createCommonRequest<ResponseData>(axiosConfig, options)
 
-  instance.interceptors.request.use(config => {
+  instance.interceptors.request.use((config) => {
     if (config.params) {
       config.params = Object.entries(config.params).reduce((acc: Record<string, any>, [key, value]) => {
         if (value !== null) {

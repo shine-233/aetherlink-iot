@@ -39,7 +39,12 @@ const notificationScopeChecked = true
 const canEditWarningEmails = computed(() => {
   const roles = Array.isArray(authStore.userInfo?.roles) ? authStore.userInfo.roles : []
   const authority = String(authStore.userInfo?.authority || '').trim()
-  return roles.includes('SYS_ADMIN') || roles.includes('TENANT_ADMIN') || authority === 'SYS_ADMIN' || authority === 'TENANT_ADMIN'
+  return (
+    roles.includes('SYS_ADMIN') ||
+    roles.includes('TENANT_ADMIN') ||
+    authority === 'SYS_ADMIN' ||
+    authority === 'TENANT_ADMIN'
+  )
 })
 
 // 支持按换行、逗号、分号混合输入，并统一做去重与小写归一化。
@@ -83,7 +88,7 @@ async function saveWarningEmails() {
     return
   }
   const emails = parseEmails()
-  const invalid = emails.find(email => !emailPattern.test(email))
+  const invalid = emails.find((email) => !emailPattern.test(email))
   if (invalid) {
     window.$message?.error(`${t('invalidEmail')}: ${invalid}`)
     return

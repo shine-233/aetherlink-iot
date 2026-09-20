@@ -31,7 +31,7 @@ export const useLinkageActionTargetOptions = () => {
   const getGroup = async () => {
     deviceGroupOptions.value = []
     const res = await deviceGroupTree({})
-    res.data?.forEach(item => {
+    res.data?.forEach((item) => {
       deviceGroupOptions.value.push(item.group)
     })
     groupLoaded.value = true

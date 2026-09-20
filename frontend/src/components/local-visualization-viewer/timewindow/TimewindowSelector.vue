@@ -14,11 +14,7 @@ import {
   NTabPane,
   NTabs
 } from 'naive-ui'
-import {
-  DEFAULT_TIMEWINDOW_CONFIG,
-  REALTIME_INTERVAL_MAP,
-  resolveTimewindow
-} from './timewindow-model'
+import { DEFAULT_TIMEWINDOW_CONFIG, REALTIME_INTERVAL_MAP, resolveTimewindow } from './timewindow-model'
 import type {
   AggregationFunc,
   QuickHistoryInterval,
@@ -151,7 +147,7 @@ watch(() => props.modelValue, syncFromProps, { immediate: true, deep: true })
 const currentDisplayLabel = computed(() => {
   const current = props.modelValue || DEFAULT_TIMEWINDOW_CONFIG
   if (current.type === 'realtime') {
-    const item = REALTIME_OPTIONS.find(o => o.value === current.realtime?.interval)
+    const item = REALTIME_OPTIONS.find((o) => o.value === current.realtime?.interval)
     const label = item ? item.label : '1小时'
     const aggLabel = current.aggregation?.func === 'none' ? '原始' : current.aggregation?.func?.toUpperCase() || 'AVG'
     return `实时: 过去 ${label} (${aggLabel})`
@@ -163,7 +159,7 @@ const currentDisplayLabel = computed(() => {
     return `历史: ${s} ~ ${e}`
   }
 
-  const q = QUICK_HISTORY_OPTIONS.find(o => o.value === current.history?.quickInterval)
+  const q = QUICK_HISTORY_OPTIONS.find((o) => o.value === current.history?.quickInterval)
   return `历史: ${q ? q.label : '今天'}`
 })
 
@@ -214,7 +210,13 @@ function handleCancel() {
         <NButton :size="size" :disabled="disabled" secondary round class="timewindow-btn">
           <template #icon>
             <NIcon>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
                 <circle cx="12" cy="12" r="10"></circle>
                 <polyline points="12 6 12 12 16 14"></polyline>
               </svg>

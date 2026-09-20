@@ -4,26 +4,26 @@
  * 关键注意事项：测试数据和 mock 必须贴近真实契约，避免只证明代码能运行而没有业务断言。
  * 重构建议：可沉淀共享 fixture 与挂载工具，并补充异常、空数据和权限边界用例。
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createMobileLayoutGuard } from '../mobile';
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createMobileLayoutGuard } from '../mobile'
 
 const appState = vi.hoisted(() => ({
   isMobile: false
-}));
+}))
 
 vi.mock('@/store/modules/app', () => ({
   useAppStore: () => appState
-}));
+}))
 
-type TestGuard = (...args: unknown[]) => void;
+type TestGuard = (...args: unknown[]) => void
 
 function installGuard(routes: any[] = []) {
-  const beforeEach = vi.fn();
+  const beforeEach = vi.fn()
   createMobileLayoutGuard({
     beforeEach,
     getRoutes: () => routes
-  } as any);
-  return beforeEach.mock.calls[0][0] as TestGuard;
+  } as any)
+  return beforeEach.mock.calls[0][0] as TestGuard
 }
 
 function route(overrides: Record<string, any> = {}) {
@@ -31,57 +31,57 @@ function route(overrides: Record<string, any> = {}) {
     name: 'device_manage',
     meta: {},
     ...overrides
-  };
+  }
 }
 
 describe('mobile layout guard contract', () => {
   beforeEach(() => {
-    appState.isMobile = false;
-  });
+    appState.isMobile = false
+  })
 
   it('always resolves navigation on desktop routes', () => {
-    const guard = installGuard();
-    const next = vi.fn();
+    const guard = installGuard()
+    const next = vi.fn()
 
-    guard(route(), route({ name: 'login' }), next);
+    guard(route(), route({ name: 'login' }), next)
 
-    expect(next).toHaveBeenCalledTimes(1);
-    expect(next).toHaveBeenCalledWith();
-  });
+    expect(next).toHaveBeenCalledTimes(1)
+    expect(next).toHaveBeenCalledWith()
+  })
 
   it('checks registered base-layout routes on mobile before resolving navigation', () => {
-    appState.isMobile = true;
+    appState.isMobile = true
     const guard = installGuard([
       {
         name: 'device_manage',
         components: { default: { name: 'BaseLayout' } }
       }
-    ]);
-    const next = vi.fn();
+    ])
+    const next = vi.fn()
 
-    guard(route(), route({ name: 'login' }), next);
+    guard(route(), route({ name: 'login' }), next)
 
-    expect(next).toHaveBeenCalledTimes(1);
-  });
+    expect(next).toHaveBeenCalledTimes(1)
+  })
 
   it('does not treat constant, error, or explicitly disabled routes as mobile-layout candidates', () => {
-    appState.isMobile = true;
+    appState.isMobile = true
     const getRoutes = vi.fn(() => [
       {
         name: 'login',
         components: { default: { name: 'BaseLayout' } }
       }
-    ]);
-    const beforeEach = vi.fn();
-    createMobileLayoutGuard({ beforeEach, getRoutes } as any);
-    const guard = beforeEach.mock.calls[0][0] as TestGuard;
-    const next = vi.fn();
+    ])
+    const beforeEach = vi.fn()
+    createMobileLayoutGuard({ beforeEach, getRoutes } as any)
+    const guard = beforeEach.mock.calls[0][0] as TestGuard
+    const next = vi.fn()
 
-    guard(route({ name: 'login', meta: { constant: true } }), route(), next);
-    guard(route({ name: '403', meta: {} }), route(), next);
-    guard(route({ name: 'device_manage', meta: { disableMobileLayout: true } }), route(), next);
+    guard(route({ name: 'login', meta: { constant: true } }), route(), next)
+    guard(route({ name: '403', meta: {} }), route(), next)
+    guard(route({ name: 'device_manage', meta: { disableMobileLayout: true } }), route(), next)
 
-    expect(next).toHaveBeenCalledTimes(3);
-    expect(getRoutes).not.toHaveBeenCalled();
-  });
-});
+    expect(next).toHaveBeenCalledTimes(3)
+    expect(getRoutes).not.toHaveBeenCalled()
+  })
+})

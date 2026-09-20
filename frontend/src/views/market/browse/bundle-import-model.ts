@@ -70,9 +70,7 @@ export interface BundleImportResponse {
 export type BundleImportDecision = 'invalid' | 'empty' | 'unsigned' | 'blocked' | 'needs-confirm' | 'ready'
 
 /** 文件解析结果。 */
-export type ParseBundleResult =
-  | { ok: true; bundle: MarketBundlePayload }
-  | { ok: false; errorKey: string }
+export type ParseBundleResult = { ok: true; bundle: MarketBundlePayload } | { ok: false; errorKey: string }
 
 /** 解析打包文件文本。只做结构检查，不做业务校验。 */
 export function parseBundleText(text: string): ParseBundleResult {
@@ -122,7 +120,10 @@ export function hasOverwrite(preview: MarketBundlePreview | null | undefined): b
  * preview 为 null 表示还没拿到预览结果——此时只能做本地可见的判定
  * （解析 / 空包 / 未签名），不得放行到 `ready`。
  */
-export function decideBundleImport(bundle: MarketBundlePayload | null, preview: MarketBundlePreview | null): BundleImportDecision {
+export function decideBundleImport(
+  bundle: MarketBundlePayload | null,
+  preview: MarketBundlePreview | null
+): BundleImportDecision {
   if (!bundle) return 'invalid'
   if (!hasBundleSignature(bundle)) return 'unsigned'
   if (countTemplates(bundle) === 0) return 'empty'
@@ -173,7 +174,9 @@ export interface BundleImportSummary {
 }
 
 /** 结果汇总。未知 outcome 计入 rejected 而非静默丢弃——宁可多报，不可漏报。 */
-export function summarizeBundleImportResults(results: BundleImportItemResult[] | null | undefined): BundleImportSummary {
+export function summarizeBundleImportResults(
+  results: BundleImportItemResult[] | null | undefined
+): BundleImportSummary {
   if (!Array.isArray(results)) return { total: 0, created: 0, idempotent: 0, rejected: 0 }
   const summary: BundleImportSummary = { total: results.length, created: 0, idempotent: 0, rejected: 0 }
   for (const item of results) {

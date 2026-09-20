@@ -33,7 +33,7 @@ export function useMixMenu() {
   }
 
   const menus = computed(
-    () => routeStore.menus.find(menu => menu.key === activeFirstLevelMenuKey.value)?.children || []
+    () => routeStore.menus.find((menu) => menu.key === activeFirstLevelMenuKey.value)?.children || []
   )
 
   watch(

@@ -52,7 +52,7 @@ const columns: DataTableColumns<RDISharedDeviceRecord> = [
     key: 'device_name',
     title: () => $t('rdi.sharedWithMe.deviceName'),
     minWidth: 180,
-    render: row =>
+    render: (row) =>
       h(
         NButton,
         {
@@ -68,13 +68,13 @@ const columns: DataTableColumns<RDISharedDeviceRecord> = [
     key: 'device_id',
     title: () => $t('rdi.sharedWithMe.deviceId'),
     minWidth: 220,
-    render: row => row.device?.device_id || '-'
+    render: (row) => row.device?.device_id || '-'
   },
   {
     key: 'online',
     title: () => $t('rdi.sharedWithMe.status'),
     width: 120,
-    render: row =>
+    render: (row) =>
       h(
         NTag,
         { type: row.device?.online ? 'success' : 'default' },
@@ -85,13 +85,13 @@ const columns: DataTableColumns<RDISharedDeviceRecord> = [
     key: 'accepted_at',
     title: () => $t('rdi.sharedWithMe.acceptedAt'),
     minWidth: 180,
-    render: row => formatTime(row.accepted_at)
+    render: (row) => formatTime(row.accepted_at)
   },
   {
     key: 'actions',
     title: () => $t('rdi.sharedWithMe.actions'),
     width: 220,
-    render: row =>
+    render: (row) =>
       h('div', { class: 'action-row' }, [
         h(
           NButton,
@@ -122,12 +122,12 @@ const pagination: PaginationProps = reactive({
   showSizePicker: true,
   pageSizes: [10, 20, 50],
   itemCount: 0,
-  onChange: page => {
+  onChange: (page) => {
     queryParams.page = page
     pagination.page = page
     fetchSharedDevices()
   },
-  onUpdatePageSize: pageSize => {
+  onUpdatePageSize: (pageSize) => {
     queryParams.page = 1
     queryParams.page_size = pageSize
     pagination.page = 1

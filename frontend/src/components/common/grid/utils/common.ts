@@ -21,7 +21,7 @@ export function cloneLayout(layout: GridLayoutPlusItem[]): GridLayoutPlusItem[] 
     return JSON.parse(JSON.stringify(layout))
   } catch (error) {
     console.error('Failed to clone layout:', error)
-    return layout.map(item => ({ ...item }))
+    return layout.map((item) => ({ ...item }))
   }
 }
 
@@ -66,7 +66,7 @@ export function getLayoutStats(
     }
 
     const totalItems = layout.length
-    const totalRows = Math.max(...layout.map(item => item.y + item.h), 1)
+    const totalRows = Math.max(...layout.map((item) => item.y + item.h), 1)
     const totalCells = cols * totalRows
 
     // 计算所有项目占用的网格单元总数
@@ -147,8 +147,8 @@ export function searchLayout(
 
     const lowerQuery = query.toLowerCase()
 
-    return layout.filter(item => {
-      return searchFields.some(field => {
+    return layout.filter((item) => {
+      return searchFields.some((field) => {
         const value = item[field]
         if (typeof value === 'string') {
           return value.toLowerCase().includes(lowerQuery)
@@ -193,7 +193,7 @@ export function calculateGridUtilization(layout: GridLayoutPlusItem[], cols: num
   try {
     if (layout.length === 0) return 0
 
-    const actualRows = rows || Math.max(...layout.map(item => item.y + item.h), 1)
+    const actualRows = rows || Math.max(...layout.map((item) => item.y + item.h), 1)
     const totalCells = cols * actualRows
     const occupiedCells = layout.reduce((sum, item) => sum + item.w * item.h, 0)
 
@@ -210,7 +210,7 @@ export function calculateGridUtilization(layout: GridLayoutPlusItem[], cols: num
 export function calculateTotalRows(layout: GridLayoutPlusItem[], minRows = 0): number {
   try {
     if (layout.length === 0) return minRows
-    return Math.max(...layout.map(item => item.y + item.h), minRows)
+    return Math.max(...layout.map((item) => item.y + item.h), minRows)
   } catch (error) {
     console.error('Failed to calculate total rows:', error)
     return minRows
@@ -324,7 +324,7 @@ export function getGridStatistics(
     // 位置分布
     const totalRows = basic.totalRows
     const halfRows = totalRows / 2
-    const topHalf = layout.filter(item => item.y < halfRows).length
+    const topHalf = layout.filter((item) => item.y < halfRows).length
     const bottomHalf = layout.length - topHalf
 
     // 性能指标
@@ -375,7 +375,7 @@ function calculateFragmentation(layout: GridLayoutPlusItem[], cols: number): num
   try {
     if (layout.length === 0) return 0
 
-    const totalRows = Math.max(...layout.map(item => item.y + item.h))
+    const totalRows = Math.max(...layout.map((item) => item.y + item.h))
     const grid = Array(totalRows)
       .fill(null)
       .map(() => Array(cols).fill(false))
@@ -419,7 +419,7 @@ function calculateCompactness(layout: GridLayoutPlusItem[], cols: number): numbe
     if (layout.length === 0) return 100
 
     const totalArea = layout.reduce((sum, item) => sum + item.w * item.h, 0)
-    const boundingHeight = Math.max(...layout.map(item => item.y + item.h))
+    const boundingHeight = Math.max(...layout.map((item) => item.y + item.h))
     const boundingArea = cols * boundingHeight
 
     return boundingArea > 0 ? (totalArea / boundingArea) * 100 : 0
@@ -440,7 +440,7 @@ function calculateBalance(layout: GridLayoutPlusItem[], cols: number): number {
     if (layout.length === 0) return 100
 
     const centerX = cols / 2
-    const totalRows = Math.max(...layout.map(item => item.y + item.h))
+    const totalRows = Math.max(...layout.map((item) => item.y + item.h))
     const centerY = totalRows / 2
 
     // 计算重心
@@ -485,7 +485,7 @@ export function uniqueArray<T>(array: T[], keyFn?: (item: T) => string | number)
     }
 
     const seen = new Set<string | number>()
-    return array.filter(item => {
+    return array.filter((item) => {
       const key = keyFn(item)
       if (seen.has(key)) {
         return false

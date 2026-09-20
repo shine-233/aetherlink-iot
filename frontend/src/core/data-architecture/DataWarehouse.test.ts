@@ -96,7 +96,7 @@ describe('EnhancedDataWarehouse', () => {
       expect(warehouse.getComponentData('comp1')).toEqual({ source1: testData })
 
       // 等待过期
-      await new Promise(resolve => setTimeout(resolve, 150))
+      await new Promise((resolve) => setTimeout(resolve, 150))
 
       // 验证数据已过期
       expect(warehouse.getComponentData('comp1')).toBeNull()
@@ -107,7 +107,7 @@ describe('EnhancedDataWarehouse', () => {
       warehouse.storeComponentData('comp2', 'source2', { value: 2 }, 'json')
 
       // 等待过期
-      await new Promise(resolve => setTimeout(resolve, 150))
+      await new Promise((resolve) => setTimeout(resolve, 150))
 
       // 触发清理
       warehouse.performMaintenance()

@@ -76,13 +76,13 @@ const columns: DataTableColumns<IndustrySolutionItem> = [
     title: '引用资源数',
     key: 'resources',
     width: 100,
-    render: row => String((row.resources || []).length)
+    render: (row) => String((row.resources || []).length)
   },
   {
     title: '状态',
     key: 'status',
     width: 90,
-    render: row =>
+    render: (row) =>
       h(
         NTag,
         { type: row.status === 'active' ? 'success' : 'default', size: 'small' },
@@ -93,26 +93,26 @@ const columns: DataTableColumns<IndustrySolutionItem> = [
     title: '操作',
     key: 'actions',
     width: 220,
-    render: row =>
-      h(NSpace, { size: 8 }, {
-        default: () => [
-          h(
-            NButton,
-            { size: 'small', type: 'primary', onClick: () => openInstall(row) },
-            { default: () => '一键安装' }
-          ),
-          h(
-            NButton,
-            { size: 'small', onClick: () => openDetail(row) },
-            { default: () => '详情' }
-          ),
-          h(
-            NButton,
-            { size: 'small', type: 'error', secondary: true, onClick: () => confirmDelete(row) },
-            { default: () => '删除' }
-          )
-        ]
-      })
+    render: (row) =>
+      h(
+        NSpace,
+        { size: 8 },
+        {
+          default: () => [
+            h(
+              NButton,
+              { size: 'small', type: 'primary', onClick: () => openInstall(row) },
+              { default: () => '一键安装' }
+            ),
+            h(NButton, { size: 'small', onClick: () => openDetail(row) }, { default: () => '详情' }),
+            h(
+              NButton,
+              { size: 'small', type: 'error', secondary: true, onClick: () => confirmDelete(row) },
+              { default: () => '删除' }
+            )
+          ]
+        }
+      )
   }
 ]
 
@@ -149,7 +149,7 @@ async function submitCreate() {
     window.$message?.error('请输入方案名称')
     return
   }
-  const usable = createForm.resources.filter(row => row.resource_id.trim())
+  const usable = createForm.resources.filter((row) => row.resource_id.trim())
   if (!usable.length) {
     window.$message?.error('请至少填写一条有效的资源引用')
     return
@@ -159,7 +159,7 @@ async function submitCreate() {
     const { error, data } = await createIndustrySolution({
       name,
       description: createForm.description.trim() || undefined,
-      resources: usable.map(row => ({
+      resources: usable.map((row) => ({
         resource_type: row.resource_type,
         resource_id: row.resource_id.trim(),
         target_name: (row.target_name || '').trim() || undefined
@@ -280,7 +280,12 @@ onMounted(() => {
           <NInput v-model:value="createForm.name" maxlength="128" placeholder="例如：水务行业监测方案" />
         </NFormItem>
         <NFormItem label="描述">
-          <NInput v-model:value="createForm.description" type="textarea" maxlength="512" :autosize="{ minRows: 2, maxRows: 4 }" />
+          <NInput
+            v-model:value="createForm.description"
+            type="textarea"
+            maxlength="512"
+            :autosize="{ minRows: 2, maxRows: 4 }"
+          />
         </NFormItem>
         <div class="mb-2 flex items-center justify-between">
           <span class="font-500">资源引用清单（按安装顺序）</span>
@@ -292,11 +297,7 @@ onMounted(() => {
             :options="resourceTypeOptions"
             class="w-150px"
           />
-          <NInput
-            v-model:value="createForm.resources[index].resource_id"
-            placeholder="资源 ID"
-            class="flex-1"
-          />
+          <NInput v-model:value="createForm.resources[index].resource_id" placeholder="资源 ID" class="flex-1" />
           <NInput
             v-model:value="createForm.resources[index].target_name"
             placeholder="实例名称（可选）"
@@ -321,14 +322,20 @@ onMounted(() => {
       </template>
     </NModal>
 
-    <NModal v-model:show="detailVisible" preset="card" class="max-w-720px" :title="`方案详情：${detailSolution?.name || ''}`">
+    <NModal
+      v-model:show="detailVisible"
+      preset="card"
+      class="max-w-720px"
+      :title="`方案详情：${detailSolution?.name || ''}`"
+    >
       <NAlert
         v-if="installResult"
         :type="installResult.failed > 0 ? 'warning' : 'success'"
         :show-icon="false"
         class="mb-3"
       >
-        安装完成：共 {{ installResult.total }} 项，成功 {{ installResult.applied }} 项，失败 {{ installResult.failed }} 项
+        安装完成：共 {{ installResult.total }} 项，成功 {{ installResult.applied }} 项，失败
+        {{ installResult.failed }} 项
       </NAlert>
       <div v-if="installResult" class="mb-4">
         <div class="mb-1 font-500">本次安装结果</div>

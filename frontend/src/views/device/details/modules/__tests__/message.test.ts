@@ -32,7 +32,7 @@ vi.mock('@/locales', () => ({
   $t: (key: string) => key
 }))
 
-vi.mock('naive-ui', async importOriginal => {
+vi.mock('naive-ui', async (importOriginal) => {
   const actual = await importOriginal<typeof import('naive-ui')>()
   return {
     ...actual,
@@ -191,19 +191,19 @@ const collectVNodeHandlers = (
 
   const handler = vnode.props?.[eventName]
   if (Array.isArray(handler)) {
-    handlers.push(...handler.filter(item => typeof item === 'function'))
+    handlers.push(...handler.filter((item) => typeof item === 'function'))
   } else if (typeof handler === 'function') {
     handlers.push(handler)
   }
 
   if (Array.isArray(vnode.children)) {
-    vnode.children.forEach(child => collectVNodeHandlers(child, eventName, handlers, seen))
+    vnode.children.forEach((child) => collectVNodeHandlers(child, eventName, handlers, seen))
   } else if (vnode.children && typeof vnode.children === 'object') {
     Object.values(vnode.children).forEach((child: unknown) => {
       if (typeof child === 'function') {
         const rendered = child()
         if (Array.isArray(rendered)) {
-          rendered.forEach(item => collectVNodeHandlers(item, eventName, handlers, seen))
+          rendered.forEach((item) => collectVNodeHandlers(item, eventName, handlers, seen))
         } else {
           collectVNodeHandlers(rendered, eventName, handlers, seen)
         }
@@ -217,7 +217,7 @@ const collectVNodeHandlers = (
     collectVNodeHandlers(vnode.component.subTree, eventName, handlers, seen)
   }
   if (Array.isArray(vnode.dynamicChildren)) {
-    vnode.dynamicChildren.forEach(child => collectVNodeHandlers(child, eventName, handlers, seen))
+    vnode.dynamicChildren.forEach((child) => collectVNodeHandlers(child, eventName, handlers, seen))
   }
 
   return handlers
@@ -685,9 +685,7 @@ describe('message.vue', () => {
       setupState.extensionFormRef = {
         validate
       }
-      setupState.additionInfo = [
-        { name: 'field1', type: 'String', value: 'val1', enable: true, default_value: '' }
-      ]
+      setupState.additionInfo = [{ name: 'field1', type: 'String', value: 'val1', enable: true, default_value: '' }]
       setupState.latitude = '39.915'
       setupState.longitude = '116.404'
       hoisted.deviceLocation.mockResolvedValue({ error: null })
@@ -713,9 +711,7 @@ describe('message.vue', () => {
       })
       hoisted.deviceConfigInfo.mockResolvedValue({
         data: {
-          additional_info: JSON.stringify([
-            { name: 'field1', type: 'String', default_value: 'val', enable: false }
-          ])
+          additional_info: JSON.stringify([{ name: 'field1', type: 'String', default_value: 'val', enable: false }])
         },
         error: null
       })
@@ -725,7 +721,7 @@ describe('message.vue', () => {
 
       const setupState = getSetupState(wrapper)
       // All items have enable: false, so the v-else branch should render
-      expect(setupState.additionInfo.filter(item => item.enable === true).length).toBe(0)
+      expect(setupState.additionInfo.filter((item) => item.enable === true).length).toBe(0)
     })
 
     it('renders Boolean type field (NSwitch branch)', async () => {
@@ -859,7 +855,13 @@ describe('message.vue', () => {
             { name: 'strField', type: 'String', default_value: 'str-default', enable: true },
             { name: 'numField', type: 'Number', default_value: '0', enable: true },
             { name: 'boolField', type: 'Boolean', default_value: 'true', enable: true },
-            { name: 'enumField', type: 'Enum', default_value: 'a', enable: true, options: [{ label: 'A', value: 'a' }] },
+            {
+              name: 'enumField',
+              type: 'Enum',
+              default_value: 'a',
+              enable: true,
+              options: [{ label: 'A', value: 'a' }]
+            },
             { name: 'otherField', type: 'OtherType', default_value: 'other-default', enable: true }
           ])
         },
@@ -890,7 +892,13 @@ describe('message.vue', () => {
             { name: 'strField', type: 'String', default_value: 'str-default', enable: true },
             { name: 'numField', type: 'Number', default_value: '0', enable: true },
             { name: 'boolField', type: 'Boolean', default_value: 'false', enable: true },
-            { name: 'enumField', type: 'Enum', default_value: 'a', enable: true, options: [{ label: 'A', value: 'a' }] },
+            {
+              name: 'enumField',
+              type: 'Enum',
+              default_value: 'a',
+              enable: true,
+              options: [{ label: 'A', value: 'a' }]
+            },
             { name: 'otherField', type: 'OtherType', default_value: 'fallback', enable: true }
           ])
         },
@@ -914,7 +922,9 @@ describe('message.vue', () => {
       expect([setupState.longitude, setupState.latitude]).toEqual(
         expect.arrayContaining([expect.stringMatching(/^value-\d+$/), expect.stringMatching(/^value-\d+$/)])
       )
-      expect(setupState.additionInfo.filter(item => String(item.value).startsWith('value-')).length).toBeGreaterThanOrEqual(3)
+      expect(
+        setupState.additionInfo.filter((item) => String(item.value).startsWith('value-')).length
+      ).toBeGreaterThanOrEqual(3)
 
       setupState.isShow = true
       expect(showHandlers.length).toBeGreaterThanOrEqual(1)

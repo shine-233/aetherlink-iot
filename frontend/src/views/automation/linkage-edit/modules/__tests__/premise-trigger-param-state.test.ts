@@ -21,9 +21,7 @@ describe('premise-trigger-param-state', () => {
   })
 
   it('parses event param options from string payloads', () => {
-    expect(
-      parseEventParamOptions('[{"data_identifier":"switch","data_name":"Switch","data_type":"Bool"}]')
-    ).toEqual([
+    expect(parseEventParamOptions('[{"data_identifier":"switch","data_name":"Switch","data_type":"Bool"}]')).toEqual([
       {
         label: 'switch(Switch)',
         value: 'switch',

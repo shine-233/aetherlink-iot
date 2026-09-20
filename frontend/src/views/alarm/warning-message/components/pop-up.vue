@@ -99,7 +99,7 @@ const loadMoreNotificationGroupData = async () => {
     state.notificationGroupLoading = false
   }
 }
-const notificationGroupHandleScroll = async e => {
+const notificationGroupHandleScroll = async (e) => {
   const target = e.target
   if (target.scrollTop + target.clientHeight >= target.scrollHeight) {
     await loadMoreNotificationGroupData()
@@ -303,7 +303,7 @@ async function editInfoText() {
 
 function handleReset(e) {
   e.preventDefault()
-  formRef.value?.validate(errors => {
+  formRef.value?.validate((errors) => {
     if (!errors) {
       if (props.type === 'add') {
         add()
@@ -314,7 +314,7 @@ function handleReset(e) {
   })
 }
 
-watch(props, newValue => {
+watch(props, (newValue) => {
   logger.info(newValue)
   if (props.type === 'edit') {
     formData.value = props.editData

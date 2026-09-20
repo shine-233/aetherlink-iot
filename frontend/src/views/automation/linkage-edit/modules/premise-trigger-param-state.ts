@@ -116,7 +116,10 @@ export const createSelectedTriggerParamState = (data: any[]) => {
   }
 }
 
-export const commitSelectedTriggerParam = (ifItem: Record<string, any>, selectionState: TriggerParamSelectionState = {}) => {
+export const commitSelectedTriggerParam = (
+  ifItem: Record<string, any>,
+  selectionState: TriggerParamSelectionState = {}
+) => {
   applyTriggerParamSelectionState(ifItem, selectionState, { resetComparatorState: true })
 }
 

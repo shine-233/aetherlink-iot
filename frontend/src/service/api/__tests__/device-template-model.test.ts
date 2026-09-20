@@ -109,4 +109,3 @@ describe('device-template-model API service', () => {
     })
   })
 })
-

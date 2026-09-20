@@ -94,7 +94,7 @@ const columns = ref([
     align: 'left',
     minWidth: '140px',
     render: (row: any) => {
-      const notificationType = notificationOptions.find(option => option.value === row.notification_type)?.label || ''
+      const notificationType = notificationOptions.find((option) => option.value === row.notification_type)?.label || ''
       return notificationType
     }
   },
@@ -104,7 +104,7 @@ const columns = ref([
     align: 'left',
     minWidth: '140px',
     render: (row: any) => {
-      return <NSwitch value={row.status === 'OPEN'} onChange={value => handleSwitchChange(row, value)} />
+      return <NSwitch value={row.status === 'OPEN'} onChange={(value) => handleSwitchChange(row, value)} />
     }
   },
   {

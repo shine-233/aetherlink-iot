@@ -118,7 +118,7 @@ const previewText = computed(() => {
 // 🔥 全新方案：基于内容哈希的智能去重
 watch(
   currentStrategy,
-  newValue => {
+  (newValue) => {
     if (!isUpdatingFromProps.value) {
       // 计算内容哈希，避免相同内容的重复emit
       const contentHash = JSON.stringify(newValue)
@@ -136,7 +136,7 @@ watch(
 // 🔥 全新方案：智能props同步，基于内容哈希判断
 watch(
   () => props.modelValue,
-  newValue => {
+  (newValue) => {
     if (newValue) {
       const newContentHash = JSON.stringify(newValue)
       const currentContentHash = JSON.stringify(currentStrategy.value)
@@ -195,7 +195,7 @@ const selectMergeStrategy = (strategyType: string) => {
         size="small"
         style="flex: 1; max-width: 150px"
         :options="
-          mergeStrategyOptions.map(opt => ({
+          mergeStrategyOptions.map((opt) => ({
             label: `${opt.icon} ${opt.label}`,
             value: opt.value
           }))
@@ -216,7 +216,7 @@ const selectMergeStrategy = (strategyType: string) => {
           }))
         "
         @update:value="
-          val => {
+          (val) => {
             currentStrategy.selectedIndex = val
           }
         "

@@ -9,11 +9,11 @@ import { flushPromises, shallowMount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const hoisted = vi.hoisted(() => ({
-  getSystemLogList: vi.fn(),
+  getSystemLogList: vi.fn()
 }))
 
 vi.mock('@/service/api/system-management-user', () => ({
-  getSystemLogList: hoisted.getSystemLogList,
+  getSystemLogList: hoisted.getSystemLogList
 }))
 
 vi.mock('vue-router', () => ({
@@ -29,11 +29,15 @@ vi.mock('@/utils/common/datetime', () => ({
 }))
 
 vi.mock('~/packages/hooks', () => ({
-  useLoading: () => ({ loading: { value: false }, startLoading: vi.fn(), endLoading: vi.fn() }),
+  useLoading: () => ({ loading: { value: false }, startLoading: vi.fn(), endLoading: vi.fn() })
 }))
 
 vi.mock('../components/detail-modal.vue', () => ({
-  default: defineComponent({ setup() { return () => h('div') } })
+  default: defineComponent({
+    setup() {
+      return () => h('div')
+    }
+  })
 }))
 
 import SystemLogIndex from '../index.vue'
@@ -50,15 +54,64 @@ const mountComponent = (props = {}) => {
         }
       },
       stubs: {
-        NCard: defineComponent({ props: ['title'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NForm: defineComponent({ props: ['model', 'inline', 'labelPlacement'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NFormItem: defineComponent({ props: ['label', 'path'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NInput: defineComponent({ props: { value: { default: '' } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NSelect: defineComponent({ props: { value: { default: null }, options: { default: () => [] } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NDataTable: defineComponent({ props: ['data', 'loading', 'columns'], setup() { return () => h('div') } }),
-        NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } }),
-        NDatePicker: defineComponent({ props: { value: { default: null }, type: String }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NPagination: defineComponent({ props: ['page', 'itemCount'], emits: ['update:page'], setup() { return () => h('div') } }),
+        NCard: defineComponent({
+          props: ['title'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NForm: defineComponent({
+          props: ['model', 'inline', 'labelPlacement'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NFormItem: defineComponent({
+          props: ['label', 'path'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NInput: defineComponent({
+          props: { value: { default: '' } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NSelect: defineComponent({
+          props: { value: { default: null }, options: { default: () => [] } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NDataTable: defineComponent({
+          props: ['data', 'loading', 'columns'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NButton: defineComponent({
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default?.())
+          }
+        }),
+        NDatePicker: defineComponent({
+          props: { value: { default: null }, type: String },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NPagination: defineComponent({
+          props: ['page', 'itemCount'],
+          emits: ['update:page'],
+          setup() {
+            return () => h('div')
+          }
+        })
       }
     }
   })
@@ -78,7 +131,7 @@ describe('SystemLogIndex', () => {
   })
 
   afterEach(() => {
-    mountedWrappers.forEach(w => w.unmount())
+    mountedWrappers.forEach((w) => w.unmount())
     mountedWrappers.length = 0
     delete (globalThis as any).React
   })
@@ -102,7 +155,17 @@ describe('SystemLogIndex', () => {
   })
 
   it('should populate table data on successful fetch', async () => {
-    const mockData = [{ id: '1', created_at: '2024-01-01', ip: '127.0.0.1', path: '/api/test', name: 'POST', latency: 100, username: 'admin' }]
+    const mockData = [
+      {
+        id: '1',
+        created_at: '2024-01-01',
+        ip: '127.0.0.1',
+        path: '/api/test',
+        name: 'POST',
+        latency: 100,
+        username: 'admin'
+      }
+    ]
     hoisted.getSystemLogList.mockResolvedValue({ data: { list: mockData, total: 1 } })
     const wrapper = mountComponent()
     await flushPromises()
@@ -121,13 +184,15 @@ describe('SystemLogIndex', () => {
     state.queryParams.ip = '127.0.0.1'
     state.handleQuery()
     await flushPromises()
-    expect(hoisted.getSystemLogList).toHaveBeenCalledWith(expect.objectContaining({
-      page: 1,
-      page_size: 10,
-      username: 'admin',
-      method: 'POST',
-      ip: '127.0.0.1'
-    }))
+    expect(hoisted.getSystemLogList).toHaveBeenCalledWith(
+      expect.objectContaining({
+        page: 1,
+        page_size: 10,
+        username: 'admin',
+        method: 'POST',
+        ip: '127.0.0.1'
+      })
+    )
   })
 
   it('should handle reset', async () => {

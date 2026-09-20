@@ -179,8 +179,7 @@ export class SimpleDataBridge {
         dataSourceConfig = requirement as any
       } else {
         const nestedSource = requirement.dataSources?.[0] as
-          | { dataSources?: DataSourceConfiguration['dataSources']; createdAt?: number; updatedAt?: number }
-          | undefined
+          { dataSources?: DataSourceConfiguration['dataSources']; createdAt?: number; updatedAt?: number } | undefined
         if (nestedSource?.dataSources) {
           dataSourceConfig = {
             componentId: requirement.componentId,
@@ -287,7 +286,7 @@ export class SimpleDataBridge {
    * @returns DataSourceConfiguration 格式的配置
    */
   private convertToDataSourceConfiguration(requirement: ComponentDataRequirement): DataSourceConfiguration {
-    const dataSources = requirement.dataSources.map(dataSource => ({
+    const dataSources = requirement.dataSources.map((dataSource) => ({
       sourceId: dataSource.id,
       dataItems: [
         {
@@ -340,7 +339,7 @@ export class SimpleDataBridge {
    * @param data 数据
    */
   private notifyDataUpdate(componentId: string, data: Record<string, any>): void {
-    this.callbacks.forEach(callback => {
+    this.callbacks.forEach((callback) => {
       try {
         callback(componentId, data)
       } catch (_error) {

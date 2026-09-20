@@ -36,7 +36,7 @@ export function useCanvasEditor(options: UseCanvasEditorOptions = {}) {
   /** Serialization of the last saved state; empty string means "never saved". */
   const savedSnapshot = ref('')
 
-  const selectedNode = computed(() => canvas.value.nodes.find(node => node.id === selectedId.value) ?? null)
+  const selectedNode = computed(() => canvas.value.nodes.find((node) => node.id === selectedId.value) ?? null)
 
   const isDirty = computed(() => {
     if (savedSnapshot.value === '') return canvas.value.nodes.length > 0
@@ -71,7 +71,7 @@ export function useCanvasEditor(options: UseCanvasEditorOptions = {}) {
 
   function addNode(node: Omit<ScadaCanvasNode, 'id'> & { id?: string }): ScadaCanvasNode {
     const id = node.id && node.id.trim() !== '' ? node.id : nextScadaCanvasNodeId(canvas.value.nodes)
-    if (canvas.value.nodes.some(existing => existing.id === id)) {
+    if (canvas.value.nodes.some((existing) => existing.id === id)) {
       throw new Error(`canvas already contains node ${id}`)
     }
     const created = clampNode({ ...node, id } as ScadaCanvasNode)
@@ -81,7 +81,7 @@ export function useCanvasEditor(options: UseCanvasEditorOptions = {}) {
   }
 
   function updateNode(id: string, patch: Partial<Omit<ScadaCanvasNode, 'id'>>) {
-    const nodes = canvas.value.nodes.map(node => (node.id === id ? clampNode({ ...node, ...patch }) : node))
+    const nodes = canvas.value.nodes.map((node) => (node.id === id ? clampNode({ ...node, ...patch }) : node))
     canvas.value = { ...canvas.value, nodes }
   }
 
@@ -90,7 +90,7 @@ export function useCanvasEditor(options: UseCanvasEditorOptions = {}) {
   }
 
   function removeNode(id: string) {
-    canvas.value = { ...canvas.value, nodes: canvas.value.nodes.filter(node => node.id !== id) }
+    canvas.value = { ...canvas.value, nodes: canvas.value.nodes.filter((node) => node.id !== id) }
     if (selectedId.value === id) selectedId.value = null
   }
 

@@ -222,7 +222,6 @@ const syncSubmitPayload = () => {
   return payload
 }
 
-
 const submitData = async () => {
   const submitPayload = syncSubmitPayload()
   const blocker = getAutomationSubmitBlocker(submitPayload, $t)

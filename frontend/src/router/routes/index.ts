@@ -115,7 +115,7 @@ export function createRoutes() {
   // while provider=legacy-thingsvis remains an explicit external opt-in.
   constantRoutes.push(thingsvisPreviewRoute)
 
-  ;[...customRoutes, ...(generatedRoutes as ElegantRoute[])].forEach(item => {
+  ;[...customRoutes, ...(generatedRoutes as ElegantRoute[])].forEach((item) => {
     if (item.meta?.constant) {
       constantRoutes.push(item)
     } else {

@@ -236,14 +236,14 @@ const handleDateRangeChange = (value: [number, number] | null) => {
 
 const showModal = computed({
   get: () => props.visible,
-  set: value => emit('update:visible', value)
+  set: (value) => emit('update:visible', value)
 })
 
 // 弹窗首次打开时自动拉取当前设备历史，保证用户看到的总是最新分页第一页。
 // 弹窗从关闭变为打开时，以当前 deviceId 为基准重新拉历史记录，避免看到上次会话残留数据。
 watch(
   () => props.visible,
-  newVal => {
+  (newVal) => {
     if (newVal && props.deviceId) {
       queryParams.device_id = props.deviceId
       queryParams.page = 1
@@ -258,7 +258,7 @@ watch(
 // 如果弹窗保持打开但父层切换了设备，也要立即切换查询上下文，避免旧设备历史留在当前视图。
 watch(
   () => props.deviceId,
-  newVal => {
+  (newVal) => {
     if (newVal && props.visible) {
       queryParams.device_id = newVal
       queryParams.page = 1
@@ -273,7 +273,7 @@ watch(
   <NModal
     v-model:show="showModal"
     preset="dialog"
-    :showIcon="false"
+    :show-icon="false"
     :title="$t('common.deviceActiveTime')"
     :style="{ minWidth: '600px', maxHeight: '90vh' }"
   >

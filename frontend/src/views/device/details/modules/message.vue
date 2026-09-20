@@ -172,7 +172,9 @@ const openMapAndGetPosition = () => {
 // 2. 若设备绑定了设备配置，再读取配置里的扩展字段 schema。
 // 3. 采用“设备已存值优先，模板默认值兜底”的策略生成最终表单状态。
 const getConfigInfo = async () => {
-  const configInfoPromise = props.deviceConfigId ? deviceConfigInfo({ id: props.deviceConfigId }) : Promise.resolve(null)
+  const configInfoPromise = props.deviceConfigId
+    ? deviceConfigInfo({ id: props.deviceConfigId })
+    : Promise.resolve(null)
   const [result, resultData] = await Promise.all([deviceDetail(query.d_id as string), configInfoPromise])
   const location = result?.data?.location || ''
   const deviceAdditionalInfo = safeParseJSON<Record<string, any>>(result?.data?.additional_info, {})
@@ -184,9 +186,9 @@ const getConfigInfo = async () => {
     const parsedAdditionalInfo = safeParseJSON<ExtensionInfo[]>(resultData?.data?.additional_info, [])
     const extendedInfoCandidates = deviceAdditionalInfo?.extendedInfo ?? deviceAdditionalInfo ?? []
     const extendedInfo = normalizeExtendedInfo(extendedInfoCandidates)
-    const extendedInfoMap = new Map(extendedInfo.map(info => [info.name, info.value]))
+    const extendedInfoMap = new Map(extendedInfo.map((info) => [info.name, info.value]))
 
-    additionInfo.value = parsedAdditionalInfo.map(item => {
+    additionInfo.value = parsedAdditionalInfo.map((item) => {
       const resolvedValue = extendedInfoMap.has(item.name) ? extendedInfoMap.get(item.name) : item.default_value
 
       return {
@@ -219,11 +221,11 @@ onMounted(getConfigInfo)
     </NCard>
 
     <NCard :title="$t('generate.extension-info')" class="mb-4">
-      <div v-if="additionInfo.filter(item => item.enable === true).length > 0">
+      <div v-if="additionInfo.filter((item) => item.enable === true).length > 0">
         <NForm ref="extensionFormRef" class="mt-4">
           <div class="space-y-4">
             <div
-              v-for="item in additionInfo.filter(item => item.enable === true)"
+              v-for="item in additionInfo.filter((item) => item.enable === true)"
               :key="item.name"
               class="flex items-center gap-3"
             >
@@ -250,34 +252,34 @@ onMounted(getConfigInfo)
                   v-if="item.type === 'String'"
                   :value="getTextValue(item)"
                   :placeholder="`${$t('generate.extensionPlaceholderDefault')} ${item.default_value || ''}`"
-                  @update:value="value => setItemValue(item, value)"
+                  @update:value="(value) => setItemValue(item, value)"
                 />
                 <NInputNumber
                   v-else-if="item.type === 'Number'"
                   :value="getNumberValue(item)"
                   :placeholder="`${$t('generate.extensionPlaceholderDefault')} ${item.default_value || ''}`"
                   class="w-full"
-                  @update:value="value => setItemValue(item, value)"
+                  @update:value="(value) => setItemValue(item, value)"
                 />
                 <NSwitch
                   v-else-if="item.type === 'Boolean'"
                   :value="getBooleanValue(item)"
                   :checked-value="true"
                   :unchecked-value="false"
-                  @update:value="value => setItemValue(item, value)"
+                  @update:value="(value) => setItemValue(item, value)"
                 />
                 <NSelect
                   v-else-if="item.type === 'Enum'"
                   :value="getTextValue(item)"
                   :options="item.options || []"
                   :placeholder="`${$t('generate.extensionPlaceholderDefault')} ${item.default_value || ''}`"
-                  @update:value="value => setItemValue(item, value as string)"
+                  @update:value="(value) => setItemValue(item, value as string)"
                 />
                 <NInput
                   v-else
                   :value="getTextValue(item)"
                   :placeholder="`${$t('generate.extensionPlaceholderDefault')} ${item.default_value || ''}`"
-                  @update:value="value => setItemValue(item, value)"
+                  @update:value="(value) => setItemValue(item, value)"
                 />
               </div>
             </div>

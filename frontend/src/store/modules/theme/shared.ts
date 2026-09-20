@@ -86,12 +86,12 @@ function createThemePaletteColors(colors: App.Theme.ThemeColor) {
   const colorKeys = Object.keys(colors) as App.Theme.ThemeColorKey[]
   const colorPaletteVar = {} as App.Theme.ThemePaletteColor
 
-  colorKeys.forEach(key => {
+  colorKeys.forEach((key) => {
     const { palettes, main } = getColorPalette(colors[key], key)
 
     colorPaletteVar[key] = main.hexcode
 
-    palettes.forEach(item => {
+    palettes.forEach((item) => {
       colorPaletteVar[`${key}-${item.number}`] = item.hexcode
     })
   })
@@ -199,19 +199,19 @@ interface NaiveColorAction {
  */
 function getNaiveThemeColors(colors: App.Theme.ThemeColor) {
   const colorActions: NaiveColorAction[] = [
-    { scene: '', handler: color => color },
-    { scene: 'Suppl', handler: color => color },
-    { scene: 'Hover', handler: color => getColorByColorPaletteNumber(color, 500) },
-    { scene: 'Pressed', handler: color => getColorByColorPaletteNumber(color, 700) },
-    { scene: 'Active', handler: color => addColorAlpha(color, 0.1) }
+    { scene: '', handler: (color) => color },
+    { scene: 'Suppl', handler: (color) => color },
+    { scene: 'Hover', handler: (color) => getColorByColorPaletteNumber(color, 500) },
+    { scene: 'Pressed', handler: (color) => getColorByColorPaletteNumber(color, 700) },
+    { scene: 'Active', handler: (color) => addColorAlpha(color, 0.1) }
   ]
 
   const themeColors: NaiveThemeColor = {}
 
   const colorEntries = Object.entries(colors) as [App.Theme.ThemeColorKey, string][]
 
-  colorEntries.forEach(color => {
-    colorActions.forEach(action => {
+  colorEntries.forEach((color) => {
+    colorActions.forEach((action) => {
       const [colorType, colorValue] = color
       const colorKey: NaiveColorKey = `${colorType}Color${action.scene}`
       themeColors[colorKey] = action.handler(colorValue)

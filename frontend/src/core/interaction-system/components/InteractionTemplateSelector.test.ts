@@ -228,7 +228,7 @@ const mountSelector = () => {
 }
 
 const buttonByText = (wrapper: VueWrapper, text: string) => {
-  const button = wrapper.findAll('button').find(item => item.text().includes(text))
+  const button = wrapper.findAll('button').find((item) => item.text().includes(text))
   if (!button) throw new Error(`Button not found: ${text}`)
   return button
 }
@@ -287,7 +287,7 @@ describe('InteractionTemplateSelector.vue', () => {
     expect(wrapper.text()).toContain('interaction.template.predefined.pulseAnimation')
     expect(wrapper.text()).toContain('interaction.template.predefined.completeFeedback')
     expect(wrapper.text()).toContain('3 interaction.template.actions')
-    expect(wrapper.findAll('.n-tag-stub').map(item => item.attributes('data-type'))).toEqual(
+    expect(wrapper.findAll('.n-tag-stub').map((item) => item.attributes('data-type'))).toEqual(
       expect.arrayContaining(['success', 'info', 'warning', 'default'])
     )
   })
@@ -319,12 +319,12 @@ describe('InteractionTemplateSelector.vue', () => {
 
     const complexCard = wrapper
       .findAll('.template-card')
-      .find(card => card.text().includes('interaction.template.predefined.completeFeedback'))
+      .find((card) => card.text().includes('interaction.template.predefined.completeFeedback'))
     if (!complexCard) throw new Error('Complex template card not found')
 
     await complexCard.trigger('click')
 
-    const selectedEvents = wrapper.emitted('select')?.map(eventArgs => (eventArgs[0] as any).event)
+    const selectedEvents = wrapper.emitted('select')?.map((eventArgs) => (eventArgs[0] as any).event)
     expect(selectedEvents).toEqual(['hover', 'click', 'focus'])
   })
 
@@ -381,7 +381,7 @@ describe('InteractionTemplateSelector.vue', () => {
       })
     ])
 
-    const userCard = wrapper.findAll('.template-card').find(card => card.text().includes('User template'))
+    const userCard = wrapper.findAll('.template-card').find((card) => card.text().includes('User template'))
     if (!userCard) throw new Error('Imported user template card not found')
     await userCard.trigger('click')
     expect(wrapper.emitted('select')?.at(-1)?.[0]).toMatchObject({

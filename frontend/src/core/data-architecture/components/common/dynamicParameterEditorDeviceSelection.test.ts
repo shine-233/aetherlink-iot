@@ -46,6 +46,6 @@ describe('dynamicParameterEditorDeviceSelection', () => {
       4
     )
 
-    expect(result?.map(parameter => parameter.key)).toEqual(['temperature', 'humidity'])
+    expect(result?.map((parameter) => parameter.key)).toEqual(['temperature', 'humidity'])
   })
 })

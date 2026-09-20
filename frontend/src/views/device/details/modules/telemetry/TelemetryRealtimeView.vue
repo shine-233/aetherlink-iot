@@ -119,12 +119,7 @@ const emit = defineEmits<{
         </n-button>
       </n-space>
     </n-alert>
-    <n-alert
-      v-if="isTelemetryHardRenderCapped"
-      type="warning"
-      class="telemetry-state-alert"
-      :show-icon="false"
-    >
+    <n-alert v-if="isTelemetryHardRenderCapped" type="warning" class="telemetry-state-alert" :show-icon="false">
       {{ $t('custom.device_details.telemetryRenderHardLimited') }}
     </n-alert>
     <n-grid :x-gap="cardMargin" :y-gap="cardMargin" cols="1 600:2 900:3 1200:4">

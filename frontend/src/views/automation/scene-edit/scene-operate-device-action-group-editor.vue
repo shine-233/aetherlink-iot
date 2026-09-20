@@ -195,7 +195,7 @@ const deleteIfGroupsSubItem = (ifIndex: number) => {
         >
           <NSelect
             v-model:value="instructItem.action_param_type"
-            :options="(instructItem.actionParamTypeOptions as any)"
+            :options="instructItem.actionParamTypeOptions as any"
             @update:value="(data) => actionParamTypeChange(instructItem, data)"
           />
         </NFormItem>
@@ -219,7 +219,7 @@ const deleteIfGroupsSubItem = (ifIndex: number) => {
           :show-feedback="false"
           :path="`actions[${actionGroupIndex}].actionInstructList[${instructIndex}].actionValue`"
           :rule="configFormRules.actionValue"
-          :validation-status="(instructItem.inputValidationStatus as any)"
+          :validation-status="instructItem.inputValidationStatus as any"
           :feedback="instructItem.inputFeedback"
           class="max-w-60 w-full"
         >
@@ -254,7 +254,7 @@ const deleteIfGroupsSubItem = (ifIndex: number) => {
           :show-feedback="false"
           :path="`actions[${actionGroupIndex}].actionInstructList[${instructIndex}].actionValue`"
           :rule="configFormRules.actionValue"
-          :validation-status="(instructItem.inputValidationStatus as any)"
+          :validation-status="instructItem.inputValidationStatus as any"
           :feedback="instructItem.inputFeedback"
           class="w-60"
         >

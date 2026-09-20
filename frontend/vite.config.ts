@@ -142,10 +142,7 @@ export default defineConfig(function (configEnv) {
             if (normalizedId.includes('naive-ui')) return 'vendor-ui'
             // three/@tresjs power the 3D device panel; isolate the large three
             // bundle so it only downloads with routes that mount the panel.
-            if (
-              normalizedId.includes('@tresjs') ||
-              normalizedId.includes('node_modules/three/')
-            ) {
+            if (normalizedId.includes('@tresjs') || normalizedId.includes('node_modules/three/')) {
               return 'vendor-three'
             }
             if (normalizedId.includes('motion-v')) return 'vendor-motion'

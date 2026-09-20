@@ -71,7 +71,7 @@ const columns: Ref<DataTableColumns<ServiceManagement.Service>> = ref([
     minWidth: '140px',
     title: () => $t('page.apply.service.form.deviceType'),
     align: 'left',
-    render: row => {
+    render: (row) => {
       if (row.device_type) {
         return <span>{serviceManagementDeviceTypeLabels[row.device_type]}</span>
       }
@@ -113,7 +113,7 @@ const columns: Ref<DataTableColumns<ServiceManagement.Service>> = ref([
     title: () => $t('common.actions'),
     align: 'center',
     minWidth: '140px',
-    render: row => {
+    render: (row) => {
       return (
         <NSpace justify={'center'}>
           {
@@ -159,7 +159,7 @@ function handleAddTable() {
 }
 
 function handleEditTable(rowId: string) {
-  const findItem = tableData.value.find(item => item.id === rowId)
+  const findItem = tableData.value.find((item) => item.id === rowId)
   if (findItem) {
     setEditData(findItem)
   }

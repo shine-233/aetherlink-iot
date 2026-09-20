@@ -450,17 +450,25 @@ export const getFleetCommandJobSupportBundle = async (jobId: string) => {
 }
 
 export const cancelFleetCommandJob = async (jobId: string, params?: { include_rows?: boolean }) => {
-  return await request.post<FleetCommandJobSubmitResult>(`/command/datas/jobs/${jobId}/cancel`, {}, {
-    ...(params ? { params } : {}),
-    silentError: true
-  })
+  return await request.post<FleetCommandJobSubmitResult>(
+    `/command/datas/jobs/${jobId}/cancel`,
+    {},
+    {
+      ...(params ? { params } : {}),
+      silentError: true
+    }
+  )
 }
 
 export const retryFleetCommandJob = async (jobId: string, params?: { include_rows?: boolean }) => {
-  return await request.post<FleetCommandJobSubmitResult>(`/command/datas/jobs/${jobId}/retry`, {}, {
-    ...(params ? { params } : {}),
-    silentError: true
-  })
+  return await request.post<FleetCommandJobSubmitResult>(
+    `/command/datas/jobs/${jobId}/retry`,
+    {},
+    {
+      ...(params ? { params } : {}),
+      silentError: true
+    }
+  )
 }
 
 export const listFleetSavedFilters = async () => {

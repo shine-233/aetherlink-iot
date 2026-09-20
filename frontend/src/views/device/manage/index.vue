@@ -10,7 +10,15 @@ import type { TreeSelectOption } from 'naive-ui/es/tree-select/src/interface'
 import { createLogger } from '@/utils/logger'
 
 const logger = createLogger('DeviceManage')
-import { checkDevice, deleteDevice as deleteDeviceApi, deviceConnectForm, deviceGroupRelation, deviceGroupTree, deviceList, getDeviceConfigList } from '@/service/api/device'
+import {
+  checkDevice,
+  deleteDevice as deleteDeviceApi,
+  deviceConnectForm,
+  deviceGroupRelation,
+  deviceGroupTree,
+  deviceList,
+  getDeviceConfigList
+} from '@/service/api/device'
 import { activateRdiDevice } from '@/service/api/rdi'
 import type { SearchConfig } from '@/components/data-table-page/types'
 import { useRouterPush } from '@/hooks/common/router'
@@ -197,7 +205,9 @@ const openIssueClaimToken = (row: any) => {
   openDeviceQuickAction('claim-issue', row)
 }
 
-const columns_to_show = ref(createDeviceManageColumns(goDeviceDetails, openEditDevice, confirmDeleteDevice, openShareDevice, openIssueClaimToken))
+const columns_to_show = ref(
+  createDeviceManageColumns(goDeviceDetails, openEditDevice, confirmDeleteDevice, openShareDevice, openIssueClaimToken)
+)
 const actions = []
 
 const { scheduleDeviceStatusSubscription } = useDeviceManageStatusSubscription({
@@ -354,16 +364,13 @@ const searchConfigs = ref<SearchConfig[]>([
   }
 ])
 
-const {
-  initializeServiceAccessFiltersInBackground,
-  paramsUpdateHandle,
-  primeInitialServiceAccessFilter
-} = useDeviceManageServiceAccessFilters({
-  searchConfigs,
-  tablePageRef,
-  initialServiceIdentifier: route.query.service_identifier,
-  initialServiceAccessId: route.query.service_access_id
-})
+const { initializeServiceAccessFiltersInBackground, paramsUpdateHandle, primeInitialServiceAccessFilter } =
+  useDeviceManageServiceAccessFilters({
+    searchConfigs,
+    tablePageRef,
+    initialServiceIdentifier: route.query.service_identifier,
+    initialServiceAccessId: route.query.service_access_id
+  })
 primeInitialServiceAccessFilter()
 
 const dropOption = [
@@ -375,7 +382,7 @@ const dropOption = [
     label: () => $t('custom.devicePage.addByNumber'),
     key: 'number',
     disabled: false
-  },
+  }
 ]
 
 const {
@@ -489,9 +496,7 @@ const topActions = [
     )
   },
   {
-    element: () => (
-      <n-button onClick={openClaimDeviceDialog}>{$t('custom.devicePage.claimDevice')}</n-button>
-    )
+    element: () => <n-button onClick={openClaimDeviceDialog}>{$t('custom.devicePage.claimDevice')}</n-button>
   },
   {
     element: () => (

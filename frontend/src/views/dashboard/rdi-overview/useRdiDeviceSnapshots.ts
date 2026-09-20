@@ -76,14 +76,22 @@ export function useRdiDeviceSnapshots(options: {
     const rowInstallLocation = rowText(row, ['install_location', 'installation_location', 'location', 'address'])
     const rowInstallAddress = rowText(row, ['install_address', 'installation_address', 'device_address', 'address'])
     const rowInstallDate = rowText(row, ['install_date', 'installation_date', 'installed_at', 'InstallDate'])
-    const rowInstallerName = rowText(row, ['installer_name', 'service_technician', 'technician_name', 'maintainer_name'])
+    const rowInstallerName = rowText(row, [
+      'installer_name',
+      'service_technician',
+      'technician_name',
+      'maintainer_name'
+    ])
     const rowInstallerContact = rowText(row, [
       'installer_contact',
       'installer_phone',
       'technician_phone',
       'technician_email'
     ])
-    const installerContact = [rowText(systemInfo, ['installer_phone'], ''), rowText(systemInfo, ['installer_email'], '')]
+    const installerContact = [
+      rowText(systemInfo, ['installer_phone'], ''),
+      rowText(systemInfo, ['installer_email'], '')
+    ]
       .filter(Boolean)
       .join(' · ')
     const alarmLevelRaw = rowText(row, ['alarm_level', 'AlarmLevel', 'warn_status', 'WarnStatus'], '')

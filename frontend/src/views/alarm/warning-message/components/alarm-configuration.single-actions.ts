@@ -7,12 +7,7 @@ import { computed, ref, type Ref } from 'vue'
 import dayjs from 'dayjs'
 import { batchActionAlarmHistory } from '@/service/api/alarm'
 import { $t } from '@/locales'
-import {
-  alarmSeverityLabel,
-  alarmSeverityValue,
-  alarmTypeLabel,
-  type AlarmOption
-} from './alarm-configuration.helpers'
+import { alarmSeverityLabel, alarmSeverityValue, alarmTypeLabel, type AlarmOption } from './alarm-configuration.helpers'
 
 export type AlarmSingleActionType = 'acknowledge' | 'reset' | 'clear'
 
@@ -72,7 +67,9 @@ export function useAlarmSingleActions(options: UseAlarmSingleActionsOptions) {
     if (singleActionType.value === 'acknowledge') {
       hint = $t('rdi.overview.alarmAuditConfirmHint')
     } else if (singleActionType.value === 'clear') {
-      hint = $t('custom.alarmPage.clearAuditHint') || '请确认是否清除此告警。清除后该告警生命周期将流转为 CLEARED 态并留存审计原因。'
+      hint =
+        $t('custom.alarmPage.clearAuditHint') ||
+        '请确认是否清除此告警。清除后该告警生命周期将流转为 CLEARED 态并留存审计原因。'
     }
     return `${alarmAuditSummary(row)}\n\n${hint}`
   })
@@ -114,9 +111,7 @@ export function useAlarmSingleActions(options: UseAlarmSingleActionsOptions) {
         boundary: options.evidenceBoundaryLabel()
       }
       window.$message?.success(
-        singleActionType.value === 'acknowledge'
-          ? $t('rdi.overview.alarmAcknowledged')
-          : $t('rdi.overview.alarmReset')
+        singleActionType.value === 'acknowledge' ? $t('rdi.overview.alarmAcknowledged') : $t('rdi.overview.alarmReset')
       )
       singleActionDialogVisible.value = false
       singleActionRow.value = null

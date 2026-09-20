@@ -82,8 +82,8 @@ const templateLoading = ref(false)
 let templateRequestGeneration = 0
 
 const mergeTemplateOptions = (current: DeviceTemplateOption[], incoming: DeviceTemplateOption[]) => {
-  const byID = new Map(current.map(option => [option.id, option]))
-  incoming.forEach(option => {
+  const byID = new Map(current.map((option) => [option.id, option]))
+  incoming.forEach((option) => {
     if (option?.id) byID.set(option.id, option)
   })
   return Array.from(byID.values())
@@ -128,7 +128,7 @@ const visible = ref(false)
 // 这里把“是否显示”和“新增/编辑标题”绑在同一个观察点上，属于当前弹窗的生命周期入口。
 watch(
   () => props.modalVisible,
-  newValue => {
+  (newValue) => {
     visible.value = newValue
     if (props.modalType === 'add') {
       modalTitle.value = $t('generate.add')

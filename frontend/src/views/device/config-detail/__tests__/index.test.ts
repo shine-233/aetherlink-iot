@@ -31,8 +31,13 @@ vi.mock('vue-router', () => ({
   useRoute: () => ({ query: { id: 'cfg-1' } })
 }))
 
-  vi.mock('naive-ui', () => ({
-  NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : []) } }),
+vi.mock('naive-ui', () => ({
+  NButton: defineComponent({
+    emits: ['click'],
+    setup(_, { slots, emit }) {
+      return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : [])
+    }
+  }),
   createDiscreteApi: () => ({
     message: {
       success: vi.fn(),
@@ -69,9 +74,24 @@ const mountComponent = (props = {}) => {
     props,
     global: {
       stubs: {
-        NCard: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NTabs: defineComponent({ props: { value: { default: '' } }, emits: ['update:value'], setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NTabPane: defineComponent({ props: { name: { default: '' } }, setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
+        NCard: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NTabs: defineComponent({
+          props: { value: { default: '' } },
+          emits: ['update:value'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NTabPane: defineComponent({
+          props: { name: { default: '' } },
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
         AssociatedDevices: true,
         ExtendInfo: true,
         AttributeInfo: true,
@@ -92,7 +112,9 @@ const getSetupState = (wrapper: ReturnType<typeof shallowMount>) => wrapper.vm.$
 describe('device/config-detail/index.vue', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    hoisted.deviceConfigInfo.mockResolvedValue({ data: { id: 'cfg-1', name: 'cfg', device_type: '1', device_template_id: 'tpl-1' } })
+    hoisted.deviceConfigInfo.mockResolvedValue({
+      data: { id: 'cfg-1', name: 'cfg', device_type: '1', device_template_id: 'tpl-1' }
+    })
     hoisted.deviceTemplateDetail.mockResolvedValue({ data: { name: 'Telemetry Model 1' } })
   })
 

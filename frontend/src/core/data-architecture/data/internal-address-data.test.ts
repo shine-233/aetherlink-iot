@@ -1,16 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  getAllApis,
-  getApiByValue,
-  getApisByModule,
-  internalAddressOptions,
-  searchApis
-} from './internal-address-data'
+import { getAllApis, getApiByValue, getApisByModule, internalAddressOptions, searchApis } from './internal-address-data'
 
 describe('internal-address-data', () => {
   it('provides grouped and searchable internal API metadata', () => {
-    expect(internalAddressOptions.map(group => group.key)).toEqual([
+    expect(internalAddressOptions.map((group) => group.key)).toEqual([
       'telemetry',
       'device',
       'attribute',
@@ -24,13 +18,13 @@ describe('internal-address-data', () => {
       module: 'telemetry',
       hasPathParams: true
     })
-    expect(searchApis('telemetryDataCurrent').map(api => api.value)).toContain('/telemetry/datas/current/{id}')
+    expect(searchApis('telemetryDataCurrent').map((api) => api.value)).toContain('/telemetry/datas/current/{id}')
   })
 
   it('uses an ordered and bounded history time seed', () => {
     const historyApi = getApiByValue('/telemetry/datas/history/pagination')
-    const startTime = historyApi?.commonParams?.find(param => param.name === 'start_time')?.example
-    const endTime = historyApi?.commonParams?.find(param => param.name === 'end_time')?.example
+    const startTime = historyApi?.commonParams?.find((param) => param.name === 'start_time')?.example
+    const endTime = historyApi?.commonParams?.find((param) => param.name === 'end_time')?.example
 
     expect(startTime).toBe(1711656000000)
     expect(endTime).toBe(1711659600000)
@@ -48,11 +42,11 @@ describe('internal-address-data', () => {
 
     const byValue = getApiByValue('/telemetry/datas/current/{id}')
     expect(byValue?.label).toBe('设备遥测当前值查询')
-    expect(byValue?.commonParams?.some(param => param.name === 'injected')).toBe(false)
+    expect(byValue?.commonParams?.some((param) => param.name === 'injected')).toBe(false)
     if (byValue) byValue.label = 'mutated value result'
 
     const allApis = getAllApis()
-    const currentApi = allApis.find(api => api.value === '/telemetry/datas/current/{id}')
+    const currentApi = allApis.find((api) => api.value === '/telemetry/datas/current/{id}')
     expect(currentApi?.label).toBe('设备遥测当前值查询')
     if (currentApi) currentApi.label = 'mutated all result'
 

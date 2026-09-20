@@ -107,10 +107,7 @@ onMounted(() => {
 <template>
   <div class="pre-register-page">
     <NSpace vertical size="medium">
-      <PageHeader
-        :title="$t('route.product_pre-register')"
-        :subtitle="$t('page.product.pre-register.subtitle')"
-      >
+      <PageHeader :title="$t('route.product_pre-register')" :subtitle="$t('page.product.pre-register.subtitle')">
         <NButton :loading="exporting" @click="handleExport">{{ $t('page.product.pre-register.export') }}</NButton>
         <NButton type="primary" @click="openModal">{{ $t('page.product.pre-register.import') }}</NButton>
       </PageHeader>

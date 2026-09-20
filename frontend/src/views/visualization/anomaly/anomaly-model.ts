@@ -69,9 +69,7 @@ export function parseDeviceIds(text: string): string[] {
   return ids
 }
 
-export type BuildQueryResult =
-  | { ok: true; query: TelemetryAnomalyQuery }
-  | { ok: false; errorKey: string }
+export type BuildQueryResult = { ok: true; query: TelemetryAnomalyQuery } | { ok: false; errorKey: string }
 
 export interface BuildQueryInput {
   form: AnomalyFormState
@@ -166,7 +164,7 @@ export interface AnomalyRow {
  */
 export function toAnomalyRows(result: TelemetryAnomalyResult | null): AnomalyRow[] {
   if (!result || !Array.isArray(result.devices)) return []
-  return result.devices.map(device => toAnomalyRow(device))
+  return result.devices.map((device) => toAnomalyRow(device))
 }
 
 function toAnomalyRow(device: TelemetryAnomalyDeviceResult): AnomalyRow {
@@ -188,10 +186,10 @@ function toAnomalyRow(device: TelemetryAnomalyDeviceResult): AnomalyRow {
 export function summarizeAnomalyRows(rows: AnomalyRow[]) {
   return {
     devices: rows.length,
-    anomaly: rows.filter(row => row.status === 'anomaly').length,
-    clean: rows.filter(row => row.status === 'clean').length,
-    noData: rows.filter(row => row.status === 'no-data').length,
-    failed: rows.filter(row => row.status === 'error').length,
+    anomaly: rows.filter((row) => row.status === 'anomaly').length,
+    clean: rows.filter((row) => row.status === 'clean').length,
+    noData: rows.filter((row) => row.status === 'no-data').length,
+    failed: rows.filter((row) => row.status === 'error').length,
     totalHits: rows.reduce((sum, row) => sum + row.hits.length, 0)
   }
 }

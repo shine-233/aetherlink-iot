@@ -22,11 +22,7 @@ import {
 import type { LocalWidgetConfig, LocalWidgetType } from '../types'
 import { TimewindowSelector } from '../timewindow'
 import type { DynamicWidgetFormData } from './types'
-import {
-  convertFormToWidgetConfig,
-  convertWidgetConfigToForm,
-  validateWidgetForm
-} from './form-schema'
+import { convertFormToWidgetConfig, convertWidgetConfigToForm, validateWidgetForm } from './form-schema'
 
 const UNIT_SYSTEM_OPTIONS = [
   { label: '公制 (Metric: °C, m, kg, L, kPa, m/s...)', value: 'metric' },
@@ -125,17 +121,23 @@ function syncFromProps() {
   if (props.type === 'html') {
     activeTab.value = 'html_editor'
     if (!formData.value.html) {
-      formData.value.html = '<div class="html-card">\n  <h4>HTML 容器</h4>\n  <p>状态: <span class="badge">正常</span></p>\n</div>'
-      formData.value.css = '.html-card { padding: 8px; }\n.badge { background: #10b981; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 12px; }'
+      formData.value.html =
+        '<div class="html-card">\n  <h4>HTML 容器</h4>\n  <p>状态: <span class="badge">正常</span></p>\n</div>'
+      formData.value.css =
+        '.html-card { padding: 8px; }\n.badge { background: #10b981; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 12px; }'
     }
   } else {
     activeTab.value = 'general'
   }
 }
 
-watch(() => [props.show, props.type, props.config], () => {
-  if (props.show) syncFromProps()
-}, { immediate: true, deep: true })
+watch(
+  () => [props.show, props.type, props.config],
+  () => {
+    if (props.show) syncFromProps()
+  },
+  { immediate: true, deep: true }
+)
 
 function handleClose() {
   emit('update:show', false)
@@ -162,12 +164,7 @@ function handleSave() {
 </script>
 
 <template>
-  <NDrawer
-    :show="show"
-    width="500"
-    placement="right"
-    @update:show="handleClose"
-  >
+  <NDrawer :show="show" width="500" placement="right" @update:show="handleClose">
     <NDrawerContent :title="`配置 ${type.toUpperCase()} 小部件`" closable>
       <NTabs v-model:value="activeTab" type="line" animated>
         <!-- 基础配置 -->
@@ -198,7 +195,7 @@ function handleSave() {
                 v-model:value="formData.html"
                 type="textarea"
                 :rows="8"
-                placeholder="<div class=&quot;custom-card&quot;>\n  <h4>设备状态</h4>\n  <p>实时遥测: {{temp}} °C</p>\n</div>"
+                placeholder='<div class="custom-card">\n  <h4>设备状态</h4>\n  <p>实时遥测: {{temp}} °C</p>\n</div>'
               />
             </NFormItem>
 
@@ -212,7 +209,8 @@ function handleSave() {
             </NFormItem>
 
             <NAlert type="info" :show-icon="false" class="text-xs">
-              安全防御说明 (Fail-Closed)：系统内嵌 XSS 递归白名单净化引擎，自动剥离 script、iframe、on* 事件及危险伪协议，并在渲染时自动注入 Scoped 作用域防样式污染。
+              安全防御说明 (Fail-Closed)：系统内嵌 XSS 递归白名单净化引擎，自动剥离 script、iframe、on*
+              事件及危险伪协议，并在渲染时自动注入 Scoped 作用域防样式污染。
             </NAlert>
           </NForm>
         </NTabPane>
@@ -311,7 +309,9 @@ function handleSave() {
             <div class="flex items-center justify-between rounded border border-gray-100 p-3 bg-gray-50/50">
               <div>
                 <div class="text-sm font-medium">按实体关系动态关联数据源</div>
-                <div class="text-xs text-gray-400">对标 ThingsBoard 关系图谱：从起点实体沿拓扑关系动态查找目标实体并提取遥测</div>
+                <div class="text-xs text-gray-400">
+                  对标 ThingsBoard 关系图谱：从起点实体沿拓扑关系动态查找目标实体并提取遥测
+                </div>
               </div>
               <NSwitch v-model:value="formData.entityRelation!.enabled" />
             </div>
@@ -350,7 +350,10 @@ function handleSave() {
                   <NSelect v-model:value="formData.entityRelation!.targetType" :options="TARGET_ENTITY_TYPE_OPTIONS" />
                 </NFormItem>
                 <NFormItem label="目标遥测 Key">
-                  <NInput v-model:value="formData.entityRelation!.targetKey" placeholder="例如：temperature, humidity" />
+                  <NInput
+                    v-model:value="formData.entityRelation!.targetKey"
+                    placeholder="例如：temperature, humidity"
+                  />
                 </NFormItem>
               </div>
 
@@ -362,12 +365,18 @@ function handleSave() {
         </NTabPane>
 
         <!-- 单位换算 (ROADMAP TB-9 对标 ThingsBoard Units Conversion) -->
-        <NTabPane v-if="type === 'metric' || type === 'line-chart' || type === 'bar-chart'" name="unit_conversion" tab="单位换算">
+        <NTabPane
+          v-if="type === 'metric' || type === 'line-chart' || type === 'bar-chart'"
+          name="unit_conversion"
+          tab="单位换算"
+        >
           <div class="space-y-4 pt-2">
             <div class="flex items-center justify-between rounded border border-gray-100 p-3 bg-gray-50/50">
               <div>
                 <div class="text-sm font-medium">启用单位自动换算 (Units Conversion)</div>
-                <div class="text-xs text-gray-400">对标 ThingsBoard 4.1：将原始物理量统一转换至目标公制/英制单位或指定单位</div>
+                <div class="text-xs text-gray-400">
+                  对标 ThingsBoard 4.1：将原始物理量统一转换至目标公制/英制单位或指定单位
+                </div>
               </div>
               <NSwitch v-model:value="formData.unitConversion!.enabled" />
             </div>

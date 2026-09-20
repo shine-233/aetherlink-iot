@@ -86,7 +86,7 @@ export function useThingsVisDashboardMenuConfig(options: UseThingsVisDashboardMe
   }
 
   const menuConfigPrefetchCovers = (dashboardIds: string[]) =>
-    dashboardIds.length > 0 && dashboardIds.every(id => menuConfigPrefetchDashboardIds.has(id))
+    dashboardIds.length > 0 && dashboardIds.every((id) => menuConfigPrefetchDashboardIds.has(id))
 
   const startMenuConfigPrefetch = (list: VisualizationDashboardSummary[]) => {
     cancelMenuConfigPrefetchTimer()
@@ -123,7 +123,7 @@ export function useThingsVisDashboardMenuConfig(options: UseThingsVisDashboardMe
     latestDashboardList.value = list
     if (!options.dashboardMenuConfigAvailable.value) {
       cancelMenuConfigPrefetch()
-      mergeMenuConfigs(dashboardIdsFromList(list).map(id => [id, null] as const))
+      mergeMenuConfigs(dashboardIdsFromList(list).map((id) => [id, null] as const))
       return
     }
 
@@ -181,7 +181,9 @@ export function useThingsVisDashboardMenuConfig(options: UseThingsVisDashboardMe
     if (!options.dashboardMenuConfigAvailable.value) return
 
     const loadSeq = nextMenuConfigLoadSeq()
-    const unloadedList = list.filter(item => item.id && !hasMenuConfigEntry(item.id) && !menuConfigRequests.has(item.id))
+    const unloadedList = list.filter(
+      (item) => item.id && !hasMenuConfigEntry(item.id) && !menuConfigRequests.has(item.id)
+    )
     const dashboardIds = dashboardIdsFromList(unloadedList)
     if (dashboardIds.length === 0) {
       mergeMenuConfigs([])
@@ -193,7 +195,7 @@ export function useThingsVisDashboardMenuConfig(options: UseThingsVisDashboardMe
 
     const entries = error
       ? await loadMenuConfigsIndividually(unloadedList, loadSeq)
-      : dashboardIds.map(id => [id, data?.[id] ?? null] as const)
+      : dashboardIds.map((id) => [id, data?.[id] ?? null] as const)
 
     if (!entries || loadSeq !== menuConfigLoadSeq.value) return
 
@@ -263,7 +265,7 @@ export function useThingsVisDashboardMenuConfig(options: UseThingsVisDashboardMe
     await ensureAllMenuConfigsLoaded()
     if (enabledMenuEntries().length !== 1) return
 
-    const homeResult = await provider.execute(current => current.getHomeDashboard())
+    const homeResult = await provider.execute((current) => current.getHomeDashboard())
     const homeDashboard = homeResult.ok ? homeResult.data : null
     if (!homeDashboard || homeDashboard.id === menuForm.value.dashboardId || isEnabledMenuDashboard(homeDashboard.id)) {
       return

@@ -217,7 +217,10 @@ export const activateRdiDevice = async (params: { pid_number: string; name?: str
 }
 
 export const rdiDeviceConfig = async (deviceId: string, requestConfig: CustomAxiosRequestConfig = {}) => {
-  return await request.get<RDIDeviceConfigResponse>(`/rdi/devices/${encodeURIComponent(deviceId)}/config`, requestConfig)
+  return await request.get<RDIDeviceConfigResponse>(
+    `/rdi/devices/${encodeURIComponent(deviceId)}/config`,
+    requestConfig
+  )
 }
 
 export const rdiDeviceHistory = async (

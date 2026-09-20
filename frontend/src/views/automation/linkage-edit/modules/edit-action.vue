@@ -492,7 +492,11 @@ onMounted(async () => {
                   </NButton>
                 </NFlex>
               </template>
-              <NButton v-if="Number(actionGroupIndex) > 0" type="error" @click="deleteActionGroupItem(Number(actionGroupIndex))">
+              <NButton
+                v-if="Number(actionGroupIndex) > 0"
+                type="error"
+                @click="deleteActionGroupItem(Number(actionGroupIndex))"
+              >
                 {{ $t('generate.delete-execution-action') }}
               </NButton>
             </NFlex>
@@ -503,13 +507,7 @@ onMounted(async () => {
         </NButton>
       </NFlex>
     </NForm>
-    <PopUp
-      v-model:visible="popUpVisible"
-      type="add"
-      :edit-data="null"
-      @new-edit="newEdit"
-      @saved="handleAlarmSaved"
-    />
+    <PopUp v-model:visible="popUpVisible" type="add" :edit-data="null" @new-edit="newEdit" @saved="handleAlarmSaved" />
   </div>
 </template>
 

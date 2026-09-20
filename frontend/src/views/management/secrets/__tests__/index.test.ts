@@ -54,7 +54,7 @@ vi.mock('@/service/api/secret', () => ({
   resealSecret: vi.fn().mockResolvedValue({ data: { id: 'sec-2', needs_reseal: false } })
 }))
 
-vi.mock('naive-ui', async importOriginal => {
+vi.mock('naive-ui', async (importOriginal) => {
   const actual = await importOriginal<typeof import('naive-ui')>()
   return {
     ...actual,

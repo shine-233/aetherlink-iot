@@ -109,7 +109,7 @@ const password = async () => {
   const data: Array<{ name?: string; enable_flag?: string }> = enableConfigRaw ? JSON.parse(enableConfigRaw) : []
   let salt: string | null = null
   let password1 = formData.value.password
-  if (data.find(v => v.name === 'frontend_res')?.enable_flag === 'enable') {
+  if (data.find((v) => v.name === 'frontend_res')?.enable_flag === 'enable') {
     salt = generateRandomHexString(16)
     // RSA helper 已迁移为 WebCrypto 异步实现（RSA-OAEP/SHA-256）
     password1 = await encryptDataByRsa(password1 + salt)
@@ -210,7 +210,9 @@ const rules: FormRules = {
       </NGrid>
       <NSpace class="w-full pt-16px" :size="24" justify="end">
         <NButton class="w-72px" @click="closeModal">{{ $t('generate.cancel') }}</NButton>
-        <NButton class="w-72px" type="primary" :loading="submitLoading" @click="submit">{{ $t('common.save') }}</NButton>
+        <NButton class="w-72px" type="primary" :loading="submitLoading" @click="submit">
+          {{ $t('common.save') }}
+        </NButton>
       </NSpace>
     </NForm>
   </NModal>

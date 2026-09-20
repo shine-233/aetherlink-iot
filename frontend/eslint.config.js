@@ -24,7 +24,7 @@ export default [
   // eslint-plugin-vue 10 的 flat config 推荐规则（旧版 vue3-recommended 已移除）。
   // v10 将 recommended 的规则对象作为全局 config 导出；把规则段限定到
   // Vue 文件，避免 Vue 规则误扫 .ts 测试和脚本文件。
-  ...vuePlugin.configs['flat/recommended'].map(config =>
+  ...vuePlugin.configs['flat/recommended'].map((config) =>
     config.rules && !config.files ? { ...config, files: ['**/*.vue'] } : config
   ),
 

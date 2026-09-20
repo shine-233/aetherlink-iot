@@ -524,7 +524,11 @@ const handlePreviewImport = async (): Promise<void> => {
       await handleFullConfigurationImportPreview(importData)
     })
   } catch (error) {
-    reportAsyncFlowError('❌ [ConfigurationImportExportFlow] 导入预览失败:', t('configuration.import.previewError'), error)
+    reportAsyncFlowError(
+      '❌ [ConfigurationImportExportFlow] 导入预览失败:',
+      t('configuration.import.previewError'),
+      error
+    )
   }
 }
 

@@ -26,7 +26,6 @@ const emit = defineEmits<{
   copyAllDeepLinks: []
   runEvidenceCard: [card: ReadyCheckEvidenceCard]
 }>()
-
 </script>
 
 <template>
@@ -42,7 +41,9 @@ const emit = defineEmits<{
       </div>
       <div>
         <span>{{ $t('custom.device_details.accessGuideDiagnosticNextActions') }}</span>
-        <strong>{{ nextActions.length ? nextActions.join('; ') : $t('custom.device_details.accessGuideDiagnosticUnknown') }}</strong>
+        <strong>
+          {{ nextActions.length ? nextActions.join('; ') : $t('custom.device_details.accessGuideDiagnosticUnknown') }}
+        </strong>
       </div>
     </div>
     <NButton
@@ -94,7 +95,11 @@ const emit = defineEmits<{
     @copy-all="emit('copyAllDeepLinks')"
   />
 
-  <section v-if="backendNextSteps.length" class="ready-check-backend-steps" data-testid="device-ready-check-backend-steps">
+  <section
+    v-if="backendNextSteps.length"
+    class="ready-check-backend-steps"
+    data-testid="device-ready-check-backend-steps"
+  >
     <div class="ready-check-evidence-center__head">
       <h3>{{ $t('custom.device_details.readyCheckEvidenceNextStepsTitle') }}</h3>
       <p>{{ $t('custom.device_details.readyCheckEvidenceNextStepsDesc') }}</p>
@@ -110,10 +115,7 @@ const emit = defineEmits<{
     </div>
   </section>
 
-  <ReadyCheckEvidenceCardsView
-    :evidence-cards="evidenceCards"
-    @run="emit('runEvidenceCard', $event)"
-  />
+  <ReadyCheckEvidenceCardsView :evidence-cards="evidenceCards" @run="emit('runEvidenceCard', $event)" />
 </template>
 
 <style scoped>

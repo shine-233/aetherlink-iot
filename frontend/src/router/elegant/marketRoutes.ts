@@ -1,4 +1,4 @@
-import type { GeneratedRoute } from '@elegant-router/types';
+import type { GeneratedRoute } from '@elegant-router/types'
 
 // 模板市场（ROADMAP P1.6）。此前 views/market/browse/index.vue 已实现打包导入
 // 的预览 / 验签 / 覆盖闸门，但从未挂进路由表——页面存在却无处可达，
@@ -24,4 +24,4 @@ export const marketRoutes: GeneratedRoute[] = [
       }
     ]
   }
-];
+]

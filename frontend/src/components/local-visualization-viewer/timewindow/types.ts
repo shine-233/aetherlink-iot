@@ -11,28 +11,10 @@
 
 export type TimewindowType = 'realtime' | 'history'
 
-export type RealtimeIntervalLabel =
-  | '1m'
-  | '5m'
-  | '15m'
-  | '30m'
-  | '1h'
-  | '2h'
-  | '6h'
-  | '12h'
-  | '1d'
-  | '7d'
-  | '30d'
+export type RealtimeIntervalLabel = '1m' | '5m' | '15m' | '30m' | '1h' | '2h' | '6h' | '12h' | '1d' | '7d' | '30d'
 
 export type QuickHistoryInterval =
-  | 'today'
-  | 'yesterday'
-  | 'this_week'
-  | 'prev_week'
-  | 'this_month'
-  | 'prev_month'
-  | 'last_7d'
-  | 'last_30d'
+  'today' | 'yesterday' | 'this_week' | 'prev_week' | 'this_month' | 'prev_month' | 'last_7d' | 'last_30d'
 
 export type AggregationFunc = 'none' | 'avg' | 'min' | 'max' | 'sum' | 'count'
 

@@ -185,13 +185,7 @@ onMounted(getTelemetryHistoryData)
       <n-alert v-else-if="!loading && tableData.length === 0" type="info" class="mb-3" :show-icon="true">
         {{ $t('custom.device_details.telemetryNoData') }}
       </n-alert>
-      <n-data-table
-        :loading="loading"
-        :columns="columns"
-        :data="tableData"
-        virtual-scroll
-        :max-height="360"
-      >
+      <n-data-table :loading="loading" :columns="columns" :data="tableData" virtual-scroll :max-height="360">
         <template #empty>
           <NEmpty :description="$t('common.noData')" class="py-24px" />
         </template>

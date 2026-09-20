@@ -79,7 +79,8 @@ return {
   }
 }`,
     parameters: [],
-    usageSnippet: '// items = [{ device_id: "replace_with_device_id", temperature: 25 }, { device_id: "replace_with_device_id", humidity: 60 }]',
+    usageSnippet:
+      '// items = [{ device_id: "replace_with_device_id", temperature: 25 }, { device_id: "replace_with_device_id", humidity: 60 }]',
     isSystem: true
   },
 

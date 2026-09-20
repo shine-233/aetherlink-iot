@@ -91,9 +91,7 @@ describe('ScriptSandbox security hardening', () => {
     const env = createSandbox().createSandbox(defaultSandboxConfig)
     const { networkUtils } = env._utils
 
-    await expect(networkUtils.httpGet('https://example.test/data')).rejects.toThrow(
-      'SCRIPT_NETWORK_EXTERNAL_BLOCKED'
-    )
+    await expect(networkUtils.httpGet('https://example.test/data')).rejects.toThrow('SCRIPT_NETWORK_EXTERNAL_BLOCKED')
     await expect(networkUtils.httpPost('https://example.test/data', { value: 1 })).rejects.toThrow(
       'SCRIPT_NETWORK_EXTERNAL_BLOCKED'
     )

@@ -94,16 +94,16 @@ function normalizeRuntimeParameter(param: HttpParameter): HttpParameter {
 function detectRuntimeIsDynamic(param: HttpParameter): boolean {
   return Boolean(
     param.valueMode === 'component' ||
-      param.selectedTemplate === 'component-property-binding' ||
-      (typeof param.value === 'string' &&
-        param.value.includes('.') &&
-        param.value.split('.').length >= 3 &&
-        param.value.length > 10 &&
-        !/^\d{1,4}$/.test(param.value)) ||
-      (param.variableName &&
-        !param.variableName.startsWith('var_') &&
-        param.variableName.includes('_') &&
-        param.variableName.length > 5)
+    param.selectedTemplate === 'component-property-binding' ||
+    (typeof param.value === 'string' &&
+      param.value.includes('.') &&
+      param.value.split('.').length >= 3 &&
+      param.value.length > 10 &&
+      !/^\d{1,4}$/.test(param.value)) ||
+    (param.variableName &&
+      !param.variableName.startsWith('var_') &&
+      param.variableName.includes('_') &&
+      param.variableName.length > 5)
   )
 }
 

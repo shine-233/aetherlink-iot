@@ -27,7 +27,9 @@ describe('normalizeLocalDashboard', () => {
   it('accepts the explicit legacy layout, i, componentType and properties aliases', () => {
     const result = normalizeLocalDashboard({
       version: 1,
-      layout: [{ i: 'legacy', x: 0, y: 0, w: 2, h: 2, componentType: 'line', properties: { categories: ['A'], values: [1] } }]
+      layout: [
+        { i: 'legacy', x: 0, y: 0, w: 2, h: 2, componentType: 'line', properties: { categories: ['A'], values: [1] } }
+      ]
     })
 
     expect(result).toMatchObject({ ok: true, dashboard: { widgets: [{ id: 'legacy', type: 'line-chart' }] } })
@@ -58,7 +60,10 @@ describe('normalizeLocalDashboard', () => {
     expect(
       normalizeLocalDashboard({
         version: 1,
-        widgets: Array.from({ length: LOCAL_VIEWER_LIMITS.widgets + 1 }, (_, index) => ({ ...textWidget, id: `w-${index}` }))
+        widgets: Array.from({ length: LOCAL_VIEWER_LIMITS.widgets + 1 }, (_, index) => ({
+          ...textWidget,
+          id: `w-${index}`
+        }))
       }).ok
     ).toBe(false)
     expect(
@@ -76,7 +81,9 @@ describe('normalizeLocalDashboard', () => {
   })
 
   it('isolates an unknown widget type but discards all of its config', () => {
-    const result = normalizeLocalDashboard(dashboard({ ...textWidget, type: 'future-safe', config: { text: 'ignored' } }))
+    const result = normalizeLocalDashboard(
+      dashboard({ ...textWidget, type: 'future-safe', config: { text: 'ignored' } })
+    )
     expect(result).toMatchObject({
       ok: true,
       dashboard: { widgets: [{ type: 'unsupported', originalType: 'future-safe', config: {} }] }
@@ -302,15 +309,17 @@ describe('normalizeLocalDashboard', () => {
   })
 
   it('accepts html-container and html-card as aliases for html', () => {
-    const result = normalizeLocalDashboard(dashboard({
-      id: 'h1',
-      x: 0,
-      y: 0,
-      w: 6,
-      h: 4,
-      type: 'html-container',
-      config: { html: '<div>Hello</div>' }
-    }))
+    const result = normalizeLocalDashboard(
+      dashboard({
+        id: 'h1',
+        x: 0,
+        y: 0,
+        w: 6,
+        h: 4,
+        type: 'html-container',
+        config: { html: '<div>Hello</div>' }
+      })
+    )
     expect(result).toMatchObject({
       ok: true,
       dashboard: { widgets: [{ id: 'h1', type: 'html', originalType: 'html-container' }] }
@@ -370,7 +379,10 @@ describe('normalizeLocalViewerFields', () => {
     ['invalid field name', { 'bad field': 1 }],
     ['non-finite number', { value: Number.NaN }],
     ['nested object', { value: { nested: true } }],
-    ['too many fields', Object.fromEntries(Array.from({ length: LOCAL_VIEWER_LIMITS.fields + 1 }, (_, index) => [`f${index}`, index]))],
+    [
+      'too many fields',
+      Object.fromEntries(Array.from({ length: LOCAL_VIEWER_LIMITS.fields + 1 }, (_, index) => [`f${index}`, index]))
+    ],
     ['too many points', { values: Array.from({ length: LOCAL_VIEWER_LIMITS.dataPoints + 1 }, () => 1) }]
   ])('rejects %s', (_, input) => {
     expect(normalizeLocalViewerFields(input).ok).toBe(false)

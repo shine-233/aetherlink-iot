@@ -1,8 +1,5 @@
 import { defineAsyncComponent } from 'vue'
-import {
-  LEGACY_THINGSVIS_PROVIDER_ID,
-  NATIVE_BOARD_PROVIDER_ID
-} from '@/service/visualization-provider/provider-ids'
+import { LEGACY_THINGSVIS_PROVIDER_ID, NATIVE_BOARD_PROVIDER_ID } from '@/service/visualization-provider/provider-ids'
 import { VisualizationRendererRegistry } from './renderer-registry'
 
 // Keep renderer implementations behind async boundaries so each loads in its own chunk.

@@ -72,9 +72,7 @@ export const listIndustrySolutions = async (params?: { page?: number; page_size?
 
 /** 方案详情（含安装流水） */
 export const getIndustrySolution = async (id: string) => {
-  return await request.get<{ solution: IndustrySolutionItem; installs: SolutionInstallRow[] }>(
-    `/solutions/${id}`
-  )
+  return await request.get<{ solution: IndustrySolutionItem; installs: SolutionInstallRow[] }>(`/solutions/${id}`)
 }
 
 /** 删除方案（不删除已安装的实例） */
@@ -83,9 +81,6 @@ export const deleteIndustrySolution = async (id: string) => {
 }
 
 /** 一键安装方案（逐项应用并留流水） */
-export const installIndustrySolution = async (
-  id: string,
-  params?: { continue_on_error?: boolean }
-) => {
+export const installIndustrySolution = async (id: string, params?: { continue_on_error?: boolean }) => {
   return await request.post<SolutionInstallResponse>(`/solutions/${id}/install`, params ?? {})
 }

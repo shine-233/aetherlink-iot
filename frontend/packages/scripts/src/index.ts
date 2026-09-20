@@ -73,13 +73,13 @@ export async function setupCli() {
     },
     changelog: {
       desc: 'generate changelog',
-      action: async args => {
+      action: async (args) => {
         await genChangelog(cliOptions.changelogOptions, args?.total)
       }
     },
     release: {
       desc: 'release: update version, generate changelog, commit code',
-      action: async args => {
+      action: async (args) => {
         await release(args?.execute, args?.push)
       }
     },

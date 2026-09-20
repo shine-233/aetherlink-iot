@@ -141,7 +141,7 @@ export function generateDeviceMetricParameters(device: DeviceInfo, metric: Devic
  * 将生成的参数转换为EnhancedParameter格式
  */
 export function convertToEnhancedParameters(result: DeviceSelectionResult): EnhancedParameter[] {
-  return result.parameters.map(param => ({
+  return result.parameters.map((param) => ({
     key: param.key,
     value: param.value,
     enabled: true,
@@ -214,7 +214,7 @@ export class DeviceParameterGroupManager {
     const group = this.getGroup(groupId)
     if (!group) return []
 
-    return allParams.filter(param => param.parameterGroup?.groupId === groupId)
+    return allParams.filter((param) => param.parameterGroup?.groupId === groupId)
   }
 
   /**

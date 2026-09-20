@@ -47,7 +47,14 @@ const mountComponent = (props = {}) => {
     props: { id: 'device-1', ...props },
     global: {
       stubs: {
-        DistributionAndTable: defineComponent({ name: 'DistributionAndTable', props: ['id', 'noRefresh', 'tableColumns', 'fetchDataApi', 'buttonName', 'submitApi', 'expect', 'expectApi'], emits: ['refresh'], setup() { return () => h('div') } })
+        DistributionAndTable: defineComponent({
+          name: 'DistributionAndTable',
+          props: ['id', 'noRefresh', 'tableColumns', 'fetchDataApi', 'buttonName', 'submitApi', 'expect', 'expectApi'],
+          emits: ['refresh'],
+          setup() {
+            return () => h('div')
+          }
+        })
       }
     }
   })
@@ -101,8 +108,8 @@ describe('device/details/modules/stats.vue', () => {
     await flushPromises()
     // shallowMount stubs child components, so verify the setup state has the expected columns
     const state = wrapper.vm.$.setupState as StatsSetupState
-    expect(state.columns0.map(column => column.key)).toEqual(['key', 'data_name', 'value', 'ts', 'created_at'])
-    expect(state.columns.map(column => column.key)).toEqual([
+    expect(state.columns0.map((column) => column.key)).toEqual(['key', 'data_name', 'value', 'ts', 'created_at'])
+    expect(state.columns.map((column) => column.key)).toEqual([
       'created_at',
       'message_id',
       'data',
@@ -116,7 +123,7 @@ describe('device/details/modules/stats.vue', () => {
     const wrapper = mountComponent()
     await flushPromises()
     const state = wrapper.vm.$.setupState as StatsSetupState
-    expect(state.columns0.map(column => column.title)).toEqual([
+    expect(state.columns0.map((column) => column.title)).toEqual([
       'device_template.table_header.attributeIdentifier',
       'device_template.table_header.attributeName',
       'device_template.table_header.attributeValue',
@@ -131,7 +138,7 @@ describe('device/details/modules/stats.vue', () => {
     const wrapper = mountComponent()
     await flushPromises()
     const state = wrapper.vm.$.setupState as StatsSetupState
-    expect(state.columns.map(column => column.title)).toEqual([
+    expect(state.columns.map((column) => column.title)).toEqual([
       'custom.device_details.attributeDistributionTime',
       'custom.device_details.messageId',
       'custom.device_details.sendContent',

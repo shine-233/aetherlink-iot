@@ -29,7 +29,7 @@ const columns = [
     minWidth: '140px',
     key: 'ts',
     // 事件时间统一格式化，方便和命令、属性、遥测记录做人工对时排查。
-    render: row => dayjs(row.ts).format('YYYY-MM-DD HH:mm:ss')
+    render: (row) => dayjs(row.ts).format('YYYY-MM-DD HH:mm:ss')
   },
   { title: $t('device_template.table_header.eventContent'), minWidth: '140px', key: 'data' },
   { title: $t('generate.errorMessage'), minWidth: '140px', key: 'error_message' }

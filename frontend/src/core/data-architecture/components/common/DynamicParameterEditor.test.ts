@@ -89,7 +89,7 @@ vi.mock('@/core/data-architecture/components/common/templates/index', () => {
   return {
     ParameterTemplateType,
     getRecommendedTemplates: vi.fn(() => [templates[0], templates[2], templates[3]]),
-    getTemplateById: vi.fn((id: string) => templates.find(template => template.id === id))
+    getTemplateById: vi.fn((id: string) => templates.find((template) => template.id === id))
   }
 })
 
@@ -153,7 +153,8 @@ vi.mock('naive-ui', () => ({
     props: ['checked'],
     emits: ['update:checked'],
     setup(props, { emit }) {
-      return () => h('button', { class: 'n-checkbox-stub', type: 'button', onClick: () => emit('update:checked', !props.checked) })
+      return () =>
+        h('button', { class: 'n-checkbox-stub', type: 'button', onClick: () => emit('update:checked', !props.checked) })
     }
   }),
   NInput: defineComponent({
@@ -230,7 +231,10 @@ vi.mock('naive-ui', () => ({
   NRadio: defineComponent({
     props: ['value'],
     setup(props, { slots }) {
-      const group = inject<{ getValue: () => string; updateValue: (value: string) => void } | null>(radioGroupContextKey, null)
+      const group = inject<{ getValue: () => string; updateValue: (value: string) => void } | null>(
+        radioGroupContextKey,
+        null
+      )
       return () =>
         h('label', { class: 'n-radio-stub' }, [
           h('input', {
@@ -533,7 +537,7 @@ describe('DynamicParameterEditor.vue', () => {
       }
     })
     hoisted.getGroupParameters.mockImplementation((groupId: string, params: Param[]) =>
-      params.filter(item => item.parameterGroup?.groupId === groupId)
+      params.filter((item) => item.parameterGroup?.groupId === groupId)
     )
   })
 
@@ -639,8 +643,8 @@ describe('DynamicParameterEditor.vue', () => {
         dataType: 'boolean'
       })
     ])
-    expect(lastModelValue(wrapper).some(item => item.key === 'deviceId')).toBe(false)
-    expect(lastModelValue(wrapper).some(item => item.key === 'X-Trace-Id')).toBe(false)
+    expect(lastModelValue(wrapper).some((item) => item.key === 'deviceId')).toBe(false)
+    expect(lastModelValue(wrapper).some((item) => item.key === 'X-Trace-Id')).toBe(false)
 
     const pathWrapper = mountEditor({ modelValue: [], parameterType: 'path', currentApiInfo: apiInfo })
     await clickHeaderTemplateButton(pathWrapper)
@@ -654,7 +658,7 @@ describe('DynamicParameterEditor.vue', () => {
 
     const headerWrapper = mountEditor({ modelValue: [], parameterType: 'header', currentApiInfo: apiInfo })
     await clickHeaderTemplateButton(headerWrapper)
-    expect(lastModelValue(headerWrapper).map(item => item.key)).toEqual(['X-Trace-Id'])
+    expect(lastModelValue(headerWrapper).map((item) => item.key)).toEqual(['X-Trace-Id'])
   })
 
   it('falls back to sensible default template params when API metadata is missing or has no common params', async () => {
@@ -700,7 +704,7 @@ describe('DynamicParameterEditor.vue', () => {
       param({ key: 'deviceStatus', value: 'online', valueMode: 'component' })
     ]
     state.handleUnifiedDeviceConfigGenerated(newDeviceParams)
-    expect(lastModelValue(wrapper).map(item => [item.key, item.value])).toEqual([
+    expect(lastModelValue(wrapper).map((item) => [item.key, item.value])).toEqual([
       ['keep', 'keep-value'],
       ['deviceId', 'new-device'],
       ['deviceStatus', 'online']
@@ -772,7 +776,7 @@ describe('DynamicParameterEditor.vue', () => {
 
     await wrapper.get('.unified-device-config-selector-stub').trigger('click')
 
-    expect(lastModelValue(wrapper).map(item => [item.key, item.value])).toEqual([
+    expect(lastModelValue(wrapper).map((item) => [item.key, item.value])).toEqual([
       ['unrelated', 'stay'],
       ['deviceId', 'stub-device'],
       ['metric', 'stub-device.temperature']
@@ -794,7 +798,7 @@ describe('DynamicParameterEditor.vue', () => {
 
     await wrapper.get('.unified-device-config-selector-stub').trigger('click')
 
-    expect(lastModelValue(wrapper).map(item => [item.key, item.value])).toEqual([
+    expect(lastModelValue(wrapper).map((item) => [item.key, item.value])).toEqual([
       ['keep', 'keep-value'],
       ['deviceId', 'stub-device'],
       ['metric', 'stub-device.temperature']
@@ -1051,19 +1055,22 @@ describe('DynamicParameterEditor.vue', () => {
     })
     const state = getState(wrapper)
 
-    await wrapper.findAll('.parameter-item-inline')[1].get('.param-type-select-inline').setValue('component-property-binding')
+    await wrapper
+      .findAll('.parameter-item-inline')[1]
+      .get('.param-type-select-inline')
+      .setValue('component-property-binding')
     await nextTick()
     await wrapper.findAll('.parameter-item-inline')[0].get('.param-actions-inline .n-button-stub').trigger('click')
     await nextTick()
     await wrapper.setProps({ modelValue: lastModelValue(wrapper) })
 
-    expect(lastModelValue(wrapper).map(item => item.key)).toEqual(['second', 'third'])
+    expect(lastModelValue(wrapper).map((item) => item.key)).toEqual(['second', 'third'])
     expect(state.editingIndex).toBe(0)
 
     await wrapper.findAll('.parameter-item-inline')[0].get('.param-actions-inline .n-button-stub').trigger('click')
     await nextTick()
 
-    expect(lastModelValue(wrapper).map(item => item.key)).toEqual(['third'])
+    expect(lastModelValue(wrapper).map((item) => item.key)).toEqual(['third'])
     expect(state.editingIndex).toBe(-1)
   })
 })

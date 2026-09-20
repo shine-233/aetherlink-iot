@@ -37,7 +37,7 @@ describe('dashboard/workspace/index.vue', () => {
     expect(wrapper.text()).toContain('t:custom.nativeBoards.title')
     expect(wrapper.text()).toContain('t:custom.dashboardWorkspace.workbenchTitle')
     expect(wrapper.findAll('.router-link-stub')).toHaveLength(2)
-    expect(wrapper.findAll('.router-link-stub').map(link => link.attributes('data-route'))).toEqual([
+    expect(wrapper.findAll('.router-link-stub').map((link) => link.attributes('data-route'))).toEqual([
       '/visualization/native-boards',
       '/dashboard/workbench'
     ])
@@ -46,6 +46,8 @@ describe('dashboard/workspace/index.vue', () => {
   it('uses path links so optional route-name registration cannot blank the page', () => {
     const wrapper = mountPage()
 
-    expect(wrapper.findAll('.router-link-stub').every(link => link.attributes('data-route')?.startsWith('/'))).toBe(true)
+    expect(wrapper.findAll('.router-link-stub').every((link) => link.attributes('data-route')?.startsWith('/'))).toBe(
+      true
+    )
   })
 })

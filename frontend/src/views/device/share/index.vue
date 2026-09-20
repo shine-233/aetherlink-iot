@@ -104,11 +104,7 @@ onMounted(() => {
         <NSpin v-if="status === 'loading'" data-testid="share-loading" size="large" />
 
         <div v-else-if="status === 'success'" data-testid="share-success" :data-already-accepted="alreadyAccepted">
-          <NResult
-            status="success"
-            :title="resultTitle"
-            :description="resultDescription"
-          >
+          <NResult status="success" :title="resultTitle" :description="resultDescription">
             <template #footer>
               <NSpace justify="center">
                 <NButton data-testid="share-open-device" type="primary" :disabled="!deviceId" @click="goDeviceDetails">
@@ -126,7 +122,9 @@ onMounted(() => {
           <NResult status="error" :title="$t('rdi.share.failed')" :description="errorMessage">
             <template #footer>
               <NSpace justify="center">
-                <NButton data-testid="share-retry" type="primary" @click="acceptShare">{{ $t('rdi.share.retry') }}</NButton>
+                <NButton data-testid="share-retry" type="primary" @click="acceptShare">
+                  {{ $t('rdi.share.retry') }}
+                </NButton>
                 <NButton data-testid="share-error-open-shared-with-me" @click="goSharedWithMe">
                   {{ $t('rdi.share.shareToMe') }}
                 </NButton>

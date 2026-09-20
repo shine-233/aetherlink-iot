@@ -41,16 +41,62 @@ const mountSharedWithMe = () => {
   const wrapper = shallowMount(SharedWithMe, {
     global: {
       stubs: {
-        NCard: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NSpace: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : []) } }),
-        NInput: defineComponent({ props: { value: { default: '' } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NDataTable: defineComponent({ props: { data: { type: Array, default: () => [] }, loading: Boolean, pagination: { default: null } }, setup() { return () => h('div') } }),
-        NDrawer: defineComponent({ props: { show: Boolean }, emits: ['update:show'], setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NDrawerContent: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NDescriptions: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NDescriptionsItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NTag: defineComponent({ setup(_, { slots }) { return () => h('span', slots.default ? slots.default() : []) } })
+        NCard: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NSpace: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NButton: defineComponent({
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : [])
+          }
+        }),
+        NInput: defineComponent({
+          props: { value: { default: '' } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NDataTable: defineComponent({
+          props: { data: { type: Array, default: () => [] }, loading: Boolean, pagination: { default: null } },
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NDrawer: defineComponent({
+          props: { show: Boolean },
+          emits: ['update:show'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NDrawerContent: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NDescriptions: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NDescriptionsItem: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NTag: defineComponent({
+          setup(_, { slots }) {
+            return () => h('span', slots.default ? slots.default() : [])
+          }
+        })
       }
     }
   })
@@ -61,7 +107,23 @@ const mountSharedWithMe = () => {
 const getSetupState = (wrapper: ReturnType<typeof shallowMount>) => wrapper.vm.$.setupState as Record<string, any>
 
 const mockDeviceRecord = (overrides: Record<string, any> = {}) => ({
-  device: { device_id: 'dev-1', device_name: 'Device 1', online: true, pid_number: 'PID001', firmware_version: '1.0', connection_type: 'wifi', config: { sensor_1_lower: 0, sensor_1_upper: 100, sensor_2_lower: 0, sensor_2_upper: 100, switch_1_alarm_mode: 'NO', switch_2_alarm_mode: 'NC', notification_enabled: true } },
+  device: {
+    device_id: 'dev-1',
+    device_name: 'Device 1',
+    online: true,
+    pid_number: 'PID001',
+    firmware_version: '1.0',
+    connection_type: 'wifi',
+    config: {
+      sensor_1_lower: 0,
+      sensor_1_upper: 100,
+      sensor_2_lower: 0,
+      sensor_2_upper: 100,
+      switch_1_alarm_mode: 'NO',
+      switch_2_alarm_mode: 'NC',
+      notification_enabled: true
+    }
+  },
   accepted_at: 1718900000,
   ...overrides
 })
@@ -183,15 +245,20 @@ describe('shared-with-me/index.vue', () => {
 
       const state = getSetupState(wrapper)
       expect(state.detailVisible).toBe(true)
-      expect(state.selectedRecord).toEqual(expect.objectContaining({
-        device: expect.objectContaining({ device_id: 'dev-1' })
-      }))
+      expect(state.selectedRecord).toEqual(
+        expect.objectContaining({
+          device: expect.objectContaining({ device_id: 'dev-1' })
+        })
+      )
     })
 
     it('does not auto-open detail when multiple results', async () => {
       routeQuery.device_id = 'dev-1'
       hoisted.rdiSharedWithMeDevices.mockResolvedValue({
-        data: { list: [mockDeviceRecord(), mockDeviceRecord({ device: { device_id: 'dev-2', device_name: 'Device 2' } })], total: 2 }
+        data: {
+          list: [mockDeviceRecord(), mockDeviceRecord({ device: { device_id: 'dev-2', device_name: 'Device 2' } })],
+          total: 2
+        }
       })
       const wrapper = mountSharedWithMe()
       await flushPromises()

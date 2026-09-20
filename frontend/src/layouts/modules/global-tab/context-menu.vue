@@ -73,10 +73,10 @@ const options = computed(() => {
   ]
   const { excludeKeys, disabledKeys } = props
 
-  const result = opts.filter(opt => !excludeKeys.includes(opt.key))
+  const result = opts.filter((opt) => !excludeKeys.includes(opt.key))
 
-  disabledKeys.forEach(key => {
-    const opt = result.find(item => item.key === key)
+  disabledKeys.forEach((key) => {
+    const opt = result.find((item) => item.key === key)
 
     if (opt) {
       opt.disabled = true

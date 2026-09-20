@@ -56,7 +56,10 @@ const mountComponent = (props: Record<string, any> = {}) => {
   const wrapper = mount(Component, {
     props: { id: 'device-1', online: true, ...props },
     global: {
-      stubs: { NSpace: { template: '<div><slot /></div>' }, NAlert: { template: '<div class="n-alert"><slot /></div>' } }
+      stubs: {
+        NSpace: { template: '<div><slot /></div>' },
+        NAlert: { template: '<div class="n-alert"><slot /></div>' }
+      }
     }
   })
   mountedWrappers.push(wrapper)

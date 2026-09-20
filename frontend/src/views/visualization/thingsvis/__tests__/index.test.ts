@@ -21,7 +21,7 @@ const hoisted = vi.hoisted(() => ({
   messageError: vi.fn(),
   nativeCreateProject: vi.fn(),
   fetchBoardProjects: vi.fn(),
-  fetchBoardProjectMembership: vi.fn(),
+  fetchBoardProjectMembership: vi.fn()
 }))
 
 let currentRouteQuery: Record<string, any> = {}
@@ -33,20 +33,21 @@ vi.mock('@/service/api/thingsvis', () => ({
   getThingsVisDashboards: hoisted.getThingsVisDashboards,
   createThingsVisProject: hoisted.createThingsVisProject,
   updateThingsVisProject: hoisted.updateThingsVisProject,
-  deleteThingsVisProject: hoisted.deleteThingsVisProject,
+  deleteThingsVisProject: hoisted.deleteThingsVisProject
 }))
 
-vi.mock('@/service/visualization-provider/index', async importOriginal => {
+vi.mock('@/service/visualization-provider/index', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/service/visualization-provider/index')>()
   return {
     ...actual,
     getDefaultVisualizationProviderFacade: () => {
-      const selectedProvider = facadeProvider === 'native'
-        ? {
-            ...actual.nativeBoardProvider,
-            createProject: hoisted.nativeCreateProject,
-          }
-        : actual.legacyThingsVisProvider
+      const selectedProvider =
+        facadeProvider === 'native'
+          ? {
+              ...actual.nativeBoardProvider,
+              createProject: hoisted.nativeCreateProject
+            }
+          : actual.legacyThingsVisProvider
       return {
         selectionError: facadeSelectionError,
         capabilities: facadeSelectionError ? null : selectedProvider.capabilities,
@@ -65,15 +66,15 @@ vi.mock('@/service/api/board', () => ({
 }))
 
 vi.mock('@/service/api/dashboard-menu', () => ({
-  deleteDashboardMenuConfig: hoisted.deleteDashboardMenuConfig,
+  deleteDashboardMenuConfig: hoisted.deleteDashboardMenuConfig
 }))
 
 vi.mock('@/utils/router/refresh-auth-routes', () => ({
-  refreshAuthRoutes: hoisted.refreshAuthRoutes,
+  refreshAuthRoutes: hoisted.refreshAuthRoutes
 }))
 
 vi.mock('@/utils/thingsvis/home-cache', () => ({
-  clearThingsVisHomeCache: hoisted.clearThingsVisHomeCache,
+  clearThingsVisHomeCache: hoisted.clearThingsVisHomeCache
 }))
 
 vi.mock('@/locales', () => ({
@@ -90,24 +91,74 @@ vi.mock('vue-router', () => ({
 }))
 
 vi.mock('naive-ui', () => ({
-  createDiscreteApi: () => ({ message: { success: vi.fn(), error: vi.fn(), warning: vi.fn() }, notification: {}, dialog: {}, loadingBar: {} }),
-  NAlert: defineComponent({ setup(_, { slots }) { return () => h('div', [slots.header?.(), slots.default?.()]) } }),
-  NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } }),
-  NCard: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-  NInput: defineComponent({ props: { value: { default: '' } }, emits: ['update:value'], setup() { return () => h('div') } }),
-  NModal: defineComponent({ props: { show: Boolean }, emits: ['update:show'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-  NForm: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-  NFormItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-  NGrid: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-  NGridItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
+  createDiscreteApi: () => ({
+    message: { success: vi.fn(), error: vi.fn(), warning: vi.fn() },
+    notification: {},
+    dialog: {},
+    loadingBar: {}
+  }),
+  NAlert: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', [slots.header?.(), slots.default?.()])
+    }
+  }),
+  NButton: defineComponent({
+    emits: ['click'],
+    setup(_, { slots, emit }) {
+      return () => h('button', { onClick: () => emit('click') }, slots.default?.())
+    }
+  }),
+  NCard: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default?.())
+    }
+  }),
+  NInput: defineComponent({
+    props: { value: { default: '' } },
+    emits: ['update:value'],
+    setup() {
+      return () => h('div')
+    }
+  }),
+  NModal: defineComponent({
+    props: { show: Boolean },
+    emits: ['update:show'],
+    setup(_, { slots }) {
+      return () => h('div', slots.default?.())
+    }
+  }),
+  NForm: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default?.())
+    }
+  }),
+  NFormItem: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default?.())
+    }
+  }),
+  NGrid: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default?.())
+    }
+  }),
+  NGridItem: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default?.())
+    }
+  }),
   NEmpty: defineComponent({
     props: { description: { type: String, default: '' } },
     setup(props, { slots }) {
       return () => h('div', [props.description, slots.default?.(), slots.extra?.()])
     }
   }),
-  NSpin: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-  useMessage: () => ({ success: vi.fn(), error: hoisted.messageError, warning: vi.fn() }),
+  NSpin: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default?.())
+    }
+  }),
+  useMessage: () => ({ success: vi.fn(), error: hoisted.messageError, warning: vi.fn() })
 }))
 
 import ThingsVisIndex from '../index.vue'
@@ -119,21 +170,62 @@ const mountComponent = (props = {}) => {
     props,
     global: {
       stubs: {
-        NCard: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } }),
-        NInput: defineComponent({ props: { value: { default: '' } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NModal: defineComponent({ props: { show: Boolean }, emits: ['update:show'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NForm: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NFormItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NGrid: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NGridItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
+        NCard: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NButton: defineComponent({
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default?.())
+          }
+        }),
+        NInput: defineComponent({
+          props: { value: { default: '' } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NModal: defineComponent({
+          props: { show: Boolean },
+          emits: ['update:show'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NForm: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NFormItem: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NGrid: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NGridItem: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
         NEmpty: defineComponent({
           props: { description: { type: String, default: '' } },
           setup(props, { slots }) {
             return () => h('div', [props.description, slots.default?.(), slots.extra?.()])
           }
         }),
-        NSpin: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
+        NSpin: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        })
       }
     }
   })
@@ -171,7 +263,7 @@ describe('ThingsVisIndex', () => {
   })
 
   afterEach(() => {
-    mountedWrappers.forEach(w => w.unmount())
+    mountedWrappers.forEach((w) => w.unmount())
     mountedWrappers.length = 0
   })
 
@@ -274,7 +366,10 @@ describe('ThingsVisIndex', () => {
 
   it('should route created first-device project to dashboards with onboarding context', async () => {
     currentRouteQuery = { onboarding: 'first-device' }
-    hoisted.createThingsVisProject.mockResolvedValue({ data: projectFixture({ id: 'proj-new', name: 'First Project' }), error: null })
+    hoisted.createThingsVisProject.mockResolvedValue({
+      data: projectFixture({ id: 'proj-new', name: 'First Project' }),
+      error: null
+    })
     hoisted.getThingsVisProjects.mockResolvedValue({ data: projectPage(), error: null })
     const wrapper = mountComponent()
     await flushPromises()
@@ -376,7 +471,7 @@ describe('ThingsVisIndex', () => {
     // 创建入口出现；内置项目卡片的编辑/删除入口保持隐藏（provider 对其 fail closed）。
     expect(wrapper.text()).toContain('rdi.thingsvis.newProject')
     expect(wrapper.findComponent({ name: 'NModal' }).exists()).toBe(false)
-    expect(wrapper.find('.group-hover\:opacity-100').exists()).toBe(false)
+    expect(wrapper.find('[class*="group-hover:opacity-100"]').exists()).toBe(false)
   })
 
   it('routes first-device native onboarding to the built-in project without creating one', async () => {

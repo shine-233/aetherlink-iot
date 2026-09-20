@@ -21,9 +21,7 @@ export interface VisualizationError {
   cause?: unknown
 }
 
-export type VisualizationResult<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: VisualizationError }
+export type VisualizationResult<T> = { ok: true; data: T } | { ok: false; error: VisualizationError }
 
 export interface VisualizationPage<T> {
   items: T[]
@@ -162,18 +160,35 @@ export interface VisualizationProvider {
   readonly kind: 'third-party' | 'local'
   readonly deploymentMode: VisualizationProviderDeploymentMode
   readonly capabilities: VisualizationProviderCapabilities
-  listProjects(params?: { page?: number; limit?: number }): Promise<VisualizationResult<VisualizationPage<VisualizationProject>>>
+  listProjects(params?: {
+    page?: number
+    limit?: number
+  }): Promise<VisualizationResult<VisualizationPage<VisualizationProject>>>
   getProject(id: string): Promise<VisualizationResult<VisualizationProject>>
   createProject(payload: CreateVisualizationProjectPayload): Promise<VisualizationResult<VisualizationProject>>
-  updateProject(id: string, payload: UpdateVisualizationProjectPayload): Promise<VisualizationResult<VisualizationProject>>
+  updateProject(
+    id: string,
+    payload: UpdateVisualizationProjectPayload
+  ): Promise<VisualizationResult<VisualizationProject>>
   deleteProject(id: string): Promise<VisualizationResult<void>>
-  listDashboards(params: { projectId: string; page?: number; limit?: number; name?: string; tenantId?: string }): Promise<VisualizationResult<VisualizationPage<VisualizationDashboardSummary>>>
+  listDashboards(params: {
+    projectId: string
+    page?: number
+    limit?: number
+    name?: string
+    tenantId?: string
+  }): Promise<VisualizationResult<VisualizationPage<VisualizationDashboardSummary>>>
   getDashboard(id: string): Promise<VisualizationResult<VisualizationDashboardSchema>>
   /** Optional unauthenticated lookup used only by a provider's public viewer. */
   getDashboardByShareToken?(token: string): Promise<VisualizationResult<VisualizationDashboardSchema>>
   getDashboardThumbnail(id: string): Promise<VisualizationResult<string | null>>
-  createDashboard(payload: CreateVisualizationDashboardPayload): Promise<VisualizationResult<VisualizationDashboardSchema>>
-  updateDashboard(id: string, payload: UpdateVisualizationDashboardPayload): Promise<VisualizationResult<VisualizationDashboardSchema>>
+  createDashboard(
+    payload: CreateVisualizationDashboardPayload
+  ): Promise<VisualizationResult<VisualizationDashboardSchema>>
+  updateDashboard(
+    id: string,
+    payload: UpdateVisualizationDashboardPayload
+  ): Promise<VisualizationResult<VisualizationDashboardSchema>>
   deleteDashboard(id: string): Promise<VisualizationResult<void>>
   publishDashboard(id: string): Promise<VisualizationResult<VisualizationDashboardSchema>>
   duplicateDashboard(id: string): Promise<VisualizationResult<VisualizationDashboardSchema>>

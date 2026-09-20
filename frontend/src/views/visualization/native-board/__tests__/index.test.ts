@@ -88,13 +88,14 @@ describe('native board viewer page', () => {
     vi.clearAllMocks()
     hoisted.normalizeLocalDashboard.mockReturnValue({ ok: true, dashboard: validDashboard })
     hoisted.getDashboard.mockResolvedValue(success('board-1'))
-    hoisted.execute.mockImplementation((operation: (provider: { getDashboard: typeof hoisted.getDashboard }) => unknown) =>
-      operation({ getDashboard: hoisted.getDashboard })
+    hoisted.execute.mockImplementation(
+      (operation: (provider: { getDashboard: typeof hoisted.getDashboard }) => unknown) =>
+        operation({ getDashboard: hoisted.getDashboard })
     )
   })
 
   afterEach(() => {
-    wrappers.forEach(wrapper => wrapper.unmount())
+    wrappers.forEach((wrapper) => wrapper.unmount())
     wrappers.length = 0
   })
 
@@ -173,9 +174,7 @@ describe('native board viewer page', () => {
   it('ignores an older success that resolves after the newer request', async () => {
     const older = deferred<ReturnType<typeof success>>()
     const newerDashboard = { ...validDashboard, columns: 8 }
-    hoisted.getDashboard
-      .mockReturnValueOnce(older.promise)
-      .mockResolvedValueOnce(success('board-2', newerDashboard))
+    hoisted.getDashboard.mockReturnValueOnce(older.promise).mockResolvedValueOnce(success('board-2', newerDashboard))
     const wrapper = mountPage('board-1')
 
     hoisted.route.query.id = 'board-2'
@@ -190,9 +189,7 @@ describe('native board viewer page', () => {
 
   it('does not let an older error overwrite a newer success', async () => {
     const older = deferred<ReturnType<typeof success>>()
-    hoisted.getDashboard
-      .mockReturnValueOnce(older.promise)
-      .mockResolvedValueOnce(success('board-2'))
+    hoisted.getDashboard.mockReturnValueOnce(older.promise).mockResolvedValueOnce(success('board-2'))
     const wrapper = mountPage('board-1')
 
     hoisted.route.query.id = 'board-2'

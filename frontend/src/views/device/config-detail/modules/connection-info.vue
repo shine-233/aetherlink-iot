@@ -258,9 +258,7 @@ const connectionAccessPackage = computed(() => ({
   checklist: connectionChecklist.value
 }))
 
-const connectionAccessPackageText = computed(() =>
-  JSON.stringify(connectionAccessPackage.value, null, 2)
-)
+const connectionAccessPackageText = computed(() => JSON.stringify(connectionAccessPackage.value, null, 2))
 
 const copyConnectionAccessPackage = async () => {
   const copied = await writeClipboardText(connectionAccessPackageText.value)

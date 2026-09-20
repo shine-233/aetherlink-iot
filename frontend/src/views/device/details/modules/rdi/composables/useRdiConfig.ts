@@ -85,7 +85,9 @@ function normalizeFieldRecord(value: unknown): FieldRecord {
 
 function normalizeCollectionInterval(value: unknown) {
   const interval = Number(value)
-  return Number.isFinite(interval) && interval >= 45 && interval <= 60 ? interval : defaultConfig().data_collection_interval
+  return Number.isFinite(interval) && interval >= 45 && interval <= 60
+    ? interval
+    : defaultConfig().data_collection_interval
 }
 
 function normalizeConfig(config?: Partial<RDIConfig>): RDIConfig {

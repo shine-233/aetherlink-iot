@@ -62,7 +62,7 @@ async function loadUsers(name = '') {
     const list = (data as { list?: { user_id?: string; name?: string }[] } | undefined)?.list ?? []
     userOptions.value = list
       .filter((item): item is { user_id: string; name?: string } => Boolean(item?.user_id))
-      .map(item => ({ label: item.name || item.user_id, value: item.user_id }))
+      .map((item) => ({ label: item.name || item.user_id, value: item.user_id }))
   } finally {
     usersLoading.value = false
   }
@@ -150,7 +150,7 @@ void loadUsers()
           </div>
           <div class="mt-4px whitespace-pre-wrap break-words text-13px">
             {{ assigneeLabel(record.assignee_user_id) }}
-            <template v-if="record.remark"> · {{ record.remark }}</template>
+            <template v-if="record.remark">· {{ record.remark }}</template>
           </div>
         </li>
       </ul>
@@ -177,7 +177,13 @@ void loadUsers()
         <n-button size="small" :disabled="!canUnassign" @click="submit(null)">
           {{ $t('custom.alarmAssignment.unassign') }}
         </n-button>
-        <n-button type="primary" size="small" :disabled="!canSubmit" :loading="submitting" @click="submit(selectedAssignee)">
+        <n-button
+          type="primary"
+          size="small"
+          :disabled="!canSubmit"
+          :loading="submitting"
+          @click="submit(selectedAssignee)"
+        >
           {{ $t('custom.alarmAssignment.submit') }}
         </n-button>
       </div>

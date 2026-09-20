@@ -98,7 +98,7 @@ function checkPanelV2Compliance() {
 
   const renderers = fs.readdirSync(rendererDir)
 
-  renderers.forEach(renderer => {
+  renderers.forEach((renderer) => {
     const rendererPath = path.join(rendererDir, renderer)
     if (fs.statSync(rendererPath).isDirectory()) {
       const mainRenderer = path.join(
@@ -122,7 +122,7 @@ function checkPanelV2Compliance() {
         // 检查图标使用是否正确
         const iconImports = content.match(/import.*from.*@vicons\/ionicons5/g)
         if (iconImports) {
-          iconImports.forEach(importLine => {
+          iconImports.forEach((importLine) => {
             if (!importLine.includes('Outline')) {
               issues.push(`${renderer} 渲染器使用了错误的图标命名规范`)
             }
@@ -136,7 +136,7 @@ function checkPanelV2Compliance() {
     logSuccess('PanelV2 架构合规性检查通过')
     return true
   } else {
-    issues.forEach(issue => logError(issue))
+    issues.forEach((issue) => logError(issue))
     return false
   }
 }
@@ -154,7 +154,7 @@ function checkRequiredFiles() {
 
   let allExist = true
 
-  requiredFiles.forEach(file => {
+  requiredFiles.forEach((file) => {
     if (!checkFileExists(file.path, file.desc)) {
       allExist = false
     }
@@ -184,7 +184,7 @@ function checkCodeQuality() {
 
   let allPassed = true
 
-  checks.forEach(check => {
+  checks.forEach((check) => {
     const result = runCommand(check.command, check.description)
 
     if (result.success) {
@@ -214,7 +214,7 @@ function checkCSSIssues() {
   function findVueFiles(dir) {
     const items = fs.readdirSync(dir)
 
-    items.forEach(item => {
+    items.forEach((item) => {
       const fullPath = path.join(dir, item)
       const stat = fs.statSync(fullPath)
 
@@ -235,7 +235,7 @@ function checkCSSIssues() {
 
   let issues = []
 
-  vueFiles.forEach(file => {
+  vueFiles.forEach((file) => {
     try {
       const content = fs.readFileSync(file, 'utf8')
 
@@ -250,7 +250,7 @@ function checkCSSIssues() {
         { pattern: /#[0-9a-fA-F]{3,6}/, fix: 'CSS 变量', desc: '发现硬编码颜色，应使用主题变量' }
       ]
 
-      cssIssues.forEach(issue => {
+      cssIssues.forEach((issue) => {
         if (issue.pattern.test(content)) {
           issues.push(`${file}: ${issue.desc}`)
         }
@@ -264,7 +264,7 @@ function checkCSSIssues() {
     logSuccess('CSS 语法检查通过')
     return true
   } else {
-    issues.forEach(issue => logWarning(issue))
+    issues.forEach((issue) => logWarning(issue))
     return issues.length < 5 // 少量问题不阻止提交
   }
 }
@@ -275,7 +275,7 @@ function checkCSSIssues() {
 function generateQualityReport(results) {
   logSection('质量检查报告')
 
-  const passed = results.filter(r => r.passed).length
+  const passed = results.filter((r) => r.passed).length
   const total = results.length
   const percentage = Math.round((passed / total) * 100)
 

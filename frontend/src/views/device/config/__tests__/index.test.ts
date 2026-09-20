@@ -39,33 +39,130 @@ vi.mock('vue-router', () => ({
 }))
 
 vi.mock('naive-ui', () => ({
-  NTabs: defineComponent({ props: ['value'], emits: ['update:value'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-  NTabPane: defineComponent({ props: ['name', 'tab'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-  NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : []) } }),
-  NInput: defineComponent({ props: ['value', 'placeholder'], emits: ['update:value', 'clear', 'keydown'], setup(_, { slots, emit }) { return () => h('input', { value: _.value, onInput: (e: any) => emit('update:value', e.target.value), onKeydown: (e: any) => emit('keydown', e) }) } }),
-  NIcon: defineComponent({ setup(_, { slots }) { return () => h('span', slots.default?.()) } }),
-  NPagination: defineComponent({ props: ['page', 'pageSize', 'itemCount'], emits: ['update:page', 'update:page-size'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-  NDataTable: defineComponent({ props: ['columns', 'data', 'loading'], setup() { return () => h('table') } }),
-  NTag: defineComponent({ props: ['type'], setup(_, { slots }) { return () => h('span', slots.default?.()) } }),
-  NSpace: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-  NEmpty: defineComponent({ props: ['description', 'size'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-  NDropdown: defineComponent({ props: ['options', 'trigger', 'placement'], emits: ['select'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-  NTooltip: defineComponent({ props: ['disabled', 'trigger'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-  NGrid: defineComponent({ props: ['cols'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-  NGi: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-  NSpin: defineComponent({ props: ['show'], setup(_, { slots }) { return () => h('div', slots.default?.()) } })
+  NTabs: defineComponent({
+    props: ['value'],
+    emits: ['update:value'],
+    setup(_, { slots }) {
+      return () => h('div', slots.default?.())
+    }
+  }),
+  NTabPane: defineComponent({
+    props: ['name', 'tab'],
+    setup(_, { slots }) {
+      return () => h('div', slots.default?.())
+    }
+  }),
+  NButton: defineComponent({
+    emits: ['click'],
+    setup(_, { slots, emit }) {
+      return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : [])
+    }
+  }),
+  NInput: defineComponent({
+    props: ['value', 'placeholder'],
+    emits: ['update:value', 'clear', 'keydown'],
+    setup(_, { slots, emit }) {
+      return () =>
+        h('input', {
+          value: _.value,
+          onInput: (e: any) => emit('update:value', e.target.value),
+          onKeydown: (e: any) => emit('keydown', e)
+        })
+    }
+  }),
+  NIcon: defineComponent({
+    setup(_, { slots }) {
+      return () => h('span', slots.default?.())
+    }
+  }),
+  NPagination: defineComponent({
+    props: ['page', 'pageSize', 'itemCount'],
+    emits: ['update:page', 'update:page-size'],
+    setup(_, { slots }) {
+      return () => h('div', slots.default?.())
+    }
+  }),
+  NDataTable: defineComponent({
+    props: ['columns', 'data', 'loading'],
+    setup() {
+      return () => h('table')
+    }
+  }),
+  NTag: defineComponent({
+    props: ['type'],
+    setup(_, { slots }) {
+      return () => h('span', slots.default?.())
+    }
+  }),
+  NSpace: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default?.())
+    }
+  }),
+  NEmpty: defineComponent({
+    props: ['description', 'size'],
+    setup(_, { slots }) {
+      return () => h('div', slots.default?.())
+    }
+  }),
+  NDropdown: defineComponent({
+    props: ['options', 'trigger', 'placement'],
+    emits: ['select'],
+    setup(_, { slots }) {
+      return () => h('div', slots.default?.())
+    }
+  }),
+  NTooltip: defineComponent({
+    props: ['disabled', 'trigger'],
+    setup(_, { slots }) {
+      return () => h('div', slots.default?.())
+    }
+  }),
+  NGrid: defineComponent({
+    props: ['cols'],
+    setup(_, { slots }) {
+      return () => h('div', slots.default?.())
+    }
+  }),
+  NGi: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default?.())
+    }
+  }),
+  NSpin: defineComponent({
+    props: ['show'],
+    setup(_, { slots }) {
+      return () => h('div', slots.default?.())
+    }
+  })
 }))
 
 vi.mock('@/components/list-page/index.vue', () => ({
-  default: defineComponent({ emits: ['add-new', 'query', 'reset', 'refresh'], setup(_, { slots }) { return () => h('div', slots.default?.()) } })
+  default: defineComponent({
+    emits: ['add-new', 'query', 'reset', 'refresh'],
+    setup(_, { slots }) {
+      return () => h('div', slots.default?.())
+    }
+  })
 }))
 
 vi.mock('@/components/dev-card-item/index.vue', () => ({
-  default: defineComponent({ props: ['title', 'footerText', 'subtitle', 'deviceConfigId', 'isStatus'], emits: ['click-card'], setup(_, { slots }) { return () => h('div', slots.default?.()) } })
+  default: defineComponent({
+    props: ['title', 'footerText', 'subtitle', 'deviceConfigId', 'isStatus'],
+    emits: ['click-card'],
+    setup(_, { slots }) {
+      return () => h('div', slots.default?.())
+    }
+  })
 }))
 
 vi.mock('@/components/custom/svg-icon.vue', () => ({
-  default: defineComponent({ props: ['localIcon'], setup() { return () => h('span') } })
+  default: defineComponent({
+    props: ['localIcon'],
+    setup() {
+      return () => h('span')
+    }
+  })
 }))
 
 vi.mock('../modules/market-login-modal.vue', () => ({
@@ -93,14 +190,35 @@ vi.mock('../modules/publish-confirm-modal.vue', () => ({
 }))
 
 vi.mock('../modules/market-template-list.vue', () => ({
-  default: defineComponent({ emits: ['installed'], setup(_, { slots }) { return () => h('div', slots.default?.()) } })
+  default: defineComponent({
+    emits: ['installed'],
+    setup(_, { slots }) {
+      return () => h('div', slots.default?.())
+    }
+  })
 }))
 
 vi.mock('@vicons/ionicons5', () => ({
-  SearchOutline: defineComponent({ setup() { return () => h('span') } }),
-  ListOutline: defineComponent({ setup() { return () => h('span') } }),
-  GridOutline: defineComponent({ setup() { return () => h('span') } }),
-  EllipsisHorizontal: defineComponent({ setup() { return () => h('span') } })
+  SearchOutline: defineComponent({
+    setup() {
+      return () => h('span')
+    }
+  }),
+  ListOutline: defineComponent({
+    setup() {
+      return () => h('span')
+    }
+  }),
+  GridOutline: defineComponent({
+    setup() {
+      return () => h('span')
+    }
+  }),
+  EllipsisHorizontal: defineComponent({
+    setup() {
+      return () => h('span')
+    }
+  })
 }))
 
 import Component from '../index.vue'
@@ -128,7 +246,11 @@ const mountComponent = (props = {}) => {
             return () => h('div')
           }
         }),
-        MarketTemplateList: defineComponent({ setup() { return () => h('div') } })
+        MarketTemplateList: defineComponent({
+          setup() {
+            return () => h('div')
+          }
+        })
       }
     }
   })
@@ -361,7 +483,12 @@ describe('device/config/index.vue', () => {
 
   it('loading state is managed correctly during getData', async () => {
     let resolvePromise: (value: any) => void
-    hoisted.deviceConfig.mockImplementation(() => new Promise(resolve => { resolvePromise = resolve }))
+    hoisted.deviceConfig.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvePromise = resolve
+        })
+    )
     const wrapper = mountComponent()
     await flushPromises()
     const state = getSetupState(wrapper)

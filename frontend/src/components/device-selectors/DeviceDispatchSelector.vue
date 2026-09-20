@@ -189,7 +189,7 @@ const processedMetricsOptions = computed(() => {
 // 监听外部数据变化
 watch(
   () => props.modelValue,
-  newValue => {
+  (newValue) => {
     if (newValue) {
       selectedDeviceId.value = newValue.deviceId || ''
       selectedDeviceName.value = newValue.deviceName || ''
@@ -228,7 +228,7 @@ const onDeviceChange = async (deviceId: string) => {
   metricsOptionsFetched.value = false
 
   if (deviceId) {
-    const device = deviceOptions.value.find(d => d.id === deviceId)
+    const device = deviceOptions.value.find((d) => d.id === deviceId)
     if (device) {
       selectedDeviceName.value = device.name
       emit('device-change', deviceId, device)
@@ -270,7 +270,7 @@ const loadMetricsOptions = async () => {
     if (res && res.data && Array.isArray(res.data)) {
       // 根据数据类型过滤指标
       const allMetrics = res.data
-      metricsOptions.value = allMetrics.filter(metric => {
+      metricsOptions.value = allMetrics.filter((metric) => {
         if (!metric || typeof metric !== 'object') return false
         // 根据数据类型过滤，这里需要根据实际API返回的数据结构调整
         if (selectedDataType.value === 'attributes') {

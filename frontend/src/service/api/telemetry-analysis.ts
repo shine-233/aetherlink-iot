@@ -10,9 +10,7 @@ import { request } from '../request'
 export const TELEMETRY_ANOMALY_RULE_BOUNDS = 'bounds'
 export const TELEMETRY_ANOMALY_RULE_DEVIATION = 'deviation'
 
-export type TelemetryAnomalyRuleType =
-  | typeof TELEMETRY_ANOMALY_RULE_BOUNDS
-  | typeof TELEMETRY_ANOMALY_RULE_DEVIATION
+export type TelemetryAnomalyRuleType = typeof TELEMETRY_ANOMALY_RULE_BOUNDS | typeof TELEMETRY_ANOMALY_RULE_DEVIATION
 
 export type TelemetryAnomalyAggregate = 'avg' | 'sum' | 'min' | 'max' | 'count' | 'last'
 

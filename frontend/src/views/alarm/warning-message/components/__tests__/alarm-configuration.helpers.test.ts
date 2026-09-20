@@ -206,9 +206,7 @@ describe('alarm-configuration helpers', () => {
   })
 
   it('maps known alarm event types and falls back to row labels', () => {
-    expect(alarmTypeLabel({ remark: '{"event_type":"temperature_alarm"}' }, t)).toBe(
-      'rdi.overview.temperatureAlarm'
-    )
+    expect(alarmTypeLabel({ remark: '{"event_type":"temperature_alarm"}' }, t)).toBe('rdi.overview.temperatureAlarm')
     expect(alarmTypeLabel({ remark: '{"event_type":"PT"}' }, t)).toBe('rdi.overview.pressureAlarm')
     expect(alarmTypeLabel({ alarm_config_name: 'Fallback name' }, t)).toBe('Fallback name')
     expect(alarmTypeLabel({ name: 'Custom name' }, t)).toBe('Custom name')

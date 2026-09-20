@@ -82,9 +82,9 @@ export function createInMemoryLocalVisualizationProvider(
     },
 
     async listProjects(params) {
-      const items = [...projects.values()].map(project => ({
+      const items = [...projects.values()].map((project) => ({
         ...project,
-        dashboardCount: [...dashboards.values()].filter(item => item.projectId === project.id).length
+        dashboardCount: [...dashboards.values()].filter((item) => item.projectId === project.id).length
       }))
       return success(clone(paginate(items, params?.page, params?.limit)))
     },
@@ -125,7 +125,7 @@ export function createInMemoryLocalVisualizationProvider(
 
     async deleteProject(id) {
       if (!projects.has(id)) return failure(`Visualization project not found: ${id}`)
-      if ([...dashboards.values()].some(item => item.projectId === id)) {
+      if ([...dashboards.values()].some((item) => item.projectId === id)) {
         return failure(`Visualization project still contains dashboards: ${id}`)
       }
       projects.delete(id)
@@ -135,9 +135,9 @@ export function createInMemoryLocalVisualizationProvider(
     async listDashboards(params) {
       const name = params.name?.trim().toLocaleLowerCase()
       const items = [...dashboards.values()]
-        .filter(item => item.projectId === params.projectId)
-        .filter(item => !name || item.name.toLocaleLowerCase().includes(name))
-        .map(item => toSummary(item, item.id === homeDashboardId))
+        .filter((item) => item.projectId === params.projectId)
+        .filter((item) => !name || item.name.toLocaleLowerCase().includes(name))
+        .map((item) => toSummary(item, item.id === homeDashboardId))
       return success(clone(paginate(items, params.page, params.limit)))
     },
 

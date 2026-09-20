@@ -40,7 +40,9 @@ onMounted(() => {
     const canvas = document.createElement('canvas')
     const gl = canvas.getContext('webgl2') || canvas.getContext('webgl')
     webglSupported.value = !!gl
-  } catch { webglSupported.value = false }
+  } catch {
+    webglSupported.value = false
+  }
 })
 </script>
 
@@ -95,17 +97,38 @@ onMounted(() => {
   overflow: hidden;
 }
 .device-3d-fallback {
-  display: flex; align-items: center; justify-content: center;
-  width: 100%; height: 100%; min-height: 280px;
-  background: #1a1a2e; color: #888; font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 280px;
+  background: #1a1a2e;
+  color: #888;
+  font-size: 13px;
 }
 .device-3d-overlay {
-  position: absolute; bottom: 12px; left: 12px;
-  display: flex; align-items: center; gap: 8px;
-  padding: 4px 10px; border-radius: 6px;
-  background: rgba(0,0,0,0.55); backdrop-filter: blur(4px);
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
 }
-.device-3d-name { font-size: 12px; color: #ddd; font-weight: 600; }
-.device-3d-status { font-size: 11px; color: #999; }
-.device-3d-status.online { color: #18a058; }
+.device-3d-name {
+  font-size: 12px;
+  color: #ddd;
+  font-weight: 600;
+}
+.device-3d-status {
+  font-size: 11px;
+  color: #999;
+}
+.device-3d-status.online {
+  color: #18a058;
+}
 </style>

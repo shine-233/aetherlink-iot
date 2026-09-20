@@ -35,7 +35,10 @@ describe('visualization provider compatibility boundary', () => {
     expect(getVisualizationProvider('external')).toBe(externalVisualizationProvider)
   })
 
-  it.each(['native', 'thingsvis', '', null, false, 1, {}, []])('fails closed for unknown provider config %j', kind => {
-    expect(getVisualizationProvider(kind)).toBeNull()
-  })
+  it.each(['native', 'thingsvis', '', null, false, 1, {}, []])(
+    'fails closed for unknown provider config %j',
+    (kind) => {
+      expect(getVisualizationProvider(kind)).toBeNull()
+    }
+  )
 })

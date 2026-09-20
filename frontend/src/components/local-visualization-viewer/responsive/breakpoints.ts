@@ -61,12 +61,7 @@ export function collides(a: BaseLayoutItem, b: BaseLayoutItem): boolean {
 /**
  * 将单小部件从原始列数等比映射到目标列数，并施加边界安全约束
  */
-export function scaleWidgetLayout<T extends BaseLayoutItem>(
-  widget: T,
-  fromCols: number,
-  toCols: number,
-  minW = 1
-): T {
+export function scaleWidgetLayout<T extends BaseLayoutItem>(widget: T, fromCols: number, toCols: number, minW = 1): T {
   const effectiveFrom = Math.max(1, fromCols)
   const effectiveTo = Math.max(1, toCols)
 
@@ -96,7 +91,7 @@ export function adaptDashboardLayout<T extends BaseLayoutItem>(
   fromCols = 24
 ): T[] {
   if (!widgets || widgets.length === 0) return []
-  if (fromCols === toCols) return widgets.map(w => ({ ...w }))
+  if (fromCols === toCols) return widgets.map((w) => ({ ...w }))
 
   // 1. 先按原始 y 从小到大、x 从小到大排序，保留视觉阅读流
   const sorted = [...widgets].sort((a, b) => (a.y !== b.y ? a.y - b.y : a.x - b.x))

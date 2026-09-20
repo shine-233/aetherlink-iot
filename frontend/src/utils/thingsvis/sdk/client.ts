@@ -192,7 +192,7 @@ export class ThingsVisClient {
   private emit(type: string, payload: any) {
     const handlers = this.messageHandlers.get(type)
     if (handlers) {
-      handlers.forEach(handler => handler(payload))
+      handlers.forEach((handler) => handler(payload))
     }
   }
 
@@ -368,7 +368,7 @@ export class ThingsVisClient {
     const scopeKey = `${deviceId ?? '__global__'}:${fieldId}`
     this.latestPlatformHistoryByScope.set(scopeKey, {
       fieldId,
-      history: history.map(item => ({ value: item.value, ts: item.ts })),
+      history: history.map((item) => ({ value: item.value, ts: item.ts })),
       ...(deviceId ? { deviceId } : {})
     })
     this.sendWhenLoaded('tv:platform-history', { fieldId, history, deviceId })
@@ -389,7 +389,7 @@ export class ThingsVisClient {
    */
   public onWidgetSave(callback: (config: any) => void) {
     // `handleMessage` 会先把 `tv:save` 统一转发为 `tv:save-config`。
-    this.on(TV_MSG.SAVE_CONFIG, payload => {
+    this.on(TV_MSG.SAVE_CONFIG, (payload) => {
       // 典型 payload 结构为 `{ canvas, nodes, dataBindings }`，这里保持原样透传。
       callback(payload)
     })

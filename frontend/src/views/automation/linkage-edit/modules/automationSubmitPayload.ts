@@ -104,7 +104,7 @@ export function applyEventTriggerValue(ifItem: SubmitConditionItem) {
 export function applyTimeTriggerValue(ifItem: SubmitConditionItem) {
   if (ifItem.trigger_conditions_type === '22') {
     let triggerValue = ''
-    ;(ifItem.weekChoseValue || []).forEach(item => {
+    ;(ifItem.weekChoseValue || []).forEach((item) => {
       triggerValue += item
     })
     triggerValue += `|${dayjs(ifItem.startTimeValue).format('HH:mm:ssZ')}`
@@ -123,7 +123,7 @@ export function applyTimeTriggerValue(ifItem: SubmitConditionItem) {
     }
     if (ifItem.task_type === 'WEEK') {
       let params = ''
-      ;(ifItem.weekChoseValue || []).forEach(item => {
+      ;(ifItem.weekChoseValue || []).forEach((item) => {
         params += item
       })
       ifItem.params = `${params}|${dayjs(ifItem.weekTimeValue).format('HH:mm:00Z')}`
@@ -149,7 +149,7 @@ export function normalizeSubmitConditionItem(ifItem: SubmitConditionItem) {
 
 export function buildSubmitConditionGroups(ifGroupsData: SubmitConditionItem[][]) {
   const ifGroups = cloneAutomationEditorData(ifGroupsData)
-  ifGroups.forEach(ifGroupItem => {
+  ifGroups.forEach((ifGroupItem) => {
     ifGroupItem.forEach(normalizeSubmitConditionItem)
   })
   return ifGroups
@@ -182,9 +182,9 @@ export function buildSubmitActions(actionGroupsData: SubmitActionGroupItem[]) {
   const actionGroups = cloneAutomationEditorData(actionGroupsData)
   const actionsData: SubmitActionItem[] = []
 
-  actionGroups.forEach(item => {
+  actionGroups.forEach((item) => {
     if (item.actionType === '1') {
-      ;(item.actionInstructList || []).forEach(instructItem => {
+      ;(item.actionInstructList || []).forEach((instructItem) => {
         actionsData.push(normalizeSubmitActionItem(instructItem))
       })
     } else {
@@ -197,9 +197,7 @@ export function buildSubmitActions(actionGroupsData: SubmitActionGroupItem[]) {
 }
 
 export function hasOnlyTimeRangeConditionGroup(conditionGroups: SubmitConditionItem[][]) {
-  return conditionGroups.some(group =>
-    group.every(condition => condition.trigger_conditions_type === '22')
-  )
+  return conditionGroups.some((group) => group.every((condition) => condition.trigger_conditions_type === '22'))
 }
 
 export function hasScheduleConditionWithAlarmAction(
@@ -207,14 +205,14 @@ export function hasScheduleConditionWithAlarmAction(
   actions: SubmitActionItem[]
 ) {
   return (
-    conditionGroups.some(group => group.some(condition => condition.ifType === '2')) &&
-    actions.some(action => action.actionType === '30' || action.action_type === '30')
+    conditionGroups.some((group) => group.some((condition) => condition.ifType === '2')) &&
+    actions.some((action) => action.actionType === '30' || action.action_type === '30')
   )
 }
 
 export function hasEmptyEventParamMatchCondition(conditionGroups: SubmitConditionItem[][] = []) {
-  return conditionGroups.some(group =>
-    group.some(condition => {
+  return conditionGroups.some((group) =>
+    group.some((condition) => {
       const triggerParamType = String(condition.trigger_param_type || '').toUpperCase()
       if (triggerParamType !== 'EVENT' && triggerParamType !== 'EVT') {
         return false
@@ -222,14 +220,16 @@ export function hasEmptyEventParamMatchCondition(conditionGroups: SubmitConditio
 
       try {
         const triggerValue =
-          typeof condition.trigger_value === 'string' ? JSON.parse(condition.trigger_value || '{}') : condition.trigger_value
+          typeof condition.trigger_value === 'string'
+            ? JSON.parse(condition.trigger_value || '{}')
+            : condition.trigger_value
         if (triggerValue?.match_mode !== 'field') {
           return true
         }
         if (!Array.isArray(triggerValue.conditions) || triggerValue.conditions.length === 0) {
           return true
         }
-        return triggerValue.conditions.some(eventCondition => !isValidEventParamConditionValue(eventCondition))
+        return triggerValue.conditions.some((eventCondition) => !isValidEventParamConditionValue(eventCondition))
       } catch {
         return true
       }

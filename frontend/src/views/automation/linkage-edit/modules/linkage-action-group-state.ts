@@ -96,7 +96,7 @@ export const useLinkageActionGroupState = ({
   ])
 
   const resetActionData = () => {
-    actionForm.value.actionGroups.forEach(item => {
+    actionForm.value.actionGroups.forEach((item) => {
       if (item.actionInstructList && item.actionInstructList.length > 0) {
         const instructItem = createActionInstructItem()
         instructItem.action_type = getConditionsType()
@@ -110,7 +110,7 @@ export const useLinkageActionGroupState = ({
       return
     }
     actionForm.value.actionGroups = clone(actionData)
-    actionForm.value.actionGroups.forEach(item => {
+    actionForm.value.actionGroups.forEach((item) => {
       if (item.actionType === '1' && Array.isArray(item.actionInstructList)) {
         item.actionInstructList.forEach((instructItem) => {
           // Keep echoed options when the catalog request is unavailable; a later
@@ -139,7 +139,11 @@ export const useLinkageActionGroupState = ({
     actionForm.value.actionGroups[actionGroupIndex].actionInstructList.push(data)
   }
 
-  const actionChange = (actionGroupItem: { actionInstructList?: unknown; action_type?: unknown; action_target?: unknown }, actionGroupIndex: number, data: unknown) => {
+  const actionChange = (
+    actionGroupItem: { actionInstructList?: unknown; action_type?: unknown; action_target?: unknown },
+    actionGroupIndex: number,
+    data: unknown
+  ) => {
     actionOptions.value.forEach((item) => {
       item.disabled = false
     })

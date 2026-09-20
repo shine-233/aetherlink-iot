@@ -65,7 +65,7 @@ describe('workbench-main/index.vue', () => {
     const capabilityCards = wrapper.findAllComponents(CapabilityCard)
 
     expect(capabilityCards).toHaveLength(6)
-    expect(capabilityCards.map(card => card.props('name'))).toEqual([
+    expect(capabilityCards.map((card) => card.props('name'))).toEqual([
       'custom.dashboardWorkbench.capabilityDeviceOnboarding',
       'custom.dashboardWorkbench.capabilityReadyCheck',
       'custom.dashboardWorkbench.capabilityTwin',
@@ -73,7 +73,7 @@ describe('workbench-main/index.vue', () => {
       'custom.dashboardWorkbench.capabilityOta',
       'custom.dashboardWorkbench.capabilityAlarmClosure'
     ])
-    expect(capabilityCards.map(card => card.props('route'))).toEqual([
+    expect(capabilityCards.map((card) => card.props('route'))).toEqual([
       '/first-device',
       '/device/manage',
       '/device/manage',
@@ -99,7 +99,7 @@ describe('workbench-main/index.vue', () => {
     const shortcutCards = wrapper.findAllComponents(ShortcutsCard)
 
     expect(shortcutCards).toHaveLength(6)
-    expect(shortcutCards.map(card => card.props('label'))).toEqual([
+    expect(shortcutCards.map((card) => card.props('label'))).toEqual([
       'custom.dashboardWorkbench.shortcutFirstDevice',
       'custom.dashboardWorkbench.shortcutFleet',
       'custom.dashboardWorkbench.shortcutAutomation',
@@ -107,7 +107,7 @@ describe('workbench-main/index.vue', () => {
       'custom.dashboardWorkbench.shortcutOta',
       'custom.dashboardWorkbench.shortcutAlarm'
     ])
-    expect(shortcutCards.map(card => card.props('route'))).toEqual([
+    expect(shortcutCards.map((card) => card.props('route'))).toEqual([
       '/first-device',
       '/device/manage',
       '/automation/linkage-edit',

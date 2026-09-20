@@ -92,16 +92,24 @@ const handleStep = (key: string) => {
         {{ $t('custom.device_details.readyCheckCommandDraftLoading') }}
       </span>
       <span v-else-if="recommendedCommandDraft">
-        {{ $t('custom.device_details.readyCheckCommandDraftDesc', {
-          identify: recommendedCommandDraft.identify,
-          name: recommendedCommandDraft.label
-        }) }}
+        {{
+          $t('custom.device_details.readyCheckCommandDraftDesc', {
+            identify: recommendedCommandDraft.identify,
+            name: recommendedCommandDraft.label
+          })
+        }}
       </span>
       <span v-else>
         {{ $t('custom.device_details.readyCheckCommandDraftEmpty') }}
       </span>
     </div>
-    <NButton size="small" type="primary" secondary :loading="recommendedCommandLoading" @click="emit('openCommandCenter')">
+    <NButton
+      size="small"
+      type="primary"
+      secondary
+      :loading="recommendedCommandLoading"
+      @click="emit('openCommandCenter')"
+    >
       {{
         $t(
           recommendedCommandDraft
@@ -112,12 +120,7 @@ const handleStep = (key: string) => {
     </NButton>
   </NAlert>
 
-  <NAlert
-    v-if="showFirstDeviceReadyHandoff"
-    type="success"
-    :show-icon="false"
-    class="ready-check-first-device-handoff"
-  >
+  <NAlert v-if="showFirstDeviceReadyHandoff" type="success" :show-icon="false" class="ready-check-first-device-handoff">
     <div class="ready-check-first-device-handoff__copy">
       <strong>{{ $t('custom.device_details.readyCheckFirstDeviceNextTitle') }}</strong>
       <span>{{ $t('custom.device_details.readyCheckFirstDeviceNextDesc') }}</span>

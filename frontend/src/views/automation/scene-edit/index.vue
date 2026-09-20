@@ -29,10 +29,7 @@ import {
   duplicateSceneActionGroup,
   formatSceneActionsForEdit
 } from './scene-edit-form-orchestration'
-import {
-  createEmptySceneActionGroup,
-  createEmptySceneInstruction
-} from './scene-action-form-factories'
+import { createEmptySceneActionGroup, createEmptySceneInstruction } from './scene-action-form-factories'
 import { validateSceneActionJsonValues } from './scene-action-form-state'
 import AutomationDryRunPreview from '../linkage-edit/modules/AutomationDryRunPreview.vue'
 import LinkageActionExecutionSummary from '../linkage-edit/modules/LinkageActionExecutionSummary.vue'

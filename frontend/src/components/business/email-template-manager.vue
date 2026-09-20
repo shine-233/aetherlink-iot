@@ -212,7 +212,11 @@ void loadTemplates()
     v-model:show="modalVisible"
     preset="card"
     class="w-720px max-w-[calc(100vw-32px)]"
-    :title="editingID ? $t('page.manage.notification.email.template.edit') : $t('page.manage.notification.email.template.create')"
+    :title="
+      editingID
+        ? $t('page.manage.notification.email.template.edit')
+        : $t('page.manage.notification.email.template.create')
+    "
   >
     <NAlert type="info" class="mb-16px">
       {{ $t('page.manage.notification.email.template.variablesHint') }}
@@ -225,7 +229,13 @@ void loadTemplates()
         <NInput v-model:value="form.subject_template" maxlength="500" show-count />
       </NFormItem>
       <NFormItem :label="$t('page.manage.notification.email.template.body')" path="body_template">
-        <NInput v-model:value="form.body_template" type="textarea" :autosize="{ minRows: 8, maxRows: 18 }" maxlength="20000" show-count />
+        <NInput
+          v-model:value="form.body_template"
+          type="textarea"
+          :autosize="{ minRows: 8, maxRows: 18 }"
+          maxlength="20000"
+          show-count
+        />
       </NFormItem>
       <NSpace>
         <NCheckbox :checked="form.enabled" @update:checked="changeEnabled">
@@ -244,7 +254,12 @@ void loadTemplates()
     </template>
   </NModal>
 
-  <NModal v-model:show="previewVisible" preset="card" class="w-640px max-w-[calc(100vw-32px)]" :title="$t('page.manage.notification.email.template.preview')">
+  <NModal
+    v-model:show="previewVisible"
+    preset="card"
+    class="w-640px max-w-[calc(100vw-32px)]"
+    :title="$t('page.manage.notification.email.template.preview')"
+  >
     <NDescriptions label-placement="top" :column="1" bordered>
       <NDescriptionsItem :label="$t('page.manage.notification.email.template.renderedSubject')">
         {{ preview.subject }}

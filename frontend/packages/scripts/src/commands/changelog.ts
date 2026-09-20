@@ -26,9 +26,9 @@ async function resolveLatestTagRange(cwd: string, options: ChangelogOptions, tot
 function parseLog(stdout: string): GitEntry[] {
   return stdout
     .split('\n')
-    .map(line => line.trim())
+    .map((line) => line.trim())
     .filter(Boolean)
-    .map(line => {
+    .map((line) => {
       const [hash = '', subject = '', author = '', date = ''] = line.split('\t')
 
       return { hash, subject, author, date }

@@ -58,7 +58,7 @@ getFunctionOption()
     <NForm class="function-setting-form" label-placement="left" :label-width="260">
       <NGrid :cols="24" :x-gap="18">
         <NFormItemGridItem v-for="(item, index) in funcOptions" :key="index" :span="24" :label="item.description">
-          <n-switch v-model:value="item.value" @change="val => changeFunc(item)" />
+          <n-switch v-model:value="item.value" @change="(val) => changeFunc(item)" />
         </NFormItemGridItem>
       </NGrid>
       <NSpace class="w-full pt-16px" :size="24" justify="start"></NSpace>

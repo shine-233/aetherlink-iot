@@ -109,7 +109,7 @@ function withNaiveAliases(stubs: Record<string, unknown>) {
 
   pairs.forEach(([source, names]) => {
     if (stubs[source]) {
-      names.forEach(name => {
+      names.forEach((name) => {
         aliases[name] = stubs[source]
       })
     }
@@ -175,7 +175,7 @@ describe('RegisterEmail', () => {
       confirmPwd: [{ required: true, message: 'confirm pwd required' }],
       country_code: []
     })
-    expect(wrapper.findAllComponents({ name: 'NFormItem' }).map(item => item.props('path'))).toEqual([
+    expect(wrapper.findAllComponents({ name: 'NFormItem' }).map((item) => item.props('path'))).toEqual([
       'email',
       'code',
       'phone',

@@ -11,9 +11,7 @@
 import type { EnhancedParameter } from '@/core/data-architecture/types/parameter-editor'
 import { createStableParameterId, inferParameterDynamicState } from './dynamicParameterEditorState'
 
-export type ParameterKeyValidationResult =
-  | { ok: true }
-  | { ok: false; defaultKey: string; duplicateKey?: string }
+export type ParameterKeyValidationResult = { ok: true } | { ok: false; defaultKey: string; duplicateKey?: string }
 
 export const removeParameterAt = (parameters: EnhancedParameter[], index: number) =>
   parameters.filter((_, paramIndex) => paramIndex !== index)

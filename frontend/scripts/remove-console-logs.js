@@ -80,7 +80,7 @@ function analyzeConsoleLogContext(code, start, end) {
     /finally\s*\{\s*$/ // finally {
   ]
 
-  const isInTryBlock = tryBlockPatterns.some(pattern => pattern.test(beforeCode.trim()))
+  const isInTryBlock = tryBlockPatterns.some((pattern) => pattern.test(beforeCode.trim()))
 
   // 检查是否是 try-catch 块中的唯一语句
   const isTryCatchOnlyStatement = /try\s*\{\s*$/.test(beforeCode.trim()) && /^\s*\}\s*catch/.test(afterCode)
@@ -95,7 +95,7 @@ function analyzeConsoleLogContext(code, start, end) {
     /'[^']*=>\s*$/ // Vue模板中: @click='() =>
   ]
 
-  const isInArrowFunction = arrowFunctionPatterns.some(pattern => pattern.test(beforeCode))
+  const isInArrowFunction = arrowFunctionPatterns.some((pattern) => pattern.test(beforeCode))
 
   // 检查是否在 Vue 模板的事件处理器中
   // 更精确的 Vue 事件处理器检测
@@ -194,7 +194,7 @@ function removeConsoleLogs(code) {
   const consoleLogs = findConsoleLogs(code)
   let result = code
 
-  consoleLogs.forEach(log => {
+  consoleLogs.forEach((log) => {
     const beforeLog = result.substring(0, log.start)
     const afterLog = result.substring(log.end)
 
@@ -321,7 +321,7 @@ function main() {
   let processedFiles = 0
 
   // 处理每个文件
-  files.forEach(filePath => {
+  files.forEach((filePath) => {
     const removed = processFile(filePath)
     if (removed > 0) {
       totalRemoved += removed

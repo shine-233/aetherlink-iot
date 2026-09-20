@@ -35,10 +35,18 @@ vi.mock('@/hooks/common/use-loading-empty', () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { ref } = require('vue')
   return {
-  default: (init = false) => {
-    const loading = ref(init)
-    return { loading, startLoading: vi.fn(() => { loading.value = true }), endLoading: vi.fn(() => { loading.value = false }) }
-  }
+    default: (init = false) => {
+      const loading = ref(init)
+      return {
+        loading,
+        startLoading: vi.fn(() => {
+          loading.value = true
+        }),
+        endLoading: vi.fn(() => {
+          loading.value = false
+        })
+      }
+    }
   }
 })
 
@@ -61,12 +69,26 @@ vi.mock('vue-router', () => ({
 
 vi.mock('naive-ui', () => ({
   useMessage: () => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn() }),
-  NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : []) } }),
-  NDataTable: defineComponent({ props: { data: { type: Array, default: () => [] } }, setup() { return () => h('div') } })
+  NButton: defineComponent({
+    emits: ['click'],
+    setup(_, { slots, emit }) {
+      return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : [])
+    }
+  }),
+  NDataTable: defineComponent({
+    props: { data: { type: Array, default: () => [] } },
+    setup() {
+      return () => h('div')
+    }
+  })
 }))
 
 vi.mock('@/views/device/grouping/components', () => ({
-  AddOrEditDevices: defineComponent({ setup() { return () => h('div') } })
+  AddOrEditDevices: defineComponent({
+    setup() {
+      return () => h('div')
+    }
+  })
 }))
 
 import Component from '../index.vue'

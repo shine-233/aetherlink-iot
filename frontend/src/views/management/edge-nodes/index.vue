@@ -99,7 +99,7 @@ const columns: DataTableColumns<EdgeNodeEntry> = [
     title: $t('page.edgeNodes.health'),
     key: 'health',
     width: 100,
-    render: row => (
+    render: (row) => (
       <NTag type={healthType[row.health] ?? 'default'} size="small">
         {row.health}
       </NTag>
@@ -108,19 +108,19 @@ const columns: DataTableColumns<EdgeNodeEntry> = [
   {
     title: $t('page.edgeNodes.capabilities'),
     key: 'capabilities',
-    render: row => (row.capabilities?.length ? row.capabilities.join(', ') : '-')
+    render: (row) => (row.capabilities?.length ? row.capabilities.join(', ') : '-')
   },
   {
     title: $t('page.edgeNodes.lastSeen'),
     key: 'last_seen_at',
     width: 170,
-    render: row => (row.last_seen_at ? formatDateTime(row.last_seen_at) : '-')
+    render: (row) => (row.last_seen_at ? formatDateTime(row.last_seen_at) : '-')
   },
   {
     title: $t('page.edgeNodes.actions'),
     key: 'actions',
     width: 240,
-    render: row =>
+    render: (row) =>
       row.status === 'active' ? (
         <NSpace size="small">
           <NPopconfirm onPositiveClick={() => handleHeartbeat(row.id)}>
@@ -164,7 +164,7 @@ async function handleRegister() {
   try {
     const capabilities = registerForm.capabilities
       .split(',')
-      .map(item => item.trim())
+      .map((item) => item.trim())
       .filter(Boolean)
     const { error } = await registerEdgeNode({
       node_id: registerForm.node_id.trim(),
@@ -301,8 +301,11 @@ const historyColumns: DataTableColumns<EdgeNodeUpgradeHistoryEntry> = [
     title: $t('page.edgeNodes.health'),
     key: 'status',
     width: 100,
-    render: row => (
-      <NTag type={row.status === 'rolled_back' ? 'warning' : row.status === 'dispatched' ? 'info' : 'default'} size="small">
+    render: (row) => (
+      <NTag
+        type={row.status === 'rolled_back' ? 'warning' : row.status === 'dispatched' ? 'info' : 'default'}
+        size="small"
+      >
         {row.status}
       </NTag>
     )
@@ -311,13 +314,13 @@ const historyColumns: DataTableColumns<EdgeNodeUpgradeHistoryEntry> = [
     title: $t('page.edgeNodes.lastSeen'),
     key: 'created_at',
     width: 160,
-    render: row => (row.created_at ? formatDateTime(row.created_at) : '-')
+    render: (row) => (row.created_at ? formatDateTime(row.created_at) : '-')
   },
   {
     title: $t('page.edgeNodes.actions'),
     key: 'actions',
     width: 80,
-    render: row => (
+    render: (row) => (
       <NPopconfirm onPositiveClick={() => handleRollback(row.id)}>
         {{
           trigger: () => (

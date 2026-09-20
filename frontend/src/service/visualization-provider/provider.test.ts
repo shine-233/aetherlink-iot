@@ -35,38 +35,82 @@ import {
 
 const timestamp = '2026-08-01T00:00:00.000Z'
 const project = (overrides: Record<string, unknown> = {}) => ({
-  id: 'project-1', name: 'Project', description: null, thumbnail: null,
-  createdAt: timestamp, updatedAt: timestamp, _count: { dashboards: 2 }, ...overrides
+  id: 'project-1',
+  name: 'Project',
+  description: null,
+  thumbnail: null,
+  createdAt: timestamp,
+  updatedAt: timestamp,
+  _count: { dashboards: 2 },
+  ...overrides
 })
 const dashboard = (overrides: Record<string, unknown> = {}) => ({
-  id: 'dashboard-1', name: 'Dashboard', thumbnail: null, version: 2,
+  id: 'dashboard-1',
+  name: 'Dashboard',
+  thumbnail: null,
+  version: 2,
   canvasConfig: { mode: 'fixed', width: 1920, height: 1080, background: null },
-  nodes: [], dataSources: [], variables: [], isPublished: true, publishedAt: timestamp,
-  shareToken: 'share', homeFlag: false, projectId: 'project-1', createdAt: timestamp,
-  updatedAt: timestamp, ...overrides
+  nodes: [],
+  dataSources: [],
+  variables: [],
+  isPublished: true,
+  publishedAt: timestamp,
+  shareToken: 'share',
+  homeFlag: false,
+  projectId: 'project-1',
+  createdAt: timestamp,
+  updatedAt: timestamp,
+  ...overrides
 })
-const page = (data: unknown[]) => ({ data, meta: { page: 1, limit: 20, total: data.length, totalPages: data.length ? 1 : 0 } })
+const page = (data: unknown[]) => ({
+  data,
+  meta: { page: 1, limit: 20, total: data.length, totalPages: data.length ? 1 : 0 }
+})
 
 function providerStub(id = 'stub'): VisualizationProvider {
   const ok = async () => ({ ok: true as const, data: undefined })
   return {
-    id, kind: 'local', deploymentMode: 'local-default',
+    id,
+    kind: 'local',
+    deploymentMode: 'local-default',
     capabilities: {
       projects: { list: true, create: true, update: true, delete: true },
       dashboards: { thumbnail: true, genericLayout: true, dataSources: true, variables: true, publish: true }
     },
-    listProjects: vi.fn(), getProject: vi.fn(), createProject: vi.fn(), updateProject: vi.fn(), deleteProject: ok,
-    listDashboards: vi.fn(), getDashboard: vi.fn(), getDashboardThumbnail: vi.fn(), createDashboard: vi.fn(),
-    updateDashboard: vi.fn(), deleteDashboard: ok, publishDashboard: vi.fn(), duplicateDashboard: vi.fn(),
-    setHomeDashboard: ok, unsetHomeDashboard: ok, getHomeDashboard: vi.fn()
+    listProjects: vi.fn(),
+    getProject: vi.fn(),
+    createProject: vi.fn(),
+    updateProject: vi.fn(),
+    deleteProject: ok,
+    listDashboards: vi.fn(),
+    getDashboard: vi.fn(),
+    getDashboardThumbnail: vi.fn(),
+    createDashboard: vi.fn(),
+    updateDashboard: vi.fn(),
+    deleteDashboard: ok,
+    publishDashboard: vi.fn(),
+    duplicateDashboard: vi.fn(),
+    setHomeDashboard: ok,
+    unsetHomeDashboard: ok,
+    getHomeDashboard: vi.fn()
   } as VisualizationProvider
 }
 
 describe('visualization provider contracts and registry', () => {
   it('keeps neutral summary fields primary while accepting readonly aliases', () => {
     const value: VisualizationDashboardSummary = {
-      id: 'd', name: 'D', description: null, thumbnail: null, version: 1, published: true, isPublished: true,
-      home: false, homeFlag: false, projectId: 'p', createdAt: timestamp, updatedAt: timestamp
+      id: 'd',
+      name: 'D',
+      description: null,
+      thumbnail: null,
+      version: 1,
+      published: true,
+      isPublished: true,
+      home: false,
+      homeFlag: false,
+      projectId: 'p',
+      createdAt: timestamp,
+      updatedAt: timestamp
     }
     expect(value).toMatchObject({ description: null, published: true, home: false, isPublished: true, homeFlag: false })
   })
@@ -87,7 +131,9 @@ describe('visualization provider facade and composition', () => {
     expect(resolveVisualizationProviderId({ provider: 'local' })).toBe('native-board')
     expect(resolveVisualizationProviderId({ provider: 'native-board' })).toBe('native-board')
     expect(resolveVisualizationProviderId({ projectId: 'native-boards' })).toBe('native-board')
-    expect(resolveVisualizationProviderId({ provider: 'legacy-thingsvis', projectId: 'project-1' })).toBe('legacy-thingsvis')
+    expect(resolveVisualizationProviderId({ provider: 'legacy-thingsvis', projectId: 'project-1' })).toBe(
+      'legacy-thingsvis'
+    )
   })
 
   it('uses Native for an unqualified compatibility route unless the optional profile is enabled', () => {
@@ -106,11 +152,22 @@ describe('visualization provider facade and composition', () => {
     expect(createVisualizationProviderFacade(registry).id).toBe('native-board')
     expect(createVisualizationProviderFacade(registry).capabilities?.projects.create).toBe(true)
     expect(createVisualizationProviderFacade(registry, { providerId: 'missing' }).capabilities).toBeNull()
-    expect(createVisualizationProviderFacade(registry, { providerId: 'missing' }).selectionError?.code).toBe('unknown-provider')
-    expect(createVisualizationProviderFacade(registry, { providerId: null }).selectionError?.code).toBe('unknown-provider')
-    expect(createVisualizationProviderFacade(registry, { context: { available: false } }).selectionError?.code).toBe('provider-unavailable')
-    expect(createVisualizationProviderFacade(registry, { context: { authenticated: false } }).selectionError).toMatchObject({ code: 'provider-unauthenticated', status: 401 })
-    expect(createVisualizationProviderFacade(registry, { expectedOwnerId: 'a', context: { ownerId: 'b' } }).selectionError?.code).toBe('ownership-mismatch')
+    expect(createVisualizationProviderFacade(registry, { providerId: 'missing' }).selectionError?.code).toBe(
+      'unknown-provider'
+    )
+    expect(createVisualizationProviderFacade(registry, { providerId: null }).selectionError?.code).toBe(
+      'unknown-provider'
+    )
+    expect(createVisualizationProviderFacade(registry, { context: { available: false } }).selectionError?.code).toBe(
+      'provider-unavailable'
+    )
+    expect(
+      createVisualizationProviderFacade(registry, { context: { authenticated: false } }).selectionError
+    ).toMatchObject({ code: 'provider-unauthenticated', status: 401 })
+    expect(
+      createVisualizationProviderFacade(registry, { expectedOwnerId: 'a', context: { ownerId: 'b' } }).selectionError
+        ?.code
+    ).toBe('ownership-mismatch')
   })
 
   it('normalizes thrown provider operations and does not invoke operations after selection failure', async () => {
@@ -137,8 +194,9 @@ describe('visualization provider facade and composition', () => {
     })
     expect(first.get('legacy-thingsvis')?.deploymentMode).toBe('optional-external')
     expect(getDefaultVisualizationProviderFacade().id).toBe('native-board')
-    expect(getDefaultVisualizationProviderFacade({ providerId: 'legacy-thingsvis' }).selectionError?.code)
-      .toBe('external-blocked')
+    expect(getDefaultVisualizationProviderFacade({ providerId: 'legacy-thingsvis' }).selectionError?.code).toBe(
+      'external-blocked'
+    )
 
     vi.stubEnv('VITE_ENABLE_THINGSVIS_COMPAT', 'Y')
     expect(getDefaultVisualizationProviderFacade({ providerId: 'legacy-thingsvis' }).id).toBe('legacy-thingsvis')
@@ -154,10 +212,15 @@ describe('legacy ThingsVis adapter', () => {
     legacy.getThingsVisDashboards.mockResolvedValue({ data: page([dashboard()]), error: null })
     const projects = await legacyThingsVisProvider.listProjects()
     const dashboards = await legacyThingsVisProvider.listDashboards({ projectId: 'project-1' })
-    expect(projects).toMatchObject({ ok: true, data: { items: [{ id: 'project-1', dashboardCount: 2 }], page: 1, total: 1 } })
+    expect(projects).toMatchObject({
+      ok: true,
+      data: { items: [{ id: 'project-1', dashboardCount: 2 }], page: 1, total: 1 }
+    })
     expect(dashboards).toMatchObject({
       ok: true,
-      data: { items: [{ description: null, version: 2, published: true, isPublished: true, home: false, homeFlag: false }] }
+      data: {
+        items: [{ description: null, version: 2, published: true, isPublished: true, home: false, homeFlag: false }]
+      }
     })
     expect(legacy.getThingsVisDashboards).toHaveBeenCalledWith({ projectId: 'project-1' })
   })
@@ -166,7 +229,8 @@ describe('legacy ThingsVis adapter', () => {
     legacy.getThingsVisDashboard.mockResolvedValue({ data: dashboard(), error: null })
     legacy.getThingsVisDashboardThumbnail.mockResolvedValue({ data: { thumbnail: null }, error: null })
     expect(await legacyThingsVisProvider.getDashboard('dashboard-1')).toMatchObject({
-      ok: true, data: { description: null, published: true, canvasConfig: { width: 1920 }, nodes: [] }
+      ok: true,
+      data: { description: null, published: true, canvasConfig: { width: 1920 }, nodes: [] }
     })
     expect(await legacyThingsVisProvider.getDashboardThumbnail('dashboard-1')).toEqual({ ok: true, data: null })
   })
@@ -175,7 +239,11 @@ describe('legacy ThingsVis adapter', () => {
     legacy.createThingsVisDashboard.mockResolvedValue({ data: dashboard(), error: null })
     legacy.updateThingsVisDashboard.mockResolvedValue({ data: dashboard(), error: null })
 
-    await legacyThingsVisProvider.createDashboard({ name: 'Dashboard', description: 'Local only', projectId: 'project-1' })
+    await legacyThingsVisProvider.createDashboard({
+      name: 'Dashboard',
+      description: 'Local only',
+      projectId: 'project-1'
+    })
     await legacyThingsVisProvider.updateDashboard('dashboard-1', { name: 'Changed', description: 'Local only' })
 
     expect(legacy.createThingsVisDashboard).toHaveBeenCalledWith({ name: 'Dashboard', projectId: 'project-1' })
@@ -183,11 +251,18 @@ describe('legacy ThingsVis adapter', () => {
   })
 
   it('rejects invalid project lists and maps 401 errors', async () => {
-    legacy.getThingsVisProjects.mockResolvedValueOnce({ data: { data: [project({ createdAt: undefined })], meta: {} }, error: null })
-    expect(await legacyThingsVisProvider.listProjects()).toMatchObject({ ok: false, error: { code: 'invalid-response' } })
+    legacy.getThingsVisProjects.mockResolvedValueOnce({
+      data: { data: [project({ createdAt: undefined })], meta: {} },
+      error: null
+    })
+    expect(await legacyThingsVisProvider.listProjects()).toMatchObject({
+      ok: false,
+      error: { code: 'invalid-response' }
+    })
     legacy.getThingsVisProject.mockResolvedValue({ data: null, error: { status: 401, message: 'login' } })
     expect(await legacyThingsVisProvider.getProject('project-1')).toMatchObject({
-      ok: false, error: { code: 'provider-unauthenticated', status: 401 }
+      ok: false,
+      error: { code: 'provider-unauthenticated', status: 401 }
     })
   })
 
@@ -195,7 +270,10 @@ describe('legacy ThingsVis adapter', () => {
     legacy.getThingsVisHomeDashboard.mockResolvedValueOnce({ data: { data: null }, error: null })
     expect(await legacyThingsVisProvider.getHomeDashboard()).toEqual({ ok: true, data: null })
     legacy.getThingsVisHomeDashboard.mockResolvedValueOnce({ data: dashboard(), error: null })
-    expect(await legacyThingsVisProvider.getHomeDashboard()).toMatchObject({ ok: false, error: { code: 'invalid-response' } })
+    expect(await legacyThingsVisProvider.getHomeDashboard()).toMatchObject({
+      ok: false,
+      error: { code: 'invalid-response' }
+    })
   })
 })
 
@@ -207,7 +285,10 @@ describe('in-memory local visualization provider', () => {
     expect(createdProject.ok).toBe(true)
     if (!createdProject.ok) return
     const projectId = createdProject.data.id
-    expect(await provider.updateProject(projectId, { name: 'Updated', thumbnail: 'thumb' })).toMatchObject({ ok: true, data: { name: 'Updated', thumbnail: 'thumb' } })
+    expect(await provider.updateProject(projectId, { name: 'Updated', thumbnail: 'thumb' })).toMatchObject({
+      ok: true,
+      data: { name: 'Updated', thumbnail: 'thumb' }
+    })
 
     const rendererData = { version: 1, columns: 24, widgets: [] }
     const created = await provider.createDashboard({
@@ -221,7 +302,9 @@ describe('in-memory local visualization provider', () => {
     if (!created.ok) return
     const dashboardId = created.data.id
     expect(await provider.deleteProject(projectId)).toMatchObject({ ok: false, error: { code: 'provider-failure' } })
-    expect(await provider.updateDashboard(dashboardId, { name: 'Changed', description: 'Updated description' })).toMatchObject({
+    expect(
+      await provider.updateDashboard(dashboardId, { name: 'Changed', description: 'Updated description' })
+    ).toMatchObject({
       ok: true,
       data: { name: 'Changed', description: 'Updated description', version: 2 }
     })
@@ -239,7 +322,10 @@ describe('in-memory local visualization provider', () => {
       ok: true,
       data: { total: 0, items: [] }
     })
-    expect(await provider.publishDashboard(dashboardId)).toMatchObject({ ok: true, data: { published: true, version: 3 } })
+    expect(await provider.publishDashboard(dashboardId)).toMatchObject({
+      ok: true,
+      data: { published: true, version: 3 }
+    })
     const duplicate = await provider.duplicateDashboard(dashboardId)
     expect(duplicate).toMatchObject({ ok: true, data: { name: 'Changed Copy', published: false, version: 1 } })
     if (!duplicate.ok) return

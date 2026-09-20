@@ -7,9 +7,9 @@
 export function createServiceConfig(env: Env.ImportMeta) {
   // Keep the local default stable, but allow verification/development hosts
   // to point at a separately started backend without editing source files.
-  const devURL = env.VITE_DEV_API_URL?.trim() || 'http://127.0.0.1:9999/api/v1';
-  const testURL = '';
-  const prodURL = '';
+  const devURL = env.VITE_DEV_API_URL?.trim() || 'http://127.0.0.1:9999/api/v1'
+  const testURL = ''
+  const prodURL = ''
 
   const serviceConfigMap: App.Service.ServiceConfigMap = {
     dev: {
@@ -33,7 +33,7 @@ export function createServiceConfig(env: Env.ImportMeta) {
       },
       sseEndpoint: '/api/v1/events'
     }
-  };
+  }
 
   // 默认值必须跟随 Vite 的构建模式，不能硬编码 'dev'。
   //
@@ -50,10 +50,10 @@ export function createServiceConfig(env: Env.ImportMeta) {
   // 跟随模式后：vite build → prod（baseURL 为空串，走同源相对路径，代理与部署都对）；
   //            vite dev  → dev （直连本地后端，开发体验不变）。
   // 需要覆盖时仍可显式设 VITE_SERVICE_ENV=dev|test|prod。
-  const fallbackEnvType: App.Service.EnvType = env.PROD ? 'prod' : 'dev';
-  const envType = env.VITE_SERVICE_ENV || fallbackEnvType;
+  const fallbackEnvType: App.Service.EnvType = env.PROD ? 'prod' : 'dev'
+  const envType = env.VITE_SERVICE_ENV || fallbackEnvType
 
-  return serviceConfigMap[envType];
+  return serviceConfigMap[envType]
 }
 
 /**
@@ -63,16 +63,16 @@ export function createServiceConfig(env: Env.ImportMeta) {
  */
 export function createProxyPattern(key?: App.Service.OtherBaseURLKey) {
   if (!key) {
-    return '/proxy-default';
+    return '/proxy-default'
   }
 
-  return `/proxy-${key}`;
+  return `/proxy-${key}`
 }
 
 /**
  * Get SSE endpoint URL by current env.
  */
 export function getSSEEndpoint(env: Env.ImportMeta) {
-  const serviceConfig = createServiceConfig(env);
-  return serviceConfig.sseEndpoint;
+  const serviceConfig = createServiceConfig(env)
+  return serviceConfig.sseEndpoint
 }

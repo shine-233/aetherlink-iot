@@ -4,8 +4,10 @@ import type {
   HtmlWidgetConfig,
   LocalFieldValue,
   LocalViewerFields,
+  MapWidgetConfig,
   MetricWidgetConfig,
   ResolvedHtml,
+  ResolvedMapData,
   ResolvedMetric,
   ResolvedText,
   TextWidgetConfig
@@ -27,7 +29,8 @@ function scalar(value: LocalFieldValue | undefined): string | number | boolean |
 }
 
 export function resolveText(config: TextWidgetConfig, fields: LocalViewerFields): ResolvedText {
-  const targetField = config.field || (config.entityRelation?.enabled ? generateRelationFieldKey(config.entityRelation) : undefined)
+  const targetField =
+    config.field || (config.entityRelation?.enabled ? generateRelationFieldKey(config.entityRelation) : undefined)
   if (!targetField) return { available: true, text: config.text }
   const value = scalar(ownField(fields, targetField))
   if (value === undefined || value === null) {
@@ -37,7 +40,8 @@ export function resolveText(config: TextWidgetConfig, fields: LocalViewerFields)
 }
 
 export function resolveMetric(config: MetricWidgetConfig, fields: LocalViewerFields): ResolvedMetric {
-  const targetField = config.field || (config.entityRelation?.enabled ? generateRelationFieldKey(config.entityRelation) : '')
+  const targetField =
+    config.field || (config.entityRelation?.enabled ? generateRelationFieldKey(config.entityRelation) : '')
   const value = scalar(ownField(fields, targetField))
   if (value === undefined || value === null || (typeof value === 'number' && !Number.isFinite(value))) {
     return { available: false, label: config.label, value: config.fallback ?? 'Unavailable', unit: '' }
@@ -62,20 +66,18 @@ export function resolveMetric(config: MetricWidgetConfig, fields: LocalViewerFie
     }
   }
 
-  const rendered = typeof finalVal === 'number' && config.decimals !== undefined ? finalVal.toFixed(config.decimals) : String(finalVal)
+  const rendered =
+    typeof finalVal === 'number' && config.decimals !== undefined ? finalVal.toFixed(config.decimals) : String(finalVal)
   return { available: true, label: config.label, value: rendered, unit: finalUnit }
 }
 
-export function resolveHtml(
-  config: HtmlWidgetConfig,
-  fields: LocalViewerFields,
-  widgetId?: string
-): ResolvedHtml {
+export function resolveHtml(config: HtmlWidgetConfig, fields: LocalViewerFields, widgetId?: string): ResolvedHtml {
   if (!config || typeof config.html !== 'string') {
     return { available: false, html: '' }
   }
 
-  const primaryField = config.field || (config.entityRelation?.enabled ? generateRelationFieldKey(config.entityRelation) : undefined)
+  const primaryField =
+    config.field || (config.entityRelation?.enabled ? generateRelationFieldKey(config.entityRelation) : undefined)
   let hasPrimary = false
   if (primaryField) {
     const val = ownField(fields, primaryField)
@@ -118,19 +120,25 @@ export function resolveHtml(
   }
 }
 
-function chartData(config: ChartWidgetConfig, fields: LocalViewerFields): { categories: string[]; values: number[] } | null {
+function chartData(
+  config: ChartWidgetConfig,
+  fields: LocalViewerFields
+): { categories: string[]; values: number[] } | null {
   if (config.categories && config.values) {
     return { categories: [...config.categories], values: [...config.values] }
   }
-  const categoryField = config.categoryField || (config.entityRelation?.enabled ? `${generateRelationFieldKey(config.entityRelation)}_cats` : undefined)
-  const valueField = config.valueField || (config.entityRelation?.enabled ? generateRelationFieldKey(config.entityRelation) : undefined)
+  const categoryField =
+    config.categoryField ||
+    (config.entityRelation?.enabled ? `${generateRelationFieldKey(config.entityRelation)}_cats` : undefined)
+  const valueField =
+    config.valueField || (config.entityRelation?.enabled ? generateRelationFieldKey(config.entityRelation) : undefined)
   if (!categoryField || !valueField) return null
   const categories = ownField(fields, categoryField)
   const values = ownField(fields, valueField)
   if (!Array.isArray(categories) || !Array.isArray(values) || categories.length !== values.length) return null
   if (categories.length > LOCAL_VIEWER_LIMITS.dataPoints) return null
-  if (!categories.every(item => typeof item === 'string' || typeof item === 'number')) return null
-  if (!values.every(item => typeof item === 'number' && Number.isFinite(item))) return null
+  if (!categories.every((item) => typeof item === 'string' || typeof item === 'number')) return null
+  if (!values.every((item) => typeof item === 'number' && Number.isFinite(item))) return null
   return { categories: categories.map(String), values: values as number[] }
 }
 
@@ -240,10 +248,51 @@ export function buildChartOption(
     option: {
       title: { text: config.title ?? '', left: 'center' },
       tooltip: { trigger: 'axis' },
-      grid: { left: 40, right: 20, top: config.title ? 48 : (displayUnit ? 36 : 20), bottom: 32, containLabel: true },
+      grid: { left: 40, right: 20, top: config.title ? 48 : displayUnit ? 36 : 20, bottom: 32, containLabel: true },
       xAxis: { type: 'category', data: data.categories },
       yAxis: yAxisConfig,
       series: [seriesItem]
     }
+  }
+}
+
+export function resolveMapData(config: MapWidgetConfig, fields: LocalViewerFields): ResolvedMapData {
+  const latKey = config.latField || 'latitude'
+  const lngKey = config.lngField || 'longitude'
+  const latRaw = scalar(ownField(fields, latKey))
+  const lngRaw = scalar(ownField(fields, lngKey))
+
+  let numLat: number | undefined
+  if (typeof latRaw === 'number' && Number.isFinite(latRaw)) {
+    numLat = latRaw
+  } else if (typeof latRaw === 'string') {
+    const parsed = parseFloat(latRaw)
+    if (Number.isFinite(parsed)) numLat = parsed
+  }
+
+  let numLng: number | undefined
+  if (typeof lngRaw === 'number' && Number.isFinite(lngRaw)) {
+    numLng = lngRaw
+  } else if (typeof lngRaw === 'string') {
+    const parsed = parseFloat(lngRaw)
+    if (Number.isFinite(parsed)) numLng = parsed
+  }
+
+  const hasCoords =
+    numLat !== undefined && numLat >= -90 && numLat <= 90 && numLng !== undefined && numLng >= -180 && numLng <= 180
+
+  if (!hasCoords && config.defaultLat === undefined) {
+    return {
+      available: false,
+      title: config.title,
+      fallback: config.fallback ?? 'No GPS coordinates available'
+    }
+  }
+
+  return {
+    available: true,
+    title: config.title,
+    lat: hasCoords ? numLat : config.defaultLat,
+    lng: hasCoords ? numLng : config.defaultLng
   }
 }

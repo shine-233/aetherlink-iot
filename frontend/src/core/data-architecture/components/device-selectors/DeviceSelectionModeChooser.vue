@@ -12,10 +12,7 @@
 
 import { ref } from 'vue'
 import { NCard, NSpace, NText, NIcon, NButton, NRadioGroup, NRadio } from 'naive-ui'
-import {
-  PhonePortraitOutline as DeviceIcon,
-  BarChartOutline as MetricIcon
-} from '@vicons/ionicons5'
+import { PhonePortraitOutline as DeviceIcon, BarChartOutline as MetricIcon } from '@vicons/ionicons5'
 import type {
   DeviceParameterSourceType,
   DeviceSelectionMode
@@ -152,7 +149,6 @@ const cancelSelection = () => {
                     </n-text>
                   </div>
                 </div>
-
               </n-space>
             </n-card>
           </div>
@@ -165,7 +161,7 @@ const cancelSelection = () => {
       <div v-if="selectedMode" class="preview-content">
         <n-text depth="3" style="font-size: 12px">
           当前选择：
-          <strong>{{ availableModes.find(m => m.mode === selectedMode)?.title }}</strong>
+          <strong>{{ availableModes.find((m) => m.mode === selectedMode)?.title }}</strong>
         </n-text>
       </div>
     </div>
@@ -176,7 +172,7 @@ const cancelSelection = () => {
         <n-button @click="cancelSelection">取消</n-button>
         <n-button
           type="primary"
-          :disabled="!availableModes.find(m => m.mode === selectedMode)?.enabled"
+          :disabled="!availableModes.find((m) => m.mode === selectedMode)?.enabled"
           @click="confirmMode"
         >
           下一步

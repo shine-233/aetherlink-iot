@@ -96,13 +96,13 @@ const columns: DataTableColumns<RuleChainRow> = [
     title: () => $t('custom.rule_chain.description'),
     key: 'description',
     ellipsis: { tooltip: true },
-    render: row => row.description || '--'
+    render: (row) => row.description || '--'
   },
   {
     title: () => $t('custom.rule_chain.enabled'),
     key: 'enabled',
     width: 90,
-    render: row =>
+    render: (row) =>
       h(NSwitch, {
         value: row.enabled,
         onUpdateValue: (value: boolean) => toggleEnabled(row, value)
@@ -112,29 +112,21 @@ const columns: DataTableColumns<RuleChainRow> = [
     title: () => $t('custom.device_details.shadowCreatedAt'),
     key: 'updated_at',
     width: 170,
-    render: row => formatTime(row.updated_at || row.created_at)
+    render: (row) => formatTime(row.updated_at || row.created_at)
   },
   {
     title: () => $t('common.actions'),
     key: 'actions',
     width: 190,
-    render: row =>
+    render: (row) =>
       h('div', { class: 'flex gap-2' }, [
-        h(
-          NButton,
-          { size: 'small', onClick: () => openEditor(row) },
-          { default: () => $t('common.edit') }
-        ),
+        h(NButton, { size: 'small', onClick: () => openEditor(row) }, { default: () => $t('common.edit') }),
         h(
           NPopconfirm,
           { onPositiveClick: () => handleDelete(row) },
           {
             trigger: () =>
-              h(
-                NButton,
-                { size: 'small', quaternary: true, type: 'error' },
-                { default: () => $t('common.delete') }
-              ),
+              h(NButton, { size: 'small', quaternary: true, type: 'error' }, { default: () => $t('common.delete') }),
             default: () => $t('custom.rule_chain.deleteConfirm')
           }
         )

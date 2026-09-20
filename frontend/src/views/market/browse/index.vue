@@ -30,11 +30,7 @@ import {
   importMarketBundle,
   type MarketCatalogEntry
 } from '@/service/api/market'
-import {
-  applyResource,
-  getResourceCenterCatalog,
-  getResourceCenterList
-} from '@/service/api/resource-center'
+import { applyResource, getResourceCenterCatalog, getResourceCenterList } from '@/service/api/resource-center'
 import { $t } from '@/locales'
 
 defineOptions({ name: 'MarketBrowse' })
@@ -58,8 +54,12 @@ const templates = ref<TemplateRow[]>([])
 const loading = ref(false)
 
 const tabs = computed(() => [
-  { key: '', label: $t('page.marketBrowse.allTypes'), count: catalog.value.reduce((sum, item) => sum + Number(item.template_count), 0) },
-  ...catalog.value.map(item => ({
+  {
+    key: '',
+    label: $t('page.marketBrowse.allTypes'),
+    count: catalog.value.reduce((sum, item) => sum + Number(item.template_count), 0)
+  },
+  ...catalog.value.map((item) => ({
     key: item.type_key || '',
     label: item.type_key || $t('page.marketBrowse.uncategorized'),
     count: Number(item.template_count)
@@ -67,11 +67,10 @@ const tabs = computed(() => [
 ])
 
 const filtered = computed(() =>
-  templates.value.filter(row => {
+  templates.value.filter((row) => {
     const matchType = activeType.value ? (row.type_key || '') === activeType.value : true
-    const matchResource = activeResourceType.value === 'all' || !row.resource_type
-      ? true
-      : row.resource_type === activeResourceType.value
+    const matchResource =
+      activeResourceType.value === 'all' || !row.resource_type ? true : row.resource_type === activeResourceType.value
     return matchType && matchResource
   })
 )
@@ -80,14 +79,16 @@ async function loadCatalog() {
   try {
     const { data, error } = await getResourceCenterCatalog()
     if (!error && Array.isArray(data) && data.length > 0) {
-      catalog.value = data.map(item => ({
+      catalog.value = data.map((item) => ({
         type_key: item.type_key,
         template_count: item.total_count,
         download_count: item.download_count
       }))
       return
     }
-  } catch {}
+  } catch (_err) {
+    // fallback to market catalog
+  }
 
   const { data, error } = await getMarketCatalog()
   if (!error && Array.isArray(data)) catalog.value = data as MarketCatalogEntry[]
@@ -104,7 +105,7 @@ async function loadTemplates() {
         type_key: activeType.value || undefined
       })
       if (!error && data && Array.isArray(data.list) && data.list.length > 0) {
-        templates.value = data.list.map(r => ({
+        templates.value = data.list.map((r) => ({
           id: r.id,
           name: r.name,
           version: r.version,
@@ -117,7 +118,9 @@ async function loadTemplates() {
         }))
         return
       }
-    } catch {}
+    } catch (_err) {
+      // fallback to local template list
+    }
 
     const { data, error } = await getLocalTemplateList({ page: 1, page_size: 200 })
     if (!error && data) {
@@ -166,9 +169,7 @@ const importFileKey = ref<string>('')
 const importSummary = ref<BundleImportSummary | null>(null)
 
 const importLists = computed(() => previewNameLists(importPreview.value))
-const importDecision = computed<BundleImportDecision>(() =>
-  decideBundleImport(importBundle.value, importPreview.value)
-)
+const importDecision = computed<BundleImportDecision>(() => decideBundleImport(importBundle.value, importPreview.value))
 const importCanSubmit = computed(() => canSubmitBundleImport(importDecision.value, confirmOverwrite.value))
 const importSigned = computed(() => hasBundleSignature(importBundle.value))
 
@@ -281,9 +282,7 @@ defineExpose({ handleImportFile })
 
       <!-- 行业分类切换 -->
       <n-tabs v-model:value="activeType" type="segment" class="mb-4" @update:value="loadTemplates">
-        <n-tab v-for="tab in tabs" :key="tab.key || '__all__'" :name="tab.key">
-          {{ tab.label }} ({{ tab.count }})
-        </n-tab>
+        <n-tab v-for="tab in tabs" :key="tab.key || '__all__'" :name="tab.key">{{ tab.label }} ({{ tab.count }})</n-tab>
       </n-tabs>
 
       <div class="mb-3 flex justify-end">
@@ -299,7 +298,11 @@ defineExpose({ handleImportFile })
             <div class="flex items-center gap-2">
               <span class="font-600">{{ row.name }}</span>
               <n-tag size="tiny" :type="row.resource_type === 'board_template' ? 'warning' : 'success'">
-                {{ row.resource_type === 'board_template' ? $t('page.marketBrowse.boardTemplates') : $t('page.marketBrowse.deviceTemplates') }}
+                {{
+                  row.resource_type === 'board_template'
+                    ? $t('page.marketBrowse.boardTemplates')
+                    : $t('page.marketBrowse.deviceTemplates')
+                }}
               </n-tag>
             </div>
             <n-tag size="small" type="info">{{ row.version || '-' }}</n-tag>

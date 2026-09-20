@@ -30,7 +30,14 @@ vi.mock('@/locales', () => ({
 }))
 
 vi.mock('@/utils/common/tool', () => ({
-  isJSON: vi.fn((str: string) => { try { JSON.parse(str); return true } catch { return false } })
+  isJSON: vi.fn((str: string) => {
+    try {
+      JSON.parse(str)
+      return true
+    } catch {
+      return false
+    }
+  })
 }))
 
 vi.mock('@/utils/logger', () => ({
@@ -40,7 +47,15 @@ vi.mock('@/utils/logger', () => ({
 vi.mock('@aetherlink/hooks', () => ({
   useLoading: (init = false) => {
     const loading = ref(init)
-    return { loading, startLoading: vi.fn(() => { loading.value = true }), endLoading: vi.fn(() => { loading.value = false }) }
+    return {
+      loading,
+      startLoading: vi.fn(() => {
+        loading.value = true
+      }),
+      endLoading: vi.fn(() => {
+        loading.value = false
+      })
+    }
   }
 }))
 
@@ -73,26 +88,134 @@ const mountComponent = (propsOverrides = {}) => {
         getPlatform: () => false
       },
       stubs: {
-        NButton: defineComponent({ props: ['type', 'bordered', 'size', 'disabled'], emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } }),
-        NIcon: defineComponent({ props: ['size'], setup(_, { slots }) { return () => h('span', slots.default?.()) } }),
-        NDataTable: defineComponent({ props: ['loading', 'columns', 'data'], setup() { return () => h('table') } }),
-        NPagination: defineComponent({ props: ['pageCount', 'page', 'pageSize', 'prefix'], emits: ['update:page'], setup() { return () => h('div') } }),
-        Pagination: defineComponent({ props: ['pageCount', 'page', 'pageSize', 'prefix'], emits: ['update:page'], setup() { return () => h('div') } }),
-        NModal: defineComponent({ props: ['show'], emits: ['update:show'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NCard: defineComponent({ props: ['title'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        'n-card': defineComponent({ props: ['title'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NForm: defineComponent({ props: ['model', 'rules', 'labelPlacement'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NFormItem: defineComponent({ props: ['label', 'path', 'required', 'validationStatus', 'feedback'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NInput: defineComponent({ props: ['value', 'type', 'placeholder', 'disabled'], emits: ['update:value'], setup() { return () => h('input') } }),
-        NSelect: defineComponent({ props: ['value', 'options', 'filterable', 'tag', 'clearable', 'placeholder'], emits: ['update:value', 'update:show'], setup() { return () => h('div') } }),
-        NTabs: defineComponent({ props: ['value'], emits: ['update:value'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NTabPane: defineComponent({ props: ['name', 'tab'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NFlex: defineComponent({ props: ['justify'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NInputNumber: defineComponent({ props: ['value', 'showButton'], emits: ['update:value'], setup() { return () => h('input') } }),
-        NSwitch: defineComponent({ props: ['value'], emits: ['update:value'], setup() { return () => h('div') } }),
-        NGrid: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NGridItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NCheckbox: defineComponent({ props: ['checked', 'indeterminate'], emits: ['update:checked'], setup(_, { slots }) { return () => h('label', slots.default?.()) } }),
+        NButton: defineComponent({
+          props: ['type', 'bordered', 'size', 'disabled'],
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default?.())
+          }
+        }),
+        NIcon: defineComponent({
+          props: ['size'],
+          setup(_, { slots }) {
+            return () => h('span', slots.default?.())
+          }
+        }),
+        NDataTable: defineComponent({
+          props: ['loading', 'columns', 'data'],
+          setup() {
+            return () => h('table')
+          }
+        }),
+        NPagination: defineComponent({
+          props: ['pageCount', 'page', 'pageSize', 'prefix'],
+          emits: ['update:page'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        Pagination: defineComponent({
+          props: ['pageCount', 'page', 'pageSize', 'prefix'],
+          emits: ['update:page'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NModal: defineComponent({
+          props: ['show'],
+          emits: ['update:show'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NCard: defineComponent({
+          props: ['title'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        'n-card': defineComponent({
+          props: ['title'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NForm: defineComponent({
+          props: ['model', 'rules', 'labelPlacement'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NFormItem: defineComponent({
+          props: ['label', 'path', 'required', 'validationStatus', 'feedback'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NInput: defineComponent({
+          props: ['value', 'type', 'placeholder', 'disabled'],
+          emits: ['update:value'],
+          setup() {
+            return () => h('input')
+          }
+        }),
+        NSelect: defineComponent({
+          props: ['value', 'options', 'filterable', 'tag', 'clearable', 'placeholder'],
+          emits: ['update:value', 'update:show'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NTabs: defineComponent({
+          props: ['value'],
+          emits: ['update:value'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NTabPane: defineComponent({
+          props: ['name', 'tab'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NFlex: defineComponent({
+          props: ['justify'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NInputNumber: defineComponent({
+          props: ['value', 'showButton'],
+          emits: ['update:value'],
+          setup() {
+            return () => h('input')
+          }
+        }),
+        NSwitch: defineComponent({
+          props: ['value'],
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NGrid: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NGridItem: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NCheckbox: defineComponent({
+          props: ['checked', 'indeterminate'],
+          emits: ['update:checked'],
+          setup(_, { slots }) {
+            return () => h('label', slots.default?.())
+          }
+        }),
         SvgIcon: true
       }
     }

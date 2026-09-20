@@ -339,122 +339,123 @@ const SceneOperateDeviceActionGroupEditorStub = defineComponent({
       h(
         'div',
         { class: 'scene-operate-device-action-group-editor-stub' },
-        ((props.actionGroupItem as any).actionInstructList || []).map((item: Record<string, any>, instructIndex: number) =>
-          h('div', { class: 'scene-operate-device-action-group-editor-stub__row' }, [
-            h(
-              FormItemStub,
-              {
-                path: instructionFieldPath(props.actionGroupIndex, instructIndex, 'action_type')
-              },
-              {
-                default: () =>
-                  h(SelectStub, {
-                    value: item.action_type,
-                    options: props.actionTypeOptions,
-                    'onUpdate:value': (value: string) => void updateActionType(item, value)
-                  })
-              }
-            ),
-            item.action_type === '10'
-              ? h(
-                  FormItemStub,
-                  {
-                    path: instructionFieldPath(props.actionGroupIndex, instructIndex, 'action_target')
-                  },
-                  {
-                    default: () =>
-                      h(SelectStub, {
-                        value: item.action_target,
-                        options: props.deviceOptions,
-                        'onUpdate:value': (value: string) => void updateActionTarget(item, value)
-                      })
-                  }
-                )
-              : null,
-            item.action_type === '11'
-              ? h(
-                  FormItemStub,
-                  {
-                    path: instructionFieldPath(props.actionGroupIndex, instructIndex, 'action_target')
-                  },
-                  {
-                    default: () =>
-                      h(SelectStub, {
-                        value: item.action_target,
-                        options: props.deviceConfigOption,
-                        'onUpdate:value': (value: string) => void updateActionTarget(item, value)
-                      })
-                  }
-                )
-              : null,
-            item.action_type
-              ? h(
-                  FormItemStub,
-                  {
-                    path: instructionFieldPath(props.actionGroupIndex, instructIndex, 'action_param_type')
-                  },
-                  {
-                    default: () =>
-                      h(SelectStub, {
-                        value: item.action_param_type,
-                        options: item.actionParamTypeOptions || [],
-                        'onUpdate:value': (value: string) => updateActionParamType(item, value)
-                      })
-                  }
-                )
-              : null,
-            item.action_type && item.showSubSelect
-              ? h(
-                  FormItemStub,
-                  {
-                    path: instructionFieldPath(props.actionGroupIndex, instructIndex, 'action_param')
-                  },
-                  {
-                    default: () =>
-                      h(SelectStub, {
-                        value: item.action_param,
-                        options: item.actionParamOptions || [],
-                        'onUpdate:value': (value: string) => updateActionParam(item, value)
-                      })
-                  }
-                )
-              : null,
-            item.action_type
-              ? h(
-                  FormItemStub,
-                  {
-                    path: instructionFieldPath(props.actionGroupIndex, instructIndex, 'actionValue'),
-                    validationStatus: item.inputValidationStatus,
-                    feedback: item.inputFeedback
-                  },
-                  {
-                    default: () =>
-                      h(InputStub, {
-                        value: item.actionValue ?? '',
-                        'onUpdate:value': (value: string) => {
-                          item.actionValue = value
-                        },
-                        onBlur: () => validateActionValue(item)
-                      })
-                  }
-                )
-              : null,
-            instructIndex === 0
-              ? h(
-                  ButtonStub,
-                  { type: 'primary', class: 'absolute right-5', onClick: addInstruction },
-                  { default: () => 'generate.add-row' }
-                )
-              : h(
-                  ButtonStub,
-                  {
-                    type: 'error',
-                    class: 'absolute right-5',
-                    onClick: () => deleteInstruction(instructIndex)
-                  },
-                  { default: () => 'common.delete' }
-                )
-          ])
+        ((props.actionGroupItem as any).actionInstructList || []).map(
+          (item: Record<string, any>, instructIndex: number) =>
+            h('div', { class: 'scene-operate-device-action-group-editor-stub__row' }, [
+              h(
+                FormItemStub,
+                {
+                  path: instructionFieldPath(props.actionGroupIndex, instructIndex, 'action_type')
+                },
+                {
+                  default: () =>
+                    h(SelectStub, {
+                      value: item.action_type,
+                      options: props.actionTypeOptions,
+                      'onUpdate:value': (value: string) => void updateActionType(item, value)
+                    })
+                }
+              ),
+              item.action_type === '10'
+                ? h(
+                    FormItemStub,
+                    {
+                      path: instructionFieldPath(props.actionGroupIndex, instructIndex, 'action_target')
+                    },
+                    {
+                      default: () =>
+                        h(SelectStub, {
+                          value: item.action_target,
+                          options: props.deviceOptions,
+                          'onUpdate:value': (value: string) => void updateActionTarget(item, value)
+                        })
+                    }
+                  )
+                : null,
+              item.action_type === '11'
+                ? h(
+                    FormItemStub,
+                    {
+                      path: instructionFieldPath(props.actionGroupIndex, instructIndex, 'action_target')
+                    },
+                    {
+                      default: () =>
+                        h(SelectStub, {
+                          value: item.action_target,
+                          options: props.deviceConfigOption,
+                          'onUpdate:value': (value: string) => void updateActionTarget(item, value)
+                        })
+                    }
+                  )
+                : null,
+              item.action_type
+                ? h(
+                    FormItemStub,
+                    {
+                      path: instructionFieldPath(props.actionGroupIndex, instructIndex, 'action_param_type')
+                    },
+                    {
+                      default: () =>
+                        h(SelectStub, {
+                          value: item.action_param_type,
+                          options: item.actionParamTypeOptions || [],
+                          'onUpdate:value': (value: string) => updateActionParamType(item, value)
+                        })
+                    }
+                  )
+                : null,
+              item.action_type && item.showSubSelect
+                ? h(
+                    FormItemStub,
+                    {
+                      path: instructionFieldPath(props.actionGroupIndex, instructIndex, 'action_param')
+                    },
+                    {
+                      default: () =>
+                        h(SelectStub, {
+                          value: item.action_param,
+                          options: item.actionParamOptions || [],
+                          'onUpdate:value': (value: string) => updateActionParam(item, value)
+                        })
+                    }
+                  )
+                : null,
+              item.action_type
+                ? h(
+                    FormItemStub,
+                    {
+                      path: instructionFieldPath(props.actionGroupIndex, instructIndex, 'actionValue'),
+                      validationStatus: item.inputValidationStatus,
+                      feedback: item.inputFeedback
+                    },
+                    {
+                      default: () =>
+                        h(InputStub, {
+                          value: item.actionValue ?? '',
+                          'onUpdate:value': (value: string) => {
+                            item.actionValue = value
+                          },
+                          onBlur: () => validateActionValue(item)
+                        })
+                    }
+                  )
+                : null,
+              instructIndex === 0
+                ? h(
+                    ButtonStub,
+                    { type: 'primary', class: 'absolute right-5', onClick: addInstruction },
+                    { default: () => 'generate.add-row' }
+                  )
+                : h(
+                    ButtonStub,
+                    {
+                      type: 'error',
+                      class: 'absolute right-5',
+                      onClick: () => deleteInstruction(instructIndex)
+                    },
+                    { default: () => 'common.delete' }
+                  )
+            ])
         )
       )
   }
@@ -522,7 +523,7 @@ const getFormItem = (wrapper: SceneEditWrapper, path: string) => wrapper.get(`[d
 const getRenderedFormItemPaths = (wrapper: SceneEditWrapper) =>
   wrapper
     .findAll('[data-path]')
-    .map(item => item.attributes('data-path'))
+    .map((item) => item.attributes('data-path'))
     .filter((path): path is string => Boolean(path))
 
 const getSelectByPath = (wrapper: SceneEditWrapper, path: string) => getFormItem(wrapper, path).getComponent(SelectStub)
@@ -550,22 +551,21 @@ const clickButton = async (button: ButtonWrapper) => {
 }
 
 const getAddActionGroupButton = (wrapper: SceneEditWrapper) =>
-  findButton(wrapper, button => button.text().includes('generate.add-execution-action'))
+  findButton(wrapper, (button) => button.text().includes('generate.add-execution-action'))
 
 const getDeleteActionGroupButton = (wrapper: SceneEditWrapper) =>
-  findButton(wrapper, button => button.text().includes('generate.delete-execution-action'))
+  findButton(wrapper, (button) => button.text().includes('generate.delete-execution-action'))
 
 const getAddInstructionButton = (wrapper: SceneEditWrapper) =>
-  findButton(wrapper, button => button.text().includes('generate.add-row'))
+  findButton(wrapper, (button) => button.text().includes('generate.add-row'))
 
 const getDeleteInstructionButton = (wrapper: SceneEditWrapper) =>
-  findButton(wrapper, button => button.text().includes('common.delete'))
+  findButton(wrapper, (button) => button.text().includes('common.delete'))
 
 const getActionValueInput = (wrapper: SceneEditWrapper, path: string) =>
   getFormItem(wrapper, path).getComponent(InputStub)
 
-const getActionValueField = (wrapper: SceneEditWrapper, path: string) =>
-  getActionValueInput(wrapper, path).get('input')
+const getActionValueField = (wrapper: SceneEditWrapper, path: string) => getActionValueInput(wrapper, path).get('input')
 
 const prepareCommandValueEditor = async (wrapper: SceneEditWrapper) => {
   await emitSelectValue(wrapper, actionGroupPath(0), '1')
@@ -631,7 +631,7 @@ describe('SceneEdit', () => {
   })
 
   afterEach(() => {
-    mountedWrappers.forEach(wrapper => wrapper.unmount())
+    mountedWrappers.forEach((wrapper) => wrapper.unmount())
     mountedWrappers.length = 0
   })
 
@@ -645,7 +645,7 @@ describe('SceneEdit', () => {
     expect(hoisted.warningMessageList).toHaveBeenCalledTimes(0)
     expect(hoisted.sceneGet).toHaveBeenCalledTimes(0)
     expect(hoisted.deviceConfigAll).toHaveBeenCalledTimes(0)
-    expect(getSelectOptions(wrapper, actionGroupPath(0)).map(option => option.value)).toEqual(['1'])
+    expect(getSelectOptions(wrapper, actionGroupPath(0)).map((option) => option.value)).toEqual(['1'])
     expect(getRenderedFormItemPaths(wrapper)).not.toContain(instructionFieldPath(0, 0, 'action_type'))
   })
 
@@ -673,15 +673,13 @@ describe('SceneEdit', () => {
     expect((wrapper.get('input[placeholder="generate.enterSceneName"]').element as HTMLInputElement).value).toBe(
       'Existing scene'
     )
-    expect(
-      (wrapper.get('input[placeholder="generate.enter-description"]').element as HTMLInputElement).value
-    ).toBe('Loaded description')
+    expect((wrapper.get('input[placeholder="generate.enter-description"]').element as HTMLInputElement).value).toBe(
+      'Loaded description'
+    )
 
     await prepareCommandValueEditor(wrapper)
     await getActionValueField(wrapper, instructionFieldPath(0, 0, 'actionValue')).setValue('{"target":18}')
-    await clickButton(
-      findButton(wrapper, button => button.text().includes('generate.save-scene-configuration'))
-    )
+    await clickButton(findButton(wrapper, (button) => button.text().includes('generate.save-scene-configuration')))
 
     expect(hoisted.sceneDryRun).toHaveBeenCalledTimes(1)
     const confirmation = hoisted.dialogWarning.mock.calls[0][0] as { onPositiveClick: () => Promise<void> }
@@ -725,11 +723,11 @@ describe('SceneEdit', () => {
 
     expect(hoisted.sceneInfo).toHaveBeenCalledWith('scene-11')
     expect(getSelectByPath(wrapper, actionTypePath).props('value')).toBe('11')
-    expect(getSelectOptions(wrapper, actionTargetPath).map(option => option.id)).toEqual(['config-1'])
+    expect(getSelectOptions(wrapper, actionTargetPath).map((option) => option.id)).toEqual(['config-1'])
     expect(hoisted.deviceConfigAll).toHaveBeenCalledWith({ device_config_name: '' })
     expect(hoisted.deviceConfigMetricsMenu).toHaveBeenCalledWith({ device_config_id: 'config-1' })
-    expect(getSelectOptions(wrapper, actionParamTypePath).map(option => option.value)).toEqual(['attributes'])
-    expect(getSelectOptions(wrapper, actionParamPath).map(option => option.value)).toEqual(['temperature'])
+    expect(getSelectOptions(wrapper, actionParamTypePath).map((option) => option.value)).toEqual(['attributes'])
+    expect(getSelectOptions(wrapper, actionParamPath).map((option) => option.value)).toEqual(['temperature'])
     expect(getActionValueInput(wrapper, actionValuePath).props('value')).toBe(23)
   })
 
@@ -739,14 +737,14 @@ describe('SceneEdit', () => {
     await flushPromises()
     await clickButton(getAddActionGroupButton(wrapper))
 
-    expect(getRenderedFormItemPaths(wrapper).filter(path => path.endsWith('.actionType'))).toEqual([
+    expect(getRenderedFormItemPaths(wrapper).filter((path) => path.endsWith('.actionType'))).toEqual([
       actionGroupPath(0),
       actionGroupPath(1)
     ])
 
     await clickButton(getDeleteActionGroupButton(wrapper))
 
-    expect(getRenderedFormItemPaths(wrapper).filter(path => path.endsWith('.actionType'))).toEqual([
+    expect(getRenderedFormItemPaths(wrapper).filter((path) => path.endsWith('.actionType'))).toEqual([
       actionGroupPath(0)
     ])
   })
@@ -758,24 +756,23 @@ describe('SceneEdit', () => {
     await emitSelectValue(wrapper, actionGroupPath(0), '1')
 
     expect(getRenderedFormItemPaths(wrapper)).toContain(instructionFieldPath(0, 0, 'action_type'))
-    expect(
-      getSelectOptions(wrapper, instructionFieldPath(0, 0, 'action_type')).map(option => option.value)
-    ).toEqual(['10', '11'])
+    expect(getSelectOptions(wrapper, instructionFieldPath(0, 0, 'action_type')).map((option) => option.value)).toEqual([
+      '10',
+      '11'
+    ])
 
     await clickButton(getAddInstructionButton(wrapper))
 
-    expect(
-      getRenderedFormItemPaths(wrapper).filter(path => path.endsWith('.action_type'))
-    ).toEqual([
+    expect(getRenderedFormItemPaths(wrapper).filter((path) => path.endsWith('.action_type'))).toEqual([
       instructionFieldPath(0, 0, 'action_type'),
       instructionFieldPath(0, 1, 'action_type')
     ])
 
     await clickButton(getDeleteInstructionButton(wrapper))
 
-    expect(
-      getRenderedFormItemPaths(wrapper).filter(path => path.endsWith('.action_type'))
-    ).toEqual([instructionFieldPath(0, 0, 'action_type')])
+    expect(getRenderedFormItemPaths(wrapper).filter((path) => path.endsWith('.action_type'))).toEqual([
+      instructionFieldPath(0, 0, 'action_type')
+    ])
   })
 
   it('reloads the correct target catalog when the instruction type changes', async () => {
@@ -792,18 +789,19 @@ describe('SceneEdit', () => {
       device_name: null,
       bind_config: 0
     })
-    expect(
-      getSelectOptions(wrapper, instructionFieldPath(0, 0, 'action_target')).map(option => option.id)
-    ).toEqual(['device-1', 'device-2'])
+    expect(getSelectOptions(wrapper, instructionFieldPath(0, 0, 'action_target')).map((option) => option.id)).toEqual([
+      'device-1',
+      'device-2'
+    ])
 
     await emitSelectValue(wrapper, instructionFieldPath(0, 0, 'action_type'), '11')
 
     expect(hoisted.deviceConfigAll).toHaveBeenCalledWith({
       device_config_name: ''
     })
-    expect(
-      getSelectOptions(wrapper, instructionFieldPath(0, 0, 'action_target')).map(option => option.id)
-    ).toEqual(['config-1'])
+    expect(getSelectOptions(wrapper, instructionFieldPath(0, 0, 'action_target')).map((option) => option.id)).toEqual([
+      'config-1'
+    ])
   })
 
   it('resets downstream parameter controls when the action target changes', async () => {
@@ -819,10 +817,10 @@ describe('SceneEdit', () => {
     await emitSelectValue(wrapper, actionTargetPath, 'device-1')
 
     expect(hoisted.deviceMetricsMenu).toHaveBeenLastCalledWith({ device_id: 'device-1' })
-    expect(getSelectOptions(wrapper, actionParamTypePath).map(option => option.value)).toEqual(['command'])
+    expect(getSelectOptions(wrapper, actionParamTypePath).map((option) => option.value)).toEqual(['command'])
 
     await emitSelectValue(wrapper, actionParamTypePath, 'command')
-    expect(getSelectOptions(wrapper, actionParamPath).map(option => option.value)).toEqual(['methodA'])
+    expect(getSelectOptions(wrapper, actionParamPath).map((option) => option.value)).toEqual(['methodA'])
 
     await emitSelectValue(wrapper, actionParamPath, 'methodA')
     expect(getRenderedFormItemPaths(wrapper)).toContain(actionValuePath)
@@ -868,12 +866,7 @@ describe('SceneEdit', () => {
     await flushPromises()
     await prepareCommandValueEditor(wrapper)
     await getActionValueField(wrapper, actionValuePath).setValue('{"delay":1}')
-    await clickButton(
-      findButton(
-        wrapper,
-        button => button.text().includes('generate.save-scene-configuration')
-      )
-    )
+    await clickButton(findButton(wrapper, (button) => button.text().includes('generate.save-scene-configuration')))
     await flushPromises()
 
     expect(hoisted.sceneDryRun).toHaveBeenCalledTimes(1)
@@ -889,9 +882,7 @@ describe('SceneEdit', () => {
     const wrapper = mountSceneEdit()
 
     await flushPromises()
-    await clickButton(
-      findButton(wrapper, button => button.text().includes('generate.save-scene-configuration'))
-    )
+    await clickButton(findButton(wrapper, (button) => button.text().includes('generate.save-scene-configuration')))
     await flushPromises()
 
     expect(hoisted.sceneDryRun).not.toHaveBeenCalled()
@@ -913,17 +904,15 @@ describe('SceneEdit', () => {
     await clickButton(getAddInstructionButton(wrapper))
     await clickButton(getDeleteInstructionButton(wrapper))
 
-    expect(getRenderedFormItemPaths(wrapper).filter(path => path.endsWith('.actionType'))).toEqual([
+    expect(getRenderedFormItemPaths(wrapper).filter((path) => path.endsWith('.actionType'))).toEqual([
       actionGroupPath(0)
     ])
-    expect(
-      getRenderedFormItemPaths(wrapper).filter(path => path.endsWith('.action_type'))
-    ).toEqual([instructionFieldPath(0, 0, 'action_type')])
+    expect(getRenderedFormItemPaths(wrapper).filter((path) => path.endsWith('.action_type'))).toEqual([
+      instructionFieldPath(0, 0, 'action_type')
+    ])
 
     await getActionValueField(wrapper, actionValuePath).setValue('{"target":18}')
-    await clickButton(
-      findButton(wrapper, button => button.text().includes('generate.save-scene-configuration'))
-    )
+    await clickButton(findButton(wrapper, (button) => button.text().includes('generate.save-scene-configuration')))
 
     expect(hoisted.sceneDryRun).toHaveBeenCalledTimes(1)
     const dryRunPayload = hoisted.sceneDryRun.mock.calls[0][0]

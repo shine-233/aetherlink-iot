@@ -43,7 +43,7 @@ vi.mock('@/utils/logger', () => ({
   })
 }))
 
-vi.mock('naive-ui', async importOriginal => {
+vi.mock('naive-ui', async (importOriginal) => {
   const actual = await importOriginal<typeof import('naive-ui')>()
   return {
     ...actual,
@@ -86,11 +86,31 @@ const mountComponent = (props: Record<string, any> = {}) => {
             return () => h('div', slots.default ? slots.default() : [])
           }
         }),
-        NForm: defineComponent({ setup(_, { slots }) { return () => h('form', slots.default ? slots.default() : []) } }),
-        NFormItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NInput: defineComponent({ setup() { return () => h('input') } }),
-        NSelect: defineComponent({ setup() { return () => h('div') } }),
-        NSpace: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
+        NForm: defineComponent({
+          setup(_, { slots }) {
+            return () => h('form', slots.default ? slots.default() : [])
+          }
+        }),
+        NFormItem: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NInput: defineComponent({
+          setup() {
+            return () => h('input')
+          }
+        }),
+        NSelect: defineComponent({
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NSpace: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
         NButton: defineComponent({
           emits: ['click'],
           setup(_, { slots, emit }) {
@@ -112,23 +132,19 @@ describe('pop-up.vue', () => {
     hoisted.getNotificationGroupList
       .mockResolvedValueOnce({
         data: {
-          list: [
-            { id: 'group-1', name: 'Open Group', status: 'OPEN' }
-          ],
+          list: [{ id: 'group-1', name: 'Open Group', status: 'OPEN' }],
           total: 60
         }
       })
       .mockResolvedValue({
         data: {
-          list: [
-            { id: 'group-2', name: 'Closed Group', status: 'CLOSE' }
-          ],
+          list: [{ id: 'group-2', name: 'Closed Group', status: 'CLOSE' }],
           total: 60
         }
       })
     hoisted.addWarningMessage.mockResolvedValue({ ok: true })
     hoisted.editInfo.mockResolvedValue({ data: true })
-    hoisted.validateMock.mockImplementation(callback => callback(null))
+    hoisted.validateMock.mockImplementation((callback) => callback(null))
   })
 
   afterEach(() => {

@@ -145,14 +145,8 @@ describe('warning-message/index.vue', () => {
     expect(tabs.attributes('data-type')).toBe('line')
     expect(tabs.attributes('data-size')).toBe('large')
     expect(panes).toHaveLength(2)
-    expect(panes.map(pane => pane.attributes('data-name'))).toEqual([
-      'generate.alarmInfo',
-      'generate.alarmConfig'
-    ])
-    expect(panes.map(pane => pane.attributes('data-tag'))).toEqual([
-      'generate.alarmInfo',
-      'generate.alarmConfig'
-    ])
+    expect(panes.map((pane) => pane.attributes('data-name'))).toEqual(['generate.alarmInfo', 'generate.alarmConfig'])
+    expect(panes.map((pane) => pane.attributes('data-tag'))).toEqual(['generate.alarmInfo', 'generate.alarmConfig'])
   })
 
   it('wires the alarm child components into the matching tab panes', () => {

@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  cleanInlineStyle,
-  isSafeUrl,
-  sanitizeCss,
-  sanitizeHtml
-} from './sanitizer'
+import { cleanInlineStyle, isSafeUrl, sanitizeCss, sanitizeHtml } from './sanitizer'
 
 describe('sanitizer - isSafeUrl', () => {
   it('allows safe HTTP/HTTPS and relative URLs', () => {
@@ -29,7 +24,11 @@ describe('sanitizer - isSafeUrl', () => {
   })
 
   it('allows safe base64 image data URIs', () => {
-    expect(isSafeUrl('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==')).toBe(true)
+    expect(
+      isSafeUrl(
+        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+      )
+    ).toBe(true)
   })
 })
 
@@ -42,7 +41,8 @@ describe('sanitizer - cleanInlineStyle', () => {
   })
 
   it('strips dangerous CSS expressions, behavior and imports', () => {
-    const dangerous = 'color: red; width: expression(alert(1)); behavior: url(x.htc); @import url("evil.css"); background: url("javascript:alert(1)");'
+    const dangerous =
+      'color: red; width: expression(alert(1)); behavior: url(x.htc); @import url("evil.css"); background: url("javascript:alert(1)");'
     const cleaned = cleanInlineStyle(dangerous)
     expect(cleaned).toBe('color: red')
     expect(cleaned).not.toContain('expression')
@@ -54,7 +54,8 @@ describe('sanitizer - cleanInlineStyle', () => {
 
 describe('sanitizer - sanitizeHtml', () => {
   it('preserves valid and safe HTML structures', () => {
-    const html = '<div class="card"><h3>Motor #1</h3><p>Current: <strong>12.5 A</strong></p><table border="1"><thead><tr><th>Key</th><th>Val</th></tr></thead><tbody><tr><td>RPM</td><td>1450</td></tr></tbody></table></div>'
+    const html =
+      '<div class="card"><h3>Motor #1</h3><p>Current: <strong>12.5 A</strong></p><table border="1"><thead><tr><th>Key</th><th>Val</th></tr></thead><tbody><tr><td>RPM</td><td>1450</td></tr></tbody></table></div>'
     const sanitized = sanitizeHtml(html)
     expect(sanitized).toContain('<div class="card">')
     expect(sanitized).toContain('<h3>Motor #1</h3>')
@@ -71,7 +72,8 @@ describe('sanitizer - sanitizeHtml', () => {
   })
 
   it('strips inline on* event attributes from elements', () => {
-    const xss = '<img src="/assets/photo.jpg" onerror="alert(1)" onload="alert(2)" /><button onclick="evil()">Click</button><p onmouseover="alert(3)">Hover</p>'
+    const xss =
+      '<img src="/assets/photo.jpg" onerror="alert(1)" onload="alert(2)" /><button onclick="evil()">Click</button><p onmouseover="alert(3)">Hover</p>'
     const sanitized = sanitizeHtml(xss)
     expect(sanitized).toContain('<img src="/assets/photo.jpg">')
     expect(sanitized).not.toContain('onerror')
@@ -82,7 +84,8 @@ describe('sanitizer - sanitizeHtml', () => {
   })
 
   it('strips javascript: and vbscript: hrefs from anchor tags', () => {
-    const xss = '<a href="javascript:alert(document.cookie)">Click me</a><a href="https://example.com" target="_blank">Safe link</a>'
+    const xss =
+      '<a href="javascript:alert(document.cookie)">Click me</a><a href="https://example.com" target="_blank">Safe link</a>'
     const sanitized = sanitizeHtml(xss)
     expect(sanitized).toContain('<a>Click me</a>')
     expect(sanitized).not.toContain('javascript:')
@@ -112,7 +115,8 @@ describe('sanitizer - sanitizeHtml', () => {
   })
 
   it('strips SVG and MathML vectors which often carry script executions', () => {
-    const svgAttack = '<div>Safe</div><svg onload="alert(1)"><circle r="10"/><script>alert(2)</script></svg><math><mi xlink:href="javascript:alert(3)">x</mi></math>'
+    const svgAttack =
+      '<div>Safe</div><svg onload="alert(1)"><circle r="10"/><script>alert(2)</script></svg><math><mi xlink:href="javascript:alert(3)">x</mi></math>'
     const sanitized = sanitizeHtml(svgAttack)
     expect(sanitized).not.toContain('svg')
     expect(sanitized).not.toContain('math')

@@ -29,7 +29,7 @@ vi.mock('@/locales', () => ({
   $t: (key: string) => key
 }))
 
-vi.mock('vue', async importOriginal => {
+vi.mock('vue', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue')>()
   return {
     ...actual,
@@ -87,13 +87,46 @@ const mountComponent = () => {
   const wrapper = shallowMount(ApiIndex, {
     global: {
       stubs: {
-        NCard: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NSpace: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : []) } }),
-        NDataTable: defineComponent({ name: 'NDataTable', props: { data: { type: Array, default: () => [] }, loading: Boolean, pagination: { default: null } }, setup() { return () => h('div') } }),
-        NTag: defineComponent({ setup(_, { slots }) { return () => h('span', slots.default ? slots.default() : []) } }),
-        NPopconfirm: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NSwitch: defineComponent({ props: { value: { default: false } }, emits: ['update:value', 'change'], setup() { return () => h('div') } }),
+        NCard: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NSpace: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NButton: defineComponent({
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : [])
+          }
+        }),
+        NDataTable: defineComponent({
+          name: 'NDataTable',
+          props: { data: { type: Array, default: () => [] }, loading: Boolean, pagination: { default: null } },
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NTag: defineComponent({
+          setup(_, { slots }) {
+            return () => h('span', slots.default ? slots.default() : [])
+          }
+        }),
+        NPopconfirm: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NSwitch: defineComponent({
+          props: { value: { default: false } },
+          emits: ['update:value', 'change'],
+          setup() {
+            return () => h('div')
+          }
+        }),
         IconIcRoundPlus: true,
         SvgIcon: true
       }
@@ -227,10 +260,12 @@ describe('management/api/index.vue', () => {
     await flushPromises()
     expect(state.tableData[0].status).toBe(0)
     expect(hoisted.updateKey).toHaveBeenCalledTimes(1)
-    expect(hoisted.updateKey).toHaveBeenCalledWith(expect.objectContaining({
-      id: 'k-1',
-      status: 0
-    }))
+    expect(hoisted.updateKey).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'k-1',
+        status: 0
+      })
+    )
   })
 
   it('handleSwitchChange toggles status from 0 to 1', async () => {
@@ -244,10 +279,12 @@ describe('management/api/index.vue', () => {
     await flushPromises()
     expect(state.tableData[0].status).toBe(1)
     expect(hoisted.updateKey).toHaveBeenCalledTimes(1)
-    expect(hoisted.updateKey).toHaveBeenCalledWith(expect.objectContaining({
-      id: 'k-1',
-      status: 1
-    }))
+    expect(hoisted.updateKey).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'k-1',
+        status: 1
+      })
+    )
   })
 
   it('handleDeleteTable calls apiKeyDel and refreshes data on success', async () => {

@@ -78,7 +78,7 @@ const SelectStub = defineComponent({
           value: props.value ?? '',
           onChange: (event: Event) => emit('update:value', Number((event.target as HTMLSelectElement).value))
         },
-        (props.options as Array<{ value: number; label: string }>).map(option =>
+        (props.options as Array<{ value: number; label: string }>).map((option) =>
           h('option', { value: option.value }, option.label)
         )
       )
@@ -90,12 +90,24 @@ const mountComponent = () => {
     global: {
       stubs: {
         NModal: ModalStub,
-        NFlex: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
+        NFlex: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
         NInput: InputStub,
         NButton: ButtonStub,
         NSelect: SelectStub,
-        NAlert: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NText: defineComponent({ setup(_, { slots }) { return () => h('span', slots.default?.()) } })
+        NAlert: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NText: defineComponent({
+          setup(_, { slots }) {
+            return () => h('span', slots.default?.())
+          }
+        })
       }
     }
   })

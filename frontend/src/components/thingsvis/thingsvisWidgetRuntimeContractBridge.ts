@@ -1,8 +1,4 @@
-import {
-  THINGSVIS_COMPAT_PROVIDER,
-  getPlatformApiBase,
-  getThingsVisApiBase
-} from '@/utils/thingsvis/constants'
+import { THINGSVIS_COMPAT_PROVIDER, getPlatformApiBase, getThingsVisApiBase } from '@/utils/thingsvis/constants'
 import { localStg } from '@/utils/storage'
 import { THINGSVIS_WIDGET_RUNTIME_CAPABILITIES } from './thingsvisWidgetRuntimeCapabilities'
 

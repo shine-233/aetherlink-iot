@@ -26,11 +26,11 @@ export type TriggerParamOptionsLoadDeps = {
 }
 
 export const formatTriggerParamOptions = (items: TriggerParamMenuItem[] = []): TriggerParamOptionItem[] => {
-  return items.map(item => ({
+  return items.map((item) => ({
     ...item,
     value: item.data_source_type,
     label: `${item.data_source_type}${item.label ? `(${item.label})` : ''}`,
-    options: ((item.options as TriggerParamMenuItem[] | null) || []).map(subItem => ({
+    options: ((item.options as TriggerParamMenuItem[] | null) || []).map((subItem) => ({
       ...subItem,
       value: `${item.data_source_type}/${subItem.key}`,
       label: `${subItem.key}${subItem.label ? `(${subItem.label})` : ''}`
@@ -43,7 +43,7 @@ export const buildTriggerParamOptions = (
   statusOption: TriggerParamOptionItem | null
 ): Array<TriggerParamOptionItem | null> => {
   const options: Array<TriggerParamOptionItem | null> = formatTriggerParamOptions(items)
-  if (!options.some(option => option?.value === 'status')) {
+  if (!options.some((option) => option?.value === 'status')) {
     options.push(statusOption)
   }
   return options
@@ -99,7 +99,10 @@ export const resolveTriggerParamOptionItems = async (
   return res?.data || []
 }
 
-export const loadTriggerParamOptionsForIfItem = async (ifItem: TriggerIfItemLike, deps: TriggerParamOptionsLoadDeps) => {
+export const loadTriggerParamOptionsForIfItem = async (
+  ifItem: TriggerIfItemLike,
+  deps: TriggerParamOptionsLoadDeps
+) => {
   if (!canLoadTriggerParamOptions(ifItem)) {
     return
   }

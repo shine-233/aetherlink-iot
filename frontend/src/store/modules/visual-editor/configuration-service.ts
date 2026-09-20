@@ -173,7 +173,7 @@ export class ConfigurationService {
       data: any
     }>
   ): void {
-    updates.forEach(update => {
+    updates.forEach((update) => {
       this.updateConfigurationSection(update.widgetId, update.section, update.data)
     })
   }
@@ -276,9 +276,9 @@ export class ConfigurationService {
    * 批量保存所有配置
    */
   async saveAllConfigurations(): Promise<void> {
-    const nodeIds = this.store.nodes.map(node => node.id)
+    const nodeIds = this.store.nodes.map((node) => node.id)
 
-    await Promise.all(nodeIds.map(id => this.saveConfiguration(id)))
+    await Promise.all(nodeIds.map((id) => this.saveConfiguration(id)))
 
     this.store.markSaved()
   }
@@ -464,8 +464,7 @@ export class ConfigurationService {
    */
   async refreshRuntimeData(widgetId: string, config?: DataSourceConfiguration): Promise<void> {
     const dataSourceConfig = (config || this.getConfigurationSection(widgetId, 'dataSource')) as
-      | DataSourceConfiguration
-      | undefined
+      DataSourceConfiguration | undefined
     if (!dataSourceConfig) return
 
     const requirement = this.buildRuntimeRequirement(widgetId, dataSourceConfig)

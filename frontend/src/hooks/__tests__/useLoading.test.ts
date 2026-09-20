@@ -13,9 +13,15 @@ vi.mock('@aetherlink/hooks', () => {
       const bool = { value: initValue }
       return {
         bool,
-        setBool: (val: boolean) => { bool.value = val },
-        setTrue: () => { bool.value = true },
-        setFalse: () => { bool.value = false }
+        setBool: (val: boolean) => {
+          bool.value = val
+        },
+        setTrue: () => {
+          bool.value = true
+        },
+        setFalse: () => {
+          bool.value = false
+        }
       }
     }
   }

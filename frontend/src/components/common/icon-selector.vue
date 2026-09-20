@@ -38,7 +38,7 @@ async function ensureIconsLoaded() {
 
   if (!loadIconsPromise) {
     isLoadingIcons.value = true
-    loadIconsPromise = import('./icons').then(module => {
+    loadIconsPromise = import('./icons').then((module) => {
       loadedIcons.value = module.icons as Record<string, Component>
       isLoadingIcons.value = false
     })
@@ -48,7 +48,7 @@ async function ensureIconsLoaded() {
 }
 
 const iconOptions = computed(() =>
-  Object.keys(loadedIcons.value).map(key => ({
+  Object.keys(loadedIcons.value).map((key) => ({
     name: key,
     component: loadedIcons.value[key]
   }))
@@ -76,7 +76,7 @@ onMounted(async () => {
   if (props.defaultIcon) {
     await ensureIconsLoaded()
 
-    const defaultOption = iconOptions.value.find(option => option.name === props.defaultIcon)
+    const defaultOption = iconOptions.value.find((option) => option.name === props.defaultIcon)
     if (defaultOption) {
       selectedIcon.value = defaultOption.component
       selectedIconName.value = defaultOption.name

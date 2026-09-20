@@ -84,7 +84,7 @@ const columns: Ref<DataTableColumns<CustomRoute.Route>> = ref([
     title: () => $t('page.manage.menu.title'),
     align: 'left',
     minWidth: '140px',
-    render: row => {
+    render: (row) => {
       if (row.multilingual && row.multilingual !== 'default') {
         return <span>{$t(row.multilingual)}</span>
       }
@@ -97,7 +97,7 @@ const columns: Ref<DataTableColumns<CustomRoute.Route>> = ref([
     title: () => $t('page.manage.menu.icon'),
     align: 'left',
     minWidth: '140px',
-    render: row => {
+    render: (row) => {
       if (row.param2) {
         return <svg-icon icon={row.param2} />
       }
@@ -128,7 +128,7 @@ const columns: Ref<DataTableColumns<CustomRoute.Route>> = ref([
     title: () => $t('page.manage.menu.menuType'),
     align: 'left',
     // 元素类型直接决定后续权限消费方式，列表中用标签把原始枚举翻译成更易读的业务语义。
-    render: row => {
+    render: (row) => {
       if (row.element_type) {
         const tagTypes: Record<CustomRoute.routerTypeKey, NaiveUI.ThemeColor> = {
           '1': 'success',
@@ -148,7 +148,7 @@ const columns: Ref<DataTableColumns<CustomRoute.Route>> = ref([
     title: () => $t('page.manage.menu.authority'),
     align: 'left',
     // 权限标识是角色授权链路的核心字段，页面仅做可视化展示，不在列表态改写其值。
-    render: row => {
+    render: (row) => {
       if (row.authority && row.authority.length) {
         const tags = row.authority.map((tagKey: string) => {
           return h(
@@ -177,7 +177,7 @@ const columns: Ref<DataTableColumns<CustomRoute.Route>> = ref([
     title: () => $t('common.actions'),
     align: 'left',
     minWidth: '140px',
-    render: row => {
+    render: (row) => {
       return (
         <NSpace>
           <NButton type="primary" size={'small'} onClick={() => handleEditTable(row)}>
@@ -266,12 +266,7 @@ init()
             <NEmpty :description="$t('common.noData')" class="py-24px" />
           </template>
         </NDataTable>
-        <TableActionModal
-          v-model:visible="visible"
-          :type="modalType"
-          :edit-data="editData"
-          @success="getTableData"
-        />
+        <TableActionModal v-model:visible="visible" :type="modalType" :edit-data="editData" @success="getTableData" />
       </div>
     </NCard>
   </div>

@@ -84,15 +84,58 @@ const mountComponent = () => {
   const wrapper = shallowMount(AccountProfileSetting, {
     global: {
       stubs: {
-        NSpin: defineComponent({ props: { show: Boolean }, setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NFlex: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NForm: defineComponent({ setup(_, { slots }) { return () => h('form', slots.default ? slots.default() : []) } }),
-        NFormItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NInput: defineComponent({ props: { value: { default: '' } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NSelect: defineComponent({ props: { value: { default: null } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NSpace: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NButton: defineComponent({ emits: ['click'], props: { loading: Boolean }, setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : []) } }),
-        NDivider: defineComponent({ setup() { return () => h('div') } })
+        NSpin: defineComponent({
+          props: { show: Boolean },
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NFlex: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NForm: defineComponent({
+          setup(_, { slots }) {
+            return () => h('form', slots.default ? slots.default() : [])
+          }
+        }),
+        NFormItem: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NInput: defineComponent({
+          props: { value: { default: '' } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NSelect: defineComponent({
+          props: { value: { default: null } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NSpace: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NButton: defineComponent({
+          emits: ['click'],
+          props: { loading: Boolean },
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : [])
+          }
+        }),
+        NDivider: defineComponent({
+          setup() {
+            return () => h('div')
+          }
+        })
       }
     }
   })
@@ -257,10 +300,12 @@ describe('management/setting/components/account-profile-setting.vue', () => {
     await state.saveProfile()
     await flushPromises()
     expect(hoisted.changeInformation).toHaveBeenCalledTimes(1)
-    expect(hoisted.changeInformation).toHaveBeenCalledWith(expect.objectContaining({
-      name: 'Updated Name',
-      default_language: 'en-US'
-    }))
+    expect(hoisted.changeInformation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Updated Name',
+        default_language: 'en-US'
+      })
+    )
     expect(hoisted.messageSuccess).toHaveBeenCalledTimes(1)
     expect(hoisted.messageSuccess).toHaveBeenCalledWith('custom.management.accountProfile.profileSaved')
   })
@@ -350,6 +395,10 @@ describe('management/setting/components/account-profile-setting.vue', () => {
       trigger: ['input', 'blur']
     })
     expect(state.passwordRules.password[0].validator).toEqual(expect.any(Function))
-    expect(state.passwordRules.passwords).toEqual({ required: true, message: 'confirm pwd', trigger: ['input', 'blur'] })
+    expect(state.passwordRules.passwords).toEqual({
+      required: true,
+      message: 'confirm pwd',
+      trigger: ['input', 'blur']
+    })
   })
 })

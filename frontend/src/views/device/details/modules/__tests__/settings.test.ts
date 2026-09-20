@@ -66,10 +66,34 @@ const mountComponent = (props = {}) => {
     props: { id: 'device-1', online: '1', ...props },
     global: {
       stubs: {
-        NSelect: defineComponent({ props: ['value', 'options', 'filterable'], emits: ['update:value', 'search'], setup() { return () => h('div') } }),
-        NButton: defineComponent({ props: ['type', 'size'], emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } }),
-        NTransfer: defineComponent({ props: ['value', 'options', 'sourceFilterable'], emits: ['update:value'], setup() { return () => h('div') } }),
-        NTree: defineComponent({ props: ['data', 'checkedKeys', 'checkable', 'defaultExpandAll'], emits: ['update:checkedKeys'], setup() { return () => h('div') } })
+        NSelect: defineComponent({
+          props: ['value', 'options', 'filterable'],
+          emits: ['update:value', 'search'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NButton: defineComponent({
+          props: ['type', 'size'],
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default?.())
+          }
+        }),
+        NTransfer: defineComponent({
+          props: ['value', 'options', 'sourceFilterable'],
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NTree: defineComponent({
+          props: ['data', 'checkedKeys', 'checkable', 'defaultExpandAll'],
+          emits: ['update:checkedKeys'],
+          setup() {
+            return () => h('div')
+          }
+        })
       }
     }
   })
@@ -188,9 +212,7 @@ describe('device/details/modules/settings.vue', () => {
     await flushPromises()
     const state = getSetupState(wrapper)
     const input = [
-      { group: { name: 'Group1', id: '1' }, children: [
-        { group: { name: 'Child1', id: '2' }, children: [] }
-      ]}
+      { group: { name: 'Group1', id: '1' }, children: [{ group: { name: 'Child1', id: '2' }, children: [] }] }
     ]
     const result = state.transformDataToOptions(input)
     expect(result).toHaveLength(1)
@@ -202,11 +224,7 @@ describe('device/details/modules/settings.vue', () => {
     const wrapper = mountComponent()
     await flushPromises()
     const state = getSetupState(wrapper)
-    const tree = [
-      { label: 'A', value: '1', children: [
-        { label: 'B', value: '2', children: undefined }
-      ]}
-    ]
+    const tree = [{ label: 'A', value: '1', children: [{ label: 'B', value: '2', children: undefined }] }]
     const result = state.flattenTree(tree)
     expect(result).toHaveLength(2)
   })

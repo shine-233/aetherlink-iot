@@ -10,20 +10,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const hoisted = vi.hoisted(() => ({
   addProtocolPlugin: vi.fn(),
-  editProtocolPlugin: vi.fn(),
+  editProtocolPlugin: vi.fn()
 }))
 
 vi.mock('@/service/api', () => ({
   addProtocolPlugin: hoisted.addProtocolPlugin,
-  editProtocolPlugin: hoisted.editProtocolPlugin,
+  editProtocolPlugin: hoisted.editProtocolPlugin
 }))
 
 vi.mock('@/utils/common/tool', () => ({
-  deepClone: (v: any) => JSON.parse(JSON.stringify(v)),
+  deepClone: (v: any) => JSON.parse(JSON.stringify(v))
 }))
 
 vi.mock('@/utils/form/rule', () => ({
-  createRequiredFormRule: (msg: string) => ({ required: true, message: msg }),
+  createRequiredFormRule: (msg: string) => ({ required: true, message: msg })
 }))
 
 vi.mock('@/locales', () => ({
@@ -44,7 +44,13 @@ const mountComponent = (props = {}) => {
     },
     global: {
       stubs: {
-        NModal: defineComponent({ props: { show: Boolean }, emits: ['update:show'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
+        NModal: defineComponent({
+          props: { show: Boolean },
+          emits: ['update:show'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
         NForm: defineComponent({
           props: ['model', 'rules', 'labelPlacement', 'labelWidth'],
           setup(_, { slots, expose }) {
@@ -52,13 +58,50 @@ const mountComponent = (props = {}) => {
             return () => h('div', slots.default?.())
           }
         }),
-        NFormItem: defineComponent({ props: ['label', 'path'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NInput: defineComponent({ props: { value: { default: '' } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NSelect: defineComponent({ props: { value: { default: null }, options: { default: () => [] } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } }),
-        NSpace: defineComponent({ props: ['justify', 'size'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NGrid: defineComponent({ props: ['cols', 'xGap'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NFormItemGridItem: defineComponent({ props: ['span', 'label', 'path'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
+        NFormItem: defineComponent({
+          props: ['label', 'path'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NInput: defineComponent({
+          props: { value: { default: '' } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NSelect: defineComponent({
+          props: { value: { default: null }, options: { default: () => [] } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NButton: defineComponent({
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default?.())
+          }
+        }),
+        NSpace: defineComponent({
+          props: ['justify', 'size'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NGrid: defineComponent({
+          props: ['cols', 'xGap'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NFormItemGridItem: defineComponent({
+          props: ['span', 'label', 'path'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        })
       }
     }
   })
@@ -74,7 +117,7 @@ describe('TableActionModal', () => {
   })
 
   afterEach(() => {
-    mountedWrappers.forEach(w => w.unmount())
+    mountedWrappers.forEach((w) => w.unmount())
     mountedWrappers.length = 0
   })
 
@@ -139,7 +182,21 @@ describe('TableActionModal', () => {
   })
 
   it('should update form model for edit type', () => {
-    const wrapper = mountComponent({ type: 'edit', editData: { id: '1', name: 'Test', device_type: 1, protocol_type: 'MQTT', access_address: 'addr', http_address: 'http', sub_topic_prefix: 'topic', description: 'desc', additional_info: '{"key":"val"}', language_code: 'zh' } })
+    const wrapper = mountComponent({
+      type: 'edit',
+      editData: {
+        id: '1',
+        name: 'Test',
+        device_type: 1,
+        protocol_type: 'MQTT',
+        access_address: 'addr',
+        http_address: 'http',
+        sub_topic_prefix: 'topic',
+        description: 'desc',
+        additional_info: '{"key":"val"}',
+        language_code: 'zh'
+      }
+    })
     const state = getState(wrapper)
     state.handleUpdateFormModelByModalType()
     expect(state.formModel.name).toBe('Test')

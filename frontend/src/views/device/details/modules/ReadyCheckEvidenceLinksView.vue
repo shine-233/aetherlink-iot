@@ -175,7 +175,7 @@ const emit = defineEmits<{
 }
 
 .ready-check-deep-links__button-context::before {
-  content: "·";
+  content: '·';
   padding: 0 4px;
 }
 

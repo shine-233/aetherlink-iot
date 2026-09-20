@@ -63,11 +63,31 @@ const mountDryRunPreview = (quickFixActions: any[]) =>
     },
     global: {
       stubs: {
-        NCard: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NFlex: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NAlert: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NTag: defineComponent({ setup(_, { slots }) { return () => h('span', slots.default?.()) } }),
-        NEmpty: defineComponent({ setup() { return () => h('div') } }),
+        NCard: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NFlex: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NAlert: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NTag: defineComponent({
+          setup(_, { slots }) {
+            return () => h('span', slots.default?.())
+          }
+        }),
+        NEmpty: defineComponent({
+          setup() {
+            return () => h('div')
+          }
+        }),
         NButton: defineComponent({
           props: { disabled: { type: Boolean, default: false } },
           emits: ['click'],

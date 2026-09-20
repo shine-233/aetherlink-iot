@@ -80,7 +80,7 @@ describe('validateDraft', () => {
     expect(result.errors[field as string]).toBeTruthy()
   })
 
-  it.each([['server'], ['DEVICE'], ['']])('rejects unknown entity type %s', value => {
+  it.each([['server'], ['DEVICE'], ['']])('rejects unknown entity type %s', (value) => {
     const result = validateDraft(draft({ from_type: value as never }))
     expect(result.ok).toBe(false)
     expect(result.errors.from_type).toBeTruthy()
@@ -133,7 +133,7 @@ describe('metadata handling', () => {
     expect(parseMetadata('{"a":1}')).toBe('{"a":1}')
   })
 
-  it.each([['not json'], ['[1,2]'], ['"str"'], ['123']])('rejects %s', value => {
+  it.each([['not json'], ['[1,2]'], ['"str"'], ['123']])('rejects %s', (value) => {
     expect(() => parseMetadata(value)).toThrow()
   })
 })

@@ -15,7 +15,7 @@ export function useAlarmPush(
 ) {
   let alarmTimer: ReturnType<typeof setInterval> | null = null
 
-  const eventFields = () => platformFields.value.filter(field => field.dataType === 'event')
+  const eventFields = () => platformFields.value.filter((field) => field.dataType === 'event')
 
   const fetchAlarmStatus = async () => {
     const fields = eventFields()
@@ -26,7 +26,7 @@ export function useAlarmPush(
       if (!Array.isArray(res?.data)) return
 
       const alarmFields: Record<string, unknown> = {}
-      fields.forEach(field => {
+      fields.forEach((field) => {
         const alarm = res.data.find((item: any) => item.alarm_name === field.id || item.key === field.id)
         if (!alarm) return
 

@@ -36,7 +36,7 @@ vi.mock('@/locales', () => ({
   $t: (key: string) => key
 }))
 
-vi.mock('vue', async importOriginal => {
+vi.mock('vue', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue')>()
   return {
     ...actual,
@@ -130,18 +130,80 @@ const mountComponent = () => {
   const wrapper = shallowMount(UserIndex, {
     global: {
       stubs: {
-        NCard: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NSpace: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : []) } }),
-        NInput: defineComponent({ name: 'NInput', props: { value: { default: '' }, placeholder: String }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NDataTable: defineComponent({ name: 'NDataTable', props: { data: { type: Array, default: () => [] }, loading: Boolean, pagination: { default: null } }, setup() { return () => h('div') } }),
-        NTag: defineComponent({ setup(_, { slots }) { return () => h('span', slots.default ? slots.default() : []) } }),
-        NPopconfirm: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NSelect: defineComponent({ name: 'NSelect', props: { value: { default: null }, placeholder: String }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NCascader: defineComponent({ name: 'NCascader', props: { value: { default: null }, placeholder: String }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NForm: defineComponent({ setup(_, { slots }) { return () => h('form', slots.default ? slots.default() : []) } }),
-        NFormItem: defineComponent({ name: 'NFormItem', props: { label: String, path: String }, setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NEmpty: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
+        NCard: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NSpace: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NButton: defineComponent({
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : [])
+          }
+        }),
+        NInput: defineComponent({
+          name: 'NInput',
+          props: { value: { default: '' }, placeholder: String },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NDataTable: defineComponent({
+          name: 'NDataTable',
+          props: { data: { type: Array, default: () => [] }, loading: Boolean, pagination: { default: null } },
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NTag: defineComponent({
+          setup(_, { slots }) {
+            return () => h('span', slots.default ? slots.default() : [])
+          }
+        }),
+        NPopconfirm: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NSelect: defineComponent({
+          name: 'NSelect',
+          props: { value: { default: null }, placeholder: String },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NCascader: defineComponent({
+          name: 'NCascader',
+          props: { value: { default: null }, placeholder: String },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NForm: defineComponent({
+          setup(_, { slots }) {
+            return () => h('form', slots.default ? slots.default() : [])
+          }
+        }),
+        NFormItem: defineComponent({
+          name: 'NFormItem',
+          props: { label: String, path: String },
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NEmpty: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
         IconIcRoundPlus: true
       }
     }
@@ -188,7 +250,9 @@ describe('management/user/index.vue', () => {
     })
     hoisted.delUser.mockResolvedValue({ error: null })
     hoisted.enter.mockResolvedValue(undefined)
-    ;(globalThis as unknown as { $message: Record<string, (...args: unknown[]) => void> }).$message = { success: hoisted.messageSuccess }
+    ;(globalThis as unknown as { $message: Record<string, (...args: unknown[]) => void> }).$message = {
+      success: hoisted.messageSuccess
+    }
   })
 
   afterEach(() => {
@@ -374,16 +438,18 @@ describe('management/user/index.vue', () => {
     expect(state.queryParams.default_language).toBeNull()
     expect(state.queryParams.page).toBe(1)
     expect(hoisted.fetchUserList).toHaveBeenCalledTimes(1)
-    expect(hoisted.fetchUserList).toHaveBeenCalledWith(expect.objectContaining({
-      email: null,
-      name: null,
-      status: null,
-      organization: null,
-      timezone: null,
-      default_language: null,
-      page: 1,
-      page_size: 10
-    }))
+    expect(hoisted.fetchUserList).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: null,
+        name: null,
+        status: null,
+        organization: null,
+        timezone: null,
+        default_language: null,
+        page: 1,
+        page_size: 10
+      })
+    )
   })
 
   it('handleReset clears address fields', async () => {
@@ -410,27 +476,29 @@ describe('management/user/index.vue', () => {
     const wrapper = mountComponent()
     await flushPromises()
 
-    const filterItems = wrapper.findAllComponents({ name: 'NFormItem' }).map(item => item.props())
-    expect(filterItems).toEqual(expect.arrayContaining([
-      expect.objectContaining({ label: 'page.manage.user.organization', path: 'organization' }),
-      expect.objectContaining({ label: 'page.manage.user.address', path: 'address.province' }),
-      expect.objectContaining({ label: 'page.manage.user.detailedAddress', path: 'address.detailed_address' }),
-      expect.objectContaining({ label: 'page.manage.user.timezone', path: 'timezone' })
-    ]))
+    const filterItems = wrapper.findAllComponents({ name: 'NFormItem' }).map((item) => item.props())
+    expect(filterItems).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: 'page.manage.user.organization', path: 'organization' }),
+        expect.objectContaining({ label: 'page.manage.user.address', path: 'address.province' }),
+        expect.objectContaining({ label: 'page.manage.user.detailedAddress', path: 'address.detailed_address' }),
+        expect.objectContaining({ label: 'page.manage.user.timezone', path: 'timezone' })
+      ])
+    )
 
-    const inputPlaceholders = wrapper.findAllComponents({ name: 'NInput' }).map(input => input.props('placeholder'))
-    expect(inputPlaceholders).toEqual(expect.arrayContaining([
-      'page.manage.user.form.organization',
-      'page.manage.user.form.detailedAddress'
-    ]))
+    const inputPlaceholders = wrapper.findAllComponents({ name: 'NInput' }).map((input) => input.props('placeholder'))
+    expect(inputPlaceholders).toEqual(
+      expect.arrayContaining(['page.manage.user.form.organization', 'page.manage.user.form.detailedAddress'])
+    )
 
     expect(wrapper.getComponent({ name: 'NCascader' }).props('placeholder')).toBe('page.manage.user.form.address')
 
-    const selectPlaceholders = wrapper.findAllComponents({ name: 'NSelect' }).map(select => select.props('placeholder'))
-    expect(selectPlaceholders).toEqual(expect.arrayContaining([
-      'page.manage.user.form.timezone',
-      'page.manage.user.form.defaultLanguage'
-    ]))
+    const selectPlaceholders = wrapper
+      .findAllComponents({ name: 'NSelect' })
+      .map((select) => select.props('placeholder'))
+    expect(selectPlaceholders).toEqual(
+      expect.arrayContaining(['page.manage.user.form.timezone', 'page.manage.user.form.defaultLanguage'])
+    )
   })
 
   it('handleAddressChange maps cascader value to address fields when length >= 3', async () => {
@@ -520,7 +588,7 @@ describe('management/user/index.vue', () => {
     await flushPromises()
     const state = getSetupState(wrapper)
     expect(Array.isArray(state.columns)).toBe(true)
-    expect(state.columns.map(column => column.key)).toEqual([
+    expect(state.columns.map((column) => column.key)).toEqual([
       'email',
       'name',
       'phone_number',
@@ -536,7 +604,7 @@ describe('management/user/index.vue', () => {
     const wrapper = mountComponent()
     await flushPromises()
     const state = getSetupState(wrapper)
-    const columnKeys = state.columns.map(c => c.key)
+    const columnKeys = state.columns.map((c) => c.key)
     expect(columnKeys).toContain('email')
     expect(columnKeys).toContain('name')
     expect(columnKeys).toContain('status')
@@ -562,8 +630,8 @@ describe('management/user/index.vue', () => {
     await flushPromises()
     const state = getSetupState(wrapper)
     expect(state.timezoneOptions).toHaveLength(20)
-    expect(state.timezoneOptions.some(o => o.value === 'Asia/Shanghai')).toBe(true)
-    expect(state.timezoneOptions.some(o => o.value === 'UTC')).toBe(true)
+    expect(state.timezoneOptions.some((o) => o.value === 'Asia/Shanghai')).toBe(true)
+    expect(state.timezoneOptions.some((o) => o.value === 'UTC')).toBe(true)
   })
 
   it('languageOptions contains expected languages', async () => {
@@ -576,8 +644,8 @@ describe('management/user/index.vue', () => {
       { label: 'Francais', value: 'fr-FR' },
       { label: 'Espanol', value: 'es-ES' }
     ])
-    expect(state.languageOptions.some(o => o.value === 'zh-CN')).toBe(true)
-    expect(state.languageOptions.some(o => o.value === 'en-US')).toBe(true)
+    expect(state.languageOptions.some((o) => o.value === 'zh-CN')).toBe(true)
+    expect(state.languageOptions.some((o) => o.value === 'en-US')).toBe(true)
   })
 
   it('provinceCityData is populated from region data', async () => {

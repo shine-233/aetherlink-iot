@@ -16,11 +16,7 @@ import {
 export type AddParameterOptionKey = 'manual' | 'property' | 'device' | 'api-template' | 'apply-interface-template'
 
 export type AddParameterOptionAction =
-  | 'import-template'
-  | 'add-manual'
-  | 'add-property'
-  | 'open-device-config'
-  | 'blocked-by-limit'
+  'import-template' | 'add-manual' | 'add-property' | 'open-device-config' | 'blocked-by-limit'
 
 export type AddParameterOption = {
   label: string
@@ -28,9 +24,12 @@ export type AddParameterOption = {
   description: string
 }
 
-type CurrentApiInfo = {
-  commonParams?: unknown[]
-} | null | undefined
+type CurrentApiInfo =
+  | {
+      commonParams?: unknown[]
+    }
+  | null
+  | undefined
 
 type ParameterType = 'header' | 'query' | 'path'
 

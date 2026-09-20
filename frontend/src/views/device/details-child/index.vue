@@ -84,7 +84,7 @@ const createTabComponents = () => [
     key: 'settings',
     name: () => $t('custom.device_details.settings'),
     component: createAsyncChildTab(() => import('@/views/device/details/modules/settings.vue'))
-  },
+  }
 ]
 
 const components = ref(createTabComponents())
@@ -107,11 +107,11 @@ const resetTabComponentsByDeviceType = (type?: string) => {
   let nextComponents = createTabComponents()
 
   if (type !== '2') {
-    nextComponents = nextComponents.filter(item => item.key !== 'device-analysis')
+    nextComponents = nextComponents.filter((item) => item.key !== 'device-analysis')
   }
 
   if (type === '3') {
-    nextComponents = nextComponents.filter(item => item.key !== 'join')
+    nextComponents = nextComponents.filter((item) => item.key !== 'join')
   }
 
   components.value = nextComponents

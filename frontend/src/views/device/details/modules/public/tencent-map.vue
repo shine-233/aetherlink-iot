@@ -91,7 +91,7 @@ async function renderMap() {
     addCurrentLocationMarker(lat, lng)
   }
 
-  map.on('click', event => {
+  map.on('click', (event) => {
     const lat = event.latLng.getLat()
     const lng = event.latLng.getLng()
 

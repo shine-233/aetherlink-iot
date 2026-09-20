@@ -28,7 +28,9 @@ const emit = defineEmits<{
 }>()
 
 const isOnline = computed(() => Number(props.online) === 1)
-const hasDeviceConfig = computed(() => Boolean(props.deviceData?.device_config_id || props.deviceData?.device_config_name))
+const hasDeviceConfig = computed(() =>
+  Boolean(props.deviceData?.device_config_id || props.deviceData?.device_config_name)
+)
 const visibleTabSet = computed(() => new Set(props.visibleTabs))
 const onlineStatusText = computed(() =>
   isOnline.value ? $t('custom.device_details.online') : $t('custom.device_details.offline')
@@ -143,12 +145,7 @@ function openOperation(item: OperationItem) {
           <NTag size="tiny" :type="item.tone">{{ item.status }}</NTag>
         </div>
         <p>{{ item.description }}</p>
-        <NButton
-          size="small"
-          secondary
-          :disabled="!visibleTabSet.has(item.tab)"
-          @click="openOperation(item)"
-        >
+        <NButton size="small" secondary :disabled="!visibleTabSet.has(item.tab)" @click="openOperation(item)">
           {{ visibleTabSet.has(item.tab) ? item.action : $t('custom.device_details.workbenchTabUnsupported') }}
         </NButton>
       </article>

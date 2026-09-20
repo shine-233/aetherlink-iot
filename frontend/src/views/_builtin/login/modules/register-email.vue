@@ -71,11 +71,11 @@ const emailOptions = computed(() => {
 
   // 过滤常用域名，基于用户在 @ 后输入的内容
   const filteredDomains = commonDomains.filter(
-    domain => domain.startsWith(domainInput) && domain !== domainInput // 只有当域名部分匹配且不等于完整域名时才提示
+    (domain) => domain.startsWith(domainInput) && domain !== domainInput // 只有当域名部分匹配且不等于完整域名时才提示
   )
 
   // 生成完整的邮箱建议
-  return filteredDomains.map(domain => `${username}@${domain}`)
+  return filteredDomains.map((domain) => `${username}@${domain}`)
 })
 
 const rules = computed<Record<keyof FormModel, App.Global.FormRule[]>>(() => {
@@ -101,7 +101,7 @@ function handleSmsCode() {
         window.$message?.success($t('page.login.common.codeSent'))
       }
     })
-    .catch(error => {
+    .catch((error) => {
       // 错误处理已经在 useSmsCode 中完成，这里不需要重复处理
       console.error('Failed to send verification code:', error)
     })

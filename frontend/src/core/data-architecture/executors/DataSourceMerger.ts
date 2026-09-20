@@ -225,13 +225,13 @@ export class DataSourceMerger implements IDataSourceMerger {
     }
 
     // 如果所有数据项都是数组，推荐array合并
-    const allArrays = items.every(item => Array.isArray(item))
+    const allArrays = items.every((item) => Array.isArray(item))
     if (allArrays) {
       return { type: 'array' }
     }
 
     // 如果所有数据项都是对象，推荐object合并
-    const allObjects = items.every(item => item && typeof item === 'object' && !Array.isArray(item))
+    const allObjects = items.every((item) => item && typeof item === 'object' && !Array.isArray(item))
     if (allObjects) {
       return { type: 'object' }
     }

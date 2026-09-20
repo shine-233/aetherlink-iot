@@ -99,9 +99,9 @@ onMounted(() => {
 })
 
 watchEffect(() => {
-  props.formElements?.forEach(element => {
+  props.formElements?.forEach((element) => {
     if (element.type === 'table' && Array.isArray(element.array)) {
-      element.array.forEach(subElement => {
+      element.array.forEach((subElement) => {
         formRules.value[subElement.dataKey] = subElement.validate || {}
         editableFormData[subElement.dataKey] ??= props.formData[subElement.dataKey] || ''
       })

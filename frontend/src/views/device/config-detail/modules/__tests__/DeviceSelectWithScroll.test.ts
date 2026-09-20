@@ -13,13 +13,47 @@ vi.mock('@/locales', () => ({
 }))
 
 vi.mock('naive-ui', () => ({
-  NCheckbox: defineComponent({ props: { checked: { default: false } }, emits: ['update:checked'], setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NEmpty: defineComponent({ setup() { return () => h('div') } }),
-  NFlex: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NInfiniteScroll: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NPopover: defineComponent({ props: { show: { default: false } }, emits: ['update:show'], setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NSelect: defineComponent({ props: { value: { default: null } }, emits: ['update:value'], setup() { return () => h('div') } }),
-  NSpin: defineComponent({ setup() { return () => h('div') } })
+  NCheckbox: defineComponent({
+    props: { checked: { default: false } },
+    emits: ['update:checked'],
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NEmpty: defineComponent({
+    setup() {
+      return () => h('div')
+    }
+  }),
+  NFlex: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NInfiniteScroll: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NPopover: defineComponent({
+    props: { show: { default: false } },
+    emits: ['update:show'],
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NSelect: defineComponent({
+    props: { value: { default: null } },
+    emits: ['update:value'],
+    setup() {
+      return () => h('div')
+    }
+  }),
+  NSpin: defineComponent({
+    setup() {
+      return () => h('div')
+    }
+  })
 }))
 
 import Component from '../DeviceSelectWithScroll.vue'
@@ -53,8 +87,14 @@ const mountComponent = (props = {}) => {
 const getSetupState = (wrapper: ReturnType<typeof shallowMount>) => wrapper.vm.$.setupState as Record<string, any>
 
 describe('device/config-detail/modules/DeviceSelectWithScroll.vue', () => {
-  beforeEach(() => { vi.clearAllMocks() })
-  afterEach(() => { while (mountedWrappers.length > 0) { mountedWrappers.pop()?.unmount() } })
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+  afterEach(() => {
+    while (mountedWrappers.length > 0) {
+      mountedWrappers.pop()?.unmount()
+    }
+  })
 
   it('initializes selected ids from modelValue and exposes selected option tags', () => {
     const wrapper = mountComponent({ modelValue: ['d1'] })

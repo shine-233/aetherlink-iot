@@ -6,12 +6,7 @@
 import { onMounted, ref } from 'vue'
 import { NButton, NInput, NAlert } from 'naive-ui'
 import { $t } from '@/locales'
-import {
-  fetchTotpActivate,
-  fetchTotpDisable,
-  fetchTotpSetup,
-  fetchTotpStatus
-} from '@/service/api/two-factor'
+import { fetchTotpActivate, fetchTotpDisable, fetchTotpSetup, fetchTotpStatus } from '@/service/api/two-factor'
 
 const enabled = ref(false)
 const loading = ref(true)

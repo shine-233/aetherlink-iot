@@ -26,7 +26,7 @@ const { routerPushByKey } = useRouterPush()
 
 // 移动端主要菜单项
 const mobileMenus = computed(() => {
-  const mainMenus = routeStore.menus.filter(menu => {
+  const mainMenus = routeStore.menus.filter((menu) => {
     // 过滤出主要的一级菜单项，适合在底部导航显示
     return ['home', 'device', 'dashboard', 'visualization'].includes(menu.routeKey as string)
   })

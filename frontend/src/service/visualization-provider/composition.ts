@@ -1,11 +1,7 @@
 import { createVisualizationProviderFacade, type VisualizationProviderSelection } from './facade'
 import { legacyThingsVisProvider } from './legacy-thingsvis-adapter'
 import { nativeBoardProvider } from './native-board-provider'
-import {
-  LEGACY_THINGSVIS_PROVIDER_ID,
-  NATIVE_BOARD_PROJECT_ID,
-  NATIVE_BOARD_PROVIDER_ID
-} from './provider-ids'
+import { LEGACY_THINGSVIS_PROVIDER_ID, NATIVE_BOARD_PROJECT_ID, NATIVE_BOARD_PROVIDER_ID } from './provider-ids'
 import { VisualizationProviderRegistry } from './registry'
 
 const registry = new VisualizationProviderRegistry()
@@ -19,9 +15,10 @@ export function registerDefaultVisualizationProviders(): VisualizationProviderRe
 export function getDefaultVisualizationProviderFacade(selection: VisualizationProviderSelection = {}) {
   const providerId = selection.providerId === undefined ? NATIVE_BOARD_PROVIDER_ID : selection.providerId
   const externalEnabled = import.meta.env.VITE_ENABLE_THINGSVIS_COMPAT === 'Y'
-  const effectiveSelection = providerId === LEGACY_THINGSVIS_PROVIDER_ID && !externalEnabled
-    ? { ...selection, context: { ...selection.context, available: false } }
-    : selection
+  const effectiveSelection =
+    providerId === LEGACY_THINGSVIS_PROVIDER_ID && !externalEnabled
+      ? { ...selection, context: { ...selection.context, available: false } }
+      : selection
 
   return createVisualizationProviderFacade(registerDefaultVisualizationProviders(), effectiveSelection)
 }

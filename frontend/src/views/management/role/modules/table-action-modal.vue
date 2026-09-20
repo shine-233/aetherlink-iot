@@ -123,7 +123,7 @@ async function handleSubmit() {
 
 watch(
   () => props.visible,
-  newValue => {
+  (newValue) => {
     if (newValue) {
       // 仅在弹窗打开时回填，关闭时不清空，减少不必要的响应式写入。
       handleUpdateFormModelByModalType()

@@ -40,7 +40,9 @@ vi.mock('@/service/api/scada', () => ({
 
 vi.mock('naive-ui', () => ({
   NAlert: { props: ['title'], template: '<div class="n-alert">{{ title }}<slot /></div>' },
-  NButton: { template: '<button class="n-button" @click="$attrs.onClick ? $attrs.onClick() : $emit(\'click\')"><slot /></button>' },
+  NButton: {
+    template: '<button class="n-button" @click="$attrs.onClick ? $attrs.onClick() : $emit(\'click\')"><slot /></button>'
+  },
   NCollapse: { template: '<div><slot /></div>' },
   NCollapseItem: { template: '<div><slot /><slot name="default" /></div>' },
   NEmpty: { template: '<div class="n-empty" />' },
@@ -83,10 +85,16 @@ function ok<T>(data: T) {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  hoisted.fetchProjects.mockResolvedValue(ok([{ id: 'proj-1', tenant_id: 'tenant-1', name: 'p1', created_at: '', updated_at: '' }]))
+  hoisted.fetchProjects.mockResolvedValue(
+    ok([{ id: 'proj-1', tenant_id: 'tenant-1', name: 'p1', created_at: '', updated_at: '' }])
+  )
   hoisted.fetchDocuments.mockResolvedValue(ok([documentFixture()]))
   hoisted.fetchDocument.mockResolvedValue(ok(documentFixture()))
-  hoisted.fetchVersions.mockResolvedValue(ok([{ id: 'v1', tenant_id: 'tenant-1', document_id: 'doc-1', version: 1, json_data: emptyCanvas, published_at: '' }]))
+  hoisted.fetchVersions.mockResolvedValue(
+    ok([
+      { id: 'v1', tenant_id: 'tenant-1', document_id: 'doc-1', version: 1, json_data: emptyCanvas, published_at: '' }
+    ])
+  )
   hoisted.saveDocument.mockResolvedValue(ok(documentFixture()))
   hoisted.rollbackDocument.mockResolvedValue(ok(documentFixture({ current_version: 4 })))
 })
@@ -100,7 +108,7 @@ describe('scada editor', () => {
 
   it('sends expected_version when saving so the backend can detect conflicts', async () => {
     const wrapper = await mountEditor()
-    const saveButton = wrapper.findAll('button').find(button => button.text() === 'save')
+    const saveButton = wrapper.findAll('button').find((button) => button.text() === 'save')
     expect(saveButton).toBeTruthy()
     const editorVm = wrapper.vm as unknown as { onSave: () => Promise<void> }
     await editorVm.onSave()
@@ -115,8 +123,8 @@ describe('scada editor', () => {
     const editorVm = wrapper.vm as unknown as { onSave: () => Promise<void> }
     await editorVm.onSave()
     expect(hoisted.messageError).toHaveBeenCalled()
-    const messages = hoisted.messageError.mock.calls.map(call => String(call[0]))
-    expect(messages.some(text => /版本冲突/.test(text))).toBe(true)
+    const messages = hoisted.messageError.mock.calls.map((call) => String(call[0]))
+    expect(messages.some((text) => /版本冲突/.test(text))).toBe(true)
   })
 
   // 回滚在后端生成的是**新草稿**，前端必须用响应内容重置编辑器：

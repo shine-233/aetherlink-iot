@@ -50,21 +50,22 @@ const PlainTextEditor = defineComponent({
   },
   emits: ['update:modelValue'],
   setup(fallbackProps, { attrs, emit: emitFallback }) {
-    return () => h('textarea', {
-      class: 'plain-text-editor',
-      'data-editor-fallback': 'plain-text',
-      value: fallbackProps.modelValue,
-      placeholder: fallbackProps.placeholder,
-      style: attrs.style,
-      onInput: (event: Event) => {
-        emitFallback('update:modelValue', (event.target as HTMLTextAreaElement).value)
-      }
-    })
+    return () =>
+      h('textarea', {
+        class: 'plain-text-editor',
+        'data-editor-fallback': 'plain-text',
+        value: fallbackProps.modelValue,
+        placeholder: fallbackProps.placeholder,
+        style: attrs.style,
+        onInput: (event: Event) => {
+          emitFallback('update:modelValue', (event.target as HTMLTextAreaElement).value)
+        }
+      })
   }
 })
 
 const CodeMirror = defineAsyncComponent({
-  loader: () => import('vue-codemirror6').then(module => module.default),
+  loader: () => import('vue-codemirror6').then((module) => module.default),
   errorComponent: PlainTextEditor,
   delay: 0
 })
@@ -180,7 +181,7 @@ const availableTemplateSnippets = computed(() => {
 })
 
 const templateOptions = computed(() =>
-  availableTemplateSnippets.value.map(snippet => ({
+  availableTemplateSnippets.value.map((snippet) => ({
     label: t(snippet.labelKey),
     value: snippet.code
   }))

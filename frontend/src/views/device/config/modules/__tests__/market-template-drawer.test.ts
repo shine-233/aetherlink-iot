@@ -37,14 +37,55 @@ const mountComponent = (props = {}) => {
     },
     global: {
       stubs: {
-        NDrawer: defineComponent({ props: ['show', 'width'], emits: ['update:show'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NDrawerContent: defineComponent({ props: ['title', 'closable'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NSpin: defineComponent({ props: ['show'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NDescriptions: defineComponent({ props: ['column', 'labelPlacement', 'bordered', 'size'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NDescriptionsItem: defineComponent({ props: ['label'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NTag: defineComponent({ props: ['size', 'type'], setup(_, { slots }) { return () => h('span', slots.default?.()) } }),
-        NSpace: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NButton: defineComponent({ props: ['type', 'block'], emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } })
+        NDrawer: defineComponent({
+          props: ['show', 'width'],
+          emits: ['update:show'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NDrawerContent: defineComponent({
+          props: ['title', 'closable'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NSpin: defineComponent({
+          props: ['show'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NDescriptions: defineComponent({
+          props: ['column', 'labelPlacement', 'bordered', 'size'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NDescriptionsItem: defineComponent({
+          props: ['label'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NTag: defineComponent({
+          props: ['size', 'type'],
+          setup(_, { slots }) {
+            return () => h('span', slots.default?.())
+          }
+        }),
+        NSpace: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NButton: defineComponent({
+          props: ['type', 'block'],
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default?.())
+          }
+        })
       }
     }
   })

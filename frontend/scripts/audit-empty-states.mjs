@@ -10,8 +10,10 @@ import { join, extname } from 'node:path'
 
 const root = process.cwd()
 const viewsDir = join(root, 'frontend/src/views')
-const reportPathArg = process.argv.find(a => a.startsWith('--report='))
-const reportPath = reportPathArg ? reportPathArg.split('=')[1] : join(root, 'frontend/scripts/empty-state-audit-report.json')
+const reportPathArg = process.argv.find((a) => a.startsWith('--report='))
+const reportPath = reportPathArg
+  ? reportPathArg.split('=')[1]
+  : join(root, 'frontend/scripts/empty-state-audit-report.json')
 
 function walk(dir) {
   const out = []
@@ -46,7 +48,7 @@ for (const file of files) {
   }
 }
 
-const totalListy = files.filter(f => looksListy(readFileSync(f, 'utf8'))).length
+const totalListy = files.filter((f) => looksListy(readFileSync(f, 'utf8'))).length
 const report = {
   generatedAt: new Date().toISOString(),
   totalVueViews: files.length,

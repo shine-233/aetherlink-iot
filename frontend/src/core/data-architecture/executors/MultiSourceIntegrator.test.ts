@@ -58,7 +58,7 @@ describe('MultiSourceIntegrator', () => {
     expect(payload).toEqual({ nested: { value: 1 } })
   })
 
-  it.each(['', '__proto__', 'prototype', 'constructor'])('skips the unsafe source id %j', async sourceId => {
+  it.each(['', '__proto__', 'prototype', 'constructor'])('skips the unsafe source id %j', async (sourceId) => {
     const integrator = new MultiSourceIntegrator()
     const source: DataSourceResult = { sourceId, type: 'json', data: { polluted: true }, success: true }
 
@@ -88,7 +88,7 @@ describe('MultiSourceIntegrator', () => {
     expect(result.stale).toEqual(updates.stale)
   })
 
-  it.each(['__proto__', 'prototype', 'constructor'])('skips the unsafe incremental source id %s', sourceId => {
+  it.each(['__proto__', 'prototype', 'constructor'])('skips the unsafe incremental source id %s', (sourceId) => {
     const integrator = new MultiSourceIntegrator()
     const updates = Object.create(null)
     updates[sourceId] = { type: 'json', data: { polluted: true }, lastUpdated: 20 }

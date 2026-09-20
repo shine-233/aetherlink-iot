@@ -47,7 +47,11 @@ export function createThingsVisEditorPrefetchOrchestrator(
   }
 
   function clearScheduledPrefetch() {
-    if (pendingIdleHandle !== null && typeof window !== 'undefined' && typeof window.cancelIdleCallback === 'function') {
+    if (
+      pendingIdleHandle !== null &&
+      typeof window !== 'undefined' &&
+      typeof window.cancelIdleCallback === 'function'
+    ) {
       window.cancelIdleCallback(pendingIdleHandle)
       pendingIdleHandle = null
     }

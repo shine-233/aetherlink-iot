@@ -36,7 +36,7 @@ const componentsList: { id: number; components: any }[] = [
   { id: 5, components: Complete }
 ]
 const SwitchComponents = computed<any>(() => {
-  return componentsList.find(item => item.id === stepCurrent.value)?.components
+  return componentsList.find((item) => item.id === stepCurrent.value)?.components
 })
 
 export type ModalType = NonNullable<Props['type']>
@@ -105,9 +105,9 @@ defineOptions({ name: 'TableActionModal' })
 
     <component
       :is="SwitchComponents"
-      v-model:stepCurrent="stepCurrent"
-      v-model:modalVisible="modalVisible"
-      v-model:deviceTemplateId="deviceTemplateId"
+      v-model:step-current="stepCurrent"
+      v-model:modal-visible="modalVisible"
+      v-model:device-template-id="deviceTemplateId"
     ></component>
   </NModal>
 </template>

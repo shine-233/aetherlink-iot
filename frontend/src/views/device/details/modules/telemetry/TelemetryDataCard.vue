@@ -36,12 +36,7 @@ const telemetryTimestamp = () => (props.item.ts ? dayjs(props.item.ts).format('Y
         </template>
         <div style="max-width: 300px; word-break: break-all">{{ item.value }}</div>
       </n-tooltip>
-      <AnimatedNumber
-        v-else
-        :data-index="index"
-        :m-num="item.value"
-        :quantile-show="true"
-      />
+      <AnimatedNumber v-else :data-index="index" :m-num="item.value" :quantile-show="true" />
       <span v-if="item.unit">{{ item.unit }}</span>
     </div>
 

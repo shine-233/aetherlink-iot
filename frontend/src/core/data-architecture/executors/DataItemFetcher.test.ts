@@ -115,9 +115,7 @@ describe('DataItemFetcher', () => {
     // catch unknown exceptions and the eight errorCode values would not be an
     // exhaustive contract. This is the only code that had no coverage, so the
     // closure property itself was unproven.
-    await expect(
-      fetcher.fetchData({ type: 'http', config: undefined } as unknown as DataItem)
-    ).resolves.toMatchObject({
+    await expect(fetcher.fetchData({ type: 'http', config: undefined } as unknown as DataItem)).resolves.toMatchObject({
       success: false,
       error: expect.any(String),
       errorCode: 'DATA_ITEM_FETCH_FAILED'
@@ -159,9 +157,7 @@ describe('DataItemFetcher', () => {
   it('returns a structured failure for unknown runtime data-source variants', async () => {
     const fetcher = new DataItemFetcher()
 
-    await expect(
-      fetcher.fetchData({ type: 'future-source', config: {} } as unknown as DataItem)
-    ).resolves.toEqual({
+    await expect(fetcher.fetchData({ type: 'future-source', config: {} } as unknown as DataItem)).resolves.toEqual({
       success: false,
       unsupported: true,
       error: 'Unsupported data source: future-source',

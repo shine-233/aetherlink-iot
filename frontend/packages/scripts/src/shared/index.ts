@@ -16,7 +16,10 @@ function normalizeStdout(stdout: unknown): string {
   }
 
   if (Array.isArray(stdout)) {
-    return stdout.filter((part): part is string => typeof part === 'string').join('\n').trim()
+    return stdout
+      .filter((part): part is string => typeof part === 'string')
+      .join('\n')
+      .trim()
   }
 
   return ''

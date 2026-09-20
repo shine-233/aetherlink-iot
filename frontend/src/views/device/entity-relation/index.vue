@@ -64,7 +64,7 @@ const draft = reactive<EntityRelationDraft>({
   metadata: ''
 })
 
-const typeOptions = ENTITY_TYPES.map(value => ({ label: value, value }))
+const typeOptions = ENTITY_TYPES.map((value) => ({ label: value, value }))
 
 /** 与后端校验同源的错误，字段级展示。 */
 const errors = computed(() => validateDraft(draft).errors)
@@ -77,16 +77,16 @@ const reverseHint = computed(() => {
 
 const metadataBytes = computed(() => metadataByteLength(draft.metadata))
 
-const canSubmit = computed(
-  () => Object.keys(errors.value).length === 0 && !submitting.value
-)
+const canSubmit = computed(() => Object.keys(errors.value).length === 0 && !submitting.value)
 
 async function load() {
   loading.value = true
   try {
     const { data, error } = await listEntityRelations({ limit: 200 })
     if (error) {
-      message.error(typeof error === 'object' && error && 'message' in error ? String(error.message) : $t('common.loadFailed'))
+      message.error(
+        typeof error === 'object' && error && 'message' in error ? String(error.message) : $t('common.loadFailed')
+      )
       return
     }
     rows.value = data?.list ?? []
@@ -119,7 +119,9 @@ async function submit() {
       metadata
     })
     if (error) {
-      message.error(typeof error === 'object' && error && 'message' in error ? String(error.message) : $t('common.addFailed'))
+      message.error(
+        typeof error === 'object' && error && 'message' in error ? String(error.message) : $t('common.addFailed')
+      )
       return
     }
     message.success($t('common.addSuccess'))
@@ -136,7 +138,9 @@ async function submit() {
 async function remove(row: EntityRelation) {
   const { error } = await deleteEntityRelation(row.id)
   if (error) {
-    message.error(typeof error === 'object' && error && 'message' in error ? String(error.message) : $t('common.deleteFailed'))
+    message.error(
+      typeof error === 'object' && error && 'message' in error ? String(error.message) : $t('common.deleteFailed')
+    )
     return
   }
   message.success($t('common.deleteSuccess'))
@@ -167,7 +171,9 @@ async function purgeEntity() {
   })
   if (error) {
     // protect 命中时后端会拒绝：这是保护生效，必须讲清楚而不是笼统报"删除失败"。
-    message.error(typeof error === 'object' && error && 'message' in error ? String(error.message) : $t('common.deleteFailed'))
+    message.error(
+      typeof error === 'object' && error && 'message' in error ? String(error.message) : $t('common.deleteFailed')
+    )
     return
   }
   message.success($t('common.deleteSuccess'))
@@ -178,7 +184,7 @@ const columns = computed<DataTableColumns<EntityRelation>>(() => [
   {
     title: $t('custom.entityRelation.from'),
     key: 'from',
-    render: row =>
+    render: (row) =>
       h(NSpace, { size: 4 }, () => [
         h(NTag, { size: 'small', bordered: false }, () => row.from_type),
         h('span', null, row.from_id)
@@ -188,7 +194,7 @@ const columns = computed<DataTableColumns<EntityRelation>>(() => [
   {
     title: $t('custom.entityRelation.to'),
     key: 'to',
-    render: row =>
+    render: (row) =>
       h(NSpace, { size: 4 }, () => [
         h(NTag, { size: 'small', bordered: false }, () => row.to_type),
         h('span', null, row.to_id)
@@ -198,7 +204,7 @@ const columns = computed<DataTableColumns<EntityRelation>>(() => [
     title: $t('common.action'),
     key: 'actions',
     width: 110,
-    render: row =>
+    render: (row) =>
       h(
         NPopconfirm,
         { onPositiveClick: () => remove(row) },
@@ -217,29 +223,47 @@ onMounted(load)
   <div class="grid grid-cols-1 gap-4 lg:grid-cols-[380px_1fr]">
     <NCard :title="$t('custom.entityRelation.createTitle')" size="small">
       <NForm label-placement="top">
-        <NFormItem :label="$t('custom.entityRelation.from')" :feedback="errors.from_type" :validation-status="errors.from_type ? 'error' : undefined">
+        <NFormItem
+          :label="$t('custom.entityRelation.from')"
+          :feedback="errors.from_type"
+          :validation-status="errors.from_type ? 'error' : undefined"
+        >
           <NSpace vertical class="w-full">
             <NSelect v-model:value="draft.from_type" :options="typeOptions" />
             <NInput v-model:value="draft.from_id" placeholder="device id" />
           </NSpace>
         </NFormItem>
-        <NFormItem :label="$t('custom.entityRelation.relationType')" :feedback="errors.relation_type" :validation-status="errors.relation_type ? 'error' : undefined">
+        <NFormItem
+          :label="$t('custom.entityRelation.relationType')"
+          :feedback="errors.relation_type"
+          :validation-status="errors.relation_type ? 'error' : undefined"
+        >
           <NInput v-model:value="draft.relation_type" placeholder="belongs_to" />
         </NFormItem>
-        <NFormItem :label="$t('custom.entityRelation.to')" :feedback="errors.to_id || errors.to_type" :validation-status="errors.to_id || errors.to_type ? 'error' : undefined">
+        <NFormItem
+          :label="$t('custom.entityRelation.to')"
+          :feedback="errors.to_id || errors.to_type"
+          :validation-status="errors.to_id || errors.to_type ? 'error' : undefined"
+        >
           <NSpace vertical class="w-full">
             <NSelect v-model:value="draft.to_type" :options="typeOptions" />
             <NInput v-model:value="draft.to_id" placeholder="asset id" />
           </NSpace>
         </NFormItem>
-        <NFormItem :label="$t('custom.entityRelation.metadata')" :feedback="errors.metadata" :validation-status="errors.metadata ? 'error' : undefined">
+        <NFormItem
+          :label="$t('custom.entityRelation.metadata')"
+          :feedback="errors.metadata"
+          :validation-status="errors.metadata ? 'error' : undefined"
+        >
           <NInput v-model:value="draft.metadata" type="textarea" :rows="3" placeholder='{"key":"value"}' />
         </NFormItem>
         <NAlert v-if="reverseHint" type="warning" :bordered="false" class="mb-3">{{ reverseHint }}</NAlert>
         <NButton type="primary" block :disabled="!canSubmit" :loading="submitting" @click="submit">
           {{ $t('common.add') }}
         </NButton>
-        <div class="mt-2 text-xs text-gray-400">{{ $t('custom.entityRelation.metadataBytes') }}: {{ metadataBytes }}</div>
+        <div class="mt-2 text-xs text-gray-400">
+          {{ $t('custom.entityRelation.metadataBytes') }}: {{ metadataBytes }}
+        </div>
       </NForm>
     </NCard>
 

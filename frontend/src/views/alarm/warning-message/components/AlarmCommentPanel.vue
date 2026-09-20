@@ -117,13 +117,7 @@ watch(
           <div class="comment-meta">
             <span class="comment-author">{{ comment.author_user_id }}</span>
             <span class="comment-time">{{ formatTime(comment.created_at) }}</span>
-            <n-button
-              v-if="canDelete(comment)"
-              text
-              size="tiny"
-              type="error"
-              @click="remove(comment)"
-            >
+            <n-button v-if="canDelete(comment)" text size="tiny" type="error" @click="remove(comment)">
               {{ $t('common.delete') }}
             </n-button>
           </div>

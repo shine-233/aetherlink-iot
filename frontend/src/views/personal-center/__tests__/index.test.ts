@@ -237,7 +237,7 @@ describe('PersonalCenter', () => {
   })
 
   afterEach(() => {
-    mountedWrappers.forEach(w => w.unmount())
+    mountedWrappers.forEach((w) => w.unmount())
     mountedWrappers.length = 0
   })
 
@@ -380,7 +380,10 @@ describe('PersonalCenter', () => {
   })
 
   it('should submit email change', async () => {
-    hoisted.changeAccountEmail.mockResolvedValue({ error: null, data: { new_email: 'changed@test.com', devices_migrated: 3 } })
+    hoisted.changeAccountEmail.mockResolvedValue({
+      error: null,
+      data: { new_email: 'changed@test.com', devices_migrated: 3 }
+    })
     const wrapper = mountComponent()
     await flushPromises()
     wrapper.vm.emailChangeForm.new_email = 'changed@test.com'
@@ -507,10 +510,12 @@ describe('PersonalCenter', () => {
     await flushPromises()
     const mockEvent = { target: { response: JSON.stringify({ data: { path: '/uploads/avatar-2.png' } }) } }
     await wrapper.vm.handleFinish({ event: mockEvent as any })
-    expect(hoisted.changeInformation).toHaveBeenCalledWith(expect.objectContaining({
-      additional_info: '{"user_icon":"/uploads/avatar-2.png"}',
-      avatar_url: '/uploads/avatar-2.png'
-    }))
+    expect(hoisted.changeInformation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        additional_info: '{"user_icon":"/uploads/avatar-2.png"}',
+        avatar_url: '/uploads/avatar-2.png'
+      })
+    )
     expect(wrapper.vm.headUrl).toBe('http://localhost/uploads/avatar-2.png')
   })
 

@@ -1,11 +1,6 @@
 import { ref } from 'vue'
 import { deviceGroupTree } from '@/service/api'
-import {
-  deviceConfigAll,
-  deviceConfigMetricsMenu,
-  deviceListAll,
-  deviceMetricsMenu
-} from '@/service/api/automation'
+import { deviceConfigAll, deviceConfigMetricsMenu, deviceListAll, deviceMetricsMenu } from '@/service/api/automation'
 import {
   applyActionParamOptionsData,
   normalizeActionParamOptionsData,
@@ -179,11 +174,11 @@ export const useSceneActionTargetCatalog = () => {
   const loadActionTargetCatalogsForEcho = (instructions: SceneInstructionLike[]) => {
     const tasks: Array<Promise<void>> = []
 
-    if (instructions.some(item => item.action_type === SINGLE_DEVICE_ACTION_TARGET_TYPE)) {
+    if (instructions.some((item) => item.action_type === SINGLE_DEVICE_ACTION_TARGET_TYPE)) {
       tasks.push(getGroup(), getDevice(null, null))
     }
 
-    if (instructions.some(item => item.action_type === SINGLE_CLASS_DEVICE_ACTION_TARGET_TYPE)) {
+    if (instructions.some((item) => item.action_type === SINGLE_CLASS_DEVICE_ACTION_TARGET_TYPE)) {
       tasks.push(getDeviceConfig(''))
     }
 

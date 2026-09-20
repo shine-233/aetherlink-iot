@@ -36,12 +36,13 @@ type TelemetryControlListResponse = {
   list?: TelemetryControlItem[]
 }
 
-export const buildControlListQuery = (deviceTemplateId: string) => ({
-  device_template_id: deviceTemplateId,
-  page: 1,
-  page_size: 100,
-  enable_status: 'enable'
-}) satisfies TelemetryControlListQuery
+export const buildControlListQuery = (deviceTemplateId: string) =>
+  ({
+    device_template_id: deviceTemplateId,
+    page: 1,
+    page_size: 100,
+    enable_status: 'enable'
+  }) satisfies TelemetryControlListQuery
 
 export const shouldShowSimulationEntry = (deviceConfig?: DeviceConfigLike) => {
   if (deviceConfig !== undefined) {
@@ -50,14 +51,16 @@ export const shouldShowSimulationEntry = (deviceConfig?: DeviceConfigLike) => {
   return true
 }
 
-export const buildDeleteParams = (item: Pick<TelemetryControlItem, 'key'>, deviceId: string) => ({
-  key: item.key || '',
-  device_id: deviceId
-}) satisfies TelemetryDeleteParams
+export const buildDeleteParams = (item: Pick<TelemetryControlItem, 'key'>, deviceId: string) =>
+  ({
+    key: item.key || '',
+    device_id: deviceId
+  }) satisfies TelemetryDeleteParams
 
-export const buildControlPublishPayload = (deviceId: string, value: string) => ({
-  device_id: deviceId,
-  value
-}) satisfies TelemetryControlPublishPayload
+export const buildControlPublishPayload = (deviceId: string, value: string) =>
+  ({
+    device_id: deviceId,
+    value
+  }) satisfies TelemetryControlPublishPayload
 
 export const normalizeControlList = (data?: TelemetryControlListResponse | null) => data?.list || []

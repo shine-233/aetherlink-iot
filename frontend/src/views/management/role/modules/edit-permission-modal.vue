@@ -38,7 +38,7 @@ interface TreeNode {
 
 function convertToTreeNodes(elements: Element[]): TreeNode[] {
   // 统一把后端 UI 元素树转换成 n-tree 所需结构，并在这里集中定义哪些节点不可直接取消。
-  return elements.map(item => ({
+  return elements.map((item) => ({
     label: item.description,
     key: item.id,
     disabled: item.element_code === 'home', // 禁止选中首页
@@ -85,7 +85,7 @@ const treeOptions = ref<any>([])
 
 const initRolePermissions = async () => {
   // 首页默认选中
-  const data = treeOptions.value.find(item => item.label === '首页')
+  const data = treeOptions.value.find((item) => item.label === '首页')
   if (props.editData) {
     // 角色已有权限与首页节点做去重合并，保证首页不可被误删。
     const permissions = await getRolePermissions(props.editData.id)
@@ -123,8 +123,8 @@ async function handleSubmit() {
 
 <template>
   <n-modal
-    aria-label="dialog"
     v-model:show="modalVisible"
+    aria-label="dialog"
     preset="card"
     :title="title"
     :on-after-enter="

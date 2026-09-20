@@ -154,7 +154,7 @@ const dryContactHasDistinctRecoveryDelay = computed(
 
 const dryContactTriggerEffectiveTime = computed({
   get: () => config.dry_contact_alarm_delay,
-  set: value => {
+  set: (value) => {
     config.dry_contact_alarm_delay = value
     config.dry_contact_normal_delay = value
   }
@@ -524,7 +524,11 @@ const {
               <NInputNumber v-model:value="config.dry_contact_alarm_delay" :min="0" :max="RDI_DURATION_MAX_SECONDS" />
             </div>
           </NFormItem>
-          <NFormItem v-if="dryContactHasDistinctRecoveryDelay" :label="`${t('normalDelay')} (s)`" class="rdi-duration-field">
+          <NFormItem
+            v-if="dryContactHasDistinctRecoveryDelay"
+            :label="`${t('normalDelay')} (s)`"
+            class="rdi-duration-field"
+          >
             <div class="rdi-duration-control">
               <div class="rdi-duration-value">{{ formatDurationLabel(config.dry_contact_normal_delay) }}</div>
               <NSlider

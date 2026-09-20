@@ -34,11 +34,21 @@ vi.mock('@vicons/ionicons5', () => ({
 }))
 
 vi.mock('../../device/details/modules/telemetry/modules/history-data.vue', () => ({
-  default: defineComponent({ props: ['deviceId', 'theKey'], setup() { return () => h('div') } })
+  default: defineComponent({
+    props: ['deviceId', 'theKey'],
+    setup() {
+      return () => h('div')
+    }
+  })
 }))
 
 vi.mock('../../device/details/modules/telemetry/modules/time-series-data.vue', () => ({
-  default: defineComponent({ props: ['deviceId', 'theKey', 'theName', 'theUnit'], setup() { return () => h('div') } })
+  default: defineComponent({
+    props: ['deviceId', 'theKey', 'theName', 'theUnit'],
+    setup() {
+      return () => h('div')
+    }
+  })
 }))
 
 import Component from '../telemetryDataCards.vue'
@@ -62,27 +72,52 @@ const mountComponent = (props = {}) => {
               h('div', { 'data-test': 'telemetry-grid', 'data-cols': stubProps.cols as string }, slots.default?.())
           }
         }),
-        NGi: defineComponent({ setup(_, { slots }) { return () => h('div', { 'data-test': 'telemetry-grid-item' }, slots.default?.()) } }),
+        NGi: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', { 'data-test': 'telemetry-grid-item' }, slots.default?.())
+          }
+        }),
         NCard: defineComponent({
           props: ['hoverable', 'headerClass'],
           setup(stubProps, { slots }) {
             return () =>
-              h('article', { 'data-test': 'telemetry-card', 'data-hoverable': String(stubProps.hoverable), 'data-header-class': stubProps.headerClass as string }, [
-                slots.header?.(),
-                slots['header-extra']?.(),
-                slots.default?.(),
-                slots.footer?.()
-              ])
+              h(
+                'article',
+                {
+                  'data-test': 'telemetry-card',
+                  'data-hoverable': String(stubProps.hoverable),
+                  'data-header-class': stubProps.headerClass as string
+                },
+                [slots.header?.(), slots['header-extra']?.(), slots.default?.(), slots.footer?.()]
+              )
           }
         }),
-        NIcon: defineComponent({ props: ['size', 'color'], setup(_, { slots }) { return () => h('span', slots.default?.()) } }),
-        NDivider: defineComponent({ props: ['vertical'], setup() { return () => h('hr') } }),
+        NIcon: defineComponent({
+          props: ['size', 'color'],
+          setup(_, { slots }) {
+            return () => h('span', slots.default?.())
+          }
+        }),
+        NDivider: defineComponent({
+          props: ['vertical'],
+          setup() {
+            return () => h('hr')
+          }
+        }),
         NModal: defineComponent({
           props: ['show', 'title'],
           emits: ['update:show'],
           setup(stubProps, { slots }) {
             return () =>
-              h('div', { 'data-test': 'history-modal', 'data-show': String(stubProps.show), 'data-title': stubProps.title as string }, slots.default?.())
+              h(
+                'div',
+                {
+                  'data-test': 'history-modal',
+                  'data-show': String(stubProps.show),
+                  'data-title': stubProps.title as string
+                },
+                slots.default?.()
+              )
           }
         }),
         AnimatedNumber: defineComponent({
@@ -98,8 +133,18 @@ const mountComponent = (props = {}) => {
               })
           }
         }),
-        HistoryData: defineComponent({ props: ['deviceId', 'theKey'], setup() { return () => h('div') } }),
-        TimeSeriesData: defineComponent({ props: ['deviceId', 'theKey', 'theName', 'theUnit'], setup() { return () => h('div') } })
+        HistoryData: defineComponent({
+          props: ['deviceId', 'theKey'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        TimeSeriesData: defineComponent({
+          props: ['deviceId', 'theKey', 'theName', 'theUnit'],
+          setup() {
+            return () => h('div')
+          }
+        })
       }
     }
   })
@@ -133,7 +178,7 @@ describe('device-details-app/telemetryDataCards.vue', () => {
     const state = getSetupState(wrapper)
     const cards = wrapper
       .findAll('[data-test="telemetry-card"]')
-      .filter(card => card.text().includes('Temperature') || card.text().includes('Humidity'))
+      .filter((card) => card.text().includes('Temperature') || card.text().includes('Humidity'))
 
     expect(wrapper.get('[data-test="telemetry-grid"]').attributes('data-cols')).toBe('1 600:2 900:3 1200:4')
     expect(cards).toHaveLength(2)
@@ -144,7 +189,7 @@ describe('device-details-app/telemetryDataCards.vue', () => {
     expect(wrapper.text()).toContain('(humidity)')
     expect(wrapper.text()).toContain('%')
     expect(state.telemetryData.map((item: any) => String(item.value))).toEqual(['25.5', '60'])
-    expect(wrapper.findAll('[data-test="animated-number"]').map(number => number.attributes())).toEqual([
+    expect(wrapper.findAll('[data-test="animated-number"]').map((number) => number.attributes())).toEqual([
       expect.objectContaining({ 'data-index': '0', 'data-value': '25.5', 'data-quantile': 'true' }),
       expect.objectContaining({ 'data-index': '1', 'data-value': '60', 'data-quantile': 'true' })
     ])

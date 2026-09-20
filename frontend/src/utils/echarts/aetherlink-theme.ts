@@ -17,7 +17,7 @@ const BRAND = {
   borderColor: '#e0e6ed',
   bgColor: 'transparent',
   gradientArea: ['rgba(32,128,240,0.25)', 'rgba(32,128,240,0.02)'],
-  gradientBar: ['#4098fc', '#2080f0'],
+  gradientBar: ['#4098fc', '#2080f0']
 }
 
 export const aetherLinkTheme: EChartsOption = {
@@ -29,32 +29,32 @@ export const aetherLinkTheme: EChartsOption = {
     textStyle: { color: BRAND.textSecondary, fontSize: 12 },
     itemWidth: 14,
     itemHeight: 8,
-    icon: 'roundRect',
+    icon: 'roundRect'
   },
   tooltip: {
     backgroundColor: 'rgba(255,255,255,0.96)',
     borderColor: BRAND.borderColor,
     textStyle: { color: BRAND.textPrimary, fontSize: 13 },
-    extraCssText: 'box-shadow: 0 4px 16px rgba(0,0,0,0.08); border-radius: 8px;',
+    extraCssText: 'box-shadow: 0 4px 16px rgba(0,0,0,0.08); border-radius: 8px;'
   },
   grid: {
     left: '3%',
     right: '4%',
     bottom: '6%',
-    containLabel: true,
+    containLabel: true
   },
   xAxis: {
     axisLine: { lineStyle: { color: BRAND.borderColor } },
     axisTick: { show: false },
     axisLabel: { color: BRAND.textSecondary, fontSize: 11 },
-    splitLine: { show: false },
+    splitLine: { show: false }
   },
   yAxis: {
     axisLine: { show: false },
     axisTick: { show: false },
     axisLabel: { color: BRAND.textSecondary, fontSize: 11 },
-    splitLine: { lineStyle: { color: BRAND.borderColor, type: 'dashed', opacity: 0.6 } },
-  },
+    splitLine: { lineStyle: { color: BRAND.borderColor, type: 'dashed', opacity: 0.6 } }
+  }
 } as any
 
 /** 闈㈢Н鍥?series 榛樿鏍峰紡锛堟笎鍙?骞虫粦锛?*/
@@ -64,13 +64,17 @@ export function areaSeriesStyle(color = BRAND.primary) {
     lineStyle: { width: 2.5 },
     areaStyle: {
       color: {
-        type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+        type: 'linear',
+        x: 0,
+        y: 0,
+        x2: 0,
+        y2: 1,
         colorStops: [
           { offset: 0, color: color + '40' },
-          { offset: 1, color: color + '05' },
-        ],
-      },
-    },
+          { offset: 1, color: color + '05' }
+        ]
+      }
+    }
   }
 }
 
@@ -81,12 +85,16 @@ export function barSeriesStyle() {
     itemStyle: {
       borderRadius: [4, 4, 0, 0],
       color: {
-        type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+        type: 'linear',
+        x: 0,
+        y: 0,
+        x2: 0,
+        y2: 1,
         colorStops: [
           { offset: 0, color: BRAND.primaryLight },
-          { offset: 1, color: BRAND.primary },
-        ],
-      },
-    },
+          { offset: 1, color: BRAND.primary }
+        ]
+      }
+    }
   }
 }

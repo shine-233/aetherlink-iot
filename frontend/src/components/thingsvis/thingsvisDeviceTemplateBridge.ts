@@ -41,11 +41,7 @@ type DeviceWithTemplateAssets<TField = PlatformField> = {
 
 const TEMPLATE_ASSET_LOAD_CONCURRENCY = 3
 
-async function mapWithConcurrency<T>(
-  items: T[],
-  concurrency: number,
-  mapper: (item: T) => Promise<void>
-) {
+async function mapWithConcurrency<T>(items: T[], concurrency: number, mapper: (item: T) => Promise<void>) {
   let nextIndex = 0
   const workerCount = Math.min(Math.max(concurrency, 1), items.length)
 

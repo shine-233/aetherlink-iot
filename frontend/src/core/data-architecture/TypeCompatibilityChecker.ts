@@ -367,7 +367,7 @@ export class TypeCompatibilityChecker {
       // 4. 检查字段命名冲突
       const fieldNames = new Set<string>()
       if (requirement.staticParams) {
-        requirement.staticParams.forEach(param => {
+        requirement.staticParams.forEach((param) => {
           if (fieldNames.has(param.key)) {
             errors.push(`静态参数字段名重复: ${param.key}`)
             affectedItems.push(`staticParams.${param.key}`)
@@ -396,7 +396,7 @@ export class TypeCompatibilityChecker {
     targetType: DataType | FieldType
   ): CompatibilityCheckResult {
     const basicMappings = this.typeMappingTable.get('basic') || []
-    const mapping = basicMappings.find(m => m.sourceType === sourceType && m.targetType === targetType)
+    const mapping = basicMappings.find((m) => m.sourceType === sourceType && m.targetType === targetType)
 
     if (!mapping) {
       return this.buildCompatibilityFailure(
@@ -456,11 +456,11 @@ export class TypeCompatibilityChecker {
       }
 
       if (!result.valid) {
-        diagnostics.errors.push(...result.errors.map(error => `[${item.id}] ${error}`))
+        diagnostics.errors.push(...result.errors.map((error) => `[${item.id}] ${error}`))
       }
-      diagnostics.warnings.push(...result.warnings.map(warning => `[${item.id}] ${warning}`))
-      diagnostics.suggestions.push(...result.suggestions.map(suggestion => `[${item.id}] ${suggestion}`))
-      diagnostics.affectedItems.push(...result.affectedItems.map(affectedItem => `${item.id}.${affectedItem}`))
+      diagnostics.warnings.push(...result.warnings.map((warning) => `[${item.id}] ${warning}`))
+      diagnostics.suggestions.push(...result.suggestions.map((suggestion) => `[${item.id}] ${suggestion}`))
+      diagnostics.affectedItems.push(...result.affectedItems.map((affectedItem) => `${item.id}.${affectedItem}`))
     }
 
     return this.buildCompatibilityResult('BatchCompatibilityCheck', diagnostics)
@@ -663,7 +663,7 @@ export class TypeCompatibilityChecker {
    * 获取检查历史
    */
   public getCheckHistory(): CompatibilityCheckResult[] {
-    return this.checkHistory.map(result => ({
+    return this.checkHistory.map((result) => ({
       ...result,
       errors: [...result.errors],
       warnings: [...result.warnings],

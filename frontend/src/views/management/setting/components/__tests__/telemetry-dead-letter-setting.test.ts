@@ -66,8 +66,7 @@ const mountComponent = () => {
   return wrapper
 }
 
-const getSetupState = (wrapper: ReturnType<typeof shallowMount>) =>
-  wrapper.vm.$.setupState as Record<string, any>
+const getSetupState = (wrapper: ReturnType<typeof shallowMount>) => wrapper.vm.$.setupState as Record<string, any>
 
 describe('management/setting/components/telemetry-dead-letter-setting.vue', () => {
   beforeEach(() => {

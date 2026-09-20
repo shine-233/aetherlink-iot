@@ -18,7 +18,7 @@ const addParameter: Ref<boolean> = ref(false)
 let eventsData: any = reactive([])
 
 const generalOptions: any = reactive(
-  ['String', 'Number', 'Boolean', 'Enum'].map(v => ({
+  ['String', 'Number', 'Boolean', 'Enum'].map((v) => ({
     label: v,
     value: v
   }))
@@ -72,15 +72,15 @@ const addParameterRules: any = reactive({
 
 // 编辑
 const addFlag: Ref<boolean> = ref(true)
-const edit: (row: any) => void = row => {
+const edit: (row: any) => void = (row) => {
   addParameter.value = true
   addFlag.value = false
   addParameterFrom = reactive({ ...row })
 }
 
 // 删除
-const del: (id: string) => void = async id => {
-  const index: number = eventsData.findIndex(item => item.id === id)
+const del: (id: string) => void = async (id) => {
+  const index: number = eventsData.findIndex((item) => item.id === id)
   eventsData.splice(index, 1)
 }
 
@@ -111,7 +111,7 @@ const col: Ref<DataTableColumns<AddDeviceModel.Device>> = ref([
 
     title: () => $t('common.actions'),
     align: 'center',
-    render: row => {
+    render: (row) => {
       return (
         <NSpace justify={'center'}>
           <NButton quaternary type="primary" size={'small'} onClick={() => edit(row)}>
@@ -148,7 +148,7 @@ let addFrom: any = reactive({
 // 监听一下父组件传递过来的编辑数据
 watch(
   objItem,
-  newVal => {
+  (newVal) => {
     if (objItem.id) {
       addFrom = reactive({
         device_template_id: deviceTemplateId,
@@ -242,7 +242,7 @@ const addEnumItem = () => {
   })
 }
 // 移除枚举值
-const removeEnumItem = index => {
+const removeEnumItem = (index) => {
   addParameterFrom.enum_config.splice(index, 1)
 }
 
@@ -250,7 +250,7 @@ const removeEnumItem = index => {
 const parameterSubmit: () => void = async () => {
   await formRefs.value?.validate()
   if (addParameterFrom.param_type === 'Enum') {
-    const enum_config = addParameterFrom.enum_config.filter(v => v.value && v.desc)
+    const enum_config = addParameterFrom.enum_config.filter((v) => v.value && v.desc)
     if (enum_config.length < 1) {
       window.$message?.error($t('device_template.table_header.pleaseAddEnumItem'))
       return
@@ -259,7 +259,7 @@ const parameterSubmit: () => void = async () => {
   }
   if (addFlag.value) {
     if (addParameterFrom.param_type === 'Enum') {
-      const enum_config = addParameterFrom.enum_config.filter(v => v.value && v.desc)
+      const enum_config = addParameterFrom.enum_config.filter((v) => v.value && v.desc)
       if (enum_config.length < 1) {
         window.$message?.error($t('device_template.table_header.pleaseAddEnumItem'))
         return
@@ -276,7 +276,7 @@ const parameterSubmit: () => void = async () => {
       enum_config: []
     })
   } else {
-    const index: number = eventsData.findIndex(item => item.id === addParameterFrom.id)
+    const index: number = eventsData.findIndex((item) => item.id === addParameterFrom.id)
     eventsData[index] = reactive(addParameterFrom)
   }
   addParameter.value = false
@@ -374,7 +374,7 @@ const parameterSubmit: () => void = async () => {
               </div>
               <n-select
                 v-model:value="addParameterFrom.data_type"
-                :options="generalOptions.filter(v => v.value !== 'Enum')"
+                :options="generalOptions.filter((v) => v.value !== 'Enum')"
                 :placeholder="$t('generate.please-select')"
               />
             </div>

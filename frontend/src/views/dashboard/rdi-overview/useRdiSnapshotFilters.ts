@@ -90,9 +90,7 @@ export function buildSnapshotFilterChips(
   return chips
 }
 
-export function useRdiSnapshotFilters(options: {
-  deviceSnapshots: MaybeRefOrGetter<DeviceSnapshot[]>
-}) {
+export function useRdiSnapshotFilters(options: { deviceSnapshots: MaybeRefOrGetter<DeviceSnapshot[]> }) {
   const snapshotFilterKeyword = ref('')
   const snapshotFilterStatus = ref<'all' | 'online' | 'offline' | 'alarm'>('all')
   const snapshotFilterAlarmLevel = ref<'all' | 'H' | 'M' | 'L' | 'N'>('all')

@@ -53,8 +53,7 @@ export interface ScadaWidgetDefinition {
 }
 
 export type CanvasParseResult =
-  | { ok: true; canvas: ScadaCanvas }
-  | { ok: false; reason: 'empty' | 'not-object' | 'invalid-json' | 'bad-widgets' }
+  { ok: true; canvas: ScadaCanvas } | { ok: false; reason: 'empty' | 'not-object' | 'invalid-json' | 'bad-widgets' }
 
 export const SCADA_EMPTY_CANVAS = '{}'
 
@@ -115,9 +114,10 @@ export function parseCanvas(raw: string | null | undefined): CanvasParseResult {
     ok: true,
     canvas: {
       widgets,
-      variables: typeof record.variables === 'object' && record.variables !== null
-        ? (record.variables as Record<string, unknown>)
-        : undefined,
+      variables:
+        typeof record.variables === 'object' && record.variables !== null
+          ? (record.variables as Record<string, unknown>)
+          : undefined,
       bindings: Array.isArray(record.bindings) ? (record.bindings as ScadaBinding[]) : undefined
     }
   }
@@ -194,7 +194,7 @@ export function resolveWidgets(
   const result: WidgetResolution = { available: [], degraded: [], unknown: [] }
   for (const inst of instances) {
     const def =
-      registry.find(d => d.type === inst.widget_type && d.version === inst.version) ??
+      registry.find((d) => d.type === inst.widget_type && d.version === inst.version) ??
       latestOfType(registry, inst.widget_type)
     if (!def) {
       result.unknown.push(inst)
@@ -210,7 +210,7 @@ export function resolveWidgets(
 }
 
 function latestOfType(registry: ScadaWidgetDefinition[], type: string): ScadaWidgetDefinition | undefined {
-  const same = registry.filter(d => d.type === type)
+  const same = registry.filter((d) => d.type === type)
   if (same.length === 0) return undefined
   return same.reduce((best, cur) => (cur.version > best.version ? cur : best))
 }
@@ -231,7 +231,7 @@ export function commandRequiresConfirmation(
   widgetType: string,
   command: string
 ): boolean {
-  const def = registry.find(d => d.type === widgetType)
-  const cmd = def?.commands?.find(c => c.name === command)
+  const def = registry.find((d) => d.type === widgetType)
+  const cmd = def?.commands?.find((c) => c.name === command)
   return cmd?.requires_confirmation ?? true
 }

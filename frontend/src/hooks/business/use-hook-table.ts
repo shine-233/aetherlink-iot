@@ -82,7 +82,7 @@ type HookTableConfig<TableData, Fn extends ApiFn> = {
 export default function useHookTable<TableData, Fn extends ApiFn>(apiFn: Fn, config: HookTableConfig<TableData, Fn>) {
   const { loading, startLoading, endLoading, empty, setEmpty } = useLoadingEmpty()
 
-  const { apiParams, transformer, apiParamsUpdater = p => p, immediate = true } = config
+  const { apiParams, transformer, apiParamsUpdater = (p) => p, immediate = true } = config
 
   const data: Ref<TableData[]> = ref([])
 

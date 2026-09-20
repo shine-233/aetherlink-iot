@@ -26,9 +26,7 @@ type UseDeviceManageFleetCurrentPageActionsOptions = {
   targetPreviewTotal: Ref<number | null>
 }
 
-export function useDeviceManageFleetCurrentPageActions(
-  options: UseDeviceManageFleetCurrentPageActionsOptions
-) {
+export function useDeviceManageFleetCurrentPageActions(options: UseDeviceManageFleetCurrentPageActionsOptions) {
   const fleetScopeConfirmVisible = ref(false)
   const pendingFleetScopeAction = ref<FleetCurrentPageAction | null>(null)
 

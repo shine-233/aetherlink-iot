@@ -25,7 +25,12 @@ vi.mock('vue-router', () => ({
 }))
 
 vi.mock('naive-ui', () => ({
-  NDataTable: defineComponent({ props: { data: { type: Array, default: () => [] }, pagination: { type: Object, default: () => ({}) } }, setup() { return () => h('div') } }),
+  NDataTable: defineComponent({
+    props: { data: { type: Array, default: () => [] }, pagination: { type: Object, default: () => ({}) } },
+    setup() {
+      return () => h('div')
+    }
+  }),
   useMessage: () => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn() })
 }))
 

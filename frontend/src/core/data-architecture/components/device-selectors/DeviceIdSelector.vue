@@ -101,7 +101,7 @@ const loadDeviceOptions = async () => {
 
 // 转换为下拉选项格式
 const deviceOptions = computed<SelectOption[]>(() => {
-  return deviceList.value.map(device => ({
+  return deviceList.value.map((device) => ({
     label: device.deviceType ? `${device.deviceName} (${device.deviceType})` : device.deviceName,
     value: device.deviceId,
     device: device // 携带完整设备信息
@@ -111,7 +111,7 @@ const deviceOptions = computed<SelectOption[]>(() => {
 // 当前选择的设备信息
 const selectedDevice = computed<DeviceInfo | null>(() => {
   if (!selectedDeviceId.value) return null
-  return deviceList.value.find(device => device.deviceId === selectedDeviceId.value) || null
+  return deviceList.value.find((device) => device.deviceId === selectedDeviceId.value) || null
 })
 
 // 是否可以确认选择

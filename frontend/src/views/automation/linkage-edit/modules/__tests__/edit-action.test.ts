@@ -61,14 +61,65 @@ const mountComponent = (props = {}) => {
     props,
     global: {
       stubs: {
-        NCard: defineComponent({ name: 'NCard', setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NFlex: defineComponent({ name: 'NFlex', setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NButton: defineComponent({ name: 'NButton', emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } }),
-        Button: defineComponent({ name: 'NButton', emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } }),
-        NInput: defineComponent({ name: 'NInput', props: { value: { default: '' } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NSelect: defineComponent({ name: 'NSelect', props: { value: { default: null }, options: { default: () => [] } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NForm: defineComponent({ name: 'NForm', expose: ['validate'], setup(_, { slots }) { const validate = () => Promise.resolve(); return { validate } }, render() { return h('form', this.$slots.default?.()) } }),
-        NFormItem: defineComponent({ name: 'NFormItem', setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
+        NCard: defineComponent({
+          name: 'NCard',
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NFlex: defineComponent({
+          name: 'NFlex',
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NButton: defineComponent({
+          name: 'NButton',
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default?.())
+          }
+        }),
+        Button: defineComponent({
+          name: 'NButton',
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default?.())
+          }
+        }),
+        NInput: defineComponent({
+          name: 'NInput',
+          props: { value: { default: '' } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NSelect: defineComponent({
+          name: 'NSelect',
+          props: { value: { default: null }, options: { default: () => [] } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NForm: defineComponent({
+          name: 'NForm',
+          expose: ['validate'],
+          setup(_, { slots }) {
+            const validate = () => Promise.resolve()
+            return { validate }
+          },
+          render() {
+            return h('form', this.$slots.default?.())
+          }
+        }),
+        NFormItem: defineComponent({
+          name: 'NFormItem',
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
         NDivider: true,
         NTooltip: true,
         NCheckbox: true,
@@ -77,7 +128,11 @@ const mountComponent = (props = {}) => {
         NRadio: true,
         NIcon: true,
         NTag: true,
-        NSpace: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
+        NSpace: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
         PopUp: true
       }
     }
@@ -101,7 +156,7 @@ describe('EditAction', () => {
   })
 
   afterEach(() => {
-    mountedWrappers.forEach(w => w.unmount())
+    mountedWrappers.forEach((w) => w.unmount())
     mountedWrappers.length = 0
   })
 
@@ -206,9 +261,7 @@ describe('EditAction', () => {
 
   it('does not overwrite an existing alarm action target after alarm creation', async () => {
     const wrapper = mountComponent({
-      actionData: [
-        { actionType: '30', action_type: '30', action_target: 'alarm-existing' }
-      ]
+      actionData: [{ actionType: '30', action_type: '30', action_target: 'alarm-existing' }]
     })
     await flushPromises()
     const state = getState(wrapper)
@@ -297,7 +350,14 @@ describe('EditAction', () => {
     const wrapper = mountComponent()
     await flushPromises()
     const state = getState(wrapper)
-    const instruct = { action_param_type: 'y', action_param: 'z', actionValue: 'v', actionParamOptionsData: [1], actionParamTypeOptions: [2], actionParamOptions: [3] }
+    const instruct = {
+      action_param_type: 'y',
+      action_param: 'z',
+      actionValue: 'v',
+      actionParamOptionsData: [1],
+      actionParamTypeOptions: [2],
+      actionParamOptions: [3]
+    }
     state.actionTargetChange(instruct)
     expect(instruct.action_param_type).toBeNull()
     expect(instruct.actionParamOptionsData).toHaveLength(0)
@@ -307,21 +367,25 @@ describe('EditAction', () => {
     const wrapper = mountComponent()
     await flushPromises()
     await wrapper.setProps({
-      actionData: [{
-        actionType: '1',
-        actionInstructList: [{
-          action_type: '10',
-          action_target: 'dev1',
-          action_param_type: 'legacy',
-          action_param: 'old',
-          actionValue: 'val',
-          actionParamData: 'data',
-          actionParamOptions: [],
-          actionParamOptionsData: [{ data_source_type: 'telemetry', options: [] }],
-          showSubSelect: false,
-          placeholder: ''
-        }]
-      }]
+      actionData: [
+        {
+          actionType: '1',
+          actionInstructList: [
+            {
+              action_type: '10',
+              action_target: 'dev1',
+              action_param_type: 'legacy',
+              action_param: 'old',
+              actionValue: 'val',
+              actionParamData: 'data',
+              actionParamOptions: [],
+              actionParamOptionsData: [{ data_source_type: 'telemetry', options: [] }],
+              showSubSelect: false,
+              placeholder: ''
+            }
+          ]
+        }
+      ]
     })
     await flushPromises()
     await wrapper.findAllComponents({ name: 'NSelect' })[3].vm.$emit('update:value', 'telemetry')
@@ -336,26 +400,30 @@ describe('EditAction', () => {
     const wrapper = mountComponent()
     await flushPromises()
     await wrapper.setProps({
-      actionData: [{
-        actionType: '1',
-        actionInstructList: [{
-          action_type: '10',
-          action_target: 'dev1',
-          action_param_type: 'telemetry',
-          action_param: 'old',
-          actionValue: 'old',
-          actionParamData: { key: 'old', data_type: 'string' },
-          actionParamOptions: [{ key: 'temp', data_type: 'String' }],
-          showSubSelect: true
-        }]
-      }]
+      actionData: [
+        {
+          actionType: '1',
+          actionInstructList: [
+            {
+              action_type: '10',
+              action_target: 'dev1',
+              action_param_type: 'telemetry',
+              action_param: 'old',
+              actionValue: 'old',
+              actionParamData: { key: 'old', data_type: 'string' },
+              actionParamOptions: [{ key: 'temp', data_type: 'String' }],
+              showSubSelect: true
+            }
+          ]
+        }
+      ]
     })
     await flushPromises()
     const state = getState(wrapper)
     const instruct = state.actionForm.actionGroups[0].actionInstructList[0]
     const parameterSelect = wrapper
       .findAllComponents({ name: 'NSelect' })
-      .find(select => select.props('value') === 'old')
+      .find((select) => select.props('value') === 'old')
     await parameterSelect!.vm.$emit('update:value', 'temp')
     await flushPromises()
     expect(instruct.actionValue).toBeNull()
@@ -366,7 +434,12 @@ describe('EditAction', () => {
     const wrapper = mountComponent()
     await flushPromises()
     const state = getState(wrapper)
-    const instruct = { action_param_type: 'command', actionValue: '{"key":"val"}', inputFeedback: '', inputValidationStatus: undefined }
+    const instruct = {
+      action_param_type: 'command',
+      actionValue: '{"key":"val"}',
+      inputFeedback: '',
+      inputValidationStatus: undefined
+    }
     state.actionValueChange(instruct)
     expect(instruct.inputValidationStatus).toBeUndefined()
   })
@@ -375,7 +448,12 @@ describe('EditAction', () => {
     const wrapper = mountComponent()
     await flushPromises()
     const state = getState(wrapper)
-    const instruct = { action_param_type: 'command', actionValue: 'not-json', inputFeedback: '', inputValidationStatus: undefined }
+    const instruct = {
+      action_param_type: 'command',
+      actionValue: 'not-json',
+      inputFeedback: '',
+      inputValidationStatus: undefined
+    }
     state.actionValueChange(instruct)
     expect(instruct.inputValidationStatus).toBe('error')
   })
@@ -401,10 +479,12 @@ describe('EditAction', () => {
     const wrapper = mountComponent()
     await flushPromises()
     await wrapper.setProps({
-      actionData: [{
-        actionType: '1',
-        actionInstructList: [{ action_type: '10', action_target: 'dev1' }]
-      }]
+      actionData: [
+        {
+          actionType: '1',
+          actionInstructList: [{ action_type: '10', action_target: 'dev1' }]
+        }
+      ]
     })
     await flushPromises()
     await wrapper.setProps({ conditionsType: '11' })
@@ -425,7 +505,9 @@ describe('EditAction', () => {
   it('should handle applyActionData with valid array', async () => {
     const wrapper = mountComponent()
     await flushPromises()
-    const actionData = [{ actionType: '1', actionInstructList: [{ action_type: '10', action_target: 'dev1', actionParamOptions: [] }] }]
+    const actionData = [
+      { actionType: '1', actionInstructList: [{ action_type: '10', action_target: 'dev1', actionParamOptions: [] }] }
+    ]
     await wrapper.setProps({ actionData })
     await flushPromises()
     const state = getState(wrapper)

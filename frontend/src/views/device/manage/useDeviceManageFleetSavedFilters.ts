@@ -85,9 +85,7 @@ export function useDeviceManageFleetSavedFilters(options: UseDeviceManageFleetSa
     }))
   )
 
-  const canSaveCurrentFleetFilter = computed(() =>
-    hasUsableFleetFilterParams(options.lastDeviceQueryParams.value)
-  )
+  const canSaveCurrentFleetFilter = computed(() => hasUsableFleetFilterParams(options.lastDeviceQueryParams.value))
 
   const refreshSavedFleetFilters = async () => {
     const storage = getStorage()
@@ -123,10 +121,7 @@ export function useDeviceManageFleetSavedFilters(options: UseDeviceManageFleetSa
     const storage = getStorage()
     try {
       const response = await createFleetSavedFilter(
-        buildFleetSavedFilterPayload(
-          options.lastDeviceQueryParams.value,
-          options.targetPreviewTotal.value
-        )
+        buildFleetSavedFilterPayload(options.lastDeviceQueryParams.value, options.targetPreviewTotal.value)
       )
       const created = normalizeServerFleetSavedFilter(((response as any).data ?? response) as any)
       if (created) {

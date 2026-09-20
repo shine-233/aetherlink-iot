@@ -124,15 +124,15 @@ export function parseScadaCanvas(raw: string): ScadaCanvas {
     seen.add(node.id)
   }
   return {
-    schemaVersion: isFiniteNumber(candidate.schemaVersion) ? (candidate.schemaVersion as number) : SCADA_CANVAS_SCHEMA_VERSION,
+    schemaVersion: isFiniteNumber(candidate.schemaVersion)
+      ? (candidate.schemaVersion as number)
+      : SCADA_CANVAS_SCHEMA_VERSION,
     width: candidate.width as number,
     height: candidate.height as number,
     background: typeof candidate.background === 'string' ? candidate.background : undefined,
     nodes,
     extra:
-      candidate.extra && typeof candidate.extra === 'object'
-        ? (candidate.extra as Record<string, unknown>)
-        : undefined
+      candidate.extra && typeof candidate.extra === 'object' ? (candidate.extra as Record<string, unknown>) : undefined
   }
 }
 
@@ -186,7 +186,7 @@ export function scadaCanvasEqual(a: ScadaCanvas, b: ScadaCanvas): boolean {
 }
 
 export function nextScadaCanvasNodeId(existing: ScadaCanvasNode[], prefix = 'node'): string {
-  const used = new Set(existing.map(node => node.id))
+  const used = new Set(existing.map((node) => node.id))
   let index = existing.length + 1
   let candidate = `${prefix}-${index}`
   while (used.has(candidate)) {

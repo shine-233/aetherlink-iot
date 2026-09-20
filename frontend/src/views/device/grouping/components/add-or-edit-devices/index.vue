@@ -132,7 +132,6 @@ const handleSubmit = async () => {
   await getOptions()
   props.refreshData()
 
-  // eslint-disable-next-line require-atomic-updates
   if (formItem?.value) {
     formItem.value = {
       id: '',

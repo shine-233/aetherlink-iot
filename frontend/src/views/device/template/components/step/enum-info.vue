@@ -47,7 +47,7 @@ const onChange: (newVal, rowIndex: number, field: string) => void = (newVal, row
   emit('updateAdditionalInfo', additionalInfo)
 }
 
-const onDel: (rowIndex: number) => void = rowIndex => {
+const onDel: (rowIndex: number) => void = (rowIndex) => {
   const additionalInfo = [...props.additionalInfo]
   additionalInfo.splice(rowIndex, 1)
   emit('updateAdditionalInfo', additionalInfo)
@@ -64,7 +64,7 @@ const columns: any = [
       return (
         <NSelect
           value={rowData.value_type}
-          onChange={newVal => onChange(newVal, rowIndex, 'value_type')}
+          onChange={(newVal) => onChange(newVal, rowIndex, 'value_type')}
           options={enumDataTypeOption}
         ></NSelect>
       )
@@ -83,7 +83,7 @@ const columns: any = [
         return <NSelect v-model:value={rowData.value} options={booleanOptions} />
       }
 
-      return <n-input value={rowData.value} onInput={newVal => onChange(newVal, rowIndex, 'value')} />
+      return <n-input value={rowData.value} onInput={(newVal) => onChange(newVal, rowIndex, 'value')} />
     }
   },
   {
@@ -92,7 +92,7 @@ const columns: any = [
     align: 'center',
     className: 'enum-header',
     render: (rowData, rowIndex) => {
-      return <n-input value={rowData.description} onInput={newVal => onChange(newVal, rowIndex, 'description')} />
+      return <n-input value={rowData.description} onInput={(newVal) => onChange(newVal, rowIndex, 'description')} />
     }
   },
   {

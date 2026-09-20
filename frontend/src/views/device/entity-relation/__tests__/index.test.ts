@@ -11,17 +11,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { h } from 'vue'
 import { createPinia } from 'pinia'
-import {
-  NAlert,
-  NButton,
-  NCard,
-  NDataTable,
-  NForm,
-  NFormItem,
-  NInput,
-  NMessageProvider,
-  NSelect
-} from 'naive-ui'
+import { NAlert, NButton, NCard, NDataTable, NForm, NFormItem, NInput, NMessageProvider, NSelect } from 'naive-ui'
 import { createI18n } from 'vue-i18n'
 import EntityRelationPage from '../index.vue'
 

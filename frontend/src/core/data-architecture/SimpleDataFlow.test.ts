@@ -7,11 +7,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import {
-  installSimpleDataFlowDebugGlobal,
-  simpleDataFlow,
-  SimpleDataFlow
-} from './SimpleDataFlow'
+import { installSimpleDataFlowDebugGlobal, simpleDataFlow, SimpleDataFlow } from './SimpleDataFlow'
 
 const { bridgeMock, getVisualEditorBridgeMock, simpleDataBridgeMock, bindingConfigMock, loggerMock } = vi.hoisted(
   () => ({
@@ -97,15 +93,15 @@ describe('SimpleDataFlow', () => {
   })
 
   afterEach(() => {
-    ;['card-flow', 'card-debounce', 'card-manual', 'card-empty', 'card-unregister', 'card-watch'].forEach(componentId =>
-      flow().unregisterComponent(componentId)
+    ;['card-flow', 'card-debounce', 'card-manual', 'card-empty', 'card-unregister', 'card-watch'].forEach(
+      (componentId) => flow().unregisterComponent(componentId)
     )
     vi.clearAllTimers()
     vi.useRealTimers()
   })
 
   it('debounces whitelisted property changes into one data-source execution', async () => {
-    bindingConfigMock.shouldTriggerDataSource.mockImplementation(propertyPath => propertyPath === 'base.deviceId')
+    bindingConfigMock.shouldTriggerDataSource.mockImplementation((propertyPath) => propertyPath === 'base.deviceId')
     const watcher = vi.fn()
     const unsubscribe = flow().addPropertyWatcher('base.deviceId', watcher)
     registerDataComponent('card-flow')
@@ -232,7 +228,7 @@ describe('SimpleDataFlow', () => {
 
   it('proxies trigger, binding, component, and debug configuration operations', () => {
     flow().addTriggerProperty('base.productId', false, 250)
-    flow().addBindingRule('base.deviceId', 'device_id', value => String(value), true)
+    flow().addBindingRule('base.deviceId', 'device_id', (value) => String(value), true)
     flow().setComponentBindingConfig('rdi-card', { triggerRules: [], bindingRules: [] } as any)
 
     expect(flow().getTriggerWhitelist('rdi-card')).toEqual(['base.deviceId', 'component.metricsList'])

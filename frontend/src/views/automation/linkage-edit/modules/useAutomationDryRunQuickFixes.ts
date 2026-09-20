@@ -44,7 +44,8 @@ export function useAutomationDryRunQuickFixes(options: {
   const firstAutomationDryRunQuickFixActions = computed<AutomationDryRunQuickFixAction[]>(() => {
     if (!options.isFirstDeviceAutomationStarter.value) return []
 
-    const knownActions = options.previewActions.value.length > 0 ? options.previewActions.value : options.actionData.value
+    const knownActions =
+      options.previewActions.value.length > 0 ? options.previewActions.value : options.actionData.value
     return buildFirstAutomationDryRunQuickFixActions({
       actions: knownActions,
       texts: {

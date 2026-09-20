@@ -71,15 +71,15 @@ const tenantId = ref('')
 const editor = useCanvasEditor()
 const { canvas, selectedId, selectedNode, isDirty } = editor
 
-const projectOptions = computed(() => projects.value.map(project => ({ label: project.name, value: project.id })))
+const projectOptions = computed(() => projects.value.map((project) => ({ label: project.name, value: project.id })))
 const documentOptions = computed(() =>
-  documents.value.map(doc => ({
+  documents.value.map((doc) => ({
     label: `${doc.name} (v${doc.current_version}${doc.published_version === null ? '' : ` / pub v${doc.published_version}`})`,
     value: doc.id
   }))
 )
 const palette = computed(() =>
-  listScadaSymbolCategories().map(category => ({ category, symbols: listScadaSymbolsByCategory(category) }))
+  listScadaSymbolCategories().map((category) => ({ category, symbols: listScadaSymbolsByCategory(category) }))
 )
 const canSave = computed(() => !!currentDocument.value && isDirty.value && !saving.value)
 // 只允许在已同步状态发布：发布未保存的草稿会把"屏幕上看到的"和"库里的"割裂开。
@@ -117,7 +117,7 @@ async function loadDocuments() {
     return
   }
   documents.value = data
-  if (!documents.value.some(doc => doc.id === documentId.value)) {
+  if (!documents.value.some((doc) => doc.id === documentId.value)) {
     documentId.value = documents.value[0]?.id ?? null
   }
 }
@@ -165,7 +165,7 @@ function addWidget() {
 
 function onNodeMouseDown(event: MouseEvent, id: string) {
   editor.select(id)
-  const node = canvas.value.nodes.find(item => item.id === id)
+  const node = canvas.value.nodes.find((item) => item.id === id)
   if (!node) return
   const startX = event.clientX
   const startY = event.clientY
@@ -311,13 +311,24 @@ defineExpose({ isDirty, onSave, onRollback, onPublish })
       <NAlert v-if="loadError" type="error" :title="loadError" />
 
       <NSpace align="center" :wrap="true">
-        <NSelect v-model:value="projectId" :options="projectOptions" :loading="loading" style="width: 220px" placeholder="select project" />
+        <NSelect
+          v-model:value="projectId"
+          :options="projectOptions"
+          :loading="loading"
+          style="width: 220px"
+          placeholder="select project"
+        />
         <NInput v-model:value="newProjectName" style="width: 160px" placeholder="new project name" />
         <NButton size="small" @click="onCreateProject">new project</NButton>
       </NSpace>
 
       <NSpace align="center" :wrap="true">
-        <NSelect v-model:value="documentId" :options="documentOptions" style="width: 280px" placeholder="select canvas" />
+        <NSelect
+          v-model:value="documentId"
+          :options="documentOptions"
+          style="width: 280px"
+          placeholder="select canvas"
+        />
         <NInput v-model:value="newDocumentName" style="width: 160px" placeholder="new canvas name" />
         <NButton size="small" @click="onCreateDocument">new canvas</NButton>
       </NSpace>
@@ -337,7 +348,12 @@ defineExpose({ isDirty, onSave, onRollback, onPublish })
             <NCollapseItem title="widgets" name="widgets">
               <NButton size="tiny" @click="addWidget">+ timeseries</NButton>
             </NCollapseItem>
-            <NCollapseItem v-for="group in palette" :key="group.category" :title="group.category" :name="group.category">
+            <NCollapseItem
+              v-for="group in palette"
+              :key="group.category"
+              :title="group.category"
+              :name="group.category"
+            >
               <NSpace vertical :size="4">
                 <NButton
                   v-for="symbol in group.symbols"
@@ -356,7 +372,11 @@ defineExpose({ isDirty, onSave, onRollback, onPublish })
         <section class="scada-editor__canvas-wrap">
           <div
             class="scada-editor__canvas"
-            :style="{ width: `${canvas.width}px`, height: `${canvas.height}px`, background: canvas.background || '#fff' }"
+            :style="{
+              width: `${canvas.width}px`,
+              height: `${canvas.height}px`,
+              background: canvas.background || '#fff'
+            }"
           >
             <div
               v-for="node in canvas.nodes"
@@ -396,25 +416,25 @@ defineExpose({ isDirty, onSave, onRollback, onPublish })
             <NFormItem label="X">
               <NInputNumber
                 :value="selectedNode.x"
-                @update:value="v => v !== null && editor.updateNode(selectedNode!.id, { x: v })"
+                @update:value="(v) => v !== null && editor.updateNode(selectedNode!.id, { x: v })"
               />
             </NFormItem>
             <NFormItem label="Y">
               <NInputNumber
                 :value="selectedNode.y"
-                @update:value="v => v !== null && editor.updateNode(selectedNode!.id, { y: v })"
+                @update:value="(v) => v !== null && editor.updateNode(selectedNode!.id, { y: v })"
               />
             </NFormItem>
             <NFormItem label="W">
               <NInputNumber
                 :value="selectedNode.width"
-                @update:value="v => v !== null && editor.updateNode(selectedNode!.id, { width: v })"
+                @update:value="(v) => v !== null && editor.updateNode(selectedNode!.id, { width: v })"
               />
             </NFormItem>
             <NFormItem label="H">
               <NInputNumber
                 :value="selectedNode.height"
-                @update:value="v => v !== null && editor.updateNode(selectedNode!.id, { height: v })"
+                @update:value="(v) => v !== null && editor.updateNode(selectedNode!.id, { height: v })"
               />
             </NFormItem>
             <NSpace>

@@ -27,7 +27,9 @@ const TYPE_ALIASES: Readonly<Record<string, LocalWidgetType>> = {
   'bar-chart': 'bar-chart',
   html: 'html',
   'html-container': 'html',
-  'html-card': 'html'
+  'html-card': 'html',
+  map: 'map',
+  'geo-map': 'map'
 }
 
 class InvalidDashboard extends Error {}
@@ -95,7 +97,11 @@ function integer(value: unknown, name: string, min: number, max: number): number
 
 function shortString(value: unknown, name: string, required = true): string | undefined {
   if (value === undefined && !required) return undefined
-  if (typeof value !== 'string' || (required && value.length === 0) || value.length > LOCAL_VIEWER_LIMITS.stringLength) {
+  if (
+    typeof value !== 'string' ||
+    (required && value.length === 0) ||
+    value.length > LOCAL_VIEWER_LIMITS.stringLength
+  ) {
     fail(`${name} must be a valid string`)
   }
   return value
@@ -133,7 +139,8 @@ export function normalizeLocalViewerFields(input: unknown): NormalizeFieldsResul
         if (item !== null && typeof item !== 'string' && typeof item !== 'number' && typeof item !== 'boolean') {
           fail(`fields.${key} contains an unsupported value`)
         }
-        if (typeof item === 'string' && item.length > LOCAL_VIEWER_LIMITS.stringLength) fail(`fields.${key} is too long`)
+        if (typeof item === 'string' && item.length > LOCAL_VIEWER_LIMITS.stringLength)
+          fail(`fields.${key} is too long`)
         if (typeof item === 'number' && !Number.isFinite(item)) fail(`fields.${key} must contain finite numbers`)
       }
       fields[key] = Array.isArray(value) ? Object.freeze([...values]) : (value as LocalFieldValue)
@@ -167,18 +174,30 @@ const VALID_AGGREGATIONS = new Set(['latest', 'avg', 'sum', 'max', 'min', 'count
 function normalizeEntityRelation(value: unknown, path: string): EntityRelationSourceConfig | undefined {
   if (value === undefined) return undefined
   if (!isPlainRecord(value)) fail(`${path} must be a plain object`)
-  assertKeys(value, ['enabled', 'rootType', 'rootId', 'direction', 'relationType', 'targetType', 'targetKey', 'aggregation'], path)
+  assertKeys(
+    value,
+    ['enabled', 'rootType', 'rootId', 'direction', 'relationType', 'targetType', 'targetKey', 'aggregation'],
+    path
+  )
   if (typeof value.enabled !== 'boolean') fail(`${path}.enabled must be a boolean`)
   if (!value.enabled) {
     return Object.freeze({
       enabled: false,
-      rootType: typeof value.rootType === 'string' && VALID_ENTITY_TYPES.has(value.rootType) ? (value.rootType as any) : 'device',
+      rootType:
+        typeof value.rootType === 'string' && VALID_ENTITY_TYPES.has(value.rootType)
+          ? (value.rootType as any)
+          : 'device',
       rootId: typeof value.rootId === 'string' ? value.rootId : '',
       direction: value.direction === 'to' ? 'to' : 'from',
       relationType: typeof value.relationType === 'string' ? value.relationType : '',
-      targetType: typeof value.targetType === 'string' && VALID_ENTITY_TYPES.has(value.targetType) ? (value.targetType as any) : 'device',
+      targetType:
+        typeof value.targetType === 'string' && VALID_ENTITY_TYPES.has(value.targetType)
+          ? (value.targetType as any)
+          : 'device',
       targetKey: typeof value.targetKey === 'string' ? value.targetKey : '',
-      ...(typeof value.aggregation === 'string' && VALID_AGGREGATIONS.has(value.aggregation) ? { aggregation: value.aggregation as EntityRelationAggregation } : {})
+      ...(typeof value.aggregation === 'string' && VALID_AGGREGATIONS.has(value.aggregation)
+        ? { aggregation: value.aggregation as EntityRelationAggregation }
+        : {})
     })
   }
 
@@ -265,10 +284,75 @@ function normalizeConfig(type: LocalWidgetType, value: unknown, path: string): L
     })
   }
 
-  assertKeys(value, ['title', 'categoryField', 'valueField', 'categories', 'values', 'seriesName', 'chartStyle', 'colorTheme', 'yMin', 'yMax', 'threshold', 'timewindow', 'entityRelation'], path)
+  if (type === 'map') {
+    assertKeys(
+      value,
+      ['title', 'latField', 'lngField', 'zoom', 'defaultLat', 'defaultLng', 'showTrajectory', 'entityId', 'fallback'],
+      path
+    )
+    const latField = fieldName(value.latField, `${path}.latField`, false)
+    const lngField = fieldName(value.lngField, `${path}.lngField`, false)
+    const title = shortString(value.title, `${path}.title`, false)
+    const entityId = shortString(value.entityId, `${path}.entityId`, false)
+    let zoom: number | undefined
+    if (value.zoom !== undefined) {
+      zoom = integer(value.zoom, `${path}.zoom`, 1, 20)
+    }
+    let defaultLat: number | undefined
+    if (value.defaultLat !== undefined) {
+      if (typeof value.defaultLat !== 'number' || !Number.isFinite(value.defaultLat))
+        fail(`${path}.defaultLat must be a finite number`)
+      defaultLat = value.defaultLat
+    }
+    let defaultLng: number | undefined
+    if (value.defaultLng !== undefined) {
+      if (typeof value.defaultLng !== 'number' || !Number.isFinite(value.defaultLng))
+        fail(`${path}.defaultLng must be a finite number`)
+      defaultLng = value.defaultLng
+    }
+    const showTrajectory = typeof value.showTrajectory === 'boolean' ? value.showTrajectory : undefined
+    const fallback = shortString(value.fallback, `${path}.fallback`, false)
+
+    return Object.freeze({
+      ...(title !== undefined ? { title } : {}),
+      ...(latField !== undefined ? { latField } : {}),
+      ...(lngField !== undefined ? { lngField } : {}),
+      ...(zoom !== undefined ? { zoom } : {}),
+      ...(defaultLat !== undefined ? { defaultLat } : {}),
+      ...(defaultLng !== undefined ? { defaultLng } : {}),
+      ...(showTrajectory !== undefined ? { showTrajectory } : {}),
+      ...(entityId !== undefined ? { entityId } : {}),
+      ...(fallback !== undefined ? { fallback } : {})
+    })
+  }
+
+  assertKeys(
+    value,
+    [
+      'title',
+      'categoryField',
+      'valueField',
+      'categories',
+      'values',
+      'seriesName',
+      'chartStyle',
+      'colorTheme',
+      'yMin',
+      'yMax',
+      'threshold',
+      'timewindow',
+      'entityRelation'
+    ],
+    path
+  )
   let chartStyle: 'line' | 'smooth' | 'area' | 'bar' | undefined
   if (value.chartStyle !== undefined) {
-    if (value.chartStyle !== 'line' && value.chartStyle !== 'smooth' && value.chartStyle !== 'area' && value.chartStyle !== 'bar') {
+    if (
+      value.chartStyle !== 'line' &&
+      value.chartStyle !== 'smooth' &&
+      value.chartStyle !== 'area' &&
+      value.chartStyle !== 'bar'
+    ) {
       fail(`${path}.chartStyle must be one of: line, smooth, area, bar`)
     }
     chartStyle = value.chartStyle
@@ -293,7 +377,8 @@ function normalizeConfig(type: LocalWidgetType, value: unknown, path: string): L
     if (!isPlainRecord(value.threshold)) fail(`${path}.threshold must be a plain object`)
     assertKeys(value.threshold, ['enabled', 'value', 'label', 'color'], `${path}.threshold`)
     if (typeof value.threshold.enabled !== 'boolean') fail(`${path}.threshold.enabled must be a boolean`)
-    if (typeof value.threshold.value !== 'number' || !Number.isFinite(value.threshold.value)) fail(`${path}.threshold.value must be a finite number`)
+    if (typeof value.threshold.value !== 'number' || !Number.isFinite(value.threshold.value))
+      fail(`${path}.threshold.value must be a finite number`)
     threshold = Object.freeze({
       enabled: value.threshold.enabled,
       value: value.threshold.value,
@@ -345,7 +430,11 @@ function normalizeConfig(type: LocalWidgetType, value: unknown, path: string): L
 function normalizeWidget(value: unknown, index: number, columns: number): NormalizedLocalWidget {
   const path = `dashboard.widgets[${index}]`
   if (!isPlainRecord(value)) fail(`${path} must be a plain object`)
-  assertKeys(value, ['id', 'i', 'x', 'y', 'w', 'h', 'type', 'componentType', 'config', 'properties', 'timewindow', 'entityRelation'], path)
+  assertKeys(
+    value,
+    ['id', 'i', 'x', 'y', 'w', 'h', 'type', 'componentType', 'config', 'properties', 'timewindow', 'entityRelation'],
+    path
+  )
 
   const id = value.id
   const legacyId = value.i
@@ -402,7 +491,8 @@ export function normalizeLocalDashboard(input: unknown): NormalizeDashboardResul
     const source = input.widgets ?? input.layout
     if (!Array.isArray(source)) fail('dashboard.widgets must be an array')
     if (source.length > LOCAL_VIEWER_LIMITS.widgets) fail('dashboard has too many widgets')
-    const columns = input.columns === undefined ? 24 : integer(input.columns, 'dashboard.columns', 1, LOCAL_VIEWER_LIMITS.columns)
+    const columns =
+      input.columns === undefined ? 24 : integer(input.columns, 'dashboard.columns', 1, LOCAL_VIEWER_LIMITS.columns)
     const rowHeight = input.rowHeight === undefined ? 60 : integer(input.rowHeight, 'dashboard.rowHeight', 20, 200)
     const widgets = source.map((widget, index) => normalizeWidget(widget, index, columns))
     const ids = new Set<string>()

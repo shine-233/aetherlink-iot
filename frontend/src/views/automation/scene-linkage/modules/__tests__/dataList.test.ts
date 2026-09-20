@@ -76,23 +76,100 @@ const mountComponent = (props = {}) => {
     props,
     global: {
       stubs: {
-        NCard: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NFlex: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } }),
-        NInput: defineComponent({ props: { value: { default: '' } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NSelect: defineComponent({ props: { value: { default: null }, options: { default: () => [] } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NModal: defineComponent({ props: { show: Boolean }, emits: ['update:show'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NPagination: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NGrid: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NGridItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NSwitch: defineComponent({ props: { value: Boolean }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NTooltip: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NIcon: defineComponent({ setup(_, { slots }) { return () => h('span', slots.default?.()) } }),
-        ItemCard: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NEmpty: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NTable: defineComponent({ setup(_, { slots }) { return () => h('table', slots.default?.()) } }),
-        NDatePicker: defineComponent({ setup() { return () => h('div') } }),
-        NEllipsis: defineComponent({ setup(_, { slots }) { return () => h('span', slots.default?.()) } })
+        NCard: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NFlex: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NButton: defineComponent({
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default?.())
+          }
+        }),
+        NInput: defineComponent({
+          props: { value: { default: '' } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NSelect: defineComponent({
+          props: { value: { default: null }, options: { default: () => [] } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NModal: defineComponent({
+          props: { show: Boolean },
+          emits: ['update:show'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NPagination: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NGrid: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NGridItem: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NSwitch: defineComponent({
+          props: { value: Boolean },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NTooltip: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NIcon: defineComponent({
+          setup(_, { slots }) {
+            return () => h('span', slots.default?.())
+          }
+        }),
+        ItemCard: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NEmpty: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NTable: defineComponent({
+          setup(_, { slots }) {
+            return () => h('table', slots.default?.())
+          }
+        }),
+        NDatePicker: defineComponent({
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NEllipsis: defineComponent({
+          setup(_, { slots }) {
+            return () => h('span', slots.default?.())
+          }
+        })
       }
     }
   })
@@ -113,7 +190,7 @@ describe('DataList', () => {
   })
 
   afterEach(() => {
-    mountedWrappers.forEach(w => w.unmount())
+    mountedWrappers.forEach((w) => w.unmount())
     mountedWrappers.length = 0
   })
 

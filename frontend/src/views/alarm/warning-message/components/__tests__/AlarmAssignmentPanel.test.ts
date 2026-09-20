@@ -95,12 +95,8 @@ vi.mock('naive-ui', () => ({
             class: 'n-select-search',
             onInput: (event: Event) => emit('search', (event.target as HTMLInputElement).value)
           }),
-          ...props.options.map(option =>
-            h(
-              'button',
-              { class: 'n-select-option', onClick: () => emit('update:value', option.value) },
-              option.label
-            )
+          ...props.options.map((option) =>
+            h('button', { class: 'n-select-option', onClick: () => emit('update:value', option.value) }, option.label)
           )
         ])
     }
@@ -147,9 +143,9 @@ const currentAssignee = (wrapper: VueWrapper) => wrapper.get('[data-testid="alar
 const remarkBox = (wrapper: VueWrapper) => wrapper.get('textarea')
 const searchBox = (wrapper: VueWrapper) => wrapper.get('input.n-select-search')
 const optionButton = (wrapper: VueWrapper, label: string) =>
-  wrapper.findAll('button.n-select-option').find(button => button.text() === label)!
+  wrapper.findAll('button.n-select-option').find((button) => button.text() === label)!
 const buttonByText = (wrapper: VueWrapper, text: string) =>
-  wrapper.findAll('button').find(button => button.text() === text)!
+  wrapper.findAll('button').find((button) => button.text() === text)!
 
 describe('AlarmAssignmentPanel', () => {
   beforeEach(() => {
@@ -220,7 +216,7 @@ describe('AlarmAssignmentPanel', () => {
     await flushPromises()
 
     expect(hoisted.getUserList).toHaveBeenLastCalledWith({ page: 1, page_size: 20, name: '' })
-    expect(wrapper.findAll('button.n-select-option').map(button => button.text())).toEqual(['Alice', 'Bob'])
+    expect(wrapper.findAll('button.n-select-option').map((button) => button.text())).toEqual(['Alice', 'Bob'])
 
     await searchBox(wrapper).setValue('ali')
     await flushPromises()

@@ -32,7 +32,11 @@ describe('BetterScroll native compatibility boundary', () => {
     const wrapper = mountScroll({ scrollY: true })
     const element = wrapper.get('[data-test="native-scroll-container"]').element as HTMLElement
     element.scrollTo = scrollTo
-    const instance = (wrapper.vm as unknown as { instance: { refresh: () => void; destroy: () => void; scrollTo: (x: number, y: number) => void } }).instance
+    const instance = (
+      wrapper.vm as unknown as {
+        instance: { refresh: () => void; destroy: () => void; scrollTo: (x: number, y: number) => void }
+      }
+    ).instance
 
     expect(() => instance.refresh()).not.toThrow()
     instance.scrollTo(12, 34)

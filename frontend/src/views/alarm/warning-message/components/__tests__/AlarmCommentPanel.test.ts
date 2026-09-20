@@ -111,9 +111,9 @@ const mountPanel = () => mount(AlarmCommentPanel, { props: { alarmHistoryId: ALA
 
 const textarea = (wrapper: VueWrapper) => wrapper.get('textarea')
 const submitButton = (wrapper: VueWrapper) =>
-  wrapper.findAll('button').find(button => button.text() === 'custom.alarmComment.submit')!
+  wrapper.findAll('button').find((button) => button.text() === 'custom.alarmComment.submit')!
 const deleteButtons = (wrapper: VueWrapper) =>
-  wrapper.findAll('button').filter(button => button.text() === 'common.delete')
+  wrapper.findAll('button').filter((button) => button.text() === 'common.delete')
 
 describe('AlarmCommentPanel', () => {
   beforeEach(() => {

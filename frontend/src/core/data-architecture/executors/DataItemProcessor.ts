@@ -58,7 +58,8 @@ export class DataItemProcessor implements IDataItemProcessor {
       }
 
       // Preserve meaningful falsy values such as 0, false, [], and "".
-      const finalResult = filteredData !== null && filteredData !== undefined ? filteredData : config.defaultValue ?? {}
+      const finalResult =
+        filteredData !== null && filteredData !== undefined ? filteredData : (config.defaultValue ?? {})
       return finalResult
     } catch (error) {
       return config.defaultValue ?? {} // 统一错误处理：返回默认值或空对象

@@ -27,16 +27,42 @@ const mountComponent = (props: Record<string, any> = {}) => {
       stubs: {
         NForm: defineComponent({
           props: { model: Object, rules: Object, labelPlacement: String },
-          setup(_, { slots }) { return () => h('form', { class: 'n-form' }, slots.default ? slots.default() : []) }
+          setup(_, { slots }) {
+            return () => h('form', { class: 'n-form' }, slots.default ? slots.default() : [])
+          }
         }),
         NFormItem: defineComponent({
           props: { label: String, path: String },
-          setup(_, { slots }) { return () => h('div', { class: 'n-form-item' }, slots.default ? slots.default() : []) }
+          setup(_, { slots }) {
+            return () => h('div', { class: 'n-form-item' }, slots.default ? slots.default() : [])
+          }
         }),
-        NInput: defineComponent({ props: { value: { default: '' }, placeholder: String }, emits: ['update:value'], setup() { return () => h('input') } }),
-        NInputNumber: defineComponent({ props: { value: { default: null }, placeholder: String }, emits: ['update:value'], setup() { return () => h('input', { type: 'number' }) } }),
-        NSelect: defineComponent({ props: { value: { default: null }, options: Array }, emits: ['update:value'], setup() { return () => h('select') } }),
-        NEllipsis: defineComponent({ setup(_, { slots }) { return () => h('span', slots.default ? slots.default() : []) } }),
+        NInput: defineComponent({
+          props: { value: { default: '' }, placeholder: String },
+          emits: ['update:value'],
+          setup() {
+            return () => h('input')
+          }
+        }),
+        NInputNumber: defineComponent({
+          props: { value: { default: null }, placeholder: String },
+          emits: ['update:value'],
+          setup() {
+            return () => h('input', { type: 'number' })
+          }
+        }),
+        NSelect: defineComponent({
+          props: { value: { default: null }, options: Array },
+          emits: ['update:value'],
+          setup() {
+            return () => h('select')
+          }
+        }),
+        NEllipsis: defineComponent({
+          setup(_, { slots }) {
+            return () => h('span', slots.default ? slots.default() : [])
+          }
+        }),
         NDynamicInput: defineComponent({
           props: { value: { type: Array, default: () => [] }, onCreate: Function },
           emits: ['update:value'],
@@ -46,7 +72,9 @@ const mountComponent = (props: Record<string, any> = {}) => {
         }),
         NEmpty: defineComponent({
           props: { description: String },
-          setup() { return () => h('div', { class: 'n-empty' }) }
+          setup() {
+            return () => h('div', { class: 'n-empty' })
+          }
         })
       }
     }
@@ -84,9 +112,7 @@ describe('apply/plugin/components/form.vue', () => {
 
   it('renders NForm component when schema has elements', () => {
     const wrapper = mountComponent({
-      formElements: [
-        { type: 'input', dataKey: 'host', label: 'Host', placeholder: 'Enter host', validate: {} }
-      ]
+      formElements: [{ type: 'input', dataKey: 'host', label: 'Host', placeholder: 'Enter host', validate: {} }]
     })
     const form = wrapper.find('.n-form')
     expect(form.attributes('class')).toContain('n-form')
@@ -101,7 +127,13 @@ describe('apply/plugin/components/form.vue', () => {
 
   it('processes input type formElements', async () => {
     const formElements = [
-      { type: 'input', dataKey: 'host', label: 'Host', placeholder: 'Enter host', validate: { required: true, type: 'string' } }
+      {
+        type: 'input',
+        dataKey: 'host',
+        label: 'Host',
+        placeholder: 'Enter host',
+        validate: { required: true, type: 'string' }
+      }
     ]
     const wrapper = mountComponent({ formElements, protocolConfig: {} })
     await wrapper.vm.$nextTick()
@@ -112,7 +144,14 @@ describe('apply/plugin/components/form.vue', () => {
 
   it('processes select type formElements', async () => {
     const formElements = [
-      { type: 'select', dataKey: 'mode', label: 'Mode', placeholder: 'Select mode', options: [{ label: 'A', value: 'a' }], validate: { required: true } }
+      {
+        type: 'select',
+        dataKey: 'mode',
+        label: 'Mode',
+        placeholder: 'Select mode',
+        options: [{ label: 'A', value: 'a' }],
+        validate: { required: true }
+      }
     ]
     const wrapper = mountComponent({ formElements, protocolConfig: {} })
     await wrapper.vm.$nextTick()
@@ -122,9 +161,7 @@ describe('apply/plugin/components/form.vue', () => {
   })
 
   it('processes table type formElements with array default', async () => {
-    const formElements = [
-      { type: 'table', dataKey: 'ports', label: 'Ports', validate: {}, array: [] }
-    ]
+    const formElements = [{ type: 'table', dataKey: 'ports', label: 'Ports', validate: {}, array: [] }]
     const wrapper = mountComponent({ formElements, protocolConfig: {} })
     await wrapper.vm.$nextTick()
     const state = getSetupState(wrapper)
@@ -138,9 +175,7 @@ describe('apply/plugin/components/form.vue', () => {
   })
 
   it('preserves existing protocolConfig values', async () => {
-    const formElements = [
-      { type: 'input', dataKey: 'host', label: 'Host', placeholder: 'Enter host', validate: {} }
-    ]
+    const formElements = [{ type: 'input', dataKey: 'host', label: 'Host', placeholder: 'Enter host', validate: {} }]
     const wrapper = mountComponent({ formElements, protocolConfig: { host: 'existing-host' } })
     await wrapper.vm.$nextTick()
     const state = getSetupState(wrapper)

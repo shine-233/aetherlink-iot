@@ -173,8 +173,8 @@ export function resolveEntityRelationValue(
   let resolvedValue: string | number | null = null
 
   if (aggregation === 'count') {
-    resolvedValue = targetValues.filter(t => t.value !== undefined && t.value !== null).length
-  } else if (numericList.some(n => n !== null)) {
+    resolvedValue = targetValues.filter((t) => t.value !== undefined && t.value !== null).length
+  } else if (numericList.some((n) => n !== null)) {
     resolvedValue = aggregateNumericValues(numericList, aggregation)
   } else {
     // 非数值型字段回退首个有效文本

@@ -80,9 +80,13 @@ const columns = computed<DataTableColumns<AnomalyRow>>(() => [
     title: $t('page.anomaly.colStatus'),
     key: 'status',
     width: 130,
-    render: row => {
+    render: (row) => {
       const meta = STATUS_TAG[row.status]
-      return <NTag type={meta.type} size="small">{() => $t(meta.key)}</NTag>
+      return (
+        <NTag type={meta.type} size="small">
+          {() => $t(meta.key)}
+        </NTag>
+      )
     }
   },
   { title: $t('page.anomaly.colTotal'), key: 'total', width: 110 },
@@ -92,9 +96,9 @@ const columns = computed<DataTableColumns<AnomalyRow>>(() => [
     width: 110,
     // 后端 rate 是 0–1 的占比，展示成百分比；不做四舍五入到整数，
     // 否则 0.4% 会被显示成 0% 而看起来"没异常"。
-    render: row => `${(row.rate * 100).toFixed(2)}%`
+    render: (row) => `${(row.rate * 100).toFixed(2)}%`
   },
-  { title: $t('page.anomaly.colHits'), key: 'hits', width: 100, render: row => row.hits.length }
+  { title: $t('page.anomaly.colHits'), key: 'hits', width: 100, render: (row) => row.hits.length }
 ])
 
 function resetForm() {
@@ -180,7 +184,13 @@ async function runDetection() {
           </NSpace>
         </NFormItem>
         <NFormItem v-else :label="$t('page.anomaly.deviationK')">
-          <NInputNumber v-model:value="form.deviationK" :min="0" :placeholder="String(ANOMALY_DEFAULT_K)" class="w-32" clearable />
+          <NInputNumber
+            v-model:value="form.deviationK"
+            :min="0"
+            :placeholder="String(ANOMALY_DEFAULT_K)"
+            class="w-32"
+            clearable
+          />
           <span class="ml-2 text-gray-500">{{ $t('page.anomaly.deviationHint') }}</span>
         </NFormItem>
       </NForm>
@@ -199,13 +209,7 @@ async function runDetection() {
         </NTag>
       </NSpace>
 
-      <NDataTable
-        :columns="columns"
-        :data="rows"
-        :row-key="row => row.deviceId"
-        size="small"
-        :bordered="false"
-      />
+      <NDataTable :columns="columns" :data="rows" :row-key="(row) => row.deviceId" size="small" :bordered="false" />
     </NCard>
   </div>
 </template>

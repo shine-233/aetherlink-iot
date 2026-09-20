@@ -8,7 +8,11 @@
  */
 
 import { computed, getCurrentInstance, onBeforeUnmount, ref, watch, type Ref } from 'vue'
-import type { LocalFieldValue, NormalizedLocalDashboard, NormalizedLocalWidget } from '@/components/local-visualization-viewer'
+import type {
+  LocalFieldValue,
+  NormalizedLocalDashboard,
+  NormalizedLocalWidget
+} from '@/components/local-visualization-viewer'
 import {
   generateRelationFieldKey,
   isEntityRelationConfigured,
@@ -80,12 +84,15 @@ export function useEntityRelationDataLoader(
 
     try {
       // 1. 按 (rootType, rootId, direction, relationType) 分组批处理关系边查询
-      const edgeQueryMap = new Map<string, {
-        rootType: string
-        rootId: string
-        direction: 'from' | 'to'
-        relationType: string
-      }>()
+      const edgeQueryMap = new Map<
+        string,
+        {
+          rootType: string
+          rootId: string
+          direction: 'from' | 'to'
+          relationType: string
+        }
+      >()
 
       for (const item of relationWidgets) {
         const key = `${item.config.rootType}:${item.config.rootId}:${item.config.direction}:${item.config.relationType}`
@@ -100,7 +107,7 @@ export function useEntityRelationDataLoader(
       }
 
       const allEdges: EntityRelationEdge[] = []
-      const edgePromises = Array.from(edgeQueryMap.values()).map(async query => {
+      const edgePromises = Array.from(edgeQueryMap.values()).map(async (query) => {
         try {
           const params: Record<string, any> = {
             relation_type: query.relationType,
@@ -138,7 +145,7 @@ export function useEntityRelationDataLoader(
       }
 
       const telemetryMap: Record<string, Record<string, unknown>> = {}
-      const telemetryPromises = Array.from(targetDeviceIds).map(async deviceId => {
+      const telemetryPromises = Array.from(targetDeviceIds).map(async (deviceId) => {
         try {
           const res = await telemetryDataCurrent(deviceId)
           const dataMap: Record<string, unknown> = {}

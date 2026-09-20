@@ -34,7 +34,7 @@ const userInfoSnapshot = ref<Record<string, any>>({})
 
 // 语言下拉直接映射 appStore 的语言配置，保证资料页与全局国际化选项来源一致。
 const languageOptions = computed(() =>
-  appStore.localeOptions.map(option => ({
+  appStore.localeOptions.map((option) => ({
     label: option.label,
     value: option.key
   }))
@@ -201,7 +201,7 @@ function resetPasswordForm() {
 function shouldEncryptPassword() {
   try {
     const data = JSON.parse(localStorage.getItem('enableZcAndYzm') || '[]')
-    return Array.isArray(data) && data.some(item => item?.name === 'frontend_res' && item?.enable_flag === 'enable')
+    return Array.isArray(data) && data.some((item) => item?.name === 'frontend_res' && item?.enable_flag === 'enable')
   } catch {
     return false
   }

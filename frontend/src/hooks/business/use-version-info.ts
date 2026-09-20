@@ -40,7 +40,7 @@ function normalizeVersion(version: unknown): string {
 function getCachedLatestVersion(): string {
   if (typeof window === 'undefined') return DEFAULT_VERSION
 
-  RETIRED_CACHE_KEYS.forEach(key => localStorage.removeItem(key))
+  RETIRED_CACHE_KEYS.forEach((key) => localStorage.removeItem(key))
 
   try {
     const raw = localStorage.getItem(LATEST_VERSION_CACHE_KEY)

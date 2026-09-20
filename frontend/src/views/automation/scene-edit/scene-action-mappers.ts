@@ -97,9 +97,7 @@ export const buildActionValuePayload = (instructItem: SceneInstructionLike) => {
     // directly instead of assigning a remote value to an object property.
     // JSON.stringify quotes the key and escapes control characters for us.
     const serializedValue = JSON.stringify(instructItem.actionValue)
-    return serializedValue === undefined
-      ? '{}'
-      : `{${JSON.stringify(key)}:${serializedValue}}`
+    return serializedValue === undefined ? '{}' : `{${JSON.stringify(key)}:${serializedValue}}`
   }
 
   if (instructItem.action_param_type === 'command') {

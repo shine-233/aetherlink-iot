@@ -283,7 +283,7 @@ describe('Grid Error Handler', () => {
 
       const slowAsyncFunction = withPerformanceMonitor(
         async () => {
-          await new Promise(resolve => setTimeout(resolve, 150))
+          await new Promise((resolve) => setTimeout(resolve, 150))
           return 'async result'
         },
         'slow async operation',

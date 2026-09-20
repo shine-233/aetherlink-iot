@@ -158,7 +158,7 @@ const fetchDeviceData = async () => {
   if (!showAppChart.value) return
 
   try {
-    const hasAttributes = platformFields.value.some(f => f.dataType === 'attribute')
+    const hasAttributes = platformFields.value.some((f) => f.dataType === 'attribute')
 
     const [telemetryRes, attributeRes] = await Promise.all([
       telemetryDataCurrent(d_id),
@@ -181,7 +181,7 @@ const fetchDeviceData = async () => {
     if (Array.isArray(attributeList)) attributeList.forEach(processItem)
 
     const dataMap: Record<string, any> = {}
-    platformFields.value.forEach(field => {
+    platformFields.value.forEach((field) => {
       const val = kvMap[field.id] ?? kvMap[field.name]
       if (val !== undefined) {
         dataMap[field.id] = val
@@ -317,8 +317,8 @@ onBeforeUnmount(() => {
 
     <TelemetryDataCards
       v-if="showDefaultCards"
-      data-testid="device-details-default-cards"
       :id="d_id as string"
+      data-testid="device-details-default-cards"
       :card-height="cardHeight"
       :card-margin="cardMargin"
     />

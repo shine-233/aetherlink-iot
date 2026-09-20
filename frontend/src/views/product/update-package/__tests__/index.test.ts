@@ -16,22 +16,22 @@ const hoisted = vi.hoisted(() => ({
   getDeviceConfigList: vi.fn(),
   uploadFile: vi.fn(),
   routeQuery: {} as Record<string, any>,
-  routerPush: vi.fn(),
+  routerPush: vi.fn()
 }))
 
 vi.mock('@/service/product/update-package', () => ({
   getOtaPackageList: hoisted.getOtaPackageList,
   addOtaPackage: hoisted.addOtaPackage,
   editOtaPackage: hoisted.editOtaPackage,
-  deleteOtaPackage: hoisted.deleteOtaPackage,
+  deleteOtaPackage: hoisted.deleteOtaPackage
 }))
 
 vi.mock('@/service/api/device', () => ({
-  getDeviceConfigList: hoisted.getDeviceConfigList,
+  getDeviceConfigList: hoisted.getDeviceConfigList
 }))
 
 vi.mock('@/service/api/personal-center', () => ({
-  uploadFile: hoisted.uploadFile,
+  uploadFile: hoisted.uploadFile
 }))
 
 vi.mock('@/locales', () => ({
@@ -52,23 +52,110 @@ const mountComponent = (props = {}) => {
     props,
     global: {
       stubs: {
-        NSpace: defineComponent({ props: ['vertical', 'align', 'wrap'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NCard: defineComponent({ props: ['bordered'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NButton: defineComponent({ emits: ['click'], props: ['loading', 'disabled', 'type', 'size'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } }),
-        NAlert: defineComponent({ props: ['type', 'showIcon'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NInput: defineComponent({ props: { value: { default: '' } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NSelect: defineComponent({ props: { value: { default: null }, options: { default: () => [] } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NDataTable: defineComponent({ props: ['data', 'loading', 'columns', 'pagination', 'remote', 'scrollX'], setup() { return () => h('div') } }),
-        NEmpty: defineComponent({ props: ['description'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NModal: defineComponent({ props: { show: Boolean }, emits: ['update:show'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NForm: defineComponent({ props: ['labelPlacement', 'model'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NFormItem: defineComponent({ props: ['label', 'required', 'path'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NDescriptions: defineComponent({ props: ['bordered', 'column', 'labelPlacement', 'size'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NDescriptionsItem: defineComponent({ props: ['label'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NTag: defineComponent({ setup(_, { slots }) { return () => h('span', slots.default?.()) } }),
-        NGrid: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NFormItemGi: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NInputNumber: defineComponent({ props: { value: { default: null } }, emits: ['update:value'], setup() { return () => h('div') } }),
+        NSpace: defineComponent({
+          props: ['vertical', 'align', 'wrap'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NCard: defineComponent({
+          props: ['bordered'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NButton: defineComponent({
+          emits: ['click'],
+          props: ['loading', 'disabled', 'type', 'size'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default?.())
+          }
+        }),
+        NAlert: defineComponent({
+          props: ['type', 'showIcon'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NInput: defineComponent({
+          props: { value: { default: '' } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NSelect: defineComponent({
+          props: { value: { default: null }, options: { default: () => [] } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NDataTable: defineComponent({
+          props: ['data', 'loading', 'columns', 'pagination', 'remote', 'scrollX'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NEmpty: defineComponent({
+          props: ['description'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NModal: defineComponent({
+          props: { show: Boolean },
+          emits: ['update:show'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NForm: defineComponent({
+          props: ['labelPlacement', 'model'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NFormItem: defineComponent({
+          props: ['label', 'required', 'path'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NDescriptions: defineComponent({
+          props: ['bordered', 'column', 'labelPlacement', 'size'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NDescriptionsItem: defineComponent({
+          props: ['label'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NTag: defineComponent({
+          setup(_, { slots }) {
+            return () => h('span', slots.default?.())
+          }
+        }),
+        NGrid: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NFormItemGi: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NInputNumber: defineComponent({
+          props: { value: { default: null } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        })
       }
     }
   })
@@ -102,7 +189,7 @@ describe('UpdatePackage', () => {
   })
 
   afterEach(() => {
-    mountedWrappers.forEach(w => w.unmount())
+    mountedWrappers.forEach((w) => w.unmount())
     mountedWrappers.length = 0
   })
 
@@ -166,7 +253,20 @@ describe('UpdatePackage', () => {
     const wrapper = mountComponent()
     await flushPromises()
     const state = getState(wrapper)
-    const row = { id: '1', name: 'Pkg1', version: '1.0', target_version: '2.0', device_config_id: 'dc1', module: 'mod', package_type: 2, signature_type: 'MD5', package_url: '/pkg.bin', additional_info: '{}', description: 'desc', remark: '' }
+    const row = {
+      id: '1',
+      name: 'Pkg1',
+      version: '1.0',
+      target_version: '2.0',
+      device_config_id: 'dc1',
+      module: 'mod',
+      package_type: 2,
+      signature_type: 'MD5',
+      package_url: '/pkg.bin',
+      additional_info: '{}',
+      description: 'desc',
+      remark: ''
+    }
     state.openEditModal(row)
     expect(state.modalVisible).toBe(true)
     expect(state.isEditing).toBe(true)
@@ -293,12 +393,14 @@ describe('UpdatePackage', () => {
     await state.savePackage()
     await flushPromises()
 
-    expect(hoisted.addOtaPackage).toHaveBeenCalledWith(expect.objectContaining({
-      name: 'Pkg 1',
-      version: '1.0.0',
-      device_config_id: 'cfg-1',
-      package_url: '/files/pkg.bin'
-    }))
+    expect(hoisted.addOtaPackage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Pkg 1',
+        version: '1.0.0',
+        device_config_id: 'cfg-1',
+        package_url: '/files/pkg.bin'
+      })
+    )
     expect(hoisted.getOtaPackageList).toHaveBeenCalledWith({
       page: 1,
       page_size: 10,

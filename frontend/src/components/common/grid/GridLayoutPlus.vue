@@ -250,7 +250,10 @@ const withIdKey = (items: GridLayoutPlusItem[]): GridLayoutPlusItem[] => {
   // 在对外派发布局相关事件前，补充 idKey 字段，保证任意主键协议兼容
   const key = props.idKey || 'i'
   if (key === 'i') return items
-  return items.map((it) => ({ ...(it as unknown as Record<string, unknown>), [key]: it.i })) as unknown as GridLayoutPlusItem[]
+  return items.map((it) => ({
+    ...(it as unknown as Record<string, unknown>),
+    [key]: it.i
+  })) as unknown as GridLayoutPlusItem[]
 }
 
 const handleLayoutReady = (newLayout: GridLayoutPlusItem[]) => {

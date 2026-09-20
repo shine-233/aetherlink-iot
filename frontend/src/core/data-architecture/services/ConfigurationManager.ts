@@ -238,7 +238,7 @@ return {
    * 根据ID获取模板
    */
   getTemplate(id: string): ConfigurationTemplate | undefined {
-    const template = this.templates.find(t => t.id === id)
+    const template = this.templates.find((t) => t.id === id)
     return template ? (smartDeepClone(template) as ConfigurationTemplate) : undefined
   }
 
@@ -246,7 +246,7 @@ return {
    * 根据分类获取模板
    */
   getTemplatesByCategory(category: string): ConfigurationTemplate[] {
-    return smartDeepClone(this.templates.filter(t => t.category === category)) as ConfigurationTemplate[]
+    return smartDeepClone(this.templates.filter((t) => t.category === category)) as ConfigurationTemplate[]
   }
 
   /**
@@ -453,7 +453,7 @@ return {
   ): DataSourceConfiguration {
     const merged = this.cloneConfiguration(baseConfig)
 
-    otherConfigs.forEach(config => {
+    otherConfigs.forEach((config) => {
       // 克隆追加项，避免合并结果与输入配置共享嵌套状态。
       merged.dataSources.push(...(smartDeepClone(config.dataSources) as DataSourceConfiguration['dataSources']))
     })

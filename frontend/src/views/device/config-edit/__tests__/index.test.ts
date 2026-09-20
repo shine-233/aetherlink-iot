@@ -45,9 +45,21 @@ vi.mock('vue-router', () => ({
 
 vi.mock('naive-ui', () => ({
   useMessage: () => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn() }),
-  NTooltip: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NIcon: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NFlex: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } })
+  NTooltip: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NIcon: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NFlex: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  })
 }))
 
 vi.mock('@vicons/ionicons5', () => ({ HelpCircle: defineComponent({ setup: () => () => h('div') }) }))
@@ -61,7 +73,11 @@ const mountComponent = (props = {}) => {
     props,
     global: {
       stubs: {
-        NCard: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
+        NCard: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
         NForm: defineComponent({
           setup(_, { slots, expose }) {
             expose({
@@ -71,14 +87,54 @@ const mountComponent = (props = {}) => {
             return () => h('form', slots.default ? slots.default() : [])
           }
         }),
-        NFormItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NInput: defineComponent({ props: { value: { default: '' } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NSelect: defineComponent({ props: { value: { default: null } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : []) } }),
-        NRadioGroup: defineComponent({ props: { value: { default: null } }, emits: ['update:value'], setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NRadio: defineComponent({ props: { value: { default: null } }, setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NSpace: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        FormInput: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } })
+        NFormItem: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NInput: defineComponent({
+          props: { value: { default: '' } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NSelect: defineComponent({
+          props: { value: { default: null } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NButton: defineComponent({
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : [])
+          }
+        }),
+        NRadioGroup: defineComponent({
+          props: { value: { default: null } },
+          emits: ['update:value'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NRadio: defineComponent({
+          props: { value: { default: null } },
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NSpace: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        FormInput: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        })
       }
     }
   })
@@ -91,7 +147,9 @@ const getSetupState = (wrapper: ReturnType<typeof shallowMount>) => wrapper.vm.$
 describe('device/config-edit/index.vue', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    hoisted.deviceConfigInfo.mockResolvedValue({ data: { id: 'cfg-1', name: 'cfg', device_type: '1', protocol_config: '{}' } })
+    hoisted.deviceConfigInfo.mockResolvedValue({
+      data: { id: 'cfg-1', name: 'cfg', device_type: '1', protocol_config: '{}' }
+    })
     hoisted.deviceProtocolServiceList.mockResolvedValue({ data: { protocol: [], service: [] } })
     hoisted.deviceTemplate.mockResolvedValue({ data: { list: [], total: 0 } })
     hoisted.deviceConfigVoucherType.mockResolvedValue({ data: {} })
@@ -237,7 +295,13 @@ describe('device/config-edit/index.vue', () => {
     await state.choseProtocolType('http-service')
 
     expect(state.protocol_config).toEqual({})
-    expect(hoisted.deviceConfigVoucherType).toHaveBeenLastCalledWith({ device_type: '1', protocol_type: 'http-service' })
-    expect(hoisted.protocolPluginConfigForm).toHaveBeenLastCalledWith({ device_type: '1', protocol_type: 'http-service' })
+    expect(hoisted.deviceConfigVoucherType).toHaveBeenLastCalledWith({
+      device_type: '1',
+      protocol_type: 'http-service'
+    })
+    expect(hoisted.protocolPluginConfigForm).toHaveBeenLastCalledWith({
+      device_type: '1',
+      protocol_type: 'http-service'
+    })
   })
 })

@@ -20,11 +20,7 @@ vi.mock('@/service/request', () => ({
   }
 }))
 
-import {
-  fetchDashboardMenuConfig,
-  saveDashboardMenuConfig,
-  deleteDashboardMenuConfig
-} from '../dashboard-menu'
+import { fetchDashboardMenuConfig, saveDashboardMenuConfig, deleteDashboardMenuConfig } from '../dashboard-menu'
 
 describe('board (dashboard-menu) API', () => {
   beforeEach(() => {

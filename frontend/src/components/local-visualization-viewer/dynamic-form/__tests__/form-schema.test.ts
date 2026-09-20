@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  convertFormToWidgetConfig,
-  convertWidgetConfigToForm,
-  validateWidgetForm
-} from '../form-schema'
+import { convertFormToWidgetConfig, convertWidgetConfigToForm, validateWidgetForm } from '../form-schema'
 import type { DynamicWidgetFormData } from '../types'
 
 describe('Dynamic Form Schema & Validation', () => {
@@ -181,4 +177,3 @@ describe('Dynamic Form Schema & Validation', () => {
     })
   })
 })
-

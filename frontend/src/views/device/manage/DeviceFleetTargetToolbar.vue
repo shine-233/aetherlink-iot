@@ -49,9 +49,7 @@ const emit = defineEmits<{
 }>()
 
 // 选中语义的说明文案由父级算好 key + 参数，这里只负责渲染，保证「当页」和「全部匹配」不会混淆。
-const selectionScopeText = computed(() =>
-  $t(props.selectionScopeMessage.key, props.selectionScopeMessage.params)
-)
+const selectionScopeText = computed(() => $t(props.selectionScopeMessage.key, props.selectionScopeMessage.params))
 
 const isAllMatchingSelection = computed(() => props.selectionScope.mode === 'all_matching')
 
@@ -66,8 +64,7 @@ const selectedSavedFilter = computed(() =>
 const startRenameSavedFilter = (filterID: string | number) => {
   editingSavedFilterId.value = filterID
   const option = selectedSavedFilter.value
-  editingSavedFilterName.value =
-    option?.rawName || (typeof option?.label === 'string' ? option.label : '')
+  editingSavedFilterName.value = option?.rawName || (typeof option?.label === 'string' ? option.label : '')
   submittedSavedFilterName.value = ''
 }
 
@@ -165,11 +162,7 @@ watch(
           {{ $t('custom.devicePage.renameSavedFilter') }}
         </NButton>
       </NDropdown>
-      <NDropdown
-        :options="shareableSavedFilterOptions"
-        trigger="click"
-        @select="toggleShareSavedFilter"
-      >
+      <NDropdown :options="shareableSavedFilterOptions" trigger="click" @select="toggleShareSavedFilter">
         <NButton size="small" secondary :disabled="shareableSavedFilterOptions.length === 0">
           {{ $t('custom.devicePage.shareSavedFilter') }}
         </NButton>
@@ -189,11 +182,7 @@ watch(
         >
           {{ $t('common.save') }}
         </NButton>
-        <NButton
-          size="small"
-          secondary
-          @click="cancelRenameSavedFilter"
-        >
+        <NButton size="small" secondary @click="cancelRenameSavedFilter">
           {{ $t('common.cancel') }}
         </NButton>
       </div>
@@ -273,7 +262,13 @@ watch(
           <strong>{{ $t('custom.devicePage.fleetSelectedActionTitle') }}</strong>
           <p>{{ $t('custom.devicePage.fleetSelectedActionDesc', { count: selectedDeviceCount }) }}</p>
           <div class="fleet-toolbar__card-actions">
-            <NButton size="small" type="primary" secondary :disabled="selectedDeviceCount === 0" @click="$emit('openCommandContext')">
+            <NButton
+              size="small"
+              type="primary"
+              secondary
+              :disabled="selectedDeviceCount === 0"
+              @click="$emit('openCommandContext')"
+            >
               {{ $t('custom.devicePage.openFleetCommand') }}
             </NButton>
             <NButton size="small" secondary :disabled="selectedDeviceCount === 0" @click="$emit('openConfigContext')">
@@ -292,7 +287,12 @@ watch(
             <NButton size="small" secondary :disabled="currentPageDeviceCount === 0" @click="$emit('openOtaContext')">
               {{ $t('custom.devicePage.openFleetOta') }}
             </NButton>
-            <NButton size="small" secondary :disabled="currentPageDeviceCount === 0" @click="$emit('exportCurrentPage')">
+            <NButton
+              size="small"
+              secondary
+              :disabled="currentPageDeviceCount === 0"
+              @click="$emit('exportCurrentPage')"
+            >
               {{ $t('custom.devicePage.exportCurrentFleetPage') }}
             </NButton>
           </div>

@@ -269,7 +269,10 @@ const pushRequestedHistoryFields = async (
   historyRequests: Map<string, string | undefined>,
   fields: Record<string, unknown>,
   explicitHistoryFieldIds: string[],
-  options: Pick<FieldDataBridgeOptions, 'historyFieldSuffix' | 'fetchTelemetryHistoryField' | 'pushPlatformFieldHistory'>
+  options: Pick<
+    FieldDataBridgeOptions,
+    'historyFieldSuffix' | 'fetchTelemetryHistoryField' | 'pushPlatformFieldHistory'
+  >
 ) => {
   if (historyRequests.size === 0 || !request.targetDeviceId) return
 
@@ -304,13 +307,7 @@ export async function buildWidgetFieldDataResponseFields(
   const historyRequests = buildHistoryRequests(request.payload, fieldGroups, options)
   const fields = await buildRequestedCurrentFieldPayload(fieldGroups.currentFieldIds, request.targetDeviceId, options)
 
-  await pushRequestedHistoryFields(
-    request,
-    historyRequests,
-    fields,
-    fieldGroups.explicitHistoryFieldIds,
-    options
-  )
+  await pushRequestedHistoryFields(request, historyRequests, fields, fieldGroups.explicitHistoryFieldIds, options)
 
   return fields
 }

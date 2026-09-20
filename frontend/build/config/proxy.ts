@@ -46,7 +46,7 @@ export function createViteProxy(env: Env.ImportMeta, enable?: boolean): Record<s
       target,
       changeOrigin: true,
       ws: true,
-      rewrite: path => path.replace(new RegExp(`^${pattern}`), basePath)
+      rewrite: (path) => path.replace(new RegExp(`^${pattern}`), basePath)
     }
 
     // 文件下载/上传走后端同源路径，前端直接请求 /files
@@ -67,7 +67,7 @@ export function createViteProxy(env: Env.ImportMeta, enable?: boolean): Record<s
       target,
       changeOrigin: true,
       ws: true,
-      rewrite: path => path.replace(new RegExp(`^${pattern}`), basePath)
+      rewrite: (path) => path.replace(new RegExp(`^${pattern}`), basePath)
     }
   })
 
@@ -79,7 +79,7 @@ export function createViteProxy(env: Env.ImportMeta, enable?: boolean): Record<s
       target: thingsvisTarget,
       changeOrigin: true,
       ws: true,
-      rewrite: path => path.replace(new RegExp(`^${THINGSVIS_API_PROXY_PATH}`), '/api/v1')
+      rewrite: (path) => path.replace(new RegExp(`^${THINGSVIS_API_PROXY_PATH}`), '/api/v1')
     }
   }
 

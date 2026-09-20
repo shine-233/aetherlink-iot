@@ -20,10 +20,12 @@ import { NATIVE_BOARD_PROVIDER_ID } from '@/service/visualization-provider/provi
 
 const route = useRoute()
 const { routerPushByKey } = useRouterPush()
-const providerId = computed(() => resolveVisualizationProviderId({
-  provider: route.query.provider,
-  projectId: route.query.projectId
-}))
+const providerId = computed(() =>
+  resolveVisualizationProviderId({
+    provider: route.query.provider,
+    projectId: route.query.projectId
+  })
+)
 const provider = getDefaultVisualizationProviderFacade({ providerId: providerId.value })
 const providerSelectionError = provider.selectionError
 const providerErrorTitle = computed(() =>
@@ -58,7 +60,7 @@ const loadDashboardInfo = async () => {
   if (!currentDashboardId) return
 
   try {
-    const result = await provider.execute(current => current.getDashboard(currentDashboardId))
+    const result = await provider.execute((current) => current.getDashboard(currentDashboardId))
     if (requestSequence !== dashboardRequestSequence || dashboardId.value !== currentDashboardId) return
     if (!result.ok || !result.data) {
       selectionError.value = true
@@ -135,7 +137,10 @@ watch(
       <template #header>{{ providerErrorTitle }}</template>
       {{ providerErrorMessage }}
     </NAlert>
-    <div v-else-if="providerId === NATIVE_BOARD_PROVIDER_ID" class="flex flex-1 items-center justify-center bg-white p-6">
+    <div
+      v-else-if="providerId === NATIVE_BOARD_PROVIDER_ID"
+      class="flex flex-1 items-center justify-center bg-white p-6"
+    >
       <div class="max-w-xl text-center" role="status">
         <div class="text-lg font-semibold">{{ $t('custom.nativeBoardEditor.title') }}</div>
         <div class="mt-2 text-sm text-gray-500">{{ $t('custom.nativeBoards.subtitle') }}</div>

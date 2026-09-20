@@ -180,7 +180,7 @@ describe('useRdiTelemetry', () => {
     mockTelemetryDataCurrentKeys
       .mockImplementationOnce(
         () =>
-          new Promise(resolve => {
+          new Promise((resolve) => {
             resolveFirstRequest = resolve
           })
       )

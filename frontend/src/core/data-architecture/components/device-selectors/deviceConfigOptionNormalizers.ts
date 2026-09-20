@@ -61,9 +61,7 @@ export const normalizeMetrics = (response: unknown): DeviceMetric[] => {
   for (const item of groupsOrMetrics) {
     const record = item as ApiRecord
     if (item && typeof item === 'object' && Array.isArray(record.options)) {
-      metrics.push(
-        ...record.options.map(normalizeMetric).filter((metric): metric is DeviceMetric => Boolean(metric))
-      )
+      metrics.push(...record.options.map(normalizeMetric).filter((metric): metric is DeviceMetric => Boolean(metric)))
       continue
     }
 

@@ -469,7 +469,7 @@ export class AsyncQueue<T> {
     try {
       while (this.queue.length > 0) {
         const batch = this.queue.splice(0, this.concurrency)
-        await Promise.allSettled(batch.map(task => task()))
+        await Promise.allSettled(batch.map((task) => task()))
       }
     } finally {
       this.running = false

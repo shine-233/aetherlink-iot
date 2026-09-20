@@ -52,9 +52,9 @@ describe('premise schedule condition state', () => {
   })
 
   it('builds the repeat cycle, week, expiration, and month-range option contracts', () => {
-    expect(buildCycleOptions(t).map(option => option.value)).toEqual(['HOUR', 'DAY', 'WEEK', 'MONTH'])
-    expect(buildWeekOptions(t).map(option => option.value)).toEqual(['1', '2', '3', '4', '5', '6', '7'])
-    expect(buildExpirationTimeOptions(t).map(option => option.value)).toEqual([5, 10, 30, 60, 1440])
+    expect(buildCycleOptions(t).map((option) => option.value)).toEqual(['HOUR', 'DAY', 'WEEK', 'MONTH'])
+    expect(buildWeekOptions(t).map((option) => option.value)).toEqual(['1', '2', '3', '4', '5', '6', '7'])
+    expect(buildExpirationTimeOptions(t).map((option) => option.value)).toEqual([5, 10, 30, 60, 1440])
     expect(buildMonthRangeOptions()).toHaveLength(31)
     expect(buildMonthRangeOptions()[30]).toEqual({ label: '31', value: 31 })
   })

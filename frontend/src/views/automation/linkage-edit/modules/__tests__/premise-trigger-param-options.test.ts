@@ -48,7 +48,7 @@ describe('premise-trigger-param-options', () => {
       statusOption
     )
 
-    expect(result.map(item => item.value)).toEqual(['telemetry', 'status'])
+    expect(result.map((item) => item.value)).toEqual(['telemetry', 'status'])
   })
 
   it('recognizes when trigger-param options should load and when they are already present', () => {

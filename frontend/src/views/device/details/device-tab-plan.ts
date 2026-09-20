@@ -124,7 +124,10 @@ async function shouldHideChartTab(templateId: string | number | undefined, chart
   return !hasTemplateChart
 }
 
-function shouldHideChartTabBeforeTemplateLoad(templateId: string | number | undefined, chartAvailability: boolean | null) {
+function shouldHideChartTabBeforeTemplateLoad(
+  templateId: string | number | undefined,
+  chartAvailability: boolean | null
+) {
   const normalizedTemplateId = normalizeTemplateId(templateId)
   if (!normalizedTemplateId) {
     return true
@@ -211,7 +214,9 @@ export function createDeviceTabPlan(data: DeviceDetailData): DeviceTabPlan {
   }
 }
 
-export async function resolveDeviceChartTabResolution(data: DeviceDetailData): Promise<DeviceChartTabResolution | null> {
+export async function resolveDeviceChartTabResolution(
+  data: DeviceDetailData
+): Promise<DeviceChartTabResolution | null> {
   const context = createDeviceTabPlanContext(data)
   if (context.isRdi) {
     return {

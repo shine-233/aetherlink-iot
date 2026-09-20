@@ -21,12 +21,7 @@ import {
   eventsApi,
   telemetryApi
 } from '@/service/api/system-data'
-import {
-  attributeColumns,
-  commandColumns,
-  eventColumns,
-  telemetryColumns
-} from './model-definition-table-columns'
+import { attributeColumns, commandColumns, eventColumns, telemetryColumns } from './model-definition-table-columns'
 import AddEditTest from './add-edit-test.vue'
 import AddEditAttributes from './add-edit-attributes.vue'
 import AddEditEvents from './add-edit-events.vue'
@@ -77,8 +72,7 @@ const comList: { id: string; components: Component; title: string }[] = [
   { id: 'command', components: AddEditCommands, title: $t('device_template.addAndEditCommand') }
 ]
 const SwitchCom = computed<Component | undefined>(() => {
-  // eslint-disable-next-line array-callback-return,consistent-return
-  return comList.find(item => {
+  return comList.find((item) => {
     if (item.id === tabsCurrent.value) {
       const objItem = item
       addAndEditTitle.value = objItem.title
@@ -110,7 +104,7 @@ const queryParams = reactive([
   }
 ])
 
-const checkedTabs: (value: string | number) => void = value => {
+const checkedTabs: (value: string | number) => void = (value) => {
   const tabName = String(value) as ModelDefinitionTabName
   tabsCurrent.value = tabName
   if (!loadedTabs[tabName]) {
@@ -159,12 +153,11 @@ const configPreset = (row: Record<string, unknown>, type: 'telemetry' | 'attribu
 
 // 新增或者编辑成功后的回调函数
 const determine: () => void = () => {
-  // eslint-disable-next-line @typescript-eslint/no-use-before-define
   getTableData(tabsCurrent.value)
 }
 
 // 删除
-const del: (id: string) => void = async id => {
+const del: (id: string) => void = async (id) => {
   if (tabsCurrent.value === 'telemetry') {
     await delTelemetry(id)
   } else if (tabsCurrent.value === 'attributes') {
@@ -174,7 +167,7 @@ const del: (id: string) => void = async id => {
   } else {
     await delCommands(id)
   }
-  // eslint-disable-next-line @typescript-eslint/no-use-before-define
+
   getTableData(tabsCurrent.value)
 }
 // 上一步
@@ -208,7 +201,7 @@ const columnsList = reactive([
         width: 350,
         title: () => $t('common.actions'),
         align: 'center' as const,
-        render: row => {
+        render: (row) => {
           return (
             <NSpace justify={'center'}>
               <NButton quaternary type="primary" size={'small'} onClick={() => edit(row)}>
@@ -245,7 +238,7 @@ const columnsList = reactive([
         width: 350,
         title: () => $t('common.actions'),
         align: 'center' as const,
-        render: row => {
+        render: (row) => {
           return (
             <NSpace justify={'center'}>
               <NButton quaternary type="primary" size={'small'} onClick={() => edit(row)}>
@@ -282,7 +275,7 @@ const columnsList = reactive([
         width: 350,
         title: () => $t('common.actions'),
         align: 'center' as const,
-        render: row => {
+        render: (row) => {
           return (
             <NSpace justify={'center'}>
               <NButton quaternary type="primary" size={'small'} onClick={() => edit(row)}>
@@ -319,14 +312,14 @@ const columnsList = reactive([
         width: 350,
         title: () => $t('common.actions'),
         align: 'center' as const,
-        render: row => {
+        render: (row) => {
           return (
             <NSpace justify={'center'}>
-              {/* eslint-disable-next-line @typescript-eslint/no-use-before-define */}
+              {}
               <NButton quaternary type="primary" size={'small'} onClick={() => edit(row)}>
                 {$t('common.edit')}
               </NButton>
-              {/* eslint-disable-next-line @typescript-eslint/no-use-before-define */}
+              {}
               <NPopconfirm onPositiveClick={() => del(row.id)}>
                 {{
                   default: () => $t('common.confirmDelete'),
@@ -349,7 +342,7 @@ const updateAttributesData = (data: unknown) => {
   const payload = data as { list?: Array<Record<string, unknown>>; total?: number } | null | undefined
   columnsList[1].data = payload?.list ?? []
   columnsList[1].total = payload?.total || 0
-  columnsList[1].data?.forEach(item => {
+  columnsList[1].data?.forEach((item) => {
     item.read_write_flag = formatReadWriteFlag(item.read_write_flag as string)
   })
 }
@@ -367,16 +360,16 @@ function formatReadWriteFlag(flag: string) {
   return flag
 }
 
-const handleParamsOfEventsAndcommands = data => {
+const handleParamsOfEventsAndcommands = (data) => {
   if (!data || !Array.isArray(data)) {
     return data
   }
-  return data.map(item => {
+  return data.map((item) => {
     const paramsArr = JSON.parse(item.params) || []
     return {
       ...item,
       paramsOrigin: item.params,
-      params: paramsArr.map(param => param.data_name).join(', ')
+      params: paramsArr.map((param) => param.data_name).join(', ')
     }
   })
 }
@@ -386,7 +379,7 @@ const updateTelemetryData = (data: unknown) => {
   const payload = data as { list?: Array<Record<string, unknown>>; total?: number } | null | undefined
   columnsList[0].data = payload?.list ?? []
   columnsList[0].total = payload?.total || 0
-  columnsList[0].data.forEach(item => {
+  columnsList[0].data.forEach((item) => {
     item.read_write_flag = formatReadWriteFlag(item.read_write_flag as string)
   })
 }
@@ -402,7 +395,7 @@ const updateCommandsData = (data: unknown) => {
   columnsList[3].data = handleParamsOfEventsAndcommands(payload?.list ?? [])
   columnsList[3].total = payload?.total || 0
 }
-const getTableData: (value?: string) => Promise<void> = async value => {
+const getTableData: (value?: string) => Promise<void> = async (value) => {
   const tabName = (value || tabsCurrent.value) as ModelDefinitionTabName
   startLoading()
   try {
@@ -444,7 +437,7 @@ getTableData()
           :columns="item.col"
           :data="item.data"
           :loading="loading"
-           :pagination="getPagination(Number(index))"
+          :pagination="getPagination(Number(index))"
           :remote="true"
           class="m-t9 flex-1-hidden"
         />
@@ -453,7 +446,10 @@ getTableData()
           v-if="item.name === 'telemetry' && tabsCurrent === 'telemetry'"
           :id="deviceTemplateId"
         ></CustomControls>
-        <CustomCommands v-if="item.name === 'command' && tabsCurrent === 'command'" :id="deviceTemplateId"></CustomCommands>
+        <CustomCommands
+          v-if="item.name === 'command' && tabsCurrent === 'command'"
+          :id="deviceTemplateId"
+        ></CustomCommands>
       </n-tab-pane>
     </n-tabs>
   </div>
@@ -471,16 +467,16 @@ getTableData()
   >
     <component
       :is="SwitchCom"
-      v-model:addAndEditModalVisible="addAndEditModalVisible"
-      v-model:deviceTemplateId="deviceTemplateId"
-      v-model:objItem="objItem"
+      v-model:add-and-edit-modal-visible="addAndEditModalVisible"
+      v-model:device-template-id="deviceTemplateId"
+      v-model:obj-item="objItem"
       @determine="determine"
     ></component>
   </NModal>
   <!-- 预设组件配置弹窗 -->
   <WidgetPresetConfig
     v-if="presetModalVisible"
-    v-model:presetModalVisible="presetModalVisible"
+    v-model:preset-modal-visible="presetModalVisible"
     :device-template-id="deviceTemplateId"
     :property="(presetProperty as { id: string; name: string; identifier: string; dataType: string; unit?: string })"
     :property-type="presetType"

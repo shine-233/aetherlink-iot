@@ -20,12 +20,12 @@ export function getColorPalette(color: string, colorName: string) {
 
   const colorMap = new Map<ColorPaletteNumber, ColorPaletteItem>()
 
-  colorPaletteFamily.palettes.forEach(palette => {
+  colorPaletteFamily.palettes.forEach((palette) => {
     colorMap.set(palette.number, palette)
   })
 
   const mainColor = colorMap.get(500) as ColorPaletteItem
-  const matchColor = colorPaletteFamily.palettes.find(palette => palette.hexcode === color) as ColorPaletteItem
+  const matchColor = colorPaletteFamily.palettes.find((palette) => palette.hexcode === color) as ColorPaletteItem
 
   const colorPalette: ColorPalette = {
     ...colorPaletteFamily,

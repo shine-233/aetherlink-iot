@@ -36,7 +36,7 @@ async function loadBoard() {
   }
 
   try {
-    const result = await providerFacade.execute(provider => provider.getDashboard(id))
+    const result = await providerFacade.execute((provider) => provider.getDashboard(id))
     if (!isCurrentRequest(sequence, id)) return
     if (!result.ok || result.data.rendererData === undefined) {
       failed.value = true

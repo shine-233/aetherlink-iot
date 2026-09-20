@@ -52,16 +52,13 @@ export function useRdiOnDemandLoads(options: UseRdiOnDemandLoadsOptions) {
     options.startTelemetryRefresh()
   })
 
-  watch(
-    options.deviceId,
-    () => {
-      options.resetShareState()
-      options.liveOnlineStatus.value = null
-      hasLoadedEnergyStatistics.value = false
-      loadConfigAndRefresh()
-      options.startTelemetryRefresh()
-    }
-  )
+  watch(options.deviceId, () => {
+    options.resetShareState()
+    options.liveOnlineStatus.value = null
+    hasLoadedEnergyStatistics.value = false
+    loadConfigAndRefresh()
+    options.startTelemetryRefresh()
+  })
 
   return {
     hasLoadedEnergyStatistics,

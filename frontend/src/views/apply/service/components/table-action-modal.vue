@@ -179,7 +179,7 @@ function handleAddAdditionalInfo() {
 
 watch(
   () => props.visible,
-  newValue => {
+  (newValue) => {
     if (newValue) {
       handleUpdateFormModelByModalType()
     }

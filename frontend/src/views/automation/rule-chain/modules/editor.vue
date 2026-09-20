@@ -115,11 +115,11 @@ function ensureOutputHandle(_id: string) {
 }
 
 function labelOf(type: string) {
-  const found = palette.find(item => item.type === type)
+  const found = palette.find((item) => item.type === type)
   return found ? found.label : type
 }
 
-const selectedNode = computed<any>(() => flowNodes.value.find(node => node.id === selectedNodeId.value) || null)
+const selectedNode = computed<any>(() => flowNodes.value.find((node) => node.id === selectedNodeId.value) || null)
 
 const selectedConfig = computed(() => {
   return (selectedNode.value?.data?.config as Record<string, any> | undefined) ?? {}
@@ -127,32 +127,22 @@ const selectedConfig = computed(() => {
 
 function updateSelectedConfig(key: string, value: unknown) {
   if (!selectedNode.value) return
-  const config = { ...(selectedNode.value.data.config as Record<string, any> | undefined) || {} }
+  const config = { ...((selectedNode.value.data.config as Record<string, any> | undefined) || {}) }
   config[key] = value
   selectedNode.value.data = { ...selectedNode.value.data, config }
 }
 
-const isThresholdNode = computed(
-  () => !!selectedNode.value && graphNodeType(selectedNode.value) === 'filter.threshold'
-)
+const isThresholdNode = computed(() => !!selectedNode.value && graphNodeType(selectedNode.value) === 'filter.threshold')
 function graphNodeType(node: any): string {
   // 创建时把原始类型存进 data.nodeType，避免 Vue Flow 自身 node type 冲突
   return String(node?.data?.nodeType ?? '')
 }
 
-const isMappingNode = computed(
-  () => !!selectedNode.value && graphNodeType(selectedNode.value) === 'transform.mapping'
-)
-const isWebhookNode = computed(
-  () => !!selectedNode.value && graphNodeType(selectedNode.value) === 'action.webhook'
-)
-const isCommandNode = computed(
-  () => !!selectedNode.value && graphNodeType(selectedNode.value) === 'action.command'
-)
+const isMappingNode = computed(() => !!selectedNode.value && graphNodeType(selectedNode.value) === 'transform.mapping')
+const isWebhookNode = computed(() => !!selectedNode.value && graphNodeType(selectedNode.value) === 'action.webhook')
+const isCommandNode = computed(() => !!selectedNode.value && graphNodeType(selectedNode.value) === 'action.command')
 
-const isAlarmNode = computed(
-  () => !!selectedNode.value && graphNodeType(selectedNode.value) === 'action.alarm'
-)
+const isAlarmNode = computed(() => !!selectedNode.value && graphNodeType(selectedNode.value) === 'action.alarm')
 
 // PHASE-D-D1 BEGIN 通用 JSON 配置编辑器 + 节点调试 trace 面板
 const SPECIAL_CONFIG_TYPES = new Set([
@@ -240,7 +230,7 @@ function handleParamsBlur(event: FocusEvent) {
 }
 
 function thresholdOpOptions() {
-  return ['>', '>=', '<', '<=', '==', '!='].map(op => ({ label: op, value: op }))
+  return ['>', '>=', '<', '<=', '==', '!='].map((op) => ({ label: op, value: op }))
 }
 
 async function loadChain() {
@@ -287,7 +277,7 @@ async function loadChain() {
 }
 
 function serializeGraph() {
-  const nodes = flowNodes.value.map(node => ({
+  const nodes = flowNodes.value.map((node) => ({
     id: node.id,
     type: String(node.data?.nodeType || ''),
     name: String(node.data?.label || '').split('\n')[0],
@@ -296,13 +286,13 @@ function serializeGraph() {
   }))
   const seen = new Set<string>()
   const edges = flowEdges.value
-    .filter(edge => {
+    .filter((edge) => {
       const key = `${edge.source}->${edge.target}`
       if (seen.has(key)) return false
       seen.add(key)
       return edge.source !== edge.target
     })
-    .map(edge => ({ from: edge.source, to: edge.target }))
+    .map((edge) => ({ from: edge.source, to: edge.target }))
   return { nodes, edges }
 }
 
@@ -379,7 +369,7 @@ defineExpose({ serializeGraph })
             :key="item.type"
             class="palette-item"
             draggable="true"
-            @dragstart="event => event.dataTransfer?.setData('application/rule-chain-node', item.type)"
+            @dragstart="(event) => event.dataTransfer?.setData('application/rule-chain-node', item.type)"
           >
             {{ item.label }}
           </div>
@@ -408,13 +398,24 @@ defineExpose({ serializeGraph })
 
             <template v-if="isThresholdNode">
               <n-form-item :label="$t('custom.rule_chain.thresholdKey')" label-placement="top">
-                <n-input :value="String(selectedConfig.key || '')" @update:value="(v: string) => updateSelectedConfig('key', v)" />
+                <n-input
+                  :value="String(selectedConfig.key || '')"
+                  @update:value="(v: string) => updateSelectedConfig('key', v)"
+                />
               </n-form-item>
               <n-form-item :label="$t('custom.rule_chain.thresholdOp')" label-placement="top">
-                <n-select :value="String(selectedConfig.op || '>')" :options="thresholdOpOptions()" @update:value="(v: string) => updateSelectedConfig('op', v)" />
+                <n-select
+                  :value="String(selectedConfig.op || '>')"
+                  :options="thresholdOpOptions()"
+                  @update:value="(v: string) => updateSelectedConfig('op', v)"
+                />
               </n-form-item>
               <n-form-item :label="$t('custom.rule_chain.thresholdValue')" label-placement="top">
-                <n-input-number :value="Number(selectedConfig.value ?? 0)" style="width: 100%" @update:value="(v: number | null) => updateSelectedConfig('value', Number(v ?? 0))" />
+                <n-input-number
+                  :value="Number(selectedConfig.value ?? 0)"
+                  style="width: 100%"
+                  @update:value="(v: number | null) => updateSelectedConfig('value', Number(v ?? 0))"
+                />
               </n-form-item>
             </template>
 
@@ -432,13 +433,20 @@ defineExpose({ serializeGraph })
 
             <template v-if="isWebhookNode">
               <n-form-item :label="$t('custom.rule_chain.webhookUrl')" label-placement="top">
-                <n-input :value="String(selectedConfig.url || '')" placeholder="https://example.com/hook" @update:value="(v: string) => updateSelectedConfig('url', v)" />
+                <n-input
+                  :value="String(selectedConfig.url || '')"
+                  placeholder="https://example.com/hook"
+                  @update:value="(v: string) => updateSelectedConfig('url', v)"
+                />
               </n-form-item>
             </template>
 
             <template v-if="isCommandNode">
               <n-form-item :label="$t('custom.rule_chain.commandIdentify')" label-placement="top">
-                <n-input :value="String(selectedConfig.identify || '')" @update:value="(v: string) => updateSelectedConfig('identify', v)" />
+                <n-input
+                  :value="String(selectedConfig.identify || '')"
+                  @update:value="(v: string) => updateSelectedConfig('identify', v)"
+                />
               </n-form-item>
               <n-form-item :label="$t('custom.rule_chain.commandParams')" label-placement="top">
                 <n-input
@@ -452,10 +460,19 @@ defineExpose({ serializeGraph })
 
             <template v-if="isAlarmNode">
               <n-form-item :label="$t('custom.rule_chain.alarmName')" label-placement="top">
-                <n-input :value="String(selectedConfig.name || '')" @update:value="(v: string) => updateSelectedConfig('name', v)" :placeholder="$t('custom.rule_chain.alarmNamePh')" />
+                <n-input
+                  :value="String(selectedConfig.name || '')"
+                  :placeholder="$t('custom.rule_chain.alarmNamePh')"
+                  @update:value="(v: string) => updateSelectedConfig('name', v)"
+                />
               </n-form-item>
               <n-form-item :label="$t('custom.rule_chain.alarmSeverity')" label-placement="top">
-                <n-input :value="String(selectedConfig.severity || 'H')" @update:value="(v: string) => updateSelectedConfig('severity', v)" placeholder="L/M/H" style="width:120px" />
+                <n-input
+                  :value="String(selectedConfig.severity || 'H')"
+                  placeholder="L/M/H"
+                  style="width: 120px"
+                  @update:value="(v: string) => updateSelectedConfig('severity', v)"
+                />
               </n-form-item>
             </template>
 
@@ -530,8 +547,7 @@ defineExpose({ serializeGraph })
   border: 1px solid var(--n-border-color);
   border-radius: 8px;
   overflow: hidden;
-  background:
-    radial-gradient(circle, var(--n-border-color) 1px, transparent 1px) 0 0 / 16px 16px;
+  background: radial-gradient(circle, var(--n-border-color) 1px, transparent 1px) 0 0 / 16px 16px;
 }
 .props {
   overflow-y: auto;

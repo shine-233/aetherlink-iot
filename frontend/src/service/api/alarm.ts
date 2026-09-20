@@ -70,11 +70,7 @@ export interface AlarmHistoryMonthlyTrendData {
 }
 
 /** Get twelve monthly alarm occurrence buckets for a selected calendar year. */
-export const alarmHistoryMonthlyTrend = async (
-  year: number,
-  timezone: string,
-  options?: { all_tenants?: boolean }
-) => {
+export const alarmHistoryMonthlyTrend = async (year: number, timezone: string, options?: { all_tenants?: boolean }) => {
   const data = await request.get<AlarmHistoryMonthlyTrendData>('/alarm/info/history/monthly', {
     params: {
       year,
@@ -151,10 +147,9 @@ export const listAlarmComments = async (alarmHistoryId: string) => {
 
 /** 新增一条告警评论。 */
 export const createAlarmComment = async (alarmHistoryId: string, content: string) => {
-  const data = await request.post<AlarmComment>(
-    `/alarm/info/history/${encodeURIComponent(alarmHistoryId)}/comment`,
-    { content }
-  )
+  const data = await request.post<AlarmComment>(`/alarm/info/history/${encodeURIComponent(alarmHistoryId)}/comment`, {
+    content
+  })
   return data
 }
 

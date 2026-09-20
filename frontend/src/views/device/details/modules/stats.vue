@@ -48,19 +48,19 @@ const columns0 = [
     title: $t('device_template.table_header.attributeValue'),
     minWidth: '140px',
     key: 'value',
-    render: row => `${row.value}${row.unit !== null ? row.unit : ''}`
+    render: (row) => `${row.value}${row.unit !== null ? row.unit : ''}`
   },
   {
     title: $t('device_template.table_header.updateTime'),
     minWidth: '140px',
     key: 'ts',
-    render: row => dayjs(row.ts).format('YYYY-MM-DD HH:mm:ss')
+    render: (row) => dayjs(row.ts).format('YYYY-MM-DD HH:mm:ss')
   },
   {
     title: $t('common.actions'),
     key: 'created_at',
     minWidth: '140px',
-    render: row => (
+    render: (row) => (
       <NPopconfirm
         onPositiveClick={async () => {
           await deleteAttributeDataSet(row.id)
@@ -82,7 +82,7 @@ const columns0 = [
 
 // 下发日志里的“操作类型”枚举解释。
 // 当前直接依赖接口返回的状态码字符串，若后端枚举变更，这里会是第一处耦合点。
-const formatOperationType = status => {
+const formatOperationType = (status) => {
   switch (status) {
     case '1':
       return $t('custom.device_details.manualOperation')
@@ -95,7 +95,7 @@ const formatOperationType = status => {
 
 // 下发日志里的“发送/回执状态”枚举解释。
 // 这里对未知值采用空字符串静默降级，排障时可能需要补更显式的兜底文案或观测信息。
-const formatStatus = status => {
+const formatStatus = (status) => {
   switch (status) {
     case '1':
       return $t('generate.sendingSuccess')
@@ -117,7 +117,7 @@ const columns = [
     title: $t('custom.device_details.attributeDistributionTime'),
     minWidth: '140px',
     key: 'created_at',
-    render: row => dayjs(row.created_at).format('YYYY-MM-DD HH:mm:ss')
+    render: (row) => dayjs(row.created_at).format('YYYY-MM-DD HH:mm:ss')
   },
   {
     title: $t('custom.device_details.messageId'),
@@ -133,13 +133,13 @@ const columns = [
     title: $t('custom.device_details.operationType'),
     minWidth: '140px',
     key: 'operation_type',
-    render: row => formatOperationType(row.status)
+    render: (row) => formatOperationType(row.status)
   },
   {
     title: $t('generate.status'),
     minWidth: '140px',
     key: 'status',
-    render: row => formatStatus(row.status)
+    render: (row) => formatStatus(row.status)
   },
   {
     title: $t('generate.errorMessage'),

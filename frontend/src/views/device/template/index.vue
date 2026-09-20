@@ -269,7 +269,7 @@ const getTagArray = (labelStr: string) => {
   return labelStr
     .split(',')
     .filter(Boolean)
-    .map(tag => tag.trim())
+    .map((tag) => tag.trim())
 }
 
 // 获取显示的标签（最多显示3个）
@@ -349,7 +349,7 @@ onMounted(() => {
             <NGrid cols="1 s:2 m:3 l:4 xl:5 2xl:6" x-gap="20" y-gap="20" responsive="screen">
               <NGi v-for="item in deviceTemplateList" :key="item.id">
                 <ItemCard
-                  :isStatus="false"
+                  :is-status="false"
                   :title="item.name"
                   :subtitle="item.description || '--'"
                   @click="handleEdit(item.id)"

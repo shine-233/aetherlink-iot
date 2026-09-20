@@ -120,10 +120,7 @@ describe('Entity Relation Resolver (ROADMAP P1.1)', () => {
     })
 
     it('returns empty array if no edges match or edges are empty', () => {
-      const targets = filterRelationTargetIds(
-        { ...baseConfig, relationType: 'NonExistent' },
-        sampleEdges
-      )
+      const targets = filterRelationTargetIds({ ...baseConfig, relationType: 'NonExistent' }, sampleEdges)
       expect(targets).toEqual([])
       expect(filterRelationTargetIds(baseConfig, [])).toEqual([])
     })

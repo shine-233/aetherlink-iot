@@ -17,16 +17,19 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/service/api/solution', () => mocks)
 
 // useDialog 需要可观察的桩：把 warning(options) 存到 window 上供用例触发确认回调。
-vi.mock('naive-ui', async importOriginal => {
+vi.mock('naive-ui', async (importOriginal) => {
   const actual = await importOriginal<typeof import('naive-ui')>()
   return {
     ...actual,
     useDialog: () => ({
-      warning: (options: { title?: string; content?: string; positiveText?: string; negativeText?: string; onPositiveClick?: () => void | Promise<void> }) => {
-        (globalThis as any).__dialogWarnings = [
-          ...(((globalThis as any).__dialogWarnings as any[]) || []),
-          options
-        ]
+      warning: (options: {
+        title?: string
+        content?: string
+        positiveText?: string
+        negativeText?: string
+        onPositiveClick?: () => void | Promise<void>
+      }) => {
+        ;(globalThis as any).__dialogWarnings = [...(((globalThis as any).__dialogWarnings as any[]) || []), options]
       }
     })
   }
@@ -83,8 +86,20 @@ describe('SolutionsManagementView', () => {
         applied: 1,
         failed: 1,
         items: [
-          { item_index: 0, resource_type: 'device_template', resource_id: 'tpl-1', status: 'applied', target_id: 'tpl-new' },
-          { item_index: 1, resource_type: 'board_template', resource_id: 'board-1', status: 'failed', error: 'conflict' }
+          {
+            item_index: 0,
+            resource_type: 'device_template',
+            resource_id: 'tpl-1',
+            status: 'applied',
+            target_id: 'tpl-new'
+          },
+          {
+            item_index: 1,
+            resource_type: 'board_template',
+            resource_id: 'board-1',
+            status: 'failed',
+            error: 'conflict'
+          }
         ]
       },
       error: null
@@ -134,9 +149,7 @@ describe('SolutionsManagementView', () => {
 
     state.openCreate()
     state.createForm.name = '  新方案  '
-    state.createForm.resources = [
-      { resource_type: 'device_template', resource_id: '  tpl-1  ', target_name: '' }
-    ]
+    state.createForm.resources = [{ resource_type: 'device_template', resource_id: '  tpl-1  ', target_name: '' }]
     await state.submitCreate()
     await flushPromises()
 
@@ -169,7 +182,7 @@ describe('SolutionsManagementView', () => {
     const wrapper = mountView()
     await flushPromises()
     const state = wrapper.vm.$.setupState as Record<string, any>
-    const values = (state.resourceTypeOptions as { value: string }[]).map(o => o.value)
+    const values = (state.resourceTypeOptions as { value: string }[]).map((o) => o.value)
     expect(values).toContain('rule_chain')
     expect(values).toEqual(expect.arrayContaining(['device_template', 'board_template', 'rule_chain']))
   })

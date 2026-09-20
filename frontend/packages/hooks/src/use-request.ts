@@ -61,7 +61,7 @@ export default function createHookRequest<ResponseData = any>(
 
     startLoading()
 
-    request(config).then(res => {
+    request(config).then((res) => {
       if (res.data) {
         data.value = res.data
       } else {

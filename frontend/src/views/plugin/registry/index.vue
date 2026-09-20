@@ -30,21 +30,44 @@ const columns: DataTableColumns<PluginRegistryRow> = [
   {
     title: () => $t('page.pluginRegistry.status'),
     key: 'status',
-    render: row => h(NTag, { type: statusType(row.status), size: 'small' }, { default: () => row.status })
+    render: (row) => h(NTag, { type: statusType(row.status), size: 'small' }, { default: () => row.status })
   },
   { title: () => $t('page.pluginRegistry.heartbeat'), key: 'last_heartbeat' },
   {
     title: () => $t('generate.operation'),
     key: 'actions',
-    render: row =>
-      h(NSpace, { size: 6 }, {
-        default: () => [
-          h(NButton, { size: 'tiny', onClick: () => handleToggle(row, row.status !== 'online') }, { default: () => (row.status === 'disabled' ? $t('page.pluginRegistry.enable') : $t('page.pluginRegistry.disable')) }),
-          h(NButton, { size: 'tiny', onClick: () => handleRotate(row) }, { default: () => $t('page.pluginRegistry.rotate') }),
-          h(NButton, { size: 'tiny', onClick: () => openDownlink(row) }, { default: () => $t('page.pluginRegistry.downlink') }),
-          h(NButton, { size: 'tiny', type: 'error', onClick: () => handleDelete(row) }, { default: () => $t('generate.delete') })
-        ]
-      })
+    render: (row) =>
+      h(
+        NSpace,
+        { size: 6 },
+        {
+          default: () => [
+            h(
+              NButton,
+              { size: 'tiny', onClick: () => handleToggle(row, row.status !== 'online') },
+              {
+                default: () =>
+                  row.status === 'disabled' ? $t('page.pluginRegistry.enable') : $t('page.pluginRegistry.disable')
+              }
+            ),
+            h(
+              NButton,
+              { size: 'tiny', onClick: () => handleRotate(row) },
+              { default: () => $t('page.pluginRegistry.rotate') }
+            ),
+            h(
+              NButton,
+              { size: 'tiny', onClick: () => openDownlink(row) },
+              { default: () => $t('page.pluginRegistry.downlink') }
+            ),
+            h(
+              NButton,
+              { size: 'tiny', type: 'error', onClick: () => handleDelete(row) },
+              { default: () => $t('generate.delete') }
+            )
+          ]
+        }
+      )
   }
 ]
 
@@ -161,7 +184,12 @@ onMounted(loadRows)
       </template>
     </n-modal>
 
-    <n-modal v-model:show="createdTokenVisible" preset="card" :title="$t('page.pluginRegistry.tokenTitle')" style="width: 520px">
+    <n-modal
+      v-model:show="createdTokenVisible"
+      preset="card"
+      :title="$t('page.pluginRegistry.tokenTitle')"
+      style="width: 520px"
+    >
       <n-alert type="warning" :show-icon="true" class="mb-3">{{ $t('page.pluginRegistry.tokenOnce') }}</n-alert>
       <n-input :value="createdToken" readonly type="textarea" />
       <template #footer>
@@ -171,7 +199,12 @@ onMounted(loadRows)
       </template>
     </n-modal>
 
-    <n-modal v-model:show="downlinkVisible" preset="card" :title="$t('page.pluginRegistry.downlinkTitle')" style="width: 480px">
+    <n-modal
+      v-model:show="downlinkVisible"
+      preset="card"
+      :title="$t('page.pluginRegistry.downlinkTitle')"
+      style="width: 480px"
+    >
       <n-form label-placement="top">
         <n-form-item :label="$t('page.pluginRegistry.deviceNumber')">
           <n-input v-model:value="downlinkForm.device_number" />

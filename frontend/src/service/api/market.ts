@@ -108,11 +108,7 @@ export interface MarketBundleImportResult {
  * 含覆盖项时必须 `confirm_overwrite=true` 才继续。
  * `preview=true` 时只读：验签与依赖检查照常执行，但不落库。
  */
-export const importMarketBundle = async (data: {
-  bundle: unknown
-  preview?: boolean
-  confirm_overwrite?: boolean
-}) => {
+export const importMarketBundle = async (data: { bundle: unknown; preview?: boolean; confirm_overwrite?: boolean }) => {
   return await request.post<MarketBundleImportResult>('/device/template/market/bundle/import', data)
 }
 

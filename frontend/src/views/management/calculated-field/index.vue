@@ -20,10 +20,7 @@ import {
   toggleCalculatedField,
   updateCalculatedField
 } from '@/service/api/calculated_field'
-import type {
-  CalculatedFieldRow,
-  CalculatedFieldUpsertParams
-} from '@/service/api/calculated_field'
+import type { CalculatedFieldRow, CalculatedFieldUpsertParams } from '@/service/api/calculated_field'
 import { $t } from '@/locales'
 import { useLoading } from '~/packages/hooks'
 
@@ -50,11 +47,11 @@ const pagination: PaginationProps = reactive({
   itemCount: 0,
   showSizePicker: true,
   pageSizes: [10, 20, 50],
-  onChange: page => {
+  onChange: (page) => {
     pagination.page = page
     void getTableData()
   },
-  onUpdatePageSize: pageSize => {
+  onUpdatePageSize: (pageSize) => {
     pagination.pageSize = pageSize
     pagination.page = 1
     void getTableData()
@@ -65,14 +62,14 @@ const pagination: PaginationProps = reactive({
 const templateOptions = ref<DeviceTemplateOption[]>([])
 const templateLoading = ref(false)
 
-const templateNameMap = computed(() => new Map(templateOptions.value.map(option => [option.id, option.name])))
+const templateNameMap = computed(() => new Map(templateOptions.value.map((option) => [option.id, option.name])))
 
 async function loadTemplateOptions() {
   templateLoading.value = true
   try {
     const response = await deviceTemplate({ page: 1, page_size: 200 })
     const list = Array.isArray(response.data?.list) ? (response.data.list as DeviceTemplateOption[]) : []
-    templateOptions.value = list.filter(option => Boolean(option?.id))
+    templateOptions.value = list.filter((option) => Boolean(option?.id))
   } catch {
     templateOptions.value = []
   } finally {
@@ -277,35 +274,31 @@ const columns = computed<DataTableColumns<CalculatedFieldRow>>(() => [
     title: $t('custom.management.calcField.template'),
     minWidth: 150,
     ellipsis: { tooltip: true },
-    render: row => <NText>{templateName(row.device_template_id)}</NText>
+    render: (row) => <NText>{templateName(row.device_template_id)}</NText>
   },
   {
     key: 'output_key',
     title: $t('custom.management.calcField.outputKey'),
     minWidth: 130,
-    render: row => <NTag size="small">{row.output_key}</NTag>
+    render: (row) => <NTag size="small">{row.output_key}</NTag>
   },
   {
     key: 'expression',
     title: $t('custom.management.calcField.expression'),
     minWidth: 200,
     ellipsis: { tooltip: true },
-    render: row => (
-      <NText code>
-        {row.expression}
-      </NText>
-    )
+    render: (row) => <NText code>{row.expression}</NText>
   },
   {
     key: 'enabled',
     title: $t('custom.management.calcField.enabled'),
     width: 90,
-    render: row => (
+    render: (row) => (
       <NSwitch
         size="small"
         value={row.enabled}
         loading={actingId.value === row.id}
-        onUpdateValue={value => handleToggle(row, value)}
+        onUpdateValue={(value) => handleToggle(row, value)}
       />
     )
   },
@@ -313,14 +306,14 @@ const columns = computed<DataTableColumns<CalculatedFieldRow>>(() => [
     key: 'updated_at',
     title: $t('custom.management.calcField.updatedAt'),
     minWidth: 170,
-    render: row => formatTime(row.updated_at)
+    render: (row) => formatTime(row.updated_at)
   },
   {
     key: 'actions',
     title: $t('custom.management.calcField.actions'),
     width: 160,
     fixed: 'right',
-    render: row => (
+    render: (row) => (
       <NSpace size={8}>
         <NButton size="small" onClick={() => openEditModal(row)}>
           {$t('common.edit')}
@@ -378,7 +371,7 @@ void getTableData()
         <NFormItem :label="$t('custom.management.calcField.template')" path="device_template_id">
           <NSelect
             v-model:value="formModel.device_template_id"
-            :options="templateOptions.map(option => ({ label: option.name, value: option.id }))"
+            :options="templateOptions.map((option) => ({ label: option.name, value: option.id }))"
             :loading="templateLoading"
             filterable
             clearable

@@ -98,15 +98,15 @@ describe('gridLayoutPlusUtils', () => {
 
     expect(getLayoutBounds([])).toEqual({ minX: 0, minY: 0, maxX: 0, maxY: 0, width: 0, height: 0 })
     expect(getLayoutBounds(layout)).toMatchObject({ minX: 0, minY: 0, maxX: 5, maxY: 5, width: 5, height: 5 })
-    expect(compactLayout(layout).map(card => [card.i, card.y])).toEqual([
+    expect(compactLayout(layout).map((card) => [card.i, card.y])).toEqual([
       ['c', 0],
       ['b', 0],
       ['a', 1]
     ])
-    expect(sortLayout(layout, 'id').map(card => card.i)).toEqual(['a', 'b', 'c'])
-    expect(sortLayout(layout, 'size').map(card => card.i)).toEqual(['a', 'b', 'c'])
-    expect(filterLayout(layout, card => card.type === 'chart').map(card => card.i)).toEqual(['a'])
-    expect(searchLayout(layout, 'humidity').map(card => card.i)).toEqual(['b'])
+    expect(sortLayout(layout, 'id').map((card) => card.i)).toEqual(['a', 'b', 'c'])
+    expect(sortLayout(layout, 'size').map((card) => card.i)).toEqual(['a', 'b', 'c'])
+    expect(filterLayout(layout, (card) => card.type === 'chart').map((card) => card.i)).toEqual(['a'])
+    expect(searchLayout(layout, 'humidity').map((card) => card.i)).toEqual(['b'])
 
     expect(getLayoutStats(layout)).toMatchObject({
       totalItems: 3,
@@ -131,8 +131,8 @@ describe('gridLayoutPlusUtils', () => {
     const responsive = createResponsiveLayout(base, { lg: 1200, sm: 768 }, { lg: 12, sm: 6 })
     expect(responsive.lg).toHaveLength(2)
     expect(responsive.sm).toHaveLength(2)
-    expect(responsive.lg?.find(card => card.i === 'wide')).toMatchObject({ x: 6, w: 6 })
-    expect(responsive.sm?.find(card => card.i === 'wide')).toMatchObject({ x: 3, w: 3 })
+    expect(responsive.lg?.find((card) => card.i === 'wide')).toMatchObject({ x: 6, w: 6 })
+    expect(responsive.sm?.find((card) => card.i === 'wide')).toMatchObject({ x: 3, w: 3 })
   })
 
   it('exports and imports layout data in json and csv formats', () => {

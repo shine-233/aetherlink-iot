@@ -54,11 +54,11 @@ const HIDE_SUB_SELECT_PARAM_TYPES = new Set(['c_attribute', 'c_telemetry', 'c_co
 const shouldShowSubSelect = (paramType: string) => !HIDE_SUB_SELECT_PARAM_TYPES.has(paramType)
 
 const normalizeMetricMenu = (items: MetricMenuItem[]) =>
-  items.map(item => ({
+  items.map((item) => ({
     ...item,
     value: item.data_source_type,
     label: `${item.data_source_type}${item.label ? `(${item.label})` : ''}`,
-    options: item.options.map(subItem => ({
+    options: item.options.map((subItem) => ({
       ...subItem,
       value: subItem.key,
       label: `${subItem.key}${subItem.label ? `(${subItem.label})` : ''}`
@@ -70,7 +70,7 @@ const selectCurrentParamType = (instructItem: InstructActionItem) => {
 
   instructItem.actionParamOptions =
     (instructItem.actionParamOptionsData as MetricMenuItem[]).find(
-      item => item.data_source_type === instructItem.action_param_type
+      (item) => item.data_source_type === instructItem.action_param_type
     )?.options || []
   instructItem.showSubSelect = shouldShowSubSelect(instructItem.action_param_type as string)
 }
@@ -79,9 +79,8 @@ const selectCurrentParam = (instructItem: InstructActionItem) => {
   if (!instructItem.action_param || instructItem.actionParamOptions!.length <= 0) return
 
   const currentParam =
-    (instructItem.actionParamOptions as MetricMenuSubItem[]).find(
-      item => item.key === instructItem.action_param
-    ) || null
+    (instructItem.actionParamOptions as MetricMenuSubItem[]).find((item) => item.key === instructItem.action_param) ||
+    null
   instructItem.actionParamData = currentParam
   if (currentParam?.data_type) {
     currentParam.data_type = currentParam.data_type?.toLowerCase()
@@ -104,17 +103,14 @@ export const useLinkageActionParamState = (message: { error: (content: string) =
     // Echoed forms may already carry a parameter catalog while the optional
     // refresh endpoint returns an empty list (offline/device-specific plugins).
     // Keep that usable state instead of replacing it with an empty selection.
-    if (
-      !res?.data ||
-      (Array.isArray(res.data) && res.data.length === 0 && instructItem.actionParamOptions?.length)
-    ) {
+    if (!res?.data || (Array.isArray(res.data) && res.data.length === 0 && instructItem.actionParamOptions?.length)) {
       selectCurrentParam(instructItem)
       return
     }
 
     const metricMenu = normalizeMetricMenu(res.data as MetricMenuItem[])
     instructItem.actionParamOptionsData = metricMenu
-    instructItem.actionParamTypeOptions = metricMenu.map(item => ({
+    instructItem.actionParamTypeOptions = metricMenu.map((item) => ({
       label: item.label,
       value: item.value
     }))
@@ -126,7 +122,7 @@ export const useLinkageActionParamState = (message: { error: (content: string) =
     instructItem.action_param = null
     instructItem.actionParamData = null
     instructItem.actionParamOptions =
-      (instructItem.actionParamOptionsData as MetricMenuItem[]).find(item => item.data_source_type === data)
+      (instructItem.actionParamOptionsData as MetricMenuItem[]).find((item) => item.data_source_type === data)
         ?.options || []
     instructItem.placeholder = placeholderMap[data]
     instructItem.actionValue = null
@@ -136,7 +132,7 @@ export const useLinkageActionParamState = (message: { error: (content: string) =
   const actionParamChange = (instructItem: InstructActionItem, data: unknown) => {
     instructItem.actionValue = null
     const currentParam =
-      (instructItem.actionParamOptions as MetricMenuSubItem[]).find(item => item.key === data) || null
+      (instructItem.actionParamOptions as MetricMenuSubItem[]).find((item) => item.key === data) || null
     instructItem.actionParamData = currentParam
     if (currentParam?.data_type) {
       currentParam.data_type = currentParam.data_type?.toLowerCase()

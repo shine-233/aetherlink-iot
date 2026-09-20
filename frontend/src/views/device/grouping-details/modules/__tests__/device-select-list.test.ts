@@ -27,7 +27,12 @@ vi.mock('@/locales', () => ({
 }))
 
 vi.mock('naive-ui', () => ({
-  NDataTable: defineComponent({ props: { data: { type: Array, default: () => [] } }, setup() { return () => h('div') } })
+  NDataTable: defineComponent({
+    props: { data: { type: Array, default: () => [] } },
+    setup() {
+      return () => h('div')
+    }
+  })
 }))
 
 import Component from '../device-select-list.vue'

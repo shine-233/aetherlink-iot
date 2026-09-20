@@ -88,7 +88,7 @@ const mountComponent = () => {
             const validate = vi.fn().mockResolvedValue(undefined)
             const restoreValidation = vi.fn().mockResolvedValue(undefined)
             // Expose validate so template ref formRef.value.validate() works
-            return { validate, restoreValidation, default: () => slots.default ? slots.default() : [] }
+            return { validate, restoreValidation, default: () => (slots.default ? slots.default() : []) }
           },
           render() {
             return h('form', this.default ? this.default() : [])
@@ -165,8 +165,7 @@ const mountComponent = () => {
   return wrapper
 }
 
-const getSetupState = (wrapper: ReturnType<typeof shallowMount>) =>
-  wrapper.vm.$.setupState as Record<string, any>
+const getSetupState = (wrapper: ReturnType<typeof shallowMount>) => wrapper.vm.$.setupState as Record<string, any>
 
 const mockDataClear = (overrides: Record<string, any> = {}) => ({
   id: 'dc-1',
@@ -267,11 +266,13 @@ describe('management/setting/components/data-clear-setting.vue', () => {
     await state.handleSubmit()
     await flushPromises()
     expect(hoisted.editDataClear).toHaveBeenCalledTimes(1)
-    expect(hoisted.editDataClear).toHaveBeenCalledWith(expect.objectContaining({
-      id: 'dc-1',
-      retention_days: 30,
-      enabled: '1'
-    }))
+    expect(hoisted.editDataClear).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'dc-1',
+        retention_days: 30,
+        enabled: '1'
+      })
+    )
     expect(hoisted.messageSuccess).toHaveBeenCalledWith('success')
     expect(hoisted.fetchDataClearList).toHaveBeenCalledTimes(1)
     expect(hoisted.fetchDataClearList).toHaveBeenCalledWith({ page: 1, page_size: 10 })

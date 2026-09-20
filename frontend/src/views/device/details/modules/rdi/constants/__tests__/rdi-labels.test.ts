@@ -77,9 +77,7 @@ describe('rdi-labels history failure and sampling-gap copy', () => {
     expect(labels['en-US'].historyLoadFailed).toBe('History data could not be loaded. Retry these series:')
     expect(labels['en-US'].historyPartialData).toBe('Only part of the history could be loaded for:')
     expect(labels['en-US'].historyGapDetected).toBe('Sampling gaps over 90 seconds were detected in:')
-    expect(labels['en-US'].historyGapNotConnected).toBe(
-      'The chart intentionally leaves detected gaps unconnected.'
-    )
+    expect(labels['en-US'].historyGapNotConnected).toBe('The chart intentionally leaves detected gaps unconnected.')
     expect(labels['en-US'].historyLoadFailed).not.toBe(labels['en-US'].empty)
   })
 

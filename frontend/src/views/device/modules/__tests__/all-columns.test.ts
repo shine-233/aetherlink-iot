@@ -23,12 +23,20 @@ type AnyColumn = {
 }
 
 function columns(): AnyColumn[] {
-  return group_columns(() => {}, () => {}) as unknown as AnyColumn[]
+  return group_columns(
+    () => {},
+    () => {}
+  ) as unknown as AnyColumn[]
 }
 
 function columnByKey(key: string): AnyColumn {
-  const found = columns().find(c => c.key === key)
-  if (!found) throw new Error(`column ${key} not found; keys=${columns().map(c => c.key).join(',')}`)
+  const found = columns().find((c) => c.key === key)
+  if (!found)
+    throw new Error(
+      `column ${key} not found; keys=${columns()
+        .map((c) => c.key)
+        .join(',')}`
+    )
   return found
 }
 
@@ -64,14 +72,14 @@ const STAT_KEYS = ['stat_device_total', 'stat_online_total', 'stat_offline_total
 
 describe('device group columns / statistics', () => {
   it('exposes the four statistics columns', () => {
-    const keys = columns().map(c => c.key)
+    const keys = columns().map((c) => c.key)
     for (const key of STAT_KEYS) {
       expect(keys, `missing statistics column ${key}`).toContain(key)
     }
   })
 
   it('keeps the pre-existing group columns intact', () => {
-    const keys = columns().map(c => c.key)
+    const keys = columns().map((c) => c.key)
     for (const key of ['name', 'description', 'created_at', 'actions']) {
       expect(keys, `regressed: ${key} disappeared`).toContain(key)
     }

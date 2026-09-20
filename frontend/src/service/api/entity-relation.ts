@@ -10,7 +10,12 @@
  *  3. 跨租户与不存在都返回 404，前端不做 403 分支——后端刻意不泄露 ID 是否存在。
  */
 import { request } from '../request'
-import type { DeletionPolicy, EntityRelation, EntityType, RelationDirection } from '@/views/device/entity-relation/entity-relation-model'
+import type {
+  DeletionPolicy,
+  EntityRelation,
+  EntityType,
+  RelationDirection
+} from '@/views/device/entity-relation/entity-relation-model'
 
 export interface CreateEntityRelationPayload {
   from_type: EntityType

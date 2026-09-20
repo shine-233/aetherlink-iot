@@ -8,7 +8,7 @@ describe('ScriptEngine sandbox configuration', () => {
     const engine = new ScriptEngine({
       sandboxConfig: {
         ...defaultSandboxConfig,
-        customSecurityPolicy: code => !code.includes('blockedCall')
+        customSecurityPolicy: (code) => !code.includes('blockedCall')
       }
     })
     const blockedCode = 'return blockedCall()'
@@ -28,7 +28,7 @@ describe('ScriptEngine sandbox configuration', () => {
     const engine = new ScriptEngine({
       sandboxConfig: {
         ...defaultSandboxConfig,
-        customSecurityPolicy: code => !code.includes('blockedCall')
+        customSecurityPolicy: (code) => !code.includes('blockedCall')
       }
     })
 
@@ -47,7 +47,7 @@ describe('ScriptEngine sandbox configuration', () => {
     engine.updateConfig({
       sandboxConfig: {
         ...defaultSandboxConfig,
-        customSecurityPolicy: candidate => !candidate.includes('blockedAfterUpdate')
+        customSecurityPolicy: (candidate) => !candidate.includes('blockedAfterUpdate')
       }
     })
 

@@ -199,7 +199,7 @@ const processedMetricsOptions = computed(() => {
 // 监听外部数据变化
 watch(
   () => props.modelValue,
-  newValue => {
+  (newValue) => {
     if (newValue) {
       selectedDeviceId.value = newValue.deviceId || ''
       selectedMetricsId.value = newValue.metricsId || ''
@@ -236,7 +236,7 @@ const onDeviceChange = async (deviceId: string) => {
   metricsOptionsFetched.value = false
 
   if (deviceId) {
-    const device = deviceOptions.value.find(d => d.id === deviceId)
+    const device = deviceOptions.value.find((d) => d.id === deviceId)
     if (device) {
       emit('device-change', deviceId, device)
     }

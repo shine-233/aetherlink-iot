@@ -51,7 +51,9 @@ describe('parseCanvas', () => {
   })
 
   it('保留变量与绑定', () => {
-    const result = parseCanvas('{"widgets":[],"variables":{"a":1},"bindings":[{"source":"s","target_widget_id":"w","target_property":"p"}]}')
+    const result = parseCanvas(
+      '{"widgets":[],"variables":{"a":1},"bindings":[{"source":"s","target_widget_id":"w","target_property":"p"}]}'
+    )
     expect(result.ok).toBe(true)
     if (result.ok) {
       expect(result.canvas.variables).toEqual({ a: 1 })
@@ -79,7 +81,9 @@ describe('serializeCanvas / 往返', () => {
 describe('isVersionConflictError', () => {
   it('识别后端版本冲突', () => {
     expect(
-      isVersionConflictError({ response: { data: { code: 201002, message: 'scada document version conflict; reload before saving' } } })
+      isVersionConflictError({
+        response: { data: { code: 201002, message: 'scada document version conflict; reload before saving' } }
+      })
     ).toBe(true)
   })
 
@@ -89,8 +93,14 @@ describe('isVersionConflictError', () => {
 
   // 不能把别的拒绝当成冲突：否则用户会以为重载一下就好，实际是权限问题。
   it('不把其他拒绝误判为冲突', () => {
-    expect(isVersionConflictError({ response: { data: { code: 201002, message: 'no permission to send control commands' } } })).toBe(false)
-    expect(isVersionConflictError({ response: { data: { code: 100404, message: 'scada document not found' } } })).toBe(false)
+    expect(
+      isVersionConflictError({
+        response: { data: { code: 201002, message: 'no permission to send control commands' } }
+      })
+    ).toBe(false)
+    expect(isVersionConflictError({ response: { data: { code: 100404, message: 'scada document not found' } } })).toBe(
+      false
+    )
   })
 
   it('无响应体的错误返回 false', () => {
@@ -101,7 +111,9 @@ describe('isVersionConflictError', () => {
 
 describe('isArchivedError', () => {
   it('识别归档终态拒绝', () => {
-    expect(isArchivedError({ response: { data: { message: 'archived scada document cannot be modified' } } })).toBe(true)
+    expect(isArchivedError({ response: { data: { message: 'archived scada document cannot be modified' } } })).toBe(
+      true
+    )
     expect(isArchivedError({ response: { data: { message: 'version conflict' } } })).toBe(false)
   })
 })
@@ -145,14 +157,14 @@ describe('resolveWidgets', () => {
     const res = resolveWidgets(instances, registry, true)
     expect(res.available).toHaveLength(3)
     expect(res.degraded).toHaveLength(0)
-    expect(res.unknown.map(i => i.widget_type)).toEqual(['retired'])
+    expect(res.unknown.map((i) => i.widget_type)).toEqual(['retired'])
   })
 
   // 门禁：3D/WebGL 降级不得影响 2D 看板。
   it('无 WebGL 时 3D 降级但 2D 全部照常可用', () => {
     const res = resolveWidgets(instances, registry, false)
-    expect(res.available.map(d => d.type)).toEqual(['gauge', 'chart'])
-    expect(res.degraded.map(d => d.type)).toEqual(['twin3d'])
+    expect(res.available.map((d) => d.type)).toEqual(['gauge', 'chart'])
+    expect(res.degraded.map((d) => d.type)).toEqual(['twin3d'])
     expect(res.unknown).toHaveLength(1)
   })
 

@@ -152,11 +152,13 @@ export function findReverse(relations: EntityRelation[], draft: EntityRelationDr
     created_at: '',
     updated_at: ''
   }
-  return relations.find(item => isReverseOf(ghost, item))
+  return relations.find((item) => isReverseOf(ghost, item))
 }
 
 /** 关系列表去重键：端点与类型相同即视为同一条（后端唯一约束口径）。 */
-export function relationKey(relation: Pick<EntityRelation, 'from_type' | 'from_id' | 'relation_type' | 'to_type' | 'to_id'>): string {
+export function relationKey(
+  relation: Pick<EntityRelation, 'from_type' | 'from_id' | 'relation_type' | 'to_type' | 'to_id'>
+): string {
   return [relation.from_type, relation.from_id, relation.relation_type, relation.to_type, relation.to_id].join('|')
 }
 

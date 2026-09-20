@@ -10,10 +10,7 @@ import { message } from '@/utils/common/discrete'
 import { writeClipboardText } from '@/utils/clipboard'
 import type { LabelKey } from '../constants/rdi-labels'
 
-export function useRdiShare(
-  deviceId: () => string,
-  t: (key: LabelKey) => string
-) {
+export function useRdiShare(deviceId: () => string, t: (key: LabelKey) => string) {
   const shareLoading = ref(false)
   const shareExpiresIn = ref(7 * 24 * 60 * 60)
   const shareLink = ref('')
@@ -40,7 +37,8 @@ export function useRdiShare(
     try {
       const { error, data } = await createRdiShareToken(deviceId(), { expires_in: shareExpiresIn.value })
       if (!error && data) {
-        const path = data.share_path || (data.token ? `/device/share?share_token=${encodeURIComponent(data.token)}` : '')
+        const path =
+          data.share_path || (data.token ? `/device/share?share_token=${encodeURIComponent(data.token)}` : '')
         if (!path) return
         shareLink.value = `${window.location.origin}${path.startsWith('/') ? path : `/${path}`}`
         await copyShareLink()

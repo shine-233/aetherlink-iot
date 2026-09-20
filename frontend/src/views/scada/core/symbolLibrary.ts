@@ -169,10 +169,10 @@ const SYMBOLS: ScadaSymbol[] = [
   }
 ]
 
-const BY_KEY = new Map(SYMBOLS.map(symbol => [symbol.key, symbol]))
+const BY_KEY = new Map(SYMBOLS.map((symbol) => [symbol.key, symbol]))
 
 export function listScadaSymbols(): ScadaSymbol[] {
-  return SYMBOLS.map(symbol => ({ ...symbol }))
+  return SYMBOLS.map((symbol) => ({ ...symbol }))
 }
 
 export function findScadaSymbol(key: string): ScadaSymbol | undefined {
@@ -187,5 +187,5 @@ export function listScadaSymbolCategories(): ScadaSymbolCategory[] {
 }
 
 export function listScadaSymbolsByCategory(category: ScadaSymbolCategory): ScadaSymbol[] {
-  return SYMBOLS.filter(symbol => symbol.category === category).map(symbol => ({ ...symbol }))
+  return SYMBOLS.filter((symbol) => symbol.category === category).map((symbol) => ({ ...symbol }))
 }

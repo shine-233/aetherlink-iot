@@ -35,8 +35,8 @@ watch(
 // 温度启发式：先精确匹配 temperature，再退回包含 temp 的首个数值型遥测；都没有则交给面板默认值。
 const temperature = computed<number | undefined>(() => {
   const items = telemetryData.value ?? []
-  const exact = items.find(item => item.key?.toLowerCase() === 'temperature')
-  const fuzzy = items.find(item => typeof item.value === 'number' && item.key?.toLowerCase().includes('temp'))
+  const exact = items.find((item) => item.key?.toLowerCase() === 'temperature')
+  const fuzzy = items.find((item) => typeof item.value === 'number' && item.key?.toLowerCase().includes('temp'))
   const hit = exact ?? fuzzy
   return hit && typeof hit.value === 'number' ? hit.value : undefined
 })

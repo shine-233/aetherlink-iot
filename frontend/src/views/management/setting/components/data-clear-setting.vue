@@ -67,7 +67,7 @@ const columns: Ref<DataTableColumns<GeneralSetting.DataClearSetting>> = ref([
     key: 'data_type',
     title: () => $t('page.manage.setting.dataClearSetting.form.cleanupType'),
     align: 'left',
-    render: row => {
+    render: (row) => {
       if (row.data_type) {
         const tagTypes: Record<GeneralSetting.CleanupTypeKey, NaiveUI.ThemeColor> = {
           '1': 'success',
@@ -91,7 +91,7 @@ const columns: Ref<DataTableColumns<GeneralSetting.DataClearSetting>> = ref([
     key: 'last_cleanup_time',
     title: () => $t('page.manage.setting.dataClearSetting.form.lastCleanupTime'),
     align: 'left',
-    render: row => {
+    render: (row) => {
       return <span>{dayjs(row.last_cleanup_time).format('YYYY-MM-DD HH:mm:ss')}</span>
     }
   },
@@ -99,7 +99,7 @@ const columns: Ref<DataTableColumns<GeneralSetting.DataClearSetting>> = ref([
     key: 'last_cleanup_data_time',
     title: () => $t('page.manage.setting.dataClearSetting.form.lastCleanupDataTime'),
     align: 'left',
-    render: row => {
+    render: (row) => {
       return <span>{dayjs(row.last_cleanup_data_time).format('YYYY-MM-DD HH:mm:ss')}</span>
     }
   },
@@ -113,7 +113,7 @@ const columns: Ref<DataTableColumns<GeneralSetting.DataClearSetting>> = ref([
     title: () => $t('common.actions'),
     align: 'center',
     width: '100px',
-    render: row => {
+    render: (row) => {
       return (
         <NSpace justify={'center'}>
           <NButton size={'small'} type="primary" onClick={() => handleEditTable(row)}>

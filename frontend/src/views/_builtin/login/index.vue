@@ -279,9 +279,13 @@ function resolveLoginDocumentTitle() {
   )
 }
 
-watch([effectiveModule, () => sysSetting.system_name], () => {
-  useTitle(resolveLoginDocumentTitle())
-}, { immediate: true })
+watch(
+  [effectiveModule, () => sysSetting.system_name],
+  () => {
+    useTitle(resolveLoginDocumentTitle())
+  },
+  { immediate: true }
+)
 </script>
 
 <template>
@@ -297,7 +301,7 @@ watch([effectiveModule, () => sysSetting.system_name], () => {
     }"
   >
     <!-- 使用 LoginBg 组件显示后端配置的背景图片 -->
-    <LoginBg v-if="sysSetting.home_background" :themeColor="themeStore.themeColor" :sysSetting="sysSetting" />
+    <LoginBg v-if="sysSetting.home_background" :theme-color="themeStore.themeColor" :sys-setting="sysSetting" />
 
     <!-- 默认背景动画效果 -->
     <div v-else class="bg-animation">

@@ -66,14 +66,22 @@ const mountComponent = () =>
     },
     global: {
       stubs: {
-        NAlert: defineComponent({ setup(_, { slots }) { return () => h('section', slots.default?.()) } }),
+        NAlert: defineComponent({
+          setup(_, { slots }) {
+            return () => h('section', slots.default?.())
+          }
+        }),
         NButton: defineComponent({
           emits: ['click'],
           setup(_, { slots, emit }) {
             return () => h('button', { onClick: () => emit('click') }, slots.default?.())
           }
         }),
-        NTag: defineComponent({ setup(_, { slots }) { return () => h('span', slots.default?.()) } })
+        NTag: defineComponent({
+          setup(_, { slots }) {
+            return () => h('span', slots.default?.())
+          }
+        })
       }
     }
   })
@@ -111,7 +119,9 @@ describe('onboarding-ready-check.vue', () => {
         command_summary: { level: 'ok', summary: 'Latest command was acknowledged', latest_status: 'success' },
         last_connection_error: { code: 'disconnect_error', summary: 'Broker disconnected recently' },
         partial_results: [{ component: 'command_delivery', reason: 'log_query_partial' }],
-        next_steps: [{ key: 'ready_check', title: 'Refresh Ready Check', description: 'Refresh after retry.', status: 'todo' }],
+        next_steps: [
+          { key: 'ready_check', title: 'Refresh Ready Check', description: 'Refresh after retry.', status: 'todo' }
+        ],
         evaluated_at: '2026-07-06T15:21:00Z'
       }
     })
@@ -216,35 +226,38 @@ describe('onboarding-ready-check.vue', () => {
     await flushPromises()
     const state = wrapper.vm.$.setupState as ReadyCheckSetupState
 
-    expect(state.evidenceCenterItems).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        key: 'source',
-        value: 'custom.device_details.readyCheckSourceOta',
-        detail: 'task=task-1 / detail=detail-1'
-      }),
-      expect.objectContaining({
-        key: 'evaluated-at',
-        value: '2026-07-06T15:21:00Z'
-      }),
-      expect.objectContaining({
-        key: 'telemetry',
-        value: 'temperature @ 2026-07-06T15:20:00Z',
-        detail: 'custom.device_details.readyCheckEvidenceTelemetryCount: 1 / custom.device_details.readyCheckEvidenceTelemetryValue: {"value":26}'
-      }),
-      expect.objectContaining({
-        key: 'last-issue',
-        value: 'Broker disconnected recently',
-        detail: 'disconnect_error'
-      }),
-      expect.objectContaining({
-        key: 'completeness',
-        value: 'command_delivery: log_query_partial'
-      }),
-      expect.objectContaining({
-        key: 'boundary',
-        value: 'custom.device_details.readyCheckEvidenceBoundaryValue'
-      })
-    ]))
+    expect(state.evidenceCenterItems).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'source',
+          value: 'custom.device_details.readyCheckSourceOta',
+          detail: 'task=task-1 / detail=detail-1'
+        }),
+        expect.objectContaining({
+          key: 'evaluated-at',
+          value: '2026-07-06T15:21:00Z'
+        }),
+        expect.objectContaining({
+          key: 'telemetry',
+          value: 'temperature @ 2026-07-06T15:20:00Z',
+          detail:
+            'custom.device_details.readyCheckEvidenceTelemetryCount: 1 / custom.device_details.readyCheckEvidenceTelemetryValue: {"value":26}'
+        }),
+        expect.objectContaining({
+          key: 'last-issue',
+          value: 'Broker disconnected recently',
+          detail: 'disconnect_error'
+        }),
+        expect.objectContaining({
+          key: 'completeness',
+          value: 'command_delivery: log_query_partial'
+        }),
+        expect.objectContaining({
+          key: 'boundary',
+          value: 'custom.device_details.readyCheckEvidenceBoundaryValue'
+        })
+      ])
+    )
     expect(state.backendNextSteps).toEqual([
       {
         key: 'ready_check',
@@ -276,37 +289,39 @@ describe('onboarding-ready-check.vue', () => {
       'ota',
       'audit-log'
     ])
-    expect(state.evidenceDeepLinks).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        key: 'telemetry',
-        path: '/device/details',
-        query: expect.objectContaining({
-          d_id: 'device-1',
-          tab: 'telemetry',
-          source: 'ota',
-          ota_detail_id: 'detail-1'
+    expect(state.evidenceDeepLinks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'telemetry',
+          path: '/device/details',
+          query: expect.objectContaining({
+            d_id: 'device-1',
+            tab: 'telemetry',
+            source: 'ota',
+            ota_detail_id: 'detail-1'
+          }),
+          boundaryKey: 'custom.device_details.readyCheckDeepLinkDeviceTabBoundary'
         }),
-        boundaryKey: 'custom.device_details.readyCheckDeepLinkDeviceTabBoundary'
-      }),
-      expect.objectContaining({
-        key: 'ota',
-        path: '/product/update-ota',
-        query: {
-          source: 'ready-check',
-          ota_task_id: 'task-1',
-          ota_detail_id: 'detail-1'
-        },
-        boundaryKey: 'custom.device_details.readyCheckDeepLinkOtaBoundary'
-      }),
-      expect.objectContaining({
-        key: 'audit-log',
-        path: '/system-management-user/system-log',
-        query: expect.objectContaining({
-          path: '/device/device-1'
+        expect.objectContaining({
+          key: 'ota',
+          path: '/product/update-ota',
+          query: {
+            source: 'ready-check',
+            ota_task_id: 'task-1',
+            ota_detail_id: 'detail-1'
+          },
+          boundaryKey: 'custom.device_details.readyCheckDeepLinkOtaBoundary'
         }),
-        boundaryKey: 'custom.device_details.readyCheckDeepLinkAuditBoundary'
-      })
-    ]))
+        expect.objectContaining({
+          key: 'audit-log',
+          path: '/system-management-user/system-log',
+          query: expect.objectContaining({
+            path: '/device/device-1'
+          }),
+          boundaryKey: 'custom.device_details.readyCheckDeepLinkAuditBoundary'
+        })
+      ])
+    )
 
     state.openEvidenceDeepLink(state.evidenceDeepLinks.find((link: ReadyCheckDeepLink) => link.key === 'ota'))
 

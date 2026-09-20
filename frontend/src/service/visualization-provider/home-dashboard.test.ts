@@ -77,7 +77,8 @@ describe('visualization home dashboard resolver', () => {
   it('passes an explicit Native tenant context to the home provider', async () => {
     const getHomeDashboard = vi.fn().mockResolvedValue({ ok: true, data: dashboard })
     execute.mockImplementation((operation: (provider: { getHomeDashboard: typeof getHomeDashboard }) => unknown) =>
-      operation({ getHomeDashboard }))
+      operation({ getHomeDashboard })
+    )
     const resolver = createVisualizationHomeDashboardResolver({
       ...dependencies,
       tenantId: 'tenant-1'

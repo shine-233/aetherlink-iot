@@ -6,15 +6,7 @@
 <script setup lang="ts">
 import { computed, h, onMounted, reactive, ref } from 'vue'
 import type { DataTableColumns, FormInst, FormRules, TreeOption } from 'naive-ui'
-import {
-  NButton,
-  NEmpty,
-  NInput,
-  NPopconfirm,
-  NSelect,
-  NTag,
-  useMessage
-} from 'naive-ui'
+import { NButton, NEmpty, NInput, NPopconfirm, NSelect, NTag, useMessage } from 'naive-ui'
 import {
   assetCreate,
   assetDelete,
@@ -48,7 +40,7 @@ const treeData = ref<TreeOption[]>([])
 
 /** 把后端 AssetTreeNode 递归转换为 n-tree 的 { label, key, children } 结构。 */
 function toTreeOptions(nodes: AssetTreeNode[]): TreeOption[] {
-  return (nodes || []).map(node => ({
+  return (nodes || []).map((node) => ({
     key: node.id,
     label: node.name,
     children: node.children && node.children.length > 0 ? toTreeOptions(node.children) : undefined
@@ -145,9 +137,7 @@ const rules: FormRules = {
   }
 }
 
-const modalTitle = computed(() =>
-  editingId.value ? $t('custom.asset.editTitle') : $t('custom.asset.createTitle')
-)
+const modalTitle = computed(() => (editingId.value ? $t('custom.asset.editTitle') : $t('custom.asset.createTitle')))
 
 function openCreate(childOfSelected: boolean) {
   editingId.value = ''
@@ -218,9 +208,7 @@ async function handleDelete(row: Asset) {
   }
 }
 
-const typeOptions = computed(() =>
-  ASSET_TYPES.map(value => ({ label: typeLabel(value), value }))
-)
+const typeOptions = computed(() => ASSET_TYPES.map((value) => ({ label: typeLabel(value), value })))
 
 const columns = computed<DataTableColumns<Asset>>(() => [
   {
@@ -232,7 +220,7 @@ const columns = computed<DataTableColumns<Asset>>(() => [
     title: () => $t('custom.asset.type'),
     key: 'asset_type',
     width: 110,
-    render: row => h(NTag, { size: 'small', bordered: false }, { default: () => typeLabel(row.asset_type) })
+    render: (row) => h(NTag, { size: 'small', bordered: false }, { default: () => typeLabel(row.asset_type) })
   },
   {
     title: () => $t('custom.asset.tenantId'),
@@ -244,29 +232,21 @@ const columns = computed<DataTableColumns<Asset>>(() => [
     title: () => $t('custom.asset.createdAt'),
     key: 'created_at',
     width: 180,
-    render: row => row.created_at?.replace('T', ' ').slice(0, 19) || '--'
+    render: (row) => row.created_at?.replace('T', ' ').slice(0, 19) || '--'
   },
   {
     title: () => $t('common.actions'),
     key: 'actions',
     width: 170,
-    render: row =>
+    render: (row) =>
       h('div', { class: 'flex gap-2' }, [
-        h(
-          NButton,
-          { size: 'small', onClick: () => openEdit(row) },
-          { default: () => $t('common.edit') }
-        ),
+        h(NButton, { size: 'small', onClick: () => openEdit(row) }, { default: () => $t('common.edit') }),
         h(
           NPopconfirm,
           { onPositiveClick: () => handleDelete(row) },
           {
             trigger: () =>
-              h(
-                NButton,
-                { size: 'small', quaternary: true, type: 'error' },
-                { default: () => $t('common.delete') }
-              ),
+              h(NButton, { size: 'small', quaternary: true, type: 'error' }, { default: () => $t('common.delete') }),
             default: () => $t('custom.asset.deleteConfirm')
           }
         )
@@ -346,11 +326,7 @@ onMounted(() => {
           <n-select v-model:value="formData.asset_type" :options="typeOptions" />
         </n-form-item>
         <n-form-item :label="$t('custom.asset.parent')" path="parent_id">
-          <n-input
-            v-model:value="formData.parent_id"
-            :placeholder="$t('custom.asset.parentRoot')"
-            clearable
-          />
+          <n-input v-model:value="formData.parent_id" :placeholder="$t('custom.asset.parentRoot')" clearable />
         </n-form-item>
         <n-form-item :label="$t('custom.asset.meta')" path="meta">
           <n-input

@@ -64,7 +64,7 @@ describe('RdiAlarmSummary', () => {
     expect(setupState.currentAlarm.id).toBe('active-medium')
     expect(setupState.recentAlarm.id).toBe('recent-cleared')
     expect(setupState.recentAlarm.alarm_status).toBe('N')
-    const cardTitles = wrapper.findAll('n-card-stub').map(card => card.attributes('title'))
+    const cardTitles = wrapper.findAll('n-card-stub').map((card) => card.attributes('title'))
     expect(cardTitles).toContain('rdi.overview.activeAlarms')
     expect(cardTitles).toContain('rdi.overview.mostRecentAlert')
   })

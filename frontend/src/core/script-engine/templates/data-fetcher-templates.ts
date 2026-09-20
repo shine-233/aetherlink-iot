@@ -96,7 +96,8 @@ return data`,
         defaultValue: 5
       }
     ],
-    usageSnippet: '// context = { deviceId: "replace_with_device_id", points: 48, baseValue: 25, variation: 8, metric: "temperature" }',
+    usageSnippet:
+      '// context = { deviceId: "replace_with_device_id", points: 48, baseValue: 25, variation: 8, metric: "temperature" }',
     isSystem: true
   },
 

@@ -18,13 +18,7 @@ vi.mock('@/service/request', () => ({
   }
 }))
 
-import {
-  getMarketTemplateDetail,
-  getMarketTemplates,
-  installFromMarket,
-  marketLogin,
-  publishToMarket
-} from '../market'
+import { getMarketTemplateDetail, getMarketTemplates, installFromMarket, marketLogin, publishToMarket } from '../market'
 
 describe('market API service', () => {
   beforeEach(() => {

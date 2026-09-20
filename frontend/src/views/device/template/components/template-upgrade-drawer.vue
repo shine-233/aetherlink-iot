@@ -43,7 +43,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
   'update:visible': [visible: boolean]
-  'success': []
+  success: []
 }>()
 
 const loading = ref(false)
@@ -56,7 +56,7 @@ const fetchHistory = async () => {
   try {
     const res = await getDeviceTemplateUpgradeHistory({ template_name: props.templateName })
     if (!res.error) {
-      historyList.value = Array.isArray(res.data) ? res.data : (res.data?.list || [])
+      historyList.value = Array.isArray(res.data) ? res.data : res.data?.list || []
     }
   } catch (err) {
     console.error('Failed to load template upgrade history:', err)
@@ -176,33 +176,20 @@ const columns = [
 </script>
 
 <template>
-  <NDrawer
-    :show="visible"
-    :width="700"
-    placement="right"
-    @update:show="(val: boolean) => emit('update:visible', val)"
-  >
+  <NDrawer :show="visible" :width="700" placement="right" @update:show="(val: boolean) => emit('update:visible', val)">
     <NDrawerContent :title="`物模型版本管理与升级回滚 - ${templateName}`" closable>
       <NSpace vertical size="large">
         <NAlert type="info" title="版本升级说明">
-          物模型升级需提供点分数字版本（例如 1.2.0）的物模型导出 JSON 文件。目标版本必须严格新于当前版本。回滚操作为安全幂等重放，不删除任何历史审计点。
+          物模型升级需提供点分数字版本（例如 1.2.0）的物模型导出 JSON
+          文件。目标版本必须严格新于当前版本。回滚操作为安全幂等重放，不删除任何历史审计点。
         </NAlert>
 
         <NCard title="快速升级版本" size="small">
           <NSpace align="center">
-            <NUpload
-              :show-file-list="false"
-              accept=".json"
-              :custom-request="() => {}"
-              @change="handleUploadChange"
-            >
-              <NButton type="primary" :loading="upgrading">
-                上传新版本 JSON 升级
-              </NButton>
+            <NUpload :show-file-list="false" accept=".json" :custom-request="() => {}" @change="handleUploadChange">
+              <NButton type="primary" :loading="upgrading">上传新版本 JSON 升级</NButton>
             </NUpload>
-            <span v-if="currentVersion" class="text-xs text-gray-500">
-              当前版本: {{ currentVersion }}
-            </span>
+            <span v-if="currentVersion" class="text-xs text-gray-500">当前版本: {{ currentVersion }}</span>
           </NSpace>
         </NCard>
 
@@ -213,12 +200,7 @@ const columns = [
             此前写成 `empty-text="暂无版本升级历史"` 会退化成 fallthrough 属性被静默丢弃，
             空态既不显示自定义文案也不报错——2026-09-16 由浏览器 E2E 抓出。
           -->
-          <NDataTable
-            :loading="loading"
-            :data="historyList"
-            :columns="columns"
-            :pagination="false"
-          >
+          <NDataTable :loading="loading" :data="historyList" :columns="columns" :pagination="false">
             <template #empty>
               <NEmpty description="暂无版本升级历史" />
             </template>

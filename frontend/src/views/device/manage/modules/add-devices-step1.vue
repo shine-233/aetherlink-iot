@@ -94,7 +94,7 @@ async function handleValidateClick(e: MouseEvent) {
             v-model:value="formValue.pid_number"
             maxlength="12"
             :placeholder="$t('rdi.device.pidPlaceholder')"
-            @update:value="value => (formValue.pid_number = value.toUpperCase())"
+            @update:value="(value) => (formValue.pid_number = value.toUpperCase())"
           />
         </n-form-item>
         <n-form-item :label="$t('custom.devicePage.label')" path="label">

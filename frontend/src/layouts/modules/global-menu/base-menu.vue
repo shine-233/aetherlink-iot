@@ -74,7 +74,7 @@ function handleClickMenu(key: RouteKey) {
   routerPushByKey(key)
 }
 
-const renderMenuLabel = op => {
+const renderMenuLabel = (op) => {
   return op.label as string
 }
 

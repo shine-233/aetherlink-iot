@@ -58,8 +58,9 @@ const TencentMap = defineAsyncComponent(() => import('./modules/tencent-map.vue'
 // 通过props从父组件接收参数
 const props = defineProps<{
   fetchData: any // 数据获取函数
-  columnsToShow: // 表格列配置
-  | {
+  columnsToShow:
+    // 表格列配置
+    | {
         key: string
         label: theLabel
         render?: () => VueElement | string | undefined // 自定义渲染函数
@@ -630,8 +631,9 @@ const handleWarningClick = (item: DeviceItem) => {
           :search-criteria="searchCriteria"
           :total="total"
         />
-        <NDataTable aria-label="data table"
+        <NDataTable
           v-else
+          aria-label="data table"
           size="small"
           :row-props="rowProps"
           :row-key="getRowKey"

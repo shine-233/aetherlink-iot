@@ -34,7 +34,10 @@ function chainError(...args: any[]): void {
 
 /** 在内部抛出时保留统一执行器的稳定错误代码。 */
 class DataItemExecutionError extends Error {
-  constructor(message: string, readonly code?: string) {
+  constructor(
+    message: string,
+    readonly code?: string
+  ) {
     super(message)
     this.name = 'DataItemExecutionError'
   }
@@ -178,7 +181,7 @@ export class MultiLayerExecutorChain implements IMultiLayerExecutorChain {
 
       // 第四层：多源整合
       const componentData = await this.multiSourceIntegrator.integrateDataSources(dataSourceResults, config.componentId)
-      const successfulSources = dataSourceResults.filter(source => source.success).length
+      const successfulSources = dataSourceResults.filter((source) => source.success).length
       const allSourcesFailed = dataSourceResults.length === 0 || successfulSources === 0
 
       // 更新调试状态
@@ -193,7 +196,7 @@ export class MultiLayerExecutorChain implements IMultiLayerExecutorChain {
 
       const executionTime = Date.now() - startTime
 
-      const firstFailure = dataSourceResults.find(source => !source.success)
+      const firstFailure = dataSourceResults.find((source) => !source.success)
 
       return {
         success: !allSourcesFailed,

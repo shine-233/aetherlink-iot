@@ -432,7 +432,9 @@ export class DataItemFetcher implements IDataItemFetcher {
       if (!scriptResult.success) {
         throw new DataItemFetchError(
           'PRE_REQUEST_SCRIPT_FAILED',
-          scriptResult.error ? this.formatError(scriptResult.error) : 'Pre-request script returned an unsuccessful result.'
+          scriptResult.error
+            ? this.formatError(scriptResult.error)
+            : 'Pre-request script returned an unsuccessful result.'
         )
       }
       if (scriptResult.data !== undefined && scriptResult.data !== null) {
@@ -480,7 +482,12 @@ export class DataItemFetcher implements IDataItemFetcher {
       GET: () => request.get(requestPlan.finalUrl, requestPlan.requestConfig),
       POST: () => request.post(requestPlan.finalUrl, requestPlan.requestBody, requestPlan.requestConfig),
       PUT: () => request.put(requestPlan.finalUrl, requestPlan.requestBody, requestPlan.requestConfig),
-      PATCH: () => (request as unknown as { patch: typeof request.post }).patch(requestPlan.finalUrl, requestPlan.requestBody, requestPlan.requestConfig),
+      PATCH: () =>
+        (request as unknown as { patch: typeof request.post }).patch(
+          requestPlan.finalUrl,
+          requestPlan.requestBody,
+          requestPlan.requestConfig
+        ),
       DELETE: () => request.delete(requestPlan.finalUrl, requestPlan.requestConfig)
     }
 
@@ -527,10 +534,7 @@ export class DataItemFetcher implements IDataItemFetcher {
     )
   }
 
-  private buildFetchFailure(
-    errorCode: DataItemFetchFailureCode,
-    error: string
-  ): DataItemFetchFailure {
+  private buildFetchFailure(errorCode: DataItemFetchFailureCode, error: string): DataItemFetchFailure {
     return {
       success: false,
       error,

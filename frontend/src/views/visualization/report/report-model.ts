@@ -34,8 +34,8 @@ export const isUncertainReportTransportError = (error: unknown) => {
   if (requestError.response != null) return false
   return Boolean(
     requestError.request != null ||
-      requestError.isAxiosError ||
-      (requestError.code && UNCERTAIN_TRANSPORT_CODES.has(requestError.code))
+    requestError.isAxiosError ||
+    (requestError.code && UNCERTAIN_TRANSPORT_CODES.has(requestError.code))
   )
 }
 

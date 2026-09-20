@@ -67,10 +67,7 @@ export function validateWidgetForm(
   }
 }
 
-export function convertFormToWidgetConfig(
-  type: LocalWidgetType,
-  data: DynamicWidgetFormData
-): LocalWidgetConfig {
+export function convertFormToWidgetConfig(type: LocalWidgetType, data: DynamicWidgetFormData): LocalWidgetConfig {
   const entityRelation = data.entityRelation?.enabled ? data.entityRelation : undefined
 
   if (type === 'html') {
@@ -117,16 +114,16 @@ export function convertFormToWidgetConfig(
   if (data.categoriesText) {
     categories = data.categoriesText
       .split(/[,，\n]/)
-      .map(s => s.trim())
+      .map((s) => s.trim())
       .filter(Boolean)
   }
   if (data.valuesText) {
     values = data.valuesText
       .split(/[,，\n]/)
-      .map(s => s.trim())
+      .map((s) => s.trim())
       .filter(Boolean)
       .map(Number)
-      .filter(n => !Number.isNaN(n))
+      .filter((n) => !Number.isNaN(n))
   }
 
   const derivedCategoryField = entityRelation ? `${generateRelationFieldKey(entityRelation)}_cats` : undefined

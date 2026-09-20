@@ -7,11 +7,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import {
-  disposeVisualEditorBridge,
-  getVisualEditorBridge,
-  VisualEditorBridge
-} from './VisualEditorBridge'
+import { disposeVisualEditorBridge, getVisualEditorBridge, VisualEditorBridge } from './VisualEditorBridge'
 
 const { simpleDataBridgeMock, bindingConfigMock, loggerMock } = vi.hoisted(() => ({
   simpleDataBridgeMock: {

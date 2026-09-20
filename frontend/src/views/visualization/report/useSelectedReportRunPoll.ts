@@ -91,7 +91,9 @@ export function useSelectedReportRunPoll(options: SelectedReportRunPollOptions) 
         const nextFailure: ReportRunPollFailure = {
           error: error || new Error('missing report run data'),
           consecutiveFailures: (failure.value?.consecutiveFailures || 0) + 1,
-          stopped: (failure.value?.consecutiveFailures || 0) + 1 >= (options.maxConsecutiveFailures || DEFAULT_MAX_CONSECUTIVE_FAILURES)
+          stopped:
+            (failure.value?.consecutiveFailures || 0) + 1 >=
+            (options.maxConsecutiveFailures || DEFAULT_MAX_CONSECUTIVE_FAILURES)
         }
         failure.value = nextFailure
         options.onFailure?.(nextFailure)
@@ -131,10 +133,12 @@ export function useSelectedReportRunPoll(options: SelectedReportRunPollOptions) 
         refreshQueued = false
         if (active.value && pageVisible.value && !disposed) {
           await refresh()
-          return
+        } else {
+          scheduleNext()
         }
+      } else {
+        scheduleNext()
       }
-      scheduleNext()
     }
   }
 

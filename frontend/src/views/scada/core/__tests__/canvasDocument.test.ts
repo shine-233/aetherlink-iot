@@ -53,17 +53,41 @@ describe('scada canvas validation', () => {
   })
 
   it('rejects nodes without id or ref', () => {
-    expect(() => parseScadaCanvas(JSON.stringify({ width: 10, height: 10, nodes: [{ id: '', kind: 'widget', ref: 'x', x: 0, y: 0, width: 1, height: 1 }] }))).toThrow(/non-empty id/)
-    expect(() => parseScadaCanvas(JSON.stringify({ width: 10, height: 10, nodes: [{ id: 'a', kind: 'widget', ref: '', x: 0, y: 0, width: 1, height: 1 }] }))).toThrow(/non-empty ref/)
+    expect(() =>
+      parseScadaCanvas(
+        JSON.stringify({
+          width: 10,
+          height: 10,
+          nodes: [{ id: '', kind: 'widget', ref: 'x', x: 0, y: 0, width: 1, height: 1 }]
+        })
+      )
+    ).toThrow(/non-empty id/)
+    expect(() =>
+      parseScadaCanvas(
+        JSON.stringify({
+          width: 10,
+          height: 10,
+          nodes: [{ id: 'a', kind: 'widget', ref: '', x: 0, y: 0, width: 1, height: 1 }]
+        })
+      )
+    ).toThrow(/non-empty ref/)
   })
 
   it('rejects unknown node kinds rather than defaulting to widget', () => {
-    const raw = JSON.stringify({ width: 10, height: 10, nodes: [{ id: 'a', kind: 'hologram', ref: 'r', x: 0, y: 0, width: 1, height: 1 }] })
+    const raw = JSON.stringify({
+      width: 10,
+      height: 10,
+      nodes: [{ id: 'a', kind: 'hologram', ref: 'r', x: 0, y: 0, width: 1, height: 1 }]
+    })
     expect(() => parseScadaCanvas(raw)).toThrow(/unknown kind/)
   })
 
   it('rejects non-finite geometry', () => {
-    const raw = JSON.stringify({ width: 10, height: 10, nodes: [{ id: 'a', kind: 'widget', ref: 'r', x: Number.NaN, y: 0, width: 1, height: 1 }] })
+    const raw = JSON.stringify({
+      width: 10,
+      height: 10,
+      nodes: [{ id: 'a', kind: 'widget', ref: 'r', x: Number.NaN, y: 0, width: 1, height: 1 }]
+    })
     expect(() => parseScadaCanvas(raw)).toThrow(/finite number/)
   })
 
@@ -89,6 +113,6 @@ describe('scada canvas id allocation', () => {
   it('never reuses an existing id', () => {
     const nodes = [sampleNode, { ...sampleNode, id: 'node-2' }]
     const id = nextScadaCanvasNodeId(nodes)
-    expect(nodes.some(node => node.id === id)).toBe(false)
+    expect(nodes.some((node) => node.id === id)).toBe(false)
   })
 })

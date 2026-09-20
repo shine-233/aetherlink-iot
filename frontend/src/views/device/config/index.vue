@@ -40,9 +40,9 @@ const { routerPushByKey } = useRouterPush()
 
 // 市场相关弹窗和挂起发布状态都集中在页面壳层统一编排。
 const marketLoginRef = ref<ComponentPublicInstance<{ open: () => void }> | null>(null)
-const publishConfirmRef = ref<ComponentPublicInstance<{ open: (deviceConfigId: string, defaultName?: string) => void }> | null>(
-  null
-)
+const publishConfirmRef = ref<ComponentPublicInstance<{
+  open: (deviceConfigId: string, defaultName?: string) => void
+}> | null>(null)
 const pendingPublishId = ref('')
 const pendingPublishName = ref('')
 const activeTab = ref('local')
@@ -50,7 +50,7 @@ const marketTabVisited = ref(false)
 const marketLoginVisited = ref(false)
 const publishConfirmVisited = ref(false)
 
-watch(activeTab, value => {
+watch(activeTab, (value) => {
   if (value === 'market') {
     marketTabVisited.value = true
   }
@@ -362,7 +362,7 @@ const availableViews = [
                     :footer-text="`${item.device_count} ${$t('generate.individual')} ${$t('generate.device')}`"
                     :subtitle="deviceTypeMap[item.device_type as keyof typeof deviceTypeMap]"
                     :device-config-id="item.id"
-                    :isStatus="false"
+                    :is-status="false"
                     @click-card="goToDetail(item.id)"
                   >
                     <template #subtitle-icon>
@@ -383,7 +383,7 @@ const availableViews = [
                           }
                         ]"
                         @select="
-                          key => {
+                          (key) => {
                             if (key === 'edit') handleEdit(item.id)
                             if (key === 'publish') handlePublishToMarket(item.id, item.name)
                           }

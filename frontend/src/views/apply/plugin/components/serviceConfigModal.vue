@@ -81,7 +81,7 @@ const close: () => void = () => {
 }
 
 const submitSevice: () => void = () => {
-  formRef.value?.validate(async errors => {
+  formRef.value?.validate(async (errors) => {
     if (errors) return
     loading.value = true
     const params = details.value
@@ -99,8 +99,9 @@ defineExpose({ openModal })
 </script>
 
 <template>
-  <n-modal aria-label="dialog"
+  <n-modal
     v-model:show="serviceModal"
+    aria-label="dialog"
     preset="dialog"
     :title="`${$t('common.pluginConfig')}(${serviceType})`"
     @after-leave="close"

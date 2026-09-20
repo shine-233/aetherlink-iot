@@ -97,7 +97,11 @@ getNotificationServices()
   <NSpin :show="loading">
     <NForm ref="formRef" label-placement="left" :label-width="150" :model="formModel" :rules="rules">
       <NGrid :cols="24">
-        <NFormItemGridItem :span="6" :label="$t('page.manage.notification.shortMessage.form.provider')" path="sme_config.provider">
+        <NFormItemGridItem
+          :span="6"
+          :label="$t('page.manage.notification.shortMessage.form.provider')"
+          path="sme_config.provider"
+        >
           <NSelect v-model:value="formModel.sme_config.provider" :options="providerOptions" />
         </NFormItemGridItem>
       </NGrid>
@@ -116,7 +120,11 @@ getNotificationServices()
           :label="$t('page.manage.notification.shortMessage.form.accessKeySecret')"
           path="sme_config.aliyun_sms_config.access_key_secret"
         >
-          <NInput v-model:value="formModel.sme_config.aliyun_sms_config.access_key_secret" type="password" show-password-on="click" />
+          <NInput
+            v-model:value="formModel.sme_config.aliyun_sms_config.access_key_secret"
+            type="password"
+            show-password-on="click"
+          />
         </NFormItemGridItem>
       </NGrid>
       <NGrid :cols="24">

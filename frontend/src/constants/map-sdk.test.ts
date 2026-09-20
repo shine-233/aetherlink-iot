@@ -4,12 +4,7 @@
  * 关键注意事项：仓库不得提供可直接使用的供应商密钥。
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import {
-  buildAmapSdkUrl,
-  buildBaiduMapSdkUrl,
-  buildTencentMapSdkUrl,
-  ensureAmapSecurityConfig
-} from './map-sdk'
+import { buildAmapSdkUrl, buildBaiduMapSdkUrl, buildTencentMapSdkUrl, ensureAmapSecurityConfig } from './map-sdk'
 
 describe('ensureAmapSecurityConfig', () => {
   afterEach(() => {
@@ -54,9 +49,7 @@ describe('buildAmapSdkUrl', () => {
   })
 
   it('trims and encodes the deployment key', () => {
-    expect(buildAmapSdkUrl(' key/value ')).toBe(
-      'https://webapi.amap.com/maps?v=2.0&key=key%2Fvalue'
-    )
+    expect(buildAmapSdkUrl(' key/value ')).toBe('https://webapi.amap.com/maps?v=2.0&key=key%2Fvalue')
   })
 })
 
@@ -67,8 +60,6 @@ describe('buildTencentMapSdkUrl', () => {
   })
 
   it('trims and encodes the deployment key', () => {
-    expect(buildTencentMapSdkUrl(' key/value ')).toBe(
-      'https://map.qq.com/api/gljs?v=1.exp&key=key%2Fvalue'
-    )
+    expect(buildTencentMapSdkUrl(' key/value ')).toBe('https://map.qq.com/api/gljs?v=1.exp&key=key%2Fvalue')
   })
 })

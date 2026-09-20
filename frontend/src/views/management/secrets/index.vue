@@ -81,7 +81,7 @@ const secretTypeOptions = [
   { label: 'OAuth2 凭证 (OAUTH2)', value: 'OAUTH2' }
 ]
 
-const formTypeOptions = secretTypeOptions.filter(o => o.value !== '')
+const formTypeOptions = secretTypeOptions.filter((o) => o.value !== '')
 
 const formRules: FormRules = {
   key: [
@@ -89,7 +89,7 @@ const formRules: FormRules = {
     {
       validator: (_rule, value: string) => {
         if (!value) return true
-        const regex = /^[a-zA-Z0-9_\-\.]{1,64}$/
+        const regex = /^[a-zA-Z0-9_.-]{1,64}$/
         if (!regex.test(value)) {
           return new Error('Key 仅允许 1-64 位的字母、数字、下划线、中划线和点号')
         }
@@ -121,7 +121,10 @@ const countdownSeconds = ref(15)
 let countdownTimer: number | null = null
 
 // 类型标签样式映射
-const typeTagMap: Record<SecretType, { type: 'default' | 'info' | 'success' | 'warning' | 'primary' | 'error'; label: string }> = {
+const typeTagMap: Record<
+  SecretType,
+  { type: 'default' | 'info' | 'success' | 'warning' | 'primary' | 'error'; label: string }
+> = {
   GENERIC: { type: 'default', label: '通用' },
   API_KEY: { type: 'info', label: 'API Key' },
   TOKEN: { type: 'success', label: 'Token' },
@@ -174,7 +177,7 @@ const handleOpenEdit = (row: SecretItem) => {
 
 const handleSubmit = async () => {
   if (!formRef.value) return
-  await formRef.value.validate(async errors => {
+  await formRef.value.validate(async (errors) => {
     if (errors) return
     submitting.value = true
     try {
@@ -307,7 +310,11 @@ const columns: DataTableColumns<SecretItem> = [
     key: 'mask_preview',
     width: 120,
     render(row) {
-      return h('span', { class: 'font-mono text-xs text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded' }, row.mask_preview)
+      return h(
+        'span',
+        { class: 'font-mono text-xs text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded' },
+        row.mask_preview
+      )
     }
   },
   {
@@ -430,7 +437,8 @@ onMounted(() => {
 
       <div class="mb-3">
         <NAlert type="info" size="small" :bordered="false">
-          通用密钥用于集中保管第三方 API Key、访问令牌、密码与证书。所有敏感内容均由后端 AES-256-GCM 信封高强静态加密存储（AAD 绑定当前租户），配置中可使用
+          通用密钥用于集中保管第三方 API Key、访问令牌、密码与证书。所有敏感内容均由后端 AES-256-GCM
+          信封高强静态加密存储（AAD 绑定当前租户），配置中可使用
           <code class="font-mono font-bold text-primary">${secret.KEY_NAME}</code>
           动态按需解析，杜绝硬编码泄漏。
         </NAlert>
@@ -447,8 +455,15 @@ onMounted(() => {
           itemCount: total,
           showSizePicker: true,
           pageSizes: [10, 20, 50],
-          onChange: (p: number) => { page = p; loadData() },
-          onUpdatePageSize: (ps: number) => { pageSize = ps; page = 1; loadData() }
+          onChange: (p: number) => {
+            page = p
+            loadData()
+          },
+          onUpdatePageSize: (ps: number) => {
+            pageSize = ps
+            page = 1
+            loadData()
+          }
         }"
       />
     </NCard>
@@ -463,11 +478,7 @@ onMounted(() => {
     >
       <NForm ref="formRef" :model="formModel" :rules="formRules" label-placement="left" label-width="110px">
         <NFormItem label="密钥标识" path="key">
-          <NInput
-            v-model:value="formModel.key"
-            placeholder="例如 AWS_IOT_ACCESS_KEY"
-            :disabled="isEdit"
-          />
+          <NInput v-model:value="formModel.key" placeholder="例如 AWS_IOT_ACCESS_KEY" :disabled="isEdit" />
         </NFormItem>
         <NFormItem label="展示名称" path="name">
           <NInput v-model:value="formModel.name" placeholder="请输入易于识别的名称" />
@@ -512,8 +523,9 @@ onMounted(() => {
     >
       <div class="space-y-3">
         <NAlert type="warning" title="安全警告" size="small">
-          本次解密查看已记录至系统安全审计日志。为防泄密，请勿截屏或共享给无关人员。
-          弹窗将在 <span class="font-bold text-error">{{ countdownSeconds }}</span> 秒后自动销毁关闭。
+          本次解密查看已记录至系统安全审计日志。为防泄密，请勿截屏或共享给无关人员。 弹窗将在
+          <span class="font-bold text-error">{{ countdownSeconds }}</span>
+          秒后自动销毁关闭。
         </NAlert>
 
         <div>

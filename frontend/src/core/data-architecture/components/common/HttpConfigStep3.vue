@@ -82,7 +82,7 @@ const queryParamTemplates = computed(() => {
  */
 watch(
   () => props.currentApiInfo,
-  newValue => {
+  (newValue) => {
     if (newValue && hasQueryParamTemplate.value && !hasAppliedTemplate.value) {
       showTemplateRecommend.value = true
     }
@@ -112,8 +112,8 @@ const applyTemplate = () => {
   }))
 
   // 合并到现有参数（避免重复）
-  const existingKeys = new Set((props.modelValue.params || []).map(p => p.key))
-  const newParams = templateParams.filter(p => !existingKeys.has(p.key))
+  const existingKeys = new Set((props.modelValue.params || []).map((p) => p.key))
+  const newParams = templateParams.filter((p) => !existingKeys.has(p.key))
 
   if (newParams.length > 0) {
     // 模板参数与存量形态合并后统一按持久化别名收口。
@@ -193,7 +193,7 @@ const dismissRecommend = () => {
       :current-api-info="currentApiInfo"
       :current-component-id="componentId"
       @update:model-value="
-        updatedParams => {
+        (updatedParams) => {
           emit('update:modelValue', { ...modelValue, params: fromEditorParams(updatedParams) })
         }
       "

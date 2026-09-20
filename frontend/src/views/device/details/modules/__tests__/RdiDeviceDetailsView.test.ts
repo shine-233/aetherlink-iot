@@ -35,10 +35,7 @@ vi.mock('@/store/modules/app', () => ({
 vi.mock('../rdi/composables/useRdiTelemetry', async () => {
   const { computed, ref } = await import('vue')
   return {
-    useRdiTelemetry: (
-      _deviceId: () => string,
-      online: () => number | undefined
-    ) => ({
+    useRdiTelemetry: (_deviceId: () => string, online: () => number | undefined) => ({
       temperatureUnit: ref('C'),
       telemetryRows: computed(() => hoisted.telemetryRows),
       deviceOnlineText: computed(() => (online() === 1 ? 'Online' : 'Offline')),
@@ -110,7 +107,7 @@ const TelemetrySummaryStub = defineComponent({
       h(
         'div',
         { class: 'rdi-telemetry-summary-stub' },
-        (props.rows as Array<{ label: string; value: unknown; unit?: string }>).map(row =>
+        (props.rows as Array<{ label: string; value: unknown; unit?: string }>).map((row) =>
           h('div', `${row.label}: ${row.value}${row.unit ? ` ${row.unit}` : ''}`)
         )
       )

@@ -12,7 +12,9 @@ describe('local viewer data binding', () => {
   })
 
   it('formats metric values and fails closed for missing or array fields', () => {
-    expect(resolveMetric({ label: 'Temperature', field: 'temperature', unit: ' °C', decimals: 1 }, { temperature: 21.26 })).toEqual({
+    expect(
+      resolveMetric({ label: 'Temperature', field: 'temperature', unit: ' °C', decimals: 1 }, { temperature: 21.26 })
+    ).toEqual({
       available: true,
       label: 'Temperature',
       value: '21.3',
@@ -47,7 +49,9 @@ describe('local viewer data binding', () => {
         'telemetry.values': [4, 5]
       })
     ).toMatchObject({ available: true, option: { series: [{ data: [4, 5] }] } })
-    expect(buildChartOption('line-chart', config, { 'telemetry.labels': ['10:00'], 'telemetry.values': [4, 5] }).available).toBe(false)
+    expect(
+      buildChartOption('line-chart', config, { 'telemetry.labels': ['10:00'], 'telemetry.values': [4, 5] }).available
+    ).toBe(false)
   })
 
   it('supports chartStyle, colorTheme, yMin/yMax, and threshold configuration', () => {
@@ -196,4 +200,3 @@ describe('local viewer data binding', () => {
     expect(resolved.html).toBe('<div class="offline">Device is Offline</div>')
   })
 })
-

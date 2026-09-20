@@ -36,16 +36,40 @@ vi.mock('lodash-es', () => ({
 }))
 
 vi.mock('naive-ui', () => ({
-  NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : []) } }),
-  NDataTable: defineComponent({ props: { data: { type: Array, default: () => [] } }, setup() { return () => h('div') } }),
-  NFlex: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NPagination: defineComponent({ props: { page: { default: 1 } }, emits: ['update:page'], setup() { return () => h('div') } })
+  NButton: defineComponent({
+    emits: ['click'],
+    setup(_, { slots, emit }) {
+      return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : [])
+    }
+  }),
+  NDataTable: defineComponent({
+    props: { data: { type: Array, default: () => [] } },
+    setup() {
+      return () => h('div')
+    }
+  }),
+  NFlex: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NPagination: defineComponent({
+    props: { page: { default: 1 } },
+    emits: ['update:page'],
+    setup() {
+      return () => h('div')
+    }
+  })
 }))
 
 vi.mock('@vicons/ionicons5', () => ({ SearchOutline: defineComponent({ setup: () => () => h('div') }) }))
 
 vi.mock('./components', () => ({
-  AddOrEditDevices: defineComponent({ setup() { return () => h('div') } })
+  AddOrEditDevices: defineComponent({
+    setup() {
+      return () => h('div')
+    }
+  })
 }))
 
 import Component from '../index.vue'

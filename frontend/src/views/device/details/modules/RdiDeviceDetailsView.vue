@@ -53,7 +53,12 @@ const {
   formatTemperatureValue,
   loadRealtimeState,
   startTelemetryRefresh
-} = useRdiTelemetry(deviceId, () => props.online, () => props.deviceData, t)
+} = useRdiTelemetry(
+  deviceId,
+  () => props.online,
+  () => props.deviceData,
+  t
+)
 const temperatureUnitOptions = computed(() => [
   { label: `${t('celsius')} (C)`, value: 'C' },
   { label: `${t('fahrenheit')} (F)`, value: 'F' }
@@ -140,11 +145,7 @@ function formatSwitchSettings(node: 1 | 2) {
   const prefix = node === 1 ? 'switch_1' : 'switch_2'
   return joinSettingParts([
     settingPart('mode', config.value[`${prefix}_alarm_mode` as keyof RDIConfig], formatMode),
-    settingPart(
-      'triggerEffectiveTime',
-      config.value[`${prefix}_alarm_duration` as keyof RDIConfig],
-      formatSeconds
-    )
+    settingPart('triggerEffectiveTime', config.value[`${prefix}_alarm_duration` as keyof RDIConfig], formatSeconds)
   ])
 }
 
@@ -186,11 +187,7 @@ const basicInfoItems = computed<DetailItem[]>(() => [
   {
     key: 'pid',
     label: 'pid',
-    value: firstPresent(
-      snapshot.value?.pid_number,
-      props.deviceData?.pid_number,
-      props.deviceData?.device_number
-    )
+    value: firstPresent(snapshot.value?.pid_number, props.deviceData?.pid_number, props.deviceData?.device_number)
   },
   {
     key: 'firmware',

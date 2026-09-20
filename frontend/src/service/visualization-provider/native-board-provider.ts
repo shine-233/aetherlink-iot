@@ -1,5 +1,10 @@
 import { createBoard, deleteBoard, fetchBoardById, fetchBoards, updateBoard } from '@/service/api/board'
-import { fetchPublishedBoardByShareToken, publishBoard, type BoardDetail, type UpdateBoardPayload } from '@/service/api/board'
+import {
+  fetchPublishedBoardByShareToken,
+  publishBoard,
+  type BoardDetail,
+  type UpdateBoardPayload
+} from '@/service/api/board'
 import {
   addBoardToProject,
   createBoardProject,
@@ -64,15 +69,16 @@ function parseBoardConfig(board: BoardDetail): VisualizationResult<unknown> {
   try {
     const parsed = JSON.parse(board.config) as unknown
     const normalized = normalizeLocalDashboard(parsed)
-    return normalized.ok
-      ? success(parsed)
-      : failure(`Native board config is invalid: ${board.id}: ${normalized.error}`)
+    return normalized.ok ? success(parsed) : failure(`Native board config is invalid: ${board.id}: ${normalized.error}`)
   } catch (cause) {
     return failure(`Native board config is not valid JSON: ${board.id}`, cause)
   }
 }
 
-function boardToDashboard(board: BoardDetail, projectId: string = NATIVE_BOARD_PROJECT_ID): VisualizationResult<VisualizationDashboardSchema> {
+function boardToDashboard(
+  board: BoardDetail,
+  projectId: string = NATIVE_BOARD_PROJECT_ID
+): VisualizationResult<VisualizationDashboardSchema> {
   const config = parseBoardConfig(board)
   if (!config.ok) return config
   return success({
@@ -96,7 +102,10 @@ function boardToDashboard(board: BoardDetail, projectId: string = NATIVE_BOARD_P
   })
 }
 
-function boardToSummary(board: BoardDetail, projectId: string = NATIVE_BOARD_PROJECT_ID): VisualizationResult<VisualizationDashboardSummary> {
+function boardToSummary(
+  board: BoardDetail,
+  projectId: string = NATIVE_BOARD_PROJECT_ID
+): VisualizationResult<VisualizationDashboardSummary> {
   // The paged board API intentionally returns summary columns and omits config.
   // Do not route list items through the detail converter: a valid board summary
   // must remain listable even when its renderer payload was not selected.
@@ -159,10 +168,11 @@ const unsupported = <T>(message: string): VisualizationResult<T> => ({
   ok: false,
   error: { code: 'unsupported-operation', message }
 })
-const isNonNeutral = (value: unknown): boolean => value !== undefined
-  && value !== null
-  && (!Array.isArray(value) || value.length > 0)
-  && (typeof value !== 'object' || Array.isArray(value) || Object.keys(value).length > 0)
+const isNonNeutral = (value: unknown): boolean =>
+  value !== undefined &&
+  value !== null &&
+  (!Array.isArray(value) || value.length > 0) &&
+  (typeof value !== 'object' || Array.isArray(value) || Object.keys(value).length > 0)
 
 export const nativeBoardProvider: LocalVisualizationProvider = {
   id: NATIVE_BOARD_PROVIDER_ID,
@@ -282,7 +292,8 @@ export const nativeBoardProvider: LocalVisualizationProvider = {
         project_id: params.projectId === NATIVE_BOARD_PROJECT_ID ? 'none' : params.projectId
       })
       if (error) return requestError('List native boards', error)
-      if (!data || !Array.isArray(data.list) || typeof data.total !== 'number') return failure('Invalid native board list response')
+      if (!data || !Array.isArray(data.list) || typeof data.total !== 'number')
+        return failure('Invalid native board list response')
       const items: VisualizationDashboardSummary[] = []
       for (const board of data.list) {
         const summary = boardToSummary(board, params.projectId)
@@ -367,7 +378,11 @@ export const nativeBoardProvider: LocalVisualizationProvider = {
   },
 
   async updateDashboard(id, payload) {
-    if ([payload.thumbnail, payload.canvasConfig, payload.nodes, payload.dataSources, payload.variables].some(isNonNeutral)) {
+    if (
+      [payload.thumbnail, payload.canvasConfig, payload.nodes, payload.dataSources, payload.variables].some(
+        isNonNeutral
+      )
+    ) {
       return unsupported('Native board layout fields are not supported')
     }
     const current = await loadNativeBoard(id)
@@ -379,11 +394,13 @@ export const nativeBoardProvider: LocalVisualizationProvider = {
       config = serialized.data
     }
     try {
-      const { data, error } = await updateBoard(fullUpdatePayload(current.data, {
-        name: payload.name ?? current.data.name,
-        description: payload.description ?? current.data.description ?? undefined,
-        config
-      }))
+      const { data, error } = await updateBoard(
+        fullUpdatePayload(current.data, {
+          name: payload.name ?? current.data.name,
+          description: payload.description ?? current.data.description ?? undefined,
+          config
+        })
+      )
       if (error) return requestError(`Update native board ${id}`, error)
       if (!data) return failure('Invalid update native board response')
       return boardToDashboard(data)

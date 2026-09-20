@@ -132,9 +132,7 @@ export const buildFirstAutomationRecommendedConditionDraft = (
 
   const operator = isNumericTelemetryValue(telemetryValue) ? '>' : '='
   const sourceLabel =
-    sourceType === '10'
-      ? texts.sourceDevice.replace('{id}', sourceId)
-      : texts.sourceTemplate.replace('{id}', sourceId)
+    sourceType === '10' ? texts.sourceDevice.replace('{id}', sourceId) : texts.sourceTemplate.replace('{id}', sourceId)
   const desc = telemetryValue
     ? texts.conditionDraftWithValue
         .replace('{source}', sourceLabel)

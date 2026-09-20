@@ -33,15 +33,18 @@ describe('DataSourceMerger', () => {
     )
   })
 
-  it.each([-1, 1.5, Number.NaN])('falls back to the first item for the invalid persisted index %s', async selectedIndex => {
-    const merger = new DataSourceMerger()
+  it.each([-1, 1.5, Number.NaN])(
+    'falls back to the first item for the invalid persisted index %s',
+    async (selectedIndex) => {
+      const merger = new DataSourceMerger()
 
-    await expect(
-      merger.mergeDataItems(['first', 'second'], { type: 'select', selectedIndex } as any)
-    ).resolves.toBe('first')
-  })
+      await expect(merger.mergeDataItems(['first', 'second'], { type: 'select', selectedIndex } as any)).resolves.toBe(
+        'first'
+      )
+    }
+  )
 
-  it.each([0, false, ''])('preserves the selected falsy value %j', async selectedValue => {
+  it.each([0, false, ''])('preserves the selected falsy value %j', async (selectedValue) => {
     const merger = new DataSourceMerger()
 
     await expect(merger.mergeDataItems([selectedValue, 'fallback'], { type: 'select' })).resolves.toBe(selectedValue)
@@ -53,7 +56,7 @@ describe('DataSourceMerger', () => {
     await expect(merger.mergeDataItems([], { type: 'select', selectedIndex: 0 })).resolves.toEqual({})
   })
 
-  it.each([0, false, '', null])('preserves the successful script result %j', async scriptValue => {
+  it.each([0, false, '', null])('preserves the successful script result %j', async (scriptValue) => {
     scriptEngineMock.execute.mockResolvedValue({ success: true, data: scriptValue })
     const merger = new DataSourceMerger()
 

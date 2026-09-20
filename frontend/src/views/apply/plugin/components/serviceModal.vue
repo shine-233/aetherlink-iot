@@ -49,7 +49,7 @@ const options = ref<any>([
     value: 2
   }
 ])
-const openModal: (row: any) => void = row => {
+const openModal: (row: any) => void = (row) => {
   if (row) {
     isEdit.value = true
     Object.assign(form.value, row)
@@ -64,7 +64,7 @@ const close: () => void = () => {
   form.value = { ...defaultForm }
 }
 const submitSevice: () => void = async () => {
-  formRef.value?.validate(async errors => {
+  formRef.value?.validate(async (errors) => {
     if (errors) return
     loading.value = true
     const data: any = isEdit.value ? await putRegisterService(form.value) : await registerService(form.value)
@@ -79,7 +79,7 @@ defineExpose({ openModal })
 </script>
 
 <template>
-  <n-modal aria-label="dialog" v-model:show="serviceModal" preset="dialog" :title="$t('common.serviceConfi')">
+  <n-modal v-model:show="serviceModal" aria-label="dialog" preset="dialog" :title="$t('common.serviceConfi')">
     <n-space vertical>
       <n-spin :show="loading">
         <n-form

@@ -145,7 +145,7 @@ export class SimpleDataFlow {
     logger.debug(`[SimpleDataFlow] 检测到属性变更:`, {
       componentId,
       section,
-      changedProperties: changedProperties.map(p => ({
+      changedProperties: changedProperties.map((p) => ({
         property: p.propertyPath,
         oldValue: p.oldValue,
         newValue: p.newValue
@@ -156,14 +156,14 @@ export class SimpleDataFlow {
     const config = this.componentConfigs.get(componentId)
     const componentType = config?.componentType
 
-    const triggerProperties = changedProperties.filter(change =>
+    const triggerProperties = changedProperties.filter((change) =>
       this.shouldTriggerDataSource(change.propertyPath, componentType)
     )
 
     if (triggerProperties.length > 0) {
       logger.debug(`[SimpleDataFlow] 触发数据源更新:`, {
         componentId,
-        triggerProperties: triggerProperties.map(p => p.propertyPath)
+        triggerProperties: triggerProperties.map((p) => p.propertyPath)
       })
 
       // 防抖执行数据源更新
@@ -171,7 +171,7 @@ export class SimpleDataFlow {
     }
 
     // 触发属性变更监听器
-    changedProperties.forEach(change => {
+    changedProperties.forEach((change) => {
       this.notifyPropertyWatchers(change)
     })
   }
@@ -217,7 +217,7 @@ export class SimpleDataFlow {
     try {
       logger.debug(`[SimpleDataFlow] 开始执行数据源:`, {
         componentId,
-        triggerProperties: triggerProperties.map(p => p.propertyPath)
+        triggerProperties: triggerProperties.map((p) => p.propertyPath)
       })
 
       // 获取组件配置
@@ -344,7 +344,7 @@ export class SimpleDataFlow {
   private notifyPropertyWatchers(event: PropertyChangeEvent): void {
     const watchers = this.propertyWatchers.get(event.propertyPath)
     if (watchers) {
-      watchers.forEach(callback => {
+      watchers.forEach((callback) => {
         try {
           callback(event)
         } catch (error) {
@@ -406,7 +406,7 @@ export class SimpleDataFlow {
    * 获取当前触发白名单
    */
   getTriggerWhitelist(componentType?: string): string[] {
-    return dataSourceBindingConfig.getAllTriggerRules(componentType).map(rule => rule.propertyPath)
+    return dataSourceBindingConfig.getAllTriggerRules(componentType).map((rule) => rule.propertyPath)
   }
 
   /**

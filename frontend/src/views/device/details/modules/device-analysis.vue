@@ -79,12 +79,12 @@ const getData = async () => {
 }
 
 // 多选器只存子设备 ID，真正建立关系时再按接口要求拼接成字符串。
-const selectConfig = v => {
+const selectConfig = (v) => {
   selectChild.value = v
 }
 
 // 这里删除的是父设备与子设备的绑定关系，而不是删除子设备实体本身。
-const deleteDevice = async id => {
+const deleteDevice = async (id) => {
   const { error } = await removeChildDevice({
     sub_device_id: id
   })
@@ -125,7 +125,7 @@ const columns: Ref<any> = ref([
     title: $t('common.actions'),
     key: '',
     minWidth: '140px',
-    render: row => {
+    render: (row) => {
       return (
         <NSpace>
           <NButton type="primary" size="small" onClick={() => handleLook(row.id)}>
@@ -182,7 +182,7 @@ const addChildDeviceSure = () => {
     addChildDevice({
       id: props.id,
       son_id: selectChild.value.join(',')
-    }).then(res => {
+    }).then((res) => {
       if (!res.error) {
         showAddDialog.value = false
         selectChild.value = []
@@ -199,7 +199,7 @@ const getDeviceList = async () => {
   const res = await childDeviceSelectList()
   if (res.data.length !== 0) {
     sOptions.value = []
-    const tempSOptions = res.data?.map(item => {
+    const tempSOptions = res.data?.map((item) => {
       return { label: item.name, value: item.id }
     })
     sOptions.value = sOptions.value.concat(tempSOptions)
@@ -229,7 +229,7 @@ onMounted(() => {})
       preset="dialog"
       :title="$t('generate.add-sub-device')"
       style="width: 520px"
-      :showIcon="false"
+      :show-icon="false"
       :mask-closable="false"
     >
       <n-form class="mt-6" label-placement="left" label-width="auto">

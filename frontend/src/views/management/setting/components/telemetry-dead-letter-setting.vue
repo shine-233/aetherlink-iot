@@ -48,11 +48,11 @@ const pagination: PaginationProps = reactive({
   itemCount: 0,
   showSizePicker: true,
   pageSizes: [10, 20, 50],
-  onChange: page => {
+  onChange: (page) => {
     pagination.page = page
     getTableData()
   },
-  onUpdatePageSize: pageSize => {
+  onUpdatePageSize: (pageSize) => {
     pagination.pageSize = pageSize
     pagination.page = 1
     getTableData()
@@ -197,7 +197,7 @@ const columns = computed<DataTableColumns<TelemetryDeadLetterRow>>(() => [
     key: 'status',
     title: $t('custom.management.telemetryDeadLetter.statusLabel'),
     width: 110,
-    render: row => <NTag type={statusTagType(row.status)}>{statusLabel(row.status)}</NTag>
+    render: (row) => <NTag type={statusTagType(row.status)}>{statusLabel(row.status)}</NTag>
   },
   {
     key: 'device_id',
@@ -227,7 +227,7 @@ const columns = computed<DataTableColumns<TelemetryDeadLetterRow>>(() => [
     key: 'value',
     title: $t('custom.management.telemetryDeadLetter.value'),
     minWidth: 120,
-    render: row => <NText>{formatValue(row)}</NText>
+    render: (row) => <NText>{formatValue(row)}</NText>
   },
   {
     key: 'attempts',
@@ -238,13 +238,13 @@ const columns = computed<DataTableColumns<TelemetryDeadLetterRow>>(() => [
     key: 'ts',
     title: $t('custom.management.telemetryDeadLetter.telemetryTime'),
     minWidth: 170,
-    render: row => formatTime(row.ts)
+    render: (row) => formatTime(row.ts)
   },
   {
     key: 'next_retry_at',
     title: $t('custom.management.telemetryDeadLetter.nextRetry'),
     minWidth: 170,
-    render: row => formatTime(row.next_retry_at)
+    render: (row) => formatTime(row.next_retry_at)
   },
   {
     key: 'last_error',
@@ -253,14 +253,14 @@ const columns = computed<DataTableColumns<TelemetryDeadLetterRow>>(() => [
     ellipsis: {
       tooltip: true
     },
-    render: row => row.last_error || '-'
+    render: (row) => row.last_error || '-'
   },
   {
     key: 'actions',
     title: $t('custom.management.telemetryDeadLetter.actions'),
     width: 280,
     fixed: 'right',
-    render: row => (
+    render: (row) => (
       <NSpace size={8}>
         {actionButton(row, 'replay', $t('custom.management.telemetryDeadLetter.replay'), 'primary')}
         {actionButton(row, 'retry', $t('custom.management.telemetryDeadLetter.retry'), 'warning')}

@@ -10,7 +10,7 @@ const hoisted = vi.hoisted(() => ({
   getRendererRegistry: vi.fn()
 }))
 
-vi.mock('@/service/visualization-provider/index', async importOriginal => {
+vi.mock('@/service/visualization-provider/index', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/service/visualization-provider/index')>()
   return {
     ...actual,
@@ -29,12 +29,13 @@ const Renderer = defineComponent({
   props: ['id', 'mode', 'schema'],
   emits: ['host-save-success'],
   setup(props, { emit }) {
-    return () => h('button', {
-      'data-testid': 'renderer',
-      'data-id': props.id,
-      'data-mode': props.mode,
-      onClick: () => emit('host-save-success', { id: props.id, name: 'Saved' })
-    })
+    return () =>
+      h('button', {
+        'data-testid': 'renderer',
+        'data-id': props.id,
+        'data-mode': props.mode,
+        onClick: () => emit('host-save-success', { id: props.id, name: 'Saved' })
+      })
   }
 })
 

@@ -177,7 +177,7 @@ const mountPreview = (template: PreviewTemplate) => {
 const previewElement = (wrapper: VueWrapper) => wrapper.get<HTMLElement>('.preview-element')
 
 const buttonByText = (wrapper: VueWrapper, text: string) => {
-  const button = wrapper.findAll('button').find(item => item.text().includes(text))
+  const button = wrapper.findAll('button').find((item) => item.text().includes(text))
   if (!button) throw new Error(`Button not found: ${text}`)
   return button
 }
@@ -254,8 +254,8 @@ describe('InteractionTemplatePreview.vue', () => {
     expect(wrapper.text()).toContain('[object Object]')
     expect(wrapper.text()).toContain('mqtt')
     expect(wrapper.text()).toContain('raw-value')
-    expect(wrapper.findAll('.n-switch-stub').map(item => item.attributes('disabled'))).toEqual(['', ''])
-    expect(wrapper.findAll('.n-tag-stub').map(item => item.attributes('data-type'))).toEqual(
+    expect(wrapper.findAll('.n-switch-stub').map((item) => item.attributes('disabled'))).toEqual(['', ''])
+    expect(wrapper.findAll('.n-tag-stub').map((item) => item.attributes('data-type'))).toEqual(
       expect.arrayContaining(['success', 'default', 'info'])
     )
   })

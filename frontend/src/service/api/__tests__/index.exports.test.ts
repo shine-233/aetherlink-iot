@@ -4,7 +4,7 @@ import * as api from '../index'
 describe('service API barrel export contract', () => {
   it('keeps the established named-export surface stable', () => {
     const exports = Object.keys(api)
-      .filter(name => name !== 'default' && name !== '__esModule')
+      .filter((name) => name !== 'default' && name !== '__esModule')
       .sort()
 
     expect(exports).toMatchInlineSnapshot(`

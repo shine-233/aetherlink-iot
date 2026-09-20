@@ -28,7 +28,12 @@ const textWidget = {
 describe('native board editor model', () => {
   it('loads JSON and emits a canonical dashboard', () => {
     const result = loadEditorDashboard(
-      JSON.stringify({ version: 1, columns: 12, rowHeight: 50, layout: [{ i: 'legacy', x: 0, y: 0, w: 4, h: 2, componentType: 'text', properties: { text: 'Hello' } }] })
+      JSON.stringify({
+        version: 1,
+        columns: 12,
+        rowHeight: 50,
+        layout: [{ i: 'legacy', x: 0, y: 0, w: 4, h: 2, componentType: 'text', properties: { text: 'Hello' } }]
+      })
     )
 
     expect(result).toEqual({
@@ -49,10 +54,42 @@ describe('native board editor model', () => {
       rowHeight: 60,
       widgets: [
         textWidget,
-        { id: 'metric', x: 6, y: 0, w: 6, h: 4, type: 'metric', config: { label: 'Temperature', field: 'temperature', unit: 'C', decimals: 1 } },
-        { id: 'line', x: 0, y: 4, w: 12, h: 4, type: 'line-chart', config: { title: 'Line', categories: ['A', 'B'], values: [1, 2] } },
-        { id: 'bar', x: 12, y: 4, w: 12, h: 4, type: 'bar-chart', config: { title: 'Bar', categories: ['A'], values: [3], seriesName: 'Series' } },
-        { id: 'html', x: 0, y: 8, w: 8, h: 4, type: 'html', config: { html: '<div>HTML Card</div>', css: '.card { color: red; }' } }
+        {
+          id: 'metric',
+          x: 6,
+          y: 0,
+          w: 6,
+          h: 4,
+          type: 'metric',
+          config: { label: 'Temperature', field: 'temperature', unit: 'C', decimals: 1 }
+        },
+        {
+          id: 'line',
+          x: 0,
+          y: 4,
+          w: 12,
+          h: 4,
+          type: 'line-chart',
+          config: { title: 'Line', categories: ['A', 'B'], values: [1, 2] }
+        },
+        {
+          id: 'bar',
+          x: 12,
+          y: 4,
+          w: 12,
+          h: 4,
+          type: 'bar-chart',
+          config: { title: 'Bar', categories: ['A'], values: [3], seriesName: 'Series' }
+        },
+        {
+          id: 'html',
+          x: 0,
+          y: 8,
+          w: 8,
+          h: 4,
+          type: 'html',
+          config: { html: '<div>HTML Card</div>', css: '.card { color: red; }' }
+        }
       ]
     }
 
@@ -68,9 +105,21 @@ describe('native board editor model', () => {
     ['remote URL', { version: 1, widgets: [{ ...textWidget, config: { text: 'https://example.com' } }] }],
     ['forbidden key', { version: 1, widgets: [{ ...textWidget, config: { text: 'safe', formatter: 'x' } }] }],
     ['out of bounds', { version: 1, columns: 12, widgets: [{ ...textWidget, x: 10, w: 4 }] }],
-    ['unsafe field', { version: 1, widgets: [{ ...textWidget, type: 'metric', config: { label: 'M', field: 'bad field' } }] }],
-    ['mismatched chart arrays', { version: 1, widgets: [{ ...textWidget, type: 'line-chart', config: { categories: ['A'], values: [1, 2] } }] }],
-    ['field-bound chart', { version: 1, widgets: [{ ...textWidget, type: 'bar-chart', config: { categoryField: 'labels', valueField: 'values' } }] }]
+    [
+      'unsafe field',
+      { version: 1, widgets: [{ ...textWidget, type: 'metric', config: { label: 'M', field: 'bad field' } }] }
+    ],
+    [
+      'mismatched chart arrays',
+      { version: 1, widgets: [{ ...textWidget, type: 'line-chart', config: { categories: ['A'], values: [1, 2] } }] }
+    ],
+    [
+      'field-bound chart',
+      {
+        version: 1,
+        widgets: [{ ...textWidget, type: 'bar-chart', config: { categoryField: 'labels', valueField: 'values' } }]
+      }
+    ]
   ])('rejects %s', (_, input) => {
     expect(loadEditorDashboard(input).ok).toBe(false)
   })
@@ -84,9 +133,15 @@ describe('native board editor model', () => {
       dashboard = result.dashboard
     }
 
-    expect(dashboard.widgets.map(widget => widget.type)).toEqual(['text', 'metric', 'line-chart', 'bar-chart', 'html'])
-    expect(new Set(dashboard.widgets.map(widget => widget.id)).size).toBe(5)
-    expect(dashboard.widgets.every(widget => /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(widget.id))).toBe(true)
+    expect(dashboard.widgets.map((widget) => widget.type)).toEqual([
+      'text',
+      'metric',
+      'line-chart',
+      'bar-chart',
+      'html'
+    ])
+    expect(new Set(dashboard.widgets.map((widget) => widget.id)).size).toBe(5)
+    expect(dashboard.widgets.every((widget) => /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(widget.id))).toBe(true)
     expect(validateEditorDashboard(dashboard).ok).toBe(true)
   })
 

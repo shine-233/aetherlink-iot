@@ -30,17 +30,39 @@ vi.mock('@vicons/ionicons5', () => ({
 }))
 
 vi.mock('naive-ui', () => ({
-  NSpin: defineComponent({ props: { show: Boolean }, setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NGrid: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NGi: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } })
+  NSpin: defineComponent({
+    props: { show: Boolean },
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NGrid: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NGi: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  })
 }))
 
 vi.mock('@/components/dev-card-item/index.vue', () => ({
-  default: defineComponent({ emits: ['click-card'], setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } })
+  default: defineComponent({
+    emits: ['click-card'],
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  })
 }))
 
 vi.mock('@/components/list-page/index.vue', () => ({
-  default: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } })
+  default: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  })
 }))
 
 import Component from '../index.vue'
@@ -110,7 +132,9 @@ describe('device/service-access/index.vue', () => {
     await flushPromises()
     const state = getSetupState(wrapper)
     state.clickDevice({ id: 'svc-1', service_type: 2, name: 'Service 1', service_identifier: 'si1' })
-    expect(hoisted.routerPush).toHaveBeenCalledWith('/device/service-details?id=svc-1&service_type=2&service_name=Service 1&service_identifier=si1')
+    expect(hoisted.routerPush).toHaveBeenCalledWith(
+      '/device/service-details?id=svc-1&service_type=2&service_name=Service 1&service_identifier=si1'
+    )
   })
 
   it('handleRefresh reloads data', async () => {

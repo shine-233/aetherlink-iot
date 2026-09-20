@@ -90,14 +90,14 @@ export class DynamicBindingAPI {
   ): void {
     dataSourceBindingConfig.setComponentConfig(componentType, {
       componentType,
-      additionalBindings: config.bindings.map(b => ({
+      additionalBindings: config.bindings.map((b) => ({
         propertyPath: b.propertyPath,
         paramName: b.paramName,
         transform: b.transform,
         required: b.required || false,
         description: `${componentType}组件专用绑定: ${b.propertyPath}`
       })),
-      additionalTriggers: config.triggers.map(t => ({
+      additionalTriggers: config.triggers.map((t) => ({
         propertyPath: t.propertyPath,
         enabled: t.enabled !== false,
         debounceMs: t.debounceMs ?? 100,

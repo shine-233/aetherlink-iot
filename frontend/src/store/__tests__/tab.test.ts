@@ -85,15 +85,15 @@ describe('tab store', () => {
     pinia = createPinia()
 
     hoisted.getDefaultHomeTab.mockReturnValue(mockTab('home'))
-    hoisted.getAllTabs.mockImplementation((tabs, homeTab) => homeTab ? [homeTab, ...tabs] : [])
+    hoisted.getAllTabs.mockImplementation((tabs, homeTab) => (homeTab ? [homeTab, ...tabs] : []))
     hoisted.getTabByRoute.mockImplementation((route) => mockTab(route.name || route.path || 'unknown'))
     hoisted.isTabInTabs.mockImplementation((id, tabs) => tabs.some((t) => t.id === id))
     hoisted.filterTabsById.mockImplementation((id, tabs) => tabs.filter((t) => t.id !== id))
     hoisted.filterTabsByIds.mockImplementation((ids, tabs) => tabs.filter((t) => !ids.includes(t.id)))
     hoisted.getFixedTabIds.mockImplementation((tabs) => tabs.filter((t) => t.fixedIndex !== undefined).map((t) => t.id))
     hoisted.findTabByRouteName.mockReturnValue(undefined)
-    hoisted.updateTabByI18nKey.mockImplementation(tab => tab)
-    hoisted.updateTabsByI18nKey.mockImplementation(tabs => tabs)
+    hoisted.updateTabByI18nKey.mockImplementation((tab) => tab)
+    hoisted.updateTabsByI18nKey.mockImplementation((tabs) => tabs)
   })
 
   describe('initial state', () => {

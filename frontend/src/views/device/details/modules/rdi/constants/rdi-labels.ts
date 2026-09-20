@@ -135,8 +135,7 @@ const enUSLabels = {
   missingValuePlaceholder: '--',
   // REQ-48：用电量统计 Tab。
   powerUsage: 'Power Usage',
-  powerUsageDescription:
-    'Cumulative electricity consumption derived from the electricity_consumption telemetry key.',
+  powerUsageDescription: 'Cumulative electricity consumption derived from the electricity_consumption telemetry key.',
   cumulativeUsage: 'Cumulative usage',
   today: 'Today',
   thisWeek: 'This week',
@@ -453,8 +452,7 @@ export const labels: Record<App.I18n.LangType, RdiLabels> = {
     ledError: 'Erreur',
     missingValuePlaceholder: '--',
     powerUsage: 'Consommation electrique',
-    powerUsageDescription:
-      'Consommation electrique cumulee derivee de la cle de telemetrie electricity_consumption.',
+    powerUsageDescription: 'Consommation electrique cumulee derivee de la cle de telemetrie electricity_consumption.',
     cumulativeUsage: 'Consommation cumulee',
     last1Hour: 'Derniere heure',
     last1Day: 'Aujourd hui',
@@ -606,8 +604,7 @@ export const labels: Record<App.I18n.LangType, RdiLabels> = {
     ledError: 'Error',
     missingValuePlaceholder: '--',
     powerUsage: 'Consumo electrico',
-    powerUsageDescription:
-      'Consumo electrico acumulado derivado de la clave de telemetria electricity_consumption.',
+    powerUsageDescription: 'Consumo electrico acumulado derivado de la clave de telemetria electricity_consumption.',
     cumulativeUsage: 'Consumo acumulado',
     last1Hour: 'Ultima hora',
     last1Day: 'Hoy',

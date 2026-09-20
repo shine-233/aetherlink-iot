@@ -53,7 +53,9 @@ describe('buildAnomalyQuery validation', () => {
   })
 
   it('rejects blank key', () => {
-    expect(errorKeyOf(buildAnomalyQuery({ form: form({ key: '   ' }), range: RANGE }))).toBe('page.anomaly.errorKeyRequired')
+    expect(errorKeyOf(buildAnomalyQuery({ form: form({ key: '   ' }), range: RANGE }))).toBe(
+      'page.anomaly.errorKeyRequired'
+    )
   })
 
   it('rejects missing time range', () => {
@@ -148,7 +150,7 @@ describe('toAnomalyRows', () => {
   }
 
   it('orders statuses by error > no-data > anomaly > clean', () => {
-    expect(toAnomalyRows(result).map(row => row.status)).toEqual(['error', 'no-data', 'anomaly', 'clean'])
+    expect(toAnomalyRows(result).map((row) => row.status)).toEqual(['error', 'no-data', 'anomaly', 'clean'])
   })
 
   it('keeps "no data" distinct from "no anomaly"', () => {

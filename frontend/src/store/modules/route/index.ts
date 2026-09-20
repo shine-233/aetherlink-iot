@@ -32,7 +32,7 @@ function routeAllowsRoles(route: ElegantConstRoute, roles: string[]) {
   const routeRoles = route.meta?.roles || []
   if (!routeRoles.length) return true
   if (roles.includes('SYS_ADMIN')) return true
-  return routeRoles.some(role => roles.includes(role))
+  return routeRoles.some((role) => roles.includes(role))
 }
 
 export const useRouteStore = defineStore(SetupStoreId.Route, () => {
@@ -125,7 +125,7 @@ export const useRouteStore = defineStore(SetupStoreId.Route, () => {
    * @param routeKey
    */
   function removeCacheRoutes(routeKey: RouteKey) {
-    const index = cacheRoutes.value.findIndex(item => item === routeKey)
+    const index = cacheRoutes.value.findIndex((item) => item === routeKey)
 
     if (index === -1) return
 
@@ -170,7 +170,7 @@ export const useRouteStore = defineStore(SetupStoreId.Route, () => {
 
   /** Reset vue routes */
   function resetVueRoutes() {
-    removeRouteFns.forEach(fn => fn())
+    removeRouteFns.forEach((fn) => fn())
     removeRouteFns.length = 0
   }
 
@@ -230,7 +230,7 @@ export const useRouteStore = defineStore(SetupStoreId.Route, () => {
     // external-service permission boundary. Keep them resolvable so
     // provider=native works in Native-only deployments; the provider facade
     // rejects provider=legacy when VITE_ENABLE_THINGSVIS_COMPAT is not Y.
-    const mergedRoutes = routes.map(route => cloneRoute(route))
+    const mergedRoutes = routes.map((route) => cloneRoute(route))
     const currentRoles = Array.isArray(authStore.userInfo?.roles) ? authStore.userInfo.roles : []
 
     Object.entries(DYNAMIC_ROUTE_SUPPLEMENTS).forEach(([parentName, childNames]) => {
@@ -240,13 +240,13 @@ export const useRouteStore = defineStore(SetupStoreId.Route, () => {
 
       if (!parentRoute || !localParentRoute?.children?.length) return
 
-      const existingChildNames = new Set((parentRoute.children || []).map(child => child.name as RouteKey))
+      const existingChildNames = new Set((parentRoute.children || []).map((child) => child.name as RouteKey))
       const supplementChildren: ElegantConstRoute[] = childNames
-        .map(childName => findRouteByName(localParentRoute.children || [], childName))
+        .map((childName) => findRouteByName(localParentRoute.children || [], childName))
         .filter((child): child is ElegantConstRoute => Boolean(child))
-        .filter(child => !existingChildNames.has(child.name as RouteKey))
-        .filter(child => routeAllowsRoles(child, currentRoles))
-        .map(child => {
+        .filter((child) => !existingChildNames.has(child.name as RouteKey))
+        .filter((child) => routeAllowsRoles(child, currentRoles))
+        .map((child) => {
           const supplementChild = cloneRoute(child)
           supplementChild.meta = {
             ...supplementChild.meta,
@@ -281,7 +281,7 @@ export const useRouteStore = defineStore(SetupStoreId.Route, () => {
     return {
       ...route,
       meta: route.meta ? { ...route.meta } : route.meta,
-      children: route.children?.map(child => cloneRoute(child))
+      children: route.children?.map((child) => cloneRoute(child))
     }
   }
 
@@ -308,7 +308,7 @@ export const useRouteStore = defineStore(SetupStoreId.Route, () => {
    * @param routes Vue routes
    */
   function addRoutesToVueRouter(routes: RouteRecordRaw[]) {
-    routes.forEach(route => {
+    routes.forEach((route) => {
       const removeFn = router.addRoute(route)
       addRemoveRouteFn(removeFn)
     })

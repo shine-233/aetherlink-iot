@@ -60,10 +60,38 @@ const authStore = useAuthStore()
 // 与后端 scada_mobile_wiring.go 的 builtinWidgetDefinitions 逐字段一致（parity 测试守护）。
 // schema 全部字段可选、只做类型/取值约束：存量画布不受影响，新画布错误配置在保存时被拒。
 const WIDGET_REGISTRY: ScadaWidgetDefinition[] = [
-  { type: 'gauge', version: '1', schema: '{"type":"object","properties":{"title":{"type":"string","maxLength":64},"unit":{"type":"string","maxLength":16},"telemetry_key":{"type":"string","maxLength":128},"min":{"type":"number"},"max":{"type":"number"}}}', capabilities: ['2d'], commands: [{ name: 'refresh', requires_confirmation: false }] },
-  { type: 'chart', version: '1', schema: '{"type":"object","properties":{"title":{"type":"string","maxLength":64},"telemetry_keys":{"type":"array","items":{"type":"string","maxLength":128},"maxItems":8},"time_window_seconds":{"type":"integer","minimum":60,"maximum":2592000}}}', capabilities: ['2d'], commands: [{ name: 'refresh', requires_confirmation: false }] },
-  { type: 'valve', version: '1', schema: '{"type":"object","properties":{"title":{"type":"string","maxLength":64},"telemetry_key":{"type":"string","maxLength":128},"device_id":{"type":"string","maxLength":64},"open_command":{"type":"string","maxLength":64},"close_command":{"type":"string","maxLength":64}}}', capabilities: ['2d'], commands: [{ name: 'open_valve', requires_confirmation: true }] },
-  { type: 'twin3d', version: '1', schema: '{"type":"object","properties":{"title":{"type":"string","maxLength":64},"model_url":{"type":"string","maxLength":512},"camera_initial":{"type":"string","enum":["orbit","front","top","side"]}}}', capabilities: ['3d'], commands: [] }
+  {
+    type: 'gauge',
+    version: '1',
+    schema:
+      '{"type":"object","properties":{"title":{"type":"string","maxLength":64},"unit":{"type":"string","maxLength":16},"telemetry_key":{"type":"string","maxLength":128},"min":{"type":"number"},"max":{"type":"number"}}}',
+    capabilities: ['2d'],
+    commands: [{ name: 'refresh', requires_confirmation: false }]
+  },
+  {
+    type: 'chart',
+    version: '1',
+    schema:
+      '{"type":"object","properties":{"title":{"type":"string","maxLength":64},"telemetry_keys":{"type":"array","items":{"type":"string","maxLength":128},"maxItems":8},"time_window_seconds":{"type":"integer","minimum":60,"maximum":2592000}}}',
+    capabilities: ['2d'],
+    commands: [{ name: 'refresh', requires_confirmation: false }]
+  },
+  {
+    type: 'valve',
+    version: '1',
+    schema:
+      '{"type":"object","properties":{"title":{"type":"string","maxLength":64},"telemetry_key":{"type":"string","maxLength":128},"device_id":{"type":"string","maxLength":64},"open_command":{"type":"string","maxLength":64},"close_command":{"type":"string","maxLength":64}}}',
+    capabilities: ['2d'],
+    commands: [{ name: 'open_valve', requires_confirmation: true }]
+  },
+  {
+    type: 'twin3d',
+    version: '1',
+    schema:
+      '{"type":"object","properties":{"title":{"type":"string","maxLength":64},"model_url":{"type":"string","maxLength":512},"camera_initial":{"type":"string","enum":["orbit","front","top","side"]}}}',
+    capabilities: ['3d'],
+    commands: []
+  }
 ]
 const projects = ref<ScadaProject[]>([])
 const documents = ref<ScadaDocument[]>([])
@@ -86,7 +114,9 @@ const widgetTypeToAdd = ref('gauge')
 const rollbackVersion = ref<number | null>(null)
 const tenantFilter = ref('')
 
-setInterval(() => { now.value = Date.now() }, 5000)
+setInterval(() => {
+  now.value = Date.now()
+}, 5000)
 
 const isAdmin = computed(() => authStore.userInfo.authority === 'SYS_ADMIN')
 const tenantQuery = computed(() => (isAdmin.value ? tenantFilter.value.trim() || undefined : undefined))
@@ -95,11 +125,9 @@ const stale = computed(() => isTelemetryStale(linkState.value, lastMessageAt.val
 const resolution = computed(() => resolveWidgets(widgets.value, WIDGET_REGISTRY, webglAvailable.value))
 const canSave = computed(() => editable.value && parseError.value === '')
 
-const versionOptions = computed(() =>
-  versions.value.map(v => ({ label: `v${v.version}`, value: v.version }))
-)
+const versionOptions = computed(() => versions.value.map((v) => ({ label: `v${v.version}`, value: v.version })))
 
-watch(activeProjectId, async id => {
+watch(activeProjectId, async (id) => {
   documents.value = []
   activeDocument.value = null
   widgets.value = []
@@ -202,11 +230,11 @@ function addWidget() {
 }
 
 function removeWidget(id: string) {
-  widgets.value = widgets.value.filter(w => w.id !== id)
+  widgets.value = widgets.value.filter((w) => w.id !== id)
 }
 
 function updateLayout(id: string, patch: Partial<ScadaWidgetInstance['layout']>) {
-  widgets.value = widgets.value.map(w => (w.id === id ? { ...w, layout: { ...w.layout, ...patch } } : w))
+  widgets.value = widgets.value.map((w) => (w.id === id ? { ...w, layout: { ...w.layout, ...patch } } : w))
 }
 
 async function handleSave() {
@@ -325,7 +353,7 @@ loadProjects()
         </div>
         <NSelect
           v-model:value="activeProjectId"
-          :options="projects.map(p => ({ label: p.name, value: p.id }))"
+          :options="projects.map((p) => ({ label: p.name, value: p.id }))"
           :placeholder="$t('custom.scada.selectProject')"
           class="mt-2"
         />
@@ -359,7 +387,7 @@ loadProjects()
           <!-- 陈旧横幅：断线后把最后一帧当实时值是典型的假成功 -->
           <NTag v-if="stale" type="warning">{{ $t('custom.scada.dataStale') }}</NTag>
           <NTag v-if="resolution.degraded.length" type="warning">
-            {{ $t('custom.scada.degradedWidgets') }}: {{ resolution.degraded.map(d => d.type).join(', ') }}
+            {{ $t('custom.scada.degradedWidgets') }}: {{ resolution.degraded.map((d) => d.type).join(', ') }}
           </NTag>
         </div>
 
@@ -368,7 +396,11 @@ loadProjects()
         </div>
 
         <div class="row mt-2">
-          <NSelect v-model:value="widgetTypeToAdd" :options="WIDGET_REGISTRY.map(w => ({ label: `${w.type}@${w.version}`, value: w.type }))" class="w-48" />
+          <NSelect
+            v-model:value="widgetTypeToAdd"
+            :options="WIDGET_REGISTRY.map((w) => ({ label: `${w.type}@${w.version}`, value: w.type }))"
+            class="w-48"
+          />
           <NButton :disabled="!editable" @click="addWidget">{{ $t('custom.scada.addWidget') }}</NButton>
           <NButton type="primary" :disabled="!canSave" :loading="saving" @click="handleSave">
             {{ $t('custom.scada.save') }}
@@ -378,7 +410,12 @@ loadProjects()
         </div>
 
         <div class="row mt-2">
-          <NSelect v-model:value="rollbackVersion" :options="versionOptions" :placeholder="$t('custom.scada.selectVersion')" class="w-48" />
+          <NSelect
+            v-model:value="rollbackVersion"
+            :options="versionOptions"
+            :placeholder="$t('custom.scada.selectVersion')"
+            class="w-48"
+          />
           <NButton :disabled="!editable || rollbackVersion === null" @click="handleRollback">
             {{ $t('custom.scada.rollback') }}
           </NButton>
@@ -390,21 +427,24 @@ loadProjects()
             v-for="w in widgets"
             :key="w.id"
             class="canvas-item"
-            :style="{ gridColumn: `${w.layout.x + 1} / span ${w.layout.w}`, gridRow: `${w.layout.y + 1} / span ${w.layout.h}` }"
+            :style="{
+              gridColumn: `${w.layout.x + 1} / span ${w.layout.w}`,
+              gridRow: `${w.layout.y + 1} / span ${w.layout.h}`
+            }"
           >
             <div class="row">
               <strong>{{ w.widget_type }}@{{ w.version }}</strong>
               <NButton size="tiny" :disabled="!editable" @click="removeWidget(w.id)">{{ $t('common.delete') }}</NButton>
             </div>
             <div class="row">
-              <NInputNumber size="tiny" :value="w.layout.x" @update:value="v => updateLayout(w.id, { x: v ?? 0 })" />
-              <NInputNumber size="tiny" :value="w.layout.y" @update:value="v => updateLayout(w.id, { y: v ?? 0 })" />
-              <NInputNumber size="tiny" :value="w.layout.w" @update:value="v => updateLayout(w.id, { w: v ?? 1 })" />
-              <NInputNumber size="tiny" :value="w.layout.h" @update:value="v => updateLayout(w.id, { h: v ?? 1 })" />
+              <NInputNumber size="tiny" :value="w.layout.x" @update:value="(v) => updateLayout(w.id, { x: v ?? 0 })" />
+              <NInputNumber size="tiny" :value="w.layout.y" @update:value="(v) => updateLayout(w.id, { y: v ?? 0 })" />
+              <NInputNumber size="tiny" :value="w.layout.w" @update:value="(v) => updateLayout(w.id, { w: v ?? 1 })" />
+              <NInputNumber size="tiny" :value="w.layout.h" @update:value="(v) => updateLayout(w.id, { h: v ?? 1 })" />
             </div>
             <div class="row">
               <NButton
-                v-for="cmd in (WIDGET_REGISTRY.find(d => d.type === w.widget_type)?.commands ?? [])"
+                v-for="cmd in WIDGET_REGISTRY.find((d) => d.type === w.widget_type)?.commands ?? []"
                 :key="cmd.name"
                 size="tiny"
                 :type="cmd.requires_confirmation ? 'warning' : 'default'"
