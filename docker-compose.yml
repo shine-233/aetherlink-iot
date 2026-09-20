@@ -31,7 +31,16 @@ services:
     ports:
       - "127.0.0.1:5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      # -h 127.0.0.1 强制走 TCP：不带 -h 时 pg_isready 走容器内 unix socket，
+      # 而 docker-entrypoint.sh 初始化阶段的临时服务（listen_addresses=''，
+      # 仅监听 socket、不监听 TCP）已经能通过该探测，于是健康检查会在真实
+      # 服务起来前约 10~15s 提前变绿，depends_on: service_healthy 便把
+      # mqtt-broker/backend 放行，后者拨号 172.19.0.2:5432 得到
+      # "connect: connection refused" 并退出（Compose stack API and E2E
+      # 定时泳道 #55~#84 连续失败的直接原因）。改走 TCP 后，临时服务阶段
+      # 探测必然失败，只有真实服务就绪才会放行。
+      # 不写 -p：pg_isready 默认取 PGPORT/5432，与 entrypoint 启动参数一致。
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 10s
       timeout: 5s
       start_period: 30s
