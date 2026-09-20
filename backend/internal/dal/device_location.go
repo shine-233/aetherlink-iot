@@ -10,6 +10,7 @@ import (
 )
 
 // GetDeviceTrajectoryTelemetry 查询指定设备在时间范围内的轨迹与位置遥测数据
+// tenant-scope: caller-enforced (由调用方校验 device 租户归属后按 deviceID 检索)。
 func GetDeviceTrajectoryTelemetry(deviceID string, startTime, endTime int64, limit int) ([]*model.TelemetryData, error) {
 	keys := []string{"latitude", "lat", "longitude", "lng", "lon", "long", "speed", "altitude", "location", "gps"}
 	q := query.TelemetryData
