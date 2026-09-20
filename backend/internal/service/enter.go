@@ -89,6 +89,8 @@ type ServiceGroup struct {
 	IndustrySolution IndustrySolutionService // TB-19 解决方案模板引擎
 	Tenant         TenantService  // P3 租户管理与自助开通服务
 	Billing        BillingService // P3 商业化计费与套餐用量计量服务
+	DataConverter  DataConverterService // ThingsBoard 核心数据转换器
+	DeviceHealth   DeviceHealthService  // TP-6 / TB PE 设备综合健康度评估服务
 }
 
 // GroupApp 是全局业务服务入口，供 API 层和中间件层调用

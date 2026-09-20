@@ -67,6 +67,7 @@ type apps struct {
 	IndustrySolution // TB-19 解决方案模板引擎
 	Tenant // P3 租户管理与自助开通
 	Billing // P3 商业化计费与用量计量
+	DataConverterRouter // ThingsBoard 核心数据转换器
 }
 
 var Model = new(apps)
