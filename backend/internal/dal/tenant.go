@@ -40,6 +40,8 @@ func CreateTenant(t *model.Tenant) error {
 }
 
 // GetTenantByID 按 ID 获取租户信息。
+// tenant-scope: caller-enforced —— 调用方（服务层）负责可见性裁决：SYS_ADMIN 全局、
+// TENANT_ADMIN 仅 self+子孙；自助开通探测路径尚无租户上下文，按 ID 精确读取。
 func GetTenantByID(id string) (*model.Tenant, error) {
 	if global.DB == nil {
 		return nil, errTenantDBNotInitialized
@@ -56,6 +58,7 @@ func GetTenantByID(id string) (*model.Tenant, error) {
 }
 
 // GetTenantByName 按租户名称获取租户信息。
+// tenant-scope: caller-enforced —— 跨租户全局重名校验专用（开通/创建前置），刻意不带租户过滤。
 func GetTenantByName(name string) (*model.Tenant, error) {
 	if global.DB == nil {
 		return nil, errTenantDBNotInitialized
@@ -72,6 +75,8 @@ func GetTenantByName(name string) (*model.Tenant, error) {
 }
 
 // ListTenants 分页查询租户列表。
+// tenant-scope: caller-enforced —— 可见范围由服务层解析层级后经 tenantIDs 传入，
+// DAL 不再叠加租户过滤（SYS_ADMIN 传空=全平台）。
 // tenantIDs 为空表示平台级查询全部；非空表示租户作用域（self + 下级子租户）。
 func ListTenants(offset, limit int, search string, tenantIDs []string) ([]*model.Tenant, int64, error) {
 	if global.DB == nil {

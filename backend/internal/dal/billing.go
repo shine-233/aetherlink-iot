@@ -15,7 +15,8 @@ var (
 	errBillingDBNotInitialized = errors.New("database not initialized for billing")
 )
 
-// GetSubscriptionPlans 获取所有启用的套餐列表，按价格升序排序
+// GetSubscriptionPlans 获取所有启用的套餐列表，按价格升序排序。
+// tenant-scope: system-table —— 套餐是平台全局商业目录，无租户维度，所有租户共享同一份。
 func GetSubscriptionPlans() ([]*model.SubscriptionPlan, error) {
 	if global.DB == nil {
 		return nil, errBillingDBNotInitialized
@@ -28,7 +29,8 @@ func GetSubscriptionPlans() ([]*model.SubscriptionPlan, error) {
 	return plans, err
 }
 
-// GetSubscriptionPlanByCode 根据套餐代码查询套餐
+// GetSubscriptionPlanByCode 根据套餐代码查询套餐。
+// tenant-scope: system-table —— 同上，套餐目录平台级共享；code 唯一不随租户变化。
 func GetSubscriptionPlanByCode(code string) (*model.SubscriptionPlan, error) {
 	if global.DB == nil {
 		return nil, errBillingDBNotInitialized
