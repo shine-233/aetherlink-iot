@@ -29,7 +29,7 @@ cd aetherlink-iot
 | 后端 API | http://localhost:9999 |
 | 设备 MQTT 接入 | localhost:1883 |
 
-首台设备的接入闭环见 [START-HERE.md](START-HERE.md)；服务器部署（公网 IP、绑定地址、性能档位）同样从该文件进入。
+服务器部署详见 `deploy/README.md`。
 
 ## 功能特性
 
@@ -40,8 +40,6 @@ cd aetherlink-iot
 - **可视化**：默认内置本地原生看板；可选启用 ThingsVis 兼容集成。
 - **MQTT Broker**：插件化认证与 ACL、上下行路由、主题映射、持久化队列与会话撤销。
 - **开放能力**：OpenAPI 密钥（哈希存储）、协议插件、数据脚本引擎。
-
-产品演进计划见 [ROADMAP.md](ROADMAP.md)：对标 ThingsBoard CE / ThingsPanel 的功能差距矩阵与 Phase A/B/C 分阶段交付清单。
 
 ## 系统架构
 

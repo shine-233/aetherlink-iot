@@ -1,1 +1,0 @@
- M frontend/src/views/visualization/thingsvis/__tests__/index.test.ts

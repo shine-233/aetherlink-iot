@@ -129,4 +129,25 @@ describe(SUITE, function () {
     expect(res.data.role_id).to.equal(roleIdTenantA);
     expect(res.data.codes).to.include('device:read');
   });
+
+  it('9. TENANT_ADMIN assigns users to the custom role (POST /roles/:id/users)', async function () {
+    // 查出本租户下一个普通用户
+    const usersRes = await apiClient.get('/user', { page: 1, page_size: 10 }, TENANT_A);
+    expect(usersRes.code).to.equal(200);
+    const userList = usersRes.data.list || [];
+    if (userList.length > 0) {
+      const targetUserId = userList[0].id;
+      const assignRes = await apiClient.post(`/roles/${roleIdTenantA}/users`, {
+        user_ids: [targetUserId],
+      }, TENANT_A);
+      expect(assignRes.code, 'assign users to role').to.equal(200);
+
+      // 10. 读回验证
+      const getRoleUsersRes = await apiClient.get(`/roles/${roleIdTenantA}/users`, {}, TENANT_A);
+      expect(getRoleUsersRes.code).to.equal(200);
+      expect(getRoleUsersRes.data).to.have.property('users').that.is.an('array');
+      const assignedIds = getRoleUsersRes.data.users.map(u => u.id);
+      expect(assignedIds).to.include(targetUserId);
+    }
+  });
 });
