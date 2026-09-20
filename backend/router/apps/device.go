@@ -79,6 +79,10 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 		// 设备地图-遥测信息
 		deviceapi.GET("map/telemetry/:id", api.Controllers.DeviceApi.HandleMapTelemetry)
 
+		// TB-13 地理空间追踪与看板地图部件（Geospatial Map Tracking）
+		deviceapi.GET("locations/latest", api.Controllers.DeviceApi.HandleGetLatestDeviceLocations)
+		deviceapi.GET(":id/location/history", api.Controllers.DeviceApi.HandleGetDeviceLocationHistory)
+
 		// 更换设备配置
 		deviceapi.PUT("update/config", api.Controllers.DeviceApi.UpdateDeviceConfig)
 
@@ -295,5 +299,12 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 			deviceModelCustomControlApi.GET("", api.Controllers.DeviceModelApi.HandleDeviceModelCustomControl)
 		}
 
+	}
+
+	// 复数 devices 路由组（兼顾 ThingsBoard 风格与 AetherLink 复数契约）
+	devicesapi := Router.Group("devices")
+	{
+		devicesapi.GET("locations/latest", api.Controllers.DeviceApi.HandleGetLatestDeviceLocations)
+		devicesapi.GET(":device_id/location/history", api.Controllers.DeviceApi.HandleGetDeviceLocationHistory)
 	}
 }
