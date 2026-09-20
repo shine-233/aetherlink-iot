@@ -143,7 +143,7 @@ describe(SUITE, function () {
       expectSuccess(listResp);
       expect(listResp.data).to.be.an('array');
       const found = listResp.data.find(r => r.target_id === tenantAId && r.limit_type === 'api');
-      expect(found).to.be.ok;
+      expect(Boolean(found)).to.equal(true);
       expect(found.rate_limits).to.equal('200:1,3000:60');
     });
 

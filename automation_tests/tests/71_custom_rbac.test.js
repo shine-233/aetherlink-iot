@@ -78,7 +78,7 @@ describe(SUITE, function () {
     const listRes = await apiClient.get('/role', { page: 1, page_size: 20 }, TENANT_A);
     expect(listRes.code).to.equal(200);
     const found = (listRes.data.list || []).find(r => r.name === roleName);
-    expect(found, 'created role found in list').to.exist;
+    expect(Boolean(found), 'created role found in list').to.equal(true);
     roleIdTenantA = found.id;
     expect(roleIdTenantA).to.be.a('string');
   });

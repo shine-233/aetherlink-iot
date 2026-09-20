@@ -265,15 +265,15 @@ describe(SUITE, function () {
     expect(rows).to.be.an('array');
 
     const tempRow = rows.find(r => r.key === 'temperature');
-    expect(tempRow, 'temperature metric must exist').to.be.ok;
+    expect(Boolean(tempRow), 'temperature metric must exist').to.equal(true);
     expect(Number(tempRow.value)).to.equal(28.5);
 
     const pressRow = rows.find(r => r.key === 'pressure_kpa');
-    expect(pressRow, 'pressure_kpa metric must exist').to.be.ok;
+    expect(Boolean(pressRow), 'pressure_kpa metric must exist').to.equal(true);
     expect(Number(pressRow.value)).to.equal(101.32);
 
     const rpmRow = rows.find(r => r.key === 'engine_rpm');
-    expect(rpmRow, 'engine_rpm metric must exist').to.be.ok;
+    expect(Boolean(rpmRow), 'engine_rpm metric must exist').to.equal(true);
     expect(Number(rpmRow.value)).to.equal(1500);
   });
 
@@ -290,11 +290,11 @@ describe(SUITE, function () {
     expect(rows).to.be.an('array');
 
     const voltRow = rows.find(r => r.key === 'bus_voltage');
-    expect(voltRow, 'bus_voltage metric must exist on edge node').to.be.ok;
+    expect(Boolean(voltRow), 'bus_voltage metric must exist on edge node').to.equal(true);
     expect(Number(voltRow.value)).to.equal(380.0);
 
     const cpuRow = rows.find(r => r.key === 'cpu_usage');
-    expect(cpuRow, 'cpu_usage metric must exist on edge node').to.be.ok;
+    expect(Boolean(cpuRow), 'cpu_usage metric must exist on edge node').to.equal(true);
     expect(Math.abs(Number(cpuRow.value) - 42.5)).to.be.lessThan(0.01);
   });
 
@@ -310,7 +310,7 @@ describe(SUITE, function () {
 
     const rows = await pollCurrentTelemetry(deviceAId, ['vibration_level'], ACCOUNT);
     const vibRow = rows.find(r => r.key === 'vibration_level');
-    expect(vibRow, 'numeric metric vibration_level must be recorded').to.be.ok;
+    expect(Boolean(vibRow), 'numeric metric vibration_level must be recorded').to.equal(true);
     expect(Number(vibRow.value)).to.equal(3.14);
 
     // 严谨验证：non-numeric metrics 不得产生值为 "0" 或 0 的假记录
@@ -339,7 +339,7 @@ describe(SUITE, function () {
 
     const rows = await pollCurrentTelemetry(deviceAId, ['flow_rate'], ACCOUNT);
     const flowRow = rows.find(r => r.key === 'flow_rate');
-    expect(flowRow).to.be.ok;
+    expect(Boolean(flowRow)).to.equal(true);
     expect(Number(flowRow.value)).to.equal(12.8);
   });
 
@@ -357,7 +357,7 @@ describe(SUITE, function () {
 
     const rows = await pollCurrentTelemetry(deviceAId, ['battery_level'], ACCOUNT);
     const battRow = rows.find(r => r.key === 'battery_level');
-    expect(battRow).to.be.ok;
+    expect(Boolean(battRow)).to.equal(true);
     expect(Number(battRow.value)).to.equal(98.0);
   });
 

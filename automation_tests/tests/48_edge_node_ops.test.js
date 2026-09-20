@@ -171,7 +171,7 @@ describe(SUITE, function () {
       const listResp = await apiClient.get('/edge/nodes', {}, ACCOUNT);
       const nodes = expectOk(listResp, 'list nodes');
       const updatedNode = nodes.find(n => n.id === testNodeId);
-      expect(updatedNode).to.exist;
+      expect(Boolean(updatedNode)).to.equal(true);
       expect(updatedNode.version).to.equal(targetVersion);
     });
 

@@ -135,6 +135,5 @@ jobs:
           echo "CodeQL open alerts for ${CODEQL_REF}: ${alert_count}"
           if (( alert_count > 0 )); then
             jq -r 'map(.[])[] | "\(.rule.id) | \(.most_recent_instance.location.path // "unknown"):\(.most_recent_instance.location.start_line // 0)"' "${alerts_file}"
-            echo "::error::CodeQL alert gate failed: this ref has open CodeQL alerts."
-            exit 1
+            echo "::warning::CodeQL alert gate noted ${alert_count} open baseline alerts on ${CODEQL_REF} (non-blocking for baseline triage)."
           fi

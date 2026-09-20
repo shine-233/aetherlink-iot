@@ -153,7 +153,7 @@ describe(SUITE, function () {
 
     expect(tokens.length, 'token list length').to.be.greaterThan(0);
     const activeToken = tokens.find(t => t.status === 'active');
-    expect(activeToken, 'must have active claim token').to.exist;
+    expect(Boolean(activeToken), 'must have active claim token').to.equal(true);
     expect(activeToken.device_id).to.equal(deviceId);
     expect(activeToken.device_number).to.equal(deviceNumber);
     expect(activeToken.effective).to.equal('active');
