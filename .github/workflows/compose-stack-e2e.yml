@@ -123,6 +123,19 @@ jobs:
           docker compose logs --tail 100 backend
           exit 1
 
+      - name: DIAGNOSE crypto key plumbing
+        shell: bash
+        run: |
+          set -x
+          echo "=== A. .env 中的密钥行 ==="
+          grep -E '^GOTP_(SECRETS|MARKET)' .env || echo "(none in .env)"
+          echo "=== B. .env.example 中的密钥行 ==="
+          grep -E '^GOTP_(SECRETS|MARKET)' .env.example || echo "(none in .env.example)"
+          echo "=== C. 容器内环境变量 ==="
+          docker exec aetherlink-iot-backend-1 env | grep -E 'GOTP_(SECRETS|MARKET)' || echo "(none in container)"
+          echo "=== D. compose 解析后的 backend environment（密钥部分）==="
+          docker compose config | grep -E 'GOTP_(SECRETS|MARKET)' || echo "(none in resolved compose)"
+
       - name: Set up npm cache
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
