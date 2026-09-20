@@ -14,18 +14,34 @@ type Role struct {
 }
 
 func (*Role) Init(Router *gin.RouterGroup) {
-	url := Router.Group("role")
+	Router.GET("permissions", api.Controllers.RoleApi.ListPermissions)
+
+	role := Router.Group("role")
 	{
 		// 增
-		url.POST("", api.Controllers.RoleApi.CreateRole)
+		role.POST("", api.Controllers.RoleApi.CreateRole)
 
 		// 删
-		url.DELETE(":id", api.Controllers.RoleApi.DeleteRole)
+		role.DELETE(":id", api.Controllers.RoleApi.DeleteRole)
 
 		// 改
-		url.PUT("", api.Controllers.RoleApi.UpdateRole)
+		role.PUT("", api.Controllers.RoleApi.UpdateRole)
 
 		// 查
-		url.GET("", api.Controllers.RoleApi.HandleRoleListByPage)
+		role.GET("", api.Controllers.RoleApi.HandleRoleListByPage)
+
+		// 权限分配与用户关联
+		role.GET(":id/permissions", api.Controllers.RoleApi.GetRolePermissions)
+		role.POST(":id/permissions", api.Controllers.RoleApi.AssignRolePermissions)
+		role.GET(":id/users", api.Controllers.RoleApi.GetRoleUsers)
+		role.POST(":id/users", api.Controllers.RoleApi.AssignRoleUsers)
+	}
+
+	roles := Router.Group("roles")
+	{
+		roles.GET(":id/permissions", api.Controllers.RoleApi.GetRolePermissions)
+		roles.POST(":id/permissions", api.Controllers.RoleApi.AssignRolePermissions)
+		roles.GET(":id/users", api.Controllers.RoleApi.GetRoleUsers)
+		roles.POST(":id/users", api.Controllers.RoleApi.AssignRoleUsers)
 	}
 }
