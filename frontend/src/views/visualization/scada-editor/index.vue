@@ -59,39 +59,12 @@ const authStore = useAuthStore()
 // schema 全部字段可选、只做类型/取值约束：存量画布不受影响，新画布错误配置在保存时被拒。
 // 与后端 scada_mobile_wiring.go 的 builtinWidgetDefinitions 逐字段一致（parity 测试守护）。
 // schema 全部字段可选、只做类型/取值约束：存量画布不受影响，新画布错误配置在保存时被拒。
+// prettier-ignore
 const WIDGET_REGISTRY: ScadaWidgetDefinition[] = [
-  {
-    type: 'gauge',
-    version: '1',
-    schema:
-      '{"type":"object","properties":{"title":{"type":"string","maxLength":64},"unit":{"type":"string","maxLength":16},"telemetry_key":{"type":"string","maxLength":128},"min":{"type":"number"},"max":{"type":"number"}}}',
-    capabilities: ['2d'],
-    commands: [{ name: 'refresh', requires_confirmation: false }]
-  },
-  {
-    type: 'chart',
-    version: '1',
-    schema:
-      '{"type":"object","properties":{"title":{"type":"string","maxLength":64},"telemetry_keys":{"type":"array","items":{"type":"string","maxLength":128},"maxItems":8},"time_window_seconds":{"type":"integer","minimum":60,"maximum":2592000}}}',
-    capabilities: ['2d'],
-    commands: [{ name: 'refresh', requires_confirmation: false }]
-  },
-  {
-    type: 'valve',
-    version: '1',
-    schema:
-      '{"type":"object","properties":{"title":{"type":"string","maxLength":64},"telemetry_key":{"type":"string","maxLength":128},"device_id":{"type":"string","maxLength":64},"open_command":{"type":"string","maxLength":64},"close_command":{"type":"string","maxLength":64}}}',
-    capabilities: ['2d'],
-    commands: [{ name: 'open_valve', requires_confirmation: true }]
-  },
-  {
-    type: 'twin3d',
-    version: '1',
-    schema:
-      '{"type":"object","properties":{"title":{"type":"string","maxLength":64},"model_url":{"type":"string","maxLength":512},"camera_initial":{"type":"string","enum":["orbit","front","top","side"]}}}',
-    capabilities: ['3d'],
-    commands: []
-  }
+  { type: 'gauge', version: '1', schema: '{"type":"object","properties":{"title":{"type":"string","maxLength":64},"unit":{"type":"string","maxLength":16},"telemetry_key":{"type":"string","maxLength":128},"min":{"type":"number"},"max":{"type":"number"}}}', capabilities: ['2d'], commands: [{ name: 'refresh', requires_confirmation: false }] },
+  { type: 'chart', version: '1', schema: '{"type":"object","properties":{"title":{"type":"string","maxLength":64},"telemetry_keys":{"type":"array","items":{"type":"string","maxLength":128},"maxItems":8},"time_window_seconds":{"type":"integer","minimum":60,"maximum":2592000}}}', capabilities: ['2d'], commands: [{ name: 'refresh', requires_confirmation: false }] },
+  { type: 'valve', version: '1', schema: '{"type":"object","properties":{"title":{"type":"string","maxLength":64},"telemetry_key":{"type":"string","maxLength":128},"device_id":{"type":"string","maxLength":64},"open_command":{"type":"string","maxLength":64},"close_command":{"type":"string","maxLength":64}}}', capabilities: ['2d'], commands: [{ name: 'open_valve', requires_confirmation: true }] },
+  { type: 'twin3d', version: '1', schema: '{"type":"object","properties":{"title":{"type":"string","maxLength":64},"model_url":{"type":"string","maxLength":512},"camera_initial":{"type":"string","enum":["orbit","front","top","side"]}}}', capabilities: ['3d'], commands: [] }
 ]
 const projects = ref<ScadaProject[]>([])
 const documents = ref<ScadaDocument[]>([])
