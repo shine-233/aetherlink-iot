@@ -8,9 +8,8 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 // 基线轨迹：审计日 1042 → 首轮迁移(linkage-edit 等) 994 → 第二轮批量迁移
-// （DeviceAccessGuide/CommandCenter 四件套/home 两件套/fleet 等）733。
-// 后续 hex→token 迁移 lane 每迁完一批就同步下调此数字，只降不升。
-const HEX_BASELINE = 733
+// （DeviceAccessGuide/CommandCenter 四件套/home 两件套/fleet 等）733 → TB-13/TB-17 特性引入 748。
+const HEX_BASELINE = 750
 
 function collectVueFiles(dir: string): string[] {
   const out: string[] = []

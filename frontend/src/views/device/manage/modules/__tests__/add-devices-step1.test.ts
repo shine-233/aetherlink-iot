@@ -117,7 +117,8 @@ describe('device/manage/modules/add-devices-step1.vue', () => {
       name: '',
       pid_number: '',
       label: [],
-      device_config_id: ''
+      device_config_id: '',
+      conflict_policy: 'fail'
     })
     expect(state.rules).toMatchObject({
       name: {
@@ -184,7 +185,8 @@ describe('device/manage/modules/add-devices-step1.vue', () => {
       pid_number: 'ABC123456789',
       label: 'cold,warehouse',
       device_config_id: 'cfg-1',
-      access_way: 'A'
+      access_way: 'A',
+      conflict_policy: 'fail'
     })
     expect(setIdCallback).toHaveBeenCalledWith('dev-1', 'cfg-1', {}, 'ABC123456789')
     expect(nextCallback).toHaveBeenCalledTimes(1)
