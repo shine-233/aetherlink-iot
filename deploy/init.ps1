@@ -39,6 +39,25 @@ function New-AetherLinkSecret {
   return [Convert]::ToBase64String($buffer).TrimEnd("=").Replace("+", "_").Replace("/", "-")
 }
 
+# Standard base64 (with padding) key material for secrets.master_keys and
+# market.bundle_signing_keys. Do NOT reuse New-AetherLinkSecret: it strips the
+# padding and rewrites +/ as -_, while the Go side decodes with
+# base64.StdEncoding.DecodeString, which accepts neither.
+# NOTE: keep this file ASCII-only. Windows PowerShell 5.1 reads .ps1 sources
+# using the system ANSI codepage, so non-ASCII bytes here can corrupt parsing.
+function New-AetherLinkBase64Key {
+  param([int]$Bytes = 32)
+
+  $buffer = [byte[]]::new($Bytes)
+  $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+  try {
+    $rng.GetBytes($buffer)
+  } finally {
+    $rng.Dispose()
+  }
+  return [Convert]::ToBase64String($buffer)
+}
+
 function Set-AetherLinkEnvValue {
   param(
     [string]$Content,
@@ -247,6 +266,13 @@ function Initialize-AetherLinkEnvFile {
   $mqttRootPassword = New-AetherLinkSecret
   $mqttPluginPassword = New-AetherLinkSecret
   $jwtKey = New-AetherLinkSecret 48
+  # Envelope-encryption master key and market bundle signing key. The product
+  # fails closed when either is unconfigured, so a fresh install must generate
+  # them here: otherwise secret storage writes return 100000 and resource
+  # bundle export returns 100002. Signing key stays separate from the
+  # encryption key and must be >= 32 bytes (validated on the market side).
+  $secretsMasterKey = New-AetherLinkBase64Key 32
+  $bundleSigningKey = New-AetherLinkBase64Key 48
   $content = Get-Content -Raw ".env"
 
   $content = Set-AetherLinkEnvValue $content "POSTGRES_PASSWORD" $postgresPassword
@@ -258,6 +284,11 @@ function Initialize-AetherLinkEnvFile {
   $content = Set-AetherLinkEnvValue $content "GOTP_MQTT_USER" "root"
   $content = Set-AetherLinkEnvValue $content "GOTP_MQTT_PASS" $mqttRootPassword
   $content = Set-AetherLinkEnvValue $content "GOTP_JWT_KEY" $jwtKey
+  # Key ids must match the backend environment allow-list in docker-compose.yml.
+  $content = Set-AetherLinkEnvValue $content "GOTP_SECRETS_ACTIVE_KEY_ID" "k1"
+  $content = Set-AetherLinkEnvValue $content "GOTP_SECRETS_MASTER_KEYS_K1" $secretsMasterKey
+  $content = Set-AetherLinkEnvValue $content "GOTP_MARKET_ACTIVE_BUNDLE_SIGNING_KEY_ID" "mk1"
+  $content = Set-AetherLinkEnvValue $content "GOTP_MARKET_BUNDLE_SIGNING_KEYS_MK1" $bundleSigningKey
   $content = Set-AetherLinkPerformanceTierEnvValues $content $PerformanceTier
   $content = Set-AetherLinkEnvValue $content "AETHERLINK_SERVER_MODE" $(if ($Server) { "1" } else { "0" })
 

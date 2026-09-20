@@ -165,6 +165,18 @@ services:
       # Shared secret for the public /api/v1/plugin/* endpoints. Empty keeps the
       # loopback/private-network default; when set, callers must send X-Plugin-Key.
       GOTP_PLUGIN_SERVICE_KEY: ${GOTP_PLUGIN_SERVICE_KEY:-}
+      # 信封加密主密钥（secrets.*）与模板市场包签名密钥（market.*）。
+      # 产品对两者一律 fail closed：留空时写入 /secrets 返回 100000（系统内部错误），
+      # 导出资源包返回 100002（参数错误，data.sign_error 说明密钥未配置）。
+      # 本 environment 块是白名单，未列出的 GOTP_* 不会进入容器——曾因此让
+      # Compose 定时泳道长期红着 14 条断言（56_secrets_storage 9 条 +
+      # 53_resource_center_market 5 条）。
+      # 密钥由 deploy/init.sh 在首次生成 .env 时现场创建；生产部署必须显式配置。
+      # 注意 compose 不支持通配透传，故 key id 固定为 k1 / mk1。
+      GOTP_SECRETS_ACTIVE_KEY_ID: ${GOTP_SECRETS_ACTIVE_KEY_ID:-}
+      GOTP_SECRETS_MASTER_KEYS_K1: ${GOTP_SECRETS_MASTER_KEYS_K1:-}
+      GOTP_MARKET_ACTIVE_BUNDLE_SIGNING_KEY_ID: ${GOTP_MARKET_ACTIVE_BUNDLE_SIGNING_KEY_ID:-}
+      GOTP_MARKET_BUNDLE_SIGNING_KEYS_MK1: ${GOTP_MARKET_BUNDLE_SIGNING_KEYS_MK1:-}
       GOTP_DB_PSQL_HOST: ${GOTP_DB_PSQL_HOST:-postgres}
       GOTP_DB_PSQL_PORT: ${GOTP_DB_PSQL_PORT:-5432}
       GOTP_DB_PSQL_DBNAME: ${GOTP_DB_PSQL_DBNAME:-aetherlink_iot}
