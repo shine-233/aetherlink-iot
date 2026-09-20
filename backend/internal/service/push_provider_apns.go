@@ -68,7 +68,7 @@ type APNsConfig struct {
 	Sandbox bool
 	// BaseURL 覆盖端点，供测试使用。留空按 Sandbox 选择官方端点。
 	BaseURL string
-	// HTTPClient 覆盖 HTTP 客户端，仅供测试注入（测试服���的 TLS 证书需要信任）。
+	// HTTPClient 覆盖 HTTP 客户端，仅供测试注入（测试服务器的 TLS 证书需要信任）。
 	// 留空则构造一个强制协商 HTTP/2 的客户端。
 	HTTPClient *http.Client
 	// Timeout 单次 HTTP 超时。<=0 用默认 10 秒。
