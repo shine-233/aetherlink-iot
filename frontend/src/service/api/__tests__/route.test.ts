@@ -33,20 +33,13 @@ vi.mock('@/service/api/management.adapter', () => ({
   adapterOfFetchRouterList: hoisted.adapterOfFetchRouterList
 }))
 
-import {
-  addElement,
-  delElement,
-  editElement,
-  fetchElementList,
-  fetchGetUserRoutes,
-  fetchUIElementList
-} from '../route'
+import { addElement, delElement, editElement, fetchElementList, fetchGetUserRoutes, fetchUIElementList } from '../route'
 
 describe('route API service', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    hoisted.adapterOfFetchUserRouterList.mockImplementation(list => [{ adapted: 'user', list }])
-    hoisted.adapterOfFetchRouterList.mockImplementation(data => [{ adapted: 'admin', total: data.total }])
+    hoisted.adapterOfFetchUserRouterList.mockImplementation((list) => [{ adapted: 'user', list }])
+    hoisted.adapterOfFetchRouterList.mockImplementation((data) => [{ adapted: 'admin', total: data.total }])
   })
 
   it('fetches user routes and adapts backend menu list in-place', async () => {

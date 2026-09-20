@@ -50,35 +50,94 @@ withDefaults(defineProps<Props>(), {
   gap: 12px;
   padding: 32px 16px;
 }
-.loader-label { font-size: 12px; color: #999; }
+.loader-label {
+  font-size: 12px;
+  color: #999;
+}
 
 /* ---- 扫描线 ---- */
-.loader-scan { position: relative; width: 120px; height: 3px; background: #e0e0e0; border-radius: 2px; overflow: hidden; }
+.loader-scan {
+  position: relative;
+  width: 120px;
+  height: 3px;
+  background: #e0e0e0;
+  border-radius: 2px;
+  overflow: hidden;
+}
 .scan-line {
-  position: absolute; left: 0; top: 0; width: 40%; height: 100%;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 40%;
+  height: 100%;
   background: linear-gradient(90deg, transparent, #2080f0, transparent);
   animation: scan-sweep 1.2s ease-in-out infinite;
 }
-@keyframes scan-sweep { 0% { left: -40%; } 100% { left: 100%; } }
+@keyframes scan-sweep {
+  0% {
+    left: -40%;
+  }
+  100% {
+    left: 100%;
+  }
+}
 
 /* ---- 数据流粒子 ---- */
-.loader-dataflow { display: flex; gap: 8px; }
-.flow-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: #2080f0; animation: dot-bounce 0.6s ease-in-out infinite alternate;
+.loader-dataflow {
+  display: flex;
+  gap: 8px;
 }
-@keyframes dot-bounce { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-10px); opacity: 0.3; } }
+.flow-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2080f0;
+  animation: dot-bounce 0.6s ease-in-out infinite alternate;
+}
+@keyframes dot-bounce {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-10px);
+    opacity: 0.3;
+  }
+}
 
 /* ---- 信号波纹 ---- */
-.loader-signal { position: relative; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; }
+.loader-signal {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .signal-ring {
-  position: absolute; inset: 0; border-radius: 50%;
-  border: 2px solid #2080f0; opacity: 0;
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid #2080f0;
+  opacity: 0;
   animation: signal-expand 1.2s ease-out infinite;
 }
-@keyframes signal-expand { 0% { transform: scale(0.3); opacity: 0.8; } 100% { transform: scale(1.5); opacity: 0; } }
+@keyframes signal-expand {
+  0% {
+    transform: scale(0.3);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
-  .scan-line, .flow-dot, .signal-ring { animation: none !important; }
+  .scan-line,
+  .flow-dot,
+  .signal-ring {
+    animation: none !important;
+  }
 }
 </style>

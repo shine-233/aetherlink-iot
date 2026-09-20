@@ -123,7 +123,7 @@ export function validateLayout(layout: GridLayoutPlusItem[]): LayoutOperationRes
     }
 
     // 检查ID唯一性
-    const ids = layout.map(item => item.i)
+    const ids = layout.map((item) => item.i)
     const uniqueIds = new Set(ids)
     if (ids.length !== uniqueIds.size) {
       const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index)
@@ -342,7 +342,7 @@ export function validateLargeGridPerformance(
 ): LayoutOperationResult<{ warning?: string; recommendation?: string }> {
   try {
     const itemCount = layout.length
-    const gridSize = colNum * Math.max(...layout.map(item => item.y + item.h), 10) // 估算行数
+    const gridSize = colNum * Math.max(...layout.map((item) => item.y + item.h), 10) // 估算行数
 
     // 性能警告阈值
     const warnings: string[] = []

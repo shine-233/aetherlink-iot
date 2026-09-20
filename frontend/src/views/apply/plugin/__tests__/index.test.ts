@@ -58,13 +58,45 @@ const mountComponent = () => {
   const wrapper = mount(ApplyPluginPage, {
     global: {
       stubs: {
-        NCard: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : []) } }),
-        NDataTable: defineComponent({ props: { data: { type: Array, default: () => [] }, loading: Boolean, pagination: { default: null } }, setup() { return () => h('div') } }),
-        NSelect: defineComponent({ props: { value: { default: '' }, options: { type: Array, default: () => [] } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NSpace: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NPopconfirm: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NTag: defineComponent({ setup(_, { slots }) { return () => h('span', slots.default ? slots.default() : []) } })
+        NCard: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NButton: defineComponent({
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : [])
+          }
+        }),
+        NDataTable: defineComponent({
+          props: { data: { type: Array, default: () => [] }, loading: Boolean, pagination: { default: null } },
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NSelect: defineComponent({
+          props: { value: { default: '' }, options: { type: Array, default: () => [] } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NSpace: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NPopconfirm: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NTag: defineComponent({
+          setup(_, { slots }) {
+            return () => h('span', slots.default ? slots.default() : [])
+          }
+        })
       }
     }
   })

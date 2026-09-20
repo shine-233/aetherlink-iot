@@ -392,18 +392,6 @@ func (f *AttributeUplink) refreshHeartbeat(device *model.Device) {
 		return
 	}
 
-	// 获取设备心跳配置，缺失配置时不改变状态。
-	config, err := f.heartbeatService.GetConfig(device)
-	if err != nil {
-		f.logger.WithError(err).WithField("device_id", device.ID).Debug("Failed to get heartbeat config")
-		return
-	}
-
-	// 未配置心跳规则时直接返回。
-	if config == nil {
-		return
-	}
-
 	// 任意有效业务上行都可将设备自动恢复为在线。
 	if device.IsOnline != 1 {
 		// 状态变化时再推送 SSE，避免重复通知前端。
@@ -419,6 +407,18 @@ func (f *AttributeUplink) refreshHeartbeat(device *model.Device) {
 			// 异步通知前端设备已上线。
 			go f.notifyDeviceOnline(onlineDeviceSnapshot(device))
 		}
+	}
+
+	// 获取设备心跳配置，缺失配置时不改变状态。
+	config, err := f.heartbeatService.GetConfig(device)
+	if err != nil {
+		f.logger.WithError(err).WithField("device_id", device.ID).Debug("Failed to get heartbeat config")
+		return
+	}
+
+	// 未配置心跳规则时直接返回。
+	if config == nil {
+		return
 	}
 
 	// 刷新心跳 key，TTL 需要大于在线超时时间。

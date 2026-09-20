@@ -81,8 +81,7 @@
               :render-label="renderTargetSlotOption"
               :placeholder="t('configuration.import.selectTargetSlot')"
               @update:value="emit('update:selectedTargetSlot', $event)"
-            >
-            </n-select>
+            ></n-select>
           </n-form-item>
 
           <n-alert

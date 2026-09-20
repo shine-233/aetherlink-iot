@@ -109,9 +109,10 @@ export function normalizePersistedDataItem(rawItem: unknown): StandardDataItem {
   }
 
   const raw = rawItem as Record<string, unknown> | null | undefined
-  const wrappedItem = (raw?.item && typeof raw.item === 'object'
-    ? raw.item
-    : rawItem ?? {}) as Record<string, unknown>
+  const wrappedItem = (raw?.item && typeof raw.item === 'object' ? raw.item : (rawItem ?? {})) as Record<
+    string,
+    unknown
+  >
   const processing = (raw?.processing ?? {}) as Record<string, unknown>
 
   return {

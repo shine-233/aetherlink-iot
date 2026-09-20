@@ -201,7 +201,7 @@ function getWeightNumber(diffHours, diffDays, diffMonths) {
 // 2. 写回开始/结束时间；
 // 3. 根据跨度自动收紧可选聚合粒度。
 // 静态审查建议：这里既处理校验又处理状态同步，后续若增加更多限制条件，建议拆分纯计算逻辑便于测试。
-const checkDateRange = value => {
+const checkDateRange = (value) => {
   const [start, end] = value
   if (start && end && addYears(start, 1) < end) {
     dateRange.value = null

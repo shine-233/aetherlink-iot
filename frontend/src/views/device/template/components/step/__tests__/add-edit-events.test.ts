@@ -23,9 +23,22 @@ vi.mock('@/locales', () => ({
 }))
 
 vi.mock('naive-ui', () => ({
-  NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : []) } }),
-  NPopconfirm: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NSpace: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } })
+  NButton: defineComponent({
+    emits: ['click'],
+    setup(_, { slots, emit }) {
+      return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : [])
+    }
+  }),
+  NPopconfirm: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NSpace: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  })
 }))
 
 import Component from '../add-edit-events.vue'
@@ -37,12 +50,43 @@ const mountComponent = (props = {}) => {
     props: { addAndEditModalVisible: false, deviceTemplateId: 'tpl-1', objItem: {}, ...props },
     global: {
       stubs: {
-        NForm: defineComponent({ setup(_, { slots }) { return () => h('form', slots.default ? slots.default() : []) } }),
-        NFormItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NInput: defineComponent({ props: { value: { default: '' } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NSelect: defineComponent({ props: { value: { default: null } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NModal: defineComponent({ props: { show: Boolean }, emits: ['update:show'], setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NDataTable: defineComponent({ props: { data: { type: Array, default: () => [] } }, setup() { return () => h('div') } })
+        NForm: defineComponent({
+          setup(_, { slots }) {
+            return () => h('form', slots.default ? slots.default() : [])
+          }
+        }),
+        NFormItem: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NInput: defineComponent({
+          props: { value: { default: '' } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NSelect: defineComponent({
+          props: { value: { default: null } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NModal: defineComponent({
+          props: { show: Boolean },
+          emits: ['update:show'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NDataTable: defineComponent({
+          props: { data: { type: Array, default: () => [] } },
+          setup() {
+            return () => h('div')
+          }
+        })
       }
     }
   })

@@ -153,7 +153,7 @@ const darkColorMap = [
 export function getColorPalettes(color: AnyColor, darkTheme = false, darkThemeMixColor = '#141414'): string[] {
   const indexes: ColorIndex[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
-  const patterns = indexes.map(index => getColorPalette(color, index))
+  const patterns = indexes.map((index) => getColorPalette(color, index))
 
   if (darkTheme) {
     const darkPatterns = darkColorMap.map(({ index, opacity }) => {
@@ -162,7 +162,7 @@ export function getColorPalettes(color: AnyColor, darkTheme = false, darkThemeMi
       return darkColor
     })
 
-    return darkPatterns.map(item => colord(item).toHex())
+    return darkPatterns.map((item) => colord(item).toHex())
   }
 
   return patterns

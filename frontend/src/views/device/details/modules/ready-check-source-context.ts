@@ -22,10 +22,7 @@ export const buildReadyCheckSourceContext = (routeQuery: Record<string, unknown>
   const commandJobId = normalizeRouteQueryText(routeQuery.command_job_id)
 
   if (isOtaFailureSource) {
-    const ids = [
-      otaTaskId ? `task=${otaTaskId}` : '',
-      otaDetailId ? `detail=${otaDetailId}` : ''
-    ].filter(Boolean)
+    const ids = [otaTaskId ? `task=${otaTaskId}` : '', otaDetailId ? `detail=${otaDetailId}` : ''].filter(Boolean)
 
     return {
       isFirstDeviceOnboardingSource,

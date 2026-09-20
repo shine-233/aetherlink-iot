@@ -30,7 +30,7 @@ vi.mock('@/locales', () => ({
   $t: (key: string) => key
 }))
 
-vi.mock('vue', async importOriginal => {
+vi.mock('vue', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue')>()
   return {
     ...actual,
@@ -57,11 +57,45 @@ const mountComponent = (props: Record<string, any> = {}) => {
     },
     global: {
       stubs: {
-        NModal: defineComponent({ name: 'NModal', props: { show: Boolean, title: String }, emits: ['update:show'], setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NForm: defineComponent({ name: 'NForm', setup(_, { slots }) { return () => h('form', slots.default ? slots.default() : []) } }),
-        NTree: defineComponent({ name: 'NTree', props: { data: { type: Array, default: () => [] }, checkedKeys: { type: Array, default: () => [] }, cascade: Boolean, checkable: Boolean, blockLine: Boolean }, emits: ['update:checkedKeys'], setup() { return () => h('div') } }),
-        NSpace: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : []) } })
+        NModal: defineComponent({
+          name: 'NModal',
+          props: { show: Boolean, title: String },
+          emits: ['update:show'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NForm: defineComponent({
+          name: 'NForm',
+          setup(_, { slots }) {
+            return () => h('form', slots.default ? slots.default() : [])
+          }
+        }),
+        NTree: defineComponent({
+          name: 'NTree',
+          props: {
+            data: { type: Array, default: () => [] },
+            checkedKeys: { type: Array, default: () => [] },
+            cascade: Boolean,
+            checkable: Boolean,
+            blockLine: Boolean
+          },
+          emits: ['update:checkedKeys'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NSpace: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NButton: defineComponent({
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : [])
+          }
+        })
       }
     }
   })

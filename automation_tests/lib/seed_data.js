@@ -833,28 +833,59 @@ async function createSimulationDevice(accountKey = 'tenant_admin') {
   throw new Error('simulation device ' + id + ' not visible via /device/detail within 10s (read-consistency gap)');
 }
 
-async function ensureDeviceWithTelemetry(accountKey = 'tenant_admin') {
-  const seed = await ensureDevice(accountKey);
+/**
+ * 建一台带新鲜凭证的设备并写入一批遥测，返回 seed 结果（含 cleanup）。
+ *
+ * 为什么必须"每次新建"而不是复用 ensureDevice 的既有设备：
+ * 模拟遥测发布（POST /telemetry/datas/simulation/send）在服务端走
+ * loadSimulationVoucher（backend/internal/service/telemetry_simulation.go），
+ * 它只认两类来源——① 创建/轮换时写入 Redis 的 **24 小时**凭证测试缓存；
+ * ② 凭证哈希 Phase 2b 之前的 DB 明文 voucher 列。
+ * 经 API 新建的设备明文列为空，于是缓存一旦过期（>24h）就必然抛
+ * "device credential test cache expired or absent"，且当前后端**没有凭证轮换端点**
+ * 可补救。复用历史设备会让本函数在跨天后 100% 失败——这不是用例问题，
+ * 是夹具不可重跑。
+ *
+ * 因此这里固定走 createSimulationDevice（每次 POST /device，拿新凭证与新缓存），
+ * 把 cleanup 交给调用方（03/12 已有 `if (seed.cleanup) await seed.cleanup()` 约定）。
+ *
+ * @param {string} accountKey 账号键
+ * @param {object} options 透传给 publishSimulatedTelemetryAndReadCurrent 的选项
+ *   （attempts / delayMs / waitForHistory 等）
+ */
+async function ensureDeviceWithTelemetry(accountKey = 'tenant_admin', options = {}) {
+  const seed = await createSimulationDevice(accountKey);
   const telemetryPayload = {
     temperature_1: 25.5,
     temperature_2: 26.25,
     switch_1: 1,
     switch_2: 0
   };
-  const telemetryResult = await publishSimulatedTelemetryAndReadCurrent(
-    seed.id,
-    telemetryPayload,
-    accountKey,
-    { waitForHistory: true }
-  );
 
-  return {
-    ...seed,
-    telemetryPayload,
-    telemetrySeeded: true,
-    telemetrySeedResponse: telemetryResult.publishResp,
-    telemetryRows: telemetryResult.rows
-  };
+  try {
+    const telemetryResult = await publishSimulatedTelemetryAndReadCurrent(
+      seed.id,
+      telemetryPayload,
+      accountKey,
+      { waitForHistory: true, ...options }
+    );
+
+    return {
+      ...seed,
+      telemetryPayload,
+      telemetrySeeded: true,
+      telemetrySeedResponse: telemetryResult.publishResp,
+      telemetryRows: telemetryResult.rows
+    };
+  } catch (error) {
+    // 发布失败时也要回收设备，否则每跑一次失败用例就残留一台设备。
+    try {
+      await seed.cleanup();
+    } catch {
+      /* 清理失败不掩盖原始错误 */
+    }
+    throw error;
+  }
 }
 
 function telemetryValueMatches(actual, expected) {
@@ -918,64 +949,104 @@ async function publishSimulatedTelemetryAndReadCurrent(
     simulationTarget.topic = mqttTopic;
   }
 
-  const publishResp = await apiClient.post('/telemetry/datas/simulation/send', {
-    device_id: deviceId,
-    data: JSON.stringify(payload),
-    ...simulationTarget
-  }, accountKey);
-  requireSuccess(publishResp, 'publish simulated telemetry');
+  /**
+   * 发一次模拟遥测并轮询读回；读不回来就抛错。
+   *
+   * @param {boolean} useEnvelope true 时按 MQTT adapter 的**原生契约**发
+   *   `{"device_id":...,"values":"<base64(JSON)>"}`。base64 不是随手定的：
+   *   `backend/internal/adapter/mqttadapter/adapter.go` 的 `publicPayload.Values`
+   *   是 `[]byte`，Go 的 json 包把 `[]byte` 编成 base64 字符串；
+   *   `mqtt-broker/plugin/aetherlink/hooks_messages.go:210 buildMQTTUplinkPayload`
+   *   也是同一个形状。
+   *   false 时发扁平载荷 `{"temperature_1":25.5,...}`，即设备侧最自然的写法——
+   *   它依赖 gmqtt 的 aetherlink 插件在 broker 侧补上信封。
+   */
+  const publishAndPoll = async (useEnvelope) => {
+    const data = useEnvelope
+      ? JSON.stringify({
+          device_id: deviceId,
+          values: Buffer.from(JSON.stringify(payload), 'utf8').toString('base64')
+        })
+      : JSON.stringify(payload);
 
-  let lastRead = null;
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    const reads = await Promise.all(keys.map(key =>
-      readCurrentTelemetryForKey(deviceId, key, payload[key], accountKey)
-    ));
-    lastRead = reads;
-    if (reads.every(item => item.row)) {
-      if (options.waitForHistory) {
-        let lastHistoryRead = null;
-        for (let historyAttempt = 0; historyAttempt < attempts; historyAttempt += 1) {
-          const historyReads = await Promise.all(keys.map(key =>
-            readHistoryTelemetryForKey(deviceId, key, accountKey)
+    const publishResp = await apiClient.post('/telemetry/datas/simulation/send', {
+      device_id: deviceId,
+      data,
+      ...simulationTarget
+    }, accountKey);
+    requireSuccess(publishResp, 'publish simulated telemetry');
+
+    let lastRead = null;
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      const reads = await Promise.all(keys.map(key =>
+        readCurrentTelemetryForKey(deviceId, key, payload[key], accountKey)
+      ));
+      lastRead = reads;
+      if (reads.every(item => item.row)) {
+        if (options.waitForHistory) {
+          let lastHistoryRead = null;
+          for (let historyAttempt = 0; historyAttempt < attempts; historyAttempt += 1) {
+            const historyReads = await Promise.all(keys.map(key =>
+              readHistoryTelemetryForKey(deviceId, key, accountKey)
+            ));
+            lastHistoryRead = historyReads;
+            if (historyReads.every(item => item.rows.length > 0)) {
+              return {
+                publishResp,
+                rows: reads.map(item => item.row),
+                allRows: reads.flatMap(item => item.rows),
+                historyRows: historyReads.flatMap(item => item.rows)
+              };
+            }
+            if (historyAttempt < attempts - 1) {
+              await new Promise(resolve => setTimeout(resolve, delayMs));
+            }
+          }
+
+          const missingHistory = keys.filter((key, index) => !(
+            lastHistoryRead &&
+            lastHistoryRead[index] &&
+            lastHistoryRead[index].rows.length > 0
           ));
-          lastHistoryRead = historyReads;
-          if (historyReads.every(item => item.rows.length > 0)) {
-            return {
-              publishResp,
-              rows: reads.map(item => item.row),
-              allRows: reads.flatMap(item => item.rows),
-              historyRows: historyReads.flatMap(item => item.rows)
-            };
-          }
-          if (historyAttempt < attempts - 1) {
-            await new Promise(resolve => setTimeout(resolve, delayMs));
-          }
+          throw new Error(
+            'Published telemetry was readable from current telemetry but not history: ' +
+            missingHistory.join(', ')
+          );
         }
 
-        const missingHistory = keys.filter((key, index) => !(
-          lastHistoryRead &&
-          lastHistoryRead[index] &&
-          lastHistoryRead[index].rows.length > 0
-        ));
-        throw new Error(
-          'Published telemetry was readable from current telemetry but not history: ' +
-          missingHistory.join(', ')
-        );
+        return {
+          publishResp,
+          rows: reads.map(item => item.row),
+          allRows: reads.flatMap(item => item.rows)
+        };
       }
-
-      return {
-        publishResp,
-        rows: reads.map(item => item.row),
-        allRows: reads.flatMap(item => item.rows)
-      };
+      if (attempt < attempts - 1) {
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
     }
-    if (attempt < attempts - 1) {
-      await new Promise(resolve => setTimeout(resolve, delayMs));
+
+    const missing = keys.filter((key, index) => !(lastRead && lastRead[index] && lastRead[index].row));
+    throw new Error('Published telemetry was not readable from current telemetry: ' + missing.join(', '));
+  };
+
+  // 载荷格式自动回退：先发扁平载荷（真实 gmqtt + aetherlink 插件会补信封，这是
+  // 设备侧最自然的写法）；若读不回来，说明当前 broker 没有该插件（本地
+  // automation_tests/scripts/local_mqtt_broker.js 就是这种极简 stub），
+  // adapter.verifyPayload 会因 device_id 为空把消息丢掉。此时改用信封重试一次。
+  // 调用方显式传 uplinkEnvelope:true 则跳过首次尝试，直接发信封。
+  if (options.uplinkEnvelope === true) {
+    return await publishAndPoll(true);
+  }
+  try {
+    return await publishAndPoll(false);
+  } catch (flatError) {
+    try {
+      return await publishAndPoll(true);
+    } catch {
+      // 信封也失败时，抛首次（扁平）的错误：它更贴近调用方原本的预期语境。
+      throw flatError;
     }
   }
-
-  const missing = keys.filter((key, index) => !(lastRead && lastRead[index] && lastRead[index].row));
-  throw new Error('Published telemetry was not readable from current telemetry: ' + missing.join(', '));
 }
 
 async function ensureAlarmConfig(accountKey = 'tenant_admin') {

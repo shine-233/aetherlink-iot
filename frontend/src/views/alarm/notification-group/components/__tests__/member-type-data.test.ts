@@ -57,15 +57,56 @@ const mountComponent = (props = {}) => {
     },
     global: {
       stubs: {
-        NForm: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NFormItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NSelect: defineComponent({ name: 'NSelect', props: { value: { default: '' }, options: { default: () => [] } }, emits: ['update:value', 'search', 'scroll'], setup() { return () => h('div') } }),
-        NCheckboxGroup: defineComponent({ props: { value: { default: () => [] } }, emits: ['update:value'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NSpace: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NCheckbox: defineComponent({ name: 'NCheckbox', props: { value: { default: '' }, label: { default: '' } }, emits: ['update:checked'], setup(_, { slots }) { return () => h('label', slots.default?.()) } }),
-        NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } }),
+        NForm: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NFormItem: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NSelect: defineComponent({
+          name: 'NSelect',
+          props: { value: { default: '' }, options: { default: () => [] } },
+          emits: ['update:value', 'search', 'scroll'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NCheckboxGroup: defineComponent({
+          props: { value: { default: () => [] } },
+          emits: ['update:value'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NSpace: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NCheckbox: defineComponent({
+          name: 'NCheckbox',
+          props: { value: { default: '' }, label: { default: '' } },
+          emits: ['update:checked'],
+          setup(_, { slots }) {
+            return () => h('label', slots.default?.())
+          }
+        }),
+        NButton: defineComponent({
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default?.())
+          }
+        }),
         // 删除按钮已包进 Popconfirm 二次确认；桩只渲染 trigger，保持原断言可定位按钮文案。
-        NPopconfirm: defineComponent({ setup(_, { slots }) { return () => h('span', slots.trigger?.()) } }),
+        NPopconfirm: defineComponent({
+          setup(_, { slots }) {
+            return () => h('span', slots.trigger?.())
+          }
+        })
       }
     }
   })
@@ -141,7 +182,7 @@ describe('notification-group/components/member-type-data.vue', () => {
     state.handleChange()
     expect(hoisted.handleUpdateMember).toHaveBeenCalledWith(0, {
       name: 'changeUser',
-      notificationType: ['email'],
+      notificationType: ['email']
     })
   })
 

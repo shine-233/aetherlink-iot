@@ -111,7 +111,7 @@ export async function loadLocaleMessages(lang: App.I18n.LangType): Promise<App.I
       const needsFallback = folder !== 'zh-cn' && folder !== 'en-us' && path.startsWith(fallbackPrefix)
       if (!isTarget && !needsFallback) continue
       jobs.push(
-        loader().then(module => {
+        loader().then((module) => {
           modules[path] = module
         })
       )

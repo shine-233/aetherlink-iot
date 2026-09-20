@@ -35,7 +35,7 @@ export class ScriptTemplateManager implements IScriptTemplateManager {
    * 根据分类获取模板
    */
   getTemplatesByCategory(category: string): ScriptTemplate[] {
-    return Array.from(this.templates.values()).filter(template => template.category === category)
+    return Array.from(this.templates.values()).filter((template) => template.category === category)
   }
 
   /**
@@ -105,7 +105,7 @@ export class ScriptTemplateManager implements IScriptTemplateManager {
     let code = template.code
 
     // 替换模板参数
-    template.parameters.forEach(param => {
+    template.parameters.forEach((param) => {
       const value = parameters[param.name]
       const actualValue = value !== undefined ? value : param.defaultValue
 

@@ -44,11 +44,11 @@ export const useEditorStore = defineStore('editor', {
     },
     removeNode(id: string) {
       const widgetStore = useWidgetStore()
-      this.nodes = this.nodes.filter(node => node.id !== id)
+      this.nodes = this.nodes.filter((node) => node.id !== id)
       widgetStore.removeNodeFromSelection(id)
     },
     updateNode(id: string, updates: Partial<GraphData>) {
-      const nodeIndex = this.nodes.findIndex(node => node.id === id)
+      const nodeIndex = this.nodes.findIndex((node) => node.id === id)
       if (nodeIndex !== -1) {
         this.nodes[nodeIndex] = {
           ...this.nodes[nodeIndex],

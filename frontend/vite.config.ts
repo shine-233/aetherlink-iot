@@ -142,10 +142,7 @@ export default defineConfig(function (configEnv) {
             if (normalizedId.includes('naive-ui')) return 'vendor-ui'
             // three/@tresjs power the 3D device panel; isolate the large three
             // bundle so it only downloads with routes that mount the panel.
-            if (
-              normalizedId.includes('@tresjs') ||
-              normalizedId.includes('node_modules/three/')
-            ) {
+            if (normalizedId.includes('@tresjs') || normalizedId.includes('node_modules/three/')) {
               return 'vendor-three'
             }
             if (normalizedId.includes('motion-v')) return 'vendor-motion'
@@ -161,7 +158,16 @@ export default defineConfig(function (configEnv) {
               return 'vendor-utils'
             }
             if (normalizedId.includes('crypto-js')) return 'vendor-crypto'
-            return 'vendor'
+            // ROADMAP §1.3-B 白屏根因修复（2026-09-14）：
+            // 原先此处 `return 'vendor'` 把 vue / vue-router / pinia / vue-i18n
+            // 等全部塞进同一个 unprefixed chunk。这些包之间存在循环导出，
+            // 被强制合并后初始化顺序不保证，运行期在 createRef 访问 RefImpl
+            // 时抛 "Cannot access 'X' before initialization"（TDZ），
+            // 导致 SPA 完全不挂载、所有路由白屏。
+            // 证据：automation_tests/scripts/diag-spa-mount.js + docs/validation/。
+            // 修复方式：不再兜底到同一个 chunk，交由 Rollup 按依赖图自动切分。
+            // 上面那行注释其实早就写明了这个风险，但代码与注释不一致。
+            return undefined
           }
         }
       }

@@ -63,7 +63,7 @@ const emit = defineEmits<{
           />
         </NFormItem>
       </template>
-       <NButton quaternary type="error" @click="emit('deleteCondition', Number(conditionIndex))">
+      <NButton quaternary type="error" @click="emit('deleteCondition', Number(conditionIndex))">
         {{ $t('common.delete') }}
       </NButton>
     </NFlex>
@@ -71,9 +71,7 @@ const emit = defineEmits<{
       <NButton dashed size="small" @click="emit('addCondition')">
         {{ $t('common.add') }}{{ $t('common.param') }}
       </NButton>
-      <NTag v-if="!ifItem.eventParamConditions?.length" type="warning" size="small">
-        请至少添加一条事件参数条件
-      </NTag>
+      <NTag v-if="!ifItem.eventParamConditions?.length" type="warning" size="small">请至少添加一条事件参数条件</NTag>
     </NFlex>
   </NFlex>
 </template>

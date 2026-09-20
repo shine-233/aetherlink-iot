@@ -31,11 +31,38 @@ withDefaults(defineProps<Props>(), {
 </template>
 
 <style scoped>
-.skeleton-table { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; }
-.skeleton-header { height: 36px; border-radius: 4px; opacity: 0.7; }
-.skeleton-row { height: 44px; border-radius: 4px; }
-.skeleton-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
-.skeleton-card { height: 120px; border-radius: 8px; }
-.skeleton-text { display: flex; flex-direction: column; gap: 10px; padding: 8px 0; }
-.skeleton-line { height: 16px; border-radius: 4px; }
+.skeleton-table {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0;
+}
+.skeleton-header {
+  height: 36px;
+  border-radius: 4px;
+  opacity: 0.7;
+}
+.skeleton-row {
+  height: 44px;
+  border-radius: 4px;
+}
+.skeleton-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+.skeleton-card {
+  height: 120px;
+  border-radius: 8px;
+}
+.skeleton-text {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 0;
+}
+.skeleton-line {
+  height: 16px;
+  border-radius: 4px;
+}
 </style>

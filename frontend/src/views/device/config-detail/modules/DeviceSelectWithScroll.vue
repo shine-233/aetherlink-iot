@@ -66,10 +66,10 @@ const selectedOptions = computed(() => {
     return []
   }
   // 优化：创建一个 ID 到选项的映射，避免每次都遍历 options
-  const optionsMap = new Map(props.options.map(opt => [opt.device_id, opt]))
+  const optionsMap = new Map(props.options.map((opt) => [opt.device_id, opt]))
   // 注意：这里可能只包含当前 options 列表中的已选项，如果 modelValue 包含尚未加载的项，它们不会显示
   // 如果需要显示所有（包括未加载）的已选项标签，需要更复杂的逻辑，可能需要父组件传入已选对象
-  return selectedDeviceIds.value.map(id => optionsMap.get(id)).filter((opt): opt is DeviceOption => Boolean(opt)) // 过滤掉未找到的选项
+  return selectedDeviceIds.value.map((id) => optionsMap.get(id)).filter((opt): opt is DeviceOption => Boolean(opt)) // 过滤掉未找到的选项
 })
 
 /** 根据搜索关键词过滤后的选项列表 */
@@ -79,7 +79,7 @@ const filteredOptions = computed(() => {
   }
   const keyword = searchKeyword.value.toLowerCase().trim()
   return props.options.filter(
-    option => option.device_name.toLowerCase().includes(keyword) || option.device_id.toLowerCase().includes(keyword)
+    (option) => option.device_name.toLowerCase().includes(keyword) || option.device_id.toLowerCase().includes(keyword)
   )
 })
 
@@ -148,7 +148,7 @@ const isSelected = (deviceId: string): boolean => {
 /** 监听外部 modelValue 的变化，同步到内部 selectedDeviceIds */
 watch(
   () => props.modelValue,
-  newVal => {
+  (newVal) => {
     if (newVal === null) {
       selectedDeviceIds.value = []
     } else if (Array.isArray(newVal)) {
@@ -189,7 +189,7 @@ watch(
           clearable
           multiple
           class="select-input"
-          @update:value="value => emit('update:modelValue', value)"
+          @update:value="(value) => emit('update:modelValue', value)"
           @search="handleSearch"
         />
       </div>

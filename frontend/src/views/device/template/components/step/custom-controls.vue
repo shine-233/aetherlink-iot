@@ -92,7 +92,7 @@ const openCommandDialog = () => {
     void ensureScriptEditorLoaded()
   }
 }
-const handleDeleteTable = async id => {
+const handleDeleteTable = async (id) => {
   const { error } = await deviceCustomControlDel(id)
 
   if (!error) {
@@ -122,7 +122,7 @@ const columns: any = [
     key: 'enable_status',
     minWidth: '100px',
     title: $t('generate.enableStatus'),
-    render: row => {
+    render: (row) => {
       if (row?.enable_status === 'enable') {
         return <NTag type="success">{$t('page.manage.common.status.enable')}</NTag>
       }
@@ -139,7 +139,7 @@ const columns: any = [
     minWidth: '100px',
     title: $t('page.product.list.operate'),
     align: 'center',
-    render: row => {
+    render: (row) => {
       return (
         <div class="flex gap-20px flex-justify-center">
           <NButton size={'small'} type="primary" onClick={() => handleEditTable(row)}>
@@ -162,10 +162,10 @@ const columns: any = [
   }
 ]
 const configFormRef = ref()
-const onCommandSubmit = async e => {
+const onCommandSubmit = async (e) => {
   const params = { ...commandjson.formjson, device_template_id: props.id, control_type: 'telemetry' }
   e.preventDefault()
-  configFormRef.value?.validate(async errors => {
+  configFormRef.value?.validate(async (errors) => {
     if (!errors && isJSON(commandjson.formjson?.content)) {
       const { error } = commandjson.formjson?.id
         ? await deviceCustomControlPut(params)

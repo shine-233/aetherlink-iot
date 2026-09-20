@@ -14,9 +14,7 @@ import { defineAsyncComponent } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { HttpConfig } from '@/core/data-architecture/types/http-config'
 
-const SimpleScriptEditor = defineAsyncComponent(
-  () => import('@/core/script-engine/components/SimpleScriptEditor.vue')
-)
+const SimpleScriptEditor = defineAsyncComponent(() => import('@/core/script-engine/components/SimpleScriptEditor.vue'))
 
 interface Props {
   /** HTTP配置数据 */

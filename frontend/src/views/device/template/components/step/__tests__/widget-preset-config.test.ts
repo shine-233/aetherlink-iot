@@ -28,7 +28,11 @@ vi.mock('@/service/api', () => ({
 }))
 
 vi.mock('@/components/thingsvis/ThingsVisWidget.vue', () => ({
-  default: defineComponent({ setup() { return () => h('div') } })
+  default: defineComponent({
+    setup() {
+      return () => h('div')
+    }
+  })
 }))
 
 vi.mock('@/utils/thingsvis/template-presets', () => ({
@@ -40,8 +44,19 @@ vi.mock('@/utils/thingsvis/template-presets', () => ({
 }))
 
 vi.mock('naive-ui', () => ({
-  NModal: defineComponent({ props: { show: Boolean }, emits: ['update:show'], setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : []) } })
+  NModal: defineComponent({
+    props: { show: Boolean },
+    emits: ['update:show'],
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NButton: defineComponent({
+    emits: ['click'],
+    setup(_, { slots, emit }) {
+      return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : [])
+    }
+  })
 }))
 
 import Component from '../widget-preset-config.vue'
@@ -99,7 +114,9 @@ describe('device/template/components/step/widget-preset-config.vue', () => {
 
   afterEach(() => {
     ;(window as any).$message = undefined
-    while (mountedWrappers.length > 0) { mountedWrappers.pop()?.unmount() }
+    while (mountedWrappers.length > 0) {
+      mountedWrappers.pop()?.unmount()
+    }
   })
 
   it('opens preset editor with a single platform field for the selected property', async () => {
@@ -137,7 +154,9 @@ describe('device/template/components/step/widget-preset-config.vue', () => {
     })
     await flushPromises()
     const state = wrapper.vm.$.setupState as Record<string, any>
-    expect(state.platformFields).toEqual([{ id: 'mode', name: 'Mode', type: 'number', dataType: 'attribute', unit: undefined }])
+    expect(state.platformFields).toEqual([
+      { id: 'mode', name: 'Mode', type: 'number', dataType: 'attribute', unit: undefined }
+    ])
   })
 
   it('saves the first editor widget into web chart device widget presets', async () => {

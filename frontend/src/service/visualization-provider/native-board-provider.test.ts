@@ -7,15 +7,19 @@ const boardApi = vi.hoisted(() => ({
   fetchBoardById: vi.fn(),
   fetchBoards: vi.fn(),
   publishBoard: vi.fn(),
-  updateBoard: vi.fn()
+  updateBoard: vi.fn(),
+  fetchBoardProjects: vi.fn(),
+  fetchBoardProjectById: vi.fn(),
+  createBoardProject: vi.fn(),
+  updateBoardProject: vi.fn(),
+  deleteBoardProject: vi.fn(),
+  addBoardToProject: vi.fn(),
+  fetchBoardProjectMembership: vi.fn()
 }))
 
 vi.mock('@/service/api/board', () => boardApi)
 
-import {
-  NATIVE_BOARD_PROJECT_ID,
-  nativeBoardProvider
-} from './native-board-provider'
+import { NATIVE_BOARD_PROJECT_ID, nativeBoardProvider } from './native-board-provider'
 
 const timestamp = '2026-08-01T00:00:00.000Z'
 const config = JSON.stringify({ version: 1, columns: 24, rowHeight: 60, widgets: [] })
@@ -38,37 +42,148 @@ const board = (overrides: Record<string, unknown> = {}) => ({
 })
 
 describe('native board visualization provider', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    // 默认：看板不属于任何项目（内置项目）。各用例可覆盖。
+    boardApi.fetchBoardProjectMembership.mockResolvedValue({ data: null, error: null })
+  })
 
   it('is the local-default provider and keeps external project operations fail-closed', () => {
     expect(nativeBoardProvider).toMatchObject({
       id: 'native-board',
       kind: 'local',
-      deploymentMode: 'local-default'
+      deploymentMode: 'local-default',
+      capabilities: {
+        projects: { list: true, create: true, update: true, delete: true },
+        dashboards: { thumbnail: false, genericLayout: false, dataSources: false, variables: false, publish: true }
+      }
     })
   })
 
-  it('exposes one built-in project and makes project mutation fail closed', async () => {
+  it('lists the built-in project plus backend projects and resolves them by id', async () => {
+    boardApi.fetchBoardProjects.mockResolvedValue({
+      data: [
+        {
+          id: 'project-1',
+          tenant_id: 'tenant-1',
+          name: 'Substation A',
+          description: null,
+          created_at: timestamp,
+          updated_at: timestamp
+        }
+      ],
+      error: null
+    })
     expect(await nativeBoardProvider.listProjects()).toMatchObject({
       ok: true,
-      data: { items: [{ id: NATIVE_BOARD_PROJECT_ID }], total: 1 }
+      data: { items: [{ id: NATIVE_BOARD_PROJECT_ID }, { id: 'project-1', name: 'Substation A' }], total: 2 }
     })
+
     expect(await nativeBoardProvider.getProject(NATIVE_BOARD_PROJECT_ID)).toMatchObject({ ok: true })
-    expect(await nativeBoardProvider.createProject({ name: 'Other' })).toMatchObject({
+    boardApi.fetchBoardProjectById.mockResolvedValueOnce({
+      data: {
+        id: 'project-1',
+        tenant_id: 'tenant-1',
+        name: 'Substation A',
+        description: null,
+        created_at: timestamp,
+        updated_at: timestamp
+      },
+      error: null
+    })
+    expect(await nativeBoardProvider.getProject('project-1')).toMatchObject({ ok: true, data: { id: 'project-1' } })
+    expect(await nativeBoardProvider.getProject('missing')).toMatchObject({ ok: false })
+  })
+
+  it('creates, updates and deletes backend projects; keeps the built-in project immutable', async () => {
+    boardApi.createBoardProject.mockResolvedValueOnce({
+      data: {
+        id: 'project-2',
+        tenant_id: 'tenant-1',
+        name: 'Solar B',
+        description: null,
+        created_at: timestamp,
+        updated_at: timestamp
+      },
+      error: null
+    })
+    expect(await nativeBoardProvider.createProject({ name: 'Solar B' })).toMatchObject({
+      ok: true,
+      data: { id: 'project-2', name: 'Solar B' }
+    })
+
+    boardApi.updateBoardProject.mockResolvedValueOnce({
+      data: {
+        id: 'project-1',
+        tenant_id: 'tenant-1',
+        name: 'Renamed',
+        description: 'd',
+        created_at: timestamp,
+        updated_at: timestamp
+      },
+      error: null
+    })
+    expect(await nativeBoardProvider.updateProject('project-1', { name: 'Renamed' })).toMatchObject({
+      ok: true,
+      data: { name: 'Renamed' }
+    })
+
+    boardApi.deleteBoardProject.mockResolvedValueOnce({ data: null, error: null })
+    expect(await nativeBoardProvider.deleteProject('project-1')).toEqual({ ok: true, data: undefined })
+
+    // 内置项目不可改名/删除（fail closed 保留）
+    expect(await nativeBoardProvider.updateProject(NATIVE_BOARD_PROJECT_ID, { name: 'x' })).toMatchObject({
       ok: false,
       error: { code: 'unsupported-operation' }
+    })
+    expect(await nativeBoardProvider.deleteProject(NATIVE_BOARD_PROJECT_ID)).toMatchObject({
+      ok: false,
+      error: { code: 'unsupported-operation' }
+    })
+  })
+
+  it('assigns created dashboards to the requested project and resolves membership on detail', async () => {
+    const rendererData = { version: 1, columns: 24, rowHeight: 60, widgets: [] }
+    boardApi.createBoard.mockResolvedValueOnce({ data: board({ id: 'board-9' }), error: null })
+    boardApi.addBoardToProject.mockResolvedValueOnce({ data: null, error: null })
+    expect(
+      await nativeBoardProvider.createDashboard({
+        name: 'Native board',
+        projectId: 'project-1',
+        rendererData
+      })
+    ).toMatchObject({ ok: true, data: { id: 'board-9', projectId: 'project-1' } })
+    expect(boardApi.addBoardToProject).toHaveBeenCalledWith('project-1', 'board-9')
+
+    boardApi.fetchBoardById.mockResolvedValueOnce({ data: board({ id: 'board-9' }), error: null })
+    boardApi.fetchBoardProjectMembership.mockResolvedValueOnce({
+      data: {
+        id: 'project-1',
+        tenant_id: 'tenant-1',
+        name: 'Substation A',
+        description: null,
+        created_at: timestamp,
+        updated_at: timestamp
+      },
+      error: null
+    })
+    expect(await nativeBoardProvider.getDashboard('board-9')).toMatchObject({
+      ok: true,
+      data: { id: 'board-9', projectId: 'project-1' }
     })
   })
 
   it('maps paged native boards and preserves home state', async () => {
     boardApi.fetchBoards.mockResolvedValue({ data: { list: [board({ home_flag: 'Y' })], total: 21 }, error: null })
 
-    expect(await nativeBoardProvider.listDashboards({
-      projectId: NATIVE_BOARD_PROJECT_ID,
-      page: 2,
-      limit: 10,
-      name: ' Native '
-    })).toMatchObject({
+    expect(
+      await nativeBoardProvider.listDashboards({
+        projectId: NATIVE_BOARD_PROJECT_ID,
+        page: 2,
+        limit: 10,
+        name: ' Native '
+      })
+    ).toMatchObject({
       ok: true,
       data: {
         page: 2,
@@ -78,7 +193,13 @@ describe('native board visualization provider', () => {
         items: [{ id: 'board-1', home: true, projectId: NATIVE_BOARD_PROJECT_ID }]
       }
     })
-    expect(boardApi.fetchBoards).toHaveBeenCalledWith({ page: 2, page_size: 10, vis_type: 'native', name: 'Native' })
+    expect(boardApi.fetchBoards).toHaveBeenCalledWith({
+      page: 2,
+      page_size: 10,
+      vis_type: 'native',
+      name: 'Native',
+      project_id: 'none'
+    })
   })
 
   it('maps list summaries when the paged API omits renderer config', async () => {
@@ -87,11 +208,13 @@ describe('native board visualization provider', () => {
       error: null
     })
 
-    await expect(nativeBoardProvider.listDashboards({
-      projectId: NATIVE_BOARD_PROJECT_ID,
-      page: 1,
-      limit: 12
-    })).resolves.toMatchObject({
+    await expect(
+      nativeBoardProvider.listDashboards({
+        projectId: NATIVE_BOARD_PROJECT_ID,
+        page: 1,
+        limit: 12
+      })
+    ).resolves.toMatchObject({
       ok: true,
       data: {
         items: [{ id: 'board-1', name: 'Native board', description: null }]
@@ -116,22 +239,26 @@ describe('native board visualization provider', () => {
   it('creates, updates, duplicates and deletes through the board API', async () => {
     const rendererData = { version: 1, columns: 24, rowHeight: 60, widgets: [] }
     boardApi.createBoard.mockResolvedValueOnce({ data: board(), error: null })
-    expect(await nativeBoardProvider.createDashboard({
-      name: 'Native board',
-      description: 'Description',
-      projectId: NATIVE_BOARD_PROJECT_ID,
-      rendererData,
-      tenantId: ' tenant-2 '
-    })).toMatchObject({ ok: true, data: { id: 'board-1', description: 'Description' } })
-    expect(boardApi.createBoard).toHaveBeenLastCalledWith(expect.objectContaining({
-      name: 'Native board',
-      description: 'Description',
-      home_flag: 'N',
-      menu_flag: 'N',
-      vis_type: 'native',
-      config: JSON.stringify(rendererData),
-      tenant_id: 'tenant-2'
-    }))
+    expect(
+      await nativeBoardProvider.createDashboard({
+        name: 'Native board',
+        description: 'Description',
+        projectId: NATIVE_BOARD_PROJECT_ID,
+        rendererData,
+        tenantId: ' tenant-2 '
+      })
+    ).toMatchObject({ ok: true, data: { id: 'board-1', description: 'Description' } })
+    expect(boardApi.createBoard).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        name: 'Native board',
+        description: 'Description',
+        home_flag: 'N',
+        menu_flag: 'N',
+        vis_type: 'native',
+        config: JSON.stringify(rendererData),
+        tenant_id: 'tenant-2'
+      })
+    )
 
     boardApi.fetchBoardById.mockResolvedValue({ data: board(), error: null })
     boardApi.updateBoard.mockResolvedValue({ data: board({ name: 'Changed' }), error: null })
@@ -139,15 +266,20 @@ describe('native board visualization provider', () => {
       ok: true,
       data: { name: 'Changed' }
     })
-    expect(boardApi.updateBoard).toHaveBeenCalledWith(expect.objectContaining({
-      id: 'board-1',
-      name: 'Changed',
-      description: 'Description',
-      home_flag: 'N',
-      vis_type: 'native'
-    }))
+    expect(boardApi.updateBoard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'board-1',
+        name: 'Changed',
+        description: 'Description',
+        home_flag: 'N',
+        vis_type: 'native'
+      })
+    )
 
-    boardApi.createBoard.mockResolvedValueOnce({ data: board({ id: 'board-2', name: 'Native board Copy' }), error: null })
+    boardApi.createBoard.mockResolvedValueOnce({
+      data: board({ id: 'board-2', name: 'Native board Copy' }),
+      error: null
+    })
     expect(await nativeBoardProvider.duplicateDashboard('board-1')).toMatchObject({
       ok: true,
       data: { id: 'board-2', name: 'Native board Copy' }
@@ -194,24 +326,28 @@ describe('native board visualization provider', () => {
     expect(boardApi.updateBoard).not.toHaveBeenCalled()
 
     boardApi.createBoard.mockResolvedValueOnce({ data: board(), error: null })
-    expect(await nativeBoardProvider.createDashboard({
-      ...createPayload,
-      canvasConfig: null,
-      nodes: [],
-      dataSources: [],
-      variables: []
-    } as Parameters<typeof nativeBoardProvider.createDashboard>[0])).toMatchObject({ ok: true })
+    expect(
+      await nativeBoardProvider.createDashboard({
+        ...createPayload,
+        canvasConfig: null,
+        nodes: [],
+        dataSources: [],
+        variables: []
+      } as Parameters<typeof nativeBoardProvider.createDashboard>[0])
+    ).toMatchObject({ ok: true })
 
     boardApi.fetchBoardById.mockResolvedValue({ data: board(), error: null })
     boardApi.updateBoard.mockResolvedValue({ data: board({ description: '' }), error: null })
-    expect(await nativeBoardProvider.updateDashboard('board-1', {
-      description: '',
-      thumbnail: null,
-      canvasConfig: {},
-      nodes: [],
-      dataSources: [],
-      variables: []
-    } as Parameters<typeof nativeBoardProvider.updateDashboard>[1])).toMatchObject({ ok: true })
+    expect(
+      await nativeBoardProvider.updateDashboard('board-1', {
+        description: '',
+        thumbnail: null,
+        canvasConfig: {},
+        nodes: [],
+        dataSources: [],
+        variables: []
+      } as Parameters<typeof nativeBoardProvider.updateDashboard>[1])
+    ).toMatchObject({ ok: true })
     expect(boardApi.updateBoard).toHaveBeenCalledWith(expect.objectContaining({ description: '' }))
   })
 
@@ -220,14 +356,16 @@ describe('native board visualization provider', () => {
     boardApi.updateBoard.mockResolvedValue({ data: board({ home_flag: 'Y' }), error: null })
 
     expect(await nativeBoardProvider.setHomeDashboard('board-1')).toEqual({ ok: true, data: undefined })
-    expect(boardApi.updateBoard).toHaveBeenCalledWith(expect.objectContaining({
-      id: 'board-1',
-      name: 'Native board',
-      config,
-      description: 'Description',
-      home_flag: 'Y',
-      vis_type: 'native'
-    }))
+    expect(boardApi.updateBoard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'board-1',
+        name: 'Native board',
+        config,
+        description: 'Description',
+        home_flag: 'Y',
+        vis_type: 'native'
+      })
+    )
 
     boardApi.fetchBoards.mockResolvedValue({ data: { list: [board({ home_flag: 'Y' })], total: 1 }, error: null })
     expect(await nativeBoardProvider.getHomeDashboard()).toMatchObject({ ok: true, data: { id: 'board-1' } })
@@ -278,11 +416,16 @@ describe('native board visualization provider', () => {
   })
 
   it('rejects invalid configs and API failures', async () => {
-    expect(await nativeBoardProvider.createDashboard({
-      name: 'Unsafe',
-      projectId: NATIVE_BOARD_PROJECT_ID,
-      rendererData: { version: 1, widgets: [{ id: 'x', x: 0, y: 0, w: 1, h: 1, type: 'text', config: { text: 'https://remote.test' } }] }
-    })).toMatchObject({ ok: false })
+    expect(
+      await nativeBoardProvider.createDashboard({
+        name: 'Unsafe',
+        projectId: NATIVE_BOARD_PROJECT_ID,
+        rendererData: {
+          version: 1,
+          widgets: [{ id: 'x', x: 0, y: 0, w: 1, h: 1, type: 'text', config: { text: 'https://remote.test' } }]
+        }
+      })
+    ).toMatchObject({ ok: false })
 
     boardApi.fetchBoards.mockResolvedValue({ data: null, error: { message: 'offline' } })
     expect(await nativeBoardProvider.listDashboards({ projectId: NATIVE_BOARD_PROJECT_ID })).toMatchObject({

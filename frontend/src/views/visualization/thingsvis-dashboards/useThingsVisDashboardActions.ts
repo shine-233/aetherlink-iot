@@ -83,10 +83,7 @@ export function useThingsVisDashboardActions(options: {
       height: canvasHeight,
       background: '#f5f7fb'
     }
-    const preset =
-      template === 'rdi'
-        ? buildRdiDashboardPreset(canvasWidth, canvasHeight, options.t)
-        : null
+    const preset = template === 'rdi' ? buildRdiDashboardPreset(canvasWidth, canvasHeight, options.t) : null
 
     return {
       name,
@@ -105,7 +102,7 @@ export function useThingsVisDashboardActions(options: {
       return
     }
 
-    const result = await provider.execute(current =>
+    const result = await provider.execute((current) =>
       current.createDashboard(
         buildDashboardCreateData(
           name,
@@ -135,7 +132,7 @@ export function useThingsVisDashboardActions(options: {
     creatingHomepageDashboard.value = true
     try {
       const dashboardName = options.t('rdi.thingsvis.homepageStarterDashboardName')
-      const createResult = await provider.execute(current =>
+      const createResult = await provider.execute((current) =>
         current.createDashboard(buildDashboardCreateData(dashboardName, 'rdi', 'fixed', 1920, 1080))
       )
       if (!createResult.ok || !createResult.data.id) {
@@ -143,7 +140,7 @@ export function useThingsVisDashboardActions(options: {
         return
       }
 
-      const homeResult = await provider.execute(current => current.setHomeDashboard(createResult.data.id))
+      const homeResult = await provider.execute((current) => current.setHomeDashboard(createResult.data.id))
       if (!homeResult.ok) {
         options.message.error(options.t('rdi.thingsvis.createHomepageDashboardSetHomeFailed'))
         await options.fetchDashboards()
@@ -177,7 +174,7 @@ export function useThingsVisDashboardActions(options: {
         return
       }
 
-      const result = await provider.execute(current => current.deleteDashboard(id))
+      const result = await provider.execute((current) => current.deleteDashboard(id))
       if (result.ok) {
         deleteConfirmModal.value = false
         pendingDeleteDashboard.value = null
@@ -193,7 +190,7 @@ export function useThingsVisDashboardActions(options: {
   }
 
   const handleSetAsHomepage = async (dashboard: VisualizationDashboardSummary) => {
-    const result = await provider.execute(current => current.setHomeDashboard(dashboard.id))
+    const result = await provider.execute((current) => current.setHomeDashboard(dashboard.id))
     if (result.ok) {
       clearThingsVisHomeCache()
       options.message.success(options.t('rdi.thingsvis.setHomeSuccess', { name: dashboard.name }))
@@ -208,7 +205,7 @@ export function useThingsVisDashboardActions(options: {
 
     publishingId.value = dashboard.id
     try {
-      const result = await provider.execute(current => current.publishDashboard(dashboard.id))
+      const result = await provider.execute((current) => current.publishDashboard(dashboard.id))
       if (result.ok) {
         options.message.success(options.t('rdi.thingsvis.publishSuccess', { name: dashboard.name }))
         await options.fetchDashboards()
@@ -225,7 +222,7 @@ export function useThingsVisDashboardActions(options: {
   const handleDuplicateDashboard = async (dashboard: VisualizationDashboardSummary) => {
     duplicatingId.value = dashboard.id
     try {
-      const result = await provider.execute(current => current.duplicateDashboard(dashboard.id))
+      const result = await provider.execute((current) => current.duplicateDashboard(dashboard.id))
       if (result.ok) {
         options.message.success(options.t('rdi.thingsvis.duplicateSuccess', { name: dashboard.name }))
         await options.fetchDashboards()

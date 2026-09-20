@@ -51,20 +51,82 @@ vi.mock('./components', () => ({
 
       return () =>
         h('div', { class: 'grid-core-stub', 'data-col-num': props.config?.colNum }, [
-          h('button', { class: 'emit-created', type: 'button', onClick: () => emit('layout-created', internalLayout) }, 'created'),
-          h('button', { class: 'emit-before-mount', type: 'button', onClick: () => emit('layout-before-mount', internalLayout) }, 'before'),
-          h('button', { class: 'emit-mounted', type: 'button', onClick: () => emit('layout-mounted', internalLayout) }, 'mounted'),
-          h('button', { class: 'emit-updated', type: 'button', onClick: () => emit('layout-updated', internalLayout) }, 'updated'),
-          h('button', { class: 'emit-ready', type: 'button', onClick: () => emit('layout-ready', internalLayout) }, 'ready'),
-          h('button', { class: 'emit-change', type: 'button', onClick: () => emit('layout-change', internalLayout) }, 'change'),
-          h('button', { class: 'emit-breakpoint', type: 'button', onClick: () => emit('breakpoint-changed', 'lg', internalLayout) }, 'breakpoint'),
-          h('button', { class: 'emit-container', type: 'button', onClick: () => emit('container-resized', 1200, 800, props.config?.colNum) }, 'container'),
-          h('button', { class: 'emit-resize', type: 'button', onClick: () => emit('item-resize', 'node-a', 3, 4, 300, 400) }, 'resize'),
-          h('button', { class: 'emit-resized', type: 'button', onClick: () => emit('item-resized', 'node-a', 5, 6, 500, 600) }, 'resized'),
+          h(
+            'button',
+            { class: 'emit-created', type: 'button', onClick: () => emit('layout-created', internalLayout) },
+            'created'
+          ),
+          h(
+            'button',
+            { class: 'emit-before-mount', type: 'button', onClick: () => emit('layout-before-mount', internalLayout) },
+            'before'
+          ),
+          h(
+            'button',
+            { class: 'emit-mounted', type: 'button', onClick: () => emit('layout-mounted', internalLayout) },
+            'mounted'
+          ),
+          h(
+            'button',
+            { class: 'emit-updated', type: 'button', onClick: () => emit('layout-updated', internalLayout) },
+            'updated'
+          ),
+          h(
+            'button',
+            { class: 'emit-ready', type: 'button', onClick: () => emit('layout-ready', internalLayout) },
+            'ready'
+          ),
+          h(
+            'button',
+            { class: 'emit-change', type: 'button', onClick: () => emit('layout-change', internalLayout) },
+            'change'
+          ),
+          h(
+            'button',
+            {
+              class: 'emit-breakpoint',
+              type: 'button',
+              onClick: () => emit('breakpoint-changed', 'lg', internalLayout)
+            },
+            'breakpoint'
+          ),
+          h(
+            'button',
+            {
+              class: 'emit-container',
+              type: 'button',
+              onClick: () => emit('container-resized', 1200, 800, props.config?.colNum)
+            },
+            'container'
+          ),
+          h(
+            'button',
+            { class: 'emit-resize', type: 'button', onClick: () => emit('item-resize', 'node-a', 3, 4, 300, 400) },
+            'resize'
+          ),
+          h(
+            'button',
+            { class: 'emit-resized', type: 'button', onClick: () => emit('item-resized', 'node-a', 5, 6, 500, 600) },
+            'resized'
+          ),
           h('button', { class: 'emit-move', type: 'button', onClick: () => emit('item-move', 'node-a', 7, 8) }, 'move'),
-          h('button', { class: 'emit-moved', type: 'button', onClick: () => emit('item-moved', 'node-a', 9, 10) }, 'moved'),
-          h('button', { class: 'emit-item-container', type: 'button', onClick: () => emit('item-container-resized', 'node-a', 11, 12, 1100, 1200) }, 'item container'),
-          ...(internalLayout || []).map((item: any) => h('div', { class: 'slot-item', 'data-id': item.i }, slots.default?.({ item })))
+          h(
+            'button',
+            { class: 'emit-moved', type: 'button', onClick: () => emit('item-moved', 'node-a', 9, 10) },
+            'moved'
+          ),
+          h(
+            'button',
+            {
+              class: 'emit-item-container',
+              type: 'button',
+              onClick: () => emit('item-container-resized', 'node-a', 11, 12, 1100, 1200)
+            },
+            'item container'
+          ),
+          ...(internalLayout || []).map((item: any) =>
+            h('div', { class: 'slot-item', 'data-id': item.i }, slots.default?.({ item }))
+          )
         ])
     }
   }),
@@ -84,9 +146,21 @@ vi.mock('./components', () => ({
 
       return () =>
         h('div', { class: 'grid-drop-zone-stub' }, [
-          h('button', { class: 'emit-drag-enter', type: 'button', onClick: () => emit('drag-enter', new Event('dragenter')) }, 'enter'),
-          h('button', { class: 'emit-drag-over', type: 'button', onClick: () => emit('drag-over', new Event('dragover')) }, 'over'),
-          h('button', { class: 'emit-drag-leave', type: 'button', onClick: () => emit('drag-leave', new Event('dragleave')) }, 'leave'),
+          h(
+            'button',
+            { class: 'emit-drag-enter', type: 'button', onClick: () => emit('drag-enter', new Event('dragenter')) },
+            'enter'
+          ),
+          h(
+            'button',
+            { class: 'emit-drag-over', type: 'button', onClick: () => emit('drag-over', new Event('dragover')) },
+            'over'
+          ),
+          h(
+            'button',
+            { class: 'emit-drag-leave', type: 'button', onClick: () => emit('drag-leave', new Event('dragleave')) },
+            'leave'
+          ),
           h('button', { class: 'emit-drop', type: 'button', onClick: () => emit('drop', dropEvent()) }, 'drop')
         ])
     }
@@ -167,9 +241,7 @@ describe('GridLayoutPlus.vue', () => {
       config: { rowHeight: 42 }
     })
 
-    expect(wrapper.classes()).toEqual(
-      expect.arrayContaining(['grid-layout-plus-wrapper', 'dark-theme', 'show-grid'])
-    )
+    expect(wrapper.classes()).toEqual(expect.arrayContaining(['grid-layout-plus-wrapper', 'dark-theme', 'show-grid']))
     expect(wrapper.get('.grid-core-stub').attributes('data-col-num')).toBe('80')
     expect(wrapper.get('.rendered-slot').text()).toBe('node-a')
     expect((wrapper.vm as any).getGridInfo()).toMatchObject({
@@ -207,18 +279,13 @@ describe('GridLayoutPlus.vue', () => {
     expect(wrapper.emitted('layout-created')?.[0]?.[0]).toEqual([
       expect.objectContaining({ i: 'node-a', id: 'node-a' })
     ])
-    expect(wrapper.emitted('layout-before-mount')?.[0]?.[0]).toEqual([
-      expect.objectContaining({ id: 'node-a' })
-    ])
+    expect(wrapper.emitted('layout-before-mount')?.[0]?.[0]).toEqual([expect.objectContaining({ id: 'node-a' })])
     expect(wrapper.emitted('layout-mounted')?.[0]?.[0]).toEqual([expect.objectContaining({ id: 'node-a' })])
     expect(wrapper.emitted('layout-updated')?.[0]?.[0]).toEqual([expect.objectContaining({ id: 'node-a' })])
     expect(wrapper.emitted('layout-ready')?.[0]?.[0]).toEqual([expect.objectContaining({ id: 'node-a' })])
     expect(wrapper.emitted('layout-change')?.[0]?.[0]).toEqual([expect.objectContaining({ id: 'node-a' })])
     expect(wrapper.emitted('update:layout')?.[0]?.[0]).toEqual([expect.objectContaining({ id: 'node-a' })])
-    expect(wrapper.emitted('breakpoint-changed')?.[0]).toEqual([
-      'lg',
-      [expect.objectContaining({ id: 'node-a' })]
-    ])
+    expect(wrapper.emitted('breakpoint-changed')?.[0]).toEqual(['lg', [expect.objectContaining({ id: 'node-a' })]])
     expect(wrapper.emitted('container-resized')?.[0]).toEqual([1200, 800, 24])
     expect(wrapper.emitted('item-resize')?.[0]).toEqual(['node-a', 3, 4, 300, 400])
     expect(wrapper.emitted('item-resized')?.[0]).toEqual(['node-a', 5, 6, 500, 600])
@@ -317,10 +384,7 @@ describe('GridLayoutPlus.vue', () => {
         recommendation: 'reduce item count'
       }
     })
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'Grid configuration validation failed:',
-      'too many columns'
-    )
+    expect(consoleErrorSpy).toHaveBeenCalledWith('Grid configuration validation failed:', 'too many columns')
     expect(consoleErrorSpy).toHaveBeenCalledWith('Grid performance warning:', 'layout is dense')
     expect(consoleInfoSpy).toHaveBeenCalledWith('Grid performance recommendation:', 'reduce item count')
   })

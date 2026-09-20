@@ -28,7 +28,7 @@ vi.mock('@/locales', () => ({
   $t: (key: string) => key
 }))
 
-vi.mock('vue', async importOriginal => {
+vi.mock('vue', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue')>()
   return {
     ...actual,
@@ -95,11 +95,34 @@ const mountComponent = () => {
   const wrapper = shallowMount(RoleIndex, {
     global: {
       stubs: {
-        NCard: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NSpace: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : []) } }),
-        NDataTable: defineComponent({ name: 'NDataTable', props: { data: { type: Array, default: () => [] }, loading: Boolean, pagination: { default: null } }, setup() { return () => h('div') } }),
-        NPopconfirm: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
+        NCard: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NSpace: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NButton: defineComponent({
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : [])
+          }
+        }),
+        NDataTable: defineComponent({
+          name: 'NDataTable',
+          props: { data: { type: Array, default: () => [] }, loading: Boolean, pagination: { default: null } },
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NPopconfirm: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
         IconIcRoundPlus: true
       }
     }

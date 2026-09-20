@@ -40,6 +40,10 @@ type MQTTConfig struct {
 	QoS          byte   `yaml:"qos"`
 	CleanSession bool   `yaml:"clean_session"`
 	KeepAlive    int    `yaml:"keep_alive"`
+	// WrapUplinkEnvelope 由模拟器自己把标准上行包成 {device_id, values:<base64>} 信封。
+	// 真实 gmqtt broker 的 aetherlink 插件会统一补信封；本地 stub broker 不会，
+	// 此开关为 false 时模拟器保持历史上行（裸载荷），为 true 时按线上契约包装。
+	WrapUplinkEnvelope bool `yaml:"wrap_uplink_envelope"`
 }
 
 // DeviceConfig 设备配置
@@ -154,6 +158,9 @@ func applyEnvironmentOverrides(cfg *Config) error {
 	}
 	if value := os.Getenv("AUTOTEST_DEVICE_NUMBER"); value != "" {
 		cfg.Device.DeviceNumber = value
+	}
+	if value := os.Getenv("AUTOTEST_WRAP_UPLINK_ENVELOPE"); value != "" {
+		cfg.MQTT.WrapUplinkEnvelope = value == "true" || value == "1"
 	}
 	if value := os.Getenv("AUTOTEST_API_BASE_URL"); value != "" {
 		cfg.API.BaseURL = value

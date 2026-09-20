@@ -31,10 +31,18 @@ vi.mock('@aetherlink/hooks', () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { ref } = require('vue')
   return {
-  useLoading: (init = false) => {
-    const loading = ref(init)
-    return { loading, startLoading: vi.fn(() => { loading.value = true }), endLoading: vi.fn(() => { loading.value = false }) }
-  }
+    useLoading: (init = false) => {
+      const loading = ref(init)
+      return {
+        loading,
+        startLoading: vi.fn(() => {
+          loading.value = true
+        }),
+        endLoading: vi.fn(() => {
+          loading.value = false
+        })
+      }
+    }
   }
 })
 
@@ -57,16 +65,36 @@ vi.mock('@/utils/common/discrete', () => ({
   message: { info: vi.fn(), error: vi.fn(), success: vi.fn() }
 }))
 
-vi.mock('@/views/device/details/modules/telemetry/telemetry.vue', () => ({ default: defineComponent({ setup: () => () => h('div') }) }))
-vi.mock('@/views/device/details/modules/join.vue', () => ({ default: defineComponent({ setup: () => () => h('div') }) }))
-vi.mock('@/views/device/details/modules/device-analysis.vue', () => ({ default: defineComponent({ setup: () => () => h('div') }) }))
-vi.mock('@/views/device/details/modules/message.vue', () => ({ default: defineComponent({ setup: () => () => h('div') }) }))
-vi.mock('@/views/device/details/modules/stats.vue', () => ({ default: defineComponent({ setup: () => () => h('div') }) }))
-vi.mock('@/views/device/details/modules/event-report.vue', () => ({ default: defineComponent({ setup: () => () => h('div') }) }))
-vi.mock('@/views/device/details/modules/command-delivery.vue', () => ({ default: defineComponent({ setup: () => () => h('div') }) }))
-vi.mock('@/views/device/details/modules/automate.vue', () => ({ default: defineComponent({ setup: () => () => h('div') }) }))
-vi.mock('@/views/device/details/modules/give-an-alarm.vue', () => ({ default: defineComponent({ setup: () => () => h('div') }) }))
-vi.mock('@/views/device/details/modules/settings.vue', () => ({ default: defineComponent({ setup: () => () => h('div') }) }))
+vi.mock('@/views/device/details/modules/telemetry/telemetry.vue', () => ({
+  default: defineComponent({ setup: () => () => h('div') })
+}))
+vi.mock('@/views/device/details/modules/join.vue', () => ({
+  default: defineComponent({ setup: () => () => h('div') })
+}))
+vi.mock('@/views/device/details/modules/device-analysis.vue', () => ({
+  default: defineComponent({ setup: () => () => h('div') })
+}))
+vi.mock('@/views/device/details/modules/message.vue', () => ({
+  default: defineComponent({ setup: () => () => h('div') })
+}))
+vi.mock('@/views/device/details/modules/stats.vue', () => ({
+  default: defineComponent({ setup: () => () => h('div') })
+}))
+vi.mock('@/views/device/details/modules/event-report.vue', () => ({
+  default: defineComponent({ setup: () => () => h('div') })
+}))
+vi.mock('@/views/device/details/modules/command-delivery.vue', () => ({
+  default: defineComponent({ setup: () => () => h('div') })
+}))
+vi.mock('@/views/device/details/modules/automate.vue', () => ({
+  default: defineComponent({ setup: () => () => h('div') })
+}))
+vi.mock('@/views/device/details/modules/give-an-alarm.vue', () => ({
+  default: defineComponent({ setup: () => () => h('div') })
+}))
+vi.mock('@/views/device/details/modules/settings.vue', () => ({
+  default: defineComponent({ setup: () => () => h('div') })
+}))
 
 import Component from '../index.vue'
 
@@ -77,15 +105,58 @@ const mountComponent = (props = {}) => {
     props,
     global: {
       stubs: {
-        NCard: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NTabs: defineComponent({ props: { value: { default: '' } }, emits: ['update:value'], setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NTabPane: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : []) } }),
-        NModal: defineComponent({ props: { show: Boolean }, emits: ['update:show'], setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NForm: defineComponent({ setup(_, { slots }) { return () => h('form', slots.default ? slots.default() : []) } }),
-        NFormItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NInput: defineComponent({ props: { value: { default: '' } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NSpin: defineComponent({ setup() { return () => h('div') } })
+        NCard: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NTabs: defineComponent({
+          props: { value: { default: '' } },
+          emits: ['update:value'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NTabPane: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NButton: defineComponent({
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : [])
+          }
+        }),
+        NModal: defineComponent({
+          props: { show: Boolean },
+          emits: ['update:show'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NForm: defineComponent({
+          setup(_, { slots }) {
+            return () => h('form', slots.default ? slots.default() : [])
+          }
+        }),
+        NFormItem: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NInput: defineComponent({
+          props: { value: { default: '' } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NSpin: defineComponent({
+          setup() {
+            return () => h('div')
+          }
+        })
       }
     }
   })
@@ -98,7 +169,10 @@ const getSetupState = (wrapper: ReturnType<typeof shallowMount>) => wrapper.vm.$
 describe('device/details-child/index.vue', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    hoisted.deviceDetail.mockResolvedValue({ data: { id: 'dev-1', name: 'Device 1', device_number: '123' }, error: null })
+    hoisted.deviceDetail.mockResolvedValue({
+      data: { id: 'dev-1', name: 'Device 1', device_number: '123' },
+      error: null
+    })
     hoisted.deviceUpdate.mockResolvedValue({ error: null })
   })
 

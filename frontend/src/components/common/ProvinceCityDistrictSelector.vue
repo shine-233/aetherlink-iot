@@ -95,7 +95,7 @@ async function loadRegionData() {
 
 // 省份选项
 const provinceOptions = computed(() => {
-  return regionData.value.map(province => ({
+  return regionData.value.map((province) => ({
     label: province.name,
     value: province.name
   }))
@@ -105,14 +105,14 @@ const provinceOptions = computed(() => {
 const cityOptions = computed(() => {
   if (!selectedProvince.value) return []
 
-  const province = regionData.value.find(p => p.name === selectedProvince.value)
+  const province = regionData.value.find((p) => p.name === selectedProvince.value)
   if (!province || !province.children) return []
 
   if (isMunicipality.value) {
     // 直辖市：跳过"市辖区"层级，直接返回区县作为城市选项
-    const cityDistricts = province.children.find(city => city.name === '市辖区')
+    const cityDistricts = province.children.find((city) => city.name === '市辖区')
     if (cityDistricts && cityDistricts.children) {
-      return cityDistricts.children.map(district => ({
+      return cityDistricts.children.map((district) => ({
         label: district.name,
         value: district.name
       }))
@@ -120,7 +120,7 @@ const cityOptions = computed(() => {
   }
 
   // 普通省份：返回正常的城市列表
-  return province.children.map(city => ({
+  return province.children.map((city) => ({
     label: city.name,
     value: city.name
   }))
@@ -136,7 +136,7 @@ const isMunicipality = computed(() => {
 const districtOptions = computed(() => {
   if (!selectedProvince.value || !selectedCity.value) return []
 
-  const province = regionData.value.find(p => p.name === selectedProvince.value)
+  const province = regionData.value.find((p) => p.name === selectedProvince.value)
   if (!province || !province.children) return []
 
   // 直辖市不显示区县选择器
@@ -145,10 +145,10 @@ const districtOptions = computed(() => {
   }
 
   // 普通省份：查找对应城市的区县
-  const city = province.children.find(c => c.name === selectedCity.value)
+  const city = province.children.find((c) => c.name === selectedCity.value)
   if (!city || !city.children) return []
 
-  return city.children.map(district => ({
+  return city.children.map((district) => ({
     label: district.name,
     value: district.name
   }))

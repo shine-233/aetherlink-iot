@@ -82,6 +82,15 @@ func publishMQTTDeviceOnlineStatus(client server.Client, status string, statusLa
 		)
 		return
 	}
+	if err := DefaultMqttClient.WaitReady(context.Background()); err != nil {
+		Log.Warn(
+			"mqtt "+statusLabel+" status publish skipped before internal client readiness",
+			zap.String("client_id", client.ClientOptions().ClientID),
+			zap.String("device_id", deviceID),
+			zap.Error(err),
+		)
+		return
+	}
 	if err := DefaultMqttClient.SendData("devices/status/"+deviceID, []byte(status)); err != nil {
 		Log.Warn(
 			"mqtt "+statusLabel+" status publish failed",

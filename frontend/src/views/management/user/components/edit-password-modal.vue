@@ -112,7 +112,7 @@ async function handleSubmit() {
 
 watch(
   () => props.visible,
-  newValue => {
+  (newValue) => {
     if (newValue) {
       // 每次打开弹窗时按父页面最新选中行回填账号信息，保持表单默认值与列表当前上下文一致。
       handleUpdateFormModelByModalType()

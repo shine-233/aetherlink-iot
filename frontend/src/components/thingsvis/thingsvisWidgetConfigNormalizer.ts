@@ -266,10 +266,7 @@ const upsertInteractiveAutoWriteEvent = (
     return [...manualActions, autoAction]
   })
 
-const normalizeInteractiveWriteNode = (
-  node: ThingsVisNodeLike,
-  options: NormalizeThingsVisWidgetLoadConfigOptions
-) => {
+const normalizeInteractiveWriteNode = (node: ThingsVisNodeLike, options: NormalizeThingsVisWidgetLoadConfigOptions) => {
   const rawNodeType = node?.type
   const eventName = typeof rawNodeType === 'string' ? DEFAULT_WRITE_EVENT_BY_COMPONENT[rawNodeType] : undefined
   if (!eventName) return node
@@ -424,9 +421,7 @@ const normalizeChartFontSizeNode = (node: ThingsVisNodeLike) => {
 
   const props = node?.props && typeof node.props === 'object' ? node.props : {}
   const existingFontSizes =
-    props.fontSizes && typeof props.fontSizes === 'object' && !Array.isArray(props.fontSizes)
-      ? props.fontSizes
-      : {}
+    props.fontSizes && typeof props.fontSizes === 'object' && !Array.isArray(props.fontSizes) ? props.fontSizes : {}
 
   return {
     ...node,
@@ -559,7 +554,10 @@ function normalizeViewerConfig(config: ThingsVisWidgetConfigLike, options: Norma
   return normalizeInfiniteCanvasConfig(platformNormalizedConfig)
 }
 
-export function normalizeThingsVisWidgetLoadConfig<T>(config: T, options: NormalizeThingsVisWidgetLoadConfigOptions): T {
+export function normalizeThingsVisWidgetLoadConfig<T>(
+  config: T,
+  options: NormalizeThingsVisWidgetLoadConfigOptions
+): T {
   const writeNormalizedConfig = ensureChartFontSizeDefaults(
     ensureInteractiveWriteEvents(ensureEzuikitPlaybackEvents(config as ThingsVisWidgetConfigLike), options)
   )

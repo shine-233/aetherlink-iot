@@ -334,9 +334,15 @@ func (*DeviceApi) ImportDeviceTemplate(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	data, created, err := service.GroupApp.DeviceTemplate.ImportDeviceTemplate(req, userClaims)
 	if err != nil {
+		// 失败同样审计：只记成功的审计回答不了"这个模板为什么没导进来"。
+		service.EmitMarketTemplateImportAudit(service.BuildMarketTemplateImportAudit(
+			userClaims.TenantID, userClaims.ID, "", "", false, err))
 		c.Error(err)
 		return
 	}
+	// created=false 是幂等命中（同名同版本已存在），不是"没发生"，同样留痕。
+	service.EmitMarketTemplateImportAudit(service.BuildMarketTemplateImportAudit(
+		userClaims.TenantID, userClaims.ID, "", "", created, nil))
 	c.Set("data", gin.H{
 		"template": data,
 		"created":  created,

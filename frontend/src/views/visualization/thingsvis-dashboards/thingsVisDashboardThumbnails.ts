@@ -5,12 +5,15 @@ import {
 import type { VisualizationProviderId } from '@/service/visualization-provider/contracts'
 import { LEGACY_THINGSVIS_PROVIDER_ID } from '@/service/visualization-provider/provider-ids'
 
-type DashboardThumbnailResponse = string | {
-  thumbnail?: string | null
-  data?: {
-    thumbnail?: string | null
-  }
-} | null
+type DashboardThumbnailResponse =
+  | string
+  | {
+      thumbnail?: string | null
+      data?: {
+        thumbnail?: string | null
+      }
+    }
+  | null
 
 const THUMBNAIL_CONCURRENCY = 5
 
@@ -44,7 +47,7 @@ export const loadDashboardThumbnail = async (
   if (hasInlineThumbnail(item.thumbnail)) return
 
   try {
-    const result = await getDefaultVisualizationProviderFacade({ providerId }).execute(current =>
+    const result = await getDefaultVisualizationProviderFacade({ providerId }).execute((current) =>
       current.getDashboardThumbnail(item.id)
     )
     if (!result.ok) return
@@ -63,5 +66,7 @@ export const loadDashboardThumbnails = async (
   updateThumbnail: (dashboardId: string, thumbnail: string) => void,
   providerId: VisualizationProviderId = LEGACY_THINGSVIS_PROVIDER_ID
 ) => {
-  await processInBatches(list, THUMBNAIL_CONCURRENCY, item => loadDashboardThumbnail(item, updateThumbnail, providerId))
+  await processInBatches(list, THUMBNAIL_CONCURRENCY, (item) =>
+    loadDashboardThumbnail(item, updateThumbnail, providerId)
+  )
 }

@@ -14,6 +14,9 @@
 export type {
   // 执行器链类型
   DataItem,
+  DataItemFetchFailure,
+  DataItemFetchFailureCode,
+  UnsupportedDataSourceResult,
   JsonDataItemConfig,
   HttpDataItemConfig,
   WebSocketDataItemConfig,

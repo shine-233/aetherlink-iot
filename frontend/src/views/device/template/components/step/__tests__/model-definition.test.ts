@@ -34,7 +34,7 @@ vi.mock('@/locales', () => ({
   $t: (key: string) => key
 }))
 
-vi.mock('@aetherlink/hooks', async importOriginal => {
+vi.mock('@aetherlink/hooks', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@aetherlink/hooks')>()
 
   return {
@@ -75,10 +75,31 @@ const mountComponent = (props = {}) => {
         NPopconfirm: true,
         NSpace: true,
         SvgIcon: true,
-        NDataTable: defineComponent({ props: { data: { type: Array, default: () => [] } }, setup() { return () => h('div') } }),
-        NPagination: defineComponent({ props: { page: { default: 1 } }, emits: ['update:page'], setup() { return () => h('div') } }),
-        NTabs: defineComponent({ props: { value: { default: '' } }, emits: ['update:value'], setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NTabPane: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
+        NDataTable: defineComponent({
+          props: { data: { type: Array, default: () => [] } },
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NPagination: defineComponent({
+          props: { page: { default: 1 } },
+          emits: ['update:page'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NTabs: defineComponent({
+          props: { value: { default: '' } },
+          emits: ['update:value'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NTabPane: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
         AddEditTest: true,
         AddEditAttributes: true,
         AddEditEvents: true,
@@ -131,14 +152,22 @@ describe('device/template/components/step/model-definition.vue', () => {
     expect(state.comList.map((item: any) => item.id)).toEqual(['telemetry', 'attributes', 'events', 'command'])
     expect(state.columnsList.map((item: any) => item.name)).toEqual(['telemetry', 'attributes', 'events', 'command'])
     expect(state.columnsList[0].data).toEqual([
-      expect.objectContaining({ id: 't1', data_name: 'Temp', read_write_flag: 'device_template.table_header.writeOnly' })
+      expect.objectContaining({
+        id: 't1',
+        data_name: 'Temp',
+        read_write_flag: 'device_template.table_header.writeOnly'
+      })
     ])
 
     state.checkedTabs('attributes')
     await flushPromises()
     expect(hoisted.attributesApi).toHaveBeenCalledWith(expectedQuery)
     expect(state.columnsList[1].data).toEqual([
-      expect.objectContaining({ id: 'a1', data_name: 'Mode', read_write_flag: 'device_template.table_header.readAndWrite' })
+      expect.objectContaining({
+        id: 'a1',
+        data_name: 'Mode',
+        read_write_flag: 'device_template.table_header.readAndWrite'
+      })
     ])
 
     state.checkedTabs('events')

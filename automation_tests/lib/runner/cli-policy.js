@@ -64,8 +64,9 @@ function parseArgs(argv = process.argv.slice(2)) {
   return parseCliArgs(argv);
 }
 
-function shouldArchiveReports(args) {
-  return args.archive || (args.includeE2e && args.modules.length === 0);
+function shouldArchiveReports(args, scope = null) {
+  const requested = args.archive || (args.includeE2e && args.modules.length === 0);
+  return requested && (scope === null || scope === 'full');
 }
 
 function isStrictIntegrationEnabled(env = process.env) {

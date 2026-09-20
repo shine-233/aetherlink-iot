@@ -11,11 +11,11 @@ export function createTestI18n() {
       locale: { value: 'en-US' }
     },
     install(app: { config?: { globalProperties?: Record<string, unknown> } }) {
-      if (!app.config) return;
-      if (!app.config.globalProperties) app.config.globalProperties = {};
-      app.config.globalProperties.$t = (key: string) => key;
+      if (!app.config) return
+      if (!app.config.globalProperties) app.config.globalProperties = {}
+      app.config.globalProperties.$t = (key: string) => key
     }
-  };
+  }
 }
 
-export const testI18n = createTestI18n();
+export const testI18n = createTestI18n()

@@ -65,9 +65,25 @@ func alarminfo(Router *gin.RouterGroup) {
 
 		url.PUT("history/:id/reset", api.Controllers.AlarmApi.ResetAlarmHistory)
 
+		url.PUT("history/:id/clear", api.Controllers.AlarmApi.ClearAlarmHistory)
+		url.POST("history/:id/clear", api.Controllers.AlarmApi.ClearAlarmHistory)
+
 		url.GET("history/:id", api.Controllers.AlarmApi.HandleAlarmInfoHistory)
 
 		// 兼容旧客户端；service 会鉴权后按审计留存策略拒绝物理删除。
 		url.DELETE("history/:id", api.Controllers.AlarmApi.DeleteAlarmHistory)
+
+		// ROADMAP TB-1 第一片：告警评论（生命周期里的协作面）。
+		// 统一挂在 history/:id/comment 下：Gin 的路由树不允许同一段既有 :id 又有静态串
+		// （history/comment/... 会与 history/:id 冲突并 panic），
+		// 所以删除也用 :comment_id 参数而不是另起静态段。
+		url.POST("history/:id/comment", api.Controllers.AlarmApi.CreateAlarmComment)
+		url.GET("history/:id/comment", api.Controllers.AlarmApi.ListAlarmComments)
+		url.DELETE("history/:id/comment/:comment_id", api.Controllers.AlarmApi.DeleteAlarmComment)
+
+		// ROADMAP TB-1 第二片：告警指派 + 指派历史审计（append-only 流水）。
+		// 与评论片同构，挂在 history/:id/assignment 下；GET/POST 共用一条 Casbin 路径。
+		url.POST("history/:id/assignment", api.Controllers.AlarmApi.CreateAlarmAssignment)
+		url.GET("history/:id/assignment", api.Controllers.AlarmApi.ListAlarmAssignments)
 	}
 }

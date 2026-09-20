@@ -118,22 +118,18 @@ const sharedRouteRequested = computed(() => {
   const access = normalizeRouteQueryParam(route.query.access).toLowerCase()
   return shared === '1' || shared === 'true' || access === 'shared'
 })
-const isSharedReadOnly = computed(
-  () => sharedRouteRequested.value || deviceData.value?.shared_read_only === true
-)
+const isSharedReadOnly = computed(() => sharedRouteRequested.value || deviceData.value?.shared_read_only === true)
 const isCurrentDeviceDetailLoaded = computed(() => {
   const currentDeviceId = getDeviceId()
   const routeQueryDeviceId = normalizeRouteQueryParam(route.query.d_id)
   return Boolean(
     currentDeviceId &&
-      currentDeviceId === routeQueryDeviceId &&
-      loadedDeviceId.value === currentDeviceId &&
-      normalizeRouteQueryParam(deviceData.value?.id) === currentDeviceId
+    currentDeviceId === routeQueryDeviceId &&
+    loadedDeviceId.value === currentDeviceId &&
+    normalizeRouteQueryParam(deviceData.value?.id) === currentDeviceId
   )
 })
-const canUseOwnerDetailActions = computed(
-  () => isCurrentDeviceDetailLoaded.value && !isSharedReadOnly.value
-)
+const canUseOwnerDetailActions = computed(() => isCurrentDeviceDetailLoaded.value && !isSharedReadOnly.value)
 const visibleDetailComponents = computed(() => {
   if (!isCurrentDeviceDetailLoaded.value) return []
   return isSharedReadOnly.value
@@ -164,7 +160,8 @@ function applyOnlineStatusFrame(frame: string) {
     const status = normalizeOnlineStatus(payload, getDeviceId())
     if (status !== null) {
       device_is_online.value = status
-      deviceOnlineStatusUpdatedAt.value = normalizeOnlineStatusUpdatedAt(payload, getDeviceId()) || new Date().toISOString()
+      deviceOnlineStatusUpdatedAt.value =
+        normalizeOnlineStatusUpdatedAt(payload, getDeviceId()) || new Date().toISOString()
     }
   } catch {
     /**
@@ -276,10 +273,7 @@ function subscribeDeviceOnlineStatus(deviceId: string) {
 let deviceDetailRequestSeq = 0
 
 function isCurrentDeviceDetailRequest(requestSeq: number, requestDeviceId: string) {
-  return (
-    requestSeq === deviceDetailRequestSeq &&
-    normalizeRouteQueryParam(route.query.d_id) === requestDeviceId
-  )
+  return requestSeq === deviceDetailRequestSeq && normalizeRouteQueryParam(route.query.d_id) === requestDeviceId
 }
 
 function clearDeviceDetailForRouteTransition(requestDeviceId: string) {
@@ -481,6 +475,17 @@ function handleDeviceUpdateSuccess() {
   getDeviceDetail()
 }
 
+function handleChildComponentChange(payload: unknown) {
+  // 阻止原生 DOM input/change 事件（例如 radio/select/checkbox 切换冒泡）误触发全页详情重载
+  if (
+    payload instanceof Event ||
+    (payload && typeof payload === 'object' && 'target' in payload && 'bubbles' in payload)
+  ) {
+    return
+  }
+  getDeviceDetail()
+}
+
 const save = async () => {
   if (!canUseOwnerDetailActions.value) return
   if (!validateDeviceBeforeSave()) return
@@ -526,9 +531,10 @@ const isEmbeddedHost = computed(() => {
           </NButton>
         </div>
 
-        <n-modal aria-label="dialog"
+        <n-modal
           v-if="canUseOwnerDetailActions"
           v-model:show="showDialog"
+          aria-label="dialog"
           :title="$t('generate.issue-attribute')"
           :class="getPlatform ? 'w-90%' : 'w-400px'"
         >
@@ -670,7 +676,7 @@ const isEmbeddedHost = computed(() => {
                 :device-data="deviceData"
                 :device-config-id="deviceData?.device_config_id || ''"
                 :device-template-id="deviceData?.device_config?.device_template_id || ''"
-                @change="getDeviceDetail"
+                @change="handleChildComponentChange"
               />
             </n-spin>
           </n-tab-pane>

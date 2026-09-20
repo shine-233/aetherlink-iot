@@ -47,7 +47,7 @@ export const useAppStore = defineStore(SetupStoreId.App, () => {
     setReloadFlag(false)
 
     if (duration > 0) {
-      await new Promise(resolve => {
+      await new Promise((resolve) => {
         setTimeout(resolve, duration)
       })
     }
@@ -120,7 +120,7 @@ export const useAppStore = defineStore(SetupStoreId.App, () => {
     // watch isMobile, if is mobile, collapse sider
     watch(
       isMobile,
-      newValue => {
+      (newValue) => {
         if (newValue) {
           setSiderCollapse(true)
 

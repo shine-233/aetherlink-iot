@@ -37,7 +37,7 @@ const showTenantAdminSetupPrompt = computed(
 )
 
 const customUserStatusOptions = computed(() => {
-  return userStatusOptions.map(item => {
+  return userStatusOptions.map((item) => {
     const key = item.value === 'N' ? 'page.manage.user.status.normal' : 'page.manage.user.status.freeze'
     return {
       label: $t(key),
@@ -71,7 +71,7 @@ const timezoneDefs: { value: string; cityKey: string }[] = [
   { value: 'UTC', cityKey: 'page.manage.user.tz.utc' }
 ]
 const timezoneOptions = computed(() =>
-  timezoneDefs.map(item => ({ label: `${item.value} (${$t(item.cityKey)})`, value: item.value }))
+  timezoneDefs.map((item) => ({ label: `${item.value} (${$t(item.cityKey)})`, value: item.value }))
 )
 
 // 默认语言筛选同样属于后台静态枚举，建议后续与国际化配置统一来源。
@@ -231,14 +231,14 @@ const columns: Ref<DataTableColumns<UserManagement.User>> = ref([
     minWidth: '140px',
     title: () => $t('common.creationTime'),
     align: 'left',
-    render: row => dayjs(row.created_at).format('YYYY-MM-DD HH:mm:ss')
+    render: (row) => dayjs(row.created_at).format('YYYY-MM-DD HH:mm:ss')
   },
   {
     key: 'status',
     minWidth: '140px',
     title: () => $t('page.manage.user.userStatus'),
     align: 'left',
-    render: row => {
+    render: (row) => {
       if (row.status) {
         const tagTypes: Record<UserManagement.UserStatusKey, NaiveUI.ThemeColor> = {
           N: 'success',
@@ -255,7 +255,7 @@ const columns: Ref<DataTableColumns<UserManagement.User>> = ref([
     minWidth: '140px',
     title: () => $t('custom.management.lastAccessTime'),
     align: 'left',
-    render: row => dayjs(row.lastVisitTime || row.created_at).format('YYYY-MM-DD HH:mm:ss')
+    render: (row) => dayjs(row.lastVisitTime || row.created_at).format('YYYY-MM-DD HH:mm:ss')
   },
   {
     key: 'remark',
@@ -269,7 +269,7 @@ const columns: Ref<DataTableColumns<UserManagement.User>> = ref([
     fixed: 'right',
     title: () => $t('common.actions'),
     align: 'left',
-    render: row => {
+    render: (row) => {
       return (
         <NSpace justify={'start'}>
           <NPopconfirm
@@ -363,7 +363,7 @@ async function handleEnter(rowId: string) {
 }
 
 function handleEditPwd(rowId: string) {
-  const findItem = tableData.value.find(item => item.id === rowId)
+  const findItem = tableData.value.find((item) => item.id === rowId)
   if (findItem) {
     setEditData(findItem)
   }
@@ -371,7 +371,7 @@ function handleEditPwd(rowId: string) {
 }
 
 function handleEditTable(rowId: string) {
-  const findItem = tableData.value.find(item => item.id === rowId)
+  const findItem = tableData.value.find((item) => item.id === rowId)
   if (findItem) {
     setEditData(findItem)
   }
@@ -488,7 +488,10 @@ const getPlatform = computed(() => {
               />
             </NFormItem>
             <NFormItem :label="$t('page.manage.user.organization')" path="organization">
-              <NInput v-model:value="queryParams.organization" :placeholder="$t('page.manage.user.form.organization')" />
+              <NInput
+                v-model:value="queryParams.organization"
+                :placeholder="$t('page.manage.user.form.organization')"
+              />
             </NFormItem>
             <NFormItem :label="$t('page.manage.user.address')" path="address.province">
               <NCascader
@@ -543,7 +546,7 @@ const getPlatform = computed(() => {
 
         <NDataTable
           v-if="!showEmpty"
-          :row-key="row => row.id"
+          :row-key="(row) => row.id"
           :remote="true"
           :columns="columns"
           :data="tableData"

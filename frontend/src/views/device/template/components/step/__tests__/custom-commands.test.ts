@@ -31,7 +31,11 @@ vi.mock('@/store/modules/theme', () => ({
 }))
 
 vi.mock('vue-codemirror6', () => ({
-  default: defineComponent({ setup() { return () => h('div') } })
+  default: defineComponent({
+    setup() {
+      return () => h('div')
+    }
+  })
 }))
 
 vi.mock('@codemirror/lang-javascript', () => ({
@@ -39,15 +43,59 @@ vi.mock('@codemirror/lang-javascript', () => ({
 }))
 
 vi.mock('naive-ui', () => ({
-  NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : []) } }),
-  NDataTable: defineComponent({ props: { data: { type: Array, default: () => [] } }, setup() { return () => h('div') } }),
-  NForm: defineComponent({ setup(_, { slots }) { return () => h('form', slots.default ? slots.default() : []) } }),
-  NFormItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NInput: defineComponent({ props: { value: { default: '' } }, emits: ['update:value'], setup() { return () => h('div') } }),
-  NModal: defineComponent({ props: { show: Boolean }, emits: ['update:show'], setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NPagination: defineComponent({ props: { page: { default: 1 } }, emits: ['update:page'], setup() { return () => h('div') } }),
-  NPopconfirm: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NTag: defineComponent({ setup(_, { slots }) { return () => h('span', slots.default ? slots.default() : []) } })
+  NButton: defineComponent({
+    emits: ['click'],
+    setup(_, { slots, emit }) {
+      return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : [])
+    }
+  }),
+  NDataTable: defineComponent({
+    props: { data: { type: Array, default: () => [] } },
+    setup() {
+      return () => h('div')
+    }
+  }),
+  NForm: defineComponent({
+    setup(_, { slots }) {
+      return () => h('form', slots.default ? slots.default() : [])
+    }
+  }),
+  NFormItem: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NInput: defineComponent({
+    props: { value: { default: '' } },
+    emits: ['update:value'],
+    setup() {
+      return () => h('div')
+    }
+  }),
+  NModal: defineComponent({
+    props: { show: Boolean },
+    emits: ['update:show'],
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NPagination: defineComponent({
+    props: { page: { default: 1 } },
+    emits: ['update:page'],
+    setup() {
+      return () => h('div')
+    }
+  }),
+  NPopconfirm: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NTag: defineComponent({
+    setup(_, { slots }) {
+      return () => h('span', slots.default ? slots.default() : [])
+    }
+  })
 }))
 
 import Component from '../custom-commands.vue'
@@ -62,9 +110,24 @@ const mountComponent = (props = {}) => {
         getPlatform: () => false
       },
       stubs: {
-        NFlex: defineComponent({ props: ['justify'], setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        'n-card': defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        'n-switch': defineComponent({ props: ['value', 'checkedValue', 'uncheckedValue'], emits: ['update:value'], setup() { return () => h('div') } })
+        NFlex: defineComponent({
+          props: ['justify'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        'n-card': defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        'n-switch': defineComponent({
+          props: ['value', 'checkedValue', 'uncheckedValue'],
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        })
       }
     }
   })

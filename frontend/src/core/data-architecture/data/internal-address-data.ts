@@ -479,7 +479,7 @@ export const internalAddressOptions: InternalAddressOptions = smartDeepClone(int
  * 根据模块获取API列表
  */
 export function getApisByModule(module: string): InternalApiItem[] {
-  const moduleGroup = internalAddressRegistry.find(group => group.key === module)
+  const moduleGroup = internalAddressRegistry.find((group) => group.key === module)
   return moduleGroup ? smartDeepClone(moduleGroup.children) : []
 }
 
@@ -488,7 +488,7 @@ export function getApisByModule(module: string): InternalApiItem[] {
  */
 export function getApiByValue(value: string): InternalApiItem | undefined {
   for (const group of internalAddressRegistry) {
-    const api = group.children.find(item => item.value === value)
+    const api = group.children.find((item) => item.value === value)
     if (api) return smartDeepClone(api)
   }
   return undefined
@@ -511,9 +511,9 @@ export function getAllApis(): InternalApiItem[] {
 export function searchApis(keyword: string): InternalApiItem[] {
   const lowerKeyword = keyword.toLowerCase()
   const results = internalAddressRegistry
-    .flatMap(group => group.children)
+    .flatMap((group) => group.children)
     .filter(
-      api =>
+      (api) =>
         api.label.toLowerCase().includes(lowerKeyword) ||
         api.url.toLowerCase().includes(lowerKeyword) ||
         (api.description && api.description.toLowerCase().includes(lowerKeyword)) ||

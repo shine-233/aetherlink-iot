@@ -1,8 +1,4 @@
-import type {
-  InteractionConfig,
-  InteractionEventType,
-  InteractionResponse
-} from './interactionPreviewTypes'
+import type { InteractionConfig, InteractionEventType, InteractionResponse } from './interactionPreviewTypes'
 
 type Translate = (key: string) => string
 type InteractionActionType = InteractionResponse['action']

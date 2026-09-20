@@ -164,7 +164,7 @@ async function handleSubmit() {
 
 watch(
   () => props.visible,
-  newValue => {
+  (newValue) => {
     if (newValue) {
       notificationTypeOptions.value = []
       handleSearch()

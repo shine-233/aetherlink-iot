@@ -21,8 +21,17 @@ vi.mock('@/locales', () => ({
 }))
 
 vi.mock('naive-ui', () => ({
-  NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : []) } }),
-  NFlex: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } })
+  NButton: defineComponent({
+    emits: ['click'],
+    setup(_, { slots, emit }) {
+      return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : [])
+    }
+  }),
+  NFlex: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  })
 }))
 
 vi.mock('@/views/automation/scene-linkage/modules/dataList.vue', () => ({
@@ -57,8 +66,14 @@ const mountComponent = (props = {}) => {
 const getSetupState = (wrapper: ReturnType<typeof shallowMount>) => wrapper.vm.$.setupState as Record<string, any>
 
 describe('device/config-detail/modules/alarm-info.vue', () => {
-  beforeEach(() => { vi.clearAllMocks() })
-  afterEach(() => { while (mountedWrappers.length > 0) { mountedWrappers.pop()?.unmount() } })
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+  afterEach(() => {
+    while (mountedWrappers.length > 0) {
+      mountedWrappers.pop()?.unmount()
+    }
+  })
 
   it('renders config-scoped alarm rule list entry and add action', () => {
     const wrapper = mountComponent()

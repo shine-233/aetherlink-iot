@@ -29,7 +29,7 @@ cd aetherlink-iot
 | 后端 API | http://localhost:9999 |
 | 设备 MQTT 接入 | localhost:1883 |
 
-首台设备的接入闭环见 [START-HERE.md](START-HERE.md)；服务器部署（公网 IP、绑定地址、性能档位）同样从该文件进入。
+服务器部署详见 `deploy/README.md`。
 
 ## 功能特性
 
@@ -40,8 +40,6 @@ cd aetherlink-iot
 - **可视化**：默认内置本地原生看板；可选启用 ThingsVis 兼容集成。
 - **MQTT Broker**：插件化认证与 ACL、上下行路由、主题映射、持久化队列与会话撤销。
 - **开放能力**：OpenAPI 密钥（哈希存储）、协议插件、数据脚本引擎。
-
-产品演进计划见 [ROADMAP.md](ROADMAP.md)：对标 ThingsBoard CE / ThingsPanel 的功能差距矩阵与 Phase A/B/C 分阶段交付清单。
 
 ## 系统架构
 
@@ -126,7 +124,7 @@ cd mqtt-broker && go run ./cmd/gmqttd
 
 - 源码离线门禁持续保持绿色，但**这不等于**真实 API、浏览器 E2E、真机 RDI 或生产环境已验收。
 - 真实 RDI 设备、目标服务器部署、HTTPS/TLS、公网 MQTT 与 backup/restore 目前为 `not-tested` / `pending` / `configuration-required`，逐项状态见 [VALIDATION.md](VALIDATION.md)。
-- 数据库迁移链当前到 `53.sql`；升级 OpenAPI 密钥为哈希存储后，旧明文密钥需重新生成方可继续使用。
+- 数据库迁移链**以代码为准**（不要相信文档里的数字）：`backend/sql/` 下最大连续编号与 `backend/pkg/global/global.go` 的 `VERSION_NUMBER` 必须一致，当前均为 `99`。升级 OpenAPI 密钥为哈希存储后，旧明文密钥需重新生成方可继续使用。
 
 ## 贡献
 

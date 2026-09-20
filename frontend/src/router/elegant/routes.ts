@@ -8,6 +8,7 @@ import { systemIntroRoutes, applicationRoutes, authRoutes, adminRoutes, manageme
 import { alarmRoutes, automationRoutes } from './automationRoutes';
 import { dashboardRoutes, visualizationRoutes } from './visualizationRoutes';
 import { deviceRoutes, deviceAppRoutes, productRoutes } from './deviceRoutes';
+import { marketRoutes } from './marketRoutes';
 
 export const generatedRoutes: GeneratedRoute[] = [
   ...systemIntroRoutes,
@@ -23,5 +24,6 @@ export const generatedRoutes: GeneratedRoute[] = [
   ...personalRoutes,
   ...productRoutes,
   ...systemManagementRoutes,
-  ...visualizationRoutes
+  ...visualizationRoutes,
+  ...marketRoutes
 ];

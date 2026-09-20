@@ -113,10 +113,12 @@ describe('useDistributionSubmitFlow', () => {
       identify: 'reboot',
       value: JSON.stringify({ delay: 5 })
     })
-    expect(hoisted.messageSuccess).toHaveBeenCalledWith(
-      'generate.commandSubmittedWithMessageId cmd-track-1'
-    )
-    expect(onSubmitTracking).toHaveBeenCalledWith({ logRecorded: undefined, messageId: 'cmd-track-1', status: undefined })
+    expect(hoisted.messageSuccess).toHaveBeenCalledWith('generate.commandSubmittedWithMessageId cmd-track-1')
+    expect(onSubmitTracking).toHaveBeenCalledWith({
+      logRecorded: undefined,
+      messageId: 'cmd-track-1',
+      status: undefined
+    })
     expect(fetchData).toHaveBeenCalled()
     expect(closeDialog).toHaveBeenCalled()
   })
@@ -172,11 +174,13 @@ describe('useDistributionSubmitFlow', () => {
       value: JSON.stringify({ delay: 5 })
     })
     expect(onSubmitTracking).toHaveBeenCalledWith({ logRecorded: true, messageId: 'direct-1', status: '3' })
-    expect(onDirectMethodResult).toHaveBeenCalledWith(expect.objectContaining({
-      message_id: 'direct-1',
-      outcome: 'device_succeeded',
-      response_payload: '{"result":0}'
-    }))
+    expect(onDirectMethodResult).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message_id: 'direct-1',
+        outcome: 'device_succeeded',
+        response_payload: '{"result":0}'
+      })
+    )
     expect(hoisted.messageSuccess).toHaveBeenCalledWith('generate.directMethodSucceeded')
   })
 
@@ -203,9 +207,7 @@ describe('useDistributionSubmitFlow', () => {
       identify: 'switch',
       value: '1'
     })
-    expect(hoisted.messageSuccess).toHaveBeenCalledWith(
-      'generate.commandSubmittedWithMessageId quick-track-1'
-    )
+    expect(hoisted.messageSuccess).toHaveBeenCalledWith('generate.commandSubmittedWithMessageId quick-track-1')
     expect(onSubmitTracking).toHaveBeenCalledWith({
       logRecorded: undefined,
       messageId: 'quick-track-1',
@@ -221,8 +223,6 @@ describe('useDistributionSubmitFlow', () => {
 
     await flow.submit()
 
-    expect(hoisted.messageSuccess).toHaveBeenCalledWith(
-      'generate.commandSubmittedLogUnavailable cmd-no-log'
-    )
+    expect(hoisted.messageSuccess).toHaveBeenCalledWith('generate.commandSubmittedLogUnavailable cmd-no-log')
   })
 })

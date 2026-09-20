@@ -221,7 +221,7 @@ const getTotalActionsCount = () => {
 }
 
 const getUniqueEventsCount = () => {
-  const events = new Set(props.template.config.map(config => config.event))
+  const events = new Set(props.template.config.map((config) => config.event))
   return events.size
 }
 
@@ -300,15 +300,15 @@ const formatResponseValue = (response: InteractionResponse) => {
 
 // 预览相关方法
 const handlePreviewEvent = (eventType: InteractionEventType) => {
-  const matchingConfigs = props.template.config.filter(config => config.event === eventType && config.enabled)
+  const matchingConfigs = props.template.config.filter((config) => config.event === eventType && config.enabled)
 
   if (matchingConfigs.length === 0) return
 
   // 按优先级排序
   matchingConfigs.sort((a, b) => (b.priority || 0) - (a.priority || 0))
 
-  matchingConfigs.forEach(config => {
-    config.responses.forEach(response => {
+  matchingConfigs.forEach((config) => {
+    config.responses.forEach((response) => {
       const delay = response.delay || 0
       setTimeout(() => {
         executePreviewResponse(response)
@@ -328,7 +328,7 @@ const executePreviewResponse = (response: InteractionResponse) => {
 
   const setPreviewStyle = (property: string, styleValue: unknown) => {
     const normalizedValue = String(styleValue)
-    const cssProperty = property.replace(/[A-Z]/g, match => `-${match.toLowerCase()}`)
+    const cssProperty = property.replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`)
     element.style.setProperty(cssProperty, normalizedValue)
     previewRuntimeStyles.value = {
       ...previewRuntimeStyles.value,
@@ -412,8 +412,8 @@ const runAllPreviewInteractions = () => {
   const eventTypes: InteractionEventType[] = ['click', 'hover', 'focus', 'blur', 'custom']
   let delay = 0
 
-  eventTypes.forEach(eventType => {
-    const hasEvent = props.template.config.some(config => config.event === eventType && config.enabled)
+  eventTypes.forEach((eventType) => {
+    const hasEvent = props.template.config.some((config) => config.event === eventType && config.enabled)
     if (hasEvent) {
       setTimeout(() => {
         handlePreviewEvent(eventType)

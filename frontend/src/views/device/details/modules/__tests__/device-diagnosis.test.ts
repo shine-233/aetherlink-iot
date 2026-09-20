@@ -40,15 +40,62 @@ const mountComponent = (props = {}) => {
     props: { id: 'device-1', ...props },
     global: {
       stubs: {
-        NButton: defineComponent({ props: ['bordered'], emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } }),
-        NIcon: defineComponent({ props: ['size'], setup(_, { slots }) { return () => h('span', slots.default?.()) } }),
-        NFlex: defineComponent({ props: ['gap', 'vertical'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NCard: defineComponent({ props: ['title'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NText: defineComponent({ props: ['type', 'depth'], setup(_, { slots }) { return () => h('span', slots.default?.()) } }),
-        NNumberAnimation: defineComponent({ props: ['from', 'to', 'precision'], setup() { return () => h('span') } }),
-        NDataTable: defineComponent({ props: ['columns', 'data', 'maxHeight', 'remote'], setup() { return () => h('table') } }),
-        NSwitch: defineComponent({ props: ['value'], emits: ['update:value'], setup() { return () => h('div') } }),
-        NTooltip: defineComponent({ props: ['trigger'], setup(_, { slots }) { return () => h('div', slots.default?.()) } })
+        NButton: defineComponent({
+          props: ['bordered'],
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default?.())
+          }
+        }),
+        NIcon: defineComponent({
+          props: ['size'],
+          setup(_, { slots }) {
+            return () => h('span', slots.default?.())
+          }
+        }),
+        NFlex: defineComponent({
+          props: ['gap', 'vertical'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NCard: defineComponent({
+          props: ['title'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NText: defineComponent({
+          props: ['type', 'depth'],
+          setup(_, { slots }) {
+            return () => h('span', slots.default?.())
+          }
+        }),
+        NNumberAnimation: defineComponent({
+          props: ['from', 'to', 'precision'],
+          setup() {
+            return () => h('span')
+          }
+        }),
+        NDataTable: defineComponent({
+          props: ['columns', 'data', 'maxHeight', 'remote'],
+          setup() {
+            return () => h('table')
+          }
+        }),
+        NSwitch: defineComponent({
+          props: ['value'],
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NTooltip: defineComponent({
+          props: ['trigger'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        })
       }
     }
   })

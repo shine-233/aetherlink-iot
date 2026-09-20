@@ -40,12 +40,48 @@ const mountComponent = (props: Record<string, any> = {}) => {
     },
     global: {
       stubs: {
-        NModal: defineComponent({ name: 'NModal', props: { show: Boolean }, emits: ['update:show'], setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NForm: defineComponent({ name: 'NForm', props: { model: Object, rules: [Object, Array] }, setup(_, { slots }) { return () => h('form', slots.default ? slots.default() : []) } }),
-        NFormItem: defineComponent({ name: 'NFormItem', setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NInput: defineComponent({ name: 'NInput', props: { value: { default: '' } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NSpace: defineComponent({ name: 'NSpace', setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NButton: defineComponent({ name: 'NButton', emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : []) } })
+        NModal: defineComponent({
+          name: 'NModal',
+          props: { show: Boolean },
+          emits: ['update:show'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NForm: defineComponent({
+          name: 'NForm',
+          props: { model: Object, rules: [Object, Array] },
+          setup(_, { slots }) {
+            return () => h('form', slots.default ? slots.default() : [])
+          }
+        }),
+        NFormItem: defineComponent({
+          name: 'NFormItem',
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NInput: defineComponent({
+          name: 'NInput',
+          props: { value: { default: '' } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NSpace: defineComponent({
+          name: 'NSpace',
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NButton: defineComponent({
+          name: 'NButton',
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : [])
+          }
+        })
       }
     }
   })
@@ -212,7 +248,11 @@ describe('management/role/modules/table-action-modal.vue', () => {
     const wrapper = mountComponent()
     const state = getSetupState(wrapper)
     expect(state.rules.name).toMatchObject({ required: true, message: expect.any(String), trigger: ['input', 'blur'] })
-    expect(state.rules.description).toMatchObject({ required: true, message: expect.any(String), trigger: ['input', 'blur'] })
+    expect(state.rules.description).toMatchObject({
+      required: true,
+      message: expect.any(String),
+      trigger: ['input', 'blur']
+    })
     expect(state.rules.email).toEqual({})
   })
 })

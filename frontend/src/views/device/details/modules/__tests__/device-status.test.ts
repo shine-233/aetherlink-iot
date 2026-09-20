@@ -106,9 +106,7 @@ describe('device-status.vue', () => {
     await flushPromises()
 
     expect(hoisted.deviceStatusHistory).toHaveBeenCalledTimes(1)
-    expect(hoisted.deviceStatusHistory).toHaveBeenCalledWith(
-      expect.objectContaining({ device_id: 'device-2' })
-    )
+    expect(hoisted.deviceStatusHistory).toHaveBeenCalledWith(expect.objectContaining({ device_id: 'device-2' }))
   })
 
   it('does not re-fetch when deviceId changes but visible is false', async () => {
@@ -311,9 +309,7 @@ describe('device-status.vue', () => {
     expect(setupState.queryParams.page).toBe(3)
     expect(setupState.pagination.page).toBe(3)
     expect(hoisted.deviceStatusHistory).toHaveBeenCalledTimes(1)
-    expect(hoisted.deviceStatusHistory).toHaveBeenCalledWith(
-      expect.objectContaining({ page: 3 })
-    )
+    expect(hoisted.deviceStatusHistory).toHaveBeenCalledWith(expect.objectContaining({ page: 3 }))
   })
 
   it('pagination.onUpdatePageSize updates page size and resets page to 1', async () => {
@@ -333,9 +329,7 @@ describe('device-status.vue', () => {
     expect(setupState.pagination.pageSize).toBe(50)
     expect(setupState.pagination.page).toBe(1)
     expect(hoisted.deviceStatusHistory).toHaveBeenCalledTimes(1)
-    expect(hoisted.deviceStatusHistory).toHaveBeenCalledWith(
-      expect.objectContaining({ page: 1, page_size: 50 })
-    )
+    expect(hoisted.deviceStatusHistory).toHaveBeenCalledWith(expect.objectContaining({ page: 1, page_size: 50 }))
   })
 
   it('index column render returns 1-based index', async () => {

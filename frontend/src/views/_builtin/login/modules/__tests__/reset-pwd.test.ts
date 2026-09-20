@@ -202,7 +202,9 @@ describe('ResetPwd', () => {
     await vm.handleSmsCode()
 
     expect((globalThis as unknown as { $message: { error: Mock } }).$message.error).toHaveBeenCalledTimes(1)
-    expect((globalThis as unknown as { $message: { error: Mock } }).$message.error).toHaveBeenCalledWith('form.email.required')
+    expect((globalThis as unknown as { $message: { error: Mock } }).$message.error).toHaveBeenCalledWith(
+      'form.email.required'
+    )
   })
 
   it('should call editUserPassWord on valid form submit', async () => {

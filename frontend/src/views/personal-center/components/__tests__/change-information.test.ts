@@ -130,7 +130,7 @@ describe('ChangeInformation', () => {
   })
 
   afterEach(() => {
-    mountedWrappers.forEach(w => w.unmount())
+    mountedWrappers.forEach((w) => w.unmount())
     mountedWrappers.length = 0
   })
 

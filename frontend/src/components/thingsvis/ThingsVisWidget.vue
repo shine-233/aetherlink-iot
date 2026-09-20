@@ -319,7 +319,7 @@ const registerThingsVisClientHandlers = () => {
     ['ready', handleThingsVisClientReady],
     ['tv:save-config', handleThingsVisSaveConfig],
     ...THINGSVIS_CONTENT_HEIGHT_MESSAGE_TYPES.map(
-      eventName => [eventName, handleThingsVisContentHeight] as [string, (...args: any[]) => void]
+      (eventName) => [eventName, handleThingsVisContentHeight] as [string, (...args: any[]) => void]
     )
   ]
 

@@ -205,7 +205,10 @@ export class ConfigurationAdapter implements IConfigurationAdapter {
         ...dataSource,
         dataItems: dataSource.dataItems.map((dataItemWrapper, index) => ({
           ...dataItemWrapper,
-          item: this.upgradeDataItemToV2(dataItemWrapper.item as unknown as V1DataItem, `${dataSource.sourceId}_item_${index}`)
+          item: this.upgradeDataItemToV2(
+            dataItemWrapper.item as unknown as V1DataItem,
+            `${dataSource.sourceId}_item_${index}`
+          )
         }))
       })) as unknown as EnhancedDataSourceConfiguration['dataSources']
     }
@@ -369,12 +372,15 @@ export class ConfigurationAdapter implements IConfigurationAdapter {
   private convertHeadersRecordToArray(headers: Record<string, string>): HttpHeader[] {
     return Object.entries(headers)
       .filter(([key]) => isSafeHeaderKey(key))
-      .map(([key, value]) => ({
-        key,
-        value,
-        enabled: true,
-        isDynamic: false
-      }) as HttpHeader)
+      .map(
+        ([key, value]) =>
+          ({
+            key,
+            value,
+            enabled: true,
+            isDynamic: false
+          }) as HttpHeader
+      )
   }
 
   /**

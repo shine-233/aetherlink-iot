@@ -110,7 +110,9 @@ function findBehaviorClaimProblems(item) {
 }
 
 describe('Playwright E2E metadata contract', function () {
-  this.timeout(40000);
+  // Full-repository inventory scans take 40s-100s per case on this machine; the
+  // suite-level timeout must clear the slowest scan, not the fastest one.
+  this.timeout(180000);
 
   let inventory;
 
@@ -127,14 +129,12 @@ describe('Playwright E2E metadata contract', function () {
 
   it('keeps the metadata facade lookup contract stable across ordered data parts', function () {
     const keys = Object.keys(TEST_METADATA);
-    expect(keys).to.have.length(64);
+    expect(keys).to.have.length(69);
     expect(new Set(keys).size).to.equal(keys.length);
     expect(keys[0]).to.equal('tests/00_coverage_contract.test.js');
     expect(keys[keys.length - 1]).to.equal('e2e/14_route_coverage_closure.spec.js');
     expect(normalizeTestPath('.\\e2e\\10_automation.spec.js')).to.equal('e2e/10_automation.spec.js');
-    expect(getTestMetadata('C:/tmp/00_coverage_contract.test.js')).to.equal(
-      TEST_METADATA['tests/00_coverage_contract.test.js']
-    );
+    expect(getTestMetadata('C:/tmp/00_coverage_contract.test.js')).to.equal(null);
 
     const sample = TEST_METADATA['e2e/10_automation.spec.js'].cases[0];
     expect(getCaseMetadata('e2e/10_automation.spec.js', sample.title)).to.equal(sample);

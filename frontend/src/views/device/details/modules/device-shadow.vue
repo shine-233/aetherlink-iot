@@ -23,30 +23,43 @@ const tableData: Ref<any[]> = ref([])
 const counts = ref<Record<string, number>>({})
 const loading = ref(false)
 
+// P0.2 ACK 闭环：sent 表示已下发但尚未收到设备确认，不得呈现为已送达。
 const statusOptions = [
   { label: () => $t('custom.device_details.shadowStatusPending'), value: 'pending' },
+  { label: () => $t('custom.device_details.shadowStatusSent'), value: 'sent' },
   { label: () => $t('custom.device_details.shadowStatusDelivered'), value: 'delivered' },
+  { label: () => $t('custom.device_details.shadowStatusFailed'), value: 'failed' },
   { label: () => $t('custom.device_details.shadowStatusExpired'), value: 'expired' },
   { label: () => $t('custom.device_details.shadowStatusCanceled'), value: 'canceled' },
   { label: () => $t('custom.device_details.shadowStatusAll'), value: '' }
 ]
 
 function statusLabelOf(status: string) {
-  const found = statusOptions.find(opt => opt.value === status)
+  const found = statusOptions.find((opt) => opt.value === status)
   return found ? found.label() : status
 }
 
-function statusTagType(status: string): 'warning' | 'success' | 'default' | 'error' {
+function statusTagType(status: string): 'warning' | 'info' | 'success' | 'default' | 'error' {
   switch (status) {
     case 'pending':
       return 'warning'
+    case 'sent':
+      // 已下发待确认：中性提示，明确区别于"已确认"的绿色。
+      return 'info'
     case 'delivered':
       return 'success'
     case 'expired':
+    case 'canceled':
       return 'default'
     default:
       return 'error'
   }
+}
+
+// 终态：不可取消。sent 仍可能因重试回到 pending，故不可取消的判定用终态集合。
+const terminalStatuses = new Set(['delivered', 'failed', 'expired', 'canceled'])
+function isTerminal(status: string) {
+  return terminalStatuses.has(status)
 }
 
 const query = reactive({ status: 'pending' })
@@ -92,33 +105,49 @@ const columns: DataTableColumns<any> = [
     title: () => $t('custom.device_details.sendContent'),
     key: 'payload',
     ellipsis: { tooltip: true },
-    render: row => row.payload || '{}'
+    render: (row) => row.payload || '{}'
   },
   {
     title: () => $t('custom.device_details.twinStatus'),
     key: 'status',
     width: 100,
-    render: row =>
+    render: (row) =>
       h(NTag, { type: statusTagType(row.status), size: 'small' }, { default: () => statusLabelOf(row.status) })
+  },
+  {
+    title: () => $t('custom.device_details.shadowAttempts'),
+    key: 'attempts',
+    width: 90,
+    // 只有已下发过的消息才有重试次数，未下发显示 --，不用 0 冒充"从未失败"。
+    render: (row) => (row.attempts > 0 ? `${row.attempts}` : '--')
+  },
+  {
+    title: () => $t('custom.device_details.shadowAckedAt'),
+    key: 'ack_at',
+    width: 170,
+    // 确认时间为空表示设备尚未 ACK，不能拿 delivered_at 顶替——那是"送达时间"而非"确认时间"。
+    render: (row) => formatTime(row.ack_at)
   },
   {
     title: () => $t('custom.device_details.shadowCreatedAt'),
     key: 'created_at',
     width: 170,
-    render: row => formatTime(row.created_at)
+    render: (row) => formatTime(row.created_at)
   },
   {
     title: () => $t('custom.device_details.shadowExpiresAt'),
     key: 'expires_at',
     width: 170,
-    render: row => formatTime(row.expires_at)
+    render: (row) => formatTime(row.expires_at)
   },
   {
     title: () => $t('common.actions'),
     key: 'actions',
     width: 100,
-    render: row => {
-      if (row.status !== 'pending') return null
+    render: (row) => {
+      // 只有 pending 可取消（后端 DAL 同样只允许 pending）；sent 正在等设备确认，
+      // 终态行已不可变更，均不提供取消入口。
+      if (isTerminal(row.status) || row.status === 'sent') return null
       return h(
         NPopconfirm,
         { onPositiveClick: () => handleCancel(row.id) },
@@ -134,16 +163,16 @@ const columns: DataTableColumns<any> = [
 
 const showCreateModal = ref(false)
 const creating = ref(false)
-const createForm = reactive({
+const createForm = reactive<{
+  message_type: 'command'
+  payload: string
+  ttl_seconds: number
+}>({
   message_type: 'command',
   payload: '{\n  "method": "set",\n  "params": {}\n}',
   ttl_seconds: 86400
 })
-const messageTypeOptions = [
-  { label: $t('custom.device_details.shadowTypeCommand'), value: 'command' },
-  { label: $t('custom.device_details.shadowTypeProperty'), value: 'property' },
-  { label: $t('custom.device_details.shadowTypeNotification'), value: 'notification' }
-]
+const messageTypeOptions = [{ label: $t('custom.device_details.shadowTypeCommand'), value: 'command' }]
 
 async function submitCreate() {
   let payloadValue: unknown
@@ -161,7 +190,9 @@ async function submitCreate() {
       ttl_seconds: createForm.ttl_seconds
     })
     if (!error) {
-      window.$message?.success(data?.direct ? $t('custom.device_details.shadowDirectSent') : $t('custom.device_details.shadowQueued'))
+      window.$message?.success(
+        data?.direct ? $t('custom.device_details.shadowDirectSent') : $t('custom.device_details.shadowQueued')
+      )
       showCreateModal.value = false
       query.status = 'pending'
       getTableData()
@@ -194,13 +225,7 @@ onMounted(getTableData)
       </n-button>
     </div>
 
-    <n-data-table
-      :columns="columns"
-      :data="tableData"
-      :loading="loading"
-      :bordered="false"
-      size="small"
-    >
+    <n-data-table :columns="columns" :data="tableData" :loading="loading" :bordered="false" size="small">
       <template #empty>
         <NEmpty :description="$t('common.noData')" class="py-24px" />
       </template>
@@ -223,6 +248,7 @@ onMounted(getTableData)
           <n-input
             v-model:value="createForm.payload"
             type="textarea"
+            class="shadow-payload-input"
             :autosize="{ minRows: 5, maxRows: 12 }"
             :placeholder="$t('custom.device_details.shadowPayloadHint')"
           />

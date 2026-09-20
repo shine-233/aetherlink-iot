@@ -39,7 +39,7 @@ export function useOtaPackageList() {
   })
 
   function normalizeDeviceConfigOptions(rows: unknown[]): DeviceConfigOption[] {
-    return rows.map(item => {
+    return rows.map((item) => {
       const fields = item as { name?: string; device_config_name?: string; id?: string }
       return {
         label: fields.name || fields.device_config_name || (fields.id as string),

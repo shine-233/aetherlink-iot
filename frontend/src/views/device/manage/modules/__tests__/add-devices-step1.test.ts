@@ -40,13 +40,52 @@ const mountComponent = (props = {}) => {
     },
     global: {
       stubs: {
-        NCard: defineComponent({ props: ['bordered'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NForm: defineComponent({ props: ['labelWidth', 'model', 'rules', 'size'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NFormItem: defineComponent({ props: ['label', 'path'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NInput: defineComponent({ props: ['value', 'placeholder', 'maxlength'], emits: ['update:value'], setup() { return () => h('input') } }),
-        NSelect: defineComponent({ props: ['value', 'options', 'filterable', 'placeholder', 'labelField', 'valueField'], emits: ['update:value'], setup() { return () => h('div') } }),
-        NButton: defineComponent({ props: ['type', 'attrType'], emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } }),
-        NDynamicTags: defineComponent({ props: ['value'], emits: ['update:value'], setup() { return () => h('div') } })
+        NCard: defineComponent({
+          props: ['bordered'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NForm: defineComponent({
+          props: ['labelWidth', 'model', 'rules', 'size'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NFormItem: defineComponent({
+          props: ['label', 'path'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NInput: defineComponent({
+          props: ['value', 'placeholder', 'maxlength'],
+          emits: ['update:value'],
+          setup() {
+            return () => h('input')
+          }
+        }),
+        NSelect: defineComponent({
+          props: ['value', 'options', 'filterable', 'placeholder', 'labelField', 'valueField'],
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NButton: defineComponent({
+          props: ['type', 'attrType'],
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default?.())
+          }
+        }),
+        NDynamicTags: defineComponent({
+          props: ['value'],
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        })
       }
     }
   })
@@ -78,7 +117,8 @@ describe('device/manage/modules/add-devices-step1.vue', () => {
       name: '',
       pid_number: '',
       label: [],
-      device_config_id: ''
+      device_config_id: '',
+      conflict_policy: 'fail'
     })
     expect(state.rules).toMatchObject({
       name: {
@@ -145,7 +185,8 @@ describe('device/manage/modules/add-devices-step1.vue', () => {
       pid_number: 'ABC123456789',
       label: 'cold,warehouse',
       device_config_id: 'cfg-1',
-      access_way: 'A'
+      access_way: 'A',
+      conflict_policy: 'fail'
     })
     expect(setIdCallback).toHaveBeenCalledWith('dev-1', 'cfg-1', {}, 'ABC123456789')
     expect(nextCallback).toHaveBeenCalledTimes(1)
@@ -183,7 +224,10 @@ describe('device/manage/modules/add-devices-step1.vue', () => {
   })
 
   it('accepts configOptions prop', async () => {
-    const options = [{ name: 'Config1', id: 'cfg-1' }, { name: 'Config2', id: 'cfg-2' }]
+    const options = [
+      { name: 'Config1', id: 'cfg-1' },
+      { name: 'Config2', id: 'cfg-2' }
+    ]
     const wrapper = mountComponent({ configOptions: options })
     await flushPromises()
     expect(wrapper.props('configOptions')).toEqual(options)

@@ -5,7 +5,7 @@
 重构建议: 可逐步把查询、提交和弹窗状态拆成组合函数，让组件更专注于布局与事件编排。
 -->
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import type { FormInst } from 'naive-ui'
 import { useMessage } from 'naive-ui'
 import { deviceAdd } from '@/service/api/device'
@@ -22,8 +22,19 @@ const formValue = ref({
   name: '',
   pid_number: '',
   label: [],
-  device_config_id: ''
+  device_config_id: '',
+  // TB-15 实体名冲突策略：与后端 model.NormalizeConflictPolicy 的取值域一致。
+  // 默认 fail —— 与后端默认一致，避免"前端不传、后端默默按 fail 处理"的隐性不一致。
+  conflict_policy: 'fail'
 })
+
+// 用 computed 而不是模块级常量：语言切换后下拉项要跟着变。
+const conflictPolicyOptions = computed(() => [
+  { label: $t('custom.devicePage.conflictPolicyFail'), value: 'fail' },
+  { label: $t('custom.devicePage.conflictPolicyRename'), value: 'rename' },
+  { label: $t('custom.devicePage.conflictPolicyIgnore'), value: 'ignore' },
+  { label: $t('custom.devicePage.conflictPolicyUpdate'), value: 'update' }
+])
 const rules = {
   name: {
     required: true,
@@ -72,12 +83,18 @@ async function handleValidateClick(e: MouseEvent) {
         <n-form-item :label="$t('custom.devicePage.deviceName')" path="name">
           <n-input v-model:value="formValue.name" :placeholder="$t('custom.devicePage.inputDeviceName')" />
         </n-form-item>
+        <n-form-item :label="$t('custom.devicePage.conflictPolicy')" path="conflict_policy">
+          <n-select v-model:value="formValue.conflict_policy" :options="conflictPolicyOptions" />
+          <template #feedback>
+            <span class="conflict-policy-tip">{{ $t('custom.devicePage.conflictPolicyTip') }}</span>
+          </template>
+        </n-form-item>
         <n-form-item label="PID" path="pid_number">
           <n-input
             v-model:value="formValue.pid_number"
             maxlength="12"
             :placeholder="$t('rdi.device.pidPlaceholder')"
-            @update:value="value => (formValue.pid_number = value.toUpperCase())"
+            @update:value="(value) => (formValue.pid_number = value.toUpperCase())"
           />
         </n-form-item>
         <n-form-item :label="$t('custom.devicePage.label')" path="label">
@@ -103,4 +120,11 @@ async function handleValidateClick(e: MouseEvent) {
   </div>
 </template>
 
-<style scoped></style>
+<style scoped>
+/* 冲突策略的说明文字：字号小、颜色淡，避免与校验错误提示抢注意力。 */
+.conflict-policy-tip {
+  color: #8c8c8c;
+  font-size: 12px;
+  line-height: 1.4;
+}
+</style>

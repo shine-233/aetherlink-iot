@@ -88,10 +88,7 @@ export function buildFleetSelectionScope(input: {
  * 避免操作员把「当页勾选」误当成「全部匹配」。
  */
 export function formatFleetSelectionScopeText(template: string, params: Record<string, number>) {
-  return Object.entries(params).reduce(
-    (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),
-    template
-  )
+  return Object.entries(params).reduce((text, [name, value]) => text.replaceAll(`{${name}}`, String(value)), template)
 }
 
 export function buildFleetSelectionScopeMessage(scope: FleetSelectionScope): FleetSelectionScopeMessage {

@@ -243,7 +243,7 @@ describe('auth store', () => {
 
   it.each(['{broken-json', 'null', '{}', '[null]', '[{"name":123,"enable_flag":"enable"}]'])(
     'fails safe for invalid frontend encryption config %s',
-    async rawConfig => {
+    async (rawConfig) => {
       localStorage.setItem('enableZcAndYzm', rawConfig)
       hoisted.fetchLogin.mockResolvedValue({ data: null })
 
@@ -321,7 +321,7 @@ describe('auth store', () => {
     let finishRouteReset!: () => void
     hoisted.resetRouteStore.mockImplementationOnce(
       () =>
-        new Promise<void>(resolve => {
+        new Promise<void>((resolve) => {
           finishRouteReset = resolve
         })
     )

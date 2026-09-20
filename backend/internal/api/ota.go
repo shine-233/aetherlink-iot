@@ -237,6 +237,28 @@ func (*OTAApi) PreviewOTARolloutGovernance(c *gin.Context) {
 	c.Set("data", data)
 }
 
+// ApplyOTARolloutGovernance 执行一次 OTA rollout 治理（P0.3 灰度/金丝雀执行面）。
+// 与预览接口的区别：本接口会真的按限速下发一批、或在失败率越线时中止并取消剩余设备，
+// 会写 task 行与 detail 行，并连接 broker 推送。
+// @Summary Apply OTA rollout governance
+// @Description Plans the next rollout action with the pure planner and executes it: rate-limited batch dispatch, abort on failure-rate breach, timeout close-out, or completion.
+// @Tags OTA
+// @Accept json
+// @Produce json
+// @Param id path string true "OTA upgrade task ID"
+// @Success 200 {object} service.OTARolloutGovernanceApplyResult
+// @Router /api/v1/ota/task/{id}/rollout-governance-apply [post]
+func (*OTAApi) ApplyOTARolloutGovernance(c *gin.Context) {
+	id := c.Param("id")
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	data, err := service.GroupApp.OTA.ApplyRolloutGovernance(id, userClaims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", data)
+}
+
 // DownloadOTAUpgradePackage 下载 OTA 升级包，可选支持 Range 分片。
 // 核心链路：先做路径净化与存在性校验，再根据 Range 头决定走整包输出或分片输出。
 // 静态审查重点：这里是安全敏感入口，应持续审查路径穿越、非法 Range、异常中断和自定义校验头兼容性。

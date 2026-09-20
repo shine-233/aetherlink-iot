@@ -121,13 +121,17 @@ func TestShadowCancelAndStaleCleanup(t *testing.T) {
 	db := setupShadowDALTestDB(t)
 	now := time.Now().UTC()
 	createShadowRow(t, db, "sm-cancel", "dev-1", "pending", now.Add(time.Hour))
+	createShadowRow(t, db, "sm-cross-device", "dev-2", "pending", now.Add(time.Hour))
 	createShadowRow(t, db, "sm-stale", "dev-2", "canceled", now.Add(-8*24*time.Hour))
 	createShadowRow(t, db, "sm-fresh", "dev-2", "delivered", now.Add(-time.Minute))
 
-	if err := CancelShadowMessage("sm-cancel"); err != nil {
+	if err := CancelShadowMessage("dev-2", "sm-cancel"); err == nil {
+		t.Fatal("cross-device cancel must fail with not found")
+	}
+	if err := CancelShadowMessage("dev-1", "sm-cancel"); err != nil {
 		t.Fatalf("CancelShadowMessage: %v", err)
 	}
-	if err := CancelShadowMessage("sm-cancel"); err == nil {
+	if err := CancelShadowMessage("dev-1", "sm-cancel"); err == nil {
 		t.Fatal("second cancel must fail with not found")
 	}
 

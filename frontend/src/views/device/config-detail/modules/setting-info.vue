@@ -153,7 +153,9 @@ const getPlatform = computed(() => {
 onMounted(() => {
   auto_register.value = props.configInfo?.auto_register === 1 || false
   // 初始化图片路径
-  imagePath.value = props.configInfo?.image_url ? `${platformAssetBaseUrl.value.replace('api/v1', '') + props.configInfo.image_url}` : ''
+  imagePath.value = props.configInfo?.image_url
+    ? `${platformAssetBaseUrl.value.replace('api/v1', '') + props.configInfo.image_url}`
+    : ''
 })
 </script>
 

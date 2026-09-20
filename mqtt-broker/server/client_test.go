@@ -1031,6 +1031,233 @@ func TestClient_publishHandler_retainedMessage(t *testing.T) {
 
 }
 
+func TestClient_publishHandler_retainedUsesEffectiveHookMessage(t *testing.T) {
+	tests := []struct {
+		name      string
+		original  *packets.Publish
+		transform func(*MsgArrivedRequest) error
+		expect    func(*retained.MockStore)
+	}{
+		{
+			name:     "rewritten retained topic and payload are stored",
+			original: &packets.Publish{Version: packets.Version5, Qos: 0, Retain: true, TopicName: []byte("original/topic"), Payload: nil, Properties: &packets.Properties{}},
+			transform: func(req *MsgArrivedRequest) error {
+				req.Message.Topic = "rewritten/topic"
+				req.Message.Payload = []byte("rewritten")
+				return nil
+			},
+			expect: func(store *retained.MockStore) {
+				store.EXPECT().AddOrReplace(gomock.Any()).Do(func(msg *gmqtt.Message) {
+					if msg.Topic != "rewritten/topic" || string(msg.Payload) != "rewritten" {
+						t.Fatalf("retained message = %#v", msg)
+					}
+				})
+			},
+		},
+		{
+			name:     "rewritten empty payload removes effective topic",
+			original: &packets.Publish{Version: packets.Version5, Qos: 0, Retain: true, TopicName: []byte("original/topic"), Payload: []byte("value"), Properties: &packets.Properties{}},
+			transform: func(req *MsgArrivedRequest) error {
+				req.Message.Topic = "rewritten/topic"
+				req.Message.Payload = nil
+				return nil
+			},
+			expect: func(store *retained.MockStore) { store.EXPECT().Remove("rewritten/topic") },
+		},
+		{
+			name:     "wire retained intent survives mutable flag clearing",
+			original: &packets.Publish{Version: packets.Version5, Qos: 0, Retain: true, TopicName: []byte("original/topic"), Payload: []byte("value"), Properties: &packets.Properties{}},
+			transform: func(req *MsgArrivedRequest) error {
+				req.Message.Retained = false
+				return nil
+			},
+			expect: func(store *retained.MockStore) {
+				store.EXPECT().AddOrReplace(gomock.Any()).Do(func(msg *gmqtt.Message) {
+					if !msg.Retained {
+						t.Fatal("stored retained message lost retained semantics")
+					}
+				})
+			},
+		},
+		{
+			name:     "mutable flag cannot create retained state",
+			original: &packets.Publish{Version: packets.Version5, Qos: 0, Retain: false, TopicName: []byte("original/topic"), Payload: []byte("value"), Properties: &packets.Properties{}},
+			transform: func(req *MsgArrivedRequest) error {
+				req.Message.Retained = true
+				return nil
+			},
+			expect: func(*retained.MockStore) {},
+		},
+		{
+			name:      "hook drop does not mutate retained state",
+			original:  &packets.Publish{Version: packets.Version5, Qos: 0, Retain: true, TopicName: []byte("original/topic"), Payload: []byte("value"), Properties: &packets.Properties{}},
+			transform: func(req *MsgArrivedRequest) error { req.Drop(); return nil },
+			expect:    func(*retained.MockStore) {},
+		},
+		{
+			name:      "hook error does not mutate retained state",
+			original:  &packets.Publish{Version: packets.Version5, Qos: 0, Retain: true, TopicName: []byte("original/topic"), Payload: []byte("value"), Properties: &packets.Properties{}},
+			transform: func(*MsgArrivedRequest) error { return errors.New("rejected") },
+			expect:    func(*retained.MockStore) {},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			store := retained.NewMockStore(ctrl)
+			tt.expect(store)
+			srv := &server{config: config.DefaultConfig(), retainedDB: store}
+			srv.hooks.OnMsgArrived = func(_ context.Context, _ Client, req *MsgArrivedRequest) error { return tt.transform(req) }
+			c, err := srv.newClient(noopConn{})
+			if err != nil {
+				t.Fatalf("newClient: %v", err)
+			}
+			c.opts.ClientID = "cid"
+			c.opts.RetainAvailable = true
+			c.version = packets.Version5
+			c.deliverMessage = func(string, *gmqtt.Message, subscription.IterationOptions) bool { return true }
+			if codeErr := c.publishHandler(tt.original); codeErr != nil {
+				t.Fatalf("publishHandler: %v", codeErr)
+			}
+		})
+	}
+}
+
+func TestClient_publishHandler_retainedAliasOnlyUsesResolvedTopic(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	store := retained.NewMockStore(ctrl)
+	store.EXPECT().AddOrReplace(gomock.Any()).Do(func(msg *gmqtt.Message) {
+		if msg.Topic != "resolved/topic" {
+			t.Fatalf("retained topic = %q", msg.Topic)
+		}
+	})
+	srv := &server{config: config.DefaultConfig(), retainedDB: store}
+	c, err := srv.newClient(noopConn{})
+	if err != nil {
+		t.Fatalf("newClient: %v", err)
+	}
+	c.opts.ClientID = "cid"
+	c.opts.RetainAvailable = true
+	c.opts.ServerTopicAliasMax = 3
+	c.version = packets.Version5
+	c.aliasMapper = make([][]byte, 4)
+	c.aliasMapper[3] = []byte("resolved/topic")
+	c.deliverMessage = func(string, *gmqtt.Message, subscription.IterationOptions) bool { return true }
+	pub := &packets.Publish{Version: packets.Version5, Qos: 0, Retain: true, TopicName: nil, Payload: []byte("value"), Properties: &packets.Properties{TopicAlias: uint16P(3)}}
+	if codeErr := c.publishHandler(pub); codeErr != nil {
+		t.Fatalf("publishHandler: %v", codeErr)
+	}
+}
+
+func TestClient_deliverPublishPreservesExplicitHookMatchTopic(t *testing.T) {
+	tests := []struct {
+		name      string
+		hookTopic string
+		wantTopic string
+	}{
+		{name: "default follows rewritten message", hookTopic: "original/topic", wantTopic: "rewritten/topic"},
+		{name: "explicit hook topic is preserved", hookTopic: "routed/topic", wantTopic: "routed/topic"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := &server{config: config.DefaultConfig()}
+			srv.hooks.OnMsgArrived = func(_ context.Context, _ Client, req *MsgArrivedRequest) error {
+				req.Message.Topic = "rewritten/topic"
+				req.IterationOptions.TopicName = tt.hookTopic
+				return nil
+			}
+			c, err := srv.newClient(noopConn{})
+			if err != nil {
+				t.Fatalf("newClient: %v", err)
+			}
+			c.opts.ClientID = "cid"
+			c.deliverMessage = func(_ string, _ *gmqtt.Message, opts subscription.IterationOptions) bool {
+				if opts.TopicName != tt.wantTopic {
+					t.Fatalf("matching topic = %q, want %q", opts.TopicName, tt.wantTopic)
+				}
+				return true
+			}
+			pub := &packets.Publish{Version: packets.Version5, TopicName: []byte("original/topic"), Properties: &packets.Properties{}}
+			_, _, hookErr := c.deliverPublish(pub, gmqtt.MessageFromPublish(pub), false)
+			if hookErr != nil {
+				t.Fatalf("deliverPublish: %v", hookErr)
+			}
+		})
+	}
+}
+
+func TestClient_publishHandlerHookOutcomeAckByProtocolVersion(t *testing.T) {
+	tests := []struct {
+		name          string
+		version       packets.Version
+		hook          OnMsgArrived
+		wantCode      codes.Code
+		wantErrorCode codes.Code
+	}{
+		{
+			name:    "v5 handled mapping acknowledges success",
+			version: packets.Version5,
+			hook: func(_ context.Context, _ Client, req *MsgArrivedRequest) error {
+				req.MarkHandled()
+				req.Drop()
+				return nil
+			},
+			wantCode: codes.Success,
+		},
+		{
+			name:    "v5 failed mapping acknowledges failure",
+			version: packets.Version5,
+			hook: func(_ context.Context, _ Client, req *MsgArrivedRequest) error {
+				req.Drop()
+				return errors.New("mapped forwarding failed")
+			},
+			wantCode: codes.UnspecifiedError,
+		},
+		{
+			name:    "v311 failed mapping returns connection error without ack",
+			version: packets.Version311,
+			hook: func(_ context.Context, _ Client, req *MsgArrivedRequest) error {
+				req.Drop()
+				return errors.New("mapped forwarding failed")
+			},
+			wantErrorCode: codes.UnspecifiedError,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := &server{config: config.DefaultConfig(), retainedDB: retained.NewMockStore(gomock.NewController(t))}
+			srv.hooks.OnMsgArrived = tt.hook
+			c, err := srv.newClient(noopConn{})
+			if err != nil {
+				t.Fatalf("newClient: %v", err)
+			}
+			c.opts.ClientID = "cid"
+			c.version = tt.version
+			c.deliverMessage = func(string, *gmqtt.Message, subscription.IterationOptions) bool { return false }
+			pub := &packets.Publish{Version: tt.version, Qos: packets.Qos1, TopicName: []byte("mapped/up"), PacketID: 1, Properties: &packets.Properties{}}
+			codeErr := c.publishHandler(pub)
+			if tt.wantErrorCode != 0 {
+				if codeErr == nil || codeErr.Code != tt.wantErrorCode {
+					t.Fatalf("publishHandler error = %v, want code %v", codeErr, tt.wantErrorCode)
+				}
+				select {
+				case ack := <-c.out:
+					t.Fatalf("unexpected success ack %#v", ack)
+				default:
+				}
+				return
+			}
+			if codeErr != nil {
+				t.Fatalf("publishHandler: %v", codeErr)
+			}
+			ack := (<-c.out).(*packets.Puback)
+			if ack.Code != tt.wantCode {
+				t.Fatalf("PUBACK code = %v, want %v", ack.Code, tt.wantCode)
+			}
+		})
+	}
+}
+
 func TestClient_publishHandler_topicAlias(t *testing.T) {
 	var tt = []struct {
 		name          string

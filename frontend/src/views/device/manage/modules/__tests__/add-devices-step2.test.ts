@@ -42,15 +42,63 @@ const mountComponent = (props = {}) => {
     },
     global: {
       stubs: {
-        NForm: defineComponent({ props: ['rules', 'model'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NFormItem: defineComponent({ props: ['label', 'path'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NInput: defineComponent({ props: ['value', 'placeholder'], emits: ['update:value', 'click'], setup() { return () => h('input') } }),
-        NSelect: defineComponent({ props: ['value', 'options'], emits: ['update:value'], setup() { return () => h('div') } }),
-        NButton: defineComponent({ props: ['type'], emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } }),
-        NScrollbar: defineComponent({ props: ['style'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NCard: defineComponent({ props: ['title'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NDescriptions: defineComponent({ props: ['column'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NDescriptionsItem: defineComponent({ props: ['label'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
+        NForm: defineComponent({
+          props: ['rules', 'model'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NFormItem: defineComponent({
+          props: ['label', 'path'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NInput: defineComponent({
+          props: ['value', 'placeholder'],
+          emits: ['update:value', 'click'],
+          setup() {
+            return () => h('input')
+          }
+        }),
+        NSelect: defineComponent({
+          props: ['value', 'options'],
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NButton: defineComponent({
+          props: ['type'],
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default?.())
+          }
+        }),
+        NScrollbar: defineComponent({
+          props: ['style'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NCard: defineComponent({
+          props: ['title'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NDescriptions: defineComponent({
+          props: ['column'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NDescriptionsItem: defineComponent({
+          props: ['label'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
         DeviceAccessGuide: defineComponent({
           props: ['accessGuide', 'connectInfo'],
           emits: ['copy'],
@@ -188,9 +236,12 @@ describe('device/manage/modules/add-devices-step2.vue', () => {
 
   it('processes formElements with table type', async () => {
     const formElements = [
-      { type: 'table', dataKey: 'table1', label: 'Table', array: [
-        { type: 'input', dataKey: 'field1', label: 'Field1', validate: {} }
-      ]}
+      {
+        type: 'table',
+        dataKey: 'table1',
+        label: 'Table',
+        array: [{ type: 'input', dataKey: 'field1', label: 'Field1', validate: {} }]
+      }
     ]
     const wrapper = mountComponent({ formElements, formData: { field1: 'value1' } })
     await flushPromises()

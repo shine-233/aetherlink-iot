@@ -67,7 +67,11 @@ function createConfig(overrides: Partial<RDIConfig> = {}): RDIConfig {
 }
 
 function createComposable(config: RDIConfig = createConfig()) {
-  return useRdiCommands(() => 'dev-1', config, key => String(key))
+  return useRdiCommands(
+    () => 'dev-1',
+    config,
+    (key) => String(key)
+  )
 }
 
 describe('useRdiCommands command tracking summary', () => {

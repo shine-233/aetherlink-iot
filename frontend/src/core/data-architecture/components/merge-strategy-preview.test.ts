@@ -31,7 +31,7 @@ describe('previewMergeStrategy', () => {
     })
   })
 
-  it.each([0, false, '', null])('preserves the successful script preview result %j', async scriptValue => {
+  it.each([0, false, '', null])('preserves the successful script preview result %j', async (scriptValue) => {
     scriptEngineMock.execute.mockResolvedValue({ success: true, data: scriptValue })
 
     await expect(previewMergeStrategy([{ value: 1 }], { type: 'script', script: 'return items[0]' })).resolves.toEqual({

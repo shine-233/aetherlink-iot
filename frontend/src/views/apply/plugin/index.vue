@@ -44,13 +44,13 @@ const queryInfo = ref<any>({
   itemCount: 0,
   onChange: (page: number) => {
     queryInfo.value.page = page
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
+
     getList()
   },
   onUpdatePageSize: (pageSize: number) => {
     queryInfo.value.page_size = pageSize
     queryInfo.value.page = 1
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
+
     getList()
   }
 })
@@ -61,14 +61,14 @@ const getList: () => void = async () => {
   queryInfo.value.itemCount = data.total
 }
 
-const edit: (row: any) => void = row => {
+const edit: (row: any) => void = (row) => {
   serviceModalRef.value.openModal(row)
 }
-const del: (row: any) => void = async row => {
+const del: (row: any) => void = async (row) => {
   await delRegisterService(row)
   getList()
 }
-const config: (row: any) => void = async row => {
+const config: (row: any) => void = async (row) => {
   serviceConfigModalRef.value.openModal(row)
 }
 const columns: any = ref([
@@ -82,7 +82,7 @@ const columns: any = ref([
     key: 'service_type',
     minWidth: '140px',
     align: 'center',
-    render: row => {
+    render: (row) => {
       if (row.service_type) {
         return <span>{row.service_type === 1 ? $t('card.accessProtocol') : $t('card.accessService')}</span>
       }
@@ -102,7 +102,7 @@ const columns: any = ref([
     key: 'service_heartbeat',
     minWidth: '140px',
     align: 'center',
-    render: row => {
+    render: (row) => {
       if (row.service_heartbeat) {
         return (
           <NTag type={row.service_heartbeat === 1 ? 'success' : 'error'}>
@@ -118,7 +118,7 @@ const columns: any = ref([
     title: () => $t('common.actions'),
     align: 'left',
     minWidth: '220px',
-    render: row => {
+    render: (row) => {
       return (
         <NSpace justify={'start'}>
           {

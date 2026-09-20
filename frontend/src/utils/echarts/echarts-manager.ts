@@ -110,10 +110,7 @@ const EXTENDED_COMPONENT_LOADERS: Record<string, EChartsExtensionLoader> = {
     return [LinesChart]
   },
   map: async () => {
-    const [{ MapChart }, { GeoComponent }] = await Promise.all([
-      import('echarts/charts'),
-      import('echarts/components')
-    ])
+    const [{ MapChart }, { GeoComponent }] = await Promise.all([import('echarts/charts'), import('echarts/components')])
     return [MapChart, GeoComponent]
   },
   parallel: async () => {
@@ -214,7 +211,7 @@ export function initEChartsComponents() {
  */
 export async function registerEChartsExtensions(componentTypes: string[]) {
   const registrationTasks = componentTypes
-    .map(type => {
+    .map((type) => {
       if (registeredExtensions.has(type)) return null
 
       const inFlightRegistration = pendingExtensionRegistrations.get(type)
@@ -224,7 +221,7 @@ export async function registerEChartsExtensions(componentTypes: string[]) {
       if (!loader) return null
 
       const registrationPromise = loader()
-        .then(components => {
+        .then((components) => {
           if (components.length > 0) {
             echarts.use(components)
           }
@@ -233,7 +230,7 @@ export async function registerEChartsExtensions(componentTypes: string[]) {
             /* intentionally empty */
           }
         })
-        .catch(error => {
+        .catch((error) => {
           console.error('鈿狅笍 ECharts 扩展组件注册警告:', error)
         })
         .finally(() => {

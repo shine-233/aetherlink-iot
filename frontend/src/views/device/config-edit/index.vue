@@ -122,12 +122,12 @@ const deviceTemplateOptions = ref<Array<{ id: string | number; name: string | ((
 // 物模型下拉支持滚动分页，避免一次性加载全部物模型导致编辑页初始化过重。
 const getDeviceTemplate = () => {
   deviceTemplate({ ...queryTemplate.value })
-    .then(res => {
+    .then((res) => {
       const list = res.data?.list ?? []
       deviceTemplateOptions.value = deviceTemplateOptions.value.concat(list)
       queryTemplate.value.total = res.data?.total ?? queryTemplate.value.total
     })
-    .catch(error => {
+    .catch((error) => {
       console.error('Failed to get thing models:', error)
       message.error($t('generate.failedToLoadDeviceTemplates'))
     })
@@ -220,7 +220,7 @@ const getConfig = async () => {
 
 watch(
   () => configId.value,
-  async newId => {
+  async (newId) => {
     if (newId) {
       modalTitle.value = 'common.edit'
     }
@@ -255,7 +255,7 @@ const getProtocolList = async (deviceCode: string | number) => {
 }
 
 // 协议插件动态表单由后端返回，前端只做展示和输入承接。
-const getConfigForm = async data => {
+const getConfigForm = async (data) => {
   formElements.value = []
   if (!data || !configForm?.value?.device_type) {
     return
@@ -281,13 +281,13 @@ const getVoucherType = async (data: any) => {
   })
   if (res.data) {
     // 明确 map 返回类型
-    connectOptions.value = Object.keys(res.data).map(key => {
+    connectOptions.value = Object.keys(res.data).map((key) => {
       return { label: key, value: res.data[key] } as SelectOption
     })
   }
 }
 
-const choseProtocolType = async data => {
+const choseProtocolType = async (data) => {
   configForm.value.voucher_type = null
   protocol_config.value = {}
   formElements.value = []
@@ -313,7 +313,7 @@ function getTooltipText(i18nKey: string) {
 function getTooltipLines(i18nKey: string) {
   return getTooltipText(i18nKey)
     .split('\n')
-    .map(s => s.trim())
+    .map((s) => s.trim())
     .filter(Boolean)
 }
 

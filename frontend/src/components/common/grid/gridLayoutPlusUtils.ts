@@ -93,7 +93,7 @@ export function validateGridItem(item: GridLayoutPlusItem): LayoutOperationResul
 export function validateLayout(layout: GridLayoutPlusItem[]): LayoutOperationResult<boolean> {
   try {
     // 检查ID唯一性
-    const ids = layout.map(item => item.i)
+    const ids = layout.map((item) => item.i)
     const uniqueIds = new Set(ids)
     if (ids.length !== uniqueIds.size) {
       return {
@@ -148,7 +148,7 @@ export function findAvailablePosition(
       const proposed = { x, y, w, h, i: 'temp' }
 
       // 检查是否与现有项目冲突
-      const hasCollision = layout.some(item => isItemsOverlapping(proposed, item))
+      const hasCollision = layout.some((item) => isItemsOverlapping(proposed, item))
 
       if (!hasCollision) {
         return { x, y }
@@ -201,10 +201,10 @@ export function getLayoutBounds(layout: GridLayoutPlusItem[]): {
     return { minX: 0, minY: 0, maxX: 0, maxY: 0, width: 0, height: 0 }
   }
 
-  const minX = Math.min(...layout.map(item => item.x))
-  const minY = Math.min(...layout.map(item => item.y))
-  const maxX = Math.max(...layout.map(item => item.x + item.w))
-  const maxY = Math.max(...layout.map(item => item.y + item.h))
+  const minX = Math.min(...layout.map((item) => item.x))
+  const minY = Math.min(...layout.map((item) => item.y))
+  const maxX = Math.max(...layout.map((item) => item.x + item.w))
+  const maxY = Math.max(...layout.map((item) => item.y + item.h))
 
   return {
     minX,
@@ -233,7 +233,7 @@ export function compactLayout(layout: GridLayoutPlusItem[]): GridLayoutPlusItem[
     // 仅向上压缩，不改变列位置，避免产生额外的横向抖动。
     while (newY <= item.y) {
       const tempItem = { ...item, y: newY }
-      const hasCollision = compacted.some(placedItem => isItemsOverlapping(tempItem, placedItem))
+      const hasCollision = compacted.some((placedItem) => isItemsOverlapping(tempItem, placedItem))
 
       if (!hasCollision) {
         break
@@ -293,8 +293,8 @@ export function searchLayout(
 ): GridLayoutPlusItem[] {
   const lowercaseQuery = query.toLowerCase()
 
-  return layout.filter(item => {
-    return searchFields.some(field => {
+  return layout.filter((item) => {
+    return searchFields.some((field) => {
       const value = item[field]
       if (typeof value === 'string') {
         return value.toLowerCase().includes(lowercaseQuery)
@@ -351,7 +351,7 @@ export function transformLayoutForBreakpoint(
 
   const scale = toCols / fromCols
 
-  return layout.map(item => ({
+  return layout.map((item) => ({
     ...item,
     x: Math.round(item.x * scale),
     w: Math.max(1, Math.round(item.w * scale))
@@ -370,7 +370,7 @@ export function createResponsiveLayout(
   const responsive: ResponsiveLayout = {}
   const baseCols = cols.lg || 12
 
-  Object.keys(breakpoints).forEach(breakpoint => {
+  Object.keys(breakpoints).forEach((breakpoint) => {
     const targetCols = cols[breakpoint] || baseCols
     responsive[breakpoint as keyof ResponsiveLayout] = transformLayoutForBreakpoint(baseLayout, baseCols, targetCols)
   })
@@ -437,7 +437,7 @@ export function exportLayout(layout: GridLayoutPlusItem[], format: 'json' | 'csv
       const headers = ['i', 'x', 'y', 'w', 'h', 'type', 'title']
       const csvRows = [
         headers.join(','),
-        ...layout.map(item => headers.map(header => item[header as keyof GridLayoutPlusItem] || '').join(','))
+        ...layout.map((item) => headers.map((header) => item[header as keyof GridLayoutPlusItem] || '').join(','))
       ]
       return csvRows.join('\n')
     }
@@ -457,7 +457,7 @@ export function importLayout(data: string, format: 'json' | 'csv' = 'json'): Gri
       case 'csv': {
         const lines = data.split('\n')
         const headers = lines[0].split(',')
-        return lines.slice(1).map(line => {
+        return lines.slice(1).map((line) => {
           const values = line.split(',')
           const item: any = {}
           headers.forEach((header, index) => {
@@ -489,7 +489,7 @@ export function getItemAtBreakpoint(
 ): GridLayoutPlusItem {
   if (responsiveLayout && responsiveLayout[breakpoint as keyof ResponsiveLayout]) {
     const breakpointLayout = responsiveLayout[breakpoint as keyof ResponsiveLayout]!
-    const found = breakpointLayout.find(i => i.i === item.i)
+    const found = breakpointLayout.find((i) => i.i === item.i)
     if (found) return found
   }
   return item

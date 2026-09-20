@@ -185,7 +185,10 @@ async function startMqttCommandDevice(device, accountKey = 'tenant_admin') {
       AUTOTEST_MQTT_USERNAME: voucher.username,
       AUTOTEST_MQTT_PASSWORD: voucher.password,
       AUTOTEST_DEVICE_ID: device.id,
-      AUTOTEST_DEVICE_NUMBER: deviceNumber
+      AUTOTEST_DEVICE_NUMBER: deviceNumber,
+      // 本地 stub broker 没有 gmqtt 插件补信封：模拟器按线上契约自行包装
+      // status / ota_progress 标准上行，否则后端会以 Invalid status payload 丢弃。
+      AUTOTEST_WRAP_UPLINK_ENVELOPE: 'true'
     }
   });
   child.stderr.pipe(stderr);
@@ -292,7 +295,10 @@ async function startMqttOTADevice(device, accountKey = 'tenant_admin', options =
       AUTOTEST_MQTT_USERNAME: voucher.username,
       AUTOTEST_MQTT_PASSWORD: voucher.password,
       AUTOTEST_DEVICE_ID: device.id,
-      AUTOTEST_DEVICE_NUMBER: deviceNumber
+      AUTOTEST_DEVICE_NUMBER: deviceNumber,
+      // 本地 stub broker 没有 gmqtt 插件补信封：模拟器按线上契约自行包装
+      // status / ota_progress 标准上行，否则后端会以 Invalid status payload 丢弃。
+      AUTOTEST_WRAP_UPLINK_ENVELOPE: 'true'
     }
   });
   child.stderr.pipe(stderr);

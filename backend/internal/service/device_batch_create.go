@@ -2,6 +2,8 @@ package service
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 	"time"
 
 	dal "aetherlink-iot/backend/internal/dal"
@@ -125,6 +127,13 @@ func buildBatchCreateDeviceList(req model.BatchCreateDeviceReq, claims *utils.Us
 	if err != nil {
 		return nil, err
 	}
+	policy := model.NormalizeConflictPolicy(req.ConflictPolicy)
+	seenDeviceNames := make(map[string]bool, len(req.DeviceList))
+	tenantID := ""
+	if claims != nil {
+		tenantID = claims.TenantID
+	}
+
 	for _, item := range req.DeviceList {
 		if shouldSkipBatchCreateDeviceItem(item) {
 			continue
@@ -143,6 +152,48 @@ func buildBatchCreateDeviceList(req model.BatchCreateDeviceReq, claims *utils.Us
 		if err := validateBatchCreateDeviceTenant(item, claims, ctx.serviceAccess); err != nil {
 			return nil, err
 		}
+
+		if policy != model.ConflictPolicyAllow && tenantID != "" {
+			name := strings.TrimSpace(item.DeviceName)
+			existing, err := dal.GetDeviceByNameAndTenant(tenantID, name)
+			hasConflict := (err == nil && existing != nil) || seenDeviceNames[name]
+			if hasConflict {
+				switch policy {
+				case model.ConflictPolicyFail:
+					return nil, errcode.NewWithMessage(errcode.CodeParamError, fmt.Sprintf("device with name '%s' already exists", name))
+				case model.ConflictPolicyIgnore:
+					continue
+				case model.ConflictPolicyUpdate:
+					if existing != nil {
+						updateMap := map[string]interface{}{
+							"description": item.Description,
+							"updated_at":  time.Now().UTC(),
+						}
+						cfgID := normalizeCreateDeviceConfigID(&item.DeviceConfigId)
+						if cfgID != nil {
+							updateMap["device_config_id"] = cfgID
+						}
+						_, _ = dal.UpdateDeviceByMap(existing.ID, updateMap)
+					}
+					continue
+				case model.ConflictPolicyRename:
+					names, _ := dal.GetDeviceNamesMatchingBase(tenantID, name)
+					nameMap := make(map[string]bool, len(names)+len(seenDeviceNames))
+					for _, n := range names {
+						nameMap[n] = true
+					}
+					for sn := range seenDeviceNames {
+						nameMap[sn] = true
+					}
+					renamed := model.GenerateRenamedName(name, model.NameMaxLengthDefault, func(cand string) bool {
+						return nameMap[cand]
+					})
+					item.DeviceName = renamed
+				}
+			}
+			seenDeviceNames[item.DeviceName] = true
+		}
+
 		deviceList = append(deviceList, buildBatchCreateDeviceModel(item, ctx, req.ServiceAccessId))
 	}
 	return deviceList, nil

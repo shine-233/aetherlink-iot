@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 文件用途: 告警消息、告警配置、告警历史和通知对象相关 API wrapper。
  * 核心逻辑: 将告警页面的新增、编辑、删除、分页查询、处理记录和通知关系操作映射到后端接口。
  * 关键注意事项: 告警级别、处理状态、通知组和历史筛选条件会影响告警闭环判断，字段变更需同步后端和自动化测试。
@@ -70,11 +70,7 @@ export interface AlarmHistoryMonthlyTrendData {
 }
 
 /** Get twelve monthly alarm occurrence buckets for a selected calendar year. */
-export const alarmHistoryMonthlyTrend = async (
-  year: number,
-  timezone: string,
-  options?: { all_tenants?: boolean }
-) => {
+export const alarmHistoryMonthlyTrend = async (year: number, timezone: string, options?: { all_tenants?: boolean }) => {
   const data = await request.get<AlarmHistoryMonthlyTrendData>('/alarm/info/history/monthly', {
     params: {
       year,
@@ -108,12 +104,100 @@ export const resetAlarmHistory = async (id: string) => {
   return data
 }
 
-/** Batch acknowledge or reset alarm history records. */
+/** Clear an alarm history record (ThingsBoard 4.3 Alarm Clear & Lifecycle). */
+export const clearAlarmHistory = async (id: string, note?: string) => {
+  const data = await request.put(`/alarm/info/history/${encodeURIComponent(id)}/clear`, {
+    note
+  })
+  return data
+}
+
+/** Batch acknowledge, reset, or clear alarm history records. */
 export const batchActionAlarmHistory = async (params: {
   ids: string[]
-  action: 'acknowledge' | 'reset'
+  action: 'acknowledge' | 'reset' | 'clear'
   note?: string
 }) => {
   const data = await request.put('/alarm/info/history/batch-action', params)
+  return data
+}
+
+// ROADMAP TB-1 第一片：告警评论。
+// 评论挂 alarm_history（现代告警记录），不是已废弃的 alarm_info。
+// 三条端点都在 history/:id/comment 下；路径形状受后端 Gin 路由树约束
+// （同一段不能既有 :id 又有静态串），不要改成 history/comment/:id。
+
+/** 一条告警评论。 */
+export interface AlarmComment {
+  id: string
+  tenant_id: string
+  alarm_history_id: string
+  content: string
+  author_user_id: string
+  created_at: string
+}
+
+/** 列出某条告警历史的评论（时间正序）。 */
+export const listAlarmComments = async (alarmHistoryId: string) => {
+  const data = await request.get<{ list: AlarmComment[] }>(
+    `/alarm/info/history/${encodeURIComponent(alarmHistoryId)}/comment`
+  )
+  return data
+}
+
+/** 新增一条告警评论。 */
+export const createAlarmComment = async (alarmHistoryId: string, content: string) => {
+  const data = await request.post<AlarmComment>(`/alarm/info/history/${encodeURIComponent(alarmHistoryId)}/comment`, {
+    content
+  })
+  return data
+}
+
+/** 删除一条告警评论（仅作者本人或租户管理员可删）。 */
+export const deleteAlarmComment = async (alarmHistoryId: string, commentId: string) => {
+  const data = await request.delete(
+    `/alarm/info/history/${encodeURIComponent(alarmHistoryId)}/comment/${encodeURIComponent(commentId)}`
+  )
+  return data
+}
+
+// ROADMAP TB-1 第二片：告警指派（处理人）审计流水。
+// 与评论同源，都挂 alarm_history；路径形状受后端 Gin 路由树约束
+// （同一段不能既有 :id 又有静态串），必须写成 history/:id/assignment，
+// 不要改成 history/assignment/:id。
+// 语义（迁移 103 约定）：流水是 append-only 审计记录，不提供 UPDATE/DELETE；
+// assignee_user_id 为 NULL 表示"取消指派"，当前处理人 = 最新一条的 assignee_user_id。
+
+/** 一条告警指派流水。assignee_user_id 为 null 表示"取消指派"。 */
+export interface AlarmAssignment {
+  id: string
+  tenant_id: string
+  alarm_history_id: string
+  assignee_user_id: string | null
+  operator_user_id: string
+  remark: string
+  created_at: string
+}
+
+/** 列出某条告警历史的指派流水（created_at 倒序，最新在前）。 */
+export const listAlarmAssignments = async (alarmHistoryId: string) => {
+  const data = await request.get<{ list: AlarmAssignment[] }>(
+    `/alarm/info/history/${encodeURIComponent(alarmHistoryId)}/assignment`
+  )
+  return data
+}
+
+/**
+ * 写入一条指派流水：assignee_user_id 为 null 即"取消指派"。
+ * 因为是 append-only，改派与取消都走同一个 POST，不提供改/删接口。
+ */
+export const assignAlarm = async (
+  alarmHistoryId: string,
+  params: { assignee_user_id: string | null; remark?: string }
+) => {
+  const data = await request.post<AlarmAssignment>(
+    `/alarm/info/history/${encodeURIComponent(alarmHistoryId)}/assignment`,
+    params
+  )
   return data
 }

@@ -26,10 +26,10 @@ export function useAlarmBatchActions(options: {
 
   const selectedAlarmRows = computed(() => {
     const selected = new Set(options.selectedAlarmRowKeys.value)
-    return options.tableData.value.filter(row => selected.has(row.id))
+    return options.tableData.value.filter((row) => selected.has(row.id))
   })
-  const selectedUnacknowledgedRows = computed(() => selectedAlarmRows.value.filter(row => !isAcknowledged(row)))
-  const selectedActiveRows = computed(() => selectedAlarmRows.value.filter(row => !isReset(row)))
+  const selectedUnacknowledgedRows = computed(() => selectedAlarmRows.value.filter((row) => !isAcknowledged(row)))
+  const selectedActiveRows = computed(() => selectedAlarmRows.value.filter((row) => !isReset(row)))
   const batchActionDialogTitle = computed(() =>
     batchActionType.value === 'acknowledge'
       ? $t('custom.alarmPage.batchAcknowledgeTitle')
@@ -74,7 +74,7 @@ export function useAlarmBatchActions(options: {
     try {
       const note = batchActionNote.value.trim()
       const response = await batchActionAlarmHistory({
-        ids: rows.map(row => row.id),
+        ids: rows.map((row) => row.id),
         action: batchActionType.value,
         ...(note ? { note } : {})
       })

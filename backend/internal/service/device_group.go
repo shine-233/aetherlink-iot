@@ -18,8 +18,10 @@ import (
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/pkg/constant"
+
 	"aetherlink-iot/backend/pkg/errcode"
 	utils "aetherlink-iot/backend/pkg/utils"
+	"github.com/sirupsen/logrus"
 
 	"github.com/go-basic/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -28,8 +30,11 @@ import (
 type DeviceGroup struct{}
 
 type TreeNode struct {
-	Group    *model.Group `json:"group"`
-	Children []*TreeNode  `json:"children,omitempty"`
+	Group *model.Group `json:"group"`
+	// Statistics 该分组（含子孙分组）的设备统计。此前只在 detail 接口返回，
+	// 树/列表拿不到，前端要么逐个再查、要么干脆不显示计数（ROADMAP TP-8②）。
+	Statistics *model.DeviceGroupStatistics `json:"statistics,omitempty"`
+	Children   []*TreeNode                  `json:"children,omitempty"`
 }
 
 const deviceGroupDuplicateRelationMessage = "重复键违反唯一约束"
@@ -242,7 +247,7 @@ func (*DeviceGroup) GetDeviceGroupListByPage(req model.GetDeviceGroupsListByPage
 	}
 	deviceGroupList := make(map[string]interface{})
 	deviceGroupList["total"] = total
-	deviceGroupList["list"] = list
+	deviceGroupList["list"] = attachDeviceGroupStatistics(list, userClaims)
 
 	return deviceGroupList, err
 
@@ -258,7 +263,92 @@ func (*DeviceGroup) GetDeviceGroupByTree(userClaims *utils.UserClaims) (interfac
 		}), nil
 	}
 
-	return buildDeviceGroupTree(data), nil
+	tree := buildDeviceGroupTree(data)
+	attachDeviceGroupStatisticsToTree(tree, collectTreeGroupIDs(tree), userClaims)
+
+	return tree, nil
+}
+
+// collectTreeGroupIDs 深度优先收集树里所有分组 ID。
+func collectTreeGroupIDs(nodes []*TreeNode) []string {
+	ids := make([]string, 0, len(nodes))
+	var walk func([]*TreeNode)
+	walk = func(current []*TreeNode) {
+		for _, node := range current {
+			if node == nil || node.Group == nil {
+				continue
+			}
+			ids = append(ids, node.Group.ID)
+			walk(node.Children)
+		}
+	}
+	walk(nodes)
+	return ids
+}
+
+// attachDeviceGroupStatisticsToTree 给每个节点补统计（含子孙分组的设备）。
+//
+// 统计属于**增强信息**：查询失败时保持节点原样（statistics 为 nil），
+// 不让整个树接口因为一个统计查询而失败 —— 树本身仍然可用。
+func attachDeviceGroupStatisticsToTree(nodes []*TreeNode, groupIDs []string, userClaims *utils.UserClaims) {
+	if len(groupIDs) == 0 {
+		return
+	}
+	stats, err := dal.GetDeviceGroupStatisticsBatch(groupIDs, userClaims.TenantID, deviceOwnerUserIDFilterForClaims(userClaims))
+	if err != nil {
+		logrus.WithField("tenant_id", userClaims.TenantID).Error("device group tree statistics failed: ", err)
+		return
+	}
+	var walk func([]*TreeNode)
+	walk = func(current []*TreeNode) {
+		for _, node := range current {
+			if node == nil || node.Group == nil {
+				continue
+			}
+			if s, ok := stats[node.Group.ID]; ok {
+				node.Statistics = s
+			}
+			walk(node.Children)
+		}
+	}
+	walk(nodes)
+}
+
+// attachDeviceGroupStatistics 给分页列表补统计。
+//
+// DAL 的分页返回值是 interface{}（实际为 []*model.Group）。断言失败或统计查询出错时
+// 原样返回，保证列表接口不会因为增强信息而失败。
+func attachDeviceGroupStatistics(list interface{}, userClaims *utils.UserClaims) interface{} {
+	groups, ok := list.([]*model.Group)
+	if !ok || len(groups) == 0 {
+		return list
+	}
+
+	groupIDs := make([]string, 0, len(groups))
+	for _, group := range groups {
+		if group != nil {
+			groupIDs = append(groupIDs, group.ID)
+		}
+	}
+
+	stats, err := dal.GetDeviceGroupStatisticsBatch(groupIDs, userClaims.TenantID, deviceOwnerUserIDFilterForClaims(userClaims))
+	if err != nil {
+		logrus.WithField("tenant_id", userClaims.TenantID).Error("device group list statistics failed: ", err)
+		return list
+	}
+
+	items := make([]model.DeviceGroupWithStatistics, 0, len(groups))
+	for _, group := range groups {
+		if group == nil {
+			continue
+		}
+		item := model.DeviceGroupWithStatistics{Group: *group}
+		if s, ok := stats[group.ID]; ok && s != nil {
+			item.Statistics = *s
+		}
+		items = append(items, item)
+	}
+	return items
 }
 
 // buildDeviceGroupTree preserves DAL order, treats nil and "0" parents as

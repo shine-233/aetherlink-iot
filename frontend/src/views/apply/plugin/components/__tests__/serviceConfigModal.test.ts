@@ -9,11 +9,11 @@ import { flushPromises, shallowMount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const hoisted = vi.hoisted(() => ({
-  putRegisterService: vi.fn(),
+  putRegisterService: vi.fn()
 }))
 
 vi.mock('@/service/api/plugin', () => ({
-  putRegisterService: hoisted.putRegisterService,
+  putRegisterService: hoisted.putRegisterService
 }))
 
 vi.mock('@/locales', () => ({
@@ -29,14 +29,58 @@ const mountComponent = (props = {}) => {
     props,
     global: {
       stubs: {
-        NModal: defineComponent({ props: ['show', 'preset', 'title'], emits: ['update:show', 'after-leave'], setup(_, { slots, emit }) { return () => h('div', { onAfterleave: () => emit('after-leave') }, slots.default?.()) } }),
-        NSpace: defineComponent({ props: ['vertical'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NSpin: defineComponent({ props: ['show'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NForm: defineComponent({ props: ['model', 'rules', 'labelPlacement', 'labelWidth', 'requireMarkPlacement', 'disabled'], setup(_, { slots }) { return () => h('form', slots.default?.()) } }),
-        NFormItem: defineComponent({ props: ['label', 'path'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NInput: defineComponent({ props: ['value', 'placeholder', 'type'], emits: ['update:value'], setup(_, { slots }) { return () => h('input', slots.default?.()) } }),
-        NSelect: defineComponent({ props: ['value', 'options', 'placeholder'], emits: ['update:value'], setup() { return () => h('div') } }),
-        NButton: defineComponent({ props: ['type'], emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } }),
+        NModal: defineComponent({
+          props: ['show', 'preset', 'title'],
+          emits: ['update:show', 'after-leave'],
+          setup(_, { slots, emit }) {
+            return () => h('div', { onAfterleave: () => emit('after-leave') }, slots.default?.())
+          }
+        }),
+        NSpace: defineComponent({
+          props: ['vertical'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NSpin: defineComponent({
+          props: ['show'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NForm: defineComponent({
+          props: ['model', 'rules', 'labelPlacement', 'labelWidth', 'requireMarkPlacement', 'disabled'],
+          setup(_, { slots }) {
+            return () => h('form', slots.default?.())
+          }
+        }),
+        NFormItem: defineComponent({
+          props: ['label', 'path'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NInput: defineComponent({
+          props: ['value', 'placeholder', 'type'],
+          emits: ['update:value'],
+          setup(_, { slots }) {
+            return () => h('input', slots.default?.())
+          }
+        }),
+        NSelect: defineComponent({
+          props: ['value', 'options', 'placeholder'],
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NButton: defineComponent({
+          props: ['type'],
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default?.())
+          }
+        })
       }
     }
   })
@@ -50,7 +94,7 @@ describe('ServiceConfigModal', () => {
   })
 
   afterEach(() => {
-    mountedWrappers.forEach(w => w.unmount())
+    mountedWrappers.forEach((w) => w.unmount())
     mountedWrappers.length = 0
   })
 
@@ -105,7 +149,8 @@ describe('ServiceConfigModal', () => {
       id: 'svc-1',
       name: 'Plugin Service',
       service_type: 1,
-      service_config: '{"http_address":"http://test","device_type":2,"sub_topic_prefix":"plugin/a/","access_address":"mqtt://a"}'
+      service_config:
+        '{"http_address":"http://test","device_type":2,"sub_topic_prefix":"plugin/a/","access_address":"mqtt://a"}'
     })
     vm.formRef = { validate: (cb: (errors?: unknown) => void) => cb(false) }
     await vm.submitSevice()

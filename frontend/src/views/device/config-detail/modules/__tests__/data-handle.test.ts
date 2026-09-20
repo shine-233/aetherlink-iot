@@ -37,17 +37,59 @@ vi.mock('vue-i18n', () => ({
 
 vi.mock('naive-ui', () => ({
   useDialog: () => ({
-    warning: vi.fn(({ onPositiveClick }: any) => { if (onPositiveClick) onPositiveClick() })
+    warning: vi.fn(({ onPositiveClick }: any) => {
+      if (onPositiveClick) onPositiveClick()
+    })
   }),
-  NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : []) } }),
-  NDataTable: defineComponent({ setup() { return () => h('div') } }),
-  NFlex: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NForm: defineComponent({ setup() { return { validate: () => Promise.resolve(), restoreValidation: () => {} } }, render() { return h('form', this.$slots.default?.()) } }),
-  NFormItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NInput: defineComponent({ setup() { return () => h('div') } }),
-  NSelect: defineComponent({ setup() { return () => h('div') } }),
-  NSwitch: defineComponent({ setup() { return () => h('div') } }),
-  NIcon: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } })
+  NButton: defineComponent({
+    emits: ['click'],
+    setup(_, { slots, emit }) {
+      return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : [])
+    }
+  }),
+  NDataTable: defineComponent({
+    setup() {
+      return () => h('div')
+    }
+  }),
+  NFlex: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NForm: defineComponent({
+    setup() {
+      return { validate: () => Promise.resolve(), restoreValidation: () => {} }
+    },
+    render() {
+      return h('form', this.$slots.default?.())
+    }
+  }),
+  NFormItem: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NInput: defineComponent({
+    setup() {
+      return () => h('div')
+    }
+  }),
+  NSelect: defineComponent({
+    setup() {
+      return () => h('div')
+    }
+  }),
+  NSwitch: defineComponent({
+    setup() {
+      return () => h('div')
+    }
+  }),
+  NIcon: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  })
 }))
 
 vi.mock('@vicons/ionicons5', () => ({
@@ -56,11 +98,19 @@ vi.mock('@vicons/ionicons5', () => ({
 }))
 
 vi.mock('@/components/LuaScriptEditor.vue', () => ({
-  default: defineComponent({ setup() { return () => h('div') } })
+  default: defineComponent({
+    setup() {
+      return () => h('div')
+    }
+  })
 }))
 
 vi.mock('@/components/dev-card-item/index.vue', () => ({
-  default: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } })
+  default: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  })
 }))
 
 import Component from '../data-handle.vue'
@@ -78,10 +128,31 @@ const mountComponent = (props = {}) => {
       },
       stubs: {
         NEmpty: true,
-        NGrid: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NGridItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NModal: defineComponent({ props: { show: Boolean }, emits: ['update:show'], setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NForm: defineComponent({ setup() { return { validate: () => Promise.resolve(), restoreValidation: () => {} } }, render() { return h('form') } })
+        NGrid: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NGridItem: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NModal: defineComponent({
+          props: { show: Boolean },
+          emits: ['update:show'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NForm: defineComponent({
+          setup() {
+            return { validate: () => Promise.resolve(), restoreValidation: () => {} }
+          },
+          render() {
+            return h('form')
+          }
+        })
       }
     }
   })

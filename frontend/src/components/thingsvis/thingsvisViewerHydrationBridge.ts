@@ -51,9 +51,7 @@ export type ThingsVisViewerHydrationBridge = {
   dispose: () => void
 }
 
-export function createThingsVisViewerHydrationBridge(
-  options: ViewerHydrationOptions
-): ThingsVisViewerHydrationBridge {
+export function createThingsVisViewerHydrationBridge(options: ViewerHydrationOptions): ThingsVisViewerHydrationBridge {
   const delay = options.delay ?? 200
 
   let hydrationTimers: Array<ReturnType<typeof setTimeout>> = []

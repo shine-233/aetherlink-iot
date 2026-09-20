@@ -139,7 +139,9 @@ const fleetFilterSummaryItems = computed(() =>
 
 const isFleetFilterScope = computed(() => {
   const scope = fleetPreselectionResult.value?.scope
-  return scope === FLEET_FILTER_RESULT_SCOPE || scope === FLEET_DEVICE_FILTER_SCOPE || scope === FLEET_CURRENT_PAGE_SCOPE
+  return (
+    scope === FLEET_FILTER_RESULT_SCOPE || scope === FLEET_DEVICE_FILTER_SCOPE || scope === FLEET_CURRENT_PAGE_SCOPE
+  )
 })
 
 const filterPreviewSubsetRows = computed(() => {
@@ -189,7 +191,10 @@ const readyCheckOtaContextType = computed(() => {
 const readyCheckOtaContextMessage = computed(() => {
   if (!readyCheckOtaContextVisible.value) return ''
   if (readyCheckOtaContextStatus.value === 'not-found') {
-    return $t('page.product.update-ota.readyCheckContextTaskMissing').replace('{taskId}', readyCheckOtaTaskId.value || '--')
+    return $t('page.product.update-ota.readyCheckContextTaskMissing').replace(
+      '{taskId}',
+      readyCheckOtaTaskId.value || '--'
+    )
   }
   if (readyCheckOtaContextStatus.value === 'matched') {
     return $t('page.product.update-ota.readyCheckContextTaskMatched')
@@ -412,7 +417,9 @@ onMounted(async () => {
     <NSpace vertical size="medium">
       <PageHeader
         :title="$t('page.product.update-ota.otaTitle')"
-        :subtitle="selectedPackage?.name || selectedPackage?.version || $t('page.product.update-package.packagePlaceholder')"
+        :subtitle="
+          selectedPackage?.name || selectedPackage?.version || $t('page.product.update-package.packagePlaceholder')
+        "
       >
         <!-- 必须显式无参调用：fetchPackages(search = keyword) 的首参是搜索词，
              直接绑定会把 MouseEvent 当搜索词传进去，触发 search.trim() 类型错误。 -->
@@ -713,6 +720,5 @@ onMounted(async () => {
   .detail-filter {
     width: 100%;
   }
-
 }
 </style>

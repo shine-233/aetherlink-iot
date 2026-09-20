@@ -54,7 +54,7 @@ export function setupLoading() {
   const spinnerContent = document.createElement('div')
   spinnerContent.className = 'relative h-full animate-spin'
 
-  loadingClasses.forEach(item => {
+  loadingClasses.forEach((item) => {
     const dot = document.createElement('div')
     dot.className = `absolute w-10px h-10px bg-primary rounded-8px animate-pulse ${item}`
     spinnerContent.appendChild(dot)

@@ -118,3 +118,129 @@ func (*RoleApi) HandleRoleListByPage(c *gin.Context) {
 	}
 	c.Set("data", roleList)
 }
+
+// ListPermissions 查询权限字典列表
+// @Router /api/v1/permissions [get]
+func (*RoleApi) ListPermissions(c *gin.Context) {
+	claimsVal, exists := c.Get("claims")
+	if !exists {
+		c.Error(errcode.NewWithMessage(errcode.CodeNoPermission, "unauthorized"))
+		return
+	}
+	userClaims, ok := claimsVal.(*utils.UserClaims)
+	if !ok || userClaims == nil {
+		c.Error(errcode.NewWithMessage(errcode.CodeNoPermission, "unauthorized"))
+		return
+	}
+
+	module := c.Query("module")
+	list, err := service.RolePermission.ListPermissions(c.Request.Context(), module, userClaims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", list)
+}
+
+// GetRolePermissions 获取角色的权限配置
+// @Router /api/v1/roles/:id/permissions [get]
+func (*RoleApi) GetRolePermissions(c *gin.Context) {
+	roleID := c.Param("id")
+	claimsVal, exists := c.Get("claims")
+	if !exists {
+		c.Error(errcode.NewWithMessage(errcode.CodeNoPermission, "unauthorized"))
+		return
+	}
+	userClaims, ok := claimsVal.(*utils.UserClaims)
+	if !ok || userClaims == nil {
+		c.Error(errcode.NewWithMessage(errcode.CodeNoPermission, "unauthorized"))
+		return
+	}
+
+	resp, err := service.RolePermission.GetRolePermissions(c.Request.Context(), roleID, userClaims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", resp)
+}
+
+// AssignRolePermissions 为角色分配权限点
+// @Router /api/v1/roles/:id/permissions [post]
+func (*RoleApi) AssignRolePermissions(c *gin.Context) {
+	roleID := c.Param("id")
+	claimsVal, exists := c.Get("claims")
+	if !exists {
+		c.Error(errcode.NewWithMessage(errcode.CodeNoPermission, "unauthorized"))
+		return
+	}
+	userClaims, ok := claimsVal.(*utils.UserClaims)
+	if !ok || userClaims == nil {
+		c.Error(errcode.NewWithMessage(errcode.CodeNoPermission, "unauthorized"))
+		return
+	}
+
+	var req model.AssignRolePermissionsReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{"error": err.Error()}))
+		return
+	}
+
+	if err := service.RolePermission.AssignRolePermissions(c.Request.Context(), roleID, &req, userClaims); err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", gin.H{"status": "ok"})
+}
+
+// GetRoleUsers 获取角色关联的用户列表
+// @Router /api/v1/roles/:id/users [get]
+func (*RoleApi) GetRoleUsers(c *gin.Context) {
+	roleID := c.Param("id")
+	claimsVal, exists := c.Get("claims")
+	if !exists {
+		c.Error(errcode.NewWithMessage(errcode.CodeNoPermission, "unauthorized"))
+		return
+	}
+	userClaims, ok := claimsVal.(*utils.UserClaims)
+	if !ok || userClaims == nil {
+		c.Error(errcode.NewWithMessage(errcode.CodeNoPermission, "unauthorized"))
+		return
+	}
+
+	resp, err := service.RolePermission.GetRoleUsers(c.Request.Context(), roleID, userClaims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", resp)
+}
+
+// AssignRoleUsers 为角色批量分配用户
+// @Router /api/v1/roles/:id/users [post]
+func (*RoleApi) AssignRoleUsers(c *gin.Context) {
+	roleID := c.Param("id")
+	claimsVal, exists := c.Get("claims")
+	if !exists {
+		c.Error(errcode.NewWithMessage(errcode.CodeNoPermission, "unauthorized"))
+		return
+	}
+	userClaims, ok := claimsVal.(*utils.UserClaims)
+	if !ok || userClaims == nil {
+		c.Error(errcode.NewWithMessage(errcode.CodeNoPermission, "unauthorized"))
+		return
+	}
+
+	var req model.AssignRoleUsersReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{"error": err.Error()}))
+		return
+	}
+
+	if err := service.RolePermission.AssignRoleUsers(c.Request.Context(), roleID, &req, userClaims); err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", gin.H{"status": "ok"})
+}
+

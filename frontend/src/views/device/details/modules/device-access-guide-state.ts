@@ -1,4 +1,8 @@
-import { buildHttpCommands, buildMaskedCredentialMqttCommand, buildMqttCommands } from './device-access-guide-command-test-code'
+import {
+  buildHttpCommands,
+  buildMaskedCredentialMqttCommand,
+  buildMqttCommands
+} from './device-access-guide-command-test-code'
 import {
   findConnectInfoValue,
   inferProtocol,
@@ -18,8 +22,7 @@ export const isMaskedVoucherText = (value: unknown): boolean =>
   typeof value === 'string' && value.trimEnd().endsWith(MASKED_VOUCHER_SUFFIX)
 
 export type DeviceCredentialAvailability =
-  | { status: 'ok'; credentials: Record<string, unknown> }
-  | { status: 'unavailable'; reason: 'masked' }
+  { status: 'ok'; credentials: Record<string, unknown> } | { status: 'unavailable'; reason: 'masked' }
 
 // parseDeviceVoucherPayload 解析详情响应里的 voucher 字符串：
 //   - 掩码形态（以 … 结尾）→ 显式 unavailable/masked，调用方进入"凭证已脱敏"降级 UI；
@@ -347,7 +350,7 @@ export const buildReadyCheckEvidenceCards = (
           key: 'latest-status',
           labelKey: 'custom.device_details.readyCheckCommandLatestStatus',
           value: command?.latest_status || '--',
-          tone: command?.latest_status ? commandStatus === 'attention' ? 'warning' : 'success' : 'neutral'
+          tone: command?.latest_status ? (commandStatus === 'attention' ? 'warning' : 'success') : 'neutral'
         },
         {
           key: 'message-id',
@@ -573,13 +576,7 @@ const buildSdkBundle = (guide: {
     guide.payload,
     '',
     '## 可运行测试命令',
-    ...guide.commands.flatMap((command) => [
-      '',
-      `### ${command.language}`,
-      '```',
-      command.code,
-      '```'
-    ]),
+    ...guide.commands.flatMap((command) => ['', `### ${command.language}`, '```', command.code, '```']),
     '',
     '## 接入检查清单',
     '- 确认主机、端口、凭证、主题和 TLS 模式。',
@@ -624,7 +621,9 @@ const summarizeConnectionGuideDiagnostics = (
   const partialWarnings =
     guide.partial_results?.map((warning) => `${warning.component || 'guide'}: ${warning.reason || 'partial'}`) || []
   const readinessNextActions = Array.isArray(guide.readiness?.next_actions) ? guide.readiness.next_actions : []
-  const commandNextActions = Array.isArray(guide.command_summary?.next_actions) ? guide.command_summary.next_actions : []
+  const commandNextActions = Array.isArray(guide.command_summary?.next_actions)
+    ? guide.command_summary.next_actions
+    : []
 
   return {
     ...fallbackDiagnostics,

@@ -187,7 +187,7 @@ function useTableColumn<TableData extends BaseData, CustomColumnKey = never>(
   function getFilteredColumns(aColumns: TableColumn<TableData, CustomColumnKey>[]) {
     const cols: FilteredColumn[] = []
 
-    aColumns.forEach(column => {
+    aColumns.forEach((column) => {
       if (column.type === undefined) {
         cols.push({
           key: column.key as string,
@@ -210,12 +210,12 @@ function useTableColumn<TableData extends BaseData, CustomColumnKey = never>(
 
   function getColumns() {
     const cols = filteredColumns.value
-      .filter(column => column.checked)
-      .map(column => {
+      .filter((column) => column.checked)
+      .map((column) => {
         if (column.key === SELECTION_KEY) {
-          return allColumns.value.find(col => col.type === 'selection')
+          return allColumns.value.find((col) => col.type === 'selection')
         }
-        return allColumns.value.find(col => (col as DataTableBaseColumn).key === column.key)
+        return allColumns.value.find((col) => (col as DataTableBaseColumn).key === column.key)
       })
 
     return cols as TableColumn<TableData, CustomColumnKey>[]

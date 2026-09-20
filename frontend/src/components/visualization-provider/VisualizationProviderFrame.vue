@@ -8,21 +8,26 @@ import {
 } from '@/service/visualization-provider/index'
 import { getDefaultVisualizationRendererRegistry } from './composition'
 
-const props = withDefaults(defineProps<{
-  id: string
-  mode?: string
-  schema?: VisualizationDashboardSchema | null
-  providerId?: string | null
-  context?: Partial<VisualizationProviderContext>
-  expectedOwnerId?: string
-}>(), {
-  mode: 'viewer',
-  schema: null,
-  context: () => ({ available: true, authenticated: true })
-})
+const props = withDefaults(
+  defineProps<{
+    id: string
+    mode?: string
+    schema?: VisualizationDashboardSchema | null
+    providerId?: string | null
+    context?: Partial<VisualizationProviderContext>
+    expectedOwnerId?: string
+  }>(),
+  {
+    mode: 'viewer',
+    schema: null,
+    context: () => ({ available: true, authenticated: true })
+  }
+)
 
 // Keep unqualified dashboards self-contained; legacy ThingsVis remains available only when explicitly selected.
-const selectedProviderId = computed(() => props.providerId === undefined ? NATIVE_BOARD_PROVIDER_ID : props.providerId)
+const selectedProviderId = computed(() =>
+  props.providerId === undefined ? NATIVE_BOARD_PROVIDER_ID : props.providerId
+)
 
 const emit = defineEmits<{
   hostSaveSuccess: [payload: { id: string; name?: string }]
@@ -40,7 +45,8 @@ const providerSelection = computed(() => {
 
 const selectionError = computed(() => providerSelection.value.facade.selectionError)
 const providerStatus = computed(() => {
-  if (!selectionError.value) return selectedProviderId.value === LEGACY_THINGSVIS_PROVIDER_ID ? 'optional-external' : 'local-default'
+  if (!selectionError.value)
+    return selectedProviderId.value === LEGACY_THINGSVIS_PROVIDER_ID ? 'optional-external' : 'local-default'
   return selectedProviderId.value === LEGACY_THINGSVIS_PROVIDER_ID ? 'blocked-external' : 'blocked-local'
 })
 const renderer = computed(() => {

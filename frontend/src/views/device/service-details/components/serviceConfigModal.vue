@@ -57,7 +57,7 @@ const pageData = ref<{ loading: boolean; tableData: DeviceRow[] }>({
 
 const normalizeTemplateOptions = (options: unknown) => {
   if (!Array.isArray(options)) return []
-  return options.filter(option => option && typeof option === 'object' && option.id && option.name)
+  return options.filter((option) => option && typeof option === 'object' && option.id && option.name)
 }
 
 const modalTitle = computed(() => {
@@ -96,13 +96,13 @@ const queryInfo = ref<ServiceConfigQueryInfo>({
   },
   onUpdatePage: (page: number) => {
     queryInfo.value.page = page
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
+
     getLists()
   },
   onUpdatePageSize: (pageSize: number) => {
     queryInfo.value.pageSize = pageSize
     queryInfo.value.page = 1
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
+
     getLists()
   }
 })
@@ -141,7 +141,7 @@ const getLists: () => void = async () => {
     const list = Array.isArray(data?.list) ? (data!.list as DeviceRow[]) : []
     const options = normalizeTemplateOptions(res)
 
-    list.forEach(item => {
+    list.forEach((item) => {
       item.options = options
       // Auto-fill device_name from device_number when empty so the user always
       // sees a meaningful default and can still edit it inline.
@@ -194,7 +194,7 @@ const columns = ref<DataTableColumns<DeviceRow>>([
     title: $t('generate.device-name'),
     key: 'device_name',
     minWidth: '200px',
-    render: row => {
+    render: (row) => {
       return (
         <NInput
           value={row.device_name}
@@ -221,7 +221,7 @@ const columns = ref<DataTableColumns<DeviceRow>>([
   {
     title: $t('card.deviceConfigTemplate'),
     key: 'create_at',
-    render: row => {
+    render: (row) => {
       return (
         <NSelect
           v-model:value={row.device_config_id}
@@ -230,7 +230,7 @@ const columns = ref<DataTableColumns<DeviceRow>>([
           placeholder={$t('card.chooseDeviceType')}
           options={normalizeTemplateOptions(row.options)}
           clearable
-          onUpdateValue={value => {
+          onUpdateValue={(value) => {
             row.device_config_id = value
             const cached = selectedDeviceDrafts.value.get(row.device_number)
             if (cached) {
@@ -252,7 +252,7 @@ const submitSevice: () => void = async () => {
   }
 
   // 1. Get all selected device numbers
-  const selectedDeviceNumbers = checkedRowKeys.value.filter(key => key && !boundDeviceKeys.value.has(String(key)))
+  const selectedDeviceNumbers = checkedRowKeys.value.filter((key) => key && !boundDeviceKeys.value.has(String(key)))
 
   if (!selectedDeviceNumbers || selectedDeviceNumbers.length === 0) {
     window.$message?.success($t('custom.serviceAccess.configSaved'))
@@ -263,13 +263,13 @@ const submitSevice: () => void = async () => {
 
   const checkedDevicesOnCurrentPageMap = new Map() // Use Map for faster lookup
 
-  pageData.value.tableData.forEach(item => {
+  pageData.value.tableData.forEach((item) => {
     // Store current page data for lookup
     checkedDevicesOnCurrentPageMap.set(item.device_number, item)
   })
 
   // 3. Build device_list payload, attempting to include name and config_id if available on current page
-  const deviceListPayload = selectedDeviceNumbers.map(deviceNumber => {
+  const deviceListPayload = selectedDeviceNumbers.map((deviceNumber) => {
     const rowData =
       checkedDevicesOnCurrentPageMap.get(deviceNumber) || selectedDeviceDrafts.value.get(deviceNumber as string)
     if (rowData) {
@@ -384,7 +384,7 @@ const backToAccessPointConfig = () => {
 
 const handleCheck = (rowKeys /*, rows, meta */) => {
   const selected = new Set<string>(Array.isArray(rowKeys) ? rowKeys : [])
-  pageData.value.tableData.forEach(row => {
+  pageData.value.tableData.forEach((row) => {
     if (row.is_bind) {
       boundDeviceKeys.value.add(row.device_number)
       selectedDeviceDrafts.value.set(row.device_number, { ...row })
@@ -426,7 +426,7 @@ const safeParseJSON = (value: unknown) => {
           :data="pageData.tableData"
           :loading="pageData.loading"
           :pagination="queryInfo"
-          :row-key="row => row.device_number"
+          :row-key="(row) => row.device_number"
           class="flex-1-hidden"
           @update:checked-row-keys="handleCheck"
         />

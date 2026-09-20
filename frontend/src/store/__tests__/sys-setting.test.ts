@@ -57,7 +57,9 @@ describe('sys-setting store', () => {
     expect(store.logo_background).toBe('http://localhost/uploads/logo.png')
     expect(store.logo_loading).toBe('http://localhost/uploads/loading.png')
     expect(store.home_background).toBe('http://localhost/uploads/home.png')
-    expect(document.querySelector('link[rel="icon"]')?.getAttribute('href')).toBe('http://localhost/uploads/favicon.ico')
+    expect(document.querySelector('link[rel="icon"]')?.getAttribute('href')).toBe(
+      'http://localhost/uploads/favicon.ico'
+    )
     expect(hoisted.localStgSet).toHaveBeenCalledWith('logoLoading', 'http://localhost/uploads/loading.png')
     expect(hoisted.localStgSet).toHaveBeenCalledWith('systemName', 'AetherLink IoT')
   })

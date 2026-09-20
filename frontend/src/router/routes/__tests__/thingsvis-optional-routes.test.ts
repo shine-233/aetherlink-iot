@@ -5,7 +5,7 @@ type RouteTree = {
   children?: RouteTree[]
 }
 
-type CreateRoutes = typeof import('../index')['createRoutes']
+type CreateRoutes = (typeof import('../index'))['createRoutes']
 
 let createRoutes: CreateRoutes
 
@@ -16,12 +16,12 @@ beforeAll(async () => {
 }, 45_000)
 
 function flattenRoutes(routes: RouteTree[]): RouteTree[] {
-  return routes.flatMap(route => [route, ...flattenRoutes(route.children || [])])
+  return routes.flatMap((route) => [route, ...flattenRoutes(route.children || [])])
 }
 
 function routeNames() {
   const { constantVueRoutes, authRoutes } = createRoutes()
-  return flattenRoutes([...(constantVueRoutes as RouteTree[]), ...(authRoutes as RouteTree[])]).map(route =>
+  return flattenRoutes([...(constantVueRoutes as RouteTree[]), ...(authRoutes as RouteTree[])]).map((route) =>
     String(route.name)
   )
 }

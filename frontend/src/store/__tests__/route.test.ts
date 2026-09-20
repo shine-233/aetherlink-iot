@@ -130,9 +130,9 @@ describe('route store', () => {
       authRoutes: [{ name: 'home', path: '/home', meta: { order: 1 }, children: [] }],
       constantVueRoutes: [{ name: 'root', path: '/', meta: {} }]
     })
-    hoisted.filterAuthRoutesByRoles.mockImplementation(routes => routes)
-    hoisted.sortRoutesByOrder.mockImplementation(routes => routes)
-    hoisted.getAuthVueRoutes.mockImplementation(routes =>
+    hoisted.filterAuthRoutesByRoles.mockImplementation((routes) => routes)
+    hoisted.sortRoutesByOrder.mockImplementation((routes) => routes)
+    hoisted.getAuthVueRoutes.mockImplementation((routes) =>
       routes.map((route: any) => ({ ...route, component: { name: `${route.name}-component` } }))
     )
     hoisted.getGlobalMenusByAuthRoutes.mockReturnValue([
@@ -142,7 +142,7 @@ describe('route store', () => {
     hoisted.getBreadcrumbsByRoute.mockReturnValue([{ key: 'home', label: 'Home' }])
     hoisted.getSelectedMenuKeyPathByKey.mockReturnValue(['root', 'home'])
     hoisted.isRouteExistByRouteName.mockReturnValue(false)
-    hoisted.updateLocaleOfGlobalMenus.mockImplementation(menus =>
+    hoisted.updateLocaleOfGlobalMenus.mockImplementation((menus) =>
       menus.map((menu: any) => ({ ...menu, label: `${menu.label}-localized` }))
     )
     hoisted.fetchGetUserRoutes.mockResolvedValue({
@@ -187,7 +187,7 @@ describe('route store', () => {
       'visualization_native-board',
       'visualization_native-board-editor'
     ]
-    const children = childNames.map(name => ({ name, path: `/${name}`, meta: {} }))
+    const children = childNames.map((name) => ({ name, path: `/${name}`, meta: {} }))
     const visualization = { name: 'visualization', path: '/visualization', children }
     hoisted.createRoutes.mockReturnValueOnce({
       authRoutes: [visualization],
@@ -203,8 +203,11 @@ describe('route store', () => {
     const store = useRouteStore(pinia)
     await store.initAuthRoute()
 
-    const mergedRoutes = hoisted.sortRoutesByOrder.mock.calls[0][0] as Array<{ name: string; children?: Array<{ name: string }> }>
-    expect(mergedRoutes[0].children?.map(child => child.name)).toEqual(expect.arrayContaining(childNames))
+    const mergedRoutes = hoisted.sortRoutesByOrder.mock.calls[0][0] as Array<{
+      name: string
+      children?: Array<{ name: string }>
+    }>
+    expect(mergedRoutes[0].children?.map((child) => child.name)).toEqual(expect.arrayContaining(childNames))
   })
 
   it('keeps hybrid visualization routes resolvable while the external provider is disabled', async () => {
@@ -220,8 +223,8 @@ describe('route store', () => {
       'visualization_native-board',
       'visualization_native-board-editor'
     ]
-    const localChildren = nativeChildNames.map(name => ({ name, path: `/${name}`, meta: {} }))
-    const apiChildren = [...compatChildNames, ...nativeChildNames].map(name => ({ name, path: `/${name}`, meta: {} }))
+    const localChildren = nativeChildNames.map((name) => ({ name, path: `/${name}`, meta: {} }))
+    const apiChildren = [...compatChildNames, ...nativeChildNames].map((name) => ({ name, path: `/${name}`, meta: {} }))
 
     hoisted.createRoutes.mockReturnValueOnce({
       authRoutes: [{ name: 'visualization', path: '/visualization', children: localChildren }],
@@ -241,10 +244,7 @@ describe('route store', () => {
       name: string
       children?: Array<{ name: string }>
     }>
-    expect(mergedRoutes[0].children?.map(child => child.name)).toEqual([
-      ...compatChildNames,
-      ...nativeChildNames
-    ])
+    expect(mergedRoutes[0].children?.map((child) => child.name)).toEqual([...compatChildNames, ...nativeChildNames])
   })
 
   it('supplements hybrid visualization routes when the dynamic API only returns the parent', async () => {
@@ -259,7 +259,7 @@ describe('route store', () => {
       'visualization_native-board',
       'visualization_native-board-editor'
     ]
-    const children = childNames.map(name => ({ name, path: `/${name}`, meta: {} }))
+    const children = childNames.map((name) => ({ name, path: `/${name}`, meta: {} }))
     hoisted.createRoutes.mockReturnValueOnce({
       authRoutes: [{ name: 'visualization', path: '/visualization', children }],
       constantVueRoutes: [{ name: 'root', path: '/', meta: {} }]
@@ -276,7 +276,7 @@ describe('route store', () => {
       name: string
       children?: Array<{ name: string }>
     }>
-    expect(mergedRoutes[0].children?.map(child => child.name)).toEqual(childNames)
+    expect(mergedRoutes[0].children?.map((child) => child.name)).toEqual(childNames)
   })
 
   it('does not supplement admin-only native board management routes for tenant users', async () => {
@@ -311,7 +311,7 @@ describe('route store', () => {
       name: string
       children?: Array<{ name: string }>
     }>
-    expect(mergedRoutes[0].children?.map(child => child.name)).toEqual(['visualization_native-board'])
+    expect(mergedRoutes[0].children?.map((child) => child.name)).toEqual(['visualization_native-board'])
   })
 
   it('returns false when dynamic route fetch fails', async () => {

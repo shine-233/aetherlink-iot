@@ -55,8 +55,14 @@ vi.mock('@aetherlink/hooks', () => ({
 vi.mock('@/constants/business', () => ({
   routerSysFlagLabels: { '1': 'Admin', '2': 'User' },
   routerTypeLabels: { '1': 'Menu', '3': 'Button' },
-  routeSysFlagOptions: [{ label: 'Admin', value: '1' }, { label: 'User', value: '2' }],
-  routeTypeOptions: [{ label: 'Menu', value: '1' }, { label: 'Button', value: '3' }]
+  routeSysFlagOptions: [
+    { label: 'Admin', value: '1' },
+    { label: 'User', value: '2' }
+  ],
+  routeTypeOptions: [
+    { label: 'Menu', value: '1' },
+    { label: 'Button', value: '3' }
+  ]
 }))
 
 vi.mock('@/utils/common/tool', () => ({
@@ -80,12 +86,39 @@ const mountComponent = () => {
   const wrapper = shallowMount(AuthIndex, {
     global: {
       stubs: {
-        NCard: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NSpace: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : []) } }),
-        NDataTable: defineComponent({ name: 'NDataTable', props: { data: { type: Array, default: () => [] }, loading: Boolean, pagination: { default: null } }, setup() { return () => h('div') } }),
-        NTag: defineComponent({ setup(_, { slots }) { return () => h('span', slots.default ? slots.default() : []) } }),
-        NPopconfirm: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
+        NCard: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NSpace: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NButton: defineComponent({
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : [])
+          }
+        }),
+        NDataTable: defineComponent({
+          name: 'NDataTable',
+          props: { data: { type: Array, default: () => [] }, loading: Boolean, pagination: { default: null } },
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NTag: defineComponent({
+          setup(_, { slots }) {
+            return () => h('span', slots.default ? slots.default() : [])
+          }
+        }),
+        NPopconfirm: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
         IconIcRoundPlus: true,
         SvgIcon: true
       }
@@ -128,7 +161,9 @@ describe('management/auth/index.vue', () => {
       data: { list: [mockRoute()], total: 1 }
     })
     hoisted.delElement.mockResolvedValue({ error: null })
-    ;(globalThis as unknown as { $message: Record<string, (...args: unknown[]) => void> }).$message = { success: hoisted.messageSuccess }
+    ;(globalThis as unknown as { $message: Record<string, (...args: unknown[]) => void> }).$message = {
+      success: hoisted.messageSuccess
+    }
   })
 
   afterEach(() => {
@@ -261,7 +296,7 @@ describe('management/auth/index.vue', () => {
     await flushPromises()
     const state = getSetupState(wrapper)
     expect(Array.isArray(state.columns)).toBe(true)
-    expect(state.columns.map(column => column.key)).toEqual([
+    expect(state.columns.map((column) => column.key)).toEqual([
       'description',
       'param2',
       'element_code',

@@ -304,7 +304,7 @@ describe('DataWarehouse 与 SimpleDataBridge 集成测试', () => {
       expect(unifiedDataExecutor.execute).toHaveBeenCalledTimes(1)
 
       // 等待缓存过期
-      await new Promise(resolve => setTimeout(resolve, 100))
+      await new Promise((resolve) => setTimeout(resolve, 100))
 
       // 再次执行，应该重新调用执行器
       await simpleDataBridge.executeComponent(requirement)

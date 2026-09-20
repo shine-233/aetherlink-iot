@@ -8,7 +8,8 @@ export function decodeEventParamConditions(triggerValue: string) {
     return (eventMatchConfig.conditions || []).map((condition: any) => ({
       field: condition.field,
       operator: condition.operator || '=',
-      value: condition.operator === 'in' && Array.isArray(condition.value) ? condition.value.join(',') : condition.value,
+      value:
+        condition.operator === 'in' && Array.isArray(condition.value) ? condition.value.join(',') : condition.value,
       minValue: condition.operator === 'between' && Array.isArray(condition.value) ? condition.value[0] : null,
       maxValue: condition.operator === 'between' && Array.isArray(condition.value) ? condition.value[1] : null
     }))

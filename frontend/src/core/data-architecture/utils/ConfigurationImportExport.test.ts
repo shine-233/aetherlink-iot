@@ -182,7 +182,7 @@ describe('ConfigurationImportExport', () => {
 
     expect(result.success).toBe(true)
     expect(manager.updateConfiguration).toHaveBeenCalledTimes(3)
-    expect(manager.updates.map(update => update.section)).toEqual(['dataSource', 'component', 'interaction'])
+    expect(manager.updates.map((update) => update.section)).toEqual(['dataSource', 'component', 'interaction'])
     expect(manager.updates[0].data.dataSources[0].componentId).toBe(targetComponentId)
     expect(manager.updates[0].data.dataSources[0].httpConfigData.url).toBe('/api/widgets/comp_target/metrics')
     expect(manager.updates[1].data.properties.labelTemplate).toBe('current=comp_target;external=comp_external')
@@ -266,7 +266,7 @@ describe('ConfigurationImportExport', () => {
 
     expect(result.success).toBe(true)
     expect(sectionOnlyManager.updateConfigurationSection).toHaveBeenCalledTimes(3)
-    expect(updates.map(update => update.section)).toEqual(['dataSource', 'component', 'interaction'])
+    expect(updates.map((update) => update.section)).toEqual(['dataSource', 'component', 'interaction'])
     expect(updates[0].data.dataSources[0].componentId).toBe(targetComponentId)
   })
 
@@ -455,7 +455,7 @@ describe('ConfigurationImportExport', () => {
     await importer.importSingleDataSource(importData, targetComponentId, 'newSlot', manager)
 
     expect(manager.updateConfiguration).toHaveBeenCalledTimes(3)
-    expect(updates.map(update => update.section)).toEqual(['dataSource', 'interaction', 'component'])
+    expect(updates.map((update) => update.section)).toEqual(['dataSource', 'interaction', 'component'])
     expect(updates[0].data.dataSources).toHaveLength(2)
     expect(updates[0].data.dataSources[1]).toMatchObject({
       sourceId: 'newSlot',

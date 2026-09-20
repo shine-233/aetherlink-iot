@@ -1,10 +1,7 @@
 import { defaultScriptEngine } from '@/core/script-engine'
 
 export type PreviewMergeStrategy =
-  | { type: 'object' }
-  | { type: 'array' }
-  | { type: 'condition' }
-  | { type: 'script'; script?: string }
+  { type: 'object' } | { type: 'array' } | { type: 'condition' } | { type: 'script'; script?: string }
 
 export interface MergePreviewResult {
   success: boolean
@@ -27,13 +24,13 @@ export async function previewMergeStrategy(
           success: true,
           data: Object.assign(
             {},
-            ...items.filter(item => item !== null && typeof item === 'object' && !Array.isArray(item))
+            ...items.filter((item) => item !== null && typeof item === 'object' && !Array.isArray(item))
           )
         }
       case 'array':
         return { success: true, data: items }
       case 'condition':
-        return { success: true, data: items.find(item => item !== null && item !== undefined) ?? {} }
+        return { success: true, data: items.find((item) => item !== null && item !== undefined) ?? {} }
       case 'script': {
         if (!strategy.script?.trim()) {
           return { success: false, error: '请输入合并脚本后再预览' }
@@ -44,7 +41,8 @@ export async function previewMergeStrategy(
           const failure = result.error
           return {
             success: false,
-            error: typeof failure === 'string' ? failure : failure instanceof Error ? failure.message : '脚本预览执行失败'
+            error:
+              typeof failure === 'string' ? failure : failure instanceof Error ? failure.message : '脚本预览执行失败'
           }
         }
 

@@ -30,7 +30,7 @@ vi.mock('@/locales', () => ({
   $t: (key: string) => key
 }))
 
-vi.mock('vue', async importOriginal => {
+vi.mock('vue', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue')>()
   return {
     ...actual,
@@ -123,25 +123,73 @@ const DataTableStub = defineComponent({
 })
 
 const baseStubs = {
-  NForm: defineComponent({ setup(_, { slots }) { return () => h('form', slots.default ? slots.default() : []) } }),
-  'n-form': defineComponent({ setup(_, { slots }) { return () => h('form', slots.default ? slots.default() : []) } }),
-  NFormItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  'n-form-item': defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
+  NForm: defineComponent({
+    setup(_, { slots }) {
+      return () => h('form', slots.default ? slots.default() : [])
+    }
+  }),
+  'n-form': defineComponent({
+    setup(_, { slots }) {
+      return () => h('form', slots.default ? slots.default() : [])
+    }
+  }),
+  NFormItem: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  'n-form-item': defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
   NButton: ButtonStub,
   'n-button': ButtonStub,
-  NCard: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  'n-card': defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
+  NCard: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  'n-card': defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
   NInput: InputStub,
   'n-input': InputStub,
   NInputNumber: InputStub,
   NSelect: SelectStub,
   'n-select': SelectStub,
-  NDatePicker: defineComponent({ setup() { return () => h('div') } }),
-  'n-date-picker': defineComponent({ setup() { return () => h('div') } }),
-  NTag: defineComponent({ setup(_, { slots }) { return () => h('span', slots.default ? slots.default() : []) } }),
-  NTable: defineComponent({ setup(_, { slots }) { return () => h('table', slots.default ? slots.default() : []) } }),
-  NFlex: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NH3: defineComponent({ setup(_, { slots }) { return () => h('h3', slots.default ? slots.default() : []) } }),
+  NDatePicker: defineComponent({
+    setup() {
+      return () => h('div')
+    }
+  }),
+  'n-date-picker': defineComponent({
+    setup() {
+      return () => h('div')
+    }
+  }),
+  NTag: defineComponent({
+    setup(_, { slots }) {
+      return () => h('span', slots.default ? slots.default() : [])
+    }
+  }),
+  NTable: defineComponent({
+    setup(_, { slots }) {
+      return () => h('table', slots.default ? slots.default() : [])
+    }
+  }),
+  NFlex: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NH3: defineComponent({
+    setup(_, { slots }) {
+      return () => h('h3', slots.default ? slots.default() : [])
+    }
+  }),
   NModal: ModalStub,
   'n-modal': ModalStub,
   'n-data-table': DataTableStub

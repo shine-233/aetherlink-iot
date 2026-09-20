@@ -268,6 +268,35 @@ func (*AlarmApi) ResetAlarmHistory(c *gin.Context) {
 	c.Set("data", data)
 }
 
+// ClearAlarmHistory 清除指定告警历史记录（对齐 ThingsBoard 4.3 告警清除生命周期）。
+// /api/v1/alarm/info/history/{id}/clear [post, put]
+func (*AlarmApi) ClearAlarmHistory(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+			"err": fmt.Sprintf("id is %s", id),
+		}))
+		return
+	}
+
+	var req model.ClearAlarmReq
+	if c.Request.ContentLength > 0 {
+		_ = c.ShouldBindJSON(&req)
+	}
+	note := ""
+	if req.Note != nil {
+		note = *req.Note
+	}
+
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	data, err := service.GroupApp.Alarm.ClearAlarmHistory(id, note, userClaims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", data)
+}
+
 // BatchAlarmHistoryAction 批量确认或重置告警历史，并返回每条记录的成功/失败明细。
 // 该入口面向运维闭环场景，Handler 只负责绑定 action、ids、note 和当前操作者身份。
 // /api/v1/alarm/info/history/batch-action [put]

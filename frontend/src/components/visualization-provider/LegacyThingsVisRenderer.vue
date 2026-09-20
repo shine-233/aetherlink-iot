@@ -14,10 +14,5 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <ThingsVisAppFrame
-    :id="id"
-    :mode="mode"
-    :schema="schema"
-    @host-save-success="emit('hostSaveSuccess', $event)"
-  />
+  <ThingsVisAppFrame :id="id" :mode="mode" :schema="schema" @host-save-success="emit('hostSaveSuccess', $event)" />
 </template>

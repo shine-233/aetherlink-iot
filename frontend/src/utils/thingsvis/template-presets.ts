@@ -125,7 +125,7 @@ function resolvePresetFieldMeta(
 
 export function buildTemplateDevicePresets(rawConfig: unknown, fields: PlatformField[]) {
   const presetMap = getTemplatePresetMap(rawConfig)
-  const fieldMap = new Map(fields.map(field => [field.id, field]))
+  const fieldMap = new Map(fields.map((field) => [field.id, field]))
 
   return Object.entries(presetMap).flatMap(([presetKey, entries]) => {
     const match = /^(telemetry|attributes)_(.+)$/.exec(presetKey)

@@ -124,9 +124,9 @@ export function buildAlarmClosureEvidenceBundle(options: {
   formatTime: (value: unknown) => string
 }) {
   const generatedAt = new Date().toISOString()
-  const selectedRowKeys = options.selectedRowKeys.map(key => String(key))
+  const selectedRowKeys = options.selectedRowKeys.map((key) => String(key))
   const selectedRowKeySet = new Set(selectedRowKeys)
-  const selectedLoadedRows = options.tableData.filter(row => selectedRowKeySet.has(String(row.id)))
+  const selectedLoadedRows = options.tableData.filter((row) => selectedRowKeySet.has(String(row.id)))
   const evidenceRow = (row: any) =>
     buildAlarmEvidenceRow({
       row,
@@ -218,6 +218,13 @@ export function isAcknowledged(row: { remark?: unknown }) {
 
 export function isReset(row: { alarm_status?: string }) {
   return row.alarm_status === 'N'
+}
+
+export function isCleared(row: { alarm_status?: string; lifecycle_status?: string; remark?: unknown }) {
+  if (row.lifecycle_status?.startsWith('CLEARED_')) return true
+  if (row.alarm_status === 'N') return true
+  const remark = parseAlarmRemark(row.remark)
+  return Boolean(remark.cleared_at || remark.reset_at)
 }
 
 export function buildAlarmResolutionTimeline(
@@ -343,18 +350,16 @@ export function buildAlarmClosureEvidencePacket(
   const devices = Array.isArray(row.alarm_device_list) ? row.alarm_device_list : []
   const deviceLines =
     devices.length > 0
-      ? devices
-          .slice(0, 8)
-          .map((device, index) => {
-            const id = device.id || device.device_number || '-'
-            const name = device.name || device.device_name || ''
-            return `${index + 1}. ${id}${name ? ` ${name}` : ''}`
-          })
+      ? devices.slice(0, 8).map((device, index) => {
+          const id = device.id || device.device_number || '-'
+          const name = device.name || device.device_name || ''
+          return `${index + 1}. ${id}${name ? ` ${name}` : ''}`
+        })
       : [t('custom.alarmPage.closureEvidenceNoDevices')]
 
   const timelineLines =
     timelineItems.length > 0
-      ? timelineItems.map(item => `- ${item.title}: ${item.time} - ${item.description}`)
+      ? timelineItems.map((item) => `- ${item.title}: ${item.time} - ${item.description}`)
       : [`- ${t('custom.alarmPage.timelineDesc')}`]
 
   return [
@@ -403,7 +408,8 @@ export function buildAlarmBatchActionEvidence(options: {
     : results.length
       ? results.filter((item: any) => !item.ok).length
       : 0
-  const summary = options.t('custom.alarmPage.batchActionSummary')
+  const summary = options
+    .t('custom.alarmPage.batchActionSummary')
     .replace('{success}', String(successCount))
     .replace('{failure}', String(failureCount))
   const failedItems = results
@@ -417,7 +423,7 @@ export function buildAlarmBatchActionEvidence(options: {
   const generatedAt = options.generatedAt || new Date().toISOString()
   const note = options.note?.trim() || '-'
   const failedLines = failedItems.length
-    ? failedItems.map(item => `- ${item}`)
+    ? failedItems.map((item) => `- ${item}`)
     : [`- ${options.t('custom.alarmPage.batchActionNoFailedRows')}`]
   const copyText = [
     `# ${options.t('custom.alarmPage.batchActionEvidenceTitle')}`,
@@ -506,7 +512,7 @@ export function createAlarmStatusOptions(t: AlarmTranslate): AlarmOption[] {
 }
 
 export function alarmSeverityLabel(value: string | undefined, options: AlarmOption[]) {
-  const option = options.find(data => data.value === value)
+  const option = options.find((data) => data.value === value)
   return option?.label || value || '-'
 }
 
@@ -543,7 +549,10 @@ export function createAlarmTypeOptions(t: AlarmTranslate): AlarmOption[] {
   ]
 }
 
-export function alarmTypeLabel(row: { name?: string; alarm_config_name?: string; remark?: unknown }, t: AlarmTranslate) {
+export function alarmTypeLabel(
+  row: { name?: string; alarm_config_name?: string; remark?: unknown },
+  t: AlarmTranslate
+) {
   const remark = parseAlarmRemark(row.remark)
   const eventType = String(remark.event_type || '')
   const labels: Record<string, string> = {

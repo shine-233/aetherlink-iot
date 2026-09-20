@@ -62,8 +62,8 @@ export class SimpleConfigGenerator {
     }
 
     // Card2.1 使用 key；历史简化配置可能仍携带 id。
-    const requiredSources = requirement.dataSources.filter(ds => ds.required)
-    const inputSourceIds = userInputs.map(input => input.dataSourceId)
+    const requiredSources = requirement.dataSources.filter((ds) => ds.required)
+    const inputSourceIds = userInputs.map((input) => input.dataSourceId)
 
     for (const requiredSource of requiredSources) {
       const sourceId = requiredSource.id ?? requiredSource.key
@@ -85,9 +85,7 @@ export class SimpleConfigGenerator {
 
     for (const userInput of userInputs) {
       // Card2.1 使用 key；历史简化配置可能仍携带 id。
-      const sourceRequirement = requirement.dataSources.find(
-        ds => (ds.id ?? ds.key) === userInput.dataSourceId
-      )
+      const sourceRequirement = requirement.dataSources.find((ds) => (ds.id ?? ds.key) === userInput.dataSourceId)
 
       if (!sourceRequirement) {
         continue
@@ -147,8 +145,8 @@ export class SimpleConfigGenerator {
     const triggers: TriggerConfig[] = []
 
     // 检查是否包含需要轮询的数据源
-    const hasApiSource = userInputs.some(input => input.type === 'api')
-    const hasWebSocketSource = userInputs.some(input => input.type === 'websocket')
+    const hasApiSource = userInputs.some((input) => input.type === 'api')
+    const hasWebSocketSource = userInputs.some((input) => input.type === 'websocket')
 
     // API数据源添加定时器触发器
     if (hasApiSource) {
@@ -163,13 +161,15 @@ export class SimpleConfigGenerator {
 
     // WebSocket数据源添加WebSocket触发器
     if (hasWebSocketSource) {
-      const wsInput = userInputs.find(input => input.type === 'websocket')
+      const wsInput = userInputs.find((input) => input.type === 'websocket')
       if (wsInput && 'url' in wsInput.config) {
         triggers.push({
           type: 'websocket',
           config: {
             url: wsInput.config.url,
-            protocols: smartDeepClone(('protocols' in wsInput.config ? wsInput.config.protocols : undefined) as string[] | undefined)
+            protocols: smartDeepClone(
+              ('protocols' in wsInput.config ? wsInput.config.protocols : undefined) as string[] | undefined
+            )
           }
         })
       }
@@ -262,7 +262,7 @@ export class SimpleConfigGenerator {
 
     if (
       pathSegments.some(
-        segment =>
+        (segment) =>
           !segment ||
           !/^(?:[A-Za-z_$][\w$]*|\d+)$/.test(segment) ||
           segment === '__proto__' ||
@@ -286,8 +286,8 @@ export class SimpleConfigGenerator {
    * 用于调试和展示
    */
   getConfigSummary(config: SimpleDataSourceConfig): string {
-    const dataSourceTypes = config.dataSources.map(ds => ds.type).join(', ')
-    const triggerTypes = config.triggers.map(t => t.type).join(', ')
+    const dataSourceTypes = config.dataSources.map((ds) => ds.type).join(', ')
+    const triggerTypes = config.triggers.map((t) => t.type).join(', ')
 
     return `组件: ${config.componentId} | 数据源: ${dataSourceTypes} | 触发器: ${triggerTypes}`
   }

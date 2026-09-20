@@ -71,7 +71,7 @@ describe('DataFlowManager', () => {
     const store = useUnifiedEditorStore()
     const updates: any[] = []
     const errors: any[] = []
-    manager.onDataFlowUpdate(action => updates.push(action))
+    manager.onDataFlowUpdate((action) => updates.push(action))
     manager.onError((action, error) => errors.push({ action, error }))
 
     await manager.handleUserAction(createAddNodeAction(node()))
@@ -244,7 +244,7 @@ describe('DataFlowManager', () => {
     ])
 
     expect(store.isLoading).toBe(false)
-    expect(store.nodes.map(item => item.id)).toEqual(['widget-a', 'widget-b'])
+    expect(store.nodes.map((item) => item.id)).toEqual(['widget-a', 'widget-b'])
     expect(store.selectedIds).toEqual(['widget-a', 'widget-b'])
     expect(configService.getRuntimeData('widget-a')).toEqual({ value: 1 })
   })
@@ -255,7 +255,7 @@ describe('DataFlowManager', () => {
 
     manager.registerSideEffect({
       name: 'ExplodingAuditHook',
-      condition: action => action.type === 'ADD_NODE',
+      condition: (action) => action.type === 'ADD_NODE',
       execute: () => {
         throw new Error('audit hook failed')
       }

@@ -16,6 +16,7 @@ type PluginRegistry struct {
 	Status        string     `gorm:"column:status;not null;default:disabled;comment:online/offline/disabled" json:"status"`
 	LastHeartbeat *time.Time `gorm:"column:last_heartbeat;comment:最近心跳" json:"last_heartbeat"`
 	Description   *string    `gorm:"column:description;comment:描述" json:"description"`
+	Manifest      *string    `gorm:"column:manifest;comment:插件 manifest JSON(P2.1)" json:"manifest"`
 	CreatedAt     time.Time  `gorm:"column:created_at;not null" json:"created_at"`
 	UpdatedAt     time.Time  `gorm:"column:updated_at;not null" json:"updated_at"`
 }

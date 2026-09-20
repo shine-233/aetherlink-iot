@@ -58,6 +58,11 @@ const HTTP_RATE_LIMIT_MAX_RETRIES = 4;
 const HTTP_RATE_LIMIT_BACKOFF_MS = 1500;
 const HTTP_RATE_LIMIT_BACKOFF_CAP_MS = 5000;
 
+// Transport retries are opt-in per call. Keep the accepted caller value bounded
+// so a test cannot turn a persistent network failure into an unbounded loop.
+const TRANSPORT_RETRY_MAX = 3;
+const TRANSPORT_RETRY_BACKOFF_CAP_MS = 2000;
+
 // MQTT debug 会话创建（backend OpenCooldown 默认 2s，按 device+user scope 冷却）。
 // 套件连跑间隔过短时会命中重开冷却返回 201003，属防护性限流而非业务失败。
 const MQTT_DEBUG_SESSION_CREATE_PATH_RE = /^\/device\/[^/]+\/mqtt-debug\/session$/;
@@ -125,6 +130,7 @@ class ApiClient {
         email: account.email,
         password: account.password
       });
+      this.recordEndpointResponse('POST', '/login', resp, options);
       if (resp.data && resp.data.code === 200 && resp.data.data && resp.data.data.token) {
         this.tokens[accountKey] = resp.data.data.token;
         return resp.data.data.token;
@@ -137,6 +143,9 @@ class ApiClient {
       }
       throw new LoginRetrySignal(`登录失败: ${JSON.stringify(resp.data)}`);
     } catch (err) {
+      if (!(err instanceof LoginRetrySignal)) {
+        this.recordEndpointResponse('POST', '/login', err, options);
+      }
       if (err instanceof LoginRetrySignal) {
         throw err;
       }
@@ -193,10 +202,78 @@ class ApiClient {
     return { 'x-token': token };
   }
 
-  recordEndpointResponse(method, url, error = null) {
-    if (!error || error.response) {
-      endpointCoverage.hit(method, this.baseURL + url);
-    }
+  async requestHeaders(accountKey, options = {}, additionalHeaders = {}) {
+    return {
+      ...(await this.authHeaders(accountKey)),
+      ...(options.headers || {}),
+      ...additionalHeaders
+    };
+  }
+
+  responseResult(resp, options = {}) {
+    if (!options.rawResponse) return resp.data;
+    return { status: resp.status, headers: resp.headers || {}, data: resp.data };
+  }
+
+  transportRetryLimit(options = {}) {
+    if (options.transportRetries === undefined) return 0;
+    const value = Number(options.transportRetries);
+    return Number.isInteger(value) && value > 0
+      ? Math.min(value, TRANSPORT_RETRY_MAX)
+      : 0;
+  }
+
+  isTransportFailure(err) {
+    return Boolean(err && !err.response);
+  }
+
+  async retryTransportFailure(err, options, retry) {
+    const retriesUsed = Number(options.transportRetryCount || 0);
+    const retryLimit = this.transportRetryLimit(options);
+    if (!this.isTransportFailure(err) || retriesUsed >= retryLimit) return null;
+    const configuredBackoff = Number(options.transportRetryBackoffMs || 0);
+    const backoffMs = Number.isFinite(configuredBackoff) && configuredBackoff > 0
+      ? Math.min(configuredBackoff, TRANSPORT_RETRY_BACKOFF_CAP_MS)
+      : 0;
+    if (backoffMs > 0) await wait(backoffMs);
+    return retry({ ...options, transportRetryCount: retriesUsed + 1 });
+  }
+
+  recordEndpointResponse(method, url, responseOrError = null, requestContext = {}) {
+    const response = responseOrError && responseOrError.response
+      ? responseOrError.response
+      : responseOrError;
+    const statusCode = response && Number.isInteger(Number(response.status))
+      ? Number(response.status)
+      : null;
+    const transportFailure = Boolean(responseOrError && !responseOrError.response && statusCode === null);
+    return endpointCoverage.hit(method, this.baseURL + url, {
+      case: requestContext.case,
+      runId: requestContext.runId,
+      module: requestContext.module,
+      statusCode,
+      outcome: requestContext.outcome || 'pending',
+      attempt: {
+        ...(requestContext.attempt || {}),
+        retry: requestContext.retry !== undefined
+          ? requestContext.retry
+          : requestContext.attempt && requestContext.attempt.retry,
+        workerIndex: requestContext.workerIndex !== undefined
+          ? requestContext.workerIndex
+          : requestContext.attempt && requestContext.attempt.workerIndex,
+        parallelIndex: requestContext.parallelIndex !== undefined
+          ? requestContext.parallelIndex
+          : requestContext.attempt && requestContext.attempt.parallelIndex,
+        repeatEachIndex: requestContext.repeatEachIndex !== undefined
+          ? requestContext.repeatEachIndex
+          : requestContext.attempt && requestContext.attempt.repeatEachIndex,
+        responseReceived: statusCode !== null,
+        transportFailure,
+        errorCode: responseOrError && responseOrError.code,
+        errorMessage: responseOrError && responseOrError.message
+      },
+      diagnostics: requestContext.diagnostics
+    });
   }
 
   isExpiredTokenError(err) {
@@ -245,7 +322,8 @@ class ApiClient {
         httpRateLimitRetries: (options.httpRateLimitRetries || 0) + 1
       });
     }
-    return this.handleError(err);
+    const transportRetry = await this.retryTransportFailure(err, options, retry);
+    return transportRetry === null ? this.handleError(err) : transportRetry;
   }
 
   /**
@@ -258,13 +336,13 @@ class ApiClient {
    */
   async get(url, params = {}, accountKey = 'tenant_admin', options = {}) {
     assertRelativeAPIPath(url);
-    const headers = await this.authHeaders(accountKey);
+    const headers = await this.requestHeaders(accountKey, options);
     try {
       const resp = await this.client.get(url, { params, headers });
-      this.recordEndpointResponse('GET', url);
-      return resp.data;
+      this.recordEndpointResponse('GET', url, resp, options);
+      return this.responseResult(resp, options);
     } catch (err) {
-      this.recordEndpointResponse('GET', url, err);
+      this.recordEndpointResponse('GET', url, err, options);
       return this.handleRecoverableError(
         err,
         accountKey,
@@ -284,10 +362,10 @@ class ApiClient {
    */
   async post(url, data = {}, accountKey = 'tenant_admin', options = {}) {
     assertRelativeAPIPath(url);
-    const headers = await this.authHeaders(accountKey);
+    const headers = await this.requestHeaders(accountKey, options);
     try {
       const resp = await this.client.post(url, data, { headers });
-      this.recordEndpointResponse('POST', url);
+      this.recordEndpointResponse('POST', url, resp, options);
       // MQTT debug 会话创建命中 201003（会话重开冷却）时退避重试 1 次：
       // 测试侧对防护性限流的容忍而非绕过，与 login 的限流容忍模式一致，仅限该接口。
       if (
@@ -299,9 +377,9 @@ class ApiClient {
         await wait(RATE_LIMIT_BACKOFF_MS);
         return this.post(url, data, accountKey, { ...options, rateLimitRetried: true });
       }
-      return resp.data;
+      return this.responseResult(resp, options);
     } catch (err) {
-      this.recordEndpointResponse('POST', url, err);
+      this.recordEndpointResponse('POST', url, err, options);
       return this.handleRecoverableError(
         err,
         accountKey,
@@ -316,7 +394,6 @@ class ApiClient {
     if (!Buffer.isBuffer(fileContent)) {
       throw new TypeError('Automation uploads must be generated fixture buffers');
     }
-    const auth = await this.authHeaders(accountKey);
     const form = new FormData();
     form.append('file', fileContent, {
       filename: 'aetherlink-automation-fixture.bin',
@@ -327,12 +404,12 @@ class ApiClient {
     }
     try {
       const resp = await this.client.post(url, form, {
-        headers: { ...auth, ...form.getHeaders() }
+        headers: await this.requestHeaders(accountKey, options, form.getHeaders())
       });
-      this.recordEndpointResponse('POST', url);
-      return resp.data;
+      this.recordEndpointResponse('POST', url, resp, options);
+      return this.responseResult(resp, options);
     } catch (err) {
-      this.recordEndpointResponse('POST', url, err);
+      this.recordEndpointResponse('POST', url, err, options);
       return this.handleRecoverableError(
         err,
         accountKey,
@@ -352,13 +429,13 @@ class ApiClient {
    */
   async put(url, data = {}, accountKey = 'tenant_admin', options = {}) {
     assertRelativeAPIPath(url);
-    const headers = await this.authHeaders(accountKey);
+    const headers = await this.requestHeaders(accountKey, options);
     try {
       const resp = await this.client.put(url, data, { headers });
-      this.recordEndpointResponse('PUT', url);
-      return resp.data;
+      this.recordEndpointResponse('PUT', url, resp, options);
+      return this.responseResult(resp, options);
     } catch (err) {
-      this.recordEndpointResponse('PUT', url, err);
+      this.recordEndpointResponse('PUT', url, err, options);
       return this.handleRecoverableError(
         err,
         accountKey,
@@ -370,13 +447,13 @@ class ApiClient {
 
   async patch(url, data = {}, accountKey = 'tenant_admin', options = {}) {
     assertRelativeAPIPath(url);
-    const headers = await this.authHeaders(accountKey);
+    const headers = await this.requestHeaders(accountKey, options);
     try {
       const resp = await this.client.patch(url, data, { headers });
-      this.recordEndpointResponse('PATCH', url);
-      return resp.data;
+      this.recordEndpointResponse('PATCH', url, resp, options);
+      return this.responseResult(resp, options);
     } catch (err) {
-      this.recordEndpointResponse('PATCH', url, err);
+      this.recordEndpointResponse('PATCH', url, err, options);
       return this.handleRecoverableError(
         err,
         accountKey,
@@ -396,13 +473,13 @@ class ApiClient {
    */
   async delete(url, data = {}, accountKey = 'tenant_admin', options = {}) {
     assertRelativeAPIPath(url);
-    const headers = await this.authHeaders(accountKey);
+    const headers = await this.requestHeaders(accountKey, options);
     try {
       const resp = await this.client.delete(url, { headers, data });
-      this.recordEndpointResponse('DELETE', url);
-      return resp.data;
+      this.recordEndpointResponse('DELETE', url, resp, options);
+      return this.responseResult(resp, options);
     } catch (err) {
-      this.recordEndpointResponse('DELETE', url, err);
+      this.recordEndpointResponse('DELETE', url, err, options);
       return this.handleRecoverableError(
         err,
         accountKey,
@@ -418,31 +495,55 @@ class ApiClient {
    * @param {object} params - 查询参数
    * @returns {Promise<object>} 后端响应体或错误对象
    */
-  async getNoAuth(url, params = {}) {
+  async getNoAuth(url, params = {}, options = {}) {
     assertRelativeAPIPath(url);
     try {
       const resp = await this.client.get(url, { params });
-      this.recordEndpointResponse('GET', url);
-      return resp.data;
+      this.recordEndpointResponse('GET', url, resp, options);
+      return this.responseResult(resp, options);
     } catch (err) {
-      this.recordEndpointResponse('GET', url, err);
+      this.recordEndpointResponse('GET', url, err, options);
       return this.handleError(err);
     }
   }
 
-  async getRootNoAuth(url, params = {}) {
+  async getRootNoAuth(url, params = {}, options = {}) {
     assertRelativeAPIPath(url);
     const rootURL = this.baseURL.replace(/\/api\/v1\/?$/, '');
     const targetURL = new URL(url, rootURL + '/').toString();
     try {
       const resp = await axios.get(targetURL, { params, timeout: this.timeout });
-      endpointCoverage.hit('GET', targetURL);
+      endpointCoverage.hit('GET', targetURL, {
+        ...options,
+        statusCode: resp.status,
+        attempt: { ...(options.attempt || {}), responseReceived: true }
+      });
       return { httpStatus: resp.status, data: resp.data };
     } catch (err) {
       if (err.response) {
-        endpointCoverage.hit('GET', targetURL);
+        endpointCoverage.hit('GET', targetURL, {
+          ...options,
+          statusCode: err.response.status,
+          attempt: {
+            ...(options.attempt || {}),
+            responseReceived: true,
+            errorCode: err.code,
+            errorMessage: err.message
+          }
+        });
         return { httpStatus: err.response.status, data: err.response.data };
       }
+      endpointCoverage.hit('GET', targetURL, {
+        ...options,
+        statusCode: null,
+        attempt: {
+          ...(options.attempt || {}),
+          responseReceived: false,
+          transportFailure: true,
+          errorCode: err.code,
+          errorMessage: err.message
+        }
+      });
       return this.handleError(err);
     }
   }
@@ -453,14 +554,14 @@ class ApiClient {
    * @param {object} data - 请求体
    * @returns {Promise<object>} 后端响应体或错误对象
    */
-  async postNoAuth(url, data = {}) {
+  async postNoAuth(url, data = {}, options = {}) {
     assertRelativeAPIPath(url);
     try {
       const resp = await this.client.post(url, data);
-      this.recordEndpointResponse('POST', url);
-      return resp.data;
+      this.recordEndpointResponse('POST', url, resp, options);
+      return this.responseResult(resp, options);
     } catch (err) {
-      this.recordEndpointResponse('POST', url, err);
+      this.recordEndpointResponse('POST', url, err, options);
       return this.handleError(err);
     }
   }
@@ -471,14 +572,14 @@ class ApiClient {
    * @param {object} data - 请求体
    * @returns {Promise<object>} 后端响应体或错误对象
    */
-  async putNoAuth(url, data = {}) {
+  async putNoAuth(url, data = {}, options = {}) {
     assertRelativeAPIPath(url);
     try {
       const resp = await this.client.put(url, data);
-      this.recordEndpointResponse('PUT', url);
-      return resp.data;
+      this.recordEndpointResponse('PUT', url, resp, options);
+      return this.responseResult(resp, options);
     } catch (err) {
-      this.recordEndpointResponse('PUT', url, err);
+      this.recordEndpointResponse('PUT', url, err, options);
       return this.handleError(err);
     }
   }
@@ -489,14 +590,14 @@ class ApiClient {
    * @param {object} data - 请求体
    * @returns {Promise<object>} 后端响应体或错误对象
    */
-  async deleteNoAuth(url, data = {}) {
+  async deleteNoAuth(url, data = {}, options = {}) {
     assertRelativeAPIPath(url);
     try {
       const resp = await this.client.delete(url, { data });
-      this.recordEndpointResponse('DELETE', url);
-      return resp.data;
+      this.recordEndpointResponse('DELETE', url, resp, options);
+      return this.responseResult(resp, options);
     } catch (err) {
-      this.recordEndpointResponse('DELETE', url, err);
+      this.recordEndpointResponse('DELETE', url, err, options);
       return this.handleError(err);
     }
   }

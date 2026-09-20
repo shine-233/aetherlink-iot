@@ -109,7 +109,7 @@ const getTableData = async () => {
   endLoading()
 }
 const detailModalRef = ref<any>(null)
-const handleDetail = item => {
+const handleDetail = (item) => {
   detailModalRef.value && detailModalRef.value.show && detailModalRef.value.show(item)
 }
 const columns: Ref<DataTableColumns<DataService.Data>> = ref([
@@ -145,7 +145,7 @@ const columns: Ref<DataTableColumns<DataService.Data>> = ref([
     title: $t('common.requestTime'),
     minWidth: '140px',
     align: 'left',
-    render: row => `${row.latency}ms`
+    render: (row) => `${row.latency}ms`
   },
   {
     key: 'username',
@@ -158,7 +158,7 @@ const columns: Ref<DataTableColumns<DataService.Data>> = ref([
     title: $t('common.actions'),
     minWidth: '140px',
     align: 'left',
-    render: row => {
+    render: (row) => {
       return (
         <NButton type="primary" size={'small'} onClick={() => handleDetail(row)}>
           {$t('generate.details')}
@@ -240,10 +240,7 @@ getTableData()
   <div>
     <NCard :title="$t('generate.system-log')">
       <NAlert v-if="isReadyCheckAuditSearch" type="info" :show-icon="false" class="mb-12px">
-        {{
-          $t('custom.device_details.readyCheckAuditSearchHint')
-            .replace('{path}', queryParams.path || '--')
-        }}
+        {{ $t('custom.device_details.readyCheckAuditSearchHint').replace('{path}', queryParams.path || '--') }}
       </NAlert>
       <NForm class="mb-20px align-end" :inline="!getPlatform" label-placement="left" :model="queryParams">
         <view class="flex flex-wrap">

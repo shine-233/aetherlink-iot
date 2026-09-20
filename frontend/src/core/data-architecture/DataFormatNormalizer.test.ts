@@ -214,10 +214,7 @@ describe('DataFormatNormalizer', () => {
     expect(editorManagerAlias.dataSources[0].dataItems[0].item.type).toBe('http')
 
     expect(() =>
-      DataFormatNormalizer.normalizeToStandard(
-        { type: 'mqtt', config: { topic: 'telemetry' } },
-        'external-source'
-      )
+      DataFormatNormalizer.normalizeToStandard({ type: 'mqtt', config: { topic: 'telemetry' } }, 'external-source')
     ).toThrow('UNSUPPORTED_DATA_SOURCE_TYPE:mqtt')
   })
 
@@ -276,7 +273,7 @@ describe('DataFormatNormalizer', () => {
       { componentId: 'two', data: { loose: 'value' } }
     ])
 
-    expect(results.map(item => item.componentId)).toEqual(['one', 'two'])
+    expect(results.map((item) => item.componentId)).toEqual(['one', 'two'])
     expect(DataFormatNormalizer.validateStandardFormat(results[0]).valid).toBe(true)
 
     const invalid = DataFormatNormalizer.validateStandardFormat({

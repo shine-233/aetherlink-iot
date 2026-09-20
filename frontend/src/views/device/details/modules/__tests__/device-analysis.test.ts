@@ -42,16 +42,68 @@ const mountComponent = (props = {}) => {
     props: { id: 'device-1', ...props },
     global: {
       stubs: {
-        NCard: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NButton: defineComponent({ props: ['type', 'size'], emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } }),
-        NDataTable: defineComponent({ props: ['columns', 'data', 'pagination', 'remote'], setup() { return () => h('table') } }),
-        NModal: defineComponent({ props: ['show', 'title'], emits: ['update:show'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NForm: defineComponent({ props: ['labelPlacement', 'labelWidth'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NFormItem: defineComponent({ props: ['label'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NInput: defineComponent({ props: ['value', 'type', 'placeholder'], emits: ['update:value'], setup() { return () => h('input') } }),
-        NSelect: defineComponent({ props: ['value', 'options', 'multiple', 'maxTagCount', 'virtualScroll'], emits: ['update:value'], setup() { return () => h('div') } }),
-        NSpace: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NPopconfirm: defineComponent({ emits: ['positive-click'], setup(_, { slots }) { return () => h('div', slots.default?.()) } })
+        NCard: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NButton: defineComponent({
+          props: ['type', 'size'],
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default?.())
+          }
+        }),
+        NDataTable: defineComponent({
+          props: ['columns', 'data', 'pagination', 'remote'],
+          setup() {
+            return () => h('table')
+          }
+        }),
+        NModal: defineComponent({
+          props: ['show', 'title'],
+          emits: ['update:show'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NForm: defineComponent({
+          props: ['labelPlacement', 'labelWidth'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NFormItem: defineComponent({
+          props: ['label'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NInput: defineComponent({
+          props: ['value', 'type', 'placeholder'],
+          emits: ['update:value'],
+          setup() {
+            return () => h('input')
+          }
+        }),
+        NSelect: defineComponent({
+          props: ['value', 'options', 'multiple', 'maxTagCount', 'virtualScroll'],
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NSpace: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NPopconfirm: defineComponent({
+          emits: ['positive-click'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        })
       }
     }
   })

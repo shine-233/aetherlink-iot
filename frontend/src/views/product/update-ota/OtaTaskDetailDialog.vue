@@ -102,12 +102,7 @@ const detailTaskStatusValue = computed({
           <NSpace v-if="rolloutActiveCount > 0" align="center" size="small" :wrap="true">
             <NSwitch v-model:value="detailAutoRefreshEnabledValue" size="small" />
             <span class="rollout-refresh-meta">
-              {{
-                $t('page.product.update-ota.autoRefreshProgressHint').replace(
-                  '{count}',
-                  String(rolloutActiveCount)
-                )
-              }}
+              {{ $t('page.product.update-ota.autoRefreshProgressHint').replace('{count}', String(rolloutActiveCount)) }}
             </span>
           </NSpace>
           <NGrid x-gap="12" y-gap="12" cols="2 s:3 m:4 l:7" responsive="screen">

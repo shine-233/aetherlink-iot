@@ -38,8 +38,14 @@ const mountComponent = (props = {}) => {
 }
 
 describe('device/config-detail/modules/automate.vue', () => {
-  beforeEach(() => { vi.clearAllMocks() })
-  afterEach(() => { while (mountedWrappers.length > 0) { mountedWrappers.pop()?.unmount() } })
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+  afterEach(() => {
+    while (mountedWrappers.length > 0) {
+      mountedWrappers.pop()?.unmount()
+    }
+  })
 
   it('renders scene linkage list scoped to the device config', () => {
     const wrapper = mountComponent()

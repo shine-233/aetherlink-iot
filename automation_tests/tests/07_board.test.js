@@ -166,12 +166,15 @@ describe('Board API module [07_board]', function () {
     const deleteResp = await apiClient.delete('/board/' + doomedId, {}, 'tenant_admin');
     expectOk(deleteResp);
 
-    // 删除后单读必须不可用。当前后端对已删除板返回 101001（DB 错误）而非
-    // 100404（资源不存在），语义不一致已作为程序缺陷记录（审计 2026-09-04）；
-    // 这里断言“不再可用”这一业务事实，两个非 200 码都接受。
     const goneResp = await apiClient.get('/board/' + doomedId, {}, 'tenant_admin');
     expect(goneResp).to.be.an('object');
-    expect([100404, 101001]).to.include(goneResp.code);
+    expect(goneResp.code).to.equal(100404);
+    expect(goneResp.message).to.equal('board not found');
+
+    const repeatedDeleteResp = await apiClient.delete('/board/' + doomedId, {}, 'tenant_admin');
+    expect(repeatedDeleteResp).to.be.an('object');
+    expect(repeatedDeleteResp.code).to.equal(100404);
+    expect(repeatedDeleteResp.message).to.equal('board not found');
 
     const listResp = await apiClient.get('/board', { page: 1, page_size: 100 }, 'tenant_admin');
     expectOk(listResp);

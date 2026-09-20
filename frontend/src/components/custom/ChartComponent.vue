@@ -15,9 +15,9 @@ const { domRef, updateOptions } = useTpECharts(() => props.initialOptions)
 
 watch(
   () => props.initialOptions,
-  newOptions => {
+  (newOptions) => {
     if (newOptions) {
-      updateOptions(currentOptions => {
+      updateOptions((currentOptions) => {
         // Preserve existing chart options while applying the latest caller overrides.
         return { ...currentOptions, ...newOptions }
       })

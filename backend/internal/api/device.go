@@ -38,6 +38,11 @@ func (*DeviceApi) CreateDevice(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
+	if req.ConflictPolicy == nil || *req.ConflictPolicy == "" {
+		if q := c.Query("conflict_policy"); q != "" {
+			req.ConflictPolicy = &q
+		}
+	}
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.Device.CreateDevice(req, userClaims)
 	if err != nil {
@@ -57,6 +62,11 @@ func (*DeviceApi) CreateDeviceBatch(c *gin.Context) {
 	var req model.BatchCreateDeviceReq
 	if !BindAndValidate(c, &req) {
 		return
+	}
+	if req.ConflictPolicy == nil || *req.ConflictPolicy == "" {
+		if q := c.Query("conflict_policy"); q != "" {
+			req.ConflictPolicy = &q
+		}
 	}
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.Device.CreateDeviceBatch(req, userClaims)

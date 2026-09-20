@@ -9,9 +9,7 @@ export type ThingsVisDeviceConfigTemplateMapCacheOptions = {
   logger: { error: (...args: any[]) => void }
 }
 
-export function createThingsVisDeviceConfigTemplateMapCache(
-  options: ThingsVisDeviceConfigTemplateMapCacheOptions
-) {
+export function createThingsVisDeviceConfigTemplateMapCache(options: ThingsVisDeviceConfigTemplateMapCacheOptions) {
   let deviceConfigTemplateMapCache: Map<string, string> | null = null
   let deviceConfigTemplateMapPromise: Promise<Map<string, string>> | null = null
 

@@ -30,7 +30,7 @@ export function useAlarmClosureEvidenceExport(options: UseAlarmClosureEvidenceEx
       link.download = buildAlarmClosureEvidenceFileName({
         id: options.resolvePrimaryAlarmId() as string,
         generatedAt: bundle.generatedAt,
-        formatTimestamp: value => dayjs(value).format('YYYYMMDD-HHmmss')
+        formatTimestamp: (value) => dayjs(value).format('YYYYMMDD-HHmmss')
       })
       document.body.appendChild(link)
       link.click()

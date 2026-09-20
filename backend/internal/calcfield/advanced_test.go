@@ -27,6 +27,11 @@ func TestParseAdvancedConfigValidationD4(t *testing.T) {
 		{"围栏多边形点不足", FieldTypeGeofence, `{"lat_key":"lat","lng_key":"lng","shape":"polygon","points":[[31.1,121.1],[31.2,121.2]]}`, true},
 		{"传播合法", FieldTypePropagation, `{"source_key":"temp","device_ids":["d9"],"direction":"up"}`, false},
 		{"传播方向非法", FieldTypePropagation, `{"source_key":"temp","device_ids":["d9"],"direction":"sideways"}`, true},
+		{"告警规则合法", FieldTypeAlarm, `{"alarm_name":"高温","rules":[{"severity":"H","expression":"temp > 80"},{"severity":"M","expression":"temp > 60"}],"clear_rule":{"expression":"temp < 50"}}`, false},
+		{"告警规则缺rules", FieldTypeAlarm, `{"alarm_name":"高温","rules":[]}`, true},
+		{"告警规则非法severity", FieldTypeAlarm, `{"rules":[{"severity":"CRITICAL","expression":"temp > 80"}]}`, true},
+		{"告警规则非法表达式", FieldTypeAlarm, `{"rules":[{"severity":"H","expression":"temp >"}]}`, true},
+		{"告警规则合法传播", FieldTypeAlarm, `{"alarm_name":"高温","rules":[{"severity":"H","expression":"temp > 80"}],"propagate":true}`, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

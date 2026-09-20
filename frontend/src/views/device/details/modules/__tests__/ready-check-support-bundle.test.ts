@@ -96,11 +96,20 @@ const baseInput = (): ReadyCheckSupportBundleInput => ({
       status: 'attention',
       statusKey: 'custom.device_details.readyCheckEvidenceAttention',
       summary: 'Command timed out',
-      metrics: [{ key: 'latest_status', labelKey: 'custom.device_details.readyCheckCommandStatus', value: 'timeout', tone: 'danger' }],
+      metrics: [
+        {
+          key: 'latest_status',
+          labelKey: 'custom.device_details.readyCheckCommandStatus',
+          value: 'timeout',
+          tone: 'danger'
+        }
+      ],
       nextActions: ['Open command delivery']
     }
   ],
-  backendNextSteps: [{ key: 'refresh', title: 'Refresh Ready Check', description: 'Retry after device reconnects.', status: 'todo' }],
+  backendNextSteps: [
+    { key: 'refresh', title: 'Refresh Ready Check', description: 'Retry after device reconnects.', status: 'todo' }
+  ],
   deepLinks: [
     {
       key: 'command',
@@ -167,7 +176,9 @@ describe('ready-check-support-bundle', () => {
   })
 
   it('sanitizes ready-check support filenames', () => {
-    expect(readyCheckSupportFileName('Pump 1 / Field #2')).toBe('aetherlink-ready-check-Pump_1___Field__2-diagnostics.json')
+    expect(readyCheckSupportFileName('Pump 1 / Field #2')).toBe(
+      'aetherlink-ready-check-Pump_1___Field__2-diagnostics.json'
+    )
     expect(readyCheckSupportFileName('')).toBe('aetherlink-ready-check-device-diagnostics.json')
   })
 })

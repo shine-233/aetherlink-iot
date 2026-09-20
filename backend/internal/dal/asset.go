@@ -108,3 +108,23 @@ func DeleteAsset(id, tenantID string) error {
 	}
 	return nil
 }
+
+// GetAssetByNameAndTenant 查询指定租户下指定名称的资产（TB-15）。
+func GetAssetByNameAndTenant(tenantID, name string) (*model.Asset, error) {
+	var a model.Asset
+	err := global.DB.Where("tenant_id = ? AND name = ?", tenantID, name).First(&a).Error
+	if err != nil {
+		return nil, err
+	}
+	return &a, nil
+}
+
+// GetAssetNamesMatchingBase 查询指定租户下 baseName 或 baseName (N) 形式的资产名称列表（TB-15）。
+func GetAssetNamesMatchingBase(tenantID, baseName string) ([]string, error) {
+	var names []string
+	err := global.DB.Model(&model.Asset{}).
+		Where("tenant_id = ? AND (name = ? OR name LIKE ?)", tenantID, baseName, baseName+" (%)").
+		Pluck("name", &names).Error
+	return names, err
+}
+

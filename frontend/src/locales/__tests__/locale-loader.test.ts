@@ -25,6 +25,13 @@ describe('locale message loader', () => {
           }
         }
       },
+      './langs/en-us/report.json': {
+        default: {
+          page: {
+            title: 'Scheduled reports'
+          }
+        }
+      },
       './langs/zh-cn/common.json': {
         default: {
           common: {
@@ -44,6 +51,11 @@ describe('locale message loader', () => {
       rdi: {
         overview: {
           title: 'RDI overview'
+        }
+      },
+      report: {
+        page: {
+          title: 'Scheduled reports'
         }
       }
     })

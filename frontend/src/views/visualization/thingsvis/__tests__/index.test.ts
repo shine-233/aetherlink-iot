@@ -19,43 +19,62 @@ const hoisted = vi.hoisted(() => ({
   clearThingsVisHomeCache: vi.fn(),
   routerPushByKey: vi.fn(),
   messageError: vi.fn(),
+  nativeCreateProject: vi.fn(),
+  fetchBoardProjects: vi.fn(),
+  fetchBoardProjectMembership: vi.fn()
 }))
 
 let currentRouteQuery: Record<string, any> = {}
 let facadeSelectionError: { code: string; message: string } | null = null
+let facadeProvider: 'legacy' | 'native' = 'legacy'
 
 vi.mock('@/service/api/thingsvis', () => ({
   getThingsVisProjects: hoisted.getThingsVisProjects,
   getThingsVisDashboards: hoisted.getThingsVisDashboards,
   createThingsVisProject: hoisted.createThingsVisProject,
   updateThingsVisProject: hoisted.updateThingsVisProject,
-  deleteThingsVisProject: hoisted.deleteThingsVisProject,
+  deleteThingsVisProject: hoisted.deleteThingsVisProject
 }))
 
-vi.mock('@/service/visualization-provider/index', async importOriginal => {
+vi.mock('@/service/visualization-provider/index', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/service/visualization-provider/index')>()
   return {
     ...actual,
-    getDefaultVisualizationProviderFacade: () => ({
-      selectionError: facadeSelectionError,
-      execute: (operation: (provider: typeof actual.legacyThingsVisProvider) => unknown) =>
-        facadeSelectionError
-          ? Promise.resolve({ ok: false, error: facadeSelectionError })
-          : operation(actual.legacyThingsVisProvider)
-    })
+    getDefaultVisualizationProviderFacade: () => {
+      const selectedProvider =
+        facadeProvider === 'native'
+          ? {
+              ...actual.nativeBoardProvider,
+              createProject: hoisted.nativeCreateProject
+            }
+          : actual.legacyThingsVisProvider
+      return {
+        selectionError: facadeSelectionError,
+        capabilities: facadeSelectionError ? null : selectedProvider.capabilities,
+        execute: (operation: (provider: typeof selectedProvider) => unknown) =>
+          facadeSelectionError
+            ? Promise.resolve({ ok: false, error: facadeSelectionError })
+            : operation(selectedProvider)
+      }
+    }
   }
 })
 
+vi.mock('@/service/api/board', () => ({
+  fetchBoardProjects: hoisted.fetchBoardProjects,
+  fetchBoardProjectMembership: hoisted.fetchBoardProjectMembership
+}))
+
 vi.mock('@/service/api/dashboard-menu', () => ({
-  deleteDashboardMenuConfig: hoisted.deleteDashboardMenuConfig,
+  deleteDashboardMenuConfig: hoisted.deleteDashboardMenuConfig
 }))
 
 vi.mock('@/utils/router/refresh-auth-routes', () => ({
-  refreshAuthRoutes: hoisted.refreshAuthRoutes,
+  refreshAuthRoutes: hoisted.refreshAuthRoutes
 }))
 
 vi.mock('@/utils/thingsvis/home-cache', () => ({
-  clearThingsVisHomeCache: hoisted.clearThingsVisHomeCache,
+  clearThingsVisHomeCache: hoisted.clearThingsVisHomeCache
 }))
 
 vi.mock('@/locales', () => ({
@@ -72,24 +91,74 @@ vi.mock('vue-router', () => ({
 }))
 
 vi.mock('naive-ui', () => ({
-  createDiscreteApi: () => ({ message: { success: vi.fn(), error: vi.fn(), warning: vi.fn() }, notification: {}, dialog: {}, loadingBar: {} }),
-  NAlert: defineComponent({ setup(_, { slots }) { return () => h('div', [slots.header?.(), slots.default?.()]) } }),
-  NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } }),
-  NCard: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-  NInput: defineComponent({ props: { value: { default: '' } }, emits: ['update:value'], setup() { return () => h('div') } }),
-  NModal: defineComponent({ props: { show: Boolean }, emits: ['update:show'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-  NForm: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-  NFormItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-  NGrid: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-  NGridItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
+  createDiscreteApi: () => ({
+    message: { success: vi.fn(), error: vi.fn(), warning: vi.fn() },
+    notification: {},
+    dialog: {},
+    loadingBar: {}
+  }),
+  NAlert: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', [slots.header?.(), slots.default?.()])
+    }
+  }),
+  NButton: defineComponent({
+    emits: ['click'],
+    setup(_, { slots, emit }) {
+      return () => h('button', { onClick: () => emit('click') }, slots.default?.())
+    }
+  }),
+  NCard: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default?.())
+    }
+  }),
+  NInput: defineComponent({
+    props: { value: { default: '' } },
+    emits: ['update:value'],
+    setup() {
+      return () => h('div')
+    }
+  }),
+  NModal: defineComponent({
+    props: { show: Boolean },
+    emits: ['update:show'],
+    setup(_, { slots }) {
+      return () => h('div', slots.default?.())
+    }
+  }),
+  NForm: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default?.())
+    }
+  }),
+  NFormItem: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default?.())
+    }
+  }),
+  NGrid: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default?.())
+    }
+  }),
+  NGridItem: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default?.())
+    }
+  }),
   NEmpty: defineComponent({
     props: { description: { type: String, default: '' } },
     setup(props, { slots }) {
       return () => h('div', [props.description, slots.default?.(), slots.extra?.()])
     }
   }),
-  NSpin: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-  useMessage: () => ({ success: vi.fn(), error: hoisted.messageError, warning: vi.fn() }),
+  NSpin: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default?.())
+    }
+  }),
+  useMessage: () => ({ success: vi.fn(), error: hoisted.messageError, warning: vi.fn() })
 }))
 
 import ThingsVisIndex from '../index.vue'
@@ -101,21 +170,62 @@ const mountComponent = (props = {}) => {
     props,
     global: {
       stubs: {
-        NCard: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } }),
-        NInput: defineComponent({ props: { value: { default: '' } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NModal: defineComponent({ props: { show: Boolean }, emits: ['update:show'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NForm: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NFormItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NGrid: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NGridItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
+        NCard: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NButton: defineComponent({
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default?.())
+          }
+        }),
+        NInput: defineComponent({
+          props: { value: { default: '' } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NModal: defineComponent({
+          props: { show: Boolean },
+          emits: ['update:show'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NForm: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NFormItem: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NGrid: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NGridItem: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
         NEmpty: defineComponent({
           props: { description: { type: String, default: '' } },
           setup(props, { slots }) {
             return () => h('div', [props.description, slots.default?.(), slots.extra?.()])
           }
         }),
-        NSpin: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
+        NSpin: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        })
       }
     }
   })
@@ -143,14 +253,17 @@ const projectPage = (data: unknown[] = []) => ({
 
 describe('ThingsVisIndex', () => {
   beforeEach(() => {
+    hoisted.fetchBoardProjects.mockResolvedValue({ data: [], error: null })
+    hoisted.fetchBoardProjectMembership.mockResolvedValue({ data: null, error: null })
     vi.clearAllMocks()
     currentRouteQuery = {}
     facadeSelectionError = null
+    facadeProvider = 'legacy'
     hoisted.getThingsVisProjects.mockResolvedValue({ data: projectPage(), error: null })
   })
 
   afterEach(() => {
-    mountedWrappers.forEach(w => w.unmount())
+    mountedWrappers.forEach((w) => w.unmount())
     mountedWrappers.length = 0
   })
 
@@ -253,7 +366,10 @@ describe('ThingsVisIndex', () => {
 
   it('should route created first-device project to dashboards with onboarding context', async () => {
     currentRouteQuery = { onboarding: 'first-device' }
-    hoisted.createThingsVisProject.mockResolvedValue({ data: projectFixture({ id: 'proj-new', name: 'First Project' }), error: null })
+    hoisted.createThingsVisProject.mockResolvedValue({
+      data: projectFixture({ id: 'proj-new', name: 'First Project' }),
+      error: null
+    })
     hoisted.getThingsVisProjects.mockResolvedValue({ data: projectPage(), error: null })
     const wrapper = mountComponent()
     await flushPromises()
@@ -341,6 +457,42 @@ describe('ThingsVisIndex', () => {
     expect(hoisted.refreshAuthRoutes).toHaveBeenCalledTimes(1)
     expect(hoisted.refreshAuthRoutes).toHaveBeenCalledWith('/visualization/thingsvis')
     expect(hoisted.clearThingsVisHomeCache).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows native project controls now that the provider supports project CRUD', async () => {
+    facadeProvider = 'native'
+    currentRouteQuery = { provider: 'native' }
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    const state = getState(wrapper)
+    expect(state.projectCapabilities).toEqual({ list: true, create: true, update: true, delete: true })
+    expect(state.projects).toEqual([expect.objectContaining({ id: 'native-boards' })])
+    // 创建入口出现；内置项目卡片的编辑/删除入口保持隐藏（provider 对其 fail closed）。
+    expect(wrapper.text()).toContain('rdi.thingsvis.newProject')
+    expect(wrapper.findComponent({ name: 'NModal' }).exists()).toBe(false)
+    expect(wrapper.find('[class*="group-hover:opacity-100"]').exists()).toBe(false)
+  })
+
+  it('routes first-device native onboarding to the built-in project without creating one', async () => {
+    facadeProvider = 'native'
+    currentRouteQuery = { provider: 'native', onboarding: 'first-device' }
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    const action = wrapper.get('[data-testid="first-device-project-action"]')
+    expect(action.text()).toContain('rdi.thingsvis.firstDeviceDashboardContinue')
+    await action.trigger('click')
+
+    expect(hoisted.nativeCreateProject).not.toHaveBeenCalled()
+    expect(hoisted.createThingsVisProject).not.toHaveBeenCalled()
+    expect(hoisted.routerPushByKey).toHaveBeenCalledWith('visualization_thingsvis-dashboards', {
+      query: {
+        projectId: 'native-boards',
+        onboarding: 'first-device',
+        provider: 'native'
+      }
+    })
   })
 
   it('should filter projects by search keyword', async () => {

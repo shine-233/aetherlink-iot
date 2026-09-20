@@ -133,7 +133,7 @@ async function handleSubmit() {
 
 watch(
   () => props.visible,
-  newValue => {
+  (newValue) => {
     if (newValue) {
       // 每次打开都按弹窗模式重新回填，避免新增和编辑之间相互污染。
       handleUpdateFormModelByModalType()

@@ -7,10 +7,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import {
-  installTypeCompatibilityDebugGlobal,
-  TypeCompatibilityChecker
-} from './TypeCompatibilityChecker'
+import { installTypeCompatibilityDebugGlobal, TypeCompatibilityChecker } from './TypeCompatibilityChecker'
 import type { ComponentDataRequirement, HttpConfig } from './types/unified-types'
 
 const checker = TypeCompatibilityChecker.getInstance()

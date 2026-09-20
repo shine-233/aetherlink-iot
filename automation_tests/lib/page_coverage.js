@@ -8,6 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 const writeJsonArtifact = require('./json_artifact');
+const provenance = require('./coverage_provenance');
 
 const ALL_PAGES = [
   { route: '/login', module: 'auth', name: 'Login', priority: 'P0' },
@@ -79,6 +80,7 @@ const ALL_PAGES = [
   { route: '/visualization/native-boards', module: 'visualization', name: 'Native dashboards', priority: 'P1' },
   { route: '/visualization/native-board', module: 'visualization', name: 'Native dashboard', priority: 'P1' },
   { route: '/visualization/native-board-editor', module: 'visualization', name: 'Native dashboard editor', priority: 'P1' },
+  { route: '/visualization/report', module: 'visualization', name: 'Scheduled reports', priority: 'P1' },
 
   // Legacy ThingsVis routes remain cataloged for optional compatibility builds.
   { route: '/visualization/thingsvis', module: 'visualization', name: 'ThingsVis project list', priority: 'P1' },
@@ -88,13 +90,48 @@ const ALL_PAGES = [
   { route: '/visualization/thingsvis-preview', module: 'visualization', name: 'ThingsVis preview', priority: 'P1' }
 ];
 
-const ALL_FLOWS = ALL_PAGES.map(page => ({
-  id: 'route:' + page.route,
-  module: page.module,
-  name: page.name + ' route renders',
-  priority: page.priority,
-  pages: [page.route]
-}));
+const BUSINESS_FLOWS = [
+  {
+    id: 'auth.password-login',
+    module: 'auth',
+    name: 'Password login reaches authenticated home',
+    priority: 'P0',
+    pages: ['/login', '/home'],
+    requiredDimensions: ['userAction', 'response', 'visibleResult']
+  },
+  {
+    id: 'device.create-readback-cleanup',
+    module: 'device',
+    name: 'Create, read back, display, and clean up a device',
+    priority: 'P0',
+    pages: ['/device/manage'],
+    requiredDimensions: ['userAction', 'response', 'stateReadback', 'visibleResult', 'cleanup']
+  },
+  {
+    id: 'native-board.create-publish',
+    module: 'visualization',
+    name: 'Create and publish a native dashboard',
+    priority: 'P1',
+    pages: ['/visualization/native-boards', '/visualization/native-board-editor'],
+    requiredDimensions: ['userAction', 'response', 'stateReadback', 'visibleResult', 'cleanup']
+  },
+  {
+    id: 'report.workspace.schedule-lifecycle',
+    module: 'visualization',
+    name: 'Create, edit, run, inspect, and clean up a scheduled report',
+    priority: 'P1',
+    pages: ['/visualization/report'],
+    requiredDimensions: ['userAction', 'response', 'stateReadback', 'visibleResult', 'cleanup']
+  },
+  {
+    id: 'csv.pre-register-import',
+    module: 'device',
+    name: 'Upload and verify device pre-registration CSV',
+    priority: 'P0',
+    pages: ['/product/pre-register'],
+    requiredDimensions: ['userAction', 'response', 'stateReadback', 'visibleResult', 'cleanup']
+  }
+];
 
 // `/tv-preview` is the standalone constant route for the same ThingsVis
 // preview component exposed by the generated `/visualization/thingsvis-preview`
@@ -107,23 +144,44 @@ const ROUTE_ALIASES = new Map([
 class PageCoverage {
   constructor() {
     this.hitPages = new Map();
-    this.hitFlows = new Map();
+    this.hitBusinessFlows = new Map();
+    this.events = [];
     // Playwright may restart a worker after a failed test or retry.  The
     // replacement worker receives the same PAGE_COVERAGE_FILE, so keep a
     // snapshot of what this process has already flushed and append only the
     // delta to the on-disk aggregate.  Without this, a later worker silently
     // replaces all routes collected by earlier workers.
     this.flushedPages = new Map();
-    this.flushedFlows = new Map();
+    this.flushedBusinessFlows = new Map();
     this.totalPages = ALL_PAGES.length;
-    this.totalFlows = ALL_FLOWS.length;
+    this.totalBusinessFlows = BUSINESS_FLOWS.length;
     this.coverageFile = process.env.PAGE_COVERAGE_FILE || '';
+    this.provenanceFile = process.env.COVERAGE_PROVENANCE_FILE ||
+      provenance.provenanceFileForCoverage(this.coverageFile);
   }
 
-  hitPage(route, name) {
+  hitPage(route, name, observation = {}) {
     const normalizedRoute = this.normalizeRoute(route);
     const page = this.findPage(normalizedRoute);
     const key = page ? page.route : normalizedRoute;
+    const event = provenance.createEvent({
+      eventId: observation.eventId,
+      runId: observation.runId,
+      module: observation.module || (page && page.module) || 'unknown',
+      kind: 'page',
+      target: key,
+      case: observation.case,
+      attempt: observation.attempt,
+      outcome: observation.outcome || 'pending',
+      statusCode: observation.statusCode,
+      disposition: observation.disposition || 'candidate',
+      diagnostics: {
+        catalogMatched: Boolean(page),
+        observedURL: String(route || ''),
+        ...(observation.diagnostics || {})
+      }
+    });
+    this.events.push(event);
 
     if (!this.hitPages.has(key)) {
       this.hitPages.set(key, {
@@ -138,22 +196,37 @@ class PageCoverage {
     }
     this.hitPages.get(key).count++;
 
-    ALL_FLOWS
-      .filter(flow => flow.pages.some(flowPage => this.routeMatches(flowPage, key)))
-      .forEach(flow => this.hitFlow(flow.id, false));
-
     this.flush();
+    this.flushProvenance();
+    return event;
   }
 
-  hitFlow(flowId, flush = true) {
-    const flow = ALL_FLOWS.find(f => f.id === flowId);
-    if (!this.hitFlows.has(flowId)) {
-      this.hitFlows.set(flowId, {
+  hitBusinessFlow(flowId, dimensions = {}, flush = true) {
+    const flow = BUSINESS_FLOWS.find(item => item.id === flowId);
+    if (!flow) {
+      throw new Error('Unknown browser business flow: ' + flowId);
+    }
+    const normalizedDimensions = Object.fromEntries(
+      flow.requiredDimensions.map(dimension => [dimension, dimensions[dimension] === true])
+    );
+    const missingDimensions = flow.requiredDimensions.filter(
+      dimension => normalizedDimensions[dimension] !== true
+    );
+    if (missingDimensions.length > 0) {
+      throw new Error(
+        'Browser business flow ' + flowId + ' is missing required dimensions: ' + missingDimensions.join(', ')
+      );
+    }
+    if (!this.hitBusinessFlows.has(flowId)) {
+      this.hitBusinessFlows.set(flowId, {
         count: 0,
-        flow: flow || { id: flowId, name: flowId, module: 'unknown', priority: '?', pages: [] }
+        flow,
+        dimensions: normalizedDimensions
       });
     }
-    this.hitFlows.get(flowId).count++;
+    const hit = this.hitBusinessFlows.get(flowId);
+    hit.count++;
+    hit.dimensions = normalizedDimensions;
     if (flush) this.flush();
   }
 
@@ -198,11 +271,16 @@ class PageCoverage {
         count: value.count,
         page: value.page
       })),
-      flows: Array.from(this.hitFlows.entries()).map(([key, value]) => ({
+      businessFlows: Array.from(this.hitBusinessFlows.entries()).map(([key, value]) => ({
         key,
         count: value.count,
-        flow: value.flow
-      }))
+        flow: value.flow,
+        dimensions: value.dimensions
+      })),
+      provenance: {
+        schema: provenance.SCHEMA,
+        events: provenance.mergeEvents(this.events)
+      }
     };
   }
 
@@ -222,18 +300,24 @@ class PageCoverage {
       }
     });
 
-    (payload.flows || []).forEach(item => {
+    (payload.businessFlows || []).forEach(item => {
       if (!item || !item.key || !item.flow) return;
-      const current = this.hitFlows.get(item.key);
+      const current = this.hitBusinessFlows.get(item.key);
       if (current) {
         current.count += Number(item.count) || 0;
+        current.dimensions = { ...current.dimensions, ...(item.dimensions || {}) };
       } else {
-        this.hitFlows.set(item.key, {
+        this.hitBusinessFlows.set(item.key, {
           count: Number(item.count) || 0,
-          flow: item.flow
+          flow: item.flow,
+          dimensions: item.dimensions || {}
         });
       }
     });
+    this.events = provenance.mergeEvents(
+      this.events,
+      payload.provenance && payload.provenance.events
+    );
   }
 
   mergeFromFile(filePath) {
@@ -255,7 +339,7 @@ class PageCoverage {
       return;
     }
 
-    let persisted = { pages: [], flows: [] };
+    let persisted = { pages: [], businessFlows: [] };
     if (fs.existsSync(this.coverageFile)) {
       try {
         const candidate = JSON.parse(fs.readFileSync(this.coverageFile, 'utf8'));
@@ -267,13 +351,14 @@ class PageCoverage {
       }
     }
 
-    const mergeDelta = (items, current, flushed, valueKey) => {
+    const mergeDelta = (items, current, flushed, valueKey, extraKeys = []) => {
       const aggregate = new Map();
       (Array.isArray(items) ? items : []).forEach(item => {
         if (!item || !item.key || !item[valueKey]) return;
         aggregate.set(item.key, {
           count: Number(item.count) || 0,
-          [valueKey]: item[valueKey]
+          [valueKey]: item[valueKey],
+          ...Object.fromEntries(extraKeys.map(key => [key, item[key]]))
         });
       });
 
@@ -281,13 +366,16 @@ class PageCoverage {
         const previousCount = Number(flushed.get(key) || 0);
         const delta = (Number(value.count) || 0) - previousCount;
         if (delta <= 0) return;
+        const extraValues = Object.fromEntries(extraKeys.map(extraKey => [extraKey, value[extraKey]]));
         const existing = aggregate.get(key);
         if (existing) {
           existing.count += delta;
+          Object.assign(existing, extraValues);
         } else {
           aggregate.set(key, {
             count: delta,
-            [valueKey]: value[valueKey]
+            [valueKey]: value[valueKey],
+            ...extraValues
           });
         }
       });
@@ -295,22 +383,50 @@ class PageCoverage {
       return Array.from(aggregate.entries()).map(([key, value]) => ({
         key,
         count: value.count,
-        [valueKey]: value[valueKey]
+        [valueKey]: value[valueKey],
+        ...Object.fromEntries(extraKeys.map(extraKey => [extraKey, value[extraKey]]))
       }));
     };
 
     const output = {
       pages: mergeDelta(persisted.pages, this.hitPages, this.flushedPages, 'page'),
-      flows: mergeDelta(persisted.flows, this.hitFlows, this.flushedFlows, 'flow')
+      businessFlows: mergeDelta(
+        persisted.businessFlows,
+        this.hitBusinessFlows,
+        this.flushedBusinessFlows,
+        'flow',
+        ['dimensions']
+      ),
+      provenance: {
+        schema: provenance.SCHEMA,
+        events: provenance.mergeEvents(
+          persisted.provenance && persisted.provenance.events,
+          this.events
+        )
+      }
     };
 
     writeJsonArtifact(this.coverageFile, output);
     this.flushedPages = new Map(
       Array.from(this.hitPages.entries()).map(([key, value]) => [key, Number(value.count) || 0])
     );
-    this.flushedFlows = new Map(
-      Array.from(this.hitFlows.entries()).map(([key, value]) => [key, Number(value.count) || 0])
+    this.flushedBusinessFlows = new Map(
+      Array.from(this.hitBusinessFlows.entries()).map(([key, value]) => [key, Number(value.count) || 0])
     );
+  }
+
+  flushProvenance() {
+    if (!this.provenanceFile) return;
+    provenance.writeLedger(this.provenanceFile, this.events);
+  }
+
+  getProvenanceEvents() {
+    return provenance.mergeEvents(this.events);
+  }
+
+  replaceProvenanceEvents(events) {
+    this.events = provenance.mergeEvents(events);
+    provenance.replaceLedger(this.provenanceFile, this.events);
   }
 
   getStats() {
@@ -325,14 +441,15 @@ class PageCoverage {
       }
     });
 
-    const coveredFlows = [];
-    const uncoveredFlows = [];
+    const coveredBusinessFlows = [];
+    const uncoveredBusinessFlows = [];
 
-    ALL_FLOWS.forEach(flow => {
-      if (this.hitFlows.has(flow.id)) {
-        coveredFlows.push({ ...flow, hitCount: this.hitFlows.get(flow.id).count });
+    BUSINESS_FLOWS.forEach(flow => {
+      if (this.hitBusinessFlows.has(flow.id)) {
+        const hit = this.hitBusinessFlows.get(flow.id);
+        coveredBusinessFlows.push({ ...flow, hitCount: hit.count, dimensions: hit.dimensions });
       } else {
-        uncoveredFlows.push(flow);
+        uncoveredBusinessFlows.push(flow);
       }
     });
 
@@ -357,13 +474,15 @@ class PageCoverage {
         coveredList: coveredPages,
         uncoveredList: uncoveredPages
       },
-      flows: {
-        total: this.totalFlows,
-        covered: coveredFlows.length,
-        uncovered: uncoveredFlows.length,
-        rate: this.totalFlows > 0 ? ((coveredFlows.length / this.totalFlows) * 100).toFixed(2) : '0.00',
-        coveredList: coveredFlows,
-        uncoveredList: uncoveredFlows
+      businessFlows: {
+        total: this.totalBusinessFlows,
+        covered: coveredBusinessFlows.length,
+        uncovered: uncoveredBusinessFlows.length,
+        rate: this.totalBusinessFlows > 0
+          ? ((coveredBusinessFlows.length / this.totalBusinessFlows) * 100).toFixed(2)
+          : '0.00',
+        coveredList: coveredBusinessFlows,
+        uncoveredList: uncoveredBusinessFlows
       },
       byModule
     };
@@ -373,10 +492,10 @@ class PageCoverage {
     const stats = this.getStats();
 
     console.log('\n' + '='.repeat(70));
-    console.log('  E2E page and route-flow coverage report');
+    console.log('  E2E route-render and business-flow coverage report');
     console.log('='.repeat(70));
-    console.log('\n  Pages: ' + stats.pages.covered + '/' + stats.pages.total + ' (' + stats.pages.rate + '%)');
-    console.log('  Route flows: ' + stats.flows.covered + '/' + stats.flows.total + ' (' + stats.flows.rate + '%)');
+    console.log('\n  Route renders: ' + stats.pages.covered + '/' + stats.pages.total + ' (' + stats.pages.rate + '%)');
+    console.log('  Business flows: ' + stats.businessFlows.covered + '/' + stats.businessFlows.total + ' (' + stats.businessFlows.rate + '%)');
 
     Object.keys(stats.byModule).sort().forEach(moduleName => {
       const moduleStats = stats.byModule[moduleName];
@@ -397,12 +516,16 @@ class PageCoverage {
     return stats;
   }
 
-  writeReport(outputDir = './reports') {
+  writeReport(outputDir = './reports', interval = {}) {
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    const stats = this.getStats();
+    const stats = {
+      startedAt: interval.startedAt || null,
+      finishedAt: interval.finishedAt || null,
+      ...this.getStats()
+    };
     const jsonPath = path.join(outputDir, 'page-coverage.json');
     fs.writeFileSync(jsonPath, JSON.stringify(stats, null, 2), 'utf8');
 
@@ -432,7 +555,7 @@ class PageCoverage {
         page.module + '</td><td>' + page.priority + '</td></tr>';
     }).join('');
 
-    const flowRows = stats.flows.uncoveredList.map(flow => {
+    const flowRows = stats.businessFlows.uncoveredList.map(flow => {
       return '<tr><td>' + flow.id + '</td><td>' + flow.name + '</td><td>' +
         flow.module + '</td><td>' + flow.priority + '</td></tr>';
     }).join('');
@@ -444,38 +567,48 @@ class PageCoverage {
       'table{width:100%;border-collapse:collapse;background:#fff;margin-bottom:20px;}' +
       'th,td{padding:10px 12px;border-bottom:1px solid #eee;text-align:left;font-size:14px;}' +
       'th{background:#1a73e8;color:#fff;}</style></head><body>' +
-      '<h1>E2E page and route-flow coverage report</h1>' +
-      '<p>Pages: ' + stats.pages.covered + '/' + stats.pages.total + ' (' + stats.pages.rate + '%)</p>' +
-      '<p>Route flows: ' + stats.flows.covered + '/' + stats.flows.total + ' (' + stats.flows.rate + '%)</p>' +
+      '<h1>E2E route-render and business-flow coverage report</h1>' +
+      '<p>Route renders: ' + stats.pages.covered + '/' + stats.pages.total + ' (' + stats.pages.rate + '%)</p>' +
+      '<p>Business flows: ' + stats.businessFlows.covered + '/' + stats.businessFlows.total + ' (' + stats.businessFlows.rate + '%)</p>' +
       '<h2>By module</h2><table><thead><tr><th>Module</th><th>Total</th><th>Covered</th><th>Uncovered</th><th>Rate</th></tr></thead><tbody>' +
       moduleRows + '</tbody></table>' +
       '<h2>Uncovered pages</h2><table><thead><tr><th>Route</th><th>Name</th><th>Module</th><th>Priority</th></tr></thead><tbody>' +
       pageRows + '</tbody></table>' +
-      '<h2>Uncovered route flows</h2><table><thead><tr><th>ID</th><th>Name</th><th>Module</th><th>Priority</th></tr></thead><tbody>' +
+      '<h2>Uncovered business flows</h2><table><thead><tr><th>ID</th><th>Name</th><th>Module</th><th>Priority</th></tr></thead><tbody>' +
       flowRows + '</tbody></table>' +
       '</body></html>';
   }
 
   reset() {
     this.hitPages.clear();
-    this.hitFlows.clear();
+    this.hitBusinessFlows.clear();
+    this.events = [];
     this.flushedPages.clear();
-    this.flushedFlows.clear();
+    this.flushedBusinessFlows.clear();
     if (this.coverageFile) {
-      writeJsonArtifact(this.coverageFile, { pages: [], flows: [] });
+      writeJsonArtifact(this.coverageFile, {
+        pages: [],
+        businessFlows: [],
+        provenance: { schema: provenance.SCHEMA, events: [] }
+      });
     }
+    provenance.replaceLedger(this.provenanceFile, []);
   }
 
   getCatalog() {
     return {
       pages: ALL_PAGES.map(page => ({ ...page })),
-      flows: ALL_FLOWS.map(flow => ({ ...flow, pages: [...flow.pages] }))
+      businessFlows: BUSINESS_FLOWS.map(flow => ({
+        ...flow,
+        pages: [...flow.pages],
+        requiredDimensions: [...flow.requiredDimensions]
+      }))
     };
   }
 }
 
 const tracker = new PageCoverage();
 tracker.ALL_PAGES = ALL_PAGES;
-tracker.ALL_FLOWS = ALL_FLOWS;
+tracker.BUSINESS_FLOWS = BUSINESS_FLOWS;
 tracker.ROUTE_ALIASES = ROUTE_ALIASES;
 module.exports = tracker;

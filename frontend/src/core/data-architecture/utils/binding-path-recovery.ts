@@ -36,7 +36,10 @@ export function recoverComponentBindingPathFromVariableName(variableName?: strin
   return `${componentId}.base.${propertyName}`
 }
 
-export function isDamagedComponentBindingPath(bindingPath: unknown, variableName?: string | null): bindingPath is string {
+export function isDamagedComponentBindingPath(
+  bindingPath: unknown,
+  variableName?: string | null
+): bindingPath is string {
   return (
     Boolean(bindingPath) &&
     typeof bindingPath === 'string' &&

@@ -452,8 +452,12 @@ const ALL_ENDPOINTS = [
   { method: 'GET',    path: '/api/v1/rule-chains/:id',                     module: 'automation', auth: true },
   { method: 'DELETE', path: '/api/v1/rule-chains/:id',                     module: 'automation', auth: true },
 
-  // === 产品选择（product.go，预注册建档数据源） ===
+  // === 产品管理与选择（product.go，TB-15 & P0.5 闭环） ===
   { method: 'GET',    path: '/api/v1/product',                             module: 'product',   auth: true },
+  { method: 'POST',   path: '/api/v1/product',                             module: 'product',   auth: true },
+  { method: 'PUT',    path: '/api/v1/product',                             module: 'product',   auth: true },
+  { method: 'DELETE', path: '/api/v1/product/:id',                         module: 'product',   auth: true },
+  { method: 'GET',    path: '/api/v1/product/:id',                         module: 'product',   auth: true },
 
   // === 实体版本控制（entity_version.go，ROADMAP C7） ===
   { method: 'GET',    path: '/api/v1/entity_versions',                     module: 'versioning', auth: true },
@@ -514,16 +518,16 @@ const ALL_ENDPOINTS = [
   { method: 'GET',    path: '/api/v1/system/metrics/current',              module: 'monitor',   auth: true },
   { method: 'GET',    path: '/api/v1/system/metrics/history',              module: 'monitor',   auth: true },
 
-  // === 设备认证（device_auth.go） ===
-  { method: 'POST',   path: '/api/v1/device/auth',                         module: 'device',    auth: true },
-
   // === 定时报表（ROADMAP D3 report_schedule.go） ===
   { method: 'POST',   path: '/api/v1/report/schedules',                    module: 'report',    auth: true },
-  { method: 'PUT',    path: '/api/v1/report/schedules',                    module: 'report',    auth: true },
   { method: 'GET',    path: '/api/v1/report/schedules',                    module: 'report',    auth: true },
+  { method: 'PUT',    path: '/api/v1/report/schedules/:id',                module: 'report',    auth: true },
   { method: 'GET',    path: '/api/v1/report/schedules/:id',                module: 'report',    auth: true },
   { method: 'DELETE', path: '/api/v1/report/schedules/:id',                module: 'report',    auth: true },
   { method: 'POST',   path: '/api/v1/report/schedules/:id/run',            module: 'report',    auth: true },
+  { method: 'GET',    path: '/api/v1/report/schedules/:id/runs',           module: 'report',    auth: true },
+  { method: 'GET',    path: '/api/v1/report/schedules/:id/runs/:run_id',   module: 'report',    auth: true },
+  { method: 'POST',   path: '/api/v1/report/schedules/:id/runs/:run_id/retry', module: 'report', auth: true },
 
   // === 接入安全 X.509（ROADMAP D5 device_certificate.go） ===
   { method: 'POST',   path: '/api/v1/device-certificates/issue',           module: 'device',    auth: true },
@@ -566,8 +570,23 @@ const ALL_ENDPOINTS = [
   { method: 'GET',    path: '/api/v1/calculated_fields/recompute',         module: 'device',    auth: true },
   { method: 'GET',    path: '/api/v1/calculated_fields/recompute/:id',     module: 'device',    auth: true },
 
-  // === 规则链节点追踪（rule_chain_trace_query） ===
-  { method: 'GET',    path: '/api/v1/rule-chains/:id/nodes/:nodeId/traces', module: 'automation', auth: true }
+  // === 规则链节点追踪与 P1.2 可靠性（rule_chain） ===
+  { method: 'POST',   path: '/api/v1/rule-chains',                           module: 'automation', auth: true },
+  { method: 'PUT',    path: '/api/v1/rule-chains',                           module: 'automation', auth: true },
+  { method: 'GET',    path: '/api/v1/rule-chains/list',                      module: 'automation', auth: true },
+  { method: 'GET',    path: '/api/v1/rule-chains/:id',                       module: 'automation', auth: true },
+  { method: 'DELETE', path: '/api/v1/rule-chains/:id',                       module: 'automation', auth: true },
+  { method: 'GET',    path: '/api/v1/rule-chains/:id/nodes/:nodeId/traces', module: 'automation', auth: true },
+  { method: 'GET',    path: '/api/v1/rule-chains/:id/versions',              module: 'automation', auth: true },
+  { method: 'POST',   path: '/api/v1/rule-chains/:id/versions',              module: 'automation', auth: true },
+  { method: 'POST',   path: '/api/v1/rule-chains/versions/publish',          module: 'automation', auth: true },
+  { method: 'POST',   path: '/api/v1/rule-chains/versions/rollback',         module: 'automation', auth: true },
+  { method: 'GET',    path: '/api/v1/rule-chains/:id/dead-letters',          module: 'automation', auth: true },
+  { method: 'GET',    path: '/api/v1/rule-chains/dead-letters',              module: 'automation', auth: true },
+  { method: 'GET',    path: '/api/v1/rule-chains/:id/executions/:execId/traces', module: 'automation', auth: true },
+  { method: 'GET',    path: '/api/v1/rule-chains/executions/:execId/traces', module: 'automation', auth: true },
+  { method: 'GET',    path: '/api/v1/rule-chains/:id/executions/:execId/replay-records', module: 'automation', auth: true },
+  { method: 'POST',   path: '/api/v1/rule-chains/:id/replay',                module: 'automation', auth: true }
 ];
 
 module.exports = { ALL_ENDPOINTS };

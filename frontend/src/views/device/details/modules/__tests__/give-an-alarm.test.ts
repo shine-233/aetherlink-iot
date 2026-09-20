@@ -142,8 +142,7 @@ interface GiveAnAlarmSetupState {
   tabValue: number
 }
 
-const getSetupState = (wrapper: ReturnType<typeof shallowMount>) =>
-  wrapper.vm.$.setupState as GiveAnAlarmSetupState
+const getSetupState = (wrapper: ReturnType<typeof shallowMount>) => wrapper.vm.$.setupState as GiveAnAlarmSetupState
 
 describe('give-an-alarm.vue', () => {
   beforeEach(() => {

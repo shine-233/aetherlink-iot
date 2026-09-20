@@ -373,8 +373,8 @@ onMounted(() => {
         :title="item.name"
         :status-active="true"
         :status-type="'success'"
-        :isStatus="false"
-        :hideFooterLeft="true"
+        :is-status="false"
+        :hide-footer-left="true"
         hoverable
       >
         <template #default>

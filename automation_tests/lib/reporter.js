@@ -8,6 +8,13 @@
 const fs = require('fs');
 const path = require('path');
 const { isOptionalExternalBlockedReason } = require('./runner/optional-externals');
+const { BUSINESS_OPERATIONS } = require('./coverage-contract/business-operations');
+
+const OPERATION_CASE_IDENTITIES = new Set(
+  BUSINESS_OPERATIONS.flatMap(operation => (
+    operation.cases.map(item => `${item.file}::${item.title}`)
+  ))
+);
 
 class Reporter {
   constructor() {
@@ -133,6 +140,14 @@ class Reporter {
       skipped,
       blockedReasons,
       businessClosureEvidence,
+      caseMetadataManaged: summary.caseMetadataManaged === true,
+      caseReconciliationValid: summary.caseReconciliationValid === true,
+      caseReconciliationErrors: Array.isArray(summary.caseReconciliationErrors)
+        ? summary.caseReconciliationErrors
+        : [],
+      caseResults: Array.isArray(summary.caseResults) ? summary.caseResults : [],
+      oracleCases: Array.isArray(summary.oracleCases) ? summary.oracleCases : [],
+      coverageProvenance: summary.coverageProvenance || null,
       timestamp: new Date()
     });
     const mark = passed ? 'PASS' : 'FAIL';
@@ -155,6 +170,14 @@ class Reporter {
     const e2eSummary = byType.e2e || { total: 0, passed: 0, failed: 0, passRate: 0 };
     const byEvidenceKind = this.groupByEvidenceKind();
     const businessClosureEvidence = this.groupBusinessClosureEvidence();
+    const moduleOutcomes = this.results.map(result => ({
+      module: result.module,
+      type: result.type,
+      outcome: result.outcome,
+      skipped: result.skipped,
+      blockedReasons: result.blockedReasons
+    }));
+    const caseOutcomes = this.getCanonicalOperationCaseOutcomes();
 
     const report = {
       summary: {
@@ -165,7 +188,9 @@ class Reporter {
         duration: parseFloat(duration.toFixed(2)),
         parallel: this.parallel,
         startTime: this.startTime ? this.startTime.toISOString() : null,
-        endTime: this.endTime ? this.endTime.toISOString() : null
+        endTime: this.endTime ? this.endTime.toISOString() : null,
+        moduleOutcomes,
+        caseOutcomes
       },
       byType: {
         api: this.toReportGroup(apiSummary),
@@ -173,6 +198,7 @@ class Reporter {
       },
       byEvidenceKind,
       businessClosureEvidence,
+      coverageProvenance: this.groupCoverageProvenance(),
       evidenceContract: {
         businessClosureRequiresEvidenceKind: 'business',
         nonBusinessEvidenceKinds: ['boundary', 'catalog', 'contract', 'preflight', 'config', 'page-coverage-only'],
@@ -189,6 +215,29 @@ class Reporter {
     this.generateHtmlReport(outputDir, report);
 
     return reportPath;
+  }
+
+  getCanonicalOperationCaseOutcomes() {
+    return this.results.flatMap(result => (
+      result.oracleCases
+        .filter(item => item && typeof item.file === 'string' && typeof item.title === 'string')
+        .filter(item => OPERATION_CASE_IDENTITIES.has(`${item.file}::${item.title}`))
+        .map(item => ({
+          file: item.file,
+          caseId: item.caseId || null,
+          title: item.title,
+          fullTitle: item.fullTitle || item.title,
+          outcome: item.outcome,
+          evidenceKind: item.evidenceKind,
+          businessClosureEvidence: item.businessClosureEvidence === true,
+          operationIds: Array.isArray(item.operationIds) ? [...item.operationIds] : [],
+          operationDimensions: Array.isArray(item.operationDimensions)
+            ? [...item.operationDimensions]
+            : [],
+          semantics: item.semantics ? { ...item.semantics } : null,
+          module: result.module
+        }))
+    ));
   }
 
   toReportGroup(group) {
@@ -222,6 +271,13 @@ class Reporter {
       modules[r.module].outcome = r.outcome || (r.passed ? 'passed' : 'failed');
       modules[r.module].skipped = Number(r.skipped || 0);
       modules[r.module].blockedReasons = Array.isArray(r.blockedReasons) ? r.blockedReasons : [];
+      modules[r.module].caseMetadataManaged = r.caseMetadataManaged === true;
+      modules[r.module].caseReconciliationValid = r.caseReconciliationValid === true;
+      modules[r.module].caseReconciliationErrors = Array.isArray(r.caseReconciliationErrors)
+        ? r.caseReconciliationErrors
+        : [];
+      modules[r.module].caseResults = Array.isArray(r.caseResults) ? r.caseResults : [];
+      modules[r.module].oracleCases = Array.isArray(r.oracleCases) ? r.oracleCases : [];
       modules[r.module].businessClosureEvidence =
         modules[r.module].businessClosureEvidence || r.businessClosureEvidence === true;
     });
@@ -235,13 +291,33 @@ class Reporter {
     if (typeof summary.businessClosureEvidence === 'boolean') {
       return summary.businessClosureEvidence;
     }
-    if (Array.isArray(summary.cases)) {
-      return summary.cases.some(item => item && item.businessClosureEvidence === true);
-    }
     if (Array.isArray(summary.oracleCases)) {
       return summary.oracleCases.some(item => item && item.businessClosureEvidence === true);
     }
+    if (Array.isArray(summary.cases)) {
+      return summary.cases.some(item => item && item.businessClosureEvidence === true);
+    }
     return evidenceKind === 'business' && summary.caseLevelBusinessClosureEvidence === true;
+  }
+
+  groupCoverageProvenance() {
+    return this.results.reduce((summary, result) => {
+      const item = result.coverageProvenance;
+      if (!item) return summary;
+      summary.modules++;
+      summary.total += Number(item.total || 0);
+      summary.candidate += Number(item.candidate || 0);
+      summary.effective += Number(item.effective || 0);
+      summary.diagnostic += Number(item.diagnostic || 0);
+      return summary;
+    }, {
+      schema: 'aetherlink.coverage.hit.v1',
+      modules: 0,
+      total: 0,
+      candidate: 0,
+      effective: 0,
+      diagnostic: 0
+    });
   }
 
   groupByType() {

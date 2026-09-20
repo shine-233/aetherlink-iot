@@ -51,7 +51,13 @@ vi.mock('@/utils/thingsvis/platform-fields', () => ({
 }))
 
 vi.mock('@/components/thingsvis/ThingsVisWidget.vue', () => ({
-  default: defineComponent({ props: ['mode', 'config', 'data', 'platformFields', 'platformDevices', 'height', 'bufferSize', 'deviceId'], emits: ['ready'], setup() { return () => h('div') } })
+  default: defineComponent({
+    props: ['mode', 'config', 'data', 'platformFields', 'platformDevices', 'height', 'bufferSize', 'deviceId'],
+    emits: ['ready'],
+    setup() {
+      return () => h('div')
+    }
+  })
 }))
 
 vi.mock('@/hooks/thingsvis/useRealtimePush', () => ({
@@ -79,10 +85,19 @@ const mountComponent = (props = {}) => {
         SvgIcon: defineComponent({
           props: ['localIcon', 'stroke'],
           setup(stubProps) {
-            return () => h('span', { 'data-test': 'svg-icon', 'data-local-icon': stubProps.localIcon as string, 'data-stroke': stubProps.stroke as string })
+            return () =>
+              h('span', {
+                'data-test': 'svg-icon',
+                'data-local-icon': stubProps.localIcon as string,
+                'data-stroke': stubProps.stroke as string
+              })
           }
         }),
-        NDivider: defineComponent({ setup() { return () => h('hr') } }),
+        NDivider: defineComponent({
+          setup() {
+            return () => h('hr')
+          }
+        }),
         TelemetryDataCards: defineComponent({
           props: ['id', 'cardHeight', 'cardMargin'],
           setup(stubProps) {

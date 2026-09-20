@@ -176,7 +176,10 @@ func RouterInit() *gin.Engine {
 			// （配置 plugin.service.key 后全来源严格校验 X-Plugin-Key；未配置仅放行回环/私网）。
 			plugin := v1.Group("", middleware.PluginAuth())
 			{
-				plugin.POST("plugin/heartbeat", controllers.Heartbeat)
+				// 必须限定到 ServicePluginApi：Controller 同时嵌入 ServicePluginApi 与
+				// EdgeNodeApi，两者都有 Heartbeat 方法，裸写 controllers.Heartbeat 会
+				// 触发 Go 的 ambiguous selector 编译错误。此处是插件心跳，用插件实现。
+				plugin.POST("plugin/heartbeat", controllers.ServicePluginApi.Heartbeat)
 				plugin.POST("plugin/device/config", controllers.HandleDeviceConfigForProtocolPlugin)
 				plugin.POST("plugin/devices", controllers.HandleDeviceConfigForProtocolPluginByProtocolType)
 				plugin.POST("plugin/service/access/list", controllers.HandlePluginServiceAccessList)
@@ -190,6 +193,7 @@ func RouterInit() *gin.Engine {
 			v1.GET("verification/code", controllers.HandleVerificationCode)
 			v1.POST("reset/password/link", controllers.RequestPasswordResetLink)
 			v1.POST("reset/password", controllers.ResetPassword)
+			v1.POST("tenant/provision", controllers.TenantApi.SelfProvisionTenant) // P3 客户自助开通入驻
 			v1.GET("logo", middleware.OptionalJWTAuth(), controllers.HandleLogoList)
 			// 设备遥测（ws）
 			v1.GET("telemetry/datas/current/ws", controllers.TelemetryDataApi.ServeCurrentDataByWS)
@@ -251,7 +255,7 @@ func RouterInit() *gin.Engine {
 
 			apps.Model.UserTOTP.InitUserTOTP(v1) // 2FA（TOTP 绑定/状态）
 
-			apps.Model.OidcSso.InitOidcProvider(v1) // OIDC/SSO 提供方管理（ROADMAP C7）
+			apps.Model.OidcSso.InitOidcProvider(v1)          // OIDC/SSO 提供方管理（ROADMAP C7）
 			apps.Model.PluginRegistry.InitPluginRegistry(v1) // PHASE-D-D9 插件管理
 
 			apps.Model.Role.Init(v1) // 角色管理
@@ -278,14 +282,28 @@ func RouterInit() *gin.Engine {
 
 			apps.Model.TelemetryData.InitTelemetryData(v1) // 遥测数据
 
-			apps.Model.ReportSchedule.InitReportSchedule(v1) // 定时报表 D3
+			apps.Model.ReportSchedule.InitReportSchedule(v1)       // 定时报表 D3
 			apps.Model.DeviceCertificate.InitDeviceCertificate(v1) // 接入安全 X.509 D5
-			apps.Model.EdgeSync.InitEdgeSync(v1) // 边缘计算 2.0 D6
+			apps.Model.EdgeSync.InitEdgeSync(v1)                   // 边缘计算 2.0 D6
+
+			// P3 商业许可证状态（SYS_ADMIN；Casbin 登记 97.sql）
+			v1.GET("license/status", controllers.LicenseApi.Status)
 			apps.Model.AiModel.InitAiModel(v1) // AI 2.0 D7
+
+			apps.Model.Scada.Init(v1)  // P1.3 Widget 与 SCADA 基础层
+			apps.Model.Mobile.Init(v1) // P1.4 移动端控制与通知
+			apps.Model.ResourceCenter.InitResourceCenter(v1) // TP-5 资源中心（物模型与大屏统一市场）
+			apps.Model.IndustrySolution.InitIndustrySolution(v1) // TB-19 解决方案模板引擎
+			apps.Model.Tenant.InitTenant(v1) // P3 租户管理
+			apps.Model.Billing.InitBilling(v1) // P3 计费与用量计量
 
 			apps.Model.AttributeData.InitAttributeData(v1) // 属性数据
 
 			apps.Model.CommandData.InitCommandData(v1) // 命令数据
+
+			apps.Model.EntityRelation.InitEntityRelation(v1) // P1.1 通用实体关系
+
+			apps.Model.TelemetryAnalysis.InitTelemetryAnalysis(v1) // P2.2 轻量分析
 
 			apps.Model.OperationLog.Init(v1) // 操作日志
 
@@ -338,6 +356,14 @@ func RouterInit() *gin.Engine {
 			apps.Model.PayloadSchema.InitPayloadSchema(v1) // payload schema 静态校验
 
 			apps.Model.CalculatedField.InitCalculatedField(v1) // 计算字段（遥测派生指标）
+
+			apps.Model.RateLimitRouter.InitRateLimitRouter(v1) // TB-7 集群限流与多策略配额
+
+			apps.Model.QueueMonitorRouter.InitQueueMonitorRouter(v1) // TB-7 队列隔离监控
+
+			apps.Model.UnitsRouter.InitUnitsRouter(v1) // TB-9 单位换算与物理量纲
+
+			apps.Model.SecretsRouter.InitSecrets(v1) // TB-18 通用 Secrets Storage
 
 			// 初始化系统监控路由
 			apps.Model.SystemMonitor.InitSystemMonitor(v1, m)

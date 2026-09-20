@@ -52,9 +52,7 @@ function renderOtaTargetScope(row: OtaTaskRecord) {
       { size: 'small', type: isFilter ? 'info' : 'default' },
       {
         default: () =>
-          isFilter
-            ? $t('page.product.update-ota.targetScopeFilter')
-            : $t('page.product.update-ota.targetScopeExplicit')
+          isFilter ? $t('page.product.update-ota.targetScopeFilter') : $t('page.product.update-ota.targetScopeExplicit')
       }
     ),
     h('span', countLabel)

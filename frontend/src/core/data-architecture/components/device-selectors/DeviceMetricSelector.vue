@@ -103,9 +103,7 @@ const normalizeMetrics = (response: unknown): DeviceMetric[] => {
   for (const item of groupsOrMetrics) {
     const rawOptions: unknown = item && typeof item === 'object' ? (item as ApiRecord).options : undefined
     if (Array.isArray(rawOptions)) {
-      metrics.push(
-        ...rawOptions.map(normalizeMetric).filter((metric): metric is DeviceMetric => Boolean(metric))
-      )
+      metrics.push(...rawOptions.map(normalizeMetric).filter((metric): metric is DeviceMetric => Boolean(metric)))
       continue
     }
 
@@ -174,7 +172,7 @@ const loadMetricOptions = async (deviceId: string) => {
 
 // 设备选项
 const deviceOptions = computed<SelectOption[]>(() => {
-  return deviceList.value.map(device => ({
+  return deviceList.value.map((device) => ({
     label: device.deviceType ? `${device.deviceName} (${device.deviceType})` : device.deviceName,
     value: device.deviceId,
     device: device
@@ -184,7 +182,7 @@ const deviceOptions = computed<SelectOption[]>(() => {
 // 当前选择的设备
 const selectedDevice = computed<DeviceInfo | null>(() => {
   if (!selectedDeviceId.value) return null
-  return deviceList.value.find(device => device.deviceId === selectedDeviceId.value) || null
+  return deviceList.value.find((device) => device.deviceId === selectedDeviceId.value) || null
 })
 
 // 可用的指标选项（根据选择的设备动态变化）
@@ -195,7 +193,7 @@ const availableMetrics = computed<DeviceMetric[]>(() => {
 
 // 指标选项
 const metricOptions = computed<SelectOption[]>(() => {
-  return availableMetrics.value.map(metric => ({
+  return availableMetrics.value.map((metric) => ({
     label: `${metric.metricLabel}${metric.unit ? ` (${metric.unit})` : ''}`,
     value: metric.metricKey,
     metric: metric
@@ -205,7 +203,7 @@ const metricOptions = computed<SelectOption[]>(() => {
 // 当前选择的指标
 const selectedMetric = computed<DeviceMetric | null>(() => {
   if (!selectedMetricKey.value) return null
-  return availableMetrics.value.find(metric => metric.metricKey === selectedMetricKey.value) || null
+  return availableMetrics.value.find((metric) => metric.metricKey === selectedMetricKey.value) || null
 })
 
 // 是否可以确认选择

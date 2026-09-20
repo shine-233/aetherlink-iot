@@ -64,14 +64,21 @@ type AlarmHistoryDescUpdateReq struct {
 }
 
 type AlarmHistoryActionResp struct {
-	ID             string  `json:"id"`
-	AlarmStatus    string  `json:"alarm_status"`
-	Remark         *string `json:"remark"`
-	AcknowledgedBy *string `json:"acknowledged_by,omitempty"`
-	AcknowledgedAt *string `json:"acknowledged_at,omitempty"`
-	ResetBy        *string `json:"reset_by,omitempty"`
-	ResetAt        *string `json:"reset_at,omitempty"`
-	ActionNote     *string `json:"action_note,omitempty"`
+	ID              string  `json:"id"`
+	AlarmStatus     string  `json:"alarm_status"`
+	Remark          *string `json:"remark"`
+	AcknowledgedBy  *string `json:"acknowledged_by,omitempty"`
+	AcknowledgedAt  *string `json:"acknowledged_at,omitempty"`
+	ResetBy         *string `json:"reset_by,omitempty"`
+	ResetAt         *string `json:"reset_at,omitempty"`
+	ClearedBy       *string `json:"cleared_by,omitempty"`
+	ClearedAt       *string `json:"cleared_at,omitempty"`
+	LifecycleStatus string  `json:"lifecycle_status,omitempty"` // ACTIVE_UNACK, ACTIVE_ACK, CLEARED_UNACK, CLEARED_ACK
+	ActionNote      *string `json:"action_note,omitempty"`
+}
+
+type ClearAlarmReq struct {
+	Note *string `json:"note" validate:"omitempty,max=500"`
 }
 
 type AlarmHistoryBatchActionReq struct {

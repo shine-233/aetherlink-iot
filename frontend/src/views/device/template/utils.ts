@@ -50,7 +50,7 @@ export const telemetryModelDataTypeOptions = [
   }
 ]
 
-export const getAdditionalInfo = additionalInfoStr => {
+export const getAdditionalInfo = (additionalInfoStr) => {
   let additionalInfo = []
   if (typeof additionalInfoStr === 'string') {
     try {

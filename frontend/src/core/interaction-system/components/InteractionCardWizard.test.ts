@@ -303,7 +303,7 @@ const ensureInternalMenuVisible = async (wrapper: VueWrapper) => {
   await flushPromises()
   await nextTick()
   const menuSelect = selectByPlaceholder(wrapper, 'interaction.placeholders.selectMenuToJump')
-  expect(menuSelect.findAll('option').map(option => option.attributes('value'))).toEqual([
+  expect(menuSelect.findAll('option').map((option) => option.attributes('value'))).toEqual([
     '',
     '/dashboard',
     '/dashboard/device'

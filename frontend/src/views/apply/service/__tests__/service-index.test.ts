@@ -30,7 +30,9 @@ vi.mock('../components/table-action-modal.vue', () => ({
   default: defineComponent({
     props: ['visible', 'type', 'editData'],
     emits: ['update:visible', 'success'],
-    setup() { return () => h('div', { 'data-testid': 'table-action-modal' }) }
+    setup() {
+      return () => h('div', { 'data-testid': 'table-action-modal' })
+    }
   })
 }))
 
@@ -46,10 +48,11 @@ const mountComponent = (props = {}) => {
         NCard: defineComponent({
           props: { title: String, bordered: Boolean, class: String },
           setup(_, { slots }) {
-            return () => h('div', { class: 'n-card' }, [
-              slots['header-extra'] ? h('div', { class: 'header-extra' }, slots['header-extra']()) : null,
-              slots.default ? slots.default() : null
-            ])
+            return () =>
+              h('div', { class: 'n-card' }, [
+                slots['header-extra'] ? h('div', { class: 'header-extra' }, slots['header-extra']()) : null,
+                slots.default ? slots.default() : null
+              ])
           }
         }),
         NButton: defineComponent({
@@ -60,7 +63,9 @@ const mountComponent = (props = {}) => {
         }),
         NDataTable: defineComponent({
           props: { remote: Boolean, columns: Array, data: Array, loading: Boolean, pagination: Object },
-          setup() { return () => h('div', { class: 'n-data-table' }) }
+          setup() {
+            return () => h('div', { class: 'n-data-table' })
+          }
         }),
         TableActionModal: true
       }
@@ -127,9 +132,7 @@ describe('apply/service/index.vue', () => {
   })
 
   it('sets table data after fetch', async () => {
-    const mockList = [
-      { id: '1', name: 'Service 1', device_type: 1, protocol_type: 'MQTT' }
-    ]
+    const mockList = [{ id: '1', name: 'Service 1', device_type: 1, protocol_type: 'MQTT' }]
     hoisted.fetchProtocolPluginList.mockResolvedValue({
       data: { list: mockList, total: 1 }
     })
@@ -149,9 +152,7 @@ describe('apply/service/index.vue', () => {
   })
 
   it('handleEditTable sets edit data and opens modal', async () => {
-    const mockList = [
-      { id: 'svc-1', name: 'Service 1', device_type: 1, protocol_type: 'MQTT' }
-    ]
+    const mockList = [{ id: 'svc-1', name: 'Service 1', device_type: 1, protocol_type: 'MQTT' }]
     hoisted.fetchProtocolPluginList.mockResolvedValue({
       data: { list: mockList, total: 1 }
     })

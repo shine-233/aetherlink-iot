@@ -136,7 +136,7 @@ export const useTabStore = defineStore(SetupStoreId.Tab, () => {
    */
   async function clearTabs(excludes: string[] = []) {
     const remainTabIds = [...getFixedTabIds(tabs.value), ...excludes]
-    const removedTabsIds = tabs.value.map(tab => tab.id).filter(id => !remainTabIds.includes(id))
+    const removedTabsIds = tabs.value.map((tab) => tab.id).filter((id) => !remainTabIds.includes(id))
 
     const isRemoveActiveTab = removedTabsIds.includes(activeTabId.value)
     const updatedTabs = filterTabsByIds(removedTabsIds, tabs.value)
@@ -174,7 +174,7 @@ export const useTabStore = defineStore(SetupStoreId.Tab, () => {
    * @param tabId
    */
   async function clearLeftTabs(tabId: string) {
-    const tabIds = tabs.value.map(tab => tab.id)
+    const tabIds = tabs.value.map((tab) => tab.id)
     const index = tabIds.indexOf(tabId)
     if (index === -1) return
 
@@ -188,7 +188,7 @@ export const useTabStore = defineStore(SetupStoreId.Tab, () => {
    * @param tabId
    */
   async function clearRightTabs(tabId: string) {
-    const tabIds = tabs.value.map(tab => tab.id)
+    const tabIds = tabs.value.map((tab) => tab.id)
     const index = tabIds.indexOf(tabId)
     if (index === -1) return
 
@@ -206,7 +206,7 @@ export const useTabStore = defineStore(SetupStoreId.Tab, () => {
   function setTabLabel(label: string, tabId?: string) {
     const id = tabId || activeTabId.value
 
-    const tab = tabs.value.find(item => item.id === id)
+    const tab = tabs.value.find((item) => item.id === id)
     if (!tab) return
 
     tab.oldLabel = tab.label
@@ -222,7 +222,7 @@ export const useTabStore = defineStore(SetupStoreId.Tab, () => {
   function resetTabLabel(tabId?: string) {
     const id = tabId || activeTabId.value
 
-    const tab = tabs.value.find(item => item.id === id)
+    const tab = tabs.value.find((item) => item.id === id)
     if (!tab) return
 
     tab.newLabel = undefined

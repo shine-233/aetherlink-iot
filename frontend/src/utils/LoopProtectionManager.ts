@@ -165,7 +165,7 @@ class LoopProtectionManager {
     const history = this.callHistory.get(callKey) || []
 
     // 清理过期的历史记录
-    const validHistory = history.filter(record => now - record.timestamp <= this.config.timeWindow)
+    const validHistory = history.filter((record) => now - record.timestamp <= this.config.timeWindow)
     this.callHistory.set(callKey, validHistory)
 
     return validHistory.length >= this.config.maxCallsInWindow
@@ -317,7 +317,7 @@ class LoopProtectionManager {
     const now = Date.now()
     for (const [callKey, history] of this.callHistory.entries()) {
       const validHistory = history.filter(
-        record => now - record.timestamp <= this.config.timeWindow * 2 // 保留2倍时间窗口的历史
+        (record) => now - record.timestamp <= this.config.timeWindow * 2 // 保留2倍时间窗口的历史
       )
       if (validHistory.length !== history.length) {
         this.callHistory.set(callKey, validHistory)

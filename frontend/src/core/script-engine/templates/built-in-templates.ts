@@ -11,12 +11,7 @@ import { DATA_PROCESSOR_TEMPLATES } from './data-processor-templates'
 import type { BuiltInTemplateDefinition } from './definition-types'
 import { UTILITY_TEMPLATES } from './utility-templates'
 
-export {
-  DATA_FETCHER_TEMPLATES,
-  DATA_PROCESSOR_TEMPLATES,
-  DATA_MERGER_TEMPLATES,
-  UTILITY_TEMPLATES
-}
+export { DATA_FETCHER_TEMPLATES, DATA_PROCESSOR_TEMPLATES, DATA_MERGER_TEMPLATES, UTILITY_TEMPLATES }
 
 type BuiltInTemplateManager = {
   createTemplate: (template: BuiltInTemplateDefinition) => unknown

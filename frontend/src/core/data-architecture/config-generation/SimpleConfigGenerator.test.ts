@@ -17,9 +17,7 @@ describe('SimpleConfigGenerator', () => {
           fieldMappings: {},
           required: true,
           structureType: 'object' as const,
-          fields: [
-            { name: 'temperature', type: 'number' as const, required: false, description: 'Temperature' }
-          ]
+          fields: [{ name: 'temperature', type: 'number' as const, required: false, description: 'Temperature' }]
         }
       ]
     }
@@ -87,9 +85,7 @@ describe('SimpleConfigGenerator', () => {
     }
     const config = generator.generateConfig(requirement, [input])
 
-    expect(config.triggers).toEqual([
-      { type: 'websocket', config: { url: 'wss://example.test', protocols: ['json'] } }
-    ])
+    expect(config.triggers).toEqual([{ type: 'websocket', config: { url: 'wss://example.test', protocols: ['json'] } }])
 
     const sourceConfig = config.dataSources[0].config as typeof input.config
     const triggerConfig = config.triggers[0].config
@@ -171,9 +167,9 @@ describe('SimpleConfigGenerator', () => {
     ])
   })
 
-  it.each(['device.getValue()', 'items[0 + 1]', 'device.__proto__.polluted', 'device.constructor.prototype']) (
+  it.each(['device.getValue()', 'items[0 + 1]', 'device.__proto__.polluted', 'device.constructor.prototype'])(
     'rejects the executable or prototype path %s',
-    sourcePath => {
+    (sourcePath) => {
       const generator = new SimpleConfigGenerator()
       const [result] = generator.previewMapping({ device: {} }, { output: sourcePath })
 

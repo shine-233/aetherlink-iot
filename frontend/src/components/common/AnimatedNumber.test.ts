@@ -8,12 +8,18 @@ describe('AnimatedNumber', () => {
   beforeEach(() => {
     animationCallback = undefined
     vi.spyOn(performance, 'now').mockReturnValue(100)
-    vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => {
-      animationCallback = callback
-      return 1
-    }))
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn((callback: FrameRequestCallback) => {
+        animationCallback = callback
+        return 1
+      })
+    )
     vi.stubGlobal('cancelAnimationFrame', vi.fn())
-    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false })))
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: false }))
+    )
   })
 
   afterEach(() => {

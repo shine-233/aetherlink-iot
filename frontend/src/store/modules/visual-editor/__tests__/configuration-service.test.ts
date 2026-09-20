@@ -115,7 +115,7 @@ describe('ConfigurationService', () => {
   it('emits configuration and runtime events while static data source side effects clear cache and set runtime data', async () => {
     const service = useConfigurationService()
     const events: any[] = []
-    const unsubscribe = service.onConfigurationChange(event => events.push(event))
+    const unsubscribe = service.onConfigurationChange((event) => events.push(event))
 
     service.setDataSourceConfig('widget-1', {
       type: 'static',
@@ -234,7 +234,7 @@ describe('ConfigurationService', () => {
     service.registerMigration({
       fromVersion: '1.0.0',
       toVersion: '2.0.0',
-      migrate: config => ({
+      migrate: (config) => ({
         ...config,
         base: { ...(config.base || {}), title: 'Migrated' },
         metadata: { ...(config.metadata || {}), version: '2.0.0' }

@@ -149,12 +149,17 @@ func validateSceneAutomationActionDeviceConfigReference(deviceConfigID string, c
 	return nil
 }
 
-func validateSceneAutomationActionSceneReference(sceneAutomationID string, claims *utils.UserClaims, tenantID string) error {
-	sceneAutomation, err := ensureSceneAutomationWriteAccess(sceneAutomationID, claims)
+func validateSceneAutomationActionSceneReference(sceneID string, claims *utils.UserClaims, tenantID string) error {
+	// 动作 20「激活场景」的运行期对象是 scenes 表的场景
+	//（AutomateTelemetryActionScene: GetSceneInfo + ActiveSceneExecute），
+	// 校验对象必须与运行期一致。此前的实现去查 scene_automations，
+	// 导致指向真实场景的合法动作在创建期被 record not found 拒绝——
+	// 校验比运行期多拦掉了一条本应可用的链路。
+	sceneInfo, err := ensureSceneReadAccess(sceneID, claims)
 	if err != nil {
 		return err
 	}
-	if sceneAutomation.TenantID != tenantID {
+	if sceneInfo.TenantID != tenantID {
 		return errcode.NewWithMessage(errcode.CodeNoPermission, "action scene tenant mismatch")
 	}
 	return nil

@@ -11,7 +11,7 @@ import { useSysSettingStore } from '@/store/modules/sys-setting'
 import { resolveDocumentTitle } from './title-helper'
 
 export function createDocumentTitleGuard(router: Router) {
-  router.afterEach(to => {
+  router.afterEach((to) => {
     const sysSettingStore = useSysSettingStore()
     const appTitle = sysSettingStore.system_name || $t('title')
     const documentTitle = resolveDocumentTitle(to, appTitle, $t)

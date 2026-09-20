@@ -879,11 +879,9 @@ describe('rdi-overview/index.vue', () => {
       for (const [params] of hoisted.alarmHistory.mock.calls) {
         expect(params).toMatchObject({ all_tenants: true })
       }
-      expect(hoisted.alarmHistoryMonthlyTrend).toHaveBeenCalledWith(
-        dayjs().year(),
-        expect.any(String),
-        { all_tenants: true }
-      )
+      expect(hoisted.alarmHistoryMonthlyTrend).toHaveBeenCalledWith(dayjs().year(), expect.any(String), {
+        all_tenants: true
+      })
       const deviceColumn = setupState.alarmColumns.find((column) => column.key === 'devices')
       const deviceLink = deviceColumn.render({
         tenant_id: 'tenant-b',

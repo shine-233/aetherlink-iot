@@ -56,8 +56,7 @@ describe('fleet-rollout-context', () => {
       fleet_requested_total: '42',
       fleet_current_page_count: '2',
       preview_sample_device_ids: 'dev-1,dev-2',
-      device_filter:
-        '{"group_id":"group-1","is_online":1,"last_reported_after":1752883200000,"never_reported":false}'
+      device_filter: '{"group_id":"group-1","is_online":1,"last_reported_after":1752883200000,"never_reported":false}'
     })
 
     expect(context).toMatchObject({

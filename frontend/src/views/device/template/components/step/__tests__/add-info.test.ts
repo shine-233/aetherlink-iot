@@ -41,16 +41,59 @@ const mountComponent = (props = {}) => {
     props: { stepCurrent: 1, modalVisible: false, deviceTemplateId: '', ...props },
     global: {
       stubs: {
-        NForm: defineComponent({ setup(_, { slots }) { return () => h('form', slots.default ? slots.default() : []) } }),
-        NFormItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NInput: defineComponent({ props: { value: { default: '' } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : []) } }),
-        NTag: defineComponent({ setup(_, { slots }) { return () => h('span', slots.default ? slots.default() : []) } }),
-        NSpace: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NUpload: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NIcon: defineComponent({ setup(_, { slots }) { return () => h('span', slots.default ? slots.default() : []) } }),
-        NUploadDragger: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        SvgIcon: defineComponent({ setup(_, { slots }) { return () => h('span', slots.default ? slots.default() : []) } })
+        NForm: defineComponent({
+          setup(_, { slots }) {
+            return () => h('form', slots.default ? slots.default() : [])
+          }
+        }),
+        NFormItem: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NInput: defineComponent({
+          props: { value: { default: '' } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NButton: defineComponent({
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : [])
+          }
+        }),
+        NTag: defineComponent({
+          setup(_, { slots }) {
+            return () => h('span', slots.default ? slots.default() : [])
+          }
+        }),
+        NSpace: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NUpload: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NIcon: defineComponent({
+          setup(_, { slots }) {
+            return () => h('span', slots.default ? slots.default() : [])
+          }
+        }),
+        NUploadDragger: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        SvgIcon: defineComponent({
+          setup(_, { slots }) {
+            return () => h('span', slots.default ? slots.default() : [])
+          }
+        })
       }
     }
   })

@@ -78,20 +78,33 @@ describe('Business oracle contract [00_oracle_contract]', function () {
     });
   });
 
-  it('detects mapped test files that are missing or do not contain real tests', function () {
-    const missingBackendTest = coverageContract.getMappedTestFileStatus(
+  it('requires exact Go identities instead of accepting file-level Go scans', function () {
+    expect(() => coverageContract.getMappedTestFileStatus(
       'negative-control',
       'backend',
       'internal/api/does_not_exist_test.go'
-    );
+    )).to.throw('exact package/test identity');
 
-    expect(missingBackendTest).to.include({
+    const status = coverageContract.getGoEvidenceStatus('negative-control', {
+      evidenceId: 'negative-control',
+      repositoryFile: 'backend/internal/api/does_not_exist_test.go',
+      package: 'aetherlink-iot/backend/internal/api',
+      testFunction: 'TestDoesNotExist',
+      semanticAnchor: 'negative-control.missing-test',
+      evidenceRole: 'boundary',
+      capabilityIds: ['negative-control']
+    });
+
+    expect(status).to.include({
       capability: 'negative-control',
       layer: 'backend',
-      file: 'internal/api/does_not_exist_test.go',
+      file: 'backend/internal/api/does_not_exist_test.go',
       exists: false,
-      hasTestFunction: false
+      declarationValid: false,
+      runtimeOutcome: 'unknown',
+      runtimePassed: false
     });
+    expect(status.declarationErrors).to.include('missing-test-file');
   });
 
   it('does not accept source or MQTT oracles that only exist as catalog strings', function () {
@@ -109,15 +122,14 @@ describe('Business oracle contract [00_oracle_contract]', function () {
       }],
       e2eTests: [],
       e2eEvidence: [],
-      backendTests: ['internal/api/renamed_test.go'],
       backendEvidence: [{
-        capability: 'negative-source',
-        layer: 'backend',
-        file: 'internal/api/renamed_test.go',
-        exists: false,
-        hasTestFunction: false
+        evidenceId: 'negative-source',
+        evidenceRole: 'business',
+        declarationValid: false,
+        runtimeOutcome: 'unknown',
+        runtimePassed: false
       }],
-      gmqttTests: []
+      gmqttEvidence: []
     });
     const mqttStatus = oracleContract.getCapabilityOracleStatus({
       id: 'device-telemetry',
@@ -133,26 +145,28 @@ describe('Business oracle contract [00_oracle_contract]', function () {
       }],
       e2eTests: [],
       e2eEvidence: [],
-      backendTests: ['internal/api/device_api_test.go'],
       backendEvidence: [{
-        capability: 'device-telemetry',
-        layer: 'backend',
-        file: 'internal/api/device_api_test.go',
-        exists: true,
-        hasTestFunction: true
+        evidenceId: 'device-api',
+        evidenceRole: 'business',
+        declarationValid: true,
+        runtimeOutcome: 'unknown',
+        runtimePassed: false
       }],
-      gmqttTests: ['plugin/missing_case/does_not_exist_test.go'],
       gmqttEvidence: [{
-        capability: 'device-telemetry',
-        layer: 'gmqtt',
-        file: 'plugin/missing_case/does_not_exist_test.go',
-        exists: false,
-        hasTestFunction: false
+        evidenceId: 'missing-mqtt-case',
+        evidenceRole: 'business',
+        declarationValid: false,
+        runtimeOutcome: 'unknown',
+        runtimePassed: false
       }]
     });
 
+    expect(sourceStatus.sourceDeclaration).to.equal(false);
     expect(sourceStatus.sourceOracle).to.equal(false);
     expect(sourceStatus.passed).to.equal(false);
+    expect(mqttStatus.sourceDeclaration).to.equal(true);
+    expect(mqttStatus.sourceOracle).to.equal(false);
+    expect(mqttStatus.mqttDeclaration).to.equal(false);
     expect(mqttStatus.mqttOracle).to.equal(false);
     expect(mqttStatus.passed).to.equal(false);
   });
@@ -173,21 +187,21 @@ describe('Business oracle contract [00_oracle_contract]', function () {
       }],
       e2eTests: [],
       e2eEvidence: [],
-      backendTests: ['internal/api/api_router_contract_test.go'],
       backendEvidence: [{
-        capability: 'automation-scene',
-        layer: 'backend',
-        file: 'internal/api/api_router_contract_test.go',
-        exists: true,
-        hasTestFunction: true
+        evidenceId: 'api-router-structure',
+        evidenceRole: 'source-structure',
+        declarationValid: true,
+        runtimeOutcome: 'passed',
+        runtimePassed: true
       }],
-      gmqttTests: [],
       gmqttEvidence: []
     });
 
     expect(status.statusOracle).to.equal(false);
     expect(status.bodyOracle).to.equal(false);
     expect(status.negativeOracle).to.equal(true);
+    expect(status.sourceDeclaration).to.equal(true);
+    expect(status.sourceOracle).to.equal(false);
     expect(status.passed).to.equal(false);
   });
 

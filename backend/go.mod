@@ -1,6 +1,11 @@
 module aetherlink-iot/backend
 
-go 1.25.0
+go 1.26.0
+
+// 安全要求：go1.26.2 的标准库存在 17 个已知漏洞（govulncheck 实测），
+// 其中 net/net/http 修复于 1.26.3、os 的根目录逃逸修复于 1.26.5。
+// 这里钉住工具链，使构建必然使用含修复的标准库；请勿下调。
+toolchain go1.26.8
 
 require (
 	github.com/alicebob/miniredis/v2 v2.38.0
@@ -21,7 +26,7 @@ require (
 	github.com/spf13/viper v1.21.0
 	github.com/swaggo/swag v1.16.6
 	github.com/xuri/excelize/v2 v2.11.0
-	golang.org/x/crypto v0.55.0
+	golang.org/x/crypto v0.56.0
 	golang.org/x/time v0.15.0
 	google.golang.org/grpc v1.83.0
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
@@ -122,12 +127,12 @@ require (
 	github.com/yuin/gopher-lua v1.1.2
 	golang.org/x/arch v0.22.0 // indirect
 	golang.org/x/exp v0.0.0-20250506013437-ce4c2cf36ca6 // indirect
-	golang.org/x/mod v0.38.0 // indirect
-	golang.org/x/net v0.57.0 // indirect
+	golang.org/x/mod v0.40.0 // indirect
+	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
-	golang.org/x/tools v0.48.0 // indirect
+	golang.org/x/tools v0.49.0 // indirect
 	google.golang.org/protobuf v1.36.12
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 	gopkg.in/yaml.v3 v3.0.1

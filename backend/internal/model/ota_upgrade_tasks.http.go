@@ -10,9 +10,13 @@ type CreateOTAUpgradeTaskReq struct {
 	DeviceIdList        []string                    `json:"device_id_list" validate:"omitempty"`
 	DeviceFilter        *OTAUpgradeTaskDeviceFilter `json:"device_filter" validate:"omitempty"`
 	ExcludeDeviceIdList []string                    `json:"exclude_device_id_list" validate:"omitempty"`
-	ExpectedTotal       *int64                      `json:"expected_total" validate:"omitempty"`
-	MaxDevices          *int                        `json:"max_devices" validate:"omitempty"`
-	TargetMode          string                      `json:"-"`
+	ExpectedTotal           *int64                      `json:"expected_total" validate:"omitempty"`
+	MaxDevices              *int                        `json:"max_devices" validate:"omitempty"`
+	RolloutRatePerMinute    *int                        `json:"rollout_rate_per_minute" validate:"omitempty,min=1,max=300"`
+	AbortFailureRatePercent *float64                    `json:"abort_failure_rate_percent" validate:"omitempty,gt=0,lte=100"`
+	TimeoutSeconds          *int                        `json:"timeout_seconds" validate:"omitempty,min=60,max=604800"`
+	ScheduledAt             *string                     `json:"scheduled_at" validate:"omitempty"`
+	TargetMode              string                      `json:"-"`
 	TargetFilter        *string                     `json:"-"`
 	PreviewTotal        *int64                      `json:"-"`
 	SelectedCount       *int                        `json:"-"`

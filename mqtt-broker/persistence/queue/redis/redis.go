@@ -169,8 +169,12 @@ func (q *Queue) Add(elem *queue.Elem) (err error) {
 			q.notifier.NotifyMsgQueueAdded(1)
 			q.len++
 		}
-		_ = conn.Send("rpush", getKey(q.clientID), elem.Encode())
-		err = conn.Flush()
+		if err == nil {
+			err = conn.Send("rpush", getKey(q.clientID), elem.Encode())
+		}
+		if err == nil {
+			err = conn.Flush()
+		}
 	}()
 	if q.len >= q.max {
 		// set default drop error

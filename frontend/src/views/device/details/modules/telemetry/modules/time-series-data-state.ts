@@ -20,19 +20,7 @@ export type TimeRange =
   | 'last_1y'
 
 export type AggregateWindow =
-  | 'no_aggregate'
-  | '30s'
-  | '1m'
-  | '2m'
-  | '5m'
-  | '10m'
-  | '30m'
-  | '1h'
-  | '3h'
-  | '6h'
-  | '1d'
-  | '7d'
-  | '1mo'
+  'no_aggregate' | '30s' | '1m' | '2m' | '5m' | '10m' | '30m' | '1h' | '3h' | '6h' | '1d' | '7d' | '1mo'
 
 export type AggregateFunction = 'avg' | 'max' | 'min' | 'sum' | 'diff'
 export type ChartSeriesType = 'line' | 'bar' | 'scatter'

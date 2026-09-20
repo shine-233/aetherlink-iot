@@ -8,7 +8,17 @@
 -->
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { NAlert, NDrawer, NDrawerContent, NButton, NDescriptions, NDescriptionsItem, NTag, NSpace, NSpin } from 'naive-ui'
+import {
+  NAlert,
+  NDrawer,
+  NDrawerContent,
+  NButton,
+  NDescriptions,
+  NDescriptionsItem,
+  NTag,
+  NSpace,
+  NSpin
+} from 'naive-ui'
 import { $t } from '@/locales'
 import { getMarketTemplateDetail } from '@/service/api/market'
 import defaultCover from '@/assets/imgs/default_template_cover.png'
@@ -73,7 +83,8 @@ const handleClose = () => {
   emit('update:visible', false)
 }
 
-const canInstallCurrentTemplate = () => Boolean(detail.value && loadedTemplateId.value === props.templateId && !loading.value)
+const canInstallCurrentTemplate = () =>
+  Boolean(detail.value && loadedTemplateId.value === props.templateId && !loading.value)
 </script>
 
 <template>

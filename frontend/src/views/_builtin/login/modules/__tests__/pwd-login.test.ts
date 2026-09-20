@@ -93,7 +93,7 @@ function withNaiveAliases(stubs: Record<string, any>) {
 
   pairs.forEach(([source, names]) => {
     if (stubs[source]) {
-      names.forEach(name => {
+      names.forEach((name) => {
         aliases[name] = stubs[source]
       })
     }

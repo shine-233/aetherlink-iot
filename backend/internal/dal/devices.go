@@ -378,3 +378,22 @@ func (DeviceQuery) ChangeDeviceConfig(deviceID string, deviceConfigID *string) e
 	}
 	return nil
 }
+
+// GetDeviceByNameAndTenant 查询指定租户下指定名称的设备（TB-15）。
+func GetDeviceByNameAndTenant(tenantID, name string) (*model.Device, error) {
+	var device model.Device
+	err := global.DB.Where("tenant_id = ? AND name = ?", tenantID, name).First(&device).Error
+	if err != nil {
+		return nil, err
+	}
+	return &device, nil
+}
+
+// GetDeviceNamesMatchingBase 查询同租户下 baseName 或 baseName (N) 形式的所有已有名称，用于自动更名判定（TB-15）。
+func GetDeviceNamesMatchingBase(tenantID, baseName string) ([]string, error) {
+	var names []string
+	err := global.DB.Model(&model.Device{}).
+		Where("tenant_id = ? AND (name = ? OR name LIKE ?)", tenantID, baseName, baseName+" (%)").
+		Pluck("name", &names).Error
+	return names, err
+}

@@ -88,7 +88,7 @@ vi.mock('@/service/api/rdi', () => ({
   rdiDeviceConfig: hoisted.rdiDeviceConfig
 }))
 
-vi.mock('@/utils/thingsvis/constants', async importOriginal => {
+vi.mock('@/utils/thingsvis/constants', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/utils/thingsvis/constants')>()
   return {
     ...actual,
@@ -243,7 +243,7 @@ const dispatchFrameMessage = async (
 }
 
 const postedPayloads = (postMessage: ReturnType<typeof vi.fn>, type: string) => {
-  return postMessage.mock.calls.map(call => call[0]).filter(message => message?.type === type)
+  return postMessage.mock.calls.map((call) => call[0]).filter((message) => message?.type === type)
 }
 
 describe('ThingsVisAppFrame.vue', () => {
@@ -583,10 +583,26 @@ describe('ThingsVisAppFrame.vue', () => {
       page: 1,
       page_size: expect.any(Number)
     })
-    expect(hoisted.telemetryApi).toHaveBeenCalledWith({ page: 1, page_size: expect.any(Number), device_template_id: 'tpl-1' })
-    expect(hoisted.attributesApi).toHaveBeenCalledWith({ page: 1, page_size: expect.any(Number), device_template_id: 'tpl-1' })
-    expect(hoisted.commandsApi).toHaveBeenCalledWith({ page: 1, page_size: expect.any(Number), device_template_id: 'tpl-1' })
-    expect(hoisted.eventsApi).toHaveBeenCalledWith({ page: 1, page_size: expect.any(Number), device_template_id: 'tpl-1' })
+    expect(hoisted.telemetryApi).toHaveBeenCalledWith({
+      page: 1,
+      page_size: expect.any(Number),
+      device_template_id: 'tpl-1'
+    })
+    expect(hoisted.attributesApi).toHaveBeenCalledWith({
+      page: 1,
+      page_size: expect.any(Number),
+      device_template_id: 'tpl-1'
+    })
+    expect(hoisted.commandsApi).toHaveBeenCalledWith({
+      page: 1,
+      page_size: expect.any(Number),
+      device_template_id: 'tpl-1'
+    })
+    expect(hoisted.eventsApi).toHaveBeenCalledWith({
+      page: 1,
+      page_size: expect.any(Number),
+      device_template_id: 'tpl-1'
+    })
     expect(postedPayloads(postMessage, 'tv:device-fields')[0].payload).toMatchObject({
       deviceId: 'dev-1',
       templateId: 'tpl-1',
@@ -627,7 +643,7 @@ describe('ThingsVisAppFrame.vue', () => {
         device_alarm_highest_level: 'critical'
       }
     })
-    expect(MockWebSocket.instances.map(instance => instance.url)).toEqual([
+    expect(MockWebSocket.instances.map((instance) => instance.url)).toEqual([
       'wss://platform.test/telemetry/datas/current/ws',
       'wss://platform.test/device/online/status/ws'
     ])
@@ -805,8 +821,8 @@ describe('ThingsVisAppFrame.vue', () => {
     await flushAsync()
 
     const targetedPlatformMessages = postedPayloads(postMessage, 'tv:platform-data')
-      .map(message => message.payload)
-      .filter(payload => payload?.dataSourceId)
+      .map((message) => message.payload)
+      .filter((payload) => payload?.dataSourceId)
 
     expect(targetedPlatformMessages).toEqual(
       expect.arrayContaining([
@@ -825,7 +841,7 @@ describe('ThingsVisAppFrame.vue', () => {
     expect(targetedPlatformMessages).toHaveLength(2)
     expect(hoisted.telemetryDataCurrent).toHaveBeenCalledTimes(1)
     expect(hoisted.getAttributeDataSet).toHaveBeenCalledTimes(1)
-    expect(MockWebSocket.instances.map(instance => instance.url)).toEqual([
+    expect(MockWebSocket.instances.map((instance) => instance.url)).toEqual([
       'wss://platform.test/telemetry/datas/current/ws',
       'wss://platform.test/device/online/status/ws'
     ])
@@ -863,8 +879,8 @@ describe('ThingsVisAppFrame.vue', () => {
     await flushAsync()
 
     const targetedPlatformMessages = postedPayloads(postMessage, 'tv:platform-data')
-      .map(message => message.payload)
-      .filter(payload => payload?.dataSourceId)
+      .map((message) => message.payload)
+      .filter((payload) => payload?.dataSourceId)
 
     expect(targetedPlatformMessages).toEqual(
       expect.arrayContaining([
@@ -1017,13 +1033,17 @@ describe('ThingsVisAppFrame.vue', () => {
     await dispatchFrameMessage({ type: 'tv:preview', projectId: 'dashboard-2' })
 
     expect(hoisted.routerResolve).not.toHaveBeenCalled()
-    expect(window.open).toHaveBeenCalledWith('/visualization/thingsvis-preview?id=dashboard-2', '_blank', 'noopener,noreferrer')
+    expect(window.open).toHaveBeenCalledWith(
+      '/visualization/thingsvis-preview?id=dashboard-2',
+      '_blank',
+      'noopener,noreferrer'
+    )
     expect(postedPayloads(postMessage, 'tv:platform-data')).toHaveLength(2)
 
     wrapper.unmount()
 
     expect(MockWebSocket.instances).toHaveLength(2)
-    expect(MockWebSocket.instances.every(instance => instance.close.mock.calls.length === 1)).toBe(true)
+    expect(MockWebSocket.instances.every((instance) => instance.close.mock.calls.length === 1)).toBe(true)
   })
 
   it('adjusts the host iframe height from trusted ThingsVis content-height messages', async () => {
@@ -1065,6 +1085,10 @@ describe('ThingsVisAppFrame.vue', () => {
     await dispatchFrameMessage({ type: 'tv:preview', projectId: { id: 'dashboard-2' } })
 
     expect(hoisted.routerResolve).not.toHaveBeenCalled()
-    expect(window.open).toHaveBeenCalledWith('/visualization/thingsvis-preview?id=dashboard-1', '_blank', 'noopener,noreferrer')
+    expect(window.open).toHaveBeenCalledWith(
+      '/visualization/thingsvis-preview?id=dashboard-1',
+      '_blank',
+      'noopener,noreferrer'
+    )
   })
 })

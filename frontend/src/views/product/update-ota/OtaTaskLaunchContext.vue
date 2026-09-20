@@ -41,7 +41,10 @@ const emit = defineEmits<{
   >
     {{
       $t('page.product.update-ota.fleetPreselectionFullFilter')
-        .replace('{currentPage}', String(fleetPreselectionResult.currentPageCount ?? fleetPreselectionResult.requestedCount))
+        .replace(
+          '{currentPage}',
+          String(fleetPreselectionResult.currentPageCount ?? fleetPreselectionResult.requestedCount)
+        )
         .replace('{total}', String(fleetPreselectionResult.requestedTotal ?? '--'))
     }}
   </NAlert>
@@ -53,15 +56,13 @@ const emit = defineEmits<{
         .replace('{max}', String(filterPreviewResult.max_devices ?? 0))
     }}
   </NAlert>
-  <NAlert
-    v-if="isFleetFilterScope && !isFleetFilterRollout"
-    type="warning"
-    class="mb-3"
-    :show-icon="true"
-  >
+  <NAlert v-if="isFleetFilterScope && !isFleetFilterRollout" type="warning" class="mb-3" :show-icon="true">
     {{
       $t('page.product.update-ota.fleetPreselectionCurrentPageOnly')
-        .replace('{currentPage}', String(fleetPreselectionResult.currentPageCount ?? fleetPreselectionResult.requestedCount))
+        .replace(
+          '{currentPage}',
+          String(fleetPreselectionResult.currentPageCount ?? fleetPreselectionResult.requestedCount)
+        )
         .replace('{total}', String(fleetPreselectionResult.requestedTotal ?? '--'))
     }}
   </NAlert>

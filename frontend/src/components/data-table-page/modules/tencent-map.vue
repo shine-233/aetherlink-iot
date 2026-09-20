@@ -120,7 +120,7 @@ const renderInfoWindow = (evt: MarkerEvent, _res: unknown) => {
         {evt.geometry.data.ts ? dayjs(evt.geometry.data.ts).format('YYYY-MM-DD HH:mm:ss') : '-'}
       </div>
       <div>
-        {telemetryItems.map(item => {
+        {telemetryItems.map((item) => {
           const label = item.label ? `${item.label}(${item.key})` : item.key
 
           return (
@@ -165,7 +165,7 @@ const updateViewport = (markers: DeviceMarker[]) => {
     return
   }
 
-  validMarkers.forEach(marker => {
+  validMarkers.forEach((marker) => {
     if (bounds.isEmpty() || !bounds.contains(marker.position)) {
       bounds.extend(marker.position)
     }
@@ -236,15 +236,13 @@ const createDeviceMarkers = (devices: MapDevice[] = []) =>
 
 const normalizeTelemetryItems = (items: TelemetryItemInput[]) =>
   items
-    .filter(item => item.label || item.key)
-    .map(
-      (item): NormalizedTelemetryItem => ({
-        label: item?.label == null ? '' : String(item.label),
-        key: item?.key == null ? '' : String(item.key),
-        value: item?.value == null ? '' : String(item.value),
-        unit: item?.unit == null ? '' : String(item.unit)
-      })
-    )
+    .filter((item) => item.label || item.key)
+    .map((item): NormalizedTelemetryItem => ({
+      label: item?.label == null ? '' : String(item.label),
+      key: item?.key == null ? '' : String(item.key),
+      value: item?.value == null ? '' : String(item.value),
+      unit: item?.unit == null ? '' : String(item.unit)
+    }))
 
 const ignoreNextMapClick = () => {
   ignoreMapClick = true
@@ -292,7 +290,7 @@ const openMarkerInfoWindow = (evt: MarkerEvent, res: unknown) => {
 const handleMarkerClick = (evt: MarkerEvent) => {
   if (!evt?.geometry?.data?.id) return
 
-  telemetryLatestApi(evt.geometry.data.id).then(res => {
+  telemetryLatestApi(evt.geometry.data.id).then((res) => {
     if (!Array.isArray(res?.data)) return
 
     evt.geometry.telemetryItems = normalizeTelemetryItems(res.data as TelemetryItemInput[])
@@ -353,7 +351,7 @@ onMounted(() => {
 
 watch(
   () => props.devices,
-  async newValue => {
+  async (newValue) => {
     logger.info(newValue)
     await renderMap()
     if (infoWindow) {

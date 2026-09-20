@@ -21,9 +21,9 @@ describe('release preflight contract [00_release_preflight_contract]', function 
 
     expect(result.kind).to.equal('aetherlink-release-preflight-local');
     expect(result.ok).to.equal(true);
-    expect(result.checks).to.have.length(10);
+    expect(result.checks).to.have.length(11);
     expect(result.checks.every(check => check.status === 'pass')).to.equal(true);
-    expect(calls).to.have.length(10);
+    expect(calls).to.have.length(11);
   });
 
   it('fails when a required local check fails', function () {
@@ -59,6 +59,7 @@ describe('release preflight contract [00_release_preflight_contract]', function 
     expect(checks.map(check => check.id)).to.deep.equal([
       'supply-chain',
       'generated-artifacts',
+      'production-placeholder-audit',
       'deploy:optional-integrations-contract',
       'deploy:docker-build-context-contract',
       'deploy:package-source-boundary-contract',
@@ -68,7 +69,7 @@ describe('release preflight contract [00_release_preflight_contract]', function 
       'deploy:network-segmentation-contract',
       'deploy:backup-restore-contract'
     ]);
-    expect(checks.slice(2).every(check => check.command === 'sh')).to.equal(true);
+    expect(checks.slice(3).every(check => check.command === 'sh')).to.equal(true);
   });
 
   it('does not change cwd or mutate caller-provided check arguments', function () {

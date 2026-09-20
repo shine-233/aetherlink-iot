@@ -59,3 +59,18 @@ export const getDeviceListForSelect = async (params?: Api.Device.DeviceSelectorP
     list: Api.Device.DeviceSelectItem[]
   }>(`/device/selector`, { params })
 }
+
+/** 升级设备物模型 (ROADMAP P1.6) */
+export const upgradeDeviceTemplate = async (data: { payload: any }) => {
+  return await request.post<Api.BaseApi.Data | any>(`/device/template/upgrade`, data)
+}
+
+/** 回滚设备物模型升级到历史版本 (ROADMAP P1.6) */
+export const rollbackDeviceTemplateUpgrade = async (historyId: string) => {
+  return await request.post<Api.BaseApi.Data | any>(`/device/template/upgrade/${historyId}/rollback`)
+}
+
+/** 查询物模型升级历史（回滚点列表）(ROADMAP P1.6) */
+export const getDeviceTemplateUpgradeHistory = async (params?: { template_name?: string }) => {
+  return await request.get<Api.BaseApi.Data | any>(`/device/template/upgrade/history`, { params })
+}

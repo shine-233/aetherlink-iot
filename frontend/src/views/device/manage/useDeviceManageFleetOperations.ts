@@ -6,10 +6,7 @@ import {
   fleetTargetPresets,
   type FleetTargetPresetKey
 } from './device-fleet-target-presets'
-import {
-  buildFleetSelectionSummary,
-  downloadFleetDeviceCsv
-} from './device-fleet-operations'
+import { buildFleetSelectionSummary, downloadFleetDeviceCsv } from './device-fleet-operations'
 import { buildSelectAllMatchingCommandCenterRoute } from './device-fleet-handoff-routes'
 import {
   buildFleetSelectionScope,

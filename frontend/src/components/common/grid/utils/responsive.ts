@@ -43,12 +43,12 @@ export function transformLayoutForBreakpoint(
 ): GridLayoutPlusItem[] {
   try {
     if (sourceCols === targetCols) {
-      return sourceLayout.map(item => ({ ...item }))
+      return sourceLayout.map((item) => ({ ...item }))
     }
 
     const ratio = targetCols / sourceCols
 
-    return sourceLayout.map(item => {
+    return sourceLayout.map((item) => {
       // 计算新的位置和尺寸
       const newX = Math.floor(item.x * ratio)
       const newW = Math.max(1, Math.floor(item.w * ratio))
@@ -319,10 +319,10 @@ export class ResponsiveMediaQuery {
       this.mediaQueries.set(breakpoint, mediaQuery)
 
       // 监听变化
-      mediaQuery.addListener(e => {
+      mediaQuery.addListener((e) => {
         const callbacks = this.callbacks.get(breakpoint)
         if (callbacks) {
-          callbacks.forEach(callback => callback(e.matches))
+          callbacks.forEach((callback) => callback(e.matches))
         }
       })
     }

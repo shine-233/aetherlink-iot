@@ -22,6 +22,7 @@ import (
 	"aetherlink-iot/backend/internal/diagnostics"
 	"aetherlink-iot/backend/internal/downlink"
 	"aetherlink-iot/backend/internal/uplink"
+	sparkplug "aetherlink-iot/backend/pkg/sparkplug"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/sirupsen/logrus"
@@ -167,6 +168,104 @@ func (a *Adapter) HandleTelemetryMessage(payload []byte, topic string) error {
 		"msg_type":   msgType,
 		"is_gateway": msgType == "gateway_telemetry",
 	}).Debug("【设备遥测】Telemetry message published to bus via Flow layer")
+
+	return nil
+}
+
+// HandleSparkplugMessage 处理 Sparkplug B 上行消息（ROADMAP TB-10）。
+//
+// 与 devices/* 系列的两处本质差别：
+//  1. **设备身份来自话题**（`<edge_node_id>` / `<device_id>`），载荷里没有设备标识，
+//     因此不能像直连设备那样从 payload 取 device_id；
+//  2. 载荷是 protobuf 而非 JSON 信封，因此**不能走 verifyPayload**。
+//
+// 只处理数据类消息（NDATA / DDATA）。NBIRTH/DBIRTH 承载的是别名表（alias → name）
+// 与度量元数据，属会话状态机，本版不做——遇到即忽略并记 debug 而不报错：
+// 设备在 birth 之后持续发 data 是常态，把 birth 当失败会刷满错误日志。
+func (a *Adapter) HandleSparkplugMessage(payload []byte, topic string) error {
+	parsedTopic, err := sparkplug.ParseTopic(topic)
+	if err != nil {
+		a.logger.WithFields(logrus.Fields{"topic": topic, "error": err}).Warn("Invalid Sparkplug topic")
+		return err
+	}
+
+	if parsedTopic.MessageType != sparkplug.MessageTypeNodeData &&
+		parsedTopic.MessageType != sparkplug.MessageTypeDeviceData {
+		a.logger.WithFields(logrus.Fields{
+			"topic":        topic,
+			"message_type": parsedTopic.MessageType,
+		}).Debug("Sparkplug message type not handled in this version")
+		return nil
+	}
+
+	decoded, err := sparkplug.DecodePayload(payload)
+	if err != nil {
+		a.logger.WithFields(logrus.Fields{"topic": topic, "error": err}).Error("Invalid Sparkplug payload")
+		return err
+	}
+
+	// 设备级消息用 device_id；节点级消息退回 edge_node_id（节点自身即一台设备）。
+	deviceNumber := parsedTopic.DeviceID
+	if deviceNumber == "" {
+		deviceNumber = parsedTopic.EdgeNodeID
+	}
+
+	// device_number 在库上全局唯一，故此处不需要租户参数；租户由解析出的设备自身决定。
+	device, err := initialize.GetDeviceByNumber(deviceNumber)
+	if err != nil {
+		a.logger.WithFields(logrus.Fields{
+			"topic":         topic,
+			"device_number": deviceNumber,
+			"error":         err,
+		}).Error("Sparkplug device not found by number")
+		return err
+	}
+
+	telemetry := decoded.NumericTelemetry()
+	if len(telemetry) == 0 {
+		// 全是非数值 / is_null / 无名指标：如实记录但不投递，
+		// 避免把空载荷写进遥测链路后在下游表现为"设备上报了 0 个点"。
+		a.logger.WithFields(logrus.Fields{
+			"topic":         topic,
+			"device_number": deviceNumber,
+			"metric_count":  len(decoded.Metrics),
+		}).Debug("Sparkplug payload carries no numeric telemetry")
+		return nil
+	}
+
+	values, err := json.Marshal(telemetry)
+	if err != nil {
+		return fmt.Errorf("marshal sparkplug telemetry failed: %w", err)
+	}
+
+	msg := &UplinkMessage{
+		Type:      "telemetry",
+		DeviceID:  device.ID,
+		TenantID:  device.TenantID,
+		Timestamp: time.Now().UnixMilli(),
+		Payload:   values,
+		Metadata: map[string]interface{}{
+			"device_id":       device.ID,
+			"topic":           topic,
+			"source_protocol": "mqtt-sparkplug-b",
+			"sparkplug_group": parsedTopic.GroupID,
+			"sparkplug_edge":  parsedTopic.EdgeNodeID,
+			"sparkplug_type":  parsedTopic.MessageType,
+		},
+	}
+
+	if err := a.bus.Publish(msg); err != nil {
+		a.logger.WithFields(logrus.Fields{"device_id": device.ID, "error": err}).
+			Error("Failed to publish sparkplug message to bus")
+		return err
+	}
+
+	a.logger.WithFields(logrus.Fields{
+		"device_id":    device.ID,
+		"topic":        topic,
+		"metric_count": len(telemetry),
+		"message_type": parsedTopic.MessageType,
+	}).Debug("Sparkplug telemetry published to bus")
 
 	return nil
 }

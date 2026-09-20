@@ -18,7 +18,8 @@
 
 - 文件覆盖保护已存在，生成器不会静默覆盖同名文件。
 - 生成流程依赖包级全局变量，测试之间需要小心重置状态。
-- 模板里包含 `panic("implement me")` 这类占位实现，README 需要明确这是脚手架边界。
+- 生成物带有 `GMQTT PLUGIN SCAFFOLD: INCOMPLETE` 标记，默认不注册到 broker；`New`、`Load` 和配置校验会明确返回 `ErrScaffoldIncomplete`，hook wrapper 在实现前只安全透传前序 hook。
+- 开发者替换全部 scaffold 实现后，必须将 `ScaffoldIncomplete` 改为 `false` 才会注册插件。
 
 ## 重构建议
 

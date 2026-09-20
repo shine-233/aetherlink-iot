@@ -9,11 +9,11 @@ import { flushPromises, shallowMount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const hoisted = vi.hoisted(() => ({
-  getNotificationHistoryList: vi.fn(),
+  getNotificationHistoryList: vi.fn()
 }))
 
 vi.mock('@/service/api/notification', () => ({
-  getNotificationHistoryList: hoisted.getNotificationHistoryList,
+  getNotificationHistoryList: hoisted.getNotificationHistoryList
 }))
 
 vi.mock('@/constants/business', () => ({
@@ -57,14 +57,56 @@ const mountComponent = (props = {}) => {
         }
       },
       stubs: {
-        NCard: defineComponent({ props: ['title'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NForm: defineComponent({ props: ['model'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NFormItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NInput: defineComponent({ props: { value: { default: '' } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NSelect: defineComponent({ props: { value: { default: null }, options: { default: () => [] } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NDataTable: defineComponent({ props: ['data', 'loading', 'pagination', 'columns', 'remote'], setup() { return () => h('div') } }),
-        NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } }),
-        NDatePicker: defineComponent({ props: { value: { default: null }, type: String }, emits: ['update:value'], setup() { return () => h('div') } }),
+        NCard: defineComponent({
+          props: ['title'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NForm: defineComponent({
+          props: ['model'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NFormItem: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NInput: defineComponent({
+          props: { value: { default: '' } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NSelect: defineComponent({
+          props: { value: { default: null }, options: { default: () => [] } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NDataTable: defineComponent({
+          props: ['data', 'loading', 'pagination', 'columns', 'remote'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NButton: defineComponent({
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default?.())
+          }
+        }),
+        NDatePicker: defineComponent({
+          props: { value: { default: null }, type: String },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        })
       }
     }
   })
@@ -81,7 +123,7 @@ describe('NotificationRecord', () => {
   })
 
   afterEach(() => {
-    mountedWrappers.forEach(w => w.unmount())
+    mountedWrappers.forEach((w) => w.unmount())
     mountedWrappers.length = 0
   })
 
@@ -89,18 +131,28 @@ describe('NotificationRecord', () => {
     mountComponent()
     await flushPromises()
     expect(hoisted.getNotificationHistoryList).toHaveBeenCalledTimes(1)
-    expect(hoisted.getNotificationHistoryList).toHaveBeenCalledWith(expect.objectContaining({
-      page: 1,
-      page_size: 10,
-      notification_type: '',
-      send_target: '',
-      send_time_start: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
-      send_time_stop: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/)
-    }))
+    expect(hoisted.getNotificationHistoryList).toHaveBeenCalledWith(
+      expect.objectContaining({
+        page: 1,
+        page_size: 10,
+        notification_type: '',
+        send_target: '',
+        send_time_start: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+        send_time_stop: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/)
+      })
+    )
   })
 
   it('should populate table data on successful fetch', async () => {
-    const mockData = [{ send_time: '2024-01-01', send_content: 'test', send_target: 'user', send_result: 'ok', notification_type: 'email' }]
+    const mockData = [
+      {
+        send_time: '2024-01-01',
+        send_content: 'test',
+        send_target: 'user',
+        send_result: 'ok',
+        notification_type: 'email'
+      }
+    ]
     hoisted.getNotificationHistoryList.mockResolvedValue({ data: { list: mockData, total: 1 } })
     const wrapper = mountComponent()
     await flushPromises()
@@ -119,12 +171,14 @@ describe('NotificationRecord', () => {
     state.queryParams.send_target = 'ops@example.com'
     state.handleQuery()
     await flushPromises()
-    expect(hoisted.getNotificationHistoryList).toHaveBeenCalledWith(expect.objectContaining({
-      page: 1,
-      page_size: 10,
-      notification_type: 'email',
-      send_target: 'ops@example.com'
-    }))
+    expect(hoisted.getNotificationHistoryList).toHaveBeenCalledWith(
+      expect.objectContaining({
+        page: 1,
+        page_size: 10,
+        notification_type: 'email',
+        send_target: 'ops@example.com'
+      })
+    )
   })
 
   it('should reset search params', async () => {

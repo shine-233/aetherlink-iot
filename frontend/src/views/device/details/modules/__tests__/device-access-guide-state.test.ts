@@ -111,8 +111,8 @@ describe('device-access-guide-state', () => {
           protocol: 'MQTT',
           credential_mode: 'BASIC',
           connection_info: {
-            '接入地址': 'localized-broker.example.com:1883',
-            '上报Topic': 'localized/topic'
+            接入地址: 'localized-broker.example.com:1883',
+            上报Topic: 'localized/topic'
           },
           connection_profile: {
             protocol: 'MQTT',

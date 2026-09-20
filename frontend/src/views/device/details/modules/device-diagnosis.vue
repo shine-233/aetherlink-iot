@@ -298,7 +298,10 @@ const sanitizeDiagnosticValue = (value: unknown): unknown => {
 
 const maskSensitiveDiagnosticText = (value: unknown) => {
   return String(value ?? '')
-    .replace(/("(?:password|passwd|pwd|token|secret|voucher|authorization|cookie|key|cert)"\s*:\s*)"[^"]*"/gi, '$1"***"')
+    .replace(
+      /("(?:password|passwd|pwd|token|secret|voucher|authorization|cookie|key|cert)"\s*:\s*)"[^"]*"/gi,
+      '$1"***"'
+    )
     .replace(/\b(password|passwd|pwd|token|secret|voucher|authorization|cookie|key|cert)=([^\s,;]+)/gi, '$1=***')
 }
 
@@ -321,7 +324,9 @@ const getDebugLogTitle = (item: DebugLogEntry) => {
 }
 
 const getDebugLogDetail = (item: DebugLogEntry) => {
-  return maskSensitiveDiagnosticText(item.error || item.message || item.stage || JSON.stringify(sanitizeDiagnosticValue(item)))
+  return maskSensitiveDiagnosticText(
+    item.error || item.message || item.stage || JSON.stringify(sanitizeDiagnosticValue(item))
+  )
 }
 
 const getDebugLogNextAction = (item: DebugLogEntry) => {
@@ -334,7 +339,7 @@ const getDebugLogNextAction = (item: DebugLogEntry) => {
 }
 
 const diagnosticTimeline = computed<DiagnosticTimelineItem[]>(() => {
-  const failures = failureRecords.value.slice(0, DIAGNOSIS_SUMMARY_LOG_LIMIT).map(item => ({
+  const failures = failureRecords.value.slice(0, DIAGNOSIS_SUMMARY_LOG_LIMIT).map((item) => ({
     time: formatTimelineTime(item.timestamp),
     title: `${item.direction || 'unknown'} / ${item.stage || 'unknown stage'}`,
     detail: maskSensitiveDiagnosticText(item.error || 'No error detail returned'),
@@ -342,7 +347,7 @@ const diagnosticTimeline = computed<DiagnosticTimelineItem[]>(() => {
     type: 'error' as const
   }))
 
-  const logs = debugLogEntries.value.slice(0, DIAGNOSIS_SUMMARY_LOG_LIMIT).map(item => ({
+  const logs = debugLogEntries.value.slice(0, DIAGNOSIS_SUMMARY_LOG_LIMIT).map((item) => ({
     time: formatTimelineTime(item.ts),
     title: getDebugLogTitle(item),
     detail: getDebugLogDetail(item),
@@ -355,22 +360,13 @@ const diagnosticTimeline = computed<DiagnosticTimelineItem[]>(() => {
 
 const diagnosticNextSteps = computed(() => {
   if (diagnosticsFetchState.value.status === 'error') {
-    return [
-      $t('custom.device_details.nextStepErrorRefresh'),
-      $t('custom.device_details.nextStepErrorReadyCheck')
-    ]
+    return [$t('custom.device_details.nextStepErrorRefresh'), $t('custom.device_details.nextStepErrorReadyCheck')]
   }
   if (!logEnabled.value) {
-    return [
-      $t('custom.device_details.nextStepEnableDebug'),
-      $t('custom.device_details.nextStepDisableDebugAfter')
-    ]
+    return [$t('custom.device_details.nextStepEnableDebug'), $t('custom.device_details.nextStepDisableDebugAfter')]
   }
   if (debugLogs.value.length === 0) {
-    return [
-      $t('custom.device_details.nextStepDebugNoLogs'),
-      $t('custom.device_details.nextStepCheckEndpoint')
-    ]
+    return [$t('custom.device_details.nextStepDebugNoLogs'), $t('custom.device_details.nextStepCheckEndpoint')]
   }
   return [$t('custom.device_details.nextStepReviewLatest'), $t('custom.device_details.nextStepCopySummary')]
 })
@@ -395,7 +391,7 @@ const diagnosticSupportSummary = computed(() => {
   if (failureRecords.value.length === 0) {
     lines.push(`- ${$t('custom.device_details.summaryNoFailures')}`)
   } else {
-    failureRecords.value.slice(0, DIAGNOSIS_SUMMARY_LOG_LIMIT).forEach(item => {
+    failureRecords.value.slice(0, DIAGNOSIS_SUMMARY_LOG_LIMIT).forEach((item) => {
       lines.push(
         `- ${formatTimelineTime(item.timestamp)} ${item.direction || 'unknown'} ${item.stage || 'unknown'} ${maskSensitiveDiagnosticText(item.error)}`
       )
@@ -406,7 +402,7 @@ const diagnosticSupportSummary = computed(() => {
   if (diagnosticTimeline.value.length === 0) {
     lines.push(`- ${$t('custom.device_details.diagnosticEvidenceEmpty')}`)
   } else {
-    diagnosticTimeline.value.forEach(item => {
+    diagnosticTimeline.value.forEach((item) => {
       lines.push(
         `- ${item.time} [${item.type}] ${item.title}; ${item.detail}; ${$t('custom.device_details.nextStepLabel')}: ${item.nextAction}`
       )
@@ -414,7 +410,7 @@ const diagnosticSupportSummary = computed(() => {
   }
 
   lines.push('', $t('custom.device_details.summaryNextStepsSection'))
-  diagnosticNextSteps.value.forEach(step => {
+  diagnosticNextSteps.value.forEach((step) => {
     lines.push(`- ${step}`)
   })
 
@@ -536,7 +532,10 @@ onUnmounted(() => {
               <NNumberAnimation :from="0" :to="statistics.uplink.rate" :precision="1" />
               <span>%</span>
             </NText>
-            <NText :depth="2" class="text-14px">{{ statistics.uplink.success }}/{{ statistics.uplink.total }}{{ $t('custom.device_details.diagnosisCountUnit') }}</NText>
+            <NText :depth="2" class="text-14px">
+              {{ statistics.uplink.success }}/{{ statistics.uplink.total
+              }}{{ $t('custom.device_details.diagnosisCountUnit') }}
+            </NText>
           </NFlex>
         </NCard>
 
@@ -548,7 +547,8 @@ onUnmounted(() => {
               <span>%</span>
             </NText>
             <NText :depth="2" class="text-14px">
-              {{ statistics.downlink.success }}/{{ statistics.downlink.total }}{{ $t('custom.device_details.diagnosisCountUnit') }}
+              {{ statistics.downlink.success }}/{{ statistics.downlink.total
+              }}{{ $t('custom.device_details.diagnosisCountUnit') }}
             </NText>
           </NFlex>
         </NCard>
@@ -561,7 +561,8 @@ onUnmounted(() => {
               <span>%</span>
             </NText>
             <NText :depth="2" class="text-14px">
-              {{ statistics.storage.success }}/{{ statistics.storage.total }}{{ $t('custom.device_details.diagnosisCountUnit') }}
+              {{ statistics.storage.success }}/{{ statistics.storage.total
+              }}{{ $t('custom.device_details.diagnosisCountUnit') }}
             </NText>
           </NFlex>
         </NCard>
@@ -576,7 +577,12 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <NAlert v-if="failureRecords.length === 0" type="info" class="mb-3" :title="$t('custom.device_details.diagnosisNoFailureRecords')">
+      <NAlert
+        v-if="failureRecords.length === 0"
+        type="info"
+        class="mb-3"
+        :title="$t('custom.device_details.diagnosisNoFailureRecords')"
+      >
         <div class="text-13px leading-6">
           <div v-for="step in diagnosticNextSteps" :key="step">- {{ step }}</div>
         </div>
@@ -608,7 +614,10 @@ onUnmounted(() => {
       </div>
 
       <NCard class="mb-4" size="small" :title="$t('custom.device_details.diagnosisTimelineTitle')">
-        <NEmpty v-if="diagnosticTimeline.length === 0" :description="$t('custom.device_details.diagnosticEvidenceEmpty')">
+        <NEmpty
+          v-if="diagnosticTimeline.length === 0"
+          :description="$t('custom.device_details.diagnosticEvidenceEmpty')"
+        >
           <template #extra>
             <div class="text-left text-13px leading-6 text-gray-500">
               <div v-for="step in diagnosticNextSteps" :key="step">- {{ step }}</div>
@@ -624,7 +633,9 @@ onUnmounted(() => {
             :title="item.title"
           >
             <div class="whitespace-pre-wrap break-all text-12px">{{ item.detail }}</div>
-            <div class="mt-1 text-12px text-gray-500">{{ $t('custom.device_details.diagnosisNextStep') }}{{ item.nextAction }}</div>
+            <div class="mt-1 text-12px text-gray-500">
+              {{ $t('custom.device_details.diagnosisNextStep') }}{{ item.nextAction }}
+            </div>
           </NTimelineItem>
         </NTimeline>
       </NCard>
@@ -633,7 +644,9 @@ onUnmounted(() => {
         ref="logContainerRef"
         class="bg-[#1e1e1e] text-[#d4d4d4] font-mono p-4 rounded h-[400px] overflow-auto whitespace-pre-wrap break-all text-xs"
       >
-        <div v-if="debugLogs.length === 0" class="text-center text-gray-500 py-10">{{ $t('custom.device_details.diagnosisNoLogs') }}</div>
+        <div v-if="debugLogs.length === 0" class="text-center text-gray-500 py-10">
+          {{ $t('custom.device_details.diagnosisNoLogs') }}
+        </div>
         <div
           v-for="(log, index) in debugLogs"
           :key="index"

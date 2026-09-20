@@ -97,7 +97,8 @@ export const buildMaskedCredentialMqttCommand = (options: {
   }
 }
 
-export const buildHttpCommands = (endpoint: string, username: string, payload: string): DeviceAccessGuideCommand[] => {  const authHeader = username && !username.startsWith('<') ? ` -H "Authorization: Bearer ${username}"` : ''
+export const buildHttpCommands = (endpoint: string, username: string, payload: string): DeviceAccessGuideCommand[] => {
+  const authHeader = username && !username.startsWith('<') ? ` -H "Authorization: Bearer ${username}"` : ''
   const nodeAuthHeader = username && !username.startsWith('<') ? `,\n    authorization: 'Bearer ${username}'` : ''
   const pythonAuthHeader =
     username && !username.startsWith('<') ? `\nheaders['authorization'] = 'Bearer ${username}'` : ''

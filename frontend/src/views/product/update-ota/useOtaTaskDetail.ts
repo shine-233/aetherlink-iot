@@ -90,10 +90,15 @@ export const useOtaTaskDetail = (options: UseOtaTaskDetailOptions) => {
   const failedDevices = computed(() => getOtaFailedDevices(options.detailList.value))
   const failureGroups = computed(() => buildOtaFailureGroups(options.detailList.value, failureFallbackReason.value))
   const retryRecommendationCards = computed(() =>
-    buildOtaRetryRecommendationCards(options.detailList.value, failureFallbackReason.value, options.selectedPackage.value, (key) => ({
-      title: options.t(`page.product.update-ota.retryRecommendation.${key}.title`),
-      description: options.t(`page.product.update-ota.retryRecommendation.${key}.description`)
-    }))
+    buildOtaRetryRecommendationCards(
+      options.detailList.value,
+      failureFallbackReason.value,
+      options.selectedPackage.value,
+      (key) => ({
+        title: options.t(`page.product.update-ota.retryRecommendation.${key}.title`),
+        description: options.t(`page.product.update-ota.retryRecommendation.${key}.description`)
+      })
+    )
   )
   const failedDeviceCount = computed(() => failedDevices.value.length)
   const selectedTaskId = computed(() => options.selectedTask?.value?.id || '')
@@ -107,7 +112,11 @@ export const useOtaTaskDetail = (options: UseOtaTaskDetailOptions) => {
     }, 0)
   )
   const detailAutoRefreshActive = computed(
-    () => detailModalVisible.value && detailAutoRefreshEnabled.value && detailPageVisible.value && rolloutActiveCount.value > 0
+    () =>
+      detailModalVisible.value &&
+      detailAutoRefreshEnabled.value &&
+      detailPageVisible.value &&
+      rolloutActiveCount.value > 0
   )
   const detailLastRefreshLabel = computed(() =>
     detailLastRefreshedAt.value

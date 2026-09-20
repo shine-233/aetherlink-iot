@@ -30,7 +30,12 @@ type Board struct {
 	Description *string    `gorm:"column:description;comment:描述" json:"description"`             // 描述
 	Remark      *string    `gorm:"column:remark;comment:备注" json:"remark"`                       // 备注
 	MenuFlag    *string    `gorm:"column:menu_flag;comment:菜单标志默认N，Y" json:"menu_flag"`          // 菜单标志默认N，Y
-	VisType     *string    `gorm:"column:vis_type;comment:可视化类型" json:"vis_type"`                // 可视化类型
+	VisType       *string    `gorm:"column:vis_type;comment:可视化类型" json:"vis_type"`                // 可视化类型
+	TypeKey       *string    `gorm:"column:type_key;comment:行业分类" json:"type_key"`                 // 行业分类
+	Author        *string    `gorm:"column:author;comment:作者" json:"author"`                       // 作者
+	Version       *string    `gorm:"column:version;comment:版本号" json:"version"`                    // 版本号
+	PreviewURL    *string    `gorm:"column:preview_url;comment:预览图" json:"preview_url"`            // 预览图
+	DownloadCount int64      `gorm:"column:download_count;default:0;comment:下载量" json:"download_count"` // 下载量
 }
 
 // TableName Board's table name

@@ -133,6 +133,40 @@ func (*RuleChain) CreateChain(raw []byte, claims *utils.UserClaims) (*model.Rule
 	return chain, nil
 }
 
+// ruleChainPortableExport 是规则链跨租户搬运的可移植载荷：只含可再实例化的
+// 业务字段（名称/描述/启用/图），graph 以原始 JSON 内嵌避免 base64 再编码；
+// 不含版本历史、死信、Trace 等平台侧运行数据。
+type ruleChainPortableExport struct {
+	Name        string          `json:"name"`
+	Description *string         `json:"description,omitempty"`
+	Enabled     bool            `json:"enabled"`
+	Graph       json.RawMessage `json:"graph"`
+}
+
+// ExportChain 只读导出规则链（租户归属校验在 DAL），供资源中心 ApplyResource
+// 与 TB-19 方案模板把规则链作为引用资源搬运。导出是只读路径，绝不创建实例。
+func (*RuleChain) ExportChain(chainID string, claims *utils.UserClaims) (*ruleChainPortableExport, error) {
+	if claims == nil || claims.TenantID == "" {
+		return nil, errcode.New(errcode.CodeNoPermission)
+	}
+	chain, err := dal.GetRuleChainByID(strings.TrimSpace(chainID), claims.TenantID)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": err.Error()})
+	}
+	if chain == nil {
+		return nil, errcode.New(errcode.CodeNotFound)
+	}
+	if len(chain.Graph) == 0 {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "rule chain graph is empty")
+	}
+	return &ruleChainPortableExport{
+		Name:        chain.Name,
+		Description: chain.Description,
+		Enabled:     chain.Enabled,
+		Graph:       json.RawMessage(chain.Graph),
+	}, nil
+}
+
 // UpdateChain 更新规则链（名称/描述/启用/图）。
 func (*RuleChain) UpdateChain(raw []byte, claims *utils.UserClaims) (*model.RuleChain, error) {
 	var req updateRuleChainReq
@@ -282,18 +316,19 @@ func enabledGraphsForTenant(tenantID string) []*RuleChainGraph {
 	if ok && time.Now().Before(entry.expiresAt) {
 		return entry.graphs
 	}
-	graphsRaw, err := dal.ListEnabledRuleChainGraphs(tenantID)
+	chains, err := dal.ListEnabledRuleChains(tenantID)
 	if err != nil {
 		logrus.WithError(err).Warn("rule chain cache load failed")
 		return nil
 	}
-	graphs := make([]*RuleChainGraph, 0, len(graphsRaw))
-	for _, raw := range graphsRaw {
-		graph, perr := ParseRuleChainGraph(raw)
+	graphs := make([]*RuleChainGraph, 0, len(chains))
+	for _, c := range chains {
+		graph, perr := ParseRuleChainGraph(c.Graph)
 		if perr != nil {
 			logrus.WithError(perr).Warn("skip invalid rule chain graph")
 			continue
 		}
+		graph.ChainID = c.ID
 		graphs = append(graphs, graph)
 	}
 	ruleChainCacheMu.Lock()

@@ -34,7 +34,7 @@ export function adapter<T extends App.Service.ServiceAdapter>(
 ): App.Service.RequestResult<ReturnType<T>> {
   let result: App.Service.RequestResult | undefined
 
-  const hasError = args.some(item => {
+  const hasError = args.some((item) => {
     const flag = Boolean(item.error)
     if (flag) {
       result = {
@@ -46,7 +46,7 @@ export function adapter<T extends App.Service.ServiceAdapter>(
   })
 
   if (!hasError) {
-    const adapterFunArgs = args.map(item => item.data)
+    const adapterFunArgs = args.map((item) => item.data)
     result = {
       error: null,
       data: adapterFun(...adapterFunArgs)

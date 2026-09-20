@@ -132,7 +132,10 @@ describe('notification-services API service', () => {
     await fetchAlarmEmailTemplates({ page: 1, page_size: 10 })
     await createAlarmEmailTemplate(payload)
     await updateAlarmEmailTemplate('template/1', payload)
-    await previewAlarmEmailTemplate({ subject_template: payload.subject_template, body_template: payload.body_template })
+    await previewAlarmEmailTemplate({
+      subject_template: payload.subject_template,
+      body_template: payload.body_template
+    })
     await setDefaultAlarmEmailTemplate('template/1')
     await deleteAlarmEmailTemplate('template/1')
 

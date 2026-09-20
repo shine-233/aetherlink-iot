@@ -245,14 +245,14 @@ export class VisualEditorBridge {
       return
     }
 
-    resolvedConfig.dataSources.forEach(dataSource => {
+    resolvedConfig.dataSources.forEach((dataSource) => {
       if (!dataSource.sourceId || !Array.isArray(dataSource.dataItems)) {
         return
       }
 
       dataSources.push({
         sourceId: dataSource.sourceId,
-        dataItems: dataSource.dataItems.map(dataItem => this.convertStandardDataItem(dataItem)).filter(Boolean),
+        dataItems: dataSource.dataItems.map((dataItem) => this.convertStandardDataItem(dataItem)).filter(Boolean),
         mergeStrategy: dataSource.mergeStrategy || { type: 'object' }
       })
     })

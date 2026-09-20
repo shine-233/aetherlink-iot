@@ -48,11 +48,10 @@ const mockRouterPushByKey = hoisted.mockRouterPushByKey
 const mockMessageError = hoisted.mockMessageError
 const mockGetCachedDeviceTemplateDetail = hoisted.mockGetCachedDeviceTemplateDetail
 const mockHasThingsVisChartContent = hoisted.mockHasThingsVisChartContent
-const getRoute = () =>
-  hoisted.route as { query: { d_id: string; tab?: string; shared?: string; access?: string } }
+const getRoute = () => hoisted.route as { query: { d_id: string; tab?: string; shared?: string; access?: string } }
 const appStore = hoisted.appStore
 
-vi.mock('vue-router', async importOriginal => {
+vi.mock('vue-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-router')>()
   const { reactive } = await import('vue')
   if (!hoisted.route) {
@@ -253,7 +252,8 @@ const ModalStub = defineComponent({
     }
   },
   setup(props, { slots }) {
-    return () => (props.show ? h('div', { 'data-modal-title': props.title }, slots.default ? slots.default() : []) : null)
+    return () =>
+      props.show ? h('div', { 'data-modal-title': props.title }, slots.default ? slots.default() : []) : null
   }
 })
 
@@ -311,18 +311,50 @@ const baseStubs = {
   'n-button': ButtonStub,
   NModal: ModalStub,
   'n-modal': ModalStub,
-  NCard: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  'n-card': defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NForm: defineComponent({ setup(_, { slots }) { return () => h('form', slots.default ? slots.default() : []) } }),
-  'n-form': defineComponent({ setup(_, { slots }) { return () => h('form', slots.default ? slots.default() : []) } }),
-  NFormItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  'n-form-item': defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
+  NCard: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  'n-card': defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NForm: defineComponent({
+    setup(_, { slots }) {
+      return () => h('form', slots.default ? slots.default() : [])
+    }
+  }),
+  'n-form': defineComponent({
+    setup(_, { slots }) {
+      return () => h('form', slots.default ? slots.default() : [])
+    }
+  }),
+  NFormItem: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  'n-form-item': defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
   NInput: InputStub,
   'n-input': InputStub,
   NDynamicTags: DynamicTagsStub,
   'n-dynamic-tags': DynamicTagsStub,
-  NSpace: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NFlex: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
+  NSpace: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NFlex: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
   NSpin: defineComponent({
     props: { show: Boolean },
     setup(_props, { slots }) {
@@ -350,7 +382,11 @@ const baseStubs = {
       return () => h('i', { 'data-icon': props.localIcon })
     }
   }),
-  NH3: defineComponent({ setup(_, { slots }) { return () => h('h3', slots.default ? slots.default() : []) } }),
+  NH3: defineComponent({
+    setup(_, { slots }) {
+      return () => h('h3', slots.default ? slots.default() : [])
+    }
+  }),
   DeviceStatusHistory: defineComponent({
     props: {
       visible: Boolean,
@@ -450,9 +486,11 @@ describe('device/details/index.vue', () => {
     getRoute().query.tab = 'chart'
 
     let resolveTemplateDetail!: (value: unknown) => void
-    mockGetCachedDeviceTemplateDetail.mockReturnValue(new Promise(resolve => {
-      resolveTemplateDetail = resolve
-    }))
+    mockGetCachedDeviceTemplateDetail.mockReturnValue(
+      new Promise((resolve) => {
+        resolveTemplateDetail = resolve
+      })
+    )
 
     const wrapper = mountDeviceDetails()
     await flushPromises()
@@ -620,9 +658,7 @@ describe('device/details/index.vue', () => {
 
     await flushPromises()
 
-    const editButton = wrapper
-      .findAll('button')
-      .find(button => button.text() === 'common.edit')
+    const editButton = wrapper.findAll('button').find((button) => button.text() === 'common.edit')
 
     expect(wrapper.text()).not.toContain('common.save')
     expect(editButton?.text()).toBe('common.edit')
@@ -633,9 +669,7 @@ describe('device/details/index.vue', () => {
     expect(wrapper.text()).toContain('common.save')
     expect(wrapper.text()).toContain('generate.modify-device-info')
 
-    const saveButton = wrapper
-      .findAll('button')
-      .find(button => button.text() === 'common.save')
+    const saveButton = wrapper.findAll('button').find((button) => button.text() === 'common.save')
 
     expect(saveButton?.text()).toBe('common.save')
 
@@ -662,10 +696,7 @@ describe('device/details/index.vue', () => {
 
     const setupState = getSetupState(wrapper)
     expect(setupState.isSharedReadOnly).toBe(true)
-    expect(setupState.visibleDetailComponents.map((item: { key: string }) => item.key)).toEqual([
-      'message',
-      'chart'
-    ])
+    expect(setupState.visibleDetailComponents.map((item: { key: string }) => item.key)).toEqual(['message', 'chart'])
     expect(wrapper.text()).toContain('script.readonly')
     expect(wrapper.text()).not.toContain('common.edit')
     expect(wrapper.text()).not.toContain('custom.device_details.rdiAlarmInfo')
@@ -780,7 +811,7 @@ describe('device/details/index.vue', () => {
     const wrapper = mountDeviceDetails()
     await flushPromises()
 
-    const backButton = wrapper.findAll('button').find(button => button.text() === 'common.back')
+    const backButton = wrapper.findAll('button').find((button) => button.text() === 'common.back')
     expect(backButton).toBeDefined()
     await backButton!.trigger('click')
 

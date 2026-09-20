@@ -585,11 +585,15 @@ describe('device/manage/index.vue', () => {
     await flushPromises()
 
     const setupState = getSetupState(wrapper)
-    setupState.syncFleetQueryResult({
-      is_online: 1,
-      warn_status: 'Y',
-      page: 1
-    }, 5, [])
+    setupState.syncFleetQueryResult(
+      {
+        is_online: 1,
+        warn_status: 'Y',
+        page: 1
+      },
+      5,
+      []
+    )
 
     setupState.saveCurrentFleetFilter()
     await flushPromises()
@@ -616,10 +620,14 @@ describe('device/manage/index.vue', () => {
     await flushPromises()
 
     const setupState = getSetupState(wrapper)
-    setupState.syncFleetQueryResult({
-      is_online: 1,
-      warn_status: 'Y'
-    }, 5, [])
+    setupState.syncFleetQueryResult(
+      {
+        is_online: 1,
+        warn_status: 'Y'
+      },
+      5,
+      []
+    )
 
     setupState.saveCurrentFleetFilter()
     await flushPromises()
@@ -657,9 +665,13 @@ describe('device/manage/index.vue', () => {
     await flushPromises()
 
     const setupState = getSetupState(wrapper)
-    setupState.syncFleetQueryResult({
-      is_online: 1
-    }, 5, [])
+    setupState.syncFleetQueryResult(
+      {
+        is_online: 1
+      },
+      5,
+      []
+    )
 
     setupState.saveCurrentFleetFilter()
     await flushPromises()
@@ -739,12 +751,16 @@ describe('device/manage/index.vue', () => {
     await flushPromises()
 
     const setupState = getSetupState(wrapper)
-    setupState.syncFleetQueryResult({
-      page: 1,
-      page_size: 10,
-      group_id: 'group-1',
-      is_online: 1
-    }, 42, [])
+    setupState.syncFleetQueryResult(
+      {
+        page: 1,
+        page_size: 10,
+        group_id: 'group-1',
+        is_online: 1
+      },
+      42,
+      []
+    )
     setupState.openFleetOtaContext()
     await flushPromises()
 

@@ -68,27 +68,44 @@ func CheckDeviceNumbersExists(deviceNumbers []string) (map[string]bool, error) {
 // 凭证哈希存储 Phase 1（references/backend-hardening-plan.md 车道1）：双模式预检——
 // 先按 voucher_hash 计数（索引路径），未命中回落 voucher=? 明文计数；两列在写入侧
 // 二段式与回填下保持同值，命中任一即判定冲突，Phase 2 停写明文后移除兜底分支。
+//
+// 键序兼容（与 GetDeviceByVoucher 同源）：唯一性预检必须与读取侧覆盖同一个匹配面，
+// 否则两条路径写出的同义凭证（结构体序 / 字典序）互相看不见，会被判为"不冲突"而签发
+// 重复凭证；而 broker 认证侧用 First() 取首条，重复凭证会让设备身份变得不确定。
+// 故两轮计数同样按 DeviceVoucherLookupCandidates 展开候选。
 func CheckVoucherExists(voucher string, excludeDeviceID string) (bool, error) {
-	var count int64
-	err := global.DB.Model(&model.Device{}).
-		Where("voucher_hash = ?", utils.VoucherStorageHash(voucher)).
-		Where("id <> ?", excludeDeviceID).
-		Count(&count).Error
-	if err != nil {
-		logrus.Error(err)
-		return false, err
-	}
-	if count > 0 {
-		return true, nil
+	candidates := utils.DeviceVoucherLookupCandidates(voucher)
+
+	// 第一轮：全部候选按 hash 计数。
+	for _, candidate := range candidates {
+		var count int64
+		err := global.DB.Model(&model.Device{}).
+			Where("voucher_hash = ?", utils.VoucherStorageHash(candidate)).
+			Where("id <> ?", excludeDeviceID).
+			Count(&count).Error
+		if err != nil {
+			logrus.Error(err)
+			return false, err
+		}
+		if count > 0 {
+			return true, nil
+		}
 	}
 
-	err = global.DB.Model(&model.Device{}).
-		Where("voucher = ?", voucher).
-		Where("id <> ?", excludeDeviceID).
-		Count(&count).Error
-	if err != nil {
-		logrus.Error(err)
-		return false, err
+	// 第二轮：全部候选按明文计数，覆盖尚未回填 voucher_hash 的存量行。
+	for _, candidate := range candidates {
+		var count int64
+		err := global.DB.Model(&model.Device{}).
+			Where("voucher = ?", candidate).
+			Where("id <> ?", excludeDeviceID).
+			Count(&count).Error
+		if err != nil {
+			logrus.Error(err)
+			return false, err
+		}
+		if count > 0 {
+			return true, nil
+		}
 	}
-	return count > 0, nil
+	return false, nil
 }

@@ -160,8 +160,7 @@ const feachConnectInfo = async () => {
 const fetchConnectionGuide = async () => {
   try {
     const response = await getDeviceConnectionGuide(props.id, { debug_log_limit: 5, command_log_limit: 3 })
-    const guide =
-      response && typeof response === 'object' && 'data' in response ? (response as any).data : response
+    const guide = response && typeof response === 'object' && 'data' in response ? (response as any).data : response
     connectionGuide.value = guide || null
     connectionDiagnostics.value = {}
     return Boolean(connectionGuide.value)

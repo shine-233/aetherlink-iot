@@ -21,6 +21,52 @@ describe('Coverage readiness predicates [00_coverage_readiness_contract]', funct
       'system-deployment'
     ]);
   });
+  it('requires valid inventory and every canonical operation runtime outcome for closure', function () {
+    expect(readiness.hasCompleteOperationInventory({ valid: true })).to.equal(true);
+    expect(readiness.hasCompleteOperationInventory({ valid: false })).to.equal(false);
+    expect(readiness.hasCompleteOperationInventory(null)).to.equal(false);
+
+    const complete = coverageContract.BUSINESS_OPERATIONS.map(item => ({
+      id: item.id,
+      ready: true,
+      staticInventoryValid: true,
+      runtimeStatus: 'passed',
+      missingDimensions: [],
+      runtimeOutcomeErrors: []
+    }));
+    expect(readiness.hasCompleteOperationCoverage(complete)).to.equal(true);
+    expect(readiness.hasCompleteOperationCoverage(complete.slice(1))).to.equal(false);
+    expect(readiness.hasCompleteOperationCoverage([
+      ...complete,
+      { ...complete[0] }
+    ])).to.equal(false);
+    expect(readiness.hasCompleteOperationCoverage(complete.map((item, index) =>
+      index === 0 ? { ...item, staticInventoryValid: false } : item
+    ))).to.equal(false);
+    expect(readiness.hasCompleteOperationCoverage(complete.map((item, index) =>
+      index === 0 ? { ...item, ready: false } : item
+    ))).to.equal(false);
+    expect(readiness.hasCompleteOperationCoverage([])).to.equal(false);
+  });
+
+  it('rejects duplicate catalog and metadata identities', function () {
+    const complete = {
+      duplicateEndpoints: [],
+      duplicateRoutes: [],
+      duplicateMetadataFiles: []
+    };
+    expect(readiness.hasNoCatalogIdentityGaps(complete)).to.equal(true);
+    expect(readiness.hasNoCatalogIdentityGaps({
+      ...complete,
+      duplicateEndpoints: [{ key: 'POST /api/v1/example', count: 2 }]
+    })).to.equal(false);
+    expect(readiness.hasNoCatalogIdentityGaps({
+      ...complete,
+      duplicateMetadataFiles: [{ file: 'tests/example.test.js', count: 2 }]
+    })).to.equal(false);
+    expect(readiness.hasNoCatalogIdentityGaps(null)).to.equal(false);
+  });
+
   it('requires both endpoint and route inventory to be complete', function () {
     expect(readiness.hasCompleteExplicitBusinessInventory({
       missingEndpoints: [],
@@ -45,10 +91,10 @@ describe('Coverage readiness predicates [00_coverage_readiness_contract]', funct
       hasTrueAutomation: true,
       hasE2E: true,
       hasTrueE2E: true,
-      hasBackend: true,
-      hasGMQTT: true
+      hasBackendDeclaration: true,
+      hasGMQTTDeclaration: true
     };
-    const incomplete = { ...complete, id: 'incomplete', hasBackend: false };
+    const incomplete = { ...complete, id: 'incomplete', hasBackendDeclaration: false };
     const input = [complete, incomplete];
     const result = readiness.getMissingTraceability(input);
 

@@ -9,7 +9,13 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/views/automation/scene-linkage/modules/dataList.vue', () => ({
-  default: defineComponent({ name: 'sceneLinkage', props: ['device_id', 'backType'], setup() { return () => h('div') } })
+  default: defineComponent({
+    name: 'sceneLinkage',
+    props: ['device_id', 'backType'],
+    setup() {
+      return () => h('div')
+    }
+  })
 }))
 
 import Component from '../automate.vue'
@@ -21,7 +27,13 @@ const mountComponent = (props = {}) => {
     props: { id: 'device-1', ...props },
     global: {
       stubs: {
-        sceneLinkage: defineComponent({ name: 'sceneLinkage', props: ['device_id', 'backType'], setup() { return () => h('div') } })
+        sceneLinkage: defineComponent({
+          name: 'sceneLinkage',
+          props: ['device_id', 'backType'],
+          setup() {
+            return () => h('div')
+          }
+        })
       }
     }
   })

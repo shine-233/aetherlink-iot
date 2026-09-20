@@ -101,10 +101,7 @@ type EditorPathParamInput = {
   defaultValue?: string | number | boolean
 }
 
-const toEditorPathParam = (
-  param: EditorPathParamInput,
-  fallbackKey = 'pathParam'
-): EnhancedParameter => ({
+const toEditorPathParam = (param: EditorPathParamInput, fallbackKey = 'pathParam'): EnhancedParameter => ({
   key: param.key || fallbackKey,
   value: param.value || '',
   enabled: param.enabled !== false,

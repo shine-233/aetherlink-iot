@@ -16,13 +16,14 @@ vi.mock('vue-codemirror6', async () => {
       },
       emits: ['update:modelValue'],
       setup(props, { attrs, emit }) {
-        return () => h('textarea', {
-          ...attrs,
-          'data-testid': 'codemirror',
-          value: props.modelValue,
-          disabled: props.disabled,
-          onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLTextAreaElement).value)
-        })
+        return () =>
+          h('textarea', {
+            ...attrs,
+            'data-testid': 'codemirror',
+            value: props.modelValue,
+            disabled: props.disabled,
+            onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLTextAreaElement).value)
+          })
       }
     })
   }

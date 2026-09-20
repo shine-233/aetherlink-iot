@@ -7,6 +7,7 @@
 import { computed, onMounted, ref } from 'vue'
 import type { DataTableColumns, UploadFileInfo } from 'naive-ui'
 import { exportDevice } from '@/service/product/list'
+import { writeClipboardText } from '@/utils/clipboard'
 import { $t } from '@/locales'
 import PageHeader from '@/components/common/page-header/index.vue'
 import { createPreRegisterColumns, formatPreRegisterTime } from './pre-register-table-columns'
@@ -36,6 +37,19 @@ const {
 } = usePreRegisterImport({ onImported: () => fetchList(pagination.page, pagination.pageSize) })
 
 const exporting = ref(false)
+
+/**
+ * 复制单台设备的凭证。
+ *
+ * 这里刻意只做"复制"，不提供任何把凭证写回列表/本地存储的路径——
+ * voucher 是一次性明文（后端只在创建响应里给一次，导出面一律 MaskVoucher 掩码），
+ * 一旦落进持久状态，就等于把"仅此一次"的约束作废了。
+ */
+async function copyCredential(voucher: string) {
+  const ok = await writeClipboardText(voucher)
+  if (ok) window.$message?.success($t('page.product.pre-register.credentialCopied'))
+  else window.$message?.error($t('common.pleaseCheckValue'))
+}
 
 const modeOptions = computed(() => [
   { label: $t('page.product.pre-register.modeAuto'), value: 'auto' },
@@ -93,10 +107,7 @@ onMounted(() => {
 <template>
   <div class="pre-register-page">
     <NSpace vertical size="medium">
-      <PageHeader
-        :title="$t('route.product_pre-register')"
-        :subtitle="$t('page.product.pre-register.subtitle')"
-      >
+      <PageHeader :title="$t('route.product_pre-register')" :subtitle="$t('page.product.pre-register.subtitle')">
         <NButton :loading="exporting" @click="handleExport">{{ $t('page.product.pre-register.export') }}</NButton>
         <NButton type="primary" @click="openModal">{{ $t('page.product.pre-register.import') }}</NButton>
       </PageHeader>
@@ -230,6 +241,40 @@ onMounted(() => {
                   {{ item }}
                 </NTag>
               </div>
+              <!--
+                凭证必须真的渲染出来。
+                此前这里只显示一句"凭证仅展示一次"的提示、却从不展示凭证本身：
+                后端在创建响应里给了一次性明文，composable 也存进了 importResult.devices，
+                但模板从未引用 —— 用户建完整批设备后一台的凭证都拿不到，
+                这批设备实际上无法接入。缺的正是浏览器 E2E（P0.5 门禁"凭证只出现一次"）。
+              -->
+              <div v-if="importResult.devices.length" class="result-credentials" data-testid="pre-register-credentials">
+                <div class="result-credentials-title">
+                  {{ $t('page.product.pre-register.credentialsTitle') }}
+                </div>
+                <div
+                  v-for="item in importResult.devices"
+                  :key="item.id"
+                  class="result-credential-row"
+                  data-testid="pre-register-credential-row"
+                >
+                  <span class="result-credential-number" data-testid="pre-register-credential-number">
+                    {{ item.device_number }}
+                  </span>
+                  <NText code class="result-credential-voucher" data-testid="pre-register-credential-voucher">
+                    {{ item.voucher }}
+                  </NText>
+                  <NButton
+                    size="tiny"
+                    secondary
+                    data-testid="pre-register-credential-copy"
+                    @click="copyCredential(item.voucher)"
+                  >
+                    {{ $t('page.product.pre-register.copyCredential') }}
+                  </NButton>
+                </div>
+              </div>
+
               <NAlert type="warning" :show-icon="false">
                 {{ $t('page.product.pre-register.voucherOnceHint') }}
               </NAlert>
@@ -285,5 +330,36 @@ onMounted(() => {
 
 .result-tag {
   margin-right: 6px;
+}
+
+.result-credentials {
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+}
+
+.result-credentials-title {
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.result-credential-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.result-credential-number {
+  min-width: 160px;
+  font-size: 12px;
+}
+
+.result-credential-voucher {
+  flex: 1;
+  font-size: 12px;
+  word-break: break-all;
 }
 </style>

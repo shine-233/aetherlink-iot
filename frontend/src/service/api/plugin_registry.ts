@@ -44,6 +44,9 @@ export const rotatePluginToken = async (id: string) => {
 }
 
 /** 下行命令下发 */
-export const sendPluginDownlink = async (id: string, data: { device_number: string; identify: string; params?: Record<string, unknown> }) => {
+export const sendPluginDownlink = async (
+  id: string,
+  data: { device_number: string; identify: string; params?: Record<string, unknown> }
+) => {
   return await request.post(`/plugins/${id}/downlink`, data)
 }

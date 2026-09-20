@@ -3,11 +3,10 @@ import { buildSavedFilterCommandCenterRoute } from '../device-fleet-handoff-rout
 
 describe('device-fleet-handoff-routes', () => {
   it('passes saved filter identity to Command Center without polluting the filter payload', () => {
-    const route = buildSavedFilterCommandCenterRoute(
-      { group_id: 'group-1', is_online: 1, empty: '' },
-      42,
-      { id: 'fleet-filter-1', name: 'Online pumps' }
-    )
+    const route = buildSavedFilterCommandCenterRoute({ group_id: 'group-1', is_online: 1, empty: '' }, 42, {
+      id: 'fleet-filter-1',
+      name: 'Online pumps'
+    })
 
     expect(route).toEqual({
       path: '/device/command-center',

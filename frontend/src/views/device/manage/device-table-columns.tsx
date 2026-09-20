@@ -5,7 +5,8 @@ export function createDeviceManageColumns(
   goDeviceDetails: (row: any) => void,
   editDevice: (row: any) => void,
   deleteDevice: (row: any) => void,
-  shareDevice: (row: any) => void
+  shareDevice: (row: any) => void,
+  issueClaimToken: (row: any) => void
 ) {
   return [
     {
@@ -140,6 +141,16 @@ export function createDeviceManageColumns(
             }}
           >
             {$t('rdi.device.shareTitle')}
+          </NButton>
+          <NButton
+            text
+            type="info"
+            onClick={(event: MouseEvent) => {
+              event.stopPropagation()
+              issueClaimToken(row)
+            }}
+          >
+            {$t('custom.devicePage.claimIssueTitle')}
           </NButton>
           <NButton
             text

@@ -159,7 +159,8 @@ const ModalStub = defineComponent({
   props: ['show'],
   emits: ['update:show'],
   setup(props, { slots }) {
-    return () => h('div', { class: 'modal-stub', 'data-show': String(Boolean(props.show)) }, props.show ? slots.default?.() : [])
+    return () =>
+      h('div', { class: 'modal-stub', 'data-show': String(Boolean(props.show)) }, props.show ? slots.default?.() : [])
   }
 })
 
@@ -335,9 +336,11 @@ interface TelemetrySetupState {
 
 const getSetupState = (wrapper: ReturnType<typeof mountTelemetryPage>) => wrapper.vm.$.setupState as TelemetrySetupState
 
-const getOperationsHeader = (wrapper: ReturnType<typeof mountTelemetryPage>) => wrapper.getComponent(TelemetryOperationsHeaderStub)
+const getOperationsHeader = (wrapper: ReturnType<typeof mountTelemetryPage>) =>
+  wrapper.getComponent(TelemetryOperationsHeaderStub)
 
-const getRealtimeView = (wrapper: ReturnType<typeof mountTelemetryPage>) => wrapper.getComponent(TelemetryRealtimeViewStub)
+const getRealtimeView = (wrapper: ReturnType<typeof mountTelemetryPage>) =>
+  wrapper.getComponent(TelemetryRealtimeViewStub)
 
 const findButtonByText = (wrapper: ReturnType<typeof mountTelemetryPage>, text: string) =>
   wrapper.findAllComponents(ButtonStub).find((button) => button.text() === text)
@@ -473,7 +476,9 @@ describe('telemetry.vue', () => {
     await flushPromises()
 
     const filteredItems = getRealtimeView(wrapper).props('visibleTelemetryData') as Array<Record<string, any>>
-    const freshnessBadge = getRealtimeView(wrapper).props('getTelemetryFreshnessBadge') as (telemetry: Record<string, any>) => Record<string, any>
+    const freshnessBadge = getRealtimeView(wrapper).props('getTelemetryFreshnessBadge') as (
+      telemetry: Record<string, any>
+    ) => Record<string, any>
 
     expect(getRealtimeView(wrapper).props('visibleTelemetryCount')).toBe(1)
     expect(filteredItems[0]).toMatchObject({ key: 'pressure' })
@@ -610,7 +615,7 @@ describe('telemetry.vue', () => {
     await flushPromises()
 
     expect(setupState.telemetryData.length).toBe(before + 1)
-    const added = setupState.telemetryData.find(telemetry => telemetry.key === 'new_sensor')
+    const added = setupState.telemetryData.find((telemetry) => telemetry.key === 'new_sensor')
     expect(added).toMatchObject({
       key: 'new_sensor',
       value: 99,
@@ -735,7 +740,11 @@ describe('telemetry.vue', () => {
     await flushPromises()
     vi.clearAllMocks()
 
-    await getOperationsHeader(wrapper).vm.$emit('control-change', { id: 'c1', name: 'Start', content: '{"switch":true}' })
+    await getOperationsHeader(wrapper).vm.$emit('control-change', {
+      id: 'c1',
+      name: 'Start',
+      content: '{"switch":true}'
+    })
     await flushPromises()
 
     expect(hoisted.telemetryDataPub).toHaveBeenCalledWith({
@@ -750,7 +759,9 @@ describe('telemetry.vue', () => {
     const wrapper = mountTelemetryPage()
     await flushPromises()
 
-    const accentColor = getRealtimeView(wrapper).props('telemetryAccentColor') as (telemetry: Record<string, any>) => string
+    const accentColor = getRealtimeView(wrapper).props('telemetryAccentColor') as (
+      telemetry: Record<string, any>
+    ) => string
 
     expect(accentColor({ value: 'text' })).toBe('#cccccc')
     expect(accentColor({ value: 123 })).toBe('')
@@ -934,7 +945,7 @@ describe('telemetry.vue', () => {
     await flushPromises()
 
     const setupState = getSetupState(wrapper)
-    const statusColumn = setupState.columns.find(column => column.key === 'status')
+    const statusColumn = setupState.columns.find((column) => column.key === 'status')
 
     expect(statusColumn.render({ status: '1' })).toBe('custom.devicePage.success')
     expect(statusColumn.render({ status: '2' })).toBe('custom.devicePage.fail')

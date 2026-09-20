@@ -42,6 +42,9 @@ func buildAlarmHistoryBatchActionPlan(req *model.AlarmHistoryBatchActionReq) (*a
 	case "reset":
 		actionFn = dal.ResetAlarmHistoryWithNote
 		loadedActionFn = dal.ResetLoadedAlarmHistoryWithNote
+	case "clear":
+		actionFn = dal.ClearAlarmHistory
+		loadedActionFn = dal.ClearLoadedAlarmHistoryWithNote
 	default:
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "unsupported alarm history action")
 	}

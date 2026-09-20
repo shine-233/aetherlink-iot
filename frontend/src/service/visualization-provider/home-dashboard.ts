@@ -115,24 +115,27 @@ export function createVisualizationHomeDashboardResolver(
         return providerSelectionFailure(dependencies.provider.selectionError)
       }
 
-      const result = await dependencies.provider.execute((provider: VisualizationProvider) => provider.getHomeDashboard(
-        dependencies.tenantId ? { tenantId: dependencies.tenantId } : undefined
-      ))
+      const result = await dependencies.provider.execute((provider: VisualizationProvider) =>
+        provider.getHomeDashboard(dependencies.tenantId ? { tenantId: dependencies.tenantId } : undefined)
+      )
       if (!result.ok) return result
       return { ok: true, data: normalizeHomeDashboard(result.data, dependencies.providerId) }
     }
   }
 }
 
-async function probeNativeHomeDashboard(provider: HomeProviderFacade, tenantId?: string): Promise<ThingsVisHomeProbeResult> {
+async function probeNativeHomeDashboard(
+  provider: HomeProviderFacade,
+  tenantId?: string
+): Promise<ThingsVisHomeProbeResult> {
   if (provider.selectionError) {
     return { reachable: false, status: provider.selectionError.status ?? 0, dashboard: null }
   }
 
   try {
-    const result = await provider.execute((selected: VisualizationProvider) => selected.getHomeDashboard(
-      tenantId ? { tenantId } : undefined
-    ))
+    const result = await provider.execute((selected: VisualizationProvider) =>
+      selected.getHomeDashboard(tenantId ? { tenantId } : undefined)
+    )
     if (!result.ok) {
       return { reachable: false, status: result.error.status ?? 0, dashboard: null }
     }
@@ -158,7 +161,9 @@ function getDefaultResolver(options: VisualizationHomeDashboardOptions = {}) {
     provider,
     providerId,
     tenantId: options.tenantId,
-    probe: useExternalProvider ? probeThingsVisHomeDashboard : () => probeNativeHomeDashboard(provider, options.tenantId)
+    probe: useExternalProvider
+      ? probeThingsVisHomeDashboard
+      : () => probeNativeHomeDashboard(provider, options.tenantId)
   })
 }
 

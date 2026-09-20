@@ -23,7 +23,7 @@ const detailInfo = ref({
   created_at: ''
 })
 
-const show = info => {
+const show = (info) => {
   modalVisible.value = true
   detailInfo.value = info
 }

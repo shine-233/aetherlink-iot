@@ -171,7 +171,7 @@ async function handleSubmit() {
 
 watch(
   () => props.visible,
-  newValue => {
+  (newValue) => {
     if (newValue) {
       // 每次打开都重新回填，避免新增/编辑之间残留旧字段影响本次提交。
       handleUpdateFormModelByModalType()

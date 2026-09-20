@@ -34,8 +34,14 @@ vi.mock('@/utils/form/rule', () => ({
 }))
 
 vi.mock('@/constants/business', () => ({
-  routeSysFlagOptions: [{ label: 'Admin', value: '1' }, { label: 'User', value: '2' }],
-  routeTypeOptions: [{ label: 'Menu', value: '1' }, { label: 'Button', value: '3' }]
+  routeSysFlagOptions: [
+    { label: 'Admin', value: '1' },
+    { label: 'User', value: '2' }
+  ],
+  routeTypeOptions: [
+    { label: 'Menu', value: '1' },
+    { label: 'Button', value: '3' }
+  ]
 }))
 
 vi.mock('@/plugins/icon/icons', () => ({
@@ -56,22 +62,104 @@ const mountComponent = (props: Record<string, any> = {}) => {
     },
     global: {
       stubs: {
-        NModal: defineComponent({ name: 'NModal', props: { show: Boolean, title: String }, emits: ['update:show'], setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NForm: defineComponent({ name: 'NForm', props: { model: Object, rules: Object }, setup(_, { slots }) { return () => h('form', slots.default ? slots.default() : []) } }),
-        NFormItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NFormItemGridItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NGrid: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NInput: defineComponent({ props: { value: { default: '' } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NInputNumber: defineComponent({ props: { value: { default: 0 } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NTreeSelect: defineComponent({ props: { value: { default: null } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NRadioGroup: defineComponent({ props: { value: { default: null } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NRadio: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NCheckboxGroup: defineComponent({ props: { value: { default: () => [] } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NCheckbox: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NSpace: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : []) } }),
-        NSwitch: defineComponent({ props: { value: { default: '0' } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        IconSelect: defineComponent({ setup() { return () => h('div') } })
+        NModal: defineComponent({
+          name: 'NModal',
+          props: { show: Boolean, title: String },
+          emits: ['update:show'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NForm: defineComponent({
+          name: 'NForm',
+          props: { model: Object, rules: Object },
+          setup(_, { slots }) {
+            return () => h('form', slots.default ? slots.default() : [])
+          }
+        }),
+        NFormItem: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NFormItemGridItem: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NGrid: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NInput: defineComponent({
+          props: { value: { default: '' } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NInputNumber: defineComponent({
+          props: { value: { default: 0 } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NTreeSelect: defineComponent({
+          props: { value: { default: null } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NRadioGroup: defineComponent({
+          props: { value: { default: null } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NRadio: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NCheckboxGroup: defineComponent({
+          props: { value: { default: () => [] } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NCheckbox: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NSpace: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NButton: defineComponent({
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : [])
+          }
+        }),
+        NSwitch: defineComponent({
+          props: { value: { default: '0' } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        IconSelect: defineComponent({
+          setup() {
+            return () => h('div')
+          }
+        })
       }
     }
   })
@@ -219,10 +307,12 @@ describe('management/auth/components/table-action-modal.vue', () => {
     state.formRef = { validate: vi.fn().mockResolvedValue(undefined), restoreValidation: vi.fn() }
     await state.handleSubmit()
     await flushPromises()
-    expect(hoisted.addElement).toHaveBeenCalledWith(expect.objectContaining({
-      parent_id: '0',
-      authority: JSON.stringify([])
-    }))
+    expect(hoisted.addElement).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parent_id: '0',
+        authority: JSON.stringify([])
+      })
+    )
     expect(hoisted.messageSuccess).toHaveBeenCalledWith('success')
     expect(wrapper.emitted('success')).toEqual([[]])
     expect(wrapper.emitted('update:visible')).toEqual([[false]])
@@ -237,10 +327,12 @@ describe('management/auth/components/table-action-modal.vue', () => {
     state.formRef = { validate: vi.fn().mockResolvedValue(undefined), restoreValidation: vi.fn() }
     await state.handleSubmit()
     await flushPromises()
-    expect(hoisted.editElement).toHaveBeenCalledWith(expect.objectContaining({
-      id: 'm-1',
-      authority: JSON.stringify([])
-    }))
+    expect(hoisted.editElement).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'm-1',
+        authority: JSON.stringify([])
+      })
+    )
     expect(hoisted.messageSuccess).toHaveBeenCalledWith('success')
     expect(wrapper.emitted('success')).toEqual([[]])
     expect(wrapper.emitted('update:visible')).toEqual([[false]])
@@ -291,8 +383,20 @@ describe('management/auth/components/table-action-modal.vue', () => {
   it('rules are defined for description, element_code and authority', () => {
     const wrapper = mountComponent()
     const state = getSetupState(wrapper)
-    expect(state.rules.description).toEqual({ required: true, message: 'common.pleaseCheckValue', trigger: ['input', 'blur'] })
-    expect(state.rules.element_code).toEqual({ required: true, message: 'common.pleaseCheckValue', trigger: ['input', 'blur'] })
-    expect(state.rules.authority).toEqual({ required: true, message: 'common.pleaseCheckValue', trigger: ['input', 'blur'] })
+    expect(state.rules.description).toEqual({
+      required: true,
+      message: 'common.pleaseCheckValue',
+      trigger: ['input', 'blur']
+    })
+    expect(state.rules.element_code).toEqual({
+      required: true,
+      message: 'common.pleaseCheckValue',
+      trigger: ['input', 'blur']
+    })
+    expect(state.rules.authority).toEqual({
+      required: true,
+      message: 'common.pleaseCheckValue',
+      trigger: ['input', 'blur']
+    })
   })
 })

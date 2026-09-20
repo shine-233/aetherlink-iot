@@ -216,7 +216,7 @@ describe('device/details/modules/join.vue', () => {
   it('uses stable connection guide profile before localized connect-info labels', async () => {
     hoisted.getDeviceConnectInfo.mockResolvedValue({
       data: {
-        '接入地址': 'localized-broker.example.com:1883',
+        接入地址: 'localized-broker.example.com:1883',
         '上报 Topic': 'localized/topic'
       }
     })

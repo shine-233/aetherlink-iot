@@ -25,7 +25,13 @@ vi.mock('@/service/visualization-provider/index', () => ({
 }))
 
 vi.mock('@/components/visualization-provider/VisualizationProviderFrame.vue', () => ({
-  default: defineComponent({ name: 'VisualizationProviderFrame', props: ['id', 'schema', 'mode'], setup() { return () => h('div') } })
+  default: defineComponent({
+    name: 'VisualizationProviderFrame',
+    props: ['id', 'schema', 'mode'],
+    setup() {
+      return () => h('div')
+    }
+  })
 }))
 
 vi.mock('@/locales', () => ({
@@ -66,7 +72,7 @@ describe('ThingsVisPreview', () => {
   })
 
   afterEach(() => {
-    mountedWrappers.forEach(w => w.unmount())
+    mountedWrappers.forEach((w) => w.unmount())
     mountedWrappers.length = 0
     vi.useRealTimers()
   })
@@ -94,7 +100,12 @@ describe('ThingsVisPreview', () => {
   it('ignores an older response that resolves after a newer request', async () => {
     let resolveOlder!: (value: unknown) => void
     hoisted.getDashboard
-      .mockImplementationOnce(() => new Promise(resolve => { resolveOlder = resolve }))
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveOlder = resolve
+          })
+      )
       .mockResolvedValueOnce({ ok: true, data: { name: 'New Dashboard' } })
     const wrapper = mountComponent()
     const state = getState(wrapper)

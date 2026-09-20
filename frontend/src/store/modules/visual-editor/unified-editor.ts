@@ -128,7 +128,7 @@ export const useUnifiedEditorStore = defineStore('unified-visual-editor', {
      * 获取选中的节点
      */
     selectedNodes(state): GraphData[] {
-      return state.nodes.filter(node => state.selectedIds.includes(node.id))
+      return state.nodes.filter((node) => state.selectedIds.includes(node.id))
     },
 
     /**
@@ -136,7 +136,7 @@ export const useUnifiedEditorStore = defineStore('unified-visual-editor', {
      * 🔥 关键：统一的配置访问点
      */
     getFullConfiguration:
-      state =>
+      (state) =>
       (widgetId: string): WidgetConfiguration => {
         return {
           base: state.baseConfigs.get(widgetId) || createDefaultBaseConfig(),
@@ -150,7 +150,7 @@ export const useUnifiedEditorStore = defineStore('unified-visual-editor', {
     /**
      * 获取组件的运行时数据
      */
-    getRuntimeData: state => (widgetId: string) => {
+    getRuntimeData: (state) => (widgetId: string) => {
       return state.runtimeData.get(widgetId)
     },
 
@@ -196,7 +196,7 @@ export const useUnifiedEditorStore = defineStore('unified-visual-editor', {
      * 更新节点信息
      */
     updateNode(id: string, updates: Partial<GraphData>): void {
-      const nodeIndex = this.nodes.findIndex(node => node.id === id)
+      const nodeIndex = this.nodes.findIndex((node) => node.id === id)
       if (nodeIndex !== -1) {
         this.nodes[nodeIndex] = { ...this.nodes[nodeIndex], ...updates }
         this.markDirty()
@@ -208,7 +208,7 @@ export const useUnifiedEditorStore = defineStore('unified-visual-editor', {
      */
     removeNode(id: string): void {
       // 移除节点
-      this.nodes = this.nodes.filter(node => node.id !== id)
+      this.nodes = this.nodes.filter((node) => node.id !== id)
 
       // 清理所有相关配置
       this.baseConfigs.delete(id)
@@ -218,7 +218,7 @@ export const useUnifiedEditorStore = defineStore('unified-visual-editor', {
       this.runtimeData.delete(id)
 
       // 清理选中状态
-      this.selectedIds = this.selectedIds.filter(selectedId => selectedId !== id)
+      this.selectedIds = this.selectedIds.filter((selectedId) => selectedId !== id)
 
       this.markDirty()
     },
@@ -291,7 +291,7 @@ export const useUnifiedEditorStore = defineStore('unified-visual-editor', {
      * 批量注册组件
      */
     registerWidgets(definitions: WidgetDefinition[]): void {
-      definitions.forEach(def => this.registerWidget(def))
+      definitions.forEach((def) => this.registerWidget(def))
     },
 
     // ==================== Card 2.1 集成 ====================
@@ -445,7 +445,7 @@ function resolveCard2Definition(
   nodes: GraphData[],
   definitions: Map<string, ComponentDefinition>
 ): ComponentDefinition | undefined {
-  const node = nodes.find(item => item.id === widgetId)
+  const node = nodes.find((item) => item.id === widgetId)
   const componentType = node?.componentType || node?.type || node?.metadata?.componentType
   const metadataDefinition = node?.metadata?.card2Definition
 
@@ -460,7 +460,7 @@ function createCard2DataRequirement(
   const bindings = dataSourceConfig.bindings || {}
   const declaredSources = Array.isArray(definition.dataSources) ? definition.dataSources : []
 
-  declaredSources.forEach(source => {
+  declaredSources.forEach((source) => {
     const key = source?.key
     if (!key || bindings[key] === undefined) return
 

@@ -1,0 +1,22 @@
+package safe_plugin
+
+import (
+	"github.com/DrmagicE/gmqtt/server"
+)
+
+func (s *SafePlugin) HookWrapper() server.HookWrapper {
+	return server.HookWrapper{
+		OnBasicAuthWrapper:  s.OnBasicAuthWrapper,
+		OnSubscribedWrapper: s.OnSubscribedWrapper,
+	}
+}
+
+func (s *SafePlugin) OnBasicAuthWrapper(pre server.OnBasicAuth) server.OnBasicAuth {
+	// Safe pass-through until this scaffold hook is implemented.
+	return pre
+}
+
+func (s *SafePlugin) OnSubscribedWrapper(pre server.OnSubscribed) server.OnSubscribed {
+	// Safe pass-through until this scaffold hook is implemented.
+	return pre
+}

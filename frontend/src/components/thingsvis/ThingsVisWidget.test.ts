@@ -82,7 +82,7 @@ vi.mock('@/service/api/device', () => ({
   telemetryDataPub: hoisted.telemetryDataPub
 }))
 
-vi.mock('@/utils/thingsvis/constants', async importOriginal => {
+vi.mock('@/utils/thingsvis/constants', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/utils/thingsvis/constants')>()
   return {
     ...actual,
@@ -111,7 +111,7 @@ interface NormalizedWidgetNode {
 }
 
 const findNormalizedNode = (config: { nodes: unknown }, id: string): NormalizedWidgetNode | undefined =>
-  (config.nodes as NormalizedWidgetNode[]).find(node => node.id === id)
+  (config.nodes as NormalizedWidgetNode[]).find((node) => node.id === id)
 
 const mountedWrappers: VueWrapper[] = []
 
@@ -120,7 +120,7 @@ const flushAsync = async () => {
     await Promise.resolve()
   }
   if (typeof window.requestAnimationFrame === 'function') {
-    await new Promise<void>(resolve => window.requestAnimationFrame(() => resolve()))
+    await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()))
   }
   await nextTick()
 }
@@ -237,9 +237,7 @@ const dispatchWindowMessage = async (
 ) => {
   // MessageEventInit.source 只收 DOM 自带的来源类型；测试里的 mock iframe 来源
   // 结构兼容，这里做一次受控断言，避免给参数标 any。
-  window.dispatchEvent(
-    new MessageEvent('message', { data, source: source as unknown as MessageEventSource, origin })
-  )
+  window.dispatchEvent(new MessageEvent('message', { data, source: source as unknown as MessageEventSource, origin }))
   await flushAsync()
   return latestClient()?.postMessageToGuest as ReturnType<typeof vi.fn>
 }
@@ -362,7 +360,7 @@ describe('ThingsVisWidget.vue', () => {
     expect(camera?.props.spaceId).toBeUndefined()
     expect(camera?.props.busType).toBeUndefined()
     expect(camera?.props.ezopenUrl).toBeUndefined()
-    expect(camera?.data?.map(item => item.targetProp)).toEqual(['accessToken', 'deviceSerial', 'channelNo'])
+    expect(camera?.data?.map((item) => item.targetProp)).toEqual(['accessToken', 'deviceSerial', 'channelNo'])
     expect(camera.events).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ event: 'playbackRequest' }),
@@ -436,7 +434,7 @@ describe('ThingsVisWidget.vue', () => {
   it('does not create a client after unmounting while the URL token is still loading', async () => {
     let resolveToken: (token: string) => void = () => {}
     hoisted.getThingsVisToken.mockReturnValue(
-      new Promise<string>(resolve => {
+      new Promise<string>((resolve) => {
         resolveToken = resolve
       })
     )

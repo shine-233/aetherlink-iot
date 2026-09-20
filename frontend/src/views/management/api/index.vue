@@ -59,7 +59,7 @@ function dismissCreatedKeyModal() {
 
 // 遮罩点击/ESC 走 v-model 直接置 false，不经过 dismiss：
 // 这里统一兜底，保证明文在任何关闭路径下都立即从内存清除。
-watch(showCreatedKeyModal, visible => {
+watch(showCreatedKeyModal, (visible) => {
   if (!visible && justCreatedKey.value) {
     justCreatedKey.value = ''
   }
@@ -177,7 +177,7 @@ const columns: Ref<DataTableColumns<UserManagement.UserKey>> = ref([
     title: () => $t('page.manage.api.created_at'),
     minWidth: '130px',
     align: 'left',
-    render: row => {
+    render: (row) => {
       return formatDateTime(row.updated_at)
     }
   },
@@ -251,7 +251,7 @@ async function handleCopyQuickStart(text: string) {
 
 // 编辑时直接把当前行透传给子弹窗，子组件负责回填与提交模式切换。
 function handleEditTable(rowId: string) {
-  const findItem = tableData.value.find(item => item.id === rowId)
+  const findItem = tableData.value.find((item) => item.id === rowId)
   if (findItem) {
     setEditData(findItem)
   }
@@ -261,7 +261,7 @@ function handleEditTable(rowId: string) {
 
 // 启停开关直接复用当前行对象提交；后续若补失败回滚，需要保留切换前的旧状态快照。
 async function handleSwitchChange(rowId: string) {
-  const findItem = tableData.value.find(item => item.id === rowId)
+  const findItem = tableData.value.find((item) => item.id === rowId)
   if (findItem) {
     const keyStatus = findItem.status === 1 ? 0 : 1
     findItem.status = keyStatus
@@ -362,21 +362,27 @@ init()
             <div class="api-quickstart__request">
               <div class="api-quickstart__request-head">
                 <span>curl</span>
-                <NButton text size="small" @click="handleCopyQuickStart(quickStartCurl)">{{ $t('generate.copy') }}</NButton>
+                <NButton text size="small" @click="handleCopyQuickStart(quickStartCurl)">
+                  {{ $t('generate.copy') }}
+                </NButton>
               </div>
               <pre>{{ quickStartCurl }}</pre>
             </div>
             <div class="api-quickstart__request">
               <div class="api-quickstart__request-head">
                 <span>Node</span>
-                <NButton text size="small" @click="handleCopyQuickStart(quickStartNode)">{{ $t('generate.copy') }}</NButton>
+                <NButton text size="small" @click="handleCopyQuickStart(quickStartNode)">
+                  {{ $t('generate.copy') }}
+                </NButton>
               </div>
               <pre>{{ quickStartNode }}</pre>
             </div>
             <div class="api-quickstart__request">
               <div class="api-quickstart__request-head">
                 <span>Python</span>
-                <NButton text size="small" @click="handleCopyQuickStart(quickStartPython)">{{ $t('generate.copy') }}</NButton>
+                <NButton text size="small" @click="handleCopyQuickStart(quickStartPython)">
+                  {{ $t('generate.copy') }}
+                </NButton>
               </div>
               <pre>{{ quickStartPython }}</pre>
             </div>
@@ -408,7 +414,14 @@ init()
           @success="getTableData"
           @created="handleCreatedKey"
         />
-        <n-modal aria-label="dialog" v-model:show="showCreatedKeyModal" preset="card" :title="$t('page.manage.api.createdKeyTitle')" class="w-90%" :style="{ maxWidth: '560px' }">
+        <n-modal
+          v-model:show="showCreatedKeyModal"
+          aria-label="dialog"
+          preset="card"
+          :title="$t('page.manage.api.createdKeyTitle')"
+          class="w-90%"
+          :style="{ maxWidth: '560px' }"
+        >
           <n-alert type="warning" :show-icon="true" class="mb-12px">
             {{ $t('page.manage.api.createdKeyDesc') }}
           </n-alert>

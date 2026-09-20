@@ -80,7 +80,7 @@ const headerTemplateParams = computed(() => {
  */
 watch(
   () => props.currentApiInfo,
-  newValue => {
+  (newValue) => {
     if (newValue && hasHeaderTemplate.value && !hasAppliedTemplate.value) {
       showTemplateRecommend.value = true
     }
@@ -109,8 +109,8 @@ const applyTemplate = () => {
   }))
 
   // 合并到现有请求头（避免重复）
-  const existingKeys = new Set((props.modelValue.headers || []).map(h => h.key))
-  const newHeaders = templateHeaders.filter(h => !existingKeys.has(h.key))
+  const existingKeys = new Set((props.modelValue.headers || []).map((h) => h.key))
+  const newHeaders = templateHeaders.filter((h) => !existingKeys.has(h.key))
 
   if (newHeaders.length > 0) {
     const updatedHeaders = [...(props.modelValue.headers || []), ...newHeaders]

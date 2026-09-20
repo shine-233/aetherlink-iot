@@ -12,9 +12,7 @@ import { alarmHistory, alarmHistoryMonthlyTrend } from '@/service/api/alarm'
 import { getAlarmCount, sumData } from '@/service/api/system-data'
 import { normalizeAlarmMonthlyTrendPoints, type AlarmRecord, type AlarmTrendPoint } from './rdiOverviewState'
 
-export function useRdiOverviewData(options: {
-  isMasterAccount: MaybeRefOrGetter<boolean>
-}) {
+export function useRdiOverviewData(options: { isMasterAccount: MaybeRefOrGetter<boolean> }) {
   const loading = ref(false)
   const alarmLoading = ref(false)
   const alarmTrendLoading = ref(false)
@@ -54,9 +52,7 @@ export function useRdiOverviewData(options: {
   }
 
   async function fetchCounts() {
-    const res = toValue(options.isMasterAccount)
-      ? await getAlarmCount({ all_tenants: true })
-      : await getAlarmCount()
+    const res = toValue(options.isMasterAccount) ? await getAlarmCount({ all_tenants: true }) : await getAlarmCount()
     const data = (res?.data || {}) as any
     alarmDeviceTotal.value = Number(data.alarm_device_total ?? data.AlarmDeviceTotal ?? 0)
     stats.alarmHistoryTotal = Number(data.alarm_history_total ?? data.AlarmHistoryTotal ?? 0)

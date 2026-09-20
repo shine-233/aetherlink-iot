@@ -99,7 +99,13 @@ const mountComponent = (props = {}) => {
           }
         }),
         NSelect: defineComponent({
-          props: { value: { default: null }, options: { default: () => [] }, multiple: Boolean, filterable: Boolean, remote: Boolean },
+          props: {
+            value: { default: null },
+            options: { default: () => [] },
+            multiple: Boolean,
+            filterable: Boolean,
+            remote: Boolean
+          },
           emits: ['update:value', 'search'],
           setup() {
             return () => h('div')

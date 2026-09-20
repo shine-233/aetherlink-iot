@@ -122,8 +122,8 @@ vi.mock('../rdi/composables/useRdiTelemetry', () => ({
     telemetryRows: mockTelemetryRows,
     deviceOnlineText: ref('online'),
     deviceDescriptionText: ref('desc'),
-    toAxisValue: vi.fn(value => value),
-    formatSwitch: vi.fn(value => String(value ?? '--')),
+    toAxisValue: vi.fn((value) => value),
+    formatSwitch: vi.fn((value) => String(value ?? '--')),
     loadRealtimeState: mockLoadRealtimeState,
     startTelemetryRefresh: mockStartTelemetryRefresh
   })
@@ -395,7 +395,12 @@ const interactiveStubs = {
   NButton: ButtonStub,
   NFormItem: FormItemStub,
   NSelect: SelectStub,
-  NDatePicker: defineComponent({ name: 'NDatePicker', props: ['value'], emits: ['update:value'], setup: () => () => h('div') }),
+  NDatePicker: defineComponent({
+    name: 'NDatePicker',
+    props: ['value'],
+    emits: ['update:value'],
+    setup: () => () => h('div')
+  }),
   NInput: InputStub,
   NInputNumber: NumberInputStub,
   NSwitch: SwitchStub,
@@ -491,7 +496,9 @@ describe('RdiDeviceOperationsView.vue', () => {
     expect(wrapper.text()).toContain('PID: --')
     expect(wrapper.text()).toContain('Door')
     expect(wrapper.text()).toContain('closed')
-    expect(wrapper.findAllComponents(ButtonStub).some(button => button.attributes('disabled') !== undefined)).toBe(true)
+    expect(wrapper.findAllComponents(ButtonStub).some((button) => button.attributes('disabled') !== undefined)).toBe(
+      true
+    )
   })
 
   it('renders the screenshot-aligned basic info section from device detail fields', async () => {
@@ -627,7 +634,7 @@ describe('RdiDeviceOperationsView.vue', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('expires: 2026-07-01 10:00:00')
-    const copyButton = wrapper.findAllComponents(ButtonStub).find(button => button.text() === 'copy')
+    const copyButton = wrapper.findAllComponents(ButtonStub).find((button) => button.text() === 'copy')
     expect(copyButton?.attributes('disabled')).toBeUndefined()
   })
 
@@ -742,7 +749,7 @@ describe('RdiDeviceOperationsView.vue', () => {
 
     const intervalInput = wrapper
       .findAllComponents(NumberInputStub)
-      .find(input => input.props('value') === 60 && input.props('min') === 45 && input.props('max') === 60)
+      .find((input) => input.props('value') === 60 && input.props('min') === 45 && input.props('max') === 60)
 
     expect(intervalInput?.props()).toMatchObject({
       value: 60,

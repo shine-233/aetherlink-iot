@@ -71,15 +71,9 @@ const openMarketLoginModal = async () => {
   }
 }
 
-const findTemplateName = (id: string) => templateList.value.find(item => String(item.id) === String(id))?.name || ''
+const findTemplateName = (id: string) => templateList.value.find((item) => String(item.id) === String(id))?.name || ''
 
-const {
-  pendingInstallId,
-  isInstalling,
-  handleInstall,
-  doInstall,
-  onMarketLoginSuccess
-} = useMarketTemplateInstall({
+const { pendingInstallId, isInstalling, handleInstall, doInstall, onMarketLoginSuccess } = useMarketTemplateInstall({
   isLoggedIn,
   getToken,
   clearToken,
@@ -87,8 +81,7 @@ const {
     void openMarketLoginModal()
   },
   resolveTemplateName: findTemplateName,
-  installTemplate: (payload: { market_template_id: string; market_token: string }) =>
-    installFromMarket(payload) as any,
+  installTemplate: (payload: { market_template_id: string; market_token: string }) => installFromMarket(payload) as any,
   onInstalled: () => emit('installed'),
   t: $t,
   message: {

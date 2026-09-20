@@ -162,9 +162,7 @@ export function formatOtaOnlineState(item: OtaDeviceCandidate) {
   return '未知'
 }
 
-export function buildOtaFilterSummaryItems(
-  deviceFilter?: OtaDeviceFilter | null
-): OtaFilterSummaryItem[] {
+export function buildOtaFilterSummaryItems(deviceFilter?: OtaDeviceFilter | null): OtaFilterSummaryItem[] {
   if (!deviceFilter) return []
 
   return Object.entries(deviceFilter)
@@ -223,7 +221,9 @@ export function canSaveOtaTask(
   form: OtaTaskFormState,
   deviceFilter?: OtaDeviceFilter | null
 ) {
-  return Boolean(selectedPackageId && form.name.trim() && (form.device_id_list.length > 0 || hasOtaTaskDeviceFilter(deviceFilter)))
+  return Boolean(
+    selectedPackageId && form.name.trim() && (form.device_id_list.length > 0 || hasOtaTaskDeviceFilter(deviceFilter))
+  )
 }
 
 export function otaTaskSaveValidationKey(

@@ -20,10 +20,12 @@ const PREVIEW_FRAME_IDLE_TIMEOUT_MS = 1200
 const PREVIEW_FRAME_FALLBACK_DELAY_MS = 160
 
 const route = useRoute()
-const providerId = computed(() => resolveVisualizationProviderId({
-  provider: route.query.provider,
-  projectId: route.query.projectId
-}))
+const providerId = computed(() =>
+  resolveVisualizationProviderId({
+    provider: route.query.provider,
+    projectId: route.query.projectId
+  })
+)
 const provider = getDefaultVisualizationProviderFacade({ providerId: providerId.value })
 const providerSelectionError = provider.selectionError
 const providerErrorTitle = computed(() =>
@@ -118,7 +120,7 @@ async function loadDashboard() {
   if (!currentDashboardId) return
 
   try {
-    const result = await provider.execute(current => {
+    const result = await provider.execute((current) => {
       if (providerId.value === NATIVE_BOARD_PROVIDER_ID && shareToken.value && current.getDashboardByShareToken) {
         return current.getDashboardByShareToken(shareToken.value)
       }
@@ -176,7 +178,9 @@ onBeforeUnmount(() => {
       />
       <div v-else class="flex h-full items-center justify-center text-gray-400">
         <div class="text-center" role="status">
-          <p class="text-lg">{{ selectionError ? $t('rdi.thingsvis.unableToLoadDashboard') : $t('rdi.thingsvis.viewer') }}</p>
+          <p class="text-lg">
+            {{ selectionError ? $t('rdi.thingsvis.unableToLoadDashboard') : $t('rdi.thingsvis.viewer') }}
+          </p>
           <p v-if="!selectionError" class="mt-2 text-sm opacity-70">{{ $t('common.loading') }}</p>
         </div>
       </div>

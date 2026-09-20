@@ -235,5 +235,4 @@ describe('useOtaTaskFlow', () => {
     })
     expect(harness.flow.taskRiskDevices.value.map((item) => item.id)).toEqual(['dev-1', 'dev-2'])
   })
-
 })

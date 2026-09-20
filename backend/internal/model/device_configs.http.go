@@ -19,6 +19,7 @@ type CreateDeviceConfigReq struct {
 	AdditionalInfo   *string `json:"additional_info" validate:"omitempty"`              // 附加信息
 	Description      *string `json:"description" validate:"omitempty,max=255"`          // 描述
 	Remark           *string `json:"remark" validate:"omitempty,max=255"`               // 备注
+	ConflictPolicy   *string `json:"conflict_policy" form:"conflict_policy" validate:"omitempty,oneof=fail rename ignore update allow"` // TB-15 实体名冲突策略
 }
 
 type UpdateDeviceConfigReq struct {

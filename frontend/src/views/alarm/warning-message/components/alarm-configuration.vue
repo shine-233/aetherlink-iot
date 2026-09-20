@@ -1,4 +1,4 @@
-﻿<!--
+<!--
 文件用途：提供 告警消息管理 页面内的 alarm-configuration 子组件。
 核心逻辑：封装局部表单、弹窗、列表或展示模块，通过 props、emit 与父页面协作。
 关键注意事项：保持组件边界清晰，避免在子组件中绕过父页面的数据刷新与权限控制。
@@ -31,16 +31,12 @@ import {
   isAcknowledged,
   isReset
 } from './alarm-configuration.helpers'
-import {
-  createAlarmConfigurationColumns,
-  type AlarmConfigurationRow
-} from './alarmConfigurationColumns'
+import { createAlarmConfigurationColumns, type AlarmConfigurationRow } from './alarmConfigurationColumns'
 import AlarmBatchEvidenceCard from './AlarmBatchEvidenceCard.vue'
+import AlarmCommentPanel from './AlarmCommentPanel.vue'
+import AlarmAssignmentPanel from './AlarmAssignmentPanel.vue'
 import { useAlarmBatchActions } from './useAlarmBatchActions'
-import {
-  useAlarmSingleActions,
-  type AlarmSingleActionRow
-} from './alarm-configuration.single-actions'
+import { useAlarmSingleActions, type AlarmSingleActionRow } from './alarm-configuration.single-actions'
 import { useAlarmClosureEvidenceExport } from './alarm-configuration.evidence-export'
 
 const props = defineProps<{
@@ -79,14 +75,14 @@ const pagination: PaginationProps = reactive({
   onChange: (page: number) => {
     pagination.page = page
     selectedAlarmRowKeys.value = []
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
+
     getAlarmHistory()
   },
   onUpdatePageSize: (pageSize: number) => {
     pagination.pageSize = pageSize
     pagination.page = 1
     selectedAlarmRowKeys.value = []
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
+
     getAlarmHistory()
   }
 })
@@ -156,10 +152,11 @@ const alarmStatusOptions = ref(createAlarmStatusOptions($t))
 const alarmTypeOptions = ref(createAlarmTypeOptions($t))
 const columns = createAlarmConfigurationColumns({
   getAlarmStatusOptions: () => alarmStatusOptions.value,
-  onShowDetails: row => getInfo(row),
-  onAcknowledge: row => acknowledgeAlarm(row),
-  onReset: row => resetAlarm(row),
-  onMaintenance: row => maintenance(row)
+  onShowDetails: (row) => getInfo(row),
+  onAcknowledge: (row) => acknowledgeAlarm(row),
+  onReset: (row) => resetAlarm(row),
+  onClear: (row) => clearAlarm(row),
+  onMaintenance: (row) => maintenance(row)
 })
 const alarmTriageSummary = computed(() => buildAlarmTriageSummary(tableData.value))
 const {
@@ -279,7 +276,7 @@ const {
   runSingleAlarmAction
 } = useAlarmSingleActions({
   severityOptions: alarmStatusOptions,
-  evidenceRowOf: row => alarmEvidenceRow(row),
+  evidenceRowOf: (row) => alarmEvidenceRow(row),
   evidenceBoundaryLabel: alarmEvidenceBoundary,
   closeDetailDialog: closeModal,
   refresh: getAlarmHistory
@@ -293,6 +290,9 @@ const resetAlarm = (row: any) => {
   openSingleAlarmAction(row as AlarmSingleActionRow, 'reset')
 }
 
+const clearAlarm = (row: any) => {
+  openSingleAlarmAction(row as AlarmSingleActionRow, 'clear')
+}
 
 const buildCurrentAlarmClosureEvidenceBundle = () =>
   buildAlarmClosureEvidenceBundle({
@@ -413,13 +413,7 @@ const submitCallback = async () => {
         </NFlex>
       </div>
     </NAlert>
-    <NForm
-      ref="queryFormRef"
-      class="alarm-query-form"
-      :inline="!getPlatform"
-      label-placement="left"
-      :model="queryData"
-    >
+    <NForm ref="queryFormRef" class="alarm-query-form" :inline="!getPlatform" label-placement="left" :model="queryData">
       <NFormItem path="status">
         <n-date-picker v-model:value="range" type="datetimerange" :clearable="false" separator="-" />
       </NFormItem>
@@ -513,13 +507,13 @@ const submitCallback = async () => {
     </NCard>
     <div class="w-100% flex-1-hidden alarm-table-scroll">
       <n-data-table
+        v-model:checked-row-keys="selectedAlarmRowKeys"
         remote
         :loading="loading"
         :columns="columns"
         :data="tableData"
         :pagination="pagination"
         :row-key="rowKey"
-        v-model:checked-row-keys="selectedAlarmRowKeys"
         class="w-100%"
       >
         <template #empty>
@@ -531,7 +525,12 @@ const submitCallback = async () => {
     <!--      <NButton @click="handleBatch">{{ $t('generate.batch-process') }}</NButton>-->
     <!--      <NButton @click="handleIgnore">{{ $t('generate.batch-ignore') }}</NButton>-->
     <!--    </div>-->
-    <n-modal aria-label="dialog" v-model:show="batchActionDialogVisible" class="max-w-[600px]" :mask-closable="!batchActionLoading">
+    <n-modal
+      v-model:show="batchActionDialogVisible"
+      aria-label="dialog"
+      class="max-w-[600px]"
+      :mask-closable="!batchActionLoading"
+    >
       <NCard :title="batchActionDialogTitle" class="alarm-action-modal-card">
         <div class="batch-action-hint">
           <div class="whitespace-pre-line">{{ batchActionDialogHint }}</div>
@@ -666,7 +665,13 @@ const submitCallback = async () => {
             {{ $t('custom.alarmPage.auditBoundaryHint') }}
           </NAlert>
           <NFlex class="mt-3" :size="8" wrap>
-            <NButton v-if="detailNeedsAcknowledge" size="small" type="success" secondary @click="acknowledgeAlarm(infoData)">
+            <NButton
+              v-if="detailNeedsAcknowledge"
+              size="small"
+              type="success"
+              secondary
+              @click="acknowledgeAlarm(infoData)"
+            >
               {{ $t('rdi.overview.acknowledgeAlarm') }}
             </NButton>
             <NButton v-if="detailNeedsReset" size="small" type="error" secondary @click="resetAlarm(infoData)">
@@ -708,6 +713,33 @@ const submitCallback = async () => {
             </tbody>
           </NTable>
         </n-form-item>
+        <!--
+          告警评论：infoData.id 就是当前告警历史的 id。本块不带 v-if —— 详情弹窗本身由
+          n-modal 的 display-directive="if" 懒渲染，且 showDialog 只可能在 getInfo(row)
+          写好 infoData 之后为 true，所以这里不存在"永远为假"的死挂载。
+        -->
+        <NCard embedded size="small" class="alarm-resolution-card">
+          <div class="alarm-resolution-header">
+            <div>
+              <div class="alarm-resolution-title">{{ $t('custom.alarmComment.title') }}</div>
+            </div>
+          </div>
+          <AlarmCommentPanel data-testid="alarm-comment-panel" :alarm-history-id="infoData.id" />
+        </NCard>
+        <!--
+          告警指派：与评论同源，入参同样是 infoData.id。本块不带 v-if —— 详情弹窗由
+          n-modal 默认的 display-directive="if" 懒渲染（关闭时不渲染内部内容），
+          且 showDialog 只可能在 getInfo(row) 写好 infoData 之后为 true，
+          所以这里不存在"永远为假"的死挂载（b570eb2 的坑）。
+        -->
+        <NCard embedded size="small" class="alarm-resolution-card">
+          <div class="alarm-resolution-header">
+            <div>
+              <div class="alarm-resolution-title">{{ $t('custom.alarmAssignment.title') }}</div>
+            </div>
+          </div>
+          <AlarmAssignmentPanel data-testid="alarm-assignment-panel" :alarm-history-id="infoData.id" />
+        </NCard>
         <NFlex justify="flex-end">
           <NButton @click="closeModal">{{ $t('custom.devicePage.close') }}</NButton>
         </NFlex>
@@ -994,5 +1026,4 @@ const submitCallback = async () => {
     grid-template-columns: 1fr;
   }
 }
-
 </style>

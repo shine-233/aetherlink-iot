@@ -52,7 +52,7 @@ const renderLocalIcon = computed(() => props.localIcon || !props.icon)
 
 watch(
   () => props.localIcon,
-  async iconName => {
+  async (iconName) => {
     if (!iconName) {
       localIconReady.value = true
       return

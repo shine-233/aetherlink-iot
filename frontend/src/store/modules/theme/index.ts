@@ -67,7 +67,7 @@ export const useThemeStore = defineStore(SetupStoreId.Theme, () => {
   function toggleThemeScheme() {
     const themeSchemes: UnionKey.ThemeScheme[] = ['light', 'dark', 'auto']
 
-    const index = themeSchemes.findIndex(item => item === settings.value.themeScheme)
+    const index = themeSchemes.findIndex((item) => item === settings.value.themeScheme)
 
     const nextIndex = index === themeSchemes.length - 1 ? 0 : index + 1
 
@@ -124,7 +124,7 @@ export const useThemeStore = defineStore(SetupStoreId.Theme, () => {
     // watch dark mode
     watch(
       darkMode,
-      val => {
+      (val) => {
         toggleCssDarkMode(val)
       },
       { immediate: true }
@@ -133,7 +133,7 @@ export const useThemeStore = defineStore(SetupStoreId.Theme, () => {
     // themeColors change, update css vars and storage theme color
     watch(
       themeColors,
-      val => {
+      (val) => {
         setupThemeVarsToHtml()
 
         localStg.set('themeColor', val.primary)

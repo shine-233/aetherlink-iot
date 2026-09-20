@@ -85,7 +85,9 @@ func (a *AttributeData) publishAttributeSet(device, targetDevice *model.Device, 
 		TopicPrefix:    topicPrefix,
 		MessageID:      messageID,
 	}
-	a.downlinkBus.PublishAttributeSet(msg)
+	if err := a.downlinkBus.PublishAttributeSet(msg); err != nil {
+		return fmt.Errorf("downlink attribute-set admission failed: %w", err)
+	}
 
 	logrus.WithFields(logrus.Fields{
 		"device_id":            device.ID,
@@ -113,7 +115,9 @@ func (a *AttributeData) publishAttributeGet(device, targetDevice *model.Device, 
 		TopicPrefix:    topicPrefix,
 		MessageID:      "",
 	}
-	a.downlinkBus.PublishAttributeGet(msg)
+	if err := a.downlinkBus.PublishAttributeGet(msg); err != nil {
+		return fmt.Errorf("downlink attribute-get admission failed: %w", err)
+	}
 
 	logrus.WithFields(logrus.Fields{
 		"device_id":            device.ID,

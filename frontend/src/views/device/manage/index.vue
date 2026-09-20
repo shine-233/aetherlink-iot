@@ -10,7 +10,15 @@ import type { TreeSelectOption } from 'naive-ui/es/tree-select/src/interface'
 import { createLogger } from '@/utils/logger'
 
 const logger = createLogger('DeviceManage')
-import { checkDevice, deleteDevice as deleteDeviceApi, deviceConnectForm, deviceGroupRelation, deviceGroupTree, deviceList, getDeviceConfigList } from '@/service/api/device'
+import {
+  checkDevice,
+  deleteDevice as deleteDeviceApi,
+  deviceConnectForm,
+  deviceGroupRelation,
+  deviceGroupTree,
+  deviceList,
+  getDeviceConfigList
+} from '@/service/api/device'
 import { activateRdiDevice } from '@/service/api/rdi'
 import type { SearchConfig } from '@/components/data-table-page/types'
 import { useRouterPush } from '@/hooks/common/router'
@@ -111,12 +119,17 @@ const goDeviceDetails = (row) => {
 type DeviceManageQuickActionsExpose = {
   openEditDevice: (row: any) => void
   openShareDevice: (row: any) => void
+  openIssueClaimToken: (row: any) => void
+  openClaimDevice: () => void
 }
 
 type PendingQuickAction =
   | {
-      kind: 'edit' | 'share'
+      kind: 'edit' | 'share' | 'claim-issue'
       row: any
+    }
+  | {
+      kind: 'claim-redeem'
     }
   | null
 
@@ -137,14 +150,28 @@ const flushPendingQuickAction = () => {
     instance.openEditDevice(nextAction.row)
     return
   }
+  if (nextAction.kind === 'claim-issue') {
+    instance.openIssueClaimToken(nextAction.row)
+    return
+  }
+  if (nextAction.kind === 'claim-redeem') {
+    instance.openClaimDevice()
+    return
+  }
   instance.openShareDevice(nextAction.row)
 }
 
 watch(deviceManageQuickActionsRef, flushPendingQuickAction)
 
-const openDeviceQuickAction = (kind: 'edit' | 'share', row: any) => {
+const openDeviceQuickAction = (kind: 'edit' | 'share' | 'claim-issue', row: any) => {
   quickActionsVisited.value = true
-  pendingQuickAction.value = { kind, row }
+  pendingQuickAction.value = { kind, row } as PendingQuickAction
+  flushPendingQuickAction()
+}
+
+const openClaimDeviceDialog = () => {
+  quickActionsVisited.value = true
+  pendingQuickAction.value = { kind: 'claim-redeem' }
   flushPendingQuickAction()
 }
 
@@ -174,7 +201,13 @@ const openShareDevice = (row: any) => {
   openDeviceQuickAction('share', row)
 }
 
-const columns_to_show = ref(createDeviceManageColumns(goDeviceDetails, openEditDevice, confirmDeleteDevice, openShareDevice))
+const openIssueClaimToken = (row: any) => {
+  openDeviceQuickAction('claim-issue', row)
+}
+
+const columns_to_show = ref(
+  createDeviceManageColumns(goDeviceDetails, openEditDevice, confirmDeleteDevice, openShareDevice, openIssueClaimToken)
+)
 const actions = []
 
 const { scheduleDeviceStatusSubscription } = useDeviceManageStatusSubscription({
@@ -331,16 +364,13 @@ const searchConfigs = ref<SearchConfig[]>([
   }
 ])
 
-const {
-  initializeServiceAccessFiltersInBackground,
-  paramsUpdateHandle,
-  primeInitialServiceAccessFilter
-} = useDeviceManageServiceAccessFilters({
-  searchConfigs,
-  tablePageRef,
-  initialServiceIdentifier: route.query.service_identifier,
-  initialServiceAccessId: route.query.service_access_id
-})
+const { initializeServiceAccessFiltersInBackground, paramsUpdateHandle, primeInitialServiceAccessFilter } =
+  useDeviceManageServiceAccessFilters({
+    searchConfigs,
+    tablePageRef,
+    initialServiceIdentifier: route.query.service_identifier,
+    initialServiceAccessId: route.query.service_access_id
+  })
 primeInitialServiceAccessFilter()
 
 const dropOption = [
@@ -352,7 +382,7 @@ const dropOption = [
     label: () => $t('custom.devicePage.addByNumber'),
     key: 'number',
     disabled: false
-  },
+  }
 ]
 
 const {
@@ -464,6 +494,9 @@ const topActions = [
     element: () => (
       <n-button onClick={() => router.push('/device/shared-with-me')}>{$t('route.device_shared-with-me')}</n-button>
     )
+  },
+  {
+    element: () => <n-button onClick={openClaimDeviceDialog}>{$t('custom.devicePage.claimDevice')}</n-button>
   },
   {
     element: () => (

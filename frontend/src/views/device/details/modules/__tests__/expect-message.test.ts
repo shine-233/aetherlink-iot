@@ -35,12 +35,44 @@ const mountComponent = (props = {}) => {
     props: { id: 'device-1', ...props },
     global: {
       stubs: {
-        NForm: defineComponent({ props: ['inline', 'labelPlacement', 'labelAlign', 'labelWidth'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NFormItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NSelect: defineComponent({ props: ['value', 'options', 'clearable', 'placeholder'], emits: ['update:value'], setup() { return () => h('div') } }),
-        NInput: defineComponent({ props: ['value', 'placeholder'], emits: ['update:value'], setup() { return () => h('input') } }),
-        NButton: defineComponent({ props: ['type'], emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } }),
-        NDataTable: defineComponent({ props: ['columns', 'data', 'pagination', 'remote'], setup() { return () => h('table') } })
+        NForm: defineComponent({
+          props: ['inline', 'labelPlacement', 'labelAlign', 'labelWidth'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NFormItem: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NSelect: defineComponent({
+          props: ['value', 'options', 'clearable', 'placeholder'],
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NInput: defineComponent({
+          props: ['value', 'placeholder'],
+          emits: ['update:value'],
+          setup() {
+            return () => h('input')
+          }
+        }),
+        NButton: defineComponent({
+          props: ['type'],
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default?.())
+          }
+        }),
+        NDataTable: defineComponent({
+          props: ['columns', 'data', 'pagination', 'remote'],
+          setup() {
+            return () => h('table')
+          }
+        })
       }
     }
   })

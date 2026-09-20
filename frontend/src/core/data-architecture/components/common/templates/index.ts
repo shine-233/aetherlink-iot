@@ -251,13 +251,13 @@ export const PARAMETER_TEMPLATES: ParameterTemplate[] = [
 export function getRecommendedTemplates(parameterType: 'header' | 'query' | 'path'): ParameterTemplate[] {
   return [
     // 1. 手动输入
-    PARAMETER_TEMPLATES.find(t => t.id === 'manual')!,
+    PARAMETER_TEMPLATES.find((t) => t.id === 'manual')!,
 
     // 2. 组件属性绑定
-    PARAMETER_TEMPLATES.find(t => t.id === 'component-property-binding')!,
+    PARAMETER_TEMPLATES.find((t) => t.id === 'component-property-binding')!,
 
     // 3. 设备配置（单个参数的设备配置）
-    PARAMETER_TEMPLATES.find(t => t.id === 'device-metrics-selector')!
+    PARAMETER_TEMPLATES.find((t) => t.id === 'device-metrics-selector')!
   ]
 }
 
@@ -265,7 +265,7 @@ export function getRecommendedTemplates(parameterType: 'header' | 'query' | 'pat
  * 获取所有组件模板
  */
 export function getComponentTemplates(): ParameterTemplate[] {
-  return PARAMETER_TEMPLATES.filter(t => t.type === ParameterTemplateType.COMPONENT)
+  return PARAMETER_TEMPLATES.filter((t) => t.type === ParameterTemplateType.COMPONENT)
 }
 
 /**
@@ -279,5 +279,5 @@ export function isComponentTemplate(template: ParameterTemplate): boolean {
  * 获取模板by ID
  */
 export function getTemplateById(id: string): ParameterTemplate | undefined {
-  return PARAMETER_TEMPLATES.find(t => t.id === id)
+  return PARAMETER_TEMPLATES.find((t) => t.id === id)
 }

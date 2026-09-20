@@ -15,7 +15,12 @@ vi.mock('@/components/common/grid', () => ({
       idKey: String
     },
     setup(props, { slots }) {
-      return () => h('div', { class: 'grid-stub' }, props.layout.map((item: unknown) => slots.default?.({ item })))
+      return () =>
+        h(
+          'div',
+          { class: 'grid-stub' },
+          props.layout.map((item: unknown) => slots.default?.({ item }))
+        )
     }
   })
 }))
@@ -48,7 +53,13 @@ describe('LocalVisualizationViewer', () => {
       showTitle: false,
       contentPadding: false,
       idKey: 'id',
-      config: expect.objectContaining({ colNum: 12, rowHeight: 48, isDraggable: false, isResizable: false, staticGrid: true })
+      config: expect.objectContaining({
+        colNum: 12,
+        rowHeight: 48,
+        isDraggable: false,
+        isResizable: false,
+        staticGrid: true
+      })
     })
     expect(wrapper.get('[data-widget-id="text"]').text()).toContain('State: online')
     expect(wrapper.get('[data-widget-id="metric"]').text()).toContain('42 W')
@@ -83,5 +94,81 @@ describe('LocalVisualizationViewer', () => {
     expect(wrapper.get('[data-testid="local-viewer-empty"]').text()).toContain('This board has no widgets yet')
     expect(wrapper.get('[data-testid="local-viewer-empty"]').text()).toContain('Add a widget in the board editor')
     expect(wrapper.findComponent(GridLayoutPlus).exists()).toBe(false)
+  })
+
+  it('renders timewindow toolbar and responsive indicator when enabled', async () => {
+    const wrapper = mount(LocalVisualizationViewer, {
+      props: {
+        dashboard: {
+          version: 1,
+          columns: 24,
+          rowHeight: 60,
+          responsive: true,
+          timewindow: {
+            type: 'realtime',
+            realtime: { interval: '1h' },
+            aggregation: { func: 'avg', interval: 60000 }
+          },
+          widgets: widgets.slice(0, 1)
+        },
+        fields: { status: 'online' }
+      }
+    })
+
+    expect(wrapper.find('[data-testid="viewer-toolbar"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="breakpoint-indicator"]').exists()).toBe(true)
+  })
+
+  it('renders a sanitized html widget with dynamic variables and scoped css', () => {
+    const htmlWidget = {
+      id: 'html1',
+      x: 0,
+      y: 0,
+      w: 4,
+      h: 2,
+      type: 'html',
+      config: {
+        html: '<div class="custom-card"><h3>Equipment: {{dev}}</h3><p>Temp: ${temp}</p></div>',
+        css: '.custom-card { color: #10b981; }',
+        field: 'temp'
+      }
+    }
+    const wrapper = mount(LocalVisualizationViewer, {
+      props: {
+        dashboard: { version: 1, columns: 12, rowHeight: 48, widgets: [htmlWidget] },
+        fields: { dev: 'Pump-4', temp: 88 }
+      }
+    })
+    const widgetEl = wrapper.get('[data-widget-id="html1"]')
+    expect(widgetEl.text()).toContain('Equipment: Pump-4')
+    expect(widgetEl.text()).toContain('Temp: 88')
+    expect(widgetEl.html()).toContain('[data-widget-id="html1"] .custom-card {')
+  })
+
+  it('renders a map widget with GPS coordinates, title, and controls', () => {
+    const mapWidget = {
+      id: 'map1',
+      x: 0,
+      y: 0,
+      w: 6,
+      h: 4,
+      type: 'map',
+      config: {
+        title: 'Vehicle Tracker',
+        latField: 'lat',
+        lngField: 'lng'
+      }
+    }
+    const wrapper = mount(LocalVisualizationViewer, {
+      props: {
+        dashboard: { version: 1, columns: 12, rowHeight: 48, widgets: [mapWidget] },
+        fields: { lat: 39.9042, lng: 116.4074 }
+      }
+    })
+    const widgetEl = wrapper.get('[data-widget-id="map1"]')
+    expect(widgetEl.text()).toContain('Vehicle Tracker')
+    expect(widgetEl.text()).toContain('39.9042')
+    expect(widgetEl.text()).toContain('116.4074')
+    expect(widgetEl.find('.local-map-controls').exists()).toBe(true)
   })
 })

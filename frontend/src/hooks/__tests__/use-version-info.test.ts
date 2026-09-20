@@ -19,15 +19,18 @@ const CACHE_KEY = 'aetherlink_iot_latest_version_cache_v1'
 
 async function mountVersionInfo(waitForLoad = true) {
   const { default: useVersionInfo } = await import('../business/use-version-info')
-  const wrapper = mount(defineComponent({
-    setup() {
-      const { currentVersion, latestVersion } = useVersionInfo()
-      return () => h('div', [
-        h('span', { 'data-testid': 'current' }, currentVersion.value),
-        h('span', { 'data-testid': 'latest' }, latestVersion.value)
-      ])
-    }
-  }))
+  const wrapper = mount(
+    defineComponent({
+      setup() {
+        const { currentVersion, latestVersion } = useVersionInfo()
+        return () =>
+          h('div', [
+            h('span', { 'data-testid': 'current' }, currentVersion.value),
+            h('span', { 'data-testid': 'latest' }, latestVersion.value)
+          ])
+      }
+    })
+  )
   if (waitForLoad) await flushPromises()
   return wrapper
 }

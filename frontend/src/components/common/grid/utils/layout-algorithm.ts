@@ -22,7 +22,7 @@ export function findAvailablePosition(
         const proposed = { x, y, w, h }
 
         // 检查是否与现有项目冲突
-        const hasCollision = layout.some(item => {
+        const hasCollision = layout.some((item) => {
           return !(
             proposed.x + proposed.w <= item.x ||
             proposed.x >= item.x + item.w ||
@@ -38,7 +38,7 @@ export function findAvailablePosition(
     }
 
     // 如果找不到位置，返回底部
-    const maxY = Math.max(0, ...layout.map(item => item.y + item.h))
+    const maxY = Math.max(0, ...layout.map((item) => item.y + item.h))
     return { x: 0, y: maxY }
   } catch (error) {
     console.error('Failed to find available position:', error)
@@ -70,7 +70,7 @@ export function findOptimalPosition(
     }
 
     // 搜索最优位置
-    const maxY = Math.max(10, ...layout.map(item => item.y + item.h))
+    const maxY = Math.max(10, ...layout.map((item) => item.y + item.h))
 
     for (let y = 0; y < maxY + 5; y++) {
       for (let x = 0; x <= cols - w; x++) {
@@ -84,7 +84,7 @@ export function findOptimalPosition(
 
     // 如果没有找到任何可用位置，返回底部位置
     if (candidates.length === 0) {
-      const bottomY = Math.max(0, ...layout.map(item => item.y + item.h))
+      const bottomY = Math.max(0, ...layout.map((item) => item.y + item.h))
       return { x: 0, y: bottomY, score: 0 }
     }
 
@@ -116,7 +116,7 @@ export function isPositionAvailable(
 
     // 检查碰撞
     const proposed = { x, y, w, h }
-    return !layout.some(item => {
+    return !layout.some((item) => {
       if (excludeId && item.i === excludeId) return false
 
       return !(
@@ -271,10 +271,10 @@ export function getLayoutBounds(layout: GridLayoutPlusItem[]): {
   }
 
   try {
-    const minX = Math.min(...layout.map(item => item.x))
-    const maxX = Math.max(...layout.map(item => item.x + item.w))
-    const minY = Math.min(...layout.map(item => item.y))
-    const maxY = Math.max(...layout.map(item => item.y + item.h))
+    const minX = Math.min(...layout.map((item) => item.x))
+    const maxX = Math.max(...layout.map((item) => item.x + item.w))
+    const minY = Math.min(...layout.map((item) => item.y))
+    const maxY = Math.max(...layout.map((item) => item.y + item.h))
 
     return {
       minX,
@@ -334,7 +334,7 @@ export function moveItemWithCollisionHandling(
   // 步骤1: 布局净化与规范化
   // 深拷贝布局以进行修改，并规范化所有项的坐标。
   // 解决新添加项（坐标为 'auto' 或 undefined）无法参与碰撞检测的核心问题。
-  const workingLayout = cloneLayout(layout).map(item => {
+  const workingLayout = cloneLayout(layout).map((item) => {
     // 检查x和y坐标是否为无效值（非数字、NaN、'auto'等）。
     const isInvalidX = typeof item.x !== 'number' || isNaN(item.x)
     const isInvalidY = typeof item.y !== 'number' || isNaN(item.y)
@@ -352,7 +352,7 @@ export function moveItemWithCollisionHandling(
 
   // 步骤2: 更新移动项的位置
   // 在净化后的工作布局中找到正在移动的项。
-  const movingItemInLayout = workingLayout.find(item => item.i === movingItem.i)
+  const movingItemInLayout = workingLayout.find((item) => item.i === movingItem.i)
   // 如果找不到（理论上不应发生），则返回原始布局以保证安全。
   if (!movingItemInLayout) {
     return layout

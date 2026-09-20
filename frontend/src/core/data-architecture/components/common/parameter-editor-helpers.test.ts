@@ -50,9 +50,12 @@ describe('parameter-editor-helpers', () => {
       ]
     }
 
-    expect(filterApiTemplateParams(apiInfo, 'query').map(param => param.name)).toEqual(['page'])
-    expect(filterApiTemplateParams(apiInfo, 'path').map(param => param.name)).toEqual(['deviceId'])
-    expect(filterApiTemplateParams(apiInfo, 'header').map(param => param.name)).toEqual(['X-Trace-Id', 'Authorization'])
+    expect(filterApiTemplateParams(apiInfo, 'query').map((param) => param.name)).toEqual(['page'])
+    expect(filterApiTemplateParams(apiInfo, 'path').map((param) => param.name)).toEqual(['deviceId'])
+    expect(filterApiTemplateParams(apiInfo, 'header').map((param) => param.name)).toEqual([
+      'X-Trace-Id',
+      'Authorization'
+    ])
   })
 
   it('builds API template parameters with manual templates, data types, and fallback keys', () => {

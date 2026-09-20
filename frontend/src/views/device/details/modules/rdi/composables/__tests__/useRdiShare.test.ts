@@ -24,7 +24,10 @@ vi.mock('@/utils/common/discrete', () => ({
 import { useRdiShare } from '../useRdiShare'
 
 function createComposable() {
-  return useRdiShare(() => 'dev-1', (key: any) => String(key))
+  return useRdiShare(
+    () => 'dev-1',
+    (key: any) => String(key)
+  )
 }
 
 describe('useRdiShare', () => {

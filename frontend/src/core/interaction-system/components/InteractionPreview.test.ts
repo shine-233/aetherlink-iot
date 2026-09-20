@@ -166,19 +166,22 @@ const mountPreview = (interactions: PreviewInteraction[]) => {
 const previewElement = (wrapper: VueWrapper) => wrapper.get<HTMLElement>('.preview-element')
 
 const buttonByText = (wrapper: VueWrapper, text: string) => {
-  const button = wrapper.findAll('button').find(item => item.text().includes(text))
+  const button = wrapper.findAll('button').find((item) => item.text().includes(text))
   if (!button) throw new Error(`Button not found: ${text}`)
   return button
 }
 
 const logEntries = (wrapper: VueWrapper) => {
-  return wrapper.findAll('.log-entry').map(entry => ({
+  return wrapper.findAll('.log-entry').map((entry) => ({
     classes: entry.classes(),
     message: entry.get('.log-message').text()
   }))
 }
 
-const chronologicalLogMessages = (wrapper: VueWrapper) => logEntries(wrapper).map(entry => entry.message).reverse()
+const chronologicalLogMessages = (wrapper: VueWrapper) =>
+  logEntries(wrapper)
+    .map((entry) => entry.message)
+    .reverse()
 
 describe('InteractionPreview.vue', () => {
   beforeEach(() => {
@@ -237,8 +240,8 @@ describe('InteractionPreview.vue', () => {
     await previewElement(wrapper).trigger('click')
 
     const chronological = chronologicalLogMessages(wrapper)
-    expect(chronological.findIndex(message => message.includes('High priority'))).toBeLessThan(
-      chronological.findIndex(message => message.includes('Low priority'))
+    expect(chronological.findIndex((message) => message.includes('High priority'))).toBeLessThan(
+      chronological.findIndex((message) => message.includes('Low priority'))
     )
     expect(wrapper.findAll('.interaction-item')[1].classes()).toContain('active')
 
@@ -313,7 +316,7 @@ describe('InteractionPreview.vue', () => {
     await vi.advanceTimersByTimeAsync(0)
 
     const combinedLogs = logEntries(wrapper)
-      .map(entry => entry.message)
+      .map((entry) => entry.message)
       .join('\n')
     expect(combinedLogs).toContain('interaction.preview.startExecutingAll')
     expect(combinedLogs).toContain('Click branch')
@@ -368,7 +371,9 @@ describe('InteractionPreview.vue', () => {
     await vi.advanceTimersByTimeAsync(0)
 
     expect(logEntries(wrapper)).toHaveLength(100)
-    expect(logEntries(wrapper).some(entry => entry.message.includes('interaction.preview.previewStarted'))).toBe(false)
+    expect(logEntries(wrapper).some((entry) => entry.message.includes('interaction.preview.previewStarted'))).toBe(
+      false
+    )
   }, 10_000)
 
   it('logs a failed action when a custom style object throws during application', async () => {

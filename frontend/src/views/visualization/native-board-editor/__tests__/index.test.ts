@@ -21,15 +21,32 @@ vi.mock('@/store/modules/auth', () => ({ useAuthStore: () => ({ userInfo: hoiste
 vi.mock('@/locales', () => ({ $t: (key: string) => key }))
 vi.mock('naive-ui', () => {
   const container = (name: string) =>
-    defineComponent({ name, inheritAttrs: false, setup(_, { attrs, slots }) { return () => h('div', attrs, slots.default?.()) } })
+    defineComponent({
+      name,
+      inheritAttrs: false,
+      setup(_, { attrs, slots }) {
+        return () => h('div', attrs, slots.default?.())
+      }
+    })
   const button = defineComponent({
-    name: 'NButton', inheritAttrs: false,
-    setup(_, { attrs, slots }) { return () => h('button', attrs, slots.default?.()) }
+    name: 'NButton',
+    inheritAttrs: false,
+    setup(_, { attrs, slots }) {
+      return () => h('button', attrs, slots.default?.())
+    }
   })
   const input = defineComponent({
-    name: 'NInput', props: ['value'], emits: ['update:value'], inheritAttrs: false,
+    name: 'NInput',
+    props: ['value'],
+    emits: ['update:value'],
+    inheritAttrs: false,
     setup(props, { attrs, emit }) {
-      return () => h('input', { ...attrs, value: props.value, onInput: (event: Event) => emit('update:value', (event.target as HTMLInputElement).value) })
+      return () =>
+        h('input', {
+          ...attrs,
+          value: props.value,
+          onInput: (event: Event) => emit('update:value', (event.target as HTMLInputElement).value)
+        })
     }
   })
   return {
@@ -40,6 +57,7 @@ vi.mock('naive-ui', () => {
     NInputNumber: container('NInputNumber'),
     NSelect: container('NSelect'),
     NSpin: container('NSpin'),
+    NSwitch: container('NSwitch'),
     useMessage: () => hoisted.message
   }
 })
@@ -71,7 +89,10 @@ const wrappers: VueWrapper[] = []
 function deferred<T>() {
   let resolve!: (value: T) => void
   let reject!: (reason?: unknown) => void
-  const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej })
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
   return { promise, resolve, reject }
 }
 
@@ -99,12 +120,19 @@ describe('native board editor page', () => {
     vi.clearAllMocks()
     hoisted.getDashboard.mockResolvedValue(success())
     hoisted.updateDashboard.mockResolvedValue(success())
-    hoisted.execute.mockImplementation((operation: (provider: {
-      getDashboard: typeof hoisted.getDashboard
-      updateDashboard: typeof hoisted.updateDashboard
-    }) => unknown) => operation({ getDashboard: hoisted.getDashboard, updateDashboard: hoisted.updateDashboard }))
+    hoisted.execute.mockImplementation(
+      (
+        operation: (provider: {
+          getDashboard: typeof hoisted.getDashboard
+          updateDashboard: typeof hoisted.updateDashboard
+        }) => unknown
+      ) => operation({ getDashboard: hoisted.getDashboard, updateDashboard: hoisted.updateDashboard })
+    )
   })
-  afterEach(() => { wrappers.forEach(wrapper => wrapper.unmount()); wrappers.length = 0 })
+  afterEach(() => {
+    wrappers.forEach((wrapper) => wrapper.unmount())
+    wrappers.length = 0
+  })
 
   it('loads a trimmed native board through the provider and renders a readonly safe preview', async () => {
     const wrapper = mountPage()
@@ -136,7 +164,14 @@ describe('native board editor page', () => {
     ['wrong id', success(board('other'))],
     ['missing renderer data', success(board('board-1', { rendererData: undefined }))],
     ['invalid renderer data', success(board('board-1', { rendererData: '{' }))],
-    ['unsupported widget', success(board('board-1', { rendererData: { version: 1, widgets: [{ id: 'x', x: 0, y: 0, w: 1, h: 1, type: 'future', config: {} }] } }))]
+    [
+      'unsupported widget',
+      success(
+        board('board-1', {
+          rendererData: { version: 1, widgets: [{ id: 'x', x: 0, y: 0, w: 1, h: 1, type: 'future', config: {} }] }
+        })
+      )
+    ]
   ])('fails closed for %s', async (_label, response) => {
     hoisted.getDashboard.mockResolvedValue(response)
     const wrapper = mountPage()
@@ -146,10 +181,13 @@ describe('native board editor page', () => {
 
   it('does not let an older result overwrite a newer route request', async () => {
     const older = deferred<ReturnType<typeof success>>()
-    hoisted.getDashboard.mockReturnValueOnce(older.promise).mockResolvedValueOnce(success(board('board-2', { name: 'Newer' })))
+    hoisted.getDashboard
+      .mockReturnValueOnce(older.promise)
+      .mockResolvedValueOnce(success(board('board-2', { name: 'Newer' })))
     const wrapper = mountPage('board-1')
     hoisted.route.query.id = 'board-2'
-    await nextTick(); await flushPromises()
+    await nextTick()
+    await flushPromises()
     older.resolve(success(board('board-1', { name: 'Older' })))
     await flushPromises()
     expect(vm(wrapper).boardName).toBe('Newer')
@@ -160,7 +198,9 @@ describe('native board editor page', () => {
     await flushPromises()
     vm(wrapper).boardName = '  Renamed  '
     vm(wrapper).boardDescription = 'Updated description'
-    hoisted.updateDashboard.mockResolvedValue(success(board('board-1', { name: 'Renamed', description: 'Updated description' })))
+    hoisted.updateDashboard.mockResolvedValue(
+      success(board('board-1', { name: 'Renamed', description: 'Updated description' }))
+    )
     await vm(wrapper).handleSave()
 
     expect(hoisted.updateDashboard).toHaveBeenCalledWith('board-1', {
@@ -171,14 +211,18 @@ describe('native board editor page', () => {
     expect(hoisted.routerPushByKey).toHaveBeenCalledWith('visualization_native-board', { query: { id: 'board-1' } })
   })
 
-  it.each(['', '   ', 'x'.repeat(256)])('rejects invalid name %j', async name => {
-    const wrapper = mountPage(); await flushPromises(); vm(wrapper).boardName = name
+  it.each(['', '   ', 'x'.repeat(256)])('rejects invalid name %j', async (name) => {
+    const wrapper = mountPage()
+    await flushPromises()
+    vm(wrapper).boardName = name
     await vm(wrapper).handleSave()
     expect(hoisted.updateDashboard).not.toHaveBeenCalled()
   })
 
   it('rejects an overlong description', async () => {
-    const wrapper = mountPage(); await flushPromises(); vm(wrapper).boardDescription = 'x'.repeat(501)
+    const wrapper = mountPage()
+    await flushPromises()
+    vm(wrapper).boardDescription = 'x'.repeat(501)
     await vm(wrapper).handleSave()
     expect(hoisted.updateDashboard).not.toHaveBeenCalled()
   })
@@ -186,10 +230,14 @@ describe('native board editor page', () => {
   it('prevents duplicate save submissions', async () => {
     const pending = deferred<ReturnType<typeof success>>()
     hoisted.updateDashboard.mockReturnValue(pending.promise)
-    const wrapper = mountPage(); await flushPromises()
-    const first = vm(wrapper).handleSave(); const second = vm(wrapper).handleSave()
+    const wrapper = mountPage()
+    await flushPromises()
+    const first = vm(wrapper).handleSave()
+    const second = vm(wrapper).handleSave()
     expect(hoisted.updateDashboard).toHaveBeenCalledTimes(1)
-    pending.resolve(success()); await first; await second
+    pending.resolve(success())
+    await first
+    await second
   })
 
   it.each([
@@ -197,7 +245,9 @@ describe('native board editor page', () => {
     ['wrong id', success(board('other'))]
   ])('stays on editor for invalid save response: %s', async (_label, response) => {
     hoisted.updateDashboard.mockResolvedValue(response)
-    const wrapper = mountPage(); await flushPromises(); await vm(wrapper).handleSave()
+    const wrapper = mountPage()
+    await flushPromises()
+    await vm(wrapper).handleSave()
     expect(hoisted.routerPushByKey).not.toHaveBeenCalled()
     expect(hoisted.message.error).toHaveBeenCalled()
   })

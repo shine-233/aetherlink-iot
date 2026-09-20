@@ -11,8 +11,7 @@ import { ParameterTemplateType } from '@/core/data-architecture/components/commo
 import { DEVICE_CONFIG_TEMPLATE_ID, type NewParamConfig } from './dynamicParameterEditorState'
 
 type NewParameterValidationResult =
-  | { ok: true; key: string }
-  | { ok: false; reason: 'empty' | 'duplicate'; key: string }
+  { ok: true; key: string } | { ok: false; reason: 'empty' | 'duplicate'; key: string }
 
 /**
  * 创建编辑器内部使用的默认参数。
@@ -42,7 +41,7 @@ export const validateNewParameterKey = (
     return { ok: false, reason: 'empty', key }
   }
 
-  if (existingParameters.some(param => param.key === key)) {
+  if (existingParameters.some((param) => param.key === key)) {
     return { ok: false, reason: 'duplicate', key }
   }
 

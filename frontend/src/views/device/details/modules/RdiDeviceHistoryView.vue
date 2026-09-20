@@ -146,10 +146,7 @@ watch(
     <NSpin :show="energyLoading">
       <div class="rdi-history-chart">
         <ChartComponent v-if="hasLoadedHistory && hasHistoryChartData" :initial-options="historyChartOptions" />
-        <NEmpty
-          v-else
-          :description="hasLoadedHistory && hasHistoryFailures ? t('historyLoadFailed') : t('empty')"
-        />
+        <NEmpty v-else :description="hasLoadedHistory && hasHistoryFailures ? t('historyLoadFailed') : t('empty')" />
       </div>
     </NSpin>
   </section>

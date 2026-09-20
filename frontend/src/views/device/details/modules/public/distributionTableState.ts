@@ -57,7 +57,9 @@ export function createSubmitTrackingView(tracking: CommandSubmitTracking | null,
   }
 
   const key =
-    tracking.logRecorded === false ? 'generate.commandSubmittedLogUnavailable' : 'generate.commandSubmittedWithMessageId'
+    tracking.logRecorded === false
+      ? 'generate.commandSubmittedLogUnavailable'
+      : 'generate.commandSubmittedWithMessageId'
 
   return {
     visible: true,

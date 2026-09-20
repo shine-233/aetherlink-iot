@@ -17,7 +17,9 @@ import {
 describe('binding-path-recovery', () => {
   it('recovers component binding paths from persisted variable names', () => {
     expect(recoverComponentBindingPathFromVariableName('chartA_deviceId')).toBe('chartA.base.deviceId')
-    expect(recoverComponentBindingPathFromVariableName('target-card_styles.color')).toBe('target-card.base.styles.color')
+    expect(recoverComponentBindingPathFromVariableName('target-card_styles.color')).toBe(
+      'target-card.base.styles.color'
+    )
     expect(recoverComponentBindingPathFromVariableName('missingSeparator')).toBeNull()
   })
 

@@ -115,7 +115,7 @@ async function list() {
         { btnName: $t('page.manage.common.status.enable'), type: 'enable', color: 'success' },
         { btnName: $t('common.delete'), type: 'delete', color: 'error' }
       ]
-      tableData.value.forEach(item => {
+      tableData.value.forEach((item) => {
         if (item.enabled === 'Y') {
           item.operatorBtn = operatorBtn
         } else {
@@ -191,7 +191,7 @@ const columns: Ref<DataTableColumns<ColumnsData>> = ref([
     title: $t('common.actions'),
     align: 'left',
     render: (row: any) => {
-      const operatorBtn = row.operatorBtn.map(item => {
+      const operatorBtn = row.operatorBtn.map((item) => {
         if (item.type === 'delete') {
           return h(
             <NPopconfirm onPositiveClick={() => handleDeleteTable(row)}>

@@ -155,7 +155,7 @@ const previewText = computed(() => {
 // 监听变化并通知父组件
 watch(
   currentStrategy,
-  newValue => {
+  (newValue) => {
     emit('update:modelValue', { ...newValue })
   },
   { deep: true }

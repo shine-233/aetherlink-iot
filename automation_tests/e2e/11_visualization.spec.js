@@ -789,4 +789,194 @@ test.describe('ThingsVis visualization business routes [11_visualization]', () =
       }
     }
   });
+
+  test('report schedule lifecycle creates updates runs and exposes durable readback', async ({ rolePage, api, data }) => {
+    const name = uniqueName('e2e-report');
+    const updatedName = name + '-updated';
+    let scheduleId = '';
+
+    const terminalStatuses = new Set(['succeeded', 'failed', 'ambiguous']);
+    const activeGeneration = new Set(['pending', 'processing', 'retrying']);
+    const activeDelivery = new Set(['pending', 'processing', 'retrying']);
+    const pollIntervalMs = 2000;
+    const pollTimeoutMs = 8 * 60 * 1000;
+
+    const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+    const waitForInactiveScheduleWork = async () => {
+      const deadline = Date.now() + pollTimeoutMs;
+      let last;
+      while (Date.now() < deadline) {
+        last = await api.get('/report/schedules/' + scheduleId + '/runs?page=1&page_size=100', {}, 'tenant_admin');
+        if (last.code === 200 && Array.isArray(last.data.list)) {
+          const active = last.data.list.filter(run =>
+            activeGeneration.has(run.generation_status) || activeDelivery.has(run.delivery_status)
+          );
+          if (active.length === 0) return;
+        }
+        await delay(pollIntervalMs);
+      }
+      throw new Error('report schedule retained active work before cleanup: ' + JSON.stringify(last && last.data));
+    };
+
+    try {
+      const deviceResp = await api.get('/device', { page: 1, page_size: 1 }, 'tenant_admin');
+      expect(deviceResp.code).toBe(200);
+      expect(deviceResp.data.list).toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: expect.stringMatching(/\S/) })
+      ]));
+      const deviceId = deviceResp.data.list[0].id;
+
+      await rolePage.goto('/visualization/report', { waitUntil: 'domcontentloaded' });
+      await expect(rolePage.getByTestId('report-create')).toBeVisible({ timeout: 20000 });
+      await rolePage.getByTestId('report-create').click();
+
+      const createModal = rolePage.locator('.n-modal').filter({
+        hasText: /Create report schedule|创建报表计划/i
+      }).last();
+      await expect(createModal).toBeVisible();
+      const createItems = createModal.locator('.n-form-item');
+      await createItems.filter({ hasText: /^Name$|^名称$/i }).locator('input').fill(name);
+      await createItems.filter({ hasText: /Cron expression|Cron 表达式/i }).locator('input').fill('0 0 * * *');
+      await createItems.filter({ hasText: /^Timezone$|^时区$/i }).locator('input').fill('UTC');
+      await createItems.filter({ hasText: /^Recipients$|^收件人$/i }).locator('input').fill(data.account('tenant_admin').email);
+      await createItems.filter({ hasText: /Device IDs|设备 ID/i }).locator('textarea').fill(deviceId);
+      await createItems.filter({ hasText: /Telemetry keys|遥测键/i }).locator('textarea').fill('temperature');
+
+      const createResponsePromise = rolePage.waitForResponse(
+        response => isApiResponse(response, 'POST', '/report/schedules'),
+        { timeout: 20000 }
+      );
+      await createModal.getByRole('button', { name: /Save changes|保存更改/i }).click();
+      const createResponse = await createResponsePromise;
+      expect(createResponse.status()).toBe(200);
+      const createBody = await createResponse.json();
+      expect(createBody).toEqual(expect.objectContaining({
+        code: 200,
+        data: expect.objectContaining({ name, revision: 1, enabled: true })
+      }));
+      scheduleId = createBody.data.id;
+      expect(scheduleId).toEqual(expect.stringMatching(/\S/));
+
+      const scheduleRow = rolePage.locator('.n-data-table-tr').filter({ hasText: name }).first();
+      await expect(scheduleRow).toBeVisible({ timeout: 20000 });
+      await scheduleRow.getByRole('button', { name: /Edit|编辑/i }).click();
+      const editModal = rolePage.locator('.n-modal').filter({
+        hasText: /Edit report schedule|编辑报表计划/i
+      }).last();
+      await expect(editModal).toBeVisible();
+      await editModal.locator('.n-form-item').filter({ hasText: /^Name$|^名称$/i }).locator('input').fill(updatedName);
+
+      const updateResponsePromise = rolePage.waitForResponse(
+        response => isApiResponse(response, 'PUT', '/report/schedules/' + scheduleId),
+        { timeout: 20000 }
+      );
+      await editModal.getByRole('button', { name: /Save changes|保存更改/i }).click();
+      const updateResponse = await updateResponsePromise;
+      expect(updateResponse.status()).toBe(200);
+      expect(await updateResponse.json()).toEqual(expect.objectContaining({
+        code: 200,
+        data: expect.objectContaining({ id: scheduleId, name: updatedName, revision: 2 })
+      }));
+
+      const updated = await api.get('/report/schedules/' + scheduleId, {}, 'tenant_admin');
+      expect(updated).toEqual(expect.objectContaining({
+        code: 200,
+        data: expect.objectContaining({ id: scheduleId, name: updatedName, revision: 2 })
+      }));
+      const updatedRow = rolePage.locator('.n-data-table-tr').filter({ hasText: updatedName }).first();
+      await expect(updatedRow).toBeVisible({ timeout: 20000 });
+
+      const runResponsePromise = rolePage.waitForResponse(
+        response => isApiResponse(response, 'POST', '/report/schedules/' + scheduleId + '/run'),
+        { timeout: 20000 }
+      );
+      await updatedRow.getByRole('button', { name: /Run now|立即运行/i }).click();
+      const runResponse = await runResponsePromise;
+      expect(runResponse.status()).toBe(202);
+      const runBody = await runResponse.json();
+      expect(runBody).toEqual(expect.objectContaining({
+        code: 200,
+        data: expect.objectContaining({ schedule_id: scheduleId, status: 'queued' })
+      }));
+      const runId = runBody.data.run_id;
+      expect(runId).toEqual(expect.stringMatching(/\S/));
+
+      // The durable run ledger may already be advancing by the time we read it,
+      // so assert identity first and then poll to a terminal generation/delivery.
+      const immediate = await api.get(
+        `/report/schedules/${scheduleId}/runs/${runId}`,
+        {},
+        'tenant_admin'
+      );
+      expect(immediate).toEqual(expect.objectContaining({
+        code: 200,
+        data: expect.objectContaining({
+          run_id: runId,
+          schedule_id: scheduleId,
+          trigger: 'manual',
+          window_start_at: expect.stringMatching(/\S/),
+          window_end_at: expect.stringMatching(/\S/)
+        })
+      }));
+      expect(['queued', 'running', 'succeeded', 'failed', 'ambiguous'])
+        .toContain(immediate.data.overall_status);
+      expect(immediate.data.duplicate_delivery_risk).toEqual(expect.any(Boolean));
+
+      const runDetail = rolePage.getByTestId('report-run-detail');
+      await expect(runDetail).toBeVisible({ timeout: 20000 });
+      await expect(runDetail).toContainText(runId);
+
+      const deadline = Date.now() + pollTimeoutMs;
+      let run;
+      while (Date.now() < deadline) {
+        const detail = await api.get(
+          `/report/schedules/${scheduleId}/runs/${runId}`,
+          {},
+          'tenant_admin'
+        );
+        expect(detail.code).toBe(200);
+        run = detail.data;
+        if (terminalStatuses.has(run.overall_status)) break;
+        await delay(pollIntervalMs);
+      }
+      expect(run).toEqual(expect.objectContaining({
+        run_id: runId,
+        schedule_id: scheduleId,
+        trigger: 'manual'
+      }));
+      expect(terminalStatuses.has(run.overall_status)).toBe(true);
+      expect(['succeeded', 'failed', 'ambiguous']).toContain(run.generation_status);
+      expect(['accepted', 'failed', 'ambiguous']).toContain(run.delivery_status);
+      expect(run.generation_completed_at).toEqual(expect.stringMatching(/\S/));
+
+      const history = await api.get(
+        `/report/schedules/${scheduleId}/runs?page=1&page_size=100`,
+        {},
+        'tenant_admin'
+      );
+      expect(history.code).toBe(200);
+      const persisted = history.data.list.filter(row => row.run_id === runId);
+      expect(persisted).toHaveLength(1);
+      expect(persisted[0].overall_status).toBe(run.overall_status);
+      expect(persisted[0].generation_status).toBe(run.generation_status);
+      expect(persisted[0].delivery_status).toBe(run.delivery_status);
+    } finally {
+      if (scheduleId) {
+        // Soft deletion is rejected while generation/delivery work is active.
+        await waitForInactiveScheduleWork().catch(() => null);
+        const current = await api.get('/report/schedules/' + scheduleId, {}, 'tenant_admin');
+        if (current.code === 200 && current.data && current.data.revision) {
+          const deleted = await api.delete(
+            `/report/schedules/${scheduleId}?revision=${current.data.revision}`,
+            {},
+            'tenant_admin'
+          );
+          expect(deleted.code).toBe(200);
+          const missing = await api.get('/report/schedules/' + scheduleId, {}, 'tenant_admin');
+          expect(missing.code).toBe(100404);
+        }
+      }
+    }
+  });
 });

@@ -70,7 +70,13 @@ const emit = defineEmits(['install', 'view-detail'])
       <!-- 操作按钮 -->
       <NSpace class="card-actions" :size="8">
         <NButton size="small" @click="emit('view-detail', template.id)">{{ $t('market.viewDetail') }}</NButton>
-        <NButton size="small" type="primary" :loading="installing" :disabled="installing" @click="emit('install', template.id)">
+        <NButton
+          size="small"
+          type="primary"
+          :loading="installing"
+          :disabled="installing"
+          @click="emit('install', template.id)"
+        >
           {{ $t('market.install') }}
         </NButton>
       </NSpace>

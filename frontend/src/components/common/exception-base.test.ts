@@ -22,10 +22,11 @@ vi.mock('@/views/device/config/composables/use-market-auth', () => ({
   useMarketAuth: () => ({ clearToken: mocks.clearMarketToken })
 }))
 
-const passthrough = (tag: string) => defineComponent({
-  name: `${tag}Stub`,
-  template: `<${tag}><slot /></${tag}>`
-})
+const passthrough = (tag: string) =>
+  defineComponent({
+    name: `${tag}Stub`,
+    template: `<${tag}><slot /></${tag}>`
+  })
 
 describe('ExceptionBase', () => {
   it.each([

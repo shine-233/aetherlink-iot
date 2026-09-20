@@ -230,7 +230,6 @@ const handleDrawerVisibilityChange = (visible: boolean) => {
         @selection-completed="handleDeviceMetricSelected"
         @cancel="handleCancel"
       />
-
     </n-drawer-content>
   </n-drawer>
 </template>

@@ -13,6 +13,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"aetherlink-iot/backend/initialize"
@@ -87,7 +89,6 @@ func (*DeviceConfig) CreateDeviceConfig(req *model.CreateDeviceConfigReq, claims
 	}
 
 	deviceconfig.ID = uuid.New()
-	deviceconfig.Name = req.Name
 	deviceconfig.Description = req.Description
 	deviceconfig.DeviceConnType = req.DeviceConnType
 	// 将空字符串视为未指定物模型，避免写入无效外键。
@@ -111,6 +112,62 @@ func (*DeviceConfig) CreateDeviceConfig(req *model.CreateDeviceConfigReq, claims
 		return deviceconfig, errcode.NewWithMessage(errcode.CodeParamError, "protocol_config is not a valid JSON")
 	}
 	deviceconfig.ProtocolConfig = req.ProtocolConfig
+
+	// TB-15: 实体名冲突策略消解（FAIL / RENAME / IGNORE / UPDATE）
+	policy := model.NormalizeConflictPolicy(req.ConflictPolicy)
+	if policy != model.ConflictPolicyAllow {
+		name := strings.TrimSpace(req.Name)
+		existing, err := dal.GetDeviceConfigByNameAndTenant(claims.TenantID, name)
+		if err == nil && existing != nil {
+			switch policy {
+			case model.ConflictPolicyFail:
+				return deviceconfig, errcode.NewWithMessage(errcode.CodeParamError, fmt.Sprintf("device template with name '%s' already exists", name))
+			case model.ConflictPolicyIgnore:
+				return *existing, nil
+			case model.ConflictPolicyUpdate:
+				updateMap := map[string]interface{}{
+					"description":      req.Description,
+					"remark":           req.Remark,
+					"device_conn_type": req.DeviceConnType,
+					"updated_at":       time.Now().UTC(),
+				}
+				if req.DeviceTemplateId != nil {
+					updateMap["device_template_id"] = req.DeviceTemplateId
+				}
+				if req.PayloadSchemaId != nil {
+					updateMap["payload_schema_id"] = req.PayloadSchemaId
+				}
+				if req.AdditionalInfo != nil {
+					updateMap["additional_info"] = req.AdditionalInfo
+				}
+				if req.ProtocolConfig != nil {
+					updateMap["protocol_config"] = req.ProtocolConfig
+				}
+				if err := dal.UpdateDeviceConfig(existing.ID, updateMap); err != nil {
+					return deviceconfig, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+				}
+				updated, err := dal.GetDeviceConfigByID(existing.ID)
+				if err == nil && updated != nil {
+					return *updated, nil
+				}
+				return *existing, nil
+			case model.ConflictPolicyRename:
+				names, err := dal.GetDeviceConfigNamesMatchingBase(claims.TenantID, name)
+				if err != nil {
+					return deviceconfig, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+				}
+				nameMap := make(map[string]bool, len(names))
+				for _, n := range names {
+					nameMap[n] = true
+				}
+				renamed := model.GenerateRenamedName(name, model.NameMaxLengthDeviceConfig, func(candidate string) bool {
+					return nameMap[candidate]
+				})
+				req.Name = renamed
+			}
+		}
+	}
+	deviceconfig.Name = req.Name
 	// 未显式指定协议类型时，沿用 MQTT 作为默认值。
 	if req.ProtocolType == nil {
 		deviceconfig.ProtocolType = StringPtr("MQTT")

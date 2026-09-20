@@ -43,10 +43,12 @@ const message = useMessage()
 const authStore = useAuthStore()
 
 // 从路由获取项目ID
-const providerId = computed(() => resolveVisualizationProviderId({
-  provider: route.query.provider,
-  projectId: String(route.query.projectId || '').trim()
-}))
+const providerId = computed(() =>
+  resolveVisualizationProviderId({
+    provider: route.query.provider,
+    projectId: String(route.query.projectId || '').trim()
+  })
+)
 const projectId = computed(() => {
   const routeProjectId = String(route.query.projectId || '').trim()
   return routeProjectId || (providerId.value === NATIVE_BOARD_PROVIDER_ID ? NATIVE_BOARD_PROJECT_ID : '')
@@ -58,9 +60,7 @@ const isNativeProvider = computed(() => providerId.value === NATIVE_BOARD_PROVID
  * path that is guaranteed to be rejected. Tenant users keep the existing
  * menu configuration flow, including when they explicitly select Native.
  */
-const dashboardMenuConfigAvailable = computed(
-  () => !(isNativeProvider.value && isSysAdminUser(authStore.userInfo))
-)
+const dashboardMenuConfigAvailable = computed(() => !(isNativeProvider.value && isSysAdminUser(authStore.userInfo)))
 const isFirstDeviceOnboarding = computed(() => route.query.onboarding === 'first-device')
 
 const {
@@ -91,14 +91,13 @@ const {
   fetchDashboards,
   requestThumbnail,
   getThumbnailUrl
-} =
-  useThingsVisDashboardList({
-    projectId,
-    providerId,
-    message,
-    t: $t,
-    registerMenuConfigDashboards
-  })
+} = useThingsVisDashboardList({
+  projectId,
+  providerId,
+  message,
+  t: $t,
+  registerMenuConfigDashboards
+})
 
 const {
   deletingId,
@@ -126,7 +125,7 @@ const {
   t: $t,
   fetchDashboards
 })
-const hasHomepageDashboard = computed(() => allDashboards.value.some(dashboard => dashboard.home))
+const hasHomepageDashboard = computed(() => allDashboards.value.some((dashboard) => dashboard.home))
 const providerBlockedMessage = computed(() => {
   if (providerError?.code === 'external-blocked') {
     return $t('rdi.thingsvis.externalProviderDisabledDescription')
@@ -200,124 +199,124 @@ onMounted(async () => {
       </NAlert>
 
       <template v-else>
-      <div class="mb-5 flex items-center justify-between gap-4">
-        <div class="flex items-center gap-3">
-          <h2 class="text-xl font-bold">{{ project?.name }}</h2>
-          <span class="text-gray-400">
-            {{
-              $t('rdi.thingsvis.dashboardCount', {
-                count: searchKeyword ? `${dashboards.length} / ${allDashboards.length}` : dashboards.length
-              })
-            }}
-          </span>
+        <div class="mb-5 flex items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <h2 class="text-xl font-bold">{{ project?.name }}</h2>
+            <span class="text-gray-400">
+              {{
+                $t('rdi.thingsvis.dashboardCount', {
+                  count: searchKeyword ? `${dashboards.length} / ${allDashboards.length}` : dashboards.length
+                })
+              }}
+            </span>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <!-- 搜索框 -->
+            <NInput
+              v-model:value="searchKeyword"
+              clearable
+              :placeholder="$t('rdi.thingsvis.searchDashboardPlaceholder')"
+              style="width: 240px"
+            >
+              <template #prefix>
+                <icon-mdi:magnify />
+              </template>
+            </NInput>
+
+            <!-- 新建按钮 -->
+            <NButton type="primary" @click="openCreateModal">
+              <template #icon>
+                <icon-mdi:plus />
+              </template>
+              {{ $t('rdi.thingsvis.newDashboard') }}
+            </NButton>
+          </div>
         </div>
 
-        <div class="flex items-center gap-3">
-          <!-- 搜索框 -->
-          <NInput
-            v-model:value="searchKeyword"
-            clearable
-            :placeholder="$t('rdi.thingsvis.searchDashboardPlaceholder')"
-            style="width: 240px"
-          >
-            <template #prefix>
-              <icon-mdi:magnify />
-            </template>
-          </NInput>
+        <!-- 项目描述 -->
+        <div v-if="project?.description" class="mb-4 text-sm text-gray-500">
+          {{ project.description }}
+        </div>
 
-          <!-- 新建按钮 -->
-          <NButton type="primary" @click="openCreateModal">
+        <div v-if="showFirstDeviceHomepageCta" class="thingsvis-onboarding-dashboard">
+          <div class="min-w-0">
+            <div class="thingsvis-onboarding-dashboard__eyebrow">
+              {{ $t('rdi.thingsvis.firstDeviceDashboardStep') }}
+            </div>
+            <div class="thingsvis-onboarding-dashboard__title">
+              {{ $t('rdi.thingsvis.firstDeviceHomepageMissingTitle') }}
+            </div>
+            <div class="thingsvis-onboarding-dashboard__desc">
+              {{ $t('rdi.thingsvis.firstDeviceHomepageMissingDesc') }}
+            </div>
+          </div>
+          <NButton type="primary" :loading="creatingHomepageDashboard" @click="handleCreateHomepageDashboard">
             <template #icon>
-              <icon-mdi:plus />
+              <icon-mdi:home-plus-outline />
             </template>
-            {{ $t('rdi.thingsvis.newDashboard') }}
+            {{ $t('rdi.thingsvis.createHomepageDashboard') }}
           </NButton>
         </div>
-      </div>
 
-      <!-- 项目描述 -->
-      <div v-if="project?.description" class="mb-4 text-sm text-gray-500">
-        {{ project.description }}
-      </div>
-
-      <div v-if="showFirstDeviceHomepageCta" class="thingsvis-onboarding-dashboard">
-        <div class="min-w-0">
-          <div class="thingsvis-onboarding-dashboard__eyebrow">
-            {{ $t('rdi.thingsvis.firstDeviceDashboardStep') }}
-          </div>
-          <div class="thingsvis-onboarding-dashboard__title">
-            {{ $t('rdi.thingsvis.firstDeviceHomepageMissingTitle') }}
-          </div>
-          <div class="thingsvis-onboarding-dashboard__desc">
-            {{ $t('rdi.thingsvis.firstDeviceHomepageMissingDesc') }}
-          </div>
-        </div>
-        <NButton type="primary" :loading="creatingHomepageDashboard" @click="handleCreateHomepageDashboard">
-          <template #icon>
-            <icon-mdi:home-plus-outline />
-          </template>
-          {{ $t('rdi.thingsvis.createHomepageDashboard') }}
-        </NButton>
-      </div>
-
-      <!-- 加载状态 -->
-      <NSpin :show="loading">
-        <!-- 空状态 -->
-        <NEmpty
-          v-if="!loading && dashboards.length === 0"
-          :description="
-            allDashboards.length === 0 ? $t('rdi.thingsvis.emptyDashboard') : $t('rdi.thingsvis.noMatchedDashboard')
-          "
-          class="py-20"
-        >
-          <template #icon>
-            <icon-mdi:chart-box-outline class="text-50px text-gray-300" />
-          </template>
-          <template v-if="allDashboards.length === 0" #extra>
-            <div class="thingsvis-empty-action">
-              <div class="thingsvis-empty-action__hint">
-                {{ $t('rdi.thingsvis.emptyDashboardHomepageHint') }}
+        <!-- 加载状态 -->
+        <NSpin :show="loading">
+          <!-- 空状态 -->
+          <NEmpty
+            v-if="!loading && dashboards.length === 0"
+            :description="
+              allDashboards.length === 0 ? $t('rdi.thingsvis.emptyDashboard') : $t('rdi.thingsvis.noMatchedDashboard')
+            "
+            class="py-20"
+          >
+            <template #icon>
+              <icon-mdi:chart-box-outline class="text-50px text-gray-300" />
+            </template>
+            <template v-if="allDashboards.length === 0" #extra>
+              <div class="thingsvis-empty-action">
+                <div class="thingsvis-empty-action__hint">
+                  {{ $t('rdi.thingsvis.emptyDashboardHomepageHint') }}
+                </div>
+                <NButton type="primary" :loading="creatingHomepageDashboard" @click="handleCreateHomepageDashboard">
+                  <template #icon>
+                    <icon-mdi:home-plus-outline />
+                  </template>
+                  {{ $t('rdi.thingsvis.createHomepageDashboard') }}
+                </NButton>
               </div>
-              <NButton type="primary" :loading="creatingHomepageDashboard" @click="handleCreateHomepageDashboard">
-                <template #icon>
-                  <icon-mdi:home-plus-outline />
-                </template>
-                {{ $t('rdi.thingsvis.createHomepageDashboard') }}
-              </NButton>
-            </div>
-          </template>
-        </NEmpty>
+            </template>
+          </NEmpty>
 
-        <!-- Dashboard 网格 -->
-        <NGrid
-          v-else
-          x-gap="24"
-          y-gap="24"
-          cols="1 s:2 m:3 l:4"
-          responsive="screen"
-          data-testid="thingsvis-dashboard-list"
-        >
-          <NGridItem v-for="dashboard in dashboards" :key="dashboard.id">
-            <ThingsVisDashboardCard
-              :dashboard="dashboard"
-              :menu-config="menuConfigs[dashboard.id]"
-              :menu-config-loaded="!dashboardMenuConfigAvailable || dashboard.id in menuConfigs"
-              :thumbnail-url="getThumbnailUrl(dashboard.thumbnail)"
-              :publishing="publishingId === dashboard.id"
-              :duplicating="duplicatingId === dashboard.id"
-              @edit="openEditor"
-              @menu="openMenuConfig"
-              @set-home="handleSetAsHomepage"
-              @publish="handlePublishDashboard"
-              @duplicate="handleDuplicateDashboard"
-              @copy-link="copyDashboardViewerLink"
-              @request-thumbnail="requestThumbnail"
-              @request-menu-config="requestMenuConfig"
-              @delete="openDeleteConfirm"
-            />
-          </NGridItem>
-        </NGrid>
-      </NSpin>
+          <!-- Dashboard 网格 -->
+          <NGrid
+            v-else
+            x-gap="24"
+            y-gap="24"
+            cols="1 s:2 m:3 l:4"
+            responsive="screen"
+            data-testid="thingsvis-dashboard-list"
+          >
+            <NGridItem v-for="dashboard in dashboards" :key="dashboard.id">
+              <ThingsVisDashboardCard
+                :dashboard="dashboard"
+                :menu-config="menuConfigs[dashboard.id]"
+                :menu-config-loaded="!dashboardMenuConfigAvailable || dashboard.id in menuConfigs"
+                :thumbnail-url="getThumbnailUrl(dashboard.thumbnail)"
+                :publishing="publishingId === dashboard.id"
+                :duplicating="duplicatingId === dashboard.id"
+                @edit="openEditor"
+                @menu="openMenuConfig"
+                @set-home="handleSetAsHomepage"
+                @publish="handlePublishDashboard"
+                @duplicate="handleDuplicateDashboard"
+                @copy-link="copyDashboardViewerLink"
+                @request-thumbnail="requestThumbnail"
+                @request-menu-config="requestMenuConfig"
+                @delete="openDeleteConfirm"
+              />
+            </NGridItem>
+          </NGrid>
+        </NSpin>
       </template>
     </NCard>
 

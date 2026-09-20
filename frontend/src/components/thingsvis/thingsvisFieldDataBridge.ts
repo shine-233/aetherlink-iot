@@ -40,7 +40,7 @@ type ListResponseLike = {
 
 function collectFieldRows(kvMap: Record<string, unknown>, rows: unknown) {
   if (!Array.isArray(rows)) return
-  rows.forEach(item => {
+  rows.forEach((item) => {
     if (item?.key !== undefined) kvMap[item.key] = item.value
     if (item?.label) kvMap[item.label] = item.value
   })
@@ -93,7 +93,7 @@ function normalizeAlarmStatusResponse(response: ListResponseLike | null): {
   payload: (ListResponseLike & { total?: unknown }) | null
   rows: AlarmRowLike[]
 } {
-  const payload = ((response?.data ?? response) ?? null) as (ListResponseLike & { total?: unknown }) | null
+  const payload = (response?.data ?? response ?? null) as (ListResponseLike & { total?: unknown }) | null
   const rows = Array.isArray(payload?.list)
     ? (payload.list as AlarmRowLike[])
     : Array.isArray(payload?.data)
@@ -171,7 +171,11 @@ export async function loadCurrentFieldValueMap(options: {
 export async function buildRequestedAlarmStatusData(options: {
   fieldIds: string[]
   deviceId?: string
-  loadDeviceAlarmStatus: (params: { device_id: string; page: number; page_size: number }) => Promise<ListResponseLike | null>
+  loadDeviceAlarmStatus: (params: {
+    device_id: string
+    page: number
+    page_size: number
+  }) => Promise<ListResponseLike | null>
   onError?: (deviceId: string, error: unknown) => void
 }): Promise<Record<string, unknown>> {
   if (!options.deviceId || options.fieldIds.length === 0) return {}
@@ -199,7 +203,11 @@ export async function buildRequestedFieldData(options: {
   loadTelemetryCurrent: (deviceId: string, requestConfig: unknown) => Promise<ListResponseLike | null>
   loadAttributeDataSet: (params: { device_id: string }, requestConfig: unknown) => Promise<ListResponseLike | null>
   loadRdiDeviceConfig: (deviceId: string, requestConfig: unknown) => Promise<ListResponseLike | null>
-  loadDeviceAlarmStatus: (params: { device_id: string; page: number; page_size: number }) => Promise<ListResponseLike | null>
+  loadDeviceAlarmStatus: (params: {
+    device_id: string
+    page: number
+    page_size: number
+  }) => Promise<ListResponseLike | null>
   onAlarmError?: (deviceId: string, error: unknown) => void
 }): Promise<Record<string, unknown>> {
   const requestedFields = normalizeRequestedFieldIds(options.fieldIds)
@@ -212,11 +220,11 @@ export async function buildRequestedFieldData(options: {
   const alarmDataPromise =
     alarmFieldIds.length > 0
       ? buildRequestedAlarmStatusData({
-        fieldIds: alarmFieldIds,
-        deviceId: options.deviceId,
-        loadDeviceAlarmStatus: options.loadDeviceAlarmStatus,
-        onError: options.onAlarmError
-      })
+          fieldIds: alarmFieldIds,
+          deviceId: options.deviceId,
+          loadDeviceAlarmStatus: options.loadDeviceAlarmStatus,
+          onError: options.onAlarmError
+        })
       : Promise.resolve({})
   const currentDataPromise =
     currentFieldIds.length > 0
@@ -228,7 +236,7 @@ export async function buildRequestedFieldData(options: {
           loadTelemetryCurrent: options.loadTelemetryCurrent,
           loadAttributeDataSet: options.loadAttributeDataSet,
           loadRdiDeviceConfig: options.loadRdiDeviceConfig
-        }).then(kvMap => pickRequestedPlatformFields(kvMap, currentFieldIds))
+        }).then((kvMap) => pickRequestedPlatformFields(kvMap, currentFieldIds))
       : Promise.resolve({})
 
   const [alarmData, currentData] = await Promise.all([alarmDataPromise, currentDataPromise])

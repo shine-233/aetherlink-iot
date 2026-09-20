@@ -5,7 +5,8 @@
  * 关键注意事项：
  *   - 投递闭环依赖真实 broker 与后端上线钩子，broker 不可用时按 runtime-external 跳过；
  *   - TTL 过期由 cron 周期触发，分钟级时序不适合 API 证据层，过期语义由 DAL 单测覆盖；
- *   - 投递成功以影子记录 status=delivered 且 delivered_at 非空为准，不假设设备侧业务已执行。
+ *   - P0.2 ACK 闭环：投递成功只等于 status=sent（已下发待设备确认），绝不等于 delivered；
+ *     delivered 必须由设备 ACK 触发并写入 ack_at，不得把"发出去"当成"设备收到了"。
  */
 
 const { expect } = require('chai');
@@ -24,6 +25,10 @@ function shadowSetPath(deviceId) {
 
 function shadowCancelPath(deviceId, msgId) {
   return '/device/shadow/' + deviceId + '/' + msgId;
+}
+
+function shadowAckPath(deviceId, msgId) {
+  return '/device/shadow/' + deviceId + '/' + msgId + '/ack';
 }
 
 async function queueShadow(deviceId, overrides = {}, accountKey = 'tenant_admin') {
@@ -119,6 +124,26 @@ describe('Device shadow offline command cache [27_shadow_messages]', function ()
     }
   });
 
+  it('rejects acknowledging a shadow message that is not ackable', async function () {
+    const seededDevice = await seedData.createSimulationDevice('tenant_admin');
+    try {
+      const setResp = await queueShadow(seededDevice.id);
+      expectSuccess(setResp);
+      const msgId = setResp.data.message.id;
+
+      // 先取消使其进入终态 canceled。
+      expectSuccess(await apiClient.delete(shadowCancelPath(seededDevice.id, msgId), {}, 'tenant_admin'));
+
+      // 终态行不可被确认：必须报错，不得静默成功或把历史改写成已送达。
+      expectBusinessError(
+        await apiClient.post(shadowAckPath(seededDevice.id, msgId), {}, 'tenant_admin'),
+        100002
+      );
+    } finally {
+      await seededDevice.cleanup();
+    }
+  });
+
   it('delivers pending shadows automatically after the device comes online', async function () {
     const mqttAvailable = await seedData.isMqttBrokerAvailable();
     if (!mqttAvailable) {
@@ -150,6 +175,8 @@ describe('Device shadow offline command cache [27_shadow_messages]', function ()
         'tenant_admin'
       );
 
+      // 第一步：上线应使消息变为 sent（已下发待 ACK）。
+      // 旧断言在这里直接要求 delivered，等于把"已下发"当成"设备已确认"，是虚假成功。
       const deadline = Date.now() + 45000;
       let statuses = {};
       while (Date.now() < deadline) {
@@ -157,18 +184,32 @@ describe('Device shadow offline command cache [27_shadow_messages]', function ()
         expectSuccess(allResp);
         const rows = allResp.data.list || [];
         statuses = Object.fromEntries(rows.map(row => [row.id, row]));
-        const allDelivered = queuedIds.every(id => statuses[id] && statuses[id].status === 'delivered');
-        if (allDelivered) {
-          queuedIds.forEach(id => {
-            expect(statuses[id].delivered_at, 'delivered_at must be recorded').to.be.a('string').and.not.equal('');
-          });
-          return;
-        }
+        if (queuedIds.every(id => statuses[id] && statuses[id].status === 'sent')) break;
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
+      queuedIds.forEach(id => {
+        expect(statuses[id] && statuses[id].status, 'shadow must be sent after device online')
+          .to.equal('sent');
+      });
 
-      const snapshot = queuedIds.map(id => (statuses[id] ? statuses[id].status : 'missing')).join(',');
-      throw new Error('pending shadows were not delivered within 45s after online; final statuses=' + snapshot);
+      // 第二步：设备确认。只有 ACK 才允许变成 delivered 并写入 ack_at。
+      for (const id of queuedIds) {
+        expectSuccess(await apiClient.post(shadowAckPath(seededDevice.id, id), {}, 'tenant_admin'));
+      }
+
+      const ackDeadline = Date.now() + 15000;
+      let acked = {};
+      while (Date.now() < ackDeadline) {
+        const allResp = await listShadows(seededDevice.id, '');
+        expectSuccess(allResp);
+        acked = Object.fromEntries((allResp.data.list || []).map(row => [row.id, row]));
+        if (queuedIds.every(id => acked[id] && acked[id].status === 'delivered')) break;
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      queuedIds.forEach(id => {
+        expect(acked[id] && acked[id].status, 'ACK must move sent -> delivered').to.equal('delivered');
+        expect(acked[id].ack_at, 'ack_at must be recorded on ACK').to.be.a('string').and.not.equal('');
+      });
     } finally {
       await seededDevice.cleanup();
     }

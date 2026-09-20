@@ -112,6 +112,7 @@ module.exports = {
   },
   "e2e/11_visualization.spec.js": {
     file: "e2e/11_visualization.spec.js",
+    suiteTitle: "ThingsVis visualization business routes [11_visualization]",
     type: "e2e",
     evidenceKind: "business",
     fileFlags: {},
@@ -125,6 +126,13 @@ module.exports = {
           capabilityIds: ["visualization"],
           evidenceLayer: "browser-e2e-with-api-setup",
           runtimeEvidenceRequired: true,
+          caseId: "pw-v2-visualization-native-board-crud",
+          fullTitle: "ThingsVis visualization business routes [11_visualization] › native board CRUD is persisted by the local provider across list viewer and editor routes",
+          operationDimensions: {
+            operation: "native-board-crud",
+            actor: "tenant-admin",
+            provider: "native",
+          },
         },
       ),
       e2eCase(
@@ -168,6 +176,25 @@ module.exports = {
         {
           evidenceLayer: "browser-e2e-with-api-setup",
           capabilityIds: ["visualization"],
+        },
+      ),
+      e2eCase(
+        "report schedule lifecycle creates updates runs and exposes durable readback",
+        "business",
+        true,
+        true,
+        {
+          capabilityIds: ["visualization"],
+          evidenceLayer: "browser-e2e-with-api-setup",
+          requiresSeededDevice: true,
+          runtimeEvidenceRequired: true,
+          caseId: "pw-v2-report-schedule-lifecycle",
+          fullTitle: "ThingsVis visualization business routes [11_visualization] › report schedule lifecycle creates updates runs and exposes durable readback",
+          operationDimensions: {
+            operation: "report-schedule-lifecycle",
+            actor: "tenant-admin",
+            actions: ["create", "update", "run", "readback", "cleanup"],
+          },
         },
       ),
     ],
@@ -396,6 +423,7 @@ module.exports = {
   },
   "e2e/23_native_board_super_admin.spec.js": {
     file: "e2e/23_native_board_super_admin.spec.js",
+    suiteTitle: "SYS_ADMIN native board tenant context [23_native_board_super_admin]",
     type: "e2e",
     evidenceKind: "business",
     fileFlags: {
@@ -411,6 +439,14 @@ module.exports = {
           evidenceLayer: "browser-e2e-with-api-setup",
           capabilityIds: ["visualization", "permission-tenancy"],
           runtimeEvidenceRequired: true,
+          caseId: "pw-v2-native-board-super-admin-tenant-context",
+          fullTitle: "SYS_ADMIN native board tenant context [23_native_board_super_admin] › uses the selected tenant filter as the create context",
+          operationDimensions: {
+            operation: "native-board-create",
+            actor: "super-admin",
+            tenantContext: "selected-tenant",
+            provider: "native",
+          },
         },
       ),
     ],

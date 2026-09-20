@@ -1,10 +1,7 @@
 import { computed, ref, type Ref } from 'vue'
 import type { Router } from 'vue-router'
 import type { TreeSelectOption } from 'naive-ui/es/tree-select/src/interface'
-import {
-  buildFleetSelectedDeviceIdentifiers,
-  buildFleetSelectionSummary
-} from './device-fleet-operations'
+import { buildFleetSelectedDeviceIdentifiers, buildFleetSelectionSummary } from './device-fleet-operations'
 import { buildSelectedDeviceCommandCenterRoute } from './device-fleet-handoff-routes'
 
 type TablePageRef = Ref<

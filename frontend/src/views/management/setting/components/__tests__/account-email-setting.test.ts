@@ -55,13 +55,45 @@ const mountComponent = () => {
   const wrapper = shallowMount(AccountEmailSetting, {
     global: {
       stubs: {
-        NFlex: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NAlert: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NForm: defineComponent({ setup(_, { slots }) { return () => h('form', slots.default ? slots.default() : []) } }),
-        NFormItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NInput: defineComponent({ props: { value: { default: '' } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NButton: defineComponent({ emits: ['click'], props: { loading: Boolean }, setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : []) } }),
-        NText: defineComponent({ setup(_, { slots }) { return () => h('span', slots.default ? slots.default() : []) } })
+        NFlex: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NAlert: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NForm: defineComponent({
+          setup(_, { slots }) {
+            return () => h('form', slots.default ? slots.default() : [])
+          }
+        }),
+        NFormItem: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NInput: defineComponent({
+          props: { value: { default: '' } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NButton: defineComponent({
+          emits: ['click'],
+          props: { loading: Boolean },
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : [])
+          }
+        }),
+        NText: defineComponent({
+          setup(_, { slots }) {
+            return () => h('span', slots.default ? slots.default() : [])
+          }
+        })
       }
     }
   })
@@ -78,7 +110,10 @@ describe('management/setting/components/account-email-setting.vue', () => {
     hoisted.authUserInfo.email = 'old@test.com'
     hoisted.authUserInfo.userEmail = 'old@test.com'
     hoisted.fetchEmailCodeByEmail.mockResolvedValue({ error: null })
-    hoisted.changeAccountEmail.mockResolvedValue({ error: null, data: { new_email: 'new@test.com', devices_migrated: 3 } })
+    hoisted.changeAccountEmail.mockResolvedValue({
+      error: null,
+      data: { new_email: 'new@test.com', devices_migrated: 3 }
+    })
     ;(globalThis as any).$message = { success: hoisted.messageSuccess, error: hoisted.messageError }
   })
 
@@ -209,11 +244,14 @@ describe('management/setting/components/account-email-setting.vue', () => {
     expect(state.migratedDeviceCount).toBe(3)
     expect(hoisted.messageSuccess).toHaveBeenCalledWith('custom.management.accountEmail.changedWithCount')
     expect(hoisted.localStgSet).toHaveBeenCalledTimes(1)
-    expect(hoisted.localStgSet).toHaveBeenCalledWith('userInfo', expect.objectContaining({
-      id: '1',
-      email: 'new@test.com',
-      userEmail: 'new@test.com'
-    }))
+    expect(hoisted.localStgSet).toHaveBeenCalledWith(
+      'userInfo',
+      expect.objectContaining({
+        id: '1',
+        email: 'new@test.com',
+        userEmail: 'new@test.com'
+      })
+    )
   })
 
   it('submitChange clears verify_code after success', async () => {

@@ -6,6 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"strings"
+
+	"github.com/casbin/govaluate"
 )
 
 const (
@@ -14,7 +17,19 @@ const (
 	TypeRelatedAgg  = "related_agg"
 	TypeGeofence    = "geofence"
 	TypePropagation = "propagation"
+	TypeAlarm       = "alarm"
 )
+
+// AlarmSeverityRule 单个严重度级别的触发条件规则
+type AlarmSeverityRule struct {
+	Severity   string `json:"severity"`   // H (高/紧急), M (中/重要), L (低/次要)
+	Expression string `json:"expression"` // 触发表达式，例如 "temperature >= 80"
+}
+
+// AlarmClearRule 自动清除条件规则
+type AlarmClearRule struct {
+	Expression string `json:"expression"` // 清除表达式，例如 "temperature < 50"
+}
 
 // advancedConfig 通用高级类型配置骨架(按 type 各取所需,统一 json 反序列化)。
 type AdvancedConfig struct {
@@ -23,17 +38,24 @@ type AdvancedConfig struct {
 	Func          string  `json:"func"`           // min|max|avg|count|sum
 	WindowSeconds int     `json:"window_seconds"` // 时序聚合窗口
 	// geofence
-	LatKey  string  `json:"lat_key"`
-	LngKey  string  `json:"lng_key"`
-	Shape   string  `json:"shape"` // circle|polygon
-	Lat     float64 `json:"lat"`
-	Lng     float64 `json:"lng"`
-	RadiusM float64 `json:"radius_m"`
+	LatKey  string      `json:"lat_key"`
+	LngKey  string      `json:"lng_key"`
+	Shape   string      `json:"shape"` // circle|polygon
+	Lat     float64     `json:"lat"`
+	Lng     float64     `json:"lng"`
+	RadiusM float64     `json:"radius_m"`
 	Points  [][]float64 `json:"points"` // polygon [[lat,lng],...]
 	// related_agg / propagation
-	DeviceIDs []string `json:"device_ids"` // 显式关联/传播目标(资产树自动发现留集成)
+	DeviceIDs    []string `json:"device_ids"`    // 显式关联/传播目标
+	RelationType string   `json:"relation_type"` // 实体关系类型（Contains, Manages 等）
+	UseRelation  bool     `json:"use_relation"`  // 是否启用实体关系动态发现
 	// propagation
-	Direction string `json:"direction"` // up|down(目标解析语义,默认 up)
+	Direction string `json:"direction"` // up|down|from|to(目标解析语义,默认 to/down)
+	// alarm (TB-1 告警规则 2.0)
+	AlarmName  string              `json:"alarm_name"`  // 告警名称定义
+	AlarmRules []AlarmSeverityRule `json:"rules"`       // 多级别严重度规则列表
+	ClearRule  *AlarmClearRule     `json:"clear_rule"`  // 可选自动清除规则
+	Propagate  bool                `json:"propagate"`   // 是否向父级实体/关联实体传播告警
 }
 
 // parseAdvancedConfig 解析并校验高级类型配置;错误在装载期跳过该字段(与服务层保存校验双保险)。
@@ -69,8 +91,8 @@ func ParseAdvancedConfig(fieldType string, raw json.RawMessage) (*AdvancedConfig
 		default:
 			return nil, fmt.Errorf("related_agg func must be min/max/avg/count/sum")
 		}
-		if len(cfg.DeviceIDs) == 0 {
-			return nil, fmt.Errorf("related_agg requires device_ids (asset-tree auto discovery lands later)")
+		if len(cfg.DeviceIDs) == 0 && !cfg.UseRelation && cfg.RelationType == "" {
+			return nil, fmt.Errorf("related_agg requires device_ids or relation_type/use_relation")
 		}
 	case TypeGeofence:
 		if cfg.LatKey == "" || cfg.LngKey == "" {
@@ -89,13 +111,34 @@ func ParseAdvancedConfig(fieldType string, raw json.RawMessage) (*AdvancedConfig
 			return nil, fmt.Errorf("geofence shape must be circle or polygon")
 		}
 	case TypePropagation:
-		if len(cfg.DeviceIDs) == 0 {
-			return nil, fmt.Errorf("propagation requires device_ids (asset-tree auto discovery lands later)")
+		if len(cfg.DeviceIDs) == 0 && !cfg.UseRelation && cfg.RelationType == "" {
+			return nil, fmt.Errorf("propagation requires device_ids or relation_type/use_relation")
 		}
 		switch cfg.Direction {
-		case "", "up", "down":
+		case "", "up", "down", "from", "to":
 		default:
-			return nil, fmt.Errorf("propagation direction must be up or down")
+			return nil, fmt.Errorf("propagation direction must be up, down, from or to")
+		}
+	case TypeAlarm:
+		if len(cfg.AlarmRules) == 0 {
+			return nil, fmt.Errorf("alarm requires at least one rule in rules")
+		}
+		for i, r := range cfg.AlarmRules {
+			sev := strings.ToUpper(strings.TrimSpace(r.Severity))
+			if sev != "H" && sev != "M" && sev != "L" {
+				return nil, fmt.Errorf("alarm rule[%d] severity must be H, M, or L", i)
+			}
+			if strings.TrimSpace(r.Expression) == "" {
+				return nil, fmt.Errorf("alarm rule[%d] expression cannot be empty", i)
+			}
+			if _, err := govaluate.NewEvaluableExpression(r.Expression); err != nil {
+				return nil, fmt.Errorf("alarm rule[%d] expression is invalid: %w", i, err)
+			}
+		}
+		if cfg.ClearRule != nil && strings.TrimSpace(cfg.ClearRule.Expression) != "" {
+			if _, err := govaluate.NewEvaluableExpression(cfg.ClearRule.Expression); err != nil {
+				return nil, fmt.Errorf("alarm clear_rule expression is invalid: %w", err)
+			}
 		}
 	default:
 		return nil, fmt.Errorf("unknown field type %q", fieldType)

@@ -94,9 +94,9 @@ const emailOptions = computed(() => {
   }
 
   // 只提示仍然匹配且尚未完整输入的邮箱域名。
-  const filteredDomains = commonDomains.filter(domain => domain.startsWith(domainInput) && domain !== domainInput)
+  const filteredDomains = commonDomains.filter((domain) => domain.startsWith(domainInput) && domain !== domainInput)
 
-  return filteredDomains.map(domain => `${username}@${domain}`)
+  return filteredDomains.map((domain) => `${username}@${domain}`)
 })
 
 const totpCode = ref('')
@@ -149,9 +149,9 @@ async function getFunctionOption() {
   const { data } = await getFunction()
   if (data) {
     localStorage.setItem('enableZcAndYzm', JSON.stringify(data))
-    showZc.value = data.find(v => v.name === 'enable_reg')?.enable_flag === 'enable'
+    showZc.value = data.find((v) => v.name === 'enable_reg')?.enable_flag === 'enable'
 
-    showYzm.value = data.find(v => v.name === 'use_captcha')?.enable_flag === 'enable'
+    showYzm.value = data.find((v) => v.name === 'use_captcha')?.enable_flag === 'enable'
   }
 }
 
@@ -311,7 +311,7 @@ onMounted(() => {
         </NButton>
       </template>
 
-      <n-divider v-if="showZc"  title-placement="center" style="padding: 0px; margin: 0px">
+      <n-divider v-if="showZc" title-placement="center" style="padding: 0px; margin: 0px">
         {{ $t('generate.or') }}
       </n-divider>
       <div class="flex-y-center justify-between gap-12px mt--4">

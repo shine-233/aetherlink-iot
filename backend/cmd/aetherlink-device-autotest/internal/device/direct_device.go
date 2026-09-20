@@ -179,6 +179,25 @@ func (d *DirectDevice) PublishEvent(method string, params interface{}, messageID
 	return nil
 }
 
+
+// wrapUplinkEnvelope 按线上契约把标准上行内层载荷包成 {device_id, values:<base64>}。
+// 真实部署里这一步由 gmqtt broker 的 aetherlink 插件统一完成；当模拟器直连
+// 不具备该插件的 broker（本地 stub）时，由 WrapUplinkEnvelope 开关让模拟器
+// 自己完成同样的包装，否则后端会以「Invalid status payload」丢弃全部上行。
+func (d *DirectDevice) wrapUplinkEnvelope(inner []byte) []byte {
+	if !d.config.MQTT.WrapUplinkEnvelope || len(inner) == 0 {
+		return inner
+	}
+	envelope, err := json.Marshal(struct {
+		DeviceID string `json:"device_id"`
+		Values   []byte `json:"values"`
+	}{DeviceID: d.config.Device.DeviceID, Values: inner})
+	if err != nil {
+		return inner
+	}
+	return envelope
+}
+
 // PublishStatus reports the device's online state using the status topic
 // consumed by backend/internal/adapter/mqttadapter. This is separate from
 // telemetry: a device without a device-config heartbeat still needs an
@@ -191,6 +210,7 @@ func (d *DirectDevice) PublishStatus(online bool) error {
 	if online {
 		payload = []byte("1")
 	}
+	payload = d.wrapUplinkEnvelope(payload)
 	topic := d.topics.Status(d.config.Device.DeviceID)
 	token := d.client.Publish(topic, d.config.MQTT.QoS, false, payload)
 	if !token.WaitTimeout(5 * time.Second) {
@@ -426,7 +446,7 @@ func (d *DirectDevice) RunOTAEmulator(stop <-chan struct{}, receiptPath, progres
 			}
 
 			progressTopic := "ota/devices/progress"
-			pubToken := d.client.Publish(progressTopic, d.config.MQTT.QoS, false, payloadBytes)
+			pubToken := d.client.Publish(progressTopic, d.config.MQTT.QoS, false, d.wrapUplinkEnvelope(payloadBytes))
 			if !pubToken.WaitTimeout(5 * time.Second) {
 				d.logger.Error("Failed to publish ota_progress: timeout")
 			} else if pubToken.Error() != nil {

@@ -33,6 +33,7 @@ func TestAlarmSourceStructureContractDeclaresConfigHistoryAcknowledgeAndReset(t 
 		"AlarmHistoryDescUpdate",
 		"AcknowledgeAlarmHistory",
 		"ResetAlarmHistory",
+		"ClearAlarmHistory",
 		"HandleConfigByDevice",
 		"DeleteAlarmHistory",
 	)

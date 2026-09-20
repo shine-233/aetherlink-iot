@@ -17,9 +17,9 @@ export const useWidgetStore = defineStore('widget', {
     selectedIds: []
   }),
   getters: {
-    selectedNodes: state => {
+    selectedNodes: (state) => {
       const editorStore = useEditorStore()
-      return editorStore.nodes.filter(node => state.selectedIds.includes(node.id))
+      return editorStore.nodes.filter((node) => state.selectedIds.includes(node.id))
     }
   },
   actions: {
@@ -32,7 +32,7 @@ export const useWidgetStore = defineStore('widget', {
     },
     // 当节点被删除时，也需要更新选中状态
     removeNodeFromSelection(id: string) {
-      this.selectedIds = this.selectedIds.filter(selectedId => selectedId !== id)
+      this.selectedIds = this.selectedIds.filter((selectedId) => selectedId !== id)
     },
     reset() {
       this.selectedIds = []

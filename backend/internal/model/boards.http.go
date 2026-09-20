@@ -16,6 +16,11 @@ type CreateBoardReq struct {
 	Remark      *string `json:"remark" validate:"omitempty,max=255"`
 	TenantID    string  `json:"tenant_id" validate:"omitempty,max=36"` //租户id
 	VisType     *string `json:"vis_type" validate:"omitempty,max=50"`
+	TypeKey     *string `json:"type_key" validate:"omitempty,max=64"`
+	Author      *string `json:"author" validate:"omitempty,max=99"`
+	Version     *string `json:"version" validate:"omitempty,max=36"`
+	PreviewURL     *string `json:"preview_url" validate:"omitempty,max=255"`
+	ConflictPolicy *string `json:"conflict_policy" form:"conflict_policy" validate:"omitempty,oneof=fail rename ignore update allow"` // TB-15 实体名冲突策略
 }
 
 type UpdateBoardReq struct {
@@ -28,6 +33,10 @@ type UpdateBoardReq struct {
 	Remark      *string `json:"remark" validate:"omitempty,max=255"`
 	TenantID    string  `json:"tenant_id" validate:"omitempty,max=36"` //租户id
 	VisType     *string `json:"vis_type" validate:"omitempty,max=50"`
+	TypeKey     *string `json:"type_key" validate:"omitempty,max=64"`
+	Author      *string `json:"author" validate:"omitempty,max=99"`
+	Version     *string `json:"version" validate:"omitempty,max=36"`
+	PreviewURL  *string `json:"preview_url" validate:"omitempty,max=255"`
 }
 
 type GetBoardListByPageReq struct {
@@ -36,6 +45,9 @@ type GetBoardListByPageReq struct {
 	HomeFlag *string `json:"home_flag" form:"home_flag"  validate:"omitempty,max=2"`
 	VisType  *string `json:"vis_type" form:"vis_type" validate:"omitempty,max=50"`
 	TenantID *string `json:"tenant_id" form:"tenant_id" validate:"omitempty,max=36"`
+	// ProjectID 看板项目分组过滤（P1.x native-board-provider 项目分组）。
+	// 非空时只返回归属该项目的看板；内置项目（不落库）的看板用 project_id=none 表示。
+	ProjectID *string `json:"project_id" form:"project_id" validate:"omitempty,max=36"`
 }
 
 // DeviceTrendReq 设备趋势请求

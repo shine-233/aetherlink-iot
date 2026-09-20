@@ -24,51 +24,83 @@ vi.mock('@/store/modules/auth', () => ({ useAuthStore: () => ({ userInfo: hoiste
 vi.mock('@/locales', () => ({ $t: (key: string) => key }))
 vi.mock('@/utils/clipboard', () => ({ writeClipboardText: hoisted.writeClipboardText }))
 vi.mock('naive-ui', () => {
-  const container = (name: string) => defineComponent({
-    name,
-    inheritAttrs: false,
-    setup(_, { attrs, slots }) { return () => h('div', attrs, slots.default?.()) }
-  })
+  const container = (name: string) =>
+    defineComponent({
+      name,
+      inheritAttrs: false,
+      setup(_, { attrs, slots }) {
+        return () => h('div', attrs, slots.default?.())
+      }
+    })
   const button = defineComponent({
-    name: 'NButton', inheritAttrs: false,
-    setup(_, { attrs, slots }) { return () => h('button', attrs, slots.default?.()) }
+    name: 'NButton',
+    inheritAttrs: false,
+    setup(_, { attrs, slots }) {
+      return () => h('button', attrs, slots.default?.())
+    }
   })
   const input = defineComponent({
-    name: 'NInput', props: ['value'], emits: ['update:value', 'keyup'], inheritAttrs: false,
+    name: 'NInput',
+    props: ['value'],
+    emits: ['update:value', 'keyup'],
+    inheritAttrs: false,
     setup(props, { attrs, emit }) {
-      return () => h('input', {
-        ...attrs,
-        value: props.value,
-        onInput: (event: Event) => emit('update:value', (event.target as HTMLInputElement).value),
-        onKeyup: (event: KeyboardEvent) => emit('keyup', event)
-      })
+      return () =>
+        h('input', {
+          ...attrs,
+          value: props.value,
+          onInput: (event: Event) => emit('update:value', (event.target as HTMLInputElement).value),
+          onKeyup: (event: KeyboardEvent) => emit('keyup', event)
+        })
     }
   })
   const select = defineComponent({
-    name: 'NSelect', props: ['value', 'options', 'loading'], emits: ['update:value'], inheritAttrs: false,
+    name: 'NSelect',
+    props: ['value', 'options', 'loading'],
+    emits: ['update:value'],
+    inheritAttrs: false,
     setup(props, { attrs, emit }) {
-      return () => h('select', {
-        ...attrs,
-        value: props.value ?? '',
-        onChange: (event: Event) => emit('update:value', (event.target as HTMLSelectElement).value)
-      }, (props.options as Array<{ label: string; value: string }> | undefined)?.map(option =>
-        h('option', { value: option.value }, option.label)
-      ))
+      return () =>
+        h(
+          'select',
+          {
+            ...attrs,
+            value: props.value ?? '',
+            onChange: (event: Event) => emit('update:value', (event.target as HTMLSelectElement).value)
+          },
+          (props.options as Array<{ label: string; value: string }> | undefined)?.map((option) =>
+            h('option', { value: option.value }, option.label)
+          )
+        )
     }
   })
   const pagination = defineComponent({
-    name: 'NPagination', props: ['page', 'pageSize', 'itemCount'], emits: ['update:page'], inheritAttrs: false,
+    name: 'NPagination',
+    props: ['page', 'pageSize', 'itemCount'],
+    emits: ['update:page'],
+    inheritAttrs: false,
     setup(props, { attrs, emit }) {
       return () => h('button', { ...attrs, onClick: () => emit('update:page', Number(props.page) + 1) }, 'next')
     }
   })
   const popconfirm = defineComponent({
-    name: 'NPopconfirm', emits: ['positiveClick'], inheritAttrs: false,
+    name: 'NPopconfirm',
+    emits: ['positiveClick'],
+    inheritAttrs: false,
     setup(_, { attrs, emit, slots }) {
-      return () => h('div', attrs, [slots.trigger?.(), slots.default?.(), h('button', {
-        'data-testid': 'native-board-delete-confirm',
-        onClick: () => emit('positiveClick')
-      }, 'confirm')])
+      return () =>
+        h('div', attrs, [
+          slots.trigger?.(),
+          slots.default?.(),
+          h(
+            'button',
+            {
+              'data-testid': 'native-board-delete-confirm',
+              onClick: () => emit('positiveClick')
+            },
+            'confirm'
+          )
+        ])
     }
   })
   return {
@@ -127,7 +159,10 @@ const wrappers: VueWrapper[] = []
 function deferred<T>() {
   let resolve!: (value: T) => void
   let reject!: (reason?: unknown) => void
-  const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej })
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
   return { promise, resolve, reject }
 }
 
@@ -174,31 +209,38 @@ describe('native boards page', () => {
     hoisted.writeClipboardText.mockResolvedValue(true)
     hoisted.fetchUserList.mockResolvedValue({
       data: {
-        list: [{
-          id: 'tenant-admin-1',
-          name: 'Tenant admin',
-          email: 'tenant-admin@example.com',
-          authority: 'TENANT_ADMIN',
-          tenant_id: 'tenant-1'
-        }],
+        list: [
+          {
+            id: 'tenant-admin-1',
+            name: 'Tenant admin',
+            email: 'tenant-admin@example.com',
+            authority: 'TENANT_ADMIN',
+            tenant_id: 'tenant-1'
+          }
+        ],
         total: 1
       }
     })
-    hoisted.execute.mockImplementation((operation: (provider: {
-      listDashboards: typeof hoisted.listDashboards
-      createDashboard: typeof hoisted.createDashboard
-      deleteDashboard: typeof hoisted.deleteDashboard
-      publishDashboard: typeof hoisted.publishDashboard
-    }) => unknown) => operation({
-      listDashboards: hoisted.listDashboards,
-      createDashboard: hoisted.createDashboard,
-      deleteDashboard: hoisted.deleteDashboard,
-      publishDashboard: hoisted.publishDashboard
-    }))
+    hoisted.execute.mockImplementation(
+      (
+        operation: (provider: {
+          listDashboards: typeof hoisted.listDashboards
+          createDashboard: typeof hoisted.createDashboard
+          deleteDashboard: typeof hoisted.deleteDashboard
+          publishDashboard: typeof hoisted.publishDashboard
+        }) => unknown
+      ) =>
+        operation({
+          listDashboards: hoisted.listDashboards,
+          createDashboard: hoisted.createDashboard,
+          deleteDashboard: hoisted.deleteDashboard,
+          publishDashboard: hoisted.publishDashboard
+        })
+    )
   })
 
   afterEach(() => {
-    wrappers.forEach(wrapper => wrapper.unmount())
+    wrappers.forEach((wrapper) => wrapper.unmount())
     wrappers.length = 0
   })
 
@@ -220,12 +262,18 @@ describe('native boards page', () => {
     vm(wrapper).handleSearch()
     await flushPromises()
     expect(hoisted.listDashboards).toHaveBeenLastCalledWith({
-      projectId: 'native-boards', page: 1, limit: 12, name: 'factory'
+      projectId: 'native-boards',
+      page: 1,
+      limit: 12,
+      name: 'factory'
     })
     vm(wrapper).handlePageChange(2)
     await flushPromises()
     expect(hoisted.listDashboards).toHaveBeenLastCalledWith({
-      projectId: 'native-boards', page: 2, limit: 12, name: 'factory'
+      projectId: 'native-boards',
+      page: 2,
+      limit: 12,
+      name: 'factory'
     })
   })
 
@@ -234,24 +282,28 @@ describe('native boards page', () => {
     await flushPromises()
     vm(wrapper).openBoard('board-1')
     vm(wrapper).editBoard('board-1')
-    expect(hoisted.routerPushByKey).toHaveBeenNthCalledWith(1, 'visualization_native-board', { query: { id: 'board-1' } })
-    expect(hoisted.routerPushByKey).toHaveBeenNthCalledWith(2, 'visualization_native-board-editor', { query: { id: 'board-1' } })
+    expect(hoisted.routerPushByKey).toHaveBeenNthCalledWith(1, 'visualization_native-board', {
+      query: { id: 'board-1' }
+    })
+    expect(hoisted.routerPushByKey).toHaveBeenNthCalledWith(2, 'visualization_native-board-editor', {
+      query: { id: 'board-1' }
+    })
   })
 
-  it.each([['TENANT_USER', []], ['', ['OTHER']]])(
-    'guards create, edit, and delete for non-admin users',
-    async (authority, roles) => {
-      const wrapper = mountPage(authority, roles)
-      await flushPromises()
-      vm(wrapper).editBoard('board-1')
-      vm(wrapper).openCreateModal()
-      await vm(wrapper).handleCreate()
-      await vm(wrapper).handleDelete('board-1')
-      expect(vm(wrapper).showCreateModal).toBe(false)
-      expect(hoisted.createDashboard).not.toHaveBeenCalled()
-      expect(hoisted.deleteDashboard).not.toHaveBeenCalled()
-    }
-  )
+  it.each([
+    ['TENANT_USER', []],
+    ['', ['OTHER']]
+  ])('guards create, edit, and delete for non-admin users', async (authority, roles) => {
+    const wrapper = mountPage(authority, roles)
+    await flushPromises()
+    vm(wrapper).editBoard('board-1')
+    vm(wrapper).openCreateModal()
+    await vm(wrapper).handleCreate()
+    await vm(wrapper).handleDelete('board-1')
+    expect(vm(wrapper).showCreateModal).toBe(false)
+    expect(hoisted.createDashboard).not.toHaveBeenCalled()
+    expect(hoisted.deleteDashboard).not.toHaveBeenCalled()
+  })
 
   it('creates through the neutral provider contract and opens the viewer', async () => {
     const wrapper = mountPage()
@@ -293,15 +345,19 @@ describe('native boards page', () => {
     expect(hoisted.message.error).toHaveBeenCalledWith('Select a tenant before creating a native board')
   })
 
-  it.each(['', '   ', 'x'.repeat(256)])('rejects invalid trimmed name %j', async name => {
-    const wrapper = mountPage(); await flushPromises(); vm(wrapper).createForm.name = name
+  it.each(['', '   ', 'x'.repeat(256)])('rejects invalid trimmed name %j', async (name) => {
+    const wrapper = mountPage()
+    await flushPromises()
+    vm(wrapper).createForm.name = name
     await vm(wrapper).handleCreate()
     expect(hoisted.createDashboard).not.toHaveBeenCalled()
   })
 
   it('rejects descriptions over 500 characters', async () => {
-    const wrapper = mountPage(); await flushPromises()
-    vm(wrapper).createForm.name = 'Valid'; vm(wrapper).createForm.description = 'x'.repeat(501)
+    const wrapper = mountPage()
+    await flushPromises()
+    vm(wrapper).createForm.name = 'Valid'
+    vm(wrapper).createForm.description = 'x'.repeat(501)
     await vm(wrapper).handleCreate()
     expect(hoisted.createDashboard).not.toHaveBeenCalled()
   })
@@ -309,26 +365,33 @@ describe('native boards page', () => {
   it('prevents duplicate create submissions', async () => {
     const pending = deferred<ReturnType<typeof success<ReturnType<typeof schema>>>>()
     hoisted.createDashboard.mockReturnValue(pending.promise)
-    const wrapper = mountPage(); await flushPromises(); vm(wrapper).createForm.name = 'Valid'
-    const first = vm(wrapper).handleCreate(); const second = vm(wrapper).handleCreate()
+    const wrapper = mountPage()
+    await flushPromises()
+    vm(wrapper).createForm.name = 'Valid'
+    const first = vm(wrapper).handleCreate()
+    const second = vm(wrapper).handleCreate()
     expect(hoisted.createDashboard).toHaveBeenCalledTimes(1)
     pending.resolve(success(schema({ id: 'created-1' })))
     await Promise.all([first, second])
   })
 
-  it.each([['provider failure', failure()], ['blank ID', success(schema({ id: ' ' }))]])(
-    'keeps the create modal for %s',
-    async (_label, result) => {
-      hoisted.createDashboard.mockResolvedValue(result)
-      const wrapper = mountPage(); await flushPromises(); vm(wrapper).openCreateModal(); vm(wrapper).createForm.name = 'Valid'
-      await vm(wrapper).handleCreate()
-      expect(vm(wrapper).showCreateModal).toBe(true)
-      expect(hoisted.routerPushByKey).not.toHaveBeenCalled()
-    }
-  )
+  it.each([
+    ['provider failure', failure()],
+    ['blank ID', success(schema({ id: ' ' }))]
+  ])('keeps the create modal for %s', async (_label, result) => {
+    hoisted.createDashboard.mockResolvedValue(result)
+    const wrapper = mountPage()
+    await flushPromises()
+    vm(wrapper).openCreateModal()
+    vm(wrapper).createForm.name = 'Valid'
+    await vm(wrapper).handleCreate()
+    expect(vm(wrapper).showCreateModal).toBe(true)
+    expect(hoisted.routerPushByKey).not.toHaveBeenCalled()
+  })
 
   it('deletes through the provider and reloads the active page', async () => {
-    const wrapper = mountPage(); await flushPromises()
+    const wrapper = mountPage()
+    await flushPromises()
     await vm(wrapper).handleDelete('board-1')
     expect(hoisted.deleteDashboard).toHaveBeenCalledWith('board-1')
     expect(hoisted.listDashboards).toHaveBeenCalledTimes(2)
@@ -336,7 +399,8 @@ describe('native boards page', () => {
   })
 
   it('publishes a native board through the provider and reloads the active page', async () => {
-    const wrapper = mountPage(); await flushPromises()
+    const wrapper = mountPage()
+    await flushPromises()
     await vm(wrapper).handlePublish('board-1')
     expect(hoisted.publishDashboard).toHaveBeenCalledWith('board-1')
     expect(hoisted.listDashboards).toHaveBeenCalledTimes(2)
@@ -344,7 +408,8 @@ describe('native boards page', () => {
   })
 
   it('copies the published native board viewer link', async () => {
-    const wrapper = mountPage(); await flushPromises()
+    const wrapper = mountPage()
+    await flushPromises()
     const published = summary({ published: true, shareToken: 'share-token' })
     await vm(wrapper).handleCopyLink(published)
     expect(hoisted.writeClipboardText).toHaveBeenCalledWith(
@@ -354,7 +419,9 @@ describe('native boards page', () => {
   })
 
   it('moves to the previous page when deleting the last item', async () => {
-    const wrapper = mountPage(); await flushPromises(); vm(wrapper).page = 2
+    const wrapper = mountPage()
+    await flushPromises()
+    vm(wrapper).page = 2
     await vm(wrapper).handleDelete('board-1')
     expect(vm(wrapper).page).toBe(1)
     expect(hoisted.listDashboards).toHaveBeenLastCalledWith({ projectId: 'native-boards', page: 1, limit: 12 })
@@ -363,8 +430,11 @@ describe('native boards page', () => {
   it('keeps the list when delete fails and prevents duplicate deletes', async () => {
     const pending = deferred<ReturnType<typeof failure>>()
     hoisted.deleteDashboard.mockReturnValue(pending.promise)
-    const wrapper = mountPage(); await flushPromises(); const current = [...vm(wrapper).boards]
-    const first = vm(wrapper).handleDelete('board-1'); const second = vm(wrapper).handleDelete('board-1')
+    const wrapper = mountPage()
+    await flushPromises()
+    const current = [...vm(wrapper).boards]
+    const first = vm(wrapper).handleDelete('board-1')
+    const second = vm(wrapper).handleDelete('board-1')
     expect(hoisted.deleteDashboard).toHaveBeenCalledTimes(1)
     pending.resolve(failure())
     await Promise.all([first, second])
@@ -373,10 +443,14 @@ describe('native boards page', () => {
     expect(hoisted.message.error).toHaveBeenCalledWith('common.deleteFailed')
   })
 
-  it.each([['provider failure', failure()], ['thrown failure', 'throw']])('fails list closed for %s', async (_label, mode) => {
+  it.each([
+    ['provider failure', failure()],
+    ['thrown failure', 'throw']
+  ])('fails list closed for %s', async (_label, mode) => {
     if (mode === 'throw') hoisted.execute.mockRejectedValueOnce(new Error('failed'))
     else hoisted.listDashboards.mockResolvedValue(mode)
-    const wrapper = mountPage(); await flushPromises()
+    const wrapper = mountPage()
+    await flushPromises()
     expect(vm(wrapper).boards).toEqual([])
     expect(vm(wrapper).total).toBe(0)
     expect(vm(wrapper).failed).toBe(true)
@@ -385,12 +459,14 @@ describe('native boards page', () => {
 
   it('clears previous data before loading', async () => {
     const pending = deferred<ReturnType<typeof pageResult>>()
-    const wrapper = mountPage(); await flushPromises()
+    const wrapper = mountPage()
+    await flushPromises()
     hoisted.listDashboards.mockReturnValueOnce(pending.promise)
     const loading = vm(wrapper).loadBoards()
     expect(vm(wrapper).boards).toEqual([])
     expect(vm(wrapper).total).toBe(0)
-    pending.resolve(pageResult()); await loading
+    pending.resolve(pageResult())
+    await loading
   })
 
   it('ignores stale success and stale failure without stopping the current load', async () => {

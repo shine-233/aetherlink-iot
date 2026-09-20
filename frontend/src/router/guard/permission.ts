@@ -37,7 +37,7 @@ export function createPermissionGuard(router: Router) {
     const hasPermission =
       !routeRoles.length ||
       authStore.userInfo?.roles?.includes(SUPER_ADMIN) ||
-      authStore.userInfo?.roles?.some(role => routeRoles.includes(role))
+      authStore.userInfo?.roles?.some((role) => routeRoles.includes(role))
     const strategicPatterns: CommonType.StrategicPattern[] = [
       {
         condition: isLogin && to.path.startsWith('/login'),

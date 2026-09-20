@@ -137,7 +137,7 @@ export class MultiSourceIntegrator implements IMultiSourceIntegrator {
     }
 
     // 检查每个数据源的结构
-    return sourceKeys.every(key => {
+    return sourceKeys.every((key) => {
       const source = componentData[key]
       return (
         source && typeof source.type === 'string' && typeof source.lastUpdated === 'number' && source.data !== undefined

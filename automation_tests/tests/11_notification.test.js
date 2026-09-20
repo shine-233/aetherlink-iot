@@ -149,6 +149,55 @@ describe('Notification API module [11_notification]', function () {
     expect(detailResp.data.notification_config).to.be.a('string').and.include('updated@example.com');
   });
 
+  it('rejects direct APP notification groups without persisting them', async function () {
+    const directName = 'codex-direct-app-' + Date.now();
+    const resp = await apiClient.post(
+      '/notification_group',
+      {
+        name: directName,
+        notification_type: 'EMAIL,APP',
+        status: 'OPEN'
+      },
+      'tenant_admin'
+    );
+
+    expectBusinessError(
+      resp,
+      100002,
+      'direct APP notification type is not supported; use MEMBER notification config with notificationType APP'
+    );
+    const listResp = await apiClient.get(
+      '/notification_group/list',
+      { page: 1, page_size: 100, name: directName },
+      'tenant_admin'
+    );
+    expectOk(listResp);
+    expect(listResp.data.list.some(item => item.name === directName)).to.equal(false);
+  });
+
+  it('rejects an update to direct APP and preserves the existing group', async function () {
+    expect(notificationGroupId).to.be.a('string').and.not.empty;
+    const rejectedName = 'codex-direct-app-update-' + Date.now();
+    const resp = await apiClient.put(
+      '/notification_group/' + notificationGroupId,
+      {
+        name: rejectedName,
+        notification_type: 'APP'
+      },
+      'tenant_admin'
+    );
+
+    expectBusinessError(
+      resp,
+      100002,
+      'direct APP notification type is not supported; use MEMBER notification config with notificationType APP'
+    );
+    const detailResp = await apiClient.get('/notification_group/' + notificationGroupId, {}, 'tenant_admin');
+    expectOk(detailResp);
+    expect(detailResp.data.name).to.equal(updatedName);
+    expect(detailResp.data.notification_type).to.equal('EMAIL');
+  });
+
   it('returns the current notification history page shape', async function () {
     const resp = await apiClient.get('/notification_history/list', { page: 1, page_size: 10 }, 'super_admin');
 

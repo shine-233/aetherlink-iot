@@ -26,6 +26,19 @@ messages:
   100005:
     zh_CN: "${field}不能为空"
     en_US: "${field} cannot be empty"
+  # CSV 逐行校验失败：调用方必须同时提供 csv_row 与 message，渲染成「第 N 行：<原因>」。
+  # 为什么不复用 100005：100005 是全站共享的「字段不能为空」，被 17 处调用，
+  # 其模板只插值 ${field}，会把调用方给出的具体原因（message）与行号（csv_row）一起丢掉，
+  # 渲染成「batch_file不能为空」——把排查者系统性地指向错误方向。
+  # 故此处单列一个能承载逐行定位信息的错误码，100005 的行为保持不变。
+  100006:
+    zh_CN: "第 ${csv_row} 行：${message}"
+    en_US: "Row ${csv_row}: ${message}"
+  # CSV 文件级不合规（表头错误 / 空文件 / 无法解析）：透出调用方给出的具体原因。
+  # 调用方必须提供 message；同样刻意不复用 100005，理由同上。
+  100007:
+    zh_CN: "CSV 文件不合规：${message}"
+    en_US: "Invalid CSV file: ${message}"
 
   # 数据库相关错误 (101xxx)
   101001:

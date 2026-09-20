@@ -15,6 +15,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"time"
 
@@ -27,6 +28,7 @@ import (
 
 	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 type Alarm struct{}
@@ -46,6 +48,16 @@ func wrapAlarmDBError(err error) error {
 	return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 		"sql_error": err.Error(),
 	})
+}
+
+// wrapAlarmHistoryLoadError 区分"查不到这条告警历史"与"数据库出错"。
+// 前者是 404：当成 101001 会让客户端把不存在的 id 判成系统故障并重试，
+// 同时把 ORM 的 "record not found" 原文带进响应体。
+func wrapAlarmHistoryLoadError(err error) error {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return errcode.NewWithMessage(errcode.CodeNotFound, "alarm history not found")
+	}
+	return wrapAlarmDBError(err)
 }
 
 func ensureAlarmTenantAccess(resourceTenantID string, claims *utils.UserClaims, permissionMessage string) error {
@@ -100,7 +112,7 @@ func ensureAlarmHistoryReadAccess(id string, claims *utils.UserClaims) (*model.A
 	}
 	history, err := dal.GetAlarmHistoryByID(id)
 	if err != nil {
-		return nil, wrapAlarmDBError(err)
+		return nil, wrapAlarmHistoryLoadError(err)
 	}
 	if err := ensureLoadedAlarmHistoryReadAccess(history, claims); err != nil {
 		return nil, err
@@ -162,7 +174,7 @@ func ensureAlarmHistoryWriteAccess(id string, claims *utils.UserClaims) (*model.
 	}
 	history, err := dal.GetAlarmHistoryByID(id)
 	if err != nil {
-		return nil, wrapAlarmDBError(err)
+		return nil, wrapAlarmHistoryLoadError(err)
 	}
 	if err := ensureLoadedAlarmHistoryWriteAccess(history, claims); err != nil {
 		return nil, err

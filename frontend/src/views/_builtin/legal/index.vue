@@ -22,9 +22,7 @@ const router = useRouter()
 
 const isPrivacy = computed(() => props.type === 'privacy')
 const title = computed(() => (isPrivacy.value ? $t('legal.privacyTitle') : $t('legal.termsTitle')))
-const description = computed(() =>
-  isPrivacy.value ? $t('legal.privacyDescription') : $t('legal.termsDescription')
-)
+const description = computed(() => (isPrivacy.value ? $t('legal.privacyDescription') : $t('legal.termsDescription')))
 
 function goBack() {
   router.back()

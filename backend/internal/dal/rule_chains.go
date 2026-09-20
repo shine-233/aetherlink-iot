@@ -106,6 +106,35 @@ func ListRuleChainsByTenant(scopes []string, keyword string, page, pageSize int)
 	return count, chains, err
 }
 
+// EnabledRuleChain 启用链的 ID 与 graph 文本。
+type EnabledRuleChain struct {
+	ID    string
+	Graph string
+}
+
+// ListEnabledRuleChains 返回单租户内启用链的 ID 与原始 graph 文本。
+func ListEnabledRuleChains(tenantID string) ([]EnabledRuleChain, error) {
+	if strings.TrimSpace(tenantID) == "" {
+		return nil, fmt.Errorf("tenant id is required")
+	}
+	var rows []struct {
+		ID    string `gorm:"column:id"`
+		Graph string `gorm:"column:graph"`
+	}
+	err := global.DB.Model(&model.RuleChain{}).
+		Select("id, graph").
+		Where("tenant_id = ? AND enabled = ?", tenantID, true).
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	res := make([]EnabledRuleChain, 0, len(rows))
+	for _, r := range rows {
+		res = append(res, EnabledRuleChain{ID: r.ID, Graph: r.Graph})
+	}
+	return res, nil
+}
+
 // ListEnabledRuleChainGraphs 返回单租户内启用链的原始 graph 文本（执行热路径用，由 OnTelemetry/OnDeviceOnline 按 device.TenantID 调用）。
 // 注意：本函数按 device 单租户锚定，刻意不展开 C2 作用域——上行执行上下文始终归属设备自身租户，展开等于越权执行子树链。
 func ListEnabledRuleChainGraphs(tenantID string) ([]string, error) {

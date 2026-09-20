@@ -29,12 +29,7 @@ type PresetEnergyRange = Exclude<EnergyRange, 'custom'>
 type HistoryRange = [number, number]
 
 type RDIHistorySeriesKey =
-  | 'temperature_1'
-  | 'temperature_2'
-  | 'switch_1'
-  | 'switch_2'
-  | 'dry_contact_output'
-  | 'electricity_consumption'
+  'temperature_1' | 'temperature_2' | 'switch_1' | 'switch_2' | 'dry_contact_output' | 'electricity_consumption'
 
 type HistoryPoint = {
   ts: number
@@ -91,9 +86,7 @@ type FormatHistoryChartValue = (key: RDIHistorySeriesKey, value: number) => numb
 const HISTORY_QUERY_PAGE = 1
 const HISTORY_CHART_PAGE_SIZE = 5000
 const HISTORY_CHART_MAX_POINTS_PER_SERIES = 100000
-const HISTORY_CHART_MAX_PAGES_PER_SERIES = Math.ceil(
-  HISTORY_CHART_MAX_POINTS_PER_SERIES / HISTORY_CHART_PAGE_SIZE
-)
+const HISTORY_CHART_MAX_PAGES_PER_SERIES = Math.ceil(HISTORY_CHART_MAX_POINTS_PER_SERIES / HISTORY_CHART_PAGE_SIZE)
 const HISTORY_GAP_THRESHOLD_MS = 90 * 1000
 const HISTORY_EXPORT_PAGE_SIZE = 10000
 const DEFAULT_ENERGY_RANGE: PresetEnergyRange = 'last_1h'
@@ -242,11 +235,7 @@ function insertHistoryGapMarkers(points: HistoryPoint[]) {
     const currentPoint = sortedPoints[index]
     const gapDuration = currentPoint.ts - previousPoint.ts
 
-    if (
-      gapDuration > HISTORY_GAP_THRESHOLD_MS &&
-      previousPoint.value !== null &&
-      currentPoint.value !== null
-    ) {
+    if (gapDuration > HISTORY_GAP_THRESHOLD_MS && previousPoint.value !== null && currentPoint.value !== null) {
       markedPoints.push({
         ts: previousPoint.ts + Math.floor(gapDuration / 2),
         value: null
@@ -273,12 +262,7 @@ function finalizeHistorySeriesResult(
   const missingCount = expectedCount === null ? 0 : Math.max(0, expectedCount - loadedCount)
   const chartEvidence = insertHistoryGapMarkers(points)
   const failed = failedPage !== undefined && loadedCount === 0
-  const partial =
-    !failed &&
-    (failedPage !== undefined ||
-      truncated ||
-      invalidCount > 0 ||
-      missingCount > 0)
+  const partial = !failed && (failedPage !== undefined || truncated || invalidCount > 0 || missingCount > 0)
 
   return {
     key,
@@ -411,14 +395,7 @@ async function fetchHistorySeries(
     }
   }
 
-  return finalizeHistorySeriesResult(
-    definition.key,
-    points,
-    expectedPointCount,
-    invalidCount,
-    failedPage,
-    truncated
-  )
+  return finalizeHistorySeriesResult(definition.key, points, expectedPointCount, invalidCount, failedPage, truncated)
 }
 
 function normalizeHistoryChartSeriesKeys(keys: RDIHistorySeriesKey[]): RDIHistorySeriesKey[] {
@@ -687,20 +664,12 @@ export function useRdiHistory(deviceId: () => string, temperatureUnit: () => 'C'
 
   function labelsForHistoryResults(predicate: (result: HistorySeriesResult) => boolean) {
     const labelsByKey = new Map(historySeriesDefinitions.map((definition) => [definition.key, definition.label]))
-    return historySeriesResults.value
-      .filter(predicate)
-      .map((result) => labelsByKey.get(result.key) || result.key)
+    return historySeriesResults.value.filter(predicate).map((result) => labelsByKey.get(result.key) || result.key)
   }
 
-  const failedHistorySeriesLabels = computed(() =>
-    labelsForHistoryResults((result) => result.status === 'failed')
-  )
-  const partialHistorySeriesLabels = computed(() =>
-    labelsForHistoryResults((result) => result.status === 'partial')
-  )
-  const gappedHistorySeriesLabels = computed(() =>
-    labelsForHistoryResults((result) => result.detectedGapCount > 0)
-  )
+  const failedHistorySeriesLabels = computed(() => labelsForHistoryResults((result) => result.status === 'failed'))
+  const partialHistorySeriesLabels = computed(() => labelsForHistoryResults((result) => result.status === 'partial'))
+  const gappedHistorySeriesLabels = computed(() => labelsForHistoryResults((result) => result.detectedGapCount > 0))
   const hasHistoryFailures = computed(() =>
     historySeriesResults.value.some((result) => result.status === 'failed' || result.status === 'partial')
   )
@@ -731,11 +700,7 @@ export function useRdiHistory(deviceId: () => string, temperatureUnit: () => 'C'
       const selectedSeriesKeys = normalizeHistoryChartSeriesKeys(historyChartSeriesKeys.value)
       historyChartSeriesKeys.value = selectedSeriesKeys
       const nextHistory = await fetchHistoryChartData(id, range, selectedSeriesKeys)
-      if (
-        contextRevision !== historyContextRevision ||
-        requestSequence !== historyLoadSequence ||
-        id !== deviceId()
-      ) {
+      if (contextRevision !== historyContextRevision || requestSequence !== historyLoadSequence || id !== deviceId()) {
         return
       }
       historySeriesResults.value = nextHistory.seriesResults
@@ -763,10 +728,7 @@ export function useRdiHistory(deviceId: () => string, temperatureUnit: () => 'C'
     const exportTemperatureUnit = temperatureUnit()
     historyExportLoading.value = true
     try {
-      const { error, data } = await rdiDeviceHistory(
-        id,
-        buildHistoryExportQueryParams(exportKey, range, exportFormat)
-      )
+      const { error, data } = await rdiDeviceHistory(id, buildHistoryExportQueryParams(exportKey, range, exportFormat))
       if (
         contextRevision !== historyContextRevision ||
         requestSequence !== historyExportSequence ||
@@ -785,10 +747,7 @@ export function useRdiHistory(deviceId: () => string, temperatureUnit: () => 'C'
         message.error(t('empty'))
         return
       }
-      downloadCsv(
-        `rdi_${id}_${exportKey}.csv`,
-        buildHistoryExportCsvRows(exportKey, rows, exportTemperatureUnit)
-      )
+      downloadCsv(`rdi_${id}_${exportKey}.csv`, buildHistoryExportCsvRows(exportKey, rows, exportTemperatureUnit))
     } finally {
       if (contextRevision === historyContextRevision && requestSequence === historyExportSequence) {
         historyExportLoading.value = false

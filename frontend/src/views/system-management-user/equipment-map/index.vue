@@ -63,8 +63,8 @@ const query = reactive({
 const total = ref(0)
 
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / query.page_size)))
-const onlineCount = computed(() => devices.value.filter(item => item.is_online === 1).length)
-const alarmCount = computed(() => devices.value.filter(item => item.warn_status === 'Y').length)
+const onlineCount = computed(() => devices.value.filter((item) => item.is_online === 1).length)
+const alarmCount = computed(() => devices.value.filter((item) => item.warn_status === 'Y').length)
 const selectedLocation = computed(() => parseLocation(selectedDevice.value?.location))
 const hasSelectedCoordinates = computed(() => {
   return selectedLocation.value?.lat !== undefined && selectedLocation.value.lng !== undefined
@@ -155,7 +155,7 @@ async function fetchDevices() {
       clearSelectedDevice()
       return
     }
-    const selectedStillVisible = devices.value.some(device => device.id === selectedDevice.value?.id)
+    const selectedStillVisible = devices.value.some((device) => device.id === selectedDevice.value?.id)
     if (!selectedDevice.value || !selectedStillVisible) {
       previewDevice(devices.value[0])
     }

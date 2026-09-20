@@ -35,7 +35,15 @@ func (o *OTA) CreateOTAUpgradeTask(req *model.CreateOTAUpgradeTaskReq, claims *u
 
 	tasks, err := dal.CreateOTAUpgradeTaskWithDetail(req)
 	if err == nil {
-		go pushOTAUpgradeTaskDetails(o, tasks)
+		isScheduled := false
+		if req.ScheduledAt != nil && strings.TrimSpace(*req.ScheduledAt) != "" {
+			if st, parseErr := time.Parse(time.RFC3339, strings.TrimSpace(*req.ScheduledAt)); parseErr == nil && st.After(time.Now().UTC()) {
+				isScheduled = true
+			}
+		}
+		if !isScheduled {
+			go pushOTAUpgradeTaskDetails(o, tasks)
+		}
 	}
 	return err
 }

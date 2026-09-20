@@ -20,5 +20,22 @@ func (*EdgeSync) InitEdgeSync(Router *gin.RouterGroup) {
 			sync.POST(":id/retry", api.Controllers.EdgeSyncApi.Retry)
 		}
 		g.POST("ota/distribute", api.Controllers.EdgeSyncApi.DistributeOta)
+
+		// P1.5 边缘节点注册表：注册/心跳/列表/Reconcile。
+		// 此前注册、健康判定与版本兼容只有纯决策函数，无数据来源也无入口；
+		// edge_nodes 表（97.sql）落地后这里是最小可用闭环。
+		nodes := g.Group("nodes")
+		{
+			nodes.POST("", api.Controllers.EdgeNodeApi.Register)
+			nodes.GET("", api.Controllers.EdgeNodeApi.List)
+			nodes.POST(":node_id/heartbeat", api.Controllers.EdgeNodeApi.Heartbeat)
+			nodes.POST(":node_id/reconcile", api.Controllers.EdgeNodeApi.Reconcile)
+			nodes.POST(":node_id/certificate", api.Controllers.EdgeNodeApi.IssueCertificate)
+			nodes.GET(":node_id/certificate", api.Controllers.EdgeNodeApi.GetCertificate)
+			nodes.DELETE(":node_id/certificate", api.Controllers.EdgeNodeApi.RevokeCertificate)
+			nodes.POST(":node_id/upgrade", api.Controllers.EdgeNodeApi.Upgrade)
+			nodes.POST(":node_id/rollback", api.Controllers.EdgeNodeApi.Rollback)
+			nodes.GET(":node_id/upgrade/history", api.Controllers.EdgeNodeApi.GetUpgradeHistory)
+		}
 	}
 }

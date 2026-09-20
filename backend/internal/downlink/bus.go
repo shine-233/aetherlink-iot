@@ -7,6 +7,7 @@ package downlink
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -28,8 +29,11 @@ type Bus struct {
 	// mu 保护发布闸门状态。closing 一旦置位就不再登记新发布，
 	// Close 因此可以安全等待所有已获准的 Publish 退出后再关闭数据 channel。
 	mu      sync.Mutex
+	running bool
 	closing bool
 	closed  bool
+	ctx     context.Context
+	initErr error
 
 	// publishers 登记在途发布；abortPublish 关闭后所有阻塞中的发布会立刻退出。
 	publishers   sync.WaitGroup
@@ -50,97 +54,143 @@ type Bus struct {
 
 // NewBus 创建消息总线
 func NewBus(bufferSize int) *Bus {
-	return &Bus{
-		commandChan:      make(chan *Message, bufferSize),
-		attributeSetChan: make(chan *Message, bufferSize),
-		attributeGetChan: make(chan *Message, bufferSize),
-		telemetryChan:    make(chan *Message, bufferSize),
-		bufferSize:       bufferSize,
-		abortPublish:     make(chan struct{}),
-		logger:           logrus.StandardLogger(),
+	bus := &Bus{
+		bufferSize:   bufferSize,
+		abortPublish: make(chan struct{}),
+		logger:       logrus.StandardLogger(),
 	}
+	if bufferSize < 0 {
+		bus.bufferSize = 0
+		bus.initErr = fmt.Errorf("%w: %d", ErrInvalidBufferSize, bufferSize)
+		bufferSize = 0
+	}
+	bus.commandChan = make(chan *Message, bufferSize)
+	bus.attributeSetChan = make(chan *Message, bufferSize)
+	bus.attributeGetChan = make(chan *Message, bufferSize)
+	bus.telemetryChan = make(chan *Message, bufferSize)
+	return bus
 }
 
 // PublishCommand 发布命令下发消息。
-// 总线关闭中或已关闭时被闸门直接拒绝并计数；队列满时最多阻塞一个发布超时周期，超时即丢弃，不会永久挂起。
-func (b *Bus) PublishCommand(msg *Message) {
-	b.publish(b.commandChan, msg, "command")
+// 返回 nil 只表示消息已被运行中的总线接纳，不表示 MQTT 或设备侧执行完成。
+func (b *Bus) PublishCommand(msg *Message) error {
+	return b.publish(b.commandChan, msg, "command")
 }
 
 // PublishAttributeSet 发布属性设置消息。
-// 关闭与满队列语义同 PublishCommand。
-func (b *Bus) PublishAttributeSet(msg *Message) {
-	b.publish(b.attributeSetChan, msg, "attribute_set")
+func (b *Bus) PublishAttributeSet(msg *Message) error {
+	return b.publish(b.attributeSetChan, msg, "attribute_set")
 }
 
 // PublishAttributeGet 发布属性获取消息。
-// 关闭与满队列语义同 PublishCommand。
-func (b *Bus) PublishAttributeGet(msg *Message) {
-	b.publish(b.attributeGetChan, msg, "attribute_get")
+func (b *Bus) PublishAttributeGet(msg *Message) error {
+	return b.publish(b.attributeGetChan, msg, "attribute_get")
 }
 
 // PublishTelemetry 发布遥测下发消息。
-// 关闭与满队列语义同 PublishCommand。
-func (b *Bus) PublishTelemetry(msg *Message) {
-	b.publish(b.telemetryChan, msg, "telemetry")
+func (b *Bus) PublishTelemetry(msg *Message) error {
+	return b.publish(b.telemetryChan, msg, "telemetry")
 }
 
 // publish 是各发布入口共用的闸门登记与背压写入逻辑。
-func (b *Bus) publish(ch chan *Message, msg *Message, queueName string) {
-	if !b.beginPublish() {
-		b.recordDrop(queueName, "bus closing or closed")
-		return
+func (b *Bus) publish(ch chan *Message, msg *Message, queueName string) error {
+	if err := validateAdmissionMessage(msg); err != nil {
+		b.recordDrop(queueName, err.Error())
+		return err
+	}
+	if ch == nil {
+		b.recordDrop(queueName, ErrBusUnavailable.Error())
+		return ErrBusUnavailable
+	}
+	if err := b.beginPublish(); err != nil {
+		b.recordDrop(queueName, err.Error())
+		return err
 	}
 	defer b.publishers.Done()
 
-	if msg == nil {
-		b.recordDrop(queueName, "nil message")
-		return
-	}
-
-	b.publishWithBackpressure(ch, msg, queueName)
+	return b.publishWithBackpressure(ch, msg, queueName)
 }
 
-// beginPublish 在关闭状态下拒绝新的发布，否则登记一次在途发布。
-func (b *Bus) beginPublish() bool {
+func validateAdmissionMessage(msg *Message) error {
+	if msg == nil || msg.DeviceNumber == "" || len(msg.Data) == 0 {
+		return ErrInvalidMessage
+	}
+	return nil
+}
+
+// beginPublish 只允许运行且消费上下文仍有效的总线登记新发布。
+func (b *Bus) beginPublish() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	if b.closing || b.closed {
-		return false
+		return ErrBusClosed
+	}
+	if !b.running {
+		if b.initErr != nil {
+			return fmt.Errorf("%w: %v", ErrBusUnavailable, b.initErr)
+		}
+		return ErrBusNotStarted
+	}
+	if b.ctx == nil || b.ctx.Err() != nil {
+		b.running = false
+		return ErrBusUnavailable
 	}
 
 	b.publishers.Add(1)
-	return true
+	return nil
 }
 
-// publishWithBackpressure 把消息写入目标队列：先尝试非阻塞发送，
-// 队列满时记录 warn 并进入有限阻塞，超时或发布闸门关闭则丢弃并计数。
-func (b *Bus) publishWithBackpressure(ch chan *Message, msg *Message, queueName string) {
+// publishWithBackpressure 把消息写入目标队列：队列满时有限阻塞，
+// 超时、关闭或消费上下文取消均向调用方返回可检查的错误。
+func (b *Bus) publishWithBackpressure(ch chan *Message, msg *Message, queueName string) error {
 	timeout := b.publishTimeout()
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 
+	b.mu.Lock()
+	ctx := b.ctx
+	b.mu.Unlock()
+
 	select {
 	case ch <- msg:
-		return
+		return nil
 	case <-timer.C:
-		b.recordDrop(queueName, "publish timeout")
-		return
+		b.recordDrop(queueName, ErrPublishTimeout.Error())
+		return ErrPublishTimeout
 	case <-b.abortPublish:
-		b.recordDrop(queueName, "bus closing or closed")
-		return
+		b.recordDrop(queueName, ErrBusClosed.Error())
+		return ErrBusClosed
+	case <-ctx.Done():
+		b.markUnavailable(ctx)
+		b.recordDrop(queueName, ErrBusUnavailable.Error())
+		return ErrBusUnavailable
 	default:
 		b.logger.WithField("module", "downlink").Warnf("%s queue full, blocking publish", queueName)
 	}
 
 	select {
 	case ch <- msg:
+		return nil
 	case <-timer.C:
-		b.recordDrop(queueName, "publish timeout")
+		b.recordDrop(queueName, ErrPublishTimeout.Error())
+		return ErrPublishTimeout
 	case <-b.abortPublish:
-		b.recordDrop(queueName, "bus closing or closed")
+		b.recordDrop(queueName, ErrBusClosed.Error())
+		return ErrBusClosed
+	case <-ctx.Done():
+		b.markUnavailable(ctx)
+		b.recordDrop(queueName, ErrBusUnavailable.Error())
+		return ErrBusUnavailable
 	}
+}
+
+func (b *Bus) markUnavailable(ctx context.Context) {
+	b.mu.Lock()
+	if b.ctx == ctx && !b.closing && !b.closed {
+		b.running = false
+	}
+	b.mu.Unlock()
 }
 
 func (b *Bus) publishTimeout() time.Duration {
@@ -208,13 +258,38 @@ func (b *Bus) Close() {
 		b.wg.Wait()
 
 		b.mu.Lock()
+		b.running = false
 		b.closed = true
 		b.mu.Unlock()
 	})
 }
 
-// Start 启动总线（与 Handler 配合使用）
-func (b *Bus) Start(ctx context.Context, handler *Handler) {
+// Start 启动总线（与 Handler 配合使用）。
+func (b *Bus) Start(ctx context.Context, handler *Handler) error {
+	if ctx == nil || handler == nil || handler.publisher == nil || handler.processor == nil {
+		return fmt.Errorf("%w: context, publisher, processor, and handler are required", ErrBusUnavailable)
+	}
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("%w: %v", ErrBusUnavailable, err)
+	}
+
+	b.mu.Lock()
+	if b.initErr != nil {
+		b.mu.Unlock()
+		return fmt.Errorf("%w: %v", ErrBusUnavailable, b.initErr)
+	}
+	if b.closing || b.closed {
+		b.mu.Unlock()
+		return ErrBusClosed
+	}
+	if b.running {
+		b.mu.Unlock()
+		return nil
+	}
+	b.ctx = ctx
+	b.running = true
+	b.mu.Unlock()
+
 	// 启动命令处理协程
 	b.wg.Add(1)
 	go func() {
@@ -222,6 +297,7 @@ func (b *Bus) Start(ctx context.Context, handler *Handler) {
 		for {
 			select {
 			case <-ctx.Done():
+				b.markUnavailable(ctx)
 				return
 			case msg, ok := <-b.commandChan:
 				if !ok {
@@ -242,6 +318,7 @@ func (b *Bus) Start(ctx context.Context, handler *Handler) {
 		for {
 			select {
 			case <-ctx.Done():
+				b.markUnavailable(ctx)
 				return
 			case msg, ok := <-b.attributeSetChan:
 				if !ok {
@@ -261,6 +338,7 @@ func (b *Bus) Start(ctx context.Context, handler *Handler) {
 		for {
 			select {
 			case <-ctx.Done():
+				b.markUnavailable(ctx)
 				return
 			case msg, ok := <-b.attributeGetChan:
 				if !ok {
@@ -280,6 +358,7 @@ func (b *Bus) Start(ctx context.Context, handler *Handler) {
 		for {
 			select {
 			case <-ctx.Done():
+				b.markUnavailable(ctx)
 				return
 			case msg, ok := <-b.telemetryChan:
 				if !ok {
@@ -291,4 +370,5 @@ func (b *Bus) Start(ctx context.Context, handler *Handler) {
 			}
 		}
 	}()
+	return nil
 }

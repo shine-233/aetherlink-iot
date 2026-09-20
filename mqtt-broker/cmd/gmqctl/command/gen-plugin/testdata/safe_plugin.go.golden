@@ -1,0 +1,52 @@
+// GMQTT PLUGIN SCAFFOLD: INCOMPLETE
+// Implement the generated methods before enabling registration below.
+package safe_plugin
+
+import (
+	"errors"
+
+	"github.com/DrmagicE/gmqtt/config"
+	"github.com/DrmagicE/gmqtt/server"
+)
+
+var _ server.Plugin = (*SafePlugin)(nil)
+
+const (
+	Name = "safe_plugin"
+
+	// ScaffoldIncomplete prevents this generated package from registering as a usable plugin.
+	// Set it to false only after replacing every scaffold implementation.
+	ScaffoldIncomplete = true
+)
+
+// ErrScaffoldIncomplete rejects attempts to construct or load the unimplemented scaffold.
+var ErrScaffoldIncomplete = errors.New("gmqtt plugin " + Name + " scaffold is incomplete")
+
+func init() {
+	if ScaffoldIncomplete {
+		return
+	}
+	if err := server.RegisterPlugin(Name, New); err != nil {
+		panic(err)
+	}
+	config.RegisterDefaultPluginConfig(Name, &DefaultConfig)
+}
+
+func New(_ config.Config) (server.Plugin, error) {
+	return nil, ErrScaffoldIncomplete
+}
+
+type SafePlugin struct {
+}
+
+func (s *SafePlugin) Load(_ server.Server) error {
+	return ErrScaffoldIncomplete
+}
+
+func (s *SafePlugin) Unload() error {
+	return nil
+}
+
+func (s *SafePlugin) Name() string {
+	return Name
+}

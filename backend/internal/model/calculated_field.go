@@ -46,12 +46,14 @@ type CalculatedFieldCreateReq struct {
 
 // CalculatedFieldUpdateReq 更新计算字段请求；ID 由 handler 从路径参数注入。
 type CalculatedFieldUpdateReq struct {
-	ID               string  `json:"-" validate:"omitempty,max=36"`
-	Name             string  `json:"name" validate:"required,max=128"`
-	DeviceTemplateID string  `json:"device_template_id" validate:"required,max=36"`
-	OutputKey        string  `json:"output_key" validate:"required,max=128"`
-	Expression       string  `json:"expression" validate:"required,max=2000"`
-	Remark           *string `json:"remark" validate:"omitempty,max=500"`
+	ID               string          `json:"-" validate:"omitempty,max=36"`
+	Name             string          `json:"name" validate:"required,max=128"`
+	DeviceTemplateID string          `json:"device_template_id" validate:"required,max=36"`
+	OutputKey        string          `json:"output_key" validate:"required,max=128"`
+	Expression       string          `json:"expression" validate:"max=2000"`
+	Remark           *string         `json:"remark" validate:"omitempty,max=500"`
+	Type             string          `json:"type" validate:"omitempty,max=32"`
+	Config           json.RawMessage `json:"config" validate:"omitempty"`
 }
 
 // CalculatedFieldToggleReq 启用/停用请求；Enabled 为空时按当前值取反。

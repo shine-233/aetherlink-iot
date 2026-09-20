@@ -27,7 +27,7 @@ const columns = defineModel<FilteredColumn[]>('columns', {
 
 const popoverVisible = ref(false)
 const shouldLoadDraggable = ref(false)
-const AsyncVueDraggable = defineAsyncComponent(() => import('vue-draggable-plus').then(module => module.VueDraggable))
+const AsyncVueDraggable = defineAsyncComponent(() => import('vue-draggable-plus').then((module) => module.VueDraggable))
 
 const handlePopoverVisibleUpdate = (show: boolean) => {
   popoverVisible.value = show

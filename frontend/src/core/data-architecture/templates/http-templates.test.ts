@@ -5,10 +5,10 @@ import { HTTP_CONFIG_TEMPLATES, getHttpConfigTemplates } from './http-templates'
 describe('HTTP config templates', () => {
   it('provides the local request templates and expected internal paths', () => {
     expect(HTTP_CONFIG_TEMPLATES).toHaveLength(10)
-    expect(HTTP_CONFIG_TEMPLATES.find(template => template.name === '设备遥测趋势')?.config.url).toBe(
+    expect(HTTP_CONFIG_TEMPLATES.find((template) => template.name === '设备遥测趋势')?.config.url).toBe(
       '/telemetry/datas/statistic'
     )
-    expect(HTTP_CONFIG_TEMPLATES.some(template => template.config.url.startsWith('http'))).toBe(false)
+    expect(HTTP_CONFIG_TEMPLATES.some((template) => template.config.url.startsWith('http'))).toBe(false)
   })
 
   it('returns isolated snapshots without changing the compatibility export', () => {

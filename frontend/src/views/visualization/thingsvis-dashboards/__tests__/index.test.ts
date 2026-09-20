@@ -43,7 +43,7 @@ vi.mock('@/service/api/thingsvis', () => ({
   getThingsVisDashboardThumbnail: hoisted.getThingsVisDashboardThumbnail
 }))
 
-vi.mock('@/service/visualization-provider/index', async importOriginal => {
+vi.mock('@/service/visualization-provider/index', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/service/visualization-provider/index')>()
   return {
     ...actual,
@@ -92,7 +92,7 @@ vi.mock('vue-router', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn() })
 }))
 
-vi.mock('naive-ui', async importOriginal => {
+vi.mock('naive-ui', async (importOriginal) => {
   const actual = await importOriginal<typeof import('naive-ui')>()
   return {
     ...actual,
@@ -226,7 +226,7 @@ const SelectStub = defineComponent({
           value: props.value ?? '',
           onChange: (event: Event) => emit('update:value', (event.target as HTMLSelectElement).value)
         },
-        (props.options as Array<any>).map(option =>
+        (props.options as Array<any>).map((option) =>
           h('option', { value: option.value }, option.label ?? String(option.value))
         )
       )
@@ -256,9 +256,7 @@ const ModalStub = defineComponent({
   },
   setup(props, { slots }) {
     return () =>
-      props.show
-        ? h('div', { class: 'modal-stub' }, [slots.default?.(), slots.footer?.(), slots.action?.()])
-        : null
+      props.show ? h('div', { class: 'modal-stub' }, [slots.default?.(), slots.footer?.(), slots.action?.()]) : null
   }
 })
 
@@ -462,13 +460,15 @@ function dashboardSchema(overrides: Record<string, unknown> = {}) {
 }
 
 function findButtonByContent(wrapper: ReturnType<typeof mountComponent>, content: string, occurrence = 0) {
-  const matches = wrapper.findAll('button, button-stub, n-button-stub').filter(button => button.text().includes(content))
+  const matches = wrapper
+    .findAll('button, button-stub, n-button-stub')
+    .filter((button) => button.text().includes(content))
   expect(matches.length).toBeGreaterThan(occurrence)
   return matches[occurrence]
 }
 
 function findDocumentButtonByContent(content: string, occurrence = 0) {
-  const matches = Array.from(document.body.querySelectorAll('button')).filter(button =>
+  const matches = Array.from(document.body.querySelectorAll('button')).filter((button) =>
     button.textContent?.includes(content)
   )
   expect(matches.length).toBeGreaterThan(occurrence)
@@ -508,8 +508,14 @@ describe('ThingsVisDashboards', () => {
     hoisted.deleteDashboardMenuConfig.mockResolvedValue({ error: null })
     hoisted.deleteThingsVisDashboard.mockResolvedValue({ error: null })
     hoisted.setHomeThingsVisDashboard.mockResolvedValue({ error: null })
-    hoisted.saveDashboardMenuConfig.mockResolvedValue({ data: { enabled: true, menu_name: 'Menu Alpha', sort: 1 }, error: null })
-    hoisted.getThingsVisHomeDashboard.mockResolvedValue({ data: { data: { id: 'home-1', name: 'Home Dashboard' } }, error: null })
+    hoisted.saveDashboardMenuConfig.mockResolvedValue({
+      data: { enabled: true, menu_name: 'Menu Alpha', sort: 1 },
+      error: null
+    })
+    hoisted.getThingsVisHomeDashboard.mockResolvedValue({
+      data: { data: { id: 'home-1', name: 'Home Dashboard' } },
+      error: null
+    })
   })
 
   afterEach(() => {
@@ -540,7 +546,7 @@ describe('ThingsVisDashboards', () => {
     expect(wrapper.text()).toContain('Beta Dashboard')
     const cards = wrapper.findAllComponents(ThingsVisDashboardCardStub)
     expect(cards).toHaveLength(2)
-    expect(cards.map(card => card.props('dashboard').id)).toEqual(['dash-1', 'dash-2'])
+    expect(cards.map((card) => card.props('dashboard').id)).toEqual(['dash-1', 'dash-2'])
     expect(cards[0].props('thumbnailUrl')).toBe('data:image/png;base64,abc123')
     expect(cards[1].props('thumbnailUrl')).toBe('')
     expect(hoisted.getThingsVisDashboardThumbnail).toHaveBeenCalledTimes(2)
@@ -561,7 +567,9 @@ describe('ThingsVisDashboards', () => {
     expect(wrapper.get('[data-testid="thingsvis-provider-blocked"]').text()).toContain(
       'rdi.thingsvis.externalProviderDisabledDescription'
     )
-    expect(wrapper.findAll('button').filter(button => button.text().includes('rdi.thingsvis.newDashboard'))).toHaveLength(0)
+    expect(
+      wrapper.findAll('button').filter((button) => button.text().includes('rdi.thingsvis.newDashboard'))
+    ).toHaveLength(0)
     expect(wrapper.find('[data-testid="thingsvis-dashboard-list"]').exists()).toBe(false)
     expect(hoisted.getThingsVisProject).not.toHaveBeenCalled()
     expect(hoisted.getThingsVisDashboards).not.toHaveBeenCalled()
@@ -589,7 +597,7 @@ describe('ThingsVisDashboards', () => {
 
     const cards = wrapper.findAllComponents(ThingsVisDashboardCardStub)
     expect(cards).toHaveLength(2)
-    expect(cards.every(card => card.props('menuConfigLoaded') === true)).toBe(true)
+    expect(cards.every((card) => card.props('menuConfigLoaded') === true)).toBe(true)
 
     await cards[0].findAll('button')[1].trigger('click')
     await flushPromises()
@@ -748,7 +756,7 @@ describe('ThingsVisDashboards', () => {
     currentRouteQuery = { projectId: 'proj-1', onboarding: 'first-device' }
     hoisted.getThingsVisDashboards.mockResolvedValue({
       data: {
-        data: dashboardList().map(dashboard => ({ ...dashboard, homeFlag: false })),
+        data: dashboardList().map((dashboard) => ({ ...dashboard, homeFlag: false })),
         meta: { page: 1, limit: 100, total: 2, totalPages: 1 }
       },
       error: null

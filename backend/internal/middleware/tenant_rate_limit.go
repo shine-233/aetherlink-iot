@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"aetherlink-iot/backend/internal/ratelimit"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/global"
 	"aetherlink-iot/backend/pkg/utils"
@@ -189,10 +190,9 @@ func tenantRateStoreFromConfig(rpm int64) tenantRateStore {
 // 键优先取 claims.TenantID；无租户上下文的调用（如超管个人操作）回退用户 ID，
 // 保证每个调用主体都有独立配额且匿名请求不会污染租户桶。
 func TenantRateLimit() gin.HandlerFunc {
-	rpm := tenantRateRPMFromConfig()
-	store := tenantRateStoreFromConfig(rpm)
 	return func(c *gin.Context) {
-		if rpm <= 0 {
+		rpm := tenantRateRPMFromConfig()
+		if rpm <= 0 && !viper.IsSet(ratelimit.ConfigKeyDefaultAPI) {
 			c.Next()
 			return
 		}
@@ -206,11 +206,9 @@ func TenantRateLimit() gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		subject := claims.TenantID
-		if subject == "" {
-			subject = "user:" + claims.ID
-		}
-		allowed, retryAfter := store.allow(c.Request.Context(), subject)
+
+		svc := ratelimit.GetDefaultService()
+		allowed, retryAfter, _ := svc.CheckAPI(c.Request.Context(), claims.TenantID, claims.ID)
 		if allowed {
 			c.Next()
 			return

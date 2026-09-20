@@ -8,6 +8,4 @@ export const NATIVE_BOARD_PROVIDER_ID = 'native-board' as const
 export const LEGACY_THINGSVIS_PROVIDER_ID = 'legacy-thingsvis' as const
 export const NATIVE_BOARD_PROJECT_ID = 'native-boards' as const
 
-export type BuiltInVisualizationProviderId =
-  | typeof NATIVE_BOARD_PROVIDER_ID
-  | typeof LEGACY_THINGSVIS_PROVIDER_ID
+export type BuiltInVisualizationProviderId = typeof NATIVE_BOARD_PROVIDER_ID | typeof LEGACY_THINGSVIS_PROVIDER_ID

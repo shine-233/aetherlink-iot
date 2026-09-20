@@ -235,7 +235,9 @@ export function createThingsVisPlatformDeviceCatalogOrchestrator(options: {
     const groupNameById = new Map(groups.map((group) => [group.groupId, group.groupName]))
     const configTemplateMap = await deviceConfigTemplateMapCache.load()
     const devices = rawDevices
-      .map(row => mapPlatformDeviceRowForGroup(row, fallbackGroupId, fallbackGroupName, groupNameById, configTemplateMap))
+      .map((row) =>
+        mapPlatformDeviceRowForGroup(row, fallbackGroupId, fallbackGroupName, groupNameById, configTemplateMap)
+      )
       .filter((item): item is PlatformDeviceEntry => Boolean(item))
 
     const templateAssets = await buildPlatformDeviceTemplateAssets(devices)

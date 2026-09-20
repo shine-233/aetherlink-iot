@@ -75,7 +75,7 @@ const objItem = reactive<any>(props.objItem)
 // 监听一下父组件传递过来的编辑数据
 watch(
   objItem,
-  newVal => {
+  (newVal) => {
     if (objItem.id) {
       addFrom = reactive({
         device_template_id: deviceTemplateId,
@@ -97,7 +97,7 @@ watch(
 )
 
 const generalOptions: any = reactive(
-  ['Number', 'String', 'Boolean', 'Enum'].map(v => ({
+  ['Number', 'String', 'Boolean', 'Enum'].map((v) => ({
     label: v,
     value: v
   }))
@@ -141,7 +141,7 @@ const clear: () => void = () => {
   emit('update:addAndEditModalVisible', false)
 }
 
-const updateAdditionalInfo: (newVal) => void = newVal => {
+const updateAdditionalInfo: (newVal) => void = (newVal) => {
   addFrom.additional_info = newVal
 }
 </script>

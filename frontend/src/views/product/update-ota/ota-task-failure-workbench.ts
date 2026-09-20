@@ -8,10 +8,7 @@ export type OtaFailureGroup = {
   devices: OtaTaskDetailRecord[]
 }
 
-export type OtaRetryRecommendationKey =
-  | 'pause_and_check_package'
-  | 'needs_device_diagnostics'
-  | 'safe_to_retry'
+export type OtaRetryRecommendationKey = 'pause_and_check_package' | 'needs_device_diagnostics' | 'safe_to_retry'
 
 export type OtaRetryRecommendationCard = {
   key: OtaRetryRecommendationKey
@@ -22,7 +19,9 @@ export type OtaRetryRecommendationCard = {
   devices: string[]
 }
 
-type RetryRecommendationTranslate = (key: OtaRetryRecommendationKey) => Pick<OtaRetryRecommendationCard, 'title' | 'description'>
+type RetryRecommendationTranslate = (
+  key: OtaRetryRecommendationKey
+) => Pick<OtaRetryRecommendationCard, 'title' | 'description'>
 
 const EMPTY_REASON_KEY = 'page.product.update-ota.failureUnknownReason'
 const PACKAGE_FAILURE_PATTERN =
@@ -209,7 +208,8 @@ const statusCountLines = (statistics: OtaTaskStatisticsItem[] = []) => {
 
 const taskTargetText = (task?: OtaTaskRecord | null) => {
   if (!task) return '<unknown>'
-  if (task.target_mode === 'filter') return `filter expected=${task.preview_total ?? task.selected_count ?? '<unknown>'}`
+  if (task.target_mode === 'filter')
+    return `filter expected=${task.preview_total ?? task.selected_count ?? '<unknown>'}`
   return `explicit device_count=${task.device_count ?? task.selected_count ?? '<unknown>'}`
 }
 
@@ -242,19 +242,21 @@ export const buildOtaFailureSupportBundle = ({
   const failedDevices = getOtaFailedDevices(rows)
   const groups = buildOtaFailureGroups(rows, fallbackReason)
   const retryRecommendations = buildOtaRetryRecommendationCards(rows, fallbackReason, selectedPackage)
-  const deviceLines = failedDevices.slice(0, maxDevices).map((row, index) =>
-    [
-      `${index + 1}. ${row.name || row.device_number || row.id}`,
-      `deviceId=${row.device_id || '-'}`,
-      `number=${row.device_number || '-'}`,
-      `current=${row.current_version || '-'}`,
-      `target=${row.version || selectedPackage?.target_version || selectedPackage?.version || '-'}`,
-      `progress=${row.steps ?? '-'}`,
-      `updated=${row.updated_at || '-'}`,
-      `diagnostics=${deviceDiagnosticsRouteText(row, task?.id)}`,
-      `reportedReason=${getOtaFailureReason(row, fallbackReason)}`
-    ].join(' | ')
-  )
+  const deviceLines = failedDevices
+    .slice(0, maxDevices)
+    .map((row, index) =>
+      [
+        `${index + 1}. ${row.name || row.device_number || row.id}`,
+        `deviceId=${row.device_id || '-'}`,
+        `number=${row.device_number || '-'}`,
+        `current=${row.current_version || '-'}`,
+        `target=${row.version || selectedPackage?.target_version || selectedPackage?.version || '-'}`,
+        `progress=${row.steps ?? '-'}`,
+        `updated=${row.updated_at || '-'}`,
+        `diagnostics=${deviceDiagnosticsRouteText(row, task?.id)}`,
+        `reportedReason=${getOtaFailureReason(row, fallbackReason)}`
+      ].join(' | ')
+    )
 
   return [
     '# AetherLink OTA failed-rollout support package',
@@ -281,22 +283,16 @@ export const buildOtaFailureSupportBundle = ({
     `failedDevices=${failedDevices.length}`,
     '',
     '## Failure groups',
-    ...(groups.length
-      ? groups.map((group) => `- ${group.reason || fallbackReason}: ${group.count}`)
-      : ['- <none>']),
+    ...(groups.length ? groups.map((group) => `- ${group.reason || fallbackReason}: ${group.count}`) : ['- <none>']),
     '',
     '## Retry recommendations',
     ...(retryRecommendations.length
-      ? retryRecommendations.map(
-          (item) => `- ${item.key}: ${item.count} device(s). ${item.description}`
-        )
+      ? retryRecommendations.map((item) => `- ${item.key}: ${item.count} device(s). ${item.description}`)
       : ['- <none>']),
     '',
     '## Representative failed devices',
     ...(deviceLines.length ? deviceLines : ['<none>']),
-    failedDevices.length > maxDevices
-      ? `... ${failedDevices.length - maxDevices} more failed device(s) omitted`
-      : '',
+    failedDevices.length > maxDevices ? `... ${failedDevices.length - maxDevices} more failed device(s) omitted` : '',
     '',
     '## Evidence boundary',
     '- This support package comes from the currently loaded task-detail rows and rollout statistics in the browser.',

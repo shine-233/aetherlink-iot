@@ -46,12 +46,12 @@ const getTableData = async (name: string) => {
 }
 
 // NSelect 的搜索词直接透传给物模型菜单接口，当前没有做输入防抖与异常提示。
-const searchPlug = v => {
+const searchPlug = (v) => {
   getTableData(v)
 }
 
 // 切换物模型后立即调用更新接口；成功时让父页面重新拉取配置详情和物模型相关区域。
-const choseTemp = async v => {
+const choseTemp = async (v) => {
   const res = await deviceConfigEdit({ device_template_id: v, id: props.configInfo.id })
   if (!res.error) {
     emit('upDateConfig')
@@ -85,7 +85,7 @@ onMounted(async () => {
         filterable
         @update:value="choseTemp"
         @search="
-          v => {
+          (v) => {
             searchPlug(v)
           }
         "

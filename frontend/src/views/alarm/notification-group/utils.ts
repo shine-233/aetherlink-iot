@@ -72,7 +72,7 @@ const loadMemberOptions = async (query = '', append = false) => {
     if (res?.data) {
       const userList = res.data?.list || []
       const total = Number(res.data?.total)
-      const formatList = userList.map(item => {
+      const formatList = userList.map((item) => {
         return {
           label: item.name,
           value: item.user_id
@@ -100,7 +100,7 @@ export const handleSearch = (query?: string) => {
   debouncedMemberSearch(query)
 }
 
-export const handleScroll = e => {
+export const handleScroll = (e) => {
   const currentTarget = e.currentTarget as HTMLElement
   if (
     currentTarget.scrollTop + currentTarget.offsetHeight >= currentTarget.scrollHeight &&

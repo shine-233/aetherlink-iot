@@ -17,21 +17,24 @@ describe('DataItemProcessor', () => {
     vi.clearAllMocks()
   })
 
-  it.each([0, false, ''])('preserves the falsy default value %j for missing input', async defaultValue => {
+  it.each([0, false, ''])('preserves the falsy default value %j for missing input', async (defaultValue) => {
     const processor = new DataItemProcessor()
 
     await expect(processor.processData(null, { filterPath: '$', defaultValue })).resolves.toBe(defaultValue)
   })
 
-  it.each([0, false, ''])('preserves the falsy default value %j when a filter resolves to null', async defaultValue => {
-    const processor = new DataItemProcessor()
+  it.each([0, false, ''])(
+    'preserves the falsy default value %j when a filter resolves to null',
+    async (defaultValue) => {
+      const processor = new DataItemProcessor()
 
-    await expect(
-      processor.processData({ device: null }, { filterPath: '$.device.temperature', defaultValue })
-    ).resolves.toBe(defaultValue)
-  })
+      await expect(
+        processor.processData({ device: null }, { filterPath: '$.device.temperature', defaultValue })
+      ).resolves.toBe(defaultValue)
+    }
+  )
 
-  it.each([0, false, ''])('preserves the falsy script result %j', async scriptValue => {
+  it.each([0, false, ''])('preserves the falsy script result %j', async (scriptValue) => {
     scriptEngineMock.execute.mockResolvedValue({ success: true, data: scriptValue })
     const processor = new DataItemProcessor()
 
@@ -52,9 +55,7 @@ describe('DataItemProcessor', () => {
     await expect(
       processor.processData({ items: [{ name: 'sensor-a' }] }, { filterPath: '$.items[0].name' })
     ).resolves.toBe('sensor-a')
-    await expect(
-      processor.processData([['first', 'second']], { filterPath: '$[0][1]' })
-    ).resolves.toBe('second')
+    await expect(processor.processData([['first', 'second']], { filterPath: '$[0][1]' })).resolves.toBe('second')
   })
 
   it('validates exactly the same JSONPath subset used at runtime', () => {
@@ -72,7 +73,10 @@ describe('DataItemProcessor', () => {
     const processor = new DataItemProcessor()
 
     await expect(
-      processor.processData({ items: [{ name: 'sensor-a' }] }, { filterPath: '$.items[]', defaultValue: 'invalid-path' })
+      processor.processData(
+        { items: [{ name: 'sensor-a' }] },
+        { filterPath: '$.items[]', defaultValue: 'invalid-path' }
+      )
     ).resolves.toBe('invalid-path')
   })
 })

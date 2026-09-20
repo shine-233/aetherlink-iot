@@ -1,0 +1,117 @@
+{
+  "page": {
+    "kicker": "REPORT DELIVERY CONTROL",
+    "title": "Scheduled reports",
+    "subtitle": "Define fixed telemetry windows, deliver CSV reports, and inspect every generation and mail attempt.",
+    "cadenceLabel": "Scheduler timezone",
+    "cadenceValue": "IANA timezone per schedule",
+    "search": "Search schedules",
+    "empty": "No report schedules yet"
+  },
+  "action": {
+    "create": "New schedule",
+    "createFirst": "Create the first schedule",
+    "search": "Search",
+    "refresh": "Refresh",
+    "runNow": "Run now",
+    "history": "Run history",
+    "details": "Details",
+    "retry": "Retry report",
+    "edit": "Edit",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "save": "Save changes"
+  },
+  "table": {
+    "name": "Schedule",
+    "delivery": "Delivery scope",
+    "targetSummary": "{devices} devices · {keys} keys",
+    "nextRun": "Next run",
+    "lastRun": "Last run",
+    "enabled": "State",
+    "actions": "Actions"
+  },
+  "form": {
+    "createTitle": "Create report schedule",
+    "editTitle": "Edit report schedule",
+    "name": "Name",
+    "cron": "Cron expression",
+    "timezone": "Timezone",
+    "lookback": "Fixed lookback window (hours)",
+    "recipients": "Recipients",
+    "recipientsHint": "Comma-separated email addresses",
+    "devices": "Device IDs",
+    "keys": "Telemetry keys",
+    "linesHint": "One value per line or comma-separated",
+    "enabled": "Schedule enabled",
+    "required": "This field is required"
+  },
+  "history": {
+    "title": "Run history",
+    "subtitle": "Generation and SMTP evidence for this schedule.",
+    "empty": "This schedule has not run yet",
+    "started": "Started",
+    "window": "Fixed data window",
+    "overall": "Overall",
+    "generation": "Generation",
+    "delivery": "Delivery",
+    "risk": "Duplicate risk"
+  },
+  "detail": {
+    "kicker": "SELECTED RUN",
+    "updated": "Last update",
+    "smtpAccepted": "SMTP server accepted",
+    "smtpAmbiguous": "SMTP outcome ambiguous",
+    "smtpAcceptanceCaveat": "Accepted means the SMTP server accepted the message. It does not confirm delivery to the recipient's mailbox.",
+    "generationAttempts": "Generation attempts",
+    "deliveryAttempts": "Delivery attempts",
+    "errors": "Bounded errors",
+    "noErrors": "No errors recorded"
+  },
+  "risk": {
+    "duplicate": "Possible",
+    "none": "None",
+    "warning": "The previous SMTP outcome is ambiguous. Retrying may deliver this report more than once."
+  },
+  "common": {
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "yes": "Yes",
+    "no": "No",
+    "notAvailable": "—"
+  },
+  "status": {
+    "never": "Never run",
+    "unknown": "Unknown",
+    "queued": "Queued",
+    "running": "Running",
+    "pending": "Pending",
+    "processing": "Processing",
+    "retrying": "Retrying",
+    "succeeded": "Succeeded",
+    "accepted": "SMTP accepted",
+    "ambiguous": "Ambiguous",
+    "failed": "Failed"
+  },
+  "message": {
+    "loadFailed": "Report schedules could not be loaded. Refresh to try again.",
+    "targetsRequired": "Add at least one device ID and telemetry key.",
+    "created": "Report schedule created.",
+    "updated": "Report schedule updated.",
+    "saveFailed": "The report schedule could not be saved.",
+    "staleRevision": "This schedule changed in another session. The data was refreshed; review the changes and try again.",
+    "deleted": "Report schedule deleted.",
+    "deleteFailed": "The report schedule could not be deleted.",
+    "deleteStaleRevision": "This schedule changed in another session, so it was not deleted. The data was refreshed.",
+    "deleteConfirm": "Delete this report schedule and its future runs?",
+    "runStarted": "Report run started.",
+    "runReplay": "The existing report run was returned for this request.",
+    "runFailed": "The report run could not be started.",
+    "historyFailed": "Run history could not be loaded.",
+    "scheduleDisabled": "This schedule is disabled. Enable it before running or retrying a report.",
+    "pollFailed": "Automatic run updates stopped after repeated failures. Refresh the history to try again.",
+    "retryStarted": "Report retry started.",
+    "retryReplay": "The existing retry was returned for this request.",
+    "retryFailed": "The report run could not be retried."
+  }
+}

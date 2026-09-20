@@ -27,7 +27,7 @@ export async function generateRoute() {
       initial: false
     },
     {
-      type: pre => (pre ? 'text' : null),
+      type: (pre) => (pre ? 'text' : null),
       name: 'routeParams',
       message: 'please enter route params',
       initial: 'id'

@@ -2,6 +2,10 @@ module github.com/DrmagicE/gmqtt
 
 go 1.25.0
 
+// 安全要求：go1.26.2 的标准库存在 11 个已知漏洞（govulncheck 实测），
+// 需 >=1.26.5 才全部修复。钉住工具链以保证构建使用含修复的标准库；请勿下调。
+toolchain go1.26.8
+
 require (
 	github.com/alicebob/miniredis/v2 v2.38.0
 	github.com/eclipse/paho.mqtt.golang v1.5.1

@@ -55,7 +55,7 @@ onMounted(() => {
   getData()
 })
 
-const clickDevice = async row => {
+const clickDevice = async (row) => {
   router.push(
     `/device/service-details?id=${row.id}&service_type=${row.service_type}&service_name=${row.name}&service_identifier=${row.service_identifier}`
   )
@@ -74,9 +74,9 @@ const openServiceCatalog = () => {
   <div>
     <AdvancedListLayout
       :available-views="[{ key: 'card', icon: CardIcon, label: 'common.viewCard' }]"
-      :showQueryButton="false"
-      :showResetButton="false"
-      :showAddButton="false"
+      :show-query-button="false"
+      :show-reset-button="false"
+      :show-add-button="false"
       @refresh="handleRefresh"
     >
       <!-- Card view -->
@@ -97,7 +97,7 @@ const openServiceCatalog = () => {
           <n-grid v-else cols="1 s:2 m:3 l:4 xl:5 2xl:8" x-gap="18" y-gap="18" responsive="screen">
             <n-gi v-for="item in deviceTemplateList" :key="item.id">
               <DevCardItem
-                :isStatus="false"
+                :is-status="false"
                 :title="item.name"
                 :subtitle="item.description || $t('common.noDescription')"
                 :footer-text="item.version || '--'"
@@ -142,7 +142,7 @@ const openServiceCatalog = () => {
           v-model:page="pagination.page"
           :page-count="pagination.pageCount"
           @update:page="
-            page => {
+            (page) => {
               pagination.page = page
               getData()
             }

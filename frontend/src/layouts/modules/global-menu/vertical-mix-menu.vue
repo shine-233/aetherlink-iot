@@ -29,7 +29,9 @@ const { activeFirstLevelMenuKey, setActiveFirstLevelMenuKey, getActiveFirstLevel
 
 const siderInverted = computed(() => !themeStore.darkMode && themeStore.sider.inverted)
 
-const menus = computed(() => routeStore.menus.find(menu => menu.key === activeFirstLevelMenuKey.value)?.children || [])
+const menus = computed(
+  () => routeStore.menus.find((menu) => menu.key === activeFirstLevelMenuKey.value)?.children || []
+)
 
 const showDrawer = computed(() => (drawerVisible.value && menus.value.length) || appStore.mixSiderFixed)
 

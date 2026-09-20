@@ -1,6 +1,7 @@
 import type {
   VisualizationError,
   VisualizationProvider,
+  VisualizationProviderCapabilities,
   VisualizationProviderContext,
   VisualizationProviderId,
   VisualizationResult
@@ -26,12 +27,18 @@ export class VisualizationProviderFacade {
     return this.provider?.id ?? null
   }
 
-  execute<T>(operation: (provider: VisualizationProvider) => Promise<VisualizationResult<T>>): Promise<VisualizationResult<T>> {
+  get capabilities(): VisualizationProviderCapabilities | null {
+    return this.provider?.capabilities ?? null
+  }
+
+  execute<T>(
+    operation: (provider: VisualizationProvider) => Promise<VisualizationResult<T>>
+  ): Promise<VisualizationResult<T>> {
     if (this.selectionError) return Promise.resolve(fail(this.selectionError))
     if (!this.provider) {
       return Promise.resolve(fail({ code: 'unknown-provider', message: 'Visualization provider is not selected' }))
     }
-    return operation(this.provider).catch(cause =>
+    return operation(this.provider).catch((cause) =>
       fail({ code: 'provider-failure', message: 'Visualization provider operation failed', cause })
     )
   }

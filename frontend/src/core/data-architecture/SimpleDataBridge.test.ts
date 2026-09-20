@@ -32,14 +32,12 @@ const createWarehouse = () => {
 }
 
 const createSuccessfulExecutor = (componentData: Record<string, any>) => ({
-  executeDataProcessingChain: vi.fn(
-    async (_config: DataSourceConfiguration): Promise<ExecutionResult> => ({
-      success: true,
-      componentData,
-      executionTime: 1,
-      timestamp: 1000
-    })
-  )
+  executeDataProcessingChain: vi.fn(async (_config: DataSourceConfiguration): Promise<ExecutionResult> => ({
+    success: true,
+    componentData,
+    executionTime: 1,
+    timestamp: 1000
+  }))
 })
 
 describe('SimpleDataBridge', () => {
@@ -185,9 +183,7 @@ describe('SimpleDataBridge', () => {
 
     const result = await bridge.executeComponent({
       componentId: 'component-stream',
-      dataSources: [
-        { id: 'stream', type: 'websocket', config: { wsUrl: 'wss://example.test/telemetry' } }
-      ]
+      dataSources: [{ id: 'stream', type: 'websocket', config: { wsUrl: 'wss://example.test/telemetry' } }]
     })
 
     expect(result).toMatchObject({ success: false, errorCode: 'WS_EXTERNAL_BLOCKED' })

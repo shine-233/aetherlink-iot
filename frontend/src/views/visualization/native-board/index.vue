@@ -3,10 +3,12 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { LocalVisualizationViewer, normalizeLocalDashboard } from '@/components/local-visualization-viewer'
 import { getDefaultVisualizationProviderFacade } from '@/service/visualization-provider/composition'
+import { useEntityRelationDataLoader } from './useEntityRelationDataLoader'
 
 const route = useRoute()
 const providerFacade = getDefaultVisualizationProviderFacade()
 const dashboard = ref<unknown | null>(null)
+const { fields: dynamicFields } = useEntityRelationDataLoader(dashboard, { refreshIntervalMs: 10000 })
 const loading = ref(false)
 const failed = ref(false)
 let requestSequence = 0
@@ -34,7 +36,7 @@ async function loadBoard() {
   }
 
   try {
-    const result = await providerFacade.execute(provider => provider.getDashboard(id))
+    const result = await providerFacade.execute((provider) => provider.getDashboard(id))
     if (!isCurrentRequest(sequence, id)) return
     if (!result.ok || result.data.rendererData === undefined) {
       failed.value = true
@@ -68,7 +70,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="h-full w-full bg-white">
-    <LocalVisualizationViewer v-if="dashboard" :dashboard="dashboard" :fields="{}" />
+    <LocalVisualizationViewer v-if="dashboard" :dashboard="dashboard" :fields="dynamicFields" />
     <div v-else class="flex h-full items-center justify-center text-gray-400" role="status">
       {{ loading ? 'Loading dashboard...' : failed ? 'Unable to load dashboard' : '' }}
     </div>

@@ -76,7 +76,7 @@ const columns: Ref<DataTableColumns<UserManagement.User>> = ref([
     title: $t('page.product.update-ota.createTime'),
     minWidth: '100px',
     align: 'left',
-    render: row => {
+    render: (row) => {
       return formatDateTime(row.created_at)
     }
   },
@@ -85,7 +85,7 @@ const columns: Ref<DataTableColumns<UserManagement.User>> = ref([
     title: $t('page.product.update-ota.updateDate'),
     minWidth: '130px',
     align: 'left',
-    render: row => {
+    render: (row) => {
       return formatDateTime(row.updated_at)
     }
   },
@@ -94,7 +94,7 @@ const columns: Ref<DataTableColumns<UserManagement.User>> = ref([
     title: $t('common.actions'),
     align: 'left',
     width: '320px',
-    render: row => {
+    render: (row) => {
       // 这里的三个按钮分别进入“资料编辑”“删除确认”“权限分配”三条链路，
       // 都依赖当前行数据仍然存在于 tableData 中，后续如改为服务端虚拟滚动需同步调整。
       return (
@@ -142,7 +142,7 @@ function handleAddTable() {
 
 function handleEditTable(rowId: string) {
   // 角色编辑沿用当前表格行作为弹窗初始值，属于“父页缓存一份行快照 -> 子弹窗回填”的模式。
-  const findItem = tableData.value.find(item => item.id === rowId)
+  const findItem = tableData.value.find((item) => item.id === rowId)
   if (findItem) {
     setEditData(findItem)
   }
@@ -152,7 +152,7 @@ function handleEditTable(rowId: string) {
 
 function handleEditPermission(rowId: string) {
   // 权限分配弹窗需要角色 id 和角色名：id 用于提交，name 用于弹窗标题提示当前上下文。
-  const findItem = tableData.value.find(item => item.id === rowId)
+  const findItem = tableData.value.find((item) => item.id === rowId)
   if (findItem) {
     setEditData(findItem)
   }

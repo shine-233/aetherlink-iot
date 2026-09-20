@@ -245,11 +245,7 @@ getData()
       <template #default>
         <div class="automation-empty">
           <div class="automation-empty__title">
-            {{
-              isDeviceAutomationStarter
-                ? $t('custom.automation.firstTelemetryRuleEmptyTitle')
-                : $t('common.noData')
-            }}
+            {{ isDeviceAutomationStarter ? $t('custom.automation.firstTelemetryRuleEmptyTitle') : $t('common.noData') }}
           </div>
           <div v-if="isDeviceAutomationStarter" class="automation-empty__desc">
             {{ $t('custom.automation.firstTelemetryRuleEmptyDesc') }}
@@ -266,8 +262,8 @@ getData()
           :title="item.name"
           :status-active="true"
           :status-type="'success'"
-          :isStatus="false"
-          :hideFooterLeft="true"
+          :is-status="false"
+          :hide-footer-left="true"
           hoverable
         >
           <template #default>{{ item.description }}</template>
@@ -391,8 +387,8 @@ getData()
     </NFlex>
   </NCard>
   <n-modal
-    aria-label="dialog"
     v-model:show="showLog"
+    aria-label="dialog"
     :style="bodyStyle"
     preset="card"
     :title="$t('generate.log')"

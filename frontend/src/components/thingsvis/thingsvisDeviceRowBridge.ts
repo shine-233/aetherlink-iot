@@ -162,7 +162,10 @@ function resolveDeviceLastPushTime(row: DeviceRowLike | null | undefined): strin
   )
 }
 
-function resolveDeviceTemplateId(row: DeviceRowLike | null | undefined, configTemplateMap: Map<string, string> = new Map()): string | undefined {
+function resolveDeviceTemplateId(
+  row: DeviceRowLike | null | undefined,
+  configTemplateMap: Map<string, string> = new Map()
+): string | undefined {
   const device = unwrapDeviceRow(row)
   const configId = resolveDeviceConfigId(row)
   const configName = resolveDeviceConfigDisplayName(row)

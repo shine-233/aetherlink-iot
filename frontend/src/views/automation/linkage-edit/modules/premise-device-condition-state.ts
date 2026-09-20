@@ -67,7 +67,7 @@ export const createPremiseDeviceConditionState = ({
   const getGroup = async () => {
     deviceGroupOptions.value = []
     const res = await deviceGroupTreeRequest({})
-    res.data?.forEach(item => {
+    res.data?.forEach((item) => {
       deviceGroupOptions.value.push(item.group)
     })
     groupLoaded.value = true

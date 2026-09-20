@@ -40,11 +40,36 @@ const mountComponent = (templateOverrides = {}) => {
     },
     global: {
       stubs: {
-        NCard: defineComponent({ props: ['hoverable'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NTag: defineComponent({ props: ['size', 'type'], setup(_, { slots }) { return () => h('span', slots.default?.()) } }),
-        NEllipsis: defineComponent({ props: ['lineClamp'], setup(_, { slots }) { return () => h('span', slots.default?.()) } }),
-        NSpace: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NButton: defineComponent({ props: ['size', 'type'], emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } })
+        NCard: defineComponent({
+          props: ['hoverable'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NTag: defineComponent({
+          props: ['size', 'type'],
+          setup(_, { slots }) {
+            return () => h('span', slots.default?.())
+          }
+        }),
+        NEllipsis: defineComponent({
+          props: ['lineClamp'],
+          setup(_, { slots }) {
+            return () => h('span', slots.default?.())
+          }
+        }),
+        NSpace: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NButton: defineComponent({
+          props: ['size', 'type'],
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default?.())
+          }
+        })
       }
     }
   })

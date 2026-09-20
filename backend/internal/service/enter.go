@@ -67,11 +67,28 @@ type ServiceGroup struct {
 	Asset
 	UserTotp
 	OidcSso
-	PluginRegistry PluginRegistryService // PHASE-D-D9 插件框架 gRPC 网关管理面
-	ReportSchedule ReportScheduleService  // PHASE-D-D3 定时报表
+	PluginRegistry    PluginRegistryService    // PHASE-D-D9 插件框架 gRPC 网关管理面
+	ReportSchedule    ReportScheduleService    // PHASE-D-D3 定时报表
 	DeviceCertificate DeviceCertificateService // PHASE-D-D5 接入安全 X.509
-	EdgeSync EdgeSyncService // PHASE-D-D6 边缘计算 2.0
-	AiModel  AiModelService  // PHASE-D-D7 AI 2.0 模型中心 + 助手
+	EdgeSync          EdgeSyncService          // PHASE-D-D6 边缘计算 2.0
+	License           LicenseService           // P3 商业许可证边界
+	BoardProject      BoardProjectService      // P1.x 看板项目分组
+	EdgeNode          EdgeNodeService          // P1.5 边缘节点注册/心跳/Reconcile
+	AiModel           AiModelService           // PHASE-D-D7 AI 2.0 模型中心 + 助手
+	ScadaDocument     ScadaDocumentService     // P1.3 项目与画布文档（零值即可用）
+	// ScadaControl 为 nil 表示未接线（缺 Widget 注册表 / 确认签发器 / 下发执行器）。
+	// 接线前所有控制接口 fail closed：接口存在不等于能力可用。
+	ScadaControl *ScadaControlService // P1.3 实时控制
+	// Mobile 为 nil 表示未接线（缺设备/影子/告警等依赖）。
+	// 能力矩阵会如实报告各项为 false，未接线的能力调用即失败。
+	Mobile *MobileService // P1.4 移动端
+	ResourceCenter ResourceCenter // TP-5 资源中心（物模型与大屏统一市场）
+	Secret         SecretService  // TB-18 通用 Secrets Storage
+	Product        Product        // TB-15 产品 CRUD 及实体名称冲突解决策略
+	DeviceClaim    DeviceClaim    // TB-12 设备认领与自动注册
+	IndustrySolution IndustrySolutionService // TB-19 解决方案模板引擎
+	Tenant         TenantService  // P3 租户管理与自助开通服务
+	Billing        BillingService // P3 商业化计费与套餐用量计量服务
 }
 
 // GroupApp 是全局业务服务入口，供 API 层和中间件层调用

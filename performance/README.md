@@ -22,6 +22,58 @@ commands, exit codes, target URLs, and scenario outputs.
 API/E2E archives can support release evidence, but they do not replace
 resource-limited performance evidence.
 
+## Load generator (local baseline)
+
+`scripts/api-load-baseline.js` is the missing ruler: it drives N concurrent
+workers against a target endpoint and reports p50/p90/p95/p99, throughput and
+error rate. Node standard library only — no k6/autocannon dependency.
+
+```bash
+node performance/scripts/api-load-baseline.js \
+  --base-url http://127.0.0.1:9999 --path /health \
+  --concurrency 4 --duration 15 --warmup 3 \
+  --out performance/reports/local-api-baseline-<date>.json
+```
+
+It reports `evidenceKind: "local-baseline"` and `tierClaim: null` on purpose:
+it applies **no resource quota**, so its output must never be presented as
+1c2g / 2c4g / 4c8g tier compliance. Warmup samples are discarded, percentiles
+use nearest-rank (not interpolation), and failures count toward the error rate
+instead of being dropped.
+
+## MQTT ingest load generator
+
+`backend/cmd/mqttbench` drives N MQTT connections against the telemetry topic
+(Go, reusing the already-vendored `paho.mqtt.golang`). This is the path that
+actually matters for an IoT platform, and it is the one `tiers.json`'s
+`mqttClients` was written for.
+
+```bash
+cd backend && go run ./cmd/mqttbench \
+  -broker tcp://127.0.0.1:1883 -topic devices/telemetry \
+  -device-id <device_id> -envelope \
+  -clients 4 -rate 200 -duration 15 -warmup 3 \
+  -out ../performance/reports/local-mqtt-ingest-<date>.json
+```
+
+Two traps this tool exists to expose:
+
+1. **A broker PUBACK does not mean the platform ingested anything.** The MQTT
+   adapter requires the envelope `{"device_id":...,"values":"<base64(flat JSON)>"}`
+   (`publicPayload.Values` is `[]byte`, so Go marshals it as base64). With a flat
+   payload the broker still ACKs every message while the adapter drops 100% of
+   them — "0 failures, high throughput" and total data loss look identical.
+   **Always confirm delivery** with
+   `automation_tests/scripts/verify-telemetry-landed.js <device_id>`; if the read
+   back fails, discard the run.
+2. **The latency samples are not trustworthy.** p50 came out as exactly 0 ns,
+   which is physically impossible for a localhost round trip — paho's QoS 1 token
+   completes before `Wait()` for a large share of publishes. Only
+   `messagesPerSecond` and `failures` should be cited.
+
+`evidenceKind: "local-baseline"` / `tierClaim: null` for the same reason as the
+API generator: no resource quota is applied, so it is not tier evidence.
+
 ## Capture Evidence Scaffold
 
 ```powershell

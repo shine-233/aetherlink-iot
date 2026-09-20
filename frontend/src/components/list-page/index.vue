@@ -178,7 +178,7 @@ const shouldShowViewSwitcher = computed(() => {
 const hasRefreshButton = computed(() => true) // 刷新按钮始终显示
 
 const getAvailableViewsWithSlots = () => {
-  return props.availableViews.filter(view => hasSlot(`${view.key}-view`))
+  return props.availableViews.filter((view) => hasSlot(`${view.key}-view`))
 }
 
 // 方法
@@ -214,11 +214,11 @@ const initializeView = () => {
   let initial = ''
 
   // 优先从 memory storage 中获取
-  if (props.useViewMemory && storageView.value && available.some(v => v.key === storageView.value)) {
+  if (props.useViewMemory && storageView.value && available.some((v) => v.key === storageView.value)) {
     initial = storageView.value
   }
   // 其次使用 initialView prop
-  else if (props.initialView && available.some(v => v.key === props.initialView)) {
+  else if (props.initialView && available.some((v) => v.key === props.initialView)) {
     initial = props.initialView
   }
   // 最后使用第一个可用的视图

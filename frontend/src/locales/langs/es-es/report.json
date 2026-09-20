@@ -1,0 +1,111 @@
+{
+  "page": {
+    "kicker": "CONTROL DE ENTREGA DE INFORMES",
+    "title": "Informes programados",
+    "subtitle": "Define ventanas fijas de telemetría, entrega informes CSV e inspecciona cada intento de generación y correo.",
+    "cadenceLabel": "Zona horaria",
+    "cadenceValue": "Zona IANA por programación",
+    "search": "Buscar programaciones",
+    "empty": "Aún no hay informes programados"
+  },
+  "action": {
+    "create": "Nueva programación",
+    "createFirst": "Crear la primera programación",
+    "search": "Buscar",
+    "refresh": "Actualizar",
+    "runNow": "Ejecutar ahora",
+    "history": "Historial",
+    "details": "Detalles",
+    "retry": "Reintentar informe",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "cancel": "Cancelar",
+    "save": "Guardar cambios"
+  },
+  "table": {
+    "name": "Programación",
+    "delivery": "Alcance de entrega",
+    "targetSummary": "{devices} dispositivos · {keys} claves",
+    "nextRun": "Próxima ejecución",
+    "lastRun": "Última ejecución",
+    "enabled": "Estado",
+    "actions": "Acciones"
+  },
+  "form": {
+    "createTitle": "Crear informe programado",
+    "editTitle": "Editar informe programado",
+    "name": "Nombre",
+    "cron": "Expresión cron",
+    "timezone": "Zona horaria",
+    "lookback": "Ventana retrospectiva fija (horas)",
+    "recipients": "Destinatarios",
+    "recipientsHint": "Correos separados por comas",
+    "devices": "IDs de dispositivo",
+    "keys": "Claves de telemetría",
+    "linesHint": "Un valor por línea o separado por comas",
+    "enabled": "Programación activa",
+    "required": "Este campo es obligatorio"
+  },
+  "history": {
+    "title": "Historial de ejecuciones",
+    "subtitle": "Evidencia de generación y SMTP de esta programación.",
+    "empty": "Esta programación aún no se ha ejecutado",
+    "started": "Inicio",
+    "window": "Ventana fija de datos",
+    "overall": "General",
+    "generation": "Generación",
+    "delivery": "Entrega",
+    "risk": "Riesgo de duplicado"
+  },
+  "detail": {
+    "kicker": "EJECUCIÓN SELECCIONADA",
+    "updated": "Última actualización",
+    "smtpAccepted": "Aceptado por el servidor SMTP",
+    "smtpAmbiguous": "Resultado SMTP ambiguo",
+    "smtpAcceptanceCaveat": "Aceptado significa que el servidor SMTP aceptó el mensaje; no confirma la entrega al buzón del destinatario.",
+    "generationAttempts": "Intentos de generación",
+    "deliveryAttempts": "Intentos de entrega",
+    "errors": "Errores limitados",
+    "noErrors": "No hay errores registrados"
+  },
+  "risk": {
+    "duplicate": "Posible",
+    "none": "Ninguno",
+    "warning": "El resultado SMTP anterior es ambiguo. Reintentar puede entregar este informe más de una vez."
+  },
+  "common": { "enabled": "Activo", "disabled": "Inactivo", "yes": "Sí", "no": "No", "notAvailable": "—" },
+  "status": {
+    "never": "Nunca ejecutado",
+    "unknown": "Desconocido",
+    "queued": "En cola",
+    "running": "En ejecución",
+    "pending": "Pendiente",
+    "processing": "Procesando",
+    "retrying": "Reintentando",
+    "succeeded": "Correcto",
+    "accepted": "SMTP aceptado",
+    "ambiguous": "Ambiguo",
+    "failed": "Fallido"
+  },
+  "message": {
+    "loadFailed": "No se pudieron cargar los informes. Actualiza para reintentar.",
+    "targetsRequired": "Añade al menos un dispositivo y una clave de telemetría.",
+    "created": "Informe programado creado.",
+    "updated": "Informe programado actualizado.",
+    "saveFailed": "No se pudo guardar el informe.",
+    "staleRevision": "El informe cambió en otra sesión. Se actualizaron los datos; revisa los cambios e inténtalo de nuevo.",
+    "deleted": "Informe programado eliminado.",
+    "deleteFailed": "No se pudo eliminar el informe.",
+    "deleteStaleRevision": "El informe cambió en otra sesión y no se eliminó. Se actualizaron los datos.",
+    "deleteConfirm": "¿Eliminar este informe y sus futuras ejecuciones?",
+    "runStarted": "Ejecución iniciada.",
+    "runReplay": "Se devolvió la ejecución existente para esta solicitud.",
+    "runFailed": "No se pudo iniciar la ejecución.",
+    "historyFailed": "No se pudo cargar el historial.",
+    "scheduleDisabled": "Esta programación está inactiva. Actívala antes de ejecutar o reintentar un informe.",
+    "pollFailed": "Las actualizaciones automáticas se detuvieron tras varios fallos. Actualiza el historial para reintentarlo.",
+    "retryStarted": "Reintento iniciado.",
+    "retryReplay": "Se devolvió el reintento existente para esta solicitud.",
+    "retryFailed": "No se pudo reintentar la ejecución."
+  }
+}

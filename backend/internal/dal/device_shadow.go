@@ -72,6 +72,95 @@ func MarkShadowMessageDelivered(id string) error {
 		Updates(map[string]interface{}{"status": "delivered", "delivered_at": &now}).Error
 }
 
+// MarkShadowMessageSent 标记消息已下发并等待设备 ACK，attempts 递增并写入退避后的下次重投时间。
+// 关键：绝不在此直接标 delivered——"发出去"不等于"设备确认收到"，P0.2 之前正是把两者混为一谈。
+// 读-改-写放在事务内：attempts 不在生成结构体上，故由 DAL 读取并递增，
+// 避免服务层为了拿计数而修改 *.gen.go（生成产物，策略上保留不手改）。
+func MarkShadowMessageSent(id string) (int, error) {
+	now := time.Now().UTC()
+	nextAttempts := 0
+	err := global.DB.Transaction(func(tx *gorm.DB) error {
+		var current []int
+		if err := tx.Model(&model.DeviceShadowMessage{}).
+			Where("id = ? AND status = ?", id, model.ShadowStatusPending).
+			Pluck("attempts", &current).Error; err != nil {
+			return err
+		}
+		if len(current) == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		nextAttempts = current[0] + 1
+		return tx.Model(&model.DeviceShadowMessage{}).
+			Where("id = ? AND status = ?", id, model.ShadowStatusPending).
+			Updates(map[string]interface{}{
+				"status":          model.ShadowStatusSent,
+				"sent_at":         &now,
+				"attempts":        nextAttempts,
+				"next_attempt_at": model.ShadowNextAttemptAt(now, nextAttempts).UTC(),
+			}).Error
+	})
+	if err != nil {
+		return 0, err
+	}
+	return nextAttempts, nil
+}
+
+// AckShadowMessage 设备确认送达：仅 pending/sent 可转为 delivered。
+// 终态行重复 ACK 返回 gorm.ErrRecordNotFound，避免把历史消息改写成已确认。
+func AckShadowMessage(deviceID, id string) error {
+	now := time.Now().UTC()
+	result := global.DB.Model(&model.DeviceShadowMessage{}).
+		Where("id = ? AND device_id = ?", id, deviceID).
+		Where("status IN ?", []string{model.ShadowStatusPending, model.ShadowStatusSent}).
+		Updates(map[string]interface{}{
+			"status":       model.ShadowStatusDelivered,
+			"delivered_at": &now,
+			"ack_at":       &now,
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+// ExpireAndRetryShadowMessages 扫描到期影子消息并推进状态：
+//   - sent 且已到退避时间：attempts 达上限转 failed，否则回到 pending 等待重投；
+//   - 未终态且超过 TTL：转 expired（TTL 是硬终止，不因重试而延长）。
+func ExpireAndRetryShadowMessages() (retried, failed, expired int64, err error) {
+	now := time.Now().UTC()
+
+	res := global.DB.Model(&model.DeviceShadowMessage{}).
+		Where("status = ? AND next_attempt_at IS NOT NULL AND next_attempt_at <= ? AND attempts >= ?",
+			model.ShadowStatusSent, now, model.ShadowMaxAttempts).
+		Updates(map[string]interface{}{"status": model.ShadowStatusFailed})
+	failed = res.RowsAffected
+	if res.Error != nil {
+		return retried, failed, expired, res.Error
+	}
+
+	res = global.DB.Model(&model.DeviceShadowMessage{}).
+		Where("status = ? AND next_attempt_at IS NOT NULL AND next_attempt_at <= ? AND attempts < ?",
+			model.ShadowStatusSent, now, model.ShadowMaxAttempts).
+		Updates(map[string]interface{}{"status": model.ShadowStatusPending, "next_attempt_at": nil})
+	retried = res.RowsAffected
+	if res.Error != nil {
+		return retried, failed, expired, res.Error
+	}
+
+	res = global.DB.Model(&model.DeviceShadowMessage{}).
+		Where("status IN ? AND expires_at <= ?",
+			[]string{model.ShadowStatusPending, model.ShadowStatusSent}, now).
+		Updates(map[string]interface{}{"status": model.ShadowStatusExpired})
+	expired = res.RowsAffected
+	if res.Error != nil {
+		return retried, failed, expired, res.Error
+	}
+	return retried, failed, expired, nil
+}
+
 // ExpireDueShadowMessages 将到期的 pending 影子消息批量标记为 expired，返回受影响行数。
 func ExpireDueShadowMessages() (int64, error) {
 	result := global.DB.Model(&model.DeviceShadowMessage{}).
@@ -80,10 +169,10 @@ func ExpireDueShadowMessages() (int64, error) {
 	return result.RowsAffected, result.Error
 }
 
-// CancelShadowMessage 取消指定的 pending 影子消息；目标不存在或非 pending 时返回 gorm.ErrRecordNotFound。
-func CancelShadowMessage(id string) error {
+// CancelShadowMessage 取消指定设备的 pending 影子消息；目标不存在或非 pending 时返回 gorm.ErrRecordNotFound。
+func CancelShadowMessage(deviceID, id string) error {
 	result := global.DB.Model(&model.DeviceShadowMessage{}).
-		Where("id = ? AND status = ?", id, "pending").
+		Where("device_id = ? AND id = ? AND status = ?", deviceID, id, "pending").
 		Update("status", "canceled")
 	if result.RowsAffected == 0 {
 		return gorm.ErrRecordNotFound

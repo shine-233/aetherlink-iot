@@ -38,10 +38,7 @@ export const updateWarningEmails = async (params: { emails: string[] }) => {
   return data
 }
 /** Save the preferred interface language through the current account preference endpoint. */
-export const savePreferredLanguage = async (params: {
-  prefer_lang?: string
-  default_language?: string
-}) => {
+export const savePreferredLanguage = async (params: { prefer_lang?: string; default_language?: string }) => {
   const data = await request.post<Api.BaseApi.Data>('/user/prefer-lang', params)
   return data
 }

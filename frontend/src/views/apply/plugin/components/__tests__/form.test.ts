@@ -21,13 +21,52 @@ const mountComponent = (props = {}) => {
     props,
     global: {
       stubs: {
-        NForm: defineComponent({ props: ['model', 'rules', 'labelPlacement'], setup(_, { slots }) { return () => h('form', slots.default?.()) } }),
-        NFormItem: defineComponent({ props: ['label', 'path', 'ignorePathChange', 'showLabel', 'rule'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NInput: defineComponent({ props: ['value', 'placeholder'], emits: ['update:value'], setup(_, { slots }) { return () => h('input', slots.default?.()) } }),
-        NInputNumber: defineComponent({ props: ['value', 'placeholder'], emits: ['update:value'], setup() { return () => h('div') } }),
-        NSelect: defineComponent({ props: ['value', 'options'], emits: ['update:value'], setup() { return () => h('div') } }),
-        NEllipsis: defineComponent({ props: ['class'], setup(_, { slots }) { return () => h('span', slots.default?.()) } }),
-        NDynamicInput: defineComponent({ props: ['value', 'itemStyle', 'onCreate'], emits: ['update:value'], setup(_, { slots }) { return () => h('div', slots.default?.({ index: 0 })) } }),
+        NForm: defineComponent({
+          props: ['model', 'rules', 'labelPlacement'],
+          setup(_, { slots }) {
+            return () => h('form', slots.default?.())
+          }
+        }),
+        NFormItem: defineComponent({
+          props: ['label', 'path', 'ignorePathChange', 'showLabel', 'rule'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NInput: defineComponent({
+          props: ['value', 'placeholder'],
+          emits: ['update:value'],
+          setup(_, { slots }) {
+            return () => h('input', slots.default?.())
+          }
+        }),
+        NInputNumber: defineComponent({
+          props: ['value', 'placeholder'],
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NSelect: defineComponent({
+          props: ['value', 'options'],
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NEllipsis: defineComponent({
+          props: ['class'],
+          setup(_, { slots }) {
+            return () => h('span', slots.default?.())
+          }
+        }),
+        NDynamicInput: defineComponent({
+          props: ['value', 'itemStyle', 'onCreate'],
+          emits: ['update:value'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.({ index: 0 }))
+          }
+        })
       }
     }
   })
@@ -41,7 +80,7 @@ describe('DynamicForm', () => {
   })
 
   afterEach(() => {
-    mountedWrappers.forEach(w => w.unmount())
+    mountedWrappers.forEach((w) => w.unmount())
     mountedWrappers.length = 0
   })
 
@@ -64,7 +103,13 @@ describe('DynamicForm', () => {
   it('should process select formElements', () => {
     const wrapper = mountComponent({
       formElements: [
-        { type: 'select', dataKey: 'protocol', label: 'Protocol', options: [{ label: 'MQTT', value: 'mqtt' }], validate: {} }
+        {
+          type: 'select',
+          dataKey: 'protocol',
+          label: 'Protocol',
+          options: [{ label: 'MQTT', value: 'mqtt' }],
+          validate: {}
+        }
       ]
     })
     const vm = wrapper.vm as any
@@ -73,9 +118,7 @@ describe('DynamicForm', () => {
 
   it('should process table formElements and initialize as array', () => {
     const wrapper = mountComponent({
-      formElements: [
-        { type: 'table', dataKey: 'devices', array: [], validate: {} }
-      ]
+      formElements: [{ type: 'table', dataKey: 'devices', array: [], validate: {} }]
     })
     const vm = wrapper.vm as any
     expect(vm.protocol_config.devices).toEqual([])
@@ -84,7 +127,13 @@ describe('DynamicForm', () => {
   it('should process input with number validate type', () => {
     const wrapper = mountComponent({
       formElements: [
-        { type: 'input', dataKey: 'port', label: 'Port', placeholder: 'Enter port', validate: { required: true, type: 'number' } }
+        {
+          type: 'input',
+          dataKey: 'port',
+          label: 'Port',
+          placeholder: 'Enter port',
+          validate: { required: true, type: 'number' }
+        }
       ]
     })
     const vm = wrapper.vm as any

@@ -63,39 +63,137 @@ const mountComponent = (props = {}) => {
     props,
     global: {
       stubs: {
-        NCard: defineComponent({ name: 'NCard', setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NFlex: defineComponent({ name: 'NFlex', setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NButton: defineComponent({ name: 'NButton', emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } }),
-        Button: defineComponent({ name: 'NButton', emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } }),
-        NInput: defineComponent({ name: 'NInput', props: { value: { default: '' } }, emits: ['update:value'], setup() { return () => h('div') } }),
+        NCard: defineComponent({
+          name: 'NCard',
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NFlex: defineComponent({
+          name: 'NFlex',
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NButton: defineComponent({
+          name: 'NButton',
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default?.())
+          }
+        }),
+        Button: defineComponent({
+          name: 'NButton',
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default?.())
+          }
+        }),
+        NInput: defineComponent({
+          name: 'NInput',
+          props: { value: { default: '' } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
         NSelect: defineComponent({
           name: 'NSelect',
           props: { value: { default: null }, options: { default: () => [] } },
           emits: ['update:value', 'update:show', 'search'],
           setup(props, { emit }) {
-            return () => h('div', {
-              onClick: () => {
-                const nextValue = Array.isArray(props.options) && props.options.length > 0
-                  ? (props.options[0] as any).value
-                  : props.value
-                emit('update:value', nextValue)
-              }
-            })
+            return () =>
+              h('div', {
+                onClick: () => {
+                  const nextValue =
+                    Array.isArray(props.options) && props.options.length > 0
+                      ? (props.options[0] as any).value
+                      : props.value
+                  emit('update:value', nextValue)
+                }
+              })
           }
         }),
-        NForm: defineComponent({ name: 'NForm', setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NFormItem: defineComponent({ name: 'NFormItem', setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NTag: defineComponent({ name: 'NTag', setup(_, { slots }) { return () => h('span', slots.default?.()) } }),
-        NTooltip: defineComponent({ name: 'NTooltip', setup(_, { slots }) { return () => h('div', slots.default?.() || slots.trigger?.()) } }),
-        'n-tooltip': defineComponent({ name: 'n-tooltip', setup(_, { slots }) { return () => h('div', slots.default?.() || slots.trigger?.()) } }),
-        NCascader: defineComponent({ name: 'NCascader', setup() { return () => h('div') } }),
-        NCheckbox: defineComponent({ name: 'NCheckbox', props: { value: { default: null }, label: { default: '' } }, setup(props) { return () => h('label', String(props.label)) } }),
-        'n-checkbox': defineComponent({ name: 'n-checkbox', props: { value: { default: null }, label: { default: '' } }, setup(props) { return () => h('label', String(props.label)) } }),
-        NCheckboxGroup: defineComponent({ name: 'NCheckboxGroup', setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NSpace: defineComponent({ name: 'NSpace', setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NTimePicker: defineComponent({ name: 'NTimePicker', setup() { return () => h('div') } }),
-        NDatePicker: defineComponent({ name: 'NDatePicker', setup() { return () => h('div') } }),
-        NIcon: defineComponent({ name: 'NIcon', setup(_, { slots }) { return () => h('span', slots.default?.()) } })
+        NForm: defineComponent({
+          name: 'NForm',
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NFormItem: defineComponent({
+          name: 'NFormItem',
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NTag: defineComponent({
+          name: 'NTag',
+          setup(_, { slots }) {
+            return () => h('span', slots.default?.())
+          }
+        }),
+        NTooltip: defineComponent({
+          name: 'NTooltip',
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.() || slots.trigger?.())
+          }
+        }),
+        'n-tooltip': defineComponent({
+          name: 'n-tooltip',
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.() || slots.trigger?.())
+          }
+        }),
+        NCascader: defineComponent({
+          name: 'NCascader',
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NCheckbox: defineComponent({
+          name: 'NCheckbox',
+          props: { value: { default: null }, label: { default: '' } },
+          setup(props) {
+            return () => h('label', String(props.label))
+          }
+        }),
+        'n-checkbox': defineComponent({
+          name: 'n-checkbox',
+          props: { value: { default: null }, label: { default: '' } },
+          setup(props) {
+            return () => h('label', String(props.label))
+          }
+        }),
+        NCheckboxGroup: defineComponent({
+          name: 'NCheckboxGroup',
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NSpace: defineComponent({
+          name: 'NSpace',
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NTimePicker: defineComponent({
+          name: 'NTimePicker',
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NDatePicker: defineComponent({
+          name: 'NDatePicker',
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NIcon: defineComponent({
+          name: 'NIcon',
+          setup(_, { slots }) {
+            return () => h('span', slots.default?.())
+          }
+        })
       }
     }
   })
@@ -106,7 +204,7 @@ const mountComponent = (props = {}) => {
 const getState = (wrapper: ReturnType<typeof shallowMount>) => wrapper.vm.$.setupState as Record<string, any>
 
 const findButtonByText = (wrapper: ReturnType<typeof shallowMount>, text: string) => {
-  const button = wrapper.findAll('button').find(item => item.text() === text)
+  const button = wrapper.findAll('button').find((item) => item.text() === text)
   if (!button) throw new Error(`button ${text} should exist`)
   return button!
 }
@@ -122,7 +220,7 @@ describe('EditPremise', () => {
   })
 
   afterEach(() => {
-    mountedWrappers.forEach(w => w.unmount())
+    mountedWrappers.forEach((w) => w.unmount())
     mountedWrappers.length = 0
   })
 
@@ -216,21 +314,25 @@ describe('EditPremise', () => {
 
   it('should reset fields on triggerConditionsTypeChange', async () => {
     const wrapper = mountComponent({
-      conditionData: [[{
-        ifType: '1',
-        trigger_conditions_type: '10',
-        trigger_source: 'x',
-        trigger_param_type: 'y',
-        trigger_param: 'z',
-        trigger_param_key: 'k',
-        trigger_operator: '=',
-        trigger_value: '10',
-        minValue: '1',
-        maxValue: '2',
-        eventParamsRaw: null,
-        eventParamOptions: [],
-        eventParamConditions: []
-      }]]
+      conditionData: [
+        [
+          {
+            ifType: '1',
+            trigger_conditions_type: '10',
+            trigger_source: 'x',
+            trigger_param_type: 'y',
+            trigger_param: 'z',
+            trigger_param_key: 'k',
+            trigger_operator: '=',
+            trigger_value: '10',
+            minValue: '1',
+            maxValue: '2',
+            eventParamsRaw: null,
+            eventParamOptions: [],
+            eventParamConditions: []
+          }
+        ]
+      ]
     })
     await flushPromises()
     await wrapper.findAllComponents({ name: 'NSelect' })[1].vm.$emit('update:value', '10')
@@ -244,21 +346,25 @@ describe('EditPremise', () => {
 
   it('should set deviceConfigDisabled on triggerConditionsTypeChange with 11', async () => {
     const wrapper = mountComponent({
-      conditionData: [[{
-        ifType: '1',
-        trigger_conditions_type: '10',
-        trigger_source: 'x',
-        trigger_param_type: 'y',
-        trigger_param: 'z',
-        trigger_param_key: 'k',
-        trigger_operator: '=',
-        trigger_value: '10',
-        minValue: '1',
-        maxValue: '2',
-        eventParamsRaw: null,
-        eventParamOptions: [],
-        eventParamConditions: []
-      }]]
+      conditionData: [
+        [
+          {
+            ifType: '1',
+            trigger_conditions_type: '10',
+            trigger_source: 'x',
+            trigger_param_type: 'y',
+            trigger_param: 'z',
+            trigger_param_key: 'k',
+            trigger_operator: '=',
+            trigger_value: '10',
+            minValue: '1',
+            maxValue: '2',
+            eventParamsRaw: null,
+            eventParamOptions: [],
+            eventParamConditions: []
+          }
+        ]
+      ]
     })
     await flushPromises()
     await wrapper.findAllComponents({ name: 'NSelect' })[1].vm.$emit('update:value', '11')
@@ -271,7 +377,18 @@ describe('EditPremise', () => {
     const wrapper = mountComponent()
     await flushPromises()
     const state = getState(wrapper)
-    const ifItem = { trigger_param_type: 'y', trigger_param: 'z', trigger_param_key: 'k', trigger_operator: '=', trigger_value: '10', minValue: '1', maxValue: '2', eventParamsRaw: null, eventParamOptions: [], eventParamConditions: [] }
+    const ifItem = {
+      trigger_param_type: 'y',
+      trigger_param: 'z',
+      trigger_param_key: 'k',
+      trigger_operator: '=',
+      trigger_value: '10',
+      minValue: '1',
+      maxValue: '2',
+      eventParamsRaw: null,
+      eventParamOptions: [],
+      eventParamConditions: []
+    }
     state.triggerSourceChange(ifItem, 0)
     expect(ifItem.trigger_param_type).toBeNull()
     expect(ifItem.trigger_param).toBeNull()
@@ -318,21 +435,25 @@ describe('EditPremise', () => {
 
   it('should add event param condition through the event-param button', async () => {
     const wrapper = mountComponent({
-      conditionData: [[{
-        ifType: '1',
-        trigger_conditions_type: '10',
-        trigger_source: 'event-source',
-        trigger_param_type: 'event',
-        trigger_param: 'alarm',
-        trigger_param_key: 'event/alarm',
-        trigger_operator: '=',
-        trigger_value: null,
-        minValue: null,
-        maxValue: null,
-        eventParamsRaw: [{ data_identifier: 'level', data_name: 'Level', data_type: 'Number' }],
-        eventParamOptions: [{ label: 'Level', value: 'level', dataType: 'Number' }],
-        eventParamConditions: []
-      }]]
+      conditionData: [
+        [
+          {
+            ifType: '1',
+            trigger_conditions_type: '10',
+            trigger_source: 'event-source',
+            trigger_param_type: 'event',
+            trigger_param: 'alarm',
+            trigger_param_key: 'event/alarm',
+            trigger_operator: '=',
+            trigger_value: null,
+            minValue: null,
+            maxValue: null,
+            eventParamsRaw: [{ data_identifier: 'level', data_name: 'Level', data_type: 'Number' }],
+            eventParamOptions: [{ label: 'Level', value: 'level', dataType: 'Number' }],
+            eventParamConditions: []
+          }
+        ]
+      ]
     })
     await flushPromises()
     const eventEditor = wrapper.findComponent({ name: 'PremiseEventParamConditionEditor' })
@@ -344,21 +465,25 @@ describe('EditPremise', () => {
 
   it('should delete event param condition through the event-param button', async () => {
     const wrapper = mountComponent({
-      conditionData: [[{
-        ifType: '1',
-        trigger_conditions_type: '10',
-        trigger_source: 'event-source',
-        trigger_param_type: 'event',
-        trigger_param: 'alarm',
-        trigger_param_key: 'event/alarm',
-        trigger_operator: '=',
-        trigger_value: null,
-        minValue: null,
-        maxValue: null,
-        eventParamsRaw: [{ data_identifier: 'level', data_name: 'Level', data_type: 'Number' }],
-        eventParamOptions: [{ label: 'Level', value: 'level', dataType: 'Number' }],
-        eventParamConditions: [{ field: 'level', operator: '=', value: 1, minValue: null, maxValue: null }]
-      }]]
+      conditionData: [
+        [
+          {
+            ifType: '1',
+            trigger_conditions_type: '10',
+            trigger_source: 'event-source',
+            trigger_param_type: 'event',
+            trigger_param: 'alarm',
+            trigger_param_key: 'event/alarm',
+            trigger_operator: '=',
+            trigger_value: null,
+            minValue: null,
+            maxValue: null,
+            eventParamsRaw: [{ data_identifier: 'level', data_name: 'Level', data_type: 'Number' }],
+            eventParamOptions: [{ label: 'Level', value: 'level', dataType: 'Number' }],
+            eventParamConditions: [{ field: 'level', operator: '=', value: 1, minValue: null, maxValue: null }]
+          }
+        ]
+      ]
     })
     await flushPromises()
     const eventEditor = wrapper.findComponent({ name: 'PremiseEventParamConditionEditor' })
@@ -372,7 +497,15 @@ describe('EditPremise', () => {
     const wrapper = mountComponent()
     await flushPromises()
     const state = getState(wrapper)
-    const ifItem = { trigger_param_type: null, trigger_param: null, trigger_operator: null, trigger_value: null, eventParamsRaw: null, eventParamOptions: [], eventParamConditions: [] }
+    const ifItem = {
+      trigger_param_type: null,
+      trigger_param: null,
+      trigger_operator: null,
+      trigger_value: null,
+      eventParamsRaw: null,
+      eventParamOptions: [],
+      eventParamConditions: []
+    }
     state.triggerParamChange(ifItem, [{ value: 'telemetry' }, { key: 'temp', params: null }])
     expect(ifItem.trigger_param_type).toBe('telemetry')
     expect(ifItem.trigger_param).toBe('temp')
@@ -382,28 +515,40 @@ describe('EditPremise', () => {
     const wrapper = mountComponent()
     await flushPromises()
     const state = getState(wrapper)
-    const ifItem = { trigger_param_type: 'old', trigger_param: 'old', trigger_operator: '=', trigger_value: '10', eventParamsRaw: null, eventParamOptions: [], eventParamConditions: [] }
+    const ifItem = {
+      trigger_param_type: 'old',
+      trigger_param: 'old',
+      trigger_operator: '=',
+      trigger_value: '10',
+      eventParamsRaw: null,
+      eventParamOptions: [],
+      eventParamConditions: []
+    }
     state.triggerParamChange(ifItem, [])
     expect(ifItem.trigger_param_type).toBeNull()
   })
 
   it('should reset event condition value fields through the operator select', async () => {
     const wrapper = mountComponent({
-      conditionData: [[{
-        ifType: '1',
-        trigger_conditions_type: '10',
-        trigger_source: 'event-source',
-        trigger_param_type: 'event',
-        trigger_param: 'alarm',
-        trigger_param_key: 'event/alarm',
-        trigger_operator: '=',
-        trigger_value: null,
-        minValue: null,
-        maxValue: null,
-        eventParamsRaw: [{ data_identifier: 'level', data_name: 'Level', data_type: 'Number' }],
-        eventParamOptions: [{ label: 'Level', value: 'level', dataType: 'Number' }],
-        eventParamConditions: [{ field: 'level', operator: 'exists', value: 'old', minValue: '5', maxValue: '10' }]
-      }]]
+      conditionData: [
+        [
+          {
+            ifType: '1',
+            trigger_conditions_type: '10',
+            trigger_source: 'event-source',
+            trigger_param_type: 'event',
+            trigger_param: 'alarm',
+            trigger_param_key: 'event/alarm',
+            trigger_operator: '=',
+            trigger_value: null,
+            minValue: null,
+            maxValue: null,
+            eventParamsRaw: [{ data_identifier: 'level', data_name: 'Level', data_type: 'Number' }],
+            eventParamOptions: [{ label: 'Level', value: 'level', dataType: 'Number' }],
+            eventParamConditions: [{ field: 'level', operator: 'exists', value: 'old', minValue: '5', maxValue: '10' }]
+          }
+        ]
+      ]
     })
     await flushPromises()
     const state = getState(wrapper)
@@ -440,30 +585,38 @@ describe('EditPremise', () => {
   it('should apply conditionData updates through props watch', async () => {
     const wrapper = mountComponent()
     await flushPromises()
-    const conditionData = [[{
-      ifType: '1',
-      trigger_conditions_type: '11',
-      trigger_source: 'cfg1',
-      trigger_param_type: 'status',
-      trigger_param: 'online',
-      trigger_param_key: 'status:online',
-      trigger_operator: '=',
-      trigger_value: '1',
-      minValue: null,
-      maxValue: null,
-      eventParamsRaw: null,
-      eventParamOptions: [],
-      eventParamConditions: []
-    }]]
+    const conditionData = [
+      [
+        {
+          ifType: '1',
+          trigger_conditions_type: '11',
+          trigger_source: 'cfg1',
+          trigger_param_type: 'status',
+          trigger_param: 'online',
+          trigger_param_key: 'status:online',
+          trigger_operator: '=',
+          trigger_value: '1',
+          minValue: null,
+          maxValue: null,
+          eventParamsRaw: null,
+          eventParamOptions: [],
+          eventParamConditions: []
+        }
+      ]
+    ]
     await wrapper.setProps({ conditionData })
     await flushPromises()
     const state = getState(wrapper)
-    expect(state.premiseForm.ifGroups).toMatchObject([[{
-      ...conditionData[0][0],
-      trigger_param_key: 'status/online',
-      eventParamConditions: [],
-      eventParamOptions: []
-    }]])
+    expect(state.premiseForm.ifGroups).toMatchObject([
+      [
+        {
+          ...conditionData[0][0],
+          trigger_param_key: 'status/online',
+          eventParamConditions: [],
+          eventParamOptions: []
+        }
+      ]
+    ])
   })
 
   it('should have correct premiseFormRules', async () => {

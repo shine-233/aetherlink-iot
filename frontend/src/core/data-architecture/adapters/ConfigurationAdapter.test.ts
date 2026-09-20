@@ -35,7 +35,7 @@ function createHttpConfiguration(
 }
 
 describe('ConfigurationAdapter HTTP body conversion', () => {
-  it.each([0, false, ''])('preserves the falsy body %j through a v1/v2 round trip', body => {
+  it.each([0, false, ''])('preserves the falsy body %j through a v1/v2 round trip', (body) => {
     const adapter = new ConfigurationAdapter()
     const original = createHttpConfiguration(body)
 
@@ -49,7 +49,7 @@ describe('ConfigurationAdapter HTTP body conversion', () => {
     expect(downgraded.dataSources[0].dataItems[0].item.config.body).toBe(body)
   })
 
-  it.each([null, undefined])('treats the absent body %j as undefined', body => {
+  it.each([null, undefined])('treats the absent body %j as undefined', (body) => {
     const adapter = new ConfigurationAdapter()
     const upgraded = adapter.upgradeV1ToV2(createHttpConfiguration(body))
     const upgradedConfig = upgraded.dataSources[0].dataItems[0].item.config as {
@@ -128,9 +128,7 @@ describe('ConfigurationAdapter HTTP body conversion', () => {
       updatedAt: 1
     }
 
-    expect(() => adapter.downgradeV2ToV1(pluginConfig as any)).toThrow(
-      'UNSUPPORTED_DATA_ITEM_TYPE:plugin-stream'
-    )
+    expect(() => adapter.downgradeV2ToV1(pluginConfig as any)).toThrow('UNSUPPORTED_DATA_ITEM_TYPE:plugin-stream')
 
     const result = adapter.adaptToVersion(pluginConfig, 'v1.0')
     expect(result.success).toBe(false)
@@ -153,22 +151,23 @@ describe('ConfigurationAdapter HTTP body conversion', () => {
     expect(original.nested).toEqual({ value: 1 })
   })
 
-  it.each(['__proto__', 'prototype', 'constructor'])('filters the unsafe HTTP header key %s in both directions', key => {
-    const adapter = new ConfigurationAdapter()
-    const original = createHttpConfiguration(undefined)
-    const headers = Object.create(null)
-    headers['X-Safe'] = 'value'
-    headers[key] = 'polluted'
-    original.dataSources[0].dataItems[0].item.config.headers = headers
+  it.each(['__proto__', 'prototype', 'constructor'])(
+    'filters the unsafe HTTP header key %s in both directions',
+    (key) => {
+      const adapter = new ConfigurationAdapter()
+      const original = createHttpConfiguration(undefined)
+      const headers = Object.create(null)
+      headers['X-Safe'] = 'value'
+      headers[key] = 'polluted'
+      original.dataSources[0].dataItems[0].item.config.headers = headers
 
-    const upgraded = adapter.upgradeV1ToV2(original)
-    const upgradedConfig = upgraded.dataSources[0].dataItems[0].item.config as any
-    expect(upgradedConfig.headers).toEqual([
-      { key: 'X-Safe', value: 'value', enabled: true, isDynamic: false }
-    ])
+      const upgraded = adapter.upgradeV1ToV2(original)
+      const upgradedConfig = upgraded.dataSources[0].dataItems[0].item.config as any
+      expect(upgradedConfig.headers).toEqual([{ key: 'X-Safe', value: 'value', enabled: true, isDynamic: false }])
 
-    upgradedConfig.headers.push({ key, value: 'polluted', enabled: true, isDynamic: false })
-    const downgraded = adapter.downgradeV2ToV1(upgraded)
-    expect(downgraded.dataSources[0].dataItems[0].item.config.headers).toEqual({ 'X-Safe': 'value' })
-  })
+      upgradedConfig.headers.push({ key, value: 'polluted', enabled: true, isDynamic: false })
+      const downgraded = adapter.downgradeV2ToV1(upgraded)
+      expect(downgraded.dataSources[0].dataItems[0].item.config.headers).toEqual({ 'X-Safe': 'value' })
+    }
+  )
 })

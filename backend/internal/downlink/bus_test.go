@@ -5,33 +5,67 @@
 
 package downlink
 
-import "testing"
+import (
+	"context"
+	"errors"
+	"testing"
+)
 
 func TestBusPublishSubscribeRoutes(t *testing.T) {
 	bus := NewBus(2)
+	bus.mu.Lock()
+	bus.running = true
+	bus.ctx = context.Background()
+	bus.mu.Unlock()
 	t.Cleanup(bus.Close)
 
-	command := &Message{DeviceID: "dev-1", Type: MessageTypeCommand, Data: []byte(`{"cmd":"reset"}`)}
-	attributeSet := &Message{DeviceID: "dev-1", Type: MessageTypeAttributeSet, Data: []byte(`{"mode":"auto"}`)}
-	attributeGet := &Message{DeviceID: "dev-1", Type: MessageTypeAttributeGet, Data: []byte(`{"key":"mode"}`)}
-	telemetry := &Message{DeviceID: "dev-1", Type: MessageTypeTelemetry, Data: []byte(`{"interval":30}`)}
+	command := &Message{DeviceID: "dev-1", DeviceNumber: "number-1", Type: MessageTypeCommand, Data: []byte(`{"cmd":"reset"}`)}
+	attributeSet := &Message{DeviceID: "dev-1", DeviceNumber: "number-1", Type: MessageTypeAttributeSet, Data: []byte(`{"mode":"auto"}`)}
+	attributeGet := &Message{DeviceID: "dev-1", DeviceNumber: "number-1", Type: MessageTypeAttributeGet, Data: []byte(`{"key":"mode"}`)}
+	telemetry := &Message{DeviceID: "dev-1", DeviceNumber: "number-1", Type: MessageTypeTelemetry, Data: []byte(`{"interval":30}`)}
 
-	bus.PublishCommand(command)
-	bus.PublishAttributeSet(attributeSet)
-	bus.PublishAttributeGet(attributeGet)
-	bus.PublishTelemetry(telemetry)
+	for name, err := range map[string]error{
+		"command":       bus.PublishCommand(command),
+		"attribute set": bus.PublishAttributeSet(attributeSet),
+		"attribute get": bus.PublishAttributeGet(attributeGet),
+		"telemetry":     bus.PublishTelemetry(telemetry),
+	} {
+		if err != nil {
+			t.Fatalf("%s admission failed: %v", name, err)
+		}
+	}
+}
 
-	if got := <-bus.SubscribeCommand(); got != command {
-		t.Fatalf("command route mismatch: got %#v want %#v", got, command)
+func TestBusRejectsPublishBeforeStartAndInvalidMessages(t *testing.T) {
+	bus := NewBus(1)
+	valid := &Message{DeviceID: "dev-1", DeviceNumber: "number-1", Type: MessageTypeCommand, Data: []byte(`{"cmd":"reset"}`)}
+	if err := bus.PublishCommand(valid); !errors.Is(err, ErrBusNotStarted) {
+		t.Fatalf("publish before start error = %v, want %v", err, ErrBusNotStarted)
 	}
-	if got := <-bus.SubscribeAttributeSet(); got != attributeSet {
-		t.Fatalf("attribute set route mismatch: got %#v want %#v", got, attributeSet)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	handler := NewHandler(&mockPublisher{}, &mockProcessor{}, newHandlerTestLogger())
+	if err := bus.Start(ctx, handler); err != nil {
+		t.Fatalf("start bus: %v", err)
 	}
-	if got := <-bus.SubscribeAttributeGet(); got != attributeGet {
-		t.Fatalf("attribute get route mismatch: got %#v want %#v", got, attributeGet)
+	t.Cleanup(func() {
+		cancel()
+		bus.Close()
+	})
+	if err := bus.PublishCommand(&Message{DeviceID: "dev-1"}); !errors.Is(err, ErrInvalidMessage) {
+		t.Fatalf("invalid publish error = %v, want %v", err, ErrInvalidMessage)
 	}
-	if got := <-bus.SubscribeTelemetry(); got != telemetry {
-		t.Fatalf("telemetry route mismatch: got %#v want %#v", got, telemetry)
+}
+
+func TestBusStartValidatesDependencies(t *testing.T) {
+	bus := NewBus(1)
+	if err := bus.Start(context.Background(), nil); !errors.Is(err, ErrBusUnavailable) {
+		t.Fatalf("nil handler error = %v, want %v", err, ErrBusUnavailable)
+	}
+	invalid := NewBus(-1)
+	handler := NewHandler(&mockPublisher{}, &mockProcessor{}, newHandlerTestLogger())
+	if err := invalid.Start(context.Background(), handler); !errors.Is(err, ErrBusUnavailable) {
+		t.Fatalf("invalid buffer start error = %v, want %v", err, ErrBusUnavailable)
 	}
 }
 

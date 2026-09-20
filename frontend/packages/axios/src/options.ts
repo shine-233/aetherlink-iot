@@ -12,10 +12,10 @@ import type { RequestOption } from './type'
 
 export function createDefaultOptions<ResponseData = any>(options?: Partial<RequestOption<ResponseData>>) {
   const opts: RequestOption<ResponseData> = {
-    onRequest: async config => config,
-    isBackendSuccess: _response => true,
+    onRequest: async (config) => config,
+    isBackendSuccess: (_response) => true,
     onBackendFail: async () => {},
-    transformBackendResponse: async response => response.data,
+    transformBackendResponse: async (response) => response.data,
     onError: async () => {}
   }
 
@@ -43,7 +43,7 @@ export function createAxiosConfig(config?: Partial<CreateAxiosDefaults>) {
       'Content-Type': 'application/json'
     },
     validateStatus: isHttpSuccess,
-    paramsSerializer: params => {
+    paramsSerializer: (params) => {
       return stringify(params)
     }
   }

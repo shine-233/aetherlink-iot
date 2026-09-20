@@ -73,7 +73,7 @@ const see = (row: ServiceRow) => {
     `/device/manage?service_identifier=${route.query.service_identifier}&device_name=${row.name}&service_access_id=${row.id}`
   )
 }
-const del = async row => {
+const del = async (row) => {
   await delServiceAccess(row)
   getList()
 }
@@ -90,7 +90,7 @@ const columns = ref<DataTableColumns<ServiceRow>>([
     title: $t('common.creationTime'),
     key: 'create_at',
     minWidth: '200px',
-    render: row => {
+    render: (row) => {
       if (row.create_at) {
         return <span>{dayjs(row.create_at).format('YYYY-MM-DD HH:mm:ss')}</span>
       }
@@ -107,7 +107,7 @@ const columns = ref<DataTableColumns<ServiceRow>>([
         width: 420
       }
     },
-    render: row => {
+    render: (row) => {
       return (
         <NSpace justify={'start'}>
           {

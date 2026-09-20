@@ -196,6 +196,23 @@ func (a *Adapter) SubscribeDeviceTopics(client mqtt.Client) error {
 			handler:  a.handleEventMessage,
 			describe: "OTA设备进度上报",
 		},
+		// Sparkplug B（ROADMAP TB-10）：设备身份来自话题，载荷为 protobuf。
+		TopicPatternSparkplug: {
+			qos:      1,
+			handler:  a.handleSparkplugMessage,
+			describe: "Sparkplug B 上行（NDATA/DDATA）",
+		},
+		// TB-12 设备端自主认领（对标 ThingsBoard v1/devices/me/claim 与原生 devices/claim）
+		TopicPatternDeviceClaim: {
+			qos:      1,
+			handler:  a.handleDeviceClaimMessage,
+			describe: "设备自主认领上报（TB-12 ThingsBoard规范）",
+		},
+		TopicPatternNativeDeviceClaim: {
+			qos:      1,
+			handler:  a.handleDeviceClaimMessage,
+			describe: "设备自主认领上报（TB-12 原生规范）",
+		},
 	}
 
 	for topic, config := range topics {
@@ -280,6 +297,42 @@ func (a *Adapter) handleTelemetryMessage(client mqtt.Client, msg mqtt.Message) {
 			"topic": topic,
 			"error": err,
 		}).Error("Failed to handle telemetry message")
+	}
+}
+
+// handleSparkplugMessage 处理 Sparkplug B 消息（MQTT 回调函数，ROADMAP TB-10）。
+func (a *Adapter) handleSparkplugMessage(client mqtt.Client, msg mqtt.Message) {
+	topic := msg.Topic()
+	payload := msg.Payload()
+
+	a.logger.WithFields(logrus.Fields{
+		"topic":        topic,
+		"payload_size": len(payload),
+	}).Debug("Received Sparkplug message")
+
+	if err := a.HandleSparkplugMessage(payload, topic); err != nil {
+		a.logger.WithFields(logrus.Fields{
+			"topic": topic,
+			"error": err,
+		}).Error("Failed to handle sparkplug message")
+	}
+}
+
+// handleDeviceClaimMessage 处理设备自主认领消息（MQTT 回调函数，ROADMAP TB-12）。
+func (a *Adapter) handleDeviceClaimMessage(client mqtt.Client, msg mqtt.Message) {
+	topic := msg.Topic()
+	payload := msg.Payload()
+
+	a.logger.WithFields(logrus.Fields{
+		"topic":        topic,
+		"payload_size": len(payload),
+	}).Info("Received device claim message")
+
+	if err := a.HandleDeviceClaimMessage(payload, topic); err != nil {
+		a.logger.WithFields(logrus.Fields{
+			"topic": topic,
+			"error": err,
+		}).Error("Failed to handle device claim message")
 	}
 }
 

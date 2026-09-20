@@ -55,7 +55,7 @@ const debouncedSearch = debounce(async () => {
   data.value = res.data?.list ?? []
   totalPages.value = getPageCount(res.data?.total)
   loading.value = false
-  // eslint-disable-next-line require-atomic-updates
+
   isRequestPending.value = false
 }, 500) // 设置延迟为 500 毫秒
 
@@ -113,7 +113,7 @@ onMounted(getDevice) // Fetch device groups on component mount
         <!-- Data table to display device groups -->
         <NDataTable
           :row-props="
-            row => {
+            (row) => {
               return {
                 style: 'cursor: pointer;',
                 onClick: () => {

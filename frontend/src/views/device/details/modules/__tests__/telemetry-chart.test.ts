@@ -266,7 +266,7 @@ describe('telemetry-chart.vue', () => {
       const setupState = getSetupState(wrapper)
 
       const result = setupState.rewriteTemplateBindingExpression(
-        "{{ ds.__platform___template____.data.temperature }}",
+        '{{ ds.__platform___template____.data.temperature }}',
         '__platform_device-1__'
       )
       expect(result).toBe('{{ ds.__platform_device-1__.data.temperature }}')
@@ -347,11 +347,7 @@ describe('telemetry-chart.vue', () => {
 
       expect(result.dataSources[0].id).toBe('__platform_device-1__')
       expect(result.dataSources[0].config.deviceId).toBe('device-1')
-      expect(result.dataSources[0].config.requestedFields).toEqual([
-        'temperature',
-        'humidity',
-        'temperature__history'
-      ])
+      expect(result.dataSources[0].config.requestedFields).toEqual(['temperature', 'humidity', 'temperature__history'])
       expect(result.dataSources[1]).toEqual(rawConfig.dataSources[1])
     })
 
@@ -385,7 +381,7 @@ describe('telemetry-chart.vue', () => {
         nodes: [
           {
             data: [
-              { expression: "{{ ds.__platform___template____.data.temperature }}" },
+              { expression: '{{ ds.__platform___template____.data.temperature }}' },
               { expression: "{{ ds.__platform___template____.data.is_online ? '1' : '0' }}" }
             ]
           }
@@ -409,7 +405,7 @@ describe('telemetry-chart.vue', () => {
         nodes: [
           {
             props: {
-              title: "{{ ds.__platform___template____.data.device_name }}",
+              title: '{{ ds.__platform___template____.data.device_name }}',
               label: 'static text'
             }
           }
@@ -436,7 +432,7 @@ describe('telemetry-chart.vue', () => {
                 actions: [
                   {
                     dataSourceId: '__platform___template____',
-                    payload: '{"is_online ? \'1\' : \'0\'}'
+                    payload: "{\"is_online ? '1' : '0'}"
                   },
                   {
                     dataSourceId: 'other-source',
@@ -455,7 +451,7 @@ describe('telemetry-chart.vue', () => {
       // The regex only matches "FIELD ? '1' : '0'" pattern with double quotes around the whole expression
       // Our test payload has single quotes inside curly braces, which doesn't match the regex pattern
       // So the payload stays unchanged
-      expect(result.nodes[0].events[0].actions[0].payload).toBe('{"is_online ? \'1\' : \'0\'}')
+      expect(result.nodes[0].events[0].actions[0].payload).toBe("{\"is_online ? '1' : '0'}")
       expect(result.nodes[0].events[0].actions[1].dataSourceId).toBe('other-source')
       expect(result.nodes[0].events[0].actions[1].payload).toBe('{"normal":true}')
     })
@@ -569,10 +565,7 @@ describe('telemetry-chart.vue', () => {
       const setupState = getSetupState(wrapper)
 
       const rawConfig = {
-        nodes: [
-          { id: 'node-1', data: null },
-          { id: 'node-2' }
-        ]
+        nodes: [{ id: 'node-1', data: null }, { id: 'node-2' }]
       }
 
       const result = setupState.normalizeTemplateChartConfig(rawConfig, 'device-1', new Set())
@@ -588,11 +581,7 @@ describe('telemetry-chart.vue', () => {
       const rawConfig = {
         nodes: [
           {
-            data: [
-              { expression: 123 },
-              { expression: null },
-              { expression: undefined }
-            ]
+            data: [{ expression: 123 }, { expression: null }, { expression: undefined }]
           }
         ]
       }
@@ -610,10 +599,7 @@ describe('telemetry-chart.vue', () => {
       const setupState = getSetupState(wrapper)
 
       const rawConfig = {
-        nodes: [
-          { id: 'node-1', props: null },
-          { id: 'node-2' }
-        ]
+        nodes: [{ id: 'node-1', props: null }, { id: 'node-2' }]
       }
 
       const result = setupState.normalizeTemplateChartConfig(rawConfig, 'device-1', new Set())
@@ -627,9 +613,7 @@ describe('telemetry-chart.vue', () => {
       const setupState = getSetupState(wrapper)
 
       const rawConfig = {
-        nodes: [
-          { id: 'node-1', props: 'string-props' }
-        ]
+        nodes: [{ id: 'node-1', props: 'string-props' }]
       }
 
       const result = setupState.normalizeTemplateChartConfig(rawConfig, 'device-1', new Set())
@@ -642,10 +626,7 @@ describe('telemetry-chart.vue', () => {
       const setupState = getSetupState(wrapper)
 
       const rawConfig = {
-        nodes: [
-          { id: 'node-1', events: null },
-          { id: 'node-2' }
-        ]
+        nodes: [{ id: 'node-1', events: null }, { id: 'node-2' }]
       }
 
       const result = setupState.normalizeTemplateChartConfig(rawConfig, 'device-1', new Set())
@@ -660,11 +641,7 @@ describe('telemetry-chart.vue', () => {
       const rawConfig = {
         nodes: [
           {
-            events: [
-              { actions: null },
-              { actions: 'not-array' },
-              { noActions: true }
-            ]
+            events: [{ actions: null }, { actions: 'not-array' }, { noActions: true }]
           }
         ]
       }
@@ -713,9 +690,7 @@ describe('telemetry-chart.vue', () => {
           {
             events: [
               {
-                actions: [
-                  { dataSourceId: 'other-source', payload: '{"test":1}' }
-                ]
+                actions: [{ dataSourceId: 'other-source', payload: '{"test":1}' }]
               }
             ]
           }
@@ -735,9 +710,7 @@ describe('telemetry-chart.vue', () => {
       const rawConfig = {
         nodes: [
           {
-            data: [
-              { expression: "{{ ds.__platform___template____.data.temperature }}" }
-            ]
+            data: [{ expression: '{{ ds.__platform___template____.data.temperature }}' }]
           }
         ]
       }
@@ -1170,16 +1143,24 @@ describe('telemetry-chart.vue', () => {
       await flushPromises()
 
       expect(hoisted.telemetryApi).toHaveBeenCalledWith({
-        page: 1, page_size: 200, device_template_id: 'tpl-1'
+        page: 1,
+        page_size: 200,
+        device_template_id: 'tpl-1'
       })
       expect(hoisted.attributesApi).toHaveBeenCalledWith({
-        page: 1, page_size: 200, device_template_id: 'tpl-1'
+        page: 1,
+        page_size: 200,
+        device_template_id: 'tpl-1'
       })
       expect(hoisted.eventsApi).toHaveBeenCalledWith({
-        page: 1, page_size: 200, device_template_id: 'tpl-1'
+        page: 1,
+        page_size: 200,
+        device_template_id: 'tpl-1'
       })
       expect(hoisted.commandsApi).toHaveBeenCalledWith({
-        page: 1, page_size: 200, device_template_id: 'tpl-1'
+        page: 1,
+        page_size: 200,
+        device_template_id: 'tpl-1'
       })
     })
 
@@ -1253,9 +1234,7 @@ describe('telemetry-chart.vue', () => {
       const wrapper = mountTelemetryChart()
       await flushPromises()
       const setupState = getSetupState(wrapper)
-      setupState.platformFields = [
-        { id: 'temperature', name: 'Temperature', type: 'number', dataType: 'telemetry' }
-      ]
+      setupState.platformFields = [{ id: 'temperature', name: 'Temperature', type: 'number', dataType: 'telemetry' }]
       vi.clearAllMocks()
       hoisted.telemetryDataCurrent.mockResolvedValue({ data: [] })
 
@@ -1298,9 +1277,7 @@ describe('telemetry-chart.vue', () => {
       const wrapper = mountTelemetryChart()
       await flushPromises()
       const setupState = getSetupState(wrapper)
-      setupState.platformFields = [
-        { id: 'temp', name: 'Temperature Label', type: 'number', dataType: 'telemetry' }
-      ]
+      setupState.platformFields = [{ id: 'temp', name: 'Temperature Label', type: 'number', dataType: 'telemetry' }]
       vi.clearAllMocks()
       hoisted.telemetryDataCurrent.mockResolvedValue({
         data: [{ label: 'Temperature Label', value: 30 }]
@@ -1386,9 +1363,7 @@ describe('telemetry-chart.vue', () => {
       const wrapper = mountTelemetryChart()
       await flushPromises()
       const setupState = getSetupState(wrapper)
-      setupState.platformFields = [
-        { id: 'temp_sensor', name: 'Temperature', type: 'number', dataType: 'telemetry' }
-      ]
+      setupState.platformFields = [{ id: 'temp_sensor', name: 'Temperature', type: 'number', dataType: 'telemetry' }]
       vi.clearAllMocks()
       hoisted.telemetryDataCurrent.mockResolvedValue({
         data: [{ key: 'Temperature', value: 42 }]
@@ -1584,7 +1559,9 @@ describe('telemetry-chart.vue', () => {
 
     it('does not start push when initSequence changes during async init', async () => {
       let resolveFirst: () => void
-      const firstCall = new Promise<void>(resolve => { resolveFirst = resolve })
+      const firstCall = new Promise<void>((resolve) => {
+        resolveFirst = resolve
+      })
 
       hoisted.getCachedDeviceTemplateDetail.mockImplementationOnce(() => firstCall!)
       hoisted.extractPlatformFields.mockReturnValue(mockPlatformFields())

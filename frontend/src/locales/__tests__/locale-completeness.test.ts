@@ -56,8 +56,25 @@ describe('locale completeness (REQ-22/34/55)', () => {
   // visual-editor 生态(可视化编辑器内部)是内存记载的独立大块、不在客户圈选内,其 zh-cn 领先翻译
   // 属已知翻译债,单独统计但不使本测试 FAIL——如实标注,避免为"假绿"而删断言、也避免范围外硬补 86 键。
   const CUSTOMER_FACING_NS = new Set([
-    'basic', 'buttons', 'card', 'common', 'custom', 'device_template', 'dropdown', 'form',
-    'generate', 'grouping_details', 'icon', 'market', 'others', 'page', 'rdi', 'route', 'theme', 'time'
+    'basic',
+    'buttons',
+    'card',
+    'common',
+    'custom',
+    'device_template',
+    'dropdown',
+    'form',
+    'generate',
+    'grouping_details',
+    'icon',
+    'market',
+    'others',
+    'page',
+    'rdi',
+    'report',
+    'route',
+    'theme',
+    'time'
   ])
   const KNOWN_DEBT_NS = new Set(['visual-editor', 'interaction', 'script'])
 

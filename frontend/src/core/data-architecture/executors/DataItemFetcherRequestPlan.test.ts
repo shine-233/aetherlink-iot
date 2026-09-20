@@ -36,7 +36,7 @@ const httpConfig = (overrides: Partial<HttpDataItemConfig>): HttpDataItemConfig 
   }) as HttpDataItemConfig
 
 const resolveInputsByValue = (config: HttpDataItemConfig): ResolvedHttpParameter[] =>
-  collectHttpRequestParameterInputs(config).map(input => ({
+  collectHttpRequestParameterInputs(config).map((input) => ({
     ...input,
     resolvedValue: input.param.value
   }))
@@ -61,7 +61,7 @@ describe('DataItemFetcherRequestPlan', () => {
     })
 
     expect(
-      collectHttpRequestParameterInputs(config).map(input => ({
+      collectHttpRequestParameterInputs(config).map((input) => ({
         source: input.source,
         key: input.param.key,
         index: input.index
@@ -150,12 +150,9 @@ describe('DataItemFetcherRequestPlan', () => {
     expect(plan.requestConfig).toEqual({ timeout: 10000 })
   })
 
-  it.each(['__proto__', 'prototype', 'constructor'])('skips the unsafe current query key %s', key => {
+  it.each(['__proto__', 'prototype', 'constructor'])('skips the unsafe current query key %s', (key) => {
     const config = httpConfig({
-      params: [
-        httpParam({ key: 'safe', value: 'value' }),
-        httpParam({ key, value: 'polluted' })
-      ]
+      params: [httpParam({ key: 'safe', value: 'value' }), httpParam({ key, value: 'polluted' })]
     })
 
     const plan = buildHttpRequestPlan(config, resolveInputsByValue(config))
@@ -164,7 +161,7 @@ describe('DataItemFetcherRequestPlan', () => {
     expect(Object.getPrototypeOf(plan.requestConfig.params!)).toBe(Object.prototype)
   })
 
-  it.each(['__proto__', 'prototype', 'constructor'])('skips the unsafe compatibility header key %s', key => {
+  it.each(['__proto__', 'prototype', 'constructor'])('skips the unsafe compatibility header key %s', (key) => {
     const config = httpConfig({
       parameters: [
         httpParam({ key: 'X-Safe', value: 'value', paramType: 'header' }),

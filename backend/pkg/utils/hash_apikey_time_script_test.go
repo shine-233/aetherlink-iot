@@ -6,10 +6,14 @@
 package utils
 
 import (
+	"context"
 	"encoding/hex"
+	"errors"
 	"strings"
 	"testing"
 	"time"
+
+	"aetherlink-iot/backend/pkg/safelua"
 )
 
 func TestBcryptHashAndCheckPassword(t *testing.T) {
@@ -131,6 +135,38 @@ end
 	}
 	if !strings.Contains(got, `"value":42`) || !strings.Contains(got, `"topic":"telemetry/topic"`) {
 		t.Fatalf("ScriptDeal result = %s, want transformed JSON payload", got)
+	}
+}
+
+func TestScriptDealRejectsUnsafeModulesAndInvalidResults(t *testing.T) {
+	t.Run("unsafe module", func(t *testing.T) {
+		_, err := ScriptDeal(`
+function encodeInp()
+  local osModule = require("os")
+  return tostring(osModule)
+end
+`, nil, "topic")
+		if err == nil || !strings.Contains(err.Error(), `module "os" is not allowed`) {
+			t.Fatalf("ScriptDeal unsafe module error = %v", err)
+		}
+	})
+
+	t.Run("non-string result", func(t *testing.T) {
+		_, err := ScriptDeal(`function encodeInp() return {} end`, nil, "topic")
+		if err == nil || !strings.Contains(err.Error(), "script must return a string") {
+			t.Fatalf("ScriptDeal non-string result error = %v", err)
+		}
+	})
+}
+
+func TestScriptDealStopsInfiniteLoop(t *testing.T) {
+	started := time.Now()
+	_, err := ScriptDeal(`function encodeInp() while true do end end`, nil, "topic")
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("ScriptDeal infinite loop error = %v, want deadline exceeded", err)
+	}
+	if elapsed := time.Since(started); elapsed > safelua.DefaultTimeout+time.Second {
+		t.Fatalf("ScriptDeal infinite loop stopped after %s", elapsed)
 	}
 }
 

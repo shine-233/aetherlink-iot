@@ -47,10 +47,7 @@ export type ThingsVisFieldRequestHydrationBridgeOptions = {
 }
 
 export function createThingsVisFieldRequestHydrationBridge(options: ThingsVisFieldRequestHydrationBridgeOptions) {
-  async function loadRequestedFieldData(
-    fieldIds: unknown[],
-    deviceId?: string
-  ): Promise<Record<string, unknown>> {
+  async function loadRequestedFieldData(fieldIds: unknown[], deviceId?: string): Promise<Record<string, unknown>> {
     return buildRequestedFieldData({
       fieldIds,
       deviceId,

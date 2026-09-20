@@ -30,7 +30,7 @@ vi.mock('@/locales', () => ({
   $t: (key: string) => key
 }))
 
-vi.mock('vue-router', async importOriginal => {
+vi.mock('vue-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-router')>()
   return {
     ...actual,
@@ -74,12 +74,39 @@ const mountComponent = (props = {}) => {
     props,
     global: {
       stubs: {
-        NCard: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NFlex: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } }),
-        NInput: defineComponent({ props: { value: { default: '' } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NForm: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NFormItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
+        NCard: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NFlex: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NButton: defineComponent({
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default?.())
+          }
+        }),
+        NInput: defineComponent({
+          props: { value: { default: '' } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NForm: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NFormItem: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
         NDivider: true,
         EditPremise: true,
         EditAction: true
@@ -106,7 +133,7 @@ describe('LinkageEdit', () => {
   })
 
   afterEach(() => {
-    mountedWrappers.forEach(w => w.unmount())
+    mountedWrappers.forEach((w) => w.unmount())
     mountedWrappers.length = 0
   })
 
@@ -253,17 +280,19 @@ describe('LinkageEdit', () => {
     expect(state.conditionData).toEqual([])
     state.applyFirstAutomationRecommendedCondition()
     await flushPromises()
-    expect(state.conditionData).toEqual([[
-      expect.objectContaining({
-        trigger_conditions_type: '10',
-        trigger_source: 'device-1',
-        trigger_param_type: 'telemetry',
-        trigger_param: 'temperature',
-        trigger_param_key: 'telemetry/temperature',
-        trigger_operator: '>',
-        trigger_value: '36.5'
-      })
-    ]])
+    expect(state.conditionData).toEqual([
+      [
+        expect.objectContaining({
+          trigger_conditions_type: '10',
+          trigger_source: 'device-1',
+          trigger_param_type: 'telemetry',
+          trigger_param: 'temperature',
+          trigger_param_key: 'telemetry/temperature',
+          trigger_operator: '>',
+          trigger_value: '36.5'
+        })
+      ]
+    ])
     expect(state.conditionsType).toBe('10')
     expect(state.firstAutomationRecommendedConditionApplied).toBe(true)
     expect(state.firstAutomationRecommendedActionDraft).toMatchObject({
@@ -385,14 +414,18 @@ describe('LinkageEdit', () => {
 
   it('echoes device telemetry trigger conditions into editable state on detail load', async () => {
     const state = await mountWithEchoDetail({
-      trigger_condition_groups: [[{
-        trigger_conditions_type: '10',
-        trigger_param_type: 'telemetry',
-        trigger_operator: '>',
-        trigger_value: '50',
-        trigger_param: 'temperature',
-        trigger_source: 'device1'
-      }]]
+      trigger_condition_groups: [
+        [
+          {
+            trigger_conditions_type: '10',
+            trigger_param_type: 'telemetry',
+            trigger_operator: '>',
+            trigger_value: '50',
+            trigger_param: 'temperature',
+            trigger_source: 'device1'
+          }
+        ]
+      ]
     })
 
     expect(hoisted.sceneAutomationsInfo).toHaveBeenCalledWith('scene-echo')
@@ -402,24 +435,30 @@ describe('LinkageEdit', () => {
 
   it('echoes one-shot schedule trigger conditions into editable state on detail load', async () => {
     const state = await mountWithEchoDetail({
-      trigger_condition_groups: [[{
-        trigger_conditions_type: '20',
-        execution_time: '2024-01-01T10:00:00'
-      }]]
+      trigger_condition_groups: [
+        [
+          {
+            trigger_conditions_type: '20',
+            execution_time: '2024-01-01T10:00:00'
+          }
+        ]
+      ]
     })
 
     expect(state.conditionData[0][0].ifType).toBe('2')
-    expect(state.conditionData[0][0].onceTimeValue).toBe(
-      new Date('2024-01-01T10:00:00').getTime()
-    )
+    expect(state.conditionData[0][0].onceTimeValue).toBe(new Date('2024-01-01T10:00:00').getTime())
   })
 
   it('echoes weekly schedule trigger conditions into editable state on detail load', async () => {
     const state = await mountWithEchoDetail({
-      trigger_condition_groups: [[{
-        trigger_conditions_type: '22',
-        trigger_value: '12345|08:00:00+08:00|18:00:00+08:00'
-      }]]
+      trigger_condition_groups: [
+        [
+          {
+            trigger_conditions_type: '22',
+            trigger_value: '12345|08:00:00+08:00|18:00:00+08:00'
+          }
+        ]
+      ]
     })
 
     expect(state.conditionData[0][0].ifType).toBe('2')
@@ -428,12 +467,14 @@ describe('LinkageEdit', () => {
 
   it('groups device instruction actions into a single instruction group on detail load', async () => {
     const state = await mountWithEchoDetail({
-      actions: [{
-        action_type: '10',
-        action_param_type: 'telemetry',
-        action_param: 'temperature',
-        action_value: '{"temperature":50}'
-      }]
+      actions: [
+        {
+          action_type: '10',
+          action_param_type: 'telemetry',
+          action_param: 'temperature',
+          action_value: '{"temperature":50}'
+        }
+      ]
     })
 
     expect(state.actionData).toHaveLength(1)
@@ -443,10 +484,12 @@ describe('LinkageEdit', () => {
 
   it('keeps non-device actions as their own action rows on detail load', async () => {
     const state = await mountWithEchoDetail({
-      actions: [{
-        action_type: '20',
-        action_target: 'scene1'
-      }]
+      actions: [
+        {
+          action_type: '20',
+          action_target: 'scene1'
+        }
+      ]
     })
 
     expect(state.actionData).toHaveLength(1)

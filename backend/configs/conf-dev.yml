@@ -35,9 +35,22 @@ log:
 jwt:
   key: CHANGE_ME_DEV_JWT_SECRET
 
+
+secrets:
+  # AI provider 凭证静态加密（ROADMAP P0.7）。
+  # master_keys 的值必须是 base64 编码的 32 字节（AES-256）密钥。
+  # 未配置或非法时，AI 凭证写入一律 fail closed，绝不降级为明文落库。
+  active_key_id: ""  # 例如 k1；留空表示未配置
+  master_keys: {}     # 例如 { k1: "<base64 32 bytes>" }，轮换期可同时保留 k0
+
 market:
   enabled: true
   base_url: "http://127.0.0.1:18000" # Market service address (via Kong gateway)
+  # 模板市场包签名（ROADMAP P1.6）。打包导出出包即签名，导入前先验签。
+  # 与 secrets.master_keys 分开——签名与加密不共用同一把钥匙。
+  # 未配置或非法时：导出拒绝出包、导入拒绝入包，一律 fail closed。
+  active_bundle_signing_key_id: "" # 例如 mk1；留空表示未配置
+  bundle_signing_keys: {}          # 例如 { mk1: "<base64 >=32 bytes>" }
 
 db:
   psql:
@@ -242,7 +255,31 @@ telemetry:
   posthog_host: ""
   heartbeat_interval: "1h"
   state_file: "./configs/.telemetry_state.json"
+
+  # P2.3 数据保留与性能。降采样把旧原始数据按 1h 桶汇总进 telemetry_rollups（冷层），
+  # 分析查询对整窗冷数据回落冷层——保留策略删掉原始数据后长窗口查询仍可用。
+  # 注意：telemetry.enabled（上方）是匿名使用统计开关，与本节无关。
+  downsample:
+    enabled: false               # 默认关闭：开启后每日 3 点执行，且仅直连数据库模式有效
+    older_than_days: 90          # 早于该天数的原始数据被汇总进冷层（原始行仍由保留策略清理）
+    max_keys_per_run: 100        # 单轮最多汇总的 (设备,键) 对数，控制作业峰值
+  # 轻量分析的进程内查询缓存。多实例部署各实例独立回源；TTL 内未结束窗口读到稍旧值。
+  analysis_cache:
+    enabled: false               # 默认关闭
+    ttl_seconds: 300
 #                                    # 多实例部署时，只有一个实例设为 true，其他实例设为 false
+
+# 持久化报表调度、生成与 SMTP outbox worker（迁移 83）
+reports:
+  worker:
+    enabled: true
+    interval: "15s"
+    limit: 20
+    concurrency: 4
+    max_attempts: 3
+    lease_timeout: "2m"
+    operation_timeout: "1m"
+    shutdown_timeout: "10s"
 
 # Telemetry dead-letter 自动重放配置
 telemetry_dead_letters:
@@ -268,3 +305,10 @@ mqtt_session_revocations:
 plugin:
   service:
     key: ""
+
+license:
+  # P3 商业许可证边界。许可证是 base64(签名 JSON)，Ed25519 离线验证。
+  # public_keys 未配置 = 边界未启用，一切执法点放行（默认行为不变）。
+  public_keys: {}                # 例如 { lk1: "<base64 ed25519 public key>" }
+  material: ""                   # base64 编码的许可证材料
+  required: false                # true 时启动必须持有效许可证，否则拒绝启动

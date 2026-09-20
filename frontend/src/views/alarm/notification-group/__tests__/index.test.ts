@@ -16,14 +16,14 @@ const hoisted = vi.hoisted(() => ({
   startLoading: vi.fn(),
   endLoading: vi.fn(),
   setTrue: vi.fn(),
-  setFalse: vi.fn(),
+  setFalse: vi.fn()
 }))
 
 vi.mock('@/service/api/notification', () => ({
   getNotificationGroupList: hoisted.getNotificationGroupList,
   getNotificationGroupDetail: hoisted.getNotificationGroupDetail,
   deleteNotificationGroup: hoisted.deleteNotificationGroup,
-  putNotificationGroup: hoisted.putNotificationGroup,
+  putNotificationGroup: hoisted.putNotificationGroup
 }))
 
 vi.mock('@/constants/business', () => ({
@@ -40,7 +40,7 @@ vi.mock('@/locales', () => ({
 vi.mock('~/packages/hooks', () => ({
   useLoading: () => ({ loading: { value: false }, startLoading: hoisted.startLoading, endLoading: hoisted.endLoading }),
   useBoolean: () => ({ bool: { value: false }, setTrue: hoisted.setTrue, setFalse: hoisted.setFalse }),
-  useContext: vi.fn(() => ({ setupStore: vi.fn(), useStore: vi.fn() })),
+  useContext: vi.fn(() => ({ setupStore: vi.fn(), useStore: vi.fn() }))
 }))
 
 vi.mock('../components/table-action-modal.vue', () => ({
@@ -63,8 +63,7 @@ const mountComponent = (props = {}) => {
     name: 'NCard',
     props: ['title'],
     setup(componentProps, { slots }) {
-      return () =>
-        h('div', { title: componentProps.title as string }, [slots['header-extra']?.(), slots.default?.()])
+      return () => h('div', { title: componentProps.title as string }, [slots['header-extra']?.(), slots.default?.()])
     }
   })
 
@@ -90,7 +89,7 @@ const mountComponent = (props = {}) => {
         NPopconfirm: true,
         'n-popconfirm': true,
         NSwitch: true,
-        'n-switch': true,
+        'n-switch': true
       }
     }
   })
@@ -203,7 +202,7 @@ describe('NotificationGroup', () => {
       const wrapper = mountComponent()
       await flushPromises()
       const state = getState(wrapper)
-      const nameCol = state.columns.find(c => c.key === 'name')
+      const nameCol = state.columns.find((c) => c.key === 'name')
       expect(nameCol).toMatchObject({
         title: 'generate.notification-group-name',
         minWidth: '140px',
@@ -215,7 +214,7 @@ describe('NotificationGroup', () => {
       const wrapper = mountComponent()
       await flushPromises()
       const state = getState(wrapper)
-      const typeCol = state.columns.find(c => c.key === 'notification_type')
+      const typeCol = state.columns.find((c) => c.key === 'notification_type')
       expect(typeCol).toMatchObject({
         title: 'generate.notification-type',
         align: 'left',
@@ -230,7 +229,7 @@ describe('NotificationGroup', () => {
       const wrapper = mountComponent()
       await flushPromises()
       const state = getState(wrapper)
-      const statusCol = state.columns.find(c => c.key === 'status')
+      const statusCol = state.columns.find((c) => c.key === 'status')
       expect(statusCol).toMatchObject({
         title: 'generate.status',
         align: 'left',
@@ -242,7 +241,7 @@ describe('NotificationGroup', () => {
       const wrapper = mountComponent()
       await flushPromises()
       const state = getState(wrapper)
-      const actionsCol = state.columns.find(c => c.key === 'actions')
+      const actionsCol = state.columns.find((c) => c.key === 'actions')
       expect(actionsCol).toMatchObject({
         title: 'common.actions',
         align: 'left',
@@ -284,11 +283,14 @@ describe('NotificationGroup', () => {
       await state.handleSwitchChange(row, true)
       await flushPromises()
       expect(hoisted.putNotificationGroup).toHaveBeenCalledTimes(1)
-      expect(hoisted.putNotificationGroup).toHaveBeenCalledWith({
-        status: 'OPEN',
-        notification_type: 'email',
-        name: 'G1'
-      }, '1')
+      expect(hoisted.putNotificationGroup).toHaveBeenCalledWith(
+        {
+          status: 'OPEN',
+          notification_type: 'email',
+          name: 'G1'
+        },
+        '1'
+      )
       expect(hoisted.getNotificationGroupList).toHaveBeenCalledWith({ page: 1, page_size: 10 })
     })
 

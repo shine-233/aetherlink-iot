@@ -117,7 +117,7 @@ export class ScriptEngine implements IScriptEngine {
   async executeBatch<T = unknown>(
     scripts: Array<{ code: string; context?: Record<string, unknown> }>
   ): Promise<ScriptExecutionResult<T>[]> {
-    const promises = scripts.map(script => this.execute<T>(script.code, script.context))
+    const promises = scripts.map((script) => this.execute<T>(script.code, script.context))
     return await Promise.all(promises)
   }
 
@@ -207,7 +207,7 @@ export class ScriptEngine implements IScriptEngine {
       contexts: {
         total: this.contextManager.getAllContexts().length,
         active: this.contextManager.getAllContexts().filter(
-          ctx => Date.now() - ctx.updatedAt < 24 * 60 * 60 * 1000 // 24小时内活跃
+          (ctx) => Date.now() - ctx.updatedAt < 24 * 60 * 60 * 1000 // 24小时内活跃
         ).length
       }
     }
@@ -220,7 +220,7 @@ export class ScriptEngine implements IScriptEngine {
     const templates = this.templateManager.getAllTemplates()
     const stats: Record<string, number> = {}
 
-    templates.forEach(template => {
+    templates.forEach((template) => {
       stats[template.category] = (stats[template.category] || 0) + 1
     })
 
@@ -274,7 +274,7 @@ export class ScriptEngine implements IScriptEngine {
   cleanup(): void {
     // 清理所有上下文
     const contexts = this.contextManager.getAllContexts()
-    contexts.forEach(context => {
+    contexts.forEach((context) => {
       this.contextManager.deleteContext(context.id)
     })
   }

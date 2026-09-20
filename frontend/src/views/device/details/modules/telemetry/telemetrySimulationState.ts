@@ -1,6 +1,5 @@
 export const DEFAULT_SIMULATION_TOPIC = 'devices/telemetry'
-export const DEFAULT_SIMULATION_PAYLOAD =
-  '{"temperature":25.5,"humidity":60,"rssi":-52,"online":true,"alarm_count":0}'
+export const DEFAULT_SIMULATION_PAYLOAD = '{"temperature":25.5,"humidity":60,"rssi":-52,"online":true,"alarm_count":0}'
 export const DEFAULT_SIMULATION_EVENT_PAYLOAD =
   '{"method":"report_alarm","params":{"alarm_code":"over_temperature","level":"warning","value":38.5}}'
 

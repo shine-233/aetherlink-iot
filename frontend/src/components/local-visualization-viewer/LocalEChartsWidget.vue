@@ -11,14 +11,18 @@ const props = defineProps<{
 }>()
 
 const built = computed(() => buildChartOption(props.type, props.config, props.fields))
-const { domRef, updateOptions } = createEChartsHook(() => built.value.option, {}, {
-  hideLoadingAfterDefaultRender: true,
-  requiredExtensions: ['LineChart', 'BarChart', 'TitleComponent', 'TooltipComponent', 'GridComponent']
-})
+const { domRef, updateOptions } = createEChartsHook(
+  () => built.value.option,
+  {},
+  {
+    hideLoadingAfterDefaultRender: true,
+    requiredExtensions: ['LineChart', 'BarChart', 'TitleComponent', 'TooltipComponent', 'GridComponent']
+  }
+)
 
 watch(
   () => built.value.option,
-  option => updateOptions(() => option),
+  (option) => updateOptions(() => option),
   { deep: true }
 )
 </script>

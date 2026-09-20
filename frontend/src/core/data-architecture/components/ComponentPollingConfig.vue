@@ -128,7 +128,7 @@ watch(() => pollingConfig.immediate, handleConfigChange)
  */
 watch(
   () => props.initialConfig,
-  newConfig => {
+  (newConfig) => {
     if (newConfig) {
       // 🔥 设置内部更新标志，防止触发配置变化事件
       isInternalUpdate.value = true

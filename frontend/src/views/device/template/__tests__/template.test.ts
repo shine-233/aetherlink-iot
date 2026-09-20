@@ -38,14 +38,31 @@ vi.mock('~/packages/hooks/src', () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { ref } = require('vue')
   return {
-  useBoolean: (init = false) => {
-    const bool = ref(init)
-    return { bool, setTrue: vi.fn(() => { bool.value = true }), setFalse: vi.fn(() => { bool.value = false }), toggle: vi.fn() }
-  },
-  useLoading: (init = false) => {
-    const loading = ref(init)
-    return { loading, startLoading: vi.fn(() => { loading.value = true }), endLoading: vi.fn(() => { loading.value = false }) }
-  }
+    useBoolean: (init = false) => {
+      const bool = ref(init)
+      return {
+        bool,
+        setTrue: vi.fn(() => {
+          bool.value = true
+        }),
+        setFalse: vi.fn(() => {
+          bool.value = false
+        }),
+        toggle: vi.fn()
+      }
+    },
+    useLoading: (init = false) => {
+      const loading = ref(init)
+      return {
+        loading,
+        startLoading: vi.fn(() => {
+          loading.value = true
+        }),
+        endLoading: vi.fn(() => {
+          loading.value = false
+        })
+      }
+    }
   }
 })
 
@@ -54,18 +71,72 @@ vi.mock('@/utils/common/tool', () => ({
 }))
 
 vi.mock('naive-ui', () => ({
-  NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : []) } }),
-  NInput: defineComponent({ props: { value: { default: '' } }, emits: ['update:value'], setup() { return () => h('div') } }),
-  NIcon: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NPagination: defineComponent({ props: { page: { default: 1 }, itemCount: { default: 0 } }, emits: ['update:page'], setup() { return () => h('div') } }),
-  NDataTable: defineComponent({ props: { data: { type: Array, default: () => [] } }, setup() { return () => h('div') } }),
-  NTag: defineComponent({ setup(_, { slots }) { return () => h('span', slots.default ? slots.default() : []) } }),
-  NSpace: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NEmpty: defineComponent({ setup() { return () => h('div') } }),
-  NGrid: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NGi: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NPopconfirm: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NSpin: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } })
+  NButton: defineComponent({
+    emits: ['click'],
+    setup(_, { slots, emit }) {
+      return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : [])
+    }
+  }),
+  NInput: defineComponent({
+    props: { value: { default: '' } },
+    emits: ['update:value'],
+    setup() {
+      return () => h('div')
+    }
+  }),
+  NIcon: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NPagination: defineComponent({
+    props: { page: { default: 1 }, itemCount: { default: 0 } },
+    emits: ['update:page'],
+    setup() {
+      return () => h('div')
+    }
+  }),
+  NDataTable: defineComponent({
+    props: { data: { type: Array, default: () => [] } },
+    setup() {
+      return () => h('div')
+    }
+  }),
+  NTag: defineComponent({
+    setup(_, { slots }) {
+      return () => h('span', slots.default ? slots.default() : [])
+    }
+  }),
+  NSpace: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NEmpty: defineComponent({
+    setup() {
+      return () => h('div')
+    }
+  }),
+  NGrid: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NGi: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NPopconfirm: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NSpin: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  })
 }))
 
 vi.mock('@vicons/ionicons5', () => ({
@@ -102,7 +173,7 @@ describe('device/template/index.vue', () => {
     vi.clearAllMocks()
     hoisted.deviceTemplate.mockResolvedValue({ data: { list: [], total: 0 }, error: null })
     hoisted.deleteDeviceTemplate.mockResolvedValue({ error: null })
-    Object.keys(hoisted.routeQuery).forEach(key => {
+    Object.keys(hoisted.routeQuery).forEach((key) => {
       delete hoisted.routeQuery[key]
     })
     ;(window as any).$message = {
@@ -163,9 +234,7 @@ describe('device/template/index.vue', () => {
   it('populates deviceTemplateList on successful fetch', async () => {
     hoisted.deviceTemplate.mockResolvedValue({
       data: {
-        list: [
-          { id: '1', name: 'Template A', description: 'Desc A', label: 'tag1,tag2', created_at: '2024-01-01' }
-        ],
+        list: [{ id: '1', name: 'Template A', description: 'Desc A', label: 'tag1,tag2', created_at: '2024-01-01' }],
         total: 1
       },
       error: null

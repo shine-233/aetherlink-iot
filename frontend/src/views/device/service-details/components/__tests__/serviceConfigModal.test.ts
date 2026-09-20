@@ -34,9 +34,25 @@ vi.mock('vue-router', () => ({
 }))
 
 vi.mock('naive-ui', () => ({
-  NAlert: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NInput: defineComponent({ props: { value: { default: '' } }, emits: ['update:value'], setup() { return () => h('div') } }),
-  NSelect: defineComponent({ props: { value: { default: null } }, emits: ['update:value'], setup() { return () => h('div') } })
+  NAlert: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NInput: defineComponent({
+    props: { value: { default: '' } },
+    emits: ['update:value'],
+    setup() {
+      return () => h('div')
+    }
+  }),
+  NSelect: defineComponent({
+    props: { value: { default: null } },
+    emits: ['update:value'],
+    setup() {
+      return () => h('div')
+    }
+  })
 }))
 
 import Component from '../serviceConfigModal.vue'
@@ -48,8 +64,19 @@ const mountComponent = (props = {}) => {
     props,
     global: {
       stubs: {
-        NModal: defineComponent({ props: { show: Boolean }, emits: ['update:show'], setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NDataTable: defineComponent({ props: { data: { type: Array, default: () => [] } }, setup() { return () => h('div') } }),
+        NModal: defineComponent({
+          props: { show: Boolean },
+          emits: ['update:show'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NDataTable: defineComponent({
+          props: { data: { type: Array, default: () => [] } },
+          setup() {
+            return () => h('div')
+          }
+        }),
         NButton: true,
         NSpace: true,
         NPagination: true,

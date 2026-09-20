@@ -357,11 +357,7 @@ describe('device/service-details/components/serviceModal.vue', () => {
     await state.submitSevice()
     await flushPromises()
 
-    expect(wrapper.emitted('isEdit')?.[0]).toEqual([
-      '{"token":"secret","auth_type":"manual"}',
-      'acc-existing',
-      true
-    ])
+    expect(wrapper.emitted('isEdit')?.[0]).toEqual(['{"token":"secret","auth_type":"manual"}', 'acc-existing', true])
     expect(state.serviceModals).toBe(false)
   })
 

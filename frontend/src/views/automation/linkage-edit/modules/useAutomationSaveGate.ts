@@ -4,10 +4,7 @@ import { runAutomationDryRunSaveGate } from './automationSaveFlow'
 type DryRunService = (payload: any) => Promise<any>
 type Translate = (key: string) => string
 
-export function useAutomationSaveGate(options: {
-  runBackendDryRunForPayload: DryRunService
-  t: Translate
-}) {
+export function useAutomationSaveGate(options: { runBackendDryRunForPayload: DryRunService; t: Translate }) {
   const isSaveDryRunLoading = ref(false)
 
   const ensureBackendDryRunCanSave = async (payload: any) => {

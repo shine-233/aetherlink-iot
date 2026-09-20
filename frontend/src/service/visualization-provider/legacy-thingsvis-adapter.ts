@@ -69,8 +69,14 @@ function mapProject(value: unknown): VisualizationProject | null {
 
 function mapDashboardSummary(value: unknown): VisualizationDashboardSummary | null {
   if (!isRecord(value) || !requiredString(value.id) || typeof value.name !== 'string') return null
-  if (!requiredString(value.projectId) || typeof value.createdAt !== 'string' || typeof value.updatedAt !== 'string') return null
-  if (typeof value.version !== 'number' || typeof value.isPublished !== 'boolean' || typeof value.homeFlag !== 'boolean') return null
+  if (!requiredString(value.projectId) || typeof value.createdAt !== 'string' || typeof value.updatedAt !== 'string')
+    return null
+  if (
+    typeof value.version !== 'number' ||
+    typeof value.isPublished !== 'boolean' ||
+    typeof value.homeFlag !== 'boolean'
+  )
+    return null
   return {
     id: value.id,
     name: value.name,
@@ -92,10 +98,12 @@ function mapDashboardSummary(value: unknown): VisualizationDashboardSummary | nu
 function mapDashboard(value: unknown): VisualizationDashboardSchema | null {
   if (!isRecord(value) || !requiredString(value.id) || typeof value.name !== 'string') return null
   if (!isRecord(value.canvasConfig) || !Array.isArray(value.nodes) || !Array.isArray(value.dataSources)) return null
-  if (!requiredString(value.projectId) || typeof value.createdAt !== 'string' || typeof value.updatedAt !== 'string') return null
+  if (!requiredString(value.projectId) || typeof value.createdAt !== 'string' || typeof value.updatedAt !== 'string')
+    return null
   if (typeof value.version !== 'number' || typeof value.isPublished !== 'boolean') return null
   const canvas = value.canvasConfig
-  if (typeof canvas.mode !== 'string' || typeof canvas.width !== 'number' || typeof canvas.height !== 'number') return null
+  if (typeof canvas.mode !== 'string' || typeof canvas.width !== 'number' || typeof canvas.height !== 'number')
+    return null
   return {
     id: value.id,
     name: value.name,
@@ -126,7 +134,11 @@ type MappedValue<T> = { valid: true; value: T } | { valid: false }
 const mapped = <T>(value: T): MappedValue<T> => ({ valid: true, value })
 const unmapped = (): MappedValue<never> => ({ valid: false })
 
-async function unwrap<T, U>(request: Promise<LegacyResult<T>>, map: (value: T) => MappedValue<U>, label: string): Promise<VisualizationResult<U>> {
+async function unwrap<T, U>(
+  request: Promise<LegacyResult<T>>,
+  map: (value: T) => MappedValue<U>,
+  label: string
+): Promise<VisualizationResult<U>> {
   try {
     const result = await request
     if (result.error) return { ok: false, error: legacyError(result.error) }
@@ -138,17 +150,19 @@ async function unwrap<T, U>(request: Promise<LegacyResult<T>>, map: (value: T) =
   }
 }
 
-const mapRequired = <T>(map: (value: unknown) => T | null) => (value: unknown): MappedValue<T> => {
-  const result = map(value)
-  return result === null ? unmapped() : mapped(result)
-}
+const mapRequired =
+  <T>(map: (value: unknown) => T | null) =>
+  (value: unknown): MappedValue<T> => {
+    const result = map(value)
+    return result === null ? unmapped() : mapped(result)
+  }
 
 function mapPage<T>(value: unknown, map: (item: unknown) => T | null): VisualizationPage<T> | null {
   if (!isRecord(value) || !Array.isArray(value.data) || !isRecord(value.meta)) return null
   const items = value.data.map(map)
-  if (items.some(item => item === null)) return null
+  if (items.some((item) => item === null)) return null
   const { page, limit, total, totalPages } = value.meta
-  if (![page, limit, total, totalPages].every(item => typeof item === 'number')) return null
+  if (![page, limit, total, totalPages].every((item) => typeof item === 'number')) return null
   return { items: items as T[], page, limit, total, totalPages }
 }
 
@@ -170,32 +184,59 @@ export const legacyThingsVisProvider: ThirdPartyVisualizationProvider = {
   id: LEGACY_THINGSVIS_PROVIDER_ID,
   kind: 'third-party',
   deploymentMode: 'optional-external',
-  listProjects: params => unwrap(getThingsVisProjects(params), mapRequired(value => mapPage(value, mapProject)), 'project list'),
-  getProject: id => unwrap(getThingsVisProject(id), mapRequired(mapProject), 'project'),
-  createProject: payload => unwrap(createThingsVisProject(payload), mapRequired(mapProject), 'project'),
+  capabilities: {
+    projects: { list: true, create: true, update: true, delete: true },
+    dashboards: {
+      thumbnail: true,
+      genericLayout: true,
+      dataSources: true,
+      variables: true,
+      publish: true
+    }
+  },
+  listProjects: (params) =>
+    unwrap(
+      getThingsVisProjects(params),
+      mapRequired((value) => mapPage(value, mapProject)),
+      'project list'
+    ),
+  getProject: (id) => unwrap(getThingsVisProject(id), mapRequired(mapProject), 'project'),
+  createProject: (payload) => unwrap(createThingsVisProject(payload), mapRequired(mapProject), 'project'),
   updateProject: (id, payload) => unwrap(updateThingsVisProject(id, payload), mapRequired(mapProject), 'project'),
-  deleteProject: id => voidResult(deleteThingsVisProject(id)),
-  listDashboards: params => unwrap(getThingsVisDashboards(params), mapRequired(value => mapPage(value, mapDashboardSummary)), 'dashboard list'),
-  getDashboard: id => unwrap(getThingsVisDashboard(id), mapRequired(mapDashboard), 'dashboard'),
-  getDashboardThumbnail: id => unwrap(getThingsVisDashboardThumbnail(id), value =>
-    isRecord(value) && (typeof value.thumbnail === 'string' || value.thumbnail === null)
-      ? mapped(value.thumbnail)
-      : unmapped(), 'dashboard thumbnail'),
-  createDashboard: payload => unwrap(
-    createThingsVisDashboard(withoutUnsupportedDashboardFields(payload)),
-    mapRequired(mapDashboard),
-    'dashboard'
-  ),
-  updateDashboard: (id, payload) => unwrap(
-    updateThingsVisDashboard(id, withoutUnsupportedDashboardFields(payload)),
-    mapRequired(mapDashboard),
-    'dashboard'
-  ),
-  deleteDashboard: id => voidResult(deleteThingsVisDashboard(id)),
-  publishDashboard: id => unwrap(publishThingsVisDashboard(id), mapRequired(mapDashboard), 'dashboard'),
-  duplicateDashboard: id => unwrap(duplicateThingsVisDashboard(id), mapRequired(mapDashboard), 'dashboard'),
-  setHomeDashboard: id => voidResult(setHomeThingsVisDashboard(id)),
-  unsetHomeDashboard: id => voidResult(unsetHomeThingsVisDashboard(id)),
+  deleteProject: (id) => voidResult(deleteThingsVisProject(id)),
+  listDashboards: (params) =>
+    unwrap(
+      getThingsVisDashboards(params),
+      mapRequired((value) => mapPage(value, mapDashboardSummary)),
+      'dashboard list'
+    ),
+  getDashboard: (id) => unwrap(getThingsVisDashboard(id), mapRequired(mapDashboard), 'dashboard'),
+  getDashboardThumbnail: (id) =>
+    unwrap(
+      getThingsVisDashboardThumbnail(id),
+      (value) =>
+        isRecord(value) && (typeof value.thumbnail === 'string' || value.thumbnail === null)
+          ? mapped(value.thumbnail)
+          : unmapped(),
+      'dashboard thumbnail'
+    ),
+  createDashboard: (payload) =>
+    unwrap(
+      createThingsVisDashboard(withoutUnsupportedDashboardFields(payload)),
+      mapRequired(mapDashboard),
+      'dashboard'
+    ),
+  updateDashboard: (id, payload) =>
+    unwrap(
+      updateThingsVisDashboard(id, withoutUnsupportedDashboardFields(payload)),
+      mapRequired(mapDashboard),
+      'dashboard'
+    ),
+  deleteDashboard: (id) => voidResult(deleteThingsVisDashboard(id)),
+  publishDashboard: (id) => unwrap(publishThingsVisDashboard(id), mapRequired(mapDashboard), 'dashboard'),
+  duplicateDashboard: (id) => unwrap(duplicateThingsVisDashboard(id), mapRequired(mapDashboard), 'dashboard'),
+  setHomeDashboard: (id) => voidResult(setHomeThingsVisDashboard(id)),
+  unsetHomeDashboard: (id) => voidResult(unsetHomeThingsVisDashboard(id)),
   getHomeDashboard: async () => {
     try {
       const result = await getThingsVisHomeDashboard()

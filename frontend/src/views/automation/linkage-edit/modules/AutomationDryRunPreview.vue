@@ -25,32 +25,35 @@ const getCustomerStatusDescriptionKey = (status: AutomationDryRunCustomerStatus)
   return 'generate.automationDryRunUncheckedHint'
 }
 
-withDefaults(defineProps<{
-  localStatusText: string
-  backendStatusText: string
-  backendAlertType: 'default' | 'error' | 'success' | 'warning' | 'info'
-  backendError: string
-  conditionGroupCount: number
-  conditionCount: number
-  actionCount: number
-  conditionSummaryItems: AutomationConditionSummaryGroup[]
-  actionSummaryItems: AutomationDryRunLine[]
-  operatorPlan: AutomationDryRunOperatorPlan
-  backendDryRunView: AutomationDryRunBackendView
-  customerDryRunView: AutomationDryRunCustomerView
-  beginnerGuideCards: AutomationDryRunBeginnerGuideCard[]
-  quickFixActions?: AutomationDryRunQuickFixAction[]
-  localBlockingErrors: AutomationDryRunLine[]
-  dryRunResponseText: string
-  isBackendDryRunLoading: boolean
-  sceneActionOnly?: boolean
-  backendRequestDisabled?: boolean
-  backendRequestDisabledText?: string
-}>(), {
-  sceneActionOnly: false,
-  backendRequestDisabled: false,
-  backendRequestDisabledText: ''
-})
+withDefaults(
+  defineProps<{
+    localStatusText: string
+    backendStatusText: string
+    backendAlertType: 'default' | 'error' | 'success' | 'warning' | 'info'
+    backendError: string
+    conditionGroupCount: number
+    conditionCount: number
+    actionCount: number
+    conditionSummaryItems: AutomationConditionSummaryGroup[]
+    actionSummaryItems: AutomationDryRunLine[]
+    operatorPlan: AutomationDryRunOperatorPlan
+    backendDryRunView: AutomationDryRunBackendView
+    customerDryRunView: AutomationDryRunCustomerView
+    beginnerGuideCards: AutomationDryRunBeginnerGuideCard[]
+    quickFixActions?: AutomationDryRunQuickFixAction[]
+    localBlockingErrors: AutomationDryRunLine[]
+    dryRunResponseText: string
+    isBackendDryRunLoading: boolean
+    sceneActionOnly?: boolean
+    backendRequestDisabled?: boolean
+    backendRequestDisabledText?: string
+  }>(),
+  {
+    sceneActionOnly: false,
+    backendRequestDisabled: false,
+    backendRequestDisabledText: ''
+  }
+)
 
 defineEmits<{
   (event: 'refresh'): void
@@ -322,9 +325,11 @@ defineEmits<{
               <NFlex align="center" :size="6" wrap>
                 <NTag size="small" :type="step.statusType" round>{{ step.index }}</NTag>
                 <NTag size="small" :type="step.phase === 'action' ? 'primary' : 'success'">
-                  {{ step.phase === 'action'
-                    ? $t('generate.automationDryRunTracePhaseAction')
-                    : $t('generate.automationDryRunTracePhaseTrigger') }}
+                  {{
+                    step.phase === 'action'
+                      ? $t('generate.automationDryRunTracePhaseAction')
+                      : $t('generate.automationDryRunTracePhaseTrigger')
+                  }}
                 </NTag>
                 <strong>{{ step.label }}</strong>
                 <NTag v-if="step.kind" size="small" type="default">{{ step.kind }}</NTag>

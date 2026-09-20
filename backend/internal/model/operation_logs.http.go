@@ -44,3 +44,10 @@ type GetOperationLogListByPageRsp struct {
 	UserName        *string    `json:"username"`          // 用户名
 	Email           *string    `json:"email"`             // 邮箱
 }
+
+// AuditLogExportReq 操作日志导出请求（P3 审计导出）。
+// StartTime/EndTime 必填：审计导出必须有界，静默全量导出等于把审计表变成下载站。
+type AuditLogExportReq struct {
+	StartTime *time.Time `json:"start_time" form:"start_time" validate:"omitempty"`
+	EndTime   *time.Time `json:"end_time" form:"end_time" validate:"omitempty"`
+}

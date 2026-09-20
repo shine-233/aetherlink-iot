@@ -49,7 +49,7 @@ const hasPlatformDeviceOnline = computed(() => typeof session.value?.platform_de
 const platformDeviceOnline = computed(() => Boolean(session.value?.platform_device_online))
 const subscriptionItems = computed<DeviceMQTTDebugSubscription[]>(() => {
   if (session.value?.subscription_details?.length) return session.value.subscription_details
-  return (session.value?.subscriptions || []).map(topic => ({
+  return (session.value?.subscriptions || []).map((topic) => ({
     topic,
     mode: 'broker_subscription',
     qos: undefined
@@ -58,21 +58,21 @@ const subscriptionItems = computed<DeviceMQTTDebugSubscription[]>(() => {
 
 watch(
   () => props.defaultSubscribeTopic,
-  value => {
+  (value) => {
     if (!subscribeTopicTouched) subscribeTopic.value = value || ''
   }
 )
 
 watch(
   () => props.defaultPublishTopic,
-  value => {
+  (value) => {
     if (!publishTopicTouched) publishTopic.value = value || ''
   }
 )
 
 watch(
   () => props.defaultPayload,
-  value => {
+  (value) => {
     if (!publishPayloadTouched) publishPayload.value = value || '{}'
   }
 )
@@ -144,7 +144,12 @@ function isMQTTDebugSessionNotFound(failure: unknown) {
   if (!failure || typeof failure !== 'object') return false
   const wrapped = failure as { error?: MQTTDebugRequestFailure }
   const error = wrapped.error || (failure as MQTTDebugRequestFailure)
-  return error.status === 404 || error.response?.status === 404 || error.data?.code === 100404 || error.response?.data?.code === 100404
+  return (
+    error.status === 404 ||
+    error.response?.status === 404 ||
+    error.data?.code === 100404 ||
+    error.response?.data?.code === 100404
+  )
 }
 
 function clearMissingSession(deviceId: string, sessionId: string, epoch: number) {
@@ -348,7 +353,11 @@ onBeforeUnmount(() => {
         </div>
         <NSpace>
           <NTag v-if="active" :type="connected ? 'success' : 'warning'">
-            {{ connected ? $t('custom.device_details.mqttDebug.connected') : $t('custom.device_details.mqttDebug.disconnected') }}
+            {{
+              connected
+                ? $t('custom.device_details.mqttDebug.connected')
+                : $t('custom.device_details.mqttDebug.disconnected')
+            }}
           </NTag>
           <NTag v-if="active && hasPlatformDeviceOnline" :type="platformDeviceOnline ? 'success' : 'default'">
             {{
@@ -408,7 +417,12 @@ onBeforeUnmount(() => {
               @update:value="markSubscribeTopicTouched"
             />
             <NSelect v-model:value="subscribeQoS" class="mqtt-debug-qos" :options="qosOptions" />
-            <NButton type="primary" :disabled="!connected || refreshLoading" :loading="actionLoading" @click="subscribe">
+            <NButton
+              type="primary"
+              :disabled="!connected || refreshLoading"
+              :loading="actionLoading"
+              @click="subscribe"
+            >
               {{ $t('custom.device_details.mqttDebug.subscribe') }}
             </NButton>
           </div>
@@ -419,7 +433,8 @@ onBeforeUnmount(() => {
               :closable="connected && !actionLoading && !refreshLoading"
               @close="unsubscribe(item.topic)"
             >
-              {{ item.topic }} · {{ subscriptionModeLabel(item.mode) }}<template v-if="item.qos !== undefined"> · QoS {{ item.qos }}</template>
+              {{ item.topic }} · {{ subscriptionModeLabel(item.mode) }}
+              <template v-if="item.qos !== undefined">· QoS {{ item.qos }}</template>
             </NTag>
             <NEmpty
               v-if="subscriptionItems.length === 0"
@@ -468,7 +483,12 @@ onBeforeUnmount(() => {
         <NScrollbar v-else class="mqtt-debug-log-scroll">
           <div v-for="message in messages" :key="message.sequence" class="mqtt-debug-message">
             <div class="mqtt-debug-message-meta">
-              <NTag size="small" :type="message.direction === 'inbound' ? 'success' : message.direction === 'outbound' ? 'info' : 'default'">
+              <NTag
+                size="small"
+                :type="
+                  message.direction === 'inbound' ? 'success' : message.direction === 'outbound' ? 'info' : 'default'
+                "
+              >
                 {{ messageDirectionLabel(message.direction) }}
               </NTag>
               <strong v-if="message.topic">{{ message.topic }}</strong>

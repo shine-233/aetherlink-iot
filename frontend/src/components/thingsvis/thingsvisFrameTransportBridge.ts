@@ -40,11 +40,7 @@ export function createThingsVisFrameTransportBridge(
   }
 
   function isTrustedThingsVisMessageEvent(event: MessageEvent): boolean {
-    return isTrustedThingsVisFrameEvent(
-      event,
-      options.iframeRef.value?.contentWindow,
-      getThingsVisTargetOrigin()
-    )
+    return isTrustedThingsVisFrameEvent(event, options.iframeRef.value?.contentWindow, getThingsVisTargetOrigin())
   }
 
   function getTrustedThingsVisFrameMessage(event: MessageEvent): TrustedThingsVisFrameMessage | null {
@@ -54,12 +50,7 @@ export function createThingsVisFrameTransportBridge(
   }
 
   function postToThingsVis(type: string, payload: Record<string, unknown>) {
-    postToThingsVisFrame(
-      options.iframeRef.value?.contentWindow,
-      type,
-      payload,
-      getThingsVisTargetOrigin()
-    )
+    postToThingsVisFrame(options.iframeRef.value?.contentWindow, type, payload, getThingsVisTargetOrigin())
   }
 
   function postPlatformData(fields: Record<string, unknown>, deviceId?: string, dataSourceId?: string) {

@@ -9,6 +9,7 @@ import (
 	_ "time/tzdata"
 
 	"aetherlink-iot/backend/internal/app"
+	"aetherlink-iot/backend/internal/service"
 
 	"github.com/sirupsen/logrus"
 )
@@ -40,6 +41,9 @@ func main() {
 		app.WithLogger(),
 		app.WithDatabase(),
 		app.WithRedis(),
+		// P1.3/P1.4：SCADA 控制 + 移动端服务接线。必须排在 WithDatabase 之后。
+		app.WithScadaMobileWiring(),
+		app.WithRuleChainReplayPersistence(), // P1.2 回放留存（默认关闭，需显式开启）
 
 		app.WithStorageService(),
 		app.WithFlowService(),
@@ -50,16 +54,25 @@ func main() {
 		app.WithGRPCService(),
 		app.WithHTTPService(),
 		app.WithCronService(),
+		app.WithReportScheduleWorker(),
+		app.WithSceneTimerWorker(), // P0.4：持久化场景定时触发，重启后不丢任务
 		app.WithMQTTSessionRevocationOutboxWorker(),
 		app.WithTelemetryDeadLetterWorker(),
 		app.WithTelemetry(),
-		app.WithCoAPGateway(), // C6：CoAP/LwM2M 协议网关（protocols.coap.enabled=true 时启动）
-		app.WithCollectors(), // C6：SNMP/OPC UA 轮询采集器（collectors.*.enabled=true 时启动）
-		app.WithEdgeForward(), // 边缘计算：遥测云转发（edge.forward.enabled=true 时启动）
+		app.WithCoAPGateway(),   // C6：CoAP/LwM2M 协议网关（protocols.coap.enabled=true 时启动）
+		app.WithCollectors(),    // C6：SNMP/OPC UA 轮询采集器（collectors.*.enabled=true 时启动）
+		app.WithEdgeForward(),   // 边缘计算：遥测云转发（edge.forward.enabled=true 时启动）
 		app.WithPluginGateway(), // PHASE-D-D9：插件 gRPC 网关（plugin.grpc.enabled=true 时启动）
 	)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "application initialization failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	// P3 商业许可证启动门控：license.required=true 时必须持有效许可证，
+	// 否则拒绝启动（缺省 required=false 不改变既有部署行为）。
+	if err := service.GroupApp.License.EnforceAtStartup(); err != nil {
+		fmt.Fprintf(os.Stderr, "license boundary check failed: %v\n", err)
 		os.Exit(1)
 	}
 

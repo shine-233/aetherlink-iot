@@ -1,19 +1,7 @@
 export interface FilterParams {
   aggregate_function?: 'avg' | 'max' | 'min' | 'sum' | 'diff'
   aggregate_window?:
-    | 'no_aggregate'
-    | '30s'
-    | '1m'
-    | '2m'
-    | '5m'
-    | '10m'
-    | '30m'
-    | '1h'
-    | '3h'
-    | '6h'
-    | '1d'
-    | '7d'
-    | '1mo'
+    'no_aggregate' | '30s' | '1m' | '2m' | '5m' | '10m' | '30m' | '1h' | '3h' | '6h' | '1d' | '7d' | '1mo'
   end_time?: number
   start_time?: number
   time_range?:
@@ -78,21 +66,23 @@ export const windowToSeconds = (window: string): number => {
 }
 
 export const createAggregateWindowOptions = (t: (key: string) => string): AggregateWindowOptionBase[] =>
-  ([
-    { label: t('common.notAggre'), value: 'no_aggregate', seconds: windowToSeconds('no_aggregate') },
-    { label: t('common.seconds30'), value: '30s', seconds: windowToSeconds('30s') },
-    { label: t('common.minute1'), value: '1m', seconds: windowToSeconds('1m') },
-    { label: t('common.minute2'), value: '2m', seconds: windowToSeconds('2m') },
-    { label: t('common.minutes5'), value: '5m', seconds: windowToSeconds('5m') },
-    { label: t('common.minutes10'), value: '10m', seconds: windowToSeconds('10m') },
-    { label: t('common.minutes30'), value: '30m', seconds: windowToSeconds('30m') },
-    { label: t('common.hours1'), value: '1h', seconds: windowToSeconds('1h') },
-    { label: t('common.hours3'), value: '3h', seconds: windowToSeconds('3h') },
-    { label: t('common.hours6'), value: '6h', seconds: windowToSeconds('6h') },
-    { label: t('common.days1'), value: '1d', seconds: windowToSeconds('1d') },
-    { label: t('common.days7'), value: '7d', seconds: windowToSeconds('7d') },
-    { label: t('common.months1'), value: '1mo', seconds: windowToSeconds('1mo') }
-  ] as AggregateWindowOptionBase[]).sort((a, b) => a.seconds - b.seconds)
+  (
+    [
+      { label: t('common.notAggre'), value: 'no_aggregate', seconds: windowToSeconds('no_aggregate') },
+      { label: t('common.seconds30'), value: '30s', seconds: windowToSeconds('30s') },
+      { label: t('common.minute1'), value: '1m', seconds: windowToSeconds('1m') },
+      { label: t('common.minute2'), value: '2m', seconds: windowToSeconds('2m') },
+      { label: t('common.minutes5'), value: '5m', seconds: windowToSeconds('5m') },
+      { label: t('common.minutes10'), value: '10m', seconds: windowToSeconds('10m') },
+      { label: t('common.minutes30'), value: '30m', seconds: windowToSeconds('30m') },
+      { label: t('common.hours1'), value: '1h', seconds: windowToSeconds('1h') },
+      { label: t('common.hours3'), value: '3h', seconds: windowToSeconds('3h') },
+      { label: t('common.hours6'), value: '6h', seconds: windowToSeconds('6h') },
+      { label: t('common.days1'), value: '1d', seconds: windowToSeconds('1d') },
+      { label: t('common.days7'), value: '7d', seconds: windowToSeconds('7d') },
+      { label: t('common.months1'), value: '1mo', seconds: windowToSeconds('1mo') }
+    ] as AggregateWindowOptionBase[]
+  ).sort((a, b) => a.seconds - b.seconds)
 
 export const timeRangeMinWindowSeconds: Record<TimeRangeKey, number> = {
   last_5m: -1,

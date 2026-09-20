@@ -27,6 +27,12 @@ function createLocalChecks(root = projectRoot) {
       command: process.execPath,
       args: [path.join(automationScripts, 'check_generated_artifacts.js')]
     },
+    {
+      id: 'production-placeholder-audit',
+      mode: 'local-default',
+      command: process.execPath,
+      args: [path.join(automationScripts, 'check_production_placeholders.js')]
+    },
     ...[
       'optional-integrations-contract.test.sh',
       'docker-build-context-contract.test.sh',

@@ -58,8 +58,8 @@ const {
   savePackage
 } = useOtaPackageForm({ fetchPackages })
 
-const hasActivePackageFilters = computed(
-  () => Boolean(queryParams.name.trim() || queryParams.version.trim() || queryParams.device_config_id)
+const hasActivePackageFilters = computed(() =>
+  Boolean(queryParams.name.trim() || queryParams.version.trim() || queryParams.device_config_id)
 )
 let deviceConfigSearchTimer: ReturnType<typeof setTimeout> | undefined
 

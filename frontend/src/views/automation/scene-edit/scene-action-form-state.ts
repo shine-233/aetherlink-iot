@@ -38,7 +38,7 @@ export const normalizeActionParamDataType = (actionParamData: ActionParamOption 
 }
 
 export const normalizeActionParamOptionsData = (source: ActionParamOptionGroup[] = []): ActionParamOptionGroup[] => {
-  return source.map(item => ({
+  return source.map((item) => ({
     ...item,
     value: item.data_source_type,
     label: `${item.label ? `(${item.label})` : ''}${item.data_source_type}`,
@@ -50,8 +50,10 @@ export const normalizeActionParamOptionsData = (source: ActionParamOptionGroup[]
   }))
 }
 
-export const buildActionParamTypeOptions = (actionParamOptionsData: ActionParamOptionGroup[] = []): ActionParamTypeOption[] => {
-  return actionParamOptionsData.map(item => ({
+export const buildActionParamTypeOptions = (
+  actionParamOptionsData: ActionParamOptionGroup[] = []
+): ActionParamTypeOption[] => {
+  return actionParamOptionsData.map((item) => ({
     label: item.label || item.data_source_type,
     value: item.value || item.data_source_type
   }))
@@ -61,9 +63,7 @@ export const getActionParamOptionsByType = (
   instructItem: SceneInstructionLike,
   actionParamType = instructItem.action_param_type
 ) => {
-  return (
-    instructItem.actionParamOptionsData.find(item => item.data_source_type === actionParamType)?.options || []
-  )
+  return instructItem.actionParamOptionsData.find((item) => item.data_source_type === actionParamType)?.options || []
 }
 
 export const resetInstructionSelection = (instructItem: SceneInstructionLike) => {
@@ -93,7 +93,7 @@ export const updateInstructActionParamState = (instructItem: SceneInstructionLik
 
   if (instructItem.action_param && instructItem.actionParamOptions.length > 0) {
     instructItem.actionParamData = normalizeActionParamDataType(
-      instructItem.actionParamOptions.find(item => item.key === instructItem.action_param) || null
+      instructItem.actionParamOptions.find((item) => item.key === instructItem.action_param) || null
     )
   }
 }
@@ -119,12 +119,15 @@ export const applyActionParamTypeChange = (instructItem: SceneInstructionLike, d
 export const applyActionParamSelection = (instructItem: SceneInstructionLike, data: string) => {
   instructItem.actionValue = null
   instructItem.actionParamData = normalizeActionParamDataType(
-    instructItem.actionParamOptions.find(item => item.key === data) || null
+    instructItem.actionParamOptions.find((item) => item.key === data) || null
   )
 }
 
 export const validateJsonActionValue = (actionParamType: string | null | undefined, actionValue: unknown) => {
-  if (!actionParamType || !ACTION_PARAM_TYPES_WITH_INLINE_JSON.has(actionParamType) && actionParamType !== 'command') {
+  if (
+    !actionParamType ||
+    (!ACTION_PARAM_TYPES_WITH_INLINE_JSON.has(actionParamType) && actionParamType !== 'command')
+  ) {
     return true
   }
 
@@ -150,10 +153,7 @@ export const clearActionValueValidationState = (instructItem: SceneInstructionLi
   instructItem.inputValidationStatus = undefined
 }
 
-export const markInvalidJsonActionValue = (
-  instructItem: SceneInstructionLike,
-  message = 'common.enterJson'
-) => {
+export const markInvalidJsonActionValue = (instructItem: SceneInstructionLike, message = 'common.enterJson') => {
   instructItem.inputFeedback = message
   instructItem.inputValidationStatus = 'error'
 }

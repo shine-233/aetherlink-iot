@@ -44,7 +44,7 @@ describe('DynamicBindingAPI', () => {
       propertyPath: 'component.tenantId',
       paramName: 'tenant_id',
       required: true,
-      transform: value => String(value).toUpperCase(),
+      transform: (value) => String(value).toUpperCase(),
       description: 'tenant binding'
     })
     DynamicBindingAPI.addCustomTrigger({
@@ -53,8 +53,12 @@ describe('DynamicBindingAPI', () => {
       description: 'tenant trigger'
     })
 
-    const binding = DynamicBindingAPI.getCurrentBindingRules().find(rule => rule.propertyPath === 'component.tenantId')
-    const trigger = DynamicBindingAPI.getCurrentTriggerRules().find(rule => rule.propertyPath === 'component.tenantId')
+    const binding = DynamicBindingAPI.getCurrentBindingRules().find(
+      (rule) => rule.propertyPath === 'component.tenantId'
+    )
+    const trigger = DynamicBindingAPI.getCurrentTriggerRules().find(
+      (rule) => rule.propertyPath === 'component.tenantId'
+    )
 
     expect(binding).toMatchObject({
       paramName: 'tenant_id',
@@ -70,8 +74,12 @@ describe('DynamicBindingAPI', () => {
 
     expect(DynamicBindingAPI.removeBinding('component.tenantId')).toBe(true)
     expect(DynamicBindingAPI.removeTrigger('component.tenantId')).toBe(true)
-    expect(DynamicBindingAPI.getCurrentBindingRules().some(rule => rule.propertyPath === 'component.tenantId')).toBe(false)
-    expect(DynamicBindingAPI.getCurrentTriggerRules().some(rule => rule.propertyPath === 'component.tenantId')).toBe(false)
+    expect(DynamicBindingAPI.getCurrentBindingRules().some((rule) => rule.propertyPath === 'component.tenantId')).toBe(
+      false
+    )
+    expect(DynamicBindingAPI.getCurrentTriggerRules().some((rule) => rule.propertyPath === 'component.tenantId')).toBe(
+      false
+    )
   })
 
   it('registers component-specific binding and trigger rules without leaking them to other component types', () => {
@@ -96,7 +104,7 @@ describe('DynamicBindingAPI', () => {
       }
     })
 
-    expect(DynamicBindingAPI.getCurrentBindingRules().some(rule => rule.paramName === 'metric_name')).toBe(false)
+    expect(DynamicBindingAPI.getCurrentBindingRules().some((rule) => rule.paramName === 'metric_name')).toBe(false)
     expect(DynamicBindingAPI.getCurrentBindingRules('unit-rdi-device-operations')).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -121,7 +129,7 @@ describe('DynamicBindingAPI', () => {
     DynamicBindingAPI.applyTemplate('iot-device')
 
     const bindings = DynamicBindingAPI.getCurrentBindingRules()
-    const sensorBinding = bindings.find(rule => rule.propertyPath === 'component.sensorIds')
+    const sensorBinding = bindings.find((rule) => rule.propertyPath === 'component.sensorIds')
 
     expect(bindings).toEqual(
       expect.arrayContaining([
@@ -157,8 +165,8 @@ describe('DynamicBindingAPI', () => {
     const remainingBindings = DynamicBindingAPI.getCurrentBindingRules()
     const remainingTriggers = DynamicBindingAPI.getCurrentTriggerRules()
 
-    expect(remainingBindings.some(rule => rule.propertyPath === 'base.deviceId')).toBe(false)
-    expect(remainingTriggers.some(rule => rule.propertyPath === 'base.deviceId')).toBe(false)
+    expect(remainingBindings.some((rule) => rule.propertyPath === 'base.deviceId')).toBe(false)
+    expect(remainingTriggers.some((rule) => rule.propertyPath === 'base.deviceId')).toBe(false)
     expect(remainingBindings.length).toBeGreaterThan(0)
     expect(remainingTriggers.length).toBeGreaterThan(0)
     expect(DynamicBindingAPI.getSystemStatus()).toMatchObject({

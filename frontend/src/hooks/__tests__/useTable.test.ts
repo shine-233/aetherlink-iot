@@ -39,16 +39,26 @@ describe('useTable hook', () => {
     const loadingRef = ref(false)
     hoisted.mockUseLoading.mockReturnValue({
       loading: loadingRef,
-      startLoading: vi.fn(() => { loadingRef.value = true }),
-      endLoading: vi.fn(() => { loadingRef.value = false })
+      startLoading: vi.fn(() => {
+        loadingRef.value = true
+      }),
+      endLoading: vi.fn(() => {
+        loadingRef.value = false
+      })
     })
 
     const emptyRef = ref(false)
     hoisted.mockUseBoolean.mockReturnValue({
       bool: emptyRef,
-      setBool: vi.fn((val: boolean) => { emptyRef.value = val }),
-      setTrue: vi.fn(() => { emptyRef.value = true }),
-      setFalse: vi.fn(() => { emptyRef.value = false })
+      setBool: vi.fn((val: boolean) => {
+        emptyRef.value = val
+      }),
+      setTrue: vi.fn(() => {
+        emptyRef.value = true
+      }),
+      setFalse: vi.fn(() => {
+        emptyRef.value = false
+      })
     })
   })
 

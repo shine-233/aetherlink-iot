@@ -78,7 +78,10 @@ function createEmptySlotPreview(slotIndex: number) {
   }
 }
 
-function getExistingComponentIds(targetComponentId: string, configurationManager: SingleDataSourceManagerLike): Set<string> {
+function getExistingComponentIds(
+  targetComponentId: string,
+  configurationManager: SingleDataSourceManagerLike
+): Set<string> {
   const ids = new Set<string>([targetComponentId])
   const candidates = [
     configurationManager?.store?.nodes,
@@ -99,9 +102,12 @@ function getExistingComponentIds(targetComponentId: string, configurationManager
   return ids
 }
 
-function getTargetComponentType(targetComponentId: string, configurationManager: SingleDataSourceManagerLike): string | undefined {
+function getTargetComponentType(
+  targetComponentId: string,
+  configurationManager: SingleDataSourceManagerLike
+): string | undefined {
   const fullConfig = configurationManager?.getConfiguration?.(targetComponentId)
-  const node = configurationManager?.store?.nodes?.find?.(item => item?.id === targetComponentId)
+  const node = configurationManager?.store?.nodes?.find?.((item) => item?.id === targetComponentId)
 
   return (
     fullConfig?.metadata?.componentType ||
@@ -119,7 +125,7 @@ function ensureDataSourceSlots(dataSourceConfig: DataSourceConfigLike): void {
 }
 
 function findOrCreateDataSourceSlot(dataSourceConfig: DataSourceConfigLike, targetSlotId: string): number {
-  const existingSlotIndex = (dataSourceConfig.dataSources ?? []).findIndex(source => source.sourceId === targetSlotId)
+  const existingSlotIndex = (dataSourceConfig.dataSources ?? []).findIndex((source) => source.sourceId === targetSlotId)
   if (existingSlotIndex !== -1) {
     return existingSlotIndex
   }
@@ -250,7 +256,7 @@ function appendHttpBindings(
     ...(fullConfig?.component || {}),
     httpBindings: [
       ...(fullConfig?.component?.httpBindings || []),
-      ...processedConfig.relatedConfig.httpBindings.map(binding => ({
+      ...processedConfig.relatedConfig.httpBindings.map((binding) => ({
         ...binding,
         sourceId: targetSlotId
       }))
@@ -259,7 +265,10 @@ function appendHttpBindings(
   updateConfigurationSection(configurationManager, targetComponentId, 'component', nextComponentConfig)
 }
 
-export function getAvailableSingleDataSourceSlots(componentId: string, configurationManager: SingleDataSourceManagerLike) {
+export function getAvailableSingleDataSourceSlots(
+  componentId: string,
+  configurationManager: SingleDataSourceManagerLike
+) {
   const slots: Array<{
     slotId: string
     slotIndex: number
@@ -348,26 +357,10 @@ export function applySingleDataSourceImportTarget(
   options: { overwriteExisting?: boolean } = {}
 ): void {
   // 先写入 dataSource 主配置，再补挂导入附带的交互与 HTTP 绑定。
-  const targetContext = prepareTargetDataSourceContext(
-    targetComponentId,
-    targetSlotId,
-    configurationManager,
-    options
-  )
+  const targetContext = prepareTargetDataSourceContext(targetComponentId, targetSlotId, configurationManager, options)
 
   applyDataSourceSlotImport(processedConfig, targetSlotId, targetContext)
-  updateConfigurationSection(
-    configurationManager,
-    targetComponentId,
-    'dataSource',
-    targetContext.existingConfig
-  )
+  updateConfigurationSection(configurationManager, targetComponentId, 'dataSource', targetContext.existingConfig)
   appendImportedInteractions(processedConfig, targetComponentId, configurationManager, targetContext.fullConfig)
-  appendHttpBindings(
-    processedConfig,
-    targetSlotId,
-    targetComponentId,
-    configurationManager,
-    targetContext.fullConfig
-  )
+  appendHttpBindings(processedConfig, targetSlotId, targetComponentId, configurationManager, targetContext.fullConfig)
 }

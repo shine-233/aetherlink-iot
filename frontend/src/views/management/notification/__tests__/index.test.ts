@@ -159,23 +159,21 @@ describe('management/notification/index.vue', () => {
     expect(tabs.attributes('data-type')).toBe('line')
     expect(tabs.attributes('data-animated')).toBe('true')
     expect(panes).toHaveLength(3)
-    expect(panes.map(pane => pane.attributes('data-name'))).toEqual(['1', '2', '3'])
-    expect(panes.map(pane => pane.attributes('data-tab'))).toEqual([
+    expect(panes.map((pane) => pane.attributes('data-name'))).toEqual(['1', '2', '3'])
+    expect(panes.map((pane) => pane.attributes('data-tab'))).toEqual([
       'page.manage.notification.email.title',
       'page.manage.notification.shortMessage.title',
       'page.manage.notification.pushNotification.title'
     ])
-    expect(panes.every(pane => pane.classes().includes('pannel-content'))).toBe(true)
+    expect(panes.every((pane) => pane.classes().includes('pannel-content'))).toBe(true)
   })
 
   it('wires email, short message, and push notification components into separate panes', () => {
     const wrapper = mountComponent()
     const panes = wrapper.findAll('[data-test="n-tab-pane"]')
 
-    expect(panes.map(pane => pane.findAll('[data-test$="-stub"]').map(stub => stub.attributes('data-test')))).toEqual([
-      ['email-stub'],
-      ['short-message-stub'],
-      ['push-notification-stub']
-    ])
+    expect(
+      panes.map((pane) => pane.findAll('[data-test$="-stub"]').map((stub) => stub.attributes('data-test')))
+    ).toEqual([['email-stub'], ['short-message-stub'], ['push-notification-stub']])
   })
 })

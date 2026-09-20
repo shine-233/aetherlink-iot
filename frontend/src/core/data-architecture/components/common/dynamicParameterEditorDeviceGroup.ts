@@ -13,10 +13,7 @@ import type {
   DeviceParameterSourceType
 } from '@/core/data-architecture/types/device-parameter-group'
 import type { DeviceParameterGroupManager } from '@/core/data-architecture/utils/device-parameter-generator'
-import {
-  DEVICE_PARAMETER_GROUP_PREFIX_BY_SOURCE,
-  isDeviceRelatedParameter
-} from './dynamicParameterEditorState'
+import { DEVICE_PARAMETER_GROUP_PREFIX_BY_SOURCE, isDeviceRelatedParameter } from './dynamicParameterEditorState'
 
 type DeviceParameterGroupReader = Pick<DeviceParameterGroupManager, 'getGroup' | 'getGroupParameters'>
 
@@ -43,14 +40,14 @@ const replaceParameterSubset = (
   currentParameters: EnhancedParameter[],
   parameters: EnhancedParameter[],
   shouldReplace: (param: EnhancedParameter) => boolean
-) => [...currentParameters.filter(param => !shouldReplace(param)), ...parameters]
+) => [...currentParameters.filter((param) => !shouldReplace(param)), ...parameters]
 
 export const mergeParametersWithDeduplication = (
   currentParameters: EnhancedParameter[],
   newParameters: EnhancedParameter[]
 ) => {
-  const newParamKeys = new Set(newParameters.map(p => p.key))
-  return replaceParameterSubset(currentParameters, newParameters, param => newParamKeys.has(param.key))
+  const newParamKeys = new Set(newParameters.map((p) => p.key))
+  return replaceParameterSubset(currentParameters, newParameters, (param) => newParamKeys.has(param.key))
 }
 
 const getGeneratedParametersFocusIndex = (parameters: EnhancedParameter[], generatedParameters: EnhancedParameter[]) =>
@@ -100,7 +97,7 @@ const getDeviceParameterGroupIds = (
   groupManager: DeviceParameterGroupReader,
   groupId: string,
   allParameters: EnhancedParameter[]
-) => groupManager.getGroupParameters(groupId, allParameters).map(param => param._id)
+) => groupManager.getGroupParameters(groupId, allParameters).map((param) => param._id)
 
 export const withoutDeviceParameterGroup = (
   groupManager: DeviceParameterGroupReader,
@@ -108,7 +105,7 @@ export const withoutDeviceParameterGroup = (
   groupId: string
 ) => {
   const groupParamIds = new Set(getDeviceParameterGroupIds(groupManager, groupId, allParameters))
-  return allParameters.filter(param => !groupParamIds.has(param._id))
+  return allParameters.filter((param) => !groupParamIds.has(param._id))
 }
 
 export const replaceDeviceParameterGroup = (
@@ -118,7 +115,7 @@ export const replaceDeviceParameterGroup = (
   parameters: EnhancedParameter[]
 ) => {
   const groupParamIds = new Set(getDeviceParameterGroupIds(groupManager, groupId, allParameters))
-  return replaceParameterSubset(allParameters, parameters, param => groupParamIds.has(param._id))
+  return replaceParameterSubset(allParameters, parameters, (param) => groupParamIds.has(param._id))
 }
 
 export const buildDeviceParameterGroupReplaceCommitPlan = (

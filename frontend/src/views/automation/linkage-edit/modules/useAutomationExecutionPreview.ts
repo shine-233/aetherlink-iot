@@ -14,7 +14,8 @@ import {
   type BackendDryRunStatus
 } from './automationDryRunPreview'
 
-type ExecutionPreviewPayload = SceneAutomationDryRunPayload | (Partial<SceneAutomationDryRunPayload> & { actions: any[] })
+type ExecutionPreviewPayload =
+  SceneAutomationDryRunPayload | (Partial<SceneAutomationDryRunPayload> & { actions: any[] })
 type DryRunService = (payload: ExecutionPreviewPayload) => Promise<any>
 
 export function useAutomationExecutionPreview(options: {
@@ -44,8 +45,8 @@ export function useAutomationExecutionPreview(options: {
     localBlockingErrors.value.length > 0
       ? 'Local explanation found a save blocker. Fix it before saving or running backend dry-run again.'
       : executionPreview.value
-      ? 'Local explanation was generated from the current form. It is not a backend execution result.'
-      : 'No local explanation yet. Refresh or save to generate one from the current form.'
+        ? 'Local explanation was generated from the current form. It is not a backend execution result.'
+        : 'No local explanation yet. Refresh or save to generate one from the current form.'
   )
   const backendDryRunStatusText = computed(() => getAutomationDryRunStatusText(backendDryRunStatus.value))
   const backendDryRunAlertType = computed(() => getAutomationDryRunAlertType(backendDryRunStatus.value))

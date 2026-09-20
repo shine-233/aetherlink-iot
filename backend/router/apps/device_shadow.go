@@ -17,5 +17,7 @@ func (*DeviceShadow) InitDeviceShadow(Router *gin.RouterGroup) {
 		shadowApi.GET(":deviceId", api.Controllers.DeviceShadowApi.HandleShadowMessageList)
 		shadowApi.POST(":deviceId", api.Controllers.DeviceShadowApi.SetShadowMessage)
 		shadowApi.DELETE(":deviceId/:msgId", api.Controllers.DeviceShadowApi.CancelShadowMessage)
+		// P0.2：设备确认已收到影子消息，pending/sent -> delivered。
+		shadowApi.POST(":deviceId/:msgId/ack", api.Controllers.DeviceShadowApi.AckShadowMessage)
 	}
 }

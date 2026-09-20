@@ -4,10 +4,7 @@
   type TriggerParamSelectionState
 } from './premise-trigger-param-state'
 import { prepareEchoedIfGroups } from './premise-edit-premise-state'
-import {
-  loadTriggerParamOptionsForIfItem,
-  type TriggerParamOptionsLoadDeps
-} from './premise-trigger-param-options'
+import { loadTriggerParamOptionsForIfItem, type TriggerParamOptionsLoadDeps } from './premise-trigger-param-options'
 
 type LoadTriggerParamOptionsDeps = Pick<
   TriggerParamOptionsLoadDeps,

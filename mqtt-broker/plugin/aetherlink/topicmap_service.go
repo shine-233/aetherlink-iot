@@ -15,6 +15,10 @@ import (
 
 type TopicMapService struct{}
 
+var resolveUpTarget = func(ctx context.Context, deviceConfigID string, incomingSource string) (string, bool) {
+	return NewTopicMapService().ResolveUpTarget(ctx, deviceConfigID, incomingSource)
+}
+
 func NewTopicMapService() *TopicMapService {
 	return &TopicMapService{}
 }
@@ -71,7 +75,7 @@ func (s *TopicMapService) ResolveDownSource(ctx context.Context, deviceConfigID 
 
 func resolveDownSourceFromMappings(mappings []DeviceTopicMapping, normalizedTarget string, deviceNumber string, payload []byte) (string, []byte, bool) {
 	fallbackSource := ""
-	fallbackPayload := payload
+	fallbackPayload := append([]byte(nil), payload...)
 
 	for _, mapping := range mappings {
 		rx, ok := compileTargetPattern(mapping.TargetTopic)
@@ -105,7 +109,7 @@ func resolveDownSourceFromMappings(mappings []DeviceTopicMapping, normalizedTarg
 			if cmd.Method != strings.TrimSpace(*mapping.DataIdentifier) {
 				continue
 			}
-			out := cmd.Params
+			out := append([]byte(nil), cmd.Params...)
 			if len(out) == 0 {
 				out = []byte("{}")
 			}

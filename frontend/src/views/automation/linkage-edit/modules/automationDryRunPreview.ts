@@ -268,7 +268,9 @@ export const buildConditionSummaryItems = (
     }))
   }))
 
-export const buildActionSummaryItems = (actions: DryRunActionLike[] | SceneAutomationDryRunNode[]): AutomationDryRunLine[] =>
+export const buildActionSummaryItems = (
+  actions: DryRunActionLike[] | SceneAutomationDryRunNode[]
+): AutomationDryRunLine[] =>
   actions.map((action, actionIndex) => ({
     key: `action-${actionIndex}`,
     text: describeAction(action)
@@ -307,9 +309,8 @@ const buildIssueLines = (prefix: string, values: unknown): AutomationDryRunIssue
     text
   }))
 
-const getResponseDryRun = (
-  response: DryRunResponseLike | null | undefined
-): SceneAutomationDryRunStats => response?.dry_run || response?.dryRun || {}
+const getResponseDryRun = (response: DryRunResponseLike | null | undefined): SceneAutomationDryRunStats =>
+  response?.dry_run || response?.dryRun || {}
 
 const getNumericResponseValue = (response: DryRunResponseLike | null, keys: string[]) => {
   for (const key of keys) {
@@ -331,7 +332,10 @@ export const buildAutomationOperatorPlan = (
   const conditionCount = conditionGroups.reduce((count, group) => count + group.length, 0)
   const responseDryRun = getResponseDryRun(response)
   const referenceSource =
-    response?.reference_counts || response?.referenceCounts || responseDryRun.reference_counts || responseDryRun.target_kinds
+    response?.reference_counts ||
+    response?.referenceCounts ||
+    responseDryRun.reference_counts ||
+    responseDryRun.target_kinds
   const referenceLines = buildCountLines('operator-reference', referenceSource)
   const canSave = getCanSave(response)
 
@@ -395,8 +399,8 @@ export const buildAutomationOperatorPlan = (
 const getBlockingErrorMessages = (response: DryRunResponseLike | null) => {
   const diagnostics = Array.isArray(response?.diagnostics) ? response.diagnostics : []
   const diagnosticErrors = diagnostics
-    .filter(item => item?.severity === 'error')
-    .map(item => item?.message || String(item))
+    .filter((item) => item?.severity === 'error')
+    .map((item) => item?.message || String(item))
 
   return [
     ...normalizeStringList(response?.blocking_errors),
@@ -417,8 +421,8 @@ const getCanSave = (response: DryRunResponseLike | null) => {
 const getWarningMessages = (response: DryRunResponseLike | null) => {
   const diagnostics = Array.isArray(response?.diagnostics) ? response.diagnostics : []
   const diagnosticWarnings = diagnostics
-    .filter(item => item?.severity === 'warning')
-    .map(item => item?.message || String(item))
+    .filter((item) => item?.severity === 'warning')
+    .map((item) => item?.message || String(item))
 
   return [...normalizeStringList(response?.warnings), ...diagnosticWarnings]
 }

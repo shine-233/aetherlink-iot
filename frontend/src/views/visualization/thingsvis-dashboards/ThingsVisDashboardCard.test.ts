@@ -127,9 +127,7 @@ describe('ThingsVisDashboardCard.vue', () => {
     expect(link.attributes('target')).toBe('_blank')
     expect(link.attributes('rel')).toBe('noopener noreferrer')
     expect(wrapper.get('img').attributes('src')).toBe('data:image/png;base64,thumb')
-    expect(wrapper.get('[data-testid="thingsvis-dashboard-card"]').attributes('data-dashboard-id')).toBe(
-      dashboard.id
-    )
+    expect(wrapper.get('[data-testid="thingsvis-dashboard-card"]').attributes('data-dashboard-id')).toBe(dashboard.id)
   })
 
   it('adds the local provider and project to native board preview links', () => {

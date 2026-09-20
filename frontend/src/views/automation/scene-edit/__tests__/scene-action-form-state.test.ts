@@ -109,9 +109,7 @@ describe('scene-action-form-state', () => {
 
     expect(instructItem.action_param).toBeNull()
     expect(instructItem.actionParamData).toBeNull()
-    expect(instructItem.actionParamOptions).toEqual([
-      { key: 'reboot', label: 'reboot(Reboot)', value: 'reboot' }
-    ])
+    expect(instructItem.actionParamOptions).toEqual([{ key: 'reboot', label: 'reboot(Reboot)', value: 'reboot' }])
     expect(instructItem.placeholder).toBe(ACTION_PARAM_PLACEHOLDERS.command)
     expect(instructItem.actionValue).toBeNull()
     expect(instructItem.showSubSelect).toBe(true)
@@ -139,7 +137,9 @@ describe('scene-action-form-state', () => {
     )
 
     expect(instructItem.actionParamTypeOptions).toEqual([{ label: 'telemetry', value: 'telemetry' }])
-    expect(instructItem.actionParamOptions).toEqual([{ key: 'speed', value: 'speed', label: 'speed', data_type: 'float' }])
+    expect(instructItem.actionParamOptions).toEqual([
+      { key: 'speed', value: 'speed', label: 'speed', data_type: 'float' }
+    ])
     expect(instructItem.actionParamData).toEqual({ key: 'speed', value: 'speed', label: 'speed', data_type: 'float' })
     expect(instructItem.showSubSelect).toBe(true)
   })
@@ -221,12 +221,14 @@ describe('scene-action-form-state', () => {
       inputValidationStatus: undefined
     }
 
-    expect(validateSceneActionJsonValues([
-      {
-        actionType: '1',
-        actionInstructList: [telemetryInstruction as unknown as SceneInstructionLike]
-      }
-    ])).toEqual([])
+    expect(
+      validateSceneActionJsonValues([
+        {
+          actionType: '1',
+          actionInstructList: [telemetryInstruction as unknown as SceneInstructionLike]
+        }
+      ])
+    ).toEqual([])
     expect(telemetryInstruction.inputValidationStatus).toBeUndefined()
   })
 

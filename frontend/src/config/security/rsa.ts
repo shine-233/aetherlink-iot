@@ -45,9 +45,5 @@ export function getRSAPublicKey(): string {
  * @returns 是否满足基础 PEM 公钥格式要求
  */
 export function validateRSAPublicKey(key: string): boolean {
-  return (
-    key.includes(RSA_PUBLIC_KEY_BEGIN) &&
-    key.includes(RSA_PUBLIC_KEY_END) &&
-    key.length > 100
-  )
+  return key.includes(RSA_PUBLIC_KEY_BEGIN) && key.includes(RSA_PUBLIC_KEY_END) && key.length > 100
 }

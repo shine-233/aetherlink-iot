@@ -19,14 +19,53 @@ vi.mock('vue-i18n', () => ({
 
 vi.mock('naive-ui', () => ({
   useMessage: () => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn() }),
-  NModal: defineComponent({ props: { show: Boolean }, emits: ['update:show'], setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NForm: defineComponent({ setup(_, { slots }) { return () => h('form', slots.default ? slots.default() : []) } }),
-  NFormItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NInput: defineComponent({ props: { value: { default: '' } }, emits: ['update:value'], setup() { return () => h('div') } }),
-  NSelect: defineComponent({ props: { value: { default: null } }, emits: ['update:value'], setup() { return () => h('div') } }),
-  NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : []) } }),
-  NPopover: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NText: defineComponent({ setup(_, { slots }) { return () => h('span', slots.default ? slots.default() : []) } })
+  NModal: defineComponent({
+    props: { show: Boolean },
+    emits: ['update:show'],
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NForm: defineComponent({
+    setup(_, { slots }) {
+      return () => h('form', slots.default ? slots.default() : [])
+    }
+  }),
+  NFormItem: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NInput: defineComponent({
+    props: { value: { default: '' } },
+    emits: ['update:value'],
+    setup() {
+      return () => h('div')
+    }
+  }),
+  NSelect: defineComponent({
+    props: { value: { default: null } },
+    emits: ['update:value'],
+    setup() {
+      return () => h('div')
+    }
+  }),
+  NButton: defineComponent({
+    emits: ['click'],
+    setup(_, { slots, emit }) {
+      return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : [])
+    }
+  }),
+  NPopover: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NText: defineComponent({
+    setup(_, { slots }) {
+      return () => h('span', slots.default ? slots.default() : [])
+    }
+  })
 }))
 
 import Component from '../topic-mapping-modal.vue'
@@ -51,8 +90,14 @@ const mountComponent = (props = {}) => {
 const getSetupState = (wrapper: ReturnType<typeof shallowMount>) => wrapper.vm.$.setupState as Record<string, any>
 
 describe('device/config-detail/modules/components/topic-mapping-modal.vue', () => {
-  beforeEach(() => { vi.clearAllMocks() })
-  afterEach(() => { while (mountedWrappers.length > 0) { mountedWrappers.pop()?.unmount() } })
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+  afterEach(() => {
+    while (mountedWrappers.length > 0) {
+      mountedWrappers.pop()?.unmount()
+    }
+  })
 
   it('initializes create modal form, validation rules and downlink topic defaults', () => {
     const wrapper = mountComponent()
@@ -114,16 +159,18 @@ describe('device/config-detail/modules/components/topic-mapping-modal.vue', () =
     state.formRef = { validate: vi.fn().mockResolvedValue(undefined), restoreValidation: vi.fn() }
     await state.handleSave()
     expect(wrapper.emitted('save')).toEqual([
-      [{
-        mapping_name: '',
-        direction: 'down',
-        original_topic: '',
-        target_topic: '',
-        data_identifier: '',
-        description: '',
-        priority: 0,
-        enabled: true
-      }]
+      [
+        {
+          mapping_name: '',
+          direction: 'down',
+          original_topic: '',
+          target_topic: '',
+          data_identifier: '',
+          description: '',
+          priority: 0,
+          enabled: true
+        }
+      ]
     ])
     expect(wrapper.emitted('update:visible')).toEqual([[false]])
   })

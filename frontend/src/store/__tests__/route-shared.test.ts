@@ -29,8 +29,8 @@ describe('route role filtering', () => {
     const source = visualizationRoute()
     const filtered = filterAuthRoutesByRoles([source] as any, ['TENANT_USER'])
 
-    expect(filtered[0].children?.map(child => child.name)).toEqual(['visualization_native-board'])
-    expect(source.children.map(child => child.name)).toEqual([
+    expect(filtered[0].children?.map((child) => child.name)).toEqual(['visualization_native-board'])
+    expect(source.children.map((child) => child.name)).toEqual([
       'visualization_native-boards',
       'visualization_native-board',
       'visualization_native-board-editor'

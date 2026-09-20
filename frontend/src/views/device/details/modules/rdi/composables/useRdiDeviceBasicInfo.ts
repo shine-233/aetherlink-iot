@@ -50,9 +50,7 @@ export function useRdiDeviceBasicInfo(options: UseRdiDeviceBasicInfoOptions) {
   const deviceNameText = computed(() => toDisplayText(deviceData.value?.name || deviceData.value?.device_name))
   const deviceIdentifierText = computed(() => toDisplayText(deviceData.value?.device_number || options.deviceId()))
   const deviceAddedAtText = computed(() =>
-    formatDeviceMetaTime(
-      deviceData.value?.created_at || deviceData.value?.create_time || deviceData.value?.createdAt
-    )
+    formatDeviceMetaTime(deviceData.value?.created_at || deviceData.value?.create_time || deviceData.value?.createdAt)
   )
   const deviceLastHeartbeatText = computed(() =>
     formatDeviceMetaTime(

@@ -72,8 +72,8 @@ const emailOptions = computed(() => {
   if (username === '') {
     return []
   }
-  const filteredDomains = commonDomains.filter(domain => domain.startsWith(domainInput) && domain !== domainInput)
-  return filteredDomains.map(domain => `${username}@${domain}`)
+  const filteredDomains = commonDomains.filter((domain) => domain.startsWith(domainInput) && domain !== domainInput)
+  return filteredDomains.map((domain) => `${username}@${domain}`)
 })
 
 const rules = computed<Record<keyof FormModel, App.Global.FormRule[]>>(() => {
@@ -157,7 +157,7 @@ async function handleSubmit() {
 
 watch(
   () => props.marketEmail,
-  value => {
+  (value) => {
     if (value) {
       model.email = value
     }

@@ -1,5 +1,8 @@
 import { buildCommandJobReadiness } from '@/views/device/command-center/commandCenterSubmitGate'
-import { buildFleetCommandPayload, parseCommandCenterScopeContext } from '@/views/device/command-center/commandCenterState'
+import {
+  buildFleetCommandPayload,
+  parseCommandCenterScopeContext
+} from '@/views/device/command-center/commandCenterState'
 import { parseCommandCenterRouteDraft } from '@/views/device/command-center/commandCenterRouteDraft'
 import {
   buildReadyCheckCommandCenterQuery,

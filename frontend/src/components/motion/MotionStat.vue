@@ -21,11 +21,7 @@ const props = withDefaults(defineProps<Props>(), {
   color: '#2080f0'
 })
 
-const animatedValue = useCountUp(
-  computed(() => props.value) as Ref<number>,
-  800,
-  props.decimals
-)
+const animatedValue = useCountUp(computed(() => props.value) as Ref<number>, 800, props.decimals)
 </script>
 
 <template>
@@ -46,7 +42,17 @@ const animatedValue = useCountUp(
   gap: 4px;
   transition: background 0.2s ease;
 }
-.stat-card:hover { background: rgba(var(--stat-color-rgb, 32, 128, 240), 0.08); }
-.stat-card-label { font-size: 13px; color: #666e75; }
-.stat-card-number { font-size: 28px; font-weight: 700; color: var(--stat-color); line-height: 1.1; }
+.stat-card:hover {
+  background: rgba(var(--stat-color-rgb, 32, 128, 240), 0.08);
+}
+.stat-card-label {
+  font-size: 13px;
+  color: #666e75;
+}
+.stat-card-number {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--stat-color);
+  line-height: 1.1;
+}
 </style>

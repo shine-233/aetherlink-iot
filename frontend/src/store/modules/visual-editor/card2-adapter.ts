@@ -133,7 +133,7 @@ export class Card2VisualEditorAdapter {
    * 批量注册Card2.1组件
    */
   registerCard2Components(definitions: ComponentDefinition[]): void {
-    definitions.forEach(def => this.registerCard2Component(def))
+    definitions.forEach((def) => this.registerCard2Component(def))
   }
 
   // ==================== 组件定义转换 ====================
@@ -243,7 +243,7 @@ export class Card2VisualEditorAdapter {
    * 适配数据源定义
    */
   private adaptDataSources(dataSources: DataSourceDefinition[]): DataSourceDefinition[] {
-    return dataSources.map(ds => ({
+    return dataSources.map((ds) => ({
       ...ds,
       // 确保数据源配置的完整性
       supportedTypes: ds.supportedTypes.length > 0 ? ds.supportedTypes : ['static'],
@@ -314,7 +314,7 @@ export class Card2VisualEditorAdapter {
   }
 
   private resolveCard2Definition(widgetId: string): ComponentDefinition | undefined {
-    const node = this.editorStore.nodes.find(item => item.id === widgetId)
+    const node = this.editorStore.nodes.find((item) => item.id === widgetId)
     const componentType = node?.componentType || node?.type || node?.metadata?.componentType
     const metadataDefinition = node?.metadata?.card2Definition
 
@@ -336,7 +336,7 @@ export class Card2VisualEditorAdapter {
 
     // 根据组件的数据源定义创建需求
     if (card2Definition.dataSources) {
-      card2Definition.dataSources.forEach(ds => {
+      card2Definition.dataSources.forEach((ds) => {
         // 检查是否有对应的数据源配置
         const configBinding = dataSourceConfig.bindings?.[ds.key]
         if (configBinding) {
@@ -437,7 +437,7 @@ export class Card2VisualEditorAdapter {
   private createDefaultBindings(dataSources: DataSourceDefinition[]): Record<string, unknown> {
     const bindings: Record<string, unknown> = {}
 
-    dataSources.forEach(ds => {
+    dataSources.forEach((ds) => {
       if (ds.fieldMappings) {
         const firstMapping = Object.values(ds.fieldMappings)[0]
         if (firstMapping?.defaultValue !== undefined) {
@@ -486,7 +486,7 @@ export class Card2VisualEditorAdapter {
     const maxRetries = 50 // 最多等待5秒
 
     while (!this.card2System && retries < maxRetries) {
-      await new Promise(resolve => setTimeout(resolve, 100))
+      await new Promise((resolve) => setTimeout(resolve, 100))
       retries++
     }
 

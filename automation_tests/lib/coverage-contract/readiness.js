@@ -1,3 +1,5 @@
+const { BUSINESS_OPERATIONS } = require('./business-operations');
+
 /**
  * Pure readiness predicates for the coverage contract.
  *
@@ -18,9 +20,38 @@ function getMissingTraceability(traceability) {
       !item.hasTrueAutomation ||
       !item.hasE2E ||
       !item.hasTrueE2E ||
-      !item.hasBackend ||
-      !item.hasGMQTT;
+      !item.hasBackendDeclaration ||
+      !item.hasGMQTTDeclaration;
   });
+}
+
+function hasCompleteOperationInventory(operationInventoryAudit) {
+  return Boolean(operationInventoryAudit && operationInventoryAudit.valid);
+}
+
+function hasCompleteOperationCoverage(operationTraceability) {
+  if (!Array.isArray(operationTraceability)) return false;
+  const canonicalIds = BUSINESS_OPERATIONS.map(item => item.id);
+  const actualIds = operationTraceability.map(item => item && item.id);
+  return actualIds.length === canonicalIds.length &&
+    new Set(actualIds).size === actualIds.length &&
+    canonicalIds.every(id => actualIds.includes(id)) &&
+    operationTraceability.every(item =>
+      item.ready === true &&
+      item.staticInventoryValid === true &&
+      item.runtimeStatus === 'passed' &&
+      Array.isArray(item.missingDimensions) &&
+      item.missingDimensions.length === 0 &&
+      Array.isArray(item.runtimeOutcomeErrors) &&
+      item.runtimeOutcomeErrors.length === 0
+    );
+}
+
+function hasNoCatalogIdentityGaps(catalogIdentityAudit) {
+  return Boolean(catalogIdentityAudit) &&
+    catalogIdentityAudit.duplicateEndpoints.length === 0 &&
+    catalogIdentityAudit.duplicateRoutes.length === 0 &&
+    catalogIdentityAudit.duplicateMetadataFiles.length === 0;
 }
 
 function hasNoCatalogInventoryOrMappingGaps(
@@ -133,11 +164,15 @@ function getSelfCheckReadiness(audits) {
     blockedReasonAudit,
     businessAssertionAudit,
     catalogClassificationAudit,
+    catalogIdentityAudit,
     endpointComparison,
     frontendWeakAssertionAudit,
+    goEvidenceInventoryAudit,
     goSourceStringContractAudit,
     mappedTestFileAudit,
     missingCapabilityEndpoints,
+    operationInventoryAudit,
+    operationTraceability,
     routeComparison,
     skipAudit,
     sourceReviewBoundaryAudit,
@@ -158,9 +193,12 @@ function getSelfCheckReadiness(audits) {
     seedableBlockedHelpers: blockedReasonAudit.seedableReasons.length,
     batchStructureReady,
     allLayerStructureReady: batchStructureReady &&
+      hasNoCatalogIdentityGaps(catalogIdentityAudit) &&
+      Boolean(goEvidenceInventoryAudit && goEvidenceInventoryAudit.valid) &&
       goSourceStringContractAudit.length === 0 &&
       frontendWeakAssertionAudit.length === 0,
-    businessClosureReady: hasNoBusinessClosureGaps({
+    businessClosureReady: hasNoCatalogIdentityGaps(catalogIdentityAudit) &&
+      hasNoBusinessClosureGaps({
       skipAudit,
       catalogClassificationAudit,
       explicitBusinessInventoryComplete,
@@ -168,11 +206,14 @@ function getSelfCheckReadiness(audits) {
       missingTraceability,
       businessAssertionAudit,
       sourceReviewBoundaryAudit
-    }),
+    }) &&
+      hasCompleteOperationInventory(operationInventoryAudit) &&
+      hasCompleteOperationCoverage(operationTraceability),
     skipAudit,
     traceability,
     missingTraceability,
-    trustworthy: hasTrustworthyCoverageHarness({
+    trustworthy: hasNoCatalogIdentityGaps(catalogIdentityAudit) &&
+      hasTrustworthyCoverageHarness({
       routeComparison,
       endpointComparison,
       missingCapabilityEndpoints,
@@ -191,7 +232,10 @@ module.exports = {
   getMissingTraceability,
   getSelfCheckReadiness,
   hasCompleteExplicitBusinessInventory,
+  hasCompleteOperationCoverage,
+  hasCompleteOperationInventory,
   hasNoBusinessAssertionGaps,
+  hasNoCatalogIdentityGaps,
   hasNoCatalogInventoryOrMappingGaps,
   hasNoSourceReviewBoundaryGaps
 };

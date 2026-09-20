@@ -19,10 +19,12 @@ import {
 
 const route = useRoute()
 const { routerPushByKey } = useRouterPush()
-const providerId = computed(() => resolveVisualizationProviderId({
-  provider: route.query.provider,
-  projectId: route.query.projectId
-}))
+const providerId = computed(() =>
+  resolveVisualizationProviderId({
+    provider: route.query.provider,
+    projectId: route.query.projectId
+  })
+)
 const provider = getDefaultVisualizationProviderFacade({ providerId: providerId.value })
 const providerSelectionError = provider.selectionError
 const providerErrorTitle = computed(() =>
@@ -69,7 +71,7 @@ async function loadDashboard() {
   if (!currentDashboardId) return
 
   try {
-    const result = await provider.execute(current => current.getDashboard(currentDashboardId))
+    const result = await provider.execute((current) => current.getDashboard(currentDashboardId))
     if (requestSequence !== dashboardRequestSequence || dashboardId.value !== currentDashboardId) return
     if (!result.ok || !result.data) {
       selectionError.value = true

@@ -72,7 +72,7 @@ export const buildTargetSlotOptionsFromPreviewSlots = (
   slots: ImportPreviewSlot[],
   t: Translate
 ): TargetSlotOption[] => {
-  return slots.map(slot => ({
+  return slots.map((slot) => ({
     label: `${t('configuration.export.dataSource')} ${slot.slotIndex + 1} (${slot.slotId})`,
     value: slot.slotId,
     disabled: false,
@@ -84,7 +84,7 @@ export const buildTargetSlotOptionsFromAvailableSources = (
   sources: AvailableDataSourceSummary[],
   t: Translate
 ): TargetSlotOption[] => {
-  return sources.map(source => ({
+  return sources.map((source) => ({
     label: `${t('configuration.export.dataSource')} ${source.sourceIndex + 1} (${source.sourceId})`,
     value: source.sourceId,
     disabled: false,
@@ -93,5 +93,5 @@ export const buildTargetSlotOptionsFromAvailableSources = (
 }
 
 export const selectDefaultTargetSlot = (options: TargetSlotOption[]): string => {
-  return options.find(slot => !slot.occupied)?.value || options[0]?.value || ''
+  return options.find((slot) => !slot.occupied)?.value || options[0]?.value || ''
 }

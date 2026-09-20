@@ -42,11 +42,11 @@ export const filterApiTemplateParams = (
   const pathParamNames = apiInfo.pathParamNames || []
 
   if (parameterType === 'query') {
-    return commonParams.filter(param => !pathParamNames.includes(param.name) && !isHeaderParam(param))
+    return commonParams.filter((param) => !pathParamNames.includes(param.name) && !isHeaderParam(param))
   }
 
   if (parameterType === 'path') {
-    return commonParams.filter(param => pathParamNames.includes(param.name))
+    return commonParams.filter((param) => pathParamNames.includes(param.name))
   }
 
   if (parameterType === 'header') {
@@ -90,7 +90,7 @@ export const buildApiTemplateParameters = (
   createDefaultParameter: CreateDefaultParameter
 ) => {
   if (apiInfo.commonParams && apiInfo.commonParams.length > 0) {
-    return filterApiTemplateParams(apiInfo, parameterType).map(param => {
+    return filterApiTemplateParams(apiInfo, parameterType).map((param) => {
       const enhancedParam = createDefaultParameter()
       const seededValue = resolveApiTemplateSeedValue(param)
       enhancedParam.key = param.name
@@ -108,12 +108,12 @@ export const buildApiTemplateParameters = (
 }
 
 export const mergeTemplateParameters = (existingParams: EnhancedParameter[], templateParams: EnhancedParameter[]) => {
-  const existingKeys = new Set(existingParams.map(param => param.key))
-  const newParams = templateParams.filter(templateParam => !existingKeys.has(templateParam.key))
+  const existingKeys = new Set(existingParams.map((param) => param.key))
+  const newParams = templateParams.filter((templateParam) => !existingKeys.has(templateParam.key))
 
   return [
-    ...existingParams.map(existingParam => {
-      const templateParam = templateParams.find(param => param.key === existingParam.key)
+    ...existingParams.map((existingParam) => {
+      const templateParam = templateParams.find((param) => param.key === existingParam.key)
       if (templateParam) {
         return { ...templateParam, _id: existingParam._id }
       }

@@ -50,7 +50,7 @@ export const request: FlatRequestInstance = createFlatRequest<App.Service.Backen
         (Object.getPrototypeOf(params) === Object.prototype || Object.getPrototypeOf(params) === null)
       ) {
         const normalizedParams = { ...params }
-        Object.keys(normalizedParams).forEach(key => {
+        Object.keys(normalizedParams).forEach((key) => {
           if (normalizedParams[key] === '') {
             normalizedParams[key] = undefined
           }

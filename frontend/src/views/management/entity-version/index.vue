@@ -27,9 +27,7 @@ const message = useMessage()
 /** 与后端 resolveEntityTable 白名单一一对应；改动需同步后端。 */
 const ENTITY_TYPES: EntityVersionEntityType[] = ['board', 'rule_chain', 'device_config', 'calculated_field']
 
-const typeOptions = computed<SelectOption[]>(() =>
-  ENTITY_TYPES.map(value => ({ label: value, value }))
-)
+const typeOptions = computed<SelectOption[]>(() => ENTITY_TYPES.map((value) => ({ label: value, value })))
 
 // ---------- 查询条件 ----------
 const filter = reactive({
@@ -136,7 +134,7 @@ const columns = computed<DataTableColumns<EntityVersion>>(() => [
     title: () => $t('custom.entityVersion.name'),
     key: 'version_number',
     width: 110,
-    render: row => h(NTag, { size: 'small', bordered: false }, { default: () => `v${row.version_number}` })
+    render: (row) => h(NTag, { size: 'small', bordered: false }, { default: () => `v${row.version_number}` })
   },
   {
     title: () => $t('custom.entityVersion.entityType'),
@@ -153,19 +151,19 @@ const columns = computed<DataTableColumns<EntityVersion>>(() => [
     title: () => $t('common.remark'),
     key: 'remark',
     minWidth: 160,
-    render: row => row.remark || '--'
+    render: (row) => row.remark || '--'
   },
   {
     title: () => $t('custom.asset.createdAt'),
     key: 'created_at',
     width: 180,
-    render: row => row.created_at?.replace('T', ' ').slice(0, 19) || '--'
+    render: (row) => row.created_at?.replace('T', ' ').slice(0, 19) || '--'
   },
   {
     title: () => $t('common.actions'),
     key: 'actions',
     width: 180,
-    render: row =>
+    render: (row) =>
       h('div', { class: 'flex gap-2' }, [
         h(
           NButton,
@@ -177,11 +175,7 @@ const columns = computed<DataTableColumns<EntityVersion>>(() => [
           { onPositiveClick: () => handleRestore(row) },
           {
             trigger: () =>
-              h(
-                NButton,
-                { size: 'small', type: 'primary' },
-                { default: () => $t('custom.entityVersion.restore') }
-              ),
+              h(NButton, { size: 'small', type: 'primary' }, { default: () => $t('custom.entityVersion.restore') }),
             default: () => $t('custom.entityVersion.restoreConfirm')
           }
         )
@@ -231,7 +225,12 @@ const columns = computed<DataTableColumns<EntityVersion>>(() => [
     </n-card>
 
     <!-- 快照详情 -->
-    <n-modal v-model:show="detailVisible" preset="card" style="width: 720px" :title="$t('custom.entityVersion.content')">
+    <n-modal
+      v-model:show="detailVisible"
+      preset="card"
+      style="width: 720px"
+      :title="$t('custom.entityVersion.content')"
+    >
       <n-spin :show="detailLoading">
         <n-code v-if="detailRaw" :code="detailRaw" language="json" word-wrap />
         <n-empty v-else :description="$t('custom.entityVersion.empty')" />

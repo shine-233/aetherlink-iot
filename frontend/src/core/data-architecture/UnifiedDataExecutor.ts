@@ -145,18 +145,13 @@ function applyDataTransform(data: any, transform?: DataTransform): any {
   if (transform.mapping) {
     if (result && typeof result === 'object') {
       result = Object.fromEntries(
-        Object.entries(transform.mapping).map(([targetKey, sourceKey]) => [
-          targetKey,
-          extractByPath(result, sourceKey)
-        ])
+        Object.entries(transform.mapping).map(([targetKey, sourceKey]) => [targetKey, extractByPath(result, sourceKey)])
       )
     }
   }
 
   if (transform.filter && Array.isArray(result)) {
-    result = result.filter(item =>
-      Object.entries(transform.filter).every(([key, value]) => item?.[key] === value)
-    )
+    result = result.filter((item) => Object.entries(transform.filter).every(([key, value]) => item?.[key] === value))
   }
 
   return result
@@ -199,7 +194,7 @@ class HttpExecutor implements DataSourceExecutor {
       const response = await request({
         url,
         method: method.toLowerCase() as any,
-        headers: Object.fromEntries((headers ?? []).filter(h => h.enabled).map(h => [h.key, h.value])),
+        headers: Object.fromEntries((headers ?? []).filter((h) => h.enabled).map((h) => [h.key, h.value])),
         params,
         data: body,
         timeout
@@ -491,7 +486,7 @@ export class UnifiedDataExecutor {
    * 批量执行多个数据源
    */
   async executeMultiple(configs: UnifiedDataConfig[]): Promise<UnifiedDataResult[]> {
-    const results = await Promise.allSettled(configs.map(config => this.execute(config)))
+    const results = await Promise.allSettled(configs.map((config) => this.execute(config)))
 
     return results.map((result, index) => {
       if (result.status === 'fulfilled') {
@@ -535,7 +530,7 @@ export class UnifiedDataExecutor {
    * 清理资源
    */
   cleanup(): void {
-    this.executors.forEach(executor => {
+    this.executors.forEach((executor) => {
       if (executor.cleanup) {
         executor.cleanup()
       }

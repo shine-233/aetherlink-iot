@@ -44,10 +44,7 @@ type ThingsVisWidgetFieldHistoryBridgeOptions = {
   getFieldDataTypeMap: () => Record<string, string>
   getFieldRoot: (fieldPath: string) => string
   parseFieldBindingExpression: (input: unknown) => ParsedFieldBinding | null
-  loadTelemetryHistory: (
-    params: Record<string, unknown>,
-    options?: Record<string, unknown>
-  ) => Promise<any>
+  loadTelemetryHistory: (params: Record<string, unknown>, options?: Record<string, unknown>) => Promise<any>
 }
 
 const normalizeTelemetryHistoryRows = (payload: any) => {
@@ -92,14 +89,7 @@ const buildTelemetryHistoryCacheKey = (
   deviceId: string,
   fieldId: string,
   historyConfig: Required<HistoryRequestConfig>
-) =>
-  [
-    deviceId,
-    fieldId,
-    historyConfig.timeRange,
-    historyConfig.aggWindow,
-    historyConfig.aggFunction
-  ].join('|')
+) => [deviceId, fieldId, historyConfig.timeRange, historyConfig.aggWindow, historyConfig.aggFunction].join('|')
 
 const visitStringLeaves = (value: unknown, visitor: (input: string) => void) => {
   if (typeof value === 'string') {

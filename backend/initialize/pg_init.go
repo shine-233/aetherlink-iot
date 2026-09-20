@@ -88,6 +88,21 @@ func PgInit() (*gorm.DB, error) {
 		logrus.Warnf("backfill devices.voucher_hash failed (will retry on next start): %v", err)
 	}
 
+	// 凭证哈希存储 Phase 2 收尾（P0.5）：回填完成后可选清理存量明文。
+	// 回填只补 hash、不动明文，因此双模式窗口关闭后必须显式走这一步，"停写明文"
+	// 才对存量行也成立。默认关闭（见 voucherPurgeEnabled）：清理不可逆，且只清
+	// 已有 voucher_hash 的行——没有 hash 的行清掉明文等于永久丢凭证。
+	if enabled, err := voucherPurgeEnabled(); err != nil {
+		logrus.Warnf("%v", err)
+	} else if enabled {
+		purged, purgeErr := dal.PurgeDeviceVoucherPlaintext(db, voucherPurgeMaxRows())
+		if purgeErr != nil {
+			logrus.Warnf("purge devices.voucher plaintext failed (will retry on next start): %v", purgeErr)
+		} else if purged > 0 {
+			logrus.Infof("purged plaintext voucher from %d device rows", purged)
+		}
+	}
+
 	// casbin 初始化
 	if err := CasbinInit(); err != nil {
 		return nil, fmt.Errorf("casbin initialization failed: %w", err)

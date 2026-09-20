@@ -9,10 +9,12 @@ describe('ConfigurationIntegrationBridge', () => {
     const componentId = createComponentId('initialize')
 
     expect(configurationIntegrationBridge.getConfiguration(componentId)).toBeNull()
-    expect(configurationIntegrationBridge.initializeConfiguration(componentId, {
-      base: { title: 'Local widget' },
-      customize: { metric: 'temperature' }
-    })).toEqual({
+    expect(
+      configurationIntegrationBridge.initializeConfiguration(componentId, {
+        base: { title: 'Local widget' },
+        customize: { metric: 'temperature' }
+      })
+    ).toEqual({
       base: { title: 'Local widget' },
       component: {},
       dataSource: null,
@@ -29,9 +31,11 @@ describe('ConfigurationIntegrationBridge', () => {
       base: { title: 'Original' },
       customize: { metric: 'temperature' }
     })
-    expect(configurationIntegrationBridge.initializeConfiguration(componentId, {
-      base: { title: 'Ignored reinitialization' }
-    })).toMatchObject({ base: { title: 'Original' } })
+    expect(
+      configurationIntegrationBridge.initializeConfiguration(componentId, {
+        base: { title: 'Ignored reinitialization' }
+      })
+    ).toMatchObject({ base: { title: 'Original' } })
 
     const result = configurationIntegrationBridge.updateConfiguration(componentId, 'customize', {
       unit: '°C'

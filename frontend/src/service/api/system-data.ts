@@ -39,14 +39,14 @@ export const totalNumber = async () => {
 }
 
 /** 获取设备总览；跨租户范围仅由 SYS_ADMIN 页面显式请求。 */
-export const sumData = async (params?: { all_tenants?: boolean })=> {
+export const sumData = async (params?: { all_tenants?: boolean }) => {
   return params
     ? await request.get('/board/tenant/device/info', { params })
     : await request.get('/board/tenant/device/info')
 }
 
 /** 获取租户消息总数 */
-export const tenantNum = async ()=> {
+export const tenantNum = async () => {
   return await request.get('/telemetry/datas/msg/count')
 }
 
@@ -59,7 +59,7 @@ export const tenant = async () => {
 /** 获取租户看板数据 /board/tenant */
 
 /** 新增设备物模型信息 */
-export const addTemplat = async (params: object)=> {
+export const addTemplat = async (params: object) => {
   const data = await request.post('/device/template', params)
   return data
 }
@@ -114,7 +114,7 @@ export const commandsApi = async (params: object) => {
 }
 
 /** 新增遥测数据 */
-export const addTelemetry = async (params: object)=> {
+export const addTelemetry = async (params: object) => {
   const data = await request.post('/device/model/telemetry', params)
   return data
 }
@@ -144,91 +144,91 @@ export const delCommands = async (id: string) => {
 }
 
 /** 编辑遥测数据 */
-export const putTelemetry = async (params: object)=> {
+export const putTelemetry = async (params: object) => {
   const data = await request.put('/device/model/telemetry', params)
   return data
 }
 
 /** 新增属性数据 */
-export const addAttributes = async (params: object)=> {
+export const addAttributes = async (params: object) => {
   const data = await request.post('/device/model/attributes', params)
   return data
 }
 
 /** 编辑属性数据 */
-export const putAttributes = async (params: object)=> {
+export const putAttributes = async (params: object) => {
   const data = await request.put('/device/model/attributes', params)
   return data
 }
 
 /** 新增事件数据 */
-export const addEvents = async (params: object)=> {
+export const addEvents = async (params: object) => {
   const data = await request.post('/device/model/events', params)
   return data
 }
 
 /** 编辑事件数据 */
-export const putEvents = async (params: object)=> {
+export const putEvents = async (params: object) => {
   const data = await request.put('/device/model/events', params)
   return data
 }
 
 /** 新增命令数据 */
-export const addCommands = async (params: object)=> {
+export const addCommands = async (params: object) => {
   const data = await request.post('/device/model/commands', params)
   return data
 }
 
 /** 编辑命令数据 */
-export const putCommands = async (params: object)=> {
+export const putCommands = async (params: object) => {
   const data = await request.put('/device/model/commands', params)
   return data
 }
 
 /** 编辑命令数据 */
-export const deviceCustomCommandsList = async (params: object)=> {
+export const deviceCustomCommandsList = async (params: object) => {
   const data = await request.get('/device/model/custom/commands', { params })
   return data
 }
 
 /** 删除自定义命令 */
-export const deviceCustomCommandsDel = async (paramsId: string | number)=> {
+export const deviceCustomCommandsDel = async (paramsId: string | number) => {
   const data = await request.delete(`/device/model/custom/commands/${paramsId}`)
   return data
 }
 
 /** 新建自定义命令 */
-export const deviceCustomCommandsAdd = async (params: object)=> {
+export const deviceCustomCommandsAdd = async (params: object) => {
   const data = await request.post('/device/model/custom/commands', params)
   return data
 }
 
 /** 编辑自定义命令 */
-export const deviceCustomCommandsPut = async (params: object)=> {
+export const deviceCustomCommandsPut = async (params: object) => {
   const data = await request.put('/device/model/custom/commands', params)
   return data
 }
 
 /** 自定义控制列表 */
-export const deviceCustomControlList = async (params: Record<string, unknown>)=> {
+export const deviceCustomControlList = async (params: Record<string, unknown>) => {
   const data = await request.get('/device/model/custom/control', { params })
   return data
 }
 
 /** 删除自定义控制 */
-export const deviceCustomControlDel = async (paramsId: string | number)=> {
+export const deviceCustomControlDel = async (paramsId: string | number) => {
   const data = await request.delete(`/device/model/custom/control/${paramsId}`)
   return data
 }
 
 /** 新建自定义控制 */
-export const deviceCustomControlAdd = async (params: object)=> {
+export const deviceCustomControlAdd = async (params: object) => {
   const data = await request.post('/device/model/custom/control', params)
   return data
 }
 
 /** 编辑自定义命令 */
-export const deviceCustomControlPut = async (params: object)=> {
+export const deviceCustomControlPut = async (params: object) => {
   const data = await request.put('/device/model/custom/control', params)
   return data
 }
@@ -254,14 +254,14 @@ export const getAlarmCount = async (params?: { all_tenants?: boolean }) => {
 }
 
 /** 获取当前系统指标 */
-export const getSystemMetricsCurrent = async (params?: object)=> {
+export const getSystemMetricsCurrent = async (params?: object) => {
   // Assuming the endpoint returns a generic structure or the exact structure is unknown
   const data = await request.get('/system/metrics/current', { params })
   return data
 }
 
 /** 获取当前系统指标 */
-export const getSysVersion = async (params?: object)=> {
+export const getSysVersion = async (params?: object) => {
   // Assuming the endpoint returns a generic structure or the exact structure is unknown
   const data = await request.get('/sys_version', {
     params
@@ -270,7 +270,7 @@ export const getSysVersion = async (params?: object)=> {
 }
 
 /** 获取系统指标历史数据 */
-export const getSystemMetricsHistory = async (params?: object)=> {
+export const getSystemMetricsHistory = async (params?: object) => {
   try {
     const data = await request.get('/system/metrics/history', { params })
     return data

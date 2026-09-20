@@ -43,6 +43,9 @@ const (
 	// External
 	RuleChainExternalMQTTForward = "external.mqtt_forward"
 	RuleChainExternalKafka       = "external.kafka"
+	RuleChainExternalAWSSQS      = "external.aws_sqs"
+	RuleChainExternalAWSSNS      = "external.aws_sns"
+	RuleChainExternalAzureIoTHub = "external.azure_iot_hub"
 )
 
 // 规则链 kind 常量（前端 palette 分组依据）。
@@ -104,6 +107,9 @@ var ruleChainNodeSpecs = []RuleChainNodeSpec{
 	// ---- 外部 ----
 	{Type: RuleChainExternalMQTTForward, Kind: RuleChainKindExternal, Validate: validateMQTTForwardConfig},
 	{Type: RuleChainExternalKafka, Kind: RuleChainKindExternal, Validate: validateKafkaForwardConfig},
+	{Type: RuleChainExternalAWSSQS, Kind: RuleChainKindExternal, Validate: validateAWSSQSConfig},
+	{Type: RuleChainExternalAWSSNS, Kind: RuleChainKindExternal, Validate: validateAWSSNSConfig},
+	{Type: RuleChainExternalAzureIoTHub, Kind: RuleChainKindExternal, Validate: validateAzureIoTHubConfig},
 	// ---- AI（PHASE-D-D7）----
 	{Type: RuleChainAiInference, Kind: RuleChainKindExternal, Validate: validateAiInferenceConfig},
 }
@@ -402,6 +408,50 @@ func validateKafkaForwardConfig(cfg map[string]any) error {
 	topic, _ := cfg["topic"].(string)
 	if strings.TrimSpace(topic) == "" {
 		return fmt.Errorf("kafka config requires topic")
+	}
+	return nil
+}
+
+// validateAWSSQSConfig external.aws_sqs：{queue_url 非空, region 非空}。
+func validateAWSSQSConfig(cfg map[string]any) error {
+	if cfg == nil {
+		return fmt.Errorf("aws_sqs config is required")
+	}
+	queueURL, _ := cfg["queue_url"].(string)
+	if strings.TrimSpace(queueURL) == "" {
+		return fmt.Errorf("aws_sqs config requires queue_url")
+	}
+	region, _ := cfg["region"].(string)
+	if strings.TrimSpace(region) == "" {
+		return fmt.Errorf("aws_sqs config requires region")
+	}
+	return nil
+}
+
+// validateAWSSNSConfig external.aws_sns：{topic_arn 非空, region 非空}。
+func validateAWSSNSConfig(cfg map[string]any) error {
+	if cfg == nil {
+		return fmt.Errorf("aws_sns config is required")
+	}
+	topicARN, _ := cfg["topic_arn"].(string)
+	if strings.TrimSpace(topicARN) == "" {
+		return fmt.Errorf("aws_sns config requires topic_arn")
+	}
+	region, _ := cfg["region"].(string)
+	if strings.TrimSpace(region) == "" {
+		return fmt.Errorf("aws_sns config requires region")
+	}
+	return nil
+}
+
+// validateAzureIoTHubConfig external.azure_iot_hub：{hub_name 非空}。
+func validateAzureIoTHubConfig(cfg map[string]any) error {
+	if cfg == nil {
+		return fmt.Errorf("azure_iot_hub config is required")
+	}
+	hubName, _ := cfg["hub_name"].(string)
+	if strings.TrimSpace(hubName) == "" {
+		return fmt.Errorf("azure_iot_hub config requires hub_name")
 	}
 	return nil
 }

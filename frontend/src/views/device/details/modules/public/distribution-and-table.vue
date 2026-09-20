@@ -295,7 +295,9 @@ const isSubmitDisabled = computed(() => {
   if (payloadDisabled) return true
   if (!formModel.waitForResponse) return false
   const timeoutSeconds = Number(formModel.timeoutSeconds)
-  return props.directMethodOnline === false || !Number.isFinite(timeoutSeconds) || timeoutSeconds < 1 || timeoutSeconds > 30
+  return (
+    props.directMethodOnline === false || !Number.isFinite(timeoutSeconds) || timeoutSeconds < 1 || timeoutSeconds > 30
+  )
 })
 
 const visualTabLabel = computed(() =>

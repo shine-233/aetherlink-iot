@@ -33,6 +33,11 @@ func (*BoardApi) CreateBoard(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
+	if req.ConflictPolicy == nil || *req.ConflictPolicy == "" {
+		if q := c.Query("conflict_policy"); q != "" {
+			req.ConflictPolicy = &q
+		}
+	}
 
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	boardInfo, err := service.GroupApp.Board.CreateBoard(c, &req, userClaims)
@@ -391,3 +396,33 @@ func (*BoardApi) GetDeviceTrend(c *gin.Context) {
 
 	c.Set("data", trend)
 }
+
+// ExportBoardTemplate 导出看板为便携模板描述符（TP-5 资源中心）。
+// @Router /api/v1/board/export/:id [get]
+func (*BoardApi) ExportBoardTemplate(c *gin.Context) {
+	id := c.Param("id")
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	exported, err := service.GroupApp.Board.ExportBoard(id, userClaims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", exported)
+}
+
+// ImportBoardTemplate 导入看板模板至当前租户（TP-5 资源中心）。
+// @Router /api/v1/board/import [post]
+func (*BoardApi) ImportBoardTemplate(c *gin.Context) {
+	var req model.ImportBoardTemplateReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	board, err := service.GroupApp.Board.ImportBoard(&req, userClaims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", board)
+}
+

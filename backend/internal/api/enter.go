@@ -38,6 +38,8 @@ type Controller struct {
 	DataPolicyApi
 	DeviceConfigApi
 	DataScriptApi
+	EntityRelationApi    // P1.1 通用实体关系
+	TelemetryAnalysisApi // P2.2 轻量分析
 	RoleApi
 	CasbinApi
 	NotificationGroupApi
@@ -63,11 +65,16 @@ type Controller struct {
 	DeviceModbusProfileApi
 	AiQueryApi
 	RuleChainApi
-	PluginRegistryApi // PHASE-D-D9 插件框架 gRPC 网关
-	ReportScheduleApi // PHASE-D-D3 定时报表
+	PluginRegistryApi    // PHASE-D-D9 插件框架 gRPC 网关
+	ReportScheduleApi    // PHASE-D-D3 定时报表
 	DeviceCertificateApi // PHASE-D-D5 接入安全 X.509
-	EdgeSyncApi // PHASE-D-D6 边缘计算 2.0
-	AiModelApi  // PHASE-D-D7 AI 2.0 模型中心 + 助手
+	ScadaApi             // P1.3 Widget 与 SCADA 基础层
+	MobileApi            // P1.4 移动端控制与通知
+	EdgeSyncApi          // PHASE-D-D6 边缘计算 2.0
+	LicenseApi           // P3 商业许可证状态
+	BoardProjectApi      // P1.x 看板项目分组
+	EdgeNodeApi          // P1.5 边缘节点注册/心跳/Reconcile
+	AiModelApi           // PHASE-D-D7 AI 2.0 模型中心 + 助手
 	RDIApi
 	PayloadSchemaApi
 	CalculatedFieldApi
@@ -76,6 +83,15 @@ type Controller struct {
 	AssetApi
 	UserTotpApi
 	OidcSsoApi
+	ResourceCenterApi // TP-5 资源中心
+	RateLimitApi      // TB-7 集群限流与多策略配额
+	QueueMonitorApi   // TB-7 多队列隔离监控
+	UnitsApi          // TB-9 单位换算与物理量纲
+	SecretApi         // TB-18 通用 Secrets Storage
+	DeviceClaimApi    // TB-12 设备认领与自动注册
+	IndustrySolutionApi // TB-19 解决方案模板引擎
+	TenantApi         // P3 租户管理与自助开通
+	BillingApi        // P3 商业化计费与用量计量
 }
 
 var (

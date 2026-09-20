@@ -106,11 +106,15 @@ export const deviceDictProtocolService = async (params: CustomAxiosRequestConfig
   return await request.get<DeviceManagement.TreeStructure>('/dict/protocol/service', params)
 }
 /** 接入方式下拉一级菜单 */
-export const deviceDictProtocolServiceFirstLevel = async (params: CustomAxiosRequestConfig & Record<string, unknown>) => {
+export const deviceDictProtocolServiceFirstLevel = async (
+  params: CustomAxiosRequestConfig & Record<string, unknown>
+) => {
   return await request.get<DeviceManagement.ProtocolAndService>('/service/plugin/select', params)
 }
 /** 接入方式下拉二级菜单 */
-export const deviceDictProtocolServiceSecondLevel = async (params: CustomAxiosRequestConfig & Record<string, unknown>) => {
+export const deviceDictProtocolServiceSecondLevel = async (
+  params: CustomAxiosRequestConfig & Record<string, unknown>
+) => {
   return await request.get<DeviceManagement.ServiceList>('/service/access/list', params)
 }
 
@@ -352,12 +356,19 @@ export const expectMessageDelete = async (params: string | number) => {
   return await request.delete(`/expected/data/${params}`)
 }
 
+/** 设备影子命令负载。当前生产下发链路仅支持 command。 */
+export interface DeviceShadowCommandParams {
+  message_type: 'command'
+  payload: unknown
+  ttl_seconds?: number
+}
+
 /** 设备影子消息列表（可按 status 过滤） */
 export const deviceShadowList = async (deviceId: string, params?: object) => {
   return await request.get(`/device/shadow/${deviceId}`, { params })
 }
-/** 设置设备影子消息：设备在线直接下发，离线写入缓存队列 */
-export const deviceShadowSet = async (deviceId: string, params: object) => {
+/** 设置设备影子命令：设备在线直接下发，离线写入缓存队列 */
+export const deviceShadowSet = async (deviceId: string, params: DeviceShadowCommandParams) => {
   return await request.post(`/device/shadow/${deviceId}`, params)
 }
 /** 取消待投递的影子消息 */
@@ -635,3 +646,23 @@ export const getDeviceOnlineStatus = async (deviceId: string) => {
 /** 设备调试日志开关 */
 
 /** 设备调试日志查询 */
+
+/** TB-12 设备认领：签发一次性认领令牌（明文 claim_key 只在本响应出现一次） */
+export const issueDeviceClaimToken = async (params: { device_id: string; ttl_seconds?: number }) => {
+  return await request.post('/device/claim-tokens', params)
+}
+
+/** TB-12 设备认领：签发方回查令牌历史（无明文无哈希） */
+export const listDeviceClaimTokens = async (device_id: string) => {
+  return await request.get('/device/claim-tokens', { params: { device_id } })
+}
+
+/** TB-12 设备认领：撤销 active 令牌（consumed/revoked/replaced 终态不可逆） */
+export const revokeDeviceClaimToken = async (token_id: string) => {
+  return await request.delete(`/device/claim-tokens/${token_id}`)
+}
+
+/** TB-12 设备认领：认领设备（设备从签发租户转移到当前租户） */
+export const redeemDeviceClaim = async (params: { device_number: string; claim_key: string }) => {
+  return await request.post('/device/claim-tokens/redeem', params)
+}

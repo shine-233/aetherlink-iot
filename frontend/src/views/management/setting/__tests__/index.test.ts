@@ -84,7 +84,7 @@ const NTabsStub = defineComponent({
         h(
           'div',
           { class: 'n-tabs-stub__triggers' },
-          paneSpecs.map(spec =>
+          paneSpecs.map((spec) =>
             h(
               'button',
               {
@@ -163,7 +163,7 @@ describe('management/setting/index.vue', () => {
     const wrapper = mountComponent()
 
     expect(wrapper.classes()).toContain('overflow-hidden')
-    expect(wrapper.findAll('.n-tab-pane-stub').map(pane => pane.attributes('data-visible'))).toEqual([
+    expect(wrapper.findAll('.n-tab-pane-stub').map((pane) => pane.attributes('data-visible'))).toEqual([
       'true',
       'false',
       'false',
@@ -180,19 +180,21 @@ describe('management/setting/index.vue', () => {
 
   it('renders all setting panes in the expected order', () => {
     const wrapper = mountComponent()
-    const paneNames = wrapper.findAll('.n-tab-pane-stub').map(pane => pane.attributes('data-pane-name'))
-    expect(paneNames).toEqual(paneSpecs.map(spec => spec.name))
+    const paneNames = wrapper.findAll('.n-tab-pane-stub').map((pane) => pane.attributes('data-pane-name'))
+    expect(paneNames).toEqual(paneSpecs.map((spec) => spec.name))
   })
 
   it('renders translated labels for each setting pane', () => {
     const wrapper = mountComponent()
-    const labels = wrapper.findAll('.n-tab-pane-stub').map(pane => pane.attributes('data-pane-tab'))
-    expect(labels).toEqual(paneSpecs.map(spec => spec.label))
+    const labels = wrapper.findAll('.n-tab-pane-stub').map((pane) => pane.attributes('data-pane-tab'))
+    expect(labels).toEqual(paneSpecs.map((spec) => spec.label))
   })
 
   it('renders each setting section inside its matching pane', () => {
     const wrapper = mountComponent()
-    expect(wrapper.get('[data-visible="true"] [data-setting-section]').attributes('data-setting-section')).toBe('data-clear')
+    expect(wrapper.get('[data-visible="true"] [data-setting-section]').attributes('data-setting-section')).toBe(
+      'data-clear'
+    )
   })
 
   it('switches visible content when a different tab is selected', async () => {
@@ -206,7 +208,9 @@ describe('management/setting/index.vue', () => {
 
     const brandingTrigger = wrapper.get('[data-tab-trigger="branding"]')
     await brandingTrigger.trigger('click')
-    expect(wrapper.get('[data-visible="true"] [data-setting-section]').attributes('data-setting-section')).toBe('branding')
+    expect(wrapper.get('[data-visible="true"] [data-setting-section]').attributes('data-setting-section')).toBe(
+      'branding'
+    )
 
     const deadLetterTrigger = wrapper.get('[data-tab-trigger="telemetry-dead-letter"]')
     await deadLetterTrigger.trigger('click')
@@ -216,10 +220,14 @@ describe('management/setting/index.vue', () => {
 
     const functionTrigger = wrapper.get('[data-tab-trigger="function"]')
     await functionTrigger.trigger('click')
-    expect(wrapper.get('[data-visible="true"] [data-setting-section]').attributes('data-setting-section')).toBe('function')
+    expect(wrapper.get('[data-visible="true"] [data-setting-section]').attributes('data-setting-section')).toBe(
+      'function'
+    )
 
     const calcFieldTrigger = wrapper.get('[data-tab-trigger="calc-field"]')
     await calcFieldTrigger.trigger('click')
-    expect(wrapper.get('[data-visible="true"] [data-setting-section]').attributes('data-setting-section')).toBe('calc-field')
+    expect(wrapper.get('[data-visible="true"] [data-setting-section]').attributes('data-setting-section')).toBe(
+      'calc-field'
+    )
   })
 })

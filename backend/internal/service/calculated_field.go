@@ -162,8 +162,18 @@ func (*CalculatedFieldService) UpdateCalculatedField(id string, req *model.Calcu
 	if err != nil {
 		return nil, err
 	}
-	if validateErr := validateCalculatedFieldValue(req.OutputKey, req.Expression); validateErr != nil {
-		return nil, validateErr
+	fieldType := req.Type
+	if fieldType == "" {
+		fieldType = types.TypeSimple
+	}
+	if fieldType == types.TypeSimple {
+		if validateErr := validateCalculatedFieldValue(req.OutputKey, req.Expression); validateErr != nil {
+			return nil, validateErr
+		}
+	} else {
+		if validateErr := types.ValidateFieldConfig(fieldType, req.Config); validateErr != nil {
+			return nil, errcode.NewWithMessage(errcode.CodeParamError, validateErr.Error())
+		}
 	}
 	if _, dbErr := dal.GetCalculatedFieldForScope(id, tenantID); dbErr != nil {
 		if errIsRecordNotFound(dbErr) {
@@ -181,6 +191,8 @@ func (*CalculatedFieldService) UpdateCalculatedField(id string, req *model.Calcu
 		"device_template_id": req.DeviceTemplateID,
 		"output_key":         req.OutputKey,
 		"expression":         req.Expression,
+		"type":               fieldType,
+		"config":             req.Config,
 		"remark":             req.Remark,
 		"updated_at":         time.Now().UTC(),
 	}

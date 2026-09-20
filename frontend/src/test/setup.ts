@@ -4,16 +4,16 @@
  * 关键注意事项：全局 mock 会影响全部单测，新增默认行为前需要确认不会隐藏真实问题。
  * 重构建议：可把全局 mock、业务 fixture 和测试工具分层，减少不同测试之间的隐式耦合。
  */
-import { config } from '@vue/test-utils';
-import { afterEach, vi } from 'vitest';
-import { testI18n } from './i18n';
-import { dialogMock, messageMock } from './hoisted-mocks';
-import { ensureLocaleReady } from '@/locales';
+import { config } from '@vue/test-utils'
+import { afterEach, vi } from 'vitest'
+import { testI18n } from './i18n'
+import { dialogMock, messageMock } from './hoisted-mocks'
+import { ensureLocaleReady } from '@/locales'
 
 // 生产在挂载前 await ensureLocaleReady() 装载启动语言目录；语言包改为按需
 // 懒加载后，真实 $t 实例默认 messages 为空、会退化成"返回 key"。测试环境
 // 同样先预装载 en-us 目录，保证直接导入真实 $t 的业务模块断言到译文。
-await ensureLocaleReady();
+await ensureLocaleReady()
 
 const mockedCurrentRoute = vi.hoisted(() => ({
   value: {
@@ -22,13 +22,13 @@ const mockedCurrentRoute = vi.hoisted(() => ({
     fullPath: '/',
     meta: { constant: true }
   }
-}));
+}))
 
 vi.mock('@/router/routes', () => ({
   ROOT_ROUTE: { name: 'root', path: '/', meta: { constant: true } },
   createRoutes: () => ({ constantVueRoutes: [], authRoutes: [] }),
   getAuthVueRoutes: (routes: unknown[]) => routes
-}));
+}))
 
 vi.mock('@/router', () => ({
   router: {
@@ -42,67 +42,67 @@ vi.mock('@/router', () => ({
     isReady: vi.fn(() => Promise.resolve())
   },
   setupRouter: vi.fn(() => Promise.resolve())
-}));
+}))
 
 // Mock virtual:svg-icons-register (Vite plugin virtual module)
-vi.mock('virtual:svg-icons-register', () => ({}));
+vi.mock('virtual:svg-icons-register', () => ({}))
 
 // Mock SvgIcon component to avoid virtual:svg-icons-register import issues
 vi.mock('@/components/custom/svg-icon.vue', () => ({
   default: { template: '<svg><slot /></svg>' }
-}));
+}))
 
 // 全局 mock i18n
 config.global.mocks = {
   $t: (key: string) => key
-};
+}
 
-config.global.plugins = [testI18n];
+config.global.plugins = [testI18n]
 
-config.global.renderStubDefaultSlot = true;
+config.global.renderStubDefaultSlot = true
 
 // 全局 stub 常用组件
 config.global.stubs = {
   'router-link': true
-};
+}
 
 // Mock window.$message (Naive UI discrete API)
-(globalThis as any).$message = {
+;(globalThis as any).$message = {
   success: messageMock.success,
   error: messageMock.error,
   warning: messageMock.warning,
   info: messageMock.info,
   loading: messageMock.loading
-};
+}
 
-(globalThis as any).$dialog = dialogMock;
+;(globalThis as any).$dialog = dialogMock
 
 // Mock localStorage
 const localStorageMock = (() => {
-  let store: Record<string, string> = {};
+  let store: Record<string, string> = {}
   return {
     getItem: (key: string) => store[key] || null,
     setItem: (key: string, value: string) => {
-      store[key] = value;
+      store[key] = value
     },
     removeItem: (key: string) => {
-      delete store[key];
+      delete store[key]
     },
     clear: () => {
-      store = {};
+      store = {}
     }
-  };
-})();
+  }
+})()
 
-Object.defineProperty(globalThis, 'localStorage', { value: localStorageMock, writable: true, configurable: true });
+Object.defineProperty(globalThis, 'localStorage', { value: localStorageMock, writable: true, configurable: true })
 
 class ResizeObserverMock {
-  observe = vi.fn();
-  unobserve = vi.fn();
-  disconnect = vi.fn();
+  observe = vi.fn()
+  unobserve = vi.fn()
+  disconnect = vi.fn()
 }
 
-Object.defineProperty(globalThis, 'ResizeObserver', { value: ResizeObserverMock, writable: true, configurable: true });
+Object.defineProperty(globalThis, 'ResizeObserver', { value: ResizeObserverMock, writable: true, configurable: true })
 
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
@@ -117,7 +117,7 @@ Object.defineProperty(window, 'matchMedia', {
     removeEventListener: vi.fn(),
     dispatchEvent: vi.fn()
   }))
-});
+})
 
 // Components under test may start a lazy import while Vue is flushing an
 // update. Wait for that import chain before Vitest tears down the file's

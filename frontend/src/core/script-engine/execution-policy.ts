@@ -32,8 +32,6 @@ export function assertScriptExecutionAllowed(source: ScriptExecutionSource): voi
     return
   }
   if (!allowImportedConfigScripts) {
-    throw new Error(
-      `${SCRIPT_IMPORTED_CONFIG_BLOCKED}: scripts from imported board configs are disabled by policy`
-    )
+    throw new Error(`${SCRIPT_IMPORTED_CONFIG_BLOCKED}: scripts from imported board configs are disabled by policy`)
   }
 }

@@ -45,7 +45,7 @@ func DeleteBoard(id string, tenantID string) error {
 		return err
 	}
 	if r.RowsAffected == 0 {
-		return nil
+		return gorm.ErrRecordNotFound
 	}
 	return nil
 }
@@ -126,6 +126,42 @@ func boardListByScopes(boards *model.GetBoardListByPageReq, scopes []string) (in
 	if boards.VisType != nil && *boards.VisType != "" {
 		queryBuilder = queryBuilder.Where(q.VisType.Eq(*boards.VisType))
 	}
+
+	// 看板项目分组过滤：先解析项目成员看板 ID，再按 ID 集合过滤。
+	// scopes 恰好一个租户时成员查找限租户；SYS_ADMIN 全量视图时不限。
+	// "none" 表示内置项目（不落库的默认分组）= 不属于任何项目的看板。
+	if boards.ProjectID != nil {
+		projectID := strings.TrimSpace(*boards.ProjectID)
+		if projectID != "" {
+			tenantForProject := ""
+			if len(scopes) == 1 {
+				tenantForProject = scopes[0]
+			}
+			if projectID == "none" {
+				// 内置项目 = 不属于任何项目的看板。成员表可能为空：此时无排除集，
+				// 全部看板都属内置项目（gen 的 NotIn 不接受空参数，必须分支处理）。
+				memberIDs, merr := ListAllProjectMemberBoardIDs(tenantForProject)
+				if merr != nil {
+					logrus.Error(merr)
+					return 0, nil, merr
+				}
+				if len(memberIDs) > 0 {
+					queryBuilder = queryBuilder.Where(q.ID.NotIn(memberIDs...))
+				}
+			} else {
+				memberIDs, merr := ListBoardIDsByProject(projectID, tenantForProject)
+				if merr != nil {
+					logrus.Error(merr)
+					return 0, nil, merr
+				}
+				if len(memberIDs) == 0 {
+					return 0, []interface{}{}, nil
+				}
+				queryBuilder = queryBuilder.Where(q.ID.In(memberIDs...))
+			}
+		}
+	}
+
 	count, err := queryBuilder.Count()
 	if err != nil {
 		logrus.Error(err)
@@ -213,6 +249,25 @@ func (BoardQuery) UpdateHomeFlagN(ctx context.Context, tenantid string) error {
 		logrus.Error(ctx, "update failed:", err)
 	}
 	return err
+}
+
+// GetBoardByNameAndTenant 查询指定租户下指定名称的看板（TB-15）。
+func (BoardQuery) GetBoardByNameAndTenant(ctx context.Context, tenantID, name string) (*model.Board, error) {
+	var b model.Board
+	err := global.DB.WithContext(ctx).Where("tenant_id = ? AND name = ?", tenantID, name).First(&b).Error
+	if err != nil {
+		return nil, err
+	}
+	return &b, nil
+}
+
+// GetBoardNamesMatchingBase 查询指定租户下 baseName 或 baseName (N) 形式的看板名称列表（TB-15）。
+func (BoardQuery) GetBoardNamesMatchingBase(ctx context.Context, tenantID, baseName string) ([]string, error) {
+	var names []string
+	err := global.DB.WithContext(ctx).Model(&model.Board{}).
+		Where("tenant_id = ? AND (name = ? OR name LIKE ?)", tenantID, baseName, baseName+" (%)").
+		Pluck("name", &names).Error
+	return names, err
 }
 
 // GetDeviceTrend returns hourly online and offline device counts for the tenant.

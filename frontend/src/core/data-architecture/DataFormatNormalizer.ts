@@ -120,23 +120,12 @@ export class DataFormatNormalizer {
     }
     return Object.keys(data).some((key) => {
       const value = data[key] as UnknownRecord | null | undefined
-      return !!(
-        value &&
-        typeof value === 'object' &&
-        'type' in value &&
-        'data' in value &&
-        'metadata' in value
-      )
+      return !!(value && typeof value === 'object' && 'type' in value && 'data' in value && 'metadata' in value)
     })
   }
 
   private static isEditorManagerFormat(data: unknown): boolean {
-    return !!(
-      isRecord(data) &&
-      'type' in data &&
-      'config' in data &&
-      !('item' in data && 'processing' in data)
-    )
+    return !!(isRecord(data) && 'type' in data && 'config' in data && !('item' in data && 'processing' in data))
   }
 
   private static convertFromSimpleConfigEditor(data: unknown, componentId: string): StandardDataSourceConfig {
@@ -204,7 +193,7 @@ export class DataFormatNormalizer {
 
   private static convertToSimpleConfigEditor(standardData: StandardDataSourceConfig): unknown {
     return {
-      dataSources: standardData.dataSources.map(ds => ({
+      dataSources: standardData.dataSources.map((ds) => ({
         sourceId: ds.sourceId,
         dataItems: ds.dataItems,
         mergeStrategy: ds.mergeStrategy
@@ -215,7 +204,7 @@ export class DataFormatNormalizer {
   }
 
   private static convertToImportExport(standardData: StandardDataSourceConfig): unknown {
-    const dataItems = standardData.dataSources.flatMap(ds => ds.dataItems.map(item => item.item))
+    const dataItems = standardData.dataSources.flatMap((ds) => ds.dataItems.map((item) => item.item))
 
     return {
       dataSourceConfig: {
@@ -228,7 +217,7 @@ export class DataFormatNormalizer {
   private static convertToCard2Executor(standardData: StandardDataSourceConfig): unknown {
     const result: Record<string, unknown> = {}
 
-    standardData.dataSources.forEach(ds => {
+    standardData.dataSources.forEach((ds) => {
       ds.dataItems.forEach((item, index) => {
         // card2 executor 不支持一个 sourceId 下挂数组，因此多项时追加索引展开。
         const key = ds.dataItems.length === 1 ? ds.sourceId : `${ds.sourceId}_${index}`

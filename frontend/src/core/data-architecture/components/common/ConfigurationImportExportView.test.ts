@@ -143,7 +143,8 @@ vi.mock('naive-ui', () => ({
   NAlert: defineComponent({
     props: ['type', 'title'],
     setup(props, { slots }) {
-      return () => h('div', { class: 'n-alert-stub', 'data-type': props.type }, [h('strong', props.title), slots.default?.()])
+      return () =>
+        h('div', { class: 'n-alert-stub', 'data-type': props.type }, [h('strong', props.title), slots.default?.()])
     }
   }),
   NDropdown: defineComponent({
@@ -238,8 +239,7 @@ vi.mock('./SingleDataSourceImportPreviewModal.vue', () => ({
               class: 'n-select-stub',
               'data-placeholder': 'configuration.import.selectTargetSlot',
               value: props.selectedTargetSlot,
-              onChange: (event: Event) =>
-                emit('update:selectedTargetSlot', (event.target as HTMLSelectElement).value)
+              onChange: (event: Event) => emit('update:selectedTargetSlot', (event.target as HTMLSelectElement).value)
             },
             (props.targetSlotOptions as any[]).map((option) => h('option', { value: option.value }, option.label))
           ),
@@ -303,7 +303,7 @@ const setFileInput = async (wrapper: VueWrapper, file: File) => {
 const jsonFile = (name: string, data: unknown) => new File([JSON.stringify(data)], name, { type: 'application/json' })
 
 const buttonByText = (wrapper: VueWrapper, text: string) => {
-  const button = wrapper.findAll('button').find(item => item.text().includes(text))
+  const button = wrapper.findAll('button').find((item) => item.text().includes(text))
   if (!button) throw new Error(`Button not found: ${text}`)
   return button
 }
@@ -414,11 +414,7 @@ describe('ConfigurationImportExportView.vue', () => {
     await wrapper.get('.dropdown-full').trigger('click')
     await flushPromises()
 
-    expect(hoisted.exportConfiguration).toHaveBeenCalledWith(
-      'component-abcdef123456',
-      configurationManager,
-      'rdi-card'
-    )
+    expect(hoisted.exportConfiguration).toHaveBeenCalledWith('component-abcdef123456', configurationManager, 'rdi-card')
     expect(URL.createObjectURL).toHaveBeenCalledWith(expect.any(Blob))
     expect(clickSpy).toHaveBeenCalledTimes(1)
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:configuration')
@@ -432,9 +428,7 @@ describe('ConfigurationImportExportView.vue', () => {
     await wrapper.get('.dropdown-full').trigger('click')
     await flushPromises()
 
-    expect(hoisted.messageError).toHaveBeenCalledWith(
-      'configuration.export.error: configuration.export.noManagerError'
-    )
+    expect(hoisted.messageError).toHaveBeenCalledWith('configuration.export.error: configuration.export.noManagerError')
     expect(wrapper.emitted('operationError')?.[0]?.[0]).toBeInstanceOf(Error)
   })
 
@@ -450,7 +444,7 @@ describe('ConfigurationImportExportView.vue', () => {
     expect(wrapper.text()).toContain('backup')
     expect(wrapper.text()).toContain('configuration.export.noData')
 
-    const sourceCard = wrapper.findAll('.datasource-item').find(card => card.text().includes('main'))
+    const sourceCard = wrapper.findAll('.datasource-item').find((card) => card.text().includes('main'))
     if (!sourceCard) throw new Error('main data source card not found')
 
     await sourceCard.trigger('click')
@@ -687,9 +681,7 @@ describe('ConfigurationImportExportView.vue', () => {
     try {
       await setFileInput(wrapper, jsonFile('config.json', { version: '1.0.0' }))
 
-      expect(hoisted.messageError).toHaveBeenCalledWith(
-        expect.stringContaining('configuration.import.previewError')
-      )
+      expect(hoisted.messageError).toHaveBeenCalledWith(expect.stringContaining('configuration.import.previewError'))
       expect(wrapper.emitted('operationError')?.[0]?.[0]).toBeInstanceOf(Error)
     } finally {
       globalThis.FileReader = OriginalFileReader

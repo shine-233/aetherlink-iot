@@ -17,7 +17,7 @@ const hoisted = vi.hoisted(() => ({
 
 vi.mock('@/service/api/device', () => ({
   deviceList: hoisted.deviceList,
-  deviceMapTelemetry: hoisted.deviceMapTelemetry,
+  deviceMapTelemetry: hoisted.deviceMapTelemetry
 }))
 
 vi.mock('@/locales', () => ({
@@ -48,14 +48,52 @@ const mountComponent = (props = {}) => {
     props,
     global: {
       stubs: {
-        NCard: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } }),
-        NInput: defineComponent({ props: { value: { default: '' } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NSpace: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NTag: defineComponent({ setup(_, { slots }) { return () => h('span', slots.default?.()) } }),
-        NEmpty: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NSpin: defineComponent({ props: { show: Boolean }, setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NPagination: defineComponent({ props: ['page', 'pageCount'], emits: ['update:page'], setup() { return () => h('div') } }),
+        NCard: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NButton: defineComponent({
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default?.())
+          }
+        }),
+        NInput: defineComponent({
+          props: { value: { default: '' } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NSpace: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NTag: defineComponent({
+          setup(_, { slots }) {
+            return () => h('span', slots.default?.())
+          }
+        }),
+        NEmpty: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NSpin: defineComponent({
+          props: { show: Boolean },
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NPagination: defineComponent({
+          props: ['page', 'pageCount'],
+          emits: ['update:page'],
+          setup() {
+            return () => h('div')
+          }
+        })
       }
     }
   })
@@ -85,7 +123,7 @@ describe('EquipmentMap', () => {
   })
 
   afterEach(() => {
-    mountedWrappers.forEach(w => w.unmount())
+    mountedWrappers.forEach((w) => w.unmount())
     mountedWrappers.length = 0
   })
 
@@ -103,11 +141,14 @@ describe('EquipmentMap', () => {
 
   it('should compute onlineCount and alarmCount', async () => {
     hoisted.deviceList.mockResolvedValue({
-      data: { list: [
-        { id: '1', is_online: 1, warn_status: 'Y' },
-        { id: '2', is_online: 0, warn_status: 'N' },
-        { id: '3', is_online: 1, warn_status: 'N' }
-      ], total: 3 },
+      data: {
+        list: [
+          { id: '1', is_online: 1, warn_status: 'Y' },
+          { id: '2', is_online: 0, warn_status: 'N' },
+          { id: '3', is_online: 1, warn_status: 'N' }
+        ],
+        total: 3
+      },
       error: null
     })
     const wrapper = mountComponent()

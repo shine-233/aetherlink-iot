@@ -9,10 +9,7 @@
  * - 后续如果补测试，可用注入的内存 adapter 覆盖 save/preview/publish 三条动作路径，不需要挂载 AppFrame。
  */
 import type { UpdateDashboardData } from '@/service/api/thingsvis'
-import {
-  buildHostSaveUpdatePayload,
-  type HostSaveBridgeOptions
-} from '@/components/thingsvis/thingsvisHostSaveBridge'
+import { buildHostSaveUpdatePayload, type HostSaveBridgeOptions } from '@/components/thingsvis/thingsvisHostSaveBridge'
 
 type HostActionsLogger = {
   error: (...args: any[]) => void

@@ -116,7 +116,7 @@ async function loadTenantOptions() {
     const response = await fetchUserList({ page: 1, page_size: 1000 })
     const rows = response?.data?.list ?? []
     const seen = new Set<string>()
-    tenantOptions.value = rows.flatMap(row => {
+    tenantOptions.value = rows.flatMap((row) => {
       const tenantId = String(row.tenant_id ?? '').trim()
       if (!tenantId || seen.has(tenantId) || (row.authority && row.authority !== 'TENANT_ADMIN')) return []
       seen.add(tenantId)
@@ -151,7 +151,7 @@ async function loadBoards() {
   loading.value = true
 
   try {
-    const result = await providerFacade.execute(provider =>
+    const result = await providerFacade.execute((provider) =>
       provider.listDashboards({
         projectId: NATIVE_BOARD_PROJECT_ID,
         page: snapshot.page,
@@ -242,7 +242,7 @@ async function handleCreate() {
 
   creating.value = true
   try {
-    const result = await providerFacade.execute(provider =>
+    const result = await providerFacade.execute((provider) =>
       provider.createDashboard({
         name,
         description: createForm.description,
@@ -270,7 +270,7 @@ async function handleDelete(id: string) {
 
   deletingBoardId.value = id
   try {
-    const result = await providerFacade.execute(provider => provider.deleteDashboard(id))
+    const result = await providerFacade.execute((provider) => provider.deleteDashboard(id))
     if (!result.ok) {
       message.error($t('common.deleteFailed'))
       return
@@ -288,12 +288,12 @@ async function handleDelete(id: string) {
 
 async function handlePublish(id: string) {
   if (!canCreate.value || publishingBoardId.value) return
-  const board = boards.value.find(item => item.id === id)
+  const board = boards.value.find((item) => item.id === id)
   if (!board || board.published) return
 
   publishingBoardId.value = id
   try {
-    const result = await providerFacade.execute(provider => provider.publishDashboard(id))
+    const result = await providerFacade.execute((provider) => provider.publishDashboard(id))
     if (!result.ok) {
       message.error($t('rdi.thingsvis.publishFailed'))
       return
@@ -413,17 +413,10 @@ onBeforeUnmount(() => {
                 </NButton>
               </div>
               <div v-if="canCreate" class="mt-2 flex justify-end gap-2" @click.stop>
-                <NButton
-                  size="small"
-                  data-testid="native-board-edit-button"
-                  @click.stop="editBoard(board.id)"
-                >
+                <NButton size="small" data-testid="native-board-edit-button" @click.stop="editBoard(board.id)">
                   {{ $t('custom.nativeBoards.edit') }}
                 </NButton>
-                <NPopconfirm
-                  :disabled="Boolean(deletingBoardId)"
-                  @positive-click="handleDelete(board.id)"
-                >
+                <NPopconfirm :disabled="Boolean(deletingBoardId)" @positive-click="handleDelete(board.id)">
                   <template #trigger>
                     <NButton
                       size="small"

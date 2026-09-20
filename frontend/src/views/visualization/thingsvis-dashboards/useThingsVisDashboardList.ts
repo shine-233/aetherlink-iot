@@ -65,10 +65,14 @@ export const useThingsVisDashboardList = (options: {
     queuedThumbnailDashboards.clear()
     if (queued.length === 0) return
     const loadSeq = thumbnailLoadSeq
-    void loadDashboardThumbnails(queued, (dashboardId, thumbnail) => {
-      if (loadSeq !== thumbnailLoadSeq) return
-      updateThumbnail(dashboardId, thumbnail)
-    }, options.providerId.value)
+    void loadDashboardThumbnails(
+      queued,
+      (dashboardId, thumbnail) => {
+        if (loadSeq !== thumbnailLoadSeq) return
+        updateThumbnail(dashboardId, thumbnail)
+      },
+      options.providerId.value
+    )
   }
 
   const requestThumbnail = (dashboard: VisualizationDashboardSummary) => {
@@ -94,7 +98,7 @@ export const useThingsVisDashboardList = (options: {
     }
 
     try {
-      const result = await provider.execute(current => current.getProject(options.projectId.value))
+      const result = await provider.execute((current) => current.getProject(options.projectId.value))
       if (result.ok) {
         project.value = result.data
         return true
@@ -112,11 +116,13 @@ export const useThingsVisDashboardList = (options: {
 
     loading.value = true
     try {
-      const result = await provider.execute(current => current.listDashboards({
-        projectId: options.projectId.value,
-        page: 1,
-        limit: 100
-      }))
+      const result = await provider.execute((current) =>
+        current.listDashboards({
+          projectId: options.projectId.value,
+          page: 1,
+          limit: 100
+        })
+      )
 
       if (result.ok) {
         syncDashboardList(result.data.items)

@@ -39,11 +39,23 @@ vi.mock('@vueuse/core', () => ({
 }))
 
 vi.mock('./market-template-card.vue', () => ({
-  default: defineComponent({ props: ['template'], emits: ['install', 'view-detail'], setup(_, { slots }) { return () => h('div', slots.default?.()) } })
+  default: defineComponent({
+    props: ['template'],
+    emits: ['install', 'view-detail'],
+    setup(_, { slots }) {
+      return () => h('div', slots.default?.())
+    }
+  })
 }))
 
 vi.mock('./market-template-drawer.vue', () => ({
-  default: defineComponent({ props: ['visible', 'templateId'], emits: ['update:visible', 'install'], setup(_, { slots }) { return () => h('div', slots.default?.()) } })
+  default: defineComponent({
+    props: ['visible', 'templateId'],
+    emits: ['update:visible', 'install'],
+    setup(_, { slots }) {
+      return () => h('div', slots.default?.())
+    }
+  })
 }))
 
 vi.mock('./market-login-modal.vue', () => ({
@@ -70,15 +82,58 @@ const mountComponent = (props = {}) => {
     global: {
       stubs: {
         MarketLoginModal: false,
-        NInput: defineComponent({ props: ['value', 'placeholder', 'clearable'], emits: ['update:value', 'keyup'], setup() { return () => h('input') } }),
-        NSelect: defineComponent({ props: ['value', 'options', 'clearable', 'placeholder'], emits: ['update:value'], setup() { return () => h('div') } }),
-        NSpace: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NSpin: defineComponent({ props: ['show'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NGrid: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NGi: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NEmpty: defineComponent({ setup() { return () => h('div') } }),
-        NPagination: defineComponent({ props: ['page', 'pageSize', 'itemCount'], emits: ['update:page'], setup() { return () => h('div') } }),
-        NIcon: defineComponent({ setup(_, { slots }) { return () => h('span', slots.default?.()) } })
+        NInput: defineComponent({
+          props: ['value', 'placeholder', 'clearable'],
+          emits: ['update:value', 'keyup'],
+          setup() {
+            return () => h('input')
+          }
+        }),
+        NSelect: defineComponent({
+          props: ['value', 'options', 'clearable', 'placeholder'],
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NSpace: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NSpin: defineComponent({
+          props: ['show'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NGrid: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NGi: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NEmpty: defineComponent({
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NPagination: defineComponent({
+          props: ['page', 'pageSize', 'itemCount'],
+          emits: ['update:page'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NIcon: defineComponent({
+          setup(_, { slots }) {
+            return () => h('span', slots.default?.())
+          }
+        })
       }
     }
   })
@@ -114,7 +169,13 @@ describe('device/config/modules/market-template-list.vue', () => {
       page: 1,
       page_size: 12
     })
-    expect(state.categoryOptions.map((option: any) => option.value)).toEqual(['IoT', '工业', '农业', '智慧城市', '其他'])
+    expect(state.categoryOptions.map((option: any) => option.value)).toEqual([
+      'IoT',
+      '工业',
+      '农业',
+      '智慧城市',
+      '其他'
+    ])
     expect(state.sortOptions.map((option: any) => option.value)).toEqual(['latest', 'hottest'])
     expect(hoisted.getMarketTemplates).toHaveBeenCalledWith({
       page: 1,

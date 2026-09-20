@@ -53,6 +53,27 @@ func CreateOTAUpgradeTaskWithDetail(req *model.CreateOTAUpgradeTaskReq) ([]*mode
 	if task.TargetMode == "" {
 		task.TargetMode = "explicit"
 	}
+	if req.RolloutRatePerMinute != nil && *req.RolloutRatePerMinute > 0 {
+		task.RolloutRatePerMinute = *req.RolloutRatePerMinute
+	}
+	if req.AbortFailureRatePercent != nil {
+		task.AbortFailureRatePercent = req.AbortFailureRatePercent
+	}
+	if req.TimeoutSeconds != nil && *req.TimeoutSeconds > 0 {
+		task.TimeoutSeconds = *req.TimeoutSeconds
+	}
+	if req.ScheduledAt != nil && strings.TrimSpace(*req.ScheduledAt) != "" {
+		if st, err := time.Parse(time.RFC3339, strings.TrimSpace(*req.ScheduledAt)); err == nil {
+			task.ScheduledAt = &st
+			if st.After(t) {
+				task.Status = "scheduled"
+			}
+		}
+	}
+	if task.TimeoutSeconds > 0 {
+		tTimeout := t.Add(time.Duration(task.TimeoutSeconds) * time.Second)
+		task.TimeoutAt = &tTimeout
+	}
 
 	for _, v := range req.DeviceIdList {
 		detail := &model.OtaUpgradeTaskDetail{}

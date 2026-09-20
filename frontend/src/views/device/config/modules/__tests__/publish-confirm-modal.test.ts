@@ -34,13 +34,51 @@ const mountComponent = (props = {}) => {
     props,
     global: {
       stubs: {
-        NModal: defineComponent({ props: ['show'], emits: ['update:show'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NForm: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NFormItem: defineComponent({ props: ['label', 'path'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NInput: defineComponent({ props: ['value', 'type', 'placeholder', 'maxlength', 'clearable'], emits: ['update:value'], setup() { return () => h('input') } }),
-        NSelect: defineComponent({ props: ['value', 'options', 'clearable', 'placeholder'], emits: ['update:value'], setup() { return () => h('div') } }),
-        NButton: defineComponent({ props: ['type', 'loading'], emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } }),
-        NAlert: defineComponent({ props: ['type'], setup(_, { slots }) { return () => h('div', slots.default?.()) } })
+        NModal: defineComponent({
+          props: ['show'],
+          emits: ['update:show'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NForm: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NFormItem: defineComponent({
+          props: ['label', 'path'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NInput: defineComponent({
+          props: ['value', 'type', 'placeholder', 'maxlength', 'clearable'],
+          emits: ['update:value'],
+          setup() {
+            return () => h('input')
+          }
+        }),
+        NSelect: defineComponent({
+          props: ['value', 'options', 'clearable', 'placeholder'],
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NButton: defineComponent({
+          props: ['type', 'loading'],
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default?.())
+          }
+        }),
+        NAlert: defineComponent({
+          props: ['type'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        })
       }
     }
   })
@@ -89,7 +127,13 @@ describe('device/config/modules/publish-confirm-modal.vue', () => {
       'author',
       'description'
     ])
-    expect(state.categoryOptions.map((option: any) => option.value)).toEqual(['IoT', '工业', '农业', '智慧城市', '其他'])
+    expect(state.categoryOptions.map((option: any) => option.value)).toEqual([
+      'IoT',
+      '工业',
+      '农业',
+      '智慧城市',
+      '其他'
+    ])
   })
 
   it('initializes with visible false', async () => {

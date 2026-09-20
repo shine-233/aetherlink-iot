@@ -1,12 +1,16 @@
 // 文件用途：设备影子消息服务层，处理离线命令缓存的设置、查询、取消和上线投递。
 // 核心逻辑：设备在线时命令直接走下发链路；离线时写入影子队列，设备重新上线后自动投递。
 // 关键注意事项：影子消息是核心差异化功能（ROADMAP A3）——解决"设备离线时下发命令失败/静默丢失"痛点；
-//   上线投递挂靠 uplink 在线钩子与 status_flow 状态切换；TTL 过期由 cron 定时清理。
+//
+//	上线投递挂靠 uplink 在线钩子与 status_flow 状态切换；TTL 过期由 cron 定时清理。
 package service
 
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"aetherlink-iot/backend/internal/dal"
@@ -16,16 +20,19 @@ import (
 
 	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 const deviceShadowDefaultTTLSeconds = 86400
+
+var errUnsupportedShadowMessageType = errors.New("unsupported shadow message type")
 
 // DeviceShadow 设备影子服务入口。
 type DeviceShadow struct{}
 
 // SetDeviceShadowMessageReq 设置设备影子消息请求。
 type SetDeviceShadowMessageReq struct {
-	MessageType string          `json:"message_type" validate:"required,oneof=command property notification"`
+	MessageType string          `json:"message_type" validate:"required,oneof=command"`
 	Payload     json.RawMessage `json:"payload" validate:"required"`
 	TTLSeconds  int             `json:"ttl_seconds" validate:"omitempty,min=60,max=604800"`
 }
@@ -50,6 +57,9 @@ func (*DeviceShadow) SetShadowMessage(deviceId string, req *SetDeviceShadowMessa
 	}
 	if deviceId == "" {
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "device_id is required")
+	}
+	if req == nil || req.MessageType != "command" {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "message_type must be command")
 	}
 	deviceInfo, err := ensureTelemetryDeviceWriteAccess(deviceId, claims)
 	if err != nil {
@@ -123,7 +133,7 @@ func (*DeviceShadow) CancelShadowMessage(deviceId, msgId string, claims *utils.U
 	if _, err := ensureTelemetryDeviceWriteAccess(deviceId, claims); err != nil {
 		return err
 	}
-	err := dal.CancelShadowMessage(msgId)
+	err := dal.CancelShadowMessage(deviceId, msgId)
 	if err != nil {
 		logrus.Warn("CancelShadowMessage failed, err=", err)
 		return errcode.NewWithMessage(errcode.CodeParamError, "pending shadow message not found")
@@ -131,34 +141,86 @@ func (*DeviceShadow) CancelShadowMessage(deviceId, msgId string, claims *utils.U
 	return nil
 }
 
-// DeliverPendingShadowMessages 设备上线后调用：先把到期消息置为 expired，再逐条投递剩余 pending。
-// 单条失败不影响后续投递；失败的保持 pending，等待下次上线重试。返回成功投递条数。
+// DeliverPendingShadowMessages 设备上线后调用：先推进重试/过期收口，再逐条投递剩余 pending。
+// P0.2 关键：投递成功只标记 sent（等待设备 ACK），绝不等同于 delivered。
+// "发出去"不等于"设备确认收到"——旧实现直接写 delivered，属于虚假成功。
+// 单条失败保持 pending，等待下次上线或退避到期后重试。返回本次成功下发条数。
 func (*DeviceShadow) DeliverPendingShadowMessages(deviceId string) (int, error) {
 	if _, err := dal.ExpireDueShadowMessages(); err != nil {
 		logrus.WithField("device_id", deviceId).Warnf("shadow expire sweep failed before delivery, err=%v", err)
 	}
+	if retried, failed, expired, sweepErr := dal.ExpireAndRetryShadowMessages(); sweepErr != nil {
+		logrus.WithField("device_id", deviceId).Warnf("shadow retry sweep failed, err=%v", sweepErr)
+	} else if retried+failed+expired > 0 {
+		logrus.WithFields(logrus.Fields{
+			"device_id": deviceId, "retried": retried, "failed": failed, "expired": expired,
+		}).Info("shadow retry sweep advanced messages")
+	}
+
 	pending, err := dal.GetPendingShadowMessages(deviceId)
 	if err != nil {
 		return 0, err
 	}
-	delivered := 0
+	sent := 0
 	for _, msg := range pending {
 		if sendErr := dispatchShadowMessage(deviceId, msg); sendErr != nil {
-			logrus.Warnf("shadow deliver failed (kept pending), err=%v", sendErr)
+			logrus.Warnf("shadow dispatch failed (kept pending), err=%v", sendErr)
 			continue
 		}
-		if markErr := dal.MarkShadowMessageDelivered(msg.ID); markErr != nil {
-			logrus.Error("shadow mark delivered failed, err=", markErr)
+		if _, markErr := dal.MarkShadowMessageSent(msg.ID); markErr != nil {
+			logrus.Error("shadow mark sent failed, err=", markErr)
 			continue
 		}
-		delivered++
+		sent++
 	}
-	return delivered, nil
+	return sent, nil
 }
 
-// CleanupExpiredShadowMessages cron 入口：到期标记 + 过期历史清理。
+// AckShadowMessage 设备确认收到影子消息：pending/sent -> delivered，并写入 ack_at。
+// 终态行（delivered/failed/expired/canceled）不可再确认，避免把历史结果改写成已送达。
+func (*DeviceShadow) AckShadowMessage(deviceId, msgId string, claims *utils.UserClaims) error {
+	if _, err := ensureTelemetryDeviceWriteAccess(deviceId, claims); err != nil {
+		return err
+	}
+	return ackShadowMessage(deviceId, msgId)
+}
+
+// AckShadowMessageByDevice 设备侧（MQTT 上行）确认：没有用户 claims，直接按 device_id + 消息 ID 收敛。
+// 仅用于上行链路，调用方必须已确认消息确实来自该设备；跨设备的 ID 不会命中，等价于 not found。
+func (*DeviceShadow) AckShadowMessageByDevice(deviceId, msgId string) error {
+	if strings.TrimSpace(deviceId) == "" || strings.TrimSpace(msgId) == "" {
+		return errcode.NewWithMessage(errcode.CodeParamError, "device_id and msg_id are required")
+	}
+	return ackShadowMessage(deviceId, msgId)
+}
+
+func ackShadowMessage(deviceId, msgId string) error {
+	if err := dal.AckShadowMessage(deviceId, msgId); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errcode.NewWithMessage(errcode.CodeParamError, "ackable shadow message not found")
+		}
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+	}
+	return nil
+}
+
+// ExpireAndRetryShadowMessages cron 入口：推进 ACK 超时的退避重试与终态收口。
+func (*DeviceShadow) ExpireAndRetryShadowMessages() (retried, failed, expired int64) {
+	var err error
+	retried, failed, expired, err = dal.ExpireAndRetryShadowMessages()
+	if err != nil {
+		logrus.Warnf("shadow retry sweep failed: %v", err)
+	}
+	return retried, failed, expired
+}
+
+// CleanupExpiredShadowMessages cron 入口：ACK 重试收口 + 过期历史清理。
 func (*DeviceShadow) CleanupExpiredShadowMessages() (expired int64, deleted int64) {
-	expired, err := dal.ExpireDueShadowMessages()
+	_, _, swept, err := dal.ExpireAndRetryShadowMessages()
+	if err != nil {
+		logrus.Warnf("shadow retry/expire sweep failed: %v", err)
+	}
+	staleExpired, err := dal.ExpireDueShadowMessages()
 	if err != nil {
 		logrus.Warnf("shadow expire sweep failed: %v", err)
 	}
@@ -166,7 +228,7 @@ func (*DeviceShadow) CleanupExpiredShadowMessages() (expired int64, deleted int6
 	if err != nil {
 		logrus.Warnf("shadow stale cleanup failed: %v", err)
 	}
-	return expired, deleted
+	return swept + staleExpired, deleted
 }
 
 // dispatchShadowMessage 把单条影子消息送入现有命令下发链路。
@@ -182,9 +244,7 @@ func dispatchShadowMessage(deviceId string, msg *model.DeviceShadowMessage) erro
 		}
 		return GroupApp.CommandData.CommandPutMessage(context.Background(), "", putMessage, "2")
 	default:
-		// property/notification 类型当前仅支持 command 链路；其余类型标记后由订阅方消费。
-		logrus.Warnf("shadow message type %q has no dispatch channel; treating as delivered", msg.MessageType)
-		return nil
+		return fmt.Errorf("%w: %s", errUnsupportedShadowMessageType, msg.MessageType)
 	}
 }
 

@@ -66,7 +66,7 @@ const searchKeyword = ref('')
 /** 选中的设备选项 */
 const selectedOption = computed(() => {
   if (!props.modelValue) return null
-  return props.options.find(opt => opt.device_id === props.modelValue) || null
+  return props.options.find((opt) => opt.device_id === props.modelValue) || null
 })
 
 /** 显示标签 */
@@ -82,7 +82,7 @@ const filteredOptions = computed(() => {
   }
   const keyword = searchKeyword.value.toLowerCase().trim()
   return props.options.filter(
-    option => option.device_name.toLowerCase().includes(keyword) || option.device_id.toLowerCase().includes(keyword)
+    (option) => option.device_name.toLowerCase().includes(keyword) || option.device_id.toLowerCase().includes(keyword)
   )
 })
 

@@ -28,6 +28,7 @@ type CreateDeviceReq struct {
 	DeviceConfigId *string `json:"device_config_id" validate:"omitempty,max=36"`    // 设备配置ID
 	AccessWay      *string `json:"access_way" validate:"omitempty,max=36"`          // 接入方式
 	Description    *string `json:"description" validate:"omitempty,max=500"`        // 接入方式
+	ConflictPolicy *string `json:"conflict_policy" form:"conflict_policy" validate:"omitempty,oneof=fail rename ignore update allow"` // TB-15 实体名冲突策略
 }
 
 type BatchCreateDevice struct {
@@ -39,6 +40,7 @@ type BatchCreateDevice struct {
 
 type BatchCreateDeviceReq struct {
 	ServiceAccessId string              `json:"service_access_id" validate:"required,max=36"` // 服务接入点ID
+	ConflictPolicy  *string             `json:"conflict_policy" form:"conflict_policy" validate:"omitempty,oneof=fail rename ignore update allow"` // TB-15 实体名冲突策略
 	DeviceList      []BatchCreateDevice `json:"device_list" validate:"required"`
 }
 
@@ -98,6 +100,7 @@ type GetDeviceListByPageReq struct {
 	LastReportedAfter  *int64  `json:"last_reported_after" form:"last_reported_after" validate:"omitempty,gt=0"`   // 最近上报时间下界（Unix毫秒，含）
 	LastReportedBefore *int64  `json:"last_reported_before" form:"last_reported_before" validate:"omitempty,gt=0"` // 最近上报时间上界（Unix毫秒，不含）
 	NeverReported      *bool   `json:"never_reported" form:"never_reported"`                                       // true=从未上报，false=至少上报一次
+	ParentID           *string `json:"parent_id" form:"parent_id" validate:"omitempty,max=36"`                     // 父网关设备ID筛选
 	// LifecycleStatus 是 opt-in 的生命周期状态筛选（REQ-05b）。
 	// 省略或空值时保持既有默认行为：只返回 activate_flag=active 的设备。
 	// activated=已激活；inactive=已安装但未激活；transmitted=至少成功上报过一次；all=全部。
@@ -156,8 +159,8 @@ type GetDeviceListByPageRsp struct {
 	TenantID             string                `json:"-"`                                          // 仅用于后端批量命令预览保留租户上下文
 	OwnerUserID          *string               `json:"-"`                                          // 仅用于后端普通用户设备归属过滤
 	AdditionalInfo       *string               `json:"-"`                                          // 仅用于后端计算扩展状态
-	ParentID             *string               `json:"-"`                                          // 仅用于后端批量命令预览构建网关链路
-	SubDeviceAddr        *string               `json:"-"`                                          // 仅用于后端批量命令预览构建网关链路
+	ParentID             *string               `json:"parent_id,omitempty"`                        // 父设备ID（网关ID）
+	SubDeviceAddr        *string               `json:"sub_device_addr,omitempty"`                  // 子设备通信地址
 }
 
 type CreateDeviceGroupReq struct {
@@ -204,6 +207,14 @@ type DeviceGroupStatistics struct {
 	OnlineTotal  int64 `json:"online_total"`
 	OfflineTotal int64 `json:"offline_total"`
 	AlarmTotal   int64 `json:"alarm_total"`
+}
+
+// DeviceGroupWithStatistics 分组列表项 = 分组本体 + 统计。
+// 用内嵌把 Group 的字段平铺到同一层，保持既有消费方（直接读 group 字段）不受影响，
+// statistics 是新增字段，属加法变更。
+type DeviceGroupWithStatistics struct {
+	Group
+	Statistics DeviceGroupStatistics `json:"statistics"`
 }
 
 type CreateDeviceGroupRelationReq struct {

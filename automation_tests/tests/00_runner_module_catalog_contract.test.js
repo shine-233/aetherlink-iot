@@ -18,8 +18,16 @@ describe('Runner module catalog contract', function() {
     expect(suites.apiModules).to.not.be.empty;
     expect(suites.e2eModules).to.not.be.empty;
     expect(new Set(keys).size).to.equal(keys.length);
-    expect(suites.apiModules.every(mod => mod.type === 'api' && /\.test\.js$/.test(mod.file))).to.equal(true);
-    expect(suites.e2eModules.every(mod => mod.type === 'e2e' && /\.spec\.js$/.test(mod.file))).to.equal(true);
+    expect(suites.apiModules.every(mod => (
+      mod.type === 'api' &&
+      /\.test\.js$/.test(mod.file) &&
+      mod.metadataFile === `tests/${mod.rawFile}`
+    ))).to.equal(true);
+    expect(suites.e2eModules.every(mod => (
+      mod.type === 'e2e' &&
+      /\.spec\.js$/.test(mod.file) &&
+      mod.metadataFile === mod.file
+    ))).to.equal(true);
   });
 
   it('supports auth and e2e-auth aliases for login modules', function() {
@@ -42,11 +50,24 @@ describe('Runner module catalog contract', function() {
     const e2eArgs = { modules: [], e2e: true, includeE2e: false, parallel: false };
     const bothArgs = { modules: [], e2e: false, includeE2e: true, parallel: false };
 
-    expect(catalog.buildExecutionPlan(apiArgs, suites).types).to.deep.equal(['API']);
-    expect(catalog.buildExecutionPlan(e2eArgs, suites).types).to.deep.equal(['E2E']);
-    expect(catalog.buildExecutionPlan(bothArgs, suites).types).to.deep.equal(['API', 'E2E']);
+    const apiPlan = catalog.buildExecutionPlan(apiArgs, suites);
+    const e2ePlan = catalog.buildExecutionPlan(e2eArgs, suites);
+    const fullPlan = catalog.buildExecutionPlan(bothArgs, suites);
+    expect(apiPlan.types).to.deep.equal(['API']);
+    expect(e2ePlan.types).to.deep.equal(['E2E']);
+    expect(fullPlan.types).to.deep.equal(['API', 'E2E']);
+    expect(apiPlan.discoveredSuites).to.equal(suites);
+    expect(e2ePlan.discoveredSuites).to.equal(suites);
+    expect(fullPlan.discoveredSuites).to.equal(suites);
     expect(apiArgs).to.deep.equal({ modules: [], e2e: false, includeE2e: false, parallel: false });
     expect(suites).to.deep.equal({ apiModules: [apiModule], e2eModules: [e2eModule] });
+  });
+
+  it('does not promote unmapped seeded or ordinary modules to business evidence', function() {
+    expect(catalog.getModuleEvidenceLabelFromMetadata('seeded-future-module', 'api', null))
+      .to.equal('unknown');
+    expect(catalog.getModuleEvidenceLabelFromMetadata('future-module', 'api', null))
+      .to.equal('unknown');
   });
 
   it('does not promote api-via-e2e-fixture metadata to business evidence', function() {

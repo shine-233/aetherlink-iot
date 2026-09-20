@@ -37,16 +37,66 @@ const mountComponent = (props = {}) => {
     },
     global: {
       stubs: {
-        NCard: defineComponent({ props: ['title'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NForm: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NFormItem: defineComponent({ props: ['label', 'path'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NInput: defineComponent({ props: ['value', 'placeholder'], emits: ['update:value'], setup() { return () => h('input') } }),
-        NSelect: defineComponent({ props: ['value', 'options'], emits: ['update:value'], setup() { return () => h('div') } }),
-        NRadioGroup: defineComponent({ props: ['value'], emits: ['update:value'], setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NRadio: defineComponent({ props: ['value'], setup(_, { slots }) { return () => h('label', slots.default?.()) } }),
-        NSpace: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } }),
-        NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default?.()) } }),
-        NFlex: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default?.()) } })
+        NCard: defineComponent({
+          props: ['title'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NForm: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NFormItem: defineComponent({
+          props: ['label', 'path'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NInput: defineComponent({
+          props: ['value', 'placeholder'],
+          emits: ['update:value'],
+          setup() {
+            return () => h('input')
+          }
+        }),
+        NSelect: defineComponent({
+          props: ['value', 'options'],
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NRadioGroup: defineComponent({
+          props: ['value'],
+          emits: ['update:value'],
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NRadio: defineComponent({
+          props: ['value'],
+          setup(_, { slots }) {
+            return () => h('label', slots.default?.())
+          }
+        }),
+        NSpace: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        }),
+        NButton: defineComponent({
+          emits: ['click'],
+          setup(_, { slots, emit }) {
+            return () => h('button', { onClick: () => emit('click') }, slots.default?.())
+          }
+        }),
+        NFlex: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default?.())
+          }
+        })
       }
     }
   })
@@ -91,6 +141,8 @@ describe('device/config/modules/config-modal.vue', () => {
     expect(state.modalTitle).toBe('generate.add')
     expect(state.configForm).toEqual({
       additional_info: null,
+      // TB-15：新增态的冲突策略默认 fail，必须与后端 NormalizeConflictPolicy 的默认一致。
+      conflict_policy: 'fail',
       description: null,
       device_conn_type: null,
       device_template_id: null,
@@ -157,8 +209,24 @@ describe('device/config/modules/config-modal.vue', () => {
 
   it('appends template pages and removes duplicate IDs', async () => {
     hoisted.deviceTemplate
-      .mockResolvedValueOnce({ data: { list: [{ id: '1', name: 'One' }, { id: '2', name: 'Old two' }], total: 3 } })
-      .mockResolvedValueOnce({ data: { list: [{ id: '2', name: 'New two' }, { id: '3', name: 'Three' }], total: 3 } })
+      .mockResolvedValueOnce({
+        data: {
+          list: [
+            { id: '1', name: 'One' },
+            { id: '2', name: 'Old two' }
+          ],
+          total: 3
+        }
+      })
+      .mockResolvedValueOnce({
+        data: {
+          list: [
+            { id: '2', name: 'New two' },
+            { id: '3', name: 'Three' }
+          ],
+          total: 3
+        }
+      })
     const wrapper = mountComponent({ modalVisible: false })
     await wrapper.setProps({ modalVisible: true })
     await flushPromises()
@@ -248,11 +316,16 @@ describe('device/config/modules/config-modal.vue', () => {
 
     await state.handleSubmit()
 
-    expect(hoisted.deviceConfigAdd).toHaveBeenCalledWith(expect.objectContaining({
-      name: 'Test Config',
-      device_type: '1',
-      device_conn_type: 'A'
-    }))
+    expect(hoisted.deviceConfigAdd).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Test Config',
+        device_type: '1',
+        device_conn_type: 'A',
+        // TB-15：新增态必须把冲突策略带上，否则后端只能按默认 fail 处理，
+        // 用户在界面上选的 rename/ignore/update 会被静默丢弃。
+        conflict_policy: 'fail'
+      })
+    )
     expect(wrapper.emitted('submitted')).toEqual([[]])
     expect(wrapper.emitted('modalClose')).toEqual([[]])
     expect(state.visible).toBe(false)
@@ -265,6 +338,10 @@ describe('device/config/modules/config-modal.vue', () => {
     state.configForm.name = 'Test Config'
     await state.handleSubmit()
     expect(hoisted.deviceConfigEdit).toHaveBeenCalledWith(expect.objectContaining({ name: 'Test Config' }))
+    // TB-15：编辑态**不得**携带 conflict_policy——编辑一个已存在的实体时
+    // "重名怎么办"这个问题不成立，把它发出去只会让接口语义变模糊。
+    const editPayload = hoisted.deviceConfigEdit.mock.calls[0][0] as Record<string, unknown>
+    expect('conflict_policy' in editPayload).toBe(false)
   })
 
   it.each([

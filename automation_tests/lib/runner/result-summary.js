@@ -1,6 +1,8 @@
 const fs = require('fs');
 
 const coverageContract = require('../coverage_contract');
+const provenance = require('../coverage_provenance');
+const { collectMochaReportCases } = require('./mocha-case-inventory');
 
 function readJsonIfPresent(filePath) {
   if (!filePath || !fs.existsSync(filePath)) {
@@ -59,15 +61,70 @@ function createRunnerSummary({
   outcome,
   skipped = 0,
   blockedReasons = [],
-  reason = ''
+  reason = '',
+  caseResults = []
 }) {
   return {
     passed: Boolean(passed),
     outcome: outcome || (passed ? 'passed' : 'failed'),
     skipped: Number(skipped || 0),
     blockedReasons: Array.isArray(blockedReasons) ? blockedReasons : [],
-    reason: reason || ''
+    reason: reason || '',
+    caseResults: Array.isArray(caseResults) ? caseResults : []
   };
+}
+
+function collectPlaywrightCases(report) {
+  const cases = [];
+  const visit = (suite, parents = [], inheritedFile = '') => {
+    if (!suite || typeof suite !== 'object') return;
+    const file = suite.file || inheritedFile;
+    const nextParents = suite.title ? [...parents, suite.title] : parents;
+    for (const spec of suite.specs || []) {
+      const tests = Array.isArray(spec.tests) ? spec.tests : [];
+      for (const test of tests) {
+        const attempts = (test.results || []).map(result => ({
+          retry: result.retry,
+          workerIndex: result.workerIndex,
+          parallelIndex: result.parallelIndex,
+          transportFailure: false,
+          responseReceived: false,
+          errorMessage: result.error && result.error.message
+        }));
+        const finalResult = attempts.length > 0 ? test.results[test.results.length - 1] : {};
+        const finalStatus = finalResult.status || test.status || 'unknown';
+        const retry = attempts.reduce((max, attempt) => Math.max(max, Number(attempt.retry) || 0), 0);
+        let outcome = finalStatus === 'skipped'
+          ? 'skipped'
+          : finalStatus === 'passed'
+            ? (retry > 0 ? 'flaky' : 'passed')
+            : (finalStatus === 'unexpected' || finalStatus === 'timedOut') ? 'failed' : finalStatus;
+        if (spec.ok === false && outcome === 'passed') outcome = 'mismatched';
+        cases.push({
+          caseId: spec.id || test.testId || null,
+          file: spec.file || file || null,
+          title: spec.title || null,
+          titlePath: [...nextParents, spec.title].filter(Boolean),
+          outcome,
+          attempts,
+          mismatched: spec.ok === false && outcome !== 'failed'
+        });
+      }
+    }
+    for (const child of suite.suites || []) visit(child, nextParents, file);
+  };
+  for (const suite of (report && report.suites) || []) visit(suite);
+  return cases;
+}
+
+function qualifyCoverageProvenance(events, summary, moduleName, runId) {
+  return provenance.qualifyEvents(events, {
+    runId,
+    module: moduleName,
+    modulePassed: summary && summary.passed === true,
+    moduleOutcome: summary && summary.outcome,
+    cases: summary && Array.isArray(summary.caseResults) ? summary.caseResults : []
+  });
 }
 
 function summarizeMochaResult(result, explicitReport) {
@@ -75,9 +132,11 @@ function summarizeMochaResult(result, explicitReport) {
   const stats = report && report.stats ? report.stats : null;
   const defaultReason = result.stderr || result.stdout || 'exit code ' + result.code;
   const blockedReasons = extractBlockedReasons(result.stdout, result.stderr);
+  const caseResults = collectMochaReportCases(report);
+  const buildSummary = values => createRunnerSummary({ ...values, caseResults });
 
   if (!stats) {
-    return createRunnerSummary({
+    return buildSummary({
       passed: result.code === 0,
       outcome: result.code === 0 ? 'passed' : 'failed',
       skipped: 0,
@@ -93,7 +152,7 @@ function summarizeMochaResult(result, explicitReport) {
   const allSkipped = tests > 0 && passes === 0 && failures === 0 && pending >= tests;
 
   if (result.code !== 0 || failures > 0) {
-    return createRunnerSummary({
+    return buildSummary({
       passed: false,
       outcome: 'failed',
       skipped: pending,
@@ -103,7 +162,7 @@ function summarizeMochaResult(result, explicitReport) {
   }
   if (allSkipped) {
     const runtimeExternalOnly = hasOnlyRuntimeExternalBlocks(blockedReasons);
-    return createRunnerSummary({
+    return buildSummary({
       // A structured runtime-external skip is an honest partial result, not a
       // failed assertion. Keep unannotated/all-seedable skips failing so a
       // silent fake test cannot hide behind the same branch.
@@ -116,7 +175,7 @@ function summarizeMochaResult(result, explicitReport) {
         : 'all tests skipped; environment/data preconditions were not satisfied'
     });
   }
-  return createRunnerSummary({
+  return buildSummary({
     passed: true,
     outcome: pending > 0 ? 'partial-skip' : 'passed',
     skipped: pending,
@@ -130,9 +189,11 @@ function summarizePlaywrightResult(result, explicitReport) {
   const stats = report && report.stats ? report.stats : null;
   const defaultReason = result.stderr || result.stdout || 'exit code ' + result.code;
   const blockedReasons = extractBlockedReasons(result.stdout, result.stderr);
+  const caseResults = collectPlaywrightCases(report);
+  const buildSummary = values => createRunnerSummary({ ...values, caseResults });
 
   if (!stats) {
-    return createRunnerSummary({
+    return buildSummary({
       passed: result.code === 0,
       outcome: result.code === 0 ? 'passed' : 'failed',
       skipped: 0,
@@ -147,7 +208,7 @@ function summarizePlaywrightResult(result, explicitReport) {
   const allSkipped = expected === 0 && skipped > 0 && unexpected === 0;
 
   if (result.code !== 0 || unexpected > 0 || (report.errors && report.errors.length)) {
-    return createRunnerSummary({
+    return buildSummary({
       passed: false,
       outcome: 'failed',
       skipped,
@@ -157,7 +218,7 @@ function summarizePlaywrightResult(result, explicitReport) {
   }
   if (allSkipped) {
     const runtimeExternalOnly = hasOnlyRuntimeExternalBlocks(blockedReasons);
-    return createRunnerSummary({
+    return buildSummary({
       passed: runtimeExternalOnly,
       outcome: runtimeExternalOnly ? 'partial-skip' : 'all-skipped',
       skipped,
@@ -167,7 +228,7 @@ function summarizePlaywrightResult(result, explicitReport) {
         : 'all E2E tests skipped; environment/data preconditions were not satisfied'
     });
   }
-  return createRunnerSummary({
+  return buildSummary({
     passed: true,
     outcome: skipped > 0 ? 'partial-skip' : 'passed',
     skipped,
@@ -180,6 +241,8 @@ module.exports = {
   extractBlockedReasons,
   hasOnlyRuntimeExternalBlocks,
   createRunnerSummary,
+  collectPlaywrightCases,
+  qualifyCoverageProvenance,
   summarizeMochaResult,
   summarizePlaywrightResult
 };

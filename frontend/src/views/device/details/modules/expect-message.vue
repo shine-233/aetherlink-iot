@@ -90,7 +90,7 @@ async function getTableData() {
 
 // 删除期望消息后直接整表回刷，保持前端列表与后端真实状态一致。
 // 当前没有区分“待发送可删 / 已发送不可删”等更细粒度约束，真实边界完全依赖后端接口。
-const handleDeleteTable = async id => {
+const handleDeleteTable = async (id) => {
   const { error } = await expectMessageDelete(id)
   if (!error) {
     window.$message?.success($t('common.deleteSuccess'))
@@ -105,7 +105,7 @@ const columns: Ref<any> = ref([
     key: 'created_at',
     minWidth: '200px',
     title: () => $t('page.expect.createTime'),
-    render: row => {
+    render: (row) => {
       // 列表时间统一在前端格式化，便于与命令日志、事件日志直接对时比对。
       return row.created_at ? dayjs(row.created_at).format('YYYY-MM-DD hh:mm:ss') : ''
     }
@@ -114,8 +114,8 @@ const columns: Ref<any> = ref([
     key: 'send_type',
     minWidth: '100px',
     title: () => $t('page.expect.commandType'),
-    render: row => {
-      return typeOptions.value.find(v => v.value === row.send_type)?.label
+    render: (row) => {
+      return typeOptions.value.find((v) => v.value === row.send_type)?.label
     }
   },
   {
@@ -132,7 +132,7 @@ const columns: Ref<any> = ref([
     key: 'expiry_time',
     minWidth: '200px',
     title: () => $t('page.expect.expireTime'),
-    render: row => {
+    render: (row) => {
       return row.expiry_time ? dayjs(row.expiry_time).format('YYYY-MM-DD hh:mm:ss') : ''
     }
   },
@@ -140,8 +140,8 @@ const columns: Ref<any> = ref([
     key: 'status',
     minWidth: '100px',
     title: () => $t('page.expect.status'),
-    render: row => {
-      return statusOptions.value.find(v => v.value === row.status)?.label
+    render: (row) => {
+      return statusOptions.value.find((v) => v.value === row.status)?.label
     }
   },
   {
@@ -153,7 +153,7 @@ const columns: Ref<any> = ref([
     key: 'send_time',
     minWidth: '200px',
     title: () => $t('page.expect.dealTime'),
-    render: row => {
+    render: (row) => {
       return row.send_time ? dayjs(row.send_time).format('YYYY-MM-DD hh:mm:ss') : ''
     }
   },
@@ -161,7 +161,7 @@ const columns: Ref<any> = ref([
     title: $t('common.actions'),
     key: 'created_at',
     minWidth: '100px',
-    render: row => {
+    render: (row) => {
       return (
         <NPopconfirm
           negative-text={$t('common.cancel')}

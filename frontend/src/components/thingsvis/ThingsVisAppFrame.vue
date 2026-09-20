@@ -7,7 +7,12 @@
   - 本文件当前主要保留 bridge 装配和 iframe 宿主入口；初始化生命周期与 transport/message 壳已拆到独立模块。
 -->
 <template>
-  <div ref="frameContainerRef" class="thingsvis-frame-container" :style="containerInlineStyle" @wheel.passive="handleFrameWheel">
+  <div
+    ref="frameContainerRef"
+    class="thingsvis-frame-container"
+    :style="containerInlineStyle"
+    @wheel.passive="handleFrameWheel"
+  >
     <NAlert v-if="activeDiagnostic" type="warning" class="thingsvis-diagnostic-alert" closable @close="clearDiagnostic">
       <template #header>{{ $t('page.thingsvis.hostDiagnosticTitle') }}</template>
       <div class="thingsvis-diagnostic-content">
@@ -78,7 +83,8 @@ const frameTransportBridge = createThingsVisFrameTransportBridge({
 
 const MIN_FRAME_CONTENT_HEIGHT = 320
 const MAX_FRAME_CONTENT_HEIGHT = 6000
-const thingsVisIframeAllow = 'fullscreen; autoplay; clipboard-write; camera; microphone; encrypted-media; picture-in-picture'
+const thingsVisIframeAllow =
+  'fullscreen; autoplay; clipboard-write; camera; microphone; encrypted-media; picture-in-picture'
 
 type ThingsVisWheelPayload = {
   source: 'thingsvis-app-frame'
@@ -132,9 +138,7 @@ function retryFrame() {
 function handleFrameContentHeight(height: number) {
   if (!Number.isFinite(height)) return
 
-  frameContentHeight.value = Math.ceil(
-    Math.min(MAX_FRAME_CONTENT_HEIGHT, Math.max(MIN_FRAME_CONTENT_HEIGHT, height))
-  )
+  frameContentHeight.value = Math.ceil(Math.min(MAX_FRAME_CONTENT_HEIGHT, Math.max(MIN_FRAME_CONTENT_HEIGHT, height)))
   contentHeightReporter?.report(frameContentHeight.value, {
     source: 'thingsvis-app-frame',
     mode: props.mode || 'viewer'

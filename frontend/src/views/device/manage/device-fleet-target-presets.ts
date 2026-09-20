@@ -1,12 +1,5 @@
 export type FleetTargetPresetKey =
-  | 'all'
-  | 'online'
-  | 'offline'
-  | 'never_reported'
-  | 'alarmed'
-  | 'unshared'
-  | 'direct'
-  | 'gateway'
+  'all' | 'online' | 'offline' | 'never_reported' | 'alarmed' | 'unshared' | 'direct' | 'gateway'
 
 export type FleetTargetPreset = {
   key: FleetTargetPresetKey

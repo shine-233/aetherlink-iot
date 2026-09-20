@@ -58,3 +58,21 @@ func (*DeviceApi) ExportDevicePreRegister(c *gin.Context) {
 	}
 	c.Set("data", data)
 }
+
+// CleanupDevicePreRegister 清理预注册批次中仍未激活的设备（P0.5 清理执行面）。
+// 先按租户与激活态分流再删除：已激活设备永不进入可删除集合，
+// 跨租户数据一律 fail closed 拒绝，不做静默过滤。
+// @Router   /api/v1/device/preRegister/cleanup [post]
+func (*DeviceApi) CleanupDevicePreRegister(c *gin.Context) {
+	var req model.ExportPreRegisterReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	data, err := service.GroupApp.Device.CleanupDevicePreRegister(req, userClaims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", data)
+}

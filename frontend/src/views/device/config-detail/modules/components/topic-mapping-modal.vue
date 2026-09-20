@@ -211,7 +211,7 @@ const handleCancel = () => {
     :title="editData ? t('generate.topicMapping.modal.editTitle') : t('generate.topicMapping.modal.createTitle')"
     style="width: 600px"
     :mask-closable="false"
-    :showIcon="false"
+    :show-icon="false"
   >
     <NForm
       ref="formRef"

@@ -125,8 +125,7 @@ const mountComponent = () => {
   return wrapper
 }
 
-const getSetupState = (wrapper: ReturnType<typeof shallowMount>) =>
-  wrapper.vm.$.setupState as Record<string, any>
+const getSetupState = (wrapper: ReturnType<typeof shallowMount>) => wrapper.vm.$.setupState as Record<string, any>
 
 describe('management/setting/components/warning-email-setting.vue', () => {
   beforeEach(() => {
@@ -320,9 +319,9 @@ describe('management/setting/components/warning-email-setting.vue', () => {
     await flushPromises()
 
     const buttons = wrapper.findAll('button')
-    const reloadButton = buttons.find(button => button.text().includes('custom.management.warningEmail.reload'))
-    const resetButton = buttons.find(button => button.text().includes('custom.management.warningEmail.reset'))
-    const saveButton = buttons.find(button => button.text().includes('custom.management.warningEmail.save'))
+    const reloadButton = buttons.find((button) => button.text().includes('custom.management.warningEmail.reload'))
+    const resetButton = buttons.find((button) => button.text().includes('custom.management.warningEmail.reset'))
+    const saveButton = buttons.find((button) => button.text().includes('custom.management.warningEmail.save'))
 
     // 只读态下输入框必须真正带 disabled 属性（Vue 渲染为空串），而不仅仅是属性存在。
     expect(wrapper.find('input').attributes('disabled')).toBe('')

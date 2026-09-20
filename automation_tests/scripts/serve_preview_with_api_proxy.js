@@ -11,7 +11,11 @@ const path = require('path');
 const fs = require('fs');
 
 const rootDir = path.resolve(__dirname, '..', '..');
-const distDir = path.join(rootDir, 'frontend', 'dist');
+// PREVIEW_DIST_DIR 允许把同一预览代理指向其它静态产物目录（如移动端 uni-app
+// H5 构建 mobile-app-uni/dist/build/h5，P1.4 H5 业务 E2E 使用）；缺省仍是主前端 dist。
+const distDir = process.env.PREVIEW_DIST_DIR
+	? path.resolve(process.env.PREVIEW_DIST_DIR)
+	: path.join(rootDir, 'frontend', 'dist');
 const host = process.env.PREVIEW_PROXY_HOST || '127.0.0.1';
 const port = Number(process.env.PREVIEW_PROXY_PORT || 9725);
 

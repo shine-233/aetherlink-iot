@@ -25,7 +25,7 @@ function generateCompleteKey<T>(obj: T): string {
 // Simplified generateKeyFromPaths function
 function generateKeyFromPaths<T>(obj: T, paths: string | string[]): string {
   const pathsArray = Array.isArray(paths) ? paths : [paths]
-  const values = pathsArray.map(path => getValueByPath(obj, path))
+  const values = pathsArray.map((path) => getValueByPath(obj, path))
   return values.join('|')
 }
 

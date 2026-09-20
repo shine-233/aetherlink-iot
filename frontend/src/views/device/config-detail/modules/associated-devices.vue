@@ -138,14 +138,11 @@ const getDeviceOptions = async (isInitialLoad = false) => {
       deviceOptions.value.push(...data.list)
 
       if (data.list.length < queryDevice.value.page_size) {
-        // eslint-disable-next-line require-atomic-updates
         hasMoreDevices.value = false
       } else {
-        // eslint-disable-next-line require-atomic-updates
         hasMoreDevices.value = true
       }
     } else {
-      // eslint-disable-next-line require-atomic-updates
       hasMoreDevices.value = false
       if (error) {
         message.error($t('common.fetchDataFailed'))
@@ -153,10 +150,9 @@ const getDeviceOptions = async (isInitialLoad = false) => {
     }
   } catch (apiError) {
     message.error($t('common.networkError'))
-    // eslint-disable-next-line require-atomic-updates
+
     hasMoreDevices.value = false
   } finally {
-    // eslint-disable-next-line require-atomic-updates
     loadingMore.value = false
   }
 }
@@ -177,7 +173,7 @@ const getDeviceList = async () => {
   queryData.value.device_config_id = props.deviceConfigId
   const { data, error } = await deviceList(queryData.value)
   if (!error && data?.list) {
-    data.list.forEach(sitem => {
+    data.list.forEach((sitem) => {
       sitem.activate_flag = sitem.is_online === 0 ? $t('custom.devicePage.offline') : $t('custom.devicePage.online')
     })
     configDevice.value = data.list || []
@@ -189,7 +185,7 @@ const getDeviceList = async () => {
 }
 
 // 解绑链路: 对单行设备发起解绑请求，成功后仅回刷当前列表。
-const handleDelete = async row => {
+const handleDelete = async (row) => {
   const { error } = await detachDeviceFromConfig({
     device_id: row.id,
     device_config_id: ''
@@ -220,7 +216,7 @@ const columnsData: Ref<DataTableColumns<any>> = ref([
     key: 'ts',
     minWidth: '140px',
     title: $t('custom.devicePage.pushTime'),
-    render: row => {
+    render: (row) => {
       if (row.ts) {
         return dayjs(row.ts).format('YYYY-MM-DD HH:mm:ss')
       }
@@ -232,7 +228,7 @@ const columnsData: Ref<DataTableColumns<any>> = ref([
     title: () => $t('common.actions'),
     align: 'center',
     width: '250px',
-    render: row => {
+    render: (row) => {
       return h(
         NPopconfirm,
         {
@@ -246,7 +242,7 @@ const columnsData: Ref<DataTableColumns<any>> = ref([
               {
                 type: 'error',
                 size: 'small',
-                onClick: e => {
+                onClick: (e) => {
                   e.stopPropagation()
                 }
               },
@@ -288,7 +284,7 @@ onMounted(async () => {
       :columns="columnsData"
       :data="configDevice"
       size="small"
-      :row-key="item => item.id"
+      :row-key="(item) => item.id"
       class="table-class"
       :row-props="rowProps"
     >
@@ -322,7 +318,7 @@ onMounted(async () => {
       >
         <NFormItem :label="$t('generate.select-device')" path="device_ids">
           <DeviceSelectWithScroll
-            v-model:modelValue="associatedForm.device_ids"
+            v-model:model-value="associatedForm.device_ids"
             :options="deviceOptions"
             :loading="loadingMore"
             :has-more="hasMoreDevices"

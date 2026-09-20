@@ -158,15 +158,15 @@ function resolveTelemetryHistoryRange(params: TelemetryHistoryQuery): TelemetryH
 }
 
 function asRecordOrNull(value: unknown): Record<string, unknown> | null {
-    return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null
-  }
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null
+}
 
-  function normalizeTelemetryHistoryPageData(payload: FlatResponseData): TelemetryHistoryPoint[] {
+function normalizeTelemetryHistoryPageData(payload: FlatResponseData): TelemetryHistoryPoint[] {
   const payloadRecord = asRecordOrNull(payload.data)
   const listValue = payloadRecord ? payloadRecord.list : undefined
   const rawList: unknown[] = Array.isArray(listValue) ? listValue : []
 
-  const points: Array<TelemetryHistoryPoint | null> = rawList.map(entry => {
+  const points: Array<TelemetryHistoryPoint | null> = rawList.map((entry) => {
     const item = (entry ?? {}) as Record<string, unknown>
     const x = toFiniteNumber(pickUnknown(item, ['ts', 'time', 'x']), 0)
     const y = toFiniteNumber(pickUnknown(item, ['value', 'y', 'avg']), 0)
@@ -177,7 +177,10 @@ function asRecordOrNull(value: unknown): Record<string, unknown> | null {
   return points.filter((point): point is TelemetryHistoryPoint => point !== null)
 }
 
-export const telemetryHistoryData = async (params: TelemetryHistoryQuery, requestConfig: CustomAxiosRequestConfig = {}) => {
+export const telemetryHistoryData = async (
+  params: TelemetryHistoryQuery,
+  requestConfig: CustomAxiosRequestConfig = {}
+) => {
   return await request.get(`/telemetry/datas/history/page`, {
     ...requestConfig,
     params
@@ -189,7 +192,10 @@ export const telemetryHistoryData = async (params: TelemetryHistoryQuery, reques
  *   aggregate_function: string, time_range: string }
  * @returns
  */
-export const telemetryDataHistoryList = async (params: TelemetryHistoryQuery, requestConfig: CustomAxiosRequestConfig = {}) => {
+export const telemetryDataHistoryList = async (
+  params: TelemetryHistoryQuery,
+  requestConfig: CustomAxiosRequestConfig = {}
+) => {
   const normalized = { ...params }
   // 兼容历史行为：请求层抛错时把原始 error 当响应对象继续走探测逻辑。
   let statisticResponse: FlatResponseData

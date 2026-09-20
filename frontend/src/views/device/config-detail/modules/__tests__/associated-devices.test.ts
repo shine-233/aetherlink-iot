@@ -33,14 +33,52 @@ vi.mock('@/locales', () => ({
 
 vi.mock('naive-ui', () => ({
   useMessage: () => ({ success: vi.fn(), error: vi.fn(), warning: vi.fn() }),
-  NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : []) } }),
-  NDataTable: defineComponent({ props: { data: { type: Array, default: () => [] } }, setup() { return () => h('div') } }),
-  NFlex: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NForm: defineComponent({ setup(_, { slots }) { return () => h('form', slots.default ? slots.default() : []) } }),
-  NFormItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NModal: defineComponent({ props: { show: Boolean }, emits: ['update:show'], setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NPagination: defineComponent({ props: { page: { default: 1 }, itemCount: { default: 0 } }, emits: ['update:page'], setup() { return () => h('div') } }),
-  NPopconfirm: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } })
+  NButton: defineComponent({
+    emits: ['click'],
+    setup(_, { slots, emit }) {
+      return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : [])
+    }
+  }),
+  NDataTable: defineComponent({
+    props: { data: { type: Array, default: () => [] } },
+    setup() {
+      return () => h('div')
+    }
+  }),
+  NFlex: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NForm: defineComponent({
+    setup(_, { slots }) {
+      return () => h('form', slots.default ? slots.default() : [])
+    }
+  }),
+  NFormItem: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NModal: defineComponent({
+    props: { show: Boolean },
+    emits: ['update:show'],
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NPagination: defineComponent({
+    props: { page: { default: 1 }, itemCount: { default: 0 } },
+    emits: ['update:page'],
+    setup() {
+      return () => h('div')
+    }
+  }),
+  NPopconfirm: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  })
 }))
 
 vi.mock('dayjs', () => ({
@@ -74,7 +112,10 @@ const getSetupState = (wrapper: ReturnType<typeof shallowMount>) => wrapper.vm.$
 describe('device/config-detail/modules/associated-devices.vue', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    hoisted.deviceList.mockResolvedValue({ data: { list: [{ id: 'd1', name: 'Device 1', is_online: 1, ts: 123 }], total: 1 }, error: null })
+    hoisted.deviceList.mockResolvedValue({
+      data: { list: [{ id: 'd1', name: 'Device 1', is_online: 1, ts: 123 }], total: 1 },
+      error: null
+    })
     hoisted.getDeviceListForSelect.mockResolvedValue({ data: { list: [] }, error: null })
     hoisted.deviceConfigBatch.mockResolvedValue({ error: null })
     hoisted.detachDeviceFromConfig.mockResolvedValue({ error: null })

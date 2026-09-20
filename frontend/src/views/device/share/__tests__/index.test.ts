@@ -40,15 +40,27 @@ const mountDeviceShare = () => {
   const wrapper = shallowMount(DeviceShare, {
     global: {
       stubs: {
-        NCard: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NSpace: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
+        NCard: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NSpace: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
         NButton: defineComponent({
           emits: ['click'],
           setup(_, { slots, emit }) {
             return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : [])
           }
         }),
-        NSpin: defineComponent({ setup() { return () => h('div', { class: 'spin-stub' }) } }),
+        NSpin: defineComponent({
+          setup() {
+            return () => h('div', { class: 'spin-stub' })
+          }
+        }),
         NResult: defineComponent({
           props: {
             status: { type: String, default: '' },

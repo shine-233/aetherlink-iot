@@ -161,11 +161,7 @@ describe('automationSubmitPayload', () => {
     expect(
       hasOnlyTimeRangeConditionGroup([[{ trigger_conditions_type: '22' }, { trigger_conditions_type: '10' }]])
     ).toBe(false)
-    expect(
-      hasScheduleConditionWithAlarmAction([[{ ifType: '2' }]], [{ actionType: '30' }])
-    ).toBe(true)
-    expect(
-      hasScheduleConditionWithAlarmAction([[{ ifType: '1' }]], [{ actionType: '30' }])
-    ).toBe(false)
+    expect(hasScheduleConditionWithAlarmAction([[{ ifType: '2' }]], [{ actionType: '30' }])).toBe(true)
+    expect(hasScheduleConditionWithAlarmAction([[{ ifType: '1' }]], [{ actionType: '30' }])).toBe(false)
   })
 })

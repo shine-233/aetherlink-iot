@@ -33,9 +33,22 @@ vi.mock('dayjs', () => ({
 }))
 
 vi.mock('naive-ui', () => ({
-  NButton: defineComponent({ emits: ['click'], setup(_, { slots, emit }) { return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : []) } }),
-  NPopconfirm: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-  NSpace: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } })
+  NButton: defineComponent({
+    emits: ['click'],
+    setup(_, { slots, emit }) {
+      return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : [])
+    }
+  }),
+  NPopconfirm: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  }),
+  NSpace: defineComponent({
+    setup(_, { slots }) {
+      return () => h('div', slots.default ? slots.default() : [])
+    }
+  })
 }))
 
 vi.mock('../components/serviceModal.vue', () => ({ default: defineComponent({ setup: () => () => h('div') }) }))
@@ -50,7 +63,12 @@ const mountComponent = (props = {}) => {
     props,
     global: {
       stubs: {
-        NDataTable: defineComponent({ props: { data: { type: Array, default: () => [] } }, setup() { return () => h('div') } }),
+        NDataTable: defineComponent({
+          props: { data: { type: Array, default: () => [] } },
+          setup() {
+            return () => h('div')
+          }
+        }),
         NPagination: true,
         serviceModal: true,
         serviceConfigModal: true
@@ -139,7 +157,7 @@ describe('device/service-details/index.vue', () => {
     vi.clearAllMocks()
     const state = getSetupState(wrapper)
     const seenQueries: any[] = []
-    hoisted.getServiceAccess.mockImplementation(async query => {
+    hoisted.getServiceAccess.mockImplementation(async (query) => {
       seenQueries.push({ ...query })
       return { data: { list: [], total: 0 } }
     })

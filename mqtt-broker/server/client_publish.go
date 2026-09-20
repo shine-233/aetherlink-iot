@@ -23,9 +23,9 @@ func (client *client) publishHandler(pub *packets.Publish) *codes.Error {
 		return codeErr
 	}
 
-	topicMatched, hookErr := client.deliverPublish(pub, msg, dup)
+	topicMatched, effectiveMsg, hookErr := client.deliverPublish(pub, msg, dup)
 
-	if codeErr := client.storeRetainedAfterAuthorization(pub, msg, dup, hookErr); codeErr != nil {
+	if codeErr := client.storeRetainedAfterAuthorization(pub.Retain, effectiveMsg, dup, hookErr); codeErr != nil {
 		return codeErr
 	}
 	return client.writePublishAck(pub, topicMatched, hookErr)
@@ -96,51 +96,67 @@ func (client *client) trackQoS2Publish(pub *packets.Publish) (bool, *codes.Error
 // storeRetainedAfterAuthorization 在投递授权（OnMsgArrived）之后处理 retained 存储。
 // 安全语义：msg 为 nil（钩子丢弃）或 hookErr 非空（插件拒绝）时，既不写入也不清除
 // retained trie，防止设备向未授权主题注入/删除保留消息；QoS2 重复包不再重复存储。
-func (client *client) storeRetainedAfterAuthorization(pub *packets.Publish, msg *gmqtt.Message, dup bool, hookErr error) *codes.Error {
-	if !pub.Retain {
-		return nil
-	}
-	if dup || msg == nil || hookErr != nil {
+func (client *client) storeRetainedAfterAuthorization(retain bool, msg *gmqtt.Message, dup bool, hookErr error) *codes.Error {
+	if dup || !retain || msg == nil || hookErr != nil {
 		return nil
 	}
 
-	if len(pub.Payload) == 0 {
-		client.server.retainedDB.Remove(string(pub.TopicName))
+	if len(msg.Payload) == 0 {
+		client.server.retainedDB.Remove(msg.Topic)
 		return nil
 	}
-	client.server.retainedDB.AddOrReplace(msg.Copy())
+	stored := msg.Copy()
+	stored.Retained = true
+	client.server.retainedDB.AddOrReplace(stored)
 	return nil
 }
 
 // deliverPublish 调用 OnMsgArrived hook 后执行订阅匹配投递。
 // 使用注意：hook 可以修改消息和迭代选项，也可以返回 nil 消息来丢弃本次投递。
-func (client *client) deliverPublish(pub *packets.Publish, msg *gmqtt.Message, dup bool) (bool, error) {
+func (client *client) deliverPublish(pub *packets.Publish, msg *gmqtt.Message, dup bool) (bool, *gmqtt.Message, error) {
 	if dup {
-		return false, nil
+		return false, nil, nil
 	}
 
-	opts := defaultIterateOptions(msg.Topic)
+	originalTopic := msg.Topic
+	opts := defaultIterateOptions(originalTopic)
 	var err error
 	if client.server.hooks.OnMsgArrived != nil {
-		msg, opts, err = client.callOnMsgArrivedHook(pub, msg, opts)
+		var handled bool
+		msg, opts, handled, err = client.callOnMsgArrivedHook(pub, msg, opts)
+		if handled {
+			return err == nil, msg, err
+		}
 	}
 	if msg != nil && err == nil {
-		return client.deliverMessage(client.opts.ClientID, msg, opts), nil
+		if opts.TopicName == originalTopic {
+			opts.TopicName = msg.Topic
+		}
+		return client.deliverMessage(client.opts.ClientID, msg, opts), msg, nil
 	}
-	return false, err
+	return false, msg, err
 }
 
-func (client *client) callOnMsgArrivedHook(pub *packets.Publish, msg *gmqtt.Message, opts subscription.IterationOptions) (*gmqtt.Message, subscription.IterationOptions, error) {
+func (client *client) callOnMsgArrivedHook(pub *packets.Publish, msg *gmqtt.Message, opts subscription.IterationOptions) (*gmqtt.Message, subscription.IterationOptions, bool, error) {
 	req := &MsgArrivedRequest{
 		Publish:          pub,
 		Message:          msg,
 		IterationOptions: opts,
 	}
 	err := client.server.hooks.OnMsgArrived(context.Background(), client, req)
-	return req.Message, req.IterationOptions, err
+	return req.Message, req.IterationOptions, req.handled, err
 }
 
 func (client *client) writePublishAck(pub *packets.Publish, topicMatched bool, err error) *codes.Error {
+	if err != nil && client.version != packets.Version5 {
+		if pub.Qos == packets.Qos2 {
+			if removeErr := client.unackStore.Remove(pub.PacketID); removeErr != nil {
+				return converError(removeErr)
+			}
+		}
+		return converError(err)
+	}
+
 	code, ppt := client.publishAckCode(topicMatched, err)
 	var ack packets.Packet
 	if pub.Qos == packets.Qos1 {

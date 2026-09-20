@@ -7,9 +7,9 @@
 package utils
 
 import (
-	luajson "github.com/layeh/gopher-json"
-	"github.com/sirupsen/logrus"
-	lua "github.com/yuin/gopher-lua"
+	"context"
+
+	"aetherlink-iot/backend/pkg/safelua"
 )
 
 func ScriptDeal(code string, msg []byte, topic string) (string, error) {
@@ -35,33 +35,5 @@ func ScriptDeal(code string, msg []byte, topic string) (string, error) {
 		 end
 	*/
 
-	L := lua.NewState()
-	defer L.Close()
-
-	L.PreloadModule("json", luajson.Loader)
-
-	err := L.DoString(code)
-	if err != nil {
-		logrus.Error(err)
-		return "", err
-	}
-
-	encodeInp := L.GetGlobal("encodeInp")
-	err = L.CallByParam(lua.P{
-		Fn:      encodeInp,
-		NRet:    1,
-		Protect: true,
-	}, lua.LString(msg), lua.LString(topic))
-
-	if err != nil {
-		logrus.Error("Error executing Lua script:", err)
-		return "", err
-	}
-
-	result := L.Get(-1)
-	if result.Type() != lua.LTString {
-		logrus.Error("Lua script must return a string")
-		return "", err
-	}
-	return result.String(), nil
+	return safelua.Execute(context.Background(), code, msg, topic)
 }

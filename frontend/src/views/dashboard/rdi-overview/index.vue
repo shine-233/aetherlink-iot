@@ -119,7 +119,7 @@ type OperationsAlertType = 'default' | 'info' | 'success' | 'warning' | 'error'
 type OperationsTagType = OperationsAlertType | 'primary'
 const operationsFocusAlertType = computed<OperationsAlertType>(() => operationsFocus.value.type as OperationsAlertType)
 const operationsFocusTags = computed(() =>
-  operationsFocus.value.tags.map(tag => ({ ...tag, type: tag.type as OperationsTagType }))
+  operationsFocus.value.tags.map((tag) => ({ ...tag, type: tag.type as OperationsTagType }))
 )
 const systemsCardTitleKey = computed(() =>
   props.activeSystemsOnly ? 'rdi.overview.activeSystems' : 'rdi.overview.allSystems'
@@ -414,11 +414,7 @@ onBeforeUnmount(() => {
             <p>{{ $t(operationsFocus.descKey) }}</p>
           </div>
           <NSpace>
-            <NTag
-              v-for="tag in operationsFocusTags"
-              :key="tag.labelKey"
-              :type="tag.type"
-            >
+            <NTag v-for="tag in operationsFocusTags" :key="tag.labelKey" :type="tag.type">
               {{ $t(tag.labelKey) }}: {{ tag.value }}
             </NTag>
           </NSpace>
@@ -534,13 +530,27 @@ onBeforeUnmount(() => {
                   {{ $t('rdi.overview.tenantScope') }}: {{ device.tenantId }}
                 </div>
                 <div v-if="hasInstallationInfo(device)" class="snapshot-installation">
-                  <span v-if="device.serialNumber !== '--'">{{ $t('rdi.overview.serialNumber') }} {{ device.serialNumber }}</span>
-                  <span v-if="device.installDate !== '--'">{{ $t('rdi.overview.installedAt') }} {{ device.installDate }}</span>
-                  <span v-if="device.installLocation !== '--'">{{ $t('rdi.overview.installLocation') }} {{ device.installLocation }}</span>
-                  <span v-if="device.installAddress !== '--'">{{ $t('rdi.overview.installAddress') }} {{ device.installAddress }}</span>
-                  <span v-if="device.installerName !== '--'">{{ $t('rdi.overview.installer') }} {{ device.installerName }}</span>
-                  <span v-if="device.installerContact !== '--'">{{ $t('rdi.overview.installerContact') }} {{ device.installerContact }}</span>
-                  <span v-if="device.adminName !== '--'">{{ $t('rdi.overview.administrator') }} {{ device.adminName }}</span>
+                  <span v-if="device.serialNumber !== '--'">
+                    {{ $t('rdi.overview.serialNumber') }} {{ device.serialNumber }}
+                  </span>
+                  <span v-if="device.installDate !== '--'">
+                    {{ $t('rdi.overview.installedAt') }} {{ device.installDate }}
+                  </span>
+                  <span v-if="device.installLocation !== '--'">
+                    {{ $t('rdi.overview.installLocation') }} {{ device.installLocation }}
+                  </span>
+                  <span v-if="device.installAddress !== '--'">
+                    {{ $t('rdi.overview.installAddress') }} {{ device.installAddress }}
+                  </span>
+                  <span v-if="device.installerName !== '--'">
+                    {{ $t('rdi.overview.installer') }} {{ device.installerName }}
+                  </span>
+                  <span v-if="device.installerContact !== '--'">
+                    {{ $t('rdi.overview.installerContact') }} {{ device.installerContact }}
+                  </span>
+                  <span v-if="device.adminName !== '--'">
+                    {{ $t('rdi.overview.administrator') }} {{ device.adminName }}
+                  </span>
                 </div>
               </button>
             </div>

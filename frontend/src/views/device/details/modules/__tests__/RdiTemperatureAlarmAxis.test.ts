@@ -100,7 +100,7 @@ describe('device/details/modules/RdiTemperatureAlarmAxis.vue', () => {
     await flushPromises()
     const chartOptions = hoisted.setOption.mock.calls.at(-1)?.[0]
     const graphics = chartOptions.graphic as Array<Record<string, any>>
-    expect(graphics.map(item => item.id)).toEqual([
+    expect(graphics.map((item) => item.id)).toEqual([
       'axis-hit-area',
       'alarm-band',
       'lower-handle',
@@ -110,17 +110,17 @@ describe('device/details/modules/RdiTemperatureAlarmAxis.vue', () => {
       'current-marker',
       'current-label'
     ])
-    expect(graphics.find(item => item.id === 'alarm-band')).toMatchObject({
+    expect(graphics.find((item) => item.id === 'alarm-band')).toMatchObject({
       type: 'rect',
       silent: true,
       style: expect.objectContaining({ fill: 'rgba(148, 163, 184, 0.36)' })
     })
-    expect(graphics.find(item => item.id === 'lower-handle')).toMatchObject({
+    expect(graphics.find((item) => item.id === 'lower-handle')).toMatchObject({
       type: 'circle',
       draggable: true,
       cursor: 'ew-resize'
     })
-    expect(graphics.find(item => item.id === 'current-label')?.style.text).toBe('Now: 40°C')
+    expect(graphics.find((item) => item.id === 'current-label')?.style.text).toBe('Now: 40°C')
   })
 
   it('accepts lower and upper props', async () => {

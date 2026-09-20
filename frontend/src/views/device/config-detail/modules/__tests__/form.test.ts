@@ -9,7 +9,7 @@ import { flushPromises, shallowMount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('lodash-es', () => ({
-  find: vi.fn((arr: any[], query: any) => arr.find(item => item.value === query.value))
+  find: vi.fn((arr: any[], query: any) => arr.find((item) => item.value === query.value))
 }))
 
 vi.mock('@/locales', () => ({
@@ -51,19 +51,56 @@ const mountComponent = (props = {}) => {
         }
       },
       stubs: {
-        NForm: defineComponent({ setup(_, { slots }) { return () => h('form', slots.default ? slots.default() : []) } }),
-        NFormItem: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NInput: defineComponent({ props: { value: { default: '' } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NInputNumber: defineComponent({ props: { value: { default: 0 } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NSelect: defineComponent({ props: { value: { default: null } }, emits: ['update:value'], setup() { return () => h('div') } }),
-        NTooltip: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
-        NEllipsis: defineComponent({ setup(_, { slots }) { return () => h('div', slots.default ? slots.default() : []) } }),
+        NForm: defineComponent({
+          setup(_, { slots }) {
+            return () => h('form', slots.default ? slots.default() : [])
+          }
+        }),
+        NFormItem: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NInput: defineComponent({
+          props: { value: { default: '' } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NInputNumber: defineComponent({
+          props: { value: { default: 0 } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NSelect: defineComponent({
+          props: { value: { default: null } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NTooltip: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NEllipsis: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
         NDynamicInput: defineComponent({
           props: { value: { default: () => [] }, onCreate: { type: Function, default: undefined } },
           emits: ['update:value'],
           setup(props, { slots }) {
             return () => {
-              return h('div', props.value.map((_, index) => slots.default?.({ index })))
+              return h(
+                'div',
+                props.value.map((_, index) => slots.default?.({ index }))
+              )
             }
           }
         })
@@ -75,8 +112,14 @@ const mountComponent = (props = {}) => {
 }
 
 describe('device/config-detail/modules/form.vue', () => {
-  beforeEach(() => { vi.clearAllMocks() })
-  afterEach(() => { while (mountedWrappers.length > 0) { mountedWrappers.pop()?.unmount() } })
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+  afterEach(() => {
+    while (mountedWrappers.length > 0) {
+      mountedWrappers.pop()?.unmount()
+    }
+  })
 
   it('initializes protocol config model and rules from plugin form schema', () => {
     const wrapper = mountComponent()

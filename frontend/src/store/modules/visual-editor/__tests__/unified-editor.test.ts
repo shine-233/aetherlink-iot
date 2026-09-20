@@ -180,16 +180,13 @@ describe('unified-editor store', () => {
   it('registers widgets, updates viewport and mode, and clears all editor state back to defaults', () => {
     const store = useUnifiedEditorStore()
 
-    store.registerWidgets([
-      { type: 'card-a', name: 'A' } as any,
-      { type: 'card-b', name: 'B' } as any
-    ])
+    store.registerWidgets([{ type: 'card-a', name: 'A' } as any, { type: 'card-b', name: 'B' } as any])
     store.updateViewport({ x: 100, zoom: 1.5 })
     store.setMode('preview')
     store.addNode(node())
     store.setRuntimeData('widget-1', { value: 1 })
 
-    expect(store.allWidgets.map(widget => widget.type)).toEqual(['card-a', 'card-b'])
+    expect(store.allWidgets.map((widget) => widget.type)).toEqual(['card-a', 'card-b'])
     expect(store.viewport).toEqual({ x: 100, y: 0, zoom: 1.5 })
     expect(store.mode).toBe('preview')
 

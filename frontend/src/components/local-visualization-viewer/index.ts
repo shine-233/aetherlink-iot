@@ -1,4 +1,5 @@
 export { default as LocalVisualizationViewer } from './LocalVisualizationViewer.vue'
-export { buildChartOption, resolveMetric, resolveText } from './data'
+export { buildChartOption, resolveHtml, resolveMetric, resolveText } from './data'
 export { normalizeLocalDashboard, normalizeLocalViewerFields } from './normalizer'
+export { sanitizeCss, sanitizeHtml } from './sanitizer'
 export type * from './types'

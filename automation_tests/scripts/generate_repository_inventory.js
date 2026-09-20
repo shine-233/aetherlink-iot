@@ -136,7 +136,7 @@ function categoryFor(relativePath) {
   if (basename === 'lcov.info' || extension === '.lcov') return 'generated-output';
   if (/\.gen\.go$/.test(relativePath) || /\.pb\.go$/.test(relativePath) || /(^|\/)backend\/docs\/(docs\.go|swagger\.(json|yaml))$/.test(relativePath)) return 'generated-source';
   if (/(^|\/)(third_party|vendor)(\/|$)/.test(relativePath)) return 'third-party';
-  if (/(^|\/)(__tests__|tests?|e2e)(\/|$)/.test(relativePath) || /\.(test|spec)\.[^.]+$/.test(relativePath)) return 'test';
+  if (/(^|\/)(__tests__|tests?|testdata|e2e)(\/|$)/.test(relativePath) || /\.(test|spec)\.[^.]+$/.test(relativePath) || /\.golden$/.test(relativePath)) return 'test';
   if (/(^|\/)(docs?|references|verification)(\/|$)/.test(relativePath) || extension === '.md') return 'documentation';
   if (['package-lock.json', 'pnpm-lock.yaml', 'go.sum'].includes(basename)) return 'lockfile';
   if (basename === 'codeowners') return 'configuration';

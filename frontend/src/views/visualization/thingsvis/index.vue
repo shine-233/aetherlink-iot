@@ -7,10 +7,24 @@
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { NAlert, NButton, NCard, NGrid, NGridItem, NInput, NModal, NForm, NFormItem, NEmpty, NSpin, useMessage } from 'naive-ui'
+import {
+  NAlert,
+  NButton,
+  NCard,
+  NGrid,
+  NGridItem,
+  NInput,
+  NModal,
+  NForm,
+  NFormItem,
+  NEmpty,
+  NSpin,
+  useMessage
+} from 'naive-ui'
 import { useRouterPush } from '@/hooks/common/router'
 import {
   getDefaultVisualizationProviderFacade,
+  NATIVE_BOARD_PROJECT_ID,
   NATIVE_BOARD_PROVIDER_ID,
   type VisualizationProject
 } from '@/service/visualization-provider/index'
@@ -23,12 +37,23 @@ import { $t } from '@/locales'
 const { routerPushByKey } = useRouterPush()
 const message = useMessage()
 const route = useRoute()
-const providerId = computed(() => resolveVisualizationProviderId({
-  provider: route.query.provider,
-  projectId: route.query.projectId
-}))
+const providerId = computed(() =>
+  resolveVisualizationProviderId({
+    provider: route.query.provider,
+    projectId: route.query.projectId
+  })
+)
 const provider = getDefaultVisualizationProviderFacade({ providerId: providerId.value })
 const providerError = computed(() => provider.selectionError)
+const projectCapabilities = computed(
+  () =>
+    provider.capabilities?.projects ?? {
+      list: false,
+      create: false,
+      update: false,
+      delete: false
+    }
+)
 const providerBlockedMessage = computed(() => {
   if (providerError.value?.code === 'external-blocked') {
     return $t('rdi.thingsvis.externalProviderDisabledDescription')
@@ -41,7 +66,9 @@ const isFirstDeviceOnboarding = computed(() => route.query.onboarding === 'first
 const onboardingDashboardQuery = computed((): Record<string, string> =>
   isFirstDeviceOnboarding.value
     ? { onboarding: 'first-device', ...(isNativeProvider.value ? { provider: 'native' } : {}) }
-    : (isNativeProvider.value ? { provider: 'native' } : {})
+    : isNativeProvider.value
+      ? { provider: 'native' }
+      : {}
 )
 
 // State
@@ -57,7 +84,7 @@ const projects = computed(() => {
   const keyword = searchKeyword.value.trim().toLowerCase()
   if (!keyword) return allProjects.value
 
-  return allProjects.value.filter(item => item.name.toLowerCase().includes(keyword))
+  return allProjects.value.filter((item) => item.name.toLowerCase().includes(keyword))
 })
 
 // Form state
@@ -72,7 +99,7 @@ const fetchProjects = async () => {
   try {
     if (providerError.value) return
 
-    const result = await provider.execute(current => current.listProjects({ page: 1, limit: 100 }))
+    const result = await provider.execute((current) => current.listProjects({ page: 1, limit: 100 }))
     if (result.ok) {
       allProjects.value = result.data.items
     } else {
@@ -85,12 +112,24 @@ const fetchProjects = async () => {
 
 /** Open create modal */
 const openCreateModal = () => {
+  if (!projectCapabilities.value.create) {
+    message.warning($t('rdi.thingsvis.projectCreationUnsupported'))
+    return
+  }
   editingProject.value = null
   formData.value = { name: '', description: '' }
   showModal.value = true
 }
 
 const openFirstDeviceProjectCreateModal = () => {
+  if (!projectCapabilities.value.create && projects.value.length > 0) {
+    enterProject(projects.value[0].id)
+    return
+  }
+  if (!projectCapabilities.value.create) {
+    message.warning($t('rdi.thingsvis.projectCreationUnsupported'))
+    return
+  }
   editingProject.value = null
   formData.value = {
     name: $t('rdi.thingsvis.firstDeviceProjectName'),
@@ -101,6 +140,10 @@ const openFirstDeviceProjectCreateModal = () => {
 
 /** Open edit modal */
 const openEditModal = (project: VisualizationProject) => {
+  if (!projectCapabilities.value.update) {
+    message.warning($t('rdi.thingsvis.projectUpdateUnsupported'))
+    return
+  }
   editingProject.value = project
   formData.value = {
     name: project.name,
@@ -118,10 +161,12 @@ const handleSaveProject = async () => {
 
   try {
     if (editingProject.value) {
-      const result = await provider.execute(current => current.updateProject(editingProject.value!.id, {
-        name: formData.value.name,
-        description: formData.value.description || undefined
-      }))
+      const result = await provider.execute((current) =>
+        current.updateProject(editingProject.value!.id, {
+          name: formData.value.name,
+          description: formData.value.description || undefined
+        })
+      )
       if (result.ok) {
         message.success($t('rdi.thingsvis.updateProjectSuccess'))
         showModal.value = false
@@ -130,10 +175,12 @@ const handleSaveProject = async () => {
         message.error($t('rdi.thingsvis.updateProjectFailed'))
       }
     } else {
-      const result = await provider.execute(current => current.createProject({
-        name: formData.value.name,
-        description: formData.value.description || undefined
-      }))
+      const result = await provider.execute((current) =>
+        current.createProject({
+          name: formData.value.name,
+          description: formData.value.description || undefined
+        })
+      )
       if (result.ok) {
         message.success($t('rdi.thingsvis.createSuccess'))
         showModal.value = false
@@ -154,7 +201,11 @@ const handleSaveProject = async () => {
 
 /** Delete project */
 const openDeleteConfirm = (id: string, name: string) => {
-  const project = allProjects.value.find(item => item.id === id)
+  if (!projectCapabilities.value.delete) {
+    message.warning($t('rdi.thingsvis.projectDeletionUnsupported'))
+    return
+  }
+  const project = allProjects.value.find((item) => item.id === id)
   if ((project?.dashboardCount || 0) > 0) {
     message.warning($t('rdi.thingsvis.projectHasDashboardsWarning'))
     return
@@ -169,16 +220,18 @@ const handleDeleteProject = async () => {
   deletingId.value = pendingDeleteProject.value.id
   try {
     const { id } = pendingDeleteProject.value
-    const dashboardsResult = await provider.execute(current => current.listDashboards({
-      projectId: id,
-      page: 1,
-      limit: 1000
-    }))
+    const dashboardsResult = await provider.execute((current) =>
+      current.listDashboards({
+        projectId: id,
+        page: 1,
+        limit: 1000
+      })
+    )
     if (!dashboardsResult.ok) {
       message.error($t('rdi.thingsvis.deleteFailed'))
       return
     }
-    const dashboardIds = dashboardsResult.data.items.map(dashboard => dashboard.id)
+    const dashboardIds = dashboardsResult.data.items.map((dashboard) => dashboard.id)
 
     for (const did of dashboardIds) {
       const { error } = await deleteDashboardMenuConfig(did)
@@ -188,7 +241,7 @@ const handleDeleteProject = async () => {
       }
     }
 
-    const deleteResult = await provider.execute(current => current.deleteProject(id))
+    const deleteResult = await provider.execute((current) => current.deleteProject(id))
     if (deleteResult.ok) {
       const deletedName = pendingDeleteProject.value?.name || ''
       deleteConfirmModal.value = false
@@ -260,7 +313,7 @@ onMounted(() => {
           </NInput>
 
           <!-- Create button -->
-          <NButton v-if="!isNativeProvider && !providerError" type="primary" @click="openCreateModal">
+          <NButton v-if="projectCapabilities.create && !providerError" type="primary" @click="openCreateModal">
             <template #icon>
               <icon-mdi:plus />
             </template>
@@ -281,7 +334,12 @@ onMounted(() => {
             {{ $t('rdi.thingsvis.firstDeviceDashboardDesc') }}
           </div>
         </div>
-        <NButton type="primary" @click="projects.length ? enterProject(projects[0].id) : openFirstDeviceProjectCreateModal()">
+        <NButton
+          v-if="projects.length || projectCapabilities.create"
+          type="primary"
+          data-testid="first-device-project-action"
+          @click="projects.length ? enterProject(projects[0].id) : openFirstDeviceProjectCreateModal()"
+        >
           <template #icon>
             <icon-mdi:home-plus-outline />
           </template>
@@ -306,15 +364,16 @@ onMounted(() => {
           <template #icon>
             <icon-mdi:folder-open-outline class="text-50px text-gray-300" />
           </template>
-          <template #extra>
-            <NButton type="primary" @click="isFirstDeviceOnboarding ? openFirstDeviceProjectCreateModal() : openCreateModal()">
+          <template v-if="projectCapabilities.create" #extra>
+            <NButton
+              type="primary"
+              @click="isFirstDeviceOnboarding ? openFirstDeviceProjectCreateModal() : openCreateModal()"
+            >
               <template #icon>
                 <icon-mdi:plus />
               </template>
               {{
-                isFirstDeviceOnboarding
-                  ? $t('rdi.thingsvis.firstDeviceProjectCreate')
-                  : $t('rdi.thingsvis.newProject')
+                isFirstDeviceOnboarding ? $t('rdi.thingsvis.firstDeviceProjectCreate') : $t('rdi.thingsvis.newProject')
               }}
             </NButton>
           </template>
@@ -336,15 +395,33 @@ onMounted(() => {
                     <icon-mdi:folder class="text-24px text-primary" />
                   </div>
 
-                  <!-- Hover actions -->
-                  <div v-if="!isNativeProvider" class="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                    <NButton size="small" quaternary circle @click.stop="openEditModal(project)">
+                  <!-- Hover actions：内置项目不可改名/删除（provider 层 fail closed），不渲染入口 -->
+                  <div
+                    v-if="
+                      (projectCapabilities.update || projectCapabilities.delete) &&
+                      project.id !== NATIVE_BOARD_PROJECT_ID
+                    "
+                    class="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100"
+                  >
+                    <NButton
+                      v-if="projectCapabilities.update"
+                      size="small"
+                      quaternary
+                      circle
+                      @click.stop="openEditModal(project)"
+                    >
                       <template #icon>
                         <icon-mdi:pencil class="text-16px" />
                       </template>
                     </NButton>
 
-                    <NButton size="small" quaternary circle @click.stop="openDeleteConfirm(project.id, project.name)">
+                    <NButton
+                      v-if="projectCapabilities.delete"
+                      size="small"
+                      quaternary
+                      circle
+                      @click.stop="openDeleteConfirm(project.id, project.name)"
+                    >
                       <template #icon>
                         <icon-mdi:delete class="text-16px" />
                       </template>
@@ -382,6 +459,7 @@ onMounted(() => {
 
     <!-- Create/edit modal -->
     <NModal
+      v-if="projectCapabilities.create || projectCapabilities.update"
       v-model:show="showModal"
       preset="card"
       :title="editingProject ? $t('rdi.thingsvis.editProject') : $t('rdi.thingsvis.newProject')"
@@ -421,6 +499,7 @@ onMounted(() => {
 
     <!-- Delete project confirm modal -->
     <NModal
+      v-if="projectCapabilities.delete"
       v-model:show="deleteConfirmModal"
       preset="dialog"
       type="warning"

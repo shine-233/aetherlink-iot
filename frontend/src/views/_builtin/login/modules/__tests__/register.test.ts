@@ -119,7 +119,7 @@ describe('Register', () => {
     const wrapper = shallowMount(Register, {
       global: { stubs: commonStubs }
     })
-    expect(wrapper.findAllComponents({ name: 'NFormItem' }).map(item => item.props('path'))).toEqual([
+    expect(wrapper.findAllComponents({ name: 'NFormItem' }).map((item) => item.props('path'))).toEqual([
       'phone',
       'code',
       'pwd',
