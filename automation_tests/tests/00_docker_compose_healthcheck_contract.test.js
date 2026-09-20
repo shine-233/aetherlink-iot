@@ -65,4 +65,21 @@ describe('Docker Compose healthcheck contract [00_docker_compose_healthcheck_con
       );
     }
   });
+
+  it('probes postgres over TCP so the socket-only init server cannot read as ready', function() {
+    // The official entrypoint runs /docker-entrypoint-initdb.d — which is where
+    // backend/sql runs — against a temporary server started with
+    // `listen_addresses=''`, so only the Unix socket answers during init. A
+    // pg_isready without a host probes that socket, which made postgres report
+    // healthy mid-initialization and let dependents race a TCP port that did
+    // not exist yet. Require an explicit TCP host instead.
+    const probe = services.postgres.match(
+      /(?:^|\n)      test: \["CMD(?:-SHELL)?", "(.+)"\](?:\n|$)/
+    );
+
+    expect(probe, 'postgres requires a probe').to.not.equal(null);
+    expect(probe[1], 'postgres probe must reach postgres over TCP').to.match(
+      /pg_isready\b[^\n]*\s-h\s+(?:\d{1,3}\.){3}\d{1,3}(?:\s|$)/
+    );
+  });
 });
