@@ -97,6 +97,19 @@ generate_secret() {
   LC_ALL=C tr -dc 'A-Za-z0-9_-' </dev/urandom | head -c "${1:-32}"
 }
 
+# 生成标准 base64（带填充）密钥，供 secrets.master_keys / market.bundle_signing_keys 使用。
+# 不能复用 generate_secret：它输出 URL-safe 且去掉填充，而 Go 侧用
+# base64.StdEncoding.DecodeString 解析，两者不兼容。
+generate_base64_key() {
+  bytes="${1:-32}"
+  if command -v openssl >/dev/null 2>&1; then
+    openssl rand -base64 "$bytes" | tr -d '\n'
+    return
+  fi
+
+  head -c "$bytes" /dev/urandom | base64 | tr -d '\n'
+}
+
 replace_env_value() {
   name="$1"
   value="$2"
@@ -305,6 +318,11 @@ initialize_env_file() {
   mqtt_root_password="$(generate_secret 32)"
   mqtt_plugin_password="$(generate_secret 32)"
   jwt_key="$(generate_secret 48)"
+  # 信封加密主密钥与市场包签名密钥：产品对未配置一律 fail closed，因此首次安装
+  # 必须现场生成，否则密钥库写入（100000）与资源包导出（100002）直接不可用。
+  # 签名密钥与加密密钥分开，长度不小于 32 字节（market 侧校验 >=32）。
+  secrets_master_key="$(generate_base64_key 32)"
+  bundle_signing_key="$(generate_base64_key 48)"
 
   replace_env_value POSTGRES_PASSWORD "$postgres_password" .env
   replace_env_value GOTP_DB_PSQL_PASSWORD "$postgres_password" .env
@@ -315,6 +333,11 @@ initialize_env_file() {
   replace_env_value GOTP_MQTT_USER "root" .env
   replace_env_value GOTP_MQTT_PASS "$mqtt_root_password" .env
   replace_env_value GOTP_JWT_KEY "$jwt_key" .env
+  # key id 与 docker-compose.yml 的 backend environment 白名单对齐（k1 / mk1）。
+  replace_env_value GOTP_SECRETS_ACTIVE_KEY_ID "k1" .env
+  replace_env_value GOTP_SECRETS_MASTER_KEYS_K1 "$secrets_master_key" .env
+  replace_env_value GOTP_MARKET_ACTIVE_BUNDLE_SIGNING_KEY_ID "mk1" .env
+  replace_env_value GOTP_MARKET_BUNDLE_SIGNING_KEYS_MK1 "$bundle_signing_key" .env
   replace_env_value AETHERLINK_SERVER_MODE "$SERVER_MODE" .env
   apply_performance_tier_env_file .env "${AETHERLINK_PERFORMANCE_TIER:-light}"
 
