@@ -23,6 +23,7 @@ import (
 	"aetherlink-iot/backend/pkg/utils"
 
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
 
@@ -279,7 +280,16 @@ func (SecretService) RevealSecret(ctx context.Context, id string, claims *utils.
 		ResponseMessage: &auditResp,
 	}
 	if global.DB != nil {
-		_ = global.DB.Table("operation_logs").Create(auditLog).Error
+		// 安全审计日志（reveal 落审计）不允许静默丢弃写入失败：失败至少要
+		// 进结构化日志供告警管道捕获；不阻断 reveal 本身属既有行为契约。
+		if err := global.DB.Table("operation_logs").Create(auditLog).Error; err != nil {
+			logrus.WithFields(logrus.Fields{
+				"module":    "secret_service",
+				"action":    "reveal_audit_write",
+				"secret_id": s.ID,
+				"error":     err.Error(),
+			}).Error("failed to persist secret reveal audit log")
+		}
 	}
 
 	return &model.RevealSecretResp{
