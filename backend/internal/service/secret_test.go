@@ -193,9 +193,22 @@ func TestSecretTamperedCiphertext(t *testing.T) {
 		t.Fatalf("Seal failed: %v", err)
 	}
 
-	// 篡改密文部分
+	// 篡改密文部分。
+	// 注意：篡改后的字符串必须与原文真正不同。此前固定把首字符替换为 'A'，
+	// 而密文首字符本身有约 1/64 的概率就是 'A'——此时 tampered == sealed，
+	// Open 必然成功，测试随机失败（实测 300 次约 7 次失败）。
 	parts := strings.Split(sealed, ".")
-	tampered := parts[0] + "." + parts[1] + ".A" + parts[2][1:]
+	if len(parts) < 3 || len(parts[2]) == 0 {
+		t.Fatalf("unexpected sealed envelope shape: %q", sealed)
+	}
+	replacement := byte('A')
+	if parts[2][0] == replacement {
+		replacement = 'B'
+	}
+	tampered := parts[0] + "." + parts[1] + "." + string(replacement) + parts[2][1:]
+	if tampered == sealed {
+		t.Fatalf("tamper fixture is a no-op, cannot test detection: %q", sealed)
+	}
 
 	_, err = secrets.Open(tampered, tenantID)
 	if err == nil {
