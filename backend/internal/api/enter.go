@@ -92,6 +92,8 @@ type Controller struct {
 	IndustrySolutionApi // TB-19 解决方案模板引擎
 	TenantApi         // P3 租户管理与自助开通
 	BillingApi        // P3 商业化计费与用量计量
+	DataConverterApi  // ThingsBoard 核心数据转换器
+	DeviceHealthApi   // TP-6 / TB PE 设备综合健康度评估
 }
 
 var (

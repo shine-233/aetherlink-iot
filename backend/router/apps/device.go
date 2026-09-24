@@ -83,6 +83,12 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 		deviceapi.GET("locations/latest", api.Controllers.DeviceApi.HandleGetLatestDeviceLocations)
 		deviceapi.GET(":id/location/history", api.Controllers.DeviceApi.HandleGetDeviceLocationHistory)
 
+		// TP-6 / TB PE 设备综合健康度评估（Device Health Score）
+		deviceapi.GET("health/summary", api.Controllers.DeviceHealthApi.GetHealthSummary)
+		deviceapi.POST("health/evaluate", api.Controllers.DeviceHealthApi.EvaluateDeviceHealth)
+		deviceapi.GET(":id/health", api.Controllers.DeviceHealthApi.GetDeviceHealth)
+		deviceapi.POST(":id/health/evaluate", api.Controllers.DeviceHealthApi.EvaluateDeviceHealth)
+
 		// 更换设备配置
 		deviceapi.PUT("update/config", api.Controllers.DeviceApi.UpdateDeviceConfig)
 
@@ -306,5 +312,11 @@ func (*Device) InitDevice(Router *gin.RouterGroup) {
 	{
 		devicesapi.GET("locations/latest", api.Controllers.DeviceApi.HandleGetLatestDeviceLocations)
 		devicesapi.GET(":device_id/location/history", api.Controllers.DeviceApi.HandleGetDeviceLocationHistory)
+
+		// TP-6 / TB PE 设备综合健康度评估（Device Health Score）
+		devicesapi.GET("health/summary", api.Controllers.DeviceHealthApi.GetHealthSummary)
+		devicesapi.POST("health/evaluate", api.Controllers.DeviceHealthApi.EvaluateDeviceHealth)
+		devicesapi.GET(":device_id/health", api.Controllers.DeviceHealthApi.GetDeviceHealth)
+		devicesapi.POST(":device_id/health/evaluate", api.Controllers.DeviceHealthApi.EvaluateDeviceHealth)
 	}
 }
