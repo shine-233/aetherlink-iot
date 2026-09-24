@@ -33,6 +33,7 @@
   "route.device_config": "Device Config",
   "route.device_config-detail": "Device Config Detail",
   "route.device_config-edit": "Edit the device",
+  "route.device_converter": "Data Converters",
   "route.system-management-user": "Operations Admin",
   "route.system-management-user_system-log": "System Log",
   "route.visualization": "Visualization",
@@ -94,5 +95,6 @@
   "route.system-management-user-equipment-map": "Equipment map",
   "route.management_solutions": "Solution Templates",
   "view.management_solutions": "Solution Templates",
-  "view.management_secrets": "Secrets"
+  "view.management_secrets": "Secrets",
+  "view.device_converter": "Data Converters"
 }

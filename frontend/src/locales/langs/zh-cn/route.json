@@ -33,6 +33,7 @@
   "route.device_config": "设备配置",
   "route.device_config-detail": "设备配置详情",
   "route.device_config-edit": "编辑设备",
+  "route.device_converter": "数据编解码",
   "route.system-management-user": "运维管理",
   "route.system-management-user_system-log": "系统日志",
   "route.visualization": "可视化",
@@ -94,5 +95,6 @@
   "route.system-management-user-equipment-map": "设备地图",
   "route.management_solutions": "解决方案模板",
   "view.management_solutions": "解决方案模板",
-  "view.management_secrets": "密钥管理"
+  "view.management_secrets": "密钥管理",
+  "view.device_converter": "数据编解码"
 }

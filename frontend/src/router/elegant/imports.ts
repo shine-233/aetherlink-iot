@@ -41,6 +41,7 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   "device_entity-relation": () => import("@/views/device/entity-relation/index.vue"),
   "device_config-detail": () => import("@/views/device/config-detail/index.vue"),
   "device_config-edit": () => import("@/views/device/config-edit/index.vue"),
+  "device_converter": () => import("@/views/device/converter/index.vue"),
   device_config: () => import("@/views/device/config/index.vue"),
   "device_details-child": () => import("@/views/device/details-child/index.vue"),
   device_details: () => import("@/views/device/details/index.vue"),

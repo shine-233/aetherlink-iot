@@ -87,6 +87,13 @@ export function createBaseDeviceTabs(): DeviceDetailTabComponent[] {
       sharedReadOnlySafe: true
     },
     {
+      key: 'health-assessment',
+      name: () => '健康诊断',
+      component: createAsyncDeviceTab(() => import('@/views/device/details/modules/health-assessment/index.vue')),
+      refreshKey: 0,
+      sharedReadOnlySafe: true
+    },
+    {
       key: 'rdi',
       name: () => 'RDI',
       component: createAsyncDeviceTab(() => import('@/views/device/details/modules/RdiDeviceOperationsView.vue')),

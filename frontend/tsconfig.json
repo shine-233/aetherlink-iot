@@ -39,6 +39,7 @@
     "dist",
     "packages",
     "src/__tests__",
+    "src/test/**",
     "**/__tests__/**",
     "**/*.test.ts",
     "**/*.test.tsx",
