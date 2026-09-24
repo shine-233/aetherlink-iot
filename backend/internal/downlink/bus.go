@@ -126,13 +126,17 @@ func (b *Bus) beginPublish() error {
 	if b.closing || b.closed {
 		return ErrBusClosed
 	}
+	if b.ctx != nil && b.ctx.Err() != nil {
+		b.running = false
+		return ErrBusUnavailable
+	}
 	if !b.running {
 		if b.initErr != nil {
 			return fmt.Errorf("%w: %v", ErrBusUnavailable, b.initErr)
 		}
 		return ErrBusNotStarted
 	}
-	if b.ctx == nil || b.ctx.Err() != nil {
+	if b.ctx == nil {
 		b.running = false
 		return ErrBusUnavailable
 	}
