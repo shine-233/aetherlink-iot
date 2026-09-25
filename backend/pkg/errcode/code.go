@@ -57,4 +57,5 @@ const (
 	CodeFileEmpty        = 202001 // 文件不能为空
 	CodeFileTypeMismatch = 202002 // 文件类型不匹配
 	CodeFileTooLarge     = 202003 // 文件大小超限
+	CodeMediaReferenced  = 202004 // 媒体文件被引用，禁止删除（TB-41 媒体库）
 )

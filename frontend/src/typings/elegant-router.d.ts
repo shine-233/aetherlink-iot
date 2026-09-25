@@ -34,6 +34,8 @@ declare module "@elegant-router/types" {
     "automation_rule-chain-edit": "/automation/rule-chain/edit";
     "automation_scene-linkage": "/automation/scene-linkage";
     "automation_scene-manage": "/automation/scene-manage";
+    "billing": "/billing";
+    "billing_api-quota": "/billing/api-quota";
     "dashboard": "/dashboard";
     "dashboard_rdi-overview": "/dashboard/rdi-overview";
     "dashboard_workbench": "/dashboard/workbench";
@@ -74,6 +76,8 @@ declare module "@elegant-router/types" {
     "management_user": "/management/user";
     "customer": "/customer";
     "customer_list": "/customer/list";
+    "media": "/media";
+    "media_library": "/media/library";
     "market": "/market";
     "market_browse": "/market/browse";
     "personal-center": "/personal-center";
@@ -97,6 +101,7 @@ declare module "@elegant-router/types" {
     "visualization_thingsvis-editor": "/visualization/thingsvis-editor";
     "visualization_thingsvis-menu-dashboard": "/visualization/thingsvis-menu-dashboard";
     "visualization_thingsvis-preview": "/visualization/thingsvis-preview";
+    "visualization_widget-bundles": "/visualization/widget-bundles";
   };
 
   /**
@@ -134,6 +139,7 @@ declare module "@elegant-router/types" {
     | "alarm"
     | "apply"
     | "automation"
+    | "billing"
     | "dashboard"
     | "device"
     | "device-details-app"
@@ -142,6 +148,7 @@ declare module "@elegant-router/types" {
     | "login"
     | "management"
     | "customer"
+    | "media"
     | "market"
     | "personal-center"
     | "product"
@@ -174,6 +181,7 @@ declare module "@elegant-router/types" {
     | "alarm_warning-message"
     | "apply_plugin"
     | "apply_service"
+    | "billing_api-quota"
     | "automation_linkage-edit"
     | "automation_rule-chain"
     | "automation_rule-chain-edit"
@@ -214,6 +222,7 @@ declare module "@elegant-router/types" {
     | "management_setting"
     | "management_user"
     | "customer_list"
+    | "media_library"
     | "market_browse"
     | "personal-center"
     | "product_update-ota"
@@ -233,6 +242,7 @@ declare module "@elegant-router/types" {
     | "visualization_thingsvis-menu-dashboard"
     | "visualization_thingsvis-preview"
     | "visualization_thingsvis"
+    | "visualization_widget-bundles"
   >;
 
   /**

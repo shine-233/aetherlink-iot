@@ -281,6 +281,16 @@ func buildAlarmConfigUpdate(req *model.UpdateAlarmConfigReq, oldConfig *model.Al
 	} else {
 		data.TriggerDuration = oldConfig.TriggerDuration
 	}
+	// TB-27：SLA 时限更新。req.SlaHours 为 nil（缺省/JSON null）= 沿用旧值；
+	// 0 = 关闭 SLA（normalize 折叠为 nil，落库 NULL），由下方单列更新兜底写入。
+	if req.SlaHours != nil {
+		if err := validateAlarmSlaHours(req.SlaHours); err != nil {
+			return nil, err
+		}
+		data.SlaHours = normalizeAlarmSlaHours(req.SlaHours)
+	} else {
+		data.SlaHours = oldConfig.SlaHours
+	}
 
 	return data, nil
 }
@@ -325,6 +335,11 @@ func (*Alarm) CreateAlarmConfig(req *model.CreateAlarmConfigReq, claims *utils.U
 		return nil, err
 	}
 	data.TriggerDuration = normalizeAlarmTriggerDuration(req.TriggerDuration)
+	// TB-27：SLA 时限校验与归一（nil/0 → NULL=不启用）。
+	if err := validateAlarmSlaHours(req.SlaHours); err != nil {
+		return nil, err
+	}
+	data.SlaHours = normalizeAlarmSlaHours(req.SlaHours)
 
 	err = dal.CreateAlarmConfig(data)
 	if err != nil {
@@ -371,6 +386,13 @@ func (*Alarm) UpdateAlarmConfig(req *model.UpdateAlarmConfigReq, claims *utils.U
 	// 结构体 Updates 会跳过零值，把持续时长显式改回 0（立即触发）时需要补一次单列更新。
 	if req.TriggerDuration != nil && data.TriggerDuration == 0 {
 		if err := dal.UpdateAlarmConfigTriggerDuration(req.ID, 0); err != nil {
+			return nil, wrapAlarmDBError(err)
+		}
+	}
+	// 结构体 Updates 会跳过 nil 指针：把 SLA 关闭（req 提交 0 → 归一为 NULL）时
+	// 需要补一次单列更新，否则旧时限残留（TB-27，对齐 TriggerDuration 先例）。
+	if req.SlaHours != nil && data.SlaHours == nil {
+		if err := dal.UpdateAlarmConfigSlaHours(req.ID, nil); err != nil {
 			return nil, wrapAlarmDBError(err)
 		}
 	}

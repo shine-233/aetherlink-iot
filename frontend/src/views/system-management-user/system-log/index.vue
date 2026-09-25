@@ -40,6 +40,33 @@ const requestMethodOptions = reactive([
     value: 'DELETE'
   }
 ])
+// TB-10 实体级动作筛选（127.sql）：create/update/delete/read/other 映射自 HTTP 方法
+const auditActionOptions = reactive([
+  {
+    label: $t('custom.management.all'),
+    value: ''
+  },
+  {
+    label: 'create',
+    value: 'create'
+  },
+  {
+    label: 'update',
+    value: 'update'
+  },
+  {
+    label: 'delete',
+    value: 'delete'
+  },
+  {
+    label: 'read',
+    value: 'read'
+  },
+  {
+    label: 'other',
+    value: 'other'
+  }
+])
 const queryParams = reactive({
   username: '',
   selected_time: null,
@@ -47,7 +74,10 @@ const queryParams = reactive({
   end_time: '',
   method: '',
   path: '',
-  ip: ''
+  ip: '',
+  action: '',
+  entity_type: '',
+  entity_id: ''
 })
 const total = ref(0)
 
@@ -141,6 +171,38 @@ const columns: Ref<DataTableColumns<DataService.Data>> = ref([
     align: 'left'
   },
   {
+    // TB-10（127.sql）：实体级动作（create/update/delete/read/other），旧数据为空
+    key: 'action',
+    minWidth: '100px',
+    title: $t('page.systemLog.action'),
+    align: 'left',
+    render: (row: any) => row.action || '--'
+  },
+  {
+    // TB-10（127.sql）：审计实体类型，自请求路径 /api/v1/<entity> 解析
+    key: 'entity_type',
+    minWidth: '120px',
+    title: $t('page.systemLog.entityType'),
+    align: 'left',
+    render: (row: any) => row.entity_type || '--'
+  },
+  {
+    // TB-10（127.sql）：审计实体ID，路径第二段 UUID 形态
+    key: 'entity_id',
+    minWidth: '200px',
+    title: $t('page.systemLog.entityId'),
+    align: 'left',
+    render: (row: any) => row.entity_id || '--'
+  },
+  {
+    // TB-10（127.sql）：HTTP 响应状态码
+    key: 'status_code',
+    minWidth: '100px',
+    title: $t('page.systemLog.statusCode'),
+    align: 'left',
+    render: (row: any) => (row.status_code === null || row.status_code === undefined ? '--' : String(row.status_code))
+  },
+  {
     key: 'latency',
     title: $t('common.requestTime'),
     minWidth: '140px',
@@ -178,6 +240,9 @@ function handleReset() {
   queryParams.method = ''
   queryParams.path = ''
   queryParams.username = ''
+  queryParams.action = ''
+  queryParams.entity_type = ''
+  queryParams.entity_id = ''
   queryParams.selected_time = null
   range.value = [dayjs().subtract(1, 'month').valueOf(), dayjs().valueOf()]
   pagination.page = 1
@@ -261,6 +326,15 @@ getTableData()
           </NFormItem>
           <NFormItem class="w-260px" :label="$t('common.requestPath')" path="path">
             <NInput v-model:value="queryParams.path" clearable />
+          </NFormItem>
+          <NFormItem :label="$t('page.systemLog.action')" path="action">
+            <NSelect v-model:value="queryParams.action" class="w-160px" :options="auditActionOptions"></NSelect>
+          </NFormItem>
+          <NFormItem class="w-180px" :label="$t('page.systemLog.entityType')" path="entity_type">
+            <NInput v-model:value="queryParams.entity_type" clearable />
+          </NFormItem>
+          <NFormItem class="w-280px" :label="$t('page.systemLog.entityId')" path="entity_id">
+            <NInput v-model:value="queryParams.entity_id" clearable />
           </NFormItem>
           <NFormItem :label="$t('generate.ipAddress')" path="ip">
             <NInput v-model:value="queryParams.ip" />

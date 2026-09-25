@@ -99,5 +99,13 @@
   "view.device_converter": "数据编解码",
   "route.customer": "客户管理",
   "route.customer_list": "客户列表",
-  "view.customer_list": "客户列表"
+  "view.customer_list": "客户列表",
+  "route.visualization-widget-bundles": "部件库",
+  "view.visualization_widget-bundles": "部件库",
+  "route.billing": "配额计费",
+  "route.billing_api-quota": "API 配额",
+  "view.billing_api-quota": "API 配额",
+  "route.media": "媒体库",
+  "route.media_library": "媒体库",
+  "view.media_library": "媒体库"
 }

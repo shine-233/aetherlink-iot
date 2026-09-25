@@ -20,6 +20,8 @@ import (
 
 	"aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/pkg/global"
+
+	"github.com/sirupsen/logrus"
 )
 
 // TelemetryRollupBucketMs 冷层固定桶宽：1 小时。
@@ -65,6 +67,43 @@ func UpsertTelemetryRollups(deviceID, key string, cutoff int64) (int64, error) {
 			count_v = EXCLUDED.count_v,
 			updated_at = now()`,
 		bucket, bucket, bucket, deviceID, key, cutoff, bucket, bucket)
+	return result.RowsAffected, result.Error
+}
+
+// DeleteTelemetryRollupsByTime 按冷层保留边界分批删除 rollup 行（TB-15）。
+// 冷层与热层同口径：bucket_start <= cutoff（毫秒），与 DeleteTelemetrDataByTime
+// 的 ts <= cutoff 共用同一个保留天数换算，避免"原始行已删、冷层越积越多"。
+// tenant-scope: system-job —— rollup 是跨租户聚合的派生数据（无租户列），清理
+// 归全局保留策略管，不向任何租户返回数据。
+func DeleteTelemetryRollupsByTime(cutoff int64) error {
+	for {
+		deleted, err := deleteTelemetryRollupsBatch(cutoff, telemetryRetentionDeleteBatchSize)
+		if err != nil {
+			logrus.Error(err)
+			return err
+		}
+		if deleted < telemetryRetentionDeleteBatchSize {
+			return nil
+		}
+	}
+}
+
+// telemetryRollupDeleteBatchSQL 冷层分批删除语句（主键元组 IN 子查询限量提交），
+// 提取为常量供 telemetry_rollups_retention_test.go 锁定分批骨架。
+const telemetryRollupDeleteBatchSQL = `
+		DELETE FROM telemetry_rollups
+		WHERE (device_id, key, bucket_ms, bucket_start) IN (
+			SELECT device_id, key, bucket_ms, bucket_start
+			FROM telemetry_rollups
+			WHERE bucket_start <= ?
+			ORDER BY bucket_start
+			LIMIT ?
+		)`
+
+// deleteTelemetryRollupsBatch 单批删除，风格对齐 deleteTelemetryDataBatch：
+// 主键元组 IN 子查询限量提交，小事务避免长事务与大锁，autovacuum 自然回收死元组。
+func deleteTelemetryRollupsBatch(cutoff int64, batchSize int) (int64, error) {
+	result := global.DB.Exec(telemetryRollupDeleteBatchSQL, cutoff, batchSize)
 	return result.RowsAffected, result.Error
 }
 

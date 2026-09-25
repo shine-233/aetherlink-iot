@@ -294,6 +294,12 @@ declare namespace Api {
       method?: string | null
       path?: string | null
       ip?: string | null
+      /** 实体级动作筛选（TB-10，127.sql）：create/update/delete/read/other */
+      action?: string | null
+      /** 审计实体类型筛选：/api/v1/<entity> 首段 */
+      entity_type?: string | null
+      /** 审计实体ID筛选：路径第二段 UUID 形态 */
+      entity_id?: string | null
     }
 
     type SystemLogList = {
@@ -308,6 +314,14 @@ declare namespace Api {
       response_message?: string
       tenant_id?: string
       remark?: null
+      /** 实体级动作（create/update/delete/read/other；127.sql 前存量行为空） */
+      action?: null | string
+      /** 审计实体类型（自请求路径解析） */
+      entity_type?: null | string
+      /** 审计实体ID（自请求路径解析） */
+      entity_id?: null | string
+      /** HTTP响应状态码 */
+      status_code?: null | number
     }
   }
   /** 系统设置-路由管理 */

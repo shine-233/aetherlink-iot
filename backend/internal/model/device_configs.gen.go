@@ -36,6 +36,9 @@ type DeviceConfig struct {
 	TemplateSecret   *string   `gorm:"column:template_secret" json:"template_secret"`
 	AutoRegister     int16     `gorm:"column:auto_register;not null" json:"auto_register"`
 	ImageURL         *string   `gorm:"column:image_url" json:"image_url"`
+	// DefaultRuleChainID 档案级默认规则链（TB-18，125.sql）：UUID 列（rule_chains.id 为 UUID），
+	// 可空 = 未绑定，执行面回落租户级启用链；手工追加字段沿用本文件 TemplateSecret 等先例。
+	DefaultRuleChainID *string `gorm:"column:default_rule_chain_id;comment:档案级默认规则链id（可空；空=回落租户级启用链）" json:"default_rule_chain_id"`
 }
 
 // TableName DeviceConfig's table name

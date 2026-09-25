@@ -18,6 +18,7 @@ type OperationLogsApi struct{}
 
 // HandleListByPage 分页查询当前权限范围内的操作日志。
 // 核心步骤：绑定分页筛选条件、提取 claims、调用 service 查询，并把结果挂到上下文供统一响应输出。
+// TB-10（127.sql）起支持实体级筛选 action/entity_type/entity_id，响应行含 action/entity_type/entity_id/status_code。
 // 审查重点：确认查询条件无法绕过租户/角色隔离，同时注意日志列表的返回字段是否满足最小暴露原则。
 // @Router   /api/v1/operation_logs [get]
 func (*OperationLogsApi) HandleListByPage(c *gin.Context) {
@@ -35,6 +36,8 @@ func (*OperationLogsApi) HandleListByPage(c *gin.Context) {
 }
 
 // ExportAuditLogs 导出当前租户的操作日志 CSV（P3 审计导出）。
+// TB-10（127.sql）起 CSV 含 action/entity_type/entity_id/status_code 列，
+// 并支持同维度可选筛选（载荷列仍不导出，见 service/audit_export.go 的最小化约定）。
 // @Summary  操作日志审计导出
 // @Tags     AuditLogs
 // @Router   /api/v1/operation_logs/export [post]

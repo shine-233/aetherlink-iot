@@ -237,6 +237,13 @@ func (*DeviceConfig) UpdateDeviceConfig(req model.UpdateDeviceConfigReq, claims 
 	if err := clearBlankPayloadSchemaID(&req); err != nil {
 		return nil, err
 	}
+	// 档案级默认规则链（TB-18）：先解绑空串，再做租户归属校验，最后随统一更新映射透传。
+	if err := clearBlankDefaultRuleChainID(&req); err != nil {
+		return nil, err
+	}
+	if err := validateDefaultRuleChainBinding(req.DefaultRuleChainId, oldConfig.TenantID); err != nil {
+		return nil, err
+	}
 	condsMap, err := prepareDeviceConfigUpdate(req, oldConfig.OtherConfig)
 	if err != nil {
 		return nil, err
@@ -283,6 +290,36 @@ func clearBlankPayloadSchemaID(req *model.UpdateDeviceConfigReq) error {
 	}
 	initialize.DelDeviceConfigCache(req.Id)
 	req.PayloadSchemaId = nil
+	return nil
+}
+
+// validateDefaultRuleChainBinding 校验档案级默认规则链绑定（TB-18）：nil/空串放行
+// （空串代表解绑，由 clearBlankDefaultRuleChainID 落库清空）；非空时链必须真实存在
+// 且归属目标租户——GetRuleChainByID 按 id+tenant 双条件查询，查不到即拒绝（fail-closed，
+// 防止跨租户链被挂到本租户档案上）。无效 UUID 文本同样以查询错误映射为参数错误。
+func validateDefaultRuleChainBinding(chainID *string, tenantID string) error {
+	if chainID == nil || *chainID == "" {
+		return nil
+	}
+	chain, err := dal.GetRuleChainByID(*chainID, tenantID)
+	if err != nil || chain == nil {
+		return errcode.NewWithMessage(errcode.CodeParamError, "default_rule_chain_id is not available for this tenant")
+	}
+	return nil
+}
+
+// clearBlankDefaultRuleChainID 处理“档案级默认规则链解绑”的前端传参约定。
+// 前端把 default_rule_chain_id 传为空字符串时表示解绑：先落库清空，再把请求体改为 nil，
+// 避免后续 StructToMapAndVerifyJson 把空字符串重新写回数据库。
+func clearBlankDefaultRuleChainID(req *model.UpdateDeviceConfigReq) error {
+	if req.DefaultRuleChainId == nil || *req.DefaultRuleChainId != "" {
+		return nil
+	}
+	if err := dal.UpdateDeviceConfigDefaultRuleChainID(req.Id, nil); err != nil {
+		return wrapDeviceConfigDBError(err)
+	}
+	initialize.DelDeviceConfigCache(req.Id)
+	req.DefaultRuleChainId = nil
 	return nil
 }
 

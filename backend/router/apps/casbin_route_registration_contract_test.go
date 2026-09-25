@@ -90,6 +90,10 @@ func TestCasbinRegistrationCoversMountedRoutes(t *testing.T) {
 	// 挂载依据：casbin 启动审计 fail-fast 已在最后一次成功启动时验证全部存量路由
 	// 已登记；新路由登记见 95/98/99.sql。此测试变红 = 有人加了未登记路由。
 	(&Device{}).InitDevice(v1)
+	// WidgetBundle 组（TB-04 部件库七条路由，123.sql 登记）；挂进来让契约测试持续守住。
+	(&WidgetBundleRouter{}).InitWidgetBundle(v1)
+	// MediaLibrary 组（TB-41 媒体库三条路由，129.sql 登记）；挂进来让契约测试持续守住。
+	(&MediaLibraryRouter{}).InitMediaLibrary(v1)
 
 	registered := registeredCasbinPaths(t)
 	isRegistered := func(route string) bool {

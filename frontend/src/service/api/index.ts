@@ -43,3 +43,9 @@ export * from './solution'
 // TELEMETRY_ANOMALY_RULE_* / detectTelemetryAnomalies 等，但本 barrel 此前漏了这条
 // re-export，导致 vue-tsc 报 11 个 TS2305「has no exported member」，页面也编译不过。
 export * from './telemetry-analysis'
+// TB-04 部件库（widget_bundles）：CRUD + 内置四部件种子导入 API。
+export * from './widget-bundle'
+// TB-17 租户 API 日配额：今日调用数/限额/剩余量（billing/api-quota）。
+export * from './billing'
+// TB-41 文件存储与媒体库（media_files）：通用上传 + 媒体列表/详情/删除 API。
+export * from './media'

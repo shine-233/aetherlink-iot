@@ -133,7 +133,7 @@ func expandMapRemarkFields(item map[string]interface{}) {
 	if strings.TrimSpace(rawRemark) != "" {
 		var r map[string]interface{}
 		if err := json.Unmarshal([]byte(rawRemark), &r); err == nil {
-			for _, k := range []string{"acknowledged", "acknowledged_by", "acknowledged_at", "reset", "reset_by", "reset_at", "cleared_by", "cleared_at", "action_note"} {
+			for _, k := range []string{"acknowledged", "acknowledged_by", "acknowledged_at", "reset", "reset_by", "reset_at", "cleared_by", "cleared_at", "action_note", "sla_escalation"} {
 				if val, exists := r[k]; exists && val != nil {
 					item[k] = val
 				}

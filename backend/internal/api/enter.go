@@ -83,18 +83,20 @@ type Controller struct {
 	AssetApi
 	UserTotpApi
 	OidcSsoApi
-	ResourceCenterApi // TP-5 资源中心
-	RateLimitApi      // TB-7 集群限流与多策略配额
-	QueueMonitorApi   // TB-7 多队列隔离监控
-	UnitsApi          // TB-9 单位换算与物理量纲
-	SecretApi         // TB-18 通用 Secrets Storage
-	DeviceClaimApi    // TB-12 设备认领与自动注册
+	ResourceCenterApi   // TP-5 资源中心
+	RateLimitApi        // TB-7 集群限流与多策略配额
+	QueueMonitorApi     // TB-7 多队列隔离监控
+	UnitsApi            // TB-9 单位换算与物理量纲
+	SecretApi           // TB-18 通用 Secrets Storage
+	DeviceClaimApi      // TB-12 设备认领与自动注册
 	IndustrySolutionApi // TB-19 解决方案模板引擎
-	TenantApi         // P3 租户管理与自助开通
-	BillingApi        // P3 商业化计费与用量计量
-	DataConverterApi  // ThingsBoard 核心数据转换器
-	DeviceHealthApi   // TP-6 / TB PE 设备综合健康度评估
-	CustomerApi       // ThingsBoard 核心客户管理体系
+	TenantApi           // P3 租户管理与自助开通
+	BillingApi          // P3 商业化计费与用量计量
+	DataConverterApi    // ThingsBoard 核心数据转换器
+	DeviceHealthApi     // TP-6 / TB PE 设备综合健康度评估
+	CustomerApi         // ThingsBoard 核心客户管理体系
+	WidgetBundleApi     // TB-04 部件库（widget_bundles）
+	MediaLibraryApi     // TB-41 文件存储与媒体库（media_files）
 }
 
 var (

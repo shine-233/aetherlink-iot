@@ -99,5 +99,13 @@
   "route.customer_list": "Liste des clients",
   "view.customer_list": "Liste des clients",
   "route.device_converter": "Convertisseurs de données",
-  "view.device_converter": "Convertisseurs de données"
+  "view.device_converter": "Convertisseurs de données",
+  "route.visualization-widget-bundles": "Bibliothèque de widgets",
+  "view.visualization_widget-bundles": "Bibliothèque de widgets",
+  "route.billing": "Quotas et facturation",
+  "route.billing_api-quota": "Quota API",
+  "view.billing_api-quota": "Quota API",
+  "route.media": "Bibliothèque de médias",
+  "route.media_library": "Bibliothèque de médias",
+  "view.media_library": "Bibliothèque de médias"
 }

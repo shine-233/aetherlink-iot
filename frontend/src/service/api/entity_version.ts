@@ -1,4 +1,4 @@
-/** 实体版本控制 API（ROADMAP C7，对标 ThingsBoard 3.5+ Version Control） */
+/** 实体版本控制 API（ROADMAP C7/TB-25，对标 ThingsBoard 3.5+ Version Control） */
 import { request } from '@/service/request'
 
 /** 后端 resolveEntityTable 白名单：board / rule_chain / device_config / calculated_field */
@@ -53,4 +53,33 @@ export const entityVersionGet = async (id: string) => {
 /** 恢复版本；dry_run=true 时只回显将写入的字段，不落库 */
 export const entityVersionRestore = async (id: string, dryRun = false) => {
   return await request.post(`/entity_versions/${id}/restore`, { dry_run: dryRun })
+}
+
+/** 单条路径变更：kind ∈ added|removed|modified（路径以点号表达，数组下标为路径段） */
+export interface EntityVersionDiffChange {
+  path: string
+  kind: 'added' | 'removed' | 'modified'
+  old_value?: unknown
+  new_value?: unknown
+}
+
+/** 两份快照的语义差异汇总：三类路径列表 + 同序明细 + 总数 */
+export interface EntityVersionDiffResult {
+  added: string[]
+  removed: string[]
+  modified: string[]
+  changes: EntityVersionDiffChange[]
+  total: number
+}
+
+/** 版本对比响应：source 为基准版本，target 为对比版本，diff 为语义差异 */
+export interface EntityVersionDiffPayload {
+  source: EntityVersion
+  target: EntityVersion
+  diff: EntityVersionDiffResult
+}
+
+/** 对比两个版本快照的 JSON 语义差异（id 为基准版本，targetId 为对比版本） */
+export const entityVersionDiff = async (id: string, targetId: string) => {
+  return await request.get(`/entity_versions/${id}/diff/${targetId}`)
 }

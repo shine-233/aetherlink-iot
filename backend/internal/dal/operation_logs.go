@@ -55,6 +55,20 @@ func GetListByPage(operationLog *model.GetOperationLogListByPageReq, userClaims 
 		base = base.Where("users.name LIKE ?", operationLogLikePattern(*operationLog.UserName))
 	}
 
+	// TB-10 实体级审计筛选（127.sql）：动作精确匹配，实体类型/ID 精确匹配。
+	// 存量行（127.sql 之前）这些列为 NULL，带筛选时自然不命中，符合"筛选旧数据为空"预期。
+	if operationLog.Action != nil && *operationLog.Action != "" {
+		base = base.Where("operation_logs.action = ?", *operationLog.Action)
+	}
+
+	if operationLog.EntityType != nil && *operationLog.EntityType != "" {
+		base = base.Where("operation_logs.entity_type = ?", *operationLog.EntityType)
+	}
+
+	if operationLog.EntityID != nil && *operationLog.EntityID != "" {
+		base = base.Where("operation_logs.entity_id = ?", *operationLog.EntityID)
+	}
+
 	if err := base.Session(&gorm.Session{}).Count(&count).Error; err != nil {
 		logrus.Error(err)
 		return count, operationLogList, err
@@ -82,13 +96,24 @@ func DeleteOperationLogsByTime(t time.Time) error {
 
 // ListOperationLogsForExport 按时间窗读取租户操作日志（P3 审计导出，CSV 渲染用）。
 // 只投影导出列所需的字段级结构；message 载荷列刻意不取——审计最小化（见 service 层注释）。
-func ListOperationLogsForExport(tenantID string, start, end time.Time, limit int) ([]model.OperationLog, error) {
+// TB-10（127.sql）：filters.Action/EntityType/EntityID 为可选实体级筛选，空串/nil 不收窄结果。
+func ListOperationLogsForExport(tenantID string, start, end time.Time, filters model.AuditLogExportReq, limit int) ([]model.OperationLog, error) {
 	if limit <= 0 || limit > 200000 {
 		limit = 100000
 	}
+	query := global.DB.Table("operation_logs").
+		Where("tenant_id = ? AND created_at >= ? AND created_at < ?", tenantID, start, end)
+	if filters.Action != nil && *filters.Action != "" {
+		query = query.Where("action = ?", *filters.Action)
+	}
+	if filters.EntityType != nil && *filters.EntityType != "" {
+		query = query.Where("entity_type = ?", *filters.EntityType)
+	}
+	if filters.EntityID != nil && *filters.EntityID != "" {
+		query = query.Where("entity_id = ?", *filters.EntityID)
+	}
 	rows := make([]model.OperationLog, 0, 512)
-	err := global.DB.Table("operation_logs").
-		Where("tenant_id = ? AND created_at >= ? AND created_at < ?", tenantID, start, end).
+	err := query.
 		Order("created_at ASC").
 		Limit(limit).
 		Find(&rows).Error

@@ -99,5 +99,13 @@
   "view.device_converter": "Data Converters",
   "route.customer": "Customers",
   "route.customer_list": "Customer List",
-  "view.customer_list": "Customer List"
+  "view.customer_list": "Customer List",
+  "route.visualization-widget-bundles": "Widget Bundles",
+  "view.visualization_widget-bundles": "Widget Bundles",
+  "route.billing": "Quota & Billing",
+  "route.billing_api-quota": "API Quota",
+  "view.billing_api-quota": "API Quota",
+  "route.media": "Media Library",
+  "route.media_library": "Media Library",
+  "view.media_library": "Media Library"
 }

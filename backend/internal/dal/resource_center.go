@@ -1,7 +1,7 @@
 // 文件用途：资源中心（TP-5）数据访问层（DAL）。
 // 核心逻辑：
-// 1. 聚合 device_templates 与 boards 两张表，实现跨形态资源分类目录（Catalog）；
-// 2. 提供物模型模板与大屏/看板模板统一分页检索（List）；
+// 1. 聚合 device_templates / boards / widget_bundles 三张表，实现跨形态资源分类目录（Catalog）；
+// 2. 提供物模型模板、大屏/看板模板与部件库统一分页检索（List）；
 // 3. 支持看板版本扫描（用于导入冲突预览）、按行业打包查询及下载量原子累加。
 package dal
 
@@ -26,7 +26,7 @@ type catalogCountRow struct {
 	DownloadCount int64  `gorm:"column:dl_cnt"`
 }
 
-// ListResourceCenterCatalog 获取资源中心全貌目录（同时统计设备模板与大屏看板）。
+// ListResourceCenterCatalog 获取资源中心全貌目录（同时统计设备模板、大屏看板与部件库）。
 func ListResourceCenterCatalog(ctx context.Context, tenantID string) ([]model.ResourceCenterCatalogEntry, error) {
 	if global.DB == nil {
 		return nil, errResourceCenterDBNotReady
@@ -56,10 +56,23 @@ func ListResourceCenterCatalog(ctx context.Context, tenantID string) ([]model.Re
 		return nil, err
 	}
 
-	// 3. 归并两表统计
+	// 3. 统计部件库（TB-04；widget_bundles 无 download_count 列，dl_cnt 恒 0）
+	var widgetRows []catalogCountRow
+	err = global.DB.WithContext(ctx).
+		Table(model.TableNameWidgetBundle).
+		Select("COALESCE(type_key, '') AS type_key, COUNT(*) AS cnt, 0 AS dl_cnt").
+		Where("tenant_id = ?", tenantID).
+		Group("type_key").
+		Find(&widgetRows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// 4. 归并三表统计
 	type combinedEntry struct {
 		deviceCount   int64
 		boardCount    int64
+		widgetCount   int64
 		downloadCount int64
 	}
 	agg := make(map[string]*combinedEntry)
@@ -79,6 +92,13 @@ func ListResourceCenterCatalog(ctx context.Context, tenantID string) ([]model.Re
 		agg[k].boardCount += r.Count
 		agg[k].downloadCount += r.DownloadCount
 	}
+	for _, r := range widgetRows {
+		k := strings.TrimSpace(r.TypeKey)
+		if _, ok := agg[k]; !ok {
+			agg[k] = &combinedEntry{}
+		}
+		agg[k].widgetCount += r.Count
+	}
 
 	// 映射为响应列表
 	result := make([]model.ResourceCenterCatalogEntry, 0, len(agg))
@@ -92,7 +112,8 @@ func ListResourceCenterCatalog(ctx context.Context, tenantID string) ([]model.Re
 			Name:          name,
 			DeviceCount:   v.deviceCount,
 			BoardCount:    v.boardCount,
-			TotalCount:    v.deviceCount + v.boardCount,
+			WidgetCount:   v.widgetCount,
+			TotalCount:    v.deviceCount + v.boardCount + v.widgetCount,
 			DownloadCount: v.downloadCount,
 		})
 	}
@@ -115,6 +136,7 @@ func ListResourceCenterItems(ctx context.Context, req model.ResourceCenterListRe
 
 	includeTemplates := rType == "all" || rType == "device_template"
 	includeBoards := rType == "all" || rType == "board_template"
+	includeWidgets := rType == "all" || rType == "widget_bundle" // TB-04 部件库
 
 	// 1. 查询符合条件的设备模板
 	if includeTemplates {
@@ -220,6 +242,58 @@ func ListResourceCenterItems(ctx context.Context, req model.ResourceCenterListRe
 				DownloadCount: b.DownloadCount,
 				CreatedAt:     b.CreatedAt,
 				UpdatedAt:     b.UpdatedAt,
+			})
+		}
+	}
+
+	// 3. 查询符合条件的部件库（TB-04）
+	if includeWidgets {
+		var bundles []model.WidgetBundle
+		q := global.DB.WithContext(ctx).Table(model.TableNameWidgetBundle).Where("tenant_id = ?", tenantID)
+		if typeKey != "" {
+			q = q.Where("type_key = ?", typeKey)
+		}
+		if keyword != "" {
+			pattern := "%" + keyword + "%"
+			q = q.Where("name LIKE ? OR description LIKE ?", pattern, pattern)
+		}
+		if err := q.Find(&bundles).Error; err != nil {
+			return 0, nil, err
+		}
+		for _, wb := range bundles {
+			version := "1.0.0"
+			if strings.TrimSpace(wb.Version) != "" {
+				version = wb.Version
+			}
+			desc := ""
+			if wb.Description != nil {
+				desc = *wb.Description
+			}
+			tk := ""
+			if wb.TypeKey != nil {
+				tk = *wb.TypeKey
+			}
+			createdAt := time.Time{}
+			if wb.CreatedAt != nil {
+				createdAt = *wb.CreatedAt
+			}
+			updatedAt := createdAt
+			if wb.UpdatedAt != nil {
+				updatedAt = *wb.UpdatedAt
+			}
+			items = append(items, model.ResourceCenterItem{
+				ID:            wb.ID,
+				ResourceType:  "widget_bundle",
+				Name:          wb.Name,
+				Version:       version,
+				Author:        "",
+				Description:   desc,
+				TypeKey:       tk,
+				Path:          "",
+				VisType:       "",
+				DownloadCount: 0,
+				CreatedAt:     createdAt,
+				UpdatedAt:     updatedAt,
 			})
 		}
 	}

@@ -66,6 +66,8 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   management_setting: () => import("@/views/management/setting/index.vue"),
   management_user: () => import("@/views/management/user/index.vue"),
   customer_list: () => import("@/views/customer/list/index.vue"),
+  media_library: () => import("@/views/media/library/index.vue"),
+  "billing_api-quota": () => import("@/views/billing/api-quota/index.vue"),
   market_browse: () => import("@/views/market/browse/index.vue"),
   "personal-center": () => import("@/views/personal-center/index.vue"),
   "product_update-ota": () => import("@/views/product/update-ota/index.vue"),
@@ -85,4 +87,6 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   "visualization_thingsvis-menu-dashboard": () => import("@/views/visualization/thingsvis-menu-dashboard/index.vue"),
   "visualization_thingsvis-preview": () => import("@/views/visualization/thingsvis-preview/index.vue"),
   visualization_thingsvis: () => import("@/views/visualization/thingsvis/index.vue"),
+  // TB-04 部件库（widget_bundles）管理页（与 visualizationRoutes.ts 同步）。
+  "visualization_widget-bundles": () => import("@/views/visualization/widget-bundles/index.vue"),
 };

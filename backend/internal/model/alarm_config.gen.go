@@ -28,6 +28,9 @@ type AlarmConfig struct {
 	Remark              *string   `gorm:"column:remark" json:"remark"`
 	Enabled             string    `gorm:"column:enabled;not null;comment:是否启用Y-启用N-停止" json:"enabled"`                                // 是否启用Y-启用N-停止
 	TriggerDuration     int32     `gorm:"column:trigger_duration;not null;default:0;comment:触发持续时间(秒)0-立即触发" json:"trigger_duration"` // 触发持续时间(秒)0-立即触发
+	// SlaHours SLA 时限小时数（TB-27，126.sql）：NULL=不启用超时升级；
+	// 手工追加字段沿用本文件 TriggerDuration 等先例，服务层把 <=0 折叠为 NULL。
+	SlaHours *int32 `gorm:"column:sla_hours;comment:告警SLA时限（小时；空=不启用超时升级）" json:"sla_hours"`
 }
 
 // TableName AlarmConfig's table name

@@ -219,6 +219,10 @@ const routeMap: RouteMap = {
   "management_user": "/management/user",
   "customer": "/customer",
   "customer_list": "/customer/list",
+  "media": "/media",
+  "media_library": "/media/library",
+  "billing": "/billing",
+  "billing_api-quota": "/billing/api-quota",
   "market": "/market",
   "market_browse": "/market/browse",
   "personal-center": "/personal-center",
@@ -241,7 +245,9 @@ const routeMap: RouteMap = {
   "visualization_thingsvis-dashboards": "/visualization/thingsvis-dashboards",
   "visualization_thingsvis-editor": "/visualization/thingsvis-editor",
   "visualization_thingsvis-menu-dashboard": "/visualization/thingsvis-menu-dashboard",
-  "visualization_thingsvis-preview": "/visualization/thingsvis-preview"
+  "visualization_thingsvis-preview": "/visualization/thingsvis-preview",
+  // TB-04 部件库（widget_bundles）路径映射（与 visualizationRoutes.ts 同步）。
+  "visualization_widget-bundles": "/visualization/widget-bundles"
 };
 
 /**

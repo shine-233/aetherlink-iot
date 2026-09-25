@@ -10,6 +10,8 @@ import { dashboardRoutes, visualizationRoutes } from './visualizationRoutes';
 import { deviceRoutes, deviceAppRoutes, productRoutes } from './deviceRoutes';
 import { marketRoutes } from './marketRoutes';
 import { customerRoutes } from './customerRoutes';
+import { billingRoutes } from './billingRoutes';
+import { mediaRoutes } from './mediaRoutes';
 
 export const generatedRoutes: GeneratedRoute[] = [
   ...systemIntroRoutes,
@@ -27,5 +29,7 @@ export const generatedRoutes: GeneratedRoute[] = [
   ...systemManagementRoutes,
   ...visualizationRoutes,
   ...marketRoutes,
-  ...customerRoutes
+  ...customerRoutes,
+  ...billingRoutes,
+  ...mediaRoutes
 ];

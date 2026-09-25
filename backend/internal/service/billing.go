@@ -1,15 +1,18 @@
 package service
 
 import (
+	"context"
 	"math"
 	"strings"
 	"time"
 
 	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/internal/quota"
 	"aetherlink-iot/backend/pkg/errcode"
 
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 )
 
 type BillingService struct{}
@@ -119,6 +122,55 @@ func (s *BillingService) GetTenantUsage(tenantID string) (*model.BillingUsageRep
 	}
 
 	return report, nil
+}
+
+// GetTenantAPIQuota 获取租户今日 API 配额报告（TB-17）：今日调用数、套餐限额与剩余量。
+// 限额与状态复用 internal/quota 的执法判定纯函数，保证展示口径与 429 执法口径一致；
+// 计量读取 fail-open——读取失败按 0 展示而非报错（查询端点不承载执法职责）。
+func (s *BillingService) GetTenantAPIQuota(ctx context.Context, tenantID string) (*model.APIQuotaReport, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "tenant_id is required")
+	}
+
+	// 1. 订阅套餐：无订阅归 free（与 GetTenantUsage 同一口径）
+	sub, err := dal.GetTenantSubscription(tenantID)
+	if err != nil {
+		return nil, err
+	}
+	planCode := "free"
+	if sub != nil && sub.PlanCode != "" {
+		planCode = sub.PlanCode
+	}
+	plan, err := dal.GetSubscriptionPlanByCode(planCode)
+	if err != nil {
+		return nil, err
+	}
+	if plan == nil {
+		// 容错回退：套餐目录缺失时按"未配置阈值"展示（不限量），不阻断查询。
+		plan = &model.SubscriptionPlan{Code: planCode, Name: strings.ToUpper(planCode)}
+	}
+
+	// 2. 今日已用调用数（Redis 权威值 / 进程镜像 / DB 快照三级回落；失败按 0 展示）
+	used, usageDate, err := quota.Default().TodayUsage(ctx, tenantID)
+	if err != nil {
+		logrus.WithError(err).Warnf("billing: read today api usage failed for tenant %s, report 0", tenantID)
+		usageDate = quota.UsageDate(time.Now())
+	}
+
+	// 3. 限额与状态判定复用执法纯函数（展示与执法同口径）
+	decision := quota.DecideDailyQuota(int64(plan.MaxApiCallsPerDay), used, time.Now())
+
+	return &model.APIQuotaReport{
+		TenantID:          tenantID,
+		Date:              usageDate,
+		PlanCode:          plan.Code,
+		APICallsToday:     used,
+		MaxAPICallsPerDay: int64(plan.MaxApiCallsPerDay),
+		Remaining:         decision.Remaining,
+		UsagePct:          decision.UsagePct,
+		QuotaStatus:       decision.Status,
+	}, nil
 }
 
 // SubscribePlan 为租户订购或变更套餐

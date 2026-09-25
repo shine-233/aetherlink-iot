@@ -292,12 +292,12 @@ func RouterInit() *gin.Engine {
 			v1.GET("license/status", controllers.LicenseApi.Status)
 			apps.Model.AiModel.InitAiModel(v1) // AI 2.0 D7
 
-			apps.Model.Scada.Init(v1)  // P1.3 Widget 与 SCADA 基础层
-			apps.Model.Mobile.Init(v1) // P1.4 移动端控制与通知
-			apps.Model.ResourceCenter.InitResourceCenter(v1) // TP-5 资源中心（物模型与大屏统一市场）
+			apps.Model.Scada.Init(v1)                            // P1.3 Widget 与 SCADA 基础层
+			apps.Model.Mobile.Init(v1)                           // P1.4 移动端控制与通知
+			apps.Model.ResourceCenter.InitResourceCenter(v1)     // TP-5 资源中心（物模型与大屏统一市场）
 			apps.Model.IndustrySolution.InitIndustrySolution(v1) // TB-19 解决方案模板引擎
-			apps.Model.Tenant.InitTenant(v1) // P3 租户管理
-			apps.Model.Billing.InitBilling(v1) // P3 计费与用量计量
+			apps.Model.Tenant.InitTenant(v1)                     // P3 租户管理
+			apps.Model.Billing.InitBilling(v1)                   // P3 计费与用量计量
 
 			apps.Model.AttributeData.InitAttributeData(v1) // 属性数据
 
@@ -317,9 +317,11 @@ func RouterInit() *gin.Engine {
 
 			apps.Model.Product.Init(v1) // 产品选择列表
 
-			apps.Model.DataScript.Init(v1) // 数据处理脚本
+			apps.Model.DataScript.Init(v1)                       // 数据处理脚本
 			apps.Model.DataConverterRouter.InitDataConverter(v1) // ThingsBoard 核心数据转换器
-			apps.Model.Customer.Init(v1) // ThingsBoard 核心客户管理体系
+			apps.Model.Customer.Init(v1)                         // ThingsBoard 核心客户管理体系
+			apps.Model.WidgetBundleRouter.InitWidgetBundle(v1)   // TB-04 部件库（widget_bundles）
+			apps.Model.MediaLibraryRouter.InitMediaLibrary(v1)   // TB-41 文件存储与媒体库（media_files）
 
 			apps.Model.NotificationGroup.InitNotificationGroup(v1) // 通知组
 

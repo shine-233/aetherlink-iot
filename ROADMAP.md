@@ -1,7 +1,7 @@
 # AetherLink IoT 路线图（2026-09-25 审计重制与实施版）
 
 > 本稿系对仓库根 `ROADMAP.md`（2026-09-24 v3 终章版）的**清理重制**：旧稿中经独立审计证实失真/夸大的表述已在第 6 节逐条清理，本稿口径不再沿用旧结论。
-> **2026-09-25 实施**：§5.1 近期计划中的 TB-30（告警实时 WS）、TP-05（一型一密产品级交叉校验）、TB-57（客户实体四面收尾）、TP-19（国产化交叉编译）与文档口径修复已落地，交付记录见 §5.1 与 §9；证据留痕 `docs/validation/2026-09-25-roadmap-remediation-batch-evidence.md`。
+> **2026-09-25 实施**：§5.1 近期计划中的 TB-30（告警实时 WS）、TP-05（一型一密产品级交叉校验）、TB-57（客户实体四面收尾）、TP-19（国产化交叉编译）与文档口径修复已落地，交付记录见 §5.1 与 §9；证据留痕 `docs/validation/2026-09-25-roadmap-remediation-batch-evidence.md`。**批次二**（TB-04/17/18/27/10/25/15/41/21，迁移链扩至 129.sql）已交付，证据留痕 `docs/validation/2026-09-25-roadmap-remediation-batch2-evidence.md`（§9 批次二实施记录）。
 > 仓库基线：分支 `feature/roadmap-complete-tb-tp-parity`，HEAD `4be45c6`（2026-09-24）。
 
 ---
@@ -10,6 +10,7 @@
 
 ### 1.1 版本与迁移链（实测值）
 - **迁移链**：`backend/sql/` 最大编号 **`122.sql`** = `backend/pkg/global/global.go:21` 的 `VERSION_NUMBER = 122`，二者一致；1~122 连续无缺号（本会话逐文件核验）。`122.sql`（客户管理体系 Customer Management）系旧 ROADMAP 2026-09-24 快照之后新增，故旧稿"121 = 121"已过期。
+- **2026-09-25 批次二后口径（更新会话实测）**：迁移链最大编号 **`129.sql`** = `backend/pkg/global/global.go:21` 的 `VERSION_NUMBER = 129`，1~129 连续无缺号（`backend/sql/` 下 .sql 文件计数 129，最小 1、最大 129）。123~129 系批次二新增（TB-04/17/18/27/10/25/41 各一迁移；TB-15 为 `57.sql` 就地修正、TB-21 无新迁移）。上文"122=122"为批次二前的基线快照。
 - **应用版本**：`global.go:20-22` → `VERSION = "0.0.23"`、`SYSTEM_VERSION = "v1.2.3"`。注意 `README.md:127` 仍写 `VERSION_NUMBER=99`，属更早的过期注记，待随本稿一并修订。
 - **业务表数**：旧稿"当前运行实例 138 张业务数据表"为活库声称、无法从仓库复核（粗代理：迁移文件内 `CREATE TABLE` 共 146 处）。本稿不再写死表数，以迁移链编号为准。
 
@@ -26,6 +27,8 @@
 > 评审会话对 §1.3 竞品版本覆盖声明**未做外网复核**（见 §7.2 第 8 条）。
 
 > **2026-09-25 实施会话最终门禁（本表之后的最终口径）**：`go test ./...` **REAL_EXIT=0（66 包 ok / 0 FAIL**，含新增告警实时 6 例）；`vue-tsc --noEmit` 0 错误；前端全量 vitest 3970 例全绿；OpenAPI 重生成 **489 paths**（+客户 5 端点 +`alarm/status/ws`）；交叉编译三架构二进制实测产出。契约测试 75/76/77 已就位、待活栈运行（本机无 docker）。详见 §9 与证据文档。
+
+> **2026-09-25 批次二收尾门禁（任务书下达的最终口径，编排方统一收尾）**：`openapi=0`、`goTest=0`、`vue-tsc=0`、`vitest=0`（四项计数照录自批次收尾门禁结果，更新会话未复跑）。批次二 9 项（TB-04/17/18/27/10/25/15/41/21）全部 delivered、无 blocked/回退项；契约测试 78~86 已就位、按约定未在活栈运行（本机无 docker），对应行按 §2 记 **partial†**。详见 §9 批次二实施记录与 `docs/validation/2026-09-25-roadmap-remediation-batch2-evidence.md`。
 
 > 旧稿"go test 60+ 包 100% 通过"在本会话以实测值取代：**66 包 ok / 0 FAIL**。旧稿引用的 71/72/73/74 号契约测试"36 passing"等数字本会话未复跑，不再作为门禁口径。
 
@@ -70,9 +73,9 @@
 
 | 编号 | 能力 | 竞品版本 | 本项目状态 | 证据路径 |
 | --- | --- | --- | --- | --- |
-| CORE-01 | 数据库版本化迁移与自升级机制 | 通用基线（TB/TP 均具备） | done | `backend/sql/1~122.sql`（连续无缺号）、`backend/pkg/global/global.go:21`（VERSION_NUMBER=122）、`backend/initialize/pg_init.go`（迁移循环上界） |
+| CORE-01 | 数据库版本化迁移与自升级机制 | 通用基线（TB/TP 均具备） | done | `backend/sql/1~129.sql`（连续无缺号；2026-09-25 批次二后由文档更新会话实测——129 个 .sql、最小 1/最大 129，与 `global.go:21` VERSION_NUMBER=129 一致；批次二前基线为 1~122=122，见 §1.1）、`backend/pkg/global/global.go:21`（VERSION_NUMBER=129，批次二后实测）、`backend/initialize/pg_init.go`（迁移循环上界） |
 | CORE-02 | OpenAPI 契约与接口文档 | 通用基线 | done | `docs/openapi/openapi.json`（本会话实测 483 paths，phase-d-d8a） |
-| CORE-03 | 自动化测试矩阵（契约+E2E+演练脚本） | 通用基线 | done† | `automation_tests/`：`tests/` 下 **130 个契约测试文件**（编号前缀 00~77 共 77 个，同号可多文件；75/76/77 为 2026-09-25 新增）+ `e2e/` 下 **32 个 Playwright spec** + 演练/探针脚本（2026-09-25 修订会话实测计数）；本会话 go test 66 包 ok，JS 套件未复跑 |
+| CORE-03 | 自动化测试矩阵（契约+E2E+演练脚本） | 通用基线 | done† | `automation_tests/`：`tests/` 下 **139 个契约测试文件**（编号前缀去重 86 个，00~86，同号可多文件；75/76/77 为 2026-09-25 首批新增，78~86 为批次二新增、**待活栈运行**）+ `e2e/` 下 **32 个 Playwright spec** + 演练/探针脚本（2026-09-25 修订会话实测计数 130，批次二后由文档更新会话复测为 139）；本会话 go test 66 包 ok，JS 套件未复跑 |
 | CORE-04 | 备份恢复与部署体检脚本 | 通用基线 | done† | 活跃：`deploy/tests/backup-restore-contract.test.sh`；归档：`archive/iot-docs-and-roadmap-archive-20260920/docs/validation/2026-09-19-p01-backup-restore-counts-evidence.md`（pg_dump→psql 恢复→五核心表行数比对 VERDICT=PASS） |
 | CORE-05 | 规则链死信队列与单消息回放 | 通用基线 | done† | `backend/sql/111.sql`（`rule_chain_dead_letters`）、`automation_tests/tests/59_rule_chain_reliability.test.js` |
 | CORE-06 | 摄取回压与遥测冷热分层 | 通用基线 | done† | `backend/internal/dal/telemetry_rollups.go`、`model/telemetry_rollup.go`、`internal/app/uplink.go`、`automation_tests/tests/67_p23_backpressure_and_tb5_external_dispatch.test.js` |
@@ -109,6 +112,17 @@
 | TB-51 | 解决方案模板 | CE 原生（沿用旧稿口径） | done† | `backend/sql/113.sql、114.sql`、`automation_tests/tests/62_industry_solution.test.js`、`e2e/32_tb19_industry_solution.spec.js` | 运行期结论依据归档证据 |
 | TB-57 | 客户实体（Customer）与设备分配 | TB v1.0 起（Tenant→Customer→Device 核心层级） | partial | `backend/sql/122.sql`（customers/customer_devices/菜单种子）、`backend/internal/{api,service,dal}/customer.go`、`frontend/src/views/customer/list/index.vue`（菜单/国际化/路由齐）、OpenAPI 5 端点、契约测试 `tests/75_customer_management.test.js` | 四面中仅"契约测试运行面"缺（无 docker）；DAL 已含分配即移动与设备归属租户校验，前端 vitest 7 例全绿 |
 | TB-54 | 自研 MQTT Broker（TBMQ 对标） | TB TBMQ（独立产品线） | done | `mqtt-broker/`（GMQTT 内核 + 插件体系）、`mqtt-broker/cmd/gmqttd/`（TLS 启动项）、`mqtt-broker/plugin/aetherlink/`（鉴权/持久化）、`plugin/federation/`（Serf+gRPC 集群插件，默认关闭） | broker 集群能力代码在、部署未启用，见 §4 TB-11 |
+| TB-04 | 部件库/部件包（Widget Bundles：部件 CRUD/导入导出/市场分发） | —（首引版本未逐版核验） | partial† | `backend/sql/123.sql`（widget_bundles+Casbin+菜单种子）、`backend/internal/{model,dal,service,api}/widget_bundle*`、`router/apps/widget_bundle.go`、`service/resource_center.go`（打包/验签/导入/一键应用接入 widget_bundle）、`frontend/src/views/visualization/widget-bundles/index.vue`、契约测试 `tests/78_widget_bundles.test.js`（17 例）、`docs/validation/2026-09-25-roadmap-remediation-batch2-evidence.md` | 2026-09-25 批次二交付（缺口体系 TB-04）；契约测试未运行（无 docker）→ partial†；画布运行时改为从 bundle 加载部件未接线（内置部件行为不回归），运行时闭环列后续项 |
+| TB-10 | 实体级审计日志（动作/实体类型/实体 ID/状态码） | —（首引版本未逐版核验） | partial† | `backend/sql/127.sql`（operation_logs 增 action/entity_type/entity_id/status_code+partial index）、`middleware/operation_entity.go`（自脱敏路径解析器，+4 单测）、`api/operation_log.go`（筛选与新列）、`views/system-management-user/system-log/index.vue`、契约测试 `tests/82_operation_entity_audit.test.js` | 2026-09-25 批次二交付（缺口体系 TB-10）；契约测试未运行（无 docker）→ partial†；127.sql 前存量行新列 NULL 不回填；entity_id 仅认 UUID 形态第二段 |
+| TB-15 | 时序数据保留策略（TimescaleDB 原生 retention+冷层清理） | —（首引版本未逐版核验） | partial† | `backend/initialize/timescale_retention.go`（add_retention_policy+set_integer_now_func，+7 单测）、`sql/57.sql`（"压缩≠保留"口径修正）、`dal/telemetry_rollups.go`（冷层同边界分批清理）、`service/datapolicy.go`、契约测试 `tests/84_data_policy.test.js`（7 例） | 2026-09-25 批次二交付（缺口体系 TB-15）；drop_chunks 真删与 jobs 守卫需活 TimescaleDB 验证（本机无活栈）→ partial†；alarm_info 未挂 retention；档案/租户粒度 TTL 明确不做（另立批次） |
+| TB-17 | 租户 API 日配额执法（计量+429 执法+配额查询） | —（首引版本未逐版核验） | partial† | `backend/sql/124.sql`（api_usage_daily）、`internal/quota/`（decision/meter/limit/service+api_daily_incr.lua，Go 单测 22 例，复核实测）、`middleware/tenant_rate_limit.go`（429+Retry-After）、`api/billing.go`（GET /billing/api-quota）、`views/billing/api-quota/index.vue`、契约测试 `tests/79_billing_api_quota.test.js` | 2026-09-25 批次二交付（缺口体系 TB-17，API 维度）；契约测试未运行（无 docker）→ partial†；transport 维度（broker/网关调用点）按批次范围排除 |
+| TB-18 | 设备 Profile 档案级默认规则链 | —（首引版本未逐版核验） | partial† | `backend/sql/125.sql`（device_configs 增 UUID 外键列）、`service/rule_chain_effective.go`（档案链优先+租户链兜底+稳定去重，+5 单测）、`api/rule_chain.go`（GET /rule-chains/device-effective/:deviceId）、`views/device/config-detail/modules/setting-info.vue`、契约测试 `tests/80_device_profile_rule_chain.test.js`（7 例） | 2026-09-25 批次二交付（缺口体系 TB-18）；契约测试未运行（无 docker）→ partial†；默认队列档案维度化与告警规则 Profile 化按指示不做；解析失败/跨租户/停用回落租户级链（fail-open 到租户级执行） |
+| TB-21 | 边缘本地规则执行器（scoped v1） | —（首引版本未逐版核验） | partial† | `backend/internal/edgerules/`（graph/snapshot/eval/executor，Go 单测回报 32 例，零 DB/broker 依赖）、`cmd/edgemqttbroker/main.go`+`edgerules.go`（-edgerules 默认关闭）、`cmd/edgemqttbroker/README.md`、契约测试 `tests/86_edge_sync_snapshot_contract.test.js` | 2026-09-25 批次二交付（缺口体系 TB-21）；断云期间本地动作与云端告警去重收敛演练需活栈+边缘环境未做；v1 仅 trigger.telemetry/filter.threshold/action.alarm 子集，其余类型求值 fail-closed |
+| TB-25 | 实体版本控制差异对比（快照语义 diff） | —（首引版本未逐版核验） | partial† | `backend/sql/128.sql`（Casbin 三角色登记）、`service/entity_version_diff.go`（DiffEntityVersionSnapshots 递归 JSON 语义 diff，+8 单测）、`api/entity_version.go`（GET /api/v1/entity_versions/:id/diff/:target_id）、`views/management/entity-version/index.vue`（对比视图）、契约测试 `tests/83_entity_version_diff.test.js`（4 例） | 2026-09-25 批次二交付（缺口体系 TB-25，diff 面）；Git 仓库后端（branch/commit 语义）按本项明确不做，快照模式仍为唯一后端；路径按 router 既有复数资源命名（任务书原文单数，casbin/契约测试/catalog 三处登记一致）；契约测试未运行 → partial† |
+| TB-27 | 告警 SLA 计时与超时升级 | —（首引版本未逐版核验） | partial† | `backend/sql/126.sql`（alarm_config.sla_hours、alarm_history.sla_due_at/sla_breached）、`service/alarm_sla.go`+`dal/alarm_sla.go`（5 分钟 cron 扫描超时升档 L→M→H，N 不动，remark 追加 sla_escalation 审计）、`initialize/croninit/cron.go`、前端配置页 SLA 设置+历史超时标记、契约测试 `tests/81_alarm_sla.test.js`（8 例） | 2026-09-25 批次二交付（缺口体系 TB-27）；cron 真实时钟升级行为未在活栈契约验证（判定逻辑由 alarm_sla_test.go 纯函数单测锚定）→ partial†；details 结构化 JSONB 迁移按指示不做（remark JSON 兼容读取）；历史告警不回填 sla_due_at |
+| TB-41 | 文件存储与媒体库管理 | —（首引版本未逐版核验） | partial† | `backend/sql/129.sql`（media_files，UNIQUE(tenant_id,file_path)+Casbin+菜单）、`service/media_library.go`、`api/media_library.go`（/media/files 列表/详情/删除，删除前实时引用扫描 fail-closed）、`api/upload.go`（UpFile 落盘即登记）、`views/media/library/index.vue`、契约测试 `tests/85_media_library.test.js` | 2026-09-25 批次二交付（缺口体系 TB-41）；契约测试未运行（无 docker）→ partial†；部件内嵌图片选择器与邮件附件外发按边界不做；存量 ./files 不回填登记；v1 引用统计为读时 LIKE 扫描 |
+
+> 注：上表末尾 TB-04/10/15/17/18/21/25/27/41 九行系 2026-09-25 批次二按缺口体系（§4.1）**新增的对标行**——不在上文"46 项竞品能力清单"原始范围内（TB-57 同此口径），为使四面状态可查而增补；竞品版本列未做调研、按 §1.3 口径统一标"—（首引版本未逐版核验）"；状态均为 **partial†**（四面缺契约测试运行面），证据见 `docs/validation/2026-09-25-roadmap-remediation-batch2-evidence.md`。
 
 ### 3.3 ThingsPanel 对标（13 项）
 
@@ -149,14 +163,16 @@
 
 ### 4.1 P1 — high partial（5 项）+ medium（18 项）
 
+> **交付记录（2026-09-25 批次二）**：TB-04、TB-17、TB-18、TB-27（high partial 组，TB-46 未动）与 TB-10、TB-15、TB-21、TB-25、TB-41（medium 组）共 **9 项已实施交付**（见各行编号后的 ✅ 标注与 §9 批次二实施记录）。各实施会话自报门禁均为 go build + 定向 go test + vue-tsc 全过；批次收尾门禁 openapi=0、goTest=0、vue-tsc=0、vitest=0（编排方统一收尾口径）。**契约测试 78~86 已就位、按约定未在活栈运行（本机无 docker）**，按 §2 四面口径各行记 **partial†**，待活栈回归后升 done。逐项 residual 见 `docs/validation/2026-09-25-roadmap-remediation-batch2-evidence.md`。
+
 **high partial（5 项）**
 
 | 编号 | 缺口 | 建议方案 | 涉及模块 | 工作量 | 本条特有验收点 |
 | --- | --- | --- | --- | --- | --- |
-| TB-04 | 仪表盘可视化与部件库/动态表单（看板/SCADA/动态表单在，**部件库实体不存在**：grep widgets?_bundle 全仓 0 命中，122 个迁移无 widget 表；部件均为代码内置） | 新建 `widget_bundles` 部件库实体与导入导出，挂资源中心分发；内置部件迁移为可管理 bundle | 后端：`internal/model/device_template_market.go:122,137`（资源类型校验扩 widget_bundle）、`service/resource_center.go:65-103,214-235`；前端：`views/visualization/`、`components/local-visualization-viewer/dynamic-form/` | M | 部件 CRUD+导入导出+市场分发四面齐；现有内置部件（gauge/chart/valve/twin3d）经 bundle 加载行为不回归 |
-| TB-17 | 租户 Profile（配额限速/API 用量监控）——限流已执法 API 维度，**配额仅报告不执法**：`max_api_calls_per_day` 无读取代码、无 API 调用计量持久化、传输维度零调用点、前端无配额页 | API 调用计量与超额执法落 `117.sql` 已有字段；接线 transport 维度；补前端配额/用量页 | 后端：`internal/ratelimit/service.go:198,225,249`（CheckAPI/CheckTenantTransport/CheckDeviceTransport，:197 为注释行；后两者无生产调用点）、`middleware/tenant_rate_limit.go:192-223`、`sql/117.sql:20,42`、`sql/107.sql:9-24`；前端：新增配额页 | L | 每日 API 调用计量持久化并触发 `max_api_calls_per_day` 执法（429 语义）；transport 维度在 broker/网关路径产生真实调用点；前端可见租户用量与配额余量 |
-| TB-18 | 设备 Profile（档案/默认规则链/告警规则）——档案级告警规则与自动注册已间接实现，**缺档案级默认规则链与默认队列绑定**（规则链执行为租户级 enabledGraphsForTenant） | `device_configs` 增档案级默认规则链/默认队列字段；告警规则收敛为 Profile 实体字段（现经场景联动 device_config_id 间接实现） | 后端：`sql/1.sql:970-1007`（device_configs）、`sql/8.sql`（template_secret/auto_register 已有）、`service/automate_telemetry.go:106-110`（档案级触发）、`service/rule_chain.go:368,403`；前端：`views/device/config-detail/` | M | 档案绑定默认规则链后新建设备自动挂接；默认队列按档案生效；存量自动化（device_config_id 触发）回归不破坏 |
-| TB-27 | 告警协作 SLA（分配/评论已完整，**SLA 计时与超时升级缺失**；details 寄生于 text remark 列） | 增 SLA 计时与超时升级（cron 扫描+升级动作）；details 改结构化 JSON | 后端：`sql/1.sql:37-50`（alarm_history 无 due_at/breach 列）、`sql/43.sql:6-11`（remark JSON 现状）、`dal/alarm.go:136`、`service/alarm_assignment.go` | M | SLA 到期自动升级（可配置时限+目标严重度）；结构化 details 迁移后旧 remark JSON 兼容读取 |
+| TB-04 ✅ **已交付 2026-09-25（批次二，契约用例待活栈；范围排除项见 §9 residual）** | 仪表盘可视化与部件库/动态表单（看板/SCADA/动态表单在，**部件库实体不存在**：grep widgets?_bundle 全仓 0 命中，122 个迁移无 widget 表；部件均为代码内置） | 新建 `widget_bundles` 部件库实体与导入导出，挂资源中心分发；内置部件迁移为可管理 bundle | 后端：`internal/model/device_template_market.go:122,137`（资源类型校验扩 widget_bundle）、`service/resource_center.go:65-103,214-235`；前端：`views/visualization/`、`components/local-visualization-viewer/dynamic-form/` | M | 部件 CRUD+导入导出+市场分发四面齐；现有内置部件（gauge/chart/valve/twin3d）经 bundle 加载行为不回归 |
+| TB-17 ✅ **已交付 2026-09-25（批次二，契约用例待活栈；范围排除项见 §9 residual）** | 租户 Profile（配额限速/API 用量监控）——限流已执法 API 维度，**配额仅报告不执法**：`max_api_calls_per_day` 无读取代码、无 API 调用计量持久化、传输维度零调用点、前端无配额页 | API 调用计量与超额执法落 `117.sql` 已有字段；接线 transport 维度；补前端配额/用量页 | 后端：`internal/ratelimit/service.go:198,225,249`（CheckAPI/CheckTenantTransport/CheckDeviceTransport，:197 为注释行；后两者无生产调用点）、`middleware/tenant_rate_limit.go:192-223`、`sql/117.sql:20,42`、`sql/107.sql:9-24`；前端：新增配额页 | L | 每日 API 调用计量持久化并触发 `max_api_calls_per_day` 执法（429 语义）；transport 维度在 broker/网关路径产生真实调用点；前端可见租户用量与配额余量 |
+| TB-18 ✅ **已交付 2026-09-25（批次二，契约用例待活栈；范围排除项见 §9 residual）** | 设备 Profile（档案/默认规则链/告警规则）——档案级告警规则与自动注册已间接实现，**缺档案级默认规则链与默认队列绑定**（规则链执行为租户级 enabledGraphsForTenant） | `device_configs` 增档案级默认规则链/默认队列字段；告警规则收敛为 Profile 实体字段（现经场景联动 device_config_id 间接实现） | 后端：`sql/1.sql:970-1007`（device_configs）、`sql/8.sql`（template_secret/auto_register 已有）、`service/automate_telemetry.go:106-110`（档案级触发）、`service/rule_chain.go:368,403`；前端：`views/device/config-detail/` | M | 档案绑定默认规则链后新建设备自动挂接；默认队列按档案生效；存量自动化（device_config_id 触发）回归不破坏 |
+| TB-27 ✅ **已交付 2026-09-25（批次二，契约用例待活栈；范围排除项见 §9 residual）** | 告警协作 SLA（分配/评论已完整，**SLA 计时与超时升级缺失**；details 寄生于 text remark 列） | 增 SLA 计时与超时升级（cron 扫描+升级动作）；details 改结构化 JSON | 后端：`sql/1.sql:37-50`（alarm_history 无 due_at/breach 列）、`sql/43.sql:6-11`（remark JSON 现状）、`dal/alarm.go:136`、`service/alarm_assignment.go` | M | SLA 到期自动升级（可配置时限+目标严重度）；结构化 details 迁移后旧 remark JSON 兼容读取 |
 | TB-46 | 实体组与高级 RBAC（组共享/GPE）——设备组树+自定义角色在，**无用户组/GPE 组权限实体，组级共享仅限设备组，看板/资产无分组** | 增用户组与组权限实体（GPE），组级共享授权覆盖看板/资产 | 后端：`dal/device_groups.go:40,313,380`（WITH RECURSIVE 组树，可复用模式）、`sql/118.sql`（sys_permissions/sys_role_permissions）、`service/rdi_share.go:31-97`（现仅逐设备令牌）；前端：`views/device/share`（扩展为组级） | L | **v1 范围（边界已定，非开放设计题）**：租户内用户组与组权限；customer 用户（`sql/122.sql`，无登录账号）**不接入**组授权。在此范围内验收：用户组创建/成员管理/组权限绑定四面齐；组共享对看板与资产生效且租户边界 fail-closed |
 
 **medium（18 项）**
@@ -165,15 +181,15 @@
 | --- | --- | --- | --- | --- | --- |
 | TP-05 | 一型一密/一机一密产品级校验（链路已在，**product_key 与 template_secret 无交叉校验**，可用 A 档案密钥+任意 product_key 建档到 B 产品；无产品级密钥） | `device_auth` 补产品级动态注册密钥校验（products.DeviceConfigID 可校未校）与一机一密分支 | 后端：`service/device_auth.go:86-103`（lookupAuthProductID 仅校存在性）、`service/device_auth.go:105-130`（buildAuthDevice）、`sql/8.sql:3-4`、`model/products.gen.go:31` | S | 交叉校验负向用例（错配 product_key 被拒）；产品级密钥分支进入 OpenAPI 与前端档案设置页 |
 | TP-03 | TCP 协议接入（missing：全仓无非 TCP 设备入站监听，仅 HTTP/gRPC/edge broker/MQTT） | 以 pluginsdk 插件形态加原始 TCP 接入（帧解析+断网缓存） | 后端：`pkg/pluginsdk/sdk.go:79`（ProtocolAdapter 契约扩展入站监听）、`internal/app/`（新网关装配）、参照 `internal/edgeforward/forwarder.go`（断网缓冲模式） | M | TCP 设备经插件上行遥测四面齐；断网缓存续传用例；不占用平台默认端口时的部署文档 |
-| TB-10 | 审计日志（实体级）——现有为 HTTP 级操作日志（记录/列表/CSV 导出），**无 TB 式实体级审计（动作/实体类型/状态）** | `operation_logs` 增实体级 action/entity_type/status 字段，对齐 TB 审计模型 | 后端：`sql/1.sql:365`（operation_logs 现仅 12 列）、`middleware/operations_log.go:108-112,289-325`、`api/operation_log.go:23,41`、`service/audit_export.go`；前端：`views/system-management-user/system-log/`（筛选条件扩展） | M | 关键实体（设备/产品/告警/权限）变更产生动作审计；导出含新列；旧数据兼容 |
+| TB-10 ✅ **已交付 2026-09-25（批次二，契约用例待活栈；范围排除项见 §9 residual）** | 审计日志（实体级）——现有为 HTTP 级操作日志（记录/列表/CSV 导出），**无 TB 式实体级审计（动作/实体类型/状态）** | `operation_logs` 增实体级 action/entity_type/status 字段，对齐 TB 审计模型 | 后端：`sql/1.sql:365`（operation_logs 现仅 12 列）、`middleware/operations_log.go:108-112,289-325`、`api/operation_log.go:23,41`、`service/audit_export.go`；前端：`views/system-management-user/system-log/`（筛选条件扩展） | M | 关键实体（设备/产品/告警/权限）变更产生动作审计；导出含新列；旧数据兼容 |
 | TB-11 | 部署架构与水平扩展——单节点 compose 在，**无 K8s/Helm、无多副本验证、无多 DB**；broker federation 与多 broker 吊销原语已在（默认关闭） | 补 K8s/Helm 编排与多副本部署验证（后端+broker）；federation 从"代码在"到"部署接线" | `deploy/`（现仅单节点 bootstrap）、`docker-compose.yml`（无 replicas 定义）、`mqtt-broker/README.md:40-42`（federation 默认关闭）、`internal/service/mqtt_session_revocation.go:54,162-165,634-637`（多 broker 吊销已备） | L | Helm chart 可装；后端+broker 双副本经演练（会话不粘本地卷、吊销跨 broker 收敛）；单节点默认路径不回归 |
-| TB-15 | 时序存储 TTL 粒度——全局按类型 TTL 在，**无档案/租户粒度 TTL**；TimescaleDB hypertable 条件生效但**无原生 retention policy**（grep add_retention_policy 0 命中） | 在 `57.sql` hypertable 路径补 add_retention_policy/drop_chunks；TTL 扩展到设备档案/租户粒度 | 后端：`sql/1.sql:102-121`（data_policy 全局表）、`sql/57.sql:13-31`（hypertable+压缩策略已挂）、`service/datapolicy.go:69-123`、`dal/telemetry_datas.go:326-337`（全局 DELETE）；冷层 `dal/telemetry_rollups.go`（无清理） | M | TimescaleDB 部署下 drop_chunks 生效（压缩≠保留的口径修正）；档案/租户级 retention 覆盖全局默认；普通 PG 路径行为不回归 |
+| TB-15 ✅ **已交付 2026-09-25（批次二，契约用例待活栈；范围排除项见 §9 residual）** | 时序存储 TTL 粒度——全局按类型 TTL 在，**无档案/租户粒度 TTL**；TimescaleDB hypertable 条件生效但**无原生 retention policy**（grep add_retention_policy 0 命中） | 在 `57.sql` hypertable 路径补 add_retention_policy/drop_chunks；TTL 扩展到设备档案/租户粒度 | 后端：`sql/1.sql:102-121`（data_policy 全局表）、`sql/57.sql:13-31`（hypertable+压缩策略已挂）、`service/datapolicy.go:69-123`、`dal/telemetry_datas.go:326-337`（全局 DELETE）；冷层 `dal/telemetry_rollups.go`（无清理） | M | TimescaleDB 部署下 drop_chunks 生效（压缩≠保留的口径修正）；档案/租户级 retention 覆盖全局默认；普通 PG 路径行为不回归 |
 | TB-19 | 自定义 MQTT 主题与通用 Protobuf 载荷——主题映射+HEX/JSON_PATH/Lua 转换器在，**通用 Protobuf 编解码缺**（proto 上传+动态解码无，Sparkplug 为专用手写解码） | `data_converters` 增 Protobuf 模式（proto 上传+dynamicpb 动态解码） | 后端：`sql/120.sql:10-22`、`service/data_converter.go:176-186`（模式分派点）、`pkg/sparkplug/`（参考实现边界）；前端：`views/device/converter/index.vue:122-125`（modeMap 增项） | M | proto 文件上传/存储/版本化；动态解码用例（含未知字段与类型不匹配 fail-closed）；Dry-Run 仿真支持 PROTOBUF 模式 |
-| TB-21 | Edge 边缘计算（本地规则/自治运行时）——云端管理+云边同步+OTA 分发+数据面断网缓冲在，**无边缘本地规则执行器** | 补边缘本地规则执行与断网自治运行时（复用 cmd/edgemqttbroker） | `cmd/edgemqttbroker/main.go`（自述仅为云侧替身）、`internal/edgeforward/forwarder.go:1-11`（断网缓冲已备）、`service/edge_sync.go:90-99`（现仅投递 Graph JSON 快照无消费方）、`api/edge_node.go` | L | 边缘侧消费规则链快照并本地执行（断云期间产生动作/告警）；恢复后与云端去重收敛；64 号断云演练扩展本地执行场景 |
+| TB-21 ✅ **已交付 2026-09-25（批次二，契约用例待活栈；范围排除项见 §9 residual）** | Edge 边缘计算（本地规则/自治运行时）——云端管理+云边同步+OTA 分发+数据面断网缓冲在，**无边缘本地规则执行器** | 补边缘本地规则执行与断网自治运行时（复用 cmd/edgemqttbroker） | `cmd/edgemqttbroker/main.go`（自述仅为云侧替身）、`internal/edgeforward/forwarder.go:1-11`（断网缓冲已备）、`service/edge_sync.go:90-99`（现仅投递 Graph JSON 快照无消费方）、`api/edge_node.go` | L | 边缘侧消费规则链快照并本地执行（断云期间产生动作/告警）；恢复后与云端去重收敛；64 号断云演练扩展本地执行场景 |
 | TB-22 | LwM2M/SNMP/CoAP 传输深度——注册簿/TLV/对象模型/遥测汇入在，**缺 DTLS(PSK)、队列模式、多客户端 store 隔离、blockwise/observe 服务端集成、SNMPv3 接入与 trap** | 按"lwm2m 补 DTLS(PSK) 与安全层、SNMPv3 接入采集链路"推进（对象模型已完成，原建议该部分过时） | `internal/lwm2m/`（objects.go/tlv.go/observer.go 已有）、`internal/coap/`（blockwise_observe.go 为纯组件未接服务端）、`internal/collector/snmp.go`（v2c 轮询，`internal/snmp/usm.go` 未接入）、`app/collector.go:70` | L | DTLS-PSK 握手用例；多客户端隔离（去掉 last-wins 共享单 store）；SNMPv3 用户配置进点表并接入 Runner；observe 服务端订阅生效 |
 | TB-23 | 移动应用中心——移动端 API/推送/命令/uniapp 工程在，**无 bundle/版本/发布管理**；另：移动命令幂等存储为进程内存（`service/mobile.go:169`） | 主仓补移动应用中心（bundle/版本/发布管理），对接 uniapp 工程；幂等 store 持久化 | 后端：`api/mobile.go:98-353`（11 端点已挂）、`sql/88.sql:123-148`（push_device_registrations/push_deliveries）、`app/scada_mobile_wiring.go:79-104`（fail-closed 注入）；前端：`views/device-details-app/` | M | 应用 bundle 上传/版本/发布状态机四面齐；`mobile-app-uni` 构建产物对接发布记录；幂等键落库重启不丢。**跨仓边界**：uniapp 工程位于仓库外 `active/mobile-app-uni`，四面中前端面由该仓承担，本仓验收止于发布 API/记录与 H5 构建产物对接 |
-| TB-25 | 实体版本控制（Git）——快照式 entity_versions（board/rule_chain/device_config/calculated_field 白名单）在，**无 Git 集成与差异对比** | entity_version 增 Git 后端适配与版本差异对比 | 后端：`sql/58.sql:9-19`（JSONB snapshot，无 branch/commit 列）、`service/entity_version.go:30-35`（白名单）、`api/entity_version.go:27,51,74,94`、`service/rule_chain_version.go`（draft→published→rollback 栈）；前端：`views/management/entity-version/index.vue`（无 diff 视图） | M | 至少一类实体接 Git 仓库后端（分支/提交语义）；diff 视图（JSON 语义级差异）；快照模式作为无 Git 部署的回退 |
-| TB-41 | 文件存储与媒体库/Files 部件——通用上传+vis_files 表在，**无媒体库管理（浏览/列举/删除）、图片库部件、邮件附件外发**；vis_files 为孤儿表 | 建 files/media 实体与图片库部件，upload 扩展媒体管理；收编 vis_files | 后端：`sql/1.sql:855`（vis_files）、`api/upload.go:52`（仅写入链路，自注不负责列举/删除/清理）、`router/router_init.go:103`（/files 静态服务）；前端：图片库选择器进看板/SCADA 部件 | M | 媒体列表/删除/引用统计四面齐；看板图片部件可选媒体库资产；邮件通知支持附件 |
+| TB-25 ✅ **已交付 2026-09-25（批次二，契约用例待活栈；范围排除项见 §9 residual）** | 实体版本控制（Git）——快照式 entity_versions（board/rule_chain/device_config/calculated_field 白名单）在，**无 Git 集成与差异对比** | entity_version 增 Git 后端适配与版本差异对比 | 后端：`sql/58.sql:9-19`（JSONB snapshot，无 branch/commit 列）、`service/entity_version.go:30-35`（白名单）、`api/entity_version.go:27,51,74,94`、`service/rule_chain_version.go`（draft→published→rollback 栈）；前端：`views/management/entity-version/index.vue`（无 diff 视图） | M | 至少一类实体接 Git 仓库后端（分支/提交语义）；diff 视图（JSON 语义级差异）；快照模式作为无 Git 部署的回退 |
+| TB-41 ✅ **已交付 2026-09-25（批次二，契约用例待活栈；范围排除项见 §9 residual）** | 文件存储与媒体库/Files 部件——通用上传+vis_files 表在，**无媒体库管理（浏览/列举/删除）、图片库部件、邮件附件外发**；vis_files 为孤儿表 | 建 files/media 实体与图片库部件，upload 扩展媒体管理；收编 vis_files | 后端：`sql/1.sql:855`（vis_files）、`api/upload.go:52`（仅写入链路，自注不负责列举/删除/清理）、`router/router_init.go:103`（/files 静态服务）；前端：图片库选择器进看板/SCADA 部件 | M | 媒体列表/删除/引用统计四面齐；看板图片部件可选媒体库资产；邮件通知支持附件 |
 | TB-45 | 集成连接器与数据转换器框架——分散连接器（OPC UA/SNMP 采集器、CoAP/LwM2M 网关、modbus-plugin、插件注册）与转换器框架在，**缺 TB 式统一 Integration 实体纳管连接与转换器并执行；转换器未接入任何上行/下行管线**；Pulsar 缺失 | 抽象 integration 实体与统一集成管理页，纳管 collector/插件，转换器接入管线 | 后端：`internal/collector/collector.go:105-134`（Poller 抽象）、`internal/protocolgw/gateway.go`、`service/data_converter.go`（DataConverter 仅被自身 CRUD 栈引用，uplink/processor/downlink 零引用）、`sql/120.sql:4`（注释对标 TB Integrations 但无 integrations 表）；前端：`views/device/service-access`（三方插件接入，非协议集成实体） | L | Integration 实例（连接+上下行转换器绑定）执行进入上行管线；统一集成管理页；至少一个存量采集器（OPC UA）改造为 Integration 实例不回归 |
 | TB-47 | 白标与自定义菜单——白标 7 字段+主题色/favicon 在，**自定义翻译、Advanced CSS 缺失；自定义菜单仅"仪表盘菜单绑定"形态（不能改名/隐藏内置菜单/按角色/自定义图标）** | 补白标全套：自定义翻译、Advanced CSS、内置菜单改名/隐藏/按角色/图标 | 后端：`api/logo.go:27,48`、`sql/59.sql:9-13`（logo 表）、`sql/16.sql:2-25`（tenant_dashboard_menus）、`dal/ui_elements.go:212-267`；前端：`views/management/setting/components/branding-setting.vue`、`store/modules/sys-setting/index.ts:48-71`、`views/visualization/thingsvis-dashboards/index.vue:38,67-75,392` | M | 租户级 UI 翻译覆盖生效且与静态四语言目录并存；Advanced CSS 沙箱化注入（CSP 约束）；内置菜单改名/隐藏按角色生效 |
 | TB-48 | 事件调度器（Scheduler）——场景定时（periodic_tasks）、报表调度、RPC 计划三套独立调度在，**无统一 TB 式 Scheduler 实体与事件日历 UI** | 建 scheduler 实体与事件日历 UI，统一场景/报表/RPC 计划 | 后端：`internal/app/cron_service.go:21-27`、`initialize/croninit/cron.go`、`model/periodic_tasks.gen.go:22`（HOUR/DAY/WEEK/MONTH/CRON）、`api/report_schedule.go:19-82`、`service/fleet_command_jobs.go:104-116`（scheduled_at）、`dal/scene_automation_timer.go:56-104`；前端：无 scheduler 页面（views 13 个目录无日历） | M | Scheduler 事件 CRUD+日历视图四面齐；存量三套调度迁移为事件来源不破坏现网行为；时区语义（scene_automation_timers 已有 timezone）一致 |
@@ -217,13 +233,15 @@
 | --- | --- | --- | --- | --- |
 | 1 | 一型一密产品级交叉校验（**安全快赢**：A 档案密钥可建档到 B 产品的越权面）✅ **已交付 2026-09-25**（负向用例就位待活栈） | TP-05 | S | 错配 product_key 负向用例通过 |
 | 2 | 告警状态实时 WS 订阅（订阅主题+初始快照+替换轮询）✅ **已交付 2026-09-25**（契约用例就位待活栈） | TB-30（P0） | M | 四面一致 + 契约用例覆盖订阅/触发/推送/快照 |
-| 3 | 部件库 widget_bundles 实体 + 资源中心分发 | TB-04 | M | 内置部件经 bundle 加载不回归 |
-| 4 | API 调用计量与配额执法 + 前端配额页 | TB-17 | L | max_api_calls_per_day 生效，transport 维度接线 |
-| 5 | 设备 Profile 档案级默认规则链/默认队列 | TB-18 | M | 新建设备自动挂接默认链 |
-| 6 | 告警 SLA 计时与超时升级 + details 结构化 | TB-27 | M | 到期升级 cron + remark JSON 兼容迁移（容量不增时首选顺延项） |
+| 3 | 部件库 widget_bundles 实体 + 资源中心分发 ✅ **已交付 2026-09-25 批次二**（契约用例待活栈；内置部件经 bundle 加载的运行时闭环列为后续项） | TB-04 | M | 内置部件经 bundle 加载不回归 |
+| 4 | API 调用计量与配额执法 + 前端配额页 ✅ **已交付 2026-09-25 批次二**（API 维度执法与配额页；transport 维度接线按批次范围未做，契约用例待活栈） | TB-17 | L | max_api_calls_per_day 生效，transport 维度接线 |
+| 5 | 设备 Profile 档案级默认规则链/默认队列 ✅ **已交付 2026-09-25 批次二**（档案级默认规则链；默认队列档案维度化按批次范围不做，契约用例待活栈） | TB-18 | M | 新建设备自动挂接默认链 |
+| 6 | 告警 SLA 计时与超时升级 + details 结构化 ✅ **已交付 2026-09-25 批次二**（SLA 计时+超时升级；details 结构化 JSONB 迁移按指示不做、沿用 remark JSON 兼容模式，契约用例待活栈） | TB-27 | M | 到期升级 cron + remark JSON 兼容迁移（容量不增时首选顺延项） |
 | 7 | 文档口径修复（非能力项）：README VERSION_NUMBER 99→122、全稿引用行号校准、历史证据**重链不回迁**（引用统一改为含归档前缀的实际路径）✅ **README 口径已修复 2026-09-25** | 第 8 节清理项 | S | 校验脚本对 `ROADMAP.md` 与 `docs/roadmap-*.md` 全量 `docs/validation` 引用零失配（每条在活跃项目或 `archive/iot-docs-and-roadmap-archive-20260920/` 下可解析） |
 
 ### 5.2 中期（1~3 个月）：medium 18 项，按依赖排序
+
+> **状态注记（2026-09-25 批次二后）**：本表任务中 TB-10（批 2）、TB-15（批 1）、TB-21（批 3）、TB-25、TB-41（批 4）已交付（partial†，契约用例待活栈，见 §9 批次二记录）；其余项（TB-45、TP-03、TB-19、TB-48、TB-49、TB-47、TB-46、TB-11、TB-22、TB-23、TP-22、TP-20、TP-21）本批次未动，维持原状。
 
 | 批次 | 任务 | 关联缺口 | 工作量 | 出口判据 |
 | --- | --- | --- | --- | --- |
@@ -285,6 +303,7 @@
 8. **§1.3 竞品版本覆盖声明系调研基线，本次独立评审未做外网复核**：评审范围限于仓库内验证；TB/TP 版本号与 release 集合的准确性依赖第 1 节所述调研抓取记录（GitHub tags/releases API 双向比对、官方文档表、官网抓取留痕）。
 9. **契约测试 75/76/77 未运行**（2026-09-25 实施会话）：本机无 docker，活栈（PG+Redis+broker+backend）不可用；三个用例已就位，待活栈回归后对应行状态方可从 partial 升 done（见 `docs/validation/2026-09-25-roadmap-remediation-batch-evidence.md`）。
 10. **`pnpm gen-route` 工具链损坏**（`unicorn-magic@6` 与 Node 24 的 ESM 解析冲突，`pnpm install` 后仍复现，属环境既有问题）：2026-09-25 的 customer 路由以手工同步 4 个 elegant-router 生成文件代替（routes/imports/transform/elegant-router.d.ts），一致性由 vue-tsc 与全量 vitest 验证。
+11. **契约测试 78~86 未运行**（2026-09-25 批次二）：本机无 docker，活栈（PG+Redis+broker+backend）不可用；九个契约用例（78 widget bundles / 79 billing API 配额 / 80 档案规则链 / 81 告警 SLA / 82 实体级审计 / 83 版本 diff / 84 data_policy / 85 媒体库 / 86 边缘快照契约）已就位并通过 node --check 语法校验（实施会话自报），按批次约定只写不跑；§4.1 九个已交付行与 §3 批次二新增九行因此记 **partial†**，待活栈回归后升 done（见 `docs/validation/2026-09-25-roadmap-remediation-batch2-evidence.md`）。
 
 ---
 
@@ -329,6 +348,26 @@
 
 **最终门禁（2026-09-25）**：go build exit 0；`go test ./...` REAL_EXIT=0（66 包 ok / 0 FAIL）；vue-tsc 0 错误；vitest 3970 例全绿；OpenAPI 489 paths。
 
+### 2026-09-25 批次二实施记录（TB-04/17/18/27/10/25/15/41/21）
+
+> 依据批次二任务书交付；证据留痕 `docs/validation/2026-09-25-roadmap-remediation-batch2-evidence.md`（含逐项 residual 全文、明确不做项清单与更新会话核验记录）。契约测试 78~86 已就位、按约定未在活栈运行（本机无 docker），对应 §3/§4.1 行状态记 **partial†**。
+
+| 编号 | 交付 | 迁移 | 落地面 | residual（摘要，全文见证据文档） |
+| --- | --- | --- | --- | --- |
+| TB-04 | 部件库 widget_bundles：建表+Casbin/菜单种子，后端四层 CRUD+内置四部件种子导出/幂等落库，资源中心打包/验签/导入/一键应用接入，前端管理页+四语言 | 123.sql | 后端四层+资源中心接入、前端管理页/路由/四语言、Go 单测 8 例；契约 78（17 例）待活栈 | 画布运行时从 bundle 加载部件未接线（内置部件行为不回归，运行时闭环列后续项）；123.sql 额外 version/type_key 两列（头注释说明） |
+| TB-17 | 租户 API 日配额执法：api_usage_daily 计量（Redis INCR+定期落库 fail-open）+按套餐 max_api_calls_per_day 执法（429+Retry-After）+GET /billing/api-quota+前端配额页 | 124.sql | 后端新包 internal/quota+中间件接线、前端配额页+四语言、Go 单测 22 例（复核实测）；契约 79 待活栈 | transport 维度（broker/网关调用点）按范围排除；被拒请求计入当日用量；UTC 日窗口；套餐限额≤0 视为未配置（fail-open） |
+| TB-18 | 设备 Profile 档案级默认规则链：UUID 外键列+绑定/解绑 API+档案链优先/租户链兜底解析（OnTelemetry/OnDeviceOnline 接线）+解析端点+前端设置页 | 125.sql | 后端+解析端点、前端设置页（vitest 4 例）、Go 单测 5 例；契约 80（7 例）待活栈 | 默认队列档案维度化与告警规则 Profile 化按要求不做；解析失败/跨租户/停用回落租户链（fail-open 到租户级执行）；删链 service 守卫+FK RESTRICT 双层拒绝 |
+| TB-27 | 告警 SLA：三列迁移+触发起算 sla_due_at+5 分钟 cron 超时标记 breach 并升档（L→M→H，N 不动）+API 透出 sla 字段+前端 SLA 设置与历史超时标记 | 126.sql | 后端+cron 接线、前端（组件套件 83 例过）、Go 单测 4 例；契约 81（8 例）待活栈 | details 结构化 JSONB 按指示不做（remark JSON 兼容读取）；历史告警不回填；calcfield/RDI 旁路不参与 SLA；cron 真实时钟行为未在活栈验证（纯函数单测锚定） |
+| TB-10 | 实体级审计：operation_logs 增 action/entity_type/entity_id/status_code+partial index+自脱敏解析器+列表/导出筛选与新列+前端同款筛选与四列 | 127.sql | 后端 middleware/dal/api、前端 system-log 页、Go 单测 4 例；契约 82 待活栈 | 独立 audit_logs 实体与领域事件审计按要求不做；存量行新列 NULL 不回填；非中间件写入口不落新列；entity_id 仅认 UUID 形态 |
+| TB-25 | 实体版本差异对比：DiffEntityVersionSnapshots 递归 JSON 语义 diff+GET /api/v1/entity_versions/:id/diff/:target_id+前端对比视图（目标版本下拉/双栏快照/变更列表） | 128.sql | 后端+Casbin 登记、前端对比视图+四语言、Go 单测 8 例；契约 83（4 例）待活栈 | Git 仓库后端明确不做（快照模式仍为唯一后端）；路径按既有复数资源命名（任务书原文单数，casbin/契约测试/catalog 三处登记一致） |
+| TB-15 | TimescaleDB 原生 retention：按 data_policy retention_days 幂等装配 add_retention_policy（毫秒 drop_after+set_integer_now_func）+telemetry_rollups 冷层同边界分批清理 | （57.sql 就地修正） | 后端 initialize/dal/service、纯函数/SQL 构造单测 8 例；契约 84（7 例）待活栈 | drop_chunks 真删与 jobs 守卫需活 TimescaleDB 验证；alarm_info 未挂 retention（需先扩 data_policy 类型，另立批次）；档案/租户粒度 TTL 明确不做 |
+| TB-41 | 媒体库：media_files 表（UNIQUE(tenant_id,file_path)+Casbin+菜单）+UpFile 落盘即登记（失败回滚）+/media/files 列表/详情/删除（引用扫描 fail-closed，202004 拒绝）+前端 /media/library 页 | 129.sql | 后端全链、前端媒体库页+四语言、Go 单测（service+dal）；契约 85 待活栈 | 部件内嵌图片选择器与邮件附件外发按边界不做；存量 ./files 不回填登记；v1 引用统计为读时 LIKE 扫描（部件级明细表后续）；errcode 202004 文案仅 zh/en |
+| TB-21 | 边缘本地规则执行器 scoped v1：internal/edgerules（快照解析/阈值求值/告警事件/修订号去重/升级重装载，零 DB/broker 依赖）+edgemqttbroker 可选开关（默认关）+端到端冒烟验证 | （无新迁移） | 后端新包+broker 接入+README、端到端冒烟、Go 单测 32 例；契约 86 待活栈 | 断云本地动作与云端去重收敛演练未做（需活栈+边缘）；v1 仅 telemetry/threshold/alarm 子集，其余节点求值 fail-closed；64 号断云演练扩展未做 |
+
+**批次二收尾门禁（2026-09-25）**：openapi=0、goTest=0、vue-tsc=0、vitest=0（任务书下达口径，编排方统一收尾；文档更新会话照录、未复跑）。
+
+**blocked 项**：无——本批次 9 项全部 delivered，无已回退项。
+
 ---
 
-*本稿由 2026-09-24 快照（HEAD 4be45c6）审计重制，2026-09-25 依独立评审意见修订（§8）并完成 §5.1 首批实施（§9）；所有"done"声明以 §2 状态纪律与 † 时效标注为准，下次活栈回归后应逐行消除 †。*
+*本稿由 2026-09-24 快照（HEAD 4be45c6）审计重制，2026-09-25 依独立评审意见修订（§8）并完成 §5.1 首批与批次二实施（§9）；所有"done"声明以 §2 状态纪律与 † 时效标注为准，下次活栈回归后应逐行消除 †。*

@@ -63,6 +63,7 @@ func (*ResourceCenter) ExportResourceBundle(typeKey, resourceType string, claims
 
 	includeTemplates := rType == "all" || rType == "device_template"
 	includeBoards := rType == "all" || rType == "board_template"
+	includeWidgets := rType == "all" || rType == "widget_bundle" // TB-04 部件库
 
 	templates := make([]*model.DeviceTemplateExport, 0)
 	if includeTemplates {
@@ -90,7 +91,21 @@ func (*ResourceCenter) ExportResourceBundle(typeKey, resourceType string, claims
 		}
 	}
 
-	totalCount := len(templates) + len(boards)
+	// TB-04 部件库：与模板/看板同渠道打包，签名统一走 SignMarketBundle。
+	widgets := make([]*model.WidgetBundleExport, 0)
+	if includeWidgets {
+		widgetIDs, err := dal.ListWidgetBundleIDsByTypeKey(ctx, tenantID, typeKey)
+		if err == nil && len(widgetIDs) > 0 {
+			for _, id := range widgetIDs {
+				exported, err := GroupApp.WidgetBundle.ExportWidgetBundle(ctx, id, claims)
+				if err == nil && exported != nil {
+					widgets = append(widgets, exported)
+				}
+			}
+		}
+	}
+
+	totalCount := len(templates) + len(boards) + len(widgets)
 	if totalCount == 0 {
 		return nil, errcode.NewWithMessage(errcode.CodeNotFound, "no resources found for export")
 	}
@@ -101,6 +116,7 @@ func (*ResourceCenter) ExportResourceBundle(typeKey, resourceType string, claims
 		Count:      totalCount,
 		Templates:  templates,
 		Boards:     boards,
+		Widgets:    widgets,
 	}
 
 	// 执行数字签名
@@ -143,7 +159,7 @@ func (*ResourceCenter) ImportResourceBundle(req model.ImportMarketBundleReq, cla
 	ctx := context.Background()
 	tenantID := claims.TenantID
 
-	// 3) 读取租户内现有物模型版本与看板版本
+	// 3) 读取租户内现有物模型版本、看板版本与部件库版本（TB-04）
 	existingTpls, err := dal.ListDeviceTemplateVersionsInTenant(tenantID)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
@@ -152,9 +168,14 @@ func (*ResourceCenter) ImportResourceBundle(req model.ImportMarketBundleReq, cla
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
 	}
+	existingWidgets, err := dal.ListWidgetBundleVersionsInTenant(ctx, tenantID)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+	}
 
-	// 4) 冲突预览
+	// 4) 冲突预览（部件库维度并入综合预览，TB-04）
 	preview := PreviewResourceBundleImport(bundle, existingTpls, existingBoards)
+	AppendWidgetBundlePreview(&preview, bundle.Widgets, existingWidgets)
 	rsp := &model.ImportMarketBundleRsp{Preview: preview, Applied: false}
 
 	// 5) 预览模式直接返回
@@ -173,7 +194,7 @@ func (*ResourceCenter) ImportResourceBundle(req model.ImportMarketBundleReq, cla
 	}
 
 	// 7) 逐项导入
-	results := make([]model.MarketBundleTemplateImportResult, 0, len(bundle.Templates)+len(bundle.Boards))
+	results := make([]model.MarketBundleTemplateImportResult, 0, len(bundle.Templates)+len(bundle.Boards)+len(bundle.Widgets))
 
 	// 导入设备模板
 	for _, tpl := range bundle.Templates {
@@ -233,6 +254,37 @@ func (*ResourceCenter) ImportResourceBundle(req model.ImportMarketBundleReq, cla
 			res.Outcome = string(MarketTemplateImportCreated)
 			if savedBoard != nil {
 				res.TemplateID = savedBoard.ID
+			}
+		}
+		results = append(results, res)
+	}
+
+	// 导入部件库（TB-04）：复用 ImportWidgetBundleWithTenant 的租户幂等语义，
+	// 单项失败不中断整包，逐条结果原样返回。
+	for _, widgetBundle := range bundle.Widgets {
+		if widgetBundle == nil {
+			continue
+		}
+		ver := NormalizeDeviceTemplateVersion(widgetBundle.Version)
+		res := model.MarketBundleTemplateImportResult{
+			Kind:    "widget_bundle",
+			Name:    strings.TrimSpace(widgetBundle.Name),
+			Version: ver,
+		}
+		savedBundle, created, werr := GroupApp.WidgetBundle.ImportWidgetBundleWithTenant(*widgetBundle, claims.TenantID)
+		switch {
+		case werr != nil:
+			res.Outcome = string(MarketTemplateImportRejected)
+			res.Reason = werr.Error()
+		case created:
+			res.Outcome = string(MarketTemplateImportCreated)
+			if savedBundle != nil {
+				res.TemplateID = savedBundle.ID
+			}
+		default:
+			res.Outcome = string(MarketTemplateImportIdempotent)
+			if savedBundle != nil {
+				res.TemplateID = savedBundle.ID
 			}
 		}
 		results = append(results, res)
@@ -326,6 +378,30 @@ func (*ResourceCenter) ApplyResource(req model.ResourceCenterApplyReq, claims *u
 			TargetName:   chain.Name,
 			Message:      "rule chain applied successfully",
 			Resource:     chain,
+		}, nil
+
+	case "widget_bundle":
+		// TB-04 部件库一键应用：导出走只读 ExportWidgetBundle，导入复用
+		// ImportWidgetBundleWithTenant 的租户幂等语义（同版本幂等、异版本覆盖），
+		// 与看板模板语义一致；源部件库只读不动。
+		applyCtx := context.Background()
+		exported, err := GroupApp.WidgetBundle.ExportWidgetBundle(applyCtx, resourceID, claims)
+		if err != nil {
+			return nil, err
+		}
+		if targetName != "" {
+			exported.Name = targetName
+		}
+		widgetRecord, _, err := GroupApp.WidgetBundle.ImportWidgetBundleWithTenant(*exported, claims.TenantID)
+		if err != nil {
+			return nil, err
+		}
+		return &model.ResourceCenterApplyRsp{
+			ResourceType: "widget_bundle",
+			TargetID:     widgetRecord.ID,
+			TargetName:   widgetRecord.Name,
+			Message:      "widget bundle applied successfully",
+			Resource:     widgetRecord,
 		}, nil
 
 	default:

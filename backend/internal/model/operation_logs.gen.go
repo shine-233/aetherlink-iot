@@ -28,6 +28,12 @@ type OperationLog struct {
 	ResponseMessage *string   `gorm:"column:response_message;comment:响应内容" json:"response_message"` // 响应内容
 	TenantID        string    `gorm:"column:tenant_id;not null;comment:租户id" json:"tenant_id"`      // 租户id
 	Remark          *string   `gorm:"column:remark" json:"remark"`
+	// 实体级审计列（TB-10，127.sql）：127.sql 之前的存量行为 NULL，故全部用指针。
+	// 手工追加字段沿用本文件 Remark 等先例；生成器重跑前请保持与本迁移列定义一致。
+	Action     *string `gorm:"column:action;comment:实体级动作（映射自HTTP方法）" json:"action"`
+	EntityType *string `gorm:"column:entity_type;comment:审计实体类型（自请求路径解析）" json:"entity_type"`
+	EntityID   *string `gorm:"column:entity_id;comment:审计实体ID（自请求路径解析）" json:"entity_id"`
+	StatusCode *int32  `gorm:"column:status_code;comment:HTTP响应状态码" json:"status_code"`
 }
 
 // TableName OperationLog's table name

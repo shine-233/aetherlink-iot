@@ -21,12 +21,15 @@ type CreateOperationLogReq struct {
 
 type GetOperationLogListByPageReq struct {
 	PageReq
-	IP        *string    `json:"ip" form:"ip" validate:"omitempty,max=36"`                    // 请求IP
-	StartTime *time.Time `json:"start_time,omitempty" form:"start_time" validate:"omitempty"` // 开始日期
-	EndTime   *time.Time `json:"end_time,omitempty" form:"end_time" validate:"omitempty"`     // 结束日期
-	UserName  *string    `json:"username" form:"username" validate:"omitempty,max=255"`
-	Method    *string    `json:"method" form:"method" validate:"omitempty,max=255"`
-	Path      *string    `json:"path" form:"path" validate:"omitempty,max=2000"`
+	IP         *string    `json:"ip" form:"ip" validate:"omitempty,max=36"`                    // 请求IP
+	StartTime  *time.Time `json:"start_time,omitempty" form:"start_time" validate:"omitempty"` // 开始日期
+	EndTime    *time.Time `json:"end_time,omitempty" form:"end_time" validate:"omitempty"`     // 结束日期
+	UserName   *string    `json:"username" form:"username" validate:"omitempty,max=255"`
+	Method     *string    `json:"method" form:"method" validate:"omitempty,max=255"`
+	Path       *string    `json:"path" form:"path" validate:"omitempty,max=2000"`
+	Action     *string    `json:"action" form:"action" validate:"omitempty,max=32"`           // 实体级动作（TB-10，127.sql）
+	EntityType *string    `json:"entity_type" form:"entity_type" validate:"omitempty,max=64"` // 审计实体类型
+	EntityID   *string    `json:"entity_id" form:"entity_id" validate:"omitempty,max=36"`     // 审计实体ID
 }
 
 type GetOperationLogListByPageRsp struct {
@@ -43,11 +46,19 @@ type GetOperationLogListByPageRsp struct {
 	Remark          *string    `json:"remark" `           // 备注
 	UserName        *string    `json:"username"`          // 用户名
 	Email           *string    `json:"email"`             // 邮箱
+	Action          *string    `json:"action"`            // 实体级动作（create/update/delete/read/other；127.sql 前存量行为空）
+	EntityType      *string    `json:"entity_type"`       // 审计实体类型（自请求路径解析）
+	EntityID        *string    `json:"entity_id"`         // 审计实体ID（自请求路径解析）
+	StatusCode      *int32     `json:"status_code"`       // HTTP响应状态码
 }
 
 // AuditLogExportReq 操作日志导出请求（P3 审计导出）。
 // StartTime/EndTime 必填：审计导出必须有界，静默全量导出等于把审计表变成下载站。
+// Action/EntityType/EntityID 为可选实体级筛选（TB-10，127.sql）：缺省不缩小窗口范围。
 type AuditLogExportReq struct {
-	StartTime *time.Time `json:"start_time" form:"start_time" validate:"omitempty"`
-	EndTime   *time.Time `json:"end_time" form:"end_time" validate:"omitempty"`
+	StartTime  *time.Time `json:"start_time" form:"start_time" validate:"omitempty"`
+	EndTime    *time.Time `json:"end_time" form:"end_time" validate:"omitempty"`
+	Action     *string    `json:"action" form:"action" validate:"omitempty,max=32"`
+	EntityType *string    `json:"entity_type" form:"entity_type" validate:"omitempty,max=64"`
+	EntityID   *string    `json:"entity_id" form:"entity_id" validate:"omitempty,max=36"`
 }

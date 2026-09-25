@@ -99,5 +99,13 @@
   "route.customer_list": "Lista de clientes",
   "view.customer_list": "Lista de clientes",
   "route.device_converter": "Codificadores de datos",
-  "view.device_converter": "Codificadores de datos"
+  "view.device_converter": "Codificadores de datos",
+  "route.visualization-widget-bundles": "Biblioteca de widgets",
+  "view.visualization_widget-bundles": "Biblioteca de widgets",
+  "route.billing": "Cuotas y facturación",
+  "route.billing_api-quota": "Cuota de API",
+  "view.billing_api-quota": "Cuota de API",
+  "route.media": "Biblioteca multimedia",
+  "route.media_library": "Biblioteca multimedia",
+  "view.media_library": "Biblioteca multimedia"
 }

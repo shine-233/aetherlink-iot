@@ -57,6 +57,8 @@ func marketBundleSigningKey() (keyID string, key []byte, err error) {
 }
 
 // marketBundleCanonical 序列化"待签内容"：排除签名三字段，保证签的是业务内容本身。
+// Widgets（TB-04 部件库）必须纳入签名范围——部件定义会被前端渲染与命令下发直接消费，
+// 不进签名等于允许篡改部件定义而不破坏验签。
 func marketBundleCanonical(bundle *model.MarketBundle) ([]byte, error) {
 	if bundle == nil {
 		return nil, errors.New("market bundle is nil")
@@ -67,12 +69,14 @@ func marketBundleCanonical(bundle *model.MarketBundle) ([]byte, error) {
 		Count      int                           `json:"count"`
 		Templates  []*model.DeviceTemplateExport `json:"templates"`
 		Boards     []*model.BoardTemplateExport  `json:"boards,omitempty"`
+		Widgets    []*model.WidgetBundleExport   `json:"widgets,omitempty"`
 	}{
 		TypeKey:    bundle.TypeKey,
 		ExportedAt: bundle.ExportedAt,
 		Count:      bundle.Count,
 		Templates:  bundle.Templates,
 		Boards:     bundle.Boards,
+		Widgets:    bundle.Widgets,
 	}
 	return json.Marshal(shadow)
 }
@@ -217,7 +221,36 @@ func CheckMarketBundleDependencies(bundle *model.MarketBundle) []string {
 		}
 	}
 
-	totalItems := len(bundle.Templates) + len(bundle.Boards)
+	// 部件库（TB-04）：部件定义导入后会被画布与命令下发直接消费，
+	// 空名/重名/type_key 不自洽的包同样按阻断处理。
+	seenWidgets := make(map[string]bool, len(bundle.Widgets))
+	for i, widgetBundle := range bundle.Widgets {
+		if widgetBundle == nil {
+			issues = append(issues, fmt.Sprintf("widgets[%d] is nil", i))
+			continue
+		}
+		name := strings.TrimSpace(widgetBundle.Name)
+		if name == "" {
+			issues = append(issues, fmt.Sprintf("widgets[%d] has empty name", i))
+			continue
+		}
+		if seenWidgets[name] {
+			issues = append(issues, fmt.Sprintf("duplicate widget bundle name %q within bundle", name))
+		}
+		seenWidgets[name] = true
+		if bundle.TypeKey != "" {
+			widgetTypeKey := ""
+			if widgetBundle.TypeKey != nil {
+				widgetTypeKey = strings.TrimSpace(*widgetBundle.TypeKey)
+			}
+			if widgetTypeKey != "" && widgetTypeKey != bundle.TypeKey {
+				issues = append(issues, fmt.Sprintf("widget bundle %q type_key %q does not match bundle type_key %q",
+					name, widgetTypeKey, bundle.TypeKey))
+			}
+		}
+	}
+
+	totalItems := len(bundle.Templates) + len(bundle.Boards) + len(bundle.Widgets)
 	if bundle.Count != totalItems {
 		if len(bundle.Boards) == 0 {
 			issues = append(issues, fmt.Sprintf("bundle count %d does not match templates length %d",
@@ -307,4 +340,34 @@ func PreviewResourceBundleImport(bundle *model.MarketBundle, existingTemplates m
 
 	preview.Total = len(preview.Create) + len(preview.Overwrite)
 	return preview
+}
+
+// AppendWidgetBundlePreview 把部件库（TB-04）的冲突判定并入综合预览。
+// 单独拆出而非改 PreviewResourceBundleImport 签名：兼容单物模型包的历史调用点，
+// 且部件库维度只在包里真的带了 widgets 时参与统计（Total 同步累计）。
+// 判定口径与模板/看板一致：同名同版本=幂等跳过，同名异版本=覆盖（需确认），不存在=新建。
+func AppendWidgetBundlePreview(preview *model.MarketBundleImportPreview, widgets []*model.WidgetBundleExport, existing map[string]string) {
+	if preview == nil || len(widgets) == 0 {
+		return
+	}
+	for _, widgetBundle := range widgets {
+		if widgetBundle == nil {
+			continue
+		}
+		name := strings.TrimSpace(widgetBundle.Name)
+		if name == "" {
+			continue
+		}
+		if existingVersion, ok := existing[name]; ok {
+			if existingVersion == NormalizeDeviceTemplateVersion(widgetBundle.Version) {
+				continue
+			}
+			preview.Overwrite = append(preview.Overwrite, name)
+			preview.WidgetOverwrite = append(preview.WidgetOverwrite, name)
+			continue
+		}
+		preview.Create = append(preview.Create, name)
+		preview.WidgetCreate = append(preview.WidgetCreate, name)
+	}
+	preview.Total = len(preview.Create) + len(preview.Overwrite)
 }

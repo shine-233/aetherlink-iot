@@ -29,6 +29,10 @@ type AlarmHistory struct {
 	Remark            *string   `gorm:"column:remark" json:"remark"`
 	CreateAt          time.Time `gorm:"column:create_at;not null;comment:创建时间" json:"create_at"`                   // 创建时间
 	AlarmDeviceList   string    `gorm:"column:alarm_device_list;not null;comment:触发设备id" json:"alarm_device_list"` // 触发设备id
+	// SlaDueAt / SlaBreached SLA 计时与超时升级（TB-27，126.sql）：触发时按 alarm_config.sla_hours
+	// 起算写 SlaDueAt（NULL=未启用或恢复行）；cron 升级后置 SlaBreached=TRUE 且不重复升级。
+	SlaDueAt    *time.Time `gorm:"column:sla_due_at;comment:SLA到期时间（触发时刻+sla_hours；空=未启用SLA）" json:"sla_due_at"`
+	SlaBreached bool       `gorm:"column:sla_breached;not null;default:false;comment:SLA是否已超时升级" json:"sla_breached"`
 }
 
 // TableName AlarmHistory's table name

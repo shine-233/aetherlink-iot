@@ -174,7 +174,8 @@ func saveAlarmHistoryRecord(
 	historyID, alarmConfigID, content, sceneAutomationID, groupID, alarmStatus string,
 	deviceIDs []string,
 ) error {
-	return dal.AlarmHistorySave(&model.AlarmHistory{
+	triggerAt := time.Now().UTC()
+	history := &model.AlarmHistory{
 		ID:                historyID,
 		Name:              alarmConfig.Name,
 		AlarmConfigID:     alarmConfigID,
@@ -185,6 +186,12 @@ func saveAlarmHistoryRecord(
 		GroupID:           groupID,
 		AlarmDeviceList:   alarmDeviceListJSON(deviceIDs),
 		AlarmStatus:       alarmStatus,
-		CreateAt:          time.Now().UTC(),
-	})
+		CreateAt:          triggerAt,
+	}
+	// TB-27（126.sql）：告警触发时按 alarm_config.sla_hours 从现在起算 SLA 到期时间；
+	// 恢复(N)行不参与 SLA 计时，落 NULL，cron 扫描也只针对活动(H/M/L)行。
+	if alarmStatus != "N" {
+		history.SlaDueAt = alarmSlaDueAt(alarmConfig.SlaHours, triggerAt)
+	}
+	return dal.AlarmHistorySave(history)
 }

@@ -221,7 +221,8 @@ const formData = ref({
   alarm_keep_time: '', // 触发持续时间
   notification_group_id: '', // 通知组ID
   enabled: 'Y', // 是否启用，Y-启用N-停止
-  description: ''
+  description: '',
+  sla_hours: null as number | null // SLA 时限（小时；TB-27）：null/0 = 不启用超时升级
 })
 const rules = {
   name: {
@@ -266,7 +267,9 @@ const add = async () => {
     alarm_keep_time: Number(formData.value.alarm_keep_time),
     notification_group_id: formData.value.notification_group_id,
     enabled: 'Y',
-    description: formData.value.description
+    description: formData.value.description,
+    // SLA 时限总是显式提交：未填/0 落库为 NULL（不启用），避免"沿用旧值"歧义。
+    sla_hours: Number(formData.value.sla_hours) || 0
   }
   const res = await addWarningMessage(data)
   if (res) {
@@ -289,7 +292,9 @@ async function editInfoText() {
     alarm_keep_time: Number(formData.value.alarm_keep_time),
     notification_group_id: formData.value.notification_group_id,
     enabled: 'Y',
-    description: formData.value.description
+    description: formData.value.description,
+    // SLA 时限总是显式提交：清空/0 即关闭 SLA（后端落 NULL），与整表单编辑语义一致。
+    sla_hours: Number(formData.value.sla_hours) || 0
   }
   const { data } = await editInfo(datas)
   if (data) {
@@ -329,7 +334,8 @@ watch(props, (newValue) => {
       alarm_keep_time: '',
       notification_group_id: '',
       enabled: 'Y',
-      description: ''
+      description: '',
+      sla_hours: null
     }
   }
 })
@@ -351,6 +357,21 @@ watch(props, (newValue) => {
           v-model:value="formData.alarm_level"
           :placeholder="$t('generate.alarm-level')"
           :options="alarmLevel"
+        />
+      </n-form-item>
+
+      <!--
+        SLA 时限（TB-27，126.sql）：小时数；null/0 = 不启用超时升级。
+        后端 5 分钟一轮 cron 扫描到期活动告警并升一档严重度，超时行在历史列展示"SLA 超时"标记。
+      -->
+      <n-form-item :label="$t('custom.alarmPage.slaHoursLabel')" path="sla_hours">
+        <n-input-number
+          v-model:value="formData.sla_hours"
+          class="w-full"
+          :min="0"
+          :max="87600"
+          clearable
+          :placeholder="$t('custom.alarmPage.slaHoursPlaceholder')"
         />
       </n-form-item>
 

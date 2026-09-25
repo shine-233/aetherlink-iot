@@ -17,6 +17,8 @@ type CreateAlarmConfigReq struct {
 	Enabled             string  `json:"enabled" validate:"omitempty"`
 	// TriggerDuration 为告警条件需连续满足的秒数，0 表示立即触发。
 	TriggerDuration *int32 `json:"trigger_duration" validate:"omitempty"`
+	// SlaHours 为 SLA 时限小时数（TB-27，126.sql）：nil/0 = 不启用；负数在服务层参数错误。
+	SlaHours *int32 `json:"sla_hours" validate:"omitempty,min=0"`
 }
 
 type UpdateAlarmConfigReq struct {
@@ -32,6 +34,9 @@ type UpdateAlarmConfigReq struct {
 	Enabled             *string `json:"enabled" validate:"omitempty"`
 	// TriggerDuration 为告警条件需连续满足的秒数，0 表示立即触发。
 	TriggerDuration *int32 `json:"trigger_duration" validate:"omitempty"`
+	// SlaHours 为 SLA 时限小时数（TB-27，126.sql）：nil（缺省或 JSON null）= 沿用旧值；
+	// 0 = 关闭 SLA（落库为 NULL）；负数在服务层参数错误。
+	SlaHours *int32 `json:"sla_hours" validate:"omitempty,min=0"`
 }
 
 type GetAlarmConfigListByPageReq struct {

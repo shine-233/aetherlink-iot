@@ -1,6 +1,7 @@
 // 文件用途：规则链服务层（ROADMAP B2）——CRUD、图校验与上行执行入口。
-// 核心逻辑：CRUD 带租户守卫与 DAG 校验；执行入口按租户拉启用链（60s 缓存），
+// 核心逻辑：CRUD 带租户守卫与 DAG 校验；执行入口经 GetEffectiveRuleChainsForDevice
 //
+//	解析生效链（TB-18：档案绑定链优先、租户级启用链兜底，租户级部分 60s 缓存），
 //	写操作失效缓存；OnTelemetry/OnDeviceOnline 供上行钩子以 goroutine 调用。
 //
 // 关键注意事项：空租户 fail-closed；执行错误只记录不阻断上行主流程；
@@ -213,6 +214,8 @@ func (*RuleChain) UpdateChain(raw []byte, claims *utils.UserClaims) (*model.Rule
 }
 
 // DeleteChain 删除规则链。
+// TB-18：链仍被设备档案绑定为默认链时拒绝删除（fail-closed）——先给可读业务错误，
+// 数据库侧 125.sql 的 FK ON DELETE RESTRICT 兜底。
 func (*RuleChain) DeleteChain(id string, claims *utils.UserClaims) error {
 	tenantID, err := normalizeRuleChainTenant("", claims)
 	if err != nil {
@@ -220,6 +223,12 @@ func (*RuleChain) DeleteChain(id string, claims *utils.UserClaims) error {
 	}
 	if strings.TrimSpace(id) == "" {
 		return errcode.NewWithMessage(errcode.CodeParamError, "id is required")
+	}
+	if bound, gErr := dal.CountDeviceConfigsByDefaultRuleChainID(id, tenantID); gErr != nil {
+		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": gErr.Error()})
+	} else if bound > 0 {
+		return errcode.NewWithMessage(errcode.CodeParamError,
+			"rule chain is referenced by device profile default_rule_chain_id; unbind it first")
 	}
 	ok, err := dal.DeleteRuleChain(id, tenantID)
 	if err != nil {
@@ -304,6 +313,8 @@ func invalidateRuleChainCache(tenantID string) {
 	ruleChainCacheMu.Lock()
 	defer ruleChainCacheMu.Unlock()
 	delete(ruleChainCacheByTenant, tenantID)
+	// TB-18：档案级默认链图缓存与租户级链缓存同源失效（链创建/更新/删除都会走到这里）。
+	purgeProfileRuleChainCacheForTenant(tenantID)
 }
 
 func enabledGraphsForTenant(tenantID string) []*RuleChainGraph {
@@ -348,7 +359,8 @@ func (*RuleChain) OnTelemetry(device model.Device, values map[string]any) {
 		return
 	}
 	ctx := context.Background()
-	for _, graph := range enabledGraphsForTenant(device.TenantID) {
+	// TB-18：档案绑定链优先、租户级链兜底（GetEffectiveRuleChainsForDevice 内聚该解析）。
+	for _, graph := range GetEffectiveRuleChainsForDevice(device) {
 		hasTrigger := false
 		for _, root := range graph.Roots() {
 			if root.Type == RuleChainTriggerTelemetry {
@@ -383,7 +395,8 @@ func (*RuleChain) OnDeviceOnline(device model.Device) {
 	}
 	ctx := context.Background()
 	values := map[string]any{"status": float64(1)}
-	for _, graph := range enabledGraphsForTenant(device.TenantID) {
+	// TB-18：档案绑定链优先、租户级链兜底（GetEffectiveRuleChainsForDevice 内聚该解析）。
+	for _, graph := range GetEffectiveRuleChainsForDevice(device) {
 		hasTrigger := false
 		for _, root := range graph.Roots() {
 			if root.Type == RuleChainTriggerOnline {

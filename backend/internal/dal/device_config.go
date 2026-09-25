@@ -65,6 +65,27 @@ func UpdateDeviceConfigPayloadSchemaID(id string, schemaID *string) error {
 		Update("payload_schema_id", schemaID).Error
 }
 
+// UpdateDeviceConfigDefaultRuleChainID 按主键写档案级默认规则链（TB-18）。
+// nil 也写入（解绑语义）。与 UpdateDeviceConfigPayloadSchemaID 同口径：主键单列更新，
+// 租户校验由 service 层 ensureDeviceConfigWriteAccess 前置完成。
+// tenant-scope: caller-enforced（主键更新路径，写入值已经过 validateDefaultRuleChainBinding 租户归属校验）
+func UpdateDeviceConfigDefaultRuleChainID(id string, chainID *string) error {
+	return global.DB.Model(&model.DeviceConfig{}).
+		Where("id = ?", id).
+		Update("default_rule_chain_id", chainID).Error
+}
+
+// CountDeviceConfigsByDefaultRuleChainID 统计仍把 default_rule_chain_id 指向指定链的档案数
+// （TB-18 删除守卫）。按 id+tenant 双条件过滤，防止跨租户计数。
+// tenant-scope: caller-enforced（chainID 来自已通过租户归属校验的 rule chain，tenantID 为调用方 claims 租户）
+func CountDeviceConfigsByDefaultRuleChainID(chainID, tenantID string) (int64, error) {
+	var count int64
+	err := global.DB.Model(&model.DeviceConfig{}).
+		Where("default_rule_chain_id = ? AND tenant_id = ?", chainID, tenantID).
+		Count(&count).Error
+	return count, err
+}
+
 func UpdateDeviceConfig(id string, condsMap map[string]interface{}) error {
 	t := time.Now().UTC()
 	condsMap["updated_at"] = &t

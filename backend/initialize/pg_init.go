@@ -80,6 +80,13 @@ func PgInit() (*gorm.DB, error) {
 		return nil, fmt.Errorf("database migration failed: %w", err)
 	}
 
+	// TB-15：TimescaleDB 活库时把 data_policy 的设备数据保留天数装配成 telemetry_datas
+	// 的原生 retention policy（压缩≠保留：57.sql 的压缩策略只省存储，过期删除由本策略执行）。
+	// 失败不阻断启动——普通 PG 部署本就无此策略，warn 后下次启动自动重试。
+	if err := ApplyTimescaleRetentionPolicy(db); err != nil {
+		logrus.Warnf("apply timescaledb retention policy failed (will retry on next start): %v", err)
+	}
+
 	// 凭证哈希存储 Phase 1（references/backend-hardening-plan.md 车道1）：50.sql 只建
 	// devices.voucher_hash 列+索引，存量明文行的摘要由 Go 侧补齐（broker 多候选键序
 	// 兼容无法用纯 SQL 复刻）。回填幂等可重入；失败不阻断启动——双模式下明文列仍是

@@ -95,6 +95,12 @@ func (*DataPolicy) CleanSystemDataByCron() error {
 				return err
 			}
 
+			// TB-15 冷层清理：telemetry_rollups 是原始行的派生数据，跟随同一保留
+			// 天数与同一毫秒边界删除，避免"原始行已删、冷层只进不出"。
+			if err := dal.DeleteTelemetryRollupsByTime(daysAgeInt64); err != nil {
+				return err
+			}
+
 			datapolicy := model.DataPolicy{
 				ID:                  v.ID,
 				LastCleanupTime:     &now,

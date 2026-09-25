@@ -1,6 +1,7 @@
 // 文件用途：P3 审计导出——操作日志按时间窗导出 CSV，供合同审计/离线核查。
 // 核心逻辑：租户作用域与既有列表查询同口径（当前登录用户租户）；必填时间窗；
-// 行数上限防导出变成全表拉取。
+// 行数上限防导出变成全表拉取；TB-10（127.sql）起导出含实体级审计列
+// （action/entity_type/entity_id/status_code）并支持同维度可选筛选。
 //
 // 关键注意事项：
 //   - **不导出 request_message / response_message 载荷**：审计最小化约定
@@ -52,7 +53,7 @@ func ExportAuditLogs(req model.AuditLogExportReq, claims *utils.UserClaims) (*Au
 	if window > auditExportMaxWindow {
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "export window exceeds one year; narrow the range")
 	}
-	rows, err := dal.ListOperationLogsForExport(claims.TenantID, *req.StartTime, *req.EndTime, auditExportMaxRows)
+	rows, err := dal.ListOperationLogsForExport(claims.TenantID, *req.StartTime, *req.EndTime, req, auditExportMaxRows)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
 	}
@@ -72,7 +73,12 @@ func ExportAuditLogs(req model.AuditLogExportReq, claims *utils.UserClaims) (*Au
 	defer file.Close()
 
 	writer := csv.NewWriter(file)
-	header := []string{"id", "created_at", "user_id", "tenant_id", "ip", "path", "name", "latency_ms", "remark"}
+	// TB-10（127.sql）：实体级审计列 action/entity_type/entity_id/status_code 进入导出；
+	// 载荷列（request_message/response_message）仍按审计最小化约定不导出。
+	header := []string{
+		"id", "created_at", "user_id", "tenant_id", "ip", "path", "name",
+		"action", "entity_type", "entity_id", "status_code", "latency_ms", "remark",
+	}
 	if wErr := writer.Write(header); wErr != nil {
 		return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{"error": wErr.Error()})
 	}
@@ -85,6 +91,10 @@ func ExportAuditLogs(req model.AuditLogExportReq, claims *utils.UserClaims) (*Au
 			row.IP,
 			derefAuditString(row.Path),
 			derefAuditString(row.Name),
+			derefAuditString(row.Action),
+			derefAuditString(row.EntityType),
+			derefAuditString(row.EntityID),
+			derefAuditInt32(row.StatusCode),
 			fmt.Sprintf("%d", derefAuditInt64(row.Latency)),
 			derefAuditString(row.Remark),
 		}
@@ -111,4 +121,11 @@ func derefAuditInt64(v *int64) int64 {
 		return 0
 	}
 	return *v
+}
+
+func derefAuditInt32(v *int32) string {
+	if v == nil {
+		return ""
+	}
+	return fmt.Sprintf("%d", *v)
 }

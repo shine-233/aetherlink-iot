@@ -149,7 +149,10 @@ describe('SystemLogIndex', () => {
       end_time: '',
       method: '',
       path: '',
-      ip: ''
+      ip: '',
+      action: '',
+      entity_type: '',
+      entity_id: ''
     })
     expect(getState(wrapper).tableData).toEqual([])
   })
@@ -203,11 +206,18 @@ describe('SystemLogIndex', () => {
     state.queryParams.username = 'admin'
     state.queryParams.ip = '127.0.0.1'
     state.queryParams.method = 'POST'
+    state.queryParams.action = 'create'
+    state.queryParams.entity_type = 'customer'
+    state.queryParams.entity_id = '6ba7b810-9dad-11d1-80b4-00c04fd430c8'
     state.handleReset()
     await flushPromises()
     expect(state.queryParams.username).toBe('')
     expect(state.queryParams.ip).toBe('')
     expect(state.queryParams.method).toBe('')
+    // TB-10 实体级筛选（127.sql）重置后必须一并清空
+    expect(state.queryParams.action).toBe('')
+    expect(state.queryParams.entity_type).toBe('')
+    expect(state.queryParams.entity_id).toBe('')
   })
 
   it('should handle pickerChange with valid range', async () => {

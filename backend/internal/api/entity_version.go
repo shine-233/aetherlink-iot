@@ -1,6 +1,6 @@
-// 文件用途：实体版本控制 HTTP Handler（ROADMAP C7），承接快照创建、版本历史、详情与恢复。
+// 文件用途：实体版本控制 HTTP Handler（ROADMAP C7），承接快照创建、版本历史、详情、差异对比与恢复。
 // 核心链路：Handler 绑定请求、注入 claims，再把业务下沉给 EntityVersionService；
-// 详情与恢复的 id 一律取自路径参数（c.Param("id")），避免信任请求体中的标识。
+// 详情/恢复/对比的 id 一律取自路径参数（c.Param("id")），避免信任请求体中的标识。
 // 关键注意事项：本 Handler 不做权限判断与租户解析，统一由 claims 与 service 层负责；
 // 恢复支持 dry_run，只回显将写入的字段而不落库，供前端二次确认。
 // 重构建议：若后续支持批量快照或版本对比，新增独立端点而不是复用 create 语义。
@@ -74,6 +74,25 @@ func (*EntityVersionApi) HandleCreateEntityVersion(c *gin.Context) {
 func (*EntityVersionApi) HandleGetEntityVersion(c *gin.Context) {
 	userClaims := c.MustGet("claims").(*utils.UserClaims)
 	data, err := service.GroupApp.EntityVersion.GetEntityVersion(c.Param("id"), userClaims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.Set("data", data)
+}
+
+// HandleDiffEntityVersion 按路径两个 id 对比两份快照的 JSON 语义差异。
+// @Summary Diff two entity version snapshots
+// @Tags EntityVersion
+// @Produce json
+// @Param id path string true "Source entity version id"
+// @Param target_id path string true "Target entity version id"
+// @Success 200 {object} model.EntityVersionDiffRsp "Snapshot semantic diff"
+// @Router /api/v1/entity_versions/{id}/diff/{target_id} [get]
+func (*EntityVersionApi) HandleDiffEntityVersion(c *gin.Context) {
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	data, err := service.GroupApp.EntityVersion.DiffEntityVersion(c.Param("id"), c.Param("target_id"), userClaims)
 	if err != nil {
 		c.Error(err)
 		return

@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"aetherlink-iot/backend/internal/quota"
 	"aetherlink-iot/backend/internal/ratelimit"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/global"
@@ -186,16 +187,21 @@ func tenantRateStoreFromConfig(rpm int64) tenantRateStore {
 	}
 }
 
+// dailyQuotaService 日配额服务获取函数（包级变量：单测注入替身用，生产恒为 quota.Default）。
+var dailyQuotaService = quota.Default
+
 // TenantRateLimit 返回按租户计数的 API 限流中间件。
 // 键优先取 claims.TenantID；无租户上下文的调用（如超管个人操作）回退用户 ID，
 // 保证每个调用主体都有独立配额且匿名请求不会污染租户桶。
+//
+// TB-17 日配额（API 维度）：本件同时承担租户 API 日调用量的同日累加与按套餐限额执法——
+//   - 计量：per-minute 检查放行后对有租户上下文的请求累加（Redis INCR，定期落库 api_usage_daily），
+//     计量链路 fail-open，失败只降级不阻断；
+//   - 执法：读取订阅套餐 max_api_calls_per_day，当日累计超限返回 429 + Retry-After
+//     （距次日 UTC 零点），429 响应体与 per-minute 限流完全同构（code/message/retry_after）；
+//   - 无租户上下文（claims.TenantID 为空）不计量也不执法。
 func TenantRateLimit() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		rpm := tenantRateRPMFromConfig()
-		if rpm <= 0 && !viper.IsSet(ratelimit.ConfigKeyDefaultAPI) {
-			c.Next()
-			return
-		}
 		claimsValue, exists := c.Get("claims")
 		if !exists {
 			c.Next()
@@ -207,17 +213,36 @@ func TenantRateLimit() gin.HandlerFunc {
 			return
 		}
 
-		svc := ratelimit.GetDefaultService()
-		allowed, retryAfter, _ := svc.CheckAPI(c.Request.Context(), claims.TenantID, claims.ID)
-		if allowed {
-			c.Next()
-			return
+		// —— per-tenant 固定窗口限流（既有语义）：rpm<=0 且未配置 default-tenant-limits 时关闭 ——
+		rpm := tenantRateRPMFromConfig()
+		if rpm > 0 || viper.IsSet(ratelimit.ConfigKeyDefaultAPI) {
+			svc := ratelimit.GetDefaultService()
+			allowed, retryAfter, _ := svc.CheckAPI(c.Request.Context(), claims.TenantID, claims.ID)
+			if !allowed {
+				abortWithRateLimit(c, retryAfter, "API rate limit exceeded for tenant")
+				return
+			}
 		}
-		c.Header("Retry-After", strconv.FormatInt(retryAfter, 10))
-		c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
-			"code":        errcode.CodeTooManyAttempts,
-			"message":     "API rate limit exceeded for tenant",
-			"retry_after": retryAfter,
-		})
+
+		// —— TB-17 租户 API 日配额：同日累加 + 超限 429（fail-open） ——
+		if claims.TenantID != "" {
+			if decision := dailyQuotaService().ObserveAndDecide(c.Request.Context(), claims.TenantID); decision.Enforced && !decision.Allowed {
+				abortWithRateLimit(c, decision.RetryAfter, "daily API quota exceeded for tenant")
+				return
+			}
+		}
+
+		c.Next()
 	}
+}
+
+// abortWithRateLimit 统一的 429 响应：Retry-After 头 + code/message/retry_after 响应体。
+// per-minute 限流与日配额超限共用同一套契约字段（前端/自动化按同一形状解析）。
+func abortWithRateLimit(c *gin.Context, retryAfter int64, message string) {
+	c.Header("Retry-After", strconv.FormatInt(retryAfter, 10))
+	c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
+		"code":        errcode.CodeTooManyAttempts,
+		"message":     message,
+		"retry_after": retryAfter,
+	})
 }

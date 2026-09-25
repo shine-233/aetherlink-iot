@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const hoisted = vi.hoisted(() => ({
   deviceConfigDel: vi.fn(),
   deviceConfigEdit: vi.fn(),
+  ruleChainList: vi.fn(),
   removeTab: vi.fn(),
   routerPushByKey: vi.fn()
 }))
@@ -18,6 +19,11 @@ const hoisted = vi.hoisted(() => ({
 vi.mock('@/service/api/device', () => ({
   deviceConfigDel: hoisted.deviceConfigDel,
   deviceConfigEdit: hoisted.deviceConfigEdit
+}))
+
+// TB-18：setting-info 挂载时会拉取启用规则链下拉，必须 mock，否则测试内发起真实请求。
+vi.mock('@/service/api/rule_chain', () => ({
+  ruleChainList: hoisted.ruleChainList
 }))
 
 vi.mock('@/locales', () => ({
@@ -115,6 +121,15 @@ describe('device/config-detail/modules/setting-info.vue', () => {
     vi.clearAllMocks()
     hoisted.deviceConfigDel.mockResolvedValue({ error: null })
     hoisted.deviceConfigEdit.mockResolvedValue({ error: null })
+    // 规则链下拉夹具：一条启用链 + 一条停用链（停用链不应进入可选项）。
+    hoisted.ruleChainList.mockResolvedValue({
+      data: {
+        list: [
+          { id: 'chain-1', name: 'Chain One', enabled: true },
+          { id: 'chain-2', name: 'Chain Off', enabled: false }
+        ]
+      }
+    })
   })
 
   afterEach(() => {
@@ -178,5 +193,43 @@ describe('device/config-detail/modules/setting-info.vue', () => {
     expect(hoisted.deviceConfigEdit).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'cfg-1', other_config: expect.any(String) })
     )
+  })
+
+  // TB-18：档案级默认规则链——下拉只含启用链；绑定/解绑提交形状与后端约定一致。
+  it('loads only enabled rule chains and echoes current binding on mount', async () => {
+    mountComponent({
+      configInfo: { id: 'cfg-1', auto_register: 0, default_rule_chain_id: 'chain-1' }
+    })
+    await flushPromises()
+    expect(hoisted.ruleChainList).toHaveBeenCalledWith({ page: 1, page_size: 200 })
+    const wrappers = mountedWrappers[mountedWrappers.length - 1]
+    const state = getSetupState(wrappers)
+    expect(state.ruleChainOptions).toEqual([{ label: 'Chain One', value: 'chain-1' }])
+    expect(state.defaultRuleChainId).toBe('chain-1')
+  })
+
+  it('keeps a placeholder option when the bound chain is missing from the enabled list', async () => {
+    mountComponent({
+      configInfo: { id: 'cfg-1', auto_register: 0, default_rule_chain_id: 'chain-gone' }
+    })
+    await flushPromises()
+    const state = getSetupState(mountedWrappers[mountedWrappers.length - 1])
+    expect(state.ruleChainOptions[0]).toEqual({ label: 'chain-gone', value: 'chain-gone' })
+  })
+
+  it('onSaveRuleChain submits the selected chain id', async () => {
+    mountComponent()
+    const state = getSetupState(mountedWrappers[mountedWrappers.length - 1])
+    state.defaultRuleChainId = 'chain-1'
+    await state.onSaveRuleChain()
+    expect(hoisted.deviceConfigEdit).toHaveBeenCalledWith({ id: 'cfg-1', default_rule_chain_id: 'chain-1' })
+  })
+
+  it('onSaveRuleChain submits empty string to unbind', async () => {
+    mountComponent()
+    const state = getSetupState(mountedWrappers[mountedWrappers.length - 1])
+    state.defaultRuleChainId = null
+    await state.onSaveRuleChain()
+    expect(hoisted.deviceConfigEdit).toHaveBeenCalledWith({ id: 'cfg-1', default_rule_chain_id: '' })
   })
 })

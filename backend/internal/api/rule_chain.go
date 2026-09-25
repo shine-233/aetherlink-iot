@@ -209,3 +209,21 @@ func (*RuleChainApi) HandleReplayRuleChainExecution(c *gin.Context) {
 	c.Set("data", res)
 }
 
+// HandleResolveDeviceEffectiveRuleChains 解析单设备生效规则链（TB-18，125.sql）：
+// 档案绑定链优先、租户级启用链兜底。设备归属/租户隔离校验在 service 层完成。
+// GET /api/v1/rule-chains/device-effective/:deviceId
+func (*RuleChainApi) HandleResolveDeviceEffectiveRuleChains(c *gin.Context) {
+	deviceID := c.Param("deviceId")
+	if strings.TrimSpace(deviceID) == "" {
+		c.Error(errcode.NewWithMessage(errcode.CodeParamError, "deviceId is required"))
+		return
+	}
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	res, svcErr := service.GroupApp.RuleChain.ResolveEffectiveRuleChainsForDevice(deviceID, userClaims)
+	if svcErr != nil {
+		c.Error(svcErr)
+		return
+	}
+	c.Set("data", res)
+}
+
