@@ -65,6 +65,7 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   management_role: () => import("@/views/management/role/index.vue"),
   management_setting: () => import("@/views/management/setting/index.vue"),
   management_user: () => import("@/views/management/user/index.vue"),
+  customer_list: () => import("@/views/customer/list/index.vue"),
   market_browse: () => import("@/views/market/browse/index.vue"),
   "personal-center": () => import("@/views/personal-center/index.vue"),
   "product_update-ota": () => import("@/views/product/update-ota/index.vue"),

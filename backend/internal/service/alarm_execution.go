@@ -1,6 +1,8 @@
 package service
 
 import (
+	"context"
+
 	"aetherlink-iot/backend/internal/dal"
 
 	"github.com/go-basic/uuid"
@@ -40,6 +42,17 @@ func (*Alarm) AlarmRecovery(alarmConfigID, content, sceneAutomationID, groupID s
 	if err != nil {
 		return "", err
 	}
+	PublishAlarmEvent(context.Background(), alarmConfig.TenantID, map[string]interface{}{
+		"type":                "recovery",
+		"alarm_id":            id,
+		"alarm_config_id":     alarmConfigID,
+		"name":                alarmConfig.Name,
+		"level":               "N",
+		"content":             content,
+		"scene_automation_id": sceneAutomationID,
+		"group_id":            groupID,
+		"device_ids":          deviceIDs,
+	})
 	return id, nil
 }
 
@@ -61,5 +74,16 @@ func (*Alarm) AlarmExecute(alarmConfigID, content, sceneAutomationID, groupID st
 		logrus.Error(err)
 		return false, alarmName, err.Error()
 	}
+	PublishAlarmEvent(context.Background(), alarmConfig.TenantID, map[string]interface{}{
+		"type":                "trigger",
+		"alarm_id":            id,
+		"alarm_config_id":     alarmConfigID,
+		"name":                alarmName,
+		"level":               alarmConfig.AlarmLevel,
+		"content":             content,
+		"scene_automation_id": sceneAutomationID,
+		"group_id":            groupID,
+		"device_ids":          deviceIDs,
+	})
 	return true, alarmName, ""
 }

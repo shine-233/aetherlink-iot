@@ -94,5 +94,10 @@
   "route.system-management-user-equipment-map": "Carte des équipements",
   "route.management_solutions": "Modèles de solution",
   "view.management_solutions": "Modèles de solution",
-  "view.management_secrets": "Gestion des secrets"
+  "view.management_secrets": "Gestion des secrets",
+  "route.customer": "Clients",
+  "route.customer_list": "Liste des clients",
+  "view.customer_list": "Liste des clients",
+  "route.device_converter": "Convertisseurs de données",
+  "view.device_converter": "Convertisseurs de données"
 }

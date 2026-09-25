@@ -94,6 +94,7 @@ type Controller struct {
 	BillingApi        // P3 商业化计费与用量计量
 	DataConverterApi  // ThingsBoard 核心数据转换器
 	DeviceHealthApi   // TP-6 / TB PE 设备综合健康度评估
+	CustomerApi       // ThingsBoard 核心客户管理体系
 }
 
 var (

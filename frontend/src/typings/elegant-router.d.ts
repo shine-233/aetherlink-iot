@@ -72,6 +72,8 @@ declare module "@elegant-router/types" {
     "management_role": "/management/role";
     "management_setting": "/management/setting";
     "management_user": "/management/user";
+    "customer": "/customer";
+    "customer_list": "/customer/list";
     "market": "/market";
     "market_browse": "/market/browse";
     "personal-center": "/personal-center";
@@ -139,6 +141,7 @@ declare module "@elegant-router/types" {
     | "legal"
     | "login"
     | "management"
+    | "customer"
     | "market"
     | "personal-center"
     | "product"
@@ -210,6 +213,7 @@ declare module "@elegant-router/types" {
     | "management_role"
     | "management_setting"
     | "management_user"
+    | "customer_list"
     | "market_browse"
     | "personal-center"
     | "product_update-ota"

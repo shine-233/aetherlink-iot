@@ -421,6 +421,11 @@ func (*Alarm) UpdateAlarmInfo(req *model.UpdateAlarmInfoReq, claims *utils.UserC
 			"sql_error": err.Error(),
 		})
 	}
+	PublishAlarmEvent(context.Background(), alarmInfo.TenantID, map[string]interface{}{
+		"type":              "status",
+		"alarm_id":          alarmInfo.ID,
+		"processing_result": alarmInfo.ProcessingResult,
+	})
 	return
 }
 
@@ -452,6 +457,10 @@ func (*Alarm) UpdateAlarmInfoBatch(req *model.UpdateAlarmInfoBatchReq, claims *u
 			"sql_error": err.Error(),
 		})
 	}
+	PublishAlarmEvent(context.Background(), targetTenantID, map[string]interface{}{
+		"type":      "status",
+		"alarm_ids": req.Id,
+	})
 	return err
 }
 

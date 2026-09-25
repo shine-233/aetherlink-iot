@@ -217,6 +217,8 @@ const routeMap: RouteMap = {
   "management_role": "/management/role",
   "management_setting": "/management/setting",
   "management_user": "/management/user",
+  "customer": "/customer",
+  "customer_list": "/customer/list",
   "market": "/market",
   "market_browse": "/market/browse",
   "personal-center": "/personal-center",

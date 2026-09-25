@@ -96,5 +96,8 @@
   "route.management_solutions": "解决方案模板",
   "view.management_solutions": "解决方案模板",
   "view.management_secrets": "密钥管理",
-  "view.device_converter": "数据编解码"
+  "view.device_converter": "数据编解码",
+  "route.customer": "客户管理",
+  "route.customer_list": "客户列表",
+  "view.customer_list": "客户列表"
 }

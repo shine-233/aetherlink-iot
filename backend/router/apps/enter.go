@@ -68,6 +68,7 @@ type apps struct {
 	Tenant // P3 租户管理与自助开通
 	Billing // P3 商业化计费与用量计量
 	DataConverterRouter // ThingsBoard 核心数据转换器
+	Customer            // ThingsBoard 核心客户管理体系
 }
 
 var Model = new(apps)

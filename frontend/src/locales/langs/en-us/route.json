@@ -96,5 +96,8 @@
   "route.management_solutions": "Solution Templates",
   "view.management_solutions": "Solution Templates",
   "view.management_secrets": "Secrets",
-  "view.device_converter": "Data Converters"
+  "view.device_converter": "Data Converters",
+  "route.customer": "Customers",
+  "route.customer_list": "Customer List",
+  "view.customer_list": "Customer List"
 }

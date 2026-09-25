@@ -203,6 +203,8 @@ func RouterInit() *gin.Engine {
 			v1.GET("device/online/status/ws/batch", controllers.TelemetryDataApi.ServeDeviceOnlineStatusWS)
 			// 设备遥测keys（ws）
 			v1.GET("telemetry/datas/current/keys/ws", controllers.TelemetryDataApi.ServeCurrentDataByKey)
+			// 告警状态实时订阅（ws）- 首帧鉴权，按 JWT 租户推送告警生命周期事件（TB-30）
+			v1.GET("alarm/status/ws", controllers.AlarmApi.ServeAlarmStatusWS)
 			v1.GET("ota/download/files/upgradePackage/:path/:file", controllers.OTAApi.DownloadOTAUpgradePackage)
 			v1.GET("rdi/shared/:token", controllers.RDIApi.SharedDeviceConfig)
 			v1.GET("board/shared/:token", controllers.BoardApi.GetPublishedBoardByShareToken)
@@ -317,6 +319,7 @@ func RouterInit() *gin.Engine {
 
 			apps.Model.DataScript.Init(v1) // 数据处理脚本
 			apps.Model.DataConverterRouter.InitDataConverter(v1) // ThingsBoard 核心数据转换器
+			apps.Model.Customer.Init(v1) // ThingsBoard 核心客户管理体系
 
 			apps.Model.NotificationGroup.InitNotificationGroup(v1) // 通知组
 

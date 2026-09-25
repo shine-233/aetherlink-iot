@@ -51,7 +51,7 @@ test.describe('TB-6 数据转换器与健康评分 E2E', () => {
     const modalTitle = rolePage.getByText('新建数据转换器').first();
     await expect(modalTitle).toBeVisible({ timeout: 10000 });
 
-    const nameInput = rolePage.locator('input[placeholder="如：Modbus温湿度传感器上行解析"]').first();
+    const nameInput = rolePage.locator('input[placeholder*="Modbus"]').first();
     await nameInput.fill(converterName);
 
     // 4. 点击保存/确定
@@ -63,17 +63,17 @@ test.describe('TB-6 数据转换器与健康评分 E2E', () => {
     await expect(row, '新创建的转换器行应呈现在表格中').toBeVisible({ timeout: 20000 });
 
     // 6. 点击在线仿真测试
-    const simBtn = row.getByRole('button', { name: /仿真测试/ }).first();
+    const simBtn = row.getByRole('button', { name: /在线仿真/ }).first();
     await expect(simBtn).toBeVisible();
     await simBtn.click();
 
     // 7. 抽屉打开并执行仿真
-    const runSimBtn = rolePage.getByRole('button', { name: /执行仿真测试/ }).first();
+    const runSimBtn = rolePage.getByRole('button', { name: /执行仿真解析/ }).first();
     await expect(runSimBtn).toBeVisible({ timeout: 10000 });
     await runSimBtn.click();
 
     // 8. 断言仿真输出结果出现
-    const resAlert = rolePage.locator('.n-drawer').getByText(/解析成功|执行耗时/).first();
+    const resAlert = rolePage.locator('.n-drawer').getByText(/执行成功|仿真结果/).first();
     await expect(resAlert).toBeVisible({ timeout: 15000 });
 
     // 9. 关闭抽屉并删除测试数据

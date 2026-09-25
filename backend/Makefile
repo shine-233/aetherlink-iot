@@ -1,7 +1,7 @@
 # AetherLink IoT Backend - Makefile
 # 覆盖率与测试命令集
 
-.PHONY: test test-coverage test-coverage-html test-coverage-api test-coverage-router test-coverage-mqtt test-coverage-service test-coverage-dal test-coverage-utils build clean
+.PHONY: test test-coverage test-coverage-html test-coverage-api test-coverage-router test-coverage-mqtt test-coverage-service test-coverage-dal test-coverage-utils build build-linux-amd64 build-linux-arm64 build-linux-loong64 cross-compile clean
 
 # Go 参数
 GOCMD  = go
@@ -95,7 +95,29 @@ check-coverage: test-coverage
 build:
 	$(GOBUILD) ./...
 
+# === 国产化交叉编译（TP-7/TP-19）===
+#
+# 前提：backend 全量代码无 CGO 依赖（go.mod 使用纯 Go sqlite 驱动，见 2026-09-25 审计），
+# 因此 CGO_ENABLED=0 即可交叉编译到麒麟/UOS/Deepin 等国产信创 Linux 的常见 CPU 架构。
+# 产物输出到 build/dist/<goos>-<goarch>/，便于随 deploy/package.* 打包分发。
+
+DIST_DIR = build/dist
+
+build-linux-amd64:
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOBUILD) -o $(DIST_DIR)/linux-amd64/aetherlink-backend .
+
+build-linux-arm64:
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 $(GOBUILD) -o $(DIST_DIR)/linux-arm64/aetherlink-backend .
+
+build-linux-loong64:
+	CGO_ENABLED=0 GOOS=linux GOARCH=loong64 $(GOBUILD) -o $(DIST_DIR)/linux-loong64/aetherlink-backend .
+
+# 一次构建全部国产化目标：任一目标失败即失败（退出码非 0）。
+cross-compile: build-linux-amd64 build-linux-arm64 build-linux-loong64
+	@echo "cross-compile done: $(DIST_DIR)/linux-{amd64,arm64,loong64}/aetherlink-backend"
+
 # === 清理 ===
 
 clean:
 	rm -rf $(COVERAGE_DIR)
+	rm -rf $(DIST_DIR)

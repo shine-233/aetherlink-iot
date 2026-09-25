@@ -789,6 +789,27 @@
         ]
       }
     },
+    "/api/v1/alarm/status/ws": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "ServeAlarmStatusWS-fm (aetherlink-iot/backend/internal/api.(*AlarmApi))",
+        "tags": [
+          "alarm"
+        ]
+      }
+    },
     "/api/v1/asset": {
       "post": {
         "responses": {
@@ -2855,6 +2876,187 @@
         "summary": "TestDataConverter-fm (aetherlink-iot/backend/internal/api.(*DataConverterApi))",
         "tags": [
           "converters"
+        ]
+      }
+    },
+    "/api/v1/customer": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "SaveCustomer-fm (aetherlink-iot/backend/internal/api.(*CustomerApi))",
+        "tags": [
+          "customer"
+        ]
+      }
+    },
+    "/api/v1/customer/:id": {
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "DeleteCustomer-fm (aetherlink-iot/backend/internal/api.(*CustomerApi))",
+        "tags": [
+          "customer"
+        ]
+      },
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "GetCustomer-fm (aetherlink-iot/backend/internal/api.(*CustomerApi))",
+        "tags": [
+          "customer"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "/api/v1/customer/:id/device/:device_id": {
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "UnassignDevice-fm (aetherlink-iot/backend/internal/api.(*CustomerApi))",
+        "tags": [
+          "customer"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "in": "path",
+          "name": "device_id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "/api/v1/customer/:id/devices": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "ListCustomerDevices-fm (aetherlink-iot/backend/internal/api.(*CustomerApi))",
+        "tags": [
+          "customer"
+        ]
+      },
+      "parameters": [
+        {
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "AssignDevices-fm (aetherlink-iot/backend/internal/api.(*CustomerApi))",
+        "tags": [
+          "customer"
+        ]
+      }
+    },
+    "/api/v1/customers": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "OK(响应包络见平台 response 中间件)"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "ListCustomers-fm (aetherlink-iot/backend/internal/api.(*CustomerApi))",
+        "tags": [
+          "customers"
         ]
       }
     },

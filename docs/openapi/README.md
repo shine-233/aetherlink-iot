@@ -4,7 +4,7 @@
 
 ```
 cd backend
-go run ./cmd/openapigen -out docs/openapi/openapi.json
+go run ./cmd/openapigen -out ../docs/openapi/openapi.json
 ```
 
 - 路由枚举复用 `router.RouterInit()`(路由注册不触库,无 DB 依赖);

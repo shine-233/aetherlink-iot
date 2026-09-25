@@ -94,5 +94,10 @@
   "route.system-management-user-equipment-map": "Mapa de equipos",
   "route.management_solutions": "Plantillas de solución",
   "view.management_solutions": "Plantillas de solución",
-  "view.management_secrets": "Gestión de secretos"
+  "view.management_secrets": "Gestión de secretos",
+  "route.customer": "Clientes",
+  "route.customer_list": "Lista de clientes",
+  "view.customer_list": "Lista de clientes",
+  "route.device_converter": "Codificadores de datos",
+  "view.device_converter": "Codificadores de datos"
 }

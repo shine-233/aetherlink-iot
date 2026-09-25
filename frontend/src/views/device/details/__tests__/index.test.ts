@@ -730,8 +730,13 @@ describe('device/details/index.vue', () => {
     await flushPromises()
 
     const setupState = getSetupState(wrapper)
-    // device-3d 为纯只读预览（sharedReadOnlySafe），允许出现在共享视图；可写 message 仍必须被裁剪。
-    expect(setupState.visibleDetailComponents.map((item: { key: string }) => item.key)).toEqual(['chart', 'device-3d'])
+    // device-3d（纯只读预览）与 health-assessment（只读健康诊断，TP-6）均标记
+    // sharedReadOnlySafe，允许出现在共享视图；可写 message 仍必须被裁剪。
+    expect(setupState.visibleDetailComponents.map((item: { key: string }) => item.key)).toEqual([
+      'chart',
+      'device-3d',
+      'health-assessment'
+    ])
     expect(setupState.components.some((item: { key: string }) => item.key === 'message')).toBe(true)
     expect(wrapper.text()).not.toContain('custom.device_details.AdditionalDetails')
   })

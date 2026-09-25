@@ -5,7 +5,7 @@
 重构建议：后续可把重复表单规则、选项转换和弹窗状态管理抽成可复用组合函数。
 -->
 <script setup lang="tsx">
-import { computed, getCurrentInstance, onMounted, reactive, ref, watch } from 'vue'
+import { computed, getCurrentInstance, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { NButton, NCard, NEmpty, NFlex, NInput, NTag } from 'naive-ui'
 import type { PaginationProps } from 'naive-ui'
 import dayjs from 'dayjs'
@@ -13,6 +13,7 @@ import { useRouter } from 'vue-router'
 import { alarmHistory } from '@/service/api/alarm'
 import { $t } from '@/locales'
 import { deviceAlarmHistoryPut } from '@/service/api'
+import { useAlarmStatusSocket } from '@/hooks/alarm/useAlarmStatusSocket'
 import type { FleetRolloutContext } from '../../../device/modules/fleet-rollout-context'
 import {
   alarmActionField,
@@ -131,8 +132,27 @@ const resetData = () => {
   handleSearch()
 }
 
+// TB-30：订阅租户级告警实时事件，收到生命周期事件后去抖刷新列表。
+let alarmRealtimeRefreshTimer: ReturnType<typeof setTimeout> | null = null
+const { start: startAlarmRealtime, stop: stopAlarmRealtime } = useAlarmStatusSocket(() => {
+  if (alarmRealtimeRefreshTimer) return
+  alarmRealtimeRefreshTimer = setTimeout(() => {
+    alarmRealtimeRefreshTimer = null
+    getAlarmHistory()
+  }, 800)
+})
+
 onMounted(() => {
   getAlarmHistory()
+  startAlarmRealtime()
+})
+
+onUnmounted(() => {
+  stopAlarmRealtime()
+  if (alarmRealtimeRefreshTimer) {
+    clearTimeout(alarmRealtimeRefreshTimer)
+    alarmRealtimeRefreshTimer = null
+  }
 })
 
 watch(
