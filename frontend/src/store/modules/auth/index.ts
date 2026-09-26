@@ -18,6 +18,7 @@ import { createLogger } from '@/utils/logger'
 import { generateRandomHexString, validPassword } from '@/utils/common/tool'
 import { encryptDataByRsa } from '@/utils/security/rsa-encrypt'
 import { useRouteStore } from '../route'
+import { useSysSettingStore } from '../sys-setting'
 import { useTabStore } from '../tab'
 import { clearAuthStorage, getToken, getUserInfo } from './shared'
 import { clearThingsVisToken } from '@/utils/thingsvis'
@@ -51,6 +52,7 @@ function isFrontendEncryptionEnabled(rawConfig: string | null) {
 
 export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
   const routeStore = useRouteStore()
+  const sysSettingStore = useSysSettingStore()
   const { route, toLogin, redirectFromLogin } = useRouterPush(false)
   const { loading: loginLoading, startLoading, endLoading } = useLoading()
 
@@ -67,6 +69,9 @@ export const useAuthStore = defineStore(SetupStoreId.Auth, () => {
   async function resetStore() {
     clearAuthStorage()
     clearThingsVisToken()
+    // 白标运行时（TB-47）随会话清理：登出后移除租户自定义 CSS 与翻译覆盖，
+    // 登录页回到默认样式；下次登录由路由初始化重新拉取应用。
+    sysSettingStore.resetWhitelabelRuntime()
     token.value = ''
     Object.assign(userInfo, {
       authority: '',

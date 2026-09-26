@@ -24,6 +24,12 @@ type DataPolicy struct {
 	LastCleanupDataTime *time.Time `gorm:"column:last_cleanup_data_time;comment:上次清理的数据时间节点（实际清理的数据时间点）" json:"last_cleanup_data_time"` // 上次清理的数据时间节点（实际清理的数据时间点）
 	Enabled             string     `gorm:"column:enabled;not null;comment:是否启用：1启用 2停用" json:"enabled"`                                 // 是否启用：1启用 2停用
 	Remark              *string    `gorm:"column:remark;comment:备注" json:"remark"`                                                      // 备注
+	// TenantID 行级策略租户id（TB-15R，138.sql）：手工追加字段沿用本文件外 TemplateSecret 等
+	// 先例。NULL=全局默认（既有两行语义不变）；非空=租户级行。
+	TenantID *string `gorm:"column:tenant_id;comment:行级策略租户id" json:"tenant_id"`
+	// DeviceConfigID 行级策略设备档案id（TB-15R，138.sql）：NULL=该租户全部设备；
+	// 非空=精确档案行。tenant_id 为空（全局行）时本列无意义。
+	DeviceConfigID *string `gorm:"column:device_config_id;comment:行级策略设备档案id" json:"device_config_id"`
 }
 
 // TableName DataPolicy's table name

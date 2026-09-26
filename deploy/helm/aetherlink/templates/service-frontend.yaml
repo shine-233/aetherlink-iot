@@ -1,0 +1,26 @@
+{{- /* 文件用途：渲染前端 ClusterIP Service（浏览器入口；对外类型由部署方改 NodePort/LB 或加 Ingress）。
+核心逻辑：port 8080 → targetPort http，对齐 compose 的 ${FRONTEND_PORT:-8080}:8080 容器侧口径。
+关键注意事项：服务类型默认 ClusterIP，仅集群内/port-forward 可达；暴露到集群外时务必同步
+backend.public.webUrl（浏览器地址）与 backend.public.mqttAddress（设备 MQTT 地址）口径。
+重构建议：接入 Ingress 时保留本 Service 作为后端目标即可。 */}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-frontend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: aetherlink-frontend
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: frontend
+    {{- range $k, $v := .Values.commonLabels }}
+    {{ $k }}: {{ $v | quote }}
+    {{- end }}
+spec:
+  type: {{ .Values.frontend.service.type | default "ClusterIP" }}
+  selector:
+    app.kubernetes.io/name: aetherlink-frontend
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: http
+      port: {{ .Values.frontend.service.port | default 8080 }}
+      targetPort: http

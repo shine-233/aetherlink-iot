@@ -76,6 +76,23 @@ type DeviceHealthDetailResp struct {
 	ActiveAlarms           []map[string]interface{} `json:"active_alarms"`
 	Suggestions            []string                 `json:"suggestions"`
 	EvaluatedAt            string                   `json:"evaluated_at"`
+	// MSET TP-21 多元状态估计特征维度。配置开关（health.mset.enabled，默认关）未开启时恒为 nil，
+	// 报文形状与既有契约完全兼容；开启后降级路径也会带上 degraded 与原因。
+	MSET *DeviceHealthMSETFeature `json:"mset,omitempty"`
+}
+
+// DeviceHealthMSETFeature TP-21 MSET（多元状态估计）特征维度在健康评分里的投影。
+// 评分口径：偏差分 × 权重折入 anomaly_penalty（health_scores 表无独立列，本项不做迁移），
+// 明细分解随 details JSON 与本对象留痕；降级（degraded=true）时偏差分恒为 0（中性），并记录原因。
+type DeviceHealthMSETFeature struct {
+	Applied        bool     `json:"applied"`                  // 是否完成一次有效推理
+	Degraded       bool     `json:"degraded"`                 // fail-closed 降级（未产生有效判定）
+	DegradeReason  string   `json:"degrade_reason,omitempty"` // cold_start | insufficient_samples | singular_matrix | ...
+	DeviationScore float64  `json:"deviation_score"`          // 0~100 偏差评分（0=贴合历史基线）
+	Penalty        float64  `json:"penalty"`                  // 折入 anomaly_penalty 的扣减（偏差分×权重）
+	Mahalanobis    float64  `json:"mahalanobis,omitempty"`    // 马氏距离 d（非平方），仅有效推理时出现
+	FeatureKeys    []string `json:"feature_keys,omitempty"`   // 参与训练/推理的特征键（按列序）
+	TrainSamples   int      `json:"train_samples,omitempty"`  // 训练历史完整样本行数
 }
 
 // EvaluateDeviceHealthReq 手动或定时触发健康评估入参

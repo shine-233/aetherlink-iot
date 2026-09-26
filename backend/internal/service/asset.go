@@ -257,12 +257,18 @@ func (*Asset) Delete(claims *utils.UserClaims, id string) error {
 }
 
 // List 分页查询根/指定父节点下资产。
+// TB-46 组共享可见性：普通租户用户隐藏"组绑定且非组内成员"的资产（fail-closed）；
+// 管理员不受限；映射错误上抛，不得降级放行。
 func (*Asset) List(claims *utils.UserClaims, parentID, keyword string, page, pageSize int) ([]*model.Asset, int64, error) {
 	_, scopes := assetScope(claims)
 	if len(scopes) == 0 {
 		return []*model.Asset{}, 0, nil
 	}
-	list, total, err := dal.ListAssetsByPage(scopes, parentID, keyword, page, pageSize)
+	hiddenAssetIDs, err := groupHiddenResourceIDs(scopes, claims, model.GroupElementKindAsset)
+	if err != nil {
+		return nil, 0, errcode.New(errcode.CodeDBError)
+	}
+	list, total, err := dal.ListAssetsByPageWithGroupScope(scopes, parentID, keyword, page, pageSize, hiddenAssetIDs)
 	if err != nil {
 		return nil, 0, errcode.New(errcode.CodeDBError)
 	}
@@ -292,10 +298,16 @@ type AssetTreeNode struct {
 }
 
 // Tree 返回租户作用域内完整资产树（根节点平铺）。
+// TB-46 组共享可见性：普通租户用户的树中剪掉"组绑定且非组内成员"的节点及其子树
+// （fail-closed：被隐藏节点下挂的内容一并不可达）；管理员不受限。
 func (*Asset) Tree(claims *utils.UserClaims) ([]*AssetTreeNode, error) {
 	_, scopes := assetScope(claims)
 	if len(scopes) == 0 {
 		return []*AssetTreeNode{}, nil
+	}
+	hiddenSet, err := groupHiddenResourceIDSet(scopes, claims, model.GroupElementKindAsset)
+	if err != nil {
+		return nil, errcode.New(errcode.CodeDBError)
 	}
 	nodes, err := dal.ListAssetNodes(scopes)
 	if err != nil {
@@ -308,6 +320,11 @@ func (*Asset) Tree(claims *utils.UserClaims) ([]*AssetTreeNode, error) {
 	}
 	var roots []*AssetTreeNode
 	for _, n := range nodes {
+		if _, hidden := hiddenSet[n.ID]; hidden {
+			// 被隐藏的节点不进树：作为根被剪掉（子树因父缺失同样不出现），
+			// 作为他人子节点则由父节点挂载阶段的 hidden 检查剪掉。
+			continue
+		}
 		node := byID[n.ID]
 		if n.ParentID != "" {
 			if p, ok := byID[n.ParentID]; ok {

@@ -1,0 +1,17 @@
+# 文件用途：aetherlink Helm chart 元数据（TB-11 K8s 编排，单节点 compose 的多副本对位物）。
+# 核心逻辑：声明 chart 名称/版本与 appVersion；appVersion 必须与 backend/pkg/global/global.go 的
+#   VERSION 一致，由 backend/internal/helmchart 单测双向钉死，防止 chart 与后端版本漂移。
+# 关键注意事项：不声明 dependencies 子 chart——postgres/redis 用本 chart 内置模板 +
+#   postgresql.enabled/redis.enabled 开关（镜像与根 docker-compose.yml 同源钉版），避免外部网络拉取；
+#   kubeVersion 下限来自 startupProbe（GA 1.20）与 statefulset 语义（1.25 起全量可用）。
+# 重构建议：若未来引入 bitnami 子 chart 或 Ingress，需要先补离线渲染单测的依赖/对象覆盖再改。
+apiVersion: v2
+name: aetherlink
+description: AetherLink IoT platform (backend, frontend, GMQTT broker, PostgreSQL, Redis)
+type: application
+version: 0.1.0
+appVersion: "0.0.23"
+kubeVersion: ">=1.25.0-0"
+home: https://github.com/shine-233/aetherlink-iot
+maintainers:
+  - name: aetherlink-iot maintainers

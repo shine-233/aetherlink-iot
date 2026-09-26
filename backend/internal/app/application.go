@@ -5,6 +5,7 @@ import (
 
 	"aetherlink-iot/backend/internal/downlink"
 	"aetherlink-iot/backend/internal/protocolgw"
+	"aetherlink-iot/backend/internal/protocolgw/tcp"
 	"aetherlink-iot/backend/internal/query"
 	"aetherlink-iot/backend/internal/storage"
 	"aetherlink-iot/backend/internal/uplink"
@@ -30,6 +31,8 @@ type Application struct {
 	downlinkService *DownlinkServiceWrapper
 	// CoAPGateway C6 协议网关实例（未启用时为 nil）。
 	CoAPGateway *protocolgw.Gateway
+	// TCPGateway TCP 入站协议网关实例（TP-03，未启用时为 nil；关停时显式 Stop 踢会话）。
+	TCPGateway *tcp.Gateway
 
 	shutdownOnce sync.Once
 }
@@ -78,6 +81,10 @@ func (app *Application) Shutdown() {
 		logrus.Info("application shutdown started")
 
 		app.ServiceManager.StopAll()
+
+		// TP-03：TCP 网关不经 ServiceManager 托管（与 CoAP 同款 Option 期启动），
+		// 但 TCP 会话是真实连接资源，关停时必须显式回收（踢全部会话+关监听）。
+		stopTCPGateway()
 
 		// WS/SSE 的 Redis Pub/Sub 监听协程由 initialize.RedisInit 直接拉起，
 		// 不经 ServiceManager 托管，必须在关闭 Redis 客户端之前显式取消，

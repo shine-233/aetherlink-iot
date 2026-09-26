@@ -45,8 +45,14 @@ func (s *DownlinkServiceWrapper) Start() error {
 		return fmt.Errorf("global message adapter not initialized")
 	}
 
-	// 创建 Handler（直接使用 Adapter 作为 MessagePublisher）
-	s.handler = downlink.NewHandler(adapter, s.processor, s.logger)
+	// 创建 Handler（默认以 MQTT Adapter 为 MessagePublisher；TCP 网关启用时包一层回退
+	// 发布器——已注册 TCP 会话的设备走 TCP 帧/断网缓冲（TP-03），其余设备 MQTT 行为不变。
+	// 全局实例在 NewApplication 选项期就绪，此处（Start 期）读取无顺序问题）。
+	var publisher downlink.MessagePublisher = adapter
+	if gw := GetGlobalTCPGateway(); gw != nil {
+		publisher = tcpFallbackPublisher{base: adapter, gw: gw}
+	}
+	s.handler = downlink.NewHandler(publisher, s.processor, s.logger)
 
 	// 启动 Bus
 	if err := s.bus.Start(s.ctx, s.handler); err != nil {

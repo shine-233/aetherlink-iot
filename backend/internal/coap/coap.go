@@ -82,6 +82,9 @@ type Message struct {
 	Token     []byte
 	Options   []Option
 	Payload   []byte
+	// RemoteAddr UDP 源地址（host:port）。仅 Server.servePacket 出站填充（TB-22 多客户端
+	// 隔离的归因载体：/rd 注册与对象写入按源地址关联）；手工构造的报文为零值 ""。
+	RemoteAddr string
 }
 
 // maxMessageSize 单个 UDP 数据报上限（IPv4 建议 1152，取宽松值）。
@@ -335,6 +338,8 @@ func (s *Server) servePacket(pc net.PacketConn) error {
 			if derr != nil {
 				return
 			}
+			// TB-22：填充 UDP 源地址，供上层按源做 LwM2M 端点归因。
+			msg.RemoteAddr = raddr.String()
 			resp, serr := s.Registry.Serve(msg)
 			if serr != nil || resp == nil {
 				return

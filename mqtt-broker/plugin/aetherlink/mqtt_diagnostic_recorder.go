@@ -84,6 +84,8 @@ func recommendedActionForMQTTDiagnosticCode(code string) string {
 	switch code {
 	case "auth_denied":
 		return "check_device_credentials"
+	case "transport_quota_exceeded":
+		return "check_subscription_transport_quota_or_wait_next_utc_day"
 	case "publish_deny":
 		return "check_publish_topic_permission"
 	case "subscribe_denied":

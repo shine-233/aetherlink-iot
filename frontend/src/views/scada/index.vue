@@ -12,7 +12,7 @@
     4. 画布编辑规则在 core/useCanvasEditor.ts 与 core/canvasDocument.ts，本文件不重写。
 -->
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   NAlert,
   NButton,
@@ -44,6 +44,7 @@ import {
   type ScadaDocumentVersion,
   type ScadaProject
 } from '@/service/api/scada'
+import { computeFitScale } from './core/canvasDocument'
 import {
   SCADA_SYMBOL_VIEWBOX,
   findScadaSymbol,
@@ -69,7 +70,66 @@ const newDocumentName = ref('')
 const tenantId = ref('')
 
 const editor = useCanvasEditor()
-const { canvas, selectedId, selectedNode, isDirty } = editor
+const { canvas, selectedId, selectedNode, isDirty, displayMode } = editor
+
+// ---------------------------------------------------------------------------
+// TP-22 fixed1080 等比适配：fixed 模式下容器按 computeFitScale 缩放画布，
+// responsive 恒为 1（旧画布行为零变化）。拖拽位移按 scale 反除，缩放不影响编辑精度。
+// ---------------------------------------------------------------------------
+const canvasWrapRef = ref<HTMLElement | null>(null)
+const wrapSize = ref({ width: 0, height: 0 })
+let wrapResizeObserver: ResizeObserver | null = null
+let wrapResizeFallbackTimer: number | null = null
+
+function measureCanvasWrap() {
+  const element = canvasWrapRef.value
+  if (!element) return
+  wrapSize.value = { width: element.clientWidth, height: element.clientHeight }
+}
+
+function observeCanvasWrap() {
+  measureCanvasWrap()
+  if (typeof ResizeObserver !== 'undefined') {
+    wrapResizeObserver = new ResizeObserver(() => measureCanvasWrap())
+    if (canvasWrapRef.value) wrapResizeObserver.observe(canvasWrapRef.value)
+    return
+  }
+  // jsdom 等无 ResizeObserver 环境退化为 resize 事件轮询；测不到尺寸时 scale 恒为 1。
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', measureCanvasWrap)
+    wrapResizeFallbackTimer = window.setTimeout(measureCanvasWrap, 200)
+  }
+}
+
+function unobserveCanvasWrap() {
+  if (wrapResizeObserver) {
+    wrapResizeObserver.disconnect()
+    wrapResizeObserver = null
+  }
+  if (wrapResizeFallbackTimer !== null) {
+    window.clearTimeout(wrapResizeFallbackTimer)
+    wrapResizeFallbackTimer = null
+  }
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', measureCanvasWrap)
+  }
+}
+
+const fitScale = computed(() =>
+  displayMode.value === 'fixed1080'
+    ? computeFitScale(wrapSize.value.width, wrapSize.value.height, canvas.value.width, canvas.value.height)
+    : 1
+)
+
+// 用户可见文案沿用本页既有惯例（save/publish 等均为组件内常量，不进 locale）。
+const displayModeOptions = [
+  { label: 'responsive (free size)', value: 'responsive' },
+  { label: 'fixed 1920x1080 (TV wall)', value: 'fixed1080' }
+]
+
+function onDisplayModeChange(value: string) {
+  editor.setDisplayMode(value === 'fixed1080' ? 'fixed1080' : 'responsive')
+}
 
 const projectOptions = computed(() => projects.value.map((project) => ({ label: project.name, value: project.id })))
 const documentOptions = computed(() =>
@@ -172,7 +232,8 @@ function onNodeMouseDown(event: MouseEvent, id: string) {
   const originX = node.x
   const originY = node.y
   const onMove = (moveEvent: MouseEvent) => {
-    editor.moveNode(id, originX + (moveEvent.clientX - startX), originY + (moveEvent.clientY - startY))
+    // fixed1080 缩放后屏幕位移与画布坐标差 scale 倍，反除保持 1:1 编辑手感。
+    editor.moveNode(id, originX + (moveEvent.clientX - startX) / fitScale.value, originY + (moveEvent.clientY - startY) / fitScale.value)
   }
   const onUp = () => {
     window.removeEventListener('mousemove', onMove)
@@ -295,11 +356,16 @@ watch(documentId, () => {
 
 onMounted(() => {
   loadProjects()
+  observeCanvasWrap()
+})
+
+onBeforeUnmount(() => {
+  unobserveCanvasWrap()
 })
 
 // 显式暴露关键状态与动作：script setup 默认封闭，
 // 而"保存是否带 expected_version""回滚后是否重置"这类契约必须在测试里可断言。
-defineExpose({ isDirty, onSave, onRollback, onPublish })
+defineExpose({ isDirty, onSave, onRollback, onPublish, displayMode, fitScale, setDisplayMode: onDisplayModeChange })
 </script>
 
 <template>
@@ -340,6 +406,14 @@ defineExpose({ isDirty, onSave, onRollback, onPublish })
         <NTag v-if="isDirty" type="warning">unsaved</NTag>
         <NTag v-else type="success">synced</NTag>
         <NTag v-if="currentDocument">v{{ currentDocument.current_version }}</NTag>
+        <NSelect
+          :value="displayMode"
+          :options="displayModeOptions"
+          style="width: 200px"
+          data-testid="scada-display-mode"
+          @update:value="onDisplayModeChange"
+        />
+        <NTag v-if="displayMode === 'fixed1080'" size="small">x{{ fitScale.toFixed(2) }}</NTag>
       </NSpace>
 
       <div class="scada-editor__body">
@@ -369,15 +443,25 @@ defineExpose({ isDirty, onSave, onRollback, onPublish })
           </NCollapse>
         </aside>
 
-        <section class="scada-editor__canvas-wrap">
+        <section ref="canvasWrapRef" class="scada-editor__canvas-wrap">
+          <!-- fixed1080：外层占位盒按缩放后尺寸撑开滚动区，画布本体 transform scale 等比适配。 -->
           <div
-            class="scada-editor__canvas"
-            :style="{
-              width: `${canvas.width}px`,
-              height: `${canvas.height}px`,
-              background: canvas.background || '#fff'
-            }"
+            class="scada-editor__canvas-scaler"
+            :style="
+              fitScale === 1
+                ? undefined
+                : { width: `${canvas.width * fitScale}px`, height: `${canvas.height * fitScale}px` }
+            "
           >
+            <div
+              class="scada-editor__canvas"
+              :style="{
+                width: `${canvas.width}px`,
+                height: `${canvas.height}px`,
+                background: canvas.background || '#fff',
+                transform: fitScale === 1 ? undefined : `scale(${fitScale})`
+              }"
+            >
             <div
               v-for="node in canvas.nodes"
               :key="node.id"
@@ -408,6 +492,7 @@ defineExpose({ isDirty, onSave, onRollback, onPublish })
               <span v-else class="scada-editor__node-label">{{ node.ref }}</span>
             </div>
             <NEmpty v-if="canvas.nodes.length === 0" description="add a symbol or widget from the left panel" />
+            </div>
           </div>
         </section>
 
@@ -481,6 +566,10 @@ defineExpose({ isDirty, onSave, onRollback, onPublish })
   flex: 1 1 auto;
   overflow: auto;
   border: 1px solid var(--border-color);
+}
+
+.scada-editor__canvas-scaler {
+  /* fixed1080 缩放占位：尺寸由内联样式按 scale 计算，responsive 模式不生效。 */
 }
 
 .scada-editor__canvas {

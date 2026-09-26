@@ -58,4 +58,12 @@ const (
 	CodeFileTypeMismatch = 202002 // 文件类型不匹配
 	CodeFileTooLarge     = 202003 // 文件大小超限
 	CodeMediaReferenced  = 202004 // 媒体文件被引用，禁止删除（TB-41 媒体库）
+
+	// 移动应用中心错误码 (TB-23)
+	CodeAppBundleInvalidTransition = 202005 // 应用包状态流转非法（publish/archive/update/delete 前置校验）
+	CodeAppBundleVersionExists     = 202006 // 同租户同平台下已存在相同版本的应用包
+
+	// 白标（翻译覆盖 + 自定义 CSS）错误码 (TB-47)
+	CodeTenantTranslationInvalid = 202007 // 翻译覆盖条目非法（lang 白名单/key 形态/value 内容校验失败）
+	CodeTenantCustomCSSInvalid   = 202008 // 自定义 CSS 非法（超长/含 </style 序列/控制字符）
 )

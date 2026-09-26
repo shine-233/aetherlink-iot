@@ -11,12 +11,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const hoisted = vi.hoisted(() => ({
   fetchDataClearList: vi.fn(),
   editDataClear: vi.fn(),
-  messageSuccess: vi.fn()
+  createDataClear: vi.fn(),
+  deleteDataClear: vi.fn(),
+  fetchTenantOptions: vi.fn(),
+  fetchDeviceConfigOptions: vi.fn(),
+  messageSuccess: vi.fn(),
+  messageError: vi.fn()
 }))
 
 vi.mock('@/service/api/setting', () => ({
   fetchDataClearList: hoisted.fetchDataClearList,
-  editDataClear: hoisted.editDataClear
+  editDataClear: hoisted.editDataClear,
+  createDataClear: hoisted.createDataClear,
+  deleteDataClear: hoisted.deleteDataClear,
+  fetchTenantOptions: hoisted.fetchTenantOptions,
+  fetchDeviceConfigOptions: hoisted.fetchDeviceConfigOptions
 }))
 
 vi.mock('@/locales', () => ({
@@ -185,7 +194,7 @@ describe('management/setting/components/data-clear-setting.vue', () => {
       data: { list: [mockDataClear()], total: 1 }
     })
     hoisted.editDataClear.mockResolvedValue({ error: null, msg: 'success' })
-    ;(globalThis as any).$message = { success: hoisted.messageSuccess }
+    ;(globalThis as any).$message = { success: hoisted.messageSuccess, error: hoisted.messageError }
   })
 
   afterEach(() => {
@@ -356,5 +365,130 @@ describe('management/setting/components/data-clear-setting.vue', () => {
     const data = [mockDataClear(), mockDataClear({ id: 'dc-2' })]
     state.setTableData(data)
     expect(state.tableData).toHaveLength(2)
+  })
+
+  // ---- TB-15R 行级（租户/档案粒度）策略 ----
+
+  it('scopeOfPolicy derives global/tenant/profile from row identity columns', async () => {
+    const wrapper = mountComponent()
+    await flushPromises()
+    const state = getSetupState(wrapper)
+    expect(state.scopeOfPolicy(mockDataClear({ tenant_id: null, device_config_id: null }))).toBe('global')
+    expect(state.scopeOfPolicy(mockDataClear({ tenant_id: 't-1', device_config_id: null }))).toBe('tenant')
+    expect(state.scopeOfPolicy(mockDataClear({ tenant_id: 't-1', device_config_id: 'p-1' }))).toBe('profile')
+  })
+
+  it('handleOpenCreate loads tenant and device config options', async () => {
+    hoisted.fetchTenantOptions.mockResolvedValue({
+      data: { list: [{ id: 't-1', name: 'Tenant One' }], total: 1 }
+    })
+    hoisted.fetchDeviceConfigOptions.mockResolvedValue({
+      data: { list: [{ id: 'p-1', name: 'Profile One', tenant_id: 't-1' }], total: 1 }
+    })
+    const wrapper = mountComponent()
+    await flushPromises()
+    const state = getSetupState(wrapper)
+    await state.handleOpenCreate()
+    await flushPromises()
+    expect(hoisted.fetchTenantOptions).toHaveBeenCalledWith({ page: 1, page_size: 500 })
+    expect(hoisted.fetchDeviceConfigOptions).toHaveBeenCalledWith({ page: 1, page_size: 500 })
+    expect(state.tenantOptions).toEqual([{ id: 't-1', name: 'Tenant One' }])
+    expect(state.deviceConfigOptions).toEqual([{ id: 'p-1', name: 'Profile One', tenant_id: 't-1' }])
+  })
+
+  it('deviceConfigOptionsForTenant filters profiles by the selected tenant', async () => {
+    const wrapper = mountComponent()
+    await flushPromises()
+    const state = getSetupState(wrapper)
+    state.deviceConfigOptions = [
+      { id: 'p-1', name: 'Profile One', tenant_id: 't-1' },
+      { id: 'p-2', name: 'Profile Two', tenant_id: 't-2' }
+    ]
+    state.createForm.tenant_id = 't-1'
+    expect(state.deviceConfigOptionsForTenant).toEqual([{ id: 'p-1', name: 'Profile One', tenant_id: 't-1' }])
+  })
+
+  it('handleCreateTenantChange resets stale device config selection', async () => {
+    const wrapper = mountComponent()
+    await flushPromises()
+    const state = getSetupState(wrapper)
+    state.createForm.tenant_id = 't-1'
+    state.createForm.device_config_id = 'p-1'
+    state.handleCreateTenantChange()
+    expect(state.createForm.device_config_id).toBeNull()
+  })
+
+  it('handleCreateSubmit rejects missing tenant without calling API', async () => {
+    const wrapper = mountComponent()
+    await flushPromises()
+    vi.clearAllMocks()
+    const state = getSetupState(wrapper)
+    state.createForm.tenant_id = null
+    await state.handleCreateSubmit()
+    expect(hoisted.createDataClear).toHaveBeenCalledTimes(0)
+    expect(hoisted.messageError).toHaveBeenCalledTimes(1)
+  })
+
+  it('handleCreateSubmit posts row-level policy and refreshes the list', async () => {
+    const wrapper = mountComponent()
+    await flushPromises()
+    vi.clearAllMocks()
+    hoisted.createDataClear.mockResolvedValue({ error: null, msg: 'created' })
+    hoisted.fetchDataClearList.mockResolvedValue({ data: { list: [], total: 0 } })
+    const state = getSetupState(wrapper)
+    state.createForm.tenant_id = 't-1'
+    state.createForm.device_config_id = 'p-1'
+    state.createForm.retention_days = 45
+    state.createForm.enabled = '1'
+    state.createForm.remark = 'profile retention'
+    await state.handleCreateSubmit()
+    await flushPromises()
+    expect(hoisted.createDataClear).toHaveBeenCalledTimes(1)
+    expect(hoisted.createDataClear).toHaveBeenCalledWith({
+      data_type: '1',
+      tenant_id: 't-1',
+      device_config_id: 'p-1',
+      retention_days: 45,
+      enabled: '1',
+      remark: 'profile retention'
+    })
+    expect(hoisted.messageSuccess).toHaveBeenCalledWith('created')
+    // 创建成功后回刷列表
+    expect(hoisted.fetchDataClearList).toHaveBeenCalledTimes(1)
+  })
+
+  it('handleCreateSubmit clears tenant-scoped profile when none selected', async () => {
+    const wrapper = mountComponent()
+    await flushPromises()
+    vi.clearAllMocks()
+    hoisted.createDataClear.mockResolvedValue({ error: null, msg: 'created' })
+    const state = getSetupState(wrapper)
+    state.createForm.tenant_id = 't-1'
+    state.createForm.device_config_id = null
+    await state.handleCreateSubmit()
+    await flushPromises()
+    expect(hoisted.createDataClear).toHaveBeenCalledWith(
+      expect.objectContaining({ tenant_id: 't-1', device_config_id: null })
+    )
+  })
+
+  it('handleDeletePolicy calls deleteDataClear and refreshes the list on confirm', async () => {
+    const wrapper = mountComponent()
+    await flushPromises()
+    vi.clearAllMocks()
+    hoisted.deleteDataClear.mockResolvedValue({ error: null, msg: 'deleted' })
+    hoisted.fetchDataClearList.mockResolvedValue({ data: { list: [], total: 0 } })
+    ;(globalThis as any).$dialog = {
+      warning: (options: any) => {
+        options.onPositiveClick()
+      }
+    }
+    const state = getSetupState(wrapper)
+    await state.handleDeletePolicy(mockDataClear({ id: 'dc-row-1', tenant_id: 't-1' }))
+    await flushPromises()
+    ;(globalThis as any).$dialog = undefined
+    expect(hoisted.deleteDataClear).toHaveBeenCalledWith('dc-row-1')
+    expect(hoisted.messageSuccess).toHaveBeenCalledWith('deleted')
+    expect(hoisted.fetchDataClearList).toHaveBeenCalledTimes(1)
   })
 })

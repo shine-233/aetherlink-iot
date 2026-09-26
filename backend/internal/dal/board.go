@@ -85,6 +85,29 @@ func GetPublishedBoardByShareToken(shareToken string) (*model.Board, error) {
 	).First()
 }
 
+// GetPublishedBoardsByShareTokens 批量按 share token 取已发布原生看板（TP-22 大屏轮播）。
+// tenant-scope: public-share——share_token 是发布方主动公开的能力凭证（与
+// GetPublishedBoardByShareToken 同语义）：跨 token 可能来自不同租户，本查询刻意
+// 不带 tenant_id 过滤；仅放行 published=true 且 vis_type=native 的行，
+// 未发布/非原生/未知 token 在 DAL 层即不可见（fail-closed）。
+// 返回顺序不保证，由服务层按请求顺序重排。
+func GetPublishedBoardsByShareTokens(tokens []string) ([]*model.Board, error) {
+	if len(tokens) == 0 {
+		return []*model.Board{}, nil
+	}
+	p := query.Board
+	rows, err := p.Where(
+		p.ShareToken.In(tokens...),
+		p.Published.Is(true),
+		p.VisType.Eq("native"),
+	).Find()
+	if err != nil {
+		logrus.Error(err)
+		return nil, err
+	}
+	return rows, nil
+}
+
 // tenant-scope: reviewed-2026-09-02 all-tenants semantics (empty tenant = SYS_ADMIN full view);
 // scoped execution delegated to boardListByScopes with scopes from service layer.
 func GetBoardListByPage(boards *model.GetBoardListByPageReq, tenantId string) (int64, interface{}, error) {
@@ -92,16 +115,23 @@ func GetBoardListByPage(boards *model.GetBoardListByPageReq, tenantId string) (i
 	if strings.TrimSpace(tenantId) != "" {
 		scopes = []string{tenantId}
 	}
-	return boardListByScopes(boards, scopes)
+	return boardListByScopes(boards, scopes, nil)
 }
 
 // GetBoardListByPageForScopes 层级作用域变体（ROADMAP C2）：boards.tenant_id IN (scopes)。
 // tenant-scope: caller-enforced (scopes 由 service 层展开并校验；nil=管理员全量)。
 func GetBoardListByPageForScopes(boards *model.GetBoardListByPageReq, scopes []string) (int64, interface{}, error) {
-	return boardListByScopes(boards, scopes)
+	return boardListByScopes(boards, scopes, nil)
 }
 
-func boardListByScopes(boards *model.GetBoardListByPageReq, scopes []string) (int64, interface{}, error) {
+// GetBoardListByPageForScopesWithGroupScope 组共享可见性变体（TB-46 GPE v1）：
+// hiddenBoardIDs 非空时按 ID 排除（组绑定且调用者非组内成员的看板，fail-closed 隐藏）。
+// tenant-scope: caller-enforced (scopes 由 service 层展开并校验；nil=管理员全量)。
+func GetBoardListByPageForScopesWithGroupScope(boards *model.GetBoardListByPageReq, scopes []string, hiddenBoardIDs []string) (int64, interface{}, error) {
+	return boardListByScopes(boards, scopes, hiddenBoardIDs)
+}
+
+func boardListByScopes(boards *model.GetBoardListByPageReq, scopes []string, hiddenBoardIDs []string) (int64, interface{}, error) {
 	q := query.Board
 	var count int64
 	queryBuilder := q.WithContext(context.Background())
@@ -125,6 +155,12 @@ func boardListByScopes(boards *model.GetBoardListByPageReq, scopes []string) (in
 
 	if boards.VisType != nil && *boards.VisType != "" {
 		queryBuilder = queryBuilder.Where(q.VisType.Eq(*boards.VisType))
+	}
+
+	// 组共享可见性（TB-46 GPE v1）：hiddenBoardIDs = 组绑定且调用者不可见的看板。
+	// gen 的 NotIn 不接受空参数（见下方 projectID 分支注释），故先判空。
+	if len(hiddenBoardIDs) > 0 {
+		queryBuilder = queryBuilder.Where(q.ID.NotIn(hiddenBoardIDs...))
 	}
 
 	// 看板项目分组过滤：先解析项目成员看板 ID，再按 ID 集合过滤。

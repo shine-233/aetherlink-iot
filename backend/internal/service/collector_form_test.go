@@ -38,13 +38,18 @@ func setupCollectorFormTestDB(t *testing.T) *gorm.DB {
 func TestBuiltinCollectorConfigFormContract(t *testing.T) {
 	snmpForm, ok := builtinCollectorConfigForm("SNMP").([]map[string]interface{})
 	require.True(t, ok, "SNMP 表单应为元素数组")
-	require.Len(t, snmpForm, 4)
+	// TB-22：v3 段（v3_user/auth_proto/auth_passphrase）插在 timeout_ms 与 points 之间。
+	require.Len(t, snmpForm, 7)
 	require.Equal(t, "target", snmpForm[0]["dataKey"])
 	require.Equal(t, "community", snmpForm[1]["dataKey"])
+	require.Equal(t, "timeout_ms", snmpForm[2]["dataKey"])
+	require.Equal(t, "v3_user", snmpForm[3]["dataKey"])
+	require.Equal(t, "auth_proto", snmpForm[4]["dataKey"])
+	require.Equal(t, "auth_passphrase", snmpForm[5]["dataKey"])
 	// points 必须是 table 元素，子字段键与 pointconfig.SnmpConfig JSON 契约一致。
-	points, ok := snmpForm[3]["array"].([]map[string]interface{})
+	points, ok := snmpForm[6]["array"].([]map[string]interface{})
 	require.True(t, ok, "points 应为 table 子元素数组")
-	require.Equal(t, "points", snmpForm[3]["dataKey"])
+	require.Equal(t, "points", snmpForm[6]["dataKey"])
 	require.Equal(t, "key", points[0]["dataKey"])
 	require.Equal(t, "oid", points[1]["dataKey"])
 

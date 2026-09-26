@@ -1,11 +1,14 @@
 /**
  * 文件用途：Data Converter（ThingsBoard 对标数据编解码器）前端 API 客户端。
  * 核心逻辑：封装数据转换器的增删改查与在线仿真调试。
+ * 关键注意事项：PROTOBUF 模式（TB-19）专属 proto_schema 为 .proto 源全文，随实体存取；
+ *   Dry-Run 载荷为 hex/base64 编码的二进制串，由后端自动识别。
+ * 重构建议：与 backend/internal/model/data_converter.go 的 DTO 同步演进，字段增删需双侧核对。
  */
 import { request } from '../request'
 
 export type ConverterType = 'UPLINK' | 'DOWNLINK'
-export type ConverterMode = 'SCRIPT' | 'HEX_BINARY' | 'JSON_PATH'
+export type ConverterMode = 'SCRIPT' | 'HEX_BINARY' | 'JSON_PATH' | 'PROTOBUF'
 
 export interface DataConverterItem {
   id: string
@@ -16,6 +19,8 @@ export interface DataConverterItem {
   tenant_id: string
   configuration: string
   script?: string
+  /** PROTOBUF 模式专属：.proto 源文件全文（135.sql） */
+  proto_schema?: string
   description?: string
   created_at?: string
   updated_at?: string
@@ -40,6 +45,7 @@ export interface CreateDataConverterParams {
   debug_mode?: boolean
   configuration?: string
   script?: string
+  proto_schema?: string
   description?: string
 }
 
@@ -51,6 +57,7 @@ export interface UpdateDataConverterParams {
   debug_mode?: boolean
   configuration?: string
   script?: string
+  proto_schema?: string
   description?: string
 }
 
@@ -61,6 +68,7 @@ export interface TestDataConverterParams {
   metadata?: Record<string, string>
   configuration?: string
   script?: string
+  proto_schema?: string
   converter_id?: string
 }
 

@@ -6,16 +6,20 @@ import "time"
 
 const TableNameDataConverter = "data_converters"
 
+// ConverterModeProtoBuf PROTOBUF 转换模式（TB-19：proto_schema 动态解析解码）
+const ConverterModeProtoBuf = "PROTOBUF"
+
 // DataConverter 对应数据库表 data_converters
 type DataConverter struct {
 	ID            string     `gorm:"column:id;primaryKey" json:"id"`
 	Name          string     `gorm:"column:name;not null" json:"name"`
 	Type          string     `gorm:"column:type;not null" json:"type"`                     // UPLINK / DOWNLINK
-	ConverterMode string     `gorm:"column:converter_mode;not null" json:"converter_mode"` // SCRIPT / HEX_BINARY / JSON_PATH
+	ConverterMode string     `gorm:"column:converter_mode;not null" json:"converter_mode"` // SCRIPT / HEX_BINARY / JSON_PATH / PROTOBUF
 	DebugMode     bool       `gorm:"column:debug_mode;not null" json:"debug_mode"`
 	TenantID      string     `gorm:"column:tenant_id;not null" json:"tenant_id"`
 	Configuration string     `gorm:"column:configuration;not null" json:"configuration"`
 	Script        *string    `gorm:"column:script" json:"script"`
+	ProtoSchema   *string    `gorm:"column:proto_schema" json:"proto_schema"` // PROTOBUF 模式专属：.proto 源文件全文（135.sql）
 	Description   *string    `gorm:"column:description" json:"description"`
 	CreatedAt     *time.Time `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt     *time.Time `gorm:"column:updated_at" json:"updated_at"`
@@ -29,10 +33,11 @@ func (*DataConverter) TableName() string {
 type CreateDataConverterReq struct {
 	Name          string  `json:"name" validate:"required,max=255"`
 	Type          string  `json:"type" validate:"required,oneof=UPLINK DOWNLINK"`
-	ConverterMode string  `json:"converter_mode" validate:"required,oneof=SCRIPT HEX_BINARY JSON_PATH"`
+	ConverterMode string  `json:"converter_mode" validate:"required,oneof=SCRIPT HEX_BINARY JSON_PATH PROTOBUF"`
 	DebugMode     bool    `json:"debug_mode"`
 	Configuration *string `json:"configuration"`
 	Script        *string `json:"script"`
+	ProtoSchema   *string `json:"proto_schema"`
 	Description   *string `json:"description" validate:"omitempty,max=500"`
 }
 
@@ -41,10 +46,11 @@ type UpdateDataConverterReq struct {
 	ID            string  `json:"id" validate:"required,max=36"`
 	Name          *string `json:"name" validate:"omitempty,max=255"`
 	Type          *string `json:"type" validate:"omitempty,oneof=UPLINK DOWNLINK"`
-	ConverterMode *string `json:"converter_mode" validate:"omitempty,oneof=SCRIPT HEX_BINARY JSON_PATH"`
+	ConverterMode *string `json:"converter_mode" validate:"omitempty,oneof=SCRIPT HEX_BINARY JSON_PATH PROTOBUF"`
 	DebugMode     *bool   `json:"debug_mode"`
 	Configuration *string `json:"configuration"`
 	Script        *string `json:"script"`
+	ProtoSchema   *string `json:"proto_schema"`
 	Description   *string `json:"description" validate:"omitempty,max=500"`
 }
 
@@ -58,11 +64,12 @@ type GetDataConverterListReq struct {
 // TestDataConverterReq 仿真调试入参
 type TestDataConverterReq struct {
 	Type          string            `json:"type" validate:"omitempty,oneof=UPLINK DOWNLINK"`
-	ConverterMode string            `json:"converter_mode" validate:"omitempty,oneof=SCRIPT HEX_BINARY JSON_PATH"`
-	Payload       string            `json:"payload" validate:"required"` // 16进制字符串、JSON或文本
+	ConverterMode string            `json:"converter_mode" validate:"omitempty,oneof=SCRIPT HEX_BINARY JSON_PATH PROTOBUF"`
+	Payload       string            `json:"payload" validate:"required"` // 16进制/base64编码的二进制载荷、JSON或文本
 	Metadata      map[string]string `json:"metadata"`
 	Configuration *string           `json:"configuration"`
 	Script        *string           `json:"script"`
+	ProtoSchema   *string           `json:"proto_schema"` // PROTOBUF 模式：.proto 源文件全文
 	ConverterID   *string           `json:"converter_id"`
 }
 

@@ -43,9 +43,22 @@ func acctScalar(t *testing.T, acct map[string]interface{}, key string) uint64 {
 	t.Helper()
 	raw, ok := acct[key].(uint64)
 	if !ok {
-		t.Fatalf("accounting missing %s scalar: %#v", key, acct)
+		t.Fatalf("accounting missing %s scalar: %#v", key, raw)
 	}
 	return raw
+}
+
+// waitForBlockedTelemetry 轮询账本直到遥测阻塞事件 ≥1（发布方已进入阻塞分支）。
+func waitForBlockedTelemetry(t *testing.T, bus *Bus) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if acctCounter(t, accountingSnapshot(t, bus), "blocked_events") >= 1 {
+			return
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
+	t.Fatal("publish never entered blocked state")
 }
 
 // TestBusAccountingLedgerStaysBalanced 填满队列后验证账本自洽与逐类计数。
@@ -53,14 +66,25 @@ func TestBusAccountingLedgerStaysBalanced(t *testing.T) {
 	bus := newTestBus(1)
 	t.Cleanup(bus.Close)
 
-	// 遥测 1 条接受（队列满），第 2 条在阻塞等待中被 ctx 超时拒绝。
+	// 遥测 1 条接受（队列满），第 2 条在阻塞等待中被调用方取消拒绝。
+	// 不能用固定 50ms 定时 ctx：全量跑时发布方可能被调度延迟到定时器到期之后
+	// 才进入发布（阻塞事件漏计），或刚进阻塞分支即到期（阻塞耗时亚微秒、
+	// 快照取整为 0），两种调度抖动都会让下方账本断言偶发失败。
+	// 改为发布入独立 goroutine，主测试轮询到 blocked_events≥1（确认已进入
+	// 阻塞分支）再 cancel，阻塞耗时必然大于 0，断言不再依赖时序运气。
 	if err := bus.Publish(&DeviceMessage{Type: MessageTypeTelemetry, DeviceID: "dev-1"}); err != nil {
 		t.Fatalf("publish telemetry: %v", err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	if err := bus.PublishContext(ctx, &DeviceMessage{Type: MessageTypeTelemetry, DeviceID: "dev-2"}); err == nil {
-		t.Fatalf("expected context deadline drop on full telemetry queue")
+	pubErr := make(chan error, 1)
+	go func() {
+		pubErr <- bus.PublishContext(ctx, &DeviceMessage{Type: MessageTypeTelemetry, DeviceID: "dev-2"})
+	}()
+	waitForBlockedTelemetry(t, bus)
+	cancel()
+	if err := <-pubErr; err == nil {
+		t.Fatalf("expected context drop on full telemetry queue")
 	}
 
 	// 响应队列容量 1：第 1 条接受，第 2 条走满即丢（显式丢弃策略）。

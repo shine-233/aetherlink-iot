@@ -74,12 +74,19 @@ declare module "@elegant-router/types" {
     "management_role": "/management/role";
     "management_setting": "/management/setting";
     "management_user": "/management/user";
+    "management_user-group": "/management/user-group";
     "customer": "/customer";
     "customer_list": "/customer/list";
+    "integration": "/integration";
+    "integration_list": "/integration/list";
     "media": "/media";
     "media_library": "/media/library";
     "market": "/market";
     "market_browse": "/market/browse";
+    "mobile-app": "/mobile-app";
+    "mobile-app_app-center": "/mobile-app/app-center";
+    "scheduler": "/scheduler";
+    "scheduler_calendar": "/scheduler/calendar";
     "personal-center": "/personal-center";
     "product": "/product";
     "product_update-ota": "/product/update-ota";
@@ -145,13 +152,16 @@ declare module "@elegant-router/types" {
     | "device-details-app"
     | "home"
     | "legal"
+    | "integration"
     | "login"
     | "management"
     | "customer"
     | "media"
     | "market"
+    | "mobile-app"
     | "personal-center"
     | "product"
+    | "scheduler"
     | "system-management-user"
     | "visualization"
   >;
@@ -221,9 +231,13 @@ declare module "@elegant-router/types" {
     | "management_role"
     | "management_setting"
     | "management_user"
+    | "management_user-group"
     | "customer_list"
     | "media_library"
+    | "integration_list"
     | "market_browse"
+    | "mobile-app_app-center"
+    | "scheduler_calendar"
     | "personal-center"
     | "product_update-ota"
     | "product_update-package"

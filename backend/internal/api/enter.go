@@ -93,10 +93,15 @@ type Controller struct {
 	TenantApi           // P3 租户管理与自助开通
 	BillingApi          // P3 商业化计费与用量计量
 	DataConverterApi    // ThingsBoard 核心数据转换器
+	IntegrationApi      // TB-45 统一集成实体（Integration 纳管管线）
+	UserGroupApi        // TB-46 用户组与组权限（GPE v1）
 	DeviceHealthApi     // TP-6 / TB PE 设备综合健康度评估
 	CustomerApi         // ThingsBoard 核心客户管理体系
 	WidgetBundleApi     // TB-04 部件库（widget_bundles）
 	MediaLibraryApi     // TB-41 文件存储与媒体库（media_files）
+	MobileAppBundleApi  // TB-23 移动应用中心（mobile_app_bundles）
+	TenantWhitelabelApi // TB-47 白标：租户翻译覆盖 + 自定义 CSS（134.sql）
+	SchedulerApi        // TB-48 统一调度器（scheduler_events + 三源聚合）
 }
 
 var (

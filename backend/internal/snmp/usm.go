@@ -39,6 +39,20 @@ func (p AuthProtocol) String() string {
 	}
 }
 
+// AuthProtocolByName 解析点表配置中的认证协议名（大小写不敏感，trim 空白）：
+// "md5"/"hmac-md5" → AuthHMACMD5；"sha"/"sha1"/"hmac-sha" → AuthHMACSHA。
+// 空串与其余取值返回错误（v3 模式必须显式选择认证协议，fail-closed）。
+func AuthProtocolByName(name string) (AuthProtocol, error) {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "md5", "hmac-md5":
+		return AuthHMACMD5, nil
+	case "sha", "sha1", "hmac-sha":
+		return AuthHMACSHA, nil
+	default:
+		return AuthNone, fmt.Errorf("usm: 不支持的认证协议 %q（可选 md5/sha）", name)
+	}
+}
+
 // PasswordToKey RFC 3414 5.1：口令 → 64B 缓冲 → H(buffer||engineID||buffer) 得到 Ku。
 func PasswordToKey(protocol AuthProtocol, password string, engineID []byte) ([]byte, error) {
 	password = strings.TrimSpace(password)

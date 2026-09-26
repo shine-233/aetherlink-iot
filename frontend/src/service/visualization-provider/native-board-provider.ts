@@ -1,6 +1,7 @@
 import { createBoard, deleteBoard, fetchBoardById, fetchBoards, updateBoard } from '@/service/api/board'
 import {
   fetchPublishedBoardByShareToken,
+  fetchPublishedBoardsForCarousel,
   publishBoard,
   type BoardDetail,
   type UpdateBoardPayload
@@ -333,6 +334,28 @@ export const nativeBoardProvider: LocalVisualizationProvider = {
       return boardToDashboard(data)
     } catch (cause) {
       return requestError('Load published native board', cause)
+    }
+  },
+
+  // TP-22 大屏轮播：单次批量调用解析整份播放清单。批量化是电视墙的硬需求——
+  // 逐 token 取数会让 N 块看板在切换瞬间白屏等待 N 次往返。
+  async getDashboardsByShareTokens(tokens) {
+    try {
+      const { data, error } = await fetchPublishedBoardsForCarousel(tokens)
+      if (error) return requestError('Load published native board carousel', error)
+      if (!data || !Array.isArray(data.items)) return failure('Invalid native board carousel response')
+      const items: VisualizationDashboardSchema[] = []
+      for (const board of data.items) {
+        // 逐块 fail-closed：后端只回 published+native，但渲染前仍复核——
+        // 配置解析失败的看板跳过而不是炸掉整份轮播，电视墙必须一直在播。
+        if (!board || board.vis_type !== 'native' || board.published !== true) continue
+        const dashboard = boardToDashboard(board)
+        if (!dashboard.ok) continue
+        items.push(dashboard.data)
+      }
+      return success({ items, missingTokens: Array.isArray(data.missing_tokens) ? data.missing_tokens : [] })
+    } catch (cause) {
+      return requestError('Load published native board carousel', cause)
     }
   },
 

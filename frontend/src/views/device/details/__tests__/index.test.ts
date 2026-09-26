@@ -92,8 +92,17 @@ vi.mock('@vueuse/core', () => ({
   })
 }))
 
+// 组件链路（异步模块/store）会在模块求值期读取 @/locales 的 i18n 实例，
+// mock 必须同时提供 $t 与最小形状的 i18n（口径同 store/__tests__/sys-setting.test.ts）。
 vi.mock('@/locales', () => ({
-  $t: (key: string) => key
+  $t: (key: string) => key,
+  i18n: {
+    global: {
+      locale: { value: 'en-US' },
+      messages: { value: {} },
+      setLocaleMessage: vi.fn()
+    }
+  }
 }))
 
 vi.mock('@/store/modules/app', () => ({

@@ -78,6 +78,7 @@ vi.mock('naive-ui', () => {
     NModal: stub(),
     NPagination: stub(),
     NPopconfirm: stub(),
+    NSelect: stub(),
     NSpace: stub(),
     NSpin: stub(),
     NSwitch: stub(),
@@ -334,5 +335,31 @@ describe('scheduled report page', () => {
     const wrapper = mountPage()
     await flushPromises()
     expect(wrapper.text()).not.toMatch(/artifact|download|delivery.only|cancel.run/i)
+  })
+
+  // TB-49：格式选择框放开 csv/html/pdf 后，创建/编辑必须原样携带所选格式，
+  // 且编辑回填要保留持久化的格式（未知取值回落 csv）。
+  it('carries the selected artifact format through create and edit round-trips', async () => {
+    const wrapper = mountPage()
+    await flushPromises()
+
+    state(wrapper).openCreate()
+    state(wrapper).form.format = 'pdf'
+    state(wrapper).deviceIdsText = 'device-1'
+    state(wrapper).keysText = 'temperature'
+    state(wrapper).formRef = { validate: () => Promise.resolve() }
+    await state(wrapper).saveSchedule()
+    expect(hoisted.createReportSchedule.mock.calls[0][0]).toMatchObject({ format: 'pdf' })
+
+    state(wrapper).openEdit({ ...schedule, format: 'html' })
+    expect(state(wrapper).form.format).toBe('html')
+    state(wrapper).deviceIdsText = 'device-1'
+    state(wrapper).keysText = 'temperature'
+    state(wrapper).formRef = { validate: () => Promise.resolve() }
+    await state(wrapper).saveSchedule()
+    expect(hoisted.updateReportSchedule.mock.calls[0][1]).toMatchObject({ format: 'html' })
+
+    state(wrapper).openEdit({ ...schedule, format: 'xlsx' })
+    expect(state(wrapper).form.format).toBe('csv')
   })
 })

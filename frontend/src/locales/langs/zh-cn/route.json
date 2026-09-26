@@ -20,6 +20,8 @@
   "route.management_auth": "菜单管理",
   "route.management_role": "角色管理",
   "route.management_user": "用户管理",
+  "route.management_user-group": "用户组",
+  "view.management_user-group": "用户组",
   "route.management_setting": "系统设置",
   "route.device": "设备",
   "route.device_grouping": "分组管理",
@@ -107,5 +109,14 @@
   "view.billing_api-quota": "API 配额",
   "route.media": "媒体库",
   "route.media_library": "媒体库",
-  "view.media_library": "媒体库"
+  "view.media_library": "媒体库",
+  "route.integration": "统一集成",
+  "route.integration_list": "集成管理",
+  "view.integration_list": "集成管理",
+  "route.mobile-app": "移动应用中心",
+  "route.mobile-app_app-center": "应用中心",
+  "view.mobile-app_app-center": "应用中心",
+  "route.scheduler": "统一调度",
+  "route.scheduler_calendar": "调度日历",
+  "view.scheduler_calendar": "调度日历"
 }

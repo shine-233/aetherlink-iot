@@ -20,6 +20,8 @@
   "route.management_auth": "Gestion des menus",
   "route.management_role": "Gestion des roles",
   "route.management_user": "Gestion des utilisateurs",
+  "route.management_user-group": "Groupes d'utilisateurs",
+  "view.management_user-group": "Groupes d'utilisateurs",
   "route.management_setting": "Paramètres système",
   "route.device": "Appareils",
   "route.device_grouping": "Gestion des groupes",
@@ -107,5 +109,14 @@
   "view.billing_api-quota": "Quota API",
   "route.media": "Bibliothèque de médias",
   "route.media_library": "Bibliothèque de médias",
-  "view.media_library": "Bibliothèque de médias"
+  "view.media_library": "Bibliothèque de médias",
+  "route.integration": "Intégrations",
+  "route.integration_list": "Gestion des intégrations",
+  "view.integration_list": "Gestion des intégrations",
+  "route.mobile-app": "Centre d'applications mobiles",
+  "route.mobile-app_app-center": "Centre d'applications",
+  "view.mobile-app_app-center": "Centre d'applications",
+  "route.scheduler": "Planificateur unifié",
+  "route.scheduler_calendar": "Calendrier de planification",
+  "view.scheduler_calendar": "Calendrier de planification"
 }

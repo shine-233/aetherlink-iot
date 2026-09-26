@@ -1,0 +1,16 @@
+// 文件用途：TB-17R 门禁适配——多 module 仓库（backend / mqtt-broker / modbus-plugin 各自独立
+// go.mod）的 Go 工作区声明，使编排方门禁命令可在 backend 目录下以相对路径
+// （go test ./internal/quota ./../mqtt-broker/plugin/aetherlink）跨 module 定向测试。
+// 核心逻辑：use 列表收齐仓库全部三个 Go module，workspace 模式下任意模块目录内的
+// go build/test/vet 均正常解析（缺 modbus-plugin 时该目录内命令会报
+// "current directory not in workspace"，故三模块一并纳入）。
+// 关键注意事项：三模块间无相互 import（backend 不依赖 gmqtt，broker 不依赖 backend），
+// 依赖版本解析仍以各自 go.mod 为准，workspace 不改变版本选择；删除本文件即回到单模块语义。
+// 重构建议：若后续新增 Go module（如 TP-03 网关插件），同步加入 use 列表。
+go 1.26.0
+
+use (
+	./backend
+	./modbus-plugin
+	./mqtt-broker
+)

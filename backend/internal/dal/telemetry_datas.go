@@ -26,6 +26,17 @@ func CreateTelemetrData(data *model.TelemetryData) error {
 	return query.TelemetryData.Create(data)
 }
 
+// usesTelemetryQueryClient 是遥测读路径的国产库分支点（ROADMAP TP-20）：grpc.tptodb_type
+// 为 TSDB/KINGBASE/POLARDB 时，本文件及 telemetry_current_datas.go 中的历史/当前/聚合遥测读
+// 改经外部 tp_to_db gRPC 服务（third_party/grpc/tptodb_client），写路径与保留清理仍走本地库；
+// 冷层降采样在该模式下停用（TelemetryDownsamplingActive 取反本函数）。
+// 方言口径（分页 LIMIT/OFFSET vs KingBase ROWNUM、元查询映射）收敛在 internal/dialect 纯函数包：
+// TSDB→DialectTDengine、KINGBASE→DialectKingbase（Oracle 兼容模式）、POLARDB→DialectPolardb，
+// 显式 db.dialect 配置优先于本开关（dialect.Effective）。tp_to_db 服务端不在本仓库，
+// 对接步骤、启动验证（fail-fast）与回退口径见 docs/deployment-domestic-db.md；
+// 原生驱动直连（不经 gRPC）属 TP-20 residual，落地时以 dialect.Effective 的结果选择 Dialector。
+// 注意：本函数比较的是未归一化的原值，与 internal/app externalTelemetryGRPCEnabled 的大小写
+// 容错口径不同；新调用方请优先使用 internal/dialect.FromTptodbType，勿再复制本实现。
 func usesTelemetryQueryClient() bool {
 	dbType := viper.GetString("grpc.tptodb_type")
 	return dbType == "TSDB" || dbType == "KINGBASE" || dbType == "POLARDB"

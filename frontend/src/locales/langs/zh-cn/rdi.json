@@ -313,6 +313,10 @@
     "saveMenu": "保存菜单",
     "confirmDelete": "确认删除",
     "deleteConfirm": "确定删除看板“{name}”吗？此操作无法撤销。",
-    "confirmDeleteAction": "删除"
+    "confirmDeleteAction": "删除",
+    "carouselFullscreen": "全屏",
+    "carouselExitFullscreen": "退出全屏",
+    "carouselMissingTokens": "请求的看板中有 {count} 块不可用",
+    "carouselUnsupported": "轮播播放仅支持原生看板"
   }
 }

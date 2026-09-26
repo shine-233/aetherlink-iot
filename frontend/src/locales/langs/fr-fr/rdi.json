@@ -313,6 +313,10 @@
     "saveMenu": "Enregistrer le menu",
     "confirmDelete": "Confirmer la suppression",
     "deleteConfirm": "Supprimer le tableau de bord \"{name}\" ? Cette action est irréversible.",
-    "confirmDeleteAction": "Supprimer"
+    "confirmDeleteAction": "Supprimer",
+    "carouselFullscreen": "Plein écran",
+    "carouselExitFullscreen": "Quitter le plein écran",
+    "carouselMissingTokens": "{count} des tableaux demandés ne sont pas disponibles",
+    "carouselUnsupported": "La lecture en carrousel nécessite des tableaux natifs"
   }
 }

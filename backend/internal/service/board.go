@@ -557,7 +557,13 @@ func (*Board) GetBoardListByPage(Params *model.GetBoardListByPageReq, U *utils.U
 	if strings.TrimSpace(tenantID) != "" {
 		boardScopes = expandTenantIDScope(tenantID)
 	}
-	total, list, err := dal.GetBoardListByPageForScopes(Params, boardScopes)
+	// TB-46 组共享可见性：普通租户用户隐藏"组绑定且非组内成员"的看板；
+	// 管理员不受限（hidden=nil）。映射错误上抛（fail-closed），不得降级放行。
+	hiddenBoardIDs, err := groupHiddenResourceIDs(boardScopes, U, model.GroupElementKindBoard)
+	if err != nil {
+		return nil, wrapBoardDBError(err)
+	}
+	total, list, err := dal.GetBoardListByPageForScopesWithGroupScope(Params, boardScopes, hiddenBoardIDs)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
 			"sql_error": err.Error(),
@@ -594,7 +600,26 @@ func (*Board) GetBoardHomeForClaims(tenantID string, claims *utils.UserClaims) (
 	if err != nil {
 		return nil, err
 	}
-	return (&Board{}).GetBoardListByTenantId(resolvedTenantID)
+	// TB-46 组共享可见性：首页看板被绑定到用户组时，对组外成员 fail-closed 隐藏
+	// （返回 nil = 无首页看板）。管理员不受限；映射错误上抛，不得降级放行。
+	hiddenBoardIDs, err := groupHiddenResourceIDs([]string{resolvedTenantID}, claims, model.GroupElementKindBoard)
+	if err != nil {
+		return nil, wrapBoardDBError(err)
+	}
+	_, data, err := dal.GetBoardListByTenantId(resolvedTenantID)
+	if err != nil {
+		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+			"sql_error": err.Error(),
+		})
+	}
+	if board, ok := data.(*model.Board); ok && board != nil && len(hiddenBoardIDs) > 0 {
+		for _, id := range hiddenBoardIDs {
+			if id == board.ID {
+				return nil, nil
+			}
+		}
+	}
+	return data, nil
 }
 
 func (*Board) GetDeviceTotal(ctx context.Context, claims *utils.UserClaims) (int64, error) {

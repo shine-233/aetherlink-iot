@@ -73,6 +73,14 @@ vi.mock('../modules/tab', () => ({
   })
 }))
 
+// 白标覆盖（TB-47）：initAuthRoute 内 void 触发 sys-setting 拉取；
+// mock 掉真实 store，避免单测里发起真实网络请求。
+vi.mock('../modules/sys-setting', () => ({
+  useSysSettingStore: () => ({
+    initWhitelabelOverrides: vi.fn().mockResolvedValue(undefined)
+  })
+}))
+
 vi.mock('../modules/route/shared', () => ({
   filterAuthRoutesByRoles: hoisted.filterAuthRoutesByRoles,
   getBreadcrumbsByRoute: hoisted.getBreadcrumbsByRoute,

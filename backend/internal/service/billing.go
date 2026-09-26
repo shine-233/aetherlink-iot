@@ -161,6 +161,20 @@ func (s *BillingService) GetTenantAPIQuota(ctx context.Context, tenantID string)
 	// 3. 限额与状态判定复用执法纯函数（展示与执法同口径）
 	decision := quota.DecideDailyQuota(int64(plan.MaxApiCallsPerDay), used, time.Now())
 
+	// 4. TB-17R 传输维度：限额读 broker 实际执法用的 Redis 限额缓存，用量读 broker 连接计数键，
+	//    判定复用同一纯函数——展示与 broker 执法同口径。任一读取失败按"未配置阈值+0 用量"展示
+	//    （unlimited）：broker 在 Redis 故障时同样 fail-open 放行，查询端点不承载执法职责。
+	transportLimit, tLimitErr := quota.ReadTransportDailyLimit(ctx, tenantID)
+	// 传输计数键内嵌的计量日与 API 维度同取当日 UTC（同一判定时刻），无需单独展示。
+	transportUsed, _, tUsageErr := quota.ReadTransportDailyUsage(ctx, tenantID)
+	if tLimitErr != nil {
+		logrus.WithError(tLimitErr).Warnf("billing: read transport limit cache failed for tenant %s, report unlimited", tenantID)
+	}
+	if tUsageErr != nil {
+		logrus.WithError(tUsageErr).Warnf("billing: read transport daily usage failed for tenant %s, report 0", tenantID)
+	}
+	transportDecision := quota.DecideDailyQuota(transportLimit, transportUsed, time.Now())
+
 	return &model.APIQuotaReport{
 		TenantID:          tenantID,
 		Date:              usageDate,
@@ -170,6 +184,12 @@ func (s *BillingService) GetTenantAPIQuota(ctx context.Context, tenantID string)
 		Remaining:         decision.Remaining,
 		UsagePct:          decision.UsagePct,
 		QuotaStatus:       decision.Status,
+
+		TransportEventsToday: transportUsed,
+		MaxTransportPerDay:   transportLimit,
+		TransportRemaining:   transportDecision.Remaining,
+		TransportUsagePct:    transportDecision.UsagePct,
+		TransportQuotaStatus: transportDecision.Status,
 	}, nil
 }
 
@@ -220,6 +240,13 @@ func (s *BillingService) SubscribePlan(targetTenantID, planCode string, operator
 
 	if err := dal.UpsertTenantSubscription(sub); err != nil {
 		return nil, err
+	}
+
+	// TB-17R：套餐变更即发布传输限额缓存，供 MQTT broker 在连接认证路径执法（见
+	// internal/quota/transport_limit_publisher.go）。发布失败不影响订购主流程：broker 读不到
+	// 缓存按"未配置执法阈值"放行（fail-open），此处只告警。
+	if pubErr := quota.PublishTransportLimit(targetTenantID, int64(plan.MaxTelemetryPerDay)); pubErr != nil {
+		logrus.WithError(pubErr).Warnf("billing: publish transport limit cache failed for tenant %s", targetTenantID)
 	}
 
 	return sub, nil

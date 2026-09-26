@@ -12,6 +12,9 @@ import { marketRoutes } from './marketRoutes';
 import { customerRoutes } from './customerRoutes';
 import { billingRoutes } from './billingRoutes';
 import { mediaRoutes } from './mediaRoutes';
+import { integrationRoutes } from './integrationRoutes';
+import { mobileAppRoutes } from './mobileAppRoutes';
+import { schedulerRoutes } from './schedulerRoutes';
 
 export const generatedRoutes: GeneratedRoute[] = [
   ...systemIntroRoutes,
@@ -31,5 +34,8 @@ export const generatedRoutes: GeneratedRoute[] = [
   ...marketRoutes,
   ...customerRoutes,
   ...billingRoutes,
-  ...mediaRoutes
+  ...mediaRoutes,
+  ...integrationRoutes,
+  ...mobileAppRoutes,
+  ...schedulerRoutes
 ];

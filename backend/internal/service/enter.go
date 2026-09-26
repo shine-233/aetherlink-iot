@@ -90,10 +90,15 @@ type ServiceGroup struct {
 	Tenant           TenantService           // P3 租户管理与自助开通服务
 	Billing          BillingService          // P3 商业化计费与套餐用量计量服务
 	DataConverter    DataConverterService    // ThingsBoard 核心数据转换器
+	Integration      IntegrationService      // TB-45 统一集成实体（Integration 纳管管线）
+	UserGroup        UserGroup               // TB-46 用户组与组权限（GPE v1）
 	DeviceHealth     DeviceHealthService     // TP-6 / TB PE 设备综合健康度评估服务
 	Customer         CustomerService         // ThingsBoard 核心客户管理体系
 	WidgetBundle     WidgetBundleService     // TB-04 部件库（widget_bundles）
 	MediaLibrary     MediaLibraryService     // TB-41 文件存储与媒体库（media_files）
+	MobileAppBundle  MobileAppBundleService  // TB-23 移动应用中心（mobile_app_bundles）
+	Whitelabel       WhitelabelService       // TB-47 白标：租户翻译覆盖 + 自定义 CSS（134.sql）
+	Scheduler        SchedulerService        // TB-48 统一调度器（scheduler_events + 三源聚合）
 }
 
 // GroupApp 是全局业务服务入口，供 API 层和中间件层调用

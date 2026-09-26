@@ -1,9 +1,10 @@
 <!--
 文件用途：Data Converter（ThingsBoard 对标数据编解码器）管理控制台。
 核心逻辑：
-1. 转换器列表展示（上行 Uplink / 下行 Downlink、脚本 SCRIPT / 十六进制 HEX / JSONPath）；
+1. 转换器列表展示（上行 Uplink / 下行 Downlink、脚本 SCRIPT / 十六进制 HEX / JSONPath / Protobuf 动态解码）；
 2. 转换器增删改查；
 3. 在线仿真测试沙箱（输入报文与元数据，即时执行解析并验证结果）。
+关键注意事项：PROTOBUF 模式（TB-19）需维护 .proto 源文本域，仿真载荷为 hex/base64 编码串。
 -->
 <script setup lang="ts">
 import { h, onMounted, reactive, ref } from 'vue'
@@ -41,8 +42,23 @@ import {
   type TestDataConverterResponse
 } from '@/service/api/data-converter'
 import { formatDateTime } from '@/utils/common/datetime'
+import { $t } from '@/locales'
 
 const message = useMessage()
+
+// PROTOBUF 示例 .proto 与配套预编码载荷（设备名 Demo-01 / 温度 18.5 / 湿度 50 的 hex 串）。
+const PROTOBUF_SAMPLE_SCHEMA = `syntax = "proto3";
+package iot.demo;
+
+message SensorReading {
+  string device_label = 1;
+  double temperature = 2;
+  int64 humidity = 3;
+}
+`
+const PROTOBUF_SAMPLE_HEX = '0A0744656D6F2D30311100000000000032401832'
+const PROTOBUF_SAMPLE_CONFIG =
+  '{\n  "message_type": "iot.demo.SensorReading",\n  "device_name": "device_label",\n  "telemetry": {\n    "temperature": "temperature",\n    "humidity": "humidity"\n  }\n}'
 
 // 列表状态
 const loading = ref(false)
@@ -68,6 +84,7 @@ const formModel = reactive<{
   debug_mode: boolean
   configuration: string
   script: string
+  proto_schema: string
   description: string
 }>({
   name: '',
@@ -76,13 +93,26 @@ const formModel = reactive<{
   debug_mode: false,
   configuration: '{\n  "version": "1.0"\n}',
   script: '-- ThingsBoard 兼容上行转换脚本\n-- input: payload, metadata\n-- output: telemetry, attributes\nlocal telemetry = {}\nlocal attributes = {}\n\nif payload.temperature then\n  telemetry.temp = payload.temperature\nend\nif payload.humidity then\n  telemetry.hum = payload.humidity\nend\n\nreturn {\n  telemetry = telemetry,\n  attributes = attributes\n}',
+  proto_schema: '',
   description: ''
 })
 
 const formRules: FormRules = {
   name: [{ required: true, message: '请输入转换器名称', trigger: 'blur' }],
   type: [{ required: true, message: '请选择转换器方向', trigger: 'change' }],
-  converter_mode: [{ required: true, message: '请选择编解码模式', trigger: 'change' }]
+  converter_mode: [{ required: true, message: '请选择编解码模式', trigger: 'change' }],
+  proto_schema: [
+    {
+      validator: (_rule, value: string) => {
+        // PROTOBUF 模式 fail-closed：.proto 源必填；其他模式不要求。
+        if (formModel.converter_mode === 'PROTOBUF' && !String(value || '').trim()) {
+          return new Error($t('page.data_converter.protoSchemaRequired'))
+        }
+        return true
+      },
+      trigger: ['blur', 'change']
+    }
+  ]
 }
 
 // 仿真测试抽屉
@@ -122,7 +152,8 @@ const columns: DataTableColumns<DataConverterItem> = [
       const modeMap: Record<ConverterMode, { label: string; type: 'default' | 'success' | 'info' }> = {
         SCRIPT: { label: '自定义脚本 (Script)', type: 'success' },
         HEX_BINARY: { label: '定长二进制 (Hex)', type: 'info' },
-        JSON_PATH: { label: 'JSON 映射 (Path)', type: 'default' }
+        JSON_PATH: { label: 'JSON 映射 (Path)', type: 'default' },
+        PROTOBUF: { label: $t('page.data_converter.protobufTag'), type: 'info' }
       }
       const meta = modeMap[row.converter_mode] || { label: row.converter_mode, type: 'default' }
       return h(NTag, { type: meta.type, size: 'small' }, () => meta.label)
@@ -226,6 +257,7 @@ const openCreateModal = () => {
   formModel.debug_mode = false
   formModel.configuration = '{\n  "version": "1.0"\n}'
   formModel.script = '-- ThingsBoard 兼容上行转换脚本\n-- input: payload, metadata\n-- output: telemetry, attributes\nlocal telemetry = {}\nlocal attributes = {}\n\nif payload.temperature then\n  telemetry.temp = payload.temperature\nend\nif payload.humidity then\n  telemetry.hum = payload.humidity\nend\n\nreturn {\n  telemetry = telemetry,\n  attributes = attributes\n}'
+  formModel.proto_schema = ''
   formModel.description = ''
   modalVisible.value = true
 }
@@ -239,8 +271,19 @@ const openEditModal = (row: DataConverterItem) => {
   formModel.debug_mode = row.debug_mode
   formModel.configuration = row.configuration || '{\n  "version": "1.0"\n}'
   formModel.script = row.script || ''
+  formModel.proto_schema = row.proto_schema || ''
   formModel.description = row.description || ''
   modalVisible.value = true
+}
+
+// 切换到 PROTOBUF 模式且 schema 为空时，注入示例 .proto 降低上手成本（编辑态不覆盖已有内容）。
+const handleModeChange = (mode: ConverterMode) => {
+  if (mode === 'PROTOBUF' && !formModel.proto_schema.trim()) {
+    formModel.proto_schema = PROTOBUF_SAMPLE_SCHEMA
+    if (!formModel.configuration.includes('telemetry')) {
+      formModel.configuration = PROTOBUF_SAMPLE_CONFIG
+    }
+  }
 }
 
 const handleSubmit = async () => {
@@ -258,6 +301,7 @@ const handleSubmit = async () => {
         debug_mode: formModel.debug_mode,
         configuration: formModel.configuration,
         script: formModel.script,
+        proto_schema: formModel.proto_schema,
         description: formModel.description
       })
       message.success('更新转换器成功')
@@ -269,6 +313,7 @@ const handleSubmit = async () => {
         debug_mode: formModel.debug_mode,
         configuration: formModel.configuration,
         script: formModel.script,
+        proto_schema: formModel.proto_schema,
         description: formModel.description
       })
       message.success('创建转换器成功')
@@ -297,6 +342,9 @@ const openTestDrawer = (row: DataConverterItem) => {
   testResult.value = null
   if (row.converter_mode === 'HEX_BINARY') {
     testPayload.value = '01030400010002'
+  } else if (row.converter_mode === 'PROTOBUF') {
+    // 示例载荷与示例 .proto（iot.demo.SensorReading）配套，hex/base64 均可。
+    testPayload.value = PROTOBUF_SAMPLE_HEX
   } else {
     testPayload.value = '{\n  "temperature": 28.5,\n  "humidity": 65,\n  "voltage": 220\n}'
   }
@@ -426,8 +474,10 @@ onMounted(() => {
             :options="[
               { label: '自定义 Lua/JS 脚本 (SCRIPT)', value: 'SCRIPT' },
               { label: '定长二进制字节偏移 (HEX_BINARY)', value: 'HEX_BINARY' },
-              { label: 'JSONPath 键值抽取 (JSON_PATH)', value: 'JSON_PATH' }
+              { label: 'JSONPath 键值抽取 (JSON_PATH)', value: 'JSON_PATH' },
+              { label: $t('page.data_converter.protobufMode'), value: 'PROTOBUF' }
             ]"
+            @update:value="handleModeChange"
           />
         </NFormItem>
 
@@ -448,15 +498,34 @@ onMounted(() => {
           />
         </NFormItem>
 
-        <NFormItem v-else label="解析配置 (JSON)">
-          <NInput
-            v-model:value="formModel.configuration"
-            type="textarea"
-            :rows="8"
-            placeholder="输入 JSON 配置结构..."
-            class="font-mono text-xs"
-          />
-        </NFormItem>
+        <template v-else>
+          <NFormItem
+            v-if="formModel.converter_mode === 'PROTOBUF'"
+            :label="$t('page.data_converter.protoSchemaLabel')"
+            path="proto_schema"
+          >
+            <NInput
+              v-model:value="formModel.proto_schema"
+              type="textarea"
+              :rows="10"
+              :placeholder="$t('page.data_converter.protoSchemaPlaceholder')"
+              class="font-mono text-xs"
+            />
+          </NFormItem>
+          <NAlert v-if="formModel.converter_mode === 'PROTOBUF'" type="info" size="small" class="mb-4">
+            {{ $t('page.data_converter.protoSchemaHint') }}
+          </NAlert>
+
+          <NFormItem label="解析配置 (JSON)">
+            <NInput
+              v-model:value="formModel.configuration"
+              type="textarea"
+              :rows="8"
+              placeholder="输入 JSON 配置结构..."
+              class="font-mono text-xs"
+            />
+          </NFormItem>
+        </template>
 
         <NFormItem label="描述说明">
           <NInput v-model:value="formModel.description" type="textarea" placeholder="填写转换器的业务用途与支持协议" />
@@ -485,7 +554,11 @@ onMounted(() => {
               v-model:value="testPayload"
               type="textarea"
               :rows="5"
-              placeholder="输入 16 进制字符串或 JSON 报文"
+              :placeholder="
+                activeTestConverter?.converter_mode === 'PROTOBUF'
+                  ? $t('page.data_converter.protobufPayloadPlaceholder')
+                  : '输入 16 进制字符串或 JSON 报文'
+              "
               class="font-mono text-xs"
             />
           </div>

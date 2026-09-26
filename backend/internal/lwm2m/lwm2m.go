@@ -2,7 +2,7 @@
 // 核心逻辑：实现 OMA LwM2M 注册接口核心：POST /rd?ep=<endpoint>&lt=<life>&b=<binding>，
 //
 //	返回 2.01 Created 并登记客户端（endpoint name 唯一）；DELETE /rd/{id} 注销；
-//	提供按 lifetime 的过期清理与在线查询。
+//	提供按 lifetime 的过期清理、在线查询与注册/去注册事件回调（TB-22 隔离接线用）。
 //
 // 关键注意事项：
 //   - 本层为注册簿 + 生命周期语义，不解析 DTLS/队列模式/对象模型；对象实例（/19/0 等）与
@@ -57,6 +57,7 @@ func NewRegistry() *Registry {
 }
 
 // HandleRegister 返回挂到 coap.Registry "/rd" 的处理器。
+// 注册簿记录触发注册的 UDP 源地址（req.RemoteAddr，TB-22 多客户端归因依据）。
 func (r *Registry) HandleRegister() coap.Handler {
 	return func(req *coap.Message) (coap.Code, []byte, int, error) {
 		switch req.Code {
@@ -65,7 +66,7 @@ func (r *Registry) HandleRegister() coap.Handler {
 			if err != nil {
 				return coap.CodeBadRequest, []byte(err.Error()), textPlain, nil
 			}
-			id, created := r.Register(ep, lt, binding, "")
+			id, created := r.Register(ep, lt, binding, req.RemoteAddr)
 			if created {
 				return coap.CodeCreated, []byte("id=" + id), textPlain, nil
 			}
@@ -80,6 +81,59 @@ func (r *Registry) HandleRegister() coap.Handler {
 			return coap.CodeMethodNotAllowed, nil, textPlain, nil
 		}
 	}
+}
+
+// RegistryEventKind 注册簿事件类型。
+type RegistryEventKind int
+
+const (
+	EventRegister RegistryEventKind = iota // 注册（含刷新）
+	EventDeregister                         // 去注册（DELETE /rd/{id}）
+)
+
+// RegistryEvent 一次注册/去注册事件（多客户端隔离接线用：端点 + UDP 源地址）。
+type RegistryEvent struct {
+	Kind     RegistryEventKind
+	ID       string // 注册簿分配的注册 ID（Location /rd/{id}）
+	Endpoint string // LwM2M 端点名
+	Addr     string // 事件报文的 UDP 源地址（去注册侧可能为空）
+}
+
+// HandleRegisterWithEvents 在 HandleRegister 基础上追加注册/去注册事件回调（可 nil）。
+// 注册（新建或刷新）触发 EventRegister；DELETE /rd/{id} 命中时触发 EventDeregister
+// 并携带被注销端点。onEvent 阻塞调用，不得做重活（与 SetOnChange 同约定）。
+// 用途：上层按事件维护 per-endpoint 对象存储映射（TB-22 多客户端隔离）。
+func (r *Registry) HandleRegisterWithEvents(onEvent func(RegistryEvent)) coap.Handler {
+	inner := r.HandleRegister()
+	if onEvent == nil {
+		return inner
+	}
+	return func(req *coap.Message) (coap.Code, []byte, int, error) {
+		// DELETE 需在注销前查端点（inner 处理后注册簿已无该条目）。
+		var deregEndpoint string
+		if req.Code == coap.CodeDelete {
+			deregEndpoint = r.EndpointByID(strings.TrimPrefix(req.UriPath(), "/rd/"))
+		}
+		code, body, obs, err := inner(req)
+		if err != nil {
+			return code, body, obs, err
+		}
+		switch {
+		case code == coap.CodeCreated || code == coap.CodeChanged:
+			if ep, _, _, perr := parseRegisterParams(req); perr == nil && ep != "" {
+				onEvent(RegistryEvent{Kind: EventRegister, ID: regIDFromBody(body), Endpoint: ep, Addr: req.RemoteAddr})
+			}
+		case code == coap.CodeDeleted:
+			id := strings.TrimPrefix(req.UriPath(), "/rd/")
+			onEvent(RegistryEvent{Kind: EventDeregister, ID: id, Endpoint: deregEndpoint, Addr: req.RemoteAddr})
+		}
+		return code, body, obs, err
+	}
+}
+
+// regIDFromBody 从注册响应体 "id=<n>" 还原注册 ID。
+func regIDFromBody(body []byte) string {
+	return strings.TrimPrefix(string(body), "id=")
 }
 
 // HandleRegisterWithNotify 在 HandleRegister 基础上追加注册成功回调（新建或刷新均通知）。
@@ -155,6 +209,16 @@ func (r *Registry) Register(endpoint string, lifetime time.Duration, binding, ad
 	}
 	r.byEP[endpoint] = id
 	return id, true
+}
+
+// EndpointByID 按注册 ID 查端点名（未注册返回空串）。去注册事件在注销前取端点用。
+func (r *Registry) EndpointByID(id string) string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if c, ok := r.clients[id]; ok {
+		return c.Endpoint
+	}
+	return ""
 }
 
 // Delete 注销客户端。

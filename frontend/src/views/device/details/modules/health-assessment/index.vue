@@ -3,10 +3,12 @@
 核心逻辑：
 1. 展示单设备的综合健康得分（0~100）与状态评级（健康/亚健康/告警/危险）；
 2. 维度扣分分析（告警扣分、离线时长扣分、异常遥测扣分）；
-3. 智能运维建议与即时重新评估。
+3. TP-21 MSET 多元状态估计特征维度（后端开关开启时返回 mset 字段）：偏差分/马氏距离/特征键展示，
+   降级态（冷启动/样本不足/奇异矩阵/取数失败）如实展示原因，不伪装成"正常"；
+4. 智能运维建议与即时重新评估。
 -->
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import {
   NAlert,
   NButton,
@@ -24,6 +26,7 @@ import {
   evaluateDeviceHealth,
   getDeviceHealthDetail,
   type DeviceHealthDetailResponse,
+  type DeviceHealthMSETFeature,
   type HealthStatus
 } from '@/service/api/device-health'
 import { formatDateTime } from '@/utils/common/datetime'
@@ -51,6 +54,36 @@ const getStatusColor = (status?: HealthStatus) => {
       return { type: 'default' as const, label: '未知', color: '#909399' }
   }
 }
+
+// MSET 偏差分配色：贴合基线绿、中度黄、显著偏离红（与后端 ≥70 记建议的阈值对齐）。
+const getMSETDeviationColor = (score: number) => {
+  if (score >= 70) return '#d03050'
+  if (score >= 30) return '#f0a020'
+  return '#18a058'
+}
+
+const getMSETDegradeReasonText = (reason?: string) => {
+  switch (reason) {
+    case 'cold_start':
+      return '冷启动：训练窗口内没有完整的历史样本'
+    case 'insufficient_samples':
+      return '历史样本不足：完整样本数低于训练下限'
+    case 'singular_matrix':
+      return '特征协方差奇异：特征共线或零方差，无法求逆'
+    case 'invalid_sample':
+      return '推理样本非法（缺失或非数值）'
+    case 'invalid_feature_config':
+      return '特征键配置不合法'
+    case 'no_feature_keys':
+      return '设备无可用的数值遥测特征键'
+    case 'history_fetch_failed':
+      return '训练窗口历史数据取数失败'
+    default:
+      return reason || '未知原因'
+  }
+}
+
+const msetFeature = computed<DeviceHealthMSETFeature | null>(() => healthData.value?.mset ?? null)
 
 const loadHealth = async () => {
   if (!props.deviceId) return
@@ -166,6 +199,68 @@ onMounted(() => {
             </NCard>
           </NGridItem>
         </NGrid>
+
+        <!-- TP-21 MSET 多元状态估计特征维度：后端开关（health.mset.enabled，默认关）开启时才返回 mset 字段 -->
+        <NCard v-if="msetFeature" size="small" embedded>
+          <template #header>
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-semibold">MSET 多元状态估计 (Multivariate State Estimation)</span>
+              <NTag v-if="msetFeature.applied" type="primary" size="small" round>有效推理</NTag>
+              <NTag v-else type="warning" size="small" round>已降级（未参与评分）</NTag>
+            </div>
+          </template>
+
+          <!-- 降级态：如实展示原因，偏差分为中性 0、不扣分，避免"未生效"被误读成"正常" -->
+          <NAlert v-if="msetFeature.degraded" type="warning" size="small" :show-icon="true">
+            {{ getMSETDegradeReasonText(msetFeature.degrade_reason) }}，本次评分未包含多元偏差扣分（中性处理）。
+          </NAlert>
+
+          <!-- 有效推理态：偏差分 + 马氏距离 + 训练样本 + 特征键 -->
+          <template v-else>
+            <NGrid cols="3" x-gap="12">
+              <NGridItem>
+                <div class="text-center">
+                  <NProgress
+                    type="line"
+                    :percentage="Math.min(100, Math.round(msetFeature.deviation_score))"
+                    :color="getMSETDeviationColor(msetFeature.deviation_score)"
+                    :show-indicator="false"
+                    style="width: 90%"
+                  />
+                  <div
+                    class="text-lg font-bold mt-1"
+                    :style="{ color: getMSETDeviationColor(msetFeature.deviation_score) }"
+                  >
+                    偏差分 {{ msetFeature.deviation_score.toFixed(1) }}
+                  </div>
+                  <div class="text-xs text-gray-500 mt-1">相对训练基线的多元偏离程度（0~100）</div>
+                </div>
+              </NGridItem>
+              <NGridItem>
+                <NStatistic label="马氏距离" :value="msetFeature.mahalanobis ?? 0" />
+                <div class="text-xs text-gray-500 mt-1">距历史基线中心的统计距离</div>
+              </NGridItem>
+              <NGridItem>
+                <NStatistic label="训练样本数" :value="msetFeature.train_samples ?? 0" />
+                <div class="text-xs text-gray-500 mt-1">参与建模的完整历史样本行</div>
+              </NGridItem>
+            </NGrid>
+            <div
+              v-if="msetFeature.feature_keys && msetFeature.feature_keys.length"
+              class="mt-2 flex items-center gap-2"
+            >
+              <span class="text-xs text-gray-500">特征键:</span>
+              <NSpace :size="4" wrap>
+                <NTag v-for="key in msetFeature.feature_keys" :key="key" size="small" :bordered="false">
+                  {{ key }}
+                </NTag>
+              </NSpace>
+            </div>
+            <div class="text-xs text-gray-400 mt-2">
+              偏差分 × 权重已折入「异常遥测扣分」（本次 -{{ msetFeature.penalty.toFixed(1) }} 分）
+            </div>
+          </template>
+        </NCard>
 
         <!-- 运维建议 -->
         <div v-if="healthData.suggestions && healthData.suggestions.length">

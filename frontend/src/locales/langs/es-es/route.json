@@ -20,6 +20,8 @@
   "route.management_auth": "Gestión de menús",
   "route.management_role": "Gestión de roles",
   "route.management_user": "Gestión de usuarios",
+  "route.management_user-group": "Grupos de usuarios",
+  "view.management_user-group": "Grupos de usuarios",
   "route.management_setting": "Configuración del sistema",
   "route.device": "Dispositivos",
   "route.device_grouping": "Gestión de grupos",
@@ -107,5 +109,14 @@
   "view.billing_api-quota": "Cuota de API",
   "route.media": "Biblioteca multimedia",
   "route.media_library": "Biblioteca multimedia",
-  "view.media_library": "Biblioteca multimedia"
+  "view.media_library": "Biblioteca multimedia",
+  "route.integration": "Integraciones",
+  "route.integration_list": "Gestión de integraciones",
+  "view.integration_list": "Gestión de integraciones",
+  "route.mobile-app": "Centro de aplicaciones móviles",
+  "route.mobile-app_app-center": "Centro de aplicaciones",
+  "view.mobile-app_app-center": "Centro de aplicaciones",
+  "route.scheduler": "Planificador unificado",
+  "route.scheduler_calendar": "Calendario de planificación",
+  "view.scheduler_calendar": "Calendario de planificación"
 }

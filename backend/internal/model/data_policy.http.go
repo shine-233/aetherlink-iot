@@ -12,6 +12,18 @@ type UpdateDataPolicyReq struct {
 	Remark        *string `json:"remark" validate:"required,max=2000"`
 }
 
+// CreateDataPolicyReq 创建行级（租户/档案粒度）数据保留策略入参（TB-15R，138.sql）。
+// TenantID 必填；DeviceConfigID 可空=租户级（覆盖该租户全部设备），非空=精确档案行。
+// 行级只支持设备数据（data_type=1），服务层强校验；全局默认行不走本入口。
+type CreateDataPolicyReq struct {
+	DataType       string  `json:"data_type" validate:"required,oneof=1 2"`
+	TenantID       string  `json:"tenant_id" validate:"required,max=36"`
+	DeviceConfigID *string `json:"device_config_id" validate:"omitempty,max=36"`
+	RetentionDays  int32   `json:"retention_days" validate:"required,gte=1,lte=3650"`
+	Enabled        string  `json:"enabled" validate:"required,oneof=1 2"`
+	Remark         *string `json:"remark" validate:"omitempty,max=2000"`
+}
+
 type GetDataPolicyListByPageReq struct {
 	PageReq
 }

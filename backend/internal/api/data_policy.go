@@ -35,6 +35,39 @@ func (*DataPolicyApi) UpdateDataPolicy(c *gin.Context) {
 	c.Set("data", nil)
 }
 
+// CreateDataPolicy 创建行级（租户/档案粒度）数据保留策略（TB-15R）。
+// 核心步骤：绑定创建请求、读取登录用户 claims、调用 service 落库（唯一索引兜底重复）。
+// 审查重点：行级只允许设备数据类型，重复 (租户,档案) 返回参数错误而非 500；返回新建行 id。
+// @Router   /api/v1/datapolicy [post]
+func (*DataPolicyApi) CreateDataPolicy(c *gin.Context) {
+	var req model.CreateDataPolicyReq
+	if !BindAndValidate(c, &req) {
+		return
+	}
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	data, err := service.GroupApp.DataPolicy.CreateDataPolicy(&req, userClaims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.Set("data", data)
+}
+
+// DeleteDataPolicy 删除行级数据保留策略（TB-15R）；全局默认行由 service 层拒绝删除。
+// @Router   /api/v1/datapolicy/:id [delete]
+func (*DataPolicyApi) DeleteDataPolicy(c *gin.Context) {
+	id := c.Param("id")
+	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	err := service.GroupApp.DataPolicy.DeleteDataPolicy(id, userClaims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.Set("data", nil)
+}
+
 // HandleDataPolicyListByPage 分页查询数据策略列表。
 // 核心步骤：绑定分页参数、透传用户 claims 给 service、返回列表结果供统一响应中间件序列化。
 // 审查重点：确认分页参数边界已在校验层约束，并检查列表查询是否始终按 claims 限定租户/项目数据范围。

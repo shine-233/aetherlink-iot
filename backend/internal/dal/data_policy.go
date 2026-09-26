@@ -23,6 +23,30 @@ func UpdateDataPolicy(datapolicy *model.DataPolicy) error {
 	return err
 }
 
+// CreateDataPolicy 新增数据策略行（TB-15R：行级租户/档案粒度保留）。
+// 行级唯一性由 138.sql 的 uq_data_policy_row_level 部分唯一索引兜底，重复创建在此报错。
+// tenant-scope: caller-enforced —— 行级策略是平台管理面数据，创建由服务层
+// requireDataPolicyAdmin（SYS_ADMIN）前置校验；租户/档案取值即策略语义本身，不做范围过滤。
+func CreateDataPolicy(datapolicy *model.DataPolicy) error {
+	if err := query.DataPolicy.Create(datapolicy); err != nil {
+		logrus.Error(err)
+		return err
+	}
+	return nil
+}
+
+// GetDataPolicyByID 按主键取单条策略行（删除入口的行级/全局判定用）。
+// tenant-scope: caller-enforced —— 平台管理面读取，服务层 requireDataPolicyAdmin 前置校验。
+func GetDataPolicyByID(id string) (*model.DataPolicy, error) {
+	p := query.DataPolicy
+	row, err := p.Where(p.ID.Eq(id)).First()
+	if err != nil {
+		logrus.Error(err)
+		return nil, err
+	}
+	return row, nil
+}
+
 func DeleteDataPolicy(id string) error {
 	_, err := query.DataPolicy.Where(query.DataPolicy.ID.Eq(id)).Delete()
 	if err != nil {

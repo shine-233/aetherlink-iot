@@ -39,6 +39,8 @@ func newDataPolicy(db *gorm.DB, opts ...gen.DOOption) dataPolicy {
 	_dataPolicy.LastCleanupDataTime = field.NewTime(tableName, "last_cleanup_data_time")
 	_dataPolicy.Enabled = field.NewString(tableName, "enabled")
 	_dataPolicy.Remark = field.NewString(tableName, "remark")
+	_dataPolicy.TenantID = field.NewString(tableName, "tenant_id")
+	_dataPolicy.DeviceConfigID = field.NewString(tableName, "device_config_id")
 
 	_dataPolicy.fillFieldMap()
 
@@ -56,6 +58,8 @@ type dataPolicy struct {
 	LastCleanupDataTime field.Time   // 上次清理的数据时间节点（实际清理的数据时间点）
 	Enabled             field.String // 是否启用：1启用 2停用
 	Remark              field.String // 备注
+	TenantID            field.String // 行级策略租户id（TB-15R）
+	DeviceConfigID      field.String // 行级策略设备档案id（TB-15R）
 
 	fieldMap map[string]field.Expr
 }
@@ -79,6 +83,8 @@ func (d *dataPolicy) updateTableName(table string) *dataPolicy {
 	d.LastCleanupDataTime = field.NewTime(table, "last_cleanup_data_time")
 	d.Enabled = field.NewString(table, "enabled")
 	d.Remark = field.NewString(table, "remark")
+	d.TenantID = field.NewString(table, "tenant_id")
+	d.DeviceConfigID = field.NewString(table, "device_config_id")
 
 	d.fillFieldMap()
 
@@ -95,7 +101,7 @@ func (d *dataPolicy) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (d *dataPolicy) fillFieldMap() {
-	d.fieldMap = make(map[string]field.Expr, 7)
+	d.fieldMap = make(map[string]field.Expr, 9)
 	d.fieldMap["id"] = d.ID
 	d.fieldMap["data_type"] = d.DataType
 	d.fieldMap["retention_days"] = d.RetentionDay
@@ -103,6 +109,8 @@ func (d *dataPolicy) fillFieldMap() {
 	d.fieldMap["last_cleanup_data_time"] = d.LastCleanupDataTime
 	d.fieldMap["enabled"] = d.Enabled
 	d.fieldMap["remark"] = d.Remark
+	d.fieldMap["tenant_id"] = d.TenantID
+	d.fieldMap["device_config_id"] = d.DeviceConfigID
 }
 
 func (d dataPolicy) clone(db *gorm.DB) dataPolicy {

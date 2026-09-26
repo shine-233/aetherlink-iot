@@ -37,6 +37,9 @@ func isolatedTelemetryCurrent() query.ITelemetryCurrentDataDo {
 // 从 telemetry_current_datas 中获取遥测当前数据，用于替换 telemetry_datas
 // tenant-scope: caller-enforced?2026-08-26 ?????
 func GetCurrentTelemetryDataEvolution(deviceId string) ([]*model.TelemetryCurrentData, error) {
+	// 下面的 dbType 分支是遥测读路径的国产库分支点（与 dal.usesTelemetryQueryClient 同一口径）：
+	// TSDB/KINGBASE/POLARDB 时当前值读改经 tp_to_db gRPC；方言映射与对接步骤见
+	// internal/dialect 包注释与 docs/deployment-domestic-db.md。
 	dbType := viper.GetString("grpc.tptodb_type")
 	if dbType == "TSDB" || dbType == "KINGBASE" || dbType == "POLARDB" {
 		var telemetry []*model.TelemetryCurrentData

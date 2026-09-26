@@ -10,6 +10,9 @@
 //     published_version 指回旧值。后者会让"当前草稿"与"已发布内容"脱节，
 //     并且丢掉"做过一次回滚"这件事本身的可追溯性（与 fleet 批次回滚保持同一语义）。
 //  4. 归档是终态。已归档文档拒绝保存/发布/控制——否则"归档"只是个装饰性标签。
+//  5. 画布壳层契约（TP-22）恒生效：display_mode oneof + fixed1080 必须 1920×1080，
+//     覆盖创建/保存/发布/回滚全部写路径（见 validateCanvasEnvelope）。缺省回落
+//     responsive，旧画布零改动通过；未知模式值 fail-closed 拒绝。
 package service
 
 import (
@@ -20,6 +23,7 @@ import (
 
 	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/internal/scadadoc"
 	"aetherlink-iot/backend/pkg/errcode"
 
 	"github.com/google/uuid"
@@ -52,10 +56,20 @@ func (s *ScadaDocumentService) validateCanvasWidgets(canvas string) error {
 	return nil
 }
 
+// validateCanvasEnvelope 画布壳层契约校验（TP-22 大屏固定分辨率模式）：
+// display_mode oneof 与 fixed1080 的 1920×1080 尺寸契约。
+// 与 Widget 注册表无关、恒生效——显示模式是文档级不变量，不能因注册表未接线
+// 而漏检；字段缺失回落 responsive，旧画布零改动通过（向后兼容）。
+func validateCanvasEnvelope(canvas string) error {
+	if _, err := scadadoc.ParseCanvasDocument(canvas); err != nil {
+		return scadaParam(err.Error())
+	}
+	return nil
+}
+
 // 画布空载荷归一化结果：空画布存 {} 而不是 NULL/空串，
 // 这样"加载出来没有 widget"与"加载失败"在前端是两种可区分的事实。
 const scadaEmptyCanvas = "{}"
-
 
 // ScadaProjectCreate 创建项目入参。
 type ScadaProjectCreate struct {
@@ -188,6 +202,9 @@ func (s *ScadaDocumentService) CreateDocument(ctx context.Context, req ScadaDocu
 	if err := model.ValidateScadaDocument(doc); err != nil {
 		return nil, scadaParam(err.Error())
 	}
+	if err := validateCanvasEnvelope(canvas); err != nil {
+		return nil, err
+	}
 	if err := s.validateCanvasWidgets(canvas); err != nil {
 		return nil, err
 	}
@@ -245,6 +262,9 @@ func (s *ScadaDocumentService) SaveDocument(ctx context.Context, id, tenantID st
 	if err := model.ValidateScadaCanvas(doc.JSONData); err != nil {
 		return nil, scadaParam(err.Error())
 	}
+	if err := validateCanvasEnvelope(payload); err != nil {
+		return nil, err
+	}
 	if err := s.validateCanvasWidgets(payload); err != nil {
 		return nil, err
 	}
@@ -283,6 +303,11 @@ func (s *ScadaDocumentService) PublishDocument(ctx context.Context, id, tenantID
 	}
 	if doc.PublishedVersion != nil && *doc.PublishedVersion == doc.CurrentVersion {
 		return nil, scadaDenied("current draft version is already published; save a change before publishing again")
+	}
+	// 发布把草稿冻结进不可变历史，发布前必须复核壳层契约：
+	// 历史快照里的坏显示模式无法靠后续保存修复（快照不可变）。
+	if err := validateCanvasEnvelope(stringPtrValue(doc.JSONData)); err != nil {
+		return nil, err
 	}
 
 	snapshot := &model.ScadaDocumentVersion{
@@ -335,6 +360,11 @@ func (s *ScadaDocumentService) RollbackDocument(ctx context.Context, id, tenantI
 	}
 
 	canvas := normalizeCanvas(stringPtrValue(snapshot.JSONData))
+	// 回滚会把快照内容写成新的草稿版本，落库前同样过壳层契约：
+	// 契约是"所有画布写路径"的底线，而不是某条路径的本地规则。
+	if err := validateCanvasEnvelope(canvas); err != nil {
+		return nil, err
+	}
 	affected, err := dal.SaveScadaDocumentInTenant(doc.ID, doc.TenantID, doc.CurrentVersion, canvas, actorUserID)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})

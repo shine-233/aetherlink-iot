@@ -91,6 +91,15 @@ integrations:
     configured: false
 
 db:
+  # SQL 方言适配（ROADMAP TP-20，backend/internal/dialect）：声明元数据/分页适配所用方言。
+  # 取值：postgres（默认）| tdengine | kingbase | polardb；留空 = 从 grpc.tptodb_type 推导
+  # （TSDB→tdengine、KINGBASE→kingbase、POLARDB→polardb、NONE/未配置→postgres）。
+  # 显式配置时优先于 grpc.tptodb_type 生效，两者应保持一致（一致性由部署清单约束）。
+  # 配置了不认识的值会 fail closed（启动期报错，绝不静默回退）。解析实现见
+  # internal/dialect（Parse/FromTptodbType/Effective），部署步骤见 docs/deployment-domestic-db.md。
+  # 注意：当前仓库未内置 TDengine/KingBase 原生驱动（保持 CGO_ENABLED=0 纯 Go 交叉编译），
+  # 本键当前仅作为方言口径的声明与适配层入参；遥测外置查询请使用下方 grpc.tptodb_* 开关。
+  dialect: ""
   psql:
     host: 127.0.0.1 # 默认localhost
     port: 5432 # 默认5432
@@ -112,9 +121,17 @@ db:
     db1: 10 # 默认10，不能是0，用户设备状态管理
     password: "CHANGE_ME_REDIS_PASSWORD"  # 建议通过环境变量 GOTP_DB_REDIS_PASSWORD 设置
 
+# 外置遥测查询服务（tp_to_db gRPC）开关（ROADMAP TP-20）。
+# tptodb_type 取值：NONE（默认，遥测读写走本地 PostgreSQL）、TSDB（TDengine）、
+# KINGBASE（KingBase，Oracle 兼容模式）、POLARDB（PolarDB，MySQL 兼容版）。
+# 启用 TSDB/KINGBASE/POLARDB 后：历史/当前/聚合遥测的**读路径**改经 grpc.tptodb_server
+# 指向的 tp_to_db gRPC 服务（third_party/grpc/tptodb_client），写路径与保留清理仍走本地库；
+# 冷层降采样（telemetry.downsample）在该模式下自动停用。服务端不在本仓库，
+# 对接步骤、启动验证与回退口径见 docs/deployment-domestic-db.md。
+# 服务端不可达时初始化失败并按 fail-fast 阻断启动；回退只需把 tptodb_type 改回 NONE 重启。
 grpc:
   tptodb_server: 127.0.0.1:50052
-  tptodb_type: NONE # NONE、TSDB
+  tptodb_type: NONE # NONE、TSDB、KINGBASE、POLARDB
 
 # mqtt服务：gmqtt、vernemq
 mqtt_server: gmqtt
@@ -345,6 +362,19 @@ telemetry:
     enabled: false               # 默认关闭
     ttl_seconds: 300
 #                                    # 多实例部署时，只有一个实例设为 true，其他实例设为 false
+
+# TP-21 设备健康评分 MSET（多元状态估计）特征维度。
+# 开启后健康评估会按特征键拉取训练窗分桶均值序列训练 MSET 模型（均值+协方差+逆矩阵），
+# 对最近一桶推理马氏距离并映射 0~100 偏差分，偏差分 × penalty_weight 折入健康评分的异常扣分。
+# 冷启动/样本不足/奇异矩阵一律 fail-closed 降级为中性分并记录原因（details JSON 的 mset 对象）。
+health:
+  mset:
+    enabled: false               # 默认关闭：存量部署评分行为完全不变
+    feature_keys: ""             # 逗号分隔的特征遥测键（≤8 个，超出截断）；留空则从设备最新遥测数值键字典序推导
+    train_hours: 24              # 训练窗口时长（小时），窗口内按 bucket_seconds 分桶
+    bucket_seconds: 600          # 聚合分桶宽度（秒）
+    min_samples: 16              # 训练最少完整样本数（低于即降级 insufficient_samples；下限恒为特征数+1）
+    penalty_weight: 0.30         # 偏差分→扣分权重（0~1；配 0 为观察模式：挂特征分但不扣分）
 
 # 持久化报表调度、生成与 SMTP outbox worker（迁移 83）
 reports:

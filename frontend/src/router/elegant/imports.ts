@@ -65,10 +65,18 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   management_role: () => import("@/views/management/role/index.vue"),
   management_setting: () => import("@/views/management/setting/index.vue"),
   management_user: () => import("@/views/management/user/index.vue"),
+  // TB-46 用户组与组权限（GPE v1）管理页。
+  "management_user-group": () => import("@/views/management/user-group/index.vue"),
   customer_list: () => import("@/views/customer/list/index.vue"),
   media_library: () => import("@/views/media/library/index.vue"),
+  // TB-45 统一集成实体管理页（与 integrationRoutes.ts 同步）。
+  integration_list: () => import("@/views/integration/list/index.vue"),
   "billing_api-quota": () => import("@/views/billing/api-quota/index.vue"),
   market_browse: () => import("@/views/market/browse/index.vue"),
+  // TB-23 移动应用中心管理页（与 mobileAppRoutes.ts 同步）。
+  "mobile-app_app-center": () => import("@/views/mobile-app/app-center/index.vue"),
+  // TB-48 统一调度日历页（与 schedulerRoutes.ts 同步）。
+  scheduler_calendar: () => import("@/views/scheduler/calendar/index.vue"),
   "personal-center": () => import("@/views/personal-center/index.vue"),
   "product_update-ota": () => import("@/views/product/update-ota/index.vue"),
   "product_update-package": () => import("@/views/product/update-package/index.vue"),

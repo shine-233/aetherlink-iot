@@ -85,6 +85,19 @@ export function fetchPublishedBoardByShareToken(token: string) {
   return request.get<BoardDetail>(`/board/shared/${encodeURIComponent(token)}`)
 }
 
+// ---- TP-22 大屏轮播（/tv-preview 公开投屏端按 token 列表批量取已发布看板） ----
+
+export interface BoardCarouselResult {
+  /** 按 token 请求顺序排列的已发布原生看板（含 config，可直接渲染）。 */
+  items: BoardDetail[]
+  /** 请求了但解析不到（未发布/非原生/未知）的 token，保持请求顺序。 */
+  missing_tokens: string[]
+}
+
+export function fetchPublishedBoardsForCarousel(tokens: string[]) {
+  return request.get<BoardCarouselResult>('/board/shared-carousel', { params: { tokens: tokens.join(',') } })
+}
+
 // ---- P1.x 看板项目分组（native-board-provider 项目增删改） ----
 
 export interface BoardProject {

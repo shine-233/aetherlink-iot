@@ -217,14 +217,25 @@ const routeMap: RouteMap = {
   "management_role": "/management/role",
   "management_setting": "/management/setting",
   "management_user": "/management/user",
+  // TB-46 用户组与组权限路径映射（与 systemRoutes.ts managementRoutes 同步）。
+  "management_user-group": "/management/user-group",
   "customer": "/customer",
   "customer_list": "/customer/list",
   "media": "/media",
   "media_library": "/media/library",
+  // TB-45 统一集成实体路径映射（与 integrationRoutes.ts 同步）。
+  "integration": "/integration",
+  "integration_list": "/integration/list",
   "billing": "/billing",
   "billing_api-quota": "/billing/api-quota",
   "market": "/market",
   "market_browse": "/market/browse",
+  // TB-23 移动应用中心路径映射（与 mobileAppRoutes.ts 同步）。
+  "mobile-app": "/mobile-app",
+  "mobile-app_app-center": "/mobile-app/app-center",
+  // TB-48 统一调度器路径映射（与 schedulerRoutes.ts 同步）。
+  "scheduler": "/scheduler",
+  "scheduler_calendar": "/scheduler/calendar",
   "personal-center": "/personal-center",
   "product": "/product",
   "product_update-ota": "/product/update-ota",

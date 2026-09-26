@@ -4,6 +4,8 @@ export type ReportGenerationStatus = 'pending' | 'processing' | 'retrying' | 'su
 export type ReportDeliveryStatus = 'pending' | 'processing' | 'retrying' | 'accepted' | 'failed' | 'ambiguous'
 export type ReportProjectedStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'ambiguous'
 export type ReportRunStatus = ReportGenerationStatus | ReportDeliveryStatus | ReportProjectedStatus
+// TB-49：报表产物格式与后端 oneof=csv html pdf 同口径；`| string` 兼容历史快照中的宽松取值。
+export type ReportScheduleFormat = 'csv' | 'html' | 'pdf'
 
 export interface ReportSchedule {
   id: string
@@ -15,7 +17,7 @@ export interface ReportSchedule {
   device_ids: string[]
   keys: string[]
   lookback_hours: number
-  format: 'csv' | string
+  format: ReportScheduleFormat | string
   enabled: boolean
   next_run_at?: string | null
   revision: number
@@ -35,7 +37,7 @@ export interface CreateReportSchedulePayload {
   device_ids: string[]
   keys: string[]
   lookback_hours: number
-  format: 'csv'
+  format: ReportScheduleFormat
   enabled?: boolean
 }
 
@@ -48,7 +50,7 @@ export interface UpdateReportSchedulePayload {
   device_ids?: string[]
   keys?: string[]
   lookback_hours?: number
-  format?: 'csv'
+  format?: ReportScheduleFormat
   enabled?: boolean
 }
 

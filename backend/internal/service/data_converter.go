@@ -1,5 +1,5 @@
 // 文件用途：实现数据转换器服务与解析执行引擎（ThingsBoard Data Converter 载荷解析）。
-// 核心逻辑：提供 UPLINK/DOWNLINK 转换器的 CRUD、仿真测试（Hex/JSONPath/Lua）与运行期载荷清洗。
+// 核心逻辑：提供 UPLINK/DOWNLINK 转换器的 CRUD、仿真测试（Hex/JSONPath/Lua/Protobuf）与运行期载荷清洗。
 package service
 
 import (
@@ -44,6 +44,7 @@ func (*DataConverterService) CreateDataConverter(ctx context.Context, req *model
 		TenantID:      claims.TenantID,
 		Configuration: configStr,
 		Script:        req.Script,
+		ProtoSchema:   req.ProtoSchema,
 		Description:   req.Description,
 		CreatedAt:     &now,
 		UpdatedAt:     &now,
@@ -87,6 +88,9 @@ func (*DataConverterService) UpdateDataConverter(ctx context.Context, req *model
 	}
 	if req.Script != nil {
 		record.Script = req.Script
+	}
+	if req.ProtoSchema != nil {
+		record.ProtoSchema = req.ProtoSchema
 	}
 	if req.Description != nil {
 		record.Description = req.Description
@@ -167,6 +171,9 @@ func (*DataConverterService) TestDataConverter(ctx context.Context, req *model.T
 		if req.Script == nil || *req.Script == "" {
 			req.Script = conv.Script
 		}
+		if (req.ProtoSchema == nil || *req.ProtoSchema == "") && conv.ProtoSchema != nil {
+			req.ProtoSchema = conv.ProtoSchema
+		}
 	}
 
 	if req.Type == "" {
@@ -180,6 +187,8 @@ func (*DataConverterService) TestDataConverter(ctx context.Context, req *model.T
 		return executeJsonPathConverter(req)
 	case "SCRIPT":
 		return executeScriptConverter(req)
+	case model.ConverterModeProtoBuf:
+		return executeProtobufConverter(req)
 	default:
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "unsupported converter mode: "+req.ConverterMode)
 	}

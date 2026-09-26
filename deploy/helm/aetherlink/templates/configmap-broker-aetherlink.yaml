@@ -1,0 +1,50 @@
+{{- /* 文件用途：渲染 broker 的 aetherlink.yml 运行时配置 ConfigMap（GMQTT 插件 viper 读取 ./aetherlink.yml）。
+核心逻辑：内容对齐 mqtt-broker/cmd/gmqttd/aetherlink.example.yml 的安全形状，服务地址换成
+Release 内 Service DNS；全部密钥与 broker_id 保留占位/空值，由 GMQTT_* 环境变量覆盖（BindEnv 显式绑定）。
+关键注意事项：占位串含 CHANGE_ME 是刻意设计（对齐 compose 挂载 example 文件的既有口径），
+插件在 env 缺失时 fail-fast，不会真的使用占位值；psqlpass 等键不可写成真实密钥。
+重构建议：插件 BindEnv 键清单变化时同步本文件与 statefulset-mqtt-broker.yaml 的 env。 */}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-broker-aetherlink-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: aetherlink-mqtt-broker
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: config
+    {{- range $k, $v := .Values.commonLabels }}
+    {{ $k }}: {{ $v | quote }}
+    {{- end }}
+data:
+  aetherlink.yml: |
+    # AetherLink GMQTT plugin runtime config rendered by Helm (TB-11).
+    # All credentials and the session-revocation broker_id are overridden by
+    # GMQTT_* environment variables injected from the chart Secret / pod identity.
+    db:
+      psql:
+        psqladdr: {{ .Values.external.postgresHost | default (printf "%s-postgres" .Release.Name) }}
+        psqlport: {{ .Values.backend.env.dbPsqlPort | default "5432" | quote }}
+        psqluser: {{ .Values.backend.env.dbPsqlUsername | default "postgres" }}
+        psqlpass: CHANGE_ME_OVERRIDDEN_BY_GMQTT_DB_PSQL_PSQLPASS
+        psqldb: {{ .Values.backend.env.dbPsqlDbname | default "aetherlink_iot" }}
+        # Local/default deployments use disable. External PostgreSQL must pick
+        # require / verify-ca / verify-full according to its TLS policy.
+        sslmode: {{ .Values.broker.env.sslMode | default "disable" | quote }}
+      redis:
+        conn: {{ .Values.external.redisAddr | default (printf "%s-redis:6379" .Release.Name) }}
+        db_num: {{ .Values.broker.env.redisDbNum | default "1" | quote }}
+        password: CHANGE_ME_OVERRIDDEN_BY_GMQTT_DB_REDIS_PASSWORD
+    mqtt:
+      broker: tcp://127.0.0.1:1883
+      password: CHANGE_ME_OVERRIDDEN_BY_GMQTT_MQTT_PASSWORD
+      plugin_password: CHANGE_ME_OVERRIDDEN_BY_GMQTT_MQTT_PLUGIN_PASSWORD
+    mqtt_session_revocations:
+      # Stable per-replica identity comes from GMQTT_MQTT_SESSION_REVOCATIONS_BROKER_ID
+      # (fieldRef metadata.name). Never bake a fixed ID here.
+      broker_id: ""
+    payload_schema:
+      enabled: {{ .Values.broker.env.payloadSchemaEnabled | default "false" }}
+      cache_ttl: {{ .Values.broker.env.payloadSchemaCacheTtl | default "30s" }}
+    auth_ratelimit:
+      max_failures_per_minute: 30

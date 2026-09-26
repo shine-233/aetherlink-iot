@@ -1,0 +1,40 @@
+# 文件用途：TB-11 双副本 override——把 backend 与 gmqtt broker 扩到 replicas=2 的样板。
+# 核心逻辑：docker compose -f docker-compose.yml -f deploy/docker-compose.replicas.yml up -d
+#   即声明双副本；本文件同时用注释固定三条硬前提（共享存储/外部 PG/端口与 broker 身份边界）。
+# 关键注意事项：这是"前提声明样板"而非开箱即用——compose 无法按副本注入 broker_id、
+#   无法把命名卷改成 per-replica 卷，跨 broker 吊销收敛与 per-pod 卷身份只有
+#   deploy/helm/aetherlink（StatefulSet + fieldRef）能保证；生产多副本请走 Helm chart。
+# 重构建议：若 compose 未来支持 per-replica env/volume 模板，可升级本文件为可运行样板。
+#
+# 前提与边界（三条都必须逐条确认后才能扩副本）：
+#
+# 1. 本地卷 → 共享存储 / 外部 PG：
+#    docker-compose.yml 的 backend-files / backend-telemetry-spool / backend-uplink-spool /
+#    broker-data 是单机本地命名卷。backend 两副本会并发读写同一个
+#    backend-telemetry-spool/backend-uplink-spool（断网缓冲文件被并发写会损坏回放），
+#    backend-files 双写则上传文件互不可见；broker-data 同理。
+#    扩副本前必须：文件卷换 RWX 共享存储或对象存储、PG/Redis 换外部实例（Helm chart
+#    的 external.* 或自管）、broker-data 换共享存储或确认仅一副本落盘。
+#    spool 卷即使换成共享存储也不得让两副本共挂同一目录——应保持每副本独立卷。
+#
+# 2. broker 副本身份与吊销收敛：
+#    MQTT_BROKER_ID 是单值环境变量，本 override 下两副本共用同一 broker_id，
+#    mqtt_session_revocation 的 ACK 计数（required_broker_ids 对 distinct broker_id 去重）
+#    无法区分两副本，跨 broker 吊销收敛不成立。Compose 无法按副本注入身份——
+#    真正的多 broker 路径是 deploy/helm/aetherlink：GMQTT_MQTT_SESSION_REVOCATIONS_BROKER_ID
+#    取 StatefulSet Pod 名，backend 的 GOTP_MQTT_SESSION_REVOCATIONS_REQUIRED_BROKER_IDS
+#    自动注入全部副本 ID。
+#
+# 3. 端口发布冲突：
+#    docker-compose.yml 把 1883/9999 发布到宿主机固定端口，第二副本发布会端口冲突。
+#    下面的 ports: !override [] 需要 docker compose >= 2.24（旧版本会因 !override 标签报错，
+#    请改用 Helm chart），并以集群内 Service/LB/TCP 负载均衡替代宿主机发布。
+services:
+  backend:
+    ports: !override []
+    deploy:
+      replicas: 2
+  mqtt-broker:
+    ports: !override []
+    deploy:
+      replicas: 2

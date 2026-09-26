@@ -1,13 +1,15 @@
 // 文件用途：OPC UA 轮询采集器（ROADMAP OPC UA 行——库级 internal/opcua 的连接器接入）。
 // 核心逻辑：解析 protocol_config 点表（endpoint + nodes），按设备维护带 TTL 的连接缓存，
 //
-//	逐节点 ReadValue 并转为遥测键（数值 → float64，bool/string → 原语义）。
+//	逐节点 ReadValue 并转为遥测键（数值 → float64，bool/string → 原语义）；
+//	回填后若挂载 Integration 上行转换钩子（TB-45）则执行转换（失败丢弃不阻断）。
 //
 // 关键注意事项：
-//  - 连接失败/读失败即失效连接条目，下一轮强制重连（懒重连，避免半死连接长期占用）；
-//  - 真实 OPC UA 服务器的读写 E2E 属环境绑定（需 opc.tcp 服务沙箱），本层单测覆盖
-//    配置校验/发现/失败路径，接入时按 opcua 包既定口径补 E2E；
-//  - 节点值转换失败跳过该点，不影响同设备其他点位（部分发布语义与 SNMP 一致）。
+//   - 连接失败/读失败即失效连接条目，下一轮强制重连（懒重连，避免半死连接长期占用）；
+//   - 真实 OPC UA 服务器的读写 E2E 属环境绑定（需 opc.tcp 服务沙箱），本层单测覆盖
+//     配置校验/发现/失败路径，接入时按 opcua 包既定口径补 E2E；
+//   - 节点值转换失败跳过该点，不影响同设备其他点位（部分发布语义与 SNMP 一致）；
+//   - Transform 为 nil 时行为与存量完全一致（未接线即不转换，采集器不回归）。
 package collector
 
 import (
@@ -37,6 +39,8 @@ type OpcuaPoller struct {
 	mu    sync.Mutex
 	conns map[string]*opcuaEntry // deviceID → 连接条目
 	log   *logrus.Logger
+	// Transform 采集回填后的 Integration 上行转换钩子（TB-45）；nil = 未接线（存量语义）。
+	Transform UplinkTransformHook
 }
 
 // NewOpcuaPoller 构造 OPC UA 采集器。
@@ -85,7 +89,22 @@ func (p *OpcuaPoller) Poll(ctx context.Context, t deviceTarget) (map[string]inte
 		// 连接可能半死：失效条目，下一轮重连（本轮已读到的点照常发布）。
 		p.invalidate(t.DeviceID)
 	}
-	return values, nil
+	// Integration 上行转换（TB-45）：回填后执行；失败丢弃本轮遥测（返回空 map，
+	// Runner 跳过发布且不视为采集失败——转换不阻断采集循环）。
+	transformed, ok := applyUplinkTransform(ctx, p.Transform, t, values)
+	if !ok {
+		return map[string]interface{}{}, nil
+	}
+	return transformed, nil
+}
+
+// applyUplinkTransform 应用 Integration 上行转换钩子：nil 钩子或空遥测直接旁路（存量语义）；
+// 钩子返回 ok=false 表示转换失败，调用方丢弃本轮遥测。
+func applyUplinkTransform(ctx context.Context, hook UplinkTransformHook, t deviceTarget, values map[string]interface{}) (map[string]interface{}, bool) {
+	if hook == nil || len(values) == 0 {
+		return values, true
+	}
+	return hook(ctx, t, values)
 }
 
 // ensureConn 取缓存连接或新建（构造/连接失败即返回错误并清理旧条目）。

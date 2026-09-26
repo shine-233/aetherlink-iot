@@ -25,7 +25,8 @@ const hoisted = vi.hoisted(() => ({
   redirectFromLogin: vi.fn(),
   initAuthRoute: vi.fn(),
   resetRouteStore: vi.fn(),
-  clearTabs: vi.fn()
+  clearTabs: vi.fn(),
+  resetWhitelabelRuntime: vi.fn()
 }))
 
 vi.mock('@/service/api', () => ({
@@ -91,6 +92,13 @@ vi.mock('../modules/tab', () => ({
   useTabStore: () => ({
     clearTabs: hoisted.clearTabs,
     initHomeTab: vi.fn()
+  })
+}))
+
+// 白标运行时（TB-47）：auth store 登出时调用重置；mock 掉真实 store 以免引入真实 request 模块。
+vi.mock('../modules/sys-setting', () => ({
+  useSysSettingStore: () => ({
+    resetWhitelabelRuntime: hoisted.resetWhitelabelRuntime
   })
 }))
 

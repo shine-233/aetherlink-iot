@@ -1,0 +1,51 @@
+{{- /* 文件用途：渲染后端 ClusterIP Service（前端 nginx proxy_pass /api、/files 的固定目标）。
+核心逻辑：port 9999 → targetPort http（容器口径对齐 compose 的 9999:9999 发布）。
+关键注意事项：不建对外 Service 类型——浏览器流量统一走 frontend Service/入口层，
+后端直连只面向集群内组件与运维 port-forward。
+重构建议：需要独立 API 入口时另加 Ingress 模板并同步 helmchart 单测对象断言。 */}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-backend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: aetherlink-backend
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: backend
+    {{- range $k, $v := .Values.commonLabels }}
+    {{ $k }}: {{ $v | quote }}
+    {{- end }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: aetherlink-backend
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: http
+      port: 9999
+      targetPort: http
+---
+{{- /* headless Service：StatefulSet serviceName 必需，提供稳定 Pod DNS（<pod>.<svc>.<ns>.svc）。 */}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-backend-headless
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: aetherlink-backend
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: backend
+    {{- range $k, $v := .Values.commonLabels }}
+    {{ $k }}: {{ $v | quote }}
+    {{- end }}
+spec:
+  type: ClusterIP
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app.kubernetes.io/name: aetherlink-backend
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: http
+      port: 9999
+      targetPort: http

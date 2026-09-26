@@ -49,3 +49,13 @@ export * from './widget-bundle'
 export * from './billing'
 // TB-41 文件存储与媒体库（media_files）：通用上传 + 媒体列表/详情/删除 API。
 export * from './media'
+// TB-45 统一集成实体（integrations）：连接器实例 CRUD + 上下行转换器绑定。
+export * from './integration'
+// TB-46 用户组与组权限（GPE v1）：组 CRUD + 成员管理 + 组权限元素绑定（组共享授权）。
+export * from './user-group'
+// TB-23 移动应用中心（mobile_app_bundles）：上传登记 + 版本列表 + publish/archive 状态机。
+export * from './mobile-app-bundle'
+// TB-47 白标：租户翻译覆盖（CRUD）+ 自定义 CSS（读写）+ 登录后可读覆盖获取。
+export * from './whitelabel'
+// TB-48 统一调度器（scheduler_events）：三源聚合列表 + 注册面 CRUD。
+export * from './scheduler'

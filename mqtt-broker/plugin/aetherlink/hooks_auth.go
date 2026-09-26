@@ -83,6 +83,28 @@ func (t *AetherLinkPlugin) OnBasicAuthWrapper(pre server.OnBasicAuth) server.OnB
 			return err
 		}
 
+		// TB-17R：认证通过前做租户传输日配额判定（被拒连接同样计入当日用量，见 transport_quota.go）。
+		// 配额拒绝是商业约束而非凭据失败：不计入来源 IP 认证限速，也不走 handleMQTTAuthFailure
+		// 的凭证失效清理路径（凭证本身是有效的）。
+		if !allowMQTTTransportDailyQuota(device.TenantID) {
+			Log.Warn("mqtt transport daily quota exceeded",
+				zap.String("tenant_id", device.TenantID),
+				zap.String("device_id", device.ID),
+				zap.String("client_id", clientID),
+			)
+			recordMQTTDiagnosticEvent(mqttDiagnosticEvent{
+				deviceID:  device.ID,
+				clientID:  clientID,
+				username:  username,
+				action:    "auth",
+				direction: "na",
+				outcome:   "deny",
+				error:     errMQTTTransportQuotaExceeded.Error(),
+				code:      "transport_quota_exceeded",
+			})
+			return errMQTTTransportQuotaExceeded
+		}
+
 		handleMQTTAuthSuccess(device, username, clientID)
 		if bindErr := rememberMQTTClientUsername(clientID, username); bindErr != nil {
 			Log.Warn("failed to remember mqtt device user binding",

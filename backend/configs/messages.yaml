@@ -262,6 +262,18 @@ messages:
   202004:
     zh_CN: "媒体文件被${referenced_count}处引用，禁止删除，请先解除引用"
     en_US: "Media file is referenced by ${referenced_count} place(s) and cannot be deleted; remove the references first"
+  202005:
+    zh_CN: "应用包当前状态${status}不允许${operation}操作"
+    en_US: "App bundle status '${status}' does not allow the '${operation}' operation"
+  202006:
+    zh_CN: "该平台下已存在版本${version}的应用包"
+    en_US: "An app bundle with version ${version} already exists for this platform"
+  202007:
+    zh_CN: "翻译覆盖条目非法：${reason}"
+    en_US: "Invalid translation override entry: ${reason}"
+  202008:
+    zh_CN: "自定义 CSS 非法：${reason}"
+    en_US: "Invalid custom CSS: ${reason}"
 
   # 数据导出相关错误 (202100-202199)
   202100:

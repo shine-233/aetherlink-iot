@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest'
 
 import {
   SCADA_CANVAS_MAX_BYTES,
+  SCADA_DISPLAY_MODE_FIXED_HEIGHT,
+  SCADA_DISPLAY_MODE_FIXED_WIDTH,
+  computeFitScale,
   createEmptyScadaCanvas,
+  effectiveDisplayMode,
   nextScadaCanvasNodeId,
   parseScadaCanvas,
   scadaCanvasEqual,
@@ -114,5 +118,79 @@ describe('scada canvas id allocation', () => {
     const nodes = [sampleNode, { ...sampleNode, id: 'node-2' }]
     const id = nextScadaCanvasNodeId(nodes)
     expect(nodes.some((node) => node.id === id)).toBe(false)
+  })
+})
+
+// TP-22: display mode document contract, mirrored by backend/internal/scadadoc.
+describe('scada canvas display mode (TP-22)', () => {
+  const fixedCanvas = { ...createEmptyScadaCanvas(1920, 1080), displayMode: 'fixed1080' as const }
+
+  it('serializes an authored display mode and parses it back', () => {
+    const raw = serializeScadaCanvas(fixedCanvas)
+    expect(raw).toContain('"displayMode":"fixed1080"')
+    const reparsed = parseScadaCanvas(raw)
+    expect(reparsed.displayMode).toBe('fixed1080')
+    expect(reparsed.width).toBe(SCADA_DISPLAY_MODE_FIXED_WIDTH)
+    expect(reparsed.height).toBe(SCADA_DISPLAY_MODE_FIXED_HEIGHT)
+    // Round trip must stay deterministic: re-saving an unchanged fixed canvas is a no-op.
+    expect(serializeScadaCanvas(reparsed)).toBe(raw)
+  })
+
+  it('keeps legacy documents byte-identical by omitting an absent mode', () => {
+    const raw = serializeScadaCanvas(canvasWith([sampleNode]))
+    expect(raw).not.toContain('displayMode')
+    expect(parseScadaCanvas(raw).displayMode).toBeUndefined()
+  })
+
+  it('accepts the snake_case display_mode alias and rejects a dual-key conflict', () => {
+    const alias = parseScadaCanvas(
+      JSON.stringify({ display_mode: 'fixed1080', width: 1920, height: 1080, nodes: [] })
+    )
+    expect(alias.displayMode).toBe('fixed1080')
+    expect(() =>
+      parseScadaCanvas(
+        JSON.stringify({ displayMode: 'responsive', display_mode: 'fixed1080', width: 1920, height: 1080, nodes: [] })
+      )
+    ).toThrow(/conflicting/)
+  })
+
+  it('refuses a fixed1080 canvas that is not 1920x1080', () => {
+    expect(() =>
+      parseScadaCanvas(JSON.stringify({ displayMode: 'fixed1080', width: 1280, height: 720, nodes: [] }))
+    ).toThrow(/1920/)
+    expect(() =>
+      parseScadaCanvas(JSON.stringify({ displayMode: 'fixed4k', width: 3840, height: 2160, nodes: [] }))
+    ).toThrow(/displayMode/)
+  })
+
+  it('defaults an absent mode to responsive without failing', () => {
+    expect(effectiveDisplayMode(canvasWith([]))).toBe('responsive')
+    expect(effectiveDisplayMode(null)).toBe('responsive')
+    expect(effectiveDisplayMode(undefined)).toBe('responsive')
+    expect(effectiveDisplayMode(parseScadaCanvas(''))).toBe('responsive')
+  })
+})
+
+// TP-22: uniform fit scale for the fixed1080 container (transform: scale 等比适配).
+describe('computeFitScale', () => {
+  it('scales down by the tighter axis so the design box stays fully visible', () => {
+    // 960×540 viewport against 1920×1080 design: uniform half scale.
+    expect(computeFitScale(960, 540, 1920, 1080)).toBeCloseTo(0.5)
+    // Wider viewport: height is the binding axis, no stretching.
+    expect(computeFitScale(3840, 1080, 1920, 1080)).toBeCloseTo(1)
+    // Narrower viewport: width is the binding axis.
+    expect(computeFitScale(1280, 1024, 1920, 1080)).toBeCloseTo(1280 / 1920)
+  })
+
+  it('scales up small containers to fill a large TV wall', () => {
+    expect(computeFitScale(3840, 2160, 1920, 1080)).toBeCloseTo(2)
+  })
+
+  it('falls back to 1 for non-positive inputs instead of collapsing to zero', () => {
+    expect(computeFitScale(0, 540, 1920, 1080)).toBe(1)
+    expect(computeFitScale(960, 0, 1920, 1080)).toBe(1)
+    expect(computeFitScale(960, 540, 0, 1080)).toBe(1)
+    expect(computeFitScale(960, 540, 1920, -1)).toBe(1)
+    expect(computeFitScale(Number.NaN, 540, 1920, 1080)).toBe(1)
   })
 })

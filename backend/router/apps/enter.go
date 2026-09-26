@@ -52,25 +52,30 @@ type apps struct {
 	Asset
 	UserTOTP
 	OidcSso
-	PluginRegistry      // PHASE-D-D9 插件框架 gRPC 网关
-	ReportSchedule      // PHASE-D-D3 定时报表
-	DeviceCertificate   // PHASE-D-D5 接入安全 X.509
-	EdgeSync            // PHASE-D-D6 边缘计算 2.0
-	AiModel             // PHASE-D-D7 AI 2.0 模型中心 + 助手
-	Scada               // P1.3 Widget 与 SCADA 基础层
-	Mobile              // P1.4 移动端控制与通知
-	ResourceCenter      // TP-5 资源中心
-	RateLimitRouter     // TB-7 集群限流
-	QueueMonitorRouter  // TB-7 队列隔离监控
-	UnitsRouter         // TB-9 单位换算与物理量纲
-	SecretsRouter       // TB-18 通用 Secrets Storage
-	IndustrySolution    // TB-19 解决方案模板引擎
-	Tenant              // P3 租户管理与自助开通
-	Billing             // P3 商业化计费与用量计量
-	DataConverterRouter // ThingsBoard 核心数据转换器
-	Customer            // ThingsBoard 核心客户管理体系
-	WidgetBundleRouter  // TB-04 部件库（widget_bundles）
-	MediaLibraryRouter  // TB-41 文件存储与媒体库（media_files）
+	PluginRegistry        // PHASE-D-D9 插件框架 gRPC 网关
+	ReportSchedule        // PHASE-D-D3 定时报表
+	DeviceCertificate     // PHASE-D-D5 接入安全 X.509
+	EdgeSync              // PHASE-D-D6 边缘计算 2.0
+	AiModel               // PHASE-D-D7 AI 2.0 模型中心 + 助手
+	Scada                 // P1.3 Widget 与 SCADA 基础层
+	Mobile                // P1.4 移动端控制与通知
+	ResourceCenter        // TP-5 资源中心
+	RateLimitRouter       // TB-7 集群限流
+	QueueMonitorRouter    // TB-7 队列隔离监控
+	UnitsRouter           // TB-9 单位换算与物理量纲
+	SecretsRouter         // TB-18 通用 Secrets Storage
+	IndustrySolution      // TB-19 解决方案模板引擎
+	Tenant                // P3 租户管理与自助开通
+	Billing               // P3 商业化计费与用量计量
+	DataConverterRouter   // ThingsBoard 核心数据转换器
+	IntegrationRouter     // TB-45 统一集成实体（Integration 纳管管线）
+	UserGroupRouter       // TB-46 用户组与组权限（GPE v1）
+	Customer              // ThingsBoard 核心客户管理体系
+	WidgetBundleRouter    // TB-04 部件库（widget_bundles）
+	MediaLibraryRouter    // TB-41 文件存储与媒体库（media_files）
+	MobileAppBundleRouter // TB-23 移动应用中心（mobile_app_bundles）
+	WhitelabelRouter      // TB-47 白标：租户翻译覆盖 + 自定义 CSS（134.sql 登记）
+	SchedulerRouter       // TB-48 统一调度器（scheduler_events + 三源聚合，137.sql 登记）
 }
 
 var Model = new(apps)

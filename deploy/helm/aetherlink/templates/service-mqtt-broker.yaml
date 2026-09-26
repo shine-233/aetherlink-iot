@@ -1,0 +1,51 @@
+{{- /* 文件用途：渲染 broker 的 MQTT Service 与 headless Service（设备接入 + StatefulSet Pod DNS）。
+核心逻辑：1883 端口对齐 compose 的 ${MQTT_PORT:-1883}:1883 容器侧；headless 供 Pod 身份解析。
+关键注意事项：默认 ClusterIP——设备从集群外接入时由部署方改成 NodePort/LoadBalancer 或前置
+TCP LB（metrics 8082 永不对外）；多副本经本 Service 轮转连接时吊销会话要覆盖全部 broker_id。
+重构建议：TLS(8883) 启用属部署侧 opt-in（见 deploy/README.md），启用时再补端口与证书挂载。 */}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-mqtt-broker
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: aetherlink-mqtt-broker
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: mqtt-broker
+    {{- range $k, $v := .Values.commonLabels }}
+    {{ $k }}: {{ $v | quote }}
+    {{- end }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: aetherlink-mqtt-broker
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: mqtt
+      port: 1883
+      targetPort: mqtt
+---
+{{- /* headless Service：StatefulSet serviceName 必需，per-Pod DNS 稳定解析。 */}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-mqtt-broker-headless
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: aetherlink-mqtt-broker
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: mqtt-broker
+    {{- range $k, $v := .Values.commonLabels }}
+    {{ $k }}: {{ $v | quote }}
+    {{- end }}
+spec:
+  type: ClusterIP
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app.kubernetes.io/name: aetherlink-mqtt-broker
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: mqtt
+      port: 1883
+      targetPort: mqtt

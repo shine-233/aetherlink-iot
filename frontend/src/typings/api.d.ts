@@ -392,6 +392,10 @@ declare namespace Api {
       last_cleanup_data_time: string | null
       /** 备注 */
       remark: string | null
+      /** 行级策略租户id（TB-15R；null=全局默认行） */
+      tenant_id: string | null
+      /** 行级策略设备档案id（null=租户级；全局行恒为 null） */
+      device_config_id: string | null
     }
 
     interface DataClear {

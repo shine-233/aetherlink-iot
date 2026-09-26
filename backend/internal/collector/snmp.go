@@ -5,6 +5,8 @@
 //
 // 关键注意事项：
 //  - v2c community 明文传输，仅限受信内网（与平台 MQTT 明文门禁口径一致）；
+//  - TB-22：v3_user 非空走 SNMPv3 authNoPriv 客户端（internal/snmp v3 层：engine discovery
+//    + HMAC 认证），每次采集独立构造客户端与 UDP 事务（与 v2c 无会话语义一致）；
 //  - 每次采集独立 UDP 事务（连接即用即弃），代理不维持 SNMP 会话状态；
 //  - 响应缺失的 OID 跳过不报错（代理常见部分应答），全缺失视为空轮次不发布。
 package collector
@@ -28,6 +30,7 @@ func (SnmpPoller) Protocol() string { return "snmp" }
 func (SnmpPoller) ConfigType() string { return "SNMP" }
 
 // Poll 单目标采集：批量 Get → OID 回填遥测键。
+// v3 点表（v3_user 非空）经 internal/snmp v3 客户端；v2c 路径保持原样。
 func (SnmpPoller) Poll(ctx context.Context, t deviceTarget) (map[string]interface{}, error) {
 	cfg, err := pointconfig.ParseSnmpConfig(t.ConfigJSON)
 	if err != nil {
@@ -43,7 +46,12 @@ func (SnmpPoller) Poll(ctx context.Context, t deviceTarget) (map[string]interfac
 		oidKey[p.OID] = p.Key
 	}
 
-	resp, err := snmp.Get(cfg.Target, cfg.Community, oids, budget)
+	var resp *snmp.Response
+	if cfg.V3Enabled() {
+		resp, err = pollV3(cfg, oids, budget)
+	} else {
+		resp, err = snmp.Get(cfg.Target, cfg.Community, oids, budget)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("snmp: Get %s 失败: %w", cfg.Target, err)
 	}
@@ -62,6 +70,20 @@ func (SnmpPoller) Poll(ctx context.Context, t deviceTarget) (map[string]interfac
 		}
 	}
 	return values, nil
+}
+
+// pollV3 SNMPv3 采集路径：按点表构造 v3 客户端（engine discovery + authNoPriv）后单轮 Get。
+// 客户端即用即弃，不跨轮保持引擎状态（boots/time 随每次 discovery 刷新）。
+func pollV3(cfg *pointconfig.SnmpConfig, oids []string, budget time.Duration) (*snmp.Response, error) {
+	auth, err := snmp.AuthProtocolByName(cfg.V3AuthProto)
+	if err != nil {
+		return nil, err
+	}
+	client, err := snmp.NewV3Client(cfg.Target, cfg.V3User, auth, cfg.V3AuthPassphrase, budget)
+	if err != nil {
+		return nil, fmt.Errorf("snmp: v3 客户端构造失败: %w", err)
+	}
+	return client.Get(oids)
 }
 
 // snmpPollBudget 解析采集超时预算。

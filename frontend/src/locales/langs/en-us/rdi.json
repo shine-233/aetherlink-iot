@@ -313,6 +313,10 @@
     "saveMenu": "Save menu",
     "confirmDelete": "Confirm delete",
     "deleteConfirm": "Delete dashboard \"{name}\"? This action cannot be undone.",
-    "confirmDeleteAction": "Delete"
+    "confirmDeleteAction": "Delete",
+    "carouselFullscreen": "Fullscreen",
+    "carouselExitFullscreen": "Exit fullscreen",
+    "carouselMissingTokens": "{count} of the requested boards are unavailable",
+    "carouselUnsupported": "Carousel playback requires native boards"
   }
 }

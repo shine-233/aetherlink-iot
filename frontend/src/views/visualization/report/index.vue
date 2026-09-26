@@ -4,7 +4,6 @@ import {
   NAlert,
   NButton,
   NCard,
-  NCheckbox,
   NDataTable,
   NDescriptions,
   NDescriptionsItem,
@@ -18,13 +17,15 @@ import {
   NModal,
   NPagination,
   NPopconfirm,
+  NSelect,
   NSpace,
   NSpin,
   NSwitch,
   NTag,
   useMessage,
   type DataTableColumns,
-  type FormInst
+  type FormInst,
+  type SelectOption
 } from 'naive-ui'
 import { $t } from '@/locales'
 import {
@@ -39,6 +40,7 @@ import {
   updateReportSchedule,
   type ReportRun,
   type ReportSchedule,
+  type ReportScheduleFormat,
   type ReportSchedulePayload,
   type UpdateReportSchedulePayload
 } from '@/service/api/report'
@@ -52,6 +54,18 @@ import { useSelectedReportRunPoll } from './useSelectedReportRunPoll'
 
 const PAGE_SIZE = 10
 const RUN_PAGE_SIZE = 10
+
+// TB-49：报表格式选项与后端 oneof=csv html pdf 同口径。标签为通用缩写，按泳道纪律
+// 以组件内常量落地（不新增四语言 locale 键）。
+const REPORT_FORMAT_OPTIONS: Array<SelectOption & { value: ReportScheduleFormat }> = [
+  { label: 'CSV', value: 'csv' },
+  { label: 'HTML', value: 'html' },
+  { label: 'PDF', value: 'pdf' }
+]
+
+// 编辑回填时归一化历史数据里的宽松取值：未知/缺失格式回落 CSV（与后端 fail-closed 一致）。
+const normalizeReportFormat = (value?: string | null): ReportScheduleFormat =>
+  value === 'html' || value === 'pdf' ? value : 'csv'
 
 const message = useMessage()
 const formRef = ref<FormInst | null>(null)
@@ -105,7 +119,7 @@ const copyForm = (schedule?: ReportSchedule) => {
     device_ids: [...source.device_ids],
     keys: [...source.keys],
     lookback_hours: source.lookback_hours,
-    format: 'csv',
+    format: normalizeReportFormat(source.format),
     enabled: source.enabled,
     ...(schedule ? { revision: schedule.revision } : {})
   })
@@ -658,7 +672,13 @@ onBeforeUnmount(() => {
           </NFormItem>
         </div>
         <div class="report-form-footer-row">
-          <NCheckbox :checked="form.format === 'csv'" disabled>CSV</NCheckbox>
+          <NSelect
+            v-model:value="form.format"
+            class="!w-36"
+            :options="REPORT_FORMAT_OPTIONS"
+            :consistent-menu-width="false"
+            data-testid="report-format"
+          />
           <label>
             <span>{{ $t('report.form.enabled') }}</span>
             <NSwitch v-model:value="form.enabled" />

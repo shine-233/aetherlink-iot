@@ -1,5 +1,7 @@
 // 文件用途：设备综合健康度评估（Device Health Score）业务逻辑层。
 // 核心逻辑：结合活跃告警严重度、在线/离线持续时长与物模型状态，执行多维扣分算法计算健康分与等级，生成处置建议。
+// 扩展点：TP-21 MSET 多元状态估计特征分经 ComputeDeviceHealthWithMSET 挂入（折入 anomaly_penalty，默认关），
+// 取数与降级见 device_health_mset.go。
 package service
 
 import (
@@ -22,7 +24,7 @@ import (
 type DeviceHealthService struct{}
 
 // EvaluateDeviceHealth 对单设备执行健康度诊断评分并落库
-func (*DeviceHealthService) EvaluateDeviceHealth(ctx context.Context, deviceID string, claims *utils.UserClaims) (*model.DeviceHealthDetailResp, error) {
+func (s *DeviceHealthService) EvaluateDeviceHealth(ctx context.Context, deviceID string, claims *utils.UserClaims) (*model.DeviceHealthDetailResp, error) {
 	if claims == nil {
 		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "claims required")
 	}
@@ -41,7 +43,8 @@ func (*DeviceHealthService) EvaluateDeviceHealth(ctx context.Context, deviceID s
 		alarms = []*model.AlarmHistory{}
 	}
 
-	scoreEntity, detailResp := ComputeDeviceHealth(device, alarms)
+	msetFeature := s.deviceHealthMSETFeature(device.ID)
+	scoreEntity, detailResp := ComputeDeviceHealthWithMSET(device, alarms, msetFeature)
 	scoreEntity.TenantID = claims.TenantID
 
 	// 尝试读取已有评分 ID 保持唯一稳定
@@ -97,7 +100,8 @@ func (s *DeviceHealthService) EvaluateTenantDeviceHealth(ctx context.Context, cl
 	// 批量评估并更新
 	for _, dev := range devices {
 		devAlarms := alarmsByDevice[dev.ID]
-		scoreEntity, _ := ComputeDeviceHealth(dev, devAlarms)
+		msetFeature := s.deviceHealthMSETFeature(dev.ID)
+		scoreEntity, _ := ComputeDeviceHealthWithMSET(dev, devAlarms, msetFeature)
 		scoreEntity.TenantID = claims.TenantID
 
 		if existing, err := dal.GetDeviceHealthScoreByDeviceID(dev.ID, claims.TenantID); err == nil && existing != nil {
@@ -136,7 +140,8 @@ func (s *DeviceHealthService) GetDeviceHealthDetail(ctx context.Context, deviceI
 	}
 
 	alarms, _ := dal.GetDeviceActiveAlarms(claims.TenantID, device.ID)
-	_, detailResp := ComputeDeviceHealth(device, alarms)
+	msetFeature := s.deviceHealthMSETFeature(device.ID)
+	_, detailResp := ComputeDeviceHealthWithMSET(device, alarms, msetFeature)
 	return detailResp, nil
 }
 
@@ -233,8 +238,20 @@ func (s *DeviceHealthService) GetTenantHealthSummary(ctx context.Context, claims
 	return summary, nil
 }
 
-// ComputeDeviceHealth 核心算法：多维量化设备综合健康度
+// ComputeDeviceHealth 核心算法：多维量化设备综合健康度（MSET 维度未启用时的等价入口）。
 func ComputeDeviceHealth(device *model.Device, alarms []*model.AlarmHistory) (*model.DeviceHealthScore, *model.DeviceHealthDetailResp) {
+	return computeDeviceHealth(device, alarms, nil)
+}
+
+// ComputeDeviceHealthWithMSET 在多维扣分模型上叠加 TP-21 MSET 特征维度。
+// mset 为 nil（开关未启用，默认）时与 ComputeDeviceHealth 完全一致。
+// MSET 扣分折入 anomaly_penalty：health_scores 表无独立 mset_penalty 列（本项不做迁移），
+// 分解明细在 details JSON 的 mset 对象与本对象里，字段语义见 model.DeviceHealthMSETFeature。
+func ComputeDeviceHealthWithMSET(device *model.Device, alarms []*model.AlarmHistory, mset *model.DeviceHealthMSETFeature) (*model.DeviceHealthScore, *model.DeviceHealthDetailResp) {
+	return computeDeviceHealth(device, alarms, mset)
+}
+
+func computeDeviceHealth(device *model.Device, alarms []*model.AlarmHistory, mset *model.DeviceHealthMSETFeature) (*model.DeviceHealthScore, *model.DeviceHealthDetailResp) {
 	now := time.Now()
 	var alarmPenalty float64
 	var offlinePenalty float64
@@ -314,7 +331,16 @@ func ComputeDeviceHealth(device *model.Device, alarms []*model.AlarmHistory) (*m
 		suggestions = append(suggestions, "设备已被管理员手动停用")
 	}
 
-	// 4. 计算综合分并截断于 [0.00, 100.00]
+	// 4. TP-21 MSET 特征维度（配置开关默认关）：偏差分 × 权重折入异常扣分；
+	//    降级时扣分为 0（中性），但如实在建议里记原因，避免"未生效"被误读成"正常"。
+	if mset != nil {
+		anomalyPenalty += mset.Penalty
+		if mset.Degraded || mset.DeviationScore >= 70.0 {
+			suggestions = append(suggestions, deviceHealthMSETSummary(mset))
+		}
+	}
+
+	// 5. 计算综合分并截断于 [0.00, 100.00]
 	score := 100.0 - alarmPenalty - offlinePenalty - anomalyPenalty
 	if score < 0.0 {
 		score = 0.0
@@ -323,7 +349,7 @@ func ComputeDeviceHealth(device *model.Device, alarms []*model.AlarmHistory) (*m
 	}
 	score = math.Round(score*100) / 100
 
-	// 5. 判定健康等级
+	// 6. 判定健康等级
 	var status string
 	switch {
 	case score >= 85.0:
@@ -350,6 +376,10 @@ func ComputeDeviceHealth(device *model.Device, alarms []*model.AlarmHistory) (*m
 		"is_online":                 isOnline,
 		"offline_duration_seconds":  offlineDurationSeconds,
 		"suggestions":               suggestions,
+	}
+	// 只在 MSET 维度实际参与评估（开关开启）时写入 details：关闭时保持旧 JSON 形状逐位不变。
+	if mset != nil {
+		detailsMap["mset"] = mset
 	}
 	detailsJSON, _ := json.Marshal(detailsMap)
 
@@ -379,6 +409,7 @@ func ComputeDeviceHealth(device *model.Device, alarms []*model.AlarmHistory) (*m
 		ActiveAlarms:           alarmList,
 		Suggestions:            suggestions,
 		EvaluatedAt:            now.Format(time.RFC3339),
+		MSET:                   mset,
 	}
 
 	return scoreEntity, detailResp

@@ -22,6 +22,47 @@ export const SCADA_CANVAS_SCHEMA_VERSION = 1
  * cannot guarantee to parse back. */
 export const SCADA_CANVAS_MAX_BYTES = 1024 * 1024
 
+/**
+ * TP-22 display modes. `fixed1080` means the canvas is authored on a 1920×1080 design
+ * resolution and the container scales it to fit the viewport (transform: scale).
+ * `responsive` keeps the free-size behaviour every existing document already has.
+ * Absent field = responsive: that is the backward-compatibility contract, mirrored by
+ * backend/internal/scadadoc (oneof + fixed1080 dimension guard, unknown value refused).
+ */
+export type ScadaDisplayMode = 'responsive' | 'fixed1080'
+export const SCADA_DISPLAY_MODES: readonly ScadaDisplayMode[] = ['responsive', 'fixed1080']
+export const SCADA_DISPLAY_MODE_FIXED_WIDTH = 1920
+export const SCADA_DISPLAY_MODE_FIXED_HEIGHT = 1080
+
+export function isScadaDisplayMode(value: unknown): value is ScadaDisplayMode {
+  return value === 'responsive' || value === 'fixed1080'
+}
+
+/** Effective display mode: an absent field is responsive, never an error. */
+export function effectiveDisplayMode(
+  canvas: Pick<ScadaCanvas, 'displayMode'> | null | undefined
+): ScadaDisplayMode {
+  return canvas?.displayMode ?? 'responsive'
+}
+
+/**
+ * Uniform fit scale for a fixed-resolution canvas: the design box must stay fully
+ * visible, so the scale is the smaller of the two axis ratios (等比缩放，不留黑边裁切).
+ * Non-positive inputs fall back to 1 instead of 0 - a broken container size must not
+ * collapse the canvas into an invisible dot.
+ */
+export function computeFitScale(
+  containerWidth: number,
+  containerHeight: number,
+  canvasWidth: number,
+  canvasHeight: number
+): number {
+  if (!(containerWidth > 0) || !(containerHeight > 0) || !(canvasWidth > 0) || !(canvasHeight > 0)) {
+    return 1
+  }
+  return Math.min(containerWidth / canvasWidth, containerHeight / canvasHeight)
+}
+
 export type ScadaCanvasNodeKind = 'widget' | 'symbol' | 'text' | 'shape'
 
 export interface ScadaCanvasNode {
@@ -44,6 +85,11 @@ export interface ScadaCanvas {
   width: number
   height: number
   background?: string
+  /**
+   * Display mode as authored. Undefined = responsive (legacy documents keep round-tripping
+   * byte-identically). Serialized only when authored, so the dirty check stays stable.
+   */
+  displayMode?: ScadaDisplayMode
   nodes: ScadaCanvasNode[]
   /** Preserved but not interpreted: forward compatibility for newer editors. */
   extra?: Record<string, unknown>
@@ -88,6 +134,34 @@ function validateNode(node: unknown, index: number): ScadaCanvasNode {
 }
 
 /**
+ * Read the display mode exactly like backend/internal/scadadoc does: the canonical key is
+ * `displayMode` (camelCase, matching every other key of this document), `display_mode` is an
+ * accepted alias so documents written by either spelling load; carrying both with different
+ * values is a broken document, not a coin flip. Unknown values are refused instead of being
+ * silently rendered as responsive - a canvas would then look normal while saving a layout
+ * the author never designed.
+ */
+function parseDisplayMode(candidate: Record<string, unknown>): ScadaDisplayMode | undefined {
+  const camel = candidate.displayMode
+  const snake = candidate.display_mode
+  if (camel === undefined && snake === undefined) {
+    return undefined
+  }
+  const camelValue = camel === undefined ? undefined : camel
+  const snakeValue = snake === undefined ? undefined : snake
+  if (camelValue !== undefined && (typeof camelValue !== 'string' || !isScadaDisplayMode(camelValue))) {
+    throw new ScadaCanvasError(`canvas displayMode must be one of ${SCADA_DISPLAY_MODES.join(', ')}`)
+  }
+  if (snakeValue !== undefined && (typeof snakeValue !== 'string' || !isScadaDisplayMode(snakeValue))) {
+    throw new ScadaCanvasError(`canvas display_mode must be one of ${SCADA_DISPLAY_MODES.join(', ')}`)
+  }
+  if (camelValue !== undefined && snakeValue !== undefined && camelValue !== snakeValue) {
+    throw new ScadaCanvasError('canvas carries conflicting displayMode and display_mode values')
+  }
+  return (camelValue ?? snakeValue) as ScadaDisplayMode
+}
+
+/**
  * Parse a canvas from its persisted string form.
  * Throws rather than returning a partially-repaired document: a silently repaired canvas
  * looks fine on screen and then saves a document the author never drew.
@@ -115,6 +189,16 @@ export function parseScadaCanvas(raw: string): ScadaCanvas {
   if (!Array.isArray(candidate.nodes)) {
     throw new ScadaCanvasError('canvas nodes must be an array')
   }
+  const displayMode = parseDisplayMode(candidate)
+  if (displayMode === 'fixed1080') {
+    // Same contract the backend enforces on save: a fixed1080 canvas is authored on
+    // 1920×1080, anything else is a document that would scale wrongly on the TV wall.
+    if ((candidate.width as number) !== SCADA_DISPLAY_MODE_FIXED_WIDTH || (candidate.height as number) !== SCADA_DISPLAY_MODE_FIXED_HEIGHT) {
+      throw new ScadaCanvasError(
+        `canvas with displayMode=fixed1080 must be ${SCADA_DISPLAY_MODE_FIXED_WIDTH}x${SCADA_DISPLAY_MODE_FIXED_HEIGHT}`
+      )
+    }
+  }
   const nodes = candidate.nodes.map((node, index) => validateNode(node, index))
   const seen = new Set<string>()
   for (const node of nodes) {
@@ -130,6 +214,7 @@ export function parseScadaCanvas(raw: string): ScadaCanvas {
     width: candidate.width as number,
     height: candidate.height as number,
     background: typeof candidate.background === 'string' ? candidate.background : undefined,
+    displayMode,
     nodes,
     extra:
       candidate.extra && typeof candidate.extra === 'object' ? (candidate.extra as Record<string, unknown>) : undefined
@@ -167,6 +252,11 @@ export function serializeScadaCanvas(canvas: ScadaCanvas): string {
     height: canvas.height
   }
   if (canvas.background !== undefined) ordered.background = canvas.background
+  // TP-22: persist the authored display mode. Omitting it would silently downgrade a
+  // fixed1080 canvas to responsive on the next save - the exact layout mismatch the
+  // backend contract refuses. Absent stays absent, so legacy documents still round-trip
+  // byte-identically.
+  if (canvas.displayMode !== undefined) ordered.displayMode = canvas.displayMode
   ordered.nodes = (canvas.nodes ?? []).map(canonicalizeNode)
   if (canvas.extra !== undefined) ordered.extra = canvas.extra
   const encoded = JSON.stringify(ordered)

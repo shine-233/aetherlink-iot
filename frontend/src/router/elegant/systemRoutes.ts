@@ -200,6 +200,16 @@ export const managementRoutes: GeneratedRoute[] = [
           title: 'management_user',
           i18nKey: 'route.management_user'
         }
+      },
+      {
+        // TB-46 用户组与组权限（GPE v1）；菜单行由 backend/sql/131.sql sys_ui_elements 种子驱动。
+        name: 'management_user-group',
+        path: '/management/user-group',
+        component: 'view.management_user-group',
+        meta: {
+          title: 'management_user-group',
+          i18nKey: 'route.management_user-group'
+        }
       }
     ]
   }

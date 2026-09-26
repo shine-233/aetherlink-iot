@@ -117,3 +117,85 @@ func TestHandleRegisterEndToEndViaCoAP(t *testing.T) {
 		t.Fatalf("注销后注册簿应空: %d", reg.Count())
 	}
 }
+
+// --- TB-22：注册/去注册事件回调（多客户端隔离接线） ---
+
+func TestHandleRegisterWithEventsRegisterAndDeregister(t *testing.T) {
+	reg := NewRegistry()
+	cr := coap.NewRegistry()
+	var events []RegistryEvent
+	cr.Register("/rd*", reg.HandleRegisterWithEvents(func(ev RegistryEvent) {
+		events = append(events, ev)
+	}))
+
+	// POST /rd 携带源地址 → 注册事件含端点、注册 ID 与 UDP 源地址。
+	req := registerReq("/rd", []string{"ep=devEV", "lt=60"})
+	req.RemoteAddr = "10.0.0.9:5683"
+	resp, err := cr.Serve(req)
+	if err != nil || resp.Code != coap.CodeCreated {
+		t.Fatalf("注册应 2.01, got %v err=%v", resp.Code, err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("注册事件数=%d", len(events))
+	}
+	ev := events[0]
+	id := strings.TrimPrefix(string(resp.Payload), "id=")
+	if ev.Kind != EventRegister || ev.Endpoint != "devEV" || ev.ID != id || ev.Addr != "10.0.0.9:5683" {
+		t.Fatalf("注册事件不符: %+v (期望 id=%s)", ev, id)
+	}
+
+	// 刷新注册（同端点）→ 再次注册事件。
+	if _, _ = cr.Serve(registerReq("/rd", []string{"ep=devEV", "lt=60"})); len(events) != 2 {
+		t.Fatalf("刷新注册应再次通知, 事件数=%d", len(events))
+	}
+
+	// DELETE /rd/{id} → 去注册事件在注销前取端点。
+	del := &coap.Message{Type: coap.TypeConfirmable, Code: coap.CodeDelete, MessageID: 6,
+		Options: uriPathOptions("/rd/" + id), RemoteAddr: "10.0.0.9:5683"}
+	if respDel, _ := cr.Serve(del); respDel.Code != coap.CodeDeleted {
+		t.Fatalf("注销应 2.02, got %v", respDel.Code)
+	}
+	if len(events) != 3 {
+		t.Fatalf("去注册事件缺失, 事件数=%d", len(events))
+	}
+	last := events[2]
+	if last.Kind != EventDeregister || last.Endpoint != "devEV" || last.ID != id {
+		t.Fatalf("去注册事件不符: %+v", last)
+	}
+
+	// 注销不存在的 ID → 4.04，无事件。
+	miss := &coap.Message{Type: coap.TypeConfirmable, Code: coap.CodeDelete, MessageID: 7,
+		Options: uriPathOptions("/rd/999"), RemoteAddr: "10.0.0.9:5683"}
+	if respMiss, _ := cr.Serve(miss); respMiss.Code != coap.CodeNotFound {
+		t.Fatalf("注销不存在应 4.04, got %v", respMiss.Code)
+	}
+	if len(events) != 3 {
+		t.Fatalf("4.04 不得产生事件, 事件数=%d", len(events))
+	}
+}
+
+func TestHandleRegisterRecordsRemoteAddr(t *testing.T) {
+	reg := NewRegistry()
+	cr := coap.NewRegistry()
+	cr.Register("/rd*", reg.HandleRegister())
+	req := registerReq("/rd", []string{"ep=devAddr"})
+	req.RemoteAddr = "192.168.1.5:40000"
+	if _, _ = cr.Serve(req); reg.Count() != 1 {
+		t.Fatal("注册应成功")
+	}
+	snap := reg.Snapshot()
+	if snap[0].Address != "192.168.1.5:40000" {
+		t.Fatalf("注册簿应记录 UDP 源地址, got %q", snap[0].Address)
+	}
+}
+
+func TestEndpointByIDLookup(t *testing.T) {
+	reg := NewRegistry()
+	id, _ := reg.Register("dev-lookup", time.Minute, "U", "1.2.3.4:9")
+	if got := reg.EndpointByID(id); got != "dev-lookup" {
+		t.Fatalf("EndpointByID=%q", got)
+	}
+	if got := reg.EndpointByID("ghost"); got != "" {
+		t.Fatalf("未知 ID 应空串, got %q", got)
+	}
+}
