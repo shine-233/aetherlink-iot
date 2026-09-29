@@ -1,53 +1,26 @@
-// 文件用途: 守护 REQ-58 设备列表搜索增强——锁定 index.vue 的 searchConfigs 筛选键集。
-// 核心逻辑: 读取 index.vue 源码,提取 searchConfigs 数组里所有 key:'...',与权威清单
+// 文件用途: 守护 REQ-58 设备列表搜索增强——锁定设备列表 searchConfigs 的筛选键集。
+// 核心逻辑: 直接调用 createDeviceManageSearchConfigs 工厂,取其返回项的 key,与权威清单
 //   DEVICE_SEARCH_KEYS 比对,任何键被误删/漏加(无对应契约)即 FAIL。
 // 关键注意事项: 此前 17+1 个内联筛选键零断言(仅 fleet 预设子集被测),属假覆盖。searchConfigs
-//   是组件内联 const 无法直接 import,故用源码解析锁定键集——增删键都会被此测试捕获。
-// 重构建议: 若 searchConfigs 提取为可导入工厂,可改为直接断言其返回键集,免去源码解析。
+//   已提取为可导入工厂(device-search-configs.ts),故断言真实返回值而非解析源码。
 
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
-import { dirname, resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+vi.mock('@/locales', () => ({
+  $t: (key: string) => key
+}))
+
+import { createDeviceManageSearchConfigs } from '../device-search-configs'
 import { DEVICE_SEARCH_KEYS } from '../device-search-keys'
 
-const here = dirname(fileURLToPath(import.meta.url))
-const indexVue = resolve(here, '../index.vue')
+const noopOptions = async () => []
 
-// 从 index.vue 源码里提取 searchConfigs 数组内的所有 key:'...' 值。
-function extractSearchConfigKeys(): string[] {
-  const src = readFileSync(indexVue, 'utf8')
-  const start = src.indexOf('const searchConfigs')
-  if (start < 0) throw new Error('searchConfigs 未在 index.vue 中找到')
-  // 取 searchConfigs 声明之后、到 defineExpose/return 之前的一段,避免误吞其它对象的 key。
-  const tail = src.slice(start)
-  const keys: string[] = []
-  const re = /key:\s*'([^']+)'/g
-  let m: RegExpExecArray | null
-  // 只扫描 searchConfigs 数组字面量范围。注意声明是 `ref<SearchConfig[]>([`,
-  // 泛型里的 '[' 会先出现,故从 `(` 之后的第一个 '[' 起算,跳过泛型参数。
-  const parenOpen = tail.indexOf('(')
-  const arrOpen = tail.indexOf('[', parenOpen)
-  let depth = 0
-  let end = -1
-  for (let i = arrOpen; i < tail.length; i++) {
-    if (tail[i] === '[') depth++
-    else if (tail[i] === ']') {
-      depth--
-      if (depth === 0) {
-        end = i
-        break
-      }
-    }
-  }
-  const arrLiteral = tail.slice(arrOpen, end < 0 ? undefined : end + 1)
-  while ((m = re.exec(arrLiteral)) !== null) keys.push(m[1])
-  return keys
-}
+const actual = createDeviceManageSearchConfigs(
+  {},
+  { getDeviceGroupOptions: noopOptions, getDeviceConfigOptions: noopOptions }
+).map((item) => item.key)
 
 describe('device-manage search keys contract (REQ-58)', () => {
-  const actual = extractSearchConfigKeys()
-
   it('searchConfigs exposes exactly the authoritative key set (no missing/extra)', () => {
     expect([...actual].sort()).toEqual([...DEVICE_SEARCH_KEYS].sort())
   })

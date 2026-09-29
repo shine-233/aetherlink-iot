@@ -3,8 +3,6 @@
 package dal
 
 import (
-	"strings"
-
 	model "aetherlink-iot/backend/internal/model"
 	global "aetherlink-iot/backend/pkg/global"
 )
@@ -53,10 +51,7 @@ func ListDataConverters(req *model.GetDataConverterListReq, tenantID string) (in
 	if req.Type != nil && *req.Type != "" {
 		db = db.Where("type = ?", *req.Type)
 	}
-	if req.Search != nil && strings.TrimSpace(*req.Search) != "" {
-		s := "%" + strings.TrimSpace(*req.Search) + "%"
-		db = db.Where("name ILIKE ? OR description ILIKE ?", s, s)
-	}
+	db = whereKeywordContainsPtr(db, opILike, req.Search, "name", "description")
 
 	if err := db.Count(&count).Error; err != nil {
 		return 0, nil, err

@@ -5,7 +5,7 @@
   重构建议：可把数据加载、筛选状态和地图适配拆分，减少页面组件职责。
 -->
 <script setup lang="tsx">
-import { createApp, onMounted, ref, watch, watchEffect } from 'vue'
+import { createApp, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { NCard } from 'naive-ui'
 import { useScriptTag } from '@vueuse/core'
 import dayjs from 'dayjs'
@@ -73,6 +73,7 @@ type MapInstanceLike = {
   setZoom: (zoom: number) => void
   fitBounds: (bounds: LatLngBoundsLike, options: { padding: number }) => void
   on: (event: string, handler: () => void) => void
+  destroy?: () => void
 }
 
 type MultiMarkerInstanceLike = {
@@ -274,7 +275,10 @@ const renderInfoWindowHtml = (evt: MarkerEvent, res: unknown) => {
     }
   })
 
-  return app.mount(document.createElement('div')).$el.outerHTML
+  // 仅借用 Vue 渲染出静态 HTML 交给 SDK；取完即卸载，避免每次点击都泄漏一个 App 实例。
+  const html = app.mount(document.createElement('div')).$el.outerHTML as string
+  app.unmount()
+  return html
 }
 
 const openMarkerInfoWindow = (evt: MarkerEvent, res: unknown) => {
@@ -361,8 +365,12 @@ watch(
   { deep: true }
 )
 
-watchEffect(async () => {
-  await renderMap()
+onBeforeUnmount(() => {
+  infoWindow?.close()
+  infoWindow = null
+  clearMarkerLayer()
+  map?.destroy?.()
+  map = null
 })
 </script>
 

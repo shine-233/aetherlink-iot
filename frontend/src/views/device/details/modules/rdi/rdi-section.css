@@ -1,0 +1,81 @@
+/*
+ * 文件用途: RDI 操作视图各分区组件共享的布局样式。
+ * 核心逻辑: 各分区组件以 <style scoped src="./rdi-section.css"> 引入，替代原先 god component 中集中的一份样式，
+ * 避免拆分后每个子组件重复拷贝同样的 grid/fieldset 规则。
+ */
+.rdi-section {
+  border-top: 1px solid #e5e7eb;
+  padding: 16px 0;
+}
+
+.rdi-section-title {
+  margin-bottom: 12px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.rdi-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.rdi-grid--two {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.rdi-grid--three {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.rdi-grid--four {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.rdi-fieldset {
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.rdi-fieldset-title {
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.rdi-status-value {
+  color: #344054;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 34px;
+}
+
+.rdi-telemetry-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.rdi-telemetry-cell {
+  display: flex;
+  min-height: 56px;
+  flex-direction: column;
+  justify-content: center;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: #f8fafc;
+}
+
+.rdi-telemetry-cell span {
+  color: #667085;
+  font-size: 12px;
+}
+
+.rdi-telemetry-cell strong {
+  margin-top: 4px;
+  font-size: 16px;
+}
+
+:deep(.n-form-item) {
+  margin-bottom: 0;
+}

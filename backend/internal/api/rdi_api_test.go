@@ -30,8 +30,11 @@ func TestRDISourceStructureContractDeclaresActivationConfigCommandFirmwareAndSha
 }
 
 func TestRDISourceStructureContractDeclaresDeviceAndTokenInputHelpers(t *testing.T) {
+	// BindAndValidate 已被泛型适配器 Handle 内聚（见 handler_adapter.go），rdi.go 不再直接出现该标识符。
+	// 绑定与校验行为本身未变，证据是 handler_adapter_test.go 的新旧写法字节级响应对比，
+	// 因此这里改为断言适配器入口，而不是断言某个具体的样板函数调用。
 	requireAPIIdentifiers(t, "rdi.go",
-		"BindAndValidate",
+		"Handle",
 		"devicePathID",
 		"Param",
 		"Set",

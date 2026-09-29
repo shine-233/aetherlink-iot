@@ -20,50 +20,6 @@ import (
 
 type DeviceTemplate struct{}
 
-// tenantIDInScopes 纯成员判断：resourceTenant 是否落在自上而下可读租户作用域内（供测试注入）。
-func tenantIDInScopes(resourceTenant string, scopes []string) bool {
-	for _, s := range scopes {
-		if s == resourceTenant {
-			return true
-		}
-	}
-	return false
-}
-
-func ensureDeviceTemplateReadAccess(templateID string, claims *utils.UserClaims) (*model.DeviceTemplate, error) {
-	if claims == nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query thing model")
-	}
-	t, err := dal.GetDeviceTemplateById(templateID)
-	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
-	}
-	if t.Flag != nil && *t.Flag == dal.DEVICE_TEMPLATE_PUBLIC {
-		return t, nil
-	}
-	// 自上而下（self∪子孙）：总部/父级管理员可读取子租户模板；系统管理员全量；叶子租户退化为仅自身。
-	if claims.Authority != dal.SYS_ADMIN && !tenantIDInScopes(t.TenantID, expandTenantIDScope(claims.TenantID)) {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query thing model")
-	}
-	return t, nil
-}
-
-func ensureDeviceTemplateWriteAccess(templateID string, claims *utils.UserClaims) (*model.DeviceTemplate, error) {
-	t, err := ensureDeviceTemplateReadAccess(templateID, claims)
-	if err != nil {
-		return nil, err
-	}
-	if t.Flag != nil && *t.Flag == dal.DEVICE_TEMPLATE_PUBLIC && claims.Authority == dal.TENANT_USER {
-		return nil, errcode.New(errcode.CodeOpDenied)
-	}
-	if claims.Authority != dal.SYS_ADMIN && t.TenantID != claims.TenantID {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to modify thing model")
-	}
-	return t, nil
-}
-
 func (*DeviceTemplate) CreateDeviceTemplate(req model.CreateDeviceTemplateReq, claims *utils.UserClaims) (*model.DeviceTemplate, error) {
 	if err := ensureTenantScopedWriteClaims(claims, "create thing model"); err != nil {
 		return nil, err
@@ -98,9 +54,7 @@ func (*DeviceTemplate) CreateDeviceTemplate(req model.CreateDeviceTemplateReq, c
 
 	data, err := dal.CreateDeviceTemplate(&deviceTemplate)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	return data, err
 }
@@ -164,9 +118,7 @@ func (*DeviceTemplate) UpdateDeviceTemplate(req model.UpdateDeviceTemplateReq, c
 	t.UpdatedAt = time.Now().UTC()
 	data, err := dal.UpdateDeviceTemplate(t)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	return data, err
 }
@@ -193,9 +145,7 @@ func (*DeviceTemplate) GetDeviceTemplateByDeviceId(deviceId string, claims *util
 	// 根据ID 获取物模型
 	t, err := dal.GetDeviceTemplateByDeviceId(deviceId)
 	if err != nil {
-		return t, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return t, dbError(err)
 	}
 	return t, nil
 }
@@ -222,9 +172,7 @@ func (*DeviceTemplate) DeleteDeviceTemplate(id string, claims *utils.UserClaims)
 
 	err = dal.DeleteDeviceTemplate(id)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	return err
 }
@@ -233,9 +181,7 @@ func (*DeviceTemplate) GetDeviceTemplateListByPage(req model.GetDeviceTemplateLi
 
 	total, list, err := dal.GetDeviceTemplateListByPage(&req, expandTenantIDScope(claims.TenantID))
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 
 	deviceTemplateMap := make(map[string]interface{})
@@ -250,9 +196,7 @@ func (*DeviceTemplate) GetDeviceTemplateMenu(req model.GetDeviceTemplateMenuReq,
 
 	data, err := dal.GetDeviceTemplateMenu(&req, expandTenantIDScope(claims.TenantID))
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	return data, nil
 }
@@ -261,9 +205,7 @@ func (*DeviceTemplate) GetDeviceTemplateMenu(req model.GetDeviceTemplateMenuReq,
 func (*DeviceTemplate) GetDeviceTemplateStats(req model.GetDeviceTemplateStatsReq, claims *utils.UserClaims) (*model.GetDeviceTemplateStatsRsp, error) {
 	data, err := dal.GetDeviceTemplateStats(req.DeviceTemplateID, expandTenantIDScope(claims.TenantID))
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	return data, nil
 }
@@ -272,9 +214,7 @@ func (*DeviceTemplate) GetDeviceTemplateStats(req model.GetDeviceTemplateStatsRe
 func (*DeviceTemplate) GetDeviceTemplateSelector(req model.GetDeviceTemplateSelectorReq, claims *utils.UserClaims) ([]*model.GetDeviceTemplateSelectorRsp, error) {
 	data, err := dal.GetDeviceTemplateSelector(&req, claims.TenantID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	return data, nil
 }
@@ -339,9 +279,7 @@ func (*DeviceTemplate) ImportDeviceTemplateWithTenant(req model.ImportDeviceTemp
 	// 幂等：同租户同名同版本直接复用。
 	existing, err := dal.FindDeviceTemplateByNameVersion(tenantID, name, version)
 	if err != nil {
-		return nil, false, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, false, dbError(err)
 	}
 	if existing != nil {
 		return existing, false, nil
@@ -367,9 +305,7 @@ func (*DeviceTemplate) ImportDeviceTemplateWithTenant(req model.ImportDeviceTemp
 	}
 	data, err := dal.CreateDeviceTemplate(&deviceTemplate)
 	if err != nil {
-		return nil, false, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, false, dbError(err)
 	}
 	return data, true, nil
 }

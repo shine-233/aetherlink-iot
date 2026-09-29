@@ -37,6 +37,8 @@ spec:
         {{ $k }}: {{ $v | quote }}
         {{- end }}
     spec:
+      # 所有组件都不调用 Kubernetes API，不挂载 SA token 以缩小凭据暴露面。
+      automountServiceAccountToken: false
       # 官方 postgres 镜像 entrypoint 需要 root 做 chown 后降权到 postgres，
       # 对齐 compose：postgres 服务不加 cap_drop/security_opt，仅加 seccomp 基线。
       securityContext:
@@ -51,6 +53,14 @@ spec:
           securityContext:
             seccompProfile:
               type: RuntimeDefault
+          {{- with .Values.postgresql.config }}
+          # 对齐 compose postgres command：values.postgresql.config 的每个键值渲染为 -c key=value。
+          args:
+            {{- range $key, $value := . }}
+            - -c
+            - {{ printf "%s=%v" $key $value | quote }}
+            {{- end }}
+          {{- end }}
           ports:
             - name: pg
               containerPort: 5432

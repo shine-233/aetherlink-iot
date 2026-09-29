@@ -91,9 +91,7 @@ func (*ServicePlugin) Create(req *model.CreateServicePluginReq, claims *utils.Us
 
 	err := query.ServicePlugin.Create(&servicePlugin)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	return map[string]interface{}{"id": servicePlugin.ID}, nil
 }
@@ -105,9 +103,7 @@ func (*ServicePlugin) List(req *model.GetServicePluginByPageReq, claims *utils.U
 
 	total, list, err := dal.GetServicePluginListByPage(req)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	if list == nil {
 		list = make([]map[string]interface{}, 0)
@@ -125,9 +121,7 @@ func (*ServicePlugin) Get(id string, claims *utils.UserClaims) (interface{}, err
 
 	resp, err := dal.GetServicePlugin(id)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	return resp, nil
 }
@@ -148,9 +142,7 @@ func (*ServicePlugin) Update(req *model.UpdateServicePluginReq, claims *utils.Us
 		"update_at":          time.Now().UTC(),
 	}
 	if err := dal.UpdateServicePlugin(req.ID, updates); err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	return nil
 }
@@ -161,9 +153,7 @@ func (*ServicePlugin) Delete(id string, claims *utils.UserClaims) error {
 	}
 
 	if err := dal.DeleteServicePlugin(id); err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	return nil
 }
@@ -175,9 +165,7 @@ func (*ServicePlugin) Heartbeat(req *model.HeartbeatReq) error {
 	}
 
 	if err := dal.UpdateServicePluginHeartbeat(req.ServiceIdentifier); err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	return nil
 }
@@ -208,9 +196,7 @@ func (*ServicePlugin) GetServiceSelect(req *model.GetServiceSelectReq, claims *u
 
 	services, err := dal.GetServiceSelectList()
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 
 	for _, service := range services {
@@ -273,9 +259,7 @@ func (*ServicePlugin) GetPluginForm(protocolType string, deviceType string, form
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return nil, errcode.New(200070)
 			}
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-			})
+			return nil, dbError(err)
 		}
 
 		_, host, err := dal.GetServicePluginHttpAddressByID(servicePlugin.ID)
@@ -312,9 +296,7 @@ func (*ServicePlugin) GetServicePluginByServiceIdentifier(serviceIdentifier stri
 
 	data, err := dal.GetServicePluginByServiceIdentifier(strings.TrimSpace(serviceIdentifier))
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	return publicServicePluginInfo(data), nil
 }

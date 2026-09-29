@@ -20,3 +20,35 @@ func HasCommandJobEventMessage(jobID, tenantID, eventType, message string) (bool
 	}
 	return count > 0, nil
 }
+
+func CreateCommandJobEvent(event *model.CommandJobEvent) error {
+	return global.DB.Create(event).Error
+}
+
+func GetCommandJobEvents(jobID, tenantID string) ([]*model.CommandJobEvent, error) {
+	var events []*model.CommandJobEvent
+	err := global.DB.
+		Where("command_job_id = ? AND tenant_id = ?", jobID, tenantID).
+		Order("created_at ASC").
+		Find(&events).Error
+	return events, err
+}
+
+func GetRecentCommandJobEvents(jobID, tenantID string, limit int) ([]*model.CommandJobEvent, error) {
+	if limit <= 0 {
+		return GetCommandJobEvents(jobID, tenantID)
+	}
+	var events []*model.CommandJobEvent
+	err := global.DB.
+		Where("command_job_id = ? AND tenant_id = ?", jobID, tenantID).
+		Order("created_at DESC, id DESC").
+		Limit(limit).
+		Find(&events).Error
+	if err != nil {
+		return nil, err
+	}
+	for left, right := 0, len(events)-1; left < right; left, right = left+1, right-1 {
+		events[left], events[right] = events[right], events[left]
+	}
+	return events, nil
+}

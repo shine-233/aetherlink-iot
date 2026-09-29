@@ -15,9 +15,9 @@ import (
 	"strings"
 	"time"
 
+	"aetherlink-iot/backend/internal/authz"
 	"aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
-	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/utils"
 
@@ -157,7 +157,7 @@ func (*AiQuery) QueryTelemetry(ctx context.Context, req *AiTelemetryQueryReq, cl
 	}
 
 	tenantID := strings.TrimSpace(claims.TenantID)
-	if claims.Authority == constant.SYS_ADMIN {
+	if authz.IsSysAdmin(claims) {
 		tenantID = strings.TrimSpace(req.TenantID)
 	}
 	if tenantID == "" {

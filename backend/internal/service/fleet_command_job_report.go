@@ -70,7 +70,7 @@ func (c *CommandData) GetFleetCommandJobReport(jobID string, format string, limi
 
 	rows, err := dal.ListFleetCommandJobReportRows(context.Background(), jobID, claims.TenantID, limit)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	report := &FleetCommandJobReport{
 		JobID:     jobID,

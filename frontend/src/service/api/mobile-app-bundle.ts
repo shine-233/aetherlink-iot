@@ -9,6 +9,7 @@
  *   不要复用本管理面上传/删除入口。
  */
 import { request } from '../request'
+import { createResource } from './resource'
 
 export type MobileAppBundlePlatform = 'android' | 'ios' | 'h5'
 export type MobileAppBundleStatus = 'draft' | 'published' | 'archived'
@@ -55,20 +56,28 @@ export const uploadMobileAppBundle = async (formData: FormData) => {
   return await request.post<MobileAppBundleItem>('/mobile/app_bundles/upload', formData)
 }
 
+const appBundles = createResource<
+  MobileAppBundleListParams,
+  MobileAppBundleListResponse,
+  MobileAppBundleItem,
+  MobileAppBundleUpdatePayload & { id: string },
+  MobileAppBundleUpdatePayload & { id: string },
+  { deleted: boolean }
+>({
+  collection: '/mobile/app_bundles',
+  // 本域创建走 multipart 上传端点，不复用集合 POST；更新/删除走单体路径。
+  updateStyle: 'item-path'
+})
+
 /** 分页查询本租户应用包列表（platform/status 精确过滤） */
-export const getMobileAppBundles = async (params?: MobileAppBundleListParams) => {
-  return await request.get<MobileAppBundleListResponse>('/mobile/app_bundles', { params })
-}
+export const getMobileAppBundles = appBundles.list
 
 /** 获取应用包详情 */
-export const getMobileAppBundle = async (id: string) => {
-  return await request.get<MobileAppBundleItem>(`/mobile/app_bundles/${encodeURIComponent(id)}`)
-}
+export const getMobileAppBundle = appBundles.detail
 
 /** 更新应用包：仅 draft 可改发布说明（published/archived 返回 202005） */
-export const updateMobileAppBundle = async (id: string, payload: MobileAppBundleUpdatePayload) => {
-  return await request.put<MobileAppBundleItem>(`/mobile/app_bundles/${encodeURIComponent(id)}`, payload)
-}
+export const updateMobileAppBundle = (id: string, payload: MobileAppBundleUpdatePayload) =>
+  appBundles.update({ ...payload, id })
 
 /** 发布：draft→published（重复发布/已归档返回 202005），落 published_at */
 export const publishMobileAppBundle = async (id: string) => {
@@ -81,6 +90,4 @@ export const archiveMobileAppBundle = async (id: string) => {
 }
 
 /** 删除应用包：仅 draft/archived（published 须先归档），后端连文件本体一起删除 */
-export const deleteMobileAppBundle = async (id: string) => {
-  return await request.delete<{ deleted: boolean }>(`/mobile/app_bundles/${encodeURIComponent(id)}`)
-}
+export const deleteMobileAppBundle = appBundles.remove

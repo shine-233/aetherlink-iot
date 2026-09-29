@@ -2,19 +2,15 @@
  * 文件用途：订阅平台告警实时推送（TB-30），并把平台字段映射为 ThingsVis 可展示数据。
  * 核心逻辑：优先走 /api/v1/alarm/status/ws WebSocket 订阅（首帧携带 token，服务端推
  * snapshot/trigger/recovery/status 事件）；连接建立前先用一次 REST 拉取当前告警状态，
- * WS 不可用时自动降级为 30s 轮询，恢复订阅后停止轮询。
+ * WS 不可用时降级为 30s 轮询，恢复订阅后停止轮询。重连退避复用统一实时客户端。
  * 关键注意事项：需要关注连接清理、字段映射和异常消息过滤，避免跨设备污染。
- * 重构建议：后续可抽出消息解析器并补充 malformed payload 测试。
- */
+ * 重构建议：后续可抽出消息解析器并补充 malformed payload 测试。 */
 import { type Ref } from 'vue'
 import { deviceAlarmStatus } from '@/service/api/device'
-import { localStg } from '@/utils/storage'
+import { createRealtimeClient } from '@/service/realtime/realtime-socket'
 import { getWebsocketServerUrl } from '@/utils/common/tool'
 import type { PlatformField } from '@/utils/thingsvis/types'
 
-/** ping 间隔。服务端心跳窗口较短，需与 useRealtimePush 保持一致（8s）。 */
-const PING_INTERVAL_MS = 8_000
-const WS_RECONNECT_DELAY_MS = 3000
 const POLL_INTERVAL_MS = 30_000
 
 interface AlarmRealtimeEvent {
@@ -38,10 +34,6 @@ export function useAlarmPush(
   pushData: (fields: Record<string, unknown>) => void
 ) {
   let alarmTimer: ReturnType<typeof setInterval> | null = null
-  let socket: WebSocket | null = null
-  let pingTimer: ReturnType<typeof setInterval> | null = null
-  let reconnectTimer: ReturnType<typeof setTimeout> | null = null
-  let destroyed = false
 
   const eventFields = () => platformFields.value.filter((field) => field.dataType === 'event')
 
@@ -135,83 +127,30 @@ export function useAlarmPush(
     alarmTimer = null
   }
 
-  const clearPingTimer = () => {
-    if (!pingTimer) return
-    clearInterval(pingTimer)
-    pingTimer = null
-  }
-
-  const scheduleReconnect = () => {
-    if (destroyed || reconnectTimer) return
-    // WS 不可用期间降级轮询，保证告警可见性不回退。
-    startPolling()
-    reconnectTimer = setTimeout(() => {
-      reconnectTimer = null
-      connect()
-    }, WS_RECONNECT_DELAY_MS)
-  }
-
-  const connect = () => {
-    if (destroyed) return
-    const token = localStg.get('token') as string | undefined
-    if (!token) {
-      startPolling()
-      return
-    }
-
-    try {
-      socket = new WebSocket(buildAlarmWsUrl())
-    } catch (error) {
-      console.warn('[useAlarmPush] Failed to open alarm websocket:', error)
-      scheduleReconnect()
-      return
-    }
-
-    socket.onopen = () => {
+  const client = createRealtimeClient({
+    logTag: 'useAlarmPush',
+    buildUrl: buildAlarmWsUrl,
+    buildAuthFrame: (token) => JSON.stringify({ token }),
+    onOpen: () => {
+      // WS 可用即停止降级轮询，避免双通道重复推送。
       stopPolling()
-      socket?.send(JSON.stringify({ token }))
-      pingTimer = setInterval(() => {
-        if (socket?.readyState === WebSocket.OPEN) {
-          socket.send('ping')
-        }
-      }, PING_INTERVAL_MS)
-    }
-
-    socket.onmessage = (event: MessageEvent) => {
-      handleAlarmMessage(event.data)
-    }
-
-    socket.onerror = (event) => {
-      console.warn('[useAlarmPush] Alarm websocket error:', event)
-    }
-
-    socket.onclose = () => {
-      clearPingTimer()
-      socket = null
-      scheduleReconnect()
-    }
-  }
+    },
+    // 无 token 或连接暂不可用时降级轮询，保证告警可见性不回退。
+    onUnavailable: startPolling,
+    onClose: startPolling,
+    onMessage: handleAlarmMessage
+  })
 
   const start = () => {
     if (!eventFields().length) return
     // 订阅建立前先拉一次当前状态，避免快照字段映射不到时界面空白。
     void fetchAlarmStatus()
-    connect()
+    client.start()
   }
 
   const stop = () => {
-    destroyed = true
     stopPolling()
-    clearPingTimer()
-    if (reconnectTimer) {
-      clearTimeout(reconnectTimer)
-      reconnectTimer = null
-    }
-    if (socket) {
-      socket.onclose = null
-      socket.close()
-      socket = null
-    }
+    client.stop()
   }
 
   return { start, stop }

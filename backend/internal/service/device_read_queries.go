@@ -20,9 +20,7 @@ func (*Device) GetDeviceListByPage(req *model.GetDeviceListByPageReq, u *utils.U
 	applyDeviceListOwnerFilterForClaims(req, u)
 	total, list, err := dal.GetDeviceListByPageForScopes(req, scopes)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	if len(list) > 0 {
 		for i := range list {
@@ -137,9 +135,7 @@ func rdiDeviceSharedStatus(additionalInfo *string) string {
 func (*Device) GetDevicePreRegisterListByPage(req *model.GetDevicePreRegisterListByPageReq, u *utils.UserClaims) (map[string]interface{}, error) {
 	total, list, err := dal.GetDevicePreRegisterListByPage(req, u.TenantID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	deviceListRsp := make(map[string]interface{})
 	deviceListRsp["total"] = total
@@ -161,16 +157,12 @@ func (*Device) GetTenantDeviceList(req *model.GetDeviceMenuReq, userClaims *util
 		// Group filtering narrows the tenant device menu when a group id is supplied.
 		data, err = dal.GetDeviceSelectByGroupId(tenantID, req.GroupId, req.DeviceName, req.BindConfig, req.OwnerUserID)
 		if err != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-			})
+			return nil, dbError(err)
 		}
 	} else {
 		data, err = dal.DeviceQuery{}.GetDeviceSelect(tenantID, req.DeviceName, req.BindConfig, req.OwnerUserID)
 		if err != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-			})
+			return nil, dbError(err)
 		}
 	}
 
@@ -227,9 +219,7 @@ func (*Device) GetDeviceTemplateChartSelect(userClaims *utils.UserClaims) (any, 
 	}
 	data, err := dal.GetDeviceTemplateChartSelect(tenantId)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	return data, nil
 }

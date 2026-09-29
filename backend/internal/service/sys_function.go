@@ -32,9 +32,7 @@ func (*SysFunction) UpdateSysFuncion(function_id string, claims *utils.UserClaim
 
 	old, err := dal.GetSysFunctionById(function_id)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	if old.ID == "" {
 		return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
@@ -52,9 +50,7 @@ func (*SysFunction) UpdateSysFuncion(function_id string, claims *utils.UserClaim
 
 	err = dal.UpdateSysFunction(function_id, upTarget)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	return err
 }

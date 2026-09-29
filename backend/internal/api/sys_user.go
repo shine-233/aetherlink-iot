@@ -174,17 +174,9 @@ func (*UserApi) ResetPassword(c *gin.Context) {
 // 核心链路：邮箱验证码仍作为第一道校验，成功后生成短期 reset_token 邮件链接，兼容用户手册中的链接式重置流程。
 // 审查重点：确认 token 一次性消费、过期时间和邮件链接基准地址配置。
 func (*UserApi) RequestPasswordResetLink(c *gin.Context) {
-	var req model.ResetPasswordLinkReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	data, err := service.GroupApp.User.RequestPasswordResetLink(c, &req)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandlePublic(c, func(req *model.ResetPasswordLinkReq) (interface{}, error) {
+		return service.GroupApp.User.RequestPasswordResetLink(c, req)
+	})
 }
 
 // CreateUser 创建用户。
@@ -257,17 +249,9 @@ func (*UserApi) UpdateUser(c *gin.Context) {
 // 审查重点：确认是否防止删除自己、最后一个管理员、已绑定关键资源的用户。
 // @Router   /api/v1/user/{id} [delete]
 func (*UserApi) DeleteUser(c *gin.Context) {
-	id := c.Param("id")
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	err := service.GroupApp.User.DeleteUser(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", nil)
+	HandlePathAction(c, "id", func(id string, userClaims *utils.UserClaims) error {
+		return service.GroupApp.User.DeleteUser(id, userClaims)
+	})
 }
 
 // HandleUser 获取指定用户详情。
@@ -339,71 +323,36 @@ func (*UserApi) UpdateUsers(c *gin.Context) {
 // 审查重点：确认换邮后登录凭证、通知邮箱、租户成员关系和第三方绑定状态是否同步更新。
 // @Router   /api/v1/user/change-email [post]
 func (*UserApi) ChangeEmail(c *gin.Context) {
-	var req model.ChangeEmailReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.User.ChangeEmail(c, &req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	Handle(c, func(req *model.ChangeEmailReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.User.ChangeEmail(c, req, userClaims)
+	})
 }
 
 // GetWarningEmails 获取当前租户的全局告警接收邮箱。
 // 审查重点：确认返回的配置与实际告警消费链路使用的是同一份租户级接收人。
 // @Router   /api/v1/user/warning-email [get]
 func (*UserApi) GetWarningEmails(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.User.GetWarningEmails(userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.User.GetWarningEmails(userClaims)
+	})
 }
 
 // UpdateWarningEmails 更新当前租户的全局告警接收邮箱。
 // 审查重点：关注邮箱列表格式校验、去重策略和租户级告警接收人与消费链路的一致性。
 // @Router   /api/v1/user/warning-email [put]
 func (*UserApi) UpdateWarningEmails(c *gin.Context) {
-	var req model.WarningEmailReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.User.UpdateWarningEmails(c, &req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	Handle(c, func(req *model.WarningEmailReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.User.UpdateWarningEmails(c, req, userClaims)
+	})
 }
 
 // UpdatePreferredLanguage 更新当前账号语言偏好，沿用既有 /user/prefer-lang 路径。
 // 审查重点：确认语言代码白名单、默认回退逻辑和缓存刷新策略在 service 层一致。
 // @Router   /api/v1/user/prefer-lang [post]
 func (*UserApi) UpdatePreferredLanguage(c *gin.Context) {
-	var req model.PreferLanguageReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.User.UpdatePreferredLanguage(c, &req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	Handle(c, func(req *model.PreferLanguageReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.User.UpdatePreferredLanguage(c, req, userClaims)
+	})
 }
 
 // TransformUser 执行用户身份转换。
@@ -431,17 +380,9 @@ func (*UserApi) TransformUser(c *gin.Context) {
 // 审查重点：确认注册开放条件、验证码验证、租户初始化默认值与重复注册行为是否受控。
 // @description 租户邮箱注册
 func (*UserApi) EmailRegister(c *gin.Context) {
-	var req model.EmailRegisterReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	loginRsp, err := service.GroupApp.EmailRegister(c, &req)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", loginRsp)
+	HandlePublic(c, func(req *model.EmailRegisterReq) (interface{}, error) {
+		return service.GroupApp.EmailRegister(c, req)
+	})
 }
 
 // HasAdmin 检查系统是否已存在超级管理员。
@@ -475,36 +416,18 @@ func (*UserApi) SetupState(c *gin.Context) {
 // 审查重点：确认该接口只能在首次安装窗口执行，且重复调用、并发调用都有幂等保护。
 // @description 首次安装超管初始化（支持市场回流参数）
 func (*UserApi) InitSuperAdmin(c *gin.Context) {
-	var req model.SuperAdminInitReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	loginRsp, err := service.GroupApp.User.InitSuperAdmin(c, &req)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", loginRsp)
+	HandlePublic(c, func(req *model.SuperAdminInitReq) (interface{}, error) {
+		return service.GroupApp.User.InitSuperAdmin(c, req)
+	})
 }
 
 // MarketRegister 沿用既有路径完成市场联动场景下的超管注册。
 // 审查重点：确认与 InitSuperAdmin 复用同一 service 时，路径差异不会引入不同安全假设。
 // @description 沿用既有接口路径的超管注册（联动市场）
 func (*UserApi) MarketRegister(c *gin.Context) {
-	var req model.SuperAdminInitReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	loginRsp, err := service.GroupApp.User.InitSuperAdmin(c, &req)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", loginRsp)
+	HandlePublic(c, func(req *model.SuperAdminInitReq) (interface{}, error) {
+		return service.GroupApp.User.InitSuperAdmin(c, req)
+	})
 }
 
 // GetTenantID 获取当前登录用户的租户 ID。
@@ -564,18 +487,7 @@ func (*UserApi) UpdateUserAddress(c *gin.Context) {
 // @Failure      400 {object} errcode.Error "错误响应"
 // @Router       /api/v1/user/selector [get]
 func (*UserApi) GetUserSelector(c *gin.Context) {
-	var req model.UserSelectorReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	result, err := service.GroupApp.User.GetUserSelector(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", result)
+	Handle(c, func(req *model.UserSelectorReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.User.GetUserSelector(req, userClaims)
+	})
 }

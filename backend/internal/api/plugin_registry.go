@@ -90,14 +90,9 @@ func (p *PluginRegistryApi) HandleDisablePlugin(c *gin.Context) {
 // HandleRotatePluginToken 凭证轮换（一次性新 token）。
 // PUT /api/v1/plugins/:id/token
 func (*PluginRegistryApi) HandleRotatePluginToken(c *gin.Context) {
-	id := c.Param("id")
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.PluginRegistry.RotateToken(id, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	HandlePath(c, "id", func(id string, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.PluginRegistry.RotateToken(id, claims)
+	})
 }
 
 // HandlePluginDownlink 平台→插件下行命令。

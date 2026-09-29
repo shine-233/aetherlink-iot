@@ -20,9 +20,9 @@ import (
 	"time"
 
 	"aetherlink-iot/backend/initialize"
+	"aetherlink-iot/backend/internal/authz"
 	"aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
-	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/utils"
 
@@ -45,9 +45,7 @@ const (
 
 // wrapAlarmDBError 将底层数据库异常统一包装成带 SQL 上下文的业务错误。
 func wrapAlarmDBError(err error) error {
-	return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-		"sql_error": err.Error(),
-	})
+	return dbError(err)
 }
 
 // wrapAlarmHistoryLoadError 区分"查不到这条告警历史"与"数据库出错"。
@@ -58,16 +56,6 @@ func wrapAlarmHistoryLoadError(err error) error {
 		return errcode.NewWithMessage(errcode.CodeNotFound, "alarm history not found")
 	}
 	return wrapAlarmDBError(err)
-}
-
-func ensureAlarmTenantAccess(resourceTenantID string, claims *utils.UserClaims, permissionMessage string) error {
-	if err := requireSupportedScopeAuthority(claims, permissionMessage); err != nil {
-		return err
-	}
-	if claims.Authority == constant.SYS_ADMIN || resourceTenantID == claims.TenantID {
-		return nil
-	}
-	return errcode.NewWithMessage(errcode.CodeNoPermission, permissionMessage)
 }
 
 func ensureAlarmConfigWriteAccess(id string, claims *utils.UserClaims) (*model.AlarmConfig, error) {
@@ -95,17 +83,6 @@ func ensureAlarmInfoWriteAccess(id string, claims *utils.UserClaims) (*model.Ala
 	return alarmInfo, nil
 }
 
-// alarm_info is a legacy active-alert table without a device relationship.
-// Until the schema records affected devices, TENANT_USER access cannot be
-// narrowed to owner_user_id safely and must fail closed instead of exposing
-// the whole tenant. Owner-scoped device alarms remain available via history.
-func ensureActiveAlarmInfoOwnerScope(claims *utils.UserClaims) error {
-	if claims == nil || (claims.Authority != constant.TENANT_ADMIN && claims.Authority != constant.SYS_ADMIN) {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, alarmInfoOwnerScopeMessage)
-	}
-	return nil
-}
-
 func ensureAlarmHistoryReadAccess(id string, claims *utils.UserClaims) (*model.AlarmHistory, error) {
 	if err := requireSupportedScopeAuthority(claims, alarmHistoryReadPermissionMessage); err != nil {
 		return nil, err
@@ -127,14 +104,14 @@ func ensureLoadedAlarmHistoryReadAccess(history *model.AlarmHistory, claims *uti
 	if history == nil {
 		return errcode.NewWithMessage(errcode.CodeNoPermission, alarmHistoryReadPermissionMessage)
 	}
-	if claims.Authority != constant.TENANT_USER {
+	if !authz.HasRole(claims, authz.TenantUser) {
 		if err := ensureAlarmTenantAccess(history.TenantID, claims, alarmHistoryReadPermissionMessage); err != nil {
 			return err
 		}
 		return nil
 	}
-	if history.TenantID != claims.TenantID {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, alarmHistoryReadPermissionMessage)
+	if err := authz.CheckTenant(claims, history.TenantID, alarmHistoryReadPermissionMessage); err != nil {
+		return err
 	}
 	for _, deviceID := range alarmHistoryDeviceIDsForAccess(history.AlarmDeviceList) {
 		// Alarm-history lists are owner-scoped for tenant users. Reuse the device
@@ -189,14 +166,14 @@ func ensureLoadedAlarmHistoryWriteAccess(history *model.AlarmHistory, claims *ut
 	if history == nil {
 		return errcode.NewWithMessage(errcode.CodeNoPermission, alarmHistoryWritePermissionMessage)
 	}
-	if claims.Authority != constant.TENANT_USER {
+	if !authz.HasRole(claims, authz.TenantUser) {
 		if err := ensureAlarmTenantAccess(history.TenantID, claims, alarmHistoryWritePermissionMessage); err != nil {
 			return err
 		}
 		return nil
 	}
-	if history.TenantID != claims.TenantID {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, alarmHistoryWritePermissionMessage)
+	if err := authz.CheckTenant(claims, history.TenantID, alarmHistoryWritePermissionMessage); err != nil {
+		return err
 	}
 	deviceIDs := alarmHistoryDeviceIDsForAccess(history.AlarmDeviceList)
 	if len(deviceIDs) == 0 {
@@ -216,15 +193,17 @@ func normalizeAlarmListTenantID(requestTenantID string, claims *utils.UserClaims
 	}
 
 	requestTenantID = strings.TrimSpace(requestTenantID)
-	if claims.Authority == constant.SYS_ADMIN {
+	if authz.IsSysAdmin(claims) {
 		return requestTenantID, nil
 	}
 
 	if strings.TrimSpace(claims.TenantID) == "" {
 		return "", errcode.NewWithMessage(errcode.CodeNoPermission, "tenant id is required")
 	}
-	if requestTenantID != "" && requestTenantID != claims.TenantID {
-		return "", errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query alarms for another tenant")
+	if requestTenantID != "" {
+		if err := authz.CheckTenant(claims, requestTenantID, "no permission to query alarms for another tenant"); err != nil {
+			return "", err
+		}
 	}
 	return claims.TenantID, nil
 }
@@ -356,9 +335,7 @@ func (*Alarm) DeleteAlarmConfig(id string, claims *utils.UserClaims) (err error)
 	}
 	err = dal.DeleteAlarmConfig(id)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	_ = dal.DeleteAlarmNameCache(id)
 	go func() {
@@ -416,7 +393,7 @@ func (*Alarm) GetAlarmConfigListByPage(req *model.GetAlarmConfigListByPageReq, c
 	}
 	req.TenantID = tenantID
 	// ROADMAP A1：SYS_ADMIN 未指定租户时显式授权全租户视角，其余空租户在 DAL fail-closed。
-	allTenants := claims.Authority == constant.SYS_ADMIN && strings.TrimSpace(tenantID) == ""
+	allTenants := authz.IsSysAdmin(claims) && strings.TrimSpace(tenantID) == ""
 	total, list, err := dal.GetAlarmConfigListByPageForScopes(req, allTenants, alarmListScopes(allTenants, tenantID))
 	if err != nil {
 		return nil, wrapAlarmDBError(err)
@@ -439,9 +416,7 @@ func (*Alarm) UpdateAlarmInfo(req *model.UpdateAlarmInfoReq, claims *utils.UserC
 	}
 	err = dal.UpdateAlarmInfo(alarmInfo)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	PublishAlarmEvent(context.Background(), alarmInfo.TenantID, map[string]interface{}{
 		"type":              "status",
@@ -475,9 +450,7 @@ func (*Alarm) UpdateAlarmInfoBatch(req *model.UpdateAlarmInfoBatchReq, claims *u
 	}
 	err := dal.UpdateAlarmInfoBatch(req, claims.ID, targetTenantID)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	PublishAlarmEvent(context.Background(), targetTenantID, map[string]interface{}{
 		"type":      "status",
@@ -497,12 +470,10 @@ func (*Alarm) GetAlarmInfoListByPage(req *model.GetAlarmInfoListByPageReq, claim
 	}
 	req.TenantID = tenantID
 	// ROADMAP A1：SYS_ADMIN 未指定租户时显式授权全租户视角，其余空租户在 DAL fail-closed。
-	allTenants := claims.Authority == constant.SYS_ADMIN && strings.TrimSpace(tenantID) == ""
+	allTenants := authz.IsSysAdmin(claims) && strings.TrimSpace(tenantID) == ""
 	total, list, err := dal.GetAlarmInfoListByPageForScopes(req, allTenants, alarmListScopes(allTenants, tenantID))
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	data = make(map[string]interface{})
 	data["total"] = total
@@ -541,9 +512,7 @@ func (*Alarm) GetAlarmHisttoryListByPage(req *model.GetAlarmHisttoryListByPage, 
 	}
 	total, list, err := dal.GetAlarmHistoryListByPageForScopes(req, alarmListScopes(req.AllTenants, tenantID), deviceOwnerUserIDFilterForClaims(claims))
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	data = make(map[string]interface{})
 	data["total"] = total
@@ -603,7 +572,7 @@ func (*Alarm) GetAlarmHistoryMonthlyTrend(req *model.AlarmHistoryMonthlyTrendReq
 		req.AllTenants,
 	)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	return &model.AlarmHistoryMonthlyTrendResp{
 		Year:   req.Year,
@@ -663,9 +632,7 @@ func (*Alarm) AlarmHistoryDescUpdate(req *model.AlarmHistoryDescUpdateReq, claim
 	}
 	err = dal.AlarmHistoryDescUpdate(req, history.TenantID)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	return
 }
@@ -711,9 +678,7 @@ func (*Alarm) GetConfigByDevice(req *model.GetDeviceAlarmStatusReq, claims *util
 	}
 	data, err := dal.GetConfigByDevice(req, device.TenantID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	return data, nil
 }
@@ -725,9 +690,7 @@ func (*Alarm) GetAlarmInfoHistoryByID(id string, claims *utils.UserClaims) (map[
 	}
 	alarmInfo, err := dal.GetAlarmInfoHistoryByID(id, deviceOwnerUserIDFilterForClaims(claims))
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	return alarmInfo, nil
 }

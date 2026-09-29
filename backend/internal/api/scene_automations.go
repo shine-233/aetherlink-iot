@@ -54,14 +54,9 @@ func (*SceneAutomationsApi) DeleteSceneAutomations(c *gin.Context) {
 // 静态审查重点：当前接口仅依赖路径 ID 和 claims，状态切换幂等性需在 service 层保证。
 // /api/v1/scene_automations/switch/{id} [post]
 func (*SceneAutomationsApi) SwitchSceneAutomations(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.SceneAutomation.SwitchSceneAutomation(id, "", userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandlePathAction(c, "id", func(id string, userClaims *utils.UserClaims) error {
+		return service.GroupApp.SceneAutomation.SwitchSceneAutomation(id, "", userClaims)
+	})
 }
 
 // UpdateSceneAutomations 更新场景自动化定义。
@@ -90,45 +85,24 @@ func (*SceneAutomationsApi) UpdateSceneAutomations(c *gin.Context) {
 // @Success 200 {object} model.SceneAutomationDryRunResult "Dry-run validation result"
 // @Router /api/v1/scene_automations/dry-run [post]
 func (*SceneAutomationsApi) DryRunSceneAutomations(c *gin.Context) {
-	var req model.DryRunSceneAutomationReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.SceneAutomation.DryRunSceneAutomation(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.DryRunSceneAutomationReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.SceneAutomation.DryRunSceneAutomation(req, userClaims)
+	})
 }
 
 func (*SceneAutomationsApi) HandleSceneAutomations(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.SceneAutomation.GetSceneAutomation(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.SceneAutomation.GetSceneAutomation(id, userClaims)
+	})
 }
 
 // HandleSceneAutomationsByPage 分页查询场景自动化列表。
 // 静态审查重点：关注查询条件缺省值带来的全量扫描风险，以及分页参数是否已在绑定阶段限幅。
 // /api/v1/scene_automations/list [get]
 func (*SceneAutomationsApi) HandleSceneAutomationsByPage(c *gin.Context) {
-	var req model.GetSceneAutomationByPageReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.SceneAutomation.GetSceneAutomationByPageReq(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.GetSceneAutomationByPageReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.SceneAutomation.GetSceneAutomationByPageReq(req, userClaims)
+	})
 }
 
 // HandleSceneAutomationsWithAlarmByPage 分页查询与告警关联的场景自动化。
@@ -160,15 +134,7 @@ func (*SceneAutomationsApi) HandleSceneAutomationsWithAlarmByPage(c *gin.Context
 // 静态审查重点：日志查询通常容易放大数据量，建议持续关注时间范围、分页上限和敏感字段脱敏。
 // /api/v1/scene_automations/log [get]
 func (*SceneAutomationsApi) HandleSceneAutomationsLog(c *gin.Context) {
-	var req model.GetSceneAutomationLogReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.SceneAutomationLog.GetSceneAutomationLog(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.GetSceneAutomationLogReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.SceneAutomationLog.GetSceneAutomationLog(req, userClaims)
+	})
 }

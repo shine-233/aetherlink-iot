@@ -17,46 +17,25 @@ type IntegrationApi struct{}
 // CreateIntegration 创建集成实例
 // @Router   /api/v1/integrations [post]
 func (*IntegrationApi) CreateIntegration(c *gin.Context) {
-	var req model.CreateIntegrationReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Integration.CreateIntegration(c.Request.Context(), &req, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.CreateIntegrationReq, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Integration.CreateIntegration(c.Request.Context(), req, claims)
+	})
 }
 
 // UpdateIntegration 更新集成实例
 // @Router   /api/v1/integrations [put]
 func (*IntegrationApi) UpdateIntegration(c *gin.Context) {
-	var req model.UpdateIntegrationReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Integration.UpdateIntegration(c.Request.Context(), &req, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.UpdateIntegrationReq, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Integration.UpdateIntegration(c.Request.Context(), req, claims)
+	})
 }
 
 // GetIntegrationByID 查询单个集成实例
 // @Router   /api/v1/integrations/:id [get]
 func (*IntegrationApi) GetIntegrationByID(c *gin.Context) {
-	id := c.Param("id")
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Integration.GetIntegrationByID(c.Request.Context(), id, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandlePath(c, "id", func(id string, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Integration.GetIntegrationByID(c.Request.Context(), id, claims)
+	})
 }
 
 // DeleteIntegration 删除集成实例
@@ -75,15 +54,7 @@ func (*IntegrationApi) DeleteIntegration(c *gin.Context) {
 // ListIntegrations 分页查询列表
 // @Router   /api/v1/integrations [get]
 func (*IntegrationApi) ListIntegrations(c *gin.Context) {
-	var req model.GetIntegrationListReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Integration.ListIntegrations(c.Request.Context(), &req, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.GetIntegrationListReq, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Integration.ListIntegrations(c.Request.Context(), req, claims)
+	})
 }

@@ -426,8 +426,11 @@ func (b *Bus) publishWithBackpressure(
 		b.logger.Warnf("%s channel full, blocking publish", queueName)
 		// 阻塞发生在订阅者回调线程上；阻塞事件与耗时是 paho 入站队列
 		// 溢出丢"已 PUBACK"消息的先行指标（P2.3 短期 B 方案）。
-		b.acct.blockedEvents[kind].Add(1)
+		// 时间戳必须先于事件计数：观测方以 blocked_events≥1 为"已进入阻塞"
+		// 的信号并随即取消发布，若计数在前，观测窗口可能落在取时间戳之前，
+		// 阻塞耗时被测成亚微秒、快照取整为 0。
 		blockedStart := time.Now()
+		b.acct.blockedEvents[kind].Add(1)
 		defer func() { b.acct.blockedNanos[kind].Add(uint64(time.Since(blockedStart))) }()
 	}
 
@@ -643,29 +646,23 @@ func (b *Bus) GetQueueManager() *isolatedqueue.QueueManager {
 	return b.queueManager
 }
 
-// recordIsolatedQueue 根据消息类型分流记录到独立隔离队列。
-func (b *Bus) recordIsolatedQueue(ctx context.Context, msg *DeviceMessage) {
+// recordIsolatedQueue 按消息类型把已接受的消息计入对应隔离队列的监控指标。
+// 只计数不入队：这些队列没有消费者，入队会在写满后永久阻塞上行摄取。
+func (b *Bus) recordIsolatedQueue(_ context.Context, msg *DeviceMessage) {
 	if b.queueManager == nil || msg == nil {
 		return
 	}
 
-	qMsg := &isolatedqueue.QueueMessage{
-		OriginatorID: msg.DeviceID,
-		Type:         msg.Type,
-		Payload:      msg.Payload,
-		Metadata:     msg.Metadata,
-	}
-
 	switch msg.Type {
 	case MessageTypeTelemetry, "gateway_telemetry", MessageTypeAttribute, "gateway_attribute":
-		_ = b.queueManager.Submit(ctx, isolatedqueue.QueueTypeMain, qMsg)
+		b.queueManager.Observe(isolatedqueue.QueueTypeMain)
 
 	case MessageTypeEvent, "gateway_event", MessageTypeStatus, MessageTypeShadowAck:
-		_ = b.queueManager.Submit(ctx, isolatedqueue.QueueTypeHighPriority, qMsg)
+		b.queueManager.Observe(isolatedqueue.QueueTypeHighPriority)
 
 	default:
 		if isResponseMessageType(msg.Type) {
-			_ = b.queueManager.SubmitByOriginator(ctx, isolatedqueue.QueueTypeSequentialByOriginator, msg.DeviceID, qMsg)
+			b.queueManager.Observe(isolatedqueue.QueueTypeSequentialByOriginator)
 		}
 	}
 }

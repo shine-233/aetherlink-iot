@@ -117,3 +117,28 @@ func TestOperationEntityFromRedactedShareTokenPath(t *testing.T) {
 func repeatByte(b byte, n int) string {
 	return strings.Repeat(string(b), n)
 }
+
+func TestResolveOperationActionAndEntity(t *testing.T) {
+	cases := []struct {
+		name               string
+		method, path       string
+		reqBody, respBody  string
+		wantAction         string
+		wantType, wantID   string
+	}{
+		{"post create fills id from response", "POST", "/api/v1/customer", `{"name":"a"}`, `{"code":200,"data":{"id":"22c2f0dd-c2ba-433a-8fb8-71a93fe4862f"}}`, "create", "customer", "22c2f0dd-c2ba-433a-8fb8-71a93fe4862f"},
+		{"post with body id becomes update", "POST", "/api/v1/customer", `{"id":"22c2f0dd-c2ba-433a-8fb8-71a93fe4862f","name":"b"}`, `{"code":200,"data":{"id":"22c2f0dd-c2ba-433a-8fb8-71a93fe4862f"}}`, "update", "customer", "22c2f0dd-c2ba-433a-8fb8-71a93fe4862f"},
+		{"path id keeps priority", "POST", "/api/v1/customer/22c2f0dd-c2ba-433a-8fb8-71a93fe4862f/devices", `{}`, `{"code":200,"data":"ok"}`, "create", "customer", "22c2f0dd-c2ba-433a-8fb8-71a93fe4862f"},
+		{"non-uuid body id ignored", "POST", "/api/v1/customer", `{"id":"custom-1","name":"b"}`, `{}`, "create", "customer", ""},
+		{"delete keeps method mapping", "DELETE", "/api/v1/customer/22c2f0dd-c2ba-433a-8fb8-71a93fe4862f", `{}`, `{}`, "delete", "customer", "22c2f0dd-c2ba-433a-8fb8-71a93fe4862f"},
+		{"bad json response tolerated", "POST", "/api/v1/customer", `{"name":"a"}`, `not-json`, "create", "customer", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			action, entityType, entityID := resolveOperationActionAndEntity(tc.method, tc.path, tc.reqBody, tc.respBody)
+			if action != tc.wantAction || entityType != tc.wantType || entityID != tc.wantID {
+				t.Fatalf("got (%q,%q,%q), want (%q,%q,%q)", action, entityType, entityID, tc.wantAction, tc.wantType, tc.wantID)
+			}
+		})
+	}
+}

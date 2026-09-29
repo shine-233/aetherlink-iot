@@ -118,7 +118,9 @@ const mountComponent = (props = {}) => {
         }),
         NDivider: true,
         EditPremise: true,
-        EditAction: true
+        EditAction: true,
+        // 引导面板需真实渲染：用例断言其可见文案。
+        FirstAutomationStarterPanel: false
       }
     }
   })

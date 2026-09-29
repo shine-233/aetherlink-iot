@@ -49,17 +49,10 @@ func schedulerClaims(c *gin.Context) *utils.UserClaims {
 // @Success 200 {object} model.SchedulerEventListResponse "Aggregated event list"
 // @Router /api/v1/scheduler/events [get]
 func (*SchedulerApi) ListSchedulerEvents(c *gin.Context) {
-	var req model.SchedulerEventListRequest
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	logrus.Info("list scheduler events request")
-	result, err := service.GroupApp.Scheduler.ListSchedulerEvents(c.Request.Context(), &req, schedulerClaims(c))
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", result)
+	HandlePublic(c, func(req *model.SchedulerEventListRequest) (interface{}, error) {
+		logrus.Info("list scheduler events request")
+		return service.GroupApp.Scheduler.ListSchedulerEvents(c.Request.Context(), req, schedulerClaims(c))
+	})
 }
 
 // CreateSchedulerEvent 注册调度事件（scene 事件同步落既有 scene automation timer 机制执行）。
@@ -71,17 +64,10 @@ func (*SchedulerApi) ListSchedulerEvents(c *gin.Context) {
 // @Success 200 {object} model.SchedulerEvent "Created scheduler event"
 // @Router /api/v1/scheduler/events [post]
 func (*SchedulerApi) CreateSchedulerEvent(c *gin.Context) {
-	var req model.SchedulerEventCreateReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	logrus.Info("create scheduler event request")
-	result, err := service.GroupApp.Scheduler.CreateSchedulerEvent(c.Request.Context(), &req, schedulerClaims(c))
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", result)
+	HandlePublic(c, func(req *model.SchedulerEventCreateReq) (interface{}, error) {
+		logrus.Info("create scheduler event request")
+		return service.GroupApp.Scheduler.CreateSchedulerEvent(c.Request.Context(), req, schedulerClaims(c))
+	})
 }
 
 // GetSchedulerEvent 注册事件详情。
@@ -111,17 +97,10 @@ func (*SchedulerApi) GetSchedulerEvent(c *gin.Context) {
 // @Success 200 {object} model.SchedulerEvent "Updated scheduler event"
 // @Router /api/v1/scheduler/events/{id} [put]
 func (*SchedulerApi) UpdateSchedulerEvent(c *gin.Context) {
-	var req model.SchedulerEventUpdateReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	logrus.Info("update scheduler event request")
-	result, err := service.GroupApp.Scheduler.UpdateSchedulerEvent(c.Request.Context(), c.Param("id"), &req, schedulerClaims(c))
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", result)
+	HandlePublic(c, func(req *model.SchedulerEventUpdateReq) (interface{}, error) {
+		logrus.Info("update scheduler event request")
+		return service.GroupApp.Scheduler.UpdateSchedulerEvent(c.Request.Context(), c.Param("id"), req, schedulerClaims(c))
+	})
 }
 
 // DeleteSchedulerEvent 删除注册事件（scene 事件同步删除执行行）。

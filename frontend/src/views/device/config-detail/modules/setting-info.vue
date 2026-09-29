@@ -245,7 +245,7 @@ onMounted(() => {
       >
         <n-upload-dragger class="upload-dragger">
           <div class="upload-content">
-            <img v-if="imagePath && imagePath !== ''" :src="imagePath" class="slt" />
+            <img v-if="imagePath && imagePath !== ''" :src="imagePath" alt="" class="slt" />
             <template v-else>
               <n-icon size="35" :depth="3">
                 <SvgIcon local-icon="picture" class="more" />

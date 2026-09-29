@@ -445,7 +445,7 @@ func (s *MobileService) SubscribePush(ctx context.Context, tenantID, userID, pla
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, err.Error())
 	}
 	if err := dal.UpsertPushRegistration(reg); err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	return reg, nil
 }
@@ -459,7 +459,7 @@ func (s *MobileService) UnsubscribePush(ctx context.Context, tenantID, registrat
 	}
 	affected, err := dal.DeletePushRegistrationInTenant(registrationID, tenantID)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return dbError(err)
 	}
 	if affected == 0 {
 		return errcode.NewWithMessage(errcode.CodeNotFound, "push registration not found")

@@ -4,11 +4,9 @@ package service
 
 import (
 	"errors"
-	"fmt"
 	"runtime/debug"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"aetherlink-iot/backend/initialize"
@@ -20,14 +18,11 @@ import (
 
 const unsupportedActionMessage = "unsupported automate action"
 
-type Automate struct {
-	device  *model.Device
-	formExt AutomateFromExt
-	mu      sync.Mutex
-	// Track per-uplink scene state so duplicate cache entries do not re-run side effects.
-	attemptedSceneIDs map[string]bool
-	executedSceneIDs  map[string]bool
-}
+// Automate 是自动化引擎的无状态服务入口（挂在 GroupApp 上）。
+// 它不持有任何每次触发的状态：一次触发的设备、触发值与场景去重集合都放在
+// automationExec 里逐调用创建、沿调用链传递，因此任意多个触发可以并发执行，
+// 不再需要进程级互斥锁把全部设备的自动化串行化。
+type Automate struct{}
 
 var conditionAfterDecoration = []ConditionAfterFunc{
 	ConditionAfterAlarm,
@@ -88,41 +83,18 @@ func logAutomationPanic(scope string, recovered interface{}) {
 	}).Error("automation panic recovered")
 }
 
+// Execute 同步执行一次设备触发的全部自动化（模板级 + 设备级）。
+// 可被并发调用：每次调用拥有独立的 automationExec。需要限流/保序的调用方
+// 应改走 Dispatch（按设备分片的有界工作池），而不是自己起 goroutine。
 func (a *Automate) Execute(deviceInfo *model.Device, fromExt AutomateFromExt) error {
 	defer a.ErrorRecover()
 	if deviceInfo == nil {
 		return errors.New("device info is required")
 	}
-
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	a.device = deviceInfo
-	a.formExt = fromExt
-	a.resetExecutionState()
-
-	// 模板级自动化与设备级自动化会各跑一遍，任何一条失败都会被汇总返回，
-	// 这样既能覆盖模板默认规则，也不会吞掉设备私有规则的执行错误。
-	var configErr error
-	if deviceInfo.DeviceConfigID != nil {
-		deviceConfigId := *deviceInfo.DeviceConfigID
-		if err := a.telExecute(deviceInfo.ID, deviceConfigId, fromExt); err != nil {
-			configErr = err
-			logrus.WithError(err).Error("device-config automation execution failed")
-		}
-	}
-
-	deviceErr := a.telExecute(deviceInfo.ID, "", fromExt)
-	switch {
-	case configErr != nil && deviceErr != nil:
-		return fmt.Errorf("device-config automation failed: %v; device automation failed: %w", configErr, deviceErr)
-	case configErr != nil:
-		return configErr
-	default:
-		return deviceErr
-	}
+	return newAutomationExec(a, deviceInfo, fromExt).run()
 }
 
-func (a *Automate) AutomateConditionCheck(conditions initialize.DTConditions, deviceId string) bool {
+func (a *automationExec) AutomateConditionCheck(conditions initialize.DTConditions, deviceId string) bool {
 	logrus.Trace("automation condition check started")
 	// 组内是 AND，组间是 OR；任意一个分组整体命中就可以触发场景。
 	return a.anyConditionGroupMatches(groupConditionsByGroupID(conditions), deviceId)

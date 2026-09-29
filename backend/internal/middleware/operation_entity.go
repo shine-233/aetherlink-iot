@@ -7,6 +7,7 @@
 package middleware
 
 import (
+	"encoding/json"
 	"net/http"
 	"strings"
 )
@@ -88,4 +89,59 @@ func isUUIDShape(s string) bool {
 
 func isHexDigit(r rune) bool {
 	return (r >= '0' && r <= '9') || (r >= 'a' && r <= 'f') || (r >= 'A' && r <= 'F')
+}
+
+// operationEntityIDFromResponse 从响应 JSON 提取 data.id（仅认 UUID 形态），
+// 用于 POST 集合级创建（新实体 ID 在响应体而非路径）的实体定位。
+func operationEntityIDFromResponse(respBody string) string {
+	var payload struct {
+		Data json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(respBody), &payload); err != nil {
+		return ""
+	}
+	var data struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(payload.Data, &data); err != nil {
+		return ""
+	}
+	if !isUUIDShape(data.ID) {
+		return ""
+	}
+	return data.ID
+}
+
+// operationRequestEntityID 提取请求体里的非空 id 字段（POST 带 id 在语义上是更新）。
+func operationRequestEntityID(reqBody string) string {
+	var payload struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(reqBody), &payload); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(payload.ID)
+}
+
+// resolveOperationActionAndEntity 汇总实体级审计的动作与实体定位：
+// 1) 动作默认按 HTTP 方法映射；2) 实体默认从路径取（entity_type=第二段、entity_id=UUID 形态第三段）；
+// 3) POST 细分：路径无实体 ID 且请求体带 UUID 形态 id → action=update 且实体取请求体；
+//    路径无实体 ID 且请求体无 id → action=create，实体 ID 从响应体 data.id 提取。
+// 脱敏约定不受影响：requestMsg/responseMsg 已经过 isSensitiveLogKey 脱敏，id 不在敏感键内。
+func resolveOperationActionAndEntity(method, path, reqBody, respBody string) (action, entityType, entityID string) {
+	action = operationActionForMethod(method)
+	entityType, entityID = operationEntityForPath(path)
+	if method != "POST" || entityType == "" {
+		return action, entityType, entityID
+	}
+	if entityID != "" {
+		return action, entityType, entityID
+	}
+	if bodyID := operationRequestEntityID(reqBody); bodyID != "" && isUUIDShape(bodyID) {
+		return "update", entityType, bodyID
+	}
+	if respID := operationEntityIDFromResponse(respBody); respID != "" {
+		return action, entityType, respID
+	}
+	return action, entityType, entityID
 }

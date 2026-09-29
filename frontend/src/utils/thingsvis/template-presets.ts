@@ -123,33 +123,6 @@ function resolvePresetFieldMeta(
   }
 }
 
-export function buildTemplateDevicePresets(rawConfig: unknown, fields: PlatformField[]) {
-  const presetMap = getTemplatePresetMap(rawConfig)
-  const fieldMap = new Map(fields.map((field) => [field.id, field]))
-
-  return Object.entries(presetMap).flatMap(([presetKey, entries]) => {
-    const match = /^(telemetry|attributes)_(.+)$/.exec(presetKey)
-    if (!match || !Array.isArray(entries)) return []
-
-    const [, propertyType, fieldId] = match as unknown as [string, TemplatePresetPropertyType, string]
-    const fieldMeta = resolvePresetFieldMeta(fieldId, propertyType, fieldMap)
-
-    return entries.flatMap((entry, index) => {
-      if (!isRecord(entry?.widget)) return []
-
-      return [
-        {
-          id: String(entry.id || `${presetKey}_${index}`),
-          name: String(entry.name || `${fieldMeta.fieldName}卡片预设`),
-          widget: entry.widget,
-          thumbnail: typeof entry.thumbnail === 'string' ? entry.thumbnail : undefined,
-          ...fieldMeta
-        }
-      ]
-    })
-  })
-}
-
 export function hasThingsVisChartContent(rawConfig: unknown) {
   const config = parseTemplateChartConfig(rawConfig)
 

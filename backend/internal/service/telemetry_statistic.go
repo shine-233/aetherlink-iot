@@ -419,9 +419,7 @@ func formatTime(timestamp int64) string {
 func (*TelemetryData) ServeMsgCountByTenantId(tenantId string) (int64, error) {
 	cnt, err := dal.GetTelemetryDataCountByTenantId(tenantId)
 	if err != nil {
-		return 0, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return 0, dbError(err)
 	}
 	return cnt, err
 }
@@ -544,9 +542,7 @@ func fetchTelemetryStatisticByDeviceIDs(req *model.GetTelemetryStatisticByDevice
 }
 
 func telemetryStatisticDBError(err error) error {
-	return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-		"sql_error": err.Error(),
-	})
+	return dbError(err)
 }
 
 func buildTelemetryStatisticChartData(results []map[string]interface{}, req *model.GetTelemetryStatisticByDeviceIdReq) []model.ChartValue {

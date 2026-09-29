@@ -24,29 +24,17 @@ type ResourceCenterApi struct{}
 // HandleResourceCenterCatalog 获取资源中心全貌目录。
 // @Router /api/v1/resource/center/catalog [get]
 func (*ResourceCenterApi) HandleResourceCenterCatalog(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	catalog, err := service.GroupApp.ResourceCenter.ResourceCenterCatalog(userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", catalog)
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.ResourceCenter.ResourceCenterCatalog(userClaims)
+	})
 }
 
 // HandleResourceCenterList 跨形态综合分页检索。
 // @Router /api/v1/resource/center/list [get]
 func (*ResourceCenterApi) HandleResourceCenterList(c *gin.Context) {
-	var req model.ResourceCenterListReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	rsp, err := service.GroupApp.ResourceCenter.ResourceCenterList(req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", rsp)
+	Handle(c, func(req *model.ResourceCenterListReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.ResourceCenter.ResourceCenterList(*req, userClaims)
+	})
 }
 
 // HandleExportResourceBundle 统一打包导出。
@@ -85,31 +73,15 @@ func (*ResourceCenterApi) HandleExportResourceBundle(c *gin.Context) {
 // HandleImportResourceBundle 统一资源包导入/冲突预览。
 // @Router /api/v1/resource/center/bundle/import [post]
 func (*ResourceCenterApi) HandleImportResourceBundle(c *gin.Context) {
-	var req model.ImportMarketBundleReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	rsp, err := service.GroupApp.ResourceCenter.ImportResourceBundle(req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", rsp)
+	Handle(c, func(req *model.ImportMarketBundleReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.ResourceCenter.ImportResourceBundle(*req, userClaims)
+	})
 }
 
 // HandleApplyResource 一键应用资源到当前租户。
 // @Router /api/v1/resource/center/apply [post]
 func (*ResourceCenterApi) HandleApplyResource(c *gin.Context) {
-	var req model.ResourceCenterApplyReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	rsp, err := service.GroupApp.ResourceCenter.ApplyResource(req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", rsp)
+	Handle(c, func(req *model.ResourceCenterApplyReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.ResourceCenter.ApplyResource(*req, userClaims)
+	})
 }

@@ -30,9 +30,10 @@ import {
   NTag,
   useMessage
 } from 'naive-ui'
-import type { DataTableColumns, PaginationProps, SelectOption } from 'naive-ui'
+import type { DataTableColumns, SelectOption } from 'naive-ui'
 import { useAuthStore } from '@/store/modules/auth'
 import { useLoading } from '@aetherlink/hooks'
+import { fromFlatResponse, useListPage } from '@/components/data-table-page/useListPage'
 import {
   assignUserGroupMembers,
   assignUserGroupPermissions,
@@ -55,57 +56,24 @@ const authStore = useAuthStore()
 
 const isSysAdmin = computed(() => authStore.userInfo?.authority === 'SYS_ADMIN')
 
-const { loading, startLoading, endLoading } = useLoading(false)
 const { loading: saving, startLoading: startSaving, endLoading: endSaving } = useLoading(false)
 
 const searchName = ref('')
-const tableData = ref<UserGroupItem[]>([])
-
-const pagination: PaginationProps = reactive({
-  page: 1,
-  pageSize: 10,
-  showSizePicker: true,
+const {
+  rows: tableData,
+  loading,
+  pagination,
+  load: getTableData,
+  search: handleSearch
+} = useListPage<UserGroupItem, { name?: string }>({
   pageSizes: [10, 15, 20, 25, 30],
-  onChange: (page: number) => {
-    pagination.page = page
-    queryParams.page = page
-    getTableData()
-  },
-  onUpdatePageSize: (pageSize: number) => {
-    pagination.pageSize = pageSize
-    pagination.page = 1
-    queryParams.page = 1
-    queryParams.page_size = pageSize
-    getTableData()
+  serialize: () => (searchName.value.trim() ? { name: searchName.value.trim() } : {}),
+  fetcher: async (params) => {
+    const result = fromFlatResponse<UserGroupItem>(await getUserGroupList(params))
+    if (!result) message.error($t('page.user_group.loadFailed'))
+    return result
   }
 })
-
-const queryParams = reactive({ page: 1, page_size: 10 })
-
-async function getTableData() {
-  startLoading()
-  try {
-    const params: Record<string, unknown> = { ...queryParams }
-    if (searchName.value.trim()) {
-      params.name = searchName.value.trim()
-    }
-    const { data, error } = await getUserGroupList(params)
-    if (!error && data) {
-      tableData.value = data.list ?? []
-      pagination.itemCount = data.total || 0
-    } else {
-      message.error($t('page.user_group.loadFailed'))
-    }
-  } finally {
-    endLoading()
-  }
-}
-
-function handleSearch() {
-  pagination.page = 1
-  queryParams.page = 1
-  getTableData()
-}
 
 // ---- 组创建/编辑弹窗 ----
 type ModalType = 'add' | 'edit'

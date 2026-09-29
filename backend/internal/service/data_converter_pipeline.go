@@ -25,15 +25,21 @@ func ExecuteUplinkDataConverter(conv *model.DataConverter, values map[string]int
 		return nil, fmt.Errorf("converter is nil")
 	}
 
-	payload, err := json.Marshal(values)
-	if err != nil {
-		return nil, fmt.Errorf("marshal telemetry payload: %w", err)
-	}
-
+	// 二进制模式只取原始编码串，JSON 文档仅在 JSON_PATH/SCRIPT 等模式需要：
+	// 按模式二选一，避免每条上行消息对二进制模式做一次随即丢弃的 json.Marshal。
+	var (
+		payload []byte
+		err     error
+	)
 	if conv.ConverterMode == "HEX_BINARY" || conv.ConverterMode == model.ConverterModeProtoBuf {
 		payload, err = extractRawPayload(values)
 		if err != nil {
 			return nil, err
+		}
+	} else {
+		payload, err = json.Marshal(values)
+		if err != nil {
+			return nil, fmt.Errorf("marshal telemetry payload: %w", err)
 		}
 	}
 

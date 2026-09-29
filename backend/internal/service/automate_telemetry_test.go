@@ -27,22 +27,22 @@ import (
 // --- containString ---
 
 func TestAutomateTelemetryContainString_Found(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.True(t, a.containString([]string{"temp", "humidity", "pressure"}, "humidity"))
 }
 
 func TestAutomateTelemetryContainString_NotFound(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.False(t, a.containString([]string{"temp", "humidity"}, "voltage"))
 }
 
 func TestAutomateTelemetryContainString_EmptySlice(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.False(t, a.containString([]string{}, "temp"))
 }
 
 func TestAutomateTelemetryContainString_NilSlice(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.False(t, a.containString(nil, "temp"))
 }
 
@@ -55,7 +55,7 @@ func TestAutomateTelemetryConditionCheckWithTime(t *testing.T) {
 	})
 
 	fixedMonday := time.Date(2026, 6, 22, 10, 30, 0, 0, time.UTC)
-	a := &Automate{}
+	a := &automationExec{}
 
 	tests := []struct {
 		name         string
@@ -240,45 +240,45 @@ func TestAutomateTelemetryToBool_Int(t *testing.T) {
 // --- automateConditionCheckByOperatorWithFloat ---
 
 func TestAutomateTelemetryConditionCheckWithFloat_EQ(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.True(t, a.automateConditionCheckByOperatorWithFloat("=", "10.5", 10.5))
 	assert.False(t, a.automateConditionCheckByOperatorWithFloat("=", "10.5", 10.6))
 }
 
 func TestAutomateTelemetryConditionCheckWithFloat_NEQ(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.True(t, a.automateConditionCheckByOperatorWithFloat("!=", "10.5", 10.6))
 	assert.False(t, a.automateConditionCheckByOperatorWithFloat("!=", "10.5", 10.5))
 }
 
 func TestAutomateTelemetryConditionCheckWithFloat_GT(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.True(t, a.automateConditionCheckByOperatorWithFloat(">", "10", 11))
 	assert.False(t, a.automateConditionCheckByOperatorWithFloat(">", "10", 9))
 }
 
 func TestAutomateTelemetryConditionCheckWithFloat_LT(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.True(t, a.automateConditionCheckByOperatorWithFloat("<", "10", 9))
 	assert.False(t, a.automateConditionCheckByOperatorWithFloat("<", "10", 11))
 }
 
 func TestAutomateTelemetryConditionCheckWithFloat_GTE(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.True(t, a.automateConditionCheckByOperatorWithFloat(">=", "10", 10))
 	assert.True(t, a.automateConditionCheckByOperatorWithFloat(">=", "10", 11))
 	assert.False(t, a.automateConditionCheckByOperatorWithFloat(">=", "10", 9))
 }
 
 func TestAutomateTelemetryConditionCheckWithFloat_LTE(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.True(t, a.automateConditionCheckByOperatorWithFloat("<=", "10", 10))
 	assert.True(t, a.automateConditionCheckByOperatorWithFloat("<=", "10", 9))
 	assert.False(t, a.automateConditionCheckByOperatorWithFloat("<=", "10", 11))
 }
 
 func TestAutomateTelemetryConditionCheckWithFloat_BETWEEN(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.True(t, a.automateConditionCheckByOperatorWithFloat("between", "10-20", 15))
 	assert.True(t, a.automateConditionCheckByOperatorWithFloat("between", "10-20", 10))
 	assert.True(t, a.automateConditionCheckByOperatorWithFloat("between", "10-20", 20))
@@ -289,25 +289,25 @@ func TestAutomateTelemetryConditionCheckWithFloat_BETWEEN(t *testing.T) {
 }
 
 func TestAutomateTelemetryConditionCheckWithFloat_BETWEEN_InvalidFormat(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.False(t, a.automateConditionCheckByOperatorWithFloat("between", "10", 15))
 	assert.False(t, a.automateConditionCheckByOperatorWithFloat("between", "a-b", 15))
 }
 
 func TestAutomateTelemetryConditionCheckWithFloat_IN(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.True(t, a.automateConditionCheckByOperatorWithFloat("in", "10,20,30", 20))
 	assert.True(t, a.automateConditionCheckByOperatorWithFloat("in", "10, 20, 30", 20))
 	assert.False(t, a.automateConditionCheckByOperatorWithFloat("in", "10,20,30", 15))
 }
 
 func TestAutomateTelemetryConditionCheckWithFloat_InvalidCondValue(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.False(t, a.automateConditionCheckByOperatorWithFloat("=", "not-a-number", 10))
 }
 
 func TestAutomateTelemetryConditionCheckWithFloat_InvalidCondValueForComparisons(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 
 	for _, operator := range []string{"=", "!=", ">", "<", ">=", "<="} {
 		t.Run(operator, func(t *testing.T) {
@@ -317,59 +317,59 @@ func TestAutomateTelemetryConditionCheckWithFloat_InvalidCondValueForComparisons
 }
 
 func TestAutomateTelemetryConditionCheckWithFloat_UnknownOperator(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.False(t, a.automateConditionCheckByOperatorWithFloat("???", "10", 10))
 }
 
 // --- automateConditionCheckByOperatorWithString ---
 
 func TestAutomateTelemetryConditionCheckWithString_EQ(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.True(t, a.automateConditionCheckByOperatorWithString("=", "hello", "hello"))
 	assert.True(t, a.automateConditionCheckByOperatorWithString("=", "Hello", "HELLO")) // case insensitive
 	assert.False(t, a.automateConditionCheckByOperatorWithString("=", "hello", "world"))
 }
 
 func TestAutomateTelemetryConditionCheckWithString_NEQ(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.True(t, a.automateConditionCheckByOperatorWithString("!=", "hello", "world"))
 	assert.False(t, a.automateConditionCheckByOperatorWithString("!=", "hello", "hello"))
 	assert.False(t, a.automateConditionCheckByOperatorWithString("!=", "Hello", "HELLO"))
 }
 
 func TestAutomateTelemetryConditionCheckWithString_GT_Numeric(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.True(t, a.automateConditionCheckByOperatorWithString(">", "10", "20"))
 	assert.False(t, a.automateConditionCheckByOperatorWithString(">", "10", "5"))
 }
 
 func TestAutomateTelemetryConditionCheckWithString_GT_Lexicographic(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.True(t, a.automateConditionCheckByOperatorWithString(">", "a", "b"))
 	assert.False(t, a.automateConditionCheckByOperatorWithString(">", "10", "9a"))
 	assert.False(t, a.automateConditionCheckByOperatorWithString(">", "10a", "9"))
 }
 
 func TestAutomateTelemetryConditionCheckWithString_LT_Numeric(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.True(t, a.automateConditionCheckByOperatorWithString("<", "10", "5"))
 	assert.False(t, a.automateConditionCheckByOperatorWithString("<", "10", "20"))
 }
 
 func TestAutomateTelemetryConditionCheckWithString_GTE(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.True(t, a.automateConditionCheckByOperatorWithString(">=", "10", "10"))
 	assert.True(t, a.automateConditionCheckByOperatorWithString(">=", "10", "20"))
 }
 
 func TestAutomateTelemetryConditionCheckWithString_LTE(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.True(t, a.automateConditionCheckByOperatorWithString("<=", "10", "10"))
 	assert.True(t, a.automateConditionCheckByOperatorWithString("<=", "10", "5"))
 }
 
 func TestAutomateTelemetryConditionCheckWithString_BETWEEN_Numeric(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.True(t, a.automateConditionCheckByOperatorWithString("between", "10-20", "15"))
 	assert.True(t, a.automateConditionCheckByOperatorWithString("between", "10-20", "10"))
 	assert.True(t, a.automateConditionCheckByOperatorWithString("between", "10-20", "20"))
@@ -380,43 +380,43 @@ func TestAutomateTelemetryConditionCheckWithString_BETWEEN_Numeric(t *testing.T)
 }
 
 func TestAutomateTelemetryConditionCheckWithString_BETWEEN_Lexicographic(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.True(t, a.automateConditionCheckByOperatorWithString("between", "a-z", "a"))
 	assert.True(t, a.automateConditionCheckByOperatorWithString("between", "a-z", "m"))
 	assert.True(t, a.automateConditionCheckByOperatorWithString("between", "a-z", "z"))
 }
 
 func TestAutomateTelemetryConditionCheckWithString_IN(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.True(t, a.automateConditionCheckByOperatorWithString("in", "a,b,c", "b"))
 	assert.True(t, a.automateConditionCheckByOperatorWithString("in", "a, b, c", "b"))
 	assert.False(t, a.automateConditionCheckByOperatorWithString("in", "a,b,c", "d"))
 }
 
 func TestAutomateTelemetryConditionCheckWithString_UnknownOperator(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.False(t, a.automateConditionCheckByOperatorWithString("???", "hello", "hello"))
 }
 
 // --- automateConditionCheckByOperator ---
 
 func TestAutomateTelemetryConditionCheckByOperator_StringValue(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.True(t, a.automateConditionCheckByOperator("=", "hello", "hello"))
 }
 
 func TestAutomateTelemetryConditionCheckByOperator_FloatValue(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.True(t, a.automateConditionCheckByOperator("=", "10.5", 10.5))
 }
 
 func TestAutomateTelemetryConditionCheckByOperator_BoolValue(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.True(t, a.automateConditionCheckByOperator("=", "true", true))
 }
 
 func TestAutomateTelemetryConditionCheckByOperator_UnsupportedType(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.False(t, a.automateConditionCheckByOperator("=", "10", []int{1}))
 }
 
@@ -645,7 +645,7 @@ func TestAutomateTelemetryParseEventActualValue_OtherType(t *testing.T) {
 // --- AutomateFilter ---
 
 func TestAutomateTelemetryAutomateFilter_TelemetryMatch(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	triggerParamType := model.TRIGGER_PARAM_TYPE_TEL
 	triggerParam := "temperature"
 	info := initialize.AutomateExecteParams{
@@ -669,7 +669,7 @@ func TestAutomateTelemetryAutomateFilter_TelemetryMatch(t *testing.T) {
 }
 
 func TestAutomateTelemetryAutomateFilter_TelemetryNoMatch(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	triggerParamType := model.TRIGGER_PARAM_TYPE_TEL
 	triggerParam := "humidity"
 	info := initialize.AutomateExecteParams{
@@ -693,7 +693,7 @@ func TestAutomateTelemetryAutomateFilter_TelemetryNoMatch(t *testing.T) {
 }
 
 func TestAutomateTelemetryAutomateFilter_StatusMatch(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	triggerParamType := model.TRIGGER_PARAM_TYPE_STATUS
 	info := initialize.AutomateExecteParams{
 		AutomateExecteSceeInfos: []initialize.AutomateExecteSceneInfo{
@@ -715,7 +715,7 @@ func TestAutomateTelemetryAutomateFilter_StatusMatch(t *testing.T) {
 }
 
 func TestAutomateTelemetryAutomateFilterPreservesMatchingSceneAndActions(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 
 	targetDevice := "device-telemetry-target"
 	targetEvent := "scene-event-target"
@@ -830,7 +830,7 @@ func TestAutomateTelemetryAutomateFilterPreservesMatchingSceneAndActions(t *test
 }
 
 func TestAutomateTelemetryAutomateFilter_NilTriggerParams(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	info := initialize.AutomateExecteParams{
 		AutomateExecteSceeInfos: []initialize.AutomateExecteSceneInfo{
 			{
@@ -852,7 +852,7 @@ func TestAutomateTelemetryAutomateFilter_NilTriggerParams(t *testing.T) {
 }
 
 func TestAutomateTelemetryAutomateFilter_EmptyScenes(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	info := initialize.AutomateExecteParams{
 		AutomateExecteSceeInfos: []initialize.AutomateExecteSceneInfo{},
 	}
@@ -879,24 +879,24 @@ func TestAutomateTelemetryExecuteRun_AttemptsDuplicateFailedSceneOnlyOnce(t *tes
 		executeRunActionAfterDecoration = originalActionAfterDecoration
 	})
 
-	executeRunLimiterAllow = func(a *Automate, id string) bool {
+	executeRunLimiterAllow = func(a *automationExec, id string) bool {
 		return true
 	}
-	executeRunCheckSceneAutomationHasClose = func(a *Automate, sceneAutomationId string) bool {
+	executeRunCheckSceneAutomationHasClose = func(a *automationExec, sceneAutomationId string) bool {
 		return false
 	}
-	executeRunConditionCheck = func(a *Automate, conditions initialize.DTConditions, deviceId string) bool {
+	executeRunConditionCheck = func(a *automationExec, conditions initialize.DTConditions, deviceId string) bool {
 		return true
 	}
 
 	callCount := 0
-	executeRunSceneAutomateExecute = func(a *Automate, sceneAutomationId string, deviceIds []string, actions []model.ActionInfo) error {
+	executeRunSceneAutomateExecute = func(a *automationExec, sceneAutomationId string, deviceIds []string, actions []model.ActionInfo) error {
 		callCount++
 		return errors.New("scene execution failed")
 	}
-	executeRunActionAfterDecoration = func(a *Automate, actions []model.ActionInfo, deviceId string, err error) {}
+	executeRunActionAfterDecoration = func(a *automationExec, actions []model.ActionInfo, deviceId string, err error) {}
 
-	a := &Automate{}
+	a := &automationExec{}
 	info := initialize.AutomateExecteParams{
 		DeviceId: "device-1",
 		AutomateExecteSceeInfos: []initialize.AutomateExecteSceneInfo{
@@ -927,22 +927,22 @@ func TestAutomateTelemetryExecuteRun_DoesNotConsumeLimiterWhenConditionFails(t *
 	})
 
 	limiterCalls := 0
-	executeRunLimiterAllow = func(a *Automate, id string) bool {
+	executeRunLimiterAllow = func(a *automationExec, id string) bool {
 		limiterCalls++
 		return true
 	}
-	executeRunCheckSceneAutomationHasClose = func(a *Automate, sceneAutomationId string) bool {
+	executeRunCheckSceneAutomationHasClose = func(a *automationExec, sceneAutomationId string) bool {
 		return false
 	}
-	executeRunConditionCheck = func(a *Automate, conditions initialize.DTConditions, deviceId string) bool {
+	executeRunConditionCheck = func(a *automationExec, conditions initialize.DTConditions, deviceId string) bool {
 		return false
 	}
-	executeRunSceneAutomateExecute = func(a *Automate, sceneAutomationId string, deviceIds []string, actions []model.ActionInfo) error {
+	executeRunSceneAutomateExecute = func(a *automationExec, sceneAutomationId string, deviceIds []string, actions []model.ActionInfo) error {
 		t.Fatal("scene should not execute when condition fails")
 		return nil
 	}
 
-	err := (&Automate{}).ExecuteRun(initialize.AutomateExecteParams{
+	err := (&automationExec{}).ExecuteRun(initialize.AutomateExecteParams{
 		DeviceId: "device-1",
 		AutomateExecteSceeInfos: []initialize.AutomateExecteSceneInfo{
 			{SceneAutomationId: "scene-1"},
@@ -966,19 +966,19 @@ func TestAutomateTelemetryExecuteRun_ChecksClosedBeforeLimiter(t *testing.T) {
 
 	limiterCalls := 0
 	conditionCalls := 0
-	executeRunLimiterAllow = func(a *Automate, id string) bool {
+	executeRunLimiterAllow = func(a *automationExec, id string) bool {
 		limiterCalls++
 		return true
 	}
-	executeRunCheckSceneAutomationHasClose = func(a *Automate, sceneAutomationId string) bool {
+	executeRunCheckSceneAutomationHasClose = func(a *automationExec, sceneAutomationId string) bool {
 		return true
 	}
-	executeRunConditionCheck = func(a *Automate, conditions initialize.DTConditions, deviceId string) bool {
+	executeRunConditionCheck = func(a *automationExec, conditions initialize.DTConditions, deviceId string) bool {
 		conditionCalls++
 		return true
 	}
 
-	err := (&Automate{}).ExecuteRun(initialize.AutomateExecteParams{
+	err := (&automationExec{}).ExecuteRun(initialize.AutomateExecteParams{
 		DeviceId: "device-1",
 		AutomateExecteSceeInfos: []initialize.AutomateExecteSceneInfo{
 			{SceneAutomationId: "scene-1"},
@@ -1006,23 +1006,23 @@ func TestAutomateTelemetryExecuteRun_ConsumesLimiterOnlyForReadyScene(t *testing
 	})
 
 	limiterCalls := 0
-	executeRunLimiterAllow = func(a *Automate, id string) bool {
+	executeRunLimiterAllow = func(a *automationExec, id string) bool {
 		limiterCalls++
 		assert.Equal(t, "scene-1:device-1", id)
 		return true
 	}
-	executeRunCheckSceneAutomationHasClose = func(a *Automate, sceneAutomationId string) bool {
+	executeRunCheckSceneAutomationHasClose = func(a *automationExec, sceneAutomationId string) bool {
 		return false
 	}
-	executeRunConditionCheck = func(a *Automate, conditions initialize.DTConditions, deviceId string) bool {
+	executeRunConditionCheck = func(a *automationExec, conditions initialize.DTConditions, deviceId string) bool {
 		return true
 	}
-	executeRunSceneAutomateExecute = func(a *Automate, sceneAutomationId string, deviceIds []string, actions []model.ActionInfo) error {
+	executeRunSceneAutomateExecute = func(a *automationExec, sceneAutomationId string, deviceIds []string, actions []model.ActionInfo) error {
 		return nil
 	}
-	executeRunActionAfterDecoration = func(a *Automate, actions []model.ActionInfo, deviceId string, err error) {}
+	executeRunActionAfterDecoration = func(a *automationExec, actions []model.ActionInfo, deviceId string, err error) {}
 
-	a := &Automate{}
+	a := &automationExec{}
 	err := a.ExecuteRun(initialize.AutomateExecteParams{
 		DeviceId: "device-1",
 		AutomateExecteSceeInfos: []initialize.AutomateExecteSceneInfo{
@@ -1048,20 +1048,20 @@ func TestAutomateTelemetryExecuteRun_SkipsPreviouslyAttemptedSceneBeforeGuards(t
 	})
 
 	guardCalls := 0
-	executeRunLimiterAllow = func(a *Automate, id string) bool {
+	executeRunLimiterAllow = func(a *automationExec, id string) bool {
 		guardCalls++
 		return true
 	}
-	executeRunCheckSceneAutomationHasClose = func(a *Automate, sceneAutomationId string) bool {
+	executeRunCheckSceneAutomationHasClose = func(a *automationExec, sceneAutomationId string) bool {
 		guardCalls++
 		return false
 	}
-	executeRunConditionCheck = func(a *Automate, conditions initialize.DTConditions, deviceId string) bool {
+	executeRunConditionCheck = func(a *automationExec, conditions initialize.DTConditions, deviceId string) bool {
 		guardCalls++
 		return true
 	}
 
-	a := &Automate{}
+	a := &automationExec{}
 	a.markSceneAttempted("scene-1")
 
 	err := a.ExecuteRun(initialize.AutomateExecteParams{
@@ -1088,7 +1088,7 @@ func TestAutomateTelemetryErrorRecoverLogsPanic(t *testing.T) {
 	})
 
 	func() {
-		defer (&Automate{}).ErrorRecover()
+		defer (&automationExec{}).ErrorRecover()
 		panic("recover-me")
 	}()
 
@@ -1099,21 +1099,21 @@ func TestAutomateTelemetryErrorRecoverLogsPanic(t *testing.T) {
 // --- automateEventParamConditionCheck ---
 
 func TestAutomateTelemetryEventParamConditionCheck_InvalidJSON(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	ok, _, handled := a.automateEventParamConditionCheck("not-json", map[string]interface{}{})
 	assert.False(t, ok)
 	assert.False(t, handled)
 }
 
 func TestAutomateTelemetryEventParamConditionCheck_NonFieldMode(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	ok, _, handled := a.automateEventParamConditionCheck(`{"match_mode":"regex"}`, map[string]interface{}{})
 	assert.False(t, ok)
 	assert.False(t, handled)
 }
 
 func TestAutomateTelemetryEventParamConditionCheck_FieldModeNoConditions(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	ok, detail, handled := a.automateEventParamConditionCheck(`{"match_mode":"field","conditions":[]}`, map[string]interface{}{})
 	assert.False(t, ok)
 	assert.True(t, handled)
@@ -1121,7 +1121,7 @@ func TestAutomateTelemetryEventParamConditionCheck_FieldModeNoConditions(t *test
 }
 
 func TestAutomateTelemetryEventParamConditionCheck_FieldModeWithConditions(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	triggerValue := `{"match_mode":"field","conditions":[{"field":"status","operator":"=","value":"ok"}]}`
 	actualValue := map[string]interface{}{"status": "ok"}
 	ok, detail, handled := a.automateEventParamConditionCheck(triggerValue, actualValue)
@@ -1131,7 +1131,7 @@ func TestAutomateTelemetryEventParamConditionCheck_FieldModeWithConditions(t *te
 }
 
 func TestAutomateTelemetryEventParamConditionCheck_FieldModeConditionNotMet(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	triggerValue := `{"match_mode":"field","conditions":[{"field":"status","operator":"=","value":"ok"}]}`
 	actualValue := map[string]interface{}{"status": "error"}
 	ok, detail, handled := a.automateEventParamConditionCheck(triggerValue, actualValue)
@@ -1141,7 +1141,7 @@ func TestAutomateTelemetryEventParamConditionCheck_FieldModeConditionNotMet(t *t
 }
 
 func TestAutomateTelemetryEventParamConditionCheck_BetweenNegativeStringRange(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	triggerValue := `{"match_mode":"field","conditions":[{"field":"temperature","operator":"between","value":"-10--1"}]}`
 	actualValue := map[string]interface{}{"temperature": -5}
 	ok, detail, handled := a.automateEventParamConditionCheck(triggerValue, actualValue)
@@ -1151,7 +1151,7 @@ func TestAutomateTelemetryEventParamConditionCheck_BetweenNegativeStringRange(t 
 }
 
 func TestAutomateTelemetryEventParamConditionCheck_InvalidActualValue(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	triggerValue := `{"match_mode":"field","conditions":[{"field":"status","operator":"=","value":"ok"}]}`
 	ok, _, handled := a.automateEventParamConditionCheck(triggerValue, 42)
 	assert.False(t, ok)
@@ -1161,14 +1161,14 @@ func TestAutomateTelemetryEventParamConditionCheck_InvalidActualValue(t *testing
 // --- matchEventParamCondition ---
 
 func TestAutomateTelemetryMatchEventParamCondition_EmptyField(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	ok, detail := a.matchEventParamCondition(map[string]interface{}{}, eventParamCondition{Field: "", Operator: "=", Value: "test"})
 	assert.False(t, ok)
 	assert.Equal(t, "event condition field is required", detail)
 }
 
 func TestAutomateTelemetryMatchEventParamCondition_ExistsOperator(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	data := map[string]interface{}{
 		"status": "ok",
 		"nested": map[string]interface{}{
@@ -1236,7 +1236,7 @@ func TestAutomateTelemetryMatchEventParamCondition_ExistsOperator(t *testing.T) 
 }
 
 func TestAutomateTelemetryMatchEventParamCondition_FieldMissing(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	data := map[string]interface{}{}
 	ok, detail := a.matchEventParamCondition(data, eventParamCondition{Field: "status", Operator: "=", Value: "ok"})
 	assert.False(t, ok)
@@ -1246,25 +1246,25 @@ func TestAutomateTelemetryMatchEventParamCondition_FieldMissing(t *testing.T) {
 // --- matchEventParamValue ---
 
 func TestAutomateTelemetryMatchEventParamValue_EQ(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.True(t, a.matchEventParamValue("=", "ok", "ok"))
 	assert.False(t, a.matchEventParamValue("=", "ok", "error"))
 }
 
 func TestAutomateTelemetryMatchEventParamValue_NEQ(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.True(t, a.matchEventParamValue("!=", "ok", "error"))
 	assert.False(t, a.matchEventParamValue("!=", "ok", "ok"))
 }
 
 func TestAutomateTelemetryMatchEventParamValue_GT(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.True(t, a.matchEventParamValue(">", 5, 10))
 	assert.False(t, a.matchEventParamValue(">", 10, 5))
 }
 
 func TestAutomateTelemetryMatchEventParamValue_BETWEEN(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.True(t, a.matchEventParamValue("between", []interface{}{10, 20}, 15))
 	assert.True(t, a.matchEventParamValue("between", []interface{}{10, 20}, 10))
 	assert.True(t, a.matchEventParamValue("between", []interface{}{10, 20}, 20))
@@ -1272,7 +1272,7 @@ func TestAutomateTelemetryMatchEventParamValue_BETWEEN(t *testing.T) {
 }
 
 func TestAutomateTelemetryMatchEventParamValue_IN(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.True(t, a.matchEventParamValue("in", []interface{}{"a", "b", "c"}, "b"))
 	assert.False(t, a.matchEventParamValue("in", []interface{}{"a", "b", "c"}, "d"))
 	assert.True(t, a.matchEventParamValue("in", "a,b,c", "b"))
@@ -1280,7 +1280,7 @@ func TestAutomateTelemetryMatchEventParamValue_IN(t *testing.T) {
 }
 
 func TestAutomateTelemetryMatchEventParamValue_ArrayActual(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.True(t, a.matchEventParamValue("=", "ok", []interface{}{"error", "ok"}))
 	assert.False(t, a.matchEventParamValue("=", "ok", []interface{}{"error", "fail"}))
 	assert.False(t, a.matchEventParamValue("!=", "ok", []interface{}{"ok", "error"}))
@@ -1293,14 +1293,14 @@ func TestAutomateTelemetryMatchEventParamValue_ArrayActual(t *testing.T) {
 }
 
 func TestAutomateTelemetryMatchEventParamValue_UnknownOperator(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	assert.False(t, a.matchEventParamValue("???", "ok", "ok"))
 }
 
 // --- AutomateConditionCheckWithGroupOne ---
 
 func TestAutomateTelemetryConditionCheckWithGroupOne_TimeType(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	cond := model.DeviceTriggerCondition{
 		TriggerConditionType: model.DEVICE_TRIGGER_CONDITION_TYPE_TIME,
 		TriggerValue:         "", // empty trigger value returns false
@@ -1311,7 +1311,7 @@ func TestAutomateTelemetryConditionCheckWithGroupOne_TimeType(t *testing.T) {
 }
 
 func TestAutomateTelemetryConditionCheckWithGroupOne_DefaultType(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	cond := model.DeviceTriggerCondition{
 		TriggerConditionType: "99", // unknown type returns true
 	}
@@ -1321,13 +1321,13 @@ func TestAutomateTelemetryConditionCheckWithGroupOne_DefaultType(t *testing.T) {
 }
 
 func TestAutomateExecuteRejectsNilDevice(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 	err := a.Execute(nil, AutomateFromExt{})
 	assert.EqualError(t, err, "device info is required")
 }
 
 func TestAutomateConditionCheckWithDeviceRejectsMissingTriggerPointers(t *testing.T) {
-	a := &Automate{device: &model.Device{Name: StringPtr("device-1")}}
+	a := &automationExec{device: &model.Device{Name: StringPtr("device-1")}}
 	source := "device-1"
 
 	ok, detail := a.automateConditionCheckWithDevice(model.DeviceTriggerCondition{
@@ -1340,7 +1340,7 @@ func TestAutomateConditionCheckWithDeviceRejectsMissingTriggerPointers(t *testin
 }
 
 func TestAutomateConditionCheckWithDeviceRejectsNonStringStatusValue(t *testing.T) {
-	a := &Automate{
+	a := &automationExec{
 		device: &model.Device{Name: StringPtr("device-1")},
 		formExt: AutomateFromExt{
 			TriggerValues: map[string]interface{}{"login": 1},
@@ -1362,7 +1362,7 @@ func TestAutomateConditionCheckWithDeviceRejectsNonStringStatusValue(t *testing.
 }
 
 func TestAutomateActionExecuteRejectsMissingAndUnsupportedActions(t *testing.T) {
-	a := &Automate{}
+	a := &automationExec{}
 
 	result, err := a.AutomateActionExecute("scene-empty-actions", []string{"device-1"}, nil, "tenant-1")
 	assert.EqualError(t, err, "automate action list is empty")
@@ -1394,7 +1394,27 @@ func TestActiveSceneExecutePropagatesActionLookupError(t *testing.T) {
 		getActionInfoListBySceneID = original
 	})
 
-	err := (&Automate{}).ActiveSceneExecute("scene-lookup-error", "tenant-1")
+	err := (&automationExec{}).ActiveSceneExecute("scene-lookup-error", "tenant-1")
 
 	assert.ErrorIs(t, err, expected)
+}
+
+// 回归：设备缓存命中但 Name 为 nil（预注册设备允许 name 为 NULL）时不得 panic，应退回设备 id 标签。
+func TestAutomateActionExecuteLabelHandlesNilName(t *testing.T) {
+	name := "pump"
+	cases := []struct {
+		device *model.Device
+		err    error
+		want   string
+	}{
+		{device: &model.Device{ID: "dev-1"}, want: "设备id:dev-1"},
+		{device: nil, want: "设备id:dev-1"},
+		{device: &model.Device{ID: "dev-1", Name: &name}, err: errors.New("cache miss"), want: "设备id:dev-1"},
+		{device: &model.Device{ID: "dev-1", Name: &name}, want: "设备名称:pump"},
+	}
+	for _, tc := range cases {
+		if got := automateActionExecuteLabel("dev-1", tc.device, tc.err); got != tc.want {
+			t.Fatalf("automateActionExecuteLabel() = %q, want %q", got, tc.want)
+		}
+	}
 }

@@ -294,13 +294,13 @@ describe('shared-with-me/index.vue', () => {
       await flushPromises()
 
       const state = getSetupState(wrapper)
-      state.queryParams.page = 5
+      state.pagination.page = 5
       vi.clearAllMocks()
       hoisted.rdiSharedWithMeDevices.mockResolvedValue({ data: { list: [], total: 0 } })
       state.handleSearch()
       await flushPromises()
 
-      expect(state.queryParams.page).toBe(1)
+      expect(state.pagination.page).toBe(1)
       expect(hoisted.rdiSharedWithMeDevices).toHaveBeenCalledTimes(1)
     })
   })
@@ -320,23 +320,23 @@ describe('shared-with-me/index.vue', () => {
 
       expect(state.queryParams.device_id).toBe('')
       expect(state.queryParams.device_name).toBe('')
-      expect(state.queryParams.page).toBe(1)
+      expect(state.pagination.page).toBe(1)
       expect(hoisted.rdiSharedWithMeDevices).toHaveBeenCalledTimes(1)
     })
   })
 
   describe('pagination', () => {
-    it('onChange updates page and fetches', async () => {
+    it('onUpdatePage updates page and fetches', async () => {
       const wrapper = mountSharedWithMe()
       await flushPromises()
 
       const state = getSetupState(wrapper)
       vi.clearAllMocks()
       hoisted.rdiSharedWithMeDevices.mockResolvedValue({ data: { list: [], total: 0 } })
-      state.pagination.onChange(3)
+      state.pagination.onUpdatePage(3)
       await flushPromises()
 
-      expect(state.queryParams.page).toBe(3)
+      expect(state.pagination.page).toBe(3)
       expect(hoisted.rdiSharedWithMeDevices).toHaveBeenCalledTimes(1)
     })
 
@@ -345,14 +345,14 @@ describe('shared-with-me/index.vue', () => {
       await flushPromises()
 
       const state = getSetupState(wrapper)
-      state.queryParams.page = 4
+      state.pagination.page = 4
       vi.clearAllMocks()
       hoisted.rdiSharedWithMeDevices.mockResolvedValue({ data: { list: [], total: 0 } })
       state.pagination.onUpdatePageSize(50)
       await flushPromises()
 
-      expect(state.queryParams.page_size).toBe(50)
-      expect(state.queryParams.page).toBe(1)
+      expect(state.pagination.pageSize).toBe(50)
+      expect(state.pagination.page).toBe(1)
       expect(hoisted.rdiSharedWithMeDevices).toHaveBeenCalledTimes(1)
     })
   })

@@ -25,6 +25,8 @@ const latitude = ref('')
 const longitude = ref('')
 const isShow = ref(false)
 const additionInfo = ref([] as ExtensionInfo[])
+// 模板中多处需要“已启用扩展字段”：缓存为 computed，避免每次渲染重复 filter。
+const enabledAdditionInfo = computed(() => additionInfo.value.filter((item) => item.enable === true))
 const extensionFormRef = ref<HTMLElement & FormInst>()
 
 interface ExtensionInfo {
@@ -221,14 +223,10 @@ onMounted(getConfigInfo)
     </NCard>
 
     <NCard :title="$t('generate.extension-info')" class="mb-4">
-      <div v-if="additionInfo.filter((item) => item.enable === true).length > 0">
+      <div v-if="enabledAdditionInfo.length > 0">
         <NForm ref="extensionFormRef" class="mt-4">
           <div class="space-y-4">
-            <div
-              v-for="item in additionInfo.filter((item) => item.enable === true)"
-              :key="item.name"
-              class="flex items-center gap-3"
-            >
+            <div v-for="item in enabledAdditionInfo" :key="item.name" class="flex items-center gap-3">
               <div class="w-40 text-sm font-medium text-gray-700 flex-shrink-0 flex items-center gap-1">
                 <span class="truncate" :title="item.name">{{ item.name }}</span>
                 <NTooltip trigger="hover">

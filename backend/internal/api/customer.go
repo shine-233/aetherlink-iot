@@ -16,17 +16,9 @@ type CustomerApi struct{}
 // SaveCustomer 创建或更新客户
 // @Router   /api/v1/customer [post]
 func (*CustomerApi) SaveCustomer(c *gin.Context) {
-	var req model.CustomerReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	res, err := service.GroupApp.Customer.SaveCustomer(c.Request.Context(), claims.TenantID, &req)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", res)
+	Handle(c, func(req *model.CustomerReq, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Customer.SaveCustomer(c.Request.Context(), claims.TenantID, req)
+	})
 }
 
 // GetCustomer 获取指定客户详情

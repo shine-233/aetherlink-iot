@@ -18,27 +18,15 @@ import (
 // GrantPreRegisterCredentials 为批次签发一次性凭证下载许可。
 // @Router   /api/v1/device/preRegister/credentials/grants [post]
 func (*DeviceApi) GrantPreRegisterCredentials(c *gin.Context) {
-	var req model.CredentialGrantReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GrantPreRegisterCredentials(c.Request.Context(), userClaims, req.BatchNumber)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.CredentialGrantReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GrantPreRegisterCredentials(c.Request.Context(), userClaims, req.BatchNumber)
+	})
 }
 
 // DownloadPreRegisterCredentials 消费许可并下发明文；消费成功后该许可不可再用。
 // @Router   /api/v1/device/preRegister/credentials/grants/:id/download [get]
 func (*DeviceApi) DownloadPreRegisterCredentials(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.DownloadPreRegisterCredentials(c.Request.Context(), userClaims, c.Param("id"))
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		return service.DownloadPreRegisterCredentials(c.Request.Context(), userClaims, c.Param("id"))
+	})
 }

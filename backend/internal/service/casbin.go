@@ -23,6 +23,10 @@ func (*Casbin) AddFunctionToRole(role string, functions []string) bool {
 		rule := []string{role, function, "allow"}
 		rules = append(rules, rule)
 	}
+	// 与同文件其他方法一致：enforcer 未初始化时 fail-closed 返回 false，而不是 nil 解引用 panic。
+	if global.CasbinEnforcer == nil {
+		return false
+	}
 	isSuccess, _ := global.CasbinEnforcer.AddNamedPolicies("p", rules)
 	return isSuccess
 }
@@ -45,6 +49,9 @@ func (*Casbin) GetFunctionFromRole(role string) ([]string, bool) {
 
 // 删除角色和功能
 func (*Casbin) RemoveRoleAndFunction(role string) bool {
+	if global.CasbinEnforcer == nil {
+		return false
+	}
 	isSuccess, _ := global.CasbinEnforcer.RemoveFilteredPolicy(0, role)
 	return isSuccess
 

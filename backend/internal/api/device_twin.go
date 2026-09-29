@@ -14,50 +14,22 @@ type DeviceTwinApi struct{}
 // one device. It is intentionally thin and delegates permission checks plus data
 // shaping to the service layer.
 func (*DeviceTwinApi) HandleDeviceTwin(c *gin.Context) {
-	deviceID := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	data, err := service.GroupApp.DeviceTwin.GetDeviceTwin(deviceID, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	HandlePath(c, "id", func(deviceID string, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.DeviceTwin.GetDeviceTwin(deviceID, userClaims)
+	})
 }
 
 // HandleDeviceTwinDriftIndex returns a read-only fleet-level drift index that
 // enumerates a bounded set of tenant devices, reuses the single-device twin
 // classification, and aggregates it into a severity-ranked queryable index.
 func (*DeviceTwinApi) HandleDeviceTwinDriftIndex(c *gin.Context) {
-	var req model.DeviceTwinDriftIndexReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	data, err := service.GroupApp.DeviceTwin.GetDeviceTwinDriftIndex(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	Handle(c, func(req *model.DeviceTwinDriftIndexReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.DeviceTwin.GetDeviceTwinDriftIndex(req, userClaims)
+	})
 }
 
 func (*DeviceTwinApi) UpsertDeviceTwinDesired(c *gin.Context) {
-	deviceID := c.Param("id")
-	var req model.UpsertDeviceTwinDesiredReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	data, err := service.GroupApp.DeviceTwin.UpsertDesired(deviceID, &req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	HandlePathBody(c, "id", func(deviceID string, req *model.UpsertDeviceTwinDesiredReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.DeviceTwin.UpsertDesired(deviceID, req, userClaims)
+	})
 }

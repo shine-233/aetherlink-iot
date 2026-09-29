@@ -10,8 +10,9 @@
 import { computed, reactive, getCurrentInstance, onMounted, ref } from 'vue'
 import type { Ref } from 'vue'
 import { NAlert, NButton, NPopconfirm, NSpace, NTag } from 'naive-ui'
-import type { DataTableColumns, PaginationProps } from 'naive-ui'
-import { useBoolean, useLoading } from '@aetherlink/hooks'
+import type { DataTableColumns } from 'naive-ui'
+import { useBoolean } from '@aetherlink/hooks'
+import { useListPage } from '@/components/data-table-page/useListPage'
 import dayjs from 'dayjs'
 import { useRoute, useRouter } from 'vue-router'
 import { userStatusOptions } from '@/constants/business'
@@ -25,7 +26,6 @@ import type { ModalType } from './components/table-action-modal.vue'
 const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
-const { loading, startLoading, endLoading } = useLoading(false)
 const { bool: visible, setTrue: openModal } = useBoolean()
 const { bool: editPwdVisible, setTrue: openEditPwdModal } = useBoolean()
 const showEmpty = ref(false)
@@ -131,8 +131,6 @@ const filterCascader = (pattern: string, option: any) => {
 }
 
 type QueryFormModel = Pick<UserManagement.User, 'email' | 'name' | 'status'> & {
-  page: number
-  page_size: number
   organization: string | null
   timezone: string | null
   default_language: string | null
@@ -145,12 +143,10 @@ type QueryFormModel = Pick<UserManagement.User, 'email' | 'name' | 'status'> & {
   }
 }
 
-const queryParams = reactive<QueryFormModel>({
+const emptyUserQuery = (): QueryFormModel => ({
   email: null,
   name: null,
   status: null,
-  page: 1,
-  page_size: 10,
   organization: null,
   timezone: null,
   default_language: null,
@@ -163,49 +159,25 @@ const queryParams = reactive<QueryFormModel>({
   }
 })
 
-const pagination: PaginationProps = reactive({
-  page: 1,
-  pageSize: 10,
-  showSizePicker: true,
-  itemCount: 0,
+// 用户列表是页面真相源，筛选、分页和增删改成功后都统一走 getTableData 刷新。
+// 接口返回 list: null 表示“无数据”，与空数组区分，用于展示空态。
+const {
+  query: queryParams,
+  rows: tableData,
+  loading,
+  pagination,
+  load: getTableData,
+  search: handleQuery
+} = useListPage<UserManagement.User, QueryFormModel>({
+  initialQuery: emptyUserQuery,
   pageSizes: [10, 15, 20, 25, 30],
-  onChange: (page: number) => {
-    pagination.page = page
-    queryParams.page = page
-    getTableData()
-  },
-  onUpdatePageSize: (pageSize: number) => {
-    pagination.pageSize = pageSize
-    pagination.page = 1
-    queryParams.page = 1
-    queryParams.page_size = pageSize
-    getTableData()
+  fetcher: async (params) => {
+    const { data } = await fetchUserList(params)
+    if (!data) return null
+    showEmpty.value = data.list === null
+    return { list: data.list ?? [], total: data.total ?? 0 }
   }
 })
-
-const tableData = ref<UserManagement.User[]>([])
-
-// 空列表与接口返回 null 的语义在这里分开处理，便于页面展示空态。
-function setTableData(data: UserManagement.User[]) {
-  if (data === null) {
-    showEmpty.value = true
-  } else {
-    showEmpty.value = false
-    tableData.value = data
-  }
-}
-
-// 用户列表是页面真相源，筛选、分页和增删改成功后都统一走这一入口刷新。
-async function getTableData() {
-  startLoading()
-  const { data } = await fetchUserList(queryParams)
-  if (data) {
-    const list: UserManagement.User[] = data.list
-    pagination.itemCount = data.total
-    setTableData(list)
-    endLoading()
-  }
-}
 
 const columns: Ref<DataTableColumns<UserManagement.User>> = ref([
   {
@@ -387,28 +359,8 @@ async function handleDeleteTable(rowId: string) {
   }
 }
 
-function handleQuery() {
-  queryParams.page = 1
-  init()
-}
-
 function handleReset() {
-  Object.assign(queryParams, {
-    email: null,
-    name: null,
-    status: null,
-    page: 1,
-    organization: null,
-    timezone: null,
-    default_language: null,
-    address: {
-      province: null,
-      city: null,
-      district: null,
-      detailed_address: null,
-      cascaderValue: null
-    }
-  })
+  Object.assign(queryParams, emptyUserQuery())
   handleQuery()
 }
 

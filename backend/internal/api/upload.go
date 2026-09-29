@@ -286,11 +286,13 @@ func saveFile(c *gin.Context, file *multipart.FileHeader, uploadDir, fileName, f
 		return "", fmt.Errorf("close uploaded file: %w", err)
 	}
 
+	// 对外访问路径统一使用正斜杠：filepath.Join 在 Windows 上产生反斜杠，
+	// 会随媒体登记/OTA 下载地址落库，破坏 URL 语义与跨平台一致性。
 	if fileType == "upgradePackage" {
-		return "./" + filepath.Join(OtaPath, fileType, time.Now().Format("2006-01-02"), fileName), nil
+		return "./" + filepath.ToSlash(filepath.Join(OtaPath, fileType, time.Now().Format("2006-01-02"), fileName)), nil
 	}
 
-	return "./" + fullPath, nil
+	return "./" + filepath.ToSlash(fullPath), nil
 }
 
 // ensureUploadPathContained 确认最终文件绝对路径仍位于 BaseUploadDir 内。

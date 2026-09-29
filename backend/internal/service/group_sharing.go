@@ -20,8 +20,8 @@
 package service
 
 import (
+	"aetherlink-iot/backend/internal/authz"
 	dal "aetherlink-iot/backend/internal/dal"
-	constant "aetherlink-iot/backend/pkg/constant"
 	utils "aetherlink-iot/backend/pkg/utils"
 )
 
@@ -31,7 +31,7 @@ func groupHiddenResourceIDs(scopes []string, claims *utils.UserClaims, kind stri
 	if claims == nil || claims.ID == "" || len(scopes) == 0 {
 		return nil, nil
 	}
-	if claims.Authority == constant.SYS_ADMIN || claims.Authority == constant.TENANT_ADMIN {
+	if authz.HasRole(claims, authz.ManagerRoles...) {
 		// 管理员是组共享的配置者，不受其限制（组管理本身即管理员能力）。
 		return nil, nil
 	}

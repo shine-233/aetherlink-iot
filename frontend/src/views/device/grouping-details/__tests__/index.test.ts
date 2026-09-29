@@ -245,7 +245,7 @@ describe('device/grouping-details/index.vue', () => {
 
     expect(hoisted.deviceListByGroup).toHaveBeenCalledWith({ group_id: 'grp-1', page: 1, page_size: 5 })
     expect(state.device_data).toEqual([{ id: 'dev-1', name: 'Device 1' }])
-    expect(state.devicePagination.pageCount).toBe(2)
+    expect(state.devicePagination.itemCount).toBe(6)
   })
 
   it('loads details on mount', async () => {

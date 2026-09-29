@@ -1,56 +1,29 @@
+<!--
+文件用途：首页「首台设备」工作台编排层。
+核心逻辑：派生状态来自 homeFirstDevice* 纯函数；按钮动作经 homeFirstDeviceWorkbenchActions 解析为意图后由 dispatch 统一执行；
+  区块定位与延迟挂载在 useFirstDeviceSectionFocus。
+-->
 <script setup lang="ts">
-import { computed, defineAsyncComponent, nextTick, ref, watch, type ComponentPublicInstance } from 'vue'
+import { computed, defineAsyncComponent } from 'vue'
 import { $t } from '@/locales'
 import { writeClipboardText } from '@/utils/clipboard'
-import {
-  buildFirstDeviceChartProofSummary,
-  buildFirstDeviceClosureSummary,
-  buildFirstDeviceFlowNodes,
-  buildFirstDeviceLatestProofText,
-  buildFirstDeviceOnlineTesterState,
-  buildFirstDevicePostReadyHandoff,
-  buildFirstDevicePostTestGuidance,
-  buildFirstDeviceSuccessFacts,
-  buildFirstDeviceVerificationAction,
-  resolveFirstDeviceFocusedSectionKey
-} from './homeFirstDeviceWorkbench'
-import {
-  buildFirstDeviceCoreGuideSummary,
-  buildFirstDeviceMissionControl,
-  buildFirstDeviceOperationChecklist,
-  buildFirstDeviceOperatorCue,
-  buildFirstDeviceTestCommands,
-  buildFirstDeviceStatusHeroCopy,
-  buildFirstDeviceSuccessProofCopy,
-  buildFirstRunWizardSteps,
-  buildFocusedQuickstartCopy,
-  filterFirstDeviceCoreGuideSteps,
-  filterFirstDeviceNextGuideSteps,
-  getFirstDeviceTestCommandLabel,
-  getFocusedQuickstartActionLoading
-} from './homeFirstDeviceView'
+import { buildFirstDeviceChartProofSummary, type FirstDeviceFlowNode } from './homeFirstDeviceWorkbench'
 import type { HomeFirstRunProtocol } from './homeFirstRunWizard'
+import type { HomeCustomerGuideProgressStep } from './homeCustomerGuide'
+import { useFirstDeviceSectionFocus } from './useFirstDeviceSectionFocus'
+import { useFirstDeviceWorkbenchState, type HomeFirstDeviceWorkbenchProps } from './useFirstDeviceWorkbenchState'
 import {
-  buildFirstDeviceProofDelivery,
-  buildFirstDeviceProofFilename,
-  buildFirstDeviceSuccessProofDeliveryPacket,
-  downloadFirstDeviceSuccessProofPacket,
-  type FirstDeviceProofDeliveryState
-} from './homeFirstDeviceProofDelivery'
-import { useViewportDeferredMount } from './useViewportDeferredMount'
-import type {
-  FirstDeviceBrowserTestState,
-  FirstDeviceChartState,
-  FirstDeviceDeploymentHealthRow,
-  FirstDeviceOnboardingGuard,
-  FirstDeviceReadyProof,
-  FirstDeviceSummary,
-  SimulationInitState
-} from './homeFirstDeviceWorkbench'
-import type { DeviceAccessGuideState } from '@/views/device/details/modules/device-access-guide-state'
-import type { HomeCustomerGuideProgressStep, HomeCustomerGuideSummary } from './homeCustomerGuide'
-import type { HomeFirstRunQuickCreateResult } from './homeFirstRunWizard'
-import type { NormalizedDeploymentHealthRow } from './homeDeploymentHealth'
+  resolveClosedLoopStepIntent,
+  resolveFlowNodeAction,
+  resolveFocusedQuickstartIntent,
+  resolvePrimaryIntent,
+  resolveVerificationIntent,
+  resolveVerificationSecondaryIntent,
+  type FirstDeviceActionContext,
+  type FirstDeviceIntent,
+  type FirstDeviceWorkbenchEmitEvent
+} from './homeFirstDeviceWorkbenchActions'
+import { buildFirstDeviceConnectionSummary, type FirstDeviceClosedLoopStep } from './homeFirstDeviceClosedLoop'
 
 const HomeFirstDeviceGuideProgress = defineAsyncComponent(() => import('./HomeFirstDeviceGuideProgress.vue'))
 const HomeFirstDeviceClosedLoopStrip = defineAsyncComponent(() => import('./HomeFirstDeviceClosedLoopStrip.vue'))
@@ -66,44 +39,7 @@ const HomeFirstDeviceVerificationOverview = defineAsyncComponent(
 )
 const HomeFirstDeviceDeferredSections = defineAsyncComponent(() => import('./HomeFirstDeviceDeferredSections.vue'))
 
-interface Props {
-  homeCustomerGuideSummary: HomeCustomerGuideSummary
-  homeFirstRunResumeText: string
-  homeCustomerGuideProgress: HomeCustomerGuideProgressStep[]
-  firstDeviceFocusMode: boolean
-  firstDeviceWorkbenchLoaded: boolean
-  firstDeviceReadyProof: FirstDeviceReadyProof
-  firstDevice: FirstDeviceSummary | null
-  firstDeviceLoading: boolean
-  deploymentHealthLoading: boolean
-  automationGuideLoading: boolean
-  firstRunCreateLoading: boolean
-  firstRunProtocol: HomeFirstRunProtocol
-  deploymentHealthOk: boolean
-  firstRunCreateResult: HomeFirstRunQuickCreateResult | null
-  firstRunCreateTenantRequired: boolean
-  firstRunSetupBlockerStep?: HomeCustomerGuideProgressStep | null
-  firstDeviceAccessGuide: DeviceAccessGuideState | null
-  firstDeviceSimulation: SimulationInitState | null
-  firstDevicePublishCommand: string
-  firstDeviceOnboardingGuard: FirstDeviceOnboardingGuard
-  firstDeviceActionLoading: boolean
-  firstDeviceTestResult: string
-  firstDeviceBrowserTest: FirstDeviceBrowserTestState
-  firstDeviceChart: FirstDeviceChartState
-  deploymentHealthRows: NormalizedDeploymentHealthRow[]
-  buildFirstDeviceSupportSummary: (options: {
-    latestProofText: string
-    activeTestCommand?: { label: string } | null
-    delivery?: {
-      firstDeviceUrl?: string
-      proofUrl?: string
-      proofFileHint?: string
-    }
-  }) => string
-}
-
-const props = defineProps<Props>()
+const props = defineProps<HomeFirstDeviceWorkbenchProps>()
 const emit = defineEmits<{
   openHomeGuideStep: [step: HomeCustomerGuideProgressStep]
   refreshHomeGuideProgress: []
@@ -119,724 +55,147 @@ const emit = defineEmits<{
   runFirstDeviceQuickstartAction: [action: string]
   refreshDeploymentHealth: []
 }>()
+const {
+  deviceIdentitySectionRef,
+  quickstartSectionRef,
+  deploymentHealthSectionRef,
+  setConnectionTestViewportRef,
+  setConnectionTestSectionRef,
+  setSuccessProofViewportRef,
+  setSuccessProofSectionRef,
+  setSupportSummaryViewportRef,
+  setSupportSummarySectionRef,
+  shouldMountConnectionTestSection,
+  shouldMountSuccessProofSection,
+  shouldMountSupportSummarySection,
+  focusSection,
+  focusDeploymentHealth,
+  openSupportSummaryPreview: openFirstDeviceSupportSummaryPreview
+} = useFirstDeviceSectionFocus()
 
-const firstDeviceCoreGuideSteps = computed(() => filterFirstDeviceCoreGuideSteps(props.homeCustomerGuideProgress))
-const firstDeviceNextGuideSteps = computed(() => filterFirstDeviceNextGuideSteps(props.homeCustomerGuideProgress))
-const firstDeviceNextActiveGuideStep = computed<HomeCustomerGuideProgressStep | null>(
-  () =>
-    (firstDeviceNextGuideSteps.value.find((step) => step.status === 'active') as HomeCustomerGuideProgressStep) || null
-)
-const firstDevicePostReadyHandoff = computed(() =>
-  buildFirstDevicePostReadyHandoff({
-    ready: props.firstDeviceReadyProof.ready,
-    nextStep: firstDeviceNextActiveGuideStep.value
-  })
-)
-const firstDeviceReadyNextGuideDescription = computed(() => {
-  return firstDevicePostReadyHandoff.value?.description || '首台设备已就绪，暂无待执行的下一步引导。'
-})
-const firstDeviceCoreGuideSummary = computed(() => buildFirstDeviceCoreGuideSummary(firstDeviceCoreGuideSteps.value))
-const firstRunSetupBlockerStep = computed(
-  () => props.firstRunSetupBlockerStep || props.homeCustomerGuideProgress.find((step) => step.id === 'setup') || null
-)
-const firstRunSetupBlockerTitle = computed(() => firstRunSetupBlockerStep.value?.title || '先完成租户初始化')
-const firstRunSetupBlockerDescription = computed(
-  () => firstRunSetupBlockerStep.value?.description || '当前存在未完成的初始化步骤，请先按引导完成租户与部署检查'
-)
-const firstRunSetupBlockerAction = computed(() => firstRunSetupBlockerStep.value?.action || '去处理初始化')
-const deviceIdentitySectionRef = ref<HTMLElement | null>(null)
-const connectionTestViewportRef = ref<HTMLElement | null>(null)
-const connectionTestSectionRef = ref<{ connectionEl: HTMLElement | null; testCommandEl: HTMLElement | null } | null>(
-  null
-)
-const successProofViewportRef = ref<HTMLElement | null>(null)
-const successProofSectionRef = ref<{ chartSectionEl: HTMLElement | null; proofSectionEl: HTMLElement | null } | null>(
-  null
-)
-const quickstartSectionRef = ref<HTMLElement | null>(null)
-const supportSummaryViewportRef = ref<HTMLElement | null>(null)
-const supportSummarySectionRef = ref<{ openPreview: () => void } | null>(null)
-const setConnectionTestViewportRef = (element: HTMLElement | null) => {
-  connectionTestViewportRef.value = element
-}
-const setConnectionTestSectionRef = (instance: Element | ComponentPublicInstance | null) => {
-  connectionTestSectionRef.value = instance as {
-    connectionEl: HTMLElement | null
-    testCommandEl: HTMLElement | null
-  } | null
-}
-const setSuccessProofViewportRef = (element: HTMLElement | null) => {
-  successProofViewportRef.value = element
-}
-const setSuccessProofSectionRef = (instance: Element | ComponentPublicInstance | null) => {
-  successProofSectionRef.value = instance as {
-    chartSectionEl: HTMLElement | null
-    proofSectionEl: HTMLElement | null
-  } | null
-}
-const setSupportSummaryViewportRef = (element: HTMLElement | null) => {
-  supportSummaryViewportRef.value = element
-}
-const setSupportSummarySectionRef = (instance: Element | ComponentPublicInstance | null) => {
-  supportSummarySectionRef.value = instance as { openPreview: () => void } | null
-}
-const { shouldMount: shouldMountConnectionTestSection, mountNow: mountConnectionTestSection } =
-  useViewportDeferredMount(connectionTestViewportRef, { rootMargin: '480px 0px', fallbackDelay: 600 })
-const { shouldMount: shouldMountSuccessProofSection, mountNow: mountSuccessProofSection } = useViewportDeferredMount(
-  successProofViewportRef,
-  { rootMargin: '520px 0px', fallbackDelay: 700 }
-)
-const { shouldMount: shouldMountSupportSummarySection, mountNow: mountSupportSummarySection } =
-  useViewportDeferredMount(supportSummaryViewportRef, { rootMargin: '480px 0px', fallbackDelay: 600 })
-const pendingSupportSummaryPreviewOpen = ref(false)
-const deploymentHealthSectionRef = ref<HTMLElement | null>(null)
-const firstFailedDeploymentHealthRow = computed(() => props.deploymentHealthRows.find((row) => !row.ok) || null)
-const firstDeviceCurrentBlocker = computed(() => props.firstDeviceReadyProof.items?.find((item) => !item.ok) || null)
-const firstDevicePrimaryAction = computed(
-  () =>
-    props.firstDeviceOnboardingGuard.activeStep?.action ||
-    (props.firstDeviceReadyProof.ready ? 'ready-check' : 'health')
-)
-const firstDeviceLatestProofText = computed(() =>
-  buildFirstDeviceLatestProofText({
-    device: props.firstDevice,
-    chart: props.firstDeviceChart,
-    testResult: props.firstDeviceTestResult
-  })
-)
-const firstDeviceFlowNodes = computed(() => buildFirstDeviceFlowNodes(props.firstDeviceReadyProof.items || []))
-const firstDeviceClosureSummary = computed(() => buildFirstDeviceClosureSummary(firstDeviceFlowNodes.value))
-
-const firstRunWizardSteps = computed(() =>
-  buildFirstRunWizardSteps(firstDeviceCoreGuideSteps.value, {
-    setupBlockerDescription: firstRunSetupBlockerDescription.value,
-    deploymentHealthOk: props.deploymentHealthOk,
-    firstFailedDeploymentHealthRow: firstFailedDeploymentHealthRow.value,
-    firstDevice: props.firstDevice,
-    firstRunProtocol: props.firstRunProtocol,
-    firstDeviceChart: props.firstDeviceChart,
-    firstDeviceTestResult: props.firstDeviceTestResult
-  })
-)
-const currentFocusedQuickstartStep = computed(() => props.firstDeviceOnboardingGuard.activeStep || null)
-const currentFocusedQuickstartSectionKey = computed(() =>
-  resolveFirstDeviceFocusedSectionKey({
-    activeStep: currentFocusedQuickstartStep.value,
-    ready: props.firstDeviceReadyProof.ready,
-    readyProofItems: props.firstDeviceReadyProof.items || [],
-    chartReady: props.firstDeviceChart.ready
-  })
-)
-const currentFocusedQuickstartCopy = computed(() =>
-  buildFocusedQuickstartCopy({
-    ready: props.firstDeviceReadyProof.ready,
-    activeStep: currentFocusedQuickstartStep.value,
-    readyDescription: firstDeviceReadyNextGuideDescription.value,
-    guardSummary: props.firstDeviceOnboardingGuard.summary,
-    nextAction: props.firstDeviceOnboardingGuard.nextAction,
-    postReadyHandoff: firstDevicePostReadyHandoff.value
-  })
-)
-const currentFocusedQuickstartTitle = computed(() => currentFocusedQuickstartCopy.value.title)
-const currentFocusedQuickstartDescription = computed(() => currentFocusedQuickstartCopy.value.description)
-const currentFocusedQuickstartSuccessSignal = computed(() => currentFocusedQuickstartCopy.value.successSignal)
-const currentFocusedQuickstartActionLabel = computed(() => currentFocusedQuickstartCopy.value.actionLabel)
-const currentFocusedQuickstartActionDisabled = computed(() => currentFocusedQuickstartCopy.value.actionDisabled)
-const firstDeviceOperatorCue = computed(() =>
-  buildFirstDeviceOperatorCue({
-    ready: props.firstDeviceReadyProof.ready,
-    activeStep: currentFocusedQuickstartStep.value,
-    actionLabel: currentFocusedQuickstartActionLabel.value,
-    successSignal: currentFocusedQuickstartSuccessSignal.value,
-    readyDescription: firstDeviceReadyNextGuideDescription.value,
-    currentBlocker: firstDeviceCurrentBlocker.value
-  })
-)
-const firstDeviceMissionControl = computed(() =>
-  buildFirstDeviceMissionControl({
-    ready: props.firstDeviceReadyProof.ready,
-    activeStep: currentFocusedQuickstartStep.value,
-    actionLabel: currentFocusedQuickstartActionLabel.value,
-    successSignal: currentFocusedQuickstartSuccessSignal.value,
-    readyDescription: firstDeviceReadyNextGuideDescription.value,
-    currentBlocker: firstDeviceCurrentBlocker.value
-  })
-)
-const currentFocusedQuickstartActionLoading = computed(() =>
-  getFocusedQuickstartActionLoading({
-    ready: props.firstDeviceReadyProof.ready,
-    activeStep: currentFocusedQuickstartStep.value,
-    firstDeviceActionLoading: props.firstDeviceActionLoading,
-    deploymentHealthLoading: props.deploymentHealthLoading,
-    firstRunCreateLoading: props.firstRunCreateLoading
-  })
-)
-const firstDeviceStatusHeroCopy = computed(() =>
-  buildFirstDeviceStatusHeroCopy({
-    ready: props.firstDeviceReadyProof.ready,
-    currentBlocker: firstDeviceCurrentBlocker.value,
-    activeStep: currentFocusedQuickstartStep.value,
-    guardSummary: props.firstDeviceOnboardingGuard.summary
-  })
-)
-const firstDeviceStatusHeroTitle = computed(() => firstDeviceStatusHeroCopy.value.title)
-const firstDeviceStatusHeroDescription = computed(() => firstDeviceStatusHeroCopy.value.description)
-const firstDeviceSuccessProofCopy = computed(() =>
-  buildFirstDeviceSuccessProofCopy({
-    ready: props.firstDeviceReadyProof.ready,
-    chartReady: props.firstDeviceChart.ready,
-    testResult: props.firstDeviceTestResult
-  })
-)
-const firstDeviceSuccessProofTitle = computed(() => firstDeviceSuccessProofCopy.value.title)
-const firstDeviceSuccessProofDescription = computed(() => firstDeviceSuccessProofCopy.value.description)
-const firstDeviceSuccessFacts = computed(() =>
-  buildFirstDeviceSuccessFacts({
-    device: props.firstDevice,
-    chart: props.firstDeviceChart,
-    latestProofText: firstDeviceLatestProofText.value
-  })
-)
-const firstDevicePostTestGuidance = computed(() =>
-  buildFirstDevicePostTestGuidance({
-    testResult: props.firstDeviceTestResult,
-    ready: props.firstDeviceReadyProof.ready,
-    readyDescription: firstDeviceReadyNextGuideDescription.value,
-    chartReady: props.firstDeviceChart.ready,
-    currentBlocker: firstDeviceCurrentBlocker.value
-  })
-)
-
-const firstDeviceVerificationAction = computed(() =>
-  buildFirstDeviceVerificationAction({
-    hasDevice: Boolean(props.firstDevice),
-    ready: props.firstDeviceReadyProof.ready,
-    postReadyHandoff: firstDevicePostReadyHandoff.value,
-    readyDescription: firstDeviceReadyNextGuideDescription.value,
-    chartReady: props.firstDeviceChart.ready,
-    canRunBrowserTest: props.firstDeviceOnboardingGuard.canRunBrowserTest,
-    testResult: props.firstDeviceTestResult,
-    actionLoading: props.firstDeviceActionLoading,
-    currentBlocker: firstDeviceCurrentBlocker.value
-  })
-)
-
-const getFirstDeviceFlowNodeAction = (node) => {
-  if (node.key === 'deployment') {
-    return {
-      label: node.ok ? '部署正常' : '去诊断',
-      disabled: false,
-      loading: props.deploymentHealthLoading,
-      run: () => emit('refreshDeploymentHealth')
-    }
-  }
-  if (node.key === 'identity') {
-    return props.firstDevice
-      ? {
-          label: '打开 Ready Check',
-          disabled: false,
-          loading: false,
-          run: () => emit('openFirstDeviceAccessGuide')
-        }
-      : {
-          label: '生成首台设备',
-          disabled: props.firstRunCreateTenantRequired || !props.deploymentHealthOk,
-          loading: props.firstRunCreateLoading,
-          run: () => emit('createFirstRunFirstDevice')
-        }
-  }
-  if (node.key === 'connection') {
-    if (props.firstDeviceOnboardingGuard.canCopyCommand && activeFirstDeviceTestCommand.value?.code) {
-      return {
-        label: '复制测试命令',
-        disabled: false,
-        loading: false,
-        run: () => void copyActiveFirstDeviceTestCommand()
-      }
-    }
-    return {
-      label: '打开接入指南',
-      disabled: false,
-      loading: false,
-      run: () => emit('openFirstDeviceFullGuide')
-    }
-  }
-  if (node.key === 'browser_test') {
-    return props.firstDeviceOnboardingGuard.canRunBrowserTest
-      ? {
-          label: node.ok ? '再次测试' : '开始测试',
-          disabled: false,
-          loading: props.firstDeviceActionLoading,
-          run: () => emit('simulateFirstDeviceTelemetry')
-        }
-      : {
-          label: '打开 Ready Check',
-          disabled: false,
-          loading: false,
-          run: () => emit('openFirstDeviceAccessGuide')
-        }
-  }
-  if (node.key === 'online' || node.key === 'telemetry') {
-    return {
-      label: '查看 Ready Check',
-      disabled: false,
-      loading: false,
-      run: () => emit('openFirstDeviceAccessGuide')
-    }
-  }
-  return {
-    label: node.ok ? '查看接入指南' : '继续处理',
-    disabled: false,
-    loading: false,
-    run: () => (node.ok ? emit('openFirstDeviceFullGuide') : runFirstDevicePrimaryAction())
-  }
-}
-
-const ensureDeferredSectionMounted = async (key: string) => {
-  if ((key === 'connection' || key === 'test') && !shouldMountConnectionTestSection.value) {
-    mountConnectionTestSection()
-    await nextTick()
-  }
-  if (
-    (key === 'chart' || key === 'proof' || key === 'online' || key === 'telemetry') &&
-    !shouldMountSuccessProofSection.value
-  ) {
-    mountSuccessProofSection()
-    await nextTick()
-  }
-  if (key === 'support' && !shouldMountSupportSummarySection.value) {
-    mountSupportSummarySection()
-    await nextTick()
-  }
-}
-
-const focusFirstDeviceSection = async (key: string) => {
-  await ensureDeferredSectionMounted(key)
-  const connectionEl = connectionTestSectionRef.value?.connectionEl || null
-  const testCommandEl = connectionTestSectionRef.value?.testCommandEl || null
-  const chartEl = successProofSectionRef.value?.chartSectionEl || null
-  const proofEl = successProofSectionRef.value?.proofSectionEl || null
-  const targetMap: Record<string, HTMLElement | null> = {
-    deployment: deploymentHealthSectionRef.value,
-    identity: deviceIdentitySectionRef.value,
-    connection: connectionEl || connectionTestViewportRef.value,
-    browser_test: testCommandEl || connectionTestViewportRef.value,
-    online: proofEl || successProofViewportRef.value,
-    telemetry: chartEl || successProofViewportRef.value,
-    chart: chartEl || successProofViewportRef.value
-  }
-  const target = targetMap[key] || quickstartSectionRef.value || supportSummaryViewportRef.value
-  if (!target) return
-  await nextTick()
-  target.scrollIntoView({ behavior: 'smooth', block: 'center' })
-}
-const focusSection = async (key: string) => {
-  await ensureDeferredSectionMounted(key)
-  const connectionEl = connectionTestSectionRef.value?.connectionEl || null
-  const testCommandEl = connectionTestSectionRef.value?.testCommandEl || null
-  const chartEl = successProofSectionRef.value?.chartSectionEl || null
-  const proofEl = successProofSectionRef.value?.proofSectionEl || null
-  const targetMap: Record<string, HTMLElement | null> = {
-    device: deviceIdentitySectionRef.value,
-    connection: connectionEl || connectionTestViewportRef.value,
-    test: testCommandEl || connectionTestViewportRef.value,
-    chart: chartEl || successProofViewportRef.value,
-    quickstart: quickstartSectionRef.value,
-    proof: proofEl || successProofViewportRef.value,
-    support: supportSummaryViewportRef.value,
-    deployment: deploymentHealthSectionRef.value
-  }
-  const target = targetMap[key] || quickstartSectionRef.value
-  if (!target) return
-  await nextTick()
-  target.scrollIntoView({ behavior: 'smooth', block: 'center' })
-}
-const selectedFirstDeviceTestCommand = ref('')
-const firstDeviceTestCommands = computed(() =>
-  buildFirstDeviceTestCommands({
-    accessGuide: props.firstDeviceAccessGuide,
-    publishCommand: props.firstDevicePublishCommand
-  })
-)
-const activeFirstDeviceTestCommand = computed(
-  () =>
-    firstDeviceTestCommands.value.find((command) => command.language === selectedFirstDeviceTestCommand.value) ||
-    firstDeviceTestCommands.value[0] ||
-    null
-)
-const firstDeviceOnlineTesterState = computed(() =>
-  buildFirstDeviceOnlineTesterState({
-    guard: props.firstDeviceOnboardingGuard,
-    browserTest: props.firstDeviceBrowserTest,
-    chart: props.firstDeviceChart,
-    activeTestCommandLabel: activeFirstDeviceTestCommand.value
-      ? getFirstDeviceTestCommandLabel(activeFirstDeviceTestCommand.value)
-      : ''
-  })
-)
-const getFirstDeviceClosedLoopState = (key: string, done = false) => {
-  const node = firstDeviceFlowNodes.value.find((item) => item.key === key)
-  const state = done || node?.ok ? 'done' : node?.state === 'active' ? 'active' : 'todo'
-
-  return {
-    state,
-    stateLabel: state === 'done' ? '已完成' : state === 'active' ? '进行中' : '等待',
-    stateType: state === 'done' ? 'success' : state === 'active' ? 'warning' : 'default'
-  }
-}
-const firstDeviceClosedLoopSteps = computed(() => {
-  const deployment = getFirstDeviceClosedLoopState('deployment', props.deploymentHealthOk)
-  const identity = getFirstDeviceClosedLoopState('identity', Boolean(props.firstDevice))
-  const connection = getFirstDeviceClosedLoopState(
-    'connection',
-    Boolean(props.firstDeviceOnboardingGuard.canCopyCommand && activeFirstDeviceTestCommand.value?.code)
-  )
-  const browserTest = getFirstDeviceClosedLoopState(
-    'browser_test',
-    props.firstDeviceBrowserTest?.status === 'confirmed'
-  )
-  const telemetry = getFirstDeviceClosedLoopState(
-    'telemetry',
-    Boolean(props.firstDevice?.online && props.firstDeviceChart.ready)
-  )
-  const proof = getFirstDeviceClosedLoopState('chart', props.firstDeviceReadyProof.ready)
-
-  return [
-    {
-      key: 'deployment',
-      section: 'deployment',
-      order: '01',
-      title: '部署健康',
-      detail: props.deploymentHealthOk ? '前端、API、Broker、Redis、MQTT 可用' : '先确认部署组件都正常',
-      actionLabel: props.deploymentHealthOk ? '查看详情' : '去诊断',
-      disabled: false,
-      loading: props.deploymentHealthLoading,
-      ...deployment
-    },
-    {
-      key: 'identity',
-      section: 'device',
-      order: '02',
-      title: '创建产品/设备',
-      detail: props.firstDevice
-        ? props.firstDevice.name || props.firstDevice.number || '第一台设备已生成'
-        : '请先完成上方初始化步骤，系统会自动生成首台设备',
-      actionLabel: props.firstDevice ? '定位设备信息' : '一键生成',
-      disabled: props.firstRunCreateTenantRequired || !props.deploymentHealthOk,
-      loading: props.firstRunCreateLoading,
-      ...identity
-    },
-    {
-      key: 'connection',
-      section: 'connection',
-      order: '03',
-      title: '复制 MQTT/HTTP 参数',
-      detail: activeFirstDeviceTestCommand.value?.label || '还没有可复制的测试命令，请先生成设备',
-      actionLabel: props.firstDeviceOnboardingGuard.canCopyCommand ? '复制测试命令' : '暂无可复制的命令',
-      disabled: !props.firstDevice,
-      loading: false,
-      ...connection
-    },
-    {
-      key: 'browser_test',
-      section: 'test',
-      order: '04',
-      title: '浏览器发测试数据',
-      detail: props.firstDeviceBrowserTest?.message || '尚未收到测试数据，发送后这里会显示结果',
-      actionLabel: props.firstDeviceOnboardingGuard.canRunBrowserTest ? '发送测试数据' : '打开 Ready Check',
-      disabled: !props.firstDevice,
-      loading: props.firstDeviceActionLoading,
-      ...browserTest
-    },
-    {
-      key: 'telemetry',
-      section: 'chart',
-      order: '05',
-      title: '确认在线/遥测/首图',
-      detail: firstDeviceLatestProofText.value,
-      actionLabel: props.firstDeviceChart.ready ? '查看首图' : '刷新确认',
-      disabled: !props.firstDevice,
-      loading: props.firstDeviceLoading,
-      ...telemetry
-    },
-    {
-      key: 'proof',
-      section: 'proof',
-      order: '06',
-      title: '下载成功证明',
-      detail: props.firstDeviceReadyProof.ready ? '成功证明条件已满足，可下载存档' : '还差关键证据，按步骤继续操作',
-      actionLabel: props.firstDeviceReadyProof.ready ? '下载证明' : '查看缺口',
-      disabled: !props.firstDevice,
-      loading: false,
-      ...proof
-    }
-  ]
-})
-watch(
+const {
+  firstDeviceCoreGuideSteps,
+  firstDeviceNextGuideSteps,
+  firstDeviceNextActiveGuideStep,
+  firstDevicePostReadyHandoff,
+  firstDeviceCoreGuideSummary,
+  firstRunSetupBlockerStep,
+  firstRunSetupBlockerTitle,
+  firstRunSetupBlockerDescription,
+  firstRunSetupBlockerAction,
+  firstDeviceLatestProofText,
+  firstDeviceFlowNodes,
+  firstDeviceClosureSummary,
+  firstRunWizardSteps,
+  currentFocusedQuickstartStep,
+  currentFocusedQuickstartSectionKey,
+  focusedCopy,
+  firstDeviceOperatorCue,
+  firstDeviceMissionControl,
+  currentFocusedQuickstartActionLoading,
+  statusHeroCopy,
+  successProofCopy,
+  firstDeviceSuccessFacts,
+  firstDevicePostTestGuidance,
+  firstDeviceVerificationAction,
+  selectedFirstDeviceTestCommand,
   firstDeviceTestCommands,
-  (commands) => {
-    if (!commands.length) {
-      selectedFirstDeviceTestCommand.value = ''
+  activeFirstDeviceTestCommand,
+  firstDeviceOnlineTesterState,
+  firstDeviceClosedLoopSteps,
+  firstDeviceOperationChecklist,
+  buildFirstDeviceSupportSummaryForCopy,
+  downloadFirstDeviceSuccessProof
+} = useFirstDeviceWorkbenchState(props)
+
+const copyWithFeedback = async (text: string | undefined) => {
+  if (!text) return
+  const copied = await writeClipboardText(text)
+  if (copied) window.$message?.success($t('theme.configOperation.copySuccess'))
+  else window.$message?.error($t('common.copyFailed'))
+}
+const copyFirstDeviceConnectionSummary = () =>
+  copyWithFeedback(
+    buildFirstDeviceConnectionSummary({
+      device: props.firstDevice,
+      accessGuide: props.firstDeviceAccessGuide,
+      simulation: props.firstDeviceSimulation,
+      command: activeFirstDeviceTestCommand.value?.code || props.firstDevicePublishCommand || ''
+    })
+  )
+const copyActiveFirstDeviceTestCommand = () => copyWithFeedback(activeFirstDeviceTestCommand.value?.code)
+const copyFirstDeviceChartProof = () =>
+  copyWithFeedback(
+    buildFirstDeviceChartProofSummary({
+      device: props.firstDevice,
+      chart: props.firstDeviceChart,
+      readyProof: props.firstDeviceReadyProof
+    })
+  )
+
+// ---- 动作分发：所有按钮先解析为意图（homeFirstDeviceWorkbenchActions），再由这里统一执行 ----
+const actionContext = computed<FirstDeviceActionContext>(() => ({
+  ready: props.firstDeviceReadyProof.ready,
+  hasDevice: Boolean(props.firstDevice),
+  deploymentHealthOk: props.deploymentHealthOk,
+  deploymentHealthLoading: props.deploymentHealthLoading,
+  firstRunCreateTenantRequired: props.firstRunCreateTenantRequired,
+  firstRunCreateLoading: props.firstRunCreateLoading,
+  firstDeviceActionLoading: props.firstDeviceActionLoading,
+  canCopyCommand: props.firstDeviceOnboardingGuard.canCopyCommand,
+  canRunBrowserTest: props.firstDeviceOnboardingGuard.canRunBrowserTest,
+  hasActiveTestCommand: Boolean(activeFirstDeviceTestCommand.value?.code),
+  chartReady: props.firstDeviceChart.ready,
+  hasNextGuideStep: Boolean(firstDeviceNextActiveGuideStep.value),
+  postReadyAction: firstDevicePostReadyHandoff.value?.action,
+  primaryQuickstartAction:
+    props.firstDeviceOnboardingGuard.activeStep?.action ||
+    (props.firstDeviceReadyProof.ready ? 'ready-check' : 'health'),
+  activeQuickstartAction: currentFocusedQuickstartStep.value?.action
+}))
+
+const dispatch = (intent: FirstDeviceIntent): void => {
+  switch (intent.kind) {
+    case 'emit':
+      ;(emit as (event: FirstDeviceWorkbenchEmitEvent) => void)(intent.event)
       return
-    }
-    if (!commands.some((command) => command.language === selectedFirstDeviceTestCommand.value)) {
-      selectedFirstDeviceTestCommand.value = commands[0].language
-    }
-  },
-  { immediate: true }
-)
-
-const buildFirstDeviceConnectionSummary = () => {
-  const endpoint =
-    props.firstDeviceAccessGuide?.endpoint ||
-    [props.firstDeviceSimulation?.server, props.firstDeviceSimulation?.port].filter(Boolean).join(':') ||
-    'not-ready'
-  const reportEntry =
-    props.firstDeviceAccessGuide?.endpointKind === 'http'
-      ? props.firstDeviceAccessGuide.endpoint || endpoint
-      : props.firstDeviceAccessGuide?.reportTopic || props.firstDeviceSimulation?.topic || 'devices/telemetry'
-  const controlEntry = props.firstDeviceAccessGuide?.controlTopic || 'open Ready Check'
-  const command = activeFirstDeviceTestCommand.value?.code || props.firstDevicePublishCommand || ''
-
-  return [
-    'AetherLink first-device connection summary',
-    `Device: ${props.firstDevice?.name || props.firstDevice?.number || 'first device'}`,
-    `Protocol: ${props.firstDeviceAccessGuide?.protocol || 'MQTT'}`,
-    `Endpoint: ${endpoint}`,
-    `Report entry: ${reportEntry}`,
-    `Control entry: ${controlEntry}`,
-    command
-      ? `Device connection command:
-${command}`
-      : 'Device connection command: not-ready'
-  ].join('\n')
-}
-
-const copyFirstDeviceConnectionSummary = async () => {
-  const copied = await writeClipboardText(buildFirstDeviceConnectionSummary())
-  if (copied) {
-    window.$message?.success($t('theme.configOperation.copySuccess'))
-  } else {
-    window.$message?.error($t('common.copyFailed'))
-  }
-}
-
-const copyActiveFirstDeviceTestCommand = async () => {
-  if (!activeFirstDeviceTestCommand.value?.code) return
-  const copied = await writeClipboardText(activeFirstDeviceTestCommand.value.code)
-  if (copied) {
-    window.$message?.success($t('theme.configOperation.copySuccess'))
-  } else {
-    window.$message?.error($t('common.copyFailed'))
-  }
-}
-const runFirstDeviceClosedLoopStep = (step) => {
-  if (step.disabled) {
-    void focusSection(step.section)
-    return
-  }
-  if (step.key === 'deployment') {
-    emit('refreshDeploymentHealth')
-    return
-  }
-  if (step.key === 'identity') {
-    if (props.firstDevice) {
-      void focusSection('device')
+    case 'openNextGuideStep':
+      if (firstDeviceNextActiveGuideStep.value) emit('openHomeGuideStep', firstDeviceNextActiveGuideStep.value)
       return
-    }
-    emit('createFirstRunFirstDevice')
-    return
-  }
-  if (step.key === 'connection') {
-    if (props.firstDeviceOnboardingGuard.canCopyCommand && activeFirstDeviceTestCommand.value?.code) {
+    case 'quickstart':
+      emit('runFirstDeviceQuickstartAction', intent.action)
+      return
+    case 'focus':
+      void focusSection(intent.section)
+      return
+    case 'copyTestCommand':
       void copyActiveFirstDeviceTestCommand()
       return
-    }
-    emit('openFirstDeviceFullGuide')
-    return
-  }
-  if (step.key === 'browser_test') {
-    if (props.firstDeviceOnboardingGuard.canRunBrowserTest) {
-      emit('simulateFirstDeviceTelemetry')
+    case 'copyChartProof':
+      void copyFirstDeviceChartProof()
       return
-    }
-    emit('openFirstDeviceAccessGuide')
-    return
-  }
-  if (step.key === 'telemetry') {
-    if (props.firstDeviceChart.ready) {
-      void focusSection('chart')
-      return
-    }
-    emit('refreshFirstDeviceWorkbench')
-    return
-  }
-  if (step.key === 'proof') {
-    if (props.firstDeviceReadyProof.ready) {
+    case 'downloadProof':
       downloadFirstDeviceSuccessProof()
       return
-    }
-    void focusSection('proof')
-  }
-}
-const firstDeviceOperationChecklist = computed(() =>
-  buildFirstDeviceOperationChecklist({
-    canCopyCommand: props.firstDeviceOnboardingGuard.canCopyCommand,
-    activeTestCommand: activeFirstDeviceTestCommand.value,
-    canRunBrowserTest: props.firstDeviceOnboardingGuard.canRunBrowserTest,
-    deploymentHealthOk: props.deploymentHealthOk
-  })
-)
-
-const firstDeviceProofOrigin = () => (typeof window === 'undefined' ? undefined : window.location.origin)
-const firstDeviceProofDeliveryState = computed<FirstDeviceProofDeliveryState>(() => ({
-  device: props.firstDevice,
-  accessGuide: props.firstDeviceAccessGuide,
-  simulation: props.firstDeviceSimulation,
-  readyProof: props.firstDeviceReadyProof,
-  onboardingGuard: props.firstDeviceOnboardingGuard,
-  chart: props.firstDeviceChart,
-  browserTest: props.firstDeviceBrowserTest,
-  deploymentHealthRows: props.deploymentHealthRows
-}))
-const firstDeviceProofDelivery = computed(() =>
-  buildFirstDeviceProofDelivery(firstDeviceProofDeliveryState.value, firstDeviceProofOrigin())
-)
-
-const buildFirstDeviceSupportSummaryForCopy = () =>
-  props.buildFirstDeviceSupportSummary({
-    latestProofText: firstDeviceLatestProofText.value,
-    activeTestCommand: activeFirstDeviceTestCommand.value
-      ? {
-          label: getFirstDeviceTestCommandLabel(activeFirstDeviceTestCommand.value)
-        }
-      : null,
-    delivery: firstDeviceProofDelivery.value
-  })
-
-const firstDeviceChartProofSummary = computed(() =>
-  buildFirstDeviceChartProofSummary({
-    device: props.firstDevice,
-    chart: props.firstDeviceChart,
-    readyProof: props.firstDeviceReadyProof
-  })
-)
-const firstDeviceSuccessProofPacket = computed(() =>
-  buildFirstDeviceSuccessProofDeliveryPacket(firstDeviceProofDeliveryState.value, firstDeviceProofOrigin())
-)
-
-const downloadFirstDeviceSuccessProof = () => {
-  downloadFirstDeviceSuccessProofPacket(
-    firstDeviceSuccessProofPacket.value,
-    buildFirstDeviceProofFilename(props.firstDevice)
-  )
-}
-
-const copyFirstDeviceChartProof = async () => {
-  const copied = await writeClipboardText(firstDeviceChartProofSummary.value)
-  if (copied) {
-    window.$message?.success($t('theme.configOperation.copySuccess'))
-  } else {
-    window.$message?.error($t('common.copyFailed'))
+    case 'primary':
+      dispatch(resolvePrimaryIntent(actionContext.value))
   }
 }
 
-const openFirstDeviceSupportSummaryPreview = async () => {
-  if (!shouldMountSupportSummarySection.value) {
-    mountSupportSummarySection()
-    await nextTick()
-  }
-  if (supportSummarySectionRef.value) {
-    supportSummarySectionRef.value.openPreview()
-    return
-  }
-  pendingSupportSummaryPreviewOpen.value = true
-  await nextTick()
-  const summarySection = supportSummarySectionRef.value as { openPreview: () => void } | null
-  if (summarySection) {
-    summarySection.openPreview()
-    pendingSupportSummaryPreviewOpen.value = false
-  }
+const getFirstDeviceFlowNodeAction = (node: FirstDeviceFlowNode) => {
+  const { intent, ...action } = resolveFlowNodeAction(node, actionContext.value)
+  return { ...action, run: () => dispatch(intent) }
 }
-
-const runCurrentFocusedQuickstartAction = () => {
-  if (props.firstDeviceReadyProof.ready) {
-    if (firstDeviceNextActiveGuideStep.value) {
-      emit('openHomeGuideStep', firstDeviceNextActiveGuideStep.value)
-      return
-    }
-    emit('openFirstDeviceFullGuide')
-    return
-  }
-  if (!currentFocusedQuickstartStep.value) return
-  emit('runFirstDeviceQuickstartAction', currentFocusedQuickstartStep.value.action)
-}
-
-const focusCurrentFocusedQuickstartSection = () => {
-  void focusSection(currentFocusedQuickstartSectionKey.value)
-}
-
-const runFirstDeviceVerificationAction = () => {
-  const action = firstDeviceVerificationAction.value?.action
-  if (action === 'simulate') {
-    emit('simulateFirstDeviceTelemetry')
-    return
-  }
-  if (action === 'ready-check') {
-    emit('openFirstDeviceAccessGuide')
-    return
-  }
-  if (action === 'guide') {
-    emit('openFirstDeviceFullGuide')
-    return
-  }
-  if (action === 'next-guide' && firstDeviceNextActiveGuideStep.value) {
-    emit('openHomeGuideStep', firstDeviceNextActiveGuideStep.value)
-    return
-  }
-  if (action === 'proof') {
-    void focusSection('proof')
-  }
-}
-
-const runFirstDeviceVerificationSecondaryAction = () => {
-  const action = firstDeviceVerificationAction.value
-  if (!action) return
-  if (action.action === 'next-guide') {
-    emit('openFirstDeviceFullGuide')
-    return
-  }
-  if (action.action === 'proof') {
-    void copyFirstDeviceChartProof()
-    return
-  }
-  void focusSection(action.section)
-}
-
-const focusDeploymentHealth = async () => {
-  await nextTick()
-  deploymentHealthSectionRef.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-}
+const runFirstDeviceClosedLoopStep = (step: FirstDeviceClosedLoopStep) =>
+  dispatch(resolveClosedLoopStepIntent(step, actionContext.value))
+const runCurrentFocusedQuickstartAction = () => dispatch(resolveFocusedQuickstartIntent(actionContext.value))
+const focusCurrentFocusedQuickstartSection = () => void focusSection(currentFocusedQuickstartSectionKey.value)
+const runFirstDeviceVerificationAction = () =>
+  dispatch(resolveVerificationIntent(firstDeviceVerificationAction.value, actionContext.value))
+const runFirstDeviceVerificationSecondaryAction = () =>
+  dispatch(resolveVerificationSecondaryIntent(firstDeviceVerificationAction.value))
 
 defineExpose({ focusDeploymentHealth, focusSection })
-
-watch(supportSummarySectionRef, (summarySection) => {
-  if (!summarySection || !pendingSupportSummaryPreviewOpen.value) return
-  summarySection.openPreview()
-  pendingSupportSummaryPreviewOpen.value = false
-})
-
-const runFirstDevicePrimaryAction = () => {
-  if (props.firstDeviceReadyProof.ready) {
-    if (firstDevicePostReadyHandoff.value?.action === 'next-guide' && firstDeviceNextActiveGuideStep.value) {
-      emit('openHomeGuideStep', firstDeviceNextActiveGuideStep.value)
-      return
-    }
-    emit('openFirstDeviceFullGuide')
-    return
-  }
-  emit('runFirstDeviceQuickstartAction', firstDevicePrimaryAction.value)
-}
 </script>
 
 <template>
@@ -865,14 +224,14 @@ const runFirstDevicePrimaryAction = () => {
         <HomeFirstDeviceVerificationOverview
           :ready="firstDeviceReadyProof.ready"
           :first-device-loading="firstDeviceLoading"
-          :status-hero-title="firstDeviceStatusHeroTitle"
-          :status-hero-description="firstDeviceStatusHeroDescription"
+          :status-hero-title="statusHeroCopy.title"
+          :status-hero-description="statusHeroCopy.description"
           :latest-proof-text="firstDeviceLatestProofText"
           :operator-cue="firstDeviceOperatorCue"
           :mission-control="firstDeviceMissionControl"
           :closure-summary="firstDeviceClosureSummary"
           :verification-action="firstDeviceVerificationAction"
-          :focused-action-disabled="currentFocusedQuickstartActionDisabled"
+          :focused-action-disabled="focusedCopy.actionDisabled"
           :focused-action-loading="currentFocusedQuickstartActionLoading"
           :flow-nodes="firstDeviceFlowNodes"
           :wizard-steps="firstRunWizardSteps"
@@ -885,7 +244,7 @@ const runFirstDevicePrimaryAction = () => {
           @open-first-device-support-summary-preview="openFirstDeviceSupportSummaryPreview"
           @download-success-proof="downloadFirstDeviceSuccessProof"
           @open-home-guide-step="emit('openHomeGuideStep', $event as HomeCustomerGuideProgressStep)"
-          @focus-first-device-section="focusFirstDeviceSection"
+          @focus-first-device-section="focusSection"
         />
 
         <div ref="deviceIdentitySectionRef">
@@ -915,13 +274,13 @@ const runFirstDevicePrimaryAction = () => {
 
         <div ref="quickstartSectionRef" class="rounded-6px bg-gray-50 px-12px py-10px">
           <HomeFirstDeviceCurrentWorkspaceSection
-            :title="currentFocusedQuickstartTitle"
-            :description="currentFocusedQuickstartDescription"
-            :success-signal="currentFocusedQuickstartSuccessSignal"
+            :title="focusedCopy.title"
+            :description="focusedCopy.description"
+            :success-signal="focusedCopy.successSignal"
             :current-step="currentFocusedQuickstartStep"
             :ready="firstDeviceReadyProof.ready"
-            :action-label="currentFocusedQuickstartActionLabel"
-            :action-disabled="currentFocusedQuickstartActionDisabled"
+            :action-label="focusedCopy.actionLabel"
+            :action-disabled="focusedCopy.actionDisabled"
             :action-loading="currentFocusedQuickstartActionLoading"
             :steps="firstDeviceOnboardingGuard.steps"
             @run-current-focused-quickstart-action="runCurrentFocusedQuickstartAction"
@@ -952,8 +311,8 @@ const runFirstDevicePrimaryAction = () => {
           :set-success-proof-viewport-ref="setSuccessProofViewportRef"
           :set-success-proof-section-ref="setSuccessProofSectionRef"
           :should-mount-success-proof-section="shouldMountSuccessProofSection"
-          :first-device-success-proof-title="firstDeviceSuccessProofTitle"
-          :first-device-success-proof-description="firstDeviceSuccessProofDescription"
+          :first-device-success-proof-title="successProofCopy.title"
+          :first-device-success-proof-description="successProofCopy.description"
           :first-device-success-facts="firstDeviceSuccessFacts"
           :first-device-chart="firstDeviceChart"
           :set-support-summary-viewport-ref="setSupportSummaryViewportRef"
@@ -994,5 +353,3 @@ const runFirstDevicePrimaryAction = () => {
     </n-card>
   </div>
 </template>
-
-<style scoped></style>

@@ -112,6 +112,16 @@ export const buildExpirationTimeOptions = (t: Translator) => [
   }
 ]
 
+/**
+ * 按当前选中的失效时间值查找对应文案。
+ * 旧模板写成 `find((data) => ifItem.expiration_time)`，谓词忽略了 data，
+ * 只要选过值就恒返回第一项（5 分钟），提示与实际选择不符。
+ */
+export const findExpirationTimeLabel = (
+  options: ReadonlyArray<{ label: string; value: unknown }> = [],
+  value: unknown
+) => (value == null ? '' : (options.find((option) => option.value === value)?.label ?? ''))
+
 export const buildMonthRangeOptions = () =>
   repeat(31, undefined).map((_, i) => ({
     label: String(i + 1),

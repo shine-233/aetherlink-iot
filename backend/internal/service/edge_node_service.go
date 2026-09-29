@@ -100,7 +100,7 @@ func classifyNodeHealth(lastSeenAt *time.Time) EdgeNodeHealth {
 func (*EdgeNodeService) RegisterEdgeNode(req model.RegisterEdgeNodeReq, claims *utils.UserClaims) (*model.EdgeNodeRegistrationRsp, error) {
 	existing, err := dal.GetEdgeNodeByID(req.NodeID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	outcome, reason, normalized := EvaluateEdgeNodeRegistration(EdgeNodeRegistration{
 		NodeID:       req.NodeID,
@@ -128,7 +128,7 @@ func (*EdgeNodeService) RegisterEdgeNode(req model.RegisterEdgeNodeReq, claims *
 			UpdatedAt:    now,
 		}
 		if err := dal.InsertEdgeNode(node); err != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+			return nil, dbError(err)
 		}
 		return &model.EdgeNodeRegistrationRsp{
 			Node:    node,
@@ -143,7 +143,7 @@ func (*EdgeNodeService) RegisterEdgeNode(req model.RegisterEdgeNodeReq, claims *
 		normalized.NodeID, claims.TenantID,
 		normalized.Version, marshalEdgeNodeCapabilities(normalized.Capabilities), now)
 	if uerr != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": uerr.Error()})
+		return nil, dbError(uerr)
 	}
 	if affected == 0 {
 		// 节点存在但不在本租户，或已被 revoked——条件更新如实失败，不伪造成功。
@@ -151,7 +151,7 @@ func (*EdgeNodeService) RegisterEdgeNode(req model.RegisterEdgeNodeReq, claims *
 	}
 	node, gerr := dal.GetEdgeNodeInTenant(normalized.NodeID, claims.TenantID)
 	if gerr != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": gerr.Error()})
+		return nil, dbError(gerr)
 	}
 	return &model.EdgeNodeRegistrationRsp{
 		Node:    node,
@@ -169,7 +169,7 @@ func (*EdgeNodeService) HeartbeatEdgeNode(nodeID string, req model.EdgeNodeHeart
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errcode.NewWithMessage(errcode.CodeParamError, "edge node not registered")
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	if existing.Status != model.EdgeNodeStatusActive {
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "edge node is revoked")
@@ -196,14 +196,14 @@ func (*EdgeNodeService) HeartbeatEdgeNode(nodeID string, req model.EdgeNodeHeart
 			normalized.NodeID, claims.TenantID,
 			normalized.Version, marshalEdgeNodeCapabilities(normalized.Capabilities), now)
 		if uerr != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": uerr.Error()})
+			return nil, dbError(uerr)
 		}
 		if affected == 0 {
 			return nil, errcode.NewWithMessage(errcode.CodeParamError, "edge node not active in this tenant")
 		}
 		node, gerr := dal.GetEdgeNodeInTenant(nodeID, claims.TenantID)
 		if gerr != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": gerr.Error()})
+			return nil, dbError(gerr)
 		}
 		return &model.EdgeNodeRegistrationRsp{
 			Node:    node,
@@ -216,7 +216,7 @@ func (*EdgeNodeService) HeartbeatEdgeNode(nodeID string, req model.EdgeNodeHeart
 	now := time.Now()
 	affected, uerr := dal.TouchEdgeNodeHeartbeat(nodeID, claims.TenantID, now)
 	if uerr != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": uerr.Error()})
+		return nil, dbError(uerr)
 	}
 	if affected == 0 {
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "edge node not active in this tenant")
@@ -233,7 +233,7 @@ func (*EdgeNodeService) HeartbeatEdgeNode(nodeID string, req model.EdgeNodeHeart
 func (*EdgeNodeService) ListEdgeNodes(limit int, claims *utils.UserClaims) ([]*model.EdgeNodeListEntry, error) {
 	rows, err := dal.ListEdgeNodesInTenant(claims.TenantID, limit)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	entries := make([]*model.EdgeNodeListEntry, 0, len(rows))
 	for _, node := range rows {
@@ -259,7 +259,7 @@ func (*EdgeNodeService) ReconcileEdgeNode(nodeID string, req model.EdgeNodeRecon
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errcode.NewWithMessage(errcode.CodeParamError, "edge node not registered")
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	// 网关必须在租户内：下发的 MQTT 主题按网关设备号拼出，身份错了就是发给别人。
 	gateway, gerr := dal.GetDeviceInTenant(req.GatewayDeviceID, claims.TenantID)
@@ -267,7 +267,7 @@ func (*EdgeNodeService) ReconcileEdgeNode(nodeID string, req model.EdgeNodeRecon
 		if errors.Is(gerr, gorm.ErrRecordNotFound) {
 			return nil, errcode.NewWithMessage(errcode.CodeParamError, "gateway device not found in tenant")
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": gerr.Error()})
+		return nil, dbError(gerr)
 	}
 
 	health := classifyNodeHealth(node.LastSeenAt)
@@ -277,7 +277,7 @@ func (*EdgeNodeService) ReconcileEdgeNode(nodeID string, req model.EdgeNodeRecon
 	// 云端各资源的当前修订号：从该网关的历史下发任务推导（max revision）。
 	history, herr := dal.ListEdgeSyncTasks(claims.TenantID, "", gateway.ID, "", edgeSyncRevisionScanLimit)
 	if herr != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": herr.Error()})
+		return nil, dbError(herr)
 	}
 	cloudRevisions := make(map[string]int64, len(history))
 	for _, task := range history {
@@ -363,7 +363,7 @@ func (*EdgeNodeService) IssueNodeCertificate(nodeID string, req model.IssueEdgeN
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errcode.NewWithMessage(errcode.CodeParamError, "edge node not registered")
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	if node.Status != model.EdgeNodeStatusActive {
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "edge node is revoked")
@@ -439,7 +439,7 @@ func (*EdgeNodeService) IssueNodeCertificate(nodeID string, req model.IssueEdgeN
 		UpdatedAt:    now,
 	}
 	if err := dal.CreateEdgeNodeCertificate(certRecord); err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 
 	return &model.IssueEdgeNodeCertificateResp{
@@ -463,7 +463,7 @@ func (*EdgeNodeService) GetNodeCertificate(nodeID string, claims *utils.UserClai
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errcode.NewWithMessage(errcode.CodeParamError, "edge node not registered")
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 
 	cert, err := dal.GetActiveEdgeNodeCertificate(claims.TenantID, nodeID)
@@ -471,7 +471,7 @@ func (*EdgeNodeService) GetNodeCertificate(nodeID string, claims *utils.UserClai
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errcode.NewWithMessage(errcode.CodeParamError, "no active certificate found for edge node")
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 
 	var revokedAtStr *string
@@ -502,13 +502,13 @@ func (*EdgeNodeService) RevokeNodeCertificate(nodeID string, claims *utils.UserC
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errcode.NewWithMessage(errcode.CodeParamError, "edge node not registered")
 		}
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return dbError(err)
 	}
 
 	now := time.Now()
 	_, rerr := dal.RevokeEdgeNodeCertificates(claims.TenantID, nodeID, now, "revoked by admin")
 	if rerr != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": rerr.Error()})
+		return dbError(rerr)
 	}
 	return nil
 }
@@ -522,7 +522,7 @@ func (*EdgeNodeService) UpgradeNode(nodeID string, req model.UpgradeEdgeNodeReq,
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errcode.NewWithMessage(errcode.CodeParamError, "edge node not registered")
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	if node.Status != model.EdgeNodeStatusActive {
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "edge node is revoked")
@@ -560,12 +560,12 @@ func (*EdgeNodeService) UpgradeNode(nodeID string, req model.UpgradeEdgeNodeReq,
 		UpdatedAt:     now,
 	}
 	if err := dal.CreateEdgeNodeUpgradeHistory(history); err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 
 	// 更新边缘节点当前目标版本
 	if _, uerr := dal.UpdateEdgeNodeVersion(nodeID, claims.TenantID, req.TargetVersion, now); uerr != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": uerr.Error()})
+		return nil, dbError(uerr)
 	}
 
 	return &model.EdgeNodeUpgradeResp{
@@ -585,7 +585,7 @@ func (*EdgeNodeService) RollbackNode(nodeID string, req model.RollbackEdgeNodeRe
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errcode.NewWithMessage(errcode.CodeParamError, "edge node not registered")
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 
 	history, err := dal.GetEdgeNodeUpgradeHistoryByID(req.HistoryID, claims.TenantID)
@@ -593,7 +593,7 @@ func (*EdgeNodeService) RollbackNode(nodeID string, req model.RollbackEdgeNodeRe
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errcode.NewWithMessage(errcode.CodeParamError, "upgrade history record not found")
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	if history.NodeID != nodeID {
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "upgrade history does not belong to this edge node")
@@ -616,12 +616,12 @@ func (*EdgeNodeService) RollbackNode(nodeID string, req model.RollbackEdgeNodeRe
 		UpdatedAt:     now,
 	}
 	if err := dal.CreateEdgeNodeUpgradeHistory(rollbackRecord); err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 
 	// 更新边缘节点版本
 	if _, uerr := dal.UpdateEdgeNodeVersion(nodeID, claims.TenantID, rollbackTo, now); uerr != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": uerr.Error()})
+		return nil, dbError(uerr)
 	}
 
 	return &model.EdgeNodeRollbackResp{
@@ -640,13 +640,12 @@ func (*EdgeNodeService) ListNodeUpgradeHistory(nodeID string, limit int, claims 
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errcode.NewWithMessage(errcode.CodeParamError, "edge node not registered")
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 
 	list, err := dal.ListEdgeNodeUpgradeHistory(claims.TenantID, nodeID, limit)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	return list, nil
 }
-

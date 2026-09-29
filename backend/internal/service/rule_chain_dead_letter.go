@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/model"
@@ -36,10 +37,8 @@ func persistRuleChainDeadLetter(dl RuleChainDeadLetter) {
 	var errPtr *string
 	if strings.TrimSpace(dl.Error) != "" {
 		e := strings.TrimSpace(dl.Error)
-		// 截断到 1000 字符防止异常堆栈超大
-		if len(e) > 1000 {
-			e = e[:1000]
-		}
+		// 截断到 1000 字节防止异常堆栈超大（按 rune 边界回退，避免写入非法 UTF-8 被 PG 拒绝）
+		e = truncateUTF8Bytes(e, 1000)
 		errPtr = &e
 	}
 	attempts := dl.Attempts
@@ -68,6 +67,23 @@ func persistRuleChainDeadLetter(dl RuleChainDeadLetter) {
 			logrus.WithError(err).Warn("rule chain dead letter not persisted")
 		}
 	}()
+}
+
+// truncateUTF8Bytes 把 s 截断到至多 maxBytes 字节，并回退到最近的 rune 边界。
+// 直接 s[:n] 可能切断多字节字符（中文错误信息很常见），产生的非法 UTF-8
+// 写入 PostgreSQL TEXT 列会报 "invalid byte sequence for encoding UTF8"，整行丢失。
+func truncateUTF8Bytes(s string, maxBytes int) string {
+	if maxBytes <= 0 {
+		return ""
+	}
+	if len(s) <= maxBytes {
+		return s
+	}
+	cut := maxBytes
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
+		cut--
+	}
+	return s[:cut]
 }
 
 // ListRuleChainDeadLetters 查询当前租户下的规则链死信。

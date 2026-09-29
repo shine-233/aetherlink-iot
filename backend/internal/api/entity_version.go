@@ -25,19 +25,9 @@ type EntityVersionApi struct{}
 // @Success 200 {object} model.EntityVersionListRsp "Entity version list"
 // @Router /api/v1/entity_versions [get]
 func (*EntityVersionApi) HandleGetEntityVersionList(c *gin.Context) {
-	var req model.EntityVersionListReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.EntityVersion.ListEntityVersions(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	Handle(c, func(req *model.EntityVersionListReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.EntityVersion.ListEntityVersions(req, userClaims)
+	})
 }
 
 // HandleCreateEntityVersion 读取实体当前状态并创建一条快照版本。
@@ -49,19 +39,9 @@ func (*EntityVersionApi) HandleGetEntityVersionList(c *gin.Context) {
 // @Success 200 {object} model.EntityVersion "Created entity version"
 // @Router /api/v1/entity_versions [post]
 func (*EntityVersionApi) HandleCreateEntityVersion(c *gin.Context) {
-	var req model.EntityVersionCreateReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.EntityVersion.CreateEntityVersion(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	Handle(c, func(req *model.EntityVersionCreateReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.EntityVersion.CreateEntityVersion(req, userClaims)
+	})
 }
 
 // HandleGetEntityVersion 按路径 id 查询单个版本详情。
@@ -72,14 +52,9 @@ func (*EntityVersionApi) HandleCreateEntityVersion(c *gin.Context) {
 // @Success 200 {object} model.EntityVersion "Entity version detail"
 // @Router /api/v1/entity_versions/{id} [get]
 func (*EntityVersionApi) HandleGetEntityVersion(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.EntityVersion.GetEntityVersion(c.Param("id"), userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.EntityVersion.GetEntityVersion(c.Param("id"), userClaims)
+	})
 }
 
 // HandleDiffEntityVersion 按路径两个 id 对比两份快照的 JSON 语义差异。
@@ -91,14 +66,9 @@ func (*EntityVersionApi) HandleGetEntityVersion(c *gin.Context) {
 // @Success 200 {object} model.EntityVersionDiffRsp "Snapshot semantic diff"
 // @Router /api/v1/entity_versions/{id}/diff/{target_id} [get]
 func (*EntityVersionApi) HandleDiffEntityVersion(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.EntityVersion.DiffEntityVersion(c.Param("id"), c.Param("target_id"), userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.EntityVersion.DiffEntityVersion(c.Param("id"), c.Param("target_id"), userClaims)
+	})
 }
 
 // HandleRestoreEntityVersion 按路径 id 将快照回写到实体；dry_run 为真时只回显字段。

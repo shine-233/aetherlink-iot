@@ -26,16 +26,9 @@ type ProtocolPluginApi struct{}
 // 前端设备配置编辑页会依赖这个接口渲染协议插件的动态字段。
 // @Router   /api/v1/protocol_plugin/config_form [get]
 func (*ProtocolPluginApi) HandleProtocolPluginFormByProtocolType(c *gin.Context) {
-	var req model.GetProtocolPluginFormByProtocolType
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	data, err := service.GroupApp.ServicePlugin.GetProtocolPluginFormByProtocolType(req.ProtocolType, req.DeviceType)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandlePublic(c, func(req *model.GetProtocolPluginFormByProtocolType) (interface{}, error) {
+		return service.GroupApp.ServicePlugin.GetProtocolPluginFormByProtocolType(req.ProtocolType, req.DeviceType)
+	})
 }
 
 // HandleDeviceConfigForProtocolPlugin 为协议插件返回设备配置。

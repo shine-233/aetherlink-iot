@@ -6,11 +6,11 @@
  */
 import { effectScope, onScopeDispose, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
-import { breakpointsTailwind, useBreakpoints, useTitle } from '@vueuse/core'
+import { breakpointsTailwind, useBreakpoints } from '@vueuse/core'
 import { useBoolean } from '@aetherlink/hooks'
 import { message } from '@/utils/common/discrete'
 import { router } from '@/router'
-import { resolveDocumentTitle } from '@/router/guard/title-helper'
+import { resolveDocumentTitle, setDocumentTitle } from '@/router/guard/title-helper'
 import { SetupStoreId } from '@/enum'
 import { $t, setLocale } from '@/locales'
 import { setDayjsLocale } from '@/locales/dayjs'
@@ -108,7 +108,7 @@ export const useAppStore = defineStore(SetupStoreId.App, () => {
   function updateDocumentTitleByLocale() {
     const appTitle = sysSettingStore.system_name === '' ? $t('title') : sysSettingStore.system_name
     const documentTitle = resolveDocumentTitle(router.currentRoute.value, appTitle || $t('title'), $t)
-    useTitle(documentTitle)
+    setDocumentTitle(documentTitle)
   }
 
   function init() {

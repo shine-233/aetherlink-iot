@@ -46,9 +46,7 @@ func (*DeviceAuth) Auth(req *model.DeviceAuthReq) (*model.DeviceAuthRes, error) 
 
 	if err = dal.CreateDevice(device); err != nil {
 		logrus.Error("[DeviceAuth][Auth] CreateDevice failed:", err)
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 
 	return buildDeviceAuthRes(device), nil
@@ -58,9 +56,7 @@ func lookupAuthDeviceConfig(templateSecret string) (*model.DeviceConfig, error) 
 	deviceConfig, err := dal.GetDeviceConfigByTemplateSecret(templateSecret)
 	if err != nil {
 		logrus.Error("[DeviceAuth][Auth] GetDeviceConfigByTemplateSecret failed:", err)
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 
 	if deviceConfig == nil {
@@ -79,9 +75,7 @@ func ensureDeviceNumberAvailable(deviceNumber string) (*model.Device, error) {
 	if err != nil {
 		if !errors.Is(err, dal.ErrRecordNotFound) {
 			logrus.Error("[DeviceAuth][Auth] GetDeviceByDeviceNumber failed:", err)
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-			})
+			return nil, dbError(err)
 		}
 		return nil, nil
 	}
@@ -97,9 +91,7 @@ func lookupAuthProductID(productKey *string) (string, error) {
 	product, err := dal.GetProductByProductKey(*productKey)
 	if err != nil {
 		logrus.Error("[DeviceAuth][Auth] GetProductByProductKey failed:", err)
-		return "", errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return "", dbError(err)
 	}
 	if product == nil {
 		return "", errcode.New(200083)
@@ -109,9 +101,9 @@ func lookupAuthProductID(productKey *string) (string, error) {
 }
 
 // ensureAuthProductMatchesConfig 是一型一密动态注册的产品级交叉校验：
-// 1) 产品与命中档案必须同租户，防止跨租户产品被挂接；
-// 2) 若产品已绑定其他设备档案（products.device_config_id），则该 product_key
-//    与当前档案不匹配，拒绝注册——否则任何已存在的产品密钥都能通过校验。
+//  1. 产品与命中档案必须同租户，防止跨租户产品被挂接；
+//  2. 若产品已绑定其他设备档案（products.device_config_id），则该 product_key
+//     与当前档案不匹配，拒绝注册——否则任何已存在的产品密钥都能通过校验。
 func ensureAuthProductMatchesConfig(productID string, deviceConfig *model.DeviceConfig) error {
 	if productID == "" {
 		return nil
@@ -120,9 +112,7 @@ func ensureAuthProductMatchesConfig(productID string, deviceConfig *model.Device
 	product, err := dal.GetProductByID(productID)
 	if err != nil {
 		logrus.Error("[DeviceAuth][Auth] GetProductByID failed:", err)
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	if product == nil {
 		return errcode.New(200083)

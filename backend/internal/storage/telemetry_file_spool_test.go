@@ -16,14 +16,14 @@ func TestTelemetryFileSpoolStoreIsAtomicBoundedAndIdempotent(t *testing.T) {
 	spool := testTelemetryFileSpool(t, 1024*1024, 1)
 	history := testTelemetrySpoolHistory("device-1", "temperature", 1000, 21.5)
 
-	first, err := spool.store(history, time.Unix(1, 0))
+	first, err := spool.store(context.Background(), history, time.Unix(1, 0))
 	if err != nil {
 		t.Fatalf("store first record: %v", err)
 	}
 	if !first.Stored || first.Duplicate || first.Corrupt != 0 || first.Quarantined != 0 {
 		t.Fatalf("first store result = %#v, want one new record", first)
 	}
-	duplicate, err := spool.store(history, time.Unix(2, 0))
+	duplicate, err := spool.store(context.Background(), history, time.Unix(2, 0))
 	if err != nil {
 		t.Fatalf("store duplicate record: %v", err)
 	}
@@ -35,7 +35,7 @@ func TestTelemetryFileSpoolStoreIsAtomicBoundedAndIdempotent(t *testing.T) {
 	}
 
 	second := testTelemetrySpoolHistory("device-1", "humidity", 1000, 50)
-	_, err = spool.store(second, time.Unix(3, 0))
+	_, err = spool.store(context.Background(), second, time.Unix(3, 0))
 	if err == nil || !strings.Contains(err.Error(), "capacity exhausted") {
 		t.Fatalf("store over capacity error = %v", err)
 	}
@@ -57,7 +57,7 @@ func TestTelemetryFileSpoolStoreIsAtomicBoundedAndIdempotent(t *testing.T) {
 func TestTelemetryFileSpoolStoreNeverTreatsCorruptDuplicateAsDurable(t *testing.T) {
 	spool := testTelemetryFileSpool(t, 1024*1024, 10)
 	history := testTelemetrySpoolHistory("device-1", "temperature", 1000, 21.5)
-	if _, err := spool.store(history, time.Unix(1, 0)); err != nil {
+	if _, err := spool.store(context.Background(), history, time.Unix(1, 0)); err != nil {
 		t.Fatalf("store record: %v", err)
 	}
 	path := filepath.Join(spool.directory, telemetryFileSpoolFilename(telemetryFileSpoolIdentity(history)))
@@ -65,7 +65,7 @@ func TestTelemetryFileSpoolStoreNeverTreatsCorruptDuplicateAsDurable(t *testing.
 		t.Fatalf("corrupt record: %v", err)
 	}
 
-	replacement, err := spool.store(history, time.Unix(2, 0))
+	replacement, err := spool.store(context.Background(), history, time.Unix(2, 0))
 	if err != nil {
 		t.Fatalf("replace corrupt duplicate: %v", err)
 	}
@@ -95,7 +95,7 @@ func TestTelemetryFileSpoolStoreNeverTreatsCorruptDuplicateAsDurable(t *testing.
 func TestTelemetryFileSpoolStoreReportsQuarantineWhenReplacementExceedsCapacity(t *testing.T) {
 	spool := testTelemetryFileSpool(t, 1024*1024, 1)
 	history := testTelemetrySpoolHistory("device-1", "temperature", 1000, 21.5)
-	if _, err := spool.store(history, time.Unix(1, 0)); err != nil {
+	if _, err := spool.store(context.Background(), history, time.Unix(1, 0)); err != nil {
 		t.Fatalf("store record: %v", err)
 	}
 	path := filepath.Join(spool.directory, telemetryFileSpoolFilename(telemetryFileSpoolIdentity(history)))
@@ -103,7 +103,7 @@ func TestTelemetryFileSpoolStoreReportsQuarantineWhenReplacementExceedsCapacity(
 		t.Fatalf("corrupt record: %v", err)
 	}
 
-	result, err := spool.store(history, time.Unix(2, 0))
+	result, err := spool.store(context.Background(), history, time.Unix(2, 0))
 	if err == nil || !strings.Contains(err.Error(), "capacity exhausted") {
 		t.Fatalf("corrupt replacement error = %v", err)
 	}
@@ -119,7 +119,7 @@ func TestTelemetryFileSpoolStoreReportsQuarantineWhenReplacementExceedsCapacity(
 func TestTelemetryFileSpoolReplayDeletesOnlyAfterSuccess(t *testing.T) {
 	spool := testTelemetryFileSpool(t, 1024*1024, 10)
 	history := testTelemetrySpoolHistory("device-1", "temperature", 1000, 21.5)
-	if _, err := spool.store(history, time.Unix(1, 0)); err != nil {
+	if _, err := spool.store(context.Background(), history, time.Unix(1, 0)); err != nil {
 		t.Fatalf("store record: %v", err)
 	}
 
@@ -159,7 +159,7 @@ func TestTelemetryFileSpoolReplayReadsRecordsAboveLoweredWriteLimit(t *testing.T
 		maxRecordBytes: 1024 * 1024,
 	}
 	history := testTelemetrySpoolHistory("device-1", "temperature", 1000, 21.5)
-	if _, err := original.store(history, time.Unix(1, 0)); err != nil {
+	if _, err := original.store(context.Background(), history, time.Unix(1, 0)); err != nil {
 		t.Fatalf("store record under original limit: %v", err)
 	}
 
@@ -182,7 +182,7 @@ func TestTelemetryFileSpoolReplayReadsRecordsAboveLoweredWriteLimit(t *testing.T
 func TestTelemetryFileSpoolCorruptionIsQuarantinedWithoutStarvingHealthyRows(t *testing.T) {
 	spool := testTelemetryFileSpool(t, 1024*1024, 10)
 	history := testTelemetrySpoolHistory("device-1", "temperature", 1000, 21.5)
-	if _, err := spool.store(history, time.Unix(1, 0)); err != nil {
+	if _, err := spool.store(context.Background(), history, time.Unix(1, 0)); err != nil {
 		t.Fatalf("store record: %v", err)
 	}
 	path := filepath.Join(spool.directory, telemetryFileSpoolFilename(telemetryFileSpoolIdentity(history)))
@@ -193,7 +193,7 @@ func TestTelemetryFileSpoolCorruptionIsQuarantinedWithoutStarvingHealthyRows(t *
 		t.Fatalf("age corrupt record: %v", err)
 	}
 	healthy := testTelemetrySpoolHistory("device-1", "humidity", 2000, 50)
-	if _, err := spool.store(healthy, time.Unix(2, 0)); err != nil {
+	if _, err := spool.store(context.Background(), healthy, time.Unix(2, 0)); err != nil {
 		t.Fatalf("store healthy record: %v", err)
 	}
 
@@ -278,7 +278,7 @@ func TestTelemetryFileSpoolInitRecoversQuarantineUsage(t *testing.T) {
 		maxRecordBytes: 1024 * 1024,
 	}
 	history := testTelemetrySpoolHistory("device-1", "temperature", 1000, 21.5)
-	if _, err := spool.store(history, time.Unix(1, 0)); err != nil {
+	if _, err := spool.store(context.Background(), history, time.Unix(1, 0)); err != nil {
 		t.Fatalf("store record: %v", err)
 	}
 	path := filepath.Join(directory, telemetryFileSpoolFilename(telemetryFileSpoolIdentity(history)))
@@ -337,12 +337,12 @@ func TestTelemetryFileSpoolRejectsPublicFilesDirectory(t *testing.T) {
 func TestTelemetryFileSpoolRejectsSameIdentityWithDifferentPayload(t *testing.T) {
 	spool := testTelemetryFileSpool(t, 1024*1024, 10)
 	original := testTelemetrySpoolHistory("device-1", "temperature", 1000, 21.5)
-	if result, err := spool.store(original, time.Now()); err != nil || !result.Stored {
+	if result, err := spool.store(context.Background(), original, time.Now()); err != nil || !result.Stored {
 		t.Fatalf("store original result=%#v err=%v", result, err)
 	}
 
 	collision := testTelemetrySpoolHistory("device-1", "temperature", 1000, 99)
-	result, err := spool.store(collision, time.Now())
+	result, err := spool.store(context.Background(), collision, time.Now())
 	if err == nil {
 		t.Fatalf("collision result=%#v err=nil, want identity collision rejection", result)
 	}

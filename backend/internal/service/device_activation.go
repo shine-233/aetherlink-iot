@@ -6,7 +6,6 @@ import (
 
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
-	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 	utils "aetherlink-iot/backend/pkg/utils"
 
@@ -57,18 +56,9 @@ func loadActivationDeviceByNumber(deviceNumber string) (*model.Device, error) {
 				"error": deviceNumber,
 			})
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	return device, nil
-}
-
-func ensureActivationDeviceAccess(device *model.Device, claims *utils.UserClaims) error {
-	if claims != nil && claims.Authority != constant.SYS_ADMIN && device.TenantID != claims.TenantID {
-		return errcode.New(errcode.CodeNoPermission)
-	}
-	return nil
 }
 
 func ensureActivationDeviceInactive(device *model.Device) error {
@@ -81,9 +71,7 @@ func ensureActivationDeviceInactive(device *model.Device) error {
 func persistActivatedDevice(device *model.Device) (*model.Device, error) {
 	updatedDevice, err := dal.UpdateDevice(device)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	return updatedDevice, nil
 }

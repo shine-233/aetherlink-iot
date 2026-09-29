@@ -1,12 +1,10 @@
 package service
 
 import (
-	"strings"
 	"time"
 
 	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/model"
-	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/utils"
 )
@@ -213,19 +211,7 @@ func loadRecentCommandJobEvents(jobID, tenantID string) ([]*model.CommandJobEven
 // 下发命令的写路径）；超时恢复 expireTimedOutFleetCommandJobsForTenant 保持单租户
 // （有状态写，全局 worker ListTimedOutRunningCommandJobs 兜底全部租户）。
 func fleetCommandJobListScopes(claims *utils.UserClaims) []string {
-	if claims == nil {
-		return nil
-	}
-	if claims.Authority == constant.TENANT_USER {
-		if tenantID := strings.TrimSpace(claims.TenantID); tenantID != "" {
-			return []string{tenantID}
-		}
-		return nil
-	}
-	if strings.TrimSpace(claims.TenantID) == "" {
-		return []string{""}
-	}
-	return expandTenantIDScope(claims.TenantID)
+	return claimsTenantReadListScopes(claims)
 }
 
 func (FleetCommandJobQueryService) ListFleetCommandJobs(req *model.FleetCommandJobListReq, claims *utils.UserClaims) (*model.FleetCommandJobListResult, error) {

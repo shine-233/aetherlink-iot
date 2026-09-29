@@ -83,7 +83,7 @@ func GrantPreRegisterCredentials(ctx context.Context, claims *utils.UserClaims, 
 
 	devices, err := preRegisterBatchDevices(tenantID, batch)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	if len(devices) == 0 {
 		return nil, errcode.NewWithMessage(errcode.CodeNotFound, ErrCredentialGrantBatchEmpty.Error())
@@ -91,7 +91,7 @@ func GrantPreRegisterCredentials(ctx context.Context, claims *utils.UserClaims, 
 
 	existing, err := dal.FindPendingCredentialGrant(tenantID, batch)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	if existing != nil {
 		return nil, errcode.NewWithMessage(errcode.CodeOpDenied, ErrCredentialGrantPendingExists.Error())
@@ -113,7 +113,7 @@ func GrantPreRegisterCredentials(ctx context.Context, claims *utils.UserClaims, 
 		if existingAfterRace, ferr := dal.FindPendingCredentialGrant(tenantID, batch); ferr == nil && existingAfterRace != nil {
 			return nil, errcode.NewWithMessage(errcode.CodeOpDenied, ErrCredentialGrantPendingExists.Error())
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	return &CredentialGrantView{
 		ID:          grant.ID,
@@ -152,7 +152,7 @@ func DownloadPreRegisterCredentials(ctx context.Context, claims *utils.UserClaim
 
 	affected, err := dal.ConsumeCredentialGrant(grantID, tenantID, claims.ID, now)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	if affected == 0 {
 		// 并发场景下另一个请求刚消费掉：必须拒绝，绝不能"查到 pending 就放行"。
@@ -161,7 +161,7 @@ func DownloadPreRegisterCredentials(ctx context.Context, claims *utils.UserClaim
 
 	devices, err := preRegisterBatchDevices(tenantID, grant.BatchNumber)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	rows := make([]CredentialRow, 0, len(devices))
 	for _, d := range devices {

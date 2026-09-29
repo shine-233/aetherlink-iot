@@ -46,9 +46,7 @@ func (c *CommandData) previewFleetCommandDeviceFilter(req *model.FleetCommandJob
 	applyDeviceListOwnerFilterForClaims(countReq, claims)
 	total, err := dal.CountDeviceListByFilter(countReq, tenantID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 
 	warnings := []string{
@@ -82,9 +80,7 @@ func (c *CommandData) previewFleetCommandDeviceFilter(req *model.FleetCommandJob
 		applyDeviceListOwnerFilterForClaims(previewSubsetReq, claims)
 		_, previewSubsetDevices, err := dal.PreviewCommandJobDeviceFilter(previewSubsetReq, tenantID)
 		if err != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-			})
+			return nil, dbError(err)
 		}
 		normalizeFleetCommandDeviceFilterPreviewSubset(previewSubsetDevices)
 		rows, eligibleCount = c.previewFleetCommandRowsFromDevices(previewSubsetDevices, req, claims)
@@ -148,15 +144,11 @@ func resolveFleetCommandDeviceFilterDevices(filter *model.FleetCommandJobDeviceF
 	applyDeviceListOwnerFilterForClaims(deviceListReq, claims)
 	deviceIDs, err := dal.ListDeviceIDsByFilter(deviceListReq, tenantID, maxDevices)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	devices, err := dal.GetDeviceListRowsByFilterAndIDs(deviceListReq, tenantID, deviceIDs)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	normalizeFleetCommandDeviceFilterPreviewSubset(devices)
 	return devices, nil

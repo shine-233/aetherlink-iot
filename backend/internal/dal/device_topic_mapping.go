@@ -82,7 +82,7 @@ func applyDeviceTopicMappingFilters(dao query.IDeviceTopicMappingDo, req *model.
 		dao = dao.Where(q.Direction.Eq(*req.Direction))
 	}
 	if req.SourceTopic != nil && *req.SourceTopic != "" {
-		dao = dao.Where(q.SourceTopic.Like("%" + *req.SourceTopic + "%"))
+		dao = dao.Where(q.SourceTopic.Like(ContainsLikePattern(*req.SourceTopic)))
 	}
 	if req.TargetTopic != nil && *req.TargetTopic != "" {
 		dao = dao.Where(q.TargetTopic.Eq(*req.TargetTopic))
@@ -95,7 +95,7 @@ func applyDeviceTopicMappingFilters(dao query.IDeviceTopicMappingDo, req *model.
 		}
 	}
 	if req.Description != nil && *req.Description != "" {
-		dao = dao.Where(q.Description.Like("%" + *req.Description + "%"))
+		dao = dao.Where(q.Description.Like(ContainsLikePattern(*req.Description)))
 	}
 	if req.DataIdentifier != nil && *req.DataIdentifier != "" {
 		dao = dao.Where(q.DataIdentifier.Eq(*req.DataIdentifier))

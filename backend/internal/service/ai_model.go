@@ -20,6 +20,7 @@ import (
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/secrets"
 	"aetherlink-iot/backend/pkg/utils"
+
 	"github.com/google/uuid"
 	"github.com/spf13/viper"
 	"gorm.io/gorm"
@@ -115,7 +116,7 @@ func (AiModelService) CreateAiModel(ctx context.Context, req *model.CreateAiMode
 			map[string]interface{}{"error": "ai credential encryption unavailable: " + err.Error()})
 	}
 	if err := dal.CreateAiModel(m); err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	return aiModelMasked(m, apiKey), nil
 }
@@ -127,7 +128,7 @@ func (AiModelService) UpdateAiModel(ctx context.Context, req *model.UpdateAiMode
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errcode.NewWithMessage(errcode.CodeParamError, "ai model not found")
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	if req.Name != "" {
 		m.Name = strings.TrimSpace(req.Name)
@@ -170,7 +171,7 @@ func (AiModelService) UpdateAiModel(ctx context.Context, req *model.UpdateAiMode
 	}
 	m.UpdatedAt = time.Now()
 	if err := dal.UpdateAiModel(m); err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	return aiModelMasked(m, maskSource), nil
 }
@@ -179,7 +180,7 @@ func (AiModelService) UpdateAiModel(ctx context.Context, req *model.UpdateAiMode
 func (AiModelService) DeleteAiModel(id string, claims *utils.UserClaims) error {
 	rows, err := dal.DeleteAiModelInTenant(id, claims.TenantID)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return dbError(err)
 	}
 	if rows == 0 {
 		return errcode.NewWithMessage(errcode.CodeParamError, "ai model not found")
@@ -194,7 +195,7 @@ func (AiModelService) GetAiModel(id string, claims *utils.UserClaims) (*model.Ai
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errcode.NewWithMessage(errcode.CodeParamError, "ai model not found")
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	plain, _, err := openModelAPIKey(m)
 	if err != nil {
@@ -211,7 +212,7 @@ func (AiModelService) ListAiModels(purpose string, limit int, claims *utils.User
 	}
 	list, err := dal.ListAiModels(claims.TenantID, purpose, limit)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	out := make([]*model.AiModelResp, 0, len(list))
 	for _, m := range list {
@@ -250,7 +251,7 @@ func (AiModelService) AiAssistantChat(ctx context.Context, req *model.AiAssistan
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return nil, errcode.NewWithMessage(errcode.CodeParamError, "ai model not found")
 			}
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+			return nil, dbError(err)
 		}
 		if !m.Enabled {
 			return nil, errcode.NewWithMessage(errcode.CodeParamError, "ai model is disabled")

@@ -236,6 +236,9 @@ func (c *MarketClient) marketEndpoint(apiPath string) (*url.URL, error) {
 	return endpoint, nil
 }
 
+// marketMaxResponseBytes market 单次响应体读取上限。
+const marketMaxResponseBytes int64 = 32 << 20
+
 func (c *MarketClient) readMarketResponse(httpReq *http.Request, requestErr func(error) error, readErr func(error) error) (int, []byte, error) {
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
@@ -243,9 +246,13 @@ func (c *MarketClient) readMarketResponse(httpReq *http.Request, requestErr func
 	}
 	defer resp.Body.Close()
 
-	bodyBytes, err := io.ReadAll(resp.Body)
+	// 上限兜底：异常/被劫持的 market 端点返回超大响应体时不致撑爆内存。
+	bodyBytes, err := io.ReadAll(io.LimitReader(resp.Body, marketMaxResponseBytes+1))
 	if err != nil {
 		return 0, nil, readErr(err)
+	}
+	if int64(len(bodyBytes)) > marketMaxResponseBytes {
+		return 0, nil, readErr(fmt.Errorf("market response exceeds %d bytes", marketMaxResponseBytes))
 	}
 
 	return resp.StatusCode, bodyBytes, nil

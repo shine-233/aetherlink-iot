@@ -37,14 +37,25 @@ type AutomateTelemetryAction interface {
 }
 
 func AutomateActionDeviceMqttSend(deviceId string, action model.ActionInfo, tenantID string) (string, error) {
-	var executeMsg string
+	userId, _ := dal.GetUserIdBYTenantID(tenantID)
+	return automateActionDeviceMqttSendAsUser(deviceId, action, tenantID, userId)
+}
+
+// automateActionExecuteLabel 返回动作日志的设备标签；设备缓存缺失或名称为空指针时退回设备 id，
+// 避免对 nil Name 解引用 panic（预注册等设备允许 name 为 NULL）。
+func automateActionExecuteLabel(deviceId string, deviceInfo *model.Device, err error) string {
+	if err != nil || deviceInfo == nil || deviceInfo.Name == nil {
+		return fmt.Sprintf("设备id:%s", deviceId)
+	}
+	return fmt.Sprintf("设备名称:%s", *deviceInfo.Name)
+}
+
+// automateActionDeviceMqttSendAsUser 以已解析的租户操作用户执行单设备动作下发；
+// 多设备动作复用同一 userId，避免每台设备重复查询租户用户。
+func automateActionDeviceMqttSendAsUser(deviceId string, action model.ActionInfo, tenantID, userId string) (string, error) {
 	// 获取设备缓存信息
 	deviceInfo, err := initialize.GetDeviceCacheById(deviceId)
-	if err != nil {
-		executeMsg = fmt.Sprintf("设备id:%s", deviceId)
-	} else {
-		executeMsg = fmt.Sprintf("设备名称:%s", *deviceInfo.Name)
-	}
+	executeMsg := automateActionExecuteLabel(deviceId, deviceInfo, err)
 
 	if action.ActionParamType == nil {
 		return executeMsg + " ActionParamType不存在", errors.New("ActionParamType不存在")
@@ -58,8 +69,6 @@ func AutomateActionDeviceMqttSend(deviceId string, action model.ActionInfo, tena
 	// }
 	ctx := context.Background()
 
-	var userId string
-	userId, _ = dal.GetUserIdBYTenantID(tenantID)
 	logrus.Debug("AutomateActionDeviceMqttSend:", tenantID, ", userId:", userId)
 	operationType := strconv.Itoa(constant.Auto)
 	// var valueMap = make(map[string]string)
@@ -141,8 +150,12 @@ func (a *AutomateTelemetryActionMultiple) AutomateActionRun(action model.ActionI
 		messages []string
 		errs     error
 	)
+	if len(a.DeviceIds) == 0 {
+		return "单类设置:" + fmt.Sprintf("%s", messages), errs
+	}
+	userId, _ := dal.GetUserIdBYTenantID(a.TenantID)
 	for _, deviceId := range a.DeviceIds {
-		msg, err := AutomateActionDeviceMqttSend(deviceId, action, a.TenantID)
+		msg, err := automateActionDeviceMqttSendAsUser(deviceId, action, a.TenantID, userId)
 		if err != nil && errs == nil {
 			errs = err
 		}

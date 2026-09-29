@@ -7,7 +7,7 @@
 4. 密钥轮换（Reseal）：检测 needs_reseal 并在前端提供一键在线重加密操作。
 -->
 <script setup lang="ts">
-import { h, onMounted, reactive, ref } from 'vue'
+import { h, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import {
   NAlert,
   NButton,
@@ -407,6 +407,9 @@ const columns: DataTableColumns<SecretItem> = [
 onMounted(() => {
   loadData()
 })
+
+// 离开页面时停止倒计时并清空已解密明文，避免定时器泄漏与明文滞留内存。
+onBeforeUnmount(closeRevealModal)
 </script>
 
 <template>

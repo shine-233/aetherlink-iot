@@ -282,7 +282,7 @@ getData()
             <div class="flex items-center gap-2 w-full justify-between">
               <NTooltip trigger="hover">
                 <template #trigger>
-                  <NButton size="small" quaternary circle @click="linkEdit(item)">
+                  <NButton size="small" quaternary circle :aria-label="$t('common.edit')" @click="linkEdit(item)">
                     <template #icon>
                       <n-icon color="#888">
                         <editIcon />
@@ -294,7 +294,7 @@ getData()
               </NTooltip>
               <NTooltip trigger="hover">
                 <template #trigger>
-                  <NButton size="small" quaternary circle @click="openLog(item)">
+                  <NButton size="small" quaternary circle :aria-label="$t('generate.log')" @click="openLog(item)">
                     <template #icon>
                       <n-icon color="#888">
                         <DocumentTextOutline />
@@ -306,7 +306,7 @@ getData()
               </NTooltip>
               <NTooltip trigger="hover">
                 <template #trigger>
-                  <NButton size="small" quaternary circle @click="deleteLink(item)">
+                  <NButton size="small" quaternary circle :aria-label="$t('common.delete')" @click="deleteLink(item)">
                     <template #icon>
                       <n-icon color="#888">
                         <trashIcon />
@@ -319,62 +319,6 @@ getData()
             </div>
           </template>
         </ItemCard>
-        <!-- <NCard hoverable style="height: 180px" content-style="padding: 0px;margin: 0px;">
-          <NFlex justify="space-between" align="center" class="mb-4" :wrap="false">
-            <div class="mr-2 flex-1 overflow-hidden text-16px font-600">
-              <n-ellipsis>
-                {{ item.name }}
-              </n-ellipsis>
-            </div>
-            <n-switch
-              v-model:value="item.enabled"
-              checked-value="Y"
-              unchecked-value="N"
-              @update-value="() => linkActivation(item)"
-            />
-          </NFlex>
-          <n-ellipsis :line-clamp="2" class="h-40px">
-            {{ item.description }}
-          </n-ellipsis>
-          <NFlex justify="flex-end" class="mt-4" style="display: flex; position: absolute; bottom: 15px; right: 20px">
-            <NTooltip trigger="hover">
-              <template #trigger>
-                <NButton tertiary circle type="warning" @click="linkEdit(item)">
-                  <template #icon>
-                    <n-icon>
-                      <editIcon />
-                    </n-icon>
-                  </template>
-                </NButton>
-              </template>
-              {{ $t('common.edit') }}
-            </NTooltip>
-            <NTooltip trigger="hover">
-              <template #trigger>
-                <NButton circle tertiary type="info" @click="openLog(item)">
-                  <template #icon>
-                    <n-icon>
-                      <DocumentTextOutline />
-                    </n-icon>
-                  </template>
-                </NButton>
-              </template>
-              {{ $t('generate.log') }}
-            </NTooltip>
-            <NTooltip trigger="hover">
-              <template #trigger>
-                <NButton circle tertiary type="error" @click="deleteLink(item)">
-                  <template #icon>
-                    <n-icon>
-                      <trashIcon />
-                    </n-icon>
-                  </template>
-                </NButton>
-              </template>
-              {{ $t('common.delete') }}
-            </NTooltip>
-          </NFlex>
-        </NCard> -->
       </NGridItem>
     </NGrid>
     <NFlex justify="flex-end" class="mt-4">

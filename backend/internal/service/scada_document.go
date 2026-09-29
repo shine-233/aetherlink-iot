@@ -150,7 +150,7 @@ func (s *ScadaDocumentService) GetProject(ctx context.Context, id, tenantID stri
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, scadaNotFound("scada project not found")
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	return project, nil
 }
@@ -162,7 +162,7 @@ func (s *ScadaDocumentService) ListProjects(ctx context.Context, tenantID string
 	}
 	rows, err := dal.ListScadaProjects(tenantID, limit)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	return rows, nil
 }
@@ -171,7 +171,7 @@ func (s *ScadaDocumentService) ListProjects(ctx context.Context, tenantID string
 func (s *ScadaDocumentService) DeleteProject(ctx context.Context, id, tenantID string) error {
 	affected, err := dal.DeleteScadaProjectInTenant(id, tenantID)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return dbError(err)
 	}
 	if affected == 0 {
 		return scadaNotFound("scada project not found")
@@ -222,7 +222,7 @@ func (s *ScadaDocumentService) ListDocuments(ctx context.Context, projectID, ten
 	}
 	rows, err := dal.ListScadaDocumentsByProject(tenantID, projectID, limit)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	return rows, nil
 }
@@ -234,7 +234,7 @@ func (s *ScadaDocumentService) ListControlAudits(ctx context.Context, documentID
 	}
 	rows, err := dal.ListScadaControlAudits(tenantID, documentID, limit)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	return rows, nil
 }
@@ -246,7 +246,7 @@ func (s *ScadaDocumentService) LoadDocument(ctx context.Context, id, tenantID st
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, scadaNotFound("scada document not found")
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	return doc, nil
 }
@@ -271,7 +271,7 @@ func (s *ScadaDocumentService) SaveDocument(ctx context.Context, id, tenantID st
 
 	affected, err := dal.SaveScadaDocumentInTenant(id, tenantID, expectedVersion, payload, actorUserID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	if affected == 0 {
 		// 必须区分"版本冲突"与"不存在"：见文件头注意事项 1。
@@ -280,7 +280,7 @@ func (s *ScadaDocumentService) SaveDocument(ctx context.Context, id, tenantID st
 			if errors.Is(getErr, gorm.ErrRecordNotFound) {
 				return nil, scadaNotFound("scada document not found")
 			}
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": getErr.Error()})
+			return nil, dbError(getErr)
 		}
 		if model.IsScadaTerminalStatus(existing.Status) {
 			return nil, scadaDenied("archived scada document cannot be modified")
@@ -327,7 +327,7 @@ func (s *ScadaDocumentService) PublishDocument(ctx context.Context, id, tenantID
 
 	affected, err := dal.MarkScadaDocumentPublished(doc.ID, doc.TenantID, doc.CurrentVersion, doc.CurrentVersion, actorUserID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	if affected == 0 {
 		// 快照已写入但文档状态没跟上：并发保存把版本推走了。
@@ -356,7 +356,7 @@ func (s *ScadaDocumentService) RollbackDocument(ctx context.Context, id, tenantI
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, scadaDenied("target version was never published")
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 
 	canvas := normalizeCanvas(stringPtrValue(snapshot.JSONData))
@@ -367,7 +367,7 @@ func (s *ScadaDocumentService) RollbackDocument(ctx context.Context, id, tenantI
 	}
 	affected, err := dal.SaveScadaDocumentInTenant(doc.ID, doc.TenantID, doc.CurrentVersion, canvas, actorUserID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	if affected == 0 {
 		return nil, scadaDenied("scada document changed during rollback; retry")
@@ -383,7 +383,7 @@ func (s *ScadaDocumentService) ArchiveDocument(ctx context.Context, id, tenantID
 	}
 	affected, err := dal.MarkScadaDocumentArchived(doc.ID, doc.TenantID, actorUserID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	if affected == 0 {
 		return nil, scadaNotFound("scada document not found")
@@ -398,7 +398,7 @@ func (s *ScadaDocumentService) ListDocumentVersions(ctx context.Context, id, ten
 	}
 	rows, err := dal.ListScadaDocumentVersions(tenantID, id, limit)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	return rows, nil
 }

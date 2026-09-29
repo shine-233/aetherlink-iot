@@ -8,6 +8,8 @@ import (
 
 	"aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/pkg/global"
+
+	"gorm.io/gorm"
 )
 
 // tenant-scope: reviewed-2026-09-02 user-scoped (user_id keyed); user→tenant ownership enforced at service/login boundary.
@@ -44,11 +46,15 @@ func SaveUserTOTPSecret(userID, cipher string) error {
 }
 
 // DisableUserTOTP 解绑：删除状态与恢复码。
+// 两条 DELETE 必须在同一事务内：只删掉 user_totp 而留下恢复码，会让已解绑用户
+// 仍握有可用的二次验证凭证；反之则留下一个没有恢复码的孤儿 TOTP 行。
 func DisableUserTOTP(userID string) error {
-	if err := global.DB.Where("user_id = ?", userID).Delete(&model.UserTOTP{}).Error; err != nil {
-		return err
-	}
-	return global.DB.Where("user_id = ?", userID).Delete(&model.UserTOTPRecoveryCode{}).Error
+	return global.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("user_id = ?", userID).Delete(&model.UserTOTP{}).Error; err != nil {
+			return err
+		}
+		return tx.Where("user_id = ?", userID).Delete(&model.UserTOTPRecoveryCode{}).Error
+	})
 }
 
 // SetTOTPLastUsedStep 记录本窗口已消费的步号（防同一验证码重放）。

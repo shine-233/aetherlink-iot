@@ -76,36 +76,32 @@ func CheckDeviceNumbersExists(deviceNumbers []string) (map[string]bool, error) {
 func CheckVoucherExists(voucher string, excludeDeviceID string) (bool, error) {
 	candidates := utils.DeviceVoucherLookupCandidates(voucher)
 
-	// 第一轮：全部候选按 hash 计数。
+	hashes := make([]string, 0, len(candidates))
 	for _, candidate := range candidates {
-		var count int64
-		err := global.DB.Model(&model.Device{}).
-			Where("voucher_hash = ?", utils.VoucherStorageHash(candidate)).
-			Where("id <> ?", excludeDeviceID).
-			Count(&count).Error
-		if err != nil {
-			logrus.Error(err)
-			return false, err
-		}
-		if count > 0 {
-			return true, nil
-		}
+		hashes = append(hashes, utils.VoucherStorageHash(candidate))
 	}
 
-	// 第二轮：全部候选按明文计数，覆盖尚未回填 voucher_hash 的存量行。
-	for _, candidate := range candidates {
-		var count int64
-		err := global.DB.Model(&model.Device{}).
-			Where("voucher = ?", candidate).
-			Where("id <> ?", excludeDeviceID).
-			Count(&count).Error
-		if err != nil {
-			logrus.Error(err)
-			return false, err
-		}
-		if count > 0 {
-			return true, nil
-		}
+	// 第一轮：全部候选按 hash 一次 IN 探测（原逐候选 COUNT，最多 3 条往返 → 1 条）。
+	// 只需判定存在性，LIMIT 1 让 PG 命中首行即停，不必数完整个匹配集。
+	if exists, err := voucherColumnMatchExists("voucher_hash", hashes, excludeDeviceID); err != nil || exists {
+		return exists, err
 	}
-	return false, nil
+	// 第二轮：全部候选按明文探测，覆盖尚未回填 voucher_hash 的存量行。
+	return voucherColumnMatchExists("voucher", candidates, excludeDeviceID)
+}
+
+// voucherColumnMatchExists 判断 devices.<column> 是否有任一值落在 values 中（排除 excludeDeviceID）。
+// column 仅由本文件以常量传入，不拼接外部输入。
+func voucherColumnMatchExists(column string, values []string, excludeDeviceID string) (bool, error) {
+	var ids []string
+	err := global.DB.Model(&model.Device{}).
+		Where(column+" IN ?", values).
+		Where("id <> ?", excludeDeviceID).
+		Limit(1).
+		Pluck("id", &ids).Error
+	if err != nil {
+		logrus.Error(err)
+		return false, err
+	}
+	return len(ids) > 0, nil
 }

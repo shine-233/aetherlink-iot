@@ -5,7 +5,7 @@
 重构建议: 将列表查询、弹窗状态和物模型操作拆成组合函数，让页面只负责布局和事件编排。
 -->
 <script setup lang="ts">
-import { reactive, ref, computed, h, onMounted, defineAsyncComponent } from 'vue'
+import { ref, computed, h, onMounted, defineAsyncComponent } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   NButton,
@@ -25,7 +25,8 @@ import { deleteDeviceTemplate, deviceTemplate } from '@/service/api/device-templ
 import { $t } from '@/locales'
 import AdvancedListLayout from '@/components/list-page/index.vue'
 import ItemCard from '@/components/dev-card-item/index.vue'
-import { useBoolean, useLoading } from '~/packages/hooks/src'
+import { useBoolean } from '~/packages/hooks/src'
+import { fromFlatResponse, useListPage } from '@/components/data-table-page/useListPage'
 const TemplateModal = defineAsyncComponent(() => import('./components/template-modal.vue'))
 const TemplateUpgradeDrawer = defineAsyncComponent(() => import('./components/template-upgrade-drawer.vue'))
 // 导入SvgIcon组件，使用项目标准图标系统
@@ -33,7 +34,6 @@ import SvgIcon from '@/components/custom/svg-icon.vue'
 import { getPlatformApiBaseUrl } from '@/utils/common/tool'
 
 const route = useRoute()
-const { startLoading, endLoading, loading } = useLoading(false)
 const { bool: visible, setTrue: openModal } = useBoolean()
 const platformApiBaseUrl = getPlatformApiBaseUrl()
 const platformAssetBaseUrl: any = ref(platformApiBaseUrl)
@@ -49,12 +49,22 @@ const handleOpenUpgrade = (row: any) => {
   upgradeDrawerVisible.value = true
 }
 
-// 查询参数
-const queryParams = reactive({
-  page: 1,
-  page_size: 10,
-  name: ''
+// 模板列表：筛选、分页、加载态与过期请求丢弃由 useListPage 管理。
+const templates = useListPage<any, { name: string }>({
+  initialQuery: () => ({ name: '' }),
+  pageSizes: [10, 20, 50, 100],
+  fetcher: async (params) => {
+    try {
+      return fromFlatResponse(await deviceTemplate(params))
+    } catch (error) {
+      console.error('Failed to fetch thing model data:', error)
+      window.$message?.error($t('common.fetchDataFailed'))
+      return null
+    }
+  }
 })
+const { rows: deviceTemplateList, total: dataTotal, loading, load: getData } = templates
+const queryParams = templates.flatQuery
 
 const getPath = (path: string) => {
   if (!path) return ''
@@ -63,31 +73,12 @@ const getPath = (path: string) => {
 }
 
 // 数据
-const deviceTemplateList = ref([] as any[])
-const dataTotal = ref(0)
 const modalType = ref<'add' | 'edit'>('add')
 const templateId = ref<string>('')
 
 type TemplateModalOptions = {
   type: 'add' | 'edit'
   templateId?: string
-}
-
-// 获取数据
-const getData = async () => {
-  startLoading()
-  try {
-    const res = await deviceTemplate({ ...queryParams })
-    if (!res.error) {
-      deviceTemplateList.value = res.data.list
-      dataTotal.value = res.data.total
-    }
-  } catch (error) {
-    console.error('Failed to fetch thing model data:', error)
-    window.$message?.error($t('common.fetchDataFailed'))
-  } finally {
-    endLoading()
-  }
 }
 
 // 搜索处理
@@ -241,15 +232,12 @@ const columns = computed(() => [
 
 // 分页处理
 const handlePageChange = (page: number) => {
-  queryParams.page = page
-  getData()
+  void templates.setPage(page)
 }
 
 // 分页大小处理
 const handlePageSizeChange = (pageSize: number) => {
-  queryParams.page_size = pageSize
-  queryParams.page = 1
-  getData()
+  void templates.setPageSize(pageSize)
 }
 
 // 刷新数据

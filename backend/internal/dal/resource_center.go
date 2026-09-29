@@ -1,8 +1,13 @@
-// 文件用途：资源中心（TP-5）数据访问层（DAL）。
-// 核心逻辑：
-// 1. 聚合 device_templates / boards / widget_bundles 三张表，实现跨形态资源分类目录（Catalog）；
-// 2. 提供物模型模板、大屏/看板模板与部件库统一分页检索（List）；
-// 3. 支持看板版本扫描（用于导入冲突预览）、按行业打包查询及下载量原子累加。
+// 文件用途：资源中心（TP-5）跨形态资源检索与看板版本/下载量读取。
+// 核心逻辑：资源中心把 device_templates / boards / widget_bundles 三张表投影成同一种
+//   ResourceCenterItem，用一条 UNION ALL + ORDER BY + LIMIT/OFFSET 在库内完成排序分页；
+//   total 另用三条 COUNT 取，避免为了数数把整表读进内存。
+// 关键注意事项：
+//   - 各分支的 SELECT 列序必须与 resourceCenterUnionRow 严格对齐，错位不会报错只会静默取错值。
+//   - 排序用 (updated_at IS NULL) ASC 兜底：PG 的 DESC 默认把 NULL 排最前，SQLite 排最后，
+//     不显式处理会让"未设更新时间"的部件库在两套库上出现在相反位置。
+//   - 分页上限走 maxListLimit，与其余列表接口一致。
+
 package dal
 
 import (
@@ -19,105 +24,64 @@ import (
 
 var errResourceCenterDBNotReady = errors.New("database is not initialized")
 
-// catalogCountRow 内部目录统计扫描结构
-type catalogCountRow struct {
-	TypeKey       string `gorm:"column:type_key"`
-	Count         int64  `gorm:"column:cnt"`
-	DownloadCount int64  `gorm:"column:dl_cnt"`
+// resourceCenterBranch 描述 UNION ALL 里的一个形态分支。
+// projection 的列序必须与 resourceCenterUnionRow 一致。
+type resourceCenterBranch struct {
+	resourceType string
+	table        string
+	projection   string
+	textColumns  []string // 关键词命中列
 }
 
-// ListResourceCenterCatalog 获取资源中心全貌目录（同时统计设备模板、大屏看板与部件库）。
-func ListResourceCenterCatalog(ctx context.Context, tenantID string) ([]model.ResourceCenterCatalogEntry, error) {
-	if global.DB == nil {
-		return nil, errResourceCenterDBNotReady
-	}
+var resourceCenterBranches = map[string]resourceCenterBranch{
+	"device_template": {
+		resourceType: "device_template",
+		table:        model.TableNameDeviceTemplate,
+		projection: `id, 'device_template' AS resource_type, name,
+			COALESCE(NULLIF(version, ''), '1.0.0') AS version,
+			COALESCE(author, '') AS author, COALESCE(description, '') AS description,
+			COALESCE(type_key, '') AS type_key, COALESCE(path, '') AS path,
+			'' AS vis_type, 0 AS download_count, created_at, updated_at`,
+		textColumns: []string{"name", "description"},
+	},
+	"board_template": {
+		resourceType: "board_template",
+		table:        model.TableNameBoard,
+		projection: `id, 'board_template' AS resource_type, name,
+			COALESCE(NULLIF(version, ''), '1.0.0') AS version,
+			COALESCE(author, '') AS author, COALESCE(description, '') AS description,
+			COALESCE(type_key, '') AS type_key, COALESCE(preview_url, '') AS path,
+			COALESCE(NULLIF(vis_type, ''), 'native') AS vis_type,
+			COALESCE(download_count, 0) AS download_count, created_at, updated_at`,
+		textColumns: []string{"name", "description"},
+	},
+	"widget_bundle": {
+		resourceType: "widget_bundle",
+		table:        model.TableNameWidgetBundle,
+		projection: `id, 'widget_bundle' AS resource_type, name,
+			COALESCE(NULLIF(version, ''), '1.0.0') AS version,
+			'' AS author, COALESCE(description, '') AS description,
+			COALESCE(type_key, '') AS type_key, '' AS path,
+			'' AS vis_type, 0 AS download_count, created_at, updated_at`,
+		textColumns: []string{"name", "description"},
+	},
+}
 
-	// 1. 统计设备模板
-	var tplRows []catalogCountRow
-	err := global.DB.WithContext(ctx).
-		Table(model.TableNameDeviceTemplate).
-		Select("COALESCE(type_key, '') AS type_key, COUNT(*) AS cnt, COALESCE(SUM(download_count), 0) AS dl_cnt").
-		Where("tenant_id = ?", tenantID).
-		Group("type_key").
-		Find(&tplRows).Error
-	if err != nil {
-		return nil, err
-	}
-
-	// 2. 统计大屏看板
-	var boardRows []catalogCountRow
-	err = global.DB.WithContext(ctx).
-		Table(model.TableNameBoard).
-		Select("COALESCE(type_key, '') AS type_key, COUNT(*) AS cnt, COALESCE(SUM(download_count), 0) AS dl_cnt").
-		Where("tenant_id = ?", tenantID).
-		Group("type_key").
-		Find(&boardRows).Error
-	if err != nil {
-		return nil, err
-	}
-
-	// 3. 统计部件库（TB-04；widget_bundles 无 download_count 列，dl_cnt 恒 0）
-	var widgetRows []catalogCountRow
-	err = global.DB.WithContext(ctx).
-		Table(model.TableNameWidgetBundle).
-		Select("COALESCE(type_key, '') AS type_key, COUNT(*) AS cnt, 0 AS dl_cnt").
-		Where("tenant_id = ?", tenantID).
-		Group("type_key").
-		Find(&widgetRows).Error
-	if err != nil {
-		return nil, err
-	}
-
-	// 4. 归并三表统计
-	type combinedEntry struct {
-		deviceCount   int64
-		boardCount    int64
-		widgetCount   int64
-		downloadCount int64
-	}
-	agg := make(map[string]*combinedEntry)
-	for _, r := range tplRows {
-		k := strings.TrimSpace(r.TypeKey)
-		if _, ok := agg[k]; !ok {
-			agg[k] = &combinedEntry{}
-		}
-		agg[k].deviceCount += r.Count
-		agg[k].downloadCount += r.DownloadCount
-	}
-	for _, r := range boardRows {
-		k := strings.TrimSpace(r.TypeKey)
-		if _, ok := agg[k]; !ok {
-			agg[k] = &combinedEntry{}
-		}
-		agg[k].boardCount += r.Count
-		agg[k].downloadCount += r.DownloadCount
-	}
-	for _, r := range widgetRows {
-		k := strings.TrimSpace(r.TypeKey)
-		if _, ok := agg[k]; !ok {
-			agg[k] = &combinedEntry{}
-		}
-		agg[k].widgetCount += r.Count
-	}
-
-	// 映射为响应列表
-	result := make([]model.ResourceCenterCatalogEntry, 0, len(agg))
-	for k, v := range agg {
-		name := k
-		if name == "" {
-			name = "通用/默认"
-		}
-		result = append(result, model.ResourceCenterCatalogEntry{
-			TypeKey:       k,
-			Name:          name,
-			DeviceCount:   v.deviceCount,
-			BoardCount:    v.boardCount,
-			WidgetCount:   v.widgetCount,
-			TotalCount:    v.deviceCount + v.boardCount + v.widgetCount,
-			DownloadCount: v.downloadCount,
-		})
-	}
-	return result, nil
+// resourceCenterUnionRow 是 UNION ALL 的单行扫描结构。
+// created_at / updated_at 用指针：widget_bundles 两列可空，直接扫进 time.Time 会因 NULL 报错。
+type resourceCenterUnionRow struct {
+	ID            string     `gorm:"column:id"`
+	ResourceType  string     `gorm:"column:resource_type"`
+	Name          string     `gorm:"column:name"`
+	Version       string     `gorm:"column:version"`
+	Author        string     `gorm:"column:author"`
+	Description   string     `gorm:"column:description"`
+	TypeKey       string     `gorm:"column:type_key"`
+	Path          string     `gorm:"column:path"`
+	VisType       string     `gorm:"column:vis_type"`
+	DownloadCount int64      `gorm:"column:download_count"`
+	CreatedAt     *time.Time `gorm:"column:created_at"`
+	UpdatedAt     *time.Time `gorm:"column:updated_at"`
 }
 
 // ListResourceCenterItems 资源中心跨类型统一分页检索。
@@ -126,202 +90,104 @@ func ListResourceCenterItems(ctx context.Context, req model.ResourceCenterListRe
 		return 0, nil, errResourceCenterDBNotReady
 	}
 
-	items := make([]model.ResourceCenterItem, 0)
 	keyword := strings.TrimSpace(req.Keyword)
 	typeKey := strings.TrimSpace(req.TypeKey)
 	rType := strings.TrimSpace(req.ResourceType)
 	if rType == "" {
 		rType = "all"
 	}
+	page, pageSize := normalizePageParams(req.Page, req.PageSize, 10, maxListLimit)
 
-	includeTemplates := rType == "all" || rType == "device_template"
-	includeBoards := rType == "all" || rType == "board_template"
-	includeWidgets := rType == "all" || rType == "widget_bundle" // TB-04 部件库
+	branches := make([]resourceCenterBranch, 0, 3)
+	if rType == "all" {
+		for _, key := range []string{"device_template", "board_template", "widget_bundle"} {
+			branches = append(branches, resourceCenterBranches[key])
+		}
+	} else if branch, ok := resourceCenterBranches[rType]; ok {
+		branches = append(branches, branch)
+	}
+	if len(branches) == 0 {
+		return 0, []model.ResourceCenterItem{}, nil
+	}
 
-	// 1. 查询符合条件的设备模板
-	if includeTemplates {
-		var tpls []model.DeviceTemplate
-		q := global.DB.WithContext(ctx).Table(model.TableNameDeviceTemplate).Where("tenant_id = ?", tenantID)
+	// 1. total：每形态一条 COUNT，只数不取行（旧实现把三张表整表读进内存再 len()）。
+	var total int64
+	for _, branch := range branches {
+		q := global.DB.WithContext(ctx).Table(branch.table).Where("tenant_id = ?", tenantID)
 		if typeKey != "" {
 			q = q.Where("type_key = ?", typeKey)
 		}
-		if keyword != "" {
-			pattern := "%" + keyword + "%"
-			q = q.Where("name LIKE ? OR description LIKE ?", pattern, pattern)
-		}
-		if err := q.Find(&tpls).Error; err != nil {
+		q = whereKeywordContains(q, opLike, keyword, branch.textColumns...)
+		var count int64
+		if err := q.Count(&count).Error; err != nil {
 			return 0, nil, err
 		}
-		for _, t := range tpls {
-			author := ""
-			if t.Author != nil {
-				author = *t.Author
-			}
-			version := "1.0.0"
-			if t.Version != nil && *t.Version != "" {
-				version = *t.Version
-			}
-			desc := ""
-			if t.Description != nil {
-				desc = *t.Description
-			}
-			tk := ""
-			if t.TypeKey != nil {
-				tk = *t.TypeKey
-			}
-			path := ""
-			if t.Path != nil {
-				path = *t.Path
-			}
-			items = append(items, model.ResourceCenterItem{
-				ID:            t.ID,
-				ResourceType:  "device_template",
-				Name:          t.Name,
-				Version:       version,
-				Author:        author,
-				Description:   desc,
-				TypeKey:       tk,
-				Path:          path,
-				VisType:       "",
-				DownloadCount: 0,
-				CreatedAt:     t.CreatedAt,
-				UpdatedAt:     t.UpdatedAt,
-			})
-		}
+		total += count
+	}
+	if total == 0 {
+		return 0, []model.ResourceCenterItem{}, nil
 	}
 
-	// 2. 查询符合条件的大屏看板
-	if includeBoards {
-		var boards []model.Board
-		q := global.DB.WithContext(ctx).Table(model.TableNameBoard).Where("tenant_id = ?", tenantID)
+	// 2. 当前页：一条 UNION ALL，排序与分页都在库内完成。
+	// 复合 SELECT（UNION ALL）的 ORDER BY 只能引用输出列，不能写表达式，
+	// 因此整体包一层子查询后再做表达式排序与分页（SQLite 与 PG 语义一致）。
+	var union strings.Builder
+	args := make([]interface{}, 0, len(branches)*3+2)
+	for i, branch := range branches {
+		if i > 0 {
+			union.WriteString(" UNION ALL ")
+		}
+		union.WriteString("SELECT " + branch.projection + " FROM " + branch.table + " WHERE tenant_id = ?")
+		args = append(args, tenantID)
 		if typeKey != "" {
-			q = q.Where("type_key = ?", typeKey)
+			union.WriteString(" AND type_key = ?")
+			args = append(args, typeKey)
 		}
 		if keyword != "" {
-			pattern := "%" + keyword + "%"
-			q = q.Where("name LIKE ? OR description LIKE ?", pattern, pattern)
+			pattern := ContainsLikePattern(keyword)
+			union.WriteString(" AND (" + branch.textColumns[0] + " LIKE ? ESCAPE '\\' OR " + branch.textColumns[1] + " LIKE ? ESCAPE '\\')")
+			args = append(args, pattern, pattern)
 		}
-		if err := q.Find(&boards).Error; err != nil {
-			return 0, nil, err
-		}
-		for _, b := range boards {
-			author := ""
-			if b.Author != nil {
-				author = *b.Author
-			}
-			version := "1.0.0"
-			if b.Version != nil && *b.Version != "" {
-				version = *b.Version
-			}
-			desc := ""
-			if b.Description != nil {
-				desc = *b.Description
-			}
-			tk := ""
-			if b.TypeKey != nil {
-				tk = *b.TypeKey
-			}
-			path := ""
-			if b.PreviewURL != nil {
-				path = *b.PreviewURL
-			}
-			visType := "native"
-			if b.VisType != nil && *b.VisType != "" {
-				visType = *b.VisType
-			}
-			items = append(items, model.ResourceCenterItem{
-				ID:            b.ID,
-				ResourceType:  "board_template",
-				Name:          b.Name,
-				Version:       version,
-				Author:        author,
-				Description:   desc,
-				TypeKey:       tk,
-				Path:          path,
-				VisType:       visType,
-				DownloadCount: b.DownloadCount,
-				CreatedAt:     b.CreatedAt,
-				UpdatedAt:     b.UpdatedAt,
-			})
-		}
+	}
+	var sb strings.Builder
+	sb.WriteString("SELECT * FROM (")
+	sb.WriteString(union.String())
+	sb.WriteString(") AS resource_center_union")
+	// (updated_at IS NULL) ASC 让"无更新时间"的行在两套库上都排最后（PG 的 DESC 默认 NULL 最前）。
+	sb.WriteString(" ORDER BY (updated_at IS NULL) ASC, updated_at DESC, resource_type ASC, id ASC LIMIT ? OFFSET ?")
+	args = append(args, pageSize, (page-1)*pageSize)
+
+	var rows []resourceCenterUnionRow
+	if err := global.DB.WithContext(ctx).Raw(sb.String(), args...).Scan(&rows).Error; err != nil {
+		return 0, nil, err
 	}
 
-	// 3. 查询符合条件的部件库（TB-04）
-	if includeWidgets {
-		var bundles []model.WidgetBundle
-		q := global.DB.WithContext(ctx).Table(model.TableNameWidgetBundle).Where("tenant_id = ?", tenantID)
-		if typeKey != "" {
-			q = q.Where("type_key = ?", typeKey)
+	items := make([]model.ResourceCenterItem, 0, len(rows))
+	for _, row := range rows {
+		createdAt := time.Time{}
+		if row.CreatedAt != nil {
+			createdAt = *row.CreatedAt
 		}
-		if keyword != "" {
-			pattern := "%" + keyword + "%"
-			q = q.Where("name LIKE ? OR description LIKE ?", pattern, pattern)
+		updatedAt := createdAt
+		if row.UpdatedAt != nil {
+			updatedAt = *row.UpdatedAt
 		}
-		if err := q.Find(&bundles).Error; err != nil {
-			return 0, nil, err
-		}
-		for _, wb := range bundles {
-			version := "1.0.0"
-			if strings.TrimSpace(wb.Version) != "" {
-				version = wb.Version
-			}
-			desc := ""
-			if wb.Description != nil {
-				desc = *wb.Description
-			}
-			tk := ""
-			if wb.TypeKey != nil {
-				tk = *wb.TypeKey
-			}
-			createdAt := time.Time{}
-			if wb.CreatedAt != nil {
-				createdAt = *wb.CreatedAt
-			}
-			updatedAt := createdAt
-			if wb.UpdatedAt != nil {
-				updatedAt = *wb.UpdatedAt
-			}
-			items = append(items, model.ResourceCenterItem{
-				ID:            wb.ID,
-				ResourceType:  "widget_bundle",
-				Name:          wb.Name,
-				Version:       version,
-				Author:        "",
-				Description:   desc,
-				TypeKey:       tk,
-				Path:          "",
-				VisType:       "",
-				DownloadCount: 0,
-				CreatedAt:     createdAt,
-				UpdatedAt:     updatedAt,
-			})
-		}
+		items = append(items, model.ResourceCenterItem{
+			ID:            row.ID,
+			ResourceType:  row.ResourceType,
+			Name:          row.Name,
+			Version:       row.Version,
+			Author:        row.Author,
+			Description:   row.Description,
+			TypeKey:       row.TypeKey,
+			Path:          row.Path,
+			VisType:       row.VisType,
+			DownloadCount: row.DownloadCount,
+			CreatedAt:     createdAt,
+			UpdatedAt:     updatedAt,
+		})
 	}
-
-	total := int64(len(items))
-
-	// 分页截取（在内存中按 UpdatedAt 倒序排列后切片）
-	// 简单稳定的冒泡/插入排序，数量通常百级别以内
-	for i := 0; i < len(items)-1; i++ {
-		for j := i + 1; j < len(items); j++ {
-			if items[j].UpdatedAt.After(items[i].UpdatedAt) {
-				items[i], items[j] = items[j], items[i]
-			}
-		}
-	}
-
-	offset := (req.Page - 1) * req.PageSize
-	if offset < 0 {
-		offset = 0
-	}
-	if offset >= len(items) {
-		return total, []model.ResourceCenterItem{}, nil
-	}
-	end := offset + req.PageSize
-	if end > len(items) {
-		end = len(items)
-	}
-	return total, items[offset:end], nil
+	return total, items, nil
 }
 
 // ListBoardTemplateVersionsInTenant 列出租户内全部看板的 名称→版本。
@@ -377,7 +243,7 @@ func ListBoardIDsByTypeKey(ctx context.Context, tenantID, typeKey string) ([]str
 	if err := q.Order("created_at ASC").Scan(&rows).Error; err != nil {
 		return nil, err
 	}
-	latestByName := make(map[string]item)
+	latestByName := make(map[string]item, len(rows))
 	for _, r := range rows {
 		prev, exists := latestByName[r.Name]
 		if !exists {

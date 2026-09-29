@@ -19,17 +19,9 @@ type IndustrySolutionApi struct{}
 // @Tags     IndustrySolution
 // @Router   /api/v1/solutions [post]
 func (*IndustrySolutionApi) CreateIndustrySolution(c *gin.Context) {
-	var req model.CreateIndustrySolutionReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.IndustrySolution.CreateIndustrySolution(c.Request.Context(), &req, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	Handle(c, func(req *model.CreateIndustrySolutionReq, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.IndustrySolution.CreateIndustrySolution(c.Request.Context(), req, claims)
+	})
 }
 
 // ListIndustrySolutions 方案分页列表。
@@ -37,15 +29,11 @@ func (*IndustrySolutionApi) CreateIndustrySolution(c *gin.Context) {
 // @Tags     IndustrySolution
 // @Router   /api/v1/solutions [get]
 func (*IndustrySolutionApi) ListIndustrySolutions(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.IndustrySolution.ListIndustrySolutions(c.Request.Context(), page, pageSize, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	HandleNoBody(c, func(claims *utils.UserClaims) (interface{}, error) {
+		page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+		pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+		return service.GroupApp.IndustrySolution.ListIndustrySolutions(c.Request.Context(), page, pageSize, claims)
+	})
 }
 
 // GetIndustrySolution 方案详情（含安装流水）。
@@ -53,14 +41,9 @@ func (*IndustrySolutionApi) ListIndustrySolutions(c *gin.Context) {
 // @Tags     IndustrySolution
 // @Router   /api/v1/solutions/{id} [get]
 func (*IndustrySolutionApi) GetIndustrySolution(c *gin.Context) {
-	id := c.Param("id")
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.IndustrySolution.GetIndustrySolution(c.Request.Context(), id, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	HandlePath(c, "id", func(id string, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.IndustrySolution.GetIndustrySolution(c.Request.Context(), id, claims)
+	})
 }
 
 // DeleteIndustrySolution 删除方案。

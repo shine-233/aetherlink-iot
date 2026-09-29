@@ -141,18 +141,20 @@ type mediaReferenceSurface struct {
 
 // mediaReferenceSurfaces 当前已知的引用面。新增引用面时：每条 matchSQL 必须内嵌
 // tenant_id = ? 过滤（fail-closed），并在 service 层注释中同步说明。
+// 注意：boards.config 与 scada_documents.json_data 是 json/jsonb 列，
+// 真实 PostgreSQL 下必须显式 ::text 转型才能 LIKE（sqlite 测试库无此要求）。
 var mediaReferenceSurfaces = []mediaReferenceSurface{
 	{
 		kind:     "board",
 		table:    "boards",
 		nameCol:  "name",
-		matchSQL: "(config LIKE ? OR preview_url LIKE ?)",
+		matchSQL: "(config::text LIKE ? OR preview_url LIKE ?)",
 	},
 	{
 		kind:     "scada_document",
 		table:    "scada_documents",
 		nameCol:  "name",
-		matchSQL: "json_data LIKE ?",
+		matchSQL: "json_data::text LIKE ?",
 	},
 	{
 		kind:     "ota_package",
@@ -171,8 +173,14 @@ func CountMediaReferencesForPath(ctx context.Context, tenantID, filePath string)
 	needle := "%" + EscapeLikePattern(strings.TrimPrefix(filePath, "./")) + "%"
 
 	referencers := make([]model.MediaReferencer, 0)
+	// ::text 转型仅 PostgreSQL 需要；sqlite 单测库不识别该转型语法。
+	useTextCast := global.DB != nil && global.DB.Dialector.Name() == "postgres"
 	for _, surface := range mediaReferenceSurfaces {
-		placeholders := strings.Count(surface.matchSQL, "?")
+		matchSQL := surface.matchSQL
+		if !useTextCast {
+			matchSQL = strings.ReplaceAll(matchSQL, "::text", "")
+		}
+		placeholders := strings.Count(matchSQL, "?")
 		args := make([]interface{}, 0, placeholders+1)
 		for i := 0; i < placeholders; i++ {
 			args = append(args, needle)
@@ -182,7 +190,7 @@ func CountMediaReferencesForPath(ctx context.Context, tenantID, filePath string)
 		var rows []model.MediaReferencer
 		query := global.DB.WithContext(ctx).Table(surface.table).
 			Select("? AS kind, id AS id, "+surface.nameCol+" AS name", surface.kind).
-			Where(surface.matchSQL+" AND tenant_id = ?", args...)
+			Where(matchSQL+" AND tenant_id = ?", args...)
 		if err := query.Find(&rows).Error; err != nil {
 			return nil, err
 		}

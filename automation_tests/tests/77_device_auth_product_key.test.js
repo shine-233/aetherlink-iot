@@ -29,7 +29,7 @@ describe(SUITE, function () {
   let configId = null;
   let templateSecret = 'tp05_secret_' + SUFFIX;
   let tenantADeviceId = null;
-  /** 产品登记：{ id, owner }，owner 用于按租户清理。 */
+  /** 产品登记：{ id, owner, key }，owner 用于按租户清理。 */
   const productRegistry = [];
 
   before(async function () {
@@ -58,7 +58,7 @@ describe(SUITE, function () {
     }
     if (configId) {
       try {
-        await apiClient.delete('/device/config/' + configId, {}, TENANT_A);
+        await apiClient.delete('/device_config/' + configId, {}, TENANT_A);
       } catch (e) {
         /* ignore cleanup error */
       }
@@ -67,7 +67,7 @@ describe(SUITE, function () {
 
   it('1. 种子：创建设备配置并开启一型一密自动注册', async function () {
     const create = await apiClient.post(
-      '/device/config',
+      '/device_config',
       { name: 'TP05_Config_' + SUFFIX, device_type: '1' },
       TENANT_A
     );
@@ -76,7 +76,7 @@ describe(SUITE, function () {
     expect(configId).to.be.a('string').and.not.equal('');
 
     const update = await apiClient.put(
-      '/device/config',
+      '/device_config',
       { id: configId, auto_register: 1, template_secret: templateSecret },
       TENANT_A
     );
@@ -91,9 +91,10 @@ describe(SUITE, function () {
     );
     expect(prodA.code, JSON.stringify(prodA)).to.equal(200);
     const prodAId = prodA.data && (prodA.data.id || (prodA.data.data && prodA.data.data.id));
+    const prodAKey = prodA.data.product_key || (prodA.data.data && prodA.data.data.product_key);
     expect(prodAId).to.be.a('string');
-    productRegistry.push({ id: prodAId, owner: TENANT_A });
-    expect(prodA.data.product_key || (prodA.data.data && prodA.data.data.product_key)).to.be.a('string');
+    expect(prodAKey).to.be.a('string');
+    productRegistry.push({ id: prodAId, owner: TENANT_A, key: prodAKey });
 
     const prodB = await apiClient.post(
       '/product',
@@ -103,12 +104,14 @@ describe(SUITE, function () {
     expect(prodB.code, JSON.stringify(prodB)).to.equal(200);
     // 租户 B 的产品仅用于制造跨租户 product_key，清理时用租户 B 账号删除。
     const prodBId = prodB.data && (prodB.data.id || (prodB.data.data && prodB.data.data.id));
+    const prodBKey = prodB.data.product_key || (prodB.data.data && prodB.data.data.product_key);
     expect(prodBId).to.be.a('string');
-    productRegistry.push({ id: prodBId, owner: TENANT_B });
+    expect(prodBKey).to.be.a('string');
+    productRegistry.push({ id: prodBId, owner: TENANT_B, key: prodBKey });
   });
 
   it('3. 跨租户 product_key 注册被拒绝（200087，修复前会成功建档）', async function () {
-    const crossTenantKey = await tenantBProductKey();
+    const crossTenantKey = productRegistry.find((p) => p.owner === TENANT_B).key;
     expect(crossTenantKey).to.be.a('string').and.not.equal('');
 
     const res = await apiClient.post('/device/auth', {
@@ -123,7 +126,7 @@ describe(SUITE, function () {
   it('4. 同租户 product_key 正常注册（正向对照）', async function () {
     const res = await apiClient.post('/device/auth', {
       template_secret: templateSecret,
-      product_key: await tenantAProductKey(),
+      product_key: productRegistry.find((p) => p.owner === TENANT_A).key,
       device_number: 'TP05_SAME_' + SUFFIX,
       device_name: 'TP05 正向用例'
     });
@@ -133,26 +136,4 @@ describe(SUITE, function () {
     tenantADeviceId = res.data.device_id;
   });
 
-  /** 登记在用例 2 里的租户 A 产品 key。 */
-  let tenantAKey = null;
-  async function tenantAProductKey() {
-    if (tenantAKey) return tenantAKey;
-    const list = await apiClient.get('/product', { page: 1, page_size: 50 }, TENANT_A);
-    expect(list.code).to.equal(200);
-    const rows = (list.data && list.data.list) || [];
-    const hit = rows.find((row) => row.name === 'TP05_ProdA_' + SUFFIX);
-    expect(hit, 'tenant A product should be listed').to.be.an('object');
-    tenantAKey = hit.product_key;
-    return tenantAKey;
-  }
-
-  /** 登记在用例 2 里的租户 B 产品 key。 */
-  async function tenantBProductKey() {
-    const list = await apiClient.get('/product', { page: 1, page_size: 50 }, TENANT_B);
-    expect(list.code).to.equal(200);
-    const rows = (list.data && list.data.list) || [];
-    const hit = rows.find((row) => row.name === 'TP05_ProdB_' + SUFFIX);
-    expect(hit, 'tenant B product should be listed').to.be.an('object');
-    return hit.product_key;
-  });
 });

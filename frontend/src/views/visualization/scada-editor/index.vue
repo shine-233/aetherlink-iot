@@ -15,49 +15,21 @@
  *  4. 已知未实现：画布拖拽（grid-layout-plus 尚无调用方证据，不盲接）、
  *     工业符号库、3D Widget 的实际渲染。这些在界面上明确标注，不做假入口。
  */
-import { computed, ref, watch } from 'vue'
-import { NButton, NCard, NInput, NInputNumber, NSelect, NSpin, NTag, useMessage } from 'naive-ui'
+import { computed, ref } from 'vue'
+import { NButton, NCard, NInput, NSelect, NSpin, NTag, useMessage } from 'naive-ui'
 import { $t } from '@/locales'
 import { useAuthStore } from '@/store/modules/auth'
-import {
-  archiveScadaDocument,
-  createScadaDocument,
-  createScadaProject,
-  executeControl,
-  fetchScadaDocument,
-  fetchScadaDocumentVersions,
-  fetchScadaDocuments,
-  fetchScadaProjects,
-  issueControlConfirmation,
-  publishScadaDocument,
-  rollbackScadaDocument,
-  saveScadaDocument,
-  type ScadaDocument,
-  type ScadaDocumentVersion,
-  type ScadaProject
-} from '@/service/api/scada'
-import {
-  canEditDocument,
-  commandRequiresConfirmation,
-  isArchivedError,
-  isTelemetryStale,
-  isVersionConflictError,
-  parseCanvas,
-  resolveWidgets,
-  serializeCanvas,
-  type ScadaWidgetDefinition,
-  type ScadaWidgetInstance,
-  type TelemetryLinkState
-} from './scada-model'
+import type { ScadaWidgetDefinition } from './scada-model'
+import ScadaWidgetCard from './ScadaWidgetCard.vue'
+import { useScadaEditorWorkflow } from './useScadaEditorWorkflow'
 
 const message = useMessage()
 const authStore = useAuthStore()
 
 // 内置 Widget 注册表。与后端 widget_registry.go 的注册保持一致；
 // 真实接入时应改为从后端拉取，这里内置是为了让"能力降级"在前端可验证。
-// 与后端 scada_mobile_wiring.go 的 builtinWidgetDefinitions 逐字段一致（parity 测试守护）。
-// schema 全部字段可选、只做类型/取值约束：存量画布不受影响，新画布错误配置在保存时被拒。
-// 与后端 scada_mobile_wiring.go 的 builtinWidgetDefinitions 逐字段一致（parity 测试守护）。
+// 与后端 scada_mobile_wiring.go 的 builtinWidgetDefinitions 逐字段一致
+// （parity 测试 TestBuiltinWidgetRegistryMatchesFrontend 按路径读取本文件，勿移走）。
 // schema 全部字段可选、只做类型/取值约束：存量画布不受影响，新画布错误配置在保存时被拒。
 // prettier-ignore
 const WIDGET_REGISTRY: ScadaWidgetDefinition[] = [
@@ -66,250 +38,53 @@ const WIDGET_REGISTRY: ScadaWidgetDefinition[] = [
   { type: 'valve', version: '1', schema: '{"type":"object","properties":{"title":{"type":"string","maxLength":64},"telemetry_key":{"type":"string","maxLength":128},"device_id":{"type":"string","maxLength":64},"open_command":{"type":"string","maxLength":64},"close_command":{"type":"string","maxLength":64}}}', capabilities: ['2d'], commands: [{ name: 'open_valve', requires_confirmation: true }] },
   { type: 'twin3d', version: '1', schema: '{"type":"object","properties":{"title":{"type":"string","maxLength":64},"model_url":{"type":"string","maxLength":512},"camera_initial":{"type":"string","enum":["orbit","front","top","side"]}}}', capabilities: ['3d'], commands: [] }
 ]
-const projects = ref<ScadaProject[]>([])
-const documents = ref<ScadaDocument[]>([])
-const versions = ref<ScadaDocumentVersion[]>([])
-const activeProjectId = ref('')
-const activeDocument = ref<ScadaDocument | null>(null)
-const widgets = ref<ScadaWidgetInstance[]>([])
-const loading = ref(false)
-const saving = ref(false)
-const parseError = ref('')
-const webglAvailable = ref(false)
-// 遥测链路状态：真实接入应由数据通道驱动；默认 idle 即"陈旧"，
-// 避免界面在链路尚未建立时把任何读数伪装成实时值。
-const linkState = ref<TelemetryLinkState>('idle')
-const lastMessageAt = ref<number | null>(null)
-const now = ref(Date.now())
 const newProjectName = ref('')
 const newDocumentName = ref('')
 const widgetTypeToAdd = ref('gauge')
 const rollbackVersion = ref<number | null>(null)
 const tenantFilter = ref('')
 
-setInterval(() => {
-  now.value = Date.now()
-}, 5000)
-
 const isAdmin = computed(() => authStore.userInfo.authority === 'SYS_ADMIN')
 const tenantQuery = computed(() => (isAdmin.value ? tenantFilter.value.trim() || undefined : undefined))
-const editable = computed(() => canEditDocument(activeDocument.value?.status))
-const stale = computed(() => isTelemetryStale(linkState.value, lastMessageAt.value, now.value))
-const resolution = computed(() => resolveWidgets(widgets.value, WIDGET_REGISTRY, webglAvailable.value))
-const canSave = computed(() => editable.value && parseError.value === '')
+
+// 文档工作流、陈旧时钟（卸载自动清理）与控制命令确认流程见 useScadaEditorWorkflow。
+const workflow = useScadaEditorWorkflow({ registry: WIDGET_REGISTRY, message, t: $t, tenantQuery })
+const {
+  documents,
+  versions,
+  activeProjectId,
+  activeDocument,
+  widgets,
+  loading,
+  saving,
+  parseError,
+  editable,
+  stale,
+  resolution,
+  canSave,
+  degradedTypes,
+  loadProjects,
+  openDocument
+} = workflow
 
 const versionOptions = computed(() => versions.value.map((v) => ({ label: `v${v.version}`, value: v.version })))
-
-watch(activeProjectId, async (id) => {
-  documents.value = []
-  activeDocument.value = null
-  widgets.value = []
-  if (!id) return
-  await loadDocuments(id)
-})
-
-async function loadProjects() {
-  loading.value = true
-  try {
-    const { data } = await fetchScadaProjects(tenantQuery.value)
-    projects.value = data ?? []
-  } catch {
-    projects.value = []
-  } finally {
-    loading.value = false
-  }
-}
-
-async function loadDocuments(projectId: string) {
-  loading.value = true
-  try {
-    const { data } = await fetchScadaDocuments(projectId, tenantQuery.value)
-    documents.value = data ?? []
-  } catch {
-    documents.value = []
-  } finally {
-    loading.value = false
-  }
-}
+const projectOptions = computed(() => workflow.projects.value.map((p) => ({ label: p.name, value: p.id })))
+// 注册表是静态常量：选项与命令索引只需构建一次，避免模板每次渲染（含 5s 时钟触发）重复 map/find。
+const widgetTypeOptions = WIDGET_REGISTRY.map((w) => ({ label: `${w.type}@${w.version}`, value: w.type }))
+const commandsByType = new Map(WIDGET_REGISTRY.map((d) => [d.type, d.commands ?? []]))
 
 async function handleCreateProject() {
-  if (!newProjectName.value.trim()) return
-  try {
-    const { data } = await createScadaProject({
-      name: newProjectName.value.trim(),
-      tenant_id: tenantQuery.value
-    })
-    newProjectName.value = ''
-    await loadProjects()
-    if (data?.id) activeProjectId.value = data.id
-    message.success($t('custom.scada.projectCreated'))
-  } catch {
-    message.error($t('custom.scada.createProjectFailed'))
-  }
+  if (await workflow.createProject(newProjectName.value)) newProjectName.value = ''
 }
 
 async function handleCreateDocument() {
-  if (!activeProjectId.value || !newDocumentName.value.trim()) return
-  try {
-    const { data } = await createScadaDocument(activeProjectId.value, {
-      name: newDocumentName.value.trim(),
-      json_data: '{}',
-      tenant_id: tenantQuery.value
-    })
-    newDocumentName.value = ''
-    await loadDocuments(activeProjectId.value)
-    if (data?.id) await openDocument(data.id)
-  } catch {
-    message.error($t('custom.scada.createDocumentFailed'))
-  }
+  if (await workflow.createDocument(newDocumentName.value)) newDocumentName.value = ''
 }
 
-async function openDocument(id: string) {
-  loading.value = true
-  try {
-    const { data } = await fetchScadaDocument(id, tenantQuery.value)
-    applyDocument(data)
-    const v = await fetchScadaDocumentVersions(id, tenantQuery.value)
-    versions.value = v.data ?? []
-  } finally {
-    loading.value = false
-  }
-}
-
-function applyDocument(doc: ScadaDocument | null | undefined) {
-  activeDocument.value = doc ?? null
-  const parsed = parseCanvas(doc?.json_data)
-  if (!parsed.ok) {
-    // 解析失败：清空编辑区并阻断保存，绝不用空画布顶替。
-    widgets.value = []
-    parseError.value = parsed.reason
-    message.error($t('custom.scada.canvasParseFailed'))
-    return
-  }
-  parseError.value = ''
-  widgets.value = parsed.canvas.widgets
-}
-
-function addWidget() {
-  widgets.value = [
-    ...widgets.value,
-    {
-      id: `w-${Date.now()}`,
-      widget_type: widgetTypeToAdd.value,
-      version: '1',
-      layout: { x: 0, y: widgets.value.length * 2, w: 2, h: 2 }
-    }
-  ]
-}
-
-function removeWidget(id: string) {
-  widgets.value = widgets.value.filter((w) => w.id !== id)
-}
-
-function updateLayout(id: string, patch: Partial<ScadaWidgetInstance['layout']>) {
-  widgets.value = widgets.value.map((w) => (w.id === id ? { ...w, layout: { ...w.layout, ...patch } } : w))
-}
-
-async function handleSave() {
-  const doc = activeDocument.value
-  if (!doc) return
-  if (parseError.value) {
-    message.error($t('custom.scada.canvasParseFailed'))
-    return
-  }
-  saving.value = true
-  try {
-    const { data } = await saveScadaDocument(doc.id, {
-      expected_version: doc.current_version,
-      json_data: serializeCanvas({ widgets: widgets.value }),
-      tenant_id: tenantQuery.value
-    })
-    applyDocument(data)
-    message.success($t('custom.scada.saved'))
-  } catch (error) {
-    // 冲突与归档必须分开提示：前者重载即可，后者重试无意义。
-    if (isVersionConflictError(error)) {
-      message.error($t('custom.scada.versionConflict'))
-    } else if (isArchivedError(error)) {
-      message.error($t('custom.scada.archivedCannotEdit'))
-    } else {
-      message.error($t('custom.scada.saveFailed'))
-    }
-  } finally {
-    saving.value = false
-  }
-}
-
-async function handlePublish() {
-  if (!activeDocument.value) return
-  try {
-    const { data } = await publishScadaDocument(activeDocument.value.id, tenantQuery.value)
-    applyDocument(data)
-    message.success($t('custom.scada.published'))
-  } catch {
-    message.error($t('custom.scada.publishFailed'))
-  }
-}
-
-async function handleRollback() {
-  if (!activeDocument.value || rollbackVersion.value == null) return
-  try {
-    const { data } = await rollbackScadaDocument(activeDocument.value.id, rollbackVersion.value, tenantQuery.value)
-    applyDocument(data)
-    // 回滚产生新的草稿版本，需要重新加载版本列表才能看到可选版本的变化。
-    const v = await fetchScadaDocumentVersions(activeDocument.value.id, tenantQuery.value)
-    versions.value = v.data ?? []
-    message.success($t('custom.scada.rolledBack'))
-  } catch {
-    message.error($t('custom.scada.rollbackFailed'))
-  }
-}
-
-async function handleArchive() {
-  if (!activeDocument.value) return
-  try {
-    const { data } = await archiveScadaDocument(activeDocument.value.id, tenantQuery.value)
-    applyDocument(data)
-    message.success($t('custom.scada.archived'))
-  } catch {
-    message.error($t('custom.scada.archiveFailed'))
-  }
-}
-
-async function handleControl(widget: ScadaWidgetInstance, command: string, deviceId: string) {
-  const doc = activeDocument.value
-  if (!doc) return
-  try {
-    let token = ''
-    // 是否需要确认由注册声明决定：这里不得为了省事跳过。
-    if (commandRequiresConfirmation(WIDGET_REGISTRY, widget.widget_type, command)) {
-      const issued = await issueControlConfirmation({
-        document_id: doc.id,
-        widget_id: widget.id,
-        command,
-        tenant_id: tenantQuery.value
-      })
-      token = issued.data?.confirmation_token ?? ''
-      if (!token) {
-        message.error($t('custom.scada.confirmationFailed'))
-        return
-      }
-    }
-    await executeControl({
-      device_id: deviceId,
-      document_id: doc.id,
-      widget_id: widget.id,
-      widget_type: widget.widget_type,
-      version: widget.version,
-      command,
-      confirmation_token: token,
-      tenant_id: tenantQuery.value
-    })
-    message.success($t('custom.scada.commandSent'))
-  } catch {
-    message.error($t('custom.scada.commandFailed'))
-  }
-}
+const handleSave = workflow.save
+const handlePublish = workflow.publish
+const handleArchive = workflow.archive
+const handleRollback = () => workflow.rollback(rollbackVersion.value)
 
 loadProjects()
 </script>
@@ -326,7 +101,7 @@ loadProjects()
         </div>
         <NSelect
           v-model:value="activeProjectId"
-          :options="projects.map((p) => ({ label: p.name, value: p.id }))"
+          :options="projectOptions"
           :placeholder="$t('custom.scada.selectProject')"
           class="mt-2"
         />
@@ -360,7 +135,7 @@ loadProjects()
           <!-- 陈旧横幅：断线后把最后一帧当实时值是典型的假成功 -->
           <NTag v-if="stale" type="warning">{{ $t('custom.scada.dataStale') }}</NTag>
           <NTag v-if="resolution.degraded.length" type="warning">
-            {{ $t('custom.scada.degradedWidgets') }}: {{ resolution.degraded.map((d) => d.type).join(', ') }}
+            {{ $t('custom.scada.degradedWidgets') }}: {{ degradedTypes }}
           </NTag>
         </div>
 
@@ -369,12 +144,8 @@ loadProjects()
         </div>
 
         <div class="row mt-2">
-          <NSelect
-            v-model:value="widgetTypeToAdd"
-            :options="WIDGET_REGISTRY.map((w) => ({ label: `${w.type}@${w.version}`, value: w.type }))"
-            class="w-48"
-          />
-          <NButton :disabled="!editable" @click="addWidget">{{ $t('custom.scada.addWidget') }}</NButton>
+          <NSelect v-model:value="widgetTypeToAdd" :options="widgetTypeOptions" class="w-48" />
+          <NButton :disabled="!editable" @click="workflow.addWidget(widgetTypeToAdd)">{{ $t('custom.scada.addWidget') }}</NButton>
           <NButton type="primary" :disabled="!canSave" :loading="saving" @click="handleSave">
             {{ $t('custom.scada.save') }}
           </NButton>
@@ -396,37 +167,16 @@ loadProjects()
 
         <!-- 画布：当前为 CSS 网格预览 + 布局数值编辑，拖拽尚未接线（不做假入口） -->
         <div class="canvas mt-3">
-          <div
+          <ScadaWidgetCard
             v-for="w in widgets"
             :key="w.id"
-            class="canvas-item"
-            :style="{
-              gridColumn: `${w.layout.x + 1} / span ${w.layout.w}`,
-              gridRow: `${w.layout.y + 1} / span ${w.layout.h}`
-            }"
-          >
-            <div class="row">
-              <strong>{{ w.widget_type }}@{{ w.version }}</strong>
-              <NButton size="tiny" :disabled="!editable" @click="removeWidget(w.id)">{{ $t('common.delete') }}</NButton>
-            </div>
-            <div class="row">
-              <NInputNumber size="tiny" :value="w.layout.x" @update:value="(v) => updateLayout(w.id, { x: v ?? 0 })" />
-              <NInputNumber size="tiny" :value="w.layout.y" @update:value="(v) => updateLayout(w.id, { y: v ?? 0 })" />
-              <NInputNumber size="tiny" :value="w.layout.w" @update:value="(v) => updateLayout(w.id, { w: v ?? 1 })" />
-              <NInputNumber size="tiny" :value="w.layout.h" @update:value="(v) => updateLayout(w.id, { h: v ?? 1 })" />
-            </div>
-            <div class="row">
-              <NButton
-                v-for="cmd in WIDGET_REGISTRY.find((d) => d.type === w.widget_type)?.commands ?? []"
-                :key="cmd.name"
-                size="tiny"
-                :type="cmd.requires_confirmation ? 'warning' : 'default'"
-                @click="handleControl(w, cmd.name, '')"
-              >
-                {{ cmd.name }}{{ cmd.requires_confirmation ? ' ⚠' : '' }}
-              </NButton>
-            </div>
-          </div>
+            :widget="w"
+            :commands="commandsByType.get(w.widget_type) ?? []"
+            :editable="editable"
+            @remove="workflow.removeWidget"
+            @update-layout="workflow.updateLayout"
+            @control="(widget, cmd) => workflow.sendControl(widget, cmd, '')"
+          />
         </div>
         <p v-if="!widgets.length" class="hint">{{ $t('custom.scada.emptyCanvas') }}</p>
       </NCard>
@@ -462,13 +212,6 @@ loadProjects()
   padding: 8px;
   border: 1px dashed var(--border-color);
   border-radius: 6px;
-}
-.canvas-item {
-  padding: 6px;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: var(--card-color);
-  overflow: hidden;
 }
 .hint {
   margin-top: 8px;

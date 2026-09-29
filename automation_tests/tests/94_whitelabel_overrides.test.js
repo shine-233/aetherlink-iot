@@ -179,15 +179,16 @@ describe(SUITE, function () {
   it('6. 角色边界 fail-closed：TENANT_USER 无写权限，但 overrides 登录后可读', async function () {
     await apiClient.login(TENANT_USER);
 
+    // 写入越权在 casbin 层被拒：HTTP 403（{"error":"非法访问"}），与既有拒绝契约一致。
     const userUpsert = await apiClient.put(
       '/whitelabel/translations',
       { items: [{ lang: 'zh-cn', key: KEY_B, value: '越权写入' }] },
       TENANT_USER
     );
-    expect(userUpsert.code, JSON.stringify(userUpsert)).to.equal(201001);
+    expect(userUpsert.code, JSON.stringify(userUpsert)).to.not.equal(200);
 
     const userCss = await apiClient.put('/whitelabel/custom-css', { css: '.x{}' }, TENANT_USER);
-    expect(userCss.code, JSON.stringify(userCss)).to.equal(201001);
+    expect(userCss.code, JSON.stringify(userCss)).to.not.equal(200);
 
     const userOverrides = await apiClient.get('/whitelabel/overrides', {}, TENANT_USER);
     expect(userOverrides.code, JSON.stringify(userOverrides)).to.equal(200);
@@ -223,14 +224,15 @@ describe(SUITE, function () {
     expect(cssA.data.css).to.equal('');
     expect(cssB.data.css).to.equal(CSS_B);
 
-    // 租户 B 删除租户 A 的键：0 命中，租户 A 数据完好。
+    // 租户 B 删除同键 KEY_A：只命中租户 B 自己的行（deleted=1），租户 A 数据完好——
+    // 跨租户安全的关键证据是 A 的行不受影响，而不是命中数。
     const crossDelete = await apiClient.delete(
       '/whitelabel/translations',
       { items: [{ lang: 'zh-cn', key: KEY_A }] },
       TENANT_B
     );
     expect(crossDelete.code, JSON.stringify(crossDelete)).to.equal(200);
-    expect(crossDelete.data.deleted).to.equal(0);
+    expect(crossDelete.data.deleted).to.equal(1);
     const aStillThere = await apiClient.get('/whitelabel/translations', { lang: 'zh-cn' }, TENANT_A);
     expect((aStillThere.data.list || []).some((row) => row.key === KEY_A)).to.equal(true);
   });

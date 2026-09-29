@@ -18,17 +18,9 @@ type BoardProjectApi struct{}
 // @Tags     BoardProjects
 // @Router   /api/v1/board/projects [post]
 func (*BoardProjectApi) Create(c *gin.Context) {
-	var req model.CreateBoardProjectReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	project, err := service.GroupApp.BoardProject.CreateProject(req, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", project)
+	Handle(c, func(req *model.CreateBoardProjectReq, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.BoardProject.CreateProject(*req, claims)
+	})
 }
 
 // List 列出看板项目（?board_id= 反查包含该看板的项目）。
@@ -53,13 +45,9 @@ func (*BoardProjectApi) List(c *gin.Context) {
 // @Tags     BoardProjects
 // @Router   /api/v1/board/projects/{id} [get]
 func (*BoardProjectApi) Get(c *gin.Context) {
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	project, err := service.GroupApp.BoardProject.GetProject(c.Param("id"), claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", project)
+	HandleNoBody(c, func(claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.BoardProject.GetProject(c.Param("id"), claims)
+	})
 }
 
 // Update 更新项目。
@@ -68,17 +56,9 @@ func (*BoardProjectApi) Get(c *gin.Context) {
 // @Tags     BoardProjects
 // @Router   /api/v1/board/projects/{id} [put]
 func (*BoardProjectApi) Update(c *gin.Context) {
-	var req model.UpdateBoardProjectReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	project, err := service.GroupApp.BoardProject.UpdateProject(c.Param("id"), req, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", project)
+	Handle(c, func(req *model.UpdateBoardProjectReq, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.BoardProject.UpdateProject(c.Param("id"), *req, claims)
+	})
 }
 
 // Delete 删除项目（只解除分组，不动看板）。
@@ -129,11 +109,7 @@ func (*BoardProjectApi) RemoveBoard(c *gin.Context) {
 // @Tags     BoardProjects
 // @Router   /api/v1/board/projects/member-of/{board_id} [get]
 func (*BoardProjectApi) MembershipOf(c *gin.Context) {
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	project, err := service.GroupApp.BoardProject.MembershipOf(c.Param("board_id"), claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", project)
+	HandleNoBody(c, func(claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.BoardProject.MembershipOf(c.Param("board_id"), claims)
+	})
 }

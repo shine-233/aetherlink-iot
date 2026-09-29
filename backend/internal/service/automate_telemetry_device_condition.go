@@ -35,14 +35,14 @@ type deviceConditionRequest struct {
 
 type DataIdentifierName func(device_template_id, identifier string) string
 
-func (a *Automate) getActualValue(deviceId string, key string, triggerParamType string) (interface{}, error) {
+func (a *automationExec) getActualValue(deviceId string, key string, triggerParamType string) (interface{}, error) {
 	if value, ok := a.getActualValueFromTriggerOverrides(key); ok {
 		return value, nil
 	}
 	return getActualValueFromDeviceStore(deviceId, key, triggerParamType)
 }
 
-func (a *Automate) getActualValueFromTriggerOverrides(key string) (interface{}, bool) {
+func (a *automationExec) getActualValueFromTriggerOverrides(key string) (interface{}, bool) {
 	for k, v := range a.formExt.TriggerValues {
 		if key == k {
 			return v, true
@@ -66,7 +66,7 @@ func getActualValueFromDeviceStore(deviceId string, key string, triggerParamType
 	return nil, nil
 }
 
-func (a *Automate) automateConditionCheckWithDevice(cond model.DeviceTriggerCondition, deviceId string) (bool, string) {
+func (a *automationExec) automateConditionCheckWithDevice(cond model.DeviceTriggerCondition, deviceId string) (bool, string) {
 	logrus.Trace("device automation condition check started")
 	if !hasDeviceConditionInputs(cond) {
 		return false, ""
@@ -87,7 +87,7 @@ func (a *Automate) automateConditionCheckWithDevice(cond model.DeviceTriggerCond
 	return a.formatDeviceConditionResult(evaluation)
 }
 
-func (a *Automate) formatDeviceConditionResult(evaluation deviceConditionEvaluation) (bool, string) {
+func (a *automationExec) formatDeviceConditionResult(evaluation deviceConditionEvaluation) (bool, string) {
 	if evaluation.handled {
 		return evaluation.ok, evaluation.result
 	}
@@ -102,7 +102,7 @@ func hasDeviceConditionInputs(cond model.DeviceTriggerCondition) bool {
 	return cond.TriggerSource != nil && cond.TriggerParamType != nil && cond.TriggerParam != nil
 }
 
-func (a *Automate) resolveDeviceConditionTarget(cond model.DeviceTriggerCondition, deviceId string) (deviceConditionTarget, bool) {
+func (a *automationExec) resolveDeviceConditionTarget(cond model.DeviceTriggerCondition, deviceId string) (deviceConditionTarget, bool) {
 	if cond.TriggerConditionType == model.DEVICE_TRIGGER_CONDITION_TYPE_ONE {
 		deviceId = *cond.TriggerSource
 		device, err := initialize.GetDeviceCacheById(deviceId)
@@ -122,7 +122,7 @@ func (a *Automate) resolveDeviceConditionTarget(cond model.DeviceTriggerConditio
 	return deviceConditionTarget{deviceID: deviceId, deviceName: *a.device.Name}, true
 }
 
-func (a *Automate) resolveConditionDevice(cond model.DeviceTriggerCondition, deviceId string) (string, string, bool) {
+func (a *automationExec) resolveConditionDevice(cond model.DeviceTriggerCondition, deviceId string) (string, string, bool) {
 	target, ok := a.resolveDeviceConditionTarget(cond, deviceId)
 	return target.deviceID, target.deviceName, ok
 }
@@ -141,7 +141,7 @@ func conditionTriggerOperator(cond model.DeviceTriggerCondition) string {
 	return *cond.TriggerOperator
 }
 
-func (a *Automate) buildDeviceConditionEvaluation(cond model.DeviceTriggerCondition, target deviceConditionTarget, request deviceConditionRequest) (deviceConditionEvaluation, bool) {
+func (a *automationExec) buildDeviceConditionEvaluation(cond model.DeviceTriggerCondition, target deviceConditionTarget, request deviceConditionRequest) (deviceConditionEvaluation, bool) {
 	switch request.paramType {
 	case model.TRIGGER_PARAM_TYPE_TEL, model.TRIGGER_PARAM_TYPE_TELEMETRY:
 		return a.buildDataConditionEvaluation(
@@ -162,7 +162,7 @@ func (a *Automate) buildDeviceConditionEvaluation(cond model.DeviceTriggerCondit
 	}
 }
 
-func (a *Automate) buildDataConditionEvaluation(
+func (a *automationExec) buildDataConditionEvaluation(
 	target deviceConditionTarget,
 	trigger, actualParamType, triggerKey, triggerValue, triggerOperator string,
 	dataName DataIdentifierName,
@@ -182,7 +182,7 @@ func formatDataConditionResult(deviceName, trigger, dataValue string, actualValu
 	return fmt.Sprintf("device(%s)%s [%s]: %v %s %v", deviceName, trigger, dataValue, actualValue, triggerOperator, triggerValue)
 }
 
-func (a *Automate) buildEventConditionEvaluation(target deviceConditionTarget, cond model.DeviceTriggerCondition) deviceConditionEvaluation {
+func (a *automationExec) buildEventConditionEvaluation(target deviceConditionTarget, cond model.DeviceTriggerCondition) deviceConditionEvaluation {
 	evaluation := a.buildDataConditionEvaluation(
 		target, "event", model.TRIGGER_PARAM_TYPE_EVT,
 		*cond.TriggerParam, cond.TriggerValue, "=", dal.GetIdentifierNameEvent(),
@@ -190,7 +190,7 @@ func (a *Automate) buildEventConditionEvaluation(target deviceConditionTarget, c
 	return a.applyEventParamConditionEvaluation(target.deviceName, evaluation)
 }
 
-func (a *Automate) applyEventParamConditionEvaluation(deviceName string, evaluation deviceConditionEvaluation) deviceConditionEvaluation {
+func (a *automationExec) applyEventParamConditionEvaluation(deviceName string, evaluation deviceConditionEvaluation) deviceConditionEvaluation {
 	ok, detail, handled := a.automateEventParamConditionCheck(evaluation.triggerValue, evaluation.actualValue)
 	if !handled {
 		return evaluation
@@ -208,7 +208,7 @@ func formatEventConditionResult(deviceName, dataValue, detail string) string {
 	return fmt.Sprintf("device(%s)%s [%s]: %s", deviceName, "event", dataValue, detail)
 }
 
-func (a *Automate) buildStatusConditionEvaluation(target deviceConditionTarget, triggerValue string) deviceConditionEvaluation {
+func (a *automationExec) buildStatusConditionEvaluation(target deviceConditionTarget, triggerValue string) deviceConditionEvaluation {
 	trigger := "offline"
 	actualValue, _ := a.getActualValue(target.deviceID, "login", model.TRIGGER_PARAM_TYPE_STATUS)
 	actualStatus, ok := actualValue.(string)

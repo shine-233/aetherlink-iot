@@ -3,6 +3,7 @@
  * 核心逻辑：封装客户档案的增删改查与客户名下设备的分配/解绑/查询。
  */
 import { request } from '../request'
+import { createResource } from './resource'
 
 export interface CustomerItem {
   id: string
@@ -48,25 +49,30 @@ export interface SaveCustomerParams {
   additional_info?: string
 }
 
+const customers = createResource<
+  CustomerListParams,
+  CustomerListResponse,
+  CustomerItem,
+  SaveCustomerParams,
+  SaveCustomerParams & { id: string },
+  boolean
+>({
+  // 与用户组同理：列表 /customers 复数、单体 /customer 单数。
+  collection: '/customer',
+  listPath: '/customers'
+})
+
 /** 分页与条件查询客户列表 */
-export const getCustomersList = async (params?: CustomerListParams) => {
-  return await request.get<CustomerListResponse>('/customers', { params })
-}
+export const getCustomersList = customers.list
 
 /** 获取客户详情 */
-export const getCustomerDetail = async (id: string) => {
-  return await request.get<CustomerItem>(`/customer/${encodeURIComponent(id)}`)
-}
+export const getCustomerDetail = customers.detail
 
 /** 创建或更新客户（后端按 id 是否存在区分） */
-export const saveCustomer = async (data: SaveCustomerParams) => {
-  return await request.post<CustomerItem>('/customer', data)
-}
+export const saveCustomer = customers.create
 
 /** 删除客户（同时解除其名下设备分配） */
-export const deleteCustomer = async (id: string) => {
-  return await request.delete<boolean>(`/customer/${encodeURIComponent(id)}`)
-}
+export const deleteCustomer = customers.remove
 
 /** 分配设备到客户（分配即移动：设备只属一个客户） */
 export const assignCustomerDevices = async (customerId: string, device_ids: string[]) => {

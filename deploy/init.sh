@@ -139,6 +139,9 @@ apply_performance_tier_env_file() {
     light)
       replace_env_value AETHERLINK_POSTGRES_CPUS "0.40" "$file"
       replace_env_value AETHERLINK_POSTGRES_MEM_LIMIT "512m" "$file"
+      replace_env_value AETHERLINK_POSTGRES_SHARED_BUFFERS "128MB" "$file"
+      replace_env_value AETHERLINK_POSTGRES_WORK_MEM "4MB" "$file"
+      replace_env_value AETHERLINK_POSTGRES_MAINTENANCE_WORK_MEM "64MB" "$file"
       replace_env_value AETHERLINK_REDIS_CPUS "0.20" "$file"
       replace_env_value AETHERLINK_REDIS_MEM_LIMIT "128m" "$file"
       replace_env_value AETHERLINK_MQTT_CPUS "0.30" "$file"
@@ -151,6 +154,9 @@ apply_performance_tier_env_file() {
     standard)
       replace_env_value AETHERLINK_POSTGRES_CPUS "0.80" "$file"
       replace_env_value AETHERLINK_POSTGRES_MEM_LIMIT "1g" "$file"
+      replace_env_value AETHERLINK_POSTGRES_SHARED_BUFFERS "256MB" "$file"
+      replace_env_value AETHERLINK_POSTGRES_WORK_MEM "8MB" "$file"
+      replace_env_value AETHERLINK_POSTGRES_MAINTENANCE_WORK_MEM "128MB" "$file"
       replace_env_value AETHERLINK_REDIS_CPUS "0.30" "$file"
       replace_env_value AETHERLINK_REDIS_MEM_LIMIT "256m" "$file"
       replace_env_value AETHERLINK_MQTT_CPUS "0.60" "$file"
@@ -163,6 +169,9 @@ apply_performance_tier_env_file() {
     production)
       replace_env_value AETHERLINK_POSTGRES_CPUS "1.50" "$file"
       replace_env_value AETHERLINK_POSTGRES_MEM_LIMIT "2g" "$file"
+      replace_env_value AETHERLINK_POSTGRES_SHARED_BUFFERS "512MB" "$file"
+      replace_env_value AETHERLINK_POSTGRES_WORK_MEM "16MB" "$file"
+      replace_env_value AETHERLINK_POSTGRES_MAINTENANCE_WORK_MEM "256MB" "$file"
       replace_env_value AETHERLINK_REDIS_CPUS "0.50" "$file"
       replace_env_value AETHERLINK_REDIS_MEM_LIMIT "512m" "$file"
       replace_env_value AETHERLINK_MQTT_CPUS "1.00" "$file"

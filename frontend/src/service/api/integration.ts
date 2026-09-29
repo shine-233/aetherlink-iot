@@ -7,7 +7,7 @@
  *
  * 重构建议：后续连接器类型增多时，为各 connector_type 拆分类型化 config 表单与校验。
  */
-import { request } from '../request'
+import { createResource } from './resource'
 
 export type IntegrationConnectorType = 'opcua' | 'snmp' | 'plugin'
 
@@ -56,27 +56,26 @@ export interface UpdateIntegrationParams {
   enabled?: boolean
 }
 
+const integrations = createResource<
+  IntegrationListParams,
+  IntegrationListResponse,
+  IntegrationItem,
+  CreateIntegrationParams,
+  UpdateIntegrationParams,
+  boolean
+>({ collection: '/integrations' })
+
 /** 分页与条件查询集成实例列表 */
-export const getIntegrationsList = async (params?: IntegrationListParams) => {
-  return await request.get<IntegrationListResponse>('/integrations', { params })
-}
+export const getIntegrationsList = integrations.list
 
 /** 获取单个集成实例详情 */
-export const getIntegrationDetail = async (id: string) => {
-  return await request.get<IntegrationItem>(`/integrations/${encodeURIComponent(id)}`)
-}
+export const getIntegrationDetail = integrations.detail
 
 /** 创建集成实例 */
-export const createIntegration = async (data: CreateIntegrationParams) => {
-  return await request.post<IntegrationItem>('/integrations', data)
-}
+export const createIntegration = integrations.create
 
 /** 更新集成实例（部分字段更新；converter_*_id 传空串表示解绑） */
-export const updateIntegration = async (data: UpdateIntegrationParams) => {
-  return await request.put<IntegrationItem>('/integrations', data)
-}
+export const updateIntegration = integrations.update
 
 /** 删除集成实例 */
-export const deleteIntegration = async (id: string) => {
-  return await request.delete<boolean>(`/integrations/${encodeURIComponent(id)}`)
-}
+export const deleteIntegration = integrations.remove

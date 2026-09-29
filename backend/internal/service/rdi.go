@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"aetherlink-iot/backend/initialize"
+	"aetherlink-iot/backend/internal/authz"
 	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/internal/query"
@@ -249,22 +250,30 @@ func rdiDeviceConfigResponse(device *model.Device, options rdiDeviceConfigRespon
 	}
 }
 
+// rdiMayExposeAlarmEmails 判定调用者是否可以读取设备上的告警收件邮箱。
+// 语义（迁移前逐条对齐，禁止放宽）：
+//   - 设备或声明缺失 → false；
+//   - SYS_ADMIN → true；
+//   - 设备租户为空（平台行）或与声明租户不等 → false（空租户不是"同租户"）；
+//   - TENANT_ADMIN → true；
+//   - 其余 → 仅设备属主 TENANT_USER。
 func rdiMayExposeAlarmEmails(device *model.Device, claims *utils.UserClaims) bool {
 	if device == nil || claims == nil {
 		return false
 	}
-	if claims.Authority == constant.SYS_ADMIN {
+	if authz.IsSysAdmin(claims) {
 		return true
 	}
 	deviceTenantID := strings.TrimSpace(device.TenantID)
 	claimsTenantID := strings.TrimSpace(claims.TenantID)
+	// 空租户设备是平台行，不是"任何人的同租户资源"——除 SYS_ADMIN 外一律拒绝。
 	if deviceTenantID == "" || deviceTenantID != claimsTenantID {
 		return false
 	}
-	if claims.Authority == constant.TENANT_ADMIN {
+	if authz.HasRole(claims, authz.TenantAdmin) {
 		return true
 	}
-	return deviceOwnerMatchesClaims(device, claims)
+	return authz.OwnerMatches(device.OwnerUserID, claims)
 }
 
 func rdiConfigWithoutAlarmEmails(cfg model.RDIConfig) model.RDIConfig {
@@ -497,7 +506,7 @@ func (*RDI) HandlePhysicalUnbindEvent(device *model.Device, eventInfo *model.Eve
 
 	outboxEvent, err := persistRDIPhysicalUnbind(device.ID, time.Now().UTC())
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return dbError(err)
 	}
 	// Invalidate both lookup directions immediately after the inactive/disabled state is persisted.
 	// The device update, group cleanup, and durable revocation event have committed before cache

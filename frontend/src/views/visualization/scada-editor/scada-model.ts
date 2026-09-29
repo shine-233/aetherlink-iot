@@ -44,12 +44,17 @@ export interface ScadaCanvas {
   bindings?: ScadaBinding[]
 }
 
+export interface ScadaWidgetCommand {
+  name: string
+  requires_confirmation: boolean
+}
+
 export interface ScadaWidgetDefinition {
   type: string
   version: string
   schema: string
   capabilities: ScadaRenderCapability[]
-  commands?: { name: string; requires_confirmation: boolean }[]
+  commands?: ScadaWidgetCommand[]
 }
 
 export type CanvasParseResult =

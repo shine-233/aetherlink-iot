@@ -57,19 +57,9 @@ func (*BoardApi) CreateBoard(c *gin.Context) {
 // 另外该 service 在 Id 为空时会退化为创建流程，调用方需要清楚这是“更新接口带 upsert 语义”。
 // @Router   /api/v1/board [put]
 func (*BoardApi) UpdateBoard(c *gin.Context) {
-	var req model.UpdateBoardReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	d, err := service.GroupApp.Board.UpdateBoard(c, &req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", d)
+	Handle(c, func(req *model.UpdateBoardReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Board.UpdateBoard(c, req, userClaims)
+	})
 }
 
 // DeleteBoard 删除看板。
@@ -79,26 +69,16 @@ func (*BoardApi) UpdateBoard(c *gin.Context) {
 // 是否允许删除指定看板完全以 service.ensureBoardWriteAccess 的判定为准。
 // @Router   /api/v1/board/{id} [delete]
 func (*BoardApi) DeleteBoard(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.Board.DeleteBoard(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandlePathAction(c, "id", func(id string, userClaims *utils.UserClaims) error {
+		return service.GroupApp.Board.DeleteBoard(id, userClaims)
+	})
 }
 
 // PublishBoard publishes a native board and returns its public share token.
 func (*BoardApi) PublishBoard(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	board, err := service.GroupApp.Board.PublishBoard(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", board)
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Board.PublishBoard(id, userClaims)
+	})
 }
 
 // GetPublishedBoardByShareToken is intentionally registered before JWT
@@ -121,17 +101,9 @@ func (*BoardApi) GetPublishedBoardByShareToken(c *gin.Context) {
 // 只要鉴权通过，当前租户内的看板列表就可被读取。
 // @Router   /api/v1/board [get]
 func (*BoardApi) HandleBoardListByPage(c *gin.Context) {
-	var req model.GetBoardListByPageReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	boardList, err := service.GroupApp.Board.GetBoardListByPage(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", boardList)
+	Handle(c, func(req *model.GetBoardListByPageReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Board.GetBoardListByPage(req, userClaims)
+	})
 }
 
 // HandleBoard 查询单个看板详情。
@@ -141,14 +113,9 @@ func (*BoardApi) HandleBoardListByPage(c *gin.Context) {
 // 本层只负责把当前登录态与目标 id 传递下去，不提供跨租户绕过入口。
 // @Router   /api/v1/board/{id} [get]
 func (*BoardApi) HandleBoard(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	board, err := service.GroupApp.Board.GetBoard(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", board)
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Board.GetBoard(id, userClaims)
+	})
 }
 
 // HandleBoardListByTenantId 查询当前租户首页可见的看板集合。
@@ -158,14 +125,9 @@ func (*BoardApi) HandleBoard(c *gin.Context) {
 // 因而同一租户内能访问该路由的用户都可看到本租户首页看板结果。
 // @Router   /api/v1/board/home [get]
 func (*BoardApi) HandleBoardListByTenantId(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	boardList, err := service.GroupApp.Board.GetBoardHomeForClaims(c.Query("tenant_id"), userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", boardList)
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Board.GetBoardHomeForClaims(c.Query("tenant_id"), userClaims)
+	})
 }
 
 // HandleDeviceTotal 获取设备总数统计。
@@ -195,15 +157,10 @@ func (*BoardApi) HandleDeviceTotal(c *gin.Context) {
 // 输入参数，避免普通用户主动指定其他租户。
 // @Router   /api/v1/board/device [get]
 func (*BoardApi) HandleDevice(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	board := service.GroupApp.Board
-	data, err := board.GetDevice(c, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		board := service.GroupApp.Board
+		return board.GetDevice(c, userClaims)
+	})
 }
 
 // HandleTenant 获取租户总览统计。
@@ -258,19 +215,10 @@ func (*BoardApi) HandleTenantUserInfo(c *gin.Context) {
 // @Param all_tenants query bool false "仅 SYS_ADMIN 可显式汇总全部租户设备"
 // @Router   /api/v1/board/tenant/device/info [get]
 func (*BoardApi) HandleTenantDeviceInfo(c *gin.Context) {
-	var req model.GetBoardDeviceReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	board := service.GroupApp.Board
-	total, err := board.GetDeviceOverview(c, &req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", total)
+	Handle(c, func(req *model.GetBoardDeviceReq, userClaims *utils.UserClaims) (interface{}, error) {
+		board := service.GroupApp.Board
+		return board.GetDeviceOverview(c, req, userClaims)
+	})
 }
 
 // HandleUserInfo 查询当前登录用户的个人信息。
@@ -400,29 +348,16 @@ func (*BoardApi) GetDeviceTrend(c *gin.Context) {
 // ExportBoardTemplate 导出看板为便携模板描述符（TP-5 资源中心）。
 // @Router /api/v1/board/export/:id [get]
 func (*BoardApi) ExportBoardTemplate(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	exported, err := service.GroupApp.Board.ExportBoard(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", exported)
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Board.ExportBoard(id, userClaims)
+	})
 }
 
 // ImportBoardTemplate 导入看板模板至当前租户（TP-5 资源中心）。
 // @Router /api/v1/board/import [post]
 func (*BoardApi) ImportBoardTemplate(c *gin.Context) {
-	var req model.ImportBoardTemplateReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	board, err := service.GroupApp.Board.ImportBoard(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", board)
+	Handle(c, func(req *model.ImportBoardTemplateReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Board.ImportBoard(req, userClaims)
+	})
 }
 

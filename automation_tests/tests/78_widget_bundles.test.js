@@ -56,6 +56,17 @@ describe(SUITE, function () {
     }
     await apiClient.login(TENANT_A);
     await apiClient.login(TENANT_B);
+    // 自洁：清空两租户的全部部件库，消除跨次运行的 type_key/名称污染
+    for (const account of [TENANT_A, TENANT_B]) {
+      const list = await apiClient.get('/widget-bundles', { page: 1, page_size: 200 }, account);
+      for (const item of (list.data && list.data.list) || []) {
+        try {
+          await apiClient.delete('/widget-bundles/' + item.id, {}, account);
+        } catch (e) {
+          /* ignore */
+        }
+      }
+    }
   });
 
   after(async function () {
@@ -87,6 +98,7 @@ describe(SUITE, function () {
     expect(res.data.version).to.equal('1.0.0');
     expect(JSON.parse(res.data.widgets)).to.be.an('array').with.lengthOf(1);
     bundleId = res.data.id;
+    console.log('[DBG1] case1 bundleId=', bundleId);
     cleanups.push(bundleId);
   });
 
@@ -202,7 +214,16 @@ describe(SUITE, function () {
   });
 
   it('12. POST /widget-bundles/seed 种子落库且二次调用幂等', async function () {
+    const pre = await apiClient.get('/widget-bundles/' + bundleId, {}, TENANT_A);
+    console.log('[DBG12] before-seed bundle alive?', pre.code);
     const first = await apiClient.post('/widget-bundles/seed', {}, TENANT_A);
+    console.log('[DBG12] seed1', first.code, first.data && first.data.idempotent);
+    const mid = await apiClient.get('/widget-bundles/' + bundleId, {}, TENANT_A);
+    console.log('[DBG12] after-seed1 alive?', mid.code);
+    const second = await apiClient.post('/widget-bundles/seed', {}, TENANT_A);
+    console.log('[DBG12] seed2', second.code, second.data && second.data.idempotent);
+    const post = await apiClient.get('/widget-bundles/' + bundleId, {}, TENANT_A);
+    console.log('[DBG12] after-seed2 alive?', post.code);
     expectSuccess(first);
     expect(first.data.bundle).to.be.an('object');
     // 种子名固定（内置部件库）：全新租户首次 idempotent=false；
@@ -211,7 +232,6 @@ describe(SUITE, function () {
     seededBundleId = first.data.bundle.id;
     cleanups.push(seededBundleId);
 
-    const second = await apiClient.post('/widget-bundles/seed', {}, TENANT_A);
     expectSuccess(second);
     expect(second.data.idempotent).to.equal(true);
     expect(second.data.bundle.id).to.equal(seededBundleId);
@@ -229,7 +249,7 @@ describe(SUITE, function () {
 
   describe('13. 资源中心打包导出与验签导入回放', function () {
     let exportedBundle = null;
-    const exportTypeKey = 'widget78';
+    const exportTypeKey = 'widget78_' + Date.now();
 
     it('13.1 resource_type=widget_bundle 导出带签名的统一资源包', async function () {
       // 给目标 bundle 标注行业分类，便于按 type_key 精确打包
@@ -239,6 +259,11 @@ describe(SUITE, function () {
         TENANT_A
       );
 
+      const putRes = await apiClient.put(
+        '/widget-bundles',
+        { id: bundleId, type_key: exportTypeKey },
+        TENANT_A
+      );
       const res = await apiClient.get(
         '/resource/center/bundle',
         { type_key: exportTypeKey, resource_type: 'widget_bundle' },
@@ -316,13 +341,17 @@ describe(SUITE, function () {
     });
   });
 
-  it('14. DELETE /widget-bundles/:id 删除后不可再查询', async function () {
-    const delRes = await apiClient.delete('/widget-bundles/' + bundleId, {}, TENANT_A);
+  it('14. DELETE /widget-bundles/:id 删除后不可再查询（自包含）', async function () {
+    // 说明：本用例自建自删，避免与 13.x（依赖 case 1 的 bundleId）产生用例间顺序耦合。
+    const own = await apiClient.post(
+      '/widget-bundles',
+      { name: seedData.makeRunLabel('wb_bundle_78_own'), widgets: JSON.stringify([GAUGE_DEF]) },
+      TENANT_A
+    );
+    expectSuccess(own);
+    const delRes = await apiClient.delete('/widget-bundles/' + own.data.id, {}, TENANT_A);
     expectSuccess(delRes);
-    const idx = cleanups.indexOf(bundleId);
-    if (idx >= 0) cleanups.splice(idx, 1);
-
-    const getRes = await apiClient.get('/widget-bundles/' + bundleId, {}, TENANT_A);
-    expect(getRes.code).to.not.equal(200);
+    const check = await apiClient.get('/widget-bundles/' + own.data.id, {}, TENANT_A);
+    expect(check.code).to.not.equal(200);
   });
 });

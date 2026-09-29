@@ -93,7 +93,7 @@ func groupConditionsByGroupID(conditions initialize.DTConditions) map[string]ini
 	return conditionsByGroupID
 }
 
-func (a *Automate) anyConditionGroupMatches(groupedConditions map[string]initialize.DTConditions, deviceId string) bool {
+func (a *automationExec) anyConditionGroupMatches(groupedConditions map[string]initialize.DTConditions, deviceId string) bool {
 	for _, groupConditions := range groupedConditions {
 		if a.evaluateConditionGroup(groupConditions, deviceId) {
 			return true
@@ -102,13 +102,13 @@ func (a *Automate) anyConditionGroupMatches(groupedConditions map[string]initial
 	return false
 }
 
-func (a *Automate) evaluateConditionGroup(conditions initialize.DTConditions, deviceId string) bool {
+func (a *automationExec) evaluateConditionGroup(conditions initialize.DTConditions, deviceId string) bool {
 	evaluation := a.evaluateConditionGroupResult(conditions, deviceId)
 	a.conditionAfterDecorationRun(evaluation, conditions, deviceId)
 	return evaluation.ok
 }
 
-func (a *Automate) evaluateConditionGroupResult(conditions initialize.DTConditions, deviceId string) conditionGroupEvaluation {
+func (a *automationExec) evaluateConditionGroupResult(conditions initialize.DTConditions, deviceId string) conditionGroupEvaluation {
 	evaluation := conditionGroupEvaluation{ok: true}
 	for _, val := range conditions {
 		ok, content := a.AutomateConditionCheckWithGroupOne(val, deviceId)
@@ -122,12 +122,12 @@ func (a *Automate) evaluateConditionGroupResult(conditions initialize.DTConditio
 	return evaluation
 }
 
-func (a *Automate) AutomateConditionCheckWithGroupOne(cond model.DeviceTriggerCondition, deviceId string) (bool, string) {
+func (a *automationExec) AutomateConditionCheckWithGroupOne(cond model.DeviceTriggerCondition, deviceId string) (bool, string) {
 	logrus.Trace("automation condition type:", cond.TriggerConditionType)
 	return a.evaluateConditionByType(cond, deviceId)
 }
 
-func (a *Automate) evaluateConditionByType(cond model.DeviceTriggerCondition, deviceId string) (bool, string) {
+func (a *automationExec) evaluateConditionByType(cond model.DeviceTriggerCondition, deviceId string) (bool, string) {
 	switch cond.TriggerConditionType {
 	case model.DEVICE_TRIGGER_CONDITION_TYPE_TIME:
 		return a.automateConditionCheckWithTime(cond), ""

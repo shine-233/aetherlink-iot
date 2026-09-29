@@ -18,63 +18,33 @@ type SecretApi struct{}
 // CreateSecret 创建通用密钥
 // @Router /api/v1/secrets [post]
 func (*SecretApi) CreateSecret(c *gin.Context) {
-	var req model.CreateSecretReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.Secret.CreateSecret(c.Request.Context(), &req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	Handle(c, func(req *model.CreateSecretReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Secret.CreateSecret(c.Request.Context(), req, userClaims)
+	})
 }
 
 // GetSecretList 获取通用密钥列表（脱敏）
 // @Router /api/v1/secrets [get]
 func (*SecretApi) GetSecretList(c *gin.Context) {
-	var req model.SecretListReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.Secret.ListSecrets(c.Request.Context(), &req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	Handle(c, func(req *model.SecretListReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Secret.ListSecrets(c.Request.Context(), req, userClaims)
+	})
 }
 
 // GetSecretDetail 获取通用密钥详情（脱敏）
 // @Router /api/v1/secrets/:id [get]
 func (*SecretApi) GetSecretDetail(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.Secret.GetSecret(c.Request.Context(), id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Secret.GetSecret(c.Request.Context(), id, userClaims)
+	})
 }
 
 // UpdateSecret 更新通用密钥元数据或更新值
 // @Router /api/v1/secrets/:id [put]
 func (*SecretApi) UpdateSecret(c *gin.Context) {
-	id := c.Param("id")
-	var req model.UpdateSecretReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.Secret.UpdateSecret(c.Request.Context(), id, &req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	HandlePathBody(c, "id", func(id string, req *model.UpdateSecretReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Secret.UpdateSecret(c.Request.Context(), id, req, userClaims)
+	})
 }
 
 // DeleteSecret 删除通用密钥
@@ -93,25 +63,15 @@ func (*SecretApi) DeleteSecret(c *gin.Context) {
 // RevealSecret 解密查看密钥明文（管理员受审操作）
 // @Router /api/v1/secrets/:id/reveal [post]
 func (*SecretApi) RevealSecret(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.Secret.RevealSecret(c.Request.Context(), id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Secret.RevealSecret(c.Request.Context(), id, userClaims)
+	})
 }
 
 // ResealSecret 轮换重加密
 // @Router /api/v1/secrets/:id/reseal [post]
 func (*SecretApi) ResealSecret(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.Secret.ResealSecret(c.Request.Context(), id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Secret.ResealSecret(c.Request.Context(), id, userClaims)
+	})
 }

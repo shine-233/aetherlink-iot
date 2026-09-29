@@ -12,6 +12,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"aetherlink-iot/backend/internal/dal"
@@ -131,7 +132,7 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 
 func buildMarketTemplateInstallPlan(fullData *model.MarketTemplateFullData, claims *utils.UserClaims) (*marketTemplateInstallPlan, error) {
 	existingTpl, err := marketInstallFindExistingTemplate(fullData.Name, claims.TenantID)
-	if err != nil && err.Error() != "record not found" {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
 

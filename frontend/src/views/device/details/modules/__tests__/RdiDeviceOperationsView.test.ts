@@ -207,7 +207,20 @@ vi.mock('../rdi/composables/useRdiShare', () => ({
 
 import RdiDeviceOperationsView from '../RdiDeviceOperationsView.vue'
 
+// 分区子组件通过 provide/inject 共享 RDI 状态，shallowMount 时需要真实渲染它们才能覆盖完整表单。
+const sectionStubs = {
+  RdiBasicInfoSection: false,
+  RdiEnergyFieldTabs: false,
+  RdiAlarmSection: false,
+  RdiSensorAlarmFieldset: false,
+  RdiDryContactSection: false,
+  RdiNotificationSection: false,
+  RdiSystemInfoSection: false,
+  RdiDurationControl: false
+}
+
 const naiveStubs = {
+  ...sectionStubs,
   NSpin: true,
   NAlert: true,
   NButton: true,
@@ -390,6 +403,7 @@ const AxisStub = defineComponent({
 })
 
 const interactiveStubs = {
+  ...sectionStubs,
   NSpin: SlotStub,
   NAlert: SlotStub,
   NButton: ButtonStub,
@@ -700,13 +714,13 @@ describe('RdiDeviceOperationsView.vue', () => {
     await axes[0].vm.$emit('update:upper', 76)
 
     expect(setupState.temperatureUnit).toBe('F')
-    expect(setupState.energyRange).toBe('custom')
-    expect(setupState.historyExportKey).toBe('temperature_1')
-    expect(setupState.historyExportFormat).toBe('excel')
+    expect(setupState.state.history.energyRange.value).toBe('custom')
+    expect(setupState.state.history.historyExportKey.value).toBe('temperature_1')
+    expect(setupState.state.history.historyExportFormat.value).toBe('excel')
     expect(mockSetFieldValue).toHaveBeenCalledWith('n00', 'n00-value')
     expect(mockSetSystemExtraField).toHaveBeenCalledWith('site_name', 'cold-room')
-    expect(setupState.config.sensor_1_lower).toBe(-5)
-    expect(setupState.config.alarm_sensor_1_enabled).toBe(false)
+    expect(mockConfig.sensor_1_lower).toBe(-5)
+    expect(mockConfig.alarm_sensor_1_enabled).toBe(false)
 
     const buttons = wrapper.findAllComponents(ButtonStub)
     for (const button of buttons) {

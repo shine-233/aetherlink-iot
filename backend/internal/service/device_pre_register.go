@@ -78,9 +78,7 @@ func (*Device) CreateDevicePreRegister(req model.CreateDevicePreRegisterReq, cla
 
 	if err := dal.CreateDeviceBatch(rows); err != nil {
 		logrus.Error(err)
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	return preRegisterResponse(rsp, rows), nil
 }
@@ -120,9 +118,7 @@ func validatePreRegisterProductTenant(productID, tenantID string) error {
 		Count()
 	if err != nil {
 		logrus.Error(err)
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	if count == 0 {
 		return errcode.NewWithMessage(errcode.CodeNoPermission, "product not found in current tenant")
@@ -171,9 +167,7 @@ func buildAutoPreRegisterRows(req model.CreateDevicePreRegisterReq, tenantID str
 	}
 	existing, err := dal.CheckDeviceNumbersExists(deviceNumbers)
 	if err != nil {
-		return nil, nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, nil, dbError(err)
 	}
 	// uuid 碰撞概率可忽略，但仍对极小概率的已占用编号做一次重生成兜底。
 	for i, number := range deviceNumbers {
@@ -181,9 +175,7 @@ func buildAutoPreRegisterRows(req model.CreateDevicePreRegisterReq, tenantID str
 			deviceNumbers[i] = "PR-" + uuid.New()[0:12]
 			retried, retryErr := dal.CheckDeviceNumbersExists([]string{deviceNumbers[i]})
 			if retryErr != nil {
-				return nil, nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-					"sql_error": retryErr.Error(),
-				})
+				return nil, nil, dbError(retryErr)
 			}
 			existing = retried
 		}
@@ -249,9 +241,7 @@ func buildFilePreRegisterRows(req model.CreateDevicePreRegisterReq, tenantID str
 	}
 	existing, err := dal.CheckDeviceNumbersExists(numbers)
 	if err != nil {
-		return nil, nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, nil, dbError(err)
 	}
 
 	createdAt := time.Now().UTC()

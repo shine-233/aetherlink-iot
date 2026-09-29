@@ -73,16 +73,6 @@ export interface DeviceHealthMSETFeature {
   train_samples?: number
 }
 
-/** 获取租户级设备健康度汇总大盘 */
-export const getDeviceHealthSummary = async () => {
-  return await request.get<DeviceHealthSummaryResponse>('/devices/health/summary')
-}
-
-/** 触发租户级批量设备健康度重新评估 */
-export const evaluateTenantDeviceHealth = async () => {
-  return await request.post<{ success: boolean; evaluated_count: number }>('/devices/health/evaluate')
-}
-
 /** 获取单设备健康度深度诊断剖析 */
 export const getDeviceHealthDetail = async (deviceId: string) => {
   return await request.get<DeviceHealthDetailResponse>(`/devices/${encodeURIComponent(deviceId)}/health`)

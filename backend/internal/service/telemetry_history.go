@@ -55,9 +55,7 @@ func (*TelemetryData) GetTelemetrHistoryData(req *model.GetTelemetryHistoryDataR
 
 	d, err := dal.GetHistoryTelemetrData(req.DeviceID, req.Key, sT, eT)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 
 	// 格式化返回值
@@ -374,9 +372,7 @@ func buildHistoryTelemetryExportResult(filePath, fileName, fileType string) map[
 }
 
 func wrapTelemetryHistoryDBError(err error) error {
-	return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-		"sql_error": err.Error(),
-	})
+	return dbError(err)
 }
 
 func wrapTelemetryHistoryFileSaveError(err error) error {

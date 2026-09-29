@@ -35,9 +35,7 @@ func (*TelemetryData) GetTelemetrSetLogsDataListByPage(req *model.GetTelemetrySe
 
 	count, data, err := dal.GetTelemetrySetLogsListByPage(req)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 
 	dataMap := make(map[string]interface{})

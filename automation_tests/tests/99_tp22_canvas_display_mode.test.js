@@ -94,8 +94,10 @@ describe(SUITE, function () {
     const fetched = await apiClient.get('/scada/documents/' + documentId, {}, 'tenant_admin');
     expect(fetched.code, JSON.stringify(fetched)).to.equal(200);
     // 新字段必须原样往返：保存后读回仍是 fixed1080（这就是"保存契约"本身）。
-    expect(String(fetched.data.json_data)).to.contain('"displayMode":"fixed1080"');
-    expect(String(fetched.data.json_data)).to.contain('1920');
+    const stored = JSON.parse(String(fetched.data.json_data));
+    expect(stored.displayMode).to.equal('fixed1080');
+    expect(stored.width).to.equal(1920);
+    expect(stored.height).to.equal(1080);
   });
 
   it('3. fixed1080 尺寸不符保存被拒绝（1920x1080 尺寸契约）', async function () {
@@ -180,11 +182,12 @@ describe(SUITE, function () {
     );
     const rolled = await apiClient.post(
       '/scada/documents/' + documentId + '/rollback',
-      { version: 1 },
+      { version: publishedVersion },
       'tenant_admin'
     );
     expect(rolled.code, JSON.stringify(rolled)).to.equal(200);
-    expect(String(rolled.data.json_data)).to.contain('"displayMode":"fixed1080"');
+    const rolledDoc = JSON.parse(String(rolled.data.json_data));
+    expect(rolledDoc.displayMode).to.equal('fixed1080');
   });
 
   it('8. 公开轮播端点：空 tokens 返回参数错误（无认证访问可达）', async function () {

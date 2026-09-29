@@ -19,17 +19,9 @@ type EdgeNodeApi struct{}
 // @Tags     EdgeNodes
 // @Router   /api/v1/edge/nodes [post]
 func (*EdgeNodeApi) Register(c *gin.Context) {
-	var req model.RegisterEdgeNodeReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.EdgeNode.RegisterEdgeNode(req, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	Handle(c, func(req *model.RegisterEdgeNodeReq, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.EdgeNode.RegisterEdgeNode(*req, claims)
+	})
 }
 
 // Heartbeat 心跳触碰并回报健康分类。
@@ -75,18 +67,9 @@ func (*EdgeNodeApi) List(c *gin.Context) {
 // @Tags     EdgeNodes
 // @Router   /api/v1/edge/nodes/{node_id}/reconcile [post]
 func (*EdgeNodeApi) Reconcile(c *gin.Context) {
-	nodeID := c.Param("node_id")
-	var req model.EdgeNodeReconcileReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.EdgeNode.ReconcileEdgeNode(nodeID, req, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	HandlePathBody(c, "node_id", func(nodeID string, req *model.EdgeNodeReconcileReq, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.EdgeNode.ReconcileEdgeNode(nodeID, *req, claims)
+	})
 }
 
 // IssueCertificate 签发边缘节点客户端证书。
@@ -111,14 +94,9 @@ func (*EdgeNodeApi) IssueCertificate(c *gin.Context) {
 // @Tags     EdgeNodes
 // @Router   /api/v1/edge/nodes/{node_id}/certificate [get]
 func (*EdgeNodeApi) GetCertificate(c *gin.Context) {
-	nodeID := c.Param("node_id")
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.EdgeNode.GetNodeCertificate(nodeID, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	HandlePath(c, "node_id", func(nodeID string, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.EdgeNode.GetNodeCertificate(nodeID, claims)
+	})
 }
 
 // RevokeCertificate 吊销边缘节点证书。
@@ -141,18 +119,9 @@ func (*EdgeNodeApi) RevokeCertificate(c *gin.Context) {
 // @Tags     EdgeNodes
 // @Router   /api/v1/edge/nodes/{node_id}/upgrade [post]
 func (*EdgeNodeApi) Upgrade(c *gin.Context) {
-	nodeID := c.Param("node_id")
-	var req model.UpgradeEdgeNodeReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.EdgeNode.UpgradeNode(nodeID, req, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	HandlePathBody(c, "node_id", func(nodeID string, req *model.UpgradeEdgeNodeReq, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.EdgeNode.UpgradeNode(nodeID, *req, claims)
+	})
 }
 
 // Rollback 远程回滚边缘节点。
@@ -160,18 +129,9 @@ func (*EdgeNodeApi) Upgrade(c *gin.Context) {
 // @Tags     EdgeNodes
 // @Router   /api/v1/edge/nodes/{node_id}/rollback [post]
 func (*EdgeNodeApi) Rollback(c *gin.Context) {
-	nodeID := c.Param("node_id")
-	var req model.RollbackEdgeNodeReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.EdgeNode.RollbackNode(nodeID, req, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	HandlePathBody(c, "node_id", func(nodeID string, req *model.RollbackEdgeNodeReq, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.EdgeNode.RollbackNode(nodeID, *req, claims)
+	})
 }
 
 // GetUpgradeHistory 查询边缘节点升级历史。

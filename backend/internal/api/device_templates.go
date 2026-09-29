@@ -17,35 +17,17 @@ import (
 // 链路说明：物模型是设备配置与图表选择等能力的上游定义，API 层仅负责入参收口，模型内部校验与级联副作用应由 service 统一处理。
 // @Router   /api/v1/device/template [post]
 func (*DeviceApi) CreateDeviceTemplate(c *gin.Context) {
-	var req model.CreateDeviceTemplateReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.DeviceTemplate.CreateDeviceTemplate(req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	Handle(c, func(req *model.CreateDeviceTemplateReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.DeviceTemplate.CreateDeviceTemplate(*req, userClaims)
+	})
 }
 
 // UpdateDeviceTemplate 更新设备物模型
 // @Router   /api/v1/device/template [put]
 func (*DeviceApi) UpdateDeviceTemplate(c *gin.Context) {
-	var req model.UpdateDeviceTemplateReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.DeviceTemplate.UpdateDeviceTemplate(req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	Handle(c, func(req *model.UpdateDeviceTemplateReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.DeviceTemplate.UpdateDeviceTemplate(*req, userClaims)
+	})
 }
 
 // GetDeviceTemplateListByPage 分页获取设备物模型
@@ -75,65 +57,33 @@ func (*DeviceApi) HandleDeviceTemplateListByPage(c *gin.Context) {
 
 // @Router   /api/v1/device/template/menu [get]
 func (*DeviceApi) HandleDeviceTemplateMenu(c *gin.Context) {
-	var req model.GetDeviceTemplateMenuReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.DeviceTemplate.GetDeviceTemplateMenu(req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	Handle(c, func(req *model.GetDeviceTemplateMenuReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.DeviceTemplate.GetDeviceTemplateMenu(*req, userClaims)
+	})
 }
 
 // HandleDeviceTemplateStats 获取设备物模型统计信息
 // @Router   /api/v1/device/template/stats [get]
 func (*DeviceApi) HandleDeviceTemplateStats(c *gin.Context) {
-	var req model.GetDeviceTemplateStatsReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.DeviceTemplate.GetDeviceTemplateStats(req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	Handle(c, func(req *model.GetDeviceTemplateStatsReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.DeviceTemplate.GetDeviceTemplateStats(*req, userClaims)
+	})
 }
 
 // HandleDeviceTemplateSelector 获取设备物模型选择器
 // @Router   /api/v1/device/template/selector [get]
 func (*DeviceApi) HandleDeviceTemplateSelector(c *gin.Context) {
-	var req model.GetDeviceTemplateSelectorReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.DeviceTemplate.GetDeviceTemplateSelector(req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	Handle(c, func(req *model.GetDeviceTemplateSelectorReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.DeviceTemplate.GetDeviceTemplateSelector(*req, userClaims)
+	})
 }
 
 // DeleteDeviceTemplate 删除设备物模型
 // @Router   /api/v1/device/template/{id} [delete]
 func (*DeviceApi) DeleteDeviceTemplate(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.DeviceTemplate.DeleteDeviceTemplate(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandlePathAction(c, "id", func(id string, userClaims *utils.UserClaims) error {
+		return service.GroupApp.DeviceTemplate.DeleteDeviceTemplate(id, userClaims)
+	})
 }
 
 // GetDeviceTemplate 获取设备物模型详情
@@ -199,19 +149,9 @@ func (*DeviceApi) MarketLogin(c *gin.Context) {
 // PublishToMarket 发布物模型到市场
 // @Router   /api/v1/device/template/market/publish [post]
 func (*DeviceApi) PublishToMarket(c *gin.Context) {
-	var req model.PublishToMarketReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	apiResp, err := service.GroupApp.DeviceTemplate.PublishToMarket(req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", apiResp)
+	Handle(c, func(req *model.PublishToMarketReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.DeviceTemplate.PublishToMarket(*req, userClaims)
+	})
 }
 
 // ListMarketTemplates 获取市场物模型列表
@@ -296,31 +236,17 @@ func (*DeviceApi) GetMarketTemplateDetail(c *gin.Context) {
 // InstallFromMarket 从市场安装物模型
 // @Router   /api/v1/device/template/market/install [post]
 func (*DeviceApi) InstallFromMarket(c *gin.Context) {
-	var req model.InstallFromMarketReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	data, err := service.GroupApp.DeviceTemplate.InstallFromMarket(req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.InstallFromMarketReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.DeviceTemplate.InstallFromMarket(*req, userClaims)
+	})
 }
 
 // ExportDeviceTemplate 模板市场导出：按读权限产出可移植模板描述符（JSON 载荷）。
 // @Router   /api/v1/device/template/export/{id} [get]
 func (*DeviceApi) ExportDeviceTemplate(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.DeviceTemplate.ExportDeviceTemplate(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.DeviceTemplate.ExportDeviceTemplate(id, userClaims)
+	})
 }
 
 // ImportDeviceTemplate 模板市场导入：导出载荷原样回传，创建为调用者租户下的新模板。

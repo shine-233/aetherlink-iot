@@ -48,13 +48,11 @@ func (s *DeviceHealthService) EvaluateDeviceHealth(ctx context.Context, deviceID
 	scoreEntity.TenantID = claims.TenantID
 
 	// 尝试读取已有评分 ID 保持唯一稳定
-	if existing, err := dal.GetDeviceHealthScoreByDeviceID(device.ID, claims.TenantID); err == nil && existing != nil {
-		scoreEntity.ID = existing.ID
-		scoreEntity.CreatedAt = existing.CreatedAt
-	} else {
-		scoreEntity.ID = uuid.New().String()
-		scoreEntity.CreatedAt = time.Now()
+	existing, err := dal.GetDeviceHealthScoreByDeviceID(device.ID, claims.TenantID)
+	if err != nil {
+		existing = nil
 	}
+	assignDeviceHealthScoreIdentity(scoreEntity, existing)
 
 	if err := dal.UpsertDeviceHealthScore(scoreEntity); err != nil {
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": err.Error()})
@@ -97,25 +95,39 @@ func (s *DeviceHealthService) EvaluateTenantDeviceHealth(ctx context.Context, cl
 		}
 	}
 
+	// 一次性读取租户已有评分，避免逐设备查询（N+1）
+	existingByDevice := make(map[string]*model.DeviceHealthScore)
+	if existingScores, err := dal.GetDeviceHealthScoresByTenant(claims.TenantID); err == nil {
+		for _, item := range existingScores {
+			if item != nil {
+				existingByDevice[item.DeviceID] = item
+			}
+		}
+	}
+
 	// 批量评估并更新
 	for _, dev := range devices {
 		devAlarms := alarmsByDevice[dev.ID]
 		msetFeature := s.deviceHealthMSETFeature(dev.ID)
 		scoreEntity, _ := ComputeDeviceHealthWithMSET(dev, devAlarms, msetFeature)
 		scoreEntity.TenantID = claims.TenantID
-
-		if existing, err := dal.GetDeviceHealthScoreByDeviceID(dev.ID, claims.TenantID); err == nil && existing != nil {
-			scoreEntity.ID = existing.ID
-			scoreEntity.CreatedAt = existing.CreatedAt
-		} else {
-			scoreEntity.ID = uuid.New().String()
-			scoreEntity.CreatedAt = time.Now()
-		}
+		assignDeviceHealthScoreIdentity(scoreEntity, existingByDevice[dev.ID])
 
 		_ = dal.UpsertDeviceHealthScore(scoreEntity)
 	}
 
 	return s.GetTenantHealthSummary(ctx, claims)
+}
+
+// assignDeviceHealthScoreIdentity 复用已有评分的 ID/CreatedAt；无已有评分时生成新 ID。
+func assignDeviceHealthScoreIdentity(scoreEntity, existing *model.DeviceHealthScore) {
+	if existing != nil {
+		scoreEntity.ID = existing.ID
+		scoreEntity.CreatedAt = existing.CreatedAt
+		return
+	}
+	scoreEntity.ID = uuid.New().String()
+	scoreEntity.CreatedAt = time.Now()
 }
 
 // GetDeviceHealthDetail 获取单设备健康度详情（未评估过则即时计算）

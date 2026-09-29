@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"aetherlink-iot/backend/internal/authz"
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
 	query "aetherlink-iot/backend/internal/query"
@@ -28,27 +29,7 @@ type Board struct{}
 
 // wrapBoardDBError 统一补齐数据库错误结构，保持接口层错误返回格式一致。
 func wrapBoardDBError(err error) error {
-	return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-		"sql_error": err.Error(),
-	})
-}
-
-func ensureBoardWritePermission(claims *utils.UserClaims, targetTenantID *string) error {
-	if claims == nil {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to modify board")
-	}
-	if claims.Authority != constant.SYS_ADMIN && claims.Authority != constant.TENANT_ADMIN {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to modify board")
-	}
-	if claims.Authority == constant.TENANT_ADMIN && claims.TenantID == "" {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to modify board")
-	}
-	if targetTenantID != nil {
-		if *targetTenantID == "" || (claims.Authority == constant.TENANT_ADMIN && *targetTenantID != claims.TenantID) {
-			return errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to modify board")
-		}
-	}
-	return nil
+	return dbError(err)
 }
 
 func boardTenantContextError(message string) error {
@@ -74,7 +55,7 @@ func resolveBoardWriteTenant(requestedTenantID string, claims *utils.UserClaims)
 		return "", err
 	}
 	requestedTenantID = strings.TrimSpace(requestedTenantID)
-	if claims.Authority == constant.SYS_ADMIN {
+	if authz.IsSysAdmin(claims) {
 		if requestedTenantID == "" {
 			return "", boardTenantContextError("tenant context is required for board creation")
 		}
@@ -87,8 +68,10 @@ func resolveBoardWriteTenant(requestedTenantID string, claims *utils.UserClaims)
 	if claims.TenantID == "" {
 		return "", errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to modify board")
 	}
-	if requestedTenantID != "" && requestedTenantID != claims.TenantID {
-		return "", errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to modify board")
+	if requestedTenantID != "" {
+		if err := authz.CheckTenant(claims, requestedTenantID, boardModifyPermissionMessage); err != nil {
+			return "", err
+		}
 	}
 	return claims.TenantID, nil
 }
@@ -101,7 +84,7 @@ func resolveBoardListTenant(requestedTenantID *string, claims *utils.UserClaims)
 	if requestedTenantID != nil {
 		requested = strings.TrimSpace(*requestedTenantID)
 	}
-	if claims.Authority == constant.SYS_ADMIN {
+	if authz.IsSysAdmin(claims) {
 		if requested == "" {
 			// Empty is the explicit all-tenant read scope for SYS_ADMIN.
 			return "", nil
@@ -111,11 +94,13 @@ func resolveBoardListTenant(requestedTenantID *string, claims *utils.UserClaims)
 		}
 		return requested, nil
 	}
-	if claims.Authority != constant.TENANT_ADMIN || claims.TenantID == "" {
+	if !authz.HasRole(claims, authz.TenantAdmin) || claims.TenantID == "" {
 		return "", errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query board")
 	}
-	if requested != "" && requested != claims.TenantID {
-		return "", errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query board")
+	if requested != "" {
+		if err := authz.CheckTenant(claims, requested, "no permission to query board"); err != nil {
+			return "", err
+		}
 	}
 	return claims.TenantID, nil
 }
@@ -125,7 +110,7 @@ func resolveBoardHomeTenant(requestedTenantID string, claims *utils.UserClaims) 
 		return "", errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query board")
 	}
 	requestedTenantID = strings.TrimSpace(requestedTenantID)
-	if claims.Authority == constant.SYS_ADMIN {
+	if authz.IsSysAdmin(claims) {
 		if requestedTenantID == "" {
 			return "", boardTenantContextError("tenant context is required for the board home")
 		}
@@ -142,8 +127,10 @@ func resolveBoardHomeTenant(requestedTenantID string, claims *utils.UserClaims) 
 	if claims.TenantID == "" {
 		return "", errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query board")
 	}
-	if requestedTenantID != "" && requestedTenantID != claims.TenantID {
-		return "", errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query board")
+	if requestedTenantID != "" {
+		if err := authz.CheckTenant(claims, requestedTenantID, "no permission to query board"); err != nil {
+			return "", err
+		}
 	}
 	return claims.TenantID, nil
 }
@@ -163,41 +150,6 @@ func validateBoardVisType(visType *string) error {
 		"field": "vis_type",
 		"error": "vis_type must be native or thingsvis",
 	})
-}
-
-// ensureBoardReadAccess 既校验看板存在，也把跨租户读取拦在 service 层。
-func ensureBoardReadAccess(ctx context.Context, boardID string, claims *utils.UserClaims) (*model.Board, error) {
-	if claims == nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query board")
-	}
-	board, err := dal.BoardQuery{}.First(ctx, query.Board.ID.Eq(boardID))
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, errcode.NewWithMessage(errcode.CodeNotFound, "board not found")
-	}
-	if err != nil {
-		return nil, wrapBoardDBError(err)
-	}
-	if claims.Authority != constant.SYS_ADMIN && board.TenantID != claims.TenantID {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query board")
-	}
-	return board, nil
-}
-
-func ensureBoardWriteAccess(ctx context.Context, boardID string, claims *utils.UserClaims) (*model.Board, error) {
-	if claims == nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query board")
-	}
-	if err := ensureBoardWritePermission(claims, nil); err != nil {
-		return nil, err
-	}
-	board, err := ensureBoardReadAccess(ctx, boardID, claims)
-	if err != nil {
-		return nil, err
-	}
-	if err := ensureBoardWritePermission(claims, &board.TenantID); err != nil {
-		return nil, err
-	}
-	return board, nil
 }
 
 func buildCreateBoardPayload(req *model.CreateBoardReq, tenantID string, now time.Time) model.Board {
@@ -483,9 +435,7 @@ func (*Board) DeleteBoard(id string, claims *utils.UserClaims) error {
 		return errcode.NewWithMessage(errcode.CodeNotFound, "board not found")
 	}
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	return err
 }
@@ -565,9 +515,7 @@ func (*Board) GetBoardListByPage(Params *model.GetBoardListByPageReq, U *utils.U
 	}
 	total, list, err := dal.GetBoardListByPageForScopesWithGroupScope(Params, boardScopes, hiddenBoardIDs)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	boardListRsp := make(map[string]interface{})
 	boardListRsp["total"] = total
@@ -588,9 +536,7 @@ func (*Board) GetBoard(id string, U *utils.UserClaims) (interface{}, error) {
 func (*Board) GetBoardListByTenantId(tenantid string) (interface{}, error) {
 	_, data, err := dal.GetBoardListByTenantId(tenantid)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	return data, err
 }
@@ -608,9 +554,7 @@ func (*Board) GetBoardHomeForClaims(tenantID string, claims *utils.UserClaims) (
 	}
 	_, data, err := dal.GetBoardListByTenantId(resolvedTenantID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	if board, ok := data.(*model.Board); ok && board != nil && len(hiddenBoardIDs) > 0 {
 		for _, id := range hiddenBoardIDs {
@@ -646,9 +590,7 @@ func (*Board) GetDeviceTotal(ctx context.Context, claims *utils.UserClaims) (int
 		total, err = db.CountByWhere(ctx, conditions...)
 	}
 	if err != nil {
-		return 0, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return 0, dbError(err)
 	}
 
 	return total, err
@@ -678,9 +620,7 @@ func (*Board) GetDevice(ctx context.Context, U *utils.UserClaims) (data *model.G
 	}
 	if err != nil {
 		logrus.Error(ctx, "[GetDevice]Device count failed:", err)
-		err = errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		err = dbError(err)
 		return
 	}
 	// 在线数只统计 active 且在线的设备，离线数通过 total-on 反推。
@@ -691,9 +631,7 @@ func (*Board) GetDevice(ctx context.Context, U *utils.UserClaims) (data *model.G
 	}
 	if err != nil {
 		logrus.Error(ctx, "[GetDevice]Device count/on failed:", err)
-		err = errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		err = dbError(err)
 		return
 	}
 	data = &model.GetBoardDeviceRes{
@@ -788,9 +726,7 @@ func (*Device) GetDeviceTrend(ctx context.Context, claims *utils.UserClaims, ten
 
 	points, err := dal.GetDeviceTrend(tenantID, deviceOwnerUserIDFilterForClaims(claims), startTime, endTime)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 
 	return &model.DeviceTrendRes{

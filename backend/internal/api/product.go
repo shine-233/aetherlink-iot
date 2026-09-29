@@ -40,17 +40,9 @@ func (*ProductApi) HandleCreateProduct(c *gin.Context) {
 // HandleUpdateProduct 修改产品
 // @Router   /api/v1/product [put]
 func (*ProductApi) HandleUpdateProduct(c *gin.Context) {
-	var req model.UpdateProductReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Product.UpdateProduct(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.UpdateProductReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Product.UpdateProduct(req, userClaims)
+	})
 }
 
 // HandleDeleteProduct 删除产品

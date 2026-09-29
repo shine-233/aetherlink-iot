@@ -62,16 +62,9 @@ func (*TenantWhitelabelApi) UpsertTenantTranslations(c *gin.Context) {
 // @Param lang query string false "Language filter (zh-cn/en-us/es-es/fr-fr)"
 // @Router /api/v1/whitelabel/translations [get]
 func (*TenantWhitelabelApi) ListTenantTranslations(c *gin.Context) {
-	var req model.ListTenantTranslationsReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	resp, err := service.GroupApp.Whitelabel.ListTranslations(c.Request.Context(), req.Lang, whitelabelClaims(c))
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	HandlePublic(c, func(req *model.ListTenantTranslationsReq) (interface{}, error) {
+		return service.GroupApp.Whitelabel.ListTranslations(c.Request.Context(), req.Lang, whitelabelClaims(c))
+	})
 }
 
 // DeleteTenantTranslations 批量删除翻译覆盖。
@@ -116,15 +109,9 @@ func (*TenantWhitelabelApi) GetTenantCustomCSS(c *gin.Context) {
 // @Param body body model.UpsertTenantCustomCSSReq true "Custom CSS (empty clears)"
 // @Router /api/v1/whitelabel/custom-css [put]
 func (*TenantWhitelabelApi) UpsertTenantCustomCSS(c *gin.Context) {
-	var req model.UpsertTenantCustomCSSReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	if err := service.GroupApp.Whitelabel.UpsertCustomCSS(c.Request.Context(), &req, whitelabelClaims(c)); err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandlePublicAction(c, func(req *model.UpsertTenantCustomCSSReq) error {
+		return service.GroupApp.Whitelabel.UpsertCustomCSS(c.Request.Context(), req, whitelabelClaims(c))
+	})
 }
 
 // GetWhitelabelOverrides 登录后可读的覆盖获取：本作用域全部翻译覆盖（按语言分组）

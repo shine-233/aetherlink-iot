@@ -27,88 +27,50 @@ type UserGroupApi struct{}
 // Service 调用链：api.CreateUserGroup -> service.GroupApp.UserGroup.CreateUserGroup -> dal.CreateUserGroup。
 // @Router  /api/v1/user_group [post]
 func (*UserGroupApi) CreateUserGroup(c *gin.Context) {
-	var req model.CreateUserGroupReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.UserGroup.CreateUserGroup(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.CreateUserGroupReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.UserGroup.CreateUserGroup(req, userClaims)
+	})
 }
 
 // UpdateUserGroup 更新用户组（名称/描述至少一项）。
 // @Router  /api/v1/user_group [put]
 func (*UserGroupApi) UpdateUserGroup(c *gin.Context) {
-	var req model.UpdateUserGroupReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.UserGroup.UpdateUserGroup(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.UpdateUserGroupReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.UserGroup.UpdateUserGroup(req, userClaims)
+	})
 }
 
 // DeleteUserGroup 删除用户组（级联清理成员与权限绑定）。
 // @Router  /api/v1/user_group/{id} [delete]
 func (*UserGroupApi) DeleteUserGroup(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	if err := service.GroupApp.UserGroup.DeleteUserGroup(id, userClaims); err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandlePathAction(c, "id", func(id string, userClaims *utils.UserClaims) error {
+		return service.GroupApp.UserGroup.DeleteUserGroup(id, userClaims)
+	})
 }
 
 // GetUserGroup 用户组详情。
 // @Router  /api/v1/user_group/{id} [get]
 func (*UserGroupApi) GetUserGroup(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.UserGroup.GetUserGroup(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.UserGroup.GetUserGroup(id, userClaims)
+	})
 }
 
 // GetUserGroupList 用户组分页列表。
 // 参数绑定：query/form → model.GetUserGroupListReq；tenant_id 仅 SYS_ADMIN 指定租户视图生效。
 // @Router  /api/v1/user_groups [get]
 func (*UserGroupApi) GetUserGroupList(c *gin.Context) {
-	var req model.GetUserGroupListReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.UserGroup.GetUserGroupList(&req, c.Query("tenant_id"), userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.GetUserGroupListReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.UserGroup.GetUserGroupList(req, c.Query("tenant_id"), userClaims)
+	})
 }
 
 // GetUserGroupMembers 组成员列表。
 // @Router  /api/v1/user_group/{id}/users [get]
 func (*UserGroupApi) GetUserGroupMembers(c *gin.Context) {
-	id := c.Param("id")
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.UserGroup.GetUserGroupMembers(id, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandlePath(c, "id", func(id string, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.UserGroup.GetUserGroupMembers(id, claims)
+	})
 }
 
 // AssignUserGroupMembers 全量替换组成员（user_ids 传空数组=清空成员）。
@@ -131,14 +93,9 @@ func (*UserGroupApi) AssignUserGroupMembers(c *gin.Context) {
 // GetUserGroupPermissions 组权限元素列表。
 // @Router  /api/v1/user_group/{id}/permissions [get]
 func (*UserGroupApi) GetUserGroupPermissions(c *gin.Context) {
-	id := c.Param("id")
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.UserGroup.GetUserGroupPermissions(id, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandlePath(c, "id", func(id string, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.UserGroup.GetUserGroupPermissions(id, claims)
+	})
 }
 
 // AssignUserGroupPermissions 全量替换组权限元素绑定（element_codes 传空数组=清空绑定）。

@@ -7,7 +7,9 @@
 关键注意事项：PROTOBUF 模式（TB-19）需维护 .proto 源文本域，仿真载荷为 hex/base64 编码串。
 -->
 <script setup lang="ts">
-import { h, onMounted, reactive, ref } from 'vue'
+import { h, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { debounce } from 'lodash-es'
+import { useListPage } from '@/components/data-table-page/useListPage'
 import {
   NAlert,
   NButton,
@@ -61,11 +63,6 @@ const PROTOBUF_SAMPLE_CONFIG =
   '{\n  "message_type": "iot.demo.SensorReading",\n  "device_name": "device_label",\n  "telemetry": {\n    "temperature": "temperature",\n    "humidity": "humidity"\n  }\n}'
 
 // 列表状态
-const loading = ref(false)
-const list = ref<DataConverterItem[]>([])
-const total = ref(0)
-const page = ref(1)
-const pageSize = ref(10)
 const searchQuery = ref('')
 const selectedType = ref<ConverterType | null>(null)
 
@@ -228,25 +225,23 @@ const columns: DataTableColumns<DataConverterItem> = [
   }
 ]
 
-const loadData = async () => {
-  loading.value = true
-  try {
-    const res = await getDataConvertersList({
-      page: page.value,
-      page_size: pageSize.value,
-      search: searchQuery.value || undefined,
-      type: selectedType.value || undefined
-    })
-    if (res.data) {
-      list.value = res.data.list || []
-      total.value = res.data.total || 0
+// 列表：分页、加载态与过期请求丢弃交给 useListPage（输入搜索时旧关键字的慢响应不会覆盖新结果）。
+const converters = useListPage<DataConverterItem>({
+  pageSizes: [10, 20, 50],
+  serialize: () => ({ search: searchQuery.value || undefined, type: selectedType.value || undefined }),
+  fetcher: async (params) => {
+    try {
+      const res = await getDataConvertersList(params)
+      return res.data ? { list: res.data.list || [], total: res.data.total || 0 } : null
+    } catch (err: any) {
+      message.error(err.message || '加载转换器列表失败')
+      return null
     }
-  } catch (err: any) {
-    message.error(err.message || '加载转换器列表失败')
-  } finally {
-    loading.value = false
   }
-}
+})
+const { rows: list, loading, pagination, load: loadData, search: searchConverters } = converters
+const debouncedSearchConverters = debounce(() => void searchConverters(), 300)
+onUnmounted(() => debouncedSearchConverters.cancel())
 
 const openCreateModal = () => {
   isEdit.value = false
@@ -408,7 +403,7 @@ onMounted(() => {
           placeholder="搜索转换器名称..."
           clearable
           style="max-width: 260px"
-          @update:value="loadData"
+          @update:value="debouncedSearchConverters"
         />
         <NSelect
           v-model:value="selectedType"
@@ -419,7 +414,7 @@ onMounted(() => {
             { label: '下行 (Downlink)', value: 'DOWNLINK' }
           ]"
           style="max-width: 180px"
-          @update:value="loadData"
+          @update:value="searchConverters"
         />
         <NButton secondary size="small" @click="loadData">刷新</NButton>
       </div>
@@ -428,22 +423,8 @@ onMounted(() => {
         :columns="columns"
         :data="list"
         :loading="loading"
-        :pagination="{
-          page,
-          pageSize,
-          itemCount: total,
-          showSizePicker: true,
-          pageSizes: [10, 20, 50],
-          onChange: (p: number) => {
-            page = p
-            loadData()
-          },
-          onUpdatePageSize: (s: number) => {
-            pageSize = s
-            page = 1
-            loadData()
-          }
-        }"
+        :pagination="pagination"
+        remote
       />
     </NCard>
 

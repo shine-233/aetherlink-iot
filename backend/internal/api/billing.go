@@ -85,16 +85,7 @@ func (*BillingApi) GetAPIQuota(c *gin.Context) {
 // @Tags     Billing
 // @Router   /api/v1/billing/subscriptions [post]
 func (*BillingApi) SubscribePlan(c *gin.Context) {
-	var req model.SubscribePlanReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-
-	sub, err := service.GroupApp.Billing.SubscribePlan(req.TenantID, req.PlanCode, claims.Authority, claims.TenantID)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", sub)
+	Handle(c, func(req *model.SubscribePlanReq, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Billing.SubscribePlan(req.TenantID, req.PlanCode, claims.Authority, claims.TenantID)
+	})
 }

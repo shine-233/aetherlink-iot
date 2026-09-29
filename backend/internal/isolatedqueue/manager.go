@@ -98,6 +98,19 @@ func (m *QueueManager) SubmitByOriginator(ctx context.Context, queueName string,
 	return q.SubmitByOriginator(ctx, originatorID, msg)
 }
 
+// Observe 记录一条已被上行总线接受的消息，仅做计数与活跃时间更新，永不阻塞、不保留消息体。
+// 这些队列当前没有任何消费者，若按 Submit 入队，缓冲写满后会以 BACKPRESSURE 策略
+// 永久阻塞调用方（上行 Publish 使用不可取消的 context），导致整条摄取链路停摆。
+func (m *QueueManager) Observe(queueName string) {
+	q, ok := m.GetQueue(queueName)
+	if !ok {
+		return
+	}
+	if o, ok := q.(interface{ observe() }); ok {
+		o.observe()
+	}
+}
+
 // GetAllStats 返回所有已注册队列的监控指标。
 func (m *QueueManager) GetAllStats() []QueueStats {
 	m.mu.RLock()

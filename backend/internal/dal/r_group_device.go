@@ -81,7 +81,7 @@ func GetDeviceSelectByGroupId(tenantId string, group_id string, deviceName strin
 		Where(rgd.GroupID.Eq(group_id)).
 		Where(d.TenantID.Eq(tenantId)).
 		Where(d.ActivateFlag.Eq("active")). // 激活状态
-		Where(d.Name.Like("%" + deviceName + "%")).Order(d.CreatedAt.Desc())
+		Where(d.Name.Like(ContainsLikePattern(deviceName))).Order(d.CreatedAt.Desc())
 	switch bindConfig {
 	case 1:
 		query = query.Where(d.DeviceConfigID.IsNotNull())

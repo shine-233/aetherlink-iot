@@ -34,3 +34,18 @@ func TestConditionAfterAlarmSkipsSingleDeviceConditionWithoutSource(t *testing.T
 		t.Fatalf("ConditionAfterAlarm() error = %v", err)
 	}
 }
+
+func TestAutomationAlarmContentMatchesLegacyConcatenation(t *testing.T) {
+	t.Parallel()
+
+	cases := [][]string{nil, {}, {"a"}, {"a", "b", "c"}, {"", "x"}}
+	for _, contents := range cases {
+		legacy := "prefix"
+		for _, v := range contents {
+			legacy += ";" + v
+		}
+		if got := automationAlarmContent("prefix", contents); got != legacy {
+			t.Fatalf("automationAlarmContent(%q) = %q, want %q", contents, got, legacy)
+		}
+	}
+}

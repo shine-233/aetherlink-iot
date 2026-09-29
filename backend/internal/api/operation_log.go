@@ -42,15 +42,7 @@ func (*OperationLogsApi) HandleListByPage(c *gin.Context) {
 // @Tags     AuditLogs
 // @Router   /api/v1/operation_logs/export [post]
 func (*OperationLogsApi) ExportAuditLogs(c *gin.Context) {
-	var req model.AuditLogExportReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	result, err := service.ExportAuditLogs(req, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", result)
+	Handle(c, func(req *model.AuditLogExportReq, claims *utils.UserClaims) (interface{}, error) {
+		return service.ExportAuditLogs(*req, claims)
+	})
 }

@@ -55,7 +55,7 @@ func TestStorageAdmissionPreservesOriginalUplinkTimestamp(t *testing.T) {
 			name:     "telemetry",
 			dataType: storage.DataTypeTelemetry,
 			admit: func(input *capturedStorageInput) bool {
-				uplink := &TelemetryUplink{storageInput: input, ctx: context.Background(), logger: logger}
+				uplink := &TelemetryUplink{uplinkBase: uplinkBase{ctx: context.Background(), logger: logger}, storageInput: input}
 				return uplink.enqueueTelemetryStorage(device, []storage.TelemetryDataPoint{{Key: "temperature", Value: 21.5}}, timestamp)
 			},
 		},
@@ -63,7 +63,7 @@ func TestStorageAdmissionPreservesOriginalUplinkTimestamp(t *testing.T) {
 			name:     "attribute",
 			dataType: storage.DataTypeAttribute,
 			admit: func(input *capturedStorageInput) bool {
-				uplink := &AttributeUplink{durableStorageInput: input, ctx: context.Background(), logger: logger}
+				uplink := &AttributeUplink{uplinkBase: uplinkBase{ctx: context.Background(), logger: logger}, durableStorageInput: input}
 				return uplink.persistAttributeStorage(device, []storage.AttributeDataPoint{{Key: "mode", Value: "auto"}}, &DeviceMessage{Timestamp: timestamp})
 			},
 		},
@@ -71,7 +71,7 @@ func TestStorageAdmissionPreservesOriginalUplinkTimestamp(t *testing.T) {
 			name:     "event",
 			dataType: storage.DataTypeEvent,
 			admit: func(input *capturedStorageInput) bool {
-				uplink := &EventUplink{durableStorageInput: input, ctx: context.Background(), logger: logger}
+				uplink := &EventUplink{uplinkBase: uplinkBase{ctx: context.Background(), logger: logger}, durableStorageInput: input}
 				return uplink.persistEventStorage(device, &model.EventInfo{Method: "alarm"}, []byte(`{"level":"high"}`), &DeviceMessage{Timestamp: timestamp})
 			},
 		},
@@ -103,7 +103,7 @@ func TestDurableAttributeEventCarriesProtocolSourceIdentity(t *testing.T) {
 		Timestamp: 1000,
 		Metadata:  map[string]interface{}{"source_id": "opaque-hashed-mqtt-source"},
 	}
-	uplink := &EventUplink{durableStorageInput: input, ctx: context.Background(), logger: logrus.New()}
+	uplink := &EventUplink{uplinkBase: uplinkBase{ctx: context.Background(), logger: logrus.New()}, durableStorageInput: input}
 	if !uplink.persistEventStorage(device, &model.EventInfo{Method: "alarm"}, []byte(`{}`), original) {
 		t.Fatal("event durable persistence returned false")
 	}

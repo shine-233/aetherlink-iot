@@ -161,7 +161,7 @@ describe(SUITE, function () {
       TENANT_A
     );
     expect(unknown.code).to.equal(200);
-    expect((unknown.data && unknown.data.list) || []).to.have.length.of(0);
+    expect((unknown.data && unknown.data.list) || []).to.have.lengthOf(0);
   });
 
   it('5. 租户 B 查不到租户 A 实体的审计行（租户隔离 fail-closed）', async function () {

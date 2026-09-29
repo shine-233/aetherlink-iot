@@ -17,6 +17,27 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-aetherlink_iot}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    # 写密集 IoT 负载调优：内存类参数默认保持 PG 内置值（适配 512m 档位），按
+    # AETHERLINK_POSTGRES_MEM_LIMIT 提档时通过 .env 同步调大；WAL/检查点放宽以减少
+    # 高频遥测写入下的检查点风暴；autovacuum 更积极，避免追加型遥测表膨胀。
+    command:
+      [
+        "postgres",
+        "-c", "shared_buffers=${AETHERLINK_POSTGRES_SHARED_BUFFERS:-128MB}",
+        "-c", "work_mem=${AETHERLINK_POSTGRES_WORK_MEM:-4MB}",
+        "-c", "maintenance_work_mem=${AETHERLINK_POSTGRES_MAINTENANCE_WORK_MEM:-64MB}",
+        "-c", "max_wal_size=${AETHERLINK_POSTGRES_MAX_WAL_SIZE:-2GB}",
+        "-c", "checkpoint_timeout=${AETHERLINK_POSTGRES_CHECKPOINT_TIMEOUT:-15min}",
+        "-c", "checkpoint_completion_target=0.9",
+        "-c", "wal_compression=on",
+        "-c", "autovacuum_naptime=${AETHERLINK_POSTGRES_AUTOVACUUM_NAPTIME:-30s}",
+        "-c", "autovacuum_vacuum_scale_factor=${AETHERLINK_POSTGRES_AUTOVACUUM_VACUUM_SCALE_FACTOR:-0.05}",
+        "-c", "autovacuum_analyze_scale_factor=${AETHERLINK_POSTGRES_AUTOVACUUM_ANALYZE_SCALE_FACTOR:-0.02}",
+        "-c", "autovacuum_vacuum_insert_scale_factor=${AETHERLINK_POSTGRES_AUTOVACUUM_INSERT_SCALE_FACTOR:-0.05}",
+        "-c", "log_autovacuum_min_duration=${AETHERLINK_POSTGRES_LOG_AUTOVACUUM_MIN_DURATION:-10s}"
+      ]
+    # 默认 64MB /dev/shm 会让并行查询/大 work_mem 触发 "could not resize shared memory segment"。
+    shm_size: "${AETHERLINK_POSTGRES_SHM_SIZE:-128m}"
     volumes:
       # postgres:18+ 镜像要求数据卷挂在 /var/lib/postgresql（PGDATA 移至
       # /var/lib/postgresql/18/docker）。从 ≤17 旧部署升级的存量卷内数据位于

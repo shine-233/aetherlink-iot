@@ -20,9 +20,9 @@ import (
 	"strings"
 	"time"
 
+	"aetherlink-iot/backend/internal/authz"
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
-	constant "aetherlink-iot/backend/pkg/constant"
 	errcode "aetherlink-iot/backend/pkg/errcode"
 	utils "aetherlink-iot/backend/pkg/utils"
 
@@ -34,53 +34,18 @@ import (
 // UserGroup 用户组服务（TB-46 GPE v1）。
 type UserGroup struct{}
 
-// requireUserGroupManager 组管理能力仅 SYS_ADMIN / TENANT_ADMIN（与角色管理同口径）。
-func requireUserGroupManager(claims *utils.UserClaims) error {
-	if claims == nil {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to manage user groups")
-	}
-	if claims.Authority != constant.SYS_ADMIN && claims.Authority != constant.TENANT_ADMIN {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to manage user groups")
-	}
-	return nil
-}
-
-// ensureUserGroupWriteAccess 读取目标组并校验调用者的租户边界：
-// TENANT_ADMIN 仅能管理本租户组（越权与不存在同返 404，不泄露存在性）；
-// SYS_ADMIN 为平台管理员，可管理任意租户组。
-func ensureUserGroupWriteAccess(id string, claims *utils.UserClaims) (*model.UserGroup, error) {
-	if err := requireUserGroupManager(claims); err != nil {
-		return nil, err
-	}
-	id = strings.TrimSpace(id)
-	if id == "" {
-		return nil, errcode.NewWithMessage(errcode.CodeParamError, "group id is required")
-	}
-	group, err := dal.GetUserGroupByID(id)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errcode.New(errcode.CodeNotFound)
-		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
-	}
-	if claims.Authority != constant.SYS_ADMIN && group.TenantID != claims.TenantID {
-		return nil, errcode.New(errcode.CodeNotFound)
-	}
-	return group, nil
-}
-
 // resolveUserGroupTenant 解析组的归属租户：TENANT_ADMIN 强制本租户；
 // SYS_ADMIN 必须显式指定目标租户（用户组必须有租户归属，fail-closed）。
 func resolveUserGroupTenant(requestedTenantID string, claims *utils.UserClaims) (string, error) {
 	requested := strings.TrimSpace(requestedTenantID)
-	if claims.Authority == constant.SYS_ADMIN {
+	if authz.IsSysAdmin(claims) {
 		if requested == "" {
 			return "", errcode.NewWithMessage(errcode.CodeParamError, "tenant_id is required for platform admin")
 		}
 		// GetTenantByID 未命中返回 (nil, nil)，须显式判 nil（fail-closed）。
 		tenant, err := dal.GetTenantByID(requested)
 		if err != nil {
-			return "", errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+			return "", dbError(err)
 		}
 		if tenant == nil {
 			return "", errcode.NewWithMessage(errcode.CodeNotFound, "tenant not found")
@@ -90,8 +55,10 @@ func resolveUserGroupTenant(requestedTenantID string, claims *utils.UserClaims) 
 	if claims.TenantID == "" {
 		return "", errcode.NewWithMessage(errcode.CodeNoPermission, "tenant context is required")
 	}
-	if requested != "" && requested != claims.TenantID {
-		return "", errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to manage another tenant user group")
+	if requested != "" {
+		if err := authz.CheckTenant(claims, requested, "no permission to manage another tenant user group"); err != nil {
+			return "", err
+		}
 	}
 	return claims.TenantID, nil
 }
@@ -103,13 +70,13 @@ func resolveUserGroupListScopes(requestedTenantID string, claims *utils.UserClai
 		return nil, err
 	}
 	requested := strings.TrimSpace(requestedTenantID)
-	if claims.Authority == constant.SYS_ADMIN {
+	if authz.IsSysAdmin(claims) {
 		if requested == "" {
 			return nil, nil
 		}
 		tenant, err := dal.GetTenantByID(requested)
 		if err != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+			return nil, dbError(err)
 		}
 		if tenant == nil {
 			return nil, errcode.NewWithMessage(errcode.CodeNotFound, "tenant not found")
@@ -119,8 +86,10 @@ func resolveUserGroupListScopes(requestedTenantID string, claims *utils.UserClai
 	if claims.TenantID == "" {
 		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "tenant context is required")
 	}
-	if requested != "" && requested != claims.TenantID {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query another tenant user group")
+	if requested != "" {
+		if err := authz.CheckTenant(claims, requested, "no permission to query another tenant user group"); err != nil {
+			return nil, err
+		}
 	}
 	return expandTenantIDScope(claims.TenantID), nil
 }
@@ -141,7 +110,7 @@ func (*UserGroup) CreateUserGroup(req *model.CreateUserGroupReq, claims *utils.U
 		req.Description = nil
 	}
 	if exists, err := dal.GetUserGroupNameExists(req.Name, tenantID, ""); err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	} else if exists {
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "group name already exists in tenant")
 	}
@@ -156,7 +125,7 @@ func (*UserGroup) CreateUserGroup(req *model.CreateUserGroupReq, claims *utils.U
 	}
 	if err := dal.CreateUserGroup(group); err != nil {
 		logrus.Error(err)
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	return group, nil
 }
@@ -175,7 +144,7 @@ func (*UserGroup) UpdateUserGroup(req *model.UpdateUserGroupReq, claims *utils.U
 	}
 	if strings.TrimSpace(req.Name) != "" {
 		if exists, err := dal.GetUserGroupNameExists(req.Name, group.TenantID, group.ID); err != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+			return nil, dbError(err)
 		} else if exists {
 			return nil, errcode.NewWithMessage(errcode.CodeParamError, "group name already exists in tenant")
 		}
@@ -183,14 +152,14 @@ func (*UserGroup) UpdateUserGroup(req *model.UpdateUserGroupReq, claims *utils.U
 	updated := &model.UserGroup{ID: group.ID, TenantID: group.TenantID, Name: strings.TrimSpace(req.Name), Description: req.Description}
 	ok, err := dal.UpdateUserGroupForTenant(updated)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	if !ok {
 		return nil, errcode.New(errcode.CodeNotFound)
 	}
 	fresh, err := dal.GetUserGroupForTenant(group.ID, group.TenantID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	return fresh, nil
 }
@@ -205,7 +174,7 @@ func (*UserGroup) DeleteUserGroup(id string, claims *utils.UserClaims) error {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errcode.New(errcode.CodeNotFound)
 		}
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return dbError(err)
 	}
 	return nil
 }
@@ -223,7 +192,7 @@ func (*UserGroup) GetUserGroupList(req *model.GetUserGroupListReq, requestedTena
 	}
 	total, list, err := dal.GetUserGroupListByPage(req, scopes)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	if list == nil {
 		list = []*model.UserGroup{}
@@ -239,7 +208,7 @@ func (*UserGroup) GetUserGroupMembers(groupID string, claims *utils.UserClaims) 
 	}
 	users, err := dal.ListUserGroupMembers(group.ID, group.TenantID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	if users == nil {
 		users = []model.UserGroupMemberSummary{}
@@ -258,14 +227,14 @@ func (*UserGroup) AssignUserGroupMembers(groupID string, req *model.AssignUserGr
 	if len(userIDs) > 0 {
 		count, err := dal.CountUsersByIDAndTenant(userIDs, group.TenantID)
 		if err != nil {
-			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+			return dbError(err)
 		}
 		if int(count) != len(userIDs) {
 			return errcode.NewWithMessage(errcode.CodeParamError, "one or more users not found or do not belong to the group tenant")
 		}
 	}
 	if err := dal.ReplaceUserGroupMembers(context.Background(), group.ID, group.TenantID, userIDs); err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return dbError(err)
 	}
 	return nil
 }
@@ -278,7 +247,7 @@ func (*UserGroup) GetUserGroupPermissions(groupID string, claims *utils.UserClai
 	}
 	rows, err := dal.ListGroupPermissions(group.ID, group.TenantID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	elements := make([]model.GroupElementInfo, 0, len(rows))
 	for _, row := range rows {
@@ -328,7 +297,7 @@ func (*UserGroup) AssignUserGroupPermissions(groupID string, req *model.AssignUs
 		}
 	}
 	if err := dal.ReplaceGroupPermissions(context.Background(), group.ID, group.TenantID, codes); err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return dbError(err)
 	}
 	return nil
 }
@@ -339,7 +308,7 @@ func validateGroupElementResource(kind, id, tenantID string) error {
 	case model.GroupElementKindBoard:
 		count, err := dal.CountBoardsByIDAndTenant(id, tenantID)
 		if err != nil {
-			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+			return dbError(err)
 		}
 		if count == 0 {
 			return errcode.NewWithMessage(errcode.CodeParamError, "board not found in group tenant: "+id)
@@ -347,7 +316,7 @@ func validateGroupElementResource(kind, id, tenantID string) error {
 	case model.GroupElementKindAsset:
 		count, err := dal.CountAssetsByIDAndTenant(id, tenantID)
 		if err != nil {
-			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+			return dbError(err)
 		}
 		if count == 0 {
 			return errcode.NewWithMessage(errcode.CodeParamError, "asset not found in group tenant: "+id)

@@ -41,9 +41,7 @@ func GetCommandSetLogsDataListByPage(req model.GetCommandSetLogsListByPageReq) (
 	if req.OperationType != nil {
 		base = base.Where("command_set_logs.operation_type = ?", *req.OperationType)
 	}
-	if req.IdentifyName != nil {
-		base = base.Where("device_model_commands.data_name LIKE ?", "%"+*req.IdentifyName+"%")
-	}
+	base = whereKeywordContainsPtr(base, opLike, req.IdentifyName, "device_model_commands.data_name")
 
 	if err := base.Session(&gorm.Session{}).Count(&count).Error; err != nil {
 		logrus.Error(err)

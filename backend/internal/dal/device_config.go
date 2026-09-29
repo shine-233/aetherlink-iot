@@ -17,8 +17,10 @@ package dal
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	model "aetherlink-iot/backend/internal/model"
@@ -44,7 +46,11 @@ func isolatedDeviceConfig() query.IDeviceConfigDo {
 // Statement，无跨请求 Model/Dest 继承通道），从根上消除高负载下被注入陈旧主键
 // WHERE 的间歇性读写不一致（P1 修复，见 VALIDATION.md）。
 func CreateDeviceConfig(deviceconfig *model.DeviceConfig) error {
-	return global.DB.Create(deviceconfig).Error
+	err := global.DB.Create(deviceconfig).Error
+	if err == nil {
+		InvalidateDeviceConfigRouting(deviceconfig.ID)
+	}
+	return err
 }
 
 // 修改配置物模型 id
@@ -70,6 +76,7 @@ func UpdateDeviceConfigPayloadSchemaID(id string, schemaID *string) error {
 // 租户校验由 service 层 ensureDeviceConfigWriteAccess 前置完成。
 // tenant-scope: caller-enforced（主键更新路径，写入值已经过 validateDefaultRuleChainBinding 租户归属校验）
 func UpdateDeviceConfigDefaultRuleChainID(id string, chainID *string) error {
+	defer InvalidateDeviceConfigRouting(id)
 	return global.DB.Model(&model.DeviceConfig{}).
 		Where("id = ?", id).
 		Update("default_rule_chain_id", chainID).Error
@@ -87,6 +94,7 @@ func CountDeviceConfigsByDefaultRuleChainID(chainID, tenantID string) (int64, er
 }
 
 func UpdateDeviceConfig(id string, condsMap map[string]interface{}) error {
+	defer InvalidateDeviceConfigRouting(id)
 	t := time.Now().UTC()
 	condsMap["updated_at"] = &t
 	delete(condsMap, "id")
@@ -108,6 +116,7 @@ func UpdateDeviceConfig(id string, condsMap map[string]interface{}) error {
 // 消除对 service 层 check-then-act 的单一依赖）。P1 修复（2026-08-23，见 VALIDATION.md）：
 // RowsAffected 不得忽略——删除未命中行时显式报错，杜绝"API 返回成功但行仍在"的假成功删除。
 func DeleteDeviceConfigForTenant(id, tenantID string) error {
+	defer InvalidateDeviceConfigRouting(id)
 	info := global.DB.Where("id = ? AND tenant_id = ?", id, tenantID).Delete(&model.DeviceConfig{})
 	err := info.Error
 	if err != nil {
@@ -507,3 +516,100 @@ func GetDeviceConfigNamesMatchingBase(tenantID, baseName string) ([]string, erro
 	return names, err
 }
 
+// DeviceConfigRouting 是上行热路径（规则链解析）真正需要的档案字段子集。
+type DeviceConfigRouting struct {
+	TenantID           string
+	DefaultRuleChainID string // 已 TrimSpace；空串表示未绑定
+}
+
+// deviceConfigRoutingTTL 兜底 TTL：本进程写路径会主动失效；其它副本/直接改库的
+// 陈旧窗口以此为上限。
+const deviceConfigRoutingTTL = 30 * time.Second
+
+type deviceConfigRoutingEntry struct {
+	routing   DeviceConfigRouting
+	found     bool
+	expiresAt time.Time
+}
+
+var (
+	deviceConfigRoutingMu    sync.RWMutex
+	deviceConfigRoutingCache = map[string]deviceConfigRoutingEntry{}
+	deviceConfigRoutingGen   uint64
+	deviceConfigRoutingNow   = time.Now
+	// deviceConfigRoutingLoad 可在测试中替换。默认直查 DB 的两列而不是走 GetDeviceConfigByID：
+	// 后者读永久 Redis 键 "<id>_config"，而 service 层在 DAL 写返回之后才删该键，
+	// 窗口内的并发 miss 会把旧的默认规则链重新写进本缓存（持续一个 TTL）。
+	deviceConfigRoutingLoad = loadDeviceConfigRoutingFromDB
+)
+
+// loadDeviceConfigRoutingFromDB 只取路由需要的列；每档案每 TTL 至多一次，
+// 比整份档案 JSON 反序列化更轻。
+func loadDeviceConfigRoutingFromDB(id string) (*model.DeviceConfig, error) {
+	var row model.DeviceConfig
+	err := global.DB.Model(&model.DeviceConfig{}).
+		Select("id", "tenant_id", "default_rule_chain_id").
+		Where("id = ?", id).
+		Take(&row).Error
+	if err != nil {
+		return nil, err
+	}
+	return &row, nil
+}
+
+const deviceConfigRoutingMaxEntries = 65536
+
+// GetDeviceConfigRouting 返回档案的 (租户, 默认规则链)；进程内 TTL 缓存命中时零 Redis/DB 往返。
+// 查询失败（含不存在）不缓存正值，返回 found=false 与原始错误，由调用方按 fail-closed 处理；
+// "不存在"会做短期负缓存，避免坏绑定每条消息打一次 Redis。
+func GetDeviceConfigRouting(id string) (DeviceConfigRouting, bool, error) {
+	now := deviceConfigRoutingNow()
+	deviceConfigRoutingMu.RLock()
+	entry, ok := deviceConfigRoutingCache[id]
+	gen := deviceConfigRoutingGen
+	deviceConfigRoutingMu.RUnlock()
+	if ok && now.Before(entry.expiresAt) {
+		return entry.routing, entry.found, nil
+	}
+
+	config, err := deviceConfigRoutingLoad(id)
+	notFound := err != nil && errors.Is(err, gorm.ErrRecordNotFound)
+	if err != nil && !notFound {
+		return DeviceConfigRouting{}, false, err
+	}
+	next := deviceConfigRoutingEntry{expiresAt: now.Add(deviceConfigRoutingTTL)}
+	if config != nil && err == nil {
+		next.found = true
+		next.routing.TenantID = config.TenantID
+		if config.DefaultRuleChainID != nil {
+			next.routing.DefaultRuleChainID = strings.TrimSpace(*config.DefaultRuleChainID)
+		}
+	}
+	deviceConfigRoutingMu.Lock()
+	// 加载期间发生过失效则放弃写入，避免把失效前读到的旧值写回缓存。
+	if gen == deviceConfigRoutingGen {
+		if len(deviceConfigRoutingCache) >= deviceConfigRoutingMaxEntries {
+			deviceConfigRoutingCache = map[string]deviceConfigRoutingEntry{}
+		}
+		deviceConfigRoutingCache[id] = next
+	}
+	deviceConfigRoutingMu.Unlock()
+	return next.routing, next.found, err
+}
+
+// InvalidateDeviceConfigRouting 丢弃指定档案的进程内路由缓存；本文件的写路径均会调用，
+// service 层在绕过 DAL 写档案时也应调用。
+func InvalidateDeviceConfigRouting(id string) {
+	deviceConfigRoutingMu.Lock()
+	delete(deviceConfigRoutingCache, id)
+	deviceConfigRoutingGen++
+	deviceConfigRoutingMu.Unlock()
+}
+
+// ResetDeviceConfigRoutingCache 清空全部路由缓存（测试与运维兜底）。
+func ResetDeviceConfigRoutingCache() {
+	deviceConfigRoutingMu.Lock()
+	deviceConfigRoutingCache = map[string]deviceConfigRoutingEntry{}
+	deviceConfigRoutingGen++
+	deviceConfigRoutingMu.Unlock()
+}

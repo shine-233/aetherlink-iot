@@ -177,15 +177,10 @@ func (*RuleChainApi) HandleGetRuleChainExecutionTraces(c *gin.Context) {
 // HandleListRuleChainReplayRecords 查询某次执行的回放输入快照记录（P1.2 护城河）。
 // GET /api/v1/rule-chains/:id/executions/:execId/replay-records
 func (*RuleChainApi) HandleListRuleChainReplayRecords(c *gin.Context) {
-	chainID := c.Param("id")
-	execID := c.Param("execId")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	records, err := service.GroupApp.RuleChain.GetReplayRecords(c.Request.Context(), chainID, execID, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", records)
+	HandlePath(c, "id", func(chainID string, userClaims *utils.UserClaims) (interface{}, error) {
+		execID := c.Param("execId")
+		return service.GroupApp.RuleChain.GetReplayRecords(c.Request.Context(), chainID, execID, userClaims)
+	})
 }
 
 // HandleReplayRuleChainExecution 触发单次执行输入回放，严格施加副作用确认闸门（P1.2 护城河）。

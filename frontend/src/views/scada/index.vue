@@ -12,108 +12,53 @@
     4. 画布编辑规则在 core/useCanvasEditor.ts 与 core/canvasDocument.ts，本文件不重写。
 -->
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import {
-  NAlert,
-  NButton,
-  NCollapse,
-  NCollapseItem,
-  NEmpty,
-  NForm,
-  NFormItem,
-  NInput,
-  NInputNumber,
-  NSelect,
-  NSpace,
-  NTag,
-  useMessage
-} from 'naive-ui'
+import { computed, onMounted, ref } from 'vue'
+import { NAlert, NButton, NEmpty, NInput, NSelect, NSpace, NTag, useMessage } from 'naive-ui'
 
-import {
-  archiveScadaDocument,
-  createScadaDocument,
-  createScadaProject,
-  fetchScadaDocument,
-  fetchScadaDocumentVersions,
-  fetchScadaDocuments,
-  fetchScadaProjects,
-  publishScadaDocument,
-  rollbackScadaDocument,
-  saveScadaDocument,
-  type ScadaDocument,
-  type ScadaDocumentVersion,
-  type ScadaProject
-} from '@/service/api/scada'
 import { computeFitScale } from './core/canvasDocument'
-import {
-  SCADA_SYMBOL_VIEWBOX,
-  findScadaSymbol,
-  listScadaSymbolCategories,
-  listScadaSymbolsByCategory
-} from './core/symbolLibrary'
+import { SCADA_SYMBOL_VIEWBOX, findScadaSymbol, type ScadaSymbol } from './core/symbolLibrary'
 import { useCanvasEditor } from './core/useCanvasEditor'
+import { useElementSize } from './core/useElementSize'
+import { usePointerDrag } from './core/usePointerDrag'
+import { useScadaDocumentWorkflow } from './core/useScadaDocumentWorkflow'
+import ScadaInspector from './modules/ScadaInspector.vue'
+import ScadaPalette from './modules/ScadaPalette.vue'
 
 const message = useMessage()
-
-const projects = ref<ScadaProject[]>([])
-const documents = ref<ScadaDocument[]>([])
-const versions = ref<ScadaDocumentVersion[]>([])
-const projectId = ref<string | null>(null)
-const documentId = ref<string | null>(null)
-const currentDocument = ref<ScadaDocument | null>(null)
-const loading = ref(false)
-const saving = ref(false)
-const versionConflict = ref(false)
-const loadError = ref('')
-const newProjectName = ref('')
-const newDocumentName = ref('')
-const tenantId = ref('')
 
 const editor = useCanvasEditor()
 const { canvas, selectedId, selectedNode, isDirty, displayMode } = editor
 
+const workflow = useScadaDocumentWorkflow(editor, {
+  error: (text) => message.error(text),
+  success: (text) => message.success(text)
+})
+const {
+  versions,
+  projectId,
+  documentId,
+  currentDocument,
+  loading,
+  saving,
+  versionConflict,
+  loadError,
+  projectOptions,
+  documentOptions,
+  canSave,
+  canPublish
+} = workflow
+
+const newProjectName = ref('')
+const newDocumentName = ref('')
+
 // ---------------------------------------------------------------------------
 // TP-22 fixed1080 等比适配：fixed 模式下容器按 computeFitScale 缩放画布，
 // responsive 恒为 1（旧画布行为零变化）。拖拽位移按 scale 反除，缩放不影响编辑精度。
+// 观察器与拖拽监听都在卸载时释放（见 useElementSize / usePointerDrag）。
 // ---------------------------------------------------------------------------
 const canvasWrapRef = ref<HTMLElement | null>(null)
-const wrapSize = ref({ width: 0, height: 0 })
-let wrapResizeObserver: ResizeObserver | null = null
-let wrapResizeFallbackTimer: number | null = null
-
-function measureCanvasWrap() {
-  const element = canvasWrapRef.value
-  if (!element) return
-  wrapSize.value = { width: element.clientWidth, height: element.clientHeight }
-}
-
-function observeCanvasWrap() {
-  measureCanvasWrap()
-  if (typeof ResizeObserver !== 'undefined') {
-    wrapResizeObserver = new ResizeObserver(() => measureCanvasWrap())
-    if (canvasWrapRef.value) wrapResizeObserver.observe(canvasWrapRef.value)
-    return
-  }
-  // jsdom 等无 ResizeObserver 环境退化为 resize 事件轮询；测不到尺寸时 scale 恒为 1。
-  if (typeof window !== 'undefined') {
-    window.addEventListener('resize', measureCanvasWrap)
-    wrapResizeFallbackTimer = window.setTimeout(measureCanvasWrap, 200)
-  }
-}
-
-function unobserveCanvasWrap() {
-  if (wrapResizeObserver) {
-    wrapResizeObserver.disconnect()
-    wrapResizeObserver = null
-  }
-  if (wrapResizeFallbackTimer !== null) {
-    window.clearTimeout(wrapResizeFallbackTimer)
-    wrapResizeFallbackTimer = null
-  }
-  if (typeof window !== 'undefined') {
-    window.removeEventListener('resize', measureCanvasWrap)
-  }
-}
+const { size: wrapSize, start: observeCanvasWrap } = useElementSize(canvasWrapRef)
+const drag = usePointerDrag()
 
 const fitScale = computed(() =>
   displayMode.value === 'fixed1080'
@@ -131,89 +76,9 @@ function onDisplayModeChange(value: string) {
   editor.setDisplayMode(value === 'fixed1080' ? 'fixed1080' : 'responsive')
 }
 
-const projectOptions = computed(() => projects.value.map((project) => ({ label: project.name, value: project.id })))
-const documentOptions = computed(() =>
-  documents.value.map((doc) => ({
-    label: `${doc.name} (v${doc.current_version}${doc.published_version === null ? '' : ` / pub v${doc.published_version}`})`,
-    value: doc.id
-  }))
-)
-const palette = computed(() =>
-  listScadaSymbolCategories().map((category) => ({ category, symbols: listScadaSymbolsByCategory(category) }))
-)
-const canSave = computed(() => !!currentDocument.value && isDirty.value && !saving.value)
-// 只允许在已同步状态发布：发布未保存的草稿会把"屏幕上看到的"和"库里的"割裂开。
-const canPublish = computed(() => !!currentDocument.value && !isDirty.value)
-
-function reportFailure(fallback: string, error: unknown) {
-  const text = String((error as { message?: string })?.message ?? error ?? '')
-  message.error(text || fallback)
-}
-
-async function loadProjects() {
-  loading.value = true
-  loadError.value = ''
+function addSymbol(symbol: ScadaSymbol) {
   try {
-    const { data, error } = await fetchScadaProjects(tenantId.value || undefined)
-    if (error || !data) {
-      loadError.value = '项目列表加载失败'
-      return
-    }
-    projects.value = data
-    if (!projectId.value && projects.value.length > 0) projectId.value = projects.value[0].id
-  } finally {
-    loading.value = false
-  }
-}
-
-async function loadDocuments() {
-  if (!projectId.value) {
-    documents.value = []
-    return
-  }
-  const { data, error } = await fetchScadaDocuments(projectId.value, tenantId.value || undefined)
-  if (error || !data) {
-    reportFailure('画布列表加载失败', error)
-    return
-  }
-  documents.value = data
-  if (!documents.value.some((doc) => doc.id === documentId.value)) {
-    documentId.value = documents.value[0]?.id ?? null
-  }
-}
-
-async function loadVersions() {
-  if (!documentId.value) {
-    versions.value = []
-    return
-  }
-  const { data, error } = await fetchScadaDocumentVersions(documentId.value, tenantId.value || undefined)
-  if (error || !data) {
-    reportFailure('版本历史加载失败', error)
-    return
-  }
-  versions.value = data
-}
-
-async function loadDocument() {
-  if (!documentId.value) {
-    currentDocument.value = null
-    return
-  }
-  const { data, error } = await fetchScadaDocument(documentId.value, tenantId.value || undefined)
-  if (error || !data) {
-    reportFailure('画布加载失败', error)
-    return
-  }
-  currentDocument.value = data
-  editor.load(data.json_data ?? '')
-  versionConflict.value = false
-  await loadVersions()
-}
-
-function addSymbol(ref: string, defaultWidth: number, defaultHeight: number) {
-  try {
-    editor.addNode({ kind: 'symbol', ref, x: 40, y: 40, width: defaultWidth, height: defaultHeight })
+    editor.addNode({ kind: 'symbol', ref: symbol.key, x: 40, y: 40, width: symbol.defaultWidth, height: symbol.defaultHeight })
   } catch (error) {
     message.error((error as Error).message)
   }
@@ -227,140 +92,28 @@ function onNodeMouseDown(event: MouseEvent, id: string) {
   editor.select(id)
   const node = canvas.value.nodes.find((item) => item.id === id)
   if (!node) return
-  const startX = event.clientX
-  const startY = event.clientY
   const originX = node.x
   const originY = node.y
-  const onMove = (moveEvent: MouseEvent) => {
-    // fixed1080 缩放后屏幕位移与画布坐标差 scale 倍，反除保持 1:1 编辑手感。
-    editor.moveNode(id, originX + (moveEvent.clientX - startX) / fitScale.value, originY + (moveEvent.clientY - startY) / fitScale.value)
-  }
-  const onUp = () => {
-    window.removeEventListener('mousemove', onMove)
-    window.removeEventListener('mouseup', onUp)
-  }
-  window.addEventListener('mousemove', onMove)
-  window.addEventListener('mouseup', onUp)
+  // fixed1080 缩放后屏幕位移与画布坐标差 scale 倍，反除保持 1:1 编辑手感。
+  drag.begin(event, ({ dx, dy }) => editor.moveNode(id, originX + dx / fitScale.value, originY + dy / fitScale.value))
 }
 
-async function onSave() {
-  const doc = currentDocument.value
-  if (!doc) return
-  saving.value = true
-  try {
-    const { data, error } = await saveScadaDocument(doc.id, {
-      expected_version: doc.current_version,
-      json_data: editor.serialize(),
-      tenant_id: tenantId.value || undefined
-    })
-    if (error || !data) {
-      const text = String((error as { message?: string })?.message ?? '')
-      if (/version|conflict/i.test(text)) {
-        // 冲突必须被识别：静默重试会把别人的画布覆盖掉。
-        versionConflict.value = true
-        message.error('版本冲突：画布已被他人修改，请刷新后重新编辑')
-      } else {
-        reportFailure('保存失败', error)
-      }
-      return
-    }
-    currentDocument.value = data
-    editor.markSaved()
-    versionConflict.value = false
-    message.success('已保存')
-    await loadDocuments()
-  } finally {
-    saving.value = false
-  }
-}
-
-async function onPublish() {
-  const doc = currentDocument.value
-  if (!doc) return
-  const { data, error } = await publishScadaDocument(doc.id, tenantId.value || undefined)
-  if (error || !data) {
-    reportFailure('发布失败', error)
-    return
-  }
-  currentDocument.value = data
-  editor.markSaved()
-  message.success('已发布')
-  await loadDocuments()
-  await loadVersions()
-}
-
-async function onRollback(version: number) {
-  const doc = currentDocument.value
-  if (!doc) return
-  const { data, error } = await rollbackScadaDocument(doc.id, version, tenantId.value || undefined)
-  if (error || !data) {
-    reportFailure('回滚失败', error)
-    return
-  }
-  currentDocument.value = data
-  // 回滚产生新草稿，必须重新载入：继续用旧内存态编辑会把回滚结果冲掉。
-  editor.load(data.json_data ?? '')
-  message.success(`已回滚到 v${version}（生成为新草稿）`)
-  await loadDocuments()
-  await loadVersions()
-}
-
-async function onArchive() {
-  const doc = currentDocument.value
-  if (!doc) return
-  const { error } = await archiveScadaDocument(doc.id, tenantId.value || undefined)
-  if (error) {
-    reportFailure('归档失败', error)
-    return
-  }
-  message.success('已归档')
-  await loadDocuments()
-}
+const onSave = workflow.save
+const onPublish = workflow.publish
+const onRollback = workflow.rollback
+const onArchive = workflow.archive
 
 async function onCreateProject() {
-  const name = newProjectName.value.trim()
-  if (!name) return
-  const { data, error } = await createScadaProject({ name, tenant_id: tenantId.value || undefined })
-  if (error || !data) {
-    reportFailure('新建项目失败', error)
-    return
-  }
-  newProjectName.value = ''
-  await loadProjects()
-  projectId.value = data.id
+  if (await workflow.createProject(newProjectName.value)) newProjectName.value = ''
 }
 
 async function onCreateDocument() {
-  if (!projectId.value) return
-  const name = newDocumentName.value.trim() || 'untitled-canvas'
-  const { data, error } = await createScadaDocument(projectId.value, {
-    name,
-    json_data: editor.serialize(),
-    tenant_id: tenantId.value || undefined
-  })
-  if (error || !data) {
-    reportFailure('新建画布失败', error)
-    return
-  }
-  newDocumentName.value = ''
-  await loadDocuments()
-  documentId.value = data.id
+  if (await workflow.createDocument(newDocumentName.value)) newDocumentName.value = ''
 }
 
-watch(projectId, () => {
-  loadDocuments()
-})
-watch(documentId, () => {
-  loadDocument()
-})
-
 onMounted(() => {
-  loadProjects()
+  workflow.loadProjects()
   observeCanvasWrap()
-})
-
-onBeforeUnmount(() => {
-  unobserveCanvasWrap()
 })
 
 // 显式暴露关键状态与动作：script setup 默认封闭，
@@ -417,31 +170,7 @@ defineExpose({ isDirty, onSave, onRollback, onPublish, displayMode, fitScale, se
       </NSpace>
 
       <div class="scada-editor__body">
-        <aside class="scada-editor__palette">
-          <NCollapse>
-            <NCollapseItem title="widgets" name="widgets">
-              <NButton size="tiny" @click="addWidget">+ timeseries</NButton>
-            </NCollapseItem>
-            <NCollapseItem
-              v-for="group in palette"
-              :key="group.category"
-              :title="group.category"
-              :name="group.category"
-            >
-              <NSpace vertical :size="4">
-                <NButton
-                  v-for="symbol in group.symbols"
-                  :key="symbol.key"
-                  size="tiny"
-                  quaternary
-                  @click="addSymbol(symbol.key, symbol.defaultWidth, symbol.defaultHeight)"
-                >
-                  {{ symbol.label }}
-                </NButton>
-              </NSpace>
-            </NCollapseItem>
-          </NCollapse>
-        </aside>
+        <ScadaPalette @add-symbol="addSymbol" @add-widget="addWidget" />
 
         <section ref="canvasWrapRef" class="scada-editor__canvas-wrap">
           <!-- fixed1080：外层占位盒按缩放后尺寸撑开滚动区，画布本体 transform scale 等比适配。 -->
@@ -496,50 +225,14 @@ defineExpose({ isDirty, onSave, onRollback, onPublish, displayMode, fitScale, se
           </div>
         </section>
 
-        <aside class="scada-editor__inspector">
-          <NForm v-if="selectedNode" label-placement="left" size="small">
-            <NFormItem label="X">
-              <NInputNumber
-                :value="selectedNode.x"
-                @update:value="(v) => v !== null && editor.updateNode(selectedNode!.id, { x: v })"
-              />
-            </NFormItem>
-            <NFormItem label="Y">
-              <NInputNumber
-                :value="selectedNode.y"
-                @update:value="(v) => v !== null && editor.updateNode(selectedNode!.id, { y: v })"
-              />
-            </NFormItem>
-            <NFormItem label="W">
-              <NInputNumber
-                :value="selectedNode.width"
-                @update:value="(v) => v !== null && editor.updateNode(selectedNode!.id, { width: v })"
-              />
-            </NFormItem>
-            <NFormItem label="H">
-              <NInputNumber
-                :value="selectedNode.height"
-                @update:value="(v) => v !== null && editor.updateNode(selectedNode!.id, { height: v })"
-              />
-            </NFormItem>
-            <NSpace>
-              <NButton size="tiny" @click="editor.bringToFront(selectedNode.id)">front</NButton>
-              <NButton size="tiny" type="error" @click="editor.removeNode(selectedNode.id)">delete</NButton>
-            </NSpace>
-          </NForm>
-          <NEmpty v-else description="select a node to edit" />
-
-          <NCollapse style="margin-top: 12px">
-            <NCollapseItem title="versions" name="versions">
-              <NSpace vertical :size="4">
-                <NSpace v-for="version in versions" :key="version.id" align="center">
-                  <NTag size="small">v{{ version.version }}</NTag>
-                  <NButton size="tiny" @click="onRollback(version.version)">rollback</NButton>
-                </NSpace>
-              </NSpace>
-            </NCollapseItem>
-          </NCollapse>
-        </aside>
+        <ScadaInspector
+          :node="selectedNode"
+          :versions="versions"
+          @update-node="editor.updateNode"
+          @bring-to-front="editor.bringToFront"
+          @remove-node="editor.removeNode"
+          @rollback="onRollback"
+        />
       </div>
     </NSpace>
   </div>
@@ -554,12 +247,6 @@ defineExpose({ isDirty, onSave, onRollback, onPublish, displayMode, fitScale, se
   display: flex;
   gap: 12px;
   align-items: flex-start;
-}
-
-.scada-editor__palette,
-.scada-editor__inspector {
-  width: 200px;
-  flex: 0 0 200px;
 }
 
 .scada-editor__canvas-wrap {

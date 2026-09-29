@@ -88,11 +88,6 @@ export const getDataConvertersList = async (params?: DataConverterListParams) =>
   return await request.get<DataConverterListResponse>('/converters', { params })
 }
 
-/** 获取单条转换器详情 */
-export const getDataConverterDetail = async (id: string) => {
-  return await request.get<DataConverterItem>(`/converters/${encodeURIComponent(id)}`)
-}
-
 /** 创建数据转换器 */
 export const createDataConverter = async (data: CreateDataConverterParams) => {
   return await request.post<DataConverterItem>('/converters', data)

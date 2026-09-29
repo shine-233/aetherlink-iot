@@ -55,7 +55,7 @@ func ExportAuditLogs(req model.AuditLogExportReq, claims *utils.UserClaims) (*Au
 	}
 	rows, err := dal.ListOperationLogsForExport(claims.TenantID, *req.StartTime, *req.EndTime, req, auditExportMaxRows)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	if len(rows) == 0 {
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "no audit logs in the requested window")

@@ -182,6 +182,9 @@ export function toggleCssDarkMode(darkMode = false) {
   } else {
     removeDarkClass()
   }
+
+  // Keep native UI (scrollbars, form controls, autofill) in sync with the theme.
+  document.documentElement.style.colorScheme = darkMode ? 'dark' : 'light'
 }
 
 type NaiveColorScene = '' | 'Suppl' | 'Hover' | 'Pressed' | 'Active'

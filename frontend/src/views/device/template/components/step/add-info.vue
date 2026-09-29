@@ -212,7 +212,7 @@ watchEffect(async () => {
         >
           <n-upload-dragger class="upload-dragger">
             <div class="upload-content">
-              <img v-if="pngPath && pngPath !== ''" :src="pngPath" class="slt" />
+              <img v-if="pngPath && pngPath !== ''" :src="pngPath" alt="" class="slt" />
               <template v-else>
                 <n-icon size="35" :depth="3">
                   <SvgIcon local-icon="picture" class="more" />

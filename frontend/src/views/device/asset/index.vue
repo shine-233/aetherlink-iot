@@ -17,6 +17,7 @@ import {
   type AssetTreeNode
 } from '@/service/api'
 import { $t } from '@/locales'
+import { fromFlatResponse, useListPage } from '@/components/data-table-page/useListPage'
 
 defineOptions({ name: 'DeviceAsset' })
 
@@ -60,60 +61,27 @@ async function loadTree() {
 }
 
 // ---------- 列表 ----------
-const tableData = ref<Asset[]>([])
-const listLoading = ref(false)
 const selectedParentId = ref('')
 
-const query = reactive({
-  keyword: '',
-  page: 1,
-  page_size: 10
-})
-
-const pagination = reactive({
-  page: 1,
-  pageSize: 10,
-  showSizePicker: true,
+// 分页、加载态与过期请求丢弃交给 useListPage：快速切换树节点时，旧节点的慢响应不会覆盖新节点。
+const {
+  query,
+  rows: tableData,
+  loading: listLoading,
+  pagination,
+  load: getTableData,
+  search: searchAssets
+} = useListPage<Asset, { keyword: string }>({
+  initialQuery: () => ({ keyword: '' }),
   pageSizes: [10, 20, 50],
-  itemCount: 0,
-  onChange: (page: number) => {
-    pagination.page = page
-    query.page = page
-    getTableData()
-  },
-  onUpdatePageSize: (pageSize: number) => {
-    pagination.pageSize = pageSize
-    pagination.page = 1
-    query.page_size = pageSize
-    query.page = 1
-    getTableData()
-  }
+  serialize: (q) => ({ parent_id: selectedParentId.value, keyword: q.keyword }),
+  fetcher: async (params) => fromFlatResponse<Asset>(await assetList(params))
 })
-
-async function getTableData() {
-  listLoading.value = true
-  try {
-    const { data, error } = await assetList({
-      parent_id: selectedParentId.value,
-      keyword: query.keyword,
-      page: query.page,
-      page_size: query.page_size
-    })
-    if (!error) {
-      tableData.value = (data as any)?.list || []
-      pagination.itemCount = (data as any)?.total || 0
-    }
-  } finally {
-    listLoading.value = false
-  }
-}
 
 function handleSelectNode(keys: Array<string | number>) {
   const next = keys.length > 0 ? String(keys[0]) : ''
   selectedParentId.value = next
-  query.page = 1
-  pagination.page = 1
-  getTableData()
+  searchAssets()
 }
 
 // ---------- 新建/编辑 ----------
@@ -298,10 +266,10 @@ onMounted(() => {
             :placeholder="$t('custom.asset.searchPlaceholder')"
             style="width: 240px"
             clearable
-            @clear="getTableData"
-            @keyup.enter="getTableData"
+            @clear="searchAssets"
+            @keyup.enter="searchAssets"
           />
-          <n-button secondary @click="getTableData">{{ $t('common.search') }}</n-button>
+          <n-button secondary @click="searchAssets">{{ $t('common.search') }}</n-button>
         </div>
 
         <n-data-table

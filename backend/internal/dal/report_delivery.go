@@ -44,6 +44,20 @@ func ClaimReportDeliveries(ctx context.Context, limit int, leaseDuration time.Du
 		if err != nil {
 			return err
 		}
+		// 先按 run_id 批量取回关联运行（一条 IN 查询替代逐个 Take 的 N+1）；
+		// run_id 是 deliveries 主键，故每个 delivery 至多对应一条 run。
+		runIDs := make([]string, 0, len(deliveries))
+		for _, delivery := range deliveries {
+			runIDs = append(runIDs, delivery.RunID)
+		}
+		var runs []*model.ReportScheduleRun
+		if err := tx.Where("id IN ?", runIDs).Find(&runs).Error; err != nil {
+			return err
+		}
+		runsByID := make(map[string]*model.ReportScheduleRun, len(runs))
+		for _, run := range runs {
+			runsByID[run.ID] = run
+		}
 		for _, delivery := range deliveries {
 			token := uuid.NewString()
 			leaseUntil := now.Add(leaseDuration)
@@ -63,20 +77,21 @@ func ClaimReportDeliveries(ctx context.Context, limit int, leaseDuration time.Du
 				// whole batch.
 				continue
 			}
-			var run model.ReportScheduleRun
-			// Abort here on purpose: the row has already moved to processing, so
+			// Abort here on purpose: the delivery row has already moved to processing, so
 			// skipping would orphan a leased delivery that no worker will settle.
 			// Rolling back leaves it pending/retrying for the next cycle, which is
 			// better than letting the reaper mark it ambiguous.
-			if err := tx.Where("id = ? AND tenant_id = ? AND generation_status = ?", delivery.RunID, delivery.TenantID, model.ReportGenerationStatusSucceeded).Take(&run).Error; err != nil {
-				return err
+			// 与旧实现逐条 Take 的过滤条件等价（租户 + 生成已成功），缺失即同一语义的 NotFound。
+			run, ok := runsByID[delivery.RunID]
+			if !ok || run.TenantID != delivery.TenantID || run.GenerationStatus != model.ReportGenerationStatusSucceeded {
+				return gorm.ErrRecordNotFound
 			}
 			delivery.Status, delivery.AttemptCount = model.ReportDeliveryStatusProcessing, delivery.AttemptCount+1
 			delivery.ClaimToken, delivery.LeaseUntil = &token, &leaseUntil
 			if delivery.StartedAt == nil {
 				delivery.StartedAt = &now
 			}
-			claims = append(claims, ReportDeliveryClaim{Delivery: delivery, Run: &run, Token: token, LeaseUntil: leaseUntil})
+			claims = append(claims, ReportDeliveryClaim{Delivery: delivery, Run: run, Token: token, LeaseUntil: leaseUntil})
 		}
 		return nil
 	})

@@ -44,6 +44,8 @@
                       :type="currentView === view.key ? 'primary' : 'default'"
                       size="small"
                       :title="view.label ? $t(view.label) : view.key"
+                      :aria-label="view.label ? $t(view.label) : view.key"
+                      :aria-pressed="currentView === view.key"
                       @click="handleViewChange(view.key)"
                     >
                       <n-icon size="14">
@@ -51,7 +53,12 @@
                       </n-icon>
                     </n-button>
                   </n-button-group>
-                  <n-button size="small" :title="$t('buttons.refresh')" @click="handleRefresh">
+                  <n-button
+                    size="small"
+                    :title="$t('buttons.refresh')"
+                    :aria-label="$t('buttons.refresh')"
+                    @click="handleRefresh"
+                  >
                     <n-icon size="14"><refresh-icon /></n-icon>
                   </n-button>
                 </n-space>
@@ -89,7 +96,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, useSlots, onMounted, onUnmounted, onActivated } from 'vue'
+import { ref, computed, useSlots, onMounted, onActivated } from 'vue'
 import { useStorage } from '@vueuse/core'
 import { NCard, NButton, NButtonGroup, NIcon, NSpace } from 'naive-ui'
 import { $t } from '@/locales'
@@ -121,7 +128,7 @@ interface Props {
   showQueryButton?: boolean
   showResetButton?: boolean
   showAddButton?: boolean
-  mobileBreakpoint?: number // 移动端断点，默认768px
+  mobileBreakpoint?: number // 保留以兼容调用方；组件内部当前不再依赖窗口宽度
   useViewMemory?: boolean // 是否启用视图记忆功能
   memoryKey?: string // 视图记忆的唯一键
 }
@@ -158,12 +165,6 @@ const slots = useSlots()
 // 响应式数据
 const storageView = props.useViewMemory ? useStorage(props.memoryKey, '') : ref('')
 const currentView = ref('')
-const windowWidth = ref<number>(window.innerWidth)
-
-// 监听窗口大小变化
-const handleResize = () => {
-  windowWidth.value = window.innerWidth
-}
 
 const shouldShowSearchArea = computed(() => {
   // 如果有搜索表单内容插槽，或者显示查询/重置按钮，则显示搜索区域
@@ -238,11 +239,6 @@ const initializeView = () => {
   }
 }
 
-const handleReset = () => {
-  // 触发重置事件，父组件负责清空表单和刷新数据
-  emit('reset')
-}
-
 const handleAddNew = () => {
   emit('add-new')
 }
@@ -264,15 +260,10 @@ const handleRefresh = () => {
 // 生命周期
 onMounted(() => {
   initializeView()
-  window.addEventListener('resize', handleResize)
 })
 
 onActivated(() => {
   initializeView()
-})
-
-onUnmounted(() => {
-  window.removeEventListener('resize', handleResize)
 })
 </script>
 

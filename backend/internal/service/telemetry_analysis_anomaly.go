@@ -161,7 +161,7 @@ func RunTelemetryAnomalyDetection(q model.TelemetryAnomalyQuery, claims *utils.U
 		}
 		rows, ferr := telemetryAnalysisOps.fetch(deviceID, q.Key, q.StartTime, q.EndTime, q.WindowMs, aggregate)
 		if ferr != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": ferr.Error()})
+			return nil, dbError(ferr)
 		}
 		values := telemetryAnalysisValues(rows)
 		if len(values) == 0 {

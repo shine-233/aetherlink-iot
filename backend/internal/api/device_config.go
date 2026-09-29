@@ -47,47 +47,27 @@ func (*DeviceConfigApi) CreateDeviceConfig(c *gin.Context) {
 // 这里仍保持“参数绑定 + claims 注入 + service 调用”的薄入口模式，复杂的物模型解绑和协议副作用都留给 service 处理。
 // @Router   /api/v1/device_config [put]
 func (*DeviceConfigApi) UpdateDeviceConfig(c *gin.Context) {
-	var req model.UpdateDeviceConfigReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.DeviceConfig.UpdateDeviceConfig(req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	Handle(c, func(req *model.UpdateDeviceConfigReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.DeviceConfig.UpdateDeviceConfig(*req, userClaims)
+	})
 }
 
 // DeleteDeviceConfig 删除设备配置。
 // 删除动作会波及物模型绑定与缓存一致性，因此这里只负责把 ID 与 claims 交给 service，不在 API 层做额外业务分支。
 // @Router   /api/v1/device_config/{id} [delete]
 func (*DeviceConfigApi) DeleteDeviceConfig(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.DeviceConfig.DeleteDeviceConfig(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandlePathAction(c, "id", func(id string, userClaims *utils.UserClaims) error {
+		return service.GroupApp.DeviceConfig.DeleteDeviceConfig(id, userClaims)
+	})
 }
 
 // HandleDeviceConfigById 根据 ID 获取设备配置详情。
 // 前端设备配置编辑页会依赖这个接口回填协议配置、物模型选择和其他半结构化字段。
 // @Router   /api/v1/device_config/{id} [get]
 func (*DeviceConfigApi) HandleDeviceConfigById(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	info, err := service.GroupApp.DeviceConfig.GetDeviceConfigByID(c, id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", info)
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.DeviceConfig.GetDeviceConfigByID(c, id, userClaims)
+	})
 }
 
 // HandleDeviceConfigListByPage 设备配置分页查询。
@@ -132,19 +112,9 @@ func (*DeviceConfigApi) HandleDeviceConfigListMenu(c *gin.Context) {
 // 该入口属于高影响批处理动作，只做参数绑定与权限透传，具体多级网关关系更新交给 service。
 // @Router   /api/v1/device_config/batch [put]
 func (*DeviceConfigApi) BatchUpdateDeviceConfig(c *gin.Context) {
-	var req model.BatchUpdateDeviceConfigReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.DeviceConfig.BatchUpdateDeviceConfig(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", nil)
+	HandleAction(c, func(req *model.BatchUpdateDeviceConfigReq, userClaims *utils.UserClaims) error {
+		return service.GroupApp.DeviceConfig.BatchUpdateDeviceConfig(req, userClaims)
+	})
 }
 
 // HandleDeviceConfigConnect 返回设备配置对应的接入说明或连接信息。

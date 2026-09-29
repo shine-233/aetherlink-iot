@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	global "aetherlink-iot/backend/pkg/global"
@@ -188,10 +189,26 @@ func LoadDbConfig() (*DbConfig, error) {
 // 	log.Println(args...)
 // }
 
+// quotePgDSNValue 按 libpq key=value 连接串规则引用取值：空值或含空白/单引号/反斜杠时
+// 用单引号包裹并转义 ' 与 \。未引用时，含空格或 "x=y" 片段的密码会截断连接串或注入额外参数。
+func quotePgDSNValue(v string) string {
+	if v != "" && !strings.ContainsAny(v, " \t\r\n'\\") {
+		return v
+	}
+	escaped := strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(v)
+	return "'" + escaped + "'"
+}
+
+// buildPgDSN 生成 PostgreSQL key=value 连接串（sslmode 保持历史值 disable）。
+func buildPgDSN(config *DbConfig) string {
+	return fmt.Sprintf("host=%s port=%d dbname=%s user=%s password=%s sslmode=disable TimeZone=%s",
+		quotePgDSNValue(config.Host), config.Port, quotePgDSNValue(config.DbName),
+		quotePgDSNValue(config.Username), quotePgDSNValue(config.Password), quotePgDSNValue(config.TimeZone))
+}
+
 // PgConnect 根据配置建立 GORM 连接，并设置 SQL 日志与连接池参数。
 func PgConnect(config *DbConfig) (*gorm.DB, error) {
-	dataSource := fmt.Sprintf("host=%s port=%d dbname=%s user=%s password=%s sslmode=disable TimeZone=%s",
-		config.Host, config.Port, config.DbName, config.Username, config.Password, config.TimeZone)
+	dataSource := buildPgDSN(config)
 
 	// 根据配置获取 SQL 日志 Writer（支持文件和控制台输出）
 	sqlLogWriter := GetSQLLogWriter()

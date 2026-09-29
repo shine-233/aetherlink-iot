@@ -9,8 +9,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func (a *Automate) telExecute(deviceId, deviceConfigId string, fromExt AutomateFromExt) error {
-	info, resultInt, err := initialize.NewAutomateCache().GetCacheByDeviceId(deviceId, deviceConfigId)
+func (a *automationExec) telExecute(deviceId, deviceConfigId string, fromExt AutomateFromExt) error {
+	info, resultInt, err := automateCacheProvider().GetCacheByDeviceId(deviceId, deviceConfigId)
 	logrus.Tracef("automation cache lookup result=%d deviceId=%s deviceConfigId=%s", resultInt, deviceId, deviceConfigId)
 	if err != nil {
 		return pkgerrors.Wrap(err, "get automate cache by device id")
@@ -52,7 +52,7 @@ func (*Automate) QueryAutomateInfoAndSetCache(deviceId, deviceConfigId string) (
 		return automateExecuteParams, 0, err
 	}
 	if len(groups) == 0 {
-		err := initialize.NewAutomateCache().SetCacheByDeviceIdWithNoTask(deviceId, deviceConfigId)
+		err := automateCacheProvider().SetCacheByDeviceIdWithNoTask(deviceId, deviceConfigId)
 		if err != nil {
 			return automateExecuteParams, 0, pkgerrors.Wrap(err, "set automate cache no-task state")
 		}
@@ -70,12 +70,12 @@ func (*Automate) QueryAutomateInfoAndSetCache(deviceId, deviceConfigId string) (
 		return automateExecuteParams, 0, pkgerrors.Wrap(err, "get action info list by scene automation id")
 	}
 	logrus.Debugf("warming automate cache for deviceConfigId=%s groups=%v actionInfos=%v", deviceConfigId, groups, actionInfos)
-	err = initialize.NewAutomateCache().SetCacheByDeviceId(deviceId, deviceConfigId, groups, actionInfos)
+	err = automateCacheProvider().SetCacheByDeviceId(deviceId, deviceConfigId, groups, actionInfos)
 	if err != nil {
 		return automateExecuteParams, 0, pkgerrors.Wrap(err, "set automate cache by device id")
 	}
 
-	return initialize.NewAutomateCache().GetCacheByDeviceId(deviceId, deviceConfigId)
+	return automateCacheProvider().GetCacheByDeviceId(deviceId, deviceConfigId)
 }
 
 func loadAutomateWarmupGroups(deviceId, deviceConfigId string) ([]model.DeviceTriggerCondition, error) {

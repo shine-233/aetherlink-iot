@@ -104,14 +104,6 @@ export const resetAlarmHistory = async (id: string) => {
   return data
 }
 
-/** Clear an alarm history record (ThingsBoard 4.3 Alarm Clear & Lifecycle). */
-export const clearAlarmHistory = async (id: string, note?: string) => {
-  const data = await request.put(`/alarm/info/history/${encodeURIComponent(id)}/clear`, {
-    note
-  })
-  return data
-}
-
 /** Batch acknowledge, reset, or clear alarm history records. */
 export const batchActionAlarmHistory = async (params: {
   ids: string[]

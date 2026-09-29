@@ -61,12 +61,23 @@ func GetDeviceDebugConfig(deviceID string) (DeviceDebugConfig, bool, error) {
 	if redisCache == nil {
 		return DeviceDebugConfig{}, false, errors.New("redis not initialized")
 	}
-	var cfg DeviceDebugConfig
-	if err := GetRedisForJsondata(devDebugCfgKey(deviceID), &cfg); err != nil {
-		if err == redis.Nil {
-			return DeviceDebugConfig{}, false, nil
+	client := redisCache
+	cfg, present, hit := devDebugCfgLocal.get(client, deviceID)
+	if !hit {
+		cfg = DeviceDebugConfig{}
+		if err := GetRedisForJsondata(devDebugCfgKey(deviceID), &cfg); err != nil {
+			if err != redis.Nil {
+				// 读取失败不缓存，下一条消息重试。
+				return DeviceDebugConfig{}, false, err
+			}
+			cfg, present = DeviceDebugConfig{}, false
+		} else {
+			present = true
 		}
-		return DeviceDebugConfig{}, false, err
+		devDebugCfgLocal.put(client, deviceID, cfg, present)
+	}
+	if !present {
+		return DeviceDebugConfig{}, false, nil
 	}
 	if !cfg.Enabled {
 		return cfg, false, nil

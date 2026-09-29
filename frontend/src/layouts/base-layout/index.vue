@@ -5,7 +5,7 @@
 重构建议：可将宽度计算和模板结构进一步拆分，降低主壳层复杂度。
 -->
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import { AdminLayout, LAYOUT_SCROLL_EL_ID } from '@aetherlink/materials'
 import type { LayoutMode } from '@aetherlink/materials'
 import { useAppStore } from '@/store/modules/app'
@@ -15,14 +15,28 @@ import GlobalSider from '../modules/global-sider/index.vue'
 import GlobalTab from '../modules/global-tab/index.vue'
 import GlobalContent from '../modules/global-content/index.vue'
 import GlobalFooter from '../modules/global-footer/index.vue'
-import ThemeDrawer from '../modules/theme-drawer/index.vue'
 import { setupMixMenuContext } from '../hooks/use-mix-menu'
 defineOptions({
   name: 'BaseLayout'
 })
 
+// The theme drawer (NColorPicker, NTabs, layout cards...) is only needed after
+// the user clicks the theme button, so keep it out of the layout's startup chunk.
+const ThemeDrawer = defineAsyncComponent(() => import('../modules/theme-drawer/index.vue'))
+
 const appStore = useAppStore()
 const themeStore = useThemeStore()
+
+/** Mount the drawer on first open and keep it mounted so close animations still run. */
+const themeDrawerRequested = ref(appStore.themeDrawerVisible)
+const stopThemeDrawerWatch = watch(
+  () => appStore.themeDrawerVisible,
+  (visible) => {
+    if (!visible) return
+    themeDrawerRequested.value = true
+    stopThemeDrawerWatch()
+  }
+)
 
 const layoutMode = computed(() => {
   const vertical: LayoutMode = 'vertical'
@@ -95,7 +109,7 @@ setupMixMenuContext()
       <GlobalContent :show-padding="true" />
     </main>
 
-    <ThemeDrawer />
+    <ThemeDrawer v-if="themeDrawerRequested" />
   </div>
 
   <!-- 桌面端布局 -->
@@ -129,7 +143,7 @@ setupMixMenuContext()
       <GlobalSider />
     </template>
     <GlobalContent />
-    <ThemeDrawer />
+    <ThemeDrawer v-if="themeDrawerRequested" />
     <template #footer>
       <GlobalFooter />
     </template>

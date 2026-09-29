@@ -143,6 +143,22 @@ postgresql:
     limits:
       cpu: 400m
       memory: 512Mi
+  # 写密集 IoT 负载调优（对齐 docker-compose.yml postgres command 默认值）。
+  # 调大 limits.memory 时同步调大 shared_buffers（约 25%）/work_mem/maintenance_work_mem。
+  # 置为 {} 则完全使用镜像默认配置。
+  config:
+    shared_buffers: 128MB
+    work_mem: 4MB
+    maintenance_work_mem: 64MB
+    max_wal_size: 2GB
+    checkpoint_timeout: 15min
+    checkpoint_completion_target: "0.9"
+    wal_compression: "on"
+    autovacuum_naptime: 30s
+    autovacuum_vacuum_scale_factor: "0.05"
+    autovacuum_analyze_scale_factor: "0.02"
+    autovacuum_vacuum_insert_scale_factor: "0.05"
+    log_autovacuum_min_duration: 10s
   storage:
     storageClass: ""
     size: 10Gi

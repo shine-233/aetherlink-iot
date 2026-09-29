@@ -69,6 +69,9 @@ vi.mock('@/locales', () => ({
 }))
 
 import { normalizeAlarmMonthlyTrendPoints } from '../rdiOverviewState'
+import * as pure from '../rdiOverviewState'
+import * as presentation from '../rdiSnapshotPresentation'
+import { formatRdiTime } from '../rdiAlarmColumns'
 import RdiOverview from '../index.vue'
 
 interface AlarmCellVNode {
@@ -329,8 +332,8 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      expect(setupState.parseAlarmRemark(null)).toEqual({})
-      expect(setupState.parseAlarmRemark(undefined)).toEqual({})
+      expect(pure.parseAlarmRemark(null)).toEqual({})
+      expect(pure.parseAlarmRemark(undefined)).toEqual({})
     })
 
     it('returns the object directly when input is an object', async () => {
@@ -339,7 +342,7 @@ describe('rdi-overview/index.vue', () => {
       const setupState = getSetupState(wrapper)
 
       const obj = { acknowledged: true }
-      expect(setupState.parseAlarmRemark(obj)).toEqual(obj)
+      expect(pure.parseAlarmRemark(obj)).toEqual(obj)
     })
 
     it('parses valid JSON string', async () => {
@@ -347,7 +350,7 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      expect(setupState.parseAlarmRemark('{"acknowledged":true}')).toEqual({ acknowledged: true })
+      expect(pure.parseAlarmRemark('{"acknowledged":true}')).toEqual({ acknowledged: true })
     })
 
     it('returns empty object for invalid JSON string', async () => {
@@ -355,7 +358,7 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      expect(setupState.parseAlarmRemark('not json')).toEqual({})
+      expect(pure.parseAlarmRemark('not json')).toEqual({})
     })
 
     it('returns empty object for non-string non-object types', async () => {
@@ -363,8 +366,8 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      expect(setupState.parseAlarmRemark(123)).toEqual({})
-      expect(setupState.parseAlarmRemark(true)).toEqual({})
+      expect(pure.parseAlarmRemark(123)).toEqual({})
+      expect(pure.parseAlarmRemark(true)).toEqual({})
     })
 
     it('returns empty object when JSON parses to non-object', async () => {
@@ -372,8 +375,8 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      expect(setupState.parseAlarmRemark('"a string"')).toEqual({})
-      expect(setupState.parseAlarmRemark('42')).toEqual({})
+      expect(pure.parseAlarmRemark('"a string"')).toEqual({})
+      expect(pure.parseAlarmRemark('42')).toEqual({})
     })
   })
 
@@ -383,7 +386,7 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      expect(setupState.isAcknowledged({ remark: { acknowledged: true } })).toBe(true)
+      expect(pure.isAcknowledgedAlarm({ remark: { acknowledged: true } })).toBe(true)
     })
 
     it('returns true when remark is JSON string with acknowledged true', async () => {
@@ -391,7 +394,7 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      expect(setupState.isAcknowledged({ remark: '{"acknowledged":true}' })).toBe(true)
+      expect(pure.isAcknowledgedAlarm({ remark: '{"acknowledged":true}' })).toBe(true)
     })
 
     it('returns false when remark.acknowledged is not true', async () => {
@@ -399,9 +402,9 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      expect(setupState.isAcknowledged({ remark: { acknowledged: false } })).toBe(false)
-      expect(setupState.isAcknowledged({ remark: null })).toBe(false)
-      expect(setupState.isAcknowledged({})).toBe(false)
+      expect(pure.isAcknowledgedAlarm({ remark: { acknowledged: false } })).toBe(false)
+      expect(pure.isAcknowledgedAlarm({ remark: null })).toBe(false)
+      expect(pure.isAcknowledgedAlarm({})).toBe(false)
     })
   })
 
@@ -411,7 +414,7 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      const result = setupState.formatTime('2024-01-15T10:30:00Z')
+      const result = formatRdiTime('2024-01-15T10:30:00Z')
       expect(result).toBe(dayjs('2024-01-15T10:30:00Z').format('YYYY-MM-DD HH:mm:ss'))
     })
 
@@ -420,8 +423,8 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      expect(setupState.formatTime(undefined)).toBe('-')
-      expect(setupState.formatTime('')).toBe('-')
+      expect(formatRdiTime(undefined)).toBe('-')
+      expect(formatRdiTime('')).toBe('-')
     })
   })
 
@@ -461,11 +464,11 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      expect(setupState.alarmTagType('H')).toBe('error')
-      expect(setupState.alarmTagType('M')).toBe('warning')
-      expect(setupState.alarmTagType('L')).toBe('info')
-      expect(setupState.alarmTagType('N')).toBe('success')
-      expect(setupState.alarmTagType(undefined)).toBe('success')
+      expect(pure.alarmTagType('H')).toBe('error')
+      expect(pure.alarmTagType('M')).toBe('warning')
+      expect(pure.alarmTagType('L')).toBe('info')
+      expect(pure.alarmTagType('N')).toBe('success')
+      expect(pure.alarmTagType(undefined)).toBe('success')
     })
   })
 
@@ -538,7 +541,7 @@ describe('rdi-overview/index.vue', () => {
       const setupState = getSetupState(wrapper)
 
       const payload = { data: [{ id: '1' }, { id: '2' }] }
-      expect(setupState.normalizeDeviceRows(payload)).toEqual([{ id: '1' }, { id: '2' }])
+      expect(pure.normalizeDeviceRows(payload)).toEqual([{ id: '1' }, { id: '2' }])
     })
 
     it('returns data.list array', async () => {
@@ -547,7 +550,7 @@ describe('rdi-overview/index.vue', () => {
       const setupState = getSetupState(wrapper)
 
       const payload = { data: { list: [{ id: '1' }] } }
-      expect(setupState.normalizeDeviceRows(payload)).toEqual([{ id: '1' }])
+      expect(pure.normalizeDeviceRows(payload)).toEqual([{ id: '1' }])
     })
 
     it('returns data.data.list array', async () => {
@@ -556,7 +559,7 @@ describe('rdi-overview/index.vue', () => {
       const setupState = getSetupState(wrapper)
 
       const payload = { data: { data: { list: [{ id: '1' }] } } }
-      expect(setupState.normalizeDeviceRows(payload)).toEqual([{ id: '1' }])
+      expect(pure.normalizeDeviceRows(payload)).toEqual([{ id: '1' }])
     })
 
     it('returns payload directly if it is an array', async () => {
@@ -564,7 +567,7 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      expect(setupState.normalizeDeviceRows([{ id: '1' }])).toEqual([{ id: '1' }])
+      expect(pure.normalizeDeviceRows([{ id: '1' }])).toEqual([{ id: '1' }])
     })
 
     it('returns empty array for unrecognized shapes', async () => {
@@ -572,8 +575,8 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      expect(setupState.normalizeDeviceRows({})).toEqual([])
-      expect(setupState.normalizeDeviceRows(null)).toEqual([])
+      expect(pure.normalizeDeviceRows({})).toEqual([])
+      expect(pure.normalizeDeviceRows(null)).toEqual([])
     })
   })
 
@@ -589,7 +592,7 @@ describe('rdi-overview/index.vue', () => {
           { key: 'humidity', number_v: 60 }
         ]
       }
-      expect(setupState.normalizeTelemetry(payload)).toEqual({ temp: 25, humidity: 60 })
+      expect(pure.normalizeTelemetry(payload)).toEqual({ temp: 25, humidity: 60 })
     })
 
     it('returns object data directly', async () => {
@@ -598,7 +601,7 @@ describe('rdi-overview/index.vue', () => {
       const setupState = getSetupState(wrapper)
 
       const payload = { data: { temp: 25, humidity: 60 } }
-      expect(setupState.normalizeTelemetry(payload)).toEqual({ temp: 25, humidity: 60 })
+      expect(pure.normalizeTelemetry(payload)).toEqual({ temp: 25, humidity: 60 })
     })
 
     it('returns empty object for unrecognized shapes', async () => {
@@ -606,8 +609,8 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      expect(setupState.normalizeTelemetry(null)).toEqual({})
-      expect(setupState.normalizeTelemetry(42)).toEqual({})
+      expect(pure.normalizeTelemetry(null)).toEqual({})
+      expect(pure.normalizeTelemetry(42)).toEqual({})
     })
   })
 
@@ -618,7 +621,7 @@ describe('rdi-overview/index.vue', () => {
       const setupState = getSetupState(wrapper)
 
       const row = { a: '', b: 'found', c: 'other' }
-      expect(setupState.rowText(row, ['a', 'b', 'c'])).toBe('found')
+      expect(pure.rowText(row, ['a', 'b', 'c'])).toBe('found')
     })
 
     it('returns fallback when all keys are empty', async () => {
@@ -627,7 +630,7 @@ describe('rdi-overview/index.vue', () => {
       const setupState = getSetupState(wrapper)
 
       const row = { a: '', b: null, c: undefined }
-      expect(setupState.rowText(row, ['a', 'b', 'c'], 'fallback')).toBe('fallback')
+      expect(pure.rowText(row, ['a', 'b', 'c'], 'fallback')).toBe('fallback')
     })
 
     it('uses default fallback --', async () => {
@@ -635,7 +638,7 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      expect(setupState.rowText({}, ['a', 'b'])).toBe('--')
+      expect(pure.rowText({}, ['a', 'b'])).toBe('--')
     })
   })
 
@@ -645,11 +648,11 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      expect(setupState.isRowOnline({ is_online: true })).toBe(true)
-      expect(setupState.isRowOnline({ is_online: 1 })).toBe(true)
-      expect(setupState.isRowOnline({ is_online: '1' })).toBe(true)
-      expect(setupState.isRowOnline({ online: 'online' })).toBe(true)
-      expect(setupState.isRowOnline({ status: 1 })).toBe(true)
+      expect(pure.isRowOnline({ is_online: true })).toBe(true)
+      expect(pure.isRowOnline({ is_online: 1 })).toBe(true)
+      expect(pure.isRowOnline({ is_online: '1' })).toBe(true)
+      expect(pure.isRowOnline({ online: 'online' })).toBe(true)
+      expect(pure.isRowOnline({ status: 1 })).toBe(true)
     })
 
     it('returns false for offline representations', async () => {
@@ -657,10 +660,10 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      expect(setupState.isRowOnline({ is_online: false })).toBe(false)
-      expect(setupState.isRowOnline({ is_online: 0 })).toBe(false)
-      expect(setupState.isRowOnline({ is_online: 'offline' })).toBe(false)
-      expect(setupState.isRowOnline({})).toBe(false)
+      expect(pure.isRowOnline({ is_online: false })).toBe(false)
+      expect(pure.isRowOnline({ is_online: 0 })).toBe(false)
+      expect(pure.isRowOnline({ is_online: 'offline' })).toBe(false)
+      expect(pure.isRowOnline({})).toBe(false)
     })
   })
 
@@ -1128,8 +1131,8 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
 
       expect(setupState.deviceSnapshots[0].alarm).toBe(true)
-      expect(setupState.snapshotStatusLabel(setupState.deviceSnapshots[0])).toBe('custom.devicePage.alarmed')
-      expect(setupState.snapshotStatusTagType(setupState.deviceSnapshots[0])).toBe('error')
+      expect(presentation.snapshotStatusLabel(setupState.deviceSnapshots[0])).toBe('custom.devicePage.alarmed')
+      expect(presentation.snapshotStatusTagType(setupState.deviceSnapshots[0])).toBe('error')
     })
 
     it('does not label an online system normal when alarm status cannot be loaded', async () => {
@@ -1148,8 +1151,8 @@ describe('rdi-overview/index.vue', () => {
       await flushPromises()
 
       expect(setupState.deviceSnapshots[0].alarm).toBeNull()
-      expect(setupState.snapshotStatusLabel(setupState.deviceSnapshots[0])).toBe('rdi.overview.online')
-      expect(setupState.snapshotStatusTagType(setupState.deviceSnapshots[0])).toBe('info')
+      expect(presentation.snapshotStatusLabel(setupState.deviceSnapshots[0])).toBe('rdi.overview.online')
+      expect(presentation.snapshotStatusTagType(setupState.deviceSnapshots[0])).toBe('info')
     })
 
     it('loads another page so all systems remain reachable from the overview', async () => {
@@ -1210,7 +1213,7 @@ describe('rdi-overview/index.vue', () => {
         installerContact: 'alex@example.com',
         adminName: 'NEMAS'
       })
-      expect(setupState.hasInstallationInfo(setupState.deviceSnapshots[0])).toBe(true)
+      expect(presentation.hasInstallationInfo(setupState.deviceSnapshots[0])).toBe(true)
     })
 
     it('hydrates RDI installation details when the list has no usable system info summary', async () => {
@@ -1996,7 +1999,7 @@ describe('rdi-overview/index.vue', () => {
           { key: 'contact', bool_v: true }
         ]
       }
-      expect(setupState.normalizeTelemetry(payload)).toEqual({ switch: 'on', contact: true })
+      expect(pure.normalizeTelemetry(payload)).toEqual({ switch: 'on', contact: true })
     })
 
     it('handles item without key', async () => {
@@ -2007,7 +2010,7 @@ describe('rdi-overview/index.vue', () => {
       const payload = {
         data: [{ key: 'temp', value: 25 }, { value: 99 }]
       }
-      expect(setupState.normalizeTelemetry(payload)).toEqual({ temp: 25 })
+      expect(pure.normalizeTelemetry(payload)).toEqual({ temp: 25 })
     })
   })
 

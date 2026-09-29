@@ -166,7 +166,7 @@ func (f *StatusUplink) dispatchStatusChangedSideEffects(ctx *statusMessageContex
 
 	go f.publishToRedis(ctx.device, ctx.status, ctx.message.Metadata)
 	go f.notifyClients(ctx.device, ctx.status)
-	go f.triggerAutomation(ctx.device, ctx.status)
+	f.triggerAutomation(ctx.device, ctx.status)
 
 	if ctx.status == 1 {
 		go f.sendExpectedData(ctx.device)

@@ -329,6 +329,7 @@ func RouterInit() *gin.Engine {
 			apps.Model.MediaLibraryRouter.InitMediaLibrary(v1)       // TB-41 文件存储与媒体库（media_files）
 			apps.Model.MobileAppBundleRouter.InitMobileAppBundle(v1) // TB-23 移动应用中心（136.sql 登记）
 			apps.Model.WhitelabelRouter.InitWhitelabel(v1)           // TB-47 白标：翻译覆盖 + 自定义 CSS（134.sql 登记）
+			apps.Model.SchedulerRouter.InitScheduler(v1)             // TB-48 统一调度器（scheduler_events + 三源聚合，137.sql 登记）
 
 			apps.Model.NotificationGroup.InitNotificationGroup(v1) // 通知组
 

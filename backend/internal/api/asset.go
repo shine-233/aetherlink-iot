@@ -38,17 +38,9 @@ func (*AssetApi) HandleAssetCreate(c *gin.Context) {
 // HandleAssetUpdate 更新资产。
 // PUT /api/v1/asset
 func (*AssetApi) HandleAssetUpdate(c *gin.Context) {
-	var req service.AssetReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.Asset.Update(userClaims, &req)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	Handle(c, func(req *service.AssetReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Asset.Update(userClaims, req)
+	})
 }
 
 // HandleAssetDelete 删除资产（无子节点）。
@@ -103,11 +95,7 @@ func (*AssetApi) HandleAssetGet(c *gin.Context) {
 // HandleAssetTree 返回租户作用域内资产树。
 // GET /api/v1/asset/tree
 func (*AssetApi) HandleAssetTree(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.Asset.Tree(userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Asset.Tree(userClaims)
+	})
 }

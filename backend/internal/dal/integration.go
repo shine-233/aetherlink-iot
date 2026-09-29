@@ -5,8 +5,6 @@
 package dal
 
 import (
-	"strings"
-
 	model "aetherlink-iot/backend/internal/model"
 	global "aetherlink-iot/backend/pkg/global"
 
@@ -68,10 +66,7 @@ func ListIntegrations(req *model.GetIntegrationListReq, tenantID string) (int64,
 	if req.Enabled != nil {
 		db = db.Where("enabled = ?", *req.Enabled)
 	}
-	if req.Search != nil && strings.TrimSpace(*req.Search) != "" {
-		s := "%" + strings.TrimSpace(*req.Search) + "%"
-		db = db.Where("name ILIKE ?", s)
-	}
+	db = whereKeywordContainsPtr(db, opILike, req.Search, "name")
 
 	if err := db.Count(&count).Error; err != nil {
 		return 0, nil, err

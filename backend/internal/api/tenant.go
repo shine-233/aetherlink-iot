@@ -18,17 +18,9 @@ type TenantApi struct{}
 // @Tags     Tenant
 // @Router   /api/v1/tenants [post]
 func (*TenantApi) CreateTenant(c *gin.Context) {
-	var req model.CreateTenantReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.Tenant.CreateTenant(c.Request.Context(), &req, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	Handle(c, func(req *model.CreateTenantReq, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Tenant.CreateTenant(c.Request.Context(), req, claims)
+	})
 }
 
 // ListTenants 租户分页列表。
@@ -58,14 +50,9 @@ func (*TenantApi) ListTenants(c *gin.Context) {
 // @Tags     Tenant
 // @Router   /api/v1/tenants/{id} [get]
 func (*TenantApi) GetTenant(c *gin.Context) {
-	id := c.Param("id")
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.Tenant.GetTenant(c.Request.Context(), id, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	HandlePath(c, "id", func(id string, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Tenant.GetTenant(c.Request.Context(), id, claims)
+	})
 }
 
 // UpdateTenant 更新租户基本信息。
@@ -73,18 +60,9 @@ func (*TenantApi) GetTenant(c *gin.Context) {
 // @Tags     Tenant
 // @Router   /api/v1/tenants/{id} [put]
 func (*TenantApi) UpdateTenant(c *gin.Context) {
-	id := c.Param("id")
-	var req model.UpdateTenantReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.Tenant.UpdateTenant(c.Request.Context(), id, &req, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	HandlePathBody(c, "id", func(id string, req *model.UpdateTenantReq, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Tenant.UpdateTenant(c.Request.Context(), id, req, claims)
+	})
 }
 
 // SelfProvisionTenant 客户自助开通开箱入驻（公开路由，无需认证）。
@@ -92,14 +70,7 @@ func (*TenantApi) UpdateTenant(c *gin.Context) {
 // @Tags     Tenant
 // @Router   /api/v1/tenant/provision [post]
 func (*TenantApi) SelfProvisionTenant(c *gin.Context) {
-	var req model.SelfProvisionTenantReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	resp, err := service.GroupApp.Tenant.SelfServiceProvisionTenant(c.Request.Context(), &req)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	HandlePublic(c, func(req *model.SelfProvisionTenantReq) (interface{}, error) {
+		return service.GroupApp.Tenant.SelfServiceProvisionTenant(c.Request.Context(), req)
+	})
 }

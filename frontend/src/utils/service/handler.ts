@@ -4,29 +4,6 @@
  * 关键注意事项：这里是接口错误进入 UI 的统一边界，改动会影响大量请求体验。
  * 重构建议：建议减少 `any`，并把错误码策略配置化。
  */
-/** 统一失败和成功的请求结果的数据类型 */
-export async function handleServiceResult<T = any>(
-  error: App.Service.RequestError | null,
-  data: any,
-  msg: string = ''
-) {
-  if (error) {
-    const fail: App.Service.FailedResult = {
-      error,
-      data: null
-    }
-    return fail
-  }
-  const success: App.Service.SuccessResult<T> = {
-    error: null,
-    data
-  }
-  return {
-    ...success,
-    msg
-  }
-}
-
 /** 请求结果的适配器：用于接收适配器函数和请求结果 */
 export function adapter<T extends App.Service.ServiceAdapter>(
   adapterFun: T,

@@ -23,8 +23,12 @@ func CreateAsset(a *model.Asset) error {
 
 // GetAsset 按 id 在指定租户作用域内读取资产。
 func GetAsset(id string, scopes []string) (*model.Asset, error) {
+	q, empty := scopeTenantColumn(global.DB.Model(&model.Asset{}), "tenant_id", scopes)
+	if empty {
+		return nil, gorm.ErrRecordNotFound
+	}
 	var a model.Asset
-	err := global.DB.Where("id = ? AND tenant_id IN ?", id, scopes).First(&a).Error
+	err := q.Where("id = ?", id).First(&a).Error
 	if err != nil {
 		return nil, err
 	}
@@ -33,8 +37,12 @@ func GetAsset(id string, scopes []string) (*model.Asset, error) {
 
 // ListAssetNodes 返回租户作用域内全部资产节点（用于构建树/校验环，量级受分页约束）。
 func ListAssetNodes(scopes []string) ([]*model.Asset, error) {
+	q, empty := scopeTenantColumn(global.DB.Model(&model.Asset{}), "tenant_id", scopes)
+	if empty {
+		return []*model.Asset{}, nil
+	}
 	var list []*model.Asset
-	err := global.DB.Where("tenant_id IN ?", scopes).Order("created_at ASC").Find(&list).Error
+	err := q.Order("created_at ASC").Find(&list).Error
 	return list, err
 }
 
@@ -53,13 +61,11 @@ func ListAssetsByPageWithGroupScope(scopes []string, parentID, keyword string, p
 }
 
 func listAssetsByPage(scopes []string, parentID, keyword string, page, pageSize int, hiddenAssetIDs []string) ([]*model.Asset, int64, error) {
-	if page <= 0 {
-		page = 1
+	page, pageSize = normalizePageParams(page, pageSize, 10, maxListLimit)
+	q, empty := scopeTenantColumn(global.DB.Model(&model.Asset{}), "tenant_id", scopes)
+	if empty {
+		return []*model.Asset{}, 0, nil
 	}
-	if pageSize <= 0 {
-		pageSize = 10
-	}
-	q := global.DB.Model(&model.Asset{}).Where("tenant_id IN ?", scopes)
 	// 组共享可见性（TB-46）：排除集在租户过滤之后、计数之前施加，保证 total 与列表一致。
 	if len(hiddenAssetIDs) > 0 {
 		q = q.Where("id NOT IN ?", hiddenAssetIDs)
@@ -71,15 +77,10 @@ func listAssetsByPage(scopes []string, parentID, keyword string, page, pageSize 
 		// 未给父节点且未给关键词时，默认列出根节点。
 		q = q.Where("parent_id = ?", "")
 	}
-	if kw != "" {
-		q = q.Where("name LIKE ?", "%"+kw+"%")
-	}
-	var total int64
-	if err := q.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
+	q = whereKeywordContains(q, opLike, kw, "name")
 	var list []*model.Asset
-	if err := q.Order("created_at DESC").Limit(pageSize).Offset((page - 1) * pageSize).Find(&list).Error; err != nil {
+	total, err := countAndFindPage(q, "created_at DESC", page, pageSize, &list)
+	if err != nil {
 		return nil, 0, err
 	}
 	return list, total, nil
@@ -87,10 +88,12 @@ func listAssetsByPage(scopes []string, parentID, keyword string, page, pageSize 
 
 // CountAssetChildren 统计指定资产直接子节点数（删除守卫）。
 func CountAssetChildren(id string, scopes []string) (int64, error) {
+	q, empty := scopeTenantColumn(global.DB.Model(&model.Asset{}), "tenant_id", scopes)
+	if empty {
+		return 0, nil
+	}
 	var n int64
-	err := global.DB.Model(&model.Asset{}).
-		Where("parent_id = ? AND tenant_id IN ?", id, scopes).
-		Count(&n).Error
+	err := q.Where("parent_id = ?", id).Count(&n).Error
 	return n, err
 }
 

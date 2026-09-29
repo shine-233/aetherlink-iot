@@ -40,8 +40,13 @@ func (m *Metrics) getFailuresKey(deviceID string) string {
 
 // IncrementUplinkTotal 增加上行消息总数
 func (m *Metrics) IncrementUplinkTotal(deviceID string) error {
+	return m.IncrementUplinkTotalBy(deviceID, 1)
+}
+
+// IncrementUplinkTotalBy 一次性增加 n 条上行消息总数（单次 HINCRBY 往返）。
+func (m *Metrics) IncrementUplinkTotalBy(deviceID string, n int64) error {
 	key := m.getStatsKey(deviceID)
-	return m.redisClient.HIncrBy(m.ctx, key, "uplink_total", 1).Err()
+	return m.redisClient.HIncrBy(m.ctx, key, "uplink_total", n).Err()
 }
 
 // IncrementUplinkFailed 增加上行处理失败数

@@ -94,9 +94,7 @@ func (*AttributeData) GetAttributeSetLogsDataListByPage(req model.GetAttributeSe
 
 	count, data, err := dal.GetAttributeSetLogsDataListByPage(req)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 
 	if data == nil {
@@ -123,9 +121,7 @@ func (*AttributeData) GetAttributeDataByKey(req model.GetDataListByKeyReq, claim
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return dataMap, nil
 		}
-		return dataMap, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dataMap, dbError(err)
 	}
 
 	dataMap["id"] = data.ID
@@ -274,9 +270,7 @@ func (a *AttributeData) AttributeGetMessage(claims *utils.UserClaims, req *model
 	// 1. 获取设备信息
 	device, err := dal.GetDeviceByIDUnscoped(req.DeviceID)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 
 	if device.DeviceNumber == "" {
@@ -291,9 +285,7 @@ func (a *AttributeData) AttributeGetMessage(claims *utils.UserClaims, req *model
 	if device.DeviceConfigID != nil {
 		deviceConfig, err := dal.GetDeviceConfigByID(*device.DeviceConfigID)
 		if err != nil {
-			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-			})
+			return dbError(err)
 		}
 		deviceType = deviceConfig.DeviceType
 		if deviceConfig.ProtocolType != nil {

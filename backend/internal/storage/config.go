@@ -41,6 +41,11 @@ type Config struct {
 	// before it can monopolize spool capacity or replay memory.
 	TelemetrySpoolMaxRecordBytes int64
 
+	// TelemetrySpoolGroupCommitWindow optionally delays a group-commit leader
+	// so concurrent spool writers share one directory fsync. Zero (default)
+	// adds no latency; concurrent writers and batch stores still coalesce.
+	TelemetrySpoolGroupCommitWindow time.Duration
+
 	// TelemetrySpoolReplayInterval controls background replay attempts.
 	TelemetrySpoolReplayInterval time.Duration
 
@@ -75,6 +80,9 @@ type Config struct {
 
 	// AttributeEventSpoolMaxRecordBytes bounds one canonical envelope.
 	AttributeEventSpoolMaxRecordBytes int64
+
+	// AttributeEventSpoolGroupCommitWindow mirrors TelemetrySpoolGroupCommitWindow.
+	AttributeEventSpoolGroupCommitWindow time.Duration
 
 	// AttributeEventSpoolReplayInterval controls background replay attempts.
 	AttributeEventSpoolReplayInterval time.Duration

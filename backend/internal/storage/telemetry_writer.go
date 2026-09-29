@@ -257,8 +257,10 @@ func (w *telemetryWriter) prepareTelemetryWriteAhead(ctx context.Context, msg *M
 		return err
 	}
 	historyData, _, _ := w.deduplicateAndConvert([]*telemetryBatchItem{item})
-	for _, history := range historyData {
-		if _, err := w.spool.store(history, time.Now()); err != nil {
+	// One grouped directory fsync covers every point of the message.
+	_, errs := w.spool.storeBatch(ctx, historyData, time.Now())
+	for _, err := range errs {
+		if err != nil {
 			return fmt.Errorf("persist telemetry write-ahead receipt: %w", err)
 		}
 	}
@@ -318,11 +320,13 @@ func (w *telemetryWriter) storeWriteAheadReceipts(item *telemetryBatchItem) ([]t
 	if len(historyData) == 0 {
 		return nil, nil
 	}
-	now := time.Now()
 	receipts := make([]telemetryWriteAheadReceipt, 0, len(historyData))
-	for _, history := range historyData {
-		result, err := w.spool.store(history, now)
-		if err != nil {
+	// Group commit: every point of the item is file-fsynced and renamed, then a
+	// single directory fsync acknowledges them all. No point is admitted to the
+	// memory buffer before that fsync completed.
+	results, errs := w.spool.storeBatch(context.Background(), historyData, time.Now())
+	for index, history := range historyData {
+		if err := errs[index]; err != nil {
 			// 容量耗尽或文件系统错误时拒绝本次内存写入；上游可重试，
 			// 已经成功落盘的确定性 receipt 会由重放路径继续处理。
 			if w.logger != nil {
@@ -333,6 +337,9 @@ func (w *telemetryWriter) storeWriteAheadReceipts(item *telemetryBatchItem) ([]t
 			}
 			return nil, err
 		}
+	}
+	for index, history := range historyData {
+		result := results[index]
 		// 确定性重复也算已持久：identity 已经在盘上，但它不是本次新建的记录，
 		// 删除应交给先写入它的那一方，避免两个批次互相删掉对方的 receipt。
 		if result.Stored || (item.writeAheadPrepared && result.Duplicate) {
@@ -354,7 +361,7 @@ func (w *telemetryWriter) releaseWriteAheadReceipts(batch []*telemetryBatchItem)
 			continue
 		}
 		for _, receipt := range item.writeAhead {
-			if err := w.spool.removeWriteAheadReceipt(receipt.history); err != nil {
+			if err := removeTelemetryWriteAheadReceipt(w.spool, receipt.history); err != nil {
 				if w.logger != nil {
 					w.logger.Warnf(
 						"release telemetry write-ahead receipt failed, replay will retry idempotently: device_id=%s key=%s ts=%d: %v",
@@ -585,7 +592,7 @@ func (w *telemetryWriter) persistFailedTelemetryContext(ctx context.Context, his
 		return errors.Join(deadLetterErr, fmt.Errorf("telemetry file spool is disabled"))
 	}
 	now := time.Now().UTC()
-	storeResult, err := w.spool.store(history, now)
+	storeResult, err := w.spool.store(context.Background(), history, now)
 	usage := w.spool.usage()
 	if w.metrics != nil {
 		w.metrics.addTelemetrySpoolCorrupt(int64(storeResult.Corrupt))

@@ -11,6 +11,7 @@ import type { TableColumnGroup } from 'naive-ui/es/data-table/src/interface'
 import { useBoolean, useLoading } from '@aetherlink/hooks'
 import { useAppStore } from '@/store/modules/app'
 import { $t } from '@/locales'
+import { createLatestQueryRunner } from '@/service/request/abortable'
 
 type BaseData = Record<string, unknown>
 
@@ -107,18 +108,36 @@ export function useTable<TableData extends BaseData, Fn extends ApiFn, CustomCol
     Object.assign(pagination, update)
   }
 
+  /**
+   * 只保留最后一次列表查询：新查询发起时取消上一次，被取代的结果不会写回表格，
+   * 避免"先发的慢请求覆盖后发的快请求"造成的分页错乱。
+   */
+  const queryRunner = createLatestQueryRunner<Awaited<ReturnType<Fn>>>()
+
   async function getData() {
     startLoading()
+    let superseded = false
 
-    const response = await apiFn(searchParams)
+    try {
+      const response = await queryRunner.run((signal) =>
+        (apiFn as (args: unknown, signal?: AbortSignal) => Promise<Awaited<ReturnType<Fn>>>)(searchParams, signal)
+      )
 
-    const { data: tableData, pageNum, pageSize, total } = transformer(response as Awaited<ReturnType<Fn>>)
+      // 被后续查询取代：交给后一次去收尾，本次不再改状态、不再关 loading。
+      if (response === null) {
+        superseded = true
+        return
+      }
 
-    data.value = tableData
+      const { data: tableData, pageNum, pageSize, total } = transformer(response)
 
-    setEmpty(tableData.length === 0)
-    updatePagination({ page: pageNum, pageSize, itemCount: total })
-    endLoading()
+      data.value = tableData
+
+      setEmpty(tableData.length === 0)
+      updatePagination({ page: pageNum, pageSize, itemCount: total })
+    } finally {
+      if (!superseded) endLoading()
+    }
   }
 
   /**
@@ -149,6 +168,8 @@ export function useTable<TableData extends BaseData, Fn extends ApiFn, CustomCol
   })
 
   onScopeDispose(() => {
+    // 组件卸载后不该再有在飞的列表请求写回状态。
+    queryRunner.cancel()
     scope.stop()
   })
 

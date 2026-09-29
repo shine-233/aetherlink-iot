@@ -30,18 +30,11 @@ type MediaLibraryApi struct{}
 // @Success 200 {object} model.GetMediaFileListRsp "Media file list"
 // @Router /api/v1/media/files [get]
 func (*MediaLibraryApi) ListMediaFiles(c *gin.Context) {
-	var req model.GetMediaFileListReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	claimsValue, _ := c.Get("claims")
-	claims, _ := claimsValue.(*utils.UserClaims)
-	data, err := service.GroupApp.MediaLibrary.ListMediaFiles(c.Request.Context(), &req, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandlePublic(c, func(req *model.GetMediaFileListReq) (interface{}, error) {
+		claimsValue, _ := c.Get("claims")
+		claims, _ := claimsValue.(*utils.UserClaims)
+		return service.GroupApp.MediaLibrary.ListMediaFiles(c.Request.Context(), req, claims)
+	})
 }
 
 // GetMediaFileDetail 查询单个媒体详情（含实时引用统计）。

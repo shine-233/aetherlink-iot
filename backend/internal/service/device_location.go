@@ -48,9 +48,7 @@ func (*Device) GetLatestDeviceLocations(ctx context.Context, req *model.DeviceLo
 
 	total, deviceList, err := dal.GetDeviceListByPageForScopes(listReq, scopes)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 
 	resp := &model.DeviceLocationLatestResp{

@@ -404,3 +404,14 @@ func TestVerifyEnforcesParamRouteViaPatternPolicy(t *testing.T) {
 	assert.True(t, c.Verify("user-1", "api/v1/devices"), "静态路由既有语义不受影响")
 	assert.False(t, c.Verify("user-1", "api/v1/device/123/secret"), "模式不得越过段边界（越权放大回归）")
 }
+
+// 回归：enforcer 未初始化时角色-功能写入须 fail-closed 返回 false，而不是 nil 解引用 panic。
+func TestCasbinRoleFunctionWritesFailClosedWithoutEnforcer(t *testing.T) {
+	oldEnforcer := global.CasbinEnforcer
+	global.CasbinEnforcer = nil
+	t.Cleanup(func() { global.CasbinEnforcer = oldEnforcer })
+
+	c := &Casbin{}
+	assert.False(t, c.AddFunctionToRole("role-x", []string{"/api/x"}))
+	assert.False(t, c.RemoveRoleAndFunction("role-x"))
+}

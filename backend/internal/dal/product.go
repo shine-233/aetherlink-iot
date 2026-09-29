@@ -75,32 +75,14 @@ func GetProductListByPageWithDetail(req *model.GetProductListByPageReq, tenantID
 		Joins("LEFT JOIN device_configs ON device_configs.id = products.device_config_id").
 		Where("products.tenant_id = ?", tenantID)
 
-	if req.Name != nil && strings.TrimSpace(*req.Name) != "" {
-		db = db.Where("products.name ILIKE ?", "%"+strings.TrimSpace(*req.Name)+"%")
-	}
-	if req.ProductModel != nil && strings.TrimSpace(*req.ProductModel) != "" {
-		db = db.Where("products.product_model ILIKE ?", "%"+strings.TrimSpace(*req.ProductModel)+"%")
-	}
+	db = whereKeywordContainsPtr(db, opILike, req.Name, "products.name")
+	db = whereKeywordContainsPtr(db, opILike, req.ProductModel, "products.product_model")
 	if req.ProductType != nil && strings.TrimSpace(*req.ProductType) != "" {
 		db = db.Where("products.product_type = ?", strings.TrimSpace(*req.ProductType))
 	}
 
-	var total int64
-	if err := db.Count(&total).Error; err != nil {
-		return 0, nil, err
-	}
-
-	page := req.Page
-	if page < 1 {
-		page = 1
-	}
-	pageSize := req.PageSize
-	if pageSize <= 0 {
-		pageSize = 10
-	}
-	offset := (page - 1) * pageSize
-
-	err := db.Order("products.created_at DESC").Offset(offset).Limit(pageSize).Find(&list).Error
+	page, pageSize := normalizePageParams(req.Page, req.PageSize, 10, maxListLimit)
+	total, err := countAndFindPage(db, "products.created_at DESC", page, pageSize, &list)
 	if err != nil {
 		return 0, nil, err
 	}

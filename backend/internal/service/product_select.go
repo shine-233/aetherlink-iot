@@ -2,9 +2,8 @@
 package service
 
 import (
-	model "aetherlink-iot/backend/internal/model"
 	dal "aetherlink-iot/backend/internal/dal"
-	"aetherlink-iot/backend/pkg/errcode"
+	model "aetherlink-iot/backend/internal/model"
 	utils "aetherlink-iot/backend/pkg/utils"
 )
 
@@ -14,9 +13,7 @@ func (*Device) GetProductSelectListByPage(req *model.GetProductSelectListReq, cl
 	}
 	total, list, err := dal.GetProductSelectListByPage(req, claims.TenantID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	return map[string]interface{}{
 		"total": total,

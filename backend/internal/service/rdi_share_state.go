@@ -157,7 +157,7 @@ func updateRDIAdditionalInfo(tx *query.QueryTx, deviceID string, additional map[
 	}
 	err = dal.UpdateDeviceAdditionalInfoWithTx(tx, deviceID, string(nextAdditional))
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return dbError(err)
 	}
 	return nil
 }

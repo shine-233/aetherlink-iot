@@ -136,9 +136,7 @@ func applyPreloadedAlarmHistoryBatchAction(
 	}
 	data, err := plan.applyLoaded(history, claims.ID, plan.note)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	return data, nil
 }

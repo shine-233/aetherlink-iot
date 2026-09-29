@@ -67,6 +67,12 @@ func (q *StandardQueue) Ack(msg *QueueMessage) {
 	q.touchActivity()
 }
 
+func (q *StandardQueue) observe() {
+	q.totalSubmitted.Add(1)
+	q.totalProcessed.Add(1)
+	q.touchActivity()
+}
+
 func (q *StandardQueue) touchActivity() {
 	q.lastActivityMu.Lock()
 	q.lastActivityAt = time.Now()
@@ -268,6 +274,12 @@ func (q *SequentialQueue) Out() <-chan *QueueMessage {
 }
 
 func (q *SequentialQueue) Ack(msg *QueueMessage) {
+	q.totalProcessed.Add(1)
+	q.touchActivity()
+}
+
+func (q *SequentialQueue) observe() {
+	q.totalSubmitted.Add(1)
 	q.totalProcessed.Add(1)
 	q.touchActivity()
 }

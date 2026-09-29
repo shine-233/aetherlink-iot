@@ -43,7 +43,10 @@ data:
         gzip on;
         gzip_min_length 1k;
         gzip_comp_level 4;
-        gzip_types text/plain application/javascript application/x-javascript text/css application/xml text/javascript application/x-httpd-php image/jpeg image/gif image/png;
+        # Images (png/jpeg/gif) are already compressed; re-gzipping them only burns CPU.
+        gzip_types text/plain text/css text/javascript application/javascript application/x-javascript application/json application/xml image/svg+xml application/wasm;
+        # Serve the build-time precompressed `*.gz` siblings (build/plugins/compress.ts) when present.
+        gzip_static on;
         gzip_vary on;
         gzip_disable "MSIE [1-6]\.";
         include             /etc/nginx/mime.types;
@@ -118,6 +121,30 @@ data:
             location = /mf-manifest.json {
                 default_type application/json;
                 return 503 '{"code":"THINGSVIS_OPTIONAL_SERVICE_DISABLED","message":"ThingsVis module federation is not enabled in the lightweight deployment."}';
+            }
+
+            # Vite emits content-hashed files under /assets/, so they can be cached forever.
+            # A location-level add_header drops the server-level ones, hence the repeats.
+            location /assets/ {
+                try_files $uri =404;
+                access_log off;
+                add_header Cache-Control "public, max-age=31536000, immutable" always;
+                add_header X-Content-Type-Options "nosniff" always;
+                add_header X-Frame-Options "SAMEORIGIN" always;
+                add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+                add_header Permissions-Policy "camera=(), microphone=(), payment=(), usb=()" always;
+                add_header Content-Security-Policy "base-uri 'self'; object-src 'none'; frame-ancestors 'self'" always;
+            }
+
+            # index.html references the current hashed bundles; always revalidate it
+            # so a deploy is picked up without users hard-refreshing.
+            location = /index.html {
+                add_header Cache-Control "no-cache" always;
+                add_header X-Content-Type-Options "nosniff" always;
+                add_header X-Frame-Options "SAMEORIGIN" always;
+                add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+                add_header Permissions-Policy "camera=(), microphone=(), payment=(), usb=()" always;
+                add_header Content-Security-Policy "base-uri 'self'; object-src 'none'; frame-ancestors 'self'" always;
             }
 
             location / {

@@ -46,31 +46,6 @@ export interface ScadaDocumentVersion {
   published_at: string
 }
 
-export interface ScadaControlAudit {
-  id: string
-  tenant_id: string
-  document_id: string
-  widget_id: string
-  command: string
-  params: string | null
-  actor_user_id: string
-  confirmation_token: string
-  outcome: ControlOutcome
-  detail?: string | null
-  created_at: string
-}
-
-export interface MobileCapabilityMatrix {
-  telemetry: boolean
-  commands: boolean
-  alarms: boolean
-  shadow: boolean
-  ota: boolean
-  dashboards: boolean
-  push: boolean
-  offline_cache: boolean
-}
-
 /** 构造 tenant 查询串；为空时不带参数。 */
 function tenantQuery(tenantId?: string): string {
   const trimmed = (tenantId ?? '').trim()
@@ -85,16 +60,8 @@ export function fetchScadaProjects(tenantId?: string) {
   return request.get<ScadaProject[]>(`/scada/projects${tenantQuery(tenantId)}`)
 }
 
-export function fetchScadaProject(id: string, tenantId?: string) {
-  return request.get<ScadaProject>(`/scada/projects/${id}${tenantQuery(tenantId)}`)
-}
-
 export function createScadaProject(payload: { name: string; description?: string; tenant_id?: string }) {
   return request.post<ScadaProject>('/scada/projects', payload)
-}
-
-export function deleteScadaProject(id: string, tenantId?: string) {
-  return request.delete(`/scada/projects/${id}${tenantQuery(tenantId)}`)
 }
 
 // ---------------------------------------------------------------------------
@@ -139,10 +106,6 @@ export function fetchScadaDocumentVersions(id: string, tenantId?: string) {
   return request.get<ScadaDocumentVersion[]>(`/scada/documents/${id}/versions${tenantQuery(tenantId)}`)
 }
 
-export function fetchScadaControlAudits(id: string, tenantId?: string) {
-  return request.get<ScadaControlAudit[]>(`/scada/documents/${id}/audits${tenantQuery(tenantId)}`)
-}
-
 // ---------------------------------------------------------------------------
 // 实时控制
 // ---------------------------------------------------------------------------
@@ -168,25 +131,4 @@ export function executeControl(payload: {
   tenant_id?: string
 }) {
   return request.post<{ outcome: ControlOutcome }>('/scada/control', payload)
-}
-
-// ---------------------------------------------------------------------------
-// 移动端（P1.4）
-// ---------------------------------------------------------------------------
-
-export function fetchMobileCapabilities() {
-  return request.get<MobileCapabilityMatrix>('/mobile/capabilities')
-}
-
-export function subscribeMobilePush(payload: {
-  platform: 'ios' | 'android' | 'h5'
-  token: string
-  provider?: string
-  tenant_id?: string
-}) {
-  return request.post('/mobile/push/subscribe', payload)
-}
-
-export function unsubscribeMobilePush(id: string, tenantId?: string) {
-  return request.delete(`/mobile/push/${id}${tenantQuery(tenantId)}`)
 }

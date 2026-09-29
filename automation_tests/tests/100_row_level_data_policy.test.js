@@ -48,10 +48,10 @@ describe(SUITE, function () {
     await apiClient.login(TENANT_A);
 
     // 取 tenant_admin 所属租户 id（行级策略的身份锚点）。
-    const info = await apiClient.get('/board/info', {}, TENANT_A);
+    const info = await apiClient.get('/board/user/info', {}, TENANT_A);
     expect(info.code, JSON.stringify(info)).to.equal(200);
-    tenantId = info.data && info.data.tenant_id;
-    expect(tenantId, 'board/info should carry tenant_id').to.be.a('string').and.not.equal('');
+    tenantId = info.data && (info.data.tenant_id || info.data.tenantId);
+    expect(tenantId, 'board/user/info should carry tenant_id').to.be.a('string').and.not.equal('');
   });
 
   after(async function () {

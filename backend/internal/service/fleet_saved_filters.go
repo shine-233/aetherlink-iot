@@ -168,10 +168,7 @@ func (*FleetSavedFilter) List(claims *utils.UserClaims) (*model.FleetSavedFilter
 // 空租户（SYS_ADMIN 维护平台空租户行，等价旧行为查 tenant_id 为空串）→ [""]；
 // 非空租户 → expandTenantIDScope 自上而下 self∪子孙。
 func fleetSavedFilterListScopes(tenantID string) []string {
-	if tenantID == "" {
-		return []string{""}
-	}
-	return expandTenantIDScope(tenantID)
+	return platformOrExpandedScopes(tenantID)
 }
 
 // buildFleetSavedFilterList 把可见记录整理成响应列表：先本人拥有的，再别人
@@ -382,9 +379,7 @@ func fleetSavedFilterWriteError(err error) error {
 	if isFleetSavedFilterDuplicateNameError(err) {
 		return errcode.NewWithMessage(errcode.CodeParamError, "saved filter name already exists")
 	}
-	return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-		"sql_error": err.Error(),
-	})
+	return dbError(err)
 }
 
 func isFleetSavedFilterDuplicateNameError(err error) bool {

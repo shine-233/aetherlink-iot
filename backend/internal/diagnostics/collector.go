@@ -227,13 +227,19 @@ func (c *Collector) RecordFailure(deviceID string, direction Direction, stage St
 
 // RecordUplinkTotal 记录上行消息总数
 func (c *Collector) RecordUplinkTotal(deviceID string) {
+	c.RecordUplinkTotalN(deviceID, 1)
+}
+
+// RecordUplinkTotalN 一次记录 n 条上行消息总数：遥测一次上报多个点时
+// 用单次 Redis HINCRBY 代替 n 次同步往返（计数结果与逐条调用完全一致）。
+func (c *Collector) RecordUplinkTotalN(deviceID string, n int) {
 	if !c.initialized || !c.config.Enabled {
 		return
 	}
-	if deviceID == "" {
+	if deviceID == "" || n <= 0 {
 		return
 	}
-	if err := c.metrics.IncrementUplinkTotal(deviceID); err != nil {
+	if err := c.metrics.IncrementUplinkTotalBy(deviceID, int64(n)); err != nil {
 		c.logger.WithFields(logrus.Fields{
 			"device_id": deviceID,
 			"error":     err,

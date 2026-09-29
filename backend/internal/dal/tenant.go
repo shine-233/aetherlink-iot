@@ -86,25 +86,20 @@ func ListTenants(offset, limit int, search string, tenantIDs []string) ([]*model
 	if len(tenantIDs) > 0 {
 		db = db.Where("id IN ?", tenantIDs)
 	}
-	search = strings.TrimSpace(search)
-	if search != "" {
-		db = db.Where("name ILIKE ? OR id ILIKE ?", "%"+search+"%", "%"+search+"%")
-	}
+	db = whereKeywordContains(db, opILike, search, "name", "id")
 
 	var total int64
-	if err := db.Count(&total).Error; err != nil {
+	if err := db.Session(&gorm.Session{}).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	if limit <= 0 {
-		limit = 10
-	}
-	if limit > 100 {
-		limit = 100
+	_, limit = normalizePageParams(1, limit, 10, 100)
+	if offset < 0 {
+		offset = 0
 	}
 
 	var list []*model.Tenant
-	err := db.Order("created_at DESC").Offset(offset).Limit(limit).Find(&list).Error
+	err := db.Session(&gorm.Session{}).Order("created_at DESC").Offset(offset).Limit(limit).Find(&list).Error
 	return list, total, err
 }
 

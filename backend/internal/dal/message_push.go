@@ -140,21 +140,30 @@ func GetMessagePushMangeInactiveWithSeven() error {
 		mangeIds  []string
 		activeIds []string
 	)
+	inactiveUsers := stringSet(inactiveUserId)
 	for _, v := range result {
-		if ContainsFunc(inactiveUserId, v.UserID, func(a, b string) bool {
-			return a == b
-		}) {
+		if _, ok := inactiveUsers[v.UserID]; ok {
 			mangeIds = append(mangeIds, v.ID)
 		} else {
 			activeIds = append(activeIds, v.ID)
 		}
 	}
-	_, err = query.MessagePushManage.Where(query.MessagePushManage.ID.In(mangeIds...)).Update(query.MessagePushManage.Status, 2)
-	if err != nil {
-		return err
-	}
-	_, err = query.MessagePushManage.Where(query.MessagePushManage.ID.In(activeIds...)).Update(query.MessagePushManage.InactiveTime, nil)
-	return err
+	// 两条 UPDATE 是一次"分流转置"的两半：只置 status=2 不清 inactive_time（或反之）
+	// 会让该批设备在下一次扫描里被反复重判。整批放在同一事务内，要么都生效要么都不生效。
+	// 空集合直接跳过：gen 的 In() 收到空参数会生成 IN (NULL) 的白跑语句。
+	return query.Q.Transaction(func(tx *query.Query) error {
+		if len(mangeIds) > 0 {
+			if _, err := tx.MessagePushManage.Where(tx.MessagePushManage.ID.In(mangeIds...)).Update(tx.MessagePushManage.Status, 2); err != nil {
+				return err
+			}
+		}
+		if len(activeIds) > 0 {
+			if _, err := tx.MessagePushManage.Where(tx.MessagePushManage.ID.In(activeIds...)).Update(tx.MessagePushManage.InactiveTime, nil); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // tenant-scope: caller-enforced?2026-08-26 ?????
@@ -175,10 +184,9 @@ func GetMessagePushMangeInactive() error {
 		return err
 	}
 	var inactiveIds []string
+	inactiveUsers := stringSet(inactiveUserId)
 	for _, v := range result {
-		if ContainsFunc(inactiveUserId, v.UserID, func(a, b string) bool {
-			return a == b
-		}) {
+		if _, ok := inactiveUsers[v.UserID]; ok {
 			inactiveIds = append(inactiveIds, v.ID)
 		}
 	}
@@ -186,11 +194,12 @@ func GetMessagePushMangeInactive() error {
 	return err
 }
 
-func ContainsFunc[T any](slice []T, target T, equal func(a, b T) bool) bool {
-	for _, item := range slice {
-		if equal(item, target) {
-			return true
-		}
+// stringSet 把 ID 切片转为集合，供推送管理的活跃/不活跃分流做 O(1) 命中判断
+// （替代原 ContainsFunc 逐行线性扫描的 O(n*m)；原泛型助手仅此两处调用，已随之移除）。
+func stringSet(values []string) map[string]struct{} {
+	set := make(map[string]struct{}, len(values))
+	for _, v := range values {
+		set[v] = struct{}{}
 	}
-	return false
+	return set
 }

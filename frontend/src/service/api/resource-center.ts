@@ -90,12 +90,3 @@ export const applyResource = async (data: ResourceCenterApplyPayload) => {
   return await request.post<ResourceCenterApplyResult>('/resource/center/apply', data)
 }
 
-/** 导出单个看板模板 */
-export const exportBoardTemplate = async (boardId: string) => {
-  return await request.get<Record<string, unknown>>(`/board/export/${encodeURIComponent(boardId)}`)
-}
-
-/** 导入单个看板模板 */
-export const importBoardTemplate = async (data: Record<string, unknown>) => {
-  return await request.post<Record<string, unknown>>('/board/import', data)
-}

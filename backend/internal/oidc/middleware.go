@@ -128,7 +128,9 @@ func (m *Middleware) handleCallback(c *gin.Context) {
 	}
 	nonce := parts[1]
 	// state 校验通过后即作废 cookie，防重放。
-	http.SetCookie(c.Writer, &http.Cookie{Name: m.StateCookie, Value: "", Path: "/", HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode, MaxAge: -1})
+	// Secure 必须与 handleStart 写入时一致：非 TLS 源上浏览器会丢弃带 Secure 的 Set-Cookie，
+	// 若这里硬编码 Secure=true，HTTP 部署下删除指令失效，state cookie 在 MaxAge 内可被重放。
+	http.SetCookie(c.Writer, &http.Cookie{Name: m.StateCookie, Value: "", Path: "/", HttpOnly: true, Secure: c.Request.TLS != nil, SameSite: http.SameSiteLaxMode, MaxAge: -1})
 
 	doc, err := m.Client.Discover(c.Request.Context())
 	if err != nil {

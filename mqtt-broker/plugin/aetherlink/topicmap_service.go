@@ -24,20 +24,24 @@ func NewTopicMapService() *TopicMapService {
 }
 
 func (s *TopicMapService) ResolveUpTarget(ctx context.Context, deviceConfigID string, incomingSource string) (string, bool) {
-	mappings, err := GetMappingsWithCache(ctx, deviceConfigID, DirectionUp)
+	mappings, err := getCompiledMappings(ctx, deviceConfigID, DirectionUp)
 	if err != nil || len(mappings) == 0 {
 		return "", false
 	}
-	return resolveUpTargetFromMappings(mappings, incomingSource)
+	return resolveUpTargetCompiled(mappings, incomingSource)
 }
 
 func resolveUpTargetFromMappings(mappings []DeviceTopicMapping, incomingSource string) (string, bool) {
-	for _, mapping := range mappings {
-		rx, ok := compileSourcePattern(mapping.SourceTopic)
-		if !ok {
+	return resolveUpTargetCompiled(compileTopicMappings(mappings), incomingSource)
+}
+
+func resolveUpTargetCompiled(mappings []compiledTopicMapping, incomingSource string) (string, bool) {
+	for i := range mappings {
+		mapping := &mappings[i]
+		if mapping.sourceRx == nil {
 			continue
 		}
-		if rx.MatchString(incomingSource) {
+		if mapping.sourceRx.MatchString(incomingSource) {
 			return applyTarget(mapping.TargetTopic, incomingSource), true
 		}
 	}
@@ -45,20 +49,20 @@ func resolveUpTargetFromMappings(mappings []DeviceTopicMapping, incomingSource s
 }
 
 func (s *TopicMapService) AllowDownSubscribe(ctx context.Context, deviceConfigID string, subscribeTopic string) bool {
-	mappings, err := GetMappingsWithCache(ctx, deviceConfigID, DirectionDown)
+	mappings, err := getCompiledMappings(ctx, deviceConfigID, DirectionDown)
 	if err != nil || len(mappings) == 0 {
 		return false
 	}
-	return allowDownSubscribeFromMappings(mappings, subscribeTopic)
+	return allowDownSubscribeCompiled(mappings, subscribeTopic)
 }
 
 func allowDownSubscribeFromMappings(mappings []DeviceTopicMapping, subscribeTopic string) bool {
-	for _, mapping := range mappings {
-		rx, ok := compileSourcePattern(mapping.SourceTopic)
-		if !ok {
-			continue
-		}
-		if rx.MatchString(subscribeTopic) {
+	return allowDownSubscribeCompiled(compileTopicMappings(mappings), subscribeTopic)
+}
+
+func allowDownSubscribeCompiled(mappings []compiledTopicMapping, subscribeTopic string) bool {
+	for i := range mappings {
+		if rx := mappings[i].sourceRx; rx != nil && rx.MatchString(subscribeTopic) {
 			return true
 		}
 	}
@@ -66,31 +70,39 @@ func allowDownSubscribeFromMappings(mappings []DeviceTopicMapping, subscribeTopi
 }
 
 func (s *TopicMapService) ResolveDownSource(ctx context.Context, deviceConfigID string, normalizedTarget string, deviceNumber string, payload []byte) (string, []byte, bool) {
-	mappings, err := GetMappingsWithCache(ctx, deviceConfigID, DirectionDown)
+	mappings, err := getCompiledMappings(ctx, deviceConfigID, DirectionDown)
 	if err != nil || len(mappings) == 0 {
 		return "", nil, false
 	}
-	return resolveDownSourceFromMappings(mappings, normalizedTarget, deviceNumber, payload)
+	return resolveDownSourceCompiled(mappings, normalizedTarget, deviceNumber, payload)
 }
 
 func resolveDownSourceFromMappings(mappings []DeviceTopicMapping, normalizedTarget string, deviceNumber string, payload []byte) (string, []byte, bool) {
-	fallbackSource := ""
-	fallbackPayload := append([]byte(nil), payload...)
+	return resolveDownSourceCompiled(compileTopicMappings(mappings), normalizedTarget, deviceNumber, payload)
+}
 
-	for _, mapping := range mappings {
-		rx, ok := compileTargetPattern(mapping.TargetTopic)
-		if !ok {
+func resolveDownSourceCompiled(mappings []compiledTopicMapping, normalizedTarget string, deviceNumber string, payload []byte) (string, []byte, bool) {
+	fallbackSource := ""
+	// 命令载荷至多解析一次（原实现每条带 data_identifier 的映射都会重新 Unmarshal）。
+	var cmd struct {
+		Method string          `json:"method"`
+		Params json.RawMessage `json:"params"`
+	}
+	cmdParsed, cmdErr := false, error(nil)
+
+	for i := range mappings {
+		mapping := &mappings[i]
+		if mapping.targetRx == nil {
 			Log.Debug("compile normalized target pattern failed", zap.String("target_topic", mapping.TargetTopic))
 			continue
 		}
-		if !rx.MatchString(normalizedTarget) {
+		if !mapping.targetRx.MatchString(normalizedTarget) {
 			continue
 		}
 
-		vars := map[string]string{
+		source := renderTopicFromTemplate(mapping.SourceTopic, map[string]string{
 			"device_number": deviceNumber,
-		}
-		source := renderTopicFromTemplate(mapping.SourceTopic, vars)
+		})
 		Log.Debug("rendered original source topic", zap.String("rendered_source", source))
 		if strings.Contains(source, "+") || strings.Contains(source, "#") {
 			Log.Debug("rendered source topic still contains wildcard", zap.String("rendered_source", source))
@@ -98,12 +110,12 @@ func resolveDownSourceFromMappings(mappings []DeviceTopicMapping, normalizedTarg
 		}
 
 		if mapping.DataIdentifier != nil && strings.TrimSpace(*mapping.DataIdentifier) != "" {
-			var cmd struct {
-				Method string          `json:"method"`
-				Params json.RawMessage `json:"params"`
+			if !cmdParsed {
+				cmdParsed = true
+				cmdErr = json.Unmarshal(payload, &cmd)
 			}
-			if err := json.Unmarshal(payload, &cmd); err != nil {
-				Log.Warn("payload parse failed, skip data identifier match", zap.Error(err))
+			if cmdErr != nil {
+				Log.Warn("payload parse failed, skip data identifier match", zap.Error(cmdErr))
 				continue
 			}
 			if cmd.Method != strings.TrimSpace(*mapping.DataIdentifier) {
@@ -122,7 +134,7 @@ func resolveDownSourceFromMappings(mappings []DeviceTopicMapping, normalizedTarg
 	}
 
 	if fallbackSource != "" {
-		return fallbackSource, fallbackPayload, true
+		return fallbackSource, append([]byte(nil), payload...), true
 	}
 	return "", nil, false
 }

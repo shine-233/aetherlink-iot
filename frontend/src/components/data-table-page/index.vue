@@ -11,7 +11,6 @@ import { debounce } from 'lodash-es'
 import { useRouter } from 'vue-router'
 import { NButton, NDataTable, NDatePicker, NInput, NSelect, NSpace, NPagination, NSpin } from 'naive-ui'
 import type { DataTableRowKey } from 'naive-ui'
-import { useLoading } from '@aetherlink/hooks'
 import { $t } from '@/locales'
 import { formatDateTime } from '@/utils/common/datetime'
 import { createLogger } from '@/utils/logger'
@@ -19,6 +18,7 @@ import { getPlatformApiBaseUrl } from '@/utils/common/tool'
 import AdvancedListLayout from '@/components/list-page/index.vue'
 import DevCardItem from '@/components/dev-card-item/index.vue'
 import type { SearchConfig, theLabel } from './types'
+import { fromFlatResponse, serializeDates, useListPage } from './useListPage'
 
 // 新增 DeviceItem 接口定义
 interface DeviceItem {
@@ -85,16 +85,42 @@ const emit = defineEmits<{
   selectionUpdate: [rows: DeviceItem[]]
 }>()
 
-const { loading, startLoading, endLoading } = useLoading()
-// 解构props以简化访问
+// 解构props以简化访问（searchConfigs 数组对象本身会被父组件原地更新 options，保持引用）
 const { fetchData, columnsToShow, searchConfigs }: any = props
 
-const dataList = ref<DeviceItem[]>([]) // 为 dataList 指定类型
-const total = ref(0) // 数据总数
-const currentPage = ref(props.initPage || 1) // 当前页码
-const pageSize = ref(props.initPageSize || 10) // 每页显示数量
-const searchCriteria: any = ref(Object.fromEntries(searchConfigs.map((item) => [item.key, item.initValue]))) // 搜索条件
-const selectedRowKeys = ref<DataTableRowKey[]>([])
+const getRowKey = (row: DeviceItem) => row.id || row.key || row.device_number
+
+// 查询状态、分页、过期请求丢弃与勾选状态统一交给 useListPage 管理。
+let hadSelection = false
+const list = useListPage<DeviceItem, Record<string, any>>({
+  initialQuery: () => Object.fromEntries(searchConfigs.map((item) => [item.key, item.initValue])),
+  initialPage: props.initPage || 1,
+  initialPageSize: props.initPageSize || 10,
+  pageSizes: [10, 20, 30, 40, 50],
+  rowKey: getRowKey,
+  // 父页面（设备状态推送）会原地修改行字段，需要深响应。
+  deepRows: true,
+  serialize: serializeDates,
+  fetcher: async (params) => {
+    const { page: _page, page_size: _pageSize, ...criteria } = params
+    emit('paramsUpdate', criteria)
+    const response = await fetchData(params)
+    if (response?.error) logger.error({ 'Error fetching data:': response.error })
+    return fromFlatResponse<DeviceItem>(response)
+  },
+  onLoaded: () => {
+    if (props.selectableRows && hadSelection) emit('selectionUpdate', list.selectedRows.value)
+  }
+})
+
+const { loading, total, rows: dataList, selectedKeys: selectedRowKeys, selectedRows } = list
+const searchCriteria = list.query
+const currentPage = list.page
+const pageSize = list.pageSize
+const getData = () => {
+  hadSelection = selectedRowKeys.value.length > 0
+  return list.load()
+}
 
 // 添加当前视图状态管理
 const currentViewType = ref('list') // 默认为列表视图
@@ -102,39 +128,6 @@ const currentViewType = ref('list') // 默认为列表视图
 // 添加图片URL相关变量
 const platformApiBaseUrl = getPlatformApiBaseUrl()
 const platformAssetBaseUrl = ref(platformApiBaseUrl)
-
-// 获取数据的函数，结合搜索条件、分页等
-const getData = async () => {
-  // 处理搜索条件，特别是将日期对象转换为字符串
-  startLoading()
-  const processedSearchCriteria = Object.fromEntries(
-    Object.entries(searchCriteria.value).map(([key, value]) => {
-      if (value && Array.isArray(value)) {
-        // 处理日期范围
-        return [key, value.map((v) => (v instanceof Date ? v.toISOString() : v))]
-      }
-      // 单一日期处理
-      return [key, value instanceof Date ? value.toISOString() : value]
-    })
-  )
-  // 调用提供的fetchData函数获取数据
-
-  emit('paramsUpdate', processedSearchCriteria)
-  const response = await fetchData({
-    page: currentPage.value,
-    page_size: pageSize.value,
-    ...processedSearchCriteria
-  })
-  // 处理响应
-  if (!response.error) {
-    dataList.value = response.data.list
-    total.value = response.data.total
-    syncSelectionWithCurrentData()
-  } else {
-    logger.error({ 'Error fetching data:': response.error })
-  }
-  endLoading()
-}
 
 // 使用计算属性动态生成表格的列配置
 const generatedColumns = computed(() => {
@@ -173,53 +166,31 @@ const generatedColumns = computed(() => {
   return columns || []
 })
 
-const getRowKey = (row: DeviceItem) => row.id || row.key || row.device_number
-
-const rowByKey = computed(() => {
-  const rows = new Map<string, DeviceItem>()
-  dataList.value.forEach((row) => {
-    rows.set(String(getRowKey(row)), row)
-  })
-  return rows
-})
-
-const selectedRows = computed(() => {
-  return selectedRowKeys.value.map((key) => rowByKey.value.get(String(key))).filter(Boolean) as DeviceItem[]
-})
-
 const clearSelection = () => {
-  selectedRowKeys.value = []
+  list.clearSelection()
   emit('selectionUpdate', [])
 }
 
-const syncSelectionWithCurrentData = () => {
-  if (!props.selectableRows || selectedRowKeys.value.length === 0) return
-
-  const availableKeys = new Set(rowByKey.value.keys())
-  selectedRowKeys.value = selectedRowKeys.value.filter((key) => availableKeys.has(String(key)))
-  emit('selectionUpdate', selectedRows.value)
-}
-
 // 更新页码或页面大小时重新获取数据
-const onUpdatePage = (newPage) => {
+const onUpdatePage = (newPage: number) => {
   currentPage.value = newPage
-  getData() // 更新数据
+  getData()
 }
-const onUpdatePageSize = (newPageSize) => {
+const onUpdatePageSize = (newPageSize: number) => {
   pageSize.value = newPageSize
-  currentPage.value = 1 // 重置为第一页
-  getData() // 更新数据
+  currentPage.value = 1
+  getData()
 }
 
 // 观察搜索条件的变化以更新扩展参数，不自动获取数据
 watchEffect(() => {
   searchConfigs.map((item: any) => {
-    const vals = searchCriteria.value[item.key]
+    const vals = searchCriteria[item.key]
     if (item?.extendParams && vals) {
       item?.options.map((oitem) => {
         if (oitem.dict_value + oitem.device_type === vals) {
           item?.extendParams.map((eitem) => {
-            searchCriteria.value[eitem.label] = oitem[eitem.value]
+            searchCriteria[eitem.label] = oitem[eitem.value]
           })
         }
       })
@@ -230,44 +201,33 @@ watchEffect(() => {
 // 搜索和重置按钮的逻辑
 const handleSearch = () => {
   currentPage.value = 1 // 搜索时重置到第一页
-  getData()
+  return getData()
+}
+
+// 重置值按控件类型区分：日期范围 -> []，树选择 -> []/null，下拉 -> null（显示占位符），其余 -> ''
+const emptyValueFor = (config: SearchConfig) => {
+  if (config.type === 'date-range') return []
+  if (config.type === 'tree-select') return config.multiple ? [] : null
+  if (config.type === 'select') return null
+  return ''
 }
 
 const handleReset = () => {
-  // 重置搜索条件为初始值
-  Object.keys(searchCriteria.value).forEach((key) => {
+  Object.keys(searchCriteria).forEach((key) => {
     const config = searchConfigs.find((item) => item.key === key)
-    if (config) {
-      // 如果是日期范围选择器，设置为空数组
-      if (config.type === 'date-range') {
-        searchCriteria.value[key] = []
-      }
-      // 如果是树形选择器，根据 multiple 属性设置空值
-      else if (config.type === 'tree-select') {
-        searchCriteria.value[key] = config.multiple ? [] : null
-      }
-      // 如果是下拉选择框，设置为 null 以显示占位符
-      else if (config.type === 'select') {
-        searchCriteria.value[key] = null
-      }
-      // 其他类型设置为空字符串
-      else {
-        searchCriteria.value[key] = ''
-      }
-    }
+    if (config) searchCriteria[key] = emptyValueFor(config)
   })
-
-  handleSearch() // 重置后重新获取数据
+  return handleSearch()
 }
 
-// 强制更新指定参数并刷新数据
+// 强制更新指定参数并刷新数据（保持当前页码，与历史行为一致）
 const forceChangeParamsByKey = (params: Record<string, any>) => {
   Object.entries(params).forEach(([key, value]) => {
-    if (key in searchCriteria.value) {
-      searchCriteria.value[key] = value
+    if (key in searchCriteria) {
+      searchCriteria[key] = value
     }
   })
-  getData()
+  return getData()
 }
 
 // 暴露方法给父组件
@@ -281,15 +241,14 @@ defineExpose({
 })
 
 const handleCheckedRowKeysUpdate = (keys: DataTableRowKey[]) => {
-  selectedRowKeys.value = keys
+  list.setSelectedKeys(keys)
   emit('selectionUpdate', selectedRows.value)
 }
 
 // 更新树形选择器的选项
 const handleTreeSelectUpdate = (value, key) => {
-  currentPage.value = 1
-  searchCriteria.value[key] = value
-  getData()
+  searchCriteria[key] = value
+  handleSearch()
 }
 
 // 用于加载动态选项的函数，适用于select和tree-select类型的搜索配置
@@ -369,8 +328,7 @@ onMounted(() => {
 })
 
 const debouncedInputSearch = debounce(() => {
-  currentPage.value = 1
-  getData()
+  handleSearch()
 }, 400)
 
 const handleInputChange = () => {
@@ -378,8 +336,7 @@ const handleInputChange = () => {
 }
 
 const handleSelectChange = () => {
-  currentPage.value = 1
-  getData()
+  handleSearch()
 }
 
 onUnmounted(() => {
@@ -609,6 +566,8 @@ const handleWarningClick = (item: DeviceItem) => {
                       v-if="item.image_url"
                       :src="getConfigImageUrl(item.image_url)"
                       alt="config image"
+                      loading="lazy"
+                      decoding="async"
                       class="config-image"
                     />
                     <SvgIcon v-else local-icon="defaultdevice" class="config-image" />

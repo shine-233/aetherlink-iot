@@ -43,12 +43,12 @@ func sceneWindowCandidate() sceneExecutionCandidate {
 	return sceneExecutionCandidate{sceneAutomationID: "scene-1", deviceID: "device-1"}
 }
 
-func automateWithTenant(tenantID string) *Automate {
-	return &Automate{device: &model.Device{TenantID: tenantID}}
+func automateWithTenant(tenantID string) *automationExec {
+	return &automationExec{device: &model.Device{TenantID: tenantID}}
 }
 
 func TestSceneWithinExecutionWindowAllowsUnboundedScene(t *testing.T) {
-	automate := &Automate{}
+	automate := &automationExec{}
 	// 未配置窗口：window 为 nil，必须放行。
 	if !automate.sceneWithinExecutionWindow(sceneWindowCandidate()) {
 		t.Fatal("scene with no window must run; nil window means unbounded")
@@ -88,7 +88,7 @@ func TestSceneWithinExecutionWindowHonoursBounds(t *testing.T) {
 				StartsAt:          testCase.startsAt,
 				ExpiresAt:         testCase.expiresAt,
 			}
-			if got := (&Automate{}).sceneWithinExecutionWindow(candidate); got != testCase.want {
+			if got := (&automationExec{}).sceneWithinExecutionWindow(candidate); got != testCase.want {
 				t.Fatalf("sceneWithinExecutionWindow = %v, want %v", got, testCase.want)
 			}
 		})
@@ -108,7 +108,7 @@ func TestSceneWithinExecutionWindowFailsClosedOnInvalidTimezone(t *testing.T) {
 		ExpiresAt:         &expiry,
 		Timezone:          "Not/ARealTimezone",
 	}
-	if (&Automate{}).sceneWithinExecutionWindow(candidate) {
+	if (&automationExec{}).sceneWithinExecutionWindow(candidate) {
 		t.Fatal("invalid timezone must refuse to run, not silently fall back to UTC")
 	}
 }
@@ -170,7 +170,7 @@ func TestExecutionWindowsSkipsLookupWhenTenantUnknown(t *testing.T) {
 		called = true
 		return nil, nil
 	}
-	automate := &Automate{} // 无 device，无法判定租户
+	automate := &automationExec{} // 无 device，无法判定租户
 	if windows := automate.executionWindows(automateExecteParamsFixture("scene-1")); windows != nil {
 		t.Fatalf("executionWindows without tenant = %v, want nil", windows)
 	}

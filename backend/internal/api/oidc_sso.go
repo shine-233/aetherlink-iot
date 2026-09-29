@@ -14,45 +14,25 @@ type OidcSsoApi struct{}
 // HandleOidcProviderCreate 新建租户 IdP。
 // POST /api/v1/oidc/provider
 func (*OidcSsoApi) HandleOidcProviderCreate(c *gin.Context) {
-	var req service.OidcProviderReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.OidcSso.Create(userClaims, &req)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	Handle(c, func(req *service.OidcProviderReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.OidcSso.Create(userClaims, req)
+	})
 }
 
 // HandleOidcProviderList 列出当前租户 IdP。
 // GET /api/v1/oidc/provider/list
 func (*OidcSsoApi) HandleOidcProviderList(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.OidcSso.List(userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.OidcSso.List(userClaims)
+	})
 }
 
 // HandleOidcProviderUpdate 更新租户 IdP。
 // PUT /api/v1/oidc/provider
 func (*OidcSsoApi) HandleOidcProviderUpdate(c *gin.Context) {
-	var req service.OidcProviderReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.OidcSso.Update(userClaims, &req)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	Handle(c, func(req *service.OidcProviderReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.OidcSso.Update(userClaims, req)
+	})
 }
 
 // HandleOidcProviderDelete 删除租户 IdP。

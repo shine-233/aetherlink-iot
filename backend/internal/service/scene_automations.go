@@ -1,13 +1,10 @@
 package service
 
 import (
-	"strings"
-
 	"aetherlink-iot/backend/initialize"
 	"aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/internal/query"
-	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 	utils "aetherlink-iot/backend/pkg/utils"
 
@@ -15,33 +12,6 @@ import (
 )
 
 type SceneAutomation struct{}
-
-func ensureSceneAutomationReadAccess(sceneAutomationID string, claims *utils.UserClaims) (*model.SceneAutomation, error) {
-	sceneAutomation, err := dal.GetSceneAutomation(sceneAutomationID, nil)
-	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
-	}
-	if claims == nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query scene automation")
-	}
-	if claims.Authority != constant.SYS_ADMIN && sceneAutomation.TenantID != claims.TenantID {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query scene automation")
-	}
-	return sceneAutomation, nil
-}
-
-func ensureSceneAutomationWriteAccess(sceneAutomationID string, claims *utils.UserClaims) (*model.SceneAutomation, error) {
-	sceneAutomation, err := ensureSceneAutomationReadAccess(sceneAutomationID, claims)
-	if err != nil {
-		return nil, err
-	}
-	if claims.Authority != constant.SYS_ADMIN && sceneAutomation.TenantID != claims.TenantID {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to modify scene automation")
-	}
-	return sceneAutomation, nil
-}
 
 func sceneAutomationSwitchTarget(currentEnabled, requestedTarget string) string {
 	if requestedTarget != "" {
@@ -96,15 +66,11 @@ func (*SceneAutomation) AutomateCacheSet(sceneAutomationID string) error {
 	logrus.Info("start persisting scene automation cache")
 	groupInfoPtrs, err := dal.GetDeviceTriggerCondition(sceneAutomationID)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	actionInfoPtrs, err := dal.GetActionInfo(sceneAutomationID)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	var groupInfos []model.DeviceTriggerCondition
 	for _, groupInfo := range groupInfoPtrs {
@@ -120,9 +86,7 @@ func (*SceneAutomation) AutomateCacheSet(sceneAutomationID string) error {
 	}
 	err = initialize.NewAutomateCache().SetCacheBySceneAutomationId(sceneAutomationID, groupInfos, actionInfos)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	return nil
 }
@@ -133,9 +97,7 @@ func (*SceneAutomation) DeleteSceneAutomation(sceneAutomationID string, claims *
 	}
 	err := dal.DeleteSceneAutomation(sceneAutomationID, nil)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	clearSceneAutomationCaches(sceneAutomationID)
 	return nil
@@ -178,9 +140,7 @@ func (*SceneAutomation) GetSceneAutomationByPageReq(req *model.GetSceneAutomatio
 
 	total, sceneInfo, err := dal.GetSceneAutomationByPage(req, scopes)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	sceneListMap := make(map[string]interface{})
 	sceneListMap["total"] = total
@@ -196,9 +156,7 @@ func (*SceneAutomation) GetSceneAutomationWithAlarmByPageReq(req *model.GetScene
 
 	total, sceneInfo, err := dal.GetSceneAutomationWithAlarmByPageReq(req, scopes)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	sceneListMap := make(map[string]interface{})
 	sceneListMap["total"] = total
@@ -247,19 +205,7 @@ func sceneAutomationListScopes(deviceID *string, deviceConfigID *string, claims 
 // 返回 nil（fail-closed）；空租户管理员（SYS_ADMIN 平台行）→ [""] 保持旧行为；
 // 其余非空租户管理员 → expandTenantIDScope（self∪子孙，链接缺失回退 self-only）。
 func sceneAutomationReadScopes(tenantID string, claims *utils.UserClaims) []string {
-	if claims == nil {
-		return nil
-	}
-	if claims.Authority == constant.TENANT_USER {
-		if tenantID := strings.TrimSpace(tenantID); tenantID != "" {
-			return []string{tenantID}
-		}
-		return nil
-	}
-	if strings.TrimSpace(tenantID) == "" {
-		return []string{""}
-	}
-	return expandTenantIDScope(tenantID)
+	return tenantReadListScopes(tenantID, claims)
 }
 
 func (*SceneAutomation) UpdateSceneAutomation(req *model.UpdateSceneAutomationReq, u *utils.UserClaims) (string, error) {

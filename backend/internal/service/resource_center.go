@@ -162,15 +162,15 @@ func (*ResourceCenter) ImportResourceBundle(req model.ImportMarketBundleReq, cla
 	// 3) 读取租户内现有物模型版本、看板版本与部件库版本（TB-04）
 	existingTpls, err := dal.ListDeviceTemplateVersionsInTenant(tenantID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	existingBoards, err := dal.ListBoardTemplateVersionsInTenant(ctx, tenantID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	existingWidgets, err := dal.ListWidgetBundleVersionsInTenant(ctx, tenantID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 
 	// 4) 冲突预览（部件库维度并入综合预览，TB-04）

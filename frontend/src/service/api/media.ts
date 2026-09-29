@@ -4,6 +4,7 @@
  *   供 views/management/media 媒体库工作台使用。
  */
 import { request } from '../request'
+import { createResource } from './resource'
 
 export interface MediaFileItem {
   id: string
@@ -53,17 +54,20 @@ export const uploadMediaFile = async (formData: FormData) => {
   return await request.post<{ path?: string }>('/file/up', formData)
 }
 
+const mediaFiles = createResource<
+  MediaFileListParams,
+  MediaFileListResponse,
+  MediaFileDetailResponse,
+  never,
+  never,
+  MediaFileDeleteResponse
+>({ collection: '/media/files' })
+
 /** 分页与条件查询本租户媒体列表 */
-export const getMediaFilesList = async (params?: MediaFileListParams) => {
-  return await request.get<MediaFileListResponse>('/media/files', { params })
-}
+export const getMediaFilesList = mediaFiles.list
 
 /** 获取媒体详情（含实时引用统计） */
-export const getMediaFileDetail = async (id: string) => {
-  return await request.get<MediaFileDetailResponse>(`/media/files/${encodeURIComponent(id)}`)
-}
+export const getMediaFileDetail = mediaFiles.detail
 
 /** 删除媒体：引用计数>0 时后端拒绝并返回引用方，否则删文件+删登记行 */
-export const deleteMediaFile = async (id: string) => {
-  return await request.delete<MediaFileDeleteResponse>(`/media/files/${encodeURIComponent(id)}`)
-}
+export const deleteMediaFile = mediaFiles.remove

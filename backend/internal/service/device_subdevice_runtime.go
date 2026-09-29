@@ -27,9 +27,7 @@ func (*Device) RemoveSubDevice(id string, claims *utils.UserClaims) error {
 
 func removeSubDeviceBinding(id string, tenantID string) error {
 	if err := dal.RemoveSubDevice(id, tenantID); err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	return nil
 }

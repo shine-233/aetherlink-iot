@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { AlertCircleOutline, RefreshOutline } from '@vicons/ionicons5'
 import { $t } from '@/locales'
-import { resetRepeatScheduleFields } from './premise-schedule-condition-state'
+import { findExpirationTimeLabel, resetRepeatScheduleFields } from './premise-schedule-condition-state'
 
 defineProps<{
   ifItem: any
@@ -74,7 +74,7 @@ defineProps<{
             </n-icon>
           </template>
           {{ $t('generate.expiration-time') }}
-          {{ expirationTimeOptions.find((data) => ifItem.expiration_time)?.label || '' }}
+          {{ findExpirationTimeLabel(expirationTimeOptions, ifItem.expiration_time) }}
         </n-tooltip>
       </NFormItem>
     </template>
@@ -124,7 +124,7 @@ defineProps<{
               </n-icon>
             </template>
             {{ $t('generate.expiration-time') }}
-            {{ expirationTimeOptions.find((data) => ifItem.expiration_time)?.label || '' }}
+            {{ findExpirationTimeLabel(expirationTimeOptions, ifItem.expiration_time) }}
           </n-tooltip>
         </NFormItem>
       </template>
@@ -164,7 +164,7 @@ defineProps<{
               </n-icon>
             </template>
             {{ $t('generate.expiration-time') }}
-            {{ expirationTimeOptions.find((data) => ifItem.expiration_time)?.label || '' }}
+            {{ findExpirationTimeLabel(expirationTimeOptions, ifItem.expiration_time) }}
           </n-tooltip>
         </NFormItem>
       </template>
@@ -225,7 +225,7 @@ defineProps<{
               </n-icon>
             </template>
             {{ $t('generate.expiration-time') }}
-            {{ expirationTimeOptions.find((data) => ifItem.expiration_time)?.label || '' }}
+            {{ findExpirationTimeLabel(expirationTimeOptions, ifItem.expiration_time) }}
           </n-tooltip>
         </NFormItem>
       </template>
@@ -278,7 +278,7 @@ defineProps<{
               </n-icon>
             </template>
             {{ $t('generate.expiration-time') }}
-            {{ expirationTimeOptions.find((data) => ifItem.expiration_time)?.label || '' }}
+            {{ findExpirationTimeLabel(expirationTimeOptions, ifItem.expiration_time) }}
           </n-tooltip>
         </NFormItem>
       </template>

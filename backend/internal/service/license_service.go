@@ -159,7 +159,7 @@ func enforceDeviceQuota() error {
 	}
 	count, err := dal.CountAllDevices()
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return dbError(err)
 	}
 	if count >= doc.MaxDevices {
 		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
@@ -180,7 +180,7 @@ func enforceTenantQuota() error {
 	}
 	count, err := dal.CountAllTenants()
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return dbError(err)
 	}
 	if count >= doc.MaxTenants {
 		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{

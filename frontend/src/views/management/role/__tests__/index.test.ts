@@ -265,15 +265,15 @@ describe('management/role/index.vue', () => {
     expect(hoisted.listRoles).toHaveBeenCalledTimes(0)
   })
 
-  it('pagination.onChange updates page and fetches', async () => {
+  it('pagination.onUpdatePage updates page and fetches', async () => {
     const wrapper = mountComponent()
     await flushPromises()
     vi.clearAllMocks()
     hoisted.listRoles.mockResolvedValue({ data: { list: [], total: 0 } })
     const state = getSetupState(wrapper)
-    state.pagination.onChange(3)
+    state.pagination.onUpdatePage(3)
     await flushPromises()
-    expect(state.queryParams.page).toBe(3)
+    expect(state.pagination.page).toBe(3)
     expect(state.pagination.page).toBe(3)
     expect(hoisted.listRoles).toHaveBeenCalledTimes(1)
     expect(hoisted.listRoles).toHaveBeenCalledWith({
@@ -291,11 +291,11 @@ describe('management/role/index.vue', () => {
     vi.clearAllMocks()
     hoisted.listRoles.mockResolvedValue({ data: { list: [], total: 0 } })
     const state = getSetupState(wrapper)
-    state.queryParams.page = 4
+    state.pagination.page = 4
     state.pagination.onUpdatePageSize(20)
     await flushPromises()
-    expect(state.queryParams.page_size).toBe(20)
-    expect(state.queryParams.page).toBe(1)
+    expect(state.pagination.pageSize).toBe(20)
+    expect(state.pagination.page).toBe(1)
     expect(state.pagination.page).toBe(1)
     expect(hoisted.listRoles).toHaveBeenCalledTimes(1)
     expect(hoisted.listRoles).toHaveBeenCalledWith({
@@ -332,8 +332,8 @@ describe('management/role/index.vue', () => {
     const wrapper = mountComponent()
     await flushPromises()
     const state = getSetupState(wrapper)
-    expect(state.queryParams.page).toBe(1)
-    expect(state.queryParams.page_size).toBe(10)
+    expect(state.pagination.page).toBe(1)
+    expect(state.pagination.pageSize).toBe(10)
     expect(state.queryParams.email).toBeNull()
     expect(state.queryParams.name).toBeNull()
     expect(state.queryParams.status).toBeNull()

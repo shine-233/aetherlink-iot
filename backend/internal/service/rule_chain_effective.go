@@ -102,25 +102,23 @@ func profileDefaultRuleChainIDForDevice(device model.Device) string {
 	if configID == "" {
 		return ""
 	}
-	config, err := dal.GetDeviceConfigByID(configID)
-	if err != nil || config == nil {
+	// 进程内 TTL 缓存（dal.GetDeviceConfigRouting）：每条上行不再反序列化整份档案 JSON。
+	routing, found, err := dal.GetDeviceConfigRouting(configID)
+	if err != nil || !found {
 		if err != nil {
 			logrus.WithError(err).WithField("device_id", device.ID).Warn("load device config for rule chain resolution failed")
 		}
 		return ""
 	}
 	tenantID := strings.TrimSpace(device.TenantID)
-	if tenantID == "" || config.TenantID != tenantID {
+	if tenantID == "" || routing.TenantID != tenantID {
 		logrus.WithFields(logrus.Fields{
 			"device_id":        device.ID,
 			"device_config_id": configID,
 		}).Warn("device config tenant mismatch; profile rule chain ignored")
 		return ""
 	}
-	if config.DefaultRuleChainID == nil {
-		return ""
-	}
-	return strings.TrimSpace(*config.DefaultRuleChainID)
+	return routing.DefaultRuleChainID
 }
 
 // resolveEffectiveRuleChainGraphs 纯函数（单测锚点）：档案链优先、租户链兜底、

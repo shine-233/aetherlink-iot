@@ -11,6 +11,7 @@ import { clearAuthStorage } from '@/store/modules/auth/shared'
 import { localStg } from '@/utils/storage'
 import { createProxyPattern, createServiceConfig } from '~/env.config'
 import { refreshAuthToken, scheduleProactiveTokenRefresh } from './auth-refresh'
+import { isCanceledError } from './abortable'
 
 const { otherBaseURL } = createServiceConfig(import.meta.env)
 const isHttpProxy = import.meta.env.VITE_HTTP_PROXY === 'Y'
@@ -78,6 +79,11 @@ export const request: FlatRequestInstance = createFlatRequest<App.Service.Backen
       return response.data.data
     },
     async onError(error, instance) {
+      // 主动取消（列表查询被后一次取代、组件卸载）不是失败，绝不能冒成用户可见的错误提示。
+      if (isCanceledError(error)) {
+        return
+      }
+
       if (error?.response?.status === 401) {
         const config = error.config as CustomAxiosRequestConfig | undefined
         const bizCode = error.response?.data?.code

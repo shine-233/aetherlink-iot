@@ -85,7 +85,7 @@ func (mobileDeviceLister) List(ctx context.Context, claims *utils.UserClaims, se
 
 	total, rows, err := dal.GetDeviceListByPageForScopes(req, scopes)
 	if err != nil {
-		return nil, 0, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, 0, dbError(err)
 	}
 
 	summaries := make([]MobileDeviceSummary, 0, len(rows))
@@ -290,7 +290,7 @@ func (mobileOTAReader) Status(ctx context.Context, claims *utils.UserClaims, dev
 	}
 	detail, err := dal.LatestOTAUpgradeDetailForDevice(device.TenantID, deviceID)
 	if err != nil {
-		return "", errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return "", dbError(err)
 	}
 	if detail == nil {
 		return OTAStatusNone, nil

@@ -11,6 +11,8 @@ import (
 	"errors"
 	"time"
 
+	"aetherlink-iot/backend/pkg/safelua"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -145,7 +147,7 @@ func ensureDecodeScriptEnabled(input *DecodeInput, scriptType string, script *Ca
 }
 
 func (p *ScriptProcessor) executeDecodeScript(ctx context.Context, input *DecodeInput, scriptType string, script *CachedScript, startTime time.Time) (string, error) {
-	resultStr, err := p.executor.ExecuteDecode(ctx, script.Content, input.RawData)
+	resultStr, err := p.executor.Execute(ctx, ScriptProgramKey(input.DeviceConfigID, scriptType), script.Content, input.RawData)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{
 			"module":           "processor",
@@ -298,7 +300,7 @@ func (p *ScriptProcessor) Encode(ctx context.Context, input *EncodeInput) (*Enco
 	}
 
 	// 5. 执行脚本编码
-	resultStr, err := p.executor.ExecuteEncode(ctx, script.Content, input.Data)
+	resultStr, err := p.executor.Execute(ctx, ScriptProgramKey(input.DeviceConfigID, scriptType), script.Content, input.Data)
 	if err != nil {
 		duration := time.Since(startTime)
 		logrus.WithFields(logrus.Fields{
@@ -342,7 +344,8 @@ func (p *ScriptProcessor) Encode(ctx context.Context, input *EncodeInput) (*Enco
 
 // InvalidateScriptCache 使指定脚本缓存失效（供外部调用，脚本更新时使用）
 func (p *ScriptProcessor) InvalidateScriptCache(ctx context.Context, deviceConfigID, scriptType string) error {
-	// 清除 Redis 缓存
+	// 先丢弃进程内编译产物与状态池，再清除 Redis 缓存
+	safelua.Invalidate(ScriptProgramKey(deviceConfigID, scriptType))
 	return p.cache.InvalidateCache(ctx, deviceConfigID, scriptType)
 }
 

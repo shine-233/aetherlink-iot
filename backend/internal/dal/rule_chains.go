@@ -85,9 +85,7 @@ func ListRuleChainsByTenant(scopes []string, keyword string, page, pageSize int)
 		// tenant-scope: ListRuleChainsByTenant 按 tenant_id IN ? 过滤（自上而下作用域 self∪子孙）
 		query = global.DB.Model(&model.RuleChain{}).Where("tenant_id IN ?", scopes)
 	}
-	if kw := strings.TrimSpace(keyword); kw != "" {
-		query = query.Where("name LIKE ?", fmt.Sprintf("%%%s%%", kw))
-	}
+	query = whereKeywordContains(query, opLike, keyword, "name")
 	var count int64
 	if err := query.Count(&count).Error; err != nil {
 		return 0, nil, err

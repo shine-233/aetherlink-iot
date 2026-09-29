@@ -4,28 +4,25 @@
  * 关键注意事项: 密钥权限、租户边界和删除操作属于敏感合同，不能只依赖前端展示状态判断安全性。
  * 重构建议: 增加明确类型替代 `any`，并补充创建、更新、删除参数的契约测试。
  */
-import { request } from '../request'
+import { createResource } from './resource'
+
+const openKeys = createResource<
+  Record<string, unknown>,
+  Api.UserManagement.KeyData | null,
+  Api.BaseApi.Data,
+  Record<string, unknown>,
+  Record<string, unknown>,
+  Api.BaseApi.Data
+>({ collection: '/open/keys' })
 
 /** 获取keys列表 */
-export const fetchKeyList = async (params: Record<string, unknown>) => {
-  const data = await request.get<Api.UserManagement.KeyData | null>('/open/keys', {
-    params
-  })
-  return data
-}
+export const fetchKeyList = openKeys.list
 
 /** 添加key */
-export const addKey = async (params: Record<string, unknown>) => {
-  const data = await request.post<Api.BaseApi.Data>('/open/keys', params)
-  return data
-}
+export const addKey = openKeys.create
 
 /** 更新key */
-export const updateKey = async (params: Record<string, unknown>) => {
-  const data = await request.put<Api.BaseApi.Data>('/open/keys', params)
-  return data
-}
+export const updateKey = openKeys.update
+
 /** 删除key */
-export const apiKeyDel = async (id: string) => {
-  return await request.delete<Api.BaseApi.Data>(`/open/keys/${id}`)
-}
+export const apiKeyDel = openKeys.remove

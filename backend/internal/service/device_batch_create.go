@@ -83,9 +83,7 @@ func existingBatchCreateDeviceNumbers(items []model.BatchCreateDevice) (map[stri
 	}
 	existingNumbers, err := dal.CheckDeviceNumbersExists(deviceNumbers)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	return existingNumbers, nil
 }
@@ -215,9 +213,7 @@ func (*Device) CreateDeviceBatch(req model.BatchCreateDeviceReq, claims *utils.U
 	}
 	err = dal.CreateDeviceBatch(deviceList)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	if err := notifyCreateDeviceBatchServicePlugin(ctx.serviceAccess.ServicePluginID, req.ServiceAccessId); err != nil {
 		logrus.Warn("batch create devices persisted but service plugin notification failed")

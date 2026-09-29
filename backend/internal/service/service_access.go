@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"aetherlink-iot/backend/internal/authz"
 	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/internal/pluginruntime"
@@ -24,36 +25,10 @@ import (
 
 type ServiceAccess struct{}
 
-func ensureServiceAccessWriteAccess(id string, userClaims *utils.UserClaims) (*model.ServiceAccess, error) {
-	serviceAccess, err := ensureServiceAccessReadAccess(id, userClaims)
-	if err != nil {
-		return nil, err
-	}
-	return serviceAccess, nil
-}
-
-func ensureServiceAccessReadAccess(id string, userClaims *utils.UserClaims) (*model.ServiceAccess, error) {
-	serviceAccess, err := dal.GetServiceAccessByID(id)
-	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
-	}
-	if userClaims == nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query service access")
-	}
-	if userClaims.Authority != constant.SYS_ADMIN && serviceAccess.TenantID != userClaims.TenantID {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query service access")
-	}
-	return serviceAccess, nil
-}
-
 func (*ServiceAccess) CreateAccess(req *model.CreateAccessReq, userClaims *utils.UserClaims) (map[string]interface{}, error) {
 	servicePlugin, err := dal.GetServicePluginByID(req.ServicePluginID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	if err := validateServiceAccessVoucher(servicePlugin.ServiceIdentifier, req.Voucher); err != nil {
 		return nil, err
@@ -70,9 +45,7 @@ func (*ServiceAccess) CreateAccess(req *model.CreateAccessReq, userClaims *utils
 	serviceAccess.UpdateAt = time.Now().UTC()
 	err = query.ServiceAccess.Create(&serviceAccess)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	resp := make(map[string]interface{})
 	resp["id"] = serviceAccess.ID
@@ -85,9 +58,7 @@ func (*ServiceAccess) List(req *model.GetServiceAccessByPageReq, userClaims *uti
 	listRsp["total"] = total
 	listRsp["list"] = list
 	if err != nil {
-		return listRsp, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return listRsp, dbError(err)
 	}
 
 	return listRsp, err
@@ -103,9 +74,7 @@ func (*ServiceAccess) Update(req *model.UpdateAccessReq, userClaims *utils.UserC
 	if req.Voucher != nil {
 		servicePlugin, err = dal.GetServicePluginByID(serviceAccess.ServicePluginID)
 		if err != nil {
-			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-			})
+			return dbError(err)
 		}
 		if err := validateServiceAccessVoucher(servicePlugin.ServiceIdentifier, *req.Voucher); err != nil {
 			return err
@@ -128,9 +97,7 @@ func (*ServiceAccess) Update(req *model.UpdateAccessReq, userClaims *utils.UserC
 	updates["update_at"] = time.Now().UTC()
 	err = dal.UpdateServiceAccess(req.ID, updates)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	effectiveVoucher := serviceAccess.Voucher
 	if req.Voucher != nil {
@@ -143,9 +110,7 @@ func (*ServiceAccess) Update(req *model.UpdateAccessReq, userClaims *utils.UserC
 	if servicePlugin == nil {
 		servicePlugin, err = dal.GetServicePluginByID(serviceAccess.ServicePluginID)
 		if err != nil {
-			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-			})
+			return dbError(err)
 		}
 	}
 	if isLocalHTTPServicePlugin(servicePlugin.ServiceIdentifier) {
@@ -154,9 +119,7 @@ func (*ServiceAccess) Update(req *model.UpdateAccessReq, userClaims *utils.UserC
 
 	_, host, err := dal.GetServicePluginHttpAddressByID(serviceAccess.ServicePluginID)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	dataMap := map[string]interface{}{"service_access_id": req.ID}
 	dataBytes, err := json.Marshal(dataMap)
@@ -193,18 +156,14 @@ func (*ServiceAccess) Delete(id string, userClaims *utils.UserClaims) error {
 	// 查询是否还有未删除的设备
 	deviceCount, err := dal.CountServiceDevicesByAccessID(id)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	if deviceCount > 0 {
 		return errcode.New(200064)
 	}
 	err = dal.DeleteServiceAccess(id)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	return err
 }
@@ -213,9 +172,7 @@ func (*ServiceAccess) Delete(id string, userClaims *utils.UserClaims) error {
 func (*ServiceAccess) GetVoucherForm(req *model.GetServiceAccessVoucherFormReq) (interface{}, error) {
 	servicePlugin, err := dal.GetServicePluginByID(req.ServicePluginID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	if servicePlugin == nil {
 		return nil, errcode.New(200070)
@@ -259,15 +216,11 @@ func (*ServiceAccess) GetServiceAccessDeviceList(req *model.ServiceAccessDeviceL
 	// 通过voucher获取service_plugin_id
 	serviceAccess, err := dal.GetServiceAccessByVoucher(req.Voucher, userClaims.TenantID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	servicePlugin, err := dal.GetServicePluginByID(serviceAccess.ServicePluginID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	if isLocalHTTPServicePlugin(servicePlugin.ServiceIdentifier) {
 		return localHTTPServiceAccessDevicePage(serviceAccess.ID, req.PageSize, req.Page)
@@ -275,9 +228,7 @@ func (*ServiceAccess) GetServiceAccessDeviceList(req *model.ServiceAccessDeviceL
 
 	_, httpAddress, err := dal.GetServicePluginHttpAddressByID(serviceAccess.ServicePluginID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	data, err := pluginruntime.Current().ListServiceAccessDevices(httpAddress, req.Voucher, req.PageSize, req.Page)
 	if err != nil {
@@ -313,7 +264,7 @@ func (*ServiceAccess) GetPluginServiceAccessList(req *model.GetPluginServiceAcce
 		return nil, err
 	}
 	tenantID := userClaims.TenantID
-	if userClaims.Authority == constant.SYS_ADMIN {
+	if authz.IsSysAdmin(userClaims) {
 		tenantID = ""
 	}
 	// 根据service_plugin_id获取服务接入点列表

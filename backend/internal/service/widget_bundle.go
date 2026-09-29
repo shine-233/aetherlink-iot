@@ -15,6 +15,7 @@
 package service
 
 import (
+	"reflect"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -235,7 +236,7 @@ func (*WidgetBundleService) SeedBuiltinWidgetBundle(ctx context.Context, claims 
 	}
 	existing, err := dal.GetWidgetBundleByNameInTenant(ctx, claims.TenantID, BuiltinWidgetBundleName)
 	if err == nil && existing != nil {
-		if strings.TrimSpace(existing.Widgets) == strings.TrimSpace(exported.Widgets) {
+		if widgetBundleContentEqual(existing.Widgets, exported.Widgets) {
 			return &model.WidgetBundleSeedRsp{Bundle: existing, Idempotent: true}, nil
 		}
 		return nil, errcode.NewWithMessage(errcode.CodeParamError,
@@ -349,4 +350,21 @@ func (*WidgetBundleService) ImportWidgetBundleWithTenant(exported model.ImportWi
 func widgetStrPtr(s string) *string {
 	out := s
 	return &out
+}
+
+// widgetBundleContentEqual 对 widgets JSON 做语义等价比较：
+// CreateWidgetBundle 落库时会重排/规范化 JSON（键序与空白可能与导出串不同），
+// 幂等判定必须按反序列化后的结构比较，而不是文本比较，否则二次 seed 永远误报内容不一致。
+func widgetBundleContentEqual(stored, exported string) bool {
+	if strings.TrimSpace(stored) == strings.TrimSpace(exported) {
+		return true
+	}
+	var left, right interface{}
+	if err := json.Unmarshal([]byte(stored), &left); err != nil {
+		return false
+	}
+	if err := json.Unmarshal([]byte(exported), &right); err != nil {
+		return false
+	}
+	return reflect.DeepEqual(left, right)
 }

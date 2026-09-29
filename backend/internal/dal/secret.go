@@ -6,7 +6,6 @@ package dal
 import (
 	"context"
 	"errors"
-	"strings"
 	"time"
 
 	"aetherlink-iot/backend/internal/model"
@@ -56,36 +55,14 @@ func ListSecrets(ctx context.Context, tenantID string, req *model.SecretListReq)
 		list  []model.SysSecret
 		total int64
 	)
-	db := global.DB.WithContext(ctx).Table("sys_secrets")
-	if tenantID != "" {
-		db = db.Where("tenant_id = ?", tenantID)
-	}
+	db := whereOptionalTenant(global.DB.WithContext(ctx).Table("sys_secrets"), "tenant_id", tenantID)
 	if req.SecretType != "" {
 		db = db.Where("secret_type = ?", req.SecretType)
 	}
-	if q := strings.TrimSpace(req.Query); q != "" {
-		pattern := "%" + q + "%"
-		db = db.Where("key ILIKE ? OR name ILIKE ?", pattern, pattern)
-	}
+	db = whereKeywordContains(db, opILike, req.Query, "key", "name")
 
-	if err := db.Count(&total).Error; err != nil {
-		return nil, 0, err
-	}
-
-	page := req.Page
-	if page <= 0 {
-		page = 1
-	}
-	pageSize := req.PageSize
-	if pageSize <= 0 {
-		pageSize = 20
-	}
-	if pageSize > 100 {
-		pageSize = 100
-	}
-	offset := (page - 1) * pageSize
-
-	err := db.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&list).Error
+	page, pageSize := normalizePageParams(req.Page, req.PageSize, 20, 100)
+	total, err := countAndFindPage(db, "created_at DESC", page, pageSize, &list)
 	if err != nil {
 		return nil, 0, err
 	}

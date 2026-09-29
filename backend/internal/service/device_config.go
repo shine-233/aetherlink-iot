@@ -19,7 +19,6 @@ import (
 
 	"aetherlink-iot/backend/initialize"
 	protocolplugin "aetherlink-iot/backend/internal/service/protocol_plugin"
-	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 
 	dal "aetherlink-iot/backend/internal/dal"
@@ -46,38 +45,6 @@ func validatePayloadSchemaBinding(schemaID *string, tenantID string) error {
 		return wrapDeviceConfigDBError(err)
 	}
 	return nil
-}
-
-// ensureDeviceConfigReadAccess 校验设备配置读取权限并返回配置实体。
-// configID 是待访问的设备配置 ID；claims 用于校验系统管理员或同租户访问资格。
-// 返回值中的 DeviceConfig 会作为后续物模型、协议和自动化数据装配的基础输入。
-func ensureDeviceConfigReadAccess(configID string, claims *utils.UserClaims) (*model.DeviceConfig, error) {
-	if claims == nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query device config")
-	}
-	deviceConfig, err := dal.GetDeviceConfigByID(configID)
-	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
-	}
-	if claims.Authority != constant.SYS_ADMIN && deviceConfig.TenantID != claims.TenantID {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query device config")
-	}
-	return deviceConfig, nil
-}
-
-// ensureDeviceConfigWriteAccess 在读取权限基础上再次确认写权限。
-// 这里与读取校验分开保留，便于调用方显式表达“只读”和“可修改”两种业务意图。
-func ensureDeviceConfigWriteAccess(configID string, claims *utils.UserClaims) (*model.DeviceConfig, error) {
-	deviceConfig, err := ensureDeviceConfigReadAccess(configID, claims)
-	if err != nil {
-		return nil, err
-	}
-	if claims.Authority != constant.SYS_ADMIN && deviceConfig.TenantID != claims.TenantID {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to modify device config")
-	}
-	return deviceConfig, nil
 }
 
 // CreateDeviceConfig 创建新的设备配置。
@@ -144,7 +111,7 @@ func (*DeviceConfig) CreateDeviceConfig(req *model.CreateDeviceConfigReq, claims
 					updateMap["protocol_config"] = req.ProtocolConfig
 				}
 				if err := dal.UpdateDeviceConfig(existing.ID, updateMap); err != nil {
-					return deviceconfig, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+					return deviceconfig, dbError(err)
 				}
 				updated, err := dal.GetDeviceConfigByID(existing.ID)
 				if err == nil && updated != nil {
@@ -154,7 +121,7 @@ func (*DeviceConfig) CreateDeviceConfig(req *model.CreateDeviceConfigReq, claims
 			case model.ConflictPolicyRename:
 				names, err := dal.GetDeviceConfigNamesMatchingBase(claims.TenantID, name)
 				if err != nil {
-					return deviceconfig, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+					return deviceconfig, dbError(err)
 				}
 				nameMap := make(map[string]bool, len(names))
 				for _, n := range names {
@@ -197,9 +164,7 @@ func (*DeviceConfig) CreateDeviceConfig(req *model.CreateDeviceConfigReq, claims
 	if err != nil {
 		// err 可能内插用户可控的配置名/ID（log-injection 面），日志只记固定语义。
 		logrus.Error("create device config failed")
-		return deviceconfig, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return deviceconfig, dbError(err)
 	}
 
 	// 回显一次明文供设备端完成首次接入配置；数据库中保存的仍是摘要。
@@ -462,9 +427,7 @@ func voucherTypeForProtocol(protocolType string) *string {
 
 // wrapDeviceConfigDBError 统一包装设备配置领域的数据库异常，保留底层 SQL 错误文本供审计排查。
 func wrapDeviceConfigDBError(err error) error {
-	return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-		"sql_error": err.Error(),
-	})
+	return dbError(err)
 }
 
 // wrapDeviceConfigParamError 统一包装设备配置领域的参数异常。
@@ -497,9 +460,7 @@ func (*DeviceConfig) DeleteDeviceConfig(id string, claims *utils.UserClaims) err
 	if err != nil {
 		// dal 层错误内插用户可控的 id（log-injection 面），日志只记固定语义。
 		logrus.Error("delete device config failed")
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 
 	// 删除后清理配置与设备侧缓存，避免旧数据继续被读取。
@@ -523,9 +484,7 @@ func (*DeviceConfig) GetDeviceConfigByID(ctx context.Context, id string, claims 
 func (*DeviceConfig) GetDeviceConfigListByPage(req *model.GetDeviceConfigListByPageReq, claims *utils.UserClaims) (map[string]interface{}, error) {
 	total, list, err := dal.GetDeviceConfigListByPage(req, claims)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	deviceconfigListRsp := make(map[string]interface{})
 	deviceconfigListRsp["total"] = total
@@ -542,9 +501,7 @@ func (*DeviceConfig) GetDeviceConfigListByPage(req *model.GetDeviceConfigListByP
 func (*DeviceConfig) GetDeviceConfigListMenu(req *model.GetDeviceConfigListMenuReq, claims *utils.UserClaims) (any, error) {
 	data, err := dal.GetDeviceConfigSelectList(req.DeviceConfigName, claims.TenantID, req.DeviceType, req.ProtocolType)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	return data, nil
 }

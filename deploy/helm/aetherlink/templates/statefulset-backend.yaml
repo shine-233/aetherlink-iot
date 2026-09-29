@@ -37,6 +37,8 @@ spec:
         {{ $k }}: {{ $v | quote }}
         {{- end }}
     spec:
+      # 所有组件都不调用 Kubernetes API，不挂载 SA token 以缩小凭据暴露面。
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001

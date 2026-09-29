@@ -161,7 +161,7 @@ type ControlCommandExecutor interface {
 
 // ControlRequest 控制命令请求。
 type ControlRequest struct {
-	TenantID          string
+	TenantID string
 	// DeviceID 命令目标设备（必填：没有目标的命令无从执行）。
 	DeviceID          string
 	DocumentID        string
@@ -240,7 +240,7 @@ func (s *ScadaControlService) ExecuteControl(ctx context.Context, req ControlReq
 			return s.deny(ctx, req, "scada document not found"),
 				errcode.NewWithMessage(errcode.CodeNotFound, "scada document not found")
 		}
-		return model.ControlOutcomeDenied, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return model.ControlOutcomeDenied, dbError(err)
 	}
 	if model.IsScadaTerminalStatus(doc.Status) {
 		return s.deny(ctx, req, "scada document is archived"),

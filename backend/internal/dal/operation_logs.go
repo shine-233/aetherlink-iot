@@ -6,8 +6,6 @@
 package dal
 
 import (
-	"fmt"
-	"strings"
 	"time"
 
 	model "aetherlink-iot/backend/internal/model"
@@ -19,9 +17,9 @@ import (
 	"gorm.io/gorm"
 )
 
+// operationLogLikePattern 复用包内统一的 LIKE 转义助手（like_escape.go），转义语义完全一致。
 func operationLogLikePattern(value string) string {
-	replacer := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
-	return fmt.Sprintf("%%%s%%", replacer.Replace(value))
+	return ContainsLikePattern(value)
 }
 
 func GetListByPage(operationLog *model.GetOperationLogListByPageReq, userClaims *utils.UserClaims) (int64, interface{}, error) {
@@ -94,6 +92,14 @@ func DeleteOperationLogsByTime(t time.Time) error {
 	return err
 }
 
+// operationLogExportColumns 是审计导出 CSV 实际使用的列。此前 Find 走 SELECT *，
+// 会把 request_message/response_message（text 载荷）随至多 10 万行一起读入内存，
+// 与下方"载荷列刻意不取"的约定不符；显式投影后两列保持 nil，service 层本就不输出它们。
+var operationLogExportColumns = []string{
+	"id", "created_at", "user_id", "tenant_id", "ip", "path", "name",
+	"action", "entity_type", "entity_id", "status_code", "latency", "remark",
+}
+
 // ListOperationLogsForExport 按时间窗读取租户操作日志（P3 审计导出，CSV 渲染用）。
 // 只投影导出列所需的字段级结构；message 载荷列刻意不取——审计最小化（见 service 层注释）。
 // TB-10（127.sql）：filters.Action/EntityType/EntityID 为可选实体级筛选，空串/nil 不收窄结果。
@@ -114,6 +120,7 @@ func ListOperationLogsForExport(tenantID string, start, end time.Time, filters m
 	}
 	rows := make([]model.OperationLog, 0, 512)
 	err := query.
+		Select(operationLogExportColumns).
 		Order("created_at ASC").
 		Limit(limit).
 		Find(&rows).Error

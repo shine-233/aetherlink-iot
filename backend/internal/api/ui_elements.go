@@ -27,18 +27,9 @@ type UiElementsApi struct{}
 // 静态审查建议：关注 authority、element_type 的枚举值是否需要在 API 层更早失败，以及 route_path/多语言字段是否需要格式校验。
 // @Router   /api/v1/ui_elements [post]
 func (*UiElementsApi) CreateUiElements(c *gin.Context) {
-	var req model.CreateUiElementsReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.UiElements.CreateUiElements(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", nil)
+	HandleAction(c, func(req *model.CreateUiElementsReq, userClaims *utils.UserClaims) error {
+		return service.GroupApp.UiElements.CreateUiElements(req, userClaims)
+	})
 }
 
 // UpdateUiElements 更新 UI 元素配置。
@@ -78,14 +69,9 @@ func (*UiElementsApi) UpdateUiElements(c *gin.Context) {
 // 静态审查建议：关注路径 id 的格式校验、级联删除/子节点残留风险，以及删除操作是否需要审计记录。
 // @Router   /api/v1/ui_elements/{id} [delete]
 func (*UiElementsApi) DeleteUiElements(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.UiElements.DeleteUiElements(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandlePathAction(c, "id", func(id string, userClaims *utils.UserClaims) error {
+		return service.GroupApp.UiElements.DeleteUiElements(id, userClaims)
+	})
 }
 
 // ServeUiElementsListByPage UI 元素分页查询。
@@ -96,18 +82,9 @@ func (*UiElementsApi) DeleteUiElements(c *gin.Context) {
 // 静态审查建议：关注分页上限、防止全量拉取，以及返回树形/平铺结构契约是否与前端保持一致。
 // @Router   /api/v1/ui_elements [get]
 func (*UiElementsApi) ServeUiElementsListByPage(c *gin.Context) {
-	var req model.ServeUiElementsListByPageReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	UiElementsList, err := service.GroupApp.UiElements.ServeUiElementsListByPage(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", UiElementsList)
+	Handle(c, func(req *model.ServeUiElementsListByPageReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.UiElements.ServeUiElementsListByPage(req, userClaims)
+	})
 }
 
 // ServeUiElementsListByAuthority 根据当前用户权限查询 UI 元素。
@@ -134,11 +111,7 @@ func (*UiElementsApi) ServeUiElementsListByAuthority(c *gin.Context) {
 // 静态审查建议：关注返回树结构的稳定性、租户管理员边界是否和产品预期一致，并补齐 Swagger 路由注释的一致性。
 // @Router   /api/v1/ui_elements/select/form [get]
 func (*UiElementsApi) ServeUiElementsListByTenant(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	uiElementsList, err := service.GroupApp.UiElements.GetTenantUiElementsList(userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", uiElementsList)
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.UiElements.GetTenantUiElementsList(userClaims)
+	})
 }

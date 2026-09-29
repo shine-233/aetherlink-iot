@@ -199,7 +199,7 @@ func ackShadowMessage(deviceId, msgId string) error {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errcode.NewWithMessage(errcode.CodeParamError, "ackable shadow message not found")
 		}
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return dbError(err)
 	}
 	return nil
 }

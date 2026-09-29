@@ -10,8 +10,6 @@ import (
 
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
-	"aetherlink-iot/backend/pkg/constant"
-	"aetherlink-iot/backend/pkg/errcode"
 	utils "aetherlink-iot/backend/pkg/utils"
 
 	"github.com/go-basic/uuid"
@@ -19,35 +17,6 @@ import (
 )
 
 type Role struct{}
-
-func requireRoleManager(claims *utils.UserClaims) error {
-	if claims == nil {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to manage roles")
-	}
-	if claims.Authority != constant.SYS_ADMIN && claims.Authority != constant.TENANT_ADMIN {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to manage roles")
-	}
-	return nil
-}
-
-func ensureRoleWriteAccess(id string, claims *utils.UserClaims) (model.Role, error) {
-	role, err := dal.GetRoleByID(id)
-	if err != nil {
-		return role, err
-	}
-	if role.ID == "" {
-		return role, errcode.NewWithMessage(errcode.CodeNoPermission, "role not found or no permission")
-	}
-	if err := requireRoleManager(claims); err != nil {
-		return role, err
-	}
-	if claims.Authority != constant.SYS_ADMIN {
-		if role.TenantID == nil || *role.TenantID != claims.TenantID {
-			return role, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to manage another tenant role")
-		}
-	}
-	return role, nil
-}
 
 func (*Role) CreateRole(createRoleReq *model.CreateRoleReq, userClaims *utils.UserClaims) error {
 	if err := requireRoleManager(userClaims); err != nil {

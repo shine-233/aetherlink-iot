@@ -1,0 +1,154 @@
+import { effectScope, nextTick } from 'vue'
+import { describe, expect, it, vi } from 'vitest'
+import { fromFlatResponse, normalizeListResponse, serializeDates, useListPage } from '../useListPage'
+
+type Row = { id: string }
+
+function deferred<T>() {
+  let resolve!: (v: T) => void
+  const promise = new Promise<T>((r) => {
+    resolve = r
+  })
+  return { promise, resolve }
+}
+
+describe('useListPage', () => {
+  it('drops stale responses and aborts the previous request', async () => {
+    const first = deferred<{ list: Row[]; total: number }>()
+    const second = deferred<{ list: Row[]; total: number }>()
+    const signals: AbortSignal[] = []
+    const fetcher = vi
+      .fn()
+      .mockImplementationOnce((_p, ctx) => {
+        signals.push(ctx.signal)
+        return first.promise
+      })
+      .mockImplementationOnce((_p, ctx) => {
+        signals.push(ctx.signal)
+        return second.promise
+      })
+    const list = useListPage<Row>({ fetcher })
+    const p1 = list.load()
+    const p2 = list.setPage(2)
+    expect(signals[0].aborted).toBe(true)
+    second.resolve({ list: [{ id: 'b' }], total: 30 })
+    await p2
+    first.resolve({ list: [{ id: 'a' }], total: 1 })
+    expect(await p1).toBe(false)
+    expect(list.rows.value).toEqual([{ id: 'b' }])
+    expect(list.total.value).toBe(30)
+    expect(list.loading.value).toBe(false)
+    expect(fetcher.mock.calls[1][0]).toMatchObject({ page: 2, page_size: 10 })
+  })
+
+  it('search resets page, pageSize change resets page, reset restores filters', async () => {
+    const fetcher = vi.fn().mockResolvedValue({ list: [{ id: 'x' }], total: 100 })
+    const list = useListPage<Row, { name: string }>({ fetcher, initialQuery: () => ({ name: '' }) })
+    await list.setPage(3)
+    list.query.name = 'abc'
+    await list.search()
+    expect(fetcher.mock.lastCall![0]).toEqual({ name: 'abc', page: 1, page_size: 10 })
+    await list.setPage(4)
+    await list.setPageSize(50)
+    expect(fetcher.mock.lastCall![0]).toMatchObject({ page: 1, page_size: 50 })
+    await list.reset()
+    expect(list.query.name).toBe('')
+  })
+
+  it('keeps rows when the fetcher reports failure', async () => {
+    const fetcher = vi.fn().mockResolvedValueOnce({ list: [{ id: 'a' }], total: 1 }).mockResolvedValueOnce(null)
+    const list = useListPage<Row>({ fetcher })
+    await list.load()
+    expect(await list.load()).toBe(false)
+    expect(list.rows.value).toEqual([{ id: 'a' }])
+  })
+
+  it('steps back when the current page no longer exists', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce({ list: [], total: 10 })
+      .mockResolvedValueOnce({ list: [{ id: 'z' }], total: 10 })
+    const list = useListPage<Row>({ fetcher, initialPage: 2 })
+    await list.load()
+    expect(list.page.value).toBe(1)
+    expect(list.rows.value).toEqual([{ id: 'z' }])
+  })
+
+  it('prunes selection to rows still visible', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce({ list: [{ id: 'a' }, { id: 'b' }], total: 2 })
+      .mockResolvedValueOnce({ list: [{ id: 'b' }], total: 1 })
+    const list = useListPage<Row>({ fetcher })
+    await list.load()
+    list.setSelectedKeys(['a', 'b'])
+    expect(list.selectedRows.value).toHaveLength(2)
+    await list.load()
+    expect(list.selectedKeys.value).toEqual(['b'])
+  })
+
+  it('reads and writes route query when routeSync is on', async () => {
+    const replace = vi.fn()
+    const route = { query: { page: '3', page_size: '20', search: 'dev', other: 'keep' } as Record<string, unknown> }
+    const fetcher = vi.fn().mockResolvedValue({ list: [{ id: 'a' }], total: 100 })
+    const list = useListPage<Row, { search: string }>({
+      fetcher,
+      initialQuery: () => ({ search: '' }),
+      routeSync: { route, router: { replace }, keys: ['search'] }
+    })
+    expect(list.page.value).toBe(3)
+    expect(list.pageSize.value).toBe(20)
+    expect(list.query.search).toBe('dev')
+    await list.load()
+    expect(replace).not.toHaveBeenCalled()
+    list.query.search = ''
+    await list.search()
+    expect(replace).toHaveBeenLastCalledWith({ query: { page_size: '20', other: 'keep' } })
+  })
+
+  it('cancels in-flight work when the scope is disposed', async () => {
+    const pending = deferred<{ list: Row[]; total: number }>()
+    let signal: AbortSignal | undefined
+    const scope = effectScope()
+    const list = scope.run(() =>
+      useListPage<Row>({
+        fetcher: (_p, ctx) => {
+          signal = ctx.signal
+          return pending.promise
+        }
+      })
+    )!
+    const p = list.load()
+    scope.stop()
+    expect(signal?.aborted).toBe(true)
+    pending.resolve({ list: [{ id: 'a' }], total: 1 })
+    expect(await p).toBe(false)
+    await nextTick()
+    expect(list.rows.value).toEqual([])
+  })
+
+  it('pagination object stays in sync and drives loads', async () => {
+    const fetcher = vi.fn().mockResolvedValue({ list: [{ id: 'a' }], total: 42 })
+    const list = useListPage<Row>({ fetcher })
+    await list.load()
+    expect(list.pagination.itemCount).toBe(42)
+    list.pagination.onUpdatePage!(2)
+    await Promise.resolve()
+    expect(list.pagination.page).toBe(2)
+    expect(fetcher.mock.lastCall![0]).toMatchObject({ page: 2 })
+  })
+
+  it('helpers normalize shapes and dates', () => {
+    expect(normalizeListResponse({ list: [1], total: 5 })).toEqual({ list: [1], total: 5 })
+    expect(normalizeListResponse({ data: { list: [1, 2] } })).toEqual({ list: [1, 2], total: 2 })
+    expect(normalizeListResponse([1])).toEqual({ list: [1], total: 1 })
+    expect(fromFlatResponse({ error: new Error('x') })).toBeNull()
+    expect(fromFlatResponse({ data: { list: [], total: 0 } })).toEqual({ list: [], total: 0 })
+    const d = new Date('2024-01-01T00:00:00Z')
+    expect(serializeDates({ a: d, b: [d], c: 'x' })).toEqual({
+      a: d.toISOString(),
+      b: [d.toISOString()],
+      c: 'x'
+    })
+  })
+})

@@ -146,7 +146,7 @@ func RunTelemetryAnalysis(ctx context.Context, q model.TelemetryAnalysisQuery, c
 
 		currentRows, err := fetchTelemetryAnalysisSeries(fetch, deviceID, q.Key, q.StartTime, q.EndTime, windowMs, aggregate, coldCutoff)
 		if err != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+			return nil, dbError(err)
 		}
 		currentValues := telemetryAnalysisValues(currentRows)
 
@@ -158,7 +158,7 @@ func RunTelemetryAnalysis(ctx context.Context, q model.TelemetryAnalysisQuery, c
 			}
 			baselineRows, err := fetchTelemetryAnalysisSeries(fetch, deviceID, q.Key, baseStart, baseEnd, baseEnd-baseStart, aggregate, coldCutoff)
 			if err != nil {
-				return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+				return nil, dbError(err)
 			}
 			baselineValues = telemetryAnalysisValues(baselineRows)
 		}

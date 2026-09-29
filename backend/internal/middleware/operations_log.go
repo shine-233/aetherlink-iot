@@ -309,8 +309,7 @@ func saveOperationLog(c *gin.Context, start time.Time, cost int64, requestMsg, r
 	// TB-10 实体级审计：动作映射自 HTTP 方法，实体定位自**已脱敏**路径
 	// （safeOperationLogPath 先替换 rdi/share-tokens 段，避免 token 泄入 entity_id），
 	// 状态码取 c.Writer.Status()（full 分支已被 responseBodyWriter 包装，Status 照常透传）。
-	action := operationActionForMethod(c.Request.Method)
-	entityType, entityID := operationEntityForPath(path)
+	action, entityType, entityID := resolveOperationActionAndEntity(c.Request.Method, path, requestMsg, responseMsg)
 	statusCode := int32(c.Writer.Status())
 
 	log := &model.OperationLog{

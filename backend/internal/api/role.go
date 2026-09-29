@@ -25,20 +25,9 @@ type RoleApi struct{}
 // 静态审查建议：确认中间件始终注入 claims，避免 MustGet 触发 panic；同时关注角色名唯一性、租户归属和审计日志是否在更下层有保障。
 // @Router   /api/v1/role [post]
 func (*RoleApi) CreateRole(c *gin.Context) {
-	var req model.CreateRoleReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	err := service.GroupApp.Role.CreateRole(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", nil)
+	HandleAction(c, func(req *model.CreateRoleReq, userClaims *utils.UserClaims) error {
+		return service.GroupApp.Role.CreateRole(req, userClaims)
+	})
 }
 
 // UpdateRole 更新角色基础信息。

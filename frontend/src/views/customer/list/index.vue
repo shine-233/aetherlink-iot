@@ -24,7 +24,6 @@ import {
   useMessage
 } from 'naive-ui'
 import type { DataTableColumns, FormInst, FormRules, SelectOption } from 'naive-ui'
-import { useLoading } from '@aetherlink/hooks'
 import {
   assignCustomerDevices,
   deleteCustomer,
@@ -37,12 +36,23 @@ import {
 } from '@/service/api'
 import { $t } from '@/locales'
 import { formatDateTime } from '@/utils/common/datetime'
+import { fromFlatResponse, useListPage } from '@/components/data-table-page/useListPage'
 
 const message = useMessage()
-const { loading, startLoading, endLoading } = useLoading(false)
-const customers = ref<CustomerItem[]>([])
 const searchValue = ref('')
-const pagination = reactive({ page: 1, pageSize: 10, itemCount: 0 })
+
+// 分页（含每页条数变化后回拉）、加载态与过期请求丢弃由 useListPage 统一处理。
+const {
+  rows: customers,
+  loading,
+  pagination,
+  load: fetchCustomers,
+  search: handleSearch
+} = useListPage<CustomerItem, { search?: string }>({
+  pageSizes: [10, 20, 50],
+  serialize: () => ({ search: searchValue.value || undefined }),
+  fetcher: async (params) => fromFlatResponse<CustomerItem>(await getCustomersList(params))
+})
 
 const modalVisible = ref(false)
 const submitting = ref(false)
@@ -120,33 +130,6 @@ const columns: DataTableColumns<CustomerItem> = [
     )
   }
 ]
-
-const fetchCustomers = async () => {
-  startLoading()
-  try {
-    const { data, error } = await getCustomersList({
-      page: pagination.page,
-      page_size: pagination.pageSize,
-      search: searchValue.value || undefined
-    })
-    if (!error && data) {
-      customers.value = data.list ?? []
-      pagination.itemCount = data.total ?? 0
-    }
-  } finally {
-    endLoading()
-  }
-}
-
-const handleSearch = () => {
-  pagination.page = 1
-  void fetchCustomers()
-}
-
-const handlePageChange = (page: number) => {
-  pagination.page = page
-  void fetchCustomers()
-}
 
 const openCreate = () => {
   editingId.value = ''
@@ -271,7 +254,7 @@ onMounted(() => {
         :columns="columns"
         :data="customers"
         :loading="loading"
-        :pagination="{ ...pagination, onChange: handlePageChange, 'onUpdate:pageSize': (size: number) => (pagination.pageSize = size) }"
+        :pagination="pagination"
         :scroll-x="900"
         :row-key="(row: CustomerItem) => row.id"
       />

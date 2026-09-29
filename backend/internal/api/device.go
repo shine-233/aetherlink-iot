@@ -80,49 +80,25 @@ func (*DeviceApi) CreateDeviceBatch(c *gin.Context) {
 // DeleteDevice 删除设备
 // @Router   /api/v1/device/{id} [delete]
 func (*DeviceApi) DeleteDevice(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.Device.DeleteDevice(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandlePathAction(c, "id", func(id string, userClaims *utils.UserClaims) error {
+		return service.GroupApp.Device.DeleteDevice(id, userClaims)
+	})
 }
 
 // UpdateDevice 更新设备
 // @Router   /api/v1/device [put]
 func (*DeviceApi) UpdateDevice(c *gin.Context) {
-	var req model.UpdateDeviceReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Device.UpdateDevice(req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	Handle(c, func(req *model.UpdateDeviceReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Device.UpdateDevice(*req, userClaims)
+	})
 }
 
 // ActiveDevice 激活设备
 // @Router   /api/v1/device/active [put]
 func (*DeviceApi) ActiveDevice(c *gin.Context) {
-	var req model.ActiveDeviceReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	device, err := service.GroupApp.Device.ActiveDevice(req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", device)
+	Handle(c, func(req *model.ActiveDeviceReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Device.ActiveDevice(*req, userClaims)
+	})
 }
 
 // HandleDeviceByID 返回单个设备详情。
@@ -131,15 +107,9 @@ func (*DeviceApi) ActiveDevice(c *gin.Context) {
 // 链路说明：该接口通常是设备详情页、编辑弹窗或二级关联页的数据入口，API 层不应额外拼装领域字段，避免与 service 返回结构漂移。
 // @Router   /api/v1/device/detail/{id} [get]
 func (*DeviceApi) HandleDeviceByID(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	device, err := service.GroupApp.Device.GetDeviceByIDV1(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", device)
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Device.GetDeviceByIDV1(id, userClaims)
+	})
 }
 
 // HandleDeviceListByPage 返回设备分页列表。
@@ -149,17 +119,9 @@ func (*DeviceApi) HandleDeviceByID(c *gin.Context) {
 // @Param all_tenants query bool false "仅 SYS_ADMIN 可显式查询全部租户设备"
 // @Router   /api/v1/device [get]
 func (*DeviceApi) HandleDeviceListByPage(c *gin.Context) {
-	var req model.GetDeviceListByPageReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	list, err := service.GroupApp.Device.GetDeviceListByPage(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", list)
+	Handle(c, func(req *model.GetDeviceListByPageReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Device.GetDeviceListByPage(req, userClaims)
+	})
 }
 
 // @Tags     设备管理
@@ -178,17 +140,9 @@ func (*DeviceApi) CheckDeviceNumber(c *gin.Context) {
 // 移除子设备
 // /api/v1/device/sub-remove
 func (*DeviceApi) RemoveSubDevice(c *gin.Context) {
-	var req model.RemoveSonDeviceReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.Device.RemoveSubDevice(req.SubDeviceId, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandleAction(c, func(req *model.RemoveSonDeviceReq, userClaims *utils.UserClaims) error {
+		return service.GroupApp.Device.RemoveSubDevice(req.SubDeviceId, userClaims)
+	})
 }
 
 // GetTenantDeviceList
@@ -197,17 +151,9 @@ func (*DeviceApi) RemoveSubDevice(c *gin.Context) {
 // @DESCRIPTIONS: 获得租户下设备列表
 // /api/v1/device/tenant/list [get]
 func (*DeviceApi) HandleTenantDeviceList(c *gin.Context) {
-	var req model.GetDeviceMenuReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Device.GetTenantDeviceList(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.GetDeviceMenuReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Device.GetTenantDeviceList(req, userClaims)
+	})
 }
 
 // GetDeviceList
@@ -216,17 +162,9 @@ func (*DeviceApi) HandleTenantDeviceList(c *gin.Context) {
 // @DESCRIPTIONS: 获得未绑定的设备列表（支持网关设备和子设备，可通过device_type参数过滤）
 // /api/v1/device/list [get]
 func (*DeviceApi) HandleDeviceList(c *gin.Context) {
-	var req model.GetUnboundGatewaySubDeviceReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Device.GetDeviceList(c, userClaims, &req)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.GetUnboundGatewaySubDeviceReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Device.GetDeviceList(c, userClaims, req)
+	})
 }
 
 // CreateSonDevice
@@ -380,14 +318,9 @@ func (*DeviceApi) HandleSubList(c *gin.Context) {
 
 // /api/v1/device/metrics/{id}
 func (*DeviceApi) HandleMetrics(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	list, err := service.GroupApp.Device.GetMetrics(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", list)
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Device.GetMetrics(id, userClaims)
+	})
 }
 
 // HandleActionByDeviceID 返回单设备动作下拉菜单。
@@ -428,26 +361,17 @@ func (*DeviceApi) HandleConditionByDeviceID(c *gin.Context) {
 
 // /api/v1/device/map/telemetry/{id}
 func (*DeviceApi) HandleMapTelemetry(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Device.GetMapTelemetry(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Device.GetMapTelemetry(id, userClaims)
+	})
 }
 
 // 有物模型且有图表配置的设备下拉列表
 // /api/v1/device/template/chart/select
 func (*DeviceApi) HandleDeviceTemplateChartSelect(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	list, err := service.GroupApp.Device.GetDeviceTemplateChartSelect(userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", list)
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Device.GetDeviceTemplateChartSelect(userClaims)
+	})
 }
 
 // UpdateDeviceConfig 更换设备配置。
@@ -476,14 +400,9 @@ func (*DeviceApi) UpdateDeviceConfig(c *gin.Context) {
 // 链路说明：在线状态通常由上行、缓存或状态服务汇总，API 层不应自行推断在线逻辑。
 // /api/v1/device/online/status/{id} [get]
 func (*DeviceApi) HandleDeviceOnlineStatus(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Device.GetDeviceOnlineStatus(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Device.GetDeviceOnlineStatus(id, userClaims)
+	})
 }
 
 func (*DeviceApi) GatewayRegister(c *gin.Context) {
@@ -545,45 +464,23 @@ func (*DeviceApi) HandleDeviceMetricsChart(c *gin.Context) {
 // 设备选择器
 // /api/v1/device/selector [get]
 func (*DeviceApi) HandleDeviceSelector(c *gin.Context) {
-	var req model.DeviceSelectorReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	list, err := service.GroupApp.Device.GetDeviceSelector(req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", list)
+	Handle(c, func(req *model.DeviceSelectorReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Device.GetDeviceSelector(*req, userClaims)
+	})
 }
 
 // 获取租户下最近上报数据的三个设备的遥测数据
 // /api/v1/device/telemetry/latest [get]
 func (*DeviceApi) HandleTenantTelemetryData(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	data, err := service.GroupApp.Device.GetTenantTelemetryData(userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Device.GetTenantTelemetryData(userClaims)
+	})
 }
 
 // GetDeviceStatusHistory 获取设备状态历史记录
 // @Router   /api/v1/device/status/history [get]
 func (*DeviceApi) GetDeviceStatusHistory(c *gin.Context) {
-	var req model.GetDeviceStatusHistoryReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Device.GetDeviceStatusHistory(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.GetDeviceStatusHistoryReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Device.GetDeviceStatusHistory(req, userClaims)
+	})
 }

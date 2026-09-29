@@ -9,6 +9,7 @@
 package service
 
 import (
+	"errors"
 	"strings"
 	"time"
 
@@ -46,7 +47,7 @@ func (*BoardProjectService) CreateProject(req model.CreateBoardProjectReq, claim
 		if strings.Contains(err.Error(), "duplicate key") {
 			return nil, errcode.NewWithMessage(errcode.CodeParamError, "board project name already exists in tenant")
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	return project, nil
 }
@@ -60,15 +61,15 @@ func (*BoardProjectService) ListProjects(req model.BoardProjectListReq, claims *
 	if boardID != "" {
 		// 反查前确认看板在租户内：不存在的看板ID不该返回"空项目列表"这种模糊信号。
 		if _, err := dal.GetBoardInTenant(boardID, claims.TenantID); err != nil {
-			if err.Error() == "record not found" {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return nil, errcode.NewWithMessage(errcode.CodeParamError, "board not found in tenant")
 			}
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+			return nil, dbError(err)
 		}
 	}
 	rows, err := dal.ListBoardProjectsInTenant(claims.TenantID, boardID, 0)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	return rows, nil
 }
@@ -80,10 +81,10 @@ func (*BoardProjectService) GetProject(id string, claims *utils.UserClaims) (*mo
 	}
 	project, err := dal.GetBoardProjectInTenant(id, claims.TenantID)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errcode.NewWithMessage(errcode.CodeParamError, "board project not found")
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	return project, nil
 }
@@ -102,7 +103,7 @@ func (*BoardProjectService) UpdateProject(id string, req model.UpdateBoardProjec
 		if strings.Contains(err.Error(), "duplicate key") {
 			return nil, errcode.NewWithMessage(errcode.CodeParamError, "board project name already exists in tenant")
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	if affected == 0 {
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "board project not found")
@@ -116,13 +117,13 @@ func (*BoardProjectService) DeleteProject(id string, claims *utils.UserClaims) e
 		return err
 	}
 	if _, err := dal.GetBoardProjectInTenant(id, claims.TenantID); err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errcode.NewWithMessage(errcode.CodeParamError, "board project not found")
 		}
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return dbError(err)
 	}
 	if err := dal.DeleteBoardProject(id, claims.TenantID); err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return dbError(err)
 	}
 	return nil
 }
@@ -133,10 +134,10 @@ func (*BoardProjectService) AddBoard(projectID, boardID string, claims *utils.Us
 		return err
 	}
 	if _, err := dal.GetBoardProjectInTenant(projectID, claims.TenantID); err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errcode.NewWithMessage(errcode.CodeParamError, "board project not found")
 		}
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return dbError(err)
 	}
 	if _, err := dal.GetBoardInTenant(boardID, claims.TenantID); err != nil {
 		return errcode.NewWithMessage(errcode.CodeParamError, "board not found in tenant")
@@ -145,7 +146,7 @@ func (*BoardProjectService) AddBoard(projectID, boardID string, claims *utils.Us
 		if strings.Contains(err.Error(), "duplicate key") {
 			return errcode.NewWithMessage(errcode.CodeParamError, "board already belongs to a project")
 		}
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return dbError(err)
 	}
 	return nil
 }
@@ -156,13 +157,13 @@ func (*BoardProjectService) RemoveBoard(projectID, boardID string, claims *utils
 		return err
 	}
 	if _, err := dal.GetBoardProjectInTenant(projectID, claims.TenantID); err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errcode.NewWithMessage(errcode.CodeParamError, "board project not found")
 		}
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return dbError(err)
 	}
 	if _, err := dal.RemoveBoardFromProject(projectID, boardID, claims.TenantID); err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return dbError(err)
 	}
 	return nil
 }
@@ -177,7 +178,7 @@ func (*BoardProjectService) MembershipOf(boardID string, claims *utils.UserClaim
 	}
 	project, err := dal.GetBoardProjectMembership(boardID, claims.TenantID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	return project, nil
 }

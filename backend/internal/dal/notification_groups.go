@@ -81,7 +81,7 @@ func GetNotificationGroupListByPage(notifications *model.GetNotificationGroupLis
 	var count int64
 	queryBuilder := q.WithContext(context.Background())
 	if notifications.Name != nil {
-		queryBuilder = queryBuilder.Where(q.Name.Like(fmt.Sprintf("%%%s%%", *notifications.Name)))
+		queryBuilder = queryBuilder.Where(q.Name.Like(ContainsLikePattern(*notifications.Name)))
 	}
 
 	if notifications.NotificationType != nil {

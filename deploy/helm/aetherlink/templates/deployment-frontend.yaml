@@ -32,6 +32,8 @@ spec:
         {{ $k }}: {{ $v | quote }}
         {{- end }}
     spec:
+      # 所有组件都不调用 Kubernetes API，不挂载 SA token 以缩小凭据暴露面。
+      automountServiceAccountToken: false
       # 对齐 compose frontend：镜像默认 root 运行（官方 nginx 镜像需写 /run/nginx.pid 与
       # /var/log/nginx），仅保留 cap_drop ALL + no-new-privileges 同等约束，不做 runAs 改写。
       securityContext:

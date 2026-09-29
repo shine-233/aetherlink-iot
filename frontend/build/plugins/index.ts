@@ -16,6 +16,7 @@ import { setupUnocssPlugin } from './unocss'
 import { setupIconPlugins } from './icons'
 import { setupRouterPlugin } from './router'
 import { setupHtmlTitlePlugin } from './html-title'
+import { setupPrecompressPlugin } from './compress'
 
 /**
  * 自动注册组件的扫描范围。
@@ -59,6 +60,7 @@ export function setupVitePlugins(viteEnv: Env.ImportMeta): PluginOption[] {
     }),
     ...setupIconPlugins(viteEnv),
     ...setupHtmlTitlePlugin(viteEnv),
+    ...setupPrecompressPlugin(),
     progress()
   ]
 }

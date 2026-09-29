@@ -14,17 +14,9 @@ import (
 // @Router   /api/v1/devices/locations/latest [get]
 // @Router   /api/v1/device/locations/latest [get]
 func (*DeviceApi) HandleGetLatestDeviceLocations(c *gin.Context) {
-	var req model.DeviceLocationLatestReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Device.GetLatestDeviceLocations(c.Request.Context(), &req, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.DeviceLocationLatestReq, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Device.GetLatestDeviceLocations(c.Request.Context(), req, claims)
+	})
 }
 
 // HandleGetDeviceLocationHistory 查询单设备历史地理运动轨迹

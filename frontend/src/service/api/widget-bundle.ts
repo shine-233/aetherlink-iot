@@ -3,6 +3,7 @@
  * 核心逻辑：封装部件库的增删改查、内置四部件导出描述与一键种子落库接口。
  */
 import { request } from '../request'
+import { createResource } from './resource'
 
 export interface WidgetBundleItem {
   id: string
@@ -62,30 +63,29 @@ export interface WidgetBundleSeedResponse {
   idempotent: boolean
 }
 
+const bundles = createResource<
+  WidgetBundleListParams,
+  WidgetBundleListResponse,
+  WidgetBundleItem,
+  CreateWidgetBundleParams,
+  UpdateWidgetBundleParams,
+  boolean
+>({ collection: '/widget-bundles' })
+
 /** 分页与条件查询部件库列表 */
-export const getWidgetBundlesList = async (params?: WidgetBundleListParams) => {
-  return await request.get<WidgetBundleListResponse>('/widget-bundles', { params })
-}
+export const getWidgetBundlesList = bundles.list
 
 /** 获取部件库详情 */
-export const getWidgetBundleDetail = async (id: string) => {
-  return await request.get<WidgetBundleItem>(`/widget-bundles/${encodeURIComponent(id)}`)
-}
+export const getWidgetBundleDetail = bundles.detail
 
 /** 创建部件库 */
-export const createWidgetBundle = async (data: CreateWidgetBundleParams) => {
-  return await request.post<WidgetBundleItem>('/widget-bundles', data)
-}
+export const createWidgetBundle = bundles.create
 
 /** 更新部件库 */
-export const updateWidgetBundle = async (data: UpdateWidgetBundleParams) => {
-  return await request.put<WidgetBundleItem>('/widget-bundles', data)
-}
+export const updateWidgetBundle = bundles.update
 
 /** 删除部件库 */
-export const deleteWidgetBundle = async (id: string) => {
-  return await request.delete<boolean>(`/widget-bundles/${encodeURIComponent(id)}`)
-}
+export const deleteWidgetBundle = bundles.remove
 
 /** 内置四部件（gauge/chart/valve/twin3d）种子 bundle 导出描述 */
 export const getBuiltinWidgetBundle = async () => {

@@ -1,12 +1,15 @@
+<!--
+文件用途：定时报表工作台（计划列表、创建/编辑、立即运行、运行历史与重试）。
+核心逻辑：计划 CRUD 在 useReportSchedules，运行/历史/重试/轮询在 useReportRuns，列定义在 reportColumns，
+  选中运行详情在 ReportRunDetail；本文件只做编排与布局。
+-->
 <script setup lang="ts">
-import { computed, h, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted } from 'vue'
 import {
   NAlert,
   NButton,
   NCard,
   NDataTable,
-  NDescriptions,
-  NDescriptionsItem,
   NDrawer,
   NDrawerContent,
   NEmpty,
@@ -16,555 +19,94 @@ import {
   NInputNumber,
   NModal,
   NPagination,
-  NPopconfirm,
   NSelect,
   NSpace,
   NSpin,
   NSwitch,
-  NTag,
-  useMessage,
-  type DataTableColumns,
-  type FormInst,
-  type SelectOption
+  useMessage
 } from 'naive-ui'
 import { $t } from '@/locales'
+import type { ReportRun, ReportSchedule } from '@/service/api/report'
 import {
-  createReportSchedule,
-  deleteReportSchedule,
-  getReportRun,
-  getReportSchedule,
-  listReportRuns,
-  listReportSchedules,
-  retryReportRun,
-  runReportSchedule,
-  updateReportSchedule,
-  type ReportRun,
-  type ReportSchedule,
-  type ReportScheduleFormat,
-  type ReportSchedulePayload,
-  type UpdateReportSchedulePayload
-} from '@/service/api/report'
-import {
-  canRetryReportRun,
-  createReportIdempotencyKey,
-  isUncertainReportTransportError,
-  reportStatusTagType
-} from './report-model'
-import { useSelectedReportRunPoll } from './useSelectedReportRunPoll'
-
-const PAGE_SIZE = 10
-const RUN_PAGE_SIZE = 10
-
-// TB-49：报表格式选项与后端 oneof=csv html pdf 同口径。标签为通用缩写，按泳道纪律
-// 以组件内常量落地（不新增四语言 locale 键）。
-const REPORT_FORMAT_OPTIONS: Array<SelectOption & { value: ReportScheduleFormat }> = [
-  { label: 'CSV', value: 'csv' },
-  { label: 'HTML', value: 'html' },
-  { label: 'PDF', value: 'pdf' }
-]
-
-// 编辑回填时归一化历史数据里的宽松取值：未知/缺失格式回落 CSV（与后端 fail-closed 一致）。
-const normalizeReportFormat = (value?: string | null): ReportScheduleFormat =>
-  value === 'html' || value === 'pdf' ? value : 'csv'
+  REPORT_FORMAT_OPTIONS,
+  REPORT_PAGE_SIZE as PAGE_SIZE,
+  REPORT_RUN_PAGE_SIZE as RUN_PAGE_SIZE
+} from './report-helpers'
+import { createRunColumns, createScheduleColumns } from './reportColumns'
+import { useReportSchedules } from './useReportSchedules'
+import { useReportRuns } from './useReportRuns'
+import ReportRunDetail from './ReportRunDetail.vue'
 
 const message = useMessage()
-const formRef = ref<FormInst | null>(null)
-const schedules = ref<ReportSchedule[]>([])
-const total = ref(0)
-const page = ref(1)
-const searchInput = ref('')
-const search = ref('')
-const listLoading = ref(false)
-const listFailed = ref(false)
-const showForm = ref(false)
-const editing = ref<ReportSchedule | null>(null)
-const saving = ref(false)
-const deletingId = ref('')
-const runningId = ref('')
-const selectedSchedule = ref<ReportSchedule | null>(null)
-const selectedScheduleId = computed(() => selectedSchedule.value?.id || '')
-const historyVisible = ref(false)
-const historyLoading = ref(false)
-const runs = ref<ReportRun[]>([])
-const runTotal = ref(0)
-const runPage = ref(1)
-const selectedRun = ref<ReportRun | null>(null)
-const retryingRunId = ref('')
-const pollFailed = ref(false)
-let scheduleRequestSequence = 0
-let historyRequestSequence = 0
+const {
+  schedules,
+  total,
+  page,
+  searchInput,
+  listLoading,
+  listFailed,
+  showForm,
+  editing,
+  saving,
+  deletingId,
+  formRef,
+  form,
+  deviceIdsText,
+  keysText,
+  loadSchedules,
+  searchSchedules,
+  changePage,
+  openCreate,
+  openEdit,
+  saveSchedule,
+  removeSchedule,
+  dispose: disposeSchedules
+} = useReportSchedules(message)
 
-const emptyForm = (): ReportSchedulePayload => ({
-  name: '',
-  cron_expr: '',
-  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
-  recipients: '',
-  device_ids: [],
-  keys: [],
-  lookback_hours: 24,
-  format: 'csv',
-  enabled: true
-})
-const form = reactive<ReportSchedulePayload>(emptyForm())
-const deviceIdsText = ref('')
-const keysText = ref('')
-
-const copyForm = (schedule?: ReportSchedule) => {
-  const source = schedule || emptyForm()
-  Object.assign(form, {
-    name: source.name,
-    cron_expr: source.cron_expr,
-    timezone: source.timezone || 'UTC',
-    recipients: source.recipients,
-    device_ids: [...source.device_ids],
-    keys: [...source.keys],
-    lookback_hours: source.lookback_hours,
-    format: normalizeReportFormat(source.format),
-    enabled: source.enabled,
-    ...(schedule ? { revision: schedule.revision } : {})
-  })
-  deviceIdsText.value = source.device_ids.join('\n')
-  keysText.value = source.keys.join('\n')
-}
-
-const splitLines = (value: string) => [
-  ...new Set(
-    value
-      .split(/[\n,]/)
-      .map((item) => item.trim())
-      .filter(Boolean)
-  )
-]
-const formatTime = (value?: string | null) =>
-  value ? new Date(value).toLocaleString() : $t('report.common.notAvailable')
-const statusText = (value?: string | null) => (value ? $t(`report.status.${value}`, value) : $t('report.status.never'))
-const runWindow = (run: ReportRun) => `${formatTime(run.window_start_at)} — ${formatTime(run.window_end_at)}`
-const smtpAccepted = (run: ReportRun) => run.delivery_status === 'accepted'
-const smtpAmbiguous = (run: ReportRun) => run.delivery_status === 'ambiguous'
-
-async function loadSchedules() {
-  const sequence = ++scheduleRequestSequence
-  const snapshot = { page: page.value, search: search.value }
-  listLoading.value = true
-  listFailed.value = false
-  try {
-    const { data, error } = await listReportSchedules({
-      page: snapshot.page,
-      page_size: PAGE_SIZE,
-      search: snapshot.search
-    })
-    if (sequence !== scheduleRequestSequence || snapshot.page !== page.value || snapshot.search !== search.value) return
-    if (error || !data) throw error || new Error('missing data')
-    schedules.value = data.list || []
-    total.value = data.total || 0
-  } catch {
-    if (sequence !== scheduleRequestSequence) return
-    schedules.value = []
-    total.value = 0
-    listFailed.value = true
-    message.error($t('report.message.loadFailed'))
-  } finally {
-    if (sequence === scheduleRequestSequence) listLoading.value = false
-  }
-}
-
-const REPORT_REVISION_CONFLICT_CODE = 201002
-
-type ReportRequestError = {
-  code?: number
-  data?: { code?: number }
-  response?: { data?: { code?: number } }
-}
-
-const reportErrorCode = (error: unknown) => {
-  if (!error || typeof error !== 'object') return undefined
-  const value = error as ReportRequestError
-  return value.response?.data?.code ?? value.data?.code ?? value.code
-}
-
-const isReportOperationDenied = (error: unknown) => reportErrorCode(error) === REPORT_REVISION_CONFLICT_CODE
-
-const refreshStaleSchedule = async (id: string) => {
-  const { data, error } = await getReportSchedule(id)
-  let refreshed: ReportSchedule | undefined = data || undefined
-  if (error || !refreshed) {
-    await loadSchedules()
-    refreshed = schedules.value.find((schedule) => schedule.id === id)
-  } else {
-    const index = schedules.value.findIndex((schedule) => schedule.id === id)
-    if (index >= 0) schedules.value.splice(index, 1, refreshed)
-  }
-  if (refreshed && editing.value?.id === id) {
-    editing.value = refreshed
-    copyForm(refreshed)
-  }
-  return refreshed
-}
-
-function searchSchedules() {
-  search.value = searchInput.value.trim()
-  page.value = 1
-  void loadSchedules()
-}
-function changePage(next: number) {
-  page.value = next
-  void loadSchedules()
-}
-function openCreate() {
-  editing.value = null
-  copyForm()
-  showForm.value = true
-}
-function openEdit(row: ReportSchedule) {
-  editing.value = row
-  copyForm(row)
-  showForm.value = true
-}
-
-async function saveSchedule() {
-  form.device_ids = splitLines(deviceIdsText.value)
-  form.keys = splitLines(keysText.value)
-  try {
-    await formRef.value?.validate()
-  } catch {
-    return
-  }
-  if (!form.device_ids.length || !form.keys.length) {
-    message.error($t('report.message.targetsRequired'))
-    return
-  }
-  saving.value = true
-  try {
-    const result = editing.value
-      ? await updateReportSchedule(editing.value.id, {
-          ...form,
-          revision: form.revision ?? editing.value.revision
-        } satisfies UpdateReportSchedulePayload)
-      : await createReportSchedule({ ...form })
-    if (result.error) throw result.error
-    message.success($t(editing.value ? 'report.message.updated' : 'report.message.created'))
-    showForm.value = false
-    await loadSchedules()
-  } catch (error) {
-    if (editing.value && isReportOperationDenied(error)) {
-      const previousRevision = editing.value.revision
-      const refreshed = await refreshStaleSchedule(editing.value.id)
-      if (refreshed && refreshed.revision !== previousRevision) {
-        message.warning($t('report.message.staleRevision'))
-      } else {
-        message.error($t('report.message.saveFailed'))
-      }
-    } else {
-      message.error($t('report.message.saveFailed'))
-    }
-  } finally {
-    saving.value = false
-  }
-}
-
-async function removeSchedule(row: ReportSchedule) {
-  deletingId.value = row.id
-  try {
-    const { error } = await deleteReportSchedule(row.id, row.revision)
-    if (error) throw error
-    message.success($t('report.message.deleted'))
-    if (schedules.value.length === 1 && page.value > 1) page.value -= 1
-    await loadSchedules()
-  } catch (error) {
-    if (isReportOperationDenied(error)) {
-      const refreshed = await refreshStaleSchedule(row.id)
-      if (refreshed && refreshed.revision !== row.revision) {
-        message.warning($t('report.message.deleteStaleRevision'))
-      } else {
-        message.error($t('report.message.deleteFailed'))
-      }
-    } else {
-      message.error($t('report.message.deleteFailed'))
-    }
-  } finally {
-    deletingId.value = ''
-  }
-}
-
-async function runNow(row: ReportSchedule, idempotencyKey = createReportIdempotencyKey()) {
-  if (runningId.value || !row.enabled) return
-  runningId.value = row.id
-  let retryUncertain = false
-  try {
-    const { data, error } = await runReportSchedule(row.id, { idempotencyKey })
-    if (error || !data) throw error || new Error('missing data')
-    message.success($t(data.idempotent_replay ? 'report.message.runReplay' : 'report.message.runStarted'))
-    selectedSchedule.value = row
-    selectedRun.value = null
-    pollFailed.value = false
-    historyVisible.value = true
-    runPage.value = 1
-    await Promise.all([loadRuns(), loadSchedules()])
-    selectedRun.value = runs.value.find((item) => item.run_id === data.run_id) || null
-    if (!selectedRun.value) {
-      const detail = await getReportRun(row.id, data.run_id)
-      if (!detail.error && detail.data) selectedRun.value = detail.data
-    }
-  } catch (error) {
-    message.error($t('report.message.runFailed'))
-    retryUncertain = isUncertainReportTransportError(error)
-  } finally {
-    runningId.value = ''
-  }
-  if (retryUncertain) await runNow(row, idempotencyKey)
-}
-
-async function loadRuns() {
-  const scheduleId = selectedScheduleId.value
-  if (!scheduleId) return
-  const sequence = ++historyRequestSequence
-  const snapshotPage = runPage.value
-  historyLoading.value = true
-  try {
-    const { data, error } = await listReportRuns(scheduleId, { page: snapshotPage, page_size: RUN_PAGE_SIZE })
-    if (
-      sequence !== historyRequestSequence ||
-      scheduleId !== selectedScheduleId.value ||
-      snapshotPage !== runPage.value
-    )
-      return
-    if (error || !data) throw error || new Error('missing data')
-    runs.value = data.list || []
-    runTotal.value = data.total || 0
-    if (selectedRun.value)
-      selectedRun.value = runs.value.find((run) => run.run_id === selectedRun.value?.run_id) || selectedRun.value
-  } catch {
-    if (sequence === historyRequestSequence) message.error($t('report.message.historyFailed'))
-  } finally {
-    if (sequence === historyRequestSequence) historyLoading.value = false
-  }
-}
-
-function openHistory(row: ReportSchedule) {
-  selectedSchedule.value = row
-  selectedRun.value = null
-  pollFailed.value = false
-  runs.value = []
-  runPage.value = 1
-  historyVisible.value = true
-  void loadRuns()
-}
-function changeRunPage(next: number) {
-  runPage.value = next
-  void loadRuns()
-}
-function selectRun(run: ReportRun) {
-  pollFailed.value = false
-  selectedRun.value = run
-}
-
-async function retryRun(run: ReportRun, idempotencyKey = createReportIdempotencyKey()) {
-  const scheduleId = selectedScheduleId.value
-  if (!scheduleId || !selectedSchedule.value?.enabled || retryingRunId.value) return
-  retryingRunId.value = run.run_id
-  let retryUncertain = false
-  try {
-    const { data, error } = await retryReportRun(scheduleId, run.run_id, { idempotencyKey })
-    if (error || !data) throw error || new Error('missing data')
-    message.success($t(data.idempotent_replay ? 'report.message.retryReplay' : 'report.message.retryStarted'))
-    selectedRun.value = null
-    pollFailed.value = false
-    await loadRuns()
-    selectedRun.value = runs.value.find((item) => item.run_id === data.run_id) || null
-    if (!selectedRun.value) {
-      const detail = await getReportRun(scheduleId, data.run_id)
-      if (!detail.error && detail.data) selectedRun.value = detail.data
-    }
-  } catch (error) {
-    message.error($t('report.message.retryFailed'))
-    retryUncertain = isUncertainReportTransportError(error)
-  } finally {
-    retryingRunId.value = ''
-  }
-  if (retryUncertain) await retryRun(run, idempotencyKey)
-}
-
-useSelectedReportRunPoll({
-  selectedScheduleId,
+const {
+  runningId,
+  selectedSchedule,
+  historyVisible,
+  historyLoading,
+  runs,
+  runTotal,
+  runPage,
   selectedRun,
-  visible: historyVisible,
-  onUpdate: (run) => {
-    pollFailed.value = false
-    const index = runs.value.findIndex((item) => item.run_id === run.run_id)
-    if (index >= 0) runs.value.splice(index, 1, run)
-  },
-  onFailure: ({ stopped }) => {
-    if (stopped) pollFailed.value = true
-  }
-})
+  retryingRunId,
+  pollFailed,
+  loadRuns,
+  runNow,
+  openHistory,
+  changeRunPage,
+  selectRun,
+  retryRun,
+  dispose: disposeRuns
+} = useReportRuns({ message, reloadSchedules: loadSchedules })
 
-const scheduleColumns = computed<DataTableColumns<ReportSchedule>>(() => [
-  {
-    title: $t('report.table.name'),
-    key: 'name',
-    minWidth: 180,
-    render: (row) =>
-      h('div', [h('strong', row.name), h('div', { class: 'report-muted' }, `${row.cron_expr} · ${row.timezone}`)])
-  },
-  {
-    title: $t('report.table.delivery'),
-    key: 'delivery',
-    minWidth: 180,
-    render: (row) =>
-      h('div', [
-        h('div', row.recipients),
-        h(
-          'div',
-          { class: 'report-muted' },
-          $t('report.table.targetSummary', { devices: row.device_ids.length, keys: row.keys.length })
-        )
-      ])
-  },
-  { title: $t('report.table.nextRun'), key: 'next_run_at', width: 165, render: (row) => formatTime(row.next_run_at) },
-  {
-    title: $t('report.table.lastRun'),
-    key: 'last_status',
-    width: 150,
-    render: (row) =>
-      h('div', [
-        h(
-          NTag,
-          { size: 'small', type: reportStatusTagType(row.last_status) },
-          { default: () => statusText(row.last_status) }
-        ),
-        h('div', { class: 'report-muted' }, formatTime(row.last_run_at))
-      ])
-  },
-  {
-    title: $t('report.table.enabled'),
-    key: 'enabled',
-    width: 90,
-    render: (row) =>
-      h(
-        NTag,
-        { type: row.enabled ? 'success' : 'default', size: 'small' },
-        { default: () => $t(row.enabled ? 'report.common.enabled' : 'report.common.disabled') }
-      )
-  },
-  {
-    title: $t('report.table.actions'),
-    key: 'actions',
-    width: 310,
-    fixed: 'right',
-    render: (row) =>
-      h(
-        NSpace,
-        { size: 6, wrap: true },
-        {
-          default: () => [
-            h(
-              NButton,
-              {
-                size: 'small',
-                type: 'primary',
-                loading: runningId.value === row.id,
-                disabled: Boolean(runningId.value) || !row.enabled,
-                onClick: () => runNow(row)
-              },
-              { default: () => $t('report.action.runNow') }
-            ),
-            h(
-              NButton,
-              { size: 'small', onClick: () => openHistory(row) },
-              { default: () => $t('report.action.history') }
-            ),
-            h(NButton, { size: 'small', onClick: () => openEdit(row) }, { default: () => $t('report.action.edit') }),
-            h(
-              NPopconfirm,
-              { onPositiveClick: () => removeSchedule(row) },
-              {
-                trigger: () =>
-                  h(
-                    NButton,
-                    { size: 'small', type: 'error', loading: deletingId.value === row.id },
-                    { default: () => $t('report.action.delete') }
-                  ),
-                default: () => $t('report.message.deleteConfirm')
-              }
-            )
-          ]
-        }
-      )
-  }
-])
-
-const runColumns = computed<DataTableColumns<ReportRun>>(() => [
-  { title: $t('report.history.started'), key: 'created_at', width: 170, render: (row) => formatTime(row.created_at) },
-  { title: $t('report.history.window'), key: 'window', minWidth: 220, render: runWindow },
-  {
-    title: $t('report.history.overall'),
-    key: 'overall_status',
-    width: 120,
-    render: (row) =>
-      h(
-        NTag,
-        { size: 'small', type: reportStatusTagType(row.overall_status) },
-        { default: () => statusText(row.overall_status) }
-      )
-  },
-  {
-    title: $t('report.history.generation'),
-    key: 'generation_status',
-    width: 130,
-    render: (row) => statusText(row.generation_status)
-  },
-  {
-    title: $t('report.history.delivery'),
-    key: 'delivery_status',
-    width: 130,
-    render: (row) => statusText(row.delivery_status)
-  },
-  {
-    title: $t('report.history.risk'),
-    key: 'duplicate_delivery_risk',
-    width: 120,
-    render: (row) =>
-      row.duplicate_delivery_risk
-        ? h(NTag, { type: 'warning', size: 'small' }, { default: () => $t('report.risk.duplicate') })
-        : $t('report.risk.none')
-  },
-  {
-    title: $t('report.table.actions'),
-    key: 'actions',
-    width: 170,
-    render: (row) =>
-      h(
-        NSpace,
-        { size: 6 },
-        {
-          default: () => [
-            h(
-              NButton,
-              { size: 'small', onClick: () => selectRun(row) },
-              { default: () => $t('report.action.details') }
-            ),
-            canRetryReportRun(row, selectedSchedule.value?.enabled)
-              ? h(
-                  NButton,
-                  {
-                    size: 'small',
-                    type: 'warning',
-                    loading: retryingRunId.value === row.run_id,
-                    onClick: () => retryRun(row)
-                  },
-                  { default: () => $t('report.action.retry') }
-                )
-              : null
-          ]
-        }
-      )
-  }
-])
+// 列标题随语言切换重算；按钮状态通过 getter 在单元格渲染时读取。
+const scheduleColumns = computed(() =>
+  createScheduleColumns({
+    runningId: () => runningId.value,
+    deletingId: () => deletingId.value,
+    onRun: (row) => runNow(row),
+    onHistory: openHistory,
+    onEdit: openEdit,
+    onDelete: removeSchedule
+  })
+)
+const runColumns = computed(() =>
+  createRunColumns({
+    scheduleEnabled: () => selectedSchedule.value?.enabled,
+    retryingRunId: () => retryingRunId.value,
+    onSelect: selectRun,
+    onRetry: (run) => retryRun(run)
+  })
+)
 
 onMounted(loadSchedules)
 onBeforeUnmount(() => {
-  scheduleRequestSequence += 1
-  historyRequestSequence += 1
+  disposeSchedules()
+  disposeRuns()
 })
 </script>
 
@@ -727,71 +269,13 @@ onBeforeUnmount(() => {
           </div>
         </NSpin>
 
-        <section v-if="selectedRun" class="report-run-detail" data-testid="report-run-detail">
-          <div class="report-detail-heading">
-            <div>
-              <p class="report-kicker">{{ $t('report.detail.kicker') }}</p>
-              <h2>{{ selectedRun.run_id }}</h2>
-            </div>
-            <NTag :type="reportStatusTagType(selectedRun.overall_status)">
-              {{ statusText(selectedRun.overall_status) }}
-            </NTag>
-          </div>
-          <NAlert v-if="smtpAmbiguous(selectedRun) || selectedRun.duplicate_delivery_risk" type="warning" class="mb-4">
-            {{ $t('report.risk.warning') }}
-          </NAlert>
-          <NDescriptions bordered :column="2" label-placement="left">
-            <NDescriptionsItem :label="$t('report.history.window')">{{ runWindow(selectedRun) }}</NDescriptionsItem>
-            <NDescriptionsItem :label="$t('report.detail.updated')">
-              {{
-                formatTime(
-                  selectedRun.delivery_completed_at || selectedRun.generation_completed_at || selectedRun.created_at
-                )
-              }}
-            </NDescriptionsItem>
-            <NDescriptionsItem :label="$t('report.history.generation')">
-              {{ statusText(selectedRun.generation_status) }}
-            </NDescriptionsItem>
-            <NDescriptionsItem :label="$t('report.history.delivery')">
-              {{ statusText(selectedRun.delivery_status) }}
-            </NDescriptionsItem>
-            <NDescriptionsItem :label="$t('report.detail.smtpAccepted')">
-              {{ smtpAccepted(selectedRun) ? $t('report.common.yes') : $t('report.common.no') }}
-            </NDescriptionsItem>
-            <NDescriptionsItem :label="$t('report.detail.smtpAmbiguous')">
-              {{ smtpAmbiguous(selectedRun) ? $t('report.common.yes') : $t('report.common.no') }}
-            </NDescriptionsItem>
-            <NDescriptionsItem :label="$t('report.detail.generationAttempts')">
-              {{ selectedRun.generation_attempts }}
-            </NDescriptionsItem>
-            <NDescriptionsItem :label="$t('report.detail.deliveryAttempts')">
-              {{ selectedRun.delivery_attempts }}
-            </NDescriptionsItem>
-          </NDescriptions>
-          <NAlert v-if="smtpAccepted(selectedRun)" type="info" class="mt-4">
-            {{ $t('report.detail.smtpAcceptanceCaveat') }}
-          </NAlert>
-          <h3>{{ $t('report.detail.errors') }}</h3>
-          <NAlert v-if="selectedRun.generation_error_code" type="error" class="mb-2">
-            {{ $t('report.history.generation') }}: {{ selectedRun.generation_error_code }}
-          </NAlert>
-          <NAlert v-if="selectedRun.delivery_error_code" type="error" class="mb-2">
-            {{ $t('report.history.delivery') }}: {{ selectedRun.delivery_error_code }}
-          </NAlert>
-          <p v-if="!selectedRun.generation_error_code && !selectedRun.delivery_error_code" class="report-muted">
-            {{ $t('report.detail.noErrors') }}
-          </p>
-          <NSpace justify="end">
-            <NButton
-              v-if="canRetryReportRun(selectedRun, selectedSchedule?.enabled)"
-              type="warning"
-              :loading="retryingRunId === selectedRun.run_id"
-              @click="retryRun(selectedRun)"
-            >
-              {{ $t('report.action.retry') }}
-            </NButton>
-          </NSpace>
-        </section>
+        <ReportRunDetail
+          v-if="selectedRun"
+          :run="selectedRun"
+          :schedule-enabled="selectedSchedule?.enabled"
+          :retrying="retryingRunId === selectedRun.run_id"
+          @retry="retryRun"
+        />
       </NDrawerContent>
     </NDrawer>
   </main>
@@ -888,31 +372,12 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: 12px;
 }
-.report-history-header,
-.report-detail-heading {
+.report-history-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 16px;
   margin-bottom: 18px;
-}
-.report-run-detail {
-  margin-top: 26px;
-  padding: 22px;
-  border: 1px solid rgba(125, 140, 132, 0.28);
-  border-radius: 10px;
-  background: rgba(32, 166, 106, 0.035);
-}
-.report-run-detail h2 {
-  margin: 3px 0 0;
-  font:
-    650 21px ui-monospace,
-    monospace;
-  overflow-wrap: anywhere;
-}
-.report-run-detail h3 {
-  margin: 24px 0 12px;
-  font-size: 15px;
 }
 @media (max-width: 760px) {
   .report-header {

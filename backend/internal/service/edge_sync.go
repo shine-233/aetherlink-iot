@@ -23,6 +23,7 @@ import (
 	"aetherlink-iot/backend/mqtt/publish"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/utils"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -65,7 +66,7 @@ func (EdgeSyncService) CreateEdgeSync(req *model.CreateEdgeSyncReq, claims *util
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errcode.NewWithMessage(errcode.CodeParamError, "gateway device not found in tenant")
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 
 	var (
@@ -81,7 +82,7 @@ func (EdgeSyncService) CreateEdgeSync(req *model.CreateEdgeSyncReq, claims *util
 			if errors.Is(derr, gorm.ErrRecordNotFound) {
 				return nil, errcode.NewWithMessage(errcode.CodeParamError, "dashboard not found in tenant")
 			}
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": derr.Error()})
+			return nil, dbError(derr)
 		}
 		name = board.Name
 		if board.Config != nil {
@@ -93,7 +94,7 @@ func (EdgeSyncService) CreateEdgeSync(req *model.CreateEdgeSyncReq, claims *util
 			if errors.Is(derr, gorm.ErrRecordNotFound) {
 				return nil, errcode.NewWithMessage(errcode.CodeParamError, "rule chain not found in tenant")
 			}
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": derr.Error()})
+			return nil, dbError(derr)
 		}
 		name = chain.Name
 		content = json.RawMessage(chain.Graph)
@@ -106,7 +107,7 @@ func (EdgeSyncService) CreateEdgeSync(req *model.CreateEdgeSyncReq, claims *util
 	// 查不到在途任务列表时同样失败——无法确认无冲突就不允许下发。
 	pending, lerr := dal.ListEdgeSyncTasks(claims.TenantID, req.ResourceType, gateway.ID, edgeSyncStatusPending, edgeSyncConflictScanLimit)
 	if lerr != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": lerr.Error()})
+		return nil, dbError(lerr)
 	}
 	if conflict := DetectEdgeSyncConflict(pending, req.ResourceType, req.ResourceID, string(content)); conflict != nil {
 		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
@@ -123,7 +124,7 @@ func (EdgeSyncService) CreateEdgeSync(req *model.CreateEdgeSyncReq, claims *util
 	// 冲突闸门——无法确认无冲突就不允许下发，而修订号取不到只是回到起点。
 	history, herr := dal.ListEdgeSyncTasks(claims.TenantID, req.ResourceType, gateway.ID, "", edgeSyncRevisionScanLimit)
 	if herr != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": herr.Error()})
+		return nil, dbError(herr)
 	}
 
 	payload = edgeSyncPayload{
@@ -154,7 +155,7 @@ func (EdgeSyncService) CreateEdgeSync(req *model.CreateEdgeSyncReq, claims *util
 		UpdatedAt:           now,
 	}
 	if err := dal.CreateEdgeSyncTask(task); err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	if err := dispatchEdgeTask(task); err != nil {
 		return task, nil // 投递失败不回滚任务：failed 落库，retry 可重放
@@ -169,7 +170,7 @@ func (EdgeSyncService) RetryEdgeSync(id string, claims *utils.UserClaims) (*mode
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errcode.NewWithMessage(errcode.CodeParamError, "edge sync task not found")
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	if err := dispatchEdgeTask(task); err != nil {
 		return task, nil
@@ -184,7 +185,7 @@ func (EdgeSyncService) ListEdgeSyncTasks(resourceType, gatewayDeviceID, status s
 	}
 	list, err := dal.ListEdgeSyncTasks(claims.TenantID, resourceType, gatewayDeviceID, status, limit)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	return list, nil
 }
@@ -196,7 +197,7 @@ func (EdgeSyncService) GetEdgeSyncTask(id string, claims *utils.UserClaims) (*mo
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errcode.NewWithMessage(errcode.CodeParamError, "edge sync task not found")
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	return task, nil
 }
@@ -208,25 +209,28 @@ func (EdgeSyncService) DistributeEdgeOTA(req *model.EdgeOtaDistributeReq, claims
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errcode.NewWithMessage(errcode.CodeParamError, "gateway device not found in tenant")
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	pkg, err := dal.GetOtaPackageInTenant(req.PackageID, claims.TenantID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errcode.NewWithMessage(errcode.CodeParamError, "ota package not found in tenant")
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
+	}
+
+	// 单条 IN 查询批量取目标设备（租户过滤在 SQL 内），替代逐设备 GetDeviceInTenant 的 N+1。
+	devicesByID, derr := dal.GetDevicesByIDsForTenant(req.DeviceIDs, claims.TenantID)
+	if derr != nil {
+		return nil, dbError(derr)
 	}
 
 	now := time.Now()
 	results := make([]*model.EdgeSyncTask, 0, len(req.DeviceIDs))
 	for _, deviceID := range req.DeviceIDs {
-		device, derr := dal.GetDeviceInTenant(deviceID, claims.TenantID)
-		if derr != nil {
-			if errors.Is(derr, gorm.ErrRecordNotFound) {
-				continue // 目标设备不在租户内：跳过并在结果中缺席，由调用方比对
-			}
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": derr.Error()})
+		device := devicesByID[deviceID]
+		if device == nil {
+			continue // 目标设备不在租户内：跳过并在结果中缺席，由调用方比对
 		}
 		payload := edgeSyncPayload{
 			Type:       model.EdgeResourceOtaPackage,
@@ -263,7 +267,7 @@ func (EdgeSyncService) DistributeEdgeOTA(req *model.EdgeOtaDistributeReq, claims
 			UpdatedAt:           now,
 		}
 		if cerr := dal.CreateEdgeSyncTask(task); cerr != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": cerr.Error()})
+			return nil, dbError(cerr)
 		}
 		_ = dispatchEdgeTask(task)
 		results = append(results, task)

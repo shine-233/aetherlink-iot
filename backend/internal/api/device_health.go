@@ -16,13 +16,9 @@ type DeviceHealthApi struct{}
 // GetHealthSummary 获取租户设备健康汇总大盘
 // @Router   /api/v1/devices/health/summary [get]
 func (*DeviceHealthApi) GetHealthSummary(c *gin.Context) {
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.DeviceHealth.GetTenantHealthSummary(c.Request.Context(), claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandleNoBody(c, func(claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.DeviceHealth.GetTenantHealthSummary(c.Request.Context(), claims)
+	})
 }
 
 // GetDeviceHealth 查询单设备多维健康评分诊断详情

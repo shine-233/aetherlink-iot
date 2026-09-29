@@ -175,3 +175,10 @@ backend/files/export/
 automation_tests/test-results-*/
 # Playwright 反向对照（断言非恒真验证）的临时输出目录
 automation_tests/.pw-out-*/
+
+# Session-local build caches and refactor backups (not source)
+.gocache/
+.tmp_api_backup/
+.gofmt_bk/
+backend/files/media/
+backend/backend-dev.exe~

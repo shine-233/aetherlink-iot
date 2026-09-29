@@ -2,10 +2,9 @@
 文件用途: 承载 OTA 升级相关的产品升级页面或业务组件。
 核心逻辑: 组织页面状态、接口调用、表单/列表交互和子组件协作，向用户呈现可操作的业务流程。
 关键注意事项: 修改时要同步核对路由参数、接口载荷、权限状态和用户可见提示，避免只改前端状态。
-重构建议: 可逐步把查询、提交和弹窗状态拆成组合函数，让组件更专注于布局与事件编排。
 -->
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import type { DataTableColumns } from 'naive-ui'
 import { useRoute, useRouter } from 'vue-router'
 import { debounce } from 'lodash-es'
@@ -17,6 +16,8 @@ import { createOtaTaskColumns } from './ota-task-table-columns'
 import { useOtaTaskData } from './useOtaTaskData'
 import { useOtaTaskDetail } from './useOtaTaskDetail'
 import { useOtaTaskFlow } from './useOtaTaskFlow'
+import { useOtaOnboardingStep } from './useOtaOnboardingStep'
+import { normalizeRouteQueryText, useOtaReadyCheckContext } from './useOtaReadyCheckContext'
 import { buildOtaFilterSummaryItems, buildOtaPreviewDeviceRows } from './ota-task-state'
 import {
   FLEET_CURRENT_PAGE_SCOPE,
@@ -25,31 +26,12 @@ import {
   parseFleetRolloutContext
 } from '../../device/modules/fleet-rollout-context'
 import type { FleetRolloutRouteQueryValue } from '../../device/modules/fleet-rollout-context'
-import OtaTaskPreflightCard from './OtaTaskPreflightCard.vue'
+import OtaTaskCreateModal from './OtaTaskCreateModal.vue'
 import OtaTaskDetailDialog from './OtaTaskDetailDialog.vue'
-import OtaTaskFilterRolloutSummary from './OtaTaskFilterRolloutSummary.vue'
-import OtaTaskLaunchContext from './OtaTaskLaunchContext.vue'
 import OtaTaskNextStepCard from './OtaTaskNextStepCard.vue'
 
 const route = useRoute()
 const router = useRouter()
-// route.query 的值可能是 null 或 (string|null)[]，与 FleetRolloutRouteQueryValue
-// 兼容但 LocationQuery 的索引签名更宽，需显式收窄后再传入解析器。
-const fleetRolloutContext = computed(() =>
-  parseFleetRolloutContext(route.query as Record<string, FleetRolloutRouteQueryValue>)
-)
-
-type ReadyCheckOtaContextStatus = 'idle' | 'matched' | 'not-found'
-
-function normalizeRouteQueryText(value: unknown) {
-  const rawValue = Array.isArray(value) ? value[0] : value
-  return typeof rawValue === 'string' ? rawValue.trim() : ''
-}
-
-const isReadyCheckOtaSource = computed(() => normalizeRouteQueryText(route.query.source) === 'ready-check')
-const readyCheckOtaTaskId = computed(() => normalizeRouteQueryText(route.query.ota_task_id))
-const readyCheckOtaDetailId = computed(() => normalizeRouteQueryText(route.query.ota_detail_id))
-const readyCheckOtaContextStatus = ref<ReadyCheckOtaContextStatus>('idle')
 
 const {
   packageLoading,
@@ -120,10 +102,12 @@ const {
   },
   t: $t,
   message: {
-    success: (message) => window.$message?.success(message),
-    warning: (message) => window.$message?.warning(message)
+    success: message => window.$message?.success(message),
+    warning: message => window.$message?.warning(message)
   },
-  fleetRolloutContext
+  fleetRolloutContext: computed(() =>
+    parseFleetRolloutContext(route.query as Record<string, FleetRolloutRouteQueryValue>)
+  )
 })
 
 const taskPrimaryActionLabel = computed(() => {
@@ -156,135 +140,23 @@ const filterPreviewSubsetColumns = computed<DataTableColumns<any>>(() => [
   {
     title: $t('page.product.update-ota.previewSubsetDevice'),
     key: 'label',
-    render: (row) => row.label || row.id || '--'
+    render: row => row.label || row.id || '--'
   },
   {
     title: $t('page.product.update-ota.previewSubsetDeviceNumber'),
     key: 'deviceNumber',
-    render: (row) => row.deviceNumber || '--'
+    render: row => row.deviceNumber || '--'
   },
   {
     title: $t('page.product.update-ota.previewSubsetVersion'),
     key: 'currentVersion',
-    render: (row) => row.currentVersion || '--'
+    render: row => row.currentVersion || '--'
   },
   {
     title: $t('page.product.update-ota.previewSubsetOnline'),
     key: 'online'
   }
 ])
-
-const readyCheckOtaDetailMatched = computed(() => {
-  if (!readyCheckOtaDetailId.value) return false
-  return detailList.value.some((item) => item.id === readyCheckOtaDetailId.value)
-})
-
-const readyCheckOtaContextVisible = computed(
-  () => isReadyCheckOtaSource.value && Boolean(readyCheckOtaTaskId.value || readyCheckOtaDetailId.value)
-)
-
-const readyCheckOtaContextType = computed(() => {
-  if (readyCheckOtaContextStatus.value === 'not-found') return 'warning'
-  return readyCheckOtaContextStatus.value === 'matched' ? 'success' : 'info'
-})
-
-const readyCheckOtaContextMessage = computed(() => {
-  if (!readyCheckOtaContextVisible.value) return ''
-  if (readyCheckOtaContextStatus.value === 'not-found') {
-    return $t('page.product.update-ota.readyCheckContextTaskMissing').replace(
-      '{taskId}',
-      readyCheckOtaTaskId.value || '--'
-    )
-  }
-  if (readyCheckOtaContextStatus.value === 'matched') {
-    return $t('page.product.update-ota.readyCheckContextTaskMatched')
-      .replace('{taskId}', readyCheckOtaTaskId.value || '--')
-      .replace('{detailId}', readyCheckOtaDetailId.value || '--')
-  }
-  return $t('page.product.update-ota.readyCheckContextPreserved')
-    .replace('{taskId}', readyCheckOtaTaskId.value || '--')
-    .replace('{detailId}', readyCheckOtaDetailId.value || '--')
-})
-
-const readyCheckOtaDetailContextMessage = computed(() => {
-  if (!readyCheckOtaContextVisible.value || !readyCheckOtaDetailId.value) return ''
-  return readyCheckOtaDetailMatched.value
-    ? $t('page.product.update-ota.readyCheckDetailMatched').replace('{detailId}', readyCheckOtaDetailId.value)
-    : $t('page.product.update-ota.readyCheckDetailPreserved').replace('{detailId}', readyCheckOtaDetailId.value)
-})
-
-const otaNextStep = computed(() => {
-  if (packageLoading.value) {
-    return {
-      type: 'info' as const,
-      step: $t('page.product.update-ota.onboardingStepLoading'),
-      title: $t('common.loading'),
-      description: $t('page.product.update-ota.onboardingLoadingDesc'),
-      actionLabel: $t('common.refresh'),
-      action: 'refresh'
-    }
-  }
-
-  if (!packageOptions.value.length) {
-    return {
-      type: 'warning' as const,
-      step: $t('page.product.update-ota.onboardingStepPackage'),
-      title: $t('page.product.update-ota.onboardingNoPackageTitle'),
-      description: $t('page.product.update-ota.onboardingNoPackageDesc'),
-      actionLabel: $t('page.product.update-ota.onboardingUploadPackageAction'),
-      action: 'upload'
-    }
-  }
-
-  if (!selectedPackageId.value) {
-    return {
-      type: 'info' as const,
-      step: $t('page.product.update-ota.onboardingStepSelect'),
-      title: $t('page.product.update-ota.onboardingSelectPackageTitle'),
-      description: $t('page.product.update-ota.onboardingSelectPackageDesc').replace(
-        '{count}',
-        String(packageOptions.value.length)
-      ),
-      actionLabel: $t('common.refresh'),
-      action: 'refresh'
-    }
-  }
-
-  return {
-    type: 'success' as const,
-    step: $t('page.product.update-ota.onboardingStepCreate'),
-    title: $t('page.product.update-ota.onboardingReadyTitle'),
-    description: $t('page.product.update-ota.onboardingReadyDesc'),
-    actionLabel: $t('page.product.update-ota.onboardingCreateTaskAction'),
-    action: 'create'
-  }
-})
-
-function handleOtaNextStep() {
-  if (otaNextStep.value.action === 'upload') {
-    router.push({ name: 'product_update-package', query: { return_to: 'ota_task' } })
-    return
-  }
-
-  if (otaNextStep.value.action === 'create') {
-    openTaskModal()
-    return
-  }
-
-  fetchPackages()
-}
-
-async function applyReadyCheckOtaContext() {
-  if (!isReadyCheckOtaSource.value || !readyCheckOtaTaskId.value) return
-  const matchedTask = taskList.value.find((item) => item.id === readyCheckOtaTaskId.value)
-  if (!matchedTask) {
-    readyCheckOtaContextStatus.value = 'not-found'
-    return
-  }
-  readyCheckOtaContextStatus.value = 'matched'
-  if (selectedTask.value?.id === matchedTask.id && detailModalVisible.value) return
-  await openTaskDetail(matchedTask)
-}
 
 function openFailedDeviceDiagnostics(row: { id: string; device_id?: string }) {
   if (!row.device_id) {
@@ -327,9 +199,6 @@ const {
   copyFailureSupportBundle,
   downloadTaskSupportBundle,
   openTaskDetail,
-  updateTaskDetailStatus,
-  statusLabel,
-  statusTagType,
   detailColumns
 } = useOtaTaskDetail({
   selectedPackage,
@@ -344,17 +213,40 @@ const {
   openFailedDeviceDiagnostics,
   t: $t,
   message: {
-    success: (message) => window.$message?.success(message),
-    warning: (message) => window.$message?.warning(message)
+    success: message => window.$message?.success(message),
+    warning: message => window.$message?.warning(message)
   },
   dialog: {
-    warning: (options) => window.$dialog?.warning(options)
+    warning: options => window.$dialog?.warning(options)
   }
+})
+
+const {
+  readyCheckOtaContextVisible,
+  readyCheckOtaContextType,
+  readyCheckOtaContextMessage,
+  readyCheckOtaDetailContextMessage,
+  applyReadyCheckOtaContext
+} = useOtaReadyCheckContext({
+  taskList,
+  detailList,
+  selectedTask,
+  detailModalVisible,
+  openTaskDetail
+})
+
+const { nextStep: otaNextStep, handleNextStep: handleOtaNextStep } = useOtaOnboardingStep({
+  packageLoading,
+  packageOptions,
+  selectedPackageId,
+  onUploadPackage: () => router.push({ name: 'product_update-package', query: { return_to: 'ota_task' } }),
+  onCreateTask: openTaskModal,
+  onRefreshPackages: () => fetchPackages()
 })
 
 const firstFailedDiagnosticDevice = computed(() => {
   for (const group of failureGroups.value) {
-    const device = group.devices.find((item) => item.device_id)
+    const device = group.devices.find(item => item.device_id)
     if (device) return device
   }
   return null
@@ -474,73 +366,34 @@ onMounted(async () => {
       </NDataTable>
     </NSpace>
 
-    <NModal
+    <OtaTaskCreateModal
       v-model:show="taskModalVisible"
-      preset="card"
-      class="task-modal"
-      :title="$t('page.product.update-ota.updateTask')"
-    >
-      <NForm label-placement="top">
-        <OtaTaskLaunchContext
-          :selected-package="selectedPackage"
-          :show-no-eligible-device-alert="showNoEligibleDeviceAlert"
-          :fleet-preselection-result="fleetPreselectionResult"
-          :is-fleet-filter-scope="isFleetFilterScope"
-          :is-fleet-filter-rollout="isFleetFilterRollout"
-          :filter-preview-result="filterPreviewResult"
-          :saved-fleet-filters-loading="savedFleetFiltersLoading"
-          :saved-fleet-filter-load-failed="savedFleetFilterLoadFailed"
-          :saved-fleet-filter-options="savedFleetFilterOptions"
-          :selected-saved-fleet-filter-id="selectedSavedFleetFilterId"
-          :selected-saved-fleet-filter="selectedSavedFleetFilter"
-          @update:selected-saved-fleet-filter-id="selectedSavedFleetFilterId = $event"
-        />
-        <NFormItem :label="$t('page.product.update-ota.taskName')" required>
-          <NInput v-model:value="taskForm.name" />
-        </NFormItem>
-        <OtaTaskFilterRolloutSummary
-          v-if="isFleetFilterRollout"
-          :selected-saved-fleet-filter="selectedSavedFleetFilter"
-          :fleet-preselection-result="fleetPreselectionResult"
-          :fleet-filter-summary-items="fleetFilterSummaryItems"
-          :filter-preview-result="filterPreviewResult"
-          :filter-preview-subset-columns="filterPreviewSubsetColumns"
-          :filter-preview-subset-rows="filterPreviewSubsetRows"
-        />
-        <NFormItem v-else :label="$t('page.product.update-ota.selectDevice')" required>
-          <NSelect
-            v-model:value="taskForm.device_id_list"
-            multiple
-            filterable
-            remote
-            :loading="deviceLoading"
-            :disabled="deviceLoading"
-            :options="deviceOptions"
-            :virtual-scroll="true"
-            max-tag-count="responsive"
-            :placeholder="deviceLoading ? $t('common.loading') : $t('page.product.update-ota.selectDevice')"
-            @search="handleDeviceSearch"
-          />
-        </NFormItem>
-        <OtaTaskPreflightCard
-          class="mb-3"
-          :summary="taskPreflight"
-          :items="taskPreflightItems"
-          :risk-devices="taskRiskDevices"
-        />
-        <NFormItem :label="$t('page.product.update-ota.desc')">
-          <NInput v-model:value="taskForm.description" type="textarea" :autosize="{ minRows: 2, maxRows: 4 }" />
-        </NFormItem>
-      </NForm>
-      <template #footer>
-        <NSpace justify="end">
-          <NButton @click="taskModalVisible = false">{{ $t('common.cancel') }}</NButton>
-          <NButton type="primary" :loading="saving" :disabled="!canSaveTask" @click="saveTask">
-            {{ taskPrimaryActionLabel }}
-          </NButton>
-        </NSpace>
-      </template>
-    </NModal>
+      v-model:task-form="taskForm"
+      v-model:selected-saved-fleet-filter-id="selectedSavedFleetFilterId"
+      :selected-package="selectedPackage"
+      :show-no-eligible-device-alert="showNoEligibleDeviceAlert"
+      :fleet-preselection-result="fleetPreselectionResult"
+      :is-fleet-filter-scope="isFleetFilterScope"
+      :is-fleet-filter-rollout="isFleetFilterRollout"
+      :filter-preview-result="filterPreviewResult"
+      :saved-fleet-filters-loading="savedFleetFiltersLoading"
+      :saved-fleet-filter-load-failed="savedFleetFilterLoadFailed"
+      :saved-fleet-filter-options="savedFleetFilterOptions"
+      :selected-saved-fleet-filter="selectedSavedFleetFilter"
+      :fleet-filter-summary-items="fleetFilterSummaryItems"
+      :filter-preview-subset-columns="filterPreviewSubsetColumns"
+      :filter-preview-subset-rows="filterPreviewSubsetRows"
+      :device-loading="deviceLoading"
+      :device-options="deviceOptions"
+      :preflight="taskPreflight"
+      :preflight-items="taskPreflightItems"
+      :risk-devices="taskRiskDevices"
+      :saving="saving"
+      :can-save-task="canSaveTask"
+      :primary-action-label="taskPrimaryActionLabel"
+      @search-devices="handleDeviceSearch"
+      @save="saveTask"
+    />
 
     <OtaTaskDetailDialog
       :show="detailModalVisible"
@@ -590,134 +443,8 @@ onMounted(async () => {
   width: 320px;
 }
 
-.detail-filter {
-  width: 220px;
-}
-
-.rollout-refresh-meta {
-  color: var(--text-color-3);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.action-row {
-  display: flex;
-  gap: 8px;
-}
-
-.task-modal {
-  width: min(620px, calc(100vw - 32px));
-}
-
-.detail-modal {
-  width: min(1100px, calc(100vw - 32px));
-}
-
-.rollout-summary-card :deep(.n-card__content) {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 12px;
-}
-
-.rollout-summary-card__label {
-  min-width: 0;
-  color: var(--text-color-2);
-  font-size: 12px;
-}
-
-.rollout-guidance-card {
-  border: 1px solid var(--border-color);
-}
-
-.rollout-guidance-card__title {
-  min-width: 0;
-  font-weight: 600;
-}
-
-.rollout-guidance-card__desc {
-  margin-top: 8px;
-  color: var(--text-color-2);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.failure-workbench-desc {
-  margin-top: 4px;
-  color: var(--text-color-3);
-  font-size: 12px;
-}
-
-.first-failure-diagnostics-cta :deep(.n-alert-body__content) {
-  width: 100%;
-}
-
-.first-failure-diagnostics-cta__title {
-  font-weight: 700;
-}
-
-.first-failure-diagnostics-cta__desc {
-  margin-top: 4px;
-  color: var(--text-color-2);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.retry-recommendation-card {
-  border: 1px solid var(--border-color);
-  background: var(--card-color);
-}
-
-.retry-recommendation-card__title {
-  min-width: 0;
-  font-weight: 600;
-}
-
-.retry-recommendation-card__desc,
-.retry-recommendation-card__devices {
-  color: var(--text-color-2);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.retry-recommendation-card__devices {
-  overflow-wrap: anywhere;
-}
-
-.failure-group-card {
-  border: 1px solid var(--border-color);
-}
-
-.failure-group-card__reason {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  font-weight: 600;
-}
-
-.failure-group-card__devices {
-  display: grid;
-  gap: 8px;
-}
-
-.failure-group-card__device {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  color: var(--text-color-3);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.failure-group-card__device span {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
 @media (max-width: 720px) {
-  .package-select,
-  .detail-filter {
+  .package-select {
     width: 100%;
   }
 }

@@ -22,9 +22,7 @@ func (*DeviceModel) GetDeviceModelListByPageGeneral(req model.GetDeviceModelList
 	case model.DEVICE_MODEL_TELEMETRY:
 		count, data, err := dal.GetDeviceModelTelemetryListByPage(req, scopes)
 		if err != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-			})
+			return nil, dbError(err)
 		}
 		listRsp["total"] = count
 		listRsp["list"] = data
@@ -32,9 +30,7 @@ func (*DeviceModel) GetDeviceModelListByPageGeneral(req model.GetDeviceModelList
 	case model.DEVICE_MODEL_ATTRIBUTES:
 		count, data, err := dal.GetDeviceModelAttributesListByPage(req, scopes)
 		if err != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-			})
+			return nil, dbError(err)
 		}
 		listRsp["total"] = count
 		listRsp["list"] = data
@@ -42,9 +38,7 @@ func (*DeviceModel) GetDeviceModelListByPageGeneral(req model.GetDeviceModelList
 	case model.DEVICE_MODEL_EVENTS:
 		count, data, err := dal.GetDeviceModelEventsListByPage(req, scopes)
 		if err != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-			})
+			return nil, dbError(err)
 		}
 		listRsp["total"] = count
 		listRsp["list"] = data
@@ -52,9 +46,7 @@ func (*DeviceModel) GetDeviceModelListByPageGeneral(req model.GetDeviceModelList
 	case model.DEVICE_MODEL_COMMANDS:
 		count, data, err := dal.GetDeviceModelCommandsListByPage(req, scopes)
 		if err != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-			})
+			return nil, dbError(err)
 		}
 		listRsp["total"] = count
 		listRsp["list"] = data

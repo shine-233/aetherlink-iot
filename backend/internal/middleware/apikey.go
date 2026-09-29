@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"aetherlink-iot/backend/internal/dal"
@@ -71,12 +72,45 @@ func recordOpenAPIKeyAuthFailure(clientIP string) {
 		return
 	}
 	entry.mu.Lock()
-	defer entry.mu.Unlock()
 	if now.After(entry.windowEnd) {
 		entry.count = 0
 		entry.windowEnd = now.Add(openAPIKeyAuthFailWindow)
 	}
 	entry.count++
+	entry.mu.Unlock()
+
+	sweepOpenAPIKeyAuthFailures(now)
+}
+
+// openAPIKeyAuthNextSweep 下一次清扫过期失败窗口的 UnixNano 时间点。
+var openAPIKeyAuthNextSweep atomic.Int64
+
+// sweepOpenAPIKeyAuthFailures 惰性清扫已过期的失败窗口（每个窗口周期至多一次）。
+// 过期条目在语义上等同"不存在"（openAPIKeyAuthRateLimited 返回 false、下次写入重开窗口），
+// 但不删除时，攻击者轮换来源 IP（如 IPv6 段）即可让该表无界增长。
+// 仅失败路径触发清扫；CompareAndDelete 保证不会误删并发新建的条目。
+func sweepOpenAPIKeyAuthFailures(now time.Time) {
+	next := openAPIKeyAuthNextSweep.Load()
+	if now.UnixNano() < next {
+		return
+	}
+	if !openAPIKeyAuthNextSweep.CompareAndSwap(next, now.Add(openAPIKeyAuthFailWindow).UnixNano()) {
+		return // 其他 goroutine 已在清扫
+	}
+	openAPIKeyAuthFailCounts.Range(func(key, value any) bool {
+		entry, ok := value.(*openAPIKeyAuthFailEntry)
+		if !ok {
+			openAPIKeyAuthFailCounts.Delete(key)
+			return true
+		}
+		entry.mu.Lock()
+		expired := now.After(entry.windowEnd)
+		entry.mu.Unlock()
+		if expired {
+			openAPIKeyAuthFailCounts.CompareAndDelete(key, value)
+		}
+		return true
+	})
 }
 
 type APIKeyInfo struct {

@@ -14,7 +14,6 @@ import (
 
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
-	"aetherlink-iot/backend/pkg/errcode"
 	utils "aetherlink-iot/backend/pkg/utils"
 )
 
@@ -36,16 +35,12 @@ func (d *DeviceTwin) GetDeviceTwinDriftIndex(req *model.DeviceTwinDriftIndexReq,
 
 	deviceIDs, err := dal.ListDeviceIDsByFilter(listReq, tenantID, maxDevices)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 
 	rows, err := dal.GetDeviceListRowsByFilterAndIDs(listReq, tenantID, deviceIDs)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	nameByID := deviceTwinDriftNameByID(rows)
 

@@ -35,23 +35,15 @@ func (*CalculatedFieldApi) HandleCreateCalcfieldRecomputeTask(c *gin.Context) {
 // HandleListCalcfieldRecomputeTasks 任务列表。
 // GET /api/v1/calcfield/recompute
 func (*CalculatedFieldApi) HandleListCalcfieldRecomputeTasks(c *gin.Context) {
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	rows, err := calcfield.RecomputeSvc.ListRecomputeTasks(claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", rows)
+	HandleNoBody(c, func(claims *utils.UserClaims) (interface{}, error) {
+		return calcfield.RecomputeSvc.ListRecomputeTasks(claims)
+	})
 }
 
 // HandleGetCalcfieldRecomputeTask 任务详情。
 // GET /api/v1/calcfield/recompute/:id
 func (*CalculatedFieldApi) HandleGetCalcfieldRecomputeTask(c *gin.Context) {
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	task, err := calcfield.RecomputeSvc.GetRecomputeTask(c.Param("id"), claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", task)
+	HandleNoBody(c, func(claims *utils.UserClaims) (interface{}, error) {
+		return calcfield.RecomputeSvc.GetRecomputeTask(c.Param("id"), claims)
+	})
 }

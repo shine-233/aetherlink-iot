@@ -166,7 +166,7 @@ func (*NotificationServicesConfig) ListEmailTemplates(page, pageSize int, claims
 	scopes := emailTemplateListScopes(tenantID)
 	total, list, err := dal.ListEmailTemplates(scopes, page, pageSize)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	return &model.EmailTemplateListRsp{List: list, Total: total}, nil
 }
@@ -175,10 +175,7 @@ func (*NotificationServicesConfig) ListEmailTemplates(page, pageSize int, claims
 // 空租户（SYS_ADMIN 管理平台默认模板，tenant_id 为空串）→ [""]，保持旧行为；
 // 非空租户 → expandTenantIDScope 自上而下 self∪子孙。
 func emailTemplateListScopes(tenantID string) []string {
-	if tenantID == "" {
-		return []string{""}
-	}
-	return expandTenantIDScope(tenantID)
+	return platformOrExpandedScopes(tenantID)
 }
 
 func (*NotificationServicesConfig) CreateEmailTemplate(req *model.EmailTemplateUpsertReq, claims *utils.UserClaims) (*model.EmailTemplate, error) {
@@ -204,7 +201,7 @@ func (*NotificationServicesConfig) CreateEmailTemplate(req *model.EmailTemplateU
 		UpdatedAt:       now,
 	}
 	if err := dal.SaveEmailTemplate(template); err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	return template, nil
 }
@@ -228,7 +225,7 @@ func (*NotificationServicesConfig) UpdateEmailTemplate(id string, req *model.Ema
 	template.IsDefault = req.IsDefault
 	template.UpdatedAt = time.Now().UTC()
 	if err := dal.SaveEmailTemplate(template); err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	return template, nil
 }
@@ -286,7 +283,7 @@ func emailTemplatePersistenceError(err error) error {
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return errcode.NewWithMessage(errcode.CodeParamError, "email template not found")
 	}
-	return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+	return dbError(err)
 }
 
 func applyAlarmEmailTemplate(message, subject, tenantID string, deviceIDs []string) (string, string) {

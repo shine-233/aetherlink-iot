@@ -19,36 +19,17 @@ type CommandSetLogApi struct{}
 // ServeSetLogsDataListByPage queries paged command set logs.
 // @Router   /api/v1/command/datas/set/logs [get]
 func (CommandSetLogApi) ServeSetLogsDataListByPage(c *gin.Context) {
-	var req model.GetCommandSetLogsListByPageReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	date, err := service.GroupApp.CommandData.GetCommandSetLogsDataListByPage(req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", date)
+	Handle(c, func(req *model.GetCommandSetLogsListByPageReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.CommandData.GetCommandSetLogsDataListByPage(*req, userClaims)
+	})
 }
 
 // CommandPutMessage manually publishes a command message.
 // @Router   /api/v1/command/datas/pub [post]
 func (CommandSetLogApi) CommandPutMessage(c *gin.Context) {
-	var req model.PutMessageForCommand
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.CommandData.CommandPutMessageWithTracking(c, userClaims.ID, &req, strconv.Itoa(constant.Manual), userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.PutMessageForCommand, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.CommandData.CommandPutMessageWithTracking(c, userClaims.ID, req, strconv.Itoa(constant.Manual), userClaims)
+	})
 }
 
 // InvokeDirectMethod publishes one online-device command and waits up to 30
@@ -56,18 +37,9 @@ func (CommandSetLogApi) CommandPutMessage(c *gin.Context) {
 // Publish acceptance and device execution remain distinct response fields.
 // @Router   /api/v1/command/datas/direct-method [post]
 func (CommandSetLogApi) InvokeDirectMethod(c *gin.Context) {
-	var req model.DirectMethodCommandReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.CommandData.InvokeDirectMethod(c.Request.Context(), userClaims.ID, &req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.DirectMethodCommandReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.CommandData.InvokeDirectMethod(c.Request.Context(), userClaims.ID, req, userClaims)
+	})
 }
 
 // PreviewFleetCommandJob validates selected devices or previews a device_filter scope without publishing commands.
@@ -81,18 +53,9 @@ func (CommandSetLogApi) InvokeDirectMethod(c *gin.Context) {
 // @Failure 400 {object} errcode.Error "Parameter validation error"
 // @Router   /api/v1/command/datas/jobs/preview [post]
 func (CommandSetLogApi) PreviewFleetCommandJob(c *gin.Context) {
-	var req model.FleetCommandJobReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.CommandData.PreviewFleetCommandJob(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.FleetCommandJobReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.CommandData.PreviewFleetCommandJob(req, userClaims)
+	})
 }
 
 // SubmitFleetCommandJob queues selected-device or capped device_filter command jobs.
@@ -110,19 +73,10 @@ func (CommandSetLogApi) PreviewFleetCommandJob(c *gin.Context) {
 // @Failure 400 {object} errcode.Error "Parameter validation error"
 // @Router   /api/v1/command/datas/jobs/submit [post]
 func (CommandSetLogApi) SubmitFleetCommandJob(c *gin.Context) {
-	var req model.FleetCommandJobReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	includeRows := c.DefaultQuery("include_rows", "true") != "false"
-	data, err := service.GroupApp.CommandData.SubmitFleetCommandJob(c.Request.Context(), userClaims.ID, &req, userClaims, includeRows)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.FleetCommandJobReq, userClaims *utils.UserClaims) (interface{}, error) {
+		includeRows := c.DefaultQuery("include_rows", "true") != "false"
+		return service.GroupApp.CommandData.SubmitFleetCommandJob(c.Request.Context(), userClaims.ID, req, userClaims, includeRows)
+	})
 }
 
 // ListFleetCommandJobs returns recent persisted command jobs for the current tenant.
@@ -576,14 +530,7 @@ func (CommandSetLogApi) GetCommandDeliveryDiagnostics(c *gin.Context) {
 // HandleCommandList queries command metadata for a device.
 // @Router   /api/v1/command/datas/{id} [get]
 func (CommandSetLogApi) HandleCommandList(c *gin.Context) {
-	id := c.Param("id")
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.CommandData.GetCommonList(c, id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.CommandData.GetCommonList(c, id, userClaims)
+	})
 }

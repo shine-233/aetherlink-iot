@@ -35,19 +35,10 @@ type AlarmApi struct{}
 // 静态审查时要重点确认不存在客户端绕过租户隔离字段的可能。
 // /api/v1/alarm/config [post]
 func (*AlarmApi) CreateAlarmConfig(c *gin.Context) {
-	var req model.CreateAlarmConfigReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	req.TenantID = userClaims.TenantID
-	data, err := service.GroupApp.Alarm.CreateAlarmConfig(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	Handle(c, func(req *model.CreateAlarmConfigReq, userClaims *utils.UserClaims) (interface{}, error) {
+		req.TenantID = userClaims.TenantID
+		return service.GroupApp.Alarm.CreateAlarmConfig(req, userClaims)
+	})
 }
 
 // DeleteAlarmConfig 删除指定告警配置。
@@ -77,18 +68,10 @@ func (*AlarmApi) DeleteAlarmConfig(c *gin.Context) {
 // 审查时可重点关注可选字段更新是否会带来误覆盖风险。
 // /api/v1/alarm/config [PUT]
 func (*AlarmApi) UpdateAlarmConfig(c *gin.Context) {
-	var req model.UpdateAlarmConfigReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	req.TenantID = &userClaims.TenantID
-	data, err := service.GroupApp.Alarm.UpdateAlarmConfig(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.UpdateAlarmConfigReq, userClaims *utils.UserClaims) (interface{}, error) {
+		req.TenantID = &userClaims.TenantID
+		return service.GroupApp.Alarm.UpdateAlarmConfig(req, userClaims)
+	})
 }
 
 // ServeAlarmConfigListByPage 分页查询告警配置列表。
@@ -96,34 +79,16 @@ func (*AlarmApi) UpdateAlarmConfig(c *gin.Context) {
 // 是否全部在 service 层闭合，避免返回超范围数据。
 // /api/v1/alarm/config [GET]
 func (*AlarmApi) ServeAlarmConfigListByPage(c *gin.Context) {
-	var req model.GetAlarmConfigListByPageReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	data, err := service.GroupApp.Alarm.GetAlarmConfigListByPage(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.GetAlarmConfigListByPageReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Alarm.GetAlarmConfigListByPage(req, userClaims)
+	})
 }
 
 // /api/v1/alarm/info [put]
 func (*AlarmApi) UpdateAlarmInfo(c *gin.Context) {
-	var req model.UpdateAlarmInfoReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	data, err := service.GroupApp.Alarm.UpdateAlarmInfo(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.UpdateAlarmInfoReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Alarm.UpdateAlarmInfo(req, userClaims)
+	})
 }
 
 // BatchUpdateAlarmInfo 批量更新告警信息。
@@ -131,34 +96,16 @@ func (*AlarmApi) UpdateAlarmInfo(c *gin.Context) {
 // 原子性边界以及每条记录是否都经过相同的租户与权限校验。
 // /api/v1/alarm/info/batch [put]
 func (*AlarmApi) BatchUpdateAlarmInfo(c *gin.Context) {
-	var req model.UpdateAlarmInfoBatchReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	err := service.GroupApp.Alarm.UpdateAlarmInfoBatch(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandleAction(c, func(req *model.UpdateAlarmInfoBatchReq, userClaims *utils.UserClaims) error {
+		return service.GroupApp.Alarm.UpdateAlarmInfoBatch(req, userClaims)
+	})
 }
 
 // /api/v1/alarm/info [get]
 func (*AlarmApi) HandleAlarmInfoListByPage(c *gin.Context) {
-	var req model.GetAlarmInfoListByPageReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	data, err := service.GroupApp.Alarm.GetAlarmInfoListByPage(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.GetAlarmInfoListByPageReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Alarm.GetAlarmInfoListByPage(req, userClaims)
+	})
 }
 
 // HandleAlarmHisttoryListByPage 分页查询告警历史。
@@ -194,17 +141,9 @@ func (*AlarmApi) HandleAlarmHisttoryListByPage(c *gin.Context) {
 // @Success 200 {object} model.AlarmHistoryMonthlyTrendResp
 // @Router /api/v1/alarm/info/history/monthly [get]
 func (*AlarmApi) HandleAlarmHistoryMonthlyTrend(c *gin.Context) {
-	var req model.AlarmHistoryMonthlyTrendReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Alarm.GetAlarmHistoryMonthlyTrend(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.AlarmHistoryMonthlyTrendReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Alarm.GetAlarmHistoryMonthlyTrend(req, userClaims)
+	})
 }
 
 // /api/v1/alarm/info/history [put]
@@ -301,17 +240,9 @@ func (*AlarmApi) ClearAlarmHistory(c *gin.Context) {
 // 该入口面向运维闭环场景，Handler 只负责绑定 action、ids、note 和当前操作者身份。
 // /api/v1/alarm/info/history/batch-action [put]
 func (*AlarmApi) BatchAlarmHistoryAction(c *gin.Context) {
-	var req model.AlarmHistoryBatchActionReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Alarm.BatchAlarmHistoryAction(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.AlarmHistoryBatchActionReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Alarm.BatchAlarmHistoryAction(req, userClaims)
+	})
 }
 
 // HandleDeviceAlarmStatus 查询设备当前是否处于告警状态。

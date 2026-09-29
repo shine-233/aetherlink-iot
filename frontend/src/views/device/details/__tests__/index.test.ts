@@ -316,6 +316,9 @@ const DynamicTagsStub = defineComponent({
 })
 
 const baseStubs = {
+  // 头部元信息与编辑弹窗是详情页壳层拆出的展示子组件，测试需要真实渲染它们。
+  DeviceEditModal: false,
+  DeviceDetailsMeta: false,
   NButton: ButtonStub,
   'n-button': ButtonStub,
   NModal: ModalStub,

@@ -101,9 +101,7 @@ func ListCalculatedFieldsByPage(scopes []string, req *model.CalculatedFieldListR
 		if req.DeviceTemplateID != nil && *req.DeviceTemplateID != "" {
 			query = query.Where("device_template_id = ?", *req.DeviceTemplateID)
 		}
-		if req.Name != nil && *req.Name != "" {
-			query = query.Where("name LIKE ?", "%"+*req.Name+"%")
-		}
+		query = whereKeywordContainsPtr(query, opLike, req.Name, "name")
 	}
 
 	var total int64

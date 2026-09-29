@@ -127,6 +127,17 @@ export default defineConfig(function (configEnv) {
         ignoreTryCatch: false
       },
       rollupOptions: {
+        treeshake: {
+          // crypto-js is CommonJS without a `sideEffects` field, so Rollup
+          // keeps every wrapped `require()` (AES, DES, SHA3, RIPEMD...) even
+          // when nothing reads the exports. Its modules only register
+          // algorithms on the shared CryptoJS object, so marking them
+          // side-effect free lets unused ciphers be dropped from the startup
+          // graph. Returning `true` for every other id keeps Rollup's default
+          // behaviour (package.json `sideEffects` still wins when present).
+          moduleSideEffects: (id) =>
+            !/[\\/]node_modules[\\/](?:\.pnpm[\\/][^\\/]+[\\/]node_modules[\\/])?crypto-js[\\/]/.test(id)
+        },
         output: {
           manualChunks(id) {
             const normalizedId = id.replace(/\\/g, '/')
@@ -139,7 +150,13 @@ export default defineConfig(function (configEnv) {
             if (normalizedId.includes('echarts') || normalizedId.includes('zrender')) return 'vendor-echarts'
             if (normalizedId.includes('@codemirror') || normalizedId.includes('codemirror')) return 'vendor-codemirror'
             if (normalizedId.includes('grid-layout-plus')) return 'vendor-grid'
-            if (normalizedId.includes('naive-ui')) return 'vendor-ui'
+            // naive-ui is intentionally NOT forced into one manual chunk.
+            // It ships `sideEffects: false` ES modules, so Rollup can split it
+            // per route: the app shell only preloads the components it
+            // actually renders, while heavy ones (DataTable, DatePicker,
+            // Cascader, Tree, ColorPicker...) download with the views using
+            // them. A single `vendor-ui` chunk put ~1.1 MB of naive-ui on the
+            // login critical path.
             // three/@tresjs power the 3D device panel; isolate the large three
             // bundle so it only downloads with routes that mount the panel.
             if (normalizedId.includes('@tresjs') || normalizedId.includes('node_modules/three/')) {

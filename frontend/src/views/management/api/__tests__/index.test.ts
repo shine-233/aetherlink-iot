@@ -318,15 +318,15 @@ describe('management/api/index.vue', () => {
     expect(hoisted.fetchKeyList).toHaveBeenCalledTimes(0)
   })
 
-  it('pagination.onChange updates page and fetches', async () => {
+  it('pagination.onUpdatePage updates page and fetches', async () => {
     const wrapper = mountComponent()
     await flushPromises()
     vi.clearAllMocks()
     hoisted.fetchKeyList.mockResolvedValue({ data: { list: [], total: 0 } })
     const state = getSetupState(wrapper)
-    state.pagination.onChange(3)
+    state.pagination.onUpdatePage(3)
     await flushPromises()
-    expect(state.queryParams.page).toBe(3)
+    expect(state.pagination.page).toBe(3)
     expect(state.pagination.page).toBe(3)
     expect(hoisted.fetchKeyList).toHaveBeenCalledTimes(1)
     expect(hoisted.fetchKeyList).toHaveBeenCalledWith({
@@ -343,11 +343,11 @@ describe('management/api/index.vue', () => {
     vi.clearAllMocks()
     hoisted.fetchKeyList.mockResolvedValue({ data: { list: [], total: 0 } })
     const state = getSetupState(wrapper)
-    state.queryParams.page = 4
+    state.pagination.page = 4
     state.pagination.onUpdatePageSize(20)
     await flushPromises()
-    expect(state.queryParams.page_size).toBe(20)
-    expect(state.queryParams.page).toBe(1)
+    expect(state.pagination.pageSize).toBe(20)
+    expect(state.pagination.page).toBe(1)
     expect(state.pagination.page).toBe(1)
     expect(hoisted.fetchKeyList).toHaveBeenCalledTimes(1)
     expect(hoisted.fetchKeyList).toHaveBeenCalledWith({

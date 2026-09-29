@@ -90,16 +90,9 @@ func (*ServiceAccessApi) Delete(c *gin.Context) {
 // 前端服务接入创建/编辑页会依赖这个接口动态装配凭证字段。
 // /api/v1/service/access/voucher/form [get]
 func (*ServiceAccessApi) HandleVoucherForm(c *gin.Context) {
-	var req model.GetServiceAccessVoucherFormReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	resp, err := service.GroupApp.ServiceAccess.GetVoucherForm(&req)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	HandlePublic(c, func(req *model.GetServiceAccessVoucherFormReq) (interface{}, error) {
+		return service.GroupApp.ServiceAccess.GetVoucherForm(req)
+	})
 }
 
 // HandleDeviceList 返回三方服务侧的设备列表。

@@ -133,13 +133,3 @@ export const createLogger = (moduleName: string, config?: Partial<LoggerConfig>)
 
 // 创建全局默认日志器
 export const logger = new Logger()
-
-// 为常用模块创建专用日志器
-export const dataSourceLogger = createLogger('DataSource')
-export const httpLogger = createLogger('HTTP')
-export const componentLogger = createLogger('Component')
-export const visualEditorLogger = createLogger('VisualEditor')
-export const propertyBindingLogger = createLogger('PropertyBinding')
-
-// 导出类型
-export type { LoggerConfig }

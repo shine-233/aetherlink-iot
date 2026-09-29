@@ -7,7 +7,6 @@ package dal
 
 import (
 	"context"
-	"fmt"
 
 	"aetherlink-iot/backend/internal/model"
 	query "aetherlink-iot/backend/internal/query"
@@ -36,7 +35,7 @@ func GetSceneAutomationByPage(req *model.GetSceneAutomationByPageReq, scopes []s
 		queryBuilder = queryBuilder.Where(q.TenantID.In(scopes...))
 	}
 	if req.Name != nil && *req.Name != "" {
-		queryBuilder = queryBuilder.Where(q.Name.Like(fmt.Sprintf("%%%s%%", *req.Name)))
+		queryBuilder = queryBuilder.Where(q.Name.Like(ContainsLikePattern(*req.Name)))
 	}
 	if req.DeviceId != nil && *req.DeviceId != "" {
 		sceneIDs, _ := getSceneAutomationIdByDeviceId(ctx, *req.DeviceId)

@@ -6,6 +6,7 @@
 package storage
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
@@ -40,7 +41,7 @@ func TestPersistFailedTelemetryCountsOnlyNewSpoolRecords(t *testing.T) {
 func TestPersistFailedTelemetryPublishesQuarantineUsage(t *testing.T) {
 	spool := testTelemetryFileSpool(t, 1024*1024, 10)
 	history := testTelemetrySpoolHistory("device-1", "temperature", 1000, 21.5)
-	if _, err := spool.store(history, time.Unix(1, 0)); err != nil {
+	if _, err := spool.store(context.Background(), history, time.Unix(1, 0)); err != nil {
 		t.Fatalf("seed telemetry spool: %v", err)
 	}
 	path := filepath.Join(spool.directory, telemetryFileSpoolFilename(telemetryFileSpoolIdentity(history)))

@@ -276,29 +276,15 @@ func (*DeviceModelApi) CreateDeviceModelCustomCommands(c *gin.Context) {
 }
 
 func (*DeviceModelApi) DeleteDeviceModelCustomCommands(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.DeviceModel.DeleteDeviceModelCustomCommands(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandlePathAction(c, "id", func(id string, userClaims *utils.UserClaims) error {
+		return service.GroupApp.DeviceModel.DeleteDeviceModelCustomCommands(id, userClaims)
+	})
 }
 
 func (*DeviceModelApi) UpdateDeviceModelCustomCommands(c *gin.Context) {
-	var req model.UpdateDeviceModelCustomCommandReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.DeviceModel.UpdateDeviceModelCustomCommands(req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandleAction(c, func(req *model.UpdateDeviceModelCustomCommandReq, userClaims *utils.UserClaims) error {
+		return service.GroupApp.DeviceModel.UpdateDeviceModelCustomCommands(*req, userClaims)
+	})
 }
 
 func (*DeviceModelApi) HandleDeviceModelCustomCommandsByPage(c *gin.Context) {
@@ -352,31 +338,15 @@ func (*DeviceModelApi) CreateDeviceModelCustomControl(c *gin.Context) {
 }
 
 func (*DeviceModelApi) DeleteDeviceModelCustomControl(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.DeviceModel.DeleteDeviceModelCustomControl(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", nil)
+	HandlePathAction(c, "id", func(id string, userClaims *utils.UserClaims) error {
+		return service.GroupApp.DeviceModel.DeleteDeviceModelCustomControl(id, userClaims)
+	})
 }
 
 func (*DeviceModelApi) UpdateDeviceModelCustomControl(c *gin.Context) {
-	var req model.UpdateDeviceModelCustomControlReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.DeviceModel.UpdateDeviceModelCustomControl(req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", nil)
+	HandleAction(c, func(req *model.UpdateDeviceModelCustomControlReq, userClaims *utils.UserClaims) error {
+		return service.GroupApp.DeviceModel.UpdateDeviceModelCustomControl(*req, userClaims)
+	})
 }
 
 // HandleDeviceModelCustomControl 分页查询自定义控制项。

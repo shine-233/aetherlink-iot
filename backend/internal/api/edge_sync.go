@@ -14,17 +14,9 @@ type EdgeSyncApi struct{}
 // Create 创建看板/规则链边缘同步任务并立即投递。
 // POST /api/v1/edge/sync
 func (*EdgeSyncApi) Create(c *gin.Context) {
-	var req model.CreateEdgeSyncReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.EdgeSync.CreateEdgeSync(&req, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	Handle(c, func(req *model.CreateEdgeSyncReq, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.EdgeSync.CreateEdgeSync(req, claims)
+	})
 }
 
 // List 列边缘同步任务（过滤 resource_type/gateway_device_id/status）。
@@ -43,41 +35,23 @@ func (*EdgeSyncApi) List(c *gin.Context) {
 // Get 单条任务详情。
 // GET /api/v1/edge/sync/:id
 func (*EdgeSyncApi) Get(c *gin.Context) {
-	id := c.Param("id")
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.EdgeSync.GetEdgeSyncTask(id, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	HandlePath(c, "id", func(id string, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.EdgeSync.GetEdgeSyncTask(id, claims)
+	})
 }
 
 // Retry 重试投递（重放任务行内快照）。
 // POST /api/v1/edge/sync/:id/retry
 func (*EdgeSyncApi) Retry(c *gin.Context) {
-	id := c.Param("id")
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.EdgeSync.RetryEdgeSync(id, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	HandlePath(c, "id", func(id string, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.EdgeSync.RetryEdgeSync(id, claims)
+	})
 }
 
 // DistributeOta OTA 经边分发（网关 + 升级包 + 目标设备集合）。
 // POST /api/v1/edge/ota/distribute
 func (*EdgeSyncApi) DistributeOta(c *gin.Context) {
-	var req model.EdgeOtaDistributeReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.EdgeSync.DistributeEdgeOTA(&req, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	Handle(c, func(req *model.EdgeOtaDistributeReq, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.EdgeSync.DistributeEdgeOTA(req, claims)
+	})
 }
