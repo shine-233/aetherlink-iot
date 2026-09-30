@@ -49,9 +49,8 @@ func (h *Handler) Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 1. 优先兜住 panic，避免把原始异常直接暴露给客户端。
 		defer func() {
-			if err := recover(); err != nil {
-				sysErr := errcode.NewWithMessage(errcode.CodeSystemError, fmt.Sprint(err))
-				h.handleError(c, sysErr)
+			if rec := recover(); rec != nil {
+				h.handleError(c, panicToSystemError(c, rec))
 				c.Abort()
 			}
 		}()
@@ -81,9 +80,19 @@ func (h *Handler) handleContextError(c *gin.Context, err error) {
 	case *errcode.Error:
 		h.handleError(c, e)
 	default:
-		sysErr := errcode.NewWithMessage(errcode.CodeSystemError, err.Error())
-		h.handleError(c, sysErr)
+		// 数据库驱动错误的原文（表名/列名/约束名/SQLSTATE）只进服务端日志，
+		// 响应侧统一收敛为通用系统错误；其余错误维持既有行为。
+		h.handleError(c, systemErrorFor(c, err))
 	}
+}
+
+// panicToSystemError 把 recover 到的值收敛成可安全返回客户端的错误：
+// error 走与 handleContextError 相同的脱敏规则，非 error 值保留既有文案。
+func panicToSystemError(c *gin.Context, rec interface{}) *errcode.Error {
+	if err, ok := rec.(error); ok {
+		return systemErrorFor(c, err)
+	}
+	return errcode.NewWithMessage(errcode.CodeSystemError, fmt.Sprint(rec))
 }
 
 // responseSuccess 使用本地化成功消息写回统一响应。
