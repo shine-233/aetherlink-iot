@@ -63,6 +63,28 @@ describe('useListPage', () => {
     expect(list.rows.value).toEqual([{ id: 'a' }])
   })
 
+  it('keeps the current rows visible while a reload is in flight', async () => {
+    const pending = deferred<{ list: Row[]; total: number }>()
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce({ list: [{ id: 'a' }], total: 1 })
+      .mockImplementationOnce(() => pending.promise)
+    const list = useListPage<Row>({ fetcher })
+
+    await list.load()
+    const reload = list.load()
+
+    // load() 刻意不清空 rows（避免翻页/刷新时列表闪空）；清空是 clear() 的职责。
+    expect(list.rows.value).toEqual([{ id: 'a' }])
+    expect(list.total.value).toBe(1)
+    expect(list.loading.value).toBe(true)
+
+    pending.resolve({ list: [{ id: 'b' }], total: 2 })
+    expect(await reload).toBe(true)
+    expect(list.rows.value).toEqual([{ id: 'b' }])
+    expect(list.loading.value).toBe(false)
+  })
+
   it('steps back when the current page no longer exists', async () => {
     const fetcher = vi
       .fn()

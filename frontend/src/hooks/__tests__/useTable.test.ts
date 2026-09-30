@@ -136,7 +136,9 @@ describe('useTable hook', () => {
       await result.getData()
       await nextTick()
 
-      expect(hoisted.mockApiFn).toHaveBeenCalledWith(result.searchParams)
+      // getData 走 createLatestQueryRunner：除 searchParams 外还会把本次查询的
+      // AbortSignal 交给 apiFn，以便新查询取代旧查询时能取消在途请求。
+      expect(hoisted.mockApiFn).toHaveBeenCalledWith(result.searchParams, expect.any(AbortSignal))
       expect(result.data.value).toHaveLength(1)
       expect(result.data.value[0].name).toBe('Item 1')
     })

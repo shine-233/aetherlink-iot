@@ -60,7 +60,8 @@ describe('useEquipmentAmap', () => {
     await flushPromises()
 
     expect(hoisted.loadAmap).not.toHaveBeenCalled()
-    expect(state.mapError).toBe(true)
-    expect(state.mapReady).toBe(false)
+    // 组合式函数对外暴露的是 ref（消费方 EquipmentMapSurface 在脚本里用 .value、模板里自动解包）。
+    expect(state.mapError.value).toBe(true)
+    expect(state.mapReady.value).toBe(false)
   })
 })
