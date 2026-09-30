@@ -10,14 +10,7 @@ import axiosRetry from 'axios-retry'
 import { nanoid } from '@aetherlink/utils'
 import { createAxiosConfig, createDefaultOptions, createRetryOptions } from './options'
 import { BACKEND_ERROR_CODE, REQUEST_ID_KEY } from './constant'
-import type {
-  CustomAxiosRequestConfig,
-  FlatRequestInstance,
-  MappedType,
-  RequestInstance,
-  RequestOption,
-  ResponseType
-} from './type'
+import type { CustomAxiosRequestConfig, FlatRequestInstance, MappedType, RequestOption, ResponseType } from './type'
 
 /**
  * 是否"纯对象"（Object 字面量 / new Object）。

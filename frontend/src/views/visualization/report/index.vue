@@ -1,41 +1,20 @@
 <!--
 文件用途：定时报表工作台（计划列表、创建/编辑、立即运行、运行历史与重试）。
 核心逻辑：计划 CRUD 在 useReportSchedules，运行/历史/重试/轮询在 useReportRuns，列定义在 reportColumns，
-  选中运行详情在 ReportRunDetail；本文件只做编排与布局。
+  两个分页列表的分页/加载/过期请求丢弃统一收口在 useListPage；创建/编辑弹窗与运行历史抽屉分别拆在
+  ReportScheduleFormModal / ReportHistoryDrawer，本文件只做编排与布局。
 -->
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted } from 'vue'
-import {
-  NAlert,
-  NButton,
-  NCard,
-  NDataTable,
-  NDrawer,
-  NDrawerContent,
-  NEmpty,
-  NForm,
-  NFormItem,
-  NInput,
-  NInputNumber,
-  NModal,
-  NPagination,
-  NSelect,
-  NSpace,
-  NSpin,
-  NSwitch,
-  useMessage
-} from 'naive-ui'
-import { $t } from '@/locales'
+import { NAlert, NButton, NCard, NDataTable, NEmpty, NInput, NPagination, NSpin, useMessage } from 'naive-ui'
+import type { FormInst } from 'naive-ui'
 import type { ReportRun, ReportSchedule } from '@/service/api/report'
-import {
-  REPORT_FORMAT_OPTIONS,
-  REPORT_PAGE_SIZE as PAGE_SIZE,
-  REPORT_RUN_PAGE_SIZE as RUN_PAGE_SIZE
-} from './report-helpers'
+import { REPORT_PAGE_SIZE as PAGE_SIZE } from './report-helpers'
 import { createRunColumns, createScheduleColumns } from './reportColumns'
 import { useReportSchedules } from './useReportSchedules'
 import { useReportRuns } from './useReportRuns'
-import ReportRunDetail from './ReportRunDetail.vue'
+import ReportScheduleFormModal from './ReportScheduleFormModal.vue'
+import ReportHistoryDrawer from './ReportHistoryDrawer.vue'
 
 const message = useMessage()
 const {
@@ -103,6 +82,11 @@ const runColumns = computed(() =>
   })
 )
 
+// 弹窗内的 NForm 挂载/卸载时回传实例，校验仍由 saveSchedule 通过 formRef 触发。
+const setFormRef = (instance: unknown) => {
+  formRef.value = (instance as Pick<FormInst, 'validate'>) ?? null
+}
+
 onMounted(loadSchedules)
 onBeforeUnmount(() => {
   disposeSchedules()
@@ -160,124 +144,32 @@ onBeforeUnmount(() => {
       </NSpin>
     </NCard>
 
-    <NModal
+    <ReportScheduleFormModal
       v-model:show="showForm"
-      preset="card"
-      :title="$t(editing ? 'report.form.editTitle' : 'report.form.createTitle')"
-      class="report-form-modal"
-    >
-      <NForm ref="formRef" :model="form" label-placement="top">
-        <div class="report-form-grid">
-          <NFormItem
-            :label="$t('report.form.name')"
-            path="name"
-            :rule="{ required: true, message: $t('report.form.required') }"
-          >
-            <NInput v-model:value="form.name" :maxlength="128" />
-          </NFormItem>
-          <NFormItem
-            :label="$t('report.form.cron')"
-            path="cron_expr"
-            :rule="{ required: true, message: $t('report.form.required') }"
-          >
-            <NInput v-model:value="form.cron_expr" placeholder="0 8 * * 1-5" />
-          </NFormItem>
-          <NFormItem
-            :label="$t('report.form.timezone')"
-            path="timezone"
-            :rule="{ required: true, message: $t('report.form.required') }"
-          >
-            <NInput v-model:value="form.timezone" placeholder="Europe/Paris" />
-          </NFormItem>
-          <NFormItem :label="$t('report.form.lookback')" path="lookback_hours">
-            <NInputNumber v-model:value="form.lookback_hours" :min="1" :max="8760" class="w-full" />
-          </NFormItem>
-        </div>
-        <NFormItem
-          :label="$t('report.form.recipients')"
-          path="recipients"
-          :rule="{ required: true, message: $t('report.form.required') }"
-        >
-          <NInput v-model:value="form.recipients" :placeholder="$t('report.form.recipientsHint')" />
-        </NFormItem>
-        <div class="report-form-grid">
-          <NFormItem :label="$t('report.form.devices')">
-            <NInput
-              v-model:value="deviceIdsText"
-              type="textarea"
-              :rows="5"
-              :placeholder="$t('report.form.linesHint')"
-            />
-          </NFormItem>
-          <NFormItem :label="$t('report.form.keys')">
-            <NInput v-model:value="keysText" type="textarea" :rows="5" :placeholder="$t('report.form.linesHint')" />
-          </NFormItem>
-        </div>
-        <div class="report-form-footer-row">
-          <NSelect
-            v-model:value="form.format"
-            class="!w-36"
-            :options="REPORT_FORMAT_OPTIONS"
-            :consistent-menu-width="false"
-            data-testid="report-format"
-          />
-          <label>
-            <span>{{ $t('report.form.enabled') }}</span>
-            <NSwitch v-model:value="form.enabled" />
-          </label>
-        </div>
-      </NForm>
-      <template #footer>
-        <NSpace justify="end">
-          <NButton :disabled="saving" @click="showForm = false">{{ $t('report.action.cancel') }}</NButton>
-          <NButton type="primary" :loading="saving" @click="saveSchedule">{{ $t('report.action.save') }}</NButton>
-        </NSpace>
-      </template>
-    </NModal>
+      v-model:device-ids-text="deviceIdsText"
+      v-model:keys-text="keysText"
+      :editing="editing !== null"
+      :form="form"
+      :saving="saving"
+      :register-form="setFormRef"
+      @save="saveSchedule"
+    />
 
-    <NDrawer v-model:show="historyVisible" width="min(1080px, 94vw)" placement="right">
-      <NDrawerContent :title="selectedSchedule?.name || $t('report.history.title')" closable>
-        <div class="report-history-header">
-          <div>
-            <p>{{ $t('report.history.subtitle') }}</p>
-            <strong>{{ selectedSchedule?.cron_expr }} · {{ selectedSchedule?.timezone }}</strong>
-          </div>
-          <NButton :loading="historyLoading" @click="loadRuns">{{ $t('report.action.refresh') }}</NButton>
-        </div>
-        <NAlert v-if="!selectedSchedule?.enabled" type="info" class="mb-4">
-          {{ $t('report.message.scheduleDisabled') }}
-        </NAlert>
-        <NAlert v-if="pollFailed" type="error" class="mb-4" data-testid="report-poll-failed">
-          {{ $t('report.message.pollFailed') }}
-        </NAlert>
-        <NSpin :show="historyLoading">
-          <NDataTable
-            v-if="runs.length"
-            :columns="runColumns"
-            :data="runs"
-            :row-key="(row: ReportRun) => row.run_id"
-            :scroll-x="1100"
-          />
-          <NEmpty v-else-if="!historyLoading" :description="$t('report.history.empty')" class="py-16" />
-          <div v-if="runTotal > RUN_PAGE_SIZE" class="report-pagination">
-            <NPagination
-              :page="runPage"
-              :page-size="RUN_PAGE_SIZE"
-              :item-count="runTotal"
-              @update:page="changeRunPage"
-            />
-          </div>
-        </NSpin>
-
-        <ReportRunDetail
-          v-if="selectedRun"
-          :run="selectedRun"
-          :schedule-enabled="selectedSchedule?.enabled"
-          :retrying="retryingRunId === selectedRun.run_id"
-          @retry="retryRun"
-        />
-      </NDrawerContent>
-    </NDrawer>
+    <ReportHistoryDrawer
+      v-model:show="historyVisible"
+      :schedule="selectedSchedule"
+      :history-loading="historyLoading"
+      :runs="runs"
+      :run-total="runTotal"
+      :run-page="runPage"
+      :poll-failed="pollFailed"
+      :run-columns="runColumns"
+      :selected-run="selectedRun"
+      :retrying-run-id="retryingRunId"
+      @refresh="loadRuns"
+      @update:run-page="changeRunPage"
+      @retry="retryRun"
+    />
   </main>
 </template>
 
@@ -314,8 +206,7 @@ onBeforeUnmount(() => {
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
-.report-subtitle,
-.report-history-header p {
+.report-subtitle {
   max-width: 720px;
   margin: 0;
   color: var(--text-color-2);
@@ -357,28 +248,6 @@ onBeforeUnmount(() => {
   justify-content: flex-end;
   padding-top: 18px;
 }
-.report-form-modal {
-  width: min(760px, 92vw);
-}
-.report-form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0 18px;
-}
-.report-form-footer-row,
-.report-form-footer-row label {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.report-history-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 18px;
-}
 @media (max-width: 760px) {
   .report-header {
     align-items: start;
@@ -390,9 +259,6 @@ onBeforeUnmount(() => {
   .report-cadence,
   .report-command-bar :deep(.n-input) {
     grid-column: 1 / -1;
-  }
-  .report-form-grid {
-    grid-template-columns: 1fr;
   }
 }
 </style>

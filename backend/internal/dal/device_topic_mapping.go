@@ -53,17 +53,16 @@ func ListDeviceTopicMappings(ctx context.Context, req *model.ListDeviceTopicMapp
 	dao := applyDeviceTopicMappingFilters(q.WithContext(ctx), req)
 	// order by priority asc, id asc
 	dao = dao.Order(q.Priority, q.ID)
-	offset := 0
-	limit := 20
-	if req.Page > 0 && req.PageSize > 0 {
-		offset = (req.Page - 1) * req.PageSize
-		limit = req.PageSize
-	}
-	result, err := dao.Offset(offset).Limit(limit).Find()
+	// 分页收编（2026-09-28）：normalizePageParams 保持旧口径（缺省 20；max 传 0 表示
+	// 不做单页上限收敛），applyListPagination 施加 Limit/Offset。
+	page, pageSize := normalizePageParams(req.Page, req.PageSize, 20, 0)
+	offset := (page - 1) * pageSize
+	dao = applyListPagination(dao, page, pageSize)
+	result, err := dao.Find()
 	if err != nil {
 		return nil, 0, err
 	}
-	if offset == 0 && len(result) < limit {
+	if offset == 0 && len(result) < pageSize {
 		return result, int64(len(result)), nil
 	}
 	daoCount := applyDeviceTopicMappingFilters(q.WithContext(ctx), req)

@@ -51,10 +51,7 @@ export function applyTranslationOverrides(
 /**
  * 从后端覆盖载荷中取出指定语言目录的覆盖映射；载荷缺失/形态非法时返回空对象（fail-open 到静态目录）。
  */
-export function pickOverridesForFolder(
-  translations: unknown,
-  folder: WhitelabelFolder
-): Record<string, string> {
+export function pickOverridesForFolder(translations: unknown, folder: WhitelabelFolder): Record<string, string> {
   if (!translations || typeof translations !== 'object') return {}
   const byLang = translations as Record<string, unknown>
   const langMap = byLang[folder]

@@ -1,7 +1,7 @@
 // 文件用途：证明泛型 Handler 适配器与迁移前手写 handler 的 HTTP 响应逐字节一致。
 // 核心逻辑：同一个请求结构体分别用「旧写法」（BindAndValidate + MustGet("claims") + c.Error + c.Set）
-// 和「新写法」（Handle / HandleAction / HandleNoBody / HandlePath / HandlePathBody / HandlePublic 适配器）
-// 实现，走同一套 response 中间件渲染，然后对 HTTP 状态码与原始响应体字符串做全等比较。
+// 和「新写法」（Handle / HandleAction / HandleNoBody / HandlePath / HandlePathBody / HandlePathBodyOptional /
+// HandlePublic 适配器与 bindBodyLegacyParamError 助手）实现，走同一套 response 中间件渲染，然后对 HTTP 状态码与原始响应体字符串做全等比较。
 // 这是渲染结果的真实比对，不是声明式契约，因此能直接证伪「适配器改变了响应」这一假设。
 // 已知的有意差异：缺失 claims 时旧写法 MustGet 触发 panic，新写法返回 CodeUnauthorized，
 // 该差异由 TestHandleAdapterMissingClaimsReturnsUnauthorizedInsteadOfPanic 单独固化。
@@ -67,6 +67,14 @@ func adapterProbePathBody(id string, req adapterProbeReq, claims *utils.UserClai
 		return nil, errcode.New(errcode.CodeSystemError)
 	}
 	return map[string]interface{}{"id": id, "name": req.Name, "tenant": claims.TenantID}, nil
+}
+
+// adapterProbePathBodyOptionalBody 同 adapterProbePathBody，但入参零值有意义（body 可选场景下 fn 收到零值结构体）。
+func adapterProbePathBodyOptionalBody(id string, req adapterProbeReq, claims *utils.UserClaims) (interface{}, error) {
+	if req.Name == adapterProbeBoomName {
+		return nil, errcode.New(errcode.CodeSystemError)
+	}
+	return map[string]interface{}{"id": id, "name": req.Name, "age": req.Age, "tenant": claims.TenantID}, nil
 }
 
 func adapterProbePublic(req adapterProbeReq) (interface{}, error) {
@@ -140,6 +148,38 @@ func legacyProbePathBody(c *gin.Context) {
 	c.Set("data", data)
 }
 
+// legacyProbePathBodyOptional 是迁移前“请求体可选”手写形态（edge_node.go Heartbeat/IssueCertificate 原样）：
+// 绑定失败不拒绝，req 保持零值。
+func legacyProbePathBodyOptional(c *gin.Context) {
+	id := c.Param("id")
+	var req adapterProbeReq
+	_ = c.ShouldBindJSON(&req)
+	claims := c.MustGet("claims").(*utils.UserClaims)
+	data, err := adapterProbePathBodyOptionalBody(id, req, claims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", data)
+}
+
+// legacyProbeWithDataParamError 是迁移前“参数错误走 errcode.WithData 包络”的手写形态
+// （role.go Assign 系列原样）：先取 claims，再绑定，失败时 c.Error(errcode.WithData(...))。
+func legacyProbeWithDataParamError(c *gin.Context) {
+	claims := c.MustGet("claims").(*utils.UserClaims)
+	var req adapterProbeReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{"error": err.Error()}))
+		return
+	}
+	data, err := adapterProbeData(req, claims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", data)
+}
+
 func legacyProbePublic(c *gin.Context) {
 	var req adapterProbeReq
 	if !BindAndValidate(c, &req) {
@@ -183,6 +223,33 @@ func adaptedProbePathBody(c *gin.Context) {
 	HandlePathBody(c, "id", func(value string, req *adapterProbeReq, claims *utils.UserClaims) (interface{}, error) {
 		return adapterProbePathBody(value, *req, claims)
 	})
+}
+
+// adaptedProbePathBodyOptional 走共享助手 HandlePathBodyOptional：绑定失败放行，仅缺 claims 短路。
+func adaptedProbePathBodyOptional(c *gin.Context) {
+	HandlePathBodyOptional(c, "id", func(value string, req *adapterProbeReq, claims *utils.UserClaims) (interface{}, error) {
+		return adapterProbePathBodyOptionalBody(value, *req, claims)
+	})
+}
+
+// adaptedProbeWithDataParamError 用共享助手 bindBodyLegacyParamError 收敛迁移前的
+// errcode.WithData(CodeParamError, {"error": ...}) 参数错误出口。
+func adaptedProbeWithDataParamError(c *gin.Context) {
+	claims, ok := RequireClaims(c)
+	if !ok {
+		return
+	}
+	var req adapterProbeReq
+	if err := bindBodyLegacyParamError(c, &req); err != nil {
+		c.Error(err)
+		return
+	}
+	data, err := adapterProbeData(req, claims)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.Set("data", data)
 }
 
 func adaptedProbePublic(c *gin.Context) {
@@ -267,6 +334,25 @@ func TestHandleAdapterPathVariantsAreByteIdentical(t *testing.T) {
 
 	for _, body := range []string{adapterProbeBodyValid, adapterProbeBodyMissing, adapterProbeBodyBoom} {
 		requireIdenticalResponses(t, "HandlePathBody/"+body, http.MethodPut, "/probe/device-1", body, true, legacyProbePathBody, adaptedProbePathBody)
+	}
+}
+
+// TestHandleAdapterPathBodyOptionalToleratesMissingBody 覆盖请求体可选形态（集成阶段收编
+// edge_node.go Heartbeat/IssueCertificate 所用助手 HandlePathBodyOptional）：
+// 空 body、坏 JSON 均放行且 req 保持零值，仅缺 claims 时短路（后者由 MissingClaims 用例覆盖）。
+func TestHandleAdapterPathBodyOptionalToleratesMissingBody(t *testing.T) {
+	for _, body := range []string{adapterProbeBodyValid, "", `{not-json`, adapterProbeBodyBoom} {
+		requireIdenticalResponses(t, "HandlePathBodyOptional/"+body, http.MethodPost, "/probe/device-1", body, true, legacyProbePathBodyOptional, adaptedProbePathBodyOptional)
+	}
+}
+
+// TestHandleAdapterLegacyParamErrorEnvelopeIsByteIdentical 覆盖迁移前 WithData 参数错误包络的收敛
+// （集成阶段收编 role.go Assign 系列所用助手 bindBodyLegacyParamError）：绑定失败时响应必须带
+// data 字段（{"error": ...}）且 message 取错误码默认文案——与 reportParamError 的 NewWithMessage
+// 形态逐字节不同，两侧在同一入参下渲染结果必须全等。
+func TestHandleAdapterLegacyParamErrorEnvelopeIsByteIdentical(t *testing.T) {
+	for _, body := range []string{adapterProbeBodyMissing, adapterProbeBodyValid, adapterProbeBodyBoom} {
+		requireIdenticalResponses(t, "bindBodyLegacyParamError/"+body, http.MethodPost, "/probe/assign", body, true, legacyProbeWithDataParamError, adaptedProbeWithDataParamError)
 	}
 }
 

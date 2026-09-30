@@ -90,6 +90,8 @@ export function useOtaReadyCheckContext(options: ReadyCheckOptions) {
     readyCheckOtaContextType,
     readyCheckOtaContextMessage,
     readyCheckOtaDetailContextMessage,
+    readyCheckOtaContextStatus,
+    readyCheckOtaDetailMatched,
     applyReadyCheckOtaContext
   }
 }

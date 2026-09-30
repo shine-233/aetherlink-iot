@@ -54,7 +54,9 @@ func NewPublishPacket(fh *FixHeader, version Version, r io.Reader) (*Publish, er
 // Pack encodes the packet struct into bytes and writes it into io.Writer.
 func (p *Publish) Pack(w io.Writer) error {
 	p.FixHeader = &FixHeader{PacketType: PUBLISH}
-	bufw := &bytes.Buffer{}
+	bufw := packBufPool.Get().(*bytes.Buffer)
+	defer packBufPool.Put(bufw)
+	bufw.Reset()
 	var dup, retain byte
 	dup = 0
 	retain = 0

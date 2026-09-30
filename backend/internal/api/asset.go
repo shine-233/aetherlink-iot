@@ -17,22 +17,16 @@ type AssetApi struct{}
 // HandleAssetCreate 新建资产。
 // POST /api/v1/asset
 func (*AssetApi) HandleAssetCreate(c *gin.Context) {
-	var req service.AssetReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	if req.ConflictPolicy == nil || *req.ConflictPolicy == "" {
-		if q := c.Query("conflict_policy"); q != "" {
-			req.ConflictPolicy = &q
+	// 迁移形态：Handle（绑定 -> 校验 -> claims -> service）。conflict_policy 的 query 兜底
+	// 保留在闭包内、service 调用之前，执行顺序与迁移前一致。
+	Handle(c, func(req *service.AssetReq, userClaims *utils.UserClaims) (interface{}, error) {
+		if req.ConflictPolicy == nil || *req.ConflictPolicy == "" {
+			if q := c.Query("conflict_policy"); q != "" {
+				req.ConflictPolicy = &q
+			}
 		}
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.Asset.Create(userClaims, &req)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+		return service.GroupApp.Asset.Create(userClaims, req)
+	})
 }
 
 // HandleAssetUpdate 更新资产。
@@ -46,50 +40,46 @@ func (*AssetApi) HandleAssetUpdate(c *gin.Context) {
 // HandleAssetDelete 删除资产（无子节点）。
 // DELETE /api/v1/asset/:id
 func (*AssetApi) HandleAssetDelete(c *gin.Context) {
-	id := c.Param("id")
-	if id == "" {
-		c.Error(errcode.NewWithMessage(errcode.CodeParamError, "asset id is required"))
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	if err := service.GroupApp.Asset.Delete(userClaims, id); err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", map[string]interface{}{})
+	// 迁移形态：HandlePath（路径参数 id + claims）。成功包络保留旧的空对象 data {}，
+	// 故不能改用 HandlePathAction（其成功时 data 为 nil 并从包络中省略该字段）。
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		if id == "" {
+			return nil, errcode.NewWithMessage(errcode.CodeParamError, "asset id is required")
+		}
+		if err := service.GroupApp.Asset.Delete(userClaims, id); err != nil {
+			return nil, err
+		}
+		return map[string]interface{}{}, nil
+	})
 }
 
 // HandleAssetList 分页列出根/指定父节点下的资产。
 // GET /api/v1/asset/list?parent_id=&keyword=&page=&page_size=
 func (*AssetApi) HandleAssetList(c *gin.Context) {
-	parentID := c.Query("parent_id")
-	keyword := c.Query("keyword")
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	list, total, err := service.GroupApp.Asset.List(userClaims, parentID, keyword, page, pageSize)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", gin.H{"list": list, "total": total})
+	// 迁移形态：HandleNoBody（不绑定请求体，分页参数仍在闭包内按 query/DefaultQuery 读取）。
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		parentID := c.Query("parent_id")
+		keyword := c.Query("keyword")
+		page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+		pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
+		list, total, err := service.GroupApp.Asset.List(userClaims, parentID, keyword, page, pageSize)
+		if err != nil {
+			return nil, err
+		}
+		return gin.H{"list": list, "total": total}, nil
+	})
 }
 
 // HandleAssetGet 读取单个资产。
 // GET /api/v1/asset/:id
 func (*AssetApi) HandleAssetGet(c *gin.Context) {
-	id := c.Param("id")
-	if id == "" {
-		c.Error(errcode.NewWithMessage(errcode.CodeParamError, "asset id is required"))
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.Asset.Get(userClaims, id)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	// 迁移形态：HandlePath（路径参数 id + claims）。id 空值校验保留在闭包内、先于 service 调用。
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		if id == "" {
+			return nil, errcode.NewWithMessage(errcode.CodeParamError, "asset id is required")
+		}
+		return service.GroupApp.Asset.Get(userClaims, id)
+	})
 }
 
 // HandleAssetTree 返回租户作用域内资产树。

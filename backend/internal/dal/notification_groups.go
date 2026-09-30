@@ -43,11 +43,9 @@ func DeleteNotificationGroup(id string) error {
 // tenant-scope: no-tenant-column?2026-08-26 ?????
 func GetNotificationGroupList(page, pageSize int) (int64, interface{}, error) {
 	var count int64
-	queryBuilder := query.NotificationGroup.WithContext(context.Background())
-	if page != 0 && pageSize != 0 {
-		queryBuilder = queryBuilder.Limit(pageSize)
-		queryBuilder = queryBuilder.Offset((page - 1) * pageSize)
-	}
+	// 分页收编（2026-09-28）：旧写法 page=0 时不加 LIMIT，通知组列表退化为无界扫描；
+	// applyListPagination 对缺省分页兜底 defaultListLimit 并由 clampListPageSize 封顶单页。
+	queryBuilder := applyListPagination(query.NotificationGroup.WithContext(context.Background()), page, pageSize)
 	notificationGroupList, err := queryBuilder.Select().Find()
 	if err != nil {
 		return count, notificationGroupList, err
@@ -100,10 +98,10 @@ func GetNotificationGroupListByPage(notifications *model.GetNotificationGroupLis
 		return count, nil, err
 	}
 
-	queryBuilder = queryBuilder.Limit(notifications.PageSize)
-	queryBuilder = queryBuilder.Offset((notifications.Page - 1) * notifications.PageSize)
-
-	notificationList, err := queryBuilder.Order(q.CreatedAt.Desc()).Find()
+	// 分页收编（2026-09-28）：旧写法无单页上限（PageSize 可任意大）；applyListPagination
+	// 由 clampListPageSize 封顶单页，Page=0 时兜底 defaultListLimit。
+	notificationList, err := applyListPagination(queryBuilder, notifications.Page, notifications.PageSize).
+		Order(q.CreatedAt.Desc()).Find()
 	if err != nil {
 		logrus.Error("queryBuilder.Find error: ", err)
 	}

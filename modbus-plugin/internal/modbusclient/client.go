@@ -52,13 +52,30 @@ func (c *Client) release(err error) {
 	defer c.mu.Unlock()
 	if err != nil && c.client != nil {
 		// 连接级错误后丢弃底层连接，下次重连。
-		if handler, ok := c.client.(interface{ Close() error }); ok {
-			_ = handler.Close()
-		} else if closer, ok := any(c.client).(interface{ Close() }); ok {
-			closer.Close()
-		}
-		c.client = nil
+		c.closeLocked()
 	}
+}
+
+// closeLocked 关闭并丢弃缓存的底层连接（调用方必须已持有 c.mu）。
+func (c *Client) closeLocked() {
+	if c.client == nil {
+		return
+	}
+	if handler, ok := c.client.(interface{ Close() error }); ok {
+		_ = handler.Close()
+	} else if closer, ok := any(c.client).(interface{ Close() }); ok {
+		closer.Close()
+	}
+	c.client = nil
+}
+
+// Close 主动关闭底层 Modbus TCP 连接（优雅停机时调用）。
+// 说明：连接复用期间库会在空闲 60s 后自动断开并在下次事务透明重连，
+// 但停机路径不应依赖 OS 回收——显式关闭同时停掉库内的 idle close 定时器。
+func (c *Client) Close() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.closeLocked()
 }
 
 // ReadPoint 读取单个点位并按缩放返回数值/布尔。

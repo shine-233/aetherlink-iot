@@ -92,9 +92,34 @@ jobs:
           go-version-file: mqtt-broker/go.mod
           cache: true
           cache-dependency-path: mqtt-broker/go.sum
-      - name: Run broker unit tests
-        run: go test ./...
+      # 与 mqtt-broker/Makefile 的 test 门禁对齐（go test -race ./...）：
+      # broker 热路径为并发敏感代码（投递、统计、packet 编码池），必须过 race 检测。
+      - name: Run broker unit tests with race detector
+        run: go test -race ./...
       - name: Build broker binaries
+        run: go build ./...
+
+  modbus-plugin:
+    name: Modbus plugin Go tests and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: modbus-plugin
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: modbus-plugin/go.mod
+          cache: true
+          cache-dependency-path: modbus-plugin/go.sum
+      - name: Run modbus plugin unit tests
+        run: go test ./...
+      - name: Build modbus plugin binaries
         run: go build ./...
 
   device-autotest:

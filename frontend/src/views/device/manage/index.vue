@@ -2,28 +2,32 @@
   Device management list: device search, group filtering, online-state updates,
   service-access filters, fleet actions, and RDI activation entry points.
 
-  Composition: the page wires per-feature composables (fleet ops, service-access filters,
-  quick actions, add-device drawer) into the shared `data-table-page`; the query contract lives
-  in `device-search-configs.ts`.
+  Composition: the page drives `useListPage` (from @/components/data-table-page/useListPage)
+  directly through `useDeviceManageListPage`, which keeps the old <data-table-page> bridge
+  contract (dataList / selectedRows / handleSearch / handleReset / forceChangeParamsByKey /
+  clearSelection) so the fleet-operations, status-subscription and service-access-filter
+  composables work unchanged. The wrapper's UI surface lives in the extracted components of
+  this directory (DeviceManageListShell + search form / card view), header actions in
+  `device-manage-top-actions.tsx`, row actions in `useDeviceManageRowActions.ts`; the query
+  contract lives in `device-search-configs.ts`.
 -->
 <script setup lang="tsx">
 import { computed, defineAsyncComponent, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createLogger } from '@/utils/logger'
-
-const logger = createLogger('DeviceManage')
-import { checkDevice, deleteDevice as deleteDeviceApi, deviceGroupRelation, deviceList } from '@/service/api/device'
+import { checkDevice, deviceGroupRelation, deviceList } from '@/service/api/device'
 import { activateRdiDevice } from '@/service/api/rdi'
 import { useRouterPush } from '@/hooks/common/router'
 import { $t } from '@/locales'
 import { usePageCache } from '../../../utils/usePageCache'
-import { createDeviceManageColumns } from './device-table-columns'
-import DeviceFleetTargetToolbar from './DeviceFleetTargetToolbar.vue'
 import DeviceFleetOverview from './DeviceFleetOverview.vue'
-import DeviceManageEmptyState from './DeviceManageEmptyState.vue'
+import DeviceManageListShell from './DeviceManageListShell.vue'
 import DeviceManageFleetGroupModal from './DeviceManageFleetGroupModal.vue'
 import DeviceManageFleetSummaryModal from './DeviceManageFleetSummaryModal.vue'
 import DeviceManageFleetScopeModal from './DeviceManageFleetScopeModal.vue'
+import { createDeviceManageTopActions } from './device-manage-top-actions'
+import { deviceManageRowProps, useDeviceManageListPage, type DeviceManageTableBridge } from './useDeviceManageListPage'
+import { useDeviceManageRowActions } from './useDeviceManageRowActions'
 import { useDeviceManageServiceAccessFilters } from './useDeviceManageServiceAccessFilters'
 import { useDeviceManageFleetOperations } from './useDeviceManageFleetOperations'
 import { useDeviceManageActivationFlow } from './useDeviceManageActivationFlow'
@@ -33,9 +37,11 @@ import { useDeviceManageAddDrawer } from './useDeviceManageAddDrawer'
 import { createDeviceManageSearchConfigs } from './device-search-configs'
 import { loadDeviceGroupOptions } from './device-manage-options'
 
+const logger = createLogger('DeviceManage')
+
 const AddDeviceDrawer = defineAsyncComponent(() => import('@/views/device/manage/modules/add-device-drawer.vue'))
 const DeviceManageQuickActions = defineAsyncComponent(() => import('./DeviceManageQuickActions.vue'))
-const tablePageRef = ref()
+const tablePageRef = ref<DeviceManageTableBridge>()
 const route: any = useRoute()
 const router: any = useRouter()
 const isFirstDeviceOnboarding = computed(() => route.query?.onboarding === 'first-device')
@@ -64,28 +70,13 @@ const refreshDeviceTable = () => {
   tablePageRef.value?.handleSearch?.()
 }
 
-const confirmDeleteDevice = (row: any) => {
-  const id = String(row?.id || '')
-  if (!id) return
-  window.$dialog?.warning({
-    title: $t('common.delete'),
-    content: $t('common.confirmDelete'),
-    positiveText: $t('common.confirm'),
-    negativeText: $t('common.cancel'),
-    onPositiveClick: async () => {
-      const { error } = await deleteDeviceApi({ id })
-      if (!error) {
-        window.$message?.success($t('common.deleteSuccess'))
-        refreshDeviceTable()
-      }
-    }
-  })
-}
-
-const columns_to_show = ref(
-  createDeviceManageColumns(goDeviceDetails, openEditDevice, confirmDeleteDevice, openShareDevice, openIssueClaimToken)
-)
-const actions = []
+const { columnsToShow } = useDeviceManageRowActions({
+  goDeviceDetails,
+  openEditDevice,
+  openShareDevice,
+  openIssueClaimToken,
+  refresh: refreshDeviceTable
+})
 
 const { scheduleDeviceStatusSubscription } = useDeviceManageStatusSubscription({
   tablePageRef,
@@ -187,73 +178,44 @@ const { initializeServiceAccessFiltersInBackground, paramsUpdateHandle, primeIni
     initialServiceIdentifier: route.query.service_identifier,
     initialServiceAccessId: route.query.service_access_id
   })
+// 在 table bridge 就绪前调用（与迁移前一致：此时 forceChangeParamsByKey 是 no-op，只补插配置项）。
 primeInitialServiceAccessFilter()
 
-const dropOption = [
-  {
-    label: () => $t('custom.devicePage.manualAdd'),
-    key: 'hands'
-  },
-  {
-    label: () => $t('custom.devicePage.addByNumber'),
-    key: 'number',
-    disabled: false
-  }
-]
-
-const topActions = [
-  {
-    element: () => (
-      <DeviceFleetTargetToolbar
-        presets={fleetTargetPresets}
-        activePreset={activeFleetTargetPreset.value}
-        targetPreviewTotal={targetPreviewTotal.value}
-        currentPageDeviceCount={currentPageDeviceCount.value}
-        savedFilterOptions={savedFleetFilterOptions.value}
-        savedFilterCount={savedFleetFilters.value.length}
-        canSaveCurrentFleetFilter={canSaveCurrentFleetFilter.value}
-        selectedDeviceCount={selectedFleetDeviceIds.value.length}
-        selectionScope={fleetSelectionScope.value}
-        selectionScopeMessage={fleetSelectionScopeMessage.value}
-        canSelectAllMatching={canSelectAllMatchingDevices.value}
-        onSelectAllMatching={selectAllMatchingFleetDevices}
-        onClearSelectAllMatching={clearFleetSelectAllMatching}
-        onOpenSelectAllCommandContext={openFleetSelectAllCommandContext}
-        onApplyPreset={applyFleetTargetPreset}
-        onSaveFilter={saveCurrentFleetFilter}
-        onRefreshSavedFilters={refreshSavedFleetFilters}
-        onApplySavedFilter={applySavedFleetFilter}
-        onOpenSavedFilterCommandContext={openSavedFleetFilterCommandContext}
-        onDeleteSavedFilter={deleteSavedFleetFilter}
-        onRenameSavedFilter={renameSavedFleetFilter}
-        onShareSavedFilter={shareSavedFleetFilter}
-        onExportCurrentPage={exportCurrentFleetPage}
-        onAddSelectedToGroup={openSelectedDeviceGroupDialog}
-        onShowSelectedSummary={openSelectedFleetSummary}
-        onOpenOtaContext={openFleetOtaContext}
-        onOpenAlarmContext={openFleetAlarmContext}
-        onOpenCommandContext={openSelectedDeviceCommandContext}
-        onOpenConfigContext={openFleetConfigContext}
-        onOpenAuditContext={openFleetAuditContext}
-      />
-    )
-  },
-  {
-    element: () => (
-      <n-button onClick={() => router.push('/device/shared-with-me')}>{$t('route.device_shared-with-me')}</n-button>
-    )
-  },
-  {
-    element: () => <n-button onClick={openClaimDeviceDialog}>{$t('custom.devicePage.claimDevice')}</n-button>
-  },
-  {
-    element: () => (
-      <n-dropdown options={dropOption} trigger="click" onSelect={handleSelect}>
-        <n-button type="primary">+{$t('custom.devicePage.addDevice')}</n-button>
-      </n-dropdown>
-    )
-  }
-]
+const topActions = createDeviceManageTopActions({
+  fleetTargetPresets,
+  activeFleetTargetPreset,
+  targetPreviewTotal,
+  currentPageDeviceCount,
+  savedFleetFilterOptions,
+  savedFleetFilters,
+  canSaveCurrentFleetFilter,
+  selectedFleetDeviceIds,
+  fleetSelectionScope,
+  fleetSelectionScopeMessage,
+  canSelectAllMatchingDevices,
+  onSelectAllMatching: selectAllMatchingFleetDevices,
+  onClearSelectAllMatching: clearFleetSelectAllMatching,
+  onOpenSelectAllCommandContext: openFleetSelectAllCommandContext,
+  onApplyPreset: applyFleetTargetPreset,
+  onSaveFilter: saveCurrentFleetFilter,
+  onRefreshSavedFilters: refreshSavedFleetFilters,
+  onApplySavedFilter: applySavedFleetFilter,
+  onOpenSavedFilterCommandContext: openSavedFleetFilterCommandContext,
+  onDeleteSavedFilter: deleteSavedFleetFilter,
+  onRenameSavedFilter: renameSavedFleetFilter,
+  onShareSavedFilter: shareSavedFleetFilter,
+  onExportCurrentPage: exportCurrentFleetPage,
+  onAddSelectedToGroup: openSelectedDeviceGroupDialog,
+  onShowSelectedSummary: openSelectedFleetSummary,
+  onOpenOtaContext: openFleetOtaContext,
+  onOpenAlarmContext: openFleetAlarmContext,
+  onOpenCommandContext: openSelectedDeviceCommandContext,
+  onOpenConfigContext: openFleetConfigContext,
+  onOpenAuditContext: openFleetAuditContext,
+  router,
+  openClaimDeviceDialog,
+  onSelectAddOption: handleSelect
+})
 
 const openManualDeviceAdd = () => {
   activate('bottom', 'hands')
@@ -297,7 +259,40 @@ const fetchData = async (params: Record<string, any>) => {
   return result
 }
 
+const {
+  rows,
+  loading,
+  total,
+  page,
+  pageSize,
+  rowKey,
+  searchCriteria,
+  selectedRowKeys,
+  generatedColumns,
+  handleCheckedRowKeysUpdate,
+  handleSearch,
+  handleReset,
+  setPage,
+  setPageSize,
+  load
+} = useDeviceManageListPage({
+  searchConfigs,
+  tablePageRef,
+  fetchData,
+  columnsToShow,
+  initPage: query.page,
+  initPageSize: query.page_size,
+  selectableRows: true,
+  hooks: {
+    onParamsUpdate: paramsUpdateHandle,
+    onSelectionUpdate: handleFleetSelectionUpdate
+  }
+})
+
+const rowProps = deviceManageRowProps(goDeviceDetails)
+
 onMounted(() => {
+  void load()
   void refreshSavedFleetFilters()
   void initializeServiceAccessFiltersInBackground()
 })
@@ -314,31 +309,31 @@ onMounted(() => {
       @show-selected-summary="openSelectedFleetSummary"
       @export-current-page="exportCurrentFleetPage"
     />
-    <data-table-page
-      ref="tablePageRef"
-      :fetch-data="fetchData"
-      :columns-to-show="columns_to_show as any"
-      :table-actions="actions"
-      :search-configs="searchConfigs"
+    <DeviceManageListShell
+      :configs="searchConfigs"
+      :criteria="searchCriteria"
       :top-actions="topActions"
-      :init-page="query.page"
-      :init-page-size="query.page_size"
+      :rows="rows"
+      :loading="loading"
+      :columns="generatedColumns as any"
+      :selected-row-keys="selectedRowKeys"
+      :row-key="rowKey"
+      :row-props="rowProps"
+      :total="total"
+      :page="page"
+      :page-size="pageSize"
+      :first-device-onboarding="isFirstDeviceOnboarding"
       :row-click="goDeviceDetails"
-      selectable-rows
-      @params-update="paramsUpdateHandle"
-      @selection-update="handleFleetSelectionUpdate"
-    >
-      <template #empty="{ reset, searchCriteria }">
-        <DeviceManageEmptyState
-          :search-criteria="searchCriteria"
-          :first-device-onboarding="isFirstDeviceOnboarding"
-          @add-device="openManualDeviceAdd"
-          @open-service-access="openServiceAccess"
-          @clear-filters="reset"
-          @back-home="returnToHomeGuide"
-        />
-      </template>
-    </data-table-page>
+      @search="handleSearch"
+      @reset="handleReset"
+      @refresh="load"
+      @update:checked-row-keys="handleCheckedRowKeysUpdate"
+      @update:page="setPage"
+      @update:page-size="setPageSize"
+      @add-device="openManualDeviceAdd"
+      @open-service-access="openServiceAccess"
+      @back-home="returnToHomeGuide"
+    />
     <DeviceManageQuickActions v-if="quickActionsVisited" ref="deviceManageQuickActionsRef" @updated="refreshDeviceTable" />
     <DeviceManageFleetGroupModal
       v-model:show="bulkGroupModalVisible"

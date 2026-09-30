@@ -22,8 +22,14 @@
 --   5. 删除执行：由现有 CleanSystemDataByCron 在同一轮里遍历本注册表，按 batch_size 分批
 --      DELETE（避免单条大 DELETE 的长事务与 WAL 尖峰）。表名/时间列来自注册表行，
 --      Go 侧以标识符白名单正则 + to_regclass 二次校验后才拼进 SQL，不接受任意 SQL 片段。
---   6. time_kind 区分两类时间列：timestamptz（多数表）与 unix_ms（event_datas.ts 等
---      UnixMilli bigint）。两类都用"早于 now()-retention_days"的同一语义，只是边界换算不同。
+--   6. time_kind 区分两类时间列：timestamptz（本迁移全部 19 行种子都是这一类）与
+--      unix_ms（UnixMilli bigint，如 telemetry_datas.ts）。两类都用"早于
+--      now()-retention_days"的同一语义，只是边界换算不同。unix_ms 目前无种子行——
+--      telemetry_datas 由 data_policy data_type='1' 与 TB-15 retention 两条既有出口
+--      覆盖，不应再进注册表（两套出口同时删同一批行会放大删除范围）。Go 侧
+--      (dal/data_policy_retention.go) 已实现 unix_ms 分支，供后续登记 bigint 时间表时直接用。
+--      注意：不要把 event_datas.ts 误当作 unix_ms——它是 timestamptz
+--      （model/event_datas.gen.go 的 T 是 time.Time），与 telemetry_datas.ts 的 bigint 同名不同型。
 --   7. resolved_only：死信类表只回收已解决（status='resolved'）的行，未解决的 pending/
 --      retrying/dead 是可重放资产，绝不能按时间删。
 --   8. 种子写入带守卫：表或时间列不存在时静默跳过（不同部署的存量库可能缺表），
@@ -74,8 +80,16 @@ CREATE INDEX IF NOT EXISTS idx_data_retention_registry_enabled
     ON public.data_retention_registry (enabled, table_name);
 
 -- ---- 2. 默认登记行 ----
--- 守卫：只有当 (表, 时间列) 在 information_schema 中同时存在时才登记，
--- 让缺表的存量部署也能干净升级；已登记的同名表行不再改写（保留运维手工调整的天数）。
+-- 守卫：只有当 (表, 时间列) 在 information_schema 中同时存在、且列的真实类型与
+-- time_kind 相容时才登记：
+--   - 缺表的存量部署可干净升级（列不存在即跳过）；
+--   - 类型不相容时跳过而不是硬登记——用 timestamptz 边界去比 bigint 列会直接报错，
+--     反过来用 UnixMilli 整数比 timestamptz 列更危险（PG 会把整数当毫秒时间戳隐式
+--     转换，删掉的是 1970 年前后的全部行）。类型契约在这里一次拦住，Go 侧不再二次判断。
+--   - 已登记的同名表行不再改写（ON CONFLICT DO NOTHING，保留运维手工调整的天数）。
+-- 'timestamp without time zone'（如 message_push_log.create_time）归入 timestamptz 分支：
+-- PG 比较时按会话 TimeZone 把它提升为 timestamptz，与写入侧的 CURRENT_TIMESTAMP 同域，
+-- 语义与 timestamptz 列一致（本项目 DSN 固定 TimeZone=Asia/Shanghai）。
 INSERT INTO public.data_retention_registry (
     id, table_name, time_column, time_kind, retention_days, category, enabled, batch_size, resolved_only, remark
 )
@@ -115,5 +129,10 @@ WHERE EXISTS (
     WHERE c.table_schema = 'public'
       AND c.table_name = v.table_name
       AND c.column_name = v.time_column
+      AND (
+          (v.time_kind = 'timestamptz'
+           AND c.data_type IN ('timestamp with time zone', 'timestamp without time zone'))
+          OR (v.time_kind = 'unix_ms' AND c.data_type IN ('bigint', 'integer'))
+      )
 )
 ON CONFLICT (table_name) DO NOTHING;

@@ -40,71 +40,70 @@ type DeleteEntityRelationsReq struct {
 // CreateEntityRelation 创建一条关系。幂等：同一组端点与类型重复创建返回既有记录。
 // @Router   /api/v1/entity-relations [post]
 func (*EntityRelationApi) CreateEntityRelation(c *gin.Context) {
-	var req CreateEntityRelationReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	relation := &model.EntityRelation{
-		TenantID:     claims.TenantID,
-		FromType:     req.FromType,
-		FromID:       req.FromID,
-		RelationType: req.RelationType,
-		ToType:       req.ToType,
-		ToID:         req.ToID,
-		Metadata:     req.Metadata,
-	}
-	if err := service.CreateRelation(c, relation); err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", relation)
+	// 迁移形态：Handle（绑定 -> 校验 -> claims -> service）。TenantID 恒取 claims，不接受请求体指定。
+	Handle(c, func(req *CreateEntityRelationReq, claims *utils.UserClaims) (interface{}, error) {
+		relation := &model.EntityRelation{
+			TenantID:     claims.TenantID,
+			FromType:     req.FromType,
+			FromID:       req.FromID,
+			RelationType: req.RelationType,
+			ToType:       req.ToType,
+			ToID:         req.ToID,
+			Metadata:     req.Metadata,
+		}
+		if err := service.CreateRelation(c, relation); err != nil {
+			return nil, err
+		}
+		return relation, nil
+	})
 }
 
 // ListEntityRelations 查询当前租户可视范围内的关系。
 // @Router   /api/v1/entity-relations [get]
 func (*EntityRelationApi) ListEntityRelations(c *gin.Context) {
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	query := model.EntityRelationQuery{
-		// 目标租户恒取调用方所属租户：不接受客户端指定别的租户。
-		TenantID:     claims.TenantID,
-		FromType:     c.Query("from_type"),
-		FromID:       c.Query("from_id"),
-		ToType:       c.Query("to_type"),
-		ToID:         c.Query("to_id"),
-		RelationType: c.Query("relation_type"),
-		EntityType:   c.Query("entity_type"),
-		EntityID:     c.Query("entity_id"),
-		Direction:    model.RelationDirection(c.Query("direction")),
-	}
-	if raw := c.Query("limit"); raw != "" {
-		parsed, err := strconv.Atoi(raw)
-		if err != nil || parsed < 0 {
-			c.Error(errcode.WithData(errcode.CodeParamError, "limit must be a non-negative integer"))
-			return
+	// 迁移形态：HandleNoBody（不绑定请求体，筛选条件仍在闭包内按 query 读取）。
+	HandleNoBody(c, func(claims *utils.UserClaims) (interface{}, error) {
+		query := model.EntityRelationQuery{
+			// 目标租户恒取调用方所属租户：不接受客户端指定别的租户。
+			TenantID:     claims.TenantID,
+			FromType:     c.Query("from_type"),
+			FromID:       c.Query("from_id"),
+			ToType:       c.Query("to_type"),
+			ToID:         c.Query("to_id"),
+			RelationType: c.Query("relation_type"),
+			EntityType:   c.Query("entity_type"),
+			EntityID:     c.Query("entity_id"),
+			Direction:    model.RelationDirection(c.Query("direction")),
 		}
-		query.Limit = parsed
-	}
-	if raw := c.Query("offset"); raw != "" {
-		parsed, err := strconv.Atoi(raw)
-		if err != nil || parsed < 0 {
-			c.Error(errcode.WithData(errcode.CodeParamError, "offset must be a non-negative integer"))
-			return
+		if raw := c.Query("limit"); raw != "" {
+			parsed, err := strconv.Atoi(raw)
+			if err != nil || parsed < 0 {
+				return nil, errcode.WithData(errcode.CodeParamError, "limit must be a non-negative integer")
+			}
+			query.Limit = parsed
 		}
-		query.Offset = parsed
-	}
-	list, total, err := service.ListRelations(c, claims.TenantID, query)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", gin.H{"list": list, "total": total})
+		if raw := c.Query("offset"); raw != "" {
+			parsed, err := strconv.Atoi(raw)
+			if err != nil || parsed < 0 {
+				return nil, errcode.WithData(errcode.CodeParamError, "offset must be a non-negative integer")
+			}
+			query.Offset = parsed
+		}
+		list, total, err := service.ListRelations(c, claims.TenantID, query)
+		if err != nil {
+			return nil, err
+		}
+		return gin.H{"list": list, "total": total}, nil
+	})
 }
 
 // DeleteEntityRelation 删除单条关系。越权或不存在均返回 404。
 // @Router   /api/v1/entity-relations/{id} [delete]
 func (*EntityRelationApi) DeleteEntityRelation(c *gin.Context) {
-	claims := c.MustGet("claims").(*utils.UserClaims)
+	claims, ok := RequireClaims(c)
+	if !ok {
+		return
+	}
 	affected, err := service.DeleteRelation(c, c.Param("id"), claims.TenantID)
 	if err != nil {
 		c.Error(err)
@@ -128,7 +127,10 @@ func (*EntityRelationApi) DeleteEntityRelationsForEntity(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
+	claims, ok := RequireClaims(c)
+	if !ok {
+		return
+	}
 	policy := service.EntityDeletionPolicy(req.Policy)
 	if policy == "" {
 		// 未声明即保护：级联删除必须显式，绝不默认替调用方做决定。

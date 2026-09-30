@@ -2,8 +2,8 @@
 // 核心逻辑：组 CRUD / 成员查询与批量绑定 / 组权限元素查询与批量绑定的参数绑定与错误透传。
 // 关键注意事项：接口层只透传 claims，不重复实现权限与租户判定（由 service 层收口）；
 //
-//	claims 经 MustGet("claims") 提取，依赖 JWT 中间件先于 CasbinRBAC 注入
-//	（与 role.go 的组管理同口径），避免本层重复实现认证兜底逻辑。
+//	claims 经 RequireClaims 提取，依赖 JWT 中间件先于 CasbinRBAC 注入
+//	（与 role.go 的组管理同口径）；缺失或类型不符时返回统一 CodeUnauthorized，不再 panic。
 //
 // 重构建议：组详情与写操作共用的 ensureUserGroupWriteAccess 已在 service 层收口，
 //
@@ -76,18 +76,19 @@ func (*UserGroupApi) GetUserGroupMembers(c *gin.Context) {
 // AssignUserGroupMembers 全量替换组成员（user_ids 传空数组=清空成员）。
 // @Router  /api/v1/user_group/{id}/users [post]
 func (*UserGroupApi) AssignUserGroupMembers(c *gin.Context) {
-	id := c.Param("id")
-	var req model.AssignUserGroupMembersReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{"error": err.Error()}))
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	if err := service.GroupApp.UserGroup.AssignUserGroupMembers(id, &req, claims); err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", gin.H{"status": "ok"})
+	// 迁移形态：HandlePath（路径参数 id + claims）；请求体仍在闭包内用 ShouldBindJSON 绑定，
+	// 并沿用迁移前的 errcode.WithData(CodeParamError, {"error": ...}) 包络（响应带 data 字段），
+	// 与 BindAndValidate -> reportParamError 的 NewWithMessage 形态不同，以保证 JSON 逐字节一致。
+	HandlePath(c, "id", func(id string, claims *utils.UserClaims) (interface{}, error) {
+		var req model.AssignUserGroupMembersReq
+		if err := c.ShouldBindJSON(&req); err != nil {
+			return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{"error": err.Error()})
+		}
+		if err := service.GroupApp.UserGroup.AssignUserGroupMembers(id, &req, claims); err != nil {
+			return nil, err
+		}
+		return gin.H{"status": "ok"}, nil
+	})
 }
 
 // GetUserGroupPermissions 组权限元素列表。
@@ -101,16 +102,16 @@ func (*UserGroupApi) GetUserGroupPermissions(c *gin.Context) {
 // AssignUserGroupPermissions 全量替换组权限元素绑定（element_codes 传空数组=清空绑定）。
 // @Router  /api/v1/user_group/{id}/permissions [post]
 func (*UserGroupApi) AssignUserGroupPermissions(c *gin.Context) {
-	id := c.Param("id")
-	var req model.AssignUserGroupPermissionsReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{"error": err.Error()}))
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	if err := service.GroupApp.UserGroup.AssignUserGroupPermissions(id, &req, claims); err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", gin.H{"status": "ok"})
+	// 迁移形态同 AssignUserGroupMembers：HandlePath + 闭包内 ShouldBindJSON，
+	// 参数错误沿用 errcode.WithData 包络，成功包络保留 data {"status":"ok"}。
+	HandlePath(c, "id", func(id string, claims *utils.UserClaims) (interface{}, error) {
+		var req model.AssignUserGroupPermissionsReq
+		if err := c.ShouldBindJSON(&req); err != nil {
+			return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{"error": err.Error()})
+		}
+		if err := service.GroupApp.UserGroup.AssignUserGroupPermissions(id, &req, claims); err != nil {
+			return nil, err
+		}
+		return gin.H{"status": "ok"}, nil
+	})
 }

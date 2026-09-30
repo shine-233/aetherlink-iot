@@ -59,8 +59,11 @@ func (*CalculatedFieldApi) HandleUpdateCalculatedField(c *gin.Context) {
 		return
 	}
 
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.CalculatedField.UpdateCalculatedField(req.ID, &req, userClaims)
+	claims, ok := RequireClaims(c)
+	if !ok {
+		return
+	}
+	data, err := service.GroupApp.CalculatedField.UpdateCalculatedField(req.ID, &req, claims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -84,8 +87,11 @@ func (*CalculatedFieldApi) HandleToggleCalculatedField(c *gin.Context) {
 	_ = bindRequest(c, &req)
 	id := c.Param("id")
 
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.CalculatedField.ToggleCalculatedField(id, &req, userClaims)
+	claims, ok := RequireClaims(c)
+	if !ok {
+		return
+	}
+	data, err := service.GroupApp.CalculatedField.ToggleCalculatedField(id, &req, claims)
 	if err != nil {
 		c.Error(err)
 		return

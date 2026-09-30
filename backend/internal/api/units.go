@@ -118,38 +118,36 @@ func (*UnitsApi) GetRegistry(c *gin.Context) {
 }
 
 // Convert 执行单值或序列原子单位换算。
+// 迁移形态：HandlePublic（POST 走 ShouldBindJSON，且不取 claims）。
+// 绑定失败的消息与迁移前一致：BindAndValidate 内部同样只做 ShouldBindJSON，本 DTO 没有 validate 标签，
+// 追加的 ValidateStructLang 恒通过，错误统一经 reportParamError 包 CodeParamError。
 // @Router /api/v1/units/convert [post]
 func (*UnitsApi) Convert(c *gin.Context) {
-	var req ConvertUnitsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(errcode.NewWithMessage(errcode.CodeParamError, err.Error()))
-		return
-	}
+	HandlePublic(c, runUnitConversion)
+}
 
+// runUnitConversion 承接单位换算的全部分支；错误一律返回给适配器，由响应中间件统一渲染。
+func runUnitConversion(req *ConvertUnitsRequest) (interface{}, error) {
 	fromUnit, ok := units.Lookup(req.From)
 	if !ok {
-		c.Error(errcode.NewWithMessage(errcode.CodeParamError, "unknown from unit: "+req.From))
-		return
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "unknown from unit: "+req.From)
 	}
 
 	targetUnit := strings.TrimSpace(req.To)
 	if targetUnit == "" {
 		system := strings.TrimSpace(req.System)
 		if system != string(units.SystemMetric) && system != string(units.SystemImperial) {
-			c.Error(errcode.NewWithMessage(errcode.CodeParamError, "either 'to' unit or 'system' (metric|imperial) is required"))
-			return
+			return nil, errcode.NewWithMessage(errcode.CodeParamError, "either 'to' unit or 'system' (metric|imperial) is required")
 		}
 		canonical, err := units.CanonicalUnit(fromUnit.Dimension, units.System(system))
 		if err != nil {
-			c.Error(errcode.NewWithMessage(errcode.CodeParamError, err.Error()))
-			return
+			return nil, errcode.NewWithMessage(errcode.CodeParamError, err.Error())
 		}
 		targetUnit = canonical
 	}
 
 	if !units.SameDimension(fromUnit.Symbol, targetUnit) {
-		c.Error(errcode.NewWithMessage(errcode.CodeParamError, "dimension mismatch between "+fromUnit.Symbol+" and "+targetUnit))
-		return
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "dimension mismatch between "+fromUnit.Symbol+" and "+targetUnit)
 	}
 
 	resp := ConvertUnitsResponse{
@@ -161,8 +159,7 @@ func (*UnitsApi) Convert(c *gin.Context) {
 	if req.Value != nil {
 		val, err := units.Convert(*req.Value, fromUnit.Symbol, targetUnit)
 		if err != nil {
-			c.Error(errcode.NewWithMessage(errcode.CodeParamError, err.Error()))
-			return
+			return nil, errcode.NewWithMessage(errcode.CodeParamError, err.Error())
 		}
 		resp.Value = &val
 	}
@@ -171,14 +168,12 @@ func (*UnitsApi) Convert(c *gin.Context) {
 		series, err := units.ConvertSeries(req.Series, fromUnit.Symbol, targetUnit)
 		if err != nil {
 			if errors.Is(err, units.ErrInvalidValue) {
-				c.Error(errcode.NewWithMessage(errcode.CodeParamError, "series contains invalid non-finite value"))
-				return
+				return nil, errcode.NewWithMessage(errcode.CodeParamError, "series contains invalid non-finite value")
 			}
-			c.Error(errcode.NewWithMessage(errcode.CodeParamError, err.Error()))
-			return
+			return nil, errcode.NewWithMessage(errcode.CodeParamError, err.Error())
 		}
 		resp.Series = series
 	}
 
-	c.Set("data", resp)
+	return resp, nil
 }

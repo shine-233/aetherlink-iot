@@ -269,7 +269,8 @@ describe('Device API 层 - device.ts', () => {
     it('调用 GET /device/detail/{id}', async () => {
       mockGet.mockResolvedValue({ error: null, data: {} })
       await deviceDetail('dev1')
-      expect(mockGet).toHaveBeenCalledWith('/device/detail/dev1')
+      // deviceDetail 现支持可选 config（signal 透传），未提供时显式传 undefined
+      expect(mockGet).toHaveBeenCalledWith('/device/detail/dev1', undefined)
     })
   })
 

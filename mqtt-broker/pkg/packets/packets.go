@@ -14,6 +14,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
+	"sync"
 	"unicode/utf8"
 
 	"github.com/DrmagicE/gmqtt/pkg/codes"
@@ -355,6 +356,12 @@ func writeUint16(w *bytes.Buffer, i uint16) {
 	w.WriteByte(byte(i >> 8))
 	w.WriteByte(byte(i))
 }
+
+// packBufPool 复用各控制包 Pack 阶段的编码缓冲。PUBLISH/PUBACK 等高频出站报文
+// 每次 Pack 原本各新建一个 bytes.Buffer，写路径因此多付一次堆分配与 GC 压力；
+// 缓冲在 Get 时 Reset、Put 后内容即被丢弃，语义与临时缓冲一致。
+var packBufPool = sync.Pool{New: func() any { return new(bytes.Buffer) }}
+
 func writeUint32(w *bytes.Buffer, i uint32) {
 	w.WriteByte(byte(i >> 24))
 	w.WriteByte(byte(i >> 16))

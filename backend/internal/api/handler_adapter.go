@@ -58,6 +58,17 @@ func respondAction(c *gin.Context, err error) {
 	c.Set("data", nil)
 }
 
+// bindBodyLegacyParamError 按 JSON 绑定请求体，失败时返回迁移前手写时代的参数错误包络：
+// errcode.WithData(CodeParamError, {"error": err.Error()})——响应带 data 字段、message 取错误码默认文案。
+// 注意它与 BindAndValidate -> reportParamError 的 errcode.NewWithMessage(err.Error()) 形态逐字节不同，
+// 两者不可混用；仅供为保持迁移前后 JSON 一致而保留旧参数错误出口的入口复用（如 role.go 的 Assign 系列闭包）。
+func bindBodyLegacyParamError[Req any](c *gin.Context, req *Req) error {
+	if err := c.ShouldBindJSON(req); err != nil {
+		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{"error": err.Error()})
+	}
+	return nil
+}
+
 // Handle 按 HTTP 方法绑定请求体（GET 走 query，其余走 JSON）、校验、取 claims 后调用 fn，并写入响应数据。
 func Handle[Req, Res any](c *gin.Context, fn func(req *Req, claims *utils.UserClaims) (Res, error)) {
 	var req Req
@@ -165,6 +176,20 @@ func HandlePathBodyAction[Req any](c *gin.Context, param string, fn func(value s
 		return
 	}
 	respondAction(c, fn(c.Param(param), &req, claims))
+}
+
+// HandlePathBodyOptional 同 HandlePathBody，但请求体可选：绑定失败（空 body、非 JSON）不拒绝，
+// 请求结构体按零值传给 fn，仅 RequireClaims 缺失时才短路。
+// 适用于“心跳到达本身即有效”“请求体字段全带缺省值”一类接口（如 edge_node.go 的 Heartbeat/IssueCertificate）。
+func HandlePathBodyOptional[Req, Res any](c *gin.Context, param string, fn func(value string, req *Req, claims *utils.UserClaims) (Res, error)) {
+	var req Req
+	_ = c.ShouldBindJSON(&req)
+	claims, ok := RequireClaims(c)
+	if !ok {
+		return
+	}
+	res, err := fn(c.Param(param), &req, claims)
+	respond(c, res, err)
 }
 
 // HandlePathQuery 组合路径参数与 query string：常见于带 :id 的 GET 明细接口。

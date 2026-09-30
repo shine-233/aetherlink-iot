@@ -72,13 +72,11 @@ func GetListByPage(operationLog *model.GetOperationLogListByPageReq, userClaims 
 		return count, operationLogList, err
 	}
 
-	listBuilder := base.Session(&gorm.Session{}).
+	// 分页收编（2026-09-28）：旧写法 Page=0 时不加 LIMIT、PageSize 无上限；applyListPagination
+	// 对缺省分页兜底 defaultListLimit 并由 clampListPageSize 封顶单页。
+	listBuilder := applyListPagination(base.Session(&gorm.Session{}).
 		Select("operation_logs.*, users.name AS user_name, users.email AS email").
-		Order("operation_logs.created_at DESC")
-	if operationLog.Page != 0 && operationLog.PageSize != 0 {
-		listBuilder = listBuilder.Limit(operationLog.PageSize).
-			Offset((operationLog.Page - 1) * operationLog.PageSize)
-	}
+		Order("operation_logs.created_at DESC"), operationLog.Page, operationLog.PageSize)
 	if err := listBuilder.Scan(&operationLogList).Error; err != nil {
 		logrus.Error(err)
 		return count, operationLogList, err

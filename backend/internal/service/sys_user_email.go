@@ -20,8 +20,8 @@ import (
 	"strings"
 	"time"
 
+	"aetherlink-iot/backend/internal/authz"
 	"aetherlink-iot/backend/pkg/common"
-	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 
 	"gorm.io/gorm"
@@ -431,12 +431,9 @@ func canManageTenantWarningEmails(claims *utils.UserClaims) bool {
 	if claims == nil {
 		return false
 	}
-	switch strings.TrimSpace(claims.Authority) {
-	case constant.SYS_ADMIN, constant.TENANT_ADMIN:
-		return true
-	default:
-		return false
-	}
+	// 角色门禁收编 authz：SYS_ADMIN/TENANT_ADMIN 即 authz.ManagerRoles，
+	// 其余（含 TENANT_USER 与未知 authority）fail-closed，与迁移前 switch 等价。
+	return authz.HasRole(claims, authz.ManagerRoles...)
 }
 
 func pickWarningEmailOwnerUser(claims *utils.UserClaims, tenantAdmin *model.User, currentUser *model.User) *model.User {

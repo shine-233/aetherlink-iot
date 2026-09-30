@@ -15,7 +15,10 @@ function buildDedupeKey(url: string, params?: unknown): string {
   if (!params) return url
 
   if (typeof URLSearchParams !== 'undefined' && params instanceof URLSearchParams) {
-    return `${url}?${normalizeQueryValue([...params.entries()])}`
+    // entries 必须先按 key 排序：URLSearchParams 保留插入序，同参数不同顺序会生成不同键，
+    // 导致去重失效（2026-09-30 去重键稳定性测试抓出的回归）。
+    const entries = [...params.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    return `${url}?${entries.map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`).join('&')}`
   }
 
   return `${url}?${normalizeQueryValue(params)}`
@@ -55,12 +58,8 @@ export async function dedupeGet<T>(key: string, run: () => Promise<FlatResponseD
 
   inFlight.set(key, promise as Promise<FlatResponseData<unknown>>)
 
-  try {
-    return await promise
-  } catch (error) {
-    // 失败结果与成功结果一样向外抛，交给调用方/全局 onError 处理。
-    throw error
-  }
+  // 失败结果与成功结果一样向外抛，交给调用方/全局 onError 处理。
+  return await promise
 }
 
 /** 从 url + config 推导去重键。 */

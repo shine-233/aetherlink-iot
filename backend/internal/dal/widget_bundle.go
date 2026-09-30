@@ -21,6 +21,14 @@ import (
 
 var errWidgetBundleDBNotReady = errors.New("database is not initialized")
 
+const (
+	// widgetBundleListDefaultPageSize 部件库列表缺省页大小（旧手写口径保持不变）。
+	widgetBundleListDefaultPageSize = 20
+	// widgetBundleListMaxPageSize 部件库列表单页大小上限（旧写法超限重置为缺省，
+	// 2026-09-28 收编后统一为 clamp 到上限，与 normalizePageParams 包内口径一致）。
+	widgetBundleListMaxPageSize = 200
+)
+
 // CreateWidgetBundle 插入一条部件库记录
 func CreateWidgetBundle(c *model.WidgetBundle) error {
 	return global.DB.Create(c).Error
@@ -55,7 +63,6 @@ func DeleteWidgetBundle(id, tenantID string) error {
 
 // ListWidgetBundles 分页查询租户部件库列表
 func ListWidgetBundles(req *model.GetWidgetBundleListReq, tenantID string) (int64, []*model.WidgetBundle, error) {
-	var count int64
 	var list []*model.WidgetBundle
 
 	db := global.DB.Model(&model.WidgetBundle{})
@@ -65,30 +72,21 @@ func ListWidgetBundles(req *model.GetWidgetBundleListReq, tenantID string) (int6
 	if req.TypeKey != nil && strings.TrimSpace(*req.TypeKey) != "" {
 		db = db.Where("type_key = ?", strings.TrimSpace(*req.TypeKey))
 	}
-	if req.Search != nil && strings.TrimSpace(*req.Search) != "" {
-		s := "%" + strings.TrimSpace(*req.Search) + "%"
-		db = db.Where("name ILIKE ? OR description ILIKE ?", s, s)
-	}
+	// 搜索收编（2026-09-28）：旧写法 "%" + 用户输入 + "%" 未转义通配符，搜索值里的 %/_
+	// 按通配符生效（"%%" 等价全表模糊扫）；whereKeywordContains 统一走 ContainsLikePattern
+	// 转义 + 显式 ESCAPE '\'，多列 OR 括号化，空输入自动跳过。
+	db = whereKeywordContainsPtr(db, opILike, req.Search, "name", "description")
 
-	if err := db.Count(&count).Error; err != nil {
+	// 分页收编（2026-09-28）：normalizePageParams 保持缺省 20 口径、超限 clamp 到上限；
+	// countAndFindPage 在同一过滤条件上先 COUNT 再分页取数，ORDER BY 片段过
+	// allowListedOrderFragment 白名单。
+	page, pageSize := normalizePageParams(req.Page, req.PageSize, widgetBundleListDefaultPageSize, widgetBundleListMaxPageSize)
+	count, err := countAndFindPage(db, "created_at DESC", page, pageSize, &list)
+	if err != nil {
 		return 0, nil, err
 	}
 
-	page := req.Page
-	if page < 1 {
-		page = 1
-	}
-	pageSize := req.PageSize
-	if pageSize < 1 || pageSize > 200 {
-		pageSize = 20
-	}
-
-	err := db.Order("created_at DESC").
-		Limit(pageSize).
-		Offset((page - 1) * pageSize).
-		Find(&list).Error
-
-	return count, list, err
+	return count, list, nil
 }
 
 // GetWidgetBundleByNameInTenant 按租户和名称查询部件库（导入幂等键用）。

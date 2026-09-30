@@ -48,22 +48,23 @@ describe('customer API service', () => {
   it('fetches customer detail with encoded id', async () => {
     hoisted.mockGet.mockResolvedValue({ id: 'c1' })
     await getCustomerDetail('c1')
-    expect(hoisted.mockGet).toHaveBeenCalledWith('/customer/c1')
+    // createResource 的读路径经 dedupe 包装，总是透传 config（未提供时为 {}）
+    expect(hoisted.mockGet).toHaveBeenCalledWith('/customer/c1', {})
   })
 
   it('creates customer without id and updates with id in the same payload', async () => {
     hoisted.mockPost.mockResolvedValue({ id: 'c1' })
     await saveCustomer({ name: '客户A', phone: '138' })
-    expect(hoisted.mockPost).toHaveBeenCalledWith('/customer', { name: '客户A', phone: '138' })
+    expect(hoisted.mockPost).toHaveBeenCalledWith('/customer', { name: '客户A', phone: '138' }, {})
 
     await saveCustomer({ id: 'c1', name: '客户A改' })
-    expect(hoisted.mockPost).toHaveBeenCalledWith('/customer', { id: 'c1', name: '客户A改' })
+    expect(hoisted.mockPost).toHaveBeenCalledWith('/customer', { id: 'c1', name: '客户A改' }, {})
   })
 
   it('deletes customer by encoded id', async () => {
     hoisted.mockDelete.mockResolvedValue(true)
     await deleteCustomer('c1')
-    expect(hoisted.mockDelete).toHaveBeenCalledWith('/customer/c1')
+    expect(hoisted.mockDelete).toHaveBeenCalledWith('/customer/c1', {})
   })
 
   it('assigns devices with device_ids payload', async () => {

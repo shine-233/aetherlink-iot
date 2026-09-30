@@ -1,3 +1,4 @@
+import type { DropdownOption } from 'naive-ui'
 import type { FleetSavedFilterItem, FleetSavedFilterPayload } from '@/service/api/device'
 
 export type SavedFleetFilter = {
@@ -9,6 +10,20 @@ export type SavedFleetFilter = {
   shared: boolean
   owned: boolean
   ownerUserId: string
+}
+
+/**
+ * Row shape of the saved-filter dropdowns in DeviceFleetTargetToolbar.
+ *
+ * Single source of truth: the toolbar consumes it as its prop type, and
+ * `device-manage-top-actions.tsx` uses it to type the toolbar factory input, so the two
+ * cannot drift apart again.
+ */
+export type SavedFleetFilterOption = DropdownOption & {
+  key: string | number
+  rawName?: string
+  shared?: boolean
+  owned?: boolean
 }
 
 export type FleetFilterStorageLike = Pick<Storage, 'getItem' | 'setItem'>

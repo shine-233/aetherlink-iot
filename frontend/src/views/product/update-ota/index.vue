@@ -1,71 +1,31 @@
 <!--
 文件用途: 承载 OTA 升级相关的产品升级页面或业务组件。
-核心逻辑: 组织页面状态、接口调用、表单/列表交互和子组件协作，向用户呈现可操作的业务流程。
-关键注意事项: 修改时要同步核对路由参数、接口载荷、权限状态和用户可见提示，避免只改前端状态。
+核心逻辑: 页面状态、接口调用与列表分页全部收敛在 useOtaTaskPage(内部由 useListPage 驱动),
+         本文件只负责模板组装与把子组件动作回抛给页面编排层。
+关键注意事项: 修改时要同步核对路由参数、接口载荷、权限状态和用户可见提示,避免只改前端状态。
 -->
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
-import type { DataTableColumns } from 'naive-ui'
-import { useRoute, useRouter } from 'vue-router'
-import { debounce } from 'lodash-es'
-import { addOtaTask, editOtaTaskDetail, getOtaTaskSupportBundle, previewOtaTask } from '@/service/product/update-ota'
-import { listFleetSavedFilters } from '@/service/api/device'
-import { $t } from '@/locales'
 import PageHeader from '@/components/common/page-header/index.vue'
-import { createOtaTaskColumns } from './ota-task-table-columns'
-import { useOtaTaskData } from './useOtaTaskData'
-import { useOtaTaskDetail } from './useOtaTaskDetail'
-import { useOtaTaskFlow } from './useOtaTaskFlow'
-import { useOtaOnboardingStep } from './useOtaOnboardingStep'
-import { normalizeRouteQueryText, useOtaReadyCheckContext } from './useOtaReadyCheckContext'
-import { buildOtaFilterSummaryItems, buildOtaPreviewDeviceRows } from './ota-task-state'
-import {
-  FLEET_CURRENT_PAGE_SCOPE,
-  FLEET_DEVICE_FILTER_SCOPE,
-  FLEET_FILTER_RESULT_SCOPE,
-  parseFleetRolloutContext
-} from '../../device/modules/fleet-rollout-context'
-import type { FleetRolloutRouteQueryValue } from '../../device/modules/fleet-rollout-context'
 import OtaTaskCreateModal from './OtaTaskCreateModal.vue'
 import OtaTaskDetailDialog from './OtaTaskDetailDialog.vue'
 import OtaTaskNextStepCard from './OtaTaskNextStepCard.vue'
-
-const route = useRoute()
-const router = useRouter()
+import OtaTaskPackageSelect from './OtaTaskPackageSelect.vue'
+import { useOtaTaskPage } from './useOtaTaskPage'
 
 const {
+  // 升级包与任务列表(useListPage 承担分页/加载态/过期请求丢弃)
   packageLoading,
-  taskLoading,
-  detailLoading,
-  deviceLoading,
-  taskList,
-  detailList,
-  detailStatistics,
-  deviceCandidates,
-  deviceOptions,
-  selectedPackageId,
-  selectedTask,
-  selectedPackage,
   packageOptions,
-  detailQuery,
+  selectedPackageId,
+  selectedPackage,
+  taskList,
+  taskLoading,
   taskPagination,
-  detailPagination,
+  taskColumns,
   fetchPackages,
   fetchTasks,
-  fetchDevices,
-  fetchTaskDetails,
-  openTaskDetail: loadTaskDetail,
-  resetTaskPage,
-  resetDetailQuery,
-  clearDeviceCandidates
-} = useOtaTaskData()
-
-const routeOtaPackageId = normalizeRouteQueryText(route.query.ota_package_id)
-if (routeOtaPackageId) {
-  selectedPackageId.value = routeOtaPackageId
-}
-
-const {
+  handlePackageSearch,
+  // 创建任务弹窗
   saving,
   taskModalVisible,
   taskForm,
@@ -77,107 +37,29 @@ const {
   fleetPreselectionResult,
   filterPreviewResult,
   isFleetFilterRollout,
+  isFleetFilterScope,
   savedFleetFiltersLoading,
   savedFleetFilterLoadFailed,
   savedFleetFilterOptions,
   selectedSavedFleetFilterId,
   selectedSavedFleetFilter,
+  fleetFilterSummaryItems,
+  filterPreviewSubsetRows,
+  filterPreviewSubsetColumns,
+  taskPrimaryActionLabel,
+  deviceLoading,
+  deviceOptions,
+  handleDeviceSearch,
   openTaskModal,
-  saveTask
-} = useOtaTaskFlow({
-  data: {
-    selectedPackageId,
-    selectedPackage,
-    deviceCandidates,
-    deviceOptions,
-    deviceLoading,
-    fetchDevices,
-    fetchTasks,
-    clearDeviceCandidates
-  },
-  services: {
-    addTask: addOtaTask,
-    previewTask: previewOtaTask,
-    listFleetSavedFilters
-  },
-  t: $t,
-  message: {
-    success: message => window.$message?.success(message),
-    warning: message => window.$message?.warning(message)
-  },
-  fleetRolloutContext: computed(() =>
-    parseFleetRolloutContext(route.query as Record<string, FleetRolloutRouteQueryValue>)
-  )
-})
-
-const taskPrimaryActionLabel = computed(() => {
-  if (!isFleetFilterRollout.value) return $t('common.save')
-  return filterPreviewResult.value
-    ? $t('page.product.update-ota.confirmCreateTask')
-    : $t('page.product.update-ota.previewFilterTask')
-})
-
-const fleetFilterSummaryItems = computed(() =>
-  buildOtaFilterSummaryItems(fleetPreselectionResult.value?.deviceFilter || {})
-)
-
-const isFleetFilterScope = computed(() => {
-  const scope = fleetPreselectionResult.value?.scope
-  return (
-    scope === FLEET_FILTER_RESULT_SCOPE || scope === FLEET_DEVICE_FILTER_SCOPE || scope === FLEET_CURRENT_PAGE_SCOPE
-  )
-})
-
-const filterPreviewSubsetRows = computed(() => {
-  const previewRows = filterPreviewResult.value?.preview_devices
-  if (Array.isArray(previewRows) && previewRows.length) {
-    return buildOtaPreviewDeviceRows(previewRows)
-  }
-  return buildOtaPreviewDeviceRows(deviceCandidates.value)
-})
-
-const filterPreviewSubsetColumns = computed<DataTableColumns<any>>(() => [
-  {
-    title: $t('page.product.update-ota.previewSubsetDevice'),
-    key: 'label',
-    render: row => row.label || row.id || '--'
-  },
-  {
-    title: $t('page.product.update-ota.previewSubsetDeviceNumber'),
-    key: 'deviceNumber',
-    render: row => row.deviceNumber || '--'
-  },
-  {
-    title: $t('page.product.update-ota.previewSubsetVersion'),
-    key: 'currentVersion',
-    render: row => row.currentVersion || '--'
-  },
-  {
-    title: $t('page.product.update-ota.previewSubsetOnline'),
-    key: 'online'
-  }
-])
-
-function openFailedDeviceDiagnostics(row: { id: string; device_id?: string }) {
-  if (!row.device_id) {
-    window.$message?.warning($t('page.product.update-ota.failureDiagnosticsMissingDevice'))
-    return
-  }
-
-  router.push({
-    name: 'device_details',
-    query: {
-      d_id: row.device_id,
-      tab: 'ready-check',
-      source: 'ota',
-      ...(selectedTask.value?.id ? { ota_task_id: selectedTask.value.id } : {}),
-      ota_detail_id: row.id
-    }
-  })
-}
-
-const {
+  saveTask,
+  // 任务明细弹窗
   detailModalVisible,
+  selectedTask,
+  detailList,
+  detailLoading,
+  detailQuery,
+  detailPagination,
+  detailColumns,
   statusOptions,
   formatTime,
   rolloutFailedCount,
@@ -194,114 +76,28 @@ const {
   failureGroups,
   retryRecommendationCards,
   supportBundleLoading,
+  fetchTaskDetails,
+  resetDetailQuery,
+  openTaskDetail,
   exportFailedDevices,
   copyFailedDevices,
   copyFailureSupportBundle,
   downloadTaskSupportBundle,
-  openTaskDetail,
-  detailColumns
-} = useOtaTaskDetail({
-  selectedPackage,
-  selectedTask,
-  detailLoading,
-  detailList,
-  detailStatistics,
-  loadTaskDetail,
-  fetchTaskDetails,
-  editTaskDetail: editOtaTaskDetail,
-  getTaskSupportBundle: getOtaTaskSupportBundle,
+  // 失败设备诊断跳转
+  firstFailedDiagnosticDevice,
   openFailedDeviceDiagnostics,
-  t: $t,
-  message: {
-    success: message => window.$message?.success(message),
-    warning: message => window.$message?.warning(message)
-  },
-  dialog: {
-    warning: options => window.$dialog?.warning(options)
-  }
-})
-
-const {
+  openFirstFailedDeviceDiagnostics,
+  // Ready Check 深链上下文
   readyCheckOtaContextVisible,
   readyCheckOtaContextType,
   readyCheckOtaContextMessage,
   readyCheckOtaDetailContextMessage,
-  applyReadyCheckOtaContext
-} = useOtaReadyCheckContext({
-  taskList,
-  detailList,
-  selectedTask,
-  detailModalVisible,
-  openTaskDetail
-})
-
-const { nextStep: otaNextStep, handleNextStep: handleOtaNextStep } = useOtaOnboardingStep({
-  packageLoading,
-  packageOptions,
-  selectedPackageId,
-  onUploadPackage: () => router.push({ name: 'product_update-package', query: { return_to: 'ota_task' } }),
-  onCreateTask: openTaskModal,
-  onRefreshPackages: () => fetchPackages()
-})
-
-const firstFailedDiagnosticDevice = computed(() => {
-  for (const group of failureGroups.value) {
-    const device = group.devices.find(item => item.device_id)
-    if (device) return device
-  }
-  return null
-})
-
-function openFirstFailedDeviceDiagnostics() {
-  if (!firstFailedDiagnosticDevice.value) {
-    window.$message?.warning($t('page.product.update-ota.failureDiagnosticsMissingDevice'))
-    return
-  }
-
-  openFailedDeviceDiagnostics(firstFailedDiagnosticDevice.value)
-}
-
-const taskColumns = createOtaTaskColumns({
-  getSelectedPackage: () => selectedPackage.value,
-  formatTime,
-  openTaskDetail
-})
-
-const searchDeviceOptions = debounce((query: string) => {
-  if (!taskModalVisible.value || isFleetFilterRollout.value) return
-  fetchDevices(query)
-}, 300)
-
-const searchPackageOptions = debounce((query: string) => {
-  fetchPackages(query)
-}, 300)
-
-function handleDeviceSearch(query: string) {
-  searchDeviceOptions(query)
-}
-
-function handlePackageSearch(query: string) {
-  searchPackageOptions(query)
-}
-
-watch(selectedPackageId, async () => {
-  resetTaskPage()
-  await fetchTasks()
-  await applyReadyCheckOtaContext()
-})
-
-onBeforeUnmount(() => {
-  searchDeviceOptions.cancel()
-  searchPackageOptions.cancel()
-})
-
-onMounted(async () => {
-  const packageSelectionChanged = await fetchPackages()
-  if (!packageSelectionChanged) {
-    await fetchTasks()
-    await applyReadyCheckOtaContext()
-  }
-})
+  readyCheckOtaContextStatus,
+  readyCheckOtaDetailMatched,
+  // 新手引导
+  otaNextStep,
+  handleOtaNextStep
+} = useOtaTaskPage()
 </script>
 
 <template>
@@ -321,25 +117,13 @@ onMounted(async () => {
         </NButton>
       </PageHeader>
 
-      <NCard :bordered="false">
-        <NSpace align="center" :wrap="true">
-          <NSelect
-            v-model:value="selectedPackageId"
-            class="package-select"
-            filterable
-            remote
-            clearable
-            :loading="packageLoading"
-            :options="packageOptions"
-            :placeholder="$t('page.product.update-package.packagePlaceholder')"
-            @search="handlePackageSearch"
-          />
-          <NTag v-if="selectedPackage?.device_config_name" type="info">{{ selectedPackage.device_config_name }}</NTag>
-          <NTag v-if="selectedPackage?.signature" type="success">
-            {{ $t('page.product.update-ota.packageSign') }}: {{ selectedPackage.signature }}
-          </NTag>
-        </NSpace>
-      </NCard>
+      <OtaTaskPackageSelect
+        v-model:selected-package-id="selectedPackageId"
+        :loading="packageLoading"
+        :package-options="packageOptions"
+        :selected-package="selectedPackage"
+        @search="handlePackageSearch"
+      />
 
       <OtaTaskNextStepCard
         :next-step="otaNextStep"
@@ -437,15 +221,5 @@ onMounted(async () => {
 <style scoped>
 .product-page {
   padding: 16px;
-}
-
-.package-select {
-  width: 320px;
-}
-
-@media (max-width: 720px) {
-  .package-select {
-    width: 100%;
-  }
 }
 </style>

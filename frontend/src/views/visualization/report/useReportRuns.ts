@@ -3,12 +3,15 @@
  * 核心逻辑：
  *   - 立即运行与重试都携带幂等键；遇到「不确定的传输错误」（请求可能已到达后端）时用同一个键自动重放一次，
  *     得到确定响应后下一次操作才生成新键。
- *   - 历史列表请求带序号 + 计划/页码快照，过期响应丢弃。
+ *   - 运行历史列表的分页/加载态/过期请求丢弃收口在 useListPage（@/components/data-table-page/useListPage）；
+ *     选中运行在新列表中的回填放在 onLoaded。
  *   - 选中运行的轮询委托给 useSelectedReportRunPoll（仅抽屉可见且选中运行未终态时轮询）。
- * 关键注意事项：dispose() 使在途历史响应失效；轮询在组件卸载时由 useSelectedReportRunPoll 自行清理。
+ * 关键注意事项：rows 为 shallowRef，轮询回填/单行替换采用不可变替换触发重渲染；轮询在组件卸载时
+ *   由 useSelectedReportRunPoll 自行清理，dispose() 仅作废在途历史请求。
  */
 import { computed, ref } from 'vue'
 import { $t } from '@/locales'
+import { useListPage } from '@/components/data-table-page/useListPage'
 import {
   getReportRun,
   listReportRuns,
@@ -22,41 +25,52 @@ import { REPORT_RUN_PAGE_SIZE } from './report-helpers'
 import { useSelectedReportRunPoll } from './useSelectedReportRunPoll'
 import type { ReportMessenger } from './useReportSchedules'
 
-export function useReportRuns(options: { message: ReportMessenger; reloadSchedules: () => Promise<void> }) {
+export function useReportRuns(options: { message: ReportMessenger; reloadSchedules: () => Promise<unknown> }) {
   const { message } = options
   const runningId = ref('')
   const selectedSchedule = ref<ReportSchedule | null>(null)
   const selectedScheduleId = computed(() => selectedSchedule.value?.id || '')
   const historyVisible = ref(false)
-  const historyLoading = ref(false)
-  const runs = ref<ReportRun[]>([])
-  const runTotal = ref(0)
-  const runPage = ref(1)
   const selectedRun = ref<ReportRun | null>(null)
   const retryingRunId = ref('')
   const pollFailed = ref(false)
-  let sequence = 0
 
-  async function loadRuns() {
-    const scheduleId = selectedScheduleId.value
-    if (!scheduleId) return
-    const seq = ++sequence
-    const snapshotPage = runPage.value
-    historyLoading.value = true
-    try {
-      const { data, error } = await listReportRuns(scheduleId, { page: snapshotPage, page_size: REPORT_RUN_PAGE_SIZE })
-      if (seq !== sequence || scheduleId !== selectedScheduleId.value || snapshotPage !== runPage.value) return
-      if (error || !data) throw error || new Error('missing data')
-      runs.value = data.list || []
-      runTotal.value = data.total || 0
-      if (selectedRun.value) {
-        selectedRun.value = runs.value.find((run) => run.run_id === selectedRun.value?.run_id) || selectedRun.value
+  // 运行历史状态机：分页/加载/过期请求丢弃交给 useListPage；计划 id 由 fetcher 现取。
+  const {
+    rows: runs,
+    total: runTotal,
+    page: runPage,
+    loading: historyLoading,
+    load: loadHistoryPage,
+    setPage: setRunsPage,
+    patchQuery: patchRunsQuery,
+    cancel: cancelHistoryLoad
+  } = useListPage<ReportRun>({
+    initialQuery: () => ({}),
+    initialPageSize: REPORT_RUN_PAGE_SIZE,
+    fetcher: async (params) => {
+      const scheduleId = selectedScheduleId.value
+      if (!scheduleId) return null
+      try {
+        const { data, error } = await listReportRuns(scheduleId, { page: params.page, page_size: params.page_size })
+        if (error || !data) throw error || new Error('missing data')
+        return { list: data.list || [], total: data.total || 0 }
+      } catch {
+        message.error($t('report.message.historyFailed'))
+        return null
       }
-    } catch {
-      if (seq === sequence) message.error($t('report.message.historyFailed'))
-    } finally {
-      if (seq === sequence) historyLoading.value = false
+    },
+    onLoaded: (result) => {
+      if (selectedRun.value) {
+        selectedRun.value = result.list.find((run) => run.run_id === selectedRun.value?.run_id) || selectedRun.value
+      }
     }
+  })
+
+  /** 拉取当前选中计划的运行历史；未选中计划时不发请求。 */
+  async function loadRuns() {
+    if (!selectedScheduleId.value) return
+    await loadHistoryPage()
   }
 
   /** 选中新产生的运行：优先取当前页，否则按 id 单独拉取详情。 */
@@ -67,12 +81,13 @@ export function useReportRuns(options: { message: ReportMessenger; reloadSchedul
     if (!detail.error && detail.data) selectedRun.value = detail.data
   }
 
+  /** 打开抽屉/立即运行后统一重置选中状态并回到第一页（不触发额外请求）。 */
   const resetSelection = (schedule: ReportSchedule) => {
     selectedSchedule.value = schedule
     selectedRun.value = null
     pollFailed.value = false
-    runPage.value = 1
     historyVisible.value = true
+    patchRunsQuery({}, { reload: false })
   }
 
   async function runNow(row: ReportSchedule, idempotencyKey = createReportIdempotencyKey()) {
@@ -101,8 +116,7 @@ export function useReportRuns(options: { message: ReportMessenger; reloadSchedul
     void loadRuns()
   }
   function changeRunPage(next: number) {
-    runPage.value = next
-    void loadRuns()
+    return setRunsPage(next)
   }
   function selectRun(run: ReportRun) {
     pollFailed.value = false
@@ -137,8 +151,8 @@ export function useReportRuns(options: { message: ReportMessenger; reloadSchedul
     visible: historyVisible,
     onUpdate: (run) => {
       pollFailed.value = false
-      const index = runs.value.findIndex((item) => item.run_id === run.run_id)
-      if (index >= 0) runs.value.splice(index, 1, run)
+      // rows 为 shallowRef：轮询回填用不可变替换触发重渲染。
+      runs.value = runs.value.map((item) => (item.run_id === run.run_id ? run : item))
     },
     onFailure: ({ stopped }) => {
       if (stopped) pollFailed.value = true
@@ -146,7 +160,7 @@ export function useReportRuns(options: { message: ReportMessenger; reloadSchedul
   })
 
   const dispose = () => {
-    sequence += 1
+    cancelHistoryLoad()
   }
 
   return {

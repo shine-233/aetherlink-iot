@@ -9,9 +9,9 @@ import (
 	"strings"
 	"sync"
 
+	"aetherlink-iot/backend/internal/authz"
 	"aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/internal/mqttdebug"
-	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/utils"
 )
@@ -113,12 +113,9 @@ func canUseDeviceMQTTDebug(claims *utils.UserClaims) bool {
 	if claims == nil || strings.TrimSpace(claims.ID) == "" {
 		return false
 	}
-	switch claims.Authority {
-	case constant.SYS_ADMIN, constant.TENANT_ADMIN, constant.TENANT_USER:
-		return true
-	default:
-		return false
-	}
+	// 角色门禁收编 authz：仅三个受支持的 JWT authority 可开通调试会话，
+	// 未知 authority（伪造 CUSTOMER 等）fail-closed，与迁移前 switch 等价。
+	return authz.HasRole(claims, authz.KnownRoles...)
 }
 
 func mapDeviceMQTTDebugError(err error) error {

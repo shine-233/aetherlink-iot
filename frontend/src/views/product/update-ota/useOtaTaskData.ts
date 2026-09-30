@@ -78,7 +78,9 @@ export const useOtaTaskData = () => {
 
   const selectedPackage = computed(() => packageList.value.find((item) => item.id === selectedPackageId.value) || null)
 
-  const packageOptions = computed<SelectOption[]>(() =>
+  // 显式收窄为 { label: string; value: string }: 映射结果必定是纯字符串标签/值,
+  // 而 naive-ui 的 SelectOption 允许 label 为 undefined 或渲染函数,宽类型无法反向赋给子组件。
+  const packageOptions = computed<Array<{ label: string; value: string }>>(() =>
     packageList.value.map((item) => ({
       label: `${item.name || item.version || item.id}${item.version ? ` (${item.version})` : ''}`,
       value: item.id

@@ -11,6 +11,8 @@ import (
 
 // device_templates.go 承接物模型与物模型市场相关 HTTP Handler。
 // 这里保持同一个 DeviceApi receiver，不改变路由挂载与行为，只把物模型子域从 device.go 中抽离出来，提升定位与维护的局部性。
+// 绑定/校验/claims/响应等样板统一收敛到 handler_adapter.go 的适配器（Handle/HandlePath/HandleNoBody/HandlePublic），
+// JSON 包络逐字节不变（见 handler_adapter_golden_4_test.go 的新旧对比测试）。
 
 // CreateDeviceTemplate 创建物模型。
 // 参数绑定：请求体绑定 CreateDeviceTemplateReq。
@@ -33,26 +35,19 @@ func (*DeviceApi) UpdateDeviceTemplate(c *gin.Context) {
 // GetDeviceTemplateListByPage 分页获取设备物模型
 // @Router   /api/v1/device/template [get]
 func (*DeviceApi) HandleDeviceTemplateListByPage(c *gin.Context) {
-	var req model.GetDeviceTemplateListByPageReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.DeviceTemplate.GetDeviceTemplateListByPage(req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	serilizedData, err := utils.SerializeData(data, GetDeviceTemplateListData{})
-	if err != nil {
-		c.Error(errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-			"error": err.Error(),
-		}))
-		return
-	}
-
-	c.Set("data", serilizedData)
+	Handle(c, func(req *model.GetDeviceTemplateListByPageReq, userClaims *utils.UserClaims) (interface{}, error) {
+		data, err := service.GroupApp.DeviceTemplate.GetDeviceTemplateListByPage(*req, userClaims)
+		if err != nil {
+			return nil, err
+		}
+		serilizedData, err := utils.SerializeData(data, GetDeviceTemplateListData{})
+		if err != nil {
+			return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+		return serilizedData, nil
+	})
 }
 
 // @Router   /api/v1/device/template/menu [get]
@@ -89,60 +84,52 @@ func (*DeviceApi) DeleteDeviceTemplate(c *gin.Context) {
 // GetDeviceTemplate 获取设备物模型详情
 // @Router   /api/v1/device/template/detail/{id} [get]
 func (*DeviceApi) HandleDeviceTemplateById(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.DeviceTemplate.GetDeviceTemplateById(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	serilizedData, err := utils.SerializeData(data, DeviceTemplateReadSchema{})
-	if err != nil {
-		c.Error(errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-			"error": err.Error(),
-		}))
-		return
-	}
-	c.Set("data", serilizedData)
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		data, err := service.GroupApp.DeviceTemplate.GetDeviceTemplateById(id, userClaims)
+		if err != nil {
+			return nil, err
+		}
+		serilizedData, err := utils.SerializeData(data, DeviceTemplateReadSchema{})
+		if err != nil {
+			return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+		return serilizedData, nil
+	})
 }
 
 // 根据设备id获取物模型详情
 // @Router   /api/v1/device/template/chart [get]
 func (*DeviceApi) HandleDeviceTemplateByDeviceId(c *gin.Context) {
-	deviceId := c.Query("device_id")
-	if deviceId == "" {
-		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-			"device_id": deviceId,
-			"msg":       "device_id is required",
-		}))
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.DeviceTemplate.GetDeviceTemplateByDeviceId(deviceId, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		deviceId := c.Query("device_id")
+		if deviceId == "" {
+			return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+				"device_id": deviceId,
+				"msg":       "device_id is required",
+			})
+		}
+		data, err := service.GroupApp.DeviceTemplate.GetDeviceTemplateByDeviceId(deviceId, userClaims)
+		if err != nil {
+			return nil, err
+		}
+		return data, nil
+	})
 }
 
 // MarketLogin 登录市场获取 Token
 // @Router   /api/v1/device/template/market/login [post]
 func (*DeviceApi) MarketLogin(c *gin.Context) {
-	var req model.MarketLoginReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	client := service.NewMarketClient()
-	token, err := client.Login(c, req.Username, req.Password)
-	if err != nil {
-		c.Error(errcode.NewWithMessage(errcode.CodeSystemError, err.Error()))
-		return
-	}
-
-	c.Set("data", map[string]string{
-		"token": token,
+	HandlePublic(c, func(req *model.MarketLoginReq) (interface{}, error) {
+		client := service.NewMarketClient()
+		token, err := client.Login(c, req.Username, req.Password)
+		if err != nil {
+			return nil, errcode.NewWithMessage(errcode.CodeSystemError, err.Error())
+		}
+		return map[string]string{
+			"token": token,
+		}, nil
 	})
 }
 
@@ -157,18 +144,10 @@ func (*DeviceApi) PublishToMarket(c *gin.Context) {
 // ListMarketTemplates 获取市场物模型列表
 // @Router   /api/v1/device/template/market/list [get]
 func (*DeviceApi) ListMarketTemplates(c *gin.Context) {
-	var req model.MarketTemplateListReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	params := normalizeMarketTemplateListParams(req)
-	data, err := listMarketTemplates(c, params)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandlePublic(c, func(req *model.MarketTemplateListReq) (interface{}, error) {
+		params := normalizeMarketTemplateListParams(*req)
+		return listMarketTemplates(c, params)
+	})
 }
 
 type marketTemplateListParams struct {
@@ -216,21 +195,20 @@ func listMarketTemplates(c *gin.Context, params marketTemplateListParams) (inter
 // GetMarketTemplateDetail 获取市场物模型详情
 // @Router   /api/v1/device/template/market/detail/:market_id [get]
 func (*DeviceApi) GetMarketTemplateDetail(c *gin.Context) {
-	marketID := c.Param("market_id")
-	if marketID == "" {
-		c.Error(errcode.WithData(errcode.CodeParamError, "market_id is required"))
-		return
-	}
+	HandlePath(c, "market_id", func(marketID string, _ *utils.UserClaims) (interface{}, error) {
+		if marketID == "" {
+			return nil, errcode.WithData(errcode.CodeParamError, "market_id is required")
+		}
 
-	client := service.NewMarketClient()
-	data, err := client.GetMarketTemplateDetail(c, marketID)
-	if err != nil {
-		c.Error(errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-			"error": "Failed to get market thing model detail: " + err.Error(),
-		}))
-		return
-	}
-	c.Set("data", data)
+		client := service.NewMarketClient()
+		data, err := client.GetMarketTemplateDetail(c, marketID)
+		if err != nil {
+			return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+				"error": "Failed to get market thing model detail: " + err.Error(),
+			})
+		}
+		return data, nil
+	})
 }
 
 // InstallFromMarket 从市场安装物模型
@@ -253,24 +231,20 @@ func (*DeviceApi) ExportDeviceTemplate(c *gin.Context) {
 // 幂等：同租户同名同版本返回既有模板（data.created=false）。
 // @Router   /api/v1/device/template/import [post]
 func (*DeviceApi) ImportDeviceTemplate(c *gin.Context) {
-	var req model.ImportDeviceTemplateReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, created, err := service.GroupApp.DeviceTemplate.ImportDeviceTemplate(req, userClaims)
-	if err != nil {
-		// 失败同样审计：只记成功的审计回答不了"这个模板为什么没导进来"。
+	Handle(c, func(req *model.ImportDeviceTemplateReq, userClaims *utils.UserClaims) (interface{}, error) {
+		data, created, err := service.GroupApp.DeviceTemplate.ImportDeviceTemplate(*req, userClaims)
+		if err != nil {
+			// 失败同样审计：只记成功的审计回答不了"这个模板为什么没导进来"。
+			service.EmitMarketTemplateImportAudit(service.BuildMarketTemplateImportAudit(
+				userClaims.TenantID, userClaims.ID, "", "", false, err))
+			return nil, err
+		}
+		// created=false 是幂等命中（同名同版本已存在），不是"没发生"，同样留痕。
 		service.EmitMarketTemplateImportAudit(service.BuildMarketTemplateImportAudit(
-			userClaims.TenantID, userClaims.ID, "", "", false, err))
-		c.Error(err)
-		return
-	}
-	// created=false 是幂等命中（同名同版本已存在），不是"没发生"，同样留痕。
-	service.EmitMarketTemplateImportAudit(service.BuildMarketTemplateImportAudit(
-		userClaims.TenantID, userClaims.ID, "", "", created, nil))
-	c.Set("data", gin.H{
-		"template": data,
-		"created":  created,
+			userClaims.TenantID, userClaims.ID, "", "", created, nil))
+		return gin.H{
+			"template": data,
+			"created":  created,
+		}, nil
 	})
 }

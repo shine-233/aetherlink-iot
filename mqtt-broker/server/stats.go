@@ -76,24 +76,42 @@ func (s *statsManager) getExistingClientStats(clientID string) (*ClientStats, bo
 	return stats, stats != nil
 }
 
+// packetReceived/packetSent 等 per-packet 统计先走快路径（stats 已存在时直接原子更新，
+// 不构造闭包）——该路径处于 read/write loop 热路径，原实现每次调用都要为闭包多付一次堆分配。
 func (s *statsManager) packetReceived(packet packets.Packet, clientID string) {
 	s.totalStats.PacketStats.add(packet, true)
+	if stats, ok := s.getExistingClientStats(clientID); ok {
+		stats.PacketStats.add(packet, true)
+		return
+	}
 	s.updateClientStats(clientID, func(stats *ClientStats) {
 		stats.PacketStats.add(packet, true)
 	})
 }
 func (s *statsManager) packetSent(packet packets.Packet, clientID string) {
 	s.totalStats.PacketStats.add(packet, false)
+	if stats, ok := s.getExistingClientStats(clientID); ok {
+		stats.PacketStats.add(packet, false)
+		return
+	}
 	s.updateClientStats(clientID, func(stats *ClientStats) {
 		stats.PacketStats.add(packet, false)
 	})
 }
 func (s *statsManager) clientPacketReceived(packet packets.Packet, clientID string) {
+	if stats, ok := s.getExistingClientStats(clientID); ok {
+		stats.PacketStats.add(packet, true)
+		return
+	}
 	s.updateClientStats(clientID, func(stats *ClientStats) {
 		stats.PacketStats.add(packet, true)
 	})
 }
 func (s *statsManager) clientPacketSent(packet packets.Packet, clientID string) {
+	if stats, ok := s.getExistingClientStats(clientID); ok {
+		stats.PacketStats.add(packet, false)
+		return
+	}
 	s.updateClientStats(clientID, func(stats *ClientStats) {
 		stats.PacketStats.add(packet, false)
 	})

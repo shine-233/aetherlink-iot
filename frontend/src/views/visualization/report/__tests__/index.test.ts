@@ -125,7 +125,11 @@ const run = {
 
 const wrappers: Array<ReturnType<typeof shallowMount>> = []
 const mountPage = () => {
-  const wrapper = shallowMount(ReportPage)
+  // 运行历史抽屉拆为 ReportHistoryDrawer 后解除其 stub：
+  // 页面级的停用/轮询失败文本断言（report.message.scheduleDisabled / pollFailed）仍需覆盖抽屉内容。
+  const wrapper = shallowMount(ReportPage, {
+    global: { stubs: { ReportHistoryDrawer: false } }
+  })
   wrappers.push(wrapper)
   return wrapper
 }

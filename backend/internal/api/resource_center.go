@@ -40,33 +40,34 @@ func (*ResourceCenterApi) HandleResourceCenterList(c *gin.Context) {
 // HandleExportResourceBundle 统一打包导出。
 // @Router /api/v1/resource/center/bundle [get]
 func (*ResourceCenterApi) HandleExportResourceBundle(c *gin.Context) {
-	typeKey := c.Query("type_key")
-	resourceType := c.Query("resource_type")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	// 迁移形态：HandleNoBody（不绑定请求体，type_key/resource_type 仍在闭包内按 query 读取）。
+	// 序列化失败与 service 失败一样返回给适配器，由响应中间件统一渲染。
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		typeKey := c.Query("type_key")
+		resourceType := c.Query("resource_type")
 
-	bundle, err := service.GroupApp.ResourceCenter.ExportResourceBundle(typeKey, resourceType, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
+		bundle, err := service.GroupApp.ResourceCenter.ExportResourceBundle(typeKey, resourceType, userClaims)
+		if err != nil {
+			return nil, err
+		}
 
-	data, err := json.Marshal(bundle)
-	if err != nil {
-		c.Error(err)
-		return
-	}
+		data, err := json.Marshal(bundle)
+		if err != nil {
+			return nil, err
+		}
 
-	slug := typeKey
-	if slug == "" {
-		slug = "all"
-	}
-	fileName := fmt.Sprintf("resource_bundle_%s_%d.json", slug, time.Now().Unix())
+		slug := typeKey
+		if slug == "" {
+			slug = "all"
+		}
+		fileName := fmt.Sprintf("resource_bundle_%s_%d.json", slug, time.Now().Unix())
 
-	c.Set("data", map[string]interface{}{
-		"file_name":      fileName,
-		"content_base64": base64.StdEncoding.EncodeToString(data),
-		"count":          bundle.Count,
-		"bundle":         bundle,
+		return map[string]interface{}{
+			"file_name":      fileName,
+			"content_base64": base64.StdEncoding.EncodeToString(data),
+			"count":          bundle.Count,
+			"bundle":         bundle,
+		}, nil
 	})
 }
 

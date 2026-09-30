@@ -130,6 +130,8 @@ type maxQos map[string]*nonSharedMatch
 
 // deliverHandler 根据 DeliveryMode 统一处理普通订阅、共享订阅、overlap 与 onlyOnce 投递策略。
 // 审查建议：该结构体已经比较独立，后续可围绕共享订阅均衡策略补 focused 测试。
+// 性能说明：sl/mq 为惰性分配——deliverMessage 是每条消息的热路径，普通单订阅投递
+// （overlap 模式）两者都用不到，按需初始化可省去每条消息两次 map 分配。
 type deliverHandler struct {
 	fn       subscription.IterateFn
 	sl       sharedList
@@ -143,8 +145,6 @@ type deliverHandler struct {
 
 func newDeliverHandler(mode string, strategy string, srcClientID string, msg *gmqtt.Message, now time.Time, srv *server) *deliverHandler {
 	d := &deliverHandler{
-		sl:       make(sharedList),
-		mq:       make(maxQos),
 		msg:      msg,
 		srv:      srv,
 		now:      now,
@@ -173,6 +173,9 @@ func (d *deliverHandler) iterateSubscriptions(srcClientID string, nonShared subs
 }
 
 func (d *deliverHandler) addSharedSubscriber(clientID string, sub *gmqtt.Subscription) {
+	if d.sl == nil {
+		d.sl = make(sharedList)
+	}
 	fullTopic := sub.GetFullTopicName()
 	d.sl[fullTopic] = append(d.sl[fullTopic], struct {
 		clientID string
@@ -189,6 +192,9 @@ func (d *deliverHandler) deliverOverlap(clientID string, sub *gmqtt.Subscription
 
 func (d *deliverHandler) recordOnlyOnce(clientID string, sub *gmqtt.Subscription) bool {
 	// onlyOnce 模式下，同一客户端多次命中时使用最高 QoS，并合并 Subscription Identifier。
+	if d.mq == nil {
+		d.mq = make(maxQos)
+	}
 	if d.mq[clientID] == nil {
 		d.mq[clientID] = &nonSharedMatch{sub: sub, subIDs: []uint32{sub.ID}}
 		return true

@@ -13,7 +13,6 @@ package api
 import (
 	"aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/internal/service"
-	"aetherlink-iot/backend/pkg/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -62,9 +61,12 @@ func (*AlarmApi) CreateAlarmComment(c *gin.Context) {
 	if !validateAlarmCommentReq(c, &req) {
 		return
 	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	claims, ok := RequireClaims(c)
+	if !ok {
+		return
+	}
 
-	data, err := service.GroupApp.Alarm.CreateAlarmComment(&req, userClaims)
+	data, err := service.GroupApp.Alarm.CreateAlarmComment(&req, claims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -89,9 +91,12 @@ func (*AlarmApi) ListAlarmComments(c *gin.Context) {
 	if !validateAlarmCommentReq(c, &req) {
 		return
 	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	claims, ok := RequireClaims(c)
+	if !ok {
+		return
+	}
 
-	data, err := service.GroupApp.Alarm.ListAlarmComments(&req, userClaims)
+	data, err := service.GroupApp.Alarm.ListAlarmComments(&req, claims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -117,9 +122,12 @@ func (*AlarmApi) DeleteAlarmComment(c *gin.Context) {
 	if !validateAlarmCommentReq(c, &req) {
 		return
 	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	claims, ok := RequireClaims(c)
+	if !ok {
+		return
+	}
 
-	if err := service.GroupApp.Alarm.DeleteAlarmComment(&req, userClaims); err != nil {
+	if err := service.GroupApp.Alarm.DeleteAlarmComment(&req, claims); err != nil {
 		c.Error(err)
 		return
 	}

@@ -39,14 +39,14 @@ func (*DataConverterApi) GetDataConverterByID(c *gin.Context) {
 // DeleteDataConverter 删除数据转换器
 // @Router   /api/v1/converters/:id [delete]
 func (*DataConverterApi) DeleteDataConverter(c *gin.Context) {
-	id := c.Param("id")
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.DataConverter.DeleteDataConverter(c.Request.Context(), id, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", map[string]interface{}{"id": id})
+	// 迁移形态：HandlePath（路径参数 id + claims）。成功包络保留旧的 data 对象 {"id": ...}，
+	// 因此不能改用 HandlePathAction（其成功时 data 为 nil 并从包络中省略该字段）。
+	HandlePath(c, "id", func(id string, claims *utils.UserClaims) (interface{}, error) {
+		if err := service.GroupApp.DataConverter.DeleteDataConverter(c.Request.Context(), id, claims); err != nil {
+			return nil, err
+		}
+		return map[string]interface{}{"id": id}, nil
+	})
 }
 
 // ListDataConverters 分页查询列表

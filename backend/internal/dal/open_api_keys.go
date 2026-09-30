@@ -55,13 +55,11 @@ func GetOpenAPIKeyListByPage(listReq *model.OpenAPIKeyListReq, tenantID string) 
 		return 0, nil, err
 	}
 
-	listBuilder := base.Session(&gorm.Session{}).
+	// 分页收编（2026-09-28）：旧写法 Page=0 时不加 LIMIT、PageSize 无上限；applyListPagination
+	// 对缺省分页兜底 defaultListLimit 并由 clampListPageSize 封顶单页。
+	listBuilder := applyListPagination(base.Session(&gorm.Session{}).
 		Select("open_api_keys.*, users.id AS user_id, users.email AS email, users.name AS user_name").
-		Order("open_api_keys.created_at DESC")
-	if listReq.Page != 0 && listReq.PageSize != 0 {
-		listBuilder = listBuilder.Limit(listReq.PageSize).
-			Offset((listReq.Page - 1) * listReq.PageSize)
-	}
+		Order("open_api_keys.created_at DESC"), listReq.Page, listReq.PageSize)
 	if err := listBuilder.Scan(&keysList).Error; err != nil {
 		return 0, nil, err
 	}

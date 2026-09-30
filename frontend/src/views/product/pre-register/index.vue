@@ -34,7 +34,12 @@ const {
   openModal,
   selectFile,
   submitImport
-} = usePreRegisterImport({ onImported: () => fetchList(pagination.page, pagination.pageSize) })
+} = usePreRegisterImport({
+  // fetchList 即 useListPage.search：自己回到第 1 页并重载，不接受分页参数。
+  onImported: () => {
+    void fetchList()
+  }
+})
 
 const exporting = ref(false)
 

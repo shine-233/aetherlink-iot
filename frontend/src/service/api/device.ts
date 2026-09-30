@@ -169,10 +169,10 @@ export const deviceListByGroup = async (params: object) => {
   })
 }
 
-/** 获取设备详情 */
-export const deviceDetail = async (id: string) => {
+/** 获取设备详情；可选透传 CustomAxiosRequestConfig（如 signal，用于条件变更后取消未归请求） */
+export const deviceDetail = async (id: string, config?: CustomAxiosRequestConfig) => {
   const url = `/device/detail/${id}`
-  return await request.get<DeviceManagement.DeviceDetail>(url)
+  return await request.get<DeviceManagement.DeviceDetail>(url, config)
 }
 
 /** 获取设备分组关系 */

@@ -42,20 +42,34 @@ func (d *DroppedTotal) messageDropped(err error) {
 	}
 }
 
+// messageReceived/messageSent/addInflight/addQueueLen 处于消息收发热路径，
+// 先查已存在 stats 指针直接原子更新（免闭包分配），慢路径才走 updateClientStats。
 func (s *statsManager) messageReceived(qos uint8, clientID string) {
 	switch qos {
 	case packets.Qos0:
 		atomic.AddUint64(&s.totalStats.MessageStats.Qos0.ReceivedTotal, 1)
+		if stats, ok := s.getExistingClientStats(clientID); ok {
+			atomic.AddUint64(&stats.MessageStats.Qos0.ReceivedTotal, 1)
+			return
+		}
 		s.updateClientStats(clientID, func(stats *ClientStats) {
 			atomic.AddUint64(&stats.MessageStats.Qos0.ReceivedTotal, 1)
 		})
 	case packets.Qos1:
 		atomic.AddUint64(&s.totalStats.MessageStats.Qos1.ReceivedTotal, 1)
+		if stats, ok := s.getExistingClientStats(clientID); ok {
+			atomic.AddUint64(&stats.MessageStats.Qos1.ReceivedTotal, 1)
+			return
+		}
 		s.updateClientStats(clientID, func(stats *ClientStats) {
 			atomic.AddUint64(&stats.MessageStats.Qos1.ReceivedTotal, 1)
 		})
 	case packets.Qos2:
 		atomic.AddUint64(&s.totalStats.MessageStats.Qos2.ReceivedTotal, 1)
+		if stats, ok := s.getExistingClientStats(clientID); ok {
+			atomic.AddUint64(&stats.MessageStats.Qos2.ReceivedTotal, 1)
+			return
+		}
 		s.updateClientStats(clientID, func(stats *ClientStats) {
 			atomic.AddUint64(&stats.MessageStats.Qos2.ReceivedTotal, 1)
 		})
@@ -66,16 +80,28 @@ func (s *statsManager) messageSent(qos uint8, clientID string) {
 	switch qos {
 	case packets.Qos0:
 		atomic.AddUint64(&s.totalStats.MessageStats.Qos0.SentTotal, 1)
+		if stats, ok := s.getExistingClientStats(clientID); ok {
+			atomic.AddUint64(&stats.MessageStats.Qos0.SentTotal, 1)
+			return
+		}
 		s.updateClientStats(clientID, func(stats *ClientStats) {
 			atomic.AddUint64(&stats.MessageStats.Qos0.SentTotal, 1)
 		})
 	case packets.Qos1:
 		atomic.AddUint64(&s.totalStats.MessageStats.Qos1.SentTotal, 1)
+		if stats, ok := s.getExistingClientStats(clientID); ok {
+			atomic.AddUint64(&stats.MessageStats.Qos1.SentTotal, 1)
+			return
+		}
 		s.updateClientStats(clientID, func(stats *ClientStats) {
 			atomic.AddUint64(&stats.MessageStats.Qos1.SentTotal, 1)
 		})
 	case packets.Qos2:
 		atomic.AddUint64(&s.totalStats.MessageStats.Qos2.SentTotal, 1)
+		if stats, ok := s.getExistingClientStats(clientID); ok {
+			atomic.AddUint64(&stats.MessageStats.Qos2.SentTotal, 1)
+			return
+		}
 		s.updateClientStats(clientID, func(stats *ClientStats) {
 			atomic.AddUint64(&stats.MessageStats.Qos2.SentTotal, 1)
 		})
@@ -83,9 +109,13 @@ func (s *statsManager) messageSent(qos uint8, clientID string) {
 }
 
 func (s *statsManager) addInflight(clientID string, delta uint64) {
-	s.updateClientStats(clientID, func(stats *ClientStats) {
+	if stats, ok := s.getExistingClientStats(clientID); ok {
 		atomic.AddUint64(&stats.MessageStats.InflightCurrent, delta)
-	})
+	} else {
+		s.updateClientStats(clientID, func(stats *ClientStats) {
+			atomic.AddUint64(&stats.MessageStats.InflightCurrent, delta)
+		})
+	}
 	atomic.AddUint64(&s.totalStats.MessageStats.InflightCurrent, 1)
 }
 
@@ -104,9 +134,13 @@ func (s *statsManager) decInflight(clientID string, delta uint64) {
 }
 
 func (s *statsManager) addQueueLen(clientID string, delta uint64) {
-	s.updateClientStats(clientID, func(stats *ClientStats) {
+	if stats, ok := s.getExistingClientStats(clientID); ok {
 		atomic.AddUint64(&stats.MessageStats.QueuedCurrent, delta)
-	})
+	} else {
+		s.updateClientStats(clientID, func(stats *ClientStats) {
+			atomic.AddUint64(&stats.MessageStats.QueuedCurrent, delta)
+		})
+	}
 	atomic.AddUint64(&s.totalStats.MessageStats.QueuedCurrent, delta)
 }
 

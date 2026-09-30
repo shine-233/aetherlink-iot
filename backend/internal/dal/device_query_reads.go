@@ -551,23 +551,3 @@ func GetDevicesByDeviceConfigID(deviceConfigID string) ([]*model.Device, error) 
 	}
 	return list, err
 }
-
-// GetDeviceLatestAlarmStatus 获取设备的最新告警状态
-// tenant-scope: caller-enforced?2026-08-26 ?????
-func GetDeviceLatestAlarmStatus(deviceID string) (string, error) {
-	lda := query.LatestDeviceAlarm
-	alarm, err := lda.Where(lda.DeviceID.Eq(deviceID)).First()
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return "N", nil
-		}
-		return "", err
-	}
-	if alarm.AlarmStatus != nil {
-		switch strings.ToUpper(strings.TrimSpace(*alarm.AlarmStatus)) {
-		case "H", "M", "L":
-			return "Y", nil
-		}
-	}
-	return "N", nil
-}

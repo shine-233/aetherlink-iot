@@ -36,7 +36,9 @@ export function createLazyIconRegistry(options: LazyIconRegistryOptions): Record
 
   return new Proxy({} as Record<string, Component>, {
     get(_target, key) {
-      if (typeof key !== 'string') return undefined
+      // 未注册的名称返回 undefined，与改造前普通对象的取值语义一致，
+      // 同时避免 `icons.constructor` / `icons.then` 之类继承键被解析成坏组件。
+      if (typeof key !== 'string' || !nameSet.has(key)) return undefined
       return getIcon(key)
     },
     has(_target, key) {

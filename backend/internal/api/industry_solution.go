@@ -51,13 +51,14 @@ func (*IndustrySolutionApi) GetIndustrySolution(c *gin.Context) {
 // @Tags     IndustrySolution
 // @Router   /api/v1/solutions/{id} [delete]
 func (*IndustrySolutionApi) DeleteIndustrySolution(c *gin.Context) {
-	id := c.Param("id")
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	if err := service.GroupApp.IndustrySolution.DeleteIndustrySolution(c.Request.Context(), id, claims); err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", gin.H{"deleted": true})
+	// 迁移形态：HandlePath（路径参数 id + claims）。成功包络保留旧的 data 对象 {"deleted": true}，
+	// 因此不能改用 HandlePathAction（其成功时 data 为 nil 并从包络中省略该字段）。
+	HandlePath(c, "id", func(id string, claims *utils.UserClaims) (interface{}, error) {
+		if err := service.GroupApp.IndustrySolution.DeleteIndustrySolution(c.Request.Context(), id, claims); err != nil {
+			return nil, err
+		}
+		return gin.H{"deleted": true}, nil
+	})
 }
 
 // InstallIndustrySolution 一键安装方案（逐项应用并留流水）。
@@ -65,15 +66,15 @@ func (*IndustrySolutionApi) DeleteIndustrySolution(c *gin.Context) {
 // @Tags     IndustrySolution
 // @Router   /api/v1/solutions/{id}/install [post]
 func (*IndustrySolutionApi) InstallIndustrySolution(c *gin.Context) {
+	// 迁移形态：只复用 RequireClaims / respond 出口。body 可选（空 body = 全部缺省语义），
+	// 绑定失败不拒绝，因此不能改用 HandlePathBody（其绑定失败即返回参数错误）。
 	id := c.Param("id")
 	var req model.InstallIndustrySolutionReq
-	// body 可选：空 body = 全部缺省语义。
 	_ = c.ShouldBindJSON(&req)
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.IndustrySolution.InstallIndustrySolution(c.Request.Context(), id, &req, claims)
-	if err != nil {
-		c.Error(err)
+	claims, ok := RequireClaims(c)
+	if !ok {
 		return
 	}
-	c.Set("data", resp)
+	resp, err := service.GroupApp.IndustrySolution.InstallIndustrySolution(c.Request.Context(), id, &req, claims)
+	respond(c, resp, err)
 }

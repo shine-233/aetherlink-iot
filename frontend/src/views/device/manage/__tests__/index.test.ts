@@ -4,7 +4,7 @@
  * 关键注意事项: Mock 数据要贴近真实接口字段，避免只证明组件能挂载。
  * 重构建议: 后续可抽取稳定的挂载工厂和业务 fixture，减少重复 mock 与选择器耦合。
  */
-import { defineComponent, h, ref } from 'vue'
+import { defineComponent, h } from 'vue'
 import { flushPromises, shallowMount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -128,7 +128,7 @@ vi.mock('@/views/device/manage/modules/add-devices-step3.vue', () => ({
 }))
 
 import DeviceManage from '../index.vue'
-import deviceManageSource from '../index.vue?raw'
+import deviceManageTopActionsSource from '../device-manage-top-actions?raw'
 
 const ButtonStub = defineComponent({
   name: 'ButtonStub',
@@ -172,45 +172,6 @@ const InputStub = defineComponent({
   }
 })
 
-const DataTablePageStub = defineComponent({
-  name: 'DataTablePageStub',
-  props: {
-    fetchData: {
-      type: Function,
-      required: true
-    },
-    topActions: {
-      type: Array,
-      default: () => []
-    }
-  },
-  emits: ['params-update'],
-  setup(props, { expose }) {
-    const dataList = ref([{ id: 'device-1', is_online: 0 }])
-    const handleSearch = vi.fn()
-    const forceChangeParamsByKey = vi.fn()
-
-    expose({
-      dataList,
-      handleSearch,
-      forceChangeParamsByKey
-    })
-
-    void (props.fetchData as unknown as (query: Record<string, number>) => Promise<unknown>)({ page: 1, page_size: 10 })
-
-    return () =>
-      h('div', { class: 'data-table-page-stub' }, [
-        h(
-          'div',
-          { class: 'data-table-page-top-actions' },
-          (props.topActions as Array<{ element: () => any }>).map((action, index) =>
-            h('div', { class: 'top-action-item', key: index }, [h(action.element)])
-          )
-        )
-      ])
-  }
-})
-
 const DropdownStub = defineComponent({
   name: 'DropdownStub',
   props: {
@@ -248,7 +209,6 @@ const DropdownStub = defineComponent({
 })
 
 const baseStubs = {
-  'data-table-page': DataTablePageStub,
   'n-button': ButtonStub,
   NButton: ButtonStub,
   NButtonGroup: defineComponent({
@@ -485,6 +445,7 @@ describe('device/manage/index.vue', () => {
 
     const setupState = getSetupState(wrapper)
     const tableRef = getTableRef(wrapper)
+    const handleSearchSpy = vi.spyOn(tableRef, 'handleSearch')
 
     setupState.active = true
     setupState.deviceNumber = 'abc123def456'
@@ -498,7 +459,7 @@ describe('device/manage/index.vue', () => {
     expect(setupState.deviceNumber).toBe('')
     expect(setupState.showMessage).toBe(false)
     expect(setupState.buttonDisabled).toBe(true)
-    expect(tableRef.handleSearch).toHaveBeenCalledTimes(1)
+    expect(handleSearchSpy).toHaveBeenCalledTimes(1)
   })
 
   it('uses click trigger for add-device dropdown and opens manual add drawer on manual selection', async () => {
@@ -506,7 +467,8 @@ describe('device/manage/index.vue', () => {
     await flushPromises()
 
     const setupState = getSetupState(wrapper)
-    expect(deviceManageSource).toContain('trigger="click"')
+    // the add-device dropdown lives in device-manage-top-actions.tsx since the page moved onto useListPage
+    expect(deviceManageTopActionsSource).toContain('trigger="click"')
 
     setupState.handleSelect('hands')
     await flushPromises()
@@ -533,10 +495,11 @@ describe('device/manage/index.vue', () => {
     await flushPromises()
 
     const setupState = getSetupState(wrapper)
+    const forceChangeSpy = vi.spyOn(getTableRef(wrapper), 'forceChangeParamsByKey')
     setupState.applyFleetTargetPreset('offline')
     await flushPromises()
 
-    expect(getTableRef(wrapper).forceChangeParamsByKey).toHaveBeenCalledWith({
+    expect(forceChangeSpy).toHaveBeenCalledWith({
       is_online: 0,
       warn_status: null,
       shared_status: null,
@@ -552,10 +515,11 @@ describe('device/manage/index.vue', () => {
     await flushPromises()
 
     const setupState = getSetupState(wrapper)
+    const forceChangeSpy = vi.spyOn(getTableRef(wrapper), 'forceChangeParamsByKey')
     setupState.applyFleetTargetPreset('never_reported')
     await flushPromises()
 
-    expect(getTableRef(wrapper).forceChangeParamsByKey).toHaveBeenCalledWith({
+    expect(forceChangeSpy).toHaveBeenCalledWith({
       is_online: null,
       warn_status: null,
       shared_status: null,
@@ -604,10 +568,11 @@ describe('device/manage/index.vue', () => {
       rawName: setupState.savedFleetFilters[0].name
     })
 
+    const forceChangeSpy = vi.spyOn(getTableRef(wrapper), 'forceChangeParamsByKey')
     setupState.applySavedFleetFilter(setupState.savedFleetFilters[0].id)
     await flushPromises()
 
-    expect(getTableRef(wrapper).forceChangeParamsByKey).toHaveBeenCalledWith(
+    expect(forceChangeSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         is_online: 1,
         warn_status: 'Y'
@@ -747,6 +712,14 @@ describe('device/manage/index.vue', () => {
   })
 
   it('requires scope confirmation before opening filter-result fleet OTA', async () => {
+    // the scope flow needs a non-empty current page (dataList) before the confirm modal opens
+    hoisted.deviceList.mockResolvedValueOnce({
+      data: {
+        list: [{ id: 'device-fleet-row-1', is_online: 1 }],
+        total: 42
+      }
+    })
+
     const wrapper = mountDeviceManage()
     await flushPromises()
 

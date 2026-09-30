@@ -28,21 +28,35 @@ func init() {
 	}
 }
 
+// testConfig 的 GossipAddr 显式绑定 127.0.0.1:0（回环+临时端口）：
+// New 会以 serf 默认的 0.0.0.0:0 起 memberlist，全新编译的测试二进制首次宽绑定
+// 在 Windows 防火墙下可能瞬时被拦，导致 serf.Create 失败；回环绑定不受影响。
 var testConfig = config.Config{
 	Plugins: map[string]config.Configuration{
 		Name: &Config{
 			NodeName:   "node0",
+			GossipAddr: "127.0.0.1:0",
 			PeerSecret: testPeerSecret,
 		},
 	},
+}
+
+// newTestFederation 创建 federation 插件实例并在失败时携带真实原因 fast-fail。
+// 不得丢弃 New 的错误后直接对 nil 做类型断言——那会把环境类故障变成 panic，掩盖根因。
+func mustNewFederation(t *testing.T) *Federation {
+	t.Helper()
+	p, err := New(testConfig)
+	if err != nil {
+		t.Fatalf("create federation plugin: %v", err)
+	}
+	return p.(*Federation)
 }
 
 func TestFederation_OnMsgArrivedWrapper(t *testing.T) {
 	a := assert.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	p, _ := New(testConfig)
-	f := p.(*Federation)
+	f := mustNewFederation(t)
 	f.localSubStore.localStore = mem.NewStore()
 
 	onMsgArrived := f.OnMsgArrivedWrapper(func(ctx context.Context, client server.Client, req *server.MsgArrivedRequest) error {
@@ -122,8 +136,7 @@ func TestFederation_OnMsgArrivedWrapper_SharedSubscription(t *testing.T) {
 	a := assert.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	p, _ := New(testConfig)
-	f := p.(*Federation)
+	f := mustNewFederation(t)
 	f.localSubStore.localStore = mem.NewStore()
 
 	onMsgArrived := f.OnMsgArrivedWrapper(func(ctx context.Context, client server.Client, req *server.MsgArrivedRequest) error {
@@ -213,8 +226,7 @@ func TestFederation_OnSubscribedWrapper(t *testing.T) {
 	a := assert.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	p, _ := New(testConfig)
-	f := p.(*Federation)
+	f := mustNewFederation(t)
 	f.localSubStore.init(mem.NewStore())
 	f.nodeJoin(serf.MemberEvent{
 		Members: []serf.Member{
@@ -260,8 +272,7 @@ func TestFederation_OnSubscribedWrapper(t *testing.T) {
 func TestFederation_OnUnsubscribedWrapper(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	p, _ := New(testConfig)
-	f := p.(*Federation)
+	f := mustNewFederation(t)
 	f.localSubStore.init(mem.NewStore())
 	f.nodeJoin(serf.MemberEvent{
 		Members: []serf.Member{
@@ -309,8 +320,7 @@ func TestFederation_OnSessionTerminatedWrapper(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	a := assert.New(t)
-	p, _ := New(testConfig)
-	f := p.(*Federation)
+	f := mustNewFederation(t)
 	f.localSubStore.init(mem.NewStore())
 	f.nodeJoin(serf.MemberEvent{
 		Members: []serf.Member{

@@ -1,12 +1,15 @@
 /**
  * 文件用途：定时报表计划的列表、搜索分页、创建/编辑表单与删除。
- * 核心逻辑：列表请求带序号与快照，过期响应直接丢弃；更新/删除遇到修订冲突（结构化错误码）时
- *   拉取最新计划回填并提示「已被他人修改」，而不是笼统报错。
- * 关键注意事项：卸载时调用 dispose() 使在途响应失效。
+ * 核心逻辑：计划列表的分页/加载态/过期请求丢弃收口在 useListPage（@/components/data-table-page/useListPage）；
+ *   失败态 fail-closed：请求异常时置 listFailed 并提示「加载失败」，行数据保留当前快照（useListPage 的 null 契约）；
+ *   更新/删除遇到修订冲突（结构化错误码）时拉取最新计划回填并提示「已被他人修改」，而不是笼统报错。
+ * 关键注意事项：卸载时 useListPage 通过 onScopeDispose 自动作废在途请求，dispose() 保留给显式触发；
+ *   rows 为 shallowRef，行内回填采用不可变替换以触发重渲染。
  */
 import { reactive, ref } from 'vue'
 import type { FormInst } from 'naive-ui'
 import { $t } from '@/locales'
+import { useListPage } from '@/components/data-table-page/useListPage'
 import {
   createReportSchedule,
   deleteReportSchedule,
@@ -31,15 +34,45 @@ export interface ReportMessenger {
   error: (text: string) => void
 }
 
+interface ScheduleListQuery {
+  search: string
+}
+
 export function useReportSchedules(message: ReportMessenger) {
-  const schedules = ref<ReportSchedule[]>([])
-  const total = ref(0)
-  const page = ref(1)
   const searchInput = ref('')
-  const search = ref('')
-  const listLoading = ref(false)
   const listFailed = ref(false)
-  let sequence = 0
+
+  // 列表状态机：分页/加载/过期请求丢弃交给 useListPage，search 为唯一过滤条件。
+  const {
+    rows: schedules,
+    total,
+    page,
+    loading: listLoading,
+    query: listQuery,
+    load: loadSchedules,
+    search: searchListPage,
+    setPage,
+    cancel: cancelListLoad
+  } = useListPage<ReportSchedule, ScheduleListQuery>({
+    initialQuery: () => ({ search: '' }),
+    initialPageSize: REPORT_PAGE_SIZE,
+    fetcher: async (params) => {
+      listFailed.value = false
+      try {
+        const { data, error } = await listReportSchedules({
+          page: params.page,
+          page_size: params.page_size,
+          search: params.search
+        })
+        if (error || !data) throw error || new Error('missing data')
+        return { list: data.list || [], total: data.total || 0 }
+      } catch {
+        listFailed.value = true
+        message.error($t('report.message.loadFailed'))
+        return null
+      }
+    }
+  })
 
   const showForm = ref(false)
   const editing = ref<ReportSchedule | null>(null)
@@ -58,32 +91,6 @@ export function useReportSchedules(message: ReportMessenger) {
     keysText.value = next.keys.join('\n')
   }
 
-  async function loadSchedules() {
-    const seq = ++sequence
-    const snapshot = { page: page.value, search: search.value }
-    listLoading.value = true
-    listFailed.value = false
-    try {
-      const { data, error } = await listReportSchedules({
-        page: snapshot.page,
-        page_size: REPORT_PAGE_SIZE,
-        search: snapshot.search
-      })
-      if (seq !== sequence || snapshot.page !== page.value || snapshot.search !== search.value) return
-      if (error || !data) throw error || new Error('missing data')
-      schedules.value = data.list || []
-      total.value = data.total || 0
-    } catch {
-      if (seq !== sequence) return
-      schedules.value = []
-      total.value = 0
-      listFailed.value = true
-      message.error($t('report.message.loadFailed'))
-    } finally {
-      if (seq === sequence) listLoading.value = false
-    }
-  }
-
   /** 修订冲突后拉取最新计划：优先单条接口，失败则整页重载后在列表中查找。 */
   const refreshStaleSchedule = async (id: string) => {
     const { data, error } = await getReportSchedule(id)
@@ -92,8 +99,9 @@ export function useReportSchedules(message: ReportMessenger) {
       await loadSchedules()
       refreshed = schedules.value.find((schedule) => schedule.id === id)
     } else {
-      const index = schedules.value.findIndex((schedule) => schedule.id === id)
-      if (index >= 0) schedules.value.splice(index, 1, refreshed)
+      // rows 为 shallowRef：单行回填用不可变替换触发重渲染。
+      const next = refreshed
+      schedules.value = schedules.value.map((schedule) => (schedule.id === id ? next : schedule))
     }
     if (refreshed && editing.value?.id === id) {
       editing.value = refreshed
@@ -115,13 +123,11 @@ export function useReportSchedules(message: ReportMessenger) {
   }
 
   function searchSchedules() {
-    search.value = searchInput.value.trim()
-    page.value = 1
-    void loadSchedules()
+    listQuery.search = searchInput.value.trim()
+    return searchListPage()
   }
   function changePage(next: number) {
-    page.value = next
-    void loadSchedules()
+    return setPage(next)
   }
   function openCreate() {
     editing.value = null
@@ -182,8 +188,12 @@ export function useReportSchedules(message: ReportMessenger) {
       const { error } = await deleteReportSchedule(row.id, row.revision)
       if (error) throw error
       message.success($t('report.message.deleted'))
-      if (schedules.value.length === 1 && page.value > 1) page.value -= 1
-      await loadSchedules()
+      // 删掉当前页最后一条时回退一页（与旧实现一致）；useListPage 的空页回退仅兜底非预判场景。
+      if (schedules.value.length === 1 && page.value > 1) {
+        await setPage(page.value - 1)
+      } else {
+        await loadSchedules()
+      }
     } catch (error) {
       await handleConflict(
         error,
@@ -198,7 +208,7 @@ export function useReportSchedules(message: ReportMessenger) {
   }
 
   const dispose = () => {
-    sequence += 1
+    cancelListLoad()
   }
 
   return {

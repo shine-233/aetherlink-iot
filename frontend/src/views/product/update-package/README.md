@@ -6,7 +6,14 @@
 
 ## 文件关系
 
-- `index.vue`: 本目录的手写页面、组件、配置或测试入口，变更时要保持中文文件头与业务契约同步。
+- `index.vue`: 本目录的手写页面入口，专注布局与事件编排；列表状态机基于共享 `useListPage` 配置在 `use-ota-package-list.ts`。
+- `use-ota-package-list.ts`: 升级包列表的 useListPage 配置（筛选/分页/载荷契约与响应归一化）。
+- `use-device-config-options.ts`: 设备配置远程搜索选项（防抖、过期响应丢弃、选中项保留）。
+- `use-ota-package-form.ts`: 新增/编辑表单状态、载荷构建与保存提交。
+- `ota-package-format.ts`: 时间/类型/文件名等纯展示格式化助手。
+- `ota-package-table-columns.ts`: 列表列工厂（接收动作回调，格式化复用 `ota-package-format`）。
+- `ota-package-types.ts`: 页面共享类型。
+- `package-form-modal.vue` / `package-detail-modal.vue`: 新增/编辑与详情弹窗（纯展示组件，事件上抛页面编排）。
 
 ## 子目录关系
 

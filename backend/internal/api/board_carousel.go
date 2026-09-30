@@ -24,11 +24,9 @@ import (
 // 返回 {items: [已发布看板...], missing_tokens: [未解析 token...]}，
 // items 保持请求顺序；参数为空/超限返回参数错误。
 func (*BoardApi) GetPublishedBoardsForCarousel(c *gin.Context) {
-	tokens := c.QueryArray("tokens")
-	data, err := service.GroupApp.Board.GetPublishedBoardsForCarousel(tokens)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	// 迁移形态：HandlePublicNoBody（不绑定结构体、不取 claims），tokens 仍在闭包内按 QueryArray 读取，
+	// 成功时 data 为 service 返回值、失败时交给响应中间件渲染——与迁移前 c.Error/c.Set 等价。
+	HandlePublicNoBody(c, func() (interface{}, error) {
+		return service.GroupApp.Board.GetPublishedBoardsForCarousel(c.QueryArray("tokens"))
+	})
 }

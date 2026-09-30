@@ -83,6 +83,7 @@ func main() {
 		go func() {
 			defer wg.Done()
 			defer rep.Close()
+			defer client.Close() // 关闭底层 Modbus TCP 连接（连接复用期间由本结构持有）
 			p.Run(ctx, cfg.PollInterval())
 		}()
 	}

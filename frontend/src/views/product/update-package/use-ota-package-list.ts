@@ -1,152 +1,51 @@
-import { reactive, ref } from 'vue'
-import type { PaginationProps } from 'naive-ui'
-import { getDeviceConfigList } from '@/service/api/device'
+/**
+ * 文件用途: 升级包列表的查询状态机——基于共享 useListPage 配置的分页/筛选/加载。
+ * 核心逻辑: 筛选(name/version/device_config_id) + 服务端分页全部收口在 useListPage；
+ *   请求载荷与迁移前保持一致(device_config_id 空值传 '')，响应兼容 list / data.list / records 形状。
+ * 关键注意事项: fetcher 失败返回 null 时 useListPage 会保留当前行；过期请求由 useListPage 丢弃。
+ * 重构建议: 后端若统一分页契约，可去掉 records 兜底直接用 normalizeListResponse。
+ */
+import { normalizeListResponse, useListPage } from '@/components/data-table-page/useListPage'
+import type { ListPageResult } from '@/components/data-table-page/useListPage'
 import { getOtaPackageList } from '@/service/product/update-package'
-import type { DeviceConfigOption, OtaPackageRecord } from './ota-package-types'
+import type { OtaPackageRecord } from './ota-package-types'
 
-const DEVICE_CONFIG_SELECT_PAGE_SIZE = 20
-
-function extractList(payload: unknown): unknown[] {
-  if (Array.isArray(payload)) return payload
-  const record = payload as Record<string, unknown> | null | undefined
-  if (Array.isArray(record?.list)) return record.list
-  const nested = record?.data as Record<string, unknown> | undefined
-  if (Array.isArray(nested?.list)) return nested.list
-  if (Array.isArray(record?.records)) return record.records
-  return []
+export interface OtaPackageQueryParams {
+  name: string
+  version: string
+  device_config_id: string | null
 }
 
-function extractTotal(payload: unknown) {
-  const record = payload as Record<string, unknown> | null | undefined
-  const data = record?.data as Record<string, unknown> | undefined
-  return Number(record?.total || data?.total || 0)
+/** normalizeListResponse 之外的 records 兜底（老接口可能返回 { records, total }）。 */
+function normalizePackageListResponse(data: unknown): ListPageResult<OtaPackageRecord> {
+  const record = data as { records?: unknown[]; total?: unknown } | null | undefined
+  if (record && typeof record === 'object' && !Array.isArray(record) && Array.isArray(record.records)) {
+    const total = Number(record.total ?? record.records.length)
+    return {
+      list: record.records as OtaPackageRecord[],
+      total: Number.isFinite(total) ? total : record.records.length
+    }
+  }
+  return normalizeListResponse<OtaPackageRecord>(data)
 }
 
 export function useOtaPackageList() {
-  const loading = ref(false)
-  const deviceConfigLoading = ref(false)
-  const tableData = ref<OtaPackageRecord[]>([])
-  const deviceConfigOptions = ref<DeviceConfigOption[]>([])
-  const deviceConfigSearchKeyword = ref('')
-  let deviceConfigRequestSeq = 0
-
-  const queryParams = reactive({
-    page: 1,
-    page_size: 10,
-    name: '',
-    version: '',
-    device_config_id: null as string | null
-  })
-
-  function normalizeDeviceConfigOptions(rows: unknown[]): DeviceConfigOption[] {
-    return rows.map((item) => {
-      const fields = item as { name?: string; device_config_name?: string; id?: string }
-      return {
-        label: fields.name || fields.device_config_name || (fields.id as string),
-        value: fields.id as string
-      }
-    })
-  }
-
-  function ensureDeviceConfigOption(option: DeviceConfigOption | null | undefined) {
-    if (!option?.value) return
-    const exists = deviceConfigOptions.value.some((item) => item.value === option.value)
-    if (!exists) {
-      deviceConfigOptions.value = [option, ...deviceConfigOptions.value]
-    }
-  }
-
-  function mergeDeviceConfigOptions(rows: DeviceConfigOption[]) {
-    const current = deviceConfigOptions.value.find((item) => item.value === queryParams.device_config_id)
-    const next = current && !rows.some((item) => item.value === current.value) ? [current, ...rows] : rows
-    const seen = new Set<string>()
-    return next.filter((item) => {
-      if (seen.has(item.value)) return false
-      seen.add(item.value)
-      return true
-    })
-  }
-
-  async function fetchDeviceConfigs(search = deviceConfigSearchKeyword.value) {
-    const requestSeq = ++deviceConfigRequestSeq
-    const normalizedSearch = search.trim()
-    deviceConfigSearchKeyword.value = normalizedSearch
-    deviceConfigLoading.value = true
-
-    try {
-      const { data, error } = await getDeviceConfigList({
-        page: 1,
-        page_size: DEVICE_CONFIG_SELECT_PAGE_SIZE,
-        ...(normalizedSearch ? { name: normalizedSearch } : {})
-      })
-      if (requestSeq !== deviceConfigRequestSeq) return
-      if (error) return
-      deviceConfigOptions.value = mergeDeviceConfigOptions(normalizeDeviceConfigOptions(extractList(data)))
-    } finally {
-      if (requestSeq === deviceConfigRequestSeq) {
-        deviceConfigLoading.value = false
-      }
-    }
-  }
-
-  async function fetchPackages() {
-    loading.value = true
-    try {
-      const { data, error } = await getOtaPackageList({
-        page: queryParams.page,
-        page_size: queryParams.page_size,
-        name: queryParams.name,
-        version: queryParams.version,
-        device_config_id: queryParams.device_config_id || ''
-      })
-      if (!error) {
-        tableData.value = extractList(data) as OtaPackageRecord[]
-        pagination.itemCount = extractTotal(data)
-      }
-    } finally {
-      loading.value = false
-    }
-  }
-
-  function resetQuery() {
-    queryParams.page = 1
-    queryParams.name = ''
-    queryParams.version = ''
-    queryParams.device_config_id = null
-    pagination.page = 1
-    fetchPackages()
-  }
-
-  const pagination: PaginationProps = reactive({
-    page: queryParams.page,
-    pageSize: queryParams.page_size,
-    showSizePicker: true,
+  return useListPage<OtaPackageRecord, OtaPackageQueryParams>({
+    initialQuery: () => ({ name: '', version: '', device_config_id: null }),
+    initialPageSize: 10,
     pageSizes: [10, 20, 50],
-    itemCount: 0,
-    onChange: (page) => {
-      queryParams.page = page
-      pagination.page = page
-      fetchPackages()
-    },
-    onUpdatePageSize: (pageSize) => {
-      queryParams.page = 1
-      queryParams.page_size = pageSize
-      pagination.page = 1
-      pagination.pageSize = pageSize
-      fetchPackages()
+    fetcher: async (params) => {
+      const { data, error } = await getOtaPackageList({
+        page: params.page,
+        page_size: params.page_size,
+        name: params.name,
+        version: params.version,
+        device_config_id: params.device_config_id || ''
+      })
+      if (error) return null
+      return normalizePackageListResponse(data)
     }
   })
-
-  return {
-    loading,
-    deviceConfigLoading,
-    tableData,
-    deviceConfigOptions,
-    queryParams,
-    pagination,
-    fetchDeviceConfigs,
-    ensureDeviceConfigOption,
-    fetchPackages,
-    resetQuery
-  }
 }
+
+export type OtaPackageListPage = ReturnType<typeof useOtaPackageList>

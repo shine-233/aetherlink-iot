@@ -8,11 +8,7 @@
  * 重构建议：语言目录结构变化时先改本文件的负向用例预期，再动实现。
  */
 import { describe, expect, it } from 'vitest'
-import {
-  applyTranslationOverrides,
-  pickOverridesForFolder,
-  whitelabelFolderForLocale
-} from '../whitelabel-override'
+import { applyTranslationOverrides, pickOverridesForFolder, whitelabelFolderForLocale } from '../whitelabel-override'
 
 describe('whitelabel-override merge logic (TB-47)', () => {
   it('applyTranslationOverrides: 覆盖值胜出且不改写入参', () => {

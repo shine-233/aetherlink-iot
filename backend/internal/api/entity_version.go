@@ -81,19 +81,23 @@ func (*EntityVersionApi) HandleDiffEntityVersion(c *gin.Context) {
 // @Success 200 {object} map[string]interface{} "Restored fields"
 // @Router /api/v1/entity_versions/{id}/restore [post]
 func (*EntityVersionApi) HandleRestoreEntityVersion(c *gin.Context) {
+	// 迁移形态：只复用 RequireClaims / respond 出口。恢复接口允许无请求体（默认真实恢复），
+	// 绑定失败不拒绝，因此不能改用 HandlePathBody（其绑定失败即返回参数错误）。
 	var req model.EntityVersionRestoreReq
-	// 恢复接口允许无请求体（默认真实恢复），因此绑定失败不直接返回。
 	_ = c.ShouldBindJSON(&req)
 
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	userClaims, ok := RequireClaims(c)
+	if !ok {
+		return
+	}
 	fields, dryRun, err := service.GroupApp.EntityVersion.RestoreEntityVersion(c.Param("id"), &req, userClaims)
 	if err != nil {
 		c.Error(err)
 		return
 	}
 
-	c.Set("data", gin.H{
+	respond(c, gin.H{
 		"dry_run": dryRun,
 		"fields":  fields,
-	})
+	}, nil)
 }

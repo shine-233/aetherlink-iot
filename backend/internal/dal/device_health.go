@@ -64,11 +64,14 @@ func GetDeviceHealthScoresByTenant(tenantID string) ([]*model.DeviceHealthScore,
 func GetDeviceActiveAlarms(tenantID, deviceID string) ([]*model.AlarmHistory, error) {
 	var list []*model.AlarmHistory
 	// 匹配 JSONB 数组中包含 deviceID
+	// LIKE 收编（2026-09-28）：旧写法 "%"+deviceID+"%" 未转义通配符（like_escape.go 约定：
+	// 所有把输入拼进 LIKE 模式的位置必须经过 ContainsLikePattern），并补显式 ESCAPE '\'，
+	// 与 PG 默认转义符一致、SQLite 下转义同样生效。
 	err := global.DB.Where(
-		"tenant_id = ? AND alarm_status IN ('H', 'M', 'L') AND (jsonb_exists(COALESCE(alarm_device_list::jsonb, '[]'::jsonb), ?) OR alarm_device_list::text LIKE ?)",
+		"tenant_id = ? AND alarm_status IN ('H', 'M', 'L') AND (jsonb_exists(COALESCE(alarm_device_list::jsonb, '[]'::jsonb), ?) OR alarm_device_list::text LIKE ? ESCAPE '\\')",
 		tenantID,
 		deviceID,
-		"%"+deviceID+"%",
+		ContainsLikePattern(deviceID),
 	).Order("create_at DESC").Find(&list).Error
 	return list, err
 }
@@ -96,4 +99,3 @@ func GetTenantDeviceByID(deviceID, tenantID string) (*model.Device, error) {
 	}
 	return &dev, nil
 }
-

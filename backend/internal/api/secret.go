@@ -50,14 +50,14 @@ func (*SecretApi) UpdateSecret(c *gin.Context) {
 // DeleteSecret 删除通用密钥
 // @Router /api/v1/secrets/:id [delete]
 func (*SecretApi) DeleteSecret(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.Secret.DeleteSecret(c.Request.Context(), id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", gin.H{"deleted": true})
+	// 迁移形态：HandlePath（路径参数 id + claims）。成功包络保留旧的 data 对象 {"deleted": true}，
+	// 因此不能改用 HandlePathAction（其成功时 data 为 nil 并从包络中省略该字段）。
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		if err := service.GroupApp.Secret.DeleteSecret(c.Request.Context(), id, userClaims); err != nil {
+			return nil, err
+		}
+		return gin.H{"deleted": true}, nil
+	})
 }
 
 // RevealSecret 解密查看密钥明文（管理员受审操作）

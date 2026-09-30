@@ -1,70 +1,49 @@
 /**
  * 文件用途: 预注册设备列表查询组合函数——筛选、分页与远程数据加载。
- * 核心逻辑: 维护查询参数与分页状态，调用 getPreProductList 拉取租户内预注册清单。
- * 关键注意事项: 后端契约 page/page_size 必填，product/batch/activate 为可选过滤。
+ * 核心逻辑: 交由 useListPage 统一承担 page/pageSize/total/rows/loading 与过期请求丢弃,
+ *          本文件只保留 device/preRegister 的后端契约: 筛选值序列化与 {data,error} 载荷适配。
+ * 关键注意事项: 后端契约 page/page_size 必填, product/batch/activate 为空时必须整键省略
+ *              (请求参数必须严格等于 `{page, page_size}`,多一个空字符串键后端会按空值过滤)。
  */
-import { computed, reactive, ref } from 'vue'
+import { computed } from 'vue'
+import { useListPage, fromFlatResponse } from '@/components/data-table-page/useListPage'
 import { getPreProductList } from '@/service/product/list'
+import type { PreRegisterRecord } from './types'
+
+interface PreRegisterQuery {
+  product_id: string
+  batch_number: string
+  activate_flag: string | null
+}
 
 export function usePreRegisterList() {
-  const loading = ref(false)
-  const tableData = ref<any[]>([])
-  const queryParams = reactive({
-    product_id: '',
-    batch_number: '',
-    activate_flag: null as string | null
-  })
-
-  async function fetchList(page = 1, pageSize = 10) {
-    loading.value = true
-    try {
-      const params: Record<string, any> = { page, page_size: pageSize }
-      if (queryParams.product_id) params.product_id = queryParams.product_id
-      if (queryParams.batch_number.trim()) params.batch_number = queryParams.batch_number.trim()
-      if (queryParams.activate_flag) params.activate_flag = queryParams.activate_flag
-      const { data, error } = await getPreProductList(params)
-      if (error) return
-      tableData.value = data?.list ?? []
-      pagination.itemCount = Number(data?.total ?? 0)
-      pagination.page = page
-      pagination.pageSize = pageSize
-    } finally {
-      loading.value = false
-    }
-  }
-
-  const pagination = reactive({
-    page: 1,
-    pageSize: 10,
-    itemCount: 0,
-    showSizePicker: true,
+  const listPage = useListPage<PreRegisterRecord, PreRegisterQuery>({
+    initialQuery: () => ({ product_id: '', batch_number: '', activate_flag: null }),
+    initialPageSize: 10,
     pageSizes: [10, 20, 50],
-    onChange: (page: number) => {
-      fetchList(page, pagination.pageSize)
-    },
-    onUpdatePageSize: (pageSize: number) => {
-      fetchList(1, pageSize)
-    }
+    serialize: query => ({
+      ...(query.product_id ? { product_id: query.product_id } : {}),
+      ...(query.batch_number.trim() ? { batch_number: query.batch_number.trim() } : {}),
+      ...(query.activate_flag ? { activate_flag: query.activate_flag } : {})
+    }),
+    fetcher: async params => fromFlatResponse<PreRegisterRecord>(await getPreProductList(params))
   })
-
-  function resetQuery() {
-    queryParams.product_id = ''
-    queryParams.batch_number = ''
-    queryParams.activate_flag = null
-    fetchList()
-  }
 
   const hasActiveFilters = computed(() =>
-    Boolean(queryParams.product_id || queryParams.batch_number.trim() || queryParams.activate_flag)
+    Boolean(
+      listPage.query.product_id || listPage.query.batch_number.trim() || listPage.query.activate_flag
+    )
   )
 
   return {
-    loading,
-    tableData,
-    queryParams,
-    pagination,
+    loading: listPage.loading,
+    tableData: listPage.rows,
+    queryParams: listPage.query,
+    pagination: listPage.pagination,
     hasActiveFilters,
-    fetchList,
-    resetQuery
+    fetchList: listPage.search,
+    resetQuery: listPage.reset,
+    search: listPage.search,
+    refresh: listPage.refresh
   }
 }
