@@ -178,7 +178,10 @@ automation_tests/.pw-out-*/
 
 # Session-local build caches and refactor backups (not source)
 .gocache/
+.gotmp/
 .tmp_api_backup/
 .gofmt_bk/
+# 一次性分析脚本（agent 会话产物，非源码）
+backend/.tmp_*.py
 backend/files/media/
 backend/backend-dev.exe~
