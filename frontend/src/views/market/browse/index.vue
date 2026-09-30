@@ -3,33 +3,13 @@
   核心逻辑：
     1. 支持全部资源 / 设备物模型 / 大屏看板 多形态切换与行业分类过滤；
     2. 资源统一展示、卡片预览与一键应用到当前租户；
-    3. 支持跨租户综合资源包（物模型+大屏看板）的打包导出与加密签名导入闸门：
-       解析预检 → 只读双重预览（物模型/大屏待新建/待覆盖/阻断项）→ 覆盖项显式确认后提交。
+    3. 跨租户综合资源包的导入闸门（解析预检 → 只读双重预览 → 覆盖确认 → 提交）
+       由子组件 modules/bundle-import-modal.vue 承担，本页只负责触发与刷新。
 -->
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import {
-  buildBundleImportPayload,
-  canSubmitBundleImport,
-  decideBundleImport,
-  hasBundleSignature,
-  nextConfirmOverwrite,
-  parseBundleText,
-  previewNameLists,
-  summarizeBundleImportResults,
-  type BundleImportDecision,
-  type BundleImportSummary,
-  type MarketBundlePayload,
-  type MarketBundlePreview
-} from './bundle-import-model'
-import {
-  downloadMarketBundle,
-  getLocalTemplateList,
-  getMarketBundle,
-  getMarketCatalog,
-  importMarketBundle,
-  type MarketCatalogEntry
-} from '@/service/api/market'
+import BundleImportModal from './modules/bundle-import-modal.vue'
+import { downloadMarketBundle, getLocalTemplateList, getMarketBundle, getMarketCatalog, type MarketCatalogEntry } from '@/service/api/market'
 import { applyResource, getResourceCenterCatalog, getResourceCenterList } from '@/service/api/resource-center'
 import { $t } from '@/locales'
 
@@ -52,6 +32,8 @@ const activeType = ref<string>('')
 const activeResourceType = ref<'all' | 'device_template' | 'board_template'>('all')
 const templates = ref<TemplateRow[]>([])
 const loading = ref(false)
+
+const importModal = ref<InstanceType<typeof BundleImportModal> | null>(null)
 
 const tabs = computed(() => [
   {
@@ -155,73 +137,12 @@ async function handleApply(row: TemplateRow) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// 综合资源包导入闸门
-// ---------------------------------------------------------------------------
-
-const importVisible = ref(false)
-const importBusy = ref(false)
-const importBundle = ref<MarketBundlePayload | null>(null)
-const importPreview = ref<MarketBundlePreview | null>(null)
-const importErrorKey = ref<string>('')
-const confirmOverwrite = ref(false)
-const importFileKey = ref<string>('')
-const importSummary = ref<BundleImportSummary | null>(null)
-
-const importLists = computed(() => previewNameLists(importPreview.value))
-const importDecision = computed<BundleImportDecision>(() => decideBundleImport(importBundle.value, importPreview.value))
-const importCanSubmit = computed(() => canSubmitBundleImport(importDecision.value, confirmOverwrite.value))
-const importSigned = computed(() => hasBundleSignature(importBundle.value))
-
-function fileKeyOf(file: File): string {
-  return `${file.name}|${file.size}|${file.lastModified}`
-}
-
-const DECISION_MESSAGE_KEYS: Record<BundleImportDecision, string> = {
-  invalid: 'page.marketBrowse.importDecisionInvalid',
-  empty: 'page.marketBrowse.importDecisionEmpty',
-  unsigned: 'page.marketBrowse.importDecisionUnsigned',
-  blocked: 'page.marketBrowse.importDecisionBlocked',
-  'needs-confirm': 'page.marketBrowse.importDecisionNeedsConfirm',
-  ready: 'page.marketBrowse.importDecisionReady'
-}
-
-const importDecisionMessage = computed(() => $t(DECISION_MESSAGE_KEYS[importDecision.value]))
-
+/**
+ * 导入闸门由子组件持有状态；本页只做入口转发。
+ * 保留同名方法是为了不破坏既有测试与外部调用契约（__tests__/index.test.ts 直接驱动它）。
+ */
 async function handleImportFile(file: File) {
-  importErrorKey.value = ''
-  importPreview.value = null
-  importSummary.value = null
-
-  const nextKey = fileKeyOf(file)
-  confirmOverwrite.value = nextConfirmOverwrite(importFileKey.value, nextKey)
-  importFileKey.value = nextKey
-
-  const text = await file.text()
-  const parsed = parseBundleText(text)
-  if (!parsed.ok) {
-    importBundle.value = null
-    importErrorKey.value = parsed.errorKey
-    importVisible.value = true
-    return
-  }
-
-  importBundle.value = parsed.bundle
-  importVisible.value = true
-
-  if (!hasBundleSignature(parsed.bundle)) return
-
-  importBusy.value = true
-  try {
-    const { data, error } = await importMarketBundle(buildBundleImportPayload(parsed.bundle, { preview: true }))
-    if (error) {
-      importErrorKey.value = 'page.marketBrowse.importPreviewFailed'
-      return
-    }
-    importPreview.value = (data?.preview ?? null) as MarketBundlePreview | null
-  } finally {
-    importBusy.value = false
-  }
+  await importModal.value?.open(file)
 }
 
 function handleImportFileEvent(options: { file: { file: File | null } }) {
@@ -229,28 +150,8 @@ function handleImportFileEvent(options: { file: { file: File | null } }) {
   if (file) void handleImportFile(file)
 }
 
-async function submitImport() {
-  if (!importBundle.value || !importCanSubmit.value) return
-
-  importBusy.value = true
-  try {
-    const { data, error } = await importMarketBundle(
-      buildBundleImportPayload(importBundle.value, { confirmOverwrite: confirmOverwrite.value })
-    )
-    if (error) {
-      importErrorKey.value = 'page.marketBrowse.importFailed'
-      return
-    }
-    importSummary.value = summarizeBundleImportResults(data?.results)
-    importVisible.value = false
-    await Promise.all([loadCatalog(), loadTemplates()])
-  } finally {
-    importBusy.value = false
-  }
-}
-
-function closeImport() {
-  importVisible.value = false
+async function reloadAfterImport() {
+  await Promise.all([loadCatalog(), loadTemplates()])
 }
 
 onMounted(() => {
@@ -322,81 +223,6 @@ defineExpose({ handleImportFile })
     </n-card>
 
     <!-- 导入闸门：解析预检 → 只读预览 → 覆盖确认 → 提交 -->
-    <n-modal
-      v-model:show="importVisible"
-      preset="card"
-      class="max-w-720px"
-      :title="$t('page.marketBrowse.importTitle')"
-      :bordered="false"
-    >
-      <n-space vertical size="medium">
-        <n-alert v-if="importErrorKey" type="error" :show-icon="true">
-          {{ $t(importErrorKey) }}
-        </n-alert>
-
-        <n-alert v-if="importSummary" type="success" :show-icon="true">
-          {{
-            $t('page.marketBrowse.importDone', {
-              total: importSummary.total,
-              created: importSummary.created,
-              idempotent: importSummary.idempotent,
-              rejected: importSummary.rejected
-            })
-          }}
-        </n-alert>
-
-        <div v-if="importBundle" class="flex items-center gap-2 text-13px">
-          <span class="opacity-70">{{ $t('page.marketBrowse.importSignature') }}:</span>
-          <n-tag size="small" :type="importSigned ? 'success' : 'warning'">
-            {{ importSigned ? $t('page.marketBrowse.importSigned') : $t('page.marketBrowse.importUnsigned') }}
-          </n-tag>
-        </div>
-
-        <n-alert v-if="importBundle" :type="importDecision === 'ready' ? 'success' : 'warning'" :show-icon="true">
-          {{ importDecisionMessage }}
-        </n-alert>
-
-        <!-- 三类名单分开渲染：阻断项、覆盖项、新建项 -->
-        <div v-if="importLists.create.length" class="text-13px">
-          <div class="mb-1 font-600">{{ $t('page.marketBrowse.importCreate') }}</div>
-          <ul class="ml-4 list-disc opacity-80">
-            <li v-for="name in importLists.create" :key="`create-${name}`">{{ name }}</li>
-          </ul>
-        </div>
-
-        <div v-if="importLists.overwrite.length" class="text-13px">
-          <div class="mb-1 font-600">{{ $t('page.marketBrowse.importOverwrite') }}</div>
-          <ul class="ml-4 list-disc opacity-80">
-            <li v-for="name in importLists.overwrite" :key="`overwrite-${name}`">{{ name }}</li>
-          </ul>
-        </div>
-
-        <div v-if="importLists.blocking.length" class="text-13px">
-          <div class="mb-1 font-600">{{ $t('page.marketBrowse.importBlocking') }}</div>
-          <ul class="ml-4 list-disc opacity-80">
-            <li v-for="name in importLists.blocking" :key="`blocking-${name}`">{{ name }}</li>
-          </ul>
-        </div>
-
-        <n-checkbox v-if="importDecision === 'needs-confirm'" v-model:checked="confirmOverwrite">
-          {{ $t('page.marketBrowse.importConfirmOverwrite') }}
-        </n-checkbox>
-      </n-space>
-
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <n-button size="small" @click="closeImport">{{ $t('common.cancel') }}</n-button>
-          <n-button
-            type="primary"
-            size="small"
-            :disabled="!importCanSubmit"
-            :loading="importBusy"
-            @click="submitImport"
-          >
-            {{ $t('page.marketBrowse.importSubmit') }}
-          </n-button>
-        </div>
-      </template>
-    </n-modal>
+    <BundleImportModal ref="importModal" @imported="reloadAfterImport" />
   </div>
 </template>
