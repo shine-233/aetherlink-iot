@@ -58,6 +58,27 @@
 - 迁移链 squash/golang-migrate 改造、时间类型统一(jsonb/boolean/tenant FK):结构性大活,单独排期;
 - DeviceContextCache 热路径、反向依赖(service→initialize/mqtt)规范化:排在 Wave7-A 之后按额度再排。
 
-## 执行纪律(承 9-28 教训)
+## 执行记录
+
+### Wave7-A：已完成（2026-10-01 00:2x，提交 `5a89602`）
+
+- **做法**：未逐个改调用点，而是按本计划的建议在统一出口兜底——`response` 中间件是全局
+  唯一出口（`router/router_init.go` 的 `router.Use(handler.Middleware())`），泄漏点只有两处：
+  `handleContextError` 的 default 分支与 panic 恢复分支。
+- **实现**：新增 `internal/middleware/response/sanitize.go`。类型判定优先
+  （`*pgconn.PgError`、gorm 驱动级哨兵），类型判定失效时用驱动原文特征串兜底；
+  `gorm.ErrRecordNotFound` 单独放行（文案固定、不含库内部细节）。命中即返回通用系统错误
+  100000，原文只进服务端日志，带 request_id / method / path / route。
+- **口径修正**：本计划原文写的「约 356 处」按当前 `c.Error(<裸 err>)` 形态实测为 **228 处**；
+  两者都由这一个出口覆盖，无需逐点改动。
+- **验证**：`go test ./... -count=1 -p 1` → **76 包全绿**；新增 8 个用例
+  （PgError / 包装错误 / gorm 哨兵 / 裸 SQL 文本的脱敏、原文入日志且带 request-id、
+  RecordNotFound 放行、业务错误放行、panic 两条分支）。
+- **剩余**：`service` / `dal` 里显式 `fmt.Errorf("%w"+原文)` 的返回点仍可继续收敛
+  （现在即使不收敛也不会再泄漏，属"纵深防御"而非必须）。
+
+### Wave7-B / C / D：未开工
+
+## 执行纪律（承 9-28 教训）
 
 并发≤4、禁自动重试、单 agent 长命令后台落盘轮询、每轨全绿才收、先落库再开工。
