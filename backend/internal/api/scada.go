@@ -267,17 +267,21 @@ func (*ScadaApi) IssueControlConfirmation(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
+	claims, ok := RequireClaims(c)
+	if !ok {
+		return
+	}
 	svc := scadaControlService()
 	if svc == nil {
 		c.Error(errcode.NewWithMessage(errcode.CodeOpDenied, "scada control is not wired"))
 		return
 	}
-	tenantID, err := resolveScadaTenant(c, req.TenantID)
+	tenantID, err := resolveScadaTenant(claims, req.TenantID)
 	if err != nil {
 		c.Error(err)
 		return
 	}
-	actor, err := scadaActor(c)
+	actor, err := scadaActor(claims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -295,17 +299,21 @@ func (*ScadaApi) ExecuteControl(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
+	claims, ok := RequireClaims(c)
+	if !ok {
+		return
+	}
 	svc := scadaControlService()
 	if svc == nil {
 		c.Error(errcode.NewWithMessage(errcode.CodeOpDenied, "scada control is not wired"))
 		return
 	}
-	tenantID, err := resolveScadaTenant(c, req.TenantID)
+	tenantID, err := resolveScadaTenant(claims, req.TenantID)
 	if err != nil {
 		c.Error(err)
 		return
 	}
-	actor, err := scadaActor(c)
+	actor, err := scadaActor(claims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -331,7 +339,11 @@ func (*ScadaApi) ExecuteControl(c *gin.Context) {
 
 // ListScadaControlAudits 列出文档的控制审计（含被拒绝的尝试）。
 func (*ScadaApi) ListScadaControlAudits(c *gin.Context) {
-	tenantID, err := resolveScadaTenant(c, c.Query("tenant_id"))
+	claims, ok := RequireClaims(c)
+	if !ok {
+		return
+	}
+	tenantID, err := resolveScadaTenant(claims, c.Query("tenant_id"))
 	if err != nil {
 		c.Error(err)
 		return
