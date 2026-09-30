@@ -7,6 +7,7 @@ package service
 import (
 	"time"
 
+	"aetherlink-iot/backend/internal/authz"
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/pkg/errcode"
@@ -18,11 +19,19 @@ import (
 
 type Dict struct{}
 
+// dictAdminRule 字典是平台级配置，只允许 SYS_ADMIN 写。
+var dictAdminRule = authz.Rule{Roles: []string{authz.SysAdmin}}
+
+// dictAuthorityDenied 统一越权错误：保持原有的 CodeParamError + wrong user authority 载荷。
+func dictAuthorityDenied() error {
+	return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+		"err": "wrong user authority",
+	})
+}
+
 func (*Dict) CreateDictColumn(createDictReq *model.CreateDictReq, claims *utils.UserClaims) (*model.SysDict, error) {
-	if claims.Authority != dal.SYS_ADMIN {
-		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-			"err": "wrong user authority",
-		})
+	if err := dictAdminRule.RequireClaims(claims); err != nil {
+		return nil, dictAuthorityDenied()
 	}
 
 	var dict = model.SysDict{}
@@ -44,10 +53,8 @@ func (*Dict) CreateDictColumn(createDictReq *model.CreateDictReq, claims *utils.
 }
 
 func (*Dict) CreateDictLanguage(createDictLanguage *model.CreateDictLanguageReq, claims *utils.UserClaims) (*model.SysDictLanguage, error) {
-	if claims.Authority != dal.SYS_ADMIN {
-		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-			"err": "wrong user authority",
-		})
+	if err := dictAdminRule.RequireClaims(claims); err != nil {
+		return nil, dictAuthorityDenied()
 	}
 
 	// 验证sys_dict的id是否存在
@@ -77,10 +84,8 @@ func (*Dict) CreateDictLanguage(createDictLanguage *model.CreateDictLanguageReq,
 }
 
 func (*Dict) DeleteDict(id string, claims *utils.UserClaims) error {
-	if claims.Authority != dal.SYS_ADMIN {
-		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-			"err": "wrong user authority",
-		})
+	if err := dictAdminRule.RequireClaims(claims); err != nil {
+		return dictAuthorityDenied()
 	}
 	err := dal.DeleteDictById(id)
 	if err != nil {
@@ -93,10 +98,8 @@ func (*Dict) DeleteDict(id string, claims *utils.UserClaims) error {
 }
 
 func (*Dict) DeleteDictLanguage(id string, claims *utils.UserClaims) error {
-	if claims.Authority != dal.SYS_ADMIN {
-		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-			"err": "wrong user authority",
-		})
+	if err := dictAdminRule.RequireClaims(claims); err != nil {
+		return dictAuthorityDenied()
 	}
 	err := dal.DeleteDictLanguageById(id)
 	if err != nil {

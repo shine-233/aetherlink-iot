@@ -7,9 +7,9 @@ package service
 import (
 	"time"
 
+	"aetherlink-iot/backend/internal/authz"
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
-	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 	utils "aetherlink-iot/backend/pkg/utils"
 
@@ -19,21 +19,27 @@ import (
 
 type UiElements struct{}
 
-func requireSysUIElementsAdmin(claims *utils.UserClaims) error {
-	if claims == nil || claims.Authority != constant.SYS_ADMIN {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to manage ui elements")
+// uiElementsAdminRule / uiElementsViewerRule 把 UI 元素的读写角色收敛到 authz，
+// 保持原有错误码与文案不变（nil claims 仍然 fail closed）。
+var (
+	uiElementsAdminRule = authz.Rule{
+		Roles:   []string{authz.SysAdmin},
+		Code:    errcode.CodeNoPermission,
+		Message: "no permission to manage ui elements",
 	}
-	return nil
+	uiElementsViewerRule = authz.Rule{
+		Roles:   authz.ManagerRoles,
+		Code:    errcode.CodeNoPermission,
+		Message: "no permission to query ui elements",
+	}
+)
+
+func requireSysUIElementsAdmin(claims *utils.UserClaims) error {
+	return uiElementsAdminRule.RequireClaims(claims)
 }
 
 func requireTenantUIElementsViewer(claims *utils.UserClaims) error {
-	if claims == nil {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query ui elements")
-	}
-	if claims.Authority != constant.SYS_ADMIN && claims.Authority != constant.TENANT_ADMIN {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query ui elements")
-	}
-	return nil
+	return uiElementsViewerRule.RequireClaims(claims)
 }
 
 func (*UiElements) CreateUiElements(CreateUiElementsReq *model.CreateUiElementsReq, claims *utils.UserClaims) error {

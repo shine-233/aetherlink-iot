@@ -166,14 +166,13 @@
  * 提供实时的交互效果预览和测试功能
  */
 
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, type CSSProperties } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NSpace, NText, NButton, NIcon, NCard, NTag, NSwitch, useMessage } from 'naive-ui'
 import { PlayOutline, RefreshOutline, FlashOutline, PlayCircleOutline } from '@vicons/ionicons5'
 
 import type { InteractionConfig, InteractionEventType, InteractionResponse } from './interactionPreviewTypes'
 import {
-  applyInteractionPreviewResponse,
   formatInteractionPreviewTime,
   formatInteractionResponseValue,
   getEnabledInteractionsByEvent,
@@ -182,6 +181,7 @@ import {
   getInteractionEventTagType,
   type PreviewLogType
 } from './interactionPreviewHelpers'
+import { useInteractionPreviewStage } from './useInteractionPreviewStage'
 
 interface Props {
   interactions: InteractionConfig[]
@@ -203,16 +203,19 @@ const emit = defineEmits<Emits>()
 const message = useMessage()
 const { t } = useI18n()
 
-// 响应式状态
-const previewElement = ref<HTMLElement>()
-const currentContent = ref('')
-
-// 初始化内容
-onMounted(() => {
-  currentContent.value = t('interaction.editor.previewElement')
+// 预览舞台：与 InteractionTemplatePreview 共用同一套渲染 / 重置实现
+const {
+  previewElement,
+  content: currentContent,
+  runtimeStyles,
+  originalStyles,
+  applyResponse,
+  resetStage
+} = useInteractionPreviewStage({
+  initialText: () => t('interaction.editor.previewElement')
 })
-const originalStyles = ref<any>({})
-const runtimeStyles = ref<Record<string, string>>({})
+
+// 响应式状态
 const activeInteractions = ref<Set<number>>(new Set())
 const executionLog = ref<LogEntry[]>([])
 const isHovering = ref(false)
@@ -230,7 +233,7 @@ const previewElementStyles = computed(() => {
     outline: 'none',
     ...originalStyles.value,
     ...runtimeStyles.value
-  }
+  } as CSSProperties
 })
 
 // 工具方法
@@ -310,7 +313,7 @@ const executeInteraction = (interaction: InteractionConfig, index: number) => {
 
     setTimeout(() => {
       try {
-        executeResponse(response)
+        applyResponse(response)
         addLog(
           'success',
           t('interaction.preview.executeAction', {
@@ -333,29 +336,6 @@ const executeInteraction = (interaction: InteractionConfig, index: number) => {
   )
 }
 
-const executeResponse = (response: InteractionResponse) => {
-  if (!previewElement.value) return
-
-  const element = previewElement.value
-
-  const setRuntimeStyle = (property: string, styleValue: unknown) => {
-    const normalizedValue = String(styleValue)
-    const cssProperty = property.replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`)
-    element.style.setProperty(cssProperty, normalizedValue)
-    runtimeStyles.value = {
-      ...runtimeStyles.value,
-      [property]: normalizedValue
-    }
-  }
-
-  applyInteractionPreviewResponse(element, response, {
-    setRuntimeStyle,
-    setContent: (value) => {
-      currentContent.value = value
-    }
-  })
-}
-
 const testSingleInteraction = (interaction: InteractionConfig) => {
   const index = props.interactions.indexOf(interaction)
   executeInteraction(interaction, index)
@@ -376,15 +356,7 @@ const runAllInteractions = () => {
 }
 
 const resetPreview = () => {
-  if (!previewElement.value) return
-
-  const element = previewElement.value
-
-  // 重置所有样式
-  element.style.cssText = ''
-  element.className = 'preview-element'
-  runtimeStyles.value = {}
-  currentContent.value = t('interaction.editor.previewElement')
+  resetStage()
 
   // 清空活动状态
   activeInteractions.value.clear()
@@ -418,21 +390,8 @@ const clearLog = () => {
   addLog('info', t('interaction.messages.logCleared'))
 }
 
-// 生命周期
+// 生命周期（原始样式捕获由 useInteractionPreviewStage 统一处理）
 onMounted(() => {
-  if (previewElement.value) {
-    // 保存原始样式
-    const computedStyles = window.getComputedStyle(previewElement.value)
-    originalStyles.value = {
-      backgroundColor: computedStyles.backgroundColor,
-      color: computedStyles.color,
-      borderColor: computedStyles.borderColor,
-      opacity: computedStyles.opacity,
-      transform: computedStyles.transform,
-      visibility: computedStyles.visibility
-    }
-  }
-
   addLog('info', t('interaction.preview.previewStarted'))
 })
 

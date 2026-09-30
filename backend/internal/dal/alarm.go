@@ -22,9 +22,9 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"gorm.io/datatypes"
 	"gorm.io/gen"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 func CreateAlarmConfig(d *model.AlarmConfig) error {
@@ -343,18 +343,41 @@ func GetAlarmHistoryListByPage(d *model.GetAlarmHisttoryListByPage, tenantID str
 	return count, list, nil
 }
 
+// alarmHistoryOwnerExistsSQL 告警历史的 owner 可见性过滤（TB-22 规范化后的形态）。
+//
+// 旧形态用 jsonb_array_elements_text 逐行展开 alarm_device_list 再 JOIN devices，
+// 既无法走索引（每行一次函数扫描），也让 planner 无法估算集合大小。142.sql 建了
+// alarm_history_devices 关联表（jsonb 列保留并由触发器同步），这里改成普通 btree join：
+// 关联表主键 (alarm_history_id, device_id)、索引 (device_id, tenant_id) 均可命中。
+// 语义不变：告警历史只要命中任一属于该 owner 的设备即对该 owner 可见。
 const alarmHistoryOwnerExistsSQL = `EXISTS (
     SELECT 1
-    FROM jsonb_array_elements_text(
-        CASE
-            WHEN ah.alarm_device_list IS NULL THEN '[]'::jsonb
-            WHEN jsonb_typeof(ah.alarm_device_list::jsonb) = 'array' THEN ah.alarm_device_list::jsonb
-            ELSE '[]'::jsonb
-        END
-    ) AS scoped_alarm_device(device_id)
-    INNER JOIN devices scoped_device ON scoped_device.id = scoped_alarm_device.device_id
-    WHERE scoped_device.tenant_id = ah.tenant_id
+    FROM alarm_history_devices ahd
+    INNER JOIN devices scoped_device
+        ON scoped_device.id = ahd.device_id
+       AND scoped_device.tenant_id = ah.tenant_id
+    WHERE ahd.alarm_history_id = ah.id
       AND scoped_device.owner_user_id = ?
+)`
+
+// alarmHistoryDeviceExistsByIDSQL 告警历史"命中指定设备"过滤（142.sql 关联表形态）。
+//
+// 替换旧的两类写法：jsonb_exists(alarm_device_list, ?) 与 alarm_device_list::text LIKE '%id%'。
+// 两者都需要逐行计算且无法走索引；LIKE 形态还有子串误命中（设备 id 是另一 id 的前缀时错配）。
+// 关联表上的等值匹配既走索引又消除误命中。
+const alarmHistoryDeviceExistsByIDSQL = `EXISTS (
+    SELECT 1
+    FROM alarm_history_devices ahd
+    WHERE ahd.alarm_history_id = ah.id
+      AND ahd.device_id = ?
+)`
+
+// alarmHistoryDeviceExistsByIDUnqualified 非别名形态（gen 链查询用，表名不带 ah 别名）。
+const alarmHistoryDeviceExistsByIDUnqualified = `EXISTS (
+    SELECT 1
+    FROM alarm_history_devices ahd
+    WHERE ahd.alarm_history_id = alarm_history.id
+      AND ahd.device_id = ?
 )`
 
 func newAlarmHistoryScopedDB(tenantID string, ownerUserID *string, allTenants bool, tenantScopes ...string) *gorm.DB {
@@ -426,7 +449,7 @@ func applyAlarmHistoryScopedFilters(builder *gorm.DB, req *model.GetAlarmHisttor
 	}
 	if !isAlarmHistoryActiveStatusFilter(req.AlarmStatus) && req.DeviceId != nil && strings.TrimSpace(*req.DeviceId) != "" {
 		builder = builder.Where(
-			"jsonb_exists(COALESCE(ah.alarm_device_list::jsonb, '[]'::jsonb), ?)",
+			alarmHistoryDeviceExistsByIDSQL,
 			strings.TrimSpace(*req.DeviceId),
 		)
 	}
@@ -471,16 +494,10 @@ WITH params AS (
           params.owner_user_id = ''
           OR EXISTS (
               SELECT 1
-              FROM jsonb_array_elements_text(
-                  CASE
-                      WHEN ah.alarm_device_list IS NULL THEN '[]'::jsonb
-                      WHEN jsonb_typeof(ah.alarm_device_list::jsonb) = 'array'
-                          THEN ah.alarm_device_list::jsonb
-                      ELSE '[]'::jsonb
-                  END
-              ) AS alarm_device(device_id)
-              INNER JOIN devices d ON d.id = alarm_device.device_id
-              WHERE d.tenant_id = ah.tenant_id
+              FROM alarm_history_devices ahd
+              INNER JOIN devices d ON d.id = ahd.device_id
+              WHERE ahd.alarm_history_id = ah.id
+                AND d.tenant_id = ah.tenant_id
                 AND d.owner_user_id = params.owner_user_id
           )
       )
@@ -613,10 +630,12 @@ func alarmHistoryRawLogPreview(raw string) string {
 
 // alarmHistoryDeviceConditions 拼装“租户 + 设备命中”的告警历史查询条件。
 // 该条件在设备告警状态和设备关联配置查询中共用。
+// 设备命中由 jsonb_exists(alarm_device_list, ?) 改为 142.sql 的关联表 EXISTS：
+// 前者无法走索引，后者命中 alarm_history_devices 主键，且不再受 JSON 元素顺序影响。
 func alarmHistoryDeviceConditions(tenantID, deviceID string) []gen.Condition {
 	return append(
 		[]gen.Condition{query.AlarmHistory.TenantID.Eq(tenantID)},
-		gen.Cond(datatypes.JSONQuery("alarm_device_list").HasKey(deviceID))...,
+		gen.Cond(clause.Expr{SQL: alarmHistoryDeviceExistsByIDUnqualified, Vars: []interface{}{deviceID}})...,
 	)
 }
 

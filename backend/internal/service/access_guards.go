@@ -38,11 +38,19 @@ func deviceOwnership(device *model.Device) authz.Owned {
 }
 
 // deviceWriteRule: SYS_ADMIN, same-tenant non-TENANT_USER, owning TENANT_USER.
-func deviceWriteRule(message string) authz.Rule { return authz.OwnerRule(message) }
+// Roles 门禁显式限定三个 JWT authority：未知 authority（如伪造的 CUSTOMER 声明）
+// 在角色闸门即被拒绝（fail-closed），与 authz_migration_test 矩阵的 "unknown authority"
+// 行保持一致，而不是靠 OwnerOnly 仅收窄 TENANT_USER 的副作用漏过同租户判断。
+func deviceWriteRule(message string) authz.Rule {
+	rule := authz.OwnerRule(message)
+	rule.Roles = authz.KnownRoles
+	return rule
+}
 
 // deviceReadRule: deviceWriteRule plus explicit RDI share recipients.
 func deviceReadRule(message string) authz.Rule {
 	rule := authz.OwnerRule(message)
+	rule.Roles = authz.KnownRoles
 	rule.AllowShared = true
 	return rule
 }

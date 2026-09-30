@@ -10,17 +10,17 @@
 // filters, template relations, select-list queries, PO-to-VO conversion, and
 // device/config binding updates. Important notes: query changes can affect
 // broker connectivity and frontend config menus, so tenant, protocol, and
-// template filters need focused DAL tests. Refactor suggestion: move large
-// conversion logic out of the query helper once response-shape tests cover it.
+// template filters need focused DAL tests.
+//
+// 9-28 DAL 拆分：路由缓存子聚合迁至 device_config_routing.go；devices 表绑定
+// 写入与活跃设备计数迁至 device_config_device_binding.go；顺带清理了本文件
+// 早已注释停用的 GetDeviceOnline 死代码块。导出符号与签名不变。
 package dal
 
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"strings"
-	"sync"
 	"time"
 
 	model "aetherlink-iot/backend/internal/model"
@@ -185,18 +185,19 @@ func GetDeviceConfigForTenant(id, tenantID string) (*model.DeviceConfig, error) 
 
 func GetDeviceConfigListByPage(deviceconfig *model.GetDeviceConfigListByPageReq, claims *utils.UserClaims) (int64, interface{}, error) {
 	// 空租户守卫（ROADMAP A1）：claims.TenantID 运行期可能因 token 边界条件变为空串，
-	// WHERE tenant_id='' 会静默匹配 0 行——显式拒绝而非返回"偶发空列表"（users 收敛模式）。
-	if claims == nil || (strings.TrimSpace(claims.TenantID) == "" && claims.Authority != SYS_ADMIN) {
-		logrus.Warn("dal: device config list query has empty TenantID in claims; rejecting")
-		return 0, nil, fmt.Errorf("empty tenant id in claims")
+	// WHERE tenant_id='' 会静默匹配 0 行——显式拒绝而非返回"偶发空列表"（users 收敛模式，
+	// 守卫收敛到 requireClaimsTenantID，2026-09-28）。
+	tenantID, err := requireClaimsTenantID(claims)
+	if err != nil {
+		return 0, nil, err
 	}
 	q := query.DeviceConfig
 	var count int64
 	var data []model.DeviceConfigRsp
 	var deviceconfigList []*model.DeviceConfig
 	queryBuilder := isolatedDeviceConfig().WithContext(context.Background())
-	if strings.TrimSpace(claims.TenantID) != "" {
-		queryBuilder = queryBuilder.Where(q.TenantID.Eq(claims.TenantID))
+	if tenantID != "" {
+		queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenantID))
 	}
 
 	if deviceconfig.DeviceTemplateId != nil && *deviceconfig.DeviceTemplateId != "" {
@@ -212,7 +213,7 @@ func GetDeviceConfigListByPage(deviceconfig *model.GetDeviceConfigListByPageReq,
 		queryBuilder = queryBuilder.Where(q.Name.Like(ContainsLikePattern(*deviceconfig.Name)))
 	}
 
-	count, err := queryBuilder.Count()
+	count, err = queryBuilder.Count()
 	if err != nil {
 		logrus.Error(err)
 		return count, deviceconfigList, err
@@ -238,41 +239,6 @@ func GetDeviceConfigListByPage(deviceconfig *model.GetDeviceConfigListByPageReq,
 	}
 
 	return count, data, err
-}
-
-func deviceConfigIDs(deviceconfigList []*model.DeviceConfig) []string {
-	ids := make([]string, 0, len(deviceconfigList))
-	for _, deviceConfig := range deviceconfigList {
-		if deviceConfig == nil || deviceConfig.ID == "" {
-			continue
-		}
-		ids = append(ids, deviceConfig.ID)
-	}
-	return ids
-}
-
-func countActiveDevicesByConfigIDs(deviceConfigIDs []string) (map[string]int64, error) {
-	counts := make(map[string]int64, len(deviceConfigIDs))
-	if len(deviceConfigIDs) == 0 {
-		return counts, nil
-	}
-	type row struct {
-		DeviceConfigID string `gorm:"column:device_config_id"`
-		Count          int64  `gorm:"column:count"`
-	}
-	rows := make([]row, 0, len(deviceConfigIDs))
-	err := global.DB.Model(&model.Device{}).
-		Select("device_config_id, count(*) as count").
-		Where("activate_flag = ? AND device_config_id IN ?", "active", deviceConfigIDs).
-		Group("device_config_id").
-		Scan(&rows).Error
-	if err != nil {
-		return nil, err
-	}
-	for _, item := range rows {
-		counts[item.DeviceConfigID] = item.Count
-	}
-	return counts, nil
 }
 
 // 获取设备配置下拉菜单
@@ -353,81 +319,6 @@ func (DeviceConfigVo) PoToVo(deviceConfigInfo *model.DeviceConfig) (info *model.
 	return
 }
 
-// func GetDeviceOnline(ctx context.Context, deviceOnlines []model.DeviceOnline) (map[string]int, error) {
-// 	var (
-// 		result               = make(map[string]int, 0)
-// 		deviceConfigIds      []string
-// 		deviveConfigOtherMap = make(map[string]model.DeviceConfigOtherConfig, 0)
-// 		deviceIds            []string
-// 		deviceMap            = make(map[string]string, 0)
-// 	)
-
-// 	if len(deviceOnlines) == 0 {
-// 		return result, nil
-// 	}
-// 	for _, v := range deviceOnlines {
-// 		if v.DeviceConfigId == nil || *v.DeviceConfigId == "" {
-// 			continue
-// 		}
-// 		deviceIds = append(deviceIds, v.DeviceId)
-// 		deviceConfigIds = append(deviceConfigIds, *v.DeviceConfigId)
-// 		deviceMap[v.DeviceId] = *v.DeviceConfigId
-// 	}
-// 	list, err := query.DeviceConfig.WithContext(ctx).Where(query.DeviceConfig.ID.In(deviceConfigIds...)).Find()
-// 	if err != nil {
-// 		return result, nil
-// 	}
-// 	for _, v := range list {
-// 		if v.OtherConfig == nil || *v.OtherConfig == "" {
-// 			continue
-// 		}
-// 		var config model.DeviceConfigOtherConfig
-// 		err = json.Unmarshal([]byte(*v.OtherConfig), &config)
-// 		if err != nil {
-// 			continue
-// 		}
-// 		deviveConfigOtherMap[v.ID] = config
-// 	}
-// 	t := query.TelemetryCurrentData
-// 	rows, err := t.WithContext(ctx).Where(t.DeviceID.In(deviceIds...)).Group(t.DeviceID).Select(t.DeviceID, t.T.Max().As("ts")).Find()
-// 	if err != nil {
-// 		return result, nil
-// 	}
-// 	now := time.Now().UTC()
-// 	for _, v := range rows {
-// 		logrus.Warning(v.DeviceID)
-// 		var (
-// 			deviceConfigId string
-// 			ok             bool
-// 		)
-// 		if deviceConfigId, ok = deviceMap[v.DeviceID]; !ok {
-// 			continue
-// 		}
-// 		if config, ok := deviveConfigOtherMap[deviceConfigId]; ok {
-
-// 			if config.Heartbeat > 0 {
-// 				//当前时间-最近一次遥测时间 大于心跳秒数  表示离线
-// 				if now.Sub(v.T).Seconds() > float64(config.Heartbeat) {
-// 					result[v.DeviceID] = 0
-// 				} else {
-// 					result[v.DeviceID] = 1
-// 				}
-// 				continue
-// 			}
-// 			//设置了超时时间 当前时间-最近一次遥测时间 大于超时时间（分）  表示离线
-// 			if config.OnlineTimeout > 0 {
-// 				if now.Sub(v.T).Minutes() > float64(config.OnlineTimeout) {
-// 					result[v.DeviceID] = 0
-// 				} else {
-// 					result[v.DeviceID] = 1
-// 				}
-
-// 			}
-// 		}
-// 	}
-// 	return result, nil
-// }
-
 // 修改凭证类型
 func UpdateDeviceConfigVoucherType(id string, voucherType *string) error {
 	// nil值也要更新
@@ -468,35 +359,6 @@ func GetDeviceConfigCountByFuncTemplateId(id string) (int64, error) {
 	return count, err
 }
 
-// 给设备增加物模型
-func UpdateDeviceDeviceConfigID(deviceID string, deviceConfigID *string) error {
-	_, err := query.Device.Where(query.Device.ID.Eq(deviceID)).Update(query.Device.DeviceConfigID, deviceConfigID)
-	if err != nil {
-		logrus.Error(err)
-	}
-	return err
-}
-
-const updateDeviceConfigBatchSize = 500
-
-func UpdateDeviceDeviceConfigIDs(deviceIDs []string, deviceConfigID *string) error {
-	normalizedIDs := normalizeDeviceIDs(deviceIDs)
-	for start := 0; start < len(normalizedIDs); start += updateDeviceConfigBatchSize {
-		end := start + updateDeviceConfigBatchSize
-		if end > len(normalizedIDs) {
-			end = len(normalizedIDs)
-		}
-		_, err := query.Device.
-			Where(query.Device.ID.In(normalizedIDs[start:end]...)).
-			Update(query.Device.DeviceConfigID, deviceConfigID)
-		if err != nil {
-			logrus.Error(err)
-			return err
-		}
-	}
-	return nil
-}
-
 // GetDeviceConfigByNameAndTenant 查询指定租户下指定名称的设备配置（TB-15）。
 func GetDeviceConfigByNameAndTenant(tenantID, name string) (*model.DeviceConfig, error) {
 	var dc model.DeviceConfig
@@ -514,102 +376,4 @@ func GetDeviceConfigNamesMatchingBase(tenantID, baseName string) ([]string, erro
 		Where("tenant_id = ? AND (name = ? OR name LIKE ?)", tenantID, baseName, baseName+" (%)").
 		Pluck("name", &names).Error
 	return names, err
-}
-
-// DeviceConfigRouting 是上行热路径（规则链解析）真正需要的档案字段子集。
-type DeviceConfigRouting struct {
-	TenantID           string
-	DefaultRuleChainID string // 已 TrimSpace；空串表示未绑定
-}
-
-// deviceConfigRoutingTTL 兜底 TTL：本进程写路径会主动失效；其它副本/直接改库的
-// 陈旧窗口以此为上限。
-const deviceConfigRoutingTTL = 30 * time.Second
-
-type deviceConfigRoutingEntry struct {
-	routing   DeviceConfigRouting
-	found     bool
-	expiresAt time.Time
-}
-
-var (
-	deviceConfigRoutingMu    sync.RWMutex
-	deviceConfigRoutingCache = map[string]deviceConfigRoutingEntry{}
-	deviceConfigRoutingGen   uint64
-	deviceConfigRoutingNow   = time.Now
-	// deviceConfigRoutingLoad 可在测试中替换。默认直查 DB 的两列而不是走 GetDeviceConfigByID：
-	// 后者读永久 Redis 键 "<id>_config"，而 service 层在 DAL 写返回之后才删该键，
-	// 窗口内的并发 miss 会把旧的默认规则链重新写进本缓存（持续一个 TTL）。
-	deviceConfigRoutingLoad = loadDeviceConfigRoutingFromDB
-)
-
-// loadDeviceConfigRoutingFromDB 只取路由需要的列；每档案每 TTL 至多一次，
-// 比整份档案 JSON 反序列化更轻。
-func loadDeviceConfigRoutingFromDB(id string) (*model.DeviceConfig, error) {
-	var row model.DeviceConfig
-	err := global.DB.Model(&model.DeviceConfig{}).
-		Select("id", "tenant_id", "default_rule_chain_id").
-		Where("id = ?", id).
-		Take(&row).Error
-	if err != nil {
-		return nil, err
-	}
-	return &row, nil
-}
-
-const deviceConfigRoutingMaxEntries = 65536
-
-// GetDeviceConfigRouting 返回档案的 (租户, 默认规则链)；进程内 TTL 缓存命中时零 Redis/DB 往返。
-// 查询失败（含不存在）不缓存正值，返回 found=false 与原始错误，由调用方按 fail-closed 处理；
-// "不存在"会做短期负缓存，避免坏绑定每条消息打一次 Redis。
-func GetDeviceConfigRouting(id string) (DeviceConfigRouting, bool, error) {
-	now := deviceConfigRoutingNow()
-	deviceConfigRoutingMu.RLock()
-	entry, ok := deviceConfigRoutingCache[id]
-	gen := deviceConfigRoutingGen
-	deviceConfigRoutingMu.RUnlock()
-	if ok && now.Before(entry.expiresAt) {
-		return entry.routing, entry.found, nil
-	}
-
-	config, err := deviceConfigRoutingLoad(id)
-	notFound := err != nil && errors.Is(err, gorm.ErrRecordNotFound)
-	if err != nil && !notFound {
-		return DeviceConfigRouting{}, false, err
-	}
-	next := deviceConfigRoutingEntry{expiresAt: now.Add(deviceConfigRoutingTTL)}
-	if config != nil && err == nil {
-		next.found = true
-		next.routing.TenantID = config.TenantID
-		if config.DefaultRuleChainID != nil {
-			next.routing.DefaultRuleChainID = strings.TrimSpace(*config.DefaultRuleChainID)
-		}
-	}
-	deviceConfigRoutingMu.Lock()
-	// 加载期间发生过失效则放弃写入，避免把失效前读到的旧值写回缓存。
-	if gen == deviceConfigRoutingGen {
-		if len(deviceConfigRoutingCache) >= deviceConfigRoutingMaxEntries {
-			deviceConfigRoutingCache = map[string]deviceConfigRoutingEntry{}
-		}
-		deviceConfigRoutingCache[id] = next
-	}
-	deviceConfigRoutingMu.Unlock()
-	return next.routing, next.found, err
-}
-
-// InvalidateDeviceConfigRouting 丢弃指定档案的进程内路由缓存；本文件的写路径均会调用，
-// service 层在绕过 DAL 写档案时也应调用。
-func InvalidateDeviceConfigRouting(id string) {
-	deviceConfigRoutingMu.Lock()
-	delete(deviceConfigRoutingCache, id)
-	deviceConfigRoutingGen++
-	deviceConfigRoutingMu.Unlock()
-}
-
-// ResetDeviceConfigRoutingCache 清空全部路由缓存（测试与运维兜底）。
-func ResetDeviceConfigRoutingCache() {
-	deviceConfigRoutingMu.Lock()
-	deviceConfigRoutingCache = map[string]deviceConfigRoutingEntry{}
-	deviceConfigRoutingGen++
-	deviceConfigRoutingMu.Unlock()
 }

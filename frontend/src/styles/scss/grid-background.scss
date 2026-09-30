@@ -46,37 +46,9 @@
     linear-gradient(to bottom, var(--grid-line-color-dark) var(--grid-line-width), transparent var(--grid-line-width));
 }
 
-/* 预览模式和只读模式下隐藏栅格 */
-.preview-mode .show-grid,
+/* 只读模式下隐藏栅格
+   注：.preview-mode / .hide-grid / .grid-size-* / .grid-subtle / .grid-prominent
+   全仓零引用（已核对 .vue/.ts/.tsx/.scss），随死样式清理移除。 */
 .readonly .show-grid {
   background-image: none !important;
-}
-
-/* 隐藏栅格的类 */
-.hide-grid {
-  background-image: none !important;
-}
-
-/* 不同栅格大小的变体 */
-.grid-size-small {
-  --grid-size: 10px;
-}
-
-.grid-size-medium {
-  --grid-size: 20px;
-}
-
-.grid-size-large {
-  --grid-size: 40px;
-}
-
-/* 栅格透明度变体 */
-.grid-subtle {
-  --grid-line-color: rgba(0, 0, 0, 0.05);
-  --grid-line-color-dark: rgba(255, 255, 255, 0.08);
-}
-
-.grid-prominent {
-  --grid-line-color: rgba(0, 0, 0, 0.2);
-  --grid-line-color-dark: rgba(255, 255, 255, 0.25);
 }

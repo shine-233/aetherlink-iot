@@ -112,6 +112,13 @@ func OwnerRule(message string) Rule {
 	return Rule{OwnerOnly: true, Code: errcode.CodeNoPermission, Message: message}
 }
 
+// PlatformAdminRule is the "SYS_ADMIN only" rule with a custom denial message.
+// It is the shared form of the many requireXxxAdmin helpers in the service
+// layer: nil claims and every non SYS_ADMIN authority are denied.
+func PlatformAdminRule(message string) Rule {
+	return Rule{Roles: []string{SysAdmin}, Code: errcode.CodeNoPermission, Message: message}
+}
+
 // CheckTenant is a convenience for the common one-off check.
 func CheckTenant(c *Claims, tenantID string, message string) error {
 	return TenantRule(message).Check(c, OfTenant(tenantID))

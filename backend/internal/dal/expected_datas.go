@@ -74,10 +74,9 @@ func (ExpectedDataDal) PageList(ctx context.Context, req *model.GetExpectedDataP
 		return
 	}
 
-	// 分页
-	if req.Page > 0 && req.PageSize > 0 {
-		queryBuilder = queryBuilder.Limit(req.PageSize).Offset((req.Page - 1) * req.PageSize).Order(ed.CreatedAt.Desc())
-	}
+	// 分页（2026-09-28 收编：旧写法 Page=0 时既无 LIMIT 也无排序，退化为全表扫描；
+	// applyListPagination 对缺省分页兜底 defaultListLimit 并恒定排序）。
+	queryBuilder = applyListPagination(queryBuilder, req.Page, req.PageSize).Order(ed.CreatedAt.Desc())
 	queryBuilder = queryBuilder.Select(ed.ALL)
 	err = queryBuilder.Scan(&list)
 	if err != nil {

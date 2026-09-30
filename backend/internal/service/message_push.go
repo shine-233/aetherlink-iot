@@ -3,9 +3,9 @@
 package service
 
 import (
+	"aetherlink-iot/backend/internal/authz"
 	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/model"
-	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/utils"
 	"bytes"
@@ -53,10 +53,7 @@ type messagePushDeliveryResult struct {
 // requireMessagePushConfigAdmin 约束推送配置只能由系统管理员维护，
 // 避免租户用户误改全局推送出口。
 func requireMessagePushConfigAdmin(claims *utils.UserClaims) error {
-	if claims == nil || claims.Authority != constant.SYS_ADMIN {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to manage message push config")
-	}
-	return nil
+	return authz.PlatformAdminRule("no permission to manage message push config").RequireClaims(claims)
 }
 
 func validateMessagePushURL(rawURL string) error {

@@ -69,8 +69,9 @@ import type {
   GridLayoutPlusEmits,
   GridLayoutPlusProps
 } from './gridLayoutPlusTypes'
-import { EXTENDED_GRID_LAYOUT_CONFIG, GridSizePresets, DEFAULT_GRID_LAYOUT_PLUS_CONFIG } from './gridLayoutPlusTypes'
-import { validateExtendedGridConfig, validateLargeGridPerformance, optimizeItemForLargeGrid } from './utils/validation'
+import { normalizeLayout, withIdKey as applyIdKeyAlias } from './gridLayoutPlusIdKey'
+import { useGridLayoutPlusConfig } from './useGridLayoutPlusConfig'
+import { useGridLayoutPlusItems } from './useGridLayoutPlusItems'
 
 // Props
 interface Props extends GridLayoutPlusProps {
@@ -106,98 +107,34 @@ const themeStore = useThemeStore()
 const gridCoreRef = ref<InstanceType<typeof GridCore> | null>(null)
 
 // 计算属性：根据 idKey 规范化布局，确保每个项都有 item.i
-const normalizedLayout = computed<GridLayoutPlusItem[]>(() => {
-  const key = props.idKey || 'i'
-  return (props.layout || []).map((item) => {
-    // 如果外部使用了自定义键名（如 'id'），则将其映射到内部字段 i
-    const itemRecord = item as unknown as Record<string, unknown>
-    const currentId = itemRecord[key] ?? itemRecord.i
-    const withI: GridLayoutPlusItem = { ...item, i: currentId as string }
-    // 同步写回自定义键，保证双字段一致（不改变原始协议，只补充字段）
-    if (key !== 'i') {
-      ;(withI as unknown as Record<string, unknown>)[key] = withI.i
-    }
-    return withI
-  })
-})
+const normalizedLayout = computed<GridLayoutPlusItem[]>(() => normalizeLayout(props.layout || [], props.idKey || 'i'))
 
 // Computed
 const isDarkTheme = computed(() => themeStore.darkMode)
 const containerStyle = computed(() => props.containerStyle || {})
 const containerClass = computed(() => props.containerClass || '')
 
-const config = computed<GridLayoutPlusConfig>(() => {
-  // 根据 gridSize 选择基础配置
-  let baseConfig: GridLayoutPlusConfig
+// 网格尺寸预设解析与校验（拆分到 useGridLayoutPlusConfig）
+const { config, gridValidation } = useGridLayoutPlusConfig(props)
 
-  switch (props.gridSize) {
-    case 'mini':
-      baseConfig = {
-        ...DEFAULT_GRID_LAYOUT_PLUS_CONFIG,
-        ...GridSizePresets.MINI
-      }
-      break
-    case 'standard':
-      baseConfig = {
-        ...DEFAULT_GRID_LAYOUT_PLUS_CONFIG,
-        ...GridSizePresets.STANDARD
-      }
-      break
-    case 'large':
-      baseConfig = {
-        ...DEFAULT_GRID_LAYOUT_PLUS_CONFIG,
-        ...GridSizePresets.LARGE
-      }
-      break
-    case 'mega':
-      baseConfig = {
-        ...EXTENDED_GRID_LAYOUT_CONFIG,
-        ...GridSizePresets.MEGA
-      }
-      break
-    case 'extended':
-      baseConfig = { ...EXTENDED_GRID_LAYOUT_CONFIG }
-      break
-    case 'custom':
-      baseConfig = {
-        ...EXTENDED_GRID_LAYOUT_CONFIG,
-        ...GridSizePresets.CUSTOM(props.customColumns || 50)
-      }
-      break
-    default:
-      baseConfig = { ...DEFAULT_GRID_LAYOUT_PLUS_CONFIG }
-  }
+const withIdKey = (items: GridLayoutPlusItem[]): GridLayoutPlusItem[] => {
+  return applyIdKeyAlias(items, props.idKey || 'i')
+}
 
-  // 合并用户自定义配置
-  return {
-    ...baseConfig,
-    ...props.config
-  }
-})
-
-// 网格验证和性能监控
-const gridValidation = computed(() => {
-  const colNum = config.value.colNum
-
-  // 验证扩展网格配置
-  const configValidation = validateExtendedGridConfig(colNum)
-  if (!configValidation.success) {
-    console.error('Grid configuration validation failed:', configValidation.message)
-  }
-
-  // 大网格性能验证
-  const performanceCheck = validateLargeGridPerformance(props.layout, colNum)
-  if (performanceCheck.success && (performanceCheck.data?.warning || performanceCheck.data?.recommendation)) {
-    console.error('Grid performance warning:', performanceCheck.data.warning)
-    console.info('Grid performance recommendation:', performanceCheck.data.recommendation)
-  }
-
-  return {
-    isValid: configValidation.success,
-    colNum,
-    performance: performanceCheck.data
-  }
-})
+// 网格项增删改查与布局优化（拆分到 useGridLayoutPlusItems）
+const { addItem, removeItem, updateItem, clearLayout, getItem, getAllItems, getLayout, optimizeLayoutForGridSize } =
+  useGridLayoutPlusItems({
+    gridCoreRef,
+    config,
+    idKey: () => props.idKey || 'i',
+    onItemAdd: (item) => emit('item-add', item),
+    onItemDelete: (itemId) => emit('item-delete', itemId),
+    onItemUpdate: (itemId, updates) => emit('item-update', itemId, updates),
+    onLayoutChange: (layout) => {
+      emit('layout-change', layout)
+      emit('update:layout', layout)
+    }
+  })
 
 // 业务方法
 const handleItemEdit = (item: GridLayoutPlusItem) => {
@@ -244,16 +181,6 @@ const handleLayoutMounted = (newLayout: GridLayoutPlusItem[]) => {
 
 const handleLayoutUpdated = (newLayout: GridLayoutPlusItem[]) => {
   emit('layout-updated', withIdKey(newLayout))
-}
-
-const withIdKey = (items: GridLayoutPlusItem[]): GridLayoutPlusItem[] => {
-  // 在对外派发布局相关事件前，补充 idKey 字段，保证任意主键协议兼容
-  const key = props.idKey || 'i'
-  if (key === 'i') return items
-  return items.map((it) => ({
-    ...(it as unknown as Record<string, unknown>),
-    [key]: it.i
-  })) as unknown as GridLayoutPlusItem[]
 }
 
 const handleLayoutReady = (newLayout: GridLayoutPlusItem[]) => {
@@ -316,131 +243,6 @@ const handleDrop = (e: DragEvent) => {
   emit('drop', e)
 }
 
-// API 方法 - 通过 GridCore 组件实现
-const addItem = (type: string, options?: Partial<GridLayoutPlusItem>) => {
-  const coreLayout = gridCoreRef.value?.internalLayout
-  if (!coreLayout) return null
-
-  const newItem: GridLayoutPlusItem = {
-    i: generateId(),
-    x: 0,
-    y: 0,
-    w: 2,
-    h: 2,
-    type,
-    ...options
-  }
-
-  // 若外部定义了自定义键名，则写回该字段，保证双字段一致
-  const key = props.idKey || 'i'
-  if (key !== 'i') {
-    ;(newItem as unknown as Record<string, unknown>)[key] = newItem.i
-  }
-
-  // 寻找合适的位置
-  const position = findAvailablePosition(newItem.w, newItem.h)
-  newItem.x = position.x
-  newItem.y = position.y
-
-  coreLayout.push(newItem)
-  emit('item-add', withIdKey([newItem])[0])
-  return newItem
-}
-
-const removeItem = (itemId: string) => {
-  const coreLayout = gridCoreRef.value?.internalLayout
-  if (!coreLayout) return null
-
-  const index = coreLayout.findIndex((item) => item.i === itemId)
-  if (index > -1) {
-    const removedItem = coreLayout.splice(index, 1)[0]
-    emit('item-delete', itemId)
-    return removedItem
-  }
-  return null
-}
-
-const updateItem = (itemId: string, updates: Partial<GridLayoutPlusItem>) => {
-  const coreLayout = gridCoreRef.value?.internalLayout
-  if (!coreLayout) return null
-
-  const item = coreLayout.find((i) => i.i === itemId)
-  if (item) {
-    Object.assign(item, updates)
-    emit('item-update', itemId, updates)
-    return item
-  }
-  return null
-}
-
-const clearLayout = () => {
-  const coreLayout = gridCoreRef.value?.internalLayout
-  if (coreLayout) {
-    coreLayout.splice(0)
-    emit('layout-change', withIdKey([]))
-    emit('update:layout', withIdKey([...coreLayout]))
-  }
-}
-
-const getItem = (itemId: string) => {
-  return gridCoreRef.value?.internalLayout?.find((item) => item.i === itemId) || null
-}
-
-const getAllItems = () => {
-  return gridCoreRef.value?.internalLayout ? [...gridCoreRef.value.internalLayout] : []
-}
-
-// 工具函数
-const generateId = (): string => {
-  return `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-}
-
-const findAvailablePosition = (w: number, h: number): { x: number; y: number } => {
-  const colNum = config.value.colNum
-  const layout = gridCoreRef.value?.internalLayout || []
-
-  // 简化的位置查找算法
-  for (let y = 0; y < 100; y++) {
-    for (let x = 0; x <= colNum - w; x++) {
-      const proposed = { x, y, w, h }
-
-      // 检查是否与现有项目冲突
-      const hasCollision = layout.some((item) => {
-        return !(
-          proposed.x + proposed.w <= item.x ||
-          proposed.x >= item.x + item.w ||
-          proposed.y + proposed.h <= item.y ||
-          proposed.y >= item.y + item.h
-        )
-      })
-
-      if (!hasCollision) {
-        return { x, y }
-      }
-    }
-  }
-
-  return { x: 0, y: 0 }
-}
-
-// 🔥 新增：网格优化方法
-const optimizeLayoutForGridSize = (targetCols?: number, sourceCols?: number) => {
-  const coreLayout = gridCoreRef.value?.internalLayout
-  if (!coreLayout) return
-
-  const targetColumns = targetCols || config.value.colNum
-  const sourceColumns = sourceCols || 12 // 默认从12列优化
-
-  // 优化每个网格项
-  coreLayout.forEach((item) => {
-    const optimized = optimizeItemForLargeGrid(item, targetColumns, sourceColumns)
-    Object.assign(item, optimized)
-  })
-
-  emit('layout-change', withIdKey([...coreLayout]))
-  emit('update:layout', withIdKey([...coreLayout]))
-}
-
 // 布局数据监听已移至 GridCore 组件处理
 
 // 暴露 API 方法给父组件
@@ -451,7 +253,7 @@ defineExpose({
   clearLayout,
   getItem,
   getAllItems,
-  getLayout: () => gridCoreRef.value?.internalLayout || [],
+  getLayout,
   // 🔥 新增：网格扩展相关API
   getGridInfo: () => ({
     colNum: config.value.colNum,

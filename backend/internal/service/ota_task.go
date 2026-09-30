@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"aetherlink-iot/backend/internal/authz"
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
-	"aetherlink-iot/backend/pkg/constant"
 	utils "aetherlink-iot/backend/pkg/utils"
 )
 
@@ -138,7 +138,7 @@ func (*OTA) GetOTAUpgradeTaskSupportBundle(taskID string, claims *utils.UserClai
 	rows, err := dal.GetOTAUpgradeTaskSupportBundleRows(
 		task.ID,
 		claims.TenantID,
-		claims.Authority == constant.SYS_ADMIN,
+		authz.IsSysAdmin(claims),
 		otaSupportBundleFailedSampleLimit,
 	)
 	if err != nil {

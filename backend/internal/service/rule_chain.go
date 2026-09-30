@@ -17,12 +17,13 @@ import (
 	"sync"
 	"time"
 
-	dal "aetherlink-iot/backend/internal/dal"
-	model "aetherlink-iot/backend/internal/model"
-	"aetherlink-iot/backend/pkg/constant"
-	"aetherlink-iot/backend/pkg/errcode"
 	"github.com/go-basic/uuid"
 	"github.com/go-playground/validator/v10"
+
+	"aetherlink-iot/backend/internal/authz"
+	dal "aetherlink-iot/backend/internal/dal"
+	model "aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/pkg/errcode"
 
 	"aetherlink-iot/backend/pkg/utils"
 
@@ -82,7 +83,7 @@ func normalizeRuleChainTenant(reqTenantID string, claims *utils.UserClaims) (str
 	if claims == nil {
 		return "", errcode.New(errcode.CodeNoPermission)
 	}
-	if claims.Authority == constant.SYS_ADMIN {
+	if authz.IsSysAdmin(claims) {
 		if tenantID := strings.TrimSpace(reqTenantID); tenantID != "" {
 			return tenantID, nil
 		}
@@ -269,7 +270,7 @@ func ruleChainListScopes(claims *utils.UserClaims) []string {
 	if claims == nil {
 		return nil
 	}
-	if claims.Authority == constant.TENANT_USER {
+	if authz.HasRole(claims, authz.TenantUser) {
 		if tenantID := strings.TrimSpace(claims.TenantID); tenantID != "" {
 			return []string{tenantID}
 		}

@@ -103,29 +103,25 @@ func (*UserApi) Login(c *gin.Context) {
 // 核心链路：从请求头提取 x-token，交给 service 执行会话失效或黑名单处理。
 // 审查重点：确认 token 为空、重复登出和多端会话策略的行为是否明确。
 func (*UserApi) Logout(c *gin.Context) {
-	token := c.GetHeader("x-token")
-	err := service.GroupApp.User.Logout(token)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandlePublicNoBody(c, func() (interface{}, error) {
+		return nil, service.GroupApp.User.Logout(c.GetHeader("x-token"))
+	})
 }
 
 // RefreshToken 刷新当前登录态。
 // 双模式：token 来源支持认证 cookie（优先）或 x-token 头（存量客户端兼容），见 middleware.selectJWTAuthToken。
 // 审查重点：确认 claims 来源可信，且刷新不会绕过封禁、租户停用或权限变更。
 func (*UserApi) RefreshToken(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	// 与鉴权中间件同源提取旧 token 并计算摘要，供 service 在新会话落库后吊销旧会话（F1 修复）。
-	previousTokenDigest := utils.TokenDigest(middleware.SelectJWTAuthToken(c))
-	loginRsp, err := service.GroupApp.User.RefreshToken(userClaims, previousTokenDigest)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	setAuthCookieForLoginResponse(c, loginRsp)
-	c.Set("data", loginRsp)
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		// 与鉴权中间件同源提取旧 token 并计算摘要，供 service 在新会话落库后吊销旧会话（F1 修复）。
+		previousTokenDigest := utils.TokenDigest(middleware.SelectJWTAuthToken(c))
+		loginRsp, err := service.GroupApp.User.RefreshToken(userClaims, previousTokenDigest)
+		if err != nil {
+			return nil, err
+		}
+		setAuthCookieForLoginResponse(c, loginRsp)
+		return loginRsp, nil
+	})
 }
 
 // setAuthCookieForLoginResponse 在登录/刷新成功响应上追加 HttpOnly 认证 cookie。
@@ -142,32 +138,18 @@ func setAuthCookieForLoginResponse(c *gin.Context, loginRsp *model.LoginRsp) {
 // 核心链路：读取邮箱与注册标记参数，由 service 处理验证码生成、发送和发送前校验。
 // 审查重点：确认是否有限流、防刷、账号枚举保护和邮件发送失败后的错误码约定。
 func (*UserApi) HandleVerificationCode(c *gin.Context) {
-	email := c.Query("email")
-	isRegister := c.Query("is_register")
-	language := c.Query("language")
-	err := service.GroupApp.User.GetVerificationCode(email, isRegister, language)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandlePublicNoBody(c, func() (interface{}, error) {
+		return nil, service.GroupApp.User.GetVerificationCode(c.Query("email"), c.Query("is_register"), c.Query("language"))
+	})
 }
 
 // ResetPassword 重置密码。
 // 核心链路：绑定重置参数后调用 service 执行验证码校验、密码更新和后续会话处理。
 // 审查重点：确认弱密码限制、验证码失效策略和重置后旧 token 失效是否覆盖。
 func (*UserApi) ResetPassword(c *gin.Context) {
-	var resetPasswordReq model.ResetPasswordReq
-	if !BindAndValidate(c, &resetPasswordReq) {
-		return
-	}
-
-	err := service.GroupApp.User.ResetPassword(c, &resetPasswordReq)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandlePublicAction(c, func(req *model.ResetPasswordReq) error {
+		return service.GroupApp.User.ResetPassword(c, req)
+	})
 }
 
 // RequestPasswordResetLink 校验邮箱验证码并发送一次性密码重置链接。
@@ -184,42 +166,18 @@ func (*UserApi) RequestPasswordResetLink(c *gin.Context) {
 // 审查重点：确认创建权限、默认角色、初始密码/邀请策略以及跨租户写入保护。
 // @Router   /api/v1/user [post]
 func (*UserApi) CreateUser(c *gin.Context) {
-	var createUserReq model.CreateUserReq
-
-	if !BindAndValidate(c, &createUserReq) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	err := service.GroupApp.User.CreateUser(&createUserReq, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", nil)
+	HandleAction(c, func(req *model.CreateUserReq, userClaims *utils.UserClaims) error {
+		return service.GroupApp.User.CreateUser(req, userClaims)
+	})
 }
 
 // HandleUserListByPage 分页获取用户列表。
 // 审查重点：确认列表查询受租户边界约束，且分页/筛选参数存在上限避免全量扫表。
 // @Router   /api/v1/user [get]
 func (*UserApi) HandleUserListByPage(c *gin.Context) {
-	var userListReq model.UserListReq
-
-	if !BindAndValidate(c, &userListReq) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	userList, err := service.GroupApp.User.GetUserListByPage(&userListReq, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", userList)
+	Handle(c, func(req *model.UserListReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.User.GetUserListByPage(req, userClaims)
+	})
 }
 
 // UpdateUser 更新指定用户信息。
@@ -227,21 +185,9 @@ func (*UserApi) HandleUserListByPage(c *gin.Context) {
 // 审查重点：确认角色、状态、组织归属等高权限字段不会被低权限调用者越权修改。
 // @Router   /api/v1/user [put]
 func (*UserApi) UpdateUser(c *gin.Context) {
-	var updateUserReq model.UpdateUserReq
-
-	if !BindAndValidate(c, &updateUserReq) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	err := service.GroupApp.User.UpdateUser(&updateUserReq, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", nil)
+	HandleAction(c, func(req *model.UpdateUserReq, userClaims *utils.UserClaims) error {
+		return service.GroupApp.User.UpdateUser(req, userClaims)
+	})
 }
 
 // DeleteUser 删除用户。
@@ -259,63 +205,47 @@ func (*UserApi) DeleteUser(c *gin.Context) {
 // 使用注意：这里的脱敏只删除 map 里的 password，静态审查时要继续确认其他敏感字段是否已在 service 层处理。
 // @Router   /api/v1/user/{id} [get]
 func (*UserApi) HandleUser(c *gin.Context) {
-	id := c.Param("id")
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		user, err := service.GroupApp.User.GetUser(id, userClaims)
+		if err != nil {
+			return nil, err
+		}
 
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	user, err := service.GroupApp.User.GetUser(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	// 清除显式暴露的密码字段，避免直接透出敏感信息。
-	if userMap, ok := user.(map[string]interface{}); ok {
-		delete(userMap, "password")
-	}
-
-	c.Set("data", user)
+		// 清除显式暴露的密码字段，避免直接透出敏感信息。
+		if userMap, ok := user.(map[string]interface{}); ok {
+			delete(userMap, "password")
+		}
+		return user, nil
+	})
 }
 
 // HandleUserDetail 获取当前登录用户详情。
 // 审查重点：确认返回字段不会泄露内部密钥、权限缓存或其他仅后台使用的敏感属性。
 // @Router   /api/v1/user/detail [get]
 func (*UserApi) HandleUserDetail(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		user, err := service.GroupApp.User.GetUserDetail(userClaims)
+		if err != nil {
+			return nil, err
+		}
 
-	user, err := service.GroupApp.User.GetUserDetail(userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	// 清除显式暴露的密码字段，避免直接透出敏感信息。
-	if userMap, ok := user.(map[string]interface{}); ok {
-		delete(userMap, "password")
-	}
-
-	c.Set("data", user)
+		// 清除显式暴露的密码字段，避免直接透出敏感信息。
+		if userMap, ok := user.(map[string]interface{}); ok {
+			delete(userMap, "password")
+		}
+		return user, nil
+	})
 }
 
 // UpdateUsers 更新当前用户个人资料。
 // 核心链路：绑定个人资料更新请求后，基于当前 claims 调用 service 写回用户自身信息。
-// 审查重点：当前实现遇错后未立即 return，需持续关注统一错误处理中间件与 c.Set("data", nil) 的组合是否可能产生歧义响应。
+// 审查重点：迁移前实现遇错后未立即 return（错误会压过 data 渲染），适配器的
+// respondAction 在出错时不写 data，最终信封与迁移前一致。
 // @Router   /api/v1/user/update [put]
 func (*UserApi) UpdateUsers(c *gin.Context) {
-	var updateUserInfoReq model.UpdateUserInfoReq
-
-	if !BindAndValidate(c, &updateUserInfoReq) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	err := service.GroupApp.User.UpdateUserInfo(c, &updateUserInfoReq, userClaims)
-	if err != nil {
-		c.Error(err)
-	}
-
-	c.Set("data", nil)
+	HandleAction(c, func(req *model.UpdateUserInfoReq, userClaims *utils.UserClaims) error {
+		return service.GroupApp.User.UpdateUserInfo(c, req, userClaims)
+	})
 }
 
 // ChangeEmail 修改当前账号邮箱，并保持原租户和设备归属关系。
@@ -359,21 +289,9 @@ func (*UserApi) UpdatePreferredLanguage(c *gin.Context) {
 // 核心链路：绑定转换请求并读取 claims，再由 service 返回转换后的登录态或目标身份信息。
 // 审查重点：确认身份切换不会突破租户边界，也不会保留旧身份的越权缓存。
 func (*UserApi) TransformUser(c *gin.Context) {
-	var transformUserReq model.TransformUserReq
-
-	if !BindAndValidate(c, &transformUserReq) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	loginRsp, err := service.GroupApp.User.TransformUser(&transformUserReq, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", loginRsp)
+	Handle(c, func(req *model.TransformUserReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.User.TransformUser(req, userClaims)
+	})
 }
 
 // EmailRegister 通过邮箱注册租户/用户。
@@ -389,26 +307,22 @@ func (*UserApi) EmailRegister(c *gin.Context) {
 // 审查重点：该接口通常用于安装引导，需确认不会暴露多余部署状态细节。
 // @description 检查是否存在超级管理员账号
 func (*UserApi) HasAdmin(c *gin.Context) {
-	exists, err := service.GroupApp.User.CheckSysAdminExists()
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", gin.H{"has_admin": exists})
+	HandlePublicNoBody(c, func() (interface{}, error) {
+		exists, err := service.GroupApp.User.CheckSysAdminExists()
+		if err != nil {
+			return nil, err
+		}
+		return gin.H{"has_admin": exists}, nil
+	})
 }
 
 // SetupState 获取首次安装状态，供登录页决定展示登录还是注册。
 // 审查重点：确认安装状态的判定来源单一，避免初始化中间态导致前后端分支不一致。
 // @description 获取首次安装状态，供登录页决定展示登录还是注册
 func (*UserApi) SetupState(c *gin.Context) {
-	state, err := service.GroupApp.User.GetTenantSetupState()
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", state)
+	HandlePublicNoBody(c, func() (interface{}, error) {
+		return service.GroupApp.User.GetTenantSetupState()
+	})
 }
 
 // InitSuperAdmin 首次安装时初始化超级管理员。
@@ -434,10 +348,9 @@ func (*UserApi) MarketRegister(c *gin.Context) {
 // 审查重点：确认 claims 中 tenant_id 的生成与刷新时机可靠，避免返回过期租户上下文。
 // @Router   /api/v1/user/tenant/id [get]
 func (*UserApi) GetTenantID(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	tenantID := userClaims.TenantID
-
-	c.Set("data", tenantID)
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		return userClaims.TenantID, nil
+	})
 }
 
 // UpdateUserAddress 更新用户地址信息。
@@ -454,22 +367,9 @@ func (*UserApi) GetTenantID(c *gin.Context) {
 // @Failure      400 {object} errcode.Error "错误响应"
 // @Router       /api/v1/user/address/{id} [put]
 func (*UserApi) UpdateUserAddress(c *gin.Context) {
-	id := c.Param("id")
-	var updateAddressReq model.UpdateUserAddressReq
-
-	if !BindAndValidate(c, &updateAddressReq) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	err := service.GroupApp.User.UpdateUserAddress(id, &updateAddressReq, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", nil)
+	HandlePathBodyAction(c, "id", func(id string, req *model.UpdateUserAddressReq, userClaims *utils.UserClaims) error {
+		return service.GroupApp.User.UpdateUserAddress(id, req, userClaims)
+	})
 }
 
 // GetUserSelector 返回用户选择器数据源。

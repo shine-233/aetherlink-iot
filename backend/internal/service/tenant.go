@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"aetherlink-iot/backend/internal/authz"
 	"aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/pkg/errcode"
@@ -25,13 +26,20 @@ import (
 
 type TenantService struct{}
 
+// tenantManageRule 租户写操作：只有 SYS_ADMIN 可直接改任意租户。
+var tenantManageRule = authz.Rule{Roles: []string{authz.SysAdmin}, Code: errcode.CodeNoPermission}
+
+// tenantReadRule 租户读操作：SYS_ADMIN 任意，其余角色按自上而下的租户作用域判定。
+// 越权一律 CodeNotFound —— 与改造前一致，不泄露租户是否存在。
+var tenantReadRule = authz.Rule{Scope: tenantVisibleScope, Code: errcode.CodeNotFound}
+
+// tenantCreateRule 租户创建：SYS_ADMIN 与 TENANT_ADMIN 均可（后者只能挂在自己作用域内）。
+var tenantCreateRule = authz.Rule{Roles: authz.ManagerRoles, Code: errcode.CodeNoPermission}
+
 // CreateTenant 创建新租户（受商业许可证 max_tenants 配额硬性约束）。
 func (s *TenantService) CreateTenant(_ context.Context, req *model.CreateTenantReq, claims *utils.UserClaims) (*model.Tenant, error) {
-	if claims == nil {
-		return nil, errcode.New(errcode.CodeNoPermission)
-	}
-	if claims.Authority != "SYS_ADMIN" && claims.Authority != "TENANT_ADMIN" {
-		return nil, errcode.New(errcode.CodeNoPermission)
+	if err := tenantCreateRule.RequireClaims(claims); err != nil {
+		return nil, err
 	}
 
 	// 1. 商业许可证配额前置检查
@@ -49,7 +57,7 @@ func (s *TenantService) CreateTenant(_ context.Context, req *model.CreateTenantR
 
 	parentID := strings.TrimSpace(req.ParentTenantID)
 	// TENANT_ADMIN 仅允许在自身租户下挂载子租户
-	if claims.Authority == "TENANT_ADMIN" {
+	if authz.HasRole(claims, authz.TenantAdmin) {
 		if parentID == "" {
 			parentID = claims.TenantID
 		} else if parentID != claims.TenantID {
@@ -93,12 +101,13 @@ func (s *TenantService) ListTenants(_ context.Context, page, pageSize int, searc
 	}
 
 	var allowedIDs []string
-	if claims.Authority == "SYS_ADMIN" {
+	switch {
+	case authz.IsSysAdmin(claims):
 		allowedIDs = nil // 平台管理员可见全部
-	} else if claims.Authority == "TENANT_ADMIN" {
+	case authz.HasRole(claims, authz.TenantAdmin):
 		// 租户管理员下钻可见：self ∪ 全部子孙租户
 		allowedIDs = tenantVisibleScope(claims.TenantID)
-	} else {
+	default:
 		return nil, 0, errcode.New(errcode.CodeNoPermission)
 	}
 
@@ -152,9 +161,9 @@ func (s *TenantService) GetTenant(_ context.Context, id string, claims *utils.Us
 		return nil, errcode.New(errcode.CodeNotFound)
 	}
 
-	// 权限守卫：非 SYS_ADMIN 仅允许查看自身或下级租户
-	if claims.Authority != "SYS_ADMIN" && !tenantScopeContains(claims.TenantID, t.ID) {
-		return nil, errcode.New(errcode.CodeNotFound)
+	// 权限守卫：非 SYS_ADMIN 仅允许查看自身或下级租户（越权按 not-found 屏蔽）
+	if err := tenantReadRule.Check(claims, authz.OfTenant(t.ID)); err != nil {
+		return nil, err
 	}
 
 	devCount, usrCount, _ := dal.GetTenantEntityCounts(t.ID)
@@ -171,8 +180,8 @@ func (s *TenantService) GetTenant(_ context.Context, id string, claims *utils.Us
 
 // UpdateTenant 更新租户基本信息（名称/上级租户，严格防环）。
 func (s *TenantService) UpdateTenant(_ context.Context, id string, req *model.UpdateTenantReq, claims *utils.UserClaims) (*model.Tenant, error) {
-	if claims == nil || claims.Authority != "SYS_ADMIN" {
-		return nil, errcode.New(errcode.CodeNoPermission)
+	if err := tenantManageRule.RequireClaims(claims); err != nil {
+		return nil, err
 	}
 
 	tenant, err := dal.GetTenantByID(id)

@@ -167,7 +167,7 @@
  * 展示模板的详细信息和效果预览
  */
 
-import { ref, computed, onMounted } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NIcon, NText, NSpace, NCard, NTag, NSwitch, NButton, useMessage } from 'naive-ui'
 import { FlashOutline, RefreshOutline, PlayOutline, DownloadOutline, CheckmarkOutline } from '@vicons/ionicons5'
@@ -178,17 +178,14 @@ import type {
   InteractionActionType,
   InteractionResponse
 } from './interactionPreviewTypes'
-
-interface InteractionTemplate {
-  id: string
-  name: string
-  description: string
-  category: string
-  icon: any
-  color: string
-  config: InteractionConfig[]
-  tags?: string[]
-}
+import {
+  formatInteractionResponseValue,
+  getInteractionActionDisplayName,
+  getInteractionEventDisplayName,
+  getInteractionEventTagType
+} from './interactionPreviewHelpers'
+import { useInteractionPreviewStage } from './useInteractionPreviewStage'
+import type { InteractionTemplate } from './interactionTemplateTypes'
 
 interface Props {
   template: InteractionTemplate
@@ -204,16 +201,17 @@ const emit = defineEmits<Emits>()
 const message = useMessage()
 const { t } = useI18n()
 
-// 响应式状态
-const previewElement = ref<HTMLElement>()
-const previewElementText = ref('')
-const previewRuntimeStyles = ref<Record<string, string>>({})
-
-// 初始化文本
-onMounted(() => {
-  previewElementText.value = t('interaction.template.previewTarget')
+// 预览舞台：与 InteractionPreview 共用同一套渲染 / 重置实现
+const {
+  previewElement,
+  content: previewElementText,
+  runtimeStyles: previewRuntimeStyles,
+  applyResponse,
+  resetStage
+} = useInteractionPreviewStage({
+  initialText: () => t('interaction.template.previewTarget'),
+  restoreOriginalStyles: true
 })
-const originalPreviewStyles = ref<any>({})
 
 // 计算属性
 const getTotalActionsCount = () => {
@@ -225,186 +223,42 @@ const getUniqueEventsCount = () => {
   return events.size
 }
 
-// 工具方法
+// 工具方法（与 InteractionPreview 共用 helpers，避免两份映射表）
 const getEventTagType = (event: InteractionEventType) => {
-  const typeMap = {
-    click: 'success',
-    hover: 'info',
-    focus: 'warning',
-    blur: 'default',
-    custom: 'error'
-  }
-  return typeMap[event] || 'default'
+  return getInteractionEventTagType(event)
 }
 
 const getEventDisplayName = (event: InteractionEventType) => {
-  const nameMap = {
-    click: t('interaction.events.click'),
-    hover: t('interaction.events.hover'),
-    focus: t('interaction.events.focus'),
-    blur: t('interaction.events.blur'),
-    custom: t('interaction.events.custom')
-  }
-  return nameMap[event] || event
+  return getInteractionEventDisplayName(event, t)
 }
 
 const getActionDisplayName = (action: InteractionActionType) => {
-  const nameMap = {
-    changeBackgroundColor: t('interaction.actions.changeBackgroundColor'),
-    changeTextColor: t('interaction.actions.changeTextColor'),
-    changeBorderColor: t('interaction.actions.changeBorderColor'),
-    changeSize: t('interaction.actions.changeSize'),
-    changeOpacity: t('interaction.actions.changeOpacity'),
-    changeTransform: t('interaction.actions.changeTransform'),
-    changeVisibility: t('interaction.actions.changeVisibility'),
-    changeContent: t('interaction.actions.changeContent'),
-    triggerAnimation: t('interaction.actions.triggerAnimation'),
-    custom: t('interaction.actions.custom')
-  }
-  return nameMap[action] || action
+  return getInteractionActionDisplayName(action, t)
 }
 
 const formatResponseValue = (response: InteractionResponse) => {
-  const { action, value } = response
-
-  switch (action) {
-    case 'changeBackgroundColor':
-    case 'changeTextColor':
-    case 'changeBorderColor':
-      return value
-    case 'changeSize':
-      if (typeof value === 'object' && value) {
-        return `${value.width || '?'}×${value.height || '?'}`
-      }
-      return String(value)
-    case 'changeOpacity':
-      return `${Math.round((value as number) * 100)}%`
-    case 'changeTransform':
-      return String(value)
-    case 'changeVisibility':
-      return value === 'visible' ? t('interaction.visibility.visible') : t('interaction.visibility.hidden')
-    case 'changeContent':
-      return String(value).substring(0, 20) + (String(value).length > 20 ? '...' : '')
-    case 'triggerAnimation':
-      return String(value)
-    case 'custom':
-      try {
-        return JSON.stringify(value).substring(0, 30) + '...'
-      } catch {
-        return String(value)
-      }
-    default:
-      return String(value)
-  }
+  return formatInteractionResponseValue(response, t)
 }
 
 // 预览相关方法
 const handlePreviewEvent = (eventType: InteractionEventType) => {
-  const matchingConfigs = props.template.config.filter((config) => config.event === eventType && config.enabled)
+  const matchingConfigs = props.template.config
+    .filter((config) => config.event === eventType && config.enabled)
+    .sort((a, b) => (b.priority || 0) - (a.priority || 0))
 
   if (matchingConfigs.length === 0) return
 
-  // 按优先级排序
-  matchingConfigs.sort((a, b) => (b.priority || 0) - (a.priority || 0))
-
   matchingConfigs.forEach((config) => {
     config.responses.forEach((response) => {
-      const delay = response.delay || 0
       setTimeout(() => {
-        executePreviewResponse(response)
-      }, delay)
+        applyResponse(response)
+      }, response.delay || 0)
     })
   })
 }
 
-const executePreviewResponse = (response: InteractionResponse) => {
-  if (!previewElement.value) return
-
-  const element = previewElement.value
-  const { action, value, duration = 300, easing = 'ease' } = response
-
-  // 设置过渡效果
-  element.style.transition = `all ${duration}ms ${easing}`
-
-  const setPreviewStyle = (property: string, styleValue: unknown) => {
-    const normalizedValue = String(styleValue)
-    const cssProperty = property.replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`)
-    element.style.setProperty(cssProperty, normalizedValue)
-    previewRuntimeStyles.value = {
-      ...previewRuntimeStyles.value,
-      [property]: normalizedValue
-    }
-  }
-
-  switch (action) {
-    case 'changeBackgroundColor':
-      setPreviewStyle('backgroundColor', value)
-      break
-    case 'changeTextColor':
-      setPreviewStyle('color', value)
-      break
-    case 'changeBorderColor':
-      setPreviewStyle('borderStyle', 'solid')
-      setPreviewStyle('borderTopStyle', 'solid')
-      setPreviewStyle('borderRightStyle', 'solid')
-      setPreviewStyle('borderBottomStyle', 'solid')
-      setPreviewStyle('borderLeftStyle', 'solid')
-      setPreviewStyle('borderColor', value)
-      setPreviewStyle('borderTopColor', value)
-      setPreviewStyle('borderRightColor', value)
-      setPreviewStyle('borderBottomColor', value)
-      setPreviewStyle('borderLeftColor', value)
-      break
-    case 'changeSize':
-      if (typeof value === 'object' && value) {
-        if (value.width) setPreviewStyle('width', `${value.width}px`)
-        if (value.height) setPreviewStyle('height', `${value.height}px`)
-      }
-      break
-    case 'changeOpacity':
-      setPreviewStyle('opacity', value)
-      break
-    case 'changeTransform':
-      setPreviewStyle('transform', value)
-      break
-    case 'changeVisibility':
-      setPreviewStyle('visibility', value)
-      break
-    case 'changeContent':
-      previewElementText.value = String(value)
-      break
-    case 'triggerAnimation':
-      // 移除之前的动画
-      element.style.animation = ''
-      // 强制重排
-      element.offsetHeight
-      // 应用新动画
-      setPreviewStyle('animation', `${value} ${duration}ms ${easing}`)
-      break
-    case 'custom':
-      // 自定义动作，尝试应用为样式对象
-      if (typeof value === 'object' && value) {
-        for (const [property, styleValue] of Object.entries(value)) {
-          setPreviewStyle(property, styleValue)
-        }
-      }
-      break
-  }
-}
-
 const resetPreviewElement = () => {
-  if (!previewElement.value) return
-
-  const element = previewElement.value
-
-  // 重置所有样式
-  element.style.cssText = ''
-  element.className = 'preview-element'
-  previewRuntimeStyles.value = {}
-  previewElementText.value = t('interaction.template.previewTarget')
-
-  // 恢复原始样式
-  Object.assign(element.style, originalPreviewStyles.value)
+  resetStage()
 }
 
 const runAllPreviewInteractions = () => {
@@ -462,24 +316,6 @@ const exportTemplate = () => {
     message.error(t('interaction.messages.exportFailed'))
   }
 }
-
-// 生命周期
-onMounted(() => {
-  if (previewElement.value) {
-    // 保存原始样式
-    const computedStyles = window.getComputedStyle(previewElement.value)
-    originalPreviewStyles.value = {
-      backgroundColor: computedStyles.backgroundColor,
-      color: computedStyles.color,
-      borderColor: computedStyles.borderColor,
-      opacity: computedStyles.opacity,
-      transform: computedStyles.transform,
-      visibility: computedStyles.visibility,
-      width: computedStyles.width,
-      height: computedStyles.height
-    }
-  }
-})
 </script>
 
 <style scoped>

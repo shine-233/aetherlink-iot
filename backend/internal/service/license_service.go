@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"aetherlink-iot/backend/internal/authz"
 	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/license"
@@ -93,8 +94,8 @@ func (LicenseService) currentDocument() (*license.Document, error) {
 
 // GetStatus 查询许可证状态。
 func (LicenseService) GetStatus(claims *utils.UserClaims) (*LicenseStatus, error) {
-	if claims == nil || claims.Authority != "SYS_ADMIN" {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "license status is platform-admin capability")
+	if err := authz.PlatformAdminRule("license status is platform-admin capability").RequireClaims(claims); err != nil {
+		return nil, err
 	}
 	verifier, err := licenseVerifier()
 	if err != nil {

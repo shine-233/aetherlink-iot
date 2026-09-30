@@ -432,7 +432,9 @@ func TestTenantAlertEmailFailureCallSitesUseControlledHistory(t *testing.T) {
 		t,
 		"rdi.go",
 		"func (*RDI) NotifyAlarmEvent(",
-		"func (*RDI) HandlePhysicalUnbindEvent(",
+		// 9-28 域拆分：HandlePhysicalUnbindEvent 迁至 rdi_physical_unbind.go，
+		// rdi.go 中 NotifyAlarmEvent 的下一个函数是 getRDIDeviceForRead。
+		"func getRDIDeviceForRead(",
 	)
 	requireEmailAuditSourceTokens(
 		t,

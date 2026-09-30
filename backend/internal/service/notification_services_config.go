@@ -19,9 +19,9 @@ import (
 	"strings"
 	"time"
 
+	"aetherlink-iot/backend/internal/authz"
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
-	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 	utils "aetherlink-iot/backend/pkg/utils"
 	"aetherlink-iot/backend/third_party/others/http_client"
@@ -62,10 +62,7 @@ const (
 
 // requireNotificationServicesAdmin 仅允许系统管理员维护通知服务配置。
 func requireNotificationServicesAdmin(claims *utils.UserClaims) error {
-	if claims == nil || claims.Authority != constant.SYS_ADMIN {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to manage notification service config")
-	}
-	return nil
+	return authz.PlatformAdminRule("no permission to manage notification service config").RequireClaims(claims)
 }
 
 func resolveEmailProviderConfig(config *model.NotificationServicesConfig) (model.EmailConfig, error) {

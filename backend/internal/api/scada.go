@@ -61,12 +61,7 @@ type (
 )
 
 // resolveScadaTenant 由 claims 推导操作租户。
-func resolveScadaTenant(c *gin.Context, requested string) (string, error) {
-	raw := c.MustGet("claims")
-	claims, ok := raw.(*utils.UserClaims)
-	if !ok || claims == nil {
-		return "", errcode.NewWithMessage(errcode.CodeNoPermission, "missing user claims")
-	}
+func resolveScadaTenant(claims *utils.UserClaims, requested string) (string, error) {
 	requested = strings.TrimSpace(requested)
 
 	if claims.Authority == constant.SYS_ADMIN {
@@ -89,11 +84,7 @@ func resolveScadaTenant(c *gin.Context, requested string) (string, error) {
 	return claims.TenantID, nil
 }
 
-func scadaActor(c *gin.Context) (service.ControlActor, error) {
-	claims, ok := c.MustGet("claims").(*utils.UserClaims)
-	if !ok || claims == nil {
-		return service.ControlActor{}, errcode.NewWithMessage(errcode.CodeNoPermission, "missing user claims")
-	}
+func scadaActor(claims *utils.UserClaims) (service.ControlActor, error) {
 	return service.ControlActor{
 		UserID:    claims.ID,
 		TenantID:  claims.TenantID,
@@ -117,68 +108,49 @@ func stringPtrOrNil(s string) *string {
 // ---------------------------------------------------------------------------
 
 func (*ScadaApi) CreateScadaProject(c *gin.Context) {
-	var req CreateScadaProjectReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	tenantID, err := resolveScadaTenant(c, req.TenantID)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	actor, _ := scadaActor(c)
-	data, err := service.GroupApp.ScadaDocument.CreateProject(c, service.ScadaProjectCreate{
-		TenantID:    tenantID,
-		Name:        req.Name,
-		Description: req.Description,
-		CreatedBy:   stringPtrOrNil(actor.UserID),
+	Handle(c, func(req *CreateScadaProjectReq, claims *utils.UserClaims) (interface{}, error) {
+		tenantID, err := resolveScadaTenant(claims, req.TenantID)
+		if err != nil {
+			return nil, err
+		}
+		actor, _ := scadaActor(claims)
+		return service.GroupApp.ScadaDocument.CreateProject(c, service.ScadaProjectCreate{
+			TenantID:    tenantID,
+			Name:        req.Name,
+			Description: req.Description,
+			CreatedBy:   stringPtrOrNil(actor.UserID),
+		})
 	})
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
 }
 
 func (*ScadaApi) ListScadaProjects(c *gin.Context) {
-	tenantID, err := resolveScadaTenant(c, c.Query("tenant_id"))
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	data, err := service.GroupApp.ScadaDocument.ListProjects(c, tenantID, 0)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandleNoBody(c, func(claims *utils.UserClaims) (interface{}, error) {
+		tenantID, err := resolveScadaTenant(claims, c.Query("tenant_id"))
+		if err != nil {
+			return nil, err
+		}
+		return service.GroupApp.ScadaDocument.ListProjects(c, tenantID, 0)
+	})
 }
 
 func (*ScadaApi) GetScadaProject(c *gin.Context) {
-	tenantID, err := resolveScadaTenant(c, c.Query("tenant_id"))
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	data, err := service.GroupApp.ScadaDocument.GetProject(c, c.Param("id"), tenantID)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandlePath(c, "id", func(id string, claims *utils.UserClaims) (interface{}, error) {
+		tenantID, err := resolveScadaTenant(claims, c.Query("tenant_id"))
+		if err != nil {
+			return nil, err
+		}
+		return service.GroupApp.ScadaDocument.GetProject(c, id, tenantID)
+	})
 }
 
 func (*ScadaApi) DeleteScadaProject(c *gin.Context) {
-	tenantID, err := resolveScadaTenant(c, c.Query("tenant_id"))
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	if err := service.GroupApp.ScadaDocument.DeleteProject(c, c.Param("id"), tenantID); err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandlePathAction(c, "id", func(id string, claims *utils.UserClaims) error {
+		tenantID, err := resolveScadaTenant(claims, c.Query("tenant_id"))
+		if err != nil {
+			return err
+		}
+		return service.GroupApp.ScadaDocument.DeleteProject(c, id, tenantID)
+	})
 }
 
 // ---------------------------------------------------------------------------
@@ -186,140 +158,96 @@ func (*ScadaApi) DeleteScadaProject(c *gin.Context) {
 // ---------------------------------------------------------------------------
 
 func (*ScadaApi) CreateScadaDocument(c *gin.Context) {
-	var req CreateScadaDocumentReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	tenantID, err := resolveScadaTenant(c, c.Query("tenant_id"))
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	actor, _ := scadaActor(c)
-	data, err := service.GroupApp.ScadaDocument.CreateDocument(c, service.ScadaDocumentCreate{
-		TenantID:  tenantID,
-		ProjectID: c.Param("id"),
-		Name:      req.Name,
-		Canvas:    req.JSONData,
-		CreatedBy: stringPtrOrNil(actor.UserID),
+	HandlePathBody(c, "id", func(projectID string, req *CreateScadaDocumentReq, claims *utils.UserClaims) (interface{}, error) {
+		tenantID, err := resolveScadaTenant(claims, c.Query("tenant_id"))
+		if err != nil {
+			return nil, err
+		}
+		actor, _ := scadaActor(claims)
+		return service.GroupApp.ScadaDocument.CreateDocument(c, service.ScadaDocumentCreate{
+			TenantID:  tenantID,
+			ProjectID: projectID,
+			Name:      req.Name,
+			Canvas:    req.JSONData,
+			CreatedBy: stringPtrOrNil(actor.UserID),
+		})
 	})
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
 }
 
 func (*ScadaApi) ListScadaDocuments(c *gin.Context) {
-	tenantID, err := resolveScadaTenant(c, c.Query("tenant_id"))
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	docs, err := service.GroupApp.ScadaDocument.ListDocuments(c, c.Param("id"), tenantID, 0)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", docs)
+	HandlePath(c, "id", func(id string, claims *utils.UserClaims) (interface{}, error) {
+		tenantID, err := resolveScadaTenant(claims, c.Query("tenant_id"))
+		if err != nil {
+			return nil, err
+		}
+		return service.GroupApp.ScadaDocument.ListDocuments(c, id, tenantID, 0)
+	})
 }
 
 func (*ScadaApi) GetScadaDocument(c *gin.Context) {
-	tenantID, err := resolveScadaTenant(c, c.Query("tenant_id"))
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	data, err := service.GroupApp.ScadaDocument.LoadDocument(c, c.Param("id"), tenantID)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandlePath(c, "id", func(id string, claims *utils.UserClaims) (interface{}, error) {
+		tenantID, err := resolveScadaTenant(claims, c.Query("tenant_id"))
+		if err != nil {
+			return nil, err
+		}
+		return service.GroupApp.ScadaDocument.LoadDocument(c, id, tenantID)
+	})
 }
 
 func (*ScadaApi) SaveScadaDocument(c *gin.Context) {
-	var req SaveScadaDocumentReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	tenantID, err := resolveScadaTenant(c, c.Query("tenant_id"))
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	actor, _ := scadaActor(c)
-	data, err := service.GroupApp.ScadaDocument.SaveDocument(
-		c, c.Param("id"), tenantID, req.ExpectedVersion, req.JSONData, stringPtrOrNil(actor.UserID))
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandlePathBody(c, "id", func(id string, req *SaveScadaDocumentReq, claims *utils.UserClaims) (interface{}, error) {
+		tenantID, err := resolveScadaTenant(claims, c.Query("tenant_id"))
+		if err != nil {
+			return nil, err
+		}
+		actor, _ := scadaActor(claims)
+		return service.GroupApp.ScadaDocument.SaveDocument(
+			c, id, tenantID, req.ExpectedVersion, req.JSONData, stringPtrOrNil(actor.UserID))
+	})
 }
 
 func (*ScadaApi) PublishScadaDocument(c *gin.Context) {
-	tenantID, err := resolveScadaTenant(c, c.Query("tenant_id"))
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	actor, _ := scadaActor(c)
-	data, err := service.GroupApp.ScadaDocument.PublishDocument(c, c.Param("id"), tenantID, stringPtrOrNil(actor.UserID))
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandlePath(c, "id", func(id string, claims *utils.UserClaims) (interface{}, error) {
+		tenantID, err := resolveScadaTenant(claims, c.Query("tenant_id"))
+		if err != nil {
+			return nil, err
+		}
+		actor, _ := scadaActor(claims)
+		return service.GroupApp.ScadaDocument.PublishDocument(c, id, tenantID, stringPtrOrNil(actor.UserID))
+	})
 }
 
 func (*ScadaApi) RollbackScadaDocument(c *gin.Context) {
-	var req RollbackScadaDocumentReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	tenantID, err := resolveScadaTenant(c, c.Query("tenant_id"))
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	actor, _ := scadaActor(c)
-	data, err := service.GroupApp.ScadaDocument.RollbackDocument(
-		c, c.Param("id"), tenantID, req.Version, stringPtrOrNil(actor.UserID))
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandlePathBody(c, "id", func(id string, req *RollbackScadaDocumentReq, claims *utils.UserClaims) (interface{}, error) {
+		tenantID, err := resolveScadaTenant(claims, c.Query("tenant_id"))
+		if err != nil {
+			return nil, err
+		}
+		actor, _ := scadaActor(claims)
+		return service.GroupApp.ScadaDocument.RollbackDocument(
+			c, id, tenantID, req.Version, stringPtrOrNil(actor.UserID))
+	})
 }
 
 func (*ScadaApi) ArchiveScadaDocument(c *gin.Context) {
-	tenantID, err := resolveScadaTenant(c, c.Query("tenant_id"))
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	actor, _ := scadaActor(c)
-	data, err := service.GroupApp.ScadaDocument.ArchiveDocument(c, c.Param("id"), tenantID, stringPtrOrNil(actor.UserID))
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandlePath(c, "id", func(id string, claims *utils.UserClaims) (interface{}, error) {
+		tenantID, err := resolveScadaTenant(claims, c.Query("tenant_id"))
+		if err != nil {
+			return nil, err
+		}
+		actor, _ := scadaActor(claims)
+		return service.GroupApp.ScadaDocument.ArchiveDocument(c, id, tenantID, stringPtrOrNil(actor.UserID))
+	})
 }
 
 func (*ScadaApi) ListScadaDocumentVersions(c *gin.Context) {
-	tenantID, err := resolveScadaTenant(c, c.Query("tenant_id"))
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	data, err := service.GroupApp.ScadaDocument.ListDocumentVersions(c, c.Param("id"), tenantID, 0)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandlePath(c, "id", func(id string, claims *utils.UserClaims) (interface{}, error) {
+		tenantID, err := resolveScadaTenant(claims, c.Query("tenant_id"))
+		if err != nil {
+			return nil, err
+		}
+		return service.GroupApp.ScadaDocument.ListDocumentVersions(c, id, tenantID, 0)
+	})
 }
 
 // ---------------------------------------------------------------------------

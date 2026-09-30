@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"aetherlink-iot/backend/internal/authz"
 	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/internal/pluginruntime"
@@ -27,10 +28,7 @@ import (
 type ServicePlugin struct{}
 
 func requireServicePluginAdmin(claims *utils.UserClaims) error {
-	if claims == nil || claims.Authority != constant.SYS_ADMIN {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to manage service plugins")
-	}
-	return nil
+	return authz.PlatformAdminRule("no permission to manage service plugins").RequireClaims(claims)
 }
 
 func requireServicePluginViewer(claims *utils.UserClaims) error {

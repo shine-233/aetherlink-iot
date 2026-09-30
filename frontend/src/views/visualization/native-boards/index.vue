@@ -1,15 +1,22 @@
+<!--
+  文件用途：原生看板（native boards）列表页。
+  核心逻辑：分页卡片列表（名称搜索 + SYS_ADMIN 租户过滤），支持发布/复制分享链接/编辑/删除；
+  列表状态（分页、加载、过期请求丢弃、失败态）收口在 useListPage，
+  创建弹窗拆到 modules/native-board-create-modal.vue（创建契约与租户必填校验在弹窗内）。
+  关键注意事项：
+  1. SYS_ADMIN 的列表租户过滤同时是创建租户上下文（写入 native-tenant-context）；
+  2. 列表失败态 fail-closed：请求异常时保留空列表并展示加载失败文案；
+  3. useListPage 的请求序号取代旧的 requestSequence 快照门：仅当出现更新的请求时旧响应被丢弃。
+-->
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import {
   NButton,
   NCard,
   NEmpty,
-  NForm,
-  NFormItem,
   NGrid,
   NGridItem,
   NInput,
-  NModal,
   NPagination,
   NPopconfirm,
   NSelect,
@@ -30,17 +37,11 @@ import {
 import { NATIVE_BOARD_PROJECT_ID } from '@/service/visualization-provider/provider-ids'
 import { useAuthStore } from '@/store/modules/auth'
 import { buildThingsVisDashboardClipboardLink } from '../thingsvis-dashboards/thingsVisDashboardSharing'
+import { useListPage } from '@/components/data-table-page/useListPage'
+import NativeBoardCreateModal from './modules/native-board-create-modal.vue'
 
 const PAGE_SIZE = 12
-const NATIVE_BOARD_CONFIG = { version: 1, columns: 24, rowHeight: 60, widgets: [] }
 const ADMIN_ROLES = new Set(['SYS_ADMIN', 'TENANT_ADMIN'])
-
-interface QuerySnapshot {
-  page: number
-  pageSize: number
-  name: string
-  tenantId: string
-}
 
 interface TenantOption {
   label: string
@@ -52,23 +53,15 @@ const rememberedTenantId = readNativeBoardTenantContext(authStore.userInfo)
 const { routerPushByKey } = useRouterPush()
 const message = useMessage()
 const providerFacade = getDefaultVisualizationProviderFacade()
-const boards = ref<VisualizationDashboardSummary[]>([])
-const total = ref(0)
-const loading = ref(false)
-const failed = ref(false)
-const page = ref(1)
+
 const searchInput = ref('')
-const nameFilter = ref('')
+const failed = ref(false)
 const selectedTenantId = ref<string | null>(rememberedTenantId || null)
-const createTenantId = ref<string | null>(rememberedTenantId || null)
 const tenantOptions = ref<TenantOption[]>([])
 const loadingTenants = ref(false)
 const showCreateModal = ref(false)
-const creating = ref(false)
 const deletingBoardId = ref<string | null>(null)
 const publishingBoardId = ref<string | null>(null)
-const createForm = reactive({ name: '', description: '' })
-let requestSequence = 0
 
 function hasRole(role: string) {
   if (authStore.userInfo.authority === role) return true
@@ -89,103 +82,58 @@ const canCreate = computed(() => {
   return [...roles].some((role) => ADMIN_ROLES.has(role))
 })
 
-function currentQuery(): QuerySnapshot {
-  return {
-    page: page.value,
-    pageSize: PAGE_SIZE,
-    name: nameFilter.value,
-    tenantId: selectedTenantId.value?.trim() || ''
-  }
+type QueryFormModel = {
+  name: string
+  tenantId: string
 }
 
-function isCurrentRequest(sequence: number, snapshot: QuerySnapshot) {
-  const current = currentQuery()
-  return (
-    sequence === requestSequence &&
-    snapshot.page === current.page &&
-    snapshot.pageSize === current.pageSize &&
-    snapshot.name === current.name &&
-    snapshot.tenantId === current.tenantId
-  )
-}
-
-async function loadTenantOptions() {
-  if (!isSysAdmin.value) return
-  loadingTenants.value = true
-  try {
-    const response = await fetchUserList({ page: 1, page_size: 1000 })
-    const rows = response?.data?.list ?? []
-    const seen = new Set<string>()
-    tenantOptions.value = rows.flatMap((row) => {
-      const tenantId = String(row.tenant_id ?? '').trim()
-      if (!tenantId || seen.has(tenantId) || (row.authority && row.authority !== 'TENANT_ADMIN')) return []
-      seen.add(tenantId)
-      const name = String(row.name ?? row.email ?? tenantId).trim()
-      return [{ label: `${name} (${tenantId})`, value: tenantId }]
-    })
-    const remembered = readNativeBoardTenantContext(authStore.userInfo)
-    if (remembered && seen.has(remembered)) {
-      selectedTenantId.value = remembered
-      createTenantId.value = remembered
-    } else if (remembered) {
-      writeNativeBoardTenantContext(authStore.userInfo, null)
-      selectedTenantId.value = null
-      createTenantId.value = null
-    }
-    if (createTenantId.value && !seen.has(createTenantId.value)) createTenantId.value = null
-    if (!createTenantId.value && tenantOptions.value.length === 1) createTenantId.value = tenantOptions.value[0].value
-  } catch {
-    tenantOptions.value = []
-    message.error($t('custom.nativeBoards.loadFailed'))
-  } finally {
-    loadingTenants.value = false
-  }
-}
-
-async function loadBoards() {
-  const snapshot = currentQuery()
-  const sequence = ++requestSequence
-  boards.value = []
-  total.value = 0
-  failed.value = false
-  loading.value = true
-
-  try {
-    const result = await providerFacade.execute((provider) =>
-      provider.listDashboards({
-        projectId: NATIVE_BOARD_PROJECT_ID,
-        page: snapshot.page,
-        limit: snapshot.pageSize,
-        ...(snapshot.name ? { name: snapshot.name } : {}),
-        ...(snapshot.tenantId ? { tenantId: snapshot.tenantId } : {})
-      })
-    )
-    if (!isCurrentRequest(sequence, snapshot)) return
-    if (!result.ok) {
+// 列表查询主入口：分页、加载态与过期请求丢弃交给 useListPage。
+const {
+  query: listFilter,
+  rows: boards,
+  total,
+  loading,
+  page,
+  load: loadBoards,
+  search: runSearch,
+  setPage,
+  patchQuery
+} = useListPage<VisualizationDashboardSummary, QueryFormModel>({
+  initialQuery: () => ({ name: '', tenantId: selectedTenantId.value?.trim() || '' }),
+  initialPageSize: PAGE_SIZE,
+  fetcher: async (params) => {
+    failed.value = false
+    try {
+      const result = await providerFacade.execute((provider) =>
+        provider.listDashboards({
+          projectId: NATIVE_BOARD_PROJECT_ID,
+          page: params.page,
+          limit: params.page_size,
+          ...(params.name ? { name: params.name } : {}),
+          ...(params.tenantId ? { tenantId: params.tenantId } : {})
+        })
+      )
+      if (!result.ok) {
+        failed.value = true
+        message.error($t('custom.nativeBoards.loadFailed'))
+        return null
+      }
+      return { list: result.data.items, total: result.data.total }
+    } catch {
       failed.value = true
       message.error($t('custom.nativeBoards.loadFailed'))
-      return
+      return null
     }
-    boards.value = result.data.items
-    total.value = result.data.total
-  } catch {
-    if (!isCurrentRequest(sequence, snapshot)) return
-    failed.value = true
-    message.error($t('custom.nativeBoards.loadFailed'))
-  } finally {
-    if (isCurrentRequest(sequence, snapshot)) loading.value = false
   }
-}
+})
 
 function handleSearch() {
-  nameFilter.value = searchInput.value.trim()
-  page.value = 1
-  void loadBoards()
+  listFilter.name = searchInput.value.trim()
+  void runSearch()
 }
 
 function handlePageChange(nextPage: number) {
-  page.value = nextPage
-  void loadBoards()
+  void setPage(nextPage)
 }
 
 function handleTenantChange() {
@@ -193,11 +141,11 @@ function handleTenantChange() {
     // The list filter is the active tenant context for SYS_ADMIN. Reuse it
     // when opening the create flow so the POST cannot lose tenant_id between
     // the list page and the modal.
-    createTenantId.value = selectedTenantId.value?.trim() || null
     writeNativeBoardTenantContext(authStore.userInfo, selectedTenantId.value)
+    patchQuery({ tenantId: selectedTenantId.value?.trim() || '' })
+    return
   }
-  page.value = 1
-  void loadBoards()
+  void runSearch()
 }
 
 function openBoard(id: string) {
@@ -209,60 +157,25 @@ function editBoard(id: string) {
   routerPushByKey('visualization_native-board-editor', { query: { id } })
 }
 
+// 打开创建弹窗：把当前列表租户过滤作为创建租户 prefill 注入。
+const createModalPrefill = ref<string | null>(null)
+
 function openCreateModal() {
   if (!canCreate.value) return
-  createForm.name = ''
-  createForm.description = ''
   if (isSysAdmin.value) {
     if (selectedTenantId.value?.trim()) {
-      createTenantId.value = selectedTenantId.value.trim()
-    } else if (!createTenantId.value && tenantOptions.value.length === 1) {
-      createTenantId.value = tenantOptions.value[0].value
+      createModalPrefill.value = selectedTenantId.value.trim()
+    } else if (tenantOptions.value.length === 1) {
+      createModalPrefill.value = tenantOptions.value[0].value
+    } else {
+      createModalPrefill.value = null
     }
   }
   showCreateModal.value = true
 }
 
-async function handleCreate() {
-  if (!canCreate.value || creating.value) return
-  const name = createForm.name.trim()
-  if (!name || name.length > 255) {
-    message.error($t('custom.nativeBoards.nameInvalid'))
-    return
-  }
-  if (createForm.description.length > 500) {
-    message.error($t('custom.nativeBoards.descriptionInvalid'))
-    return
-  }
-  const tenantId = createTenantId.value?.trim() || ''
-  if (isSysAdmin.value && !tenantId) {
-    message.error('Select a tenant before creating a native board')
-    return
-  }
-
-  creating.value = true
-  try {
-    const result = await providerFacade.execute((provider) =>
-      provider.createDashboard({
-        name,
-        description: createForm.description,
-        projectId: NATIVE_BOARD_PROJECT_ID,
-        rendererData: NATIVE_BOARD_CONFIG,
-        ...(tenantId ? { tenantId } : {})
-      })
-    )
-    if (!result.ok || !result.data.id.trim()) {
-      message.error($t('custom.nativeBoards.createFailed'))
-      return
-    }
-    message.success($t('custom.nativeBoards.createSuccess'))
-    showCreateModal.value = false
-    routerPushByKey('visualization_native-board', { query: { id: result.data.id } })
-  } catch {
-    message.error($t('custom.nativeBoards.createFailed'))
-  } finally {
-    creating.value = false
-  }
+function handleCreated(boardId: string) {
+  routerPushByKey('visualization_native-board', { query: { id: boardId } })
 }
 
 async function handleDelete(id: string) {
@@ -277,8 +190,12 @@ async function handleDelete(id: string) {
     }
 
     message.success($t('common.deleteSuccess'))
-    if (boards.value.length === 1 && page.value > 1) page.value -= 1
-    await loadBoards()
+    // 删掉当前页最后一条时回退一页（与旧实现一致）；useListPage 的空页回退仅兜底非预判场景。
+    if (boards.value.length === 1 && page.value > 1) {
+      void setPage(page.value - 1)
+    } else {
+      await loadBoards()
+    }
   } catch {
     message.error($t('common.deleteFailed'))
   } finally {
@@ -318,12 +235,43 @@ async function handleCopyLink(board: VisualizationDashboardSummary) {
   }
 }
 
+async function loadTenantOptions() {
+  if (!isSysAdmin.value) return
+  loadingTenants.value = true
+  try {
+    const response = await fetchUserList({ page: 1, page_size: 1000 })
+    const rows = response?.data?.list ?? []
+    const seen = new Set<string>()
+    tenantOptions.value = rows.flatMap((row) => {
+      const tenantId = String(row.tenant_id ?? '').trim()
+      if (!tenantId || seen.has(tenantId) || (row.authority && row.authority !== 'TENANT_ADMIN')) return []
+      seen.add(tenantId)
+      const name = String(row.name ?? row.email ?? tenantId).trim()
+      return [{ label: `${name} (${tenantId})`, value: tenantId }]
+    })
+    const remembered = readNativeBoardTenantContext(authStore.userInfo)
+    if (remembered && seen.has(remembered)) {
+      selectedTenantId.value = remembered
+    } else if (remembered) {
+      writeNativeBoardTenantContext(authStore.userInfo, null)
+      selectedTenantId.value = null
+      listFilter.tenantId = ''
+    }
+    if (!selectedTenantId.value && tenantOptions.value.length === 1) {
+      selectedTenantId.value = tenantOptions.value[0].value
+      listFilter.tenantId = tenantOptions.value[0].value
+    }
+  } catch {
+    tenantOptions.value = []
+    message.error($t('custom.nativeBoards.loadFailed'))
+  } finally {
+    loadingTenants.value = false
+  }
+}
+
 onMounted(() => {
   void loadTenantOptions()
   void loadBoards()
-})
-onBeforeUnmount(() => {
-  requestSequence += 1
 })
 </script>
 
@@ -448,54 +396,13 @@ onBeforeUnmount(() => {
       </div>
     </NCard>
 
-    <NModal
+    <NativeBoardCreateModal
       v-model:show="showCreateModal"
-      preset="card"
-      :title="$t('custom.nativeBoards.createTitle')"
-      class="w-500px"
-      data-testid="native-board-create-modal"
-    >
-      <NForm :model="createForm">
-        <NFormItem v-if="isSysAdmin" label="Tenant" path="tenantId">
-          <NSelect
-            v-model:value="createTenantId"
-            :options="tenantOptions"
-            :loading="loadingTenants"
-            filterable
-            placeholder="Select tenant"
-            data-testid="native-board-tenant-select"
-          />
-        </NFormItem>
-        <NFormItem :label="$t('custom.nativeBoards.name')" path="name">
-          <NInput
-            v-model:value="createForm.name"
-            :maxlength="255"
-            show-count
-            :placeholder="$t('custom.nativeBoards.namePlaceholder')"
-            data-testid="native-board-name"
-          />
-        </NFormItem>
-        <NFormItem :label="$t('custom.nativeBoards.description')" path="description">
-          <NInput
-            v-model:value="createForm.description"
-            type="textarea"
-            :maxlength="500"
-            show-count
-            :placeholder="$t('custom.nativeBoards.descriptionPlaceholder')"
-            data-testid="native-board-description"
-          />
-        </NFormItem>
-      </NForm>
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <NButton :disabled="creating" @click="showCreateModal = false">
-            {{ $t('custom.nativeBoards.cancel') }}
-          </NButton>
-          <NButton type="primary" :loading="creating" data-testid="native-board-submit" @click="handleCreate">
-            {{ $t('custom.nativeBoards.submit') }}
-          </NButton>
-        </div>
-      </template>
-    </NModal>
+      :is-sys-admin="isSysAdmin"
+      :tenant-options="tenantOptions"
+      :loading-tenants="loadingTenants"
+      :prefill-tenant-id="createModalPrefill"
+      @created="handleCreated"
+    />
   </div>
 </template>

@@ -24,11 +24,11 @@ import (
 	"gorm.io/gorm"
 
 	"aetherlink-iot/backend/initialize"
+	"aetherlink-iot/backend/internal/authz"
 	dal "aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/logic"
 	model "aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/internal/query"
-	"aetherlink-iot/backend/pkg/constant"
 	global "aetherlink-iot/backend/pkg/global"
 	utils "aetherlink-iot/backend/pkg/utils"
 
@@ -352,7 +352,7 @@ func (*User) TransformUser(transformUserReq *model.TransformUserReq, claims *uti
 	}
 
 	// 权限检查
-	if claims == nil || (claims.Authority != constant.SYS_ADMIN && claims.Authority != constant.TENANT_ADMIN) {
+	if err := (authz.Rule{Roles: authz.ManagerRoles}).RequireClaims(claims); err != nil {
 		return nil, errcode.WithVars(errcode.CodeNoPermission, map[string]interface{}{
 			"required_authority": "SYS_ADMIN or TENANT_ADMIN",
 			"current_authority":  userClaimsAuthority(claims),

@@ -658,7 +658,7 @@ func TestDeviceDeleteDevicePreservesAlarmHistoryDeviceReference(t *testing.T) {
 		t.Fatalf("create alarm histories: %v", err)
 	}
 
-	err := (&Device{}).DeleteDevice(deviceID, &utils.UserClaims{TenantID: tenantID})
+	err := (&Device{}).DeleteDevice(deviceID, &utils.UserClaims{TenantID: tenantID, Authority: constant.TENANT_ADMIN})
 
 	assert.NoError(t, err)
 	assertDeviceServiceRowCount(t, db, &model.Device{}, "id = ?", deviceID, 0)
@@ -721,7 +721,7 @@ func TestDeviceDeleteDeviceNotifiesProtocolPluginWithPreDeleteSnapshot(t *testin
 	}
 	createDeviceServiceDevice(t, db, deviceID, "delete-plugin-number", tenantID, configID, now)
 
-	err := (&Device{}).DeleteDevice(deviceID, &utils.UserClaims{TenantID: tenantID})
+	err := (&Device{}).DeleteDevice(deviceID, &utils.UserClaims{TenantID: tenantID, Authority: constant.TENANT_ADMIN})
 
 	assert.NoError(t, err)
 	assertDeviceServiceRowCount(t, db, &model.Device{}, "id = ?", deviceID, 0)
@@ -752,7 +752,7 @@ func TestDeviceCreateSonDeviceBindsChildrenTransactionally(t *testing.T) {
 	err := (&Device{}).CreateSonDevice(context.Background(), &model.CreateSonDeviceRes{
 		ID:    "parent-gateway",
 		SonID: "child-1, child-2, child-1",
-	}, &utils.UserClaims{TenantID: tenantID})
+	}, &utils.UserClaims{TenantID: tenantID, Authority: constant.TENANT_ADMIN})
 
 	assert.NoError(t, err)
 	assertDeviceChildBinding(t, db, "child-1", "parent-gateway", "child-1")
@@ -795,7 +795,7 @@ func TestDeviceCreateSonDeviceRollsBackWhenChildAlreadyBound(t *testing.T) {
 	err := (&Device{}).CreateSonDevice(context.Background(), &model.CreateSonDeviceRes{
 		ID:    "parent-gateway",
 		SonID: "child-1, child-bound",
-	}, &utils.UserClaims{TenantID: tenantID})
+	}, &utils.UserClaims{TenantID: tenantID, Authority: constant.TENANT_ADMIN})
 
 	assertDeviceConfigServiceError(t, err, "already-bound child bind", errcode.CodeParamError, "")
 	assertDeviceChildBinding(t, db, "child-1", "", "")
@@ -836,7 +836,7 @@ func TestDeviceCreateSonDeviceRejectsNonGatewayParent(t *testing.T) {
 	err := (&Device{}).CreateSonDevice(context.Background(), &model.CreateSonDeviceRes{
 		ID:    "direct-parent",
 		SonID: "child-1",
-	}, &utils.UserClaims{TenantID: tenantID})
+	}, &utils.UserClaims{TenantID: tenantID, Authority: constant.TENANT_ADMIN})
 
 	assertDeviceConfigServiceError(t, err, "non-gateway parent bind", errcode.CodeParamError, "")
 	assertDeviceChildBinding(t, db, "child-1", "", "")

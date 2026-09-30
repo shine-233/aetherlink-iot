@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"aetherlink-iot/backend/internal/authz"
 	model "aetherlink-iot/backend/internal/model"
-	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 	utils "aetherlink-iot/backend/pkg/utils"
 )
@@ -49,7 +49,7 @@ func (*SceneAutomation) DryRunSceneAutomation(req *model.DryRunSceneAutomationRe
 	result.BlockingErrors = append(result.BlockingErrors, buildSceneAutomationDryRunSaveBlockers(req)...)
 	result.CanSave = len(result.BlockingErrors) == 0
 
-	if claims.Authority == constant.SYS_ADMIN && tenantID == "" {
+	if authz.IsSysAdmin(claims) && tenantID == "" {
 		result.Warnings = append(result.Warnings, "system admin preview has no tenant scope until the rule is saved")
 	}
 

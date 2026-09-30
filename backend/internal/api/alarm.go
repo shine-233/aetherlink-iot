@@ -46,21 +46,14 @@ func (*AlarmApi) CreateAlarmConfig(c *gin.Context) {
 // 和越权删除在 service 层是否具有一致的错误处理语义。
 // /api/v1/alarm/config/{id} [Delete]
 func (*AlarmApi) DeleteAlarmConfig(c *gin.Context) {
-	id := c.Param("id")
-	if id == "" {
-		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-			"err": fmt.Sprintf("id is %s", id),
-		}))
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.Alarm.DeleteAlarmConfig(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandlePathAction(c, "id", func(id string, userClaims *utils.UserClaims) error {
+		if id == "" {
+			return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+				"err": fmt.Sprintf("id is %s", id),
+			})
+		}
+		return service.GroupApp.Alarm.DeleteAlarmConfig(id, userClaims)
+	})
 }
 
 // UpdateAlarmConfig 更新告警配置。
@@ -115,18 +108,9 @@ func (*AlarmApi) HandleAlarmInfoListByPage(c *gin.Context) {
 // /api/v1/alarm/info/history [get]
 func (*AlarmApi) HandleAlarmHisttoryListByPage(c *gin.Context) {
 	//
-	var req model.GetAlarmHisttoryListByPage
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	data, err := service.GroupApp.Alarm.GetAlarmHisttoryListByPage(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.GetAlarmHisttoryListByPage, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Alarm.GetAlarmHisttoryListByPage(req, userClaims)
+	})
 }
 
 // HandleAlarmHistoryMonthlyTrend returns monthly alarm occurrence counts for a selected year.
@@ -149,18 +133,9 @@ func (*AlarmApi) HandleAlarmHistoryMonthlyTrend(c *gin.Context) {
 // /api/v1/alarm/info/history [put]
 func (*AlarmApi) AlarmHistoryDescUpdate(c *gin.Context) {
 	//
-	var req model.AlarmHistoryDescUpdateReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	err := service.GroupApp.Alarm.AlarmHistoryDescUpdate(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandleAction(c, func(req *model.AlarmHistoryDescUpdateReq, userClaims *utils.UserClaims) error {
+		return service.GroupApp.Alarm.AlarmHistoryDescUpdate(req, userClaims)
+	})
 }
 
 // AcknowledgeAlarmHistory 确认指定告警历史记录。
@@ -168,21 +143,14 @@ func (*AlarmApi) AlarmHistoryDescUpdate(c *gin.Context) {
 // 静态审查时应确认重复确认、状态迁移和审计信息写入是否被统一处理。
 // /api/v1/alarm/info/history/{id}/acknowledge [put]
 func (*AlarmApi) AcknowledgeAlarmHistory(c *gin.Context) {
-	id := c.Param("id")
-	if id == "" {
-		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-			"err": fmt.Sprintf("id is %s", id),
-		}))
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Alarm.AcknowledgeAlarmHistory(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		if id == "" {
+			return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+				"err": fmt.Sprintf("id is %s", id),
+			})
+		}
+		return service.GroupApp.Alarm.AcknowledgeAlarmHistory(id, userClaims)
+	})
 }
 
 // ResetAlarmHistory 重置指定告警历史状态。
@@ -190,50 +158,38 @@ func (*AlarmApi) AcknowledgeAlarmHistory(c *gin.Context) {
 // 当前状态校验、并发更新处理和越权操作防护。
 // /api/v1/alarm/info/history/{id}/reset [put]
 func (*AlarmApi) ResetAlarmHistory(c *gin.Context) {
-	id := c.Param("id")
-	if id == "" {
-		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-			"err": fmt.Sprintf("id is %s", id),
-		}))
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Alarm.ResetAlarmHistory(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		if id == "" {
+			return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+				"err": fmt.Sprintf("id is %s", id),
+			})
+		}
+		return service.GroupApp.Alarm.ResetAlarmHistory(id, userClaims)
+	})
 }
 
 // ClearAlarmHistory 清除指定告警历史记录（对齐 ThingsBoard 4.3 告警清除生命周期）。
 // /api/v1/alarm/info/history/{id}/clear [post, put]
 func (*AlarmApi) ClearAlarmHistory(c *gin.Context) {
-	id := c.Param("id")
-	if id == "" {
-		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-			"err": fmt.Sprintf("id is %s", id),
-		}))
-		return
-	}
-
-	var req model.ClearAlarmReq
-	if c.Request.ContentLength > 0 {
-		_ = c.ShouldBindJSON(&req)
-	}
-	note := ""
-	if req.Note != nil {
-		note = *req.Note
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Alarm.ClearAlarmHistory(id, note, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	// 迁移注意：请求体是可选的（ContentLength>0 时尽力绑定且失败忽略），不适配 Handle 的强制绑定，
+	// 因此保留闭包内软绑定，仅收敛 claims 与响应出口。
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		id := c.Param("id")
+		if id == "" {
+			return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+				"err": fmt.Sprintf("id is %s", id),
+			})
+		}
+		var req model.ClearAlarmReq
+		if c.Request.ContentLength > 0 {
+			_ = c.ShouldBindJSON(&req)
+		}
+		note := ""
+		if req.Note != nil {
+			note = *req.Note
+		}
+		return service.GroupApp.Alarm.ClearAlarmHistory(id, note, userClaims)
+	})
 }
 
 // BatchAlarmHistoryAction 批量确认或重置告警历史，并返回每条记录的成功/失败明细。
@@ -250,37 +206,23 @@ func (*AlarmApi) BatchAlarmHistoryAction(c *gin.Context) {
 // 静态审查时可重点留意设备标识与租户边界是否足以防止跨租户探测。
 func (*AlarmApi) HandleDeviceAlarmStatus(c *gin.Context) {
 	//
-	var req model.GetDeviceAlarmStatusReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	ok, err := service.GroupApp.Alarm.GetDeviceAlarmStatus(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", map[string]bool{
-		"alarm": ok,
+	Handle(c, func(req *model.GetDeviceAlarmStatusReq, userClaims *utils.UserClaims) (interface{}, error) {
+		ok, err := service.GroupApp.Alarm.GetDeviceAlarmStatus(req, userClaims)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]bool{
+			"alarm": ok,
+		}, nil
 	})
 }
 
 // /api/v1/alarm/info/config/device [get]
 func (*AlarmApi) HandleConfigByDevice(c *gin.Context) {
 	//
-	var req model.GetDeviceAlarmStatusReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	list, err := service.GroupApp.Alarm.GetConfigByDevice(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", list)
+	Handle(c, func(req *model.GetDeviceAlarmStatusReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Alarm.GetConfigByDevice(req, userClaims)
+	})
 }
 
 // HandleAlarmInfoHistory 根据历史记录 ID 查询详情。
@@ -288,22 +230,14 @@ func (*AlarmApi) HandleConfigByDevice(c *gin.Context) {
 // 以及 id 所属租户校验是否完全下沉到 service 层。
 // /api/v1/alarm/info/history/{id} [GET]
 func (*AlarmApi) HandleAlarmInfoHistory(c *gin.Context) {
-	id := c.Param("id")
-	if id == "" {
-		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-			"err": fmt.Sprintf("id is %s", id),
-		}))
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Alarm.GetAlarmInfoHistoryByID(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		if id == "" {
+			return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+				"err": fmt.Sprintf("id is %s", id),
+			})
+		}
+		return service.GroupApp.Alarm.GetAlarmInfoHistoryByID(id, userClaims)
+	})
 }
 
 // GetAlarmDeviceCountsByTenant 获取当前账号可见范围内的告警设备数量统计。
@@ -318,41 +252,22 @@ func (*AlarmApi) HandleAlarmInfoHistory(c *gin.Context) {
 // @Success 200 {object} model.AlarmDeviceCountsResponse
 // @Router /api/v1/alarm/device/counts [get]
 func (api *AlarmApi) GetAlarmDeviceCountsByTenant(c *gin.Context) {
-	var req model.AlarmDeviceCountsReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	// 从鉴权上下文中提取身份边界，service 再校验显式跨租户请求。
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	// 具体统计逻辑位于 service 层，Handler 只保留入参与响应包装职责。
-	counts, err := service.GroupApp.Alarm.GetAlarmDeviceCounts(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", counts)
+	Handle(c, func(req *model.AlarmDeviceCountsReq, userClaims *utils.UserClaims) (interface{}, error) {
+		// 具体统计逻辑位于 service 层，Handler 只保留入参与响应包装职责。
+		return service.GroupApp.Alarm.GetAlarmDeviceCounts(req, userClaims)
+	})
 }
 
 // DeleteAlarmHistory 保留旧 DELETE 路由作为兼容入口；service 会先校验
 // tenant/owner 权限，再按审计留存策略拒绝删除，确保触发过的告警仍可追溯。
 // /api/v1/alarm/info/history/{id} [DELETE]
 func (*AlarmApi) DeleteAlarmHistory(c *gin.Context) {
-	id := c.Param("id")
-	if id == "" {
-		c.Error(errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-			"err": fmt.Sprintf("id is %s", id),
-		}))
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	err := service.GroupApp.Alarm.DeleteAlarmHistory(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandlePathAction(c, "id", func(id string, userClaims *utils.UserClaims) error {
+		if id == "" {
+			return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+				"err": fmt.Sprintf("id is %s", id),
+			})
+		}
+		return service.GroupApp.Alarm.DeleteAlarmHistory(id, userClaims)
+	})
 }

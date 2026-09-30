@@ -215,10 +215,10 @@ func GetUserListByPageWithAddress(userListReq *model.UserListReq, claims *utils.
 	// 权限过滤
 	if claims.Authority == TENANT_ADMIN || claims.Authority == TENANT_USER {
 		// claims.TenantID 运行期可能因 token 边界条件变为空串，导致 WHERE 匹配 0 行
-		// 且无错误——表现为"偶发空列表"。此处显式拒绝而非静默返回空。
-		if strings.TrimSpace(claims.TenantID) == "" {
-			logrus.Warn("dal: tenant-scoped user list query has empty TenantID in claims; rejecting")
-			return count, nil, fmt.Errorf("empty tenant id in claims")
+		// 且无错误——表现为"偶发空列表"。此处显式拒绝而非静默返回空
+		// （守卫收敛到 requireClaimsTenantID，2026-09-28）。
+		if _, err := requireClaimsTenantID(claims); err != nil {
+			return count, nil, err
 		}
 		// ROADMAP C2 自上而下：TENANT_ADMIN 的成员目录可见 self∪子孙租户成员
 		// （scopes 由 service 层展开并校验）；TENANT_USER 由 service 强制 self-only，

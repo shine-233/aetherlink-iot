@@ -71,24 +71,36 @@ func applyTelemetryPagination(queryBuilder query.ITelemetryDataDo, page, pageSiz
 }
 
 // tenant-scope: caller-enforced?2026-08-26 ?????
+// GetCurrentTelemetrData 取单设备每个 key 的最新一条遥测（当前值读路径）。
+//
+// 旧实现是 telemetry_datas 上的 ROW_NUMBER() OVER (PARTITION BY key ORDER BY ts DESC)：
+// 它必须对设备的全部历史行做窗口排序，随保留期线性变慢。telemetry_current_datas 以
+// (device_id, key) 为唯一键、由写入侧 upsert 维护，本身就是"每 key 最新值"，
+// 直接等值查询即可，无需窗口计算。
+// ts 列类型差异：当前值表是 timestamptz，历史表是 UnixMilli bigint，故在此换算回
+// 调用方契约要求的毫秒整数（UnixMilli 截断亚毫秒，与历史表口径一致）。
+// tenant-scope: caller-enforced — device_id 由上层按设备权限解析后传入。
 func GetCurrentTelemetrData(deviceId string) ([]model.TelemetryData, error) {
-	var re []model.TelemetryData
-	sql := `
-	SELECT *
-	FROM (
-		SELECT
-			*,
-			ROW_NUMBER() OVER (PARTITION BY key ORDER BY ts DESC) as rn
-		FROM telemetry_datas
-		WHERE device_id = ?
-	) subquery
-	WHERE rn = 1
-	`
-	r := global.DB.Raw(sql, deviceId).Scan(&re)
-	if r.Error != nil {
-		return nil, r.Error
+	var current []model.TelemetryCurrentData
+	if err := global.DB.Table("telemetry_current_datas").
+		Where("device_id = ?", deviceId).
+		Find(&current).Error; err != nil {
+		logrus.Error(err)
+		return nil, err
 	}
 
+	re := make([]model.TelemetryData, 0, len(current))
+	for _, c := range current {
+		re = append(re, model.TelemetryData{
+			DeviceID: c.DeviceID,
+			Key:      c.Key,
+			T:        c.T.UnixMilli(),
+			BoolV:    c.BoolV,
+			NumberV:  c.NumberV,
+			StringV:  c.StringV,
+			TenantID: c.TenantID,
+		})
+	}
 	return re, nil
 }
 
@@ -115,15 +127,26 @@ func GetCurrentTelemetrDetailData(deviceId string) (*model.TelemetryData, error)
 		return &model.TelemetryData{}, nil
 	}
 
-	re, err := query.TelemetryData.
-		Where(query.TelemetryData.DeviceID.Eq(deviceId)).
-		Order(query.TelemetryData.T.Desc()).
-		First()
+	// 当前值读路径：改走 telemetry_current_datas（与 GetCurrentTelemetrData 同口径），
+	// 避免在 telemetry_datas 上对设备全量历史做 ORDER BY ts DESC LIMIT 1。
+	var current model.TelemetryCurrentData
+	err := global.DB.Table("telemetry_current_datas").
+		Where("device_id = ?", deviceId).
+		Order("ts DESC").
+		First(&current).Error
 	if err != nil {
 		logrus.Error(err)
-		return re, err
+		return nil, err
 	}
-	return re, nil
+	return &model.TelemetryData{
+		DeviceID: current.DeviceID,
+		Key:      current.Key,
+		T:        current.T.UnixMilli(),
+		BoolV:    current.BoolV,
+		NumberV:  current.NumberV,
+		StringV:  current.StringV,
+		TenantID: current.TenantID,
+	}, nil
 }
 
 // tenant-scope: caller-enforced?2026-08-26 ?????

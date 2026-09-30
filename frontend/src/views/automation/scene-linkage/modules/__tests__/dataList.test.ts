@@ -1,8 +1,8 @@
 /**
  * 文件用途: 覆盖DataList在自动化场景下的前端行为与契约。
  * 核心逻辑: 通过 Vitest、Vue Test Utils 和必要的接口 mock，验证关键渲染、交互和数据流。
- * 关键注意事项: Mock 数据要贴近真实接口字段，避免只证明组件能挂载。
- * 重构建议: 后续可抽取稳定的挂载工厂和业务 fixture，减少重复 mock 与选择器耦合。
+ * 关键注意事项: 列表状态已收口在 useListPage，执行日志弹窗拆到 scene-log-modal.vue
+ *   （日志查询行为见同目录 scene-log-modal.test.ts），本套件聚焦主列表与路由编排。
  */
 import { defineComponent, h } from 'vue'
 import { flushPromises, shallowMount } from '@vue/test-utils'
@@ -12,7 +12,6 @@ const hoisted = vi.hoisted(() => ({
   sceneAutomationsGet: vi.fn(),
   sceneAutomationsSwitch: vi.fn(),
   sceneAutomationsDel: vi.fn(),
-  sceneAutomationsLog: vi.fn(),
   deviceAlarmList: vi.fn(),
   routerPushByKey: vi.fn()
 }))
@@ -20,8 +19,7 @@ const hoisted = vi.hoisted(() => ({
 vi.mock('@/service/api/automation', () => ({
   sceneAutomationsGet: hoisted.sceneAutomationsGet,
   sceneAutomationsSwitch: hoisted.sceneAutomationsSwitch,
-  sceneAutomationsDel: hoisted.sceneAutomationsDel,
-  sceneAutomationsLog: hoisted.sceneAutomationsLog
+  sceneAutomationsDel: hoisted.sceneAutomationsDel
 }))
 
 vi.mock('@/service/api', () => ({
@@ -48,15 +46,6 @@ vi.mock('naive-ui', async () => {
     useDialog: () => ({ warning: vi.fn() }),
     useMessage: () => ({ success: vi.fn(), error: vi.fn() })
   }
-})
-
-vi.mock('dayjs', () => {
-  const fn = (v?: any) => ({
-    subtract: () => ({ valueOf: () => 1000 }),
-    format: () => '2024-01-01T00:00:00',
-    valueOf: () => v || 1000
-  })
-  return { default: fn }
 })
 
 vi.mock('vue', async () => {
@@ -155,19 +144,12 @@ const mountComponent = (props = {}) => {
             return () => h('div', slots.default?.())
           }
         }),
-        NTable: defineComponent({
-          setup(_, { slots }) {
-            return () => h('table', slots.default?.())
-          }
-        }),
-        NDatePicker: defineComponent({
+        SceneLogModal: defineComponent({
+          name: 'SceneLogModal',
+          props: { show: { type: Boolean, default: false }, sceneAutomationId: { type: String, default: '' } },
+          emits: ['update:show'],
           setup() {
             return () => h('div')
-          }
-        }),
-        NEllipsis: defineComponent({
-          setup(_, { slots }) {
-            return () => h('span', slots.default?.())
           }
         })
       }
@@ -185,7 +167,6 @@ describe('DataList', () => {
     hoisted.sceneAutomationsGet.mockResolvedValue({ data: { list: [], total: 0 }, error: null })
     hoisted.sceneAutomationsSwitch.mockResolvedValue({ error: null })
     hoisted.sceneAutomationsDel.mockResolvedValue({ error: null })
-    hoisted.sceneAutomationsLog.mockResolvedValue({ data: { list: [], total: 0 } })
     hoisted.deviceAlarmList.mockResolvedValue({ data: { list: [], total: 0 }, error: null })
   })
 
@@ -238,10 +219,10 @@ describe('DataList', () => {
     const wrapper = mountComponent()
     await flushPromises()
     const state = getState(wrapper)
-    state.queryData.page = 3
+    state.pagination.page = 3
     state.handleQuery()
     await flushPromises()
-    expect(state.queryData.page).toBe(1)
+    expect(state.pagination.page).toBe(1)
     expect(hoisted.sceneAutomationsGet).toHaveBeenCalledTimes(2)
     expect(hoisted.sceneAutomationsGet).toHaveBeenLastCalledWith({
       name: '',
@@ -269,44 +250,17 @@ describe('DataList', () => {
     })
   })
 
-  it('should open log modal on openLog', async () => {
+  it('should open log modal with the target scene id on openLog', async () => {
     const wrapper = mountComponent()
     await flushPromises()
     const state = getState(wrapper)
     state.openLog({ id: 'log-id' })
     await flushPromises()
     expect(state.showLog).toBe(true)
-    expect(state.logQuery.scene_automation_id).toBe('log-id')
-  })
-
-  it('should reset logQuery and close modal on closeLog', async () => {
-    const wrapper = mountComponent()
-    await flushPromises()
-    const state = getState(wrapper)
-    state.showLog = true
-    state.logQuery.scene_automation_id = 'some-id'
-    state.closeLog()
-    expect(state.showLog).toBe(false)
-    expect(state.logQuery.scene_automation_id).toBe('')
-  })
-
-  it('should reset page and call getLogList on queryLog', async () => {
-    const wrapper = mountComponent()
-    await flushPromises()
-    const state = getState(wrapper)
-    state.logQuery.page = 5
-    state.queryLog()
-    await flushPromises()
-    expect(state.logQuery.page).toBe(1)
-    expect(hoisted.sceneAutomationsLog).toHaveBeenCalledTimes(1)
-    expect(hoisted.sceneAutomationsLog).toHaveBeenCalledWith(
-      expect.objectContaining({
-        page: 1,
-        page_size: 10,
-        execution_start_time: '2024-01-01T00:00:00',
-        execution_end_time: '2024-01-01T00:00:00'
-      })
-    )
+    expect(state.logTargetId).toBe('log-id')
+    const logModal = wrapper.findComponent({ name: 'SceneLogModal' })
+    expect(logModal.props('show')).toBe(true)
+    expect(logModal.props('sceneAutomationId')).toBe('log-id')
   })
 
   it('should pass device_id and device_config_id to queryData', async () => {
@@ -380,12 +334,5 @@ describe('DataList', () => {
     expect(wrapper.text()).not.toContain('custom.automation.firstTelemetryRuleEmptyTitle')
     expect(wrapper.text()).not.toContain('custom.automation.createFirstTelemetryRule')
     expect(getState(wrapper).isDeviceAutomationStarter).toBe(false)
-  })
-
-  it('should have correct execution_result_options', async () => {
-    const wrapper = mountComponent()
-    await flushPromises()
-    const state = getState(wrapper)
-    expect(state.execution_result_options).toHaveLength(3)
   })
 })

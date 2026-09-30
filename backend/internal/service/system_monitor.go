@@ -7,8 +7,7 @@ package service
 import (
 	"time"
 
-	"aetherlink-iot/backend/pkg/constant"
-	"aetherlink-iot/backend/pkg/errcode"
+	"aetherlink-iot/backend/internal/authz"
 	"aetherlink-iot/backend/pkg/metrics"
 	utils "aetherlink-iot/backend/pkg/utils"
 )
@@ -22,10 +21,7 @@ func SetMetricsManager(m *metrics.Metrics) {
 }
 
 func requireSystemMonitorAdmin(claims *utils.UserClaims) error {
-	if claims == nil || claims.Authority != constant.SYS_ADMIN {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query system metrics")
-	}
-	return nil
+	return authz.PlatformAdminRule("no permission to query system metrics").RequireClaims(claims)
 }
 
 func (s *SystemMonitor) GetCurrentMetrics(claims *utils.UserClaims) (*metrics.SystemMetrics, error) {

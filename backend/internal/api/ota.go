@@ -33,17 +33,9 @@ var errInvalidRange = errors.New("invalid range")
 // 关键点：参数校验完成后仅透传租户身份给 service，避免在接口层拼装额外业务默认值。
 // @Router   /api/v1/ota/package [post]
 func (*OTAApi) CreateOTAUpgradePackage(c *gin.Context) {
-	var req model.CreateOTAUpgradePackageReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.OTA.CreateOTAUpgradePackage(&req, userClaims.TenantID)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandleAction(c, func(req *model.CreateOTAUpgradePackageReq, userClaims *utils.UserClaims) error {
+		return service.GroupApp.OTA.CreateOTAUpgradePackage(req, userClaims.TenantID)
+	})
 }
 
 // DeleteOTAUpgradePackage 删除 OTA 升级包。
@@ -68,18 +60,9 @@ func (*OTAApi) UpdateOTAUpgradePackage(c *gin.Context) {
 // 关键点：该接口只负责请求绑定与响应挂载，分页、过滤、租户隔离均依赖 service 层。
 // @Router   /api/v1/ota/package [get]
 func (*OTAApi) HandleOTAUpgradePackageByPage(c *gin.Context) {
-	var req model.GetOTAUpgradePackageLisyByPageReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
-	list, err := service.GroupApp.OTA.GetOTAUpgradePackageListByPage(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", list)
+	Handle(c, func(req *model.GetOTAUpgradePackageLisyByPageReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.OTA.GetOTAUpgradePackageListByPage(req, userClaims)
+	})
 }
 
 // CreateOTAUpgradeTask 创建 OTA 升级任务。

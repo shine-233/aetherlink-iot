@@ -52,17 +52,6 @@ func mobileNotWired() error {
 	return errcode.NewWithMessage(errcode.CodeOpDenied, "mobile capability is not wired")
 }
 
-// mobileClaims 取当前请求的真实凭证。
-// 设备列表/告警/影子的归属过滤都依赖 claims.Authority，因此这几个接口只能走凭证，
-// 不接受"用请求里的 tenant_id 自己拼一个身份"。
-func mobileClaims(c *gin.Context) (*utils.UserClaims, error) {
-	claims, ok := c.MustGet("claims").(*utils.UserClaims)
-	if !ok || claims == nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "missing user claims")
-	}
-	return claims, nil
-}
-
 // mobilePage 解析分页参数。夹紧逻辑在 service 层，这里只负责取值。
 func mobilePage(c *gin.Context) (int, int) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
@@ -71,11 +60,7 @@ func mobilePage(c *gin.Context) (int, int) {
 }
 
 // mobileTenant 由 claims 推导租户，规则与 SCADA 侧一致。
-func mobileTenant(c *gin.Context, requested string) (string, error) {
-	claims, ok := c.MustGet("claims").(*utils.UserClaims)
-	if !ok || claims == nil {
-		return "", errcode.NewWithMessage(errcode.CodeNoPermission, "missing user claims")
-	}
+func mobileTenant(claims *utils.UserClaims, requested string) (string, error) {
 	requested = strings.TrimSpace(requested)
 	if claims.Authority == "SYS_ADMIN" {
 		if requested != "" {
@@ -96,104 +81,80 @@ func mobileTenant(c *gin.Context, requested string) (string, error) {
 // 这是唯一一个服务未接线时也不报错的接口：能力矩阵本身就是"未接线"的声明，
 // 让客户端据此隐藏入口。其余接口一律要求已接线。
 func (*MobileApi) GetMobileCapabilities(c *gin.Context) {
-	svc := mobileService()
-	if svc == nil {
-		c.Set("data", service.MobileCapabilityMatrix{})
-		return
-	}
-	c.Set("data", svc.Capabilities(c))
+	HandlePublicNoBody(c, func() (interface{}, error) {
+		svc := mobileService()
+		if svc == nil {
+			return service.MobileCapabilityMatrix{}, nil
+		}
+		return svc.Capabilities(c), nil
+	})
 }
 
 func (*MobileApi) SubscribePush(c *gin.Context) {
-	var req SubscribePushReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	svc := mobileService()
-	if svc == nil {
-		c.Error(mobileNotWired())
-		return
-	}
-	tenantID, err := mobileTenant(c, req.TenantID)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	claims, _ := c.MustGet("claims").(*utils.UserClaims)
-	provider := strings.TrimSpace(req.Provider)
-	if provider == "" {
-		provider = "fcm"
-	}
-	data, err := svc.SubscribePush(c, tenantID, claims.ID, req.Platform, req.Token, provider)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *SubscribePushReq, claims *utils.UserClaims) (interface{}, error) {
+		svc := mobileService()
+		if svc == nil {
+			return nil, mobileNotWired()
+		}
+		tenantID, err := mobileTenant(claims, req.TenantID)
+		if err != nil {
+			return nil, err
+		}
+		provider := strings.TrimSpace(req.Provider)
+		if provider == "" {
+			provider = "fcm"
+		}
+		return svc.SubscribePush(c, tenantID, claims.ID, req.Platform, req.Token, provider)
+	})
 }
 
 func (*MobileApi) UnsubscribePush(c *gin.Context) {
-	svc := mobileService()
-	if svc == nil {
-		c.Error(mobileNotWired())
-		return
-	}
-	tenantID, err := mobileTenant(c, c.Query("tenant_id"))
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	if err := svc.UnsubscribePush(c, tenantID, c.Param("id")); err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandlePathAction(c, "id", func(id string, claims *utils.UserClaims) error {
+		svc := mobileService()
+		if svc == nil {
+			return mobileNotWired()
+		}
+		tenantID, err := mobileTenant(claims, c.Query("tenant_id"))
+		if err != nil {
+			return err
+		}
+		return svc.UnsubscribePush(c, tenantID, id)
+	})
 }
 
 // SendMobileCommand 幂等下发命令。命中已完成幂等键时返回原收据，不再下发。
 func (*MobileApi) SendMobileCommand(c *gin.Context) {
-	var req MobileCommandReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	svc := mobileService()
-	if svc == nil {
-		c.Error(mobileNotWired())
-		return
-	}
-	tenantID, err := mobileTenant(c, req.TenantID)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	claims, _ := c.MustGet("claims").(*utils.UserClaims)
+	Handle(c, func(req *MobileCommandReq, claims *utils.UserClaims) (interface{}, error) {
+		svc := mobileService()
+		if svc == nil {
+			return nil, mobileNotWired()
+		}
+		tenantID, err := mobileTenant(claims, req.TenantID)
+		if err != nil {
+			return nil, err
+		}
 
-	key := strings.TrimSpace(c.GetHeader(idempotencyKeyHeader))
-	if key == "" {
-		key = strings.TrimSpace(req.IdempotencyKey)
-	}
-	if key == "" {
-		// 没有幂等键的命令在弱网下必然重复下发，直接拒绝而不是"先发了再说"。
-		c.Error(errcode.NewWithMessage(errcode.CodeParamError, "Idempotency-Key header is required"))
-		return
-	}
+		key := strings.TrimSpace(c.GetHeader(idempotencyKeyHeader))
+		if key == "" {
+			key = strings.TrimSpace(req.IdempotencyKey)
+		}
+		if key == "" {
+			// 没有幂等键的命令在弱网下必然重复下发，直接拒绝而不是"先发了再说"。
+			return nil, errcode.NewWithMessage(errcode.CodeParamError, "Idempotency-Key header is required")
+		}
 
-	receipt, err := svc.SendCommand(c, tenantID, claims.ID, key, service.ControlExecution{
-		TenantID:    tenantID,
-		DeviceID:    req.DeviceID,
-		WidgetType:  req.WidgetType,
-		Version:     req.Version,
-		Command:     req.Command,
-		Params:      marshalAPIParams(req.Params),
-		ActorUserID: claims.ID,
-		// 与 SCADA 侧同一条规则：下发通道的写权限校验依赖真实凭证。
-		ActorClaims: claims,
+		return svc.SendCommand(c, tenantID, claims.ID, key, service.ControlExecution{
+			TenantID:    tenantID,
+			DeviceID:    req.DeviceID,
+			WidgetType:  req.WidgetType,
+			Version:     req.Version,
+			Command:     req.Command,
+			Params:      marshalAPIParams(req.Params),
+			ActorUserID: claims.ID,
+			// 与 SCADA 侧同一条规则：下发通道的写权限校验依赖真实凭证。
+			ActorClaims: claims,
+		})
 	})
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", receipt)
 }
 
 // ---------------------------------------------------------------------------
@@ -204,83 +165,60 @@ func (*MobileApi) SendMobileCommand(c *gin.Context) {
 // 归属过滤在 service 层按 claims.Authority 完成，接口层不传 tenant_id——
 // 允许前端指定租户等于把过滤规则交给调用方决定。
 func (*MobileApi) ListMobileDevices(c *gin.Context) {
-	svc := mobileService()
-	if svc == nil {
-		c.Error(mobileNotWired())
-		return
-	}
-	claims, err := mobileClaims(c)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	page, pageSize := mobilePage(c)
-	list, total, err := svc.ListDevices(c, claims, strings.TrimSpace(c.Query("search")), page, pageSize)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", gin.H{"total": total, "list": list})
+	HandleNoBody(c, func(claims *utils.UserClaims) (interface{}, error) {
+		svc := mobileService()
+		if svc == nil {
+			return nil, mobileNotWired()
+		}
+		page, pageSize := mobilePage(c)
+		list, total, err := svc.ListDevices(c, claims, strings.TrimSpace(c.Query("search")), page, pageSize)
+		if err != nil {
+			return nil, err
+		}
+		return gin.H{"total": total, "list": list}, nil
+	})
 }
 
 // ListMobileAlarms 列出调用者可见的告警。
 func (*MobileApi) ListMobileAlarms(c *gin.Context) {
-	svc := mobileService()
-	if svc == nil {
-		c.Error(mobileNotWired())
-		return
-	}
-	claims, err := mobileClaims(c)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	page, pageSize := mobilePage(c)
-	data, err := svc.ListAlarms(c, claims, page, pageSize)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", gin.H{"total": data.Total, "list": data.List})
+	HandleNoBody(c, func(claims *utils.UserClaims) (interface{}, error) {
+		svc := mobileService()
+		if svc == nil {
+			return nil, mobileNotWired()
+		}
+		page, pageSize := mobilePage(c)
+		data, err := svc.ListAlarms(c, claims, page, pageSize)
+		if err != nil {
+			return nil, err
+		}
+		return gin.H{"total": data.Total, "list": data.List}, nil
+	})
 }
 
 // AcknowledgeMobileAlarm 确认一条告警。
 func (*MobileApi) AcknowledgeMobileAlarm(c *gin.Context) {
-	svc := mobileService()
-	if svc == nil {
-		c.Error(mobileNotWired())
-		return
-	}
-	claims, err := mobileClaims(c)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	if err := svc.AcknowledgeAlarm(c, claims, c.Param("id")); err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandlePathAction(c, "id", func(id string, claims *utils.UserClaims) error {
+		svc := mobileService()
+		if svc == nil {
+			return mobileNotWired()
+		}
+		return svc.AcknowledgeAlarm(c, claims, id)
+	})
 }
 
 // GetMobileShadow 读取设备影子。
 func (*MobileApi) GetMobileShadow(c *gin.Context) {
-	svc := mobileService()
-	if svc == nil {
-		c.Error(mobileNotWired())
-		return
-	}
-	claims, err := mobileClaims(c)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	data, err := svc.GetShadow(c, claims, c.Param("id"))
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", gin.H{"shadow": data})
+	HandlePath(c, "id", func(id string, claims *utils.UserClaims) (interface{}, error) {
+		svc := mobileService()
+		if svc == nil {
+			return nil, mobileNotWired()
+		}
+		data, err := svc.GetShadow(c, claims, id)
+		if err != nil {
+			return nil, err
+		}
+		return gin.H{"shadow": data}, nil
+	})
 }
 
 // UpdateMobileShadowReq 更新设备影子请求。
@@ -291,65 +229,43 @@ type UpdateMobileShadowReq struct {
 
 // UpdateMobileShadow 更新设备影子（在线即下发，离线入队）。
 func (*MobileApi) UpdateMobileShadow(c *gin.Context) {
-	var req UpdateMobileShadowReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	svc := mobileService()
-	if svc == nil {
-		c.Error(mobileNotWired())
-		return
-	}
-	claims, err := mobileClaims(c)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	if err := svc.UpdateShadow(c, claims, c.Param("id"), req.Payload); err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandlePathBodyAction(c, "id", func(id string, req *UpdateMobileShadowReq, claims *utils.UserClaims) error {
+		svc := mobileService()
+		if svc == nil {
+			return mobileNotWired()
+		}
+		return svc.UpdateShadow(c, claims, id, req.Payload)
+	})
 }
 
 // GetMobileOTAStatus 读取单台设备的 OTA 升级状态。
 func (*MobileApi) GetMobileOTAStatus(c *gin.Context) {
-	svc := mobileService()
-	if svc == nil {
-		c.Error(mobileNotWired())
-		return
-	}
-	claims, err := mobileClaims(c)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	status, err := svc.OTAStatus(c, claims, c.Param("id"))
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", gin.H{"status": status})
+	HandlePath(c, "id", func(id string, claims *utils.UserClaims) (interface{}, error) {
+		svc := mobileService()
+		if svc == nil {
+			return nil, mobileNotWired()
+		}
+		status, err := svc.OTAStatus(c, claims, id)
+		if err != nil {
+			return nil, err
+		}
+		return gin.H{"status": status}, nil
+	})
 }
 
 // ListMobileDashboards 列出调用者可查看的看板。
 func (*MobileApi) ListMobileDashboards(c *gin.Context) {
-	svc := mobileService()
-	if svc == nil {
-		c.Error(mobileNotWired())
-		return
-	}
-	claims, err := mobileClaims(c)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	list, err := svc.ListDashboards(c, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", gin.H{"list": list})
+	HandleNoBody(c, func(claims *utils.UserClaims) (interface{}, error) {
+		svc := mobileService()
+		if svc == nil {
+			return nil, mobileNotWired()
+		}
+		list, err := svc.ListDashboards(c, claims)
+		if err != nil {
+			return nil, err
+		}
+		return gin.H{"list": list}, nil
+	})
 }
 
 // marshalAPIParams 将请求参数序列化为字符串指纹。

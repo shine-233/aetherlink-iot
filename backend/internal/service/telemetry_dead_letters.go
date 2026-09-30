@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"aetherlink-iot/backend/internal/authz"
 	model "aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/internal/storage"
-	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/global"
 	"aetherlink-iot/backend/pkg/utils"
@@ -458,12 +458,12 @@ func updateTelemetryDeadLetterFieldsTx(tx *gorm.DB, id string, updates map[strin
 
 func telemetryDeadLetterScopedQuery(req *model.GetTelemetryDeadLetterListReq, claims *utils.UserClaims) *gorm.DB {
 	query := global.DB.Model(&storage.TelemetryDeadLetter{})
-	if claims.Authority != constant.SYS_ADMIN {
+	if !authz.IsSysAdmin(claims) {
 		query = query.Where("tenant_id = ?", claims.TenantID)
 	} else if req.TenantID != "" {
 		query = query.Where("tenant_id = ?", strings.TrimSpace(req.TenantID))
 	}
-	if claims.Authority == constant.TENANT_USER {
+	if authz.HasRole(claims, authz.TenantUser) {
 		query = query.Where(
 			"EXISTS (SELECT 1 FROM devices d WHERE d.id = telemetry_dead_letters.device_id AND d.tenant_id = telemetry_dead_letters.tenant_id AND d.owner_user_id = ?)",
 			strings.TrimSpace(claims.ID),
@@ -542,13 +542,13 @@ func getTelemetryDeadLetterForAccess(id string) (storage.TelemetryDeadLetter, er
 }
 
 func ensureTelemetryDeadLetterAccess(row storage.TelemetryDeadLetter, claims *utils.UserClaims) error {
-	if claims.Authority == constant.SYS_ADMIN {
+	if authz.IsSysAdmin(claims) {
 		return nil
 	}
 	if row.TenantID != claims.TenantID {
 		return errcode.NewWithMessage(errcode.CodeNoPermission, telemetryReadPermissionMessage)
 	}
-	if claims.Authority == constant.TENANT_USER {
+	if authz.HasRole(claims, authz.TenantUser) {
 		if _, err := ensureTelemetryDeviceWriteAccess(row.DeviceID, claims); err != nil {
 			return err
 		}

@@ -5,9 +5,9 @@
 package service
 
 import (
+	"aetherlink-iot/backend/internal/authz"
 	"aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
-	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/global"
 	utils "aetherlink-iot/backend/pkg/utils"
@@ -26,8 +26,8 @@ func (*SysFunction) GetSysFuncion(lang string) ([]*model.SysFunction, error) {
 }
 
 func (*SysFunction) UpdateSysFuncion(function_id string, claims *utils.UserClaims) error {
-	if claims == nil || claims.Authority != constant.SYS_ADMIN {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to update system function")
+	if err := authz.PlatformAdminRule("no permission to update system function").RequireClaims(claims); err != nil {
+		return err
 	}
 
 	old, err := dal.GetSysFunctionById(function_id)

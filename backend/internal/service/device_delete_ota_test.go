@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/utils"
 
 	"github.com/stretchr/testify/assert"
@@ -39,16 +40,16 @@ func TestDeviceDeleteDeviceCleansOTATaskDetailsBeforeDeviceRow(t *testing.T) {
 		t.Fatalf("create OTA task: %v", err)
 	}
 	if err := db.Create(&model.OtaUpgradeTaskDetail{
-		ID:              detailID,
+		ID:               detailID,
 		OtaUpgradeTaskID: taskID,
-		DeviceID:        deviceID,
-		Status:          model.OtaUpgradeTaskDetailStatusPending,
-		UpdatedAt:       &now,
+		DeviceID:         deviceID,
+		Status:           model.OtaUpgradeTaskDetailStatusPending,
+		UpdatedAt:        &now,
 	}).Error; err != nil {
 		t.Fatalf("create OTA task detail: %v", err)
 	}
 
-	err := (&Device{}).DeleteDevice(deviceID, &utils.UserClaims{TenantID: tenantID})
+	err := (&Device{}).DeleteDevice(deviceID, &utils.UserClaims{TenantID: tenantID, Authority: constant.TENANT_ADMIN})
 
 	assert.NoError(t, err)
 	assertDeviceServiceRowCount(t, db, &model.OtaUpgradeTaskDetail{}, "id = ?", detailID, 0)

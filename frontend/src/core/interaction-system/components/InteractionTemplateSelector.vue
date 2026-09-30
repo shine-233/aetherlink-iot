@@ -162,18 +162,11 @@ import {
 } from '@vicons/ionicons5'
 
 import type { InteractionConfig, InteractionEventType } from './interactionPreviewTypes'
+import type { InteractionTemplate } from './interactionTemplateTypes'
+import { getPredefinedTemplates } from './interactionTemplatePresets'
+import { getInteractionEventDisplayName, getInteractionEventTagType } from './interactionPreviewHelpers'
+import { useUserInteractionTemplates } from './useUserInteractionTemplates'
 import InteractionTemplatePreview from '@/core/interaction-system/components/InteractionTemplatePreview.vue'
-
-interface InteractionTemplate {
-  id: string
-  name: string
-  description: string
-  category: string
-  icon: any
-  color: string
-  config: InteractionConfig[]
-  tags?: string[]
-}
 
 interface Emits {
   (e: 'select', template: InteractionConfig): void
@@ -199,227 +192,11 @@ const templateCategories = computed(() => [
   { key: 'user', label: t('interaction.template.user') }
 ])
 
-// 预设模板
-const predefinedTemplates = computed((): InteractionTemplate[] => [
-  // 基础交互模板
-  {
-    id: 'click-highlight',
-    name: t('interaction.template.predefined.clickHighlight'),
-    description: t('interaction.template.predefined.clickHighlightDesc'),
-    category: 'basic',
-    icon: FlashOutline,
-    color: '#18a058',
-    config: [
-      {
-        event: 'click',
-        responses: [
-          {
-            action: 'changeBackgroundColor',
-            value: '#ffeb3b',
-            duration: 200
-          }
-        ],
-        enabled: true,
-        priority: 1,
-        name: t('interaction.template.predefined.clickHighlightEffect')
-      }
-    ]
-  },
-  {
-    id: 'hover-scale',
-    name: t('interaction.template.predefined.hoverScale'),
-    description: t('interaction.template.predefined.hoverScaleDesc'),
-    category: 'basic',
-    icon: SettingsOutline,
-    color: '#2080f0',
-    config: [
-      {
-        event: 'hover',
-        responses: [
-          {
-            action: 'changeTransform',
-            value: 'scale(1.05)',
-            duration: 300,
-            easing: 'ease-out'
-          }
-        ],
-        enabled: true,
-        priority: 1,
-        name: t('interaction.template.predefined.hoverScaleEffect')
-      }
-    ]
-  },
+// 预设模板（数据量大，已抽到 interactionTemplatePresets）
+const predefinedTemplates = computed((): InteractionTemplate[] => getPredefinedTemplates(t))
 
-  // 视觉效果模板
-  {
-    id: 'rainbow-border',
-    name: t('interaction.template.predefined.rainbowBorder'),
-    description: t('interaction.template.predefined.rainbowBorderDesc'),
-    category: 'visual',
-    icon: ColorPaletteOutline,
-    color: '#f0a020',
-    config: [
-      {
-        event: 'click',
-        responses: [
-          {
-            action: 'changeBorderColor',
-            value: '#ff4757',
-            duration: 200
-          },
-          {
-            action: 'changeBorderColor',
-            value: '#3742fa',
-            duration: 200,
-            delay: 200
-          },
-          {
-            action: 'changeBorderColor',
-            value: '#2ed573',
-            duration: 200,
-            delay: 400
-          }
-        ],
-        enabled: true,
-        priority: 1,
-        name: t('interaction.template.predefined.rainbowBorderEffect')
-      }
-    ]
-  },
-  {
-    id: 'fade-toggle',
-    name: t('interaction.template.predefined.fadeToggle'),
-    description: t('interaction.template.predefined.fadeToggleDesc'),
-    category: 'visual',
-    icon: EyeOutline,
-    color: '#7c3aed',
-    config: [
-      {
-        event: 'click',
-        responses: [
-          {
-            action: 'changeOpacity',
-            value: 0.3,
-            duration: 500,
-            easing: 'ease-in-out'
-          }
-        ],
-        enabled: true,
-        priority: 1,
-        name: t('interaction.template.predefined.transparencyToggle')
-      }
-    ]
-  },
-
-  // 动画效果模板
-  {
-    id: 'pulse-animation',
-    name: t('interaction.template.predefined.pulseAnimation'),
-    description: t('interaction.template.predefined.pulseAnimationDesc'),
-    category: 'animation',
-    icon: HeartOutline,
-    color: '#e74c3c',
-    config: [
-      {
-        event: 'click',
-        responses: [
-          {
-            action: 'triggerAnimation',
-            value: 'pulse',
-            duration: 1000,
-            easing: 'ease-in-out'
-          }
-        ],
-        enabled: true,
-        priority: 1,
-        name: t('interaction.template.predefined.pulseAnimationName')
-      }
-    ]
-  },
-  {
-    id: 'shake-animation',
-    name: t('interaction.template.predefined.shakeAnimation'),
-    description: t('interaction.template.predefined.shakeAnimationDesc'),
-    category: 'animation',
-    icon: PlayOutline,
-    color: '#f39c12',
-    config: [
-      {
-        event: 'blur',
-        responses: [
-          {
-            action: 'triggerAnimation',
-            value: 'shake',
-            duration: 600,
-            easing: 'ease-in-out'
-          }
-        ],
-        enabled: true,
-        priority: 1,
-        name: t('interaction.template.predefined.shakeTip')
-      }
-    ]
-  },
-
-  // 复合交互模板
-  {
-    id: 'complete-feedback',
-    name: t('interaction.template.predefined.completeFeedback'),
-    description: t('interaction.template.predefined.completeFeedbackDesc'),
-    category: 'complex',
-    icon: StarOutline,
-    color: '#9b59b6',
-    config: [
-      {
-        event: 'hover',
-        responses: [
-          {
-            action: 'changeBackgroundColor',
-            value: '#f8f9fa',
-            duration: 200
-          }
-        ],
-        enabled: true,
-        priority: 3,
-        name: t('interaction.template.predefined.hoverFeedback')
-      },
-      {
-        event: 'click',
-        responses: [
-          {
-            action: 'changeBackgroundColor',
-            value: '#007bff',
-            duration: 100
-          },
-          {
-            action: 'changeTextColor',
-            value: '#ffffff',
-            duration: 100
-          }
-        ],
-        enabled: true,
-        priority: 2,
-        name: t('interaction.template.predefined.clickFeedback')
-      },
-      {
-        event: 'focus',
-        responses: [
-          {
-            action: 'changeBorderColor',
-            value: '#007bff',
-            duration: 200
-          }
-        ],
-        enabled: true,
-        priority: 1,
-        name: t('interaction.template.predefined.focusFeedback')
-      }
-    ]
-  }
-])
-
-// 用户自定义模板（从localStorage加载）
-const userTemplates = ref<InteractionTemplate[]>([])
+// 用户自定义模板（从localStorage加载，持久化逻辑在 useUserInteractionTemplates）
+const { userTemplates, saveUserTemplates, loadUserTemplates } = useUserInteractionTemplates()
 
 // 所有模板
 const allTemplates = computed(() => [...predefinedTemplates.value, ...userTemplates.value])
@@ -429,28 +206,14 @@ const getTemplatesByCategory = (category: string) => {
   return allTemplates.value.filter((template) => template.category === category)
 }
 
-// 获取事件标签类型
+// 获取事件标签类型（复用 InteractionPreview / InteractionTemplatePreview 的映射）
 const getEventTagType = (event: InteractionEventType) => {
-  const typeMap = {
-    click: 'success',
-    hover: 'info',
-    focus: 'warning',
-    blur: 'default',
-    custom: 'error'
-  }
-  return typeMap[event] || 'default'
+  return getInteractionEventTagType(event)
 }
 
 // 获取事件显示名称
 const getEventDisplayName = (event: InteractionEventType) => {
-  const nameMap = {
-    click: t('interaction.events.click'),
-    hover: t('interaction.events.hover'),
-    focus: t('interaction.events.focus'),
-    blur: t('interaction.events.blur'),
-    custom: t('interaction.events.custom')
-  }
-  return nameMap[event] || event
+  return getInteractionEventDisplayName(event, t)
 }
 
 // 获取总动作数量
@@ -529,27 +292,6 @@ const importCustomTemplate = () => {
     message.success(t('interaction.messages.templateImported'))
   } catch (error) {
     message.error(t('interaction.messages.templateFormatError'))
-  }
-}
-
-// 保存用户模板到localStorage
-const saveUserTemplates = () => {
-  try {
-    localStorage.setItem('interaction-user-templates', JSON.stringify(userTemplates.value))
-  } catch (error) {
-    /* intentionally empty */
-  }
-}
-
-// 加载用户模板从localStorage
-const loadUserTemplates = () => {
-  try {
-    const saved = localStorage.getItem('interaction-user-templates')
-    if (saved) {
-      userTemplates.value = JSON.parse(saved)
-    }
-  } catch (error) {
-    /* intentionally empty */
   }
 }
 

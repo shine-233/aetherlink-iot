@@ -5,6 +5,7 @@
 //   - 高危解密（Reveal）：严格权限门禁，使用 secrets.Open 解密，审计记录入库，绝不在日志回显明文；
 //   - 轮换重加密（Reseal）：检测旧版本密钥并用 active_key_id 重塑信封；
 //   - 内部下游解析（ResolveSecret）：提供 ${secret.KEY} 动态解密能力，供规则链、Webhook 和通知等下游复用。
+//
 // 关键注意事项：任何密钥材料错误、缺失或越权一律 fail closed。
 package service
 
@@ -15,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"aetherlink-iot/backend/internal/authz"
 	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/pkg/errcode"
@@ -33,12 +35,27 @@ const (
 	secretMaskHead = 4
 )
 
+// secretRevealRule / secretResealRule 是解密与重加密两道闸门的权限规则：
+// 只有 SYS_ADMIN 与 TENANT_ADMIN 可越过，nil claims 与未知角色一律拒绝。
+var (
+	secretRevealRule = authz.Rule{
+		Roles:   authz.ManagerRoles,
+		Code:    errcode.CodeNoPermission,
+		Message: "permission denied: cannot reveal secret",
+	}
+	secretResealRule = authz.Rule{
+		Roles:   authz.ManagerRoles,
+		Code:    errcode.CodeNoPermission,
+		Message: "permission denied",
+	}
+)
+
 // tenantScope 返回租户过滤范围。超管（SYS_ADMIN）若未绑定特定租户可跨租户查看，其他角色严格隔离。
 func tenantScope(claims *utils.UserClaims) string {
 	if claims == nil {
 		return ""
 	}
-	if claims.Authority == "SYS_ADMIN" {
+	if authz.IsSysAdmin(claims) {
 		// 超管默认不限制租户范围，若 claims.TenantID 为非系统占位符则尊重
 		return claims.TenantID
 	}
@@ -246,8 +263,8 @@ func (SecretService) RevealSecret(ctx context.Context, id string, claims *utils.
 		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "unauthorized")
 	}
 	// 深度安全防线：只有系统管理员和租户管理员允许调用解密
-	if claims.Authority != "SYS_ADMIN" && claims.Authority != "TENANT_ADMIN" {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "permission denied: cannot reveal secret")
+	if err := secretRevealRule.RequireClaims(claims); err != nil {
+		return nil, err
 	}
 
 	s, err := dal.GetSecretByID(ctx, tenantScope(claims), id)
@@ -304,8 +321,8 @@ func (SecretService) ResealSecret(ctx context.Context, id string, claims *utils.
 	if claims == nil {
 		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "unauthorized")
 	}
-	if claims.Authority != "SYS_ADMIN" && claims.Authority != "TENANT_ADMIN" {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "permission denied")
+	if err := secretResealRule.RequireClaims(claims); err != nil {
+		return nil, err
 	}
 
 	s, err := dal.GetSecretByID(ctx, tenantScope(claims), id)

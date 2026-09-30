@@ -6,10 +6,14 @@ import (
 )
 
 // GetActiveAlarmHistoryForDeviceAndName 查询指定设备与告警名称处于活动态（H/M/L）的最新告警历史。
+//
+// 设备命中条件由 alarm_device_list::text LIKE '%id%' 改为 142.sql 的关联表 EXISTS：
+// LIKE 既强制逐行顺序扫描，又存在子串误命中（某设备 id 是另一 id 的前缀时会错配到
+// 别人的告警）；关联表上的等值匹配命中主键索引且语义精确。
 func GetActiveAlarmHistoryForDeviceAndName(tenantID, deviceID, alarmName string) (*model.AlarmHistory, error) {
 	var row model.AlarmHistory
-	err := global.DB.Where("tenant_id = ? AND name = ? AND alarm_status IN ('H', 'M', 'L') AND alarm_device_list::text LIKE ?",
-		tenantID, alarmName, "%"+deviceID+"%").
+	err := global.DB.Where("tenant_id = ? AND name = ? AND alarm_status IN ('H', 'M', 'L') AND "+alarmHistoryDeviceExistsByIDUnqualified,
+		tenantID, alarmName, deviceID).
 		Order("create_at DESC").
 		First(&row).Error
 	if err != nil {

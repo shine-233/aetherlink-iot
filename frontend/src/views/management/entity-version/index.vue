@@ -6,23 +6,24 @@
   GET /entity_versions/:id        —— 版本详情（含完整快照）
   GET /entity_versions/:id/diff/:target_id —— 两份快照的 JSON 语义差异（点号路径列表）
   POST /entity_versions/:id/restore —— 恢复；dry_run=true 时只回显将写入的字段
+  列表分页/加载态收口在 useListPage；版本差异对比弹窗拆到 modules/version-compare-modal.vue。
 -->
 <script setup lang="ts">
-import { computed, h, reactive, ref } from 'vue'
-import type { DataTableColumns, SelectOption } from 'naive-ui'
-import { NButton, NEmpty, NInput, NPopconfirm, NSelect, NTag, useMessage } from 'naive-ui'
+import { computed, h, ref } from 'vue'
+import type { DataTableColumns } from 'naive-ui'
+import { NButton, NPopconfirm, NTag } from 'naive-ui'
 import {
   entityVersionCreate,
-  entityVersionDiff,
   entityVersionGet,
   entityVersionList,
   entityVersionRestore,
   type EntityVersion,
-  type EntityVersionDiffChange,
-  type EntityVersionDiffResult,
   type EntityVersionEntityType
 } from '@/service/api'
 import { $t } from '@/locales'
+import { useMessage } from 'naive-ui'
+import { fromFlatResponse, useListPage } from '@/components/data-table-page/useListPage'
+import VersionCompareModal from './modules/version-compare-modal.vue'
 
 defineOptions({ name: 'ManagementEntityVersion' })
 
@@ -31,58 +32,36 @@ const message = useMessage()
 /** 与后端 resolveEntityTable 白名单一一对应；改动需同步后端。 */
 const ENTITY_TYPES: EntityVersionEntityType[] = ['board', 'rule_chain', 'device_config', 'calculated_field']
 
-const typeOptions = computed<SelectOption[]>(() => ENTITY_TYPES.map((value) => ({ label: value, value })))
+const typeOptions = computed(() => ENTITY_TYPES.map((value) => ({ label: value, value })))
 
-// ---------- 查询条件 ----------
-const filter = reactive({
-  entity_type: 'board' as EntityVersionEntityType | string,
-  entity_id: ''
-})
-
+// ---------- 查询条件与列表 ----------
 const hasQueried = ref(false)
-const tableData = ref<EntityVersion[]>([])
-const loading = ref(false)
 const creating = ref(false)
 
-const pagination = reactive({
-  page: 1,
-  pageSize: 10,
-  showSizePicker: true,
+const { query: filter, rows: tableData, loading, pagination, load: getTableData } = useListPage<
+  EntityVersion,
+  { entity_type: EntityVersionEntityType | string; entity_id: string }
+>({
+  initialQuery: () => ({ entity_type: 'board', entity_id: '' }),
   pageSizes: [10, 20, 50],
-  itemCount: 0,
-  onChange: (page: number) => {
-    pagination.page = page
-    getTableData()
+  fetcher: async (params) => {
+    // 查询契约要求显式 entity_id；缺失时提示且不发起请求。
+    if (!params.entity_id.trim()) {
+      message.warning($t('custom.entityVersion.entityId'))
+      return null
+    }
+    const response = await entityVersionList({
+      entity_type: params.entity_type,
+      entity_id: params.entity_id.trim(),
+      page: params.page,
+      page_size: params.page_size
+    })
+    return fromFlatResponse<EntityVersion>(response)
   },
-  onUpdatePageSize: (pageSize: number) => {
-    pagination.pageSize = pageSize
-    pagination.page = 1
-    getTableData()
+  onLoaded: () => {
+    hasQueried.value = true
   }
 })
-
-async function getTableData() {
-  if (!filter.entity_id.trim()) {
-    message.warning($t('custom.entityVersion.entityId'))
-    return
-  }
-  loading.value = true
-  try {
-    const { data, error } = await entityVersionList({
-      entity_type: filter.entity_type,
-      entity_id: filter.entity_id.trim(),
-      page: pagination.page,
-      page_size: pagination.pageSize
-    })
-    if (!error) {
-      hasQueried.value = true
-      tableData.value = (data as any)?.list || []
-      pagination.itemCount = (data as any)?.total || 0
-    }
-  } finally {
-    loading.value = false
-  }
-}
 
 async function handleCreateSnapshot() {
   if (!filter.entity_id.trim()) {
@@ -97,7 +76,7 @@ async function handleCreateSnapshot() {
     })
     if (!error) {
       message.success($t('common.operationSuccess'))
-      getTableData()
+      await getTableData()
     }
   } finally {
     creating.value = false
@@ -123,143 +102,22 @@ async function openDetail(row: EntityVersion) {
   }
 }
 
-// ---------- 版本差异对比（TB-25：快照 JSON 语义 diff） ----------
+// ---------- 版本差异对比（TB-25：快照 JSON 语义 diff，弹窗内实现） ----------
 const compareVisible = ref(false)
-const compareLoading = ref(false)
-const candidateLoading = ref(false)
 const compareSource = ref<EntityVersion | null>(null)
-const compareTargetId = ref<string | null>(null)
-const compareCandidates = ref<SelectOption[]>([])
-const diffResult = ref<EntityVersionDiffResult | null>(null)
-const sourceSnapshotPretty = ref('')
-const targetSnapshotPretty = ref('')
 
-const compareSourceLabel = computed(() =>
-  compareSource.value ? `v${compareSource.value.version_number}` : '--'
-)
-
-/** 快照文本格式化为缩进 JSON；解析失败按原文展示（快照本身由后端生成，一般不会失败）。 */
-function prettySnapshot(raw?: string | null): string {
-  if (!raw) return ''
-  try {
-    return JSON.stringify(JSON.parse(raw), null, 2)
-  } catch {
-    return raw
-  }
-}
-
-function formatDiffValue(value: unknown): string {
-  if (value === undefined || value === null) return '--'
-  if (typeof value === 'string') return value
-  try {
-    return JSON.stringify(value)
-  } catch {
-    return String(value)
-  }
-}
-
-const KIND_META: Record<string, { type: 'success' | 'error' | 'warning'; labelKey: string }> = {
-  added: { type: 'success', labelKey: 'custom.entityVersion.compareAdded' },
-  removed: { type: 'error', labelKey: 'custom.entityVersion.compareRemoved' },
-  modified: { type: 'warning', labelKey: 'custom.entityVersion.compareModified' }
-}
-
-const diffColumns = computed<DataTableColumns<EntityVersionDiffChange>>(() => [
-  {
-    title: () => $t('custom.entityVersion.comparePath'),
-    key: 'path',
-    minWidth: 200,
-    ellipsis: { tooltip: true }
-  },
-  {
-    title: () => $t('custom.entityVersion.compareKind'),
-    key: 'kind',
-    width: 110,
-    render: (row) => {
-      const meta = KIND_META[row.kind]
-      return h(
-        NTag,
-        { size: 'small', type: meta?.type || 'default', bordered: false },
-        { default: () => (meta ? $t(meta.labelKey) : row.kind) }
-      )
-    }
-  },
-  {
-    title: () => $t('custom.entityVersion.compareOldValue'),
-    key: 'old_value',
-    minWidth: 160,
-    render: (row) => formatDiffValue(row.old_value)
-  },
-  {
-    title: () => $t('custom.entityVersion.compareNewValue'),
-    key: 'new_value',
-    minWidth: 160,
-    render: (row) => formatDiffValue(row.new_value)
-  }
-])
-
-/** 打开对比弹窗：候选目标为同一实体的全部其他版本（page_size 取 DAL 上限 500 一次拉全）。 */
-async function openCompare(row: EntityVersion) {
+function openCompare(row: EntityVersion) {
   compareSource.value = row
-  compareTargetId.value = null
-  diffResult.value = null
-  sourceSnapshotPretty.value = prettySnapshot(row.snapshot)
-  targetSnapshotPretty.value = ''
   compareVisible.value = true
-
-  candidateLoading.value = true
-  try {
-    const { data, error } = await entityVersionList({
-      entity_type: filter.entity_type,
-      entity_id: filter.entity_id.trim(),
-      page: 1,
-      page_size: 500
-    })
-    if (!error) {
-      const list = ((data as any)?.list || []) as EntityVersion[]
-      compareCandidates.value = list
-        .filter((item) => item.id !== row.id)
-        .map((item) => ({
-          label: `v${item.version_number}${item.remark ? ` · ${item.remark}` : ''}`,
-          value: item.id
-        }))
-    }
-  } finally {
-    candidateLoading.value = false
-  }
-}
-
-function handleCompareTargetChange(targetId: string | null) {
-  if (!targetId || !compareSource.value) {
-    diffResult.value = null
-    return
-  }
-  loadDiff(targetId)
-}
-
-async function loadDiff(targetId: string) {
-  if (!compareSource.value) return
-  compareLoading.value = true
-  try {
-    const { data, error } = await entityVersionDiff(compareSource.value.id, targetId)
-    if (!error) {
-      const payload = data as any
-      diffResult.value = payload?.diff || null
-      sourceSnapshotPretty.value = prettySnapshot(payload?.source?.snapshot)
-      targetSnapshotPretty.value = prettySnapshot(payload?.target?.snapshot)
-    }
-  } finally {
-    compareLoading.value = false
-  }
 }
 
 // ---------- 恢复 ----------
 async function handleRestore(row: EntityVersion) {
   // 先 dry_run 回显将写入的字段，确认后再真实恢复，避免误覆盖。
-  const { data, error } = await entityVersionRestore(row.id, false)
+  const { error } = await entityVersionRestore(row.id, false)
   if (!error) {
     message.success($t('custom.entityVersion.restored'))
-    getTableData()
+    await getTableData()
   }
 }
 
@@ -377,68 +235,11 @@ const columns = computed<DataTableColumns<EntityVersion>>(() => [
     </n-modal>
 
     <!-- 版本差异对比：左右两栏快照 JSON + 变更列表 -->
-    <n-modal
+    <VersionCompareModal
       v-model:show="compareVisible"
-      preset="card"
-      style="width: 1100px"
-      :title="$t('custom.entityVersion.compareTitle')"
-    >
-      <n-spin :show="compareLoading">
-        <div class="mb-3 flex flex-wrap items-center gap-3">
-          <n-tag size="small" type="info" :bordered="false">
-            {{ $t('custom.entityVersion.compareSource') }}: {{ compareSourceLabel }}
-          </n-tag>
-          <n-select
-            v-model:value="compareTargetId"
-            :options="compareCandidates"
-            :placeholder="$t('custom.entityVersion.compareTargetPlaceholder')"
-            :loading="candidateLoading"
-            :disabled="compareCandidates.length === 0"
-            clearable
-            style="width: 320px"
-            @update:value="handleCompareTargetChange"
-          />
-        </div>
-
-        <n-empty
-          v-if="compareCandidates.length === 0"
-          class="py-6"
-          :description="$t('custom.entityVersion.compareNoTarget')"
-        />
-        <template v-else-if="diffResult">
-          <n-empty
-            v-if="diffResult.total === 0"
-            class="py-6"
-            :description="$t('custom.entityVersion.compareNone')"
-          />
-          <template v-else>
-            <div class="mb-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
-              <div class="min-w-0">
-                <div class="mb-1 text-sm font-bold">
-                  {{ $t('custom.entityVersion.compareSource') }} ({{ compareSourceLabel }})
-                </div>
-                <n-code v-if="sourceSnapshotPretty" :code="sourceSnapshotPretty" language="json" word-wrap />
-              </div>
-              <div class="min-w-0">
-                <div class="mb-1 text-sm font-bold">
-                  {{ $t('custom.entityVersion.compareTarget') }}
-                </div>
-                <n-code v-if="targetSnapshotPretty" :code="targetSnapshotPretty" language="json" word-wrap />
-              </div>
-            </div>
-            <div class="mb-1 text-sm font-bold">
-              {{ $t('custom.entityVersion.compareChanges') }} ({{ diffResult.total }})
-            </div>
-            <n-data-table
-              :columns="diffColumns"
-              :data="diffResult.changes"
-              :bordered="false"
-              size="small"
-              :max-height="320"
-            />
-          </template>
-        </template>
-      </n-spin>
-    </n-modal>
+      :source="compareSource"
+      :entity-type="filter.entity_type"
+      :entity-id="filter.entity_id.trim()"
+    />
   </div>
 </template>

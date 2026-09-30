@@ -227,6 +227,38 @@ func TestListScopeFor(t *testing.T) {
 	}
 }
 
+func TestPlatformAdminRule(t *testing.T) {
+	rule := PlatformAdminRule("platform only")
+	cases := []struct {
+		name  string
+		c     *Claims
+		allow bool
+	}{
+		{"nil", nil, false},
+		{"sys admin", sysAdmin, true},
+		{"tenant admin", tenantAdmin, false},
+		{"tenant user", tenantOwner, false},
+		{"unknown authority", unknownAuthor, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := rule.RequireClaims(tc.c); (err == nil) != tc.allow {
+				t.Fatalf("RequireClaims=%v want allow=%v", err, tc.allow)
+			}
+			if tc.allow {
+				return
+			}
+			var e *errcode.Error
+			if !errors.As(rule.RequireClaims(tc.c), &e) {
+				t.Fatal("denial must be an errcode.Error")
+			}
+			if e.Code != errcode.CodeNoPermission || !e.UseCustomMsg || e.CustomMsg != "platform only" {
+				t.Fatalf("denial=%#v", e)
+			}
+		})
+	}
+}
+
 func TestFreeFunctions(t *testing.T) {
 	res := OfTenant("t1")
 	if _, err := RequireRead(tenantOther, res, TenantRule("x")); err != nil {

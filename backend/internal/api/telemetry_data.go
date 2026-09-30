@@ -19,19 +19,18 @@ import (
 
 type TelemetryDataApi struct{}
 
+// setTelemetryQueryData 是遥测查询类 handler 的共享骨架：绑定 -> RequireClaims -> 调 query -> respond 出口。
 func setTelemetryQueryData[T any](c *gin.Context, req *T, query func(*T, *utils.UserClaims) (any, error)) {
 	if !BindAndValidate(c, req) {
 		return
 	}
 
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := query(req, userClaims)
-	if err != nil {
-		c.Error(err)
+	userClaims, ok := RequireClaims(c)
+	if !ok {
 		return
 	}
-
-	c.Set("data", data)
+	data, err := query(req, userClaims)
+	respond(c, data, err)
 }
 
 // HandleCurrentData returns current telemetry for one device.
@@ -85,14 +84,12 @@ func serveHistoryDataByPage(c *gin.Context) {
 	// Keep the historical time-range guard disabled here; the service layer
 	// owns retention and query-window validation for this endpoint.
 
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.TelemetryData.GetTelemetrHistoryDataByPageV2(&req, userClaims)
-	if err != nil {
-		c.Error(err)
+	userClaims, ok := RequireClaims(c)
+	if !ok {
 		return
 	}
-
-	c.Set("data", data)
+	data, err := service.GroupApp.TelemetryData.GetTelemetrHistoryDataByPageV2(&req, userClaims)
+	respond(c, data, err)
 }
 
 // ServeSetLogsDataListByPage returns paged telemetry set logs.
@@ -137,21 +134,11 @@ func (*TelemetryDataApi) DrainDeadLetters(c *gin.Context) {
 // @Failure 400 {object} errcode.Error "Parameter validation error"
 // @Router /api/v1/telemetry/datas/simulation [get]
 func (*TelemetryDataApi) ServeEchoData(c *gin.Context) {
-	var req model.ServeEchoDataReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	// Use Gin's resolved client IP so simulation diagnostics match request context.
-	clientIP := resolveSimulationClientIP(c)
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	date, err := service.GroupApp.TelemetryData.ServeEchoData(&req, clientIP, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", date)
+	Handle(c, func(req *model.ServeEchoDataReq, userClaims *utils.UserClaims) (interface{}, error) {
+		// Use Gin's resolved client IP so simulation diagnostics match request context.
+		clientIP := resolveSimulationClientIP(c)
+		return service.GroupApp.TelemetryData.ServeEchoData(req, clientIP, userClaims)
+	})
 }
 
 func resolveSimulationClientIP(c *gin.Context) string {
@@ -173,17 +160,10 @@ func resolveSimulationClientIP(c *gin.Context) string {
 // @Failure 400 {object} errcode.Error "Parameter validation error"
 // @Router /api/v1/telemetry/datas/simulation [post]
 func (*TelemetryDataApi) SimulationTelemetryData(c *gin.Context) {
-	var req model.SimulationTelemetryDataReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	_, err := service.GroupApp.TelemetryData.TelemetryPub(req.Command, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandleAction(c, func(req *model.SimulationTelemetryDataReq, userClaims *utils.UserClaims) error {
+		_, err := service.GroupApp.TelemetryData.TelemetryPub(req.Command, userClaims)
+		return err
+	})
 }
 
 // GetSimulationInit returns initialization data for telemetry simulation.
@@ -353,18 +333,16 @@ func (*TelemetryDataApi) TelemetryPutMessage(c *gin.Context) {
 // @Failure 400 {object} errcode.Error "Parameter validation error"
 // @Router /api/v1/telemetry/datas/msg/count [get]
 func (*TelemetryDataApi) ServeMsgCountByTenant(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	if userClaims.TenantID == "" {
-		c.Error(errcode.New(201001))
-		return
-	}
-	cnt, err := service.GroupApp.TelemetryData.ServeMsgCountByTenantId(userClaims.TenantID)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", map[string]interface{}{"msg": cnt})
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		if userClaims.TenantID == "" {
+			return nil, errcode.New(201001)
+		}
+		cnt, err := service.GroupApp.TelemetryData.ServeMsgCountByTenantId(userClaims.TenantID)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]interface{}{"msg": cnt}, nil
+	})
 }
 
 // ServeStatisticDataByDeviceId returns batch telemetry statistics for devices.

@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
+	"aetherlink-iot/backend/internal/authz"
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
-	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/utils"
 
@@ -109,10 +109,7 @@ func resolveEffectiveDeviceDataPolicy(policies []*model.DataPolicy, tenantID, de
 }
 
 func requireDataPolicyAdmin(claims *utils.UserClaims) error {
-	if claims == nil || claims.Authority != constant.SYS_ADMIN {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to manage data policy")
-	}
-	return nil
+	return authz.PlatformAdminRule("no permission to manage data policy").RequireClaims(claims)
 }
 
 func (*DataPolicy) UpdateDataPolicy(req *model.UpdateDataPolicyReq, claims *utils.UserClaims) error {
@@ -256,6 +253,11 @@ func (*DataPolicy) CleanSystemDataByCron() error {
 	}
 
 	now := time.Now()
+	// TB-22：先跑表级保留期注册表（只增不删表的通用出口），再跑既有的
+	// data_policy 两条出口。两者覆盖的表集合不重叠，顺序无依赖；
+	// 注册表内部单行失败只告警，不影响本函数后续的 data_policy 清理。
+	cleanRetentionRegistry(now)
+
 	for _, v := range data {
 		if v == nil {
 			continue
@@ -295,6 +297,7 @@ func (*DataPolicy) CleanSystemDataByCron() error {
 			}
 		}
 	}
+
 	return nil
 }
 
