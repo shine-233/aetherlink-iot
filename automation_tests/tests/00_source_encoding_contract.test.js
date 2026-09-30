@@ -48,6 +48,12 @@ const MOJIBAKE_SIGNATURES = [
   '鎵句笉鍒?', '鏈嵁', '璇锋眰', '鎼滅储', '鍒楄〃', '琛ㄥ崟', '寮圭獥'
 ];
 
+// Unicode 私用区（PUA）。UTF-8 字节被按 GBK 解码时，落在 GBK 用户自定义区的双字节
+// 会被映射到 PUA；源码里出现 PUA 基本只有一个来源：有损编码转换。
+// 实测样本：frontend/src/utils/echarts 的两个文件（"初始化"→"鍒濆\ue750鍖"），
+// 其特征序列不在上面的签名表里，只有 PUA 规则能拦住——故单列一条。
+const PUA_PATTERN = /[\uE000-\uF8FF]/;
+
 function* walk(dir) {
   let entries;
   try {
@@ -107,6 +113,14 @@ function inspectSourceEncoding() {
         findings.push({ file: file.relative, line: i + 1, reason: `mojibake signature "${hit}"` });
         break;
       }
+      if (PUA_PATTERN.test(line)) {
+        findings.push({
+          file: file.relative,
+          line: i + 1,
+          reason: 'private-use-area char U+E000-U+F8FF (lossy UTF-8/GBK conversion)'
+        });
+        break;
+      }
     }
     }
   }
@@ -116,7 +130,7 @@ function inspectSourceEncoding() {
 describe('source encoding contract [00_source_encoding_contract]', function () {
   this.timeout(60000);
 
-  it('keeps every scanned source file free of U+FFFD and known mojibake signatures', function () {
+  it('keeps every scanned source file free of U+FFFD, known mojibake signatures and PUA chars', function () {
     const findings = inspectSourceEncoding();
     expect(
       findings,
@@ -131,5 +145,15 @@ describe('source encoding contract [00_source_encoding_contract]', function () {
     const damaged = '// 鏂囦欢鐢ㄩ€? RDI 璁惧璇︽儏';
     const hit = MOJIBAKE_SIGNATURES.find(sig => damaged.includes(sig));
     expect(hit, 'signature table must catch the archived incident sample').to.be.a('string');
+  });
+
+  it('flags a synthetic PUA line that the signature table alone would miss', function () {
+    // 自证：PUA 规则必须能独立拦住"签名表漏掉"的真实事故样本。
+    const damaged = ' * 鍒濆\uE750鍖?ECharts 基础组件注册';
+    expect(PUA_PATTERN.test(damaged), 'PUA rule must catch the archived echarts incident sample').to.equal(true);
+    expect(
+      MOJIBAKE_SIGNATURES.find(sig => damaged.includes(sig)),
+      'this sample is deliberately outside the signature table'
+    ).to.equal(undefined);
   });
 });

@@ -57,7 +57,7 @@ export const aetherLinkTheme: EChartsOption = {
   }
 } as any
 
-/** 闈㈢Н鍥?series 榛樿鏍峰紡锛堟笎鍙?骞虫粦锛?*/
+/** 面积图 series 默认样式（渐变、平滑）*/
 export function areaSeriesStyle(color = BRAND.primary) {
   return {
     smooth: true,
@@ -78,7 +78,7 @@ export function areaSeriesStyle(color = BRAND.primary) {
   }
 }
 
-/** 鏌辩姸鍥?series 榛樿鏍峰紡锛堝渾瑙?娓愬彉锛?*/
+/** 柱状图 series 默认样式（圆角、渐变）*/
 export function barSeriesStyle() {
   return {
     barMaxWidth: 28,
