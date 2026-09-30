@@ -95,6 +95,8 @@ func TestGeneratedModuleCompiles(t *testing.T) {
 	writeTemporaryModule(t, moduleDir)
 	cmd := exec.Command("go", "test", "-mod=mod", "./...")
 	cmd.Dir = moduleDir
+	// 临时模块是独立 module，必须脱离父仓库的 go.work：workspace 模式下 -mod=mod 会被拒绝。
+	cmd.Env = append(os.Environ(), "GOWORK=off")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("temporary generated module did not compile: %v\n%s", err, out)
@@ -147,6 +149,8 @@ func TestScaffoldRejectsConstructionAndLoad(t *testing.T) {
 	}
 	cmd := exec.Command("go", "test", "-mod=mod", "./safe_plugin", "-run", "TestScaffoldRejectsConstructionAndLoad", "-count=1")
 	cmd.Dir = moduleDir
+	// 同上：临时模块必须脱离父 go.work 才能使用 -mod=mod。
+	cmd.Env = append(os.Environ(), "GOWORK=off")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("unconfigured generated plugin load contract failed: %v\n%s", err, out)
