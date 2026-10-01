@@ -150,30 +150,6 @@ func ensureCasbinUserRoleMutationReady(changeRequested bool) error {
 	return nil
 }
 
-func addUserRoleBindings(userID string, roleIDs []string) error {
-	if len(roleIDs) == 0 {
-		return nil
-	}
-	ok, err := GroupApp.Casbin.AddRolesToUserWithError(userID, roleIDs)
-	if err != nil {
-		return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-			"operation": "add_user_roles",
-			"user_id":   userID,
-			"role_ids":  roleIDs,
-			"error":     err.Error(),
-		})
-	}
-	if !ok {
-		return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-			"operation": "add_user_roles",
-			"user_id":   userID,
-			"role_ids":  roleIDs,
-			"error":     "failed to add roles to user",
-		})
-	}
-	return nil
-}
-
 func replaceUserRoleBindingsWithTx(tx *query.Query, userID string, roleIDs []string) error {
 	if _, err := tx.CasbinRule.Where(tx.CasbinRule.Ptype.Eq("g"), tx.CasbinRule.V0.Eq(userID)).Delete(); err != nil {
 		return err

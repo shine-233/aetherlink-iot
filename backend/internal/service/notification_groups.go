@@ -105,27 +105,6 @@ func (*NotificationGroup) GetNotificationGroupListByPage(pageParam *model.GetNot
 	return notificationGroupListResponse(total, list), err
 }
 
-func (*NotificationGroup) GetNotificationGroupListByTenantId(tenantid string) (map[string]interface{}, error) {
-	total, list, err := dal.GetNotificationGroupByTenantId(tenantid)
-	if err != nil {
-		return nil, dbError(err)
-	}
-
-	return notificationGroupListResponse(total, list), err
-}
-
-func (*NotificationGroup) GetNotificationByTenantId(tenantid string) (map[string]interface{}, error) {
-	total, list, err := dal.GetBoardListByTenantId(tenantid)
-	if err != nil {
-		return nil, dbError(err)
-	}
-	boardListRsp := make(map[string]interface{})
-	boardListRsp["total"] = total
-	boardListRsp["list"] = list
-
-	return boardListRsp, err
-}
-
 func notificationGroupListResponse(total interface{}, list interface{}) map[string]interface{} {
 	return map[string]interface{}{
 		"total": total,
