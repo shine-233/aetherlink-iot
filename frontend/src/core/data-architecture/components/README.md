@@ -9,13 +9,9 @@
 - `common/` 提供 HTTP 步骤、动态参数编辑器和导入导出面板等共享组件。
 - `device-selectors/` 负责设备、指标、属性等参数选择，并把结果交给动态参数编辑器或 HTTP 配置。
 - `modals/` 包装完整配置弹窗流程。
-- 顶层合并策略和轮询组件会产出执行器直接消费的配置字段。
 
 ## 重点文件
 
-- `DataSourceMergeStrategyEditor.vue`：完整版合并策略编辑入口。
-- `DataSourceMergeStrategyEditorSimple.vue`：轻量合并策略编辑入口。
-- `ComponentPollingConfig.vue`：组件级数据源轮询配置。
 - `common/DynamicParameterEditor.vue`：动态参数编辑核心组件，体量和风险都较高。
 
 ## 审查建议

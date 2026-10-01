@@ -9,7 +9,6 @@
 ```text
 interaction-system/
 ├── index.ts                         # 模块统一导出和初始化状态
-├── interaction-engine.ts            # 交互动作用例执行入口
 ├── managers/
 │   └── ConfigRegistry.ts            # 自定义配置组件注册表
 └── components/

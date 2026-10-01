@@ -27,7 +27,6 @@ import { setupPrecompressPlugin } from './compress'
  */
 const COMPONENT_GLOBS = [
   'src/components/**/*.vue',
-  '!src/components/DeviceSelectSingle.vue',
   '!src/components/common/grid/**',
   '!src/components/**/backup/**',
   '!src/components/**/examples/**',

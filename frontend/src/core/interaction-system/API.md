@@ -9,7 +9,6 @@
 - `index.ts` 是统一出口。
 - `components/` 放组件实现。
 - `managers/ConfigRegistry.ts` 放配置注册表。
-- `interaction-engine.ts` 提供交互执行相关能力。
 - `README.md` 适合做目录总览，`API.md` 适合做接口参考。
 
 ## 对外导出

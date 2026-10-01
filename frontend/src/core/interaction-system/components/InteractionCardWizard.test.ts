@@ -37,13 +37,6 @@ vi.mock('@/service/api/route', () => ({
   fetchGetUserRoutes: hoisted.fetchGetUserRoutes
 }))
 
-vi.mock('../interaction-engine', () => ({
-  createInteractionEngine: vi.fn(() => ({
-    start: vi.fn(),
-    stop: vi.fn()
-  }))
-}))
-
 vi.mock('@/core/data-architecture/components/common/ComponentPropertySelector.vue', () => ({
   default: defineComponent({
     props: ['value', 'placeholder', 'currentComponentId'],
