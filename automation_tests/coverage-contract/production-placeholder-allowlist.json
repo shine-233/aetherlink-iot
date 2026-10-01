@@ -1,4 +1,13 @@
 {
   "version": 1,
-  "entries": []
+  "entries": [
+    {
+      "path": "backend/internal/collector/pointconfig/pointconfig.go",
+      "ruleId": "explicit-placeholder",
+      "fingerprint": "206d7ed777ac52105968b3e8bcc10f0967336f0014f29a11e76997b68bac4ca4",
+      "reason": "SNMP v3 authPriv 的隐私加密（RFC 3414 privacy）尚未实现，priv_proto 当前仅支持 none：非 none 值在点表校验处 fail-closed 拒绝，行为正确且安全。该行是面向用户的能力边界声明，待实现隐私协议族（DES/AES）后连同本豁免一并移除。",
+      "owner": "shine-233",
+      "expires": "2026-12-31"
+    }
+  ]
 }
