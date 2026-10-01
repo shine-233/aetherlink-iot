@@ -191,28 +191,13 @@ func (f *TelemetryUplink) handleDevice(device *model.Device, dataMap map[string]
 	// 有效遥测上行会刷新设备在线状态，再进入存储、推送和自动化副作用。
 	f.liveness.touch(device)
 
-	// Gateway fan-out hands the envelope's own map to us; copy before adding
-	// alias keys so the caller's data is never mutated.
-	dataMap = normalizeLegacyRDITelemetryAliases(cloneIfAliasable(dataMap))
+	// Gateway fan-out hands the envelope's own map to us; alias normalization
+	// copies on write so the caller's data is never mutated.
+	dataMap = normalizeLegacyRDITelemetryAliases(dataMap)
 	points, triggerParam, triggerValues := convertTelemetryMapToPoints(dataMap)
 	if f.sideEffects != nil {
 		f.sideEffects(device, points, triggerParam, triggerValues, resolveStorageTimestamp(originalMsg))
 	}
-}
-
-func cloneIfAliasable(dataMap map[string]interface{}) map[string]interface{} {
-	for _, legacyKeys := range legacyRDITelemetryAliases {
-		for _, legacyKey := range legacyKeys {
-			if _, ok := dataMap[legacyKey]; ok {
-				out := make(map[string]interface{}, len(dataMap)+len(legacyRDITelemetryAliases))
-				for k, v := range dataMap {
-					out[k] = v
-				}
-				return out
-			}
-		}
-	}
-	return dataMap
 }
 
 func (f *TelemetryUplink) recordTelemetryDiagnostics(deviceID string, pointCount int) {
@@ -347,48 +332,63 @@ func (f *TelemetryUplink) runBoundedRuleChain(deviceID string, run func()) {
 	}()
 }
 
-var legacyRDITelemetryAliases = map[string][]string{
-	"temperature_1":      {"T1"},
-	"temperature_2":      {"T2"},
-	"switch_1":           {"NC_INPUT_1_LEVEL", "NC_INPUT_1_Level"},
-	"switch_2":           {"NC_INPUT_2_LEVEL", "NC_INPUT_2_Level"},
-	"dry_contact_output": {"NO_LEVEL", "NO_Level"},
+// legacyRDITelemetryAliases maps a canonical key to its legacy RDI spellings;
+// the first legacy key present wins. A slice (not a map) keeps the scan cheap
+// and deterministic on every telemetry message.
+var legacyRDITelemetryAliases = [...]struct {
+	target string
+	legacy []string
+}{
+	{"temperature_1", []string{"T1"}},
+	{"temperature_2", []string{"T2"}},
+	{"switch_1", []string{"NC_INPUT_1_LEVEL", "NC_INPUT_1_Level"}},
+	{"switch_2", []string{"NC_INPUT_2_LEVEL", "NC_INPUT_2_Level"}},
+	{"dry_contact_output", []string{"NO_LEVEL", "NO_Level"}},
 }
 
+// normalizeLegacyRDITelemetryAliases adds missing canonical keys for legacy RDI
+// keys. It never mutates dataMap: the first alias that must be added triggers a
+// single copy, and payloads without legacy keys are returned as-is.
 func normalizeLegacyRDITelemetryAliases(dataMap map[string]interface{}) map[string]interface{} {
 	if len(dataMap) == 0 {
 		return dataMap
 	}
-
-	for targetKey, legacyKeys := range legacyRDITelemetryAliases {
-		if _, hasTarget := dataMap[targetKey]; hasTarget {
+	out := dataMap
+	copied := false
+	for _, alias := range legacyRDITelemetryAliases {
+		if _, hasTarget := out[alias.target]; hasTarget {
 			continue
 		}
-		for _, legacyKey := range legacyKeys {
-			if value, ok := dataMap[legacyKey]; ok {
-				dataMap[targetKey] = value
-				break
+		for _, legacyKey := range alias.legacy {
+			value, ok := dataMap[legacyKey]
+			if !ok {
+				continue
 			}
+			if !copied {
+				out = make(map[string]interface{}, len(dataMap)+len(legacyRDITelemetryAliases))
+				for k, v := range dataMap {
+					out[k] = v
+				}
+				copied = true
+			}
+			out[alias.target] = value
+			break
 		}
 	}
-
-	return dataMap
+	return out
 }
 
+// convertTelemetryMapToPoints returns the storage points in sorted key order,
+// the sorted keys as automation trigger params, and dataMap itself as the
+// trigger values. Callers treat triggerParam and triggerValues as read-only
+// (the rule chain path copies before going async), so no per-message copies.
 func convertTelemetryMapToPoints(dataMap map[string]interface{}) ([]storage.TelemetryDataPoint, []string, map[string]interface{}) {
 	keys := sortedKeys(dataMap)
-	points := make([]storage.TelemetryDataPoint, 0, len(keys))
-	triggerParam := make([]string, 0, len(keys))
-	triggerValues := make(map[string]interface{}, len(keys))
-
-	for _, key := range keys {
-		value := dataMap[key]
-		points = append(points, storage.TelemetryDataPoint{Key: key, Value: value})
-		triggerParam = append(triggerParam, key)
-		triggerValues[key] = value
+	points := make([]storage.TelemetryDataPoint, len(keys))
+	for i, key := range keys {
+		points[i] = storage.TelemetryDataPoint{Key: key, Value: dataMap[key]}
 	}
-
-	return points, triggerParam, triggerValues
+	return points, keys, dataMap
 }
 
 // checkAndPublishToWS 检查设备是否有 WebSocket 订阅，并在有订阅时推送遥测事件。

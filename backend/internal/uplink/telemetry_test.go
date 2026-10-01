@@ -83,3 +83,20 @@ func TestTelemetrySideEffectsEnabledOnlyWhenPointsExist(t *testing.T) {
 		t.Fatalf("non-empty telemetry points should enable side effects")
 	}
 }
+
+func TestNormalizeLegacyRDITelemetryAliasesNeverMutatesInput(t *testing.T) {
+	// Gateway fan-out passes the envelope's own map; aliasing must copy on write.
+	in := map[string]interface{}{"T1": 21.5, "other": 1}
+	out := normalizeLegacyRDITelemetryAliases(in)
+	if _, ok := in["temperature_1"]; ok || len(in) != 2 {
+		t.Fatalf("input mutated: %#v", in)
+	}
+	if out["temperature_1"] != 21.5 || out["T1"] != 21.5 || out["other"] != 1 {
+		t.Fatalf("unexpected output: %#v", out)
+	}
+
+	plain := map[string]interface{}{"voltage": 220.5}
+	if got := normalizeLegacyRDITelemetryAliases(plain); len(got) != 1 || got["voltage"] != 220.5 {
+		t.Fatalf("payload without legacy keys changed: %#v", got)
+	}
+}
