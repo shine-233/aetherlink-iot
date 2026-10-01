@@ -387,9 +387,23 @@ func (c *MqttClient) publish(request mqttPublishRequest) error {
 		return fmt.Errorf("mqtt client is not initialized for topic %q", request.topic)
 	}
 
+	started := time.Now()
 	token := client.Publish(request.topic, request.qos, request.retained, request.payload)
 	if !token.WaitTimeout(mqttPublishTimeout) {
+		if Log != nil {
+			Log.Warn("mqtt publish diagnostic: PUBACK not received within timeout",
+				zap.String("topic", request.topic),
+				zap.Int("payload_bytes", len(request.payload)),
+				zap.Duration("elapsed", time.Since(started)),
+			)
+		}
 		return fmt.Errorf("mqtt publish timeout for topic %q", request.topic)
+	}
+	if elapsed := time.Since(started); elapsed > 2*time.Second && Log != nil {
+		Log.Warn("mqtt publish diagnostic: slow PUBACK",
+			zap.String("topic", request.topic),
+			zap.Duration("elapsed", elapsed),
+		)
 	}
 	if err := token.Error(); err != nil {
 		return fmt.Errorf("mqtt publish failed for topic %q: %w", request.topic, err)

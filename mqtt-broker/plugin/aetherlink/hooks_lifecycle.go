@@ -74,6 +74,12 @@ func recordMQTTDisconnectDebugLog(client server.Client, closeErr error) {
 	})
 }
 
+// publishMQTTDeviceOnlineStatus 把设备上下线事件经内部 MQTT 客户端转发给平台后端。
+// 必须异步执行：本函数在 OnConnected/OnClosed 生命周期回调内被调用，而回调运行期间
+// broker 侧持有 srv.mu（registerClient 的 defer Unlock 横跨 OnConnected）。
+// 同步 SendData 会让 paho PUBLISH 回流到 broker 的 publishHandler → 投递路径，
+// 再次申请 srv.mu——自己等自己，直到对端连接超时才解开，设备 CONNACK 也被拖死。
+// 状态通知是 fire-and-forget 语义：单 sendWorker 串行队列保证 online/offline 相对有序。
 func publishMQTTDeviceOnlineStatus(client server.Client, status string, statusLabel string) {
 	if isMQTTSystemUser(client.ClientOptions().Username) {
 		return
@@ -87,21 +93,27 @@ func publishMQTTDeviceOnlineStatus(client server.Client, status string, statusLa
 		)
 		return
 	}
-	if err := DefaultMqttClient.WaitReady(context.Background()); err != nil {
-		Log.Warn(
-			"mqtt "+statusLabel+" status publish skipped before internal client readiness",
-			zap.String("client_id", client.ClientOptions().ClientID),
-			zap.String("device_id", deviceID),
-			zap.Error(err),
-		)
-		return
-	}
-	if err := DefaultMqttClient.SendData("devices/status/"+deviceID, []byte(status)); err != nil {
-		Log.Warn(
-			"mqtt "+statusLabel+" status publish failed",
-			zap.String("client_id", client.ClientOptions().ClientID),
-			zap.String("device_id", deviceID),
-			zap.Error(err),
-		)
-	}
+	clientID := client.ClientOptions().ClientID
+	go func() {
+		if err := DefaultMqttClient.WaitReady(context.Background()); err != nil {
+			Log.Warn(
+				"mqtt "+statusLabel+" status publish skipped before internal client readiness",
+				zap.String("client_id", clientID),
+				zap.String("device_id", deviceID),
+				zap.Error(err),
+			)
+			return
+		}
+		// 载荷必须走与设备上行一致的 {device_id, values(base64)} 信封：后端适配器的
+		// decodeStatusPayload 会先 verifyPayload 解信封再取内层 0/1，裸数字会被判
+		// Invalid status payload 丢弃，设备在线状态永远无法登记。
+		if err := DefaultMqttClient.SendData("devices/status/"+deviceID, buildMQTTUplinkPayload(deviceID, []byte(status))); err != nil {
+			Log.Warn(
+				"mqtt "+statusLabel+" status publish failed",
+				zap.String("client_id", clientID),
+				zap.String("device_id", deviceID),
+				zap.Error(err),
+			)
+		}
+	}()
 }
