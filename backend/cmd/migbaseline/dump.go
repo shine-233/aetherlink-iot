@@ -87,6 +87,11 @@ func writeBaseline(bin, dsn, outPath string, n int, pgVersion string) {
 	fmt.Fprintf(&b, "-- sql/baseline/%d.sql —— 由 cmd/migbaseline 生成，禁止手改（改了任何 sql/1..%d.sql 必须重新生成）。\n", n, n)
 	fmt.Fprintf(&b, "-- generator: cd backend && go run ./cmd/migbaseline -dsn-admin <admin-dsn> -verify\n")
 	fmt.Fprintf(&b, "-- postgres: %s（AETHERLINK_TIMESCALE_MODE=off；TimescaleDB 安装不使用本基线）\n", pgVersion)
+	major, _ := strconv.Atoi(strings.SplitN(strings.Fields(pgVersion)[0], ".", 2)[0])
+	if major <= 0 {
+		fail(2, "无法解析服务器主版本：%q", pgVersion)
+	}
+	fmt.Fprintf(&b, "%s%d\n", initialize.BaselineHeaderMajor, major)
 	fmt.Fprintf(&b, "%s1..%d\n", initialize.BaselineHeaderRange, n)
 	fmt.Fprintf(&b, "%s%s\n", initialize.BaselineHeaderSHA, sha)
 	b.WriteString("-- 种子行的 now() 时间戳为生成时刻，而非安装时刻。\n\n")

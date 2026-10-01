@@ -9,7 +9,8 @@ import (
 )
 
 func TestDecideBaseline(t *testing.T) {
-	ok := baselineInputs{DataVersion: 0, Mode: "auto", TimescaleMode: "off", BaselineNumber: 143, SourceMatches: true}
+	ok := baselineInputs{DataVersion: 0, Mode: "auto", TimescaleMode: "off", BaselineNumber: 143, SourceMatches: true,
+		BaselineMajor: 17, ServerMajor: 17}
 	cases := []struct {
 		name string
 		mut  func(*baselineInputs)
@@ -25,6 +26,9 @@ func TestDecideBaseline(t *testing.T) {
 		{"没有基线文件", func(in *baselineInputs) { in.BaselineNumber = 0 }, false},
 		{"脏库", func(in *baselineInputs) { in.BusinessTables = 1 }, false},
 		{"基线已过期", func(in *baselineInputs) { in.SourceMatches = false }, false},
+		{"服务器主版本低于生成版本", func(in *baselineInputs) { in.ServerMajor = 16 }, false},
+		{"服务器主版本更高", func(in *baselineInputs) { in.ServerMajor = 18 }, true},
+		{"头部缺 postgres-major", func(in *baselineInputs) { in.BaselineMajor = 0 }, false},
 	}
 	for _, c := range cases {
 		in := ok

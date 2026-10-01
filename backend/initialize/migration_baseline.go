@@ -69,14 +69,20 @@ type baselineInputs struct {
 	BaselineNumber     int    // 可用基线编号，0 表示没有
 	BusinessTables     int64  // public 下除 sys_version 外的表数
 	SourceMatches      bool   // 基线头部 source-sha256 与当前 sql/1..B.sql 一致
+	BaselineMajor      int    // 生成基线的 PostgreSQL 主版本（头部 postgres-major）
+	ServerMajor        int    // 当前服务器主版本
 }
 
 // decideBaseline 纯决策：是否用基线替代 1..B 的增量重放。
+// 高版本 pg_dump 的输出不保证能在低版本服务器上装载，故要求 ServerMajor >= BaselineMajor。
 func decideBaseline(in baselineInputs) bool {
 	if in.DataVersion != 0 || in.Mode != migrationBaselineAuto {
 		return false
 	}
 	if in.BaselineNumber <= 0 || in.BusinessTables != 0 || !in.SourceMatches {
+		return false
+	}
+	if in.BaselineMajor <= 0 || in.ServerMajor < in.BaselineMajor {
 		return false
 	}
 	switch in.TimescaleMode {
@@ -133,6 +139,7 @@ func countBusinessTables(db *gorm.DB) (int64, error) {
 const (
 	BaselineHeaderRange = "-- source-range: "
 	BaselineHeaderSHA   = "-- source-sha256: "
+	BaselineHeaderMajor = "-- postgres-major: "
 )
 
 // BaselineSourceSHA256 计算 sqlDir/1..n.sql 依次拼接后的 sha256（先把 CRLF 归一为 LF，
@@ -149,23 +156,54 @@ func BaselineSourceSHA256(sqlDir string, n int) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-// ReadBaselineHeaderSHA 读取基线文件头部（前 50 行内）记录的 source-sha256。
-func ReadBaselineHeaderSHA(path string) (string, error) {
+// readBaselineHeader 读取基线文件头部（前 50 行内）`-- key: value` 形式的字段。
+func readBaselineHeader(path string) (map[string]string, error) {
 	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	fields := map[string]string{}
+	sc := bufio.NewScanner(f)
+	for line := 0; line < 50 && sc.Scan(); line++ {
+		if rest, ok := strings.CutPrefix(sc.Text(), "-- "); ok {
+			if k, v, found := strings.Cut(rest, ": "); found && !strings.Contains(k, " ") {
+				fields[k] = strings.TrimSpace(v)
+			}
+		}
+	}
+	return fields, sc.Err()
+}
+
+// ReadBaselineHeaderSHA 读取基线头部记录的 source-sha256。
+func ReadBaselineHeaderSHA(path string) (string, error) {
+	fields, err := readBaselineHeader(path)
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
-	sc := bufio.NewScanner(f)
-	for line := 0; line < 50 && sc.Scan(); line++ {
-		if v, ok := strings.CutPrefix(strings.TrimSpace(sc.Text()), strings.TrimSpace(BaselineHeaderSHA)); ok {
-			return strings.TrimSpace(v), nil
-		}
-	}
-	if err := sc.Err(); err != nil {
-		return "", err
+	if v := fields[strings.TrimSuffix(strings.TrimPrefix(BaselineHeaderSHA, "-- "), ": ")]; v != "" {
+		return v, nil
 	}
 	return "", fmt.Errorf("%s 头部缺少 source-sha256", path)
+}
+
+// readBaselineMajor 读取基线头部记录的 postgres-major；缺失返回 0（视为不可用）。
+func readBaselineMajor(path string) int {
+	fields, err := readBaselineHeader(path)
+	if err != nil {
+		return 0
+	}
+	n, _ := strconv.Atoi(fields[strings.TrimSuffix(strings.TrimPrefix(BaselineHeaderMajor, "-- "), ": ")])
+	return n
+}
+
+// serverMajorVersion 查询服务器主版本（server_version_num / 10000）。
+func serverMajorVersion(db *gorm.DB) (int, error) {
+	var num int
+	if err := db.Raw("SELECT current_setting('server_version_num')::int").Scan(&num).Error; err != nil {
+		return 0, fmt.Errorf("查询 server_version_num 失败: %w", err)
+	}
+	return num / 10000, nil
 }
 
 // BaselinePlan 是一次基线决策的结果：Use=false 时 Number/Path 仅供日志参考。
@@ -205,6 +243,10 @@ func PlanBaseline(db *gorm.DB, dataVersion, maxVersion int) (BaselinePlan, error
 		in.SourceMatches = shaErr == nil && hdrErr == nil && want == got
 		if !in.SourceMatches {
 			migrationLogf("警告：基线 %s 与当前 sql/1..%d.sql 不一致（已过期，需重新生成），改走增量路径", plan.Path, plan.Number)
+		}
+		in.BaselineMajor = readBaselineMajor(plan.Path)
+		if in.ServerMajor, err = serverMajorVersion(db); err != nil {
+			return plan, err
 		}
 	}
 	if in.BusinessTables, err = countBusinessTables(db); err != nil {
