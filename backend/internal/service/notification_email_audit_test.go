@@ -417,7 +417,7 @@ func TestTenantAlertEmailFailureCallSitesUseControlledHistory(t *testing.T) {
 		t,
 		"alarm_notification.go",
 		"func sendDefaultAlarmEmailNotification(",
-		"func createAlarmInfoRecord(",
+		"func alarmDeviceListJSON(",
 	)
 	requireEmailAuditSourceTokens(
 		t,

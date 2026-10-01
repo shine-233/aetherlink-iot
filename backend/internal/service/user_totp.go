@@ -290,6 +290,10 @@ func (*UserTotp) LoginWithSecondFactor(ticket, code string) (*model.LoginRsp, er
 	if err != nil {
 		return nil, err
 	}
+	// 失败次数上限必须在任何 DB 查询与验证码比对之前检查，锁定期间即使验证码正确也拒绝。
+	if err := ensureTotpLoginAllowed(userID); err != nil {
+		return nil, err
+	}
 	user, err := GroupApp.User.GetUserById(userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -317,6 +321,7 @@ func (*UserTotp) LoginWithSecondFactor(ticket, code string) (*model.LoginRsp, er
 		if err := dal.SetTOTPLastUsedStep(userID, step); err != nil {
 			return nil, errcode.New(errcode.CodeDBError)
 		}
+		clearTotpLoginFailures(userID)
 		return GroupApp.User.UserLoginAfter(user)
 	}
 	used, err := dal.ConsumeUserTOTPRecoveryCode(userID, hashRecoveryCode(code))
@@ -324,7 +329,9 @@ func (*UserTotp) LoginWithSecondFactor(ticket, code string) (*model.LoginRsp, er
 		return nil, errcode.New(errcode.CodeDBError)
 	}
 	if !used {
+		registerTotpLoginFailure(userID)
 		return nil, errcode.New(errcode.CodeTotpInvalid)
 	}
+	clearTotpLoginFailures(userID)
 	return GroupApp.User.UserLoginAfter(user)
 }
