@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"aetherlink-iot/backend/internal/model"
@@ -59,8 +60,35 @@ func isConfiguredMarketBaseURL(rawURL string) bool {
 	return err == nil && (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Host != ""
 }
 
+// marketBreakerOnce/marketBreakerTransport back the process-wide circuit
+// breaker shared by every MarketClient. The market API is one logical
+// upstream, so a single breaker instance tracks its health across all
+// requests and all client instances; constructing a fresh breaker per
+// request (the previous behavior) reset consecutiveFailures to 0 every
+// time, so the breaker could structurally never trip.
+var (
+	marketBreakerOnce      sync.Once
+	marketBreakerTransport *marketCircuitBreakerTransport
+)
+
+// sharedMarketCircuitBreakerTransport returns the process-wide market
+// breaker transport, creating it on first use.
+func sharedMarketCircuitBreakerTransport() *marketCircuitBreakerTransport {
+	marketBreakerOnce.Do(func() {
+		marketBreakerTransport = newMarketCircuitBreakerTransport(http.DefaultTransport)
+	})
+	return marketBreakerTransport
+}
+
 // NewMarketClient creates a client from the current configuration. Market is
 // fail-closed: a missing market.enabled key is treated as disabled.
+//
+// The returned client's *http.Client is cheap and stateless and is
+// reallocated on every call so each client reflects the config snapshot at
+// construction time, but its Transport is the shared process-wide circuit
+// breaker: breaker state (consecutive failures / open-until / half-open
+// probe) must survive across requests and across NewMarketClient() calls to
+// be effective at all.
 func NewMarketClient() *MarketClient {
 	enabled := viper.GetBool("market.enabled")
 	return &MarketClient{
@@ -68,7 +96,7 @@ func NewMarketClient() *MarketClient {
 		baseURL: getMarketBaseURL(),
 		httpClient: &http.Client{
 			Timeout:   10 * time.Second,
-			Transport: newMarketCircuitBreakerTransport(http.DefaultTransport),
+			Transport: sharedMarketCircuitBreakerTransport(),
 		},
 	}
 }
