@@ -400,3 +400,28 @@ func TestAetherLinkPluginUnloadClosesDefaultMqttClient(t *testing.T) {
 		t.Fatal("Unload did not release internal mqtt client resources")
 	}
 }
+
+func (c *MqttClient) startForTest(client mqtt.Client, queueSize int) error {
+	_, cancel := context.WithCancel(context.Background())
+	if err := c.beginRuntime(client, cancel); err != nil {
+		cancel()
+		return err
+	}
+	c.mu.Lock()
+	c.sendCh = make(chan mqttPublishRequest, queueSize)
+	sendCh := c.sendCh
+	abortSend := c.abortSend
+	workerDone := c.workerDone
+	connectDone := c.connectDone
+	close(connectDone)
+	c.mu.Unlock()
+	go c.sendWorker(sendCh, abortSend, workerDone)
+	c.markReady()
+	return nil
+}
+
+func (c *MqttClient) isConnected() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.IsFlag
+}

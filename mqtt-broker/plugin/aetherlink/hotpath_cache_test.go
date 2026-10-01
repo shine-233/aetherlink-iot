@@ -39,11 +39,11 @@ func TestDeviceDebugConfigCachedIncludingNegative(t *testing.T) {
 	if _, enabled, _ := GetDeviceDebugConfig("dev-neg"); enabled {
 		t.Fatal("negative entry should be served from cache within TTL")
 	}
-	// ...but explicit invalidation makes it visible immediately.
-	InvalidateDeviceDebugConfigCache("dev-neg")
+	// ...but becomes visible once the negative entry's TTL expires.
+	hotpathCacheNow = func() time.Time { return time.Unix(10_000, 0).Add(devDebugCfgCacheTTL + time.Millisecond) }
 	cfg, enabled, err := GetDeviceDebugConfig("dev-neg")
 	if err != nil || !enabled || cfg.MaxItems != 5 {
-		t.Fatalf("after invalidate: cfg=%+v enabled=%v err=%v", cfg, enabled, err)
+		t.Fatalf("after negative TTL expiry: cfg=%+v enabled=%v err=%v", cfg, enabled, err)
 	}
 
 	// Positive hit survives Redis deletion until TTL expiry, then refreshes.
@@ -51,7 +51,7 @@ func TestDeviceDebugConfigCachedIncludingNegative(t *testing.T) {
 	if _, enabled, _ := GetDeviceDebugConfig("dev-neg"); !enabled {
 		t.Fatal("positive entry should be cached within TTL")
 	}
-	hotpathCacheNow = func() time.Time { return time.Unix(10_000, 0).Add(devDebugCfgCacheTTL + time.Millisecond) }
+	hotpathCacheNow = func() time.Time { return time.Unix(10_000, 0).Add(2*devDebugCfgCacheTTL + 2*time.Millisecond) }
 	if _, enabled, _ := GetDeviceDebugConfig("dev-neg"); enabled {
 		t.Fatal("expired entry must be re-read from Redis")
 	}
@@ -92,7 +92,7 @@ func TestDeviceDebugConfigCacheIgnoresEntriesFromOtherClient(t *testing.T) {
 	}
 }
 
-func TestCompiledTopicMappingsCachedAndInvalidated(t *testing.T) {
+func TestCompiledTopicMappingsCachedUntilTTL(t *testing.T) {
 	installHotpathTestRedis(t)
 	rows := cachedTopicMappings{Loaded: true, Rows: []DeviceTopicMapping{
 		{SourceTopic: "bad/#", TargetTopic: "x"},
@@ -119,10 +119,6 @@ func TestCompiledTopicMappingsCachedAndInvalidated(t *testing.T) {
 	hotpathCacheNow = func() time.Time { return time.Unix(10_000, 0).Add(topicMapLocalCacheTTL + time.Millisecond) }
 	if target, _ := svc.ResolveUpTarget(ctx, "cfg-1", "raw/d1/up"); target != "devices/changed" {
 		t.Fatalf("want refreshed target, got %q", target)
-	}
-	InvalidateMappingCache("cfg-1")
-	if topicMapLocal.len() != 0 {
-		t.Fatalf("local cache len = %d after invalidate", topicMapLocal.len())
 	}
 }
 
@@ -155,3 +151,9 @@ func TestResolveDownSourceParsesPayloadOnceAndMatchesLegacy(t *testing.T) {
 }
 
 func strPtr(s string) *string { return &s }
+
+func (c *topicMapLocalCache) len() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.ll.Len()
+}

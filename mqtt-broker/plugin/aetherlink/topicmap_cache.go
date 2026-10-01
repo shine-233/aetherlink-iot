@@ -80,9 +80,3 @@ func GetMappingsWithCache(ctx context.Context, deviceConfigID string, direction 
 	_ = SetRedisForJsondata(key, cachedTopicMappings{Loaded: true, Rows: rows}, ttl)
 	return rows, nil
 }
-
-func InvalidateMappingCache(deviceConfigID string) {
-	topicMapLocal.invalidate(deviceConfigID)
-	_ = DelKey(cacheKeyUp(deviceConfigID))
-	_ = DelKey(cacheKeyDown(deviceConfigID))
-}

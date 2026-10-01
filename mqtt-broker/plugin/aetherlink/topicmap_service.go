@@ -31,10 +31,6 @@ func (s *TopicMapService) ResolveUpTarget(ctx context.Context, deviceConfigID st
 	return resolveUpTargetCompiled(mappings, incomingSource)
 }
 
-func resolveUpTargetFromMappings(mappings []DeviceTopicMapping, incomingSource string) (string, bool) {
-	return resolveUpTargetCompiled(compileTopicMappings(mappings), incomingSource)
-}
-
 func resolveUpTargetCompiled(mappings []compiledTopicMapping, incomingSource string) (string, bool) {
 	for i := range mappings {
 		mapping := &mappings[i]
@@ -56,10 +52,6 @@ func (s *TopicMapService) AllowDownSubscribe(ctx context.Context, deviceConfigID
 	return allowDownSubscribeCompiled(mappings, subscribeTopic)
 }
 
-func allowDownSubscribeFromMappings(mappings []DeviceTopicMapping, subscribeTopic string) bool {
-	return allowDownSubscribeCompiled(compileTopicMappings(mappings), subscribeTopic)
-}
-
 func allowDownSubscribeCompiled(mappings []compiledTopicMapping, subscribeTopic string) bool {
 	for i := range mappings {
 		if rx := mappings[i].sourceRx; rx != nil && rx.MatchString(subscribeTopic) {
@@ -75,10 +67,6 @@ func (s *TopicMapService) ResolveDownSource(ctx context.Context, deviceConfigID 
 		return "", nil, false
 	}
 	return resolveDownSourceCompiled(mappings, normalizedTarget, deviceNumber, payload)
-}
-
-func resolveDownSourceFromMappings(mappings []DeviceTopicMapping, normalizedTarget string, deviceNumber string, payload []byte) (string, []byte, bool) {
-	return resolveDownSourceCompiled(compileTopicMappings(mappings), normalizedTarget, deviceNumber, payload)
 }
 
 func resolveDownSourceCompiled(mappings []compiledTopicMapping, normalizedTarget string, deviceNumber string, payload []byte) (string, []byte, bool) {

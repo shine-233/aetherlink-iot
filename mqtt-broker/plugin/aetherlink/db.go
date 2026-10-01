@@ -157,10 +157,6 @@ func DelKey(key string) error {
 	return redisCache.Del(key).Err()
 }
 
-func SetNX(key, value string, expiration time.Duration) (bool, error) {
-	return redisCache.SetNX(key, value, expiration).Result()
-}
-
 func SetRedisForJsondata(key string, value interface{}, expiration time.Duration) error {
 	jsonData, err := json.Marshal(value)
 	if err != nil {

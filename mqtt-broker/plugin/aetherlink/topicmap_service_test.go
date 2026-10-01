@@ -110,3 +110,15 @@ func TestTopicMapServiceFallsBackToUnfilteredDownPayload(t *testing.T) {
 		t.Fatal("fallback payload aliases source buffer")
 	}
 }
+
+func resolveUpTargetFromMappings(mappings []DeviceTopicMapping, incomingSource string) (string, bool) {
+	return resolveUpTargetCompiled(compileTopicMappings(mappings), incomingSource)
+}
+
+func allowDownSubscribeFromMappings(mappings []DeviceTopicMapping, subscribeTopic string) bool {
+	return allowDownSubscribeCompiled(compileTopicMappings(mappings), subscribeTopic)
+}
+
+func resolveDownSourceFromMappings(mappings []DeviceTopicMapping, normalizedTarget string, deviceNumber string, payload []byte) (string, []byte, bool) {
+	return resolveDownSourceCompiled(compileTopicMappings(mappings), normalizedTarget, deviceNumber, payload)
+}

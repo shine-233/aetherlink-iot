@@ -47,16 +47,6 @@ func IsStandardSubTopicCandidate(topic string) bool {
 	return false
 }
 
-// ValidateSubTopic 检查主题是否符合 subList 中的任一模式。
-func ValidateSubTopic(topic string) bool {
-	for _, pattern := range subList {
-		if matchesPatternSub(topic, pattern) {
-			return true
-		}
-	}
-	return false
-}
-
 func matchesPatternSubStructure(topic, pattern string) bool {
 	topicParts := strings.Split(topic, "/")
 	patternParts := strings.Split(pattern, "/")

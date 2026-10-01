@@ -103,25 +103,6 @@ func loadDeviceDebugConfigForWrite(deviceID string) (string, DeviceDebugConfig, 
 	return normalizedDeviceID, cfg, true, nil
 }
 
-// WriteDeviceDebugLog appends a log entry if device debug is enabled.
-// It is safe to call frequently; missing/expired config results in a no-op.
-func WriteDeviceDebugLog(deviceID string, entry DeviceDebugLogEntry) (bool, error) {
-	normalizedDeviceID, cfg, enabled, err := loadDeviceDebugConfigForWrite(deviceID)
-	if err != nil || !enabled {
-		return false, err
-	}
-	return writeDeviceDebugLogWithConfig(normalizedDeviceID, cfg, entry)
-}
-
-func WriteDeviceDebugLogWithPayloadBytes(deviceID string, entry DeviceDebugLogEntry, payload []byte) (bool, error) {
-	normalizedDeviceID, cfg, enabled, err := loadDeviceDebugConfigForWrite(deviceID)
-	if err != nil || !enabled {
-		return false, err
-	}
-	entry.Payload = string(payload)
-	return writeDeviceDebugLogWithConfig(normalizedDeviceID, cfg, entry)
-}
-
 func writeDeviceDebugLogWithConfig(normalizedDeviceID string, cfg DeviceDebugConfig, entry DeviceDebugLogEntry) (bool, error) {
 	if redisCache == nil {
 		return false, errors.New("redis not initialized")

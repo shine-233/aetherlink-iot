@@ -119,12 +119,3 @@ func (c *deviceRouteCache) invalidate(id string) {
 	delete(c.entries, id)
 	c.mu.Unlock()
 }
-
-// setDeviceRouteCacheForTest 替换进程级缓存实例（仅测试使用），返回恢复函数。
-// 需要完全旁路缓存的测试可传入空容量实例：set 恒被拒、get 恒未命中，
-// 使"每次查找都触达存储回调"的原有断言语义保持不变。
-func setDeviceRouteCacheForTest(c *deviceRouteCache) (restore func()) {
-	previous := deviceRoute
-	deviceRoute = c
-	return func() { deviceRoute = previous }
-}

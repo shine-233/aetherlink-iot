@@ -64,11 +64,6 @@ func payloadSchemaResolverSnapshot() payloadSchemaResolverWithError {
 	return resolver
 }
 
-// payloadSchemaEnforcementEnabled 报告强制是否已被部署方启用(注入了 resolver)。
-func payloadSchemaEnforcementEnabled() bool {
-	return payloadSchemaResolverSnapshot() != nil
-}
-
 // enforcePayloadSchemaOnUplink 在上行 payload 被接受前应用 payload-schema 强制(若已启用)。
 // 返回 true 表示“应拒收该消息”(调用方翻译成 errMQTTMessageDiscarded);
 // 返回 false 表示放行(强制关闭、确认无绑定 schema、或 payload 满足约束/仅告警)。

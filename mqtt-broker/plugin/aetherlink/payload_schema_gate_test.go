@@ -204,3 +204,8 @@ func TestPayloadSchemaResolverConcurrentReplacement(t *testing.T) {
 	}()
 	workers.Wait()
 }
+
+// payloadSchemaEnforcementEnabled 报告强制是否已被部署方启用(注入了 resolver)。
+func payloadSchemaEnforcementEnabled() bool {
+	return payloadSchemaResolverSnapshot() != nil
+}

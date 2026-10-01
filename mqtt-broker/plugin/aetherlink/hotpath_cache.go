@@ -6,8 +6,8 @@
 //   - 主题映射（tp:topicmap:{up,down}:<config>）：原先每条上行都 GET + JSON 反序列化，
 //     并对每条映射重新拼接正则串再查 sync.Map；现缓存"已编译"的映射切片（LRU + TTL）。
 //
-// 关键注意事项：没有跨进程失效通道（backend 仅删除 Redis 键），因此新鲜度上界即 TTL；
-// 本进程 InvalidateMappingCache 会同步清掉本地条目。条目绑定写入时的 redisCache 客户端，
+// 关键注意事项：没有跨进程失效通道（backend 仅删除 Redis 键），因此新鲜度上界即 TTL。
+// 条目绑定写入时的 redisCache 客户端，
 // 客户端被替换（重连、测试换 miniredis）时自动视为未命中。
 package aetherlink
 
@@ -69,17 +69,6 @@ func (c *devDebugCfgCache) put(client *redis.Client, deviceID string, cfg Device
 		expiresAt: hotpathCacheNow().Add(devDebugCfgCacheTTL),
 	}
 	c.mu.Unlock()
-}
-
-func (c *devDebugCfgCache) invalidate(deviceID string) {
-	c.mu.Lock()
-	delete(c.entries, deviceID)
-	c.mu.Unlock()
-}
-
-// InvalidateDeviceDebugConfigCache 丢弃指定设备的本地调试配置缓存。
-func InvalidateDeviceDebugConfigCache(deviceID string) {
-	devDebugCfgLocal.invalidate(deviceID)
 }
 
 // ---- compiled topic mappings ----
@@ -163,22 +152,4 @@ func (c *topicMapLocalCache) put(client *redis.Client, key topicMapLocalKey, map
 		c.ll.Remove(back)
 		delete(c.items, back.Value.(*topicMapLocalEntry).key)
 	}
-}
-
-func (c *topicMapLocalCache) invalidate(deviceConfigID string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	for _, dir := range []Direction{DirectionUp, DirectionDown} {
-		key := topicMapLocalKey{deviceConfigID: deviceConfigID, direction: dir}
-		if el, ok := c.items[key]; ok {
-			c.ll.Remove(el)
-			delete(c.items, key)
-		}
-	}
-}
-
-func (c *topicMapLocalCache) len() int {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.ll.Len()
 }
