@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM golang:1.26.6-alpine AS builder
+FROM golang:1.27.1-alpine AS builder
 WORKDIR $GOPATH/src/app
 ENV GO111MODULE=on
 ENV GOPROXY="https://goproxy.cn,direct"
