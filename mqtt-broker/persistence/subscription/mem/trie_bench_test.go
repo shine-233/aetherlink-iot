@@ -5,6 +5,7 @@ package mem
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/DrmagicE/gmqtt"
@@ -73,4 +74,29 @@ func BenchmarkTrieSubscribeUnsubscribe(b *testing.B) {
 		db.Subscribe("bench-client", sub)
 		db.Unsubscribe("bench-client", sub.TopicFilter)
 	}
+}
+
+// BenchmarkTrieDeviceChurn 模拟设备 ID 不断变化的订阅/退订（每轮新的 clientID 与主题），
+// 衡量退订后节点是否被回收：nodes/op 应趋近 0，否则订阅树随设备轮换无限增长。
+func BenchmarkTrieDeviceChurn(b *testing.B) {
+	db := newBenchTrieDB(100)
+	before := countNodes(db.userTrie)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		cid := "churn-" + strconv.Itoa(i)
+		f := "devices/telemetry/control/" + cid + "/state"
+		db.Subscribe(cid, &gmqtt.Subscription{TopicFilter: f, QoS: 1})
+		db.Unsubscribe(cid, f)
+	}
+	b.StopTimer()
+	b.ReportMetric(float64(countNodes(db.userTrie)-before)/float64(b.N), "leaked-nodes/op")
+}
+
+func countNodes(t *topicNode) int {
+	n := 1
+	for _, c := range t.children {
+		n += countNodes(c)
+	}
+	return n
 }

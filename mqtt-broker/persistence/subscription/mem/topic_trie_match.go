@@ -57,15 +57,18 @@ func (t *topicNode) matchWalk(topic string, e *matchEmitter) bool {
 	if pos := strings.IndexByte(topic, '/'); pos >= 0 {
 		level, rest, last = topic[:pos], topic[pos+1:], false
 	}
-	if c := t.children["#"]; c != nil {
+	if c := t.hash; c != nil {
 		if !e.emit(c) {
 			return false
 		}
 	}
-	if c := t.children["+"]; c != nil {
+	if c := t.plus; c != nil {
 		if !c.matchStep(last, rest, e) {
 			return false
 		}
+	}
+	if len(t.children) == 0 {
+		return true
 	}
 	if c := t.children[level]; c != nil {
 		if !c.matchStep(last, rest, e) {
@@ -83,7 +86,7 @@ func (t *topicNode) matchStep(last bool, rest string, e *matchEmitter) bool {
 	if !e.emit(t) {
 		return false
 	}
-	if n := t.children["#"]; n != nil {
+	if n := t.hash; n != nil {
 		return e.emit(n)
 	}
 	return true
@@ -103,9 +106,4 @@ func walkLevels(topic string, fn func(level string) bool) {
 		}
 		topic = topic[pos+1:]
 	}
-}
-
-// lastLevel 返回主题过滤器的最后一层，等价于 strings.Split 结果的最后一个元素。
-func lastLevel(topic string) string {
-	return topic[strings.LastIndexByte(topic, '/')+1:]
 }

@@ -320,11 +320,10 @@ func (db *TrieDB) unsubscribeAll(index map[string]map[string]*topicNode, clientI
 	if db.clientStats[clientID] != nil {
 		db.clientStats[clientID].SubscriptionsCurrent -= uint64(len(index[clientID]))
 	}
-	for topicName, node := range index[clientID] {
-		delete(node.clients, clientID)
-		if len(node.clients) == 0 && len(node.children) == 0 {
-			delete(node.parent.children, lastLevel(topicName))
-		}
+	// 共享订阅存放在 node.shared[shareName] 中，旧实现只删 node.clients，
+	// 断开客户端的共享订阅残留在树上，共享组仍可能选中它导致消息被丢弃。
+	for _, node := range index[clientID] {
+		node.removeClient(clientID)
 	}
 	delete(index, clientID)
 }
