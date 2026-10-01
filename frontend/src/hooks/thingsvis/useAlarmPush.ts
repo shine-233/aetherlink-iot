@@ -8,6 +8,7 @@
 import { type Ref } from 'vue'
 import { deviceAlarmStatus } from '@/service/api/device'
 import { createRealtimeClient } from '@/service/realtime/realtime-socket'
+import { createVisibleInterval } from '@/hooks/common/useVisibleInterval'
 import { getWebsocketServerUrl } from '@/utils/common/tool'
 import type { PlatformField } from '@/utils/thingsvis/types'
 
@@ -33,8 +34,6 @@ export function useAlarmPush(
   platformFields: Ref<PlatformField[]>,
   pushData: (fields: Record<string, unknown>) => void
 ) {
-  let alarmTimer: ReturnType<typeof setInterval> | null = null
-
   const eventFields = () => platformFields.value.filter((field) => field.dataType === 'event')
 
   const fetchAlarmStatus = async () => {
@@ -114,18 +113,12 @@ export function useAlarmPush(
     }
   }
 
-  const startPolling = () => {
-    if (alarmTimer) return
-    alarmTimer = setInterval(() => {
-      void fetchAlarmStatus()
-    }, POLL_INTERVAL_MS)
-  }
-
-  const stopPolling = () => {
-    if (!alarmTimer) return
-    clearInterval(alarmTimer)
-    alarmTimer = null
-  }
+  // 降级轮询只在页面可见时运行：后台标签页不再每 30s 打后端，恢复可见时立即补拉一次。
+  const poller = createVisibleInterval(() => {
+    void fetchAlarmStatus()
+  }, POLL_INTERVAL_MS)
+  const startPolling = () => poller.start()
+  const stopPolling = () => poller.stop()
 
   const client = createRealtimeClient({
     logTag: 'useAlarmPush',
