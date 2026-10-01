@@ -97,6 +97,9 @@ func (f *AttributeUplink) handleDevice(device *model.Device, dataMap map[string]
 }
 
 func (f *AttributeUplink) decodeAttributeDataMap(device *model.Device, payload []byte) map[string]interface{} {
+	if dataMap, ok := decodeFlatJSONObject(payload); ok {
+		return dataMap
+	}
 	var dataMap map[string]interface{}
 	if err := json.Unmarshal(payload, &dataMap); err != nil {
 		f.log().WithFields(logrus.Fields{

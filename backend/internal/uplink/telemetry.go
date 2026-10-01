@@ -162,6 +162,9 @@ func (f *TelemetryUplink) processMessage(msg *DeviceMessage) {
 
 // parseDirect implements kindHandler.
 func (f *TelemetryUplink) parseDirect(device *model.Device, payload []byte) map[string]interface{} {
+	if dataMap, ok := decodeFlatJSONObject(payload); ok {
+		return dataMap
+	}
 	var dataMap map[string]interface{}
 	if err := json.Unmarshal(payload, &dataMap); err != nil {
 		f.log().WithFields(logrus.Fields{
