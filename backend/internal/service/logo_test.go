@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/internal/service/kit"
 )
 
 func TestLogoListResponsePreservesPublicSystemBrandingContract(t *testing.T) {
@@ -22,7 +23,7 @@ func TestLogoListResponsePreservesPublicSystemBrandingContract(t *testing.T) {
 		Remark:         &remark,
 	}}
 
-	got := logoListResponse(1, logos)
+	got := kit.AnyListMap(1, logos)
 	if len(got) != 2 {
 		t.Fatalf("logo list payload keys = %#v, want exactly total/list", got)
 	}
