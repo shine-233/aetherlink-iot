@@ -6,7 +6,8 @@
 //
 // 核心规则（任何一条不满足都走原增量路径，行为与引入基线前完全一致）：
 //   - sys_version 版本号为 0（从未迁移过）；已有版本的库永远看不到基线；
-//   - 开关 AETHERLINK_MIGRATION_BASELINE / viper db.migration.baseline 为 auto（默认 off）；
+//   - 开关 AETHERLINK_MIGRATION_BASELINE / viper db.migration.baseline 为 auto（默认 auto，off 强制增量）；
+//   - 基线头部 postgres-major <= 服务器主版本，且 source-sha256 与当前 sql/1..B.sql 一致；
 //   - 存在 sql/baseline/<B>.sql 且 B <= VERSION_NUMBER（取满足条件的最大 B，旧基线仍可用，只是多重放几个增量）；
 //   - public 下除 sys_version 外没有任何表（脏库不套基线，避免与既有对象冲突）；
 //   - TimescaleDB 的有效决策是"不执行 57.sql"（mode=off，或 auto 且扩展不存在）。
@@ -52,7 +53,8 @@ func readMigrationBaselineMode() (string, error) {
 	mode := strings.ToLower(raw)
 	switch mode {
 	case "":
-		return migrationBaselineOff, nil
+		// 默认 auto：2026-10-01 经 Go 运行器路径实测基线与 1..143 逐行等价（cmd/migbaseline -verify）。
+		return migrationBaselineAuto, nil
 	case migrationBaselineOff, migrationBaselineAuto:
 		return mode, nil
 	default:

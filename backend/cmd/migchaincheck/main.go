@@ -43,8 +43,11 @@ func main() {
 	allowDirty := flag.Bool("allow-dirty", false, "允许在已有业务表的库上执行（默认拒绝，因为那验证不了从零安装）")
 	baseline := flag.Bool("baseline", false, "走迁移基线路径（AETHERLINK_MIGRATION_BASELINE=auto），并断言确实选中了 sql/baseline/<B>.sql")
 	flag.Parse()
+	// 默认固定走纯增量 1..N（本工具的职责是证明每个迁移文件都能在空库上跑通）；-baseline 才走基线。
 	if *baseline {
 		os.Setenv("AETHERLINK_MIGRATION_BASELINE", "auto")
+	} else {
+		os.Setenv("AETHERLINK_MIGRATION_BASELINE", "off")
 	}
 
 	if *dsn == "" {

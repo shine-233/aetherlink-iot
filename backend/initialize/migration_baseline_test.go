@@ -62,7 +62,7 @@ func TestLatestBaseline(t *testing.T) {
 }
 
 func TestReadMigrationBaselineMode(t *testing.T) {
-	for raw, want := range map[string]string{"": "off", "off": "off", " AUTO ": "auto"} {
+	for raw, want := range map[string]string{"": "auto", "off": "off", " AUTO ": "auto"} {
 		t.Setenv("AETHERLINK_MIGRATION_BASELINE", raw)
 		got, err := readMigrationBaselineMode()
 		if err != nil || got != want {
