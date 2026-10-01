@@ -259,6 +259,29 @@ func scadaControlService() *service.ScadaControlService {
 	return service.GroupApp.ScadaControl
 }
 
+// scadaControlPrelude 控制类接口的公共前置：取 claims、要求控制服务已接线（未接线 fail closed）、
+// 解析租户边界与操作者。任一步失败已通过 c.Error 记录，返回 ok=false。
+func scadaControlPrelude(c *gin.Context, requestedTenant string) (svc *service.ScadaControlService, tenantID string, actor service.ControlActor, ok bool) {
+	claims, ok := RequireClaims(c)
+	if !ok {
+		return nil, "", actor, false
+	}
+	if svc = scadaControlService(); svc == nil {
+		c.Error(errcode.NewWithMessage(errcode.CodeOpDenied, "scada control is not wired"))
+		return nil, "", actor, false
+	}
+	tenantID, err := resolveScadaTenant(claims, requestedTenant)
+	if err != nil {
+		c.Error(err)
+		return nil, "", actor, false
+	}
+	if actor, err = scadaActor(claims); err != nil {
+		c.Error(err)
+		return nil, "", actor, false
+	}
+	return svc, tenantID, actor, true
+}
+
 // IssueControlConfirmation 签发二次确认令牌。
 // 控制服务未接线时直接失败：没有签发器就没有真正的二次确认，
 // 返回空令牌等于把危险操作变成一键触发。
@@ -267,23 +290,8 @@ func (*ScadaApi) IssueControlConfirmation(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	claims, ok := RequireClaims(c)
+	svc, tenantID, actor, ok := scadaControlPrelude(c, req.TenantID)
 	if !ok {
-		return
-	}
-	svc := scadaControlService()
-	if svc == nil {
-		c.Error(errcode.NewWithMessage(errcode.CodeOpDenied, "scada control is not wired"))
-		return
-	}
-	tenantID, err := resolveScadaTenant(claims, req.TenantID)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	actor, err := scadaActor(claims)
-	if err != nil {
-		c.Error(err)
 		return
 	}
 	token, err := svc.IssueConfirmation(c, tenantID, req.DocumentID, req.WidgetID, req.Command, actor.UserID)
@@ -299,23 +307,8 @@ func (*ScadaApi) ExecuteControl(c *gin.Context) {
 	if !BindAndValidate(c, &req) {
 		return
 	}
-	claims, ok := RequireClaims(c)
+	svc, tenantID, actor, ok := scadaControlPrelude(c, req.TenantID)
 	if !ok {
-		return
-	}
-	svc := scadaControlService()
-	if svc == nil {
-		c.Error(errcode.NewWithMessage(errcode.CodeOpDenied, "scada control is not wired"))
-		return
-	}
-	tenantID, err := resolveScadaTenant(claims, req.TenantID)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	actor, err := scadaActor(claims)
-	if err != nil {
-		c.Error(err)
 		return
 	}
 	outcome, execErr := svc.ExecuteControl(c, service.ControlRequest{
