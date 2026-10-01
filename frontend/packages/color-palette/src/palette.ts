@@ -49,6 +49,27 @@ export function getNearestColorPaletteFamily(color: string, families: ColorPalet
   return paletteFamily
 }
 
+/**
+ * 色名只用于展示（主题/CSS 变量构建只读 hexcode），而 getColorName 需要全表最近邻搜索。
+ * 用可枚举的惰性 getter 推迟到真正读取 `.name` 时再算，并在首次读取后固化为普通值。
+ */
+function withLazyName(hexcode: string, number: ColorPaletteFamily['palettes'][number]['number']) {
+  const item = { hexcode, number } as ColorPaletteFamily['palettes'][number]
+  Object.defineProperty(item, 'name', {
+    enumerable: true,
+    configurable: true,
+    get() {
+      const name = getColorName(hexcode)
+      Object.defineProperty(item, 'name', { value: name, enumerable: true, configurable: true, writable: true })
+      return name
+    },
+    set(value: string) {
+      Object.defineProperty(item, 'name', { value, enumerable: true, configurable: true, writable: true })
+    }
+  })
+  return item
+}
+
 export function getColorPaletteFamily(color: string, colorName: string) {
   if (!isValidColor(color)) {
     throw new Error('Invalid color, please check color value!')
@@ -89,11 +110,7 @@ export function getColorPaletteFamily(color: string, colorName: string) {
         })
       }
 
-      return {
-        hexcode: hexValue,
-        number: palette.number,
-        name: getColorName(hexValue)
-      }
+      return withLazyName(hexValue, palette.number)
     })
   }
 
