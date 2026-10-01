@@ -102,9 +102,3 @@ func lookupMQTTClientDeviceID(clientID string) (string, bool) {
 	deviceID = strings.TrimSpace(deviceID)
 	return deviceID, deviceID != ""
 }
-
-func forgetMQTTClientUsername(clientID string) {
-	if strings.TrimSpace(clientID) != "" {
-		_ = DelKey(mqttClientUserBindingKeyPrefix + clientID)
-	}
-}

@@ -262,51 +262,20 @@ func (w *Writer) WriteAndFlush(packet Packet) error {
 }
 
 // Pack encodes the FixHeader struct into bytes and writes it into io.Writer.
+// 性能说明：经 packFixHeader 写入 bufio.Writer 时不产生堆分配（旧实现每次 2~3 次分配）。
 func (fh *FixHeader) Pack(w io.Writer) error {
-	var err error
-	b := make([]byte, 1)
-	packetType := fh.PacketType << 4
-	b[0] = packetType | fh.Flags
-	length, err := DecodeRemainLength(fh.RemainLength)
-	if err != nil {
-		return err
-	}
-	b = append(b, length...)
-	_, err = w.Write(b)
-	return err
+	return packFixHeader(w, fh.PacketType<<4|fh.Flags, fh.RemainLength)
 }
 
 // DecodeRemainLength 将remain length 转成byte表示
 //
 // DecodeRemainLength puts the length int into bytes
 func DecodeRemainLength(length int) ([]byte, error) {
-	var result []byte
-	if length < 128 {
-		result = make([]byte, 1)
-	} else if length < 16384 {
-		result = make([]byte, 2)
-	} else if length < 2097152 {
-		result = make([]byte, 3)
-	} else if length < 268435456 {
-		result = make([]byte, 4)
-	} else {
-		return nil, codes.ErrMalformed
+	b, err := appendRemainLength(make([]byte, 0, 4), length)
+	if err != nil {
+		return nil, err
 	}
-	var i int
-	for {
-		encodedByte := length % 128
-		length = length / 128
-		// if there are more data to encode, set the top bit of this byte
-		if length > 0 {
-			encodedByte = encodedByte | 128
-		}
-		result[i] = byte(encodedByte)
-		i++
-		if length <= 0 {
-			break
-		}
-	}
-	return result, nil
+	return b, nil
 }
 
 // EncodeRemainLength 读remainLength,如果格式错误返回 error
@@ -464,15 +433,17 @@ func NewPacket(fh *FixHeader, version Version, r io.Reader) (Packet, error) {
 //
 // ValidUTF8 returns whether the given bytes is in UTF-8 form.
 func ValidUTF8(p []byte) bool {
-	for {
-		if len(p) == 0 {
-			return true
+	for len(p) > 0 {
+		// ASCII 快路径：主题/客户端 ID 绝大多数为 ASCII，逐字节判断即可，免去 DecodeRune。
+		if c := p[0]; c < utf8.RuneSelf {
+			if !isASCIITopicSafe(c) { // [MQTT-1.5.3-2] 禁止 U+0000..U+001F 与 U+007F
+				return false
+			}
+			p = p[1:]
+			continue
 		}
 		ru, size := utf8.DecodeRune(p)
-		if ru >= '\u0000' && ru <= '\u001f' { //[MQTT-1.5.3-2]
-			return false
-		}
-		if ru >= '\u007f' && ru <= '\u009f' {
+		if ru >= '' && ru <= '' {
 			return false
 		}
 		if ru == utf8.RuneError {
@@ -481,16 +452,21 @@ func ValidUTF8(p []byte) bool {
 		if !utf8.ValidRune(ru) {
 			return false
 		}
-		if size == 0 {
-			return true
-		}
 		p = p[size:]
 	}
+	return true
 }
 
 // ValidTopicName returns whether the bytes is a valid non-shared topic filter.[MQTT-4.7.1-1].
 func ValidTopicName(mustUTF8 bool, p []byte) bool {
 	for len(p) > 0 {
+		if c := p[0]; c < utf8.RuneSelf { // ASCII 快路径
+			if c == '+' || c == '#' { //主题名不允许使用通配符
+				return false
+			}
+			p = p[1:]
+			continue
+		}
 		ru, size := utf8.DecodeRune(p)
 		if mustUTF8 && ru == utf8.RuneError {
 			return false
@@ -581,64 +557,16 @@ func ValidTopicFilter(mustUTF8 bool, p []byte) bool {
 }
 
 // TopicMatch returns whether the topic and topic filter is matched.
+// 性能说明：逐层原地比较（topicMatchFast），不再切分出两个 [][]byte（旧实现 6 次分配）。
 func TopicMatch(topic []byte, topicFilter []byte) bool {
-	return topicLevelsMatch(topic, topicFilter)
-}
-
-func topicLevelsMatch(topic []byte, topicFilter []byte) bool {
-	if !topicMatchInputAllowed(topic, topicFilter) {
-		return false
-	}
-
-	topicLevels := splitTopicLevels(topic)
-	filterLevels := splitTopicLevels(topicFilter)
-	for filterIndex, filterLevel := range filterLevels {
-		if isMultiLevelWildcard(filterLevels, filterIndex) {
-			return true
-		}
-		if filterIndex >= len(topicLevels) {
-			return false
-		}
-		if !topicLevelMatches(topicLevels[filterIndex], filterLevel) {
-			return false
-		}
-	}
-
-	return len(topicLevels) == len(filterLevels)
-}
-
-func topicMatchInputAllowed(topic []byte, topicFilter []byte) bool {
 	if len(topicFilter) == 0 || len(topic) == 0 {
 		return false
 	}
-	return !topicSystemNamespaceMismatch(topic, topicFilter)
-}
-
-func topicSystemNamespaceMismatch(topic []byte, topicFilter []byte) bool {
-	return (topicFilter[0] == '$' && topic[0] != '$') || (topic[0] == '$' && topicFilter[0] != '$')
-}
-
-func splitTopicLevels(topic []byte) [][]byte {
-	levels := make([][]byte, 0, 1)
-	for {
-		pos := bytes.IndexByte(topic, '/')
-		if pos < 0 {
-			return append(levels, topic)
-		}
-		levels = append(levels, topic[:pos])
-		topic = topic[pos+1:]
+	// $ 开头的系统主题与非 $ 过滤器互不匹配 [MQTT-4.7.2-1]
+	if (topicFilter[0] == '$') != (topic[0] == '$') {
+		return false
 	}
-}
-
-func isMultiLevelWildcard(filterLevels [][]byte, index int) bool {
-	return index == len(filterLevels)-1 && len(filterLevels[index]) == 1 && filterLevels[index][0] == '#'
-}
-
-func topicLevelMatches(topicLevel []byte, filterLevel []byte) bool {
-	if len(filterLevel) == 1 && filterLevel[0] == '+' {
-		return true
-	}
-	return bytes.Equal(topicLevel, filterLevel)
+	return topicMatchFast(topic, topicFilter)
 }
 
 // TotalBytes returns how many bytes of the packet

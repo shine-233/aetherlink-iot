@@ -4,10 +4,3 @@
 // 重构建议：后续可按职责拆分深模块，并为关键边界补齐契约测试。
 
 package aetherlink
-
-func deviceIDFromClient(clientID string) (string, error) {
-	if clientID == "" {
-		return "", nil
-	}
-	return GetStr("mqtt_client_id_" + clientID)
-}
