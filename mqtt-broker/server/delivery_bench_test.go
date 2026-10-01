@@ -104,3 +104,32 @@ func TestFnv32aMatchesHashFnv(t *testing.T) {
 		}
 	}
 }
+
+// TestFanoutCopyIsolation 扇出副本之间、副本与源消息之间：标量与 SubscriptionIdentifier 互不影响，
+// 共享切片 cap 已裁剪，append 不会写入共享数组。
+func TestFanoutCopyIsolation(t *testing.T) {
+	src := &gmqtt.Message{
+		Topic: "t", QoS: 2, Retained: true, Dup: true,
+		Payload:                append(make([]byte, 0, 16), "abc"...),
+		SubscriptionIdentifier: []uint32{9},
+		UserProperties:         []packets.UserProperty{{K: []byte("k"), V: []byte("v")}},
+	}
+	a := fanoutCopy(src, []uint32{1})
+	b := fanoutCopy(src, []uint32{0})
+	prepareQueuedMessage(a, &gmqtt.Subscription{QoS: 1, ID: 1}, []uint32{1})
+	prepareQueuedMessage(b, &gmqtt.Subscription{QoS: 0}, []uint32{0})
+	if src.QoS != 2 || !src.Retained || !src.Dup || len(src.SubscriptionIdentifier) != 1 {
+		t.Fatalf("源消息被修改: %+v", src)
+	}
+	if a.QoS != 1 || b.QoS != 0 || len(a.SubscriptionIdentifier) != 2 || len(b.SubscriptionIdentifier) != 1 {
+		t.Fatalf("副本字段不独立: a=%+v b=%+v", a, b)
+	}
+	a.Payload = append(a.Payload, 'X')
+	a.UserProperties = append(a.UserProperties, packets.UserProperty{})
+	if string(src.Payload[:cap(src.Payload)][3:4]) == "X" || string(b.Payload) != "abc" {
+		t.Fatal("append 写入了共享 payload 数组")
+	}
+	if len(b.UserProperties) != 1 || cap(b.UserProperties) != 1 {
+		t.Fatal("UserProperties cap 未裁剪")
+	}
+}

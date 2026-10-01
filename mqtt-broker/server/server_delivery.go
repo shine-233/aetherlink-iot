@@ -37,11 +37,14 @@ const (
 	SharedSubBalanceTopicHash SharedSubBalanceStrategy = config.SharedSubBalanceTopicHash
 )
 
-func (srv *server) addMsgToQueueLocked(now time.Time, clientID string, msg *gmqtt.Message, sub *gmqtt.Subscription, ids []uint32, q queue.Store) {
+// addMsgToQueueLocked 为订阅者生成 src 的投递副本并入队；src 不会被修改。
+// 先判跳过再拷贝：离线 QoS0 被丢弃时不再白做一次消息拷贝。
+func (srv *server) addMsgToQueueLocked(now time.Time, clientID string, src *gmqtt.Message, sub *gmqtt.Subscription, ids []uint32, q queue.Store) {
 	mqttCfg := srv.config.MQTT
-	if srv.shouldSkipQueueingMessageLocked(clientID, msg, mqttCfg.QueueQos0Msg) {
+	if srv.shouldSkipQueueingMessageLocked(clientID, src, mqttCfg.QueueQos0Msg) {
 		return
 	}
+	msg := fanoutCopy(src, ids)
 	prepareQueuedMessage(msg, sub, ids)
 	err := q.Add(newQueueElem(now, msg, mqttCfg.MessageExpiry))
 	if err != nil {
@@ -57,6 +60,34 @@ func (srv *server) shouldSkipQueueingMessageLocked(clientID string, msg *gmqtt.M
 	// 未连接客户端默认跳过 QoS0 离线消息，避免离线队列被无确认消息压满。
 	c := srv.clients[clientID]
 	return c == nil && msg.QoS == packets.Qos0
+}
+
+// fanoutCopy 为单个订阅者生成投递副本：标量字段与 SubscriptionIdentifier 独立，
+// Payload/CorrelationData/UserProperties 与源消息共享底层数组（broker 内投递链路只读这些字节，
+// 旧实现对每个订阅者深拷贝 payload，扇出 N 时占投递路径约 70% 的分配字节）。
+// 共享切片均裁剪 cap，任何 append 都会重新分配而不会写到其它订阅者可见的数组。
+// 契约：OnDelivered/OnMsgDropped 等 hook 不得原地改写 payload 字节（替换切片是安全的）。
+func fanoutCopy(src *gmqtt.Message, ids []uint32) *gmqtt.Message {
+	m := *src
+	m.Payload = src.Payload[:len(src.Payload):len(src.Payload)]
+	m.CorrelationData = src.CorrelationData[:len(src.CorrelationData):len(src.CorrelationData)]
+	m.UserProperties = src.UserProperties[:len(src.UserProperties):len(src.UserProperties)]
+	m.SubscriptionIdentifier = nil
+	if n := len(src.SubscriptionIdentifier) + nonZeroCount(ids); n > 0 {
+		m.SubscriptionIdentifier = make([]uint32, len(src.SubscriptionIdentifier), n)
+		copy(m.SubscriptionIdentifier, src.SubscriptionIdentifier)
+	}
+	return &m
+}
+
+func nonZeroCount(ids []uint32) int {
+	n := 0
+	for _, id := range ids {
+		if id != 0 {
+			n++
+		}
+	}
+	return n
 }
 
 func prepareQueuedMessage(msg *gmqtt.Message, sub *gmqtt.Subscription, ids []uint32) {
@@ -233,7 +264,7 @@ func (d *deliverHandler) flushOnlyOnceSubscriptions() {
 
 func (d *deliverHandler) enqueue(clientID string, sub *gmqtt.Subscription, ids []uint32) {
 	if qs := d.srv.queueStore[clientID]; qs != nil {
-		d.srv.addMsgToQueueLocked(d.now, clientID, d.msg.Copy(), sub, ids, qs)
+		d.srv.addMsgToQueueLocked(d.now, clientID, d.msg, sub, ids, qs)
 	}
 }
 
@@ -241,7 +272,7 @@ func (d *deliverHandler) enqueue(clientID string, sub *gmqtt.Subscription, ids [
 func (d *deliverHandler) enqueueOne(clientID string, sub *gmqtt.Subscription) {
 	if qs := d.srv.queueStore[clientID]; qs != nil {
 		ids := [1]uint32{sub.ID}
-		d.srv.addMsgToQueueLocked(d.now, clientID, d.msg.Copy(), sub, ids[:], qs)
+		d.srv.addMsgToQueueLocked(d.now, clientID, d.msg, sub, ids[:], qs)
 	}
 }
 
