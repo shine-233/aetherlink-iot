@@ -17,12 +17,10 @@ import (
 
 	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/internal/service/kit"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/global"
 	"aetherlink-iot/backend/pkg/utils"
-
-	"github.com/go-basic/uuid"
-	"gorm.io/gorm"
 )
 
 // entityTypeTables 实体类型到物理表名的白名单映射。
@@ -45,16 +43,27 @@ var entityVersionImmutableColumns = map[string]struct{}{
 // EntityVersionService 实体版本控制业务入口。
 type EntityVersionService struct{}
 
-// entityVersionScope 提取租户作用域；claims 缺失或租户为空一律拒绝。
-func entityVersionScope(claims *utils.UserClaims) (string, error) {
-	if claims == nil {
-		return "", errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to manage entity versions")
+// entityVersionScope 租户作用域门禁：claims 缺失或租户为空一律拒绝。
+var entityVersionScope = kit.TenantScope{
+	NilMsg:   "no permission to manage entity versions",
+	BlankMsg: "tenant id is required to manage entity versions",
+}.Tenant
+
+// 未命中映射：仅未包装的 gorm.ErrRecordNotFound 视为 not found，其余 DB 错误原样透传（历史契约）。
+var (
+	entityVersionNotFound       = kit.NotFound{Msg: "entity version not found", Match: kit.IsRecordNotFoundExact, OnOther: passThroughErr}
+	entityVersionTargetNotFound = kit.NotFound{Msg: "entity version target not found", Match: kit.IsRecordNotFoundExact, OnOther: passThroughErr}
+)
+
+func passThroughErr(err error) error { return err }
+
+// loadEntityVersion 按 id + 租户加载版本并映射未命中。
+func loadEntityVersion(versionID, tenantID string) (*model.EntityVersion, error) {
+	version, err := dal.GetEntityVersionForScope(strings.TrimSpace(versionID), tenantID)
+	if err != nil {
+		return nil, entityVersionNotFound.Map(err)
 	}
-	tenantID := strings.TrimSpace(claims.TenantID)
-	if tenantID == "" {
-		return "", errcode.NewWithMessage(errcode.CodeNoPermission, "tenant id is required to manage entity versions")
-	}
-	return tenantID, nil
+	return version, nil
 }
 
 // resolveEntityTable 将实体类型解析为白名单表名；未知类型报参数错误并回显可选值。
@@ -103,10 +112,7 @@ func (*EntityVersionService) CreateEntityVersion(req *model.EntityVersionCreateR
 
 	row, err := readEntityRow(tenantID, table, entityID)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, errcode.NewWithMessage(errcode.CodeNotFound, "entity version target not found")
-		}
-		return nil, err
+		return nil, entityVersionTargetNotFound.Map(err)
 	}
 
 	raw, err := json.Marshal(row)
@@ -121,7 +127,7 @@ func (*EntityVersionService) CreateEntityVersion(req *model.EntityVersionCreateR
 
 	now := time.Now()
 	version := &model.EntityVersion{
-		ID:            uuid.New(),
+		ID:            kit.NewID(),
 		TenantID:      tenantID,
 		EntityType:    strings.TrimSpace(req.EntityType),
 		EntityID:      entityID,
@@ -175,14 +181,7 @@ func (*EntityVersionService) GetEntityVersion(versionID string, claims *utils.Us
 	if err != nil {
 		return nil, err
 	}
-	version, err := dal.GetEntityVersionForScope(strings.TrimSpace(versionID), tenantID)
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, errcode.NewWithMessage(errcode.CodeNotFound, "entity version not found")
-		}
-		return nil, err
-	}
-	return version, nil
+	return loadEntityVersion(versionID, tenantID)
 }
 
 // RestoreEntityVersion 将某版本的快照回写到实体；DryRun 为真时只返回将写入的字段。
@@ -193,11 +192,8 @@ func (*EntityVersionService) RestoreEntityVersion(versionID string, req *model.E
 		return nil, false, err
 	}
 
-	version, err := dal.GetEntityVersionForScope(strings.TrimSpace(versionID), tenantID)
+	version, err := loadEntityVersion(versionID, tenantID)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, false, errcode.NewWithMessage(errcode.CodeNotFound, "entity version not found")
-		}
 		return nil, false, err
 	}
 
@@ -208,10 +204,7 @@ func (*EntityVersionService) RestoreEntityVersion(versionID string, req *model.E
 
 	// 恢复前确认目标实体仍存在且仍属于当前租户，避免把快照写进被删除或已迁移的实体。
 	if _, err := readEntityRow(tenantID, table, version.EntityID); err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, false, errcode.NewWithMessage(errcode.CodeNotFound, "entity version target not found")
-		}
-		return nil, false, err
+		return nil, false, entityVersionTargetNotFound.Map(err)
 	}
 
 	var payload map[string]interface{}
@@ -238,7 +231,7 @@ func (*EntityVersionService) RestoreEntityVersion(versionID string, req *model.E
 		return nil, false, result.Error
 	}
 	if result.RowsAffected == 0 {
-		return nil, false, errcode.NewWithMessage(errcode.CodeNotFound, "entity version target not found")
+		return nil, false, entityVersionTargetNotFound.Err()
 	}
 	return payload, false, nil
 }

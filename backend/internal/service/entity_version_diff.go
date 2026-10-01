@@ -7,7 +7,7 @@
 //   1) 纯函数不触库不入库，可对任意两段 JSON 文本求差，便于单测与复用；
 //   2) 数值用 json.Decoder.UseNumber 保留字面量精度（1 与 1.0 视为不同，宁可多报不误删）；
 //   3) 同名路径两侧类型不同（对象 vs 数组 vs 标量）按 modified 记在路径本身，不跨类型递归；
-//   4) 服务方法读取版本一律走 dal.GetEntityVersionForScope（强制 id+tenant_id），fail-closed；
+//   4) 服务方法读取版本一律走 loadEntityVersion（dal.GetEntityVersionForScope 强制 id+tenant_id），fail-closed；
 //      不要求两个版本属于同一实体（两者均在租户作用域内即可），实体归属随响应元信息回显。
 // 重构建议：若后续需要行内高亮或字段级语义（如仅看某子树），在此扩展参数化 diff，
 // 不要把展示逻辑混进纯函数。
@@ -20,12 +20,9 @@ import (
 	"strconv"
 	"strings"
 
-	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/utils"
-
-	"gorm.io/gorm"
 )
 
 // rootDiffPath 根标量差异的路径占位：两侧根都不是容器（或类型不同）时挂在该路径上。
@@ -204,18 +201,12 @@ func (*EntityVersionService) DiffEntityVersion(sourceID, targetID string, claims
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "source id and target id are required")
 	}
 
-	source, err := dal.GetEntityVersionForScope(sourceID, tenantID)
+	source, err := loadEntityVersion(sourceID, tenantID)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, errcode.NewWithMessage(errcode.CodeNotFound, "entity version not found")
-		}
 		return nil, err
 	}
-	target, err := dal.GetEntityVersionForScope(targetID, tenantID)
+	target, err := loadEntityVersion(targetID, tenantID)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, errcode.NewWithMessage(errcode.CodeNotFound, "entity version not found")
-		}
 		return nil, err
 	}
 
