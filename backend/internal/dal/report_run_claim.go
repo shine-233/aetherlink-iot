@@ -128,21 +128,9 @@ func settleClaimedReportGenerationError(ctx context.Context, runID, token, error
 		return err
 	}
 	return db.Transaction(func(tx *gorm.DB) error {
-		var run model.ReportScheduleRun
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
-			Where("id = ? AND generation_status = ? AND claim_token = ?", runID, model.ReportGenerationStatusProcessing, token).
-			Take(&run).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return ErrReportClaimLost
-			}
-			return err
-		}
-		now, err := reportDatabaseNow(tx)
+		run, now, err := lockLiveGenerationClaim(tx, runID, token)
 		if err != nil {
 			return err
-		}
-		if run.LeaseUntil == nil || !run.LeaseUntil.After(now) {
-			return ErrReportClaimLost
 		}
 		status := model.ReportGenerationStatusFailed
 		updates := map[string]interface{}{
@@ -214,21 +202,9 @@ func CompleteReportGeneration(ctx context.Context, runID, token, envelopeFrom st
 	digest := sha256.Sum256(payload)
 	digestHex := hex.EncodeToString(digest[:])
 	return db.Transaction(func(tx *gorm.DB) error {
-		var run model.ReportScheduleRun
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
-			Where("id = ? AND generation_status = ? AND claim_token = ?", runID, model.ReportGenerationStatusProcessing, token).
-			Take(&run).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return ErrReportClaimLost
-			}
-			return err
-		}
-		now, err := reportDatabaseNow(tx)
+		run, now, err := lockLiveGenerationClaim(tx, runID, token)
 		if err != nil {
 			return err
-		}
-		if run.LeaseUntil == nil || !run.LeaseUntil.After(now) {
-			return ErrReportClaimLost
 		}
 		generationResult := &model.ReportGenerationResult{PayloadDigest: digestHex, PayloadSize: int64(len(payload)), RowCount: rows}
 		settled := tx.Model(&model.ReportScheduleRun{}).
@@ -324,4 +300,26 @@ func updateReportScheduleSummaryTx(tx *gorm.DB, run *model.ReportScheduleRun, st
 			)
 		)`, run.ScheduleID, run.TenantID, run.CreatedAt, run.CreatedAt, run.ID).
 		Updates(map[string]interface{}{"last_run_id": run.ID, "last_run_at": run.WindowEndAt, "last_status": status, "updated_at": now}).Error
+}
+
+// lockLiveGenerationClaim 在事务内对仍持有生成租约的 run 行加 FOR UPDATE 锁，并以数据库时钟
+// 校验租约未过期。行不存在、token 不匹配、状态非 processing 或租约已过期均返回 ErrReportClaimLost。
+func lockLiveGenerationClaim(tx *gorm.DB, runID, token string) (model.ReportScheduleRun, time.Time, error) {
+	var run model.ReportScheduleRun
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("id = ? AND generation_status = ? AND claim_token = ?", runID, model.ReportGenerationStatusProcessing, token).
+		Take(&run).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return run, time.Time{}, ErrReportClaimLost
+		}
+		return run, time.Time{}, err
+	}
+	now, err := reportDatabaseNow(tx)
+	if err != nil {
+		return run, time.Time{}, err
+	}
+	if run.LeaseUntil == nil || !run.LeaseUntil.After(now) {
+		return run, time.Time{}, ErrReportClaimLost
+	}
+	return run, now, nil
 }
