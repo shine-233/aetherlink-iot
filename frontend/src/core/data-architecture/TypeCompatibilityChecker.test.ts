@@ -7,7 +7,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { installTypeCompatibilityDebugGlobal, TypeCompatibilityChecker } from './TypeCompatibilityChecker'
+import { CHECK_HISTORY_LIMIT, installTypeCompatibilityDebugGlobal, TypeCompatibilityChecker } from './TypeCompatibilityChecker'
 import type { ComponentDataRequirement, HttpConfig } from './types/unified-types'
 
 const checker = TypeCompatibilityChecker.getInstance()
@@ -279,6 +279,28 @@ describe('TypeCompatibilityChecker', () => {
 
     checker.clearCheckHistory()
     expect(checker.getCheckHistory()).toEqual([])
+  })
+
+  it('caps checkHistory at CHECK_HISTORY_LIMIT entries, dropping the oldest first', () => {
+    const totalChecks = CHECK_HISTORY_LIMIT + 50
+
+    for (let i = 0; i < totalChecks; i++) {
+      // 交替调用两种会产生不同 checkType 的检查，确认环形缓冲对所有记录类型生效。
+      if (i % 2 === 0) {
+        checker.checkDataTypeCompatibility('string', 'number')
+      } else {
+        checker.checkDataTypeCompatibility('number', 'number')
+      }
+    }
+
+    const history = checker.getCheckHistory()
+    expect(history).toHaveLength(CHECK_HISTORY_LIMIT)
+
+    // 最旧的记录应已被丢弃：历史中不应再保留超出容量窗口之前的任何痕迹，
+    // 且最后一条记录对应最后一次调用（totalChecks 为偶数索引结束，最后一次 i 为奇数 -> number/number）。
+    const lastIndexIsOdd = (totalChecks - 1) % 2 === 1
+    expect(history[history.length - 1].checkType).toBe('DataTypeCompatibility')
+    expect(history[history.length - 1].level).toBe(lastIndexIsOdd ? 'compatible' : 'warning')
   })
 
   it('installs and removes the debug API only when explicitly requested', () => {

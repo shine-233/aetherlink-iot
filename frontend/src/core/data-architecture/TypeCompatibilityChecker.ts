@@ -55,6 +55,13 @@ interface TypeMappingCompatibility {
 type CompatibilityDiagnostics = Pick<CompatibilityCheckResult, 'errors' | 'warnings' | 'affectedItems' | 'suggestions'>
 
 /**
+ * 检查历史记录的最大保留条数。
+ * 长会话中会反复调用各类 check* 方法，若不设上限 checkHistory 会无界增长并常驻内存。
+ * 使用环形缓冲（超出容量时丢弃最旧记录）而非定期清空，保证最近的诊断信息始终可查。
+ */
+export const CHECK_HISTORY_LIMIT = 200
+
+/**
  * 类型兼容性检查器
  */
 export class TypeCompatibilityChecker {
@@ -63,7 +70,7 @@ export class TypeCompatibilityChecker {
   /** 类型映射表 */
   private typeMappingTable = new Map<string, TypeMappingCompatibility[]>()
 
-  /** 检查历史记录 */
+  /** 检查历史记录；容量上限为 CHECK_HISTORY_LIMIT，超出时丢弃最旧记录（环形缓冲）。 */
   private checkHistory: CompatibilityCheckResult[] = []
 
   private constructor() {
@@ -94,6 +101,12 @@ export class TypeCompatibilityChecker {
       affectedItems: [...result.affectedItems],
       suggestions: [...result.suggestions]
     })
+
+    // 环形缓冲：超出上限时丢弃最旧的记录，避免长会话下无界增长。
+    if (this.checkHistory.length > CHECK_HISTORY_LIMIT) {
+      this.checkHistory.splice(0, this.checkHistory.length - CHECK_HISTORY_LIMIT)
+    }
+
     return result
   }
 
