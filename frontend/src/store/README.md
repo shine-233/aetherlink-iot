@@ -14,7 +14,7 @@
 - `modules/route/` 管理动态路由、菜单、缓存路由和权限派生状态，和 `src/router/guard` 强耦合。
 - `modules/tab/` 管理多标签页状态，和路由切换、首页固定标签、国际化标题刷新相关。
 - `modules/app/`、`modules/theme/`、`modules/sys-setting/` 管理布局、主题和系统设置类状态。
-- `modules/device/`、`modules/widget.ts` 和 `modules/editor.ts` 管理设备、组件选择和可视化编辑器画布状态。
+- `modules/device/` 管理设备域共享状态。
 - `__tests__/` 和各模块内的 `__tests__/` 是判断状态契约是否被保护的第一入口。
 
 ## 运行与维护注意事项

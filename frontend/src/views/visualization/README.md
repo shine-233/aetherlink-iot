@@ -21,7 +21,6 @@
 - 修改本目录时，不要只确认页面能渲染；还要确认路由参数、预览模式、菜单嵌入模式和编辑模式下的上下文来源是否一致。
 - 涉及 ThingsVis token、iframe URL、host key、预览代理或 SSO 行为时，要同步检查 `COMPATIBILITY.md` 和相关路由/守卫逻辑。
 - `thingsvis-preview` 可能作为独立页面被外部或空白布局访问，改路由元信息、布局或鉴权逻辑时要避免破坏独立预览。
-- 可视化页面和 store 的编辑器状态可能存在耦合，修改编辑器入口时应同时查看 `frontend/src/store/modules/visual-editor/`。
 - 本目录适合用静态检查和目标路由/组件测试验证；不要把普通页面渲染成功等同于 ThingsVis 集成契约已被完整验证。
 
 ## 代码审查与重构建议

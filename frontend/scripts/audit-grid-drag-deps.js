@@ -36,7 +36,7 @@ const trackedPackages = [
     name: 'gridstack',
     category: 'grid',
     canonical: false,
-    note: 'retired package / visual-editor compatibility detector'
+    note: 'retired package detector (visual-editor removed 2026-10)'
   },
   {
     name: 'vue-draggable-plus',
