@@ -235,8 +235,8 @@ func (e *Engine) processMessage(msg *uplink.DeviceMessage) {
 	}
 	// simple 规则的结果合并为一条派生消息，避免每条规则一次 Marshal + 一次存储入队。
 	var (
-		batchKeys   []string
-		batchValues []interface{}
+		batchKeys   = make([]string, 0, len(set.rules))
+		batchValues = make([]interface{}, 0, len(set.rules))
 	)
 	for i := range set.rules {
 		rule := &set.rules[i]

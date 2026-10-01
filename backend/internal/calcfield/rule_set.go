@@ -5,7 +5,12 @@
 // 则必须回退全量解码以保持原有门控语义（fullDecode=true）。
 package calcfield
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"math"
+	"strconv"
+	"unicode/utf8"
+)
 
 type ruleSet struct {
 	rules []compiledRule
@@ -55,14 +60,107 @@ func (s ruleSet) decode(raw []byte) map[string]interface{} {
 }
 
 // marshalDerivedBatch 把同一条源消息的全部 simple 派生结果编码为一个 JSON 对象，
-// 编码与原先逐条 json.Marshal(map{key: value}) 一致，只是合并为一次 Marshal、一条存储消息。
+// 输出与 json.Marshal(map[string]interface{}) 逐字节一致（键按字节序排序、同名键后者覆盖、
+// 浮点格式与 HTML 转义规则同 encoding/json），但不经反射与中间 map。
+// 值类型超出 float64/bool/string、或键/字符串需要转义时回退 json.Marshal，结果与错误行为不变。
 func marshalDerivedBatch(keys []string, values []interface{}) ([]byte, error) {
-	if len(keys) == 1 {
-		return json.Marshal(map[string]interface{}{keys[0]: values[0]})
+	if out, ok := appendDerivedBatchJSON(nil, keys, values); ok {
+		return out, nil
 	}
 	batch := make(map[string]interface{}, len(keys))
 	for i, key := range keys {
 		batch[key] = values[i] // 同名输出键后者覆盖前者，与逐条写入的最终值一致
 	}
 	return json.Marshal(batch)
+}
+
+func appendDerivedBatchJSON(dst []byte, keys []string, values []interface{}) ([]byte, bool) {
+	// 选出每个键最后一次出现的下标，并按键字节序插入排序（规则数通常个位数）。
+	var stack [8]int
+	order := stack[:0]
+	for i := range keys {
+		if !isPlainJSONString(keys[i]) {
+			return nil, false
+		}
+		replaced := false
+		for j, idx := range order {
+			if keys[idx] == keys[i] {
+				order[j] = i
+				replaced = true
+				break
+			}
+		}
+		if !replaced {
+			order = append(order, i)
+		}
+	}
+	for a := 1; a < len(order); a++ {
+		for b := a; b > 0 && keys[order[b]] < keys[order[b-1]]; b-- {
+			order[b], order[b-1] = order[b-1], order[b]
+		}
+	}
+
+	size := 2
+	for _, idx := range order {
+		size += len(keys[idx]) + 28
+	}
+	if dst == nil {
+		dst = make([]byte, 0, size)
+	}
+	dst = append(dst, '{')
+	for n, idx := range order {
+		if n > 0 {
+			dst = append(dst, ',')
+		}
+		dst = append(dst, '"')
+		dst = append(dst, keys[idx]...)
+		dst = append(dst, '"', ':')
+		switch v := values[idx].(type) {
+		case float64:
+			if math.IsNaN(v) || math.IsInf(v, 0) {
+				return nil, false // json.Marshal 报 UnsupportedValueError
+			}
+			dst = appendJSONFloat64(dst, v)
+		case bool:
+			dst = strconv.AppendBool(dst, v)
+		case string:
+			if !isPlainJSONString(v) {
+				return nil, false
+			}
+			dst = append(dst, '"')
+			dst = append(dst, v...)
+			dst = append(dst, '"')
+		default:
+			return nil, false
+		}
+	}
+	return append(dst, '}'), true
+}
+
+// appendJSONFloat64 与 encoding/json 的 float64 编码完全一致。
+func appendJSONFloat64(dst []byte, f float64) []byte {
+	format := byte('f')
+	if abs := math.Abs(f); abs != 0 && (abs < 1e-6 || abs >= 1e21) {
+		format = 'e'
+	}
+	dst = strconv.AppendFloat(dst, f, format, -1, 64)
+	if format == 'e' {
+		// e-09 -> e-9
+		if n := len(dst); n >= 4 && dst[n-4] == 'e' && dst[n-3] == '-' && dst[n-2] == '0' {
+			dst[n-2] = dst[n-1]
+			dst = dst[:n-1]
+		}
+	}
+	return dst
+}
+
+// isPlainJSONString 判断 s 在 encoding/json（含默认 HTML 转义）下是否原样输出。
+func isPlainJSONString(s string) bool {
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c < 0x20 || c >= utf8.RuneSelf || c == '"' || c == '\\' || c == '<' || c == '>' || c == '&' {
+			return false
+		}
+	}
+	return true
 }
