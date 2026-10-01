@@ -6,6 +6,7 @@ package server
 
 import (
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/DrmagicE/gmqtt"
@@ -175,44 +176,72 @@ type maxQos map[string]nonSharedMatch
 // 审查建议：该结构体已经比较独立，后续可围绕共享订阅均衡策略补 focused 测试。
 // 性能说明：sl/mq 为惰性分配——deliverMessage 是每条消息的热路径，普通单订阅投递
 // （overlap 模式）两者都用不到，按需初始化可省去每条消息两次 map 分配。
+// 池化：handler 与其绑定的 fn（方法值）随池复用，每条消息省去 handler、方法值、闭包三次分配；
+// sl/mq 清空后复用，过大的（> pooledMapMax）直接丢弃，避免单次大扇出把大 map 长期留在池中。
 type deliverHandler struct {
-	fn       subscription.IterateFn
-	sl       sharedList
-	mq       maxQos
-	matched  bool
-	now      time.Time
-	msg      *gmqtt.Message
-	srv      *server
-	strategy SharedSubBalanceStrategy
+	fn          subscription.IterateFn // == d.visit，仅在创建时绑定一次
+	sl          sharedList
+	mq          maxQos
+	matched     bool
+	onlyOnce    bool
+	now         time.Time
+	msg         *gmqtt.Message
+	srv         *server
+	srcClientID string
+	strategy    SharedSubBalanceStrategy
 }
 
+const pooledMapMax = 64
+
+var deliverHandlerPool = sync.Pool{New: func() any {
+	d := &deliverHandler{}
+	d.fn = d.visit
+	return d
+}}
+
 func newDeliverHandler(mode string, strategy string, srcClientID string, msg *gmqtt.Message, now time.Time, srv *server) *deliverHandler {
-	d := &deliverHandler{
-		msg:      msg,
-		srv:      srv,
-		now:      now,
-		strategy: strategy,
-	}
-	if mode == Overlap {
-		d.fn = d.iterateSubscriptions(srcClientID, d.deliverOverlap)
-	} else {
-		d.fn = d.iterateSubscriptions(srcClientID, d.recordOnlyOnce)
-	}
+	d := deliverHandlerPool.Get().(*deliverHandler)
+	d.msg = msg
+	d.srv = srv
+	d.now = now
+	d.strategy = strategy
+	d.srcClientID = srcClientID
+	d.onlyOnce = mode != Overlap
 	return d
 }
 
-func (d *deliverHandler) iterateSubscriptions(srcClientID string, nonShared subscription.IterateFn) subscription.IterateFn {
-	return func(clientID string, sub *gmqtt.Subscription) bool {
-		if sub.NoLocal && clientID == srcClientID {
-			return true
-		}
-		d.matched = true
-		if sub.ShareName != "" {
-			d.addSharedSubscriber(clientID, sub)
-			return true
-		}
-		return nonShared(clientID, sub)
+// release 归还 handler；调用后不得再使用 d。
+func (d *deliverHandler) release() {
+	if len(d.sl) > pooledMapMax {
+		d.sl = nil
+	} else {
+		clear(d.sl)
 	}
+	if len(d.mq) > pooledMapMax {
+		d.mq = nil
+	} else {
+		clear(d.mq)
+	}
+	d.matched = false
+	d.msg, d.srv = nil, nil
+	d.srcClientID, d.strategy = "", ""
+	deliverHandlerPool.Put(d)
+}
+
+// visit 是订阅树遍历回调：过滤 NoLocal，共享订阅暂存待选，普通订阅按投递模式处理。
+func (d *deliverHandler) visit(clientID string, sub *gmqtt.Subscription) bool {
+	if sub.NoLocal && clientID == d.srcClientID {
+		return true
+	}
+	d.matched = true
+	if sub.ShareName != "" {
+		d.addSharedSubscriber(clientID, sub)
+		return true
+	}
+	if d.onlyOnce {
+		return d.recordOnlyOnce(clientID, sub)
+	}
+	return d.deliverOverlap(clientID, sub)
 }
 
 func (d *deliverHandler) addSharedSubscriber(clientID string, sub *gmqtt.Subscription) {
@@ -304,5 +333,7 @@ func (srv *server) deliverMessage(srcClientID string, msg *gmqtt.Message, option
 	d := newDeliverHandler(srv.config.MQTT.DeliveryMode, srv.config.MQTT.SharedSubBalanceStrategy, srcClientID, msg, now, srv)
 	srv.subscriptionsDB.Iterate(d.fn, options)
 	d.flush()
-	return d.matched
+	matched = d.matched
+	d.release()
+	return matched
 }
