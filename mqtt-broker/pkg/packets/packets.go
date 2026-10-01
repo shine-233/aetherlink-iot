@@ -212,7 +212,6 @@ func (r *Reader) ReadPacket() (Packet, error) {
 	if err != nil {
 		return nil, err
 	}
-	fh := &FixHeader{PacketType: first >> 4, Flags: first & 15} //设置FixHeader
 	length, err := EncodeRemainLength(r.bufr)
 	if err != nil {
 		return nil, err
@@ -221,7 +220,17 @@ func (r *Reader) ReadPacket() (Packet, error) {
 	if r.maxPacketSize != 0 && length > int(r.maxPacketSize) {
 		return nil, ErrPacketTooLarge
 	}
-	fh.RemainLength = length
+	fhv := FixHeader{PacketType: first >> 4, Flags: first & 15, RemainLength: length}
+	// 热路径（PUBLISH / 短 ack）：FixHeader 与报文同块分配，见 decode_fastpath.go。
+	if packet, ok, ferr := readPacketFast(fhv, r.version, r.bufr); ok {
+		if ferr != nil {
+			return nil, ferr
+		}
+		return packet, nil
+	}
+	// 不能写 &fhv：逃逸分析与控制流无关，取址会让快路径上的 fhv 也搬到堆上。
+	fh := new(FixHeader)
+	*fh = fhv
 	packet, err := NewPacket(fh, r.version, r.bufr)
 	if err != nil {
 		return nil, err

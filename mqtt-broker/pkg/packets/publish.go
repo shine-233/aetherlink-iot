@@ -88,6 +88,12 @@ func (p *Publish) Pack(w io.Writer) error {
 
 // Unpack read the packet bytes from io.Reader and decodes it into the packet struct.
 func (p *Publish) Unpack(r io.Reader) error {
+	return p.unpack(r, nil)
+}
+
+// unpack 是 Unpack 的实现；props 非 nil 时 v5 属性解码进调用方预分配的结构体
+// （读侧合并分配用），为 nil 时按旧行为新建。
+func (p *Publish) unpack(r io.Reader, props *Properties) error {
 	var err error
 	restBuffer := make([]byte, p.FixHeader.RemainLength)
 	_, err = io.ReadFull(r, restBuffer)
@@ -109,7 +115,10 @@ func (p *Publish) Unpack(r io.Reader) error {
 		}
 	}
 	if p.Version == Version5 {
-		p.Properties = &Properties{}
+		if props == nil {
+			props = &Properties{}
+		}
+		p.Properties = props
 		if err := p.Properties.Unpack(bufr, PUBLISH); err != nil {
 			return err
 		}
