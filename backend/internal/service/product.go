@@ -10,6 +10,7 @@ import (
 
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/internal/service/kit"
 	"aetherlink-iot/backend/pkg/errcode"
 	utils "aetherlink-iot/backend/pkg/utils"
 
@@ -127,15 +128,22 @@ func (*Product) CreateProduct(req *model.CreateProductReq, claims *utils.UserCla
 	return p, nil
 }
 
+// productRepo 租户内产品：读路径 nil/空租户一律裸 CodeUnauthorized，任何加载失败均视为 not found。
+// DAL 签名为 (tenantID, id)，此处适配为 kit 的 (id, tenantID)。
+var productRepo = kit.TenantRepo[*model.Product]{
+	Get:  func(id, tenantID string) (*model.Product, error) { return dal.GetProductByIDAndTenant(tenantID, id) },
+	Gate: kit.TenantUnauthorized,
+}
+
 // UpdateProduct 更新产品信息
 func (*Product) UpdateProduct(req *model.UpdateProductReq, claims *utils.UserClaims) (*model.Product, error) {
 	if err := ensureTenantScopedWriteClaims(claims, "update product"); err != nil {
 		return nil, err
 	}
 
-	existing, err := dal.GetProductByIDAndTenant(claims.TenantID, req.Id)
-	if err != nil || existing == nil {
-		return nil, errcode.New(errcode.CodeNotFound)
+	existing, err := productRepo.Load(claims, req.Id)
+	if err != nil {
+		return nil, err
 	}
 
 	updateMap := make(map[string]interface{})
@@ -207,9 +215,8 @@ func (*Product) DeleteProduct(id string, claims *utils.UserClaims) error {
 		return err
 	}
 
-	existing, err := dal.GetProductByIDAndTenant(claims.TenantID, id)
-	if err != nil || existing == nil {
-		return errcode.New(errcode.CodeNotFound)
+	if err := productRepo.MustExist(claims, id); err != nil {
+		return err
 	}
 
 	// 检查是否有设备引用此产品
@@ -229,27 +236,10 @@ func (*Product) DeleteProduct(id string, claims *utils.UserClaims) error {
 
 // GetProductByID 根据 ID 查询产品详情
 func (*Product) GetProductByID(id string, claims *utils.UserClaims) (*model.Product, error) {
-	if claims.TenantID == "" {
-		return nil, errcode.New(errcode.CodeUnauthorized)
-	}
-	p, err := dal.GetProductByIDAndTenant(claims.TenantID, id)
-	if err != nil || p == nil {
-		return nil, errcode.New(errcode.CodeNotFound)
-	}
-	return p, nil
+	return productRepo.Load(claims, id)
 }
 
 // GetProductList 分页查询产品列表
 func (*Product) GetProductList(req *model.GetProductListByPageReq, claims *utils.UserClaims) (map[string]interface{}, error) {
-	if claims.TenantID == "" {
-		return nil, errcode.New(errcode.CodeUnauthorized)
-	}
-	total, list, err := dal.GetProductListByPageWithDetail(req, claims.TenantID)
-	if err != nil {
-		return nil, dbError(err)
-	}
-	return map[string]interface{}{
-		"total": total,
-		"list":  list,
-	}, nil
+	return kit.List(productRepo, claims, req, dal.GetProductListByPageWithDetail, dbError)
 }

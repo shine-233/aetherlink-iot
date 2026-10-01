@@ -63,7 +63,7 @@ func TestProductContractPins(t *testing.T) {
 		nilErr, blankE error
 	}
 	ops := []op{
-		{"get", func(id string, c *utils.UserClaims) error { _, err := svc.GetProductByID(id, c); return err }, nil, unauth},
+		{"get", func(id string, c *utils.UserClaims) error { _, err := svc.GetProductByID(id, c); return err }, unauth, unauth},
 		{"update", func(id string, c *utils.UserClaims) error {
 			_, err := svc.UpdateProduct(&model.UpdateProductReq{Id: id, Name: &newName}, c)
 			return err
@@ -86,9 +86,6 @@ func TestProductContractPins(t *testing.T) {
 				{"missing", "nope", own, nf},
 			}
 			for _, tc := range cases {
-				if tc.want == nil {
-					continue // HEAD 上 Get 对 nil claims 直接解引用 panic，不钉
-				}
 				if g, w := pinWire(o.call(tc.id, tc.c)), pinWire(tc.want); g != w {
 					t.Errorf("%s: got %s want %s", tc.name, g, w)
 				}
@@ -127,7 +124,7 @@ func TestProductContractPins(t *testing.T) {
 
 	t.Run("list", func(t *testing.T) {
 		db := setupProductPinDB(t)
-		for _, c := range []*utils.UserClaims{blank} {
+		for _, c := range []*utils.UserClaims{nil, blank} { // nil：迁移前为解引用 panic，迁移后经 kit.TenantUnauthorized 报 401
 			if _, err := svc.GetProductList(&model.GetProductListByPageReq{}, c); pinWire(err) != pinWire(unauth) {
 				t.Errorf("gate %v: %s", c, pinWire(err))
 			}
