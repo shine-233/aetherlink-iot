@@ -24,6 +24,7 @@ import type {
 } from '@/components/local-visualization-viewer/entity-relation/types'
 import { listEntityRelations } from '@/service/api/entity-relation'
 import { telemetryDataCurrent } from '@/service/api/device-telemetry-twin-api'
+import { createVisibleInterval } from '@/hooks/common/useVisibleInterval'
 
 export interface EntityRelationDataLoaderOptions {
   refreshIntervalMs?: number
@@ -36,7 +37,6 @@ export function useEntityRelationDataLoader(
   const fields = ref<Record<string, LocalFieldValue>>({})
   const loading = ref(false)
   const error = ref<string | null>(null)
-  let timer: ReturnType<typeof setInterval> | null = null
   let loadSequence = 0
 
   function extractEntityRelationConfigs(dashboard: unknown): Array<{
@@ -209,17 +209,17 @@ export function useEntityRelationDataLoader(
     { immediate: true, deep: true }
   )
 
-  if (options.refreshIntervalMs && options.refreshIntervalMs > 0) {
-    timer = setInterval(loadData, options.refreshIntervalMs)
-  }
+  // 看板在后台标签页时不再每 10s 打 relations + telemetry 两轮请求；切回前台立即补拉。
+  const poller =
+    options.refreshIntervalMs && options.refreshIntervalMs > 0
+      ? createVisibleInterval(() => void loadData(), options.refreshIntervalMs)
+      : null
+  poller?.start()
 
   if (getCurrentInstance()) {
     onBeforeUnmount(() => {
       loadSequence += 1
-      if (timer) {
-        clearInterval(timer)
-        timer = null
-      }
+      poller?.stop()
     })
   }
 
