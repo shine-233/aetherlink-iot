@@ -42,25 +42,12 @@ const appBundleUploadRequestSize = service.MaxAppBundleFileSize + (1 << 20)
 // appBundleTenant 解析当前请求的租户边界：SYS_ADMIN 可显式指定目标租户（跨租户管理），
 // 其余角色锁死 claims.TenantID；缺凭证或无租户上下文一律拒绝（fail-closed）。
 func appBundleTenant(c *gin.Context, requested string) (string, error) {
-	requested = strings.TrimSpace(requested)
 	claimsValue, _ := c.Get("claims")
 	claims, _ := claimsValue.(*utils.UserClaims)
 	if claims == nil {
 		return "", errcode.NewWithMessage(errcode.CodeNoPermission, "missing user claims")
 	}
-	if claims.Authority == "SYS_ADMIN" {
-		if requested != "" {
-			return requested, nil
-		}
-		return claims.TenantID, nil
-	}
-	if strings.TrimSpace(claims.TenantID) == "" {
-		return "", errcode.NewWithMessage(errcode.CodeNoPermission, "no tenant context")
-	}
-	if requested != "" && requested != claims.TenantID {
-		return "", errcode.NewWithMessage(errcode.CodeNoPermission, "cross-tenant operation is not allowed")
-	}
-	return claims.TenantID, nil
+	return mobileTenant(claims, requested)
 }
 
 // UploadAppBundle 上传并登记应用包（multipart：file + platform + version + release_notes，
