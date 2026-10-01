@@ -14,8 +14,9 @@
   ],
   "scripts": {
     "build": "cross-env NODE_OPTIONS=--max-old-space-size=4096 VITE_SERVICE_ENV=prod vite build",
-    "build:check": "pnpm run icons:check && pnpm run typecheck && pnpm run typecheck:packages && pnpm run build",
+    "build:check": "pnpm run icons:check && pnpm run check:reachability && pnpm run typecheck && pnpm run typecheck:packages && pnpm run build",
     "build:8192": "cross-env NODE_OPTIONS=--max-old-space-size=8192 VITE_SERVICE_ENV=prod vite build",
+    "check:reachability": "node scripts/check-unreachable-core.mjs",
     "build:test": "cross-env VITE_SERVICE_ENV=test vite build",
     "build:vite": "cross-env NODE_OPTIONS=--max-old-space-size=4096 VITE_SERVICE_ENV=prod vite build",
     "build:lite": "cross-env NODE_OPTIONS=--max-old-space-size=4096 VITE_SERVICE_ENV=prod VITE_LIGHT_BUILD=Y vite build --outDir dist-lite",
