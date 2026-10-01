@@ -7,6 +7,7 @@ package service
 import (
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/internal/service/kit"
 	utils "aetherlink-iot/backend/pkg/utils"
 )
 
@@ -26,12 +27,5 @@ func (*OperationLogs) GetListByPage(params *model.GetOperationLogListByPageReq, 
 	}
 	// Keep successful empty pages JSON-stable. GORM may leave a scanned
 	// zero-row slice nil even though the DAL starts with an empty slice.
-	list = normalizeOperationLogList(list)
-
-	response := map[string]interface{}{
-		"total": total,
-		"list":  list,
-	}
-
-	return response, nil
+	return kit.AnyListMap(total, normalizeOperationLogList(list)), nil
 }
