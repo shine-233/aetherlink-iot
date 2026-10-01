@@ -62,7 +62,19 @@ func (t *AetherLinkPlugin) OnWillPublishWrapper(pre server.OnWillPublish) server
 			req.Message = nil
 			return
 		}
-		msg.Payload = buildMQTTUplinkPayload(deviceID, msg.Payload)
+		// 与普通 PUBLISH 的 ValidatePubTopicForDevice 对称：身份槽（devices/status/<设备ID>、
+		// <设备编号>/up）必须属于发布者自身，否则设备可借遗嘱在断线时伪造其他设备的上下线状态。
+		// 设备已删除/禁用或查询失败时同样丢弃（fail-closed）。
+		device, err := loadActiveMQTTDevice(deviceID)
+		if err != nil || !util.ValidatePubTopicForDevice(msg.Topic, device.ID, device.DeviceNumber) {
+			Log.Warn("mqtt will message dropped by device identity binding",
+				zap.String("topic", msg.Topic),
+				zap.String("client_id", clientID),
+				zap.String("device_id", deviceID))
+			req.Message = nil
+			return
+		}
+		msg.Payload = buildMQTTUplinkPayload(device.ID, msg.Payload)
 	}
 }
 
