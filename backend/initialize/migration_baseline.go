@@ -18,6 +18,10 @@
 package initialize
 
 import (
+	"bufio"
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -28,8 +32,11 @@ import (
 	"gorm.io/gorm"
 )
 
-// MigrationBaselineDir 基线文件目录（相对 backend/ 工作目录，与 sql/<n>.sql 一致）。
-const MigrationBaselineDir = "sql/baseline"
+// MigrationBaselineDir 基线文件目录（相对 backend/ 工作目录）。仅 cmd/migbaseline 演练时改指临时目录。
+var MigrationBaselineDir = "sql/baseline"
+
+// migrationSQLDir 增量迁移目录（与 applyIncremental 的 sql/<n>.sql 一致）。
+const migrationSQLDir = "sql"
 
 const (
 	migrationBaselineOff  = "off"
@@ -61,6 +68,7 @@ type baselineInputs struct {
 	TimescaleInstalled bool   // pg_extension 中是否有 timescaledb
 	BaselineNumber     int    // 可用基线编号，0 表示没有
 	BusinessTables     int64  // public 下除 sys_version 外的表数
+	SourceMatches      bool   // 基线头部 source-sha256 与当前 sql/1..B.sql 一致
 }
 
 // decideBaseline 纯决策：是否用基线替代 1..B 的增量重放。
@@ -68,7 +76,7 @@ func decideBaseline(in baselineInputs) bool {
 	if in.DataVersion != 0 || in.Mode != migrationBaselineAuto {
 		return false
 	}
-	if in.BaselineNumber <= 0 || in.BusinessTables != 0 {
+	if in.BaselineNumber <= 0 || in.BusinessTables != 0 || !in.SourceMatches {
 		return false
 	}
 	switch in.TimescaleMode {
@@ -121,51 +129,112 @@ func countBusinessTables(db *gorm.DB) (int64, error) {
 	return n, nil
 }
 
+// 基线文件头部的机器可读字段（cmd/migbaseline 生成）。
+const (
+	BaselineHeaderRange = "-- source-range: "
+	BaselineHeaderSHA   = "-- source-sha256: "
+)
+
+// BaselineSourceSHA256 计算 sqlDir/1..n.sql 依次拼接后的 sha256（先把 CRLF 归一为 LF，
+// 避免检出换行差异造成误报）。生成器写入头部，运行时与测试用它判断基线是否过期。
+func BaselineSourceSHA256(sqlDir string, n int) (string, error) {
+	h := sha256.New()
+	for i := 1; i <= n; i++ {
+		b, err := os.ReadFile(filepath.Join(sqlDir, fmt.Sprintf("%d.sql", i)))
+		if err != nil {
+			return "", fmt.Errorf("读取 %d.sql 失败: %w", i, err)
+		}
+		h.Write(bytes.ReplaceAll(b, []byte("\r\n"), []byte("\n")))
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// ReadBaselineHeaderSHA 读取基线文件头部（前 50 行内）记录的 source-sha256。
+func ReadBaselineHeaderSHA(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	sc := bufio.NewScanner(f)
+	for line := 0; line < 50 && sc.Scan(); line++ {
+		if v, ok := strings.CutPrefix(strings.TrimSpace(sc.Text()), strings.TrimSpace(BaselineHeaderSHA)); ok {
+			return strings.TrimSpace(v), nil
+		}
+	}
+	if err := sc.Err(); err != nil {
+		return "", err
+	}
+	return "", fmt.Errorf("%s 头部缺少 source-sha256", path)
+}
+
+// BaselinePlan 是一次基线决策的结果：Use=false 时 Number/Path 仅供日志参考。
+type BaselinePlan struct {
+	Use    bool
+	Number int
+	Path   string
+	Inputs baselineInputs
+}
+
+// PlanBaseline 汇总配置、DB 探测与基线文件，给出是否使用基线（不执行任何写操作）。
+// cmd/migbaseline -verify 用它断言"确实走了基线路径"。
+func PlanBaseline(db *gorm.DB, dataVersion, maxVersion int) (BaselinePlan, error) {
+	plan := BaselinePlan{}
+	mode, err := readMigrationBaselineMode()
+	if err != nil {
+		return plan, err
+	}
+	in := baselineInputs{DataVersion: dataVersion, Mode: mode}
+	if dataVersion != 0 || mode == migrationBaselineOff {
+		plan.Inputs = in
+		return plan, nil
+	}
+	if in.TimescaleMode, err = normalizeTimescaleMode(readTimescaleMode()); err != nil {
+		return plan, err
+	}
+	if in.TimescaleInstalled, err = timescaleExtensionInstalled(db); err != nil {
+		return plan, err
+	}
+	if plan.Number, plan.Path, err = latestBaseline(MigrationBaselineDir, maxVersion); err != nil {
+		return plan, err
+	}
+	in.BaselineNumber = plan.Number
+	if plan.Number > 0 {
+		want, shaErr := BaselineSourceSHA256(migrationSQLDir, plan.Number)
+		got, hdrErr := ReadBaselineHeaderSHA(plan.Path)
+		in.SourceMatches = shaErr == nil && hdrErr == nil && want == got
+		if !in.SourceMatches {
+			migrationLogf("警告：基线 %s 与当前 sql/1..%d.sql 不一致（已过期，需重新生成），改走增量路径", plan.Path, plan.Number)
+		}
+	}
+	if in.BusinessTables, err = countBusinessTables(db); err != nil {
+		return plan, err
+	}
+	plan.Inputs = in
+	plan.Use = decideBaseline(in)
+	return plan, nil
+}
+
 // applyBaseline 在 tx 中按规则执行基线；返回增量循环的起点（已覆盖到的版本号）。
 // 不满足条件时返回 dataVersion 本身，调用方照旧从 dataVersion+1 开始。
 func applyBaseline(db, tx *gorm.DB, dataVersion, maxVersion int) (int, error) {
-	if dataVersion != 0 {
+	plan, err := PlanBaseline(db, dataVersion, maxVersion)
+	if err != nil {
+		return 0, err
+	}
+	if !plan.Use {
+		if plan.Inputs.Mode == migrationBaselineAuto && dataVersion == 0 {
+			migrationLogf("不使用迁移基线（%+v），走增量路径", plan.Inputs)
+		}
 		return dataVersion, nil
 	}
-	mode, err := readMigrationBaselineMode()
+	body, err := os.ReadFile(plan.Path)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("读取基线文件失败 %s: %w", plan.Path, err)
 	}
-	if mode == migrationBaselineOff {
-		return dataVersion, nil
-	}
-	tsMode, err := normalizeTimescaleMode(readTimescaleMode())
-	if err != nil {
-		return 0, err
-	}
-	installed, err := timescaleExtensionInstalled(db)
-	if err != nil {
-		return 0, err
-	}
-	number, path, err := latestBaseline(MigrationBaselineDir, maxVersion)
-	if err != nil {
-		return 0, err
-	}
-	tables, err := countBusinessTables(db)
-	if err != nil {
-		return 0, err
-	}
-	in := baselineInputs{
-		DataVersion: dataVersion, Mode: mode, TimescaleMode: tsMode,
-		TimescaleInstalled: installed, BaselineNumber: number, BusinessTables: tables,
-	}
-	if !decideBaseline(in) {
-		migrationLogf("不使用迁移基线（mode=%s timescale=%s/%v baseline=%d tables=%d），走增量路径",
-			mode, tsMode, installed, number, tables)
-		return dataVersion, nil
-	}
-	body, err := os.ReadFile(path)
-	if err != nil {
-		return 0, fmt.Errorf("读取基线文件失败 %s: %w", path, err)
-	}
-	migrationLogf("执行迁移基线：%s（等价于 sql/1..%d.sql）", path, number)
+	migrationLogf("执行迁移基线：%s（等价于 sql/1..%d.sql）", plan.Path, plan.Number)
 	if err := tx.Exec(string(body)).Error; err != nil {
-		return 0, fmt.Errorf("执行基线 %s 失败: %w", path, err)
+		return 0, fmt.Errorf("执行基线 %s 失败: %w", plan.Path, err)
 	}
-	return number, nil
+	return plan.Number, nil
 }

@@ -21,6 +21,7 @@
 //
 //	cd backend
 //	go run ./cmd/migchaincheck -dsn "host=127.0.0.1 port=55433 user=postgres password=x dbname=aetherlink_migrate_fullchain sslmode=disable"
+//	go run ./cmd/migchaincheck -baseline -dsn "..."   # 全新库走 sql/baseline/<B>.sql + 增量续跑
 package main
 
 import (
@@ -40,7 +41,11 @@ import (
 func main() {
 	dsn := flag.String("dsn", "", "目标空库连接串（必填）")
 	allowDirty := flag.Bool("allow-dirty", false, "允许在已有业务表的库上执行（默认拒绝，因为那验证不了从零安装）")
+	baseline := flag.Bool("baseline", false, "走迁移基线路径（AETHERLINK_MIGRATION_BASELINE=auto），并断言确实选中了 sql/baseline/<B>.sql")
 	flag.Parse()
+	if *baseline {
+		os.Setenv("AETHERLINK_MIGRATION_BASELINE", "auto")
+	}
 
 	if *dsn == "" {
 		fmt.Fprintln(os.Stderr, "必须提供 -dsn（目标空库连接串）")
@@ -73,6 +78,20 @@ func main() {
 
 	fmt.Printf("目标程序版本 VERSION_NUMBER=%d，VERSION=%s\n", global.VERSION_NUMBER, global.VERSION)
 	fmt.Printf("空库校验：现有业务表 %d 张\n", existingTables)
+
+	if *baseline {
+		// 与 cmd/migbaseline -verify 互补：这里只证明基线路径能装到 VERSION_NUMBER，逐行等价由 migbaseline 比对。
+		plan, err := initialize.PlanBaseline(db, 0, global.VERSION_NUMBER)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "基线决策失败：%v\n", err)
+			os.Exit(2)
+		}
+		if !plan.Use {
+			fmt.Fprintf(os.Stderr, "-baseline 但未选中基线（%+v）：需 TimescaleDB 非 on、存在未过期的 sql/baseline/<B>.sql\n", plan.Inputs)
+			os.Exit(1)
+		}
+		fmt.Printf("基线路径：%s + 增量 %d..%d\n", plan.Path, plan.Number+1, global.VERSION_NUMBER)
+	}
 
 	startedAt := time.Now()
 	runErr := initialize.CheckVersion(db)
