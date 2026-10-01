@@ -28,15 +28,24 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// UplinkMessage Flow 层需要的消息格式（避免导入 flow 包）
-type UplinkMessage struct {
-	Type      string
-	DeviceID  string
-	TenantID  string
-	Timestamp int64
-	Payload   []byte
-	Metadata  map[string]interface{}
-}
+// UplinkMessage 是 Flow/Bus 层需要的上行消息格式。
+//
+// ★ 这是 uplink.DeviceMessage 的**类型别名**，不是独立结构体 ★
+//
+// 为什么必须是别名（hot-path#6）：Bus.PublishContext 对消息做类型转换时，
+// 只有传入 `*uplink.DeviceMessage` 才走零序列化快路径；传任何其它类型都会
+// **每条消息做一次 json.Marshal + json.Unmarshal**（仅为了转换类型）。
+// 而本仓库所有上行发布点（MQTT adapter ×5、subscriber 响应流、CoAP/plugin 网关、
+// collector、TCP 网关）构造的都是 `*UplinkMessage`——改成别名之前，
+// 等于**每一条上行消息都白付一次 JSON 往返**。
+//
+// 两个结构体的字段名/类型/顺序本来就逐字段一致，别名只是把这个事实写进类型系统。
+// 安全前提（已核对）：生产代码中没有任何地方就地修改 DeviceMessage 的字段
+// （唯一的写操作在 Bus.cloneDeviceMessage 内部，写的是副本），因此共享指针不会
+// 引入跨消费者可见的意外修改。
+//
+// ⚠️ 不要把它改回独立 struct：那会静默恢复每条消息一次 JSON 编解码。
+type UplinkMessage = uplink.DeviceMessage
 
 // Adapter MQTT 适配器
 // 负责将 MQTT 消息转换为统一的 DeviceMessage 格式
