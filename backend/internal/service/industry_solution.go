@@ -14,6 +14,7 @@ import (
 
 	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/internal/service/kit"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/utils"
 
@@ -23,6 +24,19 @@ import (
 
 // IndustrySolutionService TB-19 服务入口（无状态，零值可用）。
 type IndustrySolutionService struct{}
+
+// industrySolutionRepo 租户内方案：读入口 nil/空租户一律 401，任何加载失败视为 not found（防跨租户探测）。
+// 写入口先过 ensureTenantScopedWriteClaims（租户必非空），再复用同一加载。
+var industrySolutionRepo = kit.TenantRepo[*model.IndustrySolution]{
+	Get: func(id, tenantID string) (*model.IndustrySolution, error) {
+		return dal.GetIndustrySolutionByIDAndTenant(tenantID, strings.TrimSpace(id))
+	},
+	Gate:     kit.TenantUnauthorized,
+	NotFound: kit.NotFound{},
+}
+
+// solutionPage 列表分页参数（kit.List 的请求载体）。
+type solutionPage struct{ page, size int }
 
 // solutionResourceTypes 与资源中心 ApplyResource 的白名单保持同一份口径。
 var solutionResourceTypes = map[string]bool{
@@ -105,7 +119,7 @@ func (*IndustrySolutionService) CreateIndustrySolution(_ context.Context, req *m
 	logrus.WithFields(logrus.Fields{
 		"module": "industry_solution", "action": "create",
 		"tenant_id": claims.TenantID, "solution_id": s.ID,
-		"resources": len(s.Resources),
+		"resources":     len(s.Resources),
 		"audit_message": "industry solution created",
 	}).Info("industry solution created")
 	return s, nil
@@ -113,27 +127,18 @@ func (*IndustrySolutionService) CreateIndustrySolution(_ context.Context, req *m
 
 // ListIndustrySolutions 租户内方案分页列表。
 func (*IndustrySolutionService) ListIndustrySolutions(_ context.Context, page, pageSize int, claims *utils.UserClaims) (map[string]interface{}, error) {
-	if claims == nil || claims.TenantID == "" {
-		return nil, errcode.New(errcode.CodeUnauthorized)
-	}
-	total, list, err := dal.ListIndustrySolutionsByTenant(claims.TenantID, page, pageSize)
-	if err != nil {
-		return nil, errcode.NewWithMessage(errcode.CodeDBError, "list solutions failed")
-	}
-	return map[string]interface{}{
-		"total": total,
-		"list":  list,
-	}, nil
+	return kit.List(industrySolutionRepo, claims, solutionPage{page, pageSize},
+		func(p solutionPage, tenantID string) (int64, []model.IndustrySolution, error) {
+			return dal.ListIndustrySolutionsByTenant(tenantID, p.page, p.size)
+		},
+		func(error) error { return errcode.NewWithMessage(errcode.CodeDBError, "list solutions failed") })
 }
 
 // GetIndustrySolution 方案详情（含安装流水回查）。
 func (*IndustrySolutionService) GetIndustrySolution(_ context.Context, id string, claims *utils.UserClaims) (map[string]interface{}, error) {
-	if claims == nil || claims.TenantID == "" {
-		return nil, errcode.New(errcode.CodeUnauthorized)
-	}
-	s, err := dal.GetIndustrySolutionByIDAndTenant(claims.TenantID, strings.TrimSpace(id))
+	s, err := industrySolutionRepo.Load(claims, id)
 	if err != nil {
-		return nil, errcode.New(errcode.CodeNotFound)
+		return nil, err
 	}
 	installs, err := dal.ListIndustrySolutionInstalls(claims.TenantID, s.ID, 50)
 	if err != nil {
@@ -151,7 +156,7 @@ func (*IndustrySolutionService) DeleteIndustrySolution(_ context.Context, id str
 		return err
 	}
 	if err := dal.DeleteIndustrySolution(claims.TenantID, strings.TrimSpace(id)); err != nil {
-		return errcode.New(errcode.CodeNotFound)
+		return industrySolutionRepo.NotFound.Err()
 	}
 	logrus.WithFields(logrus.Fields{
 		"module": "industry_solution", "action": "delete",
@@ -167,9 +172,9 @@ func (*IndustrySolutionService) InstallIndustrySolution(_ context.Context, id st
 	if err := ensureTenantScopedWriteClaims(claims, "install industry solution"); err != nil {
 		return nil, err
 	}
-	s, err := dal.GetIndustrySolutionByIDAndTenant(claims.TenantID, strings.TrimSpace(id))
+	s, err := industrySolutionRepo.Load(claims, id)
 	if err != nil {
-		return nil, errcode.New(errcode.CodeNotFound)
+		return nil, err
 	}
 	var refs []model.IndustrySolutionResourceRef
 	if err := json.Unmarshal(s.Resources, &refs); err != nil || len(refs) == 0 {
