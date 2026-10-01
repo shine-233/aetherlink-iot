@@ -45,6 +45,10 @@ type TelemetryUplink struct {
 	wsPublishQueue   chan telemetryWSPublishTask
 	wsPublishWorkers int
 	wsPublishDropped uint64
+	// wsSubs caches ws:sub:<id> EXISTS results per device (telemetry_ws_subs.go).
+	wsSubs *wsSubCache
+	// wsSubExists performs the uncached EXISTS check. Replaceable in tests.
+	wsSubExists func(ctx context.Context, deviceID string) (bool, error)
 	// 自动化副作用并发闸门：防止突发洪峰下每条遥测裸起 goroutine 导致无界增长。
 	automationDropped uint64
 	// 规则链副作用并发闸门：与自动化同理，防止每条遥测裸起 goroutine 无界增长。
@@ -65,6 +69,9 @@ type TelemetryUplinkConfig struct {
 	// AutomationMaxConcurrency 限制同时执行的遥测规则链副作用数量；超限时丢弃并计数。
 	// 场景自动化已改由 service 层按设备分片的有界工作池承载，不再受此参数约束。
 	AutomationMaxConcurrency int
+	// Shards is the number of per-device worker shards. 0 = GOMAXPROCS (capped
+	// at 32); 1 = legacy single consumer. Same-device order is always kept.
+	Shards int
 }
 
 type telemetryWSPublishTask struct {
@@ -91,7 +98,9 @@ func NewTelemetryUplink(config TelemetryUplinkConfig) *TelemetryUplink {
 		wsPublishQueue:   make(chan telemetryWSPublishTask, config.WSPublishQueueSize),
 		wsPublishWorkers: config.WSPublishWorkers,
 		ruleChainSem:     make(chan struct{}, config.AutomationMaxConcurrency),
+		wsSubs:           newWSSubCache(wsSubCacheTTL),
 	}
+	f.SetShards(config.Shards)
 	f.sideEffects = f.processTelemetrySideEffects
 	return f
 }
@@ -124,10 +133,20 @@ func (f *TelemetryUplink) Start(messageChan <-chan *DeviceMessage) {
 func (f *TelemetryUplink) startWebSocketPublishWorkers() {
 	for i := 0; i < f.wsPublishWorkers; i++ {
 		go func(workerID int) {
+			// Worker 0 also sweeps the subscription cache so it stays bounded by
+			// the set of devices seen in the last sweep interval.
+			var sweep <-chan time.Time
+			if workerID == 0 && f.wsSubs != nil {
+				ticker := time.NewTicker(wsSubCacheSweepEvery)
+				defer ticker.Stop()
+				sweep = ticker.C
+			}
 			for {
 				select {
 				case task := <-f.wsPublishQueue:
 					f.checkAndPublishToWS(task.deviceID, task.tenantID, task.data)
+				case <-sweep:
+					f.wsSubs.sweep()
 				case <-f.ctx.Done():
 					f.log().WithField("worker_id", workerID).Debug("Telemetry WebSocket publish worker stopped")
 					return
@@ -376,12 +395,15 @@ func convertTelemetryMapToPoints(dataMap map[string]interface{}) ([]storage.Tele
 func (f *TelemetryUplink) checkAndPublishToWS(deviceID, tenantID string, data map[string]interface{}) {
 	// 先检查订阅标记，避免对无人订阅的设备发送无效消息。
 	ctx := context.Background()
-	exists, err := global.REDIS.Exists(ctx, "ws:sub:"+deviceID).Result()
+	subscribed, err := f.hasWSSubscriber(ctx, deviceID)
 	if err != nil {
 		f.log().WithError(err).WithField("device_id", deviceID).Debug("Failed to check WebSocket subscription")
 		return
 	}
-	if exists == 0 {
+	if !subscribed {
+		return
+	}
+	if global.REDIS == nil {
 		return
 	}
 
@@ -407,4 +429,33 @@ func (f *TelemetryUplink) checkAndPublishToWS(deviceID, tenantID string, data ma
 		"device_id": deviceID,
 		"data_keys": len(data),
 	}).Debug("WebSocket event published to Redis")
+}
+
+// hasWSSubscriber answers "is ws:sub:<id> set" through the 1s per-device cache.
+// Errors are returned uncached so a Redis blip never hides a live subscriber.
+func (f *TelemetryUplink) hasWSSubscriber(ctx context.Context, deviceID string) (bool, error) {
+	if exists, ok := f.wsSubs.lookup(deviceID); ok {
+		return exists, nil
+	}
+	check := f.wsSubExists
+	if check == nil {
+		check = redisWSSubExists
+	}
+	exists, err := check(ctx, deviceID)
+	if err != nil {
+		return false, err
+	}
+	f.wsSubs.store(deviceID, exists)
+	return exists, nil
+}
+
+func redisWSSubExists(ctx context.Context, deviceID string) (bool, error) {
+	if global.REDIS == nil {
+		return false, errRedisNotInitialized
+	}
+	n, err := global.REDIS.Exists(ctx, "ws:sub:"+deviceID).Result()
+	if err != nil {
+		return false, err
+	}
+	return n > 0, nil
 }

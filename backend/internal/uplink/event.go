@@ -40,6 +40,9 @@ type EventUplinkConfig struct {
 	DurableStorageInput storage.DurableMessagePersister
 	HeartbeatService    *service.HeartbeatService
 	Logger              *logrus.Logger
+	// Shards is the number of per-device worker shards. 0 = GOMAXPROCS (capped
+	// at 32); 1 = legacy single consumer. Same-device order is always kept.
+	Shards int
 }
 
 // NewEventUplink creates the event uplink worker.
@@ -48,6 +51,7 @@ func NewEventUplink(config EventUplinkConfig) *EventUplink {
 		uplinkBase:          newUplinkBase(eventKindSpec, config.Processor, config.HeartbeatService, config.Logger),
 		durableStorageInput: config.DurableStorageInput,
 	}
+	f.SetShards(config.Shards)
 	f.launchSideEffects = f.launchEventSideEffects
 	return f
 }

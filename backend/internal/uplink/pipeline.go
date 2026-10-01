@@ -71,6 +71,11 @@ type uplinkBase struct {
 	logger     *logrus.Logger
 	// loadDevice resolves the top-level device by id (Redis device cache).
 	loadDevice func(deviceID string) (*model.Device, error)
+	// shards is the number of per-device worker shards (pipeline_shards.go).
+	// 1 is the legacy single-consumer loop.
+	shards int
+	// shardQueueSize is the per-shard buffer; 0 selects defaultShardQueueSize.
+	shardQueueSize int
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -89,15 +94,22 @@ func newUplinkBase(spec kindSpec, proc processor.DataProcessor, heartbeat heartb
 		subDevices: sharedSubDeviceResolver(),
 		logger:     logger,
 		loadDevice: initialize.GetDeviceCacheById,
+		shards:     defaultUplinkShards(),
 		ctx:        ctx,
 		cancel:     cancel,
 		done:       make(chan struct{}),
 	}
 }
 
-// run consumes messageChan until it closes or Stop is called.
+// run consumes messageChan until it closes or Stop is called. With more than
+// one shard, messages are dispatched by device to parallel workers
+// (pipeline_shards.go); per-device order is preserved either way.
 func (b *uplinkBase) run(messageChan <-chan *DeviceMessage, process func(*DeviceMessage)) {
-	b.logger.Info(b.spec.name + " started")
+	b.logger.WithField("shards", b.Shards()).Info(b.spec.name + " started")
+	if n := b.Shards(); n > 1 {
+		b.runSharded(messageChan, process, n)
+		return
+	}
 	go func() {
 		defer close(b.done)
 		for {
@@ -121,7 +133,7 @@ func (b *uplinkBase) Stop() {
 	b.cancel()
 }
 
-// Done closes when the consume loop has exited.
+// Done closes when the consume loop (reader and every shard worker) has exited.
 func (b *uplinkBase) Done() <-chan struct{} {
 	return b.done
 }

@@ -47,6 +47,11 @@ type UplinkManagerConfig struct {
 	StatusUplink    *StatusUplink
 	ResponseUplink  *ResponseUplink // ✨ 新增
 	Logger          *logrus.Logger
+	// UplinkShards, when > 0, overrides the per-device shard count of the
+	// telemetry, attribute and event uplinks (1 = legacy single consumer).
+	// Status and response always stay single-threaded: status transitions and
+	// command acks rely on one global order. 0 keeps each uplink's own setting.
+	UplinkShards int
 }
 
 // NewUplinkManager 创建上行管理器。
@@ -59,6 +64,18 @@ func NewUplinkManager(config UplinkManagerConfig) *UplinkManager {
 
 	if config.Logger == nil {
 		config.Logger = logrus.StandardLogger()
+	}
+
+	if config.UplinkShards > 0 {
+		if config.TelemetryUplink != nil {
+			config.TelemetryUplink.SetShards(config.UplinkShards)
+		}
+		if config.AttributeUplink != nil {
+			config.AttributeUplink.SetShards(config.UplinkShards)
+		}
+		if config.EventUplink != nil {
+			config.EventUplink.SetShards(config.UplinkShards)
+		}
 	}
 
 	return &UplinkManager{
@@ -87,7 +104,7 @@ func (m *UplinkManager) Start() error {
 		telemetryChan := m.bus.SubscribeTelemetry()
 		m.telemetryUplink.Start(telemetryChan)
 		m.handlerDone = append(m.handlerDone, m.telemetryUplink.Done())
-		m.logger.Info("TelemetryUplink started")
+		m.logger.WithField("shards", m.telemetryUplink.Shards()).Info("TelemetryUplink started")
 	}
 
 	// 属性链路通常与遥测并行存在，但消费职责不同。
@@ -95,7 +112,7 @@ func (m *UplinkManager) Start() error {
 		attributeChan := m.bus.SubscribeAttribute()
 		m.attributeUplink.Start(attributeChan)
 		m.handlerDone = append(m.handlerDone, m.attributeUplink.Done())
-		m.logger.Info("AttributeUplink started")
+		m.logger.WithField("shards", m.attributeUplink.Shards()).Info("AttributeUplink started")
 	}
 
 	// 事件链路承接告警、业务事件等异步副作用。
@@ -103,7 +120,7 @@ func (m *UplinkManager) Start() error {
 		eventChan := m.bus.SubscribeEvent()
 		m.eventUplink.Start(eventChan)
 		m.handlerDone = append(m.handlerDone, m.eventUplink.Done())
-		m.logger.Info("EventUplink started")
+		m.logger.WithField("shards", m.eventUplink.Shards()).Info("EventUplink started")
 	}
 
 	// 状态链路会影响在线态、前端订阅与自动化触发，因此单独检查启动错误。

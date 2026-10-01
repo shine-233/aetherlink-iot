@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -94,8 +93,6 @@ func (f *StatusUplink) sendExpectedData(device *model.Device) {
 		}
 	}()
 
-	time.Sleep(3 * time.Second)
-
 	err := service.GroupApp.ExpectedData.Send(context.Background(), device.ID)
 	if err != nil {
 		f.logger.WithError(err).WithField("device_id", device.ID).Debug("Failed to send expected data")
@@ -114,8 +111,6 @@ func (f *StatusUplink) sendPendingShadowMessages(device *model.Device) {
 			}).Error("sendPendingShadowMessages goroutine panic")
 		}
 	}()
-
-	time.Sleep(3 * time.Second)
 
 	delivered, err := service.GroupApp.DeviceShadow.DeliverPendingShadowMessages(device.ID)
 	if err != nil {

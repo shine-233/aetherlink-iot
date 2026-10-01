@@ -161,16 +161,30 @@ func GetDeviceCacheById(deviceId string) (*model.Device, error) {
 	if err == nil {
 		return &device, nil
 	}
-	// 从数据库中获取设备信息
+	// 未命中：同一设备的并发未命中合并为一次回源（device_cache_flight.go），
+	// 避免缓存失效瞬间 N 条上行同时打 N 次 DAL。
+	loaded, err, shared := deviceCacheFlight.do(deviceId, func() (*model.Device, error) {
+		return deviceCacheLoader(deviceId)
+	})
+	if err != nil {
+		return nil, err
+	}
+	if shared {
+		return shareDevice(loaded), nil
+	}
+	return loaded, nil
+}
+
+// loadDeviceCacheFromDAL 回源 DAL 并回填 Redis。
+// P2 修复（2026-08-25）：兜底 TTL 替代永久缓存——写路径主动失效仍是主机制，
+// 兜底过期确保任何遗漏失效的写路径最终自愈，不再产生永久脏读。
+// 回填失败仍返回错误（与历史契约一致）。
+func loadDeviceCacheFromDAL(deviceId string) (*model.Device, error) {
 	deviceFromDB, err := getDeviceCacheByIdFromDAL(deviceId)
 	if err != nil {
 		return nil, err
 	}
-	// 将设备信息存入redis。
-	// P2 修复（2026-08-25）：兜底 TTL 替代永久缓存——写路径主动失效仍是主机制，
-	// 兜底过期确保任何遗漏失效的写路径最终自愈，不再产生永久脏读。
-	err = SetRedisForJsondata(deviceId, deviceFromDB, constant.CacheFallbackTTL)
-	if err != nil {
+	if err := SetRedisForJsondata(deviceId, deviceFromDB, constant.CacheFallbackTTL); err != nil {
 		return nil, err
 	}
 	return deviceFromDB, nil

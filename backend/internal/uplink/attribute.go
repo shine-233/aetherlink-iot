@@ -38,6 +38,9 @@ type AttributeUplinkConfig struct {
 	DurableStorageInput storage.DurableMessagePersister
 	HeartbeatService    *service.HeartbeatService
 	Logger              *logrus.Logger
+	// Shards is the number of per-device worker shards. 0 = GOMAXPROCS (capped
+	// at 32); 1 = legacy single consumer. Same-device order is always kept.
+	Shards int
 }
 
 // NewAttributeUplink creates the attribute uplink worker.
@@ -46,6 +49,7 @@ func NewAttributeUplink(config AttributeUplinkConfig) *AttributeUplink {
 		uplinkBase:          newUplinkBase(attributeKindSpec, config.Processor, config.HeartbeatService, config.Logger),
 		durableStorageInput: config.DurableStorageInput,
 	}
+	f.SetShards(config.Shards)
 	f.runAutomation = f.executeAttributeAutomation
 	return f
 }

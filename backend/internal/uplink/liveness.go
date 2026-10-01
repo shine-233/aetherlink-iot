@@ -27,6 +27,9 @@ type deviceLiveness struct {
 	setOnline func(deviceID string) (bool, error)
 	// notifyOnline runs asynchronously after an offline->online transition.
 	notifyOnline func(logger *logrus.Logger, device *model.Device)
+	// throttle coalesces heartbeat-key SETs per device (liveness_throttle.go).
+	// nil disables throttling.
+	throttle *heartbeatThrottle
 }
 
 func newDeviceLiveness(heartbeat heartbeatRefresher, logger *logrus.Logger) *deviceLiveness {
@@ -43,6 +46,7 @@ func newDeviceLiveness(heartbeat heartbeatRefresher, logger *logrus.Logger) *dev
 			return dal.UpdateDeviceStatus(deviceID, 1)
 		},
 		notifyOnline: notifyDeviceOnlineAndExpectedData,
+		throttle:     newHeartbeatThrottle(),
 	}
 }
 
@@ -62,6 +66,8 @@ func (l *deviceLiveness) touch(device *model.Device) {
 	}
 
 	if device.IsOnline != 1 {
+		// An offline device must get a fresh key now, whatever was stamped earlier.
+		l.throttle.forget(device.ID)
 		statusChanged, err := l.setOnline(device.ID)
 		if err != nil {
 			l.logger.WithError(err).WithField("device_id", device.ID).Error("Failed to auto online device")
@@ -81,7 +87,16 @@ func (l *deviceLiveness) touch(device *model.Device) {
 	if config == nil {
 		return
 	}
+	ttl := heartbeatTTLSeconds(config)
+	if l.throttle.fresh(device.ID, ttl) {
+		return
+	}
 	if err := l.heartbeat.RefreshHeartbeat(device, config); err != nil {
+		l.throttle.forget(device.ID)
 		l.logger.WithError(err).WithField("device_id", device.ID).Error("Failed to refresh heartbeat")
+		return
+	}
+	if ttl > 0 {
+		l.throttle.record(device.ID, ttl)
 	}
 }
