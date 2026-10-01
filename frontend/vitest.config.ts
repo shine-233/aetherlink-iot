@@ -26,6 +26,8 @@ export default defineConfig({
       '@aetherlink/axios': fileURLToPath(new URL('./packages/axios/src/index.ts', import.meta.url)),
       '@aetherlink/hooks': fileURLToPath(new URL('./packages/hooks/src/index.ts', import.meta.url)),
       '@aetherlink/utils': fileURLToPath(new URL('./packages/utils/src/index.ts', import.meta.url)),
+      // 子路径必须排在主入口前：字符串别名按前缀匹配，否则会被解析成 index.ts/core。
+      '@aetherlink/color-palette/core': fileURLToPath(new URL('./packages/color-palette/src/core.ts', import.meta.url)),
       '@aetherlink/color-palette': fileURLToPath(new URL('./packages/color-palette/src/index.ts', import.meta.url)),
       '@aetherlink/materials': fileURLToPath(new URL('./packages/materials/src/index.ts', import.meta.url)),
       '@aetherlink/scripts': fileURLToPath(new URL('./packages/scripts/src/index.ts', import.meta.url)),

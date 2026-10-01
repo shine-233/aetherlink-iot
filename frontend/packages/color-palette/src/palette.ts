@@ -5,7 +5,6 @@
  * 重构建议：可把最近匹配和梯度派生拆成独立函数，并补充固定样例测试。
  */
 import { getDeltaE, getHsl, isValidColor, transformHslToHex } from './color'
-import { getColorName } from './name'
 import type { ColorPaletteFamily, ColorPaletteFamilyWithNearestPalette } from './type'
 import defaultPalettes from './json/palette.json'
 
@@ -53,13 +52,25 @@ export function getNearestColorPaletteFamily(color: string, families: ColorPalet
  * 色名只用于展示（主题/CSS 变量构建只读 hexcode），而 getColorName 需要全表最近邻搜索。
  * 用可枚举的惰性 getter 推迟到真正读取 `.name` 时再算，并在首次读取后固化为普通值。
  */
+let colorNameResolver: ((hexcode: string) => string) | null = null
+
+/**
+ * 注入色名解析器。palette 本身不依赖 41KB 的色名表（./json/color-name.json），
+ * 只有完整入口（index.ts）才注册 getColorName；主题构建走 `./core` 入口时色名表不进首屏 chunk。
+ * 未注册时 `.name` 回退为 hexcode，且不固化，以便稍后注册后仍能得到真实色名。
+ */
+export function setColorNameResolver(resolver: ((hexcode: string) => string) | null) {
+  colorNameResolver = resolver
+}
+
 function withLazyName(hexcode: string, number: ColorPaletteFamily['palettes'][number]['number']) {
   const item = { hexcode, number } as ColorPaletteFamily['palettes'][number]
   Object.defineProperty(item, 'name', {
     enumerable: true,
     configurable: true,
     get() {
-      const name = getColorName(hexcode)
+      if (!colorNameResolver) return hexcode
+      const name = colorNameResolver(hexcode)
       Object.defineProperty(item, 'name', { value: name, enumerable: true, configurable: true, writable: true })
       return name
     },

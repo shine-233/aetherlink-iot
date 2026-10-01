@@ -5,7 +5,7 @@
  * 重构建议：可将副作用、接口访问和纯状态推导拆分，降低 store 文件复杂度。
  */
 import type { GlobalThemeOverrides } from 'naive-ui'
-import { getColorByColorPaletteNumber, getColorPalette } from '@aetherlink/color-palette'
+import { getColorByColorPaletteNumber, getColorPalette } from '@aetherlink/color-palette/core'
 import { addColorAlpha, getRgbOfColor } from '@aetherlink/utils'
 import { overrideThemeSettings, themeSettings } from '@/theme/settings'
 import { themeVars } from '@/theme/vars'

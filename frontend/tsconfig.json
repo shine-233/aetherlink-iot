@@ -13,6 +13,7 @@
       "@/*": ["./src/*"],
       "@aetherlink/axios": ["./packages/axios/src/index.ts"],
       "@aetherlink/color-palette": ["./packages/color-palette/src/index.ts"],
+      "@aetherlink/color-palette/core": ["./packages/color-palette/src/core.ts"],
       "@aetherlink/hooks": ["./packages/hooks/src/index.ts"],
       "@aetherlink/materials": ["./packages/materials/src/index.ts"],
       "@aetherlink/scripts": ["./packages/scripts/src/index.ts"],

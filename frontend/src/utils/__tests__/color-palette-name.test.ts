@@ -76,3 +76,13 @@ describe('color-palette lazy palette names', () => {
     expect(item.name).toBe('custom')
   })
 })
+
+describe('color-palette core entry', () => {
+  it('derives the same hexcodes as the full entry without needing the name table', async () => {
+    const core = await import('../../../packages/color-palette/src/core')
+    const full = getColorPalette('#646cff', 'primary')
+    const light = core.getColorPalette('#646cff', 'primary')
+    expect(light.palettes.map((item) => item.hexcode)).toEqual(full.palettes.map((item) => item.hexcode))
+    expect(core.getColorByColorPaletteNumber('#646cff', 700)).toBe(getColorByColorPaletteNumber('#646cff', 700))
+  })
+})
