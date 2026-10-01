@@ -131,6 +131,14 @@
 
 - 度量脚本：`deploy/maintenance/measure_telemetry_volume.sql`（只读，实测 0 错误跑完）
 - 方案与决策简报：`docs/wave7-d-partitioning-spec-2026-10-01.md`
+- **迁移脚本（已写并在真集群演练通过）**：`deploy/maintenance/partition_telemetry_datas.sql`
+  + 回滚脚本 `rollback_partition_telemetry_datas.sql`。
+  在隔离集群 PG 17.5 上对 102881 行 / 34 MB 实测：迁移 **2162 ms**、回滚 **1247 ms**，
+  数据指纹三次完全一致；分区裁剪、写入路由、唯一约束传播均验证通过。
+  演练中发现并修掉一个真 bug（`INCLUDING ALL` 会把 CHECK 约束复制到分区父表、进而
+  传播到所有分区，导致新数据全插不进去）——**这正是不做演练直接上生产会踩的坑**。
+  详见方案文档第 3.5 节。
+  注意脚本用 psql 元命令，**不能进 backend/sql 自动迁移链**，必须 psql -f 带外执行。
 
 **口径纠正**：本计划第 48 行把它记作"未开工"偏低——Timescale 路径其实已闭环
 （57.sql 转 hypertable + 压缩、`timescale_mode.go` 显式开关、`timescale_retention.go`

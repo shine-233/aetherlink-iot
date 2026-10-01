@@ -185,15 +185,76 @@ SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'timescaledb');
 
 ---
 
+## 3.5 迁移已实现并在真集群上验证（2026-10-01 08:4x）
+
+上面第 3 节的设计**已经写成脚本并在真实 PG 17 集群上完整跑通**，不再只是纸面方案：
+
+| 交付物 | 说明 |
+|---|---|
+| `deploy/maintenance/partition_telemetry_datas.sql` | 迁移脚本（幂等，含 Timescale 守卫） |
+| `deploy/maintenance/rollback_partition_telemetry_datas.sql` | 回滚脚本（幂等，含"未来分区非空则拒绝回滚"的安全检查） |
+
+**为什么放在 `deploy/maintenance/` 而不是 `backend/sql/NNN.sql`**：脚本用了 psql 元命令
+（`\gset` / `\if`），项目的自动迁移链按普通 SQL 执行、不认识反斜杠命令；且计划本就把它
+归为"需带外迁移步"。若将来要纳入自动迁移链，只需把 `\gset` 的边界计算改写成 DO 块内
+动态 SQL，其余语句本身都是普通 SQL。
+
+### 实测环境与结果
+
+环境：隔离集群 PG 17.5（端口 55433），库 `aetherlink_go99`，`telemetry_datas`
+**102881 行 / 34 MB / 10 个设备**，`UNIQUE(device_id,key,ts)`。
+
+| 项 | 结果 |
+|---|---|
+| 迁移耗时 | **2162 ms**（含 CHECK 约束的 VALIDATE 扫表） |
+| 回滚耗时 | **1247 ms** |
+| 数据指纹（迁移前 / 迁移后 / 回滚后） | `102881 \| -118365821522 \| 1788680163203 \| 1789833023455 \| 10` —— **三次完全一致** |
+| 换名后形态 | `telemetry_datas` = 分区父表（0 字节）；`telemetry_datas_legacy` = 34 MB 持有全部行 |
+| 未来分区 | 自动建 2026_10 / 2026_11 / 2026_12 |
+| 唯一约束 | 传播到各分区（`telemetry_datas_2026_10_device_id_key_ts_key`），重复插入被正确拦下 |
+| 分区裁剪 | 限定 ts 范围的查询 EXPLAIN 只扫 `telemetry_datas_legacy`，不碰空分区 |
+| 写入路由 | 2026-10 的数据正确落到 `telemetry_datas_2026_10` |
+| 缺失分区 | 2030 年的数据插入报 `no partition of relation "telemetry_datas" found for row` —— 印证第 6 步预建分区的必要性 |
+
+### ⚠️ 实测中发现并修掉的一个真 bug（务必记住）
+
+**现象**：迁移后**任何新数据都插不进去**，报
+`new row for relation "telemetry_datas_2026_10" violates check constraint "telemetry_datas_ts_partition_ck"`。
+
+**根因**：第 3 步建分区父表时用了 `LIKE telemetry_datas INCLUDING ALL`，而
+`INCLUDING ALL` 含 `INCLUDING CONSTRAINTS`，会把第 2 步为 legacy 数据加的
+`CHECK (ts >= lo AND ts < hi)` **一起复制到父表**。父表的约束会**传播到每一个分区**，
+于是所有分区都被限制在 legacy 区间内 —— 分区形同虚设。
+
+**修复**：父表改为 `LIKE ... INCLUDING ALL EXCLUDING CONSTRAINTS`，并额外加一句
+`DROP CONSTRAINT IF EXISTS telemetry_datas_ts_partition_ck` 兜底（兼容旧版本脚本产生的形态）。
+该 CHECK 只对"被 ATTACH 的那张既有表"有意义（让 ATTACH 跳过全表扫描），对父表毫无用处。
+
+**自检已内置**：脚本第 7 步会列出父表上的 CHECK 约束，**必须为空**；非空即说明此坑复现。
+
+> 这个 bug 在纸面设计阶段完全看不出来——`INCLUDING ALL` 的约束传播是 PG 的语义细节。
+> **这就是为什么分区改造必须先在隔离库演练，不能直接上生产。**
+
+### 另外两个实现细节（改脚本时别踩）
+
+1. **psql 不在 dollar-quoted 块（`$tag$...$tag$`）内替换 `:var`**。第一版把依赖分区边界的
+   语句写进了 DO 块，直接语法错误 `syntax error at or near ":"`。现在统一走
+   `\gset` + `\if`（psql 侧替换）；唯一例外是第 6 步的循环，它通过 `set_config` 把值塞进
+   会话 GUC、DO 块内用 `current_setting` 读回。
+2. **不要用 `pg_stat_user_tables.n_live_tup` 做"分区是否为空"的判定**——该统计可能长期
+   未刷新而恒为 0（本库实测：102881 行的表显示 `n_live_tup=0`）。回滚脚本改用真实 `count(*)`。
+
+---
+
 ## 4. 建议的执行顺序
 
 1. **现在**：跑 `measure_telemetry_volume.sql`，拿数（只读，无风险）
 2. **决策 1 达标才继续**；不达标则本项结案为"观察"，把额度让给 Wave7-C
 3. 达标则：
-   - 写迁移脚本 `backend/sql/<next>.sql`（含 Timescale 守卫）
-   - 加分区维护任务（提前建分区 + 告警）
+   - ~~写迁移脚本~~ → **已完成并在隔离库演练通过**（见第 3.5 节），脚本已就位
+   - 加分区维护任务（提前建分区 + 告警）—— **这是唯一还没做的工程项**
    - **只做方案 A**（分区用于裁剪，过期仍走行级 DELETE）
-   - 在隔离库 `C:\Users\Zz\al_pg_fresh`（端口 55433）先做一次全流程演练
+   - 生产执行前，再在**与生产同版本的 PG 上**跑一遍演练（本次演练环境是 PG 17.5）
 4. **方案 B（按最大保留期 DROP）单独排期**，等 138.sql 作用域行实际启用后再评估
 
 ---
