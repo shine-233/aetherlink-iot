@@ -104,6 +104,19 @@ func GetCurrentTelemetrData(deviceId string) ([]model.TelemetryData, error) {
 	return re, nil
 }
 
+// GetCurrentTelemetrDetailData 返回"设备当前最新一行"诊断数据，不按 key 筛选。
+//
+// 契约（曾经模糊，现显式澄清）：当设备同时上报多个 key 时，本函数不是
+// "设备的当前详情快照"，而是 telemetry_current_datas 里 ts 最大的那一行——
+// 即最近一次上报命中的具体 key/value，其余 key 当前值不在返回范围内。
+// 调用方若需要"指定 key 的当前值"请改用 GetCurrentTelemetryDataOneKeys；
+// 若需要"设备全部 key 的当前值"请改用 GetCurrentTelemetrData。
+// 该语义经 automation_tests/tests/12_telemetry_extra.test.js 锚定
+// （"current detail is a latest-row diagnostic endpoint without a key selector"），
+// 本次改动只补索引覆盖，不改变此既有行为。
+// (device_id, ts DESC) 复合索引见 backend/sql/143.sql：避免 device_id 等值
+// 过滤后仍对该设备全部 key 的历史行做无索引排序（表上原唯一索引是
+// (device_id, key)，不含 ts，排序曾需额外的内存/磁盘 sort 或全表扫 ts 索引）。
 // tenant-scope: caller-enforced?2026-08-26 ?????
 func GetCurrentTelemetrDetailData(deviceId string) (*model.TelemetryData, error) {
 	if usesTelemetryQueryClient() {

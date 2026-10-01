@@ -94,6 +94,10 @@ func getCurrentTelemetryReadinessFromDB(deviceId string) (int64, *model.Telemetr
 	// 继承式 gen 兜底链；但 Session{NewDB} 起点会丢失 Statement.Model 表绑定，
 	// 使 Count 直接报 "Table not set"（gorm v1.31.2 / gen v0.3.28 实测），
 	// 且生产环境 global.DB 与 query.SetDefault 恒成对初始化，该兜底不可达，故一并移除。
+	//
+	// 下面 Where(device_id).Order(ts DESC).Limit(1) 与 dal/telemetry_datas.go 的
+	// GetCurrentTelemetrDetailData 是同一访问模式（同表、同过滤、同排序），由
+	// backend/sql/143.sql 新增的 (device_id, ts DESC) 复合索引共同覆盖。
 	if global.DB == nil {
 		return 0, nil, gorm.ErrInvalidDB
 	}
