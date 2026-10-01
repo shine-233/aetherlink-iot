@@ -68,46 +68,6 @@ func dataPolicyDerefString(s *string) string {
 	return *s
 }
 
-// runnableDeviceDataPolicy 是否为可执行的设备数据策略行：
-// 行级 TTL 仅支持设备数据（data_type='1'），且必须启用、保留天数合法。
-func runnableDeviceDataPolicy(p *model.DataPolicy) bool {
-	return p != nil && p.DataType == deviceDataPolicyType && p.Enabled == "1" && p.RetentionDay > 0
-}
-
-// rowLevelPolicyAppliesTo 行级策略是否覆盖某 (租户, 档案) 设备：
-// 租户级行覆盖该租户全部设备；档案级行精确匹配档案，设备未绑档案时不被覆盖。
-// 全局行永远返回 false（覆盖判定只针对行级行）。
-func rowLevelPolicyAppliesTo(p *model.DataPolicy, tenantID, deviceConfigID string) bool {
-	if scopeOfDataPolicy(p) == dataPolicyScopeGlobal {
-		return false
-	}
-	if dataPolicyDerefString(p.TenantID) != tenantID {
-		return false
-	}
-	profileID := dataPolicyDerefString(p.DeviceConfigID)
-	if profileID == "" {
-		return true // 租户级：覆盖该租户全部设备
-	}
-	return deviceConfigID != "" && profileID == deviceConfigID
-}
-
-// resolveEffectiveDeviceDataPolicy 单设备生效策略解析（TB-15R 核心语义）：
-// 档案级 (租户,档案) > 租户级 (租户) > 全局 (NULL,NULL)，只在可执行行里解析。
-// 返回 nil 表示无可用策略（调用方按无清理处理）。纯函数，单测锁定优先级。
-func resolveEffectiveDeviceDataPolicy(policies []*model.DataPolicy, tenantID, deviceConfigID string) *model.DataPolicy {
-	for _, scope := range []dataPolicyScope{dataPolicyScopeProfile, dataPolicyScopeTenant, dataPolicyScopeGlobal} {
-		for _, p := range policies {
-			if !runnableDeviceDataPolicy(p) || scopeOfDataPolicy(p) != scope {
-				continue
-			}
-			if scope == dataPolicyScopeGlobal || rowLevelPolicyAppliesTo(p, tenantID, deviceConfigID) {
-				return p
-			}
-		}
-	}
-	return nil
-}
-
 func requireDataPolicyAdmin(claims *utils.UserClaims) error {
 	return authz.PlatformAdminRule("no permission to manage data policy").RequireClaims(claims)
 }
@@ -243,8 +203,8 @@ func (*DataPolicy) GetDataPolicyListByPage(req *model.GetDataPolicyListByPageReq
 
 // CleanSystemDataByCron 每日保留清理（croninit 注册）：遍历全部策略行，按各自作用域执行。
 // 同一轮里多行并存语义自洽：全局行删除被启用行级策略覆盖的设备之外的数据，
-// 租户级行排除同租户被档案级覆盖的设备，档案级行精确清理——等效于
-// resolveEffectiveDeviceDataPolicy 的逐设备解析（单测锁定两种口径的一致性）。
+// 租户级行排除同租户被档案级覆盖的设备，档案级行精确清理——等效于逐设备按
+// 档案级 > 租户级 > 全局 的优先级解析。
 // 行级 TTL 仅支持设备数据；操作日志行级行（异常存量）跳过并告警。
 func (*DataPolicy) CleanSystemDataByCron() error {
 	data, err := dal.GetDataPolicy()

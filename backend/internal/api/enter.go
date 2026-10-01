@@ -115,11 +115,6 @@ func init() {
 	Validate = validator.New()
 }
 
-// ValidateStruct 对请求结构体执行字段校验，并返回第一条可读错误。
-func ValidateStruct(i interface{}) error {
-	return ValidateStructLang(i, "")
-}
-
 // ValidateStructLang 按 Accept-Language 生成可读校验错误。空 lang 时默认中文。
 func ValidateStructLang(i interface{}, lang string) error {
 	err := Validate.Struct(i)

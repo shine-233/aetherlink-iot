@@ -51,11 +51,6 @@ func ensureTenantScopedWriteClaims(claims *utils.UserClaims, action string) erro
 	return nil
 }
 
-// tenantIDInScopes 纯成员判断：resourceTenant 是否落在自上而下可读租户作用域内。
-func tenantIDInScopes(resourceTenant string, scopes []string) bool {
-	return authz.InScope(resourceTenant, scopes)
-}
-
 // ---- device ownership --------------------------------------------------------
 
 func deviceOwnerUserIDFilterForClaims(claims *utils.UserClaims) *string {

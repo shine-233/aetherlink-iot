@@ -333,28 +333,6 @@ func parseByteRange(rangeHeader string, fileSize int64) (int64, int64, error) {
 	return start, end, nil
 }
 
-// safeOTAUpgradePackagePath 将 URL 参数限制在升级包目录下，防止路径穿越。
-// 静态审查重点：后续若变更基础目录或运行目录，需重新确认 filepath.Abs 与前缀比较的安全边界。
-func safeOTAUpgradePackagePath(pathParam, fileParam string) (string, error) {
-	relativePath, err := safeOTAUpgradePackageRelativePath(pathParam, fileParam)
-	if err != nil {
-		return "", err
-	}
-	base, err := filepath.Abs("./files/upgradePackage")
-	if err != nil {
-		return "", err
-	}
-	fullPath, err := filepath.Abs(filepath.Join(base, filepath.FromSlash(relativePath)))
-	if err != nil {
-		return "", err
-	}
-	baseWithSep := base + string(os.PathSeparator)
-	if fullPath != base && !strings.HasPrefix(fullPath, baseWithSep) {
-		return "", errors.New("invalid ota file path")
-	}
-	return fullPath, nil
-}
-
 func safeOTAUpgradePackageRelativePath(pathParam, fileParam string) (string, error) {
 	if strings.TrimSpace(pathParam) == "" || strings.TrimSpace(fileParam) == "" {
 		return "", errors.New("invalid ota file path")

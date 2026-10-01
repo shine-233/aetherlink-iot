@@ -108,7 +108,7 @@ func (*BoardApi) HandleBoard(c *gin.Context) {
 
 // HandleBoardListByTenantId 查询当前租户首页可见的看板集合。
 // 调用链：GET /api/v1/board/home -> 读取 claims.TenantID
-// -> service.GroupApp.Board.GetBoardListByTenantId -> DAL 按 tenantID 返回首页看板列表。
+// -> service.GroupApp.Board.GetBoardHomeForClaims -> DAL 按 tenantID 返回首页看板列表。
 // 权限边界：接口不接受外部 tenantID，首页看板始终绑定当前 claims.TenantID；当前层没有额外角色限制，
 // 因而同一租户内能访问该路由的用户都可看到本租户首页看板结果。
 // @Router   /api/v1/board/home [get]

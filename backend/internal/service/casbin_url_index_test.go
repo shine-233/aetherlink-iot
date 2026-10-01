@@ -135,15 +135,6 @@ m = g(r.sub, p.sub) && r.obj == p.obj && r.act == p.act
 	global.CasbinEnforcer = e
 	assert.False(t, legacyGetUrlScan("api/v1/x"), "oracle 同样为 false")
 	assert.False(t, (&Casbin{}).GetUrl("api/v1/x"))
-	assert.Equal(t, 0, RebuildCasbinURLIndex(global.CasbinEnforcer))
-	assert.Equal(t, 0, RebuildCasbinURLIndex(nil))
-}
-
-func TestRebuildCasbinURLIndexReportsRows(t *testing.T) {
-	setupPatternCasbinEnforcer(t)
-	addG2(t, "api/v1/a", "api/v1/b/:id")
-	assert.Equal(t, 2, RebuildCasbinURLIndex(global.CasbinEnforcer))
-	assert.True(t, (&Casbin{}).GetUrl("api/v1/b/9"))
 }
 
 // 并发读 + 写交错：-race 下验证索引读锁内校验/重建无数据竞争，且结果始终与策略一致。

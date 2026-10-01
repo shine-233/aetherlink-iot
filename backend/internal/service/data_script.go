@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	initialize "aetherlink-iot/backend/initialize"
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/pkg/errcode"
@@ -210,23 +209,6 @@ func (*DataScript) EnableDataScript(req *model.EnableDataScriptReq, claims *util
 	}
 
 	return err
-}
-
-func (*DataScript) Exec(device *model.Device, scriptType string, msg []byte, topic string) ([]byte, error) {
-	var err error
-
-	script, err := initialize.GetScriptByDeviceAndScriptType(device, scriptType)
-	if err != nil {
-		return msg, err
-	}
-	if script == nil {
-		return msg, nil
-	}
-	newMsg, err := utils.ScriptDeal(*script.Content, msg, topic)
-	if err != nil {
-		return msg, err
-	}
-	return []byte(newMsg), nil
 }
 
 func (*DataScript) RunScript() {

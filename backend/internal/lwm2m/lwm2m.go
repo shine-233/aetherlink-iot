@@ -33,11 +33,6 @@ type Client struct {
 	RegisteredAt time.Time
 }
 
-// Expired 判断客户端是否已过生命周期。
-func (c *Client) Expired(now time.Time) bool {
-	return now.After(c.RegisteredAt.Add(c.Lifetime))
-}
-
 // Registry LwM2M 注册簿（线程安全）。
 type Registry struct {
 	mu      sync.Mutex
@@ -136,25 +131,6 @@ func regIDFromBody(body []byte) string {
 	return strings.TrimPrefix(string(body), "id=")
 }
 
-// HandleRegisterWithNotify 在 HandleRegister 基础上追加注册成功回调（新建或刷新均通知）。
-// 回调仅通报端点名，不参与注册决策；onRegister 为 nil 时行为与 HandleRegister 完全一致。
-// 用途：上层把 LwM2M 端点名与平台设备做凭证映射（WORKPLAN P1-C）。
-func (r *Registry) HandleRegisterWithNotify(onRegister func(endpoint string)) coap.Handler {
-	inner := r.HandleRegister()
-	if onRegister == nil {
-		return inner
-	}
-	return func(req *coap.Message) (coap.Code, []byte, int, error) {
-		code, body, obs, err := inner(req)
-		if err == nil && (code == coap.CodeCreated || code == coap.CodeChanged) {
-			if ep, _, _, perr := parseRegisterParams(req); perr == nil && ep != "" {
-				onRegister(ep)
-			}
-		}
-		return code, body, obs, err
-	}
-}
-
 func parseRegisterParams(req *coap.Message) (ep string, lt time.Duration, binding string, err error) {
 	for _, q := range req.OptionsByNumber(coap.OptionUriQuery) {
 		kv := string(q)
@@ -232,22 +208,6 @@ func (r *Registry) Delete(id string) bool {
 	delete(r.clients, id)
 	delete(r.byEP, c.Endpoint)
 	return true
-}
-
-// PruneExpired 清理过期客户端，返回清除数量。
-func (r *Registry) PruneExpired() int {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	now := r.now()
-	removed := 0
-	for id, c := range r.clients {
-		if c.Expired(now) {
-			delete(r.clients, id)
-			delete(r.byEP, c.Endpoint)
-			removed++
-		}
-	}
-	return removed
 }
 
 // Count 当前存活注册数。

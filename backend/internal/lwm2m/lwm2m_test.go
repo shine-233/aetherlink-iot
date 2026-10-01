@@ -1,4 +1,4 @@
-// 文件用途：LwM2M 注册层单测——参数解析校验、注册/更新语义、注销、TTL 过期清理、
+// 文件用途：LwM2M 注册层单测——参数解析校验、注册/更新语义、注销、
 // 以及经 coap.Registry 端到端 POST/DELETE /rd。
 package lwm2m
 
@@ -41,7 +41,7 @@ func TestParseRegisterParams(t *testing.T) {
 	}
 }
 
-func TestRegisterUpdateDeleteAndExpiry(t *testing.T) {
+func TestRegisterUpdateAndDelete(t *testing.T) {
 	base := time.Now()
 	r := NewRegistry()
 	r.now = func() time.Time { return base }
@@ -60,11 +60,6 @@ func TestRegisterUpdateDeleteAndExpiry(t *testing.T) {
 	}
 	if snap := r.Snapshot(); snap[0].Lifetime != 600*time.Second {
 		t.Fatalf("lifetime 未更新: %v", snap[0].Lifetime)
-	}
-	// 过期清理：时间推进超过 600s
-	r.now = func() time.Time { return base.Add(601 * time.Second) }
-	if removed := r.PruneExpired(); removed != 1 {
-		t.Fatalf("应清理 1 个过期客户端, got %d", removed)
 	}
 	// DELETE 不存在返回 false
 	if r.Delete("nope") {

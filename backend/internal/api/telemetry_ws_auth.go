@@ -225,11 +225,3 @@ func telemetryWSStringValue(msgMap map[string]interface{}, keys ...string) strin
 	}
 	return ""
 }
-
-func keysOfMap(m map[string]interface{}) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	return keys
-}

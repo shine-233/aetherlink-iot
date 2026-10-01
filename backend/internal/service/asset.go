@@ -6,22 +6,34 @@
 package service
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
 	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/hierarchy"
 	"aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/internal/service/kit"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/utils"
-	"github.com/go-basic/uuid"
-
-	"gorm.io/gorm"
 )
 
 // Asset 资产服务聚合入口。
 type Asset struct{}
+
+// assetNotFound 资产加载/删除失败映射：未命中为裸 CodeNotFound，其余一律裸 CodeDBError（不带 data）。
+var assetNotFound = kit.NotFound{
+	Match:   kit.IsRecordNotFound,
+	OnOther: func(error) error { return errcode.New(errcode.CodeDBError) },
+}
+
+// assetWriteScope 写操作门禁：平台级（无租户）拒绝，返回 self 与可读作用域。
+func assetWriteScope(claims *utils.UserClaims) (string, []string, error) {
+	self, scopes := assetScope(claims)
+	if self == "" {
+		return "", nil, errcode.NewWithMessage(errcode.CodeParamError, "平台级（无租户）暂不支持资产")
+	}
+	return self, scopes, nil
+}
 
 // AssetReq 创建/更新资产入参（由 api 层绑定后透传）。
 type AssetReq struct {
@@ -158,7 +170,7 @@ func (*Asset) Create(claims *utils.UserClaims, req *AssetReq) (*model.Asset, err
 	}
 	meta := strings.TrimSpace(req.Meta)
 	asset := &model.Asset{
-		ID:        uuid.New(),
+		ID:        kit.NewID(),
 		TenantID:  self,
 		ParentID:  strings.TrimSpace(req.ParentID),
 		Name:      name,
@@ -175,22 +187,19 @@ func (*Asset) Create(claims *utils.UserClaims, req *AssetReq) (*model.Asset, err
 
 // Update 更新资产；只允许更新归属自身租户的记录。
 func (*Asset) Update(claims *utils.UserClaims, req *AssetReq) (*model.Asset, error) {
-	self, scopes := assetScope(claims)
-	if self == "" {
-		return nil, errcode.NewWithMessage(errcode.CodeParamError, "平台级（无租户）暂不支持资产")
+	self, scopes, err := assetWriteScope(claims)
+	if err != nil {
+		return nil, err
 	}
 	if strings.TrimSpace(req.ID) == "" {
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "缺少资产 ID")
 	}
 	exist, err := dal.GetAsset(req.ID, scopes)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errcode.New(errcode.CodeNotFound)
-		}
-		return nil, errcode.New(errcode.CodeDBError)
+		return nil, assetNotFound.Map(err)
 	}
 	if exist.TenantID != self {
-		return nil, errcode.New(errcode.CodeNotFound)
+		return nil, assetNotFound.Err()
 	}
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
@@ -219,7 +228,7 @@ func (*Asset) Update(claims *utils.UserClaims, req *AssetReq) (*model.Asset, err
 		return nil, errcode.New(errcode.CodeDBError)
 	}
 	if !ok {
-		return nil, errcode.New(errcode.CodeNotFound)
+		return nil, assetNotFound.Err()
 	}
 	got, err := dal.GetAsset(req.ID, scopes)
 	if err != nil {
@@ -230,15 +239,12 @@ func (*Asset) Update(claims *utils.UserClaims, req *AssetReq) (*model.Asset, err
 
 // Delete 删除资产；存在子节点时拒绝（需先删除子树）。
 func (*Asset) Delete(claims *utils.UserClaims, id string) error {
-	self, scopes := assetScope(claims)
-	if self == "" {
-		return errcode.NewWithMessage(errcode.CodeParamError, "平台级（无租户）暂不支持资产")
+	self, scopes, err := assetWriteScope(claims)
+	if err != nil {
+		return err
 	}
 	if _, err := dal.GetAsset(id, scopes); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errcode.New(errcode.CodeNotFound)
-		}
-		return errcode.New(errcode.CodeDBError)
+		return assetNotFound.Map(err)
 	}
 	children, err := dal.CountAssetChildren(id, scopes)
 	if err != nil {
@@ -247,13 +253,7 @@ func (*Asset) Delete(claims *utils.UserClaims, id string) error {
 	if children > 0 {
 		return errcode.NewWithMessage(errcode.CodeParamError, "存在子节点，请先删除或迁移子树")
 	}
-	if err := dal.DeleteAsset(id, self); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errcode.New(errcode.CodeNotFound)
-		}
-		return errcode.New(errcode.CodeDBError)
-	}
-	return nil
+	return assetNotFound.Map(dal.DeleteAsset(id, self))
 }
 
 // List 分页查询根/指定父节点下资产。
@@ -279,14 +279,11 @@ func (*Asset) List(claims *utils.UserClaims, parentID, keyword string, page, pag
 func (*Asset) Get(claims *utils.UserClaims, id string) (*model.Asset, error) {
 	_, scopes := assetScope(claims)
 	if len(scopes) == 0 {
-		return nil, errcode.New(errcode.CodeNotFound)
+		return nil, assetNotFound.Err()
 	}
 	a, err := dal.GetAsset(id, scopes)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errcode.New(errcode.CodeNotFound)
-		}
-		return nil, errcode.New(errcode.CodeDBError)
+		return nil, assetNotFound.Map(err)
 	}
 	return a, nil
 }

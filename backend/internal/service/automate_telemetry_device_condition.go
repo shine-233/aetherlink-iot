@@ -122,11 +122,6 @@ func (a *automationExec) resolveDeviceConditionTarget(cond model.DeviceTriggerCo
 	return deviceConditionTarget{deviceID: deviceId, deviceName: *a.device.Name}, true
 }
 
-func (a *automationExec) resolveConditionDevice(cond model.DeviceTriggerCondition, deviceId string) (string, string, bool) {
-	target, ok := a.resolveDeviceConditionTarget(cond, deviceId)
-	return target.deviceID, target.deviceName, ok
-}
-
 func newDeviceConditionRequest(cond model.DeviceTriggerCondition) deviceConditionRequest {
 	return deviceConditionRequest{
 		paramType: strings.ToUpper(*cond.TriggerParamType),

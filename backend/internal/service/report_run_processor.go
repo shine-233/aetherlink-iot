@@ -357,5 +357,3 @@ func (processor *ReportRunProcessor) retryDelivery() func(context.Context, strin
 	}
 	return dal.RetryClaimedReportDelivery
 }
-
-func isReportClaimLost(err error) bool { return errors.Is(err, dal.ErrReportClaimLost) }

@@ -11,6 +11,8 @@ import (
 	"context"
 
 	"github.com/sirupsen/logrus"
+	"gorm.io/gen"
+	"gorm.io/gen/field"
 )
 
 // create
@@ -104,113 +106,64 @@ func UpdateDeviceModelCommand(d *model.DeviceModelCommand) (err error) {
 	}
 }
 
-// GetDeviceModelTelemetryListByPage 分页查询某模板的遥测物模型定义（tenant-scope: caller-enforced；
-// scopes 由 service 层展开——总部/父级可见 self∪子孙模板的物模型）。
-func GetDeviceModelTelemetryListByPage(r model.GetDeviceModelListByPageReq, scopes []string) (count int64, data []*model.DeviceModelTelemetry, err error) {
-	q := query.DeviceModelTelemetry
-	queryBuilder := q.WithContext(context.Background())
+// deviceModelListDo 抽象四类物模型（遥测/属性/事件/命令）gen 构建器的共同形状，
+// 让分页查询共用一份实现：Where/Limit/Offset/Select 返回自身类型，Count/Find 终结。
+type deviceModelListDo[Q any, T any] interface {
+	Where(conds ...gen.Condition) Q
+	Limit(limit int) Q
+	Offset(offset int) Q
+	Select(conds ...field.Expr) Q
+	Count() (int64, error)
+	Find() ([]*T, error)
+}
+
+// listDeviceModelByPage 按作用域 + 模板 id 分页查询物模型定义。空作用域 fail-closed
+// 返回空结果；单元素作用域走 Eq（与旧单租户语义一致），多元素走 In。
+func listDeviceModelByPage[Q deviceModelListDo[Q, T], T any](qb Q, tenantID, templateID field.String, r model.GetDeviceModelListByPageReq, scopes []string) (count int64, data []*T, err error) {
 	if len(scopes) == 0 {
 		return count, data, nil
 	}
 	if len(scopes) == 1 {
-		queryBuilder = queryBuilder.Where(q.TenantID.Eq(scopes[0]))
+		qb = qb.Where(tenantID.Eq(scopes[0]))
 	} else {
-		queryBuilder = queryBuilder.Where(q.TenantID.In(scopes...))
+		qb = qb.Where(tenantID.In(scopes...))
 	}
-	queryBuilder = queryBuilder.Where(q.DeviceTemplateID.Eq(r.DeviceTemplateId))
-	count, err = queryBuilder.Count()
+	qb = qb.Where(templateID.Eq(r.DeviceTemplateId))
+	count, err = qb.Count()
 	if err != nil {
 		logrus.Error(err)
 		return count, data, err
 	}
-	queryBuilder = applyListPagination(queryBuilder, r.Page, r.PageSize)
-	data, err = queryBuilder.Select().Find()
+	data, err = applyListPagination(qb, r.Page, r.PageSize).Select().Find()
 	if err != nil {
 		logrus.Error(err)
-
 	}
 	return count, data, err
+}
+
+// GetDeviceModelTelemetryListByPage 分页查询某模板的遥测物模型定义（tenant-scope: caller-enforced；
+// scopes 由 service 层展开——总部/父级可见 self∪子孙模板的物模型）。
+func GetDeviceModelTelemetryListByPage(r model.GetDeviceModelListByPageReq, scopes []string) (int64, []*model.DeviceModelTelemetry, error) {
+	q := query.DeviceModelTelemetry
+	return listDeviceModelByPage[query.IDeviceModelTelemetryDo, model.DeviceModelTelemetry](q.WithContext(context.Background()), q.TenantID, q.DeviceTemplateID, r, scopes)
 }
 
 // GetDeviceModelAttributesListByPage 分页查询某模板的属性物模型定义（tenant-scope: caller-enforced）。
-func GetDeviceModelAttributesListByPage(r model.GetDeviceModelListByPageReq, scopes []string) (count int64, data []*model.DeviceModelAttribute, err error) {
+func GetDeviceModelAttributesListByPage(r model.GetDeviceModelListByPageReq, scopes []string) (int64, []*model.DeviceModelAttribute, error) {
 	q := query.DeviceModelAttribute
-	queryBuilder := q.WithContext(context.Background())
-	if len(scopes) == 0 {
-		return count, data, nil
-	}
-	if len(scopes) == 1 {
-		queryBuilder = queryBuilder.Where(q.TenantID.Eq(scopes[0]))
-	} else {
-		queryBuilder = queryBuilder.Where(q.TenantID.In(scopes...))
-	}
-	queryBuilder = queryBuilder.Where(q.DeviceTemplateID.Eq(r.DeviceTemplateId))
-	count, err = queryBuilder.Count()
-	if err != nil {
-		logrus.Error(err)
-		return count, data, err
-	}
-	queryBuilder = applyListPagination(queryBuilder, r.Page, r.PageSize)
-	data, err = queryBuilder.Select().Find()
-	if err != nil {
-		logrus.Error(err)
-
-	}
-	return count, data, err
+	return listDeviceModelByPage[query.IDeviceModelAttributeDo, model.DeviceModelAttribute](q.WithContext(context.Background()), q.TenantID, q.DeviceTemplateID, r, scopes)
 }
 
 // GetDeviceModelEventsListByPage 分页查询某模板的事件物模型定义（tenant-scope: caller-enforced）。
-func GetDeviceModelEventsListByPage(r model.GetDeviceModelListByPageReq, scopes []string) (count int64, data []*model.DeviceModelEvent, err error) {
+func GetDeviceModelEventsListByPage(r model.GetDeviceModelListByPageReq, scopes []string) (int64, []*model.DeviceModelEvent, error) {
 	q := query.DeviceModelEvent
-	queryBuilder := q.WithContext(context.Background())
-	if len(scopes) == 0 {
-		return count, data, nil
-	}
-	if len(scopes) == 1 {
-		queryBuilder = queryBuilder.Where(q.TenantID.Eq(scopes[0]))
-	} else {
-		queryBuilder = queryBuilder.Where(q.TenantID.In(scopes...))
-	}
-	queryBuilder = queryBuilder.Where(q.DeviceTemplateID.Eq(r.DeviceTemplateId))
-	count, err = queryBuilder.Count()
-	if err != nil {
-		logrus.Error(err)
-		return count, data, err
-	}
-	queryBuilder = applyListPagination(queryBuilder, r.Page, r.PageSize)
-	data, err = queryBuilder.Select().Find()
-	if err != nil {
-		logrus.Error(err)
-
-	}
-	return count, data, err
+	return listDeviceModelByPage[query.IDeviceModelEventDo, model.DeviceModelEvent](q.WithContext(context.Background()), q.TenantID, q.DeviceTemplateID, r, scopes)
 }
 
 // GetDeviceModelCommandsListByPage 分页查询某模板的命令物模型定义（tenant-scope: caller-enforced）。
-func GetDeviceModelCommandsListByPage(r model.GetDeviceModelListByPageReq, scopes []string) (count int64, data []*model.DeviceModelCommand, err error) {
+func GetDeviceModelCommandsListByPage(r model.GetDeviceModelListByPageReq, scopes []string) (int64, []*model.DeviceModelCommand, error) {
 	q := query.DeviceModelCommand
-	queryBuilder := q.WithContext(context.Background())
-	if len(scopes) == 0 {
-		return count, data, nil
-	}
-	if len(scopes) == 1 {
-		queryBuilder = queryBuilder.Where(q.TenantID.Eq(scopes[0]))
-	} else {
-		queryBuilder = queryBuilder.Where(q.TenantID.In(scopes...))
-	}
-	queryBuilder = queryBuilder.Where(q.DeviceTemplateID.Eq(r.DeviceTemplateId))
-	count, err = queryBuilder.Count()
-	if err != nil {
-		logrus.Error(err)
-		return count, data, err
-	}
-	queryBuilder = applyListPagination(queryBuilder, r.Page, r.PageSize)
-	data, err = queryBuilder.Select().Find()
-	if err != nil {
-		logrus.Error(err)
-
-	}
-	return count, data, err
+	return listDeviceModelByPage[query.IDeviceModelCommandDo, model.DeviceModelCommand](q.WithContext(context.Background()), q.TenantID, q.DeviceTemplateID, r, scopes)
 }
 
 // tenant-scope: parent-owned?2026-08-26 ?????

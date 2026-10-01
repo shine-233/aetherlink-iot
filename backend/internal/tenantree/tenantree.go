@@ -59,14 +59,6 @@ type Source interface {
 	LoadTenantNodes(ctx context.Context) ([]TenantNode, error)
 }
 
-// LoadFunc 函数型 Source 适配器，便于注入 DB 查询或测试桩。
-type LoadFunc func(ctx context.Context) ([]TenantNode, error)
-
-// LoadTenantNodes 实现 Source。
-func (f LoadFunc) LoadTenantNodes(ctx context.Context) ([]TenantNode, error) {
-	return f(ctx)
-}
-
 // Stats 缓存运行状态（供观测/调试）。
 type Stats struct {
 	Loaded      bool

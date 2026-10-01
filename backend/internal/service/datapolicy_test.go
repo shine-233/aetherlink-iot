@@ -1,7 +1,6 @@
 // 文件用途：TB-15R（138.sql）数据策略行级 TTL 的单测——策略优先级解析与清理覆盖语义。
 // 核心逻辑：
-//   - 纯函数部分锁定"精确租户/档案优先、全局回落"的解析口径：
-//     档案级 (租户,档案) > 租户级 (租户) > 全局 (NULL,NULL)，停用/非法行不参与；
+//   - 纯函数部分锁定策略行作用域判定（档案级/租户级/全局）；
 //   - 端到端部分在内存 sqlite 夹具上跑 CleanSystemDataByCron，验证全局清理不越权
 //     删除被行级策略覆盖设备的数据、冷层 rollups 同口径、行级操作日志行被跳过。
 //
@@ -49,52 +48,6 @@ func TestScopeOfDataPolicy(t *testing.T) {
 	require.Equal(t, dataPolicyScopeProfile, scopeOfDataPolicy(policyFixtureRow("p", "1", "tenant-1", "profile-1", 30, "1")))
 	// 空串租户等价 NULL（创建入口已归一，防御性确认解析口径）。
 	require.Equal(t, dataPolicyScopeGlobal, scopeOfDataPolicy(policyFixtureRow("e", "1", "", "profile-x", 30, "1")))
-}
-
-func TestRowLevelPolicyAppliesTo(t *testing.T) {
-	tenantRow := policyFixtureRow("t", "1", "tenant-1", "", 90, "1")
-	profileRow := policyFixtureRow("p", "1", "tenant-1", "profile-1", 7, "1")
-	globalRow := policyFixtureRow("g", "1", "", "", 30, "1")
-
-	// 租户级行覆盖该租户全部设备（含无档案设备），不覆盖其他租户。
-	require.True(t, rowLevelPolicyAppliesTo(tenantRow, "tenant-1", ""))
-	require.True(t, rowLevelPolicyAppliesTo(tenantRow, "tenant-1", "profile-9"))
-	require.False(t, rowLevelPolicyAppliesTo(tenantRow, "tenant-2", ""))
-
-	// 档案级行精确匹配；设备未绑档案时不被覆盖。
-	require.True(t, rowLevelPolicyAppliesTo(profileRow, "tenant-1", "profile-1"))
-	require.False(t, rowLevelPolicyAppliesTo(profileRow, "tenant-1", "profile-2"))
-	require.False(t, rowLevelPolicyAppliesTo(profileRow, "tenant-1", ""))
-	require.False(t, rowLevelPolicyAppliesTo(profileRow, "tenant-2", "profile-1"))
-
-	// 全局行永远不参与覆盖判定。
-	require.False(t, rowLevelPolicyAppliesTo(globalRow, "tenant-1", "profile-1"))
-}
-
-func TestResolveEffectiveDeviceDataPolicyPriorityLadder(t *testing.T) {
-	global30 := policyFixtureRow("g", "1", "", "", 30, "1")
-	tenant90 := policyFixtureRow("t1", "1", "tenant-1", "", 90, "1")
-	profile7 := policyFixtureRow("p1", "1", "tenant-1", "profile-1", 7, "1")
-	disabledProfile := policyFixtureRow("p2", "1", "tenant-1", "profile-2", 7, "2")
-	zeroRetentionTenant := policyFixtureRow("t2", "1", "tenant-2", "", 0, "1")
-	opLogGlobal := policyFixtureRow("g2", "2", "", "", 15, "1")
-
-	policies := []*model.DataPolicy{global30, tenant90, profile7, disabledProfile, zeroRetentionTenant, opLogGlobal}
-
-	// 档案级 > 租户级 > 全局。
-	require.Same(t, profile7, resolveEffectiveDeviceDataPolicy(policies, "tenant-1", "profile-1"))
-	require.Same(t, tenant90, resolveEffectiveDeviceDataPolicy(policies, "tenant-1", ""))
-	require.Same(t, tenant90, resolveEffectiveDeviceDataPolicy(policies, "tenant-1", "profile-9"))
-	// 无档案级行的设备回落租户级，再回落全局。
-	require.Same(t, global30, resolveEffectiveDeviceDataPolicy(policies, "tenant-3", "profile-x"))
-	require.Same(t, global30, resolveEffectiveDeviceDataPolicy(policies, "tenant-3", ""))
-	// 停用的档案级行不生效，沿阶梯回落：档案级停用 → 租户级行仍覆盖该租户全部设备。
-	require.Same(t, tenant90, resolveEffectiveDeviceDataPolicy(policies, "tenant-1", "profile-2"))
-	// 零保留的租户级行不生效，直接落全局。
-	require.Same(t, global30, resolveEffectiveDeviceDataPolicy(policies, "tenant-2", ""))
-	// 无任何可用策略返回 nil。
-	require.Nil(t, resolveEffectiveDeviceDataPolicy(nil, "tenant-1", "profile-1"))
-	require.Nil(t, resolveEffectiveDeviceDataPolicy([]*model.DataPolicy{opLogGlobal}, "tenant-9", ""))
 }
 
 func TestIsDuplicateDataPolicyErr(t *testing.T) {

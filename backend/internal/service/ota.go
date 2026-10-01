@@ -96,18 +96,6 @@ func ensureOTATaskAccess(taskID string, claims *utils.UserClaims) (*model.OtaUpg
 	return task, nil
 }
 
-func otaPackageLocalPathFromURL(packageURL string) (string, error) {
-	cleanRel, err := otaPackageRelativePathFromURL(packageURL)
-	if err != nil {
-		return "", err
-	}
-	base, err := filepath.Abs("./files/upgradePackage")
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(base, filepath.FromSlash(cleanRel)), nil
-}
-
 func otaPackageRelativePathFromURL(packageURL string) (string, error) {
 	rawPath := strings.TrimSpace(packageURL)
 	if rawPath == "" {

@@ -41,14 +41,6 @@ func WithProductionConfig() Option {
 	return WithEnvironment("prod")
 }
 
-func WithDevelopmentConfig() Option {
-	return WithEnvironment("dev")
-}
-
-func WithTestConfig() Option {
-	return WithEnvironment("test")
-}
-
 // WithOptionalRsaDecrypt enables frontend RSA password decryption only when a
 // deployment-injected private key exists. Missing optional key material keeps
 // the default local stack bootable; malformed material remains a hard error.

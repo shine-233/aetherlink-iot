@@ -65,19 +65,6 @@ func (DevicePreRegisterCredentialGrant) TableName() string {
 	return TableNameDevicePreRegisterCredentialGrant
 }
 
-// IsCredentialGrantStatus 判断状态是否在词表内。
-func IsCredentialGrantStatus(status string) bool {
-	switch status {
-	case CredentialGrantStatusPending,
-		CredentialGrantStatusConsumed,
-		CredentialGrantStatusExpired,
-		CredentialGrantStatusRevoked:
-		return true
-	default:
-		return false
-	}
-}
-
 // ValidateCredentialGrantBatchNumber 校验批次号非空且不超长。
 func ValidateCredentialGrantBatchNumber(batch string) error {
 	trimmed := strings.TrimSpace(batch)
@@ -90,25 +77,3 @@ func ValidateCredentialGrantBatchNumber(batch string) error {
 	return nil
 }
 
-// ValidateCredentialGrant 校验许可行自身的字段自洽。
-func ValidateCredentialGrant(g *DevicePreRegisterCredentialGrant) error {
-	if g == nil {
-		return ErrCredentialGrantBatchRequired
-	}
-	if err := ValidateCredentialGrantBatchNumber(g.BatchNumber); err != nil {
-		return err
-	}
-	if strings.TrimSpace(g.TenantID) == "" {
-		return errors.New("tenant id is required")
-	}
-	if !IsCredentialGrantStatus(g.Status) {
-		return ErrCredentialGrantUnknownStatus
-	}
-	// 已消费必须有消费者与时间：只写 status 不留痕，审计就断了。
-	if g.Status == CredentialGrantStatusConsumed {
-		if g.ConsumedBy == nil || strings.TrimSpace(*g.ConsumedBy) == "" || g.ConsumedAt == nil {
-			return errors.New("consumed grant must carry consumed_by and consumed_at")
-		}
-	}
-	return nil
-}

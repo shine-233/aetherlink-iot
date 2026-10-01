@@ -202,14 +202,6 @@ func buildOTAFilteredDeviceListReq(filter *model.OTAUpgradeTaskDeviceFilter, pkg
 	}, nil
 }
 
-func filteredOTADeviceIDs(devices []model.GetDeviceListByPageRsp, excludeIDs []string) []string {
-	deviceIDs := make([]string, 0, len(devices))
-	for _, device := range devices {
-		deviceIDs = append(deviceIDs, device.ID)
-	}
-	return filterOTADeviceIDs(deviceIDs, excludeIDs)
-}
-
 func filterOTADeviceIDs(deviceIDs []string, excludeIDs []string) []string {
 	excluded := map[string]struct{}{}
 	for _, id := range uniqueNonEmptyStrings(excludeIDs) {
@@ -291,25 +283,4 @@ func resolveOTAUpgradeTaskMaxDevices(maxDevices *int) int {
 		return defaultMaxDevices
 	}
 	return *maxDevices
-}
-
-func previewOTADevices(devices []model.GetDeviceListByPageRsp, selectedDeviceIDs []string, limit int) []model.GetDeviceListByPageRsp {
-	if limit <= 0 {
-		return []model.GetDeviceListByPageRsp{}
-	}
-	selected := map[string]struct{}{}
-	for _, id := range selectedDeviceIDs {
-		selected[id] = struct{}{}
-	}
-	preview := make([]model.GetDeviceListByPageRsp, 0, limit)
-	for _, device := range devices {
-		if _, ok := selected[device.ID]; !ok {
-			continue
-		}
-		preview = append(preview, device)
-		if len(preview) >= limit {
-			break
-		}
-	}
-	return preview
 }

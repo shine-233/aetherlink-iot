@@ -5,7 +5,7 @@
   查询上下文（entity_type/entity_id）由页面传入，弹窗自身不做列表分页。
 -->
 <script setup lang="ts">
-import { computed, h, ref, watch } from 'vue'
+import { computed, h, ref, shallowRef, watch } from 'vue'
 import { NTag } from 'naive-ui'
 import type { DataTableColumns, SelectOption } from 'naive-ui'
 import { entityVersionDiff, entityVersionList, type EntityVersion, type EntityVersionDiffChange } from '@/service/api'
@@ -29,8 +29,9 @@ const emit = defineEmits<{
 const compareLoading = ref(false)
 const candidateLoading = ref(false)
 const compareTargetId = ref<string | null>(null)
-const compareCandidates = ref<SelectOption[]>([])
-const diffResult = ref<EntityVersionDiffResult | null>(null)
+// 候选列表（最多 500 条）与 diff 结果只做整体替换，用 shallowRef 免去逐字段深度代理。
+const compareCandidates = shallowRef<SelectOption[]>([])
+const diffResult = shallowRef<EntityVersionDiffResult | null>(null)
 const sourceSnapshotPretty = ref('')
 const targetSnapshotPretty = ref('')
 
@@ -86,12 +87,14 @@ const diffColumns = computed<DataTableColumns<EntityVersionDiffChange>>(() => [
     title: () => $t('custom.entityVersion.compareOldValue'),
     key: 'old_value',
     minWidth: 160,
+    ellipsis: { tooltip: true },
     render: (row) => formatDiffValue(row.old_value)
   },
   {
     title: () => $t('custom.entityVersion.compareNewValue'),
     key: 'new_value',
     minWidth: 160,
+    ellipsis: { tooltip: true },
     render: (row) => formatDiffValue(row.new_value)
   }
 ])
@@ -213,6 +216,9 @@ watch(
             :bordered="false"
             size="small"
             :max-height="320"
+            :row-key="(row: EntityVersionDiffChange) => row.path"
+            virtual-scroll
+            :min-row-height="38"
           />
         </template>
       </template>

@@ -46,11 +46,6 @@ func ParseGroupElementCode(code string) (kind, id string, ok bool) {
 	return "", "", false
 }
 
-// BuildGroupElementCode 由资源元素命名空间与资源 ID 构造元素码。
-func BuildGroupElementCode(kind, id string) string {
-	return kind + ":" + id
-}
-
 // UserGroup 对应数据库表 user_groups（用户组主表）。
 // UNIQUE(tenant_id, name) 与 131.sql 的 uk_user_groups_tenant_name 同源。
 type UserGroup struct {

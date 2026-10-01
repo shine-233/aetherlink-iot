@@ -177,17 +177,3 @@ func casbinURLIndexFor(e *casbin.SyncedEnforcer) *casbinURLIndex {
 	casbinURLIndexPtr.Store(idx)
 	return idx
 }
-
-// RebuildCasbinURLIndex 强制按当前策略重建索引（策略加载后预热用；正确性不依赖它）。
-// 返回索引中的 g2 行数；enforcer 为空或无 g2 定义时返回 0。
-func RebuildCasbinURLIndex(e *casbin.SyncedEnforcer) int {
-	if e == nil {
-		return 0
-	}
-	casbinURLIndexPtr.Store(nil)
-	idx := casbinURLIndexFor(e)
-	if idx == nil {
-		return 0
-	}
-	return len(idx.keys)
-}

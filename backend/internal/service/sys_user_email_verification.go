@@ -8,7 +8,6 @@ import (
 	"crypto/subtle"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"aetherlink-iot/backend/pkg/common"
@@ -60,14 +59,6 @@ func verificationCodeEmailBody(code, language string) string {
 	default:
 		return fmt.Sprintf("Your verification code is %s", code)
 	}
-}
-
-// maskVerificationCode 对验证码进行脱敏处理，仅保留前2位和后1位
-func maskVerificationCode(code string) string {
-	if len(code) <= 3 {
-		return strings.Repeat("*", len(code))
-	}
-	return code[:2] + strings.Repeat("*", len(code)-3) + code[len(code)-1:]
 }
 
 // @description 发送验证码

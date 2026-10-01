@@ -56,7 +56,6 @@ type FrameAccumulator struct {
 	maxSize int
 	buf     []byte
 	haltErr error // 非 nil 即中毒：后续 Feed 恒返回该错误
-	frames  int   // 已完整解析的帧数（诊断面）
 }
 
 // NewFrameAccumulator 构造累积器；mode 非法返回 ErrBadFrameMode，
@@ -92,7 +91,6 @@ func (a *FrameAccumulator) Feed(chunk []byte) ([][]byte, error) {
 		if frame == nil {
 			break // 半包：等待更多字节
 		}
-		a.frames++
 		out = append(out, frame)
 	}
 	return out, nil
@@ -100,9 +98,6 @@ func (a *FrameAccumulator) Feed(chunk []byte) ([][]byte, error) {
 
 // Pending 返回当前缓冲中未成帧的字节数（半包观察面）。
 func (a *FrameAccumulator) Pending() int { return len(a.buf) }
-
-// FramesParsed 返回累计完整帧数（诊断面）。
-func (a *FrameAccumulator) FramesParsed() int { return a.frames }
 
 // next 解析下一个完整帧：返回 nil 表示半包等待；返回错误表示帧违规（中毒）。
 func (a *FrameAccumulator) next() ([]byte, error) {

@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"strconv"
 	"strings"
 
 	dal "aetherlink-iot/backend/internal/dal"
@@ -92,15 +91,6 @@ func (*RuleChain) GetExecutionTraces(chainID, execID string, claims *utils.UserC
 		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": err.Error()})
 	}
 	return traces, nil
-}
-
-// normalizeTraceLimitString 查询参数解析容错。
-func normalizeTraceLimitString(raw string) int {
-	limit, err := strconv.Atoi(strings.TrimSpace(raw))
-	if err != nil || limit <= 0 {
-		return ruleChainTraceDefaultLimit
-	}
-	return limit
 }
 
 // PHASE-D-D1 END

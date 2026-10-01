@@ -520,39 +520,6 @@ func TestValidateSimulationPublishTargetRejectsUnavailableMQTT(t *testing.T) {
 	}
 }
 
-func TestTelemetrySimulationLogFieldsDoNotEchoSecretsOrPayload(t *testing.T) {
-	fields := telemetryPublishLogFields(&utils.MQTTParams{
-		Host:     "mqtt.example.com",
-		Port:     "1883",
-		Username: "device-user",
-		Password: "secret-password",
-		Topic:    "telemetry/device",
-		Payload:  `{"temperature":25.5}`,
-		ClientId: "client-1",
-	})
-
-	if _, ok := fields["password"]; ok {
-		t.Fatalf("telemetry publish log fields leaked password: %#v", fields)
-	}
-	if _, ok := fields["payload"]; ok {
-		t.Fatalf("telemetry publish log fields leaked payload: %#v", fields)
-	}
-	if fields["payload_size"] != len(`{"temperature":25.5}`) {
-		t.Fatalf("telemetry publish payload_size = %#v", fields["payload_size"])
-	}
-	if fields["host"] != "mqtt.example.com" || fields["topic"] != "telemetry/device" || fields["client_id"] != "client-1" {
-		t.Fatalf("telemetry publish log fields lost routing context: %#v", fields)
-	}
-
-	sendFields := simulationSendLogFields("mqtt.example.com", "1883", "telemetry/device", "client-2", `{"password":"raw"}`)
-	if _, ok := sendFields["payload"]; ok {
-		t.Fatalf("simulation send log fields leaked payload: %#v", sendFields)
-	}
-	if sendFields["payload_size"] != len(`{"password":"raw"}`) {
-		t.Fatalf("simulation send payload_size = %#v", sendFields["payload_size"])
-	}
-}
-
 func TestSimulationVoucherCredentialsRejectsMissingUsername(t *testing.T) {
 	_, _, err := simulationVoucherCredentials(map[string]interface{}{"password": "secret"})
 	assertErrcodeError(t, err, "simulation voucher missing username", errcode.CodeParamError, "设备凭证中缺少 username")

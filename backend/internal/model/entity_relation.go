@@ -64,11 +64,6 @@ func IsAllowedEntityType(entityType string) bool {
 	return entityRelationAllowedTypes[strings.TrimSpace(entityType)]
 }
 
-// AllowedEntityTypes 返回受控实体类型列表（供接口文档与校验提示使用）。
-func AllowedEntityTypes() []string {
-	return []string{EntityTypeDevice, EntityTypeAsset, EntityTypeCustomer, EntityTypeGateway}
-}
-
 // ValidateEntityRelation 校验关系写入合法性。
 // metadataBytes 传序列化后的字节数；为 0 表示无元数据。
 func ValidateEntityRelation(r *EntityRelation, metadataBytes int) error {

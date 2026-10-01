@@ -57,14 +57,6 @@ func (*Board) GetBoard(id string, U *utils.UserClaims) (interface{}, error) {
 	return board, err
 }
 
-func (*Board) GetBoardListByTenantId(tenantid string) (interface{}, error) {
-	_, data, err := dal.GetBoardListByTenantId(tenantid)
-	if err != nil {
-		return nil, dbError(err)
-	}
-	return data, err
-}
-
 func (*Board) GetBoardHomeForClaims(tenantID string, claims *utils.UserClaims) (interface{}, error) {
 	resolvedTenantID, err := resolveBoardHomeTenant(tenantID, claims)
 	if err != nil {

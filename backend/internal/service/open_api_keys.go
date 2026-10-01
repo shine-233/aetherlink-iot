@@ -6,14 +6,12 @@
 package service
 
 import (
-	"time"
-
-	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
 
 	"aetherlink-iot/backend/internal/authz"
 	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/internal/service/kit"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/utils"
 )
@@ -44,6 +42,28 @@ func openAPIKeyTenantDenied(requiredTenant string, claims *utils.UserClaims) err
 
 type OpenAPIKey struct{}
 
+// openAPIKeyDBErr 是本资源 DB 错误的固定形状 {"error": msg, "id": id}。
+func openAPIKeyDBErr(id string, err error) error {
+	return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+		kit.KeyError: err.Error(),
+		"id":         id,
+	})
+}
+
+// loadManagedOpenAPIKey 按 ID 加载并校验管理权限（SYS_ADMIN 任意租户，TENANT_ADMIN 仅本租户）。
+// 加载失败（含不存在）走 {"error","id"}，权限不符统一回角色错误。
+func loadManagedOpenAPIKey(id string, claims *utils.UserClaims) error {
+	key, err := dal.GetOpenAPIKeyByID(id)
+	if err != nil {
+		logrus.Errorf("获取OpenAPI密钥信息失败: %v", err)
+		return openAPIKeyDBErr(id, err)
+	}
+	if err := openAPIKeyManagerRule.Check(claims, authz.OfTenant(key.TenantID)); err != nil {
+		return openAPIKeyRoleDenied(claims)
+	}
+	return nil
+}
+
 // CreateOpenAPIKey 创建OpenAPI密钥。
 // 返回值是明文 key，仅在本次响应中出现一次；数据库只存 SHA-256 摘要。
 func (o *OpenAPIKey) CreateOpenAPIKey(req *model.CreateOpenAPIKeyReq, claims *utils.UserClaims) (string, error) {
@@ -67,7 +87,7 @@ func (o *OpenAPIKey) CreateOpenAPIKey(req *model.CreateOpenAPIKeyReq, claims *ut
 	status := int16(1) // 默认启用
 	// 创建OpenAPI密钥记录：api_key 列存摘要，key_prefix 供列表辨认。
 	key := &model.OpenAPIKey{
-		ID:        uuid.New(),
+		ID:        kit.NewID(),
 		TenantID:  req.TenantID,
 		APIKey:    utils.HashAPIKey(apikey),
 		KeyPrefix: utils.APIKeyDisplayPrefix(apikey),
@@ -76,15 +96,12 @@ func (o *OpenAPIKey) CreateOpenAPIKey(req *model.CreateOpenAPIKeyReq, claims *ut
 		CreatedID: &claims.ID,
 	}
 
-	t := time.Now().UTC()
-	key.CreatedAt = &t
-	key.UpdatedAt = &t
+	now := kit.NowUTCPtr()
+	key.CreatedAt, key.UpdatedAt = now, now
 
 	if err := dal.CreateOpenAPIKey(key); err != nil {
 		logrus.Errorf("创建OpenAPI密钥失败: %v", err)
-		return "", errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": err.Error(),
-		})
+		return "", kit.DBErr(kit.KeyError, err)
 	}
 
 	return apikey, nil
@@ -101,9 +118,7 @@ func (o *OpenAPIKey) GetOpenAPIKeyList(req *model.OpenAPIKeyListReq, claims *uti
 	total, list, err := dal.GetOpenAPIKeyListByPage(req, tenantID)
 	if err != nil {
 		logrus.Errorf("查询OpenAPI密钥列表失败: %v", err)
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": err.Error(),
-		})
+		return nil, kit.DBErr(kit.KeyError, err)
 	}
 
 	// 列表只回显展示前缀；api_key 列存的是摘要，也一律不下发。
@@ -117,27 +132,13 @@ func (o *OpenAPIKey) GetOpenAPIKeyList(req *model.OpenAPIKeyListReq, claims *uti
 		logrus.Errorf("unexpected OpenAPI key list type %T; masking skipped", list)
 	}
 
-	result := make(map[string]interface{})
-	result["total"] = total
-	result["list"] = list
-	return result, nil
+	return kit.AnyListMap(total, list), nil
 }
 
 // UpdateOpenAPIKey 更新OpenAPI密钥
 func (o *OpenAPIKey) UpdateOpenAPIKey(req *model.UpdateOpenAPIKeyReq, claims *utils.UserClaims) error {
-	// 获取现有记录
-	key, err := dal.GetOpenAPIKeyByID(req.ID)
-	if err != nil {
-		logrus.Errorf("获取OpenAPI密钥信息失败: %v", err)
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": err.Error(),
-			"id":    req.ID,
-		})
-	}
-
-	// 校验权限：SYS_ADMIN 任意租户，TENANT_ADMIN 仅本租户
-	if err := openAPIKeyManagerRule.Check(claims, authz.OfTenant(key.TenantID)); err != nil {
-		return openAPIKeyRoleDenied(claims)
+	if err := loadManagedOpenAPIKey(req.ID, claims); err != nil {
+		return err
 	}
 
 	// 构建更新内容
@@ -152,10 +153,7 @@ func (o *OpenAPIKey) UpdateOpenAPIKey(req *model.UpdateOpenAPIKeyReq, claims *ut
 	// 执行更新
 	if err := dal.UpdateOpenAPIKey(req.ID, updates); err != nil {
 		logrus.Errorf("更新OpenAPI密钥失败: %v", err)
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": err.Error(),
-			"id":    req.ID,
-		})
+		return openAPIKeyDBErr(req.ID, err)
 	}
 
 	return nil
@@ -163,28 +161,14 @@ func (o *OpenAPIKey) UpdateOpenAPIKey(req *model.UpdateOpenAPIKeyReq, claims *ut
 
 // DeleteOpenAPIKey 删除OpenAPI密钥
 func (o *OpenAPIKey) DeleteOpenAPIKey(id string, claims *utils.UserClaims) error {
-	// 获取现有记录
-	key, err := dal.GetOpenAPIKeyByID(id)
-	if err != nil {
-		logrus.Errorf("获取OpenAPI密钥信息失败: %v", err)
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": err.Error(),
-			"id":    id,
-		})
-	}
-
-	// 校验权限：SYS_ADMIN 任意租户，TENANT_ADMIN 仅本租户
-	if err := openAPIKeyManagerRule.Check(claims, authz.OfTenant(key.TenantID)); err != nil {
-		return openAPIKeyRoleDenied(claims)
+	if err := loadManagedOpenAPIKey(id, claims); err != nil {
+		return err
 	}
 
 	// 执行删除
 	if err := dal.DeleteOpenAPIKey(id); err != nil {
 		logrus.Errorf("删除OpenAPI密钥失败: %v", err)
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": err.Error(),
-			"id":    id,
-		})
+		return openAPIKeyDBErr(id, err)
 	}
 
 	return nil

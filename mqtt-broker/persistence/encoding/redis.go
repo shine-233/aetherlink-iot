@@ -21,17 +21,17 @@ func EncodeMessage(msg *gmqtt.Message, b *bytes.Buffer) {
 	WriteBool(b, msg.Dup)
 	b.WriteByte(msg.QoS)
 	WriteBool(b, msg.Retained)
-	WriteString(b, []byte(msg.Topic))
-	WriteString(b, []byte(msg.Payload))
+	writeStr(b, msg.Topic)
+	WriteString(b, msg.Payload)
 	WriteUint16(b, msg.PacketID)
 
 	if len(msg.ContentType) != 0 {
 		b.WriteByte(packets.PropContentType)
-		WriteString(b, []byte(msg.ContentType))
+		writeStr(b, msg.ContentType)
 	}
 	if len(msg.CorrelationData) != 0 {
 		b.WriteByte(packets.PropCorrelationData)
-		WriteString(b, []byte(msg.CorrelationData))
+		WriteString(b, msg.CorrelationData)
 	}
 	if msg.MessageExpiry != 0 {
 		b.WriteByte(packets.PropMessageExpiry)
@@ -42,12 +42,11 @@ func EncodeMessage(msg *gmqtt.Message, b *bytes.Buffer) {
 
 	if len(msg.ResponseTopic) != 0 {
 		b.WriteByte(packets.PropResponseTopic)
-		WriteString(b, []byte(msg.ResponseTopic))
+		writeStr(b, msg.ResponseTopic)
 	}
 	for _, v := range msg.SubscriptionIdentifier {
 		b.WriteByte(packets.PropSubscriptionIdentifier)
-		l, _ := packets.DecodeRemainLength(int(v))
-		b.Write(l)
+		writeVarint(b, v)
 	}
 	for _, v := range msg.UserProperties {
 		b.WriteByte(packets.PropUser)
@@ -72,11 +71,10 @@ func DecodeMessage(b *bytes.Buffer) (msg *gmqtt.Message, err error) {
 	if err != nil {
 		return
 	}
-	topic, err := ReadString(b)
+	msg.Topic, err = readStr(b)
 	if err != nil {
 		return
 	}
-	msg.Topic = string(topic)
 	msg.Payload, err = ReadString(b)
 	if err != nil {
 		return
@@ -95,11 +93,11 @@ func DecodeMessage(b *bytes.Buffer) (msg *gmqtt.Message, err error) {
 		}
 		switch pt {
 		case packets.PropContentType:
-			v, err := ReadString(b)
+			v, err := readStr(b)
 			if err != nil {
 				return nil, err
 			}
-			msg.ContentType = string(v)
+			msg.ContentType = v
 		case packets.PropCorrelationData:
 			msg.CorrelationData, err = ReadString(b)
 			if err != nil {
@@ -116,11 +114,11 @@ func DecodeMessage(b *bytes.Buffer) (msg *gmqtt.Message, err error) {
 				return nil, err
 			}
 		case packets.PropResponseTopic:
-			v, err := ReadString(b)
+			v, err := readStr(b)
 			if err != nil {
 				return nil, err
 			}
-			msg.ResponseTopic = string(v)
+			msg.ResponseTopic = v
 		case packets.PropSubscriptionIdentifier:
 			si, err := packets.EncodeRemainLength(b)
 			if err != nil {
@@ -147,4 +145,19 @@ func DecodeMessageFromBytes(b []byte) (msg *gmqtt.Message, err error) {
 		return nil, nil
 	}
 	return DecodeMessage(bytes.NewBuffer(b))
+}
+
+// writeVarint 按 MQTT 变长整数写入订阅标识，与 packets.DecodeRemainLength 输出一致但不分配临时切片。
+func writeVarint(b *bytes.Buffer, v uint32) {
+	for {
+		digit := byte(v % 128)
+		v /= 128
+		if v > 0 {
+			digit |= 128
+		}
+		b.WriteByte(digit)
+		if v == 0 {
+			return
+		}
+	}
 }

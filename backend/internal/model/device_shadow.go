@@ -21,22 +21,6 @@ const (
 	ShadowStatusCanceled = "canceled"
 )
 
-// 终态集合：不可再投递、不可 ACK、不可取消。
-var shadowTerminalStatuses = map[string]bool{
-	ShadowStatusDelivered: true,
-	ShadowStatusFailed:    true,
-	ShadowStatusExpired:   true,
-	ShadowStatusCanceled:  true,
-}
-
-// IsShadowTerminalStatus 判断状态是否为终态。
-func IsShadowTerminalStatus(status string) bool { return shadowTerminalStatuses[status] }
-
-// 可被设备 ACK 的状态：只有 pending（尚未下发但设备已收到）与 sent 允许确认。
-func IsShadowAckableStatus(status string) bool {
-	return status == ShadowStatusPending || status == ShadowStatusSent
-}
-
 const (
 	// ShadowMaxAttempts 未收到 ACK 时的最大下发次数，超出即 failed。
 	ShadowMaxAttempts = 3

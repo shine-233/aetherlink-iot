@@ -68,16 +68,6 @@ func IsValidAppBundlePlatform(platform string) bool {
 	}
 }
 
-// IsValidAppBundleStatus 状态枚举判定。
-func IsValidAppBundleStatus(status string) bool {
-	switch status {
-	case AppBundleStatusDraft, AppBundleStatusPublished, AppBundleStatusArchived:
-		return true
-	default:
-		return false
-	}
-}
-
 // GetAppBundleListReq 应用包列表查询入参：分页 + 平台/状态精确过滤。
 type GetAppBundleListReq struct {
 	PageReq

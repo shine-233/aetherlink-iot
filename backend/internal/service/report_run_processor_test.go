@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -402,22 +401,5 @@ func TestDeliverClaimRejectsIncompleteClaimWithoutSettling(t *testing.T) {
 	}
 	if settled {
 		t.Fatal("incomplete claim must not settle; it would mask a malformed claim as delivery failure")
-	}
-}
-
-func TestIsReportClaimLostRecognisesWrappedFenceLoss(t *testing.T) {
-	if isReportClaimLost(nil) {
-		t.Fatal("isReportClaimLost(nil) = true, want false")
-	}
-	if isReportClaimLost(errors.New("boom")) {
-		t.Fatal("isReportClaimLost(unrelated) = true, want false")
-	}
-	if !isReportClaimLost(dal.ErrReportClaimLost) {
-		t.Fatal("isReportClaimLost(ErrReportClaimLost) = false, want true")
-	}
-	// A lost lease must survive wrapping, or fencing breaks at the first helper
-	// that adds context.
-	if !isReportClaimLost(fmt.Errorf("settle delivery: %w", dal.ErrReportClaimLost)) {
-		t.Fatal("isReportClaimLost(wrapped) = false, want true")
 	}
 }

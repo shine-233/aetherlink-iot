@@ -6,7 +6,6 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -20,50 +19,6 @@ import (
 	"github.com/spf13/viper"
 	"gorm.io/gorm"
 )
-
-func TestRequestMQTTDeviceSessionTerminationPublishesContract(t *testing.T) {
-	previousPublish := publishMQTTSessionRevocation
-	t.Cleanup(func() { publishMQTTSessionRevocation = previousPublish })
-
-	var gotChannel string
-	var gotDeviceID string
-	publishMQTTSessionRevocation = func(_ context.Context, channel string, deviceID string) (int64, error) {
-		gotChannel = channel
-		gotDeviceID = deviceID
-		return 1, nil
-	}
-
-	if err := requestMQTTDeviceSessionTermination(context.Background(), " device-1 "); err != nil {
-		t.Fatalf("requestMQTTDeviceSessionTermination() error = %v", err)
-	}
-	if gotChannel != mqttDeviceSessionRevocationChannel {
-		t.Fatalf("channel = %q, want %q", gotChannel, mqttDeviceSessionRevocationChannel)
-	}
-	if gotDeviceID != "device-1" {
-		t.Fatalf("device ID = %q, want device-1", gotDeviceID)
-	}
-}
-
-func TestRequestMQTTDeviceSessionTerminationPropagatesPublishFailure(t *testing.T) {
-	previousPublish := publishMQTTSessionRevocation
-	t.Cleanup(func() { publishMQTTSessionRevocation = previousPublish })
-	wantErr := errors.New("redis unavailable")
-	publishMQTTSessionRevocation = func(context.Context, string, string) (int64, error) { return 0, wantErr }
-
-	if err := requestMQTTDeviceSessionTermination(context.Background(), "device-1"); !errors.Is(err, wantErr) {
-		t.Fatalf("requestMQTTDeviceSessionTermination() error = %v, want %v", err, wantErr)
-	}
-}
-
-func TestRequestMQTTDeviceSessionTerminationRejectsMissingBrokerSubscriber(t *testing.T) {
-	previousPublish := publishMQTTSessionRevocation
-	t.Cleanup(func() { publishMQTTSessionRevocation = previousPublish })
-	publishMQTTSessionRevocation = func(context.Context, string, string) (int64, error) { return 0, nil }
-
-	if err := requestMQTTDeviceSessionTermination(context.Background(), "device-1"); err == nil {
-		t.Fatal("requestMQTTDeviceSessionTermination() error = nil, want missing subscriber error")
-	}
-}
 
 func TestRDIPhysicalUnbindPersistsInactiveStateBeforePublishingSessionRevocation(t *testing.T) {
 	db := setupMQTTSessionRevocationTestDB(t)
