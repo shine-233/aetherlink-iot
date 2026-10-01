@@ -53,8 +53,7 @@ describe('locale completeness (REQ-22/34/55)', () => {
   })
 
   // 客户可见范围(RDI/设备/告警/通用文案等)必须四语严格对齐——这是 REQ-22/34 的实质验收面。
-  // visual-editor 生态(可视化编辑器内部)是内存记载的独立大块、不在客户圈选内,其 zh-cn 领先翻译
-  // 属已知翻译债,单独统计但不使本测试 FAIL——如实标注,避免为"假绿"而删断言、也避免范围外硬补 86 键。
+  // script 是编辑器内部文案,单独统计翻译债(visual-editor/interaction 已随其子系统于 2026-10 删除)。
   const CUSTOMER_FACING_NS = new Set([
     'basic',
     'buttons',
@@ -76,7 +75,7 @@ describe('locale completeness (REQ-22/34/55)', () => {
     'theme',
     'time'
   ])
-  const KNOWN_DEBT_NS = new Set(['visual-editor', 'interaction', 'script'])
+  const KNOWN_DEBT_NS = new Set(['script'])
 
   function driftForNamespaces(filter: (ns: string) => boolean): string[] {
     const drift: string[] = []
@@ -104,7 +103,7 @@ describe('locale completeness (REQ-22/34/55)', () => {
 
   // 已知债: 只统计、不 fail。若债务被清零,此测试仍通过(<=当前上限);若恶化,提示需关注。
   // 用一个宽松上限守护"不再恶化",而非假装债务不存在。
-  it('visual-editor/interaction/script known translation debt does not worsen', () => {
+  it('script known translation debt does not worsen', () => {
     const drift = driftForNamespaces((ns) => KNOWN_DEBT_NS.has(ns))
     // 2026-09-27 清债: zh-cn visual-editor 领先的 86 键中 84 个全仓零引用(已删),其余 2 个
     // (common.clear/common.preview)与 common.json 重复(已删,运行时取值不变)。债务清零,锁定为 0。
@@ -112,7 +111,7 @@ describe('locale completeness (REQ-22/34/55)', () => {
   })
 
   // 扁平文件经 Object.assign 合并,跨文件同名键会被"后加载者"静默覆盖——曾有
-  // custom.json 覆盖 page.json 的 page.edgeNodes.*、visual-editor 覆盖 interaction 的键。
+  // custom.json 覆盖 page.json 的 page.edgeNodes.*。
   it('flat-merged namespaces do not redefine the same key in two files', () => {
     const NAMESPACED = new Set(['rdi', 'report'])
     const collisions: string[] = []

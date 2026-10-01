@@ -52,14 +52,12 @@ export function getLangMessages(modules: Record<string, any>, lang: LocaleFolder
         'generate',
         'grouping_details',
         'icon',
-        'interaction',
         'others',
         'route',
         'script',
         'test',
         'theme',
         'time',
-        'visual-editor',
         'market'
       ]
 

@@ -18,14 +18,14 @@
 - `main.ts` 负责挂载 Vue、插件、路由、状态、样式和应用级 provider。
 - `router/` 与 `service/api/` 共同构成 UI 流程和后端接口之间的主合同。
 - `components/thingsvis/` 将嵌入式 ThingsVis 大屏与平台设备、告警、遥测 API 连接起来。
-- `core/data-architecture/` 包含可视化编辑器配置逻辑，重构前必须先补合同说明和 focused tests。
+- `core/` 只保留 `main.ts` 可达的核心引擎（当前为 `script-engine/`），由 `check:reachability` 守护。
 
 ## 审查与重构建议
 
 - 问题：部分高价值文件同时包含 UI 状态、传输适配、兼容逻辑和数据整形，审查成本高。
 - 改进：先补文件级说明，再逐步抽取 transport adapter、纯数据 mapper 和兼容 helper。
 - 实施步骤：记录当前合同，补可见行为和 API 参数测试，一次只抽一个 helper，并同步对应目录 README。
-- 预期效果：降低 ThingsVis、data-architecture 和自动化页面的回归风险，让 GitHub 审阅边界更清晰。
+- 预期效果：降低 ThingsVis、原生看板和自动化页面的回归风险，让 GitHub 审阅边界更清晰。
 
 ## 文档标准
 
