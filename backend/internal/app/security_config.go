@@ -9,8 +9,6 @@ import (
 	"fmt"
 	"strings"
 
-	"aetherlink-iot/backend/pkg/authkeys"
-
 	"github.com/spf13/viper"
 )
 
@@ -20,12 +18,11 @@ const minJWTKeyLength = 32
 // validateSecurityCriticalConfig 在 NewApplication 完成选项装配后执行；
 // app.Config 为 nil 时跳过（纯单元测试装配路径）。
 func validateSecurityCriticalConfig(v *viper.Viper) error {
-	// 经 authkeys 读取：启动检查与运行期签发/校验共用同一配置键与规范化规则，二者不可能分叉。
-	return validateJWTSigningKey(v.GetString(authkeys.JWTKeyConfigKey))
+	return validateJWTSigningKey(v.GetString("jwt.key"))
 }
 
 func validateJWTSigningKey(rawKey string) error {
-	key := authkeys.Normalize(rawKey)
+	key := strings.TrimSpace(rawKey)
 	if key == "" {
 		return fmt.Errorf("refusing to start: jwt.key is empty; %s", insecureJWTKeyFixHint())
 	}

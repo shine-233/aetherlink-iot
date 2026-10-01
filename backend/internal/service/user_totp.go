@@ -290,24 +290,6 @@ func (*UserTotp) LoginWithSecondFactor(ticket, code string) (*model.LoginRsp, er
 	if err != nil {
 		return nil, err
 	}
-	// 尝试上限在任何验证码比对之前判定，达到上限后正确验证码也被拒绝，杜绝在线爆破。
-	if err := ensureTotpLoginAllowed(userID); err != nil {
-		return nil, err
-	}
-	rsp, err := loginWithSecondFactorChecked(userID, code)
-	if err != nil {
-		var e *errcode.Error
-		if errors.As(err, &e) && e.Code == errcode.CodeTotpInvalid {
-			registerTotpLoginFailure(userID)
-		}
-		return nil, err
-	}
-	clearTotpLoginFailures(userID)
-	return rsp, nil
-}
-
-// loginWithSecondFactorChecked 在票据与尝试上限均已通过后比对 TOTP / 恢复码并签发会话。
-func loginWithSecondFactorChecked(userID, code string) (*model.LoginRsp, error) {
 	user, err := GroupApp.User.GetUserById(userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

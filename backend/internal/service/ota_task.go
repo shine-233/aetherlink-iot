@@ -41,11 +41,8 @@ func (o *OTA) CreateOTAUpgradeTask(req *model.CreateOTAUpgradeTaskReq, claims *u
 				isScheduled = true
 			}
 		}
-		// 计划任务（scheduled_at 在未来）由 OTA 下发 worker 到点激活后领取；
-		// 立即任务也交给 worker（持久租约 + 有界并发 + 重启可续），唤醒它以保持创建即下发的时延。
-		// worker 未运行（ota.dispatch.enabled=false）时保持旧行为：创建后立即后台推送。
-		if !isScheduled && !nudgeOTADispatch() {
-			goDispatchOTAUpgradeTaskDetails(o, tasks)
+		if !isScheduled {
+			go pushOTAUpgradeTaskDetails(o, tasks)
 		}
 	}
 	return err

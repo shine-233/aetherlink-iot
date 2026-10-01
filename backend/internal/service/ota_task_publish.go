@@ -1,12 +1,10 @@
 package service
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	model "aetherlink-iot/backend/internal/model"
@@ -22,13 +20,7 @@ var (
 	errOTADeviceOffline          = errors.New("ota device is offline")
 	errOTADeviceAlreadyUpgrading = errors.New("ota device already has an active upgrade")
 	errOTADispatchStateChanged   = errors.New("ota task detail state changed before dispatch")
-	// errOTADispatchCanceled 表示调用方（worker 停机）在 claim 之前取消了本次下发；
-	// 行保持 PENDING，不记失败，由租约过期/归还后重新领取。
-	errOTADispatchCanceled = errors.New("ota dispatch canceled before claim")
 )
-
-// otaPublishAddress 是下发出口；测试替换为假 publisher。
-var otaPublishAddress = publish.PublishOtaAddress
 
 const (
 	otaDispatchReasonInProgress        = "BROKER_PUBLISH_IN_PROGRESS"
@@ -42,29 +34,34 @@ const (
 	otaDispatchReasonPrecheckFailed    = "DISPATCH_PRECHECK_FAILED"
 )
 
-// otaUpgradePushContext 是一批下发共享的预取数据。devices / packagesByTaskID 只读；
-// activeTaskCounts 与 params 缓存会被并发的下发协程修改，必须持 mu 访问。
 type otaUpgradePushContext struct {
 	devices          map[string]*model.Device
 	packagesByTaskID map[string]*model.OtaUpgradePackage
 	activeTaskCounts map[string]int64
-	paramsByPackage  map[string]*otaUpgradeParamsEntry
-
-	mu sync.Mutex
+	paramsByPackage  map[string]map[string]interface{}
 }
 
-// otaUpgradeParamsEntry 让同一升级包在一批内只下载/校验一次（包括失败结果）：
-// 并发协程同时 miss 时，否则会对同一个 URL 重复下载做签名校验。
-type otaUpgradeParamsEntry struct {
-	once   sync.Once
-	params map[string]interface{}
-	err    error
-}
-
-// pushOTAUpgradeTaskDetails 保留原签名供 rollout 治理执行面复用（otaGovernanceApplier.dispatch），
-// 内部改走有界并发、逐项 recover 的分发器。
 func pushOTAUpgradeTaskDetails(o *OTA, tasks []*model.OtaUpgradeTaskDetail) {
-	o.dispatchOTAUpgradeTaskDetails(context.Background(), tasks, defaultOTADispatchConcurrency)
+	pushContext, err := loadOTAUpgradePushContext(tasks)
+	if err != nil {
+		logrus.WithError(err).Warn("failed to prepare OTA push batch context, falling back to per-device queries")
+		for _, taskDetail := range tasks {
+			if taskDetail != nil {
+				if pushErr := o.PushOTAUpgradePackage(taskDetail); pushErr != nil {
+					logOTAUpgradePushFailure(taskDetail, pushErr)
+				}
+			}
+		}
+		return
+	}
+
+	for _, taskDetail := range tasks {
+		if taskDetail != nil {
+			if pushErr := o.pushOTAUpgradePackageAndRecordFailure(taskDetail, pushContext); pushErr != nil {
+				logOTAUpgradePushFailure(taskDetail, pushErr)
+			}
+		}
+	}
 }
 
 func (o *OTA) PushOTAUpgradePackage(taskDetail *model.OtaUpgradeTaskDetail) error {
@@ -72,29 +69,24 @@ func (o *OTA) PushOTAUpgradePackage(taskDetail *model.OtaUpgradeTaskDetail) erro
 	if err != nil {
 		return errors.Join(err, recordOTAUpgradePushFailure(nil, taskDetail, err))
 	}
-	return o.pushOTAUpgradePackageAndRecordFailure(context.Background(), taskDetail, pushContext)
+	return o.pushOTAUpgradePackageAndRecordFailure(taskDetail, pushContext)
 }
 
 func (o *OTA) pushOTAUpgradePackageAndRecordFailure(
-	ctx context.Context,
 	taskDetail *model.OtaUpgradeTaskDetail,
 	pushContext *otaUpgradePushContext,
 ) error {
-	err := o.pushOTAUpgradePackageWithContext(ctx, taskDetail, pushContext)
-	if err == nil || errors.Is(err, errOTADispatchCanceled) {
-		return err
+	err := o.pushOTAUpgradePackageWithContext(taskDetail, pushContext)
+	if err == nil {
+		return nil
 	}
 	return errors.Join(err, recordOTAUpgradePushFailure(pushContext, taskDetail, err))
 }
 
 func (*OTA) pushOTAUpgradePackageWithContext(
-	ctx context.Context,
 	taskDetail *model.OtaUpgradeTaskDetail,
 	pushContext *otaUpgradePushContext,
 ) error {
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	if taskDetail == nil {
 		return fmt.Errorf("ota task detail is required")
 	}
@@ -118,12 +110,6 @@ func (*OTA) pushOTAUpgradePackageWithContext(
 		return err
 	}
 
-	// 停机检查放在 claim 之前：claim 之后行已是 PUSHED/IN_PROGRESS，
-	// 此时放弃只会制造一条要等 sweeper 才能收尾的"结果未知"行。
-	if ctxErr := ctx.Err(); ctxErr != nil {
-		return errors.Join(errOTADispatchCanceled, ctxErr)
-	}
-
 	claimed, err := claimOTAUpgradeTaskDetailForPublish(taskDetail)
 	if err != nil {
 		return err
@@ -132,7 +118,7 @@ func (*OTA) pushOTAUpgradePackageWithContext(
 		return errOTADispatchStateChanged
 	}
 
-	publishErr := otaPublishAddress(device.DeviceNumber, payload)
+	publishErr := publish.PublishOtaAddress(device.DeviceNumber, payload)
 	if publishErr != nil {
 		reason := otaUpgradePushFailureReason(publishErr)
 		affected, statusErr := updateOTAUpgradeTaskDetailIfStatus(
@@ -184,12 +170,10 @@ func claimOTAUpgradeTaskDetailForPublish(taskDetail *model.OtaUpgradeTaskDetail)
 		taskDetail,
 		[]int16{taskDetail.Status},
 		map[string]interface{}{
-			"status":               model.OtaUpgradeTaskDetailStatusPushed,
-			"status_description":   otaDispatchReasonInProgress,
-			"steps":                zeroStep,
-			"updated_at":           now,
-			"dispatch_lease_token": nil,
-			"dispatch_lease_until": nil,
+			"status":             model.OtaUpgradeTaskDetailStatusPushed,
+			"status_description": otaDispatchReasonInProgress,
+			"steps":              zeroStep,
+			"updated_at":         now,
 		},
 	)
 	if err != nil || affected != 1 {
@@ -250,12 +234,7 @@ func otaUpgradePushFailureReason(err error) string {
 }
 
 func logOTAUpgradePushFailure(taskDetail *model.OtaUpgradeTaskDetail, err error) {
-	fields := logrus.Fields{"reason": otaUpgradePushFailureReason(err)}
-	if taskDetail != nil {
-		fields["ota_task_detail_id"] = taskDetail.ID
-		fields["ota_task_id"] = taskDetail.OtaUpgradeTaskID
-	}
-	logrus.WithFields(fields).Warn("OTA task detail dispatch failed")
+	logrus.Warn("OTA task detail dispatch failed")
 }
 
 func stringPointer(value string) *string {
@@ -281,7 +260,7 @@ func loadOTAUpgradePushContext(tasks []*model.OtaUpgradeTaskDetail) (*otaUpgrade
 		devices:          devices,
 		packagesByTaskID: packagesByTaskID,
 		activeTaskCounts: activeTaskCounts,
-		paramsByPackage:  map[string]*otaUpgradeParamsEntry{},
+		paramsByPackage:  map[string]map[string]interface{}{},
 	}, nil
 }
 
@@ -377,11 +356,9 @@ func failOTAUpgradeTaskDetail(
 		taskDetail,
 		[]int16{model.OtaUpgradeTaskDetailStatusPending, model.OtaUpgradeTaskDetailStatusFailed},
 		map[string]interface{}{
-			"status":               model.OtaUpgradeTaskDetailStatusFailed,
-			"status_description":   description,
-			"updated_at":           time.Now().UTC(),
-			"dispatch_lease_token": nil,
-			"dispatch_lease_until": nil,
+			"status":             model.OtaUpgradeTaskDetailStatusFailed,
+			"status_description": description,
+			"updated_at":         time.Now().UTC(),
 		},
 	)
 	if err != nil {
@@ -392,9 +369,7 @@ func failOTAUpgradeTaskDetail(
 		taskDetail.StatusDescription = stringPointer(description)
 	}
 	if pushContext != nil && pushContext.activeTaskCounts != nil && wasActive && affected > 0 {
-		pushContext.mu.Lock()
 		pushContext.activeTaskCounts[taskDetail.DeviceID]--
-		pushContext.mu.Unlock()
 	}
 	return nil
 }
@@ -405,9 +380,7 @@ func hasOtherActiveOTAUpgradeTask(
 ) (bool, error) {
 	if pushContext != nil && pushContext.activeTaskCounts != nil {
 		currentDetailActive := taskDetail.Status < model.OtaUpgradeTaskDetailStatusSucceeded
-		pushContext.mu.Lock()
 		count := pushContext.activeTaskCounts[taskDetail.DeviceID]
-		pushContext.mu.Unlock()
 		if currentDetailActive {
 			count--
 		}
@@ -551,20 +524,20 @@ func getOTAUpgradeMessageParams(
 	otapackage *model.OtaUpgradePackage,
 	pushContext *otaUpgradePushContext,
 ) (map[string]interface{}, error) {
-	if pushContext == nil || pushContext.paramsByPackage == nil || otapackage == nil {
-		return buildOTAUpgradeMessageParams(otapackage)
+	if pushContext != nil && pushContext.paramsByPackage != nil {
+		if params := pushContext.paramsByPackage[otapackage.ID]; params != nil {
+			return params, nil
+		}
 	}
-	pushContext.mu.Lock()
-	entry := pushContext.paramsByPackage[otapackage.ID]
-	if entry == nil {
-		entry = &otaUpgradeParamsEntry{}
-		pushContext.paramsByPackage[otapackage.ID] = entry
+
+	params, err := buildOTAUpgradeMessageParams(otapackage)
+	if err != nil {
+		return nil, err
 	}
-	pushContext.mu.Unlock()
-	entry.once.Do(func() {
-		entry.params, entry.err = buildOTAUpgradeMessageParams(otapackage)
-	})
-	return entry.params, entry.err
+	if pushContext != nil && pushContext.paramsByPackage != nil {
+		pushContext.paramsByPackage[otapackage.ID] = params
+	}
+	return params, nil
 }
 
 func buildOTAUpgradeMessagePayload(messageID string, params map[string]interface{}) ([]byte, error) {

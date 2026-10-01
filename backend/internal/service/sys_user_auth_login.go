@@ -21,7 +21,6 @@ import (
 	dal "aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/logic"
 	model "aetherlink-iot/backend/internal/model"
-	"aetherlink-iot/backend/pkg/authkeys"
 	global "aetherlink-iot/backend/pkg/global"
 	utils "aetherlink-iot/backend/pkg/utils"
 
@@ -99,14 +98,15 @@ func (*User) UserLoginAfter(user *model.User) (*model.LoginRsp, error) {
 			"error": "user is nil",
 		})
 	}
-	// 生成token：密钥经 authkeys 统一规范化，与 HTTP/WS 校验侧同源。
-	jwt, err := authkeys.JWT()
-	if err != nil {
+	key := strings.TrimSpace(viper.GetString("jwt.key"))
+	if key == "" {
 		return nil, errcode.WithData(errcode.CodeTokenGenerateError, map[string]interface{}{
-			"error": err.Error(),
+			"error": "jwt.key is empty",
 			"email": user.Email,
 		})
 	}
+	// 生成token
+	jwt := utils.NewJWT([]byte(key))
 	claims, err := buildUserLoginClaims(user, time.Now().UTC())
 	if err != nil {
 		return nil, err
@@ -239,13 +239,15 @@ func (*User) RefreshToken(userClaims *utils.UserClaims, previousTokenDigest stri
 		return nil, err
 	}
 
-	jwt, err := authkeys.JWT()
-	if err != nil {
+	key := strings.TrimSpace(viper.GetString("jwt.key"))
+	if key == "" {
 		return nil, errcode.WithData(errcode.CodeTokenGenerateError, map[string]interface{}{
-			"error": err.Error(),
+			"error": "jwt.key is empty",
 			"email": user.Email,
 		})
 	}
+
+	jwt := utils.NewJWT([]byte(key))
 	claims, err := buildUserLoginClaims(user, time.Now().UTC())
 	if err != nil {
 		return nil, err

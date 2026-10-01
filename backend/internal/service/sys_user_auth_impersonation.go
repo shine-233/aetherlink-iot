@@ -8,6 +8,7 @@ package service
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"aetherlink-iot/backend/pkg/errcode"
@@ -15,9 +16,10 @@ import (
 	"aetherlink-iot/backend/internal/authz"
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
-	"aetherlink-iot/backend/pkg/authkeys"
 	global "aetherlink-iot/backend/pkg/global"
 	utils "aetherlink-iot/backend/pkg/utils"
+
+	"github.com/spf13/viper"
 )
 
 // transformUserTokenTTL 切换身份后发放的 token 有效期，固定值，独立于常规登录会话超时。
@@ -64,9 +66,9 @@ func (*User) TransformUser(transformUserReq *model.TransformUserReq, claims *uti
 		return nil, err
 	}
 
-	// 获取JWT签发器（authkeys 统一规范化密钥，与校验侧同源）
-	jwt, err := authkeys.JWT()
-	if err != nil {
+	// 获取JWT密钥
+	key := strings.TrimSpace(viper.GetString("jwt.key"))
+	if key == "" {
 		return nil, errcode.New(errcode.CodeSystemError)
 	}
 
@@ -77,6 +79,7 @@ func (*User) TransformUser(transformUserReq *model.TransformUserReq, claims *uti
 	}
 
 	// 生成token
+	jwt := utils.NewJWT([]byte(key))
 	token, err := jwt.GenerateToken(becomeUserClaims)
 	if err != nil {
 		return nil, errcode.WithData(errcode.CodeTokenGenerateError, map[string]interface{}{
