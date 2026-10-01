@@ -1,177 +1,171 @@
-// 文件用途：维护 persistence\subscription\mem\topic_trie.go 所属 broker 包的手写 Go 代码。
-// 核心逻辑：承载 MQTT broker 的领域模型、接口定义或测试支撑。
-// 关键注意事项：本次仅补文件头不改变运行逻辑，后续修改需按所在包补充验证。
-// 重构建议：后续可按职责拆分深模块，并为关键边界补齐契约测试。
-
+// 文件用途：内存订阅树（TrieDB 的底层结构）的节点定义与订阅/退订/遍历。
+// 核心逻辑：按 '/' 分层建树；"+"、"#" 子节点除登记在 children 外，另以 plus/hash 指针直连，
+// 让每条 PUBLISH 的匹配遍历每层少两次 map 查找；clients/shared 惰性分配，节点只付实际用到的内存。
+// 关键注意事项：退订后自叶向根剪除空节点（旧实现只删叶子，设备 ID 频繁变化时中间节点永久泄漏）；
+// plus/hash 必须与 children 同步，只能经 addChild/removeChild 修改 children。
 package mem
 
 import (
-	"strings"
-
 	"github.com/DrmagicE/gmqtt"
 	"github.com/DrmagicE/gmqtt/persistence/subscription"
 )
 
-// topicTrie
+// topicTrie 根节点类型别名。
 type topicTrie = topicNode
-
-// children
-type children = map[string]*topicNode
 
 type clientOpts map[string]*gmqtt.Subscription
 
-// topicNode
+// topicNode 订阅树节点。
 type topicNode struct {
-	children children
-	// clients store non-share subscription
-	clients   clientOpts
-	parent    *topicNode // pointer of parent node
-	topicName string
-	// shared store shared subscription, key by ShareName
-	shared map[string]clientOpts
+	children map[string]*topicNode // 含 "+"、"#"，供 find/遍历使用
+	plus     *topicNode            // == children["+"]，匹配热路径直连
+	hash     *topicNode            // == children["#"]，匹配热路径直连
+	// clients 普通订阅，惰性分配
+	clients clientOpts
+	// shared 共享订阅，key 为 ShareName，惰性分配
+	shared    map[string]clientOpts
+	parent    *topicNode
+	level     string // 本节点在 parent.children 中的键
+	topicName string // 节点上存在订阅时为其主题过滤器
 }
 
-// newTopicTrie create a new trie tree
-func newTopicTrie() *topicTrie {
-	return newNode()
+func newTopicTrie() *topicTrie { return &topicNode{} }
+
+// child 返回层级 lv 对应的子节点；"+"/"#" 走直连指针。
+func (t *topicNode) child(lv string) *topicNode {
+	switch lv {
+	case "+":
+		return t.plus
+	case "#":
+		return t.hash
+	}
+	return t.children[lv]
 }
 
-// newNode create a new trie node
-func newNode() *topicNode {
-	return &topicNode{
-		children: children{},
-		clients:  make(clientOpts),
-		shared:   make(map[string]clientOpts),
+// addChild 取得或创建层级 lv 的子节点。
+func (t *topicNode) addChild(lv string) *topicNode {
+	if c := t.child(lv); c != nil {
+		return c
+	}
+	c := &topicNode{parent: t, level: lv}
+	if t.children == nil {
+		t.children = make(map[string]*topicNode, 1)
+	}
+	t.children[lv] = c
+	switch lv {
+	case "+":
+		t.plus = c
+	case "#":
+		t.hash = c
+	}
+	return c
+}
+
+// removeChild 从本节点摘除子节点 c，并同步直连指针。
+func (t *topicNode) removeChild(c *topicNode) {
+	delete(t.children, c.level)
+	switch c {
+	case t.plus:
+		t.plus = nil
+	case t.hash:
+		t.hash = nil
 	}
 }
 
-// newChild create a child node of t
-func (t *topicNode) newChild() *topicNode {
-	n := newNode()
-	n.parent = t
-	return n
+// empty 节点既无订阅也无子节点时可被剪除。
+func (t *topicNode) empty() bool {
+	return len(t.clients) == 0 && len(t.shared) == 0 && len(t.children) == 0
 }
 
-// subscribe add a subscription and return the added node
+// prune 自 t 向根剪除空节点；根节点（parent == nil）保留。
+func (t *topicNode) prune() {
+	for n := t; n.parent != nil; n = n.parent {
+		if len(n.clients) == 0 && len(n.shared) == 0 {
+			n.topicName = ""
+		}
+		if !n.empty() {
+			return
+		}
+		n.parent.removeChild(n)
+	}
+}
+
+// subscribe 添加订阅并返回所在节点；逐层切子串，不分配层级切片。
 func (t *topicTrie) subscribe(clientID string, s *gmqtt.Subscription) *topicNode {
-	topicSlice := strings.Split(s.TopicFilter, "/")
-	var pNode = t
-	for _, lv := range topicSlice {
-		if _, ok := pNode.children[lv]; !ok {
-			pNode.children[lv] = pNode.newChild()
-		}
-		pNode = pNode.children[lv]
-	}
-	// shared subscription
+	pNode := t
+	walkLevels(s.TopicFilter, func(lv string) bool {
+		pNode = pNode.addChild(lv)
+		return true
+	})
 	if s.ShareName != "" {
-		if pNode.shared[s.ShareName] == nil {
-			pNode.shared[s.ShareName] = make(clientOpts)
+		if pNode.shared == nil {
+			pNode.shared = make(map[string]clientOpts, 1)
 		}
-		pNode.shared[s.ShareName][clientID] = s
+		group := pNode.shared[s.ShareName]
+		if group == nil {
+			group = make(clientOpts, 1)
+			pNode.shared[s.ShareName] = group
+		}
+		group[clientID] = s
 	} else {
-		// non-shared
+		if pNode.clients == nil {
+			pNode.clients = make(clientOpts, 1)
+		}
 		pNode.clients[clientID] = s
 	}
 	pNode.topicName = s.TopicFilter
 	return pNode
 }
 
-// find walk through the tire and return the node that represent the topicFilter.
-// Return nil if not found
+// walk 返回主题过滤器对应的节点（不校验 topicName），不存在返回 nil。
+func (t *topicTrie) walk(topicFilter string) *topicNode {
+	pNode := t
+	walkLevels(topicFilter, func(lv string) bool {
+		pNode = pNode.child(lv)
+		return pNode != nil
+	})
+	return pNode
+}
+
+// find 返回代表 topicFilter 的订阅节点，不存在返回 nil。
 func (t *topicTrie) find(topicFilter string) *topicNode {
-	topicSlice := strings.Split(topicFilter, "/")
-	var pNode = t
-	for _, lv := range topicSlice {
-		if _, ok := pNode.children[lv]; ok {
-			pNode = pNode.children[lv]
-		} else {
-			return nil
-		}
-	}
-	if pNode.topicName == topicFilter {
-		return pNode
+	if n := t.walk(topicFilter); n != nil && n.topicName == topicFilter {
+		return n
 	}
 	return nil
 }
 
-// unsubscribe
+// unsubscribe 删除 clientID 在 topicName（及可选 shareName）上的订阅并剪除空节点。
 func (t *topicTrie) unsubscribe(clientID string, topicName string, shareName string) {
-	topicSlice := strings.Split(topicName, "/")
-	l := len(topicSlice)
-	var pNode = t
-	for _, lv := range topicSlice {
-		if _, ok := pNode.children[lv]; ok {
-			pNode = pNode.children[lv]
-		} else {
-			return
-		}
+	pNode := t.walk(topicName)
+	if pNode == nil || pNode == t {
+		return
 	}
 	if shareName != "" {
-		if c := pNode.shared[shareName]; c != nil {
-			delete(c, clientID)
-			if len(pNode.shared[shareName]) == 0 {
-				delete(pNode.shared, shareName)
-			}
-			if len(pNode.shared) == 0 && len(pNode.children) == 0 {
-				delete(pNode.parent.children, topicSlice[l-1])
-			}
-		}
+		pNode.removeShared(shareName, clientID)
 	} else {
 		delete(pNode.clients, clientID)
-		if len(pNode.clients) == 0 && len(pNode.children) == 0 {
-			delete(pNode.parent.children, topicSlice[l-1])
-		}
 	}
-
+	pNode.prune()
 }
 
-// setRs set the node subscription info into rs
-func setRs(node *topicNode, rs subscription.ClientSubscriptions) {
-	for cid, subOpts := range node.clients {
-		rs[cid] = append(rs[cid], subOpts)
-	}
-
-	for _, c := range node.shared {
-		for cid, subOpts := range c {
-			rs[cid] = append(rs[cid], subOpts)
+// removeShared 从共享组 shareName 中删除 clientID，组空则删组。
+func (t *topicNode) removeShared(shareName, clientID string) {
+	if c := t.shared[shareName]; c != nil {
+		delete(c, clientID)
+		if len(c) == 0 {
+			delete(t.shared, shareName)
 		}
 	}
 }
 
-// matchTopic get all matched topic for given topicSlice, and set into rs
-func (t *topicTrie) matchTopic(topicSlice []string, rs subscription.ClientSubscriptions) {
-	endFlag := len(topicSlice) == 1
-	if cnode := t.children["#"]; cnode != nil {
-		setRs(cnode, rs)
+// removeClient 删除 clientID 在本节点上的全部订阅（普通 + 所有共享组）并剪除空节点。
+func (t *topicNode) removeClient(clientID string) {
+	delete(t.clients, clientID)
+	for shareName := range t.shared {
+		t.removeShared(shareName, clientID)
 	}
-	if cnode := t.children["+"]; cnode != nil {
-		if endFlag {
-			setRs(cnode, rs)
-			if n := cnode.children["#"]; n != nil {
-				setRs(n, rs)
-			}
-		} else {
-			cnode.matchTopic(topicSlice[1:], rs)
-		}
-	}
-	if cnode := t.children[topicSlice[0]]; cnode != nil {
-		if endFlag {
-			setRs(cnode, rs)
-			if n := cnode.children["#"]; n != nil {
-				setRs(n, rs)
-			}
-		} else {
-			cnode.matchTopic(topicSlice[1:], rs)
-		}
-	}
-}
-
-// getMatchedTopicFilter return a map key by clientID that contain all matched topic for the given topicName.
-func (t *topicTrie) getMatchedTopicFilter(topicName string) subscription.ClientSubscriptions {
-	topicLv := strings.Split(topicName, "/")
-	subs := make(subscription.ClientSubscriptions)
-	t.matchTopic(topicLv, subs)
-	return subs
+	t.prune()
 }
 
 func isSystemTopic(topicName string) bool {
@@ -188,7 +182,6 @@ func (t *topicTrie) preOrderTraverse(fn subscription.IterateFn) bool {
 				return false
 			}
 		}
-
 		for _, c := range t.shared {
 			for clientID, subOpts := range c {
 				if !fn(clientID, subOpts) {

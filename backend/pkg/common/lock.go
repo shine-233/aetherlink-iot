@@ -13,7 +13,6 @@ import (
 	"time"
 
 	redis "github.com/redis/go-redis/v9"
-	"github.com/sirupsen/logrus"
 )
 
 const releaseLockScript = `if redis.call("get", KEYS[1]) == ARGV[1] then return redis.call("del", KEYS[1]) else return 0 end`
@@ -48,11 +47,6 @@ func acquireLockToken(client lockClient, lockKey string, expiration time.Duratio
 	return token
 }
 
-// AcquireLock 保留原有布尔契约；新调用方应使用 AcquireLockToken 以便安全释放。
-func AcquireLock(lockKey string, expiration time.Duration) bool {
-	return AcquireLockToken(lockKey, expiration) != ""
-}
-
 // ReleaseLockToken 仅在 token 仍是当前锁值时原子释放锁，避免误删新持有者的锁。
 func ReleaseLockToken(lockKey, token string) error {
 	if global.REDIS == nil {
@@ -72,9 +66,4 @@ func releaseLockToken(client lockClient, lockKey, token string) error {
 		return err
 	}
 	return nil
-}
-
-// ReleaseLock 保留旧接口但不再执行无条件删除；旧调用方不会破坏其他持有者的锁。
-func ReleaseLock(lockKey string) {
-	logrus.WithField("lock_key", lockKey).Warn("ReleaseLock without ownership token ignored; use ReleaseLockToken")
 }

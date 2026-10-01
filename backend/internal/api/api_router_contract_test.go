@@ -150,7 +150,8 @@ func TestOTASourceStructureContractDeclaresPackageTaskDownloadAndRangeHelpers(t 
 		"DownloadOTAUpgradePackage",
 	)
 	requireAPIIdentifiers(t, "ota.go",
-		"safeOTAUpgradePackagePath",
+		"safeOTAUpgradePackageRelativePath",
+		"OpenInRoot",
 		"serveRangeFile",
 		"parseByteRange",
 		"rangeCRC16",

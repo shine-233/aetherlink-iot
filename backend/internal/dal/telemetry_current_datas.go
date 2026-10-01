@@ -37,6 +37,9 @@ func isolatedTelemetryCurrent() query.ITelemetryCurrentDataDo {
 // 从 telemetry_current_datas 中获取遥测当前数据，用于替换 telemetry_datas
 // tenant-scope: caller-enforced?2026-08-26 ?????
 func GetCurrentTelemetryDataEvolution(deviceId string) ([]*model.TelemetryCurrentData, error) {
+	// 下面的 dbType 分支是遥测读路径的国产库分支点（与 dal.usesTelemetryQueryClient 同一口径）：
+	// TSDB/KINGBASE/POLARDB 时当前值读改经 tp_to_db gRPC；方言映射与对接步骤见
+	// internal/dialect 包注释与 docs/deployment-domestic-db.md。
 	dbType := viper.GetString("grpc.tptodb_type")
 	if dbType == "TSDB" || dbType == "KINGBASE" || dbType == "POLARDB" {
 		var telemetry []*model.TelemetryCurrentData
@@ -85,12 +88,21 @@ func GetCurrentTelemetryReadiness(deviceId string) (int64, *model.TelemetryCurre
 	return getCurrentTelemetryReadinessFromDB(deviceId)
 }
 
+// latestCurrentTelemetryRowOrder 是 telemetry_current_datas "按设备取最新一行"的统一排序：
+// ts DESC 命中 backend/sql/143.sql 的 (device_id, ts DESC) 索引；key ASC 在同毫秒
+// 多 key 并列时决胜，保证 GetCurrentTelemetrDetailData 与就绪探测返回同一行且可复现。
+const latestCurrentTelemetryRowOrder = "ts DESC, key ASC"
+
 func getCurrentTelemetryReadinessFromDB(deviceId string) (int64, *model.TelemetryCurrentData, error) {
 	// 批次三收敛：本函数整体改走 raw global.DB 链（clone==1 根，每次链式起点全新
 	// Statement），与 users.go 登录选择器同构。历史上 global.DB 为空时会回落到
 	// 继承式 gen 兜底链；但 Session{NewDB} 起点会丢失 Statement.Model 表绑定，
 	// 使 Count 直接报 "Table not set"（gorm v1.31.2 / gen v0.3.28 实测），
 	// 且生产环境 global.DB 与 query.SetDefault 恒成对初始化，该兜底不可达，故一并移除。
+	//
+	// 下面 Where(device_id).Order(ts DESC).Limit(1) 与 dal/telemetry_datas.go 的
+	// GetCurrentTelemetrDetailData 是同一访问模式（同表、同过滤、同排序），由
+	// backend/sql/143.sql 新增的 (device_id, ts DESC) 复合索引共同覆盖。
 	if global.DB == nil {
 		return 0, nil, gorm.ErrInvalidDB
 	}
@@ -98,8 +110,7 @@ func getCurrentTelemetryReadinessFromDB(deviceId string) (int64, *model.Telemetr
 	var latest model.TelemetryCurrentData
 	latestResult := global.DB.
 		Where("device_id = ?", deviceId).
-		Order("ts DESC").
-		Limit(1).
+		Order(latestCurrentTelemetryRowOrder).
 		Take(&latest)
 	if latestResult.Error != nil {
 		if errors.Is(latestResult.Error, gorm.ErrRecordNotFound) {

@@ -1,0 +1,90 @@
+{{- /* 文件用途：渲染前端 Deployment（无状态，可水平扩）与挂载的 nginx ConfigMap 覆盖。
+核心逻辑：镜像内 /etc/nginx/nginx.conf 在 compose 里写死 proxy_pass backend:9999，K8s 中
+服务名带 Release 前缀，故用 ConfigMap（configmap-frontend-nginx.yaml 渲染）经 volume 挂载覆盖。
+关键注意事项：挂载点直接覆盖 /etc/nginx/nginx.conf 文件本身（整目录挂载会掩掉 mime.types 等）；
+扩副本无状态安全——上传文件在后端 files 卷（多副本 RWX 前提见 values/backend 注释）。
+重构建议：引入 Ingress 分流 /api 时可去掉 nginx 覆盖，恢复镜像内置配置。 */}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-frontend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: aetherlink-frontend
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: frontend
+    {{- range $k, $v := .Values.commonLabels }}
+    {{ $k }}: {{ $v | quote }}
+    {{- end }}
+spec:
+  replicas: {{ .Values.frontend.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: aetherlink-frontend
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: aetherlink-frontend
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: frontend
+        {{- range $k, $v := .Values.commonLabels }}
+        {{ $k }}: {{ $v | quote }}
+        {{- end }}
+    spec:
+      # 所有组件都不调用 Kubernetes API，不挂载 SA token 以缩小凭据暴露面。
+      automountServiceAccountToken: false
+      # 对齐 compose frontend：镜像默认 root 运行（官方 nginx 镜像需写 /run/nginx.pid 与
+      # /var/log/nginx），仅保留 cap_drop ALL + no-new-privileges 同等约束，不做 runAs 改写。
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: frontend
+          image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag | default "latest" }}"
+          imagePullPolicy: {{ .Values.frontend.image.pullPolicy | default "IfNotPresent" }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: http
+              containerPort: 8080
+          # 对齐 compose frontend 健康检查：GET / 8080。
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 12
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 12
+          startupProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 5
+            failureThreshold: 12
+          resources:
+            requests:
+              cpu: {{ .Values.frontend.resources.requests.cpu | quote }}
+              memory: {{ .Values.frontend.resources.requests.memory | quote }}
+            limits:
+              cpu: {{ .Values.frontend.resources.limits.cpu | quote }}
+              memory: {{ .Values.frontend.resources.limits.memory | quote }}
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+              readOnly: true
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: {{ .Release.Name }}-frontend-nginx

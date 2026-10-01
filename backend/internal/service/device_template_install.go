@@ -12,6 +12,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"aetherlink-iot/backend/internal/dal"
@@ -71,7 +72,7 @@ type marketTemplateInstallPlan struct {
 // InstallFromMarket downloads a thing model from the market and creates it locally:
 // 1. DeviceTemplate (thing model + dashboard config)
 // 2. DeviceConfig (credential/protocol config referencing the DeviceTemplate)
-func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims *utils.UserClaims) (*model.InstallFromMarketRsp, error) {
+func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims *utils.UserClaims) (rsp *model.InstallFromMarketRsp, err error) {
 	client := newMarketInstallClient()
 	fullData, err := client.DownloadTemplate(context.Background(), req.MarketToken, req.MarketTemplateID, req.Version)
 	if err != nil {
@@ -79,8 +80,20 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 			"error": "Failed to download thing model from market: " + err.Error(),
 		})
 	}
+	if fullData == nil {
+		return nil, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+			"error": "Failed to download thing model from market: empty template payload",
+		})
+	}
 
 	missingPlugins := marketInstallCheckMissingPlugins(fullData.PluginDependencies)
+
+	// 安装计划（含同名物模型查询）在开事务前构造：只读查询不占用事务连接，
+	// 计划构造失败也无需开/回滚事务。
+	plan, err := buildMarketTemplateInstallPlan(fullData, claims)
+	if err != nil {
+		return nil, marketInstallDBError("Failed to check existing template: ", err)
+	}
 
 	tx := marketInstallBeginTx()
 	if tx.Error != nil {
@@ -89,17 +102,21 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 		})
 	}
 
+	committed := false
 	defer func() {
 		if r := recover(); r != nil {
-			marketInstallRollbackTx(tx)
+			// 历史实现在这里回滚后返回 (nil, nil)，调用方会把半途崩溃的安装当成功。
+			if !committed {
+				marketInstallRollbackTx(tx)
+			}
+			logrus.WithField("panic", r).Error("InstallFromMarket panicked")
+			rsp = nil
+			err = errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
+				"error": "Failed to install thing model from market: internal error",
+			})
 		}
 	}()
 
-	plan, err := buildMarketTemplateInstallPlan(fullData, claims)
-	if err != nil {
-		marketInstallRollbackTx(tx)
-		return nil, marketInstallDBError("Failed to check existing template: ", err)
-	}
 	if err := marketInstallSaveTemplate(tx, plan); err != nil {
 		marketInstallRollbackTx(tx)
 		return nil, err
@@ -116,6 +133,7 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 	if err := marketInstallCommitTx(tx); err != nil {
 		return nil, marketInstallDBError("Failed to commit transaction: ", err)
 	}
+	committed = true
 
 	marketInstallNotifyInstalled(client, req, fullData)
 
@@ -131,7 +149,7 @@ func (*DeviceTemplate) InstallFromMarket(req model.InstallFromMarketReq, claims 
 
 func buildMarketTemplateInstallPlan(fullData *model.MarketTemplateFullData, claims *utils.UserClaims) (*marketTemplateInstallPlan, error) {
 	existingTpl, err := marketInstallFindExistingTemplate(fullData.Name, claims.TenantID)
-	if err != nil && err.Error() != "record not found" {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
 

@@ -9,7 +9,6 @@ import (
 	"aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
 
-	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -92,14 +91,6 @@ func loadAlarmNotificationDevices(deviceIDs []string) []map[string]interface{} {
 	return devices
 }
 
-func notifyAlarmInfo(alarmConfig *model.AlarmConfig, content string) {
-	alertData := buildAlarmNotificationBasePayload(alarmConfig, content)
-	alertData["alarm_config_id"] = alarmConfig.ID
-	alertData["device_ids"] = []string{}
-	alertData["devices"] = []map[string]interface{}{}
-	dispatchAlarmNotification(alarmConfig, alertData)
-}
-
 func notifyAlarmExecution(alarmConfig *model.AlarmConfig, historyID, alarmConfigID, content string, deviceIDs []string) {
 	alertData := buildAlarmNotificationBasePayload(alarmConfig, content)
 	alertData["id"] = historyID
@@ -144,26 +135,6 @@ func sendDefaultAlarmEmailNotification(alarmConfig *model.AlarmConfig, alertData
 	}
 }
 
-// createAlarmInfoRecord supports only the deprecated device-less AddAlarmInfo
-// path. Do not call it from AlarmExecute: doing so without stream identity,
-// device links and a matching recovery transition would create stale active
-// rows and make owner authorization impossible.
-func createAlarmInfoRecord(alarmConfig *model.AlarmConfig, alarmConfigID, content string) (string, error) {
-	id := uuid.New()
-	err := dal.CreateAlarmInfo(&model.AlarmInfo{
-		ID:               id,
-		Name:             alarmConfig.Name,
-		AlarmConfigID:    alarmConfigID,
-		AlarmLevel:       &alarmConfig.AlarmLevel,
-		Content:          &content,
-		AlarmTime:        time.Now().UTC(),
-		Description:      alarmConfig.Description,
-		ProcessingResult: "UND",
-		TenantID:         alarmConfig.TenantID,
-	})
-	return id, err
-}
-
 func alarmDeviceListJSON(deviceIDs []string) string {
 	deviceIDsJSON, _ := json.Marshal(deviceIDs)
 	return string(deviceIDsJSON)
@@ -174,7 +145,8 @@ func saveAlarmHistoryRecord(
 	historyID, alarmConfigID, content, sceneAutomationID, groupID, alarmStatus string,
 	deviceIDs []string,
 ) error {
-	return dal.AlarmHistorySave(&model.AlarmHistory{
+	triggerAt := time.Now().UTC()
+	history := &model.AlarmHistory{
 		ID:                historyID,
 		Name:              alarmConfig.Name,
 		AlarmConfigID:     alarmConfigID,
@@ -185,6 +157,12 @@ func saveAlarmHistoryRecord(
 		GroupID:           groupID,
 		AlarmDeviceList:   alarmDeviceListJSON(deviceIDs),
 		AlarmStatus:       alarmStatus,
-		CreateAt:          time.Now().UTC(),
-	})
+		CreateAt:          triggerAt,
+	}
+	// TB-27（126.sql）：告警触发时按 alarm_config.sla_hours 从现在起算 SLA 到期时间；
+	// 恢复(N)行不参与 SLA 计时，落 NULL，cron 扫描也只针对活动(H/M/L)行。
+	if alarmStatus != "N" {
+		history.SlaDueAt = alarmSlaDueAt(alarmConfig.SlaHours, triggerAt)
+	}
+	return dal.AlarmHistorySave(history)
 }

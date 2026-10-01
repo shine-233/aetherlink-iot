@@ -11,11 +11,12 @@
 3. 删除后依赖整页回查确保一致性是安全的，但新增/编辑/删除成功提示与错误处理仍偏分散，可继续统一。
 -->
 <script setup lang="tsx">
-import { h, reactive, ref } from 'vue'
+import { h, ref } from 'vue'
 import type { Ref } from 'vue'
 import { NButton, NEmpty, NPopconfirm, NSpace, NTag } from 'naive-ui'
-import type { DataTableColumns, PaginationProps } from 'naive-ui'
-import { useBoolean, useLoading } from '@aetherlink/hooks'
+import type { DataTableColumns } from 'naive-ui'
+import { useBoolean } from '@aetherlink/hooks'
+import { fromFlatResponse, useListPage } from '@/components/data-table-page/useListPage'
 import { routerSysFlagLabels, routerTypeLabels } from '@/constants/business'
 import { delElement, fetchElementList } from '@/service/api/route'
 import { smartDeepClone as deepClone } from '@/utils/deep-clone'
@@ -23,56 +24,19 @@ import { $t } from '@/locales'
 import TableActionModal from './components/table-action-modal.vue'
 import type { ModalType } from './components/table-action-modal.vue'
 
-const { loading, startLoading, endLoading } = useLoading(false)
 const { bool: visible, setTrue: openModal } = useBoolean()
 
-type QueryFormModel = {
-  page: number
-  page_size: number
-}
-
-const queryParams = reactive<QueryFormModel>({
-  page: 1,
-  page_size: 10
-})
-
-const tableData = ref<CustomRoute.Route[]>([])
-
-function setTableData(data: CustomRoute.Route[]) {
-  tableData.value = data
-}
-
-const pagination: PaginationProps = reactive({
-  page: 1,
-  pageSize: 10,
-  showSizePicker: true,
-  itemCount: 0,
-  pageSizes: [10, 15, 20, 25, 30],
-  onChange: (page: number) => {
-    pagination.page = page
-    queryParams.page = page
-    getTableData()
-  },
-  onUpdatePageSize: (pageSize: number) => {
-    pagination.pageSize = pageSize
-    pagination.page = 1
-    queryParams.page = 1
-    queryParams.page_size = pageSize
-    getTableData()
-  }
-})
-
 // 权限元素列表主查询：只接受分页参数，结果既驱动表格也驱动总数显示。
-async function getTableData() {
-  startLoading()
-  const { data } = await fetchElementList(queryParams)
-  if (data) {
-    const list: Api.Route.MenuRoute[] = data.list
-    pagination.itemCount = data.total
-    setTableData(list)
-    endLoading()
-  }
-}
+// 失败/异常分支的加载态由 useListPage 统一收口。
+const {
+  rows: tableData,
+  loading,
+  pagination,
+  load: getTableData
+} = useListPage<CustomRoute.Route>({
+  pageSizes: [10, 15, 20, 25, 30],
+  fetcher: async (params) => fromFlatResponse<CustomRoute.Route>(await fetchElementList(params))
+})
 
 const rowKey = (row: CustomRoute.Route) => {
   return row.id

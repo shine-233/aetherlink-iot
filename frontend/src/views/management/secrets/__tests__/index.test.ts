@@ -2,7 +2,7 @@
  * 文件用途：通用 Secrets Storage（ROADMAP TB-18）管理视图单元测试。
  * 核心逻辑：验证列表加载、新增密钥、明文解密与删除交互契约。
  */
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import SecretsManagementView from '../index.vue'
 
@@ -85,5 +85,22 @@ describe('Secrets Management View (TB-18)', () => {
     const wrapper = mount(SecretsManagementView)
     expect(wrapper.text()).toContain('${secret.KEY_NAME}')
     expect(wrapper.text()).toContain('AES-256-GCM')
+  })
+
+  it('stops the reveal countdown when the view unmounts', async () => {
+    const clearSpy = vi.spyOn(window, 'clearInterval')
+    const wrapper = mount(SecretsManagementView, { attachTo: document.body })
+    await flushPromises()
+
+    const revealButton = wrapper.findAll('button').find((btn) => btn.text() === '查看明文')
+    expect(revealButton).toBeDefined()
+    await revealButton!.trigger('click')
+    await flushPromises()
+
+    clearSpy.mockClear()
+    wrapper.unmount()
+
+    expect(clearSpy).toHaveBeenCalled()
+    clearSpy.mockRestore()
   })
 })

@@ -126,3 +126,111 @@ func TestSnmpPollerUnreachableTarget(t *testing.T) {
 		t.Fatalf("超时预算未生效: %v", elapsed)
 	}
 }
+
+// startV3TestAgent 内嵌 SNMPv3 agent（与 internal/snmp v3 层同源口径）：
+// discovery 探测回 Report（携带权威引擎参数），认证 Get 验签后回带摘要的 GetResponse。
+func startV3TestAgent(t *testing.T, keys *agentV3Keys, binds []snmp.VarBind) (string, func()) {
+	t.Helper()
+	conn, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen udp: %v", err)
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		buf := make([]byte, 65536)
+		for {
+			n, addr, err := conn.ReadFrom(buf)
+			if err != nil {
+				return
+			}
+			raw := append([]byte{}, buf[:n]...)
+			req, rerr := snmp.ParseV3Request(raw)
+			if rerr != nil {
+				continue
+			}
+			if !req.VerifyAuth(keys.auth, keys.kul) {
+				report, berr := snmp.BuildV3Report(snmp.V3SecurityParams{
+					EngineID: keys.engineID, EngineBoots: 1, EngineTime: 100,
+					MsgID: req.MsgID, RequestID: req.RequestID,
+				}, []snmp.VarBind{{OID: "1.3.6.1.6.3.15.1.1.4.0", Value: snmp.OctetStringValue(string(keys.engineID))}})
+				if berr != nil {
+					continue
+				}
+				_, _ = conn.WriteTo(report, addr)
+				continue
+			}
+			resp, rerr := snmp.BuildV3GetResponse(snmp.V3SecurityParams{
+				UserName: req.Params.UserName, Auth: keys.auth, AuthKey: keys.kul,
+				EngineID: keys.engineID, EngineBoots: 1, EngineTime: 100,
+				MsgID: req.MsgID, RequestID: req.RequestID,
+			}, 0, 0, binds)
+			if rerr != nil {
+				continue
+			}
+			_, _ = conn.WriteTo(resp, addr)
+		}
+	}()
+	return conn.LocalAddr().String(), func() {
+		_ = conn.Close()
+		<-done
+	}
+}
+
+// agentV3Keys 内嵌 agent 的 USM 密钥（口令→Ku→Kul，engineID 绑定）。
+type agentV3Keys struct {
+	engineID []byte
+	auth     snmp.AuthProtocol
+	kul      []byte
+}
+
+func newAgentV3Keys(t *testing.T) *agentV3Keys {
+	t.Helper()
+	engineID := []byte{0x80, 0x00, 0x1f, 0x88, 0x80, 0x77, 0x77, 0x77}
+	ku, err := snmp.PasswordToKey(snmp.AuthHMACSHA, "authkey123", engineID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &agentV3Keys{engineID: engineID, auth: snmp.AuthHMACSHA, kul: snmp.LocalizeKey(snmp.AuthHMACSHA, ku, engineID)}
+}
+
+func TestSnmpPollerV3EndToEnd(t *testing.T) {
+	keys := newAgentV3Keys(t)
+	binds := []snmp.VarBind{
+		{OID: "1.3.6.1.2.1.1.3.0", Value: snmp.IntegerValue(67890)},
+		{OID: "1.3.6.1.2.1.1.1.0", Value: snmp.OctetStringValue("v3-poller-agent")},
+	}
+	addr, stop := startV3TestAgent(t, keys, binds)
+	defer stop()
+
+	// v3 点表：无 community，v3_user 非空即走 v3 客户端（engine discovery + HMAC 认证）。
+	cfgJSON := `{"target":"` + addr + `","v3_user":"authUser","auth_proto":"sha","auth_passphrase":"authkey123","points":[` +
+		`{"key":"uptime","oid":"1.3.6.1.2.1.1.3.0"},` +
+		`{"key":"agent_name","oid":"1.3.6.1.2.1.1.1.0"}]}`
+	values, err := SnmpPoller{}.Poll(context.Background(), deviceTarget{DeviceID: "dev-v3", ConfigJSON: cfgJSON})
+	if err != nil {
+		t.Fatalf("v3 采集失败: %v", err)
+	}
+	if v, ok := values["uptime"].(float64); !ok || v != 67890 {
+		t.Fatalf("uptime=%v", values["uptime"])
+	}
+	if v, ok := values["agent_name"].(string); !ok || v != "v3-poller-agent" {
+		t.Fatalf("agent_name=%v", values["agent_name"])
+	}
+}
+
+func TestSnmpPollerV3RejectsBadPointTable(t *testing.T) {
+	// 口令过短在点表校验层拒绝（不发起网络请求）。
+	cfgJSON := `{"target":"127.0.0.1:161","v3_user":"u","auth_proto":"sha","auth_passphrase":"short","points":[{"key":"k","oid":"1.3"}]}`
+	if _, err := (SnmpPoller{}).Poll(context.Background(), deviceTarget{ConfigJSON: cfgJSON}); err == nil || !strings.Contains(err.Error(), "至少 8 字符") {
+		t.Fatalf("点表校验应拒绝, err=%v", err)
+	}
+	// 点表合法但认证口令错误 → agent 拒绝认证（discovery 可过，Get 无应答）→ fail-closed 报错。
+	keys := newAgentV3Keys(t)
+	addr, stop := startV3TestAgent(t, keys, []snmp.VarBind{{OID: "1.3.6.1", Value: snmp.IntegerValue(1)}})
+	defer stop()
+	badPassJSON := `{"target":"` + addr + `","v3_user":"authUser","auth_proto":"sha","auth_passphrase":"wrongkey999","timeout_ms":300,"points":[{"key":"k","oid":"1.3"}]}`
+	if _, err := (SnmpPoller{}).Poll(context.Background(), deviceTarget{ConfigJSON: badPassJSON}); err == nil {
+		t.Fatal("错误口令应采集失败（fail-closed）")
+	}
+}

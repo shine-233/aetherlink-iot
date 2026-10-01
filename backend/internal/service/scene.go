@@ -9,39 +9,11 @@ import (
 
 	"aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
-	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 	utils "aetherlink-iot/backend/pkg/utils"
 )
 
 type Scene struct{}
-
-func ensureSceneReadAccess(sceneID string, claims *utils.UserClaims) (*model.SceneInfo, error) {
-	if claims == nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query scene")
-	}
-	sceneInfo, err := dal.GetSceneInfo(sceneID)
-	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
-	}
-	if claims.Authority == constant.SYS_ADMIN || sceneInfo.TenantID == claims.TenantID {
-		return sceneInfo, nil
-	}
-	return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query scene")
-}
-
-func ensureSceneWriteAccess(sceneID string, claims *utils.UserClaims) (*model.SceneInfo, error) {
-	sceneInfo, err := ensureSceneReadAccess(sceneID, claims)
-	if err != nil {
-		return nil, err
-	}
-	if claims.Authority != constant.SYS_ADMIN && sceneInfo.TenantID != claims.TenantID {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to modify scene")
-	}
-	return sceneInfo, nil
-}
 
 func validateSceneActionReferences(actions []model.SceneActionsReq, claims *utils.UserClaims, tenantID string) error {
 	for _, action := range actions {
@@ -267,9 +239,7 @@ func (*Scene) CreateScene(req model.CreateSceneReq, claims *utils.UserClaims) (s
 	}
 	id, err := dal.CreateSceneInfo(req, claims)
 	if err != nil {
-		return "", errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return "", dbError(err)
 	}
 	return id, err
 }
@@ -284,9 +254,7 @@ func (*Scene) UpdateScene(req model.UpdateSceneReq, claims *utils.UserClaims) (s
 	}
 	id, err := dal.UpdateSceneInfo(req, claims, sceneInfo.TenantID)
 	if err != nil {
-		return "", errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return "", dbError(err)
 	}
 	return id, err
 }
@@ -297,9 +265,7 @@ func (*Scene) DeleteScene(scene_id string, claims *utils.UserClaims) error {
 	}
 	err := dal.DeleteSceneInfo(scene_id)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	return nil
 }
@@ -312,9 +278,7 @@ func (*Scene) GetScene(scene_id string, claims *utils.UserClaims) (interface{}, 
 
 	sceneActionsInfo, err := dal.GetSceneActionsInfo(scene_id)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	return sceneDetailResponse(sceneInfo, sceneActionsInfo), nil
 }
@@ -325,9 +289,7 @@ func (*Scene) GetSceneListByPage(req model.GetSceneListByPageReq, claims *utils.
 	}
 	total, sceneInfo, err := dal.GetSceneInfoByPage(&req, claims.TenantID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	return sceneListResponse(total, sceneInfo), nil
 }
@@ -350,9 +312,7 @@ func (*Scene) GetSceneLog(req model.GetSceneLogListByPageReq, claims *utils.User
 	}
 	total, data, err := dal.GetSceneLogByPage(req)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	return sceneLogListResponse(total, data), nil
 }

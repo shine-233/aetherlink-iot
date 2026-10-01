@@ -1,0 +1,158 @@
+/*
+ * Command-center page layout.
+ *
+ * Every selector below is prefixed with `command-center-` / `command-guide-` / `command-recent-`,
+ * so the sheet is safe to import unscoped from the page component.
+ */
+.command-center-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+.command-center-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.command-center-header h1,
+.command-center-section h2 {
+  margin: 0;
+  color: #0f172a;
+}
+
+.command-center-header h1 {
+  font-size: 22px;
+}
+
+.command-center-header p,
+.command-center-section p,
+.command-center-section li {
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.command-center-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.command-center-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.command-center-section__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.command-center-section ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.command-center-guide {
+  gap: 10px;
+}
+
+.command-guide-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.command-guide-step {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.command-guide-step__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.command-guide-step__index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: #0f172a;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.command-guide-step h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 14px;
+}
+
+.command-guide-step p {
+  margin: 0;
+}
+
+.command-recent-running-job {
+  border-color: #7dd3fc;
+  background: #f0f9ff;
+}
+
+.command-recent-running-job :deep(.n-alert-body__content) {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.command-recent-running-job strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #075985;
+}
+
+.command-recent-running-job span {
+  color: #0369a1;
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .command-center-header {
+    flex-direction: column;
+  }
+
+  .command-center-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .command-guide-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .command-recent-running-job :deep(.n-alert-body__content) {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

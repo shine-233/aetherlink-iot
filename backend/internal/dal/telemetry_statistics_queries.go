@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	query "aetherlink-iot/backend/internal/query"
 	global "aetherlink-iot/backend/pkg/global"
 
 	"github.com/sirupsen/logrus"
@@ -228,7 +227,7 @@ func getTelemetryStatisticAggregateRowsByBatch(deviceIds []string, keys []string
 	}
 
 	if len(deviceIds) == 0 || len(windows) == 0 {
-		return buildTelemetryStatisticBatchAggregateResults(deviceIds, keys, resultData), nil
+		return buildTelemetryStatisticBatchResults(deviceIds, keys, resultData), nil
 	}
 
 	rows, err := queryTelemetryStatisticBatchAggregateRows(deviceIds, keys, windows, aggregateFunc)
@@ -246,7 +245,7 @@ func getTelemetryStatisticAggregateRowsByBatch(deviceIds []string, keys []string
 		})
 	}
 
-	return buildTelemetryStatisticBatchAggregateResults(deviceIds, keys, resultData), nil
+	return buildTelemetryStatisticBatchResults(deviceIds, keys, resultData), nil
 }
 
 func queryTelemetryStatisticBatchAggregateRows(deviceIds []string, keys []string, windows []telemetryWindow, aggregateFunc string) ([]telemetryStatisticBatchAggregateRow, error) {
@@ -286,7 +285,9 @@ func queryTelemetryStatisticBatchAggregateRows(deviceIds []string, keys []string
 	return rows, err
 }
 
-func buildTelemetryStatisticBatchAggregateResults(deviceIds []string, keys []string, data [][]map[string]interface{}) []map[string]interface{} {
+// buildTelemetryStatisticBatchResults 把按 (device_id, key) 对齐的批量统计结果组装为响应行；
+// 聚合与差值两条批量路径共用。
+func buildTelemetryStatisticBatchResults(deviceIds []string, keys []string, data [][]map[string]interface{}) []map[string]interface{} {
 	results := make([]map[string]interface{}, 0, len(deviceIds))
 	for i := range deviceIds {
 		results = append(results, map[string]interface{}{
@@ -308,98 +309,74 @@ func getDataCount(deviceId, key string, startTime, endTime int64) (int64, error)
 	return count, nil
 }
 
-func getDataRange(deviceId, key string, startTime, endTime int64, limit *int) ([]map[string]interface{}, error) {
-	q := query.TelemetryData
-	queryBuilder := telemetryDataRangeQuery(deviceId, key, startTime, endTime)
-	queryBuilder = queryBuilder.Order(q.T.Desc())
-
-	if limit != nil {
-		queryBuilder = queryBuilder.Limit(*limit)
-	}
-
-	var data []map[string]interface{}
-	err := queryBuilder.Select(q.T.As("timestamp"), q.NumberV.As("value")).Scan(&data)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-
-func getAggregatedData(deviceId, key string, startTime, endTime int64, aggregateMethod string, limit *int) (interface{}, error) {
-	q := query.TelemetryData
-	queryBuilder := telemetryDataRangeQuery(deviceId, key, startTime, endTime)
-
-	var result []map[string]interface{}
-	var err error
-
-	switch aggregateMethod {
-	case "avg":
-		err = queryBuilder.Select(q.NumberV.Avg().As("value")).Scan(&result)
-	case "sum":
-		err = queryBuilder.Select(q.NumberV.Sum().As("value")).Scan(&result)
-	case "max":
-		err = queryBuilder.Select(q.NumberV.Max().As("value")).Scan(&result)
-	case "min":
-		err = queryBuilder.Select(q.NumberV.Min().As("value")).Scan(&result)
-	default:
-		return nil, fmt.Errorf("unsupported telemetry aggregate method: %s", aggregateMethod)
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	if len(result) > 0 && result[0]["value"] != nil {
-		return result[0]["value"], nil
-	}
-
-	return 0, nil
-}
-
-const (
-	telemetryDataRangeWhereSQL = "device_id = ? AND key = ? AND ts BETWEEN ? AND ?"
-)
-
+// getAggregatedDataWithTime 按 timeType 切出的时间窗口聚合单设备单 key 的遥测数据。
+// 窗口之间彼此独立，之前的实现逐窗口下发一次 Raw 查询（例如按天粒度查一个月就是 30 次
+// 串行往返），这里改成一次批量 CTE 查询，一次往返拿到所有窗口的聚合结果，
+// 复用 queryTelemetryStatisticBatchAggregateRows 已验证过的 VALUES-CTE 思路。
+// 结果顺序沿用 aggregateTimeWindows 本身的顺序（从最新窗口到最旧窗口，即时间降序），
+// 与旧的逐窗口实现完全一致，调用方不需要跟着改。
 func getAggregatedDataWithTime(deviceId, key string, startTime, endTime int64, aggregateMethod string, limit *int, timeType string) ([]map[string]interface{}, error) {
 	aggregateFunc, err := aggregateSQLFunction(aggregateMethod)
 	if err != nil {
 		return nil, err
 	}
 
-	var results []map[string]interface{}
-	for _, window := range aggregateTimeWindows(startTime, endTime, telemetryWindowLimit(limit), timeType, time.Local) {
-		row, ok, err := queryAggregateTimeWindow(deviceId, key, aggregateFunc, window)
-		if err != nil {
-			return nil, err
-		}
-		if ok {
-			results = append(results, row)
-		}
+	windows := aggregateTimeWindows(startTime, endTime, telemetryWindowLimit(limit), timeType, time.Local)
+	if len(windows) == 0 {
+		return nil, nil
 	}
 
+	rows, err := queryAggregateTimeWindowsBatch(deviceId, key, aggregateFunc, windows)
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]map[string]interface{}, 0, len(rows))
+	for _, row := range rows {
+		results = append(results, map[string]interface{}{
+			"value":     row.Value,
+			"timestamp": row.Timestamp,
+		})
+	}
 	return results, nil
 }
 
-func queryAggregateTimeWindow(deviceId, key, aggregateFunc string, window telemetryWindow) (map[string]interface{}, bool, error) {
-	sql := fmt.Sprintf(`
-			SELECT
-				%s as value,
-				%d as timestamp
-			FROM telemetry_datas
-			WHERE %s
-		`, aggregateFunc, window.startMS, telemetryDataRangeWhereSQL)
-
-	var result []map[string]interface{}
-	err := global.DB.Raw(sql, telemetryDataRangeSQLArgs(deviceId, key, window.startMS, window.endMS)...).Scan(&result)
-	if err.Error != nil {
-		return nil, false, err.Error
-	}
-	if len(result) == 0 || result[0]["value"] == nil {
-		return nil, false, nil
-	}
-	return result[0], true, nil
+type telemetryAggregateWindowRow struct {
+	WindowOrdinal int     `gorm:"column:window_ordinal"`
+	Timestamp     int64   `gorm:"column:timestamp"`
+	Value         float64 `gorm:"column:value"`
 }
 
-func telemetryDataRangeSQLArgs(deviceId, key string, startTime, endTime int64) []interface{} {
-	return []interface{}{deviceId, key, startTime, endTime}
+// queryAggregateTimeWindowsBatch 把单设备单 key 的全部时间窗口打包进一条
+// VALUES CTE，一次往返返回每个窗口的聚合值，按 windows 入参的原始顺序排列
+// （window_ordinal 就是 windows 的下标，不对时间重新排序）；没有数据落入的
+// 窗口不会出现在结果里（HAVING 过滤掉聚合值为 NULL 的分组），与逐窗口查询时
+// "result[0]["value"]==nil 则跳过" 的行为保持一致。
+func queryAggregateTimeWindowsBatch(deviceId, key, aggregateFunc string, windows []telemetryWindow) ([]telemetryAggregateWindowRow, error) {
+	var sql strings.Builder
+	args := make([]interface{}, 0, len(windows)*3+2)
+
+	sql.WriteString("WITH statistic_windows(window_start, window_end, window_ordinal) AS (VALUES ")
+	for i, window := range windows {
+		if i > 0 {
+			sql.WriteString(", ")
+		}
+		sql.WriteString("(CAST(? AS bigint), CAST(? AS bigint), CAST(? AS integer))")
+		args = append(args, window.startMS, window.endMS, i)
+	}
+	sql.WriteString(") ")
+	sql.WriteString("SELECT w.window_ordinal, w.window_start AS timestamp, ")
+	sql.WriteString(aggregateFunc)
+	sql.WriteString(" AS value FROM statistic_windows w ")
+	sql.WriteString("JOIN telemetry_datas td ON td.device_id = ? AND td.key = ? AND td.ts BETWEEN w.window_start AND w.window_end ")
+	sql.WriteString("GROUP BY w.window_ordinal, w.window_start ")
+	sql.WriteString("HAVING ")
+	sql.WriteString(aggregateFunc)
+	sql.WriteString(" IS NOT NULL ")
+	sql.WriteString("ORDER BY w.window_ordinal ASC")
+	args = append(args, deviceId, key)
+
+	var rows []telemetryAggregateWindowRow
+	err := global.DB.Raw(sql.String(), args...).Scan(&rows).Error
+	return rows, err
 }

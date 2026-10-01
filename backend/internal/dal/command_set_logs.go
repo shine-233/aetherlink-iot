@@ -8,128 +8,13 @@ package dal
 import (
 	"aetherlink-iot/backend/pkg/constant"
 	"context"
-	"encoding/json"
-	"fmt"
 	"strconv"
-	"time"
 
 	model "aetherlink-iot/backend/internal/model"
 	query "aetherlink-iot/backend/internal/query"
-	global "aetherlink-iot/backend/pkg/global"
-
-	"github.com/sirupsen/logrus"
-	"gorm.io/gorm"
 )
 
-// tenant-scope: caller-enforced?2026-08-26 ?????
-func GetCommandSetLogsDataListByPage(req model.GetCommandSetLogsListByPageReq) (int64, any, error) {
-
-	var count int64
-	// P1 修复（2026-08-24，见 VALIDATION.md）：命令下发日志列表改走 raw global.DB 链，
-	// 杜绝包级单例 CommandSetLog 四级 LeftJoin(devices→device_configs→device_model_commands→users)
-	// 在高并发下跨请求残留 Statement 读到空/旧数据；JOIN 形态、投影列名、排序与分页语义与收敛前逐条一致。
-	base := global.DB.Table("command_set_logs").
-		Joins("LEFT JOIN devices ON devices.id = command_set_logs.device_id").
-		Joins("LEFT JOIN device_configs ON device_configs.id = devices.device_config_id").
-		Joins("LEFT JOIN device_model_commands ON device_model_commands.device_template_id = device_configs.device_template_id AND device_model_commands.data_identifier = command_set_logs.identify").
-		Joins("LEFT JOIN users ON users.id = command_set_logs.user_id").
-		Where("command_set_logs.device_id = ?", req.DeviceId)
-
-	if req.Status != nil {
-		base = base.Where("command_set_logs.status = ?", *req.Status)
-	}
-	if req.OperationType != nil {
-		base = base.Where("command_set_logs.operation_type = ?", *req.OperationType)
-	}
-	if req.IdentifyName != nil {
-		base = base.Where("device_model_commands.data_name LIKE ?", "%"+*req.IdentifyName+"%")
-	}
-
-	if err := base.Session(&gorm.Session{}).Count(&count).Error; err != nil {
-		logrus.Error(err)
-		return count, nil, err
-	}
-
-	listBuilder := base.Session(&gorm.Session{}).
-		Select("command_set_logs.*, device_model_commands.data_name AS identify_name, users.name AS username").
-		Order("command_set_logs.created_at DESC")
-	listBuilder = applyListPagination(listBuilder, req.Page, req.PageSize)
-	list := make([]map[string]interface{}, 0)
-	if err := listBuilder.Scan(&list).Error; err != nil {
-		logrus.Error(err)
-		return count, list, err
-	}
-
-	return count, list, nil
-
-}
-
 type CommandSetLogsQuery struct {
-}
-
-func (CommandSetLogsQuery) Create(ctx context.Context, info *model.CommandSetLog) (id string, err error) {
-	command := query.CommandSetLog
-
-	err = command.WithContext(ctx).Create(info)
-	if err != nil {
-		logrus.Error("[CommandSetLogsQuery]create failed:", err)
-	}
-	return info.ID, err
-}
-
-func (CommandSetLogsQuery) CommandResultUpdate(ctx context.Context, logId string, response model.MqttResponse) {
-	command := query.CommandSetLog
-	valueByte, _ := json.Marshal(response)
-	values := string(valueByte)
-	updates := model.CommandSetLog{
-		RspDatum: &values,
-	}
-	if response.Result == 0 {
-		status := strconv.Itoa(constant.ResponseStatusOk)
-		updates.Status = &status
-		updates.ErrorMessage = &response.Message
-		//updates["status"] = constant.CommandStatusOk
-	} else {
-		//updates["status"] = constant.CommandStatusFailed
-		//updates["error_message"] = response.Message
-		status := strconv.Itoa(constant.ResponseSStatusFailed)
-		updates.Status = &status
-		updates.ErrorMessage = &response.Message
-	}
-	//updates["rsp_data"] = string(values)
-	_, err := command.WithContext(ctx).Where(command.ID.Eq(logId)).Updates(updates)
-	if err != nil {
-		logrus.Error("[CommandSetLogsQuery]create failed:", err)
-	}
-
-}
-
-func (CommandSetLogsQuery) Update(ctx context.Context, info *model.CommandSetLog) error {
-	command := query.CommandSetLog
-
-	result, err := command.WithContext(ctx).Where(command.MessageID.Eq(*info.MessageID)).Updates(info)
-	if err != nil {
-		logrus.Error("[CommandSetLogsQuery]update failed:", err)
-	}
-	if result.RowsAffected == 0 {
-		return fmt.Errorf("no data updated")
-	}
-	return err
-}
-
-func (CommandSetLogsQuery) FilterOneHourByMessageID(messageId string) (*model.CommandSetLog, error) {
-	command := query.CommandSetLog
-	nowTime := time.Now().UTC()
-
-	log, err := command.Where(command.MessageID.Eq(messageId)).
-		Where(command.CreatedAt.Gte(nowTime.Add(-time.Hour))).
-		Select().
-		First()
-	if err != nil {
-		logrus.Error("[CommandSetLogsQuery]FilterByMessageID failed:", err)
-	}
-	return log, err
-
 }
 
 // 删除命令历史数据，带事务

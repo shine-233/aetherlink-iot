@@ -256,7 +256,9 @@ describe('pop-up.vue', () => {
       alarm_keep_time: 6,
       notification_group_id: 'group-1',
       enabled: 'Y',
-      description: 'note'
+      description: 'note',
+      // TB-27：SLA 时限总是显式提交，未设置时折叠为 0（后端落 NULL=不启用）。
+      sla_hours: 0
     })
     expect(hoisted.messageSuccess).toHaveBeenCalledWith('common.addSuccess')
     expect(wrapper.emitted('saved')).toEqual([
@@ -308,6 +310,7 @@ describe('pop-up.vue', () => {
     setupState.formData.alarm_keep_time = '8'
     setupState.formData.notification_group_id = 'group-2'
     setupState.formData.description = 'updated'
+    setupState.formData.sla_hours = 24
 
     setupState.handleReset({ preventDefault: vi.fn() })
     await flushPromises()
@@ -320,7 +323,9 @@ describe('pop-up.vue', () => {
       alarm_keep_time: 8,
       notification_group_id: 'group-2',
       enabled: 'Y',
-      description: 'updated'
+      description: 'updated',
+      // TB-27：编辑提交携带设置的 SLA 时限（小时），清空/0 由组件折叠为 0（=关闭）。
+      sla_hours: 24
     })
     expect(hoisted.messageSuccess).toHaveBeenCalledWith('common.editSuccess')
   })

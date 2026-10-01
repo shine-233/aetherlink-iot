@@ -5,78 +5,40 @@
 重构建议：后续可继续拆分数据编排、列配置和弹窗流程，降低页面级组件复杂度。
 -->
 <script setup lang="tsx">
-import { computed, getCurrentInstance, reactive, ref } from 'vue'
+import { computed, getCurrentInstance, ref } from 'vue'
 import type { Ref } from 'vue'
 import { NButton, NEmpty } from 'naive-ui'
-import type { DataTableColumns, PaginationProps } from 'naive-ui'
-import dayjs from 'dayjs'
+import type { DataTableColumns } from 'naive-ui'
 import { getNotificationHistoryList } from '@/service/api/notification'
 import { notificationOptions } from '@/constants/business'
 import { $t } from '@/locales'
 import { formatDateTime } from '@/utils/common/datetime'
-import { useLoading } from '~/packages/hooks'
+import { fromFlatResponse, useListPage } from '@/components/data-table-page/useListPage'
+import { defaultNotificationRecordQuery, serializeNotificationRecordQuery } from './query'
+import type { NotificationRecordQuery, SendTimeRange } from './query'
 
-const { loading, startLoading, endLoading } = useLoading(false)
-
-const range = ref<[number, number]>([dayjs().subtract(1, 'month').valueOf(), dayjs().valueOf()])
-
-const queryParams = reactive({
-  notification_type: '',
-  selected_time: null,
-  send_target: '',
-  send_time_start: '',
-  send_time_end: ''
-})
-const total = ref(0)
-
-const tableData = ref<Api.Alarm.NotificationHistoryList[]>([])
-
-function setTableData(data: Api.Alarm.NotificationHistoryList[] | []) {
-  tableData.value = data || []
-}
-function pickerChange() {
-  if (range.value && range.value.length > 0) {
-    queryParams.send_time_start = dayjs(range.value[0]).format('YYYY-MM-DDTHH:mm:ssZ')
-    queryParams.send_time_end = dayjs(range.value[1]).format('YYYY-MM-DDTHH:mm:ssZ')
-  } else {
-    queryParams.send_time_start = ''
-    queryParams.send_time_end = ''
-  }
-}
-
-const pagination: PaginationProps = reactive({
-  page: 1,
-  pageSize: 10,
-  showSizePicker: true,
+// 分页/加载态/过期请求丢弃由 useListPage 统一处理；时间范围是唯一真源，
+// 序列化时映射为后端契约字段 send_time_start / send_time_stop。重置会重新取"最近一个月"。
+const {
+  query: queryParams,
+  rows: tableData,
+  loading,
+  pagination,
+  load: getTableData,
+  search: handleQuery,
+  reset: handleReset
+} = useListPage<Api.Alarm.NotificationHistoryList, NotificationRecordQuery>({
+  initialQuery: () => defaultNotificationRecordQuery(),
   pageSizes: [10, 15, 20, 25, 30],
-  itemCount: 0,
-  onChange: (page: number) => {
-    pagination.page = page
-    getTableData()
-  },
-  onUpdatePageSize: (pageSize: number) => {
-    pagination.pageSize = pageSize
-    pagination.page = 1
-    getTableData()
-  }
+  serialize: serializeNotificationRecordQuery,
+  fetcher: async (params) =>
+    fromFlatResponse<Api.Alarm.NotificationHistoryList>(
+      await getNotificationHistoryList(params as unknown as Api.Alarm.NotificationHistoryParams)
+    )
 })
 
-const getTableData = async () => {
-  startLoading()
-  const prams = {
-    page: pagination.page || 1,
-    page_size: pagination.pageSize || 10,
-    notification_type: queryParams.notification_type,
-    send_target: queryParams.send_target,
-    send_time_start: queryParams.send_time_start,
-    send_time_stop: queryParams.send_time_end
-  }
-  const res = await getNotificationHistoryList(prams)
-  if (res?.data) {
-    setTableData(res?.data.list || [])
-    pagination.itemCount = res.data.total || 0
-  }
-  endLoading()
+function pickerChange(value: SendTimeRange) {
+  queryParams.range = value && value.length === 2 ? value : null
 }
 
 const columns: Ref<DataTableColumns<DataService.Data>> = ref([
@@ -116,26 +78,10 @@ const columns: Ref<DataTableColumns<DataService.Data>> = ref([
   }
 ]) as Ref<DataTableColumns<DataService.Data>>
 
-function handleQuery() {
-  pickerChange()
-  pagination.page = 1
-  getTableData()
-}
-
-const handleReset = () => {
-  range.value = [dayjs().subtract(1, 'month').valueOf(), dayjs().valueOf()]
-  queryParams.notification_type = ''
-  queryParams.send_target = ''
-  pickerChange()
-  pagination.page = 1
-  getTableData()
-}
-
 const getPlatform = computed(() => {
   const { proxy }: any = getCurrentInstance()
   return proxy.getPlatform()
 })
-pickerChange()
 getTableData()
 </script>
 
@@ -155,7 +101,7 @@ getTableData()
           </NFormItem>
           <NFormItem path="selected_time">
             <NDatePicker
-              v-model:value="range"
+              :value="queryParams.range"
               type="datetimerange"
               clearable
               separator="-"

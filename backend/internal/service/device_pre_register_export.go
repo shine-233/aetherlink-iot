@@ -25,11 +25,6 @@ type preRegisterCleanupPlan struct {
 	blockedCrossTenant []string
 }
 
-// isEmpty 是否已无可清理项。清理已清空的批次返回空计划而非错误，保证幂等。
-func (p *preRegisterCleanupPlan) isEmpty() bool {
-	return p == nil || (len(p.deletable) == 0 && len(p.blockedActivated) == 0)
-}
-
 // classifyPreRegisterCleanup 按租户与激活态分流待清理设备。
 // 跨租户设备一律返回错误（fail closed）；已激活设备进入 blockedActivated 而非可删除集。
 func classifyPreRegisterCleanup(devices []*model.Device, tenantID string) (*preRegisterCleanupPlan, error) {

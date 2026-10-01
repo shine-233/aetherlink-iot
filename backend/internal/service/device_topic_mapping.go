@@ -61,9 +61,7 @@ func (*DeviceTopicMapping) CreateDeviceTopicMapping(req *model.CreateDeviceTopic
 
 	exists, err := dal.TopicMappingExists(ctx, req.DeviceConfigID, normalized.Direction, normalized.SourceTopic, normalized.TargetTopic)
 	if err != nil {
-		return mapping, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return mapping, dbError(err)
 	}
 	if exists {
 		return mapping, errcode.NewWithMessage(errcode.CodeParamError, "topic mapping already exists")
@@ -84,9 +82,7 @@ func (*DeviceTopicMapping) CreateDeviceTopicMapping(req *model.CreateDeviceTopic
 
 	if err := dal.CreateDeviceTopicMapping(&mapping); err != nil {
 		logrus.Error(err)
-		return mapping, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return mapping, dbError(err)
 	}
 
 	if err := invalidateTopicMappingCache(ctx, req.DeviceConfigID); err != nil {
@@ -159,9 +155,7 @@ func (*DeviceTopicMapping) ListDeviceTopicMappings(req *model.ListDeviceTopicMap
 
 	items, total, err := dal.ListDeviceTopicMappings(ctx, req)
 	if err != nil {
-		return resp, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return resp, dbError(err)
 	}
 
 	// convert to non-pointer slice for JSON stability
@@ -342,9 +336,7 @@ func topicMappingCacheDeviceConfigIDs(exist *model.DeviceTopicMapping, updateMap
 }
 
 func wrapTopicMappingDBError(err error) error {
-	return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-		"sql_error": err.Error(),
-	})
+	return dbError(err)
 }
 
 func (*DeviceTopicMapping) DeleteDeviceTopicMapping(idStr string, claims *utils.UserClaims) error {
@@ -355,9 +347,7 @@ func (*DeviceTopicMapping) DeleteDeviceTopicMapping(idStr string, claims *utils.
 	}
 
 	if err := dal.DeleteDeviceTopicMappingByID(ctx, id); err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	if err := invalidateTopicMappingCache(ctx, exist.DeviceConfigID); err != nil {
 		logrus.Error(err)

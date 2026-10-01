@@ -3,9 +3,9 @@
 package service
 
 import (
+	"aetherlink-iot/backend/internal/authz"
 	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/model"
-	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/utils"
 	"bytes"
@@ -53,10 +53,7 @@ type messagePushDeliveryResult struct {
 // requireMessagePushConfigAdmin 约束推送配置只能由系统管理员维护，
 // 避免租户用户误改全局推送出口。
 func requireMessagePushConfigAdmin(claims *utils.UserClaims) error {
-	if claims == nil || claims.Authority != constant.SYS_ADMIN {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to manage message push config")
-	}
-	return nil
+	return authz.PlatformAdminRule("no permission to manage message push config").RequireClaims(claims)
 }
 
 func validateMessagePushURL(rawURL string) error {
@@ -198,36 +195,6 @@ func deliverMessagePushHTTP(endpoint string, payload []byte) (string, error) {
 	return string(body), nil
 }
 
-func (receiver *MessagePush) AlarmMessagePushSend(triggered, alarmConfigId string, deviceInfo *model.Device) {
-	if deviceInfo == nil {
-		logrus.Error("alarm message push skipped: device info is nil")
-		return
-	}
-	pushManges, err := dal.GetUserMessagePushId(deviceInfo.TenantID)
-	if err != nil {
-		logrus.Error("query message push users failed:", err)
-		return
-	}
-	if len(pushManges) == 0 {
-		return
-	}
-	logrus.Debug(fmt.Sprintf("pushManges:%#v", len(pushManges)))
-
-	message := model.MessagePushSend{
-		Title:        fmt.Sprintf("alarm:%v", triggered),
-		Content:      deviceInfo.DeviceNumber,
-		AlarmId:      &alarmConfigId,
-		PushClientId: "",
-	}
-	for _, v := range pushManges {
-		if v.PushID == "" {
-			continue
-		}
-		message.PushClientId = v.PushID
-		receiver.MessagePushSendAndLog(message, v, 1)
-	}
-}
-
 func (receiver *MessagePush) MessagePushSendAndLog(message model.MessagePushSend, mange model.MessagePushManage, messageType int64) {
 	// 只有真正尝试过发送才记录结果并更新 err_count；未配置外部推送时属于禁用，而非投递失败。
 	result := receiver.deliverMessagePushForLog(message)
@@ -291,39 +258,6 @@ func updateMessagePushManageAfterSend(manageID string, status int16) {
 	err := dal.MessagePushMangeSendUpdate(manageID, updates)
 	if err != nil {
 		logrus.Error("update message push manage state failed", err)
-	}
-}
-
-func (receiver *MessagePush) NotificationMessagePushSend(tenantId string, title string, content string, payload map[string]interface{}) {
-	pushManges, err := dal.GetUserMessagePushId(tenantId)
-	if err != nil {
-		logrus.Error("query message push users failed:", err)
-		return
-	}
-	if len(pushManges) == 0 {
-		logrus.Debug("tenant has no bound message push users", tenantId)
-		return
-	}
-	logrus.Debug(fmt.Sprintf("message push user count: %d", len(pushManges)))
-
-	message := model.MessagePushSend{
-		Title:        title,
-		Content:      content,
-		PushClientId: "",
-	}
-
-	if payload != nil {
-		if alarmConfigId, ok := payload["alarm_config_id"].(string); ok && alarmConfigId != "" {
-			message.AlarmId = &alarmConfigId
-		}
-	}
-
-	for _, mange := range pushManges {
-		if mange.PushID == "" {
-			continue
-		}
-		message.PushClientId = mange.PushID
-		receiver.MessagePushSendAndLog(message, mange, 2)
 	}
 }
 

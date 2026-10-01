@@ -221,6 +221,23 @@ describe('device/config-detail/modules/data-handle.vue', () => {
     })
   })
 
+  it('issues exactly one list request on mount (no duplicate from device_config_id write-back)', async () => {
+    mountComponent()
+    await flushPromises()
+    expect(hoisted.getDataScriptList).toHaveBeenCalledTimes(1)
+  })
+
+  it('re-queries when the script type filter changes', async () => {
+    const wrapper = mountComponent()
+    await flushPromises()
+    const state = getSetupState(wrapper)
+    hoisted.getDataScriptList.mockClear()
+    state.queryData.script_type = 'A'
+    await flushPromises()
+    expect(hoisted.getDataScriptList).toHaveBeenCalledTimes(1)
+    expect(hoisted.getDataScriptList).toHaveBeenCalledWith(expect.objectContaining({ script_type: 'A' }))
+  })
+
   it('searchDataScript resets page and queries', async () => {
     const wrapper = mountComponent()
     await flushPromises()

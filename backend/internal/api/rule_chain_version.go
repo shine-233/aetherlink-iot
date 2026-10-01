@@ -16,13 +16,9 @@ import (
 // HandleListRuleChainVersions 列出某条链的草稿/已发布版本
 // @Router   /api/v1/rule-chains/:id/versions [get]
 func (*RuleChainApi) HandleListRuleChainVersions(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	rows, err := service.ListRuleChainVersions(userClaims.TenantID, c.Param("id"))
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", rows)
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		return service.ListRuleChainVersions(userClaims.TenantID, c.Param("id"))
+	})
 }
 
 // HandleCreateRuleChainDraftVersion 基于当前序列创建下一个 draft；图未变时不产生空版本

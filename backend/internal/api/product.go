@@ -18,90 +18,71 @@ type ProductApi struct{}
 // HandleCreateProduct 创建产品
 // @Router   /api/v1/product [post]
 func (*ProductApi) HandleCreateProduct(c *gin.Context) {
-	var req model.CreateProductReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	// TB-15: Query 参数兜底（当 Body 中未指定 conflict_policy 时）
-	if req.ConflictPolicy == nil || *req.ConflictPolicy == "" {
-		if qPolicy := strings.TrimSpace(c.Query("conflict_policy")); qPolicy != "" {
-			req.ConflictPolicy = &qPolicy
+	// 迁移形态：Handle（绑定 -> 校验 -> claims -> service）。conflict_policy 的 query 兜底
+	// 保留在闭包内、service 调用之前，执行顺序与迁移前一致。
+	Handle(c, func(req *model.CreateProductReq, userClaims *utils.UserClaims) (interface{}, error) {
+		// TB-15: Query 参数兜底（当 Body 中未指定 conflict_policy 时）
+		if req.ConflictPolicy == nil || *req.ConflictPolicy == "" {
+			if qPolicy := strings.TrimSpace(c.Query("conflict_policy")); qPolicy != "" {
+				req.ConflictPolicy = &qPolicy
+			}
 		}
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Product.CreateProduct(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+		return service.GroupApp.Product.CreateProduct(req, userClaims)
+	})
 }
 
 // HandleUpdateProduct 修改产品
 // @Router   /api/v1/product [put]
 func (*ProductApi) HandleUpdateProduct(c *gin.Context) {
-	var req model.UpdateProductReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Product.UpdateProduct(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.UpdateProductReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Product.UpdateProduct(req, userClaims)
+	})
 }
 
 // HandleDeleteProduct 删除产品
 // @Router   /api/v1/product/:id [delete]
 func (*ProductApi) HandleDeleteProduct(c *gin.Context) {
-	id := strings.TrimSpace(c.Param("id"))
-	if id == "" {
-		c.Error(errcode.New(errcode.CodeParamError))
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.Product.DeleteProduct(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	// 迁移形态：HandlePathAction（路径参数 id + claims，成功时 data 为 nil 即从包络省略）。
+	// id 的 TrimSpace 与空值校验保留在闭包内，先于 service 调用。
+	HandlePathAction(c, "id", func(rawID string, userClaims *utils.UserClaims) error {
+		id := strings.TrimSpace(rawID)
+		if id == "" {
+			return errcode.New(errcode.CodeParamError)
+		}
+		return service.GroupApp.Product.DeleteProduct(id, userClaims)
+	})
 }
 
 // HandleGetProductByID 查询产品详情
 // @Router   /api/v1/product/:id [get]
 func (*ProductApi) HandleGetProductByID(c *gin.Context) {
-	id := strings.TrimSpace(c.Param("id"))
-	if id == "" {
-		c.Error(errcode.New(errcode.CodeParamError))
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Product.GetProductByID(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	// 迁移形态：HandlePath（路径参数 id + claims）。id 的 TrimSpace 与空值校验保留在闭包内。
+	HandlePath(c, "id", func(rawID string, userClaims *utils.UserClaims) (interface{}, error) {
+		id := strings.TrimSpace(rawID)
+		if id == "" {
+			return nil, errcode.New(errcode.CodeParamError)
+		}
+		return service.GroupApp.Product.GetProductByID(id, userClaims)
+	})
 }
 
 // HandleProductSelectListByPage 分页查询当前租户可选产品
 // @Router   /api/v1/product [get]
 func (*ProductApi) HandleProductSelectListByPage(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
+	// 迁移形态：只复用 RequireClaims / BindAndValidate / respond 出口。
+	// 本入口按 query 是否存在在两个请求结构体间二选一，且 claims 读取必须先于绑定，
+	// 泛型适配器表达不了分支绑定，故保持手工编排（顺序与迁移前逐字一致）。
+	userClaims, ok := RequireClaims(c)
+	if !ok {
+		return
+	}
 	if c.Query("product_model") != "" || c.Query("product_type") != "" {
 		var req model.GetProductListByPageReq
 		if !BindAndValidate(c, &req) {
 			return
 		}
 		data, err := service.GroupApp.Product.GetProductList(&req, userClaims)
-		if err != nil {
-			c.Error(err)
-			return
-		}
-		c.Set("data", data)
+		respond(c, data, err)
 		return
 	}
 
@@ -110,9 +91,5 @@ func (*ProductApi) HandleProductSelectListByPage(c *gin.Context) {
 		return
 	}
 	data, err := service.GroupApp.Device.GetProductSelectListByPage(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	respond(c, data, err)
 }

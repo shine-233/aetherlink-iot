@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"aetherlink-iot/backend/internal/authz"
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
 	grpcgateway "aetherlink-iot/backend/internal/pluginruntime/grpcgateway"
@@ -41,6 +42,16 @@ type CreatePluginReq struct {
 	Manifest string `json:"manifest"`
 }
 
+// 插件注册表是平台级能力：只有 SYS_ADMIN 可管理，nil claims 同样拒绝。
+var pluginRegistryAdminRule = authz.Rule{
+	Roles:   []string{authz.SysAdmin},
+	Code:    errcode.CodeNoPermission,
+	Message: "plugin registry is platform-admin capability",
+}
+
+// pluginRegistryDenied 统一越权错误：四处管理入口共用同一份文案与错误码。
+func pluginRegistryDenied() error { return pluginRegistryAdminRule.Deny() }
+
 // CreatePluginResp 创建出参（token 明文仅此一次返回）。
 type CreatePluginResp struct {
 	Plugin *model.PluginRegistry `json:"plugin"`
@@ -49,8 +60,8 @@ type CreatePluginResp struct {
 
 // Create 登记插件：生成接入凭证（sha256 入库，明文一次性返回）。
 func (*PluginRegistryService) Create(req *CreatePluginReq, claims *utils.UserClaims) (*CreatePluginResp, error) {
-	if claims == nil || claims.Authority != "SYS_ADMIN" {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "plugin registry is platform-admin capability")
+	if err := pluginRegistryAdminRule.RequireClaims(claims); err != nil {
+		return nil, pluginRegistryDenied()
 	}
 	if req == nil || len(req.Name) == 0 || len(req.Name) > 128 {
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "name is required (<=128 chars)")
@@ -131,8 +142,8 @@ func (*PluginRegistryService) List(claims *utils.UserClaims) ([]model.PluginRegi
 
 // SetEnabled 启用（等待插件接入 → offline）或禁用（disabled，拒绝接入）。
 func (*PluginRegistryService) SetEnabled(id string, enabled bool, claims *utils.UserClaims) (*model.PluginRegistry, error) {
-	if claims == nil || claims.Authority != "SYS_ADMIN" {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "plugin registry is platform-admin capability")
+	if err := pluginRegistryAdminRule.RequireClaims(claims); err != nil {
+		return nil, pluginRegistryDenied()
 	}
 	ctx := context.Background()
 	row, err := dal.GetPluginByID(ctx, id)
@@ -156,8 +167,8 @@ func (*PluginRegistryService) SetEnabled(id string, enabled bool, claims *utils.
 
 // RotateToken 凭证轮换：返回新明文 token（一次性）。
 func (*PluginRegistryService) RotateToken(id string, claims *utils.UserClaims) (*CreatePluginResp, error) {
-	if claims == nil || claims.Authority != "SYS_ADMIN" {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "plugin registry is platform-admin capability")
+	if err := pluginRegistryAdminRule.RequireClaims(claims); err != nil {
+		return nil, pluginRegistryDenied()
 	}
 	ctx := context.Background()
 	row, err := dal.GetPluginByID(ctx, id)
@@ -179,8 +190,8 @@ func (*PluginRegistryService) RotateToken(id string, claims *utils.UserClaims) (
 
 // Delete 删除登记。
 func (*PluginRegistryService) Delete(id string, claims *utils.UserClaims) error {
-	if claims == nil || claims.Authority != "SYS_ADMIN" {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, "plugin registry is platform-admin capability")
+	if err := pluginRegistryAdminRule.RequireClaims(claims); err != nil {
+		return pluginRegistryDenied()
 	}
 	if err := dal.DeletePluginRegistry(context.Background(), id); err != nil {
 		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": err.Error()})

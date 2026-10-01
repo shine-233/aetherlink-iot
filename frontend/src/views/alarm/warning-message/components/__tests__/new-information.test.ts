@@ -558,14 +558,33 @@ describe('new-information.vue', () => {
   })
 
   describe('columns', () => {
-    it('has 6 columns including actions', async () => {
+    it('has 7 columns including SLA hours and actions', async () => {
       const wrapper = mountComponent()
       await flushPromises()
       const setupState = getSetupState(wrapper)
 
-      expect(setupState.columns).toHaveLength(6)
+      expect(setupState.columns).toHaveLength(7)
       const keys = setupState.columns.map((c) => c.key)
-      expect(keys).toEqual(['name', 'description', 'alarm_level', 'notification_group_name', 'enabled', 'actions'])
+      expect(keys).toEqual([
+        'name',
+        'description',
+        'alarm_level',
+        'sla_hours',
+        'notification_group_name',
+        'enabled',
+        'actions'
+      ])
+    })
+
+    it('sla_hours column render shows dash for unset and hours for configured', async () => {
+      const wrapper = mountComponent()
+      await flushPromises()
+      const setupState = getSetupState(wrapper)
+
+      const slaCol = setupState.columns.find((c) => c.key === 'sla_hours')
+      expect(slaCol.render({ sla_hours: null })).toBe('-')
+      expect(slaCol.render({ sla_hours: 0 })).toBe('-')
+      expect(slaCol.render({ sla_hours: 24 })).toBe('24 custom.alarmPage.slaHoursUnit')
     })
 
     it('alarm_level column render returns high for H', async () => {

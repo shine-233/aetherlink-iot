@@ -1,3 +1,16 @@
+/**
+ * Write `document.title` directly.
+ *
+ * Use this instead of `@vueuse/core`'s `useTitle(value)` outside component
+ * setup (router guards, app bootstrap): `useTitle` creates a `watch` each call,
+ * and without an active effect scope that watcher is never disposed, so every
+ * navigation leaked one more watcher.
+ */
+export function setDocumentTitle(title: string) {
+  if (typeof document === 'undefined') return
+  if (document.title !== title) document.title = title
+}
+
 type TitleRouteMeta = {
   i18nKey?: string
   title?: string

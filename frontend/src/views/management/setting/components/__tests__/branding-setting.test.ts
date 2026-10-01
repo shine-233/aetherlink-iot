@@ -11,9 +11,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const hoisted = vi.hoisted(() => ({
   fetchThemeSetting: vi.fn(),
   editThemeSetting: vi.fn(),
+  fetchTenantTranslations: vi.fn(),
+  upsertTenantTranslations: vi.fn(),
+  deleteTenantTranslations: vi.fn(),
+  fetchTenantCustomCSS: vi.fn(),
+  upsertTenantCustomCSS: vi.fn(),
   messageSuccess: vi.fn(),
   messageError: vi.fn(),
   initSysSetting: vi.fn(),
+  initWhitelabelOverrides: vi.fn(),
   updateThemeColors: vi.fn()
 }))
 
@@ -22,9 +28,18 @@ vi.mock('@/service/api/setting', () => ({
   editThemeSetting: hoisted.editThemeSetting
 }))
 
+vi.mock('@/service/api/whitelabel', () => ({
+  fetchTenantTranslations: hoisted.fetchTenantTranslations,
+  upsertTenantTranslations: hoisted.upsertTenantTranslations,
+  deleteTenantTranslations: hoisted.deleteTenantTranslations,
+  fetchTenantCustomCSS: hoisted.fetchTenantCustomCSS,
+  upsertTenantCustomCSS: hoisted.upsertTenantCustomCSS
+}))
+
 vi.mock('@/store/modules/sys-setting', () => ({
   useSysSettingStore: () => ({
-    initSysSetting: hoisted.initSysSetting
+    initSysSetting: hoisted.initSysSetting,
+    initWhitelabelOverrides: hoisted.initWhitelabelOverrides
   })
 }))
 
@@ -87,6 +102,24 @@ const mountComponent = () => {
           setup(_, { slots, emit }) {
             return () => h('button', { onClick: () => emit('click') }, slots.default ? slots.default() : [])
           }
+        }),
+        NDivider: defineComponent({
+          setup(_, { slots }) {
+            return () => h('div', slots.default ? slots.default() : [])
+          }
+        }),
+        NDataTable: defineComponent({
+          props: { loading: Boolean },
+          setup() {
+            return () => h('div')
+          }
+        }),
+        NSelect: defineComponent({
+          props: { value: { default: '' } },
+          emits: ['update:value'],
+          setup() {
+            return () => h('div')
+          }
         })
       }
     }
@@ -116,6 +149,20 @@ describe('management/setting/components/branding-setting.vue', () => {
       }
     })
     hoisted.editThemeSetting.mockResolvedValue({ error: null })
+    hoisted.fetchTenantTranslations.mockResolvedValue({
+      error: null,
+      data: {
+        total: 1,
+        list: [{ id: 'tr-1', tenant_id: 't-1', lang: 'zh-cn', key: 'page.customer.title', value: '客户中心' }]
+      }
+    })
+    hoisted.fetchTenantCustomCSS.mockResolvedValue({
+      error: null,
+      data: { css: '.app { color: red; }', updated_at: null }
+    })
+    hoisted.upsertTenantTranslations.mockResolvedValue({ error: null, data: { count: 1 } })
+    hoisted.deleteTenantTranslations.mockResolvedValue({ error: null, data: { deleted: 1 } })
+    hoisted.upsertTenantCustomCSS.mockResolvedValue({ error: null, data: null })
   })
 
   afterEach(() => {
@@ -262,5 +309,138 @@ describe('management/setting/components/branding-setting.vue', () => {
     await flushPromises()
     const state = getSetupState(wrapper)
     expect(state.loading).toBe(false)
+  })
+})
+
+describe('branding-setting whitelabel entries (TB-47)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    hoisted.fetchThemeSetting.mockResolvedValue({ error: null, data: { list: [] } })
+    hoisted.fetchTenantTranslations.mockResolvedValue({
+      error: null,
+      data: {
+        total: 1,
+        list: [{ id: 'tr-1', tenant_id: 't-1', lang: 'zh-cn', key: 'page.customer.title', value: '客户中心' }]
+      }
+    })
+    hoisted.fetchTenantCustomCSS.mockResolvedValue({
+      error: null,
+      data: { css: '.app { color: red; }', updated_at: null }
+    })
+    hoisted.upsertTenantTranslations.mockResolvedValue({ error: null, data: { count: 1 } })
+    hoisted.deleteTenantTranslations.mockResolvedValue({ error: null, data: { deleted: 1 } })
+    hoisted.upsertTenantCustomCSS.mockResolvedValue({ error: null, data: null })
+  })
+
+  afterEach(() => {
+    while (mountedWrappers.length > 0) {
+      mountedWrappers.pop()?.unmount()
+    }
+  })
+
+  it('loads translation overrides and custom css on mount', async () => {
+    const wrapper = mountComponent()
+    await flushPromises()
+    const state = getSetupState(wrapper)
+
+    expect(hoisted.fetchTenantTranslations).toHaveBeenCalledTimes(1)
+    expect(hoisted.fetchTenantCustomCSS).toHaveBeenCalledTimes(1)
+    expect(state.translationRows).toEqual([{ lang: 'zh-cn', key: 'page.customer.title', value: '客户中心' }])
+    expect(state.customCSS).toBe('.app { color: red; }')
+    expect(state.overridesLoading).toBe(false)
+  })
+
+  it('upsertTranslationRow rejects blank key/value without calling the API', async () => {
+    const wrapper = mountComponent()
+    await flushPromises()
+    const state = getSetupState(wrapper)
+    state.newTranslation.key = '   '
+    state.newTranslation.value = ' '
+    await state.upsertTranslationRow()
+
+    expect(hoisted.messageError).toHaveBeenCalledWith('custom.management.branding.translationRowInvalid')
+    expect(hoisted.upsertTenantTranslations).toHaveBeenCalledTimes(0)
+  })
+
+  it('upsertTranslationRow trims key and posts single item, then reloads', async () => {
+    const wrapper = mountComponent()
+    await flushPromises()
+    vi.clearAllMocks()
+    hoisted.fetchTenantTranslations.mockResolvedValue({ error: null, data: { total: 0, list: [] } })
+    hoisted.upsertTenantTranslations.mockResolvedValue({ error: null, data: { count: 1 } })
+    const state = getSetupState(wrapper)
+    state.newTranslation.lang = 'en-us'
+    state.newTranslation.key = '  page.device.title  '
+    state.newTranslation.value = 'Device'
+    await state.upsertTranslationRow()
+    await flushPromises()
+
+    expect(hoisted.upsertTenantTranslations).toHaveBeenCalledTimes(1)
+    expect(hoisted.upsertTenantTranslations.mock.calls[0][0]).toEqual([
+      { lang: 'en-us', key: 'page.device.title', value: 'Device' }
+    ])
+    expect(hoisted.messageSuccess).toHaveBeenCalledWith('custom.management.branding.translationSaved')
+    // 保存后重载覆盖列表，键/值输入框复位
+    expect(hoisted.fetchTenantTranslations).toHaveBeenCalledTimes(1)
+    expect(state.newTranslation.key).toBe('')
+    expect(state.newTranslation.value).toBe('')
+  })
+
+  it('removeTranslationRow deletes by lang+key and reloads', async () => {
+    const wrapper = mountComponent()
+    await flushPromises()
+    vi.clearAllMocks()
+    hoisted.fetchTenantTranslations.mockResolvedValue({ error: null, data: { total: 0, list: [] } })
+    hoisted.deleteTenantTranslations.mockResolvedValue({ error: null, data: { deleted: 1 } })
+    const state = getSetupState(wrapper)
+    await state.removeTranslationRow({ lang: 'zh-cn', key: 'page.customer.title', value: '客户中心' })
+    await flushPromises()
+
+    expect(hoisted.deleteTenantTranslations).toHaveBeenCalledTimes(1)
+    expect(hoisted.deleteTenantTranslations.mock.calls[0][0]).toEqual([
+      { lang: 'zh-cn', key: 'page.customer.title' }
+    ])
+    expect(hoisted.messageSuccess).toHaveBeenCalledWith('custom.management.branding.translationDeleted')
+  })
+
+  it('saveCustomCSS trims payload and refreshes whitelabel runtime for instant injection', async () => {
+    const wrapper = mountComponent()
+    await flushPromises()
+    vi.clearAllMocks()
+    hoisted.upsertTenantCustomCSS.mockResolvedValue({ error: null, data: null })
+    const state = getSetupState(wrapper)
+    state.customCSS = '  .app { color: blue; }  '
+    await state.saveCustomCSS()
+    await flushPromises()
+
+    expect(hoisted.upsertTenantCustomCSS).toHaveBeenCalledTimes(1)
+    expect(hoisted.upsertTenantCustomCSS.mock.calls[0][0]).toBe('.app { color: blue; }')
+    expect(hoisted.messageSuccess).toHaveBeenCalledWith('custom.management.branding.customCssSaved')
+    // 保存后重新拉取覆盖，让新 CSS 经 sys-setting store 的 textContent 注入立即生效
+    expect(hoisted.initWhitelabelOverrides).toHaveBeenCalledTimes(1)
+    expect(state.cssSaving).toBe(false)
+  })
+
+  it('clearing css saves empty string (backend clear semantics)', async () => {
+    const wrapper = mountComponent()
+    await flushPromises()
+    vi.clearAllMocks()
+    hoisted.upsertTenantCustomCSS.mockResolvedValue({ error: null, data: null })
+    const state = getSetupState(wrapper)
+    state.customCSS = '   '
+    await state.saveCustomCSS()
+
+    expect(hoisted.upsertTenantCustomCSS.mock.calls[0][0]).toBe('')
+  })
+
+  it('translation load failure surfaces an error message without crashing', async () => {
+    hoisted.fetchTenantTranslations.mockResolvedValue({ error: new Error('boom'), data: null })
+    const wrapper = mountComponent()
+    await flushPromises()
+    const state = getSetupState(wrapper)
+
+    expect(hoisted.messageError).toHaveBeenCalledWith('custom.management.branding.overridesLoadFailed')
+    expect(state.translationRows).toEqual([])
+    expect(state.overridesLoading).toBe(false)
   })
 })

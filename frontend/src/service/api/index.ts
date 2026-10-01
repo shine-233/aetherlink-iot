@@ -22,6 +22,7 @@ export * from './device-data-source'
 export * from './roles'
 export * from './protocol-plugin'
 export * from './notification-services'
+export * from './customer'
 export * from './device'
 export * from './rdi'
 export * from './plugin'
@@ -42,3 +43,19 @@ export * from './solution'
 // TELEMETRY_ANOMALY_RULE_* / detectTelemetryAnomalies 等，但本 barrel 此前漏了这条
 // re-export，导致 vue-tsc 报 11 个 TS2305「has no exported member」，页面也编译不过。
 export * from './telemetry-analysis'
+// TB-04 部件库（widget_bundles）：CRUD + 内置四部件种子导入 API。
+export * from './widget-bundle'
+// TB-17 租户 API 日配额：今日调用数/限额/剩余量（billing/api-quota）。
+export * from './billing'
+// TB-41 文件存储与媒体库（media_files）：通用上传 + 媒体列表/详情/删除 API。
+export * from './media'
+// TB-45 统一集成实体（integrations）：连接器实例 CRUD + 上下行转换器绑定。
+export * from './integration'
+// TB-46 用户组与组权限（GPE v1）：组 CRUD + 成员管理 + 组权限元素绑定（组共享授权）。
+export * from './user-group'
+// TB-23 移动应用中心（mobile_app_bundles）：上传登记 + 版本列表 + publish/archive 状态机。
+export * from './mobile-app-bundle'
+// TB-47 白标：租户翻译覆盖（CRUD）+ 自定义 CSS（读写）+ 登录后可读覆盖获取。
+export * from './whitelabel'
+// TB-48 统一调度器（scheduler_events）：三源聚合列表 + 注册面 CRUD。
+export * from './scheduler'

@@ -19,17 +19,9 @@ type DeviceClaimApi struct{}
 // @Tags     DeviceClaim
 // @Router   /api/v1/device/claim-tokens [post]
 func (*DeviceClaimApi) IssueDeviceClaimToken(c *gin.Context) {
-	var req model.IssueDeviceClaimTokenReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.DeviceClaim.IssueClaimToken(c.Request.Context(), &req, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	Handle(c, func(req *model.IssueDeviceClaimTokenReq, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.DeviceClaim.IssueClaimToken(c.Request.Context(), req, claims)
+	})
 }
 
 // ListDeviceClaimTokens 签发方回查某设备的令牌历史（无明文无哈希）。
@@ -37,14 +29,10 @@ func (*DeviceClaimApi) IssueDeviceClaimToken(c *gin.Context) {
 // @Tags     DeviceClaim
 // @Router   /api/v1/device/claim-tokens [get]
 func (*DeviceClaimApi) ListDeviceClaimTokens(c *gin.Context) {
-	deviceID := c.Query("device_id")
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.DeviceClaim.ListClaimTokens(c.Request.Context(), deviceID, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	HandleNoBody(c, func(claims *utils.UserClaims) (interface{}, error) {
+		deviceID := c.Query("device_id")
+		return service.GroupApp.DeviceClaim.ListClaimTokens(c.Request.Context(), deviceID, claims)
+	})
 }
 
 // RevokeDeviceClaimToken 撤销 active 令牌。
@@ -66,15 +54,7 @@ func (*DeviceClaimApi) RevokeDeviceClaimToken(c *gin.Context) {
 // @Tags     DeviceClaim
 // @Router   /api/v1/device/claim-tokens/redeem [post]
 func (*DeviceClaimApi) RedeemDeviceClaim(c *gin.Context) {
-	var req model.RedeemDeviceClaimReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.DeviceClaim.RedeemClaim(c.Request.Context(), &req, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	Handle(c, func(req *model.RedeemDeviceClaimReq, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.DeviceClaim.RedeemClaim(c.Request.Context(), req, claims)
+	})
 }

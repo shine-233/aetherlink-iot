@@ -57,9 +57,7 @@ func (*DeviceTemplate) ImportMarketBundle(req model.ImportMarketBundleReq, claim
 	//    无法确认没有覆盖风险就不允许继续。
 	existing, err := dal.ListDeviceTemplateVersionsInTenant(claims.TenantID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	existingBoards, _ := dal.ListBoardTemplateVersionsInTenant(context.Background(), claims.TenantID)
 	preview := PreviewResourceBundleImport(bundle, existing, existingBoards)

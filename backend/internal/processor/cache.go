@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"aetherlink-iot/backend/internal/dal"
+	"aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/global"
 
@@ -208,13 +209,7 @@ func (c *ScriptCache) loadFromDatabase(deviceConfigID, scriptType string) (*Cach
 		return nil, nil
 	}
 
-	// 转换为 CachedScript 结构
-	cached := &CachedScript{
-		ID:         script.ID,
-		Content:    *script.Content,
-		EnableFlag: script.EnableFlag,
-		ScriptType: script.ScriptType,
-	}
+	cached := cachedScriptFromModel(script)
 
 	logrus.WithFields(logrus.Fields{
 		"module":           "processor.cache",
@@ -225,6 +220,22 @@ func (c *ScriptCache) loadFromDatabase(deviceConfigID, scriptType string) (*Cach
 	}).Info("script loaded from database")
 
 	return cached, nil
+}
+
+// cachedScriptFromModel 把 DAL 模型转换为缓存结构。
+// data_scripts.content 列可为 NULL（sql/1.sql），此处按空脚本处理，
+// 避免对 nil 指针解引用导致上行 goroutine panic。
+func cachedScriptFromModel(script *model.DataScript) *CachedScript {
+	content := ""
+	if script.Content != nil {
+		content = *script.Content
+	}
+	return &CachedScript{
+		ID:         script.ID,
+		Content:    content,
+		EnableFlag: script.EnableFlag,
+		ScriptType: script.ScriptType,
+	}
 }
 
 // PreloadScripts 预加载指定设备配置的所有脚本（可选，用于启动时预热缓存）

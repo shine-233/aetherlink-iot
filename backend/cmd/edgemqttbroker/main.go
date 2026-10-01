@@ -10,10 +10,14 @@
 //	-pub-interval > 0 时按间隔周期重发（订阅就绪时序无关，幂等导入兜底）。
 //
 // 关键注意事项：仅供边缘转发/实体下发 E2E 使用（无鉴权/保留消息，非生产 broker）。
-// 用法：go build -o edgemqttbroker.exe ./cmd/edgemqttbroker
+// 边缘本地规则执行器（TB-21 scoped v1）为可选开关，默认关闭：-edgerules 打开后，
+// devices/command/ 前缀主题上的 edge_sync 规则链快照经修订号去重装载，遥测主题
+// （默认 aetherlink/edge/+/+）上的遥测本地求值，命中产生本地告警事件（见 edgerules.go 与
+// internal/edgerules 包）。用法：go build -o edgemqttbroker.exe ./cmd/edgemqttbroker
 //
 //	./edgemqttbroker.exe -addr 127.0.0.1:18883 -log edge-broker-received.log
 //	  [-pub aetherlink/edge/cmd/edge-node -pub-payload @file.json -pub-delay 5 -pub-interval 10]
+//	  [-edgerules -edgerules-alarm-log edge-alarms.jsonl]
 package main
 
 import (
@@ -25,21 +29,31 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 var (
 	logFile *os.File
 	subsMu  sync.Mutex
 	subs    = map[net.Conn][]string{}
+	// edgeRules 边缘本地规则执行器接线；未启用（默认）为 nil（nil 安全：ingest/close 均判空）。
+	edgeRules *edgeRuleRunner
 )
 
 func main() {
 	addr := flag.String("addr", "127.0.0.1:18883", "监听地址")
+	pubAddr := flag.String("pub-addr", "", "-pub 模式实际连接的 broker 地址（默认取 -addr，便于向独立 broker 注入消息）")
 	logPath := flag.String("log", "", "接收日志文件（追加写；空则打 stdout）")
 	pubTopic := flag.String("pub", "", "启动后向指定 topic 发布（配合 -pub-payload）")
 	pubPayload := flag.String("pub-payload", "{}", "-pub 的消息体；@file 表示从文件读")
 	pubDelay := flag.Int("pub-delay", 0, "-pub 前的等待秒数（等订阅就绪）")
 	pubInterval := flag.Int("pub-interval", 0, "-pub 周期重发间隔秒数（0=只发一次）")
+	// TB-21 边缘本地规则执行器（可选，默认关闭）。
+	edgeRulesEnabled := flag.Bool("edgerules", false, "启用边缘本地规则执行器（默认关闭）")
+	edgeRulesTelemetry := flag.String("edgerules-telemetry", "aetherlink/edge/+/+", "遥测主题过滤器（对照 edgeforward 转发主题）")
+	edgeRulesSnapshotPrefix := flag.String("edgerules-snapshot-prefix", "devices/command/", "规则链快照命令主题前缀（对照 commands.publish_topic）")
+	edgeRulesAlarmLog := flag.String("edgerules-alarm-log", "", "本地告警事件 JSONL 追加文件（空=仅日志）")
 	flag.Parse()
 
 	if *logPath != "" {
@@ -48,6 +62,18 @@ func main() {
 			log.Fatalf("打开日志文件失败: %v", err)
 		}
 		logFile = f
+	}
+
+	edgeRules = newEdgeRuleRunner(edgeRuleConfig{
+		Enabled:        *edgeRulesEnabled,
+		TelemetryTopic: *edgeRulesTelemetry,
+		SnapshotPrefix: *edgeRulesSnapshotPrefix,
+		AlarmLogPath:   *edgeRulesAlarmLog,
+	}, logrus.StandardLogger())
+	defer edgeRules.close()
+
+	if *pubAddr == "" {
+		*pubAddr = *addr
 	}
 
 	payloadBytes := []byte(*pubPayload)
@@ -68,7 +94,7 @@ func main() {
 		go func() {
 			time.Sleep(time.Duration(*pubDelay) * time.Second)
 			for {
-				if err := newPublishClient(*addr, *pubTopic, payloadBytes)(); err != nil {
+				if err := newPublishClient(*pubAddr, *pubTopic, payloadBytes)(); err != nil {
 					log.Printf("edgemqttbroker: publish failed: %v", err)
 				} else {
 					log.Printf("edgemqttbroker: published to %s", *pubTopic)
@@ -196,6 +222,10 @@ func handleConn(conn net.Conn) {
 			topic := string(body[2 : 2+topicLen])
 			payload := body[payloadStart:]
 			logReceived(topic, payload)
+			// TB-21：可选边缘本地规则执行（未启用时 edgeRules 为 nil，零开销）。
+			if edgeRules != nil {
+				edgeRules.ingest(topic, payload)
+			}
 			forwardPublish(append(append([]byte{header[0]}, encodeVarint(remain)...), body...), topic)
 			if qos == 1 {
 				pid := body[2+topicLen : 2+topicLen+2]

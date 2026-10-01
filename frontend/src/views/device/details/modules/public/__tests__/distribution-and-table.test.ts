@@ -350,6 +350,19 @@ describe('device/details/modules/public/distribution-and-table.vue', () => {
     expect(typeof wrapper.vm.refresh).toBe('function')
   })
 
+  it('renders the attribute picker (not command params) for attribute dispatch', async () => {
+    // 回归锚点：script 内同名 isCommand 函数曾遮蔽 prop，导致模板恒走命令分支。
+    const wrapper = mountComponent({ isCommand: false })
+    await flushPromises()
+    expect(wrapper.findComponent({ name: 'DistributionAttributePicker' }).exists()).toBe(true)
+    expect(wrapper.findComponent({ name: 'DistributionCommandParams' }).exists()).toBe(false)
+
+    const commandWrapper = mountComponent({ isCommand: true })
+    await flushPromises()
+    expect(commandWrapper.findComponent({ name: 'DistributionCommandParams' }).exists()).toBe(true)
+    expect(commandWrapper.findComponent({ name: 'DistributionAttributePicker' }).exists()).toBe(false)
+  })
+
   it('fetches command list when isCommand is true', async () => {
     mountComponent({ isCommand: true })
     await flushPromises()

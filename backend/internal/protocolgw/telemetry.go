@@ -1,5 +1,5 @@
 // 文件用途：C6 收尾（WORKPLAN P1-C）——设备凭证映射 + 遥测汇入现有 uplink 管道。
-// 核心链路：LwM2M/CoAP 客户端 PUT/POST 对象资源 → ObjectStore.OnChange → TelemetryBridge
+// 核心链路：LwM2M/CoAP 客户端 PUT/POST 对象资源 → 端点 ObjectStore.OnChange → TelemetryBridge
 //
 //	（端点→设备解析 + IPSO 资源键转换）→ 与 mqttadapter 相同的 UplinkMessage → uplink.Bus。
 //
@@ -8,8 +8,9 @@
 //     记录，不信任客户端上报；is_enabled != enabled 的设备拒绝上报（CoAP 无连接级认证，
 //     本解析器即准入边界，弱凭证边界已知，PSK 升级为后续安全增强）。
 //  2. fail-closed：端点未注册/解析失败/值转换失败一律丢弃并计数，绝不阻塞 CoAP 写路径。
-//  3. 拓扑：当前 BuildRegistry 为共享单 ObjectStore（单客户端模型），端点以最近一次
-//     /rd 注册为准（last-wins）；多客户端隔离留待上层按注册分发 store 时替换。
+//  3. 拓扑（TB-22 多客户端隔离）：per-endpoint ObjectStore（sync.Map）由 /rd 注册/去注册
+//     事件挂接；UDP 源地址经 OnRegister 绑定端点，对象写入按源地址路由到对应端点 store。
+//     端点归因在事件入队时固写（写侧归因），消费侧不再依赖"最近注册端点"（原 last-wins 已移除）。
 package protocolgw
 
 import (
@@ -125,13 +126,16 @@ func telemetryKey(obj, inst, res uint16) string {
 // eventQueueSize 事件队列长度：满时丢弃并计数（UDP 场景宁可丢点不阻塞写路径）。
 const eventQueueSize = 1024
 
-// storeEvent 一次资源写入事件。
+// storeEvent 一次资源写入事件（endpoint 为写侧归因：写入发生在哪个端点的 store）。
 type storeEvent struct {
+	endpoint string
 	obj, inst, res uint16
-	value          string
+	value    string
 }
 
 // TelemetryBridge 把 LwM2M 对象写入转换为平台遥测并发往 uplink Bus。
+// TB-22：端点→ObjectStore 与 UDP 源地址→端点均为 per-endpoint 映射（sync.Map），
+// 由 /rd 注册/去注册事件挂接；不再存在跨端点共享的单一 store。
 type TelemetryBridge struct {
 	resolver  DeviceResolver
 	publisher UplinkPublisher
@@ -141,10 +145,12 @@ type TelemetryBridge struct {
 	stop   chan struct{}
 	done   chan struct{}
 
-	mu       sync.Mutex
-	endpoint string // 最近一次 /rd 注册的端点名（单客户端拓扑 last-wins）
-	store    *lwm2m.ObjectStore
+	// 多客户端隔离映射：端点→store 由 OnRegister/OnDeregister 维护；
+	// 源地址→端点随注册事件刷新（同地址换端点重注册时以最新注册为准）。
+	stores sync.Map // endpoint(string) → *lwm2m.ObjectStore
+	addrs  sync.Map // remote addr(string) → endpoint(string)
 
+	mu       sync.Mutex
 	// 计数（诊断面，原子由 mu 内单 worker/单写者保证读侧仅 Stats 用 mu）
 	published uint64
 	unknown   uint64 // 端点未注册或解析失败
@@ -166,27 +172,90 @@ func NewTelemetryBridge(resolver DeviceResolver, publisher UplinkPublisher, log 
 	}
 }
 
-// Attach 绑定对象存储：资源写入经 OnChange 入队（异步移交，不阻塞写路径）。
-func (b *TelemetryBridge) Attach(store *lwm2m.ObjectStore) {
-	b.mu.Lock()
-	b.store = store
-	b.mu.Unlock()
-	store.SetOnChange(func(obj, inst, res uint16, value string) {
-		select {
-		case b.events <- storeEvent{obj: obj, inst: inst, res: res, value: value}:
-		default:
-			b.mu.Lock()
-			b.dropped++
-			b.mu.Unlock()
+// OnEvent 注册簿事件分派入口（Start 装配线挂接 /rd 处理器用）。
+func (b *TelemetryBridge) OnEvent(ev lwm2m.RegistryEvent) {
+	switch ev.Kind {
+	case lwm2m.EventRegister:
+		b.OnRegister(ev.Endpoint, ev.Addr)
+	case lwm2m.EventDeregister:
+		b.OnDeregister(ev.Endpoint)
+	}
+}
+
+// OnRegister /rd 注册事件：为端点建独立 ObjectStore（幂等，刷新注册不清空已写资源），
+// 并把 UDP 源地址绑定到端点（写路径路由依据）。端点归因自此在写侧固写，无 last-wins 覆盖。
+func (b *TelemetryBridge) OnRegister(endpoint, addr string) {
+	if endpoint == "" {
+		return
+	}
+	st, loaded := b.stores.LoadOrStore(endpoint, lwm2m.NewObjectStore())
+	if !loaded {
+		store := st.(*lwm2m.ObjectStore)
+		ep := endpoint // 归因固写：回调闭包携带端点名
+		store.SetOnChange(func(obj, inst, res uint16, value string) {
+			select {
+			case b.events <- storeEvent{endpoint: ep, obj: obj, inst: inst, res: res, value: value}:
+			default:
+				b.mu.Lock()
+				b.dropped++
+				b.mu.Unlock()
+			}
+		})
+	}
+	if addr != "" {
+		b.addrs.Store(addr, endpoint)
+	}
+}
+
+// OnDeregister /rd 去注册事件：移除端点 store 与所有指向该端点的源地址绑定。
+func (b *TelemetryBridge) OnDeregister(endpoint string) {
+	if endpoint == "" {
+		return
+	}
+	b.stores.Delete(endpoint)
+	b.addrs.Range(func(k, v interface{}) bool {
+		if ep, _ := v.(string); ep == endpoint {
+			b.addrs.Delete(k)
 		}
+		return true
 	})
 }
 
-// OnRegister /rd 注册成功回调：刷新当前端点（last-wins）。
-func (b *TelemetryBridge) OnRegister(endpoint string) {
-	b.mu.Lock()
-	b.endpoint = endpoint
-	b.mu.Unlock()
+// StoreForAddr 按源地址取端点 ObjectStore（未注册源返回 nil——对象路由层据此 4.04 拒绝）。
+func (b *TelemetryBridge) StoreForAddr(addr string) *lwm2m.ObjectStore {
+	if addr == "" {
+		return nil
+	}
+	ep, ok := b.addrs.Load(addr)
+	if !ok {
+		return nil
+	}
+	st, ok := b.stores.Load(ep)
+	if !ok {
+		return nil
+	}
+	store, _ := st.(*lwm2m.ObjectStore)
+	return store
+}
+
+// EndpointCount 返回当前挂接的端点 store 数（测试与诊断面用）。
+func (b *TelemetryBridge) EndpointCount() int {
+	n := 0
+	b.stores.Range(func(_, _ interface{}) bool {
+		n++
+		return true
+	})
+	return n
+}
+
+// EndpointForAddr 返回源地址当前绑定的端点名（未绑定为空串，测试与诊断面用）。
+func (b *TelemetryBridge) EndpointForAddr(addr string) string {
+	if addr == "" {
+		return ""
+	}
+	ep, _ := b.addrs.Load(addr)
+	s, _ := ep.(string)
+	return s
 }
 
 // Run 启动单 worker 消费事件（随网关生命周期常驻）。
@@ -215,11 +284,10 @@ func (b *TelemetryBridge) Stats() (published, unknown, dropped uint64) {
 	return b.published, b.unknown, b.dropped
 }
 
-// handleEvent 单事件处理：端点→设备→值转换→UplinkMessage→Bus。任何失败 fail-closed 计数。
+// handleEvent 单事件处理：事件端点→设备→值转换→UplinkMessage→Bus。任何失败 fail-closed 计数。
+// 端点取自事件本身（写侧归因固写），消费侧不再读取任何"当前端点"状态。
 func (b *TelemetryBridge) handleEvent(ev storeEvent) {
-	b.mu.Lock()
-	endpoint := b.endpoint
-	b.mu.Unlock()
+	endpoint := ev.endpoint
 	if endpoint == "" {
 		b.mu.Lock()
 		b.unknown++

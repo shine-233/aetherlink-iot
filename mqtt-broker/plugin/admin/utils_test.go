@@ -40,3 +40,62 @@ func TestIndexer(t *testing.T) {
 	a.Equal([]int{4, 6}, rs)
 
 }
+
+func TestGetPageClampsPageSize(t *testing.T) {
+	a := assert.New(t)
+	page, size := GetPage(0, 0)
+	a.EqualValues(1, page)
+	a.EqualValues(defaultPageSize, size)
+
+	_, size = GetPage(1, 4294967295)
+	a.EqualValues(maxPageSize, size)
+
+	_, size = GetPage(1, maxPageSize)
+	a.EqualValues(maxPageSize, size)
+}
+
+func TestGetOffsetNSaturatesInsteadOfWrapping(t *testing.T) {
+	a := assert.New(t)
+	offset, n := GetOffsetN(3, 20)
+	a.EqualValues(40, offset)
+	a.EqualValues(20, n)
+
+	// page 0 曾回绕为 (0-1)*pageSize。
+	offset, _ = GetOffsetN(0, 20)
+	a.EqualValues(0, offset)
+
+	offset, _ = GetOffsetN(^uint(0), maxPageSize)
+	a.Equal(^uint(0), offset)
+}
+
+func TestIndexerIterateIsBoundedForHugeInputs(t *testing.T) {
+	a := assert.New(t)
+	i := NewIndexer()
+	for j := 0; j < 10; j++ {
+		i.Set(strconv.Itoa(j), j)
+	}
+	visits := 0
+	count := func(*list.Element) { visits++ }
+
+	// offset+n 溢出曾导致整表遍历。
+	i.Iterate(count, 2, ^uint(0))
+	a.Equal(8, visits)
+
+	visits = 0
+	i.Iterate(count, ^uint(0), ^uint(0))
+	a.Equal(0, visits)
+
+	visits = 0
+	i.Iterate(count, 0, 0)
+	a.Equal(0, visits)
+
+	// 经 GetPage 钳制后，单页至多访问 maxPageSize 个元素。
+	for j := 10; j < maxPageSize+50; j++ {
+		i.Set(strconv.Itoa(j), j)
+	}
+	visits = 0
+	page, size := GetPage(1, 4294967295)
+	offset, n := GetOffsetN(page, size)
+	i.Iterate(count, offset, n)
+	a.Equal(maxPageSize, visits)
+}

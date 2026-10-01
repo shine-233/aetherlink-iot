@@ -576,8 +576,7 @@ func TestFederation_ListMembers(t *testing.T) {
 	a := assert.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	p, _ := New(testConfig)
-	f := p.(*Federation)
+	f := mustNewFederation(t)
 
 	mockSerf := NewMockiSerf(ctrl)
 	f.serf = mockSerf
@@ -617,8 +616,7 @@ func TestFederation_Join(t *testing.T) {
 	a := assert.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	p, _ := New(testConfig)
-	f := p.(*Federation)
+	f := mustNewFederation(t)
 
 	mockSerf := NewMockiSerf(ctrl)
 	f.serf = mockSerf
@@ -636,8 +634,7 @@ func TestFederation_Leave(t *testing.T) {
 	a := assert.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	p, _ := New(testConfig)
-	f := p.(*Federation)
+	f := mustNewFederation(t)
 	mockSerf := NewMockiSerf(ctrl)
 	f.serf = mockSerf
 	mockSerf.EXPECT().Leave()
@@ -649,8 +646,7 @@ func TestFederation_ForceLeave(t *testing.T) {
 	a := assert.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	p, _ := New(testConfig)
-	f := p.(*Federation)
+	f := mustNewFederation(t)
 	mockSerf := NewMockiSerf(ctrl)
 	f.serf = mockSerf
 	mockSerf.EXPECT().RemoveFailedNode("node1")

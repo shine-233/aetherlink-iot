@@ -12,23 +12,6 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-// GetTenantRateLimit 查询指定租户或设备的某类限流规则。
-func GetTenantRateLimit(tenantID, targetType, targetID, limitType string) (*model.TenantRateLimit, error) {
-	if global.DB == nil {
-		return nil, errors.New("database not initialized")
-	}
-	var record model.TenantRateLimit
-	err := global.DB.Where("tenant_id = ? AND target_type = ? AND target_id = ? AND limit_type = ?",
-		tenantID, targetType, targetID, limitType).First(&record).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &record, nil
-}
-
 // ListTenantRateLimits 获取某租户下的所有限流自定义规则（超管传空获取全部）。
 func ListTenantRateLimits(tenantID string) ([]model.TenantRateLimit, error) {
 	if global.DB == nil {

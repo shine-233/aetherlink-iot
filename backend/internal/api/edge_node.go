@@ -19,17 +19,9 @@ type EdgeNodeApi struct{}
 // @Tags     EdgeNodes
 // @Router   /api/v1/edge/nodes [post]
 func (*EdgeNodeApi) Register(c *gin.Context) {
-	var req model.RegisterEdgeNodeReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.EdgeNode.RegisterEdgeNode(req, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	Handle(c, func(req *model.RegisterEdgeNodeReq, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.EdgeNode.RegisterEdgeNode(*req, claims)
+	})
 }
 
 // Heartbeat 心跳触碰并回报健康分类。
@@ -37,17 +29,11 @@ func (*EdgeNodeApi) Register(c *gin.Context) {
 // @Tags     EdgeNodes
 // @Router   /api/v1/edge/nodes/{node_id}/heartbeat [post]
 func (*EdgeNodeApi) Heartbeat(c *gin.Context) {
-	nodeID := c.Param("node_id")
-	var req model.EdgeNodeHeartbeatReq
 	// 心跳体可选：绑定失败（非 JSON）不拒绝——心跳的价值在到达本身。
-	_ = c.ShouldBindJSON(&req)
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.EdgeNode.HeartbeatEdgeNode(nodeID, req, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	// 因此走 HandlePathBodyOptional（绑定失败放行），而非 HandlePathBody（其绑定失败即拒绝）。
+	HandlePathBodyOptional(c, "node_id", func(nodeID string, req *model.EdgeNodeHeartbeatReq, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.EdgeNode.HeartbeatEdgeNode(nodeID, *req, claims)
+	})
 }
 
 // List 列出租户内节点及健康分类。
@@ -55,19 +41,16 @@ func (*EdgeNodeApi) Heartbeat(c *gin.Context) {
 // @Tags     EdgeNodes
 // @Router   /api/v1/edge/nodes [get]
 func (*EdgeNodeApi) List(c *gin.Context) {
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	limit := 0
-	if v := c.Query("limit"); v != "" {
-		if parsed, perr := strconv.Atoi(v); perr == nil && parsed > 0 {
-			limit = parsed
+	HandleNoBody(c, func(claims *utils.UserClaims) (interface{}, error) {
+		// limit 沿用旧解析：缺省/非法/非正数一律按 0（全量）处理，不作为参数错误。
+		limit := 0
+		if v := c.Query("limit"); v != "" {
+			if parsed, perr := strconv.Atoi(v); perr == nil && parsed > 0 {
+				limit = parsed
+			}
 		}
-	}
-	resp, err := service.GroupApp.EdgeNode.ListEdgeNodes(limit, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+		return service.GroupApp.EdgeNode.ListEdgeNodes(limit, claims)
+	})
 }
 
 // Reconcile 重连后按版本同步的编排入口。
@@ -75,18 +58,9 @@ func (*EdgeNodeApi) List(c *gin.Context) {
 // @Tags     EdgeNodes
 // @Router   /api/v1/edge/nodes/{node_id}/reconcile [post]
 func (*EdgeNodeApi) Reconcile(c *gin.Context) {
-	nodeID := c.Param("node_id")
-	var req model.EdgeNodeReconcileReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.EdgeNode.ReconcileEdgeNode(nodeID, req, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	HandlePathBody(c, "node_id", func(nodeID string, req *model.EdgeNodeReconcileReq, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.EdgeNode.ReconcileEdgeNode(nodeID, *req, claims)
+	})
 }
 
 // IssueCertificate 签发边缘节点客户端证书。
@@ -94,16 +68,10 @@ func (*EdgeNodeApi) Reconcile(c *gin.Context) {
 // @Tags     EdgeNodes
 // @Router   /api/v1/edge/nodes/{node_id}/certificate [post]
 func (*EdgeNodeApi) IssueCertificate(c *gin.Context) {
-	nodeID := c.Param("node_id")
-	var req model.IssueEdgeNodeCertificateReq
-	_ = c.ShouldBindJSON(&req)
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.EdgeNode.IssueNodeCertificate(nodeID, req, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	// 请求体可选（validity_days 有缺省值）：绑定失败不拒绝，故走 HandlePathBodyOptional 而非 HandlePathBody。
+	HandlePathBodyOptional(c, "node_id", func(nodeID string, req *model.IssueEdgeNodeCertificateReq, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.EdgeNode.IssueNodeCertificate(nodeID, *req, claims)
+	})
 }
 
 // GetCertificate 查看边缘节点当前有效证书。
@@ -111,14 +79,9 @@ func (*EdgeNodeApi) IssueCertificate(c *gin.Context) {
 // @Tags     EdgeNodes
 // @Router   /api/v1/edge/nodes/{node_id}/certificate [get]
 func (*EdgeNodeApi) GetCertificate(c *gin.Context) {
-	nodeID := c.Param("node_id")
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.EdgeNode.GetNodeCertificate(nodeID, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	HandlePath(c, "node_id", func(nodeID string, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.EdgeNode.GetNodeCertificate(nodeID, claims)
+	})
 }
 
 // RevokeCertificate 吊销边缘节点证书。
@@ -126,14 +89,13 @@ func (*EdgeNodeApi) GetCertificate(c *gin.Context) {
 // @Tags     EdgeNodes
 // @Router   /api/v1/edge/nodes/{node_id}/certificate [delete]
 func (*EdgeNodeApi) RevokeCertificate(c *gin.Context) {
-	nodeID := c.Param("node_id")
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.EdgeNode.RevokeNodeCertificate(nodeID, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", gin.H{"message": "edge node certificate revoked"})
+	// 成功包络保留旧的 data.message 对象，故用 HandlePath 而非 HandlePathAction（后者成功时 data 为 nil）。
+	HandlePath(c, "node_id", func(nodeID string, claims *utils.UserClaims) (interface{}, error) {
+		if err := service.GroupApp.EdgeNode.RevokeNodeCertificate(nodeID, claims); err != nil {
+			return nil, err
+		}
+		return gin.H{"message": "edge node certificate revoked"}, nil
+	})
 }
 
 // Upgrade 远程升级边缘节点。
@@ -141,18 +103,9 @@ func (*EdgeNodeApi) RevokeCertificate(c *gin.Context) {
 // @Tags     EdgeNodes
 // @Router   /api/v1/edge/nodes/{node_id}/upgrade [post]
 func (*EdgeNodeApi) Upgrade(c *gin.Context) {
-	nodeID := c.Param("node_id")
-	var req model.UpgradeEdgeNodeReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.EdgeNode.UpgradeNode(nodeID, req, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	HandlePathBody(c, "node_id", func(nodeID string, req *model.UpgradeEdgeNodeReq, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.EdgeNode.UpgradeNode(nodeID, *req, claims)
+	})
 }
 
 // Rollback 远程回滚边缘节点。
@@ -160,18 +113,9 @@ func (*EdgeNodeApi) Upgrade(c *gin.Context) {
 // @Tags     EdgeNodes
 // @Router   /api/v1/edge/nodes/{node_id}/rollback [post]
 func (*EdgeNodeApi) Rollback(c *gin.Context) {
-	nodeID := c.Param("node_id")
-	var req model.RollbackEdgeNodeReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.EdgeNode.RollbackNode(nodeID, req, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	HandlePathBody(c, "node_id", func(nodeID string, req *model.RollbackEdgeNodeReq, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.EdgeNode.RollbackNode(nodeID, *req, claims)
+	})
 }
 
 // GetUpgradeHistory 查询边缘节点升级历史。
@@ -179,19 +123,14 @@ func (*EdgeNodeApi) Rollback(c *gin.Context) {
 // @Tags     EdgeNodes
 // @Router   /api/v1/edge/nodes/{node_id}/upgrade/history [get]
 func (*EdgeNodeApi) GetUpgradeHistory(c *gin.Context) {
-	nodeID := c.Param("node_id")
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	limit := 0
-	if v := c.Query("limit"); v != "" {
-		if parsed, perr := strconv.Atoi(v); perr == nil && parsed > 0 {
-			limit = parsed
+	HandlePath(c, "node_id", func(nodeID string, claims *utils.UserClaims) (interface{}, error) {
+		// limit 沿用旧解析：缺省/非法/非正数一律按 0 处理，不作为参数错误。
+		limit := 0
+		if v := c.Query("limit"); v != "" {
+			if parsed, perr := strconv.Atoi(v); perr == nil && parsed > 0 {
+				limit = parsed
+			}
 		}
-	}
-	resp, err := service.GroupApp.EdgeNode.ListNodeUpgradeHistory(nodeID, limit, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+		return service.GroupApp.EdgeNode.ListNodeUpgradeHistory(nodeID, limit, claims)
+	})
 }
-

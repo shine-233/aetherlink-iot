@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/DrmagicE/gmqtt/server"
@@ -34,15 +33,11 @@ type mqttSessionRevocationAcknowledge func(mqttSessionRevocationAck) error
 const mqttSessionRevocationAckStatusProcessed = "processed"
 
 type mqttSessionRevocationMonitor struct {
-	mu           sync.Mutex
-	revoker      mqttDeviceSessionTerminator
-	subscribe    mqttSessionRevocationSubscribe
-	acknowledge  mqttSessionRevocationAcknowledge
-	brokerID     string
-	subscription mqttSessionRevocationSubscription
-	stop         chan struct{}
-	done         chan struct{}
-	started      bool
+	subscriptionLifecycle // mu 同时保护下列配置字段
+	revoker               mqttDeviceSessionTerminator
+	subscribe             mqttSessionRevocationSubscribe
+	acknowledge           mqttSessionRevocationAcknowledge
+	brokerID              string
 }
 
 type mqttDeviceSessionRevoker struct {
@@ -122,11 +117,8 @@ func (m *mqttSessionRevocationMonitor) Start() error {
 		return fmt.Errorf("mqtt session revocation subscription is nil")
 	}
 
-	m.subscription = subscription
-	m.stop = make(chan struct{})
-	m.done = make(chan struct{})
-	m.started = true
-	go m.run(subscription.Messages(), m.stop, m.done)
+	stop, done := m.beginLocked(subscription)
+	go m.run(subscription.Messages(), stop, done)
 	return nil
 }
 
@@ -208,24 +200,7 @@ func (m *mqttSessionRevocationMonitor) Close() error {
 	if m == nil {
 		return nil
 	}
-	m.mu.Lock()
-	if !m.started {
-		m.mu.Unlock()
-		return nil
-	}
-	subscription := m.subscription
-	stop := m.stop
-	done := m.done
-	m.subscription = nil
-	m.stop = nil
-	m.done = nil
-	m.started = false
-	close(stop)
-	m.mu.Unlock()
-
-	err := subscription.Close()
-	<-done
-	return err
+	return m.shutdown()
 }
 
 // TerminateDeviceSessions closes every online MQTT client currently mapped to deviceID.

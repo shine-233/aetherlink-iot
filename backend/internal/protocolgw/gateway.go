@@ -41,26 +41,43 @@ func DefaultConfig() Config {
 	}
 }
 
-// BuildRegistry 组装 CoAP 资源注册表：LwM2M /rd 注册 + 3303 温度传感器对象读写。
+// BuildRegistry 组装纯接入层（无遥测汇入）注册表：LwM2M /rd 注册 + 单一共享对象存储读写。
+// 无 bridge 即无归因语义，对象写入落共享 store（单机/演示形态，行为与既往一致）。
 func BuildRegistry() *coap.Registry {
-	reg, _ := BuildRegistryWithStore(nil)
+	reg := coap.NewRegistry()
+	reg.Register("/rd*", lwm2m.NewRegistry().HandleRegister())
+	store := lwm2m.NewObjectStore()
+	lwm2m.BindObjects(reg, 3303, store)
 	return reg
 }
 
-// BuildRegistryWithStore 同 BuildRegistry，但：1) /rd 注册成功时回调端点名（可 nil）；
-// 2) 额外返回对象存储句柄（遥测汇入装配用）。
-func BuildRegistryWithStore(onRegister func(endpoint string)) (*coap.Registry, *lwm2m.ObjectStore) {
+// BuildRegistryWithIsolation 组装多客户端隔离注册表（TB-22）：
+//  1. "/rd*" 挂载（前缀）使 DELETE /rd/{id} 去注册可达（原 "/rd" 精确挂载下去注册 404），
+//     注册/去注册事件回调 onEvent（上层据此挂接 per-endpoint store，可 nil）；
+//  2. "/3303*" 对象读写按 CoAP 源地址路由到 lookup(addr) 返回的端点 store，
+//     未注册源一律 4.04（fail-closed）。
+func BuildRegistryWithIsolation(onEvent func(lwm2m.RegistryEvent), lookup func(addr string) *lwm2m.ObjectStore) *coap.Registry {
 	reg := coap.NewRegistry()
-	var rd coap.Handler
-	if onRegister != nil {
-		rd = lwm2m.NewRegistry().HandleRegisterWithNotify(onRegister)
-	} else {
-		rd = lwm2m.NewRegistry().HandleRegister()
+	reg.Register("/rd*", lwm2m.NewRegistry().HandleRegisterWithEvents(onEvent))
+	if lookup != nil {
+		reg.Register("/3303*", isolatedObjectRouter{lookup: lookup}.handle)
 	}
-	reg.Register("/rd", rd)
-	store := lwm2m.NewObjectStore()
-	lwm2m.BindObjects(reg, 3303, store)
-	return reg, store
+	return reg
+}
+
+// isolatedObjectRouter 按源地址分发对象读写的路由器（多客户端隔离核心）。
+// 每个 UDP 源地址在注册时绑定到端点，其对象读写落到该端点独享的 ObjectStore，
+// 写入经 OnChange 携带端点名进入遥测管道——端点间资源值互不可见。
+type isolatedObjectRouter struct {
+	lookup func(addr string) *lwm2m.ObjectStore
+}
+
+func (r isolatedObjectRouter) handle(req *coap.Message) (coap.Code, []byte, int, error) {
+	store := r.lookup(req.RemoteAddr)
+	if store == nil {
+		return coap.CodeNotFound, []byte("lwm2m: source not registered"), 0, nil
+	}
+	return store.ObjectHandler()(req)
 }
 
 // Gateway CoAP 网关实例。
@@ -86,7 +103,8 @@ func WithTelemetry(bridge *TelemetryBridge) GatewayOption {
 }
 
 // Start 按配置启动网关；未启用返回 nil,nil。启动失败（如端口占用）返回错误。
-// bridge 非空时：/rd 注册驱动端点绑定，资源写入异步汇入 uplink 管道。
+// bridge 非空时：多客户端隔离拓扑——/rd 注册/去注册事件挂接 per-endpoint store，
+// 对象写入按源地址路由并异步汇入 uplink 管道；无 bridge 为纯接入层（共享 store）。
 func Start(cfg Config, log *logrus.Logger, opts ...GatewayOption) (*Gateway, error) {
 	if !cfg.Enabled {
 		return nil, nil
@@ -99,15 +117,15 @@ func Start(cfg Config, log *logrus.Logger, opts ...GatewayOption) (*Gateway, err
 		opt(o)
 	}
 
-	var onRegister func(endpoint string)
+	var reg *coap.Registry
 	if o.bridge != nil {
-		onRegister = o.bridge.OnRegister
+		reg = BuildRegistryWithIsolation(o.bridge.OnEvent, o.bridge.StoreForAddr)
+	} else {
+		reg = BuildRegistry()
 	}
-	reg, store := BuildRegistryWithStore(onRegister)
 	g := &Gateway{cfg: cfg, reg: reg, log: log, bridge: o.bridge, started: make(chan struct{})}
 
 	if o.bridge != nil {
-		o.bridge.Attach(store)
 		go o.bridge.Run()
 	}
 

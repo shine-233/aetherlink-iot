@@ -5,12 +5,6 @@
 
 package model
 
-import (
-	"encoding/json"
-
-	"github.com/sirupsen/logrus"
-)
-
 // 分页请求参数
 type PageReq struct {
 	Page     int `json:"page" form:"page" validate:"required,gte=1"`                    // 页码
@@ -37,20 +31,3 @@ type ParamID struct {
 const OPEN = "OPEN"
 const CLOSE = "CLOSE"
 
-// 对于前端传入的部分无法定义固定结构的参数，例如：products.AdditionalInfo
-// 使用 *json.RawMessage 来接收，并且将其转化为数据库可存储的 string
-// 同时去除 json string 中多余的空格
-func JsonRawMessage2Str(in *json.RawMessage) (str string, err error) {
-	var data map[string]interface{}
-	err = json.Unmarshal([]byte(*in), &data)
-	if err != nil {
-		return str, err
-	}
-	compactJson, err := json.Marshal(data)
-	if err != nil {
-		logrus.Error(err)
-		return str, err
-	}
-	str = string(compactJson)
-	return
-}

@@ -34,8 +34,4 @@ export function resolveThingsVisSpaceId(userInfo?: UserInfoLike | null): string 
   return tenantId || 'default'
 }
 
-export function getThingsVisSpaceLabel(userInfo?: UserInfoLike | null): string {
-  return isSysAdminUser(userInfo) ? '超管独立看板空间' : '租户看板空间'
-}
-
 export { SYS_ADMIN_ROLE, SYS_ADMIN_SPACE_ID }

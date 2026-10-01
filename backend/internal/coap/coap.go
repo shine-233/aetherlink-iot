@@ -82,6 +82,9 @@ type Message struct {
 	Token     []byte
 	Options   []Option
 	Payload   []byte
+	// RemoteAddr UDP 源地址（host:port）。仅 Server.servePacket 出站填充（TB-22 多客户端
+	// 隔离的归因载体：/rd 注册与对象写入按源地址关联）；手工构造的报文为零值 ""。
+	RemoteAddr string
 }
 
 // maxMessageSize 单个 UDP 数据报上限（IPv4 建议 1152，取宽松值）。
@@ -307,7 +310,14 @@ func (r *Registry) Serve(req *Message) (*Message, error) {
 type Server struct {
 	Registry *Registry
 	now      func() time.Time
+	// MaxInflight 同时处理的数据报上限；<=0 时取 defaultMaxInflight。
+	// 超限的数据报直接丢弃（UDP 语义允许丢包，CON 客户端会按 RFC 7252 重传），
+	// 避免 UDP 洪泛下每包一个 goroutine 的无界增长。
+	MaxInflight int
 }
+
+// defaultMaxInflight 默认并发处理上限。
+const defaultMaxInflight = 1024
 
 // ListenAndServe 在 addr 上服务；每个连接处理单数据报（处理内并发上限由调用方把握）。
 func (s *Server) ListenAndServe(addr string) error {
@@ -323,18 +333,31 @@ func (s *Server) ListenAndServe(addr string) error {
 }
 
 func (s *Server) servePacket(pc net.PacketConn) error {
+	limit := s.MaxInflight
+	if limit <= 0 {
+		limit = defaultMaxInflight
+	}
+	sem := make(chan struct{}, limit)
 	buf := make([]byte, maxMessageSize)
 	for {
 		n, raddr, err := pc.ReadFrom(buf)
 		if err != nil {
 			return err
 		}
+		select {
+		case sem <- struct{}{}:
+		default:
+			continue // 处理槽已满：丢弃该数据报
+		}
 		raw := append([]byte{}, buf[:n]...)
 		go func() {
+			defer func() { <-sem }()
 			msg, derr := Decode(raw)
 			if derr != nil {
 				return
 			}
+			// TB-22：填充 UDP 源地址，供上层按源做 LwM2M 端点归因。
+			msg.RemoteAddr = raddr.String()
 			resp, serr := s.Registry.Serve(msg)
 			if serr != nil || resp == nil {
 				return

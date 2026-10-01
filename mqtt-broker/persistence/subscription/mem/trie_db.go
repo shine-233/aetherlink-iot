@@ -80,26 +80,9 @@ func iterateShared(fn subscription.IterateFn, options subscription.IterationOpti
 	}
 	// 查询Match指定topicFilter
 	if options.TopicName != "" && options.MatchType == subscription.MatchFilter { // match指定的topicfilter
-		node := trie.getMatchedTopicFilter(options.TopicName)
-		if node == nil {
-			return true
-		}
-		if options.ClientID != "" {
-			for _, v := range node[options.ClientID] {
-				if !fn(options.ClientID, v) {
-					return false
-				}
-			}
-		} else {
-			for clientID, subs := range node {
-				for _, v := range subs {
-					if !fn(clientID, v) {
-						return false
-					}
-				}
-			}
-		}
-		return true
+		// 零分配匹配：直接沿订阅树回调，不再构造 ClientSubscriptions 中间 map。
+		e := matchEmitter{fn: fn, clientID: options.ClientID}
+		return trie.matchWalk(options.TopicName, &e)
 	}
 	// 查询指定clientID下的所有topic
 	if options.ClientID != "" {
@@ -160,26 +143,9 @@ func iterateNonShared(fn subscription.IterateFn, options subscription.IterationO
 	}
 	// 查询Match指定topicFilter
 	if options.TopicName != "" && options.MatchType == subscription.MatchFilter { // match指定的topicfilter
-		node := trie.getMatchedTopicFilter(options.TopicName)
-		if node == nil {
-			return true
-		}
-		if options.ClientID != "" {
-			for _, v := range node[options.ClientID] {
-				if !fn(options.ClientID, v) {
-					return false
-				}
-			}
-		} else {
-			for clientID, subs := range node {
-				for _, v := range subs {
-					if !fn(clientID, v) {
-						return false
-					}
-				}
-			}
-		}
-		return true
+		// 零分配匹配：直接沿订阅树回调，不再构造 ClientSubscriptions 中间 map。
+		e := matchEmitter{fn: fn, clientID: options.ClientID}
+		return trie.matchWalk(options.TopicName, &e)
 	}
 	// 查询指定clientID下的所有topic
 	if options.ClientID != "" {
@@ -354,12 +320,10 @@ func (db *TrieDB) unsubscribeAll(index map[string]map[string]*topicNode, clientI
 	if db.clientStats[clientID] != nil {
 		db.clientStats[clientID].SubscriptionsCurrent -= uint64(len(index[clientID]))
 	}
-	for topicName, node := range index[clientID] {
-		delete(node.clients, clientID)
-		if len(node.clients) == 0 && len(node.children) == 0 {
-			ss := strings.Split(topicName, "/")
-			delete(node.parent.children, ss[len(ss)-1])
-		}
+	// 共享订阅存放在 node.shared[shareName] 中，旧实现只删 node.clients，
+	// 断开客户端的共享订阅残留在树上，共享组仍可能选中它导致消息被丢弃。
+	for _, node := range index[clientID] {
+		node.removeClient(clientID)
 	}
 	delete(index, clientID)
 }
@@ -378,13 +342,4 @@ func (db *TrieDB) UnsubscribeAll(clientID string) error {
 	// user topics
 	db.UnsubscribeAllLocked(clientID)
 	return nil
-}
-
-// getMatchedTopicFilter return a map key by clientID that contain all matched topic for the given topicName.
-func (db *TrieDB) getMatchedTopicFilter(topicName string) subscription.ClientSubscriptions {
-	// system topic
-	if isSystemTopic(topicName) {
-		return db.systemTrie.getMatchedTopicFilter(topicName)
-	}
-	return db.userTrie.getMatchedTopicFilter(topicName)
 }

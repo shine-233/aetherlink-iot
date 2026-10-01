@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"aetherlink-iot/backend/internal/authz"
 	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/pkg/constant"
@@ -161,7 +162,7 @@ type ControlCommandExecutor interface {
 
 // ControlRequest 控制命令请求。
 type ControlRequest struct {
-	TenantID          string
+	TenantID string
 	// DeviceID 命令目标设备（必填：没有目标的命令无从执行）。
 	DeviceID          string
 	DocumentID        string
@@ -240,7 +241,7 @@ func (s *ScadaControlService) ExecuteControl(ctx context.Context, req ControlReq
 			return s.deny(ctx, req, "scada document not found"),
 				errcode.NewWithMessage(errcode.CodeNotFound, "scada document not found")
 		}
-		return model.ControlOutcomeDenied, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return model.ControlOutcomeDenied, dbError(err)
 	}
 	if model.IsScadaTerminalStatus(doc.Status) {
 		return s.deny(ctx, req, "scada document is archived"),
@@ -307,14 +308,25 @@ func (s *ScadaControlService) ExecuteControl(ctx context.Context, req ControlReq
 
 // hasPermission 判断发起者是否有权下发控制。
 // 角色白名单 + 租户一致；系统管理员可跨租户，租户管理员仅限本租户。
+// 判定收编 authz.Rule：从 allowedAuthorities 派生角色白名单（SetAllowedAuthorities 仍可覆盖），
+// Rule 依次执行「角色闸门 → SYS_ADMIN 跨租户放行 → 其余角色租户相等」，与手写版本逐条一致。
 func (s *ScadaControlService) hasPermission(actor ControlActor, documentTenantID string) bool {
-	if !s.allowedAuthorities[strings.TrimSpace(actor.Authority)] {
+	authority := strings.TrimSpace(actor.Authority)
+	if !s.allowedAuthorities[authority] {
 		return false
 	}
-	if actor.Authority == constant.SYS_ADMIN {
-		return true
+	claims := &authz.Claims{Authority: authority, TenantID: strings.TrimSpace(actor.TenantID)}
+	return authz.Rule{Roles: s.allowedAuthorityRoles()}.Check(claims, authz.OfTenant(strings.TrimSpace(documentTenantID))) == nil
+}
+
+// allowedAuthorityRoles 把 allowedAuthorities 集合展开成 authz.Rule 的角色白名单。
+// 空白名单（SetAllowedAuthorities()）时 Rule 必然拒绝，与空 map 的手写短路一致。
+func (s *ScadaControlService) allowedAuthorityRoles() []string {
+	roles := make([]string, 0, len(s.allowedAuthorities))
+	for authority := range s.allowedAuthorities {
+		roles = append(roles, authority)
 	}
-	return strings.TrimSpace(actor.TenantID) == strings.TrimSpace(documentTenantID)
+	return roles
 }
 
 // deny 落一条拒绝审计并返回 outcome（调用方按其原样返回）。

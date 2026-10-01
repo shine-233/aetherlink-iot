@@ -174,6 +174,19 @@ export const visualizationRoutes: GeneratedRoute[] = [
           i18nKey: 'route.visualization-scada',
           roles: ['SYS_ADMIN', 'TENANT_ADMIN']
         }
+      },
+      {
+        // TB-04 部件库（widget_bundles）：部件库 CRUD 与内置四部件种子导入。
+        // 菜单行由 backend/sql/123.sql 的 sys_ui_elements 种子驱动；
+        // 与 imports.ts / transform.ts / typings/elegant-router.d.ts 手工同步。
+        name: 'visualization_widget-bundles',
+        path: '/visualization/widget-bundles',
+        component: 'view.visualization_widget-bundles',
+        meta: {
+          title: 'visualization_widget-bundles',
+          i18nKey: 'route.visualization-widget-bundles',
+          roles: ['SYS_ADMIN', 'TENANT_ADMIN']
+        }
       }
     ]
   }

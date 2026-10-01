@@ -527,6 +527,109 @@ repository does not add Prometheus or Alertmanager to the lightweight Compose
 stack; follow `deploy/observability/README.md` for scrape prerequisites,
 per-instance capacity calibration, sensitive-data handling, and runbooks.
 
+## Domestic Database Adaptation (TP-20)
+
+The external telemetry-query switch `grpc.tptodb_type`
+(`NONE`/`TSDB`/`KINGBASE`/`POLARDB`) and the `db.dialect` declaration key are
+documented in `backend/configs/conf.example.yml`; the SQL dialect adaptation
+layer is the pure-Go package `backend/internal/dialect` (no native drivers, no
+CGO). The tp_to_db gRPC service itself is not part of this repository.
+Integration steps, startup fail-fast behavior, acceptance checks, and rollback
+are described in [`../docs/deployment-domestic-db.md`](../docs/deployment-domestic-db.md).
+Real TDengine/KingBase driver integration and read/write verification require an
+external database environment and remain a known residual gap.
+
+## Kubernetes (Helm) Deployment And Multi-Replica (TB-11)
+
+[`helm/aetherlink/`](helm/aetherlink/Chart.yaml) is the Helm chart for
+Kubernetes installs. It is the multi-replica counterpart of the single-node
+Compose stack: backend (StatefulSet + Services), GMQTT broker (StatefulSet +
+Services), frontend (Deployment + Service), and PostgreSQL/Redis with
+`postgresql.enabled` / `redis.enabled` switches. Environment-variable names,
+container ports, and probe paths are aligned line-by-line with the root
+`docker-compose.yml`; this alignment is enforced mechanically by
+`backend/internal/helmchart` Go unit tests, which render every template with a
+Helm-compatible `text/template` renderer, `yaml.Unmarshal` every produced
+document, and assert required keys (replicas, probes, resource limits,
+selectors, secret refs) plus the exact env-key sets of the compose services.
+
+Scope honesty: those tests validate the **rendering face only**. A real
+`helm install`, pod scheduling, and a two-replica revocation drill on an actual
+cluster are deployment-side validation and remain residual (no Kubernetes
+environment in the authoring session, no `helm`/`kubectl` binary claims).
+Delivery evidence, design rationale, and the residual ledger for this chart
+are recorded in
+[`../docs/validation/2026-09-26-tb11-k8s-helm-multireplica-evidence.md`](../docs/validation/2026-09-26-tb11-k8s-helm-multireplica-evidence.md).
+
+### Install
+
+1. Build and push the three runtime images. The chart defaults assume the
+   release pipeline names from `.github/workflows/container-release.yml`
+   (`ghcr.io/<owner>/aetherlink-iot-backend`, `aetherlink-iot-frontend`,
+   `aetherlink-iot-mqtt-broker`); pin `image.tag` in values to a released tag
+   instead of the `latest` default.
+2. Provide secrets either inline (`--set secrets.jwtKey=...` etc.) or via an
+   existing Secret (`secrets.existingSecret`) with the keys
+   `jwt-key`, `postgres-password`, `redis-password`, `mqtt-root-password`,
+   `mqtt-plugin-password`. Empty secrets fail the install on purpose.
+3. Install:
+
+   ```sh
+   helm install aetherlink deploy/helm/aetherlink -n aetherlink --create-namespace \
+     --set secrets.jwtKey=... \
+     --set secrets.postgresPassword=... \
+     --set secrets.redisPassword=... \
+     --set secrets.mqttRootPassword=... \
+     --set secrets.mqttPluginPassword=... \
+     --set backend.public.webUrl=http://<public-host>:8080 \
+     --set backend.public.mqttAddress=<public-host>:1883
+   ```
+
+4. First boot applies the full migration chain (`1.sql`..`VERSION_NUMBER`)
+   inside the backend pod; the StatefulSet `OrderedReady` policy serializes
+   this so later backend replicas start only after the first one passes
+   `/ready`. Verify with `kubectl -n aetherlink port-forward svc/aetherlink-backend 9999:9999`
+   and `GET /ready` returning 200 before routing traffic.
+
+Multi-replica defaults: `backend.replicas=1`, `broker.replicas=1`. The
+single-node default path (Compose) is unchanged by this chapter.
+
+### Multi-replica boundaries (must be satisfied before scaling)
+
+- **backend files volume**: `/go/src/app/files` (uploads, OTA artifacts) must
+  use `ReadWriteMany` storage when `backend.replicas > 1`; the default is
+  `ReadWriteOnce`, which makes uploaded files visible to one replica only.
+- **backend spool volumes**: `telemetry-spool` and `uplink-spool` are per-pod
+  durability layers backed by StatefulSet `volumeClaimTemplates`. Never share
+  one spool directory across replicas — concurrent replay from two pods would
+  corrupt or duplicate the buffered records. The chart physically cannot share
+  them because each replica gets its own claim.
+- **broker identity**: every broker replica uses its own stable
+  `broker_id` taken from the StatefulSet pod name (`metadata.name`). The
+  backend's `GOTP_MQTT_SESSION_REVOCATIONS_REQUIRED_BROKER_IDS` is rendered as
+  the space-separated set of all replica IDs, so cross-broker session
+  revocation ACK counting stays correct when broker replicas are scaled.
+- **broker persistence**: `GMQTT_PERSISTENCE_TYPE=redis` is mandatory in the
+  chart (same default as Compose). Sessions, subscriptions, and QoS queues
+  live in the shared Redis; any replica can serve a reconnecting device.
+- **federation**: the broker federation plugin (Serf/gRPC cluster wiring)
+  exists in `mqtt-broker/plugin/federation/` but stays disabled and is **not**
+  wired by this chart. Multi-broker via the chart relies on the shared
+  Redis persistence plus the per-pod revocation identities above.
+
+### Compose dual-replica override (premises template)
+
+[`docker-compose.replicas.yml`](docker-compose.replicas.yml) declares
+`deploy.replicas: 2` for `backend` and `mqtt-broker` and is a **premises
+template**, not a turnkey setup. It documents the three hard preconditions —
+local named volumes must become shared storage / external PostgreSQL with the
+spool volumes kept per-replica; the single-valued `MQTT_BROKER_ID` cannot be
+varied per replica in Compose so cross-broker revocation convergence requires
+the Helm chart; and host port publishing must be removed
+(`ports: !override []`, docker compose >= 2.24) or fronted by a TCP load
+balancer. Production multi-replica deployments should use the Helm chart,
+which satisfies all three by construction.
+
 ## First Use After Startup
 
 1. Open `AETHERLINK_PUBLIC_URL/first-device` in a browser.

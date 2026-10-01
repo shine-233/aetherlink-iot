@@ -18,13 +18,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func CreateBoard(boards *model.Board) error {
-	if _, err := query.Board.Where(query.Board.HomeFlag.Eq("Y"), query.Board.TenantID.Eq(boards.TenantID)).First(); err == nil {
-		return fmt.Errorf("home board already exists")
-	}
-	return query.Board.Create(boards)
-}
-
 func UpdateBoard(boards *model.Board, tenantID string) error {
 	p := query.Board
 	r, err := query.Board.Where(p.ID.Eq(boards.ID), p.TenantID.Eq(tenantID)).Updates(boards)
@@ -85,23 +78,37 @@ func GetPublishedBoardByShareToken(shareToken string) (*model.Board, error) {
 	).First()
 }
 
-// tenant-scope: reviewed-2026-09-02 all-tenants semantics (empty tenant = SYS_ADMIN full view);
-// scoped execution delegated to boardListByScopes with scopes from service layer.
-func GetBoardListByPage(boards *model.GetBoardListByPageReq, tenantId string) (int64, interface{}, error) {
-	var scopes []string
-	if strings.TrimSpace(tenantId) != "" {
-		scopes = []string{tenantId}
+// GetPublishedBoardsByShareTokens 批量按 share token 取已发布原生看板（TP-22 大屏轮播）。
+// tenant-scope: public-share——share_token 是发布方主动公开的能力凭证（与
+// GetPublishedBoardByShareToken 同语义）：跨 token 可能来自不同租户，本查询刻意
+// 不带 tenant_id 过滤；仅放行 published=true 且 vis_type=native 的行，
+// 未发布/非原生/未知 token 在 DAL 层即不可见（fail-closed）。
+// 返回顺序不保证，由服务层按请求顺序重排。
+func GetPublishedBoardsByShareTokens(tokens []string) ([]*model.Board, error) {
+	if len(tokens) == 0 {
+		return []*model.Board{}, nil
 	}
-	return boardListByScopes(boards, scopes)
+	p := query.Board
+	rows, err := p.Where(
+		p.ShareToken.In(tokens...),
+		p.Published.Is(true),
+		p.VisType.Eq("native"),
+	).Find()
+	if err != nil {
+		logrus.Error(err)
+		return nil, err
+	}
+	return rows, nil
 }
 
-// GetBoardListByPageForScopes 层级作用域变体（ROADMAP C2）：boards.tenant_id IN (scopes)。
+// GetBoardListByPageForScopesWithGroupScope 组共享可见性变体（TB-46 GPE v1）：
+// hiddenBoardIDs 非空时按 ID 排除（组绑定且调用者非组内成员的看板，fail-closed 隐藏）。
 // tenant-scope: caller-enforced (scopes 由 service 层展开并校验；nil=管理员全量)。
-func GetBoardListByPageForScopes(boards *model.GetBoardListByPageReq, scopes []string) (int64, interface{}, error) {
-	return boardListByScopes(boards, scopes)
+func GetBoardListByPageForScopesWithGroupScope(boards *model.GetBoardListByPageReq, scopes []string, hiddenBoardIDs []string) (int64, interface{}, error) {
+	return boardListByScopes(boards, scopes, hiddenBoardIDs)
 }
 
-func boardListByScopes(boards *model.GetBoardListByPageReq, scopes []string) (int64, interface{}, error) {
+func boardListByScopes(boards *model.GetBoardListByPageReq, scopes []string, hiddenBoardIDs []string) (int64, interface{}, error) {
 	q := query.Board
 	var count int64
 	queryBuilder := q.WithContext(context.Background())
@@ -125,6 +132,12 @@ func boardListByScopes(boards *model.GetBoardListByPageReq, scopes []string) (in
 
 	if boards.VisType != nil && *boards.VisType != "" {
 		queryBuilder = queryBuilder.Where(q.VisType.Eq(*boards.VisType))
+	}
+
+	// 组共享可见性（TB-46 GPE v1）：hiddenBoardIDs = 组绑定且调用者不可见的看板。
+	// gen 的 NotIn 不接受空参数（见下方 projectID 分支注释），故先判空。
+	if len(hiddenBoardIDs) > 0 {
+		queryBuilder = queryBuilder.Where(q.ID.NotIn(hiddenBoardIDs...))
 	}
 
 	// 看板项目分组过滤：先解析项目成员看板 ID，再按 ID 集合过滤。
@@ -269,171 +282,3 @@ func (BoardQuery) GetBoardNamesMatchingBase(ctx context.Context, tenantID, baseN
 		Pluck("name", &names).Error
 	return names, err
 }
-
-// GetDeviceTrend returns hourly online and offline device counts for the tenant.
-// tenantID identifies the tenant scope.
-// GetDeviceTrend returns hourly online and offline device counts for the tenant.
-// tenantID identifies the tenant scope.
-// startTime defaults to the previous 48 hours when omitted.
-// endTime defaults to now when omitted.
-func GetDeviceTrend(tenantID string, ownerUserID *string, startTime, endTime *int64) ([]model.DeviceTrendPoint, error) {
-	now := time.Now()
-	if endTime == nil {
-		t := now.Unix()
-		endTime = &t
-	}
-	if startTime == nil {
-		t := now.Add(-48 * time.Hour).Unix()
-		startTime = &t
-	}
-
-	startTimeUTC := time.Unix(*startTime, 0).UTC()
-	endTimeUTC := time.Unix(*endTime, 0).UTC()
-
-	var results []model.DeviceTrendPoint
-
-	sql := `
-WITH
--- 1. Build the hourly time series.
-hour_series AS (
-    SELECT generate_series AS hour_ts
-    FROM generate_series($2::timestamptz, $3::timestamptz, '1 hour') AS generate_series
-),
--- 2. Count devices created before the requested end time.
-device_total AS (
-    SELECT COUNT(*)::bigint AS total_cnt
-    FROM devices
-    WHERE tenant_id = $1
-      AND ($4 = '' OR owner_user_id = $4)
-      AND activate_flag <> 'inactive'
-      AND created_at <= $3
-),
--- 3. Count devices already online before the requested range.
-before_online AS (
-    SELECT COUNT(DISTINCT dsh.device_id)::bigint AS cnt
-    FROM device_status_history dsh
-    INNER JOIN (
-        SELECT device_id, MAX(id) AS max_id
-        FROM device_status_history
-        WHERE tenant_id = $1 AND change_time < $2
-          AND device_id IN (
-              SELECT id FROM devices
-              WHERE tenant_id = $1
-                AND activate_flag <> 'inactive'
-                AND ($4 = '' OR owner_user_id = $4)
-          )
-        GROUP BY device_id
-    ) latest ON dsh.id = latest.max_id
-    WHERE dsh.status = 1
-),
--- 4. Estimate devices that never emitted status changes.
-never_reported AS (
-    SELECT COUNT(*)::bigint AS cnt
-    FROM devices d
-    WHERE d.tenant_id = $1
-      AND ($4 = '' OR d.owner_user_id = $4)
-      AND d.activate_flag <> 'inactive'
-      AND d.created_at <= $3
-      AND d.is_online = 1
-      AND NOT EXISTS (
-          SELECT 1
-          FROM device_status_history dsh
-          WHERE dsh.tenant_id = $1
-            AND dsh.device_id = d.id
-      )
-),
--- 5. Load latest status change per device per hour inside the requested range.
-all_changes AS (
-    SELECT
-        dsh.device_id,
-        dsh.status,
-        date_trunc('hour', dsh.change_time) AS hour_ts
-    FROM device_status_history dsh
-    INNER JOIN (
-        SELECT device_id,
-               date_trunc('hour', change_time) AS hour_ts,
-               MAX(id) AS max_id
-        FROM device_status_history
-        WHERE tenant_id = $1
-          AND change_time >= $2
-          AND change_time <= $3
-          AND device_id IN (
-              SELECT id FROM devices
-              WHERE tenant_id = $1
-                AND activate_flag <> 'inactive'
-                AND ($4 = '' OR owner_user_id = $4)
-          )
-        GROUP BY device_id, date_trunc('hour', change_time)
-    ) latest ON dsh.id = latest.max_id
-),
--- 6. Compare each hourly status point with the previous point.
-device_prev AS (
-    SELECT
-        device_id,
-        hour_ts,
-        status,
-        LAG(status) OVER (
-            PARTITION BY device_id ORDER BY hour_ts
-        ) AS prev_status
-    FROM all_changes
-),
--- 7. Aggregate per-hour online and offline deltas.
-hourly_delta AS (
-    SELECT hour_ts,
-        COUNT(*) FILTER (
-            WHERE status = 1 AND (prev_status IS NULL OR prev_status != 1)
-        )::bigint AS online_delta,
-        COUNT(*) FILTER (
-            WHERE status = 0 AND (prev_status IS NULL OR prev_status != 0)
-        )::bigint AS offline_delta
-    FROM device_prev
-    GROUP BY hour_ts
-),
--- 8. Merge the base online count with per-hour deltas.
-merged AS (
-    SELECT
-        s.hour_ts,
-        (SELECT cnt FROM before_online) + (SELECT cnt FROM never_reported) AS init_online,
-        COALESCE(h.online_delta,  0)::bigint AS od,
-        COALESCE(h.offline_delta, 0)::bigint AS fd
-    FROM hour_series s
-    LEFT JOIN hourly_delta h ON h.hour_ts = s.hour_ts
-),
--- 9. Roll forward the online count hour by hour.
---    cur_online = GREATEST(0, prev_online + od - fd)
-with_online AS (
-    SELECT
-        hour_ts,
-        GREATEST(
-            init_online + SUM(od - fd) OVER (
-                ORDER BY hour_ts
-                ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-            ), 0
-        )::bigint AS cur_online
-    FROM merged
-)
--- 10. Return hourly total, online, and offline counts.
-SELECT
-    h.hour_ts                                        AS timestamp,
-    t.total_cnt                                      AS device_total,
-    LEAST(w.cur_online, t.total_cnt)::bigint         AS device_online,
-    GREATEST(t.total_cnt - LEAST(w.cur_online, t.total_cnt), 0)::bigint AS device_offline
-FROM with_online w
-JOIN merged h ON h.hour_ts = w.hour_ts
-CROSS JOIN device_total t
-ORDER BY h.hour_ts ASC;
-`
-	ownerFilter := ""
-	if ownerUserID != nil {
-		ownerFilter = strings.TrimSpace(*ownerUserID)
-	}
-	err := global.DB.Raw(sql, tenantID, startTimeUTC, endTimeUTC, ownerFilter).Scan(&results).Error
-	if err != nil {
-		logrus.Error("GetDeviceTrend query failed")
-		return nil, err
-	}
-
-	return results, nil
-}
-
-// Device trend queries intentionally keep SQL comments close to the CTEs above.

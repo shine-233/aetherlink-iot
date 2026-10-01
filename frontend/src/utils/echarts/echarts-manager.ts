@@ -183,7 +183,7 @@ const registeredExtensions = new Set<string>()
 const pendingExtensionRegistrations = new Map<string, Promise<void>>()
 
 /**
- * 鍒濆鍖?ECharts 基础组件注册
+ * 初始化 ECharts 基础组件注册
  * 只注册最常用的组件，减少初始内存占用
  */
 export function initEChartsComponents() {
@@ -231,7 +231,7 @@ export async function registerEChartsExtensions(componentTypes: string[]) {
           }
         })
         .catch((error) => {
-          console.error('鈿狅笍 ECharts 扩展组件注册警告:', error)
+          console.error('⚠️ ECharts 扩展组件注册警告:', error)
         })
         .finally(() => {
           pendingExtensionRegistrations.delete(type)
@@ -246,7 +246,7 @@ export async function registerEChartsExtensions(componentTypes: string[]) {
     try {
       await Promise.all(registrationTasks)
     } catch (error) {
-      console.error('鈿狅笍 ECharts 扩展组件注册警告:', error)
+      console.error('⚠️ ECharts 扩展组件注册警告:', error)
     }
   }
 }
@@ -278,8 +278,8 @@ export function createEChartsInstance(
 }
 
 /**
- * 瀹夊叏鍦颁娇鐢?ECharts
- * 鎻愪緵缁熶竴鐨?ECharts 访问接口
+ * 安全地使用 ECharts
+ * 提供统一的 ECharts 访问接口
  */
 export function useEChartsInstance() {
   // 确保基础组件已注册（幂等）
@@ -304,7 +304,7 @@ export function resetEChartsRegistration() {
   }
 }
 
-// 娉ㄦ剰锛氫笉鍦ㄦ澶勮嚜鍔ㄥ垵濮嬪寲锛屾敼鐢?main.ts 鍦?requestIdleCallback 涓欢杩熷姞杞斤紝浠ュ噺灏戝惎鍔ㄥ唴瀛樺崰鐢?
+// 注意：不在此处自动初始化，改用 main.ts 在 requestIdleCallback 中延迟加载，以减少启动内存占用
 export default {
   initEChartsComponents,
   registerEChartsExtensions,

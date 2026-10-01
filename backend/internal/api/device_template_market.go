@@ -19,13 +19,9 @@ import (
 // HandleMarketCatalog 行业分类目录（浏览页 tab 数据源）。
 // GET /api/v1/device/template/market/catalog
 func (*DeviceApi) HandleMarketCatalog(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	rows, err := service.GroupApp.DeviceTemplate.MarketCatalog(userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", rows)
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.DeviceTemplate.MarketCatalog(userClaims)
+	})
 }
 
 // HandleExportMarketBundle 按行业打包导出（type_key 为空=全量）。
@@ -64,17 +60,9 @@ func (*DeviceApi) HandleExportMarketBundle(c *gin.Context) {
 // 与 HandleExportMarketBundle 同一载荷契约（导出的 bundle 字段原样回传即可），
 // 形成出包即签名、入包必验签的闭环。
 func (*DeviceApi) HandleImportMarketBundle(c *gin.Context) {
-	var req model.ImportMarketBundleReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	rsp, err := service.GroupApp.DeviceTemplate.ImportMarketBundle(req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", rsp)
+	Handle(c, func(req *model.ImportMarketBundleReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.DeviceTemplate.ImportMarketBundle(*req, userClaims)
+	})
 }
 
 // HandleUpgradeDeviceTemplate 模板升级：新版本载荷导入并记录可回滚历史（P1.6）。
@@ -82,17 +70,9 @@ func (*DeviceApi) HandleImportMarketBundle(c *gin.Context) {
 // @Tags     DeviceTemplateMarket
 // @Router   /api/v1/device/template/upgrade [post]
 func (*DeviceApi) HandleUpgradeDeviceTemplate(c *gin.Context) {
-	var req model.UpgradeDeviceTemplateReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	rsp, err := service.GroupApp.DeviceTemplate.UpgradeDeviceTemplate(req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", rsp)
+	Handle(c, func(req *model.UpgradeDeviceTemplateReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.DeviceTemplate.UpgradeDeviceTemplate(*req, userClaims)
+	})
 }
 
 // HandleRollbackTemplateUpgrade 按历史记录回滚到旧版本（重放旧载荷，幂等）。
@@ -100,14 +80,9 @@ func (*DeviceApi) HandleUpgradeDeviceTemplate(c *gin.Context) {
 // @Tags     DeviceTemplateMarket
 // @Router   /api/v1/device/template/upgrade/{history_id}/rollback [post]
 func (*DeviceApi) HandleRollbackTemplateUpgrade(c *gin.Context) {
-	historyID := c.Param("history_id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	template, err := service.GroupApp.DeviceTemplate.RollbackTemplateUpgrade(historyID, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", template)
+	HandlePath(c, "history_id", func(historyID string, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.DeviceTemplate.RollbackTemplateUpgrade(historyID, userClaims)
+	})
 }
 
 // HandleListTemplateUpgradeHistory 某模板的升级历史（回滚点列表）。

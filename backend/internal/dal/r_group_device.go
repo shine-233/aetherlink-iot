@@ -25,13 +25,6 @@ func DeleteRGroupDevice(group_id, device_id string) error {
 	return err
 }
 
-func DeleteRGroupDeviceByDeviceID(deviceID string) error {
-	_, err := query.RGroupDevice.
-		Where(query.RGroupDevice.DeviceID.Eq(deviceID)).
-		Delete()
-	return err
-}
-
 func GetRGroupDeviceByGroupId(req model.GetDeviceListByGroup, tenantID string, ownerUserID *string) (int64, interface{}, error) {
 	// 获取分组下设备,分页返回
 	q := query.RGroupDevice
@@ -81,7 +74,7 @@ func GetDeviceSelectByGroupId(tenantId string, group_id string, deviceName strin
 		Where(rgd.GroupID.Eq(group_id)).
 		Where(d.TenantID.Eq(tenantId)).
 		Where(d.ActivateFlag.Eq("active")). // 激活状态
-		Where(d.Name.Like("%" + deviceName + "%")).Order(d.CreatedAt.Desc())
+		Where(d.Name.Like(ContainsLikePattern(deviceName))).Order(d.CreatedAt.Desc())
 	switch bindConfig {
 	case 1:
 		query = query.Where(d.DeviceConfigID.IsNotNull())

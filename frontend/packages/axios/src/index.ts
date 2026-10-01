@@ -10,14 +10,7 @@ import axiosRetry from 'axios-retry'
 import { nanoid } from '@aetherlink/utils'
 import { createAxiosConfig, createDefaultOptions, createRetryOptions } from './options'
 import { BACKEND_ERROR_CODE, REQUEST_ID_KEY } from './constant'
-import type {
-  CustomAxiosRequestConfig,
-  FlatRequestInstance,
-  MappedType,
-  RequestInstance,
-  RequestOption,
-  ResponseType
-} from './type'
+import type { CustomAxiosRequestConfig, FlatRequestInstance, MappedType, RequestOption, ResponseType } from './type'
 
 /**
  * 是否"纯对象"（Object 字面量 / new Object）。
@@ -113,56 +106,6 @@ function createCommonRequest<ResponseData = any>(
     cancelRequest,
     cancelAllRequest
   }
-}
-
-export function createRequest<ResponseData = any>(
-  axiosConfig?: CreateAxiosDefaults,
-  options?: Partial<RequestOption<ResponseData>>
-) {
-  const { instance, opts, cancelRequest, cancelAllRequest } = createCommonRequest<ResponseData>(axiosConfig, options)
-
-  const request: RequestInstance = async function request<T = any, R extends ResponseType = 'json'>(
-    config: CustomAxiosRequestConfig
-  ) {
-    const response: AxiosResponse<ResponseData> = await instance(config)
-    const responseType = response.config?.responseType || 'json'
-
-    if (responseType === 'json') {
-      return opts.transformBackendResponse(response)
-    }
-
-    return response.data as MappedType<R, T>
-  } as RequestInstance
-
-  Object.assign(request, {
-    async get<T = any, R extends ResponseType = 'json'>(url: string, config?: CustomAxiosRequestConfig<R>) {
-      return request<T, R>({ ...config, url, method: 'get' })
-    },
-    async post<T = any, R extends ResponseType = 'json'>(
-      url: string,
-      data?: any,
-      config?: CustomAxiosRequestConfig<R>
-    ) {
-      return request<T, R>({ ...config, url, data, method: 'post' })
-    },
-    async put<T = any, R extends ResponseType = 'json'>(url: string, data?: any, config?: CustomAxiosRequestConfig<R>) {
-      return request<T, R>({ ...config, url, data, method: 'put' })
-    },
-    async delete<T = any, R extends ResponseType = 'json'>(url: string, config?: CustomAxiosRequestConfig<R>) {
-      return request<T, R>({ ...config, url, method: 'delete' })
-    },
-    async delete2<T = any, R extends ResponseType = 'json'>(
-      url: string,
-      data?: any,
-      config?: CustomAxiosRequestConfig<R>
-    ) {
-      return request<T, R>({ ...config, url, data, method: 'delete' })
-    },
-    cancelRequest,
-    cancelAllRequest
-  })
-
-  return request
 }
 
 export { BACKEND_ERROR_CODE, REQUEST_ID_KEY }

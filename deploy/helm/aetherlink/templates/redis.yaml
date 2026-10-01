@@ -1,0 +1,165 @@
+{{- /* 文件用途：渲染内置 Redis StatefulSet（redis.enabled=false 时不渲染任何对象）。
+核心逻辑：镜像对齐根 compose（redis:8-alpine）；启动参数复刻 compose command——AOF、
+noeviction、requirepass、maxmemory（共享状态含限流/吊销/持久化队列，禁用淘汰策略）。
+关键注意事项：Redis 同时承载 backend（DB1/DB10）与 broker 插件凭证缓存（DB1）、
+broker 持久化（DB2）——多副本 backend/broker 共享本实例是会话吊销与队列可见的前提；
+maxmemory 必须严格低于 limits.memory（AOF/缓冲开销），禁改 allkeys-* 淘汰策略。
+重构建议：扩主从/哨兵或托管 Redis 时关闭本开关并用 external.redisAddr 指向外部实例。 */}}
+{{- if .Values.redis.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}-redis
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: aetherlink-redis
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: redis
+    {{- range $k, $v := .Values.commonLabels }}
+    {{ $k }}: {{ $v | quote }}
+    {{- end }}
+spec:
+  replicas: 1
+  podManagementPolicy: OrderedReady
+  serviceName: {{ .Release.Name }}-redis-headless
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: aetherlink-redis
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: aetherlink-redis
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: redis
+        {{- range $k, $v := .Values.commonLabels }}
+        {{ $k }}: {{ $v | quote }}
+        {{- end }}
+    spec:
+      # 所有组件都不调用 Kubernetes API，不挂载 SA token 以缩小凭据暴露面。
+      automountServiceAccountToken: false
+      # 对齐 compose：redis 服务不加 cap_drop/security_opt，仅加 seccomp 基线。
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: redis
+          image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag | default "8-alpine" }}"
+          imagePullPolicy: {{ .Values.redis.image.pullPolicy | default "IfNotPresent" }}
+          # 对齐 compose：redis 服务不做 cap_drop/no-new-privileges，仅保留容器级 seccomp 基线。
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          ports:
+            - name: redis
+              containerPort: 6379
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.existingSecret | default (printf "%s-aetherlink" .Release.Name) }}
+                  key: redis-password
+            - name: REDIS_MAXMEMORY
+              value: {{ .Values.redis.maxmemory | default "96mb" | quote }}
+          # 复刻 compose command（shell 展开密码，避免 ps 明文之外再引入额外凭据面）。
+          command:
+            - sh
+            - -c
+            - exec redis-server --appendonly yes --maxmemory "$REDIS_MAXMEMORY" --maxmemory-policy noeviction --requirepass "$REDIS_PASSWORD"
+          # 对齐 compose redis 健康检查：REDISCLI_AUTH 传密码，避免 -a 明文进探测命令行。
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli ping | grep PONG
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 10
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli ping | grep PONG
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 10
+          startupProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli ping | grep PONG
+            periodSeconds: 10
+            failureThreshold: 12
+          resources:
+            requests:
+              cpu: {{ .Values.redis.resources.requests.cpu | quote }}
+              memory: {{ .Values.redis.resources.requests.memory | quote }}
+            limits:
+              cpu: {{ .Values.redis.resources.limits.cpu | quote }}
+              memory: {{ .Values.redis.resources.limits.memory | quote }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        {{- if .Values.redis.storage.storageClass }}
+        storageClassName: {{ .Values.redis.storage.storageClass | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.redis.storage.size }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-redis
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: aetherlink-redis
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: redis
+    {{- range $k, $v := .Values.commonLabels }}
+    {{ $k }}: {{ $v | quote }}
+    {{- end }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: aetherlink-redis
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+---
+{{- /* headless Service：StatefulSet serviceName 必需。 */}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-redis-headless
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: aetherlink-redis
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: redis
+    {{- range $k, $v := .Values.commonLabels }}
+    {{ $k }}: {{ $v | quote }}
+    {{- end }}
+spec:
+  type: ClusterIP
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app.kubernetes.io/name: aetherlink-redis
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+{{- end }}

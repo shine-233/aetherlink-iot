@@ -29,24 +29,15 @@ type BoardApi struct{}
 // 就会尝试创建当前租户下的看板，细粒度写权限依赖 service 侧规则。
 // @Router   /api/v1/board [post]
 func (*BoardApi) CreateBoard(c *gin.Context) {
-	var req model.CreateBoardReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	if req.ConflictPolicy == nil || *req.ConflictPolicy == "" {
-		if q := c.Query("conflict_policy"); q != "" {
-			req.ConflictPolicy = &q
+	Handle(c, func(req *model.CreateBoardReq, userClaims *utils.UserClaims) (interface{}, error) {
+		if req.ConflictPolicy == nil || *req.ConflictPolicy == "" {
+			if q := c.Query("conflict_policy"); q != "" {
+				req.ConflictPolicy = &q
+			}
 		}
-	}
 
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	boardInfo, err := service.GroupApp.Board.CreateBoard(c, &req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", boardInfo)
+		return service.GroupApp.Board.CreateBoard(c, req, userClaims)
+	})
 }
 
 // UpdateBoard 更新看板。
@@ -57,19 +48,9 @@ func (*BoardApi) CreateBoard(c *gin.Context) {
 // 另外该 service 在 Id 为空时会退化为创建流程，调用方需要清楚这是“更新接口带 upsert 语义”。
 // @Router   /api/v1/board [put]
 func (*BoardApi) UpdateBoard(c *gin.Context) {
-	var req model.UpdateBoardReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	d, err := service.GroupApp.Board.UpdateBoard(c, &req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", d)
+	Handle(c, func(req *model.UpdateBoardReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Board.UpdateBoard(c, req, userClaims)
+	})
 }
 
 // DeleteBoard 删除看板。
@@ -79,39 +60,26 @@ func (*BoardApi) UpdateBoard(c *gin.Context) {
 // 是否允许删除指定看板完全以 service.ensureBoardWriteAccess 的判定为准。
 // @Router   /api/v1/board/{id} [delete]
 func (*BoardApi) DeleteBoard(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.Board.DeleteBoard(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandlePathAction(c, "id", func(id string, userClaims *utils.UserClaims) error {
+		return service.GroupApp.Board.DeleteBoard(id, userClaims)
+	})
 }
 
 // PublishBoard publishes a native board and returns its public share token.
 func (*BoardApi) PublishBoard(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	board, err := service.GroupApp.Board.PublishBoard(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", board)
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Board.PublishBoard(id, userClaims)
+	})
 }
 
 // GetPublishedBoardByShareToken is intentionally registered before JWT
 // middleware. It exposes only the native board payload selected by a valid
 // published share token.
 func (*BoardApi) GetPublishedBoardByShareToken(c *gin.Context) {
-	token := c.Param("token")
-	board, err := service.GroupApp.Board.GetPublishedBoardByShareToken(token)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", board)
+	// 公开投屏接口：注册在 JWT 中间件之前，不取 claims，token 即能力凭证。
+	HandlePublicNoBody(c, func() (interface{}, error) {
+		return service.GroupApp.Board.GetPublishedBoardByShareToken(c.Param("token"))
+	})
 }
 
 // HandleBoardListByPage 分页查询当前租户下的看板列表。
@@ -121,17 +89,9 @@ func (*BoardApi) GetPublishedBoardByShareToken(c *gin.Context) {
 // 只要鉴权通过，当前租户内的看板列表就可被读取。
 // @Router   /api/v1/board [get]
 func (*BoardApi) HandleBoardListByPage(c *gin.Context) {
-	var req model.GetBoardListByPageReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	boardList, err := service.GroupApp.Board.GetBoardListByPage(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", boardList)
+	Handle(c, func(req *model.GetBoardListByPageReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Board.GetBoardListByPage(req, userClaims)
+	})
 }
 
 // HandleBoard 查询单个看板详情。
@@ -141,31 +101,21 @@ func (*BoardApi) HandleBoardListByPage(c *gin.Context) {
 // 本层只负责把当前登录态与目标 id 传递下去，不提供跨租户绕过入口。
 // @Router   /api/v1/board/{id} [get]
 func (*BoardApi) HandleBoard(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	board, err := service.GroupApp.Board.GetBoard(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", board)
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Board.GetBoard(id, userClaims)
+	})
 }
 
 // HandleBoardListByTenantId 查询当前租户首页可见的看板集合。
 // 调用链：GET /api/v1/board/home -> 读取 claims.TenantID
-// -> service.GroupApp.Board.GetBoardListByTenantId -> DAL 按 tenantID 返回首页看板列表。
+// -> service.GroupApp.Board.GetBoardHomeForClaims -> DAL 按 tenantID 返回首页看板列表。
 // 权限边界：接口不接受外部 tenantID，首页看板始终绑定当前 claims.TenantID；当前层没有额外角色限制，
 // 因而同一租户内能访问该路由的用户都可看到本租户首页看板结果。
 // @Router   /api/v1/board/home [get]
 func (*BoardApi) HandleBoardListByTenantId(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	boardList, err := service.GroupApp.Board.GetBoardHomeForClaims(c.Query("tenant_id"), userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", boardList)
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Board.GetBoardHomeForClaims(c.Query("tenant_id"), userClaims)
+	})
 }
 
 // HandleDeviceTotal 获取设备总数统计。
@@ -175,17 +125,12 @@ func (*BoardApi) HandleBoardListByTenantId(c *gin.Context) {
 // common.CheckUserIsAdmin 判定，本层只转发 authority 与 tenantID。
 // @Router   /api/v1/board/device/total [get]
 func (*BoardApi) HandleDeviceTotal(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	board := service.GroupApp.Board
-	// The service derives tenant and owner scope from the full identity; request
-	// parameters cannot widen an ordinary user's device total.
-	total, err := board.GetDeviceTotal(c, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", total)
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		board := service.GroupApp.Board
+		// The service derives tenant and owner scope from the full identity; request
+		// parameters cannot widen an ordinary user's device total.
+		return board.GetDeviceTotal(c, userClaims)
+	})
 }
 
 // HandleDevice 获取设备总量、在线量、离线量概览。
@@ -195,15 +140,10 @@ func (*BoardApi) HandleDeviceTotal(c *gin.Context) {
 // 输入参数，避免普通用户主动指定其他租户。
 // @Router   /api/v1/board/device [get]
 func (*BoardApi) HandleDevice(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	board := service.GroupApp.Board
-	data, err := board.GetDevice(c, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		board := service.GroupApp.Board
+		return board.GetDevice(c, userClaims)
+	})
 }
 
 // HandleTenant 获取租户总览统计。
@@ -213,19 +153,14 @@ func (*BoardApi) HandleDevice(c *gin.Context) {
 // 普通租户用户即使已登录，也会在进入 service 前直接返回无权限错误。
 // @Router   /api/v1/board/tenant [get]
 func (*BoardApi) HandleTenant(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	if userClaims.Authority != constant.SYS_ADMIN {
-		c.Error(errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query tenant overview"))
-		return
-	}
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		if userClaims.Authority != constant.SYS_ADMIN {
+			return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query tenant overview")
+		}
 
-	users := service.UsersService{}
-	data, err := users.GetTenant(c)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+		users := service.UsersService{}
+		return users.GetTenant(c)
+	})
 }
 
 // HandleTenantUserInfo 获取当前租户关联的用户统计信息。
@@ -236,21 +171,15 @@ func (*BoardApi) HandleTenant(c *gin.Context) {
 // SYS_ADMIN 或 TENANT_ADMIN，能访问该路由的当前租户用户都将共享这一租户级统计视图。
 // @Router   /api/v1/board/tenant/user/info [get]
 func (*BoardApi) HandleTenantUserInfo(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	tenantID := userClaims.TenantID
-	// 根据租户ID查询租户信息
-	tenantInfo, err := service.GroupApp.User.GetTenantInfo(tenantID)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	users := service.UsersService{}
-	data, err := users.GetTenantUserInfo(c, tenantInfo.Email)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		// 根据租户ID查询租户信息
+		tenantInfo, err := service.GroupApp.User.GetTenantInfo(userClaims.TenantID)
+		if err != nil {
+			return nil, err
+		}
+		users := service.UsersService{}
+		return users.GetTenantUserInfo(c, tenantInfo.Email)
+	})
 }
 
 // HandleTenantDeviceInfo 获取当前租户下的设备统计信息。
@@ -258,19 +187,10 @@ func (*BoardApi) HandleTenantUserInfo(c *gin.Context) {
 // @Param all_tenants query bool false "仅 SYS_ADMIN 可显式汇总全部租户设备"
 // @Router   /api/v1/board/tenant/device/info [get]
 func (*BoardApi) HandleTenantDeviceInfo(c *gin.Context) {
-	var req model.GetBoardDeviceReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	board := service.GroupApp.Board
-	total, err := board.GetDeviceOverview(c, &req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", total)
+	Handle(c, func(req *model.GetBoardDeviceReq, userClaims *utils.UserClaims) (interface{}, error) {
+		board := service.GroupApp.Board
+		return board.GetDeviceOverview(c, req, userClaims)
+	})
 }
 
 // HandleUserInfo 查询当前登录用户的个人信息。
@@ -281,20 +201,19 @@ func (*BoardApi) HandleTenantDeviceInfo(c *gin.Context) {
 // 敏感字段脱敏发生在 API 层，因此若 service 返回结构变化，这里的脱敏逻辑也需要同步维护。
 // @Router   /api/v1/board/user/info [get]
 func (*BoardApi) HandleUserInfo(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	// 根据租户ID查询租户信息
-	users := service.UsersService{}
-	data, err := users.GetTenantInfo(c, userClaims.Email)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	// 清除敏感信息
-	if dataMap, ok := data.(map[string]interface{}); ok {
-		delete(dataMap, "password")
-	}
-	c.Set("data", data)
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		// 根据租户ID查询租户信息
+		users := service.UsersService{}
+		data, err := users.GetTenantInfo(c, userClaims.Email)
+		if err != nil {
+			return nil, err
+		}
+		// 清除敏感信息
+		if dataMap, ok := data.(map[string]interface{}); ok {
+			delete(dataMap, "password")
+		}
+		return data, nil
+	})
 }
 
 // UpdateUserInfo 更新当前登录用户的个人信息。
@@ -304,20 +223,10 @@ func (*BoardApi) HandleUserInfo(c *gin.Context) {
 // 是否涉及跨租户字段写入，依赖 service 层进一步校验。
 // @Router   /api/v1/board/user/update [post]
 func (*BoardApi) UpdateUserInfo(c *gin.Context) {
-	var param model.UsersUpdateReq
-	if !BindAndValidate(c, &param) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	users := service.UsersService{}
-	err := users.UpdateTenantInfo(c, userClaims, &param)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandleAction(c, func(param *model.UsersUpdateReq, userClaims *utils.UserClaims) error {
+		users := service.UsersService{}
+		return users.UpdateTenantInfo(c, userClaims, param)
+	})
 }
 
 // UpdateUserInfoPassword 更新当前登录用户密码。
@@ -327,20 +236,10 @@ func (*BoardApi) UpdateUserInfo(c *gin.Context) {
 // 与持久化安全性都由 service 层负责。
 // @Router   /api/v1/board/user/update/password [post]
 func (*BoardApi) UpdateUserInfoPassword(c *gin.Context) {
-	var param model.UsersUpdatePasswordReq
-	if !BindAndValidate(c, &param) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	users := service.UsersService{}
-	err := users.UpdateTenantInfoPassword(c, userClaims, &param)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandleAction(c, func(param *model.UsersUpdatePasswordReq, userClaims *utils.UserClaims) error {
+		users := service.UsersService{}
+		return users.UpdateTenantInfoPassword(c, userClaims, param)
+	})
 }
 
 // GetDeviceTrend 获取设备在线趋势。
@@ -351,78 +250,49 @@ func (*BoardApi) UpdateUserInfoPassword(c *gin.Context) {
 // 同时接口在 API 层限制 start_time <= end_time 且跨度不超过 30 天，避免无界查询。
 // @Router   /api/v1/board/trend [get]
 func (*BoardApi) GetDeviceTrend(c *gin.Context) {
-	var deviceTrendReq model.DeviceTrendReq
-	if !BindAndValidate(c, &deviceTrendReq) {
-		return
-	}
-
-	// 获取用户claims
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	// 如果请求中没有指定tenantID,则使用当前用户的tenantID
-	if deviceTrendReq.TenantID == nil || *deviceTrendReq.TenantID == "" {
-		deviceTrendReq.TenantID = &userClaims.TenantID
-	}
-
-	// 权限检查 - 只有系统管理员可以查看其他租户的数据
-	if *deviceTrendReq.TenantID != userClaims.TenantID && userClaims.Authority != "SYS_ADMIN" {
-		c.Error(errcode.New(errcode.CodeNoPermission))
-		return
-	}
-
-	// 校验时间范围
-	if deviceTrendReq.StartTime != nil && deviceTrendReq.EndTime != nil {
-		if *deviceTrendReq.StartTime > *deviceTrendReq.EndTime {
-			c.Error(errcode.WithVars(errcode.CodeParamError, map[string]interface{}{
-				"message": "start_time must be less than or equal to end_time",
-			}))
-			return
+	Handle(c, func(deviceTrendReq *model.DeviceTrendReq, userClaims *utils.UserClaims) (interface{}, error) {
+		// 如果请求中没有指定tenantID,则使用当前用户的tenantID
+		if deviceTrendReq.TenantID == nil || *deviceTrendReq.TenantID == "" {
+			deviceTrendReq.TenantID = &userClaims.TenantID
 		}
-		const maxRangeSeconds = int64(30 * 24 * 3600) // 30天
-		if *deviceTrendReq.EndTime-*deviceTrendReq.StartTime > maxRangeSeconds {
-			c.Error(errcode.WithVars(errcode.CodeParamError, map[string]interface{}{
-				"message": "time range must not exceed 30 days",
-			}))
-			return
+
+		// 权限检查 - 只有系统管理员可以查看其他租户的数据
+		if *deviceTrendReq.TenantID != userClaims.TenantID && userClaims.Authority != "SYS_ADMIN" {
+			return nil, errcode.New(errcode.CodeNoPermission)
 		}
-	}
 
-	// 调用service层获取趋势数据
-	trend, err := service.GroupApp.Device.GetDeviceTrend(c, userClaims, *deviceTrendReq.TenantID, deviceTrendReq.StartTime, deviceTrendReq.EndTime)
-	if err != nil {
-		c.Error(err)
-		return
-	}
+		// 校验时间范围
+		if deviceTrendReq.StartTime != nil && deviceTrendReq.EndTime != nil {
+			if *deviceTrendReq.StartTime > *deviceTrendReq.EndTime {
+				return nil, errcode.WithVars(errcode.CodeParamError, map[string]interface{}{
+					"message": "start_time must be less than or equal to end_time",
+				})
+			}
+			const maxRangeSeconds = int64(30 * 24 * 3600) // 30天
+			if *deviceTrendReq.EndTime-*deviceTrendReq.StartTime > maxRangeSeconds {
+				return nil, errcode.WithVars(errcode.CodeParamError, map[string]interface{}{
+					"message": "time range must not exceed 30 days",
+				})
+			}
+		}
 
-	c.Set("data", trend)
+		// 调用service层获取趋势数据
+		return service.GroupApp.Device.GetDeviceTrend(c, userClaims, *deviceTrendReq.TenantID, deviceTrendReq.StartTime, deviceTrendReq.EndTime)
+	})
 }
 
 // ExportBoardTemplate 导出看板为便携模板描述符（TP-5 资源中心）。
 // @Router /api/v1/board/export/:id [get]
 func (*BoardApi) ExportBoardTemplate(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	exported, err := service.GroupApp.Board.ExportBoard(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", exported)
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Board.ExportBoard(id, userClaims)
+	})
 }
 
 // ImportBoardTemplate 导入看板模板至当前租户（TP-5 资源中心）。
 // @Router /api/v1/board/import [post]
 func (*BoardApi) ImportBoardTemplate(c *gin.Context) {
-	var req model.ImportBoardTemplateReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	board, err := service.GroupApp.Board.ImportBoard(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", board)
+	Handle(c, func(req *model.ImportBoardTemplateReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Board.ImportBoard(req, userClaims)
+	})
 }
-

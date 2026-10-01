@@ -155,6 +155,7 @@ onBeforeUnmount(stopObservingLazyResources)
               :disabled="dashboard.published"
               :loading="publishing"
               data-testid="thingsvis-dashboard-publish"
+              :aria-label="dashboard.published ? $t('rdi.thingsvis.alreadyPublished') : $t('rdi.thingsvis.publish')"
               @click.stop="emit('publish', dashboard)"
             >
               <template #icon>
@@ -172,6 +173,7 @@ onBeforeUnmount(stopObservingLazyResources)
               secondary
               :loading="duplicating"
               data-testid="thingsvis-dashboard-duplicate"
+              :aria-label="$t('rdi.thingsvis.duplicate')"
               @click.stop="emit('duplicate', dashboard)"
             >
               <template #icon>
@@ -188,6 +190,7 @@ onBeforeUnmount(stopObservingLazyResources)
               size="small"
               secondary
               data-testid="thingsvis-dashboard-copy-link"
+              :aria-label="$t('rdi.thingsvis.copyLink')"
               @click.stop="emit('copyLink', dashboard)"
             >
               <template #icon>
@@ -205,6 +208,7 @@ onBeforeUnmount(stopObservingLazyResources)
               :type="menuConfig?.enabled ? 'info' : 'default'"
               secondary
               data-testid="thingsvis-dashboard-menu"
+              :aria-label="menuConfig?.enabled ? $t('rdi.thingsvis.editSystemMenu') : $t('rdi.thingsvis.setSystemMenu')"
               @click.stop="emit('menu', dashboard)"
             >
               <template #icon>
@@ -219,7 +223,13 @@ onBeforeUnmount(stopObservingLazyResources)
           <template #trigger>
             <NPopconfirm @positive-click.stop="emit('setHome', dashboard)">
               <template #trigger>
-                <NButton size="small" secondary data-testid="thingsvis-dashboard-set-home" @click.stop>
+                <NButton
+                  size="small"
+                  secondary
+                  data-testid="thingsvis-dashboard-set-home"
+                  :aria-label="$t('rdi.thingsvis.setHome')"
+                  @click.stop
+                >
                   <template #icon>
                     <icon-mdi:home-outline />
                   </template>
@@ -238,6 +248,7 @@ onBeforeUnmount(stopObservingLazyResources)
               secondary
               disabled
               data-testid="thingsvis-dashboard-current-home"
+              :aria-label="$t('rdi.thingsvis.currentHome')"
               @click.stop
             >
               <template #icon>
@@ -253,6 +264,7 @@ onBeforeUnmount(stopObservingLazyResources)
           secondary
           type="error"
           data-testid="thingsvis-dashboard-delete"
+          :aria-label="$t('common.delete')"
           @click.stop="emit('delete', dashboard.id, dashboard.name)"
         >
           <template #icon>

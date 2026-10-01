@@ -12,6 +12,7 @@
  *   8. 严格多租户拓扑隔离——租户 B 越权访问/修改租户 A 的角色权限被严格拦截（100003）。
  */
 
+require('../lib/runtime_config');
 const { expect } = require('chai');
 const apiClient = require('../lib/api_client');
 const seedData = require('../lib/seed_data');

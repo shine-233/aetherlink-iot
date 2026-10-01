@@ -26,9 +26,7 @@ func (*Device) GetDeviceList(ctx context.Context, userClaims *utils.UserClaims, 
 	list, err := dal.DeviceQuery{}.GetGatewayUnrelatedDeviceList(ctx, tenantID, req.Search, req.DeviceType, deviceOwnerUserIDFilterForClaims(userClaims))
 	if err != nil {
 		logrus.Error(ctx, "[GetDeviceList]failed:", err)
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	return list, err
 }
@@ -85,9 +83,7 @@ func ensureParentGatewayDevice(ctx context.Context, parentID string, claims *uti
 	parentDeviceConfig, err := dal.DeviceConfigQuery{}.First(ctx, query.DeviceConfig.ID.Eq(*parentDevice.DeviceConfigID))
 	if err != nil {
 		logrus.Error(ctx, "[CreateSonDevice]First parent device_configs failed:", err)
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	if parentDeviceConfig.DeviceType != strconv.Itoa(constant.GATEWAY_DEVICE) {
 		return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
@@ -140,9 +136,7 @@ func ensureLockedParentGatewayDevice(ctx context.Context, tx *query.QueryTx, par
 	parentDeviceConfig, err := tx.DeviceConfig.WithContext(ctx).Where(tx.DeviceConfig.ID.Eq(*parentDevice.DeviceConfigID)).First()
 	if err != nil {
 		logrus.Error(ctx, "[CreateSonDevice]First locked parent device_configs failed:", err)
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	if parentDeviceConfig.DeviceType != strconv.Itoa(constant.GATEWAY_DEVICE) {
 		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
@@ -155,8 +149,11 @@ func ensureLockedParentGatewayDevice(ctx context.Context, tx *query.QueryTx, par
 
 // bindChildDevice 校验单个子设备归属和类型后写入父子关系。
 func bindChildDevice(ctx context.Context, tx *query.QueryTx, parentDevice *model.Device, sonID string, claims *utils.UserClaims) error {
-	if claims == nil {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to modify device telemetry")
+	// 归属校验统一走 authz 的设备写规则：SYS_ADMIN、同租户管理员、属主 TENANT_USER。
+	// nil 声明在加载前拒绝（fail-closed，匿名调用者不应触发加锁查询）。
+	deviceRule := deviceWriteRule("no permission to modify device telemetry")
+	if err := deviceRule.RequireClaims(claims); err != nil {
+		return err
 	}
 
 	deviceInfo, err := tx.Device.WithContext(ctx).
@@ -165,15 +162,10 @@ func bindChildDevice(ctx context.Context, tx *query.QueryTx, parentDevice *model
 		First()
 	if err != nil {
 		logrus.Error(ctx, "[CreateSonDevice]First failed:", err)
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
-	if claims.Authority != constant.SYS_ADMIN && deviceInfo.TenantID != claims.TenantID {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to modify device telemetry")
-	}
-	if claims.Authority == constant.TENANT_USER && !deviceOwnerMatchesClaims(deviceInfo, claims) {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to modify device telemetry")
+	if err := deviceRule.Check(claims, deviceOwnership(deviceInfo)); err != nil {
+		return err
 	}
 	if deviceInfo.TenantID != parentDevice.TenantID {
 		return errcode.NewWithMessage(errcode.CodeNoPermission, "parent and sub-device must belong to the same tenant")
@@ -188,9 +180,7 @@ func bindChildDevice(ctx context.Context, tx *query.QueryTx, parentDevice *model
 	deviceConfig, err := dal.DeviceConfigQuery{}.First(ctx, query.DeviceConfig.ID.Eq(*deviceInfo.DeviceConfigID))
 	if err != nil {
 		logrus.Error(ctx, "[CreateSonDevice]First device_configs failed:", err)
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	if deviceConfig.DeviceType != strconv.Itoa(constant.GATEWAY_DEVICE) && deviceConfig.DeviceType != strconv.Itoa(constant.GATEWAY_SON_DEVICE) {
 		logrus.Error(ctx, "[CreateSonDevice]Invalid device type:", deviceConfig.DeviceType)
@@ -202,9 +192,7 @@ func bindChildDevice(ctx context.Context, tx *query.QueryTx, parentDevice *model
 
 	if err := dal.BindChildDeviceWithTx(tx, sonID, parentDevice.TenantID, parentDevice.ID, sonID); err != nil {
 		logrus.Error(ctx, "[CreateSonDevice]update failed:", err)
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	return nil
 }

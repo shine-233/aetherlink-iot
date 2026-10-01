@@ -154,22 +154,6 @@ func buildConnectionTelemetryReadinessSnapshot(
 	return readiness
 }
 
-func buildConnectionTelemetryReadiness(telemetry []*model.TelemetryCurrentData) DeviceConnectionTelemetryReadiness {
-	readiness := DeviceConnectionTelemetryReadiness{
-		CurrentCount:     len(telemetry),
-		HasRecentCurrent: len(telemetry) > 0,
-	}
-	if len(telemetry) == 0 || telemetry[0] == nil {
-		return readiness
-	}
-
-	latest := telemetry[0]
-	readiness.LatestKey = latest.Key
-	readiness.LatestAt = &latest.T
-	readiness.LatestValue = connectionTelemetryCurrentValue(latest)
-	return readiness
-}
-
 func connectionTelemetryCurrentValue(data *model.TelemetryCurrentData) interface{} {
 	if data == nil {
 		return nil

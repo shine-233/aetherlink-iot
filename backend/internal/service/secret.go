@@ -5,6 +5,7 @@
 //   - 高危解密（Reveal）：严格权限门禁，使用 secrets.Open 解密，审计记录入库，绝不在日志回显明文；
 //   - 轮换重加密（Reseal）：检测旧版本密钥并用 active_key_id 重塑信封；
 //   - 内部下游解析（ResolveSecret）：提供 ${secret.KEY} 动态解密能力，供规则链、Webhook 和通知等下游复用。
+//
 // 关键注意事项：任何密钥材料错误、缺失或越权一律 fail closed。
 package service
 
@@ -15,8 +16,10 @@ import (
 	"strings"
 	"time"
 
+	"aetherlink-iot/backend/internal/authz"
 	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/internal/service/kit"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/global"
 	"aetherlink-iot/backend/pkg/secrets"
@@ -24,7 +27,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
-	"gorm.io/gorm"
 )
 
 type SecretService struct{}
@@ -33,16 +35,38 @@ const (
 	secretMaskHead = 4
 )
 
-// tenantScope 返回租户过滤范围。超管（SYS_ADMIN）若未绑定特定租户可跨租户查看，其他角色严格隔离。
-func tenantScope(claims *utils.UserClaims) string {
-	if claims == nil {
-		return ""
+// secretRevealRule / secretResealRule 是解密与重加密两道闸门的权限规则：
+// 只有 SYS_ADMIN 与 TENANT_ADMIN 可越过，nil claims 与未知角色一律拒绝。
+var (
+	secretRevealRule = authz.Rule{
+		Roles:   authz.ManagerRoles,
+		Code:    errcode.CodeNoPermission,
+		Message: "permission denied: cannot reveal secret",
 	}
-	if claims.Authority == "SYS_ADMIN" {
-		// 超管默认不限制租户范围，若 claims.TenantID 为非系统占位符则尊重
-		return claims.TenantID
+	secretResealRule = authz.Rule{
+		Roles:   authz.ManagerRoles,
+		Code:    errcode.CodeNoPermission,
+		Message: "permission denied",
 	}
-	return claims.TenantID
+)
+
+// secretGate 未登录一律 CodeNoPermission "unauthorized"（空租户放行：SYS_ADMIN 可跨租户）。
+var secretGate = kit.Gate{Msg: "unauthorized"}
+
+// secretNotFound 仅 gorm.ErrRecordNotFound 视为不存在；其余 DB 故障以 CodeSystemError 原文透出。
+var secretNotFound = kit.NotFound{
+	Msg:     "secret not found",
+	Match:   kit.IsRecordNotFound,
+	OnOther: func(err error) error { return errcode.NewWithMessage(errcode.CodeSystemError, err.Error()) },
+}
+
+// secretRepo 绑定 ctx 的租户内密钥仓库；DAL 在 tenantID 为空时不加租户过滤。
+func secretRepo(ctx context.Context) kit.TenantRepo[*model.SysSecret] {
+	return kit.TenantRepo[*model.SysSecret]{
+		Get:      func(id, tenantID string) (*model.SysSecret, error) { return dal.GetSecretByID(ctx, tenantID, id) },
+		Gate:     secretGate,
+		NotFound: secretNotFound,
+	}
 }
 
 // toSecretResp 转换出参，计算脱敏和重加密需求。
@@ -82,8 +106,8 @@ func validateSecretType(st string) bool {
 
 // CreateSecret 创建通用密钥。
 func (SecretService) CreateSecret(ctx context.Context, req *model.CreateSecretReq, claims *utils.UserClaims) (*model.SecretResp, error) {
-	if claims == nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "unauthorized")
+	if err := secretGate.Require(claims); err != nil {
+		return nil, err
 	}
 	key := strings.TrimSpace(req.Key)
 	if !model.SecretKeyRegex.MatchString(key) {
@@ -147,25 +171,19 @@ func (SecretService) CreateSecret(ctx context.Context, req *model.CreateSecretRe
 
 // GetSecret 获取密钥详情（脱敏）。
 func (SecretService) GetSecret(ctx context.Context, id string, claims *utils.UserClaims) (*model.SecretResp, error) {
-	if claims == nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "unauthorized")
-	}
-	s, err := dal.GetSecretByID(ctx, tenantScope(claims), id)
+	s, err := secretRepo(ctx).Load(claims, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errcode.NewWithMessage(errcode.CodeNotFound, "secret not found")
-		}
-		return nil, errcode.NewWithMessage(errcode.CodeSystemError, err.Error())
+		return nil, err
 	}
 	return toSecretResp(s, secrets.NeedsReseal(s.EncryptedValue)), nil
 }
 
 // ListSecrets 分页与条件查询密钥（全部脱敏）。
 func (SecretService) ListSecrets(ctx context.Context, req *model.SecretListReq, claims *utils.UserClaims) (*model.SecretPageResult, error) {
-	if claims == nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "unauthorized")
+	if err := secretGate.Require(claims); err != nil {
+		return nil, err
 	}
-	list, total, err := dal.ListSecrets(ctx, tenantScope(claims), req)
+	list, total, err := dal.ListSecrets(ctx, claims.TenantID, req)
 	if err != nil {
 		return nil, errcode.NewWithMessage(errcode.CodeSystemError, err.Error())
 	}
@@ -182,15 +200,9 @@ func (SecretService) ListSecrets(ctx context.Context, req *model.SecretListReq, 
 
 // UpdateSecret 更新密钥元数据或重新加密更新值。
 func (SecretService) UpdateSecret(ctx context.Context, id string, req *model.UpdateSecretReq, claims *utils.UserClaims) (*model.SecretResp, error) {
-	if claims == nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "unauthorized")
-	}
-	s, err := dal.GetSecretByID(ctx, tenantScope(claims), id)
+	s, err := secretRepo(ctx).Load(claims, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errcode.NewWithMessage(errcode.CodeNotFound, "secret not found")
-		}
-		return nil, errcode.NewWithMessage(errcode.CodeSystemError, err.Error())
+		return nil, err
 	}
 
 	if name := strings.TrimSpace(req.Name); name != "" {
@@ -227,35 +239,26 @@ func (SecretService) UpdateSecret(ctx context.Context, id string, req *model.Upd
 
 // DeleteSecret 删除密钥。
 func (SecretService) DeleteSecret(ctx context.Context, id string, claims *utils.UserClaims) error {
-	if claims == nil {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, "unauthorized")
+	if err := secretGate.Require(claims); err != nil {
+		return err
 	}
-	err := dal.DeleteSecret(ctx, tenantScope(claims), id)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errcode.NewWithMessage(errcode.CodeNotFound, "secret not found")
-		}
-		return errcode.NewWithMessage(errcode.CodeSystemError, err.Error())
-	}
-	return nil
+	// DAL 自带租户内存在性检查，不存在时返回 gorm.ErrRecordNotFound。
+	return secretNotFound.Map(dal.DeleteSecret(ctx, claims.TenantID, id))
 }
 
 // RevealSecret 明文解密查看（防泄密审计闸门）。
 func (SecretService) RevealSecret(ctx context.Context, id string, claims *utils.UserClaims) (*model.RevealSecretResp, error) {
-	if claims == nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "unauthorized")
+	if err := secretGate.Require(claims); err != nil {
+		return nil, err
 	}
 	// 深度安全防线：只有系统管理员和租户管理员允许调用解密
-	if claims.Authority != "SYS_ADMIN" && claims.Authority != "TENANT_ADMIN" {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "permission denied: cannot reveal secret")
+	if err := secretRevealRule.RequireClaims(claims); err != nil {
+		return nil, err
 	}
 
-	s, err := dal.GetSecretByID(ctx, tenantScope(claims), id)
+	s, err := secretRepo(ctx).Load(claims, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errcode.NewWithMessage(errcode.CodeNotFound, "secret not found")
-		}
-		return nil, errcode.NewWithMessage(errcode.CodeSystemError, err.Error())
+		return nil, err
 	}
 
 	plain, err := secrets.Open(s.EncryptedValue, s.TenantID)
@@ -301,19 +304,16 @@ func (SecretService) RevealSecret(ctx context.Context, id string, claims *utils.
 
 // ResealSecret 在线轮换重加密。
 func (SecretService) ResealSecret(ctx context.Context, id string, claims *utils.UserClaims) (*model.SecretResp, error) {
-	if claims == nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "unauthorized")
+	if err := secretGate.Require(claims); err != nil {
+		return nil, err
 	}
-	if claims.Authority != "SYS_ADMIN" && claims.Authority != "TENANT_ADMIN" {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "permission denied")
+	if err := secretResealRule.RequireClaims(claims); err != nil {
+		return nil, err
 	}
 
-	s, err := dal.GetSecretByID(ctx, tenantScope(claims), id)
+	s, err := secretRepo(ctx).Load(claims, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errcode.NewWithMessage(errcode.CodeNotFound, "secret not found")
-		}
-		return nil, errcode.NewWithMessage(errcode.CodeSystemError, err.Error())
+		return nil, err
 	}
 
 	plain, err := secrets.Open(s.EncryptedValue, s.TenantID)

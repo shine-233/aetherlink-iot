@@ -40,20 +40,52 @@ func WriteString(w *bytes.Buffer, s []byte) {
 	WriteUint16(w, uint16(len(s)))
 	w.Write(s)
 }
-func ReadString(r *bytes.Buffer) (b []byte, err error) {
-	l := make([]byte, 2)
-	_, err = io.ReadFull(r, l)
-	if err != nil {
-		return nil, err
-	}
-	length := int(binary.BigEndian.Uint16(l))
-	paylaod := make([]byte, length)
 
-	_, err = io.ReadFull(r, paylaod)
+// writeStr 与 WriteString 输出相同，但直接写 string，省掉 []byte(s) 转换的拷贝。
+func writeStr(w *bytes.Buffer, s string) {
+	WriteUint16(w, uint16(len(s)))
+	w.WriteString(s)
+}
+
+// nextString 读取 2 字节长度前缀并返回长度对应的内部切片（不拷贝），
+// 调用方必须在缓冲区被复用前完成拷贝。错误语义与 io.ReadFull 一致。
+func nextString(r *bytes.Buffer) ([]byte, error) {
+	if r.Len() < 2 {
+		if r.Len() == 0 {
+			return nil, io.EOF
+		}
+		r.Next(r.Len())
+		return nil, io.ErrUnexpectedEOF
+	}
+	length := int(binary.BigEndian.Uint16(r.Next(2)))
+	if r.Len() < length {
+		if r.Len() == 0 {
+			return nil, io.EOF
+		}
+		r.Next(r.Len())
+		return nil, io.ErrUnexpectedEOF
+	}
+	return r.Next(length), nil
+}
+
+// ReadString 读取带长度前缀的字节串，返回独立拷贝（单次分配）。
+func ReadString(r *bytes.Buffer) ([]byte, error) {
+	b, err := nextString(r)
 	if err != nil {
 		return nil, err
 	}
-	return paylaod, nil
+	out := make([]byte, len(b))
+	copy(out, b)
+	return out, nil
+}
+
+// readStr 读取带长度前缀的字符串，直接转成 string（单次分配）。
+func readStr(r *bytes.Buffer) (string, error) {
+	b, err := nextString(r)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }
 
 func WriteUint32(w *bytes.Buffer, i uint32) {

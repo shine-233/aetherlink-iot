@@ -33,6 +33,23 @@ func cacheKeyDown(deviceConfigID string) string {
 	return fmt.Sprintf("tp:topicmap:down:%s", deviceConfigID)
 }
 
+// getCompiledMappings 是热路径入口：先查进程内 LRU（已编译正则），未命中再走
+// Redis→DB 的 GetMappingsWithCache 并编译一次。错误不缓存。
+func getCompiledMappings(ctx context.Context, deviceConfigID string, direction Direction) ([]compiledTopicMapping, error) {
+	client := redisCache
+	key := topicMapLocalKey{deviceConfigID: deviceConfigID, direction: direction}
+	if mappings, ok := topicMapLocal.get(client, key); ok {
+		return mappings, nil
+	}
+	rows, err := GetMappingsWithCache(ctx, deviceConfigID, direction)
+	if err != nil {
+		return nil, err
+	}
+	compiled := compileTopicMappings(rows)
+	topicMapLocal.put(client, key, compiled)
+	return compiled, nil
+}
+
 func GetMappingsWithCache(ctx context.Context, deviceConfigID string, direction Direction) ([]DeviceTopicMapping, error) {
 	var key string
 	if direction == DirectionUp {
@@ -62,9 +79,4 @@ func GetMappingsWithCache(ctx context.Context, deviceConfigID string, direction 
 	}
 	_ = SetRedisForJsondata(key, cachedTopicMappings{Loaded: true, Rows: rows}, ttl)
 	return rows, nil
-}
-
-func InvalidateMappingCache(deviceConfigID string) {
-	_ = DelKey(cacheKeyUp(deviceConfigID))
-	_ = DelKey(cacheKeyDown(deviceConfigID))
 }

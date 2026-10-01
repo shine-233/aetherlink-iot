@@ -10,7 +10,7 @@ type CreateReportScheduleRequest struct {
 	DeviceIDs     []string `json:"device_ids" validate:"required,min=1,dive,max=36"`
 	Keys          []string `json:"keys" validate:"required,min=1,dive,max=255"`
 	LookbackHours int      `json:"lookback_hours" validate:"omitempty,min=1,max=8760"`
-	Format        string   `json:"format" validate:"omitempty,oneof=csv"`
+	Format        string   `json:"format" validate:"omitempty,oneof=csv html pdf"`
 	Enabled       *bool    `json:"enabled"`
 }
 
@@ -29,7 +29,7 @@ type UpdateReportScheduleRequest struct {
 	DeviceIDs     *[]string `json:"device_ids" validate:"omitempty,min=1,dive,max=36"`
 	Keys          *[]string `json:"keys" validate:"omitempty,min=1,dive,max=255"`
 	LookbackHours *int      `json:"lookback_hours" validate:"omitempty,min=1,max=8760"`
-	Format        *string   `json:"format" validate:"omitempty,oneof=csv"`
+	Format        *string   `json:"format" validate:"omitempty,oneof=csv html pdf"`
 	Enabled       *bool     `json:"enabled"`
 }
 

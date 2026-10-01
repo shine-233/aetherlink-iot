@@ -66,12 +66,12 @@ func TestAssetCrudAndScope(t *testing.T) {
 		t.Fatalf("children count = %d err=%v", n, err)
 	}
 	// 分页根查询
-	list, total, err := ListAssetsByPage([]string{"t1"}, "", "", 1, 10)
+	list, total, err := ListAssetsByPageWithGroupScope([]string{"t1"}, "", "", 1, 10, nil)
 	if err != nil || total != 1 || len(list) != 1 {
 		t.Fatalf("root list total=%d len=%d err=%v", total, len(list), err)
 	}
 	// 关键字模糊
-	list2, total2, err := ListAssetsByPage([]string{"t1", "t2"}, "", "产线", 1, 10)
+	list2, total2, err := ListAssetsByPageWithGroupScope([]string{"t1", "t2"}, "", "产线", 1, 10, nil)
 	if err != nil || total2 != 1 || len(list2) != 1 {
 		t.Fatalf("keyword list total=%d len=%d err=%v", total2, len(list2), err)
 	}

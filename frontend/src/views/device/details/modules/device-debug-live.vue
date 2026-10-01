@@ -49,8 +49,16 @@ function clearPing() {
   }
 }
 
+function clearReconnect() {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer)
+    reconnectTimer = null
+  }
+}
+
 function startSocket() {
   if (socket) return
+  clearReconnect()
   const token = localStg.get('token') as string | undefined
   if (!token) {
     window.$message?.error($t('page.deviceDebug.noToken'))
@@ -58,38 +66,46 @@ function startSocket() {
   }
   wsState.value = 'connecting'
   const url = `${getWebsocketServerUrl()}/telemetry/datas/current/ws`
-  socket = new WebSocket(url)
-  socket.onopen = () => {
+  // 每个回调只认自己创建的那条连接：stopSocket/重连后旧连接的 onclose 晚到时
+  // 既不能清掉新连接的引用，也不能再排一次重连（否则卸载后仍无限重连、泄漏 WS）。
+  const ws = new WebSocket(url)
+  socket = ws
+  ws.onopen = () => {
+    if (socket !== ws) return
     wsState.value = 'open'
-    socket?.send(JSON.stringify({ device_id: props.id, token }))
+    ws.send(JSON.stringify({ device_id: props.id, token }))
     // 平台心跳窗口短，需周期 ping 保持连接（与既有实时模块一致 8s）。
     clearPing()
-    pingTimer = setInterval(() => socket?.send('ping'), 8000)
+    pingTimer = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) ws.send('ping')
+    }, 8000)
   }
-  socket.onmessage = (event) => {
-    if (event.data === 'pong') return
+  ws.onmessage = (event) => {
+    if (socket !== ws || event.data === 'pong') return
     appendFrame(event.data)
   }
-  socket.onclose = () => {
+  ws.onclose = () => {
+    if (socket !== ws) return
     wsState.value = 'closed'
     clearPing()
     socket = null
-    // 弱网自动重连
+    // 弱网自动重连（仅限非主动断开的连接）
+    clearReconnect()
     reconnectTimer = setTimeout(startSocket, 3000)
   }
-  socket.onerror = () => {
+  ws.onerror = () => {
+    if (socket !== ws) return
     wsState.value = 'closed'
   }
 }
 
 function stopSocket() {
   clearPing()
-  if (reconnectTimer) {
-    clearTimeout(reconnectTimer)
-    reconnectTimer = null
-  }
-  socket?.close()
+  clearReconnect()
+  const ws = socket
+  // 先解除引用再 close：异步到达的 onclose 发现 socket !== ws，不会触发重连。
   socket = null
+  ws?.close()
   wsState.value = 'idle'
 }
 

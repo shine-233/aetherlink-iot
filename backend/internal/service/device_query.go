@@ -106,9 +106,7 @@ func (*Device) GetDeviceStatusHistory(
 
 	total, list, err := dal.GetDeviceStatusHistoryByPage(req, deviceInfo.TenantID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 
 	result := make(map[string]interface{})

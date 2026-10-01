@@ -66,6 +66,15 @@ export const deviceRoutes: GeneratedRoute[] = [
         }
       },
       {
+        name: 'device_converter',
+        path: '/device/converter',
+        component: 'view.device_converter',
+        meta: {
+          title: 'device_converter',
+          i18nKey: 'route.device_converter'
+        }
+      },
+      {
         name: 'device_details',
         path: '/device/details',
         component: 'view.device_details',

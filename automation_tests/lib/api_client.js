@@ -395,9 +395,11 @@ class ApiClient {
       throw new TypeError('Automation uploads must be generated fixture buffers');
     }
     const form = new FormData();
+    // filename/contentType 可通过 options 覆盖（TB-41 媒体库用例需要真实扩展名以通过
+    // 后端扩展名白名单与内容签名校验）；缺省保持存量 OTA 夹具行为不变。
     form.append('file', fileContent, {
-      filename: 'aetherlink-automation-fixture.bin',
-      contentType: 'application/octet-stream'
+      filename: options.filename || 'aetherlink-automation-fixture.bin',
+      contentType: options.contentType || 'application/octet-stream'
     });
     for (const [key, value] of Object.entries(fields)) {
       form.append(key, String(value));

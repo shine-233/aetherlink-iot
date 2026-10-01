@@ -1,15 +1,19 @@
 package service
 
 import (
+	"context"
 	"math"
 	"strings"
 	"time"
 
 	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/internal/quota"
 	"aetherlink-iot/backend/pkg/errcode"
+	"aetherlink-iot/backend/pkg/utils"
 
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 )
 
 type BillingService struct{}
@@ -121,6 +125,75 @@ func (s *BillingService) GetTenantUsage(tenantID string) (*model.BillingUsageRep
 	return report, nil
 }
 
+// GetTenantAPIQuota 获取租户今日 API 配额报告（TB-17）：今日调用数、套餐限额与剩余量。
+// 限额与状态复用 internal/quota 的执法判定纯函数，保证展示口径与 429 执法口径一致；
+// 计量读取 fail-open——读取失败按 0 展示而非报错（查询端点不承载执法职责）。
+func (s *BillingService) GetTenantAPIQuota(ctx context.Context, tenantID string) (*model.APIQuotaReport, error) {
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID == "" {
+		return nil, errcode.NewWithMessage(errcode.CodeParamError, "tenant_id is required")
+	}
+
+	// 1. 订阅套餐：无订阅归 free（与 GetTenantUsage 同一口径）
+	sub, err := dal.GetTenantSubscription(tenantID)
+	if err != nil {
+		return nil, err
+	}
+	planCode := "free"
+	if sub != nil && sub.PlanCode != "" {
+		planCode = sub.PlanCode
+	}
+	plan, err := dal.GetSubscriptionPlanByCode(planCode)
+	if err != nil {
+		return nil, err
+	}
+	if plan == nil {
+		// 容错回退：套餐目录缺失时按"未配置阈值"展示（不限量），不阻断查询。
+		plan = &model.SubscriptionPlan{Code: planCode, Name: strings.ToUpper(planCode)}
+	}
+
+	// 2. 今日已用调用数（Redis 权威值 / 进程镜像 / DB 快照三级回落；失败按 0 展示）
+	used, usageDate, err := quota.Default().TodayUsage(ctx, tenantID)
+	if err != nil {
+		logrus.WithError(err).Warnf("billing: read today api usage failed for tenant %s, report 0", utils.SanitizeForLog(tenantID))
+		usageDate = quota.UsageDate(time.Now())
+	}
+
+	// 3. 限额与状态判定复用执法纯函数（展示与执法同口径）
+	decision := quota.DecideDailyQuota(int64(plan.MaxApiCallsPerDay), used, time.Now())
+
+	// 4. TB-17R 传输维度：限额读 broker 实际执法用的 Redis 限额缓存，用量读 broker 连接计数键，
+	//    判定复用同一纯函数——展示与 broker 执法同口径。任一读取失败按"未配置阈值+0 用量"展示
+	//    （unlimited）：broker 在 Redis 故障时同样 fail-open 放行，查询端点不承载执法职责。
+	transportLimit, tLimitErr := quota.ReadTransportDailyLimit(ctx, tenantID)
+	// 传输计数键内嵌的计量日与 API 维度同取当日 UTC（同一判定时刻），无需单独展示。
+	transportUsed, _, tUsageErr := quota.ReadTransportDailyUsage(ctx, tenantID)
+	if tLimitErr != nil {
+		logrus.WithError(tLimitErr).Warnf("billing: read transport limit cache failed for tenant %s, report unlimited", utils.SanitizeForLog(tenantID))
+	}
+	if tUsageErr != nil {
+		logrus.WithError(tUsageErr).Warnf("billing: read transport daily usage failed for tenant %s, report 0", utils.SanitizeForLog(tenantID))
+	}
+	transportDecision := quota.DecideDailyQuota(transportLimit, transportUsed, time.Now())
+
+	return &model.APIQuotaReport{
+		TenantID:          tenantID,
+		Date:              usageDate,
+		PlanCode:          plan.Code,
+		APICallsToday:     used,
+		MaxAPICallsPerDay: int64(plan.MaxApiCallsPerDay),
+		Remaining:         decision.Remaining,
+		UsagePct:          decision.UsagePct,
+		QuotaStatus:       decision.Status,
+
+		TransportEventsToday: transportUsed,
+		MaxTransportPerDay:   transportLimit,
+		TransportRemaining:   transportDecision.Remaining,
+		TransportUsagePct:    transportDecision.UsagePct,
+		TransportQuotaStatus: transportDecision.Status,
+	}, nil
+}
+
 // SubscribePlan 为租户订购或变更套餐
 func (s *BillingService) SubscribePlan(targetTenantID, planCode string, operatorRole string, operatorTenantID string) (*model.TenantSubscription, error) {
 	targetTenantID = strings.TrimSpace(targetTenantID)
@@ -168,6 +241,13 @@ func (s *BillingService) SubscribePlan(targetTenantID, planCode string, operator
 
 	if err := dal.UpsertTenantSubscription(sub); err != nil {
 		return nil, err
+	}
+
+	// TB-17R：套餐变更即发布传输限额缓存，供 MQTT broker 在连接认证路径执法（见
+	// internal/quota/transport_limit_publisher.go）。发布失败不影响订购主流程：broker 读不到
+	// 缓存按"未配置执法阈值"放行（fail-open），此处只告警。
+	if pubErr := quota.PublishTransportLimit(targetTenantID, int64(plan.MaxTelemetryPerDay)); pubErr != nil {
+		logrus.WithError(pubErr).Warnf("billing: publish transport limit cache failed for tenant %s", targetTenantID)
 	}
 
 	return sub, nil

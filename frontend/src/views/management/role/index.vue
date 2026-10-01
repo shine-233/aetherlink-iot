@@ -7,11 +7,12 @@
 1. editData 在编辑、分配权限之间复用，新增入口已在父层主动清空，后续新增动作也应保持该约定。
 -->
 <script setup lang="tsx">
-import { computed, getCurrentInstance, reactive, ref } from 'vue'
+import { computed, getCurrentInstance, ref } from 'vue'
 import type { Ref } from 'vue'
 import { NButton, NEmpty, NPopconfirm, NSpace } from 'naive-ui'
-import type { DataTableColumns, PaginationProps } from 'naive-ui'
-import { useBoolean, useLoading } from '@aetherlink/hooks'
+import type { DataTableColumns } from 'naive-ui'
+import { useBoolean } from '@aetherlink/hooks'
+import { fromFlatResponse, useListPage } from '@/components/data-table-page/useListPage'
 import { deleteRole, listRoles } from '@/service/api'
 import { $t } from '@/locales'
 import { formatDateTime } from '@/utils/common/datetime'
@@ -19,44 +20,23 @@ import TableActionModal from './modules/table-action-modal.vue'
 import EditPermissionModal from './modules/edit-permission-modal.vue'
 import type { ModalType } from './modules/table-action-modal.vue'
 
-const { loading, startLoading, endLoading } = useLoading(false)
 const { bool: visible, setTrue: openModal } = useBoolean()
 const { bool: editPermissionVisible, setTrue: openEditPermissionModal } = useBoolean()
 
-type QueryFormModel = Pick<UserManagement.User, 'email' | 'name' | 'status'> & {
-  page: number
-  page_size: number
-}
+type QueryFormModel = Pick<UserManagement.User, 'email' | 'name' | 'status'>
 
-// 查询参数与分页状态双向联动，列表刷新时要保持 queryParams 与 pagination 同步推进。
-const queryParams = reactive<QueryFormModel>({
-  email: null,
-  name: null,
-  status: null,
-  page: 1,
-  page_size: 10
+// 查询、分页与过期请求丢弃统一由 useListPage 维护；新增/编辑/删除成功后调用 getTableData 回刷。
+const {
+  query: queryParams,
+  rows: tableData,
+  loading,
+  pagination,
+  load: getTableData
+} = useListPage<UserManagement.User, QueryFormModel>({
+  initialQuery: () => ({ email: null, name: null, status: null }),
+  pageSizes: [10, 15, 20, 25, 30],
+  fetcher: async (params) => fromFlatResponse<UserManagement.User>(await listRoles(params))
 })
-
-const tableData = ref<UserManagement.User[]>([])
-
-function setTableData(data: UserManagement.User[]) {
-  tableData.value = data
-}
-
-async function getTableData() {
-  startLoading()
-  try {
-    const { data } = await listRoles(queryParams)
-    if (data) {
-      // 角色列表是页面内所有“编辑/授权”动作的数据来源，回刷时必须同步更新表格数据和总数。
-      const list: UserManagement.User[] = data.list
-      setTableData(list)
-      pagination.itemCount = data.total || 0
-    }
-  } finally {
-    endLoading()
-  }
-}
 
 const columns: Ref<DataTableColumns<UserManagement.User>> = ref([
   {
@@ -168,26 +148,6 @@ async function handleDeleteTable(rowId: string) {
   }
 }
 
-const pagination: PaginationProps = reactive({
-  page: 1,
-  pageSize: 10,
-  showSizePicker: true,
-  pageSizes: [10, 15, 20, 25, 30],
-  onChange: (page: number) => {
-    // 翻页与每页条数变化都要同步回 queryParams，否则接口层会沿用旧分页条件。
-    pagination.page = page
-    queryParams.page = page
-    getTableData()
-  },
-  onUpdatePageSize: (pageSize: number) => {
-    pagination.pageSize = pageSize
-    pagination.page = 1
-    queryParams.page = 1
-    queryParams.page_size = pageSize
-    getTableData()
-  }
-})
-
 function init() {
   // 页面没有额外路由守卫缓存，进入即拉取一次角色列表。
   getTableData()
@@ -217,6 +177,7 @@ init()
           :data="tableData"
           :loading="loading"
           :pagination="pagination"
+          remote
           class="flex-1-hidden"
         >
           <template #empty>

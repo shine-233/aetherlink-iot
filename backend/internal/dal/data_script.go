@@ -159,25 +159,6 @@ func EnableDataScript(data *model.DataScript) error {
 }
 
 // tenant-scope: parent-owned?2026-08-26 ?????
-func GetDeviceIDsByDataScriptID(dataScriptID string) ([]string, error) {
-	var deviceIDs []string
-	dataScript, err := query.DataScript.Where(query.DataScript.ID.Eq(dataScriptID)).First()
-	if err != nil {
-		logrus.Error(err)
-		return deviceIDs, err
-	}
-	devices, err := query.Device.Where(query.Device.DeviceConfigID.Eq(dataScript.DeviceConfigID)).Find()
-	if err != nil {
-		logrus.Error(err)
-		return deviceIDs, err
-	}
-	for _, device := range devices {
-		deviceIDs = append(deviceIDs, device.ID)
-	}
-	return deviceIDs, err
-}
-
-// tenant-scope: parent-owned?2026-08-26 ?????
 func GetDataScriptByDeviceConfigIdAndScriptType(deviceConfigId *string, scriptType string) (*model.DataScript, error) {
 	if deviceConfigId == nil || *deviceConfigId == "" {
 		return nil, nil

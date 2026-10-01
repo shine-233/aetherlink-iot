@@ -18,12 +18,12 @@ import (
 const CommandJobReportRowLimit = 50000
 
 type CommandJobReportRow struct {
-	DeviceID     string  `gorm:"column:device_id"`
-	DeviceNumber string  `gorm:"column:device_number"`
-	Name         string  `gorm:"column:name"`
-	Online       bool    `gorm:"column:online"`
-	Eligible     bool    `gorm:"column:eligible"`
-	Status       string  `gorm:"column:status"`
+	DeviceID     string `gorm:"column:device_id"`
+	DeviceNumber string `gorm:"column:device_number"`
+	Name         string `gorm:"column:name"`
+	Online       bool   `gorm:"column:online"`
+	Eligible     bool   `gorm:"column:eligible"`
+	Status       string `gorm:"column:status"`
 	// 进度三列均为指针：NULL 表示"从未上报进度"，与"上报了 0%"是两种事实，
 	// 导出时不得把 NULL 写成 0（那等于给没进展的设备凭空记一笔"已开始"）。
 	ProgressPercent *int       `gorm:"column:progress_percent"`

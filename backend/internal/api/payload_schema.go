@@ -24,19 +24,9 @@ type PayloadSchemaApi struct{}
 // @Success 200 {object} model.ValidatePayloadResult "Static validation result"
 // @Router /api/v1/payload-schema/validate [post]
 func (*PayloadSchemaApi) ValidatePayload(c *gin.Context) {
-	var req model.ValidatePayloadReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.PayloadSchema.ValidatePayload(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	Handle(c, func(req *model.ValidatePayloadReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.PayloadSchema.ValidatePayload(req, userClaims)
+	})
 }
 
 // SavePayloadSchema 创建或更新一个持久化 payload schema（租户隔离）。
@@ -48,19 +38,9 @@ func (*PayloadSchemaApi) ValidatePayload(c *gin.Context) {
 // @Success 200 {object} model.PayloadSchemaRsp "Saved payload schema"
 // @Router /api/v1/payload-schema [post]
 func (*PayloadSchemaApi) SavePayloadSchema(c *gin.Context) {
-	var req model.SavePayloadSchemaReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.PayloadSchema.SaveSchema(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	Handle(c, func(req *model.SavePayloadSchemaReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.PayloadSchema.SaveSchema(req, userClaims)
+	})
 }
 
 // UpdatePayloadSchema 按路径 id 更新一个持久化 payload schema。
@@ -73,20 +53,10 @@ func (*PayloadSchemaApi) SavePayloadSchema(c *gin.Context) {
 // @Success 200 {object} model.PayloadSchemaRsp "Saved payload schema"
 // @Router /api/v1/payload-schema/{schema_id} [put]
 func (*PayloadSchemaApi) UpdatePayloadSchema(c *gin.Context) {
-	var req model.SavePayloadSchemaReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	req.ID = c.Param("schema_id")
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.PayloadSchema.SaveSchema(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	Handle(c, func(req *model.SavePayloadSchemaReq, userClaims *utils.UserClaims) (interface{}, error) {
+		req.ID = c.Param("schema_id")
+		return service.GroupApp.PayloadSchema.SaveSchema(req, userClaims)
+	})
 }
 
 // ListPayloadSchemas 返回当前租户的 payload schema 列表。
@@ -96,14 +66,9 @@ func (*PayloadSchemaApi) UpdatePayloadSchema(c *gin.Context) {
 // @Success 200 {object} model.PayloadSchemaListRsp "Payload schema list"
 // @Router /api/v1/payload-schema [get]
 func (*PayloadSchemaApi) ListPayloadSchemas(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.PayloadSchema.ListSchemas(userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.PayloadSchema.ListSchemas(userClaims)
+	})
 }
 
 // DeletePayloadSchema 按路径 id 删除一个 payload schema。
@@ -114,11 +79,7 @@ func (*PayloadSchemaApi) ListPayloadSchemas(c *gin.Context) {
 // @Success 200 {object} nil "Deleted"
 // @Router /api/v1/payload-schema/{schema_id} [delete]
 func (*PayloadSchemaApi) DeletePayloadSchema(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	if err := service.GroupApp.PayloadSchema.DeleteSchema(c.Param("schema_id"), userClaims); err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", nil)
+	HandleNoBodyAction(c, func(userClaims *utils.UserClaims) error {
+		return service.GroupApp.PayloadSchema.DeleteSchema(c.Param("schema_id"), userClaims)
+	})
 }

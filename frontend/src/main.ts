@@ -14,10 +14,11 @@
  */
 import { createApp, watch } from 'vue'
 import './plugins/assets'
-import { useTitle } from '@vueuse/core'
 import { useSysSettingStore } from '@/store/modules/sys-setting'
+import { useThemeStore } from '@/store/modules/theme'
+import { ensureNaiveDarkTheme } from '@/theme/naive-dark'
 import { $t } from '@/locales'
-import { resolveDocumentTitle } from '@/router/guard/title-helper'
+import { resolveDocumentTitle, setDocumentTitle } from '@/router/guard/title-helper'
 import { setupDayjs, setupLoading, setupNProgress } from './plugins'
 import { setupStore } from './store'
 import { router, setupRouter } from './router'
@@ -70,7 +71,7 @@ async function setupApp() {
   sysSettingStore.initSysSetting().then(() => {
     const syncCurrentDocumentTitle = () => {
       const appTitle = sysSettingStore.system_name || $t('title')
-      useTitle(resolveDocumentTitle(router.currentRoute.value, appTitle, $t))
+      setDocumentTitle(resolveDocumentTitle(router.currentRoute.value, appTitle, $t))
     }
 
     // 监听 system_name 的变化，并根据变化动态更新国际化消息
@@ -200,6 +201,9 @@ async function setupApp() {
     }
     return false
   }
+
+  // 暗色模式启动时先拿到按需加载的 naive-ui darkTheme 再挂载，避免首帧亮色闪屏。
+  if (useThemeStore().darkMode) await ensureNaiveDarkTheme()
 
   app.mount('#app')
 }

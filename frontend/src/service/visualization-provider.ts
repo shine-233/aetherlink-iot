@@ -12,8 +12,6 @@ export const VISUALIZATION_PROVIDER_KINDS = {
   external: 'external'
 } as const
 
-export type VisualizationProviderKind = (typeof VISUALIZATION_PROVIDER_KINDS)[keyof typeof VISUALIZATION_PROVIDER_KINDS]
-
 export const localVisualizationProvider = nativeBoardProvider
 export const externalVisualizationProvider = legacyThingsVisProvider
 

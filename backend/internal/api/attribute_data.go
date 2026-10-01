@@ -38,14 +38,9 @@ type AttributeDataApi struct{}
 // 2. 若后续引入属性分页或大字段裁剪，这个“全量快照接口”要和详情页加载策略一起重审。
 // @Router   /api/v1/attribute/datas/{id} [get]
 func (*AttributeDataApi) HandleDataList(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.AttributeData.GetAttributeDataList(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.AttributeData.GetAttributeDataList(id, userClaims)
+	})
 }
 
 // HandleAttributeDataByKey 根据 key 查询设备属性。
@@ -60,17 +55,9 @@ func (*AttributeDataApi) HandleDataList(c *gin.Context) {
 // 2. 若后续支持模糊 key 或批量 key 查询，这个入口应避免继续堆参数分支，改为独立查询模型更清晰。
 // /api/v1/attribute/datas/key [get]
 func (*AttributeDataApi) HandleAttributeDataByKey(c *gin.Context) {
-	var req model.GetDataListByKeyReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.AttributeData.GetAttributeDataByKey(req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.GetDataListByKeyReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.AttributeData.GetAttributeDataByKey(*req, userClaims)
+	})
 }
 
 // DeleteData 删除属性数据。
@@ -84,14 +71,9 @@ func (*AttributeDataApi) HandleAttributeDataByKey(c *gin.Context) {
 // 2. 当前成功后统一返回 nil，若前端未来需要回显被删对象摘要，可再评估响应契约。
 // @Router   /api/v1/attribute/datas/{id} [delete]
 func (*AttributeDataApi) DeleteData(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.AttributeData.DeleteAttributeData(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandlePathAction(c, "id", func(id string, userClaims *utils.UserClaims) error {
+		return service.GroupApp.AttributeData.DeleteAttributeData(id, userClaims)
+	})
 }
 
 // HandleAttributeSetLogsDataListByPage 查询属性下发记录。
@@ -106,17 +88,9 @@ func (*AttributeDataApi) DeleteData(c *gin.Context) {
 // 2. 这类分页 handler 与其他日志接口结构高度相似，后续可抽公共分页查询入口模板减少重复。
 // @Router   /api/v1/attribute/datas/set/logs [get]
 func (*AttributeDataApi) HandleAttributeSetLogsDataListByPage(c *gin.Context) {
-	var req model.GetAttributeSetLogsListByPageReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.AttributeData.GetAttributeSetLogsDataListByPage(req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.GetAttributeSetLogsListByPageReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.AttributeData.GetAttributeSetLogsDataListByPage(*req, userClaims)
+	})
 }
 
 // AttributePutMessage 发送属性写入消息。
@@ -132,18 +106,9 @@ func (*AttributeDataApi) HandleAttributeSetLogsDataListByPage(c *gin.Context) {
 // 2. 若属性写入后要支持幂等键、批量写入或异步任务回执，建议避免继续在现有 DTO 上叠加可选字段。
 // /api/v1/attribute/datas/pub [post]
 func (*AttributeDataApi) AttributePutMessage(c *gin.Context) {
-	var req model.AttributePutMessage
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.AttributeData.AttributePutMessage(c, userClaims.ID, &req, strconv.Itoa(constant.Manual), userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandleAction(c, func(req *model.AttributePutMessage, userClaims *utils.UserClaims) error {
+		return service.GroupApp.AttributeData.AttributePutMessage(c, userClaims.ID, req, strconv.Itoa(constant.Manual), userClaims)
+	})
 }
 
 // AttributeGetMessage 发送属性读取请求。
@@ -158,15 +123,7 @@ func (*AttributeDataApi) AttributePutMessage(c *gin.Context) {
 // 2. 读取命令与写入命令共享相似的鉴权和消息投递边界，后续可考虑抽公共命令入口注释模板或 helper。
 // /api/v1/attribute/datas/get
 func (*AttributeDataApi) AttributeGetMessage(c *gin.Context) {
-	var req model.AttributeGetMessageReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.AttributeData.AttributeGetMessage(userClaims, &req)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandleAction(c, func(req *model.AttributeGetMessageReq, userClaims *utils.UserClaims) error {
+		return service.GroupApp.AttributeData.AttributeGetMessage(userClaims, req)
+	})
 }

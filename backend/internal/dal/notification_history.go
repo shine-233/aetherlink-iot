@@ -67,9 +67,7 @@ func GetNotificationHisoryListByPage(notifications *model.GetNotificationHistory
 			Where(notificationHistoryOwnerExistsSQL, ownerID).
 			Where("NOT "+notificationHistoryForeignOwnerExistsSQL, ownerID)
 	}
-	if notifications.NotificationType != nil && *notifications.NotificationType != "" {
-		queryBuilder = queryBuilder.Where("nh.notification_type LIKE ?", fmt.Sprintf("%%%s%%", *notifications.NotificationType))
-	}
+	queryBuilder = whereKeywordContainsPtr(queryBuilder, opLike, notifications.NotificationType, "nh.notification_type")
 
 	if notifications.SendTarget != nil && *notifications.SendTarget != "" {
 		queryBuilder = queryBuilder.Where("nh.send_target = ?", *notifications.SendTarget)

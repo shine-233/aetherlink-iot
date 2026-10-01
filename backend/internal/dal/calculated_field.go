@@ -89,21 +89,17 @@ func DeleteCalculatedFieldForScope(id, tenantID string) error {
 func ListCalculatedFieldsByPage(scopes []string, req *model.CalculatedFieldListReq) (int64, []*model.CalculatedField, error) {
 	query := global.DB.WithContext(context.Background()).
 		Model(&model.CalculatedField{})
-	switch len(scopes) {
-	case 0:
+	// 租户谓词收编（2026-09-28）：scopeTenantColumn 与旧 switch 逐分支等价
+	// （0→fail-closed 空结果、1→=、>1→IN）。
+	query, empty := scopeTenantColumn(query, "tenant_id", scopes)
+	if empty {
 		return 0, []*model.CalculatedField{}, nil
-	case 1:
-		query = query.Where("tenant_id = ?", scopes[0])
-	default:
-		query = query.Where("tenant_id IN ?", scopes)
 	}
 	if req != nil {
 		if req.DeviceTemplateID != nil && *req.DeviceTemplateID != "" {
 			query = query.Where("device_template_id = ?", *req.DeviceTemplateID)
 		}
-		if req.Name != nil && *req.Name != "" {
-			query = query.Where("name LIKE ?", "%"+*req.Name+"%")
-		}
+		query = whereKeywordContainsPtr(query, opLike, req.Name, "name")
 	}
 
 	var total int64
@@ -111,19 +107,15 @@ func ListCalculatedFieldsByPage(scopes []string, req *model.CalculatedFieldListR
 		return 0, nil, err
 	}
 
+	// 分页收编（2026-09-28）：normalizePageParams 与旧手写归一等价
+	// （page<1→1、pageSize<1→上限、pageSize>上限→上限）。
 	page, pageSize := 1, maxCalculatedFieldListLimit
-	if req != nil && req.Page > 0 {
-		page = req.Page
-	}
-	if req != nil && req.PageSize > 0 && req.PageSize <= maxCalculatedFieldListLimit {
-		pageSize = req.PageSize
+	if req != nil {
+		page, pageSize = normalizePageParams(req.Page, req.PageSize, maxCalculatedFieldListLimit, maxCalculatedFieldListLimit)
 	}
 
 	list := make([]*model.CalculatedField, 0)
-	err := query.
-		Order("updated_at DESC, id ASC").
-		Limit(pageSize).
-		Offset((page - 1) * pageSize).
+	err := applyListPagination(query.Order("updated_at DESC, id ASC"), page, pageSize).
 		Find(&list).Error
 	return total, list, err
 }

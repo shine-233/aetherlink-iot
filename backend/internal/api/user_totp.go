@@ -19,29 +19,17 @@ type TotpBindReq struct {
 // HandleTotpSetup 生成一次性绑定材料（otpauth URI）。
 // GET /api/v1/user/totp/setup
 func (*UserTotpApi) HandleTotpSetup(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.UserTotp.Setup(userClaims.ID, userClaims.Email)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.UserTotp.Setup(userClaims.ID, userClaims.Email)
+	})
 }
 
 // HandleTotpActivate 用验证码激活 2FA，返回一次性恢复码。
 // POST /api/v1/user/totp/activate
 func (*UserTotpApi) HandleTotpActivate(c *gin.Context) {
-	var req TotpBindReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.UserTotp.Activate(userClaims.ID, userClaims.Email, req.Code)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	Handle(c, func(req *TotpBindReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.UserTotp.Activate(userClaims.ID, userClaims.Email, req.Code)
+	})
 }
 
 // HandleTotpDisable 解绑 2FA（需当前 TOTP 或恢复码）。

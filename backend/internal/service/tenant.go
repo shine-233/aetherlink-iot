@@ -8,12 +8,13 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"aetherlink-iot/backend/internal/authz"
 	"aetherlink-iot/backend/internal/dal"
-	"aetherlink-iot/backend/internal/hierarchy"
 	model "aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/pkg/errcode"
 	global "aetherlink-iot/backend/pkg/global"
@@ -25,13 +26,20 @@ import (
 
 type TenantService struct{}
 
+// tenantManageRule 租户写操作：只有 SYS_ADMIN 可直接改任意租户。
+var tenantManageRule = authz.Rule{Roles: []string{authz.SysAdmin}, Code: errcode.CodeNoPermission}
+
+// tenantReadRule 租户读操作：SYS_ADMIN 任意，其余角色按自上而下的租户作用域判定。
+// 越权一律 CodeNotFound —— 与改造前一致，不泄露租户是否存在。
+var tenantReadRule = authz.Rule{Scope: tenantVisibleScope, Code: errcode.CodeNotFound}
+
+// tenantCreateRule 租户创建：SYS_ADMIN 与 TENANT_ADMIN 均可（后者只能挂在自己作用域内）。
+var tenantCreateRule = authz.Rule{Roles: authz.ManagerRoles, Code: errcode.CodeNoPermission}
+
 // CreateTenant 创建新租户（受商业许可证 max_tenants 配额硬性约束）。
 func (s *TenantService) CreateTenant(_ context.Context, req *model.CreateTenantReq, claims *utils.UserClaims) (*model.Tenant, error) {
-	if claims == nil {
-		return nil, errcode.New(errcode.CodeNoPermission)
-	}
-	if claims.Authority != "SYS_ADMIN" && claims.Authority != "TENANT_ADMIN" {
-		return nil, errcode.New(errcode.CodeNoPermission)
+	if err := tenantCreateRule.RequireClaims(claims); err != nil {
+		return nil, err
 	}
 
 	// 1. 商业许可证配额前置检查
@@ -49,22 +57,12 @@ func (s *TenantService) CreateTenant(_ context.Context, req *model.CreateTenantR
 
 	parentID := strings.TrimSpace(req.ParentTenantID)
 	// TENANT_ADMIN 仅允许在自身租户下挂载子租户
-	if claims.Authority == "TENANT_ADMIN" {
+	if authz.HasRole(claims, authz.TenantAdmin) {
 		if parentID == "" {
 			parentID = claims.TenantID
 		} else if parentID != claims.TenantID {
 			// 如果指定父租户，必须是该租户或其下级租户
-			links := dal.ListTenantParentLinks()
-			parentMap, _ := hierarchy.BuildParentMap(links)
-			scope, _ := hierarchy.ScopeDown(claims.TenantID, parentMap)
-			allowed := false
-			for _, id := range scope {
-				if id == parentID {
-					allowed = true
-					break
-				}
-			}
-			if !allowed {
+			if !tenantScopeContains(claims.TenantID, parentID) {
 				return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "cannot attach sub-tenant outside your tenant scope")
 			}
 		}
@@ -74,7 +72,7 @@ func (s *TenantService) CreateTenant(_ context.Context, req *model.CreateTenantR
 	if parentID != "" {
 		parentTenant, err := dal.GetTenantByID(parentID)
 		if err != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+			return nil, dbError(err)
 		}
 		if parentTenant == nil {
 			return nil, errcode.NewWithMessage(errcode.CodeParamError, fmt.Sprintf("parent tenant %q does not exist", parentID))
@@ -90,7 +88,7 @@ func (s *TenantService) CreateTenant(_ context.Context, req *model.CreateTenantR
 	}
 
 	if err := dal.CreateTenant(tenant); err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 
 	return tenant, nil
@@ -103,23 +101,13 @@ func (s *TenantService) ListTenants(_ context.Context, page, pageSize int, searc
 	}
 
 	var allowedIDs []string
-	if claims.Authority == "SYS_ADMIN" {
+	switch {
+	case authz.IsSysAdmin(claims):
 		allowedIDs = nil // 平台管理员可见全部
-	} else if claims.Authority == "TENANT_ADMIN" {
+	case authz.HasRole(claims, authz.TenantAdmin):
 		// 租户管理员下钻可见：self ∪ 全部子孙租户
-		links := dal.ListTenantParentLinks()
-		parentMap, err := hierarchy.BuildParentMap(links)
-		if err != nil {
-			allowedIDs = []string{claims.TenantID}
-		} else {
-			scope, sErr := hierarchy.ScopeDown(claims.TenantID, parentMap)
-			if sErr != nil {
-				allowedIDs = []string{claims.TenantID}
-			} else {
-				allowedIDs = scope
-			}
-		}
-	} else {
+		allowedIDs = tenantVisibleScope(claims.TenantID)
+	default:
 		return nil, 0, errcode.New(errcode.CodeNoPermission)
 	}
 
@@ -133,18 +121,24 @@ func (s *TenantService) ListTenants(_ context.Context, page, pageSize int, searc
 
 	tenants, total, err := dal.ListTenants(offset, pageSize, search, allowedIDs)
 	if err != nil {
-		return nil, 0, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, 0, dbError(err)
 	}
+
+	tenantIDs := make([]string, 0, len(tenants))
+	for _, t := range tenants {
+		tenantIDs = append(tenantIDs, t.ID)
+	}
+	// 一页最多 100 条：两次 GROUP BY 批量统计，替代逐租户 2 次 COUNT 的 N+1。
+	deviceCounts, userCounts := countTenantEntitiesByTenant(tenantIDs)
 
 	res := make([]*model.TenantDetailVO, 0, len(tenants))
 	for _, t := range tenants {
-		devCount, usrCount, _ := dal.GetTenantEntityCounts(t.ID)
 		res = append(res, &model.TenantDetailVO{
 			ID:             t.ID,
 			Name:           t.Name,
 			ParentTenantID: t.ParentTenantID,
-			DeviceCount:    devCount,
-			UserCount:      usrCount,
+			DeviceCount:    deviceCounts[t.ID],
+			UserCount:      userCounts[t.ID],
 			CreatedAt:      t.CreatedAt,
 			UpdatedAt:      t.UpdatedAt,
 		})
@@ -161,33 +155,15 @@ func (s *TenantService) GetTenant(_ context.Context, id string, claims *utils.Us
 
 	t, err := dal.GetTenantByID(id)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	if t == nil {
 		return nil, errcode.New(errcode.CodeNotFound)
 	}
 
-	// 权限守卫：非 SYS_ADMIN 仅允许查看自身或下级租户
-	if claims.Authority != "SYS_ADMIN" {
-		links := dal.ListTenantParentLinks()
-		parentMap, err := hierarchy.BuildParentMap(links)
-		if err != nil {
-			if t.ID != claims.TenantID {
-				return nil, errcode.New(errcode.CodeNotFound)
-			}
-		} else {
-			scope, _ := hierarchy.ScopeDown(claims.TenantID, parentMap)
-			allowed := false
-			for _, sid := range scope {
-				if sid == t.ID {
-					allowed = true
-					break
-				}
-			}
-			if !allowed {
-				return nil, errcode.New(errcode.CodeNotFound)
-			}
-		}
+	// 权限守卫：非 SYS_ADMIN 仅允许查看自身或下级租户（越权按 not-found 屏蔽）
+	if err := tenantReadRule.Check(claims, authz.OfTenant(t.ID)); err != nil {
+		return nil, err
 	}
 
 	devCount, usrCount, _ := dal.GetTenantEntityCounts(t.ID)
@@ -204,13 +180,13 @@ func (s *TenantService) GetTenant(_ context.Context, id string, claims *utils.Us
 
 // UpdateTenant 更新租户基本信息（名称/上级租户，严格防环）。
 func (s *TenantService) UpdateTenant(_ context.Context, id string, req *model.UpdateTenantReq, claims *utils.UserClaims) (*model.Tenant, error) {
-	if claims == nil || claims.Authority != "SYS_ADMIN" {
-		return nil, errcode.New(errcode.CodeNoPermission)
+	if err := tenantManageRule.RequireClaims(claims); err != nil {
+		return nil, err
 	}
 
 	tenant, err := dal.GetTenantByID(id)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	if tenant == nil {
 		return nil, errcode.New(errcode.CodeNotFound)
@@ -219,6 +195,10 @@ func (s *TenantService) UpdateTenant(_ context.Context, id string, req *model.Up
 	updates := map[string]interface{}{}
 	if req.Name != "" {
 		name := strings.TrimSpace(req.Name)
+		// 纯空白名称此前会被 Trim 成 "" 后照样落库，导致租户名被清空。
+		if name == "" {
+			return nil, errcode.NewWithMessage(errcode.CodeParamError, "tenant name must not be blank")
+		}
 		if len(name) > 120 {
 			return nil, errcode.NewWithMessage(errcode.CodeParamError, "tenant name exceeds 120 characters")
 		}
@@ -238,15 +218,8 @@ func (s *TenantService) UpdateTenant(_ context.Context, id string, req *model.Up
 				return nil, errcode.NewWithMessage(errcode.CodeParamError, fmt.Sprintf("parent tenant %q not found", newParent))
 			}
 			// 校验防成环：待更新租户不可成为其当前子孙节点的子节点
-			links := dal.ListTenantParentLinks()
-			parentMap, bErr := hierarchy.BuildParentMap(links)
-			if bErr == nil {
-				descendants, _ := hierarchy.Descendants(tenant.ID, parentMap)
-				for _, dID := range descendants {
-					if dID == newParent {
-						return nil, errcode.NewWithMessage(errcode.CodeParamError, "cycle detected: target parent is a descendant of this tenant")
-					}
-				}
+			if tenantParentWouldCycle(tenant.ID, newParent, tenantParentLinks()) {
+				return nil, errcode.NewWithMessage(errcode.CodeParamError, "cycle detected: target parent is a descendant of this tenant")
 			}
 		}
 		updates["parent_tenant_id"] = newParent
@@ -255,7 +228,7 @@ func (s *TenantService) UpdateTenant(_ context.Context, id string, req *model.Up
 
 	if len(updates) > 0 {
 		if err := dal.UpdateTenant(id, updates); err != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+			return nil, dbError(err)
 		}
 	}
 
@@ -295,8 +268,8 @@ func (s *TenantService) SelfServiceProvisionTenant(_ context.Context, req *model
 
 	// 2. 检查邮箱与手机号唯一性
 	existingUser, err := dal.GetUsersByEmail(email)
-	if err != nil && !errorsIsNotFound(err) {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, dbError(err)
 	}
 	if existingUser != nil {
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "admin email already exists")
@@ -304,7 +277,7 @@ func (s *TenantService) SelfServiceProvisionTenant(_ context.Context, req *model
 
 	phoneExists, pErr := dal.CheckPhoneNumberExists(phone)
 	if pErr != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": pErr.Error()})
+		return nil, dbError(pErr)
 	}
 	if phoneExists {
 		return nil, errcode.New(errcode.CodePhoneDuplicated)
@@ -378,7 +351,7 @@ func (s *TenantService) SelfServiceProvisionTenant(_ context.Context, req *model
 		return nil
 	})
 	if txErr != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": txErr.Error()})
+		return nil, dbError(txErr)
 	}
 
 	if global.CasbinEnforcer != nil {
@@ -394,6 +367,66 @@ func (s *TenantService) SelfServiceProvisionTenant(_ context.Context, req *model
 	}, nil
 }
 
-func errorsIsNotFound(err error) bool {
-	return err != nil && (strings.Contains(err.Error(), "record not found") || strings.Contains(err.Error(), "not found"))
+// tenantVisibleScope 返回 self ∪ 子孙租户；self 为空时返回无法匹配任何租户的哨兵作用域，
+// 避免空切片被 DAL 解释为"不过滤"。
+func tenantVisibleScope(self string) []string {
+	if scope := expandTenantIDScope(self); len(scope) > 0 {
+		return scope
+	}
+	return []string{self}
+}
+
+// tenantScopeContains 判断 target 是否处于 self 的自上而下可见作用域（self ∪ 子孙）。
+func tenantScopeContains(self, target string) bool {
+	for _, id := range tenantVisibleScope(self) {
+		if id == target {
+			return true
+		}
+	}
+	return false
+}
+
+// tenantParentWouldCycle 判断把 tenantID 挂到 newParent 下是否成环：
+// 从 newParent 沿父指针向上走，途经 tenantID（或链上已有环）即判定成环。
+// 旧实现依赖 hierarchy.Descendants，其遍历节点数上限 64，子孙较多时会漏判；
+// 父链上行只受树深约束，且对脏数据（已有环）fail-closed。
+func tenantParentWouldCycle(tenantID, newParent string, parent map[string]string) bool {
+	seen := map[string]bool{}
+	for cur := newParent; cur != ""; cur = parent[cur] {
+		if cur == tenantID || seen[cur] {
+			return true
+		}
+		seen[cur] = true
+	}
+	return false
+}
+
+// countTenantEntitiesByTenant 以两次 GROUP BY 批量统计各租户设备数与用户数。
+// 统计失败按 0 处理，与逐条统计时忽略错误的既有语义保持一致。
+func countTenantEntitiesByTenant(tenantIDs []string) (map[string]int64, map[string]int64) {
+	deviceCounts := map[string]int64{}
+	userCounts := map[string]int64{}
+	if len(tenantIDs) == 0 || global.DB == nil {
+		return deviceCounts, userCounts
+	}
+	type tenantCountRow struct {
+		TenantID string
+		Total    int64
+	}
+	load := func(table string, into map[string]int64) {
+		var rows []tenantCountRow
+		if err := global.DB.Table(table).
+			Select("tenant_id, COUNT(*) AS total").
+			Where("tenant_id IN ?", tenantIDs).
+			Group("tenant_id").
+			Scan(&rows).Error; err != nil {
+			return
+		}
+		for _, row := range rows {
+			into[row.TenantID] = row.Total
+		}
+	}
+	load(model.TableNameDevice, deviceCounts)
+	load(model.TableNameUser, userCounts)
+	return deviceCounts, userCounts
 }

@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"aetherlink-iot/backend/internal/authz"
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
-	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 	utils "aetherlink-iot/backend/pkg/utils"
 
@@ -89,8 +89,8 @@ func (*Device) GatewayRegister(req model.GatewayRegisterReq, claims *utils.UserC
 	// 网关重复注册时复用既有 MQTT 身份，避免相同网关号产生多份凭证。
 	device, err := dal.GetDeviceByDeviceNumber(req.GatewayId)
 	if err == nil {
-		if claims.Authority != constant.SYS_ADMIN && device.TenantID != claims.TenantID {
-			return model.GatewayRegisterRes{}, errcode.NewWithMessage(errcode.CodeNoPermission, "无权为其他租户注册网关")
+		if err := authz.CheckTenant(claims, device.TenantID, "无权为其他租户注册网关"); err != nil {
+			return model.GatewayRegisterRes{}, err
 		}
 		return buildExistingGatewayRegisterRes(device)
 	}
@@ -159,8 +159,8 @@ func (*Device) GatewayDeviceRegister(req model.DeviceRegisterReq, claims *utils.
 			Message: "未查询到网关设备信息",
 		}, nil
 	}
-	if claims.Authority != constant.SYS_ADMIN && device.TenantID != claims.TenantID {
-		return model.DeviceRegisterRes{}, errcode.NewWithMessage(errcode.CodeNoPermission, "无权为其他租户注册子设备")
+	if err := authz.CheckTenant(claims, device.TenantID, "无权为其他租户注册子设备"); err != nil {
+		return model.DeviceRegisterRes{}, err
 	}
 	res := model.DeviceRegisterRes{
 		Type:         "sub-register-response",

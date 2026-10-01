@@ -8,6 +8,7 @@
 -->
 <script lang="tsx" setup>
 import { onMounted, ref, computed, h, onActivated, watch, defineAsyncComponent, nextTick } from 'vue'
+import { fromFlatResponse, useListPage } from '@/components/data-table-page/useListPage'
 import type { ComponentPublicInstance } from 'vue'
 import { useRouter } from 'vue-router'
 import {
@@ -74,49 +75,25 @@ const openPublishConfirmModal = async (deviceConfigId: string, defaultName?: str
   publishConfirmRef.value?.open(deviceConfigId, defaultName)
 }
 
-// 本地设备配置列表查询参数；市场物模型列表由子组件内部单独维护。
-const queryData = ref({
-  page: 1,
-  page_size: 10,
-  name: ''
-})
-
+// 本地设备配置列表：分页、加载态与过期请求丢弃由 useListPage 管理；市场物模型列表由子组件内部单独维护。
 // 本地配置列表是真相源，发布、编辑或返回列表页后都依赖它刷新。
-const deviceConfigList = ref([] as any[])
-const dataTotal = ref(0)
-const loading = ref(false)
-let deviceConfigRequestSeq = 0
+const localConfigs = useListPage<any, { name: string }>({
+  initialQuery: () => ({ name: '' }),
+  fetcher: async (params) => fromFlatResponse(await deviceConfig(params))
+})
+const { rows: deviceConfigList, total: dataTotal, loading, load: getData } = localConfigs
+// 模板与既有调用方沿用 queryData.{page,page_size,name} 形状；读写直接落到 useListPage 的状态上。
+const queryData = localConfigs.flatQuery
 let localConfigMounted = false
-
-// 获取本地设备配置列表，供“local” tab 的表格和卡片展示复用。
-const getData = async () => {
-  const requestSeq = ++deviceConfigRequestSeq
-  loading.value = true
-  try {
-    const res = await deviceConfig(queryData.value)
-    if (requestSeq !== deviceConfigRequestSeq) return
-    if (!res.error) {
-      deviceConfigList.value = res.data.list
-      dataTotal.value = res.data.total
-    }
-  } finally {
-    if (requestSeq === deviceConfigRequestSeq) {
-      loading.value = false
-    }
-  }
-}
 
 // 搜索时回到第一页，避免带着旧分页造成结果缺失错觉。
 const handleQuery = async () => {
-  queryData.value.page = 1
-  await getData()
+  await localConfigs.search()
 }
 
 // 重置只影响本地配置列表，不动市场 tab 的搜索状态。
 const handleReset = async () => {
-  queryData.value.page = 1
-  queryData.value.name = ''
-  await getData()
+  await localConfigs.reset()
 }
 
 // 新建设备配置走独立编辑页，当前列表页不内嵌复杂创建表单。
@@ -245,15 +222,12 @@ const handleEdit = (id: string) => {
 
 // 本地配置列表分页切换。
 const handlePageChange = (page: number) => {
-  queryData.value.page = page
-  getData()
+  void localConfigs.setPage(page)
 }
 
 // 分页大小变化时重置页码，避免越界请求。
 const handlePageSizeChange = (pageSize: number) => {
-  queryData.value.page_size = pageSize
-  queryData.value.page = 1
-  getData()
+  void localConfigs.setPageSize(pageSize)
 }
 
 // 排序处理

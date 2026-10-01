@@ -5,6 +5,7 @@
 //     供 broker mTLS）；私钥仅在签发响应返回一次，平台只存证书。
 //   - 吊销/轮换/到期：状态机 active→revoked/expired；校验时按序列号查库判吊销。
 //   - 校验：证书链验证（对平台 CA）+ 有效期 + 库内吊销状态，返回 device_id/tenant_id。
+//
 // 关键注意事项：
 //   - 证书不绑定具体 hostname；接入方以证书链+序列号+库内状态为准（IoT 客户端证书惯例）。
 //   - 平台 CA 私钥当前存库（本地开发栈可接受）；生产必须迁移 KMS/HSM 并加密静态存储，
@@ -30,6 +31,7 @@ import (
 	"aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/utils"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -70,7 +72,7 @@ func ensurePlatformCA() (*x509.Certificate, *ecdsa.PrivateKey, error) {
 		return caCert, ecKey, nil
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, nil, dbError(err)
 	}
 
 	// 自举：生成自签 CA。
@@ -114,7 +116,7 @@ func ensurePlatformCA() (*x509.Certificate, *ecdsa.PrivateKey, error) {
 		UpdatedAt:   now,
 	}
 	if err := dal.SavePlatformCA(row); err != nil {
-		return nil, nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, nil, dbError(err)
 	}
 	return caCert, caKey, nil
 }
@@ -195,7 +197,7 @@ func issueCertForDevice(tenantID, deviceID, commonName string, validityDays int)
 		UpdatedAt:    now,
 	}
 	if err := dal.CreateDeviceCertificate(row); err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	return &model.IssueDeviceCertificateResp{
 		ID:           row.ID,
@@ -222,7 +224,7 @@ func (DeviceCertificateService) ListDeviceCertificates(deviceID string, limit in
 	}
 	list, err := dal.ListDeviceCertificates(claims.TenantID, deviceID, limit)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	lazilyExpire(list)
 	return list, nil
@@ -235,7 +237,7 @@ func (DeviceCertificateService) GetDeviceCertificate(id string, claims *utils.Us
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errcode.NewWithMessage(errcode.CodeParamError, "device certificate not found")
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	lazilyExpire([]*model.DeviceCertificate{row})
 	return row, nil
@@ -248,7 +250,7 @@ func (DeviceCertificateService) RevokeDeviceCertificate(req *model.RevokeDeviceC
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errcode.NewWithMessage(errcode.CodeParamError, "device certificate not found")
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	if row.Status != "active" {
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "device certificate is not active: "+row.Status)
@@ -258,7 +260,7 @@ func (DeviceCertificateService) RevokeDeviceCertificate(req *model.RevokeDeviceC
 		reason = "revoked by user"
 	}
 	if err := dal.MarkDeviceCertificateRevoked(row.ID, reason, time.Now()); err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	return dal.GetDeviceCertificateInTenant(row.ID, claims.TenantID)
 }
@@ -270,7 +272,7 @@ func (DeviceCertificateService) RenewDeviceCertificate(req *model.RenewDeviceCer
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errcode.NewWithMessage(errcode.CodeParamError, "device certificate not found")
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	resp, err := issueCertForDevice(claims.TenantID, old.DeviceID, old.CommonName, req.ValidityDays)
 	if err != nil {
@@ -278,7 +280,7 @@ func (DeviceCertificateService) RenewDeviceCertificate(req *model.RenewDeviceCer
 	}
 	if old.Status == "active" {
 		if err := dal.MarkDeviceCertificateRevoked(old.ID, "renewed by "+resp.ID, time.Now()); err != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+			return nil, dbError(err)
 		}
 	}
 	return resp, nil
@@ -328,7 +330,7 @@ func verifyDeviceCertificatePEM(certPEM, tenantID string) (*model.VerifyDeviceCe
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return invalid("certificate revoked or unknown serial")
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	return &model.VerifyDeviceCertificateResp{
 		Valid:    true,

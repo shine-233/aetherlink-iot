@@ -7,7 +7,8 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { type DataTableColumns, NButton, NDataTable, NEmpty, type PaginationProps, useMessage } from 'naive-ui'
+import { type DataTableColumns, NButton, NDataTable, NEmpty, useMessage } from 'naive-ui'
+import { useListPage } from '@/components/data-table-page/useListPage'
 import {
   deleteDeviceGroup,
   deleteDeviceGroupRelation,
@@ -37,8 +38,6 @@ const DeviceSelectList = defineAsyncComponent(
   () => import('@/views/device/grouping-details/modules/device-select-list.vue')
 )
 
-const group_data = ref([])
-const device_data = ref<DeviceManagement.DeviceData[]>([])
 
 const { loading, startLoading, endLoading } = useLoadingEmpty(false)
 const route = useRoute()
@@ -118,23 +117,22 @@ const groupStatisticCards = computed(() => [
   }
 ])
 
-const queryParams = reactive<{
-  parent_id: string
-  page: number
-  page_size: number
-}>({
-  parent_id: '',
-  page: 1,
-  page_size: 10
+// 子分组列表与分组内设备列表都走 useListPage：分页联动、过期请求丢弃（快速切换分组时旧分组响应不回写）。
+const childGroups = useListPage<any, { parent_id: string }>({
+  initialQuery: () => ({ parent_id: '' }),
+  pageSizes: [10, 15, 20, 25, 30],
+  fetcher: async (params) => {
+    const res = await getDeviceGroup(params)
+    return { list: res.data?.list ?? [], total: res.data?.total ?? 0 }
+  }
 })
+const { rows: group_data, pagination: group_pagination } = childGroups
 
 const { routerPush } = useRouterPush()
 
 const getChildGroups = async (tid: string) => {
-  queryParams.parent_id = tid
-  const res2 = await getDeviceGroup(queryParams)
-  group_data.value = res2.data?.list ?? []
-  group_pagination.itemCount = res2.data?.total ?? 0
+  childGroups.query.parent_id = tid
+  await childGroups.load()
 }
 
 const getDetails = async (tid: string) => {
@@ -161,24 +159,6 @@ const refreshChildGroups = async () => {
   await getChildGroups(currentId.value as string)
   endLoading()
 }
-const group_pagination: PaginationProps = reactive({
-  page: 1,
-  pageSize: 10,
-  showSizePicker: true,
-  pageSizes: [10, 15, 20, 25, 30],
-  onChange: (page: number) => {
-    group_pagination.page = page
-    queryParams.page = page
-    refreshChildGroups()
-  },
-  onUpdatePageSize: (pageSize: number) => {
-    group_pagination.pageSize = pageSize
-    group_pagination.page = 1
-    queryParams.page = 1
-    queryParams.page_size = pageSize
-    refreshChildGroups()
-  }
-})
 const router = useRouter()
 const viewDetails = (rid: string) => {
   router.push({ name: 'device_grouping-details', query: { id: rid } })
@@ -212,26 +192,22 @@ const showGroupModalChild = () => {
   openRenderedModal(the_modal1, pendingAddChildGroupModalOpen)
 }
 
-const queryParams2 = reactive<{
-  group_id: string
-  page: number
-  page_size: number
-}>({
-  group_id: currentId.value as string,
-  page: 1,
-  page_size: 5
-})
-const getDeviceList = async (id: string) => {
-  queryParams2.group_id = id
-  const res = await deviceListByGroup({ ...queryParams2, group_id: id })
-  if (res.data?.list) {
-    device_data.value = res.data?.list
-  } else {
-    device_data.value = []
+const groupDevices = useListPage<DeviceManagement.DeviceData, { group_id: string }>({
+  initialQuery: () => ({ group_id: currentId.value as string }),
+  initialPageSize: 5,
+  pageSizes: [5, 10, 20, 50],
+  fetcher: async (params) => {
+    const res = await deviceListByGroup(params)
+    return { list: res.data?.list ?? [], total: res?.data?.total ?? 0 }
+  },
+  onLoaded: (_result, params) => {
+    deviceListLoadedForGroup.value = params.group_id
   }
-  const total = res?.data?.total ?? 0
-  devicePagination.pageCount = Math.ceil(total / queryParams2.page_size) || 1
-  deviceListLoadedForGroup.value = id
+})
+const { rows: device_data, pagination: devicePagination, loading: deviceLoading } = groupDevices
+const getDeviceList = async (id: string) => {
+  groupDevices.query.group_id = id
+  await groupDevices.load()
 }
 const ensureDeviceListLoaded = async (id: string) => {
   if (deviceListLoadedForGroup.value === id) return
@@ -245,15 +221,6 @@ const refreshData = (newValue: boolean) => {
     }
   }
 }
-const devicePagination = reactive<PaginationProps>({
-  page: 1,
-  pageSize: 5,
-  onChange: (page: number) => {
-    devicePagination.page = page
-    queryParams2.page = page
-    getDeviceList(currentId.value as string)
-  }
-})
 const viewDeviceDetails = (rid: string) => {
   router.push({ name: 'device_details', query: { d_id: rid } })
 }
@@ -394,19 +361,18 @@ watch(the_modal2, (modal) => {
               </NButton>
             </NSpace>
 
-            <NDataTable :columns="deviceColumns" :data="device_data" :loading="loading" class="h-auto">
+            <NDataTable
+              :columns="deviceColumns"
+              :data="device_data"
+              :loading="loading || deviceLoading"
+              :pagination="devicePagination"
+              remote
+              class="h-auto"
+            >
               <template #empty>
                 <NEmpty :description="$t('common.noData')" class="py-24px" />
               </template>
             </NDataTable>
-            <NFlex justify="end" class="mt-4">
-              <NPagination
-                v-model:page="devicePagination.page"
-                v-model:page-size="devicePagination.pageSize"
-                :page-count="devicePagination.pageCount"
-                @update:page="devicePagination.onChange"
-              />
-            </NFlex>
           </NTabPane>
 
           <NTabPane name="setting" :tab="$t('custom.grouping_details.setting')">

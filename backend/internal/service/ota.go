@@ -11,10 +11,10 @@ import (
 	"strings"
 	"time"
 
+	"aetherlink-iot/backend/internal/authz"
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
 	query "aetherlink-iot/backend/internal/query"
-	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 	utils "aetherlink-iot/backend/pkg/utils"
 
@@ -22,22 +22,6 @@ import (
 )
 
 type OTA struct{}
-
-func ensureOTAPackageAccess(packageID string, claims *utils.UserClaims) (*model.OtaUpgradePackage, error) {
-	if claims == nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to access ota package")
-	}
-	pkg, err := dal.GetOtaUpgradePackageByID(packageID)
-	if err != nil {
-		return nil, err
-	}
-	if claims.Authority != constant.SYS_ADMIN {
-		if pkg.TenantID == nil || *pkg.TenantID != claims.TenantID {
-			return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to access ota package")
-		}
-	}
-	return pkg, nil
-}
 
 func ensureOTADeviceWriteAccess(deviceIDs []string, claims *utils.UserClaims) error {
 	if len(deviceIDs) == 0 {
@@ -82,7 +66,7 @@ func normalizeOTADeviceWriteAccessIDs(deviceIDs []string) ([]string, error) {
 }
 
 func loadOTADevicesForWriteAccess(deviceIDs []string, claims *utils.UserClaims) (map[string]*model.Device, error) {
-	if claims.Authority == constant.SYS_ADMIN {
+	if authz.IsSysAdmin(claims) {
 		return dal.GetDevicesByIDsUnscoped(deviceIDs)
 	}
 	return dal.GetDevicesByIDsForTenant(deviceIDs, claims.TenantID)
@@ -103,44 +87,13 @@ func ensureOTATaskAccess(taskID string, claims *utils.UserClaims) (*model.OtaUpg
 	if ownerUserID != nil {
 		owned, ownershipErr := dal.OTAUpgradeTaskDevicesOwnedBy(task.ID, *ownerUserID)
 		if ownershipErr != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": ownershipErr.Error(),
-			})
+			return nil, dbError(ownershipErr)
 		}
 		if !owned {
 			return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to access ota task")
 		}
 	}
 	return task, nil
-}
-
-func otaTaskOwnerUserIDForClaims(claims *utils.UserClaims) (*string, error) {
-	if claims == nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to access ota task")
-	}
-	if claims.Authority == constant.TENANT_ADMIN || claims.Authority == constant.SYS_ADMIN {
-		return nil, nil
-	}
-	if claims.Authority != constant.TENANT_USER {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to access ota task")
-	}
-	ownerUserID := strings.TrimSpace(claims.ID)
-	if ownerUserID == "" {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to access ota task")
-	}
-	return &ownerUserID, nil
-}
-
-func otaPackageLocalPathFromURL(packageURL string) (string, error) {
-	cleanRel, err := otaPackageRelativePathFromURL(packageURL)
-	if err != nil {
-		return "", err
-	}
-	base, err := filepath.Abs("./files/upgradePackage")
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(base, filepath.FromSlash(cleanRel)), nil
 }
 
 func otaPackageRelativePathFromURL(packageURL string) (string, error) {
@@ -338,20 +291,9 @@ func (*OTA) DeleteOTAUpgradePackage(packageId string, claims *utils.UserClaims) 
 // TENANT_USER 保持 self-only（升级包为租户级资源、无 per-user 维度），空租户返回 nil fail-closed；
 // 空租户管理员（SYS_ADMIN 平台包，tenant_id 为空串）→ [""] 保持旧行为；
 // 其余非空租户管理员 → expandTenantIDScope（self∪子孙，链接缺失回退 self-only）。
+// 实现收敛到 tenant_list_scope.go，避免与其它聚合重复同一份作用域解析。
 func otaUpgradePackageListScopes(claims *utils.UserClaims) []string {
-	if claims == nil {
-		return nil
-	}
-	if claims.Authority == constant.TENANT_USER {
-		if tenantID := strings.TrimSpace(claims.TenantID); tenantID != "" {
-			return []string{tenantID}
-		}
-		return nil
-	}
-	if strings.TrimSpace(claims.TenantID) == "" {
-		return []string{""}
-	}
-	return expandTenantIDScope(claims.TenantID)
+	return claimsTenantReadListScopes(claims)
 }
 
 func (*OTA) GetOTAUpgradePackageListByPage(req *model.GetOTAUpgradePackageLisyByPageReq, userClaims *utils.UserClaims) (map[string]interface{}, error) {

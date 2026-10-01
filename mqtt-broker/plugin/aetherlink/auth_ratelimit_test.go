@@ -339,3 +339,12 @@ func TestOnBasicAuthWrapperAuthLimitCountsSystemUserFailures(t *testing.T) {
 		t.Fatal("previous hook must not run while the source is blocked")
 	}
 }
+
+// cleanup 强制执行一轮全量过期清扫并返回剩余 key 数，主要供测试与运维观察使用。
+func (l *authFailureLimiter) cleanup() int {
+	now := l.now()
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.gcLocked(now)
+	return len(l.failures)
+}

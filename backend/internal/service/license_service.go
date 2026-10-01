@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"aetherlink-iot/backend/internal/authz"
 	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/license"
@@ -93,8 +94,8 @@ func (LicenseService) currentDocument() (*license.Document, error) {
 
 // GetStatus 查询许可证状态。
 func (LicenseService) GetStatus(claims *utils.UserClaims) (*LicenseStatus, error) {
-	if claims == nil || claims.Authority != "SYS_ADMIN" {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "license status is platform-admin capability")
+	if err := authz.PlatformAdminRule("license status is platform-admin capability").RequireClaims(claims); err != nil {
+		return nil, err
 	}
 	verifier, err := licenseVerifier()
 	if err != nil {
@@ -159,7 +160,7 @@ func enforceDeviceQuota() error {
 	}
 	count, err := dal.CountAllDevices()
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return dbError(err)
 	}
 	if count >= doc.MaxDevices {
 		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{
@@ -180,7 +181,7 @@ func enforceTenantQuota() error {
 	}
 	count, err := dal.CountAllTenants()
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return dbError(err)
 	}
 	if count >= doc.MaxTenants {
 		return errcode.WithData(errcode.CodeParamError, map[string]interface{}{

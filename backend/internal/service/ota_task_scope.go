@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
+	"aetherlink-iot/backend/internal/authz"
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
-	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 	utils "aetherlink-iot/backend/pkg/utils"
 )
@@ -104,7 +104,7 @@ func resolveOTAUpgradeTaskFilteredDeviceSelection(
 		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to create ota task")
 	}
 	tenantID := claims.TenantID
-	if claims.Authority == constant.SYS_ADMIN && pkg.TenantID != nil && strings.TrimSpace(*pkg.TenantID) != "" {
+	if authz.IsSysAdmin(claims) && pkg.TenantID != nil && strings.TrimSpace(*pkg.TenantID) != "" {
 		tenantID = *pkg.TenantID
 	}
 
@@ -115,17 +115,13 @@ func resolveOTAUpgradeTaskFilteredDeviceSelection(
 	applyDeviceListOwnerFilterForClaims(deviceListReq, claims)
 	total, err := dal.CountDeviceListByFilter(deviceListReq, tenantID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 
 	excludedIDs := uniqueNonEmptyStrings(excludeDeviceIDs)
 	excludedCount, err := dal.CountDeviceListFilteredIDs(deviceListReq, tenantID, excludedIDs)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 
 	selectedCount64 := total - excludedCount
@@ -147,9 +143,7 @@ func resolveOTAUpgradeTaskFilteredDeviceSelection(
 		scanLimit := otaFilteredIDScanLimit(selectedCount64, excludedCount, previewLimit, needsAllIDs)
 		scannedIDs, err := dal.ListDeviceIDsByFilter(deviceListReq, tenantID, scanLimit)
 		if err != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-			})
+			return nil, dbError(err)
 		}
 		selection.selectedIDs = filterOTADeviceIDs(scannedIDs, excludedIDs)
 	}
@@ -158,9 +152,7 @@ func resolveOTAUpgradeTaskFilteredDeviceSelection(
 		previewIDs := limitStrings(selection.selectedIDs, previewLimit)
 		selection.previewDevices, err = dal.GetDeviceListRowsByFilterAndIDs(deviceListReq, tenantID, previewIDs)
 		if err != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-			})
+			return nil, dbError(err)
 		}
 	}
 
@@ -208,14 +200,6 @@ func buildOTAFilteredDeviceListReq(filter *model.OTAUpgradeTaskDeviceFilter, pkg
 		NeverReported:      filter.NeverReported,
 		LifecycleStatus:    filter.LifecycleStatus,
 	}, nil
-}
-
-func filteredOTADeviceIDs(devices []model.GetDeviceListByPageRsp, excludeIDs []string) []string {
-	deviceIDs := make([]string, 0, len(devices))
-	for _, device := range devices {
-		deviceIDs = append(deviceIDs, device.ID)
-	}
-	return filterOTADeviceIDs(deviceIDs, excludeIDs)
 }
 
 func filterOTADeviceIDs(deviceIDs []string, excludeIDs []string) []string {
@@ -299,25 +283,4 @@ func resolveOTAUpgradeTaskMaxDevices(maxDevices *int) int {
 		return defaultMaxDevices
 	}
 	return *maxDevices
-}
-
-func previewOTADevices(devices []model.GetDeviceListByPageRsp, selectedDeviceIDs []string, limit int) []model.GetDeviceListByPageRsp {
-	if limit <= 0 {
-		return []model.GetDeviceListByPageRsp{}
-	}
-	selected := map[string]struct{}{}
-	for _, id := range selectedDeviceIDs {
-		selected[id] = struct{}{}
-	}
-	preview := make([]model.GetDeviceListByPageRsp, 0, limit)
-	for _, device := range devices {
-		if _, ok := selected[device.ID]; !ok {
-			continue
-		}
-		preview = append(preview, device)
-		if len(preview) >= limit {
-			break
-		}
-	}
-	return preview
 }

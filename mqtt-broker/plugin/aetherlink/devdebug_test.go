@@ -209,3 +209,13 @@ func TestWriteDeviceDebugLog_RedactsSensitivePayloadFields(t *testing.T) {
 		t.Fatalf("expected redacted payload fields, got %s", entry.Payload)
 	}
 }
+
+// WriteDeviceDebugLog appends a log entry if device debug is enabled.
+// It is safe to call frequently; missing/expired config results in a no-op.
+func WriteDeviceDebugLog(deviceID string, entry DeviceDebugLogEntry) (bool, error) {
+	normalizedDeviceID, cfg, enabled, err := loadDeviceDebugConfigForWrite(deviceID)
+	if err != nil || !enabled {
+		return false, err
+	}
+	return writeDeviceDebugLogWithConfig(normalizedDeviceID, cfg, entry)
+}

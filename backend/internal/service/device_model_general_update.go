@@ -39,9 +39,7 @@ func (*DeviceModel) UpdateDeviceModelGeneral(req model.UpdateDeviceModelReq, wha
 		deviceModel.TenantID = tenantID
 		err := dal.UpdateDeviceModelTelemetry(&deviceModel)
 		if err != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-			})
+			return nil, dbError(err)
 		} else {
 			return deviceModel, nil
 		}
@@ -61,9 +59,7 @@ func (*DeviceModel) UpdateDeviceModelGeneral(req model.UpdateDeviceModelReq, wha
 		deviceModel.TenantID = tenantID
 		err := dal.UpdateDeviceModelAttribute(&deviceModel)
 		if err != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-			})
+			return nil, dbError(err)
 		} else {
 			return deviceModel, nil
 		}

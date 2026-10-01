@@ -90,6 +90,20 @@ func TestCasbinRegistrationCoversMountedRoutes(t *testing.T) {
 	// 挂载依据：casbin 启动审计 fail-fast 已在最后一次成功启动时验证全部存量路由
 	// 已登记；新路由登记见 95/98/99.sql。此测试变红 = 有人加了未登记路由。
 	(&Device{}).InitDevice(v1)
+	// WidgetBundle 组（TB-04 部件库七条路由，123.sql 登记）；挂进来让契约测试持续守住。
+	(&WidgetBundleRouter{}).InitWidgetBundle(v1)
+	// MediaLibrary 组（TB-41 媒体库三条路由，129.sql 登记）；挂进来让契约测试持续守住。
+	(&MediaLibraryRouter{}).InitMediaLibrary(v1)
+	// Integration 组（TB-45 统一集成实体五条路由，130.sql 登记）；挂进来让契约测试持续守住。
+	(&IntegrationRouter{}).InitIntegration(v1)
+	// UserGroup 组（TB-46 用户组与组权限九条路由，131.sql 登记）；挂进来让契约测试持续守住。
+	(&UserGroupRouter{}).InitUserGroup(v1)
+	// MobileAppBundle 组（TB-23 移动应用中心八条路由，136.sql 登记）；挂进来让契约测试持续守住。
+	(&MobileAppBundleRouter{}).InitMobileAppBundle(v1)
+	// Whitelabel 组（TB-47 白标三条路径六条路由，134.sql 登记）；挂进来让契约测试持续守住。
+	(&WhitelabelRouter{}).InitWhitelabel(v1)
+	// Scheduler 组（TB-48 统一调度器两条路径五条路由，137.sql 登记）；挂进来让契约测试持续守住。
+	(&SchedulerRouter{}).InitScheduler(v1)
 
 	registered := registeredCasbinPaths(t)
 	isRegistered := func(route string) bool {

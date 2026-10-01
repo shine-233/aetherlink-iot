@@ -41,22 +41,6 @@ func DeleteNotificationGroup(id string) error {
 }
 
 // tenant-scope: no-tenant-column?2026-08-26 ?????
-func GetNotificationGroupList(page, pageSize int) (int64, interface{}, error) {
-	var count int64
-	queryBuilder := query.NotificationGroup.WithContext(context.Background())
-	if page != 0 && pageSize != 0 {
-		queryBuilder = queryBuilder.Limit(pageSize)
-		queryBuilder = queryBuilder.Offset((page - 1) * pageSize)
-	}
-	notificationGroupList, err := queryBuilder.Select().Find()
-	if err != nil {
-		return count, notificationGroupList, err
-	}
-	count, err = queryBuilder.Count()
-	return count, notificationGroupList, err
-}
-
-// tenant-scope: no-tenant-column?2026-08-26 ?????
 func GetNotificationGroupById(id string) (*model.NotificationGroup, error) {
 	p := query.NotificationGroup
 	notificationGroup, err := query.NotificationGroup.Where(p.ID.Eq(id)).Select().First()
@@ -66,22 +50,12 @@ func GetNotificationGroupById(id string) (*model.NotificationGroup, error) {
 	return notificationGroup, err
 }
 
-func GetNotificationGroupByTenantId(tenantid string) (notificationGroups []*model.NotificationGroup, count int, err error) {
-	q := query.NotificationGroup
-	notificationGroups, err = q.Where(q.TenantID.Eq(tenantid)).Find()
-	if err != nil {
-		return nil, 0, err
-	}
-	count = len(notificationGroups)
-	return notificationGroups, count, err
-}
-
 func GetNotificationGroupListByPage(notifications *model.GetNotificationGroupListByPageReq, u *utils.UserClaims) (int64, []*model.NotificationGroup, error) {
 	q := query.NotificationGroup
 	var count int64
 	queryBuilder := q.WithContext(context.Background())
 	if notifications.Name != nil {
-		queryBuilder = queryBuilder.Where(q.Name.Like(fmt.Sprintf("%%%s%%", *notifications.Name)))
+		queryBuilder = queryBuilder.Where(q.Name.Like(ContainsLikePattern(*notifications.Name)))
 	}
 
 	if notifications.NotificationType != nil {
@@ -100,10 +74,10 @@ func GetNotificationGroupListByPage(notifications *model.GetNotificationGroupLis
 		return count, nil, err
 	}
 
-	queryBuilder = queryBuilder.Limit(notifications.PageSize)
-	queryBuilder = queryBuilder.Offset((notifications.Page - 1) * notifications.PageSize)
-
-	notificationList, err := queryBuilder.Order(q.CreatedAt.Desc()).Find()
+	// 分页收编（2026-09-28）：旧写法无单页上限（PageSize 可任意大）；applyListPagination
+	// 由 clampListPageSize 封顶单页，Page=0 时兜底 defaultListLimit。
+	notificationList, err := applyListPagination(queryBuilder, notifications.Page, notifications.PageSize).
+		Order(q.CreatedAt.Desc()).Find()
 	if err != nil {
 		logrus.Error("queryBuilder.Find error: ", err)
 	}

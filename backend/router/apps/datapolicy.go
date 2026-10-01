@@ -16,8 +16,14 @@ type DataPolicy struct {
 func (*DataPolicy) Init(Router *gin.RouterGroup) {
 	url := Router.Group("datapolicy")
 	{
+		// 增（TB-15R：行级租户/档案粒度保留策略）
+		url.POST("", api.Controllers.DataPolicyApi.CreateDataPolicy)
+
 		// 改
 		url.PUT("", api.Controllers.DataPolicyApi.UpdateDataPolicy)
+
+		// 删（TB-15R：仅行级行可删，全局默认行 service 层拒绝）
+		url.DELETE("/:id", api.Controllers.DataPolicyApi.DeleteDataPolicy)
 
 		// 查
 		url.GET("", api.Controllers.DataPolicyApi.HandleDataPolicyListByPage)

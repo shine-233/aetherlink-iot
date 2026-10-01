@@ -83,7 +83,7 @@ func getTelemetryStatisticDiffRowsByBatch(deviceIds []string, keys []string, sta
 	}
 
 	if len(deviceIds) == 0 || len(windows) == 0 {
-		return buildTelemetryStatisticBatchDiffResults(deviceIds, keys, resultData), nil
+		return buildTelemetryStatisticBatchResults(deviceIds, keys, resultData), nil
 	}
 
 	rows, err := queryTelemetryStatisticBatchDiffRows(deviceIds, keys, windows)
@@ -127,7 +127,7 @@ func getTelemetryStatisticDiffRowsByBatch(deviceIds []string, keys []string, sta
 		})
 	}
 
-	return buildTelemetryStatisticBatchDiffResults(deviceIds, keys, resultData), nil
+	return buildTelemetryStatisticBatchResults(deviceIds, keys, resultData), nil
 }
 
 func queryTelemetryStatisticBatchDiffRows(deviceIds []string, keys []string, windows []telemetryWindow) ([]telemetryStatisticBatchDiffBoundaryRow, error) {
@@ -169,18 +169,6 @@ func queryTelemetryStatisticBatchDiffRows(deviceIds []string, keys []string, win
 	var rows []telemetryStatisticBatchDiffBoundaryRow
 	err := global.DB.Raw(sql.String(), args...).Scan(&rows).Error
 	return rows, err
-}
-
-func buildTelemetryStatisticBatchDiffResults(deviceIds []string, keys []string, data [][]map[string]interface{}) []map[string]interface{} {
-	results := make([]map[string]interface{}, 0, len(deviceIds))
-	for i := range deviceIds {
-		results = append(results, map[string]interface{}{
-			"device_id": deviceIds[i],
-			"key":       keys[i],
-			"data":      data[i],
-		})
-	}
-	return results
 }
 
 func extractNumericBoundaryValue(numberV *float64, stringV *string) (float64, error) {

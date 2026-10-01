@@ -77,11 +77,17 @@ type Client struct {
 	Now    func() time.Time
 }
 
+// defaultHTTPTimeout 未注入 HTTP 客户端时对 IdP（discovery/token/JWKS）调用的整体超时。
+// http.DefaultClient 无超时：IdP 慢响应或挂起会让 SSO 请求 goroutine 无限期阻塞。
+const defaultHTTPTimeout = 10 * time.Second
+
+var defaultHTTPClient = &http.Client{Timeout: defaultHTTPTimeout}
+
 func (c *Client) http() *http.Client {
 	if c.HTTP != nil {
 		return c.HTTP
 	}
-	return http.DefaultClient
+	return defaultHTTPClient
 }
 
 func (c *Client) now() time.Time {

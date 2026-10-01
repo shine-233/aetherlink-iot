@@ -4,6 +4,13 @@ import "time"
 
 const TableNameReportSchedule = "report_schedules"
 
+// 报表产物格式口径：与 sql/78.sql 注释、前端格式选择框三处同步维护。
+const (
+	ReportFormatCSV  = "csv"
+	ReportFormatHTML = "html"
+	ReportFormatPDF  = "pdf"
+)
+
 // ReportSchedule is the mutable scheduling definition. Executions are captured
 // separately as immutable ReportScheduleRun snapshots.
 type ReportSchedule struct {
@@ -42,7 +49,7 @@ type CreateReportScheduleReq struct {
 	DeviceIDs     []string `json:"device_ids" validate:"required,min=1,dive,max=36"`
 	Keys          []string `json:"keys" validate:"required,min=1,dive,max=255"`
 	LookbackHours int      `json:"lookback_hours" validate:"omitempty,min=1,max=8760"`
-	Format        string   `json:"format" validate:"omitempty,oneof=csv"`
+	Format        string   `json:"format" validate:"omitempty,oneof=csv html pdf"`
 	Enabled       bool     `json:"enabled"`
 }
 
@@ -56,6 +63,6 @@ type UpdateReportScheduleReq struct {
 	DeviceIDs     []string `json:"device_ids" validate:"omitempty,min=1,dive,max=36"`
 	Keys          []string `json:"keys" validate:"omitempty,min=1,dive,max=255"`
 	LookbackHours int      `json:"lookback_hours" validate:"omitempty,min=1,max=8760"`
-	Format        string   `json:"format" validate:"omitempty,oneof=csv"`
+	Format        string   `json:"format" validate:"omitempty,oneof=csv html pdf"`
 	Enabled       *bool    `json:"enabled"`
 }

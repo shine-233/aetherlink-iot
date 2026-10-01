@@ -1346,7 +1346,7 @@ func TestRDIAdditionalInfoAndAccessHelpersHandleBoundaryInputs(t *testing.T) {
 
 	rdiTestRequireError(t, assertRDIDeviceAccess(nil, &utils.UserClaims{TenantID: "tenant-a"}), "nil RDI device access", errcode.CodeParamError, "device_id is required")
 	rdiTestRequireError(t, assertRDIDeviceAccess(&model.Device{TenantID: "tenant-a"}, nil), "nil claims RDI device access", errcode.CodeNoPermission, "")
-	if err := assertRDIDeviceAccess(&model.Device{TenantID: "tenant-a"}, &utils.UserClaims{TenantID: "tenant-a"}); err != nil {
+	if err := assertRDIDeviceAccess(&model.Device{TenantID: "tenant-a"}, &utils.UserClaims{TenantID: "tenant-a", Authority: constant.TENANT_ADMIN}); err != nil {
 		t.Fatalf("assertRDIDeviceAccess same tenant returned error: %v", err)
 	}
 	rdiTestRequireError(t, assertRDIDeviceAccess(&model.Device{TenantID: "tenant-a"}, &utils.UserClaims{TenantID: "tenant-b"}), "cross-tenant RDI device access", errcode.CodeNoPermission, "")

@@ -138,13 +138,96 @@ func isRetryableReportGenerationError(code string) bool {
 	return code == "telemetry_query_failed"
 }
 
+// reportFormatSupported 是生成阶段的 fail-closed 格式白名单：快照里出现
+// 未知格式一律拒绝，而不是悄悄按 CSV 兜底。
+func reportFormatSupported(format string) bool {
+	switch format {
+	case model.ReportFormatCSV, model.ReportFormatHTML, model.ReportFormatPDF:
+		return true
+	}
+	return false
+}
+
 func (processor *ReportRunProcessor) generate(ctx context.Context, run *model.ReportScheduleRun) ([]byte, int64, string, error) {
-	if run == nil || run.ConfigSnapshot.Format != "csv" || !run.WindowStartAt.Before(run.WindowEndAt) {
+	if run == nil || !reportFormatSupported(run.ConfigSnapshot.Format) || !run.WindowStartAt.Before(run.WindowEndAt) {
 		return nil, 0, "invalid_snapshot", fmt.Errorf("unsupported report snapshot")
 	}
 	if processor.Telemetry == nil {
 		return nil, 0, "telemetry_query_failed", fmt.Errorf("report telemetry reader is unavailable")
 	}
+	switch run.ConfigSnapshot.Format {
+	case model.ReportFormatHTML:
+		return processor.generateTabularReport(ctx, run, renderReportHTML)
+	case model.ReportFormatPDF:
+		return processor.generateTabularReport(ctx, run, renderReportPDF)
+	default:
+		return processor.generateCSVReport(ctx, run)
+	}
+}
+
+// reportTableRow is the normalized row shape every artifact renderer consumes.
+type reportTableRow struct {
+	Timestamp string
+	DeviceID  string
+	Key       string
+	Value     string
+}
+
+func (processor *ReportRunProcessor) generateTabularReport(ctx context.Context, run *model.ReportScheduleRun, render func([]reportTableRow, string, time.Time, time.Time) ([]byte, error)) ([]byte, int64, string, error) {
+	rows, count, code, err := processor.collectReportRows(ctx, run)
+	if err != nil {
+		return nil, count, code, err
+	}
+	payload, renderErr := render(rows, run.ConfigSnapshot.ScheduleName, run.WindowStartAt, run.WindowEndAt)
+	if renderErr != nil {
+		return nil, count, reportRenderErrorCode(renderErr), renderErr
+	}
+	return payload, count, "", nil
+}
+
+// collectReportRows applies the same per-window query budget, nil-row guard and
+// deterministic ordering as the CSV path, but keeps rows in memory for the
+// whole-artifact renderers. The row budget bounds the slice at reportMaxRows.
+func (processor *ReportRunProcessor) collectReportRows(ctx context.Context, run *model.ReportScheduleRun) ([]reportTableRow, int64, string, error) {
+	devices := cloneSortedStrings(run.ConfigSnapshot.DeviceIDs)
+	keys := cloneSortedStrings(run.ConfigSnapshot.Keys)
+	rows := make([]reportTableRow, 0)
+	var count int64
+	for _, deviceID := range devices {
+		for _, key := range keys {
+			remaining := reportMaxRows - int(count)
+			fetched, err := processor.Telemetry.Read(ctx, run.TenantID, deviceID, key,
+				run.WindowStartAt.UnixMilli(), run.WindowEndAt.UnixMilli(), remaining+1)
+			if err != nil {
+				return nil, count, "telemetry_query_failed", err
+			}
+			if len(fetched) > remaining {
+				return nil, count, "row_limit_exceeded", fmt.Errorf("report row limit exceeded")
+			}
+			for _, row := range fetched {
+				if row == nil {
+					return nil, count, "telemetry_query_failed", fmt.Errorf("telemetry query returned an invalid row")
+				}
+			}
+			sort.SliceStable(fetched, func(i, j int) bool {
+				if fetched[i].T != fetched[j].T {
+					return fetched[i].T < fetched[j].T
+				}
+				return historyTelemetryValueToString(fetched[i]) < historyTelemetryValueToString(fetched[j])
+			})
+			for _, row := range fetched {
+				rows = append(rows, reportTableRow{
+					Timestamp: time.UnixMilli(row.T).UTC().Format(time.RFC3339Nano),
+					DeviceID:  deviceID, Key: key, Value: historyTelemetryValueToString(row),
+				})
+				count++
+			}
+		}
+	}
+	return rows, count, "", nil
+}
+
+func (processor *ReportRunProcessor) generateCSVReport(ctx context.Context, run *model.ReportScheduleRun) ([]byte, int64, string, error) {
 	devices := cloneSortedStrings(run.ConfigSnapshot.DeviceIDs)
 	keys := cloneSortedStrings(run.ConfigSnapshot.Keys)
 	buffer := &reportLimitedBuffer{limit: reportMaxBytes}
@@ -226,7 +309,7 @@ func (processor *ReportRunProcessor) DeliverClaim(ctx context.Context, claim dal
 	if claim.Run == nil || claim.Delivery == nil {
 		return fmt.Errorf("report delivery claim is incomplete")
 	}
-	envelope, err := persistedReportDeliveryEnvelope(claim.Delivery)
+	envelope, err := persistedReportDeliveryEnvelope(claim.Delivery, claim.Run)
 	if err != nil {
 		return processor.settleDeliveryFailed()(ctx, claim.Run.ID, claim.Token, "invalid_envelope")
 	}
@@ -274,5 +357,3 @@ func (processor *ReportRunProcessor) retryDelivery() func(context.Context, strin
 	}
 	return dal.RetryClaimedReportDelivery
 }
-
-func isReportClaimLost(err error) bool { return errors.Is(err, dal.ErrReportClaimLost) }

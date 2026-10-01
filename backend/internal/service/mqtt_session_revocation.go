@@ -110,25 +110,6 @@ var publishMQTTSessionRevocation = func(ctx context.Context, channel string, pay
 	return global.REDIS.Publish(ctx, channel, payload).Result()
 }
 
-// requestMQTTDeviceSessionTermination keeps the legacy plain-device-ID contract
-// for callers outside the durable SW3 path. New outbox deliveries use the
-// versioned JSON envelope below so retrying an old unbind cannot target a later
-// authentication generation.
-func requestMQTTDeviceSessionTermination(ctx context.Context, deviceID string) error {
-	deviceID = strings.TrimSpace(deviceID)
-	if deviceID == "" {
-		return fmt.Errorf("mqtt session revocation device id is required")
-	}
-	subscriberCount, err := publishMQTTSessionRevocation(ctx, mqttDeviceSessionRevocationChannel, deviceID)
-	if err != nil {
-		return fmt.Errorf("publish mqtt session revocation for device %s: %w", deviceID, err)
-	}
-	if subscriberCount == 0 {
-		return fmt.Errorf("publish mqtt session revocation for device %s: no broker subscriber", deviceID)
-	}
-	return nil
-}
-
 func newMQTTSessionRevocationOutbox(deviceID string, revokedAt time.Time) *mqttSessionRevocationOutbox {
 	now := time.Now().UTC()
 	return &mqttSessionRevocationOutbox{

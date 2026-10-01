@@ -39,11 +39,7 @@ pnpm build
 
 ### `src/core/`
 
-封装脚本引擎、交互系统、数据架构等核心能力。这里既有高复用价值，也有较强的兼容敏感性，尤其是：
-
-- `src/core/data-architecture/`
-- `src/core/interaction-system/`
-- `src/core/script-engine/`
+封装脚本引擎等核心能力，当前只有 `src/core/script-engine/`。原 `data-architecture/`、`interaction-system/` 因主入口不可达已于 2026-10 删除；`pnpm check:reachability` 会拒绝 `src/core` 下再出现不可达模块。
 
 修改这些目录前，应先确认 README、导出边界和配置兼容要求。
 
@@ -63,7 +59,6 @@ pnpm build
 | --- | --- | --- | --- |
 | `views/device/*` | 详情壳层偏重，路由/Tab/在线状态/刷新逻辑耦合。 | 继续抽 composable 或局部 helper，补最小行为说明。 | 降低页面心智负担，便于后续扩展和验证。 |
 | `views/automation/*` | 表单态与接口态转换复杂，历史兼容分支较多。 | 分离回显映射、提交映射和联动状态管理。 | 减少回填错位和提交流程回归风险。 |
-| `core/data-architecture/*` | 配置桥接、数据源解析、兼容层概念密集。 | 明确层次边界，逐步抽纯函数和类型说明。 | 提高可理解性，降低误改兼容面的概率。 |
 | `components/*` 公共组件 | README 与实际契约容易漂移。 | README 与代码一起维护，记录输入/输出和注意事项。 | 让新维护者能更快判断改动影响面。 |
 
 ## 文档与审查建议

@@ -33,84 +33,45 @@ var errInvalidRange = errors.New("invalid range")
 // 关键点：参数校验完成后仅透传租户身份给 service，避免在接口层拼装额外业务默认值。
 // @Router   /api/v1/ota/package [post]
 func (*OTAApi) CreateOTAUpgradePackage(c *gin.Context) {
-	var req model.CreateOTAUpgradePackageReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.OTA.CreateOTAUpgradePackage(&req, userClaims.TenantID)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandleAction(c, func(req *model.CreateOTAUpgradePackageReq, userClaims *utils.UserClaims) error {
+		return service.GroupApp.OTA.CreateOTAUpgradePackage(req, userClaims.TenantID)
+	})
 }
 
 // DeleteOTAUpgradePackage 删除 OTA 升级包。
 // 静态审查重点：确认删除操作的资源归属校验仍全部在 service 层统一处理。
 // @Router   /api/v1/ota/package/{id} [delete]
 func (*OTAApi) DeleteOTAUpgradePackage(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.OTA.DeleteOTAUpgradePackage(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandlePathAction(c, "id", func(id string, userClaims *utils.UserClaims) error {
+		return service.GroupApp.OTA.DeleteOTAUpgradePackage(id, userClaims)
+	})
 }
 
 // UpdateOTAUpgradePackage 更新 OTA 升级包元数据。
 // 静态审查重点：关注请求体字段与 service 更新白名单是否一致，避免接口层放宽可写字段。
 // @Router   /api/v1/ota/package/ [put]
 func (*OTAApi) UpdateOTAUpgradePackage(c *gin.Context) {
-	var req model.UpdateOTAUpgradePackageReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.OTA.UpdateOTAUpgradePackage(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandleAction(c, func(req *model.UpdateOTAUpgradePackageReq, userClaims *utils.UserClaims) error {
+		return service.GroupApp.OTA.UpdateOTAUpgradePackage(req, userClaims)
+	})
 }
 
 // HandleOTAUpgradePackageByPage 分页查询 OTA 升级包。
 // 关键点：该接口只负责请求绑定与响应挂载，分页、过滤、租户隔离均依赖 service 层。
 // @Router   /api/v1/ota/package [get]
 func (*OTAApi) HandleOTAUpgradePackageByPage(c *gin.Context) {
-	var req model.GetOTAUpgradePackageLisyByPageReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	var userClaims = c.MustGet("claims").(*utils.UserClaims)
-	list, err := service.GroupApp.OTA.GetOTAUpgradePackageListByPage(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", list)
+	Handle(c, func(req *model.GetOTAUpgradePackageLisyByPageReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.OTA.GetOTAUpgradePackageListByPage(req, userClaims)
+	})
 }
 
 // CreateOTAUpgradeTask 创建 OTA 升级任务。
 // 静态审查重点：确认任务创建前置校验、设备筛选与状态初始化未在 API 层发生分叉。
 // @Router   /api/v1/ota/task [post]
 func (*OTAApi) CreateOTAUpgradeTask(c *gin.Context) {
-	var req model.CreateOTAUpgradeTaskReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.OTA.CreateOTAUpgradeTask(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandleAction(c, func(req *model.CreateOTAUpgradeTaskReq, userClaims *utils.UserClaims) error {
+		return service.GroupApp.OTA.CreateOTAUpgradeTask(req, userClaims)
+	})
 }
 
 // DeleteOTAUpgradeTask 删除 OTA 升级任务。
@@ -126,63 +87,32 @@ func (*OTAApi) CreateOTAUpgradeTask(c *gin.Context) {
 // @Failure 400 {object} errcode.Error "Parameter validation error"
 // @Router   /api/v1/ota/task/preview [post]
 func (*OTAApi) PreviewOTAUpgradeTask(c *gin.Context) {
-	var req model.PreviewOTAUpgradeTaskReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.OTA.PreviewOTAUpgradeTask(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.PreviewOTAUpgradeTaskReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.OTA.PreviewOTAUpgradeTask(req, userClaims)
+	})
 }
 
 func (*OTAApi) DeleteOTAUpgradeTask(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.OTA.DeleteOTAUpgradeTask(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandlePathAction(c, "id", func(id string, userClaims *utils.UserClaims) error {
+		return service.GroupApp.OTA.DeleteOTAUpgradeTask(id, userClaims)
+	})
 }
 
 // HandleOTAUpgradeTaskByPage 分页查询 OTA 升级任务。
 // @Router   /api/v1/ota/task [get]
 func (*OTAApi) HandleOTAUpgradeTaskByPage(c *gin.Context) {
-	var req model.GetOTAUpgradeTaskListByPageReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	list, err := service.GroupApp.OTA.GetOTAUpgradeTaskListByPage(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", list)
+	Handle(c, func(req *model.GetOTAUpgradeTaskListByPageReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.OTA.GetOTAUpgradeTaskListByPage(req, userClaims)
+	})
 }
 
 // HandleOTAUpgradeTaskDetailByPage 分页查询 OTA 升级任务明细。
 // 静态审查重点：关注明细查询是否会暴露跨租户设备信息，以及筛选条件是否足够收敛。
 // @Router   /api/v1/ota/task/detail [get]
 func (*OTAApi) HandleOTAUpgradeTaskDetailByPage(c *gin.Context) {
-	var req model.GetOTAUpgradeTaskDetailReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	list, err := service.GroupApp.OTA.GetOTAUpgradeTaskDetailListByPage(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", list)
-
+	Handle(c, func(req *model.GetOTAUpgradeTaskDetailReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.OTA.GetOTAUpgradeTaskDetailListByPage(req, userClaims)
+	})
 }
 
 // GetOTAUpgradeTaskSupportBundle returns a task-level troubleshooting package for OTA rollout handoff.
@@ -196,45 +126,27 @@ func (*OTAApi) HandleOTAUpgradeTaskDetailByPage(c *gin.Context) {
 // @Failure 400 {object} errcode.Error "Parameter validation error"
 // @Router   /api/v1/ota/task/{id}/support-bundle [get]
 func (*OTAApi) GetOTAUpgradeTaskSupportBundle(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.OTA.GetOTAUpgradeTaskSupportBundle(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.OTA.GetOTAUpgradeTaskSupportBundle(id, userClaims)
+	})
 }
 
 // UpdateOTAUpgradeTaskStatus 更新 OTA 升级任务状态。
 // 静态审查重点：状态流转规则应由 service 层集中维护，避免接口层出现状态机旁路。
 // @Router   /api/v1/ota/task/detail [put]
 func (*OTAApi) UpdateOTAUpgradeTaskStatus(c *gin.Context) {
-	var req model.UpdateOTAUpgradeTaskStatusReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.OTA.UpdateOTAUpgradeTaskStatus(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandleAction(c, func(req *model.UpdateOTAUpgradeTaskStatusReq, userClaims *utils.UserClaims) error {
+		return service.GroupApp.OTA.UpdateOTAUpgradeTaskStatus(req, userClaims)
+	})
 }
 
 // PreviewOTARolloutGovernance 只读预览一个 OTA rollout task 的下一步治理动作。
 // 静态审查重点：本接口不下发、不改任何 detail 行、不连 broker，决策由纯规划器单一来源产出。
 // @Router   /api/v1/ota/task/{id}/rollout-governance [get]
 func (*OTAApi) PreviewOTARolloutGovernance(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.OTA.PreviewRolloutGovernance(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.OTA.PreviewRolloutGovernance(id, userClaims)
+	})
 }
 
 // ApplyOTARolloutGovernance 执行一次 OTA rollout 治理（P0.3 灰度/金丝雀执行面）。
@@ -249,14 +161,9 @@ func (*OTAApi) PreviewOTARolloutGovernance(c *gin.Context) {
 // @Success 200 {object} service.OTARolloutGovernanceApplyResult
 // @Router /api/v1/ota/task/{id}/rollout-governance-apply [post]
 func (*OTAApi) ApplyOTARolloutGovernance(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.OTA.ApplyRolloutGovernance(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.OTA.ApplyRolloutGovernance(id, userClaims)
+	})
 }
 
 // DownloadOTAUpgradePackage 下载 OTA 升级包，可选支持 Range 分片。
@@ -424,28 +331,6 @@ func parseByteRange(rangeHeader string, fileSize int64) (int64, int64, error) {
 	}
 
 	return start, end, nil
-}
-
-// safeOTAUpgradePackagePath 将 URL 参数限制在升级包目录下，防止路径穿越。
-// 静态审查重点：后续若变更基础目录或运行目录，需重新确认 filepath.Abs 与前缀比较的安全边界。
-func safeOTAUpgradePackagePath(pathParam, fileParam string) (string, error) {
-	relativePath, err := safeOTAUpgradePackageRelativePath(pathParam, fileParam)
-	if err != nil {
-		return "", err
-	}
-	base, err := filepath.Abs("./files/upgradePackage")
-	if err != nil {
-		return "", err
-	}
-	fullPath, err := filepath.Abs(filepath.Join(base, filepath.FromSlash(relativePath)))
-	if err != nil {
-		return "", err
-	}
-	baseWithSep := base + string(os.PathSeparator)
-	if fullPath != base && !strings.HasPrefix(fullPath, baseWithSep) {
-		return "", errors.New("invalid ota file path")
-	}
-	return fullPath, nil
 }
 
 func safeOTAUpgradePackageRelativePath(pathParam, fileParam string) (string, error) {

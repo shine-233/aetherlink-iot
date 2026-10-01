@@ -9,6 +9,12 @@ import { alarmRoutes, automationRoutes } from './automationRoutes';
 import { dashboardRoutes, visualizationRoutes } from './visualizationRoutes';
 import { deviceRoutes, deviceAppRoutes, productRoutes } from './deviceRoutes';
 import { marketRoutes } from './marketRoutes';
+import { customerRoutes } from './customerRoutes';
+import { billingRoutes } from './billingRoutes';
+import { mediaRoutes } from './mediaRoutes';
+import { integrationRoutes } from './integrationRoutes';
+import { mobileAppRoutes } from './mobileAppRoutes';
+import { schedulerRoutes } from './schedulerRoutes';
 
 export const generatedRoutes: GeneratedRoute[] = [
   ...systemIntroRoutes,
@@ -25,5 +31,11 @@ export const generatedRoutes: GeneratedRoute[] = [
   ...productRoutes,
   ...systemManagementRoutes,
   ...visualizationRoutes,
-  ...marketRoutes
+  ...marketRoutes,
+  ...customerRoutes,
+  ...billingRoutes,
+  ...mediaRoutes,
+  ...integrationRoutes,
+  ...mobileAppRoutes,
+  ...schedulerRoutes
 ];

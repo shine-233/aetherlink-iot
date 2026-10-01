@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"strings"
 
+	"aetherlink-iot/backend/internal/service"
 	"aetherlink-iot/backend/pkg/errcode"
 
 	"github.com/gin-gonic/gin"
@@ -83,15 +84,29 @@ type Controller struct {
 	AssetApi
 	UserTotpApi
 	OidcSsoApi
-	ResourceCenterApi // TP-5 资源中心
-	RateLimitApi      // TB-7 集群限流与多策略配额
-	QueueMonitorApi   // TB-7 多队列隔离监控
-	UnitsApi          // TB-9 单位换算与物理量纲
-	SecretApi         // TB-18 通用 Secrets Storage
-	DeviceClaimApi    // TB-12 设备认领与自动注册
+	ResourceCenterApi   // TP-5 资源中心
+	RateLimitApi        // TB-7 集群限流与多策略配额
+	QueueMonitorApi     // TB-7 多队列隔离监控
+	UnitsApi            // TB-9 单位换算与物理量纲
+	SecretApi           // TB-18 通用 Secrets Storage
+	DeviceClaimApi      // TB-12 设备认领与自动注册
 	IndustrySolutionApi // TB-19 解决方案模板引擎
-	TenantApi         // P3 租户管理与自助开通
-	BillingApi        // P3 商业化计费与用量计量
+	TenantApi           // P3 租户管理与自助开通
+	BillingApi          // P3 商业化计费与用量计量
+	DataConverterApi    // ThingsBoard 核心数据转换器
+	IntegrationApi      // TB-45 统一集成实体（Integration 纳管管线）
+	UserGroupApi        // TB-46 用户组与组权限（GPE v1）
+	DeviceHealthApi     // TP-6 / TB PE 设备综合健康度评估
+	CustomerApi         // ThingsBoard 核心客户管理体系
+	WidgetBundleApi     // TB-04 部件库（widget_bundles）
+	MediaLibraryApi     // TB-41 文件存储与媒体库（media_files）
+	MobileAppBundleApi  // TB-23 移动应用中心（mobile_app_bundles）
+	TenantWhitelabelApi // TB-47 白标：租户翻译覆盖 + 自定义 CSS（134.sql）
+	SchedulerApi        // TB-48 统一调度器（scheduler_events + 三源聚合）
+
+	// Wave7-C（GroupApp → 构造注入）：已抽接口的域以 XxxSvc 字段持有，
+	// 组装点在 init() 内唯一一次赋值；新 handler 不得再直引 service.GroupApp。
+	ReportScheduleSvc service.ReportScheduleDomain
 }
 
 var (
@@ -102,12 +117,11 @@ var (
 )
 
 func init() {
-	Validate = validator.New()
-}
+	// Wave7-C 组装点：门面保留过渡形态——api 调用面已切到接口，
+	// 这里是 report 域对 GroupApp 的唯一引用；后续域按同一模式迁移。
+	Controllers.ReportScheduleSvc = service.GroupApp.ReportSchedule
 
-// ValidateStruct 对请求结构体执行字段校验，并返回第一条可读错误。
-func ValidateStruct(i interface{}) error {
-	return ValidateStructLang(i, "")
+	Validate = validator.New()
 }
 
 // ValidateStructLang 按 Accept-Language 生成可读校验错误。空 lang 时默认中文。

@@ -10,7 +10,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/model"
@@ -236,32 +235,3 @@ func TestCredentialGrantRejectsEmptyBatch(t *testing.T) {
 	}
 }
 
-// TestCredentialGrantStatusVocabulary 状态词表与消费留痕规则的定向校验（纯逻辑，不需要库）。
-func TestCredentialGrantStatusVocabulary(t *testing.T) {
-	for _, s := range []string{"pending", "consumed", "expired", "revoked"} {
-		if !model.IsCredentialGrantStatus(s) {
-			t.Fatalf("status %q must be valid", s)
-		}
-	}
-	for _, s := range []string{"", "done", "USED", "pending "} {
-		if model.IsCredentialGrantStatus(s) {
-			t.Fatalf("status %q must be invalid", s)
-		}
-	}
-	now := time.Now().UTC()
-	by := "u1"
-	// 已消费但没留痕：审计断了，必须拒绝。
-	bad := &model.DevicePreRegisterCredentialGrant{
-		TenantID: "t", BatchNumber: "b", Status: model.CredentialGrantStatusConsumed,
-	}
-	if err := model.ValidateCredentialGrant(bad); err == nil {
-		t.Fatal("consumed grant without consumed_by/at must be rejected")
-	}
-	good := &model.DevicePreRegisterCredentialGrant{
-		TenantID: "t", BatchNumber: "b", Status: model.CredentialGrantStatusConsumed,
-		ConsumedBy: &by, ConsumedAt: &now,
-	}
-	if err := model.ValidateCredentialGrant(good); err != nil {
-		t.Fatalf("valid consumed grant rejected: %v", err)
-	}
-}

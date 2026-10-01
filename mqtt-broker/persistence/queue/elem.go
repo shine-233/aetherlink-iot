@@ -60,17 +60,6 @@ const (
 	elemIdentifierOffset = 18
 )
 
-func writeInt64(dst []byte, value int64) {
-	buffer := bytes.NewBuffer(dst[:0])
-	_ = binary.Write(buffer, binary.BigEndian, value)
-}
-
-func readInt64(src []byte) (int64, error) {
-	var value int64
-	err := binary.Read(bytes.NewReader(src), binary.BigEndian, &value)
-	return value, err
-}
-
 // Encode encodes the publish structure into bytes and write it to the buffer
 func (p *Publish) Encode(b *bytes.Buffer) {
 	encoding.EncodeMessage(p.Message, b)
@@ -96,21 +85,27 @@ func (p *Pubrel) Decode(b *bytes.Buffer) (err error) {
 }
 
 // Encode encode the elem structure into bytes.
-// Format: 8 byte timestamp | 1 byte identifier| data
+// Format: 8 byte entry timestamp | 1 byte reserved | 8 byte expiry | 1 byte identifier | data
+// 头部直接写进输出缓冲区（BigEndian 定长写入），不再经 binary.Write 反射与临时头切片。
 func (e *Elem) Encode() []byte {
-	b := bytes.NewBuffer(make([]byte, 0, 100))
-	rs := make([]byte, elemHeaderSize)
-	writeInt64(rs[:elemTimestampSize], e.At.Unix())
-	writeInt64(rs[elemExpiryOffset:elemExpiryOffset+elemTimestampSize], e.Expiry.Unix())
+	size := elemHeaderSize + 2
+	if m, ok := e.MessageWithID.(*Publish); ok && m.Message != nil {
+		size += 64 + len(m.Topic) + len(m.Payload)
+	}
+	b := bytes.NewBuffer(make([]byte, elemHeaderSize, size))
+	header := b.Bytes()
+	binary.BigEndian.PutUint64(header[:elemTimestampSize], uint64(e.At.Unix()))
+	binary.BigEndian.PutUint64(header[elemExpiryOffset:elemExpiryOffset+elemTimestampSize], uint64(e.Expiry.Unix()))
 	switch m := e.MessageWithID.(type) {
 	case *Publish:
-		rs[elemIdentifierOffset] = 0
-		b.Write(rs)
+		header[elemIdentifierOffset] = 0
 		m.Encode(b)
 	case *Pubrel:
-		rs[elemIdentifierOffset] = 1
-		b.Write(rs)
+		header[elemIdentifierOffset] = 1
 		m.Encode(b)
+	default:
+		// 与旧实现保持一致：未知类型不输出任何字节。
+		return b.Bytes()[:0]
 	}
 	return b.Bytes()
 }
@@ -119,25 +114,17 @@ func (e *Elem) Decode(b []byte) (err error) {
 	if len(b) < elemHeaderSize {
 		return errors.New("invalid input length")
 	}
-	at, err := readInt64(b[:elemTimestampSize])
-	if err != nil {
-		return err
-	}
-	expiry, err := readInt64(b[elemExpiryOffset : elemExpiryOffset+elemTimestampSize])
-	if err != nil {
-		return err
-	}
-	e.At = time.Unix(at, 0)
-	e.Expiry = time.Unix(expiry, 0)
+	e.At = time.Unix(int64(binary.BigEndian.Uint64(b[:elemTimestampSize])), 0)
+	e.Expiry = time.Unix(int64(binary.BigEndian.Uint64(b[elemExpiryOffset:elemExpiryOffset+elemTimestampSize])), 0)
 	switch b[elemIdentifierOffset] {
 	case 0: // publish
 		p := &Publish{}
-		buf := bytes.NewBuffer(b[19:])
+		buf := bytes.NewBuffer(b[elemHeaderSize:])
 		err = p.Decode(buf)
 		e.MessageWithID = p
 	case 1: // pubrel
 		p := &Pubrel{}
-		buf := bytes.NewBuffer(b[19:])
+		buf := bytes.NewBuffer(b[elemHeaderSize:])
 		err = p.Decode(buf)
 		e.MessageWithID = p
 	default:

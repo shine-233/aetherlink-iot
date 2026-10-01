@@ -81,9 +81,7 @@ func (c *CommandData) GetCommandDeliveryDiagnostics(
 		DeviceId: deviceID,
 	})
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 
 	resp := &CommandDeliveryDiagnosticsResp{

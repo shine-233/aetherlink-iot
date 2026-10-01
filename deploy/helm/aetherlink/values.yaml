@@ -1,0 +1,214 @@
+# 文件用途：aetherlink Helm chart 默认值——端口、环境变量与资源限额的口径对齐根 docker-compose.yml。
+# 核心逻辑：backend/broker/frontend/postgres/redis 五组工作负载 + postgresql/redis 依赖开关 +
+#   secrets 密钥区；镜像仓库对齐 .github/workflows/container-release.yml 的 ghcr 发布名。
+# 关键注意事项：secrets 默认全空并在模板里 required fail-fast（安装时必须显式提供或用 existingSecret）；
+#   image.tag 默认 latest 仅为可渲染性，真实安装必须钉到已发布 tag；backend.files 卷多副本必须改
+#   ReadWriteMany（RWX 存储类），telemetry/uplink spool 卷永远保持 per-pod（RWO，勿共享）。
+# 重构建议：新增环境变量时先改根 docker-compose.yml，再同步 templates/statefulset-backend.yaml
+#   与 backend/internal/helmchart 单测的 env 键集合断言，三处保持一致。
+nameOverride: ""
+fullnameOverride: ""
+
+# 追加到全部工作负载与 Service 的 labels（selector 不包含它们，改值不影响升级）。
+commonLabels: {}
+
+backend:
+  image:
+    # 对齐 container-release.yml 发布的 ghcr.io/<owner>/aetherlink-iot-backend 镜像名。
+    repository: ghcr.io/shine-233/aetherlink-iot-backend
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  # >1 时必须满足：files 卷 RWX（见 storage.files.accessModes）；首次部署先让 1 副本完成
+  # 迁移（/ready 通过）再扩容——StatefulSet OrderedReady 已天然串行化首启迁移。
+  replicas: 1
+  # 对齐 compose 默认 AETHERLINK_BACKEND_CPUS=0.70 / AETHERLINK_BACKEND_MEM_LIMIT=768m。
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 700m
+      memory: 768Mi
+  storage:
+    storageClass: ""          # 空串使用集群默认 StorageClass
+    files:
+      size: 10Gi
+      # 单副本默认 RWO；replicas>1 必须改为 [ReadWriteMany] 且存储类支持 RWX，
+      # 否则上传文件只在单 Pod 可见（/files 静态服务读不到别的副本写入的文件）。
+      accessModes:
+        - ReadWriteOnce
+    # spool 卷是 per-pod 本地耐久层（断网缓冲回放），任何副本数下都不得跨 Pod 共享。
+    telemetrySpool:
+      size: 10Gi
+    uplinkSpool:
+      size: 10Gi
+  env:
+    logLevel: info
+    jwtExpireHours: "24"
+    openapiKeyAuthority: TENANT_USER
+    pluginServiceKey: ""
+    serverMode: "0"
+    dbPsqlPort: "5432"
+    dbPsqlDbname: aetherlink_iot
+    dbPsqlUsername: postgres
+    dbRedisDb: "1"
+    dbRedisDb1: "10"
+    mqttServer: gmqtt
+    mqttUser: root
+  # 优雅停机窗口（对齐 compose stop_grace_period: 30s + preStop 摘流）。
+  shutdown:
+    # preStop sleep 秒数：等待 Endpoints 摘除后再收到 SIGTERM。
+    preStopSleepSeconds: 5
+    # 必须 > preStopSleepSeconds + HTTP 5s + oplog 排空 + 吊销 worker 3s。
+    terminationGracePeriodSeconds: 35
+  # 部署面公开地址：对齐 compose 的 AETHERLINK_PUBLIC_URL / AETHERLINK_MQTT_ACCESS_ADDRESS 默认。
+  public:
+    webUrl: "http://localhost:8080"
+    mqttAddress: "localhost:1883"
+  syntheticRdi:
+    allow: ""
+    allowedDatabases: ""
+  # 断网缓冲（spool）参数：目录与开关为固定值，其余对齐 compose 默认。
+  spool:
+    telemetryMaxBytes: "536870912"
+    telemetryMaxRecords: "100000"
+    telemetryMaxRecordBytes: "16777216"
+    telemetryReplayInterval: "30s"
+    telemetryReplayBatchSize: "100"
+    telemetryReplayTimeout: "10s"
+    attributeMaxBytes: "536870912"
+    attributeMaxRecords: "100000"
+    attributeMaxRecordBytes: "16777216"
+    attributeReplayInterval: "30s"
+    attributeReplayBatchSize: "100"
+    attributeReplayTimeout: "10s"
+
+broker:
+  image:
+    repository: ghcr.io/shine-233/aetherlink-iot-mqtt-broker
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  # 每个 Pod 以 <release>-mqtt-broker-<ordinal> 作为稳定 broker_id（fieldRef metadata.name），
+  # backend 的 GOTP_MQTT_SESSION_REVOCATIONS_REQUIRED_BROKER_IDS 自动覆盖全部副本。
+  replicas: 1
+  # 对齐 compose 默认 AETHERLINK_MQTT_CPUS=0.30 / AETHERLINK_MQTT_MEM_LIMIT=128m。
+  resources:
+    requests:
+      cpu: 100m
+      memory: 64Mi
+    limits:
+      cpu: 300m
+      memory: 128Mi
+  storage:
+    storageClass: ""
+    data:
+      size: 5Gi
+  env:
+    sslMode: disable
+    redisDbNum: "1"
+    adminHttpAuthSecret: ""
+    payloadSchemaEnabled: "false"
+    payloadSchemaCacheTtl: "30s"
+    # 会话/订阅/QoS 队列经共享 Redis 持久化（compose 同源默认）——多副本的前提，禁改 memory。
+    persistenceType: redis
+    persistenceRedisDb: "2"
+  # 优雅停机窗口（对齐 compose stop_grace_period: 30s / GMQTT_SHUTDOWN_TIMEOUT=20s）。
+  shutdown:
+    preStopSleepSeconds: 5
+    # 客户端排空总时限（Go duration），注入为 GMQTT_SHUTDOWN_TIMEOUT。
+    drainTimeout: "20s"
+    # 必须 > preStopSleepSeconds + drainTimeout + 插件数 × 5s（Unload 单插件上限）。
+    # 默认两类插件（aetherlink + federation）：5 + 20 + 10 = 35，再留 5s 余量。
+    terminationGracePeriodSeconds: 40
+
+frontend:
+  image:
+    repository: ghcr.io/shine-233/aetherlink-iot-frontend
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  replicas: 1
+  # 对齐 compose 默认 AETHERLINK_FRONTEND_CPUS=0.20 / AETHERLINK_FRONTEND_MEM_LIMIT=128m。
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+  service:
+    type: ClusterIP
+    port: 8080
+
+# 依赖开关：false 时不渲染对应工作负载，改用 external.* 指向外部实例
+# （外部 PG 的 sslmode 仍按 postgresql/外部实例策略显式调整 broker.env.sslMode）。
+postgresql:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "18-alpine"
+    pullPolicy: IfNotPresent
+  database: aetherlink_iot
+  username: postgres
+  # 对齐 compose 默认 AETHERLINK_POSTGRES_CPUS=0.40 / AETHERLINK_POSTGRES_MEM_LIMIT=512m。
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 400m
+      memory: 512Mi
+  # 写密集 IoT 负载调优（对齐 docker-compose.yml postgres command 默认值）。
+  # 调大 limits.memory 时同步调大 shared_buffers（约 25%）/work_mem/maintenance_work_mem。
+  # 置为 {} 则完全使用镜像默认配置。
+  config:
+    shared_buffers: 128MB
+    work_mem: 4MB
+    maintenance_work_mem: 64MB
+    max_wal_size: 2GB
+    checkpoint_timeout: 15min
+    checkpoint_completion_target: "0.9"
+    wal_compression: "on"
+    autovacuum_naptime: 30s
+    autovacuum_vacuum_scale_factor: "0.05"
+    autovacuum_analyze_scale_factor: "0.02"
+    autovacuum_vacuum_insert_scale_factor: "0.05"
+    log_autovacuum_min_duration: 10s
+  storage:
+    storageClass: ""
+    size: 10Gi
+
+redis:
+  enabled: true
+  image:
+    repository: redis
+    tag: "8-alpine"
+    pullPolicy: IfNotPresent
+  # 对齐 compose 默认 AETHERLINK_REDIS_MAXMEMORY=96mb；必须低于下方 limits.memory。
+  maxmemory: 96mb
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+  storage:
+    storageClass: ""
+    size: 5Gi
+
+# postgresql/redis 关闭时的外部实例地址（backend 与 broker 共用同一地址口径）。
+external:
+  postgresHost: ""    # 例：pg.internal.example  —— postgresql.enabled=false 时必填
+  redisAddr: ""       # 例：redis.internal.example:6379 —— redis.enabled=false 时必填
+
+# 密钥区：所有值默认空串，模板 required fail-fast。二选一：
+# 1) 填下方明文值（仅限受控的 values 文件，勿提交真实值）；
+# 2) secrets.existingSecret 指向既有 Secret，键名必须为：
+#    jwt-key / postgres-password / redis-password / mqtt-root-password / mqtt-plugin-password。
+secrets:
+  existingSecret: ""
+  jwtKey: ""
+  postgresPassword: ""
+  redisPassword: ""
+  mqttRootPassword: ""
+  mqttPluginPassword: ""

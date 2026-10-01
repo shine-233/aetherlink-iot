@@ -122,3 +122,53 @@ describe('canvas editor: z ordering', () => {
     )
   })
 })
+
+// TP-22: display mode switching. fixed1080 must snap to the 1920×1080 contract (both this
+// module and backend/internal/scadadoc refuse any other size), and a merely-opened legacy
+// document must keep round-tripping without the field.
+describe('canvas editor: display mode (TP-22)', () => {
+  it('defaults to responsive for an untouched editor', () => {
+    const editor = editorWithCanvas()
+    expect(editor.displayMode.value).toBe('responsive')
+  })
+
+  it('snaps to 1920x1080 when switching to fixed1080', () => {
+    const editor = editorWithCanvas(1280, 720)
+    editor.setDisplayMode('fixed1080')
+    expect(editor.displayMode.value).toBe('fixed1080')
+    expect(editor.canvas.value.width).toBe(1920)
+    expect(editor.canvas.value.height).toBe(1080)
+    expect(editor.isDirty.value).toBe(true)
+  })
+
+  it('keeps the current size when switching back to responsive', () => {
+    const editor = editorWithCanvas(1280, 720)
+    editor.setDisplayMode('fixed1080')
+    editor.setDisplayMode('responsive')
+    expect(editor.displayMode.value).toBe('responsive')
+    expect(editor.canvas.value.width).toBe(1920)
+    expect(editor.canvas.value.height).toBe(1080)
+  })
+
+  it('persists displayMode through serialize/load round trip', () => {
+    const editor = editorWithCanvas()
+    editor.setDisplayMode('fixed1080')
+    const raw = editor.serialize()
+    expect(raw).toContain('"displayMode":"fixed1080"')
+
+    const other = useCanvasEditor()
+    other.load(raw)
+    expect(other.displayMode.value).toBe('fixed1080')
+    expect(other.canvas.value.width).toBe(1920)
+    expect(other.isDirty.value).toBe(false)
+  })
+
+  it('leaves legacy documents field-free until the author picks a mode', () => {
+    const editor = useCanvasEditor()
+    editor.load('{"schemaVersion":1,"width":1280,"height":720,"nodes":[]}')
+    editor.markSaved()
+    editor.addNode({ kind: 'widget', ref: 'gauge', x: 0, y: 0, width: 10, height: 10 })
+    editor.markSaved()
+    expect(editor.serialize()).not.toContain('displayMode')
+  })
+})

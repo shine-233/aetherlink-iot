@@ -313,6 +313,10 @@
     "saveMenu": "Guardar menú",
     "confirmDelete": "Confirmar eliminación",
     "deleteConfirm": "¿Eliminar la vista \"{name}\"? Esta acción no se puede deshacer.",
-    "confirmDeleteAction": "Eliminar"
+    "confirmDeleteAction": "Eliminar",
+    "carouselFullscreen": "Pantalla completa",
+    "carouselExitFullscreen": "Salir de pantalla completa",
+    "carouselMissingTokens": "{count} de los tableros solicitados no están disponibles",
+    "carouselUnsupported": "La reproducción en carrusel requiere tableros nativos"
   }
 }

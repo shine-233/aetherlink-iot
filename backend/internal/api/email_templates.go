@@ -15,31 +15,15 @@ import (
 )
 
 func (*NotificationServicesConfigApi) ListEmailTemplates(c *gin.Context) {
-	var req model.PageReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.NotificationServicesConfig.ListEmailTemplates(req.Page, req.PageSize, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.PageReq, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.NotificationServicesConfig.ListEmailTemplates(req.Page, req.PageSize, claims)
+	})
 }
 
 func (*NotificationServicesConfigApi) CreateEmailTemplate(c *gin.Context) {
-	var req model.EmailTemplateUpsertReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.NotificationServicesConfig.CreateEmailTemplate(&req, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.EmailTemplateUpsertReq, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.NotificationServicesConfig.CreateEmailTemplate(req, claims)
+	})
 }
 
 func (*NotificationServicesConfigApi) UpdateEmailTemplate(c *gin.Context) {
@@ -90,15 +74,7 @@ func (*NotificationServicesConfigApi) SetDefaultEmailTemplate(c *gin.Context) {
 }
 
 func (*NotificationServicesConfigApi) PreviewEmailTemplate(c *gin.Context) {
-	var req model.EmailTemplatePreviewReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.NotificationServicesConfig.PreviewEmailTemplate(&req, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.EmailTemplatePreviewReq, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.NotificationServicesConfig.PreviewEmailTemplate(req, claims)
+	})
 }

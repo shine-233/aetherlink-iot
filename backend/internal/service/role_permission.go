@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
+	"aetherlink-iot/backend/internal/authz"
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
-	constant "aetherlink-iot/backend/pkg/constant"
 	errcode "aetherlink-iot/backend/pkg/errcode"
 	global "aetherlink-iot/backend/pkg/global"
 	utils "aetherlink-iot/backend/pkg/utils"
@@ -192,7 +192,7 @@ func (RolePermissionService) AssignRoleUsers(ctx context.Context, roleID string,
 	if len(req.UserIDs) > 0 {
 		var count int64
 		q := global.DB.WithContext(ctx).Table(model.TableNameUser).Where("id IN ?", req.UserIDs)
-		if claims.Authority != constant.SYS_ADMIN && tenantID != "" {
+		if !authz.IsSysAdmin(claims) && tenantID != "" {
 			q = q.Where("tenant_id = ?", tenantID)
 		}
 		if err := q.Count(&count).Error; err != nil {

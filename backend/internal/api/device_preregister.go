@@ -14,49 +14,25 @@ import (
 // HandleDevicePreRegisterListByPage 分页查询当前租户的预注册设备
 // @Router   /api/v1/device/preRegister [get]
 func (*DeviceApi) HandleDevicePreRegisterListByPage(c *gin.Context) {
-	var req model.GetDevicePreRegisterListByPageReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Device.GetDevicePreRegisterListByPage(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.GetDevicePreRegisterListByPageReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Device.GetDevicePreRegisterListByPage(req, userClaims)
+	})
 }
 
 // CreateDevicePreRegister 按产品+批次批量建档：create_type=1 自动生成，2=CSV 批次文件
 // @Router   /api/v1/device/preRegister [post]
 func (*DeviceApi) CreateDevicePreRegister(c *gin.Context) {
-	var req model.CreateDevicePreRegisterReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Device.CreateDevicePreRegister(req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.CreateDevicePreRegisterReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Device.CreateDevicePreRegister(*req, userClaims)
+	})
 }
 
 // ExportDevicePreRegister 按产品/批次导出预注册清单（voucher 已脱敏）
 // @Router   /api/v1/device/preRegister/export [get]
 func (*DeviceApi) ExportDevicePreRegister(c *gin.Context) {
-	var req model.ExportPreRegisterReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Device.ExportDevicePreRegister(req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.ExportPreRegisterReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Device.ExportDevicePreRegister(*req, userClaims)
+	})
 }
 
 // CleanupDevicePreRegister 清理预注册批次中仍未激活的设备（P0.5 清理执行面）。
@@ -64,15 +40,7 @@ func (*DeviceApi) ExportDevicePreRegister(c *gin.Context) {
 // 跨租户数据一律 fail closed 拒绝，不做静默过滤。
 // @Router   /api/v1/device/preRegister/cleanup [post]
 func (*DeviceApi) CleanupDevicePreRegister(c *gin.Context) {
-	var req model.ExportPreRegisterReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Device.CleanupDevicePreRegister(req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.ExportPreRegisterReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Device.CleanupDevicePreRegister(*req, userClaims)
+	})
 }

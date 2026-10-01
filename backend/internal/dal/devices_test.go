@@ -114,6 +114,92 @@ func TestUpdateDeviceStatusReportsOnlyRealStatusChanges(t *testing.T) {
 	}
 }
 
+// TestUpdateDeviceStatusWithTenantMatchesPlainVariant 锁定新入口与旧入口语义等价。
+// 新入口只是省掉 getDeviceTenantID 那次整行 SELECT（调用方已持有设备对象），
+// 条件 UPDATE、未变化不写历史等语义必须逐条保持一致——否则状态热路径的优化
+// 就变成了行为变更。
+func TestUpdateDeviceStatusWithTenantMatchesPlainVariant(t *testing.T) {
+	db := setupDeviceDALTestDB(t)
+	now := time.Now().UTC()
+	deviceID := "device-status-with-tenant"
+	if err := db.Create(&model.Device{
+		ID:           deviceID,
+		Voucher:      `{"username":"device-status-with-tenant"}`,
+		TenantID:     "tenant-1",
+		IsEnabled:    "enabled",
+		ActivateFlag: "active",
+		CreatedAt:    &now,
+		UpdateAt:     &now,
+		DeviceNumber: "device-status-with-tenant",
+		IsOnline:     0,
+	}).Error; err != nil {
+		t.Fatalf("create device: %v", err)
+	}
+
+	changed, err := UpdateDeviceStatusWithTenant(deviceID, 1, "tenant-1")
+	if err != nil {
+		t.Fatalf("first UpdateDeviceStatusWithTenant returned error: %v", err)
+	}
+	if !changed {
+		t.Fatalf("首次状态变化应返回 changed=true")
+	}
+
+	// 条件 UPDATE 语义不变：状态未变化时返回 false（不删缓存、不写历史）。
+	changed, err = UpdateDeviceStatusWithTenant(deviceID, 1, "tenant-1")
+	if err != nil {
+		t.Fatalf("second UpdateDeviceStatusWithTenant returned error: %v", err)
+	}
+	if changed {
+		t.Fatalf("状态未变化时应返回 changed=false")
+	}
+
+	var device model.Device
+	if err := db.Where("id = ?", deviceID).First(&device).Error; err != nil {
+		t.Fatalf("load updated device: %v", err)
+	}
+	if device.IsOnline != 1 {
+		t.Fatalf("IsOnline = %d, want 1", device.IsOnline)
+	}
+}
+
+// TestUpdateDeviceStatusWithTenantFallsBackOnEmptyTenant 空 tenantID 必须回退旧入口。
+// 调用方拿到的可能是脏缓存/异常设备（TenantID 为空），此时不能因为省一次查询
+// 就把状态历史写成空租户，也不能漏掉状态更新。
+func TestUpdateDeviceStatusWithTenantFallsBackOnEmptyTenant(t *testing.T) {
+	db := setupDeviceDALTestDB(t)
+	now := time.Now().UTC()
+	deviceID := "device-status-empty-tenant"
+	if err := db.Create(&model.Device{
+		ID:           deviceID,
+		Voucher:      `{"username":"device-status-empty-tenant"}`,
+		TenantID:     "tenant-1",
+		IsEnabled:    "enabled",
+		ActivateFlag: "active",
+		CreatedAt:    &now,
+		UpdateAt:     &now,
+		DeviceNumber: "device-status-empty-tenant",
+		IsOnline:     0,
+	}).Error; err != nil {
+		t.Fatalf("create device: %v", err)
+	}
+
+	changed, err := UpdateDeviceStatusWithTenant(deviceID, 1, "")
+	if err != nil {
+		t.Fatalf("空 tenantID 回退后应仍能更新状态，实测报错: %v", err)
+	}
+	if !changed {
+		t.Fatalf("空 tenantID 回退路径应正常报告状态变化")
+	}
+
+	var device model.Device
+	if err := db.Where("id = ?", deviceID).First(&device).Error; err != nil {
+		t.Fatalf("load updated device: %v", err)
+	}
+	if device.IsOnline != 1 {
+		t.Fatalf("IsOnline = %d, want 1", device.IsOnline)
+	}
+}
+
 func TestGetDeviceTemplateIdByDeviceId(t *testing.T) {
 	db := setupDeviceDALTestDB(t)
 	now := time.Now().UTC()
@@ -401,7 +487,7 @@ func TestGetDeviceListByPageWarnStatusNormalKeepsTenantAndActiveFilters(t *testi
 		t.Fatal("expected unsupported warn_status to fail closed")
 	}
 
-	alarmDeviceCount, err := (&LatestDeviceAlarmQuery{}).CountDevicesByTenantAndStatus(context.Background(), "tenant-1", nil)
+	alarmDeviceCount, err := (&LatestDeviceAlarmQuery{}).CountDevicesByScopeAndStatus(context.Background(), "tenant-1", nil, false)
 	if err != nil {
 		t.Fatalf("count active alarm devices: %v", err)
 	}

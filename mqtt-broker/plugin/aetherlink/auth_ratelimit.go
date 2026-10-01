@@ -96,15 +96,6 @@ func (l *authFailureLimiter) record(ip string) {
 	l.failures[ip] = append(l.pruneLocked(ip, now), now)
 }
 
-// cleanup 强制执行一轮全量过期清扫并返回剩余 key 数，主要供测试与运维观察使用。
-func (l *authFailureLimiter) cleanup() int {
-	now := l.now()
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.gcLocked(now)
-	return len(l.failures)
-}
-
 // pruneLocked 返回该 IP 窗口内的有效失败时间戳（已写回 map），调用方必须持锁。
 func (l *authFailureLimiter) pruneLocked(ip string, now time.Time) []time.Time {
 	ts := l.failures[ip]

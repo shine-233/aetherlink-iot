@@ -59,7 +59,7 @@ func TestFirstFutureReportOccurrenceCoalescesStaleSlots(t *testing.T) {
 func TestFirstFutureReportOccurrenceRejectsNonAdvancingParser(t *testing.T) {
 	schedule := &model.ReportSchedule{ID: "schedule-1"}
 	start := time.Unix(0, 0).UTC()
-	_, _, err := firstFutureReportOccurrence(schedule, start, start, func(_ *model.ReportSchedule, after time.Time) (time.Time, error) {
+	_, _, _, err := firstFutureReportOccurrenceBounded(schedule, start, start, func(_ *model.ReportSchedule, after time.Time) (time.Time, error) {
 		return after, nil
 	})
 	if err == nil {

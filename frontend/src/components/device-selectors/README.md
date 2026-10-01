@@ -201,9 +201,8 @@ interface DeviceDispatchValue {
 
 ## 测试
 
-当前仓库没有 `src/views/test/*SelectorTest.vue` 这两个测试页面。现有的可回放消费和
-测试入口是 `src/core/data-architecture/components/common/DynamicParameterComponentDrawer.vue`
-以及相邻的 `DynamicParameterEditor.test.ts`；如果要增加独立 selector 测试页，需另行
+当前仓库没有 `src/views/test/*SelectorTest.vue` 这两个测试页面。原先的消费与测试入口
+`src/core/data-architecture/` 已于 2026-10 随该子系统删除；如果要增加独立 selector 测试页，需另行
 记录 `CREATE_SUPPORT_ARTIFACT` 决策，不能把不存在的页面当作现有覆盖率证据。
 
 ## 更新日志

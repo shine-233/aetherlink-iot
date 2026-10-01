@@ -7,7 +7,6 @@ package dal
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -71,7 +70,7 @@ func GetRoleListByPage(data *model.GetRoleListByPageReq, tenantID string) (int64
 
 	queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenantID))
 	if data.Name != nil && *data.Name != "" {
-		queryBuilder = queryBuilder.Where(q.Name.Like(fmt.Sprintf("%%%s%%", *data.Name)))
+		queryBuilder = queryBuilder.Where(q.Name.Like(ContainsLikePattern(*data.Name)))
 	}
 
 	count, err := queryBuilder.Count()
@@ -98,6 +97,7 @@ func GetRoleListByPage(data *model.GetRoleListByPageReq, tenantID string) (int64
 //   - 仅返回 tenant_id 命中入参的角色；系统级角色（tenant_id 为 NULL/空串）一律排除，
 //     避免把平台级角色误当作祖先租户角色继承，造成权限放大；
 //   - 出错时如实上抛（调用方按"扩展失败即跳过、绝不放行"处理，不阻断鉴权主流程）。
+//
 // tenant-scope: caller-enforced（入参即租户白名单，等价于显式 IN 过滤）
 func GetRoleIDsByTenants(tenantIDs []string) ([]string, error) {
 	ids := make([]string, 0, len(tenantIDs))

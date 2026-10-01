@@ -8,6 +8,8 @@ import (
 
 	"aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/pkg/global"
+
+	"gorm.io/gorm"
 )
 
 // tenant-scope: reviewed-2026-09-02 user-scoped (user_id keyed); user→tenant ownership enforced at service/login boundary.
@@ -44,11 +46,15 @@ func SaveUserTOTPSecret(userID, cipher string) error {
 }
 
 // DisableUserTOTP 解绑：删除状态与恢复码。
+// 两条 DELETE 必须在同一事务内：只删掉 user_totp 而留下恢复码，会让已解绑用户
+// 仍握有可用的二次验证凭证；反之则留下一个没有恢复码的孤儿 TOTP 行。
 func DisableUserTOTP(userID string) error {
-	if err := global.DB.Where("user_id = ?", userID).Delete(&model.UserTOTP{}).Error; err != nil {
-		return err
-	}
-	return global.DB.Where("user_id = ?", userID).Delete(&model.UserTOTPRecoveryCode{}).Error
+	return global.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("user_id = ?", userID).Delete(&model.UserTOTP{}).Error; err != nil {
+			return err
+		}
+		return tx.Where("user_id = ?", userID).Delete(&model.UserTOTPRecoveryCode{}).Error
+	})
 }
 
 // SetTOTPLastUsedStep 记录本窗口已消费的步号（防同一验证码重放）。
@@ -76,23 +82,4 @@ func ConsumeUserTOTPRecoveryCode(userID, codeHash string) (bool, error) {
 		return false, res.Error
 	}
 	return res.RowsAffected > 0, nil
-}
-
-// tenant-scope: reviewed-2026-09-02 user-scoped (user_id keyed); see GetUserTOTP marker.
-// ListUnusedRecoveryCodeHashes 列出未用恢复码（绑定结果校验用）。
-func ListUnusedRecoveryCodeHashes(userID string) ([]string, error) {
-	var rows []struct {
-		CodeHash string `gorm:"column:code_hash"`
-	}
-	err := global.DB.Model(&model.UserTOTPRecoveryCode{}).
-		Select("code_hash").Where("user_id = ? AND used_at IS NULL", userID).
-		Scan(&rows).Error
-	if err != nil {
-		return nil, err
-	}
-	out := make([]string, 0, len(rows))
-	for _, r := range rows {
-		out = append(out, r.CodeHash)
-	}
-	return out, nil
 }

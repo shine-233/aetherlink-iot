@@ -1,7 +1,7 @@
 @import './reset.css';
 @import './nprogress.css';
-@import './transition.css'
-@import './visual-upgrade.css';;
+@import './transition.css';
+@import './visual-upgrade.css';
 
 html,
 body,
@@ -59,4 +59,12 @@ input:-moz-autofill:active {
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* ===== 可达性：键盘焦点可见 =====
+   naive-ui 组件自带焦点环，这里只兜底原生控件与自定义可交互元素，
+   不覆盖组件库自身的焦点样式（用 :focus-visible 避免鼠标点击时出现轮廓）。 */
+:focus-visible {
+  outline: 2px solid var(--aetherlink-brand-color, #1677ff);
+  outline-offset: 2px;
 }

@@ -39,12 +39,3 @@ func RevokeEdgeNodeCertificates(tenantID, nodeID string, revokedAt time.Time, re
 		Updates(updates)
 	return res.RowsAffected, res.Error
 }
-
-// ListEdgeNodeCertificates 获取节点的所有历史证书记录。
-func ListEdgeNodeCertificates(tenantID, nodeID string) ([]*model.EdgeNodeCertificate, error) {
-	var certs []*model.EdgeNodeCertificate
-	err := global.DB.Where("tenant_id = ? AND node_id = ?", tenantID, nodeID).
-		Order("issued_at DESC").
-		Find(&certs).Error
-	return certs, err
-}

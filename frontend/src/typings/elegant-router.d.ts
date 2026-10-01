@@ -34,6 +34,8 @@ declare module "@elegant-router/types" {
     "automation_rule-chain-edit": "/automation/rule-chain/edit";
     "automation_scene-linkage": "/automation/scene-linkage";
     "automation_scene-manage": "/automation/scene-manage";
+    "billing": "/billing";
+    "billing_api-quota": "/billing/api-quota";
     "dashboard": "/dashboard";
     "dashboard_rdi-overview": "/dashboard/rdi-overview";
     "dashboard_workbench": "/dashboard/workbench";
@@ -44,6 +46,7 @@ declare module "@elegant-router/types" {
     "device_config": "/device/template";
     "device_config-detail": "/device/config-detail";
     "device_config-edit": "/device/config-edit";
+    "device_converter": "/device/converter";
     "device_details": "/device/details";
     "device_details-child": "/device/details-child";
     "device_entity-relation": "/device/entity-relation";
@@ -71,8 +74,19 @@ declare module "@elegant-router/types" {
     "management_role": "/management/role";
     "management_setting": "/management/setting";
     "management_user": "/management/user";
+    "management_user-group": "/management/user-group";
+    "customer": "/customer";
+    "customer_list": "/customer/list";
+    "integration": "/integration";
+    "integration_list": "/integration/list";
+    "media": "/media";
+    "media_library": "/media/library";
     "market": "/market";
     "market_browse": "/market/browse";
+    "mobile-app": "/mobile-app";
+    "mobile-app_app-center": "/mobile-app/app-center";
+    "scheduler": "/scheduler";
+    "scheduler_calendar": "/scheduler/calendar";
     "personal-center": "/personal-center";
     "product": "/product";
     "product_update-ota": "/product/update-ota";
@@ -94,6 +108,7 @@ declare module "@elegant-router/types" {
     "visualization_thingsvis-editor": "/visualization/thingsvis-editor";
     "visualization_thingsvis-menu-dashboard": "/visualization/thingsvis-menu-dashboard";
     "visualization_thingsvis-preview": "/visualization/thingsvis-preview";
+    "visualization_widget-bundles": "/visualization/widget-bundles";
   };
 
   /**
@@ -131,16 +146,22 @@ declare module "@elegant-router/types" {
     | "alarm"
     | "apply"
     | "automation"
+    | "billing"
     | "dashboard"
     | "device"
     | "device-details-app"
     | "home"
     | "legal"
+    | "integration"
     | "login"
     | "management"
+    | "customer"
+    | "media"
     | "market"
+    | "mobile-app"
     | "personal-center"
     | "product"
+    | "scheduler"
     | "system-management-user"
     | "visualization"
   >;
@@ -170,6 +191,7 @@ declare module "@elegant-router/types" {
     | "alarm_warning-message"
     | "apply_plugin"
     | "apply_service"
+    | "billing_api-quota"
     | "automation_linkage-edit"
     | "automation_rule-chain"
     | "automation_rule-chain-edit"
@@ -184,6 +206,7 @@ declare module "@elegant-router/types" {
     | "device_command-center"
     | "device_config-detail"
     | "device_config-edit"
+    | "device_converter"
     | "device_config"
     | "device_details-child"
     | "device_details"
@@ -208,7 +231,13 @@ declare module "@elegant-router/types" {
     | "management_role"
     | "management_setting"
     | "management_user"
+    | "management_user-group"
+    | "customer_list"
+    | "media_library"
+    | "integration_list"
     | "market_browse"
+    | "mobile-app_app-center"
+    | "scheduler_calendar"
     | "personal-center"
     | "product_update-ota"
     | "product_update-package"
@@ -227,6 +256,7 @@ declare module "@elegant-router/types" {
     | "visualization_thingsvis-menu-dashboard"
     | "visualization_thingsvis-preview"
     | "visualization_thingsvis"
+    | "visualization_widget-bundles"
   >;
 
   /**

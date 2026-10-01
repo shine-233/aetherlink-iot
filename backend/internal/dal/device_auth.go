@@ -95,3 +95,21 @@ func GetProductByProductKey(productKey string) (*model.Product, error) {
 	}
 	return product, nil
 }
+
+// GetProductByID 通过产品 ID 获取产品信息，供一型一密注册的产品级交叉校验使用。
+// 刻意按 ID 取行以比对产品的租户与档案绑定关系；调用方（service.ensureAuthProductMatchesConfig）
+// 在取回后立即执行租户一致性判断，不一致即拒绝注册。
+// tenant-scope: caller-enforced
+func GetProductByID(productID string) (*model.Product, error) {
+	if productID == "" {
+		return nil, nil
+	}
+	product, err := query.Product.Where(query.Product.ID.Eq(productID)).First()
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return product, nil
+}

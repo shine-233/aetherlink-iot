@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	model "aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/internal/service/kit"
 	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 	utils "aetherlink-iot/backend/pkg/utils"
@@ -400,7 +401,7 @@ func TestNotificationGroupListResponsePreservesTotalAndListKeys(t *testing.T) {
 		},
 	}
 
-	resp := notificationGroupListResponse(int64(1), groups)
+	resp := kit.ListMap(int64(1), groups)
 
 	assert.Len(t, resp, 2)
 	assert.Equal(t, int64(1), resp["total"])
@@ -433,7 +434,7 @@ func TestNotificationHistoryListResponsePreservesTotalAndListKeys(t *testing.T) 
 		},
 	}
 
-	resp := notificationHistoryListResponse(int64(1), history)
+	resp := kit.ListMap(int64(1), history)
 
 	assert.Len(t, resp, 2)
 	assert.Equal(t, int64(1), resp["total"])

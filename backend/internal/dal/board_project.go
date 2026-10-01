@@ -116,15 +116,6 @@ func ListBoardIDsByProject(projectID, tenantID string) ([]string, error) {
 	return ids, nil
 }
 
-// CountBoardProjectMembers 项目内看板数（删除前的提示与校验用）。
-func CountBoardProjectMembers(projectID, tenantID string) (int64, error) {
-	var count int64
-	err := global.DB.Model(&model.BoardProjectMember{}).
-		Where("project_id = ? AND tenant_id = ?", projectID, tenantID).
-		Count(&count).Error
-	return count, err
-}
-
 // ListAllProjectMemberBoardIDs 全部已归属看板的 ID（内置项目过滤用）。
 // tenantID 非空时限定租户（TENANT 作用域）；空表示 SYS_ADMIN 全量视图。
 func ListAllProjectMemberBoardIDs(tenantID string) ([]string, error) {

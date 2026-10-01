@@ -7,6 +7,7 @@ package service
 import (
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/internal/service/kit"
 	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 	utils "aetherlink-iot/backend/pkg/utils"
@@ -39,30 +40,17 @@ func (*Logo) UpdateLogo(UpdateLogoReq *model.UpdateLogoReq, claims *utils.UserCl
 		})
 	}
 
-	err = dal.UpdateLogo(claims.TenantID, UpdateLogoReq.Id, condsMap)
-	if err != nil {
+	if err := dal.UpdateLogo(claims.TenantID, UpdateLogoReq.Id, condsMap); err != nil {
 		logrus.Error(err)
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"err": err.Error(),
-		})
+		return kit.DBErr(kit.KeyErr, err)
 	}
-	return err
+	return nil
 }
 
 func (*Logo) GetLogoList(tenantID string) (map[string]interface{}, error) {
-
 	total, list, err := dal.GetLogoList(tenantID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"err": err.Error(),
-		})
+		return nil, kit.DBErr(kit.KeyErr, err)
 	}
-	return logoListResponse(total, list), err
-}
-
-func logoListResponse(total int64, list interface{}) map[string]interface{} {
-	return map[string]interface{}{
-		"total": total,
-		"list":  list,
-	}
+	return kit.AnyListMap(total, list), nil
 }

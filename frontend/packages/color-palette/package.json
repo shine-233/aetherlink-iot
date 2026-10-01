@@ -2,7 +2,8 @@
   "name": "@aetherlink/color-palette",
   "version": "1.0.0",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./core": "./src/core.ts"
   },
   "typesVersions": {
     "*": {

@@ -184,6 +184,85 @@ func TestDurableAttributeEnvelopeUsesOneDatabaseTransaction(t *testing.T) {
 	}
 }
 
+func TestInsertAttributeEnvelopeIssuesOneBatchedCreate(t *testing.T) {
+	db := setupAttributeEventTestDB(t)
+
+	points := []AttributeDataPoint{
+		{Key: "temp", Value: 21.5},
+		{Key: "humidity", Value: 55},
+		{Key: "mode", Value: "auto"},
+		{Key: "online", Value: true},
+	}
+	envelope, buildErr := buildAttributeEventEnvelope(testAttributeMessage(points))
+	if buildErr != nil {
+		t.Fatalf("build multi-point attribute envelope: %v", buildErr)
+	}
+
+	var createCalls int
+	db.Callback().Create().Before("gorm:create").Register("count-attribute-creates", func(tx *gorm.DB) {
+		if tx.Statement.Table == "attribute_datas" {
+			createCalls++
+		}
+	})
+	t.Cleanup(func() {
+		_ = db.Callback().Create().Remove("count-attribute-creates")
+	})
+
+	written, err := insertAttributeEnvelope(db, envelope)
+	if err != nil {
+		t.Fatalf("insertAttributeEnvelope() error = %v", err)
+	}
+	if written != int64(len(points)) {
+		t.Fatalf("written = %d, want %d", written, len(points))
+	}
+	if createCalls != 1 {
+		t.Fatalf("attribute_datas create calls = %d, want exactly 1 batched call for %d points", createCalls, len(points))
+	}
+
+	var count int64
+	if err := db.Model(&AttributeData{}).Count(&count).Error; err != nil {
+		t.Fatalf("count attribute rows: %v", err)
+	}
+	if count != int64(len(points)) {
+		t.Fatalf("attribute rows after batched insert = %d, want %d", count, len(points))
+	}
+}
+
+// TestInsertAttributeEnvelopeRowBuildingDecodesAllPointsBeforeInsertingAny
+// unit-tests insertAttributeEnvelope's decode-then-insert ordering through
+// its extracted row-building helper. Note: with today's validation layers
+// (claimAttributeEnvelopeReceipt's envelope marshal, and
+// validateAttributeEventEnvelope for anything replayed through
+// persistEnvelope) every live caller already rejects a payload with a
+// malformed point's JSON before insertAttributeEnvelope's own loop runs, so
+// this decode branch is unreachable end-to-end today. It is still correct
+// defensive code, and this test pins its contract: decode every point first,
+// build no rows at all if any point fails, same wrapped error message as
+// before the batching change.
+func TestInsertAttributeEnvelopeRowBuildingDecodesAllPointsBeforeInsertingAny(t *testing.T) {
+	envelope := attributeEventEnvelope{
+		Identity:  "11111111-1111-5111-8111-111111111111",
+		DeviceID:  "device-1",
+		TenantID:  "tenant-1",
+		Timestamp: 1000,
+	}
+	points := []canonicalAttributePoint{
+		{Key: "aaa-first", Value: json.RawMessage(`1`)},
+		{Key: "zzz-second", Value: json.RawMessage(`2 garbage`)},
+	}
+
+	rows, err := buildAttributeEnvelopeRows(envelope, points)
+	if err == nil {
+		t.Fatal("buildAttributeEnvelopeRows() error = nil, want decode failure for malformed point")
+	}
+	if !strings.Contains(err.Error(), `decode attribute point 1 ("zzz-second")`) {
+		t.Fatalf("buildAttributeEnvelopeRows() error = %v, want it to name point 1 (%q)", err, "zzz-second")
+	}
+	if rows != nil {
+		t.Fatalf("rows = %+v, want nil on decode failure (no partial writes, including the valid first point)", rows)
+	}
+}
+
 func TestDurableAttributeEventFallsBackToIndependentSpool(t *testing.T) {
 	db := setupAttributeEventTestDB(t)
 	if err := db.Migrator().DropTable(&AttributeData{}); err != nil {

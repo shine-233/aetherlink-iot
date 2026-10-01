@@ -1,11 +1,12 @@
 <!--
-  文件用途：承载 frontend/src/views/_builtin/login/index.vue 对应的页面或局部组件视图。
-  核心逻辑：组合模板、响应式状态、路由或局部组件，向用户呈现当前页面所需的主要内容和交互入口。
-  关键注意事项：修改可见文案、路由依赖或交互分支时，要同步维护相邻测试和 README 职责说明。
-  重构建议：当模板或脚本继续变长时，优先抽出局部组件或组合式函数，再用 focused tests 锁定行为一致性。
+  文件用途：登录页外壳（背景、卡片、工具栏、模块切换与文档标题）。
+  核心逻辑：首次安装/市场注册流程在 useLoginSetupFlow；工具栏在 modules/login-toolbar.vue；
+    本文件只负责选择当前登录模块并渲染。
+  关键注意事项：测试通过 setupState 读取本文件顶层绑定（effectiveModule、normalizeMarketUrl 等），
+    重命名顶层绑定需同步 __tests__/index.test.ts。
 -->
 <script setup lang="ts">
-import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onMounted, watch } from 'vue'
 import type { Component } from 'vue'
 import { useTitle } from '@vueuse/core'
 import { NEllipsis, NSpin } from 'naive-ui'
@@ -15,19 +16,17 @@ import { useAppStore } from '@/store/modules/app'
 import { useThemeStore } from '@/store/modules/theme'
 import { loginModuleRecord } from '@/constants/app'
 import { useSysSettingStore } from '@/store/modules/sys-setting'
-import { fetchTenantSetupState } from '@/service/api/auth'
 import { resolveDocumentTitle } from '@/router/guard/title-helper'
-import { createLogger } from '@/utils/logger'
 import PwdLogin from './modules/pwd-login.vue'
 import LoginBg from './modules/login-bg.vue'
+import LoginToolbar from './modules/login-toolbar.vue'
+import { normalizeMarketUrl as normalizeMarketUrlWith, setupGuideKeys, useLoginSetupFlow } from './useLoginSetupFlow'
 
 const Register = defineAsyncComponent(() => import('./modules/register.vue'))
 const RegisterByEmail = defineAsyncComponent(() => import('./modules/register-email.vue'))
 const RegisterSuperAdmin = defineAsyncComponent(() => import('./modules/register-super-admin.vue'))
 const ResetPwd = defineAsyncComponent(() => import('./modules/reset-pwd.vue'))
 const BindWechat = defineAsyncComponent(() => import('./modules/bind-wechat.vue'))
-
-const logger = createLogger('LoginPage')
 
 interface Props {
   /** The login module */
@@ -42,7 +41,7 @@ const appStore = useAppStore()
 const themeStore = useThemeStore()
 const sysSetting = useSysSettingStore()
 const route = useRoute()
-const searchParams = new URLSearchParams(window.location.search)
+
 const localeButtonLabel = computed(
   () => appStore.localeOptions.find((item) => item.key === appStore.locale)?.label || 'Lang'
 )
@@ -52,35 +51,27 @@ const cycleLocale = () => {
   appStore.changeLocale(appStore.localeOptions[nextIndex].key)
 }
 
-// 首次安装/注册状态
-type TenantSetupNextStep = 'create_super_admin' | 'create_tenant_admin' | 'login'
+// 市场地址：优先使用环境变量 VITE_MARKET_URL；未配置时保持为空，避免误跳示例域名。
+const fallbackMarketUrl = import.meta.env.VITE_MARKET_URL || ''
+const normalizeMarketUrl = (baseUrl?: string) => normalizeMarketUrlWith(baseUrl, fallbackMarketUrl)
 
-interface TenantSetupState {
-  has_admin: boolean
-  has_tenant_admin?: boolean
-  has_tenant?: boolean
-  entry: 'login' | 'register'
-  next_step?: TenantSetupNextStep
-  market_base_url?: string
-  market_register_url?: string
-}
+// 首次安装 / 市场注册流程（状态机见 useLoginSetupFlow）。
+const {
+  setupState,
+  loading,
+  redirectingToMarket,
+  returnedFromMarket,
+  marketEmail,
+  marketSource,
+  marketRegisterUrl,
+  needsSuperAdminInit,
+  setupNextStep,
+  loadSetupState
+} = useLoginSetupFlow({ searchParams: new URLSearchParams(window.location.search), fallbackMarketUrl })
 
-const defaultTenantSetupState = (): TenantSetupState => ({
-  has_admin: true,
-  has_tenant_admin: true,
-  has_tenant: true,
-  entry: 'login',
-  next_step: 'login'
+onMounted(() => {
+  loadSetupState()
 })
-
-const setupState = ref<TenantSetupState | null>(null)
-const loading = ref(true)
-const redirectingToMarket = ref(false)
-const returnedFromMarket = computed(() => {
-  return searchParams.get('market_registered') === '1' || searchParams.get('market_logged_in') === '1'
-})
-const marketEmail = computed(() => searchParams.get('market_email')?.trim() || '')
-const marketSource = computed(() => searchParams.get('market_source')?.trim() || 'horizon')
 
 interface LoginModule {
   key: UnionKey.LoginModule
@@ -97,171 +88,44 @@ const modules: LoginModule[] = [
   { key: 'bind-wechat', label: loginModuleRecord['bind-wechat'], component: BindWechat }
 ]
 
-// 市场地址：优先使用环境变量 VITE_MARKET_URL；未配置时保持为空，避免误跳示例域名。
-const fallbackMarketUrl = import.meta.env.VITE_MARKET_URL || ''
-
-const normalizeMarketUrl = (baseUrl?: string) => {
-  const url = baseUrl?.trim()
-  if (!url) return fallbackMarketUrl
-  if (!/^https?:\/\//i.test(url)) {
-    return fallbackMarketUrl
-  }
-  if (url.includes('localhost') || url.includes('127.0.0.1') || url.includes('0.0.0.0')) {
-    return fallbackMarketUrl
-  }
-  return url
-}
-
-// 检查首次安装状态
-const loadSetupState = async () => {
-  try {
-    const res = await fetchTenantSetupState()
-    setupState.value = res.data ?? defaultTenantSetupState()
-  } catch (error) {
-    logger.error('[LoginPage] 获取安装状态失败，使用默认值:', error instanceof Error ? error.message : error)
-    setupState.value = defaultTenantSetupState()
-  } finally {
-    if (setupState.value && !setupState.value.has_admin) {
-      if (returnedFromMarket.value || shouldUseLocalSuperAdminInit.value) {
-        loading.value = false
-      } else {
-        redirectToMarketRegister()
-      }
-    } else {
-      loading.value = false
-    }
-  }
-}
-
-// 初始检查
-onMounted(() => {
-  loadSetupState()
+// 实际使用的 module（props 覆盖优先；未初始化时强制进入超管初始化）。
+const effectiveModule = computed<UnionKey.LoginModule>(() => {
+  if (props.module && props.module !== 'pwd-login') return props.module
+  return needsSuperAdminInit.value ? 'register-super-admin' : 'pwd-login'
 })
 
-const marketRegisterUrl = computed(() =>
-  normalizeMarketUrl(setupState.value?.market_register_url || setupState.value?.market_base_url)
-)
-const shouldUseLocalSuperAdminInit = computed(() => {
-  return !!setupState.value && !setupState.value.has_admin && !returnedFromMarket.value && !marketRegisterUrl.value
-})
-
-const buildMarketRegisterUrl = () => {
-  const base = marketRegisterUrl.value
-  if (!base) {
-    throw new Error('市场注册地址未配置')
-  }
-  const url = base.endsWith('/register') ? new URL(base) : new URL('/register', base)
-  url.searchParams.set('callback', window.location.href)
-  url.searchParams.set('return_to', window.location.href)
-  return url.toString()
-}
-
-const redirectToMarketRegister = () => {
-  if (redirectingToMarket.value) return
-
-  try {
-    redirectingToMarket.value = true
-    window.location.replace(buildMarketRegisterUrl())
-  } catch (error) {
-    logger.error('[LoginPage] 跳转市场注册页失败:', error instanceof Error ? error.message : error)
-    redirectingToMarket.value = false
-    loading.value = false
-  }
-}
-
-// 默认显示的模块
-const defaultModule = computed(() => {
-  return 'pwd-login'
-})
-
-// 实际使用的 module（支持 props 覆盖）
-const effectiveModule = computed(() => {
-  if (props.module && props.module !== 'pwd-login') {
-    return props.module
-  }
-  if (
-    setupState.value &&
-    !setupState.value.has_admin &&
-    (returnedFromMarket.value || shouldUseLocalSuperAdminInit.value)
-  ) {
-    return 'register-super-admin'
-  }
-  return defaultModule.value
-})
-
-const activeModule = computed(() => {
-  const findItem = modules.find((item) => item.key === effectiveModule.value)
-  return findItem || modules[0]
-})
+const activeModule = computed(() => modules.find((item) => item.key === effectiveModule.value) || modules[0])
 
 const activeModuleProps = computed(() => {
-  if (activeModule.value.key === 'register-super-admin') {
-    return {
-      marketUrl: normalizeMarketUrl(setupState.value?.market_register_url || setupState.value?.market_base_url),
-      marketEmail: marketEmail.value,
-      marketRegistered: returnedFromMarket.value,
-      marketSource: marketSource.value
-    }
+  if (activeModule.value.key !== 'register-super-admin') return {}
+  return {
+    marketUrl: marketRegisterUrl.value,
+    marketEmail: marketEmail.value,
+    marketRegistered: returnedFromMarket.value,
+    marketSource: marketSource.value
   }
-
-  return {}
-})
-
-const setupNextStep = computed<TenantSetupNextStep>(() => {
-  if (!setupState.value?.has_admin) return 'create_super_admin'
-  return setupState.value.next_step || 'login'
 })
 
 const setupGuide = computed(() => {
-  if (setupNextStep.value === 'create_super_admin') {
-    return {
-      title: $t('custom.login.setup.createSuperAdminTitle'),
-      description: $t('custom.login.setup.createSuperAdminDesc')
-    }
-  }
-  if (setupNextStep.value === 'create_tenant_admin') {
-    return {
-      title: $t('custom.login.setup.createTenantAdminTitle'),
-      description: $t('custom.login.setup.createTenantAdminDesc')
-    }
-  }
-  return {
-    title: $t('custom.login.setup.welcomeBackTitle'),
-    description: $t('custom.login.setup.welcomeBackDesc')
-  }
+  const keys = setupGuideKeys(setupNextStep.value)
+  return { title: $t(keys.title as never), description: $t(keys.description as never) }
 })
+
+const MODULE_TITLE_KEYS: Partial<Record<UnionKey.LoginModule, string>> = {
+  'pwd-login': 'page.login.pwdLogin.title',
+  'register-email': 'page.login.register.title',
+  'register-super-admin': 'custom.login.completeInitialization',
+  'reset-pwd': 'page.login.resetPwd.title'
+}
 
 // 计算当前模块的标题
-const moduleTitle = computed(() => {
-  switch (effectiveModule.value) {
-    case 'pwd-login':
-      return $t('page.login.pwdLogin.title')
-    case 'register-email':
-      return $t('page.login.register.title')
-    case 'register-super-admin':
-      return $t('custom.login.completeInitialization')
-    case 'reset-pwd':
-      return $t('page.login.resetPwd.title')
-    default:
-      return $t('page.login.pwdLogin.title')
-  }
-})
+const moduleTitle = computed(() =>
+  $t((MODULE_TITLE_KEYS[effectiveModule.value] ?? 'page.login.pwdLogin.title') as never)
+)
 
-// 卡片背景色
-const cardBgColor = computed(() => {
-  if (themeStore.darkMode) {
-    return 'rgba(31, 41, 55, 0.95)'
-  }
-  return 'rgba(255, 255, 255, 0.95)'
-})
-
-// 边框颜色
-const borderColor = computed(() => {
-  if (themeStore.darkMode) {
-    return '#374151'
-  }
-  return '#e5e7eb'
-})
+// 卡片背景色 / 边框颜色
+const cardBgColor = computed(() => (themeStore.darkMode ? 'rgba(31, 41, 55, 0.95)' : 'rgba(255, 255, 255, 0.95)'))
+const borderColor = computed(() => (themeStore.darkMode ? '#374151' : '#e5e7eb'))
 
 function resolveLoginModulePath(module: UnionKey.LoginModule) {
   return module === 'pwd-login' ? '/login' : `/login/${module}`
@@ -270,10 +134,7 @@ function resolveLoginModulePath(module: UnionKey.LoginModule) {
 function resolveLoginDocumentTitle() {
   const appTitle = sysSetting.system_name === '' ? $t('title') : sysSetting.system_name
   return resolveDocumentTitle(
-    {
-      path: resolveLoginModulePath(effectiveModule.value as UnionKey.LoginModule),
-      meta: route.meta
-    },
+    { path: resolveLoginModulePath(effectiveModule.value), meta: route.meta },
     appTitle || $t('title'),
     $t
   )
@@ -325,41 +186,13 @@ watch(
       }"
     >
       <!-- 顶部控制栏 -->
-      <div class="flex justify-end gap-2 mb-4">
-        <button
-          class="flex items-center gap-1 px-2 py-1.5 text-xs rounded-lg border transition-all duration-200 hover:scale-105"
-          :style="{
-            background: themeStore.darkMode ? '#374151' : '#f9fafb',
-            border: `1px solid ${borderColor}`,
-            color: themeStore.darkMode ? '#d1d5db' : '#6b7280'
-          }"
-          @click="themeStore.toggleThemeScheme"
-        >
-          <svg class="w-3 h-3 fill-current" viewBox="0 0 24 24">
-            <path v-if="themeStore.darkMode" d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
-            <path
-              v-else
-              d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.894 6.166a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5H21a.75.75 0 01.75.75zM17.834 18.894a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 18a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-2.25A.75.75 0 0112 18zM7.758 17.303a.75.75 0 00-1.061-1.06l-1.591 1.59a.75.75 0 001.06 1.061l1.591-1.59zM6 12a.75.75 0 01-.75.75H3a.75.75 0 010-1.5h2.25A.75.75 0 016 12zM6.697 7.757a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 00-1.061 1.06l1.59 1.591z"
-            />
-          </svg>
-        </button>
-        <button
-          class="flex items-center gap-1 px-2 py-1.5 text-xs rounded-lg border transition-all duration-200 hover:scale-105"
-          :style="{
-            background: themeStore.darkMode ? '#374151' : '#f9fafb',
-            border: `1px solid ${borderColor}`,
-            color: themeStore.darkMode ? '#d1d5db' : '#6b7280'
-          }"
-          @click="cycleLocale"
-        >
-          <svg class="w-3 h-3 fill-current" viewBox="0 0 24 24">
-            <path
-              d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"
-            />
-          </svg>
-          <span>{{ localeButtonLabel }}</span>
-        </button>
-      </div>
+      <LoginToolbar
+        :dark-mode="themeStore.darkMode"
+        :border-color="borderColor"
+        :locale-label="localeButtonLabel"
+        @toggle-theme="themeStore.toggleThemeScheme"
+        @cycle-locale="cycleLocale"
+      />
 
       <!-- Logo区域 -->
       <div class="text-center mb-6">

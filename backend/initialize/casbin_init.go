@@ -41,12 +41,40 @@ func CasbinInit() error {
 	if err := e.LoadPolicy(); err != nil {
 		return fmt.Errorf("failed to load policy: %v", err)
 	}
+	prewarmCasbinURLPatterns(e)
 
 	global.CasbinEnforcer = e
 	log.Println("casbin启动完成")
 
 	global.OtaAddress = viper.GetString("ota.download_address")
 	return nil
+}
+
+// prewarmCasbinURLPatterns 在策略加载后把 g2 资源模式（第 0 列）与 p 策略对象（第 1 列）
+// 预解析进 utils 模式缓存，使首个请求的 GetUrl 索引构建与 Enforce 的 urlPatternMatch
+// 不承担解析成本。仅为性能预热：GetUrl 的 g2 索引（service/casbin_url_index.go）在每次
+// 查询时自校验并按需重建，正确性不依赖此处被调用（service 依赖 initialize，
+// 此处无法反向调用 service 的索引重建，也无需调用）。
+func prewarmCasbinURLPatterns(e *casbin.SyncedEnforcer) {
+	if e == nil {
+		return
+	}
+	n := 0
+	if rules, err := e.GetNamedGroupingPolicy("g2"); err == nil {
+		for _, r := range rules {
+			if len(r) > 0 {
+				n += utils.PrewarmURLPatterns(r[0])
+			}
+		}
+	}
+	if rules, err := e.GetPolicy(); err == nil {
+		for _, r := range rules {
+			if len(r) > 1 {
+				n += utils.PrewarmURLPatterns(r[1])
+			}
+		}
+	}
+	log.Printf("casbin: 已预解析 %d 条 URL 模式", n)
 }
 
 // attachCasbinWatcher 在 Redis 就绪后按配置挂载集群策略同步 watcher（ROADMAP C7+）。
@@ -81,6 +109,7 @@ func attachCasbinWatcher() error {
 			log.Printf("casbin watcher: 跨实例策略重载失败: %v", err)
 			return
 		}
+		prewarmCasbinURLPatterns(global.CasbinEnforcer)
 		log.Println("casbin watcher: 收到跨实例变更通知，策略已重载")
 	}); err != nil {
 		w.Close()

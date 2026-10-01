@@ -73,7 +73,7 @@ func validateCalculatedFieldValue(outputKey, expression string) error {
 func ensureTemplateInTenant(templateID, tenantID string) error {
 	count, err := dal.CountDeviceTemplatesInTenant(templateID, tenantID)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return dbError(err)
 	}
 	if count == 0 {
 		return errcode.NewWithMessage(errcode.CodeParamError, "device template not found in current tenant")
@@ -90,7 +90,7 @@ func (*CalculatedFieldService) GetCalculatedFieldList(req *model.CalculatedField
 	scopes := expandTenantIDScope(tenantID)
 	total, list, dbErr := dal.ListCalculatedFieldsByPage(scopes, req)
 	if dbErr != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": dbErr.Error()})
+		return nil, dbError(dbErr)
 	}
 	return &model.CalculatedFieldListRsp{Total: total, List: list}, nil
 }
@@ -106,7 +106,7 @@ func (*CalculatedFieldService) GetCalculatedField(id string, claims *utils.UserC
 		if errIsRecordNotFound(dbErr) {
 			return nil, errcode.NewWithMessage(errcode.CodeNotFound, "calculated field not found")
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": dbErr.Error()})
+		return nil, dbError(dbErr)
 	}
 	return field, nil
 }
@@ -151,7 +151,7 @@ func (*CalculatedFieldService) CreateCalculatedField(req *model.CalculatedFieldC
 		UpdatedAt:        now,
 	}
 	if createErr := dal.CreateCalculatedField(field); createErr != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": createErr.Error()})
+		return nil, dbError(createErr)
 	}
 	return field, nil
 }
@@ -179,7 +179,7 @@ func (*CalculatedFieldService) UpdateCalculatedField(id string, req *model.Calcu
 		if errIsRecordNotFound(dbErr) {
 			return nil, errcode.NewWithMessage(errcode.CodeNotFound, "calculated field not found")
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": dbErr.Error()})
+		return nil, dbError(dbErr)
 	}
 
 	if templateErr := ensureTemplateInTenant(req.DeviceTemplateID, tenantID); templateErr != nil {
@@ -197,7 +197,7 @@ func (*CalculatedFieldService) UpdateCalculatedField(id string, req *model.Calcu
 		"updated_at":         time.Now().UTC(),
 	}
 	if updateErr := dal.UpdateCalculatedFieldForScope(id, tenantID, updates); updateErr != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": updateErr.Error()})
+		return nil, dbError(updateErr)
 	}
 	return dal.GetCalculatedFieldForScope(id, tenantID)
 }
@@ -213,7 +213,7 @@ func (*CalculatedFieldService) ToggleCalculatedField(id string, req *model.Calcu
 		if errIsRecordNotFound(dbErr) {
 			return nil, errcode.NewWithMessage(errcode.CodeNotFound, "calculated field not found")
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": dbErr.Error()})
+		return nil, dbError(dbErr)
 	}
 
 	nextState := !field.Enabled
@@ -224,7 +224,7 @@ func (*CalculatedFieldService) ToggleCalculatedField(id string, req *model.Calcu
 		"enabled":    nextState,
 		"updated_at": time.Now().UTC(),
 	}); toggleErr != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": toggleErr.Error()})
+		return nil, dbError(toggleErr)
 	}
 	return dal.GetCalculatedFieldForScope(id, tenantID)
 }
@@ -240,7 +240,7 @@ func (*CalculatedFieldService) DeleteCalculatedField(id string, claims *utils.Us
 		if errIsRecordNotFound(dbErr) {
 			return errcode.NewWithMessage(errcode.CodeNotFound, "calculated field not found")
 		}
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": dbErr.Error()})
+		return dbError(dbErr)
 	}
 	return nil
 }

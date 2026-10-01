@@ -108,6 +108,25 @@ type MemoryEvaluator struct {
 	mu     sync.Mutex
 	now    func() time.Time
 	counts map[string]*memoryWindowEntry
+	// nextSweep 下一次清扫过期窗口的时间点。过期条目在语义上等同"不存在"，
+	// 但若不清扫，每个出现过的 tenant/user/device subject 都会永久驻留在 map 中（内存无界增长）。
+	nextSweep time.Time
+}
+
+// memoryEvaluatorSweepInterval 过期窗口清扫的最小间隔；清扫在 Allow 内摊销执行。
+const memoryEvaluatorSweepInterval = time.Minute
+
+// sweepExpiredLocked 删除所有已过期的窗口条目；调用方须持有 m.mu。
+func (m *MemoryEvaluator) sweepExpiredLocked(now time.Time) {
+	if now.Before(m.nextSweep) {
+		return
+	}
+	m.nextSweep = now.Add(memoryEvaluatorSweepInterval)
+	for key, entry := range m.counts {
+		if now.After(entry.windowEnd) {
+			delete(m.counts, key)
+		}
+	}
 }
 
 func NewMemoryEvaluator() *MemoryEvaluator {
@@ -132,13 +151,19 @@ func (m *MemoryEvaluator) Allow(_ context.Context, scope string, subject string,
 	defer m.mu.Unlock()
 
 	now := m.now()
+	m.sweepExpiredLocked(now)
 	var violatedRule string
 	var maxRetryAfter int64 = 0
 
+	// 每条规则的桶键只格式化一次，两阶段复用。
+	bucketKeys := make([]string, len(rules))
+	for i, r := range rules {
+		bucketKeys[i] = fmt.Sprintf("%s:%s:%ds", scope, subject, r.WindowSeconds)
+	}
+
 	// 阶段 1：预检所有窗口是否已达限额
-	for _, r := range rules {
-		bucketKey := fmt.Sprintf("%s:%s:%ds", scope, subject, r.WindowSeconds)
-		entry, exists := m.counts[bucketKey]
+	for i, r := range rules {
+		entry, exists := m.counts[bucketKeys[i]]
 		if !exists || now.After(entry.windowEnd) {
 			continue
 		}
@@ -161,8 +186,8 @@ func (m *MemoryEvaluator) Allow(_ context.Context, scope string, subject string,
 	}
 
 	// 阶段 2：所有窗口均未超限，统一递增消费配额
-	for _, r := range rules {
-		bucketKey := fmt.Sprintf("%s:%s:%ds", scope, subject, r.WindowSeconds)
+	for i, r := range rules {
+		bucketKey := bucketKeys[i]
 		entry, exists := m.counts[bucketKey]
 		if !exists || now.After(entry.windowEnd) {
 			m.counts[bucketKey] = &memoryWindowEntry{

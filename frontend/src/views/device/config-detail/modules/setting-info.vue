@@ -1,7 +1,7 @@
 <!--
   文件用途: 设备配置基础设置信息面板。
-  核心逻辑: 展示设备配置基础字段、物模型和接入设置等信息。
-  关键注意事项: 字段来源混合配置详情与物模型详情，展示空值时需保持可追踪。
+  核心逻辑: 展示设备配置基础字段、物模型和接入设置等信息；TB-18 增加档案级默认规则链绑定（下拉选择，空值即解绑）。
+  关键注意事项: 字段来源混合配置详情与物模型详情，展示空值时需保持可追踪；default_rule_chain_id 传空字符串表示解绑。
   重构建议: 抽出字段展示配置，补不同设备类型和缺物模型测试。
 -->
 <script setup lang="ts">
@@ -11,6 +11,7 @@ import { useRoute } from 'vue-router'
 import { useTabStore } from '@/store/modules/tab'
 import { useRouterPush } from '@/hooks/common/router'
 import { deviceConfigDel, deviceConfigEdit } from '@/service/api/device'
+import { ruleChainList } from '@/service/api/rule_chain'
 import { $t } from '@/locales'
 import type { UploadFileInfo } from 'naive-ui'
 import { localStg } from '@/utils/storage'
@@ -149,6 +150,46 @@ const getPlatform = computed(() => {
   return proxy.getPlatform()
 })
 
+// ---- TB-18 档案级默认规则链 ----
+// 绑定语义：选中链 id 保存即绑定；清空下拉保存传空字符串（后端约定为解绑）。
+// 解析语义：档案绑定的链优先执行、租户级启用链兜底，前端只负责展示与提交。
+const ruleChainOptions = ref<Array<{ label: string; value: string }>>([])
+const defaultRuleChainId = ref<string | null>(null)
+const savingRuleChain = ref(false)
+
+// 仅展示启用链：停用链不参与执行面，列为可选项会误导绑定。
+const loadRuleChainOptions = async () => {
+  const res: any = await ruleChainList({ page: 1, page_size: 200 })
+  const list: any[] = res?.data?.list || []
+  ruleChainOptions.value = list
+    .filter((item) => item.enabled)
+    .map((item) => ({ label: item.name, value: item.id }))
+}
+
+// 当前绑定值可能指向已停用链：不在选项里也补一条，避免回显成 id 原文。
+const ensureCurrentBindingOption = () => {
+  const bound = props.configInfo?.default_rule_chain_id
+  if (!bound || ruleChainOptions.value.some((item) => item.value === bound)) return
+  ruleChainOptions.value = [{ label: bound, value: bound }, ...ruleChainOptions.value]
+}
+
+const onSaveRuleChain = async () => {
+  savingRuleChain.value = true
+  try {
+    const { error }: any = await deviceConfigEdit({
+      id: props.configInfo.id,
+      // 空字符串 = 解绑（与后端 clearBlankDefaultRuleChainID 约定一致）
+      default_rule_chain_id: defaultRuleChainId.value || ''
+    })
+    if (!error) {
+      message.success($t('custom.grouping_details.operationSuccess'))
+      emit('change')
+    }
+  } finally {
+    savingRuleChain.value = false
+  }
+}
+
 // 初始化回填基础状态，只做本地展示同步，不在挂载时主动触发保存。
 onMounted(() => {
   auto_register.value = props.configInfo?.auto_register === 1 || false
@@ -156,6 +197,9 @@ onMounted(() => {
   imagePath.value = props.configInfo?.image_url
     ? `${platformAssetBaseUrl.value.replace('api/v1', '') + props.configInfo.image_url}`
     : ''
+  // TB-18：回填当前档案级默认规则链并拉取启用链下拉。
+  defaultRuleChainId.value = props.configInfo?.default_rule_chain_id || null
+  loadRuleChainOptions().then(ensureCurrentBindingOption)
 })
 </script>
 
@@ -169,6 +213,23 @@ onMounted(() => {
     <div class="">
       <div class="m-b-10px">{{ $t('generate.onlineDeviceConfig') }}</div>
       <NButton class="" type="primary" @click="onOpenDialogModal(2)">{{ $t('generate.configuration') }}</NButton>
+    </div>
+    <!-- TB-18：档案级默认规则链（档案链优先、租户级链兜底；清空保存即解绑） -->
+    <div class="">
+      <div class="m-b-10px">{{ $t('generate.defaultRuleChain') }}</div>
+      <div class="m-b-10px rule-chain-hint">{{ $t('generate.defaultRuleChainHint') }}</div>
+      <div class="flex items-center gap-10px">
+        <n-select
+          v-model:value="defaultRuleChainId"
+          class="max-w-320px"
+          :options="ruleChainOptions"
+          :placeholder="$t('generate.defaultRuleChainPlaceholder')"
+          clearable
+        />
+        <NButton type="primary" :loading="savingRuleChain" @click="onSaveRuleChain">
+          {{ $t('common.save') }}
+        </NButton>
+      </div>
     </div>
     <div class="">
       <div class="m-b-10px">{{ $t('generate.deviceConfigImage') }}</div>
@@ -184,7 +245,7 @@ onMounted(() => {
       >
         <n-upload-dragger class="upload-dragger">
           <div class="upload-content">
-            <img v-if="imagePath && imagePath !== ''" :src="imagePath" class="slt" />
+            <img v-if="imagePath && imagePath !== ''" :src="imagePath" alt="" class="slt" />
             <template v-else>
               <n-icon size="35" :depth="3">
                 <SvgIcon local-icon="picture" class="more" />
@@ -256,6 +317,10 @@ onMounted(() => {
 </template>
 
 <style lang="scss" scoped>
+.rule-chain-hint {
+  color: var(--n-text-color-disabled, #999);
+  font-size: 12px;
+}
 .upload {
   width: 200px;
   height: 150px;

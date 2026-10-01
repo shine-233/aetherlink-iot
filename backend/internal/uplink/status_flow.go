@@ -2,6 +2,7 @@ package uplink
 
 import (
 	"fmt"
+	"time"
 
 	"aetherlink-iot/backend/initialize"
 	"aetherlink-iot/backend/internal/dal"
@@ -134,7 +135,10 @@ func (f *StatusUplink) refreshStatusOnlineTimeout(ctx *statusMessageContext) {
 }
 
 func (f *StatusUplink) persistStatusChange(ctx *statusMessageContext) bool {
-	statusChanged, err := dal.UpdateDeviceStatus(ctx.device.ID, ctx.status)
+	// 用缓存里已加载的设备对象提供 tenantID，省掉 dal.UpdateDeviceStatus 内部那次
+	// getDeviceTenantID 整行 SELECT——设备对象就在手上，再查一次是重复往返。
+	// 条件 UPDATE 语义不变：状态未变化时 RowsAffected=0，不删缓存、不写历史。
+	statusChanged, err := dal.UpdateDeviceStatusWithTenant(ctx.device.ID, ctx.status, ctx.device.TenantID)
 	if err != nil {
 		f.logger.WithError(err).WithFields(logrus.Fields{
 			"device_id": ctx.device.ID,
@@ -164,15 +168,41 @@ func (f *StatusUplink) persistStatusChange(ctx *statusMessageContext) bool {
 func (f *StatusUplink) dispatchStatusChangedSideEffects(ctx *statusMessageContext) {
 	initialize.DelDeviceCache(ctx.device.ID)
 
-	go f.publishToRedis(ctx.device, ctx.status, ctx.message.Metadata)
-	go f.notifyClients(ctx.device, ctx.status)
-	go f.triggerAutomation(ctx.device, ctx.status)
+	// Both fan-outs are fire-and-forget network writes with their own panic
+	// guards; one goroutine per status change instead of two.
+	device, status, metadata := ctx.device, ctx.status, ctx.message.Metadata
+	go func() {
+		f.publishToRedis(device, status, metadata)
+		f.notifyClients(device, status)
+	}()
+	f.triggerAutomation(ctx.device, ctx.status)
 
 	if ctx.status == 1 {
-		go f.sendExpectedData(ctx.device)
-		go f.sendPendingShadowMessages(ctx.device)
+		f.scheduleOnlineDeliveries(ctx.device, statusOnlineDeliveryDelay, f.runOnlineDeliveries)
 		f.triggerRuleChainsOnline(ctx.device)
 	}
+}
+
+// statusOnlineDeliveryDelay gives a device that just came online time to finish
+// its session (subscribe to command topics) before we push to it.
+const statusOnlineDeliveryDelay = 3 * time.Second
+
+// scheduleOnlineDeliveries replaces two goroutines that each slept 3s with one
+// timer: after the delay, expected data is sent first and then pending shadow
+// messages, in that order. Deliveries are skipped once the uplink is stopped;
+// both queues are persistent and are retried on the next online transition.
+func (f *StatusUplink) scheduleOnlineDeliveries(device *model.Device, delay time.Duration, deliver func(*model.Device)) *time.Timer {
+	return time.AfterFunc(delay, func() {
+		if f.ctx != nil && f.ctx.Err() != nil {
+			return
+		}
+		deliver(device)
+	})
+}
+
+func (f *StatusUplink) runOnlineDeliveries(device *model.Device) {
+	f.sendExpectedData(device)
+	f.sendPendingShadowMessages(device)
 }
 
 // triggerRuleChainsOnline 设备上线触发规则链（ROADMAP B2）：异步、错误不阻断状态流。

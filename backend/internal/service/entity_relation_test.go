@@ -173,11 +173,3 @@ func TestDeleteRelationsForEntityRejectsEmptyTenantOrID(t *testing.T) {
 	}
 }
 
-func TestHasRelationPathRejectsUnknownType(t *testing.T) {
-	if _, err := HasRelationPath(context.Background(), "t1", "robot", "r1", model.EntityTypeDevice, "d1", "", 0); err == nil {
-		t.Fatal("未知实体类型应被拒绝")
-	}
-	if _, err := HasRelationPath(context.Background(), "t1", model.EntityTypeDevice, "d1", "robot", "r1", "", 0); err == nil {
-		t.Fatal("未知实体类型应被拒绝")
-	}
-}

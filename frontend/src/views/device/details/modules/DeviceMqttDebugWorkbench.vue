@@ -15,6 +15,7 @@ import {
   type DeviceMQTTDebugSubscription
 } from '@/service/api/device'
 import { $t } from '@/locales'
+import { createVisibleInterval } from '@/hooks/common/useVisibleInterval'
 
 const props = defineProps<{
   deviceId: string
@@ -37,7 +38,10 @@ const qosOptions = [
   { label: 'QoS 0', value: 0 },
   { label: 'QoS 1', value: 1 }
 ]
-let refreshTimer: ReturnType<typeof setInterval> | null = null
+// 后台标签页暂停 3s 轮询；恢复可见时立即按 after_sequence 增量补拉。
+const sessionPoller = createVisibleInterval(() => {
+  void refreshSession(false)
+}, 3000)
 let deviceEpoch = 0
 let subscribeTopicTouched = false
 let publishTopicTouched = false
@@ -121,17 +125,12 @@ function lastReceivedSequence() {
 }
 
 function stopPolling() {
-  if (refreshTimer) {
-    clearInterval(refreshTimer)
-    refreshTimer = null
-  }
+  sessionPoller.stop()
 }
 
 function startPolling() {
-  stopPolling()
-  refreshTimer = setInterval(() => {
-    void refreshSession(false)
-  }, 3000)
+  sessionPoller.stop()
+  sessionPoller.start()
 }
 
 type MQTTDebugRequestFailure = {

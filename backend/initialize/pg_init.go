@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	global "aetherlink-iot/backend/pkg/global"
@@ -78,6 +79,13 @@ func PgInit() (*gorm.DB, error) {
 	// Apply schema upgrades before any subsystem starts querying the database.
 	if err := CheckVersion(db); err != nil {
 		return nil, fmt.Errorf("database migration failed: %w", err)
+	}
+
+	// TB-15：TimescaleDB 活库时把 data_policy 的设备数据保留天数装配成 telemetry_datas
+	// 的原生 retention policy（压缩≠保留：57.sql 的压缩策略只省存储，过期删除由本策略执行）。
+	// 失败不阻断启动——普通 PG 部署本就无此策略，warn 后下次启动自动重试。
+	if err := ApplyTimescaleRetentionPolicy(db); err != nil {
+		logrus.Warnf("apply timescaledb retention policy failed (will retry on next start): %v", err)
 	}
 
 	// 凭证哈希存储 Phase 1（references/backend-hardening-plan.md 车道1）：50.sql 只建
@@ -181,10 +189,26 @@ func LoadDbConfig() (*DbConfig, error) {
 // 	log.Println(args...)
 // }
 
+// quotePgDSNValue 按 libpq key=value 连接串规则引用取值：空值或含空白/单引号/反斜杠时
+// 用单引号包裹并转义 ' 与 \。未引用时，含空格或 "x=y" 片段的密码会截断连接串或注入额外参数。
+func quotePgDSNValue(v string) string {
+	if v != "" && !strings.ContainsAny(v, " \t\r\n'\\") {
+		return v
+	}
+	escaped := strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(v)
+	return "'" + escaped + "'"
+}
+
+// buildPgDSN 生成 PostgreSQL key=value 连接串（sslmode 保持历史值 disable）。
+func buildPgDSN(config *DbConfig) string {
+	return fmt.Sprintf("host=%s port=%d dbname=%s user=%s password=%s sslmode=disable TimeZone=%s",
+		quotePgDSNValue(config.Host), config.Port, quotePgDSNValue(config.DbName),
+		quotePgDSNValue(config.Username), quotePgDSNValue(config.Password), quotePgDSNValue(config.TimeZone))
+}
+
 // PgConnect 根据配置建立 GORM 连接，并设置 SQL 日志与连接池参数。
 func PgConnect(config *DbConfig) (*gorm.DB, error) {
-	dataSource := fmt.Sprintf("host=%s port=%d dbname=%s user=%s password=%s sslmode=disable TimeZone=%s",
-		config.Host, config.Port, config.DbName, config.Username, config.Password, config.TimeZone)
+	dataSource := buildPgDSN(config)
 
 	// 根据配置获取 SQL 日志 Writer（支持文件和控制台输出）
 	sqlLogWriter := GetSQLLogWriter()
@@ -226,124 +250,132 @@ func PgConnect(config *DbConfig) (*gorm.DB, error) {
 	return db, nil
 }
 
-/*
-注意 sql中不要有sys_version表
-1. 检查版本表是否存在: 检查数据库版本，如果没有sys_version表，创建sys_version表，插入版本序号0，版本号0.0.0
-2. 程序版本低于数据版本: 提示升级
-3. 数据版本低于程序版本: 执行sql文件，更新版本号
-*/
 // CheckVersion 校验数据库版本与程序版本关系，并按需执行顺序升级脚本。
+// 流程：readVersion（必要时建 sys_version）→ 版本比较 → 单事务内
+// applyBaseline（仅全新库且开关开启时）+ applyIncremental → 更新 sys_version → 提交。
 func CheckVersion(db *gorm.DB) error {
-	version := global.VERSION
-	versionNumber := global.VERSION_NUMBER // 当前程序版本号
-	var dataVersionNumber int              // 数据库版本号
-
-	// 判断有没有sys_version的表
-	var exists bool
-	result := db.Raw("SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='sys_version')").Scan(&exists)
-	if result.Error != nil {
-		return result.Error
+	dataVersion, err := readVersion(db)
+	if err != nil {
+		return err
 	}
-	// 创建事务
-	logrus.Info("----", exists)
-	if !exists { // 如果不存在sys_version表，创建sys_version表
-		logrus.Info("创建sys_version表")
-		dataVersionNumber = 0
-		t := db.Exec("CREATE TABLE sys_version (version_number INT NOT NULL DEFAULT 0, version varchar(255) NOT NULL, PRIMARY KEY (version_number))")
-		if t.Error != nil {
-			return t.Error
-		}
-
+	if dataVersion > global.VERSION_NUMBER {
+		return fmt.Errorf("当前数据版本高于程序版本，请升级程序")
 	}
+	if dataVersion == global.VERSION_NUMBER {
+		return nil
+	}
+
 	tx := db.Begin()
-	// 关键注意事项：以下任何 return 都必须先 Rollback，否则连接池会残留
-	// 一个长期持有旧快照的 "idle in transaction" 连接，造成后续查询读到过期数据。
+	if tx.Error != nil {
+		return tx.Error
+	}
+	// 任何错误返回都由这里回滚，否则连接池会残留一个长期持有旧快照的
+	// "idle in transaction" 连接，造成后续查询读到过期数据。
+	committed := false
 	defer func() {
-		if tx != nil && tx.Statement != nil {
+		if !committed {
 			tx.Rollback()
 		}
 	}()
-	// 查询版本号
-	result = db.Table("sys_version").Select("version_number").Scan(&dataVersionNumber)
-	if result.Error != nil {
-		return result.Error
-	}
-	// 如果版本号为空，插入版本号
-	if dataVersionNumber == 0 {
-		t := tx.Exec("INSERT INTO sys_version (version_number, version) VALUES (?, ?)", 0, "0.0.0")
-		if t.Error != nil {
-			// 回滚
-			tx.Rollback()
-			return t.Error
+
+	if dataVersion == 0 {
+		if err := tx.Exec("INSERT INTO sys_version (version_number, version) VALUES (?, ?)", 0, "0.0.0").Error; err != nil {
+			return err
 		}
 	}
-	if dataVersionNumber > global.VERSION_NUMBER {
-		// 回滚
-		tx.Rollback()
-		return fmt.Errorf("当前数据版本高于程序版本，请升级程序")
-	} else if dataVersionNumber < global.VERSION_NUMBER {
-		log.Println("数据版本：", dataVersionNumber)
-		log.Println("程序版本：", global.VERSION_NUMBER)
-		log.Println("开始升级...")
-		// sql文件名为：版本编号.sql，执行所大于当前数据版本小于等于程序版本的sql文件
-		for i := dataVersionNumber + 1; i <= global.VERSION_NUMBER; i++ {
-			fileName := fmt.Sprintf("sql/%d.sql", i)
-			// 检查文件是否存在
-			if !utils.FileExist(fileName) {
-				// 回滚
-				tx.Rollback()
-				return fmt.Errorf("sql文件不存在,可能需要手动升级：%s", fileName)
-			}
-			// ROADMAP C1 收尾：TimescaleDB 显式开关（AETHERLINK_TIMESCALE_MODE=auto|on|off）。
-			// 57.sql 的 hypertable 转换是否执行由该配置决定；off 时跳过但迁移继续（保持普通 PG）。
-			if i == TimescaleSQLFileNumber {
-				mode, err := normalizeTimescaleMode(readTimescaleMode())
-				if err != nil {
-					tx.Rollback()
-					return err
-				}
-				installed, probeErr := timescaleExtensionInstalled(db)
-				if probeErr != nil {
-					tx.Rollback()
-					return probeErr
-				}
-				run, failMsg := decideTimescaleMigration(mode, installed)
-				if failMsg != "" {
-					tx.Rollback()
-					return fmt.Errorf("%s", failMsg)
-				}
-				if !run {
-					log.Println("跳过 sql/57.sql（TimescaleDB 显式关闭，保持普通 PostgreSQL）")
-					continue
-				}
-			}
-			log.Println("执行sql文件：", fileName)
-			// 读取 SQL 脚本文件
-			sqlFile, err := os.ReadFile(fileName)
+	log.Println("数据版本：", dataVersion)
+	log.Println("程序版本：", global.VERSION_NUMBER)
+	log.Println("开始升级...")
+
+	start, err := applyBaseline(db, tx, dataVersion, global.VERSION_NUMBER)
+	if err != nil {
+		return err
+	}
+	if err := applyIncremental(db, tx, start+1, global.VERSION_NUMBER); err != nil {
+		return err
+	}
+	if err := tx.Exec("UPDATE sys_version SET version_number = ?, version = ?", global.VERSION_NUMBER, global.VERSION).Error; err != nil {
+		return err
+	}
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+	committed = true
+	log.Println("升级成功")
+	return nil
+}
+
+// readVersion 读取 sys_version 中的版本号；表不存在时创建并返回 0。
+// 注意：sql 文件中不要出现 sys_version 表。
+func readVersion(db *gorm.DB) (int, error) {
+	var exists bool
+	if err := db.Raw("SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='sys_version')").Scan(&exists).Error; err != nil {
+		return 0, err
+	}
+	if !exists {
+		logrus.Info("创建sys_version表")
+		if err := db.Exec("CREATE TABLE sys_version (version_number INT NOT NULL DEFAULT 0, version varchar(255) NOT NULL, PRIMARY KEY (version_number))").Error; err != nil {
+			return 0, err
+		}
+		return 0, nil
+	}
+	var v int
+	if err := db.Table("sys_version").Select("version_number").Scan(&v).Error; err != nil {
+		return 0, err
+	}
+	return v, nil
+}
+
+// applyIncremental 在 tx 中顺序执行 sql/<from..to>.sql；缺文件 fail-fast。
+// 57.sql 受 TimescaleDB 显式开关（AETHERLINK_TIMESCALE_MODE=auto|on|off）控制，off 时跳过但迁移继续。
+func applyIncremental(db, tx *gorm.DB, from, to int) error {
+	for i := from; i <= to; i++ {
+		fileName := fmt.Sprintf("sql/%d.sql", i)
+		if !utils.FileExist(fileName) {
+			return fmt.Errorf("sql文件不存在,可能需要手动升级：%s", fileName)
+		}
+		if i == TimescaleSQLFileNumber {
+			run, err := shouldRunTimescaleMigration(db)
 			if err != nil {
-				// 回滚
-				tx.Rollback()
-				return fmt.Errorf("读取sql文件失败 %s: %w", fileName, err)
+				return err
 			}
-			logrus.Info("执行sql脚本...")
-			// 执行 SQL 脚本
-			t := tx.Exec(string(sqlFile))
-			if t.Error != nil {
-				// 回滚
-				tx.Rollback()
-				return t.Error
+			if !run {
+				log.Println("跳过 sql/57.sql（TimescaleDB 显式关闭，保持普通 PostgreSQL）")
+				continue
 			}
 		}
-		// 更新版本号
-		t := tx.Exec("UPDATE sys_version SET version_number = ?, version = ?", versionNumber, version)
-		if t.Error != nil {
-			// 回滚
-			tx.Rollback()
-			return t.Error
+		log.Println("执行sql文件：", fileName)
+		sqlFile, err := os.ReadFile(fileName)
+		if err != nil {
+			return fmt.Errorf("读取sql文件失败 %s: %w", fileName, err)
 		}
-		log.Println("升级成功")
+		if err := tx.Exec(string(sqlFile)).Error; err != nil {
+			return err
+		}
 	}
-	return tx.Commit().Error
+	return nil
+}
+
+// shouldRunTimescaleMigration 汇总模式配置与扩展探测，给出 57.sql 是否执行。
+func shouldRunTimescaleMigration(db *gorm.DB) (bool, error) {
+	mode, err := normalizeTimescaleMode(readTimescaleMode())
+	if err != nil {
+		return false, err
+	}
+	installed, err := timescaleExtensionInstalled(db)
+	if err != nil {
+		return false, err
+	}
+	run, failMsg := decideTimescaleMigration(mode, installed)
+	if failMsg != "" {
+		return false, fmt.Errorf("%s", failMsg)
+	}
+	return run, nil
+}
+
+// migrationLogf 迁移过程日志（与上面的 log.Println 同一输出）。
+func migrationLogf(format string, args ...any) {
+	log.Printf(format, args...)
 }
 
 // ExecuteSQLFile 读取并执行单个 SQL 文件，供升级流程或外部调用复用。

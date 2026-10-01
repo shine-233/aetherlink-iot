@@ -20,28 +20,6 @@ type statsManager struct {
 	clientStats    map[string]*ClientStats
 }
 
-func (s *statsManager) getClientStats(clientID string) (stats *ClientStats) {
-	s.clientMu.RLock()
-	stats = s.clientStats[clientID]
-	s.clientMu.RUnlock()
-	if stats != nil {
-		return stats
-	}
-
-	subStats, _ := s.subStatsReader.GetClientStats(clientID)
-
-	s.clientMu.Lock()
-	defer s.clientMu.Unlock()
-	if stats = s.clientStats[clientID]; stats != nil {
-		return stats
-	}
-	stats = &ClientStats{
-		SubscriptionStats: subStats,
-	}
-	s.clientStats[clientID] = stats
-	return stats
-}
-
 func (s *statsManager) getOrCreateClientStatsLocked(clientID string) (stats *ClientStats) {
 	if stats = s.clientStats[clientID]; stats != nil {
 		return stats
@@ -76,24 +54,24 @@ func (s *statsManager) getExistingClientStats(clientID string) (*ClientStats, bo
 	return stats, stats != nil
 }
 
+// packetReceived/packetSent 等 per-packet 统计先走快路径（stats 已存在时直接原子更新，
+// 不构造闭包）——该路径处于 read/write loop 热路径，原实现每次调用都要为闭包多付一次堆分配。
 func (s *statsManager) packetReceived(packet packets.Packet, clientID string) {
 	s.totalStats.PacketStats.add(packet, true)
+	if stats, ok := s.getExistingClientStats(clientID); ok {
+		stats.PacketStats.add(packet, true)
+		return
+	}
 	s.updateClientStats(clientID, func(stats *ClientStats) {
 		stats.PacketStats.add(packet, true)
 	})
 }
 func (s *statsManager) packetSent(packet packets.Packet, clientID string) {
 	s.totalStats.PacketStats.add(packet, false)
-	s.updateClientStats(clientID, func(stats *ClientStats) {
+	if stats, ok := s.getExistingClientStats(clientID); ok {
 		stats.PacketStats.add(packet, false)
-	})
-}
-func (s *statsManager) clientPacketReceived(packet packets.Packet, clientID string) {
-	s.updateClientStats(clientID, func(stats *ClientStats) {
-		stats.PacketStats.add(packet, true)
-	})
-}
-func (s *statsManager) clientPacketSent(packet packets.Packet, clientID string) {
+		return
+	}
 	s.updateClientStats(clientID, func(stats *ClientStats) {
 		stats.PacketStats.add(packet, false)
 	})

@@ -382,6 +382,5 @@ func TestNilSource(t *testing.T) {
 	}
 }
 
-// 编译期断言：LoadFunc 满足 Source 接口。
-var _ Source = LoadFunc(nil)
+// 编译期断言：fakeSource 满足 Source 接口。
 var _ Source = (*fakeSource)(nil)

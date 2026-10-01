@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestAdminCredentialsMatchRequiresExplicitEnvironment(t *testing.T) {
@@ -31,11 +32,16 @@ func TestAdminCredentialsMatchRequiresExplicitEnvironment(t *testing.T) {
 }
 
 func TestSessionCookiesUseSecureAttribute(t *testing.T) {
+	mgr := newSessionManagerWithKey([]byte("test-key"), nil)
+	token, claims, err := mgr.issueSession()
+	if err != nil {
+		t.Fatalf("issueSession: %v", err)
+	}
 	tests := []struct {
 		name string
 		set  func(http.ResponseWriter)
 	}{
-		{name: "set", set: setSessionCookie},
+		{name: "set", set: func(w http.ResponseWriter) { setSessionCookie(w, token, claims.ExpiresAt) }},
 		{name: "clear", set: clearSessionCookie},
 	}
 	for _, tt := range tests {
@@ -56,8 +62,19 @@ func TestSessionCookiesUseSecureAttribute(t *testing.T) {
 			if cookie.SameSite != http.SameSiteLaxMode {
 				t.Fatalf("SameSite = %v, want Lax", cookie.SameSite)
 			}
+			if cookie.Name != sessionCookieName || cookie.Path != "/" {
+				t.Fatalf("cookie name/path = %q/%q, want %q//", cookie.Name, cookie.Path, sessionCookieName)
+			}
 			if tt.name == "clear" && cookie.MaxAge != -1 {
 				t.Fatalf("clear cookie MaxAge = %d, want -1", cookie.MaxAge)
+			}
+			if tt.name == "set" {
+				if cookie.Value == "authenticated" || cookie.Value != token {
+					t.Fatalf("session cookie value = %q, want signed token", cookie.Value)
+				}
+				if ttl := time.Until(cookie.Expires); ttl < sessionTTL-time.Minute || ttl > sessionTTL+time.Minute {
+					t.Fatalf("session cookie expires in %v, want ~%v", ttl, sessionTTL)
+				}
 			}
 		})
 	}

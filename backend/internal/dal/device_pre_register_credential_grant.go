@@ -88,16 +88,3 @@ func ExpireCredentialGrantByID(id, tenantID string) (int64, error) {
 		Updates(map[string]interface{}{"status": model.CredentialGrantStatusExpired})
 	return res.RowsAffected, res.Error
 }
-
-// ExpireCredentialGrantsBefore 把过期仍未消费的许可收口为 expired，返回收口行数。
-// 不做物理删除：许可行是"谁曾经可以取走这批凭证"的审计事实，删掉就无从追责。
-func ExpireCredentialGrantsBefore(now time.Time, limit int) (int64, error) {
-	if limit <= 0 {
-		limit = 1000
-	}
-	res := global.DB.Model(&model.DevicePreRegisterCredentialGrant{}).
-		Where("status = ? AND expires_at <= ?", model.CredentialGrantStatusPending, now).
-		Limit(limit).
-		Updates(map[string]interface{}{"status": model.CredentialGrantStatusExpired})
-	return res.RowsAffected, res.Error
-}

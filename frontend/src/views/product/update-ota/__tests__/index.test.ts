@@ -567,7 +567,7 @@ describe('UpdateOta', () => {
     vi.clearAllMocks()
     const state = getState(wrapper)
 
-    state.taskPagination.onChange(2)
+    state.taskPagination.onUpdatePage(2)
     state.taskPagination.onUpdatePageSize(20)
     await flushPromises()
 
@@ -590,7 +590,7 @@ describe('UpdateOta', () => {
     const state = getState(wrapper)
     state.selectedTask = { id: 'task-1', name: 'Task 1' }
 
-    state.detailPagination.onChange(3)
+    state.detailPagination.onUpdatePage(3)
     state.detailPagination.onUpdatePageSize(50)
     await flushPromises()
 

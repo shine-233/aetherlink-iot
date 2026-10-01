@@ -399,10 +399,7 @@ func TestDeliverHandlerSelectSharedSubscriberUsesTopicHashStrategy(t *testing.T)
 		msg:      &gmqtt.Message{Topic: "/abc"},
 		strategy: SharedSubBalanceTopicHash,
 	}
-	subscribers := []struct {
-		clientID string
-		sub      *gmqtt.Subscription
-	}{
+	subscribers := []sharedSubscriber{
 		{clientID: "first", sub: &gmqtt.Subscription{ShareName: "abc", TopicFilter: "/abc"}},
 		{clientID: "second", sub: &gmqtt.Subscription{ShareName: "abc", TopicFilter: "/abc"}},
 		{clientID: "third", sub: &gmqtt.Subscription{ShareName: "abc", TopicFilter: "/abc"}},

@@ -103,9 +103,9 @@ func withPassThroughSceneChecks() func() {
 	prevClosed := executeRunCheckSceneAutomationHasClose
 	prevCondition := executeRunConditionCheck
 	prevLimiter := executeRunLimiterAllow
-	executeRunCheckSceneAutomationHasClose = func(*Automate, string) bool { return false }
-	executeRunConditionCheck = func(*Automate, initialize.DTConditions, string) bool { return true }
-	executeRunLimiterAllow = func(*Automate, string) bool { return true }
+	executeRunCheckSceneAutomationHasClose = func(*automationExec, string) bool { return false }
+	executeRunConditionCheck = func(*automationExec, initialize.DTConditions, string) bool { return true }
+	executeRunLimiterAllow = func(*automationExec, string) bool { return true }
 	return func() {
 		executeRunCheckSceneAutomationHasClose = prevClosed
 		executeRunConditionCheck = prevCondition
@@ -115,7 +115,7 @@ func withPassThroughSceneChecks() func() {
 
 func TestSceneTriggerIsNewFailsOpenWhenStoreMissing(t *testing.T) {
 	defer withSceneTriggerStore(nil)()
-	a := &Automate{}
+	a := &automationExec{}
 	candidate := sceneExecutionCandidate{sceneAutomationID: "s1", deviceID: "d1"}
 	if !a.sceneTriggerIsNew(candidate) {
 		t.Fatal("sceneTriggerIsNew with nil store = false, want true (fail open)")
@@ -131,7 +131,7 @@ func (errStore) Claim(context.Context, string, time.Time) (bool, error) {
 
 func TestSceneTriggerIsNewFailsOpenOnStoreError(t *testing.T) {
 	defer withSceneTriggerStore(errStore{})()
-	a := &Automate{}
+	a := &automationExec{}
 	candidate := sceneExecutionCandidate{sceneAutomationID: "s1", deviceID: "d1"}
 	if !a.sceneTriggerIsNew(candidate) {
 		t.Fatal("sceneTriggerIsNew on store error = false, want true (fail open)")
@@ -144,7 +144,7 @@ func TestPrepareSceneExecutionSuppressesSameSecondDuplicate(t *testing.T) {
 	defer withSceneTriggerStore(NewInMemorySceneTriggerStore(0))()
 	defer withPassThroughSceneChecks()()
 
-	a := &Automate{}
+	a := &automationExec{}
 	candidate := sceneExecutionCandidate{sceneAutomationID: "s1", deviceID: "d1"}
 
 	if !a.prepareSceneExecution(candidate) {
@@ -152,7 +152,7 @@ func TestPrepareSceneExecutionSuppressesSameSecondDuplicate(t *testing.T) {
 	}
 	// 同一实例内第二次：canAttemptScene 会先拦（已 attempted），
 	// 这里换成新实例以单独考察跨上报的幂等，而不是实例内去重。
-	b := &Automate{}
+	b := &automationExec{}
 	if b.prepareSceneExecution(candidate) {
 		t.Fatal("second prepare = true, want false (same-second duplicate must be suppressed)")
 	}
@@ -172,7 +172,7 @@ func TestPrepareSceneExecutionAllowsDifferentSecond(t *testing.T) {
 		t.Fatalf("seed claim err = %v", err)
 	}
 
-	a := &Automate{}
+	a := &automationExec{}
 	candidate := sceneExecutionCandidate{sceneAutomationID: "s1", deviceID: "d1"}
 	if !a.prepareSceneExecution(candidate) {
 		t.Fatal("prepare in a later second = false, want true (must not starve the scene)")

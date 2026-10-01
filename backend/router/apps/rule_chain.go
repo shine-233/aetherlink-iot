@@ -36,5 +36,8 @@ func (*RuleChain) InitRuleChain(Router *gin.RouterGroup) {
 		ruleChains.GET(":id/executions/:execId/replay-records", ruleChainApi.HandleListRuleChainReplayRecords)
 		ruleChains.POST(":id/replay", ruleChainApi.HandleReplayRuleChainExecution)
 		// P1.2 END
+		// TB-18 BEGIN 设备生效规则链解析（档案绑定链优先、租户级链兜底；对应迁移 125.sql 的 Casbin 登记）
+		ruleChains.GET("device-effective/:deviceId", ruleChainApi.HandleResolveDeviceEffectiveRuleChains)
+		// TB-18 END
 	}
 }

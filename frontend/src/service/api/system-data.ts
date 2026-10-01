@@ -25,11 +25,6 @@ export interface DeviceData {
   telemetry_data: TelemetryItem[]
 }
 
-export interface ApiLatestTelemetryResponse {
-  data: DeviceData[] | null
-  error: string | object | null // 允许不同的错误类型
-}
-
 // --- 接口定义结束 ---
 
 /** 获取设备总数和激活数 */

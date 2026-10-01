@@ -21,18 +21,27 @@ type DataPolicyApi struct{}
 // 审查重点：确认请求体校验足够约束可修改字段，避免越权修改；同时关注 nil data 响应是否与接口契约一致。
 // @Router   /api/v1/datapolicy [put]
 func (*DataPolicyApi) UpdateDataPolicy(c *gin.Context) {
-	var req model.UpdateDataPolicyReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.DataPolicy.UpdateDataPolicy(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
+	HandleAction(c, func(req *model.UpdateDataPolicyReq, userClaims *utils.UserClaims) error {
+		return service.GroupApp.DataPolicy.UpdateDataPolicy(req, userClaims)
+	})
+}
 
-	c.Set("data", nil)
+// CreateDataPolicy 创建行级（租户/档案粒度）数据保留策略（TB-15R）。
+// 核心步骤：绑定创建请求、读取登录用户 claims、调用 service 落库（唯一索引兜底重复）。
+// 审查重点：行级只允许设备数据类型，重复 (租户,档案) 返回参数错误而非 500；返回新建行 id。
+// @Router   /api/v1/datapolicy [post]
+func (*DataPolicyApi) CreateDataPolicy(c *gin.Context) {
+	Handle(c, func(req *model.CreateDataPolicyReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.DataPolicy.CreateDataPolicy(req, userClaims)
+	})
+}
+
+// DeleteDataPolicy 删除行级数据保留策略（TB-15R）；全局默认行由 service 层拒绝删除。
+// @Router   /api/v1/datapolicy/:id [delete]
+func (*DataPolicyApi) DeleteDataPolicy(c *gin.Context) {
+	HandlePathAction(c, "id", func(id string, userClaims *utils.UserClaims) error {
+		return service.GroupApp.DataPolicy.DeleteDataPolicy(id, userClaims)
+	})
 }
 
 // HandleDataPolicyListByPage 分页查询数据策略列表。
@@ -40,16 +49,7 @@ func (*DataPolicyApi) UpdateDataPolicy(c *gin.Context) {
 // 审查重点：确认分页参数边界已在校验层约束，并检查列表查询是否始终按 claims 限定租户/项目数据范围。
 // @Router   /api/v1/datapolicy [get]
 func (*DataPolicyApi) HandleDataPolicyListByPage(c *gin.Context) {
-	var req model.GetDataPolicyListByPageReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	datapolicyList, err := service.GroupApp.DataPolicy.GetDataPolicyListByPage(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", datapolicyList)
+	Handle(c, func(req *model.GetDataPolicyListByPageReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.DataPolicy.GetDataPolicyListByPage(req, userClaims)
+	})
 }

@@ -799,13 +799,15 @@ const BUSINESS_CAPABILITIES = [
       'GET /api/v1/entity_versions',
       'POST /api/v1/entity_versions',
       'GET /api/v1/entity_versions/:id',
+      'GET /api/v1/entity_versions/:id/diff/:target_id',
       'POST /api/v1/entity_versions/:id/restore'
     ],
     automationTests: [
       'tests/06_system.test.js',
       'tests/17_api_boundary_smoke.test.js',
       { file: 'tests/20_seeded_system_permission.test.js', evidenceKind: 'boundary' },
-      'tests/35_entity_version.test.js'
+      'tests/35_entity_version.test.js',
+      'tests/83_entity_version_diff.test.js'
     ],
     e2eTests: ['e2e/06_system.spec.js', 'e2e/14_route_coverage_closure.spec.js'],
     goEvidence: goEvidence(GO_EVIDENCE.systemDeployment)

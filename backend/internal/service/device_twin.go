@@ -192,9 +192,7 @@ func (*DeviceTwin) UpsertDesired(deviceID string, req *model.UpsertDeviceTwinDes
 	})
 	if err != nil {
 		logrus.Error(err)
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	return expectedData, nil
 }

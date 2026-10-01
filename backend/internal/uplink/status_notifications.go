@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -66,7 +65,7 @@ func (f *StatusUplink) triggerAutomation(device *model.Device, status int16) {
 		loginStatus = "ON-LINE"
 	}
 
-	err := service.GroupApp.Execute(device, service.AutomateFromExt{
+	err := service.GroupApp.Dispatch(device, service.AutomateFromExt{
 		TriggerParamType: model.TRIGGER_PARAM_TYPE_STATUS,
 		TriggerParam:     []string{},
 		TriggerValues: map[string]interface{}{
@@ -75,12 +74,12 @@ func (f *StatusUplink) triggerAutomation(device *model.Device, status int16) {
 	})
 
 	if err != nil {
-		f.logger.WithError(err).WithField("device_id", device.ID).Warn("Automation execution failed")
+		f.logger.WithError(err).WithField("device_id", device.ID).Warn("Automation dispatch failed")
 	} else {
 		f.logger.WithFields(logrus.Fields{
 			"device_id": device.ID,
 			"status":    loginStatus,
-		}).Debug("Automation triggered")
+		}).Debug("Automation dispatched")
 	}
 }
 
@@ -93,8 +92,6 @@ func (f *StatusUplink) sendExpectedData(device *model.Device) {
 			}).Error("sendExpectedData goroutine panic")
 		}
 	}()
-
-	time.Sleep(3 * time.Second)
 
 	err := service.GroupApp.ExpectedData.Send(context.Background(), device.ID)
 	if err != nil {
@@ -114,8 +111,6 @@ func (f *StatusUplink) sendPendingShadowMessages(device *model.Device) {
 			}).Error("sendPendingShadowMessages goroutine panic")
 		}
 	}()
-
-	time.Sleep(3 * time.Second)
 
 	delivered, err := service.GroupApp.DeviceShadow.DeliverPendingShadowMessages(device.ID)
 	if err != nil {

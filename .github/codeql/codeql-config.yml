@@ -10,3 +10,7 @@ paths-ignore:
   - '**/coverage'
   - '**/reports'
   - '**/dist'
+  # automation_tests 是本地/CI 测试工具链（契约测试、探针、runner），
+  # 不随产品发布，不属于产品安全分析范围；其文件读写模式在测试语境下
+  # 触发大量 file-access/http-to-file 类误报（run_tests、api_client 等）。
+  - automation_tests

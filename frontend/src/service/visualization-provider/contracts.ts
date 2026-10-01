@@ -181,6 +181,14 @@ export interface VisualizationProvider {
   getDashboard(id: string): Promise<VisualizationResult<VisualizationDashboardSchema>>
   /** Optional unauthenticated lookup used only by a provider's public viewer. */
   getDashboardByShareToken?(token: string): Promise<VisualizationResult<VisualizationDashboardSchema>>
+  /**
+   * TP-22 大屏轮播：按 share token 列表批量解析可渲染看板。
+   * items 保持请求顺序；解析不到的 token 回填 missingTokens，不因个别失效弃整份清单。
+   * 未实现的 provider 让投屏页显式降级为"轮播不支持"提示，而不是静默退化为单屏。
+   */
+  getDashboardsByShareTokens?(
+    tokens: string[]
+  ): Promise<VisualizationResult<{ items: VisualizationDashboardSchema[]; missingTokens: string[] }>>
   getDashboardThumbnail(id: string): Promise<VisualizationResult<string | null>>
   createDashboard(
     payload: CreateVisualizationDashboardPayload

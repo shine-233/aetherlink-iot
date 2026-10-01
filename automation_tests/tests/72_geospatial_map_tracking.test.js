@@ -11,6 +11,7 @@
  *   7. 异常输入防御与健壮性校验（非法设备 ID 与极端坐标容错）。
  */
 
+require('../lib/runtime_config');
 const { expect } = require('chai');
 const apiClient = require('../lib/api_client');
 const seedData = require('../lib/seed_data');

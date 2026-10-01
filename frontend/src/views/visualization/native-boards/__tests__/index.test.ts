@@ -156,6 +156,13 @@ const success = <T>(data: T) => ({ ok: true as const, data })
 const failure = () => ({ ok: false as const, error: { code: 'provider-failure' as const, message: 'failed' } })
 const wrappers: VueWrapper[] = []
 
+/**
+ * beforeEach 里 fetchUserList 只返回一个 TENANT_ADMIN 行（tenant_id = tenant-1），
+ * 于是 loadTenantOptions 会把该租户自动选中并写进列表查询 —— 首屏之后的所有列表请求
+ * 都会带上 tenantId。创建流程的租户断言见 modules/__tests__/native-board-create-modal.test.ts。
+ */
+const TENANT_ID = 'tenant-1'
+
 function deferred<T>() {
   let resolve!: (value: T) => void
   let reject!: (reason?: unknown) => void
@@ -181,18 +188,17 @@ function vm(wrapper: VueWrapper) {
     failed: boolean
     page: number
     searchInput: string
-    nameFilter: string
+    listFilter: { name: string; tenantId: string }
     showCreateModal: boolean
-    creating: boolean
+    createModalPrefill: string | null
     deletingBoardId: string | null
-    createForm: { name: string; description: string }
     loadBoards: () => Promise<void>
     handleSearch: () => void
     handlePageChange: (page: number) => void
     openBoard: (id: string) => void
     editBoard: (id: string) => void
     openCreateModal: () => void
-    handleCreate: () => Promise<void>
+    handleCreated: (id: string) => void
     handleDelete: (id: string) => Promise<void>
     handlePublish: (id: string) => Promise<void>
     handleCopyLink: (board: ReturnType<typeof summary>) => Promise<void>
@@ -261,11 +267,14 @@ describe('native boards page', () => {
     vm(wrapper).searchInput = '  factory  '
     vm(wrapper).handleSearch()
     await flushPromises()
+    // SYS_ADMIN + 仅一个租户时，loadTenantOptions 会自动选中该租户并写进列表查询，
+    // 所以首屏之后的每次列表请求都带 tenantId。
     expect(hoisted.listDashboards).toHaveBeenLastCalledWith({
       projectId: 'native-boards',
       page: 1,
       limit: 12,
-      name: 'factory'
+      name: 'factory',
+      tenantId: TENANT_ID
     })
     vm(wrapper).handlePageChange(2)
     await flushPromises()
@@ -273,7 +282,8 @@ describe('native boards page', () => {
       projectId: 'native-boards',
       page: 2,
       limit: 12,
-      name: 'factory'
+      name: 'factory',
+      tenantId: TENANT_ID
     })
   })
 
@@ -297,96 +307,32 @@ describe('native boards page', () => {
     const wrapper = mountPage(authority, roles)
     await flushPromises()
     vm(wrapper).editBoard('board-1')
+    // 创建守卫在 openCreateModal（非管理员直接 return，弹窗不开）；表单校验与提交已下沉到
+    // NativeBoardCreateModal，由该组件的专属测试守护。
     vm(wrapper).openCreateModal()
-    await vm(wrapper).handleCreate()
     await vm(wrapper).handleDelete('board-1')
     expect(vm(wrapper).showCreateModal).toBe(false)
+    expect(hoisted.routerPushByKey).not.toHaveBeenCalled()
     expect(hoisted.createDashboard).not.toHaveBeenCalled()
     expect(hoisted.deleteDashboard).not.toHaveBeenCalled()
   })
 
-  it('creates through the neutral provider contract and opens the viewer', async () => {
+  // 创建流程（表单校验 / 租户必选 / 提交去重 / 失败保持弹窗）已下沉到
+  // modules/native-board-create-modal.vue，由该组件的专属测试守护。
+  // 页面这边只保留两条契约：打开时注入租户 prefill，创建成功后路由到查看器。
+  it('opens the create modal with the active tenant prefilled', async () => {
     const wrapper = mountPage()
     await flushPromises()
     vm(wrapper).openCreateModal()
-    vm(wrapper).createForm.name = '  New board  '
-    vm(wrapper).createForm.description = ''
-    await vm(wrapper).handleCreate()
-    expect(hoisted.createDashboard).toHaveBeenCalledWith({
-      name: 'New board',
-      description: '',
-      projectId: 'native-boards',
-      rendererData: { version: 1, columns: 24, rowHeight: 60, widgets: [] },
-      tenantId: 'tenant-1'
-    })
-    expect(vm(wrapper).showCreateModal).toBe(false)
+    expect(vm(wrapper).showCreateModal).toBe(true)
+    expect(vm(wrapper).createModalPrefill).toBe(TENANT_ID)
+  })
+
+  it('routes to the viewer when the modal reports a created board', async () => {
+    const wrapper = mountPage()
+    await flushPromises()
+    vm(wrapper).handleCreated('created-1')
     expect(hoisted.routerPushByKey).toHaveBeenCalledWith('visualization_native-board', { query: { id: 'created-1' } })
-  })
-
-  it('requires an explicit tenant for SYS_ADMIN when more than one tenant is available', async () => {
-    hoisted.fetchUserList.mockResolvedValueOnce({
-      data: {
-        list: [
-          { id: 'tenant-admin-1', name: 'Tenant one', authority: 'TENANT_ADMIN', tenant_id: 'tenant-1' },
-          { id: 'tenant-admin-2', name: 'Tenant two', authority: 'TENANT_ADMIN', tenant_id: 'tenant-2' }
-        ],
-        total: 2
-      }
-    })
-    const wrapper = mountPage()
-    await flushPromises()
-    vm(wrapper).openCreateModal()
-    vm(wrapper).createForm.name = 'Valid'
-
-    await vm(wrapper).handleCreate()
-
-    expect(hoisted.createDashboard).not.toHaveBeenCalled()
-    expect(vm(wrapper).showCreateModal).toBe(true)
-    expect(hoisted.message.error).toHaveBeenCalledWith('Select a tenant before creating a native board')
-  })
-
-  it.each(['', '   ', 'x'.repeat(256)])('rejects invalid trimmed name %j', async (name) => {
-    const wrapper = mountPage()
-    await flushPromises()
-    vm(wrapper).createForm.name = name
-    await vm(wrapper).handleCreate()
-    expect(hoisted.createDashboard).not.toHaveBeenCalled()
-  })
-
-  it('rejects descriptions over 500 characters', async () => {
-    const wrapper = mountPage()
-    await flushPromises()
-    vm(wrapper).createForm.name = 'Valid'
-    vm(wrapper).createForm.description = 'x'.repeat(501)
-    await vm(wrapper).handleCreate()
-    expect(hoisted.createDashboard).not.toHaveBeenCalled()
-  })
-
-  it('prevents duplicate create submissions', async () => {
-    const pending = deferred<ReturnType<typeof success<ReturnType<typeof schema>>>>()
-    hoisted.createDashboard.mockReturnValue(pending.promise)
-    const wrapper = mountPage()
-    await flushPromises()
-    vm(wrapper).createForm.name = 'Valid'
-    const first = vm(wrapper).handleCreate()
-    const second = vm(wrapper).handleCreate()
-    expect(hoisted.createDashboard).toHaveBeenCalledTimes(1)
-    pending.resolve(success(schema({ id: 'created-1' })))
-    await Promise.all([first, second])
-  })
-
-  it.each([
-    ['provider failure', failure()],
-    ['blank ID', success(schema({ id: ' ' }))]
-  ])('keeps the create modal for %s', async (_label, result) => {
-    hoisted.createDashboard.mockResolvedValue(result)
-    const wrapper = mountPage()
-    await flushPromises()
-    vm(wrapper).openCreateModal()
-    vm(wrapper).createForm.name = 'Valid'
-    await vm(wrapper).handleCreate()
-    expect(vm(wrapper).showCreateModal).toBe(true)
-    expect(hoisted.routerPushByKey).not.toHaveBeenCalled()
   })
 
   it('deletes through the provider and reloads the active page', async () => {
@@ -424,7 +370,12 @@ describe('native boards page', () => {
     vm(wrapper).page = 2
     await vm(wrapper).handleDelete('board-1')
     expect(vm(wrapper).page).toBe(1)
-    expect(hoisted.listDashboards).toHaveBeenLastCalledWith({ projectId: 'native-boards', page: 1, limit: 12 })
+    expect(hoisted.listDashboards).toHaveBeenLastCalledWith({
+      projectId: 'native-boards',
+      page: 1,
+      limit: 12,
+      tenantId: TENANT_ID
+    })
   })
 
   it('keeps the list when delete fails and prevents duplicate deletes', async () => {
@@ -457,16 +408,23 @@ describe('native boards page', () => {
     expect(vm(wrapper).loading).toBe(false)
   })
 
-  it('clears previous data before loading', async () => {
+  it('keeps the current page visible while a reload is in flight', async () => {
     const pending = deferred<ReturnType<typeof pageResult>>()
     const wrapper = mountPage()
     await flushPromises()
+    expect(vm(wrapper).boards).toHaveLength(1)
+
     hoisted.listDashboards.mockReturnValueOnce(pending.promise)
     const loading = vm(wrapper).loadBoards()
-    expect(vm(wrapper).boards).toEqual([])
-    expect(vm(wrapper).total).toBe(0)
+
+    // useListPage 的 load() 不再在请求前清空 rows（避免翻页/刷新时列表闪空），
+    // 只有 clear() 才清空；被取代的响应交给 seq 门禁丢弃。
+    expect(vm(wrapper).boards).toHaveLength(1)
+    expect(vm(wrapper).loading).toBe(true)
+
     pending.resolve(pageResult())
     await loading
+    expect(vm(wrapper).loading).toBe(false)
   })
 
   it('ignores stale success and stale failure without stopping the current load', async () => {
@@ -486,14 +444,20 @@ describe('native boards page', () => {
     expect(vm(wrapper).loading).toBe(false)
   })
 
-  it('applies the query snapshot gate even without a new sequence', async () => {
-    const pending = deferred<ReturnType<typeof pageResult>>()
-    hoisted.listDashboards.mockReturnValueOnce(pending.promise)
+  // 旧实现里页面自带"查询快照门禁"（查询变了但没发请求时，丢弃迟到响应）。
+  // 迁到 useListPage 后该门禁由序号门禁取代，且页面只在提交时才改查询，
+  // 中间不存在"查询变了却没发请求"的窗口；序号门禁本身由 useListPage 的
+  // 单测（drops stale responses and aborts the previous request）与上面的
+  // stale 用例共同守护。这里改为守护页面侧的真实契约：输入框不提交就不生效。
+  it('only applies the search box to the query on submit', async () => {
     const wrapper = mountPage()
-    vm(wrapper).nameFilter = 'changed-without-request'
-    pending.resolve(pageResult([summary({ id: 'stale' })]))
     await flushPromises()
-    expect(vm(wrapper).boards).toEqual([])
-    expect(vm(wrapper).loading).toBe(true)
+    const callsBefore = hoisted.listDashboards.mock.calls.length
+
+    vm(wrapper).searchInput = 'changed-without-submit'
+    await flushPromises()
+
+    expect(hoisted.listDashboards).toHaveBeenCalledTimes(callsBefore)
+    expect(vm(wrapper).listFilter.name).toBe('')
   })
 })

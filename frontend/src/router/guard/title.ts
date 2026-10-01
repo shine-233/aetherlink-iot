@@ -5,10 +5,9 @@
  * 重构建议：可将标题解析逻辑抽为纯函数，单独覆盖登录子路由和普通业务路由。
  */
 import type { Router } from 'vue-router'
-import { useTitle } from '@vueuse/core'
 import { $t } from '@/locales'
 import { useSysSettingStore } from '@/store/modules/sys-setting'
-import { resolveDocumentTitle } from './title-helper'
+import { resolveDocumentTitle, setDocumentTitle } from './title-helper'
 
 export function createDocumentTitleGuard(router: Router) {
   router.afterEach((to) => {
@@ -16,6 +15,6 @@ export function createDocumentTitleGuard(router: Router) {
     const appTitle = sysSettingStore.system_name || $t('title')
     const documentTitle = resolveDocumentTitle(to, appTitle, $t)
 
-    useTitle(documentTitle)
+    setDocumentTitle(documentTitle)
   })
 }

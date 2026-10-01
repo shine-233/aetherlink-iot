@@ -303,9 +303,7 @@ func ListReportSchedulesContext(ctx context.Context, tenantID string, request mo
 	if request.Enabled != nil {
 		query = query.Where("enabled = ?", *request.Enabled)
 	}
-	if search := strings.TrimSpace(request.Search); search != "" {
-		query = query.Where("LOWER(name) LIKE ?", "%"+strings.ToLower(search)+"%")
-	}
+	query = whereKeywordContains(query, opLike, strings.ToLower(request.Search), "LOWER(name)")
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
 		return nil, err

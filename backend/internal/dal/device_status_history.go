@@ -54,11 +54,9 @@ func GetDeviceStatusHistoryByPage(req *model.GetDeviceStatusHistoryReq, tenantID
 		return count, list, err
 	}
 
-	// 分页
-	if req.Page > 0 && req.PageSize > 0 {
-		queryBuilder = queryBuilder.Limit(req.PageSize)
-		queryBuilder = queryBuilder.Offset((req.Page - 1) * req.PageSize)
-	}
+	// 分页（2026-09-28 收编：旧写法 Page=0 时不加 LIMIT，退化为全表扫描；
+	// applyListPagination 对缺省分页兜底 defaultListLimit）。
+	queryBuilder = applyListPagination(queryBuilder, req.Page, req.PageSize)
 
 	// 按时间降序排列（最新的在前）
 	list, err = queryBuilder.Select().Order(q.ChangeTime.Desc()).Find()

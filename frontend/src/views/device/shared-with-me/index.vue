@@ -5,26 +5,45 @@
   重构建议: 抽出列表数据 normalize 和跳转 helper，并与 share 接受页一起维护端到端测试。
 -->
 <script setup lang="ts">
-import { h, onMounted, reactive, ref } from 'vue'
+import { h, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import type { DataTableColumns, PaginationProps } from 'naive-ui'
+import type { DataTableColumns } from 'naive-ui'
 import { NButton, NTag } from 'naive-ui'
 import { rdiSharedWithMeDevices } from '@/service/api/rdi'
 import type { RDISharedDeviceRecord } from '@/service/api/rdi'
 import { $t } from '@/locales'
+import { useListPage } from '@/components/data-table-page/useListPage'
 
 const route = useRoute()
 const router = useRouter()
-const loading = ref(false)
-const tableData = ref<RDISharedDeviceRecord[]>([])
 const detailVisible = ref(false)
 const selectedRecord = ref<RDISharedDeviceRecord | null>(null)
 
-const queryParams = reactive({
-  page: 1,
-  page_size: 10,
-  device_id: '',
-  device_name: ''
+// 列表状态（筛选、分页、过期请求丢弃）统一由 useListPage 管理。
+const {
+  query: queryParams,
+  rows: tableData,
+  loading,
+  pagination,
+  load: fetchSharedDevices,
+  search: handleSearch
+} = useListPage<RDISharedDeviceRecord, { device_id: string; device_name: string }>({
+  initialQuery: () => ({ device_id: '', device_name: '' }),
+  pageSizes: [10, 20, 50],
+  serialize: (q) => ({ device_id: q.device_id || undefined, device_name: q.device_name || undefined }),
+  fetcher: async (params) => {
+    try {
+      const { data } = await rdiSharedWithMeDevices(params)
+      return { list: data?.list || [], total: data?.total || 0 }
+    } catch (error: any) {
+      window.$message?.error(error?.error?.message || error?.message || $t('rdi.share.failedDescription'))
+      return { list: [], total: 0 }
+    }
+  },
+  onLoaded: ({ list }) => {
+    // 从设备详情跳转时带 device_id 精确命中一条，直接展开详情。
+    if (queryParams.device_id && list.length === 1) showDeviceDetails(list[0])
+  }
 })
 
 function formatTime(value?: number) {
@@ -116,55 +135,6 @@ const columns: DataTableColumns<RDISharedDeviceRecord> = [
   }
 ]
 
-const pagination: PaginationProps = reactive({
-  page: queryParams.page,
-  pageSize: queryParams.page_size,
-  showSizePicker: true,
-  pageSizes: [10, 20, 50],
-  itemCount: 0,
-  onChange: (page) => {
-    queryParams.page = page
-    pagination.page = page
-    fetchSharedDevices()
-  },
-  onUpdatePageSize: (pageSize) => {
-    queryParams.page = 1
-    queryParams.page_size = pageSize
-    pagination.page = 1
-    pagination.pageSize = pageSize
-    fetchSharedDevices()
-  }
-})
-
-async function fetchSharedDevices() {
-  loading.value = true
-  try {
-    const { data } = await rdiSharedWithMeDevices({
-      page: queryParams.page,
-      page_size: queryParams.page_size,
-      device_id: queryParams.device_id || undefined,
-      device_name: queryParams.device_name || undefined
-    })
-    tableData.value = data?.list || []
-    pagination.itemCount = data?.total || 0
-    if (queryParams.device_id && tableData.value.length === 1) {
-      showDeviceDetails(tableData.value[0])
-    }
-  } catch (error: any) {
-    tableData.value = []
-    pagination.itemCount = 0
-    window.$message?.error(error?.error?.message || error?.message || $t('rdi.share.failedDescription'))
-  } finally {
-    loading.value = false
-  }
-}
-
-function handleSearch() {
-  queryParams.page = 1
-  pagination.page = 1
-  fetchSharedDevices()
-}
-
 function handleReset() {
   queryParams.device_id = ''
   queryParams.device_name = ''
@@ -222,6 +192,7 @@ onMounted(() => {
           :data="tableData"
           :loading="loading"
           :pagination="pagination"
+          remote
           :scroll-x="900"
         >
           <template #empty>

@@ -92,8 +92,17 @@ vi.mock('@vueuse/core', () => ({
   })
 }))
 
+// 组件链路（异步模块/store）会在模块求值期读取 @/locales 的 i18n 实例，
+// mock 必须同时提供 $t 与最小形状的 i18n（口径同 store/__tests__/sys-setting.test.ts）。
 vi.mock('@/locales', () => ({
-  $t: (key: string) => key
+  $t: (key: string) => key,
+  i18n: {
+    global: {
+      locale: { value: 'en-US' },
+      messages: { value: {} },
+      setLocaleMessage: vi.fn()
+    }
+  }
 }))
 
 vi.mock('@/store/modules/app', () => ({
@@ -307,6 +316,9 @@ const DynamicTagsStub = defineComponent({
 })
 
 const baseStubs = {
+  // 头部元信息与编辑弹窗是详情页壳层拆出的展示子组件，测试需要真实渲染它们。
+  DeviceEditModal: false,
+  DeviceDetailsMeta: false,
   NButton: ButtonStub,
   'n-button': ButtonStub,
   NModal: ModalStub,
@@ -730,8 +742,13 @@ describe('device/details/index.vue', () => {
     await flushPromises()
 
     const setupState = getSetupState(wrapper)
-    // device-3d 为纯只读预览（sharedReadOnlySafe），允许出现在共享视图；可写 message 仍必须被裁剪。
-    expect(setupState.visibleDetailComponents.map((item: { key: string }) => item.key)).toEqual(['chart', 'device-3d'])
+    // device-3d（纯只读预览）与 health-assessment（只读健康诊断，TP-6）均标记
+    // sharedReadOnlySafe，允许出现在共享视图；可写 message 仍必须被裁剪。
+    expect(setupState.visibleDetailComponents.map((item: { key: string }) => item.key)).toEqual([
+      'chart',
+      'device-3d',
+      'health-assessment'
+    ])
     expect(setupState.components.some((item: { key: string }) => item.key === 'message')).toBe(true)
     expect(wrapper.text()).not.toContain('custom.device_details.AdditionalDetails')
   })

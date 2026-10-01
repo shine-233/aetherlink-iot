@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
+	"aetherlink-iot/backend/internal/authz"
 	model "aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/internal/storage"
-	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/global"
 	"aetherlink-iot/backend/pkg/utils"
@@ -189,14 +189,14 @@ func attributeEventDeadLetterFilterForClaims(
 		PageSize: pageSize,
 	}
 
-	if claims.Authority != constant.SYS_ADMIN {
+	if !authz.IsSysAdmin(claims) {
 		claimTenantID := strings.TrimSpace(claims.TenantID)
 		if claimTenantID == "" || (tenantID != "" && tenantID != claimTenantID) {
 			return storage.AttributeEventDeadLetterFilter{}, errcode.NewWithMessage(errcode.CodeNoPermission, permissionMessage)
 		}
 		filter.TenantID = claimTenantID
 	}
-	if claims.Authority == constant.TENANT_USER {
+	if authz.HasRole(claims, authz.TenantUser) {
 		ownerUserID := strings.TrimSpace(claims.ID)
 		if ownerUserID == "" {
 			return storage.AttributeEventDeadLetterFilter{}, errcode.NewWithMessage(errcode.CodeNoPermission, permissionMessage)

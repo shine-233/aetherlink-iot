@@ -11,12 +11,13 @@
   after mount so it does not sit on the initial route critical path.
 -->
 <script setup lang="ts">
-import { computed, onMounted, shallowRef } from 'vue'
-import { NConfigProvider, darkTheme } from 'naive-ui'
+import { computed, onMounted, shallowRef, watch } from 'vue'
+import { NConfigProvider } from 'naive-ui'
 import { useAppStore } from './store/modules/app'
 import { useThemeStore } from './store/modules/theme'
 import { naiveDateLocales, naiveLocales } from './locales/naive'
 import Content from './components/content/index.vue'
+import { ensureNaiveDarkTheme, naiveDarkThemeRef } from './theme/naive-dark'
 
 defineOptions({
   name: 'App'
@@ -25,7 +26,15 @@ defineOptions({
 const appStore = useAppStore()
 const themeStore = useThemeStore()
 const hljs = shallowRef()
-const naiveDarkTheme = computed(() => (themeStore.darkMode ? darkTheme : undefined))
+// darkTheme 按需加载：亮色用户不下载暗色样式变量；切到暗色时拉取一次后缓存。
+watch(
+  () => themeStore.darkMode,
+  (dark) => {
+    if (dark) void ensureNaiveDarkTheme()
+  },
+  { immediate: true }
+)
+const naiveDarkTheme = computed(() => (themeStore.darkMode ? (naiveDarkThemeRef.value ?? undefined) : undefined))
 
 const naiveLocale = computed(() => {
   return naiveLocales[appStore.locale]

@@ -13,13 +13,13 @@
   box-shadow: 0 8px 24px rgb(var(--info-color) / 0.10), 0 2px 8px rgba(0,0,0,0.06);
 }
 
-/* ---- 缁熻鍗＄墖鏁板瓧鍖哄煙 ---- */
+/* ---- 统计卡片数字区域 ---- */
 .stat-card-value {
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.5px;
 }
 
-/* ---- 鎸夐挳鎸夊帇鍥炲脊 ---- */
+/* ---- 按钮按压回弹 ---- */
 .n-button:not(.n-button--disabled):active {
   transform: scale(0.97);
   transition: transform 0.08s ease;
@@ -28,12 +28,12 @@
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-/* ---- 琛ㄦ牸琛?hover 楂樹寒 ---- */
+/* ---- 表格行 hover 高亮 ---- */
 .n-data-table-tr:hover {
   background-color: rgb(var(--info-color) / 0.03) !important;
 }
 
-/* ---- 椤甸潰鍐呭杩涘満鍔ㄧ敾锛堥厤鍚?global-content Transition锛?--- */
+/* ---- 页面内容进场动画（配合 global-content Transition） ---- */
 .fade-slide-enter-active {
   animation: page-enter 0.22s cubic-bezier(0.4,0,0.2,1);
 }
@@ -61,16 +61,16 @@
   100% { transform: scale(1.6); opacity: 0; }
 }
 
-/* ---- 杩涘害鏉℃祦鍏夋晥鏋?---- */
+/* ---- 进度条流光效果 ---- */
 .n-progress .n-progress-graph-line-fill {
   transition: width 0.6s cubic-bezier(0.4,0,0.2,1) !important;
 }
 
-/* ---- 鍙揪鎬х‖瑕佹眰 ---- */
+/* ---- 可达性硬要求 ----
+   全站 reduced-motion 权威规则在 styles/scss/global.scss（含 animation-iteration-count
+   与 scroll-behavior 降级），此处不再重复声明；本文件的动画一律受其约束。 */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+  .status-dot-online::after {
+    animation: none !important;
   }
 }

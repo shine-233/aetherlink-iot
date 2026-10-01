@@ -9,7 +9,6 @@ import (
 	"net"
 
 	"github.com/DrmagicE/gmqtt/config"
-	"github.com/DrmagicE/gmqtt/retained"
 	"go.uber.org/zap"
 )
 
@@ -36,14 +35,7 @@ func WithWebsocketServer(ws ...*WsServer) Options {
 	}
 }
 
-// WithPlugin set plugin(s) of the server.
-func WithPlugin(plugin ...Plugin) Options {
-	return func(srv *server) {
-		srv.plugins = append(srv.plugins, plugin...)
-	}
-}
-
-// WithHook set hooks of the server. Notice: WithPlugin() will overwrite hooks.
+// WithHook set hooks of the server.
 func WithHook(hooks Hooks) Options {
 	return func(srv *server) {
 		srv.hooks = hooks
@@ -53,12 +45,5 @@ func WithHook(hooks Hooks) Options {
 func WithLogger(logger *zap.Logger) Options {
 	return func(srv *server) {
 		zaplog = logger
-	}
-}
-
-// WithRetainedStore set retained db of the server. Notice: WithRetainedStore(s) will overwrite retainedDB.
-func WithRetainedStore(store retained.Store) Options {
-	return func(srv *server) {
-		srv.retainedDB = store
 	}
 }

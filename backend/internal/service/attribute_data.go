@@ -94,9 +94,7 @@ func (*AttributeData) GetAttributeSetLogsDataListByPage(req model.GetAttributeSe
 
 	count, data, err := dal.GetAttributeSetLogsDataListByPage(req)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 
 	if data == nil {
@@ -123,9 +121,7 @@ func (*AttributeData) GetAttributeDataByKey(req model.GetDataListByKeyReq, claim
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return dataMap, nil
 		}
-		return dataMap, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dataMap, dbError(err)
 	}
 
 	dataMap["id"] = data.ID
@@ -274,9 +270,7 @@ func (a *AttributeData) AttributeGetMessage(claims *utils.UserClaims, req *model
 	// 1. 获取设备信息
 	device, err := dal.GetDeviceByIDUnscoped(req.DeviceID)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 
 	if device.DeviceNumber == "" {
@@ -291,9 +285,7 @@ func (a *AttributeData) AttributeGetMessage(claims *utils.UserClaims, req *model
 	if device.DeviceConfigID != nil {
 		deviceConfig, err := dal.GetDeviceConfigByID(*device.DeviceConfigID)
 		if err != nil {
-			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-			})
+			return dbError(err)
 		}
 		deviceType = deviceConfig.DeviceType
 		if deviceConfig.ProtocolType != nil {
@@ -337,7 +329,7 @@ func findTopLevelGatewayForAttribute(deviceInfo *model.Device, deviceType string
 		}
 		parentDevice, err := initialize.GetDeviceCacheById(*deviceInfo.ParentID)
 		if err != nil {
-			return nil, fmt.Errorf("获取父设备信息失败: %v", err)
+			return nil, fmt.Errorf("获取父设备信息失败: %w", err)
 		}
 		currentDevice = parentDevice
 	}
@@ -349,7 +341,7 @@ func findTopLevelGatewayForAttribute(deviceInfo *model.Device, deviceType string
 	for currentDevice.ParentID != nil && depth < maxDepth {
 		parentDevice, err := initialize.GetDeviceCacheById(*currentDevice.ParentID)
 		if err != nil {
-			return nil, fmt.Errorf("获取父设备信息失败: %v", err)
+			return nil, fmt.Errorf("获取父设备信息失败: %w", err)
 		}
 		currentDevice = parentDevice
 		depth++
@@ -363,7 +355,7 @@ func findTopLevelGatewayForAttribute(deviceInfo *model.Device, deviceType string
 	if currentDevice.DeviceConfigID != nil {
 		deviceConfig, err := dal.GetDeviceConfigByID(*currentDevice.DeviceConfigID)
 		if err != nil {
-			return nil, fmt.Errorf("获取设备配置失败: %v", err)
+			return nil, fmt.Errorf("获取设备配置失败: %w", err)
 		}
 		if deviceConfig.DeviceType != strconv.Itoa(constant.GATEWAY_DEVICE) {
 			return nil, fmt.Errorf("顶层设备不是网关类型")
@@ -392,7 +384,7 @@ func transformAttributeDataForMultiLevelGateway(param *model.AttributePutMessage
 		// 查找子设备的直接父网关（可能是子网关）
 		parentGateway, err := initialize.GetDeviceCacheById(*deviceInfo.ParentID)
 		if err != nil {
-			return fmt.Errorf("获取父设备信息失败: %v", err)
+			return fmt.Errorf("获取父设备信息失败: %w", err)
 		}
 
 		// 如果父网关是子网关（有parent_id），需要嵌套结构

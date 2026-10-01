@@ -283,14 +283,18 @@ func TestInstallFromMarketClassifiesDownloadFailure(t *testing.T) {
 func TestInstallFromMarketClassifiesBeginTransactionFailure(t *testing.T) {
 	origClient := newMarketInstallClient
 	origBeginTx := marketInstallBeginTx
+	origFindExisting := marketInstallFindExistingTemplate
 	t.Cleanup(func() {
 		newMarketInstallClient = origClient
 		marketInstallBeginTx = origBeginTx
+		marketInstallFindExistingTemplate = origFindExisting
 	})
 
 	newMarketInstallClient = func() marketInstallClient {
 		return &stubMarketInstallClient{fullData: &model.MarketTemplateFullData{Name: "market-template"}}
 	}
+	// 安装计划（同名物模型查询）现在在开事务之前构造，这里让它返回"不存在"，以便走到开事务失败分支。
+	marketInstallFindExistingTemplate = func(string, string) (*model.DeviceTemplate, error) { return nil, nil }
 	marketInstallBeginTx = func() *gorm.DB {
 		return &gorm.DB{Error: errors.New("db offline")}
 	}

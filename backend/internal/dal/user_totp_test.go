@@ -82,7 +82,9 @@ func TestUserTOTPRecoveryOneTimeConsumption(t *testing.T) {
 	if err != nil || used2 {
 		t.Fatalf("replay consume must fail: used=%v err=%v", used2, err)
 	}
-	left, err := ListUnusedRecoveryCodeHashes("u1")
+	var left []string
+	err = global.DB.Model(&model.UserTOTPRecoveryCode{}).
+		Where("user_id = ? AND used_at IS NULL", "u1").Pluck("code_hash", &left).Error
 	if err != nil || len(left) != 1 || left[0] != "hash-b" {
 		t.Fatalf("unused list = %v err=%v", left, err)
 	}

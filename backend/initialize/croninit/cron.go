@@ -83,6 +83,20 @@ func startCronScheduler() {
 		}
 	})
 
+	// 每 5 分钟扫描 SLA 超时告警并升级（TB-27，126.sql）：到期未恢复未 breach 的活动告警
+	// 标记 sla_breached、严重度升一档（L→M→H，H 到顶保持）并广播实时事件。
+	// SLA 时限是小时级，5 分钟粒度足够及时；执行体逐行条件更新，重跑/多实例天然幂等。
+	c.AddFunc("0 */5 * * * *", func() {
+		escalated, err := service.GroupApp.Alarm.EscalateOverdueAlarmSlaByCron()
+		if err != nil {
+			logrus.Error("【定时任务】告警 SLA 超时升级扫描失败: ", err)
+			return
+		}
+		if escalated > 0 {
+			logrus.Infof("【定时任务】告警 SLA 超时升级完成: escalated=%d", escalated)
+		}
+	})
+
 	c.Start()
 }
 

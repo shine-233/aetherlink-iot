@@ -10,6 +10,9 @@ import (
 
 func (t *AetherLinkPlugin) OnConnectedWrapper(pre server.OnConnected) server.OnConnected {
 	return func(ctx context.Context, client server.Client) {
+		// 先把认证阶段的 pending 绑定转为已连接：此后它只由 OnClosed 回收，
+		// 不再参与 pending TTL 兜底扫描（见 hooks_auth.go 生命周期说明）。
+		promoteMQTTAuthenticatedClientBinding(client)
 		pre(ctx, client)
 		publishMQTTDeviceOnlineStatus(client, "1", "online")
 	}
@@ -17,8 +20,10 @@ func (t *AetherLinkPlugin) OnConnectedWrapper(pre server.OnConnected) server.OnC
 
 func (t *AetherLinkPlugin) OnClosedWrapper(pre server.OnClosed) server.OnClosed {
 	return func(ctx context.Context, client server.Client, err error) {
-		pre(ctx, client, err)
+		// defer 必须先于 pre 注册：内层钩子或下方日志/上报 panic 时仍保证绑定被回收。
+		// defer 在函数返回时才执行，下方断连日志与离线上报仍能读到绑定。
 		defer forgetMQTTAuthenticatedClientBinding(client)
+		pre(ctx, client, err)
 		Log.Info(
 			"mqtt connection closed",
 			zap.String("username", client.ClientOptions().Username),

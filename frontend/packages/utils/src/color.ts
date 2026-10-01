@@ -1,9 +1,3 @@
-/**
- * 文件用途：提供通用颜色处理工具。
- * 核心逻辑：基于 colord 实现透明度、混色、HEX/RGB/HSV 转换和颜色格式转换。
- * 关键注意事项：不同输入格式由 colord 解析，调用方仍需关注无效颜色和透明度边界。
- * 重构建议：可为边界色值、透明度范围和格式转换增加固定样例测试。
- */
 import { colord, extend } from 'colord'
 import namesPlugin from 'colord/plugins/names'
 import mixPlugin from 'colord/plugins/mix'
@@ -11,27 +5,9 @@ import type { AnyColor, HsvColor, RgbColor } from 'colord'
 
 extend([namesPlugin, mixPlugin])
 
-/**
- * Add color alpha
- *
- * @param color - Color
- * @param alpha - Alpha (0 - 1)
- */
 export function addColorAlpha(color: string, alpha: number) {
   return colord(color).alpha(alpha).toHex()
 }
-
-/**
- * Mix color
- *
- * @param firstColor - First color
- * @param secondColor - Second color
- * @param ratio - The ratio of the second color (0 - 1)
- */
-export function mixColor(firstColor: string, secondColor: string, ratio: number) {
-  return colord(firstColor).mix(secondColor, ratio).toHex()
-}
-
 /**
  * Transform color with opacity to similar color without opacity
  *

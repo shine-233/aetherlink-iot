@@ -39,7 +39,6 @@ func init() {
 	command.ConfigFile = path.Join(configDir, "gmqttd.yml")
 	rootCmd.PersistentFlags().StringVarP(&command.ConfigFile, "config", "c", command.ConfigFile, "The configuration file path")
 	rootCmd.AddCommand(command.NewStartCmd())
-	//rootCmd.AddCommand(command.NewReloadCommand())
 }
 
 func main() {

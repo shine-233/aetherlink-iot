@@ -55,7 +55,8 @@ describe('apikey API service', () => {
     await addKey(payload)
 
     expect(mockPost).toHaveBeenCalledTimes(1)
-    expect(mockPost).toHaveBeenCalledWith('/open/keys', payload)
+    // createResource 的写路径总是透传 config（未提供时为 {}）
+    expect(mockPost).toHaveBeenCalledWith('/open/keys', payload, {})
   })
 
   it('updates an OpenAPI key status and name through PUT /open/keys', async () => {
@@ -69,7 +70,7 @@ describe('apikey API service', () => {
     await updateKey(payload)
 
     expect(mockPut).toHaveBeenCalledTimes(1)
-    expect(mockPut).toHaveBeenCalledWith('/open/keys', payload)
+    expect(mockPut).toHaveBeenCalledWith('/open/keys', payload, {})
   })
 
   it('deletes an OpenAPI key by id through DELETE /open/keys/{id}', async () => {
@@ -78,6 +79,6 @@ describe('apikey API service', () => {
     await apiKeyDel('key-1')
 
     expect(mockDelete).toHaveBeenCalledTimes(1)
-    expect(mockDelete).toHaveBeenCalledWith('/open/keys/key-1')
+    expect(mockDelete).toHaveBeenCalledWith('/open/keys/key-1', {})
   })
 })

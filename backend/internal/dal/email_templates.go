@@ -24,14 +24,13 @@ const maxEmailTemplateListLimit = 500
 func ListEmailTemplates(scopes []string, page, pageSize int) (int64, []*model.EmailTemplate, error) {
 	query := global.DB.WithContext(context.Background()).
 		Model(&model.EmailTemplate{})
-	switch len(scopes) {
-	case 0:
+	// 租户谓词收编（2026-09-28）：scopeTenantColumn 与旧 switch 逐分支等价
+	// （0→fail-closed 空结果、1→=、>1→IN）；purpose 条件独立叠加，SQL 语义不变。
+	query, empty := scopeTenantColumn(query, "tenant_id", scopes)
+	if empty {
 		return 0, []*model.EmailTemplate{}, nil
-	case 1:
-		query = query.Where("tenant_id = ? AND purpose = ?", scopes[0], model.EmailTemplatePurposeAlarm)
-	default:
-		query = query.Where("tenant_id IN ? AND purpose = ?", scopes, model.EmailTemplatePurposeAlarm)
 	}
+	query = query.Where("purpose = ?", model.EmailTemplatePurposeAlarm)
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
 		return 0, nil, err

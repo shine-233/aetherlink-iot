@@ -164,27 +164,87 @@ func tl(tag byte, body []byte) []byte {
 
 func buildTLV(tag byte, body []byte) []byte { return tl(tag, body) }
 
-// BuildGetRequest 构建 SNMPv2c GetRequest 报文。
-func BuildGetRequest(community string, requestID int32, oids []string) ([]byte, error) {
-	community = sanitizeCommunity(community)
-	if len(oids) == 0 {
-		return nil, fmt.Errorf("snmp: OID 列表为空")
-	}
-	reqID := buildTLV(0x02, berIntBytes(int64(requestID)))
+// buildVarbindListForGet 编码 Get varbind-list：每条 OID 携带 NULL 值（RFC 3416；
+// NULL 为完整 TLV 0x05 0x00，缺长度字节属畸形 BER 会被对端解析器丢弃）。
+func buildVarbindListForGet(oids []string) ([]byte, error) {
 	items := []byte{}
 	for _, oid := range oids {
 		oidBytes, err := EncodeOID(oid)
 		if err != nil {
 			return nil, err
 		}
-		items = append(items, buildTLV(0x30, append(oidBytes, 0x05))...) // OID + NULL
+		items = append(items, buildTLV(0x30, append(oidBytes, 0x05, 0x00))...) // OID + NULL
 	}
-	varbinds := buildTLV(0x30, items)
-	pdu := buildTLV(pduGetRequest,
-		append(reqID,
-			append(buildTLV(0x02, []byte{0}), // error-status=0
-				append(buildTLV(0x02, []byte{0}), // error-index=0
-					varbinds...)...)...))
+	return buildTLV(0x30, items), nil
+}
+
+// buildPDU 编码 PDU 公共段（request-id/error-status/error-index/varbind-list，RFC 3416）。
+func buildPDU(tag byte, requestID int32, errStatus, errIndex int, varbinds []byte) []byte {
+	body := buildTLV(0x02, berIntBytes(int64(requestID)))
+	body = append(body, buildTLV(0x02, berIntBytes(int64(errStatus)))...)
+	body = append(body, buildTLV(0x02, berIntBytes(int64(errIndex)))...)
+	body = append(body, varbinds...)
+	return buildTLV(tag, body)
+}
+
+// parseResponsePDU 解析 GetResponse PDU 体（request-id/error-status/error-index/varbinds），
+// v2c 与 v3 响应路径共用。
+func parseResponsePDU(pdu tlv) (*Response, error) {
+	rid, pduRest, err := consumeTLV(pdu.body)
+	if err != nil || rid.tag != 0x02 {
+		return nil, fmt.Errorf("snmp: PDU 缺 request-id")
+	}
+	est, pduRest, err := consumeTLV(pduRest)
+	if err != nil || est.tag != 0x02 {
+		return nil, fmt.Errorf("snmp: PDU 缺 error-status")
+	}
+	status, _ := decodeInteger(est.body)
+	eidx, pduRest, err := consumeTLV(pduRest)
+	if err != nil || eidx.tag != 0x02 {
+		return nil, fmt.Errorf("snmp: PDU 缺 error-index")
+	}
+	idx, _ := decodeInteger(eidx.body)
+
+	vbl, _, err := consumeTLV(pduRest)
+	if err != nil || vbl.tag != 0x30 {
+		return nil, fmt.Errorf("snmp: PDU 缺 varbind-list")
+	}
+	resp := &Response{ErrorStatus: int(status), ErrorIndex: int(idx), Varbinds: map[string]Value{}}
+	vb := vbl.body
+	for len(vb) > 0 {
+		item, next, err := consumeTLV(vb)
+		if err != nil {
+			return nil, err
+		}
+		vb = next
+		if item.tag != 0x30 {
+			continue
+		}
+		oidTLV, itemRest, err := consumeTLV(item.body)
+		if err != nil || oidTLV.tag != 0x06 {
+			continue
+		}
+		oidStr := decodeOIDString(oidTLV.body)
+		valTLV, _, err := consumeTLV(itemRest)
+		if err != nil {
+			continue
+		}
+		resp.Varbinds[oidStr] = Value{Type: valTLV.tag, Raw: valTLV.body}
+	}
+	return resp, nil
+}
+
+// BuildGetRequest 构建 SNMPv2c GetRequest 报文。
+func BuildGetRequest(community string, requestID int32, oids []string) ([]byte, error) {
+	community = sanitizeCommunity(community)
+	if len(oids) == 0 {
+		return nil, fmt.Errorf("snmp: OID 列表为空")
+	}
+	varbinds, err := buildVarbindListForGet(oids)
+	if err != nil {
+		return nil, err
+	}
+	pdu := buildPDU(pduGetRequest, requestID, 0, 0, varbinds)
 	msg := buildTLV(0x30,
 		append(buildTLV(0x02, []byte{1}), // v2c
 			append(buildTLV(0x04, []byte(community)),
@@ -198,7 +258,18 @@ func BuildSetRequest(community string, requestID int32, binds []VarBind) ([]byte
 	if len(binds) == 0 {
 		return nil, fmt.Errorf("snmp: Set 至少一条 varbind")
 	}
-	reqID := buildTLV(0x02, berIntBytes(int64(requestID)))
+	varbinds, err := buildVarbindList(binds)
+	if err != nil {
+		return nil, err
+	}
+	pdu := buildPDU(pduSetRequest, requestID, 0, 0, varbinds)
+	return buildTLV(0x30,
+		append(buildTLV(0x02, []byte{1}),
+			append(buildTLV(0x04, []byte(community)), pdu...)...)), nil
+}
+
+// buildVarbindList 编码显式 varbind-list（Set/Response/Report 共用）。
+func buildVarbindList(binds []VarBind) ([]byte, error) {
 	items := []byte{}
 	for _, b := range binds {
 		oidBytes, err := EncodeOID(b.OID)
@@ -208,15 +279,7 @@ func BuildSetRequest(community string, requestID int32, binds []VarBind) ([]byte
 		valBytes := buildTLV(b.Value.Type, b.Value.Raw)
 		items = append(items, buildTLV(0x30, append(oidBytes, valBytes...))...)
 	}
-	varbinds := buildTLV(0x30, items) // varbind-list 外层 SEQUENCE（RFC 3416 PDU 结构）
-	pdu := buildTLV(pduSetRequest,
-		append(reqID,
-			append(buildTLV(0x02, []byte{0}), // error-status=0
-				append(buildTLV(0x02, []byte{0}), // error-index=0
-					varbinds...)...)...))
-	return buildTLV(0x30,
-		append(buildTLV(0x02, []byte{1}),
-			append(buildTLV(0x04, []byte(community)), pdu...)...)), nil
+	return buildTLV(0x30, items), nil
 }
 
 // BuildGetResponse 构建 SNMPv2c GetResponse 报文（测试内嵌 agent / 中继场景复用）。
@@ -226,22 +289,11 @@ func BuildGetResponse(community string, requestID int32, errorStatus, errorIndex
 	if len(binds) == 0 {
 		return nil, fmt.Errorf("snmp: GetResponse 至少一条 varbind")
 	}
-	reqID := buildTLV(0x02, berIntBytes(int64(requestID)))
-	items := []byte{}
-	for _, b := range binds {
-		oidBytes, err := EncodeOID(b.OID)
-		if err != nil {
-			return nil, err
-		}
-		valBytes := buildTLV(b.Value.Type, b.Value.Raw)
-		items = append(items, buildTLV(0x30, append(oidBytes, valBytes...))...)
+	varbinds, err := buildVarbindList(binds)
+	if err != nil {
+		return nil, err
 	}
-	varbinds := buildTLV(0x30, items)
-	pdu := buildTLV(pduGetResponse,
-		append(reqID,
-			append(buildTLV(0x02, berIntBytes(int64(errorStatus))),
-				append(buildTLV(0x02, berIntBytes(int64(errorIndex))),
-					varbinds...)...)...))
+	pdu := buildPDU(pduGetResponse, requestID, errorStatus, errorIndex, varbinds)
 	return buildTLV(0x30,
 		append(buildTLV(0x02, []byte{1}),
 			append(buildTLV(0x04, []byte(community)), pdu...)...)), nil
@@ -311,48 +363,7 @@ func ParseResponse(raw []byte) (*Response, error) {
 	if pdu.tag != pduGetResponse {
 		return nil, fmt.Errorf("snmp: 非 GetResponse PDU (0x%02x)", pdu.tag)
 	}
-	rid, pduRest, err := consumeTLV(pdu.body)
-	if err != nil || rid.tag != 0x02 {
-		return nil, fmt.Errorf("snmp: PDU 缺 request-id")
-	}
-	est, pduRest, err := consumeTLV(pduRest)
-	if err != nil || est.tag != 0x02 {
-		return nil, fmt.Errorf("snmp: PDU 缺 error-status")
-	}
-	status, _ := decodeInteger(est.body)
-	eidx, pduRest, err := consumeTLV(pduRest)
-	if err != nil || eidx.tag != 0x02 {
-		return nil, fmt.Errorf("snmp: PDU 缺 error-index")
-	}
-	idx, _ := decodeInteger(eidx.body)
-
-	vbl, _, err := consumeTLV(pduRest)
-	if err != nil || vbl.tag != 0x30 {
-		return nil, fmt.Errorf("snmp: PDU 缺 varbind-list")
-	}
-	resp := &Response{ErrorStatus: int(status), ErrorIndex: int(idx), Varbinds: map[string]Value{}}
-	vb := vbl.body
-	for len(vb) > 0 {
-		item, next, err := consumeTLV(vb)
-		if err != nil {
-			return nil, err
-		}
-		vb = next
-		if item.tag != 0x30 {
-			continue
-		}
-		oidTLV, itemRest, err := consumeTLV(item.body)
-		if err != nil || oidTLV.tag != 0x06 {
-			continue
-		}
-		oidStr := decodeOIDString(oidTLV.body)
-		valTLV, _, err := consumeTLV(itemRest)
-		if err != nil {
-			continue
-		}
-		resp.Varbinds[oidStr] = Value{Type: valTLV.tag, Raw: valTLV.body}
-	}
-	return resp, nil
+	return parseResponsePDU(pdu)
 }
 
 func decodeOIDString(raw []byte) string {

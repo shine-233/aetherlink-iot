@@ -64,14 +64,6 @@ func CountShadowMessagesByDevice(deviceId string) (map[string]int64, error) {
 	return counts, nil
 }
 
-// MarkShadowMessageDelivered 标记影子消息为已投递。
-func MarkShadowMessageDelivered(id string) error {
-	now := time.Now().UTC()
-	return global.DB.Model(&model.DeviceShadowMessage{}).
-		Where("id = ? AND status = ?", id, "pending").
-		Updates(map[string]interface{}{"status": "delivered", "delivered_at": &now}).Error
-}
-
 // MarkShadowMessageSent 标记消息已下发并等待设备 ACK，attempts 递增并写入退避后的下次重投时间。
 // 关键：绝不在此直接标 delivered——"发出去"不等于"设备确认收到"，P0.2 之前正是把两者混为一谈。
 // 读-改-写放在事务内：attempts 不在生成结构体上，故由 DAL 读取并递增，

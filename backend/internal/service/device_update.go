@@ -27,9 +27,7 @@ func (*Device) UpdateDevice(req model.UpdateDeviceReq, claims *utils.UserClaims)
 
 	device, err := dal.UpdateDeviceByMap(req.Id, updateContext.condsMap)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 
 	applyUpdateDevicePostUpdateEffects(req, updateContext.oldDevice, updateContext.disconnectAfterUpdate)
@@ -84,9 +82,7 @@ func getUpdateDeviceTarget(req *model.UpdateDeviceReq) (*model.Device, error) {
 	if req.Id != "EMPTY" {
 		oldDevice, err := dal.GetDeviceByIDUnscoped(req.Id)
 		if err != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-			})
+			return nil, dbError(err)
 		}
 		return oldDevice, nil
 	}
@@ -97,9 +93,7 @@ func getUpdateDeviceTarget(req *model.UpdateDeviceReq) (*model.Device, error) {
 
 	oldDevice, err := dal.GetDeviceByDeviceNumber(*req.DeviceNumber)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	if oldDevice == nil {
 		return nil, errcode.New(204003)
@@ -209,9 +203,7 @@ func resolveUpdateDeviceConfigID(req model.UpdateDeviceReq, oldDevice *model.Dev
 func loadUpdateDeviceConfigForDisconnect(deviceConfigID string) (*model.DeviceConfig, error) {
 	deviceConfig, err := dal.GetDeviceConfigByID(deviceConfigID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	return deviceConfig, nil
 }

@@ -29,18 +29,4 @@ func debugClientID(sessionID string) string {
 	return "al-dbg-" + compact
 }
 
-func selectSessionMessages(messages []Message, afterSequence int64, limit int) []Message {
-	filtered := make([]Message, 0, len(messages))
-	for _, message := range messages {
-		if message.Sequence > afterSequence {
-			filtered = append(filtered, message)
-		}
-	}
-	if len(filtered) <= limit {
-		return append([]Message(nil), filtered...)
-	}
-	if afterSequence <= 0 {
-		return append([]Message(nil), filtered[len(filtered)-limit:]...)
-	}
-	return append([]Message(nil), filtered[:limit]...)
-}
+// Message window selection lives in messageRing.selectAfter (message_ring.go).

@@ -204,33 +204,6 @@ func (a *AlarmCache) groupCacheAdd(cacheKey, groupId string) error {
 	}
 	return nil
 }
-func (a *AlarmCache) name() {
-
-}
-
-// groupCacheDel 从索引键中移除指定分组；若索引为空则直接删除该键。
-func (a *AlarmCache) groupCacheDel(cachekey, group_id string) error {
-	var groupIds SliceString
-	err := a.client.Get(context.Background(), cachekey).Scan(&groupIds)
-	if err != nil && err != redis.Nil {
-		return err
-	}
-	for i, g := range groupIds {
-		if g == group_id {
-			groupIds = append(groupIds[:i], groupIds[i+1:]...)
-		}
-	}
-	if len(groupIds) > 0 {
-		err = a.set(cachekey, groupIds)
-	} else {
-		err = a.client.Del(context.Background(), cachekey).Err()
-	}
-
-	if err != nil {
-		return err
-	}
-	return nil
-}
 
 func removeGroupID(groupIds SliceString, groupID string) (SliceString, bool) {
 	filtered := groupIds[:0]

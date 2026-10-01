@@ -1,0 +1,183 @@
+{{- /* 文件用途：渲染 GMQTT broker StatefulSet（多副本对位物：per-Pod 稳定 broker_id + Redis 持久化）。
+核心逻辑：GMQTT_MQTT_SESSION_REVOCATIONS_BROKER_ID 用 fieldRef metadata.name 取 Pod 名
+（<release>-mqtt-broker-<ordinal>，重启不变），env 键集合与 docker-compose.yml services.mqtt-broker
+一一对应；aetherlink.yml 由 ConfigMap 挂载（占位密钥被 GMQTT_* env 覆盖）。
+关键注意事项：persistence.type 必须保持 redis（会话/订阅/QoS 队列共享 Redis），多副本下禁用
+memory；8082 metrics 无认证，只暴露给容器探针与集群内抓取，不得建 NodePort/LB 对外服务；
+/data 卷是每副本本地数据，不得改共享存储让多副本挂同一目录。
+重构建议：env 增删必须与 docker-compose.yml、values.yaml、helmchart 单测三处同步。 */}}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}-mqtt-broker
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: aetherlink-mqtt-broker
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: mqtt-broker
+    {{- range $k, $v := .Values.commonLabels }}
+    {{ $k }}: {{ $v | quote }}
+    {{- end }}
+spec:
+  replicas: {{ .Values.broker.replicas }}
+  podManagementPolicy: OrderedReady
+  serviceName: {{ .Release.Name }}-mqtt-broker-headless
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: aetherlink-mqtt-broker
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: aetherlink-mqtt-broker
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: mqtt-broker
+        {{- range $k, $v := .Values.commonLabels }}
+        {{ $k }}: {{ $v | quote }}
+        {{- end }}
+    spec:
+      # 所有组件都不调用 Kubernetes API，不挂载 SA token 以缩小凭据暴露面。
+      automountServiceAccountToken: false
+      # 宽限期 = preStop sleep + GMQTT_SHUTDOWN_TIMEOUT（客户端排空）+ 插件 Unload（每个 ≤5s）。
+      # 不足时 kubelet SIGKILL 先到，federation serf.Leave 与 aetherlink 插件落盘被跳过。
+      terminationGracePeriodSeconds: {{ .Values.broker.shutdown.terminationGracePeriodSeconds | default 40 }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: mqtt-broker
+          image: "{{ .Values.broker.image.repository }}:{{ .Values.broker.image.tag | default "latest" }}"
+          imagePullPolicy: {{ .Values.broker.image.pullPolicy | default "IfNotPresent" }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: mqtt
+              containerPort: 1883
+            - name: metrics
+              containerPort: 8082
+          env:
+            - name: GMQTT_DB_PSQL_PSQLADDR
+              value: {{ .Values.external.postgresHost | default (printf "%s-postgres" .Release.Name) | quote }}
+            - name: GMQTT_DB_PSQL_PSQLPORT
+              value: {{ .Values.backend.env.dbPsqlPort | default "5432" | quote }}
+            - name: GMQTT_DB_PSQL_PSQLUSER
+              value: {{ .Values.backend.env.dbPsqlUsername | default "postgres" | quote }}
+            - name: GMQTT_DB_PSQL_PSQLPASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.existingSecret | default (printf "%s-aetherlink" .Release.Name) }}
+                  key: postgres-password
+            - name: GMQTT_DB_PSQL_PSQLDB
+              value: {{ .Values.backend.env.dbPsqlDbname | default "aetherlink_iot" | quote }}
+            - name: GMQTT_DB_PSQL_SSLMODE
+              value: {{ .Values.broker.env.sslMode | default "disable" | quote }}
+            - name: GMQTT_DB_REDIS_CONN
+              value: {{ .Values.external.redisAddr | default (printf "%s-redis:6379" .Release.Name) | quote }}
+            - name: GMQTT_DB_REDIS_DB_NUM
+              value: {{ .Values.backend.env.dbRedisDb | default "1" | quote }}
+            - name: GMQTT_DB_REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.existingSecret | default (printf "%s-aetherlink" .Release.Name) }}
+                  key: redis-password
+            - name: GMQTT_MQTT_BROKER
+              value: tcp://127.0.0.1:1883
+            - name: GMQTT_MQTT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.existingSecret | default (printf "%s-aetherlink" .Release.Name) }}
+                  key: mqtt-root-password
+            - name: GMQTT_MQTT_PLUGIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.existingSecret | default (printf "%s-aetherlink" .Release.Name) }}
+                  key: mqtt-plugin-password
+            # 每 Pod 稳定身份：StatefulSet Pod 名跨重启不变，满足插件 broker_id
+            # "不得回退 hostname/随机值" 的 fail-fast 校验（plugin/aetherlink/config.go）。
+            - name: GMQTT_MQTT_SESSION_REVOCATIONS_BROKER_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: GMQTT_ADMIN_HTTP_AUTH_SECRET
+              value: {{ .Values.broker.env.adminHttpAuthSecret | default "" | quote }}
+            - name: GMQTT_PAYLOAD_SCHEMA_ENABLED
+              value: {{ .Values.broker.env.payloadSchemaEnabled | default "false" | quote }}
+            - name: GMQTT_PAYLOAD_SCHEMA_CACHE_TTL
+              value: {{ .Values.broker.env.payloadSchemaCacheTtl | default "30s" | quote }}
+            - name: GMQTT_SHUTDOWN_TIMEOUT
+              value: {{ .Values.broker.shutdown.drainTimeout | default "20s" | quote }}
+            - name: GMQTT_PERSISTENCE_TYPE
+              value: {{ .Values.broker.env.persistenceType | default "redis" | quote }}
+            - name: GMQTT_PERSISTENCE_REDIS_ADDR
+              value: {{ .Values.external.redisAddr | default (printf "%s-redis:6379" .Release.Name) | quote }}
+            - name: GMQTT_PERSISTENCE_REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.existingSecret | default (printf "%s-aetherlink" .Release.Name) }}
+                  key: redis-password
+            - name: GMQTT_PERSISTENCE_REDIS_DB
+              value: {{ .Values.broker.env.persistenceRedisDb | default "2" | quote }}
+          # preStop 先等待 Endpoints/负载均衡摘除本 Pod，再让 SIGTERM 关闭监听，
+          # 避免摘除传播期间的新连接打到已关闭的端口。
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep {{ .Values.broker.shutdown.preStopSleepSeconds | default 5 }}"]
+          # 对齐 compose broker 健康检查：容器内 127.0.0.1:8082/metrics 探测。
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 12
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 12
+          startupProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            periodSeconds: 5
+            failureThreshold: 12
+          resources:
+            requests:
+              cpu: {{ .Values.broker.resources.requests.cpu | quote }}
+              memory: {{ .Values.broker.resources.requests.memory | quote }}
+            limits:
+              cpu: {{ .Values.broker.resources.limits.cpu | quote }}
+              memory: {{ .Values.broker.resources.limits.memory | quote }}
+          volumeMounts:
+            - name: aetherlink-config
+              mountPath: /gmqttd/aetherlink.yml
+              subPath: aetherlink.yml
+              readOnly: true
+            - name: data
+              mountPath: /gmqttd/data
+      volumes:
+        - name: aetherlink-config
+          configMap:
+            name: {{ .Release.Name }}-broker-aetherlink-config
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        {{- if .Values.broker.storage.storageClass }}
+        storageClassName: {{ .Values.broker.storage.storageClass | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.broker.storage.data.size }}

@@ -7,9 +7,11 @@ import (
 )
 
 func TestDeleteAlarmConfigPreservesExistingAlarmHistory(t *testing.T) {
-	source, err := os.ReadFile("alarm.go")
+	// 9-28 域拆分后 DeleteAlarmConfig 与 UpdateAlarmConfig 迁至 alarm_config.go，
+	// 契约断言跟随实现文件，标记对（Delete → Update 边界）保持不变。
+	source, err := os.ReadFile("alarm_config.go")
 	if err != nil {
-		t.Fatalf("read alarm.go: %v", err)
+		t.Fatalf("read alarm_config.go: %v", err)
 	}
 
 	text := string(source)

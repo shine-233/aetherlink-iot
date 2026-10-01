@@ -1,12 +1,12 @@
 // 文件用途：提供文件上传相关的 HTTP 接口处理器，以及上传落盘所需的路径与类型校验辅助函数。
 // 上传链路：UpFile 从 multipart/form-data 中读取 file 与 type，先做空值/大小校验，再清洗文件名、校验类型，
-// 调用 generateFilePath 生成受限目录与随机文件名，最后由 saveFile 落盘并返回对外暴露的相对访问路径。
+// 调用 generateFilePath 生成受限目录与随机文件名，最后由 saveFile 落盘并写媒体登记（TB-41）后返回相对访问路径。
 // 路径校验：当前实现通过拒绝 fileType 中的分隔符、调用 utils.CheckPath，以及对目录与最终文件分别执行
 // filepath.Abs + filepath.Rel 包含性检查，阻止 path traversal 逃逸出 BaseUploadDir。
-// 删除/列举边界：本文件只负责“写入”链路，不负责文件列举、删除、覆盖或清理；后续若新增相关 handler，
-// 应复用相同的根目录包含性校验，并明确限制只能操作业务允许的逻辑路径，避免直接暴露磁盘真实路径或做宽泛前缀删除。
+// 删除/列举边界：本文件负责"写入+落登记"；媒体列举/详情/删除由 service.MediaLibraryService
+// 与 media/files 路由组承担，删除必须复用相同的根目录包含性校验，避免暴露磁盘真实路径或宽泛前缀删除。
 // 静态审查建议：重点关注扩展名校验是否足以代表真实内容、符号链接/挂载点是否可能绕过目录约束、
-// OTA 返回路径与真实落盘路径是否持续一致，以及错误细节是否会向外泄露过多内部路径信息。
+// OTA 返回路径与真实落盘路径是否持续一致，以及登记失败回滚是否会误删历史同名文件。
 package api
 
 import (
@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -22,18 +23,22 @@ import (
 	"strings"
 	"time"
 
+	"aetherlink-iot/backend/internal/service"
 	"aetherlink-iot/backend/pkg/common"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/utils"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 )
 
 type UpLoadApi struct{}
 
+// BaseUploadDir/OtaPath 的常量定义已上收到 pkg/common/upload_paths.go（TB-41 媒体库
+// 删除链路需要同一份口径）；此处保留别名以兼容既有引用点。
 const (
-	BaseUploadDir           = "./files/"
-	OtaPath                 = "./api/v1/ota/download/files/"
+	BaseUploadDir           = common.BaseUploadDir
+	OtaPath                 = common.OtaPath
 	MaxFileSize             = 1000 << 20 // 1000MB，保留 OTA 大文件接口契约
 	MaxFileSizeLabel        = "1000MB"
 	multipartOverheadBudget = 1 << 20 // multipart headers and form fields
@@ -119,9 +124,56 @@ func (*UpLoadApi) UpFile(c *gin.Context) {
 		return
 	}
 
+	// TB-41 媒体库落登记：文件落盘成功即写入 media_files，收编 ./files 存储。
+	// 登记失败视为上传失败并回滚已落盘文件（保证"有文件必有登记"的一致性）；
+	// claims 缺租户时由 service 跳过登记（无法归属租户的存量管理面上传不阻断）。
+	// claims 在 JWT 中间件后必然存在；用 nil 安全断言兜底异常调用方（service 侧会跳过登记）。
+	claimsValue, _ := c.Get("claims")
+	claims, _ := claimsValue.(*utils.UserClaims)
+	if _, regErr := service.GroupApp.MediaLibrary.RegisterMediaUpload(c.Request.Context(), service.MediaUploadRegistration{
+		FileName: filename,
+		FilePath: filePath,
+		FileSize: file.Size,
+		Mime:     mime.TypeByExtension(strings.ToLower(filepath.Ext(fileName))),
+	}, claims); regErr != nil {
+		removeSavedUploadFile(uploadDir, fileName)
+		c.Error(regErr)
+		return
+	}
+
 	c.Set("data", map[string]interface{}{
 		"path": filePath,
 	})
+}
+
+// removeSavedUploadFile 登记失败时回滚刚落盘的文件（尽力而为，失败仅记日志）。
+// 路径由 generateFilePath 生成，已通过包含性校验；此处复用 os.Root 的受控删除。
+func removeSavedUploadFile(uploadDir, fileName string) {
+	fullPath := filepath.Join(uploadDir, fileName)
+	absBaseDir, err := filepath.Abs(BaseUploadDir)
+	if err != nil {
+		logrus.Errorf("cleanup upload base resolve failed: %v", err)
+		return
+	}
+	absFullPath, err := filepath.Abs(fullPath)
+	if err != nil {
+		logrus.Errorf("cleanup upload path resolve failed: %v", err)
+		return
+	}
+	relativePath, err := filepath.Rel(absBaseDir, absFullPath)
+	if err != nil || relativePath == ".." || strings.HasPrefix(relativePath, ".."+string(os.PathSeparator)) || filepath.IsAbs(relativePath) {
+		logrus.Errorf("cleanup upload path escapes base directory: %s", utils.SanitizeForLog(fullPath))
+		return
+	}
+	root, err := os.OpenRoot(absBaseDir)
+	if err != nil {
+		logrus.Errorf("cleanup upload root open failed: %v", err)
+		return
+	}
+	defer root.Close()
+	if err := root.Remove(filepath.FromSlash(relativePath)); err != nil {
+		logrus.Errorf("cleanup uploaded file failed: %v", err)
+	}
 }
 
 func uploadRequestTooLarge(contentLength int64) bool {
@@ -234,11 +286,13 @@ func saveFile(c *gin.Context, file *multipart.FileHeader, uploadDir, fileName, f
 		return "", fmt.Errorf("close uploaded file: %w", err)
 	}
 
+	// 对外访问路径统一使用正斜杠：filepath.Join 在 Windows 上产生反斜杠，
+	// 会随媒体登记/OTA 下载地址落库，破坏 URL 语义与跨平台一致性。
 	if fileType == "upgradePackage" {
-		return "./" + filepath.Join(OtaPath, fileType, time.Now().Format("2006-01-02"), fileName), nil
+		return "./" + filepath.ToSlash(filepath.Join(OtaPath, fileType, time.Now().Format("2006-01-02"), fileName)), nil
 	}
 
-	return "./" + fullPath, nil
+	return "./" + filepath.ToSlash(fullPath), nil
 }
 
 // ensureUploadPathContained 确认最终文件绝对路径仍位于 BaseUploadDir 内。

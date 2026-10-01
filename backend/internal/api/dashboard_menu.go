@@ -11,60 +11,25 @@ import (
 type DashboardMenuApi struct{}
 
 func (*DashboardMenuApi) GetDashboardMenu(c *gin.Context) {
-	dashboardID := c.Param("dashboardId")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	data, err := service.GroupApp.DashboardMenu.GetTenantDashboardMenu(userClaims, dashboardID)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	HandlePath(c, "dashboardId", func(dashboardID string, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.DashboardMenu.GetTenantDashboardMenu(userClaims, dashboardID)
+	})
 }
 
 func (*DashboardMenuApi) BatchGetDashboardMenus(c *gin.Context) {
-	var req model.BatchTenantDashboardMenuReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.DashboardMenu.GetTenantDashboardMenus(userClaims, req.DashboardIDs)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	Handle(c, func(req *model.BatchTenantDashboardMenuReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.DashboardMenu.GetTenantDashboardMenus(userClaims, req.DashboardIDs)
+	})
 }
 
 func (*DashboardMenuApi) SaveDashboardMenu(c *gin.Context) {
-	dashboardID := c.Param("dashboardId")
-	var req model.UpsertTenantDashboardMenuReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.DashboardMenu.UpsertTenantDashboardMenu(userClaims, dashboardID, &req)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	HandlePathBody(c, "dashboardId", func(dashboardID string, req *model.UpsertTenantDashboardMenuReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.DashboardMenu.UpsertTenantDashboardMenu(userClaims, dashboardID, req)
+	})
 }
 
 func (*DashboardMenuApi) DeleteDashboardMenu(c *gin.Context) {
-	dashboardID := c.Param("dashboardId")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-
-	err := service.GroupApp.DashboardMenu.DeleteTenantDashboardMenu(userClaims, dashboardID)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", nil)
+	HandlePathAction(c, "dashboardId", func(dashboardID string, userClaims *utils.UserClaims) error {
+		return service.GroupApp.DashboardMenu.DeleteTenantDashboardMenu(userClaims, dashboardID)
+	})
 }

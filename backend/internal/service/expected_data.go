@@ -106,34 +106,26 @@ func (e *ExpectedData) Create(ctx context.Context, req *model.CreateExpectedData
 	err = expectedDataDal.Create(ctx, ed)
 	if err != nil {
 		logrus.Error(err)
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 
 	expectedData, err := expectedDataDal.GetByID(ctx, ed.ID)
 	if err != nil {
 		logrus.Error(err)
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 
 	deviceStatus, err := GroupApp.Device.GetDeviceOnlineStatus(req.DeviceID, userClaims)
 	if err != nil {
 		logrus.Error(err)
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	// 设备在线时立即触发一次发送，离线则保留为 pending 等待后续补发。
 	if deviceStatus["is_online"] == 1 {
 		err := e.Send(ctx, req.DeviceID)
 		if err != nil {
 			logrus.Error(err)
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-			})
+			return nil, dbError(err)
 		}
 	}
 
@@ -145,9 +137,7 @@ func (*ExpectedData) Delete(ctx context.Context, id string, userClaims *utils.Us
 	expectedData, err := expectedDataDal.GetByID(ctx, id)
 	if err != nil {
 		logrus.Error(err)
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	deviceInfo, err := ensureTelemetryDeviceWriteAccess(expectedData.DeviceID, userClaims)
 	if err != nil {
@@ -157,9 +147,7 @@ func (*ExpectedData) Delete(ctx context.Context, id string, userClaims *utils.Us
 		return errcode.NewWithMessage(errcode.CodeNoPermission, "expected data tenant mismatch")
 	}
 	if err := expectedDataDal.Delete(ctx, id); err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	return nil
 }
@@ -171,9 +159,7 @@ func (*ExpectedData) PageList(ctx context.Context, req *model.GetExpectedDataPag
 	}
 	total, list, err := dal.ExpectedDataDal{}.PageList(ctx, req, deviceInfo.TenantID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	return map[string]interface{}{
 		"total": total,

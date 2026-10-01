@@ -13,9 +13,7 @@ import (
 func ensureDeviceModelCustomCommandWriteAccess(id string, claims *utils.UserClaims) (*model.DeviceModelCustomCommand, error) {
 	data, err := dal.GetDeviceModelCustomCommandById(id)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	if err := ensureDeviceModelTenantWriteAccess(data.TenantID, claims); err != nil {
 		return nil, err
@@ -26,9 +24,7 @@ func ensureDeviceModelCustomCommandWriteAccess(id string, claims *utils.UserClai
 func ensureDeviceModelCustomControlWriteAccess(id string, claims *utils.UserClaims) (*model.DeviceModelCustomControl, error) {
 	data, err := dal.GetDeviceModelCustomControlById(id)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	if err := ensureDeviceModelTenantWriteAccess(data.TenantID, claims); err != nil {
 		return nil, err
@@ -64,9 +60,7 @@ func (*DeviceModel) CreateDeviceModelCustomCommands(req model.CreateDeviceModelC
 
 	err = dal.CreateDeviceModelCustomCommand(&deviceModelCustomCommand)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	return nil
 }
@@ -77,9 +71,7 @@ func (*DeviceModel) DeleteDeviceModelCustomCommands(id string, claims *utils.Use
 	}
 	err := dal.DeleteDeviceModelCustomCommandById(id)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	return nil
 }
@@ -109,9 +101,7 @@ func (*DeviceModel) UpdateDeviceModelCustomCommands(req model.UpdateDeviceModelC
 
 	_, err := dal.UpdateDeviceModelCustomCommand(&deviceModelCustomCommand)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	return nil
 }
@@ -119,9 +109,7 @@ func (*DeviceModel) UpdateDeviceModelCustomCommands(req model.UpdateDeviceModelC
 func (*DeviceModel) GetDeviceModelCustomCommandsByPage(req model.GetDeviceModelListByPageReq, claims *utils.UserClaims) (map[string]interface{}, error) {
 	total, list, err := dal.GetDeviceModelCustomCommandsByPage(req, claims.TenantID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	listRsp := make(map[string]interface{})
 	listRsp["total"] = total
@@ -137,9 +125,7 @@ func (*DeviceModel) GetDeviceModelCustomCommandsByDeviceId(deviceId string, clai
 	}
 	data, err := dal.GetDeviceModelCustomCommandsByDeviceId(deviceId, device.TenantID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	return data, nil
 }
@@ -168,9 +154,7 @@ func (*DeviceModel) CreateDeviceModelCustomControl(req model.CreateDeviceModelCu
 
 	err = dal.CreateDeviceModelCustomControl(&deviceModelCustomControl)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	return err
 }
@@ -181,9 +165,7 @@ func (*DeviceModel) DeleteDeviceModelCustomControl(id string, claims *utils.User
 	}
 	err := dal.DeleteDeviceModelCustomControlById(id)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	return err
 }
@@ -223,9 +205,7 @@ func (*DeviceModel) UpdateDeviceModelCustomControl(req model.UpdateDeviceModelCu
 
 	_, err = dal.UpdateDeviceModelCustomControl(&deviceModelCustomControl)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	return err
 }
@@ -233,9 +213,7 @@ func (*DeviceModel) UpdateDeviceModelCustomControl(req model.UpdateDeviceModelCu
 func (*DeviceModel) GetDeviceModelCustomControlByPage(req model.GetDeviceModelListByPageReq, claims *utils.UserClaims) (map[string]interface{}, error) {
 	total, list, err := dal.GetDeviceModelCustomControlByPage(req, claims.TenantID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	listRsp := make(map[string]interface{})
 	listRsp["total"] = total

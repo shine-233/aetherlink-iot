@@ -70,11 +70,6 @@ func TestValidateEntityRelationEnforcesTypeAllowlist(t *testing.T) {
 			t.Fatalf("to_type %q must be rejected, got %v", bad, err)
 		}
 	}
-	for _, ok := range AllowedEntityTypes() {
-		if !IsAllowedEntityType(ok) {
-			t.Fatalf("%s must be allowed", ok)
-		}
-	}
 }
 
 func TestValidateEntityRelationRejectsSelfLoop(t *testing.T) {

@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DrmagicE/gmqtt"
 	"github.com/DrmagicE/gmqtt/pkg/codes"
 	"github.com/DrmagicE/gmqtt/pkg/packets"
 	"go.uber.org/zap"
@@ -207,14 +206,6 @@ func (client *client) logReceivedPacket(packet packets.Packet) {
 			)
 		}
 	}
-}
-
-func (client *client) checkMaxPacketSize(msg *gmqtt.Message) (valid bool) {
-	totalBytes := msg.TotalBytes(packets.Version5)
-	if client.opts.ClientMaxPacketSize != 0 && totalBytes > client.opts.ClientMaxPacketSize {
-		return false
-	}
-	return true
 }
 
 func (client *client) write(packets packets.Packet) {

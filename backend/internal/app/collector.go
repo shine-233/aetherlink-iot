@@ -1,10 +1,12 @@
 // 文件用途：SNMP/OPC UA 轮询采集器 app 装配（ROADMAP C6 SNMP/OPC UA 管理侧接入）。
 // 配置门控：collectors.snmp.enabled / collectors.opcua.enabled（默认关闭，与 CoAP 网关同策略）。
 // DB 或 uplink 服务未就绪时降级不启动（不阻断应用启动），与 WithCoAPGateway 语义一致。
+// TB-45：OPC UA 采集回填路径挂载 Integration 上行转换执行器（绑定转换器才执行，失败丢弃）。
 package app
 
 import (
 	"aetherlink-iot/backend/internal/collector"
+	model "aetherlink-iot/backend/internal/model"
 
 	"github.com/sirupsen/logrus"
 )
@@ -15,6 +17,9 @@ type CollectorsWrapper struct {
 	runners   []*collector.Runner
 	isEnabled bool
 	logger    *logrus.Logger
+	// integrationResolver OPC UA 采集回填路径的 Integration 上行转换执行器（TB-45），
+	// 保留引用以便后续诊断面读取 Transformed/Dropped 计数。
+	integrationResolver *collector.IntegrationResolver
 }
 
 // Name 返回服务名称。
@@ -30,8 +35,8 @@ func (w *CollectorsWrapper) Start() error {
 		go r.Run()
 	}
 	w.logger.WithFields(logrus.Fields{
-		"snmp":  w.cfg.SNMPEnabled,
-		"opcua": w.cfg.OpcuaEnabled,
+		"snmp":     w.cfg.SNMPEnabled,
+		"opcua":    w.cfg.OpcuaEnabled,
 		"interval": w.cfg.Interval,
 	}).Info("collectors started")
 	return nil
@@ -70,8 +75,12 @@ func WithCollectors() Option {
 				collector.NewRunner(a.DB, publisher, collector.SnmpPoller{}, cfg.Interval, cfg.Timeout, a.Logger))
 		}
 		if cfg.OpcuaEnabled {
+			// TB-45：OPC UA 采集回填路径挂 Integration 上行转换（绑定 + 挂转换器才执行）。
+			wrapper.integrationResolver = collector.NewIntegrationResolver(a.DB, model.IntegrationConnectorOpcua, a.Logger)
+			poller := collector.NewOpcuaPoller(a.Logger)
+			poller.Transform = wrapper.integrationResolver.Hook
 			wrapper.runners = append(wrapper.runners,
-				collector.NewRunner(a.DB, publisher, collector.NewOpcuaPoller(a.Logger), cfg.Interval, cfg.Timeout, a.Logger))
+				collector.NewRunner(a.DB, publisher, poller, cfg.Interval, cfg.Timeout, a.Logger))
 		}
 		wrapper.isEnabled = true
 		a.RegisterService(wrapper)

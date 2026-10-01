@@ -162,6 +162,19 @@ const columns: Ref<DataTableColumns<ColumnsData>> = ref([
       return $t('common.low')
     }
   },
+  // SLA 时限（TB-27，126.sql）：null/0 显示 "-"，正值展示 "{n} 小时"。
+  {
+    key: 'sla_hours',
+    title: $t('custom.alarmPage.slaHoursColumn'),
+    align: 'left',
+    minWidth: '100px',
+    render(row) {
+      if (!row.sla_hours) {
+        return '-'
+      }
+      return `${row.sla_hours} ${$t('custom.alarmPage.slaHoursUnit')}`
+    }
+  },
 
   {
     key: 'notification_group_name',

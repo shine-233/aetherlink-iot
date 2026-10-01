@@ -1,0 +1,245 @@
+{{- /* 文件用途：渲染后端 StatefulSet（TB-11 后端面工作负载，资源限额/探针/环境变量对齐根 compose）。
+核心逻辑：replicas 可扩至多副本；env 键集合与 docker-compose.yml services.backend.environment 一一
+对应（由 backend/internal/helmchart 单测强制），服务名换成 Release 内 Service DNS；密钥经
+secretKeyRef 注入；broker 副本全集注入 GOTP_MQTT_SESSION_REVOCATIONS_REQUIRED_BROKER_IDS。
+关键注意事项：选 StatefulSet 而非 Deployment 的两个硬理由——①telemetry/uplink spool 必须每副本
+独立卷（跨副本共享 spool 文件会被并发写坏），volumeClaimTemplates 只在 StatefulSet 可用；
+②OrderedReady 串行化首次启动，保证 1 副本完成数据库迁移并通过 /ready 后才放行下一副本；
+files 卷多副本必须改 RWX（见 values 注释），否则上传文件单副本可见。
+重构建议：env 增删必须与 docker-compose.yml、values.yaml、helmchart 单测三处同步。 */}}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}-backend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: aetherlink-backend
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: backend
+    {{- range $k, $v := .Values.commonLabels }}
+    {{ $k }}: {{ $v | quote }}
+    {{- end }}
+spec:
+  replicas: {{ .Values.backend.replicas }}
+  podManagementPolicy: OrderedReady
+  serviceName: {{ .Release.Name }}-backend-headless
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: aetherlink-backend
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: aetherlink-backend
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: backend
+        {{- range $k, $v := .Values.commonLabels }}
+        {{ $k }}: {{ $v | quote }}
+        {{- end }}
+    spec:
+      # 所有组件都不调用 Kubernetes API，不挂载 SA token 以缩小凭据暴露面。
+      automountServiceAccountToken: false
+      # 宽限期 = preStop sleep + HTTP ShutdownTimeout(5s) + oplog 排空 + 吊销 worker(3s)，留余量。
+      terminationGracePeriodSeconds: {{ .Values.backend.shutdown.terminationGracePeriodSeconds | default 35 }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: backend
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag | default "latest" }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy | default "IfNotPresent" }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: http
+              containerPort: 9999
+          env:
+            - name: GOTP_SERVICE_HTTP_HOST
+              value: "0.0.0.0"
+            - name: GOTP_SERVICE_HTTP_PORT
+              value: "9999"
+            - name: GOTP_JWT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.existingSecret | default (printf "%s-aetherlink" .Release.Name) }}
+                  key: jwt-key
+            - name: GOTP_LOG_LEVEL
+              value: {{ .Values.backend.env.logLevel | default "info" | quote }}
+            - name: GOTP_JWT_EXPIRE_HOURS
+              value: {{ .Values.backend.env.jwtExpireHours | default "24" | quote }}
+            - name: GOTP_OPENAPI_KEY_AUTHORITY
+              value: {{ .Values.backend.env.openapiKeyAuthority | default "TENANT_USER" | quote }}
+            - name: GOTP_PLUGIN_SERVICE_KEY
+              value: {{ .Values.backend.env.pluginServiceKey | default "" | quote }}
+            - name: GOTP_DB_PSQL_HOST
+              value: {{ .Values.external.postgresHost | default (printf "%s-postgres" .Release.Name) | quote }}
+            - name: GOTP_DB_PSQL_PORT
+              value: {{ .Values.backend.env.dbPsqlPort | default "5432" | quote }}
+            - name: GOTP_DB_PSQL_DBNAME
+              value: {{ .Values.backend.env.dbPsqlDbname | default "aetherlink_iot" | quote }}
+            - name: GOTP_DB_PSQL_USERNAME
+              value: {{ .Values.backend.env.dbPsqlUsername | default "postgres" | quote }}
+            - name: GOTP_DB_PSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.existingSecret | default (printf "%s-aetherlink" .Release.Name) }}
+                  key: postgres-password
+            - name: GOTP_DB_REDIS_ADDR
+              value: {{ .Values.external.redisAddr | default (printf "%s-redis:6379" .Release.Name) | quote }}
+            - name: GOTP_DB_REDIS_DB
+              value: {{ .Values.backend.env.dbRedisDb | default "1" | quote }}
+            - name: GOTP_DB_REDIS_DB1
+              value: {{ .Values.backend.env.dbRedisDb1 | default "10" | quote }}
+            - name: GOTP_DB_REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.existingSecret | default (printf "%s-aetherlink" .Release.Name) }}
+                  key: redis-password
+            - name: GOTP_MQTT_SERVER
+              value: {{ .Values.backend.env.mqttServer | default "gmqtt" | quote }}
+            - name: GOTP_MQTT_BROKER
+              value: {{ printf "%s-mqtt-broker:1883" .Release.Name | quote }}
+            - name: AETHERLINK_MQTT_INNER_BROKER
+              value: {{ printf "%s-mqtt-broker" .Release.Name | quote }}
+            - name: AETHERLINK_SYNTHETIC_RDI_ALLOW
+              value: {{ .Values.backend.syntheticRdi.allow | default "" | quote }}
+            - name: AETHERLINK_SYNTHETIC_RDI_ALLOWED_DATABASES
+              value: {{ .Values.backend.syntheticRdi.allowedDatabases | default "" | quote }}
+            - name: GOTP_MQTT_USER
+              value: {{ .Values.backend.env.mqttUser | default "root" | quote }}
+            - name: GOTP_MQTT_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.existingSecret | default (printf "%s-aetherlink" .Release.Name) }}
+                  key: mqtt-root-password
+            # 空格分隔的全部 broker 副本 ID（viper GetStringSlice 按空白切分；逗号会导致
+            # 规范化失败）。Pod 名 = <release>-mqtt-broker-<ordinal>，与 broker 的
+            # GMQTT_MQTT_SESSION_REVOCATIONS_BROKER_ID（fieldRef metadata.name）严格一致。
+            - name: GOTP_MQTT_SESSION_REVOCATIONS_REQUIRED_BROKER_IDS
+              value: "{{ range $i := until (int $.Values.broker.replicas) }}{{ $.Release.Name }}-mqtt-broker-{{ $i }} {{ end }}"
+            - name: GOTP_MQTT_ACCESS_ADDRESS
+              value: {{ .Values.backend.public.mqttAddress | default "localhost:1883" | quote }}
+            - name: GOTP_OTA_DOWNLOAD_ADDRESS
+              value: {{ .Values.backend.public.webUrl | default "http://localhost:8080" | quote }}
+            - name: AETHERLINK_SERVER_MODE
+              value: {{ .Values.backend.env.serverMode | default "0" | quote }}
+            - name: GOTP_MARKET_ENABLED
+              value: "false"
+            - name: GOTP_TELEMETRY_ENABLED
+              value: "false"
+            - name: GOTP_STORAGE_TELEMETRY_SPOOL_ENABLED
+              value: "true"
+            - name: GOTP_STORAGE_TELEMETRY_SPOOL_DIRECTORY
+              value: /go/src/app/data/telemetry-spool
+            - name: GOTP_STORAGE_TELEMETRY_SPOOL_MAX_BYTES
+              value: {{ .Values.backend.spool.telemetryMaxBytes | default "536870912" | quote }}
+            - name: GOTP_STORAGE_TELEMETRY_SPOOL_MAX_RECORDS
+              value: {{ .Values.backend.spool.telemetryMaxRecords | default "100000" | quote }}
+            - name: GOTP_STORAGE_TELEMETRY_SPOOL_MAX_RECORD_BYTES
+              value: {{ .Values.backend.spool.telemetryMaxRecordBytes | default "16777216" | quote }}
+            - name: GOTP_STORAGE_TELEMETRY_SPOOL_REPLAY_INTERVAL
+              value: {{ .Values.backend.spool.telemetryReplayInterval | default "30s" | quote }}
+            - name: GOTP_STORAGE_TELEMETRY_SPOOL_REPLAY_BATCH_SIZE
+              value: {{ .Values.backend.spool.telemetryReplayBatchSize | default "100" | quote }}
+            - name: GOTP_STORAGE_TELEMETRY_SPOOL_REPLAY_TIMEOUT
+              value: {{ .Values.backend.spool.telemetryReplayTimeout | default "10s" | quote }}
+            - name: GOTP_STORAGE_ATTRIBUTE_EVENT_SPOOL_ENABLED
+              value: "true"
+            - name: GOTP_STORAGE_ATTRIBUTE_EVENT_SPOOL_DIRECTORY
+              value: /go/src/app/data/uplink-spool
+            - name: GOTP_STORAGE_ATTRIBUTE_EVENT_SPOOL_MAX_BYTES
+              value: {{ .Values.backend.spool.attributeMaxBytes | default "536870912" | quote }}
+            - name: GOTP_STORAGE_ATTRIBUTE_EVENT_SPOOL_MAX_RECORDS
+              value: {{ .Values.backend.spool.attributeMaxRecords | default "100000" | quote }}
+            - name: GOTP_STORAGE_ATTRIBUTE_EVENT_SPOOL_MAX_RECORD_BYTES
+              value: {{ .Values.backend.spool.attributeMaxRecordBytes | default "16777216" | quote }}
+            - name: GOTP_STORAGE_ATTRIBUTE_EVENT_SPOOL_REPLAY_INTERVAL
+              value: {{ .Values.backend.spool.attributeReplayInterval | default "30s" | quote }}
+            - name: GOTP_STORAGE_ATTRIBUTE_EVENT_SPOOL_REPLAY_BATCH_SIZE
+              value: {{ .Values.backend.spool.attributeReplayBatchSize | default "100" | quote }}
+            - name: GOTP_STORAGE_ATTRIBUTE_EVENT_SPOOL_REPLAY_TIMEOUT
+              value: {{ .Values.backend.spool.attributeReplayTimeout | default "10s" | quote }}
+          # preStop 等待 Service 摘除本 Pod 后再开始 HTTP 优雅关闭，避免摘除传播期 502。
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep {{ .Values.backend.shutdown.preStopSleepSeconds | default 5 }}"]
+          # 对齐 compose 健康检查口径：/health 进程存活、/ready 必需依赖就绪（30s 起步期
+          # 由 startupProbe 承担），前端 nginx 与服务发现的 /api 流量只应打给 Ready 副本。
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 12
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 12
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 12
+          resources:
+            requests:
+              cpu: {{ .Values.backend.resources.requests.cpu | quote }}
+              memory: {{ .Values.backend.resources.requests.memory | quote }}
+            limits:
+              cpu: {{ .Values.backend.resources.limits.cpu | quote }}
+              memory: {{ .Values.backend.resources.limits.memory | quote }}
+          volumeMounts:
+            - name: files
+              mountPath: /go/src/app/files
+            - name: telemetry-spool
+              mountPath: /go/src/app/data/telemetry-spool
+            - name: uplink-spool
+              mountPath: /go/src/app/data/uplink-spool
+  volumeClaimTemplates:
+    - metadata:
+        name: files
+      spec:
+        accessModes:
+          {{- range .Values.backend.storage.files.accessModes }}
+          - {{ . }}
+          {{- end }}
+        {{- if .Values.backend.storage.storageClass }}
+        storageClassName: {{ .Values.backend.storage.storageClass | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.backend.storage.files.size }}
+    - metadata:
+        name: telemetry-spool
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        {{- if .Values.backend.storage.storageClass }}
+        storageClassName: {{ .Values.backend.storage.storageClass | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.backend.storage.telemetrySpool.size }}
+    - metadata:
+        name: uplink-spool
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        {{- if .Values.backend.storage.storageClass }}
+        storageClassName: {{ .Values.backend.storage.storageClass | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.backend.storage.uplinkSpool.size }}

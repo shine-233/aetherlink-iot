@@ -154,19 +154,6 @@ func Get(store Store, topicFilter string, t IterationType) ClientSubscriptions {
 	return rs
 }
 
-// GetClientSubscriptions returns the subscriptions of a specific client.
-func GetClientSubscriptions(store Store, clientID string, t IterationType) []*gmqtt.Subscription {
-	var rs []*gmqtt.Subscription
-	store.Iterate(func(clientID string, subscription *gmqtt.Subscription) bool {
-		rs = append(rs, subscription)
-		return true
-	}, IterationOptions{
-		Type:     t,
-		ClientID: clientID,
-	})
-	return rs
-}
-
 // StatsReader provides the ability to get statistics information.
 type StatsReader interface {
 	// GetStats return the global stats.

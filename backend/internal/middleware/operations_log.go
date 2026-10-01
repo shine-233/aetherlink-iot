@@ -1,5 +1,5 @@
 // 文件用途：提供 HTTP 请求链路中的 operations log 中间件能力。
-// 核心逻辑：在 Gin 请求处理前后执行认证、鉴权、跨域、指标、响应包装或操作日志处理，主要围绕 var sensitiveFieldPattern、func OperationLogs、func isModifyMethod、func processRequestBody 等声明展开。
+// 核心逻辑：在 Gin 请求处理前后执行认证、鉴权、跨域、指标、响应包装或操作日志处理，主要围绕 var sensitiveFieldPattern、func OperationLogs、func isModifyMethod、func processRequestBody 等声明展开；落库时同步填充 TB-10 实体级审计列（action/entity_type/entity_id/status_code，解析器见 operation_entity.go）。
 // 关键注意事项：中间件位于安全与兼容边界，修改需保持状态码、上下文键和响应格式稳定。
 // 重构建议：后续可将外部依赖抽成接口，便于独立测试和不同部署模式复用。
 
@@ -306,6 +306,12 @@ func saveOperationLog(c *gin.Context, start time.Time, cost int64, requestMsg, r
 
 	path := safeOperationLogPath(c.Request.URL.Path)
 
+	// TB-10 实体级审计：动作映射自 HTTP 方法，实体定位自**已脱敏**路径
+	// （safeOperationLogPath 先替换 rdi/share-tokens 段，避免 token 泄入 entity_id），
+	// 状态码取 c.Writer.Status()（full 分支已被 responseBodyWriter 包装，Status 照常透传）。
+	action, entityType, entityID := resolveOperationActionAndEntity(c.Request.Method, path, requestMsg, responseMsg)
+	statusCode := int32(c.Writer.Status())
+
 	log := &model.OperationLog{
 		ID:              uuid.New(),
 		IP:              c.ClientIP(),
@@ -317,6 +323,22 @@ func saveOperationLog(c *gin.Context, start time.Time, cost int64, requestMsg, r
 		RequestMessage:  &requestMsg,
 		ResponseMessage: &responseMsg,
 		TenantID:        userClaims.TenantID,
+		Action:          &action,
+		StatusCode:      &statusCode,
+	}
+	// 127.sql 前的存量行为 NULL；解析不出实体的新行也保持 NULL（与 partial index 口径一致）。
+	if entityType != "" {
+		log.EntityType = &entityType
+	}
+	if entityID != "" {
+		log.EntityID = &entityID
+	}
+
+	// 异步批量写入（operation_log.async_enabled=true 时启用，默认关闭）：
+	// 投递成功即返回，落库由后台协程批量完成；未启用或队列满时**回退同步写**，
+	// 保证审计条目不因背压而静默丢失。见 operations_log_writer.go。
+	if enqueueOperationLog(log) {
+		return
 	}
 
 	if err := query.OperationLog.Create(log); err != nil {

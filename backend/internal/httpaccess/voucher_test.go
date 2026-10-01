@@ -62,28 +62,3 @@ func TestParseVoucherErrorsDoNotLeakSecrets(t *testing.T) {
 		t.Fatalf("error leaked access token: %v", err)
 	}
 }
-
-func TestMatchesAccessToken(t *testing.T) {
-	voucher := Voucher{AccessToken: "expected-secret"}
-	tests := []struct {
-		name      string
-		presented string
-		want      bool
-	}{
-		{name: "match", presented: "expected-secret", want: true},
-		{name: "wrong same length", presented: "unexpected-secre", want: false},
-		{name: "wrong different length", presented: "x", want: false},
-		{name: "empty", presented: "", want: false},
-		{name: "spaces are significant", presented: " expected-secret ", want: false},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			if got := MatchesAccessToken(voucher, test.presented); got != test.want {
-				t.Fatalf("MatchesAccessToken() = %v, want %v", got, test.want)
-			}
-		})
-	}
-	if MatchesAccessToken(Voucher{}, "anything") {
-		t.Fatal("empty configured token matched")
-	}
-}

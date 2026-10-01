@@ -1,6 +1,7 @@
 -- 78.sql: Phase D3 定时报表——建表 + casbin 受保护路由登记（2026-09-06）。
 -- 功能：report_schedules 存储租户级定时报表任务（cron 表达式、收件人、设备/测点作用域、
---       回看时长、启用状态），由后端 cron 每分钟扫描到期任务，导出遥测 CSV 并经 D2 邮件渠道投递。
+--       回看时长、启用状态），由后端 cron 每分钟扫描到期任务，导出遥测报表
+--       （format 取值 csv/html/pdf，三种格式均以邮件附件投递）并经 D2 邮件渠道投递。
 -- 1) 建表（IF NOT EXISTS 幂等）+ 两个索引；
 -- 2) 登记受保护路由 api/v1/report/schedules 与 api/v1/report/schedules/:id 的 g2 资源行与 p 授权行。
 --    授权口径：报表属租户级配置，仅 SYS_ADMIN + TENANT_ADMIN 可管理（不向 TENANT_USER 开放）。

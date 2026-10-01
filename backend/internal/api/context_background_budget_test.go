@@ -19,9 +19,11 @@ import (
 //   - device_status_ws.go / telemetry_data.go 各 1 处：WS 连接级生命周期（升级后
 //     不能绑 HTTP 请求上下文），已就地注释。
 //   - telemetry_ws_auth.go 1 处：WS 首消息认证拿不到 gin 上下文，已改包短超时。
+//   - alarm_status_ws.go 1 处：告警实时 WS（TB-30）连接级订阅生命周期，与
+//     device_status_ws.go 同语义——升级后连接级 ctx，不能绑 HTTP 请求上下文，已就地注释。
 //   - middleware/apikey.go 1 处：APIKeyValidator 携带的连接级上下文，仅被 WS 认证使用。
 var allowedContextBackgroundCounts = map[string]int{
-	"api":        3,
+	"api":        4,
 	"middleware": 1,
 }
 

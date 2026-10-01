@@ -39,7 +39,9 @@ func NewPubackPacket(fh *FixHeader, version Version, r io.Reader) (*Puback, erro
 // Pack encodes the packet struct into bytes and writes it into io.Writer.
 func (p *Puback) Pack(w io.Writer) error {
 	p.FixHeader = &FixHeader{PacketType: PUBACK, Flags: FlagReserved}
-	bufw := &bytes.Buffer{}
+	bufw := packBufPool.Get().(*bytes.Buffer)
+	defer packBufPool.Put(bufw)
+	bufw.Reset()
 	writeUint16(bufw, p.PacketID)
 	if p.Version == Version5 && (p.Code != codes.Success || p.Properties != nil) {
 		bufw.WriteByte(p.Code)

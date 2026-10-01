@@ -7,18 +7,16 @@ package dal
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"aetherlink-iot/backend/internal/query"
+
+	"gorm.io/gorm"
 )
 
 // LatestDeviceAlarmQuery 设备告警查询结构体
 type LatestDeviceAlarmQuery struct{}
-
-// CountDevicesByTenantAndStatus 根据租户、活动告警状态和可选 owner 范围统计设备数量。
-func (q *LatestDeviceAlarmQuery) CountDevicesByTenantAndStatus(ctx context.Context, tenantID string, ownerUserID *string) (int64, error) {
-	return q.CountDevicesByScopeAndStatus(ctx, tenantID, ownerUserID, false)
-}
 
 // CountDevicesByScopeAndStatus expands beyond one tenant only when the service
 // has already authorized an explicit system-administrator request.
@@ -42,4 +40,26 @@ func (q *LatestDeviceAlarmQuery) CountDevicesByScopeAndStatus(ctx context.Contex
 	var count int64
 	err := builder.UnderlyingDB().Distinct("latest_device_alarms.device_id").Count(&count).Error
 	return count, err
+}
+
+// GetDeviceLatestAlarmStatus 获取设备的最新告警状态
+// 聚合归位（2026-09-28）：原在 device_query_reads.go（设备聚合）内，本函数读的是
+// latest_device_alarms（告警聚合）视图，按聚合拆分迁入本文件；导出符号与签名不变。
+// tenant-scope: caller-enforced?2026-08-26 ?????
+func GetDeviceLatestAlarmStatus(deviceID string) (string, error) {
+	lda := query.LatestDeviceAlarm
+	alarm, err := lda.Where(lda.DeviceID.Eq(deviceID)).First()
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return "N", nil
+		}
+		return "", err
+	}
+	if alarm.AlarmStatus != nil {
+		switch strings.ToUpper(strings.TrimSpace(*alarm.AlarmStatus)) {
+		case "H", "M", "L":
+			return "Y", nil
+		}
+	}
+	return "N", nil
 }

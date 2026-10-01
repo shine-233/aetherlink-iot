@@ -10,6 +10,7 @@ package dal
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"aetherlink-iot/backend/internal/model"
@@ -18,30 +19,50 @@ import (
 	"gorm.io/gorm"
 )
 
+// ruleChainReplayRecordBatchSize 单条多行 INSERT 的行数上限。
+// 每行 10 个绑定参数，500 行 = 5000 参数，远低于 PostgreSQL 的 65535 上限。
+const ruleChainReplayRecordBatchSize = 500
+
 // SaveRuleChainReplayRecords 写入（或刷新）一批回放快照。
 // 采用 (execution_id, node_id) 冲突即更新：重跑同一次执行应刷新快照，
 // 而不是产生第二条记录——否则回放会返回重复节点，下游被重放多次。
+//
+// 用一条多行 VALUES 的 INSERT ... ON CONFLICT 替代逐行 Exec：语句数从 N 降到 ceil(N/500)，
+// 且整批仍在同一个事务里，语义（原子 + 幂等刷新）与逐行完全一致。
 func SaveRuleChainReplayRecords(ctx context.Context, rows []model.RuleChainReplayRecordRow) error {
 	if len(rows) == 0 || global.DB == nil {
 		return nil
 	}
 	return global.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		for _, row := range rows {
-			err := tx.Exec(`
+		for start := 0; start < len(rows); start += ruleChainReplayRecordBatchSize {
+			end := start + ruleChainReplayRecordBatchSize
+			if end > len(rows) {
+				end = len(rows)
+			}
+			batch := rows[start:end]
+			var sb strings.Builder
+			sb.WriteString(`
 				INSERT INTO rule_chain_replay_records
 					(tenant_id, chain_id, execution_id, node_id, node_type,
 					 payload, metadata, pass, error, recorded_at)
-				VALUES (?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?, ?, ?)
+				VALUES `)
+			args := make([]interface{}, 0, len(batch)*10)
+			for i, row := range batch {
+				if i > 0 {
+					sb.WriteString(", ")
+				}
+				sb.WriteString("(?, ?, ?, ?, ?, ?::jsonb, ?::jsonb, ?, ?, ?)")
+				args = append(args, row.TenantID, row.ChainID, row.ExecutionID, row.NodeID, row.NodeType,
+					row.Payload, row.Metadata, row.Pass, nullIfEmpty(row.Error), row.RecordedAt)
+			}
+			sb.WriteString(`
 				ON CONFLICT (execution_id, node_id) DO UPDATE SET
 					payload = EXCLUDED.payload,
 					metadata = EXCLUDED.metadata,
 					pass = EXCLUDED.pass,
 					error = EXCLUDED.error,
-					recorded_at = EXCLUDED.recorded_at`,
-				row.TenantID, row.ChainID, row.ExecutionID, row.NodeID, row.NodeType,
-				row.Payload, row.Metadata, row.Pass, nullIfEmpty(row.Error), row.RecordedAt,
-			).Error
-			if err != nil {
+					recorded_at = EXCLUDED.recorded_at`)
+			if err := tx.Exec(sb.String(), args...).Error; err != nil {
 				return err
 			}
 		}

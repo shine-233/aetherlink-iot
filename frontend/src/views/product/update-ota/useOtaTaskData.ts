@@ -1,5 +1,6 @@
-import { computed, reactive, ref } from 'vue'
-import type { PaginationProps, SelectOption } from 'naive-ui'
+import { computed, ref } from 'vue'
+import type { SelectOption } from 'naive-ui'
+import { useListPage } from '@/components/data-table-page/useListPage'
 import { deviceList } from '@/service/api/device'
 import { getOtaPackageList } from '@/service/product/update-package'
 import { getOtaTaskDetail, getOtaTaskList } from '@/service/product/update-ota'
@@ -17,12 +18,8 @@ const OTA_PACKAGE_SELECT_PAGE_SIZE = 20
 
 export const useOtaTaskData = () => {
   const packageLoading = ref(false)
-  const taskLoading = ref(false)
-  const detailLoading = ref(false)
   const deviceLoading = ref(false)
   const packageList = ref<OtaPackageRecord[]>([])
-  const taskList = ref<OtaTaskRecord[]>([])
-  const detailList = ref<OtaTaskDetailRecord[]>([])
   const detailStatistics = ref<OtaTaskStatisticsItem[]>([])
   const deviceCandidates = ref<OtaDeviceCandidate[]>([])
   const deviceOptions = ref<SelectOption[]>([])
@@ -30,25 +27,60 @@ export const useOtaTaskData = () => {
   const selectedTask = ref<OtaTaskRecord | null>(null)
   const packageSearchKeyword = ref('')
   let packageRequestSeq = 0
-  let taskRequestSeq = 0
-  let detailRequestSeq = 0
   let deviceRequestSeq = 0
 
-  const taskQuery = reactive({
-    page: 1,
-    page_size: 10
+  // 任务列表与任务明细都是“筛选 + 服务端分页”列表，统一交给 useListPage：
+  // 它负责页码/条数联动、加载态和过期请求丢弃（切换升级包或任务时旧响应不会回写）。
+  const tasks = useListPage<OtaTaskRecord, { ota_upgrade_package_id: string | null }>({
+    initialQuery: () => ({ ota_upgrade_package_id: null }),
+    pageSizes: [10, 20, 50],
+    serialize: () => ({ ota_upgrade_package_id: selectedPackageId.value }),
+    fetcher: async (params) => {
+      if (!params.ota_upgrade_package_id) return { list: [], total: 0 }
+      const { data, error } = await getOtaTaskList(params)
+      if (error || params.ota_upgrade_package_id !== selectedPackageId.value) return null
+      return { list: extractList(data) as OtaTaskRecord[], total: extractTotal(data) }
+    }
   })
 
-  const detailQuery = reactive({
-    page: 1,
-    page_size: 10,
-    device_name: '',
-    task_status: null as number | null
+  const detail = useListPage<
+    OtaTaskDetailRecord,
+    { device_name: string; task_status: number | null }
+  >({
+    initialQuery: () => ({ device_name: '', task_status: null }),
+    pageSizes: [10, 20, 50],
+    serialize: (q) => ({
+      ota_upgrade_task_id: selectedTask.value?.id,
+      device_name: q.device_name,
+      task_status: q.task_status || undefined
+    }),
+    fetcher: async (params) => {
+      const taskId = (params as { ota_upgrade_task_id?: string }).ota_upgrade_task_id
+      if (!taskId) return null
+      const { data, error } = await getOtaTaskDetail(params)
+      if (error || taskId !== selectedTask.value?.id) return null
+      pendingDetailStatistics = Array.isArray(data?.statistics) ? data.statistics : []
+      return { list: extractList(data) as OtaTaskDetailRecord[], total: extractTotal(data) }
+    },
+    onLoaded: () => {
+      detailStatistics.value = pendingDetailStatistics
+    }
   })
+  let pendingDetailStatistics: OtaTaskStatisticsItem[] = []
+
+  const taskLoading = tasks.loading
+  const detailLoading = detail.loading
+  const taskList = tasks.rows
+  const detailList = detail.rows
+  const taskPagination = tasks.pagination
+  const detailPagination = detail.pagination
+  const detailQuery = detail.query
 
   const selectedPackage = computed(() => packageList.value.find((item) => item.id === selectedPackageId.value) || null)
 
-  const packageOptions = computed<SelectOption[]>(() =>
+  // 显式收窄为 { label: string; value: string }: 映射结果必定是纯字符串标签/值,
+  // 而 naive-ui 的 SelectOption 允许 label 为 undefined 或渲染函数,宽类型无法反向赋给子组件。
+  const packageOptions = computed<Array<{ label: string; value: string }>>(() =>
     packageList.value.map((item) => ({
       label: `${item.name || item.version || item.id}${item.version ? ` (${item.version})` : ''}`,
       value: item.id
@@ -90,31 +122,11 @@ export const useOtaTaskData = () => {
   }
 
   const fetchTasks = async () => {
-    const requestSeq = ++taskRequestSeq
-    const packageId = selectedPackageId.value
-    if (!packageId) {
-      taskList.value = []
-      taskPagination.itemCount = 0
-      taskLoading.value = false
+    if (!selectedPackageId.value) {
+      tasks.clear()
       return
     }
-    taskLoading.value = true
-    try {
-      const { data, error } = await getOtaTaskList({
-        page: taskQuery.page,
-        page_size: taskQuery.page_size,
-        ota_upgrade_package_id: packageId
-      })
-      if (requestSeq !== taskRequestSeq || packageId !== selectedPackageId.value) return
-      if (!error) {
-        taskList.value = extractList(data) as OtaTaskRecord[]
-        taskPagination.itemCount = extractTotal(data)
-      }
-    } finally {
-      if (requestSeq === taskRequestSeq) {
-        taskLoading.value = false
-      }
-    }
+    await tasks.load()
   }
 
   const fetchDevices = async (search = '', pageSize = OTA_DEVICE_SELECT_PAGE_SIZE) => {
@@ -148,99 +160,29 @@ export const useOtaTaskData = () => {
   }
 
   const fetchTaskDetails = async () => {
-    const taskId = selectedTask.value?.id
-    if (!taskId) return
-    const requestSeq = ++detailRequestSeq
-    const query = {
-      page: detailQuery.page,
-      pageSize: detailQuery.page_size,
-      deviceName: detailQuery.device_name,
-      taskStatus: detailQuery.task_status
-    }
-    detailLoading.value = true
-    try {
-      const { data, error } = await getOtaTaskDetail({
-        page: query.page,
-        page_size: query.pageSize,
-        ota_upgrade_task_id: taskId,
-        device_name: query.deviceName,
-        task_status: query.taskStatus || undefined
-      })
-      if (requestSeq !== detailRequestSeq || taskId !== selectedTask.value?.id) return
-      if (!error) {
-        detailList.value = extractList(data) as OtaTaskDetailRecord[]
-        detailStatistics.value = Array.isArray(data?.statistics) ? data.statistics : []
-        detailPagination.itemCount = extractTotal(data)
-      }
-    } finally {
-      if (requestSeq === detailRequestSeq) {
-        detailLoading.value = false
-      }
-    }
+    if (!selectedTask.value?.id) return
+    await detail.load()
   }
 
   const resetTaskPage = () => {
-    taskQuery.page = 1
-    taskPagination.page = 1
+    tasks.page.value = 1
   }
 
   const resetDetailQuery = () => {
-    detailQuery.page = 1
-    detailQuery.device_name = ''
-    detailQuery.task_status = null
-    detailPagination.page = 1
-    fetchTaskDetails()
+    detail.query.device_name = ''
+    detail.query.task_status = null
+    detail.page.value = 1
+    void fetchTaskDetails()
   }
 
   const openTaskDetail = async (row: OtaTaskRecord) => {
-    detailRequestSeq += 1
+    detail.cancel()
     selectedTask.value = row
-    detailQuery.page = 1
-    detailQuery.device_name = ''
-    detailQuery.task_status = null
-    detailPagination.page = 1
+    detail.query.device_name = ''
+    detail.query.task_status = null
+    detail.page.value = 1
     await fetchTaskDetails()
   }
-
-  const taskPagination: PaginationProps = reactive({
-    page: taskQuery.page,
-    pageSize: taskQuery.page_size,
-    showSizePicker: true,
-    pageSizes: [10, 20, 50],
-    itemCount: 0,
-    onChange: (page) => {
-      taskQuery.page = page
-      taskPagination.page = page
-      fetchTasks()
-    },
-    onUpdatePageSize: (pageSize) => {
-      taskQuery.page = 1
-      taskQuery.page_size = pageSize
-      taskPagination.page = 1
-      taskPagination.pageSize = pageSize
-      fetchTasks()
-    }
-  })
-
-  const detailPagination: PaginationProps = reactive({
-    page: detailQuery.page,
-    pageSize: detailQuery.page_size,
-    showSizePicker: true,
-    pageSizes: [10, 20, 50],
-    itemCount: 0,
-    onChange: (page) => {
-      detailQuery.page = page
-      detailPagination.page = page
-      fetchTaskDetails()
-    },
-    onUpdatePageSize: (pageSize) => {
-      detailQuery.page = 1
-      detailQuery.page_size = pageSize
-      detailPagination.page = 1
-      detailPagination.pageSize = pageSize
-      fetchTaskDetails()
-    }
-  })
 
   return {
     packageLoading,

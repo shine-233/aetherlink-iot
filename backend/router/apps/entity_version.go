@@ -21,6 +21,7 @@ func (*EntityVersion) InitEntityVersion(Router *gin.RouterGroup) {
 		url.GET("", api.Controllers.EntityVersionApi.HandleGetEntityVersionList)
 		url.POST("", api.Controllers.EntityVersionApi.HandleCreateEntityVersion)
 		url.GET(":id", api.Controllers.EntityVersionApi.HandleGetEntityVersion)
+		url.GET(":id/diff/:target_id", api.Controllers.EntityVersionApi.HandleDiffEntityVersion)
 		url.POST(":id/restore", api.Controllers.EntityVersionApi.HandleRestoreEntityVersion)
 	}
 }

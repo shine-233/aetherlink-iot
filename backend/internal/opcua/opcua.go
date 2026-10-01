@@ -1,6 +1,6 @@
 // 文件用途：OPC UA 接入最小包装（ROADMAP OPC UA 行）——基于 gopcua。
 // 核心逻辑：端点配置校验、gopcua 客户端选项构建（SecurityMode/None、匿名或用户名口令）、
-//   节点 ID 解析、端点发现（GetEndpoints）与批量读（Read）。
+//   节点 ID 解析与批量读（Read）。
 // 关键注意事项：
 //   - 本层是「平台侧 OPC UA 网关/设备接入」的接线核心；安全模式当前允许 None（内网）并支持
 //     username 认证，证书加密（SignAndEncrypt）预留由 config.SecurityMode 透传；
@@ -99,14 +99,6 @@ func options(cfg Config) []opcua.Option {
 		opts = append(opts, opcua.AuthAnonymous())
 	}
 	return opts
-}
-
-// Discover 执行 GetEndpoints（端点发现，无需连接会话）。
-func Discover(ctx context.Context, cfg Config) ([]*ua.EndpointDescription, error) {
-	if err := Validate(cfg); err != nil {
-		return nil, err
-	}
-	return opcua.GetEndpoints(ctx, cfg.Endpoint, options(cfg)...)
 }
 
 // Connect 建立连接并打开会话。

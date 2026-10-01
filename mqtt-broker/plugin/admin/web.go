@@ -1,17 +1,17 @@
-// 文件用途：维护 plugin\admin\web.go 所属 broker 包的手写 Go 代码。
-// 核心逻辑：承载 MQTT broker 的领域模型、接口定义或测试支撑。
-// 关键注意事项：本次仅补文件头不改变运行逻辑，后续修改需按所在包补充验证。
-// 重构建议：后续可按职责拆分深模块，并为关键边界补齐契约测试。
+// 文件用途：内置管理页（登录页 + dashboard）的路由注册与 HTML/脚本渲染。
+// 核心逻辑：adminUIRoutes 是管理页路由的单一事实来源，既用于注册 handler，
+// 也用于让共享密钥中间件放行这些自带会话校验的页面路由（见 http_auth.go）。
+// 关键注意事项：会话/CSRF 逻辑在 web_auth.go 与 session.go；dashboard 通过
+// <meta name="csrf-token"> 拿到 CSRF 令牌，并由 fetch 包装器自动附带 X-CSRF-Token。
 
 package admin
 
 import (
 	"context"
 	"fmt"
+	"html"
 	"net/http"
-	"os"
 	"strings"
-	"time"
 
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"google.golang.org/grpc"
@@ -19,29 +19,50 @@ import (
 
 const (
 	sessionCookieName     = "gmqtt_admin_session"
-	sessionCookieValue    = "authenticated"
 	loginErrorParam       = "error"
 	loginErrorCredentials = "credentials"
 	loginErrorForm        = "form"
 	loginErrorRequired    = "unauthorized"
+	loginErrorExpired     = "expired"
+	loginErrorThrottled   = "throttled"
 )
 
-func registerAdminUI(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) error {
+// adminUIRoute 描述一条管理页路由。
+type adminUIRoute struct {
+	method  string
+	path    string
+	handler func(a *Admin) runtime.HandlerFunc
+}
+
+// adminUIRoutes 列出全部管理页路由；它们各自完成会话/nonce/CSRF 校验，
+// 因而在共享密钥中间件中被精确（方法 + 路径）放行，否则启用 http_auth_secret 后
+// 浏览器无法登录 dashboard。
+var adminUIRoutes = []adminUIRoute{
+	{method: http.MethodGet, path: "/", handler: func(a *Admin) runtime.HandlerFunc { return a.serveLoginPage }},
+	{method: http.MethodGet, path: "/dashboard", handler: func(a *Admin) runtime.HandlerFunc { return a.serveDashboardPage }},
+	{method: http.MethodPost, path: "/login", handler: func(a *Admin) runtime.HandlerFunc { return a.handleLogin }},
+	{method: http.MethodPost, path: "/logout", handler: func(a *Admin) runtime.HandlerFunc { return a.handleLogout }},
+}
+
+// isAdminUIRoute 报告请求是否精确命中管理页路由。
+func isAdminUIRoute(r *http.Request) bool {
+	for _, route := range adminUIRoutes {
+		if r.Method == route.method && r.URL.Path == route.path {
+			return true
+		}
+	}
+	return false
+}
+
+func (a *Admin) registerAdminUI(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) error {
 	_ = ctx
 	_ = endpoint
 	_ = opts
 
-	if err := handleStaticPath(mux, "GET", "/", serveLoginPage); err != nil {
-		return err
-	}
-	if err := handleStaticPath(mux, "GET", "/dashboard", serveDashboardPage); err != nil {
-		return err
-	}
-	if err := handleStaticPath(mux, "POST", "/login", handleLogin); err != nil {
-		return err
-	}
-	if err := handleStaticPath(mux, "POST", "/logout", handleLogout); err != nil {
-		return err
+	for _, route := range adminUIRoutes {
+		if err := handleStaticPath(mux, route.method, route.path, route.handler(a)); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -78,87 +99,19 @@ func handleStaticPath(mux *runtime.ServeMux, method, path string, h runtime.Hand
 	return nil
 }
 
-func serveLoginPage(w http.ResponseWriter, r *http.Request, _ map[string]string) {
-	if isAuthenticated(r) {
-		http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
-		return
-	}
-	errorCode := r.URL.Query().Get(loginErrorParam)
-	writeLoginPage(w, errorCode)
+// setAdminPageHeaders 为管理页设置内容类型与防缓存、防点击劫持响应头；
+// 页面内嵌 CSRF 令牌 / 登录 nonce，不能被中间缓存或嵌入第三方 frame。
+func setAdminPageHeaders(w http.ResponseWriter) {
+	h := w.Header()
+	h.Set("Content-Type", "text/html; charset=utf-8")
+	h.Set("Cache-Control", "no-store")
+	h.Set("X-Frame-Options", "DENY")
+	h.Set("X-Content-Type-Options", "nosniff")
+	h.Set("Referrer-Policy", "same-origin")
 }
 
-func serveDashboardPage(w http.ResponseWriter, r *http.Request, _ map[string]string) {
-	if !isAuthenticated(r) {
-		http.Redirect(w, r, "/?"+loginErrorParam+"="+loginErrorRequired, http.StatusSeeOther)
-		return
-	}
-	writeDashboardPage(w)
-}
-
-func handleLogin(w http.ResponseWriter, r *http.Request, _ map[string]string) {
-	if err := r.ParseForm(); err != nil {
-		http.Redirect(w, r, "/?"+loginErrorParam+"="+loginErrorForm, http.StatusSeeOther)
-		return
-	}
-	username := r.FormValue("username")
-	password := r.FormValue("password")
-	if adminCredentialsMatch(username, password) {
-		setSessionCookie(w)
-		http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
-		return
-	}
-	http.Redirect(w, r, "/?"+loginErrorParam+"="+loginErrorCredentials, http.StatusSeeOther)
-}
-
-func adminCredentialsMatch(username, password string) bool {
-	expectedUsername := os.Getenv("GMQTT_ADMIN_USERNAME")
-	expectedPassword := os.Getenv("GMQTT_ADMIN_PASSWORD")
-	if expectedUsername == "" || expectedPassword == "" {
-		return false
-	}
-	return username == expectedUsername && password == expectedPassword
-}
-
-func handleLogout(w http.ResponseWriter, r *http.Request, _ map[string]string) {
-	clearSessionCookie(w)
-	http.Redirect(w, r, "/", http.StatusSeeOther)
-}
-
-func isAuthenticated(r *http.Request) bool {
-	cookie, err := r.Cookie(sessionCookieName)
-	if err != nil {
-		return false
-	}
-	return cookie.Value == sessionCookieValue
-}
-
-func setSessionCookie(w http.ResponseWriter) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     sessionCookieName,
-		Value:    sessionCookieValue,
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-		Expires:  time.Now().Add(12 * time.Hour),
-	})
-}
-
-func clearSessionCookie(w http.ResponseWriter) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     sessionCookieName,
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-		Expires:  time.Unix(0, 0),
-	})
-}
-
-func writeLoginPage(w http.ResponseWriter, errorCode string) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+func writeLoginPage(w http.ResponseWriter, errorCode, loginNonce string) {
+	setAdminPageHeaders(w)
 	var message string
 	switch errorCode {
 	case loginErrorCredentials:
@@ -167,6 +120,10 @@ func writeLoginPage(w http.ResponseWriter, errorCode string) {
 		message = "Unable to parse the submitted form."
 	case loginErrorRequired:
 		message = "Please sign in to continue."
+	case loginErrorExpired:
+		message = "The sign-in form expired. Please try again."
+	case loginErrorThrottled:
+		message = "Too many failed attempts. Please try again later."
 	}
 
 	_, _ = w.Write([]byte(`<!DOCTYPE html>
@@ -194,6 +151,7 @@ func writeLoginPage(w http.ResponseWriter, errorCode string) {
 	}
 	_, _ = w.Write([]byte(`
 	<form method="post" action="/login">
+		<input type="hidden" name="` + loginNonceFormField + `" value="` + html.EscapeString(loginNonce) + `">
 		<div class="form-group">
 			<label for="username">Username</label>
 			<input id="username" name="username" type="text" autocomplete="username" required>
@@ -209,12 +167,12 @@ func writeLoginPage(w http.ResponseWriter, errorCode string) {
 </html>`))
 }
 
-func writeDashboardPage(w http.ResponseWriter) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+func writeDashboardPage(w http.ResponseWriter, csrfToken string) {
+	setAdminPageHeaders(w)
 	writeDashboardFragments(w,
-		dashboardDocumentStart(),
+		dashboardDocumentStart(csrfToken),
 		dashboardStyles(),
-		dashboardBodyMarkup(),
+		dashboardBodyMarkup(csrfToken),
 		dashboardScripts(),
 		dashboardDocumentEnd(),
 	)
@@ -226,11 +184,12 @@ func writeDashboardFragments(w http.ResponseWriter, fragments ...string) {
 	}
 }
 
-func dashboardDocumentStart() string {
+func dashboardDocumentStart(csrfToken string) string {
 	return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="csrf-token" content="` + html.EscapeString(csrfToken) + `">
 <title>GMQTT 管理控制台</title>
 <style>
 `
@@ -276,9 +235,9 @@ form .actions { display: flex; gap: 12px; align-items: center; }
 `
 }
 
-func dashboardBodyMarkup() string {
+func dashboardBodyMarkup(csrfToken string) string {
 	return strings.Join([]string{
-		dashboardBodyStart(),
+		dashboardBodyStart(csrfToken),
 		dashboardClientsPanelMarkup(),
 		dashboardSubscriptionsPanelMarkup(),
 		dashboardPublishPanelMarkup(),
@@ -286,13 +245,14 @@ func dashboardBodyMarkup() string {
 	}, "")
 }
 
-func dashboardBodyStart() string {
+func dashboardBodyStart(csrfToken string) string {
 	return `</style>
 </head>
 <body>
 <header>
 	<h1>GMQTT 管理控制台</h1>
 	<form method="post" action="/logout">
+		<input type="hidden" name="` + csrfFormField + `" value="` + html.EscapeString(csrfToken) + `">
 		<button class="btn btn-secondary" type="submit">退出登录</button>
 	</form>
 </header>
@@ -449,10 +409,34 @@ func dashboardBodyEnd() string {
 
 func dashboardScripts() string {
 	return strings.Join([]string{
+		dashboardFetchScript(),
 		dashboardClientsScript(),
 		dashboardSubscriptionsScript(),
 		dashboardPublishScript(),
 	}, "")
+}
+
+// dashboardFetchScript 包装 window.fetch：所有同源请求自动附带 X-CSRF-Token 与会话 cookie。
+// 后续脚本中的 fetch 调用无需逐个修改即可满足服务端 CSRF 校验。
+func dashboardFetchScript() string {
+	return `<script>
+(function() {
+	const meta = document.querySelector('meta[name="csrf-token"]');
+	const csrfToken = meta ? meta.getAttribute("content") : "";
+	const nativeFetch = window.fetch.bind(window);
+	window.fetch = function(input, init) {
+		const options = Object.assign({}, init || {});
+		const headers = new Headers(options.headers || {});
+		if (csrfToken && !headers.has("` + CSRFHeader + `")) {
+			headers.set("` + CSRFHeader + `", csrfToken);
+		}
+		options.headers = headers;
+		options.credentials = "same-origin";
+		return nativeFetch(input, options);
+	};
+})();
+</script>
+`
 }
 
 func dashboardClientsScript() string {

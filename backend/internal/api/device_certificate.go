@@ -16,17 +16,9 @@ type DeviceCertificateApi struct{}
 // Issue 为设备签发 X.509 证书（私钥仅本响应返回一次）。
 // POST /api/v1/device-certificates/issue
 func (*DeviceCertificateApi) Issue(c *gin.Context) {
-	var req model.IssueDeviceCertificateReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.DeviceCertificate.IssueDeviceCertificate(&req, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	Handle(c, func(req *model.IssueDeviceCertificateReq, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.DeviceCertificate.IssueDeviceCertificate(req, claims)
+	})
 }
 
 // List 租户内列设备证书，可按 device_id 过滤。
@@ -51,14 +43,9 @@ func (*DeviceCertificateApi) List(c *gin.Context) {
 // Get 证书详情。
 // GET /api/v1/device-certificates/:id
 func (*DeviceCertificateApi) Get(c *gin.Context) {
-	id := c.Param("id")
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.DeviceCertificate.GetDeviceCertificate(id, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	HandlePath(c, "id", func(id string, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.DeviceCertificate.GetDeviceCertificate(id, claims)
+	})
 }
 
 // Revoke 吊销证书。
@@ -102,15 +89,7 @@ func (*DeviceCertificateApi) Renew(c *gin.Context) {
 // Verify 校验证书链与吊销状态（broker mTLS 认证后端的人工复核入口）。
 // POST /api/v1/device-certificates/verify
 func (*DeviceCertificateApi) Verify(c *gin.Context) {
-	var req model.VerifyDeviceCertificateReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.DeviceCertificate.VerifyDeviceCertificate(&req, claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	Handle(c, func(req *model.VerifyDeviceCertificateReq, claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.DeviceCertificate.VerifyDeviceCertificate(req, claims)
+	})
 }

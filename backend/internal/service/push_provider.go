@@ -190,7 +190,7 @@ func (s *PushService) Enqueue(ctx context.Context, tenantID, userID, title, body
 	}
 	regs, err := dal.ListPushRegistrationsByUser(tenantID, userID, true)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	if len(regs) == 0 {
 		return nil, errcode.NewWithMessage(errcode.CodeNotFound, ErrPushNoTarget.Error())
@@ -217,7 +217,7 @@ func (s *PushService) Enqueue(ctx context.Context, tenantID, userID, title, body
 			return nil, errcode.NewWithMessage(errcode.CodeParamError, err.Error())
 		}
 		if err := dal.CreatePushDelivery(d); err != nil {
-			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+			return nil, dbError(err)
 		}
 		out = append(out, d)
 	}
@@ -228,7 +228,7 @@ func (s *PushService) Enqueue(ctx context.Context, tenantID, userID, title, body
 func (s *PushService) DeliverDue(ctx context.Context, now time.Time, limit int) (int, int, error) {
 	rows, err := dal.ListRetryablePushDeliveries(now, limit)
 	if err != nil {
-		return 0, 0, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return 0, 0, dbError(err)
 	}
 	var sent, failed int
 	for i := range rows {

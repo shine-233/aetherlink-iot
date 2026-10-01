@@ -9,14 +9,10 @@ import (
 	model "aetherlink-iot/backend/internal/model"
 	query "aetherlink-iot/backend/internal/query"
 	"context"
-
-	"github.com/sirupsen/logrus"
 )
 
 // tenant-scope: caller-enforced?2026-08-26 ?????
 func GetSceneLogByPage(req model.GetSceneLogListByPageReq) (int64, []*model.SceneLog, error) {
-
-	var count int64
 	q := query.SceneLog
 	queryBuilder := q.WithContext(context.Background())
 	queryBuilder = queryBuilder.Where(q.SceneID.Eq(req.ID))
@@ -29,20 +25,9 @@ func GetSceneLogByPage(req model.GetSceneLogListByPageReq) (int64, []*model.Scen
 		queryBuilder = queryBuilder.Where(q.ExecutedAt.Between(*req.ExecutionStartTime, *req.ExecutionEndTime))
 	}
 
-	count, err := queryBuilder.Count()
-	if err != nil {
-		logrus.Error(err)
-		return count, nil, err
-	}
-
-	queryBuilder = applyListPagination(queryBuilder, req.Page, req.PageSize)
-
-	logList, err := queryBuilder.Order(q.ExecutedAt.Desc()).Find()
-	if err != nil {
-		return count, logList, err
-	}
-	return count, logList, err
-
+	return countAndFindGenPage(queryBuilder, req.Page, req.PageSize, func(qb query.ISceneLogDo) query.ISceneLogDo {
+		return qb.Order(q.ExecutedAt.Desc())
+	})
 }
 
 func SceneLogInsert(data *model.SceneLog) error {

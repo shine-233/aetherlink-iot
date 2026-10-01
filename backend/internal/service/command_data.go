@@ -429,9 +429,7 @@ func (*CommandData) GetCommonList(ctx context.Context, id string, claims *utils.
 	deviceInfo, err := dal.DeviceQuery{}.First(ctx, query.Device.ID.Eq(id))
 	if err != nil {
 		logrus.Error("[GetCommonList] device query failed")
-		return list, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return list, dbError(err)
 	}
 
 	if deviceInfo.DeviceConfigID == nil || common.CheckEmpty(*deviceInfo.DeviceConfigID) {
@@ -442,9 +440,7 @@ func (*CommandData) GetCommonList(ctx context.Context, id string, claims *utils.
 	deviceConfigsInfo, err := dal.DeviceConfigQuery{}.First(ctx, query.DeviceConfig.ID.Eq(*deviceInfo.DeviceConfigID))
 	if err != nil {
 		logrus.Debug("[GetCommonList] device config query failed")
-		return list, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return list, dbError(err)
 	}
 
 	if deviceConfigsInfo.DeviceTemplateID == nil || common.CheckEmpty(*deviceConfigsInfo.DeviceTemplateID) {
@@ -455,9 +451,7 @@ func (*CommandData) GetCommonList(ctx context.Context, id string, claims *utils.
 	commandList, err := dal.DeviceModelCommandsQuery{}.Find(ctx, query.DeviceModelCommand.DeviceTemplateID.Eq(*deviceConfigsInfo.DeviceTemplateID))
 	if err != nil {
 		logrus.Error("[GetCommonList] device model command query failed")
-		return list, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return list, dbError(err)
 	}
 
 	for _, info := range commandList {
@@ -488,9 +482,7 @@ func (c *CommandData) GetCommandSetLogsDataListByPage(req model.GetCommandSetLog
 	// 查询日志列表
 	logs, total, err := dal.GetCommandSetLogsByPage(&req)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 
 	return map[string]interface{}{

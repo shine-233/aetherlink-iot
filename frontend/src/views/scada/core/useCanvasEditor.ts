@@ -18,11 +18,15 @@ import { computed, ref, type Ref } from 'vue'
 
 import {
   createEmptyScadaCanvas,
+  effectiveDisplayMode,
   nextScadaCanvasNodeId,
   parseScadaCanvas,
+  SCADA_DISPLAY_MODE_FIXED_HEIGHT,
+  SCADA_DISPLAY_MODE_FIXED_WIDTH,
   serializeScadaCanvas,
   type ScadaCanvas,
-  type ScadaCanvasNode
+  type ScadaCanvasNode,
+  type ScadaDisplayMode
 } from './canvasDocument'
 
 export interface UseCanvasEditorOptions {
@@ -37,6 +41,12 @@ export function useCanvasEditor(options: UseCanvasEditorOptions = {}) {
   const savedSnapshot = ref('')
 
   const selectedNode = computed(() => canvas.value.nodes.find((node) => node.id === selectedId.value) ?? null)
+
+  /**
+   * TP-22: effective display mode. Absent field stays absent until the author picks a
+   * mode, so a merely-opened legacy document keeps round-tripping byte-identically.
+   */
+  const displayMode = computed(() => effectiveDisplayMode(canvas.value))
 
   const isDirty = computed(() => {
     if (savedSnapshot.value === '') return canvas.value.nodes.length > 0
@@ -67,6 +77,20 @@ export function useCanvasEditor(options: UseCanvasEditorOptions = {}) {
     canvas.value = createEmptyScadaCanvas(width ?? canvas.value.width, height ?? canvas.value.height)
     selectedId.value = null
     savedSnapshot.value = serializeScadaCanvas(canvas.value)
+  }
+
+  /**
+   * TP-22: switch the display mode. Switching to fixed1080 snaps the design size to the
+   * 1920×1080 contract (a fixed1080 canvas with any other size is refused by both this
+   * module and backend/internal/scadadoc, so the snap is the only way the mode is usable).
+   * Switching back keeps the size - the author may return to 1920×1080 sizing later.
+   */
+  function setDisplayMode(mode: ScadaDisplayMode) {
+    if (mode === 'fixed1080') {
+      canvas.value = { ...canvas.value, displayMode: mode, width: SCADA_DISPLAY_MODE_FIXED_WIDTH, height: SCADA_DISPLAY_MODE_FIXED_HEIGHT }
+      return
+    }
+    canvas.value = { ...canvas.value, displayMode: mode }
   }
 
   function addNode(node: Omit<ScadaCanvasNode, 'id'> & { id?: string }): ScadaCanvasNode {
@@ -117,8 +141,10 @@ export function useCanvasEditor(options: UseCanvasEditorOptions = {}) {
     selectedId,
     selectedNode,
     isDirty,
+    displayMode,
     load,
     reset,
+    setDisplayMode,
     addNode,
     updateNode,
     moveNode,

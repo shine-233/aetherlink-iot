@@ -72,9 +72,3 @@ func (g *wsIPGate) release(ip string) {
 		delete(g.counts, ip)
 	}
 }
-
-func (g *wsIPGate) current(ip string) int {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	return g.counts[ip]
-}

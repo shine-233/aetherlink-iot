@@ -41,6 +41,7 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   "device_entity-relation": () => import("@/views/device/entity-relation/index.vue"),
   "device_config-detail": () => import("@/views/device/config-detail/index.vue"),
   "device_config-edit": () => import("@/views/device/config-edit/index.vue"),
+  "device_converter": () => import("@/views/device/converter/index.vue"),
   device_config: () => import("@/views/device/config/index.vue"),
   "device_details-child": () => import("@/views/device/details-child/index.vue"),
   device_details: () => import("@/views/device/details/index.vue"),
@@ -64,7 +65,18 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   management_role: () => import("@/views/management/role/index.vue"),
   management_setting: () => import("@/views/management/setting/index.vue"),
   management_user: () => import("@/views/management/user/index.vue"),
+  // TB-46 用户组与组权限（GPE v1）管理页。
+  "management_user-group": () => import("@/views/management/user-group/index.vue"),
+  customer_list: () => import("@/views/customer/list/index.vue"),
+  media_library: () => import("@/views/media/library/index.vue"),
+  // TB-45 统一集成实体管理页（与 integrationRoutes.ts 同步）。
+  integration_list: () => import("@/views/integration/list/index.vue"),
+  "billing_api-quota": () => import("@/views/billing/api-quota/index.vue"),
   market_browse: () => import("@/views/market/browse/index.vue"),
+  // TB-23 移动应用中心管理页（与 mobileAppRoutes.ts 同步）。
+  "mobile-app_app-center": () => import("@/views/mobile-app/app-center/index.vue"),
+  // TB-48 统一调度日历页（与 schedulerRoutes.ts 同步）。
+  scheduler_calendar: () => import("@/views/scheduler/calendar/index.vue"),
   "personal-center": () => import("@/views/personal-center/index.vue"),
   "product_update-ota": () => import("@/views/product/update-ota/index.vue"),
   "product_update-package": () => import("@/views/product/update-package/index.vue"),
@@ -83,4 +95,6 @@ export const views: Record<LastLevelRouteKey, RouteComponent | (() => Promise<Ro
   "visualization_thingsvis-menu-dashboard": () => import("@/views/visualization/thingsvis-menu-dashboard/index.vue"),
   "visualization_thingsvis-preview": () => import("@/views/visualization/thingsvis-preview/index.vue"),
   visualization_thingsvis: () => import("@/views/visualization/thingsvis/index.vue"),
+  // TB-04 部件库（widget_bundles）管理页（与 visualizationRoutes.ts 同步）。
+  "visualization_widget-bundles": () => import("@/views/visualization/widget-bundles/index.vue"),
 };

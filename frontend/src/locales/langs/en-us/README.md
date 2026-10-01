@@ -6,14 +6,13 @@
 
 ## 文件关系
 
-本目录的 JSON 文件应与其他语言目录保持同名、同结构。每个文件对应一个业务域：通用文案放在 `common.json`，物模型文案放在 `device_template.json`，可视化编辑器文案放在 `visual-editor.json`，路由和菜单标题放在 `route.json`。
+本目录的 JSON 文件应与其他语言目录保持同名、同结构。每个文件对应一个业务域：通用文案放在 `common.json`，物模型文案放在 `device_template.json`，路由和菜单标题放在 `route.json`。
 
 ## 重点文件
 
 - `basic.json`、`common.json`：基础 UI 和通用交互文案，影响多个页面。
 - `route.json`：英文菜单和页面标题，需要与路由配置同步。
 - `device_template.json`：物模型功能的英文文案，需关注字段名、协议名和校验提示是否准确。
-- `visual-editor.json`：dashboard editor copy, which should balance short labels with user clarity.
 - `rdi.json`：RDI 相关英文术语，应与正式业务文档保持一致。
 
 ## 审查建议

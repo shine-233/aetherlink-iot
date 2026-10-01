@@ -1,11 +1,34 @@
+/**
+ * 文件用途: 升级包新增/编辑的表单状态与提交逻辑（页面与 package-form-modal 共用）。
+ * 核心逻辑: 表单模型、打开/重置、固件上传路径回填、载荷构建与保存；保存成功后调用
+ *   options.refresh 刷新列表。纯 UI 的文件拖拽/原生 input 状态在 package-form-modal 内。
+ * 关键注意事项: additional_info 必须是合法 JSON，构建载荷失败只提示不提交。
+ * 重构建议: 表单校验加重后可引入 naive-ui Form rules，把校验从 buildPayload 中拆出。
+ */
 import { reactive, ref } from 'vue'
 import { addOtaPackage, editOtaPackage } from '@/service/product/update-package'
 import { uploadFile } from '@/service/api/personal-center'
 import { $t } from '@/locales'
 import type { OtaPackageRecord } from './ota-package-types'
 
+export interface OtaPackageFormModel {
+  id: string
+  name: string
+  version: string
+  target_version: string
+  device_config_id: string | null
+  module: string
+  package_type: number
+  signature_type: string
+  package_url: string
+  additional_info: string
+  description: string
+  remark: string
+}
+
 interface UseOtaPackageFormOptions {
-  fetchPackages: () => Promise<void>
+  /** 保存成功后的列表刷新（升级包列表的 useListPage.load）。 */
+  refresh: () => Promise<unknown>
 }
 
 export function useOtaPackageForm(options: UseOtaPackageFormOptions) {
@@ -14,10 +37,8 @@ export function useOtaPackageForm(options: UseOtaPackageFormOptions) {
   const modalVisible = ref(false)
   const isEditing = ref(false)
   const selectedFile = ref<File | null>(null)
-  const fileDragActive = ref(false)
-  const fileInputRef = ref<HTMLInputElement | null>(null)
 
-  const form = reactive({
+  const form = reactive<OtaPackageFormModel>({
     id: '',
     name: '',
     version: '',
@@ -56,8 +77,6 @@ export function useOtaPackageForm(options: UseOtaPackageFormOptions) {
     form.description = ''
     form.remark = ''
     selectedFile.value = null
-    fileDragActive.value = false
-    if (fileInputRef.value) fileInputRef.value.value = ''
   }
 
   function openCreateModal() {
@@ -86,23 +105,6 @@ export function useOtaPackageForm(options: UseOtaPackageFormOptions) {
 
   function selectPackageFile(file?: File | null) {
     selectedFile.value = file || null
-  }
-
-  function onFileChange(event: Event) {
-    const input = event.target as HTMLInputElement
-    selectPackageFile(input.files?.[0])
-  }
-
-  function onFileDrop(event: DragEvent) {
-    fileDragActive.value = false
-    selectPackageFile(event.dataTransfer?.files?.[0])
-  }
-
-  function onFileDragLeave(event: DragEvent) {
-    const target = event.currentTarget as HTMLElement
-    const related = event.relatedTarget as Node | null
-    if (related && target.contains(related)) return
-    fileDragActive.value = false
   }
 
   async function uploadSelectedFile() {
@@ -169,7 +171,7 @@ export function useOtaPackageForm(options: UseOtaPackageFormOptions) {
       if (!error) {
         window.$message?.success($t('common.saveSuccess'))
         modalVisible.value = false
-        await options.fetchPackages()
+        await options.refresh()
         return true
       }
       return false
@@ -184,8 +186,6 @@ export function useOtaPackageForm(options: UseOtaPackageFormOptions) {
     modalVisible,
     isEditing,
     selectedFile,
-    fileDragActive,
-    fileInputRef,
     form,
     packageTypeOptions,
     signatureOptions,
@@ -193,9 +193,6 @@ export function useOtaPackageForm(options: UseOtaPackageFormOptions) {
     openCreateModal,
     openEditModal,
     selectPackageFile,
-    onFileChange,
-    onFileDrop,
-    onFileDragLeave,
     uploadSelectedFile,
     buildPayload,
     savePackage

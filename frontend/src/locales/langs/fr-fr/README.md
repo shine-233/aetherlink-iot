@@ -13,7 +13,6 @@
 - `basic.json`、`common.json`：基础交互文案，修改影响范围广。
 - `route.json`：菜单和路由标题，需与前端路由配置同步。
 - `device_template.json`：物模型相关法语文案，需重点关注字段含义和校验提示。
-- `visual-editor.json`：可视化编辑器文案，需检查长文本在看板布局中的显示效果。
 - `rdi.json`：RDI 相关文案，应与业务文档中的术语保持一致。
 
 ## 审查建议

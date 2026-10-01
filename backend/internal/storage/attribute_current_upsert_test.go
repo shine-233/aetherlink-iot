@@ -1,14 +1,12 @@
 package storage
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/glebarez/sqlite"
-	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -48,19 +46,6 @@ func TestAttributeCurrentWritersKeepTimestampMonotonic(t *testing.T) {
 		name  string
 		write writeAttribute
 	}{
-		{
-			name: "exported direct writer",
-			write: func(db *gorm.DB, ts time.Time, value float64, tenantID string) error {
-				return NewDirectWriter(db, logrus.New()).WriteAttributeData(context.Background(), &AttributeData{
-					ID:       "incoming",
-					DeviceID: "device-1",
-					Key:      "firmware-version",
-					TS:       ts,
-					NumberV:  &value,
-					TenantID: tenantID,
-				})
-			},
-		},
 		{
 			name: "message direct writer",
 			write: func(db *gorm.DB, ts time.Time, value float64, tenantID string) error {
@@ -163,24 +148,6 @@ func TestAttributeCurrentWritersOnlyCountStoredRows(t *testing.T) {
 	}
 
 	writers := []writerFactory{
-		{
-			name:           "exported direct writer",
-			returnsDBError: true,
-			build: func(db *gorm.DB) (func(time.Time) error, *metricsCollector) {
-				writer := NewDirectWriter(db, logrus.New())
-				return func(ts time.Time) error {
-					value := 30.0
-					return writer.WriteAttributeData(context.Background(), &AttributeData{
-						ID:       fmt.Sprintf("incoming-%d", ts.UnixMilli()),
-						DeviceID: "device-1",
-						Key:      "firmware-version",
-						TS:       ts,
-						NumberV:  &value,
-						TenantID: "tenant-1",
-					})
-				}, writer.metrics
-			},
-		},
 		{
 			name:           "message direct writer",
 			returnsDBError: true,

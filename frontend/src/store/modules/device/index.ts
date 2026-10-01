@@ -7,19 +7,24 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import { SetupStoreId } from '@/enum'
+import { createLatestQueryRunner } from '@/service/request/abortable'
 import { deviceDetail } from '@/service/api'
 
 export const useDeviceDataStore = defineStore(SetupStoreId.Device, () => {
   const deviceData = ref<DeviceManagement.DeviceDetail | any>({}) // 更具体的类型替换 any
+  // 快速切换设备时，取消/丢弃未归的旧详情请求，避免旧设备数据覆盖新设备。
+  const detailRunner = createLatestQueryRunner<Awaited<ReturnType<typeof deviceDetail>>>()
+
   async function fetchData(id: string) {
-    try {
-      const { data, error } = await deviceDetail(id)
-      if (!error) {
-        deviceData.value = data
-      } else {
-        deviceData.value = {}
-      }
-    } catch (error) {
+    const result = await detailRunner.run((signal) => deviceDetail(id, { signal }))
+
+    // null = 被后一次查询取代或被主动取消：过期结果直接丢弃，不清空也不覆盖当前数据。
+    if (result === null) return
+
+    const { data, error } = result
+    if (!error) {
+      deviceData.value = data
+    } else {
       deviceData.value = {}
     }
   }

@@ -9,8 +9,6 @@ import (
 	model "aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/internal/query"
 	"context"
-
-	"github.com/sirupsen/logrus"
 )
 
 // GetSceneAutomationLog 分页返回指定场景在作用域内的执行日志（ROADMAP C2 自上而下读）。
@@ -19,7 +17,6 @@ import (
 // tenant-scope: scopes 由 service 层展开并校验（TENANT_ADMIN/SYS_ADMIN self∪子孙；
 // TENANT_USER 保持 self-only；空租户由 service 映射为 [""] 保持平台空租户旧行为）。
 func GetSceneAutomationLog(req *model.GetSceneAutomationLogReq, scopes []string) (int64, []*model.SceneAutomationLog, error) {
-	var count int64
 	q := query.SceneAutomationLog
 	queryBuilder := q.WithContext(context.Background())
 	switch len(scopes) {
@@ -40,20 +37,9 @@ func GetSceneAutomationLog(req *model.GetSceneAutomationLogReq, scopes []string)
 		queryBuilder = queryBuilder.Where(q.ExecutedAt.Between(*req.ExecutionStartTime, *req.ExecutionEndTime))
 	}
 
-	count, err := queryBuilder.Count()
-	if err != nil {
-		logrus.Error(err)
-		return count, nil, err
-	}
-
-	queryBuilder = applyListPagination(queryBuilder, req.Page, req.PageSize)
-
-	logList, err := queryBuilder.Order(q.ExecutedAt.Desc()).Find()
-	if err != nil {
-		return count, logList, err
-	}
-	return count, logList, err
-
+	return countAndFindGenPage(queryBuilder, req.Page, req.PageSize, func(qb query.ISceneAutomationLogDo) query.ISceneAutomationLogDo {
+		return qb.Order(q.ExecutedAt.Desc())
+	})
 }
 
 func SceneAutomationLogInsert(data *model.SceneAutomationLog) error {

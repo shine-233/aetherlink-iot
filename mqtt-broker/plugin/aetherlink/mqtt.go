@@ -175,25 +175,6 @@ func (c *MqttClient) markReady() {
 	close(c.ready)
 }
 
-func (c *MqttClient) startForTest(client mqtt.Client, queueSize int) error {
-	_, cancel := context.WithCancel(context.Background())
-	if err := c.beginRuntime(client, cancel); err != nil {
-		cancel()
-		return err
-	}
-	c.mu.Lock()
-	c.sendCh = make(chan mqttPublishRequest, queueSize)
-	sendCh := c.sendCh
-	abortSend := c.abortSend
-	workerDone := c.workerDone
-	connectDone := c.connectDone
-	close(connectDone)
-	c.mu.Unlock()
-	go c.sendWorker(sendCh, abortSend, workerDone)
-	c.markReady()
-	return nil
-}
-
 func (c *MqttClient) Close() error {
 	if c == nil {
 		return nil
@@ -254,18 +235,6 @@ func (c *MqttClient) Close() error {
 	c.mu.Unlock()
 	close(closeDone)
 	return nil
-}
-
-func (c *MqttClient) setConnected(connected bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.IsFlag = connected
-}
-
-func (c *MqttClient) isConnected() bool {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.IsFlag
 }
 
 func buildInternalMqttClientOptions() (*mqtt.ClientOptions, string) {

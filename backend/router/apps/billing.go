@@ -14,6 +14,8 @@ func (*Billing) InitBilling(Router *gin.RouterGroup) {
 	{
 		billing.GET("plans", api.Controllers.BillingApi.ListPlans)
 		billing.GET("usage", api.Controllers.BillingApi.GetUsage)
+		// TB-17：今日 API 配额（调用数/限额/剩余），前端配额页数据源。
+		billing.GET("api-quota", api.Controllers.BillingApi.GetAPIQuota)
 		billing.POST("subscriptions", api.Controllers.BillingApi.SubscribePlan)
 	}
 }

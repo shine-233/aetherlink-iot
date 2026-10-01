@@ -35,25 +35,6 @@ func TestAttributeEventFileSpoolDuplicateAndCollisionContracts(t *testing.T) {
 		t.Fatalf("duplicate changed spool usage: %+v", usage)
 	}
 
-	existing, _, err := buildAttributeEventFileSpoolRecord(envelope, time.Unix(1, 0))
-	if err != nil {
-		t.Fatalf("build existing record: %v", err)
-	}
-	otherEnvelope, err := buildAttributeEventEnvelope(testEventMessage("alarm", json.RawMessage(`{"value":2}`)))
-	if err != nil {
-		t.Fatalf("build different event envelope: %v", err)
-	}
-	incoming, _, err := buildAttributeEventFileSpoolRecord(otherEnvelope, time.Unix(2, 0))
-	if err != nil {
-		t.Fatalf("build incoming record: %v", err)
-	}
-	// Exercise the fail-closed branch directly: a real same-name/different-body
-	// case would require an SHA-256 collision, so it cannot be fabricated by
-	// writing an invalid record and then calling that corruption handling proof.
-	incoming.Identity = existing.Identity
-	if err := acceptExistingAttributeEventSpoolRecord(existing, incoming); err == nil || !strings.Contains(err.Error(), "identity collision") {
-		t.Fatalf("same filename with different checksum/payload error = %v", err)
-	}
 }
 
 func TestAttributeEventFileSpoolCapacityNeverEvicts(t *testing.T) {
@@ -71,7 +52,7 @@ func TestAttributeEventFileSpoolCapacityNeverEvicts(t *testing.T) {
 		t.Fatalf("capacity failure evicted or added records: %+v", usage)
 	}
 	files, err := spool.listReplayFiles()
-	if err != nil || len(files) != 1 || files[0].name != attributeEventFileSpoolFilename(first.Identity) {
+	if err != nil || len(files) != 1 || files[0].name != fileSpoolFilename(first.Identity) {
 		t.Fatalf("retained files = %+v err=%v, want oldest durable record", files, err)
 	}
 }
@@ -82,7 +63,7 @@ func TestAttributeEventFileSpoolQuarantinesCorruptionAndCountsCapacity(t *testin
 	if _, err := spool.store(context.Background(), envelope, time.Unix(1, 0)); err != nil {
 		t.Fatalf("store initial envelope: %v", err)
 	}
-	path := filepath.Join(spool.directory, attributeEventFileSpoolFilename(envelope.Identity))
+	path := filepath.Join(spool.directory, fileSpoolFilename(envelope.Identity))
 	if err := os.WriteFile(path, []byte(`{"broken":`), 0o600); err != nil {
 		t.Fatalf("corrupt committed spool record: %v", err)
 	}
@@ -113,7 +94,7 @@ func TestAttributeEventFileSpoolReplayQuarantinesCorruptAndContinuesInStableOrde
 		}
 	}
 	corrupt := envelopes[1]
-	corruptPath := filepath.Join(spool.directory, attributeEventFileSpoolFilename(corrupt.Identity))
+	corruptPath := filepath.Join(spool.directory, fileSpoolFilename(corrupt.Identity))
 	if err := os.WriteFile(corruptPath, []byte(`not-json`), 0o600); err != nil {
 		t.Fatalf("corrupt replay record: %v", err)
 	}
@@ -171,7 +152,7 @@ func TestAttributeEventFileSpoolRecoversCompleteTempRecord(t *testing.T) {
 	if err := spool.init(); err != nil {
 		t.Fatalf("recover spool: %v", err)
 	}
-	finalPath := filepath.Join(directory, attributeEventFileSpoolFilename(envelope.Identity))
+	finalPath := filepath.Join(directory, fileSpoolFilename(envelope.Identity))
 	if _, err := os.Stat(finalPath); err != nil {
 		t.Fatalf("recovered committed record: %v", err)
 	}
@@ -196,7 +177,7 @@ func TestAttributeEventSpoolMetricsTrackFailureCorruptionAndQuarantine(t *testin
 		t.Fatalf("spool first metric envelope: %v", err)
 	}
 	envelope, _ := buildAttributeEventEnvelope(message)
-	path := filepath.Join(ingress.spool.directory, attributeEventFileSpoolFilename(envelope.Identity))
+	path := filepath.Join(ingress.spool.directory, fileSpoolFilename(envelope.Identity))
 	if err := os.WriteFile(path, []byte(`broken`), 0o600); err != nil {
 		t.Fatalf("corrupt metric envelope: %v", err)
 	}

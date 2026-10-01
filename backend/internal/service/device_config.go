@@ -19,7 +19,6 @@ import (
 
 	"aetherlink-iot/backend/initialize"
 	protocolplugin "aetherlink-iot/backend/internal/service/protocol_plugin"
-	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 
 	dal "aetherlink-iot/backend/internal/dal"
@@ -46,38 +45,6 @@ func validatePayloadSchemaBinding(schemaID *string, tenantID string) error {
 		return wrapDeviceConfigDBError(err)
 	}
 	return nil
-}
-
-// ensureDeviceConfigReadAccess 校验设备配置读取权限并返回配置实体。
-// configID 是待访问的设备配置 ID；claims 用于校验系统管理员或同租户访问资格。
-// 返回值中的 DeviceConfig 会作为后续物模型、协议和自动化数据装配的基础输入。
-func ensureDeviceConfigReadAccess(configID string, claims *utils.UserClaims) (*model.DeviceConfig, error) {
-	if claims == nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query device config")
-	}
-	deviceConfig, err := dal.GetDeviceConfigByID(configID)
-	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
-	}
-	if claims.Authority != constant.SYS_ADMIN && deviceConfig.TenantID != claims.TenantID {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query device config")
-	}
-	return deviceConfig, nil
-}
-
-// ensureDeviceConfigWriteAccess 在读取权限基础上再次确认写权限。
-// 这里与读取校验分开保留，便于调用方显式表达“只读”和“可修改”两种业务意图。
-func ensureDeviceConfigWriteAccess(configID string, claims *utils.UserClaims) (*model.DeviceConfig, error) {
-	deviceConfig, err := ensureDeviceConfigReadAccess(configID, claims)
-	if err != nil {
-		return nil, err
-	}
-	if claims.Authority != constant.SYS_ADMIN && deviceConfig.TenantID != claims.TenantID {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to modify device config")
-	}
-	return deviceConfig, nil
 }
 
 // CreateDeviceConfig 创建新的设备配置。
@@ -144,7 +111,7 @@ func (*DeviceConfig) CreateDeviceConfig(req *model.CreateDeviceConfigReq, claims
 					updateMap["protocol_config"] = req.ProtocolConfig
 				}
 				if err := dal.UpdateDeviceConfig(existing.ID, updateMap); err != nil {
-					return deviceconfig, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+					return deviceconfig, dbError(err)
 				}
 				updated, err := dal.GetDeviceConfigByID(existing.ID)
 				if err == nil && updated != nil {
@@ -154,7 +121,7 @@ func (*DeviceConfig) CreateDeviceConfig(req *model.CreateDeviceConfigReq, claims
 			case model.ConflictPolicyRename:
 				names, err := dal.GetDeviceConfigNamesMatchingBase(claims.TenantID, name)
 				if err != nil {
-					return deviceconfig, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+					return deviceconfig, dbError(err)
 				}
 				nameMap := make(map[string]bool, len(names))
 				for _, n := range names {
@@ -197,9 +164,7 @@ func (*DeviceConfig) CreateDeviceConfig(req *model.CreateDeviceConfigReq, claims
 	if err != nil {
 		// err 可能内插用户可控的配置名/ID（log-injection 面），日志只记固定语义。
 		logrus.Error("create device config failed")
-		return deviceconfig, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return deviceconfig, dbError(err)
 	}
 
 	// 回显一次明文供设备端完成首次接入配置；数据库中保存的仍是摘要。
@@ -235,6 +200,13 @@ func (*DeviceConfig) UpdateDeviceConfig(req model.UpdateDeviceConfigReq, claims 
 		return nil, err
 	}
 	if err := clearBlankPayloadSchemaID(&req); err != nil {
+		return nil, err
+	}
+	// 档案级默认规则链（TB-18）：先解绑空串，再做租户归属校验，最后随统一更新映射透传。
+	if err := clearBlankDefaultRuleChainID(&req); err != nil {
+		return nil, err
+	}
+	if err := validateDefaultRuleChainBinding(req.DefaultRuleChainId, oldConfig.TenantID); err != nil {
 		return nil, err
 	}
 	condsMap, err := prepareDeviceConfigUpdate(req, oldConfig.OtherConfig)
@@ -283,6 +255,36 @@ func clearBlankPayloadSchemaID(req *model.UpdateDeviceConfigReq) error {
 	}
 	initialize.DelDeviceConfigCache(req.Id)
 	req.PayloadSchemaId = nil
+	return nil
+}
+
+// validateDefaultRuleChainBinding 校验档案级默认规则链绑定（TB-18）：nil/空串放行
+// （空串代表解绑，由 clearBlankDefaultRuleChainID 落库清空）；非空时链必须真实存在
+// 且归属目标租户——GetRuleChainByID 按 id+tenant 双条件查询，查不到即拒绝（fail-closed，
+// 防止跨租户链被挂到本租户档案上）。无效 UUID 文本同样以查询错误映射为参数错误。
+func validateDefaultRuleChainBinding(chainID *string, tenantID string) error {
+	if chainID == nil || *chainID == "" {
+		return nil
+	}
+	chain, err := dal.GetRuleChainByID(*chainID, tenantID)
+	if err != nil || chain == nil {
+		return errcode.NewWithMessage(errcode.CodeParamError, "default_rule_chain_id is not available for this tenant")
+	}
+	return nil
+}
+
+// clearBlankDefaultRuleChainID 处理“档案级默认规则链解绑”的前端传参约定。
+// 前端把 default_rule_chain_id 传为空字符串时表示解绑：先落库清空，再把请求体改为 nil，
+// 避免后续 StructToMapAndVerifyJson 把空字符串重新写回数据库。
+func clearBlankDefaultRuleChainID(req *model.UpdateDeviceConfigReq) error {
+	if req.DefaultRuleChainId == nil || *req.DefaultRuleChainId != "" {
+		return nil
+	}
+	if err := dal.UpdateDeviceConfigDefaultRuleChainID(req.Id, nil); err != nil {
+		return wrapDeviceConfigDBError(err)
+	}
+	initialize.DelDeviceConfigCache(req.Id)
+	req.DefaultRuleChainId = nil
 	return nil
 }
 
@@ -425,9 +427,7 @@ func voucherTypeForProtocol(protocolType string) *string {
 
 // wrapDeviceConfigDBError 统一包装设备配置领域的数据库异常，保留底层 SQL 错误文本供审计排查。
 func wrapDeviceConfigDBError(err error) error {
-	return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-		"sql_error": err.Error(),
-	})
+	return dbError(err)
 }
 
 // wrapDeviceConfigParamError 统一包装设备配置领域的参数异常。
@@ -460,9 +460,7 @@ func (*DeviceConfig) DeleteDeviceConfig(id string, claims *utils.UserClaims) err
 	if err != nil {
 		// dal 层错误内插用户可控的 id（log-injection 面），日志只记固定语义。
 		logrus.Error("delete device config failed")
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 
 	// 删除后清理配置与设备侧缓存，避免旧数据继续被读取。
@@ -486,9 +484,7 @@ func (*DeviceConfig) GetDeviceConfigByID(ctx context.Context, id string, claims 
 func (*DeviceConfig) GetDeviceConfigListByPage(req *model.GetDeviceConfigListByPageReq, claims *utils.UserClaims) (map[string]interface{}, error) {
 	total, list, err := dal.GetDeviceConfigListByPage(req, claims)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	deviceconfigListRsp := make(map[string]interface{})
 	deviceconfigListRsp["total"] = total
@@ -505,9 +501,7 @@ func (*DeviceConfig) GetDeviceConfigListByPage(req *model.GetDeviceConfigListByP
 func (*DeviceConfig) GetDeviceConfigListMenu(req *model.GetDeviceConfigListMenuReq, claims *utils.UserClaims) (any, error) {
 	data, err := dal.GetDeviceConfigSelectList(req.DeviceConfigName, claims.TenantID, req.DeviceType, req.ProtocolType)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	return data, nil
 }

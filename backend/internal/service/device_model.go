@@ -8,22 +8,11 @@ import (
 	"aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/internal/query"
-	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 	utils "aetherlink-iot/backend/pkg/utils"
 )
 
 type DeviceModel struct{}
-
-func ensureDeviceModelTenantWriteAccess(tenantID string, claims *utils.UserClaims) error {
-	if claims == nil {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to modify device model")
-	}
-	if claims.Authority != constant.SYS_ADMIN && tenantID != claims.TenantID {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to modify device model")
-	}
-	return nil
-}
 
 func ensureDeviceModelGeneralWriteAccess(id string, what string, claims *utils.UserClaims) (string, error) {
 	tenantID, err := loadDeviceModelGeneralTenantID(id, what)
@@ -71,9 +60,7 @@ func wrapDeviceModelDBError(err error) error {
 	if err == nil {
 		return nil
 	}
-	return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-		"sql_error": err.Error(),
-	})
+	return dbError(err)
 }
 
 func invalidDeviceModelTypeError() error {

@@ -18,9 +18,9 @@ import (
 	"strings"
 	"time"
 
+	"aetherlink-iot/backend/internal/authz"
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
-	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/utils"
 
@@ -100,7 +100,8 @@ func (*Alarm) DeleteAlarmComment(req *model.DeleteAlarmCommentReq, claims *utils
 	if row.AlarmHistoryID != req.AlarmHistoryID {
 		return errcode.NewWithMessage(errcode.CodeNotFound, "alarm comment not found")
 	}
-	if row.AuthorUserID != claims.ID && claims.Authority != constant.TENANT_ADMIN {
+	// 只有评论作者本人或租户管理员能删；OwnerMatches 对空作者 fail closed。
+	if !authz.OwnerMatches(&row.AuthorUserID, claims) && !authz.HasRole(claims, authz.TenantAdmin) {
 		return errcode.NewWithMessage(errcode.CodeNoPermission, alarmCommentDeletePermissionMessage)
 	}
 
@@ -121,7 +122,7 @@ func loadAlarmCommentForDelete(claims *utils.UserClaims, commentID string) (*mod
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, wrapAlarmDBError(err)
 	}
-	if claims.Authority != constant.SYS_ADMIN {
+	if !authz.IsSysAdmin(claims) {
 		return nil, errcode.NewWithMessage(errcode.CodeNotFound, "alarm comment not found")
 	}
 	row, err = dal.GetAlarmCommentByIDUnscoped(commentID)

@@ -1,10 +1,16 @@
 # syntax=docker/dockerfile:1
 FROM golang:1.26.6-alpine AS builder
 WORKDIR $GOPATH/src/app
-COPY . ./
 ENV GO111MODULE=on
 ENV GOPROXY="https://goproxy.cn,direct"
-RUN go build -o AetherLink-Go .
+# Download modules in their own layer so source-only edits reuse the dependency cache.
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
+COPY . ./
+# Static, stripped binary (pure-Go deps; -s -w drops symbol table/DWARF only, runtime.Caller still works).
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o AetherLink-Go .
 
 FROM alpine:3.24
 LABEL description="AetherLink IoT Go Backend"

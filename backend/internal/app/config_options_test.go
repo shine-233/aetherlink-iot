@@ -102,8 +102,6 @@ func TestWithOptionalRsaDecryptRejectsMalformedKey(t *testing.T) {
 
 func TestEnvironmentOptionHelpersPropagateLoadErrors(t *testing.T) {
 	for name, option := range map[string]Option{
-		"dev":  WithDevelopmentConfig(),
-		"test": WithTestConfig(),
 		"prod": WithProductionConfig(),
 	} {
 		t.Run(name, func(t *testing.T) {

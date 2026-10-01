@@ -269,7 +269,7 @@ func withLockedRDIShareDevice(
 ) (*lockedRDIShareResult, error) {
 	tx, err := dal.StartTransaction()
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	committed := false
 	defer func() {
@@ -290,7 +290,7 @@ func withLockedRDIShareDevice(
 
 	err = dal.Commit(tx)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	committed = true
 	return result, nil
@@ -302,7 +302,7 @@ func loadRDIShareLockedDevice(tx *query.QueryTx, deviceID string) (*model.Device
 		if err == gorm.ErrRecordNotFound {
 			return nil, errcode.NewWithMessage(errcode.CodeNotFound, "device not found")
 		}
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	return lockedDevice, nil
 }
@@ -338,7 +338,7 @@ func (*RDI) SharedDevices(req *model.RDISharedDeviceListReq, claims *utils.UserC
 
 	devices, err := findRDIDevicesByAdditionalInfoFragment(claims.ID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	records := filterRDISharedDevices(devices, req, claims)
 	return buildRDISharedDeviceListResponse(records, page, pageSize), nil
@@ -416,7 +416,7 @@ func getRDIDeviceByShareToken(token string) (*model.Device, error) {
 	now := time.Now().UTC().Unix()
 	devices, err := findRDIDevicesByAdditionalInfoFragment(hash)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return nil, dbError(err)
 	}
 	if device := findRDIDeviceByActiveShareToken(devices, hash, now); device != nil {
 		return device, nil

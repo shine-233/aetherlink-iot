@@ -14,31 +14,15 @@ type AiQueryApi struct{}
 // QueryTelemetryByQuestion 自然语言查询设备遥测。
 // POST /api/v1/ai/telemetry/query
 func (*AiQueryApi) QueryTelemetryByQuestion(c *gin.Context) {
-	var req service.AiTelemetryQueryReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.AiQuery.QueryTelemetry(c.Request.Context(), &req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	Handle(c, func(req *service.AiTelemetryQueryReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.AiQuery.QueryTelemetry(c.Request.Context(), req, userClaims)
+	})
 }
 
 // AnalyzeAlarm 告警根因分析（ROADMAP C4：AI 告警分析）。
 // POST /api/v1/ai/alarm/analysis
 func (*AiQueryApi) AnalyzeAlarm(c *gin.Context) {
-	var req service.AiAlarmAnalysisReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.AiQuery.AnalyzeAlarm(c.Request.Context(), &req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	Handle(c, func(req *service.AiAlarmAnalysisReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.AiQuery.AnalyzeAlarm(c.Request.Context(), req, userClaims)
+	})
 }

@@ -56,6 +56,7 @@ func TestCasbinRouteExemptCoversPublicSurface(t *testing.T) {
 		"api/v1/plugin/device/config",
 		"api/v1/tenant/super-admin/init",
 		"api/v1/board/shared/:token",
+		"api/v1/board/shared-carousel",
 		"api/v1/devices/:device_id/diagnostics",
 	}
 	for _, path := range exempt {

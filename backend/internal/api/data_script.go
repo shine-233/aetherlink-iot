@@ -35,18 +35,9 @@ type DataScriptApi struct{}
 // 若 claims 缺失或服务层报错，本层直接中断并交给统一错误处理。
 // @Router   /api/v1/data_script [post]
 func (*DataScriptApi) CreateDataScript(c *gin.Context) {
-	var req model.CreateDataScriptReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.DataScript.CreateDataScript(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	Handle(c, func(req *model.CreateDataScriptReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.DataScript.CreateDataScript(req, userClaims)
+	})
 }
 
 // UpdateDataScript 更新数据处理脚本。
@@ -87,14 +78,9 @@ func (*DataScriptApi) UpdateDataScript(c *gin.Context) {
 // 业务边界：若脚本已启用，service 删除后会尝试清理缓存；handler 本身不感知缓存、副作用或资源是否存在。
 // @Router   /api/v1/data_script/{id} [delete]
 func (*DataScriptApi) DeleteDataScript(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.DataScript.DeleteDataScript(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandlePathAction(c, "id", func(id string, userClaims *utils.UserClaims) error {
+		return service.GroupApp.DataScript.DeleteDataScript(id, userClaims)
+	})
 }
 
 // HandleDataScriptListByPage 分页查询数据处理脚本列表。
@@ -106,18 +92,9 @@ func (*DataScriptApi) DeleteDataScript(c *gin.Context) {
 // DeviceConfigId 非空并检查可读权限，从而兜住 query 绑定绕过或手工构造请求的场景。
 // @Router   /api/v1/data_script [get]
 func (*DataScriptApi) HandleDataScriptListByPage(c *gin.Context) {
-	var req model.GetDataScriptListByPageReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data_scriptList, err := service.GroupApp.DataScript.GetDataScriptListByPage(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data_scriptList)
+	Handle(c, func(req *model.GetDataScriptListByPageReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.DataScript.GetDataScriptListByPage(req, userClaims)
+	})
 }
 
 // QuizDataScript 调试执行数据脚本。
@@ -130,18 +107,9 @@ func (*DataScriptApi) HandleDataScriptListByPage(c *gin.Context) {
 // handler 不直接接触脚本引擎，也不做持久化副作用。
 // @Router   /api/v1/data_script/quiz [post]
 func (*DataScriptApi) QuizDataScript(c *gin.Context) {
-	var req model.QuizDataScriptReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.DataScript.QuizDataScript(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.QuizDataScriptReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.DataScript.QuizDataScript(req, userClaims)
+	})
 }
 
 // EnableDataScript 启用或停用数据脚本。
@@ -153,16 +121,7 @@ func (*DataScriptApi) QuizDataScript(c *gin.Context) {
 // service 层统一维护，因此 handler 只承接状态切换入口。
 // @Router   /api/v1/data_script/enable [put]
 func (*DataScriptApi) EnableDataScript(c *gin.Context) {
-	var req model.EnableDataScriptReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.DataScript.EnableDataScript(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandleAction(c, func(req *model.EnableDataScriptReq, userClaims *utils.UserClaims) error {
+		return service.GroupApp.DataScript.EnableDataScript(req, userClaims)
+	})
 }

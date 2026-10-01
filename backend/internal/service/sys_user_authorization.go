@@ -5,8 +5,7 @@
 package service
 
 import (
-	"fmt"
-
+	"aetherlink-iot/backend/internal/authz"
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
 	query "aetherlink-iot/backend/internal/query"
@@ -27,14 +26,14 @@ func ensureUserTransformAccess(target *model.User, claims *utils.UserClaims) err
 	if target == nil || claims == nil {
 		return errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to transform user")
 	}
-	if claims.Authority == constant.SYS_ADMIN {
+	if authz.IsSysAdmin(claims) {
 		return nil
 	}
-	if claims.Authority != constant.TENANT_ADMIN {
+	if !authz.HasRole(claims, authz.TenantAdmin) {
 		return errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to transform user")
 	}
-	if SafeDeref(target.TenantID) != claims.TenantID {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to transform cross-tenant user")
+	if err := authz.CheckTenant(claims, SafeDeref(target.TenantID), "no permission to transform cross-tenant user"); err != nil {
+		return err
 	}
 	if SafeDeref(target.Authority) != constant.TENANT_USER {
 		return errcode.NewWithMessage(errcode.CodeNoPermission, "tenant admin can only transform tenant users")
@@ -88,10 +87,12 @@ func ensureAssignableUserRoles(roleIDs []string, target *model.User, claims *uti
 	if targetTenantID == "" {
 		return errcode.NewWithMessage(errcode.CodeNoPermission, "cannot assign tenant roles to a user without tenant")
 	}
-	if claims.Authority == constant.TENANT_ADMIN && targetTenantID != claims.TenantID {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to assign roles across tenants")
+	if authz.HasRole(claims, authz.TenantAdmin) {
+		if err := authz.CheckTenant(claims, targetTenantID, "no permission to assign roles across tenants"); err != nil {
+			return err
+		}
 	}
-	if claims.Authority != constant.SYS_ADMIN && claims.Authority != constant.TENANT_ADMIN {
+	if !authz.HasRole(claims, authz.ManagerRoles...) {
 		return errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to assign user roles")
 	}
 
@@ -149,56 +150,6 @@ func ensureCasbinUserRoleMutationReady(changeRequested bool) error {
 	return nil
 }
 
-func addUserRoleBindings(userID string, roleIDs []string) error {
-	if len(roleIDs) == 0 {
-		return nil
-	}
-	ok, err := GroupApp.Casbin.AddRolesToUserWithError(userID, roleIDs)
-	if err != nil {
-		return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-			"operation": "add_user_roles",
-			"user_id":   userID,
-			"role_ids":  roleIDs,
-			"error":     err.Error(),
-		})
-	}
-	if !ok {
-		return errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-			"operation": "add_user_roles",
-			"user_id":   userID,
-			"role_ids":  roleIDs,
-			"error":     "failed to add roles to user",
-		})
-	}
-	return nil
-}
-
-func replaceUserRoleBindings(userID string, roleIDs []string) ([]string, error) {
-	oldRoles, _ := GroupApp.Casbin.GetRoleFromUser(userID)
-	if _, err := GroupApp.Casbin.RemoveUserAndRoleWithError(userID); err != nil {
-		return oldRoles, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-			"operation": "remove_user_roles",
-			"user_id":   userID,
-			"error":     err.Error(),
-		})
-	}
-
-	if err := addUserRoleBindings(userID, roleIDs); err != nil {
-		if restoreErr := restoreUserRoleBindings(userID, oldRoles); restoreErr != nil {
-			return oldRoles, fmt.Errorf("%w; restore roles failed: %v", err, restoreErr)
-		}
-		return oldRoles, err
-	}
-	return oldRoles, nil
-}
-
-func restoreUserRoleBindings(userID string, roleIDs []string) error {
-	if _, err := GroupApp.Casbin.RemoveUserAndRoleWithError(userID); err != nil {
-		return err
-	}
-	return addUserRoleBindings(userID, roleIDs)
-}
-
 func replaceUserRoleBindingsWithTx(tx *query.Query, userID string, roleIDs []string) error {
 	if _, err := tx.CasbinRule.Where(tx.CasbinRule.Ptype.Eq("g"), tx.CasbinRule.V0.Eq(userID)).Delete(); err != nil {
 		return err
@@ -233,19 +184,6 @@ func reloadCasbinPolicyAfterRoleTransaction() error {
 			"operation": "reload_user_roles",
 			"error":     err.Error(),
 		})
-	}
-	return nil
-}
-
-func cleanupCreatedUserAfterRoleBindingFailure(userID string) error {
-	if global.DB == nil {
-		return fmt.Errorf("database is not initialized")
-	}
-	if err := global.DB.Where("user_id = ?", userID).Delete(&model.UserAddress{}).Error; err != nil {
-		return err
-	}
-	if err := global.DB.Where("id = ?", userID).Delete(&model.User{}).Error; err != nil {
-		return err
 	}
 	return nil
 }

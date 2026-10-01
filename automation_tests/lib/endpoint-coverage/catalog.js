@@ -459,10 +459,11 @@ const ALL_ENDPOINTS = [
   { method: 'DELETE', path: '/api/v1/product/:id',                         module: 'product',   auth: true },
   { method: 'GET',    path: '/api/v1/product/:id',                         module: 'product',   auth: true },
 
-  // === 实体版本控制（entity_version.go，ROADMAP C7） ===
+  // === 实体版本控制（entity_version.go，ROADMAP C7/TB-25） ===
   { method: 'GET',    path: '/api/v1/entity_versions',                     module: 'versioning', auth: true },
   { method: 'POST',   path: '/api/v1/entity_versions',                     module: 'versioning', auth: true },
   { method: 'GET',    path: '/api/v1/entity_versions/:id',                 module: 'versioning', auth: true },
+  { method: 'GET',    path: '/api/v1/entity_versions/:id/diff/:target_id', module: 'versioning', auth: true },
   { method: 'POST',   path: '/api/v1/entity_versions/:id/restore',         module: 'versioning', auth: true },
 
   // === 系统功能（sys_function.go） ===

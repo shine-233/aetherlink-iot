@@ -408,10 +408,10 @@ describe('management/user/index.vue', () => {
     vi.clearAllMocks()
     hoisted.fetchUserList.mockResolvedValue({ data: { list: [], total: 0 } })
     const state = getSetupState(wrapper)
-    state.queryParams.page = 5
+    state.pagination.page = 5
     state.handleQuery()
     await flushPromises()
-    expect(state.queryParams.page).toBe(1)
+    expect(state.pagination.page).toBe(1)
     expect(hoisted.fetchUserList).toHaveBeenCalledTimes(1)
     expect(hoisted.fetchUserList).toHaveBeenCalledWith(expect.objectContaining({ page: 1, page_size: 10 }))
   })
@@ -436,7 +436,7 @@ describe('management/user/index.vue', () => {
     expect(state.queryParams.organization).toBeNull()
     expect(state.queryParams.timezone).toBeNull()
     expect(state.queryParams.default_language).toBeNull()
-    expect(state.queryParams.page).toBe(1)
+    expect(state.pagination.page).toBe(1)
     expect(hoisted.fetchUserList).toHaveBeenCalledTimes(1)
     expect(hoisted.fetchUserList).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -530,15 +530,15 @@ describe('management/user/index.vue', () => {
     expect(state.filterCascader('shanghai', { label: '北京市' })).toBe(false)
   })
 
-  it('pagination.onChange updates page and fetches', async () => {
+  it('pagination.onUpdatePage updates page and fetches', async () => {
     const wrapper = mountComponent()
     await flushPromises()
     vi.clearAllMocks()
     hoisted.fetchUserList.mockResolvedValue({ data: { list: [], total: 0 } })
     const state = getSetupState(wrapper)
-    state.pagination.onChange(3)
+    state.pagination.onUpdatePage(3)
     await flushPromises()
-    expect(state.queryParams.page).toBe(3)
+    expect(state.pagination.page).toBe(3)
     expect(state.pagination.page).toBe(3)
     expect(hoisted.fetchUserList).toHaveBeenCalledTimes(1)
     expect(hoisted.fetchUserList).toHaveBeenCalledWith(expect.objectContaining({ page: 3, page_size: 10 }))
@@ -550,11 +550,11 @@ describe('management/user/index.vue', () => {
     vi.clearAllMocks()
     hoisted.fetchUserList.mockResolvedValue({ data: { list: [], total: 0 } })
     const state = getSetupState(wrapper)
-    state.queryParams.page = 4
+    state.pagination.page = 4
     state.pagination.onUpdatePageSize(20)
     await flushPromises()
-    expect(state.queryParams.page_size).toBe(20)
-    expect(state.queryParams.page).toBe(1)
+    expect(state.pagination.pageSize).toBe(20)
+    expect(state.pagination.page).toBe(1)
     expect(state.pagination.page).toBe(1)
     expect(hoisted.fetchUserList).toHaveBeenCalledTimes(1)
     expect(hoisted.fetchUserList).toHaveBeenCalledWith(expect.objectContaining({ page: 1, page_size: 20 }))
@@ -615,8 +615,8 @@ describe('management/user/index.vue', () => {
     const wrapper = mountComponent()
     await flushPromises()
     const state = getSetupState(wrapper)
-    expect(state.queryParams.page).toBe(1)
-    expect(state.queryParams.page_size).toBe(10)
+    expect(state.pagination.page).toBe(1)
+    expect(state.pagination.pageSize).toBe(10)
     expect(state.queryParams.email).toBeNull()
     expect(state.queryParams.name).toBeNull()
     expect(state.queryParams.status).toBeNull()

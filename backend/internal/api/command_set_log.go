@@ -19,36 +19,17 @@ type CommandSetLogApi struct{}
 // ServeSetLogsDataListByPage queries paged command set logs.
 // @Router   /api/v1/command/datas/set/logs [get]
 func (CommandSetLogApi) ServeSetLogsDataListByPage(c *gin.Context) {
-	var req model.GetCommandSetLogsListByPageReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	date, err := service.GroupApp.CommandData.GetCommandSetLogsDataListByPage(req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", date)
+	Handle(c, func(req *model.GetCommandSetLogsListByPageReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.CommandData.GetCommandSetLogsDataListByPage(*req, userClaims)
+	})
 }
 
 // CommandPutMessage manually publishes a command message.
 // @Router   /api/v1/command/datas/pub [post]
 func (CommandSetLogApi) CommandPutMessage(c *gin.Context) {
-	var req model.PutMessageForCommand
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.CommandData.CommandPutMessageWithTracking(c, userClaims.ID, &req, strconv.Itoa(constant.Manual), userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.PutMessageForCommand, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.CommandData.CommandPutMessageWithTracking(c, userClaims.ID, req, strconv.Itoa(constant.Manual), userClaims)
+	})
 }
 
 // InvokeDirectMethod publishes one online-device command and waits up to 30
@@ -56,18 +37,9 @@ func (CommandSetLogApi) CommandPutMessage(c *gin.Context) {
 // Publish acceptance and device execution remain distinct response fields.
 // @Router   /api/v1/command/datas/direct-method [post]
 func (CommandSetLogApi) InvokeDirectMethod(c *gin.Context) {
-	var req model.DirectMethodCommandReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.CommandData.InvokeDirectMethod(c.Request.Context(), userClaims.ID, &req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.DirectMethodCommandReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.CommandData.InvokeDirectMethod(c.Request.Context(), userClaims.ID, req, userClaims)
+	})
 }
 
 // PreviewFleetCommandJob validates selected devices or previews a device_filter scope without publishing commands.
@@ -81,18 +53,9 @@ func (CommandSetLogApi) InvokeDirectMethod(c *gin.Context) {
 // @Failure 400 {object} errcode.Error "Parameter validation error"
 // @Router   /api/v1/command/datas/jobs/preview [post]
 func (CommandSetLogApi) PreviewFleetCommandJob(c *gin.Context) {
-	var req model.FleetCommandJobReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.CommandData.PreviewFleetCommandJob(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.FleetCommandJobReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.CommandData.PreviewFleetCommandJob(req, userClaims)
+	})
 }
 
 // SubmitFleetCommandJob queues selected-device or capped device_filter command jobs.
@@ -110,19 +73,10 @@ func (CommandSetLogApi) PreviewFleetCommandJob(c *gin.Context) {
 // @Failure 400 {object} errcode.Error "Parameter validation error"
 // @Router   /api/v1/command/datas/jobs/submit [post]
 func (CommandSetLogApi) SubmitFleetCommandJob(c *gin.Context) {
-	var req model.FleetCommandJobReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	includeRows := c.DefaultQuery("include_rows", "true") != "false"
-	data, err := service.GroupApp.CommandData.SubmitFleetCommandJob(c.Request.Context(), userClaims.ID, &req, userClaims, includeRows)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.FleetCommandJobReq, userClaims *utils.UserClaims) (interface{}, error) {
+		includeRows := c.DefaultQuery("include_rows", "true") != "false"
+		return service.GroupApp.CommandData.SubmitFleetCommandJob(c.Request.Context(), userClaims.ID, req, userClaims, includeRows)
+	})
 }
 
 // ListFleetCommandJobs returns recent persisted command jobs for the current tenant.
@@ -140,34 +94,19 @@ func (CommandSetLogApi) SubmitFleetCommandJob(c *gin.Context) {
 // @Failure 400 {object} errcode.Error "Parameter validation error"
 // @Router   /api/v1/command/datas/jobs [get]
 func (CommandSetLogApi) ListFleetCommandJobs(c *gin.Context) {
-	req := model.FleetCommandJobListReq{}
-	if rawPage := c.Query("page"); rawPage != "" {
-		parsed, err := strconv.Atoi(rawPage)
-		if err != nil {
-			c.Error(errcode.WithData(errcode.CodeParamError, "page must be an integer"))
-			return
+	// page/page_size 走自定义解析与错误文案（区别于 form 绑定），闭包内把解析失败转成与迁移前一致的 CodeParamError。
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		req := model.FleetCommandJobListReq{}
+		var err error
+		if req.Page, req.PageSize, err = parseOptionalPageQuery(c); err != nil {
+			return nil, err
 		}
-		req.Page = parsed
-	}
-	if rawPageSize := c.Query("page_size"); rawPageSize != "" {
-		parsed, err := strconv.Atoi(rawPageSize)
-		if err != nil {
-			c.Error(errcode.WithData(errcode.CodeParamError, "page_size must be an integer"))
-			return
-		}
-		req.PageSize = parsed
-	}
-	req.Status = c.Query("status")
-	req.AttentionFilter = c.Query("attention_filter")
-	req.Search = c.Query("search")
+		req.Status = c.Query("status")
+		req.AttentionFilter = c.Query("attention_filter")
+		req.Search = c.Query("search")
 
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.CommandData.ListFleetCommandJobs(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+		return service.GroupApp.CommandData.ListFleetCommandJobs(&req, userClaims)
+	})
 }
 
 // GetFleetCommandJob returns persisted command job progress.
@@ -183,26 +122,17 @@ func (CommandSetLogApi) ListFleetCommandJobs(c *gin.Context) {
 // @Failure 400 {object} errcode.Error "Parameter validation error"
 // @Router   /api/v1/command/datas/jobs/{job_id} [get]
 func (CommandSetLogApi) GetFleetCommandJob(c *gin.Context) {
-	jobID := c.Param("job_id")
-	if jobID == "" {
-		c.Error(errcode.WithData(errcode.CodeParamError, "job_id is required"))
-		return
-	}
+	HandlePath(c, "job_id", func(jobID string, userClaims *utils.UserClaims) (interface{}, error) {
+		if jobID == "" {
+			return nil, errcode.WithData(errcode.CodeParamError, "job_id is required")
+		}
 
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	includeRows := c.DefaultQuery("include_rows", "false") == "true"
-	var data *model.FleetCommandJobSubmitResult
-	var err error
-	if includeRows {
-		data, err = service.GroupApp.CommandData.GetFleetCommandJob(jobID, userClaims)
-	} else {
-		data, err = service.GroupApp.CommandData.GetFleetCommandJobSummary(jobID, userClaims)
-	}
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+		includeRows := c.DefaultQuery("include_rows", "false") == "true"
+		if includeRows {
+			return service.GroupApp.CommandData.GetFleetCommandJob(jobID, userClaims)
+		}
+		return service.GroupApp.CommandData.GetFleetCommandJobSummary(jobID, userClaims)
+	})
 }
 
 // GetFleetCommandJobRows returns paged per-device command job rows.
@@ -220,39 +150,21 @@ func (CommandSetLogApi) GetFleetCommandJob(c *gin.Context) {
 // @Failure 400 {object} errcode.Error "Parameter validation error"
 // @Router   /api/v1/command/datas/jobs/{job_id}/rows [get]
 func (CommandSetLogApi) GetFleetCommandJobRows(c *gin.Context) {
-	jobID := c.Param("job_id")
-	if jobID == "" {
-		c.Error(errcode.WithData(errcode.CodeParamError, "job_id is required"))
-		return
-	}
-
-	req := model.FleetCommandJobRowsReq{}
-	if rawPage := c.Query("page"); rawPage != "" {
-		parsed, err := strconv.Atoi(rawPage)
-		if err != nil {
-			c.Error(errcode.WithData(errcode.CodeParamError, "page must be an integer"))
-			return
+	HandlePath(c, "job_id", func(jobID string, userClaims *utils.UserClaims) (interface{}, error) {
+		if jobID == "" {
+			return nil, errcode.WithData(errcode.CodeParamError, "job_id is required")
 		}
-		req.Page = parsed
-	}
-	if rawPageSize := c.Query("page_size"); rawPageSize != "" {
-		parsed, err := strconv.Atoi(rawPageSize)
-		if err != nil {
-			c.Error(errcode.WithData(errcode.CodeParamError, "page_size must be an integer"))
-			return
-		}
-		req.PageSize = parsed
-	}
-	req.StatusFilter = c.Query("status_filter")
-	req.Search = c.Query("search")
 
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.CommandData.GetFleetCommandJobRows(jobID, &req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+		req := model.FleetCommandJobRowsReq{}
+		var err error
+		if req.Page, req.PageSize, err = parseOptionalPageQuery(c); err != nil {
+			return nil, err
+		}
+		req.StatusFilter = c.Query("status_filter")
+		req.Search = c.Query("search")
+
+		return service.GroupApp.CommandData.GetFleetCommandJobRows(jobID, &req, userClaims)
+	})
 }
 
 // GetFleetCommandJobReport 导出批次作业明细行报告（P0.3）。
@@ -268,31 +180,24 @@ func (CommandSetLogApi) GetFleetCommandJobRows(c *gin.Context) {
 // @Success 200 {object} service.FleetCommandJobReport
 // @Router /api/v1/command/datas/jobs/{job_id}/report [get]
 func (CommandSetLogApi) GetFleetCommandJobReport(c *gin.Context) {
-	jobID := c.Param("job_id")
-	if jobID == "" {
-		c.Error(errcode.WithData(errcode.CodeParamError, "job_id is required"))
-		return
-	}
-
-	var limit int
-	if rawLimit := c.Query("limit"); rawLimit != "" {
-		parsed, err := strconv.Atoi(rawLimit)
-		if err != nil || parsed < 0 {
-			c.Error(errcode.WithData(errcode.CodeParamError, "limit must be a non-negative integer"))
-			return
+	HandlePath(c, "job_id", func(jobID string, userClaims *utils.UserClaims) (interface{}, error) {
+		if jobID == "" {
+			return nil, errcode.WithData(errcode.CodeParamError, "job_id is required")
 		}
-		limit = parsed
-	}
 
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.CommandData.GetFleetCommandJobReport(
-		jobID, c.Query("format"), limit, userClaims,
-	)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+		var limit int
+		if rawLimit := c.Query("limit"); rawLimit != "" {
+			parsed, err := strconv.Atoi(rawLimit)
+			if err != nil || parsed < 0 {
+				return nil, errcode.WithData(errcode.CodeParamError, "limit must be a non-negative integer")
+			}
+			limit = parsed
+		}
+
+		return service.GroupApp.CommandData.GetFleetCommandJobReport(
+			jobID, c.Query("format"), limit, userClaims,
+		)
+	})
 }
 
 // GetFleetCommandJobSupportBundle returns a copyable troubleshooting package for support handoff.
@@ -306,19 +211,12 @@ func (CommandSetLogApi) GetFleetCommandJobReport(c *gin.Context) {
 // @Failure 400 {object} errcode.Error "Parameter validation error"
 // @Router   /api/v1/command/datas/jobs/{job_id}/support-bundle [get]
 func (CommandSetLogApi) GetFleetCommandJobSupportBundle(c *gin.Context) {
-	jobID := c.Param("job_id")
-	if jobID == "" {
-		c.Error(errcode.WithData(errcode.CodeParamError, "job_id is required"))
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.CommandData.GetFleetCommandJobSupportBundle(jobID, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandlePath(c, "job_id", func(jobID string, userClaims *utils.UserClaims) (interface{}, error) {
+		if jobID == "" {
+			return nil, errcode.WithData(errcode.CodeParamError, "job_id is required")
+		}
+		return service.GroupApp.CommandData.GetFleetCommandJobSupportBundle(jobID, userClaims)
+	})
 }
 
 // CancelFleetCommandJob cancels not-yet-submitted details in a persisted command job.
@@ -333,20 +231,14 @@ func (CommandSetLogApi) GetFleetCommandJobSupportBundle(c *gin.Context) {
 // @Failure 400 {object} errcode.Error "Parameter validation error"
 // @Router   /api/v1/command/datas/jobs/{job_id}/cancel [post]
 func (CommandSetLogApi) CancelFleetCommandJob(c *gin.Context) {
-	jobID := c.Param("job_id")
-	if jobID == "" {
-		c.Error(errcode.WithData(errcode.CodeParamError, "job_id is required"))
-		return
-	}
+	HandlePath(c, "job_id", func(jobID string, userClaims *utils.UserClaims) (interface{}, error) {
+		if jobID == "" {
+			return nil, errcode.WithData(errcode.CodeParamError, "job_id is required")
+		}
 
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	includeRows := c.DefaultQuery("include_rows", "true") != "false"
-	data, err := service.GroupApp.CommandData.CancelFleetCommandJob(jobID, userClaims, includeRows)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+		includeRows := c.DefaultQuery("include_rows", "true") != "false"
+		return service.GroupApp.CommandData.CancelFleetCommandJob(jobID, userClaims, includeRows)
+	})
 }
 
 // RetryFleetCommandJob retries retryable failed details in a persisted command job.
@@ -361,20 +253,14 @@ func (CommandSetLogApi) CancelFleetCommandJob(c *gin.Context) {
 // @Failure 400 {object} errcode.Error "Parameter validation error"
 // @Router   /api/v1/command/datas/jobs/{job_id}/retry [post]
 func (CommandSetLogApi) RetryFleetCommandJob(c *gin.Context) {
-	jobID := c.Param("job_id")
-	if jobID == "" {
-		c.Error(errcode.WithData(errcode.CodeParamError, "job_id is required"))
-		return
-	}
+	HandlePath(c, "job_id", func(jobID string, userClaims *utils.UserClaims) (interface{}, error) {
+		if jobID == "" {
+			return nil, errcode.WithData(errcode.CodeParamError, "job_id is required")
+		}
 
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	includeRows := c.DefaultQuery("include_rows", "true") != "false"
-	data, err := service.GroupApp.CommandData.RetryFleetCommandJob(c.Request.Context(), jobID, userClaims.ID, userClaims, includeRows)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+		includeRows := c.DefaultQuery("include_rows", "true") != "false"
+		return service.GroupApp.CommandData.RetryFleetCommandJob(c.Request.Context(), jobID, userClaims.ID, userClaims, includeRows)
+	})
 }
 
 // PauseFleetCommandJob 暂停批次派发（ROADMAP P0.3）。
@@ -394,20 +280,14 @@ func (CommandSetLogApi) RetryFleetCommandJob(c *gin.Context) {
 // @Failure 400 {object} errcode.Error "Parameter validation error"
 // @Router   /api/v1/command/datas/jobs/{job_id}/pause [post]
 func (CommandSetLogApi) PauseFleetCommandJob(c *gin.Context) {
-	jobID := c.Param("job_id")
-	if jobID == "" {
-		c.Error(errcode.WithData(errcode.CodeParamError, "job_id is required"))
-		return
-	}
+	HandlePath(c, "job_id", func(jobID string, userClaims *utils.UserClaims) (interface{}, error) {
+		if jobID == "" {
+			return nil, errcode.WithData(errcode.CodeParamError, "job_id is required")
+		}
 
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	includeRows := c.DefaultQuery("include_rows", "true") != "false"
-	data, err := service.GroupApp.CommandData.PauseFleetCommandJob(jobID, userClaims, includeRows)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+		includeRows := c.DefaultQuery("include_rows", "true") != "false"
+		return service.GroupApp.CommandData.PauseFleetCommandJob(jobID, userClaims, includeRows)
+	})
 }
 
 // ResumeFleetCommandJob 恢复被暂停的批次（ROADMAP P0.3）。
@@ -424,20 +304,14 @@ func (CommandSetLogApi) PauseFleetCommandJob(c *gin.Context) {
 // @Failure 400 {object} errcode.Error "Parameter validation error"
 // @Router   /api/v1/command/datas/jobs/{job_id}/resume [post]
 func (CommandSetLogApi) ResumeFleetCommandJob(c *gin.Context) {
-	jobID := c.Param("job_id")
-	if jobID == "" {
-		c.Error(errcode.WithData(errcode.CodeParamError, "job_id is required"))
-		return
-	}
+	HandlePath(c, "job_id", func(jobID string, userClaims *utils.UserClaims) (interface{}, error) {
+		if jobID == "" {
+			return nil, errcode.WithData(errcode.CodeParamError, "job_id is required")
+		}
 
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	includeRows := c.DefaultQuery("include_rows", "true") != "false"
-	data, err := service.GroupApp.CommandData.ResumeFleetCommandJob(c.Request.Context(), jobID, userClaims.ID, userClaims, includeRows)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+		includeRows := c.DefaultQuery("include_rows", "true") != "false"
+		return service.GroupApp.CommandData.ResumeFleetCommandJob(c.Request.Context(), jobID, userClaims.ID, userClaims, includeRows)
+	})
 }
 
 // RollbackFleetCommandJob 基于已结束批次创建一个回滚批次（ROADMAP P0.3）。
@@ -455,25 +329,14 @@ func (CommandSetLogApi) ResumeFleetCommandJob(c *gin.Context) {
 // @Failure 400 {object} errcode.Error "Parameter validation error"
 // @Router   /api/v1/command/datas/jobs/{job_id}/rollback [post]
 func (CommandSetLogApi) RollbackFleetCommandJob(c *gin.Context) {
-	jobID := c.Param("job_id")
-	if jobID == "" {
-		c.Error(errcode.WithData(errcode.CodeParamError, "job_id is required"))
-		return
-	}
+	HandlePathBody(c, "job_id", func(jobID string, req *model.FleetCommandJobReq, userClaims *utils.UserClaims) (interface{}, error) {
+		if jobID == "" {
+			return nil, errcode.WithData(errcode.CodeParamError, "job_id is required")
+		}
 
-	var req model.FleetCommandJobReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	includeRows := c.DefaultQuery("include_rows", "true") != "false"
-	data, err := service.GroupApp.CommandData.RollbackFleetCommandJob(c.Request.Context(), jobID, userClaims.ID, &req, userClaims, includeRows)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+		includeRows := c.DefaultQuery("include_rows", "true") != "false"
+		return service.GroupApp.CommandData.RollbackFleetCommandJob(c.Request.Context(), jobID, userClaims.ID, req, userClaims, includeRows)
+	})
 }
 
 // fleetCommandJobProgressReq 批次进度上报载荷（ROADMAP P0.3）。
@@ -508,82 +371,86 @@ type fleetCommandJobProgressReq struct {
 // @Failure 400 {object} errcode.Error "Parameter validation error"
 // @Router   /api/v1/command/datas/jobs/{job_id}/progress [post]
 func (CommandSetLogApi) ConsumeFleetCommandJobProgress(c *gin.Context) {
-	jobID := c.Param("job_id")
-	if jobID == "" {
-		c.Error(errcode.WithData(errcode.CodeParamError, "job_id is required"))
-		return
-	}
+	HandlePathBody(c, "job_id", func(jobID string, req *fleetCommandJobProgressReq, userClaims *utils.UserClaims) (interface{}, error) {
+		if jobID == "" {
+			return nil, errcode.WithData(errcode.CodeParamError, "job_id is required")
+		}
 
-	var req fleetCommandJobProgressReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
+		event := service.FleetCommandJobProgressEvent{
+			JobID:    jobID,
+			TenantID: userClaims.TenantID,
+			DeviceID: req.DeviceID,
+			Percent:  req.Percent,
+			Status:   req.Status,
+			Error:    req.Error,
+		}
+		// At 为零值时服务层会回退到"现在"（progress_at 的比较以它为准，零值会让
+		// "progress_at <= At" 恒为假，进度将永久写不进明细行），故这里允许省略。
+		if req.At != nil {
+			event.At = *req.At
+		}
 
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	event := service.FleetCommandJobProgressEvent{
-		JobID:    jobID,
-		TenantID: userClaims.TenantID,
-		DeviceID: req.DeviceID,
-		Percent:  req.Percent,
-		Status:   req.Status,
-		Error:    req.Error,
-	}
-	// At 为零值时服务层会回退到"现在"（progress_at 的比较以它为准，零值会让
-	// "progress_at <= At" 恒为假，进度将永久写不进明细行），故这里允许省略。
-	if req.At != nil {
-		event.At = *req.At
-	}
-
-	if err := service.GroupApp.CommandData.ConsumeFleetCommandJobProgress(c.Request.Context(), event); err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", gin.H{"job_id": jobID, "device_id": req.DeviceID, "accepted": true})
+		if err := service.GroupApp.CommandData.ConsumeFleetCommandJobProgress(c.Request.Context(), event); err != nil {
+			return nil, err
+		}
+		return gin.H{"job_id": jobID, "device_id": req.DeviceID, "accepted": true}, nil
+	})
 }
 
 // GetCommandDeliveryDiagnostics returns read-only command delivery diagnostics.
 // @Router   /api/v1/command/datas/delivery/diagnostics/{device_id} [get]
 func (CommandSetLogApi) GetCommandDeliveryDiagnostics(c *gin.Context) {
-	deviceID := devicePathID(c)
-	if deviceID == "" {
-		c.Error(errcode.WithData(errcode.CodeParamError, "device_id is required"))
-		return
-	}
-
-	var limit int
-	if rawLimit := c.Query("limit"); rawLimit != "" {
-		parsed, err := strconv.Atoi(rawLimit)
-		if err != nil {
-			c.Error(errcode.WithData(errcode.CodeParamError, "limit must be an integer"))
-			return
+	// 设备 ID 兼容 :device_id 与 :id 两种占位符（见 devicePathID），故走 HandleNoBody 而非 HandlePath。
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		deviceID := devicePathID(c)
+		if deviceID == "" {
+			return nil, errcode.WithData(errcode.CodeParamError, "device_id is required")
 		}
-		limit = parsed
-	}
 
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.CommandData.GetCommandDeliveryDiagnostics(c.Request.Context(), service.CommandDeliveryDiagnosticsReq{
-		DeviceID: deviceID,
-		Limit:    limit,
-	}, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
+		var limit int
+		if rawLimit := c.Query("limit"); rawLimit != "" {
+			parsed, err := strconv.Atoi(rawLimit)
+			if err != nil {
+				return nil, errcode.WithData(errcode.CodeParamError, "limit must be an integer")
+			}
+			limit = parsed
+		}
 
-	c.Set("data", data)
+		return service.GroupApp.CommandData.GetCommandDeliveryDiagnostics(c.Request.Context(), service.CommandDeliveryDiagnosticsReq{
+			DeviceID: deviceID,
+			Limit:    limit,
+		}, userClaims)
+	})
 }
 
 // HandleCommandList queries command metadata for a device.
 // @Router   /api/v1/command/datas/{id} [get]
 func (CommandSetLogApi) HandleCommandList(c *gin.Context) {
-	id := c.Param("id")
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.CommandData.GetCommonList(c, id, userClaims)
+	})
+}
 
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.CommandData.GetCommonList(c, id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
+// parseOptionalPageQuery 解析可选的 page/page_size 查询参数：缺省为 0（交由 service 兜底），
+// 非整数返回 CodeParamError（文案与历史一致）。
+func parseOptionalPageQuery(c *gin.Context) (page, pageSize int, err error) {
+	if page, err = parseIntQueryParam(c, "page"); err != nil {
+		return 0, 0, err
 	}
+	if pageSize, err = parseIntQueryParam(c, "page_size"); err != nil {
+		return 0, 0, err
+	}
+	return page, pageSize, nil
+}
 
-	c.Set("data", data)
+func parseIntQueryParam(c *gin.Context, name string) (int, error) {
+	raw := c.Query(name)
+	if raw == "" {
+		return 0, nil
+	}
+	parsed, err := strconv.Atoi(raw)
+	if err != nil {
+		return 0, errcode.WithData(errcode.CodeParamError, name+" must be an integer")
+	}
+	return parsed, nil
 }

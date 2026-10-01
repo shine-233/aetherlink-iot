@@ -15,6 +15,7 @@ import (
 
 	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/pkg/authkeys"
 	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/global"
 	utils "aetherlink-iot/backend/pkg/utils"
@@ -88,8 +89,11 @@ func resolveClaimsFromToken(c *gin.Context, token string) *utils.UserClaims {
 	if global.REDIS == nil || global.REDIS.Get(ctx, tokenKey).Val() != "1" {
 		return nil
 	}
-	key := viper.GetString("jwt.key")
-	j := utils.NewJWT([]byte(key))
+	// 与签发侧共用 authkeys 规范化密钥；未配置密钥时一律视为无效 token（fail-closed）。
+	j, err := authkeys.JWT()
+	if err != nil {
+		return nil
+	}
 	claims, err := j.ParseToken(token)
 	if err != nil {
 		return nil
@@ -119,9 +123,12 @@ func isValidJWT(c *gin.Context, token string) bool {
 		return false
 	}
 
-	key := viper.GetString("jwt.key")
-	j := utils.NewJWT([]byte(key))
-	claims, err := j.ParseToken(token)
+	// 与签发侧共用 authkeys 规范化密钥：签发 TrimSpace、校验读原值曾导致带尾随换行的密钥全量 401。
+	var claims *utils.UserClaims
+	j, err := authkeys.JWT()
+	if err == nil {
+		claims, err = j.ParseToken(token)
+	}
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, ErrorResponse{
 			Code:      ErrCodeInvalidToken,

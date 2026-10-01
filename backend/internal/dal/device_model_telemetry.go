@@ -17,14 +17,6 @@ import (
 type DeviceModelTelemetryQuery struct {
 }
 
-func (DeviceModelTelemetryQuery) First(ctx context.Context, option ...gen.Condition) (info *model.DeviceModelTelemetry, err error) {
-	info, err = query.DeviceModelTelemetry.WithContext(ctx).Where(option...).First()
-	if err != nil {
-		logrus.Error(ctx, err)
-	}
-	return
-}
-
 func (DeviceModelTelemetryQuery) Find(ctx context.Context, option ...gen.Condition) (list []*model.DeviceModelTelemetry, err error) {
 	list, err = query.DeviceModelTelemetry.WithContext(ctx).Where(option...).Find()
 	if err != nil {

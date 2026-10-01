@@ -3,10 +3,9 @@ import type { DataTableColumns } from 'naive-ui'
 import { NButton, NTag } from 'naive-ui'
 import { $t } from '@/locales'
 import type { OtaPackageRecord } from './ota-package-types'
+import { formatTime, packageTypeLabel } from './ota-package-format'
 
 interface CreateOtaPackageColumnsOptions {
-  formatTime: (value?: string) => string
-  packageTypeLabel: (value?: number) => string
   openDetailModal: (row: OtaPackageRecord) => void
   downloadPackage: (row: OtaPackageRecord) => void
   openEditModal: (row: OtaPackageRecord) => void
@@ -48,7 +47,7 @@ export function createOtaPackageColumns(options: CreateOtaPackageColumnsOptions)
         h(
           NTag,
           { type: row.package_type === 1 ? 'warning' : 'success' },
-          { default: () => options.packageTypeLabel(row.package_type) }
+          { default: () => packageTypeLabel(row.package_type) }
         )
     },
     {
@@ -62,7 +61,7 @@ export function createOtaPackageColumns(options: CreateOtaPackageColumnsOptions)
       key: 'created_at',
       title: () => $t('page.product.update-package.createTime'),
       width: 180,
-      render: (row) => options.formatTime(row.created_at)
+      render: (row) => formatTime(row.created_at)
     },
     {
       key: 'actions',

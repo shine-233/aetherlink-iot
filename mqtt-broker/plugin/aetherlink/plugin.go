@@ -9,6 +9,7 @@ import (
 	"log"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/DrmagicE/gmqtt/config"
 	"github.com/DrmagicE/gmqtt/server"
@@ -86,6 +87,21 @@ func configureRuntimeEnvironment() error {
 	return nil
 }
 
+// applyRuntimeTunables rebuilds the package-level hot-path caches/limiters from
+// the loaded configuration. Their package-level initializers run before
+// aetherlink.yml is read and before GMQTT_* env keys are bound, so without this
+// step device_route_cache.* and auth_ratelimit.* settings were silently ignored.
+// Must run before hooks serve traffic (runtimeInit runs inside Load).
+func applyRuntimeTunables() {
+	deviceRoute = newDeviceRouteCache(readDeviceRouteCacheTTL(), readDeviceRouteCacheMaxEntries())
+	mqttAuthRateLimiter = newAuthFailureLimiter(
+		mqttAuthRateLimitMaxFailures(),
+		authFailureWindow,
+		authFailureGCInterval,
+		time.Now,
+	)
+}
+
 // runtimeInit loads aetherlink.yml and initializes database,
 // Redis, and the internal MQTT client used for device status and forwarding.
 func runtimeInit() error {
@@ -105,6 +121,7 @@ func runtimeInit() error {
 		return fmt.Errorf("aetherlink-gmqtt: invalid mqtt session revocation broker identity: %w", err)
 	}
 	runtimeMQTTSessionRevocationBrokerID = brokerID
+	applyRuntimeTunables()
 
 	if err := Init(); err != nil { // init database & redis
 		return fmt.Errorf("aetherlink-gmqtt: init database/redis failed: %w", err)

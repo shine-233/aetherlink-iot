@@ -1,9 +1,10 @@
 // 文件用途：迁移 87（明细行进度回写）在真实 PostgreSQL 上的证据。
 // sqlite 测不出 CHECK 约束与 timestamptz 比较语义，因此这几件事必须落到真库上：
-//   1. 四列真的建出来了，且类型对（progress_at 必须是 timestamptz，不是裸 timestamp）；
-//   2. 0..100 的 CHECK 真的会拒绝越界值——服务层校验不是唯一一道闸；
-//   3. "只接受不早于当前 progress_at 的上报"这条守卫在真库的时区/比较语义下成立；
-//   4. 租户隔离在真库上成立。
+//  1. 四列真的建出来了，且类型对（progress_at 必须是 timestamptz，不是裸 timestamp）；
+//  2. 0..100 的 CHECK 真的会拒绝越界值——服务层校验不是唯一一道闸；
+//  3. "只接受不早于当前 progress_at 的上报"这条守卫在真库的时区/比较语义下成立；
+//  4. 租户隔离在真库上成立。
+//
 // 不设置 AETHERLINK_TEST_PSQL_DSN 时本测试如实地 Skip，不伪造通过。
 package dal
 

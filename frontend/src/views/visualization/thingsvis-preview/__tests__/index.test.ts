@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const hoisted = vi.hoisted(() => ({
   getDashboard: vi.fn(),
+  getDashboardsByShareTokens: vi.fn(),
   providerAvailable: true,
   route: { query: { id: 'dash-1' }, params: {} }
 }))
@@ -17,9 +18,9 @@ const hoisted = vi.hoisted(() => ({
 vi.mock('@/service/visualization-provider/index', () => ({
   getDefaultVisualizationProviderFacade: () => ({
     selectionError: hoisted.providerAvailable ? null : { code: 'provider-unavailable' },
-    execute: (operation: (provider: { getDashboard: typeof hoisted.getDashboard }) => Promise<unknown>) =>
+    execute: (operation: (provider: Record<string, unknown>) => Promise<unknown>) =>
       hoisted.providerAvailable
-        ? operation({ getDashboard: hoisted.getDashboard })
+        ? operation({ getDashboard: hoisted.getDashboard, getDashboardsByShareTokens: hoisted.getDashboardsByShareTokens })
         : Promise.resolve({ ok: false, error: { code: 'provider-unavailable', message: 'unavailable' } })
   })
 }))
@@ -69,6 +70,16 @@ describe('ThingsVisPreview', () => {
     hoisted.route.query = { id: 'dash-1' }
     hoisted.route.params = {}
     hoisted.getDashboard.mockResolvedValue({ ok: true, data: { name: 'Preview Dashboard' } })
+    hoisted.getDashboardsByShareTokens.mockResolvedValue({
+      ok: true,
+      data: {
+        items: [
+          { id: 'board-1', name: 'Wall A' },
+          { id: 'board-2', name: 'Wall B' }
+        ],
+        missingTokens: []
+      }
+    })
   })
 
   afterEach(() => {
@@ -167,5 +178,71 @@ describe('ThingsVisPreview', () => {
     await flushPromises()
     expect(document.title).toContain('Preview Dashboard')
     document.title = originalTitle
+  })
+
+  // ---- TP-22 大屏轮播（?tokens=...&interval=...） ----
+
+  it('loads a carousel playlist from share tokens and rotates on the interval', async () => {
+    vi.useFakeTimers()
+    hoisted.route.query = { tokens: 'tok-a, tok-b', interval: '5' }
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    expect(hoisted.getDashboard).not.toHaveBeenCalled()
+    expect(hoisted.getDashboardsByShareTokens).toHaveBeenCalledTimes(1)
+    expect(hoisted.getDashboardsByShareTokens).toHaveBeenCalledWith(['tok-a', 'tok-b'])
+    expect(wrapper.find('[data-testid="tv-carousel-position"]').text()).toBe('1 / 2')
+
+    // 到点切换第二屏；ref 更新后等一次微任务 flush 再断言 DOM。
+    vi.advanceTimersByTime(5000)
+    await flushPromises()
+    expect(wrapper.find('[data-testid="tv-carousel-position"]').text()).toBe('2 / 2')
+
+    vi.advanceTimersByTime(5000)
+    await flushPromises()
+    expect(wrapper.find('[data-testid="tv-carousel-position"]').text()).toBe('1 / 2')
+    expect(getState(wrapper).carouselActiveSchema).toMatchObject({ id: 'board-1' })
+  })
+
+  it('surfaces unavailable tokens while still playing the resolvable boards', async () => {
+    vi.useFakeTimers()
+    hoisted.route.query = { tokens: 'tok-good,tok-gone' }
+    hoisted.getDashboardsByShareTokens.mockResolvedValue({
+      ok: true,
+      data: { items: [{ id: 'board-1', name: 'Wall A' }], missingTokens: ['tok-gone'] }
+    })
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="tv-carousel-missing"]').exists()).toBe(true)
+    // $t 在本测试里以 key 透传：出现 key 即证明警示绑定的是缺失计数文案（带 count 参数）。
+    expect(wrapper.find('[data-testid="tv-carousel-missing"]').text()).toContain('carouselMissingTokens')
+    expect(wrapper.find('[data-testid="tv-carousel-position"]').exists()).toBe(true)
+  })
+
+  it('shows the playlist error state when the provider cannot resolve the carousel', async () => {
+    vi.useFakeTimers()
+    hoisted.route.query = { tokens: 'tok-a' }
+    hoisted.getDashboardsByShareTokens.mockResolvedValue({
+      ok: false,
+      error: { code: 'provider-failure', message: 'batch failed' }
+    })
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="tv-carousel-error"]').exists()).toBe(true)
+    expect(wrapper.findComponent({ name: 'VisualizationProviderFrame' }).exists()).toBe(false)
+  })
+
+  it('renders the fullscreen control in carousel mode', async () => {
+    vi.useFakeTimers()
+    hoisted.route.query = { tokens: 'tok-a,tok-b' }
+    const wrapper = mountComponent()
+    await flushPromises()
+
+    const button = wrapper.find('[data-testid="tv-carousel-fullscreen"]')
+    expect(button.exists()).toBe(true)
+    // $t 在本测试里以 key 透传：出现 key 即证明按钮绑定的是全屏文案键。
+    expect(button.text()).toContain('carouselFullscreen')
   })
 })

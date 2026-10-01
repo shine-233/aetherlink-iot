@@ -1,13 +1,14 @@
 /*
  * 文件用途：订阅 ThingsVis 实时遥测和设备状态推送，为嵌入看板提供实时数据源。
- * 核心逻辑：构建 telemetry/status WebSocket 地址，完成设备鉴权、消息解析和字段提取。
+ * 核心逻辑：构建 telemetry/status WebSocket 地址，完成设备鉴权、消息解析和字段提取；
+ *   连接生命周期（心跳、重连退避、销毁）统一交给 createRealtimeClient。
  * 关键注意事项：token、deviceId、WebSocket 生命周期和 JSON frame 解析都是关键边界。
  * 重构建议：建议把协议帧解析和 socket 控制器拆分测试。
  */
 /**
  * useRealtimePush — tp-03
  * 使用 WebSocket 订阅设备遥测实时数据并推送到 ThingsVis。
- * 仅走 WS 通道；连接异常时自动重连。
+ * 仅走 WS 通道；连接异常时统一退避重连（不再各自维护 3s 定时重连）。
  *
  * WS 端点：/api/v1/telemetry/datas/current/ws
  * 协议流程：
@@ -21,12 +22,8 @@
 
 import { type Ref, ref } from 'vue'
 import type { PlatformField } from '@/utils/thingsvis/types'
-import { localStg } from '@/utils/storage'
+import { createRealtimeClient } from '@/service/realtime/realtime-socket'
 import { getWebsocketServerUrl } from '@/utils/common/tool'
-
-/** ping 间隔。服务端心跳窗口较短，需与现有稳定模块保持一致（8s）。 */
-const PING_INTERVAL_MS = 8_000
-const WS_RECONNECT_DELAY_MS = 3000
 
 /**
  * 构建遥测 WebSocket URL
@@ -88,34 +85,9 @@ function extractFields(payload: unknown): Record<string, unknown> {
   return extractObjectFields(payload as Record<string, unknown>)
 }
 
-interface RealtimeSocketControllerOptions {
-  buildUrl: () => string
-  getDestroyed: () => boolean
-  noTokenMessage: string
-  initFailedMessage: string
-  errorMessage: string
-  closeMessage: string
-  onOpen: (socket: WebSocket, token: string) => void
-  onMessage: (event: MessageEvent) => void
-  onClose?: () => void
-  onStop?: () => void
-}
-
-interface RealtimeSocketController {
-  start: () => void
-  stop: () => void
-  clearReconnectTimer: () => void
-}
-
-interface RealtimeSocketRuntime {
-  socket: WebSocket | null
-  pingTimer: ReturnType<typeof setInterval> | null
-  reconnectTimer: ReturnType<typeof setTimeout> | null
-}
-
 interface TelemetryFrameController {
   resetFrameState: () => void
-  handleMessage: (event: MessageEvent) => void
+  handleMessage: (data: unknown) => void
 }
 
 interface TelemetryFrameControllerOptions {
@@ -132,27 +104,12 @@ interface TelemetryFrameState {
 
 interface DeviceStatusFrameController {
   resetFrameState: () => void
-  handleMessage: (event: MessageEvent) => void
+  handleMessage: (data: unknown) => void
 }
 
 interface FrameBatchedPush {
   push: (fields: Record<string, unknown>) => void
   flush: () => void
-}
-
-interface PushSocketOptions {
-  deviceId: Ref<string>
-  getDestroyed: () => boolean
-}
-
-interface TelemetryPushSocketOptions extends PushSocketOptions {
-  fetchLatest: () => Promise<void>
-  frames: TelemetryFrameController
-  usingWebSocket: Ref<boolean>
-}
-
-interface StatusPushSocketOptions extends PushSocketOptions {
-  frames: DeviceStatusFrameController
 }
 
 function parseJsonBusinessFrame(data: unknown): unknown | undefined {
@@ -167,136 +124,6 @@ function parseJsonBusinessFrame(data: unknown): unknown | undefined {
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
-}
-
-function sendDeviceAuth(socket: WebSocket, deviceId: string, token: string) {
-  socket.send(
-    JSON.stringify({
-      device_id: deviceId,
-      token
-    })
-  )
-}
-
-function getAuthToken(): string | undefined {
-  return localStg.get('token') as string | undefined
-}
-
-function createSocketRuntime(): RealtimeSocketRuntime {
-  return {
-    socket: null,
-    pingTimer: null,
-    reconnectTimer: null
-  }
-}
-
-function clearPingTimer(runtime: RealtimeSocketRuntime) {
-  if (runtime.pingTimer) {
-    clearInterval(runtime.pingTimer)
-    runtime.pingTimer = null
-  }
-}
-
-function clearReconnectTimer(runtime: RealtimeSocketRuntime) {
-  if (runtime.reconnectTimer) {
-    clearTimeout(runtime.reconnectTimer)
-    runtime.reconnectTimer = null
-  }
-}
-
-function startPing(runtime: RealtimeSocketRuntime) {
-  runtime.pingTimer = setInterval(() => {
-    if (runtime.socket?.readyState === WebSocket.OPEN) {
-      runtime.socket.send('ping')
-    }
-  }, PING_INTERVAL_MS)
-}
-
-function closeCurrentSocket(runtime: RealtimeSocketRuntime) {
-  if (!runtime.socket) return
-
-  runtime.socket.onclose = null
-  runtime.socket.close()
-  runtime.socket = null
-}
-
-function createSocketOrReconnect(
-  options: RealtimeSocketControllerOptions,
-  scheduleReconnect: () => void
-): WebSocket | null {
-  try {
-    return new WebSocket(options.buildUrl())
-  } catch (err) {
-    console.warn(options.initFailedMessage, err)
-    scheduleReconnect()
-    return null
-  }
-}
-
-function bindRealtimeSocketHandlers(
-  runtime: RealtimeSocketRuntime,
-  options: RealtimeSocketControllerOptions,
-  token: string,
-  scheduleReconnect: () => void
-) {
-  if (!runtime.socket) return
-
-  runtime.socket.onopen = () => {
-    if (!runtime.socket) return
-    clearReconnectTimer(runtime)
-    options.onOpen(runtime.socket, token)
-    startPing(runtime)
-  }
-
-  runtime.socket.onmessage = options.onMessage
-  runtime.socket.onerror = (event) => {
-    console.warn(options.errorMessage, event)
-  }
-  runtime.socket.onclose = (event) => {
-    if (options.getDestroyed()) return
-    options.onClose?.()
-    clearPingTimer(runtime)
-    console.warn(options.closeMessage, { code: event.code, reason: event.reason })
-    scheduleReconnect()
-  }
-}
-
-function createRealtimeSocketController(options: RealtimeSocketControllerOptions): RealtimeSocketController {
-  const runtime = createSocketRuntime()
-
-  const scheduleReconnect = () => {
-    clearReconnectTimer(runtime)
-    runtime.reconnectTimer = setTimeout(() => {
-      if (!options.getDestroyed()) {
-        start()
-      }
-    }, WS_RECONNECT_DELAY_MS)
-  }
-
-  const stop = () => {
-    clearPingTimer(runtime)
-    clearReconnectTimer(runtime)
-    closeCurrentSocket(runtime)
-    options.onStop?.()
-  }
-
-  const start = () => {
-    if (options.getDestroyed()) return
-    stop()
-    clearReconnectTimer(runtime)
-
-    const token = getAuthToken()
-    if (!token) {
-      console.warn(options.noTokenMessage)
-      scheduleReconnect()
-      return
-    }
-
-    runtime.socket = createSocketOrReconnect(options, scheduleReconnect)
-    bindRealtimeSocketHandlers(runtime, options, token, scheduleReconnect)
-  }
-
-  return { start, stop, clearReconnectTimer: () => clearReconnectTimer(runtime) }
 }
 
 function mapToPlatformFieldIds(
@@ -457,9 +284,9 @@ function createTelemetryFrameController(options: TelemetryFrameControllerOptions
   const state = createTelemetryFrameState()
 
   const resetFrameState = () => resetTelemetryFrameState(state)
-  const handleMessage = (event: MessageEvent) => {
+  const handleMessage = (data: unknown) => {
     try {
-      const msg = parseJsonBusinessFrame(event.data)
+      const msg = parseJsonBusinessFrame(data)
       if (msg === undefined) return
 
       handleTelemetryFields(options, state, extractFields(msg))
@@ -493,9 +320,9 @@ function createDeviceStatusFrameController(
     loggedFirstStatusFrame = false
   }
 
-  const handleMessage = (event: MessageEvent) => {
+  const handleMessage = (data: unknown) => {
     try {
-      const isOnline = parseDeviceOnlineStatus(event.data)
+      const isOnline = parseDeviceOnlineStatus(data)
       if (isOnline === undefined) return
 
       if (!loggedFirstStatusFrame) {
@@ -512,61 +339,6 @@ function createDeviceStatusFrameController(
   return { resetFrameState, handleMessage }
 }
 
-function createTelemetryPushSocket({
-  deviceId,
-  fetchLatest,
-  frames,
-  getDestroyed,
-  usingWebSocket
-}: TelemetryPushSocketOptions) {
-  return createRealtimeSocketController({
-    buildUrl: buildTelemetryWsUrl,
-    getDestroyed,
-    noTokenMessage: '[useRealtimePush] No auth token, retrying websocket later',
-    initFailedMessage: '[useRealtimePush] WebSocket init failed, retrying:',
-    errorMessage: '[useRealtimePush] WebSocket error:',
-    closeMessage: '[useRealtimePush] WebSocket closed:',
-    onStop: () => {
-      usingWebSocket.value = false
-    },
-    onClose: () => {
-      usingWebSocket.value = false
-    },
-    onOpen: (socket, token) => {
-      usingWebSocket.value = true
-      frames.resetFrameState()
-      if (import.meta.env.DEV) {
-        console.info('[useRealtimePush] Telemetry WS connected', { deviceId: deviceId.value, url: socket.url })
-      }
-
-      // Send device auth after the socket is connected.
-      sendDeviceAuth(socket, deviceId.value, token)
-      fetchLatest().catch(console.error)
-    },
-    onMessage: frames.handleMessage
-  })
-}
-
-function createStatusPushSocket({ deviceId, frames, getDestroyed }: StatusPushSocketOptions) {
-  return createRealtimeSocketController({
-    buildUrl: buildDeviceStatusWsUrl,
-    getDestroyed,
-    noTokenMessage: '[useRealtimePush] No auth token for status websocket, retrying later',
-    initFailedMessage: '[useRealtimePush] Status WebSocket init failed, retrying:',
-    errorMessage: '[useRealtimePush] Device status WebSocket error:',
-    closeMessage: '[useRealtimePush] Device status WebSocket closed:',
-    onOpen: (socket, token) => {
-      frames.resetFrameState()
-      if (import.meta.env.DEV) {
-        console.info('[useRealtimePush] Device status WS connected', { deviceId: deviceId.value, url: socket.url })
-      }
-
-      sendDeviceAuth(socket, deviceId.value, token)
-    },
-    onMessage: frames.handleMessage
-  })
-}
-
 export function useRealtimePush(
   deviceId: Ref<string>,
   platformFields: Ref<PlatformField[]>,
@@ -575,39 +347,46 @@ export function useRealtimePush(
   /** 建连后拉一帧当前值，避免等待下一条 WS 才更新 */
   fetchLatest: () => Promise<void>
 ) {
-  let destroyed = false
   const usingWebSocket = ref(false)
   const telemetryPush = createFrameBatchedPush(pushData)
   const telemetryFrames = createTelemetryFrameController({ fetchLatest, platformFields, pushData: telemetryPush.push })
   const statusFrames = createDeviceStatusFrameController(pushData)
 
-  const getDestroyed = () => destroyed
-  const telemetrySocket = createTelemetryPushSocket({
-    deviceId,
-    fetchLatest,
-    frames: telemetryFrames,
-    getDestroyed,
-    usingWebSocket
+  const telemetrySocket = createRealtimeClient({
+    logTag: 'useRealtimePush:telemetry',
+    buildUrl: buildTelemetryWsUrl,
+    buildAuthFrame: (token) => JSON.stringify({ device_id: deviceId.value, token }),
+    onOpen: () => {
+      usingWebSocket.value = true
+      telemetryFrames.resetFrameState()
+      // 建连后拉一帧当前值，避免等待下一条 WS 才更新
+      fetchLatest().catch(console.error)
+    },
+    onClose: () => {
+      usingWebSocket.value = false
+    },
+    onMessage: telemetryFrames.handleMessage
   })
-  const statusSocket = createStatusPushSocket({ deviceId, frames: statusFrames, getDestroyed })
 
-  const clearReconnectTimer = () => {
-    telemetrySocket.clearReconnectTimer()
-    statusSocket.clearReconnectTimer()
-  }
+  const statusSocket = createRealtimeClient({
+    logTag: 'useRealtimePush:status',
+    buildUrl: buildDeviceStatusWsUrl,
+    buildAuthFrame: (token) => JSON.stringify({ device_id: deviceId.value, token }),
+    onOpen: () => {
+      statusFrames.resetFrameState()
+    },
+    onMessage: statusFrames.handleMessage
+  })
 
   const start = () => {
-    destroyed = false
-    clearReconnectTimer()
     telemetrySocket.start()
     statusSocket.start()
   }
 
   const stop = () => {
-    destroyed = true
-    clearReconnectTimer()
     telemetrySocket.stop()
     statusSocket.stop()
+    usingWebSocket.value = false
     telemetryPush.flush()
   }
 

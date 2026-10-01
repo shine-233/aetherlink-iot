@@ -12,6 +12,7 @@ package mqttadapter
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,15 +29,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// UplinkMessage Flow 层需要的消息格式（避免导入 flow 包）
-type UplinkMessage struct {
-	Type      string
-	DeviceID  string
-	TenantID  string
-	Timestamp int64
-	Payload   []byte
-	Metadata  map[string]interface{}
-}
+// UplinkMessage 是 uplink.DeviceMessage 的类型别名。
+//
+// 历史上它是字段完全相同的独立结构体，Bus.Publish 只能对它走 JSON
+// Marshal/Unmarshal 兼容转换（Payload 还要 base64 往返），每条上行消息
+// ~6.4µs / 36 次分配。别名后 Bus 直接命中 *DeviceMessage 快路径，零拷贝。
+// 所有生产者（MQTT/CoAP/collector/plugin）的 Metadata 值都是 string，
+// JSON 往返本就不改变它们，因此语义不变。
+type UplinkMessage = uplink.DeviceMessage
 
 // Adapter MQTT 适配器
 // 负责将 MQTT 消息转换为统一的 DeviceMessage 格式
@@ -63,26 +63,57 @@ func mqttUplinkSourceID(tenantID, deviceID, dataType, messageID string) string {
 		return ""
 	}
 
-	material, err := json.Marshal(struct {
-		Version   int    `json:"version"`
-		TenantID  string `json:"tenant_id"`
-		DeviceID  string `json:"device_id"`
-		DataType  string `json:"data_type"`
-		MessageID string `json:"message_id"`
-	}{
-		Version:   1,
-		TenantID:  tenantID,
-		DeviceID:  deviceID,
-		DataType:  dataType,
-		MessageID: messageID,
-	})
-	if err != nil {
-		// This struct contains strings only, so json.Marshal cannot fail. Keep the
-		// empty identity fallback explicit instead of inventing a weaker format.
-		return ""
+	// Fast path: when no field needs JSON escaping, assemble exactly the bytes
+	// json.Marshal would produce on a stack buffer (the hash is a persisted
+	// idempotency key, so the material must stay byte-identical).
+	var buf [256]byte
+	material, ok := appendSourceIDMaterial(buf[:0], tenantID, deviceID, dataType, messageID)
+	if !ok {
+		var err error
+		material, err = json.Marshal(struct {
+			Version   int    `json:"version"`
+			TenantID  string `json:"tenant_id"`
+			DeviceID  string `json:"device_id"`
+			DataType  string `json:"data_type"`
+			MessageID string `json:"message_id"`
+		}{
+			Version:   1,
+			TenantID:  tenantID,
+			DeviceID:  deviceID,
+			DataType:  dataType,
+			MessageID: messageID,
+		})
+		if err != nil {
+			// This struct contains strings only, so json.Marshal cannot fail. Keep the
+			// empty identity fallback explicit instead of inventing a weaker format.
+			return ""
+		}
 	}
 	sum := sha256.Sum256(material)
-	return fmt.Sprintf("%x", sum[:])
+	return hex.EncodeToString(sum[:])
+}
+
+// appendSourceIDMaterial appends the json.Marshal encoding of the version-1
+// source identity struct. ok=false when any field would need escaping.
+func appendSourceIDMaterial(dst []byte, tenantID, deviceID, dataType, messageID string) ([]byte, bool) {
+	for _, field := range [...]string{tenantID, deviceID, dataType, messageID} {
+		for k := 0; k < len(field); k++ {
+			c := field[k]
+			if c < 0x20 || c >= 0x80 || c == '"' || c == '\\' || c == '<' || c == '>' || c == '&' {
+				return nil, false
+			}
+		}
+	}
+	dst = append(dst, `{"version":1,"tenant_id":"`...)
+	dst = append(dst, tenantID...)
+	dst = append(dst, `","device_id":"`...)
+	dst = append(dst, deviceID...)
+	dst = append(dst, `","data_type":"`...)
+	dst = append(dst, dataType...)
+	dst = append(dst, `","message_id":"`...)
+	dst = append(dst, messageID...)
+	dst = append(dst, `"}`...)
+	return dst, true
 }
 
 // NewAdapter 创建 MQTT 适配器
@@ -553,11 +584,13 @@ func (a *Adapter) parseAttributeOrEventTopic(topic string) (string, error) {
 	if topic == TopicPatternOTAProgress {
 		return "", nil
 	}
-	parts := strings.Split(topic, "/")
-	if len(parts) < 3 {
+	// Third "/"-separated segment, without allocating the split slice.
+	_, rest, ok1 := strings.Cut(topic, "/")
+	_, rest, ok2 := strings.Cut(rest, "/")
+	if !ok1 || !ok2 {
 		return "", fmt.Errorf("invalid topic format: %s (expected at least 3 parts)", topic)
 	}
-	messageID := parts[2]
+	messageID, _, _ := strings.Cut(rest, "/")
 	if messageID == "" {
 		return "", fmt.Errorf("message_id is empty in topic: %s", topic)
 	}

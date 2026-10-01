@@ -302,6 +302,12 @@ export class ResponsiveMediaQuery {
   private breakpoints: Record<string, number>
   private callbacks: Map<string, Set<(matches: boolean) => void>> = new Map()
   private mediaQueries: Map<string, MediaQueryList> = new Map()
+  /**
+   * 每个断点注册到 MediaQueryList 上的原始 handler。
+   * destroy() 必须用它把监听摘掉——`mediaQueries.clear()` 只是丢掉本地引用，
+   * MediaQueryList 自己仍持有 handler 闭包（进而持有本实例），是真实的泄漏。
+   */
+  private mediaQueryHandlers: Map<string, (event: MediaQueryListEvent) => void> = new Map()
 
   constructor(breakpoints: Record<string, number>) {
     this.breakpoints = breakpoints
@@ -318,13 +324,12 @@ export class ResponsiveMediaQuery {
       const mediaQuery = window.matchMedia(`(min-width: ${minWidth}px)`)
       this.mediaQueries.set(breakpoint, mediaQuery)
 
-      // 监听变化
-      mediaQuery.addListener((e) => {
-        const callbacks = this.callbacks.get(breakpoint)
-        if (callbacks) {
-          callbacks.forEach((callback) => callback(e.matches))
-        }
-      })
+      // 用具名 handler + addEventListener：addListener 已废弃，且匿名函数无法被移除。
+      const handler = (event: MediaQueryListEvent) => {
+        this.callbacks.get(breakpoint)?.forEach((callback) => callback(event.matches))
+      }
+      this.mediaQueryHandlers.set(breakpoint, handler)
+      mediaQuery.addEventListener('change', handler)
     }
   }
 
@@ -375,10 +380,14 @@ export class ResponsiveMediaQuery {
   }
 
   /**
-   * 销毁监听器
+   * 销毁监听器：先摘掉 MediaQueryList 上的监听，再清空本地状态。
    */
   destroy(): void {
-    this.callbacks.clear()
+    this.mediaQueryHandlers.forEach((handler, breakpoint) => {
+      this.mediaQueries.get(breakpoint)?.removeEventListener('change', handler)
+    })
+    this.mediaQueryHandlers.clear()
     this.mediaQueries.clear()
+    this.callbacks.clear()
   }
 }

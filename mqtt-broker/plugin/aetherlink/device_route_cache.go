@@ -66,7 +66,8 @@ func newDeviceRouteCache(ttl time.Duration, maxEntries int) *deviceRouteCache {
 	return &deviceRouteCache{entries: make(map[string]deviceRouteCacheEntry), ttl: ttl, max: maxEntries}
 }
 
-// deviceRoute 是进程级单例；在 runtimeInit 完成 viper 装配后首次使用时读取配置。
+// deviceRoute 是进程级单例。包初始化时 viper 尚未装配（配置仅得默认值），
+// runtimeInit 读取 aetherlink.yml 后由 applyRuntimeTunables 按真实配置重建。
 var deviceRoute = newDeviceRouteCache(readDeviceRouteCacheTTL(), readDeviceRouteCacheMaxEntries())
 
 // get 返回命中条目的浅拷贝指针；调用方不得据此写回存储。
@@ -117,13 +118,4 @@ func (c *deviceRouteCache) invalidate(id string) {
 	c.mu.Lock()
 	delete(c.entries, id)
 	c.mu.Unlock()
-}
-
-// setDeviceRouteCacheForTest 替换进程级缓存实例（仅测试使用），返回恢复函数。
-// 需要完全旁路缓存的测试可传入空容量实例：set 恒被拒、get 恒未命中，
-// 使"每次查找都触达存储回调"的原有断言语义保持不变。
-func setDeviceRouteCacheForTest(c *deviceRouteCache) (restore func()) {
-	previous := deviceRoute
-	deviceRoute = c
-	return func() { deviceRoute = previous }
 }

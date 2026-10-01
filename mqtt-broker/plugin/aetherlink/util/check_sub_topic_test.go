@@ -40,3 +40,13 @@ func TestValidateSubTopic(t *testing.T) {
 		}
 	}
 }
+
+// ValidateSubTopic 检查主题是否符合 subList 中的任一模式。
+func ValidateSubTopic(topic string) bool {
+	for _, pattern := range subList {
+		if matchesPatternSub(topic, pattern) {
+			return true
+		}
+	}
+	return false
+}

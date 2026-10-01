@@ -72,8 +72,8 @@ func postJSONWithTimeout(ctx context.Context, targetURL string, payload []byte) 
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req)
+	// IM 机器人 Webhook 由租户配置，必须走 SSRF 安全客户端（拨号期拒绝内网/元数据地址、禁止重定向）。
+	resp, err := tenantWebhookHTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}

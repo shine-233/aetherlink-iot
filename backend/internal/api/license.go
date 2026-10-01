@@ -16,11 +16,7 @@ type LicenseApi struct{}
 // @Tags     License
 // @Router   /api/v1/license/status [get]
 func (*LicenseApi) Status(c *gin.Context) {
-	claims := c.MustGet("claims").(*utils.UserClaims)
-	status, err := service.GroupApp.License.GetStatus(claims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", status)
+	HandleNoBody(c, func(claims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.License.GetStatus(claims)
+	})
 }

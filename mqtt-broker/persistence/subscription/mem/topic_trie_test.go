@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/DrmagicE/gmqtt"
+	"github.com/DrmagicE/gmqtt/persistence/subscription"
 	"github.com/DrmagicE/gmqtt/pkg/packets"
 )
 
@@ -311,4 +312,16 @@ func TestTopicTrie_preOrderTraverse(t *testing.T) {
 		return true
 	})
 	a.ElementsMatch(testPreOrderTraverse.topics, rs)
+}
+
+// getMatchedTopicFilter return a map key by clientID that contain all matched topic for the given topicName.
+// 测试辅助：把 matchWalk 的回调结果聚合成 map，供断言使用。
+func (t *topicTrie) getMatchedTopicFilter(topicName string) subscription.ClientSubscriptions {
+	subs := make(subscription.ClientSubscriptions)
+	e := matchEmitter{fn: func(clientID string, sub *gmqtt.Subscription) bool {
+		subs[clientID] = append(subs[clientID], sub)
+		return true
+	}}
+	t.matchWalk(topicName, &e)
+	return subs
 }

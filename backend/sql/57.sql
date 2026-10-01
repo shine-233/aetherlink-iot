@@ -4,6 +4,15 @@
 -- 边界：telemetry_datas 的 UNIQUE(device_id,key,ts) 唯一约束含时间列且无独立 PK，
 --       符合 hypertable 分区要求，可直接转换；alarm_info 原主键为独立 id，
 --       必须先改复合主键 (id, alarm_time) 再转换（TimescaleDB 要求主键含分区列）。
+-- 口径（TB-15，2026-09-25）：本文件的压缩策略 ≠ 保留策略。压缩（下方
+--       add_compression_policy）只是把过期 chunk 段落盘省存储，数据一行不删；
+--       过期数据删除由 retention policy 负责——在 Go 启动路径按 data_policy 的
+--       设备数据 retention_days 装配（initialize/timescale_retention.go 调
+--       add_retention_policy + set_integer_now_func）。两者独立配置，改压缩
+--       不改保留，反之亦然。telemetry_datas 的 ts 为 UnixMilli bigint 整数时间
+--       列，retention 的 drop_after 须以毫秒整数表达（官方文档口径），与下方
+--       压缩策略的 chunk 数口径并存、语义互不适用。未启用 TimescaleDB 时，
+--       过期数据仍由 CleanSystemDataByCron 的分批 DELETE 兜底。
 -- 回滚：见 https://docs.timescale.com 的分区回退方式；一般保留 hypertable 更优。
 
 DO $$

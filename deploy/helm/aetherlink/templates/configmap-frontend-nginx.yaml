@@ -1,0 +1,163 @@
+{{- /* 文件用途：渲染 frontend nginx 配置 ConfigMap——把 compose 镜像内写死的 proxy_pass 目标
+backend:9999 替换为 Release 内后端 Service DNS（K8s 中不存在名为 backend 的服务名）。
+核心逻辑：内容逐行对齐 frontend/nginx.conf（location 集合/监听端口/安全头一致，仅 proxy_pass
+目标随 Release 名替换），由 backend/internal/helmchart 单测做结构漂移比对。
+关键注意事项：nginx 以静态 hostname 启动解析 proxy_pass——后端 Service 必须与本 ConfigMap
+同 Release 同 namespace；修改 frontend/nginx.conf 时必须同步本文件，否则单测漂移比对失败。
+重构建议：若前端镜像改为构建期注入后端地址（ARG），可删除本 ConfigMap 与对应挂载。 */}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-frontend-nginx
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: aetherlink-frontend
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: config
+    {{- range $k, $v := .Values.commonLabels }}
+    {{ $k }}: {{ $v | quote }}
+    {{- end }}
+data:
+  nginx.conf: |
+    user nginx;
+    worker_processes auto;
+    error_log /var/log/nginx/error.log;
+    pid /run/nginx.pid;
+
+    events {
+        worker_connections 1024;
+    }
+
+    http {
+        log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                          '$status $body_bytes_sent "$http_referer" '
+                          '"$http_user_agent" "$http_x_forwarded_for"';
+        access_log  /var/log/nginx/access.log  main;
+        sendfile            on;
+        server_tokens       off;
+        tcp_nopush          on;
+        tcp_nodelay         on;
+        keepalive_timeout   65;
+        types_hash_max_size 2048;
+        client_max_body_size 512M;
+        gzip on;
+        gzip_min_length 1k;
+        gzip_comp_level 4;
+        # Images (png/jpeg/gif) are already compressed; re-gzipping them only burns CPU.
+        gzip_types text/plain text/css text/javascript application/javascript application/x-javascript application/json application/xml image/svg+xml application/wasm;
+        # Serve the build-time precompressed `*.gz` siblings (build/plugins/compress.ts) when present.
+        gzip_static on;
+        gzip_vary on;
+        gzip_disable "MSIE [1-6]\.";
+        include             /etc/nginx/mime.types;
+        default_type        application/octet-stream;
+
+        server {
+            port_in_redirect off;
+            listen       8080;
+            server_name  _;
+
+            add_header X-Content-Type-Options "nosniff" always;
+            add_header X-Frame-Options "SAMEORIGIN" always;
+            add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+            add_header Permissions-Policy "camera=(), microphone=(), payment=(), usb=()" always;
+            add_header Content-Security-Policy "base-uri 'self'; object-src 'none'; frame-ancestors 'self'" always;
+
+            location /api {
+                proxy_pass  http://{{ .Release.Name }}-backend:9999;
+                proxy_http_version 1.1;
+                proxy_set_header Upgrade $http_upgrade;
+                proxy_set_header Connection "upgrade";
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+            }
+
+            location /files {
+                proxy_pass  http://{{ .Release.Name }}-backend:9999;
+                proxy_http_version 1.1;
+                proxy_set_header Upgrade $http_upgrade;
+                proxy_set_header Connection "upgrade";
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+            }
+
+            # ── ThingsVis Studio 前端入口 ──────────────────────────────────────────
+            location /main/ {
+                default_type text/plain;
+                return 503 "ThingsVis Studio is not enabled in the lightweight deployment.\n";
+            }
+
+            location = /main {
+                default_type text/plain;
+                return 503 "ThingsVis Studio is not enabled in the lightweight deployment.\n";
+            }
+
+            location = /main.html {
+                default_type text/plain;
+                return 503 "ThingsVis Studio is not enabled in the lightweight deployment.\n";
+            }
+
+            # ThingsVis API 代理
+            location /thingsvis-api/ {
+                default_type application/json;
+                return 503 '{"code":"THINGSVIS_OPTIONAL_SERVICE_DISABLED","message":"ThingsVis Server is not enabled in the lightweight deployment."}';
+            }
+
+            # ThingsVis widget registry and module federation assets
+            location = /registry.json {
+                default_type application/json;
+                return 503 '{"code":"THINGSVIS_OPTIONAL_SERVICE_DISABLED","message":"ThingsVis registry is not enabled in the lightweight deployment."}';
+            }
+
+            location /widgets/ {
+                default_type application/json;
+                return 503 '{"code":"THINGSVIS_OPTIONAL_SERVICE_DISABLED","message":"ThingsVis widgets are not enabled in the lightweight deployment."}';
+            }
+
+            location = /mf-manifest.json {
+                default_type application/json;
+                return 503 '{"code":"THINGSVIS_OPTIONAL_SERVICE_DISABLED","message":"ThingsVis module federation is not enabled in the lightweight deployment."}';
+            }
+
+            # Vite emits content-hashed files under /assets/, so they can be cached forever.
+            # A location-level add_header drops the server-level ones, hence the repeats.
+            location /assets/ {
+                try_files $uri =404;
+                access_log off;
+                add_header Cache-Control "public, max-age=31536000, immutable" always;
+                add_header X-Content-Type-Options "nosniff" always;
+                add_header X-Frame-Options "SAMEORIGIN" always;
+                add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+                add_header Permissions-Policy "camera=(), microphone=(), payment=(), usb=()" always;
+                add_header Content-Security-Policy "base-uri 'self'; object-src 'none'; frame-ancestors 'self'" always;
+            }
+
+            # index.html references the current hashed bundles; always revalidate it
+            # so a deploy is picked up without users hard-refreshing.
+            location = /index.html {
+                add_header Cache-Control "no-cache" always;
+                add_header X-Content-Type-Options "nosniff" always;
+                add_header X-Frame-Options "SAMEORIGIN" always;
+                add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+                add_header Permissions-Policy "camera=(), microphone=(), payment=(), usb=()" always;
+                add_header Content-Security-Policy "base-uri 'self'; object-src 'none'; frame-ancestors 'self'" always;
+            }
+
+            location / {
+                index       index.html index.htm;
+                try_files $uri $uri/ /index.html;
+            }
+
+            error_page 404 /404.html;
+            location = /40x.html {
+            }
+
+            error_page 500 502 503 504 /50x.html;
+            location = /50x.html {
+            }
+        }
+    }

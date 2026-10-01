@@ -33,13 +33,16 @@
   --radius-pill: 999px;
 }
 
-/* 可达性硬要求（references/frontend-visual-upgrade-plan.md）：用户偏好减少动效时压平所有动画与过渡。 */
+/* 可达性硬要求（references/frontend-visual-upgrade-plan.md）：用户偏好减少动效时压平所有动画与过渡。
+   这是全站唯一的 reduced-motion 权威规则（visual-upgrade.css 中的副本已删除，避免重复声明）。 */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

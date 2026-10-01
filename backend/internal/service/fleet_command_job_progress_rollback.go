@@ -75,7 +75,7 @@ func (c *CommandData) ConsumeFleetCommandJobProgress(ctx context.Context, e Flee
 	token := progressDedupeToken(e)
 	exists, err := dal.HasCommandJobEventMessage(e.JobID, e.TenantID, commandJobEventProgress, token)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return dbError(err)
 	}
 	if exists {
 		// 幂等：重复上报直接接受但不新增记录。
@@ -96,7 +96,7 @@ func (c *CommandData) ConsumeFleetCommandJobProgress(ctx context.Context, e Flee
 		At:       e.At,
 	})
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return dbError(err)
 	}
 
 	switch writeback {

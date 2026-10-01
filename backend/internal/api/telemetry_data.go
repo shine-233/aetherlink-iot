@@ -19,32 +19,25 @@ import (
 
 type TelemetryDataApi struct{}
 
+// setTelemetryQueryData 是遥测查询类 handler 的共享骨架：绑定 -> RequireClaims -> 调 query -> respond 出口。
 func setTelemetryQueryData[T any](c *gin.Context, req *T, query func(*T, *utils.UserClaims) (any, error)) {
 	if !BindAndValidate(c, req) {
 		return
 	}
 
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := query(req, userClaims)
-	if err != nil {
-		c.Error(err)
+	userClaims, ok := RequireClaims(c)
+	if !ok {
 		return
 	}
-
-	c.Set("data", data)
+	data, err := query(req, userClaims)
+	respond(c, data, err)
 }
 
 // HandleCurrentData returns current telemetry for one device.
 func (*TelemetryDataApi) HandleCurrentData(c *gin.Context) {
-	deviceId := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	date, err := service.GroupApp.TelemetryData.GetCurrentTelemetrData(deviceId, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", date)
+	HandlePath(c, "id", func(deviceId string, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.TelemetryData.GetCurrentTelemetrData(deviceId, userClaims)
+	})
 }
 
 // HandleCurrentDataKeys returns available current telemetry keys.
@@ -65,30 +58,16 @@ func (*TelemetryDataApi) ServeHistoryData(c *gin.Context) {
 
 // DeleteData deletes telemetry data matching the validated request.
 func (*TelemetryDataApi) DeleteData(c *gin.Context) {
-	var req model.DeleteTelemetryDataReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.TelemetryData.DeleteTelemetrData(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", nil)
+	HandleAction(c, func(req *model.DeleteTelemetryDataReq, userClaims *utils.UserClaims) error {
+		return service.GroupApp.TelemetryData.DeleteTelemetrData(req, userClaims)
+	})
 }
 
 // ServeCurrentDetailData returns detailed current telemetry for one device.
 func (*TelemetryDataApi) ServeCurrentDetailData(c *gin.Context) {
-	deviceId := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	date, err := service.GroupApp.TelemetryData.GetCurrentTelemetrDetailData(deviceId, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", date)
+	HandlePath(c, "id", func(deviceId string, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.TelemetryData.GetCurrentTelemetrDetailData(deviceId, userClaims)
+	})
 }
 
 // ServeHistoryDataByPage returns paged telemetry history.
@@ -105,14 +84,12 @@ func serveHistoryDataByPage(c *gin.Context) {
 	// Keep the historical time-range guard disabled here; the service layer
 	// owns retention and query-window validation for this endpoint.
 
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.TelemetryData.GetTelemetrHistoryDataByPageV2(&req, userClaims)
-	if err != nil {
-		c.Error(err)
+	userClaims, ok := RequireClaims(c)
+	if !ok {
 		return
 	}
-
-	c.Set("data", data)
+	data, err := service.GroupApp.TelemetryData.GetTelemetrHistoryDataByPageV2(&req, userClaims)
+	respond(c, data, err)
 }
 
 // ServeSetLogsDataListByPage returns paged telemetry set logs.
@@ -133,31 +110,16 @@ func (*TelemetryDataApi) ServeDeadLetterList(c *gin.Context) {
 
 // UpdateDeadLetterStatus marks or replays a telemetry dead-letter row.
 func (*TelemetryDataApi) UpdateDeadLetterStatus(c *gin.Context) {
-	var req model.UpdateTelemetryDeadLetterStatusReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	if err := service.GroupApp.TelemetryData.UpdateTelemetryDeadLetterStatus(c.Param("id"), &req, userClaims); err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandleAction(c, func(req *model.UpdateTelemetryDeadLetterStatusReq, userClaims *utils.UserClaims) error {
+		return service.GroupApp.TelemetryData.UpdateTelemetryDeadLetterStatus(c.Param("id"), req, userClaims)
+	})
 }
 
 // DrainDeadLetters replays a bounded batch of ready telemetry dead-letter rows.
 func (*TelemetryDataApi) DrainDeadLetters(c *gin.Context) {
-	var req model.DrainTelemetryDeadLetterReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.TelemetryData.DrainTelemetryDeadLetters(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.DrainTelemetryDeadLetterReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.TelemetryData.DrainTelemetryDeadLetters(req, userClaims)
+	})
 }
 
 // ServeEchoData echoes simulation telemetry context for diagnostics.
@@ -172,21 +134,11 @@ func (*TelemetryDataApi) DrainDeadLetters(c *gin.Context) {
 // @Failure 400 {object} errcode.Error "Parameter validation error"
 // @Router /api/v1/telemetry/datas/simulation [get]
 func (*TelemetryDataApi) ServeEchoData(c *gin.Context) {
-	var req model.ServeEchoDataReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	// Use Gin's resolved client IP so simulation diagnostics match request context.
-	clientIP := resolveSimulationClientIP(c)
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	date, err := service.GroupApp.TelemetryData.ServeEchoData(&req, clientIP, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", date)
+	Handle(c, func(req *model.ServeEchoDataReq, userClaims *utils.UserClaims) (interface{}, error) {
+		// Use Gin's resolved client IP so simulation diagnostics match request context.
+		clientIP := resolveSimulationClientIP(c)
+		return service.GroupApp.TelemetryData.ServeEchoData(req, clientIP, userClaims)
+	})
 }
 
 func resolveSimulationClientIP(c *gin.Context) string {
@@ -208,17 +160,10 @@ func resolveSimulationClientIP(c *gin.Context) string {
 // @Failure 400 {object} errcode.Error "Parameter validation error"
 // @Router /api/v1/telemetry/datas/simulation [post]
 func (*TelemetryDataApi) SimulationTelemetryData(c *gin.Context) {
-	var req model.SimulationTelemetryDataReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	_, err := service.GroupApp.TelemetryData.TelemetryPub(req.Command, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandleAction(c, func(req *model.SimulationTelemetryDataReq, userClaims *utils.UserClaims) error {
+		_, err := service.GroupApp.TelemetryData.TelemetryPub(req.Command, userClaims)
+		return err
+	})
 }
 
 // GetSimulationInit returns initialization data for telemetry simulation.
@@ -233,17 +178,9 @@ func (*TelemetryDataApi) SimulationTelemetryData(c *gin.Context) {
 // @Failure 400 {object} errcode.Error "Parameter validation error"
 // @Router /api/v1/telemetry/datas/simulation/init [get]
 func (*TelemetryDataApi) GetSimulationInit(c *gin.Context) {
-	var req model.SimulationInitReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.TelemetryData.GetSimulationInit(req.DeviceId, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.SimulationInitReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.TelemetryData.GetSimulationInit(req.DeviceId, userClaims)
+	})
 }
 
 // SimulationSend sends a simulation command for a permitted device.
@@ -258,17 +195,9 @@ func (*TelemetryDataApi) GetSimulationInit(c *gin.Context) {
 // @Failure 400 {object} errcode.Error "Parameter validation error"
 // @Router /api/v1/telemetry/datas/simulation/send [post]
 func (*TelemetryDataApi) SimulationSend(c *gin.Context) {
-	var req model.SimulationSendReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.TelemetryData.SimulationSend(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandleAction(c, func(req *model.SimulationSendReq, userClaims *utils.UserClaims) error {
+		return service.GroupApp.TelemetryData.SimulationSend(req, userClaims)
+	})
 }
 
 // ServeCurrentDataByWS upgrades the request and streams current telemetry.
@@ -371,19 +300,9 @@ func (*TelemetryDataApi) ServeCurrentDataByKey(c *gin.Context) {
 
 // ServeStatisticData returns aggregate telemetry statistics.
 func (*TelemetryDataApi) ServeStatisticData(c *gin.Context) {
-	var req model.GetTelemetryStatisticReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	date, err := service.GroupApp.TelemetryData.GetTelemetrServeStatisticData(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", date)
+	Handle(c, func(req *model.GetTelemetryStatisticReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.TelemetryData.GetTelemetrServeStatisticData(req, userClaims)
+	})
 }
 
 // TelemetryPutMessage accepts a manual telemetry message.
@@ -398,18 +317,9 @@ func (*TelemetryDataApi) ServeStatisticData(c *gin.Context) {
 // @Failure 400 {object} errcode.Error "Parameter validation error"
 // @Router /api/v1/telemetry/datas/pub [post]
 func (*TelemetryDataApi) TelemetryPutMessage(c *gin.Context) {
-	var req model.PutMessage
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.TelemetryData.TelemetryPutMessage(c, userClaims.ID, &req, strconv.Itoa(constant.Manual))
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandleAction(c, func(req *model.PutMessage, userClaims *utils.UserClaims) error {
+		return service.GroupApp.TelemetryData.TelemetryPutMessage(c, userClaims.ID, req, strconv.Itoa(constant.Manual))
+	})
 }
 
 // ServeMsgCountByTenant returns the telemetry message count for a tenant.
@@ -423,18 +333,16 @@ func (*TelemetryDataApi) TelemetryPutMessage(c *gin.Context) {
 // @Failure 400 {object} errcode.Error "Parameter validation error"
 // @Router /api/v1/telemetry/datas/msg/count [get]
 func (*TelemetryDataApi) ServeMsgCountByTenant(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	if userClaims.TenantID == "" {
-		c.Error(errcode.New(201001))
-		return
-	}
-	cnt, err := service.GroupApp.TelemetryData.ServeMsgCountByTenantId(userClaims.TenantID)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", map[string]interface{}{"msg": cnt})
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		if userClaims.TenantID == "" {
+			return nil, errcode.New(201001)
+		}
+		cnt, err := service.GroupApp.TelemetryData.ServeMsgCountByTenantId(userClaims.TenantID)
+		if err != nil {
+			return nil, err
+		}
+		return map[string]interface{}{"msg": cnt}, nil
+	})
 }
 
 // ServeStatisticDataByDeviceId returns batch telemetry statistics for devices.
@@ -453,17 +361,7 @@ func (*TelemetryDataApi) ServeMsgCountByTenant(c *gin.Context) {
 // @Failure 400 {object} errcode.Error "Parameter validation error"
 // @Router /api/v1/telemetry/datas/statistic/batch [get]
 func (*TelemetryDataApi) ServeStatisticDataByDeviceId(c *gin.Context) {
-	var req model.GetTelemetryStatisticByDeviceIdReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.TelemetryData.GetTelemetryStatisticDataByDeviceIds(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	Handle(c, func(req *model.GetTelemetryStatisticByDeviceIdReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.TelemetryData.GetTelemetryStatisticDataByDeviceIds(req, userClaims)
+	})
 }

@@ -15,6 +15,14 @@ func WithConfig(config *viper.Viper) Option {
 		for _, key := range config.AllKeys() {
 			viper.Set(key, config.Get(key))
 		}
+		// 全局 viper 是 pkg/secrets、service/device_template_market_integrity 等包的
+		// 配置源，但它自身没有环境变量解析能力，而 AllKeys() 只覆盖「配置文件里出现过
+		// 的叶子键」。secrets.master_keys.<id> / market.bundle_signing_keys.<id> 在
+		// conf.yml 里是空 map（没有任何叶子键），值只能来自环境变量——少了这一句，
+		// 它们永远搬不进全局 viper，主密钥与包签名密钥恒为空，写入一律 fail closed
+		// （POST /api/v1/secrets 返回 100000，导出资源包返回 100002）。
+		// 复用同一套环境变量规则，保证局部 viper 与全局 viper 的取值口径一致。
+		configureEnvironment(viper.GetViper())
 		return nil
 	}
 }
@@ -31,20 +39,6 @@ func WithEnvironment(env string) Option {
 
 func WithProductionConfig() Option {
 	return WithEnvironment("prod")
-}
-
-func WithDevelopmentConfig() Option {
-	return WithEnvironment("dev")
-}
-
-func WithTestConfig() Option {
-	return WithEnvironment("test")
-}
-
-func WithRsaDecrypt(keyPath string) Option {
-	return func(app *Application) error {
-		return initialize.RsaDecryptInit(keyPath)
-	}
 }
 
 // WithOptionalRsaDecrypt enables frontend RSA password decryption only when a

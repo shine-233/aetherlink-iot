@@ -199,8 +199,11 @@ const updateJobHistoryAttentionFilter = (value: string | null) => {
         :loading="jobHistoryLoading"
         :columns="jobHistoryColumns"
         :data="jobHistory.list"
+        :row-key="(row) => row.job_id"
         :pagination="false"
         :bordered="false"
+        virtual-scroll
+        :max-height="480"
       >
         <template #empty>
           <NEmpty :description="$t('common.noData')" class="py-24px" />

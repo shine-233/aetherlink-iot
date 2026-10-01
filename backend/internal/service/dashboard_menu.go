@@ -6,14 +6,13 @@ package service
 
 import (
 	"strings"
-	"time"
 
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/internal/service/kit"
 	"aetherlink-iot/backend/pkg/errcode"
 	utils "aetherlink-iot/backend/pkg/utils"
 
-	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -29,33 +28,42 @@ type dashboardMenuTarget struct {
 	DashboardName *string
 }
 
+// dashboardMenuScope 菜单仅对租户用户开放：nil claims 与空白租户分别报无权限。
+var dashboardMenuScope = kit.TenantScope{
+	NilMsg:   "no permission to manage dashboard menu",
+	BlankMsg: "tenant dashboard menu is only available for tenant users",
+}
+
+// dashboardIDRequired 每次新建错误值（*errcode.Error 可被调用方修改，不共享单例）。
+func dashboardIDRequired() error {
+	return errcode.NewWithMessage(errcode.CodeParamError, "dashboard_id is required")
+}
+
 func validateDashboardMenuAccess(claims *utils.UserClaims, dashboardID string) (string, string, error) {
-	if claims == nil {
-		return "", "", errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to manage dashboard menu")
+	tenantID, err := dashboardMenuScope.Tenant(claims)
+	if err != nil {
+		return "", "", err
 	}
-
-	normalizedTenantID := strings.TrimSpace(claims.TenantID)
 	normalizedDashboardID := strings.TrimSpace(dashboardID)
-
-	if normalizedTenantID == "" {
-		return "", "", errcode.NewWithMessage(errcode.CodeNoPermission, "tenant dashboard menu is only available for tenant users")
-	}
-
 	if normalizedDashboardID == "" {
-		return "", "", errcode.NewWithMessage(errcode.CodeParamError, "dashboard_id is required")
+		return "", "", dashboardIDRequired()
 	}
+	return tenantID, normalizedDashboardID, nil
+}
 
-	return normalizedTenantID, normalizedDashboardID, nil
+// dashboardTargetDBErr 看板查询失败：在 operation/error 之外额外携带 dashboard_id（契约键）。
+func dashboardTargetDBErr(op, dashboardID string, err error) error {
+	return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
+		"operation":    op,
+		"dashboard_id": dashboardID,
+		"error":        err.Error(),
+	})
 }
 
 func ensureTenantDashboardTarget(tenantID string, dashboardID string) (*dashboardMenuTarget, error) {
 	dashboard, err := dal.GetVisDashboardByID(dashboardID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"operation":    "get_vis_dashboard_before_menu",
-			"dashboard_id": dashboardID,
-			"error":        err.Error(),
-		})
+		return nil, dashboardTargetDBErr("get_vis_dashboard_before_menu", dashboardID, err)
 	}
 	if dashboard != nil {
 		if dashboard.TenantID == nil || strings.TrimSpace(*dashboard.TenantID) != tenantID {
@@ -66,11 +74,7 @@ func ensureTenantDashboardTarget(tenantID string, dashboardID string) (*dashboar
 
 	nativeBoard, err := dal.GetNativeBoardByID(dashboardID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"operation":    "get_native_board_before_menu",
-			"dashboard_id": dashboardID,
-			"error":        err.Error(),
-		})
+		return nil, dashboardTargetDBErr("get_native_board_before_menu", dashboardID, err)
 	}
 	if nativeBoard == nil || strings.TrimSpace(nativeBoard.TenantID) != tenantID {
 		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "dashboard not found or no permission")
@@ -87,10 +91,7 @@ func (*DashboardMenu) GetTenantDashboardMenu(claims *utils.UserClaims, dashboard
 
 	menu, err := dal.GetTenantDashboardMenu(tenantID, normalizedDashboardID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"operation": "get_dashboard_menu",
-			"error":     err.Error(),
-		})
+		return nil, kit.DBErrOp("get_dashboard_menu", err)
 	}
 
 	if menu == nil {
@@ -108,10 +109,7 @@ func (*DashboardMenu) GetTenantDashboardMenus(claims *utils.UserClaims, dashboar
 
 	menus, err := dal.ListTenantDashboardMenusByDashboardIDs(tenantID, normalizedDashboardIDs)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"operation": "batch_get_dashboard_menu",
-			"error":     err.Error(),
-		})
+		return nil, kit.DBErrOp("batch_get_dashboard_menu", err)
 	}
 
 	result := make(map[string]*model.TenantDashboardMenuRsp, len(normalizedDashboardIDs))
@@ -126,12 +124,9 @@ func (*DashboardMenu) GetTenantDashboardMenus(claims *utils.UserClaims, dashboar
 }
 
 func validateDashboardMenuBatchAccess(claims *utils.UserClaims, dashboardIDs []string) (string, []string, error) {
-	if claims == nil {
-		return "", nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to manage dashboard menu")
-	}
-	tenantID := strings.TrimSpace(claims.TenantID)
-	if tenantID == "" {
-		return "", nil, errcode.NewWithMessage(errcode.CodeNoPermission, "tenant dashboard menu is only available for tenant users")
+	tenantID, err := dashboardMenuScope.Tenant(claims)
+	if err != nil {
+		return "", nil, err
 	}
 	if len(dashboardIDs) == 0 {
 		return "", nil, errcode.NewWithMessage(errcode.CodeParamError, "dashboard_ids are required")
@@ -142,7 +137,7 @@ func validateDashboardMenuBatchAccess(claims *utils.UserClaims, dashboardIDs []s
 	for _, rawID := range dashboardIDs {
 		dashboardID := strings.TrimSpace(rawID)
 		if dashboardID == "" {
-			return "", nil, errcode.NewWithMessage(errcode.CodeParamError, "dashboard_id is required")
+			return "", nil, dashboardIDRequired()
 		}
 		if _, ok := seen[dashboardID]; ok {
 			continue
@@ -185,15 +180,12 @@ func (*DashboardMenu) UpsertTenantDashboardMenu(claims *utils.UserClaims, dashbo
 
 	existing, err := dal.GetTenantDashboardMenu(tenantID, normalizedDashboardID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"operation": "get_dashboard_menu_before_upsert",
-			"error":     err.Error(),
-		})
+		return nil, kit.DBErrOp("get_dashboard_menu_before_upsert", err)
 	}
 
-	now := time.Now().UTC()
+	now := kit.NowUTC()
 	menu := model.TenantDashboardMenu{
-		ID:            uuid.New(),
+		ID:            kit.NewID(),
 		TenantID:      tenantID,
 		DashboardID:   normalizedDashboardID,
 		DashboardName: dashboardName,
@@ -213,10 +205,7 @@ func (*DashboardMenu) UpsertTenantDashboardMenu(claims *utils.UserClaims, dashbo
 	err = dal.UpsertTenantDashboardMenu(&menu)
 	if err != nil {
 		logrus.Error(err)
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"operation": "upsert_dashboard_menu",
-			"error":     err.Error(),
-		})
+		return nil, kit.DBErrOp("upsert_dashboard_menu", err)
 	}
 
 	return menu.ToRsp(), nil
@@ -230,10 +219,7 @@ func (*DashboardMenu) DeleteTenantDashboardMenu(claims *utils.UserClaims, dashbo
 
 	err = dal.DeleteTenantDashboardMenu(tenantID, normalizedDashboardID)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"operation": "delete_dashboard_menu",
-			"error":     err.Error(),
-		})
+		return kit.DBErrOp("delete_dashboard_menu", err)
 	}
 	return nil
 }

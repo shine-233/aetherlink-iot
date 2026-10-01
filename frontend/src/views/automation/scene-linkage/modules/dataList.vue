@@ -1,24 +1,27 @@
 <!--
-文件用途: 承载DataList相关的自动化页面或业务组件。
-核心逻辑: 组织页面状态、接口调用、表单/列表交互和子组件协作，向用户呈现可操作的业务流程。
+文件用途: 承载场景联动卡片列表（普通场景 / 设备级告警规则双形态）。
+核心逻辑: 分页拉取场景列表（isAlarm 时走设备告警列表接口），卡片展示名称/描述/启停开关，
+  编辑/删除/日志入口；列表状态（分页、加载、过期请求）收口在 useListPage，
+  执行日志弹窗拆到 scene-log-modal.vue 独立维护。
 关键注意事项: 修改时要同步核对路由参数、接口载荷、权限状态和用户可见提示，避免只改前端状态。
-重构建议: 可逐步把查询、提交和弹窗状态拆成组合函数，让组件更专注于布局与事件编排。
 -->
 <script lang="tsx" setup>
-import { computed, getCurrentInstance, ref } from 'vue'
-import { NButton, NCard, NFlex, NGrid, NGridItem, NPagination, useDialog } from 'naive-ui'
+import { computed, ref } from 'vue'
+import { NButton, NCard, NFlex, NGrid, NGridItem, NPagination } from 'naive-ui'
 import { PencilOutline as editIcon, TrashOutline as trashIcon, DocumentTextOutline } from '@vicons/ionicons5'
-import dayjs from 'dayjs'
 import { useRouterPush } from '@/hooks/common/router'
 import ItemCard from '@/components/dev-card-item/index.vue'
 import {
   sceneAutomationsDel,
   sceneAutomationsGet,
-  sceneAutomationsLog,
   sceneAutomationsSwitch
 } from '@/service/api/automation'
 import { $t } from '@/locales'
 import { deviceAlarmList } from '@/service/api'
+import { fromFlatResponse, useListPage } from '@/components/data-table-page/useListPage'
+import SceneLogModal from './scene-log-modal.vue'
+import { useDialog } from 'naive-ui'
+
 const dialog = useDialog()
 const { routerPushByKey } = useRouterPush()
 
@@ -49,8 +52,6 @@ const props = withDefaults(defineProps<Props>(), {
   telemetryValue: '',
   telemetryAt: ''
 })
-
-const sceneLinkageList = ref([] as any)
 
 // 新建场景
 const isDeviceAutomationStarter = computed(
@@ -105,92 +106,39 @@ const linkActivation = async (item: any) => {
   }
 }
 
-const queryData = ref({
-  name: '',
-  page: 1,
-  page_size: 12,
-  device_id: '',
-  device_config_id: ''
+// 列表查询主入口：分页、加载态与过期请求丢弃交给 useListPage。
+// 卡片开关通过 v-model 原地改写 item.enabled，因此使用深响应行。
+const {
+  query: queryData,
+  rows: sceneLinkageList,
+  total: dataTotal,
+  pagination,
+  load: getData,
+  search: handleQuery,
+  setPage
+} = useListPage<any, { name: string; device_id: string; device_config_id: string }>({
+  initialQuery: () => ({
+    name: '',
+    device_id: props.deviceId,
+    device_config_id: props.deviceConfigId
+  }),
+  initialPageSize: 12,
+  deepRows: true,
+  fetcher: async (params) => {
+    const response = props.isAlarm ? await deviceAlarmList(params) : await sceneAutomationsGet(params)
+    return fromFlatResponse<Record<string, any>>(response)
+  }
 })
-const dataTotal = ref(0)
-
-const getData = async () => {
-  queryData.value.device_id = props.deviceId
-  queryData.value.device_config_id = props.deviceConfigId
-  let res: any = null
-  if (props.isAlarm) {
-    res = await deviceAlarmList(queryData.value)
-  } else {
-    res = await sceneAutomationsGet(queryData.value)
-  }
-  if (!res || res.error || !res.data) {
-    sceneLinkageList.value = []
-    dataTotal.value = 0
-    return
-  }
-  if (res && !res.error) {
-    sceneLinkageList.value = res.data.list || []
-    dataTotal.value = res.data.total || 0
-  }
-}
-const handleQuery = async () => {
-  queryData.value.page = 1
-  await getData()
-}
-const bodyStyle = ref({
-  width: '1000px'
-})
-const execution_result_options = ref([
-  {
-    label: $t('custom.device_details.whole'),
-    value: ''
-  },
-  {
-    label: $t('generate.execution-successful'),
-    value: 'S'
-  },
-  {
-    label: $t('generate.execution-failed'),
-    value: 'F'
-  }
-])
-const showLog = ref(false)
-const logQuery = ref({
-  page: 1,
-  page_size: 10,
-  scene_automation_id: '',
-  execution_result: '',
-  execution_start_time: '',
-  execution_end_time: '',
-  queryTime: ref<[number, number]>([dayjs().subtract(7, 'day').valueOf(), dayjs().valueOf()])
-})
-const logDataTotal = ref(0)
-const logData = ref([])
-const queryLog = () => {
-  logQuery.value.page = 1
-  getLogList()
-}
-const getLogList = async () => {
-  if (logQuery.value.queryTime) {
-    logQuery.value.execution_start_time = dayjs(logQuery.value.queryTime[0]).format()
-    logQuery.value.execution_end_time = dayjs(logQuery.value.queryTime[1]).format()
-  }
-  const res = await sceneAutomationsLog(logQuery.value)
-  if (res.error || !res.data) {
-    logData.value = []
-    logDataTotal.value = 0
-    return
-  }
-  logData.value = res.data.list || []
-  logDataTotal.value = res.data.total || 0
-}
 
 // 查看日志
+const showLog = ref(false)
+const logTargetId = ref('')
+
 const openLog = (item: any) => {
-  logQuery.value.scene_automation_id = item.id
-  getLogList()
+  logTargetId.value = item.id
   showLog.value = true
 }
+
 // 删除场景
 const deleteLink = async (item: any) => {
   dialog.warning({
@@ -206,24 +154,8 @@ const deleteLink = async (item: any) => {
     }
   })
 }
-const closeLog = () => {
-  logQuery.value = {
-    page: 1,
-    page_size: 10,
-    scene_automation_id: '',
-    execution_result: '',
-    execution_start_time: '',
-    execution_end_time: '',
-    queryTime: [dayjs().subtract(7, 'day').valueOf(), dayjs().valueOf()]
-  }
-  showLog.value = false
-}
 
-const getPlatform = computed(() => {
-  const proxy = getCurrentInstance()?.proxy as any
-  return proxy?.getPlatform?.() || false
-})
-getData()
+void getData()
 </script>
 
 <template>
@@ -282,7 +214,7 @@ getData()
             <div class="flex items-center gap-2 w-full justify-between">
               <NTooltip trigger="hover">
                 <template #trigger>
-                  <NButton size="small" quaternary circle @click="linkEdit(item)">
+                  <NButton size="small" quaternary circle :aria-label="$t('common.edit')" @click="linkEdit(item)">
                     <template #icon>
                       <n-icon color="#888">
                         <editIcon />
@@ -294,7 +226,7 @@ getData()
               </NTooltip>
               <NTooltip trigger="hover">
                 <template #trigger>
-                  <NButton size="small" quaternary circle @click="openLog(item)">
+                  <NButton size="small" quaternary circle :aria-label="$t('generate.log')" @click="openLog(item)">
                     <template #icon>
                       <n-icon color="#888">
                         <DocumentTextOutline />
@@ -306,7 +238,7 @@ getData()
               </NTooltip>
               <NTooltip trigger="hover">
                 <template #trigger>
-                  <NButton size="small" quaternary circle @click="deleteLink(item)">
+                  <NButton size="small" quaternary circle :aria-label="$t('common.delete')" @click="deleteLink(item)">
                     <template #icon>
                       <n-icon color="#888">
                         <trashIcon />
@@ -319,192 +251,23 @@ getData()
             </div>
           </template>
         </ItemCard>
-        <!-- <NCard hoverable style="height: 180px" content-style="padding: 0px;margin: 0px;">
-          <NFlex justify="space-between" align="center" class="mb-4" :wrap="false">
-            <div class="mr-2 flex-1 overflow-hidden text-16px font-600">
-              <n-ellipsis>
-                {{ item.name }}
-              </n-ellipsis>
-            </div>
-            <n-switch
-              v-model:value="item.enabled"
-              checked-value="Y"
-              unchecked-value="N"
-              @update-value="() => linkActivation(item)"
-            />
-          </NFlex>
-          <n-ellipsis :line-clamp="2" class="h-40px">
-            {{ item.description }}
-          </n-ellipsis>
-          <NFlex justify="flex-end" class="mt-4" style="display: flex; position: absolute; bottom: 15px; right: 20px">
-            <NTooltip trigger="hover">
-              <template #trigger>
-                <NButton tertiary circle type="warning" @click="linkEdit(item)">
-                  <template #icon>
-                    <n-icon>
-                      <editIcon />
-                    </n-icon>
-                  </template>
-                </NButton>
-              </template>
-              {{ $t('common.edit') }}
-            </NTooltip>
-            <NTooltip trigger="hover">
-              <template #trigger>
-                <NButton circle tertiary type="info" @click="openLog(item)">
-                  <template #icon>
-                    <n-icon>
-                      <DocumentTextOutline />
-                    </n-icon>
-                  </template>
-                </NButton>
-              </template>
-              {{ $t('generate.log') }}
-            </NTooltip>
-            <NTooltip trigger="hover">
-              <template #trigger>
-                <NButton circle tertiary type="error" @click="deleteLink(item)">
-                  <template #icon>
-                    <n-icon>
-                      <trashIcon />
-                    </n-icon>
-                  </template>
-                </NButton>
-              </template>
-              {{ $t('common.delete') }}
-            </NTooltip>
-          </NFlex>
-        </NCard> -->
       </NGridItem>
     </NGrid>
     <NFlex justify="flex-end" class="mt-4">
       <NPagination
-        v-model:page="queryData.page"
-        :page-size="queryData.page_size"
+        :page="pagination.page"
+        :page-size="pagination.pageSize"
         :item-count="dataTotal"
-        @update:page="getData"
+        @update:page="setPage"
       />
     </NFlex>
   </NCard>
-  <n-modal
-    v-model:show="showLog"
-    aria-label="dialog"
-    :style="bodyStyle"
-    preset="card"
-    :title="$t('generate.log')"
-    size="huge"
-    :bordered="false"
-    :class="getPlatform ? 'max-w-90%' : 'w-600px'"
-    @close="closeLog()"
-  >
-    <NFlex class="mb-6">
-      <n-date-picker v-model:value="logQuery.queryTime" type="datetimerange" @update:value="queryLog" />
-      <n-select
-        v-model:value="logQuery.execution_result"
-        :options="execution_result_options"
-        class="max-w-40"
-        :placeholder="$t('generate.select-execution-status')"
-        @update:value="queryLog"
-      ></n-select>
-      <NButton type="primary" @click="queryLog()">{{ $t('common.search') }}</NButton>
-    </NFlex>
-    <n-empty
-      v-if="logDataTotal === 0"
-      size="huge"
-      :description="$t('common.noData')"
-      class="min-h-60 justify-center"
-    ></n-empty>
-    <template v-else>
-      <NTable size="small" :bordered="false" :single-line="false" class="mb-6">
-        <thead>
-          <tr>
-            <th>{{ $t('generate.order-number') }}</th>
-            <th class="min-w-180px">{{ $t('generate.execution-time') }}</th>
-            <th>{{ $t('generate.execution-description') }}</th>
-            <th class="min-w-120px">{{ $t('generate.execution-status') }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(sceneItem, index) in logData" :key="index">
-            <td class="min-w-100px">{{ index + 1 }}</td>
-            <td>{{ dayjs(sceneItem['executed_at']).format('YYYY-MM-DD HH:mm:ss') }}</td>
-            <td>{{ sceneItem['detail'] }}</td>
-            <td>
-              <span v-if="sceneItem['execution_result'] === 'S'">{{ $t('generate.execution-successful') }}</span>
-              <span v-if="sceneItem['execution_result'] === 'F'">{{ $t('generate.execution-failed') }}</span>
-            </td>
-          </tr>
-        </tbody>
-      </NTable>
-      <NFlex justify="end">
-        <NPagination
-          v-model:page="logQuery.page"
-          :page-size="logQuery.page_size"
-          :item-count="logDataTotal"
-          @update:page="getLogList"
-        />
-      </NFlex>
-    </template>
-  </n-modal>
+  <SceneLogModal v-model:show="showLog" :scene-automation-id="logTargetId" />
 </template>
 
 <style scoped lang="scss">
-.config-content {
-  display: flex;
-  flex-flow: row;
-  justify-content: flex-start;
-  align-items: center;
-  flex-wrap: wrap;
-  padding: 10px 0;
-
-  .scene-item {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    padding: 18px;
-    flex: 0 0 26%;
-    margin-right: calc(20% / 2);
-    margin-bottom: 30px;
-
-    .item-name {
-      display: flex;
-      flex-flow: row;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .item-desc {
-      margin: 15px 0;
-    }
-
-    .item-operate {
-      display: flex;
-      flex-flow: row;
-      justify-content: space-between;
-      align-items: center;
-    }
-  }
-
-  .scene-item:hover {
-    cursor: pointer;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  }
-
-  /* 去除每行尾多余的边距 */
-  .scene-item:nth-child(3n) {
-    margin-right: 0;
-  }
-}
-
-.pagination-box {
-  display: flex;
-  justify-content: flex-end;
-}
-
 .search-input {
   width: 200px;
-}
-
-.log-card {
-  width: 600px;
 }
 
 .automation-empty {

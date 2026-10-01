@@ -5,6 +5,13 @@ package api
 
 import "testing"
 
+// current 读取某 IP 的当前占用数，仅供测试观测闸门内部计数。
+func (g *wsIPGate) current(ip string) int {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.counts[ip]
+}
+
 func TestWSIPGateAcquireReleaseCycle(t *testing.T) {
 	gate := newWSIPGate(2)
 

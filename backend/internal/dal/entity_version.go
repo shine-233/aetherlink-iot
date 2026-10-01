@@ -11,8 +11,6 @@ import (
 
 	"aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/pkg/global"
-
-	"gorm.io/gorm"
 )
 
 // maxEntityVersionListLimit 版本列表单次返回的行数上限，防止无界查询。
@@ -79,18 +77,4 @@ func GetMaxEntityVersionNumber(tenantID, entityType, entityID string) (int, erro
 		return 0, nil
 	}
 	return *maxNumber, nil
-}
-
-// DeleteEntityVersionForScope 按 id + 租户删除版本；未命中返回 gorm.ErrRecordNotFound。
-func DeleteEntityVersionForScope(id, tenantID string) error {
-	result := global.DB.WithContext(context.Background()).
-		Where("id = ? AND tenant_id = ?", id, tenantID).
-		Delete(&model.EntityVersion{})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
-	}
-	return nil
 }

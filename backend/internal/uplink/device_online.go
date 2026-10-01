@@ -72,7 +72,7 @@ func broadcastDeviceOnline(logger *logrus.Logger, device *model.Device) {
 }
 
 func triggerOnlineAutomation(logger *logrus.Logger, device *model.Device) {
-	err := service.GroupApp.Execute(device, service.AutomateFromExt{
+	err := service.GroupApp.Dispatch(device, service.AutomateFromExt{
 		TriggerParamType: model.TRIGGER_PARAM_TYPE_STATUS,
 		TriggerParam:     []string{},
 		TriggerValues: map[string]interface{}{
@@ -80,7 +80,7 @@ func triggerOnlineAutomation(logger *logrus.Logger, device *model.Device) {
 		},
 	})
 	if err != nil {
-		logger.WithError(err).WithField("device_id", device.ID).Warn("Automation execution failed")
+		logger.WithError(err).WithField("device_id", device.ID).Warn("Automation dispatch failed")
 	}
 }
 

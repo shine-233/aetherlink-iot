@@ -6,6 +6,7 @@ import {
   buildTimeConditionOptions,
   buildWeekOptions,
   createScheduleConditionFields,
+  findExpirationTimeLabel,
   resetRepeatScheduleFields
 } from '../premise-schedule-condition-state'
 
@@ -87,5 +88,14 @@ describe('premise schedule condition state', () => {
       startTimeValue: '08:00',
       endTimeValue: '18:00'
     })
+  })
+
+  it('resolves the expiration label from the selected value, not always the first option', () => {
+    const options = buildExpirationTimeOptions(t)
+
+    expect(findExpirationTimeLabel(options, 30)).toBe('common.minutes30')
+    expect(findExpirationTimeLabel(options, 1440)).toBe('common.days1')
+    expect(findExpirationTimeLabel(options, null)).toBe('')
+    expect(findExpirationTimeLabel(options, 999)).toBe('')
   })
 })

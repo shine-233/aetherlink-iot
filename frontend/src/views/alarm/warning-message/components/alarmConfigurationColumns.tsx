@@ -31,6 +31,10 @@ export interface AlarmConfigurationRow {
   result: string
   handler: string
   remark?: string | Record<string, unknown>
+  // SLA 计时字段（TB-27，126.sql）：sla_due_at 为到期时间（未启用 SLA 时为空），
+  // sla_breached 为 cron 超时升级标记。
+  sla_due_at?: string | null
+  sla_breached?: boolean
 }
 
 export type AlarmConfigurationColumnHandlers = {
@@ -90,6 +94,31 @@ export function createAlarmConfigurationColumns(
         tooltip: true
       },
       render: row => alarmTypeLabel(row, $t)
+    },
+    // SLA 到期/超时列（TB-27，126.sql）：已 breach 显示红色"SLA 超时"标记；
+    // 已配置但未到期显示到期时间；未启用 SLA 显示 "-"。
+    {
+      key: 'sla_due_at',
+      title: $t('custom.alarmPage.slaDueAtColumn'),
+      align: 'left',
+      minWidth: '160px',
+      render(row: AlarmConfigurationRow) {
+        if (row.sla_breached) {
+          return (
+            <NTag type="error" size="small" data-testid="alarm-sla-breached">
+              {$t('custom.alarmPage.slaBreachedTag')}
+            </NTag>
+          )
+        }
+        if (row.sla_due_at) {
+          return (
+            <span class="alarm-sla-due-at" data-testid="alarm-sla-due-at">
+              {dayjs(row.sla_due_at as any).format('YYYY-MM-DD HH:mm')}
+            </span>
+          )
+        }
+        return '-'
+      }
     },
     {
       key: 'content',

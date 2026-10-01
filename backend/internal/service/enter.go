@@ -81,14 +81,24 @@ type ServiceGroup struct {
 	ScadaControl *ScadaControlService // P1.3 实时控制
 	// Mobile 为 nil 表示未接线（缺设备/影子/告警等依赖）。
 	// 能力矩阵会如实报告各项为 false，未接线的能力调用即失败。
-	Mobile *MobileService // P1.4 移动端
-	ResourceCenter ResourceCenter // TP-5 资源中心（物模型与大屏统一市场）
-	Secret         SecretService  // TB-18 通用 Secrets Storage
-	Product        Product        // TB-15 产品 CRUD 及实体名称冲突解决策略
-	DeviceClaim    DeviceClaim    // TB-12 设备认领与自动注册
+	Mobile           *MobileService          // P1.4 移动端
+	ResourceCenter   ResourceCenter          // TP-5 资源中心（物模型与大屏统一市场）
+	Secret           SecretService           // TB-18 通用 Secrets Storage
+	Product          Product                 // TB-15 产品 CRUD 及实体名称冲突解决策略
+	DeviceClaim      DeviceClaim             // TB-12 设备认领与自动注册
 	IndustrySolution IndustrySolutionService // TB-19 解决方案模板引擎
-	Tenant         TenantService  // P3 租户管理与自助开通服务
-	Billing        BillingService // P3 商业化计费与套餐用量计量服务
+	Tenant           TenantService           // P3 租户管理与自助开通服务
+	Billing          BillingService          // P3 商业化计费与套餐用量计量服务
+	DataConverter    DataConverterService    // ThingsBoard 核心数据转换器
+	Integration      IntegrationService      // TB-45 统一集成实体（Integration 纳管管线）
+	UserGroup        UserGroup               // TB-46 用户组与组权限（GPE v1）
+	DeviceHealth     DeviceHealthService     // TP-6 / TB PE 设备综合健康度评估服务
+	Customer         CustomerService         // ThingsBoard 核心客户管理体系
+	WidgetBundle     WidgetBundleService     // TB-04 部件库（widget_bundles）
+	MediaLibrary     MediaLibraryService     // TB-41 文件存储与媒体库（media_files）
+	MobileAppBundle  MobileAppBundleService  // TB-23 移动应用中心（mobile_app_bundles）
+	Whitelabel       WhitelabelService       // TB-47 白标：租户翻译覆盖 + 自定义 CSS（134.sql）
+	Scheduler        SchedulerService        // TB-48 统一调度器（scheduler_events + 三源聚合）
 }
 
 // GroupApp 是全局业务服务入口，供 API 层和中间件层调用

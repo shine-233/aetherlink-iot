@@ -45,7 +45,7 @@ func (ReportScheduleService) CreateReportSchedule(ctx context.Context, req *mode
 	}
 	format := req.Format
 	if format == "" {
-		format = "csv"
+		format = model.ReportFormatCSV
 	}
 	recipients, err := normalizeReportRecipients(req.Recipients)
 	if err != nil {

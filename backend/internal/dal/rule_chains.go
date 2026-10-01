@@ -85,9 +85,7 @@ func ListRuleChainsByTenant(scopes []string, keyword string, page, pageSize int)
 		// tenant-scope: ListRuleChainsByTenant 按 tenant_id IN ? 过滤（自上而下作用域 self∪子孙）
 		query = global.DB.Model(&model.RuleChain{}).Where("tenant_id IN ?", scopes)
 	}
-	if kw := strings.TrimSpace(keyword); kw != "" {
-		query = query.Where("name LIKE ?", fmt.Sprintf("%%%s%%", kw))
-	}
+	query = whereKeywordContains(query, opLike, keyword, "name")
 	var count int64
 	if err := query.Count(&count).Error; err != nil {
 		return 0, nil, err
@@ -109,20 +107,22 @@ func ListRuleChainsByTenant(scopes []string, keyword string, page, pageSize int)
 // EnabledRuleChain 启用链的 ID 与 graph 文本。
 type EnabledRuleChain struct {
 	ID    string
+	Name  string
 	Graph string
 }
 
-// ListEnabledRuleChains 返回单租户内启用链的 ID 与原始 graph 文本。
+// ListEnabledRuleChains 返回单租户内启用链的 ID、名称与原始 graph 文本。
 func ListEnabledRuleChains(tenantID string) ([]EnabledRuleChain, error) {
 	if strings.TrimSpace(tenantID) == "" {
 		return nil, fmt.Errorf("tenant id is required")
 	}
 	var rows []struct {
 		ID    string `gorm:"column:id"`
+		Name  string `gorm:"column:name"`
 		Graph string `gorm:"column:graph"`
 	}
 	err := global.DB.Model(&model.RuleChain{}).
-		Select("id, graph").
+		Select("id, name, graph").
 		Where("tenant_id = ? AND enabled = ?", tenantID, true).
 		Scan(&rows).Error
 	if err != nil {
@@ -130,20 +130,7 @@ func ListEnabledRuleChains(tenantID string) ([]EnabledRuleChain, error) {
 	}
 	res := make([]EnabledRuleChain, 0, len(rows))
 	for _, r := range rows {
-		res = append(res, EnabledRuleChain{ID: r.ID, Graph: r.Graph})
+		res = append(res, EnabledRuleChain{ID: r.ID, Name: r.Name, Graph: r.Graph})
 	}
 	return res, nil
-}
-
-// ListEnabledRuleChainGraphs 返回单租户内启用链的原始 graph 文本（执行热路径用，由 OnTelemetry/OnDeviceOnline 按 device.TenantID 调用）。
-// 注意：本函数按 device 单租户锚定，刻意不展开 C2 作用域——上行执行上下文始终归属设备自身租户，展开等于越权执行子树链。
-func ListEnabledRuleChainGraphs(tenantID string) ([]string, error) {
-	if strings.TrimSpace(tenantID) == "" {
-		return nil, fmt.Errorf("tenant id is required")
-	}
-	var graphs []string
-	err := global.DB.Model(&model.RuleChain{}).
-		Where("tenant_id = ? AND enabled = ?", tenantID, true).
-		Pluck("graph", &graphs).Error
-	return graphs, err
 }

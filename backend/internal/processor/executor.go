@@ -25,18 +25,25 @@ func NewLuaExecutor() *LuaExecutor {
 // scriptContent: 脚本内容
 // rawData: 原始字节数据
 func (e *LuaExecutor) ExecuteDecode(ctx context.Context, scriptContent string, rawData []byte) (string, error) {
-	return executeLuaScript(ctx, scriptContent, rawData)
+	return e.Execute(ctx, "", scriptContent, rawData)
 }
 
 // ExecuteEncode 执行编码脚本（下行：JSON -> 设备协议数据）
 // scriptContent: 脚本内容
 // jsonData: JSON 格式的标准化数据
 func (e *LuaExecutor) ExecuteEncode(ctx context.Context, scriptContent string, jsonData []byte) (string, error) {
-	return executeLuaScript(ctx, scriptContent, jsonData)
+	return e.Execute(ctx, "", scriptContent, jsonData)
 }
 
-func executeLuaScript(ctx context.Context, scriptContent string, data []byte) (string, error) {
-	result, err := safelua.Execute(ctx, scriptContent, data, "")
+// ScriptProgramKey 是编译缓存的身份键（设备配置 + 脚本类型）；
+// safelua 再叠加内容哈希，因此脚本内容变更天然失效，同键旧程序会被替换回收。
+func ScriptProgramKey(deviceConfigID, scriptType string) string {
+	return deviceConfigID + ":" + scriptType
+}
+
+// Execute 以 programKey 复用已编译的脚本原型与沙箱状态池；programKey 为空时仅按内容哈希缓存。
+func (e *LuaExecutor) Execute(ctx context.Context, programKey, scriptContent string, data []byte) (string, error) {
+	result, err := safelua.ExecuteKeyed(ctx, programKey, scriptContent, data, "")
 	if err == nil {
 		return result, nil
 	}

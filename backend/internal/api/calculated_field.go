@@ -24,19 +24,9 @@ type CalculatedFieldApi struct{}
 // @Success 200 {object} model.CalculatedFieldListRsp "Calculated field list"
 // @Router /api/v1/calculated_fields [get]
 func (*CalculatedFieldApi) HandleGetCalculatedFieldList(c *gin.Context) {
-	var req model.CalculatedFieldListReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.CalculatedField.GetCalculatedFieldList(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	Handle(c, func(req *model.CalculatedFieldListReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.CalculatedField.GetCalculatedFieldList(req, userClaims)
+	})
 }
 
 // HandleCreateCalculatedField 创建计算字段。
@@ -48,19 +38,9 @@ func (*CalculatedFieldApi) HandleGetCalculatedFieldList(c *gin.Context) {
 // @Success 200 {object} model.CalculatedField "Created calculated field"
 // @Router /api/v1/calculated_fields [post]
 func (*CalculatedFieldApi) HandleCreateCalculatedField(c *gin.Context) {
-	var req model.CalculatedFieldCreateReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.CalculatedField.CreateCalculatedField(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	Handle(c, func(req *model.CalculatedFieldCreateReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.CalculatedField.CreateCalculatedField(req, userClaims)
+	})
 }
 
 // HandleUpdateCalculatedField 按路径 id 更新计算字段基础信息。
@@ -79,8 +59,11 @@ func (*CalculatedFieldApi) HandleUpdateCalculatedField(c *gin.Context) {
 		return
 	}
 
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.CalculatedField.UpdateCalculatedField(req.ID, &req, userClaims)
+	claims, ok := RequireClaims(c)
+	if !ok {
+		return
+	}
+	data, err := service.GroupApp.CalculatedField.UpdateCalculatedField(req.ID, &req, claims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -104,8 +87,11 @@ func (*CalculatedFieldApi) HandleToggleCalculatedField(c *gin.Context) {
 	_ = bindRequest(c, &req)
 	id := c.Param("id")
 
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.CalculatedField.ToggleCalculatedField(id, &req, userClaims)
+	claims, ok := RequireClaims(c)
+	if !ok {
+		return
+	}
+	data, err := service.GroupApp.CalculatedField.ToggleCalculatedField(id, &req, claims)
 	if err != nil {
 		c.Error(err)
 		return
@@ -122,13 +108,9 @@ func (*CalculatedFieldApi) HandleToggleCalculatedField(c *gin.Context) {
 // @Success 200 {object} nil "Deleted"
 // @Router /api/v1/calculated_fields/{id} [delete]
 func (*CalculatedFieldApi) HandleDeleteCalculatedField(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	if err := service.GroupApp.CalculatedField.DeleteCalculatedField(c.Param("id"), userClaims); err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", nil)
+	HandleNoBodyAction(c, func(userClaims *utils.UserClaims) error {
+		return service.GroupApp.CalculatedField.DeleteCalculatedField(c.Param("id"), userClaims)
+	})
 }
 
 // HandleGetCalculatedField 按 id 查询单条计算字段。
@@ -139,12 +121,7 @@ func (*CalculatedFieldApi) HandleDeleteCalculatedField(c *gin.Context) {
 // @Success 200 {object} model.CalculatedField "Calculated field detail"
 // @Router /api/v1/calculated_fields/{id} [get]
 func (*CalculatedFieldApi) HandleGetCalculatedField(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.CalculatedField.GetCalculatedField(c.Param("id"), userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", data)
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.CalculatedField.GetCalculatedField(c.Param("id"), userClaims)
+	})
 }

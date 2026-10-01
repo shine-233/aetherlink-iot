@@ -16,6 +16,7 @@ import { getRouteName, getRoutePath } from '@/router/elegant/transform'
 import { fetchGetUserRoutes } from '@/service/api'
 import { useAppStore } from '../app'
 import { useAuthStore } from '../auth'
+import { useSysSettingStore } from '../sys-setting'
 import { useTabStore } from '../tab'
 import {
   filterAuthRoutesByRoles,
@@ -39,6 +40,7 @@ export const useRouteStore = defineStore(SetupStoreId.Route, () => {
   const appStore = useAppStore()
   const authStore = useAuthStore()
   const tabStore = useTabStore()
+  const sysSettingStore = useSysSettingStore()
   const { bool: isInitAuthRoute, setBool: setIsInitAuthRoute } = useBoolean()
   const removeRouteFns: (() => void)[] = []
 
@@ -185,6 +187,10 @@ export const useRouteStore = defineStore(SetupStoreId.Route, () => {
 
     if (success) {
       tabStore.initHomeTab()
+      // 白标覆盖（TB-47）：登录态路由就绪后拉取租户翻译覆盖与自定义 CSS 并应用。
+      // 接口失败静默降级（fail-open），绝不阻塞路由初始化；切换语言走整页刷新，
+      // 刷新后守卫重新进入本函数，覆盖会按新 locale 重新合并。
+      void sysSettingStore.initWhitelabelOverrides()
     }
 
     return success

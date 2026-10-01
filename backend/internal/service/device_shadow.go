@@ -199,19 +199,9 @@ func ackShadowMessage(deviceId, msgId string) error {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errcode.NewWithMessage(errcode.CodeParamError, "ackable shadow message not found")
 		}
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"sql_error": err.Error()})
+		return dbError(err)
 	}
 	return nil
-}
-
-// ExpireAndRetryShadowMessages cron 入口：推进 ACK 超时的退避重试与终态收口。
-func (*DeviceShadow) ExpireAndRetryShadowMessages() (retried, failed, expired int64) {
-	var err error
-	retried, failed, expired, err = dal.ExpireAndRetryShadowMessages()
-	if err != nil {
-		logrus.Warnf("shadow retry sweep failed: %v", err)
-	}
-	return retried, failed, expired
 }
 
 // CleanupExpiredShadowMessages cron 入口：ACK 重试收口 + 过期历史清理。

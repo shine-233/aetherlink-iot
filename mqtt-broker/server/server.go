@@ -80,13 +80,3 @@ type server struct {
 	clientService *clientService
 	apiRegistrar  *apiRegistrar
 }
-
-func (srv *server) checkStatus() {
-	if srv.Status() != serverStatusInit {
-		panic(statusPanic)
-	}
-}
-
-func uint16P(v uint16) *uint16 {
-	return &v
-}

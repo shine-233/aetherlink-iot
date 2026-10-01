@@ -2,10 +2,12 @@ package aetherlink
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/DrmagicE/gmqtt/server"
@@ -18,12 +20,41 @@ type mqttVoucherPayload struct {
 	Password string `json:"password,omitempty"`
 }
 
+// mqttAuthenticatedClientBindings 以 server.Client 为 key 保存已认证设备绑定。
+//
+// 生命周期（两阶段）：
+//   - OnBasicAuth 成功：写入 pending 绑定（pendingSince=认证时间）；
+//   - OnConnected：promoteMQTTAuthenticatedClientBinding 通过 CAS 转为已连接绑定；
+//   - OnClosed / 会话吊销 / 路由校验失败：forgetMQTTAuthenticatedClientBinding 删除。
+//
+// gmqtt 的 client.internalClose 只对到达 Connected 状态的连接触发 OnClosed。
+// 认证通过但随后建连失败的连接（外层认证插件拒绝、register 中 sessionStore.Get 出错、
+// CONNECT 阶段中断等）永远不会触发 OnClosed，若无兜底，其绑定连同整个 *client
+// 会常驻在这张全局表里。这类条目保持 pending 状态，由
+// maybeSweepStalePendingMQTTClientBindings 在后续认证时按 TTL 节流回收。
+// 已连接条目只由 OnClosed 回收，兜底扫描绝不触碰，避免误删在线会话的 ACL 绑定。
 var mqttAuthenticatedClientBindings sync.Map
 
 type mqttAuthenticatedClientBinding struct {
 	deviceID           string
 	deviceStateVersion time.Time
+	// pendingSince 为认证通过但尚未收到 OnConnected 的时间；零值表示已连接
+	// （或由旧实例/测试直接写入），兜底扫描只回收非零且超过 TTL 的条目。
+	pendingSince time.Time
 }
+
+const (
+	// mqttPendingClientBindingTTL 远大于 gmqtt CONNECT 超时（5s），
+	// 正常建连的 pending 窗口只有毫秒级，不会被误回收。
+	mqttPendingClientBindingTTL = 2 * time.Minute
+	// mqttPendingClientBindingSweepInterval 限制全表扫描频率，扫描成本只摊到少数认证请求上。
+	mqttPendingClientBindingSweepInterval = 30 * time.Second
+)
+
+var (
+	mqttClientBindingNow             = time.Now
+	mqttPendingBindingLastSweepNanos atomic.Int64
+)
 
 func (t *AetherLinkPlugin) OnBasicAuthWrapper(pre server.OnBasicAuth) server.OnBasicAuth {
 	return func(ctx context.Context, client server.Client, req *server.ConnectRequest) (err error) {
@@ -83,6 +114,28 @@ func (t *AetherLinkPlugin) OnBasicAuthWrapper(pre server.OnBasicAuth) server.OnB
 			return err
 		}
 
+		// TB-17R：认证通过前做租户传输日配额判定（被拒连接同样计入当日用量，见 transport_quota.go）。
+		// 配额拒绝是商业约束而非凭据失败：不计入来源 IP 认证限速，也不走 handleMQTTAuthFailure
+		// 的凭证失效清理路径（凭证本身是有效的）。
+		if !allowMQTTTransportDailyQuota(device.TenantID) {
+			Log.Warn("mqtt transport daily quota exceeded",
+				zap.String("tenant_id", device.TenantID),
+				zap.String("device_id", device.ID),
+				zap.String("client_id", clientID),
+			)
+			recordMQTTDiagnosticEvent(mqttDiagnosticEvent{
+				deviceID:  device.ID,
+				clientID:  clientID,
+				username:  username,
+				action:    "auth",
+				direction: "na",
+				outcome:   "deny",
+				error:     errMQTTTransportQuotaExceeded.Error(),
+				code:      "transport_quota_exceeded",
+			})
+			return errMQTTTransportQuotaExceeded
+		}
+
 		handleMQTTAuthSuccess(device, username, clientID)
 		if bindErr := rememberMQTTClientUsername(clientID, username); bindErr != nil {
 			Log.Warn("failed to remember mqtt device user binding",
@@ -108,7 +161,10 @@ func authenticateMQTTSystemUser(username string, providedPassword string) (bool,
 		return false, nil
 	}
 
-	if providedPassword == expectedPassword {
+	// 系统账号绕过全部订阅/发布 ACL：未配置密码（空串）时必须失败闭合，
+	// 否则空密码 CONNECT 即可以 root/plugin 身份接管 broker。比较使用常量时间，避免计时侧信道。
+	if expectedPassword != "" &&
+		subtle.ConstantTimeCompare([]byte(providedPassword), []byte(expectedPassword)) == 1 {
 		return true, nil
 	}
 
@@ -208,9 +264,82 @@ func rememberMQTTAuthenticatedDevice(client server.Client, clientID string, devi
 		} else if device.CreatedAt != nil {
 			binding.deviceStateVersion = device.CreatedAt.UTC()
 		}
-		mqttAuthenticatedClientBindings.Store(client, binding)
+		storePendingMQTTAuthenticatedClientBinding(client, binding)
 	}
 	return nil
+}
+
+// storePendingMQTTAuthenticatedClientBinding 写入认证阶段绑定，并顺带触发节流兜底扫描。
+func storePendingMQTTAuthenticatedClientBinding(client server.Client, binding mqttAuthenticatedClientBinding) {
+	now := mqttClientBindingNow()
+	binding.pendingSince = now
+	// 同一 client 对象若已处于已连接状态（重复认证），保持已连接语义，
+	// 否则兜底扫描可能把在线会话的绑定当作 pending 回收。
+	if existing, ok := mqttAuthenticatedClientBindings.Load(client); ok {
+		if prev, isBinding := existing.(mqttAuthenticatedClientBinding); isBinding && prev.pendingSince.IsZero() {
+			binding.pendingSince = time.Time{}
+		}
+	}
+	mqttAuthenticatedClientBindings.Store(client, binding)
+	maybeSweepStalePendingMQTTClientBindings(now)
+}
+
+// promoteMQTTAuthenticatedClientBinding 在 OnConnected 时把 pending 绑定转为已连接。
+// 使用 CAS：若并发的吊销/清理已删除该条目，则不会把它重新写回。
+func promoteMQTTAuthenticatedClientBinding(client server.Client) {
+	if client == nil {
+		return
+	}
+	for {
+		value, ok := mqttAuthenticatedClientBindings.Load(client)
+		if !ok {
+			return
+		}
+		binding, isBinding := value.(mqttAuthenticatedClientBinding)
+		if !isBinding || binding.pendingSince.IsZero() {
+			return
+		}
+		promoted := binding
+		promoted.pendingSince = time.Time{}
+		if mqttAuthenticatedClientBindings.CompareAndSwap(client, value, promoted) {
+			return
+		}
+	}
+}
+
+// maybeSweepStalePendingMQTTClientBindings 节流回收超过 TTL 仍未建连的 pending 绑定。
+// 返回本次回收的条目数；未到扫描间隔或被并发扫描抢先时返回 0。
+func maybeSweepStalePendingMQTTClientBindings(now time.Time) int {
+	last := mqttPendingBindingLastSweepNanos.Load()
+	if last != 0 && now.Sub(time.Unix(0, last)) < mqttPendingClientBindingSweepInterval {
+		return 0
+	}
+	if !mqttPendingBindingLastSweepNanos.CompareAndSwap(last, now.UnixNano()) {
+		return 0
+	}
+	return sweepStalePendingMQTTClientBindings(now)
+}
+
+func sweepStalePendingMQTTClientBindings(now time.Time) int {
+	removed := 0
+	mqttAuthenticatedClientBindings.Range(func(key, value any) bool {
+		binding, isBinding := value.(mqttAuthenticatedClientBinding)
+		if !isBinding || binding.pendingSince.IsZero() {
+			return true
+		}
+		if now.Sub(binding.pendingSince) < mqttPendingClientBindingTTL {
+			return true
+		}
+		// CompareAndDelete：扫描期间若条目已被 promote 或重新认证覆盖，则保留。
+		if mqttAuthenticatedClientBindings.CompareAndDelete(key, value) {
+			removed++
+		}
+		return true
+	})
+	if removed > 0 && Log != nil {
+		Log.Info("swept stale pending mqtt client bindings", zap.Int("removed", removed))
+	}
+	return removed
 }
 
 func mqttAuthenticatedDeviceForClient(client server.Client) (string, bool) {

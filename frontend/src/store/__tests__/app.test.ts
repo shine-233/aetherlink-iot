@@ -188,6 +188,7 @@ describe('app store locale persistence', () => {
     store.changeLocale('fr-FR', { persistRemote: false })
     await nextTick()
 
-    expect(hoisted.useTitle).toHaveBeenCalledWith('route.management_setting-AetherLink IoT')
+    expect(document.title).toBe('route.management_setting-AetherLink IoT')
+    expect(hoisted.useTitle).not.toHaveBeenCalled()
   })
 })

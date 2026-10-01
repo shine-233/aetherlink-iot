@@ -10,11 +10,12 @@
 2. 启停、删除、复制等敏感操作仍分散在页面内，后续可抽成更聚焦的组合式逻辑以降低维护成本。
 -->
 <script setup lang="tsx">
-import { computed, getCurrentInstance, reactive, ref, watch } from 'vue'
+import { computed, getCurrentInstance, ref, watch } from 'vue'
 import type { Ref } from 'vue'
 import { NAlert, NButton, NEmpty, NPopconfirm, NSpace, NSwitch, NTag } from 'naive-ui'
-import type { DataTableColumns, PaginationProps } from 'naive-ui'
-import { useBoolean, useLoading } from '@aetherlink/hooks'
+import type { DataTableColumns } from 'naive-ui'
+import { useBoolean } from '@aetherlink/hooks'
+import { fromFlatResponse, useListPage } from '@/components/data-table-page/useListPage'
 import { apiKeyDel, fetchKeyList, updateKey } from '@/service/api'
 import { $t } from '@/locales'
 import { writeClipboardText } from '@/utils/clipboard'
@@ -22,21 +23,23 @@ import { formatDateTime } from '@/utils/common/datetime'
 import TableActionModal from './modules/table-action-modal.vue'
 import type { ModalType } from './modules/table-action-modal.vue'
 
-const { loading, startLoading, endLoading } = useLoading(false)
 const { bool: visible, setTrue: openModal } = useBoolean()
-type QueryFormModel = Pick<UserManagement.UserKey, 'name' | 'status'> & {
-  page: number
-  page_size: number
-}
+type QueryFormModel = Pick<UserManagement.UserKey, 'name' | 'status'>
 
-const queryParams = reactive<QueryFormModel>({
-  name: null,
-  status: null,
-  page: 1,
-  page_size: 10
+// 列表查询主入口：分页、加载态与过期请求丢弃交给 useListPage；
+// 启停开关会原地改写行字段，因此使用深响应行。
+const {
+  query: queryParams,
+  rows: tableData,
+  loading,
+  pagination,
+  load: getTableData
+} = useListPage<UserManagement.UserKey, QueryFormModel>({
+  initialQuery: () => ({ name: null, status: null }),
+  pageSizes: [10, 15, 20, 25, 30],
+  deepRows: true,
+  fetcher: async (params) => fromFlatResponse<UserManagement.UserKey>(await fetchKeyList(params))
 })
-
-const tableData = ref<UserManagement.UserKey[]>([])
 const apiKeyHeaderName = 'X-API-Key'
 const quickStartEndpoint = '/plugin/service/access/list'
 const quickStartServiceIdentifier = '<SERVICE_IDENTIFIER>'
@@ -116,26 +119,6 @@ response = requests.post(
 )
 print(response.json())`
 )
-
-// 为每条记录保留接口返回的数据；列表不再包含明文 api_key。
-function setTableData(data: UserManagement.UserKey[]) {
-  tableData.value = data
-}
-
-// 列表查询主入口：统一消费分页参数并在成功后刷新表格数据与总数。
-async function getTableData() {
-  startLoading()
-  try {
-    const { data } = await fetchKeyList(queryParams)
-    if (data) {
-      const list: UserManagement.UserKey[] = data.list
-      setTableData(list)
-      pagination.itemCount = data.total || 0
-    }
-  } finally {
-    endLoading()
-  }
-}
 
 const columns: Ref<DataTableColumns<UserManagement.UserKey>> = ref([
   {
@@ -265,7 +248,7 @@ async function handleSwitchChange(rowId: string) {
   if (findItem) {
     const keyStatus = findItem.status === 1 ? 0 : 1
     findItem.status = keyStatus
-    await updateKey(findItem)
+    await updateKey(findItem as unknown as Record<string, unknown>)
   }
 }
 
@@ -277,25 +260,6 @@ async function handleDeleteTable(rowId: string) {
     getTableData()
   }
 }
-
-const pagination: PaginationProps = reactive({
-  page: 1,
-  pageSize: 10,
-  showSizePicker: true,
-  pageSizes: [10, 15, 20, 25, 30],
-  onChange: (page: number) => {
-    pagination.page = page
-    queryParams.page = page
-    getTableData()
-  },
-  onUpdatePageSize: (pageSize: number) => {
-    pagination.pageSize = pageSize
-    pagination.page = 1
-    queryParams.page = 1
-    queryParams.page_size = pageSize
-    getTableData()
-  }
-})
 
 // 页面初始化目前只依赖首屏列表查询，后续若引入路由筛选可继续在这里汇总入口。
 function init() {
@@ -400,6 +364,7 @@ init()
           :data="tableData"
           :loading="loading"
           :pagination="pagination"
+          remote
           class="flex-1-hidden"
         >
           <template #empty>

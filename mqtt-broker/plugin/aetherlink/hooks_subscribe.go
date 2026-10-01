@@ -89,7 +89,7 @@ func (policy mqttSubscribePolicy) decideTopicContract(ctx context.Context, devic
 	if decision, handled := policy.decideStandardTopic(deviceNumber); handled {
 		return decision
 	}
-	return policy.decideMappedDownSubscribe(ctx)
+	return policy.decideMappedDownSubscribe(ctx, deviceNumber)
 }
 
 func (policy mqttSubscribePolicy) decideStandardTopic(deviceNumber string) (mqttSubscribeDecision, bool) {
@@ -109,34 +109,35 @@ func (policy mqttSubscribePolicy) allowStandard() mqttSubscribeDecision {
 	}
 }
 
-func (policy mqttSubscribePolicy) decideMappedDownSubscribe(ctx context.Context) mqttSubscribeDecision {
+func (policy mqttSubscribePolicy) decideMappedDownSubscribe(ctx context.Context, deviceNumber string) mqttSubscribeDecision {
 	deviceIDFromRedis, ok := policy.loadMappedSubscribeDeviceID()
 	if !ok {
 		return policy.deny(policy.fallbackDevice)
 	}
 
-	return policy.decideMappedDownSubscribeForDevice(ctx, deviceIDFromRedis)
+	return policy.decideMappedDownSubscribeForDevice(ctx, deviceIDFromRedis, deviceNumber)
 }
 
 func (policy mqttSubscribePolicy) loadMappedSubscribeDeviceID() (string, bool) {
 	return mqttAuthenticatedDeviceForClient(policy.client)
 }
 
-func (policy mqttSubscribePolicy) decideMappedDownSubscribeForDevice(ctx context.Context, deviceID string) mqttSubscribeDecision {
+func (policy mqttSubscribePolicy) decideMappedDownSubscribeForDevice(ctx context.Context, deviceID string, deviceNumber string) mqttSubscribeDecision {
 	deviceConfigID, ok := policy.loadMappedSubscribeDeviceConfigID(deviceID)
 	if !ok {
 		return policy.deny(deviceID)
 	}
 
-	return policy.decideMappedDownSubscribeForConfig(ctx, deviceID, deviceConfigID)
+	return policy.decideMappedDownSubscribeForConfig(ctx, deviceID, deviceConfigID, deviceNumber)
 }
 
 func (policy mqttSubscribePolicy) decideMappedDownSubscribeForConfig(
 	ctx context.Context,
 	deviceID string,
 	deviceConfigID string,
+	deviceNumber string,
 ) mqttSubscribeDecision {
-	if !policy.allowMappedDownSubscribe(ctx, deviceConfigID) {
+	if !policy.allowMappedDownSubscribe(ctx, deviceConfigID, deviceNumber) {
 		return policy.deny(deviceID)
 	}
 
@@ -159,9 +160,9 @@ func (policy mqttSubscribePolicy) loadMappedSubscribeDeviceConfigID(deviceID str
 	return *dev.DeviceConfigID, true
 }
 
-func (policy mqttSubscribePolicy) allowMappedDownSubscribe(ctx context.Context, deviceConfigID string) bool {
+func (policy mqttSubscribePolicy) allowMappedDownSubscribe(ctx context.Context, deviceConfigID string, deviceNumber string) bool {
 	svc := NewTopicMapService()
-	return svc.AllowDownSubscribe(ctx, deviceConfigID, policy.subTopic)
+	return svc.AllowDownSubscribe(ctx, deviceConfigID, policy.subTopic, deviceNumber)
 }
 
 func (policy mqttSubscribePolicy) deny(deviceID string) mqttSubscribeDecision {

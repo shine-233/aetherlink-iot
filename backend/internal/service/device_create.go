@@ -226,9 +226,7 @@ func applyCreateDeviceRequestFields(device *model.Device, req model.CreateDevice
 
 func persistCreateDevice(device *model.Device) error {
 	if err := dal.CreateDevice(device); err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	return nil
 }
@@ -249,9 +247,7 @@ func resolveCreateDeviceConflict(req *model.CreateDeviceReq, claims *utils.UserC
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, false, nil
 		}
-		return nil, false, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, false, dbError(err)
 	}
 	if existing == nil {
 		return nil, false, nil
@@ -269,18 +265,14 @@ func resolveCreateDeviceConflict(req *model.CreateDeviceReq, claims *utils.UserC
 		now := time.Now().UTC()
 		existing.UpdateAt = &now
 		if _, err := dal.UpdateDevice(existing); err != nil {
-			return nil, false, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-			})
+			return nil, false, dbError(err)
 		}
 		return existing, true, nil
 
 	case model.ConflictPolicyRename:
 		names, err := dal.GetDeviceNamesMatchingBase(claims.TenantID, name)
 		if err != nil {
-			return nil, false, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"sql_error": err.Error(),
-			})
+			return nil, false, dbError(err)
 		}
 		nameMap := make(map[string]bool, len(names))
 		for _, n := range names {

@@ -3,6 +3,7 @@
  * 核心逻辑：封装密钥的列表查询、创建、编辑、删除、明文解密与轮换重加密。
  */
 import { request } from '../request'
+import { createResource } from './resource'
 
 export type SecretType = 'GENERIC' | 'API_KEY' | 'TOKEN' | 'PASSWORD' | 'CERTIFICATE' | 'OAUTH2'
 
@@ -53,30 +54,26 @@ export interface RevealSecretResponse {
   value: string
 }
 
-/** 分页与条件查询密钥列表（脱敏） */
-export const getSecretsList = async (params?: SecretListParams) => {
-  return await request.get<SecretListResponse>('/secrets', { params })
-}
+const secrets = createResource<
+  SecretListParams,
+  SecretListResponse,
+  SecretItem,
+  CreateSecretParams,
+  UpdateSecretParams & { id: string },
+  { deleted: boolean }
+>({ collection: '/secrets', updateStyle: 'item-path' })
 
-/** 获取单条密钥详情（脱敏） */
-export const getSecretDetail = async (id: string) => {
-  return await request.get<SecretItem>(`/secrets/${encodeURIComponent(id)}`)
-}
+/** 分页与条件查询密钥列表（脱敏） */
+export const getSecretsList = secrets.list
 
 /** 创建密钥 */
-export const createSecret = async (data: CreateSecretParams) => {
-  return await request.post<SecretItem>('/secrets', data)
-}
+export const createSecret = secrets.create
 
-/** 更新密钥 */
-export const updateSecret = async (id: string, data: UpdateSecretParams) => {
-  return await request.put<SecretItem>(`/secrets/${encodeURIComponent(id)}`, data)
-}
+/** 更新密钥：PUT /secrets/{id}，保持原有 (id, data) 调用签名 */
+export const updateSecret = (id: string, data: UpdateSecretParams) => secrets.update({ ...data, id })
 
 /** 删除密钥 */
-export const deleteSecret = async (id: string) => {
-  return await request.delete<{ deleted: boolean }>(`/secrets/${encodeURIComponent(id)}`)
-}
+export const deleteSecret = secrets.remove
 
 /** 明文解密（受审操作） */
 export const revealSecret = async (id: string) => {

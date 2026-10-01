@@ -52,14 +52,12 @@ export function getLangMessages(modules: Record<string, any>, lang: LocaleFolder
         'generate',
         'grouping_details',
         'icon',
-        'interaction',
         'others',
         'route',
         'script',
         'test',
         'theme',
         'time',
-        'visual-editor',
         'market'
       ]
 
@@ -103,20 +101,19 @@ export async function loadLocaleMessages(lang: App.I18n.LangType): Promise<App.I
     const folder = langToFolder(lang)
     const targetPrefix = `./langs/${folder}/`
     const fallbackPrefix = './langs/en-us/'
-    const modules: Record<string, any> = {}
-
-    const jobs: Array<Promise<void>> = []
-    for (const [path, loader] of Object.entries(moduleLoaders)) {
+    const selected = Object.entries(moduleLoaders).filter(([path]) => {
       const isTarget = path.startsWith(targetPrefix)
       const needsFallback = folder !== 'zh-cn' && folder !== 'en-us' && path.startsWith(fallbackPrefix)
-      if (!isTarget && !needsFallback) continue
-      jobs.push(
-        loader().then((module) => {
-          modules[path] = module
-        })
-      )
-    }
-    await Promise.all(jobs)
+      return isTarget || needsFallback
+    })
+    const loaded = await Promise.all(selected.map(([, loader]) => loader()))
+
+    // 按 glob（路径排序）顺序写入，而非按加载完成顺序：扁平合并时同名键"后者覆盖"
+    // 必须确定，否则跨文件重复键的取值会随网络时序漂移（与原 eager 语义保持一致）。
+    const modules: Record<string, any> = {}
+    selected.forEach(([path], index) => {
+      modules[path] = loaded[index]
+    })
 
     const catalog = getLangMessagesWithFallback(modules, folder) as unknown as App.I18n.Schema
     loadedCatalogs.set(lang, catalog)

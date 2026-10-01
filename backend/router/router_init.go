@@ -203,9 +203,14 @@ func RouterInit() *gin.Engine {
 			v1.GET("device/online/status/ws/batch", controllers.TelemetryDataApi.ServeDeviceOnlineStatusWS)
 			// 设备遥测keys（ws）
 			v1.GET("telemetry/datas/current/keys/ws", controllers.TelemetryDataApi.ServeCurrentDataByKey)
+			// 告警状态实时订阅（ws）- 首帧鉴权，按 JWT 租户推送告警生命周期事件（TB-30）
+			v1.GET("alarm/status/ws", controllers.AlarmApi.ServeAlarmStatusWS)
 			v1.GET("ota/download/files/upgradePackage/:path/:file", controllers.OTAApi.DownloadOTAUpgradePackage)
 			v1.GET("rdi/shared/:token", controllers.RDIApi.SharedDeviceConfig)
 			v1.GET("board/shared/:token", controllers.BoardApi.GetPublishedBoardByShareToken)
+			// TP-22 大屏轮播：/tv-preview 公开投屏端按 share token 列表批量取已发布看板。
+			// 凭证语义与上一行一致：token 是发布方主动公开的能力凭证，公开面不认 board id。
+			v1.GET("board/shared-carousel", controllers.BoardApi.GetPublishedBoardsForCarousel)
 			// 获取系统时间
 			v1.GET("systime", controllers.SystemApi.HandleSystime)
 			v1.GET("deployment/health", controllers.SystemApi.DeploymentHealth)
@@ -290,12 +295,12 @@ func RouterInit() *gin.Engine {
 			v1.GET("license/status", controllers.LicenseApi.Status)
 			apps.Model.AiModel.InitAiModel(v1) // AI 2.0 D7
 
-			apps.Model.Scada.Init(v1)  // P1.3 Widget 与 SCADA 基础层
-			apps.Model.Mobile.Init(v1) // P1.4 移动端控制与通知
-			apps.Model.ResourceCenter.InitResourceCenter(v1) // TP-5 资源中心（物模型与大屏统一市场）
+			apps.Model.Scada.Init(v1)                            // P1.3 Widget 与 SCADA 基础层
+			apps.Model.Mobile.Init(v1)                           // P1.4 移动端控制与通知
+			apps.Model.ResourceCenter.InitResourceCenter(v1)     // TP-5 资源中心（物模型与大屏统一市场）
 			apps.Model.IndustrySolution.InitIndustrySolution(v1) // TB-19 解决方案模板引擎
-			apps.Model.Tenant.InitTenant(v1) // P3 租户管理
-			apps.Model.Billing.InitBilling(v1) // P3 计费与用量计量
+			apps.Model.Tenant.InitTenant(v1)                     // P3 租户管理
+			apps.Model.Billing.InitBilling(v1)                   // P3 计费与用量计量
 
 			apps.Model.AttributeData.InitAttributeData(v1) // 属性数据
 
@@ -315,7 +320,16 @@ func RouterInit() *gin.Engine {
 
 			apps.Model.Product.Init(v1) // 产品选择列表
 
-			apps.Model.DataScript.Init(v1) // 数据处理脚本
+			apps.Model.DataScript.Init(v1)                           // 数据处理脚本
+			apps.Model.DataConverterRouter.InitDataConverter(v1)     // ThingsBoard 核心数据转换器
+			apps.Model.IntegrationRouter.InitIntegration(v1)         // TB-45 统一集成实体（130.sql 登记）
+			apps.Model.UserGroupRouter.InitUserGroup(v1)             // TB-46 用户组与组权限（131.sql 登记）
+			apps.Model.Customer.Init(v1)                             // ThingsBoard 核心客户管理体系
+			apps.Model.WidgetBundleRouter.InitWidgetBundle(v1)       // TB-04 部件库（widget_bundles）
+			apps.Model.MediaLibraryRouter.InitMediaLibrary(v1)       // TB-41 文件存储与媒体库（media_files）
+			apps.Model.MobileAppBundleRouter.InitMobileAppBundle(v1) // TB-23 移动应用中心（136.sql 登记）
+			apps.Model.WhitelabelRouter.InitWhitelabel(v1)           // TB-47 白标：翻译覆盖 + 自定义 CSS（134.sql 登记）
+			apps.Model.SchedulerRouter.InitScheduler(v1)             // TB-48 统一调度器（scheduler_events + 三源聚合，137.sql 登记）
 
 			apps.Model.NotificationGroup.InitNotificationGroup(v1) // 通知组
 

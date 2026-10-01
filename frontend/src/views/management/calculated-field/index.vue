@@ -1,6 +1,7 @@
 <!--
 计算字段管理页（系统设置 tab 内嵌）：从设备遥测按表达式派生新遥测键。
 核心链路：分页拉取当前租户的计算字段 → 表格展示/启停开关 → 新建编辑弹窗提交到 /calculated_fields。
+列表状态（分页/加载/过期请求）收口在 useListPage；表格列定义拆到 use-calc-field-columns.tsx。
 静态维护重点：
 1. output_key 前后端双重校验：字母开头，仅字母/数字/下划线，与后端正则保持一致。
 2. 模板下拉复用 device/template 分页接口；列内模板名依赖已加载选项做 id→name 映射，缺失时回退显示 id。
@@ -8,9 +9,7 @@
 -->
 <script setup lang="tsx">
 import { computed, reactive, ref } from 'vue'
-import { NButton, NPopconfirm, NSpace, NSwitch, NTag, NText } from 'naive-ui'
-import type { DataTableColumns, FormInst, FormRules, PaginationProps } from 'naive-ui'
-import dayjs from 'dayjs'
+import type { FormInst, FormRules } from 'naive-ui'
 import { deviceTemplate } from '@/service/api/device-template-model'
 import type { DeviceTemplateOption } from './types'
 import {
@@ -22,39 +21,26 @@ import {
 } from '@/service/api/calculated_field'
 import type { CalculatedFieldRow, CalculatedFieldUpsertParams } from '@/service/api/calculated_field'
 import { $t } from '@/locales'
-import { useLoading } from '~/packages/hooks'
+import { fromFlatResponse, useListPage } from '@/components/data-table-page/useListPage'
+import { useCalcFieldColumns } from './use-calc-field-columns'
 
-const { loading, startLoading, endLoading } = useLoading(false)
 const saving = ref(false)
 const actingId = ref('')
-const tableData = ref<CalculatedFieldRow[]>([])
 
 const outputKeyPattern = /^[a-zA-Z][a-zA-Z0-9_]*$/
 
-type ListResponse = Awaited<ReturnType<typeof getCalculatedFields>>
-
-function extractListResult(response: ListResponse) {
-  const data = response?.data
-  return {
-    list: Array.isArray(data?.list) ? data.list : ([] as CalculatedFieldRow[]),
-    total: Number(data?.total ?? 0)
-  }
-}
-
-const pagination: PaginationProps = reactive({
-  page: 1,
-  pageSize: 10,
-  itemCount: 0,
-  showSizePicker: true,
-  pageSizes: [10, 20, 50],
-  onChange: (page) => {
-    pagination.page = page
-    void getTableData()
-  },
-  onUpdatePageSize: (pageSize) => {
-    pagination.pageSize = pageSize
-    pagination.page = 1
-    void getTableData()
+// ===== 列表查询 =====
+// 行字段会被启停开关原地改写（row.enabled），因此使用深响应行。
+const { rows: tableData, loading, pagination, load: getTableData } = useListPage<CalculatedFieldRow>({
+  initialQuery: () => ({}),
+  deepRows: true,
+  fetcher: async (params) => {
+    try {
+      return fromFlatResponse<CalculatedFieldRow>(await getCalculatedFields(params))
+    } catch {
+      // 请求层异常：保留当前行，交由请求拦截器统一报错。
+      return null
+    }
   }
 })
 
@@ -79,31 +65,6 @@ async function loadTemplateOptions() {
 
 function templateName(templateId: string) {
   return templateNameMap.value.get(templateId) || templateId
-}
-
-function formatTime(value?: string | number | null) {
-  if (!value) return '-'
-  const time = dayjs(value)
-  return time.isValid() ? time.format('YYYY-MM-DD HH:mm:ss') : String(value)
-}
-
-// ===== 列表查询 =====
-async function getTableData() {
-  startLoading()
-  try {
-    const response = await getCalculatedFields({
-      page: pagination.page ?? 1,
-      page_size: pagination.pageSize ?? 10
-    })
-    const result = extractListResult(response)
-    tableData.value = result.list
-    pagination.itemCount = result.total
-  } catch {
-    tableData.value = []
-    pagination.itemCount = 0
-  } finally {
-    endLoading()
-  }
 }
 
 // ===== 启停开关 =====
@@ -262,80 +223,13 @@ async function handleSubmit() {
   }
 }
 
-const columns = computed<DataTableColumns<CalculatedFieldRow>>(() => [
-  {
-    key: 'name',
-    title: $t('custom.management.calcField.name'),
-    minWidth: 140,
-    ellipsis: { tooltip: true }
-  },
-  {
-    key: 'device_template_id',
-    title: $t('custom.management.calcField.template'),
-    minWidth: 150,
-    ellipsis: { tooltip: true },
-    render: (row) => <NText>{templateName(row.device_template_id)}</NText>
-  },
-  {
-    key: 'output_key',
-    title: $t('custom.management.calcField.outputKey'),
-    minWidth: 130,
-    render: (row) => <NTag size="small">{row.output_key}</NTag>
-  },
-  {
-    key: 'expression',
-    title: $t('custom.management.calcField.expression'),
-    minWidth: 200,
-    ellipsis: { tooltip: true },
-    render: (row) => <NText code>{row.expression}</NText>
-  },
-  {
-    key: 'enabled',
-    title: $t('custom.management.calcField.enabled'),
-    width: 90,
-    render: (row) => (
-      <NSwitch
-        size="small"
-        value={row.enabled}
-        loading={actingId.value === row.id}
-        onUpdateValue={(value) => handleToggle(row, value)}
-      />
-    )
-  },
-  {
-    key: 'updated_at',
-    title: $t('custom.management.calcField.updatedAt'),
-    minWidth: 170,
-    render: (row) => formatTime(row.updated_at)
-  },
-  {
-    key: 'actions',
-    title: $t('custom.management.calcField.actions'),
-    width: 160,
-    fixed: 'right',
-    render: (row) => (
-      <NSpace size={8}>
-        <NButton size="small" onClick={() => openEditModal(row)}>
-          {$t('common.edit')}
-        </NButton>
-        <NPopconfirm
-          negative-text={$t('common.cancel')}
-          positive-text={$t('common.confirm')}
-          onPositiveClick={() => handleDelete(row)}
-        >
-          {{
-            default: () => $t('custom.management.calcField.confirmDelete'),
-            trigger: () => (
-              <NButton size="small" type="error" ghost loading={actingId.value === row.id}>
-                {$t('common.delete')}
-              </NButton>
-            )
-          }}
-        </NPopconfirm>
-      </NSpace>
-    )
-  }
-])
+const { columns } = useCalcFieldColumns({
+  templateName,
+  actingId: () => actingId.value,
+  onToggle: (row, nextEnabled) => void handleToggle(row, nextEnabled),
+  onEdit: openEditModal,
+  onDelete: (row) => void handleDelete(row)
+})
 
 void loadTemplateOptions()
 void getTableData()

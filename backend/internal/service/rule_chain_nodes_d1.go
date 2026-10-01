@@ -381,20 +381,47 @@ type ruleChainInMemoryAlarmDedup struct{}
 func (ruleChainInMemoryAlarmDedup) SeenWithin(key string, window time.Duration) bool {
 	alarmDedupMu.Lock()
 	defer alarmDedupMu.Unlock()
+	if window > alarmDedupMaxWindow {
+		alarmDedupMaxWindow = window
+	}
 	ts, ok := alarmDedupRegistry[key]
 	return ok && time.Since(ts) <= window
 }
 
 // MarkSeen 登记 key 的本次出现时间。
+// 注册表以 tenant|name|device 为键，设备数量级的键会在长驻进程里无限增长；
+// 超过 alarmDedupSweepLimit 时惰性清理早于"历史最大查询窗口"的条目——
+// 这些条目对任何已出现过的窗口都不可能再命中，清理不改变去重结果。
 func (ruleChainInMemoryAlarmDedup) MarkSeen(key string) {
 	alarmDedupMu.Lock()
 	defer alarmDedupMu.Unlock()
-	alarmDedupRegistry[key] = time.Now()
+	now := time.Now()
+	// 阈值取 max(上限, 上次清理后存活数*2)：存活条目本身超过上限时，
+	// 避免每次 MarkSeen 都全表扫描（摊销 O(1)）。
+	threshold := alarmDedupSweepLimit
+	if alarmDedupSweepFloor*2 > threshold {
+		threshold = alarmDedupSweepFloor * 2
+	}
+	if len(alarmDedupRegistry) > threshold {
+		for k, ts := range alarmDedupRegistry {
+			if now.Sub(ts) > alarmDedupMaxWindow {
+				delete(alarmDedupRegistry, k)
+			}
+		}
+		alarmDedupSweepFloor = len(alarmDedupRegistry)
+	}
+	alarmDedupRegistry[key] = now
 }
+
+const alarmDedupSweepLimit = 4096
 
 var (
 	alarmDedupMu       sync.Mutex
 	alarmDedupRegistry = map[string]time.Time{}
+	// alarmDedupMaxWindow 记录 SeenWithin 见过的最大窗口，作为惰性清理的安全阈值。
+	alarmDedupMaxWindow time.Duration
+	// alarmDedupSweepFloor 上次清理后的存活条目数，用于摊销清理频率。
+	alarmDedupSweepFloor int
 )
 
 // dedupSignature 计算去重签名：keys 为空时对整个 payload 规范化 JSON 签名。

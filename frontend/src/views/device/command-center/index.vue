@@ -1,530 +1,117 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
-import type { Ref } from 'vue'
+import { defineAsyncComponent } from 'vue'
 import { NButton } from 'naive-ui'
-import { useRoute, useRouter } from 'vue-router'
 import { $t } from '@/locales'
-import { useViewportDeferredMount } from '@/hooks/common/useViewportDeferredMount'
-import type { FleetCommandJobListItem } from '@/service/api/device'
-import { useCommandCenterRouteScope } from './useCommandCenterRouteScope'
-import { useCommandCenterRouteDraftSync } from './useCommandCenterRouteDraftSync'
-import { useCommandCenterJobFollowUpActions } from './useCommandCenterJobFollowUpActions'
-import { useCommandCenterJobWorkbench } from './useCommandCenterJobWorkbench'
-import { useCommandCenterSubmitEvidenceView } from './useCommandCenterSubmitEvidenceView'
-import { useCommandCenterDraft } from './useCommandCenterDraft'
-import { useCommandCenterCommandTemplates } from './useCommandCenterCommandTemplates'
-import { useCommandCenterTemplateActions } from './useCommandCenterTemplateActions'
-import { useCommandCenterNavigation } from './useCommandCenterNavigation'
-import { useCommandCenterSavedFleetFilters } from './useCommandCenterSavedFleetFilters'
-import { buildCommandJobHistoryAttentionAggregateRows } from './commandCenterJobView'
-import { buildCommandScopeSafety } from './commandCenterScopeSafety'
-import { useCommandCenterPageView } from './useCommandCenterPageView'
-import { useCommandCenterJobSession } from './useCommandCenterJobSession'
-import { buildCommandJobResultViewModel } from './commandCenterJobResultViewModel'
-import type { CommandJobResultActions } from './commandCenterJobResultViewModel'
-import { buildClearedSavedFilterQuery, buildRenamedSavedFilterQuery } from './commandCenterRouteQuery'
-import { buildCommandJobProgressSteps } from './commandCenterProgressFlow'
+import { useCommandCenterPageController } from './useCommandCenterPageController'
 import CommandCenterDraftNotices from './CommandCenterDraftNotices.vue'
 import CommandCenterJobHistorySection from './CommandCenterJobHistorySection.vue'
 import CommandCenterPreflightSection from './CommandCenterPreflightSection.vue'
 import CommandCenterProgressSection from './CommandCenterProgressSection.vue'
+import './command-center-page.css'
 
 const CommandJobPreviewWorkbench = defineAsyncComponent(() => import('./CommandJobPreviewWorkbench.vue'))
 const CommandJobResultView = defineAsyncComponent(() => import('./CommandJobResultView.vue'))
 const CommandCenterSavedFilterChooser = defineAsyncComponent(() => import('./CommandCenterSavedFilterChooser.vue'))
 
-const route = useRoute()
-const router = useRouter()
-
-const {
-  activeCommandJobId,
-  currentPageCount,
-  deviceFilter,
-  filterSummaryItems,
-  hasCommandJobScope,
-  hasDeviceFilter,
-  hasSelectedDevices,
-  isDeviceFilterScope,
-  requestedTotal,
-  routeCommandDraft,
-  routeScope,
-  scope,
-  scopeContext,
-  selectedCount,
-  selectedDeviceIds,
-  setActiveCommandJobQuery
-} = useCommandCenterRouteScope()
-
-let setCommandJobError: (message: string) => void = () => undefined
-
-const scheduleIdleCommandCenterTask = (task: () => void, fallbackDelay = 120) => {
-  if (typeof window === 'undefined') {
-    task()
-    return
-  }
-  if ('requestIdleCallback' in window) {
-    window.requestIdleCallback(task, { timeout: 2000 })
-    return
-  }
-  ;(window as Window).setTimeout(task, fallbackDelay)
-}
-
-const {
-  buildCurrentFleetCommandPayload,
-  commandIdentify,
-  commandValue,
-  currentPayloadFingerprint,
-  maxDevices,
-  scheduledAt,
-  subsetLimit,
-  timeoutSeconds,
-  validateFleetCommandPayload
-} = useCommandCenterDraft({
-  selectedDeviceIds: () => selectedDeviceIds.value,
-  scopeType: () => scope.value,
-  deviceFilter: () => deviceFilter.value,
-  requestedTotal: () => requestedTotal.value,
-  currentPageCount: () => currentPageCount.value,
-  source: () => scopeContext.value.source,
-  hasSelectedDevices: () => hasSelectedDevices.value,
-  hasDeviceFilter: () => hasDeviceFilter.value,
-  setError: (message) => setCommandJobError(message),
-  t: $t
-})
-
 const {
   activeJobWarnings,
-  canAutoRefreshCommandJob,
+  activeSavedFleetFilter,
+  applyBuiltInCommandTemplate,
+  applySavedCommandTemplate,
+  applySavedFleetFilterInCommandCenter,
   canLoadMoreJobHistory,
-  canLoadMoreCommandJobRows,
+  canPreviewCommandJobNow,
+  canSubmitCommandJobNow,
+  clearRecentRunningCommandJob,
+  clearReusedCommandJobDraft,
+  clearRouteCommandDraftNotice,
+  clearSavedFleetFilterIdentity,
+  commandIdentify,
+  commandJobActions,
+  commandJobEligibilityImpactPreview,
   commandJobError,
-  commandJobRowsLoading,
-  commandJobRowsSearch,
-  commandJobRowsStatusFilter,
-  commandJobRowsStatusFilterOptions,
-  copyCommandJobSupportBundle,
-  copyRetryableDeviceIds,
-  cancelCommandJob,
-  downloadCommandJobSupportBundle,
+  commandJobPreviewActionPlan,
+  commandJobProgressSteps,
+  commandJobReadiness,
+  commandJobReadinessTagType,
+  commandJobResult,
+  commandScopeSafety,
+  commandSubmitDisabledHint,
+  commandTemplateName,
+  commandValue,
+  contractRows,
+  copyCommandJobEligibilityImpactSummary,
+  copyCommandTemplateExport,
+  currentPageCount,
+  deleteCommandCenterSavedFilter,
+  deleteSavedCommandTemplate,
+  filterExecutionCapSummary,
   filterScopeBackendRejected,
+  filteredFleetEligibilityPreview,
+  filterSummaryItems,
+  hasCommandJobScope,
+  hasSelectedDevices,
+  immediateChecks,
+  importSavedCommandTemplates,
+  isDeviceFilterScope,
   jobActionLoading,
   jobHistory,
+  jobHistoryAttentionAggregateRows,
   jobHistoryAttentionFilter,
+  jobHistoryAttentionOptions,
+  jobHistoryColumns,
+  jobHistoryInitialLoadQueued,
   jobHistoryLoading,
   jobHistorySearch,
   jobHistoryStatus,
+  jobHistoryStatusOptions,
+  jobRequirements,
   loadCommandJobHistory,
   loadMoreCommandJobHistory,
   clearJobHistorySearch,
-  loadCommandJobSupportBundle,
-  loadMoreCommandJobRows,
-  openCommandJobDetail,
+  maxDevices,
+  mountJobHistoryPanelNow,
+  mountPreflightPanelNow,
+  openFleet,
+  openImmediateCommand,
+  openOtaJobs,
+  openRecentRunningCommandJob,
+  operatorGuideSteps,
+  previewColumns,
   previewCommandJob,
+  previewExplanationRows,
   previewLoading,
-  previewPayloadFingerprint,
   previewResult,
-  resetCommandJobDraft,
-  refreshCommandJob,
-  reviewCommandJobRows,
-  retryableFailedRows,
-  retryCommandJob,
-  clearCommandJobRowsSearch,
-  setCommandJobRowsStatusFilter,
-  setCommandJobRowsSearch,
-  setJobHistoryAttentionFilter,
-  setJobHistorySearch,
-  submitCommandJob,
-  submitLoading,
-  submitResult,
-  supportBundle,
-  supportBundleLoading
-} = useCommandCenterJobWorkbench({
-  buildPayload: buildCurrentFleetCommandPayload,
-  currentPayloadFingerprint,
-  isDeviceFilterScope,
-  setActiveCommandJobQuery,
-  t: $t,
-  validatePayload: validateFleetCommandPayload
-})
-
-const jobHistoryAttentionAggregateRows = computed(() =>
-  buildCommandJobHistoryAttentionAggregateRows(jobHistory.value.attention_counts, $t)
-)
-
-setCommandJobError = (message) => {
-  commandJobError.value = message
-}
-
-const {
-  activeSavedFleetFilter,
-  clearCommandCenterSavedFilterSelection,
-  deleteCommandCenterSavedFilter,
-  renameCommandCenterSavedFilter,
+  previewTokenShort,
   refreshCommandCenterSavedFilters,
+  renameSavedFleetFilterFromView,
+  requestedTotal,
+  reusedCommandJobDraft,
+  routeCommandDraftNotice,
+  routeDecisionSummary,
+  saveCurrentCommandTemplate,
+  savedCommandTemplates,
   savedFleetFilterActionError,
   savedFleetFilterLoading,
   savedFleetFilterNoticeKey,
   savedFleetFilterOptions,
-  savedFleetFilters,
+  scheduledAt,
   selectedSavedFleetFilterId,
-  staleRouteSavedFilter,
-  syncSelectedSavedFleetFilterFromRoute
-} = useCommandCenterSavedFleetFilters({
-  getRouteSavedFilterId: () => scopeContext.value.savedFilterId
-})
-
-const {
-  applyRouteCommandDraft,
-  clearReusedCommandJobDraft,
-  clearRouteCommandDraftNotice,
-  reusedCommandJobDraft,
-  routeCommandDraftNotice
-} = useCommandCenterRouteDraftSync({
-  routeCommandDraft,
-  commandIdentify,
-  commandValue,
-  timeoutSeconds,
-  resetCommandJobDraft
-})
-const jobHistoryInitialLoadQueued = ref(false)
-const jobHistoryViewportRef = ref<HTMLElement | null>(null)
-const setJobHistoryViewportRef = (element: HTMLElement | null) => {
-  jobHistoryViewportRef.value = element
-}
-const preflightViewportRef = ref<HTMLElement | null>(null)
-const setPreflightViewportRef = (element: HTMLElement | null) => {
-  preflightViewportRef.value = element
-}
-const initialJobHistoryLoadRequested = ref(false)
-const { shouldMount: shouldMountJobHistoryPanel, mountNow: mountJobHistoryPanelNow } = useViewportDeferredMount(
-  jobHistoryViewportRef,
-  {
-    rootMargin: '360px 0px',
-    fallbackDelay: 500
-  }
-)
-const { shouldMount: shouldMountPreflightPanel, mountNow: mountPreflightPanelNow } = useViewportDeferredMount(
-  preflightViewportRef,
-  {
-    rootMargin: '420px 0px',
-    fallbackDelay: 1800
-  }
-)
-const {
-  commandTemplateName,
-  deleteCommandTemplate,
-  importCommandTemplates,
-  saveCommandTemplate,
-  savedCommandTemplates
-} = useCommandCenterCommandTemplates()
-
-const {
-  applyBuiltInCommandTemplate,
-  applySavedCommandTemplate,
-  copyCommandTemplateExport,
-  deleteSavedCommandTemplate,
-  importSavedCommandTemplates,
-  saveCommandJobTemplate,
-  saveCurrentCommandTemplate
-} = useCommandCenterTemplateActions({
-  commandIdentify,
-  commandValue,
-  timeoutSeconds: timeoutSeconds as Ref<number>,
-  commandTemplateName,
-  saveCommandTemplate,
-  deleteCommandTemplate,
-  importCommandTemplates,
-  resetCommandJobDraft,
-  clearReusedCommandJobDraft,
-  t: $t
-})
-
-const { applySavedFleetFilterInCommandCenter, openFleet, openImmediateCommand, openOtaJobs } =
-  useCommandCenterNavigation({
-    router,
-    commandIdentify: () => commandIdentify.value,
-    deviceFilter: () => deviceFilter.value,
-    isDeviceFilterScope: () => isDeviceFilterScope.value,
-    previewCommandJob,
-    previewResult: () => previewResult.value,
-    requestedTotal: () => requestedTotal.value,
-    resetCommandJobDraft,
-    savedFleetFilters: () => savedFleetFilters.value,
-    selectedCount: () => selectedCount.value,
-    selectedDeviceIds: () => selectedDeviceIds.value,
-    selectedSavedFleetFilterId,
-    t: $t
-  })
-
-const {
-  canRetryCurrentCommandJob,
-  jobAuditSummaryCard,
-  jobExecutionSummaryCard,
-  jobGovernanceSummaryCard,
-  jobDeviceProgressTracks,
-  jobOutcomeGroups,
-  jobOperatorNextAction,
-  jobProgressHealthCard,
-  jobProgressPercent,
-  jobProgressSummary,
-  jobHandoffSummary,
-  jobStatusCountRows,
-  jobStatusLabel,
-  jobStatusRows,
-  jobTimelineRows,
-  jobTroubleshootingRows,
-  submitCapabilitySummary,
-  jobActionConsequenceRows,
-  submitEvidenceAlertType,
-  submitEvidenceSummary,
-  submitRowsHiddenCount,
-  submitRowsForCustomer,
-  supportBundlePreview
-} = useCommandCenterSubmitEvidenceView({
-  submitResult,
-  supportBundle,
-  t: $t
-})
-
-const {
-  canPreviewCommandJobNow,
-  canSubmitCommandJobNow,
-  commandJobEligibilityImpactPreview,
-  commandJobPreviewActionPlan,
-  commandJobReadiness,
-  commandJobReadinessTagType,
-  commandSubmitDisabledHint,
-  contractRows,
-  filterExecutionCapSummary,
-  filteredFleetEligibilityPreview,
-  immediateChecks,
-  jobHistoryColumns,
-  jobHistoryAttentionOptions,
-  jobHistoryStatusOptions,
-  jobRequirements,
-  operatorGuideSteps,
-  postSubmitChecklist,
-  previewColumns,
-  previewExplanationRows,
-  previewTokenShort,
-  routeDecisionSummary,
+  setJobHistoryAttentionFilter,
+  setJobHistorySearch,
+  setJobHistoryViewportRef,
+  setPreflightViewportRef,
+  shouldMountJobHistoryPanel,
+  shouldMountPreflightPanel,
   showPreviewRecoveryAction,
-  submitColumns
-} = useCommandCenterPageView({
-  activeSavedFleetFilterName: () => activeSavedFleetFilter.value?.name,
-  commandIdentify,
-  currentPageCount,
-  currentPayloadFingerprint,
-  filterSummaryCount: () => filterSummaryItems.value.length,
-  hasCommandJobScope,
-  isDeviceFilterScope,
-  jobHistory,
-  maxDevices,
-  openCommandJobDetail,
-  openFleet,
-  previewCommandJob,
-  previewLoading,
-  previewPayloadFingerprint,
-  previewResult,
-  requestedTotal,
-  reuseCommandJobDraft,
-  saveCommandJobTemplate,
-  routeScope,
-  subsetLimit,
-  scope,
-  scopeContext: () => scopeContext.value,
-  selectedCount,
+  showRecentRunningCommandJob,
+  staleRouteSavedFilter,
   submitCommandJob,
   submitLoading,
   submitResult,
-  t: $t
-})
-
-const {
-  copyCommandJobLink,
-  copyCommandJobHandoffSummary,
-  copyCommandJobCloseoutPacket,
-  copyCommandJobEligibilityImpactSummary,
-  openCommandJobDeviceDiagnosis
-} = useCommandCenterJobFollowUpActions({
-  router,
-  t: $t,
-  submitResult,
-  supportBundle,
-  loadCommandJobSupportBundle,
-  jobHandoffSummary,
-  commandJobEligibilityImpactPreview
-})
-
-function reuseCommandJobDraft(job: FleetCommandJobListItem) {
-  commandIdentify.value = job.identify || ''
-  commandValue.value = job.command_value || ''
-  timeoutSeconds.value = job.timeout_seconds || 60
-  scheduledAt.value = null
-  reusedCommandJobDraft.value = {
-    jobId: job.job_id,
-    identify: job.identify || ''
-  }
-  resetCommandJobDraft()
-  window.$message?.success($t('custom.commandCenter.reuseJobDraftSuccess'))
-}
-
-const commandScopeSafety = computed(() => {
-  return buildCommandScopeSafety({
-    hasCommandJobScope: hasCommandJobScope.value,
-    isDeviceFilterScope: isDeviceFilterScope.value,
-    selectedCount: selectedCount.value,
-    savedFilterName: activeSavedFleetFilter.value?.name,
-    routeSavedFilterName: scopeContext.value.savedFilterName,
-    requestedTotal: requestedTotal.value,
-    currentPageCount: currentPageCount.value,
-    maxDevices: maxDevices.value as number,
-    filterCount: filterSummaryItems.value.length,
-    t: $t
-  })
-})
-
-const commandJobProgressSteps = computed(() =>
-  buildCommandJobProgressSteps({
-    scopeReady: hasCommandJobScope.value,
-    previewReady: Boolean(previewResult.value),
-    submitted: Boolean(submitResult.value),
-    supportReady: Boolean(supportBundle.value)
-  })
-)
-
-const {
-  clearRecentRunningCommandJob,
-  commandJobAutoRefreshActive,
-  commandJobAutoRefreshDeferred,
-  openRecentRunningCommandJob,
-  recentRunningCommandJobId,
-  showRecentRunningCommandJob
-} = useCommandCenterJobSession({
-  activeCommandJobId,
-  canRefreshCommandJob: canAutoRefreshCommandJob,
-  jobActionLoading,
-  refreshCommandJob,
-  openCommandJobDetail,
-  submitResult
-})
-
-const commandJobResult = computed(() =>
-  buildCommandJobResultViewModel({
-    canLoadMoreCommandJobRows: canLoadMoreCommandJobRows.value,
-    canRetryCurrentCommandJob: canRetryCurrentCommandJob.value,
-    commandJobRowsLoading: commandJobRowsLoading.value,
-    commandJobRowsSearch: commandJobRowsSearch.value,
-    commandJobRowsStatusFilter: commandJobRowsStatusFilter.value,
-    commandJobRowsStatusFilterOptions: commandJobRowsStatusFilterOptions.value,
-    jobActionConsequenceRows: jobActionConsequenceRows.value,
-    jobAuditSummaryCard: jobAuditSummaryCard.value,
-    jobExecutionSummaryCard: jobExecutionSummaryCard.value,
-    jobGovernanceSummaryCard: jobGovernanceSummaryCard.value,
-    jobActionLoading: jobActionLoading.value,
-    jobAutoRefreshActive: commandJobAutoRefreshActive.value,
-    jobAutoRefreshDeferred: commandJobAutoRefreshDeferred.value,
-    jobDeviceProgressTracks: jobDeviceProgressTracks.value,
-    jobOutcomeGroups: jobOutcomeGroups.value,
-    jobOperatorNextAction: jobOperatorNextAction.value,
-    jobProgressHealthCard: jobProgressHealthCard.value,
-    jobProgressPercent: jobProgressPercent.value,
-    jobProgressSummary: jobProgressSummary.value,
-    jobHandoffSummary: jobHandoffSummary.value,
-    jobStatusCountRows: jobStatusCountRows.value,
-    jobStatusLabel: jobStatusLabel.value,
-    jobStatusRows: jobStatusRows.value,
-    jobTimelineRows: jobTimelineRows.value,
-    jobTroubleshootingRows: jobTroubleshootingRows.value,
-    postSubmitChecklist,
-    retryableFailedRows: retryableFailedRows.value,
-    submitCapabilitySummary: submitCapabilitySummary.value,
-    submitColumns: submitColumns.value,
-    submitEvidenceAlertType: submitEvidenceAlertType.value,
-    submitEvidenceSummary: submitEvidenceSummary.value,
-    submitResult: submitResult.value,
-    submitRowsHiddenCount: submitRowsHiddenCount.value,
-    submitRowsForCustomer: submitRowsForCustomer.value,
-    supportBundleLoading: supportBundleLoading.value,
-    supportBundlePreview: supportBundlePreview.value
-  })
-)
-
-const commandJobActions: CommandJobResultActions = {
-  cancelCommandJob,
-  copyCommandJobCloseoutPacket,
-  copyCommandJobHandoffSummary,
-  copyCommandJobLink,
-  copyCommandJobSupportBundle,
-  copyRetryableDeviceIds,
-  clearCommandJobRowsSearch,
-  downloadCommandJobSupportBundle,
-  loadCommandJobSupportBundle,
-  loadMoreCommandJobRows,
-  openCommandJobDeviceDiagnosis,
-  refreshCommandJob,
-  reviewCommandJobRows,
-  retryCommandJob,
-  setCommandJobRowsSearch,
-  setCommandJobRowsStatusFilter
-}
-
-const renameSavedFleetFilterFromView = async (filterId: string | number, nextName: string) => {
-  const renamed = await renameCommandCenterSavedFilter(filterId, nextName)
-  if (renamed && String(filterId) === scopeContext.value.savedFilterId) {
-    await router.replace({ query: buildRenamedSavedFilterQuery(route.query, nextName) })
-  }
-  return renamed
-}
-
-const clearSavedFleetFilterIdentity = async () => {
-  clearCommandCenterSavedFilterSelection()
-  selectedSavedFleetFilterId.value = null
-  resetCommandJobDraft()
-  await router.replace({
-    path: '/device/command-center',
-    query: buildClearedSavedFilterQuery(route.query)
-  })
-}
-
-const queueInitialCommandJobHistoryLoad = () => {
-  if (initialJobHistoryLoadRequested.value) return
-  initialJobHistoryLoadRequested.value = true
-  jobHistoryInitialLoadQueued.value = true
-  scheduleIdleCommandCenterTask(() => {
-    jobHistoryInitialLoadQueued.value = false
-    void loadCommandJobHistory()
-  })
-}
-
-onMounted(() => {
-  applyRouteCommandDraft()
-  void refreshCommandCenterSavedFilters()
-  if (activeCommandJobId.value) {
-    void openCommandJobDetail(activeCommandJobId.value)
-    mountJobHistoryPanelNow()
-    queueInitialCommandJobHistoryLoad()
-    return
-  }
-})
-
-watch(activeCommandJobId, (jobId) => {
-  if (!jobId || jobId === submitResult.value?.job_id) return
-  void openCommandJobDetail(jobId)
-})
-
-watch(shouldMountJobHistoryPanel, (shouldMount) => {
-  if (shouldMount) {
-    queueInitialCommandJobHistoryLoad()
-  }
-})
-
-watch(
-  () => scopeContext.value.savedFilterId,
-  () => {
-    syncSelectedSavedFleetFilterFromRoute()
-  }
-)
+  timeoutSeconds,
+  recentRunningCommandJobId
+} = useCommandCenterPageController()
 </script>
 
 <template>
@@ -728,162 +315,3 @@ watch(
     />
   </div>
 </template>
-
-<style scoped>
-.command-center-page {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 16px;
-}
-
-.command-center-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.command-center-header h1,
-.command-center-section h2 {
-  margin: 0;
-  color: #0f172a;
-}
-
-.command-center-header h1 {
-  font-size: 22px;
-}
-
-.command-center-header p,
-.command-center-section p,
-.command-center-section li {
-  color: #475569;
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.command-center-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.command-center-section {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0;
-  padding: 16px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: #fff;
-}
-
-.command-center-section__head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.command-center-section ul {
-  margin: 0;
-  padding-left: 18px;
-}
-
-.command-center-guide {
-  gap: 10px;
-}
-
-.command-guide-steps {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.command-guide-step {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 0;
-  padding: 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  background: #f8fafc;
-}
-
-.command-guide-step__top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.command-guide-step__index {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 999px;
-  background: #0f172a;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.command-guide-step h3 {
-  margin: 0;
-  color: #0f172a;
-  font-size: 14px;
-}
-
-.command-guide-step p {
-  margin: 0;
-}
-
-.command-recent-running-job {
-  border-color: #7dd3fc;
-  background: #f0f9ff;
-}
-
-.command-recent-running-job :deep(.n-alert-body__content) {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.command-recent-running-job strong {
-  display: block;
-  margin-bottom: 4px;
-  color: #075985;
-}
-
-.command-recent-running-job span {
-  color: #0369a1;
-  font-size: 12px;
-}
-
-.mt-3 {
-  margin-top: 12px;
-}
-
-@media (max-width: 900px) {
-  .command-center-header {
-    flex-direction: column;
-  }
-
-  .command-center-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .command-guide-steps {
-    grid-template-columns: 1fr;
-  }
-
-  .command-recent-running-job :deep(.n-alert-body__content) {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-}
-</style>

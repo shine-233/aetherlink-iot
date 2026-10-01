@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"strings"
 	"syscall"
+	"time"
 
 	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/model"
@@ -23,12 +25,26 @@ const (
 	ReportSMTPAmbiguous ReportSMTPOutcome = "ambiguous"
 )
 
+// reportDeliveryBodyNote 是投递正文的固定说明（TB-49：报表产物一律走附件，不再内联进正文）。
+const reportDeliveryBodyNote = "The scheduled AetherLink report is attached to this message."
+
+// reportAttachmentFallbackName 是 schedule 名清洗后为空时的附件名兜底。
+const reportAttachmentFallbackName = "report"
+
 type ReportSMTPEnvelope struct {
-	From      string
-	To        []string
-	MessageID string
-	Subject   string
-	Body      string
+	From       string
+	To         []string
+	MessageID  string
+	Subject    string
+	Body       string
+	Attachment ReportSMTPAttachment
+}
+
+// ReportSMTPAttachment carries the report artifact out of band: the payload is
+// never inlined into the body, whatever the format is.
+type ReportSMTPAttachment struct {
+	Filename string
+	Content  []byte
 }
 
 type ReportSMTPResult struct {
@@ -112,6 +128,15 @@ func (adapter *configuredReportSMTPAdapter) Send(ctx context.Context, envelope R
 	message.SetHeader("Message-ID", envelope.MessageID)
 	message.SetHeader("Subject", envelope.Subject)
 	message.SetBody("text/plain; charset=UTF-8", envelope.Body)
+	// The artifact travels as a MIME attachment (TB-49). The filename comes from
+	// the envelope builders, so an unnamed attachment would be a builder bug and
+	// is dropped here instead of rendering a broken MIME part.
+	if len(envelope.Attachment.Content) > 0 && strings.TrimSpace(envelope.Attachment.Filename) != "" {
+		message.Attach(envelope.Attachment.Filename, gomail.SetCopyFunc(func(writer io.Writer) error {
+			_, err := writer.Write(envelope.Attachment.Content)
+			return err
+		}))
+	}
 
 	// Once Send starts, an error may occur after the server accepted the DATA
 	// terminator. Without a durable provider receipt it is unsafe to auto-retry.
@@ -156,17 +181,75 @@ func reportDeliveryEnvelope(run *model.ReportScheduleRun, from string, payload [
 	}
 	return ReportSMTPEnvelope{
 		From: strings.TrimSpace(from), To: recipients, MessageID: reportMessageID(run.ID),
-		Subject: fmt.Sprintf("[AetherLink report] %s", run.ConfigSnapshot.ScheduleName), Body: string(payload),
+		Subject: fmt.Sprintf("[AetherLink report] %s", run.ConfigSnapshot.ScheduleName), Body: reportDeliveryBodyNote,
+		Attachment: ReportSMTPAttachment{
+			Filename: reportAttachmentFilename(run),
+			Content:  append([]byte(nil), payload...),
+		},
 	}, nil
 }
 
-func persistedReportDeliveryEnvelope(delivery *model.ReportScheduleDelivery) (ReportSMTPEnvelope, error) {
+// persistedReportDeliveryEnvelope rebuilds the immutable message from the
+// delivery row. The attachment name is derived again from the claimed run
+// (schedule name + window date + format), which is deterministic from data the
+// delivery already owns, so no extra persistence is needed.
+func persistedReportDeliveryEnvelope(delivery *model.ReportScheduleDelivery, run *model.ReportScheduleRun) (ReportSMTPEnvelope, error) {
 	if delivery == nil || strings.TrimSpace(delivery.EnvelopeFrom) == "" || len(delivery.EnvelopeRecipients) == 0 ||
 		strings.TrimSpace(delivery.MessageID) == "" || strings.TrimSpace(delivery.Subject) == "" || len(delivery.Payload) == 0 {
 		return ReportSMTPEnvelope{}, fmt.Errorf("persisted report delivery envelope is invalid")
 	}
 	return ReportSMTPEnvelope{
 		From: delivery.EnvelopeFrom, To: append([]string(nil), delivery.EnvelopeRecipients...),
-		MessageID: delivery.MessageID, Subject: delivery.Subject, Body: string(delivery.Payload),
+		MessageID: delivery.MessageID, Subject: delivery.Subject, Body: reportDeliveryBodyNote,
+		Attachment: ReportSMTPAttachment{
+			Filename: reportAttachmentFilename(run),
+			Content:  append([]byte(nil), delivery.Payload...),
+		},
 	}, nil
+}
+
+// reportAttachmentFilename 组装附件文件名：<清洗后的 schedule 名>-<窗口结束日 UTC>.<扩展名>。
+// run 缺失（防御路径）时同样给出合法文件名，绝不让空文件名进入 MIME part。
+func reportAttachmentFilename(run *model.ReportScheduleRun) string {
+	name, windowEnd, format := reportAttachmentFallbackName, time.Time{}, model.ReportFormatCSV
+	if run != nil {
+		name = sanitizeReportFilename(run.ConfigSnapshot.ScheduleName)
+		windowEnd = run.WindowEndAt
+		format = run.ConfigSnapshot.Format
+	}
+	return fmt.Sprintf("%s-%s%s", name, windowEnd.UTC().Format("2006-01-02"), reportFileExtension(format))
+}
+
+// sanitizeReportFilename 保留字母数字、'-' 与 '_'，其余字符（含路径分隔符与
+// Unicode）折叠为 '_'，首尾 '_' 去除，空名回退 "report"，上限 64 字符。
+func sanitizeReportFilename(name string) string {
+	var builder strings.Builder
+	for _, symbol := range strings.TrimSpace(name) {
+		switch {
+		case symbol >= 'a' && symbol <= 'z', symbol >= 'A' && symbol <= 'Z', symbol >= '0' && symbol <= '9',
+			symbol == '-', symbol == '_':
+			builder.WriteRune(symbol)
+		default:
+			builder.WriteByte('_')
+		}
+	}
+	cleaned := strings.Trim(builder.String(), "_")
+	if cleaned == "" {
+		cleaned = reportAttachmentFallbackName
+	}
+	if len(cleaned) > 64 {
+		cleaned = cleaned[:64]
+	}
+	return cleaned
+}
+
+func reportFileExtension(format string) string {
+	switch format {
+	case model.ReportFormatHTML:
+		return ".html"
+	case model.ReportFormatPDF:
+		return ".pdf"
+	default:
+		return ".csv"
+	}
 }

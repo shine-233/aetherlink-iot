@@ -1,16 +1,9 @@
 <script setup lang="ts">
-import type { DropdownOption } from 'naive-ui'
 import { computed, ref, watch } from 'vue'
 import { $t } from '@/locales'
+import type { SavedFleetFilterOption } from './device-fleet-saved-filters'
 import type { FleetTargetPreset, FleetTargetPresetKey } from './device-fleet-target-presets'
 import type { FleetSelectionScope, FleetSelectionScopeMessage } from './device-fleet-select-all'
-
-type SavedFleetFilterOption = DropdownOption & {
-  key: string | number
-  rawName?: string
-  shared?: boolean
-  owned?: boolean
-}
 
 const props = defineProps<{
   presets: FleetTargetPreset[]

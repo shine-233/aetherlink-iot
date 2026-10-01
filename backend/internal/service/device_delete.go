@@ -11,7 +11,6 @@ import (
 	model "aetherlink-iot/backend/internal/model"
 	query "aetherlink-iot/backend/internal/query"
 	protocolplugin "aetherlink-iot/backend/internal/service/protocol_plugin"
-	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 	global "aetherlink-iot/backend/pkg/global"
 	utils "aetherlink-iot/backend/pkg/utils"
@@ -53,27 +52,6 @@ func normalizeDeviceDeleteAccessError(err error) error {
 	return deviceDBError(err)
 }
 
-func ensureDeviceDeleteAccess(id string, userClaims *utils.UserClaims) (*model.Device, error) {
-	id = strings.TrimSpace(id)
-	if id == "" {
-		return nil, errcode.NewWithMessage(errcode.CodeParamError, "device_id is required")
-	}
-	if userClaims == nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to delete device")
-	}
-	deviceInfo, err := dal.GetDeviceByIDUnscoped(id)
-	if err != nil {
-		return nil, err
-	}
-	if userClaims.Authority != constant.SYS_ADMIN && deviceInfo.TenantID != userClaims.TenantID {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to delete device")
-	}
-	if userClaims.Authority == constant.TENANT_USER && !deviceOwnerMatchesClaims(deviceInfo, userClaims) {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to delete device")
-	}
-	return deviceInfo, nil
-}
-
 func ensureDeviceDeleteDependenciesCleared(id string) error {
 	if err := ensureDeviceDeleteHasNoSubDevices(id); err != nil {
 		return err
@@ -89,9 +67,7 @@ func ensureDeviceDeleteDependenciesCleared(id string) error {
 func ensureDeviceDeleteHasNoSubDevices(id string) error {
 	data, err := dal.GetSubDeviceListByParentID(id)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return dbError(err)
 	}
 	if len(data) > 0 {
 		return errcode.WithData(200063, map[string]interface{}{
@@ -241,7 +217,5 @@ func joinDeviceDeleteRollbackError(cause, rollbackErr error) error {
 }
 
 func deviceDBError(err error) error {
-	return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-		"sql_error": err.Error(),
-	})
+	return dbError(err)
 }

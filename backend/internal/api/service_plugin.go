@@ -25,17 +25,9 @@ type ServicePluginApi struct{}
 // 静态审查建议：确认创建请求的关键字段校验已在绑定或 service 层覆盖，避免仅依赖前端约束。
 // 路由：`POST /api/v1/service`
 func (*ServicePluginApi) Create(c *gin.Context) {
-	var req model.CreateServicePluginReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.ServicePlugin.Create(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	Handle(c, func(req *model.CreateServicePluginReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.ServicePlugin.Create(req, userClaims)
+	})
 }
 
 // HandleList 分页查询服务插件列表。
@@ -46,17 +38,9 @@ func (*ServicePluginApi) Create(c *gin.Context) {
 // 静态审查建议：关注分页参数默认值与上限是否在下游兜底，避免出现大页查询或无界扫描。
 // 路由：`GET /api/v1/service/list`
 func (*ServicePluginApi) HandleList(c *gin.Context) {
-	var req model.GetServicePluginByPageReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.ServicePlugin.List(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	Handle(c, func(req *model.GetServicePluginByPageReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.ServicePlugin.List(req, userClaims)
+	})
 }
 
 // Handle 查询单个服务插件详情。
@@ -67,14 +51,9 @@ func (*ServicePluginApi) HandleList(c *gin.Context) {
 // 静态审查建议：检查下游是否对空 ID、非法 ID 和越权读取返回稳定错误，避免泄漏资源存在性。
 // 路由：`GET /api/v1/service/detail/{id}`
 func (*ServicePluginApi) Handle(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.ServicePlugin.Get(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.ServicePlugin.Get(id, userClaims)
+	})
 }
 
 // Update 更新服务插件。
@@ -150,17 +129,9 @@ func (*ServicePluginApi) Heartbeat(c *gin.Context) {
 // 静态审查建议：关注选择器接口是否被误当作公开元数据接口，避免返回过多内部字段。
 // 路由：`GET /api/v1/service/plugin/select`
 func (*ServicePluginApi) HandleServiceSelect(c *gin.Context) {
-	var req model.GetServiceSelectReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	resp, err := service.GroupApp.ServicePlugin.GetServiceSelect(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", resp)
+	Handle(c, func(req *model.GetServiceSelectReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.ServicePlugin.GetServiceSelect(req, userClaims)
+	})
 }
 
 // HandleServicePluginByServiceIdentifier 按服务标识查询插件信息。
@@ -171,15 +142,7 @@ func (*ServicePluginApi) HandleServiceSelect(c *gin.Context) {
 // 静态审查建议：检查 `ServiceIdentifier` 是否具备唯一性和输入规范化，防止大小写、前后缀或历史别名造成歧义读取。
 // 路由：`GET /api/v1/service/plugin/info`
 func (*ServicePluginApi) HandleServicePluginByServiceIdentifier(c *gin.Context) {
-	var req model.GetServicePluginByServiceIdentifierReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.ServicePlugin.GetServicePluginByServiceIdentifier(req.ServiceIdentifier, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.GetServicePluginByServiceIdentifierReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.ServicePlugin.GetServicePluginByServiceIdentifier(req.ServiceIdentifier, userClaims)
+	})
 }

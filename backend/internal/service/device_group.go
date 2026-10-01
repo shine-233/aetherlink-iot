@@ -15,9 +15,9 @@ import (
 	"strings"
 	"time"
 
+	"aetherlink-iot/backend/internal/authz"
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
-	"aetherlink-iot/backend/pkg/constant"
 
 	"aetherlink-iot/backend/pkg/errcode"
 	utils "aetherlink-iot/backend/pkg/utils"
@@ -87,10 +87,11 @@ func ensureDeviceGroupReadAccess(groupID string, claims *utils.UserClaims) (*mod
 	}
 	// ROADMAP C2 自上而下读作用域：TENANT_ADMIN/SYS_ADMIN 可读 self∪子孙分组；写仍保持严格同租户。
 	scopes := expandTenantIDScope(claims.TenantID)
-	if claims.Authority != constant.SYS_ADMIN && !tenantIDInScopes(group.TenantID, scopes) {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to query device group")
+	readRule := authz.Rule{Scope: expandTenantIDScope, Message: "no permission to query device group"}
+	if err := readRule.Check(claims, authz.OfTenant(group.TenantID)); err != nil {
+		return nil, err
 	}
-	if claims.Authority == constant.TENANT_USER {
+	if authz.HasRole(claims, authz.TenantUser) {
 		visible, err := dal.IsGroupVisibleToOwner(groupID, scopes, claims.ID)
 		if err != nil {
 			return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
@@ -110,8 +111,8 @@ func ensureDeviceGroupWriteAccess(groupID string, claims *utils.UserClaims) (*mo
 	if err != nil {
 		return nil, err
 	}
-	if claims.Authority != constant.SYS_ADMIN && group.TenantID != claims.TenantID {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "no permission to modify device group")
+	if err := authz.CheckTenant(claims, group.TenantID, "no permission to modify device group"); err != nil {
+		return nil, err
 	}
 	return group, nil
 }

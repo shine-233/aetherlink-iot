@@ -66,11 +66,11 @@ func GetOtaUpgradePackageListByPage(p *model.GetOTAUpgradePackageLisyByPageReq, 
 		queryBuilder = queryBuilder.Where(q.TenantID.In(scopes...))
 	}
 	if p.Name != "" {
-		queryBuilder = queryBuilder.Where(q.Name.Like(fmt.Sprintf("%%%s%%", p.Name)))
+		queryBuilder = queryBuilder.Where(q.Name.Like(ContainsLikePattern(p.Name)))
 	}
 
 	if p.Version != "" {
-		queryBuilder = queryBuilder.Where(q.Version.Like(fmt.Sprintf("%%%s%%", p.Version)))
+		queryBuilder = queryBuilder.Where(q.Version.Like(ContainsLikePattern(p.Version)))
 	}
 
 	if p.DeviceConfigID != "" {

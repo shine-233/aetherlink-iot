@@ -21,11 +21,11 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 
+	"aetherlink-iot/backend/internal/authz"
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
 	config "aetherlink-iot/backend/mqtt"
 	simulationpublish "aetherlink-iot/backend/mqtt/simulation_publish"
-	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/utils"
 )
@@ -104,8 +104,8 @@ func (*TelemetryData) ServeEchoData(req *model.ServeEchoDataReq, clientIP string
 
 // 模拟设备发送遥测数据
 func (*TelemetryData) TelemetryPub(mosquittoCommand string, claims *utils.UserClaims) (interface{}, error) {
-	if claims == nil || claims.Authority != constant.SYS_ADMIN {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "只有系统管理员可以发布原始遥测命令")
+	if err := authz.PlatformAdminRule("只有系统管理员可以发布原始遥测命令").RequireClaims(claims); err != nil {
+		return nil, err
 	}
 
 	// 解析mosquitto_pub命令
@@ -272,19 +272,6 @@ func (*TelemetryData) SimulationSend(req *model.SimulationSendReq, claims *utils
 	return nil
 }
 
-func telemetryPublishLogFields(params *utils.MQTTParams) logrus.Fields {
-	fields := logrus.Fields{}
-	if params == nil {
-		return fields
-	}
-	fields["host"] = params.Host
-	fields["port"] = params.Port
-	fields["topic"] = params.Topic
-	fields["client_id"] = params.ClientId
-	fields["payload_size"] = len(params.Payload)
-	return fields
-}
-
 func parseMQTTAccessAddress(accessAddress string) (string, string, error) {
 	accessAddress = strings.TrimSpace(accessAddress)
 	if accessAddress == "" {
@@ -348,14 +335,4 @@ func validateSimulationPublishTarget(enabled bool, topic string) error {
 		return fmt.Errorf("MQTT telemetry topic is not initialized; enable MQTT service before publishing simulated telemetry")
 	}
 	return nil
-}
-
-func simulationSendLogFields(host, port, topic, clientID, payload string) logrus.Fields {
-	return logrus.Fields{
-		"host":         host,
-		"port":         port,
-		"topic":        topic,
-		"client_id":    clientID,
-		"payload_size": len(payload),
-	}
 }

@@ -6,7 +6,6 @@
 package model
 
 import (
-	"encoding/json"
 	"testing"
 )
 
@@ -150,19 +149,3 @@ func TestTenantDashboardMenuToRspPreservesDashboardNavigationContract(t *testing
 	}
 }
 
-func TestJsonRawMessage2StrCompactsObjectAndRejectsInvalidJSON(t *testing.T) {
-	raw := json.RawMessage(`{ "name": "sensor", "threshold": 12 }`)
-
-	got, err := JsonRawMessage2Str(&raw)
-	if err != nil {
-		t.Fatalf("JsonRawMessage2Str returned error: %v", err)
-	}
-	if got != `{"name":"sensor","threshold":12}` && got != `{"threshold":12,"name":"sensor"}` {
-		t.Fatalf("JsonRawMessage2Str = %q, want compact object JSON", got)
-	}
-
-	invalid := json.RawMessage(`{"name":`)
-	if _, err := JsonRawMessage2Str(&invalid); err == nil {
-		t.Fatal("JsonRawMessage2Str expected error for invalid JSON")
-	}
-}

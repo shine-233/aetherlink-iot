@@ -46,14 +46,9 @@ func (*SceneApi) CreateScene(c *gin.Context) {
 // 静态审查建议：检查对不存在场景和越权场景的错误返回是否一致，避免通过删除接口探测资源存在性。
 // 路由：`DELETE /api/v1/scene/{id}`
 func (*SceneApi) DeleteScene(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.Scene.DeleteScene(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandlePathAction(c, "id", func(id string, userClaims *utils.UserClaims) error {
+		return service.GroupApp.Scene.DeleteScene(id, userClaims)
+	})
 }
 
 // UpdateScene 更新场景。
@@ -87,17 +82,9 @@ func (*SceneApi) UpdateScene(c *gin.Context) {
 // @Router /api/v1/scene/dry-run [post]
 // 路由：`POST /api/v1/scene/dry-run`
 func (*SceneApi) DryRunScene(c *gin.Context) {
-	var req model.DryRunSceneReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Scene.DryRunScene(req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.DryRunSceneReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Scene.DryRunScene(*req, userClaims)
+	})
 }
 
 // HandleScene 查询场景详情。
@@ -108,14 +95,9 @@ func (*SceneApi) DryRunScene(c *gin.Context) {
 // 静态审查建议：检查空 ID、非法 ID 与越权读取是否都走统一错误通道，减少信息侧漏。
 // 路由：`GET /api/v1/scene/detail/{id}`
 func (*SceneApi) HandleScene(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Scene.GetScene(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Scene.GetScene(id, userClaims)
+	})
 }
 
 // HandleSceneByPage 分页查询场景列表。
@@ -126,17 +108,9 @@ func (*SceneApi) HandleScene(c *gin.Context) {
 // 静态审查建议：确认分页参数存在上限且排序字段受控，避免慢查询或通过排序字段注入异常行为。
 // 路由：`GET /api/v1/scene`
 func (*SceneApi) HandleSceneByPage(c *gin.Context) {
-	var req model.GetSceneListByPageReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Scene.GetSceneListByPage(req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.GetSceneListByPageReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Scene.GetSceneListByPage(*req, userClaims)
+	})
 }
 
 // ActiveScene 激活场景。
@@ -147,14 +121,9 @@ func (*SceneApi) HandleSceneByPage(c *gin.Context) {
 // 静态审查建议：重点检查重复激活、并发激活和激活其他租户场景时的行为是否稳定且可审计。
 // 路由：`POST /api/v1/scene/active/{id}`
 func (*SceneApi) ActiveScene(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.Scene.ActiveScene(id, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", nil)
+	HandlePathAction(c, "id", func(id string, userClaims *utils.UserClaims) error {
+		return service.GroupApp.Scene.ActiveScene(id, userClaims)
+	})
 }
 
 // HandleSceneLog 分页查询场景日志。
@@ -165,15 +134,7 @@ func (*SceneApi) ActiveScene(c *gin.Context) {
 // 静态审查建议：检查时间范围和分页是否有限流或上限控制，避免高成本日志扫描与越权批量导出。
 // 路由：`GET /api/v1/scene/log`
 func (*SceneApi) HandleSceneLog(c *gin.Context) {
-	var req model.GetSceneLogListByPageReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	data, err := service.GroupApp.Scene.GetSceneLog(req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	c.Set("data", data)
+	Handle(c, func(req *model.GetSceneLogListByPageReq, userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.Scene.GetSceneLog(*req, userClaims)
+	})
 }

@@ -35,9 +35,16 @@ jobs:
           - image: aetherlink-iot-mqtt-broker
             context: ./mqtt-broker
             file: ./mqtt-broker/Dockerfile
+          # modbus-plugin 是 deploy/docker-compose.modbus.yml 的独立构建上下文，
+          # 此前不在任何门禁内；build-only 对齐其余镜像（不发布）。
+          - image: aetherlink-iot-modbus-plugin
+            context: ./modbus-plugin
+            file: ./modbus-plugin/Dockerfile
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0

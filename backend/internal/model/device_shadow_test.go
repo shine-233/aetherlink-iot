@@ -7,40 +7,6 @@ import (
 	"time"
 )
 
-func TestShadowStatusVocabularyAndTerminalStates(t *testing.T) {
-	// 非终态：仍可能因 ACK 或重投而改变。
-	for _, status := range []string{ShadowStatusPending, ShadowStatusSent} {
-		if IsShadowTerminalStatus(status) {
-			t.Fatalf("%s must not be terminal", status)
-		}
-	}
-	// 终态：不可再投递、不可 ACK。
-	for _, status := range []string{
-		ShadowStatusDelivered, ShadowStatusFailed, ShadowStatusExpired, ShadowStatusCanceled,
-	} {
-		if !IsShadowTerminalStatus(status) {
-			t.Fatalf("%s must be terminal", status)
-		}
-	}
-}
-
-func TestShadowAckableStatusBoundaries(t *testing.T) {
-	// 只有未终态且已下发/待下发的消息可被确认。
-	for _, status := range []string{ShadowStatusPending, ShadowStatusSent} {
-		if !IsShadowAckableStatus(status) {
-			t.Fatalf("%s must be ackable", status)
-		}
-	}
-	// 已送达或已终态不可重复 ACK，否则等于改写历史结果。
-	for _, status := range []string{
-		ShadowStatusDelivered, ShadowStatusFailed, ShadowStatusExpired, ShadowStatusCanceled, "",
-	} {
-		if IsShadowAckableStatus(status) {
-			t.Fatalf("%s must not be ackable", status)
-		}
-	}
-}
-
 func TestShadowRetryBackoffIsExponentialAndCapped(t *testing.T) {
 	first := ShadowRetryBackoff(1)
 	if first != 30*time.Second {

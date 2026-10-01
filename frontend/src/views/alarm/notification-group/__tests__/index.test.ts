@@ -13,8 +13,6 @@ const hoisted = vi.hoisted(() => ({
   getNotificationGroupDetail: vi.fn(),
   deleteNotificationGroup: vi.fn(),
   putNotificationGroup: vi.fn(),
-  startLoading: vi.fn(),
-  endLoading: vi.fn(),
   setTrue: vi.fn(),
   setFalse: vi.fn()
 }))
@@ -38,7 +36,6 @@ vi.mock('@/locales', () => ({
 }))
 
 vi.mock('~/packages/hooks', () => ({
-  useLoading: () => ({ loading: { value: false }, startLoading: hoisted.startLoading, endLoading: hoisted.endLoading }),
   useBoolean: () => ({ bool: { value: false }, setTrue: hoisted.setTrue, setFalse: hoisted.setFalse }),
   useContext: vi.fn(() => ({ setupStore: vi.fn(), useStore: vi.fn() }))
 }))
@@ -118,12 +115,12 @@ describe('NotificationGroup', () => {
       expect(hoisted.getNotificationGroupList).toHaveBeenCalledWith({ page: 1, page_size: 10 })
     })
 
-    it('should call startLoading and endLoading during fetch', async () => {
+    it('should toggle loading around the fetch', async () => {
       hoisted.getNotificationGroupList.mockResolvedValue({ data: { list: [], total: 0 } })
-      mountComponent()
-      expect(hoisted.startLoading).toHaveBeenCalledTimes(1)
+      const wrapper = mountComponent()
+      expect(getState(wrapper).loading).toBe(true)
       await flushPromises()
-      expect(hoisted.endLoading).toHaveBeenCalledTimes(1)
+      expect(getState(wrapper).loading).toBe(false)
     })
 
     it('should populate table data on successful fetch', async () => {
@@ -294,6 +291,27 @@ describe('NotificationGroup', () => {
       expect(hoisted.getNotificationGroupList).toHaveBeenCalledWith({ page: 1, page_size: 10 })
     })
 
+    it('should keep the row id intact (payload is a copy without id)', async () => {
+      hoisted.putNotificationGroup.mockResolvedValue({ error: null })
+      const wrapper = mountComponent()
+      await flushPromises()
+      const state = getState(wrapper)
+      const row = { id: '1', status: 'CLOSE', notification_type: 'email', name: 'G1' }
+      await state.handleSwitchChange(row, true)
+      expect(row.id).toBe('1')
+      expect(hoisted.putNotificationGroup.mock.calls[0][0]).not.toHaveProperty('id')
+    })
+
+    it('should roll back the optimistic status when the update fails', async () => {
+      hoisted.putNotificationGroup.mockResolvedValue({ error: { message: 'boom' } })
+      const wrapper = mountComponent()
+      await flushPromises()
+      const state = getState(wrapper)
+      const row = { id: '1', status: 'CLOSE', notification_type: 'email', name: 'G1' }
+      await state.handleSwitchChange(row, true)
+      expect(row.status).toBe('CLOSE')
+    })
+
     it('should handle row without id', async () => {
       hoisted.putNotificationGroup.mockResolvedValue({ error: null })
       hoisted.getNotificationGroupList.mockResolvedValue({ data: { list: [], total: 0 } })
@@ -347,6 +365,21 @@ describe('NotificationGroup', () => {
 
       window.$message = originalMessage
     })
+  })
+
+  it('should not report success nor refetch when delete fails', async () => {
+    const messageInfo = vi.fn()
+    const originalMessage = window.$message
+    window.$message = { info: messageInfo } as any
+    hoisted.deleteNotificationGroup.mockResolvedValue({ error: { message: 'denied' } })
+    const wrapper = mountComponent()
+    await flushPromises()
+    hoisted.getNotificationGroupList.mockClear()
+    await getState(wrapper).handleDeleteTable('test-id')
+    await flushPromises()
+    expect(messageInfo).not.toHaveBeenCalled()
+    expect(hoisted.getNotificationGroupList).not.toHaveBeenCalled()
+    window.$message = originalMessage
   })
 
   describe('handleEditTable', () => {
@@ -436,24 +469,55 @@ describe('NotificationGroup', () => {
       expect(state.pagination.pageSizes).toEqual([10, 15, 20, 25, 30])
     })
 
-    it('should update page on onChange', async () => {
-      hoisted.getNotificationGroupList.mockResolvedValue({ data: { list: [], total: 0 } })
+    it('should update page and refetch on onUpdatePage', async () => {
+      hoisted.getNotificationGroupList.mockResolvedValue({ data: { list: [], total: 100 } })
       const wrapper = mountComponent()
       await flushPromises()
       const state = getState(wrapper)
-      state.pagination.onChange(3)
+      state.pagination.onUpdatePage(3)
       expect(state.pagination.page).toBe(3)
+      await flushPromises()
+      expect(hoisted.getNotificationGroupList).toHaveBeenLastCalledWith({ page: 3, page_size: 10 })
     })
 
-    it('should reset page to 1 and update pageSize on onUpdatePageSize', async () => {
-      hoisted.getNotificationGroupList.mockResolvedValue({ data: { list: [], total: 0 } })
+    it('should reset page to 1, update pageSize and refetch on onUpdatePageSize', async () => {
+      hoisted.getNotificationGroupList.mockResolvedValue({ data: { list: [], total: 100 } })
       const wrapper = mountComponent()
       await flushPromises()
       const state = getState(wrapper)
-      state.pagination.page = 5
+      state.pagination.onUpdatePage(5)
       state.pagination.onUpdatePageSize(20)
       expect(state.pagination.pageSize).toBe(20)
       expect(state.pagination.page).toBe(1)
+      await flushPromises()
+      expect(hoisted.getNotificationGroupList).toHaveBeenLastCalledWith({ page: 1, page_size: 20 })
+    })
+
+    it('should bind the size picker on NPagination', async () => {
+      hoisted.getNotificationGroupList.mockResolvedValue({ data: { list: [], total: 42 } })
+      const wrapper = mountComponent()
+      await flushPromises()
+      const attrs = wrapper.findComponent({ name: 'NPagination' }).attributes()
+      expect(attrs['show-size-picker']).toBe('true')
+      expect(attrs['page-sizes']).toBe('10,15,20,25,30')
+      expect(attrs['item-count']).toBe('42')
+    })
+
+    it('should drop a stale page-1 response that resolves after page 2', async () => {
+      const page2 = [{ id: 'p2', name: 'Page2' }]
+      let resolvePage1: (value: unknown) => void = () => {}
+      hoisted.getNotificationGroupList
+        .mockImplementationOnce(() => new Promise((resolve) => (resolvePage1 = resolve)))
+        .mockResolvedValueOnce({ data: { list: page2, total: 20 } })
+      const wrapper = mountComponent()
+      const state = getState(wrapper)
+      state.pagination.onUpdatePage(2)
+      await flushPromises()
+      expect(state.tableData).toEqual(page2)
+      resolvePage1({ data: { list: [{ id: 'p1', name: 'Page1' }], total: 20 } })
+      await flushPromises()
+      expect(state.tableData).toEqual(page2)
+      expect(state.loading).toBe(false)
     })
   })
 
@@ -463,23 +527,11 @@ describe('NotificationGroup', () => {
       const wrapper = mountComponent()
       await flushPromises()
       const state = getState(wrapper)
-      state.pagination.page = 2
-      state.pagination.pageSize = 20
+      state.pagination.onUpdatePageSize(20)
+      state.pagination.onUpdatePage(2)
       await state.getTableData()
       await flushPromises()
       expect(hoisted.getNotificationGroupList).toHaveBeenCalledWith({ page: 2, page_size: 20 })
-    })
-
-    it('should default to page 1 and pageSize 10 if pagination values are falsy', async () => {
-      hoisted.getNotificationGroupList.mockResolvedValue({ data: { list: [], total: 0 } })
-      const wrapper = mountComponent()
-      await flushPromises()
-      const state = getState(wrapper)
-      state.pagination.page = 0
-      state.pagination.pageSize = 0
-      await state.getTableData()
-      await flushPromises()
-      expect(hoisted.getNotificationGroupList).toHaveBeenCalledWith({ page: 1, page_size: 10 })
     })
 
     it('should set total from response', async () => {

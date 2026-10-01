@@ -49,6 +49,8 @@ func main() {
 		app.WithFlowService(),
 		app.WithHeartbeatMonitor(),
 		app.WithDiagnostics(),
+		app.WithOperationLogWriter(), // db-schema#11：操作日志异步批量写入（默认关闭，需显式开启）
+		app.WithAutomationPool(), // 须在 MQTT/上行之前注册：反序停机时上行先停，工作池后排空
 		app.WithMQTTService(),
 		app.WithDownlinkService(),
 		app.WithGRPCService(),
@@ -60,6 +62,7 @@ func main() {
 		app.WithTelemetryDeadLetterWorker(),
 		app.WithTelemetry(),
 		app.WithCoAPGateway(),   // C6：CoAP/LwM2M 协议网关（protocols.coap.enabled=true 时启动）
+		app.WithTCPGateway(),    // TP-03：TCP 入站协议网关（protocols.tcp.enabled=true 时启动）
 		app.WithCollectors(),    // C6：SNMP/OPC UA 轮询采集器（collectors.*.enabled=true 时启动）
 		app.WithEdgeForward(),   // 边缘计算：遥测云转发（edge.forward.enabled=true 时启动）
 		app.WithPluginGateway(), // PHASE-D-D9：插件 gRPC 网关（plugin.grpc.enabled=true 时启动）

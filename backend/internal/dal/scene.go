@@ -9,7 +9,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"time"
 
 	model "aetherlink-iot/backend/internal/model"
@@ -19,6 +18,28 @@ import (
 	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
 )
+
+// buildSceneActionRows 把请求动作转为场景动作行（Create/Update 共用，原两处逐字重复）。
+// 返回切片交给一次多行 INSERT 写入，替代原先逐动作一条 INSERT；空切片时 gen Create 直接返回 nil。
+func buildSceneActionRows(sceneID, tenantID string, actions []model.SceneActionsReq, t time.Time) []*model.SceneActionInfo {
+	rows := make([]*model.SceneActionInfo, 0, len(actions))
+	for _, v := range actions {
+		rows = append(rows, &model.SceneActionInfo{
+			ID:              uuid.New(),
+			SceneID:         sceneID,
+			ActionTarget:    v.ActionTarget,
+			ActionType:      v.ActionType,
+			ActionParamType: v.ActionParamType,
+			ActionParam:     v.ActionParam,
+			ActionValue:     v.ActionValue,
+			CreatedAt:       t,
+			UpdatedAt:       &t,
+			TenantID:        tenantID,
+			Remark:          v.Remark,
+		})
+	}
+	return rows
+}
 
 func CreateSceneInfo(req model.CreateSceneReq, claims *utils.UserClaims) (string, error) {
 	tx, err := StartTransaction()
@@ -41,27 +62,15 @@ func CreateSceneInfo(req model.CreateSceneReq, claims *utils.UserClaims) (string
 
 	err = tx.SceneInfo.Create(&sceneInfo)
 	if err != nil {
+		// 失败也必须回滚：否则事务与其占用的连接池连接一直悬挂到连接被回收。
+		Rollback(tx)
 		return "", err
 	}
 
-	for _, v := range req.Actions {
-		sceneAction := model.SceneActionInfo{}
-		sceneAction.ID = uuid.New()
-		sceneAction.SceneID = sceneInfo.ID
-		sceneAction.ActionTarget = v.ActionTarget
-		sceneAction.ActionType = v.ActionType
-		sceneAction.ActionParamType = v.ActionParamType
-		sceneAction.ActionParam = v.ActionParam
-		sceneAction.ActionValue = v.ActionValue
-		sceneAction.CreatedAt = t
-		sceneAction.UpdatedAt = &t
-		sceneAction.TenantID = claims.TenantID
-		sceneAction.Remark = v.Remark
-		err = tx.SceneActionInfo.Create(&sceneAction)
-		if err != nil {
-			Rollback(tx)
-			return "", err
-		}
+	err = tx.SceneActionInfo.Create(buildSceneActionRows(sceneInfo.ID, claims.TenantID, req.Actions, t)...)
+	if err != nil {
+		Rollback(tx)
+		return "", err
 	}
 
 	err = Commit(tx)
@@ -103,24 +112,10 @@ func UpdateSceneInfo(req model.UpdateSceneReq, claims *utils.UserClaims, tenantI
 		return "", err
 	}
 
-	for _, v := range req.Actions {
-		sceneAction := model.SceneActionInfo{}
-		sceneAction.ID = uuid.New()
-		sceneAction.SceneID = req.ID
-		sceneAction.ActionTarget = v.ActionTarget
-		sceneAction.ActionType = v.ActionType
-		sceneAction.ActionParamType = v.ActionParamType
-		sceneAction.ActionParam = v.ActionParam
-		sceneAction.ActionValue = v.ActionValue
-		sceneAction.CreatedAt = t
-		sceneAction.UpdatedAt = &t
-		sceneAction.TenantID = tenantID
-		sceneAction.Remark = v.Remark
-		err = tx.SceneActionInfo.Create(&sceneAction)
-		if err != nil {
-			Rollback(tx)
-			return "", err
-		}
+	err = tx.SceneActionInfo.Create(buildSceneActionRows(req.ID, tenantID, req.Actions, t)...)
+	if err != nil {
+		Rollback(tx)
+		return "", err
 	}
 
 	err = Commit(tx)
@@ -169,7 +164,7 @@ func GetSceneInfoByPage(req *model.GetSceneListByPageReq, tenant_id string) (int
 	var count int64
 	queryBuilder := q.WithContext(context.Background())
 	if req.Name != nil && *req.Name != "" {
-		queryBuilder = queryBuilder.Where(q.Name.Like(fmt.Sprintf("%%%s%%", *req.Name)))
+		queryBuilder = queryBuilder.Where(q.Name.Like(ContainsLikePattern(*req.Name)))
 	}
 
 	queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenant_id))

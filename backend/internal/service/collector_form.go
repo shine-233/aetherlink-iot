@@ -7,8 +7,11 @@
 //      复用 collector 包解析器（保存通过的点表采集器必然可解析，契约单一来源）。
 // 关键注意事项：
 //   - dataKey 是前后端契约：必须与 collector 包 SnmpConfig/OpcuaConfig 的 JSON 键一致
-//     （target/community/timeout_ms/points[{key,oid}]、endpoint/security_mode/username/password/points[{key,node}]），
+//     （target/community/timeout_ms/v3_user/auth_proto/auth_passphrase/points[{key,oid}]、
+//     endpoint/security_mode/username/password/points[{key,node}]），
 //     任何一侧改名即断链，改动需两侧同批提交；
+//   - SNMPv3 的 priv_proto/priv_passphrase 暂不进表单（authPriv 加密未实现，仅 JSON 契约保留，
+//     保存校验拒绝非 none 值）；v3_user 非空即 v3 路径，community 表单仍保留（v3 路径忽略该值）；
 //   - 标签用协议术语原文（语言中立），不引入前端 i18n 依赖。
 package service
 
@@ -79,6 +82,13 @@ func builtinCollectorConfigForm(protocolType string) interface{} {
 			inputElement("target", "target", "host:port (e.g. 10.0.0.5:161)", requiredRule("target is required")),
 			inputElement("community", "community", "public", requiredRule("community is required")),
 			inputElement("timeout_ms", "timeout_ms", "1500", map[string]interface{}{"type": "number"}),
+			// TB-22：SNMPv3 可选段（留空 v3_user 即 v2c）。
+			inputElement("v3_user", "v3_user", "(optional, e.g. authUser)", nil),
+			selectElement("auth_proto", "auth_proto", []map[string]interface{}{
+				{"label": "HMAC-MD5-96", "value": "md5"},
+				{"label": "HMAC-SHA-96", "value": "sha"},
+			}),
+			inputElement("auth_passphrase", "auth_passphrase", "(min 8 chars)", nil),
 			pointTableElement([]map[string]interface{}{
 				inputElement("key", "key", "temperature", requiredRule("key is required")),
 				inputElement("oid", "oid", "1.3.6.1.2.1.1.3.0", requiredRule("oid is required")),

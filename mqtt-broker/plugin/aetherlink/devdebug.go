@@ -61,12 +61,23 @@ func GetDeviceDebugConfig(deviceID string) (DeviceDebugConfig, bool, error) {
 	if redisCache == nil {
 		return DeviceDebugConfig{}, false, errors.New("redis not initialized")
 	}
-	var cfg DeviceDebugConfig
-	if err := GetRedisForJsondata(devDebugCfgKey(deviceID), &cfg); err != nil {
-		if err == redis.Nil {
-			return DeviceDebugConfig{}, false, nil
+	client := redisCache
+	cfg, present, hit := devDebugCfgLocal.get(client, deviceID)
+	if !hit {
+		cfg = DeviceDebugConfig{}
+		if err := GetRedisForJsondata(devDebugCfgKey(deviceID), &cfg); err != nil {
+			if err != redis.Nil {
+				// 读取失败不缓存，下一条消息重试。
+				return DeviceDebugConfig{}, false, err
+			}
+			cfg, present = DeviceDebugConfig{}, false
+		} else {
+			present = true
 		}
-		return DeviceDebugConfig{}, false, err
+		devDebugCfgLocal.put(client, deviceID, cfg, present)
+	}
+	if !present {
+		return DeviceDebugConfig{}, false, nil
 	}
 	if !cfg.Enabled {
 		return cfg, false, nil
@@ -90,25 +101,6 @@ func loadDeviceDebugConfigForWrite(deviceID string) (string, DeviceDebugConfig, 
 		return normalizedDeviceID, cfg, false, err
 	}
 	return normalizedDeviceID, cfg, true, nil
-}
-
-// WriteDeviceDebugLog appends a log entry if device debug is enabled.
-// It is safe to call frequently; missing/expired config results in a no-op.
-func WriteDeviceDebugLog(deviceID string, entry DeviceDebugLogEntry) (bool, error) {
-	normalizedDeviceID, cfg, enabled, err := loadDeviceDebugConfigForWrite(deviceID)
-	if err != nil || !enabled {
-		return false, err
-	}
-	return writeDeviceDebugLogWithConfig(normalizedDeviceID, cfg, entry)
-}
-
-func WriteDeviceDebugLogWithPayloadBytes(deviceID string, entry DeviceDebugLogEntry, payload []byte) (bool, error) {
-	normalizedDeviceID, cfg, enabled, err := loadDeviceDebugConfigForWrite(deviceID)
-	if err != nil || !enabled {
-		return false, err
-	}
-	entry.Payload = string(payload)
-	return writeDeviceDebugLogWithConfig(normalizedDeviceID, cfg, entry)
 }
 
 func writeDeviceDebugLogWithConfig(normalizedDeviceID string, cfg DeviceDebugConfig, entry DeviceDebugLogEntry) (bool, error) {

@@ -42,6 +42,14 @@ func (p pubTopicPattern) slotIndex() int {
 	return -1
 }
 
+// compiledPubTopicPattern 是预拆分的发布模式：每条 PUBLISH 都要遍历整张白名单，
+// 包初始化时一次性拆分模式并计算身份槽下标，热路径只需拆分一次 topic。
+type compiledPubTopicPattern struct {
+	parts        []string
+	identityKind pubIdentityKind
+	slot         int
+}
+
 // pubList 是允许设备发布（上行）的主题模式列表。
 // '+' 表示单层通配符，匹配任意非空单层字符串。
 var pubList = []pubTopicPattern{
@@ -72,10 +80,30 @@ var pubList = []pubTopicPattern{
 // mqttWildcard 是 MQTT 单层通配符。
 const mqttWildcard = "+"
 
+// compiledPubList 是 pubList 的预拆分形式，顺序与 pubList 一致。
+var compiledPubList = compilePubTopicPatterns(pubList)
+
+func compilePubTopicPatterns(patterns []pubTopicPattern) []compiledPubTopicPattern {
+	compiled := make([]compiledPubTopicPattern, len(patterns))
+	for i, p := range patterns {
+		compiled[i] = compiledPubTopicPattern{
+			parts:        mustFitLevels(p.pattern),
+			identityKind: p.identityKind,
+			slot:         p.slotIndex(),
+		}
+	}
+	return compiled
+}
+
 // ValidateTopic 检查主题是否符合 pubList 中的任一模式（仅形状校验）。
 func ValidateTopic(topic string) bool {
-	for _, p := range pubList {
-		if matchesPattern(topic, p.pattern) {
+	var buf topicLevels
+	topicParts, ok := splitTopicLevels(topic, &buf)
+	if !ok {
+		return false
+	}
+	for _, p := range compiledPubList {
+		if matchesPatternParts(topicParts, p.parts) {
 			return true
 		}
 	}
@@ -91,11 +119,16 @@ func ValidateTopic(topic string) bool {
 //     无法与设备身份绑定，保持形状校验并由 payload 重包保证归因；
 //   - 形状不匹配、或所需身份缺失/不一致时一律拒绝（fail-closed）。
 func ValidatePubTopicForDevice(topic, deviceID, deviceNumber string) bool {
-	for _, p := range pubList {
-		if !matchesPattern(topic, p.pattern) {
+	var buf topicLevels
+	topicParts, ok := splitTopicLevels(topic, &buf)
+	if !ok {
+		return false
+	}
+	for _, p := range compiledPubList {
+		if !matchesPatternParts(topicParts, p.parts) {
 			continue
 		}
-		if !pubTopicIdentitySatisfied(p, topic, deviceID, deviceNumber) {
+		if !pubTopicIdentitySatisfied(p, topicParts, deviceID, deviceNumber) {
 			continue
 		}
 		return true
@@ -104,7 +137,7 @@ func ValidatePubTopicForDevice(topic, deviceID, deviceNumber string) bool {
 }
 
 // pubTopicIdentitySatisfied 检查主题是否满足模式的设备身份槽绑定约束。
-func pubTopicIdentitySatisfied(p pubTopicPattern, topic, deviceID, deviceNumber string) bool {
+func pubTopicIdentitySatisfied(p compiledPubTopicPattern, topicParts []string, deviceID, deviceNumber string) bool {
 	switch p.identityKind {
 	case identityNone:
 		return true
@@ -112,31 +145,28 @@ func pubTopicIdentitySatisfied(p pubTopicPattern, topic, deviceID, deviceNumber 
 		if deviceID == "" {
 			return false
 		}
-		return topicSlotValue(topic, p.slotIndex()) == deviceID
+		return topicSlotValue(topicParts, p.slot) == deviceID
 	case identityDeviceNumber:
 		if deviceNumber == "" {
 			return false
 		}
-		return topicSlotValue(topic, p.slotIndex()) == deviceNumber
+		return topicSlotValue(topicParts, p.slot) == deviceNumber
 	default:
 		return false
 	}
 }
 
 // topicSlotValue 返回主题指定层的内容；下标越界时返回空串。
-func topicSlotValue(topic string, index int) string {
-	parts := strings.Split(topic, "/")
+func topicSlotValue(parts []string, index int) string {
 	if index < 0 || index >= len(parts) {
 		return ""
 	}
 	return parts[index]
 }
 
-// matchesPattern 检查主题是否符合给定模式（'+' 匹配单层）。
-func matchesPattern(topic, pattern string) bool {
-	topicParts := strings.Split(topic, "/")
-	patternParts := strings.Split(pattern, "/")
-
+// matchesPatternParts 检查主题是否符合给定模式（'+' 匹配单层）。
+// 调用方传入预拆分的主题层与模式层，避免白名单遍历时重复拆分。
+func matchesPatternParts(topicParts, patternParts []string) bool {
 	// 主题和模式层数不一致则不匹配
 	if len(topicParts) != len(patternParts) {
 		return false

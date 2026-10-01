@@ -71,7 +71,7 @@ func TestOnWillPublishKeepsSystemUserWillUnchanged(t *testing.T) {
 }
 
 func TestOnWillPublishWrapsDeviceWillPayloadWithDeviceID(t *testing.T) {
-	setupWillHookTestRedis(t)
+	installMQTTSubscribeTestStore(t, willTestDevice())
 	if err := SetStr(mqttClientDeviceBindingKeyPrefix+"device-client", "device-001", mqttClientBindingTTL); err != nil {
 		t.Fatalf("seed device binding: %v", err)
 	}
@@ -119,5 +119,58 @@ func TestRememberMQTTClientUsernameRejectsEmptyInputs(t *testing.T) {
 	}
 	if err := rememberMQTTClientUsername("client-1", " "); err == nil {
 		t.Fatal("blank username should be rejected")
+	}
+}
+
+func willTestDevice() *Device {
+	return &Device{
+		ID:           "device-001",
+		DeviceNumber: "dev-num-001",
+		TenantID:     "tenant-1",
+		ActivateFlag: "active",
+		IsEnabled:    "enabled",
+	}
+}
+
+// 回归：遗嘱主题必须与普通 PUBLISH 一样绑定发布者身份槽，
+// 否则设备可声明 devices/status/<他人ID> 的遗嘱，在断线时伪造其他设备离线。
+func TestOnWillPublishBindsIdentityTopicsToPublisher(t *testing.T) {
+	tests := []struct {
+		name     string
+		topic    string
+		wantDrop bool
+	}{
+		{name: "own status topic is kept", topic: "devices/status/device-001"},
+		{name: "foreign status topic is dropped", topic: "devices/status/device-002", wantDrop: true},
+		{name: "own uplink device number is kept", topic: "dev-num-001/up"},
+		{name: "foreign uplink device number is dropped", topic: "dev-num-002/up", wantDrop: true},
+		{name: "shared telemetry is kept", topic: "devices/telemetry"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			installMQTTSubscribeTestStore(t, willTestDevice())
+			if err := SetStr(mqttClientDeviceBindingKeyPrefix+"device-client", "device-001", mqttClientBindingTTL); err != nil {
+				t.Fatalf("seed device binding: %v", err)
+			}
+			req := &server.WillMsgRequest{Message: &gmqtt.Message{Topic: tt.topic, Payload: []byte(`offline`)}}
+			(&AetherLinkPlugin{}).OnWillPublishWrapper(nil)(context.Background(), "device-client", req)
+			if dropped := req.Message == nil; dropped != tt.wantDrop {
+				t.Fatalf("topic %q dropped=%v, want %v", tt.topic, dropped, tt.wantDrop)
+			}
+		})
+	}
+}
+
+func TestOnWillPublishDropsWillOfInactiveDevice(t *testing.T) {
+	dev := willTestDevice()
+	dev.IsEnabled = "disabled"
+	installMQTTSubscribeTestStore(t, dev)
+	if err := SetStr(mqttClientDeviceBindingKeyPrefix+"device-client", "device-001", mqttClientBindingTTL); err != nil {
+		t.Fatalf("seed device binding: %v", err)
+	}
+	req := &server.WillMsgRequest{Message: &gmqtt.Message{Topic: "devices/telemetry", Payload: []byte(`x`)}}
+	(&AetherLinkPlugin{}).OnWillPublishWrapper(nil)(context.Background(), "device-client", req)
+	if req.Message != nil {
+		t.Fatal("will of a disabled device must be dropped")
 	}
 }

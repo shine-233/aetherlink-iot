@@ -118,11 +118,6 @@ func IsAllowedPushStatus(status string) bool {
 	}
 }
 
-// IsPushTerminalStatus dead 为唯一终态，不再重试。
-func IsPushTerminalStatus(status string) bool {
-	return status == PushStatusDead || status == PushStatusSent
-}
-
 // IsPushRetryable 判断该状态是否还允许再次投递。
 // sent 与 dead 都不可重试——重发已成功的推送是骚扰，重试已放弃的是自欺欺人。
 func IsPushRetryable(status string) bool {

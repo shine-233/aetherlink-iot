@@ -32,6 +32,35 @@ export const editDataClear = async (params: { list?: unknown } | Record<string, 
   return data
 }
 
+/** 新增行级（租户/档案粒度）数据清理策略（TB-15R，138.sql；行级仅支持设备数据 data_type=1） */
+export const createDataClear = async (params: {
+  data_type: string
+  tenant_id: string
+  device_config_id?: string | null
+  retention_days: number
+  enabled: string
+  remark?: string | null
+}) => {
+  const data = await request.post<Api.BaseApi.Data>('/datapolicy', params)
+  return data
+}
+
+/** 删除行级数据清理策略（TB-15R；全局默认行由后端拒绝删除） */
+export const deleteDataClear = async (id: string) => {
+  const data = await request.delete<Api.BaseApi.Data>(`/datapolicy/${id}`)
+  return data
+}
+
+/** 租户分页列表（行级数据清理策略的租户选择器数据源） */
+export const fetchTenantOptions = async (params?: Record<string, unknown>) => {
+  return await request.get<Api.BaseApi.Data | any>('/tenants', { params })
+}
+
+/** 设备档案分页列表（行级策略的档案选择器数据源，前端按 tenant_id 过滤） */
+export const fetchDeviceConfigOptions = async (params?: Record<string, unknown>) => {
+  return await request.get<Api.BaseApi.Data | any>('/device_config', { params })
+}
+
 /** 编辑清理设置 */
 export const dictQuery = async (params: Record<string, unknown>) => {
   return await request.get<Api.BaseApi.Data | any>('/dict/enum', { params })

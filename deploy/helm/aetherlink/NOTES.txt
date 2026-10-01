@@ -1,0 +1,25 @@
+文件用途：helm install 完成后的提示文本（不参与 YAML 渲染校验）。
+核心逻辑：提示剩余的手工步骤——密钥提供、公开地址对齐、多副本前提确认。
+关键注意事项：本文件仅为安装器提示，不改变任何资源；边界说明以 deploy/README.md 为准。
+重构建议：与 deploy/README.md 的 K8s 章节保持同步更新。
+
+AetherLink IoT ({{ .Release.Name }}) 已提交到命名空间 {{ .Release.Namespace }}。
+
+1. 等待全部工作负载 Ready：
+   kubectl -n {{ .Release.Namespace }} get pods,svc -l app.kubernetes.io/instance={{ .Release.Name }}
+   首次启动由 backend 应用完整迁移链（1..VERSION_NUMBER），StatefulSet OrderedReady
+   保证迁移完成后其余副本才启动。
+
+2. 验证就绪与部署健康：
+   kubectl -n {{ .Release.Namespace }} port-forward svc/{{ .Release.Name }}-backend 9999:9999
+   curl http://127.0.0.1:9999/ready   （必需依赖就绪才返回 200）
+
+3. 访问控制台（默认 ClusterIP，仅集群内可达）：
+   kubectl -n {{ .Release.Namespace }} port-forward svc/{{ .Release.Name }}-frontend 8080:8080
+   然后打开 http://localhost:8080 ——对外暴露请改 frontend.service.type 或加 Ingress，
+   并把 backend.public.webUrl / backend.public.mqttAddress 改成用户与设备可达的地址。
+
+4. 多副本前提（backend.replicas>1 或 broker.replicas>1）：
+   - backend files 卷必须改 ReadWriteMany（RWX 存储类）；spool 卷保持 per-pod，勿共享。
+   - broker 副本身份由 StatefulSet Pod 名提供；会话吊销要求全部 broker 副本 ACK。
+   - federation 集群编排默认关闭，不在本 chart 范围内。

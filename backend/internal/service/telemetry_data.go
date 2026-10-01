@@ -10,7 +10,6 @@ import (
 	dal "aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/downlink"
 	model "aetherlink-iot/backend/internal/model"
-	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/utils"
 
@@ -77,33 +76,6 @@ func loadTelemetryDeviceForAccess(deviceID string, claims *utils.UserClaims, per
 		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, permissionMessage)
 	}
 	return deviceInfo, nil
-}
-
-func hasTelemetryTenantAccess(deviceInfo *model.Device, claims *utils.UserClaims, allowSharedRead bool) bool {
-	if deviceInfo == nil || claims == nil {
-		return false
-	}
-	if claims.Authority == constant.SYS_ADMIN {
-		return true
-	}
-	if deviceInfo.TenantID == claims.TenantID {
-		if claims.Authority == constant.TENANT_USER {
-			if deviceOwnerMatchesClaims(deviceInfo, claims) {
-				return true
-			}
-			if !allowSharedRead {
-				return false
-			}
-			_, ok := rdiShareRecipientForUser(deviceInfo, claims)
-			return ok
-		}
-		return true
-	}
-	if !allowSharedRead {
-		return false
-	}
-	_, ok := rdiShareRecipientForUser(deviceInfo, claims)
-	return ok
 }
 
 func ensureTelemetryDeviceAccess(

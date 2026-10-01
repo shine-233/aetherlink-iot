@@ -74,11 +74,13 @@ func TouchEdgeNodeHeartbeat(nodeID, tenantID string, seenAt time.Time) (int64, e
 }
 
 // ListEdgeNodesInTenant 列出租户内节点（按最后心跳倒序，运维视角先看最久没响的）。
+// rows 不带容量提示：limit 虽已钳制 ≤500，但显式容量会让静态分析把外部可控上限
+// 当作分配规模（uncontrolled-allocation-size），而 GORM Find 本就会按结果行数重切片。
 func ListEdgeNodesInTenant(tenantID string, limit int) ([]*model.EdgeNode, error) {
 	if limit <= 0 || limit > 500 {
 		limit = 100
 	}
-	rows := make([]*model.EdgeNode, 0, limit)
+	var rows []*model.EdgeNode
 	err := global.DB.Where("tenant_id = ?", tenantID).
 		Order("last_seen_at DESC NULLS LAST, id ASC").
 		Limit(limit).

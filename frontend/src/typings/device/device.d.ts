@@ -141,6 +141,8 @@ declare namespace DeviceManagement {
     updated_at: string
     remark: null
     device_count: number
+    /** 档案级默认规则链 id（TB-18，null=未绑定） */
+    default_rule_chain_id?: string | null
   }
 
   interface ConfigDatas {

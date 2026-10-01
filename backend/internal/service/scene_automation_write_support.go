@@ -3,7 +3,6 @@ package service
 import (
 	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/query"
-	"aetherlink-iot/backend/pkg/errcode"
 )
 
 // withSceneAutomationTransaction wraps scene automation definition writes so
@@ -39,7 +38,5 @@ func normalizeSceneAutomationEnabled(enabled string) string {
 }
 
 func sceneAutomationDBError(err error) error {
-	return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-		"sql_error": err.Error(),
-	})
+	return dbError(err)
 }

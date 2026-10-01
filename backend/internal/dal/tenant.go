@@ -57,23 +57,6 @@ func GetTenantByID(id string) (*model.Tenant, error) {
 	return &t, nil
 }
 
-// GetTenantByName 按租户名称获取租户信息。
-// tenant-scope: caller-enforced —— 跨租户全局重名校验专用（开通/创建前置），刻意不带租户过滤。
-func GetTenantByName(name string) (*model.Tenant, error) {
-	if global.DB == nil {
-		return nil, errTenantDBNotInitialized
-	}
-	var t model.Tenant
-	err := global.DB.Table(model.TableNameTenant).Where("name = ?", strings.TrimSpace(name)).Take(&t).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &t, nil
-}
-
 // ListTenants 分页查询租户列表。
 // tenant-scope: caller-enforced —— 可见范围由服务层解析层级后经 tenantIDs 传入，
 // DAL 不再叠加租户过滤（SYS_ADMIN 传空=全平台）。
@@ -86,25 +69,20 @@ func ListTenants(offset, limit int, search string, tenantIDs []string) ([]*model
 	if len(tenantIDs) > 0 {
 		db = db.Where("id IN ?", tenantIDs)
 	}
-	search = strings.TrimSpace(search)
-	if search != "" {
-		db = db.Where("name ILIKE ? OR id ILIKE ?", "%"+search+"%", "%"+search+"%")
-	}
+	db = whereKeywordContains(db, opILike, search, "name", "id")
 
 	var total int64
-	if err := db.Count(&total).Error; err != nil {
+	if err := db.Session(&gorm.Session{}).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
-	if limit <= 0 {
-		limit = 10
-	}
-	if limit > 100 {
-		limit = 100
+	_, limit = normalizePageParams(1, limit, 10, 100)
+	if offset < 0 {
+		offset = 0
 	}
 
 	var list []*model.Tenant
-	err := db.Order("created_at DESC").Offset(offset).Limit(limit).Find(&list).Error
+	err := db.Session(&gorm.Session{}).Order("created_at DESC").Offset(offset).Limit(limit).Find(&list).Error
 	return list, total, err
 }
 

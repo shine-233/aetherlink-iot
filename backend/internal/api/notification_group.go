@@ -91,14 +91,9 @@ func (*NotificationGroupApi) UpdateNotificationGroup(c *gin.Context) {
 // 删除后不返回实体，只回传空 data。
 // @Router   /api/v1/notification_group/{id} [delete]
 func (*NotificationGroupApi) DeleteNotificationGroup(c *gin.Context) {
-	id := c.Param("id")
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	if err := service.GroupApp.NotificationGroup.DeleteNotificationGroup(id, userClaims); err != nil {
-		c.Error(err)
-		return
-	} else {
-		c.Set("data", nil)
-	}
+	HandlePathAction(c, "id", func(id string, userClaims *utils.UserClaims) error {
+		return service.GroupApp.NotificationGroup.DeleteNotificationGroup(id, userClaims)
+	})
 }
 
 // HandleNotificationGroupListByPage 获取通知组分页列表。

@@ -227,20 +227,6 @@ func TestBuildOTAFilteredDeviceListReqRejectsMismatchedDeviceConfig(t *testing.T
 	assertErrcodeError(t, err, errCtx, errcode.CodeParamError, "device_filter.device_config_id must match ota package device_config_id")
 }
 
-func TestFilteredOTADeviceIDsDeduplicatesAndExcludes(t *testing.T) {
-	ids := filteredOTADeviceIDs([]model.GetDeviceListByPageRsp{
-		{ID: "dev-1"},
-		{ID: "dev-2"},
-		{ID: "dev-1"},
-		{ID: " "},
-		{ID: "dev-3"},
-	}, []string{"dev-2", "dev-missing"})
-
-	if !reflect.DeepEqual(ids, []string{"dev-1", "dev-3"}) {
-		t.Fatalf("filteredOTADeviceIDs = %#v, want dev-1/dev-3", ids)
-	}
-}
-
 func TestFilterOTADeviceIDsDeduplicatesAndExcludesRawIDs(t *testing.T) {
 	ids := filterOTADeviceIDs([]string{"dev-1", "dev-2", "dev-1", " ", "dev-3"}, []string{"dev-2"})
 
@@ -274,18 +260,6 @@ func TestResolveOTAUpgradeTaskMaxDevices(t *testing.T) {
 	}
 	if got := resolveOTAUpgradeTaskMaxDevices(pureHelperIntPtr(8000)); got != 5000 {
 		t.Fatalf("oversized max = %d, want 5000", got)
-	}
-}
-
-func TestPreviewOTADevicesUsesSelectedOrderAndLimit(t *testing.T) {
-	preview := previewOTADevices([]model.GetDeviceListByPageRsp{
-		{ID: "dev-1", Name: "Device 1"},
-		{ID: "dev-2", Name: "Device 2"},
-		{ID: "dev-3", Name: "Device 3"},
-	}, []string{"dev-1", "dev-3"}, 1)
-
-	if !reflect.DeepEqual(preview, []model.GetDeviceListByPageRsp{{ID: "dev-1", Name: "Device 1"}}) {
-		t.Fatalf("previewOTADevices = %#v, want first selected device only", preview)
 	}
 }
 
@@ -1271,23 +1245,6 @@ func TestValidateMessagePushURLRejectsBlankInvalidAndUnsupportedSchemes(t *testi
 	for _, tc := range cases {
 		err := validateMessagePushURL(tc.rawURL)
 		assertErrcodeError(t, err, "message push url "+tc.rawURL, errcode.CodeParamError, tc.wantMessage)
-	}
-}
-
-func TestMaskVerificationCodeMasksShortAndLongCodes(t *testing.T) {
-	cases := map[string]string{
-		"":       "",
-		"1":      "*",
-		"12":     "**",
-		"123":    "***",
-		"1234":   "12*4",
-		"123456": "12***6",
-	}
-
-	for input, want := range cases {
-		if got := maskVerificationCode(input); got != want {
-			t.Fatalf("maskVerificationCode(%q) = %q, want %q", input, got, want)
-		}
 	}
 }
 

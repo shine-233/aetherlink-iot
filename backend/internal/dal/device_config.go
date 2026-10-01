@@ -10,19 +10,22 @@
 // filters, template relations, select-list queries, PO-to-VO conversion, and
 // device/config binding updates. Important notes: query changes can affect
 // broker connectivity and frontend config menus, so tenant, protocol, and
-// template filters need focused DAL tests. Refactor suggestion: move large
-// conversion logic out of the query helper once response-shape tests cover it.
+// template filters need focused DAL tests.
+//
+// 9-28 DAL 拆分：路由缓存子聚合迁至 device_config_routing.go；devices 表绑定
+// 写入与活跃设备计数迁至 device_config_device_binding.go；顺带清理了本文件
+// 早已注释停用的 GetDeviceOnline 死代码块。导出符号与签名不变。
 package dal
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	model "aetherlink-iot/backend/internal/model"
 	query "aetherlink-iot/backend/internal/query"
+	constant "aetherlink-iot/backend/pkg/constant"
 	global "aetherlink-iot/backend/pkg/global"
 	utils "aetherlink-iot/backend/pkg/utils"
 
@@ -44,7 +47,11 @@ func isolatedDeviceConfig() query.IDeviceConfigDo {
 // Statement，无跨请求 Model/Dest 继承通道），从根上消除高负载下被注入陈旧主键
 // WHERE 的间歇性读写不一致（P1 修复，见 VALIDATION.md）。
 func CreateDeviceConfig(deviceconfig *model.DeviceConfig) error {
-	return global.DB.Create(deviceconfig).Error
+	err := global.DB.Create(deviceconfig).Error
+	if err == nil {
+		InvalidateDeviceConfigRouting(deviceconfig.ID)
+	}
+	return err
 }
 
 // 修改配置物模型 id
@@ -65,7 +72,30 @@ func UpdateDeviceConfigPayloadSchemaID(id string, schemaID *string) error {
 		Update("payload_schema_id", schemaID).Error
 }
 
+// UpdateDeviceConfigDefaultRuleChainID 按主键写档案级默认规则链（TB-18）。
+// nil 也写入（解绑语义）。与 UpdateDeviceConfigPayloadSchemaID 同口径：主键单列更新，
+// 租户校验由 service 层 ensureDeviceConfigWriteAccess 前置完成。
+// tenant-scope: caller-enforced（主键更新路径，写入值已经过 validateDefaultRuleChainBinding 租户归属校验）
+func UpdateDeviceConfigDefaultRuleChainID(id string, chainID *string) error {
+	defer InvalidateDeviceConfigRouting(id)
+	return global.DB.Model(&model.DeviceConfig{}).
+		Where("id = ?", id).
+		Update("default_rule_chain_id", chainID).Error
+}
+
+// CountDeviceConfigsByDefaultRuleChainID 统计仍把 default_rule_chain_id 指向指定链的档案数
+// （TB-18 删除守卫）。按 id+tenant 双条件过滤，防止跨租户计数。
+// tenant-scope: caller-enforced（chainID 来自已通过租户归属校验的 rule chain，tenantID 为调用方 claims 租户）
+func CountDeviceConfigsByDefaultRuleChainID(chainID, tenantID string) (int64, error) {
+	var count int64
+	err := global.DB.Model(&model.DeviceConfig{}).
+		Where("default_rule_chain_id = ? AND tenant_id = ?", chainID, tenantID).
+		Count(&count).Error
+	return count, err
+}
+
 func UpdateDeviceConfig(id string, condsMap map[string]interface{}) error {
+	defer InvalidateDeviceConfigRouting(id)
 	t := time.Now().UTC()
 	condsMap["updated_at"] = &t
 	delete(condsMap, "id")
@@ -87,6 +117,7 @@ func UpdateDeviceConfig(id string, condsMap map[string]interface{}) error {
 // 消除对 service 层 check-then-act 的单一依赖）。P1 修复（2026-08-23，见 VALIDATION.md）：
 // RowsAffected 不得忽略——删除未命中行时显式报错，杜绝"API 返回成功但行仍在"的假成功删除。
 func DeleteDeviceConfigForTenant(id, tenantID string) error {
+	defer InvalidateDeviceConfigRouting(id)
 	info := global.DB.Where("id = ? AND tenant_id = ?", id, tenantID).Delete(&model.DeviceConfig{})
 	err := info.Error
 	if err != nil {
@@ -125,10 +156,18 @@ func GetDeviceConfigByID(id string) (*model.DeviceConfig, error) {
 		return nil, fmt.Errorf("deviceconfig not found: %s", id)
 	}
 
-	// 3. 将结果写入缓存（永久有效）
+	// 3. 将结果写入缓存（带兜底 TTL）
+	//
+	// 口径修正（对齐 GetDeviceCacheById 的 P2 修复）：此前这里写的是永久键（TTL=0），
+	// 是当时全后端唯一还在用永久缓存的地方。写路径主动失效（service/device_config.go
+	// 的四处 initialize.DelDeviceConfigCache）仍是主机制，但只要有**任何一条**写路径
+	// 漏了失效，脏数据就会**永久**留在 Redis 里——而设备/脚本/processor 三个缓存
+	// 早已改用 constant.CacheFallbackTTL 兜底自愈，本处漏掉了。
+	// 兜底过期不改变正常路径行为（写后即删，键本来就不该长期存在），
+	// 只保证遗漏失效时最多脏 30 分钟。
 	jsonData, err := json.Marshal(deviceconfig)
 	if err == nil && global.REDIS != nil {
-		err = global.REDIS.Set(context.Background(), cacheKey, jsonData, 0).Err()
+		err = global.REDIS.Set(context.Background(), cacheKey, jsonData, constant.CacheFallbackTTL).Err()
 		if err != nil {
 			// 缓存写入失败不影响主流程，只记录日志
 			logrus.Warn("failed to cache device config")
@@ -155,18 +194,19 @@ func GetDeviceConfigForTenant(id, tenantID string) (*model.DeviceConfig, error) 
 
 func GetDeviceConfigListByPage(deviceconfig *model.GetDeviceConfigListByPageReq, claims *utils.UserClaims) (int64, interface{}, error) {
 	// 空租户守卫（ROADMAP A1）：claims.TenantID 运行期可能因 token 边界条件变为空串，
-	// WHERE tenant_id='' 会静默匹配 0 行——显式拒绝而非返回"偶发空列表"（users 收敛模式）。
-	if claims == nil || (strings.TrimSpace(claims.TenantID) == "" && claims.Authority != SYS_ADMIN) {
-		logrus.Warn("dal: device config list query has empty TenantID in claims; rejecting")
-		return 0, nil, fmt.Errorf("empty tenant id in claims")
+	// WHERE tenant_id='' 会静默匹配 0 行——显式拒绝而非返回"偶发空列表"（users 收敛模式，
+	// 守卫收敛到 requireClaimsTenantID，2026-09-28）。
+	tenantID, err := requireClaimsTenantID(claims)
+	if err != nil {
+		return 0, nil, err
 	}
 	q := query.DeviceConfig
 	var count int64
 	var data []model.DeviceConfigRsp
 	var deviceconfigList []*model.DeviceConfig
 	queryBuilder := isolatedDeviceConfig().WithContext(context.Background())
-	if strings.TrimSpace(claims.TenantID) != "" {
-		queryBuilder = queryBuilder.Where(q.TenantID.Eq(claims.TenantID))
+	if tenantID != "" {
+		queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenantID))
 	}
 
 	if deviceconfig.DeviceTemplateId != nil && *deviceconfig.DeviceTemplateId != "" {
@@ -182,7 +222,7 @@ func GetDeviceConfigListByPage(deviceconfig *model.GetDeviceConfigListByPageReq,
 		queryBuilder = queryBuilder.Where(q.Name.Like(ContainsLikePattern(*deviceconfig.Name)))
 	}
 
-	count, err := queryBuilder.Count()
+	count, err = queryBuilder.Count()
 	if err != nil {
 		logrus.Error(err)
 		return count, deviceconfigList, err
@@ -208,41 +248,6 @@ func GetDeviceConfigListByPage(deviceconfig *model.GetDeviceConfigListByPageReq,
 	}
 
 	return count, data, err
-}
-
-func deviceConfigIDs(deviceconfigList []*model.DeviceConfig) []string {
-	ids := make([]string, 0, len(deviceconfigList))
-	for _, deviceConfig := range deviceconfigList {
-		if deviceConfig == nil || deviceConfig.ID == "" {
-			continue
-		}
-		ids = append(ids, deviceConfig.ID)
-	}
-	return ids
-}
-
-func countActiveDevicesByConfigIDs(deviceConfigIDs []string) (map[string]int64, error) {
-	counts := make(map[string]int64, len(deviceConfigIDs))
-	if len(deviceConfigIDs) == 0 {
-		return counts, nil
-	}
-	type row struct {
-		DeviceConfigID string `gorm:"column:device_config_id"`
-		Count          int64  `gorm:"column:count"`
-	}
-	rows := make([]row, 0, len(deviceConfigIDs))
-	err := global.DB.Model(&model.Device{}).
-		Select("device_config_id, count(*) as count").
-		Where("activate_flag = ? AND device_config_id IN ?", "active", deviceConfigIDs).
-		Group("device_config_id").
-		Scan(&rows).Error
-	if err != nil {
-		return nil, err
-	}
-	for _, item := range rows {
-		counts[item.DeviceConfigID] = item.Count
-	}
-	return counts, nil
 }
 
 // 获取设备配置下拉菜单
@@ -278,125 +283,7 @@ func (DeviceConfigQuery) First(ctx context.Context, option ...gen.Condition) (in
 	return
 }
 
-func (DeviceConfigQuery) Find(ctx context.Context, option ...gen.Condition) (list []*model.DeviceConfig, err error) {
-	list, err = isolatedDeviceConfig().WithContext(ctx).Where(option...).Find()
-	if err != nil {
-		logrus.Error(ctx, err)
-	}
-	return
-}
-
 type DeviceConfigVo struct{}
-
-func (DeviceConfigVo) PoToVo(deviceConfigInfo *model.DeviceConfig) (info *model.DeviceConfigsRes) {
-	info = &model.DeviceConfigsRes{
-		ID:         deviceConfigInfo.ID,
-		Name:       deviceConfigInfo.Name,
-		DeviceType: deviceConfigInfo.DeviceType,
-		CreatedAt:  deviceConfigInfo.CreatedAt,
-		UpdatedAt:  deviceConfigInfo.UpdatedAt,
-	}
-	if deviceConfigInfo.DeviceTemplateID != nil {
-		info.DeviceTemplateID = *deviceConfigInfo.DeviceTemplateID
-	}
-	if deviceConfigInfo.ProtocolType != nil {
-		info.ProtocolType = *deviceConfigInfo.ProtocolType
-	}
-	if deviceConfigInfo.VoucherType != nil {
-		info.VoucherType = *deviceConfigInfo.VoucherType
-	}
-	if deviceConfigInfo.ProtocolConfig != nil {
-		info.ProtocolConfig = *deviceConfigInfo.ProtocolConfig
-	}
-	if deviceConfigInfo.DeviceConnType != nil {
-		info.DeviceConnType = *deviceConfigInfo.DeviceConnType
-	}
-	if deviceConfigInfo.AdditionalInfo != nil {
-		info.VoucherType = *deviceConfigInfo.AdditionalInfo
-	}
-	if deviceConfigInfo.Description != nil {
-		info.Description = *deviceConfigInfo.Description
-	}
-	if deviceConfigInfo.Remark != nil {
-		info.Remark = *deviceConfigInfo.Remark
-	}
-	return
-}
-
-// func GetDeviceOnline(ctx context.Context, deviceOnlines []model.DeviceOnline) (map[string]int, error) {
-// 	var (
-// 		result               = make(map[string]int, 0)
-// 		deviceConfigIds      []string
-// 		deviveConfigOtherMap = make(map[string]model.DeviceConfigOtherConfig, 0)
-// 		deviceIds            []string
-// 		deviceMap            = make(map[string]string, 0)
-// 	)
-
-// 	if len(deviceOnlines) == 0 {
-// 		return result, nil
-// 	}
-// 	for _, v := range deviceOnlines {
-// 		if v.DeviceConfigId == nil || *v.DeviceConfigId == "" {
-// 			continue
-// 		}
-// 		deviceIds = append(deviceIds, v.DeviceId)
-// 		deviceConfigIds = append(deviceConfigIds, *v.DeviceConfigId)
-// 		deviceMap[v.DeviceId] = *v.DeviceConfigId
-// 	}
-// 	list, err := query.DeviceConfig.WithContext(ctx).Where(query.DeviceConfig.ID.In(deviceConfigIds...)).Find()
-// 	if err != nil {
-// 		return result, nil
-// 	}
-// 	for _, v := range list {
-// 		if v.OtherConfig == nil || *v.OtherConfig == "" {
-// 			continue
-// 		}
-// 		var config model.DeviceConfigOtherConfig
-// 		err = json.Unmarshal([]byte(*v.OtherConfig), &config)
-// 		if err != nil {
-// 			continue
-// 		}
-// 		deviveConfigOtherMap[v.ID] = config
-// 	}
-// 	t := query.TelemetryCurrentData
-// 	rows, err := t.WithContext(ctx).Where(t.DeviceID.In(deviceIds...)).Group(t.DeviceID).Select(t.DeviceID, t.T.Max().As("ts")).Find()
-// 	if err != nil {
-// 		return result, nil
-// 	}
-// 	now := time.Now().UTC()
-// 	for _, v := range rows {
-// 		logrus.Warning(v.DeviceID)
-// 		var (
-// 			deviceConfigId string
-// 			ok             bool
-// 		)
-// 		if deviceConfigId, ok = deviceMap[v.DeviceID]; !ok {
-// 			continue
-// 		}
-// 		if config, ok := deviveConfigOtherMap[deviceConfigId]; ok {
-
-// 			if config.Heartbeat > 0 {
-// 				//当前时间-最近一次遥测时间 大于心跳秒数  表示离线
-// 				if now.Sub(v.T).Seconds() > float64(config.Heartbeat) {
-// 					result[v.DeviceID] = 0
-// 				} else {
-// 					result[v.DeviceID] = 1
-// 				}
-// 				continue
-// 			}
-// 			//设置了超时时间 当前时间-最近一次遥测时间 大于超时时间（分）  表示离线
-// 			if config.OnlineTimeout > 0 {
-// 				if now.Sub(v.T).Minutes() > float64(config.OnlineTimeout) {
-// 					result[v.DeviceID] = 0
-// 				} else {
-// 					result[v.DeviceID] = 1
-// 				}
-
-// 			}
-// 		}
-// 	}
-// 	return result, nil
-// }
 
 // 修改凭证类型
 func UpdateDeviceConfigVoucherType(id string, voucherType *string) error {
@@ -438,35 +325,6 @@ func GetDeviceConfigCountByFuncTemplateId(id string) (int64, error) {
 	return count, err
 }
 
-// 给设备增加物模型
-func UpdateDeviceDeviceConfigID(deviceID string, deviceConfigID *string) error {
-	_, err := query.Device.Where(query.Device.ID.Eq(deviceID)).Update(query.Device.DeviceConfigID, deviceConfigID)
-	if err != nil {
-		logrus.Error(err)
-	}
-	return err
-}
-
-const updateDeviceConfigBatchSize = 500
-
-func UpdateDeviceDeviceConfigIDs(deviceIDs []string, deviceConfigID *string) error {
-	normalizedIDs := normalizeDeviceIDs(deviceIDs)
-	for start := 0; start < len(normalizedIDs); start += updateDeviceConfigBatchSize {
-		end := start + updateDeviceConfigBatchSize
-		if end > len(normalizedIDs) {
-			end = len(normalizedIDs)
-		}
-		_, err := query.Device.
-			Where(query.Device.ID.In(normalizedIDs[start:end]...)).
-			Update(query.Device.DeviceConfigID, deviceConfigID)
-		if err != nil {
-			logrus.Error(err)
-			return err
-		}
-	}
-	return nil
-}
-
 // GetDeviceConfigByNameAndTenant 查询指定租户下指定名称的设备配置（TB-15）。
 func GetDeviceConfigByNameAndTenant(tenantID, name string) (*model.DeviceConfig, error) {
 	var dc model.DeviceConfig
@@ -485,4 +343,3 @@ func GetDeviceConfigNamesMatchingBase(tenantID, baseName string) ([]string, erro
 		Pluck("name", &names).Error
 	return names, err
 }
-

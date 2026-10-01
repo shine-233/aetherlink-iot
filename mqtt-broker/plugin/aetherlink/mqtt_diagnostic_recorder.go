@@ -23,21 +23,25 @@ func recordMQTTDiagnosticEvent(event mqttDiagnosticEvent) {
 	if event.deviceID == "" {
 		return
 	}
+	// 每条上行/下行都会调用这里，而绝大多数设备未开调试：先查（本地缓存的）调试配置，
+	// 未开启时直接返回，不再为注定被丢弃的日志构建 meta map 与条目。
+	normalizedDeviceID, cfg, enabled, err := loadDeviceDebugConfigForWrite(event.deviceID)
+	if err != nil || !enabled {
+		return
+	}
 
-	meta := buildMQTTDiagnosticMeta(event)
 	entry := DeviceDebugLogEntry{
 		Protocol:  "mqtt",
 		Action:    event.action,
 		Direction: event.direction,
 		Outcome:   event.outcome,
 		Error:     event.error,
-		Meta:      meta,
+		Meta:      buildMQTTDiagnosticMeta(event),
 	}
 	if event.payload != nil {
-		_, _ = WriteDeviceDebugLogWithPayloadBytes(event.deviceID, entry, event.payload)
-		return
+		entry.Payload = string(event.payload)
 	}
-	_, _ = WriteDeviceDebugLog(event.deviceID, entry)
+	_, _ = writeDeviceDebugLogWithConfig(normalizedDeviceID, cfg, entry)
 }
 
 func buildMQTTDiagnosticMeta(event mqttDiagnosticEvent) map[string]interface{} {
@@ -84,6 +88,8 @@ func recommendedActionForMQTTDiagnosticCode(code string) string {
 	switch code {
 	case "auth_denied":
 		return "check_device_credentials"
+	case "transport_quota_exceeded":
+		return "check_subscription_transport_quota_or_wait_next_utc_day"
 	case "publish_deny":
 		return "check_publish_topic_permission"
 	case "subscribe_denied":

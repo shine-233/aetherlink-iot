@@ -15,6 +15,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// ValidateStruct 以默认中文执行结构体标签校验；仅供测试直接断言 validate 标签语义。
+func ValidateStruct(i interface{}) error {
+	return ValidateStructLang(i, "")
+}
+
 type bindValidationTestReq struct {
 	Name  string `json:"name" form:"name" validate:"required,max=8"`
 	Page  int    `json:"page" form:"page" validate:"gte=1,lte=100"`

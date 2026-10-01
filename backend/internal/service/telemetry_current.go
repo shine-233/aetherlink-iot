@@ -9,7 +9,6 @@ import (
 
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
-	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/utils"
 )
 
@@ -130,15 +129,11 @@ func (*TelemetryData) GetCurrentTelemetrDataKeys(req *model.GetTelemetryCurrentD
 	// 数据源替换
 	d, err := dal.GetCurrentTelemetryDataEvolutionByKeys(req.DeviceID, req.Keys)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	modelIndex, err := loadTelemetryCurrentModelIndex(deviceInfo)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 
 	return buildTelemetryCurrentRows(d, modelIndex, false), err

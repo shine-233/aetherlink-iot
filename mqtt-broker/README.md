@@ -40,6 +40,7 @@
 - `optional-external`：`admin`、`auth`、`federation` 继续由 `plugin_imports.yml` 编译进 broker，以保留插件名、配置 key、gRPC/API 和生成代码契约，但默认 `plugin_order` 不加载它们。独立 `auth` 只用于额外的密码文件策略，不替代 AetherLink 本地设备认证；启用前必须显式修改部署配置，并分别补齐管理凭据、认证文件或联邦节点/端口/网络规划。`admin` 默认保持关闭，不能以固定 cookie/凭据方式启用。
 - `blocked-external`：修改 protobuf 后重新生成 gRPC、grpc-gateway、Swagger 或 mock 时，需要 `protoc`、`protoc-gen-go`、`protoc-gen-go-grpc`、`protoc-gen-grpc-gateway`、`protoc-gen-swagger` 与 MockGen。缺少这些工具只阻断维护者再生成流程；普通 build/test 使用已提交生成文件，不应被阻断。
 - `federation` 依赖 Serf、gRPC 和额外 gossip/federation 端口，是高成本集群能力，不属于默认单机部署。不得为缩小依赖而删除其接口或生成代码；若不使用，保持默认关闭即可。
+- **边缘本地规则执行器不属于本 broker**（TB-21 scoped v1）：断云期间在边缘本地求值规则链并产生本地告警的能力位于 `backend/internal/edgerules`（纯库，零 DB/broker 依赖，修订号重连去重），其可选接入开关默认关闭，挂在验证栈 `backend/cmd/edgemqttbroker -edgerules`，语义与用法见该目录 README.md。云端经 edge_sync 下发的规则链快照（`devices/command/{gateway_device_number}`）与设备命令共用本 broker 的主题路由，本 broker 不解析快照内容。
 
 ## 审查重点
 

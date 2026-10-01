@@ -6,10 +6,7 @@
 package dal
 
 import (
-	"aetherlink-iot/backend/pkg/constant"
 	"context"
-	"encoding/json"
-	"strconv"
 
 	model "aetherlink-iot/backend/internal/model"
 	query "aetherlink-iot/backend/internal/query"
@@ -40,14 +37,12 @@ func GetAttributeSetLogsDataListByPage(req model.GetAttributeSetLogsListByPageRe
 		return count, nil, err
 	}
 
-	listBuilder := base.Session(&gorm.Session{}).
+	// 分页（2026-09-28 收编：旧写法 Page=0 时不加 LIMIT，属性下发日志无界增长会退化为全表扫描；
+	// applyListPagination 对缺省分页兜底 defaultListLimit 并由 clampListPageSize 封顶单页）。
+	listBuilder := applyListPagination(base.Session(&gorm.Session{}).
 		Select("attribute_set_logs.*, users.name AS username").
 		Joins("LEFT JOIN users ON users.id = attribute_set_logs.user_id").
-		Order("attribute_set_logs.created_at DESC")
-	if req.Page != 0 && req.PageSize != 0 {
-		listBuilder = listBuilder.Limit(req.PageSize).
-			Offset((req.Page - 1) * req.PageSize)
-	}
+		Order("attribute_set_logs.created_at DESC"), req.Page, req.PageSize)
 	list := make([]*model.AttributeSetLog, 0)
 	if err := listBuilder.Scan(&list).Error; err != nil {
 		logrus.Error(err)
@@ -62,39 +57,6 @@ func GetAttributeSetLogsDataListByPage(req model.GetAttributeSetLogsListByPageRe
 }
 
 type AttributeSetLogsQuery struct {
-}
-
-func (AttributeSetLogsQuery) Create(ctx context.Context, info *model.AttributeSetLog) (id string, err error) {
-	attribute := query.AttributeSetLog
-
-	err = attribute.WithContext(ctx).Create(info)
-	if err != nil {
-		logrus.Error("[AttributeSetLogsQuery]create failed:", err)
-	}
-	return info.ID, err
-}
-
-func (AttributeSetLogsQuery) SetAttributeResultUpdate(ctx context.Context, logId string, response model.MqttResponse) {
-	attribute := query.AttributeSetLog
-	valueByte, _ := json.Marshal(response)
-	values := string(valueByte)
-	updates := model.AttributeSetLog{
-		RspDatum: &values,
-	}
-	if response.Result == 0 {
-		status := strconv.Itoa(constant.ResponseStatusOk)
-		updates.Status = &status
-	} else {
-		status := strconv.Itoa(constant.ResponseSStatusFailed)
-		updates.Status = &status
-		updates.ErrorMessage = &response.Message
-	}
-	//updates["rsp_data"] = string(values)
-	_, err := attribute.WithContext(ctx).Where(attribute.ID.Eq(logId)).Updates(updates)
-	if err != nil {
-		logrus.Error("[CommandSetLogsQuery]create failed:", err)
-	}
-
 }
 
 // 根据key查询设备属性

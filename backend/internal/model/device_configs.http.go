@@ -39,6 +39,8 @@ type UpdateDeviceConfigReq struct {
 	AutoRegister     *int16     `json:"auto_register" validate:"omitempty,oneof=0 1"`    // 是否自动注册
 	TemplateSecret   *string    `json:"template_secret" validate:"omitempty,max=255"`    // 设备配置密钥
 	ImageURL         *string    `json:"image_url" validate:"omitempty,max=255"`          // 图片地址
+	// DefaultRuleChainId 档案级默认规则链（TB-18，125.sql）；空字符串表示解绑（与物模型解绑约定一致）
+	DefaultRuleChainId *string `json:"default_rule_chain_id" validate:"omitempty,max=36"`
 }
 
 type GetDeviceConfigListByPageReq struct {

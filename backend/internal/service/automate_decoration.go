@@ -5,6 +5,8 @@
 package service
 
 import (
+	"strings"
+
 	"aetherlink-iot/backend/initialize"
 	model "aetherlink-iot/backend/internal/model"
 
@@ -111,6 +113,14 @@ func ConditionAfterAlarm(ok bool, conditions initialize.DTConditions, deviceID s
 	return nil
 }
 
+// automationAlarmContent 以 ";" 连接前缀与各条件描述，等价于逐条 content += ";" + v。
+func automationAlarmContent(prefix string, contents []string) string {
+	if len(contents) == 0 {
+		return prefix
+	}
+	return prefix + ";" + strings.Join(contents, ";")
+}
+
 func AlarmExecute(alarmConfigID, sceneAutomationID string) (bool, string, string) {
 	var (
 		alarmName string
@@ -166,10 +176,7 @@ func AlarmExecute(alarmConfigID, sceneAutomationID string) (bool, string, string
 			continue
 		}
 
-		content := "scene automation triggered alarm"
-		for _, strval := range cache.Contents {
-			content += ";" + strval
-		}
+		content := automationAlarmContent("scene automation triggered alarm", cache.Contents)
 		resultOK, alarmName, reason = GroupApp.AlarmExecute(alarmConfigID, content, sceneAutomationID, groupID, cache.AlaramDeviceIdList)
 	}
 	return resultOK, alarmName, reason
@@ -188,11 +195,9 @@ func AlarmRecovery(groupID string, contents []string) error {
 		"content_count":         len(contents),
 	}).Debug("automation alarm recovery cache group loaded")
 
+	// 恢复内容与告警配置无关：循环外构建一次，避免每个配置重复拼接。
+	content := automationAlarmContent("scene automation recovered alarm", contents)
 	for _, alarmConfigID := range cache.AlarmConfigIdList {
-		content := "scene automation recovered alarm"
-		for _, strval := range contents {
-			content += ";" + strval
-		}
 		if _, err := GroupApp.AlarmRecovery(alarmConfigID, content, cache.SceneAutomationId, groupID, cache.AlaramDeviceIdList); err != nil {
 			return pkgerrors.Wrapf(err, "persist alarm recovery for config %s", alarmConfigID)
 		}

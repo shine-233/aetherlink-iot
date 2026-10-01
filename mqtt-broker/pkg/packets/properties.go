@@ -199,11 +199,13 @@ func (p *Properties) String() string {
 }
 
 func (p *Properties) PackWillProperties(bufw *bytes.Buffer) {
-	newBufw := &bytes.Buffer{}
+	// 属性块需先算长度再写入：借用池化缓冲暂存，结束时写长度前缀 + 内容（旧实现每次新建 Buffer）。
+	newBufw := packBufPool.Get().(*bytes.Buffer)
+	newBufw.Reset()
 	defer func() {
-		b, _ := DecodeRemainLength(newBufw.Len())
-		bufw.Write(b)
-		newBufw.WriteTo(bufw)
+		writeRemainLength(bufw, newBufw.Len())
+		bufw.Write(newBufw.Bytes())
+		packBufPool.Put(newBufw)
 	}()
 	if p == nil {
 		return
@@ -226,11 +228,13 @@ func (p *Properties) PackWillProperties(bufw *bytes.Buffer) {
 // Pack takes all the defined properties for an Properties and produces
 // a slice of bytes representing the wire format for the Info
 func (p *Properties) Pack(bufw *bytes.Buffer, packetType byte) {
-	newBufw := &bytes.Buffer{}
+	// 属性块需先算长度再写入：借用池化缓冲暂存，结束时写长度前缀 + 内容（旧实现每次新建 Buffer）。
+	newBufw := packBufPool.Get().(*bytes.Buffer)
+	newBufw.Reset()
 	defer func() {
-		b, _ := DecodeRemainLength(newBufw.Len())
-		bufw.Write(b)
-		newBufw.WriteTo(bufw)
+		writeRemainLength(bufw, newBufw.Len())
+		bufw.Write(newBufw.Bytes())
+		packBufPool.Put(newBufw)
 	}()
 	if p == nil {
 		return
@@ -244,8 +248,7 @@ func (p *Properties) Pack(bufw *bytes.Buffer, packetType byte) {
 	if len(p.SubscriptionIdentifier) != 0 {
 		for _, v := range p.SubscriptionIdentifier {
 			newBufw.WriteByte(PropSubscriptionIdentifier)
-			b, _ := DecodeRemainLength(int(v))
-			newBufw.Write(b)
+			writeRemainLength(newBufw, int(v))
 		}
 	}
 	propertyWriteUint32(PropSessionExpiryInterval, p.SessionExpiryInterval, newBufw)
@@ -315,7 +318,7 @@ func (p *Properties) Unpack(bufr *bytes.Buffer, packetType byte) error {
 }
 
 func readPropertyBlock(bufr *bytes.Buffer) (*bytes.Buffer, error) {
-	length, err := EncodeRemainLength(bufr)
+	length, err := readVarInt(bufr)
 	if err != nil {
 		return nil, err
 	}
@@ -437,7 +440,7 @@ func (p *Properties) readSubscriptionIdentifier(r *bytes.Buffer) error {
 	if len(p.SubscriptionIdentifier) != 0 {
 		return codes.ErrProtocol
 	}
-	si, err := EncodeRemainLength(r)
+	si, err := readVarInt(r)
 	if err != nil {
 		return codes.ErrMalformed
 	}
@@ -597,7 +600,8 @@ func propertyReadBinary(i []byte, r *bytes.Buffer, propType byte,
 
 func propertyWriteByte(t byte, i *byte, w *bytes.Buffer) {
 	if i != nil {
-		w.Write([]byte{t, *i})
+		w.WriteByte(t)
+		w.WriteByte(*i)
 	}
 }
 

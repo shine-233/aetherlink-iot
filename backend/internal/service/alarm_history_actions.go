@@ -24,9 +24,7 @@ func applyAlarmHistoryAction(
 	}
 	data, err := action(id, history.TenantID, claims.ID)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	return data, nil
 }
@@ -47,9 +45,7 @@ func applyAlarmHistoryActionWithNote(
 	}
 	data, err := action(id, history.TenantID, claims.ID, strings.TrimSpace(note))
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"sql_error": err.Error(),
-		})
+		return nil, dbError(err)
 	}
 	return data, nil
 }
@@ -60,4 +56,3 @@ func (*Alarm) ClearAlarmHistory(id string, note string, claims *utils.UserClaims
 		return dal.ClearAlarmHistory(id, tenantID, operatorID, note)
 	})
 }
-

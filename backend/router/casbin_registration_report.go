@@ -41,6 +41,7 @@ var casbinExemptRoutes = map[string]struct{}{
 	"api/v1/ota/download/files/upgradePackage/:path/:file": {},
 	"api/v1/rdi/shared/:token":                             {},
 	"api/v1/board/shared/:token":                           {},
+	"api/v1/board/shared-carousel":                         {},
 	"api/v1/systime":                                       {},
 	"api/v1/sys_function":                                  {},
 	"api/v1/deployment/health":                             {},

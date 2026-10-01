@@ -70,8 +70,8 @@ func TestShadowPendingLifecycle(t *testing.T) {
 		t.Fatalf("pending = %#v, want [sm-1]", pending)
 	}
 
-	if err := MarkShadowMessageDelivered("sm-1"); err != nil {
-		t.Fatalf("MarkShadowMessageDelivered: %v", err)
+	if err := AckShadowMessage("dev-1", "sm-1"); err != nil {
+		t.Fatalf("AckShadowMessage: %v", err)
 	}
 	pending, _ = GetPendingShadowMessages("dev-1")
 	if len(pending) != 0 {

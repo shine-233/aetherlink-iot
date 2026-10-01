@@ -16,7 +16,6 @@ import (
 	"aetherlink-iot/backend/pkg/utils"
 
 	"github.com/sirupsen/logrus"
-	"gorm.io/gen"
 	"gorm.io/gorm"
 )
 
@@ -27,11 +26,6 @@ func CreateOpenAPIKey(key *model.OpenAPIKey) error {
 // tenant-scope: caller-enforced?2026-08-26 ?????
 func GetOpenAPIKeyByID(id string) (*model.OpenAPIKey, error) {
 	return query.OpenAPIKey.Where(query.OpenAPIKey.ID.Eq(id)).First()
-}
-
-// tenant-scope: caller-enforced?2026-08-26 ?????
-func GetOpenAPIKeyByAppKey(appKey string) (*model.OpenAPIKey, error) {
-	return query.OpenAPIKey.Where(query.OpenAPIKey.APIKey.Eq(appKey)).First()
 }
 
 func GetOpenAPIKeyListByPage(listReq *model.OpenAPIKeyListReq, tenantID string) (int64, interface{}, error) {
@@ -55,13 +49,11 @@ func GetOpenAPIKeyListByPage(listReq *model.OpenAPIKeyListReq, tenantID string) 
 		return 0, nil, err
 	}
 
-	listBuilder := base.Session(&gorm.Session{}).
+	// 分页收编（2026-09-28）：旧写法 Page=0 时不加 LIMIT、PageSize 无上限；applyListPagination
+	// 对缺省分页兜底 defaultListLimit 并由 clampListPageSize 封顶单页。
+	listBuilder := applyListPagination(base.Session(&gorm.Session{}).
 		Select("open_api_keys.*, users.id AS user_id, users.email AS email, users.name AS user_name").
-		Order("open_api_keys.created_at DESC")
-	if listReq.Page != 0 && listReq.PageSize != 0 {
-		listBuilder = listBuilder.Limit(listReq.PageSize).
-			Offset((listReq.Page - 1) * listReq.PageSize)
-	}
+		Order("open_api_keys.created_at DESC"), listReq.Page, listReq.PageSize)
 	if err := listBuilder.Scan(&keysList).Error; err != nil {
 		return 0, nil, err
 	}
@@ -127,22 +119,6 @@ func InvalidateOpenAPIKeyCache(ctx context.Context, apiKey string) {
 }
 
 type OpenAPIKeyQuery struct{}
-
-func (OpenAPIKeyQuery) Count(ctx context.Context, option ...gen.Condition) (count int64, err error) {
-	count, err = query.OpenAPIKey.WithContext(ctx).Where(option...).Count()
-	if err != nil {
-		logrus.Error(ctx, err)
-	}
-	return
-}
-
-func (OpenAPIKeyQuery) Select(ctx context.Context, option ...gen.Condition) (list []*model.OpenAPIKey, err error) {
-	list, err = query.OpenAPIKey.WithContext(ctx).Where(option...).Find()
-	if err != nil {
-		logrus.Error(ctx, err)
-	}
-	return
-}
 
 // VerifyOpenAPIKey 校验调用方提交的明文 key：先做 SHA-256 摘要，再以摘要查库/缓存。
 // 数据库 api_key 列自迁移 49 起只存摘要，缓存键也统一使用摘要，避免明文落 Redis。

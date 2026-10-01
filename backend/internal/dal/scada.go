@@ -123,13 +123,6 @@ func MarkScadaDocumentArchived(id, tenantID string, updatedBy *string) (int64, e
 	return res.RowsAffected, res.Error
 }
 
-// DeleteScadaDocumentInTenant 租户内删除文档，返回受影响行数（0=未命中）。
-func DeleteScadaDocumentInTenant(id, tenantID string) (int64, error) {
-	res := global.DB.Where("id = ? AND tenant_id = ?", id, tenantID).
-		Delete(&model.ScadaDocument{})
-	return res.RowsAffected, res.Error
-}
-
 // ---------------------------------------------------------------------------
 // 发布版本快照
 // ---------------------------------------------------------------------------

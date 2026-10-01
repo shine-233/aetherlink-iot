@@ -66,14 +66,9 @@ func (*MessagePushApi) MessagePushMangeLogout(c *gin.Context) {
 // 静态审查建议：若后续配置结构继续膨胀，建议在 service 与接口文档中显式区分“只读回显字段”和“可提交字段”，降低前后端误用概率。
 // 路由：/api/v1/message_push/config [get]
 func (*MessagePushApi) GetMessagePushConfig(c *gin.Context) {
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	res, err := service.GroupApp.MessagePush.GetMessagePushConfig(userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", res)
+	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
+		return service.GroupApp.MessagePush.GetMessagePushConfig(userClaims)
+	})
 }
 
 // SetMessagePushConfig 保存当前登录上下文下的消息推送配置。
@@ -83,16 +78,7 @@ func (*MessagePushApi) GetMessagePushConfig(c *gin.Context) {
 // 静态审查建议：当前成功响应统一返回 nil，若后续前端需要立即拿到归一化后的最新配置，可考虑改成“写后回读”返回模式，减少前端二次请求。
 // 路由：/api/v1/message_push/config [post]
 func (*MessagePushApi) SetMessagePushConfig(c *gin.Context) {
-	var req model.MessagePushConfigReq
-	if !BindAndValidate(c, &req) {
-		return
-	}
-	userClaims := c.MustGet("claims").(*utils.UserClaims)
-	err := service.GroupApp.MessagePush.SetMessagePushConfig(&req, userClaims)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	c.Set("data", nil)
+	HandleAction(c, func(req *model.MessagePushConfigReq, userClaims *utils.UserClaims) error {
+		return service.GroupApp.MessagePush.SetMessagePushConfig(req, userClaims)
+	})
 }

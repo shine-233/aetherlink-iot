@@ -90,10 +90,7 @@ func recordRuleChainNodeTrace(e *ruleChainExecution, node *RuleChainNode, msg ru
 		CreatedAt: time.Now().UTC(),
 	}
 	if nodeErr != nil {
-		msgText := nodeErr.Error()
-		if len(msgText) > ruleChainTraceErrorMax {
-			msgText = msgText[:ruleChainTraceErrorMax]
-		}
+		msgText := truncateUTF8Bytes(nodeErr.Error(), ruleChainTraceErrorMax)
 		trace.ErrorMsg = &msgText
 	}
 	go func() {

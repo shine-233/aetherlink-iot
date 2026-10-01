@@ -61,7 +61,7 @@ func TestClassifyPreRegisterCleanupEmptyIsIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cleaning an empty batch must not error: %v", err)
 	}
-	if !plan.isEmpty() {
+	if len(plan.deletable) != 0 || len(plan.blockedActivated) != 0 {
 		t.Fatalf("empty batch plan should be empty: %+v", plan)
 	}
 }

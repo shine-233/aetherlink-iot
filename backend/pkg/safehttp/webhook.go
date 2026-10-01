@@ -91,6 +91,19 @@ func ParseWebhookURL(rawURL string) (*url.URL, error) {
 	return endpoint, nil
 }
 
+// IsBlockedHostLiteral 报告 host 是否为 localhost 或落在非公网段内的 IP 字面量。
+// 普通域名返回 false：域名需在拨号时由 NewWebhookClient 解析校验。
+func IsBlockedHostLiteral(host string) bool {
+	normalized := strings.TrimSuffix(strings.TrimSpace(host), ".")
+	if normalized == "" || strings.EqualFold(normalized, "localhost") {
+		return true
+	}
+	if literal, err := netip.ParseAddr(normalized); err == nil {
+		return isBlockedWebhookAddress(literal.Unmap().WithZone(""))
+	}
+	return false
+}
+
 func NewWebhookClient(options WebhookClientOptions) *http.Client {
 	resolver := options.Resolver
 	if resolver == nil {

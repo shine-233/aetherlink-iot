@@ -11,6 +11,7 @@ import (
 	"aetherlink-iot/backend/pkg/errcode"
 
 	"aetherlink-iot/backend/initialize"
+	"aetherlink-iot/backend/internal/authz"
 	dal "aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/logic"
 	model "aetherlink-iot/backend/internal/model"
@@ -31,7 +32,7 @@ func (*User) GetUser(id string, claims *utils.UserClaims) (interface{}, error) {
 	}
 
 	// 权限检查
-	if claims.Authority == "TENANT_ADMIN" || claims.Authority == "TENANT_USER" {
+	if authz.HasRole(claims, authz.TenantAdmin, authz.TenantUser) {
 		if tenantID, ok := userWithAddress["tenant_id"]; ok && tenantID != nil {
 			if tenantIDStr, ok := tenantID.(*string); ok && tenantIDStr != nil && *tenantIDStr != claims.TenantID {
 				return nil, errcode.WithVars(errcode.CodeNoPermission, map[string]interface{}{
@@ -179,7 +180,7 @@ func (u *User) UpdateUserAddress(userID string, updateAddressReq *model.UpdateUs
 	}
 
 	// 权限检查：租户管理员和租户用户不能修改其他租户的用户地址
-	if claims.Authority == "TENANT_ADMIN" || claims.Authority == "TENANT_USER" {
+	if authz.HasRole(claims, authz.TenantAdmin, authz.TenantUser) {
 		if *user.TenantID != claims.TenantID {
 			return errcode.WithVars(errcode.CodeNoPermission, map[string]interface{}{
 				"required_tenant": *user.TenantID,
