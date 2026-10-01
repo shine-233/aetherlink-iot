@@ -145,6 +145,36 @@ func UpdateDeviceStatus(deviceId string, status int16) (bool, error) {
 	return true, nil
 }
 
+// UpdateDeviceStatusWithTenant 与 UpdateDeviceStatus 语义完全一致，但由调用方提供
+// 已加载的 tenantID，从而省掉 getDeviceTenantID 那次**整行 SELECT**。
+//
+// 为什么值得单独开一个入口：状态消息热路径（uplink/status_flow.go）的调用方已经从
+// 设备缓存拿到了完整设备对象（含 TenantID），再查一次纯属重复往返。
+// 每条状态消息原本要打 2 次库（1 次 SELECT 取租户 + 1 次条件 UPDATE），现在降到 1 次。
+//
+// 语义保证（刻意保持不变，避免引入行为差异）：
+//   - 仍是条件 UPDATE（`is_online <> status`），状态未变化时 RowsAffected=0；
+//   - 未变化时不删设备缓存、不写状态历史；
+//   - tenantID 为空时回退到 UpdateDeviceStatus（脏缓存/异常设备走原路径，不改变既有行为）。
+func UpdateDeviceStatusWithTenant(deviceId string, status int16, tenantID string) (bool, error) {
+	if tenantID == "" {
+		return UpdateDeviceStatus(deviceId, status)
+	}
+
+	statusChanged, err := persistDeviceOnlineStatus(deviceId, status)
+	if err != nil {
+		return false, err
+	}
+	if !statusChanged {
+		return false, nil
+	}
+
+	deleteDeviceCacheAfterStatusUpdate(deviceId)
+	saveDeviceStatusHistoryAsync(tenantID, deviceId, status)
+
+	return true, nil
+}
+
 // getDeviceTenantID 查询设备归属租户。批次一收敛（2026-08-24）：模拟器上下线
 // 心跳热路径读侧改走 raw global.DB 链（clone==1 根），杜绝继承链残留导致
 // INSERT 后 SELECT 读到旧快照（CI 实锤根因）。
