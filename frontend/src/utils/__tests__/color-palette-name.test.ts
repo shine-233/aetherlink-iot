@@ -13,7 +13,11 @@ function referenceNearestName(color: string) {
   ;(colorNames as [string, string][]).forEach(([hexValue], index) => {
     const { r, g, b } = getRgb(`#${hexValue}`)
     const { h, s, l } = getHsl(`#${hexValue}`)
-    const ndf = (rgb.r - r) ** 2 + (rgb.g - g) ** 2 + (rgb.b - b) ** 2 + ((hsl.h - h) ** 2 + (hsl.s - s) ** 2 + (hsl.l - l) ** 2) * 2
+    const ndf =
+      (rgb.r - r) ** 2 +
+      (rgb.g - g) ** 2 +
+      (rgb.b - b) ** 2 +
+      ((hsl.h - h) ** 2 + (hsl.s - s) ** 2 + (hsl.l - l) ** 2) * 2
     if (df < 0 || df > ndf) {
       df = ndf
       cl = index
