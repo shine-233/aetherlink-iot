@@ -15,6 +15,8 @@
 import { createApp, watch } from 'vue'
 import './plugins/assets'
 import { useSysSettingStore } from '@/store/modules/sys-setting'
+import { useThemeStore } from '@/store/modules/theme'
+import { ensureNaiveDarkTheme } from '@/theme/naive-dark'
 import { $t } from '@/locales'
 import { resolveDocumentTitle, setDocumentTitle } from '@/router/guard/title-helper'
 import { setupDayjs, setupLoading, setupNProgress } from './plugins'
@@ -199,6 +201,9 @@ async function setupApp() {
     }
     return false
   }
+
+  // 暗色模式启动时先拿到按需加载的 naive-ui darkTheme 再挂载，避免首帧亮色闪屏。
+  if (useThemeStore().darkMode) await ensureNaiveDarkTheme()
 
   app.mount('#app')
 }
