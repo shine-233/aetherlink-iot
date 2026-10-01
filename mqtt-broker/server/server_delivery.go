@@ -5,7 +5,6 @@
 package server
 
 import (
-	"hash/fnv"
 	"math/rand"
 	"time"
 
@@ -83,14 +82,18 @@ func applyRetainAsPublished(msg *gmqtt.Message, sub *gmqtt.Subscription) {
 	}
 }
 
+// queuedPublish 把 Elem 与其 Publish 合并为一次分配（每个订阅者每条消息省一次堆分配）。
+type queuedPublish struct {
+	elem queue.Elem
+	pub  queue.Publish
+}
+
 func newQueueElem(now time.Time, msg *gmqtt.Message, configuredExpiry time.Duration) *queue.Elem {
-	return &queue.Elem{
-		At:     now,
-		Expiry: queuedMessageExpiry(now, msg.MessageExpiry, configuredExpiry),
-		MessageWithID: &queue.Publish{
-			Message: msg,
-		},
-	}
+	qp := &queuedPublish{pub: queue.Publish{Message: msg}}
+	qp.elem.At = now
+	qp.elem.Expiry = queuedMessageExpiry(now, msg.MessageExpiry, configuredExpiry)
+	qp.elem.MessageWithID = &qp.pub
+	return &qp.elem
 }
 
 func queuedMessageExpiry(now time.Time, messageExpiry uint32, configuredExpiry time.Duration) time.Time {
@@ -114,19 +117,28 @@ func queuedMessageExpiryInterval(messageExpiry uint32, configuredExpiry time.Dur
 	return 0
 }
 
-// sharedList 按完整共享订阅主题记录候选客户端列表。
-type sharedList map[string][]struct {
+// sharedKey 标识一个共享订阅组（ShareName + TopicFilter）；用结构体作键，
+// 免去每次命中都拼接 "$share/<name>/<filter>" 字符串的分配。
+type sharedKey struct {
+	shareName   string
+	topicFilter string
+}
+
+type sharedSubscriber struct {
 	clientID string
 	sub      *gmqtt.Subscription
 }
+
+// sharedList 按共享订阅组记录候选客户端列表。
+type sharedList map[sharedKey][]sharedSubscriber
 
 type nonSharedMatch struct {
 	sub    *gmqtt.Subscription
 	subIDs []uint32
 }
 
-// maxQos 记录非共享订阅在 onlyOnce 模式下每个客户端命中的最高 QoS 订阅。
-type maxQos map[string]*nonSharedMatch
+// maxQos 记录非共享订阅在 onlyOnce 模式下每个客户端命中的最高 QoS 订阅（值存储，免逐客户端分配）。
+type maxQos map[string]nonSharedMatch
 
 // deliverHandler 根据 DeliveryMode 统一处理普通订阅、共享订阅、overlap 与 onlyOnce 投递策略。
 // 审查建议：该结构体已经比较独立，后续可围绕共享订阅均衡策略补 focused 测试。
@@ -176,17 +188,12 @@ func (d *deliverHandler) addSharedSubscriber(clientID string, sub *gmqtt.Subscri
 	if d.sl == nil {
 		d.sl = make(sharedList)
 	}
-	fullTopic := sub.GetFullTopicName()
-	d.sl[fullTopic] = append(d.sl[fullTopic], struct {
-		clientID string
-		sub      *gmqtt.Subscription
-	}{clientID: clientID, sub: sub})
+	k := sharedKey{shareName: sub.ShareName, topicFilter: sub.TopicFilter}
+	d.sl[k] = append(d.sl[k], sharedSubscriber{clientID: clientID, sub: sub})
 }
 
 func (d *deliverHandler) deliverOverlap(clientID string, sub *gmqtt.Subscription) bool {
-	if qs := d.srv.queueStore[clientID]; qs != nil {
-		d.srv.addMsgToQueueLocked(d.now, clientID, d.msg.Copy(), sub, []uint32{sub.ID}, qs)
-	}
+	d.enqueueOne(clientID, sub)
 	return true
 }
 
@@ -195,14 +202,14 @@ func (d *deliverHandler) recordOnlyOnce(clientID string, sub *gmqtt.Subscription
 	if d.mq == nil {
 		d.mq = make(maxQos)
 	}
-	if d.mq[clientID] == nil {
-		d.mq[clientID] = &nonSharedMatch{sub: sub, subIDs: []uint32{sub.ID}}
-		return true
+	m, ok := d.mq[clientID]
+	if !ok {
+		m.sub = sub
+	} else if m.sub.QoS < sub.QoS {
+		m.sub = sub
 	}
-	if d.mq[clientID].sub.QoS < sub.QoS {
-		d.mq[clientID].sub = sub
-	}
-	d.mq[clientID].subIDs = append(d.mq[clientID].subIDs, sub.ID)
+	m.subIDs = append(m.subIDs, sub.ID)
+	d.mq[clientID] = m
 	return true
 }
 
@@ -214,7 +221,7 @@ func (d *deliverHandler) flush() {
 func (d *deliverHandler) flushSharedSubscriptions() {
 	for _, v := range d.sl {
 		rs := d.selectSharedSubscriber(v)
-		d.enqueue(rs.clientID, rs.sub, []uint32{rs.sub.ID})
+		d.enqueueOne(rs.clientID, rs.sub)
 	}
 }
 
@@ -230,20 +237,31 @@ func (d *deliverHandler) enqueue(clientID string, sub *gmqtt.Subscription, ids [
 	}
 }
 
-func (d *deliverHandler) selectSharedSubscriber(subscribers []struct {
-	clientID string
-	sub      *gmqtt.Subscription
-}) struct {
-	clientID string
-	sub      *gmqtt.Subscription
-} {
+// enqueueOne 投递单个订阅命中；subscription identifier 以单元素数组在栈上传递，免切片分配。
+func (d *deliverHandler) enqueueOne(clientID string, sub *gmqtt.Subscription) {
+	if qs := d.srv.queueStore[clientID]; qs != nil {
+		ids := [1]uint32{sub.ID}
+		d.srv.addMsgToQueueLocked(d.now, clientID, d.msg.Copy(), sub, ids[:], qs)
+	}
+}
+
+// fnv32a 与 hash/fnv.New32a 结果一致，直接作用于 string，免 hasher 与 []byte 转换分配。
+func fnv32a(s string) uint32 {
+	const offset32, prime32 = 2166136261, 16777619
+	h := uint32(offset32)
+	for i := 0; i < len(s); i++ {
+		h ^= uint32(s[i])
+		h *= prime32
+	}
+	return h
+}
+
+func (d *deliverHandler) selectSharedSubscriber(subscribers []sharedSubscriber) sharedSubscriber {
 	if len(subscribers) == 1 {
 		return subscribers[0]
 	}
 	if d.strategy == SharedSubBalanceTopicHash {
-		h := fnv.New32a()
-		_, _ = h.Write([]byte(d.msg.Topic))
-		return subscribers[int(h.Sum32())%len(subscribers)]
+		return subscribers[int(fnv32a(d.msg.Topic))%len(subscribers)]
 	}
 	return subscribers[rand.Intn(len(subscribers))]
 }
