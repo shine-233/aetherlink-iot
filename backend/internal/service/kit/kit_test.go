@@ -65,6 +65,10 @@ func TestGate(t *testing.T) {
 		{"tenant gate empty", TenantRequired, noTenant, deny},
 		{"tenant gate ok", TenantRequired, ok, nil},
 		{"custom code", Gate{Msg: "x", Code: errcode.CodeParamError}, nil, errcode.NewWithMessage(errcode.CodeParamError, "x")},
+		{"bare code", Gate{}, nil, errcode.New(errcode.CodeNoPermission)},
+		{"unauthorized nil", TenantUnauthorized, nil, errcode.New(errcode.CodeUnauthorized)},
+		{"unauthorized empty tenant", TenantUnauthorized, noTenant, errcode.New(errcode.CodeUnauthorized)},
+		{"unauthorized ok", TenantUnauthorized, ok, nil},
 	}
 	for _, tc := range cases {
 		if g, w := wire(t, tc.g.Require(tc.c)), wire(t, tc.want); g != w {
