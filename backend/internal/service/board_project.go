@@ -9,21 +9,37 @@
 package service
 
 import (
-	"errors"
 	"strings"
 	"time"
 
 	"aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/internal/service/kit"
 	"aetherlink-iot/backend/pkg/errcode"
 	"aetherlink-iot/backend/pkg/utils"
-
-	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 // BoardProjectService 看板项目分组服务。
 type BoardProjectService struct{}
+
+// boardProjectRepo 租户内项目：读门禁 nil/空租户报无权限；未命中报参数错误（历史契约），其余 sql_error。
+var boardProjectRepo = kit.TenantRepo[*model.BoardProject]{
+	Get:      dal.GetBoardProjectInTenant,
+	Gate:     kit.Gate{Msg: "tenant context is required", NeedTenant: true},
+	NotFound: kit.NotFound{Code: errcode.CodeParamError, Msg: "board project not found", Match: kit.IsRecordNotFound},
+}
+
+// boardInTenant 看板归属校验。反查列表只把未命中转参数错误（其余 sql_error）；
+// 归属写入/反查成员则任何加载失败一律掩码为"看板不在租户"。
+var (
+	boardInTenantLookup = kit.NotFound{Code: errcode.CodeParamError, Msg: "board not found in tenant", Match: kit.IsRecordNotFound}
+	boardInTenantMasked = kit.NotFound{Code: errcode.CodeParamError, Msg: "board not found in tenant"}
+)
+
+func ensureBoardInTenant(boardID, tenantID string, nf kit.NotFound) error {
+	_, err := dal.GetBoardInTenant(boardID, tenantID)
+	return nf.Map(err)
+}
 
 // CreateProject 创建项目（租户内名称唯一）。
 func (*BoardProjectService) CreateProject(req model.CreateBoardProjectReq, claims *utils.UserClaims) (*model.BoardProject, error) {
@@ -36,7 +52,7 @@ func (*BoardProjectService) CreateProject(req model.CreateBoardProjectReq, claim
 	}
 	now := time.Now()
 	project := &model.BoardProject{
-		ID:          uuid.New().String(),
+		ID:          kit.NewID(),
 		TenantID:    claims.TenantID,
 		Name:        name,
 		Description: req.Description,
@@ -54,17 +70,14 @@ func (*BoardProjectService) CreateProject(req model.CreateBoardProjectReq, claim
 
 // ListProjects 列出项目；board_id 非空时反查包含该看板的项目。
 func (*BoardProjectService) ListProjects(req model.BoardProjectListReq, claims *utils.UserClaims) ([]*model.BoardProject, error) {
-	if claims == nil || claims.TenantID == "" {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "tenant context is required")
+	if err := boardProjectRepo.Gate.Require(claims); err != nil {
+		return nil, err
 	}
 	boardID := strings.TrimSpace(req.BoardID)
 	if boardID != "" {
 		// 反查前确认看板在租户内：不存在的看板ID不该返回"空项目列表"这种模糊信号。
-		if _, err := dal.GetBoardInTenant(boardID, claims.TenantID); err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil, errcode.NewWithMessage(errcode.CodeParamError, "board not found in tenant")
-			}
-			return nil, dbError(err)
+		if err := ensureBoardInTenant(boardID, claims.TenantID, boardInTenantLookup); err != nil {
+			return nil, err
 		}
 	}
 	rows, err := dal.ListBoardProjectsInTenant(claims.TenantID, boardID, 0)
@@ -76,17 +89,7 @@ func (*BoardProjectService) ListProjects(req model.BoardProjectListReq, claims *
 
 // GetProject 单个项目详情。
 func (*BoardProjectService) GetProject(id string, claims *utils.UserClaims) (*model.BoardProject, error) {
-	if claims == nil || claims.TenantID == "" {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "tenant context is required")
-	}
-	project, err := dal.GetBoardProjectInTenant(id, claims.TenantID)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errcode.NewWithMessage(errcode.CodeParamError, "board project not found")
-		}
-		return nil, dbError(err)
-	}
-	return project, nil
+	return boardProjectRepo.Load(claims, id)
 }
 
 // UpdateProject 更新项目。
@@ -106,7 +109,7 @@ func (*BoardProjectService) UpdateProject(id string, req model.UpdateBoardProjec
 		return nil, dbError(err)
 	}
 	if affected == 0 {
-		return nil, errcode.NewWithMessage(errcode.CodeParamError, "board project not found")
+		return nil, boardProjectRepo.NotFound.Err()
 	}
 	return dal.GetBoardProjectInTenant(id, claims.TenantID)
 }
@@ -116,16 +119,7 @@ func (*BoardProjectService) DeleteProject(id string, claims *utils.UserClaims) e
 	if err := ensureTenantScopedWriteClaims(claims, "delete board project"); err != nil {
 		return err
 	}
-	if _, err := dal.GetBoardProjectInTenant(id, claims.TenantID); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errcode.NewWithMessage(errcode.CodeParamError, "board project not found")
-		}
-		return dbError(err)
-	}
-	if err := dal.DeleteBoardProject(id, claims.TenantID); err != nil {
-		return dbError(err)
-	}
-	return nil
+	return boardProjectRepo.Delete(claims, id, dal.DeleteBoardProject, dbError)
 }
 
 // AddBoard 把租户内看板加入项目。
@@ -133,14 +127,11 @@ func (*BoardProjectService) AddBoard(projectID, boardID string, claims *utils.Us
 	if err := ensureTenantScopedWriteClaims(claims, "add board to project"); err != nil {
 		return err
 	}
-	if _, err := dal.GetBoardProjectInTenant(projectID, claims.TenantID); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errcode.NewWithMessage(errcode.CodeParamError, "board project not found")
-		}
-		return dbError(err)
+	if err := boardProjectRepo.MustExist(claims, projectID); err != nil {
+		return err
 	}
-	if _, err := dal.GetBoardInTenant(boardID, claims.TenantID); err != nil {
-		return errcode.NewWithMessage(errcode.CodeParamError, "board not found in tenant")
+	if err := ensureBoardInTenant(boardID, claims.TenantID, boardInTenantMasked); err != nil {
+		return err
 	}
 	if err := dal.AddBoardToProject(projectID, boardID, claims.TenantID); err != nil {
 		if strings.Contains(err.Error(), "duplicate key") {
@@ -156,11 +147,8 @@ func (*BoardProjectService) RemoveBoard(projectID, boardID string, claims *utils
 	if err := ensureTenantScopedWriteClaims(claims, "remove board from project"); err != nil {
 		return err
 	}
-	if _, err := dal.GetBoardProjectInTenant(projectID, claims.TenantID); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errcode.NewWithMessage(errcode.CodeParamError, "board project not found")
-		}
-		return dbError(err)
+	if err := boardProjectRepo.MustExist(claims, projectID); err != nil {
+		return err
 	}
 	if _, err := dal.RemoveBoardFromProject(projectID, boardID, claims.TenantID); err != nil {
 		return dbError(err)
@@ -170,11 +158,11 @@ func (*BoardProjectService) RemoveBoard(projectID, boardID string, claims *utils
 
 // MembershipOf 反查看板所属项目（不在任何项目返回 nil）。
 func (*BoardProjectService) MembershipOf(boardID string, claims *utils.UserClaims) (*model.BoardProject, error) {
-	if claims == nil || claims.TenantID == "" {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "tenant context is required")
+	if err := boardProjectRepo.Gate.Require(claims); err != nil {
+		return nil, err
 	}
-	if _, err := dal.GetBoardInTenant(boardID, claims.TenantID); err != nil {
-		return nil, errcode.NewWithMessage(errcode.CodeParamError, "board not found in tenant")
+	if err := ensureBoardInTenant(boardID, claims.TenantID, boardInTenantMasked); err != nil {
+		return nil, err
 	}
 	project, err := dal.GetBoardProjectMembership(boardID, claims.TenantID)
 	if err != nil {
