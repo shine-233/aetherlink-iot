@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -234,9 +235,12 @@ func (e *Engine) processMessage(msg *uplink.DeviceMessage) {
 		timestamp = time.Now().UnixMilli()
 	}
 	// simple 规则的结果合并为一条派生消息，避免每条规则一次 Marshal + 一次存储入队。
+	// 栈上底层数组：常见模板规则数不超过 8，批次切片不逃逸到堆。
 	var (
-		batchKeys   = make([]string, 0, len(set.rules))
-		batchValues = make([]interface{}, 0, len(set.rules))
+		keyBuf      [8]string
+		valueBuf    [8]interface{}
+		batchKeys   = keyBuf[:0]
+		batchValues = valueBuf[:0]
 	)
 	for i := range set.rules {
 		rule := &set.rules[i]
@@ -366,7 +370,7 @@ func (e *Engine) enqueueDerivedBatch(source *uplink.DeviceMessage, keys []string
 		e.dropped.Add(uint64(len(keys)))
 		e.logger.WithFields(logrus.Fields{
 			"device_id":   source.DeviceID,
-			"output_keys": keys,
+			"output_keys": slices.Clone(keys), // 仅错误路径拷贝，避免调用方切片逃逸
 		}).WithError(err).Warn("Failed to marshal calcfield payload")
 		return
 	}
@@ -386,7 +390,7 @@ func (e *Engine) enqueueDerivedBatch(source *uplink.DeviceMessage, keys []string
 		e.dropped.Add(uint64(len(keys)))
 		e.logger.WithFields(logrus.Fields{
 			"device_id":   source.DeviceID,
-			"output_keys": keys,
+			"output_keys": slices.Clone(keys),
 		}).Warn("Storage queue full or unavailable, calcfield result dropped")
 	}
 }
