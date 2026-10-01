@@ -316,7 +316,8 @@ func exportHistoryTelemetryToCSV(req *model.GetTelemetryHistoryDataByPageReq) (i
 }
 
 func validateHistoryTelemetryExportSize(req *model.GetTelemetryHistoryDataByPageReq) error {
-	total, _, err := dal.GetHistoryTelemetrDataByPage(req)
+	// 只数到上限 +1 行即停：旧写法复用分页查询，导出请求不带分页时会把全区间整宽读进内存。
+	total, err := dal.CountHistoryTelemetrDataUpTo(req, historyTelemetryExportMaxRows)
 	if err != nil {
 		return wrapTelemetryHistoryDBError(err)
 	}
