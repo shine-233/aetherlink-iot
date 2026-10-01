@@ -155,10 +155,38 @@
 | be-api-handler-adapter | 8 个锁定 handler 文件均在（rule_chain/role/device_config/device_templates/edge_node/service_access/sys_dict/customer） | ✅ |
 | fe-list-pages | 六页实测：edge-nodes 99 / update-package 281 / update-ota 225 / report 264 / widget-bundles 191 行，均 <400 | ✅ |
 | be-service-domains-split | 并发会话提交 `213caf7f`（telemetry_statistic.go 661→261/168/260） | ✅ |
-| be-dal-repositories | dal 最大文件 alarm.go 930 行，其余 ≤553 | 🟡 部分 |
+| be-dal-repositories | `dal/alarm.go` 930 行/64 个顶层符号混了 4 个聚合 → 已按聚合拆为 4 文件（见下）；其余最大 ≤553 | ✅ |
 
 门禁基线（本次实测）：后端 `go build` 通过、`go test ./... -p 1` **0 FAIL**；
 前端 vitest **498 文件 / 4332 用例全绿**、`vue-tsc` 0 错误、eslint 0 错误。
+
+#### be-dal-repositories 收尾：`dal/alarm.go` 按聚合拆分（2026-10-01 08:2x）
+
+`alarm.go` 930 行 / 64 个顶层符号，实际混了 4 个聚合——这是该轨道最后一块。按聚合拆为：
+
+| 新文件 | 行数 | 内容 |
+|---|---|---|
+| `alarm_config.go` | 218 | 告警配置增删改查、分页与租户作用域收窄、按设备反查生效配置 |
+| `alarm_info.go` | 222 | 当前告警增删改查、分页、remark(JSON) 展开与生命周期状态推导 |
+| `alarm_history.go` | 576 | 告警历史分页/作用域/趋势/写入/确认重置动作/remark 合并/计数，及本文件用到的 5 个 SQL 片段常量 |
+| `alarm_device_status.go` | 73 | 设备告警状态判定 + 告警名称缓存 |
+
+**这是纯代码搬移**（同包内移动，签名与实现一字未改），验证方式：
+
+1. **符号级核验**：对比 `git show HEAD:.../alarm.go` 与 4 个新文件的顶层名字集合
+   → **64 → 64，丢失 0、新增 0、跨文件重名 0**
+2. `go build ./...` 通过；`go vet ./internal/dal/...` 0 问题；`gofmt -l` 无输出
+3. `go test ./internal/dal/...` 通过（该包有 31 个 alarm 相关测试函数）
+4. 全量 `go test ./... -count=1 -p 1` → **0 FAIL**
+
+**踩到的坑（值得记住）**：按行号提取函数块时，只匹配 `^func ` 会**漏掉包级 `const`/`var`**。
+本例 `alarm.go` 里有 5 个 SQL 片段常量（`alarmHistoryOwnerExistsSQL` 等）服务于告警历史，
+若直接删原文件就会丢。所以提取脚本必须先做**全符号盘点**（`^(func|const|var|type)`），
+并在生成后做一次"名字集合对比"，确认零丢失再删原文件。
+
+**注意**：`dal/` 目录本就已有 `alarm_history_actions.go`(251) / `alarm_history_devices.go`(177) /
+`alarm_assignment.go`(50) / `alarm_comment.go`(90) / `alarm_sla.go`(118) 等拆好的文件，
+`alarm.go` 是漏下来的那个大文件。拆分后**无重名冲突**（编译与符号核验均已确认）。
 
 ### Wave7-A 纵深防御收尾（2026-10-01 08:1x）
 

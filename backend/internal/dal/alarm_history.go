@@ -1,13 +1,15 @@
-// 本文件负责告警配置、告警信息、告警历史和告警名称缓存的持久化访问。
+// 本文件负责「告警历史」（model.AlarmHistory）的持久化访问。
 //
-// 这里的职责是把 GORM Gen 查询、事务句柄、JSON 字段处理和模型转换
-// 收敛成稳定的 DAL 边界，不承载业务权限判断，也不直接拼装 API 响应。
+// 从 alarm.go 按聚合拆出（wave5 be-dal-repositories 轨道），是原文件里最大的一块。
+// 职责边界：历史的分页查询/作用域收窄、月度趋势、写入与描述更新、确认/重置动作、
+// remark JSON 合并、各类计数，以及本文件用到的 SQL 片段常量。
 //
 // 关键约束：
-// - 所有告警查询都要先限定租户，再按需叠加名称、等级、状态、时间和设备过滤。
-// - 告警历史的 remark 是 JSON，确认和重置时必须在原值基础上合并字段。
-// - 设备列表需要把 alarm_device_list 从 ID 列表展开成设备摘要，避免上层重复处理。
-// - 复杂过滤、分页和事务更新建议继续收敛为纯 helper，便于后续补充 focused DAL 测试。
+// - 确认与重置必须在原 remark 基础上合并字段，不能整体覆盖（会丢既有备注）。
+// - alarm_device_list 是 jsonb 数组；142.sql 已建 alarm_history_devices 关联表作为它的
+//   关系型投影（触发器同步），集合过滤优先走关联表而非 jsonb 展开。
+// - 所有查询先限定租户；跨租户（allTenants）只允许在 scope 收窄之后放开。
+
 package dal
 
 import (
@@ -27,54 +29,71 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-func CreateAlarmConfig(d *model.AlarmConfig) error {
-	return query.AlarmConfig.Create(d)
-}
+// alarmHistoryOwnerExistsSQL 告警历史的 owner 可见性过滤（TB-22 规范化后的形态）。
+//
+// 旧形态用 jsonb_array_elements_text 逐行展开 alarm_device_list 再 JOIN devices，
+// 既无法走索引（每行一次函数扫描），也让 planner 无法估算集合大小。142.sql 建了
+// alarm_history_devices 关联表（jsonb 列保留并由触发器同步），这里改成普通 btree join：
+// 关联表主键 (alarm_history_id, device_id)、索引 (device_id, tenant_id) 均可命中。
+// 语义不变：告警历史只要命中任一属于该 owner 的设备即对该 owner 可见。
+const alarmHistoryOwnerExistsSQL = `EXISTS (
+    SELECT 1
+    FROM alarm_history_devices ahd
+    INNER JOIN devices scoped_device
+        ON scoped_device.id = ahd.device_id
+       AND scoped_device.tenant_id = ah.tenant_id
+    WHERE ahd.alarm_history_id = ah.id
+      AND scoped_device.owner_user_id = ?
+)`
 
-func UpdateAlarmConfig(d *model.AlarmConfig) error {
-	info, err := query.AlarmConfig.Updates(d)
-	if err != nil {
-		return err
-	}
-	if info.RowsAffected == 0 {
-		return fmt.Errorf("no data updated")
-	}
-	return nil
-}
+// alarmHistoryDeviceExistsByIDSQL 告警历史"命中指定设备"过滤（142.sql 关联表形态）。
+//
+// 替换旧的两类写法：jsonb_exists(alarm_device_list, ?) 与 alarm_device_list::text LIKE '%id%'。
+// 两者都需要逐行计算且无法走索引；LIKE 形态还有子串误命中（设备 id 是另一 id 的前缀时错配）。
+// 关联表上的等值匹配既走索引又消除误命中。
 
-// UpdateAlarmConfigTriggerDuration 显式按列写入触发持续时长。
-// 结构体形式的 Updates 会跳过零值，因此把 trigger_duration 改回 0 必须走这里。
-func UpdateAlarmConfigTriggerDuration(id string, triggerDuration int32) error {
-	info, err := query.AlarmConfig.Where(query.AlarmConfig.ID.Eq(id)).
-		Update(query.AlarmConfig.TriggerDuration, triggerDuration)
-	if err != nil {
-		return err
-	}
-	if info.RowsAffected == 0 {
-		return fmt.Errorf("no data updated")
-	}
-	return nil
-}
+// alarmHistoryDeviceExistsByIDSQL 告警历史"命中指定设备"过滤（142.sql 关联表形态）。
+//
+// 替换旧的两类写法：jsonb_exists(alarm_device_list, ?) 与 alarm_device_list::text LIKE '%id%'。
+// 两者都需要逐行计算且无法走索引；LIKE 形态还有子串误命中（设备 id 是另一 id 的前缀时错配）。
+// 关联表上的等值匹配既走索引又消除误命中。
+const alarmHistoryDeviceExistsByIDSQL = `EXISTS (
+    SELECT 1
+    FROM alarm_history_devices ahd
+    WHERE ahd.alarm_history_id = ah.id
+      AND ahd.device_id = ?
+)`
 
-func DeleteAlarmConfig(id string) error {
-	info, err := query.AlarmConfig.Where(query.AlarmConfig.ID.Eq(id)).Delete()
-	if err != nil {
-		return err
-	}
-	if info.RowsAffected == 0 {
-		return fmt.Errorf("no data deleted")
-	}
-	return nil
-}
+// alarmHistoryDeviceExistsByIDUnqualified 非别名形态（gen 链查询用，表名不带 ah 别名）。
 
-// tenant-scope: caller-enforced?2026-08-26 ?????
-func GetAlarmByID(id string) (*model.AlarmConfig, error) {
-	data, err := query.AlarmConfig.Where(query.AlarmConfig.ID.Eq(id)).First()
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
+// alarmHistoryDeviceExistsByIDUnqualified 非别名形态（gen 链查询用，表名不带 ah 别名）。
+const alarmHistoryDeviceExistsByIDUnqualified = `EXISTS (
+    SELECT 1
+    FROM alarm_history_devices ahd
+    WHERE ahd.alarm_history_id = alarm_history.id
+      AND ahd.device_id = ?
+)`
+
+const alarmHistoryCurrentActiveExistsSQL = `EXISTS (
+    SELECT 1
+    FROM current_device_alarm_streams current_alarm
+    INNER JOIN devices current_device
+        ON current_device.id = current_alarm.device_id
+       AND current_device.tenant_id = current_alarm.tenant_id
+       AND current_device.activate_flag = 'active'
+    WHERE current_alarm.id = ah.id
+      AND current_alarm.tenant_id = ah.tenant_id
+      AND current_alarm.alarm_status IN ('H', 'M', 'L')
+      AND (? = '' OR current_alarm.device_id = ?)
+      AND (? = '' OR current_device.owner_user_id = ?)
+)`
+
+// alarmHistoryScanBatchSize 控制 GetDeviceIdsByAlarmConfigId 的分批扫描窗口，
+// 避免历史表无限增长时一次性把全表载入内存。
+const alarmHistoryScanBatchSize = 1000
+
+// GetDeviceIdsByAlarmConfigId 返回触发过指定告警配置的设备 ID 去重列表。
+// tenant-scope: parent-owned?2026-08-26 ?????
 
 // tenant-scope: caller-enforced?2026-08-26 ?????
 func GetAlarmHistoryByID(id string) (*model.AlarmHistory, error) {
@@ -86,6 +105,8 @@ func GetAlarmHistoryByID(id string) (*model.AlarmHistory, error) {
 }
 
 // tenant-scope: caller-enforced?2026-08-26 ?????
+
+// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetAlarmHistoriesByIDs(ids []string) ([]*model.AlarmHistory, error) {
 	if len(ids) == 0 {
 		return nil, nil
@@ -95,180 +116,6 @@ func GetAlarmHistoriesByIDs(ids []string) ([]*model.AlarmHistory, error) {
 
 // 根据告警历史 ID 获取历史详情，并在存在时展开关联设备列表。
 // tenant-scope: caller-enforced?2026-08-26 ?????
-func GetAlarmInfoHistoryByID(id string, ownerUserID *string) (map[string]interface{}, error) {
-	var result map[string]interface{}
-	err := query.AlarmHistory.Where(query.AlarmHistory.ID.Eq(id)).Select(query.AlarmHistory.ALL).Scan(&result)
-	if err != nil {
-		return nil, err
-	}
-	if result == nil {
-		return nil, nil
-	}
-	expandMapRemarkFields(result)
-	if result["alarm_device_list"] == nil {
-		return result, nil
-	}
-	result["alarm_device_list"] = alarmHistoryDeviceListMaps(result["alarm_device_list"], ownerUserID)
-	return result, nil
-}
-
-func expandMapRemarkFields(item map[string]interface{}) {
-	if item == nil {
-		return
-	}
-	var rawRemark string
-	switch v := item["remark"].(type) {
-	case string:
-		rawRemark = v
-	case *string:
-		if v != nil {
-			rawRemark = *v
-		}
-	}
-	statusStr := ""
-	if s, ok := item["alarm_status"].(string); ok {
-		statusStr = s
-	}
-	item["lifecycle_status"] = computeAlarmLifecycleStatus(statusStr, &rawRemark)
-	if strings.TrimSpace(rawRemark) != "" {
-		var r map[string]interface{}
-		if err := json.Unmarshal([]byte(rawRemark), &r); err == nil {
-			for _, k := range []string{"acknowledged", "acknowledged_by", "acknowledged_at", "reset", "reset_by", "reset_at", "cleared_by", "cleared_at", "action_note", "sla_escalation"} {
-				if val, exists := r[k]; exists && val != nil {
-					item[k] = val
-				}
-			}
-		}
-	}
-}
-
-func computeMapLifecycleStatus(item map[string]interface{}) string {
-	if item == nil {
-		return "ACTIVE_UNACK"
-	}
-	var rawRemark string
-	switch v := item["remark"].(type) {
-	case string:
-		rawRemark = v
-	case *string:
-		if v != nil {
-			rawRemark = *v
-		}
-	}
-	statusStr := ""
-	if s, ok := item["alarm_status"].(string); ok {
-		statusStr = s
-	}
-	return computeAlarmLifecycleStatus(statusStr, &rawRemark)
-}
-
-// GetAlarmConfigListByPage 分页查询告警配置，支持租户、名称、等级和启用状态过滤。
-// allTenants 仅限 SYS_ADMIN 显式全租户视角；其余调用方必须携带非空租户，否则 fail-closed。
-func GetAlarmConfigListByPage(d *model.GetAlarmConfigListByPageReq, allTenants bool) (int64, interface{}, error) {
-	return alarmConfigListByPageScoped(d, allTenants, nil)
-}
-
-// GetAlarmConfigListByPageForScopes 层级作用域变体（ROADMAP C2）：alarm_config.tenant_id IN (scopes)。
-// tenant-scope: caller-enforced (scopes 由 service 层展开并校验)。
-func GetAlarmConfigListByPageForScopes(d *model.GetAlarmConfigListByPageReq, allTenants bool, scopes []string) (int64, interface{}, error) {
-	return alarmConfigListByPageScoped(d, allTenants, scopes)
-}
-
-func alarmConfigListByPageScoped(d *model.GetAlarmConfigListByPageReq, allTenants bool, scopes []string) (int64, interface{}, error) {
-	base, err := newAlarmConfigListScopedDB(d, allTenants, scopes...)
-	if err != nil {
-		return 0, nil, err
-	}
-	var count int64
-	if err := base.Session(&gorm.Session{}).Count(&count).Error; err != nil {
-		return count, nil, err
-	}
-
-	listBuilder := base.Session(&gorm.Session{}).Select("ac.*, ng.name AS notification_group_name").
-		Joins("LEFT JOIN notification_groups ng ON ng.id = ac.notification_group_id").
-		Order("ac.created_at DESC")
-	listBuilder = applyListPagination(listBuilder, d.Page, d.PageSize)
-	list := make([]map[string]interface{}, 0)
-	if err := listBuilder.Scan(&list).Error; err != nil {
-		return 0, nil, err
-	}
-	return count, list, nil
-}
-
-func CreateAlarmInfo(d *model.AlarmInfo) error {
-	return query.AlarmInfo.Create(d)
-}
-
-// tenant-scope: caller-enforced?2026-08-26 ?????
-func GetAlarmInfoByID(id string) (*model.AlarmInfo, error) {
-	data, err := query.AlarmInfo.Where(query.AlarmInfo.ID.Eq(id)).First()
-	if err != nil {
-		return nil, err
-	}
-	if data == nil {
-		return nil, fmt.Errorf("no data found")
-	}
-	return data, nil
-}
-
-func UpdateAlarmInfo(d *model.AlarmInfo) error {
-	info, err := query.AlarmInfo.Updates(d)
-	if err != nil {
-		return err
-	}
-	if info.RowsAffected == 0 {
-		return fmt.Errorf("no data updated")
-	}
-	return nil
-}
-
-func UpdateAlarmInfoBatch(req *model.UpdateAlarmInfoBatchReq, userid string, tenantID string) error {
-	info, err := query.AlarmInfo.Where(query.AlarmInfo.ID.In(req.Id...), query.AlarmInfo.TenantID.Eq(tenantID)).
-		Updates(map[string]interface{}{
-			"processing_result": req.ProcessingResult,
-			"content":           req.ProcessingInstructions,
-			"processor":         userid})
-	if err != nil {
-		return err
-	}
-	if info.RowsAffected == 0 {
-		return fmt.Errorf("no data updated")
-	}
-	return nil
-}
-
-// GetAlarmInfoListByPageForScopes 层级作用域变体（ROADMAP C2）：alarm_info.tenant_id IN (scopes)。
-// tenant-scope: caller-enforced (scopes 由 service 层展开并校验)。
-func GetAlarmInfoListByPageForScopes(d *model.GetAlarmInfoListByPageReq, allTenants bool, scopes []string) (int64, interface{}, error) {
-	return alarmInfoListByPageScoped(d, allTenants, scopes)
-}
-
-func GetAlarmInfoListByPage(d *model.GetAlarmInfoListByPageReq, allTenants bool) (int64, interface{}, error) {
-	return alarmInfoListByPageScoped(d, allTenants, nil)
-}
-
-func alarmInfoListByPageScoped(d *model.GetAlarmInfoListByPageReq, allTenants bool, scopes []string) (int64, interface{}, error) {
-	base, err := newAlarmInfoListScopedDB(d, allTenants, scopes...)
-	if err != nil {
-		return 0, nil, err
-	}
-	var count int64
-	if err := base.Session(&gorm.Session{}).Count(&count).Error; err != nil {
-		return count, nil, err
-	}
-
-	listBuilder := base.Session(&gorm.Session{}).
-		Select("ai.*, ac.name AS alarm_config_name, ac.alarm_level AS alarm_level, u.name AS processor_name").
-		Joins("LEFT JOIN alarm_config ac ON ac.id = ai.alarm_config_id").
-		Joins("LEFT JOIN users u ON ai.processor = u.id").
-		Order("ai.alarm_time DESC")
-	listBuilder = applyListPagination(listBuilder, d.Page, d.PageSize)
-	list := make([]map[string]interface{}, 0)
-	if err := listBuilder.Scan(&list).Error; err != nil {
-		return 0, nil, err
-	}
-	return count, list, nil
-}
 
 // GetAlarmHistoryListByPage 分页查询告警历史，并展开关联设备列表供上层直接展示。
 // GetAlarmHistoryListByPageForScopes 层级作用域变体（ROADMAP C2）：alarm_history.tenant_id IN (scopes)。
@@ -350,35 +197,6 @@ func GetAlarmHistoryListByPage(d *model.GetAlarmHisttoryListByPage, tenantID str
 // alarm_history_devices 关联表（jsonb 列保留并由触发器同步），这里改成普通 btree join：
 // 关联表主键 (alarm_history_id, device_id)、索引 (device_id, tenant_id) 均可命中。
 // 语义不变：告警历史只要命中任一属于该 owner 的设备即对该 owner 可见。
-const alarmHistoryOwnerExistsSQL = `EXISTS (
-    SELECT 1
-    FROM alarm_history_devices ahd
-    INNER JOIN devices scoped_device
-        ON scoped_device.id = ahd.device_id
-       AND scoped_device.tenant_id = ah.tenant_id
-    WHERE ahd.alarm_history_id = ah.id
-      AND scoped_device.owner_user_id = ?
-)`
-
-// alarmHistoryDeviceExistsByIDSQL 告警历史"命中指定设备"过滤（142.sql 关联表形态）。
-//
-// 替换旧的两类写法：jsonb_exists(alarm_device_list, ?) 与 alarm_device_list::text LIKE '%id%'。
-// 两者都需要逐行计算且无法走索引；LIKE 形态还有子串误命中（设备 id 是另一 id 的前缀时错配）。
-// 关联表上的等值匹配既走索引又消除误命中。
-const alarmHistoryDeviceExistsByIDSQL = `EXISTS (
-    SELECT 1
-    FROM alarm_history_devices ahd
-    WHERE ahd.alarm_history_id = ah.id
-      AND ahd.device_id = ?
-)`
-
-// alarmHistoryDeviceExistsByIDUnqualified 非别名形态（gen 链查询用，表名不带 ah 别名）。
-const alarmHistoryDeviceExistsByIDUnqualified = `EXISTS (
-    SELECT 1
-    FROM alarm_history_devices ahd
-    WHERE ahd.alarm_history_id = alarm_history.id
-      AND ahd.device_id = ?
-)`
 
 func newAlarmHistoryScopedDB(tenantID string, ownerUserID *string, allTenants bool, tenantScopes ...string) *gorm.DB {
 	builder := global.DB.Table("alarm_history AS ah")
@@ -397,20 +215,6 @@ func newAlarmHistoryScopedDB(tenantID string, ownerUserID *string, allTenants bo
 	}
 	return builder.Where(alarmHistoryOwnerExistsSQL, strings.TrimSpace(*ownerUserID))
 }
-
-const alarmHistoryCurrentActiveExistsSQL = `EXISTS (
-    SELECT 1
-    FROM current_device_alarm_streams current_alarm
-    INNER JOIN devices current_device
-        ON current_device.id = current_alarm.device_id
-       AND current_device.tenant_id = current_alarm.tenant_id
-       AND current_device.activate_flag = 'active'
-    WHERE current_alarm.id = ah.id
-      AND current_alarm.tenant_id = ah.tenant_id
-      AND current_alarm.alarm_status IN ('H', 'M', 'L')
-      AND (? = '' OR current_alarm.device_id = ?)
-      AND (? = '' OR current_device.owner_user_id = ?)
-)`
 
 func applyAlarmHistoryScopedFilters(builder *gorm.DB, req *model.GetAlarmHisttoryListByPage, ownerUserID *string) *gorm.DB {
 	if req == nil {
@@ -455,6 +259,11 @@ func applyAlarmHistoryScopedFilters(builder *gorm.DB, req *model.GetAlarmHisttor
 	}
 	return builder
 }
+
+// GetAlarmHistoryMonthlyTrend aggregates twelve calendar-month buckets in PostgreSQL.
+// H/M/L rows count directly. Reset rows remain historical occurrences through reset_at,
+// while ordinary N recovery rows are excluded. ownerUserID narrows TENANT_USER data to
+// alarm rows that reference at least one device owned by that user.
 
 // GetAlarmHistoryMonthlyTrend aggregates twelve calendar-month buckets in PostgreSQL.
 // H/M/L rows count directly. Reset rows remain historical occurrences through reset_at,
@@ -573,6 +382,9 @@ func alarmHistoryResetUpdates(remark string) map[string]interface{} {
 
 // alarmHistoryDeviceListMaps 把历史记录里的设备 ID 列表展开成设备摘要。
 // 这里保留原有的查询方式，只是把重复的 JSON 解析和设备查询收敛起来。
+
+// alarmHistoryDeviceListMaps 把历史记录里的设备 ID 列表展开成设备摘要。
+// 这里保留原有的查询方式，只是把重复的 JSON 解析和设备查询收敛起来。
 func alarmHistoryDeviceListMaps(raw interface{}, ownerUserID *string) []map[string]interface{} {
 	deviceIDs := alarmHistoryDeviceIDsFromValue(raw)
 	return alarmHistoryDeviceRows(deviceIDs, loadAlarmHistoryDevicesByID(deviceIDs, ownerUserID))
@@ -621,6 +433,8 @@ func alarmHistoryDeviceIDs(raw string) []string {
 }
 
 // alarmHistoryRawLogPreview 截取原始 JSON 的前 64 字节用于日志输出。
+
+// alarmHistoryRawLogPreview 截取原始 JSON 的前 64 字节用于日志输出。
 func alarmHistoryRawLogPreview(raw string) string {
 	if len(raw) > 64 {
 		return raw[:64]
@@ -632,72 +446,16 @@ func alarmHistoryRawLogPreview(raw string) string {
 // 该条件在设备告警状态和设备关联配置查询中共用。
 // 设备命中由 jsonb_exists(alarm_device_list, ?) 改为 142.sql 的关联表 EXISTS：
 // 前者无法走索引，后者命中 alarm_history_devices 主键，且不再受 JSON 元素顺序影响。
+
+// alarmHistoryDeviceConditions 拼装“租户 + 设备命中”的告警历史查询条件。
+// 该条件在设备告警状态和设备关联配置查询中共用。
+// 设备命中由 jsonb_exists(alarm_device_list, ?) 改为 142.sql 的关联表 EXISTS：
+// 前者无法走索引，后者命中 alarm_history_devices 主键，且不再受 JSON 元素顺序影响。
 func alarmHistoryDeviceConditions(tenantID, deviceID string) []gen.Condition {
 	return append(
 		[]gen.Condition{query.AlarmHistory.TenantID.Eq(tenantID)},
 		gen.Cond(clause.Expr{SQL: alarmHistoryDeviceExistsByIDUnqualified, Vars: []interface{}{deviceID}})...,
 	)
-}
-
-func GetDeviceAlarmStatus(req *model.GetDeviceAlarmStatusReq, tenantID string) (bool, error) {
-	latest := query.LatestDeviceAlarm
-	result, err := latest.Where(
-		latest.TenantID.Eq(tenantID),
-		latest.DeviceID.Eq(req.DeviceId),
-	).First()
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return false, nil
-		}
-		return false, err
-	}
-	if result.AlarmStatus == nil {
-		return false, nil
-	}
-	switch strings.ToUpper(strings.TrimSpace(*result.AlarmStatus)) {
-	case "H", "M", "L":
-		return true, nil
-	default:
-		return false, nil
-	}
-}
-
-func GetConfigByDevice(req *model.GetDeviceAlarmStatusReq, tenantID string) ([]model.AlarmConfig, error) {
-	var result []map[string]interface{}
-	err := query.AlarmHistory.Where(alarmHistoryDeviceConditions(tenantID, req.DeviceId)...).
-		Select(query.AlarmHistory.AlarmConfigID, query.AlarmHistory.AlarmConfigID.Count()).Group(query.AlarmHistory.AlarmConfigID).Scan(&result)
-	if err != nil {
-		return nil, err
-	}
-	if len(result) == 0 {
-		return nil, nil
-	}
-
-	var (
-		configIDs []string
-		config    []model.AlarmConfig
-	)
-	for _, v := range result {
-		configIDs = append(configIDs, v["alarm_config_id"].(string))
-	}
-	return config, query.AlarmConfig.Where(query.AlarmConfig.ID.In(configIDs...), query.AlarmConfig.TenantID.Eq(tenantID)).Scan(&config)
-}
-
-// tenant-scope: caller-enforced?2026-08-26 ?????
-func GetAlarmNameWithCache(alarmId string) string {
-	redis := global.REDIS
-	cacheKey := fmt.Sprintf("GetAlarmNameWithCache:alarmId:%s", alarmId)
-	var result string
-	err := redis.Get(context.Background(), cacheKey).Scan(&result)
-	if err == nil && result != "" {
-		return result
-	}
-	alarmConfig, err := query.AlarmConfig.Where(query.AlarmConfig.ID.Eq(alarmId)).Select(query.AlarmConfig.Name).First()
-	if err != nil {
-		return ""
-	}
-	redis.Set(context.Background(), cacheKey, alarmConfig.Name, time.Hour)
-	return alarmConfig.Name
 }
 
 func DeleteAlarmHistory(id string, tenantID string) error {
@@ -712,6 +470,8 @@ func DeleteAlarmHistory(id string, tenantID string) error {
 }
 
 // DeleteAlarmHistoryByConfigId 删除指定告警配置对应的全部历史记录。
+
+// DeleteAlarmHistoryByConfigId 删除指定告警配置对应的全部历史记录。
 func DeleteAlarmHistoryByConfigId(alarmConfigId string) error {
 	_, err := query.AlarmHistory.Where(query.AlarmHistory.AlarmConfigID.Eq(alarmConfigId)).Delete()
 	return err
@@ -719,122 +479,6 @@ func DeleteAlarmHistoryByConfigId(alarmConfigId string) error {
 
 // alarmHistoryScanBatchSize 控制 GetDeviceIdsByAlarmConfigId 的分批扫描窗口，
 // 避免历史表无限增长时一次性把全表载入内存。
-const alarmHistoryScanBatchSize = 1000
-
-// GetDeviceIdsByAlarmConfigId 返回触发过指定告警配置的设备 ID 去重列表。
-// tenant-scope: parent-owned?2026-08-26 ?????
-func GetDeviceIdsByAlarmConfigId(alarmConfigId string) ([]string, error) {
-	hq := query.AlarmHistory
-	deviceSet := make(map[string]struct{})
-	lastID := ""
-	for {
-		q := hq.Where(hq.AlarmConfigID.Eq(alarmConfigId))
-		if lastID != "" {
-			q = q.Where(hq.ID.Gt(lastID))
-		}
-		batch, err := q.Select(hq.ID, hq.AlarmDeviceList).Order(hq.ID).Limit(alarmHistoryScanBatchSize).Find()
-		if err != nil {
-			return nil, err
-		}
-		for _, h := range batch {
-			var deviceIds []string
-			if h.AlarmDeviceList != "" {
-				if err := json.Unmarshal([]byte(h.AlarmDeviceList), &deviceIds); err != nil {
-					// 解析失败按空列表继续去重流程；带上配置与记录 ID 便于定位脏数据行。
-					logrus.Warnf("alarm history alarm_device_list 解析失败: err=%v alarm_config_id=%s history_id=%s",
-						err, h.AlarmConfigID, h.ID)
-				}
-			}
-			for _, did := range deviceIds {
-				deviceSet[did] = struct{}{}
-			}
-		}
-		if len(batch) < alarmHistoryScanBatchSize {
-			break
-		}
-		lastID = batch[len(batch)-1].ID
-	}
-	result := make([]string, 0, len(deviceSet))
-	for did := range deviceSet {
-		result = append(result, did)
-	}
-	return result, nil
-}
-
-// DeleteAlarmNameCache 删除告警名称缓存。
-func DeleteAlarmNameCache(alarmId string) error {
-	redis := global.REDIS
-	cacheKey := fmt.Sprintf("GetAlarmNameWithCache:alarmId:%s", alarmId)
-	return redis.Del(context.Background(), cacheKey).Err()
-}
-
-// newAlarmConfigListScopedDB 构造告警配置列表的 raw 语句根与过滤条件，
-// 条件语义与收敛前的 applyAlarmConfigListFilters 逐条对齐。
-// 空租户守卫（ROADMAP A1）：租户为空且未显式声明全租户视角时拒绝查询，
-// 防止条件过滤被静默跳过后退化为跨租户全表扫描（与 board/users 收敛模式一致）。
-func newAlarmConfigListScopedDB(req *model.GetAlarmConfigListByPageReq, allTenants bool, tenantScopes ...string) (*gorm.DB, error) {
-	builder := global.DB.Table("alarm_config AS ac")
-	if req == nil {
-		return builder, nil
-	}
-	if len(tenantScopes) > 0 {
-		switch len(tenantScopes) {
-		case 1:
-			builder = builder.Where("ac.tenant_id = ?", tenantScopes[0])
-		default:
-			builder = builder.Where("ac.tenant_id IN ?", tenantScopes)
-		}
-	} else if tenantID := strings.TrimSpace(req.TenantID); tenantID != "" {
-		builder = builder.Where("ac.tenant_id = ?", tenantID)
-	} else if !allTenants {
-		logrus.Warn("dal: alarm config list query has empty TenantID without all-tenants scope; rejecting")
-		return nil, fmt.Errorf("tenant id is required")
-	}
-	if req.Name != nil && *req.Name != "" {
-		builder = builder.Where("ac.name LIKE ?", ContainsLikePattern(*req.Name))
-	}
-	if req.AlarmLevel != nil && *req.AlarmLevel != "" {
-		builder = builder.Where("ac.alarm_level = ?", *req.AlarmLevel)
-	}
-	if req.Enabled != "" {
-		builder = builder.Where("ac.enabled = ?", req.Enabled)
-	}
-	return builder, nil
-}
-
-// newAlarmInfoListScopedDB 构造告警信息列表的 raw 语句根与过滤条件，
-// 条件语义与收敛前的 applyAlarmInfoListFilters 逐条对齐。
-// 空租户守卫（ROADMAP A1）：租户为空且未显式声明全租户视角时拒绝查询，
-// 防止条件过滤被静默跳过后退化为跨租户全表扫描（与 board/users 收敛模式一致）。
-func newAlarmInfoListScopedDB(req *model.GetAlarmInfoListByPageReq, allTenants bool, tenantScopes ...string) (*gorm.DB, error) {
-	builder := global.DB.Table("alarm_info AS ai")
-	if req == nil {
-		return builder, nil
-	}
-	if len(tenantScopes) > 0 {
-		switch len(tenantScopes) {
-		case 1:
-			builder = builder.Where("ai.tenant_id = ?", tenantScopes[0])
-		default:
-			builder = builder.Where("ai.tenant_id IN ?", tenantScopes)
-		}
-	} else if tenantID := strings.TrimSpace(req.TenantID); tenantID != "" {
-		builder = builder.Where("ai.tenant_id = ?", tenantID)
-	} else if !allTenants {
-		logrus.Warn("dal: alarm info list query has empty TenantID without all-tenants scope; rejecting")
-		return nil, fmt.Errorf("tenant id is required")
-	}
-	if req.StartTime != nil && req.EndTime != nil {
-		builder = builder.Where("ai.alarm_time BETWEEN ? AND ?", *req.StartTime, *req.EndTime)
-	}
-	if req.ProcessingResult != nil && *req.ProcessingResult != "" {
-		builder = builder.Where("ai.processing_result = ?", *req.ProcessingResult)
-	}
-	if req.AlarmLevel != nil && *req.AlarmLevel != "" {
-		builder = builder.Where("ai.alarm_level = ?", *req.AlarmLevel)
-	}
-	return builder, nil
-}
 
 // P1 修复（2026-08-24，见 VALIDATION.md）：告警历史列表的 gen LeftJoin 收敛完成。
 // 原 applyAlarmHistoryListFilters/applyAlarmHistoryTimeFilter/applyAlarmHistoryStatusFilter/
@@ -866,6 +510,8 @@ func alarmHistoryStatusFilterValues(alarmStatus *string) []string {
 func isAlarmHistoryActiveStatusFilter(alarmStatus *string) bool {
 	return alarmStatus != nil && strings.TrimSpace(*alarmStatus) == model.AlarmHistoryQueryStatusActive
 }
+
+// tenant-scope: caller-enforced?2026-08-26 ?????
 
 // tenant-scope: caller-enforced?2026-08-26 ?????
 func CountActiveAlarmHistoryByTenant(tenantID string, ownerUserID *string) (int64, error) {
