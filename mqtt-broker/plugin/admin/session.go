@@ -3,7 +3,7 @@
 // 载荷含版本、签发/过期时间与 16 字节随机会话 ID；HMAC 密钥在进程内由 crypto/rand 生成，
 // 进程重启即令全部会话失效（运维控制台可接受）。
 // 安全职责：替换历史上的常量 cookie 值 "authenticated"——该值可被任意客户端伪造，
-// 并经 adminRequestAuthorized 的 cookie 回退路径绕过 http_auth_secret。
+// 并经历史 cookie 回退路径绕过 http_auth_secret。
 // 关键注意事项：不同用途（会话 / CSRF / 登录表单 nonce）以 purpose 前缀做域分离，
 // 一种令牌不能被当作另一种使用；吊销集合按过期时间自动清理，规模受合法登录次数约束。
 

@@ -169,11 +169,6 @@ func (a *Admin) authorizeAdminRequest(r *http.Request) adminAuthResult {
 	return adminAuthOK
 }
 
-// adminRequestAuthorized 报告请求是否通过管理面应用层鉴权。
-func (a *Admin) adminRequestAuthorized(r *http.Request) bool {
-	return a.authorizeAdminRequest(r) == adminAuthOK
-}
-
 func isSafeHTTPMethod(method string) bool {
 	switch method {
 	case http.MethodGet, http.MethodHead, http.MethodOptions:
