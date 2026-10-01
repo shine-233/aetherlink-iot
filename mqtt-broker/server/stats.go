@@ -20,28 +20,6 @@ type statsManager struct {
 	clientStats    map[string]*ClientStats
 }
 
-func (s *statsManager) getClientStats(clientID string) (stats *ClientStats) {
-	s.clientMu.RLock()
-	stats = s.clientStats[clientID]
-	s.clientMu.RUnlock()
-	if stats != nil {
-		return stats
-	}
-
-	subStats, _ := s.subStatsReader.GetClientStats(clientID)
-
-	s.clientMu.Lock()
-	defer s.clientMu.Unlock()
-	if stats = s.clientStats[clientID]; stats != nil {
-		return stats
-	}
-	stats = &ClientStats{
-		SubscriptionStats: subStats,
-	}
-	s.clientStats[clientID] = stats
-	return stats
-}
-
 func (s *statsManager) getOrCreateClientStatsLocked(clientID string) (stats *ClientStats) {
 	if stats = s.clientStats[clientID]; stats != nil {
 		return stats
@@ -90,24 +68,6 @@ func (s *statsManager) packetReceived(packet packets.Packet, clientID string) {
 }
 func (s *statsManager) packetSent(packet packets.Packet, clientID string) {
 	s.totalStats.PacketStats.add(packet, false)
-	if stats, ok := s.getExistingClientStats(clientID); ok {
-		stats.PacketStats.add(packet, false)
-		return
-	}
-	s.updateClientStats(clientID, func(stats *ClientStats) {
-		stats.PacketStats.add(packet, false)
-	})
-}
-func (s *statsManager) clientPacketReceived(packet packets.Packet, clientID string) {
-	if stats, ok := s.getExistingClientStats(clientID); ok {
-		stats.PacketStats.add(packet, true)
-		return
-	}
-	s.updateClientStats(clientID, func(stats *ClientStats) {
-		stats.PacketStats.add(packet, true)
-	})
-}
-func (s *statsManager) clientPacketSent(packet packets.Packet, clientID string) {
 	if stats, ok := s.getExistingClientStats(clientID); ok {
 		stats.PacketStats.add(packet, false)
 		return

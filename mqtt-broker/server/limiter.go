@@ -115,7 +115,3 @@ func (p *packetIDLimiter) lock() {
 func (p *packetIDLimiter) unlock() {
 	p.cond.L.Unlock()
 }
-func (p *packetIDLimiter) unlockAndSignal() {
-	p.cond.L.Unlock()
-	p.cond.Signal()
-}

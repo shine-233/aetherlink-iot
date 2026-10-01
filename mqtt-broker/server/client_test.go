@@ -2214,3 +2214,7 @@ func TestClient_connectWithTimeOut_EnhancedAuth(t *testing.T) {
 		})
 	}
 }
+
+func uint16P(v uint16) *uint16 {
+	return &v
+}

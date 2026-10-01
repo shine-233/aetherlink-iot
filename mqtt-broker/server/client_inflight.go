@@ -7,24 +7,15 @@ package server
 import (
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/DrmagicE/gmqtt"
 	"github.com/DrmagicE/gmqtt/persistence/queue"
-	"github.com/DrmagicE/gmqtt/pkg/bitmap"
 	"github.com/DrmagicE/gmqtt/pkg/packets"
 )
 
 func (client *client) newPacketIDLimiter(limit uint16) {
-	client.pl = &packetIDLimiter{
-		cond:      sync.NewCond(&sync.Mutex{}),
-		used:      0,
-		limit:     limit,
-		exit:      false,
-		freePid:   1,
-		lockedPid: bitmap.New(packets.MaxPacketID),
-	}
+	client.pl = newPacketIDLimiter(limit)
 }
 
 func (client *client) pollInflights() (cont bool, err error) {
