@@ -131,6 +131,11 @@ func (item *telemetryBatchItem) convertedRows() ([]TelemetryData, int) {
 // Both outputs are sorted (history by device,key,ts; current by device,key) so
 // every flush acquires PostgreSQL row locks in the same order. Two
 // transactions touching overlapping series can then only wait, never deadlock.
+//
+// Implementation: sort lightweight row references by (device,key,ts,arrival)
+// and scan once. Duplicate identities become adjacent with the earliest arrival
+// first (first-writer-wins), and after dedup the newest row of a series is the
+// last of its run, so no per-batch hash maps are needed.
 func (w *telemetryWriter) deduplicateAndConvert(batch []*telemetryBatchItem) (
 	[]TelemetryData, []TelemetryCurrentData, int,
 ) {
@@ -142,36 +147,60 @@ func (w *telemetryWriter) deduplicateAndConvert(batch []*telemetryBatchItem) (
 		duplicates += itemDuplicates
 	}
 
-	historyData := make([]TelemetryData, 0, total)
-	seen := make(map[telemetryPointIdentity]struct{}, total)
-	latest := make(map[telemetrySeriesKey]int, total)
+	refs := make([]telemetryRowRef, 0, total)
 	for _, item := range batch {
 		if item == nil {
 			continue
 		}
-		for _, row := range item.rows {
-			identity := telemetryIdentityOf(row)
-			if _, exists := seen[identity]; exists {
-				duplicates++
-				continue
-			}
-			seen[identity] = struct{}{}
-			historyData = append(historyData, row)
-
-			series := telemetrySeriesKey{deviceID: row.DeviceID, key: row.Key}
-			if index, ok := latest[series]; !ok || row.TS > historyData[index].TS {
-				latest[series] = len(historyData) - 1
-			}
+		for i := range item.rows {
+			refs = append(refs, telemetryRowRef{row: &item.rows[i], seq: len(refs)})
 		}
 	}
+	slices.SortFunc(refs, func(a, b telemetryRowRef) int {
+		if c := compareTelemetrySeries(a.row.DeviceID, a.row.Key, b.row.DeviceID, b.row.Key); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(a.row.TS, b.row.TS); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.seq, b.seq)
+	})
 
-	currentData := make([]TelemetryCurrentData, 0, len(latest))
-	for _, index := range latest {
-		currentData = append(currentData, telemetryCurrentFromHistory(historyData[index]))
+	historyData := make([]TelemetryData, 0, len(refs))
+	series := 0
+	for _, ref := range refs {
+		if n := len(historyData); n > 0 {
+			prev := &historyData[n-1]
+			if prev.DeviceID == ref.row.DeviceID && prev.Key == ref.row.Key {
+				if prev.TS == ref.row.TS {
+					duplicates++
+					continue
+				}
+			} else {
+				series++
+			}
+		} else {
+			series++
+		}
+		historyData = append(historyData, *ref.row)
 	}
-	sortTelemetryHistory(historyData)
-	sortTelemetryCurrent(currentData)
+
+	currentData := make([]TelemetryCurrentData, 0, series)
+	for i := range historyData {
+		row := &historyData[i]
+		if i+1 < len(historyData) && historyData[i+1].DeviceID == row.DeviceID && historyData[i+1].Key == row.Key {
+			continue
+		}
+		currentData = append(currentData, telemetryCurrentFromHistory(*row))
+	}
 	return historyData, currentData, duplicates
+}
+
+// telemetryRowRef points at a converted row; seq is its arrival order in the
+// batch and breaks ties so the sort is total and deterministic.
+type telemetryRowRef struct {
+	row *TelemetryData
+	seq int
 }
 
 func compareTelemetrySeries(aDevice, aKey, bDevice, bKey string) int {
@@ -179,21 +208,6 @@ func compareTelemetrySeries(aDevice, aKey, bDevice, bKey string) int {
 		return c
 	}
 	return cmp.Compare(aKey, bKey)
-}
-
-func sortTelemetryHistory(rows []TelemetryData) {
-	slices.SortFunc(rows, func(a, b TelemetryData) int {
-		if c := compareTelemetrySeries(a.DeviceID, a.Key, b.DeviceID, b.Key); c != 0 {
-			return c
-		}
-		return cmp.Compare(a.TS, b.TS)
-	})
-}
-
-func sortTelemetryCurrent(rows []TelemetryCurrentData) {
-	slices.SortFunc(rows, func(a, b TelemetryCurrentData) int {
-		return compareTelemetrySeries(a.DeviceID, a.Key, b.DeviceID, b.Key)
-	})
 }
 
 func telemetryCurrentLookupKey(deviceID, key string) telemetrySeriesKey {
