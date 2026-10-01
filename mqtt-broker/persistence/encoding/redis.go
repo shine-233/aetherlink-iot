@@ -7,9 +7,7 @@ package encoding
 
 import (
 	"bytes"
-	"encoding/binary"
 	"io"
-	"time"
 
 	"github.com/DrmagicE/gmqtt"
 	"github.com/DrmagicE/gmqtt/pkg/packets"
@@ -149,49 +147,4 @@ func DecodeMessageFromBytes(b []byte) (msg *gmqtt.Message, err error) {
 		return nil, nil
 	}
 	return DecodeMessage(bytes.NewBuffer(b))
-}
-
-func EncodeSession(sess *gmqtt.Session, b *bytes.Buffer) {
-	WriteString(b, []byte(sess.ClientID))
-	if sess.Will != nil {
-		b.WriteByte(1)
-		EncodeMessage(sess.Will, b)
-		WriteUint32(b, sess.WillDelayInterval)
-	} else {
-		b.WriteByte(0)
-	}
-	if err := binary.Write(b, binary.BigEndian, sess.ConnectedAt.Unix()); err != nil {
-		return
-	}
-	WriteUint32(b, sess.ExpiryInterval)
-}
-
-func DecodeSession(b *bytes.Buffer) (sess *gmqtt.Session, err error) {
-	sess = &gmqtt.Session{}
-	cid, err := ReadString(b)
-	if err != nil {
-		return nil, err
-	}
-	sess.ClientID = string(cid)
-	willPresent, err := b.ReadByte()
-	if err != nil {
-		return
-	}
-	if willPresent == 1 {
-		sess.Will, err = DecodeMessage(b)
-		if err != nil {
-			return
-		}
-		sess.WillDelayInterval, err = ReadUint32(b)
-		if err != nil {
-			return
-		}
-	}
-	var connectedAt int64
-	if err = binary.Read(b, binary.BigEndian, &connectedAt); err != nil {
-		return nil, err
-	}
-	sess.ConnectedAt = time.Unix(connectedAt, 0)
-	sess.ExpiryInterval, err = ReadUint32(b)
-	return
 }
