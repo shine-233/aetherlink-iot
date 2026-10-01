@@ -87,6 +87,7 @@ const deviceActiveAlarmsWhereSQL = `alarm_history.tenant_id = ?
 // GetDeviceActiveAlarms 查询指定设备当前活跃的告警历史（未恢复：H/M/L），按创建时间倒序。
 // 签名与返回形态保持不变；空 deviceID 不可能命中关联表（device_id 为 NOT NULL 的真实 id），
 // 直接短路返回空列表，避免一次无意义的查询。
+// tenant-scope: sql-filtered——alarm_history.tenant_id = ? 与 ahd.tenant_id = ?（deviceActiveAlarmsWhereSQL 首条件）。
 func GetDeviceActiveAlarms(tenantID, deviceID string) ([]*model.AlarmHistory, error) {
 	list := make([]*model.AlarmHistory, 0)
 	if deviceID == "" {
