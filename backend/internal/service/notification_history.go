@@ -8,6 +8,7 @@ import (
 	"aetherlink-iot/backend/internal/authz"
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/internal/service/kit"
 	utils "aetherlink-iot/backend/pkg/utils"
 )
 
@@ -49,8 +50,7 @@ func (*NotificationHisory) GetNotificationHistoryListByPage(pageParam *model.Get
 		return nil, dbError(err)
 	}
 	redactNotificationHistoryForTenantUser(list, claims)
-
-	return notificationHistoryListResponse(total, list), err
+	return kit.ListMap(total, list), nil
 }
 
 func redactNotificationHistoryForTenantUser(list []*model.NotificationHistory, claims *utils.UserClaims) {
@@ -68,17 +68,5 @@ func redactNotificationHistoryForTenantUser(list []*model.NotificationHistory, c
 }
 
 func (*NotificationHisory) SaveNotificationHistory(req *model.NotificationHistory, deviceIDs ...string) error {
-	err := dal.CreateNotificationHistory(req, deviceIDs...)
-	if err != nil {
-		return err
-	}
-	return nil
-
-}
-
-func notificationHistoryListResponse(total interface{}, list interface{}) map[string]interface{} {
-	return map[string]interface{}{
-		"total": total,
-		"list":  list,
-	}
+	return dal.CreateNotificationHistory(req, deviceIDs...)
 }

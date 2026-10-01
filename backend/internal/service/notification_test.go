@@ -434,7 +434,7 @@ func TestNotificationHistoryListResponsePreservesTotalAndListKeys(t *testing.T) 
 		},
 	}
 
-	resp := notificationHistoryListResponse(int64(1), history)
+	resp := kit.ListMap(int64(1), history)
 
 	assert.Len(t, resp, 2)
 	assert.Equal(t, int64(1), resp["total"])
