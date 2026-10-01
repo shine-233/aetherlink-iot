@@ -1,7 +1,8 @@
 // file_spool.go is the single bounded filesystem durability boundary shared by
 // the telemetry and attribute/event spools. It owns atomic record writes,
 // file and directory fsync, crash recovery of interrupted temp files,
-// integrity quarantine, replay, and capacity accounting. Record schemas live in
+// integrity quarantine, replay (file_spool_replay.go, bounded selection in
+// file_spool_scan.go), and incremental capacity accounting (file_spool_usage.go). Record schemas live in
 // small codecs (telemetry_file_spool.go, attribute_event_file_spool.go), so the
 // on-disk format of each spool is unchanged: one JSON file per record named
 // "<identity>.json", temp files ".<prefix>-*.tmp", quarantine "*.json.corrupt*".
@@ -114,10 +115,15 @@ type fileSpool[T any, C fileSpoolCodec[T]] struct {
 	// bounded capacity; the subset is tracked separately for operators.
 	quarantinedBytes   int64
 	quarantinedRecords int
-	startupCorrupt     int
-	reservedBytes      int64
-	reservedRecords    int
-	inflight           map[string]struct{}
+	// usageDirty marks the incremental counters as possibly inexact (a
+	// quarantined record may have been resized by the corruption, or a counter
+	// would have gone negative). The next replay pass reconciles it with one
+	// full scan instead of rescanning on every hot-path event.
+	usageDirty      bool
+	startupCorrupt  int
+	reservedBytes   int64
+	reservedRecords int
+	inflight        map[string]struct{}
 }
 
 func (s *fileSpool[T, C]) codec() C {

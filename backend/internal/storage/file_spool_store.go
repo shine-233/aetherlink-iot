@@ -77,29 +77,37 @@ func (s *fileSpool[T, C]) recoverTempsLocked() error {
 	return nil
 }
 
+// quarantineCorruptCommittedLocked validates every committed record at init
+// with a streamed directory scan (no whole-backlog name sort) and moves corrupt
+// ones aside. Quarantined files stay counted by the refresh that follows.
 func (s *fileSpool[T, C]) quarantineCorruptCommittedLocked() error {
 	label := s.codec().label()
-	entries, err := os.ReadDir(s.directory)
-	if err != nil {
-		return fmt.Errorf("scan %s spool records: %w", label, err)
-	}
 	changed := false
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), fileSpoolExtension) {
-			continue
+	err := scanFileSpoolDirectory(s.directory, func(entry os.DirEntry) error {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(name, fileSpoolExtension) {
+			return nil
 		}
 		if entry.Type()&os.ModeSymlink != 0 {
-			return fmt.Errorf("%s spool record must not be a symlink: %s", label, entry.Name())
+			return fmt.Errorf("%s spool record must not be a symlink: %s", label, name)
 		}
-		path := filepath.Join(s.directory, entry.Name())
+		path := filepath.Join(s.directory, name)
 		if _, _, readErr := s.readRecord(path, true); readErr == nil {
-			continue
+			return nil
 		}
 		if _, err := quarantineFileSpoolFile(path, label); err != nil {
 			return fmt.Errorf("quarantine corrupt %s spool record: %w", label, err)
 		}
 		s.startupCorrupt++
 		changed = true
+		return nil
+	})
+	if err != nil {
+		var visitErr *fileSpoolVisitError
+		if errors.As(err, &visitErr) {
+			return visitErr.err
+		}
+		return fmt.Errorf("scan %s spool records: %w", label, err)
 	}
 	if !changed {
 		return nil
@@ -222,6 +230,11 @@ func (s *fileSpool[T, C]) storeBatch(ctx context.Context, values []T, now time.T
 		}
 	}
 	s.finish(pending, dirErr)
+	// A corrupt predecessor quarantined by admit may have been resized by the
+	// corruption; reconcile once per batch (rare path) so capacity is exact.
+	// A failed scan saturates usage (fail-closed) but cannot un-durable the
+	// records already committed, so it does not fail them.
+	_ = s.reconcileUsage()
 	if dirErr != nil {
 		for index := range values {
 			if errs[index] == nil && results[index].Duplicate {
@@ -288,7 +301,9 @@ func (s *fileSpool[T, C]) admit(ctx context.Context, item *fileSpoolPending, val
 				)
 			}
 			// Continue to the capacity check and write a valid replacement. The
-			// quarantined evidence stays counted and is never auto-deleted.
+			// quarantined evidence stays counted and is never auto-deleted. The
+			// rename joins this batch's grouped directory fsync; if no replacement
+			// is written, a crash merely re-detects and re-quarantines the file.
 		} else {
 			if !s.codec().equivalent(existing, value) {
 				return false, fmt.Errorf(

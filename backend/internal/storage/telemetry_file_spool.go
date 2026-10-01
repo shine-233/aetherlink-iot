@@ -176,3 +176,20 @@ func removeTelemetryWriteAheadReceipt(s *telemetryFileSpool, history TelemetryDa
 	}
 	return s.removeIdentity(telemetryFileSpoolIdentity(history))
 }
+
+// removeTelemetryWriteAheadReceipts retires the receipts of a whole flushed
+// batch with one grouped directory fsync. Non-replayable rows never had a
+// receipt and are skipped; duplicates are harmless (missing files are not
+// errors).
+func removeTelemetryWriteAheadReceipts(s *telemetryFileSpool, histories []TelemetryData) error {
+	if s == nil || len(histories) == 0 {
+		return nil
+	}
+	identities := make([]string, 0, len(histories))
+	for _, history := range histories {
+		if telemetryDataReplayable(history) {
+			identities = append(identities, telemetryFileSpoolIdentity(history))
+		}
+	}
+	return s.removeIdentities(identities)
+}
