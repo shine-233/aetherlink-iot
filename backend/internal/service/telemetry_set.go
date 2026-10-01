@@ -330,7 +330,7 @@ func findTopLevelGateway(deviceInfo *model.Device, deviceType string) (*model.De
 		}
 		parentDevice, err := initialize.GetDeviceCacheById(*deviceInfo.ParentID)
 		if err != nil {
-			return nil, fmt.Errorf("获取父设备信息失败: %v", err)
+			return nil, fmt.Errorf("获取父设备信息失败: %w", err)
 		}
 		currentDevice = parentDevice
 	}
@@ -342,7 +342,7 @@ func findTopLevelGateway(deviceInfo *model.Device, deviceType string) (*model.De
 	for currentDevice.ParentID != nil && depth < maxDepth {
 		parentDevice, err := initialize.GetDeviceCacheById(*currentDevice.ParentID)
 		if err != nil {
-			return nil, fmt.Errorf("获取父设备信息失败: %v", err)
+			return nil, fmt.Errorf("获取父设备信息失败: %w", err)
 		}
 		currentDevice = parentDevice
 		depth++
@@ -356,7 +356,7 @@ func findTopLevelGateway(deviceInfo *model.Device, deviceType string) (*model.De
 	if currentDevice.DeviceConfigID != nil {
 		deviceConfig, err := dal.GetDeviceConfigByID(*currentDevice.DeviceConfigID)
 		if err != nil {
-			return nil, fmt.Errorf("获取设备配置失败: %v", err)
+			return nil, fmt.Errorf("获取设备配置失败: %w", err)
 		}
 		if deviceConfig.DeviceType != strconv.Itoa(constant.GATEWAY_DEVICE) {
 			return nil, fmt.Errorf("顶层设备不是网关类型")

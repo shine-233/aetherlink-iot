@@ -21,7 +21,7 @@ func findTopLevelGatewayForCommand(deviceInfo *model.Device, deviceType string) 
 		}
 		parentDevice, err := initialize.GetDeviceCacheById(*deviceInfo.ParentID)
 		if err != nil {
-			return nil, fmt.Errorf("获取父设备信息失败: %v", err)
+			return nil, fmt.Errorf("获取父设备信息失败: %w", err)
 		}
 		currentDevice = parentDevice
 	}
@@ -33,7 +33,7 @@ func findTopLevelGatewayForCommand(deviceInfo *model.Device, deviceType string) 
 	for currentDevice.ParentID != nil && depth < maxDepth {
 		parentDevice, err := initialize.GetDeviceCacheById(*currentDevice.ParentID)
 		if err != nil {
-			return nil, fmt.Errorf("获取父设备信息失败: %v", err)
+			return nil, fmt.Errorf("获取父设备信息失败: %w", err)
 		}
 		currentDevice = parentDevice
 		depth++
@@ -47,7 +47,7 @@ func findTopLevelGatewayForCommand(deviceInfo *model.Device, deviceType string) 
 	if currentDevice.DeviceConfigID != nil {
 		deviceConfig, err := dal.GetDeviceConfigByID(*currentDevice.DeviceConfigID)
 		if err != nil {
-			return nil, fmt.Errorf("获取设备配置失败: %v", err)
+			return nil, fmt.Errorf("获取设备配置失败: %w", err)
 		}
 		if deviceConfig.DeviceType != strconv.Itoa(constant.GATEWAY_DEVICE) {
 			return nil, fmt.Errorf("顶层设备不是网关类型")
@@ -83,7 +83,7 @@ func buildSubDeviceCommandPayload(deviceInfo *model.Device, payloadMap map[strin
 
 	parentGateway, err := initialize.GetDeviceCacheById(*deviceInfo.ParentID)
 	if err != nil {
-		return nil, fmt.Errorf("获取父设备信息失败: %v", err)
+		return nil, fmt.Errorf("获取父设备信息失败: %w", err)
 	}
 	if parentGateway.ParentID != nil {
 		if _, err := commandDeviceAddress(parentGateway, "父网关"); err != nil {

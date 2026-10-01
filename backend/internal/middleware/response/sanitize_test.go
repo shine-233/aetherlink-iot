@@ -166,3 +166,25 @@ func TestIsDatabaseErrorClassification(t *testing.T) {
 	assert.False(t, isDatabaseError(gorm.ErrRecordNotFound))
 	assert.False(t, isDatabaseError(errors.New("plain business error")))
 }
+
+// TestDatabaseErrorTypeSurvivesNestedWrapping 固化 dal→service 两层包装下的类型判定。
+// 背景：service 层有 11 处把 dal 返回的 DB 错误再包一层（"获取父设备信息失败: %w"）。
+// isDatabaseError 的主路径是类型判定（errors.As 取 *pgconn.PgError），它要求包装链
+// 一路用 %w；任一层写成 %v 就会把类型抹平成字符串，主路径失效、只剩特征串兜底。
+// 本用例同时断言"类型确实能取出"与"%v 确实会丢类型"，防止有人把 %w 改回 %v 而无感。
+func TestDatabaseErrorTypeSurvivesNestedWrapping(t *testing.T) {
+	dalErr := fmt.Errorf("query device by id: %w", pgUniqueViolation())
+	serviceErr := fmt.Errorf("获取父设备信息失败: %w", dalErr)
+
+	var pgErr *pgconn.PgError
+	assert.True(t, errors.As(serviceErr, &pgErr), "两层 %w 包装后仍须能取出 *pgconn.PgError")
+	assert.True(t, isDatabaseError(serviceErr), "两层 %w 包装后仍须按类型判定为数据库错误")
+
+	// 反证：%v 抹平类型。此时仍会被特征串兜底拦住，但那条路依赖驱动文案格式
+	// （pgconn.PgError.Error() 恒含 "ERROR: " 与 "SQLSTATE"），属"宁可漏判"的退路，
+	// 不应作为主机制——所以 service 层统一改用 %w。
+	flattened := fmt.Errorf("获取父设备信息失败: %v", dalErr)
+	var lost *pgconn.PgError
+	assert.False(t, errors.As(flattened, &lost), "%v 会抹平类型，errors.As 取不到 PgError")
+	assert.True(t, isDatabaseError(flattened), "当前仍被特征串兜底拦住（依赖驱动文案，不可依赖）")
+}

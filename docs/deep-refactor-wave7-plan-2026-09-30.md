@@ -77,7 +77,106 @@
 - **剩余**：`service` / `dal` 里显式 `fmt.Errorf("%w"+原文)` 的返回点仍可继续收敛
   （现在即使不收敛也不会再泄漏，属"纵深防御"而非必须）。
 
-### Wave7-B / C / D：未开工
+### Wave7-B：已完成（2026-10-01 07:5x–08:0x）
+
+拆分目标（计划第 30 行列的"可视化/SCADA 编辑器、集成、市场、计费页面 <400 行"）实测结论：
+**wave6 已把绝大多数页面拆完**，只余 market/browse 一个未达标。逐项落地：
+
+- `views/market/browse/index.vue` **402 → 228 行**（提交 `cba05e22`）：导入闸门抽为
+  `modules/bundle-import-modal.vue`（脚本 97 行 + 模板 76 行，状态自成一闭包）。
+  保留同名 `handleImportFile` 转发入口，不破坏 `__tests__/index.test.ts` 的调用契约。
+- `views/visualization/thingsvis/index.vue` **563 → 344 行**（提交 `0bac17a0`）：
+  拆为 `useThingsVisProjectList` / `useThingsVisProjectForm` / `useThingsVisProjectDelete`
+  三个 composable。**该拆分由并发的另一个 WorkBuddy 会话完成**（07:49–07:55），
+  它因额度中断（429，22:01 重置）未提交；本次接手做的是核验 + 补 prettier + 落库。
+  注意 index.vue 解构出的 `provider`/`isNativeProvider`/`onboardingDashboardQuery`/`allProjects`
+  在模板里未直接用，是**刻意保留 setupState 形状**（测试通过 `wrapper.vm` 直接驱动），勿当死代码删。
+- 资源泄漏：`components/common/grid/utils/responsive.ts` 的 `ResponsiveMediaQuery`
+  **销毁时从不 removeListener**（只 clear 本地 Map，MediaQueryList 仍持有 handler 闭包与实例）
+  → 改具名 handler + `addEventListener` + handler 引用表，提交 `b22c0c34`，补 5 例测试。
+- 另发现并修复**源码有损编码乱码**一类缺陷（见下）。
+
+泄漏扫描口径（全仓 echarts/three/setInterval/setTimeout/rAF/addEventListener/matchMedia）
+得 24 处候选，逐条判定：**echarts 实例两个真实调用点均已正确 dispose**
+（`hooks/chart/use-echarts.ts` 走 `onScopeDispose`、`RdiTemperatureAlarmAxis.vue` 有卸载钩子）；
+**无 WebGLRenderer 实例**；其余 `setTimeout` 无 clear 的多为一次性定时器，**属良性**；
+真泄漏只有 responsive.ts 一处。
+
+#### 附带发现：源码有损编码乱码（提交 `90d6fe81`）
+
+项目自带 `automation_tests/tests/00_source_encoding_contract.test.js` 专防"UTF-8 被按 GBK
+重解释"，但**只有特征串表，漏掉带 PUA 字符的一类**，实测静默放行了 3 个文件：
+
+| 文件 | 损坏 |
+|---|---|
+| `frontend/src/utils/echarts/echarts-manager.ts` | 6 行注释/日志（`初始化`→`鍒濆\ue750鍖`） |
+| `frontend/src/utils/echarts/aetherlink-theme.ts` | 2 行注释（`面积图`、`柱状图`） |
+| `frontend/src/hooks/use-count-up.ts` | **换行被吃掉**：3 行块注释挤成 1 行且原文被截断 |
+
+还原方法：乱码是 UTF-8 字节被按 GBK 解码的产物，逆向须 `encode("gb18030")`（`gbk`/`cp936`
+无法编码 PUA 字符）再 `decode("utf-8")`，末尾残缺字节需容忍 `unexpected end of data`。
+
+**契约加固**：新增 **PUA 规则（U+E000–U+F8FF）**——GBK 用户自定义区双字节会映射到 PUA，
+源码出现 PUA 基本只有"有损编码转换"一个来源。加规则后**当场又抓出** `use-count-up.ts`，
+证明签名表确实漏这一类。
+
+### Wave7-C：仍未开工（结论不变：必须独占）
+
+计划第 35–46 行的结论经本次复核仍然成立，且**不建议现在开**：
+707 处引用 / 95 个 service / 515 文件 72k LOC，且第 46 行明确"此线开启期间不并行其它后端轨道"。
+本次实测期间确有并发会话在改 `backend/internal/service/`（它拆了 `telemetry_statistic.go`，
+提交 `213caf7f`），直接印证了冲突风险。**开工前提：后端其它轨道全部停下 + 按 5 个子阶段走。**
+
+### Wave7-D：立项材料已交付，待产品/运维决策
+
+- 度量脚本：`deploy/maintenance/measure_telemetry_volume.sql`（只读，实测 0 错误跑完）
+- 方案与决策简报：`docs/wave7-d-partitioning-spec-2026-10-01.md`
+
+**口径纠正**：本计划第 48 行把它记作"未开工"偏低——Timescale 路径其实已闭环
+（57.sql 转 hypertable + 压缩、`timescale_mode.go` 显式开关、`timescale_retention.go`
+原生 retention 含 UnixMilli 的 `set_integer_now_func` 与幂等收敛）。真实缺口是
+**普通 PG 路径完全没有原生分区**。
+
+**新发现的硬约束**（原计划只写了"交互口径"四字未展开）：138.sql 的档案级/租户级保留期与
+"整分区 DROP"语义冲突——一个时间分区覆盖所有租户，按全局保留期 DROP 会误删长保留租户的数据。
+故给出 A（只分区不 DROP，推荐）/ B（按最大保留期 DROP）/ C（按租户二级分区，不推荐）三案。
+**关键判据**：脚本第 5 段 `scoped_policy_rows`——若为 0，直接批方案 B。
+
+迁移设计用 `ATTACH PARTITION` 把既有表直接挂成首个分区（先加 CHECK NOT VALID 再 VALIDATE，
+避免全表扫描），换名仅需毫秒级元数据锁 → 零停机、无数据搬运、回滚同样是元数据操作。
+
+### wave5 / wave6 交付核查（2026-10-01 08:0x）
+
+对 wave5 五条轨道逐条核对交付物，结论是**基本已完成**，不是"未收尾"：
+
+| 轨道 | 核查证据 | 结论 |
+|---|---|---|
+| be-db-schema-lifecycle | `142.sql`（123 行）完整落地：`alarm_history_devices` 关联表 + 触发器同步（jsonb 列仍是写入事实源，保持兼容）+ 存量回填 + `DROP INDEX IF EXISTS telemetry_datas_ts_idx_copy1` + `idx_devices_parent_sub_addr` | ✅ |
+| be-api-handler-adapter | 8 个锁定 handler 文件均在（rule_chain/role/device_config/device_templates/edge_node/service_access/sys_dict/customer） | ✅ |
+| fe-list-pages | 六页实测：edge-nodes 99 / update-package 281 / update-ota 225 / report 264 / widget-bundles 191 行，均 <400 | ✅ |
+| be-service-domains-split | 并发会话提交 `213caf7f`（telemetry_statistic.go 661→261/168/260） | ✅ |
+| be-dal-repositories | dal 最大文件 alarm.go 930 行，其余 ≤553 | 🟡 部分 |
+
+门禁基线（本次实测）：后端 `go build` 通过、`go test ./... -p 1` **0 FAIL**；
+前端 vitest **498 文件 / 4332 用例全绿**、`vue-tsc` 0 错误、eslint 0 错误。
+
+### Wave7-A 纵深防御收尾（2026-10-01 08:1x）
+
+计划第 77–78 行留的"service/dal 显式 `fmt.Errorf` 返回点仍可继续收敛"已做。
+
+**先区分两类包装**：`%w` 保留错误类型，出口 sanitizer 的主路径（`errors.As` 取
+`*pgconn.PgError`）能拦住；**`%v` 会把类型抹平成字符串**，主路径失效、只剩
+`databaseDetailMarkers` 特征串兜底。
+
+实测 `service`/`dal` 共 17 处 `fmt.Errorf("...%v...", err)`，其中 **11 处包的是 DB 错误**
+（`initialize.GetDeviceCacheById` ×7、`dal.GetDeviceConfigByID` ×4，分布在
+`attribute_data.go` / `command_gateway_payload.go` / `telemetry_set.go`）→ 统一改 `%w`；
+其余 6 处是 JSON 解析/序列化，与库无关，**保持 `%v` 不动**。
+
+**诚实口径**：这不是修一个已发生的泄漏——实测 `%v` 摊平后的文案仍含 `ERROR: ` 与
+`SQLSTATE`，会被特征串兜底拦住。改 `%w` 是把检测**从"依赖驱动文案格式的退路"恢复到
+"类型判定主路径"**，属纵深防御。新增 `TestDatabaseErrorTypeSurvivesNestedWrapping`
+固化两层包装下的类型判定，并显式断言 `%v` 会丢类型，防止有人改回去而无感。
 
 ## 执行纪律（承 9-28 教训）
 
