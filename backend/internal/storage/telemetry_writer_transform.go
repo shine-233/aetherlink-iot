@@ -81,21 +81,32 @@ func (item *telemetryBatchItem) convertedRows() ([]TelemetryData, int) {
 	if hook := telemetryConversionHook; hook != nil {
 		hook(item)
 	}
-	rows := make([]TelemetryData, 0, len(item.points))
+	n := len(item.points)
+	rows := make([]TelemetryData, 0, n)
+	// One backing slab per item holds every column value, so the nullable
+	// *bool/*float64/*string fields point into it instead of each value
+	// escaping to its own heap allocation. Rows never mutate the values, and
+	// the slab lives exactly as long as the rows that reference it.
+	slab := make([]telemetryValueCell, n)
 	duplicates := 0
+	// Small reports (the common case) dedup by scanning the rows built so far;
+	// that beats hashing for a handful of keys and allocates nothing.
 	var seen map[string]struct{}
-	if len(item.points) > 1 {
-		seen = make(map[string]struct{}, len(item.points))
+	if n > telemetryLinearDedupLimit {
+		seen = make(map[string]struct{}, n)
 	}
-	for _, point := range item.points {
+	for i, point := range item.points {
 		if seen != nil {
 			if _, exists := seen[point.Key]; exists {
 				duplicates++
 				continue
 			}
 			seen[point.Key] = struct{}{}
+		} else if telemetryRowsContainKey(rows, point.Key) {
+			duplicates++
+			continue
 		}
-		boolV, numberV, stringV := convertValue(point.Value)
+		boolV, numberV, stringV := slab[i].set(point.Value)
 		rows = append(rows, TelemetryData{
 			DeviceID: item.deviceID,
 			Key:      point.Key,
@@ -271,4 +282,51 @@ func convertValue(value interface{}) (*bool, *float64, *string) {
 		s := string(jsonBytes)
 		return nil, nil, &s
 	}
+}
+
+// telemetryLinearDedupLimit is the point count up to which convertedRows
+// deduplicates keys with a linear scan instead of a map.
+const telemetryLinearDedupLimit = 8
+
+func telemetryRowsContainKey(rows []TelemetryData, key string) bool {
+	for i := range rows {
+		if rows[i].Key == key {
+			return true
+		}
+	}
+	return false
+}
+
+// telemetryValueCell is slab storage for one converted value. set has the
+// same mapping as convertValue but returns pointers into the cell.
+type telemetryValueCell struct {
+	b bool
+	f float64
+	s string
+}
+
+func (c *telemetryValueCell) set(value interface{}) (*bool, *float64, *string) {
+	switch v := value.(type) {
+	case bool:
+		c.b = v
+		return &c.b, nil, nil
+	case int:
+		c.f = float64(v)
+	case int32:
+		c.f = float64(v)
+	case int64:
+		c.f = float64(v)
+	case float32:
+		c.f = float64(v)
+	case float64:
+		c.f = v
+	case string:
+		c.s = v
+		return nil, nil, &c.s
+	default:
+		_, _, stringV := convertValue(v)
+		c.s = *stringV
+		return nil, nil, &c.s
+	}
+	return nil, &c.f, nil
 }
