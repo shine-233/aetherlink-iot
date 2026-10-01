@@ -254,3 +254,127 @@
 ## 执行纪律（承 9-28 教训）
 
 并发≤4、禁自动重试、单 agent 长命令后台落盘轮询、每轨全绿才收、先落库再开工。
+
+---
+
+## marathon 33 个 target 对账（2026-10-01 09:1x）
+
+此前各文档只覆盖了 marathon 的一部分。本次直接读回原始扫描报告
+（`_aetherlink-opt-backup-20260927/scan-scan_{backend-architecture,database-schema,hot-path-and-broker}.json`，
+各 11 个 target，共 **33 个**）逐条对账。
+
+### 后端架构（11）
+
+| # | target | 状态 |
+|---|---|---|
+| 1 | GroupApp god-singleton → 构造注入 | ❌ 未做（= Wave7-C，需独占后端） |
+| 2 | Automate.Execute 全局互斥 | ✅ 无状态化 + 分片并发池 |
+| 3 | 合并三条 uplink 管线 | ✅ pipeline.go |
+| 4 | 统一存储栈 | ✅ file_spool 族 |
+| 5 | 收敛 60+ `ensure*Access` | ✅ `service/access_helpers.go` + `internal/authz`（guard/rule/scope） |
+| 6 | 反向依赖 service→initialize/mqtt | ❌ 未做 |
+| 7 | DeviceContextCache（去每消息 Redis/DB 往返） | 🟡 已有进程内 TTL 缓存 `dal/device_config_routing.go`；本轮修掉一处遗留的永久缓存键（见下） |
+| 8 | 627 个 handler 迁 adapter | 🟡 **454/653（69%）**，详见下 |
+| 9 | sql_error 泄漏 356 处 | ✅ Wave7-A |
+| 10 | 拆分 dal/service god 文件 | ✅ 含本轮 `dal/alarm.go` |
+| 11 | 无界日志表保留 | ✅ 141.sql |
+
+### 数据库 schema（11）
+
+| # | target | 状态 |
+|---|---|---|
+| 1 | 时序表原生分区 | 🟡 脚本就绪 + 真集群演练通过（Wave7-D），待决策 |
+| 2 | ~20 张只增不删表保留 | ✅ 141.sql |
+| 3 | `alarm_history.alarm_device_list` 规范化 | ✅ 142.sql |
+| 4 | 删冗余索引 + 补缺失索引 | ✅ 142.sql |
+| 5 | 逐点/逐行 ORM insert 改集合化 | ❓ 未核实 |
+| 6 | 时间表示统一（bigint-ms/timestamptz/int） | ❌ 未做（扫描自评：独立做=High） |
+| 7 | 迁移链 squash + 真 migrator | ❌ 未做 |
+| 8 | 统一重复存储子系统 | ✅ |
+| 9 | jsonb 采纳（`json`→`jsonb`、varchar 当枚举） | ❌ 未做（1.sql 里 `users.authority` 仍是 `json`） |
+| 10 | 去掉请求期全表扫描分析查询 | ✅ 走 `telemetry_current_datas` |
+| 11 | op_log 同步 INSERT 移出热路径 | ❓ 未核实 |
+
+### 热路径与 broker（11）
+
+| # | target | 状态 |
+|---|---|---|
+| 1 | isolated queue 无消费者导致 uplink 卡死 | ✅ 有 `bus_isolated_queue_stall_test.go` 且 PASS |
+| 2 | Automation 进程级互斥 | ✅ |
+| 3 | telemetry WAL 每点 2 次 fsync | ✅ 改**组提交**（单次目录 fsync 覆盖整批） |
+| 4 | 近似重复 spool 子系统 | ✅ |
+| 5 | Lua 每消息重建 VM/重编译 | ✅ safelua 程序缓存 + 状态池 |
+| 6 | 每消息冗余序列化 + Redis 往返 | ❓ 未核实 |
+| 7 | 三份管线副本（3807 LOC） | ✅ |
+| 8 | rule chain/heartbeat 每消息打 Redis | ❌ 未做 |
+| 9 | broker OnMsgArrived 每发布 Redis GET | ✅ hotpath_cache |
+| 10 | `uplink_storage_receipts` 无界增长 | ✅ 141.sql（幂等回执默认开启） |
+| 11 | 子设备解析走未索引列 | ✅ 142.sql `idx_devices_parent_sub_addr` |
+
+**汇总**：33 个 target 中 ✅ 已落地 **18 个**、🟡 部分/待决策 **2 个**（handler adapter、时序分区）、
+❓ 未核实 **3 个**、❌ 未做 **10 个**。
+
+---
+
+## handler adapter 迁移：已到合理终点（2026-10-01 09:2x）
+
+本轨道原始目标是"627 个复制粘贴 handler 迁到泛型适配器"。实测精确覆盖：
+
+- api 目录 gin handler 总数 **653**，**已迁 454（69%）**，剩余 199
+- 已迁文件 **73 个**
+
+对剩余 199 个逐个分析阻碍原因（一个 handler 可命中多条）：
+
+| 阻碍 | 数量 | 能否迁移 |
+|---|---|---|
+| 多路径参数（如 `:id` + `:board_id`） | 14 | ❌ 适配器无对应变体 |
+| 流式 / SSE / WebSocket / 上传 | 11 | ❌ **设计上就排除**（需直接写 `c.Writer`） |
+| 自定义绑定助手（`bindXxxURI` + `validateXxxReq` 三步顺序） | 11 | ⚠️ 强行迁移会改变绑定顺序与错误包络 |
+| 自定义错误形状（`errcode.WithData/WithVars`） | 23 | ⚠️ 需逐点核对包络是否逐字节一致 |
+| 操作日志副作用（`SetOperationLogSafeMetadata`） | 3 | ⚠️ 需保留副作用位置 |
+| 手工构造 DTO / 需要 request context / 非变量 data 字面量 | 其余 | ✅ 可用闭包迁移，但需逐个判断 |
+
+**关键判断：这条轨道应当在此收尾，而不是继续硬推。** 依据：
+
+1. **剩下的恰恰是"有理由不标准"的那批**。例：`alarm_comment.go` / `alarm_assignment.go` 的注释
+   **明确写明了**为什么必须走 `ShouldBindUri → ShouldBindJSON → ValidateStructLang` 三步、
+   不能合并——把整结构体校验提前会把"正文必填"误报成"Field 'Content' is required"，
+   让合法请求在绑定正文之前就被拒。迁到 `HandlePathBody` 会改掉这个顺序。
+2. **适配器自己的文档就警告过包络差异**：`bindBodyLegacyParamError` 与
+   `BindAndValidate → reportParamError` 的 JSON **逐字节不同**，两者不可混用。
+   对余下 23 个自定义错误形状的 handler，强行迁移的收益（少几行样板）远小于包络漂移的风险。
+3. **边际收益递减**：adapter 的价值是把"绑定→校验→取 claims→写响应"四步收敛；
+   已迁的 454 个正是形态规整的那批。剩下的是特例，收敛空间本就有限。
+
+**结论**：把这条轨道标记为 **"已达成合理覆盖（69%），余下为特例，不建议继续机械推进"**。
+若将来确实要覆盖多路径参数场景，正确做法是**给适配器补一个双路径参数变体**
+（如 `HandleTwoPaths`），而不是把 14 个 handler 各自手写。
+
+本轮顺带完成的两处干净迁移（`device_topic_mapping.go` 5 个 + `open_api_keys.go` 4 个）：
+两者都是标准 `BindAndValidate → claims → c.Error → c.Set("data", data)` 形态，
+`go build` 通过、`internal/api` 包测试通过、全量 `go test ./...` 0 FAIL。
+
+---
+
+## 遗留永久缓存键修复（2026-10-01 09:4x）
+
+排查 arch#7 / hot#8（"去掉热路径上每消息的 Redis/DB 往返"）时发现一个**遗留的真隐患**：
+
+**`dal/device_config.go` 的 `GetDeviceConfigByID` 把设备配置写进 Redis 时用的是永久键（TTL=0）**，
+是**全后端唯一**还在用永久缓存的地方（其余全部有 TTL，逐一核对过）。
+
+- 设备缓存 `GetDeviceCacheById`、脚本缓存、`processor/cache.go` 早在
+  **P2 修复（2026-08-25）** 就改用了 `constant.CacheFallbackTTL`（30 分钟）兜底，
+  当时的理由写得很清楚：*"兜底 TTL 替代永久缓存——写路径主动失效仍是主机制，
+  兜底过期确保任何遗漏失效的写路径最终自愈，不再产生永久脏读。"*
+- **唯独设备配置缓存漏掉了这一步。** 只要有任意一条写路径漏调
+  `initialize.DelDeviceConfigCache`（现有 4 处调用点），脏数据就会**永久**留在 Redis 里。
+- 而且 `dal/device_config_routing.go` 的注释里已经记录过这个坑的副作用：
+  默认规则链缓存会"把旧的默认规则链重新写进本缓存"，说明这个永久键确实造成过问题。
+
+**修复**：`0` → `constant.CacheFallbackTTL`，并更新注释说明口径对齐。
+
+**验证**：新增 `device_config_cache_ttl_test.go` 两例——
+① 回填后缓存键必须带 TTL 且不超过兜底上限（防退回永久键）；
+② 回填后确实走缓存命中（改库不改缓存时返回旧值，证明 TTL 改动没把缓存写坏）。
+`go build` / `go vet` 0 问题；全量 `go test ./... -count=1 -p 1` → **0 FAIL**。

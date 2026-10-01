@@ -25,6 +25,7 @@ import (
 
 	model "aetherlink-iot/backend/internal/model"
 	query "aetherlink-iot/backend/internal/query"
+	constant "aetherlink-iot/backend/pkg/constant"
 	global "aetherlink-iot/backend/pkg/global"
 	utils "aetherlink-iot/backend/pkg/utils"
 
@@ -155,10 +156,18 @@ func GetDeviceConfigByID(id string) (*model.DeviceConfig, error) {
 		return nil, fmt.Errorf("deviceconfig not found: %s", id)
 	}
 
-	// 3. 将结果写入缓存（永久有效）
+	// 3. 将结果写入缓存（带兜底 TTL）
+	//
+	// 口径修正（对齐 GetDeviceCacheById 的 P2 修复）：此前这里写的是永久键（TTL=0），
+	// 是当时全后端唯一还在用永久缓存的地方。写路径主动失效（service/device_config.go
+	// 的四处 initialize.DelDeviceConfigCache）仍是主机制，但只要有**任何一条**写路径
+	// 漏了失效，脏数据就会**永久**留在 Redis 里——而设备/脚本/processor 三个缓存
+	// 早已改用 constant.CacheFallbackTTL 兜底自愈，本处漏掉了。
+	// 兜底过期不改变正常路径行为（写后即删，键本来就不该长期存在），
+	// 只保证遗漏失效时最多脏 30 分钟。
 	jsonData, err := json.Marshal(deviceconfig)
 	if err == nil && global.REDIS != nil {
-		err = global.REDIS.Set(context.Background(), cacheKey, jsonData, 0).Err()
+		err = global.REDIS.Set(context.Background(), cacheKey, jsonData, constant.CacheFallbackTTL).Err()
 		if err != nil {
 			// 缓存写入失败不影响主流程，只记录日志
 			logrus.Warn("failed to cache device config")
