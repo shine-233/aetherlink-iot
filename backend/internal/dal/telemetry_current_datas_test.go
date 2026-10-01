@@ -121,3 +121,44 @@ func TestGetCurrentTelemetrDetailData_NoRows(t *testing.T) {
 		t.Fatal("expected error for device with no current telemetry rows")
 	}
 }
+
+// TestGetCurrentTelemetrDetailData_SameTimestampTieBreaksByKey 锁定同毫秒多 key 并列时的
+// 确定性：按 key 升序决胜。旧实现用 First()，其隐式 ORDER BY 主键（device_id）已被 WHERE
+// 固定，并列行返回顺序依赖存储/计划，不可复现。同时断言就绪探测与明细查询返回同一行。
+func TestGetCurrentTelemetrDetailData_SameTimestampTieBreaksByKey(t *testing.T) {
+	db := setupTelemetryCurrentDetailDB(t)
+
+	now := time.Now().UTC().Truncate(time.Millisecond)
+	a, b, c := 1.0, 2.0, 3.0
+	// 故意按非字母序插入，避免插入顺序恰好等于期望顺序。
+	rows := []*model.TelemetryCurrentData{
+		{DeviceID: "device-tie", Key: "zeta", T: now, NumberV: &c},
+		{DeviceID: "device-tie", Key: "alpha", T: now, NumberV: &a},
+		{DeviceID: "device-tie", Key: "mid", T: now, NumberV: &b},
+		{DeviceID: "device-tie", Key: "older", T: now.Add(-time.Second), NumberV: &a},
+	}
+	for i := range rows {
+		if err := db.Create(rows[i]).Error; err != nil {
+			t.Fatalf("seed row %d: %v", i, err)
+		}
+	}
+
+	got, err := GetCurrentTelemetrDetailData("device-tie")
+	if err != nil {
+		t.Fatalf("GetCurrentTelemetrDetailData returned error: %v", err)
+	}
+	if got.Key != "alpha" || got.NumberV == nil || *got.NumberV != a {
+		t.Fatalf("expected tie-break winner key %q, got %+v", "alpha", got)
+	}
+
+	count, latest, err := getCurrentTelemetryReadinessFromDB("device-tie")
+	if err != nil {
+		t.Fatalf("getCurrentTelemetryReadinessFromDB returned error: %v", err)
+	}
+	if count != int64(len(rows)) {
+		t.Fatalf("expected count %d, got %d", len(rows), count)
+	}
+	if latest == nil || latest.Key != got.Key {
+		t.Fatalf("readiness latest row %+v disagrees with detail row key %q", latest, got.Key)
+	}
+}

@@ -88,6 +88,11 @@ func GetCurrentTelemetryReadiness(deviceId string) (int64, *model.TelemetryCurre
 	return getCurrentTelemetryReadinessFromDB(deviceId)
 }
 
+// latestCurrentTelemetryRowOrder 是 telemetry_current_datas "按设备取最新一行"的统一排序：
+// ts DESC 命中 backend/sql/143.sql 的 (device_id, ts DESC) 索引；key ASC 在同毫秒
+// 多 key 并列时决胜，保证 GetCurrentTelemetrDetailData 与就绪探测返回同一行且可复现。
+const latestCurrentTelemetryRowOrder = "ts DESC, key ASC"
+
 func getCurrentTelemetryReadinessFromDB(deviceId string) (int64, *model.TelemetryCurrentData, error) {
 	// 批次三收敛：本函数整体改走 raw global.DB 链（clone==1 根，每次链式起点全新
 	// Statement），与 users.go 登录选择器同构。历史上 global.DB 为空时会回落到
@@ -105,8 +110,7 @@ func getCurrentTelemetryReadinessFromDB(deviceId string) (int64, *model.Telemetr
 	var latest model.TelemetryCurrentData
 	latestResult := global.DB.
 		Where("device_id = ?", deviceId).
-		Order("ts DESC").
-		Limit(1).
+		Order(latestCurrentTelemetryRowOrder).
 		Take(&latest)
 	if latestResult.Error != nil {
 		if errors.Is(latestResult.Error, gorm.ErrRecordNotFound) {

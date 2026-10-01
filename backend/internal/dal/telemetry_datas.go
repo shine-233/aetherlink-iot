@@ -109,7 +109,8 @@ func GetCurrentTelemetrData(deviceId string) ([]model.TelemetryData, error) {
 // (device_id, ts DESC) 复合索引见 backend/sql/143.sql：避免 device_id 等值
 // 过滤后仍对该设备全部 key 的历史行做无索引排序（表上原唯一索引是
 // (device_id, key)，不含 ts，排序曾需额外的内存/磁盘 sort 或全表扫 ts 索引）。
-// tenant-scope: caller-enforced?2026-08-26 ?????
+// ts 并列（同一毫秒上报多个 key）时按 key 升序决胜，结果确定。
+// tenant-scope: caller-enforced — device_id 由 service 层 ensureTelemetryDeviceReadAccess 校验后传入。
 func GetCurrentTelemetrDetailData(deviceId string) (*model.TelemetryData, error) {
 	if usesTelemetryQueryClient() {
 		var data []model.TelemetryData
@@ -134,11 +135,15 @@ func GetCurrentTelemetrDetailData(deviceId string) (*model.TelemetryData, error)
 
 	// 当前值读路径：改走 telemetry_current_datas（与 GetCurrentTelemetrData 同口径），
 	// 避免在 telemetry_datas 上对设备全量历史做 ORDER BY ts DESC LIMIT 1。
+	// 用 Take 而非 First：First 会追加隐式 ORDER BY <主键>（本表为 device_id），
+	// 它已被 WHERE 等值固定，起不到决胜作用；同毫秒多 key 时返回行不确定。
+	// 显式 key ASC 决胜使结果可复现，(device_id, ts DESC) 索引仍按序扫描，
+	// 只对 ts 并列的极少数行做增量排序。
 	var current model.TelemetryCurrentData
 	err := global.DB.Table("telemetry_current_datas").
 		Where("device_id = ?", deviceId).
-		Order("ts DESC").
-		First(&current).Error
+		Order(latestCurrentTelemetryRowOrder).
+		Take(&current).Error
 	if err != nil {
 		logrus.Error(err)
 		return nil, err
