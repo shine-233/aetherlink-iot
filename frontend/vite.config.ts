@@ -135,8 +135,14 @@ export default defineConfig(function (configEnv) {
           // side-effect free lets unused ciphers be dropped from the startup
           // graph. Returning `true` for every other id keeps Rollup's default
           // behaviour (package.json `sideEffects` still wins when present).
+          // localforage (UMD, no `sideEffects` field) is in the same situation:
+          // its top level only builds a LocalForage instance whose driver probe
+          // is internal async state, so when nobody calls createLocalforage the
+          // whole ~96KB library can be dropped from the entry chunk.
           moduleSideEffects: (id) =>
-            !/[\\/]node_modules[\\/](?:\.pnpm[\\/][^\\/]+[\\/]node_modules[\\/])?crypto-js[\\/]/.test(id)
+            !/[\\/]node_modules[\\/](?:\.pnpm[\\/][^\\/]+[\\/]node_modules[\\/])?(?:crypto-js|localforage)[\\/]/.test(
+              id
+            )
         },
         output: {
           manualChunks(id) {
