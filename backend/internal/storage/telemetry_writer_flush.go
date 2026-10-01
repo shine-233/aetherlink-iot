@@ -92,13 +92,12 @@ func (w *telemetryWriter) doFlush(batch []*telemetryBatchItem) {
 	}
 
 	// 2. 批量写入数据库
-	written, failed := w.batchInsert(historyData, currentData)
+	written, failedRows := w.batchInsert(historyData, currentData)
+	failed := len(failedRows)
 
-	// 2b. 只有主库确认成功才释放 write-ahead receipt。失败时保留，交给既有
-	// spool 重放；主写失败的行另有 dead-letter/spool 路径，重复是幂等的。
-	if failed == 0 {
-		w.releaseWriteAheadReceipts(batch)
-	}
+	// 2b. 只释放主库已确认行的 write-ahead receipt。失败行的 receipt 保留，
+	// 交给既有 spool 重放；部分失败不再拖累同批已写入的行被重复重放。
+	w.releaseWriteAheadReceipts(batch, failedRows)
 
 	// 3. 记录监控指标
 	if w.metrics != nil {
@@ -113,8 +112,25 @@ func (w *telemetryWriter) doFlush(batch []*telemetryBatchItem) {
 	}
 }
 
-// batchInsert 批量插入数据库
-func (w *telemetryWriter) batchInsert(historyData []TelemetryData, currentData []TelemetryCurrentData) (written, failed int) {
+// telemetryFailedRows is the set of history identities the primary database
+// did not confirm. nil means every row was written.
+type telemetryFailedRows map[telemetryPointIdentity]struct{}
+
+func (f *telemetryFailedRows) add(row TelemetryData) {
+	if *f == nil {
+		*f = make(telemetryFailedRows)
+	}
+	(*f)[telemetryIdentityOf(row)] = struct{}{}
+}
+
+func (f telemetryFailedRows) has(row TelemetryData) bool {
+	_, ok := f[telemetryIdentityOf(row)]
+	return ok
+}
+
+// batchInsert 批量插入数据库; returns the written count and the rows that
+// failed even the single-row fallback.
+func (w *telemetryWriter) batchInsert(historyData []TelemetryData, currentData []TelemetryCurrentData) (int, telemetryFailedRows) {
 	err := w.db.Transaction(func(tx *gorm.DB) error {
 		return w.insertTelemetryBatch(tx, historyData, currentData)
 	})
@@ -124,7 +140,7 @@ func (w *telemetryWriter) batchInsert(historyData []TelemetryData, currentData [
 		return w.fallbackInsert(historyData, currentData)
 	}
 
-	return len(historyData), 0
+	return len(historyData), nil
 }
 
 func telemetryHistoryConflictClause() clause.OnConflict {
@@ -166,7 +182,7 @@ func (w *telemetryWriter) logTelemetryBatchFailure(prefix string, total int, err
 
 // fallbackInsert 分块兜底（批量失败时使用）: one transaction per chunk, then
 // one per row only inside a failing chunk, isolating poison rows.
-func (w *telemetryWriter) fallbackInsert(historyData []TelemetryData, currentData []TelemetryCurrentData) (written, failed int) {
+func (w *telemetryWriter) fallbackInsert(historyData []TelemetryData, currentData []TelemetryCurrentData) (written int, failedRows telemetryFailedRows) {
 	currentByKey := buildTelemetryCurrentLookup(currentData)
 
 	for start := 0; start < len(historyData); start += telemetryFallbackChunkSize {
@@ -182,12 +198,10 @@ func (w *telemetryWriter) fallbackInsert(historyData []TelemetryData, currentDat
 		}
 
 		w.logTelemetryBatchFailure("fallback chunk insert failed, downgrade to single insert", len(chunkHistory), err, chunkHistory)
-		chunkWritten, chunkFailed := w.fallbackInsertSingleRows(chunkHistory, currentByKey)
-		written += chunkWritten
-		failed += chunkFailed
+		written += w.insertSingleRows(chunkHistory, currentByKey, &failedRows)
 	}
 
-	return written, failed
+	return written, failedRows
 }
 
 // fallbackInsertSingleRows writes each row in its own transaction. Failures
@@ -197,6 +211,18 @@ func (w *telemetryWriter) fallbackInsertSingleRows(
 	historyData []TelemetryData,
 	currentByKey map[telemetrySeriesKey]TelemetryCurrentData,
 ) (written, failed int) {
+	var failedRows telemetryFailedRows
+	written = w.insertSingleRows(historyData, currentByKey, &failedRows)
+	return written, len(failedRows)
+}
+
+// insertSingleRows is fallbackInsertSingleRows recording failed identities.
+func (w *telemetryWriter) insertSingleRows(
+	historyData []TelemetryData,
+	currentByKey map[telemetrySeriesKey]TelemetryCurrentData,
+	failedRows *telemetryFailedRows,
+) (written int) {
+	failed := 0
 	var (
 		failedPreview []TelemetryData
 		firstErr      error
@@ -219,6 +245,7 @@ func (w *telemetryWriter) fallbackInsertSingleRows(
 		}
 
 		failed++
+		failedRows.add(history)
 		if firstErr == nil {
 			firstErr = err
 		}
@@ -238,5 +265,5 @@ func (w *telemetryWriter) fallbackInsertSingleRows(
 	if failed > 0 {
 		w.logTelemetryBatchFailure("single insert failed", failed, firstErr, failedPreview)
 	}
-	return written, failed
+	return written
 }

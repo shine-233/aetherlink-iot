@@ -50,6 +50,10 @@ type telemetryPointIdentity struct {
 	ts       int64
 }
 
+func telemetryIdentityOf(row TelemetryData) telemetryPointIdentity {
+	return telemetryPointIdentity{deviceID: row.DeviceID, key: row.Key, ts: row.TS}
+}
+
 // telemetrySeriesKey is the (device_id,key) identity of telemetry_current_datas.
 type telemetrySeriesKey struct {
 	deviceID string
@@ -135,7 +139,7 @@ func (w *telemetryWriter) deduplicateAndConvert(batch []*telemetryBatchItem) (
 			continue
 		}
 		for _, row := range item.rows {
-			identity := telemetryPointIdentity{deviceID: row.DeviceID, key: row.Key, ts: row.TS}
+			identity := telemetryIdentityOf(row)
 			if _, exists := seen[identity]; exists {
 				duplicates++
 				continue

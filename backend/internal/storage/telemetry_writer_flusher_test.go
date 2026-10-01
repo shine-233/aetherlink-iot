@@ -316,3 +316,39 @@ func TestTelemetryFallbackSingleRowsLogsOncePerChunk(t *testing.T) {
 		t.Fatalf("summary should carry the failed count:\n%s", out.String())
 	}
 }
+
+// A partially failing flush releases the write-ahead receipts of the rows the
+// database confirmed and keeps only the failed rows' receipts for replay.
+func TestTelemetryFlushPartialFailureReleasesConfirmedReceiptsOnly(t *testing.T) {
+	writer := testWriteAheadWriter(t, true, 10)
+	writer.db = setupTelemetryCurrentUpsertTestDB(t)
+	// Poison one key so the batch and its chunk fail and the single-row
+	// fallback isolates exactly that row.
+	if err := writer.db.Exec(`CREATE TRIGGER poison_key BEFORE INSERT ON telemetry_datas
+		WHEN NEW.key = 'poison' BEGIN SELECT RAISE(ABORT, 'poison row'); END`).Error; err != nil {
+		t.Fatalf("create trigger: %v", err)
+	}
+	if err := writer.write(testFlusherMessage("device-1", 1000, "temperature", "poison")); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := writer.write(testFlusherMessage("device-2", 1000, "temperature")); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if usage := writer.spool.usage(); usage.Records != 3 {
+		t.Fatalf("write-ahead records = %d, want 3", usage.Records)
+	}
+
+	writer.flush()
+
+	var count int64
+	writer.db.Model(&TelemetryData{}).Count(&count)
+	if count != 2 {
+		t.Fatalf("history rows = %d, want 2 confirmed rows", count)
+	}
+	if usage := writer.spool.usage(); usage.Records != 1 {
+		t.Fatalf("write-ahead records after partial failure = %d, want only the failed row (1)", usage.Records)
+	}
+	if m := writer.metrics.GetMetrics(); m.TelemetrySpoolBacklog != 1 {
+		t.Fatalf("backlog metric = %d, want 1", m.TelemetrySpoolBacklog)
+	}
+}

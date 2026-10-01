@@ -139,7 +139,9 @@ func (w *telemetryWriter) storeWriteAheadReceipts(item *telemetryBatchItem) ([]t
 
 // releaseWriteAheadReceipts 在主库确认写入后删除对应 receipt。删除失败不算
 // 数据问题：记录仍在盘上，重放是幂等的，最坏结果只是多一次无害重放。
-func (w *telemetryWriter) releaseWriteAheadReceipts(batch []*telemetryBatchItem) {
+// Receipts whose identity is in failed (not confirmed by the primary
+// database) stay on disk for replay; all others are released.
+func (w *telemetryWriter) releaseWriteAheadReceipts(batch []*telemetryBatchItem, failed telemetryFailedRows) {
 	if w == nil || w.spool == nil {
 		return
 	}
@@ -149,6 +151,9 @@ func (w *telemetryWriter) releaseWriteAheadReceipts(batch []*telemetryBatchItem)
 			continue
 		}
 		for _, receipt := range item.writeAhead {
+			if failed.has(receipt.history) {
+				continue
+			}
 			histories = append(histories, receipt.history)
 		}
 		item.writeAhead = nil

@@ -113,7 +113,7 @@ func TestTelemetryWriteAheadReceiptReleasedAfterConfirmedWrite(t *testing.T) {
 		t.Fatalf("backlog metric before release = %d, want 1", metrics.TelemetrySpoolBacklog)
 	}
 
-	writer.releaseWriteAheadReceipts([]*telemetryBatchItem{item})
+	writer.releaseWriteAheadReceipts([]*telemetryBatchItem{item}, nil)
 
 	if usage := writer.spool.usage(); usage.Records != 0 {
 		t.Fatalf("usage after release = %#v, want the receipt retired", usage)
@@ -127,7 +127,7 @@ func TestTelemetryWriteAheadReceiptReleasedAfterConfirmedWrite(t *testing.T) {
 
 	// Releasing twice must stay quiet: replay may already have removed the
 	// same deterministic identity.
-	writer.releaseWriteAheadReceipts([]*telemetryBatchItem{item})
+	writer.releaseWriteAheadReceipts([]*telemetryBatchItem{item}, nil)
 }
 
 // The feature is enabled by default; operators can explicitly opt out when
