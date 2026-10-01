@@ -221,6 +221,7 @@ func ListBoardTemplateVersionsInTenant(ctx context.Context, tenantID string) (ma
 }
 
 // ListBoardIDsByTypeKey 按租户和行业类型查询看板 ID 列表。
+// tenant-scope: tenant_id 硬过滤（listLatestIDsByTypeKey 内施加），仅返回调用者租户看板。
 // 依看板名称去重并取最新版本，保证导出的资源包内不包含重名看板。
 func ListBoardIDsByTypeKey(ctx context.Context, tenantID, typeKey string) ([]string, error) {
 	if global.DB == nil {
