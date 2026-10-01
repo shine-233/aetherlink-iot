@@ -3,7 +3,6 @@ package dal
 import (
 	"context"
 	"errors"
-	"time"
 
 	model "aetherlink-iot/backend/internal/model"
 	global "aetherlink-iot/backend/pkg/global"
@@ -20,47 +19,7 @@ func ListTemplateIDsByTypeKey(ctx context.Context, tenantID, typeKey string) ([]
 	if global.DB == nil {
 		return nil, errTemplateMarketDBNotReady
 	}
-	type item struct {
-		ID        string    `gorm:"column:id"`
-		Name      string    `gorm:"column:name"`
-		Version   *string   `gorm:"column:version"`
-		CreatedAt time.Time `gorm:"column:created_at"`
-	}
-	query := global.DB.WithContext(ctx).
-		Table(model.TableNameDeviceTemplate).
-		Select("id, name, version, created_at").
-		Where("tenant_id = ?", tenantID)
-	if typeKey != "" {
-		query = query.Where("type_key = ?", typeKey)
-	}
-	var rows []item
-	if err := query.Order("created_at ASC").Scan(&rows).Error; err != nil {
-		return nil, err
-	}
-	latestByName := make(map[string]item)
-	for _, r := range rows {
-		prev, exists := latestByName[r.Name]
-		if !exists {
-			latestByName[r.Name] = r
-			continue
-		}
-		ver := ""
-		if r.Version != nil {
-			ver = *r.Version
-		}
-		prevVer := ""
-		if prev.Version != nil {
-			prevVer = *prev.Version
-		}
-		if ver > prevVer || (ver == prevVer && r.CreatedAt.After(prev.CreatedAt)) {
-			latestByName[r.Name] = r
-		}
-	}
-	ids := make([]string, 0, len(latestByName))
-	for _, item := range latestByName {
-		ids = append(ids, item.ID)
-	}
-	return ids, nil
+	return listLatestIDsByTypeKey(ctx, model.TableNameDeviceTemplate, tenantID, typeKey)
 }
 
 // IncrementTemplateDownloadCounts 导出计数（打包下载按包含模板逐个 +1）。
