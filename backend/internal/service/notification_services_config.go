@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -23,6 +24,7 @@ import (
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/pkg/errcode"
+	"aetherlink-iot/backend/pkg/safehttp"
 	utils "aetherlink-iot/backend/pkg/utils"
 	"aetherlink-iot/backend/third_party/others/http_client"
 
@@ -241,10 +243,25 @@ func (n *NotificationServicesConfig) joinTenantEmailFailure(
 
 const webhookExternalUnavailableReason = "WEBHOOK_EXTERNAL_UNAVAILABLE"
 
+// tenantWebhookHTTPClient 投递租户可控的 Webhook / IM 机器人地址。
+// safehttp 在拨号时逐个校验解析结果，拒绝回环、内网、链路本地（含 169.254.169.254 云元数据）
+// 等非公网地址，并禁止重定向，防止租户借通知渠道做 SSRF 探测内网服务。
+// 测试可替换为指向 httptest 的普通客户端。
+var tenantWebhookHTTPClient = func() *http.Client {
+	client := safehttp.NewWebhookClient(safehttp.WebhookClientOptions{})
+	client.Timeout = 15 * time.Second
+	return client
+}()
+
 func resolveWebhookEndpoint(rawURL string) (*url.URL, string, error) {
 	endpoint, err := url.Parse(strings.TrimSpace(rawURL))
 	if err != nil || endpoint.Host == "" || (endpoint.Scheme != "http" && endpoint.Scheme != "https") {
 		return nil, "", fmt.Errorf("%w: endpoint must be an absolute HTTP(S) URL", ErrWebhookProviderUnavailable)
+	}
+	// 早失败：字面量内网 IP / localhost 在落库 PENDING 历史前直接拒绝；
+	// 域名解析到内网的情况由 tenantWebhookHTTPClient 在拨号时兜底拦截。
+	if safehttp.IsBlockedHostLiteral(endpoint.Hostname()) {
+		return nil, "", fmt.Errorf("%w: endpoint host is not public", ErrWebhookProviderUnavailable)
 	}
 
 	auditEndpoint := *endpoint
@@ -299,7 +316,7 @@ func (n *NotificationServicesConfig) sendWebhookMessage(payloadURL, secret, aler
 		// 每次发送使用独立超时上下文，避免外部 Webhook 阻塞工作线程。
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-		err = http_client.SendSignedRequestWithTimeout(ctx, endpoint.String(), cleanJson, secret)
+		err = http_client.SendSignedRequestWithClient(ctx, tenantWebhookHTTPClient, endpoint.String(), cleanJson, secret)
 		cancel()
 		if err == nil {
 			// 发送成功后回写历史状态。

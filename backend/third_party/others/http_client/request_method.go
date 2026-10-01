@@ -78,7 +78,21 @@ func SendSignedRequestWithTimeout(ctx context.Context, url, message, secret stri
 	return sendSignedRequest(ctx, url, message, secret)
 }
 
+// SendSignedRequestWithClient 与 SendSignedRequestWithTimeout 语义相同，但由调用方提供
+// http.Client。租户可控的 Webhook 地址必须传入 SSRF 安全的客户端（pkg/safehttp），
+// 在拨号时拒绝回环/内网/元数据地址，防止 DNS 重绑定绕过前置校验。client 为 nil 时退回默认客户端。
+func SendSignedRequestWithClient(ctx context.Context, client *http.Client, url, message, secret string) error {
+	if client == nil {
+		client = signedRequestHTTPClient
+	}
+	return sendSignedRequestVia(ctx, client, url, message, secret)
+}
+
 func sendSignedRequest(ctx context.Context, url, message, secret string) error {
+	return sendSignedRequestVia(ctx, signedRequestHTTPClient, url, message, secret)
+}
+
+func sendSignedRequestVia(ctx context.Context, client *http.Client, url, message, secret string) error {
 	req, err := newJSONRequest(ctx, http.MethodPost, url, bytes.NewBufferString(message))
 	if err != nil {
 		return fmt.Errorf("create signed request: %w", err)
@@ -87,7 +101,7 @@ func sendSignedRequest(ctx context.Context, url, message, secret string) error {
 	signature := generateHMAC(message, secret)
 	req.Header.Set("X-Signature-256", "sha256="+signature)
 
-	resp, err := signedRequestHTTPClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("send signed request: %w", err)
 	}
