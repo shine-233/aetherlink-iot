@@ -78,10 +78,17 @@ func TestAdminSecretMiddlewareRequiresHeaderWhenConfigured(t *testing.T) {
 		})
 	}
 
-	// 内置管理页会话 cookie 仍可访问，保证启用共享密钥后 dashboard 可用。
+	// 内置管理页签发的签名会话 cookie 仍可访问，保证启用共享密钥后 dashboard 可用。
+	if err := a.ensureAuthState(); err != nil {
+		t.Fatalf("ensureAuthState: %v", err)
+	}
+	token, _, err := a.sessionMgr.issueSession()
+	if err != nil {
+		t.Fatalf("issueSession: %v", err)
+	}
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/v1/clients", nil)
-	request.AddCookie(&http.Cookie{Name: sessionCookieName, Value: sessionCookieValue})
+	request.AddCookie(&http.Cookie{Name: sessionCookieName, Value: token})
 	handler.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("session cookie status = %d, want %d", recorder.Code, http.StatusOK)

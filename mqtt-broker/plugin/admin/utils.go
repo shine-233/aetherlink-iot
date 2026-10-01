@@ -1,7 +1,6 @@
 // 文件用途：维护 plugin\admin\utils.go 所属 broker 包的手写 Go 代码。
-// 核心逻辑：承载 MQTT broker 的领域模型、接口定义或测试支撑。
-// 关键注意事项：本次仅补文件头不改变运行逻辑，后续修改需按所在包补充验证。
-// 重构建议：后续可按职责拆分深模块，并为关键边界补齐契约测试。
+// 核心逻辑：Indexer 提供 O(1) 按 ID 查找的有序列表；GetPage/GetOffsetN 解析分页参数（auth 插件复用）。
+// 安全职责：page_size 上限 maxPageSize，offset 计算饱和不回绕，Iterate 访问量严格受 n 约束。
 
 package admin
 
@@ -64,19 +63,18 @@ func (i *Indexer) GetByID(id string) *list.Element {
 // Notice: Any access to the  *list.Element in fn also require the mutex,
 // because the Set method can modify the Value for *list.Element when updating the Value for the same id.
 // If the caller needs the Value in *list.Element, it must get the Value before the next Set is called.
+// 先跳过 offset 个元素再至多访问 n 个，不计算 offset+n，因此任何输入都不会回绕。
 func (i *Indexer) Iterate(fn func(elem *list.Element), offset, n uint) {
-	if i.rows.Len() < int(offset) {
+	if n == 0 || offset >= uint(i.rows.Len()) {
 		return
 	}
-	var j uint
-	for e := i.rows.Front(); e != nil; e = e.Next() {
-		if j >= offset && j < offset+n {
-			fn(e)
-		}
-		if j == offset+n {
-			break
-		}
-		j++
+	e := i.rows.Front()
+	for skipped := uint(0); skipped < offset && e != nil; skipped++ {
+		e = e.Next()
+	}
+	for visited := uint(0); visited < n && e != nil; visited++ {
+		fn(e)
+		e = e.Next()
 	}
 }
 
@@ -85,23 +83,41 @@ func (i *Indexer) Len() int {
 	return i.rows.Len()
 }
 
+const (
+	// defaultPageSize 是未指定 page_size 时的默认分页大小。
+	defaultPageSize = 20
+	// maxPageSize 是单页上限（与 Filter 的 limit <= 1000 规则一致）；
+	// 超过时静默钳制，保持 REST/gRPC 契约不新增错误码。避免
+	// ?page_size=4294967295 在持锁状态下遍历并复制整张列表。
+	maxPageSize = 1000
+)
+
 // GetPage gets page and pageSize from request params.
+// pageSize 被钳制到 [1, maxPageSize]，page 为 0 时取 1。
 func GetPage(reqPage, reqPageSize uint32) (page, pageSize uint) {
 	page = 1
-	pageSize = 20
+	pageSize = defaultPageSize
 	if reqPage != 0 {
 		page = uint(reqPage)
 	}
 	if reqPageSize != 0 {
-		pageSize = uint(reqPageSize)
+		pageSize = min(uint(reqPageSize), maxPageSize)
 	}
 	return
 }
 
+// GetOffsetN 把页码换算为偏移量与条数。page 为 0 视为第 1 页（原实现会回绕成巨大偏移）；
+// (page-1)*pageSize 溢出时饱和为最大值（结果为空页），不回绕到列表开头。
 func GetOffsetN(page, pageSize uint) (offset, n uint) {
-	offset = (page - 1) * pageSize
 	n = pageSize
-	return
+	if page <= 1 || pageSize == 0 {
+		return 0, n
+	}
+	pages := page - 1
+	if pages > ^uint(0)/pageSize {
+		return ^uint(0), n
+	}
+	return pages * pageSize, n
 }
 
 // ErrInvalidArgument is a wrapper function for easier invalid argument error handling.

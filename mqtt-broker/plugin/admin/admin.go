@@ -6,6 +6,8 @@
 package admin
 
 import (
+	"sync"
+
 	"go.uber.org/zap"
 
 	"github.com/DrmagicE/gmqtt/config"
@@ -36,10 +38,16 @@ type Admin struct {
 	clientService  server.ClientService
 	store          *store
 	httpAuthSecret string
+
+	// 管理页会话认证状态，由 ensureAuthState 惰性初始化（web_auth.go）。
+	authOnce    sync.Once
+	authInitErr error
+	sessionMgr  *sessionManager
+	loginLimit  *loginLimiter
 }
 
 func (a *Admin) registerHTTP(g server.APIRegistrar) (err error) {
-	err = g.RegisterHTTPHandler(registerAdminUI)
+	err = g.RegisterHTTPHandler(a.registerAdminUI)
 	if err != nil {
 		return err
 	}
@@ -60,6 +68,10 @@ func (a *Admin) registerHTTP(g server.APIRegistrar) (err error) {
 
 func (a *Admin) Load(service server.Server) error {
 	log = server.LoggerWithField(zap.String("plugin", Name))
+	// 会话签名密钥在加载时由 crypto/rand 生成；失败即拒绝加载，不降级为可伪造会话。
+	if err := a.ensureAuthState(); err != nil {
+		return err
+	}
 	apiRegistrar := service.APIRegistrar()
 	RegisterClientServiceServer(apiRegistrar, &clientService{a: a})
 	RegisterSubscriptionServiceServer(apiRegistrar, &subscriptionService{a: a})

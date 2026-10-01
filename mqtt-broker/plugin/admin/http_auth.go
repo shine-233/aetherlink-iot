@@ -73,16 +73,25 @@ func (a *Admin) setupHTTPAuth(cfg config.Config, registrar server.APIRegistrar) 
 }
 
 // adminSecretMiddleware 返回校验 X-Admin-Secret 的根级中间件。
-// 共享密钥使用 crypto/subtle 恒定时间比较；内置管理页登录后下发的会话
-// cookie 同样被接受，保证启用共享密钥后 dashboard 数据接口仍可正常工作。
+// 共享密钥使用 crypto/subtle 恒定时间比较；内置管理页登录后下发的 HMAC 签名会话
+// cookie 同样被接受（非安全方法还须携带 X-CSRF-Token），保证启用共享密钥后
+// dashboard 数据接口仍可正常工作。管理页路由（登录页、dashboard、登录、登出）
+// 自带会话 / nonce / CSRF 校验，被精确放行，否则浏览器无从获得会话。
 func (a *Admin) adminSecretMiddleware() server.HTTPMiddleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !a.adminRequestAuthorized(r) {
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
+			if isAdminUIRoute(r) {
+				next.ServeHTTP(w, r)
 				return
 			}
-			next.ServeHTTP(w, r)
+			switch a.authorizeAdminRequest(r) {
+			case adminAuthOK:
+				next.ServeHTTP(w, r)
+			case adminAuthForbidden:
+				http.Error(w, "forbidden: missing or invalid "+CSRFHeader, http.StatusForbidden)
+			default:
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+			}
 		})
 	}
 }
@@ -128,13 +137,49 @@ func (a *Admin) grpcRequestAuthorized(ctx context.Context) bool {
 	return subtle.ConstantTimeCompare([]byte(values[0]), []byte(a.httpAuthSecret)) == 1
 }
 
-// adminRequestAuthorized 报告请求是否通过管理面应用层鉴权。
-func (a *Admin) adminRequestAuthorized(r *http.Request) bool {
+// adminAuthResult 是管理面 HTTP 请求的鉴权结论。
+type adminAuthResult int
+
+const (
+	adminAuthUnauthorized adminAuthResult = iota
+	adminAuthOK
+	// adminAuthForbidden：会话有效，但 cookie 认证的非安全方法缺少有效 CSRF 令牌。
+	adminAuthForbidden
+)
+
+// authorizeAdminRequest 判定请求是否通过管理面应用层鉴权：
+//   - X-Admin-Secret 恒定时间匹配：放行（机器调用方，不受 cookie/CSRF 约束）；
+//   - 否则要求 HMAC 签名、未过期、未吊销的会话 cookie；
+//   - 会话认证的非安全方法（POST/PUT/PATCH/DELETE…）还须带匹配的 X-CSRF-Token。
+func (a *Admin) authorizeAdminRequest(r *http.Request) adminAuthResult {
 	if a.httpAuthSecret != "" &&
 		subtle.ConstantTimeCompare([]byte(r.Header.Get(AdminSecretHeader)), []byte(a.httpAuthSecret)) == 1 {
+		return adminAuthOK
+	}
+	claims, ok := a.sessionFromRequest(r)
+	if !ok {
+		return adminAuthUnauthorized
+	}
+	if isSafeHTTPMethod(r.Method) {
+		return adminAuthOK
+	}
+	if !a.sessionMgr.validCSRF(claims, r.Header.Get(CSRFHeader)) {
+		return adminAuthForbidden
+	}
+	return adminAuthOK
+}
+
+// adminRequestAuthorized 报告请求是否通过管理面应用层鉴权。
+func (a *Admin) adminRequestAuthorized(r *http.Request) bool {
+	return a.authorizeAdminRequest(r) == adminAuthOK
+}
+
+func isSafeHTTPMethod(method string) bool {
+	switch method {
+	case http.MethodGet, http.MethodHead, http.MethodOptions:
 		return true
 	}
-	return isAuthenticated(r)
+	return false
 }
 
 // warnIfAPIBoundNonLoopbackWithoutSecret 在未配置共享密钥且管理面监听地址
