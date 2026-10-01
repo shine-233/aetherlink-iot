@@ -99,15 +99,6 @@ func MessagePushSendLogSave(log *model.MessagePushLog) error {
 	return query.MessagePushLog.Save(log)
 }
 
-// tenant-scope: caller-enforced?2026-08-26 ?????
-func GetUserMessagePushManage(userId string) (*model.MessagePushManage, error) {
-	return query.MessagePushManage.Where(
-		query.MessagePushManage.UserID.Eq(userId),
-		query.MessagePushManage.DeleteTime.IsNull(),
-		query.MessagePushManage.Status.Eq(1),
-	).First()
-}
-
 // GetUserMessagePushManages 查询用户的所有有效推送记录（支持多设备）
 // tenant-scope: caller-enforced?2026-08-26 ?????
 func GetUserMessagePushManages(userId string) ([]*model.MessagePushManage, error) {

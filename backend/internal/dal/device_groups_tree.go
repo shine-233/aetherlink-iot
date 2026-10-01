@@ -102,35 +102,6 @@ func GetGroupChildrenIds(id string) ([]string, error) {
 	return ids, nil
 }
 
-func GetTopGroupNameExist(name string, tenantId string) (*model.Group, error) {
-	g, err := query.Group.
-		Where(query.Group.TenantID.Eq(tenantId)).
-		Where(query.Group.ParentID.Eq("0")).
-		Where(query.Group.Name.Eq(name)).
-		First()
-	if err != nil {
-		logrus.Error(err)
-		return nil, err
-	}
-	return g, nil
-}
-
-func GetChildrenGroupNameExist(parentId string, name string, tenantId string) (*model.Group, error) {
-	g, err := query.Group.
-		Where(query.Group.TenantID.Eq(tenantId)).
-		Where(query.Group.ParentID.Eq(parentId)).
-		Where(query.Group.Name.Eq(name)).
-		First()
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return g, nil
-		}
-		logrus.Error(err)
-		return nil, err
-	}
-	return g, nil
-}
-
 // GetGroupNameExistByTenant 检查租户下是否存在指定名称的分组（无论层级）
 func GetGroupNameExistByTenant(name string, tenantId string) (*model.Group, error) {
 	g, err := query.Group.

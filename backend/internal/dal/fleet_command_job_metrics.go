@@ -198,23 +198,3 @@ func RequeueRetryableCommandJobDetails(jobID, tenantID string, maxAttempts int, 
 	})
 	return result, err
 }
-
-func RequeueAllRetryableCommandJobDetails(jobID, tenantID string) (int64, error) {
-	now := time.Now().UTC()
-	result := global.DB.Model(&model.CommandJobDetail{}).
-		Where("command_job_id = ? AND tenant_id = ? AND status = ? AND can_retry = ?", jobID, tenantID, "failed", true).
-		Updates(map[string]interface{}{
-			"status":               "ready",
-			"message_id":           nil,
-			"log_recorded":         false,
-			"reason":               "queued for retry",
-			"can_retry":            false,
-			"dispatch_lease_token": nil,
-			"dispatch_lease_until": nil,
-			"next_retry_after":     nil,
-			"updated_at":           now,
-			"submitted_at":         nil,
-			"completed_at":         nil,
-		})
-	return result.RowsAffected, result.Error
-}

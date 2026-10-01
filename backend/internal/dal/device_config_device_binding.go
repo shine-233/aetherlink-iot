@@ -50,15 +50,6 @@ func countActiveDevicesByConfigIDs(deviceConfigIDs []string) (map[string]int64, 
 	return counts, nil
 }
 
-// 给设备增加物模型
-func UpdateDeviceDeviceConfigID(deviceID string, deviceConfigID *string) error {
-	_, err := query.Device.Where(query.Device.ID.Eq(deviceID)).Update(query.Device.DeviceConfigID, deviceConfigID)
-	if err != nil {
-		logrus.Error(err)
-	}
-	return err
-}
-
 const updateDeviceConfigBatchSize = 500
 
 func UpdateDeviceDeviceConfigIDs(deviceIDs []string, deviceConfigID *string) error {

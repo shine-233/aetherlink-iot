@@ -16,7 +16,6 @@ import (
 	model "aetherlink-iot/backend/internal/model"
 	query "aetherlink-iot/backend/internal/query"
 	"aetherlink-iot/backend/pkg/global"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -365,14 +364,6 @@ func alarmHistoryAcknowledgeRemark(raw *string, userID, ackAt string) string {
 	})
 }
 
-func alarmHistoryResetRemark(raw *string, userID, resetAt string) string {
-	return mergeAlarmHistoryRemark(raw, map[string]interface{}{
-		"reset":    true,
-		"reset_by": userID,
-		"reset_at": resetAt,
-	})
-}
-
 func alarmHistoryResetUpdates(remark string) map[string]interface{} {
 	return map[string]interface{}{
 		"alarm_status": "N",
@@ -480,19 +471,6 @@ func DeleteAlarmHistoryByConfigId(alarmConfigId string) error {
 // alarmHistoryScanBatchSize 控制 GetDeviceIdsByAlarmConfigId 的分批扫描窗口，
 // 避免历史表无限增长时一次性把全表载入内存。
 
-// P1 修复（2026-08-24，见 VALIDATION.md）：告警历史列表的 gen LeftJoin 收敛完成。
-// 原 applyAlarmHistoryListFilters/applyAlarmHistoryTimeFilter/applyAlarmHistoryStatusFilter/
-// applyAlarmHistoryTypeFilter/applyAlarmHistoryDeviceFilter/withAlarmHistoryListJoins/
-// applyAlarmHistoryListPage/scanAlarmHistoryList 为 gen 继承式语句根的遗留死代码
-// （唯一调用方 GetAlarmHistoryListByPage 已于此前收敛为 raw global.DB 链，
-// 见本文件 GetAlarmHistoryListByPage 的 Table("alarm_history AS ah")+
-// Joins("LEFT JOIN alarm_config ac ...")+Select+Order 内联实现），
-// 现整体删除以杜绝复用回退到 gen LeftJoin；过滤语义由 applyAlarmHistoryScopedFilters 承接。
-func newAlarmHistoryTenantQuery(tenantID string) query.IAlarmHistoryDo {
-	return query.AlarmHistory.WithContext(context.Background()).
-		Where(query.AlarmHistory.TenantID.Eq(tenantID))
-}
-
 func alarmHistoryStatusFilterValues(alarmStatus *string) []string {
 	if alarmStatus == nil {
 		return nil
@@ -513,11 +491,6 @@ func isAlarmHistoryActiveStatusFilter(alarmStatus *string) bool {
 
 // tenant-scope: caller-enforced?2026-08-26 ?????
 
-// tenant-scope: caller-enforced?2026-08-26 ?????
-func CountActiveAlarmHistoryByTenant(tenantID string, ownerUserID *string) (int64, error) {
-	return CountActiveAlarmHistoryByScope(tenantID, ownerUserID, false)
-}
-
 func CountActiveAlarmHistoryByScope(tenantID string, ownerUserID *string, allTenants bool) (int64, error) {
 	var count int64
 	builder := global.DB.Table("current_device_alarm_streams AS current_alarm").
@@ -537,40 +510,4 @@ func CountAlarmHistoryByScope(tenantID string, ownerUserID *string, allTenants b
 	var count int64
 	err := newAlarmHistoryScopedDB(tenantID, ownerUserID, allTenants).Count(&count).Error
 	return count, err
-}
-
-func getAlarmHistoryForAction(id, tenantID string) (*model.AlarmHistory, error) {
-	return alarmHistoryRecordByID(id, tenantID).First()
-}
-
-func alarmHistoryRecordByID(id, tenantID string) query.IAlarmHistoryDo {
-	return query.AlarmHistory.Where(
-		query.AlarmHistory.ID.Eq(id),
-		query.AlarmHistory.TenantID.Eq(tenantID),
-	)
-}
-
-func updateAlarmHistoryRemark(id, tenantID, remark string) error {
-	result, err := alarmHistoryRecordByID(id, tenantID).
-		UpdateColumn(query.AlarmHistory.Remark, remark)
-	if err != nil {
-		return err
-	}
-	if result.RowsAffected == 0 {
-		return errors.New("acknowledge alarm failed")
-	}
-	return nil
-}
-
-func applyAlarmHistoryReset(id, tenantID, remark string) error {
-	result, err := alarmHistoryRecordByID(id, tenantID).
-		Where(query.AlarmHistory.AlarmStatus.In("H", "M", "L")).
-		Updates(alarmHistoryResetUpdates(remark))
-	if err != nil {
-		return err
-	}
-	if result.RowsAffected == 0 {
-		return errors.New("reset alarm failed")
-	}
-	return nil
 }

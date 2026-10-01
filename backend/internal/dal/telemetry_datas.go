@@ -4,15 +4,11 @@ package dal
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"regexp"
 	"strconv"
-	"strings"
-	"time"
 
 	model "aetherlink-iot/backend/internal/model"
 	query "aetherlink-iot/backend/internal/query"
-	"aetherlink-iot/backend/internal/storage"
 	global "aetherlink-iot/backend/pkg/global"
 
 	"github.com/sirupsen/logrus"
@@ -21,10 +17,6 @@ import (
 	tptodb "aetherlink-iot/backend/third_party/grpc/tptodb_client"
 	pb "aetherlink-iot/backend/third_party/grpc/tptodb_client/grpc_tptodb"
 )
-
-func CreateTelemetrData(data *model.TelemetryData) error {
-	return query.TelemetryData.Create(data)
-}
 
 // usesTelemetryQueryClient 是遥测读路径的国产库分支点（ROADMAP TP-20）：grpc.tptodb_type
 // 为 TSDB/KINGBASE/POLARDB 时，本文件及 telemetry_current_datas.go 中的历史/当前/聚合遥测读
@@ -239,19 +231,6 @@ func GetHistoryTelemetrDataByPage(p *model.GetTelemetryHistoryDataByPageReq) (in
 }
 
 // tenant-scope: caller-enforced?2026-08-26 ?????
-func GetHistoryTelemetrDataByExport(p *model.GetTelemetryHistoryDataByPageReq, offset, batchSize int) ([]*model.TelemetryData, error) {
-	q := query.TelemetryData
-	queryBuilder := telemetryHistoryPageQuery(p)
-	list, err := queryBuilder.Select().Offset(offset).Limit(batchSize).Order(q.T.Desc()).Find()
-	if err != nil {
-		logrus.Error(err)
-		return list, err
-	}
-
-	return list, nil
-}
-
-// tenant-scope: caller-enforced?2026-08-26 ?????
 func GetHistoryTelemetrDataByExportBefore(p *model.GetTelemetryHistoryDataByPageReq, beforeTime *int64, batchSize int) ([]*model.TelemetryData, error) {
 	q := query.TelemetryData
 	queryBuilder := telemetryHistoryPageQuery(p)
@@ -265,83 +244,6 @@ func GetHistoryTelemetrDataByExportBefore(p *model.GetTelemetryHistoryDataByPage
 	}
 
 	return list, nil
-}
-
-func CreateTelemetrDataBatch(data []*model.TelemetryData) error {
-	err := query.TelemetryData.CreateInBatches(data, len(data))
-	if err == nil {
-		return nil
-	}
-	if !isUniqueConstraintError(err) {
-		return err
-	}
-	logrus.Debugf("telemetry batch insert hit device_id/key/timestamp conflict, using upsert SQL, rows: %d", len(data))
-	sql := `INSERT INTO telemetry_datas (device_id, key, ts, number_v, string_v, bool_v, tenant_id) VALUES `
-
-	values := make([]interface{}, 0, len(data)*7)
-	placeholders := make([]string, 0, len(data))
-
-	for i, d := range data {
-		placeholders = append(placeholders, fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d)",
-			i*7+1, i*7+2, i*7+3, i*7+4, i*7+5, i*7+6, i*7+7))
-
-		values = append(values, d.DeviceID, d.Key, d.T, d.NumberV, d.StringV, d.BoolV, d.TenantID)
-	}
-
-	sql += strings.Join(placeholders, ", ")
-	sql += ` ON CONFLICT (device_id, key, ts) DO UPDATE SET
-		number_v = EXCLUDED.number_v,
-		string_v = EXCLUDED.string_v,
-		bool_v = EXCLUDED.bool_v`
-
-	return global.DB.Exec(sql, values...).Error
-}
-
-func isUniqueConstraintError(err error) bool {
-	if err == nil {
-		return false
-	}
-	errStr := err.Error()
-	return strings.Contains(errStr, "SQLSTATE 23505") ||
-		strings.Contains(errStr, "duplicate key value violates unique constraint")
-}
-
-func UpdateTelemetrDataBatch(data []*model.TelemetryData) error {
-	if len(data) == 0 {
-		return nil
-	}
-
-	currentByDeviceKey := make(map[string]*model.TelemetryCurrentData, len(data))
-	for _, d := range data {
-		if d == nil {
-			continue
-		}
-		ts := time.UnixMilli(d.T).UTC()
-		mapKey := d.DeviceID + "\x00" + d.Key
-		if existing, ok := currentByDeviceKey[mapKey]; ok && existing.T.After(ts) {
-			continue
-		}
-		currentByDeviceKey[mapKey] = &model.TelemetryCurrentData{
-			DeviceID: d.DeviceID,
-			Key:      d.Key,
-			T:        ts,
-			BoolV:    d.BoolV,
-			NumberV:  d.NumberV,
-			StringV:  d.StringV,
-			TenantID: d.TenantID,
-		}
-	}
-
-	if len(currentByDeviceKey) == 0 {
-		return nil
-	}
-
-	currentRows := make([]*model.TelemetryCurrentData, 0, len(currentByDeviceKey))
-	for _, row := range currentByDeviceKey {
-		currentRows = append(currentRows, row)
-	}
-
-	return global.DB.Clauses(storage.TelemetryCurrentUpsertClause()).CreateInBatches(currentRows, 1000).Error
 }
 
 func DeleteTelemetrData(deviceId, key string) error {
@@ -381,11 +283,6 @@ func deleteTelemetryDataBatch(cutoff int64, batchSize int) (int64, error) {
 			LIMIT ?
 		)`, cutoff, batchSize)
 	return result.RowsAffected, result.Error
-}
-
-// tenant-scope: caller-enforced?2026-08-26 ?????
-func GetTelemetrStatisticData(deviceID, key string, startTime, endTime int64) ([]map[string]interface{}, error) {
-	return GetTelemetrStatisticDataWithLimit(deviceID, key, startTime, endTime, 0)
 }
 
 // tenant-scope: caller-enforced?2026-08-26 ?????

@@ -25,13 +25,6 @@ func DeleteRGroupDevice(group_id, device_id string) error {
 	return err
 }
 
-func DeleteRGroupDeviceByDeviceID(deviceID string) error {
-	_, err := query.RGroupDevice.
-		Where(query.RGroupDevice.DeviceID.Eq(deviceID)).
-		Delete()
-	return err
-}
-
 func GetRGroupDeviceByGroupId(req model.GetDeviceListByGroup, tenantID string, ownerUserID *string) (int64, interface{}, error) {
 	// 获取分组下设备,分页返回
 	q := query.RGroupDevice

@@ -71,26 +71,6 @@ func expandMapRemarkFields(item map[string]interface{}) {
 	}
 }
 
-func computeMapLifecycleStatus(item map[string]interface{}) string {
-	if item == nil {
-		return "ACTIVE_UNACK"
-	}
-	var rawRemark string
-	switch v := item["remark"].(type) {
-	case string:
-		rawRemark = v
-	case *string:
-		if v != nil {
-			rawRemark = *v
-		}
-	}
-	statusStr := ""
-	if s, ok := item["alarm_status"].(string); ok {
-		statusStr = s
-	}
-	return computeAlarmLifecycleStatus(statusStr, &rawRemark)
-}
-
 // GetAlarmConfigListByPage 分页查询告警配置，支持租户、名称、等级和启用状态过滤。
 // allTenants 仅限 SYS_ADMIN 显式全租户视角；其余调用方必须携带非空租户，否则 fail-closed。
 

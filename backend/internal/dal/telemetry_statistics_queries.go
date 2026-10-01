@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	query "aetherlink-iot/backend/internal/query"
 	global "aetherlink-iot/backend/pkg/global"
 
 	"github.com/sirupsen/logrus"
@@ -306,54 +305,6 @@ func getDataCount(deviceId, key string, startTime, endTime int64) (int64, error)
 		return 0, err
 	}
 	return count, nil
-}
-
-func getDataRange(deviceId, key string, startTime, endTime int64, limit *int) ([]map[string]interface{}, error) {
-	q := query.TelemetryData
-	queryBuilder := telemetryDataRangeQuery(deviceId, key, startTime, endTime)
-	queryBuilder = queryBuilder.Order(q.T.Desc())
-
-	if limit != nil {
-		queryBuilder = queryBuilder.Limit(*limit)
-	}
-
-	var data []map[string]interface{}
-	err := queryBuilder.Select(q.T.As("timestamp"), q.NumberV.As("value")).Scan(&data)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-
-func getAggregatedData(deviceId, key string, startTime, endTime int64, aggregateMethod string, limit *int) (interface{}, error) {
-	q := query.TelemetryData
-	queryBuilder := telemetryDataRangeQuery(deviceId, key, startTime, endTime)
-
-	var result []map[string]interface{}
-	var err error
-
-	switch aggregateMethod {
-	case "avg":
-		err = queryBuilder.Select(q.NumberV.Avg().As("value")).Scan(&result)
-	case "sum":
-		err = queryBuilder.Select(q.NumberV.Sum().As("value")).Scan(&result)
-	case "max":
-		err = queryBuilder.Select(q.NumberV.Max().As("value")).Scan(&result)
-	case "min":
-		err = queryBuilder.Select(q.NumberV.Min().As("value")).Scan(&result)
-	default:
-		return nil, fmt.Errorf("unsupported telemetry aggregate method: %s", aggregateMethod)
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	if len(result) > 0 && result[0]["value"] != nil {
-		return result[0]["value"], nil
-	}
-
-	return 0, nil
 }
 
 // getAggregatedDataWithTime 按 timeType 切出的时间窗口聚合单设备单 key 的遥测数据。

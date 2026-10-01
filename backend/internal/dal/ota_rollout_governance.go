@@ -37,21 +37,12 @@ func ListOTAUpgradablePendingDetails(taskID string, limit int) ([]*model.OtaUpgr
 		Find()
 }
 
-// tenant-scope: parent-owned (2026-09-11) - task-scoped, see ListOTAUpgradablePendingDetails.
-func CountOTAUpgradablePendingDetails(taskID string) (int64, error) {
-	d := query.OtaUpgradeTaskDetail
-	return d.WithContext(context.Background()).
-		Where(d.OtaUpgradeTaskID.Eq(taskID)).
-		Where(d.Status.Eq(model.OtaUpgradeTaskDetailStatusPending)).
-		Count()
-}
-
 // OTARolloutTaskPatch 对 rollout task 的一次治理写入。零值字段表示不修改。
 type OTARolloutTaskPatch struct {
-	Status              string
-	StatusDescription   string
+	Status               string
+	StatusDescription    string
 	RateWindowDispatched *int
-	RateWindowStartedAt *time.Time
+	RateWindowStartedAt  *time.Time
 }
 
 // tenant-scope: keyed by task primary id only. The rollout task row carries tenant_id and

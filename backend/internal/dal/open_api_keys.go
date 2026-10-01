@@ -29,11 +29,6 @@ func GetOpenAPIKeyByID(id string) (*model.OpenAPIKey, error) {
 	return query.OpenAPIKey.Where(query.OpenAPIKey.ID.Eq(id)).First()
 }
 
-// tenant-scope: caller-enforced?2026-08-26 ?????
-func GetOpenAPIKeyByAppKey(appKey string) (*model.OpenAPIKey, error) {
-	return query.OpenAPIKey.Where(query.OpenAPIKey.APIKey.Eq(appKey)).First()
-}
-
 func GetOpenAPIKeyListByPage(listReq *model.OpenAPIKeyListReq, tenantID string) (int64, interface{}, error) {
 	keysList := make([]model.OpenAPIKeyListRsp, 0)
 

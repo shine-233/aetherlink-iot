@@ -34,10 +34,6 @@ const (
 	TENANT_USER  = "TENANT_USER"
 )
 
-func CreateUsers(user *model.User) error {
-	return query.User.Create(user)
-}
-
 // tenant-scope: caller-enforced?2026-08-26 ?????
 func GetUsersById(uid string) (*model.User, error) {
 	user, err := query.User.Where(query.User.ID.Eq(uid)).First()
@@ -125,12 +121,6 @@ func UpdateUserInfoByIdPersonal(uid string, data *model.UpdateUserInfoReq) (int6
 	t := time.Now()
 	data.UpdatedAt = &t
 	r, err := query.User.Where(q.ID.Eq(uid)).Updates(data)
-	return r.RowsAffected, err
-}
-
-func UpdateUserInfoById(_ string, data *model.User) (int64, error) {
-	q := query.User
-	r, err := query.User.Where(q.ID.Eq(data.ID)).Updates(data)
 	return r.RowsAffected, err
 }
 

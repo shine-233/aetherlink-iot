@@ -143,31 +143,6 @@ func commandJobNextRetryAfterExpression(maxAttempts int, nextRetryAfter time.Tim
 	)
 }
 
-func FailRecoverableCommandJobDetailsWithRetryPolicy(jobID, tenantID string, fromStatuses []string, reason string, maxAttempts int, nextRetryAfter time.Time, now time.Time) (int64, error) {
-	if maxAttempts <= 0 {
-		maxAttempts = 1
-	}
-	result := global.DB.Model(&model.CommandJobDetail{}).
-		Where("command_job_id = ? AND tenant_id = ? AND status IN ? AND eligible = ?", jobID, tenantID, fromStatuses, true).
-		Updates(map[string]interface{}{
-			"status":               "failed",
-			"reason":               reason,
-			"can_retry":            gorm.Expr("dispatch_attempts < ?", maxAttempts),
-			"dispatch_lease_token": nil,
-			"dispatch_lease_until": nil,
-			"next_retry_after":     commandJobNextRetryAfterExpression(maxAttempts, nextRetryAfter),
-			"advice": gorm.Expr(
-				"CASE WHEN dispatch_attempts < ? THEN ? ELSE ? END",
-				maxAttempts,
-				"Retry becomes available after a short backoff; review the failure reason before retrying.",
-				"Maximum dispatch attempts reached; inspect device state, command logs, and support bundle evidence before creating a fresh attempt.",
-			),
-			"updated_at":   now,
-			"completed_at": now,
-		})
-	return result.RowsAffected, result.Error
-}
-
 func FailTimedOutCommandJobDetailsWithRetryPolicy(jobID, tenantID string, maxAttempts int, nextRetryAfter time.Time, now time.Time) (int64, error) {
 	if maxAttempts <= 0 {
 		maxAttempts = 1

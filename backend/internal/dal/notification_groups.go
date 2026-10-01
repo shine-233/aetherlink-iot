@@ -41,20 +41,6 @@ func DeleteNotificationGroup(id string) error {
 }
 
 // tenant-scope: no-tenant-column?2026-08-26 ?????
-func GetNotificationGroupList(page, pageSize int) (int64, interface{}, error) {
-	var count int64
-	// 分页收编（2026-09-28）：旧写法 page=0 时不加 LIMIT，通知组列表退化为无界扫描；
-	// applyListPagination 对缺省分页兜底 defaultListLimit 并由 clampListPageSize 封顶单页。
-	queryBuilder := applyListPagination(query.NotificationGroup.WithContext(context.Background()), page, pageSize)
-	notificationGroupList, err := queryBuilder.Select().Find()
-	if err != nil {
-		return count, notificationGroupList, err
-	}
-	count, err = queryBuilder.Count()
-	return count, notificationGroupList, err
-}
-
-// tenant-scope: no-tenant-column?2026-08-26 ?????
 func GetNotificationGroupById(id string) (*model.NotificationGroup, error) {
 	p := query.NotificationGroup
 	notificationGroup, err := query.NotificationGroup.Where(p.ID.Eq(id)).Select().First()

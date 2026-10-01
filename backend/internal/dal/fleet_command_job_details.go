@@ -25,11 +25,6 @@ func GetCommandJobDetails(jobID, tenantID string, limit int) ([]*model.CommandJo
 	return details, err
 }
 
-// tenant-scope: caller-enforced?2026-08-26 ?????
-func CountCommandJobDetails(jobID, tenantID string) (int64, error) {
-	return CountCommandJobDetailsByFilter(jobID, tenantID, "", "", 0, time.Now().UTC())
-}
-
 func CountCommandJobDetailsByFilter(jobID, tenantID, statusFilter, search string, maxAttempts int, now time.Time) (int64, error) {
 	var total int64
 	err := applyCommandJobRowsFilter(
@@ -42,11 +37,6 @@ func CountCommandJobDetailsByFilter(jobID, tenantID, statusFilter, search string
 	).
 		Count(&total).Error
 	return total, err
-}
-
-// tenant-scope: caller-enforced?2026-08-26 ?????
-func GetCommandJobDetailsByPage(jobID, tenantID string, page, pageSize int) ([]*model.CommandJobDetail, error) {
-	return GetCommandJobDetailsByPageAndFilter(jobID, tenantID, page, pageSize, "", "", 0, time.Now().UTC())
 }
 
 func GetCommandJobDetailsByPageAndFilter(jobID, tenantID string, page, pageSize int, statusFilter, search string, maxAttempts int, now time.Time) ([]*model.CommandJobDetail, error) {

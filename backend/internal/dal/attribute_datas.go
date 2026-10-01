@@ -10,7 +10,6 @@ import (
 	query "aetherlink-iot/backend/internal/query"
 	"aetherlink-iot/backend/pkg/global"
 
-	"github.com/go-basic/uuid"
 	"gorm.io/gorm"
 )
 
@@ -65,53 +64,6 @@ func GetAttributeDataByID(id string) (*model.AttributeData, error) {
 	return query.AttributeData.
 		Where(query.AttributeData.ID.Eq(id)).
 		First()
-}
-
-func CreateAttributeData(data *model.AttributeData) error {
-	return query.AttributeData.Create(data)
-}
-
-// 更新设备属性数据，如果数据不存在，UUID生成一个ID，创建一条新的数据
-func UpdateAttributeData(data *model.AttributeData) (*model.AttributeData, error) {
-	// 根据新数据的数据类型，直接设置其他类型字段为null
-	if data.StringV != nil {
-		data.NumberV = nil
-		data.BoolV = nil
-	} else if data.NumberV != nil {
-		data.StringV = nil
-		data.BoolV = nil
-	} else if data.BoolV != nil {
-		data.StringV = nil
-		data.NumberV = nil
-	}
-
-	// 创建包含null值的更新map，确保null字段也会被更新到数据库
-	updateMap := map[string]interface{}{
-		"bool_v":   data.BoolV,
-		"number_v": data.NumberV,
-		"string_v": data.StringV,
-		"ts":       data.T,
-	}
-
-	// 尝试更新现有记录
-	result, err := query.AttributeData.Where(
-		query.AttributeData.DeviceID.Eq(data.DeviceID),
-		query.AttributeData.TenantID.Eq(*data.TenantID),
-		query.AttributeData.Key.Eq(data.Key),
-	).Updates(updateMap)
-
-	if err != nil {
-		return nil, err
-	} else if result.RowsAffected == 0 {
-		// 数据不存在，创建新记录
-		data.ID = uuid.New()
-		err = query.AttributeData.Create(data)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return data, nil
 }
 
 // 获取设备单指标最新值，如果数据不存在，返回nil
