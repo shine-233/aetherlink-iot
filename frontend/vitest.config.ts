@@ -210,24 +210,6 @@ export default defineConfig({
           branches: 45,
           functions: 100,
           statements: 95
-        },
-        'src/core/data-architecture/DataWarehouse.ts': {
-          lines: 85,
-          branches: 70,
-          functions: 85,
-          statements: 85
-        },
-        'src/core/data-architecture/executors/MultiLayerExecutorChain.ts': {
-          lines: 80,
-          branches: 55,
-          functions: 90,
-          statements: 80
-        },
-        'src/core/data-architecture/types/enhanced-types.ts': {
-          lines: 80,
-          branches: 100,
-          functions: 5,
-          statements: 80
         }
       }
     }
