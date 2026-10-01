@@ -48,7 +48,6 @@ func UpdateDeviceModelCustomControl(data *model.DeviceModelCustomControl) (*mode
 }
 
 func GetDeviceModelCustomControlByPage(page model.GetDeviceModelListByPageReq, tenantID string) (int64, []*model.DeviceModelCustomControl, error) {
-	var count int64
 	q := query.DeviceModelCustomControl
 	queryBuilder := q.WithContext(context.Background())
 	queryBuilder = queryBuilder.Where(q.TenantID.Eq(tenantID))
@@ -56,20 +55,7 @@ func GetDeviceModelCustomControlByPage(page model.GetDeviceModelListByPageReq, t
 	if page.EnableStatus != nil {
 		queryBuilder = queryBuilder.Where(q.EnableStatus.Eq(*page.EnableStatus))
 	}
-	count, err := queryBuilder.Count()
-	if err != nil {
-		logrus.Error(err)
-		return count, nil, err
-	}
-
-	queryBuilder = applyListPagination(queryBuilder, page.Page, page.PageSize)
-
-	data, err := queryBuilder.Select(q.ALL).Order(q.CreatedAt.Desc()).Find()
-	if err != nil {
-		logrus.Error(err)
-		return count, data, err
-	}
-
-	return count, data, nil
-
+	return countAndFindGenPage(queryBuilder, page.Page, page.PageSize, func(qb query.IDeviceModelCustomControlDo) query.IDeviceModelCustomControlDo {
+		return qb.Select(q.ALL).Order(q.CreatedAt.Desc())
+	})
 }
