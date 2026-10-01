@@ -80,26 +80,9 @@ func iterateShared(fn subscription.IterateFn, options subscription.IterationOpti
 	}
 	// 查询Match指定topicFilter
 	if options.TopicName != "" && options.MatchType == subscription.MatchFilter { // match指定的topicfilter
-		node := trie.getMatchedTopicFilter(options.TopicName)
-		if node == nil {
-			return true
-		}
-		if options.ClientID != "" {
-			for _, v := range node[options.ClientID] {
-				if !fn(options.ClientID, v) {
-					return false
-				}
-			}
-		} else {
-			for clientID, subs := range node {
-				for _, v := range subs {
-					if !fn(clientID, v) {
-						return false
-					}
-				}
-			}
-		}
-		return true
+		// 零分配匹配：直接沿订阅树回调，不再构造 ClientSubscriptions 中间 map。
+		e := matchEmitter{fn: fn, clientID: options.ClientID}
+		return trie.matchWalk(options.TopicName, &e)
 	}
 	// 查询指定clientID下的所有topic
 	if options.ClientID != "" {
@@ -160,26 +143,9 @@ func iterateNonShared(fn subscription.IterateFn, options subscription.IterationO
 	}
 	// 查询Match指定topicFilter
 	if options.TopicName != "" && options.MatchType == subscription.MatchFilter { // match指定的topicfilter
-		node := trie.getMatchedTopicFilter(options.TopicName)
-		if node == nil {
-			return true
-		}
-		if options.ClientID != "" {
-			for _, v := range node[options.ClientID] {
-				if !fn(options.ClientID, v) {
-					return false
-				}
-			}
-		} else {
-			for clientID, subs := range node {
-				for _, v := range subs {
-					if !fn(clientID, v) {
-						return false
-					}
-				}
-			}
-		}
-		return true
+		// 零分配匹配：直接沿订阅树回调，不再构造 ClientSubscriptions 中间 map。
+		e := matchEmitter{fn: fn, clientID: options.ClientID}
+		return trie.matchWalk(options.TopicName, &e)
 	}
 	// 查询指定clientID下的所有topic
 	if options.ClientID != "" {
@@ -357,8 +323,7 @@ func (db *TrieDB) unsubscribeAll(index map[string]map[string]*topicNode, clientI
 	for topicName, node := range index[clientID] {
 		delete(node.clients, clientID)
 		if len(node.clients) == 0 && len(node.children) == 0 {
-			ss := strings.Split(topicName, "/")
-			delete(node.parent.children, ss[len(ss)-1])
+			delete(node.parent.children, lastLevel(topicName))
 		}
 	}
 	delete(index, clientID)

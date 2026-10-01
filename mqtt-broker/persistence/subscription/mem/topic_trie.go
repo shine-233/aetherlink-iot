@@ -79,16 +79,12 @@ func (t *topicTrie) subscribe(clientID string, s *gmqtt.Subscription) *topicNode
 // find walk through the tire and return the node that represent the topicFilter.
 // Return nil if not found
 func (t *topicTrie) find(topicFilter string) *topicNode {
-	topicSlice := strings.Split(topicFilter, "/")
 	var pNode = t
-	for _, lv := range topicSlice {
-		if _, ok := pNode.children[lv]; ok {
-			pNode = pNode.children[lv]
-		} else {
-			return nil
-		}
-	}
-	if pNode.topicName == topicFilter {
+	walkLevels(topicFilter, func(lv string) bool {
+		pNode = pNode.children[lv]
+		return pNode != nil
+	})
+	if pNode != nil && pNode.topicName == topicFilter {
 		return pNode
 	}
 	return nil
@@ -96,16 +92,15 @@ func (t *topicTrie) find(topicFilter string) *topicNode {
 
 // unsubscribe
 func (t *topicTrie) unsubscribe(clientID string, topicName string, shareName string) {
-	topicSlice := strings.Split(topicName, "/")
-	l := len(topicSlice)
 	var pNode = t
-	for _, lv := range topicSlice {
-		if _, ok := pNode.children[lv]; ok {
-			pNode = pNode.children[lv]
-		} else {
-			return
-		}
+	walkLevels(topicName, func(lv string) bool {
+		pNode = pNode.children[lv]
+		return pNode != nil
+	})
+	if pNode == nil {
+		return
 	}
+	leaf := lastLevel(topicName)
 	if shareName != "" {
 		if c := pNode.shared[shareName]; c != nil {
 			delete(c, clientID)
@@ -113,64 +108,27 @@ func (t *topicTrie) unsubscribe(clientID string, topicName string, shareName str
 				delete(pNode.shared, shareName)
 			}
 			if len(pNode.shared) == 0 && len(pNode.children) == 0 {
-				delete(pNode.parent.children, topicSlice[l-1])
+				delete(pNode.parent.children, leaf)
 			}
 		}
 	} else {
 		delete(pNode.clients, clientID)
 		if len(pNode.clients) == 0 && len(pNode.children) == 0 {
-			delete(pNode.parent.children, topicSlice[l-1])
+			delete(pNode.parent.children, leaf)
 		}
 	}
 
-}
-
-// setRs set the node subscription info into rs
-func setRs(node *topicNode, rs subscription.ClientSubscriptions) {
-	for cid, subOpts := range node.clients {
-		rs[cid] = append(rs[cid], subOpts)
-	}
-
-	for _, c := range node.shared {
-		for cid, subOpts := range c {
-			rs[cid] = append(rs[cid], subOpts)
-		}
-	}
-}
-
-// matchTopic get all matched topic for given topicSlice, and set into rs
-func (t *topicTrie) matchTopic(topicSlice []string, rs subscription.ClientSubscriptions) {
-	endFlag := len(topicSlice) == 1
-	if cnode := t.children["#"]; cnode != nil {
-		setRs(cnode, rs)
-	}
-	if cnode := t.children["+"]; cnode != nil {
-		if endFlag {
-			setRs(cnode, rs)
-			if n := cnode.children["#"]; n != nil {
-				setRs(n, rs)
-			}
-		} else {
-			cnode.matchTopic(topicSlice[1:], rs)
-		}
-	}
-	if cnode := t.children[topicSlice[0]]; cnode != nil {
-		if endFlag {
-			setRs(cnode, rs)
-			if n := cnode.children["#"]; n != nil {
-				setRs(n, rs)
-			}
-		} else {
-			cnode.matchTopic(topicSlice[1:], rs)
-		}
-	}
 }
 
 // getMatchedTopicFilter return a map key by clientID that contain all matched topic for the given topicName.
+// 热路径（投递）已改用 matchWalk 直接回调；此函数保留给需要聚合结果的调用方与测试。
 func (t *topicTrie) getMatchedTopicFilter(topicName string) subscription.ClientSubscriptions {
-	topicLv := strings.Split(topicName, "/")
 	subs := make(subscription.ClientSubscriptions)
-	t.matchTopic(topicLv, subs)
+	e := matchEmitter{fn: func(clientID string, sub *gmqtt.Subscription) bool {
+		subs[clientID] = append(subs[clientID], sub)
+		return true
+	}}
+	t.matchWalk(topicName, &e)
 	return subs
 }
 
