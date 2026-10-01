@@ -78,9 +78,9 @@ func ExecuteUplinkDataConverter(conv *model.DataConverter, values map[string]int
 	}
 
 	// 输出语义：telemetry 为主输出；attributes 并入同一键值面（键冲突以 telemetry 为准）。
-	// 容量提示钳制上限：hint 仅为优化，两结果集来自已执行的转换器、正常为有限大小；
-	// 钳制防止理论上的巨型长度相加溢出直接转化为一次超额分配（CodeQL allocation-size-overflow）。
-	out := make(map[string]interface{}, min(len(resp.Telemetry)+len(resp.Attributes), 1<<16))
+	// 容量提示刻意省略：两结果集长度理论上不可信（CodeQL allocation-size-overflow），
+	// 转换器输出通常为小体量，map 自然扩容的开销可忽略。
+	out := make(map[string]interface{})
 	for k, v := range resp.Telemetry {
 		out[k] = v
 	}
