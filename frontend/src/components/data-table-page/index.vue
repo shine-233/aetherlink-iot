@@ -1,26 +1,41 @@
 <!--
-  文件用途：实现设备数据表格页及其地图展示模块。
-  核心逻辑：组合表格、筛选、分页、设备卡片和地图组件，呈现设备列表与地理位置。
-  关键注意事项：接口字段、地图坐标和设备在线状态需要与后端数据保持一致。
-  重构建议：可把数据加载、筛选状态和地图适配拆分，减少页面组件职责。
+  文件用途：通用“搜索表单 + 卡片/列表/地图三视图 + 分页”列表组件（全局注册为 DataTablePage）。
+  分层：
+    - 查询/分页/过期请求丢弃/勾选状态 -> useListPage（本目录 useListPage.ts）；
+    - 列生成、重置取值、下拉选项懒加载 -> useListPage.ts 中的纯函数（buildTableColumns /
+      emptySearchValue / createLazyOptionsLoader），可单测；
+    - 地图视图 -> DataTableMapView.vue（异步加载腾讯地图），由 showMap 开关或 #map-view 插槽覆盖。
+  关键注意事项：defineExpose 契约（handleSearch/handleReset/forceChangeParamsByKey/dataList/
+             selectedRows/clearSelection）被外部页面直接调用，保持不变。
 -->
 <script lang="tsx" setup>
-import type { VueElement } from 'vue'
-import { computed, defineAsyncComponent, ref, watchEffect, onMounted, onUnmounted } from 'vue'
+import type { Component, VNodeChild } from 'vue'
+import { computed, onMounted, onUnmounted, watchEffect } from 'vue'
 import { debounce } from 'lodash-es'
 import { useRouter } from 'vue-router'
-import { NButton, NDataTable, NDatePicker, NInput, NSelect, NSpace, NPagination, NSpin } from 'naive-ui'
-import type { DataTableRowKey } from 'naive-ui'
+import { GridOutline as CardIcon, ListOutline, MapOutline } from '@vicons/ionicons5'
+import { NButton, NDataTable, NDatePicker, NInput, NPagination, NSelect, NSpace, NSpin } from 'naive-ui'
+import type { DataTableRowKey, SelectOption } from 'naive-ui'
 import { $t } from '@/locales'
 import { formatDateTime } from '@/utils/common/datetime'
 import { createLogger } from '@/utils/logger'
 import { getPlatformApiBaseUrl } from '@/utils/common/tool'
 import AdvancedListLayout from '@/components/list-page/index.vue'
 import DevCardItem from '@/components/dev-card-item/index.vue'
+import SvgIcon from '@/components/custom/svg-icon.vue'
 import type { SearchConfig, theLabel } from './types'
-import { fromFlatResponse, serializeDates, useListPage } from './useListPage'
+import DataTableMapView from './DataTableMapView.vue'
+import {
+  buildTableColumns,
+  createLazyOptionsLoader,
+  emptySearchValue,
+  fromFlatResponse,
+  rowKeySignature,
+  serializeDates,
+  useListPage
+} from './useListPage'
+import type { LazyOptionsConfig, ListColumnSpec } from './useListPage'
 
-// 新增 DeviceItem 接口定义
 interface DeviceItem {
   id: string
   device_number: string
@@ -38,62 +53,66 @@ interface DeviceItem {
   access_way: string
   protocol_type: string
   device_status: number
-  warn_status: string // 例如 'N' 表示正常, 'Y' 表示告警
+  warn_status: string // 'N' 正常, 'Y' 告警
   device_type: string
   image_url?: string
-  // 根据实际情况可以添加更多字段
-  title?: string // DevCardItem 可能用到的备用字段
-  description?: string // DevCardItem 可能用到的备用字段
-  status?: string | number // DevCardItem 可能用到的备用字段
-  value?: string // DevCardItem 可能用到的备用字段
-  indicator?: string // DevCardItem 可能用到的备用字段
-  timestamp?: string // DevCardItem 可能用到的备用字段
-  updatedAt?: string // DevCardItem 可能用到的备用字段
-  key?: string // DevCardItem 可能用到的备用字段
+  // DevCardItem 可能用到的备用字段
+  title?: string
+  description?: string
+  status?: string | number
+  value?: string
+  indicator?: string
+  timestamp?: string
+  updatedAt?: string
+  key?: string
+}
+
+// 查询值类型随控件而异（字符串/数组/时间戳/null），并直接绑定 v-model，故此处保留 any。
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type QueryState = Record<string, any>
+type FlatResponse = { data?: unknown; error?: unknown } | null | undefined
+
+interface ColumnSpec {
+  key: string
+  label: theLabel
+  /** 自定义单元格渲染；历史调用方声明为无参函数，同样兼容。 */
+  render?: (row: DeviceItem) => VNodeChild
+  [prop: string]: unknown
 }
 
 const logger = createLogger('TablePage')
-const TencentMap = defineAsyncComponent(() => import('./modules/tencent-map.vue'))
 
-// 通过props从父组件接收参数
-const props = defineProps<{
-  fetchData: any // 数据获取函数
-  columnsToShow:
-    // 表格列配置
-    | {
-        key: string
-        label: theLabel
-        render?: () => VueElement | string | undefined // 自定义渲染函数
-      }[]
-    | 'all' // 特殊值'all'表示显示所有列
-  searchConfigs: SearchConfig[] // 搜索配置数组
-  tableActions: Array<{
-    // 表格行操作
-    theKey?: string // 操作键
-    label: theLabel // 按钮文本
-    callback: any // 点击回调
-  }>
-  topActions: { element: () => any }[] // 顶部操作组件列表
-  rowClick?: any // 表格行点击回调
-  initPage?: number
-  initPageSize?: number
-  selectableRows?: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    /** 数据获取函数：接收扁平参数（筛选条件 + page + page_size），返回 { data, error }。 */
+    fetchData: (params: QueryState & { page: number; page_size: number }) => Promise<FlatResponse> | FlatResponse
+    /** 表格列配置；'all' 表示按首行字段自动生成列。 */
+    columnsToShow: ColumnSpec[] | 'all'
+    searchConfigs: SearchConfig[]
+    tableActions: Array<{ theKey?: string; label: theLabel; callback: (...args: never[]) => unknown }>
+    topActions: { element: Component | (() => VNodeChild) }[]
+    rowClick?: (row: DeviceItem) => void
+    initPage?: number
+    initPageSize?: number
+    selectableRows?: boolean
+    /** 是否提供地图视图（默认 true，与历史行为一致）；传入 #map-view 插槽可替换为其他地图实现。 */
+    showMap?: boolean
+  }>(),
+  { initPage: 1, initPageSize: 10, selectableRows: false, rowClick: undefined, showMap: true }
+)
 
 const emit = defineEmits<{
   paramsUpdate: [params: Record<string, unknown>]
   selectionUpdate: [rows: DeviceItem[]]
 }>()
 
-// 解构props以简化访问（searchConfigs 数组对象本身会被父组件原地更新 options，保持引用）
-const { fetchData, columnsToShow, searchConfigs }: any = props
-
 const getRowKey = (row: DeviceItem) => row.id || row.key || row.device_number
 
-// 查询状态、分页、过期请求丢弃与勾选状态统一交给 useListPage 管理。
+// ---- 列表状态：查询、分页、过期请求丢弃、勾选统一交给 useListPage ----
 let hadSelection = false
-const list = useListPage<DeviceItem, Record<string, any>>({
-  initialQuery: () => Object.fromEntries(searchConfigs.map((item) => [item.key, item.initValue])),
+const list = useListPage<DeviceItem, QueryState>({
+  // searchConfigs 数组对象由父组件原地更新 options，这里只在初始化时读取 initValue。
+  initialQuery: () => Object.fromEntries(props.searchConfigs.map((item) => [item.key, item.initValue])),
   initialPage: props.initPage || 1,
   initialPageSize: props.initPageSize || 10,
   pageSizes: [10, 20, 30, 40, 50],
@@ -104,7 +123,7 @@ const list = useListPage<DeviceItem, Record<string, any>>({
   fetcher: async (params) => {
     const { page: _page, page_size: _pageSize, ...criteria } = params
     emit('paramsUpdate', criteria)
-    const response = await fetchData(params)
+    const response = await props.fetchData(params)
     if (response?.error) logger.error({ 'Error fetching data:': response.error })
     return fromFlatResponse<DeviceItem>(response)
   },
@@ -122,56 +141,82 @@ const getData = () => {
   return list.load()
 }
 
-// 添加当前视图状态管理
-const currentViewType = ref('list') // 默认为列表视图
+const isEmpty = computed(() => !loading.value && dataList.value.length === 0)
 
-// 添加图片URL相关变量
-const platformApiBaseUrl = getPlatformApiBaseUrl()
-const platformAssetBaseUrl = ref(platformApiBaseUrl)
+// ---- 列生成：只随列配置变化重建，行级格式化放进 render 回调 ----
+const renderCell = (row: DeviceItem, key: string): VNodeChild => {
+  const value = (row as unknown as Record<string, unknown>)[key]
+  if (key === 'ts' && value) return formatDateTime(String(value))
+  return <>{value}</>
+}
 
-// 使用计算属性动态生成表格的列配置
-const generatedColumns = computed(() => {
-  let columns
+// 'all' 模式下列跟随首行字段：用字段签名做中间 computed，数据刷新但字段不变时不会触发列重建。
+const allColumnsSignature = computed(() => (props.columnsToShow === 'all' ? rowKeySignature(dataList.value[0]) : ''))
 
-  if (dataList.value.length > 0) {
-    // 根据columnsToShow生成列配置
-    columns = (columnsToShow === 'all' ? Object.keys(dataList.value[0]) : columnsToShow).map((item) => {
-      if (item.render) {
-        // 使用自定义的render函数渲染列
-        return {
-          ...item,
-          title: item.label,
-          key: item.key,
-          render: (row) => item.render(row)
-        }
-      }
-      return {
-        ...item,
-        title: item.label,
-        key: item.key,
-        render: (row) => {
-          if (item.key === 'ts' && row[item.key]) {
-            return formatDateTime(row[item.key])
-          }
-          return <>{row[item.key]}</>
-        }
-      }
-    })
+const columnSpecs = computed<ListColumnSpec<DeviceItem>[]>(() => {
+  if (props.columnsToShow !== 'all') return props.columnsToShow
+  const signature = allColumnsSignature.value
+  return signature ? signature.split('\u0000').map((key) => ({ key, label: key })) : []
+})
 
-    if (props.selectableRows) {
-      columns = [{ type: 'selection', fixed: 'left' }, ...columns]
+const generatedColumns = computed(() =>
+  buildTableColumns(columnSpecs.value, { selectable: props.selectableRows, renderCell })
+)
+// ---- 查询交互 ----
+type ExtendParamsConfig = {
+  key: string
+  extendParams?: { label: string; value: string }[]
+  options?: Array<{ dict_value: string; device_type: string; [field: string]: unknown }>
+}
+
+// 观察搜索条件变化以回填扩展参数（如选中设备类型后写入其关联字段），不自动获取数据。
+watchEffect(() => {
+  for (const config of props.searchConfigs as ExtendParamsConfig[]) {
+    const selected = searchCriteria[config.key]
+    if (!config.extendParams || !selected) continue
+    for (const option of config.options ?? []) {
+      if (option.dict_value + option.device_type !== selected) continue
+      for (const param of config.extendParams) searchCriteria[param.label] = option[param.value]
     }
   }
-
-  return columns || []
 })
+
+const handleSearch = () => {
+  currentPage.value = 1
+  return getData()
+}
+
+const handleReset = () => {
+  for (const key of Object.keys(searchCriteria)) {
+    const config = props.searchConfigs.find((item) => item.key === key)
+    if (config) searchCriteria[key] = emptySearchValue(config)
+  }
+  return handleSearch()
+}
+
+// 强制更新指定参数并刷新数据（保持当前页码，与历史行为一致）
+const forceChangeParamsByKey = (params: Record<string, unknown>) => {
+  for (const [key, value] of Object.entries(params)) {
+    if (key in searchCriteria) searchCriteria[key] = value
+  }
+  return getData()
+}
 
 const clearSelection = () => {
   list.clearSelection()
   emit('selectionUpdate', [])
 }
 
-// 更新页码或页面大小时重新获取数据
+// 暴露给父组件的契约，保持不变。
+defineExpose({
+  handleSearch,
+  handleReset,
+  forceChangeParamsByKey,
+  dataList, // 父组件可直接原地更新行数据
+  selectedRows,
+  clearSelection
+})
+
 const onUpdatePage = (newPage: number) => {
   currentPage.value = newPage
   getData()
@@ -182,257 +227,118 @@ const onUpdatePageSize = (newPageSize: number) => {
   getData()
 }
 
-// 观察搜索条件的变化以更新扩展参数，不自动获取数据
-watchEffect(() => {
-  searchConfigs.map((item: any) => {
-    const vals = searchCriteria[item.key]
-    if (item?.extendParams && vals) {
-      item?.options.map((oitem) => {
-        if (oitem.dict_value + oitem.device_type === vals) {
-          item?.extendParams.map((eitem) => {
-            searchCriteria[eitem.label] = oitem[eitem.value]
-          })
-        }
-      })
-    }
-  })
-})
-
-// 搜索和重置按钮的逻辑
-const handleSearch = () => {
-  currentPage.value = 1 // 搜索时重置到第一页
-  return getData()
-}
-
-// 重置值按控件类型区分：日期范围 -> []，树选择 -> []/null，下拉 -> null（显示占位符），其余 -> ''
-const emptyValueFor = (config: SearchConfig) => {
-  if (config.type === 'date-range') return []
-  if (config.type === 'tree-select') return config.multiple ? [] : null
-  if (config.type === 'select') return null
-  return ''
-}
-
-const handleReset = () => {
-  Object.keys(searchCriteria).forEach((key) => {
-    const config = searchConfigs.find((item) => item.key === key)
-    if (config) searchCriteria[key] = emptyValueFor(config)
-  })
-  return handleSearch()
-}
-
-// 强制更新指定参数并刷新数据（保持当前页码，与历史行为一致）
-const forceChangeParamsByKey = (params: Record<string, any>) => {
-  Object.entries(params).forEach(([key, value]) => {
-    if (key in searchCriteria) {
-      searchCriteria[key] = value
-    }
-  })
-  return getData()
-}
-
-// 暴露方法给父组件
-defineExpose({
-  handleSearch,
-  handleReset,
-  forceChangeParamsByKey,
-  dataList, // 暴露dataList以便父组件能够直接更新数据
-  selectedRows,
-  clearSelection
-})
-
 const handleCheckedRowKeysUpdate = (keys: DataTableRowKey[]) => {
   list.setSelectedKeys(keys)
   emit('selectionUpdate', selectedRows.value)
 }
 
-// 更新树形选择器的选项
-const handleTreeSelectUpdate = (value, key) => {
+const handleTreeSelectUpdate = (value: unknown, key: string) => {
   searchCriteria[key] = value
   handleSearch()
 }
 
-// 用于加载动态选项的函数，适用于select和tree-select类型的搜索配置
-const loadedSearchOptionKeys = new Set<string>()
-const pendingSearchOptionLoads = new Map<string, Promise<void>>()
-
-const ensureSearchOptionsLoaded = async (config: any) => {
-  if (!config?.loadOptions || loadedSearchOptionKeys.has(config.key)) {
-    return
-  }
-
-  const pending = pendingSearchOptionLoads.get(config.key)
-  if (pending) {
-    await pending
-    return
-  }
-
-  const load = (async () => {
-    const opts = config.type === 'select' ? await config.loadOptions('') : await config.loadOptions()
-    config.options = [...(config.options || []), ...opts]
-    loadedSearchOptionKeys.add(config.key)
-  })().finally(() => {
-    pendingSearchOptionLoads.delete(config.key)
-  })
-
-  pendingSearchOptionLoads.set(config.key, load)
-  await load
-}
-
-const ensureSearchOptionsLoadedWhenShown = (show: boolean, config: any) => {
-  if (show) {
-    void ensureSearchOptionsLoaded(config)
-  }
-}
-
-const isInteractiveRowClickTarget = (event: MouseEvent) => {
-  const target = event.target
-  if (!(target instanceof HTMLElement)) return false
-
-  return Boolean(
-    target.closest(
-      [
-        'button',
-        'a',
-        'input',
-        'textarea',
-        'select',
-        '[role="button"]',
-        '[role="checkbox"]',
-        '.n-checkbox',
-        '.n-button',
-        '.n-dropdown',
-        '.n-select',
-        '.n-tree-select'
-      ].join(',')
-    )
-  )
-}
-
-const rowProps = (row) => {
-  if (props && props.rowClick) {
-    return {
-      style: 'cursor: pointer;',
-      onClick: (event: MouseEvent) => {
-        if (isInteractiveRowClickTarget(event)) return
-
-        props.rowClick && props.rowClick(row)
-      }
-    }
-  }
-  return {}
-}
-
-// 在组件挂载时加载选项
-onMounted(() => {
-  getData()
-})
-
 const debouncedInputSearch = debounce(() => {
   handleSearch()
 }, 400)
+const handleInputChange = () => debouncedInputSearch()
+const handleSelectChange = () => handleSearch()
 
-const handleInputChange = () => {
-  debouncedInputSearch()
+// select / tree-select 的动态选项：首次展开时加载一次，并发展开共享同一请求。
+const lazyOptions = createLazyOptionsLoader()
+const ensureSearchOptionsLoadedWhenShown = (show: boolean, config: SearchConfig) => {
+  if (!show) return
+  lazyOptions.ensure(config as LazyOptionsConfig).catch((error) => {
+    logger.error({ 'Error loading search options:': error, key: config.key })
+  })
 }
 
-const handleSelectChange = () => {
-  handleSearch()
+const filterSelectOption = (pattern: string, option: SelectOption) => {
+  const label = typeof option.label === 'string' ? option.label : ''
+  return label.includes(pattern)
 }
+
+// ---- 行点击 ----
+const INTERACTIVE_ROW_TARGETS = [
+  'button',
+  'a',
+  'input',
+  'textarea',
+  'select',
+  '[role="button"]',
+  '[role="checkbox"]',
+  '.n-checkbox',
+  '.n-button',
+  '.n-dropdown',
+  '.n-select',
+  '.n-tree-select'
+].join(',')
+
+const isInteractiveRowClickTarget = (event: MouseEvent) => {
+  const target = event.target
+  return target instanceof HTMLElement && Boolean(target.closest(INTERACTIVE_ROW_TARGETS))
+}
+
+const rowProps = (row: DeviceItem) => {
+  const onRowClick = props.rowClick
+  if (!onRowClick) return {}
+  return {
+    style: 'cursor: pointer;',
+    onClick: (event: MouseEvent) => {
+      if (!isInteractiveRowClickTarget(event)) onRowClick(row)
+    }
+  }
+}
+
+onMounted(() => {
+  getData()
+})
 
 onUnmounted(() => {
   debouncedInputSearch.cancel()
 })
 
-// 修复 NSelect 的 filter 函数类型错误
-const filterSelectOption = (pattern: string, option: any) => {
-  const label = typeof option.label === 'string' ? option.label : ''
-  return label.includes(pattern)
+// ---- 卡片视图辅助 ----
+const deviceTypeIcons: Record<string, string> = {
+  '1': 'direct', // 直连设备
+  '2': 'gateway', // 网关
+  '3': 'subdevice', // 网关子设备
+  default: 'defaultdevice'
 }
 
-// AdvancedListLayout 事件处理
-const handleLayoutQuery = () => {
-  handleSearch()
-}
-
-const handleLayoutReset = () => {
-  handleReset()
-}
-
-const handleAddNew = () => {
-  // 触发新建事件，由父组件或第一个 topAction 处理
-}
-
-const handleViewChange = ({ viewType }: { viewType: string }) => {
-  // 更新当前视图类型
-  currentViewType.value = viewType
-}
-
-const handleRefresh = () => {
-  getData()
-}
-
-// 导入SvgIcon组件，使用项目标准图标系统
-import SvgIcon from '@/components/custom/svg-icon.vue'
-
-// 设备类型到图标名称的映射 (使用项目标准图标系统)
-const deviceTypeIcons = {
-  '1': 'direct', // 直连设备图标
-  '2': 'gateway', // 网关图标
-  '3': 'subdevice', // 网关子设备图标
-  default: 'defaultdevice' // 默认设备图标
-}
-
-// 获取设备图标名称的函数，针对"默认配置"使用直连设备图标
+// “默认配置”或无配置名时统一使用直连设备图标
 const getDeviceIconName = (deviceType: string, deviceConfigName?: string): string => {
-  // 当配置是默认配置时，强制使用直连设备图标
-  if (!deviceConfigName || deviceConfigName === '默认配置') {
-    return deviceTypeIcons['1'] // 直连设备图标
-  }
+  if (!deviceConfigName || deviceConfigName === '默认配置') return deviceTypeIcons['1']
   return deviceTypeIcons[deviceType] || deviceTypeIcons.default
 }
 
-// 获取配置图片URL的函数
+const platformAssetBaseUrl = getPlatformApiBaseUrl().replace('api/v1', '')
 const getConfigImageUrl = (imagePath: string | undefined): string => {
-  logger.info('imagePath:', imagePath)
-  if (!imagePath) return '' // 返回空字符串，让模板使用默认图标
-  const relativePath = imagePath.replace(/^\.?\//, '')
-  return `${platformAssetBaseUrl.value.replace('api/v1', '') + relativePath}`
+  if (!imagePath) return '' // 空字符串交给模板走默认图标
+  return platformAssetBaseUrl + imagePath.replace(/^\.?\//, '')
 }
 
-// 导入图标组件（修复图标显示问题）
-import { ListOutline, MapOutline, GridOutline as CardIcon } from '@vicons/ionicons5'
+const router = useRouter()
+// 告警铃铛：有告警跳到该设备的告警详情，否则跳到告警列表
+const handleWarningClick = (item: DeviceItem) => {
+  router.push(item.warn_status === 'Y' ? `/alarm/warning-message?device_id=${item.id}` : '/alarm/warning-message')
+}
 
-// 定义可用视图，修复图标引用
+// map 视图仅在 showMap 时出现（AdvancedListLayout 按插槽是否存在过滤可选视图）
 const availableViews = [
   { key: 'card', icon: CardIcon, label: 'common.viewCard' },
   { key: 'list', icon: ListOutline, label: 'common.viewList' },
   { key: 'map', icon: MapOutline, label: 'common.viewMap' }
 ]
-const formSize = ref(undefined)
-const router = useRouter()
-// 处理告警铃铛图标点击事件
-const handleWarningClick = (item: DeviceItem) => {
-  // 根据设备信息跳转到相应的告警页面
-  // 可以传递设备ID等参数
-  if (item.warn_status === 'Y') {
-    // 有告警时跳转到具体设备的告警详情
-    router.push(`/alarm/warning-message?device_id=${item.id}`)
-  } else {
-    // 无告警时可能跳转到告警管理页面
-    router.push('/alarm/warning-message')
-  }
-}
+const formSize = undefined
 </script>
 
 <template>
   <AdvancedListLayout
     :initial-view="'card'"
     :available-views="availableViews"
-    @query="handleLayoutQuery"
-    @reset="handleLayoutReset"
-    @add-new="handleAddNew"
-    @view-change="handleViewChange"
-    @refresh="handleRefresh"
+    @query="handleSearch()"
+    @reset="handleReset()"
+    @refresh="getData()"
   >
     <!-- 搜索表单内容 -->
     <template #search-form-content>
@@ -520,7 +426,7 @@ const handleWarningClick = (item: DeviceItem) => {
       <n-scrollbar style="height: calc(100vh - 442px)" :size="1">
         <n-spin :show="loading">
           <slot
-            v-if="!loading && dataList.length === 0 && $slots.empty"
+            v-if="isEmpty && $slots.empty"
             name="empty"
             :reset="handleReset"
             :search-criteria="searchCriteria"
@@ -584,7 +490,7 @@ const handleWarningClick = (item: DeviceItem) => {
     <template #list-view>
       <n-scrollbar style="height: calc(100vh - 442px)" :size="1">
         <slot
-          v-if="!loading && dataList.length === 0 && $slots.empty"
+          v-if="isEmpty && $slots.empty"
           name="empty"
           :reset="handleReset"
           :search-criteria="searchCriteria"
@@ -609,19 +515,15 @@ const handleWarningClick = (item: DeviceItem) => {
     </template>
 
     <!-- 地图视图 -->
-    <template #map-view>
-      <n-spin :show="loading">
-        <slot
-          v-if="!loading && dataList.length === 0 && $slots.empty"
-          name="empty"
-          :reset="handleReset"
-          :search-criteria="searchCriteria"
-          :total="total"
-        />
-        <div v-else class="map-view-container">
-          <TencentMap :devices="dataList" />
-        </div>
-      </n-spin>
+    <!-- 不提供该插槽时 AdvancedListLayout 会自动隐藏地图视图入口 -->
+    <template v-if="showMap" #map-view>
+      <slot name="map-view" :rows="dataList" :loading="loading">
+        <DataTableMapView :devices="dataList" :loading="loading" :show-empty="isEmpty && !!$slots.empty">
+          <template #empty>
+            <slot name="empty" :reset="handleReset" :search-criteria="searchCriteria" :total="total" />
+          </template>
+        </DataTableMapView>
+      </slot>
     </template>
 
     <!-- 底部分页 -->
@@ -681,10 +583,5 @@ const handleWarningClick = (item: DeviceItem) => {
   height: 100%;
   object-fit: cover;
   object-position: center;
-}
-
-.map-view-container {
-  height: calc(100vh - 442px);
-  min-height: 360px;
 }
 </style>

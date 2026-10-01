@@ -9,7 +9,7 @@
  * overwrite a fast page-2 reply, and loading only turns off for the latest request.
  */
 import { computed, getCurrentScope, onScopeDispose, reactive, ref, shallowRef, toRef } from 'vue'
-import type { Ref } from 'vue'
+import type { Ref, VNodeChild } from 'vue'
 import type { PaginationProps } from 'naive-ui'
 
 export type ListRowKey = string | number
@@ -314,3 +314,106 @@ export function useListPage<Row, Params extends Record<string, any> = Record<str
 export type ListPage<Row, Params extends Record<string, any> = Record<string, any>> = ReturnType<
   typeof useListPage<Row, Params>
 >
+
+/* ------------------------------------------------------------------------------------------------
+ * Search-form + table helpers shared by the generic <data-table-page> wrapper and pages that
+ * rebuilt its surface on top of useListPage. Pure (no component instance), so they are unit-tested
+ * directly instead of through a full naive-ui mount.
+ * ---------------------------------------------------------------------------------------------- */
+
+/** Reset value per control type: date-range -> [], tree-select -> []/null, select -> null, else ''. */
+export function emptySearchValue(config: { type: string; multiple?: boolean }): unknown {
+  if (config.type === 'date-range') return []
+  if (config.type === 'tree-select') return config.multiple ? [] : null
+  if (config.type === 'select') return null
+  return ''
+}
+
+export interface LazyOptionsConfig<Option = unknown> {
+  key: string
+  type: string
+  options?: Option[]
+  /** select loaders receive the (empty) search pattern; tree-select loaders take no args. */
+  loadOptions?: (pattern?: string) => Promise<Option[]>
+}
+
+/**
+ * Single-flight, load-once option loader keyed by config.key. Concurrent `ensure` calls for the
+ * same key share one request; a failed load is not marked loaded, so the next open retries.
+ * Loaded options are appended to `config.options` in place (the config object is owned by the
+ * parent page and read by the select control).
+ */
+export function createLazyOptionsLoader() {
+  const loaded = new Set<string>()
+  const pending = new Map<string, Promise<void>>()
+
+  async function ensure<Option>(config: LazyOptionsConfig<Option> | null | undefined): Promise<void> {
+    if (!config?.loadOptions || loaded.has(config.key)) return
+    const inflight = pending.get(config.key)
+    if (inflight) return inflight
+
+    const loader = config.loadOptions
+    const load = (async () => {
+      const opts = config.type === 'select' ? await loader('') : await loader()
+      config.options = [...(config.options ?? []), ...(opts ?? [])]
+      loaded.add(config.key)
+    })().finally(() => {
+      pending.delete(config.key)
+    })
+    pending.set(config.key, load)
+    return load
+  }
+
+  return { ensure, isLoaded: (key: string) => loaded.has(key) }
+}
+
+export type ListColumnLabel = string | (() => string) | undefined
+
+export interface ListColumnSpec<Row> {
+  key: string
+  label?: ListColumnLabel
+  /** Custom cell renderer; receives the row (legacy callers declare it with no parameters). */
+  render?: (row: Row) => VNodeChild
+  /** Any extra naive-ui column props (width, ellipsis, fixed…) pass through untouched. */
+  [prop: string]: unknown
+}
+
+export interface ListBaseColumn<Row> {
+  key: string
+  title?: ListColumnLabel
+  render: (row: Row) => VNodeChild
+  [prop: string]: unknown
+}
+
+export type ListSelectionColumn = { type: 'selection'; fixed: 'left' }
+export type ListTableColumn<Row> = ListBaseColumn<Row> | ListSelectionColumn
+
+/**
+ * Build the table column array once per column-spec change. Row-level formatting happens inside
+ * the returned `render` callbacks, so callers must NOT key this on row data (a status push that
+ * mutates a cell re-renders that cell only, instead of rebuilding every column + closure).
+ */
+export function buildTableColumns<Row>(
+  specs: readonly ListColumnSpec<Row>[],
+  options: { selectable?: boolean; renderCell: (row: Row, key: string) => VNodeChild }
+): ListTableColumn<Row>[] {
+  const columns: ListTableColumn<Row>[] = specs.map((spec) => {
+    const { label, render, ...rest } = spec
+    const custom = render
+    return {
+      ...rest,
+      title: label,
+      key: spec.key,
+      render: custom ? (row: Row) => custom(row) : (row: Row) => options.renderCell(row, spec.key)
+    }
+  })
+  return options.selectable ? [{ type: 'selection', fixed: 'left' }, ...columns] : columns
+}
+
+/**
+ * Stable signature of a row's own keys, used by `columnsToShow: 'all'`: columns follow the
+ * first row's shape and only rebuild when that shape changes, not on every data refresh.
+ */
+export function rowKeySignature(row: unknown): string {
+  return row && typeof row === 'object' ? Object.keys(row).join('\u0000') : ''
+}

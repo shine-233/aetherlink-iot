@@ -1,6 +1,16 @@
-import { effectScope, nextTick } from 'vue'
+import { computed, effectScope, nextTick, ref } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
-import { fromFlatResponse, normalizeListResponse, serializeDates, useListPage } from '../useListPage'
+import {
+  buildTableColumns,
+  createLazyOptionsLoader,
+  emptySearchValue,
+  fromFlatResponse,
+  normalizeListResponse,
+  rowKeySignature,
+  serializeDates,
+  useListPage
+} from '../useListPage'
+import type { ListBaseColumn, ListColumnSpec } from '../useListPage'
 
 type Row = { id: string }
 
@@ -172,5 +182,144 @@ describe('useListPage', () => {
       b: [d.toISOString()],
       c: 'x'
     })
+  })
+})
+
+describe('emptySearchValue', () => {
+  it('resets per control type', () => {
+    expect(emptySearchValue({ type: 'date-range' })).toEqual([])
+    expect(emptySearchValue({ type: 'tree-select', multiple: true })).toEqual([])
+    expect(emptySearchValue({ type: 'tree-select', multiple: false })).toBeNull()
+    expect(emptySearchValue({ type: 'select' })).toBeNull()
+    expect(emptySearchValue({ type: 'input' })).toBe('')
+    expect(emptySearchValue({ type: 'date' })).toBe('')
+  })
+})
+
+describe('createLazyOptionsLoader', () => {
+  it('loads once, shares the in-flight request and appends to existing options', async () => {
+    const gate = deferred<{ label: string; value: number }[]>()
+    const loadOptions = vi.fn(() => gate.promise)
+    const config = { key: 'k', type: 'select', options: [{ label: 'pre', value: 0 }], loadOptions }
+    const loader = createLazyOptionsLoader()
+
+    const a = loader.ensure(config)
+    const b = loader.ensure(config)
+    expect(loadOptions).toHaveBeenCalledTimes(1)
+    // select loaders receive the empty search pattern
+    expect(loadOptions).toHaveBeenCalledWith('')
+    gate.resolve([{ label: 'x', value: 1 }])
+    await Promise.all([a, b])
+
+    expect(config.options).toEqual([
+      { label: 'pre', value: 0 },
+      { label: 'x', value: 1 }
+    ])
+    expect(loader.isLoaded('k')).toBe(true)
+    await loader.ensure(config)
+    expect(loadOptions).toHaveBeenCalledTimes(1)
+  })
+
+  it('calls tree-select loaders without args and retries after a failure', async () => {
+    const loadOptions = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockResolvedValueOnce([{ key: 't', label: 'T' }])
+    const config: { key: string; type: string; options?: unknown[]; loadOptions: typeof loadOptions } = {
+      key: 'tree',
+      type: 'tree-select',
+      loadOptions
+    }
+    const loader = createLazyOptionsLoader()
+
+    await expect(loader.ensure(config)).rejects.toThrow('boom')
+    expect(loader.isLoaded('tree')).toBe(false)
+    expect(loadOptions.mock.calls[0]).toEqual([])
+
+    await loader.ensure(config)
+    expect(config.options).toEqual([{ key: 't', label: 'T' }])
+    expect(loadOptions).toHaveBeenCalledTimes(2)
+  })
+
+  it('ignores configs without a loader', async () => {
+    const loader = createLazyOptionsLoader()
+    await expect(loader.ensure({ key: 'plain', type: 'input' })).resolves.toBeUndefined()
+    await expect(loader.ensure(undefined)).resolves.toBeUndefined()
+  })
+})
+
+describe('buildTableColumns', () => {
+  type DevRow = { id: string; name: string; ts: string | null }
+  const asBase = (col: unknown) => col as ListBaseColumn<DevRow>
+
+  it('maps label -> title, passes extra column props through and uses renderCell by default', () => {
+    const renderCell = vi.fn((row: DevRow, key: string) => `${key}:${(row as Record<string, unknown>)[key]}`)
+    const cols = buildTableColumns<DevRow>([{ key: 'name', label: 'Name', width: 120, ellipsis: true }], {
+      renderCell
+    })
+    expect(cols).toHaveLength(1)
+    const col = asBase(cols[0])
+    expect(col).toMatchObject({ key: 'name', title: 'Name', width: 120, ellipsis: true })
+    expect(col).not.toHaveProperty('label')
+    expect(col.render({ id: '1', name: 'dev', ts: null })).toBe('name:dev')
+    expect(renderCell).toHaveBeenCalledWith({ id: '1', name: 'dev', ts: null }, 'name')
+  })
+
+  it('prefers a custom render and prepends a selection column when selectable', () => {
+    const renderCell = vi.fn()
+    const custom = vi.fn((row: DevRow) => `custom-${row.id}`)
+    const cols = buildTableColumns<DevRow>([{ key: 'id', label: () => 'ID', render: custom }], {
+      selectable: true,
+      renderCell
+    })
+    expect(cols[0]).toEqual({ type: 'selection', fixed: 'left' })
+    expect(asBase(cols[1]).render({ id: '7', name: '', ts: null })).toBe('custom-7')
+    expect(renderCell).not.toHaveBeenCalled()
+  })
+
+  it('is not rebuilt by row-data changes when keyed on specs only (perf contract)', async () => {
+    const rows = ref<DevRow[]>([{ id: '1', name: 'a', ts: null }])
+    const specs = ref<ListColumnSpec<DevRow>[]>([{ key: 'name', label: 'Name' }])
+    const build = vi.fn(() =>
+      buildTableColumns(specs.value, { renderCell: (row, key) => (row as Record<string, unknown>)[key] as string })
+    )
+    const columns = computed(build)
+
+    const first = columns.value
+    expect(build).toHaveBeenCalledTimes(1)
+
+    // in-place status push + a full page refresh: columns stay the same array instance
+    rows.value[0].name = 'b'
+    rows.value = [{ id: '2', name: 'c', ts: null }]
+    await nextTick()
+    expect(columns.value).toBe(first)
+    expect(build).toHaveBeenCalledTimes(1)
+    // ...and the render callback still reads the live row value
+    expect(asBase(first[0]).render(rows.value[0])).toBe('c')
+
+    specs.value = [...specs.value, { key: 'id', label: 'ID' }]
+    expect(columns.value).toHaveLength(2)
+    expect(build).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('rowKeySignature', () => {
+  it('only changes when the row shape changes', () => {
+    const rows = ref<Record<string, unknown>[]>([{ id: 1, name: 'a' }])
+    const signature = computed(() => rowKeySignature(rows.value[0]))
+    const derived = vi.fn(() => signature.value.split('\u0000'))
+    const keys = computed(derived)
+
+    expect(keys.value).toEqual(['id', 'name'])
+    rows.value = [{ id: 2, name: 'b' }]
+    expect(keys.value).toEqual(['id', 'name'])
+    // same signature -> downstream computed is not re-evaluated
+    expect(derived).toHaveBeenCalledTimes(1)
+
+    rows.value = [{ id: 3, name: 'c', ts: 'x' }]
+    expect(keys.value).toEqual(['id', 'name', 'ts'])
+    expect(derived).toHaveBeenCalledTimes(2)
+    expect(rowKeySignature(undefined)).toBe('')
+    expect(rowKeySignature(null)).toBe('')
   })
 })
