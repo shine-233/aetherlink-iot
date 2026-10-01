@@ -367,7 +367,7 @@ func (*RuleChain) OnTelemetry(device model.Device, values map[string]any) {
 			Timestamp:    time.Now().UnixMilli(),
 		}
 		for _, execErr := range ExecuteRuleChainGraphForTrigger(ctx, graph, rcc, values, RuleChainTriggerTelemetry) {
-			logrus.WithField("chain", graph.Nodes[0].ID).Warn(execErr)
+			logrus.WithField("chain", utils.SanitizeForLog(graph.Nodes[0].ID)).Warn(utils.SanitizeForLog(execErr.Error()))
 		}
 	}
 }
@@ -403,7 +403,7 @@ func (*RuleChain) OnDeviceOnline(device model.Device) {
 			Timestamp:    time.Now().UnixMilli(),
 		}
 		for _, execErr := range ExecuteRuleChainGraphForTrigger(ctx, graph, rcc, values, RuleChainTriggerOnline) {
-			logrus.Warn(execErr)
+			logrus.Warn(utils.SanitizeForLog(execErr.Error()))
 		}
 	}
 }

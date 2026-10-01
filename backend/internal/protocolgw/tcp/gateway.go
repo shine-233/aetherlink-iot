@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"aetherlink-iot/backend/internal/protocolgw"
+	"aetherlink-iot/backend/pkg/utils"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -220,7 +221,7 @@ func (g *Gateway) handleConn(conn net.Conn) {
 		if n > 0 {
 			frames, ferr := acc.Feed(buf[:n])
 			if ferr != nil {
-				g.log.WithFields(logrus.Fields{"remote": remote, "error": ferr}).
+				g.log.WithFields(logrus.Fields{"remote": utils.SanitizeForLog(remote), "error": utils.SanitizeForLog(ferr.Error())}).
 					Warn("tcp gateway: 帧违规，断开连接")
 				return
 			}
@@ -228,7 +229,7 @@ func (g *Gateway) handleConn(conn net.Conn) {
 				if sess == nil {
 					s, regErr := g.registerConn(conn, remote, frame)
 					if regErr != nil {
-						g.log.WithFields(logrus.Fields{"remote": remote, "error": regErr}).
+						g.log.WithFields(logrus.Fields{"remote": utils.SanitizeForLog(remote), "error": utils.SanitizeForLog(regErr.Error())}).
 							Warn("tcp gateway: 注册被拒，断开连接")
 						g.rejected.Add(1)
 						return
@@ -280,7 +281,7 @@ func (g *Gateway) registerConn(conn net.Conn, remote string, frame []byte) (*ses
 		connectedAt: time.Now(),
 	}
 	if old := g.registry.Register(s); old != nil {
-		g.log.WithField("device_number", number).Warn("tcp gateway: 同号新会话顶替旧连接")
+		g.log.WithField("device_number", utils.SanitizeForLog(number)).Warn("tcp gateway: 同号新会话顶替旧连接")
 		_ = old.conn.Close() // 旧连接读循环感知关闭后自行去注册（身份校验防误删新会话）
 	}
 	return s, nil

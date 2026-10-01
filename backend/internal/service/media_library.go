@@ -50,7 +50,7 @@ type MediaUploadRegistration struct {
 // 返回 (nil, nil) 表示因无法归属租户而跳过登记（不阻断上传主流程）。
 func (*MediaLibraryService) RegisterMediaUpload(ctx context.Context, params MediaUploadRegistration, claims *utils.UserClaims) (*model.MediaFile, error) {
 	if claims == nil || strings.TrimSpace(claims.TenantID) == "" {
-		logrus.Warnf("media upload registration skipped: no tenant in claims, file=%s", params.FilePath)
+		logrus.Warnf("media upload registration skipped: no tenant in claims, file=%s", utils.SanitizeForLog(params.FilePath))
 		return nil, nil
 	}
 	if strings.TrimSpace(params.FilePath) == "" {

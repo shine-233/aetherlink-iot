@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"aetherlink-iot/backend/pkg/errcode"
+	"aetherlink-iot/backend/pkg/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -97,16 +98,18 @@ func containsDatabaseDetail(message string) bool {
 }
 
 // logDatabaseError 把原始错误原文记到服务端日志（不返回客户端），带请求上下文。
+// 所有字段值与错误文本经 SanitizeForLog 净化：URL.Path 可携带外部可控内容，
+// 直接落日志可被 CRLF 伪造日志行（CodeQL go/log-injection）。
 func logDatabaseError(c *gin.Context, err error) {
-	fields := logrus.Fields{"request_id": c.GetString("X-Request-ID")}
+	fields := logrus.Fields{"request_id": utils.SanitizeForLog(c.GetString("X-Request-ID"))}
 	if c.Request != nil {
-		fields["method"] = c.Request.Method
-		fields["path"] = c.Request.URL.Path
+		fields["method"] = utils.SanitizeForLog(c.Request.Method)
+		fields["path"] = utils.SanitizeForLog(c.Request.URL.Path)
 	}
 	if route := c.FullPath(); route != "" {
-		fields["route"] = route
+		fields["route"] = utils.SanitizeForLog(route)
 	}
-	logrus.WithError(err).WithFields(fields).Error("database error sanitized before reaching the client")
+	logrus.WithError(errors.New(utils.SanitizeForLog(err.Error()))).WithFields(fields).Error("database error sanitized before reaching the client")
 }
 
 // systemErrorFor 把任意错误收敛成可安全返回客户端的 *errcode.Error：

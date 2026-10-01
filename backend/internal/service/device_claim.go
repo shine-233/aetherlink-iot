@@ -172,7 +172,7 @@ func (*DeviceClaim) RevokeClaimToken(_ context.Context, tokenID string, claims *
 	}
 	logrus.WithFields(logrus.Fields{
 		"module": "device_claim", "action": "revoke",
-		"tenant_id": claims.TenantID, "token_id": tokenID,
+		"tenant_id": utils.SanitizeForLog(claims.TenantID), "token_id": utils.SanitizeForLog(tokenID),
 		"audit_message": "device claim token revoked",
 	}).Info("device claim token revoked")
 	return nil

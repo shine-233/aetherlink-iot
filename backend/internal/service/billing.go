@@ -10,6 +10,7 @@ import (
 	"aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/internal/quota"
 	"aetherlink-iot/backend/pkg/errcode"
+	"aetherlink-iot/backend/pkg/utils"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -154,7 +155,7 @@ func (s *BillingService) GetTenantAPIQuota(ctx context.Context, tenantID string)
 	// 2. 今日已用调用数（Redis 权威值 / 进程镜像 / DB 快照三级回落；失败按 0 展示）
 	used, usageDate, err := quota.Default().TodayUsage(ctx, tenantID)
 	if err != nil {
-		logrus.WithError(err).Warnf("billing: read today api usage failed for tenant %s, report 0", tenantID)
+		logrus.WithError(err).Warnf("billing: read today api usage failed for tenant %s, report 0", utils.SanitizeForLog(tenantID))
 		usageDate = quota.UsageDate(time.Now())
 	}
 
@@ -168,10 +169,10 @@ func (s *BillingService) GetTenantAPIQuota(ctx context.Context, tenantID string)
 	// 传输计数键内嵌的计量日与 API 维度同取当日 UTC（同一判定时刻），无需单独展示。
 	transportUsed, _, tUsageErr := quota.ReadTransportDailyUsage(ctx, tenantID)
 	if tLimitErr != nil {
-		logrus.WithError(tLimitErr).Warnf("billing: read transport limit cache failed for tenant %s, report unlimited", tenantID)
+		logrus.WithError(tLimitErr).Warnf("billing: read transport limit cache failed for tenant %s, report unlimited", utils.SanitizeForLog(tenantID))
 	}
 	if tUsageErr != nil {
-		logrus.WithError(tUsageErr).Warnf("billing: read transport daily usage failed for tenant %s, report 0", tenantID)
+		logrus.WithError(tUsageErr).Warnf("billing: read transport daily usage failed for tenant %s, report 0", utils.SanitizeForLog(tenantID))
 	}
 	transportDecision := quota.DecideDailyQuota(transportLimit, transportUsed, time.Now())
 

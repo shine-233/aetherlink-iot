@@ -162,7 +162,7 @@ func removeSavedUploadFile(uploadDir, fileName string) {
 	}
 	relativePath, err := filepath.Rel(absBaseDir, absFullPath)
 	if err != nil || relativePath == ".." || strings.HasPrefix(relativePath, ".."+string(os.PathSeparator)) || filepath.IsAbs(relativePath) {
-		logrus.Errorf("cleanup upload path escapes base directory: %s", fullPath)
+		logrus.Errorf("cleanup upload path escapes base directory: %s", utils.SanitizeForLog(fullPath))
 		return
 	}
 	root, err := os.OpenRoot(absBaseDir)

@@ -17,6 +17,7 @@ import (
 
 	"aetherlink-iot/backend/internal/adapter/mqttadapter"
 	"aetherlink-iot/backend/internal/protocolgw"
+	"aetherlink-iot/backend/pkg/utils"
 
 	"github.com/sirupsen/logrus"
 )
@@ -114,12 +115,12 @@ func (g *Ingestor) ingest(number string, identity *protocolgw.DeviceIdentity, pa
 	var obj map[string]interface{}
 	if err := json.Unmarshal(payload, &obj); err != nil || obj == nil {
 		g.dropped.Add(1)
-		g.log.WithField("device_number", number).Warn("tcp 遥测丢弃：payload 不是 JSON 对象")
+		g.log.WithField("device_number", utils.SanitizeForLog(number)).Warn("tcp 遥测丢弃：payload 不是 JSON 对象")
 		return
 	}
 	if len(obj) == 0 {
 		g.dropped.Add(1)
-		g.log.WithField("device_number", number).Warn("tcp 遥测丢弃：空对象")
+		g.log.WithField("device_number", utils.SanitizeForLog(number)).Warn("tcp 遥测丢弃：空对象")
 		return
 	}
 	msg := &mqttadapter.UplinkMessage{
