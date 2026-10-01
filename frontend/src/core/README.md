@@ -5,7 +5,6 @@
 ## 文件夹定位
 
 - `data-architecture/`：可视化编辑器的数据源、交互、导入导出和运行时配置逻辑。
-- `interaction-system/`：交互卡片、向导和运行时交互模型。
 - `script-engine/`：脚本编辑、执行和辅助能力。
 
 ## 维护关系

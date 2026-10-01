@@ -42,7 +42,6 @@ pnpm build
 封装脚本引擎、交互系统、数据架构等核心能力。这里既有高复用价值，也有较强的兼容敏感性，尤其是：
 
 - `src/core/data-architecture/`
-- `src/core/interaction-system/`
 - `src/core/script-engine/`
 
 修改这些目录前，应先确认 README、导出边界和配置兼容要求。

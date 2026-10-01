@@ -18,7 +18,7 @@
 - `main.ts` 负责挂载 Vue、插件、路由、状态、样式和应用级 provider。
 - `router/` 与 `service/api/` 共同构成 UI 流程和后端接口之间的主合同。
 - `components/thingsvis/` 将嵌入式 ThingsVis 大屏与平台设备、告警、遥测 API 连接起来。
-- `core/data-architecture/` 和 `core/interaction-system/` 包含可视化编辑器配置逻辑，重构前必须先补合同说明和 focused tests。
+- `core/data-architecture/` 包含可视化编辑器配置逻辑，重构前必须先补合同说明和 focused tests。
 
 ## 审查与重构建议
 
