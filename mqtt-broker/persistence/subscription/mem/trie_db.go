@@ -344,12 +344,3 @@ func (db *TrieDB) UnsubscribeAll(clientID string) error {
 	db.UnsubscribeAllLocked(clientID)
 	return nil
 }
-
-// getMatchedTopicFilter return a map key by clientID that contain all matched topic for the given topicName.
-func (db *TrieDB) getMatchedTopicFilter(topicName string) subscription.ClientSubscriptions {
-	// system topic
-	if isSystemTopic(topicName) {
-		return db.systemTrie.getMatchedTopicFilter(topicName)
-	}
-	return db.userTrie.getMatchedTopicFilter(topicName)
-}

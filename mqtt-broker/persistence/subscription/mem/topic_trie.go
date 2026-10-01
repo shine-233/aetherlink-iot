@@ -120,18 +120,6 @@ func (t *topicTrie) unsubscribe(clientID string, topicName string, shareName str
 
 }
 
-// getMatchedTopicFilter return a map key by clientID that contain all matched topic for the given topicName.
-// 热路径（投递）已改用 matchWalk 直接回调；此函数保留给需要聚合结果的调用方与测试。
-func (t *topicTrie) getMatchedTopicFilter(topicName string) subscription.ClientSubscriptions {
-	subs := make(subscription.ClientSubscriptions)
-	e := matchEmitter{fn: func(clientID string, sub *gmqtt.Subscription) bool {
-		subs[clientID] = append(subs[clientID], sub)
-		return true
-	}}
-	t.matchWalk(topicName, &e)
-	return subs
-}
-
 func isSystemTopic(topicName string) bool {
 	return len(topicName) >= 1 && topicName[0] == '$'
 }
