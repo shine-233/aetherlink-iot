@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"strconv"
 	"time"
 
 	"github.com/pkg/errors"
@@ -21,18 +20,6 @@ func CheckEmpty(str string) bool {
 	return str == constant.EMPTY
 }
 
-// GetMessageID 基于当前 Unix 时间戳后七位生成消息ID
-func GetMessageID() string {
-	// 获取当前Unix时间戳
-	timestamp := time.Now().Unix()
-	// 将时间戳转换为字符串
-	timestampStr := strconv.FormatInt(timestamp, 10)
-	// 截取后七位
-	messageID := timestampStr[len(timestampStr)-7:]
-
-	return messageID
-}
-
 // JsonToString 将任意值序列化为 JSON 字符串
 func JsonToString(any any) (string, error) {
 	data, err := json.Marshal(any)
@@ -40,11 +27,6 @@ func JsonToString(any any) (string, error) {
 		return "", err
 	}
 	return string(data), nil
-}
-
-// GetErrors 为已有错误附加描述信息
-func GetErrors(err error, message string) error {
-	return errors.WithMessage(err, message)
 }
 
 // GetResponsePayload 构造 MQTT 主题响应内容
@@ -71,11 +53,6 @@ func GetResponsePayload(method string, err error) []byte {
 	}
 	res, _ := json.Marshal(data)
 	return res
-}
-
-// StringSpt 返回字符串的指针
-func StringSpt(str string) *string {
-	return &str
 }
 
 // IsStringEmpty 判断字符串指针是否为空或指向空字符串

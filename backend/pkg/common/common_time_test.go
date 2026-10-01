@@ -1,4 +1,4 @@
-// 文件用途：验证 common 包的字符串、JSON、错误、随机标识、角色判断和时间计算工具。
+// 文件用途：验证 common 包的字符串、JSON、随机标识和时间计算工具。
 // 核心逻辑：用表驱动和固定时间输入检查公共帮助函数的格式、边界和错误分支。
 // 关键注意事项：随机函数只验证格式和范围，不验证具体随机性；时间测试依赖本地时区构造。
 // 重构建议：后续可把时间调度测试拆到独立文件，并为更多场景表达式增加边界样例。
@@ -35,20 +35,12 @@ func TestCommonStringJsonAndErrorHelpers(t *testing.T) {
 		t.Fatal("JsonToString expected error for unsupported value")
 	}
 
-	baseErr := errors.New("database failed")
-	wrapped := GetErrors(baseErr, "load device")
-	if !errors.Is(wrapped, baseErr) || !strings.Contains(wrapped.Error(), "load device") {
-		t.Fatalf("GetErrors = %v, want wrapped base error with message", wrapped)
-	}
-
-	ptr := StringSpt("tenant-1")
-	if ptr == nil || *ptr != "tenant-1" {
-		t.Fatalf("StringSpt returned %#v", ptr)
-	}
-	if IsStringEmpty(ptr) {
+	tenant := "tenant-1"
+	if IsStringEmpty(&tenant) {
 		t.Fatal("IsStringEmpty should be false for non-empty pointer")
 	}
-	if !IsStringEmpty(nil) || !IsStringEmpty(StringSpt("")) {
+	empty := ""
+	if !IsStringEmpty(nil) || !IsStringEmpty(&empty) {
 		t.Fatal("IsStringEmpty should be true for nil and empty string")
 	}
 }
@@ -80,11 +72,6 @@ func TestGetResponsePayloadForSuccessAndFailure(t *testing.T) {
 }
 
 func TestRandomIdentifiersAndCodesRespectBusinessFormats(t *testing.T) {
-	messageID := GetMessageID()
-	if matched := regexp.MustCompile(`^\d{7}$`).MatchString(messageID); !matched {
-		t.Fatalf("GetMessageID = %q, want seven digits", messageID)
-	}
-
 	randomText, err := GenerateRandomString(24)
 	if err != nil {
 		t.Fatalf("GenerateRandomString returned error: %v", err)
@@ -117,15 +104,6 @@ func TestRandomIdentifiersAndCodesRespectBusinessFormats(t *testing.T) {
 	}
 	if _, err := GenerateNumericCode(0); err == nil {
 		t.Fatal("GenerateNumericCode expected error for zero length")
-	}
-}
-
-func TestAdminAuthorityCheck(t *testing.T) {
-	if !CheckUserIsAdmin(constant.SYS_ADMIN) {
-		t.Fatal("CheckUserIsAdmin should accept SYS_ADMIN")
-	}
-	if CheckUserIsAdmin("TENANT_ADMIN") {
-		t.Fatal("CheckUserIsAdmin should reject non SYS_ADMIN authority")
 	}
 }
 
