@@ -72,22 +72,9 @@ func (*DeviceModelApi) CreateDeviceModelCommands(c *gin.Context) {
 // 静态审查建议：what 使用字符串分发，后续可考虑收敛成更显式的枚举或常量，降低拼写错误带来的运行时问题。
 func (*DeviceModelApi) DeleteDeviceModelGeneral(c *gin.Context) {
 	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
-		var what string
-
-		// 通过URI判断来自哪个接口
-		uri := c.Request.RequestURI
-		if strings.Contains(uri, "telemetry") {
-			what = model.DEVICE_MODEL_TELEMETRY
-		} else if strings.Contains(uri, "attributes") {
-			what = model.DEVICE_MODEL_ATTRIBUTES
-		} else if strings.Contains(uri, "events") {
-			what = model.DEVICE_MODEL_EVENTS
-		} else if strings.Contains(uri, "commands") {
-			what = model.DEVICE_MODEL_COMMANDS
-		} else {
-			return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-				"param_err": "url param is not a valid JSON",
-			})
+		what, err := deviceModelKindFromURI(c.Request.RequestURI, model.DEVICE_MODEL_TELEMETRY, model.DEVICE_MODEL_ATTRIBUTES, model.DEVICE_MODEL_EVENTS, model.DEVICE_MODEL_COMMANDS)
+		if err != nil {
+			return nil, err
 		}
 		if err := service.GroupApp.DeviceModel.DeleteDeviceModelGeneral(id, what, userClaims); err != nil {
 			return nil, err
@@ -102,18 +89,9 @@ func (*DeviceModelApi) DeleteDeviceModelGeneral(c *gin.Context) {
 // /api/v1/device/model/telemetry  [put]
 func (*DeviceModelApi) UpdateDeviceModelGeneral(c *gin.Context) {
 	Handle(c, func(req *model.UpdateDeviceModelReq, userClaims *utils.UserClaims) (interface{}, error) {
-		var what string
-
-		// 通过URI判断来自哪个接口
-		uri := c.Request.RequestURI
-		if strings.Contains(uri, "telemetry") {
-			what = model.DEVICE_MODEL_TELEMETRY
-		} else if strings.Contains(uri, "attributes") {
-			what = model.DEVICE_MODEL_ATTRIBUTES
-		} else {
-			return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-				"param_err": "url param is not a valid JSON",
-			})
+		what, err := deviceModelKindFromURI(c.Request.RequestURI, model.DEVICE_MODEL_TELEMETRY, model.DEVICE_MODEL_ATTRIBUTES)
+		if err != nil {
+			return nil, err
 		}
 
 		return service.GroupApp.DeviceModel.UpdateDeviceModelGeneral(*req, what, userClaims)
@@ -125,19 +103,9 @@ func (*DeviceModelApi) UpdateDeviceModelGeneral(c *gin.Context) {
 // 静态审查建议：V1/V2 同时存在时，建议持续记录各自适配的页面与设备协议来源，避免调用方误走旧接口。
 func (*DeviceModelApi) UpdateDeviceModelGeneralV2(c *gin.Context) {
 	Handle(c, func(req *model.UpdateDeviceModelV2Req, userClaims *utils.UserClaims) (interface{}, error) {
-		var what string
-
-		// 通过URI判断来自哪个接口
-		uri := c.Request.RequestURI
-
-		if strings.Contains(uri, "events") {
-			what = model.DEVICE_MODEL_EVENTS
-		} else if strings.Contains(uri, "commands") {
-			what = model.DEVICE_MODEL_COMMANDS
-		} else {
-			return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-				"param_err": "url param is not a valid JSON",
-			})
+		what, err := deviceModelKindFromURI(c.Request.RequestURI, model.DEVICE_MODEL_EVENTS, model.DEVICE_MODEL_COMMANDS)
+		if err != nil {
+			return nil, err
 		}
 
 		return service.GroupApp.DeviceModel.UpdateDeviceModelGeneralV2(*req, what, userClaims)
@@ -150,22 +118,9 @@ func (*DeviceModelApi) UpdateDeviceModelGeneralV2(c *gin.Context) {
 // 链路说明：这是设备模型管理页和配置弹窗的核心读取入口，查询条件语义应保持与前端筛选字段一致。
 func (*DeviceModelApi) HandleDeviceModelGeneral(c *gin.Context) {
 	Handle(c, func(req *model.GetDeviceModelListByPageReq, userClaims *utils.UserClaims) (interface{}, error) {
-		var what string
-
-		// 通过URI判断来自哪个接口
-		uri := c.Request.RequestURI
-		if strings.Contains(uri, "telemetry") {
-			what = model.DEVICE_MODEL_TELEMETRY
-		} else if strings.Contains(uri, "attributes") {
-			what = model.DEVICE_MODEL_ATTRIBUTES
-		} else if strings.Contains(uri, "events") {
-			what = model.DEVICE_MODEL_EVENTS
-		} else if strings.Contains(uri, "commands") {
-			what = model.DEVICE_MODEL_COMMANDS
-		} else {
-			return nil, errcode.WithData(errcode.CodeParamError, map[string]interface{}{
-				"param_err": "url param is not a valid JSON",
-			})
+		what, err := deviceModelKindFromURI(c.Request.RequestURI, model.DEVICE_MODEL_TELEMETRY, model.DEVICE_MODEL_ATTRIBUTES, model.DEVICE_MODEL_EVENTS, model.DEVICE_MODEL_COMMANDS)
+		if err != nil {
+			return nil, err
 		}
 
 		return service.GroupApp.DeviceModel.GetDeviceModelListByPageGeneral(*req, what, userClaims)
@@ -250,4 +205,25 @@ func (*DeviceModelApi) HandleDeviceModelCustomControl(c *gin.Context) {
 	Handle(c, func(req *model.GetDeviceModelListByPageReq, userClaims *utils.UserClaims) (interface{}, error) {
 		return service.GroupApp.DeviceModel.GetDeviceModelCustomControlByPage(*req, userClaims)
 	})
+}
+
+// deviceModelKindFromURI 依请求 URI 中的路径片段判定物模型类别（telemetry/attributes/events/commands），
+// 仅在 allowed 内匹配，按 allowed 的顺序取第一个命中；均未命中返回参数错误。
+func deviceModelKindFromURI(uri string, allowed ...string) (string, error) {
+	for _, kind := range allowed {
+		if strings.Contains(uri, deviceModelKindURISegment[kind]) {
+			return kind, nil
+		}
+	}
+	return "", errcode.WithData(errcode.CodeParamError, map[string]interface{}{
+		"param_err": "url param is not a valid JSON",
+	})
+}
+
+// deviceModelKindURISegment 物模型类别到其路由路径片段的映射。
+var deviceModelKindURISegment = map[string]string{
+	model.DEVICE_MODEL_TELEMETRY:  "telemetry",
+	model.DEVICE_MODEL_ATTRIBUTES: "attributes",
+	model.DEVICE_MODEL_EVENTS:     "events",
+	model.DEVICE_MODEL_COMMANDS:   "commands",
 }
