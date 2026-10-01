@@ -48,25 +48,8 @@ func (*Device) GetDeviceListByPage(req *model.GetDeviceListByPageReq, u *utils.U
 	return deviceListRsp, err
 }
 
-func resolveDeviceListTenantScope(req *model.GetDeviceListByPageReq, claims *utils.UserClaims) (string, error) {
-	if req == nil {
-		return "", errcode.NewWithMessage(errcode.CodeParamError, "device list request is required")
-	}
-	if err := requireSystemAdminAllTenantsScope(
-		req.AllTenants,
-		claims,
-		"all-tenants device list is only available to system administrators",
-	); err != nil {
-		return "", err
-	}
-	if req.AllTenants {
-		return "", nil
-	}
-	return requireDeviceTenantClaims(claims, "no permission to query device list")
-}
-
 // resolveDeviceListScopes 返回设备列表查询的层级作用域（self∪子孙，自上而下）。
-// 与旧 resolveDeviceListTenantScope 等价守卫：AllTenants 仅系统管理员可用，非全量时要求租户 claims。
+// 守卫：AllTenants 仅系统管理员可用，非全量时要求租户 claims。
 func resolveDeviceListScopes(req *model.GetDeviceListByPageReq, claims *utils.UserClaims) ([]string, error) {
 	if req == nil {
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "device list request is required")

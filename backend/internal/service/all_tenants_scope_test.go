@@ -64,7 +64,7 @@ func TestAlarmAllTenantsEntryPointsRejectTenantRolesBeforeDAL(t *testing.T) {
 func TestDeviceAndBoardAllTenantsEntryPointsRejectTenantRolesBeforeDAL(t *testing.T) {
 	claims := &utils.UserClaims{ID: "tenant-admin", TenantID: "tenant-a", Authority: constant.TENANT_ADMIN}
 
-	_, err := resolveDeviceListTenantScope(&model.GetDeviceListByPageReq{AllTenants: true}, claims)
+	_, err := resolveDeviceListScopes(&model.GetDeviceListByPageReq{AllTenants: true}, claims)
 	assertErrcodeError(t, err, "all-tenant device list", errcode.CodeNoPermission, "all-tenants device list is only available to system administrators")
 
 	_, err = (&Board{}).GetDeviceOverview(context.Background(), &model.GetBoardDeviceReq{AllTenants: true}, claims)
