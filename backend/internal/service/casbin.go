@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	global "aetherlink-iot/backend/pkg/global"
-	utils "aetherlink-iot/backend/pkg/utils"
 
 	"github.com/sirupsen/logrus"
 )
@@ -110,32 +109,29 @@ func (*Casbin) RemoveUserAndRoleWithError(user string) (bool, error) {
 //
 //	请求路径（含真实参数值）与任一模式匹配即视为已登记。
 //
-// 背景与边界：gin 参数路由的请求路径是具体值，纯精确匹配永远无法命中参数模式，
+// 实现：走 casbin_url_index.go 的快照索引（精确集合 + 分段前缀树），每请求成本与
 //
-//	导致参数路由在旧模型下不可能被保护（审计持续报未登记）；
-//	模式枚举在内存策略上做（当前规模 ~300 模式），仅在精确未命中时触发。
+//	路径段数相关而与模式总数无关；索引在读锁内自校验，策略任何变更后自动重建。
 //	不用 casbin util.KeyMatch2：其非锚定正则会子串误命中（越权放大），
-//	统一走 utils.MatchURLPattern 锚定实现（与 Enforce 侧 urlPatternMatch 同源）。
+//	模式语义与 utils.MatchURLPattern（Enforce 侧 urlPatternMatch）同源。
+//
+// 兼容边角：旧实现精确通道用 GetFilteredNamedGroupingPolicy("g2", 0, url)，casbin 把空
+//
+//	过滤值视为通配，故 url=="" 时只要存在任一 g2 行即判定已登记（进而走 Verify，偏严方向）。
+//	此处保持该行为不变。
 func (*Casbin) GetUrl(url string) bool {
-	if global.CasbinEnforcer == nil {
+	e := global.CasbinEnforcer
+	if e == nil {
 		return false
 	}
-	stringList, err := global.CasbinEnforcer.GetFilteredNamedGroupingPolicy("g2", 0, url)
-	if err == nil && len(stringList) != 0 {
-		return true
+	idx := casbinURLIndexFor(e)
+	if idx == nil {
+		return false // 模型无 g2 定义：旧实现两次查询均报错 → false
 	}
-	// 不用 GetAllNamedSubjects：其在 NewModelFromString 构造的模型上会触发
-	// casbin 内部 GetFieldIndex 空指针（v2.135 实测）；全量行枚举等价且安全。
-	rules, err := global.CasbinEnforcer.GetNamedGroupingPolicy("g2")
-	if err != nil {
-		return false
+	if url == "" {
+		return len(idx.keys) > 0
 	}
-	for _, rule := range rules {
-		if len(rule) > 0 && utils.MatchURLPattern(url, rule[0]) {
-			return true
-		}
-	}
-	return false
+	return idx.lookup(url)
 }
 
 // 查询用户角色中是否存在某个角色

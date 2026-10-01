@@ -62,13 +62,6 @@ func deviceOwnerUserIDFilterForClaims(claims *utils.UserClaims) *string {
 	return authz.OwnerFilter(claims)
 }
 
-func deviceOwnerMatchesClaims(device *model.Device, claims *utils.UserClaims) bool {
-	if device == nil {
-		return false
-	}
-	return authz.OwnerMatches(device.OwnerUserID, claims)
-}
-
 // hasTelemetryTenantAccess is the device access predicate shared by telemetry,
 // OTA, RDI and debug paths: SYS_ADMIN; same-tenant managers; the owning
 // TENANT_USER; and, when allowSharedRead, explicit RDI share recipients (also

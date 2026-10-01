@@ -5,8 +5,6 @@
 package service
 
 import (
-	"fmt"
-
 	"aetherlink-iot/backend/internal/authz"
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
@@ -176,32 +174,6 @@ func addUserRoleBindings(userID string, roleIDs []string) error {
 	return nil
 }
 
-func replaceUserRoleBindings(userID string, roleIDs []string) ([]string, error) {
-	oldRoles, _ := GroupApp.Casbin.GetRoleFromUser(userID)
-	if _, err := GroupApp.Casbin.RemoveUserAndRoleWithError(userID); err != nil {
-		return oldRoles, errcode.WithData(errcode.CodeSystemError, map[string]interface{}{
-			"operation": "remove_user_roles",
-			"user_id":   userID,
-			"error":     err.Error(),
-		})
-	}
-
-	if err := addUserRoleBindings(userID, roleIDs); err != nil {
-		if restoreErr := restoreUserRoleBindings(userID, oldRoles); restoreErr != nil {
-			return oldRoles, fmt.Errorf("%w; restore roles failed: %v", err, restoreErr)
-		}
-		return oldRoles, err
-	}
-	return oldRoles, nil
-}
-
-func restoreUserRoleBindings(userID string, roleIDs []string) error {
-	if _, err := GroupApp.Casbin.RemoveUserAndRoleWithError(userID); err != nil {
-		return err
-	}
-	return addUserRoleBindings(userID, roleIDs)
-}
-
 func replaceUserRoleBindingsWithTx(tx *query.Query, userID string, roleIDs []string) error {
 	if _, err := tx.CasbinRule.Where(tx.CasbinRule.Ptype.Eq("g"), tx.CasbinRule.V0.Eq(userID)).Delete(); err != nil {
 		return err
@@ -236,19 +208,6 @@ func reloadCasbinPolicyAfterRoleTransaction() error {
 			"operation": "reload_user_roles",
 			"error":     err.Error(),
 		})
-	}
-	return nil
-}
-
-func cleanupCreatedUserAfterRoleBindingFailure(userID string) error {
-	if global.DB == nil {
-		return fmt.Errorf("database is not initialized")
-	}
-	if err := global.DB.Where("user_id = ?", userID).Delete(&model.UserAddress{}).Error; err != nil {
-		return err
-	}
-	if err := global.DB.Where("id = ?", userID).Delete(&model.User{}).Error; err != nil {
-		return err
 	}
 	return nil
 }

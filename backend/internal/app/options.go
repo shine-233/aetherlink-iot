@@ -49,12 +49,6 @@ func WithTestConfig() Option {
 	return WithEnvironment("test")
 }
 
-func WithRsaDecrypt(keyPath string) Option {
-	return func(app *Application) error {
-		return initialize.RsaDecryptInit(keyPath)
-	}
-}
-
 // WithOptionalRsaDecrypt enables frontend RSA password decryption only when a
 // deployment-injected private key exists. Missing optional key material keeps
 // the default local stack bootable; malformed material remains a hard error.

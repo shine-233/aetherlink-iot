@@ -181,10 +181,6 @@ func attributeEventFileSpoolFilename(identity string) string {
 	return fileSpoolFilename(identity)
 }
 
-func isAttributeEventFileSpoolTemp(name string) bool {
-	return strings.HasPrefix(name, attributeEventFileSpoolTempPrefix) && strings.HasSuffix(name, ".tmp")
-}
-
 func equalAttributeEventEnvelopes(left, right attributeEventEnvelope) bool {
 	// A trusted protocol retry reuses message_id but receives a fresh adapter
 	// timestamp. The first durable writer owns that timestamp; all other identity
