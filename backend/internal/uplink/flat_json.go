@@ -17,7 +17,31 @@ import (
 	"encoding/json"
 	"strconv"
 	"unicode/utf8"
+
+	"github.com/sirupsen/logrus"
 )
+
+// decodeJSONObjectOrRaw decodes payload into a JSON object map (flat fast path,
+// then encoding/json). Payloads that are not a JSON object are logged with
+// warnMsg and wrapped as {"_raw": <value>} so they are still stored.
+func decodeJSONObjectOrRaw(logger *logrus.Logger, deviceID string, payload []byte, warnMsg string) map[string]interface{} {
+	if dataMap, ok := decodeFlatJSONObject(payload); ok {
+		return dataMap
+	}
+	var dataMap map[string]interface{}
+	if err := json.Unmarshal(payload, &dataMap); err != nil {
+		logger.WithFields(logrus.Fields{
+			"device_id": deviceID,
+			"payload":   string(payload),
+			"error":     err,
+		}).Warn(warnMsg)
+
+		dataMap = map[string]interface{}{
+			"_raw": parseRawJSONValue(payload),
+		}
+	}
+	return dataMap
+}
 
 // decodeFlatJSONObject decodes payload when it is a flat JSON object.
 func decodeFlatJSONObject(payload []byte) (map[string]interface{}, bool) {

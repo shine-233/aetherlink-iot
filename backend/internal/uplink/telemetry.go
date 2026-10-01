@@ -162,22 +162,7 @@ func (f *TelemetryUplink) processMessage(msg *DeviceMessage) {
 
 // parseDirect implements kindHandler.
 func (f *TelemetryUplink) parseDirect(device *model.Device, payload []byte) map[string]interface{} {
-	if dataMap, ok := decodeFlatJSONObject(payload); ok {
-		return dataMap
-	}
-	var dataMap map[string]interface{}
-	if err := json.Unmarshal(payload, &dataMap); err != nil {
-		f.log().WithFields(logrus.Fields{
-			"device_id": device.ID,
-			"payload":   string(payload),
-			"error":     err,
-		}).Warn("payload is not valid JSON object, wrapping as {\"_raw\": ...}")
-
-		dataMap = map[string]interface{}{
-			"_raw": parseRawJSONValue(payload),
-		}
-	}
-	return dataMap
+	return decodeJSONObjectOrRaw(f.log(), device.ID, payload, "payload is not valid JSON object, wrapping as {\"_raw\": ...}")
 }
 
 // parseGateway implements kindHandler.
