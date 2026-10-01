@@ -731,30 +731,52 @@ func insertAttributeEnvelope(tx *gorm.DB, envelope attributeEventEnvelope) (int6
 	if err := json.Unmarshal(envelope.Payload, &points); err != nil {
 		return 0, fmt.Errorf("decode canonical attribute payload: %w", err)
 	}
-	var written int64
+	if len(points) == 0 {
+		return 0, nil
+	}
+
+	rows, err := buildAttributeEnvelopeRows(envelope, points)
+	if err != nil {
+		return 0, err
+	}
+
+	// One batched upsert for the whole envelope instead of one round trip per
+	// point: high fan-in payloads (gateways reporting dozens of attributes at
+	// once) no longer multiply DB round trips 1:1 with point count.
+	result := tx.Clauses(AttributeCurrentUpsertClause()).Create(&rows)
+	if result.Error != nil {
+		return 0, fmt.Errorf("insert attribute points (%d): %w", len(rows), result.Error)
+	}
+	return result.RowsAffected, nil
+}
+
+// buildAttributeEnvelopeRows decodes every canonical attribute point into its
+// database row before returning any of them. A decode error for any point
+// therefore rejects the whole envelope with no rows built at all, matching
+// the transactional all-or-nothing behavior insertAttributeEnvelope has
+// always had (the batched Create call below just makes that one round trip
+// instead of one per point).
+func buildAttributeEnvelopeRows(envelope attributeEventEnvelope, points []canonicalAttributePoint) ([]AttributeData, error) {
+	ts := time.UnixMilli(envelope.Timestamp)
+	rows := make([]AttributeData, len(points))
 	for index, point := range points {
 		value, err := decodeCanonicalAttributeValue(point.Value)
 		if err != nil {
-			return 0, fmt.Errorf("decode attribute point %d (%q): %w", index, point.Key, err)
+			return nil, fmt.Errorf("decode attribute point %d (%q): %w", index, point.Key, err)
 		}
 		boolV, numberV, stringV := convertValue(value)
-		row := AttributeData{
+		rows[index] = AttributeData{
 			ID:       deterministicAttributeEventRowID("attribute", envelope.Identity, point.Key),
 			DeviceID: envelope.DeviceID,
 			Key:      point.Key,
-			TS:       time.UnixMilli(envelope.Timestamp),
+			TS:       ts,
 			BoolV:    boolV,
 			NumberV:  numberV,
 			StringV:  stringV,
 			TenantID: envelope.TenantID,
 		}
-		result := tx.Clauses(AttributeCurrentUpsertClause()).Create(&row)
-		if result.Error != nil {
-			return 0, fmt.Errorf("insert attribute point %d (%q): %w", index, point.Key, result.Error)
-		}
-		written += result.RowsAffected
 	}
-	return written, nil
+	return rows, nil
 }
 
 func insertEventEnvelope(tx *gorm.DB, envelope attributeEventEnvelope) (int64, error) {
