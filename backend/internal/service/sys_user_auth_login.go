@@ -1,41 +1,38 @@
-// 文件用途：维护系统用户登录认证、密码策略和 token 签发流程。
-// 核心逻辑：校验密码复杂度、执行 bcrypt 校验，并串联登录态与用户信息返回。
-// 关键注意事项：认证失败、锁定和 token 生成错误必须 fail-closed，日志不得暴露密码或 hash。
-// 重构建议：抽出密码策略与 token 存储接口，补齐锁定、验证码、审计和异常 hash 测试。
-// sys_user_auth.go owns system user authentication behavior.
-//
-// It validates credentials, tokens, password state, and user auth boundaries.
-// Changes here affect login, API automation accounts, tenant access, and
-// security review scope.
+// 文件用途：维护系统用户登录、登出与 token 刷新/存储流程。
+// 核心逻辑：校验密码复杂度、执行 bcrypt 校验，签发 JWT 并维护 Redis 会话态（独占/共享会话）。
+// 关键注意事项：认证失败、锁定和 token 生成错误必须 fail-closed，日志不得暴露密码或 hash；
+// Redis 键统一使用 token 摘要（utils.TokenDigest），与 middleware/jwt_auth.go、
+// api/telemetry_ws_auth.go 共用同一键空间。
+// 拆分记录：原 sys_user_auth.go（619 行）按关注点拆分为 login / impersonation / register
+// 三个文件（2026-10-01），本文件承载登录态生命周期（登录、登出、刷新、token 存储）。
 package service
 
 import (
 	"context"
-	"crypto/subtle"
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
-	"aetherlink-iot/backend/pkg/common"
 	"aetherlink-iot/backend/pkg/errcode"
 
 	"github.com/redis/go-redis/v9"
-	"gorm.io/gorm"
 
 	"aetherlink-iot/backend/initialize"
-	"aetherlink-iot/backend/internal/authz"
 	dal "aetherlink-iot/backend/internal/dal"
 	"aetherlink-iot/backend/internal/logic"
 	model "aetherlink-iot/backend/internal/model"
-	"aetherlink-iot/backend/internal/query"
 	global "aetherlink-iot/backend/pkg/global"
 	utils "aetherlink-iot/backend/pkg/utils"
 
-	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+
+	"gorm.io/gorm"
 )
+
+// authRedisOpTimeout 约束认证链路 Redis 会话写删操作时长。
+// 这些历史函数未收 ctx，用短超时替代裸 Background，避免无界阻塞登录/登出。
+const authRedisOpTimeout = 3 * time.Second
 
 // @description  用户登录
 func (u *User) Login(ctx context.Context, loginReq *model.LoginReq) (*model.LoginRsp, error) {
@@ -152,10 +149,6 @@ func loginSessionTimeoutMinutes() int {
 	}
 	return timeout
 }
-
-// authRedisOpTimeout 约束认证链路 Redis 会话写删操作时长。
-// 这些历史函数未收 ctx，用短超时替代裸 Background，避免无界阻塞登录/登出。
-const authRedisOpTimeout = 3 * time.Second
 
 func saveUserLoginToken(token, email string, timeout int) error {
 	if global.REDIS == nil {
@@ -343,277 +336,4 @@ func newLoginResponse(token string, timeoutMinutes int) *model.LoginRsp {
 		Token:     &token,
 		ExpiresIn: int64(timeoutMinutes * 60),
 	}
-}
-
-// @description SuperAdmin Become Other admin
-func (*User) TransformUser(transformUserReq *model.TransformUserReq, claims *utils.UserClaims) (*model.LoginRsp, error) {
-	if transformUserReq == nil {
-		return nil, errcode.NewWithMessage(errcode.CodeParamError, "transform user request is required")
-	}
-
-	// 权限检查
-	if err := (authz.Rule{Roles: authz.ManagerRoles}).RequireClaims(claims); err != nil {
-		return nil, errcode.WithVars(errcode.CodeNoPermission, map[string]interface{}{
-			"required_authority": "SYS_ADMIN or TENANT_ADMIN",
-			"current_authority":  userClaimsAuthority(claims),
-		})
-	}
-
-	// 获取目标用户信息
-	becomeUser, err := dal.GetUsersById(transformUserReq.BecomeUserID)
-	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error":   err.Error(),
-			"user_id": transformUserReq.BecomeUserID,
-		})
-	}
-
-	// 检查用户状态
-	if becomeUser.Status == nil || *becomeUser.Status != "N" {
-		currentStatus := ""
-		if becomeUser.Status != nil {
-			currentStatus = *becomeUser.Status
-		}
-		return nil, errcode.WithVars(errcode.CodeUserDisabled, map[string]interface{}{
-			"user_id":         becomeUser.ID,
-			"current_status":  currentStatus,
-			"required_status": "N",
-		})
-	}
-	if err := ensureUserTransformAccess(becomeUser, claims); err != nil {
-		return nil, err
-	}
-
-	// 获取JWT密钥
-	key := strings.TrimSpace(viper.GetString("jwt.key"))
-	if key == "" {
-		return nil, errcode.New(errcode.CodeSystemError)
-	}
-
-	// 生成用户Claims
-	becomeUserClaims, err := buildUserLoginClaims(becomeUser, time.Now().UTC())
-	if err != nil {
-		return nil, err
-	}
-
-	// 生成token
-	jwt := utils.NewJWT([]byte(key))
-	token, err := jwt.GenerateToken(becomeUserClaims)
-	if err != nil {
-		return nil, errcode.WithData(errcode.CodeTokenGenerateError, map[string]interface{}{
-			"error":   err.Error(),
-			"user_id": becomeUser.ID,
-		})
-	}
-
-	if err := saveTransformUserToken(token, becomeUser.ID, transformUserTokenTTL()); err != nil {
-		return nil, err
-	}
-
-	return newDurationLoginResponse(token, transformUserTokenTTL()), nil
-}
-
-func transformUserTokenTTL() time.Duration {
-	return 24 * 7 * time.Hour
-}
-
-func saveTransformUserToken(token, userID string, ttl time.Duration) error {
-	ctx, cancel := context.WithTimeout(context.Background(), authRedisOpTimeout)
-	defer cancel()
-	if global.REDIS == nil {
-		return errcode.WithData(errcode.CodeTokenSaveError, map[string]interface{}{
-			"error":   "redis client is not initialized",
-			"user_id": userID,
-		})
-	}
-	if err := global.REDIS.Set(ctx, utils.TokenDigest(token), "1", ttl).Err(); err != nil {
-		return errcode.WithData(errcode.CodeTokenSaveError, map[string]interface{}{
-			"error":   err.Error(),
-			"user_id": userID,
-		})
-	}
-	return nil
-}
-
-func newDurationLoginResponse(token string, ttl time.Duration) *model.LoginRsp {
-	return &model.LoginRsp{
-		Token:     &token,
-		ExpiresIn: int64(ttl.Seconds()),
-	}
-}
-
-// EmailRegister 邮箱注册
-func (u *User) EmailRegister(ctx context.Context, req *model.EmailRegisterReq) (*model.LoginRsp, error) {
-	if req == nil {
-		return nil, errcode.NewWithMessage(errcode.CodeParamError, "email register request is required")
-	}
-
-	// 手机号是兼容字段；RDI 手册注册流程只要求邮箱、密码和验证码。
-	phoneNumber := buildOptionalEmailRegisterPhoneNumber(req.PhonePrefix, req.PhoneNumber)
-	if phoneNumber != "" {
-		if err := ensureEmailRegisterPhoneAvailable(phoneNumber); err != nil {
-			return nil, err
-		}
-	}
-
-	// 验证码校验
-	if err := verifyEmailRegisterCode(req.Email, req.VerifyCode); err != nil {
-		return nil, err
-	}
-
-	// 密码一致性校验
-	if err := validateEmailRegisterPasswordConfirmation(req); err != nil {
-		return nil, err
-	}
-
-	// 验证邮箱是否已注册
-	if err := ensureEmailRegisterEmailAvailable(req.Email); err != nil {
-		return nil, err
-	}
-
-	// 密码加密处理
-	hashedPassword, err := buildEmailRegisterPassword(ctx, req.Password, req.Salt)
-	if err != nil {
-		return nil, err
-	}
-
-	now := time.Now().UTC()
-	tenantID, err := common.GenerateRandomString(8)
-	if err != nil {
-		logrus.Error("生成租户ID失败", err)
-		return nil, errcode.New(errcode.CodeSystemError)
-	}
-
-	// 构建用户信息
-	userInfo := newEmailRegisterUser(req.Email, phoneNumber, hashedPassword, tenantID, now)
-
-	// 创建用户
-	if err := createEmailRegisterUser(ctx, userInfo, tenantID); err != nil {
-		return nil, err
-	}
-
-	return u.UserLoginAfter(userInfo)
-}
-
-func ensureEmailRegisterPhoneAvailable(phoneNumber string) error {
-	exists, err := dal.CheckPhoneNumberExists(phoneNumber)
-	if err != nil {
-		return err
-	}
-	if exists {
-		return errcode.New(errcode.CodePhoneDuplicated)
-	}
-	return nil
-}
-
-func buildOptionalEmailRegisterPhoneNumber(phonePrefix, phoneNumber string) string {
-	phoneNumber = strings.TrimSpace(phoneNumber)
-	phonePrefix = strings.TrimSpace(phonePrefix)
-	if phoneNumber == "" {
-		return ""
-	}
-	if phonePrefix == "" {
-		return phoneNumber
-	}
-	return fmt.Sprintf("%s %s", phonePrefix, phoneNumber)
-}
-
-func verifyEmailRegisterCode(email, verifyCode string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), authRedisOpTimeout)
-	defer cancel()
-	// 失败次数达到上限的验证码立即作废，防止 6 位数字码在有效期内被暴力枚举。
-	if err := ensureVerificationCodeAttemptsAllowed(ctx, email); err != nil {
-		return err
-	}
-	verificationCode, err := global.REDIS.Get(ctx, email+"_code").Result()
-	if err != nil {
-		return errcode.New(200011)
-	}
-	if subtle.ConstantTimeCompare([]byte(verificationCode), []byte(verifyCode)) != 1 {
-		registerVerificationCodeFailure(ctx, email)
-		return errcode.New(200012)
-	}
-	return nil
-}
-
-func validateEmailRegisterPasswordConfirmation(req *model.EmailRegisterReq) error {
-	if req.ConfirmPassword != nil && *req.ConfirmPassword != req.Password {
-		return errcode.New(200041)
-	}
-	return nil
-}
-
-func ensureEmailRegisterEmailAvailable(email string) error {
-	user, err := dal.GetUsersByEmail(email)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"operation": "query_user",
-			"email":     email,
-			"error":     err.Error(),
-		})
-	}
-	if user != nil {
-		return errcode.New(200008)
-	}
-	return nil
-}
-
-func buildEmailRegisterPassword(ctx context.Context, password string, salt *string) (string, error) {
-	if logic.UserIsEncrypt(ctx) {
-		if salt == nil {
-			return "", errcode.New(200042)
-		}
-		decryptedPassword, err := initialize.DecryptPassword(password)
-		if err != nil {
-			return "", errcode.New(200043)
-		}
-		password = strings.TrimSuffix(string(decryptedPassword), *salt)
-	}
-	if err := utils.ValidatePassword(password); err != nil {
-		return "", err
-	}
-	hashed, hashErr := utils.BcryptHash(password)
-	if hashErr != nil {
-		logrus.Error("hash register password failed:", hashErr)
-		return "", errcode.NewWithMessage(errcode.CodeDecryptError, "failed to hash password")
-	}
-	return hashed, nil
-}
-
-func newEmailRegisterUser(email, phoneNumber, hashedPassword, tenantID string, now time.Time) *model.User {
-	return &model.User{
-		ID:                  uuid.New(),
-		Name:                &email,
-		PhoneNumber:         phoneNumber,
-		Email:               email,
-		Status:              StringPtr("N"),
-		Authority:           StringPtr("TENANT_ADMIN"),
-		Password:            hashedPassword,
-		TenantID:            StringPtr(tenantID),
-		Remark:              StringPtr(now.Add(365 * 24 * time.Hour).String()),
-		CreatedAt:           &now,
-		UpdatedAt:           &now,
-		PasswordLastUpdated: &now,
-	}
-}
-
-func createEmailRegisterUser(ctx context.Context, userInfo *model.User, tenantID string) error {
-	return query.Q.Transaction(func(tx *query.Query) error {
-		if err := tx.User.WithContext(ctx).Create(userInfo); err != nil {
-			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"operation": "create_user",
-				"email":     userInfo.Email,
-				"error":     err.Error(),
-			})
-		}
-
-		if err := tx.Board.WithContext(ctx).Create(dal.NewDefaultBoard(&tenantID)); err != nil {
-			return errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-				"operation": "create_default_board",
-				"tenant_id": tenantID,
-				"error":     err.Error(),
-			})
-		}
-		return nil
-	})
 }

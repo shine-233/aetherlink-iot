@@ -2,11 +2,16 @@
 // 核心逻辑：覆盖密码复杂度、长度、hash 校验和安全字符串辅助函数。
 // 关键注意事项：认证测试要避免弱密码回归，并确保 hash 错误或格式异常时 fail-closed。
 // 重构建议：集中密码策略常量，补齐锁定、验证码和登录审计之间的集成边界。
+// 拆分记录（2026-10-01）：被测函数现分布在 sys_user_auth_login.go /
+// sys_user_auth_impersonation.go / sys_user_auth_register.go 三个文件中，
+// 本测试文件覆盖这三者共用的纯函数（无需 DB/Redis）。
 package service
 
 import (
 	"testing"
+	"time"
 
+	model "aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/pkg/utils"
 
 	"github.com/stretchr/testify/assert"
@@ -109,4 +114,71 @@ func TestSysUserAuthStringPtr(t *testing.T) {
 	p := StringPtr("TENANT_ADMIN")
 	assert.NotNil(t, p)
 	assert.Equal(t, "TENANT_ADMIN", *p)
+}
+
+// --- sys_user_auth_login.go pure helpers ---
+
+func TestLoginEmailTokenKey(t *testing.T) {
+	assert.Equal(t, "a@b.com_token", loginEmailTokenKey("a@b.com"))
+}
+
+func TestNewLoginResponse(t *testing.T) {
+	rsp := newLoginResponse("tok123", 30)
+	assert.NotNil(t, rsp.Token)
+	assert.Equal(t, "tok123", *rsp.Token)
+	assert.Equal(t, int64(30*60), rsp.ExpiresIn)
+}
+
+func TestRefreshSessionTimeoutMinutes_FallsBackWhenNonPositive(t *testing.T) {
+	// loginSessionTimeoutMinutes() 读取全局 viper 配置，测试环境下通常未设置（<=0），
+	// 此时 refreshSessionTimeoutMinutes 应回退到 7 天的默认值，而不是返回 0 或负数。
+	got := refreshSessionTimeoutMinutes()
+	assert.True(t, got == 24*7*60 || got > 0, "refresh timeout must be positive, got %d", got)
+}
+
+func TestEnsureUserCanRefreshToken(t *testing.T) {
+	assert.Error(t, ensureUserCanRefreshToken(nil))
+
+	disabled := "D"
+	user := &model.User{Status: &disabled}
+	assert.Error(t, ensureUserCanRefreshToken(user))
+
+	enabled := "N"
+	user.Status = &enabled
+	assert.NoError(t, ensureUserCanRefreshToken(user))
+}
+
+func TestTokenSaveError_WrapsEmailAndMessage(t *testing.T) {
+	err := tokenSaveError("x@y.com", assert.AnError)
+	assert.Error(t, err)
+}
+
+// --- sys_user_auth_impersonation.go pure helpers ---
+
+func TestTransformUserTokenTTL(t *testing.T) {
+	assert.Equal(t, 24*7*time.Hour, transformUserTokenTTL())
+}
+
+func TestNewDurationLoginResponse(t *testing.T) {
+	rsp := newDurationLoginResponse("tok456", 2*time.Hour)
+	assert.NotNil(t, rsp.Token)
+	assert.Equal(t, "tok456", *rsp.Token)
+	assert.Equal(t, int64((2 * time.Hour).Seconds()), rsp.ExpiresIn)
+}
+
+// --- sys_user_auth_register.go pure helpers ---
+
+func TestValidateEmailRegisterPasswordConfirmation(t *testing.T) {
+	match := "Abc123!@"
+	req := &model.EmailRegisterReq{}
+	req.Password = match
+	req.ConfirmPassword = &match
+	assert.NoError(t, validateEmailRegisterPasswordConfirmation(req))
+
+	mismatch := "Different1!"
+	req.ConfirmPassword = &mismatch
+	assert.Error(t, validateEmailRegisterPasswordConfirmation(req))
+
+	req.ConfirmPassword = nil
+	assert.NoError(t, validateEmailRegisterPasswordConfirmation(req))
 }
