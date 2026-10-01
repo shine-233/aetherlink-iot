@@ -1,53 +1,89 @@
 // telemetry_writer_flush.go owns the batch flush pipeline: buffer hand-off,
 // the primary batch transaction and the chunk/single-row fallbacks.
+//
+// Invariants:
+//   - doFlush runs under flushMu, so at most one telemetry batch transaction is
+//     in flight per writer.
+//   - Rows reach the database sorted by (device_id,key[,ts]); with a single
+//     global lock order, concurrent writers (this flusher, spool replay, other
+//     instances) can only wait on each other, never deadlock.
+//   - A transaction never carries more than TelemetryBatchSize items, even when
+//     the buffer grew past one batch while a previous flush was in flight.
 
 package storage
 
 import (
-	"aetherlink-iot/backend/internal/diagnostics"
 	"encoding/json"
 	"fmt"
+
+	"aetherlink-iot/backend/internal/diagnostics"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
-// flush 刷新缓冲区
-func (w *telemetryWriter) flush() {
+const (
+	// telemetryFallbackChunkSize is the row count of one fallback transaction.
+	telemetryFallbackChunkSize = 100
+	// telemetryFailurePreviewRows caps the rows serialized into a failure log.
+	telemetryFailurePreviewRows = 5
+)
+
+// takeBuffer swaps the buffer out under bufferMu and wakes producers blocked
+// at the high-water mark. replacement is the new buffer (nil on shutdown).
+func (w *telemetryWriter) takeBuffer(replacement []*telemetryBatchItem) []*telemetryBatchItem {
 	w.bufferMu.Lock()
-	if len(w.buffer) == 0 {
-		w.bufferMu.Unlock()
-		return
-	}
-
-	// 取出当前批次，创建新缓冲区
+	defer w.bufferMu.Unlock()
 	batch := w.buffer
-	w.buffer = make([]*telemetryBatchItem, 0, w.config.TelemetryBatchSize)
-	w.bufferMu.Unlock()
+	if len(batch) == 0 && replacement != nil {
+		return nil
+	}
+	w.buffer = replacement
+	if w.drained != nil {
+		w.drained.Broadcast()
+	}
+	return batch
+}
 
-	w.doFlush(batch)
+// flush 刷新缓冲区: drains everything buffered so far in batch-sized
+// transactions.
+func (w *telemetryWriter) flush() {
+	batch := w.takeBuffer(make([]*telemetryBatchItem, 0, w.batchSize()))
+	w.flushInBatches(batch)
 }
 
 // flushRemaining 刷新剩余数据（停止时调用）
 func (w *telemetryWriter) flushRemaining() {
-	w.bufferMu.Lock()
-	batch := w.buffer
-	w.buffer = nil
-	w.bufferMu.Unlock()
-
+	batch := w.takeBuffer(nil)
 	if len(batch) > 0 {
-		w.logger.Infof("flushing remaining %d telemetry items", len(batch))
-		w.doFlush(batch)
+		if w.logger != nil {
+			w.logger.Infof("flushing remaining %d telemetry items", len(batch))
+		}
+		w.flushInBatches(batch)
+	}
+}
+
+func (w *telemetryWriter) flushInBatches(batch []*telemetryBatchItem) {
+	size := w.batchSize()
+	for start := 0; start < len(batch); start += size {
+		w.doFlush(batch[start:min(start+size, len(batch))])
 	}
 }
 
 // doFlush 执行实际的刷新操作
 func (w *telemetryWriter) doFlush(batch []*telemetryBatchItem) {
-	// 1. 批次内去重并转换为数据库模型
+	w.flushMu.Lock()
+	defer w.flushMu.Unlock()
+	if hook := w.flushHook; hook != nil {
+		hook(true)
+		defer hook(false)
+	}
+
+	// 1. 合并每项已缓存的转换结果，跨批次去重并按锁顺序排序
 	historyData, currentData, duplicates := w.deduplicateAndConvert(batch)
 
 	// 记录批次内重复数
-	if duplicates > 0 {
+	if duplicates > 0 && w.metrics != nil {
 		w.metrics.addTelemetryDuplicates(int64(duplicates))
 	}
 
@@ -65,17 +101,19 @@ func (w *telemetryWriter) doFlush(batch []*telemetryBatchItem) {
 	}
 
 	// 3. 记录监控指标
-	w.metrics.addTelemetryWritten(int64(written))
-	w.metrics.addTelemetryFailed(int64(failed))
-	w.metrics.recordTelemetryBatch(len(historyData))
+	if w.metrics != nil {
+		w.metrics.addTelemetryWritten(int64(written))
+		w.metrics.addTelemetryFailed(int64(failed))
+		w.metrics.recordTelemetryBatch(len(historyData))
+	}
 
-	w.logger.Debugf("【设备诊断】flushed batch: total=%d, written=%d, failed=%d, duplicates=%d",
-		len(historyData), written, failed, duplicates)
+	if w.logger != nil {
+		w.logger.Debugf("【设备诊断】flushed batch: total=%d, written=%d, failed=%d, duplicates=%d",
+			len(historyData), written, failed, duplicates)
+	}
 }
 
 // batchInsert 批量插入数据库
-const telemetryFallbackChunkSize = 100
-
 func (w *telemetryWriter) batchInsert(historyData []TelemetryData, currentData []TelemetryCurrentData) (written, failed int) {
 	err := w.db.Transaction(func(tx *gorm.DB) error {
 		return w.insertTelemetryBatch(tx, historyData, currentData)
@@ -89,12 +127,16 @@ func (w *telemetryWriter) batchInsert(historyData []TelemetryData, currentData [
 	return len(historyData), 0
 }
 
+func telemetryHistoryConflictClause() clause.OnConflict {
+	return clause.OnConflict{
+		Columns:   []clause.Column{{Name: "device_id"}, {Name: "key"}, {Name: "ts"}},
+		DoNothing: true,
+	}
+}
+
 func (w *telemetryWriter) insertTelemetryBatch(tx *gorm.DB, historyData []TelemetryData, currentData []TelemetryCurrentData) error {
 	if len(historyData) > 0 {
-		if err := tx.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "device_id"}, {Name: "key"}, {Name: "ts"}},
-			DoNothing: true,
-		}).Create(&historyData).Error; err != nil {
+		if err := tx.Clauses(telemetryHistoryConflictClause()).Create(&historyData).Error; err != nil {
 			return fmt.Errorf("insert history data failed: %w", err)
 		}
 	}
@@ -108,8 +150,13 @@ func (w *telemetryWriter) insertTelemetryBatch(tx *gorm.DB, historyData []Teleme
 	return nil
 }
 
+// logTelemetryBatchFailure logs one line with a bounded JSON preview. JSON
+// encoding keeps device-controlled strings escaped (log-injection gate).
 func (w *telemetryWriter) logTelemetryBatchFailure(prefix string, total int, err error, historyData []TelemetryData) {
-	previewRows := telemetryHistoryPreviewRows(historyData, 5)
+	if w.logger == nil {
+		return
+	}
+	previewRows := telemetryHistoryPreviewRows(historyData, telemetryFailurePreviewRows)
 	if j, jerr := json.Marshal(previewRows); jerr == nil {
 		w.logger.Errorf("%s: total=%d, err=%v, preview=%s", prefix, total, err, string(j))
 		return
@@ -117,16 +164,13 @@ func (w *telemetryWriter) logTelemetryBatchFailure(prefix string, total int, err
 	w.logger.Errorf("%s: total=%d, err=%v", prefix, total, err)
 }
 
-// fallbackInsert 逐条插入兜底（批量失败时使用）
+// fallbackInsert 分块兜底（批量失败时使用）: one transaction per chunk, then
+// one per row only inside a failing chunk, isolating poison rows.
 func (w *telemetryWriter) fallbackInsert(historyData []TelemetryData, currentData []TelemetryCurrentData) (written, failed int) {
 	currentByKey := buildTelemetryCurrentLookup(currentData)
 
 	for start := 0; start < len(historyData); start += telemetryFallbackChunkSize {
-		end := start + telemetryFallbackChunkSize
-		if end > len(historyData) {
-			end = len(historyData)
-		}
-		chunkHistory := historyData[start:end]
+		chunkHistory := historyData[start:min(start+telemetryFallbackChunkSize, len(historyData))]
 		chunkCurrent := buildTelemetryCurrentChunk(chunkHistory, currentByKey)
 
 		err := w.db.Transaction(func(tx *gorm.DB) error {
@@ -146,61 +190,53 @@ func (w *telemetryWriter) fallbackInsert(historyData []TelemetryData, currentDat
 	return written, failed
 }
 
+// fallbackInsertSingleRows writes each row in its own transaction. Failures
+// are summarized in one log line per call (one call per chunk) instead of
+// one JSON-marshalled preview per row.
 func (w *telemetryWriter) fallbackInsertSingleRows(
 	historyData []TelemetryData,
-	currentByKey map[string]TelemetryCurrentData,
+	currentByKey map[telemetrySeriesKey]TelemetryCurrentData,
 ) (written, failed int) {
+	var (
+		failedPreview []TelemetryData
+		firstErr      error
+	)
 	for _, history := range historyData {
 		current, hasCurrent := currentByKey[telemetryCurrentLookupKey(history.DeviceID, history.Key)]
 		err := w.db.Transaction(func(tx *gorm.DB) error {
-			if err := tx.Clauses(clause.OnConflict{
-				Columns:   []clause.Column{{Name: "device_id"}, {Name: "key"}, {Name: "ts"}},
-				DoNothing: true,
-			}).Create(&history).Error; err != nil {
+			if err := tx.Clauses(telemetryHistoryConflictClause()).Create(&history).Error; err != nil {
 				return err
 			}
-
 			if !hasCurrent {
 				return nil
 			}
-
 			// 插入最新值表
-			if err := tx.Clauses(TelemetryCurrentUpsertClause()).Create(&current).Error; err != nil {
-				return err
-			}
-
-			return nil
+			return tx.Clauses(TelemetryCurrentUpsertClause()).Create(&current).Error
 		})
-
-		if err != nil {
-			previewRow := map[string]interface{}{
-				"device_id": history.DeviceID,
-				"key":       history.Key,
-				"ts":        history.TS,
-				"tenant_id": history.TenantID,
-			}
-			if j, jerr := json.Marshal(previewRow); jerr == nil {
-				w.logger.Errorf("single insert failed: preview=%s, err=%v", string(j), err)
-			} else {
-				w.logger.Errorf("single insert failed: device_id=%s, key=%s, err=%v", history.DeviceID, history.Key, err)
-			}
-
-			// 记录诊断：仅在单条插入真实失败时，增加 storage_failed 并记录失败详情到失败列表。
-			diagnostics.GetInstance().RecordStorageFailed(history.DeviceID, fmt.Sprintf("存储失败：%v", err))
-			if persistErr := w.persistFailedTelemetry(history, err); persistErr != nil && w.logger != nil {
-				w.logger.Errorf(
-					"telemetry durability fallback exhausted: device_id=%s, key=%s, ts=%d, err=%v",
-					history.DeviceID,
-					history.Key,
-					history.TS,
-					persistErr,
-				)
-			}
-			failed++
-		} else {
+		if err == nil {
 			written++
+			continue
+		}
+
+		failed++
+		if firstErr == nil {
+			firstErr = err
+		}
+		if len(failedPreview) < telemetryFailurePreviewRows {
+			failedPreview = append(failedPreview, history)
+		}
+		// 记录诊断：仅在单条插入真实失败时，增加 storage_failed 并记录失败详情到失败列表。
+		diagnostics.GetInstance().RecordStorageFailed(history.DeviceID, fmt.Sprintf("存储失败：%v", err))
+		if persistErr := w.persistFailedTelemetry(history, err); persistErr != nil && w.logger != nil {
+			w.logger.Errorf(
+				"telemetry durability fallback exhausted: ts=%d, err=%v (device/key omitted: device-controlled strings are kept out of logs per log-injection gate)",
+				history.TS,
+				persistErr,
+			)
 		}
 	}
-
+	if failed > 0 {
+		w.logTelemetryBatchFailure("single insert failed", failed, firstErr, failedPreview)
+	}
 	return written, failed
 }

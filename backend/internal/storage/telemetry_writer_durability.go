@@ -37,7 +37,7 @@ func (w *telemetryWriter) prepareTelemetryWriteAhead(ctx context.Context, msg *M
 	if err != nil {
 		return err
 	}
-	historyData, _, _ := w.deduplicateAndConvert([]*telemetryBatchItem{item})
+	historyData, _ := item.convertedRows()
 	// One grouped directory fsync covers every point of the message.
 	_, errs := w.spool.storeBatch(ctx, historyData, time.Now())
 	for _, err := range errs {
@@ -60,7 +60,13 @@ func (w *telemetryWriter) persistRejectedTelemetry(ctx context.Context, msg *Mes
 	if err != nil {
 		return err
 	}
-	historyData, _, _ := w.deduplicateAndConvert([]*telemetryBatchItem{item})
+	return w.persistRejectedItem(ctx, item, cause)
+}
+
+// persistRejectedItem is persistRejectedTelemetry for an already converted
+// item, so write() never converts the same message twice.
+func (w *telemetryWriter) persistRejectedItem(ctx context.Context, item *telemetryBatchItem, cause error) error {
+	historyData, _ := item.convertedRows()
 
 	var persistErr error
 	for _, history := range historyData {
@@ -97,7 +103,8 @@ func (w *telemetryWriter) storeWriteAheadReceipts(item *telemetryBatchItem) ([]t
 		return nil, nil
 	}
 	defer w.refreshTelemetrySpoolMetrics()
-	historyData, _, _ := w.deduplicateAndConvert([]*telemetryBatchItem{item})
+	// The rows converted here are cached on the item and reused by doFlush.
+	historyData, _ := item.convertedRows()
 	if len(historyData) == 0 {
 		return nil, nil
 	}

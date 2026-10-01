@@ -5,9 +5,10 @@
 package storage
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
-	"time"
+	"slices"
 )
 
 // telemetryBatchItemFromMessage converts the wire-compatible telemetry payload
@@ -41,65 +42,151 @@ func telemetryBatchItemFromMessage(msg *Message) (*telemetryBatchItem, error) {
 	}, nil
 }
 
-// deduplicateAndConvert turns writer batches into history and current rows.
-// History uses device/key/timestamp identity; current retains the newest value.
+// telemetryPointIdentity is the (device_id,key,ts) history identity. A struct
+// key avoids building a fmt.Sprintf string per point on the hot path.
+type telemetryPointIdentity struct {
+	deviceID string
+	key      string
+	ts       int64
+}
+
+// telemetrySeriesKey is the (device_id,key) identity of telemetry_current_datas.
+type telemetrySeriesKey struct {
+	deviceID string
+	key      string
+}
+
+// telemetryConversionHook is a test seam counting item conversions.
+var telemetryConversionHook func(*telemetryBatchItem)
+
+// convertedRows converts the item exactly once and caches the result. Within
+// one item every point shares the message timestamp, so duplicate keys are
+// duplicate identities and the first occurrence wins (the historical
+// first-writer-wins rule). The raw points are released after conversion.
+//
+// An item is owned by exactly one goroutine at a time (the producer before it
+// is appended under bufferMu, the flusher after it is taken), so the cache
+// needs no extra synchronization.
+func (item *telemetryBatchItem) convertedRows() ([]TelemetryData, int) {
+	if item == nil {
+		return nil, 0
+	}
+	if item.converted {
+		return item.rows, item.duplicates
+	}
+	if hook := telemetryConversionHook; hook != nil {
+		hook(item)
+	}
+	rows := make([]TelemetryData, 0, len(item.points))
+	duplicates := 0
+	var seen map[string]struct{}
+	if len(item.points) > 1 {
+		seen = make(map[string]struct{}, len(item.points))
+	}
+	for _, point := range item.points {
+		if seen != nil {
+			if _, exists := seen[point.Key]; exists {
+				duplicates++
+				continue
+			}
+			seen[point.Key] = struct{}{}
+		}
+		boolV, numberV, stringV := convertValue(point.Value)
+		rows = append(rows, TelemetryData{
+			DeviceID: item.deviceID,
+			Key:      point.Key,
+			TS:       item.timestamp,
+			BoolV:    boolV,
+			NumberV:  numberV,
+			StringV:  stringV,
+			TenantID: item.tenantID,
+		})
+	}
+	item.rows = rows
+	item.duplicates = duplicates
+	item.converted = true
+	item.points = nil
+	return rows, duplicates
+}
+
+// deduplicateAndConvert merges the per-item converted rows of a batch into
+// history and current rows. History keeps the first row per (device,key,ts);
+// current keeps the newest row per (device,key), earliest arrival on ties.
+//
+// Both outputs are sorted (history by device,key,ts; current by device,key) so
+// every flush acquires PostgreSQL row locks in the same order. Two
+// transactions touching overlapping series can then only wait, never deadlock.
 func (w *telemetryWriter) deduplicateAndConvert(batch []*telemetryBatchItem) (
 	[]TelemetryData, []TelemetryCurrentData, int,
 ) {
-	seen := make(map[string]struct{})
-	historyData := make([]TelemetryData, 0, len(batch)*2)
-	currentMap := make(map[string]*TelemetryCurrentData)
+	total := 0
 	duplicates := 0
-
 	for _, item := range batch {
-		for _, point := range item.points {
-			identity := fmt.Sprintf("%s|%s|%d", item.deviceID, point.Key, item.timestamp)
+		rows, itemDuplicates := item.convertedRows()
+		total += len(rows)
+		duplicates += itemDuplicates
+	}
+
+	historyData := make([]TelemetryData, 0, total)
+	seen := make(map[telemetryPointIdentity]struct{}, total)
+	latest := make(map[telemetrySeriesKey]int, total)
+	for _, item := range batch {
+		if item == nil {
+			continue
+		}
+		for _, row := range item.rows {
+			identity := telemetryPointIdentity{deviceID: row.DeviceID, key: row.Key, ts: row.TS}
 			if _, exists := seen[identity]; exists {
 				duplicates++
 				continue
 			}
 			seen[identity] = struct{}{}
+			historyData = append(historyData, row)
 
-			boolV, numberV, stringV := convertValue(point.Value)
-			historyData = append(historyData, TelemetryData{
-				DeviceID: item.deviceID,
-				Key:      point.Key,
-				TS:       item.timestamp,
-				BoolV:    boolV,
-				NumberV:  numberV,
-				StringV:  stringV,
-				TenantID: item.tenantID,
-			})
-
-			currentKey := telemetryCurrentLookupKey(item.deviceID, point.Key)
-			ts := time.UnixMilli(item.timestamp)
-			if existing, ok := currentMap[currentKey]; !ok || ts.After(existing.TS) {
-				currentMap[currentKey] = &TelemetryCurrentData{
-					DeviceID: item.deviceID,
-					Key:      point.Key,
-					TS:       ts,
-					BoolV:    boolV,
-					NumberV:  numberV,
-					StringV:  stringV,
-					TenantID: item.tenantID,
-				}
+			series := telemetrySeriesKey{deviceID: row.DeviceID, key: row.Key}
+			if index, ok := latest[series]; !ok || row.TS > historyData[index].TS {
+				latest[series] = len(historyData) - 1
 			}
 		}
 	}
 
-	currentData := make([]TelemetryCurrentData, 0, len(currentMap))
-	for _, data := range currentMap {
-		currentData = append(currentData, *data)
+	currentData := make([]TelemetryCurrentData, 0, len(latest))
+	for _, index := range latest {
+		currentData = append(currentData, telemetryCurrentFromHistory(historyData[index]))
 	}
+	sortTelemetryHistory(historyData)
+	sortTelemetryCurrent(currentData)
 	return historyData, currentData, duplicates
 }
 
-func telemetryCurrentLookupKey(deviceID, key string) string {
-	return deviceID + "|" + key
+func compareTelemetrySeries(aDevice, aKey, bDevice, bKey string) int {
+	if c := cmp.Compare(aDevice, bDevice); c != 0 {
+		return c
+	}
+	return cmp.Compare(aKey, bKey)
 }
 
-func buildTelemetryCurrentLookup(currentData []TelemetryCurrentData) map[string]TelemetryCurrentData {
-	currentByKey := make(map[string]TelemetryCurrentData, len(currentData))
+func sortTelemetryHistory(rows []TelemetryData) {
+	slices.SortFunc(rows, func(a, b TelemetryData) int {
+		if c := compareTelemetrySeries(a.DeviceID, a.Key, b.DeviceID, b.Key); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.TS, b.TS)
+	})
+}
+
+func sortTelemetryCurrent(rows []TelemetryCurrentData) {
+	slices.SortFunc(rows, func(a, b TelemetryCurrentData) int {
+		return compareTelemetrySeries(a.DeviceID, a.Key, b.DeviceID, b.Key)
+	})
+}
+
+func telemetryCurrentLookupKey(deviceID, key string) telemetrySeriesKey {
+	return telemetrySeriesKey{deviceID: deviceID, key: key}
+}
+
+func buildTelemetryCurrentLookup(currentData []TelemetryCurrentData) map[telemetrySeriesKey]TelemetryCurrentData {
+	currentByKey := make(map[telemetrySeriesKey]TelemetryCurrentData, len(currentData))
 	for _, row := range currentData {
 		key := telemetryCurrentLookupKey(row.DeviceID, row.Key)
 		if existing, ok := currentByKey[key]; !ok || row.TS.After(existing.TS) {
@@ -110,12 +197,13 @@ func buildTelemetryCurrentLookup(currentData []TelemetryCurrentData) map[string]
 }
 
 // buildTelemetryCurrentChunk keeps one current row per device/key while using
-// the newest value already selected by buildTelemetryCurrentLookup.
+// the newest value already selected by buildTelemetryCurrentLookup. Input
+// history is sorted, so the output keeps the deterministic lock order.
 func buildTelemetryCurrentChunk(
 	historyData []TelemetryData,
-	currentByKey map[string]TelemetryCurrentData,
+	currentByKey map[telemetrySeriesKey]TelemetryCurrentData,
 ) []TelemetryCurrentData {
-	seen := make(map[string]struct{})
+	seen := make(map[telemetrySeriesKey]struct{})
 	currentData := make([]TelemetryCurrentData, 0, len(historyData))
 	for _, history := range historyData {
 		key := telemetryCurrentLookupKey(history.DeviceID, history.Key)
