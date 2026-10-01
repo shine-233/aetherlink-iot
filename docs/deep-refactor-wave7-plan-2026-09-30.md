@@ -160,6 +160,43 @@
 门禁基线（本次实测）：后端 `go build` 通过、`go test ./... -p 1` **0 FAIL**；
 前端 vitest **498 文件 / 4332 用例全绿**、`vue-tsc` 0 错误、eslint 0 错误。
 
+#### wave6 四轨核查（2026-10-01 08:3x）
+
+- **fe-core-icons-types**：`assets/svg-icon`(55 文件) / `icons-registry-core-buckets`(20 文件) /
+  `core/data-architecture/types/enhanced`(7) / `core/interaction-system/components`(7) 均已落地。
+  图标注册表做了**懒加载改造**：核心图标按首字母拆 20 个 chunk，访问 `coreIcons.Xxx` 时才拉取。
+  **但发现一个可维护性缺口（已补，见下）**。
+- **fe-locales-styles-assets**：`styles/scss`(4) / `styles/css`(2) / `public/rdi`(2) 已落地。
+- **fe-service-state / broker-core-modbus-deploy**：本次 checkpoint 未见明显改动文件；
+  broker 侧 `deploy/docker-compose.modbus.yml` 存在；仓库卫生正常
+  （`mqtt-broker/gmqttd-dev.exe` 未被跟踪，`.gitignore` 已含 `*.exe`，全仓无跟踪的二进制）。
+
+##### 补：图标清单生成器缺失（本次修复）
+
+`icons-registry-core-manifest.ts`（1215 行）文件头写着「自动生成：请勿手工编辑」，
+但**仓库里从来没有生成器**（全仓搜 `icons-registry-core-manifest` / `coreBucketLoaders`
+无任何脚本命中），而且它声明的来源 `源：icons-registry-core.ts` 是**反的**——
+`icons-registry-core.ts` 恰恰是 `import` 这个 manifest 的一方。后果：改图标只能手改一个
+自称不该手改的文件，且 20 个分组 chunk 与清单的一致性无人保障。
+
+修复：
+- 新增 `frontend/scripts/generate-icons-registry.mjs`，把**源明确为 `icons-registry-core-buckets/`**
+  （分组文件持有真实 import 与导出名单，是事实来源），据此重算清单、名字→分组映射、分组加载器
+- 内置两条自检：分组名必须等于其成员首字母（否则加载器指向错误 chunk）、图标名不得重复
+- 新增 `pnpm icons:gen` / `pnpm icons:check`，并把 `icons:check` 接进 `build:check` 前置
+- 修正文件头的来源标注
+
+**验证（关键）**：生成器输出与已提交的 manifest **逐字节比对，1215 行中仅差被修正的那 1 行**
+（其余 1214 行完全一致）→ 证明生成器正确复现了历史产物。
+另做反向验证：故意从清单里删掉一个图标，`icons:check` 立即以退出码 1 报「与分组文件不同步」。
+门禁：全量 vitest 498 文件 / 4332 用例全绿、`vue-tsc` 0 错误。
+
+**遗留观察（未处理，需你判断）**：`components/common/icons` 这个导出面在全仓
+**没有任何 import 方**（初版就只有 15 行，仅被同目录 `icons.ts` 再导出，而 `icons.ts` 也无人用）。
+但它的文件头明确警告「导出名称可能被路由元信息或共享组件**间接**引用，删除或改名需先完成
+调用方迁移」——本项目是开源发布版，该导出可能面向下游 fork。**故本次不删**，
+仅在此记录：若确认无下游消费者，整族（manifest 1215 行 + 20 桶 1284 行 + 2 个测试）可清理。
+
 #### be-dal-repositories 收尾：`dal/alarm.go` 按聚合拆分（2026-10-01 08:2x）
 
 `alarm.go` 930 行 / 64 个顶层符号，实际混了 4 个聚合——这是该轨道最后一块。按聚合拆为：

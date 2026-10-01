@@ -14,7 +14,7 @@
   ],
   "scripts": {
     "build": "cross-env NODE_OPTIONS=--max-old-space-size=4096 VITE_SERVICE_ENV=prod vite build",
-    "build:check": "pnpm run typecheck && pnpm run typecheck:data-architecture && pnpm run typecheck:packages && pnpm run build",
+    "build:check": "pnpm run icons:check && pnpm run typecheck && pnpm run typecheck:data-architecture && pnpm run typecheck:packages && pnpm run build",
     "build:8192": "cross-env NODE_OPTIONS=--max-old-space-size=8192 VITE_SERVICE_ENV=prod vite build",
     "build:test": "cross-env VITE_SERVICE_ENV=test vite build",
     "build:vite": "cross-env NODE_OPTIONS=--max-old-space-size=4096 VITE_SERVICE_ENV=prod vite build",
@@ -28,6 +28,8 @@
     "dev:test": "cross-env VITE_SERVICE_ENV=test vite",
     "format": "prettier --write .",
     "gen-route": "aetherlink gen-route",
+    "icons:check": "node scripts/generate-icons-registry.mjs --check",
+    "icons:gen": "node scripts/generate-icons-registry.mjs",
     "lint": "eslint . --fix",
     "lint:check": "eslint .",
     "preview": "vite preview",

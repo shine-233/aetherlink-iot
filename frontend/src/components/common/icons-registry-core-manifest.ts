@@ -1,4 +1,4 @@
-// 自动生成：核心图标清单与分组加载器（请勿手工编辑，源：icons-registry-core.ts）
+// 自动生成：核心图标清单与分组加载器（请勿手工编辑，源：icons-registry-core-buckets/）
 import type { Component } from 'vue'
 
 export const coreIconNames = [
