@@ -9,7 +9,8 @@ import { flushPromises, shallowMount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const hoisted = vi.hoisted(() => ({
-  getSystemLogList: vi.fn()
+  getSystemLogList: vi.fn(),
+  routeQuery: {} as Record<string, unknown>
 }))
 
 vi.mock('@/service/api/system-management-user', () => ({
@@ -17,7 +18,7 @@ vi.mock('@/service/api/system-management-user', () => ({
 }))
 
 vi.mock('vue-router', () => ({
-  useRoute: () => ({ query: {} })
+  useRoute: () => ({ query: hoisted.routeQuery })
 }))
 
 vi.mock('@/locales', () => ({
@@ -26,10 +27,6 @@ vi.mock('@/locales', () => ({
 
 vi.mock('@/utils/common/datetime', () => ({
   formatDateTime: (v: string) => v
-}))
-
-vi.mock('~/packages/hooks', () => ({
-  useLoading: () => ({ loading: { value: false }, startLoading: vi.fn(), endLoading: vi.fn() })
 }))
 
 vi.mock('../components/detail-modal.vue', () => ({
@@ -106,8 +103,9 @@ const mountComponent = (props = {}) => {
           }
         }),
         NPagination: defineComponent({
-          props: ['page', 'itemCount'],
-          emits: ['update:page'],
+          name: 'NPagination',
+          props: ['page', 'pageSize', 'itemCount', 'showSizePicker', 'pageSizes'],
+          emits: ['update:page', 'update:page-size'],
           setup() {
             return () => h('div')
           }
@@ -128,6 +126,7 @@ describe('SystemLogIndex', () => {
       createElement: (type: any, props: any, ...children: any[]) => h(type, props, children)
     }
     hoisted.getSystemLogList.mockResolvedValue({ data: { list: [], total: 0 } })
+    for (const key of Object.keys(hoisted.routeQuery)) delete hoisted.routeQuery[key]
   })
 
   afterEach(() => {
@@ -140,13 +139,13 @@ describe('SystemLogIndex', () => {
     const wrapper = mountComponent()
     await flushPromises()
     expect(hoisted.getSystemLogList).toHaveBeenCalledTimes(1)
+    // 输入框默认显示最近一个月，首屏请求也必须带上同一范围（旧实现发空串，显示与查询不一致）。
     expect(hoisted.getSystemLogList).toHaveBeenCalledWith({
       page: 1,
       page_size: 10,
       username: '',
-      selected_time: null,
-      start_time: '',
-      end_time: '',
+      start_time: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+      end_time: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
       method: '',
       path: '',
       ip: '',
@@ -154,6 +153,8 @@ describe('SystemLogIndex', () => {
       entity_type: '',
       entity_id: ''
     })
+    const sent = hoisted.getSystemLogList.mock.calls[0][0]
+    expect(sent).not.toHaveProperty('range')
     expect(getState(wrapper).tableData).toEqual([])
   })
 
@@ -224,9 +225,17 @@ describe('SystemLogIndex', () => {
     const wrapper = mountComponent()
     await flushPromises()
     const state = getState(wrapper)
-    state.pickerChange([1704067200000, 1706745600000])
-    expect(state.queryParams.start_time).toMatch(/^2024-01-01T/)
-    expect(state.queryParams.end_time).toMatch(/^2024-02-01T/)
+    const start = new Date(2024, 0, 1, 8, 0, 0).valueOf()
+    const end = new Date(2024, 1, 1, 0, 0, 0).valueOf()
+    state.pickerChange([start, end])
+    // 只选日期：结束时间推到当天 23:59:59.999，输入框绑定的 range 同步更新
+    expect(state.queryParams.range).toEqual([start, new Date(2024, 1, 1, 23, 59, 59, 999).valueOf()])
+    hoisted.getSystemLogList.mockClear()
+    state.handleQuery()
+    await flushPromises()
+    const sent = hoisted.getSystemLogList.mock.calls[0][0]
+    expect(sent.start_time).toMatch(/^2024-01-01T08:00:00/)
+    expect(sent.end_time).toMatch(/^2024-02-01T23:59:59/)
   })
 
   it('should handle pickerChange with null range', async () => {
@@ -234,8 +243,11 @@ describe('SystemLogIndex', () => {
     await flushPromises()
     const state = getState(wrapper)
     state.pickerChange(null)
-    expect(state.queryParams.start_time).toBe('')
-    expect(state.queryParams.end_time).toBe('')
+    expect(state.queryParams.range).toBeNull()
+    hoisted.getSystemLogList.mockClear()
+    state.handleQuery()
+    await flushPromises()
+    expect(hoisted.getSystemLogList).toHaveBeenCalledWith(expect.objectContaining({ start_time: '', end_time: '' }))
   })
 
   it('should handle detail modal ref', async () => {
@@ -251,5 +263,93 @@ describe('SystemLogIndex', () => {
 
     expect(show).toHaveBeenCalledTimes(1)
     expect(show).toHaveBeenCalledWith(row)
+  })
+  it('should reset to page 1 when searching from a later page', async () => {
+    hoisted.getSystemLogList.mockResolvedValue({ data: { list: [], total: 100 } })
+    const wrapper = mountComponent()
+    await flushPromises()
+    const state = getState(wrapper)
+    state.pagination.onUpdatePage(3)
+    await flushPromises()
+    expect(hoisted.getSystemLogList).toHaveBeenLastCalledWith(expect.objectContaining({ page: 3 }))
+    state.handleQuery()
+    await flushPromises()
+    expect(hoisted.getSystemLogList).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1 }))
+  })
+
+  it('should bind the size picker and refetch from page 1 on page-size change', async () => {
+    hoisted.getSystemLogList.mockResolvedValue({ data: { list: [], total: 100 } })
+    const wrapper = mountComponent()
+    await flushPromises()
+    const pager = wrapper.findComponent({ name: 'NPagination' })
+    expect(pager.props('showSizePicker')).toBe(true)
+    expect(pager.props('pageSizes')).toEqual([10, 15, 20, 25, 30])
+    expect(pager.props('itemCount')).toBe(100)
+
+    pager.vm.$emit('update:page', 4)
+    await flushPromises()
+    expect(hoisted.getSystemLogList).toHaveBeenLastCalledWith(expect.objectContaining({ page: 4, page_size: 10 }))
+
+    pager.vm.$emit('update:page-size', 25)
+    await flushPromises()
+    expect(hoisted.getSystemLogList).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1, page_size: 25 }))
+    expect(pager.props('pageSize')).toBe(25)
+    expect(pager.props('page')).toBe(1)
+  })
+
+  it('should drop a stale page-1 response that resolves after page 2', async () => {
+    const page1 = [{ id: 'p1' }]
+    const page2 = [{ id: 'p2' }]
+    let resolvePage1: (value: unknown) => void = () => {}
+    hoisted.getSystemLogList
+      .mockImplementationOnce(() => new Promise((resolve) => (resolvePage1 = resolve)))
+      .mockResolvedValueOnce({ data: { list: page2, total: 20 } })
+    const wrapper = mountComponent()
+    const state = getState(wrapper)
+    state.pagination.onUpdatePage(2)
+    await flushPromises()
+    expect(state.tableData).toEqual(page2)
+
+    resolvePage1({ data: { list: page1, total: 20 } })
+    await flushPromises()
+    expect(state.tableData).toEqual(page2)
+    expect(state.loading).toBe(false)
+  })
+
+  it('should seed filters from a ready-check deep link and reset back to plain defaults', async () => {
+    Object.assign(hoisted.routeQuery, {
+      source: 'ready-check',
+      method: 'post',
+      path: '/api/v1/device',
+      start_time: '2024-03-01T00:00:00Z',
+      end_time: '2024-03-02T00:00:00Z'
+    })
+    const wrapper = mountComponent()
+    await flushPromises()
+    expect(hoisted.getSystemLogList).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'POST',
+        path: '/api/v1/device',
+        start_time: expect.stringMatching(/^2024-03-0[12]T/),
+        end_time: expect.stringMatching(/^2024-03-0[23]T/)
+      })
+    )
+    const state = getState(wrapper)
+    expect(state.isReadyCheckAuditSearch).toBe(true)
+
+    state.handleReset()
+    await flushPromises()
+    expect(state.queryParams.method).toBe('')
+    expect(state.queryParams.path).toBe('')
+    expect(hoisted.getSystemLogList).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 1, method: '', path: '', start_time: expect.any(String) })
+    )
+  })
+
+  it('should ignore a deep-link method outside the whitelist', async () => {
+    Object.assign(hoisted.routeQuery, { method: 'PATCH' })
+    mountComponent()
+    await flushPromises()
+    expect(hoisted.getSystemLogList).toHaveBeenCalledWith(expect.objectContaining({ method: '' }))
   })
 })

@@ -5,10 +5,10 @@
 重构建议：后续可继续拆分数据编排、列配置和弹窗流程，降低页面级组件复杂度。
 -->
 <script setup lang="tsx">
-import { computed, getCurrentInstance, reactive, ref } from 'vue'
+import { computed, getCurrentInstance, ref } from 'vue'
 import type { Ref } from 'vue'
 import { NButton, NEmpty, NPopconfirm, NSpace, NSwitch } from 'naive-ui'
-import type { DataTableColumns, PaginationProps } from 'naive-ui'
+import type { DataTableColumns } from 'naive-ui'
 import {
   deleteNotificationGroup,
   getNotificationGroupDetail,
@@ -18,57 +18,50 @@ import {
 import { notificationOptions } from '@/constants/business'
 import { $t } from '@/locales'
 import EmailTemplateManager from '@/components/business/email-template-manager.vue'
+import { fromFlatResponse, useListPage } from '@/components/data-table-page/useListPage'
 import type { ModalType } from './components/table-action-modal.vue'
 import TableActionModal from './components/table-action-modal.vue'
-import { useBoolean, useLoading } from '~/packages/hooks'
+import { useBoolean } from '~/packages/hooks'
 
-const { loading, startLoading, endLoading } = useLoading(false)
 const { bool: visible, setTrue: openModal } = useBoolean()
-const tableData = ref<Api.Alarm.NotificationGroupList[]>([])
-const total = ref(0)
+
+// 分页/加载态/过期请求丢弃由 useListPage 统一处理。deepRows：状态开关先乐观改行内字段，需要深响应才能即时重绘。
+// 删除当前页最后一行后 useListPage 会自动回退到上一页。
+const {
+  rows: tableData,
+  total,
+  loading,
+  pagination,
+  load: getTableData
+} = useListPage<Api.Alarm.NotificationGroupList>({
+  deepRows: true,
+  pageSizes: [10, 15, 20, 25, 30],
+  fetcher: async (params) =>
+    fromFlatResponse<Api.Alarm.NotificationGroupList>(
+      await getNotificationGroupList(params as Api.Alarm.NotificationGroupParams)
+    )
+})
 
 function setTableData(data: Api.Alarm.NotificationGroupList[]) {
   tableData.value = data
 }
 
-const pagination: PaginationProps = reactive({
-  page: 1,
-  pageSize: 10,
-  showSizePicker: true,
-  pageSizes: [10, 15, 20, 25, 30],
-  onChange: (page: number) => {
-    pagination.page = page
-  },
-  onUpdatePageSize: (pageSize: number) => {
-    pagination.pageSize = pageSize
-    pagination.page = 1
-  }
-})
-
-const getTableData = async () => {
-  startLoading()
-  const prams = {
-    page: pagination.page || 1,
-    page_size: pagination.pageSize || 10
-  }
-  const res = await getNotificationGroupList(prams)
-  if (res?.data) {
-    setTableData(res?.data.list || [])
-    total.value = res.data.total || 0
-  }
-  endLoading()
-}
-
+/**
+ * 启停开关：乐观更新行状态，提交时发送不含 id 的副本（id 走路径参数），
+ * 不再 `delete row.id` 改坏表格行（否则刷新前该行的编辑/删除按钮会拿到 undefined id）。
+ * 提交失败回滚状态；无论成败都重新拉取当前页以对齐服务端。
+ */
 const handleSwitchChange = async (row, value) => {
+  const previous = row.status
   row.status = value ? 'OPEN' : 'CLOSE'
-  const id = row?.id || ''
-  delete row.id
-  await putNotificationGroup(row, id)
+  const { id = '', ...payload } = row ?? {}
+  const res = await putNotificationGroup(payload, id || '')
+  if (res?.error) row.status = previous
   getTableData()
 }
 const handleDeleteTable = async (rowId: string) => {
-  await deleteNotificationGroup({ id: rowId })
-
+  const res = await deleteNotificationGroup({ id: rowId })
+  if (res?.error) return
   window.$message?.info($t('generate.notificationGroup'))
   getTableData()
 }
@@ -165,7 +158,15 @@ getTableData()
           </template>
         </NDataTable>
         <div class="pagination-box">
-          <NPagination v-model:page="pagination.page" :item-count="total" @update:page="getTableData" />
+          <NPagination
+            :page="pagination.page"
+            :page-size="pagination.pageSize"
+            :item-count="total"
+            :show-size-picker="true"
+            :page-sizes="pagination.pageSizes"
+            @update:page="pagination.onUpdatePage"
+            @update:page-size="pagination.onUpdatePageSize"
+          />
         </div>
         <TableActionModal
           v-model:visible="visible"

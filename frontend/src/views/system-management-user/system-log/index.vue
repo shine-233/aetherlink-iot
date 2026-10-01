@@ -5,81 +5,55 @@
 重构建议: 可逐步把查询、提交和弹窗状态拆成组合函数，让组件更专注于布局与事件编排。
 -->
 <script setup lang="tsx">
-import { computed, getCurrentInstance, reactive, ref } from 'vue'
+import { computed, getCurrentInstance, ref } from 'vue'
 import type { Ref } from 'vue'
 import { NButton, NEmpty, NSelect } from 'naive-ui'
-import type { DataTableColumns, PaginationProps } from 'naive-ui'
-import dayjs from 'dayjs'
+import type { DataTableColumns } from 'naive-ui'
 import { useRoute } from 'vue-router'
 import { getSystemLogList } from '@/service/api/system-management-user'
 import { $t } from '@/locales'
 import { formatDateTime } from '@/utils/common/datetime'
+import { fromFlatResponse, useListPage } from '@/components/data-table-page/useListPage'
 import DetailModal from './components/detail-modal.vue'
-import { useLoading } from '~/packages/hooks'
+import {
+  AUDIT_ACTIONS,
+  REQUEST_METHODS,
+  defaultSystemLogQuery,
+  normalizeLogRange,
+  serializeSystemLogQuery,
+  systemLogQueryFromRoute
+} from './query'
+import type { LogTimeRange, SystemLogQuery } from './query'
 
-const { loading, startLoading, endLoading } = useLoading(false)
 const route = useRoute()
 
-const range = ref<[number, number]>([dayjs().subtract(1, 'month').valueOf(), dayjs().valueOf()])
-// POST PUT DELETE
-const requestMethodOptions = reactive([
-  {
-    label: $t('custom.management.all'),
-    value: ''
-  },
-  {
-    label: 'POST',
-    value: 'POST'
-  },
-  {
-    label: 'PUT',
-    value: 'PUT'
-  },
-  {
-    label: 'DELETE',
-    value: 'DELETE'
-  }
-])
+const allOption = { label: $t('custom.management.all'), value: '' }
+const requestMethodOptions = [allOption, ...REQUEST_METHODS.map((value) => ({ label: value, value }))]
 // TB-10 实体级动作筛选（127.sql）：create/update/delete/read/other 映射自 HTTP 方法
-const auditActionOptions = reactive([
-  {
-    label: $t('custom.management.all'),
-    value: ''
-  },
-  {
-    label: 'create',
-    value: 'create'
-  },
-  {
-    label: 'update',
-    value: 'update'
-  },
-  {
-    label: 'delete',
-    value: 'delete'
-  },
-  {
-    label: 'read',
-    value: 'read'
-  },
-  {
-    label: 'other',
-    value: 'other'
-  }
-])
-const queryParams = reactive({
-  username: '',
-  selected_time: null,
-  start_time: '',
-  end_time: '',
-  method: '',
-  path: '',
-  ip: '',
-  action: '',
-  entity_type: '',
-  entity_id: ''
+const auditActionOptions = [allOption, ...AUDIT_ACTIONS.map((value) => ({ label: value, value }))]
+
+// 筛选/分页/加载态/过期请求丢弃统一交给 useListPage：慢的旧页响应不会覆盖新页，
+// 搜索回到第 1 页，每页条数切换后自动回拉。时间范围是唯一真源，start_time/end_time 在序列化时派生。
+// 首屏筛选来自深链（就绪检查跳转），重置则回到纯默认值（最近一个月、无其它筛选）。
+const {
+  query: queryParams,
+  rows: tableData,
+  total,
+  loading,
+  pagination,
+  load: getTableData,
+  search: handleQuery,
+  reset: handleReset
+} = useListPage<Api.SystemManage.SystemLogList, SystemLogQuery>({
+  initialQuery: () => systemLogQueryFromRoute(route.query),
+  resetValues: defaultSystemLogQuery,
+  pageSizes: [10, 15, 20, 25, 30],
+  serialize: serializeSystemLogQuery,
+  fetcher: async (params) =>
+    fromFlatResponse<Api.SystemManage.SystemLogList>(
+      await getSystemLogList(params as unknown as Api.SystemManage.SystemLogSearchParams)
+    )
 })
-const total = ref(0)
 
 const normalizeRouteQueryValue = (value: unknown) => {
   if (Array.isArray(value)) return String(value[0] || '')
@@ -88,56 +62,11 @@ const normalizeRouteQueryValue = (value: unknown) => {
 const routeSource = computed(() => normalizeRouteQueryValue(route.query.source))
 const isReadyCheckAuditSearch = computed(() => routeSource.value === 'ready-check' && Boolean(queryParams.path))
 
-const applyRouteQueryDefaults = () => {
-  const method = normalizeRouteQueryValue(route.query.method).toUpperCase()
-  if (requestMethodOptions.some((option) => option.value === method)) queryParams.method = method
-  queryParams.path = normalizeRouteQueryValue(route.query.path)
-
-  const startTime = normalizeRouteQueryValue(route.query.start_time)
-  const endTime = normalizeRouteQueryValue(route.query.end_time)
-  const start = startTime ? dayjs(startTime) : null
-  const end = endTime ? dayjs(endTime) : null
-  if (start?.isValid() && end?.isValid()) {
-    queryParams.start_time = start.format('YYYY-MM-DDTHH:mm:ssZ')
-    queryParams.end_time = end.format('YYYY-MM-DDTHH:mm:ssZ')
-    range.value = [start.valueOf(), end.valueOf()]
-  }
+/** 选择器变更：只选日期时把结束时间推到当天末尾，输入框与查询参数保持一致。 */
+function pickerChange(value: LogTimeRange) {
+  queryParams.range = normalizeLogRange(value)
 }
 
-const tableData = ref<Api.SystemManage.SystemLogList[]>([])
-
-function setTableData(data: Api.SystemManage.SystemLogList[] | []) {
-  tableData.value = data || []
-}
-
-const pagination: PaginationProps = reactive({
-  page: 1,
-  pageSize: 10,
-  showSizePicker: true,
-  pageSizes: [10, 15, 20, 25, 30],
-  onChange: (page: number) => {
-    pagination.page = page
-  },
-  onUpdatePageSize: (pageSize: number) => {
-    pagination.pageSize = pageSize
-    pagination.page = 1
-  }
-})
-
-const getTableData = async () => {
-  startLoading()
-  const prams = {
-    page: pagination.page || 1,
-    page_size: pagination.pageSize || 10,
-    ...queryParams
-  }
-  const res = await getSystemLogList(prams)
-  if (res?.data) {
-    setTableData(res?.data.list || [])
-    total.value = res.data.total || 0
-  }
-  endLoading()
-}
 const detailModalRef = ref<any>(null)
 const handleDetail = (item) => {
   detailModalRef.value && detailModalRef.value.show && detailModalRef.value.show(item)
@@ -230,74 +159,10 @@ const columns: Ref<DataTableColumns<DataService.Data>> = ref([
   }
 ]) as Ref<DataTableColumns<DataService.Data>>
 
-function handleQuery() {
-  getTableData()
-}
-function handleReset() {
-  queryParams.start_time = ''
-  queryParams.end_time = ''
-  queryParams.ip = ''
-  queryParams.method = ''
-  queryParams.path = ''
-  queryParams.username = ''
-  queryParams.action = ''
-  queryParams.entity_type = ''
-  queryParams.entity_id = ''
-  queryParams.selected_time = null
-  range.value = [dayjs().subtract(1, 'month').valueOf(), dayjs().valueOf()]
-  pagination.page = 1
-  handleQuery()
-}
-function pickerChange(value: [number, number] | null) {
-  if (value && value.length === 2) {
-    const startDate = dayjs(value[0])
-    const endDateMoment = dayjs(value[1])
-    if (process.env.NODE_ENV === 'development') {
-      /* intentionally empty */
-    }
-
-    // 检查用户是否可能只选了日期（时间部分为 00:00:00）
-    // 如果是，则将结束时间调整到 23:59:59.999
-    // 如果用户明确选择了时间，则尊重用户的选择
-    let adjustedEndDateMoment
-    if (
-      endDateMoment.hour() === 0 &&
-      endDateMoment.minute() === 0 &&
-      endDateMoment.second() === 0 &&
-      endDateMoment.millisecond() === 0
-    ) {
-      adjustedEndDateMoment = endDateMoment.endOf('day')
-      if (process.env.NODE_ENV === 'development') {
-        /* intentionally empty */
-      }
-    } else {
-      adjustedEndDateMoment = endDateMoment // 用户选择了具体时间，保持不变
-      if (process.env.NODE_ENV === 'development') {
-        /* intentionally empty */
-      }
-    }
-
-    queryParams.start_time = startDate.format('YYYY-MM-DDTHH:mm:ssZ')
-    queryParams.end_time = adjustedEndDateMoment.format('YYYY-MM-DDTHH:mm:ssZ')
-    if (process.env.NODE_ENV === 'development') {
-      /* intentionally empty */
-    }
-
-    // 同步更新 range 的结束时间，让输入框显示与实际查询参数保持一致。
-    range.value[1] = adjustedEndDateMoment.valueOf()
-  } else {
-    queryParams.start_time = ''
-    queryParams.end_time = ''
-    if (process.env.NODE_ENV === 'development') {
-      /* intentionally empty */
-    }
-  }
-}
 const getPlatform = computed(() => {
   const { proxy }: any = getCurrentInstance()
   return proxy.getPlatform()
 })
-applyRouteQueryDefaults()
 getTableData()
 </script>
 
@@ -314,7 +179,7 @@ getTableData()
           </NFormItem>
           <NFormItem path="selected_time">
             <NDatePicker
-              v-model:value="range"
+              :value="queryParams.range"
               type="datetimerange"
               clearable
               separator="-"
@@ -344,13 +209,21 @@ getTableData()
           <NButton class="ml-15px w-72px" type="primary" @click="handleReset">{{ $t('generate.reset') }}</NButton>
         </view>
       </NForm>
-      <NDataTable :columns="columns" :data="tableData" :loading="loading" class="flex-1-hidden">
+      <NDataTable :columns="columns" :data="tableData" :loading="loading" :remote="true" class="flex-1-hidden">
         <template #empty>
           <NEmpty :description="$t('common.noData')" class="py-24px" />
         </template>
       </NDataTable>
       <div class="pagination-box">
-        <NPagination v-model:page="pagination.page" :item-count="total" @update:page="getTableData" />
+        <NPagination
+          :page="pagination.page"
+          :page-size="pagination.pageSize"
+          :item-count="total"
+          :show-size-picker="true"
+          :page-sizes="pagination.pageSizes"
+          @update:page="pagination.onUpdatePage"
+          @update:page-size="pagination.onUpdatePageSize"
+        />
       </div>
     </NCard>
     <DetailModal ref="detailModalRef"></DetailModal>

@@ -31,18 +31,6 @@ vi.mock('@/utils/common/datetime', () => ({
   formatDateTime: (v: string) => v
 }))
 
-vi.mock('~/packages/hooks', () => ({
-  useLoading: (initial: boolean) => {
-    const loading = vi.fn(() => false) as any
-    loading.value = false
-    return {
-      loading: { value: false },
-      startLoading: vi.fn(),
-      endLoading: vi.fn()
-    }
-  }
-}))
-
 import NotificationRecord from '../index.vue'
 
 const mountedWrappers: Array<ReturnType<typeof shallowMount>> = []
@@ -194,23 +182,87 @@ describe('NotificationRecord', () => {
     expect(state.queryParams.send_target).toBe('')
   })
 
-  it('should update date range on pickerChange', async () => {
+  it('should send the picked range as send_time_start / send_time_stop (REST contract)', async () => {
     const wrapper = mountComponent()
     await flushPromises()
     const state = getState(wrapper)
-    state.range = [1704067200000, 1706745600000]
-    state.pickerChange()
-    expect(state.queryParams.send_time_start).toMatch(/^2024-01-01T/)
-    expect(state.queryParams.send_time_end).toMatch(/^2024-02-01T/)
+    state.pickerChange([new Date(2024, 0, 1, 8).valueOf(), new Date(2024, 1, 1, 9).valueOf()])
+    hoisted.getNotificationHistoryList.mockClear()
+    state.handleQuery()
+    await flushPromises()
+    const sent = hoisted.getNotificationHistoryList.mock.calls[0][0]
+    expect(sent.send_time_start).toMatch(/^2024-01-01T08:00:00/)
+    expect(sent.send_time_stop).toMatch(/^2024-02-01T09:00:00/)
+    // 后端只认 send_time_stop；内部 range 不能泄漏进请求
+    expect(sent).not.toHaveProperty('send_time_end')
+    expect(sent).not.toHaveProperty('range')
   })
 
-  it('should clear date range when range is empty', async () => {
+  it('should send empty time bounds when the range is cleared', async () => {
     const wrapper = mountComponent()
     await flushPromises()
     const state = getState(wrapper)
-    state.range = null as any
-    state.pickerChange()
-    expect(state.queryParams.send_time_start).toBe('')
-    expect(state.queryParams.send_time_end).toBe('')
+    state.pickerChange(null)
+    expect(state.queryParams.range).toBeNull()
+    hoisted.getNotificationHistoryList.mockClear()
+    state.handleQuery()
+    await flushPromises()
+    expect(hoisted.getNotificationHistoryList).toHaveBeenCalledWith(
+      expect.objectContaining({ send_time_start: '', send_time_stop: '' })
+    )
+  })
+
+  it('should restore the one-month range on reset after clearing it', async () => {
+    const wrapper = mountComponent()
+    await flushPromises()
+    const state = getState(wrapper)
+    state.pickerChange(null)
+    state.handleReset()
+    await flushPromises()
+    expect(state.queryParams.range).toHaveLength(2)
+    expect(hoisted.getNotificationHistoryList).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 1, send_time_start: expect.stringMatching(/T/) })
+    )
+  })
+
+  it('should search from page 1 and refetch on page / page-size change', async () => {
+    hoisted.getNotificationHistoryList.mockResolvedValue({ data: { list: [], total: 100 } })
+    const wrapper = mountComponent()
+    await flushPromises()
+    const state = getState(wrapper)
+    expect(state.pagination.pageSizes).toEqual([10, 15, 20, 25, 30])
+    state.pagination.onUpdatePage(3)
+    await flushPromises()
+    expect(hoisted.getNotificationHistoryList).toHaveBeenLastCalledWith(expect.objectContaining({ page: 3 }))
+    state.pagination.onUpdatePageSize(20)
+    await flushPromises()
+    expect(hoisted.getNotificationHistoryList).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 1, page_size: 20 })
+    )
+    state.pagination.onUpdatePage(2)
+    await flushPromises()
+    state.handleQuery()
+    await flushPromises()
+    expect(hoisted.getNotificationHistoryList).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 1, page_size: 20 })
+    )
+  })
+
+  it('should drop a stale page-1 response that resolves after page 2', async () => {
+    const page2 = [{ send_target: 'p2' }]
+    let resolvePage1: (value: unknown) => void = () => {}
+    hoisted.getNotificationHistoryList
+      .mockImplementationOnce(() => new Promise((resolve) => (resolvePage1 = resolve)))
+      .mockResolvedValueOnce({ data: { list: page2, total: 20 } })
+    const wrapper = mountComponent()
+    const state = getState(wrapper)
+    state.pagination.onUpdatePage(2)
+    await flushPromises()
+    expect(state.tableData).toEqual(page2)
+    resolvePage1({ data: { list: [{ send_target: 'p1' }], total: 20 } })
+    await flushPromises()
+    expect(state.tableData).toEqual(page2)
+    expect(state.pagination.page).toBe(2)
+    expect(state.loading).toBe(false)
   })
 })
