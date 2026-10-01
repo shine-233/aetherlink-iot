@@ -227,7 +227,7 @@ func getTelemetryStatisticAggregateRowsByBatch(deviceIds []string, keys []string
 	}
 
 	if len(deviceIds) == 0 || len(windows) == 0 {
-		return buildTelemetryStatisticBatchAggregateResults(deviceIds, keys, resultData), nil
+		return buildTelemetryStatisticBatchResults(deviceIds, keys, resultData), nil
 	}
 
 	rows, err := queryTelemetryStatisticBatchAggregateRows(deviceIds, keys, windows, aggregateFunc)
@@ -245,7 +245,7 @@ func getTelemetryStatisticAggregateRowsByBatch(deviceIds []string, keys []string
 		})
 	}
 
-	return buildTelemetryStatisticBatchAggregateResults(deviceIds, keys, resultData), nil
+	return buildTelemetryStatisticBatchResults(deviceIds, keys, resultData), nil
 }
 
 func queryTelemetryStatisticBatchAggregateRows(deviceIds []string, keys []string, windows []telemetryWindow, aggregateFunc string) ([]telemetryStatisticBatchAggregateRow, error) {
@@ -285,7 +285,9 @@ func queryTelemetryStatisticBatchAggregateRows(deviceIds []string, keys []string
 	return rows, err
 }
 
-func buildTelemetryStatisticBatchAggregateResults(deviceIds []string, keys []string, data [][]map[string]interface{}) []map[string]interface{} {
+// buildTelemetryStatisticBatchResults 把按 (device_id, key) 对齐的批量统计结果组装为响应行；
+// 聚合与差值两条批量路径共用。
+func buildTelemetryStatisticBatchResults(deviceIds []string, keys []string, data [][]map[string]interface{}) []map[string]interface{} {
 	results := make([]map[string]interface{}, 0, len(deviceIds))
 	for i := range deviceIds {
 		results = append(results, map[string]interface{}{
