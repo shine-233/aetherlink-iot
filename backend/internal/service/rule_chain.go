@@ -23,6 +23,7 @@ import (
 	"aetherlink-iot/backend/internal/authz"
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/internal/service/kit"
 	"aetherlink-iot/backend/pkg/errcode"
 
 	"aetherlink-iot/backend/pkg/utils"
@@ -79,20 +80,33 @@ func normalizeRuleChainGraph(raw json.RawMessage) ([]byte, error) {
 	return compacted.Bytes(), nil
 }
 
+// ruleChainScope nil claims → 裸 CodeNoPermission；去空白后空租户 → "empty tenant id in claims"。
+var ruleChainScope = kit.TenantScope{BlankMsg: "empty tenant id in claims"}
+
+// ruleChainRepo 租户内规则链：DAL 未命中返回 (nil, nil)；DAL 错误一律 DBErr("error")，不当作 not found。
+var ruleChainRepo = kit.TenantRepo[*model.RuleChain]{
+	Get:      dal.GetRuleChainByID,
+	Scope:    ruleChainScope.Tenant,
+	Missing:  kit.NilPtr[model.RuleChain],
+	NotFound: kit.NotFound{Msg: "rule chain not found", Match: func(error) bool { return false }, OnOther: kit.OnDBErr(kit.KeyError)},
+}
+
+// ruleChainExportRepo 导出路径：不裁剪租户（nil/空租户均裸 CodeNoPermission），未命中为裸 CodeNotFound。
+var ruleChainExportRepo = kit.TenantRepo[*model.RuleChain]{
+	Get:      ruleChainRepo.Get,
+	Gate:     kit.Gate{NeedTenant: true},
+	Missing:  ruleChainRepo.Missing,
+	NotFound: kit.NotFound{Match: ruleChainRepo.NotFound.Match, OnOther: ruleChainRepo.NotFound.OnOther},
+}
+
+// normalizeRuleChainTenant SYS_ADMIN 可经 reqTenantID 指定目标租户，其余走 ruleChainScope。
 func normalizeRuleChainTenant(reqTenantID string, claims *utils.UserClaims) (string, error) {
-	if claims == nil {
-		return "", errcode.New(errcode.CodeNoPermission)
-	}
-	if authz.IsSysAdmin(claims) {
+	if claims != nil && authz.IsSysAdmin(claims) {
 		if tenantID := strings.TrimSpace(reqTenantID); tenantID != "" {
 			return tenantID, nil
 		}
 	}
-	tenantID := strings.TrimSpace(claims.TenantID)
-	if tenantID == "" {
-		return "", errcode.NewWithMessage(errcode.CodeNoPermission, "empty tenant id in claims")
-	}
-	return tenantID, nil
+	return ruleChainScope.Tenant(claims)
 }
 
 // CreateChain 新建规则链。
@@ -129,7 +143,7 @@ func (*RuleChain) CreateChain(raw []byte, claims *utils.UserClaims) (*model.Rule
 		UpdatedAt:   &now,
 	}
 	if err := dal.CreateRuleChain(chain); err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": err.Error()})
+		return nil, kit.DBErr(kit.KeyError, err)
 	}
 	invalidateRuleChainCache(tenantID)
 	return chain, nil
@@ -148,15 +162,9 @@ type ruleChainPortableExport struct {
 // ExportChain 只读导出规则链（租户归属校验在 DAL），供资源中心 ApplyResource
 // 与 TB-19 方案模板把规则链作为引用资源搬运。导出是只读路径，绝不创建实例。
 func (*RuleChain) ExportChain(chainID string, claims *utils.UserClaims) (*ruleChainPortableExport, error) {
-	if claims == nil || claims.TenantID == "" {
-		return nil, errcode.New(errcode.CodeNoPermission)
-	}
-	chain, err := dal.GetRuleChainByID(strings.TrimSpace(chainID), claims.TenantID)
+	chain, err := ruleChainExportRepo.Load(claims, strings.TrimSpace(chainID))
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": err.Error()})
-	}
-	if chain == nil {
-		return nil, errcode.New(errcode.CodeNotFound)
+		return nil, err
 	}
 	if len(chain.Graph) == 0 {
 		return nil, errcode.NewWithMessage(errcode.CodeParamError, "rule chain graph is empty")
@@ -180,17 +188,11 @@ func (*RuleChain) UpdateChain(raw []byte, claims *utils.UserClaims) (*model.Rule
 	if err := validateRuleChainRequest(&req); err != nil {
 		return nil, err
 	}
-	tenantID, err := normalizeRuleChainTenant("", claims)
+	existing, err := ruleChainRepo.Load(claims, req.ID)
 	if err != nil {
 		return nil, err
 	}
-	existing, err := dal.GetRuleChainByID(req.ID, tenantID)
-	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": err.Error()})
-	}
-	if existing == nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNotFound, "rule chain not found")
-	}
+	tenantID := existing.TenantID
 	graphJSON, err := normalizeRuleChainGraph(req.Graph)
 	if err != nil {
 		return nil, err
@@ -205,10 +207,10 @@ func (*RuleChain) UpdateChain(raw []byte, claims *utils.UserClaims) (*model.Rule
 	}
 	ok, err := dal.UpdateRuleChain(updated)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": err.Error()})
+		return nil, kit.DBErr(kit.KeyError, err)
 	}
 	if !ok {
-		return nil, errcode.NewWithMessage(errcode.CodeNotFound, "rule chain not found")
+		return nil, ruleChainRepo.NotFound.Err()
 	}
 	invalidateRuleChainCache(tenantID)
 	return dal.GetRuleChainByID(req.ID, tenantID)
@@ -218,7 +220,7 @@ func (*RuleChain) UpdateChain(raw []byte, claims *utils.UserClaims) (*model.Rule
 // TB-18：链仍被设备档案绑定为默认链时拒绝删除（fail-closed）——先给可读业务错误，
 // 数据库侧 125.sql 的 FK ON DELETE RESTRICT 兜底。
 func (*RuleChain) DeleteChain(id string, claims *utils.UserClaims) error {
-	tenantID, err := normalizeRuleChainTenant("", claims)
+	tenantID, err := ruleChainScope.Tenant(claims)
 	if err != nil {
 		return err
 	}
@@ -226,17 +228,17 @@ func (*RuleChain) DeleteChain(id string, claims *utils.UserClaims) error {
 		return errcode.NewWithMessage(errcode.CodeParamError, "id is required")
 	}
 	if bound, gErr := dal.CountDeviceConfigsByDefaultRuleChainID(id, tenantID); gErr != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": gErr.Error()})
+		return kit.DBErr(kit.KeyError, gErr)
 	} else if bound > 0 {
 		return errcode.NewWithMessage(errcode.CodeParamError,
 			"rule chain is referenced by device profile default_rule_chain_id; unbind it first")
 	}
 	ok, err := dal.DeleteRuleChain(id, tenantID)
 	if err != nil {
-		return errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": err.Error()})
+		return kit.DBErr(kit.KeyError, err)
 	}
 	if !ok {
-		return errcode.NewWithMessage(errcode.CodeNotFound, "rule chain not found")
+		return ruleChainRepo.NotFound.Err()
 	}
 	invalidateRuleChainCache(tenantID)
 	return nil
@@ -244,18 +246,7 @@ func (*RuleChain) DeleteChain(id string, claims *utils.UserClaims) error {
 
 // GetChain 读取规则链详情。
 func (*RuleChain) GetChain(id string, claims *utils.UserClaims) (*model.RuleChain, error) {
-	tenantID, err := normalizeRuleChainTenant("", claims)
-	if err != nil {
-		return nil, err
-	}
-	chain, err := dal.GetRuleChainByID(id, tenantID)
-	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": err.Error()})
-	}
-	if chain == nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNotFound, "rule chain not found")
-	}
-	return chain, nil
+	return ruleChainRepo.Load(claims, id)
 }
 
 // ruleChainListScopes 将调用方 claims 映射为规则链列表读作用域（ROADMAP C2 自上而下三态约定的服务层入口）：
@@ -290,12 +281,9 @@ func (*RuleChain) ListChains(keyword string, page, pageSize int, claims *utils.U
 	}
 	count, chains, err := dal.ListRuleChainsByTenant(scopes, keyword, page, pageSize)
 	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{"error": err.Error()})
+		return nil, kit.DBErr(kit.KeyError, err)
 	}
-	return map[string]interface{}{
-		"total": count,
-		"list":  chains,
-	}, nil
+	return kit.ListMap(count, chains), nil
 }
 
 // ---- 执行入口与缓存 ----
