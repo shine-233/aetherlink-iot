@@ -381,24 +381,6 @@ func writeBinary(w *bytes.Buffer, b []byte) {
 	w.Write(b)
 }
 
-// DecodeUTF8String decodes the  UTF-8 encoded strings into bytes, returns the decoded bytes, bytes size and error.
-func DecodeUTF8String(buf []byte) (b []byte, size int, err error) {
-	buflen := len(buf)
-	if buflen < 2 {
-		return nil, 0, ErrInvalUTF8String
-	}
-	length := int(binary.BigEndian.Uint16(buf[0:2]))
-	if buflen < length+2 {
-		return nil, 0, ErrInvalUTF8String
-	}
-	payload := buf[2 : length+2]
-	if !ValidUTF8(payload) {
-		return nil, 0, ErrInvalUTF8String
-	}
-
-	return payload, length + 2, nil
-}
-
 // NewPacket returns a packet representing the decoded MQTT packet and an error.
 func NewPacket(fh *FixHeader, version Version, r io.Reader) (Packet, error) {
 	switch fh.PacketType {
@@ -563,19 +545,6 @@ func ValidTopicFilter(mustUTF8 bool, p []byte) bool {
 		p = p[size:]
 	}
 	return true
-}
-
-// TopicMatch returns whether the topic and topic filter is matched.
-// 性能说明：逐层原地比较（topicMatchFast），不再切分出两个 [][]byte（旧实现 6 次分配）。
-func TopicMatch(topic []byte, topicFilter []byte) bool {
-	if len(topicFilter) == 0 || len(topic) == 0 {
-		return false
-	}
-	// $ 开头的系统主题与非 $ 过滤器互不匹配 [MQTT-4.7.2-1]
-	if (topicFilter[0] == '$') != (topic[0] == '$') {
-		return false
-	}
-	return topicMatchFast(topic, topicFilter)
 }
 
 // TotalBytes returns how many bytes of the packet

@@ -98,14 +98,3 @@ func BenchmarkValidUTF8ASCII(b *testing.B) {
 		}
 	}
 }
-
-func BenchmarkTopicMatch(b *testing.B) {
-	t := []byte("devices/telemetry/control/device-0001")
-	f := []byte("devices/+/control/#")
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		if !TopicMatch(t, f) {
-			b.Fatal("no match")
-		}
-	}
-}

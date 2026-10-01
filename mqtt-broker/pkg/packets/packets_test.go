@@ -36,19 +36,6 @@ func byteP(v byte) *byte {
 	return &v
 }
 
-var testDecodeUTF8String = []struct {
-	buf       []byte
-	wantBytes []byte
-	wantSize  int
-	wantErr   error
-}{
-	{buf: []byte{0, 2, 0x31, 0x32, 0x33}, wantBytes: []byte{0x31, 0x32}, wantSize: 4, wantErr: nil},
-	{buf: []byte{0, 2, 0x31, 0x32}, wantBytes: []byte{0x31, 0x32}, wantSize: 4, wantErr: nil},
-	{buf: []byte{0, 2, 0x31}, wantBytes: nil, wantSize: 0, wantErr: ErrInvalUTF8String},
-	{buf: []byte{0, 2, 0x01}, wantBytes: nil, wantSize: 0, wantErr: ErrInvalUTF8String},
-	{buf: []byte{0, 2, 0, 0}, wantBytes: nil, wantSize: 0, wantErr: ErrInvalUTF8String},
-}
-
 var testEncodeUTF8String = []struct {
 	buf       []byte
 	wantBytes []byte
@@ -71,21 +58,6 @@ func TestEncodeUTF8String(t *testing.T) {
 		}
 		if err != v.wantErr {
 			t.Errorf("EncodeUTF8String(%v) error, want %v, but %v", v.buf, v.wantErr, err)
-		}
-	}
-}
-
-func TestDecodeUTF8String(t *testing.T) {
-	for _, v := range testDecodeUTF8String {
-		b, size, err := DecodeUTF8String(v.buf)
-		if !bytes.Equal(b, v.wantBytes) {
-			t.Errorf("DecodeUTF8String(%v) error, want %v, but %v", v.buf, v.wantBytes, b)
-		}
-		if size != v.wantSize {
-			t.Errorf("DecodeUTF8String(%v) error, want %d, but %d", v.buf, v.wantSize, size)
-		}
-		if err != v.wantErr {
-			t.Errorf("DecodeUTF8String(%v) error, want %v, but %v", v.buf, v.wantErr, err)
 		}
 	}
 }
@@ -139,28 +111,6 @@ var topicNameTest = []struct {
 	{input: "/1/+/+/1234", want: false},
 	{input: "/abc/def/gggggg/", want: true},
 	{input: "/9 2", want: true},
-}
-
-var topicMatchTest = []struct {
-	subTopic string //subscribe topic
-	topic    string //publish topic
-	isMatch  bool
-}{
-	{subTopic: "#", topic: "/abc/def", isMatch: true},
-	{subTopic: "/a", topic: "a", isMatch: false},
-	{subTopic: "+", topic: "/a", isMatch: false},
-
-	{subTopic: "a/", topic: "a", isMatch: false},
-	{subTopic: "a/+", topic: "a/123/4", isMatch: false},
-	{subTopic: "a/#", topic: "a/123/4", isMatch: true},
-
-	{subTopic: "/a/+/+/abcd", topic: "/a/dfdf/3434/abcd", isMatch: true},
-	{subTopic: "/a/+/+/abcd", topic: "/a/dfdf/3434/abcdd", isMatch: false},
-	{subTopic: "/a/+/abc/", topic: "/a/dfdf/abc/", isMatch: true},
-	{subTopic: "/a/+/abc/", topic: "/a/dfdf/abc", isMatch: false},
-	{subTopic: "/a/+/+/", topic: "/a/dfdf/", isMatch: false},
-	{subTopic: "/a/+/+", topic: "/a/dfdf/", isMatch: true},
-	{subTopic: "/a/+/+/#", topic: "/a/dfdf/", isMatch: true},
 }
 
 func TestRemainLengthEncodeDecode(t *testing.T) {
@@ -234,14 +184,6 @@ func TestValidTopicName(t *testing.T) {
 	for _, v := range topicNameTest {
 		if valid := ValidTopicName(true, []byte(v.input)); valid != v.want {
 			t.Fatalf("ValidTopicName(%v) error,want %t, but %t", v.input, v.want, valid)
-		}
-	}
-}
-
-func TestTopicMatch(t *testing.T) {
-	for _, v := range topicMatchTest {
-		if isMatch := TopicMatch([]byte(v.topic), []byte(v.subTopic)); isMatch != v.isMatch {
-			t.Fatalf("TopicMatch(%s,%s) error,want %t, but %t", v.topic, v.subTopic, v.isMatch, isMatch)
 		}
 	}
 }

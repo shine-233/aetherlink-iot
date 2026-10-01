@@ -4,9 +4,8 @@
 //     调用方提供的切片，替代每次 make 新切片的 DecodeRemainLength。
 //   - readVarInt：具体类型 *bytes.Buffer 版的变长整数读取；EncodeRemainLength 接收
 //     io.ByteReader 接口会让传入的 bytes.Buffer 逃逸到堆上。
-//   - topicMatchFast：逐层比较主题与过滤器，不再切分出两个 [][]byte。
 //
-// 关键注意事项：对外函数（DecodeRemainLength/EncodeRemainLength/TopicMatch）签名与语义不变，
+// 关键注意事项：对外函数（DecodeRemainLength/EncodeRemainLength）签名与语义不变，
 // 仅内部热路径改用本文件实现；超限/畸形输入的错误码与旧实现一致。
 package packets
 
@@ -87,42 +86,6 @@ func packFixHeader(w io.Writer, first byte, remainLength int) error {
 	// 非 ByteWriter：拷贝到堆切片再写，避免把栈数组暴露给未知 Writer 实现。
 	_, err = w.Write(append([]byte(nil), b...))
 	return err
-}
-
-// topicMatchFast 逐层匹配 topic 与 topicFilter，语义与旧的 splitTopicLevels 实现一致。
-func topicMatchFast(topic []byte, filter []byte) bool {
-	for {
-		var tLevel, fLevel []byte
-		tEnd, fEnd := false, false
-		if pos := bytes.IndexByte(filter, '/'); pos >= 0 {
-			fLevel, filter = filter[:pos], filter[pos+1:]
-		} else {
-			fLevel, fEnd = filter, true
-		}
-		// 多层通配符只能是过滤器最后一层，匹配剩余所有层级（含零层）。
-		if fEnd && len(fLevel) == 1 && fLevel[0] == '#' {
-			return true
-		}
-		if topic == nil {
-			// 主题层级已耗尽而过滤器还有层级。
-			return false
-		}
-		if pos := bytes.IndexByte(topic, '/'); pos >= 0 {
-			tLevel, topic = topic[:pos], topic[pos+1:]
-		} else {
-			tLevel, tEnd = topic, true
-		}
-		if !(len(fLevel) == 1 && fLevel[0] == '+') && !bytes.Equal(tLevel, fLevel) {
-			return false
-		}
-		if fEnd {
-			return tEnd
-		}
-		if tEnd {
-			// 用 nil 标记主题已无层级（区别于空层级 []byte{}）。
-			topic = nil
-		}
-	}
 }
 
 // isASCIITopicSafe 判断字节是否为可直接通过 UTF-8/控制字符校验的 ASCII（0x20..0x7e）。
