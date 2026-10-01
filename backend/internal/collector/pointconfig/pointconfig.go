@@ -145,15 +145,3 @@ func ValidateOpcuaConfig(raw string) error {
 	_, err := ParseOpcuaConfig(raw)
 	return err
 }
-
-// NormalizeProtocolType 归一化协议类型（大小写不敏感， trim 空白）；非内置协议返回原值。
-// 内置协议统一为大写（与 device_configs.protocol_type 口径一致）。
-func NormalizeProtocolType(protocolType string) string {
-	normalized := strings.ToUpper(strings.TrimSpace(protocolType))
-	switch normalized {
-	case "SNMP", "OPCUA":
-		return normalized
-	default:
-		return protocolType
-	}
-}

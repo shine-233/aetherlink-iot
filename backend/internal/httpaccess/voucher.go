@@ -3,8 +3,6 @@
 package httpaccess
 
 import (
-	"crypto/sha256"
-	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -62,15 +60,4 @@ func decodeOptionalString(fields map[string]json.RawMessage, key string, target 
 		return nil
 	}
 	return json.Unmarshal(raw, target)
-}
-
-// MatchesAccessToken compares token digests so the comparison work does not
-// reveal whether the raw values had equal lengths.
-func MatchesAccessToken(voucher Voucher, presented string) bool {
-	if voucher.AccessToken == "" || presented == "" {
-		return false
-	}
-	expectedDigest := sha256.Sum256([]byte(voucher.AccessToken))
-	presentedDigest := sha256.Sum256([]byte(presented))
-	return subtle.ConstantTimeCompare(expectedDigest[:], presentedDigest[:]) == 1
 }

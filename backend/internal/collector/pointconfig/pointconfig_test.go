@@ -76,18 +76,3 @@ func TestValidateOpcuaConfig(t *testing.T) {
 		t.Fatalf("非法 SecurityMode 应报错，实际 %v", err)
 	}
 }
-
-func TestNormalizeProtocolType(t *testing.T) {
-	cases := []struct{ in, want string }{
-		{"snmp", "SNMP"},
-		{" OPCUA ", "OPCUA"},
-		{"opcua", "OPCUA"},
-		{"MQTT", "MQTT"},  // 非内置协议原样返回
-		{"MODBUS", "MODBUS"}, // 非内置协议原样返回
-	}
-	for _, tc := range cases {
-		if got := NormalizeProtocolType(tc.in); got != tc.want {
-			t.Fatalf("NormalizeProtocolType(%q)=%q want %q", tc.in, got, tc.want)
-		}
-	}
-}
