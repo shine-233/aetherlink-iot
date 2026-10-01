@@ -41,12 +41,6 @@ func (rl *AutomateLimiter) GetLimiter(key string) *rate.Limiter {
 	return limiter
 }
 
-// Allow 检查当前 key 是否还能立即通过一次自动化处理请求。
-func (rl *AutomateLimiter) Allow(key string) bool {
-	limiter := rl.GetLimiter(key)
-	return limiter.Allow()
-}
-
 type DeviceAuthLimiter struct {
 	mu       sync.Mutex
 	limiters map[string]*rate.Limiter
