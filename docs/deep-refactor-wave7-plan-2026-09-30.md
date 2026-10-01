@@ -306,7 +306,7 @@
 | 5 | Lua 每消息重建 VM/重编译 | ✅ safelua 程序缓存 + 状态池 |
 | 6 | 每消息冗余序列化 + Redis 往返 | ❓ 未核实 |
 | 7 | 三份管线副本（3807 LOC） | ✅ |
-| 8 | rule chain/heartbeat 每消息打 Redis | ❌ 未做 |
+| 8 | rule chain/heartbeat 每消息打 Redis | ✅ 规则链走 `GetDeviceConfigRouting` 进程内 TTL 缓存；状态热路径本轮又省掉一次整行 SELECT（见下） |
 | 9 | broker OnMsgArrived 每发布 Redis GET | ✅ hotpath_cache |
 | 10 | `uplink_storage_receipts` 无界增长 | ✅ 141.sql（幂等回执默认开启） |
 | 11 | 子设备解析走未索引列 | ✅ 142.sql `idx_devices_parent_sub_addr` |
@@ -414,6 +414,43 @@ hot paths"*。实测 `middleware/operations_log.go` 的 `saveOperationLog` 确�
 **未做**：扫描同一条还提到"per-device FK cascades"（设备删除的级联移出热路径，需配合软删除），
 本次只做了 op_log 部分。
 
+---
+
+## hot-path#8 收尾：状态热路径省掉一次整行 SELECT（2026-10-01 09:4x）
+
+扫描原文：*"Rule chain and heartbeat hit DeviceConfig in Redis per message, and the
+per-telemetry auto-online check can hit PostgreSQL"*。
+
+**规则链那半已解决**：`service/rule_chain_effective.go:105` 走 `dal.GetDeviceConfigRouting`，
+注释写明"进程内 TTL 缓存命中时零 Redis/DB 往返"。
+
+**状态那半本轮解决**：`internal/uplink/status_flow.go` 的 `persistStatusChange` 每条状态消息
+调 `dal.UpdateDeviceStatus`，而后者第一件事是 `getDeviceTenantID` ——
+**一次整行 SELECT 只为取 tenant_id**，之后才做条件 UPDATE。也就是每条状态消息 2 次库往返。
+
+但调用方手里**已经有完整设备对象**（`buildStatusMessageContext` 刚从
+`initialize.GetDeviceCacheById` 拿到，含 `TenantID`）。这次 SELECT 纯属重复。
+
+**修复**：新增 `dal.UpdateDeviceStatusWithTenant(deviceId, status, tenantID)`，由调用方提供
+已加载的 tenantID，跳过 `getDeviceTenantID`。状态消息从 **2 次库往返降到 1 次**。
+
+**刻意不做的两件事**（都为了不引入行为差异）：
+
+1. **不做内存状态比较跳过 UPDATE**。理论上可以先比 `ctx.device.IsOnline` 与 `ctx.status`，
+   相同就完全跳过 DB。但那样会在缓存与库短暂不一致时**掩盖**本该发生的状态纠正——
+   设备在线状态影响告警与看板，这个风险不值得省那一次条件 UPDATE。
+   条件 UPDATE（`is_online <> status`）本身在未变化时就是廉价的空操作，保留它。
+2. **tenantID 为空时回退旧入口**。脏缓存或异常设备可能拿不到租户，此时不能因为省一次查询
+   就把状态历史写成空租户，也不能漏掉状态更新——直接 `return UpdateDeviceStatus(...)`。
+
+**测试**：新增两例——与旧入口语义等价（首次变化 true、再次 false、`IsOnline` 落库正确）、
+空 tenantID 回退路径仍能正常更新状态。
+`go build` / `go vet ./internal/dal/... ./internal/uplink/...` 0 问题；
+全量 `go test ./... -count=1 -p 1` → **0 FAIL**。
+
+**未做**：`internal/uplink/liveness.go:43` 也调 `UpdateDeviceStatus`，但它那条路径手上没有
+设备对象（只有 deviceID），无法省这次查询，保持原样。
+
 ### Wave7-D：判据采集与正式执行（2026-10-01 09:2x，ZCode）
 
 - **判据**：对 aetherlink_go99（隔离集群 55433，与演练库同量级）跑 `measure_telemetry_volume.sql`：
@@ -430,3 +467,23 @@ hot paths"*。实测 `middleware/operations_log.go` 的 `saveOperationLog` 确�
     探针已清理）。
 - **遗留**：DROP 任务（方案 B 的 cron）等 138.sql 应用后按最大保留期配置；
   真实部署库的执行走同一脚本 + 部署窗口。
+
+### Wave7-C：专线开工，子阶段 1+2 首域样板（2026-10-01 09:5x，ZCode）
+
+- **冻结守卫（子阶段 1 的机械化）**：`internal/api/groupapp_freeze_test.go`——
+  go/parser 扫描 api 包非测试源码，统计 `service.GroupApp` 选择器出现次数，
+  断言 ≤ 基线 `groupAppRefBaseline`（**571**，首次冻结实测；每次域迁移后下调，只许减不许增）。
+  新增 handler 一律走已注入的 `XxxSvc` 域接口字段。
+- **首域样板（子阶段 2）**：report 域。
+  - `service/report_schedule_domain.go`：`ReportScheduleDomain` 接口（9 方法）+
+    编译期断言；`ReportScheduleService` 为无状态值实现，天然满足。
+  - `api/enter.go`：Controller 增 `ReportScheduleSvc` 字段（**必须避开与嵌入
+    ReportScheduleApi 的 handler 方法同名**，故统一 XxxSvc 命名）；init() 内
+    `Controllers.ReportScheduleSvc = service.GroupApp.ReportSchedule` 是该域对
+    门面的唯一引用（门面保留过渡形态）。
+  - `api/report_schedule.go`：9 处直引全部切到接口字段，service import 移除。
+- **验证**：`go vet` api+service 0 问题；api 包全量测试通过（含冻结测试实测 571=基线）；
+  全量 `go test ./... -p 1` 结果见下一条执行记录。
+- **后续域清单（按此模式推进，每域一次全量门禁+基线下调）**：user/role/dict →
+  board/scada/widget → alarm → fleet command → device 系列（最大，最后）。
+  完成后组装点迁 internal/app、删 GroupApp 门面与冻结测试。
