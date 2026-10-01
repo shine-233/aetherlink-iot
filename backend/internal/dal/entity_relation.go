@@ -58,22 +58,6 @@ func FindEntityRelationInTenant(tenantID, fromType, fromID, relationType, toType
 	return &m, nil
 }
 
-// GetEntityRelationInTenant 按租户定位单条关系；未命中返回 gorm.ErrRecordNotFound。
-func GetEntityRelationInTenant(id, tenantID string) (*model.EntityRelation, error) {
-	db, dbErr := entityRelationDB()
-	if dbErr != nil {
-		return nil, dbErr
-	}
-	var m model.EntityRelation
-	err := db.
-		Where("id = ? AND tenant_id = ?", id, tenantID).
-		First(&m).Error
-	if err != nil {
-		return nil, err
-	}
-	return &m, nil
-}
-
 // DeleteEntityRelationInTenant 租户内删除关系，返回受影响行数（0=未命中）。
 func DeleteEntityRelationInTenant(id, tenantID string) (int64, error) {
 	db, err := entityRelationDB()

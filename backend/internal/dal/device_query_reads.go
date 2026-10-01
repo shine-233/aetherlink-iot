@@ -36,15 +36,6 @@ func (DeviceQuery) Count(ctx context.Context) (count int64, err error) {
 	return
 }
 
-func (DeviceQuery) CountByTenantID(ctx context.Context, TenantID string) (count int64, err error) {
-	device := query.Device
-	count, err = device.Where(device.TenantID.Eq(TenantID)).Count()
-	if err != nil {
-		logrus.Error(ctx, err)
-	}
-	return
-}
-
 // 获取网关未关联网关设备的子设备列表,并做关联查询设备配置表
 func (DeviceQuery) GetGatewayUnrelatedDeviceList(
 	ctx context.Context,
@@ -113,42 +104,6 @@ func (DeviceQuery) CountByWhere(ctx context.Context, option ...gen.Condition) (c
 	return
 }
 
-// GetBoardDeviceCounts returns the homepage device totals in one DB round trip.
-// Some callers intentionally include inactive devices in total for backwards
-// compatibility, while online count always uses active + online devices.
-func GetBoardDeviceCounts(ctx context.Context, tenantID string, excludeInactiveFromTotal bool) (*model.GetBoardDeviceRes, error) {
-	var row struct {
-		DeviceTotal int64 `gorm:"column:device_total"`
-		DeviceOn    int64 `gorm:"column:device_on"`
-	}
-	sql := `
-		SELECT
-			COUNT(*) AS device_total,
-			COALESCE(SUM(CASE WHEN activate_flag = 'active' AND is_online = 1 THEN 1 ELSE 0 END), 0) AS device_on
-		FROM devices
-		WHERE 1 = 1`
-	args := []interface{}{}
-	if tenantID != "" {
-		sql += " AND tenant_id = ?"
-		args = append(args, tenantID)
-	}
-	if excludeInactiveFromTotal {
-		sql += " AND activate_flag <> ?"
-		args = append(args, "inactive")
-	}
-
-	err := global.DB.WithContext(ctx).Raw(sql, args...).Scan(&row).Error
-	if err != nil {
-		logrus.Error(ctx, err)
-		return nil, err
-	}
-	return &model.GetBoardDeviceRes{
-		DeviceTotal:   row.DeviceTotal,
-		DeviceOn:      row.DeviceOn,
-		DeviceOffline: row.DeviceTotal - row.DeviceOn,
-	}, nil
-}
-
 // First 按 variadic 条件读取单条设备。批次二收敛（见 references/gen-inheritance-audit.md）：
 // 条件经 genConditionExpr 归一后挂到 raw global.DB 链，签名与调用方不变。
 func (DeviceQuery) First(ctx context.Context, option ...gen.Condition) (info *model.Device, err error) {
@@ -162,20 +117,6 @@ func (DeviceQuery) First(ctx context.Context, option ...gen.Condition) (info *mo
 		return nil, err
 	}
 	return &device, nil
-}
-
-// Find 按 variadic 条件批量读取设备。批次二收敛（见 references/gen-inheritance-audit.md）：
-// 条件经 genConditionExpr 归一后挂到 raw global.DB 链，签名与调用方不变。
-func (DeviceQuery) Find(ctx context.Context, option ...gen.Condition) (list []*model.Device, err error) {
-	db := global.DB.WithContext(ctx)
-	for _, cond := range option {
-		db = db.Where(genConditionExpr(cond))
-	}
-	err = db.Find(&list).Error
-	if err != nil {
-		logrus.Error(ctx, err)
-	}
-	return
 }
 
 // 获取设备下拉列表

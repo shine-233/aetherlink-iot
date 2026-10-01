@@ -8,7 +8,6 @@ package dal
 import (
 	"aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/internal/query"
-	"aetherlink-iot/backend/pkg/global"
 	"errors"
 	"log"
 	"time"
@@ -80,19 +79,6 @@ func SetMessagePushConfig(req *model.MessagePushConfigReq) error {
 		"update_time": time.Now(),
 	})
 	return err
-}
-
-// GetUserMessagePushId 返回指定租户下所有启用推送配置的用户推送 ID。
-// P1 修复（2026-08-24，见 VALIDATION.md）：gen LeftJoin + Scan 改走 raw global.DB 链，
-// 消除包级单例继承链在高并发下的陈旧条件注入风险（同 users.go/device_config.go 收敛模式）。
-func GetUserMessagePushId(tenantId string) ([]model.MessagePushManage, error) {
-	var result []model.MessagePushManage
-	err := global.DB.Table("users").
-		Select("DISTINCT message_push_manages.*").
-		Joins("LEFT JOIN message_push_manages ON message_push_manages.user_id = users.id AND message_push_manages.delete_time IS NULL AND message_push_manages.status = 1").
-		Where("users.tenant_id = ?", tenantId).
-		Scan(&result).Error
-	return result, err
 }
 
 func MessagePushSendLogSave(log *model.MessagePushLog) error {

@@ -283,50 +283,7 @@ func (DeviceConfigQuery) First(ctx context.Context, option ...gen.Condition) (in
 	return
 }
 
-func (DeviceConfigQuery) Find(ctx context.Context, option ...gen.Condition) (list []*model.DeviceConfig, err error) {
-	list, err = isolatedDeviceConfig().WithContext(ctx).Where(option...).Find()
-	if err != nil {
-		logrus.Error(ctx, err)
-	}
-	return
-}
-
 type DeviceConfigVo struct{}
-
-func (DeviceConfigVo) PoToVo(deviceConfigInfo *model.DeviceConfig) (info *model.DeviceConfigsRes) {
-	info = &model.DeviceConfigsRes{
-		ID:         deviceConfigInfo.ID,
-		Name:       deviceConfigInfo.Name,
-		DeviceType: deviceConfigInfo.DeviceType,
-		CreatedAt:  deviceConfigInfo.CreatedAt,
-		UpdatedAt:  deviceConfigInfo.UpdatedAt,
-	}
-	if deviceConfigInfo.DeviceTemplateID != nil {
-		info.DeviceTemplateID = *deviceConfigInfo.DeviceTemplateID
-	}
-	if deviceConfigInfo.ProtocolType != nil {
-		info.ProtocolType = *deviceConfigInfo.ProtocolType
-	}
-	if deviceConfigInfo.VoucherType != nil {
-		info.VoucherType = *deviceConfigInfo.VoucherType
-	}
-	if deviceConfigInfo.ProtocolConfig != nil {
-		info.ProtocolConfig = *deviceConfigInfo.ProtocolConfig
-	}
-	if deviceConfigInfo.DeviceConnType != nil {
-		info.DeviceConnType = *deviceConfigInfo.DeviceConnType
-	}
-	if deviceConfigInfo.AdditionalInfo != nil {
-		info.VoucherType = *deviceConfigInfo.AdditionalInfo
-	}
-	if deviceConfigInfo.Description != nil {
-		info.Description = *deviceConfigInfo.Description
-	}
-	if deviceConfigInfo.Remark != nil {
-		info.Remark = *deviceConfigInfo.Remark
-	}
-	return
-}
 
 // 修改凭证类型
 func UpdateDeviceConfigVoucherType(id string, voucherType *string) error {

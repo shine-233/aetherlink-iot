@@ -18,11 +18,6 @@ import (
 // LatestDeviceAlarmQuery 设备告警查询结构体
 type LatestDeviceAlarmQuery struct{}
 
-// CountDevicesByTenantAndStatus 根据租户、活动告警状态和可选 owner 范围统计设备数量。
-func (q *LatestDeviceAlarmQuery) CountDevicesByTenantAndStatus(ctx context.Context, tenantID string, ownerUserID *string) (int64, error) {
-	return q.CountDevicesByScopeAndStatus(ctx, tenantID, ownerUserID, false)
-}
-
 // CountDevicesByScopeAndStatus expands beyond one tenant only when the service
 // has already authorized an explicit system-administrator request.
 func (q *LatestDeviceAlarmQuery) CountDevicesByScopeAndStatus(ctx context.Context, tenantID string, ownerUserID *string, allTenants bool) (int64, error) {

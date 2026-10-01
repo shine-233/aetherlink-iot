@@ -214,8 +214,8 @@ func TestAssetListWithGroupScopeHidesNonMemberBoundAssets(t *testing.T) {
 		t.Fatalf("asset list with hidden: total=%d rows=%v, want only asset-2", total, rows)
 	}
 
-	// 既有签名（无隐藏集）行为不回归。
-	rows, total, err = ListAssetsByPage([]string{"tenant-1"}, "", "", 1, 10)
+	// 无隐藏集（nil）时行为不回归。
+	rows, total, err = ListAssetsByPageWithGroupScope([]string{"tenant-1"}, "", "", 1, 10, nil)
 	if err != nil || total != 2 {
 		t.Fatalf("asset list without hidden: total=%d err=%v, want 2", total, err)
 	}

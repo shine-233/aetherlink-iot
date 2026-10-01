@@ -152,43 +152,6 @@ func GetAlarmHistoryListByPageForScopes(d *model.GetAlarmHisttoryListByPage, sco
 	return count, list, nil
 }
 
-func GetAlarmHistoryListByPage(d *model.GetAlarmHisttoryListByPage, tenantID string, ownerUserID *string) (int64, interface{}, error) {
-	allTenants := d != nil && d.AllTenants
-	// 空租户守卫（ROADMAP A1）：未声明全租户视角时，空租户必须显式拒绝，
-	// 避免 WHERE tenant_id='' 静默匹配 0 行造成"偶发空列表"假象（users 收敛模式）。
-	if !allTenants && strings.TrimSpace(tenantID) == "" {
-		logrus.Warn("dal: alarm history list query has empty TenantID without all-tenants scope; rejecting")
-		return 0, nil, fmt.Errorf("tenant id is required")
-	}
-	queryBuilder := applyAlarmHistoryScopedFilters(newAlarmHistoryScopedDB(tenantID, ownerUserID, allTenants), d, ownerUserID)
-	var count int64
-	if err := queryBuilder.Session(&gorm.Session{}).Count(&count).Error; err != nil {
-		logrus.Error(err)
-		return count, nil, err
-	}
-
-	listBuilder := queryBuilder.Session(&gorm.Session{}).
-		Select("ah.*, ac.name AS alarm_config_name, ac.alarm_level AS alarm_level").
-		Joins("LEFT JOIN alarm_config ac ON ac.id = ah.alarm_config_id").
-		Order("ah.create_at DESC")
-	listBuilder = applyListPagination(listBuilder, d.Page, d.PageSize)
-	list := make([]map[string]interface{}, 0)
-	if err := listBuilder.Scan(&list).Error; err != nil {
-		return 0, nil, err
-	}
-	if isAlarmHistoryActiveStatusFilter(d.AlarmStatus) {
-		if err := expandCurrentActiveAlarmHistoryDeviceFields(list, ownerUserID); err != nil {
-			return 0, nil, err
-		}
-	} else {
-		expandAlarmHistoryListDeviceFields(list, ownerUserID)
-	}
-	for _, item := range list {
-		expandMapRemarkFields(item)
-	}
-	return count, list, nil
-}
-
 // alarmHistoryOwnerExistsSQL 告警历史的 owner 可见性过滤（TB-22 规范化后的形态）。
 //
 // 旧形态用 jsonb_array_elements_text 逐行展开 alarm_device_list 再 JOIN devices，
@@ -356,21 +319,6 @@ func ResetAlarmHistoryWithNote(id, tenantID, userID, note string) (*model.AlarmH
 	return resetAlarmHistory(id, tenantID, userID, note)
 }
 
-func alarmHistoryAcknowledgeRemark(raw *string, userID, ackAt string) string {
-	return mergeAlarmHistoryRemark(raw, map[string]interface{}{
-		"acknowledged":    true,
-		"acknowledged_by": userID,
-		"acknowledged_at": ackAt,
-	})
-}
-
-func alarmHistoryResetUpdates(remark string) map[string]interface{} {
-	return map[string]interface{}{
-		"alarm_status": "N",
-		"remark":       remark,
-	}
-}
-
 // alarmHistoryDeviceListMaps 把历史记录里的设备 ID 列表展开成设备摘要。
 // 这里保留原有的查询方式，只是把重复的 JSON 解析和设备查询收敛起来。
 
@@ -449,24 +397,7 @@ func alarmHistoryDeviceConditions(tenantID, deviceID string) []gen.Condition {
 	)
 }
 
-func DeleteAlarmHistory(id string, tenantID string) error {
-	info, err := query.AlarmHistory.Where(query.AlarmHistory.ID.Eq(id), query.AlarmHistory.TenantID.Eq(tenantID)).Delete()
-	if err != nil {
-		return err
-	}
-	if info.RowsAffected == 0 {
-		return fmt.Errorf("no data deleted")
-	}
-	return nil
-}
-
 // DeleteAlarmHistoryByConfigId 删除指定告警配置对应的全部历史记录。
-
-// DeleteAlarmHistoryByConfigId 删除指定告警配置对应的全部历史记录。
-func DeleteAlarmHistoryByConfigId(alarmConfigId string) error {
-	_, err := query.AlarmHistory.Where(query.AlarmHistory.AlarmConfigID.Eq(alarmConfigId)).Delete()
-	return err
-}
 
 // alarmHistoryScanBatchSize 控制 GetDeviceIdsByAlarmConfigId 的分批扫描窗口，
 // 避免历史表无限增长时一次性把全表载入内存。

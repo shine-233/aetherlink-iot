@@ -261,35 +261,6 @@ func DeleteTelemetrData(deviceId, key string) error {
 
 const telemetryRetentionDeleteBatchSize = 10000
 
-// DeleteTelemetrDataByTime keeps the existing retention boundary (ts <= cutoff)
-// while committing deletions in small batches. PostgreSQL autovacuum reclaims the
-// dead tuples without the ACCESS EXCLUSIVE lock imposed by VACUUM FULL.
-func DeleteTelemetrDataByTime(t int64) error {
-	for {
-		deleted, err := deleteTelemetryDataBatch(t, telemetryRetentionDeleteBatchSize)
-		if err != nil {
-			logrus.Error(err)
-			return err
-		}
-		if deleted < telemetryRetentionDeleteBatchSize {
-			return nil
-		}
-	}
-}
-
-func deleteTelemetryDataBatch(cutoff int64, batchSize int) (int64, error) {
-	result := global.DB.Exec(`
-		DELETE FROM telemetry_datas
-		WHERE (device_id, key, ts) IN (
-			SELECT device_id, key, ts
-			FROM telemetry_datas
-			WHERE ts <= ?
-			ORDER BY ts
-			LIMIT ?
-		)`, cutoff, batchSize)
-	return result.RowsAffected, result.Error
-}
-
 // tenant-scope: caller-enforced?2026-08-26 ?????
 func GetTelemetrStatisticDataWithLimit(deviceID, key string, startTime, endTime int64, limit int) ([]map[string]interface{}, error) {
 	if usesTelemetryQueryClient() {

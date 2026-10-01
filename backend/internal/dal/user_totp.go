@@ -83,22 +83,3 @@ func ConsumeUserTOTPRecoveryCode(userID, codeHash string) (bool, error) {
 	}
 	return res.RowsAffected > 0, nil
 }
-
-// tenant-scope: reviewed-2026-09-02 user-scoped (user_id keyed); see GetUserTOTP marker.
-// ListUnusedRecoveryCodeHashes 列出未用恢复码（绑定结果校验用）。
-func ListUnusedRecoveryCodeHashes(userID string) ([]string, error) {
-	var rows []struct {
-		CodeHash string `gorm:"column:code_hash"`
-	}
-	err := global.DB.Model(&model.UserTOTPRecoveryCode{}).
-		Select("code_hash").Where("user_id = ? AND used_at IS NULL", userID).
-		Scan(&rows).Error
-	if err != nil {
-		return nil, err
-	}
-	out := make([]string, 0, len(rows))
-	for _, r := range rows {
-		out = append(out, r.CodeHash)
-	}
-	return out, nil
-}

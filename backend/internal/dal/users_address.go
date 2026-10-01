@@ -21,15 +21,6 @@ type userAddressFields struct {
 	PostalCode, AddressLabel, Longitude, Latitude, AdditionalInfo *string
 }
 
-func createAddressFields(r *model.CreateUserAddressReq) userAddressFields {
-	return userAddressFields{
-		Country: r.Country, Province: r.Province, City: r.City, District: r.District,
-		Street: r.Street, DetailedAddress: r.DetailedAddress, PostalCode: r.PostalCode,
-		AddressLabel: r.AddressLabel, Longitude: r.Longitude, Latitude: r.Latitude,
-		AdditionalInfo: r.AdditionalInfo,
-	}
-}
-
 func updateAddressFields(r *model.UpdateUserAddressReq) userAddressFields {
 	return userAddressFields{
 		Country: r.Country, Province: r.Province, City: r.City, District: r.District,
@@ -95,19 +86,6 @@ func upsertUserAddressTx(tx *query.Query, userID string, f userAddressFields) er
 	}
 	_, err = tx.UserAddress.Where(tx.UserAddress.ID.Eq(existing.ID)).Updates(updates)
 	return err
-}
-
-// CreateUserWithAddress 在同一事务中创建用户及（可选）地址。
-func CreateUserWithAddress(user *model.User, addressReq *model.CreateUserAddressReq) error {
-	return query.Q.Transaction(func(tx *query.Query) error {
-		if err := tx.User.Create(user); err != nil {
-			return err
-		}
-		if addressReq == nil {
-			return nil
-		}
-		return tx.UserAddress.Create(newUserAddress(user.ID, createAddressFields(addressReq)))
-	})
 }
 
 // UpdateUserWithAddress 在同一事务中更新用户并 upsert 地址（addressReq 为 nil 时只更新用户）。

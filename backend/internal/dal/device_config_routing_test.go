@@ -10,16 +10,24 @@ import (
 	"gorm.io/gorm"
 )
 
+// resetDeviceConfigRoutingCache 清空全部路由缓存并推进代际，使在途加载结果作废（仅测试用）。
+func resetDeviceConfigRoutingCache() {
+	deviceConfigRoutingMu.Lock()
+	deviceConfigRoutingCache = map[string]deviceConfigRoutingEntry{}
+	deviceConfigRoutingGen++
+	deviceConfigRoutingMu.Unlock()
+}
+
 func stubDeviceConfigRouting(t *testing.T, load func(string) (*model.DeviceConfig, error)) *time.Time {
 	t.Helper()
 	prevLoad, prevNow := deviceConfigRoutingLoad, deviceConfigRoutingNow
 	now := time.Unix(1_000, 0)
 	deviceConfigRoutingLoad = load
 	deviceConfigRoutingNow = func() time.Time { return now }
-	ResetDeviceConfigRoutingCache()
+	resetDeviceConfigRoutingCache()
 	t.Cleanup(func() {
 		deviceConfigRoutingLoad, deviceConfigRoutingNow = prevLoad, prevNow
-		ResetDeviceConfigRoutingCache()
+		resetDeviceConfigRoutingCache()
 	})
 	return &now
 }
@@ -103,8 +111,8 @@ func TestDeviceConfigRoutingDropsLoadRacingInvalidation(t *testing.T) {
 func TestDeviceConfigRoutingDBLoaderAndWritePathInvalidation(t *testing.T) {
 	setupDeviceConfigDALTestDB(t)
 	prevNow := deviceConfigRoutingNow
-	t.Cleanup(func() { deviceConfigRoutingNow = prevNow; ResetDeviceConfigRoutingCache() })
-	ResetDeviceConfigRoutingCache()
+	t.Cleanup(func() { deviceConfigRoutingNow = prevNow; resetDeviceConfigRoutingCache() })
+	resetDeviceConfigRoutingCache()
 
 	chain := "chain-a"
 	if err := CreateDeviceConfig(&model.DeviceConfig{ID: "cfg-db", Name: "n", TenantID: "t1", DefaultRuleChainID: &chain}); err != nil {

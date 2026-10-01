@@ -63,45 +63,6 @@ func TestMergeAlarmHistoryRemarkKeepsNonJSONRemark(t *testing.T) {
 	}
 }
 
-func TestAlarmHistoryAcknowledgeRemarkWritesExactMetadata(t *testing.T) {
-	raw := `{"sensor":"temperature","acknowledged":false,"nested":{"keep":true}}`
-	got := alarmHistoryAcknowledgeRemark(&raw, "user-ack", "2026-06-29T10:30:00Z")
-
-	var remark map[string]interface{}
-	if err := json.Unmarshal([]byte(got), &remark); err != nil {
-		t.Fatalf("acknowledge remark is not valid JSON: %v", err)
-	}
-	if remark["sensor"] != "temperature" {
-		t.Fatalf("existing sensor field was not preserved: %#v", remark)
-	}
-	if _, ok := remark["nested"].(map[string]interface{}); !ok {
-		t.Fatalf("nested JSON field was not preserved: %#v", remark)
-	}
-	if remark["acknowledged"] != true {
-		t.Fatalf("acknowledged field = %#v, want true", remark["acknowledged"])
-	}
-	if remark["acknowledged_by"] != "user-ack" {
-		t.Fatalf("acknowledged_by = %#v, want user-ack", remark["acknowledged_by"])
-	}
-	if remark["acknowledged_at"] != "2026-06-29T10:30:00Z" {
-		t.Fatalf("acknowledged_at = %#v, want fixed timestamp", remark["acknowledged_at"])
-	}
-}
-
-func TestAlarmHistoryResetUpdatesClearsAlarmStatusAndKeepsRemark(t *testing.T) {
-	updates := alarmHistoryResetUpdates(`{"reset":true}`)
-
-	if updates["alarm_status"] != "N" {
-		t.Fatalf("reset update alarm_status = %#v, want N", updates["alarm_status"])
-	}
-	if updates["remark"] != `{"reset":true}` {
-		t.Fatalf("reset update remark = %#v", updates["remark"])
-	}
-	if len(updates) != 2 {
-		t.Fatalf("reset updates should only include alarm_status and remark, got %#v", updates)
-	}
-}
-
 func TestAlarmHistoryDeviceIDs(t *testing.T) {
 	got := alarmHistoryDeviceIDs(`["device-1","device-2"]`)
 	if len(got) != 2 || got[0] != "device-1" || got[1] != "device-2" {

@@ -78,8 +78,7 @@ const telemetryScopedDeleteBatchSQL = `
 			LIMIT ?
 		)`
 
-// telemetryRollupsScopedDeleteBatchSQL 冷层作用域分批删除，口径对齐
-// telemetryRollupDeleteBatchSQL（bucket_start <= cutoff 毫秒）。
+// telemetryRollupsScopedDeleteBatchSQL 冷层作用域分批删除（bucket_start <= cutoff 毫秒）。
 const telemetryRollupsScopedDeleteBatchSQL = `
 		DELETE FROM telemetry_rollups
 		WHERE (device_id, key, bucket_ms, bucket_start) IN (

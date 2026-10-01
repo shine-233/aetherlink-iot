@@ -18,13 +18,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func CreateBoard(boards *model.Board) error {
-	if _, err := query.Board.Where(query.Board.HomeFlag.Eq("Y"), query.Board.TenantID.Eq(boards.TenantID)).First(); err == nil {
-		return fmt.Errorf("home board already exists")
-	}
-	return query.Board.Create(boards)
-}
-
 func UpdateBoard(boards *model.Board, tenantID string) error {
 	p := query.Board
 	r, err := query.Board.Where(p.ID.Eq(boards.ID), p.TenantID.Eq(tenantID)).Updates(boards)
@@ -106,22 +99,6 @@ func GetPublishedBoardsByShareTokens(tokens []string) ([]*model.Board, error) {
 		return nil, err
 	}
 	return rows, nil
-}
-
-// tenant-scope: reviewed-2026-09-02 all-tenants semantics (empty tenant = SYS_ADMIN full view);
-// scoped execution delegated to boardListByScopes with scopes from service layer.
-func GetBoardListByPage(boards *model.GetBoardListByPageReq, tenantId string) (int64, interface{}, error) {
-	var scopes []string
-	if strings.TrimSpace(tenantId) != "" {
-		scopes = []string{tenantId}
-	}
-	return boardListByScopes(boards, scopes, nil)
-}
-
-// GetBoardListByPageForScopes 层级作用域变体（ROADMAP C2）：boards.tenant_id IN (scopes)。
-// tenant-scope: caller-enforced (scopes 由 service 层展开并校验；nil=管理员全量)。
-func GetBoardListByPageForScopes(boards *model.GetBoardListByPageReq, scopes []string) (int64, interface{}, error) {
-	return boardListByScopes(boards, scopes, nil)
 }
 
 // GetBoardListByPageForScopesWithGroupScope 组共享可见性变体（TB-46 GPE v1）：
@@ -305,4 +282,3 @@ func (BoardQuery) GetBoardNamesMatchingBase(ctx context.Context, tenantID, baseN
 		Pluck("name", &names).Error
 	return names, err
 }
-

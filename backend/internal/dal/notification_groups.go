@@ -50,16 +50,6 @@ func GetNotificationGroupById(id string) (*model.NotificationGroup, error) {
 	return notificationGroup, err
 }
 
-func GetNotificationGroupByTenantId(tenantid string) (notificationGroups []*model.NotificationGroup, count int, err error) {
-	q := query.NotificationGroup
-	notificationGroups, err = q.Where(q.TenantID.Eq(tenantid)).Find()
-	if err != nil {
-		return nil, 0, err
-	}
-	count = len(notificationGroups)
-	return notificationGroups, count, err
-}
-
 func GetNotificationGroupListByPage(notifications *model.GetNotificationGroupListByPageReq, u *utils.UserClaims) (int64, []*model.NotificationGroup, error) {
 	q := query.NotificationGroup
 	var count int64

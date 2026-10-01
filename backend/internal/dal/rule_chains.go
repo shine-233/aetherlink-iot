@@ -134,16 +134,3 @@ func ListEnabledRuleChains(tenantID string) ([]EnabledRuleChain, error) {
 	}
 	return res, nil
 }
-
-// ListEnabledRuleChainGraphs 返回单租户内启用链的原始 graph 文本（执行热路径用，由 OnTelemetry/OnDeviceOnline 按 device.TenantID 调用）。
-// 注意：本函数按 device 单租户锚定，刻意不展开 C2 作用域——上行执行上下文始终归属设备自身租户，展开等于越权执行子树链。
-func ListEnabledRuleChainGraphs(tenantID string) ([]string, error) {
-	if strings.TrimSpace(tenantID) == "" {
-		return nil, fmt.Errorf("tenant id is required")
-	}
-	var graphs []string
-	err := global.DB.Model(&model.RuleChain{}).
-		Where("tenant_id = ? AND enabled = ?", tenantID, true).
-		Pluck("graph", &graphs).Error
-	return graphs, err
-}

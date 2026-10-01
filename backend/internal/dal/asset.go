@@ -46,13 +46,6 @@ func ListAssetNodes(scopes []string) ([]*model.Asset, error) {
 	return list, err
 }
 
-// ListAssetsByPage 分页查询；parentID 传 "" 时只查根；keyword 非空时对名称做模糊匹配。
-// 返回 (列表, 总数, 错误)。
-// tenant-scope: caller-enforced（scopes 由 service 层展开并校验，见 listAssetsByPage 的 tenant_id IN 过滤）。
-func ListAssetsByPage(scopes []string, parentID, keyword string, page, pageSize int) ([]*model.Asset, int64, error) {
-	return listAssetsByPage(scopes, parentID, keyword, page, pageSize, nil)
-}
-
 // ListAssetsByPageWithGroupScope 组共享可见性变体（TB-46 GPE v1）：
 // hiddenAssetIDs 非空时按 ID 排除（组绑定且调用者非组内成员的资产，fail-closed 隐藏）。
 // tenant-scope: caller-enforced（scopes 由 service 层展开并校验，见 listAssetsByPage 的 tenant_id IN 过滤）。

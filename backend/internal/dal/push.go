@@ -101,14 +101,3 @@ func UpdatePushDeliveryFrom(id, tenantID, fromStatus string, u PushDeliveryUpdat
 		})
 	return res.RowsAffected, res.Error
 }
-
-// ListPushDeliveriesByUser 列出用户的投递历史（审计用），按创建时间倒序。
-func ListPushDeliveriesByUser(tenantID, userID string, limit int) ([]model.PushDelivery, error) {
-	if limit <= 0 {
-		limit = 100
-	}
-	var rows []model.PushDelivery
-	err := global.DB.Where("tenant_id = ? AND user_id = ?", tenantID, userID).
-		Order("created_at DESC").Limit(limit).Find(&rows).Error
-	return rows, err
-}

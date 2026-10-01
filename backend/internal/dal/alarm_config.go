@@ -13,7 +13,6 @@ import (
 	model "aetherlink-iot/backend/internal/model"
 	query "aetherlink-iot/backend/internal/query"
 	"aetherlink-iot/backend/pkg/global"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -77,12 +76,6 @@ func GetAlarmByID(id string) (*model.AlarmConfig, error) {
 
 // tenant-scope: caller-enforced?2026-08-26 ?????
 
-// GetAlarmConfigListByPage 分页查询告警配置，支持租户、名称、等级和启用状态过滤。
-// allTenants 仅限 SYS_ADMIN 显式全租户视角；其余调用方必须携带非空租户，否则 fail-closed。
-func GetAlarmConfigListByPage(d *model.GetAlarmConfigListByPageReq, allTenants bool) (int64, interface{}, error) {
-	return alarmConfigListByPageScoped(d, allTenants, nil)
-}
-
 // GetAlarmConfigListByPageForScopes 层级作用域变体（ROADMAP C2）：alarm_config.tenant_id IN (scopes)。
 // tenant-scope: caller-enforced (scopes 由 service 层展开并校验)。
 
@@ -135,46 +128,6 @@ func GetConfigByDevice(req *model.GetDeviceAlarmStatusReq, tenantID string) ([]m
 }
 
 // tenant-scope: caller-enforced?2026-08-26 ?????
-
-// GetDeviceIdsByAlarmConfigId 返回触发过指定告警配置的设备 ID 去重列表。
-// tenant-scope: parent-owned?2026-08-26 ?????
-func GetDeviceIdsByAlarmConfigId(alarmConfigId string) ([]string, error) {
-	hq := query.AlarmHistory
-	deviceSet := make(map[string]struct{})
-	lastID := ""
-	for {
-		q := hq.Where(hq.AlarmConfigID.Eq(alarmConfigId))
-		if lastID != "" {
-			q = q.Where(hq.ID.Gt(lastID))
-		}
-		batch, err := q.Select(hq.ID, hq.AlarmDeviceList).Order(hq.ID).Limit(alarmHistoryScanBatchSize).Find()
-		if err != nil {
-			return nil, err
-		}
-		for _, h := range batch {
-			var deviceIds []string
-			if h.AlarmDeviceList != "" {
-				if err := json.Unmarshal([]byte(h.AlarmDeviceList), &deviceIds); err != nil {
-					// 解析失败按空列表继续去重流程；带上配置与记录 ID 便于定位脏数据行。
-					logrus.Warnf("alarm history alarm_device_list 解析失败: err=%v alarm_config_id=%s history_id=%s",
-						err, h.AlarmConfigID, h.ID)
-				}
-			}
-			for _, did := range deviceIds {
-				deviceSet[did] = struct{}{}
-			}
-		}
-		if len(batch) < alarmHistoryScanBatchSize {
-			break
-		}
-		lastID = batch[len(batch)-1].ID
-	}
-	result := make([]string, 0, len(deviceSet))
-	for did := range deviceSet {
-		result = append(result, did)
-	}
-	return result, nil
-}
 
 // DeleteAlarmNameCache 删除告警名称缓存。
 

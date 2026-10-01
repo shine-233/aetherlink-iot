@@ -143,11 +143,6 @@ func quarantineInvalidReportScheduleTx(tx *gorm.DB, schedule *model.ReportSchedu
 	return result.Error
 }
 
-func firstFutureReportOccurrence(schedule *model.ReportSchedule, cursor, now time.Time, next ReportNextOccurrence) (time.Time, int, error) {
-	future, missed, _, err := firstFutureReportOccurrenceBounded(schedule, cursor, now, next)
-	return future, missed, err
-}
-
 func firstFutureReportOccurrenceBounded(schedule *model.ReportSchedule, cursor, now time.Time, next ReportNextOccurrence) (time.Time, int, time.Time, error) {
 	first := cursor.UTC()
 	if now.Sub(first) > reportOccurrenceScanHorizon {

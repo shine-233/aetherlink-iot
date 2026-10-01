@@ -74,10 +74,6 @@ func expandMapRemarkFields(item map[string]interface{}) {
 // GetAlarmConfigListByPage 分页查询告警配置，支持租户、名称、等级和启用状态过滤。
 // allTenants 仅限 SYS_ADMIN 显式全租户视角；其余调用方必须携带非空租户，否则 fail-closed。
 
-func CreateAlarmInfo(d *model.AlarmInfo) error {
-	return query.AlarmInfo.Create(d)
-}
-
 // tenant-scope: caller-enforced?2026-08-26 ?????
 
 // tenant-scope: caller-enforced?2026-08-26 ?????
@@ -125,10 +121,6 @@ func UpdateAlarmInfoBatch(req *model.UpdateAlarmInfoBatchReq, userid string, ten
 // tenant-scope: caller-enforced (scopes 由 service 层展开并校验)。
 func GetAlarmInfoListByPageForScopes(d *model.GetAlarmInfoListByPageReq, allTenants bool, scopes []string) (int64, interface{}, error) {
 	return alarmInfoListByPageScoped(d, allTenants, scopes)
-}
-
-func GetAlarmInfoListByPage(d *model.GetAlarmInfoListByPageReq, allTenants bool) (int64, interface{}, error) {
-	return alarmInfoListByPageScoped(d, allTenants, nil)
 }
 
 func alarmInfoListByPageScoped(d *model.GetAlarmInfoListByPageReq, allTenants bool, scopes []string) (int64, interface{}, error) {

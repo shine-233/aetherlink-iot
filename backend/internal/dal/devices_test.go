@@ -401,7 +401,7 @@ func TestGetDeviceListByPageWarnStatusNormalKeepsTenantAndActiveFilters(t *testi
 		t.Fatal("expected unsupported warn_status to fail closed")
 	}
 
-	alarmDeviceCount, err := (&LatestDeviceAlarmQuery{}).CountDevicesByTenantAndStatus(context.Background(), "tenant-1", nil)
+	alarmDeviceCount, err := (&LatestDeviceAlarmQuery{}).CountDevicesByScopeAndStatus(context.Background(), "tenant-1", nil, false)
 	if err != nil {
 		t.Fatalf("count active alarm devices: %v", err)
 	}

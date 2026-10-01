@@ -41,18 +41,18 @@ func TestScopeTenantColumnEmptyScopeIsFailClosed(t *testing.T) {
 	seedAsset(t, "a-scope", "t1", "", "可见资产")
 
 	// 空作用域：既不能扫全表，也不能把一个错误抛给调用方，必须返回空集合。
-	list, total, err := ListAssetsByPage(nil, "", "", 1, 10)
+	list, total, err := ListAssetsByPageWithGroupScope(nil, "", "", 1, 10, nil)
 	require.NoError(t, err)
 	require.Empty(t, list)
 	require.Equal(t, int64(0), total)
 
 	// 单租户与多租户两种形态都要命中。
-	list, total, err = ListAssetsByPage([]string{"t1"}, "", "", 1, 10)
+	list, total, err = ListAssetsByPageWithGroupScope([]string{"t1"}, "", "", 1, 10, nil)
 	require.NoError(t, err)
 	require.Equal(t, int64(1), total)
 	require.Len(t, list, 1)
 
-	list, _, err = ListAssetsByPage([]string{"t1", "t2"}, "", "", 1, 10)
+	list, _, err = ListAssetsByPageWithGroupScope([]string{"t1", "t2"}, "", "", 1, 10, nil)
 	require.NoError(t, err)
 	require.Len(t, list, 1)
 }
@@ -63,7 +63,7 @@ func TestWhereKeywordContainsEscapesWildcards(t *testing.T) {
 	seedAsset(t, "a-plain", "t1", "", "pumpX")
 
 	// 用户输入 "%" 是字面量而不是通配符：未转义时 "%" 会命中两条。
-	list, total, err := ListAssetsByPage([]string{"t1"}, "", "%", 1, 10)
+	list, total, err := ListAssetsByPageWithGroupScope([]string{"t1"}, "", "%", 1, 10, nil)
 	require.NoError(t, err)
 	require.Equal(t, int64(1), total)
 	require.Len(t, list, 1)
@@ -71,13 +71,13 @@ func TestWhereKeywordContainsEscapesWildcards(t *testing.T) {
 
 	// 下划线同理。
 	seedAsset(t, "a-under", "t1", "", "pump_")
-	list, _, err = ListAssetsByPage([]string{"t1"}, "", "_", 1, 10)
+	list, _, err = ListAssetsByPageWithGroupScope([]string{"t1"}, "", "_", 1, 10, nil)
 	require.NoError(t, err)
 	require.Len(t, list, 1)
 	require.Equal(t, "a-under", list[0].ID)
 
 	// 关键词前后空白不应影响命中。
-	list, _, err = ListAssetsByPage([]string{"t1"}, "", "  pumpX  ", 1, 10)
+	list, _, err = ListAssetsByPageWithGroupScope([]string{"t1"}, "", "  pumpX  ", 1, 10, nil)
 	require.NoError(t, err)
 	require.Len(t, list, 1)
 	require.Equal(t, "a-plain", list[0].ID)
@@ -89,14 +89,14 @@ func TestCountAndFindPageDoesNotPolluteStatement(t *testing.T) {
 		seedAsset(t, id, "t1", "", "asset "+id)
 	}
 
-	page1, total, err := ListAssetsByPage([]string{"t1"}, "", "", 1, 2)
+	page1, total, err := ListAssetsByPageWithGroupScope([]string{"t1"}, "", "", 1, 2, nil)
 	require.NoError(t, err)
 	require.Equal(t, int64(3), total)
 	require.Len(t, page1, 2)
 
 	// 第二次调用若复用了第一次的 Statement（旧实现的典型 bug），
 	// 会把 Limit/Offset 叠加，导致第二页为空或报错。
-	page2, total2, err := ListAssetsByPage([]string{"t1"}, "", "", 2, 2)
+	page2, total2, err := ListAssetsByPageWithGroupScope([]string{"t1"}, "", "", 2, 2, nil)
 	require.NoError(t, err)
 	require.Equal(t, int64(3), total2)
 	require.Len(t, page2, 1)
@@ -120,7 +120,7 @@ func TestCountAndFindPageRespectsOrder(t *testing.T) {
 	earlier := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
 	require.NoError(t, global.DB.Model(&model.Asset{}).Where("id = ?", "a-old").Update("created_at", earlier).Error)
 
-	list, _, err := ListAssetsByPage([]string{"t1"}, "", "", 1, 10)
+	list, _, err := ListAssetsByPageWithGroupScope([]string{"t1"}, "", "", 1, 10, nil)
 	require.NoError(t, err)
 	require.Len(t, list, 2)
 	// created_at DESC：被改早的那条应排在后。

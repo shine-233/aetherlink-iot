@@ -150,14 +150,6 @@ func GetUserIdBYTenantID(tenantID string) (string, error) {
 type UserQuery struct {
 }
 
-func (UserQuery) Count(ctx context.Context) (count int64, err error) {
-	count, err = query.User.Count()
-	if err != nil {
-		logrus.Error(ctx, err)
-	}
-	return
-}
-
 func (UserQuery) CountByWhere(ctx context.Context, option ...gen.Condition) (count int64, err error) {
 	var users = query.User
 	count, err = users.Where(option...).Count()
@@ -201,16 +193,6 @@ func (UserQuery) First(ctx context.Context, option ...gen.Condition) (info *mode
 	return
 }
 
-func (UserQuery) Select(ctx context.Context, option ...gen.Condition) (list []*model.User, err error) {
-	var users = query.User
-
-	list, err = users.Where(option...).Find()
-	if err != nil {
-		logrus.Error(ctx, err)
-	}
-	return
-}
-
 func (UserQuery) UpdateByEmail(ctx context.Context, info *model.User, columns ...field.Expr) (err error) {
 	var users = query.User
 	//users.Password, users.Name, users.PhoneNumber, users.Remark
@@ -235,36 +217,6 @@ func (UserQuery) UpdateLastVisitTime(ctx context.Context, uid string) (err error
 }
 
 type UserVo struct {
-}
-
-func (UserVo) PoToVo(userInfo *model.User) (info *model.UsersRes) {
-	info = &model.UsersRes{
-		ID:       userInfo.ID,
-		PhoneNum: userInfo.PhoneNumber,
-		Email:    userInfo.Email,
-	}
-	if userInfo.Name != nil {
-		info.Name = *userInfo.Name
-	}
-	if userInfo.Authority != nil {
-		info.Authority = *userInfo.Authority
-	}
-	if userInfo.TenantID != nil {
-		info.TenantID = *userInfo.TenantID
-	}
-	if userInfo.Remark != nil {
-		info.Remark = *userInfo.Remark
-	}
-	if userInfo.CreatedAt != nil {
-		info.CreateTime = common.DateTimeToString(*userInfo.CreatedAt, "")
-	}
-	if userInfo.AdditionalInfo != nil {
-		info.AdditionalInfo = *userInfo.AdditionalInfo
-	}
-	if userInfo.AvatarURL != nil {
-		info.AvatarURL = *userInfo.AvatarURL
-	}
-	return
 }
 
 // 查询租户管理员列表

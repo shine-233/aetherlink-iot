@@ -108,11 +108,3 @@ func InvalidateDeviceConfigRouting(id string) {
 	deviceConfigRoutingGen++
 	deviceConfigRoutingMu.Unlock()
 }
-
-// ResetDeviceConfigRoutingCache 清空全部路由缓存（测试与运维兜底）。
-func ResetDeviceConfigRoutingCache() {
-	deviceConfigRoutingMu.Lock()
-	deviceConfigRoutingCache = map[string]deviceConfigRoutingEntry{}
-	deviceConfigRoutingGen++
-	deviceConfigRoutingMu.Unlock()
-}

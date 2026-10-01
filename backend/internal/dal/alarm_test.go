@@ -66,12 +66,12 @@ func TestGetAlarmConfigListByPageTenantScope(t *testing.T) {
 		}
 	}
 
-	count, list, err := GetAlarmConfigListByPage(&model.GetAlarmConfigListByPageReq{
+	count, list, err := alarmConfigListByPageScoped(&model.GetAlarmConfigListByPageReq{
 		TenantID: "tenant-1",
 		PageReq:  model.PageReq{Page: 1, PageSize: 20},
-	}, false)
+	}, false, nil)
 	if err != nil {
-		t.Fatalf("GetAlarmConfigListByPage returned error: %v", err)
+		t.Fatalf("alarmConfigListByPageScoped returned error: %v", err)
 	}
 	if count != 2 {
 		t.Fatalf("count = %d, want 2 (tenant-1 rows only)", count)
@@ -109,14 +109,14 @@ func TestGetAlarmConfigListByPageJoinsNotificationGroupNameAndFilters(t *testing
 	}
 
 	name := "pressure"
-	count, list, err := GetAlarmConfigListByPage(&model.GetAlarmConfigListByPageReq{
+	count, list, err := alarmConfigListByPageScoped(&model.GetAlarmConfigListByPageReq{
 		TenantID:   "tenant-1",
 		Name:       &name,
 		Enabled:    "Y",
 		AlarmLevel: &level,
-	}, false)
+	}, false, nil)
 	if err != nil {
-		t.Fatalf("filtered GetAlarmConfigListByPage returned error: %v", err)
+		t.Fatalf("filtered alarmConfigListByPageScoped returned error: %v", err)
 	}
 	if count != 1 {
 		t.Fatalf("count = %d, want 1", count)
@@ -186,12 +186,12 @@ func TestGetAlarmInfoListByPageTenantScopeAndJoinProjection(t *testing.T) {
 		}
 	}
 
-	count, list, err := GetAlarmInfoListByPage(&model.GetAlarmInfoListByPageReq{
+	count, list, err := alarmInfoListByPageScoped(&model.GetAlarmInfoListByPageReq{
 		TenantID: "tenant-1",
 		PageReq:  model.PageReq{Page: 1, PageSize: 20},
-	}, false)
+	}, false, nil)
 	if err != nil {
-		t.Fatalf("GetAlarmInfoListByPage returned error: %v", err)
+		t.Fatalf("alarmInfoListByPageScoped returned error: %v", err)
 	}
 	if count != 1 {
 		t.Fatalf("count = %d, want 1 (tenant-1 rows only)", count)
@@ -221,13 +221,13 @@ func TestGetAlarmConfigListByPageRejectsEmptyTenantWithoutAllTenants(t *testing.
 		}
 	}
 
-	if _, _, err := GetAlarmConfigListByPage(&model.GetAlarmConfigListByPageReq{TenantID: "  "}, false); err == nil {
+	if _, _, err := alarmConfigListByPageScoped(&model.GetAlarmConfigListByPageReq{TenantID: "  "}, false, nil); err == nil {
 		t.Fatal("expected error for empty tenant id without all-tenants scope")
 	}
 
-	count, list, err := GetAlarmConfigListByPage(&model.GetAlarmConfigListByPageReq{}, true)
+	count, list, err := alarmConfigListByPageScoped(&model.GetAlarmConfigListByPageReq{}, true, nil)
 	if err != nil {
-		t.Fatalf("all-tenants GetAlarmConfigListByPage returned error: %v", err)
+		t.Fatalf("all-tenants alarmConfigListByPageScoped returned error: %v", err)
 	}
 	if count != 2 {
 		t.Fatalf("count = %d, want 2 (all tenants)", count)
@@ -242,16 +242,7 @@ func TestGetAlarmConfigListByPageRejectsEmptyTenantWithoutAllTenants(t *testing.
 func TestGetAlarmInfoListByPageRejectsEmptyTenantWithoutAllTenants(t *testing.T) {
 	setupAlarmDALTestDB(t)
 
-	if _, _, err := GetAlarmInfoListByPage(&model.GetAlarmInfoListByPageReq{TenantID: ""}, false); err == nil {
-		t.Fatal("expected error for empty tenant id without all-tenants scope")
-	}
-}
-
-// ROADMAP A1：空租户守卫——告警历史列表在无全租户视角时拒绝空租户。
-func TestGetAlarmHistoryListByPageRejectsEmptyTenantWithoutAllTenants(t *testing.T) {
-	setupAlarmDALTestDB(t)
-
-	if _, _, err := GetAlarmHistoryListByPage(&model.GetAlarmHisttoryListByPage{}, "", nil); err == nil {
+	if _, _, err := alarmInfoListByPageScoped(&model.GetAlarmInfoListByPageReq{TenantID: ""}, false, nil); err == nil {
 		t.Fatal("expected error for empty tenant id without all-tenants scope")
 	}
 }

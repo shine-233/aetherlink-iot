@@ -66,7 +66,7 @@ func TestDeleteBoardReturnsNotFoundWithoutRemovingAnotherTenantBoard(t *testing.
 	}
 }
 
-func TestGetBoardListByPageForScopesFiltersAcrossTenantScope(t *testing.T) {
+func TestBoardListByScopesFiltersAcrossTenantScope(t *testing.T) {
 	db := setupBoardScopeTestDB(t)
 	now := time.Now().UTC()
 	seed := func(id, tenant string) {
@@ -99,7 +99,7 @@ func TestGetBoardListByPageForScopesFiltersAcrossTenantScope(t *testing.T) {
 	}
 
 	// 单作用域与旧行为等价。
-	count, list, err := GetBoardListByPageForScopes(req, []string{"tenant-1"})
+	count, list, err := boardListByScopes(req, []string{"tenant-1"}, nil)
 	if err != nil {
 		t.Fatalf("single scope err: %v", err)
 	}
@@ -109,7 +109,7 @@ func TestGetBoardListByPageForScopesFiltersAcrossTenantScope(t *testing.T) {
 	}
 
 	// 级联作用域 {tenant-3, tenant-1}：包含 self+祖先，隔离 tenant-2。
-	count, list, err = GetBoardListByPageForScopes(req, []string{"tenant-3", "tenant-1"})
+	count, list, err = boardListByScopes(req, []string{"tenant-3", "tenant-1"}, nil)
 	if err != nil {
 		t.Fatalf("scoped err: %v", err)
 	}
@@ -119,7 +119,7 @@ func TestGetBoardListByPageForScopesFiltersAcrossTenantScope(t *testing.T) {
 	}
 
 	// nil 作用域 = 管理员全量（与旧空 tenantId 语义一致）。
-	count, list, err = GetBoardListByPageForScopes(req, nil)
+	count, list, err = boardListByScopes(req, nil, nil)
 	if err != nil || count != 4 {
 		t.Fatalf("nil scopes should mean all, got count=%d err=%v", count, err)
 	}
