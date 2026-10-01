@@ -2,6 +2,7 @@ package aetherlink
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -207,13 +208,50 @@ func handleMQTTPublishPermissionDenied(client server.Client, username string, de
 	return errors.New("permission denied")
 }
 
+// buildMQTTUplinkPayload 产出 {"device_id":"<id>","values":"<base64(payload)>"}，
+// 与 json.Marshal(map[string]interface{}{...}) 逐字节一致（键序、base64、nil→null）。
+// 每条上行都会调用：device_id 为纯安全 ASCII（UUID 常态）时一次性分配直接拼装，
+// 否则回退 json.Marshal 以复用其转义规则（HTML 字符、控制符、非法 UTF-8）。
 func buildMQTTUplinkPayload(deviceID string, values []byte) []byte {
-	newMsgMap := map[string]interface{}{
-		"device_id": deviceID,
-		"values":    values,
+	if !jsonSafeASCII(deviceID) {
+		newMsgJSON, _ := json.Marshal(map[string]interface{}{
+			"device_id": deviceID,
+			"values":    values,
+		})
+		return newMsgJSON
 	}
-	newMsgJSON, _ := json.Marshal(newMsgMap)
-	return newMsgJSON
+	const prefix, middle = `{"device_id":"`, `","values":`
+	n := len(prefix) + len(deviceID) + len(middle) + 1
+	if values == nil {
+		n += len("null")
+	} else {
+		n += base64.StdEncoding.EncodedLen(len(values)) + 2
+	}
+	out := make([]byte, 0, n)
+	out = append(out, prefix...)
+	out = append(out, deviceID...)
+	out = append(out, middle...)
+	if values == nil {
+		out = append(out, "null"...)
+	} else {
+		out = append(out, '"')
+		start := len(out)
+		out = out[:start+base64.StdEncoding.EncodedLen(len(values))]
+		base64.StdEncoding.Encode(out[start:], values)
+		out = append(out, '"')
+	}
+	return append(out, '}')
+}
+
+// jsonSafeASCII 报告 s 能否原样放进 JSON 字符串（encoding/json 默认 HTML 转义口径）。
+func jsonSafeASCII(s string) bool {
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c < 0x20 || c >= 0x7f || c == '"' || c == '\\' || c == '<' || c == '>' || c == '&' {
+			return false
+		}
+	}
+	return true
 }
 
 func writeMQTTForwardDebugLog(client server.Client, username string, deviceID string, topic string, sourceTopic string, outcome string, errMsg string, payload []byte) {
