@@ -5,276 +5,52 @@
 重构建议: 可逐步把查询、提交和弹窗状态拆成组合函数，让组件更专注于布局与事件编排。
 -->
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
-import {
-  NAlert,
-  NButton,
-  NCard,
-  NGrid,
-  NGridItem,
-  NInput,
-  NModal,
-  NForm,
-  NFormItem,
-  NEmpty,
-  NSpin,
-  useMessage
-} from 'naive-ui'
-import { useRouterPush } from '@/hooks/common/router'
-import {
-  getDefaultVisualizationProviderFacade,
-  NATIVE_BOARD_PROJECT_ID,
-  NATIVE_BOARD_PROVIDER_ID,
-  type VisualizationProject
-} from '@/service/visualization-provider/index'
-import { resolveVisualizationProviderId } from '@/service/visualization-provider/composition'
-import { deleteDashboardMenuConfig } from '@/service/api/dashboard-menu'
-import { refreshAuthRoutes } from '@/utils/router/refresh-auth-routes'
-import { clearThingsVisHomeCache } from '@/utils/thingsvis/home-cache'
+import { onMounted } from 'vue'
+import { useMessage } from 'naive-ui'
+import { NATIVE_BOARD_PROJECT_ID } from '@/service/visualization-provider/index'
 import { $t } from '@/locales'
+import { useThingsVisProjectList } from './useThingsVisProjectList'
+import { useThingsVisProjectForm } from './useThingsVisProjectForm'
+import { useThingsVisProjectDelete } from './useThingsVisProjectDelete'
 
-const { routerPushByKey } = useRouterPush()
 const message = useMessage()
-const route = useRoute()
-const providerId = computed(() =>
-  resolveVisualizationProviderId({
-    provider: route.query.provider,
-    projectId: route.query.projectId
-  })
-)
-const provider = getDefaultVisualizationProviderFacade({ providerId: providerId.value })
-const providerError = computed(() => provider.selectionError)
-const projectCapabilities = computed(
-  () =>
-    provider.capabilities?.projects ?? {
-      list: false,
-      create: false,
-      update: false,
-      delete: false
-    }
-)
-const providerBlockedMessage = computed(() => {
-  if (providerError.value?.code === 'external-blocked') {
-    return $t('rdi.thingsvis.externalProviderDisabledDescription')
-  }
 
-  return providerError.value?.message || $t('rdi.thingsvis.loadProjectsFailed')
-})
-const isNativeProvider = computed(() => providerId.value === NATIVE_BOARD_PROVIDER_ID)
-const isFirstDeviceOnboarding = computed(() => route.query.onboarding === 'first-device')
-const onboardingDashboardQuery = computed((): Record<string, string> =>
-  isFirstDeviceOnboarding.value
-    ? { onboarding: 'first-device', ...(isNativeProvider.value ? { provider: 'native' } : {}) }
-    : isNativeProvider.value
-      ? { provider: 'native' }
-      : {}
-)
+const projectList = useThingsVisProjectList()
+const {
+  provider,
+  providerError,
+  projectCapabilities,
+  providerBlockedMessage,
+  isNativeProvider,
+  isFirstDeviceOnboarding,
+  onboardingDashboardQuery,
+  loading,
+  allProjects,
+  searchKeyword,
+  projects,
+  fetchProjects,
+  enterProject
+} = projectList
 
-// State
-const loading = ref(false)
-const deletingId = ref<string | null>(null)
-const allProjects = ref<VisualizationProject[]>([])
-const showModal = ref(false)
-const editingProject = ref<VisualizationProject | null>(null)
-const searchKeyword = ref('')
-const deleteConfirmModal = ref(false)
-const pendingDeleteProject = ref<{ id: string; name: string } | null>(null)
-const projects = computed(() => {
-  const keyword = searchKeyword.value.trim().toLowerCase()
-  if (!keyword) return allProjects.value
+const {
+  showModal,
+  editingProject,
+  formData,
+  openCreateModal,
+  openFirstDeviceProjectCreateModal,
+  openEditModal,
+  handleSaveProject
+} = useThingsVisProjectForm(projectList)
 
-  return allProjects.value.filter((item) => item.name.toLowerCase().includes(keyword))
-})
+const { deletingId, deleteConfirmModal, pendingDeleteProject, openDeleteConfirm, handleDeleteProject } =
+  useThingsVisProjectDelete(projectList)
 
-// Form state
-const formData = ref({
-  name: '',
-  description: ''
-})
-
-/** Fetch project list */
-const fetchProjects = async () => {
-  loading.value = true
-  try {
-    if (providerError.value) return
-
-    const result = await provider.execute((current) => current.listProjects({ page: 1, limit: 100 }))
-    if (result.ok) {
-      allProjects.value = result.data.items
-    } else {
-      message.error($t('rdi.thingsvis.loadProjectsFailed'))
-    }
-  } finally {
-    loading.value = false
-  }
-}
-
-/** Open create modal */
-const openCreateModal = () => {
-  if (!projectCapabilities.value.create) {
-    message.warning($t('rdi.thingsvis.projectCreationUnsupported'))
-    return
-  }
-  editingProject.value = null
-  formData.value = { name: '', description: '' }
-  showModal.value = true
-}
-
-const openFirstDeviceProjectCreateModal = () => {
-  if (!projectCapabilities.value.create && projects.value.length > 0) {
-    enterProject(projects.value[0].id)
-    return
-  }
-  if (!projectCapabilities.value.create) {
-    message.warning($t('rdi.thingsvis.projectCreationUnsupported'))
-    return
-  }
-  editingProject.value = null
-  formData.value = {
-    name: $t('rdi.thingsvis.firstDeviceProjectName'),
-    description: ''
-  }
-  showModal.value = true
-}
-
-/** Open edit modal */
-const openEditModal = (project: VisualizationProject) => {
-  if (!projectCapabilities.value.update) {
-    message.warning($t('rdi.thingsvis.projectUpdateUnsupported'))
-    return
-  }
-  editingProject.value = project
-  formData.value = {
-    name: project.name,
-    description: project.description || ''
-  }
-  showModal.value = true
-}
-
-/** Save project */
-const handleSaveProject = async () => {
-  if (!formData.value.name.trim()) {
-    message.error($t('rdi.thingsvis.projectNamePlaceholder'))
-    return
-  }
-
-  try {
-    if (editingProject.value) {
-      const result = await provider.execute((current) =>
-        current.updateProject(editingProject.value!.id, {
-          name: formData.value.name,
-          description: formData.value.description || undefined
-        })
-      )
-      if (result.ok) {
-        message.success($t('rdi.thingsvis.updateProjectSuccess'))
-        showModal.value = false
-        await fetchProjects()
-      } else {
-        message.error($t('rdi.thingsvis.updateProjectFailed'))
-      }
-    } else {
-      const result = await provider.execute((current) =>
-        current.createProject({
-          name: formData.value.name,
-          description: formData.value.description || undefined
-        })
-      )
-      if (result.ok) {
-        message.success($t('rdi.thingsvis.createSuccess'))
-        showModal.value = false
-        formData.value = { name: '', description: '' }
-        await fetchProjects()
-        if (isFirstDeviceOnboarding.value && result.data.id) {
-          enterProject(result.data.id)
-        }
-      } else {
-        message.error($t('rdi.thingsvis.createFailed'))
-      }
-    }
-  } catch (e) {
-    message.error($t('common.operationFailed'))
-    console.error(e)
-  }
-}
-
-/** Delete project */
-const openDeleteConfirm = (id: string, name: string) => {
-  if (!projectCapabilities.value.delete) {
-    message.warning($t('rdi.thingsvis.projectDeletionUnsupported'))
-    return
-  }
-  const project = allProjects.value.find((item) => item.id === id)
-  if ((project?.dashboardCount || 0) > 0) {
-    message.warning($t('rdi.thingsvis.projectHasDashboardsWarning'))
-    return
-  }
-
-  pendingDeleteProject.value = { id, name }
-  deleteConfirmModal.value = true
-}
-
-const handleDeleteProject = async () => {
-  if (!pendingDeleteProject.value || deletingId.value) return
-  deletingId.value = pendingDeleteProject.value.id
-  try {
-    const { id } = pendingDeleteProject.value
-    const dashboardsResult = await provider.execute((current) =>
-      current.listDashboards({
-        projectId: id,
-        page: 1,
-        limit: 1000
-      })
-    )
-    if (!dashboardsResult.ok) {
-      message.error($t('rdi.thingsvis.deleteFailed'))
-      return
-    }
-    const dashboardIds = dashboardsResult.data.items.map((dashboard) => dashboard.id)
-
-    for (const did of dashboardIds) {
-      const { error } = await deleteDashboardMenuConfig(did)
-      if (error) {
-        message.error($t('rdi.thingsvis.deleteMenuCleanupFailed'))
-        return
-      }
-    }
-
-    const deleteResult = await provider.execute((current) => current.deleteProject(id))
-    if (deleteResult.ok) {
-      const deletedName = pendingDeleteProject.value?.name || ''
-      deleteConfirmModal.value = false
-      pendingDeleteProject.value = null
-      await refreshAuthRoutes(route.fullPath)
-      clearThingsVisHomeCache()
-      message.success($t('rdi.thingsvis.projectDeleted', { name: deletedName }))
-      await fetchProjects()
-    } else {
-      console.warn(`[handleDeleteProject] Failed to delete project ${id}`)
-      message.error($t('rdi.thingsvis.deleteFailed'))
-    }
-  } catch (e) {
-    message.error($t('rdi.thingsvis.deleteFailed'))
-    console.error(e)
-  } finally {
-    deletingId.value = null
-  }
-}
-
-/** Enter project dashboard list */
-const enterProject = (projectId: string) => {
-  routerPushByKey('visualization_thingsvis-dashboards', {
-    query: {
-      projectId,
-      ...(isNativeProvider.value ? { provider: 'native' } : {}),
-      ...onboardingDashboardQuery.value
-    }
-  })
+const notifyLoadFailed = () => {
+  message.error($t('rdi.thingsvis.loadProjectsFailed'))
 }
 
 onMounted(() => {
-  fetchProjects()
+  fetchProjects(notifyLoadFailed)
 })
 </script>
 
