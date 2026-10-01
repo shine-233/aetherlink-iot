@@ -44,17 +44,28 @@ func resolveUpTargetCompiled(mappings []compiledTopicMapping, incomingSource str
 	return "", false
 }
 
-func (s *TopicMapService) AllowDownSubscribe(ctx context.Context, deviceConfigID string, subscribeTopic string) bool {
+// AllowDownSubscribe 判断设备能否订阅自定义下行源主题。源模板中的 {device_number}
+// 必须等于订阅者自身设备号：同一设备配置下的设备共享映射，若只做形状匹配，
+// 设备 A 可订阅 "devices/<B>/command/+" 窃听设备 B 的下行指令。
+func (s *TopicMapService) AllowDownSubscribe(ctx context.Context, deviceConfigID string, subscribeTopic string, deviceNumber string) bool {
 	mappings, err := getCompiledMappings(ctx, deviceConfigID, DirectionDown)
 	if err != nil || len(mappings) == 0 {
 		return false
 	}
-	return allowDownSubscribeCompiled(mappings, subscribeTopic)
+	return allowDownSubscribeCompiled(mappings, subscribeTopic, deviceNumber)
 }
 
-func allowDownSubscribeCompiled(mappings []compiledTopicMapping, subscribeTopic string) bool {
+func allowDownSubscribeCompiled(mappings []compiledTopicMapping, subscribeTopic string, deviceNumber string) bool {
 	for i := range mappings {
-		if rx := mappings[i].sourceRx; rx != nil && rx.MatchString(subscribeTopic) {
+		rx := mappings[i].sourceRx
+		if rx == nil || !rx.MatchString(subscribeTopic) {
+			continue
+		}
+		source := mappings[i].SourceTopic
+		if !strings.Contains(source, deviceNumberPlaceholder) {
+			return true
+		}
+		if bound, ok := compileDeviceBoundTemplate(source, deviceNumber); ok && bound.MatchString(subscribeTopic) {
 			return true
 		}
 	}

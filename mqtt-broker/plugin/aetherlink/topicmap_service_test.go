@@ -48,14 +48,59 @@ func TestTopicMapServiceAllowsDownSubscribeOnlyForConfiguredSourceTopic(t *testi
 		},
 	}
 
-	if !allowDownSubscribeFromMappings(mappings, "devices/dev-001/command/reboot") {
+	if !allowDownSubscribeFromMappings(mappings, "devices/dev-001/command/reboot", "dev-001") {
 		t.Fatal("expected down subscribe to be allowed by source mapping")
 	}
-	if allowDownSubscribeFromMappings(mappings, "platform/command/dev-001/reboot") {
+	if allowDownSubscribeFromMappings(mappings, "platform/command/dev-001/reboot", "dev-001") {
 		t.Fatal("device down subscribe must match source_topic, not normalized target_topic")
 	}
-	if allowDownSubscribeFromMappings(mappings, "devices/dev-001/attributes/mode") {
+	if allowDownSubscribeFromMappings(mappings, "devices/dev-001/attributes/mode", "dev-001") {
 		t.Fatal("unexpected down subscribe allowance for non-matching topic")
+	}
+}
+
+// 回归：同一设备配置下的设备共享映射，{device_number} 槽位必须绑定订阅者自身设备号，
+// 否则设备可订阅其他设备的自定义下行源主题（或用 '+' 通配全部设备）窃听指令。
+func TestTopicMapServiceDownSubscribeBindsDeviceNumberToSubscriber(t *testing.T) {
+	mappings := []DeviceTopicMapping{
+		{
+			SourceTopic: "devices/{device_number}/command/+",
+			TargetTopic: "platform/command/{device_number}/+",
+		},
+		{
+			SourceTopic: "shared/{region}/broadcast",
+			TargetTopic: "platform/broadcast/{device_number}",
+		},
+	}
+
+	if !allowDownSubscribeFromMappings(mappings, "devices/dev-001/command/reboot", "dev-001") {
+		t.Fatal("device must be allowed to subscribe its own mapped source topic")
+	}
+	if !allowDownSubscribeFromMappings(mappings, "devices/dev-001/command/+", "dev-001") {
+		t.Fatal("wildcard in non-identity slot of own topic should remain allowed")
+	}
+	for _, topic := range []string{
+		"devices/dev-002/command/reboot",
+		"devices/+/command/reboot",
+		"devices/+/command/+",
+	} {
+		if allowDownSubscribeFromMappings(mappings, topic, "dev-001") {
+			t.Fatalf("dev-001 must not subscribe %q", topic)
+		}
+	}
+	if allowDownSubscribeFromMappings(mappings, "devices/dev-001/command/reboot", "") {
+		t.Fatal("empty subscriber device number must fail closed for identity-bound mappings")
+	}
+	// 设备号中的正则元字符按字面量处理。
+	if allowDownSubscribeFromMappings(mappings, "devices/devX001/command/reboot", "dev.001") {
+		t.Fatal("device number must be matched literally, not as a regexp")
+	}
+	if !allowDownSubscribeFromMappings(mappings, "devices/dev.001/command/reboot", "dev.001") {
+		t.Fatal("device number with regexp metacharacters must still match itself")
+	}
+	// 源模板不含 {device_number} 的映射按设备配置共享，保持原语义。
+	if !allowDownSubscribeFromMappings(mappings, "shared/eu/broadcast", "dev-001") {
+		t.Fatal("mapping without device identity slot should keep shape-only matching")
 	}
 }
 
@@ -115,8 +160,8 @@ func resolveUpTargetFromMappings(mappings []DeviceTopicMapping, incomingSource s
 	return resolveUpTargetCompiled(compileTopicMappings(mappings), incomingSource)
 }
 
-func allowDownSubscribeFromMappings(mappings []DeviceTopicMapping, subscribeTopic string) bool {
-	return allowDownSubscribeCompiled(compileTopicMappings(mappings), subscribeTopic)
+func allowDownSubscribeFromMappings(mappings []DeviceTopicMapping, subscribeTopic string, deviceNumber string) bool {
+	return allowDownSubscribeCompiled(compileTopicMappings(mappings), subscribeTopic, deviceNumber)
 }
 
 func resolveDownSourceFromMappings(mappings []DeviceTopicMapping, normalizedTarget string, deviceNumber string, payload []byte) (string, []byte, bool) {

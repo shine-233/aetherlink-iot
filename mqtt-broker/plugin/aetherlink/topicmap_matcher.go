@@ -213,15 +213,44 @@ func topicTemplateRegexpSource(template string) (string, bool) {
 	var b strings.Builder
 	b.Grow(len(template) + 16)
 	b.WriteByte('^')
+	writeTemplateBody(&b, template)
+	b.WriteByte('$')
+	return b.String(), true
+}
+
+func writeTemplateBody(b *strings.Builder, template string) {
 	last := 0
 	for _, loc := range varPlaceholderRegexp.FindAllStringIndex(template, -1) {
-		writeLiteralWithPlus(&b, template[last:loc[0]])
+		writeLiteralWithPlus(b, template[last:loc[0]])
 		b.WriteString(`[^/]+`)
 		last = loc[1]
 	}
-	writeLiteralWithPlus(&b, template[last:])
+	writeLiteralWithPlus(b, template[last:])
+}
+
+// compileDeviceBoundTemplate 与 compileTopicTemplate 相同，但 {device_number} 被绑定为
+// 给定设备号的字面量（QuoteMeta，设备号中的 '+' 等不会被当作通配符）。
+// 用于订阅鉴权：防止设备订阅映射源主题中属于其他设备的槽位。不走 cachedCompile，
+// 避免按设备号无界增长全局正则缓存（订阅不是热路径）。
+func compileDeviceBoundTemplate(template string, deviceNumber string) (*regexp.Regexp, bool) {
+	if strings.Contains(template, "#") || deviceNumber == "" {
+		return nil, false
+	}
+	var b strings.Builder
+	b.Grow(len(template) + len(deviceNumber) + 16)
+	b.WriteByte('^')
+	for i, part := range strings.Split(template, deviceNumberPlaceholder) {
+		if i > 0 {
+			b.WriteString(regexp.QuoteMeta(deviceNumber))
+		}
+		writeTemplateBody(&b, part)
+	}
 	b.WriteByte('$')
-	return b.String(), true
+	rx, err := regexp.Compile(b.String())
+	if err != nil {
+		return nil, false
+	}
+	return rx, true
 }
 
 func writeLiteralWithPlus(b *strings.Builder, literal string) {
