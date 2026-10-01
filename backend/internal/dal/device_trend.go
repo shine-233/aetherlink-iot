@@ -55,22 +55,26 @@ device_total AS (
       AND created_at <= $3
 ),
 -- 3. Count devices already online before the requested range.
+--    Per-device LATERAL probe on idx_device_status_history_tenant_device_id_desc
+--    (144.sql): walks id DESC and stops at the first row before $2, so cost is
+--    bounded by device count + in-range rows, not by total history depth.
+--    Same semantics as the old "MAX(id) per device, then join back" form.
 before_online AS (
-    SELECT COUNT(DISTINCT dsh.device_id)::bigint AS cnt
-    FROM device_status_history dsh
-    INNER JOIN (
-        SELECT device_id, MAX(id) AS max_id
-        FROM device_status_history
-        WHERE tenant_id = $1 AND change_time < $2
-          AND device_id IN (
-              SELECT id FROM devices
-              WHERE tenant_id = $1
-                AND activate_flag <> 'inactive'
-                AND ($4 = '' OR owner_user_id = $4)
-          )
-        GROUP BY device_id
-    ) latest ON dsh.id = latest.max_id
-    WHERE dsh.status = 1
+    SELECT COUNT(*)::bigint AS cnt
+    FROM devices d
+    CROSS JOIN LATERAL (
+        SELECT dsh.status
+        FROM device_status_history dsh
+        WHERE dsh.tenant_id = $1
+          AND dsh.device_id = d.id
+          AND dsh.change_time < $2
+        ORDER BY dsh.id DESC
+        LIMIT 1
+    ) latest
+    WHERE d.tenant_id = $1
+      AND d.activate_flag <> 'inactive'
+      AND ($4 = '' OR d.owner_user_id = $4)
+      AND latest.status = 1
 ),
 -- 4. Estimate devices that never emitted status changes.
 never_reported AS (
@@ -89,28 +93,24 @@ never_reported AS (
       )
 ),
 -- 5. Load latest status change per device per hour inside the requested range.
+--    DISTINCT ON keeps the MAX(id) row of each (device, hour) in one pass; the
+--    old GROUP BY + join-back hashed the whole history table to re-fetch status.
 all_changes AS (
-    SELECT
+    SELECT DISTINCT ON (dsh.device_id, date_trunc('hour', dsh.change_time))
         dsh.device_id,
         dsh.status,
         date_trunc('hour', dsh.change_time) AS hour_ts
     FROM device_status_history dsh
-    INNER JOIN (
-        SELECT device_id,
-               date_trunc('hour', change_time) AS hour_ts,
-               MAX(id) AS max_id
-        FROM device_status_history
-        WHERE tenant_id = $1
-          AND change_time >= $2
-          AND change_time <= $3
-          AND device_id IN (
-              SELECT id FROM devices
-              WHERE tenant_id = $1
-                AND activate_flag <> 'inactive'
-                AND ($4 = '' OR owner_user_id = $4)
-          )
-        GROUP BY device_id, date_trunc('hour', change_time)
-    ) latest ON dsh.id = latest.max_id
+    WHERE dsh.tenant_id = $1
+      AND dsh.change_time >= $2
+      AND dsh.change_time <= $3
+      AND dsh.device_id IN (
+          SELECT id FROM devices
+          WHERE tenant_id = $1
+            AND activate_flag <> 'inactive'
+            AND ($4 = '' OR owner_user_id = $4)
+      )
+    ORDER BY dsh.device_id, date_trunc('hour', dsh.change_time), dsh.id DESC
 ),
 -- 6. Compare each hourly status point with the previous point.
 device_prev AS (
