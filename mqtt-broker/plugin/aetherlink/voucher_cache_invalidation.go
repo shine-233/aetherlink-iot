@@ -14,11 +14,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"go.uber.org/zap"
-	"gopkg.in/redis.v5"
 )
 
 const (
@@ -116,12 +114,8 @@ type voucherCacheInvalidationSubscription interface {
 type voucherCacheInvalidationSubscribe func() (voucherCacheInvalidationSubscription, error)
 
 type voucherCacheInvalidationMonitor struct {
-	mu           sync.Mutex
-	subscribe    voucherCacheInvalidationSubscribe
-	subscription voucherCacheInvalidationSubscription
-	stop         chan struct{}
-	done         chan struct{}
-	started      bool
+	subscriptionLifecycle
+	subscribe voucherCacheInvalidationSubscribe
 }
 
 func newVoucherCacheInvalidationMonitor(subscribe voucherCacheInvalidationSubscribe) *voucherCacheInvalidationMonitor {
@@ -147,11 +141,8 @@ func (m *voucherCacheInvalidationMonitor) Start() error {
 	if subscription == nil {
 		return fmt.Errorf("voucher cache invalidation subscription is nil")
 	}
-	m.subscription = subscription
-	m.stop = make(chan struct{})
-	m.done = make(chan struct{})
-	m.started = true
-	go m.run(subscription.Messages(), m.stop, m.done)
+	stop, done := m.beginLocked(subscription)
+	go m.run(subscription.Messages(), stop, done)
 	return nil
 }
 
@@ -192,123 +183,13 @@ func (m *voucherCacheInvalidationMonitor) Close() error {
 	if m == nil {
 		return nil
 	}
-	m.mu.Lock()
-	if !m.started {
-		m.mu.Unlock()
-		return nil
-	}
-	subscription := m.subscription
-	stop := m.stop
-	done := m.done
-	m.subscription = nil
-	m.stop = nil
-	m.done = nil
-	m.started = false
-	close(stop)
-	m.mu.Unlock()
-
-	err := subscription.Close()
-	<-done
-	return err
-}
-
-type redisVoucherCacheInvalidationSubscription struct {
-	pubsub    *redis.PubSub
-	messages  chan string
-	stop      chan struct{}
-	done      chan struct{}
-	closeOnce sync.Once
-	closeErr  error
+	return m.shutdown()
 }
 
 func subscribeRedisVoucherCacheInvalidations() (voucherCacheInvalidationSubscription, error) {
-	if redisCache == nil {
-		return nil, fmt.Errorf("redis is not initialized for voucher cache invalidation")
-	}
-	pubsub, err := redisCache.Subscribe(VoucherCacheInvalidationChannel)
+	subscription, err := subscribeRedisChannel(VoucherCacheInvalidationChannel, "voucher cache invalidation")
 	if err != nil {
-		return nil, fmt.Errorf("subscribe voucher cache invalidation channel: %w", err)
+		return nil, err
 	}
-	confirmation, err := pubsub.ReceiveTimeout(3 * time.Second)
-	if err != nil {
-		_ = pubsub.Close()
-		return nil, fmt.Errorf("confirm voucher cache invalidation subscription: %w", err)
-	}
-	subscribed, ok := confirmation.(*redis.Subscription)
-	if !ok || subscribed.Kind != "subscribe" || subscribed.Channel != VoucherCacheInvalidationChannel {
-		_ = pubsub.Close()
-		return nil, fmt.Errorf("unexpected voucher cache invalidation subscription confirmation: %T", confirmation)
-	}
-
-	subscription := &redisVoucherCacheInvalidationSubscription{
-		pubsub:   pubsub,
-		messages: make(chan string),
-		stop:     make(chan struct{}),
-		done:     make(chan struct{}),
-	}
-	go subscription.forward()
 	return subscription, nil
-}
-
-func (s *redisVoucherCacheInvalidationSubscription) Messages() <-chan string {
-	if s == nil {
-		return nil
-	}
-	return s.messages
-}
-
-func (s *redisVoucherCacheInvalidationSubscription) forward() {
-	defer close(s.done)
-	defer close(s.messages)
-	for {
-		select {
-		case <-s.stop:
-			return
-		default:
-		}
-		message, err := s.pubsub.ReceiveMessage()
-		if err != nil {
-			select {
-			case <-s.stop:
-				return
-			default:
-			}
-			if Log != nil {
-				Log.Warn("voucher cache invalidation subscription receive failed", zap.Error(err))
-			}
-			retry := time.NewTimer(time.Second)
-			select {
-			case <-s.stop:
-				if !retry.Stop() {
-					select {
-					case <-retry.C:
-					default:
-					}
-				}
-				return
-			case <-retry.C:
-				continue
-			}
-		}
-		if message == nil {
-			continue
-		}
-		select {
-		case s.messages <- message.Payload:
-		case <-s.stop:
-			return
-		}
-	}
-}
-
-func (s *redisVoucherCacheInvalidationSubscription) Close() error {
-	if s == nil {
-		return nil
-	}
-	s.closeOnce.Do(func() {
-		close(s.stop)
-		s.closeErr = s.pubsub.Close()
-		<-s.done
-	})
-	return s.closeErr
 }
