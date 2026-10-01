@@ -14,7 +14,8 @@ import (
 //
 // Unlike Gate.NeedTenant it trims the tenant first, so "  " is rejected too.
 type TenantScope struct {
-	// NilMsg is returned for nil claims.
+	// NilMsg is returned for nil claims; empty emits the bare
+	// errcode.New(CodeNoPermission), mirroring Gate.
 	NilMsg string
 	// BlankMsg is returned when the trimmed tenant is empty.
 	BlankMsg string
@@ -23,7 +24,7 @@ type TenantScope struct {
 // Tenant returns the trimmed tenant ID or the matching gate error.
 func (s TenantScope) Tenant(c *utils.UserClaims) (string, error) {
 	if c == nil {
-		return "", errcode.NewWithMessage(errcode.CodeNoPermission, s.NilMsg)
+		return "", Gate{Msg: s.NilMsg}.Require(nil)
 	}
 	tenantID := strings.TrimSpace(c.TenantID)
 	if tenantID == "" {

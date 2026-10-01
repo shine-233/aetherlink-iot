@@ -11,24 +11,44 @@ type TenantRepo[T any] struct {
 	NotFound NotFound
 	// TenantOf picks the tenant passed to the DAL; default c.TenantID.
 	TenantOf func(*utils.UserClaims) string
+	// Scope, when set, replaces Gate+TenantOf: it both rejects the caller and
+	// returns the tenant for the DAL (e.g. TenantScope{...}.Tenant).
+	Scope func(*utils.UserClaims) (string, error)
+	// Missing reports a "found nothing" result returned without an error, for
+	// DALs that map gorm.ErrRecordNotFound to (nil, nil); see NilPtr.
+	Missing func(T) bool
 }
 
-func (r TenantRepo[T]) tenant(c *utils.UserClaims) string {
-	if r.TenantOf != nil {
-		return r.TenantOf(c)
+// NilPtr is the Missing predicate of pointer-returning (nil, nil) DALs.
+func NilPtr[E any](p *E) bool { return p == nil }
+
+// resolve runs the gate and returns the DAL tenant.
+func (r TenantRepo[T]) resolve(c *utils.UserClaims) (string, error) {
+	if r.Scope != nil {
+		return r.Scope(c)
 	}
-	return c.TenantID
+	if err := r.Gate.Require(c); err != nil {
+		return "", err
+	}
+	if r.TenantOf != nil {
+		return r.TenantOf(c), nil
+	}
+	return c.TenantID, nil
 }
 
 // Load runs the gate, fetches id in the caller's tenant and maps load errors.
 func (r TenantRepo[T]) Load(c *utils.UserClaims, id string) (T, error) {
 	var zero T
-	if err := r.Gate.Require(c); err != nil {
+	tenant, err := r.resolve(c)
+	if err != nil {
 		return zero, err
 	}
-	rec, err := r.Get(id, r.tenant(c))
+	rec, err := r.Get(id, tenant)
 	if err != nil {
 		return zero, r.NotFound.Map(err)
+	}
+	if r.Missing != nil && r.Missing(rec) {
+		return zero, r.NotFound.Err()
 	}
 	return rec, nil
 }
@@ -46,7 +66,8 @@ func (r TenantRepo[T]) Delete(c *utils.UserClaims, id string, del func(id, tenan
 	if err := r.MustExist(c, id); err != nil {
 		return err
 	}
-	if err := del(id, r.tenant(c)); err != nil {
+	tenant, _ := r.resolve(c) // already accepted by MustExist
+	if err := del(id, tenant); err != nil {
 		if onErr != nil {
 			return onErr(err)
 		}
@@ -59,10 +80,11 @@ func (r TenantRepo[T]) Delete(c *utils.UserClaims, id string, del func(id, tenan
 // {"total","list"} map. onErr maps a list failure; nil returns it verbatim.
 // It is a free function because Go methods cannot add type parameters.
 func List[T, R, E any](r TenantRepo[T], c *utils.UserClaims, req R, list func(R, string) (int64, []E, error), onErr func(error) error) (map[string]interface{}, error) {
-	if err := r.Gate.Require(c); err != nil {
+	tenant, err := r.resolve(c)
+	if err != nil {
 		return nil, err
 	}
-	total, items, err := list(req, r.tenant(c))
+	total, items, err := list(req, tenant)
 	if err != nil {
 		if onErr != nil {
 			return nil, onErr(err)

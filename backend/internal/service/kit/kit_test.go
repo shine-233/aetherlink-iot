@@ -255,8 +255,12 @@ func TestTenantRepoScopeAndMissing(t *testing.T) {
 	if _, err := r.Load(&utils.UserClaims{TenantID: "t1"}, "a"); wire(t, err) != wire(t, DBErr(KeyError, boom)) {
 		t.Fatalf("db err: %s", wire(t, err))
 	}
-	m, err := List(r, &utils.UserClaims{TenantID: " t1 "}, 0, func(int, string) (int64, []*rec, error) { return 0, nil, nil }, nil)
-	if err != nil || gotTenant != "t1" && m == nil {
-		t.Fatalf("list via scope: %v", err)
+	gotTenant = ""
+	_, err := List(r, &utils.UserClaims{TenantID: " t1 "}, 0, func(_ int, tenant string) (int64, []*rec, error) {
+		gotTenant = tenant
+		return 0, nil, nil
+	}, nil)
+	if err != nil || gotTenant != "t1" {
+		t.Fatalf("list via scope: %v %q", err, gotTenant)
 	}
 }
