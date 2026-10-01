@@ -60,19 +60,42 @@ func GetDeviceHealthScoresByTenant(tenantID string) ([]*model.DeviceHealthScore,
 	return list, err
 }
 
-// GetDeviceActiveAlarms 查询指定设备当前活跃的告警历史（未恢复：H/M/L）
+// deviceActiveAlarmsWhereSQL 设备健康面板"设备当前活跃告警"过滤条件（142.sql 关联表形态）。
+//
+// 旧写法 jsonb_exists(alarm_device_list::jsonb, ?) OR alarm_device_list::text LIKE '%id%'
+// 需要对租户内每一行 alarm_history 做 jsonb 展开 + 子串匹配，无法走索引；LIKE 分支还会
+// 在设备 id 互为子串时误命中（dev-1 命中 dev-10 的告警），把别的设备的告警算进健康扣分。
+//
+// 现改为在 alarm_history_devices 上做等值 EXISTS。与 alarm_history.go 的
+// alarmHistoryDeviceExistsByIDUnqualified 相比，这里额外带上 ahd.tenant_id 等值条件：
+//   - 让子查询完整命中 idx_alarm_history_devices_device_tenant(device_id, tenant_id)，
+//     PG 可把 EXISTS 规划为以关联表为驱动的半连接，再按主键回表 alarm_history；
+//   - 关联表的 tenant_id 由触发器从告警行冗余而来，与外层 tenant_id 恒等，语义不变。
+//
+// 关联表由 142.sql 的 trg_alarm_history_devices_sync 触发器与 alarm_device_list 同事务
+// 同步，并对存量行做过回填，因此读侧切换无需应用写路径配合。
+const deviceActiveAlarmsWhereSQL = `alarm_history.tenant_id = ?
+  AND alarm_history.alarm_status IN ('H', 'M', 'L')
+  AND EXISTS (
+    SELECT 1
+    FROM alarm_history_devices ahd
+    WHERE ahd.alarm_history_id = alarm_history.id
+      AND ahd.device_id = ?
+      AND ahd.tenant_id = ?
+)`
+
+// GetDeviceActiveAlarms 查询指定设备当前活跃的告警历史（未恢复：H/M/L），按创建时间倒序。
+// 签名与返回形态保持不变；空 deviceID 不可能命中关联表（device_id 为 NOT NULL 的真实 id），
+// 直接短路返回空列表，避免一次无意义的查询。
 func GetDeviceActiveAlarms(tenantID, deviceID string) ([]*model.AlarmHistory, error) {
-	var list []*model.AlarmHistory
-	// 匹配 JSONB 数组中包含 deviceID
-	// LIKE 收编（2026-09-28）：旧写法 "%"+deviceID+"%" 未转义通配符（like_escape.go 约定：
-	// 所有把输入拼进 LIKE 模式的位置必须经过 ContainsLikePattern），并补显式 ESCAPE '\'，
-	// 与 PG 默认转义符一致、SQLite 下转义同样生效。
-	err := global.DB.Where(
-		"tenant_id = ? AND alarm_status IN ('H', 'M', 'L') AND (jsonb_exists(COALESCE(alarm_device_list::jsonb, '[]'::jsonb), ?) OR alarm_device_list::text LIKE ? ESCAPE '\\')",
-		tenantID,
-		deviceID,
-		ContainsLikePattern(deviceID),
-	).Order("create_at DESC").Find(&list).Error
+	list := make([]*model.AlarmHistory, 0)
+	if deviceID == "" {
+		return list, nil
+	}
+	err := global.DB.Model(&model.AlarmHistory{}).
+		Where(deviceActiveAlarmsWhereSQL, tenantID, deviceID, tenantID).
+		Order("alarm_history.create_at DESC").
+		Find(&list).Error
 	return list, err
 }
 
