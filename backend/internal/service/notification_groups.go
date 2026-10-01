@@ -6,14 +6,13 @@ package service
 
 import (
 	"strings"
-	"time"
 
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/internal/service/kit"
 	"aetherlink-iot/backend/pkg/errcode"
 	utils "aetherlink-iot/backend/pkg/utils"
 
-	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -35,33 +34,28 @@ func (*NotificationGroup) CreateNotificationGroup(createNotificationgroupReq *mo
 		return nil, err
 	}
 
-	var notificationGroup model.NotificationGroup
-	notificationGroup.ID = uuid.New()
-	notificationGroup.Name = createNotificationgroupReq.Name
-	notificationGroup.NotificationConfig = createNotificationgroupReq.NotificationConfig
-	notificationGroup.NotificationType = createNotificationgroupReq.NotificationType
-	notificationGroup.Status = createNotificationgroupReq.Status
-	notificationGroup.Description = createNotificationgroupReq.Description
-	notificationGroup.Remark = createNotificationgroupReq.Remark
-	notificationGroup.UpdatedAt = time.Now().UTC()
-	notificationGroup.CreatedAt = time.Now().UTC()
-	notificationGroup.TenantID = u.TenantID
-	err := dal.CreateNotificationGroup(&notificationGroup)
-
-	if err != nil {
+	now := kit.NowUTC()
+	notificationGroup := &model.NotificationGroup{
+		ID:                 kit.NewID(),
+		Name:               createNotificationgroupReq.Name,
+		NotificationConfig: createNotificationgroupReq.NotificationConfig,
+		NotificationType:   createNotificationgroupReq.NotificationType,
+		Status:             createNotificationgroupReq.Status,
+		Description:        createNotificationgroupReq.Description,
+		Remark:             createNotificationgroupReq.Remark,
+		CreatedAt:          now,
+		UpdatedAt:          now,
+		TenantID:           u.TenantID,
+	}
+	if err := dal.CreateNotificationGroup(notificationGroup); err != nil {
 		logrus.Error(err)
 		return nil, dbError(err)
 	}
-
-	return &notificationGroup, nil
+	return notificationGroup, nil
 }
 
-func (*NotificationGroup) GetNotificationGroupById(id string, u *utils.UserClaims) (notificationGroup *model.NotificationGroup, err error) {
-	notificationGroup, err = ensureNotificationGroupReadAccess(id, u)
-	if err != nil {
-		return nil, err
-	}
-	return
+func (*NotificationGroup) GetNotificationGroupById(id string, u *utils.UserClaims) (*model.NotificationGroup, error) {
+	return ensureNotificationGroupReadAccess(id, u)
 }
 
 func (*NotificationGroup) UpdateNotificationGroup(id string, updateNotificationgroupReq *model.UpdateNotificationGroupReq, u *utils.UserClaims) (*model.NotificationGroup, error) {
@@ -77,9 +71,8 @@ func (*NotificationGroup) UpdateNotificationGroup(id string, updateNotificationg
 	}
 	utils.SerializeData(updateNotificationgroupReq, notificationGroup)
 
-	notificationGroup.UpdatedAt = time.Now().UTC()
-	err = dal.UpdateNotificationGroup(notificationGroup)
-	if err != nil {
+	notificationGroup.UpdatedAt = kit.NowUTC()
+	if err := dal.UpdateNotificationGroup(notificationGroup); err != nil {
 		return nil, dbError(err)
 	}
 	return notificationGroup, nil
@@ -89,8 +82,7 @@ func (*NotificationGroup) DeleteNotificationGroup(id string, u *utils.UserClaims
 	if _, err := ensureNotificationGroupWriteAccess(id, u); err != nil {
 		return err
 	}
-	err := dal.DeleteNotificationGroup(id)
-	if err != nil {
+	if err := dal.DeleteNotificationGroup(id); err != nil {
 		return dbError(err)
 	}
 	return nil
@@ -101,13 +93,5 @@ func (*NotificationGroup) GetNotificationGroupListByPage(pageParam *model.GetNot
 	if err != nil {
 		return nil, dbError(err)
 	}
-
-	return notificationGroupListResponse(total, list), err
-}
-
-func notificationGroupListResponse(total interface{}, list interface{}) map[string]interface{} {
-	return map[string]interface{}{
-		"total": total,
-		"list":  list,
-	}
+	return kit.ListMap(total, list), nil
 }
