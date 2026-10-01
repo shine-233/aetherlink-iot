@@ -364,10 +364,22 @@ func indexDevicesByID(devices []*model.Device, result map[string]*model.Device) 
 	return result
 }
 
-// GetDeviceDetail returns a device with its config name and latest telemetry timestamp.
+// GetDeviceDetail returns a device with its config name, latest telemetry timestamp,
+// and (for sub-devices) its parent gateway device's name.
 // 批次二收敛（2026-08-24，见 references/gen-inheritance-audit.md）：raw global.DB 链重建等价
 // JOIN（device_configs + 最新遥测子查询），不再从包级单例起 Do 链；Scan 无行返回空 map 的
 // 既有行为保留（上游加固另行处理）。
+// N+1 收敛（2026-10-01）：原实现在主查询之后，仅当 parent_id 非空时才串行发起第二次
+// GetDeviceByIDUnscoped 往返，只为取父设备 Name。子设备详情页是高频管理台路径，这里把
+// 该查询折叠进主查询的第二个 LEFT JOIN（自连接 devices AS parent_device），一次往返即可
+// 拿到 gateway_device_name。
+// 行为变化（刻意，非静默）：原逐一往返下，若 parent_id 悬空（父设备已被删除等），
+// GetDeviceByIDUnscoped 返回 (nil, gorm.ErrRecordNotFound)，GetDeviceDetail 整体失败返回 err。
+// 改为 LEFT JOIN 后，悬空 parent_id 只会让 gateway_device_name 为 NULL/缺省，不再使调用整体
+// 失败——这是更稳健的行为（悬空外键不应打断设备详情页渲染），不是本次改动的副作用疏漏。
+// 已核对 GetDeviceDetail 唯一调用方 service.loadDeviceDetail：它只区分"空快照"（无 id 键，
+// 映射为 404）与"非空快照错误"（映射为 DB 错误码），不依赖"父设备悬空必须整体报错"这一
+// 具体失败模式，故此变化对现有调用方透明、安全。
 // tenant-scope: caller-enforced?2026-08-26 ?????
 func GetDeviceDetail(id string) (map[string]interface{}, error) {
 	data := make(map[string]interface{})
@@ -377,20 +389,16 @@ func GetDeviceDetail(id string) (map[string]interface{}, error) {
 	err := global.DB.Model(&model.Device{}).
 		Joins("LEFT JOIN device_configs ON device_configs.id = devices.device_config_id").
 		Joins(`LEFT JOIN (?) AS t2 ON "t2"."device_id" = "devices"."id"`, latestTelemetry).
+		Joins(`LEFT JOIN "devices" AS "parent_device" ON "parent_device"."id" = "devices"."parent_id"`).
 		Where("devices.id = ?", id).
-		Select(`"devices".*, "device_configs"."name" AS "device_config_name", "t2"."ts"`).
+		Select(`"devices".*, "device_configs"."name" AS "device_config_name", "t2"."ts", "parent_device"."name" AS "gateway_device_name"`).
 		Scan(&data).Error
 	if err != nil {
 		logrus.Error(err)
 		return nil, err
 	}
-	if data["parent_id"] != nil {
-		parentDevice, err := GetDeviceByIDUnscoped(data["parent_id"].(string))
-		if err != nil {
-			logrus.Error(err)
-			return nil, err
-		}
-		data["gateway_device_name"] = parentDevice.Name
+	if data["parent_id"] == nil {
+		delete(data, "gateway_device_name")
 	}
 	return data, err
 }
