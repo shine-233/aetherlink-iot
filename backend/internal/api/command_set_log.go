@@ -97,19 +97,9 @@ func (CommandSetLogApi) ListFleetCommandJobs(c *gin.Context) {
 	// page/page_size 走自定义解析与错误文案（区别于 form 绑定），闭包内把解析失败转成与迁移前一致的 CodeParamError。
 	HandleNoBody(c, func(userClaims *utils.UserClaims) (interface{}, error) {
 		req := model.FleetCommandJobListReq{}
-		if rawPage := c.Query("page"); rawPage != "" {
-			parsed, err := strconv.Atoi(rawPage)
-			if err != nil {
-				return nil, errcode.WithData(errcode.CodeParamError, "page must be an integer")
-			}
-			req.Page = parsed
-		}
-		if rawPageSize := c.Query("page_size"); rawPageSize != "" {
-			parsed, err := strconv.Atoi(rawPageSize)
-			if err != nil {
-				return nil, errcode.WithData(errcode.CodeParamError, "page_size must be an integer")
-			}
-			req.PageSize = parsed
+		var err error
+		if req.Page, req.PageSize, err = parseOptionalPageQuery(c); err != nil {
+			return nil, err
 		}
 		req.Status = c.Query("status")
 		req.AttentionFilter = c.Query("attention_filter")
@@ -166,19 +156,9 @@ func (CommandSetLogApi) GetFleetCommandJobRows(c *gin.Context) {
 		}
 
 		req := model.FleetCommandJobRowsReq{}
-		if rawPage := c.Query("page"); rawPage != "" {
-			parsed, err := strconv.Atoi(rawPage)
-			if err != nil {
-				return nil, errcode.WithData(errcode.CodeParamError, "page must be an integer")
-			}
-			req.Page = parsed
-		}
-		if rawPageSize := c.Query("page_size"); rawPageSize != "" {
-			parsed, err := strconv.Atoi(rawPageSize)
-			if err != nil {
-				return nil, errcode.WithData(errcode.CodeParamError, "page_size must be an integer")
-			}
-			req.PageSize = parsed
+		var err error
+		if req.Page, req.PageSize, err = parseOptionalPageQuery(c); err != nil {
+			return nil, err
 		}
 		req.StatusFilter = c.Query("status_filter")
 		req.Search = c.Query("search")
@@ -449,4 +429,28 @@ func (CommandSetLogApi) HandleCommandList(c *gin.Context) {
 	HandlePath(c, "id", func(id string, userClaims *utils.UserClaims) (interface{}, error) {
 		return service.GroupApp.CommandData.GetCommonList(c, id, userClaims)
 	})
+}
+
+// parseOptionalPageQuery 解析可选的 page/page_size 查询参数：缺省为 0（交由 service 兜底），
+// 非整数返回 CodeParamError（文案与历史一致）。
+func parseOptionalPageQuery(c *gin.Context) (page, pageSize int, err error) {
+	if page, err = parseIntQueryParam(c, "page"); err != nil {
+		return 0, 0, err
+	}
+	if pageSize, err = parseIntQueryParam(c, "page_size"); err != nil {
+		return 0, 0, err
+	}
+	return page, pageSize, nil
+}
+
+func parseIntQueryParam(c *gin.Context, name string) (int, error) {
+	raw := c.Query(name)
+	if raw == "" {
+		return 0, nil
+	}
+	parsed, err := strconv.Atoi(raw)
+	if err != nil {
+		return 0, errcode.WithData(errcode.CodeParamError, name+" must be an integer")
+	}
+	return parsed, nil
 }
