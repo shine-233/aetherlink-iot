@@ -135,7 +135,10 @@ func (f *StatusUplink) refreshStatusOnlineTimeout(ctx *statusMessageContext) {
 }
 
 func (f *StatusUplink) persistStatusChange(ctx *statusMessageContext) bool {
-	statusChanged, err := dal.UpdateDeviceStatus(ctx.device.ID, ctx.status)
+	// 用缓存里已加载的设备对象提供 tenantID，省掉 dal.UpdateDeviceStatus 内部那次
+	// getDeviceTenantID 整行 SELECT——设备对象就在手上，再查一次是重复往返。
+	// 条件 UPDATE 语义不变：状态未变化时 RowsAffected=0，不删缓存、不写历史。
+	statusChanged, err := dal.UpdateDeviceStatusWithTenant(ctx.device.ID, ctx.status, ctx.device.TenantID)
 	if err != nil {
 		f.logger.WithError(err).WithFields(logrus.Fields{
 			"device_id": ctx.device.ID,
