@@ -337,6 +337,20 @@ diagnostics:
   batch_flush_interval: 1s         # 批量刷新间隔
   persist_to_db: false             # 是否持久化到数据库（服务重启后保留）
 
+# 操作日志（审计）写入配置
+#
+# ⚠️ async_enabled 默认 false：保持每个请求同步落库的既有行为。
+#    开启后请求路径只做一次非阻塞投递，落库由后台协程批量完成（摘掉每请求一次 DB 往返）。
+#    代价：**硬崩溃（kill -9 / 掉电）会丢失尚在队列中的审计条目**，这是异步审计的固有
+#    取舍。需要"一条都不能丢"的部署请保持关闭。
+#    正常关停（SIGTERM）会把队列 drain 干净，不丢条目。
+#    队列满时自动回退同步写，不会因背压丢弃条目。
+operation_log:
+  async_enabled: false             # 是否启用异步批量写入（默认 false）
+  async_queue_size: 4096           # 异步队列容量；满时回退同步写
+  async_batch_size: 200            # 单次批量落库行数上限
+  async_flush_interval: 1s         # 批量刷新间隔（支持 "1s" 或整数毫秒）
+
 # Heartbeat 心跳监控配置
 heartbeat:
   subscribe:

@@ -86,6 +86,11 @@ func (app *Application) Shutdown() {
 		// 但 TCP 会话是真实连接资源，关停时必须显式回收（踢全部会话+关监听）。
 		stopTCPGateway()
 
+		// 操作日志异步写入器必须在 HTTP 服务停完之后（ServiceManager.StopAll 已返回，
+		// 在途请求全部结束、条目都已入队）、且在数据库连接关闭之前 drain 干净。
+		// 未启用异步写入时本调用是空操作。
+		stopOperationLogWriter()
+
 		// WS/SSE 的 Redis Pub/Sub 监听协程由 initialize.RedisInit 直接拉起，
 		// 不经 ServiceManager 托管，必须在关闭 Redis 客户端之前显式取消，
 		// 否则会带着已关闭的客户端继续重连。

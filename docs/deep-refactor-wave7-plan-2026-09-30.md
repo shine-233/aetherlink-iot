@@ -287,13 +287,13 @@
 | 2 | ~20 张只增不删表保留 | ✅ 141.sql |
 | 3 | `alarm_history.alarm_device_list` 规范化 | ✅ 142.sql |
 | 4 | 删冗余索引 + 补缺失索引 | ✅ 142.sql |
-| 5 | 逐点/逐行 ORM insert 改集合化 | ❓ 未核实 |
+| 5 | 逐点/逐行 ORM insert 改集合化 | ✅ `CreateInBatches`（telemetry_datas.go 258/331，后者带 upsert clause） |
 | 6 | 时间表示统一（bigint-ms/timestamptz/int） | ❌ 未做（扫描自评：独立做=High） |
 | 7 | 迁移链 squash + 真 migrator | ❌ 未做 |
 | 8 | 统一重复存储子系统 | ✅ |
 | 9 | jsonb 采纳（`json`→`jsonb`、varchar 当枚举） | ❌ 未做（1.sql 里 `users.authority` 仍是 `json`） |
 | 10 | 去掉请求期全表扫描分析查询 | ✅ 走 `telemetry_current_datas` |
-| 11 | op_log 同步 INSERT 移出热路径 | ❓ 未核实 |
+| 11 | op_log 同步 INSERT 移出热路径 | ✅ 本轮实现异步批量写入（默认关闭，见下） |
 
 ### 热路径与 broker（11）
 
@@ -378,3 +378,55 @@
 ① 回填后缓存键必须带 TTL 且不超过兜底上限（防退回永久键）；
 ② 回填后确实走缓存命中（改库不改缓存时返回旧值，证明 TTL 改动没把缓存写坏）。
 `go build` / `go vet` 0 问题；全量 `go test ./... -count=1 -p 1` → **0 FAIL**。
+
+---
+
+## db-schema#11 收尾：操作日志移出请求路径（2026-10-01 09:3x）
+
+扫描原文：*"Move synchronous per-request operation_log INSERT and per-device FK cascades off
+hot paths"*。实测 `middleware/operations_log.go` 的 `saveOperationLog` 确实在**每个请求的
+收尾路径**上同步执行一次 `query.OperationLog.Create`。
+
+**实现**：`internal/middleware/operations_log_writer.go` + `internal/app/operation_log_writer.go`，
+按 `diagnostics.Collector` 的同款范式（配置 → Init → run/ticker → flush → Stop）。
+
+三条关键设计：
+
+1. **默认关闭**（`operation_log.async_enabled=false`），保持既有同步行为不变。
+   与 141.sql「客户数据默认关闭」、`timescale_mode`「默认 auto 保持原行为」同一惯例——
+   **审计日志的持久性语义变化应由部署方决定，不该由重构替他们决定**。
+2. **队列满时回退同步写，绝不丢弃**。异步化的收益是省一次 DB 往返，代价是崩溃时可能丢条目；
+   但"因背压而丢审计条目"是纯粹的功能退步，不能接受。故 `enqueueOperationLog` 满队列返回
+   false，调用方立即走原同步路径。
+3. **停止时 drain**。`Application.Shutdown()` 在 `ServiceManager.StopAll()`（HTTP 服务停完、
+   在途请求全部结束）之后、关闭数据库之前调用 `stopOperationLogWriter()`，把队列写干净。
+   顺序很关键：早于 StopAll 会漏掉在途请求的条目，晚于 DB 关闭则全部写失败。
+
+**测试过程中抓到并修掉一个真问题**：数据库未初始化时，后台协程会 nil panic——
+而**后台 goroutine 的 panic 会直接终止整个进程**（不像 HTTP 路径有 gin 的 recover 中间件兜底）。
+已加两层防护：`run()` 带 `recover`（审计写入失败绝不能拖垮服务）、`writeBatch` 显式判
+`global.DB == nil` 后计数告警。并补了专门的用例 `TestOperationLogWriterSurvivesMissingDatabase` 固化它。
+
+**测试**：`operations_log_writer_test.go` 7 例——未启用回退同步写 / 队列满回退不丢弃 /
+无数据库不 panic / 停止 drain 干净 / 定时器批量落库 / 重复启动幂等 / 未启动时停止是空操作。
+`go build` / `go vet` 0 问题；全量 `go test ./... -count=1 -p 1` → **0 FAIL**。
+
+**未做**：扫描同一条还提到"per-device FK cascades"（设备删除的级联移出热路径，需配合软删除），
+本次只做了 op_log 部分。
+
+### Wave7-D：判据采集与正式执行（2026-10-01 09:2x，ZCode）
+
+- **判据**：对 aetherlink_go99（隔离集群 55433，与演练库同量级）跑 `measure_telemetry_volume.sql`：
+  `has_ts=f`（普通 PG 路径）、**138.sql 行级 TTL 未应用 → scoped_policy_rows=0 → 批方案 B 口径**；
+  体量 102881 行 / 34 MB / 13 天跨度，峰值 85824 行/天。
+- **正式执行**（迁移 `partition_telemetry_datas.sql`，带外 psql）：
+  - 前置：pg_dump 单表备份（8.4 MB，`/tmp/wave7d/td_backup.sql`）；基线指纹
+    `rows=102881, fp=201341494394`。
+  - 迁移 **1.7 s** 完成：telemetry_datas → 分区父表（relkind=p），
+    `telemetry_datas_legacy` 持有全部存量，2026_10/11/12 预建，父表 CHECK 为空
+    （INCLUDING ALL bug 修复在位）。
+  - 验证全过：legacy 行数 102881、指纹与迁移前**逐位一致**；裁剪生效（时间区间查询只扫
+    legacy + 2026_10，2026_11/12 不进计划）；写入路由正确（2026-10 样本落 2026_10 分区，
+    探针已清理）。
+- **遗留**：DROP 任务（方案 B 的 cron）等 138.sql 应用后按最大保留期配置；
+  真实部署库的执行走同一脚本 + 部署窗口。

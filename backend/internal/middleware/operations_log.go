@@ -334,6 +334,13 @@ func saveOperationLog(c *gin.Context, start time.Time, cost int64, requestMsg, r
 		log.EntityID = &entityID
 	}
 
+	// 异步批量写入（operation_log.async_enabled=true 时启用，默认关闭）：
+	// 投递成功即返回，落库由后台协程批量完成；未启用或队列满时**回退同步写**，
+	// 保证审计条目不因背压而静默丢失。见 operations_log_writer.go。
+	if enqueueOperationLog(log) {
+		return
+	}
+
 	if err := query.OperationLog.Create(log); err != nil {
 		logrus.Warnf("save operation log failed: %v", err)
 	}

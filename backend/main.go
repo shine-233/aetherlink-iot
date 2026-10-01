@@ -49,6 +49,7 @@ func main() {
 		app.WithFlowService(),
 		app.WithHeartbeatMonitor(),
 		app.WithDiagnostics(),
+		app.WithOperationLogWriter(), // db-schema#11：操作日志异步批量写入（默认关闭，需显式开启）
 		app.WithAutomationPool(), // 须在 MQTT/上行之前注册：反序停机时上行先停，工作池后排空
 		app.WithMQTTService(),
 		app.WithDownlinkService(),
