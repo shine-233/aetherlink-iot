@@ -143,22 +143,26 @@ func (w *telemetryWriter) releaseWriteAheadReceipts(batch []*telemetryBatchItem)
 	if w == nil || w.spool == nil {
 		return
 	}
-	defer w.refreshTelemetrySpoolMetrics()
+	var histories []TelemetryData
 	for _, item := range batch {
 		if item == nil {
 			continue
 		}
 		for _, receipt := range item.writeAhead {
-			if err := removeTelemetryWriteAheadReceipt(w.spool, receipt.history); err != nil {
-				if w.logger != nil {
-					w.logger.Warnf(
-						"release telemetry write-ahead receipt failed, replay will retry idempotently: device_id=%s key=%s ts=%d: %v",
-						receipt.history.DeviceID, receipt.history.Key, receipt.history.TS, err,
-					)
-				}
-			}
+			histories = append(histories, receipt.history)
 		}
 		item.writeAhead = nil
+	}
+	if len(histories) == 0 {
+		return
+	}
+	defer w.refreshTelemetrySpoolMetrics()
+	// One grouped directory fsync for the whole flushed batch.
+	if err := removeTelemetryWriteAheadReceipts(w.spool, histories); err != nil && w.logger != nil {
+		w.logger.Warnf(
+			"release telemetry write-ahead receipts failed, replay will retry idempotently: receipts=%d: %v",
+			len(histories), err,
+		)
 	}
 }
 
