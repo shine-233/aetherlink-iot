@@ -352,3 +352,14 @@ func TestTelemetryFlushPartialFailureReleasesConfirmedReceiptsOnly(t *testing.T)
 		t.Fatalf("backlog metric = %d, want 1", m.TelemetrySpoolBacklog)
 	}
 }
+
+// fallbackInsertSingleRows runs insertSingleRows and returns the failed
+// count (test helper).
+func (w *telemetryWriter) fallbackInsertSingleRows(
+	historyData []TelemetryData,
+	currentByKey map[telemetrySeriesKey]TelemetryCurrentData,
+) (written, failed int) {
+	var failedRows telemetryFailedRows
+	written = w.insertSingleRows(historyData, currentByKey, &failedRows)
+	return written, len(failedRows)
+}

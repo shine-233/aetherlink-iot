@@ -69,63 +69,6 @@ func (s *fileSpool[T, C]) replay(
 	return s.endReplay(pass)
 }
 
-// replayBatch claims up to limit healthy records, hands them to fn in ONE call
-// (one database transaction), and on success retires all of them with a single
-// directory fsync. On fn failure nothing is removed, so the whole batch is
-// retried on the next pass; the database side must be idempotent, as for
-// replay.
-func (s *fileSpool[T, C]) replayBatch(
-	ctx context.Context,
-	limit int,
-	fn func(context.Context, []T) error,
-) (fileSpoolReplayResult, error) {
-	if s == nil {
-		return fileSpoolReplayResult{}, nil
-	}
-	ctx, err := s.beginReplay(ctx, limit, fn != nil)
-	if err != nil {
-		return fileSpoolReplayResult{}, err
-	}
-	s.replayMu.Lock()
-	defer s.replayMu.Unlock()
-
-	label := s.codec().label()
-	pass := &fileSpoolReplayPass{}
-	records := make([]fileSpoolReplayRecord[T], 0, min(limit, 1024))
-	s.claimReplayRecords(ctx, limit, pass, func(record fileSpoolReplayRecord[T]) error {
-		records = append(records, record)
-		return nil
-	})
-	if len(records) == 0 {
-		return s.endReplay(pass)
-	}
-	if err := ctx.Err(); err != nil {
-		pass.errs = append(pass.errs, err)
-		return s.endReplay(pass)
-	}
-	values := make([]T, len(records))
-	names := make([]string, len(records))
-	for index, record := range records {
-		values[index] = record.value
-		names[index] = record.name
-	}
-	if err := fn(ctx, values); err != nil {
-		pass.errs = append(pass.errs, fmt.Errorf("replay %d %s spool records: %w", len(records), label, err))
-		return s.endReplay(pass)
-	}
-	// Records retired concurrently between claim and removal (write-ahead
-	// release) were still replayed; only real unlink failures are errors.
-	removed, removeErrs := s.retireNames(names)
-	if removed > 0 {
-		pass.dirDirty = true
-	}
-	if len(removeErrs) > 0 {
-		pass.errs = append(pass.errs, fmt.Errorf("remove replayed %s spool records: %w", label, errors.Join(removeErrs...)))
-	}
-	pass.result.Replayed = len(records)
-	return s.endReplay(pass)
-}
-
 func (s *fileSpool[T, C]) beginReplay(ctx context.Context, limit int, haveCallback bool) (context.Context, error) {
 	label := s.codec().label()
 	if !haveCallback {

@@ -238,12 +238,6 @@ func (w *telemetryWriter) persistFailedTelemetryContext(ctx context.Context, his
 	return nil
 }
 
-func (w *telemetryWriter) recordTelemetryDeadLetter(history TelemetryData, cause error) error {
-	ctx, cancel := w.newDurabilityContext(context.Background())
-	defer cancel()
-	return w.recordTelemetryDeadLetterContext(ctx, history, cause)
-}
-
 func (w *telemetryWriter) newDurabilityContext(parent context.Context) (context.Context, context.CancelFunc) {
 	if parent == nil {
 		parent = context.Background()

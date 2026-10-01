@@ -204,19 +204,9 @@ func (w *telemetryWriter) fallbackInsert(historyData []TelemetryData, currentDat
 	return written, failedRows
 }
 
-// fallbackInsertSingleRows writes each row in its own transaction. Failures
-// are summarized in one log line per call (one call per chunk) instead of
-// one JSON-marshalled preview per row.
-func (w *telemetryWriter) fallbackInsertSingleRows(
-	historyData []TelemetryData,
-	currentByKey map[telemetrySeriesKey]TelemetryCurrentData,
-) (written, failed int) {
-	var failedRows telemetryFailedRows
-	written = w.insertSingleRows(historyData, currentByKey, &failedRows)
-	return written, len(failedRows)
-}
-
-// insertSingleRows is fallbackInsertSingleRows recording failed identities.
+// insertSingleRows writes each row in its own transaction, recording failed
+// identities. Failures are summarized in one log line per call (one call per
+// chunk) instead of one JSON-marshalled preview per row.
 func (w *telemetryWriter) insertSingleRows(
 	historyData []TelemetryData,
 	currentByKey map[telemetrySeriesKey]TelemetryCurrentData,

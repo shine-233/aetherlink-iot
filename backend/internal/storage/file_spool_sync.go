@@ -107,12 +107,6 @@ func (d *fileSpoolDirSyncer) sync(window time.Duration, fn func() error) error {
 	return d.lastErr
 }
 
-func (d *fileSpoolDirSyncer) count() uint64 {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	return d.syncs
-}
-
 // safeFileSpoolSync converts a panicking sync into an error so a leader can
 // never leave followers waiting forever.
 func safeFileSpoolSync(fn func() error) (err error) {

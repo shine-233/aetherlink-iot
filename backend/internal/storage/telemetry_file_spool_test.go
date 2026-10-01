@@ -4,7 +4,9 @@ package storage
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -60,7 +62,7 @@ func TestTelemetryFileSpoolStoreNeverTreatsCorruptDuplicateAsDurable(t *testing.
 	if _, err := spool.store(context.Background(), history, time.Unix(1, 0)); err != nil {
 		t.Fatalf("store record: %v", err)
 	}
-	path := filepath.Join(spool.directory, telemetryFileSpoolFilename(telemetryFileSpoolIdentity(history)))
+	path := filepath.Join(spool.directory, fileSpoolFilename(telemetryFileSpoolIdentity(history)))
 	if err := os.WriteFile(path, []byte(`{"version":1,"checksum":"tampered"}`), 0o600); err != nil {
 		t.Fatalf("corrupt record: %v", err)
 	}
@@ -98,7 +100,7 @@ func TestTelemetryFileSpoolStoreReportsQuarantineWhenReplacementExceedsCapacity(
 	if _, err := spool.store(context.Background(), history, time.Unix(1, 0)); err != nil {
 		t.Fatalf("store record: %v", err)
 	}
-	path := filepath.Join(spool.directory, telemetryFileSpoolFilename(telemetryFileSpoolIdentity(history)))
+	path := filepath.Join(spool.directory, fileSpoolFilename(telemetryFileSpoolIdentity(history)))
 	if err := os.WriteFile(path, []byte(`{"version":1,"checksum":"tampered"}`), 0o600); err != nil {
 		t.Fatalf("corrupt record: %v", err)
 	}
@@ -185,7 +187,7 @@ func TestTelemetryFileSpoolCorruptionIsQuarantinedWithoutStarvingHealthyRows(t *
 	if _, err := spool.store(context.Background(), history, time.Unix(1, 0)); err != nil {
 		t.Fatalf("store record: %v", err)
 	}
-	path := filepath.Join(spool.directory, telemetryFileSpoolFilename(telemetryFileSpoolIdentity(history)))
+	path := filepath.Join(spool.directory, fileSpoolFilename(telemetryFileSpoolIdentity(history)))
 	if err := os.WriteFile(path, []byte(`{"version":1,"checksum":"tampered"}`), 0o600); err != nil {
 		t.Fatalf("corrupt record: %v", err)
 	}
@@ -257,7 +259,7 @@ func TestTelemetryFileSpoolInitPromotesCompleteChecksummedTempRecord(t *testing.
 	if err := spool.init(); err != nil {
 		t.Fatalf("init: %v", err)
 	}
-	finalPath := filepath.Join(directory, telemetryFileSpoolFilename(record.Identity))
+	finalPath := filepath.Join(directory, fileSpoolFilename(record.Identity))
 	if _, err := os.Stat(finalPath); err != nil {
 		t.Fatalf("complete temp was not promoted: %v", err)
 	}
@@ -281,7 +283,7 @@ func TestTelemetryFileSpoolInitRecoversQuarantineUsage(t *testing.T) {
 	if _, err := spool.store(context.Background(), history, time.Unix(1, 0)); err != nil {
 		t.Fatalf("store record: %v", err)
 	}
-	path := filepath.Join(directory, telemetryFileSpoolFilename(telemetryFileSpoolIdentity(history)))
+	path := filepath.Join(directory, fileSpoolFilename(telemetryFileSpoolIdentity(history)))
 	quarantinePath := path + telemetryFileSpoolCorruptSuffix
 	if err := os.Rename(path, quarantinePath); err != nil {
 		t.Fatalf("move record to quarantine: %v", err)
@@ -362,4 +364,30 @@ func testTelemetrySpoolHistory(deviceID, key string, ts int64, value float64) Te
 		TS:       ts,
 		NumberV:  &value,
 	}
+}
+
+func isTelemetryFileSpoolTemp(name string) bool {
+	return strings.HasPrefix(name, telemetryFileSpoolTempPrefix) && strings.HasSuffix(name, ".tmp")
+}
+
+// readTelemetryFileSpoolRecord reads one record file directly so tests can
+// inspect what the live spool committed.
+func readTelemetryFileSpoolRecord(path string, maxRecordBytes int64, verifyFilename bool) (telemetryFileSpoolRecord, error) {
+	payload, err := readFileSpoolPayload(path, maxRecordBytes)
+	if err != nil {
+		return telemetryFileSpoolRecord{}, err
+	}
+	history, identity, err := telemetrySpoolCodec{}.decode(payload)
+	if err != nil {
+		return telemetryFileSpoolRecord{}, err
+	}
+	if verifyFilename && filepath.Base(path) != fileSpoolFilename(identity) {
+		return telemetryFileSpoolRecord{}, fmt.Errorf("record identity mismatch")
+	}
+	var record telemetryFileSpoolRecord
+	if err := json.Unmarshal(payload, &record); err != nil {
+		return telemetryFileSpoolRecord{}, err
+	}
+	record.History = history
+	return record, nil
 }

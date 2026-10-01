@@ -18,59 +18,6 @@ const (
 	telemetryDeadLetterMaxBackoff  = 15 * time.Minute
 )
 
-type telemetryDeadLetterDrainItem struct {
-	DeadLetter TelemetryDeadLetter
-	History    TelemetryData
-}
-
-type telemetryDeadLetterDrainSkip struct {
-	ID     string
-	Reason string
-}
-
-type telemetryDeadLetterDrainPlan struct {
-	Ready   []telemetryDeadLetterDrainItem
-	Skipped []telemetryDeadLetterDrainSkip
-}
-
-func buildTelemetryDeadLetterDrainPlan(rows []TelemetryDeadLetter, now time.Time, limit int) telemetryDeadLetterDrainPlan {
-	plan := telemetryDeadLetterDrainPlan{}
-	for _, row := range rows {
-		if limit > 0 && len(plan.Ready) >= limit {
-			plan.Skipped = append(plan.Skipped, telemetryDeadLetterDrainSkip{ID: row.ID, Reason: "limit_reached"})
-			continue
-		}
-
-		if !telemetryDeadLetterCanRetry(row.Status) {
-			plan.Skipped = append(plan.Skipped, telemetryDeadLetterDrainSkip{ID: row.ID, Reason: "terminal_status"})
-			continue
-		}
-		if row.Attempts >= telemetryDeadLetterMaxAttempts {
-			plan.Skipped = append(plan.Skipped, telemetryDeadLetterDrainSkip{ID: row.ID, Reason: "retry_exhausted"})
-			continue
-		}
-		if row.NextRetryAt != nil && row.NextRetryAt.After(now) {
-			plan.Skipped = append(plan.Skipped, telemetryDeadLetterDrainSkip{ID: row.ID, Reason: "retry_waiting"})
-			continue
-		}
-
-		history, err := telemetryDataFromDeadLetter(row)
-		if err != nil {
-			plan.Skipped = append(plan.Skipped, telemetryDeadLetterDrainSkip{ID: row.ID, Reason: "invalid_payload"})
-			continue
-		}
-		plan.Ready = append(plan.Ready, telemetryDeadLetterDrainItem{
-			DeadLetter: row,
-			History:    history,
-		})
-	}
-	return plan
-}
-
-func telemetryDeadLetterCanRetry(status string) bool {
-	return status == TelemetryDeadLetterStatusPending || status == TelemetryDeadLetterStatusRetrying
-}
-
 func telemetryDataFromDeadLetter(row TelemetryDeadLetter) (TelemetryData, error) {
 	if len(row.RawPayload) > 0 {
 		var history TelemetryData

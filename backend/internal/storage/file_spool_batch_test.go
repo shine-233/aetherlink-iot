@@ -5,7 +5,6 @@ package storage
 
 import (
 	"context"
-	"errors"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -176,66 +175,6 @@ func TestFileSpoolReplayLimitSelectsOldestFromLargeBacklog(t *testing.T) {
 	}
 }
 
-func TestFileSpoolReplayBatchCallsOnceAndRetiresAll(t *testing.T) {
-	directory := filepath.Join(t.TempDir(), "telemetry-spool")
-	histories := seedTelemetrySpoolFiles(t, directory, 40)
-	spool, syncs := countingTelemetrySpool(t, directory, 1000)
-
-	// Corrupt the two oldest records: the batch must still fill its quota of
-	// healthy rows from later selection rounds.
-	for _, index := range []int{39, 38} {
-		_, identity, _ := telemetrySpoolCodec{}.prepare(histories[index])
-		path := filepath.Join(directory, fileSpoolFilename(identity))
-		modTime := time.Unix(1_600_000_000, 0)
-		if err := os.WriteFile(path, []byte("not-json"), 0o600); err != nil {
-			t.Fatalf("corrupt record: %v", err)
-		}
-		if err := os.Chtimes(path, modTime, modTime); err != nil {
-			t.Fatalf("set corrupt mtime: %v", err)
-		}
-	}
-
-	failing := errors.New("database down")
-	calls := 0
-	result, err := spool.replayBatch(context.Background(), 10, func(_ context.Context, rows []TelemetryData) error {
-		calls++
-		return failing
-	})
-	if !errors.Is(err, failing) || calls != 1 || result.Replayed != 0 || result.Corrupt != 2 {
-		t.Fatalf("failed batch result=%+v calls=%d err=%v", result, calls, err)
-	}
-	if usage := spool.usage(); usage.Records != 40 || usage.QuarantinedRecords != 2 {
-		t.Fatalf("failed batch removed records: %+v", usage)
-	}
-
-	calls = 0
-	var got []TelemetryData
-	before := syncs.Load()
-	result, err = spool.replayBatch(context.Background(), 10, func(_ context.Context, rows []TelemetryData) error {
-		calls++
-		got = append(got, rows...)
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("batch replay: %v", err)
-	}
-	if calls != 1 || len(got) != 10 || result.Replayed != 10 || result.Attempted != 10 {
-		t.Fatalf("batch result=%+v calls=%d rows=%d", result, calls, len(got))
-	}
-	for position, row := range got {
-		if want := histories[37-position].TS; row.TS != want {
-			t.Fatalf("batch[%d].TS = %d, want %d", position, row.TS, want)
-		}
-	}
-	if delta := syncs.Load() - before; delta != 1 {
-		t.Fatalf("batch replay directory fsyncs = %d, want 1", delta)
-	}
-	assertFileSpoolUsageMatchesRefresh(t, spool)
-	if usage := spool.usage(); usage.Records != 30 || usage.QuarantinedRecords != 2 {
-		t.Fatalf("usage after batch = %+v, want 28 healthy + 2 quarantined", usage)
-	}
-}
-
 func TestFileSpoolQuarantineKeepsUsageEqualToFullRefresh(t *testing.T) {
 	directory := filepath.Join(t.TempDir(), "telemetry-spool")
 	histories := seedTelemetrySpoolFiles(t, directory, 12)
@@ -289,4 +228,18 @@ func assertFileSpoolUsageMatchesRefresh(t *testing.T, spool *telemetryFileSpool)
 	if refreshed := spool.usage(); refreshed != incremental {
 		t.Fatalf("incremental usage %+v != full refresh %+v", incremental, refreshed)
 	}
+}
+
+// listReplayFiles returns every committed record in replay order. Test helper;
+// replay passes use the bounded listReplayCandidates.
+func (s *fileSpool[T, C]) listReplayFiles() ([]fileSpoolReplayFile, error) {
+	files, _, err := s.listReplayCandidates(0, nil)
+	return files, err
+}
+
+// count reports completed directory syncs (test helper).
+func (d *fileSpoolDirSyncer) count() uint64 {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.syncs
 }

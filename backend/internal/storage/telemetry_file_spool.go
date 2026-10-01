@@ -138,45 +138,6 @@ func telemetryFileSpoolIdentity(history TelemetryData) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func telemetryFileSpoolFilename(identity string) string {
-	return fileSpoolFilename(identity)
-}
-
-func isTelemetryFileSpoolTemp(name string) bool {
-	return strings.HasPrefix(name, telemetryFileSpoolTempPrefix) && strings.HasSuffix(name, ".tmp")
-}
-
-// readTelemetryFileSpoolRecord is kept for tests and tooling that inspect a
-// single record file directly.
-func readTelemetryFileSpoolRecord(path string, maxRecordBytes int64, verifyFilename bool) (telemetryFileSpoolRecord, error) {
-	payload, err := readFileSpoolPayload(path, maxRecordBytes)
-	if err != nil {
-		return telemetryFileSpoolRecord{}, err
-	}
-	history, identity, err := telemetrySpoolCodec{}.decode(payload)
-	if err != nil {
-		return telemetryFileSpoolRecord{}, err
-	}
-	if verifyFilename && filepath.Base(path) != fileSpoolFilename(identity) {
-		return telemetryFileSpoolRecord{}, fmt.Errorf("record identity mismatch")
-	}
-	var record telemetryFileSpoolRecord
-	if err := json.Unmarshal(payload, &record); err != nil {
-		return telemetryFileSpoolRecord{}, err
-	}
-	record.History = history
-	return record, nil
-}
-
-// removeWriteAheadReceipt retires the receipt of history after its database
-// flush. A missing file is not an error.
-func removeTelemetryWriteAheadReceipt(s *telemetryFileSpool, history TelemetryData) error {
-	if s == nil || !telemetryDataReplayable(history) {
-		return nil
-	}
-	return s.removeIdentity(telemetryFileSpoolIdentity(history))
-}
-
 // removeTelemetryWriteAheadReceipts retires the receipts of a whole flushed
 // batch with one grouped directory fsync. Non-replayable rows never had a
 // receipt and are skipped; duplicates are harmless (missing files are not

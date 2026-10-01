@@ -156,31 +156,6 @@ func decodeAttributeEventFileSpoolRecord(payload []byte) (attributeEventFileSpoo
 	return record, nil
 }
 
-// readAttributeEventFileSpoolRecord is kept for tests and tooling that inspect
-// a single record file directly.
-func readAttributeEventFileSpoolRecord(
-	path string,
-	maxRecordBytes int64,
-	verifyFilename bool,
-) (attributeEventFileSpoolRecord, error) {
-	payload, err := readFileSpoolPayload(path, maxRecordBytes)
-	if err != nil {
-		return attributeEventFileSpoolRecord{}, err
-	}
-	record, err := decodeAttributeEventFileSpoolRecord(payload)
-	if err != nil {
-		return attributeEventFileSpoolRecord{}, err
-	}
-	if verifyFilename && filepath.Base(path) != attributeEventFileSpoolFilename(record.Identity) {
-		return attributeEventFileSpoolRecord{}, fmt.Errorf("record filename identity mismatch")
-	}
-	return record, nil
-}
-
-func attributeEventFileSpoolFilename(identity string) string {
-	return fileSpoolFilename(identity)
-}
-
 func equalAttributeEventEnvelopes(left, right attributeEventEnvelope) bool {
 	// A trusted protocol retry reuses message_id but receives a fresh adapter
 	// timestamp. The first durable writer owns that timestamp; all other identity
@@ -192,15 +167,4 @@ func equalAttributeEventEnvelopes(left, right attributeEventEnvelope) bool {
 		left.TenantID == right.TenantID &&
 		left.Kind == right.Kind &&
 		bytes.Equal(left.Payload, right.Payload)
-}
-
-func acceptExistingAttributeEventSpoolRecord(
-	existing attributeEventFileSpoolRecord,
-	incoming attributeEventFileSpoolRecord,
-) error {
-	if existing.Identity != incoming.Identity ||
-		!equalAttributeEventEnvelopes(existing.Envelope, incoming.Envelope) {
-		return fmt.Errorf("attribute/event spool deterministic identity collision")
-	}
-	return nil
 }

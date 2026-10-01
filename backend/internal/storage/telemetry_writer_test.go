@@ -44,7 +44,7 @@ func TestPersistFailedTelemetryPublishesQuarantineUsage(t *testing.T) {
 	if _, err := spool.store(context.Background(), history, time.Unix(1, 0)); err != nil {
 		t.Fatalf("seed telemetry spool: %v", err)
 	}
-	path := filepath.Join(spool.directory, telemetryFileSpoolFilename(telemetryFileSpoolIdentity(history)))
+	path := filepath.Join(spool.directory, fileSpoolFilename(telemetryFileSpoolIdentity(history)))
 	if err := os.WriteFile(path, []byte(`{"version":1,"checksum":"tampered"}`), 0o600); err != nil {
 		t.Fatalf("corrupt telemetry spool record: %v", err)
 	}
@@ -334,77 +334,6 @@ func TestRecordTelemetryDeadLetterRejectsDeterministicIdentityCollision(t *testi
 	}
 }
 
-func TestTelemetryDeadLetterDrainPlanSelectsReadyReplayRows(t *testing.T) {
-	now := time.Unix(1700000000, 0).UTC()
-	value := 12.5
-	payload, err := json.Marshal(TelemetryData{
-		DeviceID: "device-1",
-		TenantID: "tenant-1",
-		Key:      "temperature",
-		TS:       1234,
-		NumberV:  &value,
-	})
-	if err != nil {
-		t.Fatalf("marshal payload: %v", err)
-	}
-	waitUntil := now.Add(time.Minute)
-
-	plan := buildTelemetryDeadLetterDrainPlan([]TelemetryDeadLetter{
-		{
-			ID:         "ready",
-			Status:     TelemetryDeadLetterStatusPending,
-			Attempts:   1,
-			RawPayload: payload,
-		},
-		{
-			ID:          "waiting",
-			Status:      TelemetryDeadLetterStatusRetrying,
-			Attempts:    1,
-			NextRetryAt: &waitUntil,
-			RawPayload:  payload,
-		},
-		{
-			ID:         "resolved",
-			Status:     TelemetryDeadLetterStatusResolved,
-			Attempts:   1,
-			RawPayload: payload,
-		},
-		{
-			ID:         "exhausted",
-			Status:     TelemetryDeadLetterStatusPending,
-			Attempts:   telemetryDeadLetterMaxAttempts,
-			RawPayload: payload,
-		},
-	}, now, 10)
-
-	if len(plan.Ready) != 1 {
-		t.Fatalf("ready rows = %d, want 1", len(plan.Ready))
-	}
-	ready := plan.Ready[0]
-	if ready.DeadLetter.ID != "ready" {
-		t.Fatalf("ready id = %q, want ready", ready.DeadLetter.ID)
-	}
-	if ready.History.DeviceID != "device-1" || ready.History.Key != "temperature" || ready.History.TS != 1234 {
-		t.Fatalf("ready history = %#v, want replay payload", ready.History)
-	}
-	if ready.History.NumberV == nil || *ready.History.NumberV != value {
-		t.Fatalf("ready number = %v, want %v", ready.History.NumberV, value)
-	}
-	if len(plan.Skipped) != 3 {
-		t.Fatalf("skipped rows = %#v, want waiting/resolved/exhausted", plan.Skipped)
-	}
-	wantReasons := map[string]string{
-		"waiting":   "retry_waiting",
-		"resolved":  "terminal_status",
-		"exhausted": "retry_exhausted",
-	}
-	for _, skipped := range plan.Skipped {
-		if wantReasons[skipped.ID] != skipped.Reason {
-			t.Fatalf("skip reason for %q = %q, want %q", skipped.ID, skipped.Reason, wantReasons[skipped.ID])
-		}
-	}
-}
-
 func TestTelemetryDataFromDeadLetterFallsBackToColumns(t *testing.T) {
 	value := "ok"
 	history, err := telemetryDataFromDeadLetter(TelemetryDeadLetter{
@@ -439,4 +368,12 @@ func TestNextTelemetryDeadLetterRetryAtUsesBoundedBackoff(t *testing.T) {
 	if capped == nil || !capped.Equal(now.Add(telemetryDeadLetterMaxBackoff)) {
 		t.Fatalf("capped retry = %v, want max backoff", capped)
 	}
+}
+
+// recordTelemetryDeadLetter records one dead letter with the writer's
+// durability timeout (test helper).
+func (w *telemetryWriter) recordTelemetryDeadLetter(history TelemetryData, cause error) error {
+	ctx, cancel := w.newDurabilityContext(context.Background())
+	defer cancel()
+	return w.recordTelemetryDeadLetterContext(ctx, history, cause)
 }

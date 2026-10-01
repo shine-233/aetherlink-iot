@@ -200,11 +200,6 @@ func (s *fileSpool[T, C]) retireNames(names []string) (int, []error) {
 	return removed, retireErrors
 }
 
-// removeIdentity deletes the committed record of identity if still present.
-func (s *fileSpool[T, C]) removeIdentity(identity string) error {
-	return s.removeIdentities([]string{identity})
-}
-
 // validFileSpoolIdentity rejects identities that could escape the spool
 // directory or alias a temp/quarantine name.
 func validFileSpoolIdentity(identity string) bool {

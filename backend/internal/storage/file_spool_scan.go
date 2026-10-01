@@ -78,13 +78,6 @@ func (h *fileSpoolReplayHeap) Pop() any {
 	return last
 }
 
-// listReplayFiles returns every committed record in replay order. Kept for
-// tooling and tests; replay passes use the bounded listReplayCandidates.
-func (s *fileSpool[T, C]) listReplayFiles() ([]fileSpoolReplayFile, error) {
-	files, _, err := s.listReplayCandidates(0, nil)
-	return files, err
-}
-
 // listReplayCandidates selects the first limit committed records in replay
 // order (limit < 1 means all), skipping names in exclude. It costs one
 // streamed directory scan, one stat per committed record only when ordering by
