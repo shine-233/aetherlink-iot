@@ -7,7 +7,7 @@
 import type { AxiosError, CreateAxiosDefaults } from 'axios'
 import type { IAxiosRetryConfig } from 'axios-retry'
 import { isNetworkOrIdempotentRequestError } from 'axios-retry'
-import { stringify } from 'qs'
+import { serializeParams } from './serialize-params'
 import { isHttpSuccess } from './shared'
 import type { RequestOption } from './type'
 
@@ -59,9 +59,8 @@ export function createAxiosConfig(config?: Partial<CreateAxiosDefaults>) {
       'Content-Type': 'application/json'
     },
     validateStatus: isHttpSuccess,
-    paramsSerializer: (params) => {
-      return stringify(params)
-    }
+    // 与 qs.stringify 默认输出逐字节一致，但不再把 qs 依赖链打进入口 chunk。
+    paramsSerializer: (params) => serializeParams(params)
   }
 
   Object.assign(axiosConfig, config)
