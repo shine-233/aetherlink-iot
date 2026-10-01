@@ -341,16 +341,46 @@ func (srv *server) Stop(ctx context.Context) error {
 		case <-done:
 		}
 
-		for _, v := range srv.plugins {
-			zaplog.Info("unloading plugin", zap.String("name", v.Name()))
-			err := v.Unload()
-			if err != nil {
-				zaplog.Warn("plugin unload error", zap.String("error", err.Error()))
-			}
-		}
+		// 插件在客户端排空（或超时）之后卸载；即使 ctx 已超时也必须执行，
+		// federation 的 serf.Leave 与 aetherlink 插件的落盘都在这里。
+		unloadPlugins(srv.plugins, pluginUnloadTimeout)
 		if srv.hooks.OnStop != nil {
 			srv.hooks.OnStop(context.Background())
 		}
 	})
 	return err
+}
+
+// pluginUnloadTimeout 是单个插件 Unload 的上限。它独立于 Stop 的 ctx：
+// 排空超时后 ctx 已过期，但插件仍需要一段确定的时间完成 Leave/flush。
+var pluginUnloadTimeout = 5 * time.Second
+
+// unloadPlugins 按注册顺序逐个卸载插件，每个插件最多占用 perPlugin 时长。
+// 超时的 Unload 留在后台 goroutine 中继续（无法安全中断第三方代码），
+// 但不会阻塞后续插件和 OnStop，避免单个插件吃掉整个容器宽限期。
+func unloadPlugins(plugins []Plugin, perPlugin time.Duration) {
+	for _, p := range plugins {
+		name := p.Name()
+		zaplog.Info("unloading plugin", zap.String("name", name))
+		done := make(chan error, 1)
+		go func(p Plugin) {
+			defer func() {
+				if r := recover(); r != nil {
+					done <- fmt.Errorf("plugin unload panic: %v", r)
+				}
+			}()
+			done <- p.Unload()
+		}(p)
+		timer := time.NewTimer(perPlugin)
+		select {
+		case err := <-done:
+			if err != nil {
+				zaplog.Warn("plugin unload error", zap.String("name", name), zap.String("error", err.Error()))
+			}
+		case <-timer.C:
+			zaplog.Warn("plugin unload exceeded deadline, continuing shutdown",
+				zap.String("name", name), zap.Duration("timeout", perPlugin))
+		}
+		timer.Stop()
+	}
 }

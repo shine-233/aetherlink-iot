@@ -55,6 +55,12 @@ backend:
     dbRedisDb1: "10"
     mqttServer: gmqtt
     mqttUser: root
+  # 优雅停机窗口（对齐 compose stop_grace_period: 30s + preStop 摘流）。
+  shutdown:
+    # preStop sleep 秒数：等待 Endpoints 摘除后再收到 SIGTERM。
+    preStopSleepSeconds: 5
+    # 必须 > preStopSleepSeconds + HTTP 5s + oplog 排空 + 吊销 worker 3s。
+    terminationGracePeriodSeconds: 35
   # 部署面公开地址：对齐 compose 的 AETHERLINK_PUBLIC_URL / AETHERLINK_MQTT_ACCESS_ADDRESS 默认。
   public:
     webUrl: "http://localhost:8080"
@@ -106,6 +112,14 @@ broker:
     # 会话/订阅/QoS 队列经共享 Redis 持久化（compose 同源默认）——多副本的前提，禁改 memory。
     persistenceType: redis
     persistenceRedisDb: "2"
+  # 优雅停机窗口（对齐 compose stop_grace_period: 30s / GMQTT_SHUTDOWN_TIMEOUT=20s）。
+  shutdown:
+    preStopSleepSeconds: 5
+    # 客户端排空总时限（Go duration），注入为 GMQTT_SHUTDOWN_TIMEOUT。
+    drainTimeout: "20s"
+    # 必须 > preStopSleepSeconds + drainTimeout + 插件数 × 5s（Unload 单插件上限）。
+    # 默认两类插件（aetherlink + federation）：5 + 20 + 10 = 35，再留 5s 余量。
+    terminationGracePeriodSeconds: 40
 
 frontend:
   image:

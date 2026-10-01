@@ -39,6 +39,8 @@ spec:
     spec:
       # 所有组件都不调用 Kubernetes API，不挂载 SA token 以缩小凭据暴露面。
       automountServiceAccountToken: false
+      # 宽限期 = preStop sleep + HTTP ShutdownTimeout(5s) + oplog 排空 + 吊销 worker(3s)，留余量。
+      terminationGracePeriodSeconds: {{ .Values.backend.shutdown.terminationGracePeriodSeconds | default 35 }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
@@ -164,6 +166,11 @@ spec:
               value: {{ .Values.backend.spool.attributeReplayBatchSize | default "100" | quote }}
             - name: GOTP_STORAGE_ATTRIBUTE_EVENT_SPOOL_REPLAY_TIMEOUT
               value: {{ .Values.backend.spool.attributeReplayTimeout | default "10s" | quote }}
+          # preStop 等待 Service 摘除本 Pod 后再开始 HTTP 优雅关闭，避免摘除传播期 502。
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep {{ .Values.backend.shutdown.preStopSleepSeconds | default 5 }}"]
           # 对齐 compose 健康检查口径：/health 进程存活、/ready 必需依赖就绪（30s 起步期
           # 由 startupProbe 承担），前端 nginx 与服务发现的 /api 流量只应打给 Ready 副本。
           livenessProbe:

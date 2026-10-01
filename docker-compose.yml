@@ -11,6 +11,8 @@ services:
     networks:
       - postgres_net
     restart: unless-stopped
+    # 停机宽限期：SIGTERM 后给 postgres 完成 checkpoint 的时间，超时才 SIGKILL（默认仅 10s）。
+    stop_grace_period: 30s
     cpus: "${AETHERLINK_POSTGRES_CPUS:-0.40}"
     mem_limit: "${AETHERLINK_POSTGRES_MEM_LIMIT:-512m}"
     environment:
@@ -72,6 +74,8 @@ services:
     networks:
       - redis_net
     restart: unless-stopped
+    # 停机宽限期：留出 RDB/AOF 落盘时间。
+    stop_grace_period: 15s
     cpus: "${AETHERLINK_REDIS_CPUS:-0.20}"
     mem_limit: "${AETHERLINK_REDIS_MEM_LIMIT:-128m}"
     environment:
@@ -95,6 +99,10 @@ services:
     build:
       context: ./mqtt-broker
     restart: unless-stopped
+    # 停机宽限期需大于 GMQTT_SHUTDOWN_TIMEOUT（客户端排空）+ 插件 Unload（每个 ≤5s），
+    # 否则 SIGKILL 先到，federation Leave 与 aetherlink 插件落盘会被跳过。
+    # 20s 排空 + 2 个插件 × 5s = 30s，再留 5s 余量。
+    stop_grace_period: 35s
     cpus: "${AETHERLINK_MQTT_CPUS:-0.30}"
     mem_limit: "${AETHERLINK_MQTT_MEM_LIMIT:-128m}"
     pids_limit: ${AETHERLINK_MQTT_PIDS_LIMIT:-256}
@@ -130,6 +138,8 @@ services:
       # broker restarts via the shared Redis. Set MQTT_PERSISTENCE_TYPE=memory to
       # opt out (restarts then drop offline sessions and queued messages).
       GMQTT_PERSISTENCE_TYPE: ${MQTT_PERSISTENCE_TYPE:-redis}
+      # 优雅停止总时限（Go duration），须小于上方 stop_grace_period。
+      GMQTT_SHUTDOWN_TIMEOUT: ${GMQTT_SHUTDOWN_TIMEOUT:-20s}
       GMQTT_PERSISTENCE_REDIS_ADDR: ${GOTP_DB_REDIS_ADDR:-redis:6379}
       GMQTT_PERSISTENCE_REDIS_PASSWORD: ${GOTP_DB_REDIS_PASSWORD:?Set GOTP_DB_REDIS_PASSWORD in .env}
       # Broker persistence uses its own Redis database (plugin voucher cache uses DB 1).
@@ -159,6 +169,8 @@ services:
     build:
       context: ./backend
     restart: unless-stopped
+    # 停机宽限期：HTTP 5s 排空 + oplog 排空 + 吊销 worker 3s，30s 留足余量。
+    stop_grace_period: 30s
     cpus: "${AETHERLINK_BACKEND_CPUS:-0.70}"
     mem_limit: "${AETHERLINK_BACKEND_MEM_LIMIT:-768m}"
     pids_limit: ${AETHERLINK_BACKEND_PIDS_LIMIT:-256}
@@ -251,6 +263,8 @@ services:
     build:
       context: ./frontend
     restart: unless-stopped
+    # 停机宽限期：nginx 优雅关闭在途请求。
+    stop_grace_period: 15s
     cpus: "${AETHERLINK_FRONTEND_CPUS:-0.20}"
     mem_limit: "${AETHERLINK_FRONTEND_MEM_LIMIT:-128m}"
     pids_limit: ${AETHERLINK_FRONTEND_PIDS_LIMIT:-128}

@@ -38,6 +38,9 @@ spec:
     spec:
       # 所有组件都不调用 Kubernetes API，不挂载 SA token 以缩小凭据暴露面。
       automountServiceAccountToken: false
+      # 宽限期 = preStop sleep + GMQTT_SHUTDOWN_TIMEOUT（客户端排空）+ 插件 Unload（每个 ≤5s）。
+      # 不足时 kubelet SIGKILL 先到，federation serf.Leave 与 aetherlink 插件落盘被跳过。
+      terminationGracePeriodSeconds: {{ .Values.broker.shutdown.terminationGracePeriodSeconds | default 40 }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
@@ -108,6 +111,8 @@ spec:
               value: {{ .Values.broker.env.payloadSchemaEnabled | default "false" | quote }}
             - name: GMQTT_PAYLOAD_SCHEMA_CACHE_TTL
               value: {{ .Values.broker.env.payloadSchemaCacheTtl | default "30s" | quote }}
+            - name: GMQTT_SHUTDOWN_TIMEOUT
+              value: {{ .Values.broker.shutdown.drainTimeout | default "20s" | quote }}
             - name: GMQTT_PERSISTENCE_TYPE
               value: {{ .Values.broker.env.persistenceType | default "redis" | quote }}
             - name: GMQTT_PERSISTENCE_REDIS_ADDR
@@ -119,6 +124,12 @@ spec:
                   key: redis-password
             - name: GMQTT_PERSISTENCE_REDIS_DB
               value: {{ .Values.broker.env.persistenceRedisDb | default "2" | quote }}
+          # preStop 先等待 Endpoints/负载均衡摘除本 Pod，再让 SIGTERM 关闭监听，
+          # 避免摘除传播期间的新连接打到已关闭的端口。
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep {{ .Values.broker.shutdown.preStopSleepSeconds | default 5 }}"]
           # 对齐 compose broker 健康检查：容器内 127.0.0.1:8082/metrics 探测。
           livenessProbe:
             httpGet:

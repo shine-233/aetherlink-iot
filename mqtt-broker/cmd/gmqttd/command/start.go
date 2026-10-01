@@ -35,41 +35,32 @@ func must(err error) {
 	}
 }
 
+// installSignal 把进程信号接到 broker 生命周期上，实际状态机见 signal_loop.go。
 func installSignal(srv server.Server) {
-	// reload
-	reloadSignalCh := make(chan os.Signal, 1)
-	signal.Notify(reloadSignalCh, syscall.SIGHUP)
+	reloadCh := make(chan os.Signal, 1)
+	signal.Notify(reloadCh, syscall.SIGHUP)
+	stopCh := make(chan os.Signal, 1)
+	signal.Notify(stopCh, os.Interrupt, syscall.SIGTERM)
 
-	// stop
-	stopSignalCh := make(chan os.Signal, 1)
-	signal.Notify(stopSignalCh, os.Interrupt, syscall.SIGTERM)
-
-	for {
-		select {
-		case <-reloadSignalCh:
-			var c config.Config
-			var err error
-			c, err = config.ParseConfig(ConfigFile)
-			if err != nil {
-				logger.Error("reload error", zap.Error(err))
-				return
-			}
-			// 与启动路径一致地应用持久化环境覆盖，防止 SIGHUP 回退到 YAML 静态值。
-			applyPersistenceEnvOverrides(&c)
-			if err := validatePersistenceConfig(&c); err != nil {
-				logger.Error("reload error", zap.Error(err))
-				return
-			}
-			srv.ApplyConfig(c)
-			logger.Info("gmqtt reloaded")
-		case <-stopSignalCh:
-			err := srv.Stop(context.Background())
-			if err != nil {
-				fmt.Fprint(os.Stderr, err.Error())
-			}
-		}
+	timeout, warn := shutdownTimeoutFromEnv(os.Getenv(shutdownTimeoutEnv))
+	if warn != "" {
+		logger.Warn(warn)
 	}
-
+	loop := signalLoop{
+		srv:             srv,
+		logger:          logger,
+		reloadCh:        reloadCh,
+		stopCh:          stopCh,
+		loadConfig:      loadReloadConfig,
+		shutdownTimeout: timeout,
+		// 收到第一个停止信号后立即解除捕获：Stop 期间再来一次 SIGTERM/Ctrl-C
+		// 走 Go 默认行为直接终止进程，运维保留"二次信号强杀"的逃生口。
+		releaseSignals: func() {
+			signal.Stop(stopCh)
+			signal.Stop(reloadCh)
+		},
+	}
+	loop.run()
 }
 
 func GetListeners(c config.Config) (tcpListeners []net.Listener, websockets []*server.WsServer, err error) {
