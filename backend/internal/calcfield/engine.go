@@ -100,7 +100,7 @@ type cachedTemplate struct {
 }
 
 type cachedRules struct {
-	rules     []compiledRule
+	set       ruleSet
 	expiresAt time.Time
 }
 
@@ -121,7 +121,13 @@ type Engine struct {
 
 	cacheMu       sync.RWMutex
 	templateCache map[string]cachedTemplate
-	rulesCache    map[string]cachedRules
+	rulesCache    map[rulesCacheKey]cachedRules
+}
+
+// rulesCacheKey 用结构体键代替 tenantID+":"+templateID 拼接，命中缓存时零分配。
+type rulesCacheKey struct {
+	tenantID   string
+	templateID string
 }
 
 // NewEngine 创建计算字段引擎。调用方需保证 storage 非 nil；logger 为空时回退标准 logger。
@@ -139,7 +145,7 @@ func NewEngine(bus *uplink.Bus, storage StorageEnqueuer, logger *logrus.Logger) 
 		cancel:         cancel,
 		done:           make(chan struct{}),
 		templateCache:  make(map[string]cachedTemplate),
-		rulesCache:     make(map[string]cachedRules),
+		rulesCache:     make(map[rulesCacheKey]cachedRules),
 	}
 }
 
@@ -202,8 +208,9 @@ func (e *Engine) processMessage(msg *uplink.DeviceMessage) {
 		}
 	}
 
-	payload := decodeFlatPayload(msg.Payload)
-	if len(payload) == 0 {
+	// 顺序：先查缓存的模板/规则，再解码 payload。绝大多数设备模板没有计算字段，
+	// 此时完全不必为每条遥测做一次 map[string]interface{} 全量解码。
+	if len(msg.Payload) == 0 {
 		return
 	}
 
@@ -212,8 +219,13 @@ func (e *Engine) processMessage(msg *uplink.DeviceMessage) {
 		return
 	}
 
-	rules := e.listRulesCached(msg.TenantID, templateID)
-	if len(rules) == 0 {
+	set := e.listRulesCached(msg.TenantID, templateID)
+	if len(set.rules) == 0 {
+		return
+	}
+
+	payload := set.decode(msg.Payload)
+	if len(payload) == 0 {
 		return
 	}
 
@@ -221,10 +233,16 @@ func (e *Engine) processMessage(msg *uplink.DeviceMessage) {
 	if timestamp <= 0 {
 		timestamp = time.Now().UnixMilli()
 	}
-	for _, rule := range rules {
+	// simple 规则的结果合并为一条派生消息，避免每条规则一次 Marshal + 一次存储入队。
+	var (
+		batchKeys   []string
+		batchValues []interface{}
+	)
+	for i := range set.rules {
+		rule := &set.rules[i]
 		// PHASE-D-D4 BEGIN 高级类型路由
 		if rule.fieldType != "" && rule.fieldType != FieldTypeSimple {
-			value, targets, err := evaluateAdvanced(rule, payload, timestamp, msg.DeviceID, msg.TenantID)
+			value, targets, err := evaluateAdvanced(*rule, payload, timestamp, msg.DeviceID, msg.TenantID)
 			if err != nil {
 				continue
 			}
@@ -241,11 +259,15 @@ func (e *Engine) processMessage(msg *uplink.DeviceMessage) {
 			continue
 		}
 		// PHASE-D-D4 END
-		value, ok := evaluateRule(rule, payload)
+		value, ok := evaluateRule(*rule, payload)
 		if !ok {
 			continue
 		}
-		e.enqueueDerived(msg, rule.outputKey, value, timestamp)
+		batchKeys = append(batchKeys, rule.outputKey)
+		batchValues = append(batchValues, value)
+	}
+	if len(batchKeys) > 0 {
+		e.enqueueDerivedBatch(msg, batchKeys, batchValues, timestamp)
 	}
 }
 
@@ -258,31 +280,27 @@ func decodeFlatPayload(raw []byte) map[string]interface{} {
 	if err := json.Unmarshal(raw, &decoded); err != nil || decoded == nil {
 		return nil
 	}
-	flat := make(map[string]interface{}, len(decoded))
+	// 原地过滤：删除字符串、嵌套对象、数组、null，只保留 float64/bool（不再复制第二个 map）。
 	for key, value := range decoded {
-		switch typed := value.(type) {
-		case float64:
-			flat[key] = typed
-		case bool:
-			flat[key] = typed
+		switch value.(type) {
+		case float64, bool:
 		default:
-			// 字符串、嵌套对象、数组等不参与表达式运算。
+			delete(decoded, key)
 		}
 	}
-	return flat
+	return decoded
 }
 
 // evaluateRule 对单条规则求值：缺变量跳过，结果只接受数值/布尔/字符串。
 func evaluateRule(rule compiledRule, payload map[string]interface{}) (interface{}, bool) {
-	params := make(map[string]interface{}, len(rule.variables))
+	// 先确认变量齐全（保持"缺变量即跳过"语义，避免 && / || 短路时绕过缺失变量），
+	// 再直接把 payload 作为参数源求值，不再为每条规则复制一份 params map。
 	for _, variable := range rule.variables {
-		value, exists := payload[variable]
-		if !exists {
+		if _, exists := payload[variable]; !exists {
 			return nil, false
 		}
-		params[variable] = value
 	}
-	result, err := rule.expr.Evaluate(params)
+	result, err := rule.expr.Eval(govaluate.MapParameters(payload))
 	if err != nil {
 		return nil, false
 	}
@@ -332,6 +350,43 @@ func (e *Engine) enqueueDerived(source *uplink.DeviceMessage, outputKey string, 
 		e.logger.WithFields(logrus.Fields{
 			"device_id":  source.DeviceID,
 			"output_key": outputKey,
+		}).Warn("Storage queue full or unavailable, calcfield result dropped")
+	}
+}
+
+// enqueueDerivedBatch 把同一源消息的多个 simple 派生结果作为一条遥测写回；
+// 写回失败时按键数计入丢弃（与原先逐条写回的计数口径一致）。
+func (e *Engine) enqueueDerivedBatch(source *uplink.DeviceMessage, keys []string, values []interface{}, timestamp int64) {
+	if len(keys) == 1 {
+		e.enqueueDerived(source, keys[0], values[0], timestamp)
+		return
+	}
+	payload, err := marshalDerivedBatch(keys, values)
+	if err != nil {
+		e.dropped.Add(uint64(len(keys)))
+		e.logger.WithFields(logrus.Fields{
+			"device_id":   source.DeviceID,
+			"output_keys": keys,
+		}).WithError(err).Warn("Failed to marshal calcfield payload")
+		return
+	}
+	metadata := map[string]interface{}{MetadataGeneratedFlag: true}
+	if source.TenantID != "" {
+		metadata["tenant_id"] = source.TenantID
+	}
+	derived := &uplink.DeviceMessage{
+		Type:      uplink.MessageTypeTelemetry,
+		DeviceID:  source.DeviceID,
+		TenantID:  source.TenantID,
+		Timestamp: timestamp,
+		Payload:   payload,
+		Metadata:  metadata,
+	}
+	if !e.storage.EnqueueDerivedTelemetry(e.ctx, derived) {
+		e.dropped.Add(uint64(len(keys)))
+		e.logger.WithFields(logrus.Fields{
+			"device_id":   source.DeviceID,
+			"output_keys": keys,
 		}).Warn("Storage queue full or unavailable, calcfield result dropped")
 	}
 }
@@ -394,14 +449,14 @@ func (e *Engine) resolveTemplateIDCached(tenantID, deviceID string) string {
 
 // listRulesCached 模板启用字段清单缓存，30s TTL；每次刷新重新解析表达式。
 // 缓存键含租户前缀：不同租户的同 id 模板互不可见，规则集必须隔离。
-func (e *Engine) listRulesCached(tenantID, templateID string) []compiledRule {
-	cacheKey := tenantID + ":" + templateID
+func (e *Engine) listRulesCached(tenantID, templateID string) ruleSet {
+	cacheKey := rulesCacheKey{tenantID: tenantID, templateID: templateID}
 	now := time.Now()
 	e.cacheMu.RLock()
 	cached, exists := e.rulesCache[cacheKey]
 	e.cacheMu.RUnlock()
 	if exists && now.Before(cached.expiresAt) {
-		return cached.rules
+		return cached.set
 	}
 
 	fields, err := e.templateSource.ListEnabledFields(e.ctx, tenantID, templateID)
@@ -410,14 +465,14 @@ func (e *Engine) listRulesCached(tenantID, templateID string) []compiledRule {
 			"template_id": templateID,
 			"error":       err,
 		}).Debug("Calcfield enabled fields lookup failed")
-		return nil
+		return ruleSet{}
 	}
 
-	rules := compileFieldRules(fields, e.logger)
+	set := newRuleSet(compileFieldRules(fields, e.logger))
 	e.cacheMu.Lock()
-	e.rulesCache[cacheKey] = cachedRules{rules: rules, expiresAt: now.Add(fieldRulesCacheTTL)}
+	e.rulesCache[cacheKey] = cachedRules{set: set, expiresAt: now.Add(fieldRulesCacheTTL)}
 	e.cacheMu.Unlock()
-	return rules
+	return set
 }
 
 // compileFieldRules 预编译表达式；解析失败的规则跳过（服务层已在保存时拦截）。
