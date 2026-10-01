@@ -276,11 +276,6 @@ func NormalizeDeviceTemplateVersion(version *string) string {
 	return "1.0.0"
 }
 
-// PreviewMarketBundleImport 预览导入结果（兼容单物模型包调用）；existing 为租户内已有模板的 名称→版本。
-func PreviewMarketBundleImport(bundle *model.MarketBundle, existing map[string]string) MarketBundleImportPreview {
-	return PreviewResourceBundleImport(bundle, existing, nil)
-}
-
 // PreviewResourceBundleImport 资源中心综合预览：支持物模型与大屏看板双重冲突分析。
 func PreviewResourceBundleImport(bundle *model.MarketBundle, existingTemplates map[string]string, existingBoards map[string]string) MarketBundleImportPreview {
 	preview := MarketBundleImportPreview{

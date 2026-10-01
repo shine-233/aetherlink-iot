@@ -204,16 +204,6 @@ func ackShadowMessage(deviceId, msgId string) error {
 	return nil
 }
 
-// ExpireAndRetryShadowMessages cron 入口：推进 ACK 超时的退避重试与终态收口。
-func (*DeviceShadow) ExpireAndRetryShadowMessages() (retried, failed, expired int64) {
-	var err error
-	retried, failed, expired, err = dal.ExpireAndRetryShadowMessages()
-	if err != nil {
-		logrus.Warnf("shadow retry sweep failed: %v", err)
-	}
-	return retried, failed, expired
-}
-
 // CleanupExpiredShadowMessages cron 入口：ACK 重试收口 + 过期历史清理。
 func (*DeviceShadow) CleanupExpiredShadowMessages() (expired int64, deleted int64) {
 	_, _, swept, err := dal.ExpireAndRetryShadowMessages()

@@ -164,10 +164,6 @@ func expireTimedOutFleetCommandJobsForTenant(tenantID string) error {
 	return nil
 }
 
-func fleetCommandJobTimeoutRecoverableDetailStatuses() []string {
-	return []string{commandJobDetailStatusReady, commandJobDetailStatusDispatching}
-}
-
 func (FleetCommandJobQueryService) GetFleetCommandJobSupportBundle(jobID string, claims *utils.UserClaims) (*model.FleetCommandJobSupportBundle, error) {
 	job, err := loadFleetCommandJobWithFreshTimeout(jobID, claims.TenantID)
 	if err != nil {

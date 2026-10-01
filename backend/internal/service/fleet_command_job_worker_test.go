@@ -8,20 +8,6 @@ import (
 	"aetherlink-iot/backend/internal/model"
 )
 
-func TestFleetCommandJobTimeoutRecoverableDetailStatuses(t *testing.T) {
-	statuses := fleetCommandJobTimeoutRecoverableDetailStatuses()
-	want := []string{commandJobDetailStatusReady, commandJobDetailStatusDispatching}
-
-	if len(statuses) != len(want) {
-		t.Fatalf("expected %d timeout-recoverable statuses, got %d", len(want), len(statuses))
-	}
-	for index, status := range want {
-		if statuses[index] != status {
-			t.Fatalf("expected timeout status %q at index %d, got %q", status, index, statuses[index])
-		}
-	}
-}
-
 func TestFleetCommandJobDetailSuccessClearsDispatchLease(t *testing.T) {
 	now := time.Date(2026, 7, 6, 12, 0, 0, 0, time.UTC)
 	leaseToken := "lease-1"

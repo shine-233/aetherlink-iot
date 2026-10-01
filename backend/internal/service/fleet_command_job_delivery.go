@@ -163,35 +163,6 @@ func shouldRefreshCommandJobSummaryAfterDispatch(dispatchedRows int) bool {
 	return dispatchedRows > 0 && dispatchedRows%commandJobSummaryRefreshInterval == 0
 }
 
-func (c *CommandData) submitFleetCommandJobDetails(ctx context.Context, operatorID, identify string, value *string, details []*model.CommandJobDetail, claims *utils.UserClaims) error {
-	manualOperationType := strconv.Itoa(constant.Manual)
-	for _, detail := range details {
-		if !detail.Eligible {
-			continue
-		}
-		if err := c.submitFleetCommandJobDetail(ctx, operatorID, identify, value, detail, manualOperationType, claims); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (c *CommandData) submitFleetCommandJobDetail(ctx context.Context, operatorID, identify string, value *string, detail *model.CommandJobDetail, operationType string, claims *utils.UserClaims) error {
-	tracking, err := c.CommandPutMessageWithTracking(ctx, operatorID, &model.PutMessageForCommand{
-		DeviceID: detail.DeviceID,
-		Identify: identify,
-		Value:    value,
-	}, operationType, claims)
-	now := time.Now().UTC()
-	if err != nil {
-		applyFleetCommandJobDetailFailure(detail, err, now)
-		return dal.UpdateCommandJobDetail(detail)
-	}
-
-	applyFleetCommandJobDetailSuccess(detail, tracking, now)
-	return dal.UpdateCommandJobDetail(detail)
-}
-
 func (c *CommandData) submitClaimedFleetCommandJobDetail(ctx context.Context, operatorID, identify string, value *string, detail *model.CommandJobDetail, operationType string, claims *utils.UserClaims) (bool, error) {
 	leaseToken := SafeDeref(detail.DispatchLeaseToken)
 	if leaseToken == "" {

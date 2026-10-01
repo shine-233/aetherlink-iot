@@ -250,13 +250,8 @@ func (s *DeviceHealthService) GetTenantHealthSummary(ctx context.Context, claims
 	return summary, nil
 }
 
-// ComputeDeviceHealth 核心算法：多维量化设备综合健康度（MSET 维度未启用时的等价入口）。
-func ComputeDeviceHealth(device *model.Device, alarms []*model.AlarmHistory) (*model.DeviceHealthScore, *model.DeviceHealthDetailResp) {
-	return computeDeviceHealth(device, alarms, nil)
-}
-
 // ComputeDeviceHealthWithMSET 在多维扣分模型上叠加 TP-21 MSET 特征维度。
-// mset 为 nil（开关未启用，默认）时与 ComputeDeviceHealth 完全一致。
+// mset 为 nil（开关未启用，默认）时即旧版纯多维扣分口径。
 // MSET 扣分折入 anomaly_penalty：health_scores 表无独立 mset_penalty 列（本项不做迁移），
 // 分解明细在 details JSON 的 mset 对象与本对象里，字段语义见 model.DeviceHealthMSETFeature。
 func ComputeDeviceHealthWithMSET(device *model.Device, alarms []*model.AlarmHistory, mset *model.DeviceHealthMSETFeature) (*model.DeviceHealthScore, *model.DeviceHealthDetailResp) {

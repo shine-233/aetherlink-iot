@@ -113,17 +113,6 @@ func PlanEdgeReconcile(health EdgeNodeHealth, versionOK bool, versionReason stri
 	return items
 }
 
-// EdgeReconcileSyncCount 计划中真正需要下发的资源数，便于调用方快速判断有无动作。
-func EdgeReconcileSyncCount(items []EdgeReconcileItem) int {
-	count := 0
-	for _, item := range items {
-		if item.Action == EdgeReconcileSync {
-			count++
-		}
-	}
-	return count
-}
-
 // EdgeReconcileBlocked 是否存在需要人工介入的项。
 // 调用方应当在有阻断项时停止自动下发——自动处理人工事件等于掩盖问题。
 func EdgeReconcileBlocked(items []EdgeReconcileItem) bool {

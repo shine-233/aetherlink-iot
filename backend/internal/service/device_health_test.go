@@ -21,7 +21,7 @@ func TestComputeDeviceHealth_Healthy(t *testing.T) {
 		ActivateFlag: "active",
 	}
 
-	scoreEntity, detail := ComputeDeviceHealth(device, []*model.AlarmHistory{})
+	scoreEntity, detail := ComputeDeviceHealthWithMSET(device, []*model.AlarmHistory{}, nil)
 
 	assert.Equal(t, 100.0, scoreEntity.Score)
 	assert.Equal(t, model.HealthStatusHealthy, scoreEntity.HealthStatus)
@@ -59,7 +59,7 @@ func TestComputeDeviceHealth_Alarms(t *testing.T) {
 		},
 	}
 
-	scoreEntity, detail := ComputeDeviceHealth(device, alarms)
+	scoreEntity, detail := ComputeDeviceHealthWithMSET(device, alarms, nil)
 
 	assert.Equal(t, 45.0, scoreEntity.AlarmPenalty)
 	assert.Equal(t, 55.0, scoreEntity.Score)
@@ -81,7 +81,7 @@ func TestComputeDeviceHealth_OfflineDecay(t *testing.T) {
 		ActivateFlag:    "active",
 	}
 
-	scoreEntity, detail := ComputeDeviceHealth(device, []*model.AlarmHistory{})
+	scoreEntity, detail := ComputeDeviceHealthWithMSET(device, []*model.AlarmHistory{}, nil)
 
 	assert.Equal(t, 35.0, scoreEntity.OfflinePenalty)
 	assert.Equal(t, 65.0, scoreEntity.Score)
@@ -109,7 +109,7 @@ func TestComputeDeviceHealth_CriticalAccumulationAndClamp(t *testing.T) {
 		{ID: "a3", AlarmStatus: "M", CreateAt: time.Now()}, // -15
 	} // alarm penalty capped at 70
 
-	scoreEntity, detail := ComputeDeviceHealth(device, alarms)
+	scoreEntity, detail := ComputeDeviceHealthWithMSET(device, alarms, nil)
 
 	assert.Equal(t, 70.0, scoreEntity.AlarmPenalty)
 	assert.Equal(t, 50.0, scoreEntity.OfflinePenalty)

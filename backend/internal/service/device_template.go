@@ -123,16 +123,6 @@ func (*DeviceTemplate) UpdateDeviceTemplate(req model.UpdateDeviceTemplateReq, c
 	return data, err
 }
 
-func (*DeviceTemplate) GetDeviceTemplate(id string) (*model.DeviceTemplate, error) {
-	// 根据ID 获取物模型
-	t, err := dal.GetDeviceTemplateById(id)
-	if err != nil {
-		return t, err
-	}
-
-	return t, nil
-}
-
 func (*DeviceTemplate) GetDeviceTemplateById(id string, claims *utils.UserClaims) (*model.DeviceTemplate, error) {
 	return ensureDeviceTemplateReadAccess(id, claims)
 }

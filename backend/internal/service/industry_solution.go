@@ -261,9 +261,3 @@ func (*IndustrySolutionService) InstallIndustrySolution(_ context.Context, id st
 	return rsp, nil
 }
 
-// MarshalSolutionResources jsonb 反序列化兜底（保障 references 列损坏时给出可读错误）。
-func MarshalSolutionResources(raw []byte) ([]model.IndustrySolutionResourceRef, error) {
-	refs := make([]model.IndustrySolutionResourceRef, 0)
-	err := json.Unmarshal(raw, &refs)
-	return refs, err
-}

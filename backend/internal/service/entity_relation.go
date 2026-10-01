@@ -6,7 +6,7 @@
 //  3. 成环策略（明确声明）：
 //     - 自环（同类型且同 ID）拒绝写入，由模型校验拦截；
 //     - 多跳环允许写入。关系图在工程上允许成环（如 A 管理 B、B 备份 A），
-//     是否阻断由调用方用 HasRelationPath 自行判断，本层不静默拒绝也不静默"修复"。
+//     是否阻断由调用方自行判断，本层不静默拒绝也不静默"修复"。
 //  4. 删除实体默认保护（有关系则拒绝），级联必须由调用方显式声明。
 //  5. 租户层级不可用时 fail closed：不降级成"只允许查自己"，因为那会把
 //     暂时性故障伪装成"确实没有更多数据"。
@@ -26,10 +26,9 @@ import (
 )
 
 const (
-	entityRelationDefaultLimit  = 200
-	entityRelationMaxLimit      = 1000
-	entityRelationDuplicateMsg  = "重复键违反唯一约束"
-	entityRelationCycleMaxDepth = 8
+	entityRelationDefaultLimit = 200
+	entityRelationMaxLimit     = 1000
+	entityRelationDuplicateMsg = "重复键违反唯一约束"
 )
 
 // EntityDeletionPolicy 删除实体时对其关系的处理策略。
@@ -49,11 +48,6 @@ type TenantScopeProvider interface {
 
 // entityRelationScopeProvider 供测试与显式装配覆盖；为空时回落到 global.TenantTree。
 var entityRelationScopeProvider TenantScopeProvider
-
-// SetEntityRelationScopeProvider 显式注入租户层级来源（测试用；传 nil 表示回落默认）。
-func SetEntityRelationScopeProvider(p TenantScopeProvider) {
-	entityRelationScopeProvider = p
-}
 
 // listEntityRelations 关系查询落点，可注入。
 // Scope 守卫是纯逻辑，本不该依赖数据库：把它与查询落点解耦后，
@@ -197,45 +191,3 @@ func DeleteRelationsForEntity(ctx context.Context, tenantID, entityType, entityI
 	return dal.DeleteEntityRelationsForEntity(tenantID, entityType, entityID)
 }
 
-// HasRelationPath 判断从 from 到 to 是否存在深度不超过 maxDepth 的有向关系路径。
-// 用于调用方在写入前自行判断是否会产生环；本函数不做任何写入。
-// maxDepth<=0 时取 entityRelationMaxDepth 上限。
-func HasRelationPath(ctx context.Context, tenantID, fromType, fromID, toType, toID string, relationType string, maxDepth int) (bool, error) {
-	if !model.IsAllowedEntityType(fromType) || !model.IsAllowedEntityType(toType) {
-		return false, errcode.NewWithMessage(errcode.CodeParamError, model.ErrEntityRelationUnknownType.Error())
-	}
-	if maxDepth <= 0 {
-		maxDepth = entityRelationCycleMaxDepth
-	}
-
-	visited := map[string]bool{}
-	frontier := []struct{ typ, id string }{{fromType, fromID}}
-	for depth := 0; depth < maxDepth && len(frontier) > 0; depth++ {
-		next := make([]struct{ typ, id string }, 0)
-		for _, node := range frontier {
-			key := node.typ + ":" + node.id
-			if visited[key] {
-				continue
-			}
-			visited[key] = true
-
-			list, _, err := dal.ListEntityRelations(model.EntityRelationQuery{
-				TenantID:     tenantID,
-				FromType:     node.typ,
-				FromID:       node.id,
-				RelationType: relationType,
-			})
-			if err != nil {
-				return false, err
-			}
-			for _, rel := range list {
-				if rel.ToType == toType && rel.ToID == toID {
-					return true, nil
-				}
-				next = append(next, struct{ typ, id string }{rel.ToType, rel.ToID})
-			}
-		}
-		frontier = next
-	}
-	return false, nil
-}

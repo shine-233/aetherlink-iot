@@ -16,12 +16,12 @@ func TestPlanEdgeReconcileNodeGateBlocksEverything(t *testing.T) {
 	require.Len(t, items, 1)
 	require.Equal(t, EdgeReconcileSkip, items[0].Action)
 	require.Contains(t, items[0].Reason, "not reachable")
-	require.Equal(t, 0, EdgeReconcileSyncCount(items))
+	require.Equal(t, 0, countEdgeReconcileSync(items))
 
 	// unknown 同样不得下发：状态不明时覆盖边缘内容，事后无法确认它收没收到
 	items = PlanEdgeReconcile(EdgeNodeHealthUnknown, true, "", resources)
 	require.Equal(t, EdgeReconcileSkip, items[0].Action)
-	require.Equal(t, 0, EdgeReconcileSyncCount(items))
+	require.Equal(t, 0, countEdgeReconcileSync(items))
 }
 
 func TestPlanEdgeReconcileVersionGateBlocksEverything(t *testing.T) {
@@ -32,7 +32,7 @@ func TestPlanEdgeReconcileVersionGateBlocksEverything(t *testing.T) {
 	require.Len(t, items, 1)
 	require.Equal(t, EdgeReconcileSkip, items[0].Action)
 	require.Contains(t, items[0].Reason, "version gate")
-	require.Equal(t, 0, EdgeReconcileSyncCount(items))
+	require.Equal(t, 0, countEdgeReconcileSync(items))
 }
 
 func TestPlanEdgeReconcilePerResourceDecisions(t *testing.T) {
@@ -55,7 +55,7 @@ func TestPlanEdgeReconcilePerResourceDecisions(t *testing.T) {
 	require.Equal(t, EdgeReconcileSkip, byID["same"].Action)
 	require.Equal(t, EdgeReconcileNeedsAttention, byID["ahead"].Action)
 
-	require.Equal(t, 1, EdgeReconcileSyncCount(items))
+	require.Equal(t, 1, countEdgeReconcileSync(items))
 	require.True(t, EdgeReconcileBlocked(items), "ahead-of-cloud must be a blocking human event")
 }
 
@@ -69,7 +69,7 @@ func TestPlanEdgeReconcileNeverReportedSendsToConverge(t *testing.T) {
 	require.Len(t, items, 1)
 	require.Equal(t, EdgeReconcileSync, items[0].Action)
 	require.Contains(t, items[0].Reason, "never reported")
-	require.Equal(t, 1, EdgeReconcileSyncCount(items))
+	require.Equal(t, 1, countEdgeReconcileSync(items))
 	require.False(t, EdgeReconcileBlocked(items))
 }
 
@@ -95,12 +95,23 @@ func TestPlanEdgeReconcileDegradedStillSyncs(t *testing.T) {
 	}
 	items := PlanEdgeReconcile(EdgeNodeHealthDegraded, true, "", resources)
 	require.Equal(t, EdgeReconcileSync, items[0].Action)
-	require.Equal(t, 1, EdgeReconcileSyncCount(items))
+	require.Equal(t, 1, countEdgeReconcileSync(items))
 }
 
 func TestPlanEdgeReconcileEmptyResources(t *testing.T) {
 	items := PlanEdgeReconcile(EdgeNodeHealthOnline, true, "", nil)
 	require.Empty(t, items)
-	require.Equal(t, 0, EdgeReconcileSyncCount(items))
+	require.Equal(t, 0, countEdgeReconcileSync(items))
 	require.False(t, EdgeReconcileBlocked(items))
+}
+
+// countEdgeReconcileSync 统计计划里需要下发的条目数（测试断言用）。
+func countEdgeReconcileSync(items []EdgeReconcileItem) int {
+	count := 0
+	for _, item := range items {
+		if item.Action == EdgeReconcileSync {
+			count++
+		}
+	}
+	return count
 }

@@ -165,7 +165,7 @@ func TestCheckMarketBundleDependencies(t *testing.T) {
 func TestPreviewMarketBundleImport(t *testing.T) {
 	bundle := marketBundleWithTemplates("new-1", "existing-1")
 	// 同名但版本不同 → 覆盖（会为同名模板再添一个版本，需人工确认）。
-	preview := PreviewMarketBundleImport(bundle, map[string]string{"existing-1": "0.9.0"})
+	preview := PreviewResourceBundleImport(bundle, map[string]string{"existing-1": "0.9.0"}, nil)
 
 	require.False(t, preview.HasBlocking())
 	require.Equal(t, []string{"new-1"}, preview.Create)
@@ -178,7 +178,7 @@ func TestPreviewMarketBundleImport(t *testing.T) {
 func TestPreviewMarketBundleImportSameVersionIsIdempotentNotOverwrite(t *testing.T) {
 	bundle := marketBundleWithTemplates("existing-1")
 	// marketBundleWithTemplates 不设版本 → 归一化后为 1.0.0，与导入默认规则一致。
-	preview := PreviewMarketBundleImport(bundle, map[string]string{"existing-1": "1.0.0"})
+	preview := PreviewResourceBundleImport(bundle, map[string]string{"existing-1": "1.0.0"}, nil)
 
 	require.False(t, preview.HasBlocking())
 	require.Empty(t, preview.Overwrite, "同版本重导是幂等命中，不是覆盖")
@@ -188,13 +188,13 @@ func TestPreviewMarketBundleImportSameVersionIsIdempotentNotOverwrite(t *testing
 
 func TestPreviewMarketBundleImportSurfacesBlocking(t *testing.T) {
 	bundle := marketBundleWithTemplates("dup", "dup")
-	preview := PreviewMarketBundleImport(bundle, nil)
+	preview := PreviewResourceBundleImport(bundle, nil, nil)
 	require.True(t, preview.HasBlocking(), "包内重名必须阻断导入")
 	require.NotEmpty(t, preview.Blocking)
 }
 
 func TestPreviewMarketBundleImportNilBundle(t *testing.T) {
-	preview := PreviewMarketBundleImport(nil, nil)
+	preview := PreviewResourceBundleImport(nil, nil, nil)
 	require.True(t, preview.HasBlocking())
 	require.Zero(t, preview.Total)
 }
