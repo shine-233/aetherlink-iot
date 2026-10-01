@@ -10,11 +10,13 @@ package kit
 
 import "aetherlink-iot/backend/pkg/errcode"
 
-// Data keys used inside the CodeDBError envelope. Both exist in the REST
-// contract: dbError() emits "sql_error", most CRUD services emit "error".
+// Data keys used inside the CodeDBError envelope. All exist in the REST
+// contract: dbError() emits "sql_error", most CRUD services emit "error",
+// the dict/whitelabel/logo family emits "err".
 const (
 	KeySQL   = "sql_error"
 	KeyError = "error"
+	KeyErr   = "err"
 )
 
 // DBErr builds errcode.CodeDBError with data {key: err.Error()}.

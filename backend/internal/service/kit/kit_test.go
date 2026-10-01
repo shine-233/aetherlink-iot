@@ -209,3 +209,54 @@ func TestStamp(t *testing.T) {
 		t.Fatalf("ids %q %q", a, b)
 	}
 }
+
+func TestAnyListMapKeepsDynamicType(t *testing.T) {
+	if m := AnyListMap(2, interface{}([]int{1, 2})); m["total"] != int64(2) || len(m) != 2 {
+		t.Errorf("AnyListMap shape: %#v", m)
+	} else if _, ok := m["list"].([]int); !ok {
+		t.Errorf("AnyListMap list type: %T", m["list"])
+	}
+}
+
+func TestTenantRepoScopeAndMissing(t *testing.T) {
+	scope := TenantScope{BlankMsg: "blank"}
+	var gotTenant string
+	r := TenantRepo[*rec]{
+		Get: func(id, tenant string) (*rec, error) {
+			gotTenant = tenant
+			if id != "a" {
+				return nil, nil // (nil, nil) DAL miss
+			}
+			return &rec{ID: id, Tenant: tenant}, nil
+		},
+		Scope:    scope.Tenant,
+		Missing:  NilPtr[rec],
+		NotFound: NotFound{Msg: "rec not found", Match: func(error) bool { return false }, OnOther: OnDBErr(KeyError)},
+		Gate:     Gate{Msg: "must be ignored when Scope is set"},
+	}
+	if _, err := r.Load(nil, "a"); wire(t, err) != wire(t, errcode.New(errcode.CodeNoPermission)) {
+		t.Fatalf("nil claims bare deny: %s", wire(t, err))
+	}
+	if _, err := r.Load(&utils.UserClaims{TenantID: "  "}, "a"); wire(t, err) != wire(t, errcode.NewWithMessage(errcode.CodeNoPermission, "blank")) {
+		t.Fatalf("blank: %s", wire(t, err))
+	}
+	if got, err := r.Load(&utils.UserClaims{TenantID: " t1 "}, "a"); err != nil || got.Tenant != "t1" {
+		t.Fatalf("trimmed tenant: %v %v", got, err)
+	}
+	if _, err := r.Load(&utils.UserClaims{TenantID: "t1"}, "zz"); wire(t, err) != wire(t, errcode.NewWithMessage(errcode.CodeNotFound, "rec not found")) {
+		t.Fatalf("missing: %s", wire(t, err))
+	}
+	var deleted string
+	if err := r.Delete(&utils.UserClaims{TenantID: " t1 "}, "a", func(id, tenant string) error { deleted = id + "@" + tenant; return nil }, nil); err != nil || deleted != "a@t1" {
+		t.Fatalf("delete via scope: %v %q", err, deleted)
+	}
+	boom := errors.New("boom")
+	r.Get = func(string, string) (*rec, error) { return nil, boom }
+	if _, err := r.Load(&utils.UserClaims{TenantID: "t1"}, "a"); wire(t, err) != wire(t, DBErr(KeyError, boom)) {
+		t.Fatalf("db err: %s", wire(t, err))
+	}
+	m, err := List(r, &utils.UserClaims{TenantID: " t1 "}, 0, func(int, string) (int64, []*rec, error) { return 0, nil, nil }, nil)
+	if err != nil || gotTenant != "t1" && m == nil {
+		t.Fatalf("list via scope: %v", err)
+	}
+}
