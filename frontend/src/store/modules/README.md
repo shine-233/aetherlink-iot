@@ -7,7 +7,7 @@
 从真实结构看，这个目录已经形成两类模块：
 
 - 通用壳层模块：`app`、`auth`、`route`、`tab`、`theme`、`sys-setting`
-- 业务能力模块：`device`、`visual-editor`、`editor.ts`、`widget.ts`
+- 业务能力模块：`device`、`editor.ts`、`widget.ts`
 
 这意味着它既承担“系统初始化骨架”，也承担“业务编辑器状态容器”。后续维护时要特别避免把页面局部逻辑继续堆进 store，导致状态边界越来越模糊。
 
@@ -26,11 +26,6 @@
 | `theme/shared.ts` | 主题变量计算、样式映射和持久化辅助逻辑 | `theme/index.ts` |
 | `sys-setting/index.ts` | 承接系统设置类全局配置，如品牌资源、远端配置映射 | `theme`、设置类页面 |
 | `device/index.ts` | 设备详情或设备域共享状态，避免多个设备页面重复拉取和传递上下文 | 设备相关视图与服务层 |
-| `visual-editor/index.ts` | 可视化编辑器统一对外入口 | `card2-adapter`、`configuration-service`、`data-flow-manager`、`unified-editor` |
-| `visual-editor/card2-adapter.ts` | Card 2.1 兼容适配，连接旧卡片模型与统一编辑器 | `visual-editor/index.ts` |
-| `visual-editor/configuration-service.ts` | 编辑器配置读取、整理和持久化编排 | 编辑器页面、后端配置接口 |
-| `visual-editor/data-flow-manager.ts` | 编辑器内部数据流、节点关系或运行态同步协调 | `unified-editor` |
-| `visual-editor/unified-editor.ts` | 对编辑器状态做统一封装，减少页面直接拼装状态 | `visual-editor/index.ts` |
 | `editor.ts` | 轻量级编辑器状态入口，适合作为老链路兼容层 | 可视化编辑器相关页面 |
 | `widget.ts` | 组件/控件选择与运行时轻状态 | 编辑器或卡片配置流程 |
 
@@ -58,12 +53,9 @@
 
 ### 3. 编辑器运行态链路
 
-`editor.ts`、`widget.ts` 与 `visual-editor/*` 明显处于新旧两代状态模型并存阶段：
+`editor.ts`（画布节点、视口、编辑/预览模式）与 `widget.ts`（组件选择状态）是编辑器仅存的两个 store，由 `core/data-architecture` 与 `core/interaction-system` 消费。
 
-- `visual-editor/*` 更像统一能力层，已经拆出适配、配置服务和数据流管理。
-- `editor.ts`、`widget.ts` 更像轻量兼容层，可能仍被部分旧页面直接引用。
-
-这类结构通常意味着项目正在从“页面直控状态”迁移到“统一编辑器状态中心”。继续开发编辑器功能时，优先落在 `visual-editor/*` 内，而不是继续扩写 `editor.ts` 和 `widget.ts`。
+历史上的 `visual-editor/*` 统一编辑器 store（unified-editor、card2-adapter、configuration-service、data-flow-manager）没有任何生产调用方，已于 2026-10 整体删除。编辑器新状态请直接扩展 `editor.ts` / `widget.ts`，或放在 `components/visual-editor` 内部，不要重建一个平行的状态中心。
 
 ## 重点文件阅读建议
 
@@ -77,8 +69,6 @@
   更偏应用壳层协调器。若后续发现它越来越像“全局杂物箱”，就说明需要继续拆分。
 - `theme/index.ts` 与 `theme/shared.ts`
   建议将“主题状态”和“主题推导逻辑”继续分层，避免 UI token、持久化和页面副作用混在一起。
-- `visual-editor/*`
-  这是最像“子系统”的一组 store 文件，已经具备服务层、适配层、运行态管理层的雏形，适合单独治理。
 
 ## 维护注意事项
 
@@ -87,7 +77,6 @@
 - 新增异步 action 时，优先确认首屏加载、刷新恢复、退出登录三种场景下是否需要显式 reset。
 - 需要持久化的字段要明确来源和优先级，避免本地缓存与后端配置互相覆盖。
 - 路由、标签页、主题这三类模块一旦改动，最容易引出“页面可打开但状态错乱”的隐性问题，维护时应优先做静态链路审查。
-- `visual-editor/__tests__` 已经存在，说明编辑器状态层具备补强单测的基础。后续如果继续重构，应优先保护这部分能力，不要回退成只能靠页面联调验证。
 
 ## 建议的重构方向
 
@@ -103,7 +92,7 @@
 
 ### 2. 明确新旧编辑器状态边界
 
-`visual-editor/*` 与 `editor.ts`、`widget.ts` 并存，说明存在迁移中的双轨结构。建议梳理真实调用方，逐步把新功能统一收口到 `visual-editor`，把旧文件降为适配层或明确退役对象。
+未接入的 `visual-editor/*` 双轨 store 已删除，`editor.ts` 与 `widget.ts` 是唯一状态源。后续应补齐节点删除、视口重置与选择联动的单测，并保持编辑器状态只有一条链路。
 
 预期效果：
 
