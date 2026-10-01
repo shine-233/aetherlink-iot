@@ -28,15 +28,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// UplinkMessage Flow 层需要的消息格式（避免导入 flow 包）
-type UplinkMessage struct {
-	Type      string
-	DeviceID  string
-	TenantID  string
-	Timestamp int64
-	Payload   []byte
-	Metadata  map[string]interface{}
-}
+// UplinkMessage 是 uplink.DeviceMessage 的类型别名。
+//
+// 历史上它是字段完全相同的独立结构体，Bus.Publish 只能对它走 JSON
+// Marshal/Unmarshal 兼容转换（Payload 还要 base64 往返），每条上行消息
+// ~6.4µs / 36 次分配。别名后 Bus 直接命中 *DeviceMessage 快路径，零拷贝。
+// 所有生产者（MQTT/CoAP/collector/plugin）的 Metadata 值都是 string，
+// JSON 往返本就不改变它们，因此语义不变。
+type UplinkMessage = uplink.DeviceMessage
 
 // Adapter MQTT 适配器
 // 负责将 MQTT 消息转换为统一的 DeviceMessage 格式
