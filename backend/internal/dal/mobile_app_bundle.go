@@ -78,7 +78,6 @@ func ListAppBundlesForScope(ctx context.Context, req *model.GetAppBundleListReq,
 	if global.DB == nil {
 		return 0, nil, errAppBundleDBNotReady
 	}
-	var count int64
 	var list []*model.MobileAppBundle
 
 	db := global.DB.WithContext(ctx).Model(&model.MobileAppBundle{}).Where("tenant_id = ?", tenantID)
@@ -89,24 +88,7 @@ func ListAppBundlesForScope(ctx context.Context, req *model.GetAppBundleListReq,
 		db = db.Where("status = ?", strings.TrimSpace(*req.Status))
 	}
 
-	if err := db.Count(&count).Error; err != nil {
-		return 0, nil, err
-	}
-
-	page := req.Page
-	if page < 1 {
-		page = 1
-	}
-	pageSize := req.PageSize
-	if pageSize < 1 || pageSize > 200 {
-		pageSize = 20
-	}
-
-	err := db.Order("created_at DESC, id DESC").
-		Limit(pageSize).
-		Offset((page - 1) * pageSize).
-		Find(&list).Error
-
+	count, err := countAndFindLegacyPage(db, "created_at DESC, id DESC", req.Page, req.PageSize, &list)
 	return count, list, err
 }
 

@@ -71,7 +71,6 @@ func ListMediaFilesForScope(ctx context.Context, req *model.GetMediaFileListReq,
 	if global.DB == nil {
 		return 0, nil, errMediaFileDBNotReady
 	}
-	var count int64
 	var list []*model.MediaFile
 
 	db := global.DB.WithContext(ctx).Model(&model.MediaFile{}).Where("tenant_id = ?", tenantID)
@@ -83,24 +82,7 @@ func ListMediaFilesForScope(ctx context.Context, req *model.GetMediaFileListReq,
 		db = db.Where("LOWER(file_name) LIKE LOWER(?)", ContainsLikePattern(*req.Search))
 	}
 
-	if err := db.Count(&count).Error; err != nil {
-		return 0, nil, err
-	}
-
-	page := req.Page
-	if page < 1 {
-		page = 1
-	}
-	pageSize := req.PageSize
-	if pageSize < 1 || pageSize > 200 {
-		pageSize = 20
-	}
-
-	err := db.Order("created_at DESC, id DESC").
-		Limit(pageSize).
-		Offset((page - 1) * pageSize).
-		Find(&list).Error
-
+	count, err := countAndFindLegacyPage(db, "created_at DESC, id DESC", req.Page, req.PageSize, &list)
 	return count, list, err
 }
 

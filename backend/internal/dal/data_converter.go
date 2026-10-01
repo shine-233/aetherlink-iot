@@ -41,7 +41,6 @@ func DeleteDataConverter(id, tenantID string) error {
 
 // ListDataConverters 分页查询数据转换器列表
 func ListDataConverters(req *model.GetDataConverterListReq, tenantID string) (int64, []*model.DataConverter, error) {
-	var count int64
 	var list []*model.DataConverter
 
 	db := global.DB.Model(&model.DataConverter{})
@@ -53,23 +52,6 @@ func ListDataConverters(req *model.GetDataConverterListReq, tenantID string) (in
 	}
 	db = whereKeywordContainsPtr(db, opILike, req.Search, "name", "description")
 
-	if err := db.Count(&count).Error; err != nil {
-		return 0, nil, err
-	}
-
-	page := req.Page
-	if page < 1 {
-		page = 1
-	}
-	pageSize := req.PageSize
-	if pageSize < 1 || pageSize > 200 {
-		pageSize = 20
-	}
-
-	err := db.Order("created_at DESC").
-		Limit(pageSize).
-		Offset((page - 1) * pageSize).
-		Find(&list).Error
-
+	count, err := countAndFindLegacyPage(db, "created_at DESC", req.Page, req.PageSize, &list)
 	return count, list, err
 }

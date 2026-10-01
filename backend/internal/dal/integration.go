@@ -53,7 +53,6 @@ func DeleteIntegration(id, tenantID string) error {
 
 // ListIntegrations 分页查询集成实例列表
 func ListIntegrations(req *model.GetIntegrationListReq, tenantID string) (int64, []*model.Integration, error) {
-	var count int64
 	var list []*model.Integration
 
 	db := global.DB.Model(&model.Integration{})
@@ -68,23 +67,6 @@ func ListIntegrations(req *model.GetIntegrationListReq, tenantID string) (int64,
 	}
 	db = whereKeywordContainsPtr(db, opILike, req.Search, "name")
 
-	if err := db.Count(&count).Error; err != nil {
-		return 0, nil, err
-	}
-
-	page := req.Page
-	if page < 1 {
-		page = 1
-	}
-	pageSize := req.PageSize
-	if pageSize < 1 || pageSize > 200 {
-		pageSize = 20
-	}
-
-	err := db.Order("created_at DESC").
-		Limit(pageSize).
-		Offset((page - 1) * pageSize).
-		Find(&list).Error
-
+	count, err := countAndFindLegacyPage(db, "created_at DESC", req.Page, req.PageSize, &list)
 	return count, list, err
 }
