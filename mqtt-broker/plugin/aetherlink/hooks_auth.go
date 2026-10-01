@@ -2,6 +2,7 @@ package aetherlink
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -160,7 +161,10 @@ func authenticateMQTTSystemUser(username string, providedPassword string) (bool,
 		return false, nil
 	}
 
-	if providedPassword == expectedPassword {
+	// 系统账号绕过全部订阅/发布 ACL：未配置密码（空串）时必须失败闭合，
+	// 否则空密码 CONNECT 即可以 root/plugin 身份接管 broker。比较使用常量时间，避免计时侧信道。
+	if expectedPassword != "" &&
+		subtle.ConstantTimeCompare([]byte(providedPassword), []byte(expectedPassword)) == 1 {
 		return true, nil
 	}
 
