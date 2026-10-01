@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"aetherlink-iot/backend/internal/middleware"
+	"aetherlink-iot/backend/pkg/authkeys"
 	"aetherlink-iot/backend/pkg/global"
 	"aetherlink-iot/backend/pkg/utils"
 
@@ -28,8 +29,11 @@ func validateToken(token string) (*utils.UserClaims, error) {
 		return nil, errors.New("token is expired")
 	}
 
-	key := viper.GetString("jwt.key")
-	j := utils.NewJWT([]byte(key))
+	// 与 HTTP 中间件、签发侧共用 authkeys 规范化密钥。
+	j, err := authkeys.JWT()
+	if err != nil {
+		return nil, errors.New("invalid token")
+	}
 	claims, err := j.ParseToken(token)
 	if err != nil {
 		return nil, errors.New("invalid token")

@@ -12,8 +12,9 @@ import (
 	"net/http"
 	"strings"
 
+	"aetherlink-iot/backend/pkg/authkeys"
+
 	"github.com/gin-gonic/gin"
-	"github.com/spf13/viper"
 )
 
 // pluginKeyHeader 是插件接入共享密钥的请求头名称。
@@ -41,7 +42,8 @@ func isTrustedPluginSource(remoteAddr string) bool {
 // PluginAuth 返回协议插件接入端点的边界认证中间件。
 func PluginAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		key := viper.GetString("plugin.service.key")
+		// 与启动/部署侧同一规范化规则：secret 文件尾随换行不得让合法插件全部 401。
+		key := authkeys.PluginServiceKey()
 		if key != "" {
 			provided := c.GetHeader(pluginKeyHeader)
 			if subtle.ConstantTimeCompare([]byte(provided), []byte(key)) != 1 {
