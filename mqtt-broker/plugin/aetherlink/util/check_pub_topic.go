@@ -87,7 +87,7 @@ func compilePubTopicPatterns(patterns []pubTopicPattern) []compiledPubTopicPatte
 	compiled := make([]compiledPubTopicPattern, len(patterns))
 	for i, p := range patterns {
 		compiled[i] = compiledPubTopicPattern{
-			parts:        strings.Split(p.pattern, "/"),
+			parts:        mustFitLevels(p.pattern),
 			identityKind: p.identityKind,
 			slot:         p.slotIndex(),
 		}
@@ -97,7 +97,11 @@ func compilePubTopicPatterns(patterns []pubTopicPattern) []compiledPubTopicPatte
 
 // ValidateTopic 检查主题是否符合 pubList 中的任一模式（仅形状校验）。
 func ValidateTopic(topic string) bool {
-	topicParts := strings.Split(topic, "/")
+	var buf topicLevels
+	topicParts, ok := splitTopicLevels(topic, &buf)
+	if !ok {
+		return false
+	}
 	for _, p := range compiledPubList {
 		if matchesPatternParts(topicParts, p.parts) {
 			return true
@@ -115,7 +119,11 @@ func ValidateTopic(topic string) bool {
 //     无法与设备身份绑定，保持形状校验并由 payload 重包保证归因；
 //   - 形状不匹配、或所需身份缺失/不一致时一律拒绝（fail-closed）。
 func ValidatePubTopicForDevice(topic, deviceID, deviceNumber string) bool {
-	topicParts := strings.Split(topic, "/")
+	var buf topicLevels
+	topicParts, ok := splitTopicLevels(topic, &buf)
+	if !ok {
+		return false
+	}
 	for _, p := range compiledPubList {
 		if !matchesPatternParts(topicParts, p.parts) {
 			continue

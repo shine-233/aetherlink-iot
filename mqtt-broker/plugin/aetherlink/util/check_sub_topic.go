@@ -36,25 +36,49 @@ var subList = []string{
 	"devices/config/down/response/+", // 设备配置下载平台回复
 }
 
+// deviceNumberSlot 订阅模式中的设备编号占位层。
+const deviceNumberSlot = "{device_number}"
+
+// compiledSubPattern 预拆分的订阅模式；hasDeviceSlot 标记是否含可绑定设备的身份槽。
+type compiledSubPattern struct {
+	parts         []string
+	hasDeviceSlot bool
+}
+
+// compiledSubList 是 subList 的预拆分形式，顺序一致。每个 SUBSCRIBE 主题都要遍历整张表，
+// 旧实现每个模式重复拆分主题与模式（最多 3 次），晚命中的主题一次校验约 60 次堆分配。
+var compiledSubList = compileSubPatterns(subList)
+
+func compileSubPatterns(patterns []string) []compiledSubPattern {
+	out := make([]compiledSubPattern, len(patterns))
+	for i, p := range patterns {
+		out[i] = compiledSubPattern{parts: mustFitLevels(p), hasDeviceSlot: strings.Contains(p, deviceNumberSlot)}
+	}
+	return out
+}
+
 // IsStandardSubTopicCandidate 检查主题是否占用标准模板结构。
 // 占位槽内容即使为空或为通配符也仍是标准候选，由后续严格校验拒绝。
 func IsStandardSubTopicCandidate(topic string) bool {
-	for _, pattern := range subList {
-		if matchesPatternSubStructure(topic, pattern) {
+	var buf topicLevels
+	topicParts, ok := splitTopicLevels(topic, &buf)
+	if !ok {
+		return false
+	}
+	for _, p := range compiledSubList {
+		if matchesSubStructureParts(topicParts, p.parts) {
 			return true
 		}
 	}
 	return false
 }
 
-func matchesPatternSubStructure(topic, pattern string) bool {
-	topicParts := strings.Split(topic, "/")
-	patternParts := strings.Split(pattern, "/")
+func matchesSubStructureParts(topicParts, patternParts []string) bool {
 	if len(topicParts) != len(patternParts) {
 		return false
 	}
 	for i := range topicParts {
-		if patternParts[i] != "{device_number}" && patternParts[i] != "+" && topicParts[i] != patternParts[i] {
+		if patternParts[i] != deviceNumberSlot && patternParts[i] != "+" && topicParts[i] != patternParts[i] {
 			return false
 		}
 	}
@@ -67,35 +91,37 @@ func ValidateSubTopicForDevice(topic, deviceNumber string) bool {
 	if deviceNumber == "" {
 		return false
 	}
-	for _, pattern := range subList {
-		if matchesPatternSubForDevice(topic, pattern, deviceNumber) {
+	var buf topicLevels
+	topicParts, ok := splitTopicLevels(topic, &buf)
+	if !ok {
+		return false
+	}
+	for _, p := range compiledSubList {
+		if p.hasDeviceSlot && matchesSubParts(topicParts, p.parts) && deviceSlotsBound(topicParts, p.parts, deviceNumber) {
 			return true
 		}
 	}
 	return false
 }
 
-func matchesPatternSubForDevice(topic, pattern, deviceNumber string) bool {
-	if !strings.Contains(pattern, "{device_number}") || !matchesPatternSub(topic, pattern) {
-		return false
-	}
-
-	topicParts := strings.Split(topic, "/")
-	patternParts := strings.Split(pattern, "/")
+// deviceSlotsBound 要求所有 {device_number} 槽位等于认证设备编号（调用前层数已一致）。
+func deviceSlotsBound(topicParts, patternParts []string, deviceNumber string) bool {
 	for i := range patternParts {
-		if patternParts[i] == "{device_number}" && topicParts[i] != deviceNumber {
+		if patternParts[i] == deviceNumberSlot && topicParts[i] != deviceNumber {
 			return false
 		}
 	}
 	return true
 }
 
-// matchesPatternSub 检查主题是否符合给定模式。
-// '{device_number}' 占位符不能匹配 '+' 或 '#'；'+' 不能匹配 '#'；其余需完全相等。
+// matchesPatternSub 检查主题是否符合给定模式（字符串形式，供测试与非热路径使用）。
 func matchesPatternSub(topic, pattern string) bool {
-	topicParts := strings.Split(topic, "/")
-	patternParts := strings.Split(pattern, "/")
+	return matchesSubParts(strings.Split(topic, "/"), strings.Split(pattern, "/"))
+}
 
+// matchesSubParts 检查已分层的主题是否符合模式。
+// '{device_number}' 占位符不能匹配 '+' 或 '#'；'+' 不能匹配 '#'；其余需完全相等。
+func matchesSubParts(topicParts, patternParts []string) bool {
 	// 主题和模式层数不一致则不匹配
 	if len(topicParts) != len(patternParts) {
 		return false
@@ -104,7 +130,7 @@ func matchesPatternSub(topic, pattern string) bool {
 	// 逐层匹配
 	for i := range topicParts {
 		switch patternParts[i] {
-		case "{device_number}":
+		case deviceNumberSlot:
 			// {device_number} 部分不能是 + 或 #
 			if topicParts[i] == "" || topicParts[i] == "+" || topicParts[i] == "#" {
 				return false
