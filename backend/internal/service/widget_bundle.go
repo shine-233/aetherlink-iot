@@ -15,15 +15,16 @@
 package service
 
 import (
-	"reflect"
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/internal/service/kit"
 	"aetherlink-iot/backend/pkg/errcode"
 	utils "aetherlink-iot/backend/pkg/utils"
 
@@ -38,6 +39,13 @@ const BuiltinWidgetBundleName = "内置部件库"
 const BuiltinWidgetBundleTypeKey = "builtin"
 
 type WidgetBundleService struct{}
+
+// widgetBundleRepo 租户内部件库：claims 与租户均必填，任何加载失败一律视为 not found（防跨租户探测）。
+var widgetBundleRepo = kit.TenantRepo[*model.WidgetBundle]{
+	Get:      dal.GetWidgetBundleByID,
+	Gate:     kit.TenantRequired,
+	NotFound: kit.NotFound{Msg: "widget bundle not found"},
+}
 
 // validateWidgetsJSON 校验 widgets JSON：必须是对象数组，且每项通过
 // ValidateWidgetDefinition（type/version/schema/capabilities 结构约束）。
@@ -77,8 +85,8 @@ func normalizeWidgetsInput(raw *string) (string, error) {
 
 // CreateWidgetBundle 创建部件库
 func (*WidgetBundleService) CreateWidgetBundle(ctx context.Context, req *model.CreateWidgetBundleReq, claims *utils.UserClaims) (*model.WidgetBundle, error) {
-	if claims == nil || claims.TenantID == "" {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "claims required")
+	if err := kit.TenantRequired.Require(claims); err != nil {
+		return nil, err
 	}
 	widgets, err := normalizeWidgetsInput(req.Widgets)
 	if err != nil {
@@ -104,21 +112,16 @@ func (*WidgetBundleService) CreateWidgetBundle(ctx context.Context, req *model.C
 	}
 	if err := dal.CreateWidgetBundle(record); err != nil {
 		logrus.Errorf("failed to create widget bundle: %v", err)
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": err.Error(),
-		})
+		return nil, kit.DBErr(kit.KeyError, err)
 	}
 	return record, nil
 }
 
 // UpdateWidgetBundle 更新部件库
 func (*WidgetBundleService) UpdateWidgetBundle(ctx context.Context, req *model.UpdateWidgetBundleReq, claims *utils.UserClaims) (*model.WidgetBundle, error) {
-	if claims == nil || claims.TenantID == "" {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "claims required")
-	}
-	record, err := dal.GetWidgetBundleByID(req.ID, claims.TenantID)
+	record, err := widgetBundleRepo.Load(claims, req.ID)
 	if err != nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNotFound, "widget bundle not found")
+		return nil, err
 	}
 	if req.Widgets != nil {
 		widgets, werr := normalizeWidgetsInput(req.Widgets)
@@ -149,51 +152,24 @@ func (*WidgetBundleService) UpdateWidgetBundle(ctx context.Context, req *model.U
 	now := time.Now().UTC()
 	record.UpdatedAt = &now
 	if err := dal.UpdateWidgetBundle(record); err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": err.Error(),
-		})
+		return nil, kit.DBErr(kit.KeyError, err)
 	}
 	return record, nil
 }
 
 // GetWidgetBundleByID 查询单个部件库详情
 func (*WidgetBundleService) GetWidgetBundleByID(ctx context.Context, id string, claims *utils.UserClaims) (*model.WidgetBundle, error) {
-	if claims == nil || claims.TenantID == "" {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "claims required")
-	}
-	record, err := dal.GetWidgetBundleByID(id, claims.TenantID)
-	if err != nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNotFound, "widget bundle not found")
-	}
-	return record, nil
+	return widgetBundleRepo.Load(claims, id)
 }
 
 // DeleteWidgetBundle 删除部件库
 func (*WidgetBundleService) DeleteWidgetBundle(ctx context.Context, id string, claims *utils.UserClaims) error {
-	if claims == nil || claims.TenantID == "" {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, "claims required")
-	}
-	if _, err := dal.GetWidgetBundleByID(id, claims.TenantID); err != nil {
-		return errcode.NewWithMessage(errcode.CodeNotFound, "widget bundle not found")
-	}
-	return dal.DeleteWidgetBundle(id, claims.TenantID)
+	return widgetBundleRepo.Delete(claims, id, dal.DeleteWidgetBundle, nil)
 }
 
 // ListWidgetBundles 分页查询列表
 func (*WidgetBundleService) ListWidgetBundles(ctx context.Context, req *model.GetWidgetBundleListReq, claims *utils.UserClaims) (map[string]interface{}, error) {
-	if claims == nil || claims.TenantID == "" {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "claims required")
-	}
-	total, list, err := dal.ListWidgetBundles(req, claims.TenantID)
-	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": err.Error(),
-		})
-	}
-	res := make(map[string]interface{})
-	res["total"] = total
-	res["list"] = list
-	return res, nil
+	return kit.List(widgetBundleRepo, claims, req, dal.ListWidgetBundles, kit.OnDBErr(kit.KeyError))
 }
 
 // GetBuiltinWidgetDefinitions 内置四部件定义（gauge/chart/valve/twin3d），
@@ -227,8 +203,8 @@ func (*WidgetBundleService) ExportBuiltinWidgetBundle() (*model.WidgetBundleExpo
 //   - 存在且内容一致   → 返回既有记录，Idempotent=true；
 //   - 存在但内容不同   → 报错，要求改名或手工处理，不静默覆盖。
 func (*WidgetBundleService) SeedBuiltinWidgetBundle(ctx context.Context, claims *utils.UserClaims) (*model.WidgetBundleSeedRsp, error) {
-	if claims == nil || claims.TenantID == "" {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "claims required")
+	if err := kit.TenantRequired.Require(claims); err != nil {
+		return nil, err
 	}
 	exported, err := (*WidgetBundleService)(nil).ExportBuiltinWidgetBundle()
 	if err != nil {
@@ -338,9 +314,7 @@ func (*WidgetBundleService) ImportWidgetBundleWithTenant(exported model.ImportWi
 	}
 	if err := dal.CreateWidgetBundle(record); err != nil {
 		logrus.Errorf("failed to import widget bundle: %v", err)
-		return nil, false, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": err.Error(),
-		})
+		return nil, false, kit.DBErr(kit.KeyError, err)
 	}
 	return record, true, nil
 }

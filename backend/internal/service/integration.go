@@ -15,6 +15,7 @@ import (
 
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/internal/service/kit"
 	"aetherlink-iot/backend/pkg/errcode"
 	utils "aetherlink-iot/backend/pkg/utils"
 
@@ -24,6 +25,13 @@ import (
 
 // IntegrationService 统一集成实体服务（TB-45）。
 type IntegrationService struct{}
+
+// integrationRepo 租户内集成实例：claims 必填，任何加载失败一律视为 not found（防跨租户探测）。
+var integrationRepo = kit.TenantRepo[*model.Integration]{
+	Get:      dal.GetIntegrationByID,
+	Gate:     kit.ClaimsRequired,
+	NotFound: kit.NotFound{Msg: "integration not found"},
+}
 
 // validateConverterBinding 校验转换器绑定 ID 属于本租户（fail-closed）。
 // 空串/nil 视为未绑定；查不到即返回参数错误，避免绑定悬空外键。
@@ -51,8 +59,8 @@ func normalizeBindingID(id *string) *string {
 
 // CreateIntegration 创建集成实例
 func (*IntegrationService) CreateIntegration(ctx context.Context, req *model.CreateIntegrationReq, claims *utils.UserClaims) (*model.Integration, error) {
-	if claims == nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "claims required")
+	if err := kit.ClaimsRequired.Require(claims); err != nil {
+		return nil, err
 	}
 	tenantID := claims.TenantID
 
@@ -94,22 +102,16 @@ func (*IntegrationService) CreateIntegration(ctx context.Context, req *model.Cre
 
 	if err := dal.CreateIntegration(integration); err != nil {
 		logrus.Errorf("failed to create integration: %v", err)
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": err.Error(),
-		})
+		return nil, kit.DBErr(kit.KeyError, err)
 	}
 	return integration, nil
 }
 
 // UpdateIntegration 更新集成实例（部分字段语义与 DataConverterService.UpdateDataConverter 一致）
 func (*IntegrationService) UpdateIntegration(ctx context.Context, req *model.UpdateIntegrationReq, claims *utils.UserClaims) (*model.Integration, error) {
-	if claims == nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "claims required")
-	}
-
-	record, err := dal.GetIntegrationByID(req.ID, claims.TenantID)
+	record, err := integrationRepo.Load(claims, req.ID)
 	if err != nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNotFound, "integration not found")
+		return nil, err
 	}
 
 	if req.Name != nil && strings.TrimSpace(*req.Name) != "" {
@@ -150,49 +152,22 @@ func (*IntegrationService) UpdateIntegration(ctx context.Context, req *model.Upd
 	record.UpdatedAt = &now
 
 	if err := dal.UpdateIntegration(record); err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": err.Error(),
-		})
+		return nil, kit.DBErr(kit.KeyError, err)
 	}
 	return record, nil
 }
 
 // GetIntegrationByID 查询单个集成实例详情
 func (*IntegrationService) GetIntegrationByID(ctx context.Context, id string, claims *utils.UserClaims) (*model.Integration, error) {
-	if claims == nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "claims required")
-	}
-	record, err := dal.GetIntegrationByID(id, claims.TenantID)
-	if err != nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNotFound, "integration not found")
-	}
-	return record, nil
+	return integrationRepo.Load(claims, id)
 }
 
 // DeleteIntegration 删除集成实例
 func (*IntegrationService) DeleteIntegration(ctx context.Context, id string, claims *utils.UserClaims) error {
-	if claims == nil {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, "claims required")
-	}
-	if _, err := dal.GetIntegrationByID(id, claims.TenantID); err != nil {
-		return errcode.NewWithMessage(errcode.CodeNotFound, "integration not found")
-	}
-	return dal.DeleteIntegration(id, claims.TenantID)
+	return integrationRepo.Delete(claims, id, dal.DeleteIntegration, nil)
 }
 
 // ListIntegrations 分页查询列表
 func (*IntegrationService) ListIntegrations(ctx context.Context, req *model.GetIntegrationListReq, claims *utils.UserClaims) (map[string]interface{}, error) {
-	if claims == nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "claims required")
-	}
-	total, list, err := dal.ListIntegrations(req, claims.TenantID)
-	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": err.Error(),
-		})
-	}
-	res := make(map[string]interface{})
-	res["total"] = total
-	res["list"] = list
-	return res, nil
+	return kit.List(integrationRepo, claims, req, dal.ListIntegrations, kit.OnDBErr(kit.KeyError))
 }

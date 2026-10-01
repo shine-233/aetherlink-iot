@@ -14,6 +14,7 @@ import (
 
 	dal "aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
+	"aetherlink-iot/backend/internal/service/kit"
 	"aetherlink-iot/backend/pkg/errcode"
 	utils "aetherlink-iot/backend/pkg/utils"
 
@@ -23,10 +24,17 @@ import (
 
 type DataConverterService struct{}
 
+// dataConverterRepo 租户内转换器：claims 必填，任何加载失败一律视为 not found（防跨租户探测）。
+var dataConverterRepo = kit.TenantRepo[*model.DataConverter]{
+	Get:      dal.GetDataConverterByID,
+	Gate:     kit.ClaimsRequired,
+	NotFound: kit.NotFound{Msg: "data converter not found"},
+}
+
 // CreateDataConverter 创建转换器
 func (*DataConverterService) CreateDataConverter(ctx context.Context, req *model.CreateDataConverterReq, claims *utils.UserClaims) (*model.DataConverter, error) {
-	if claims == nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "claims required")
+	if err := kit.ClaimsRequired.Require(claims); err != nil {
+		return nil, err
 	}
 
 	configStr := "{}"
@@ -52,9 +60,7 @@ func (*DataConverterService) CreateDataConverter(ctx context.Context, req *model
 
 	if err := dal.CreateDataConverter(converter); err != nil {
 		logrus.Errorf("failed to create data converter: %v", err)
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": err.Error(),
-		})
+		return nil, kit.DBErr(kit.KeyError, err)
 	}
 
 	return converter, nil
@@ -62,13 +68,9 @@ func (*DataConverterService) CreateDataConverter(ctx context.Context, req *model
 
 // UpdateDataConverter 更新转换器
 func (*DataConverterService) UpdateDataConverter(ctx context.Context, req *model.UpdateDataConverterReq, claims *utils.UserClaims) (*model.DataConverter, error) {
-	if claims == nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "claims required")
-	}
-
-	record, err := dal.GetDataConverterByID(req.ID, claims.TenantID)
+	record, err := dataConverterRepo.Load(claims, req.ID)
 	if err != nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNotFound, "data converter not found")
+		return nil, err
 	}
 
 	if req.Name != nil && strings.TrimSpace(*req.Name) != "" {
@@ -100,9 +102,7 @@ func (*DataConverterService) UpdateDataConverter(ctx context.Context, req *model
 	record.UpdatedAt = &now
 
 	if err := dal.UpdateDataConverter(record); err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": err.Error(),
-		})
+		return nil, kit.DBErr(kit.KeyError, err)
 	}
 
 	return record, nil
@@ -110,54 +110,29 @@ func (*DataConverterService) UpdateDataConverter(ctx context.Context, req *model
 
 // GetDataConverterByID 查询单个转换器详情
 func (*DataConverterService) GetDataConverterByID(ctx context.Context, id string, claims *utils.UserClaims) (*model.DataConverter, error) {
-	if claims == nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "claims required")
-	}
-	record, err := dal.GetDataConverterByID(id, claims.TenantID)
-	if err != nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNotFound, "data converter not found")
-	}
-	return record, nil
+	return dataConverterRepo.Load(claims, id)
 }
 
 // DeleteDataConverter 删除转换器
 func (*DataConverterService) DeleteDataConverter(ctx context.Context, id string, claims *utils.UserClaims) error {
-	if claims == nil {
-		return errcode.NewWithMessage(errcode.CodeNoPermission, "claims required")
-	}
-	if _, err := dal.GetDataConverterByID(id, claims.TenantID); err != nil {
-		return errcode.NewWithMessage(errcode.CodeNotFound, "data converter not found")
-	}
-	return dal.DeleteDataConverter(id, claims.TenantID)
+	return dataConverterRepo.Delete(claims, id, dal.DeleteDataConverter, nil)
 }
 
 // ListDataConverters 分页查询列表
 func (*DataConverterService) ListDataConverters(ctx context.Context, req *model.GetDataConverterListReq, claims *utils.UserClaims) (map[string]interface{}, error) {
-	if claims == nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "claims required")
-	}
-	total, list, err := dal.ListDataConverters(req, claims.TenantID)
-	if err != nil {
-		return nil, errcode.WithData(errcode.CodeDBError, map[string]interface{}{
-			"error": err.Error(),
-		})
-	}
-	res := make(map[string]interface{})
-	res["total"] = total
-	res["list"] = list
-	return res, nil
+	return kit.List(dataConverterRepo, claims, req, dal.ListDataConverters, kit.OnDBErr(kit.KeyError))
 }
 
 // TestDataConverter 运行仿真测试
 func (*DataConverterService) TestDataConverter(ctx context.Context, req *model.TestDataConverterReq, claims *utils.UserClaims) (*model.TestDataConverterResp, error) {
-	if claims == nil {
-		return nil, errcode.NewWithMessage(errcode.CodeNoPermission, "claims required")
+	if err := kit.ClaimsRequired.Require(claims); err != nil {
+		return nil, err
 	}
 
 	if req.ConverterID != nil && *req.ConverterID != "" {
-		conv, err := dal.GetDataConverterByID(*req.ConverterID, claims.TenantID)
+		conv, err := dataConverterRepo.Load(claims, *req.ConverterID)
 		if err != nil {
-			return nil, errcode.NewWithMessage(errcode.CodeNotFound, "data converter not found")
+			return nil, err
 		}
 		if req.ConverterMode == "" {
 			req.ConverterMode = conv.ConverterMode
