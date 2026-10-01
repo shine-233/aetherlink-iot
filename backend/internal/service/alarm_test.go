@@ -476,7 +476,7 @@ func TestAlarmGetHistoryMonthlyTrendNilClaims(t *testing.T) {
 
 func TestAlarmGetDeviceCountsNilClaims(t *testing.T) {
 	alarm := &Alarm{}
-	_, err := alarm.GetAlarmDeviceCountsByTenant(nil)
+	_, err := alarm.GetAlarmDeviceCounts(&model.AlarmDeviceCountsReq{}, nil)
 	assert.Error(t, err)
 	appErr, ok := err.(*errcode.Error)
 	assert.True(t, ok)

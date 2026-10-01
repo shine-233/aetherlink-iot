@@ -215,11 +215,6 @@ func (*Alarm) GetAlarmInfoHistoryByID(id string, claims *utils.UserClaims) (map[
 	return alarmInfo, nil
 }
 
-// GetAlarmDeviceCountsByTenant preserves the default tenant/owner-scoped contract.
-func (a *Alarm) GetAlarmDeviceCountsByTenant(claims *utils.UserClaims) (*model.AlarmDeviceCountsResponse, error) {
-	return a.GetAlarmDeviceCounts(&model.AlarmDeviceCountsReq{}, claims)
-}
-
 // GetAlarmDeviceCounts optionally expands the aggregate to every tenant for an
 // explicitly authorized system administrator.
 func (a *Alarm) GetAlarmDeviceCounts(req *model.AlarmDeviceCountsReq, claims *utils.UserClaims) (*model.AlarmDeviceCountsResponse, error) {

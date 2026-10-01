@@ -9,7 +9,6 @@ import (
 	"aetherlink-iot/backend/internal/dal"
 	model "aetherlink-iot/backend/internal/model"
 
-	"github.com/go-basic/uuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -92,14 +91,6 @@ func loadAlarmNotificationDevices(deviceIDs []string) []map[string]interface{} {
 	return devices
 }
 
-func notifyAlarmInfo(alarmConfig *model.AlarmConfig, content string) {
-	alertData := buildAlarmNotificationBasePayload(alarmConfig, content)
-	alertData["alarm_config_id"] = alarmConfig.ID
-	alertData["device_ids"] = []string{}
-	alertData["devices"] = []map[string]interface{}{}
-	dispatchAlarmNotification(alarmConfig, alertData)
-}
-
 func notifyAlarmExecution(alarmConfig *model.AlarmConfig, historyID, alarmConfigID, content string, deviceIDs []string) {
 	alertData := buildAlarmNotificationBasePayload(alarmConfig, content)
 	alertData["id"] = historyID
@@ -142,26 +133,6 @@ func sendDefaultAlarmEmailNotification(alarmConfig *model.AlarmConfig, alertData
 			logrus.Error("alarm default email notification failed:", err)
 		}
 	}
-}
-
-// createAlarmInfoRecord supports only the deprecated device-less AddAlarmInfo
-// path. Do not call it from AlarmExecute: doing so without stream identity,
-// device links and a matching recovery transition would create stale active
-// rows and make owner authorization impossible.
-func createAlarmInfoRecord(alarmConfig *model.AlarmConfig, alarmConfigID, content string) (string, error) {
-	id := uuid.New()
-	err := dal.CreateAlarmInfo(&model.AlarmInfo{
-		ID:               id,
-		Name:             alarmConfig.Name,
-		AlarmConfigID:    alarmConfigID,
-		AlarmLevel:       &alarmConfig.AlarmLevel,
-		Content:          &content,
-		AlarmTime:        time.Now().UTC(),
-		Description:      alarmConfig.Description,
-		ProcessingResult: "UND",
-		TenantID:         alarmConfig.TenantID,
-	})
-	return id, err
 }
 
 func alarmDeviceListJSON(deviceIDs []string) string {

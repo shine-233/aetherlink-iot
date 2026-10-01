@@ -9,29 +9,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// AddAlarmInfo is the legacy device-less alarm_info writer.
-// Deprecated: new execution paths must use AlarmExecute, whose deviceIDs are
-// persisted in alarm_history. Calling this method cannot create an owner-safe
-// TENANT_USER record and intentionally remains an administrator-only legacy
-// path until alarm_info gains a complete stream/device/recovery model.
-func (*Alarm) AddAlarmInfo(alarmConfigID, content string) (bool, string) {
-	alarmConfig, err := dal.GetAlarmByID(alarmConfigID)
-	if err != nil {
-		logrus.Error(err)
-		return false, ""
-	}
-	if alarmConfig.Enabled != "Y" {
-		return false, ""
-	}
-	notifyAlarmInfo(alarmConfig, content)
-	id, err := createAlarmInfoRecord(alarmConfig, alarmConfigID, content)
-	if err != nil {
-		logrus.Error(err)
-		return false, ""
-	}
-	return true, id
-}
-
 func (*Alarm) AlarmRecovery(alarmConfigID, content, sceneAutomationID, groupID string, deviceIDs []string) (string, error) {
 	alarmConfig, err := dal.GetAlarmByID(alarmConfigID)
 	if err != nil {
