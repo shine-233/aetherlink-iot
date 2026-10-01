@@ -328,15 +328,23 @@ func (*EdgeNodeService) ReconcileEdgeNode(nodeID string, req model.EdgeNodeRecon
 	}
 
 	syncService := EdgeSyncService{}
+	// 按资源类型批量预取看板/规则链快照源：一次 reconcile 请求只各发一条 DAL 查询，
+	// 替代循环内每个计划项一次的资源查询。gateway 已在上面查过，直接复用，不重复 refetch。
+	// 预取只是优化：失败时 batch 置空，逐项退回单查，DB 错误仍按原契约记到各项 Error 里，
+	// 而不是让整个 reconcile 失败。
+	batch, berr := syncService.BatchResolveEdgeSyncResources(plan, claims.TenantID)
+	if berr != nil {
+		batch = nil
+	}
 	for _, item := range plan {
 		if item.Action != EdgeReconcileSync {
 			continue
 		}
-		task, derr := syncService.CreateEdgeSync(&model.CreateEdgeSyncReq{
+		task, derr := syncService.CreateEdgeSyncBatched(&model.CreateEdgeSyncReq{
 			GatewayDeviceID: gateway.ID,
 			ResourceType:    item.ResourceType,
 			ResourceID:      item.ResourceID,
-		}, claims)
+		}, gateway, batch, claims)
 		dispatch := &model.EdgeSyncTaskDispatched{
 			ResourceType: item.ResourceType,
 			ResourceID:   item.ResourceID,

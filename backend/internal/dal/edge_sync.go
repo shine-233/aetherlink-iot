@@ -5,6 +5,7 @@ package dal
 
 import (
 	"errors"
+	"strings"
 
 	"aetherlink-iot/backend/internal/model"
 	"aetherlink-iot/backend/pkg/global"
@@ -85,6 +86,64 @@ func GetRuleChainInTenant(chainID, tenantID string) (*model.RuleChain, error) {
 		return nil, err
 	}
 	return &r, err
+}
+
+// GetBoardsInTenant 租户内批量取看板，按 id 建索引返回；跨租户/不存在的 id 在结果中缺席。
+// 供批量编排场景（如 ReconcileEdgeNode）一次性取齐所有待下发看板，避免逐项查询。
+func GetBoardsInTenant(boardIDs []string, tenantID string) (map[string]*model.Board, error) {
+	ids := normalizeEdgeSyncIDs(boardIDs)
+	result := make(map[string]*model.Board, len(ids))
+	if len(ids) == 0 {
+		return result, nil
+	}
+	var boards []*model.Board
+	if err := global.DB.
+		Where("id IN ? AND tenant_id = ?", ids, tenantID).
+		Find(&boards).Error; err != nil {
+		return nil, err
+	}
+	for _, b := range boards {
+		result[b.ID] = b
+	}
+	return result, nil
+}
+
+// GetRuleChainsInTenant 租户内批量取规则链，按 id 建索引返回；跨租户/不存在的 id 在结果中缺席。
+func GetRuleChainsInTenant(chainIDs []string, tenantID string) (map[string]*model.RuleChain, error) {
+	ids := normalizeEdgeSyncIDs(chainIDs)
+	result := make(map[string]*model.RuleChain, len(ids))
+	if len(ids) == 0 {
+		return result, nil
+	}
+	var chains []*model.RuleChain
+	if err := global.DB.
+		Where("id IN ? AND tenant_id = ?", ids, tenantID).
+		Find(&chains).Error; err != nil {
+		return nil, err
+	}
+	for _, c := range chains {
+		result[c.ID] = c
+	}
+	return result, nil
+}
+
+// normalizeEdgeSyncIDs 去重去空白，保持与 device_query_reads.go 的 normalizeDeviceIDs 同等语义，
+// 独立实现避免 dal 内部产生跨文件耦合。
+func normalizeEdgeSyncIDs(ids []string) []string {
+	out := make([]string, 0, len(ids))
+	seen := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	return out
 }
 
 // GetOtaPackageInTenant 租户内取升级包（OTA 经边分发源）。
