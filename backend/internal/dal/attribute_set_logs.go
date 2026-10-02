@@ -43,13 +43,14 @@ func GetAttributeSetLogsDataListByPage(req model.GetAttributeSetLogsListByPageRe
 		Select("attribute_set_logs.*, users.name AS username").
 		Joins("LEFT JOIN users ON users.id = attribute_set_logs.user_id").
 		Order("attribute_set_logs.created_at DESC"), req.Page, req.PageSize)
-	list := make([]*model.AttributeSetLog, 0)
+	var list []*model.AttributeSetLog
 	if err := listBuilder.Scan(&list).Error; err != nil {
 		logrus.Error(err)
 		return count, list, err
 	}
-	if list == nil {
-		list = make([]*model.AttributeSetLog, 0)
+	// 平台空列表约定：count==0 时 list 保持 nil（序列化为 null），不折算空切片。
+	if len(list) == 0 {
+		list = nil
 	}
 
 	return count, list, nil

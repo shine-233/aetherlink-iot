@@ -97,9 +97,8 @@ func (*AttributeData) GetAttributeSetLogsDataListByPage(req model.GetAttributeSe
 		return nil, dbError(err)
 	}
 
-	if data == nil {
-		data = make([]*model.AttributeSetLog, 0)
-	}
+	// 平台空列表约定：count==0 时 list 序列化为 null（nil slice），
+	// 不得在此折算成空切片——契约测试按 null 断言。
 
 	dataMap := make(map[string]interface{})
 	dataMap["count"] = count

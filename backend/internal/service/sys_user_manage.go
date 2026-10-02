@@ -13,6 +13,7 @@ import (
 	"aetherlink-iot/backend/pkg/constant"
 	"aetherlink-iot/backend/pkg/errcode"
 
+	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
 	dal "aetherlink-iot/backend/internal/dal"
