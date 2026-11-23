@@ -21,7 +21,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Review dependency changes
-        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        uses: actions/dependency-review-action@bbc44d14a204704ccc493733616cd1e93a0321ec # v5.0.1
         with:
           # Treat moderate advisories as merge-blocking as well; this gate is
           # the repository's early warning, while Dependabot alerts remain the
@@ -41,7 +41,7 @@ jobs:
       contents: read
     steps:
       - name: Review dependency changes on main
-        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        uses: actions/dependency-review-action@bbc44d14a204704ccc493733616cd1e93a0321ec # v5.0.1
         with:
           # Compare the exact commit range that was published to main so tag
           # release gates can verify this check on the release SHA.
